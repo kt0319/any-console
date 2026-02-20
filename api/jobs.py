@@ -9,46 +9,35 @@ class ArgOption:
     name: str
     values: list[str]
     required: bool = True
+    dynamic: str | None = None  # "branches" など、API経由で値を取得するキー
 
 
 @dataclass
 class JobDefinition:
     script: str
+    label: str
     description: str
     args: list[ArgOption] = field(default_factory=list)
+    script_path_override: Path | None = None
 
     @property
     def script_path(self) -> Path:
+        if self.script_path_override is not None:
+            return self.script_path_override
         return PROJECT_ROOT / self.script
 
 
 JOBS: dict[str, JobDefinition] = {
-    "deploy": JobDefinition(
-        script="jobs/deploy.sh",
-        description="デプロイ実行",
-        args=[
-            ArgOption(name="env", values=["stg", "prod"], required=True),
-            ArgOption(name="service", values=["api", "web"], required=True),
-        ],
-    ),
-    "docker": JobDefinition(
-        script="jobs/docker.sh",
-        description="Docker操作",
-        args=[
-            ArgOption(name="action", values=["up", "down", "restart", "logs"], required=True),
-            ArgOption(name="service", values=["api", "web", "db"], required=False),
-        ],
-    ),
-    "backup": JobDefinition(
-        script="jobs/backup.sh",
-        description="バックアップ実行",
-        args=[
-            ArgOption(name="target", values=["db", "files", "all"], required=True),
-        ],
-    ),
     "status": JobDefinition(
         script="jobs/status.sh",
+        label="ステータス",
         description="システムステータス確認",
+        args=[],
+    ),
+    "docker-up": JobDefinition(
+        script="jobs/docker-up.sh",
+        label="サーバー起動",
+        description="docker-compose up -d",
         args=[],
     ),
 }

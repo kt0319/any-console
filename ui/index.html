@@ -20,9 +20,18 @@
   <!-- App -->
   <div id="app-screen" style="display:none; flex-direction:column; height:100vh">
     <header>
-      <h1>pi-console</h1>
-      <span id="connection-status">Connecting...</span>
+      <select id="header-ws-select" class="header-select">
+        <option value="">Workspace...</option>
+      </select>
+      <button type="button" class="settings-btn" id="settings-btn" title="設定">&#9881;</button>
     </header>
+    <div class="sub-header">
+      <select id="branch-select" class="header-select branch-select">
+        <option value="">branch...</option>
+      </select>
+      <div class="git-summary-panel" id="main-git-status"></div>
+    </div>
+    <div class="commit-message-panel" id="main-commit-message"></div>
     <!-- Settings Modal -->
     <div id="settings-modal" class="modal-overlay" style="display:none">
       <div class="modal">
@@ -33,39 +42,18 @@
         </div>
       </div>
     </div>
-    <!-- Mobile: pill selectors -->
-    <div class="mobile-job-selector" id="mobile-ws-selector"></div>
-    <div class="mobile-job-selector" id="mobile-job-selector"></div>
-
     <div class="main-container">
-      <!-- PC: sidebar -->
-      <div class="sidebar">
-        <div class="sidebar-section">
-          <div class="sidebar-header">
-            <h2>Workspaces</h2>
-            <button class="settings-btn" id="settings-btn" title="設定">&#9881;</button>
-          </div>
-          <div id="ws-cards"></div>
+      <!-- Main panel -->
+      <div class="main-panel">
+        <div class="job-bar">
+          <div class="job-grid" id="job-cards"></div>
+          <button type="button" id="job-run-main" class="job-run-main" title="Run selected job" aria-label="Run selected job">&#9654;</button>
         </div>
-        <div class="sidebar-section">
-          <h2>Jobs</h2>
-          <div id="job-cards"></div>
-        </div>
-      </div>
-
-      <div class="detail-panel">
         <div id="detail-section" style="display:none">
-          <div class="detail-header">
-            <h2 id="detail-title"></h2>
-            <p id="detail-desc"></p>
-          </div>
           <div class="args-form" id="args-container"></div>
-          <div class="action-bar">
-            <button id="run-btn" class="primary" disabled>Run</button>
-          </div>
         </div>
         <div class="output-area" id="output">
-          <div class="empty-state">ジョブを選択してください</div>
+          <div class="empty-state">ジョブを選択して実行</div>
         </div>
       </div>
     </div>

@@ -1,19 +1,41 @@
+import json
+import secrets
 import subprocess
+import time
+import http.client
+import asyncio
+import importlib.util
+import re
+from dataclasses import dataclass
 from pathlib import Path
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, WebSocket
+from fastapi.websockets import WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .auth import verify_token
-from .jobs import JOBS
+from .jobs import JOBS, JobDefinition
 from .runner import run_job
 
 app = FastAPI(title="pi-console")
 
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
 WORK_DIR = Path.home() / "work"
+TERMINAL_TIMEOUT_SEC = 600
+WORKSPACE_JOBS_DIR = Path(".pi-console/jobs")
+
+
+@dataclass
+class TerminalSession:
+    workspace: str | None
+    port: int
+    pid: int | None
+    expires_at: float
+
+
+TERMINAL_SESSIONS: dict[str, TerminalSession] = {}
 
 
 class RunRequest(BaseModel):
@@ -22,28 +44,409 @@ class RunRequest(BaseModel):
     workspace: str | None = None
 
 
+def git_info(directory: Path) -> dict:
+    info = {
+        "branch": None,
+        "last_commit": None,
+        "last_commit_message": None,
+        "github_url": None,
+        "clean": None,
+        "ahead": 0,
+        "behind": 0,
+    }
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True, text=True, timeout=5, cwd=str(directory),
+        )
+        if result.returncode == 0:
+            info["branch"] = result.stdout.strip()
+
+        result = subprocess.run(
+            ["git", "log", "-1", "--format=%cI"],
+            capture_output=True, text=True, timeout=5, cwd=str(directory),
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            info["last_commit"] = result.stdout.strip()
+
+        result = subprocess.run(
+            ["git", "log", "-1", "--format=%s"],
+            capture_output=True, text=True, timeout=5, cwd=str(directory),
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            info["last_commit_message"] = result.stdout.strip()
+
+        result = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True, text=True, timeout=5, cwd=str(directory),
+        )
+        if result.returncode == 0:
+            url = result.stdout.strip()
+            if "github.com" in url:
+                url = url.removesuffix(".git")
+                if url.startswith("git@github.com:"):
+                    url = "https://github.com/" + url[len("git@github.com:"):]
+                info["github_url"] = url
+
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            capture_output=True, text=True, timeout=5, cwd=str(directory),
+        )
+        if result.returncode == 0:
+            info["clean"] = len(result.stdout.strip()) == 0
+
+        result = subprocess.run(
+            ["git", "rev-list", "--left-right", "--count", "HEAD...@{upstream}"],
+            capture_output=True, text=True, timeout=5, cwd=str(directory),
+        )
+        if result.returncode == 0:
+            parts = result.stdout.strip().split()
+            if len(parts) == 2:
+                info["ahead"] = int(parts[0])
+                info["behind"] = int(parts[1])
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    return info
+
+
 @app.get("/workspaces", dependencies=[Depends(verify_token)])
 def list_workspaces():
     if not WORK_DIR.is_dir():
         return []
-    return sorted(
-        d.name for d in WORK_DIR.iterdir() if d.is_dir() and not d.name.startswith(".")
-    )
+    result = []
+    for d in sorted(WORK_DIR.iterdir(), key=lambda d: d.name):
+        if not d.is_dir() or d.name.startswith("."):
+            continue
+        gi = git_info(d)
+        result.append({
+            "name": d.name,
+            "branch": gi["branch"],
+            "last_commit": gi["last_commit"],
+            "last_commit_message": gi["last_commit_message"],
+            "github_url": gi["github_url"],
+            "clean": gi["clean"],
+            "ahead": gi["ahead"],
+            "behind": gi["behind"],
+        })
+    return result
+
+
+def get_git_branches(directory: Path) -> list[str]:
+    try:
+        result = subprocess.run(
+            ["git", "branch", "--format=%(refname:short)"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=str(directory),
+        )
+        if result.returncode == 0:
+            return [b for b in result.stdout.strip().splitlines() if b]
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    return []
+
+
+def resolve_workspace_path(workspace: str | None) -> Path | None:
+    if not workspace:
+        return None
+    ws_path = WORK_DIR / workspace
+    if not ws_path.is_dir():
+        raise HTTPException(status_code=400, detail=f"Workspace not found: {workspace}")
+    valid = [d.name for d in WORK_DIR.iterdir() if d.is_dir() and not d.name.startswith(".")]
+    if workspace not in valid:
+        raise HTTPException(status_code=400, detail=f"Invalid workspace: {workspace}")
+    return ws_path
+
+
+def cleanup_terminal_sessions() -> None:
+    now = time.time()
+    expired = [sid for sid, session in TERMINAL_SESSIONS.items() if session.expires_at <= now]
+    for sid in expired:
+        TERMINAL_SESSIONS.pop(sid, None)
+
+
+def get_terminal_session(session_id: str) -> TerminalSession:
+    cleanup_terminal_sessions()
+    session = TERMINAL_SESSIONS.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Terminal session not found")
+    if session.expires_at <= time.time():
+        TERMINAL_SESSIONS.pop(session_id, None)
+        raise HTTPException(status_code=410, detail="Terminal session expired")
+    return session
+
+
+def parse_terminal_stdout(stdout: str) -> tuple[int | None, int | None]:
+    port_match = re.search(r"(?m)^PORT=(\d+)$", stdout or "")
+    pid_match = re.search(r"(?m)^PID=(\d+)$", stdout or "")
+    port = int(port_match.group(1)) if port_match else None
+    pid = int(pid_match.group(1)) if pid_match else None
+    return port, pid
+
+
+def websockets_available() -> bool:
+    return importlib.util.find_spec("websockets") is not None
+
+
+def get_workspace_jobs_config_path(workspace_path: Path) -> Path:
+    return workspace_path / ".pi-console-jobs.json"
+
+
+def get_workspace_custom_jobs_dir(workspace_path: Path) -> Path:
+    jobs_dir = workspace_path / WORKSPACE_JOBS_DIR
+    jobs_dir.mkdir(parents=True, exist_ok=True)
+    return jobs_dir
+
+
+def get_workspace_custom_jobs(workspace_path: Path) -> dict[str, JobDefinition]:
+    jobs_dir = get_workspace_custom_jobs_dir(workspace_path)
+    custom: dict[str, JobDefinition] = {}
+    for script_path in sorted(jobs_dir.glob("*.sh")):
+        if not script_path.is_file():
+            continue
+        job_name = script_path.stem
+        custom[job_name] = JobDefinition(
+            script=str(script_path),
+            label=job_name,
+            description=f"Workspace custom job: {job_name}",
+            args=[],
+            script_path_override=script_path,
+        )
+    return custom
+
+
+def get_workspace_jobs(workspace_path: Path | None) -> dict:
+    available_jobs: dict[str, JobDefinition] = dict(JOBS)
+    if workspace_path:
+        available_jobs.update(get_workspace_custom_jobs(workspace_path))
+    else:
+        return available_jobs
+
+    config_path = get_workspace_jobs_config_path(workspace_path)
+    if not config_path.is_file():
+        return available_jobs
+
+    try:
+        raw = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return JOBS
+
+    names: list[str] = []
+    if isinstance(raw, list):
+        names = [n for n in raw if isinstance(n, str)]
+    elif isinstance(raw, dict) and isinstance(raw.get("jobs"), list):
+        names = [n for n in raw["jobs"] if isinstance(n, str)]
+    else:
+        return available_jobs
+
+    filtered: dict = {}
+    for name in names:
+        if name in available_jobs:
+            filtered[name] = available_jobs[name]
+    return filtered
+
+
+def job_definition_to_dict(job_def) -> dict:
+    return {
+        "label": job_def.label,
+        "description": job_def.description,
+        "script": job_def.script,
+        "args": [
+            {
+                "name": arg.name,
+                "values": arg.values,
+                "required": arg.required,
+                "dynamic": arg.dynamic,
+            }
+            for arg in job_def.args
+        ],
+    }
+
+
+@app.get("/workspaces/{name}/branches", dependencies=[Depends(verify_token)])
+def list_branches(name: str):
+    ws_path = resolve_workspace_path(name)
+    return get_git_branches(ws_path)
+
+
+@app.get("/workspaces/{name}/jobs", dependencies=[Depends(verify_token)])
+def list_workspace_jobs(name: str):
+    ws_path = resolve_workspace_path(name)
+    jobs = get_workspace_jobs(ws_path)
+    custom_names = set(get_workspace_custom_jobs(ws_path).keys())
+    payload = {}
+    for job_name, job_def in jobs.items():
+        item = job_definition_to_dict(job_def)
+        item["source"] = "workspace" if job_name in custom_names else "common"
+        payload[job_name] = item
+    return payload
+
+
+class CheckoutRequest(BaseModel):
+    branch: str
+
+
+@app.post("/workspaces/{name}/checkout", dependencies=[Depends(verify_token)])
+def checkout_branch(name: str, body: CheckoutRequest):
+    ws_path = resolve_workspace_path(name)
+    branch = body.branch.strip()
+    if not branch:
+        raise HTTPException(status_code=400, detail="Branch is required")
+
+    branches = get_git_branches(ws_path)
+    if branch not in branches:
+        raise HTTPException(status_code=400, detail=f"Invalid branch: {body.branch}")
+
+    try:
+        result = subprocess.run(
+            ["git", "checkout", branch],
+            capture_output=True, text=True, timeout=30, cwd=str(ws_path),
+        )
+        return {
+            "status": "ok" if result.returncode == 0 else "error",
+            "exit_code": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Checkout timed out")
+
+
+@app.get("/workspaces/{name}/git-log", dependencies=[Depends(verify_token)])
+def get_git_log(name: str, limit: int = 50):
+    ws_path = resolve_workspace_path(name)
+    safe_limit = max(1, min(limit, 200))
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "--no-pager",
+                "log",
+                f"--max-count={safe_limit}",
+                "--date=format:%Y-%m-%d %H:%M",
+                "--pretty=format:%ad %s",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=str(ws_path),
+        )
+        return {
+            "status": "ok" if result.returncode == 0 else "error",
+            "exit_code": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="git log timed out")
+
+
+@app.api_route(
+    "/terminal/s/{session_id}/{path:path}",
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+)
+async def terminal_http_proxy(session_id: str, path: str, request: Request):
+    session = get_terminal_session(session_id)
+    target_path = "/" + path
+    if request.url.query:
+        target_path += "?" + request.url.query
+
+    headers = {
+        k: v
+        for k, v in request.headers.items()
+        if k.lower() not in {"host", "connection", "content-length"}
+    }
+    body = await request.body()
+
+    conn = http.client.HTTPConnection("127.0.0.1", session.port, timeout=30)
+    try:
+        conn.request(request.method, target_path, body=body, headers=headers)
+        upstream = conn.getresponse()
+        content = upstream.read()
+        response_headers = {
+            k: v
+            for k, v in upstream.getheaders()
+            if k.lower() not in {"transfer-encoding", "connection", "keep-alive"}
+        }
+        return Response(content=content, status_code=upstream.status, headers=response_headers)
+    except OSError:
+        raise HTTPException(status_code=502, detail="terminal upstream unavailable")
+    finally:
+        conn.close()
+
+
+@app.websocket("/terminal/s/{session_id}/{path:path}")
+async def terminal_ws_proxy(websocket: WebSocket, session_id: str, path: str):
+    try:
+        session = get_terminal_session(session_id)
+    except HTTPException:
+        await websocket.close(code=1008)
+        return
+
+    if not websockets_available():
+        await websocket.accept()
+        await websocket.send_text("websockets package is required on server")
+        await websocket.close(code=1011)
+        return
+
+    import websockets  # type: ignore
+
+    backend_path = "/" + path
+    if websocket.url.query:
+        backend_path += "?" + websocket.url.query
+    backend_url = f"ws://127.0.0.1:{session.port}{backend_path}"
+
+    await websocket.accept()
+    try:
+        async with websockets.connect(backend_url, max_size=None) as upstream:
+            async def client_to_upstream():
+                while True:
+                    msg = await websocket.receive()
+                    if msg.get("type") == "websocket.disconnect":
+                        break
+                    if msg.get("text") is not None:
+                        await upstream.send(msg["text"])
+                    elif msg.get("bytes") is not None:
+                        await upstream.send(msg["bytes"])
+
+            async def upstream_to_client():
+                async for message in upstream:
+                    if isinstance(message, bytes):
+                        await websocket.send_bytes(message)
+                    else:
+                        await websocket.send_text(message)
+
+            done, pending = await asyncio.wait(
+                [
+                    asyncio.create_task(client_to_upstream()),
+                    asyncio.create_task(upstream_to_client()),
+                ],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            for task in pending:
+                task.cancel()
+            for task in done:
+                exc = task.exception()
+                if exc:
+                    raise exc
+    except (WebSocketDisconnect, OSError):
+        pass
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass
 
 
 @app.post("/run", dependencies=[Depends(verify_token)])
 def execute_job(body: RunRequest):
-    job_def = JOBS.get(body.job)
+    ws_path = resolve_workspace_path(body.workspace)
+    available_jobs = get_workspace_jobs(ws_path)
+
+    job_def = available_jobs.get(body.job)
     if not job_def:
         raise HTTPException(status_code=400, detail=f"Unknown job: {body.job}")
-
-    if body.workspace:
-        workspace_path = WORK_DIR / body.workspace
-        if not workspace_path.is_dir():
-            raise HTTPException(status_code=400, detail=f"Workspace not found: {body.workspace}")
-        workspaces = [d.name for d in WORK_DIR.iterdir() if d.is_dir() and not d.name.startswith(".")]
-        if body.workspace not in workspaces:
-            raise HTTPException(status_code=400, detail=f"Invalid workspace: {body.workspace}")
 
     ordered_args: list[str] = []
     for arg_option in job_def.args:
@@ -55,26 +458,68 @@ def execute_job(body: RunRequest):
                     detail=f"Missing required argument: {arg_option.name}",
                 )
             continue
-        if value not in arg_option.values:
+
+        if arg_option.dynamic == "branches":
+            if not ws_path:
+                raise HTTPException(status_code=400, detail="Workspace is required for this job")
+            allowed = get_git_branches(ws_path)
+            if value not in allowed:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid branch: {value}",
+                )
+        elif arg_option.values and value not in arg_option.values:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid value for {arg_option.name}: {value} (allowed: {arg_option.values})",
             )
         ordered_args.append(value)
 
-    workspace_path = str(WORK_DIR / body.workspace) if body.workspace else ""
+    workspace_path = str(ws_path) if ws_path else ""
+    terminal_session_id: str | None = None
+    extra_env: dict[str, str] | None = None
+    if body.job == "terminal":
+        if not websockets_available():
+            return {
+                "status": "error",
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": "server missing dependency: websockets (pip install websockets)",
+            }
+        terminal_session_id = secrets.token_urlsafe(24)
+        extra_env = {"TERMINAL_BASE_PATH": f"/terminal/s/{terminal_session_id}"}
 
     try:
-        result = run_job(job_def, ordered_args, workspace=workspace_path)
+        result = run_job(job_def, ordered_args, workspace=workspace_path, extra_env=extra_env)
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=504, detail="Job timed out")
 
-    return {
+    payload = {
         "status": "ok" if result.returncode == 0 else "error",
         "exit_code": result.returncode,
         "stdout": result.stdout,
         "stderr": result.stderr,
     }
+    if body.job == "terminal":
+        port, pid = parse_terminal_stdout(result.stdout)
+        if payload["status"] == "ok" and port:
+            session_id = terminal_session_id or secrets.token_urlsafe(24)
+            TERMINAL_SESSIONS[session_id] = TerminalSession(
+                workspace=body.workspace,
+                port=port,
+                pid=pid,
+                expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
+            )
+            payload["port"] = port
+            payload["session_id"] = session_id
+            payload["terminal_url"] = f"/terminal/s/{session_id}/"
+            payload["expires_in"] = TERMINAL_TIMEOUT_SEC
+        elif payload["status"] == "ok":
+            payload["status"] = "error"
+            payload["stderr"] = (
+                (payload.get("stderr") or "") + "\nfailed to parse ttyd port"
+            ).strip()
+    return payload
 
 
 app.mount("/", StaticFiles(directory=str(UI_DIR), html=True), name="ui")
