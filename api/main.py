@@ -247,11 +247,19 @@ def get_workspace_jobs(workspace_path: Path | None) -> dict:
     return filtered
 
 
+def read_script_content(job_def) -> str:
+    try:
+        return job_def.script_path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
 def job_definition_to_dict(job_def) -> dict:
     return {
         "label": job_def.label,
         "description": job_def.description,
         "script": job_def.script,
+        "script_content": read_script_content(job_def),
         "args": [
             {
                 "name": arg.name,
@@ -283,8 +291,46 @@ def list_workspace_jobs(name: str):
     return payload
 
 
+class CreateJobRequest(BaseModel):
+    name: str
+    label: str = ""
+    script: str
+
+
 class CheckoutRequest(BaseModel):
     branch: str
+
+
+@app.post("/workspaces/{name}/jobs", dependencies=[Depends(verify_token)])
+def create_workspace_job(name: str, body: CreateJobRequest):
+    ws_path = resolve_workspace_path(name)
+    job_name = body.name.strip()
+    if not job_name or not re.match(r"^[a-zA-Z0-9_-]+$", job_name):
+        raise HTTPException(status_code=400, detail="ジョブ名は英数字・ハイフン・アンダースコアのみ")
+    jobs_dir = get_workspace_custom_jobs_dir(ws_path)
+    script_path = jobs_dir / f"{job_name}.sh"
+    if script_path.exists():
+        raise HTTPException(status_code=409, detail=f"ジョブ '{job_name}' は既に存在します")
+    script_content = body.script.strip()
+    if not script_content:
+        raise HTTPException(status_code=400, detail="スクリプト内容が空です")
+    header = "#!/usr/bin/env bash\nset -euo pipefail\n\n"
+    if not script_content.startswith("#!"):
+        script_content = header + script_content
+    script_path.write_text(script_content + "\n", encoding="utf-8")
+    script_path.chmod(0o755)
+    return {"status": "ok", "name": job_name}
+
+
+@app.delete("/workspaces/{name}/jobs/{job_name}", dependencies=[Depends(verify_token)])
+def delete_workspace_job(name: str, job_name: str):
+    ws_path = resolve_workspace_path(name)
+    jobs_dir = get_workspace_custom_jobs_dir(ws_path)
+    script_path = jobs_dir / f"{job_name}.sh"
+    if not script_path.is_file():
+        raise HTTPException(status_code=404, detail=f"ジョブ '{job_name}' が見つかりません")
+    script_path.unlink()
+    return {"status": "ok", "name": job_name}
 
 
 @app.post("/workspaces/{name}/checkout", dependencies=[Depends(verify_token)])
@@ -340,6 +386,41 @@ def get_git_log(name: str, limit: int = 50):
         }
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=504, detail="git log timed out")
+
+
+@app.get("/workspaces/{name}/diff", dependencies=[Depends(verify_token)])
+def get_workspace_diff(name: str):
+    ws_path = resolve_workspace_path(name)
+    try:
+        status_result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            capture_output=True, text=True, timeout=10, cwd=str(ws_path),
+        )
+        diff_result = subprocess.run(
+            ["git", "diff"],
+            capture_output=True, text=True, timeout=30, cwd=str(ws_path),
+        )
+        diff_staged_result = subprocess.run(
+            ["git", "diff", "--staged"],
+            capture_output=True, text=True, timeout=30, cwd=str(ws_path),
+        )
+        files = [
+            line[3:] for line in status_result.stdout.splitlines() if len(line) > 3
+        ] if status_result.returncode == 0 else []
+        diff_text = ""
+        if diff_staged_result.returncode == 0 and diff_staged_result.stdout:
+            diff_text += diff_staged_result.stdout
+        if diff_result.returncode == 0 and diff_result.stdout:
+            if diff_text:
+                diff_text += "\n"
+            diff_text += diff_result.stdout
+        return {
+            "status": "ok",
+            "files": files,
+            "diff": diff_text,
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="git diff timed out")
 
 
 @app.api_route(

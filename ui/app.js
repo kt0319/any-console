@@ -3,7 +3,7 @@ let JOBS = {};
 let token = localStorage.getItem("pi_console_token") || "";
 let selectedJob = null;
 let allWorkspaces = [];
-let selectedWorkspace = null;
+let selectedWorkspace = localStorage.getItem("pi_console_workspace") || null;
 let hiddenWorkspaces = JSON.parse(localStorage.getItem("hidden_workspaces") || "[]");
 let commitLogOpen = false;
 let commitLogContent = "";
@@ -88,6 +88,12 @@ async function login() {
 
 async function initApp() {
   await loadWorkspaces();
+  if (selectedWorkspace && !visibleWorkspaces().some((ws) => ws.name === selectedWorkspace)) {
+    selectedWorkspace = null;
+    localStorage.removeItem("pi_console_workspace");
+  }
+  renderWorkspaceSelects();
+  await updateHeaderInfo();
   await loadJobsForWorkspace();
   renderJobList();
 }
@@ -153,6 +159,17 @@ function renderCommitMessagePanel(timeText, messageHtml) {
   mainCommitMessageEl.classList.toggle("log-open", commitLogOpen);
 }
 
+function updateGithubLink(ws) {
+  const link = $("github-link");
+  if (!ws || !ws.github_url) {
+    link.style.display = "none";
+    return;
+  }
+  const branch = ws.branch || "main";
+  link.href = `${ws.github_url}/tree/${encodeURIComponent(branch)}`;
+  link.style.display = "flex";
+}
+
 async function updateHeaderInfo() {
   const mainGitStatusEl = $("main-git-status");
   const mainCommitMessageEl = $("main-commit-message");
@@ -162,21 +179,33 @@ async function updateHeaderInfo() {
     commitLogContent = "";
     mainCommitMessageEl.classList.remove("clickable");
     mainGitStatusEl.innerHTML = "";
-    mainCommitMessageEl.innerHTML = "";
+    mainCommitMessageEl.innerHTML = '<div class="commit-placeholder">ワークスペースを選択してください</div>';
+    $("clean-dirty-status").innerHTML = "";
     $("branch-select").innerHTML = '<option value="">branch...</option>';
+    updateGithubLink(null);
     return;
   }
   mainCommitMessageEl.classList.add("clickable");
 
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
 
+  let cleanDirtyHtml = "";
+  if (ws) {
+    if (ws.clean === false) {
+      cleanDirtyHtml = '<span class="git-badge dirty" id="dirty-badge">\u25cf</span>';
+    } else if (ws.clean === true) {
+      cleanDirtyHtml = '<span class="git-badge clean">\u25cf</span>';
+    }
+  }
+  $("clean-dirty-status").innerHTML = cleanDirtyHtml;
+
+  const dirtyBadge = $("dirty-badge");
+  if (dirtyBadge) {
+    dirtyBadge.addEventListener("click", openDiffModal);
+  }
+
   let statusHtml = "";
   if (ws) {
-    if (ws.clean === true) {
-      statusHtml += '<span class="git-badge clean">clean</span>';
-    } else if (ws.clean === false) {
-      statusHtml += '<span class="git-badge dirty">modified</span>';
-    }
     if (ws.ahead > 0) {
       statusHtml += `<span class="git-badge ahead">\u2191${ws.ahead}</span>`;
     }
@@ -184,14 +213,16 @@ async function updateHeaderInfo() {
       statusHtml += `<span class="git-badge behind">\u2193${ws.behind}</span>`;
     }
   }
-  const statusLine = statusHtml || '<span class="git-badge">-</span>';
+  const statusLine = statusHtml;
   const commitMessage = formatCommitMessage(
     ws ? ws.last_commit_message : "",
     ws ? ws.github_url : "",
   );
   const commitTime = ws && ws.last_commit ? formatCommitTime(ws.last_commit) : "-";
 
+  updateGithubLink(ws);
   mainGitStatusEl.innerHTML = statusLine;
+
   renderCommitMessagePanel(commitTime, commitMessage);
 
   await loadBranches();
@@ -363,6 +394,79 @@ async function checkoutBranch(branch) {
   }
 }
 
+function colorDiff(text) {
+  if (!text) return "";
+  const frag = document.createDocumentFragment();
+  for (const line of text.split("\n")) {
+    const span = document.createElement("span");
+    if (line.startsWith("diff ") || line.startsWith("index ") || line.startsWith("--- ") || line.startsWith("+++ ")) {
+      span.className = "diff-line-header";
+    } else if (line.startsWith("@@")) {
+      span.className = "diff-line-range";
+    } else if (line.startsWith("+")) {
+      span.className = "diff-line-add";
+    } else if (line.startsWith("-")) {
+      span.className = "diff-line-del";
+    }
+    span.textContent = line;
+    frag.appendChild(span);
+    frag.appendChild(document.createTextNode("\n"));
+  }
+  return frag;
+}
+
+async function openDiffModal() {
+  if (!selectedWorkspace) return;
+
+  const fileList = $("diff-file-list");
+  const diffContent = $("diff-content");
+  fileList.innerHTML = '<span class="diff-file-tag">loading...</span>';
+  diffContent.textContent = "";
+  $("diff-modal").style.display = "flex";
+
+  try {
+    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/diff`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 401) {
+      localStorage.removeItem("pi_console_token");
+      showLogin();
+      return;
+    }
+    const data = await res.json();
+    if (!res.ok || data.status !== "ok") {
+      fileList.innerHTML = "";
+      diffContent.textContent = data.detail || "diff の取得に失敗しました";
+      return;
+    }
+
+    fileList.innerHTML = "";
+    for (const f of data.files) {
+      const tag = document.createElement("span");
+      tag.className = "diff-file-tag";
+      tag.textContent = f;
+      fileList.appendChild(tag);
+    }
+    if (data.files.length === 0) {
+      fileList.innerHTML = '<span class="diff-file-tag">変更ファイルなし</span>';
+    }
+
+    diffContent.textContent = "";
+    if (data.diff) {
+      diffContent.appendChild(colorDiff(data.diff));
+    } else {
+      diffContent.textContent = "差分なし（untracked files のみの可能性）";
+    }
+  } catch (e) {
+    fileList.innerHTML = "";
+    diffContent.textContent = e.message;
+  }
+}
+
+function closeDiffModal() {
+  $("diff-modal").style.display = "none";
+}
+
 function openSettings() {
   const list = $("ws-check-list");
   list.innerHTML = "";
@@ -417,9 +521,114 @@ function renderJobList() {
     if (isRunning) inner += '<span class="job-state" aria-hidden="true">◌</span>';
     card.innerHTML = inner;
     card.addEventListener("click", () => selectJob(name));
+    if (job.source === "workspace") {
+      let holdTimer = null;
+      card.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        deleteJob(name);
+      });
+      card.addEventListener("touchstart", () => {
+        holdTimer = setTimeout(() => deleteJob(name), 600);
+      }, { passive: true });
+      card.addEventListener("touchend", () => clearTimeout(holdTimer));
+      card.addEventListener("touchmove", () => clearTimeout(holdTimer));
+    }
     container.appendChild(card);
   }
+  if (selectedWorkspace) {
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "job-add-btn";
+    addBtn.title = "ジョブ追加";
+    addBtn.textContent = "+";
+    addBtn.addEventListener("click", openJobCreateModal);
+    container.appendChild(addBtn);
+  }
   updateJobRunButton();
+}
+
+function openJobCreateModal() {
+  $("job-create-name").value = "";
+  $("job-create-label").value = "";
+  $("job-create-script").value = "";
+  $("job-create-error").style.display = "none";
+  $("job-create-modal").style.display = "flex";
+  $("job-create-name").focus();
+}
+
+function closeJobCreateModal() {
+  $("job-create-modal").style.display = "none";
+}
+
+async function submitJobCreate() {
+  const name = $("job-create-name").value.trim();
+  const label = $("job-create-label").value.trim();
+  const script = $("job-create-script").value;
+  const errorEl = $("job-create-error");
+
+  if (!name) {
+    errorEl.textContent = "ジョブ名を入力してください";
+    errorEl.style.display = "block";
+    return;
+  }
+  if (!script.trim()) {
+    errorEl.textContent = "スクリプトを入力してください";
+    errorEl.style.display = "block";
+    return;
+  }
+
+  try {
+    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/jobs`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name, label: label || name, script }),
+    });
+    if (res.status === 401) {
+      localStorage.removeItem("pi_console_token");
+      showLogin();
+      return;
+    }
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.detail || "作成に失敗しました";
+      errorEl.style.display = "block";
+      return;
+    }
+    closeJobCreateModal();
+    await loadJobsForWorkspace();
+  } catch (e) {
+    errorEl.textContent = e.message;
+    errorEl.style.display = "block";
+  }
+}
+
+async function deleteJob(jobName) {
+  if (!selectedWorkspace) return;
+  if (!confirm(`ジョブ '${jobName}' を削除しますか？`)) return;
+
+  try {
+    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/jobs/${encodeURIComponent(jobName)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 401) {
+      localStorage.removeItem("pi_console_token");
+      showLogin();
+      return;
+    }
+    const data = await res.json();
+    if (!res.ok) {
+      $("output").innerHTML = `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(data.detail || "削除に失敗しました")}`;
+      return;
+    }
+    if (selectedJob === jobName) selectedJob = null;
+    await loadJobsForWorkspace();
+  } catch (e) {
+    $("output").innerHTML = `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(e.message)}`;
+  }
 }
 
 function updateJobRunButton() {
@@ -438,12 +647,35 @@ function selectJob(name) {
   renderDetail();
 }
 
+function extractCommands(content) {
+  if (!content) return "";
+  return content
+    .split("\n")
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return false;
+      if (trimmed.startsWith("#")) return false;
+      if (trimmed === "set -euo pipefail") return false;
+      if (trimmed === "set -eu") return false;
+      if (trimmed === "set -e") return false;
+      return true;
+    })
+    .join("\n")
+    .trim();
+}
+
 function renderDetail() {
   const job = JOBS[selectedJob];
   if (!job) return;
 
   $("detail-section").style.display = "none";
-  $("output").innerHTML = '<div class="empty-state">実行結果がここに表示されます</div>';
+  const commands = extractCommands(job.script_content || "");
+  if (commands) {
+    const preview = escapeHtml(commands.length > 500 ? commands.slice(0, 500) + "..." : commands);
+    $("output").innerHTML = `<div class="empty-state"><pre class="script-preview">${preview}</pre></div>`;
+  } else {
+    $("output").innerHTML = `<div class="empty-state">${escapeHtml(job.script)}</div>`;
+  }
 }
 
 function collectArgs() {
@@ -534,8 +766,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("job-run-main").addEventListener("click", () => runJob());
   $("settings-btn").addEventListener("click", openSettings);
   $("settings-close").addEventListener("click", closeSettings);
+  $("diff-close").addEventListener("click", closeDiffModal);
+  $("job-create-cancel").addEventListener("click", closeJobCreateModal);
+  $("job-create-submit").addEventListener("click", submitJobCreate);
   $("header-ws-select").addEventListener("change", async (e) => {
     selectedWorkspace = e.target.value || null;
+    if (selectedWorkspace) {
+      localStorage.setItem("pi_console_workspace", selectedWorkspace);
+    } else {
+      localStorage.removeItem("pi_console_workspace");
+    }
     commitLogOpen = false;
     commitLogContent = "";
     await updateHeaderInfo();
