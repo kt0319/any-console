@@ -34,10 +34,10 @@ JOBS: dict[str, JobDefinition] = {
         description="システムステータス確認",
         args=[],
     ),
-    "docker-up": JobDefinition(
-        script="jobs/docker-up.sh",
-        label="サーバー起動",
-        description="docker-compose up -d",
+    "terminal": JobDefinition(
+        script="jobs/terminal.sh",
+        label="ターミナル",
+        description="一時Webターミナル起動（10分）",
         args=[],
     ),
 }

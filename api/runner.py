@@ -21,11 +21,12 @@ def run_job(
         env["WORKSPACE"] = workspace
     if extra_env:
         env.update(extra_env)
+    cwd = workspace if workspace else str(PROJECT_ROOT)
     return subprocess.run(
         cmd,
         capture_output=True,
         text=True,
         timeout=EXEC_TIMEOUT_SEC,
-        cwd=str(PROJECT_ROOT),
+        cwd=cwd,
         env=env,
     )
