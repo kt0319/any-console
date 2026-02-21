@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>pi-console</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7/css/materialdesignicons.min.css" />
-  <link rel="stylesheet" href="styles.css?v=5" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <!-- Login -->
@@ -34,9 +34,10 @@
           <button type="button" class="menu-item" id="menu-settings">設定</button>
         </div>
       </div>
-      <select id="header-ws-select" class="header-select">
-        <option value="">Workspace...</option>
-      </select>
+      <div class="ws-select-wrap" id="ws-select-wrap">
+        <button type="button" class="ws-select-btn" id="ws-select-btn">Workspace...</button>
+        <div class="ws-select-dropdown" id="ws-select-dropdown" style="display:none"></div>
+      </div>
       <div class="header-row2" id="header-row2">
         <div class="header-commit-msg" id="header-commit-msg"></div>
         <div id="clean-dirty-status" class="clean-dirty-status"></div>
@@ -155,15 +156,13 @@
           <button id="git-log-close" class="modal-close-btn" title="閉じる">&times;</button>
         </div>
         <div class="git-log-list-modal" id="git-log-list-modal"></div>
+        <div id="git-log-action-menu" class="commit-action-menu" style="display:none"></div>
         <div id="git-log-create-branch-area" style="display:none">
-          <div class="form-group">
+          <div class="git-log-branch-form">
             <input type="text" id="git-log-branch-name" class="form-input" placeholder="新しいブランチ名" autocomplete="off" />
+            <button id="git-log-create-branch-submit" class="primary">作成</button>
           </div>
           <div id="git-log-branch-error" class="form-error"></div>
-        </div>
-        <div class="modal-actions">
-          <button id="git-log-create-branch-toggle">ブランチ作成</button>
-          <button id="git-log-create-branch-submit" class="primary" style="display:none">作成</button>
         </div>
       </div>
     </div>
@@ -182,7 +181,10 @@
     <!-- Job Confirm Modal -->
     <div id="job-confirm-modal" class="modal-overlay" style="display:none">
       <div class="modal">
-        <h3 id="job-confirm-title">ジョブ実行</h3>
+        <div class="modal-header">
+          <h3 id="job-confirm-title">ジョブ実行</h3>
+          <button type="button" id="job-confirm-cancel-x" class="modal-close-btn" title="閉じる">&times;</button>
+        </div>
         <div class="args-form" id="job-confirm-args"></div>
         <div class="modal-actions">
           <button type="button" id="job-confirm-cancel">キャンセル</button>
@@ -206,6 +208,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=5"></script>
+  <script src="app.js"></script>
 </body>
 </html>
