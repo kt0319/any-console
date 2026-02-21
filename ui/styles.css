@@ -1391,9 +1391,9 @@ button:disabled {
 
 .toast {
   position: fixed;
-  bottom: 24px;
+  top: 24px;
   left: 50%;
-  transform: translateX(-50%) translateY(calc(100% + 24px));
+  transform: translateX(-50%) translateY(calc(-100% - 24px));
   padding: 10px 20px;
   font-size: 13px;
   text-align: center;
