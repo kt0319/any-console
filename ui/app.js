@@ -664,17 +664,7 @@ async function openCommitDiffModal(commitHash, commitMsg) {
       return;
     }
 
-    fileList.innerHTML = "";
-    for (const f of data.files) {
-      const tag = document.createElement("span");
-      tag.className = "diff-file-tag";
-      tag.textContent = f;
-      fileList.appendChild(tag);
-    }
-    if (data.files.length === 0) {
-      fileList.innerHTML = '<span class="diff-file-tag">変更ファイルなし</span>';
-    }
-
+    renderDiffFileList(fileList, data.files, data.diff || "");
     diffContent.textContent = "";
     if (data.diff) {
       diffContent.appendChild(colorDiff(data.diff));
@@ -767,6 +757,74 @@ function colorDiff(text) {
   return frag;
 }
 
+function splitDiffByFile(diffText) {
+  if (!diffText) return {};
+  const chunks = {};
+  let currentFile = null;
+  let currentLines = [];
+  for (const line of diffText.split("\n")) {
+    if (line.startsWith("diff --git ")) {
+      if (currentFile) chunks[currentFile] = currentLines.join("\n");
+      const match = line.match(/^diff --git a\/.+ b\/(.+)$/);
+      currentFile = match ? match[1] : line;
+      currentLines = [line];
+    } else {
+      currentLines.push(line);
+    }
+  }
+  if (currentFile) chunks[currentFile] = currentLines.join("\n");
+  return chunks;
+}
+
+let diffChunks = {};
+let diffFullText = "";
+
+function renderDiffFileList(fileList, files, diffText) {
+  diffChunks = splitDiffByFile(diffText);
+  diffFullText = diffText;
+  fileList.innerHTML = "";
+
+  if (files.length === 0) {
+    fileList.innerHTML = '<span class="diff-file-tag">変更ファイルなし</span>';
+    return;
+  }
+
+  const allTag = document.createElement("span");
+  allTag.className = "diff-file-tag active";
+  allTag.textContent = "すべて";
+  allTag.addEventListener("click", () => selectDiffFile(null));
+  fileList.appendChild(allTag);
+
+  for (const f of files) {
+    const tag = document.createElement("span");
+    tag.className = "diff-file-tag";
+    tag.dataset.file = f;
+    tag.textContent = f;
+    tag.addEventListener("click", () => selectDiffFile(f));
+    fileList.appendChild(tag);
+  }
+}
+
+function selectDiffFile(file) {
+  const fileList = $("diff-file-list");
+  const diffContent = $("diff-content");
+  for (const tag of fileList.querySelectorAll(".diff-file-tag")) {
+    if (file === null) {
+      tag.classList.toggle("active", !tag.dataset.file);
+    } else {
+      tag.classList.toggle("active", tag.dataset.file === file);
+    }
+  }
+  diffContent.textContent = "";
+  const text = file ? (diffChunks[file] || "") : diffFullText;
+  if (text) {
+    diffContent.appendChild(colorDiff(text));
+  } else {
+    diffContent.textContent = file ? "このファイルのdiffはありません" : "差分なし";
+  }
+  diffContent.scrollTop = 0;
+}
+
 async function openDiffModal() {
   if (!selectedWorkspace) return;
   $("diff-modal").querySelector("h3").textContent = "変更内容";
@@ -793,17 +851,7 @@ async function openDiffModal() {
       return;
     }
 
-    fileList.innerHTML = "";
-    for (const f of data.files) {
-      const tag = document.createElement("span");
-      tag.className = "diff-file-tag";
-      tag.textContent = f;
-      fileList.appendChild(tag);
-    }
-    if (data.files.length === 0) {
-      fileList.innerHTML = '<span class="diff-file-tag">変更ファイルなし</span>';
-    }
-
+    renderDiffFileList(fileList, data.files, data.diff || "");
     diffContent.textContent = "";
     if (data.diff) {
       diffContent.appendChild(colorDiff(data.diff));
@@ -823,6 +871,7 @@ function closeDiffModal() {
 function openSettings() {
   $("settings-menu").style.display = "";
   $("settings-ws-visibility").style.display = "none";
+  $("settings-server-info-view").style.display = "none";
   $("settings-title").textContent = "設定";
   $("settings-modal").style.display = "flex";
 }
@@ -843,6 +892,50 @@ function openSettingsWsVisibility() {
     list.appendChild(item);
   }
   $("settings-ws-visibility").style.display = "";
+}
+
+async function openSettingsServerInfo() {
+  $("settings-menu").style.display = "none";
+  $("settings-title").textContent = "サーバー情報";
+  const list = $("server-info-list");
+  list.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>';
+  $("settings-server-info-view").style.display = "";
+
+  const labels = {
+    hostname: "ホスト名",
+    ip: "IPアドレス",
+    os: "OS",
+    uptime: "稼働時間",
+    cpu_temp: "CPU温度",
+    memory: "メモリ",
+    disk: "ディスク",
+  };
+
+  try {
+    const res = await fetch("/system/info", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 401) {
+      localStorage.removeItem("pi_console_token");
+      showLogin();
+      return;
+    }
+    if (!res.ok) {
+      list.innerHTML = '<div style="color:var(--error);padding:16px">取得に失敗しました</div>';
+      return;
+    }
+    const data = await res.json();
+    list.innerHTML = "";
+    for (const [key, label] of Object.entries(labels)) {
+      if (!(key in data)) continue;
+      const row = document.createElement("div");
+      row.className = "server-info-row";
+      row.innerHTML = `<span class="server-info-label">${escapeHtml(label)}</span><span class="server-info-value">${escapeHtml(String(data[key]))}</span>`;
+      list.appendChild(row);
+    }
+  } catch (e) {
+    list.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
+  }
 }
 
 function closeSettings() {
@@ -1896,6 +1989,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     openCloneModal();
   });
   $("settings-visibility").addEventListener("click", openSettingsWsVisibility);
+  $("settings-server-info").addEventListener("click", openSettingsServerInfo);
   $("settings-logout").addEventListener("click", settingsLogout);
   $("clone-cancel").addEventListener("click", closeCloneModal);
   $("clone-submit").addEventListener("click", submitClone);
