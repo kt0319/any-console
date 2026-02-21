@@ -1,6 +1,8 @@
 import json
 import os
 import secrets
+import shutil
+import socket
 import subprocess
 import time
 import http.client
@@ -991,6 +993,72 @@ def execute_job(body: RunRequest):
                 (payload.get("stderr") or "") + "\nfailed to parse ttyd port"
             ).strip()
     return payload
+
+
+@app.get("/system/info", dependencies=[Depends(verify_token)])
+def get_system_info():
+    info = {}
+
+    info["hostname"] = socket.gethostname()
+
+    try:
+        result = subprocess.run(
+            ["hostname", "-I"], capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            addrs = result.stdout.strip().split()
+            info["ip"] = addrs[0] if addrs else ""
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        info["ip"] = ""
+
+    try:
+        os_release = Path("/etc/os-release").read_text(encoding="utf-8")
+        for line in os_release.splitlines():
+            if line.startswith("PRETTY_NAME="):
+                info["os"] = line.split("=", 1)[1].strip('"')
+                break
+    except OSError:
+        pass
+
+    try:
+        result = subprocess.run(
+            ["uptime", "-p"], capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            info["uptime"] = result.stdout.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+
+    try:
+        temp_raw = Path("/sys/class/thermal/thermal_zone0/temp").read_text().strip()
+        info["cpu_temp"] = f"{int(temp_raw) / 1000:.1f} °C"
+    except (OSError, ValueError):
+        pass
+
+    try:
+        meminfo = Path("/proc/meminfo").read_text(encoding="utf-8")
+        mem = {}
+        for line in meminfo.splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and parts[0] in ("MemTotal:", "MemAvailable:"):
+                mem[parts[0].rstrip(":")] = int(parts[1])
+        if "MemTotal" in mem:
+            total_gb = mem["MemTotal"] / 1024 / 1024
+            available_gb = mem.get("MemAvailable", 0) / 1024 / 1024
+            used_gb = total_gb - available_gb
+            info["memory"] = f"{used_gb:.1f} / {total_gb:.1f} GB"
+    except (OSError, ValueError):
+        pass
+
+    try:
+        usage = shutil.disk_usage("/")
+        total_gb = usage.total / (1024 ** 3)
+        used_gb = usage.used / (1024 ** 3)
+        info["disk"] = f"{used_gb:.1f} / {total_gb:.1f} GB"
+    except OSError:
+        pass
+
+    return info
 
 
 app.mount("/", StaticFiles(directory=str(UI_DIR), html=True), name="ui")
