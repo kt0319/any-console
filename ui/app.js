@@ -1,6 +1,30 @@
 let JOBS = {};
 
-let token = localStorage.getItem("pi_console_token") || "";
+function saveToken(val) {
+  localStorage.setItem("pi_console_token", val);
+  document.cookie = `pi_console_token=${encodeURIComponent(val)};path=/;max-age=31536000;SameSite=Strict`;
+}
+
+function clearToken() {
+  localStorage.removeItem("pi_console_token");
+  document.cookie = "pi_console_token=;path=/;max-age=0;SameSite=Strict";
+}
+
+function loadToken() {
+  const ls = localStorage.getItem("pi_console_token");
+  if (ls) return ls;
+  const match = document.cookie.match(/(?:^|;\s*)pi_console_token=([^;]*)/);
+  if (match) {
+    const val = decodeURIComponent(match[1]);
+    if (val) {
+      localStorage.setItem("pi_console_token", val);
+      return val;
+    }
+  }
+  return "";
+}
+
+let token = loadToken();
 let selectedJob = null;
 let allWorkspaces = [];
 let selectedWorkspace = localStorage.getItem("pi_console_workspace") || null;
@@ -121,8 +145,7 @@ async function refreshCurrentWorkspaceStatus() {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.status === 401) {
-      localStorage.removeItem("pi_console_token");
-      showLogin();
+      await handleUnauthorized();
       return;
     }
     if (!res.ok) return;
@@ -158,19 +181,39 @@ function stopAutoRefresh() {
 
 async function checkToken() {
   try {
-    const res = await fetch("/run", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ job: "__ping__" }),
+    const res = await fetch("/auth/check", {
+      headers: { Authorization: `Bearer ${token}` },
     });
-    if (res.status === 401) return { ok: false, error: "認証に失敗しました" };
+    if (res.status === 401) return { ok: false, auth: false, error: "認証に失敗しました" };
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: `サーバーに接続できません: ${e.message}` };
+    return { ok: false, auth: true, error: `サーバーに接続できません: ${e.message}` };
   }
+}
+
+let handlingUnauthorized = false;
+
+async function handleUnauthorized(caller) {
+  if (handlingUnauthorized || !token) return false;
+  handlingUnauthorized = true;
+  console.warn(`[auth] 401 from: ${caller || "unknown"}, verifying token...`);
+  try {
+    const res = await fetch("/auth/check", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 401) {
+      console.warn("[auth] token rejected by /auth/check, logging out");
+      clearToken();
+      token = "";
+      showLogin();
+      return true;
+    }
+    console.warn("[auth] token still valid, ignoring 401");
+  } catch {
+  } finally {
+    handlingUnauthorized = false;
+  }
+  return false;
 }
 
 async function login() {
@@ -180,7 +223,7 @@ async function login() {
 
   const result = await checkToken();
   if (result.ok) {
-    localStorage.setItem("pi_console_token", token);
+    saveToken(token);
     $("login-error").style.display = "none";
     showApp();
     await initApp();
@@ -276,15 +319,42 @@ function renderWorkspaceSelects() {
 }
 
 function renderHeaderWsSelect() {
-  const select = $("header-ws-select");
-  select.innerHTML = '<option value="">Workspace...</option>';
-  for (const ws of visibleWorkspaces()) {
-    const opt = document.createElement("option");
-    opt.value = ws.name;
-    opt.textContent = ws.branch ? `${ws.name} (${ws.branch})` : ws.name;
-    if (ws.name === selectedWorkspace) opt.selected = true;
-    select.appendChild(opt);
+  const btn = $("ws-select-btn");
+  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
+  btn.textContent = ws ? (ws.branch ? `${ws.name} (${ws.branch})` : ws.name) : "Workspace...";
+}
+
+function toggleWsSelectDropdown() {
+  const dropdown = $("ws-select-dropdown");
+  const btn = $("ws-select-btn");
+  if (dropdown.style.display !== "none") {
+    dropdown.style.display = "none";
+    btn.classList.remove("active");
+    return;
   }
+  dropdown.innerHTML = "";
+  for (const ws of visibleWorkspaces()) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "ws-select-item" + (ws.name === selectedWorkspace ? " selected" : "");
+    item.textContent = ws.branch ? `${ws.name} (${ws.branch})` : ws.name;
+    item.addEventListener("click", async () => {
+      dropdown.style.display = "none";
+      btn.classList.remove("active");
+      selectedWorkspace = ws.name;
+      localStorage.setItem("pi_console_workspace", ws.name);
+      renderHeaderWsSelect();
+      await updateHeaderInfo();
+      await loadJobsForWorkspace();
+    });
+    dropdown.appendChild(item);
+  }
+  const rect = btn.getBoundingClientRect();
+  dropdown.style.top = rect.bottom + 4 + "px";
+  dropdown.style.left = rect.left + "px";
+  dropdown.style.width = rect.width + "px";
+  dropdown.style.display = "block";
+  btn.classList.add("active");
 }
 
 function updateGithubLink(ws) {
@@ -395,8 +465,7 @@ async function gitPull() {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.status === 401) {
-      localStorage.removeItem("pi_console_token");
-      showLogin();
+      await handleUnauthorized();
       return;
     }
     const data = await res.json();
@@ -427,8 +496,7 @@ async function gitPush() {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.status === 401) {
-      localStorage.removeItem("pi_console_token");
-      showLogin();
+      await handleUnauthorized();
       return;
     }
     const data = await res.json();
@@ -460,8 +528,7 @@ async function loadJobsForWorkspace() {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.status === 401) {
-      localStorage.removeItem("pi_console_token");
-      showLogin();
+      await handleUnauthorized();
       return;
     }
     if (!res.ok) {
@@ -478,8 +545,132 @@ async function loadJobsForWorkspace() {
   renderTabBar();
 }
 
+function toggleCommitActionMenu(entry, hash, msg, branches = []) {
+  const list = entry.closest(".git-log-list-modal");
+  const menuEl = $("git-log-action-menu");
+  const wasOpen = entry.classList.contains("action-open");
+
+  if (list) {
+    list.querySelectorAll(".git-log-commit").forEach((e) => e.classList.remove("action-open"));
+  }
+
+  if (wasOpen) {
+    menuEl.style.display = "none";
+    menuEl.innerHTML = "";
+    resetCreateBranchArea();
+    return;
+  }
+
+  entry.classList.add("action-open");
+  menuEl.innerHTML = "";
+  resetCreateBranchArea();
+
+  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
+  const switchActions = branches
+    .filter((b) => !ws || b !== ws.branch)
+    .map((b) => ({
+      label: `switch: ${b}`,
+      cls: "",
+      fn: async () => {
+        await checkoutBranch(b);
+        closeGitLogModal();
+        await loadWorkspaces();
+        await updateHeaderInfo();
+      },
+    }));
+
+  const actions = [
+    ...switchActions,
+    { label: "diff", cls: "", fn: () => { $("git-log-modal").style.display = "none"; openCommitDiffModal(hash, msg); } },
+    { label: "branch", cls: "", fn: () => toggleCreateBranchArea(hash) },
+    { label: "cherry-pick", cls: "", fn: () => execCommitAction("cherry-pick", hash) },
+    { label: "revert", cls: "", fn: () => execCommitAction("revert", hash) },
+    { label: "reset --soft", cls: "", fn: () => execCommitResetAction(hash, "soft") },
+    { label: "reset --hard", cls: "commit-action-danger", fn: () => execCommitResetAction(hash, "hard") },
+  ];
+
+  for (const action of actions) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "commit-action-item" + (action.cls ? ` ${action.cls}` : "");
+    btn.textContent = action.label;
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      action.fn();
+    });
+    menuEl.appendChild(btn);
+  }
+
+  menuEl.style.display = "flex";
+}
+
+async function execCommitAction(action, hash) {
+  if (!selectedWorkspace) return;
+  try {
+    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/${action}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ commit_hash: hash }),
+    });
+    if (res.status === 401) {
+      await handleUnauthorized();
+      return;
+    }
+    const data = await res.json();
+    if (data.status === "ok") {
+      showToast(`${action} 完了`, "success");
+    } else {
+      showToast(`${action} 失敗: ${data.stderr || data.stdout || "unknown error"}`);
+    }
+  } catch (e) {
+    showToast(`${action} エラー: ${e.message}`);
+  }
+  closeGitLogModal();
+  await loadWorkspaces();
+  await updateHeaderInfo();
+}
+
+async function execCommitResetAction(hash, mode) {
+  if (!selectedWorkspace) return;
+  const shortHash = hash.substring(0, 8);
+  const warning = mode === "hard"
+    ? `reset --hard ${shortHash} を実行します。作業ツリーの変更はすべて失われます。実行しますか？`
+    : `reset --soft ${shortHash} を実行しますか？`;
+  if (!confirm(warning)) return;
+  try {
+    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/reset`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ commit_hash: hash, mode }),
+    });
+    if (res.status === 401) {
+      await handleUnauthorized();
+      return;
+    }
+    const data = await res.json();
+    if (data.status === "ok") {
+      showToast(`reset --${mode} 完了`, "success");
+    } else {
+      showToast(`reset 失敗: ${data.stderr || data.stdout || "unknown error"}`);
+    }
+  } catch (e) {
+    showToast(`reset エラー: ${e.message}`);
+  }
+  closeGitLogModal();
+  await loadWorkspaces();
+  await updateHeaderInfo();
+}
+
 function closeGitLogModal() {
   $("git-log-modal").style.display = "none";
+  $("git-log-action-menu").style.display = "none";
+  $("git-log-action-menu").innerHTML = "";
   resetCreateBranchArea();
 }
 
@@ -490,15 +681,16 @@ function resetCreateBranchArea() {
   $("git-log-branch-error").style.display = "none";
 }
 
-function toggleCreateBranchArea() {
+let createBranchFromHash = null;
+
+function toggleCreateBranchArea(hash) {
   const area = $("git-log-create-branch-area");
-  const submitBtn = $("git-log-create-branch-submit");
   const visible = area.style.display !== "none";
   if (visible) {
     resetCreateBranchArea();
   } else {
+    createBranchFromHash = hash || null;
     area.style.display = "block";
-    submitBtn.style.display = "";
     $("git-log-branch-name").focus();
   }
 }
@@ -532,8 +724,7 @@ async function submitCreateBranch() {
       body: JSON.stringify({ branch: branchName }),
     });
     if (res.status === 401) {
-      localStorage.removeItem("pi_console_token");
-      showLogin();
+      await handleUnauthorized();
       return;
     }
     const data = await res.json();
@@ -554,6 +745,119 @@ async function submitCreateBranch() {
   }
 }
 
+const GIT_LOG_PAGE_SIZE = 30;
+let gitLogLoaded = 0;
+let gitLogLoading = false;
+let gitLogHasMore = true;
+const gitLogSeenHashes = new Set();
+
+function renderGitLogEntries(listEl, stdout) {
+  const lines = stdout.split("\n");
+  let count = 0;
+  for (const line of lines) {
+    if (!line.trim()) continue;
+
+    const entry = document.createElement("div");
+    const commitMatch = line.match(/^(.*?)([0-9a-f]{40})\t(.+?)\t(.+?)\t(.*?)\t(.*)$/);
+    if (commitMatch) {
+      const graph = commitMatch[1].replace(/\*/g, " ");
+      const hash = commitMatch[2];
+      if (gitLogSeenHashes.has(hash)) continue;
+      gitLogSeenHashes.add(hash);
+      const time = commitMatch[3];
+      const author = commitMatch[4];
+      const refs = commitMatch[5];
+      const msg = commitMatch[6];
+      entry.className = "git-log-entry git-log-commit";
+      let refsHtml = "";
+      if (refs) {
+        refsHtml = refs.split(",").map((r) => {
+          const name = r.trim();
+          if (!name || name === "origin/HEAD" || name === "HEAD") return "";
+          const isTag = name.startsWith("tag: ");
+          const isHead = name.startsWith("HEAD -> ");
+          const remoteMatch = name.match(/^(origin|upstream)\/(.*)/);
+          const isRemote = remoteMatch && !isTag && !isHead;
+          const cls = isTag ? "git-ref-tag" : isHead ? "git-ref-head" : isRemote ? "git-ref-remote" : "git-ref-branch";
+          let label;
+          if (isRemote) {
+            const icon = remoteMatch[1] === "origin" ? "mdi-github" : "mdi-server";
+            label = `<span class="mdi ${icon}"></span> ${escapeHtml(remoteMatch[2])}`;
+          } else if (isTag) {
+            label = `<span class="mdi mdi-tag-outline"></span> ${escapeHtml(name.replace("tag: ", ""))}`;
+          } else if (isHead) {
+            const branchName = name.replace("HEAD -> ", "");
+            label = `<span class="mdi mdi-source-branch"></span> ${escapeHtml(branchName)}`;
+          } else {
+            label = `<span class="mdi mdi-source-branch"></span> ${escapeHtml(name)}`;
+          }
+          return `<span class="git-ref ${cls}">${label}</span>`;
+        }).join("");
+      }
+      entry.innerHTML =
+        `<span class="git-log-entry-body">` +
+          (refsHtml ? `<span class="git-log-entry-refs">${refsHtml}</span>` : "") +
+          `<span class="git-log-entry-row1"><span class="git-log-entry-msg">${escapeHtml(msg)}</span></span>` +
+          `<span class="git-log-entry-meta"><span class="git-log-entry-time">${escapeHtml(time)}</span><span class="git-log-entry-author">${escapeHtml(author)}</span></span>` +
+        `</span>`;
+      const branchSet = new Set();
+      if (refs) {
+        for (const r of refs.split(",")) {
+          const name = r.trim();
+          if (!name || name === "origin/HEAD" || name === "HEAD") continue;
+          if (name.startsWith("HEAD -> ")) {
+            branchSet.add(name.replace("HEAD -> ", ""));
+          } else if (name.startsWith("tag: ")) {
+            continue;
+          } else {
+            const rm = name.match(/^(?:origin|upstream)\/(.*)/);
+            branchSet.add(rm ? rm[1] : name);
+          }
+        }
+      }
+      const branches = [...branchSet];
+      entry.addEventListener("click", () => {
+        toggleCommitActionMenu(entry, hash, msg, branches);
+      });
+      count++;
+    } else {
+      continue;
+    }
+    listEl.appendChild(entry);
+  }
+  return count;
+}
+
+async function loadMoreGitLog() {
+  if (!selectedWorkspace || gitLogLoading || !gitLogHasMore) return;
+  gitLogLoading = true;
+
+  const listEl = $("git-log-list-modal");
+  try {
+    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/git-log?limit=${GIT_LOG_PAGE_SIZE}&skip=${gitLogLoaded}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 401) {
+      await handleUnauthorized();
+      return;
+    }
+    const data = await res.json();
+    if (!res.ok || data.status !== "ok" || !data.stdout) {
+      gitLogHasMore = false;
+      return;
+    }
+    const count = renderGitLogEntries(listEl, data.stdout);
+    gitLogLoaded += count;
+    if (count < GIT_LOG_PAGE_SIZE) {
+      gitLogHasMore = false;
+    }
+  } catch (e) {
+    gitLogHasMore = false;
+  } finally {
+    gitLogLoading = false;
+  }
+}
+
 async function openGitLogModal() {
   if (!selectedWorkspace) return;
 
@@ -561,13 +865,17 @@ async function openGitLogModal() {
   listEl.innerHTML = '<div class="git-log-entry-msg" style="color:var(--text-muted);padding:16px">読み込み中...</div>';
   $("git-log-modal").style.display = "flex";
 
+  gitLogLoaded = 0;
+  gitLogLoading = false;
+  gitLogHasMore = true;
+  gitLogSeenHashes.clear();
+
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/git-log?limit=30`, {
+    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/git-log?limit=${GIT_LOG_PAGE_SIZE}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.status === 401) {
-      localStorage.removeItem("pi_console_token");
-      showLogin();
+      await handleUnauthorized();
       return;
     }
     const data = await res.json();
@@ -581,59 +889,10 @@ async function openGitLogModal() {
     }
 
     listEl.innerHTML = "";
-    const lines = data.stdout.split("\n");
-    for (const line of lines) {
-      if (!line.trim()) continue;
-
-      const entry = document.createElement("div");
-      const commitMatch = line.match(/^(.*?)([0-9a-f]{40})\t(.+?)\t(.+?)\t(.*?)\t(.*)$/);
-      if (commitMatch) {
-        const graph = commitMatch[1].replace(/\*/g, " ");
-        const hash = commitMatch[2];
-        const time = commitMatch[3];
-        const author = commitMatch[4];
-        const refs = commitMatch[5];
-        const msg = commitMatch[6];
-        entry.className = "git-log-entry git-log-commit";
-        let refsHtml = "";
-        if (refs) {
-          refsHtml = refs.split(",").map((r) => {
-            const name = r.trim();
-            if (!name || name === "origin/HEAD" || name === "HEAD") return "";
-            const isTag = name.startsWith("tag: ");
-            const isHead = name.startsWith("HEAD -> ");
-            const remoteMatch = name.match(/^(origin|upstream)\/(.*)/);
-            const isRemote = remoteMatch && !isTag && !isHead;
-            const cls = isTag ? "git-ref-tag" : isHead ? "git-ref-head" : isRemote ? "git-ref-remote" : "git-ref-branch";
-            let label;
-            if (isRemote) {
-              const icon = remoteMatch[1] === "origin" ? "mdi-github" : "mdi-server";
-              label = `<span class="mdi ${icon}"></span> ${escapeHtml(remoteMatch[2])}`;
-            } else if (isTag) {
-              label = `<span class="mdi mdi-tag-outline"></span> ${escapeHtml(name.replace("tag: ", ""))}`;
-            } else if (isHead) {
-              const branchName = name.replace("HEAD -> ", "");
-              label = `<span class="mdi mdi-source-branch"></span> ${escapeHtml(branchName)}`;
-            } else {
-              label = `<span class="mdi mdi-source-branch"></span> ${escapeHtml(name)}`;
-            }
-            return `<span class="git-ref ${cls}">${label}</span>`;
-          }).join("");
-        }
-        entry.innerHTML =
-          `<span class="git-log-entry-body">` +
-            (refsHtml ? `<span class="git-log-entry-refs">${refsHtml}</span>` : "") +
-            `<span class="git-log-entry-row1"><span class="git-log-entry-msg">${escapeHtml(msg)}</span></span>` +
-            `<span class="git-log-entry-meta"><span class="git-log-entry-time">${escapeHtml(time)}</span><span class="git-log-entry-author">${escapeHtml(author)}</span></span>` +
-          `</span>`;
-        entry.addEventListener("click", () => {
-          $("git-log-modal").style.display = "none";
-          openCommitDiffModal(hash, msg);
-        });
-      } else {
-        continue;
-      }
-      listEl.appendChild(entry);
+    const count = renderGitLogEntries(listEl, data.stdout);
+    gitLogLoaded = count;
+    if (count < GIT_LOG_PAGE_SIZE) {
+      gitLogHasMore = false;
     }
   } catch (e) {
     listEl.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
@@ -653,8 +912,7 @@ async function openCommitDiffModal(commitHash, commitMsg) {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.status === 401) {
-      localStorage.removeItem("pi_console_token");
-      showLogin();
+      await handleUnauthorized();
       return;
     }
     const data = await res.json();
@@ -706,8 +964,7 @@ async function checkoutBranch(branch) {
     });
 
     if (res.status === 401) {
-      localStorage.removeItem("pi_console_token");
-      showLogin();
+      await handleUnauthorized();
       return;
     }
 
@@ -840,8 +1097,7 @@ async function openDiffModal() {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.status === 401) {
-      localStorage.removeItem("pi_console_token");
-      showLogin();
+      await handleUnauthorized();
       return;
     }
     const data = await res.json();
@@ -916,8 +1172,7 @@ async function openSettingsServerInfo() {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.status === 401) {
-      localStorage.removeItem("pi_console_token");
-      showLogin();
+      await handleUnauthorized();
       return;
     }
     if (!res.ok) {
@@ -943,7 +1198,7 @@ function closeSettings() {
 }
 
 function settingsLogout() {
-  localStorage.removeItem("pi_console_token");
+  clearToken();
   token = "";
   closeSettings();
   showLogin();
@@ -991,8 +1246,7 @@ async function loadGithubRepos() {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.status === 401) {
-      localStorage.removeItem("pi_console_token");
-      showLogin();
+      await handleUnauthorized();
       return;
     }
     if (!res.ok) {
@@ -1056,8 +1310,7 @@ async function submitClone() {
       body: JSON.stringify({ url, name: name || null }),
     });
     if (res.status === 401) {
-      localStorage.removeItem("pi_console_token");
-      showLogin();
+      await handleUnauthorized();
       return;
     }
     const data = await res.json();
@@ -1215,8 +1468,7 @@ async function openBranchModal() {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.status === 401) {
-      localStorage.removeItem("pi_console_token");
-      showLogin();
+      await handleUnauthorized();
       return;
     }
     if (!res.ok) {
@@ -1303,8 +1555,7 @@ async function submitJobCreate() {
       body: JSON.stringify({ name, label: label || name, script, open_url: openUrl }),
     });
     if (res.status === 401) {
-      localStorage.removeItem("pi_console_token");
-      showLogin();
+      await handleUnauthorized();
       return;
     }
     const data = await res.json();
@@ -1331,8 +1582,7 @@ async function deleteJob(jobName) {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.status === 401) {
-      localStorage.removeItem("pi_console_token");
-      showLogin();
+      await handleUnauthorized();
       return;
     }
     const data = await res.json();
@@ -1686,6 +1936,11 @@ function initQuickInput() {
     if (e.target.closest(".quick-key") && !e.target.closest(".quick-key-toggle")) closeExtra();
   });
   window.addEventListener("blur", closeExtra);
+  document.addEventListener("touchend", (e) => {
+    if (extraPanel.style.display !== "none" && !e.target.closest(".quick-key-toggle") && !extraPanel.contains(e.target)) {
+      closeExtra();
+    }
+  });
 
   toggleBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
   toggleBtn.addEventListener("touchend", (e) => {
@@ -1912,8 +2167,7 @@ async function runJob(jobName = null, argsOverride = null) {
     });
 
     if (res.status === 401) {
-      localStorage.removeItem("pi_console_token");
-      showLogin();
+      await handleUnauthorized();
       return;
     }
 
@@ -1950,19 +2204,22 @@ async function runJob(jobName = null, argsOverride = null) {
 
 function toggleMenu() {
   const dd = $("menu-dropdown");
+  const btn = $("menu-btn");
   if (dd.style.display === "none") {
-    const btn = $("menu-btn");
     const rect = btn.getBoundingClientRect();
     dd.style.left = rect.left + "px";
     dd.style.top = rect.bottom + 4 + "px";
     dd.style.display = "block";
+    btn.classList.add("active");
   } else {
     dd.style.display = "none";
+    btn.classList.remove("active");
   }
 }
 
 function closeMenu() {
   $("menu-dropdown").style.display = "none";
+  $("menu-btn").classList.remove("active");
 }
 
 
@@ -1986,6 +2243,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (e.key === "Enter") login();
   });
   $("job-confirm-cancel").addEventListener("click", closeJobConfirmModal);
+  $("job-confirm-cancel-x").addEventListener("click", closeJobConfirmModal);
   $("job-confirm-run").addEventListener("click", () => {
     const args = collectConfirmArgs();
     closeJobConfirmModal();
@@ -2018,22 +2276,24 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("diff-close").addEventListener("click", closeDiffModal);
   $("job-create-cancel").addEventListener("click", closeJobCreateModal);
   $("job-create-submit").addEventListener("click", submitJobCreate);
-  $("header-ws-select").addEventListener("change", async (e) => {
-    selectedWorkspace = e.target.value || null;
-    if (selectedWorkspace) {
-      localStorage.setItem("pi_console_workspace", selectedWorkspace);
-    } else {
-      localStorage.removeItem("pi_console_workspace");
+  $("ws-select-btn").addEventListener("click", toggleWsSelectDropdown);
+  document.addEventListener("click", (e) => {
+    if (!$("ws-select-wrap").contains(e.target)) {
+      $("ws-select-dropdown").style.display = "none";
+      $("ws-select-btn").classList.remove("active");
     }
-    await updateHeaderInfo();
-    await loadJobsForWorkspace();
   });
   $("pull-btn").addEventListener("click", gitPull);
   $("push-btn").addEventListener("click", gitPush);
   initQuickInput();
   $("header-commit-msg").addEventListener("click", openGitLogModal);
   $("git-log-close").addEventListener("click", closeGitLogModal);
-  $("git-log-create-branch-toggle").addEventListener("click", toggleCreateBranchArea);
+  $("git-log-list-modal").addEventListener("scroll", (e) => {
+    const el = e.target;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 50) {
+      loadMoreGitLog();
+    }
+  });
   $("git-log-create-branch-submit").addEventListener("click", submitCreateBranch);
 
   if (token) {
@@ -2041,8 +2301,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (result.ok) {
       showApp();
       await initApp();
-    } else {
+    } else if (!result.auth) {
+      token = "";
+      clearToken();
       showLogin();
+    } else {
+      showToast(result.error);
+      showApp();
+      await initApp();
     }
   } else {
     showLogin();
