@@ -422,6 +422,44 @@ async def delete_terminal_session(session_id: str):
     return {"status": "ok"}
 
 
+def tmux_pane_in_copy_mode(tmux_session: str) -> bool:
+    result = subprocess.run(
+        ["tmux", "display-message", "-t", tmux_session, "-p", "#{pane_in_mode}"],
+        capture_output=True, text=True, timeout=5,
+    )
+    return result.stdout.strip() == "1"
+
+
+@app.post("/terminal/sessions/{session_id}/scroll", dependencies=[Depends(verify_token)])
+async def terminal_scroll(session_id: str, body: dict):
+    session = get_terminal_session(session_id)
+    direction = body.get("direction")
+    if direction not in ("up", "down"):
+        raise HTTPException(status_code=400, detail="direction must be 'up' or 'down'")
+    tmux_session = f"pi-{session.port}"
+    try:
+        in_copy = tmux_pane_in_copy_mode(tmux_session)
+        if direction == "up":
+            if not in_copy:
+                subprocess.run(
+                    ["tmux", "copy-mode", "-t", tmux_session],
+                    capture_output=True, text=True, timeout=5,
+                )
+            subprocess.run(
+                ["tmux", "send-keys", "-t", tmux_session, "-X", "page-up"],
+                capture_output=True, text=True, timeout=5,
+            )
+        else:
+            if in_copy:
+                subprocess.run(
+                    ["tmux", "send-keys", "-t", tmux_session, "-X", "page-down"],
+                    capture_output=True, text=True, timeout=5,
+                )
+    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    return {"status": "ok"}
+
+
 def get_terminal_session(session_id: str) -> TerminalSession:
     cleanup_terminal_sessions()
     session = TERMINAL_SESSIONS.get(session_id)

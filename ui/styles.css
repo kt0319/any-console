@@ -1471,19 +1471,35 @@ button:disabled {
   gap: 4px;
 }
 
-.quick-extra-row .quick-key {
-  height: 32px;
-  min-height: 32px;
-  min-width: 0;
-  width: auto;
-  flex: 1;
-  font-size: 11px;
+
+.quick-key-pg {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.quick-extra-row:last-child .quick-key {
+.quick-key-pg .quick-key {
+  height: 21px;
+  min-height: 21px;
+  font-size: 11px;
+  padding: 0 8px;
+}
+
+.quick-text-inline {
+  flex: 7 1 0;
+  min-width: 0;
   height: 44px;
-  min-height: 44px;
-  font-size: 16px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(25, 28, 40, 0.8);
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+}
+
+.quick-text-inline::placeholder {
+  color: rgba(255, 255, 255, 0.3);
 }
 
 @media (min-width: 769px) {

@@ -48,7 +48,7 @@ const QUICK_KEYS = [
   { label: "\u2192", key: "ArrowRight", code: "ArrowRight", keyCode: 39 },
   { label: "\u21B5", key: "Enter", code: "Enter", keyCode: 13 },
 ];
-const EXTRA_KEYS = [
+const NUMBER_KEYS = [
   { label: "1", key: "1", code: "Digit1", keyCode: 49 },
   { label: "2", key: "2", code: "Digit2", keyCode: 50 },
   { label: "3", key: "3", code: "Digit3", keyCode: 51 },
@@ -59,12 +59,19 @@ const EXTRA_KEYS = [
   { label: "8", key: "8", code: "Digit8", keyCode: 56 },
   { label: "9", key: "9", code: "Digit9", keyCode: 57 },
   { label: "0", key: "0", code: "Digit0", keyCode: 48 },
-  { label: "Esc", key: "Escape", code: "Escape", keyCode: 27 },
-  { label: "S-Tab", shift: true, key: "Tab", code: "Tab", keyCode: 9 },
-  { label: "Tab", key: "Tab", code: "Tab", keyCode: 9 },
-  { label: "Ctrl+C", ctrl: true, key: "c", code: "KeyC", keyCode: 67 },
-  { label: "/", key: "/", code: "Slash", keyCode: 191 },
+];
+const EXTRA_MAIN_KEYS = [
   { label: "Del", key: "Delete", code: "Delete", keyCode: 46 },
+  { label: "\u00AB", key: "Home", code: "Home", keyCode: 36 },
+  { html: '<span class="mdi mdi-chevron-double-down"></span>', tmuxScroll: "down" },
+  { html: '<span class="mdi mdi-chevron-double-up"></span>', tmuxScroll: "up" },
+  { label: "\u00BB", key: "End", code: "End", keyCode: 35 },
+];
+const EXTRA_ROW_KEYS = [
+  { label: "Tab", key: "Tab", code: "Tab", keyCode: 9 },
+  { label: "S-Tab", shift: true, key: "Tab", code: "Tab", keyCode: 9 },
+  { label: "C-c", ctrl: true, key: "c", code: "KeyC", keyCode: 67 },
+  { label: "/", key: "/", code: "Slash", keyCode: 191 },
 ];
 const AUTO_REFRESH_INTERVAL = 10000;
 let autoRefreshTimer = null;
@@ -140,22 +147,20 @@ function showApp() {
 
 async function refreshCurrentWorkspaceStatus() {
   if (!selectedWorkspace) return;
-  try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/status`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
-    if (!res.ok) return;
-    const ws = await res.json();
-    const idx = allWorkspaces.findIndex((w) => w.name === selectedWorkspace);
-    if (idx >= 0) {
-      allWorkspaces[idx] = ws;
-    }
-    await updateHeaderInfo();
-  } catch {}
+  const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/status`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) {
+    await handleUnauthorized();
+    return;
+  }
+  if (!res.ok) return;
+  const ws = await res.json();
+  const idx = allWorkspaces.findIndex((w) => w.name === selectedWorkspace);
+  if (idx >= 0) {
+    allWorkspaces[idx] = ws;
+  }
+  await updateHeaderInfo();
 }
 
 function startAutoRefresh() {
@@ -166,6 +171,7 @@ function startAutoRefresh() {
     try {
       if (selectedWorkspace) await refreshCurrentWorkspaceStatus();
       await fetchOrphanSessions();
+    } catch {
     } finally {
       autoRefreshing = false;
     }
@@ -1987,10 +1993,26 @@ function attachPasteListener(iframe) {
   }
 }
 
+async function sendTmuxScroll(direction) {
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  if (!activeTab || activeTab.type !== "terminal") return;
+  const m = activeTab.url.match(/\/terminal\/s\/([^/]+)\//);
+  if (!m) return;
+  const sessionId = m[1];
+  try {
+    await fetch(`/terminal/sessions/${sessionId}/scroll`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ direction }),
+    });
+  } catch {}
+}
+
 function createQuickKeyBtn(keyDef) {
   const btn = document.createElement("div");
   btn.className = "quick-key";
-  btn.textContent = keyDef.label;
+  if (keyDef.html) btn.innerHTML = keyDef.html;
+  else btn.textContent = keyDef.label;
   btn.addEventListener("touchstart", (e) => {
     e.preventDefault();
     btn.classList.add("pressed");
@@ -1998,7 +2020,11 @@ function createQuickKeyBtn(keyDef) {
   btn.addEventListener("touchend", (e) => {
     e.preventDefault();
     btn.classList.remove("pressed");
-    sendKeyToTerminal(keyDef);
+    if (keyDef.tmuxScroll) {
+      sendTmuxScroll(keyDef.tmuxScroll);
+    } else {
+      sendKeyToTerminal(keyDef);
+    }
   });
   btn.addEventListener("touchcancel", () => btn.classList.remove("pressed"));
   return btn;
@@ -2010,10 +2036,13 @@ function initQuickInput() {
   const toggleBtn = document.createElement("div");
   toggleBtn.className = "quick-key quick-key-toggle";
   toggleBtn.innerHTML = '<span class="mdi mdi-keyboard-outline"></span>';
-  panel.appendChild(toggleBtn);
 
   const quickKeyBtns = QUICK_KEYS.map(k => createQuickKeyBtn(k));
-  for (const btn of quickKeyBtns) panel.appendChild(btn);
+  const extraKeyBtns = EXTRA_MAIN_KEYS.map(k => {
+    const btn = createQuickKeyBtn(k);
+    btn.style.display = "none";
+    return btn;
+  });
 
   const fileInput = document.createElement("input");
   fileInput.type = "file";
@@ -2032,55 +2061,156 @@ function initQuickInput() {
 
   const imgBtn = document.createElement("div");
   imgBtn.className = "quick-key";
-  imgBtn.textContent = "+";
+  imgBtn.innerHTML = '<span class="mdi mdi-camera"></span>';
   imgBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
   imgBtn.addEventListener("touchend", (e) => {
     e.preventDefault();
     openFilePicker();
   });
   imgBtn.addEventListener("click", openFilePicker);
-  panel.insertBefore(imgBtn, quickKeyBtns[0]);
+
+  const menuBtn = document.createElement("div");
+  menuBtn.className = "quick-key quick-key-toggle";
+  menuBtn.innerHTML = '<span class="mdi mdi-menu"></span>';
+
+  panel.appendChild(menuBtn);
+  panel.appendChild(imgBtn);
+  const middleKeys = quickKeyBtns.slice(0, -1);
+  const enterKey = quickKeyBtns[quickKeyBtns.length - 1];
+
+  const escKey = createQuickKeyBtn({ label: "Esc", key: "Escape", code: "Escape", keyCode: 27 });
+  escKey.style.display = "none";
+
+  for (const btn of middleKeys) panel.appendChild(btn);
+  for (const btn of extraKeyBtns) panel.appendChild(btn);
+  panel.appendChild(toggleBtn);
+  panel.appendChild(escKey);
+  panel.appendChild(enterKey);
+
+  imgBtn.style.display = "none";
+  let extraMode = false;
+  const setExtraMode = (on) => {
+    extraMode = on;
+    menuBtn.style.display = on ? "none" : "";
+    imgBtn.style.display = on ? "" : "none";
+    enterKey.style.display = on ? "none" : "";
+    escKey.style.display = on ? "" : "none";
+    for (const btn of middleKeys) btn.style.display = on ? "none" : "";
+    for (const btn of extraKeyBtns) btn.style.display = on ? "" : "none";
+  };
+
+  const textInput = document.createElement("input");
+  textInput.type = "text";
+  textInput.className = "quick-text-inline";
+  textInput.placeholder = "テキスト入力・音声入力";
+  textInput.style.display = "none";
+  panel.insertBefore(textInput, toggleBtn);
+  let composing = false;
+  textInput.addEventListener("compositionstart", () => { composing = true; });
+  textInput.addEventListener("compositionend", () => { composing = false; });
+  textInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !composing) {
+      const val = textInput.value;
+      if (val) {
+        sendTextToTerminal(val);
+        textInput.value = "";
+      }
+      textInput.blur();
+    }
+  });
+  textInput.addEventListener("blur", () => {
+    if (composing) {
+      textInput.focus();
+      return;
+    }
+    setTimeout(() => {
+      const val = textInput.value;
+      if (val) {
+        sendTextToTerminal(val);
+        textInput.value = "";
+      }
+      closeTextInput();
+    }, 100);
+  });
 
   const extraPanel = document.createElement("div");
   extraPanel.className = "quick-extra-panel";
   extraPanel.style.display = "none";
 
-  const row1 = document.createElement("div");
-  row1.className = "quick-extra-row";
-  const row2 = document.createElement("div");
-  row2.className = "quick-extra-row";
-
-  for (const keyDef of EXTRA_KEYS) {
-    const isDigit = keyDef.code && keyDef.code.startsWith("Digit");
-    (isDigit ? row1 : row2).appendChild(createQuickKeyBtn(keyDef));
+  const numRow = document.createElement("div");
+  numRow.className = "quick-extra-row";
+  for (const keyDef of NUMBER_KEYS) {
+    numRow.appendChild(createQuickKeyBtn(keyDef));
   }
+  extraPanel.appendChild(numRow);
 
-  extraPanel.appendChild(row1);
-  extraPanel.appendChild(row2);
+  const extraRow = document.createElement("div");
+  extraRow.className = "quick-extra-row";
+  for (const keyDef of EXTRA_ROW_KEYS) {
+    extraRow.appendChild(createQuickKeyBtn(keyDef));
+  }
+  extraPanel.appendChild(extraRow);
 
+  const showTextInput = () => {
+    textInput.style.display = "";
+    menuBtn.style.flex = "1";
+    for (const btn of middleKeys) btn.style.display = "none";
+    for (const btn of extraKeyBtns) btn.style.display = "none";
+    enterKey.style.display = "none";
+    escKey.style.display = "none";
+    imgBtn.style.display = "none";
+    toggleBtn.style.display = "none";
+    menuBtn.classList.add("active");
+  };
+  const closeTextInput = () => {
+    textInput.style.display = "none";
+    menuBtn.style.flex = "";
+    toggleBtn.style.display = "";
+    menuBtn.classList.remove("active");
+    setExtraMode(extraMode);
+  };
   const closeExtra = () => {
     extraPanel.style.display = "none";
     toggleBtn.classList.remove("active");
+    setExtraMode(false);
   };
-  extraPanel.addEventListener("touchend", (e) => {
-    if (e.target.closest(".quick-key")) closeExtra();
-  });
+
   panel.addEventListener("touchend", (e) => {
-    if (e.target.closest(".quick-key") && !e.target.closest(".quick-key-toggle")) closeExtra();
+    const t = e.target.closest(".quick-key");
+    if (t && !t.classList.contains("quick-key-toggle")) {
+      closeTextInput();
+    }
   });
-  window.addEventListener("blur", closeExtra);
+  window.addEventListener("blur", () => { closeTextInput(); });
   document.addEventListener("touchend", (e) => {
-    if (extraPanel.style.display !== "none" && !e.target.closest(".quick-key-toggle") && !extraPanel.contains(e.target)) {
+    if (textInput.style.display !== "none" && !e.target.closest(".quick-key-toggle") && !textInput.contains(e.target)) {
+      closeTextInput();
+    }
+    if (extraPanel.style.display !== "none" && !e.target.closest(".quick-key-toggle") && !extraPanel.contains(e.target) && !panel.contains(e.target)) {
       closeExtra();
+    }
+  });
+
+  menuBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  menuBtn.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    const open = textInput.style.display === "none";
+    if (open) {
+      showTextInput();
+      textInput.focus();
+    } else {
+      closeTextInput();
     }
   });
 
   toggleBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
   toggleBtn.addEventListener("touchend", (e) => {
     e.preventDefault();
-    const open = extraPanel.style.display === "none";
-    extraPanel.style.display = open ? "flex" : "none";
-    toggleBtn.classList.toggle("active", open);
+    closeTextInput();
+    const on = !extraMode;
+    extraPanel.style.display = on ? "flex" : "none";
+    setExtraMode(on);
+    toggleBtn.classList.toggle("active", on);
   });
 
   panel.parentNode.insertBefore(extraPanel, panel);
