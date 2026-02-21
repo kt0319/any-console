@@ -262,6 +262,21 @@ def cleanup_terminal_sessions() -> None:
         TERMINAL_SESSIONS.pop(sid, None)
 
 
+@app.get("/terminal/sessions", dependencies=[Depends(verify_token)])
+async def list_terminal_sessions():
+    cleanup_terminal_sessions()
+    now = time.time()
+    return [
+        {
+            "session_id": sid,
+            "workspace": s.workspace,
+            "url": f"/terminal/s/{sid}/",
+            "expires_in": int(s.expires_at - now),
+        }
+        for sid, s in TERMINAL_SESSIONS.items()
+    ]
+
+
 def get_terminal_session(session_id: str) -> TerminalSession:
     cleanup_terminal_sessions()
     session = TERMINAL_SESSIONS.get(session_id)
@@ -525,7 +540,7 @@ def get_workspace_diff(name: str):
 )
 async def terminal_http_proxy(session_id: str, path: str, request: Request):
     session = get_terminal_session(session_id)
-    target_path = "/" + path
+    target_path = f"/terminal/s/{session_id}/{path}"
     if request.url.query:
         target_path += "?" + request.url.query
 
@@ -569,23 +584,29 @@ async def terminal_ws_proxy(websocket: WebSocket, session_id: str, path: str):
 
     import websockets  # type: ignore
 
-    backend_path = "/" + path
+    backend_path = f"/terminal/s/{session_id}/{path}"
     if websocket.url.query:
         backend_path += "?" + websocket.url.query
     backend_url = f"ws://127.0.0.1:{session.port}{backend_path}"
 
-    await websocket.accept()
+    client_subprotocols = websocket.headers.get("sec-websocket-protocol", "").split(",")
+    client_subprotocols = [s.strip() for s in client_subprotocols if s.strip()]
+    await websocket.accept(subprotocol=client_subprotocols[0] if client_subprotocols else None)
     try:
-        async with websockets.connect(backend_url, max_size=None) as upstream:
+        async with websockets.connect(
+            backend_url, max_size=None,
+            subprotocols=[websockets.Subprotocol(s) for s in client_subprotocols] if client_subprotocols else None,
+        ) as upstream:
             async def client_to_upstream():
                 while True:
                     msg = await websocket.receive()
                     if msg.get("type") == "websocket.disconnect":
                         break
-                    if msg.get("text") is not None:
-                        await upstream.send(msg["text"])
-                    elif msg.get("bytes") is not None:
-                        await upstream.send(msg["bytes"])
+                    data = msg.get("bytes")
+                    if data is None and msg.get("text") is not None:
+                        data = msg["text"].encode("utf-8")
+                    if data:
+                        await upstream.send(data)
 
             async def upstream_to_client():
                 async for message in upstream:

@@ -533,7 +533,71 @@ header .header-select {
   border-color: var(--accent);
 }
 
+/* Tab bar */
+.tab-bar {
+  display: flex;
+  gap: 2px;
+  padding: 4px 8px 0;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.tab-btn.active {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tab-close:hover {
+  background: var(--error);
+  color: var(--text-primary);
+}
+
 /* Output */
+.output-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  position: relative;
+}
+
 .output-area {
   flex: 1;
   overflow-y: auto;
@@ -543,6 +607,14 @@ header .header-select {
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+.terminal-frame {
+  position: absolute;
+  inset: 0;
+  border: none;
+  width: 100%;
+  height: 100%;
 }
 
 .output-area .empty-state {

@@ -8,6 +8,10 @@ let hiddenWorkspaces = JSON.parse(localStorage.getItem("hidden_workspaces") || "
 let commitLogOpen = false;
 let commitLogContent = "";
 let runningJobName = null;
+let terminalTabs = [];
+let activeTabId = "output";
+let terminalIdCounter = 0;
+const TERMINAL_TABS_KEY = "pi_console_terminal_tabs";
 
 function $(id) {
   return document.getElementById(id);
@@ -86,6 +90,34 @@ async function login() {
   }
 }
 
+async function restoreTerminalTabs() {
+  const saved = JSON.parse(localStorage.getItem(TERMINAL_TABS_KEY) || "[]");
+  if (saved.length === 0) return;
+
+  try {
+    const res = await fetch("/terminal/sessions", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      localStorage.removeItem(TERMINAL_TABS_KEY);
+      return;
+    }
+    const sessions = await res.json();
+    const aliveUrls = new Set(sessions.map((s) => s.url));
+
+    const alive = saved.filter((t) => aliveUrls.has(t.url));
+    if (alive.length === 0) {
+      localStorage.removeItem(TERMINAL_TABS_KEY);
+      return;
+    }
+    for (const t of alive) {
+      addTerminalTab(t.url, t.label, t.id);
+    }
+  } catch {
+    localStorage.removeItem(TERMINAL_TABS_KEY);
+  }
+}
+
 async function initApp() {
   await loadWorkspaces();
   if (selectedWorkspace && !visibleWorkspaces().some((ws) => ws.name === selectedWorkspace)) {
@@ -96,6 +128,7 @@ async function initApp() {
   await updateHeaderInfo();
   await loadJobsForWorkspace();
   renderJobList();
+  await restoreTerminalTabs();
 }
 
 async function loadWorkspaces() {
@@ -352,6 +385,7 @@ async function checkoutBranch(branch) {
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
   if (ws && ws.branch === branch) return;
 
+  switchTab("output");
   $("output").innerHTML = '<div class="output-status"><span class="status-badge running">switching</span></div>';
 
   try {
@@ -795,10 +829,91 @@ function extractCommands(content) {
     .trim();
 }
 
+function saveTerminalTabs() {
+  const data = terminalTabs.map((t) => ({ id: t.id, url: t.url, label: t.label }));
+  localStorage.setItem(TERMINAL_TABS_KEY, JSON.stringify(data));
+}
+
+function addTerminalTab(url, workspace, tabId) {
+  const id = tabId || `term-${++terminalIdCounter}`;
+  const label = workspace || "terminal";
+  if (terminalTabs.some((t) => t.id === id)) return;
+  terminalTabs.push({ id, url, label });
+
+  const iframe = document.createElement("iframe");
+  iframe.className = "terminal-frame";
+  iframe.id = `frame-${id}`;
+  iframe.src = url;
+  iframe.style.display = "none";
+  $("output-container").appendChild(iframe);
+
+  saveTerminalTabs();
+  switchTab(id);
+}
+
+function removeTerminalTab(id) {
+  terminalTabs = terminalTabs.filter((t) => t.id !== id);
+  const frame = $(`frame-${id}`);
+  if (frame) frame.remove();
+  saveTerminalTabs();
+  if (activeTabId === id) {
+    switchTab(terminalTabs.length > 0 ? terminalTabs[terminalTabs.length - 1].id : "output");
+  } else {
+    renderTabBar();
+  }
+}
+
+function switchTab(id) {
+  activeTabId = id;
+  const output = $("output");
+  output.style.display = id === "output" ? "" : "none";
+
+  for (const tab of terminalTabs) {
+    const frame = $(`frame-${tab.id}`);
+    if (frame) {
+      frame.style.display = tab.id === id ? "block" : "none";
+      if (tab.id === id) {
+        try { frame.contentWindow.focus(); } catch {}
+      }
+    }
+  }
+  renderTabBar();
+}
+
+function renderTabBar() {
+  const bar = $("tab-bar");
+  if (terminalTabs.length === 0) {
+    bar.style.display = "none";
+    return;
+  }
+  bar.style.display = "flex";
+
+  let html = `<button class="tab-btn${activeTabId === "output" ? " active" : ""}" data-tab="output">出力</button>`;
+  for (const tab of terminalTabs) {
+    html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}" data-tab="${tab.id}">`
+      + `${escapeHtml(tab.label)}<span class="tab-close" data-close="${tab.id}">&times;</span></button>`;
+  }
+  bar.innerHTML = html;
+
+  bar.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      if (e.target.classList.contains("tab-close")) return;
+      switchTab(btn.dataset.tab);
+    });
+  });
+  bar.querySelectorAll(".tab-close").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeTerminalTab(btn.dataset.close);
+    });
+  });
+}
+
 function renderDetail() {
   const job = JOBS[selectedJob];
   if (!job) return;
 
+  switchTab("output");
   $("detail-section").style.display = "none";
   const commands = extractCommands(job.script_content || "");
   if (commands) {
@@ -841,6 +956,7 @@ async function runJob(jobName = null) {
 
   runningJobName = targetJob;
   renderJobList();
+  switchTab("output");
   $("output").innerHTML = '<div class="output-status"><span class="status-badge running">running</span></div>';
 
   try {
@@ -871,15 +987,11 @@ async function runJob(jobName = null) {
     }
 
     if (targetJob === "terminal" && data.status === "ok" && data.terminal_url) {
-      const w = window.open(data.terminal_url, "_blank", "noopener");
-      if (!w) {
-        html += "\n<span style=\"color:var(--warning)\">terminal popup blocked</span>";
-      }
-      if (data.expires_in) {
-        html += `\nterminal expires in ${escapeHtml(String(data.expires_in))}s`;
-      }
+      addTerminalTab(data.terminal_url, selectedWorkspace);
+      return;
     }
 
+    switchTab("output");
     $("output").innerHTML = html;
   } catch (e) {
     $("output").innerHTML = `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(e.message)}`;

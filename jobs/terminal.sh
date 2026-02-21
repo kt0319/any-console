@@ -15,12 +15,12 @@ pick_port() {
 PORT=$(pick_port)
 BASE_PATH="${TERMINAL_BASE_PATH:-/}"
 
-sudo -n -u terminal timeout 600 ttyd \
+/usr/bin/timeout 600 /usr/local/bin/ttyd \
+  --writable \
   --interface 127.0.0.1 \
   --port "$PORT" \
   --base-path "$BASE_PATH" \
-  --once \
-  bash >/tmp/pi-console-ttyd-"$PORT".log 2>&1 &
+  zsh >/tmp/pi-console-ttyd-"$PORT".log 2>&1 &
 
 PID=$!
 sleep 0.3
