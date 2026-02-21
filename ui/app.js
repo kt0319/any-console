@@ -50,6 +50,18 @@ function $(id) {
   return document.getElementById(id);
 }
 
+function showToast(message, type = "error") {
+  const el = document.createElement("div");
+  el.className = `toast toast-${type}`;
+  el.textContent = message;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("show"));
+  setTimeout(() => {
+    el.classList.remove("show");
+    el.addEventListener("transitionend", () => el.remove());
+  }, 3000);
+}
+
 function formatTimeAgo(isoStr) {
   const diff = Date.now() - new Date(isoStr).getTime();
   if (diff < 0) return "";
@@ -154,11 +166,10 @@ async function checkToken() {
       },
       body: JSON.stringify({ job: "__ping__" }),
     });
-    // 400 = token valid but job unknown, 401 = invalid token
-    if (res.status === 401) return false;
-    return true;
-  } catch {
-    return false;
+    if (res.status === 401) return { ok: false, error: "認証に失敗しました" };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: `サーバーに接続できません: ${e.message}` };
   }
 }
 
@@ -167,15 +178,14 @@ async function login() {
   token = input.value.trim();
   if (!token) return;
 
-  const valid = await checkToken();
-  if (valid) {
+  const result = await checkToken();
+  if (result.ok) {
     localStorage.setItem("pi_console_token", token);
     $("login-error").style.display = "none";
     showApp();
     await initApp();
   } else {
-    $("login-error").textContent = "認証に失敗しました";
-    $("login-error").style.display = "block";
+    showToast(result.error);
     token = "";
   }
 }
@@ -238,6 +248,8 @@ async function initApp() {
   await fetchOrphanSessions();
   if (!selectedWorkspace) {
     setLoadingStatus("ワークスペースを選択してください");
+  } else {
+    $("output").innerHTML = '<div class="empty-state"></div>';
   }
 }
 
@@ -388,11 +400,13 @@ async function gitPull() {
       return;
     }
     const data = await res.json();
-    if (data.status !== "ok") {
-      alert(`pull failed: ${data.stderr || data.stdout || "unknown error"}`);
+    if (data.status === "ok") {
+      showToast("pull 完了", "success");
+    } else {
+      showToast(`pull 失敗: ${data.stderr || data.stdout || "unknown error"}`);
     }
   } catch (e) {
-    alert(`pull error: ${e.message}`);
+    showToast(`pull エラー: ${e.message}`);
   } finally {
     pullBtn.classList.remove("running");
     await loadWorkspaces();
@@ -418,11 +432,13 @@ async function gitPush() {
       return;
     }
     const data = await res.json();
-    if (data.status !== "ok") {
-      alert(`push failed: ${data.stderr || data.stdout || "unknown error"}`);
+    if (data.status === "ok") {
+      showToast("push 完了", "success");
+    } else {
+      showToast(`push 失敗: ${data.stderr || data.stdout || "unknown error"}`);
     }
   } catch (e) {
-    alert(`push error: ${e.message}`);
+    showToast(`push エラー: ${e.message}`);
   } finally {
     pushBtn.classList.remove("running");
     await loadWorkspaces();
@@ -805,6 +821,15 @@ function closeDiffModal() {
 }
 
 function openSettings() {
+  $("settings-menu").style.display = "";
+  $("settings-ws-visibility").style.display = "none";
+  $("settings-title").textContent = "設定";
+  $("settings-modal").style.display = "flex";
+}
+
+function openSettingsWsVisibility() {
+  $("settings-menu").style.display = "none";
+  $("settings-title").textContent = "表示するワークスペース";
   const list = $("ws-check-list");
   list.innerHTML = "";
   for (const ws of allWorkspaces) {
@@ -817,11 +842,18 @@ function openSettings() {
     });
     list.appendChild(item);
   }
-  $("settings-modal").style.display = "flex";
+  $("settings-ws-visibility").style.display = "";
 }
 
 function closeSettings() {
   $("settings-modal").style.display = "none";
+}
+
+function settingsLogout() {
+  localStorage.removeItem("pi_console_token");
+  token = "";
+  closeSettings();
+  showLogin();
 }
 
 let cloneTab = "github";
@@ -1501,15 +1533,26 @@ function initQuickInput() {
   });
   panel.appendChild(fileInput);
 
+  const container = $("quick-input");
+  const openFilePicker = () => {
+    container.style.display = "none";
+    fileInput.click();
+  };
+  const restorePanel = () => { container.style.display = ""; };
+  fileInput.addEventListener("change", restorePanel);
+  window.addEventListener("focus", () => {
+    if (container.style.display === "none") restorePanel();
+  });
+
   const imgBtn = document.createElement("div");
   imgBtn.className = "quick-key";
   imgBtn.textContent = "+";
   imgBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
   imgBtn.addEventListener("touchend", (e) => {
     e.preventDefault();
-    fileInput.click();
+    openFilePicker();
   });
-  imgBtn.addEventListener("click", () => fileInput.click());
+  imgBtn.addEventListener("click", openFilePicker);
   panel.insertBefore(imgBtn, quickKeyBtns[0]);
 
   const extraPanel = document.createElement("div");
@@ -1539,6 +1582,7 @@ function initQuickInput() {
   panel.addEventListener("touchend", (e) => {
     if (e.target.closest(".quick-key") && !e.target.closest(".quick-key-toggle")) closeExtra();
   });
+  window.addEventListener("blur", closeExtra);
 
   toggleBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
   toggleBtn.addEventListener("touchend", (e) => {
@@ -1548,7 +1592,6 @@ function initQuickInput() {
     toggleBtn.classList.toggle("active", open);
   });
 
-  const container = $("quick-input");
   container.insertBefore(extraPanel, panel);
 }
 
@@ -1673,7 +1716,7 @@ function renderTabBar() {
   bar.querySelectorAll(".tab-btn:not(.orphan)").forEach((btn) => {
     let longPressTimer = null;
     let didLongPress = false;
-    btn.addEventListener("touchstart", () => {
+    btn.addEventListener("touchstart", (e) => {
       didLongPress = false;
       longPressTimer = setTimeout(() => {
         didLongPress = true;
@@ -1682,7 +1725,10 @@ function renderTabBar() {
         }
       }, 500);
     }, { passive: true });
-    btn.addEventListener("touchend", () => clearTimeout(longPressTimer));
+    btn.addEventListener("touchend", (e) => {
+      clearTimeout(longPressTimer);
+      if (didLongPress) e.preventDefault();
+    });
     btn.addEventListener("touchmove", () => clearTimeout(longPressTimer));
     btn.addEventListener("click", (e) => {
       if (e.target.classList.contains("tab-close") || didLongPress) return;
@@ -1808,12 +1854,6 @@ function closeMenu() {
   $("menu-dropdown").style.display = "none";
 }
 
-async function refreshApp() {
-  closeMenu();
-  await loadWorkspaces();
-  await updateHeaderInfo();
-  await loadJobsForWorkspace();
-}
 
 function updateViewportHeight() {
   const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
@@ -1844,7 +1884,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     e.stopPropagation();
     toggleMenu();
   });
-  $("menu-refresh").addEventListener("click", refreshApp);
   $("menu-settings").addEventListener("click", () => {
     closeMenu();
     openSettings();
@@ -1852,7 +1891,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.addEventListener("click", closeMenu);
   window.addEventListener("blur", closeMenu);
   $("settings-close").addEventListener("click", closeSettings);
-  $("ws-add-btn").addEventListener("click", openCloneModal);
+  $("settings-clone").addEventListener("click", () => {
+    closeSettings();
+    openCloneModal();
+  });
+  $("settings-visibility").addEventListener("click", openSettingsWsVisibility);
+  $("settings-logout").addEventListener("click", settingsLogout);
   $("clone-cancel").addEventListener("click", closeCloneModal);
   $("clone-submit").addEventListener("click", submitClone);
   for (const tab of document.querySelectorAll(".clone-tab")) {
@@ -1881,8 +1925,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("git-log-create-branch-submit").addEventListener("click", submitCreateBranch);
 
   if (token) {
-    const valid = await checkToken();
-    if (valid) {
+    const result = await checkToken();
+    if (result.ok) {
       showApp();
       await initApp();
     } else {
