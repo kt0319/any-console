@@ -45,6 +45,19 @@ function $(id) {
   return document.getElementById(id);
 }
 
+function formatTimeAgo(isoStr) {
+  const diff = Date.now() - new Date(isoStr).getTime();
+  if (diff < 0) return "";
+  const sec = Math.floor(diff / 1000);
+  if (sec < 300) return "";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const day = Math.floor(hr / 24);
+  return `${day}d`;
+}
+
 function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
@@ -273,7 +286,7 @@ function updateGithubLink(ws) {
     const path = baseUrl.replace(/^https?:\/\/github\.com/, "");
     link.href = `github://github.com${path}/tree/${encodeURIComponent(branch)}`;
     link.addEventListener("click", function fallback(e) {
-      setTimeout(() => { window.location.href = webUrl; }, 500);
+      setTimeout(() => { window.open(webUrl, "_blank"); }, 500);
     }, { once: true });
   } else {
     link.href = webUrl;
@@ -317,7 +330,13 @@ async function updateHeaderInfo() {
   updateGithubLink(ws);
   mainGitStatusEl.innerHTML = "";
   updateGitActions(ws);
-  $("header-commit-msg").textContent = ws && ws.last_commit_message ? ws.last_commit_message : "";
+  const commitMsgEl = $("header-commit-msg");
+  if (ws && ws.last_commit_message) {
+    const ago = ws.last_commit ? formatTimeAgo(ws.last_commit) : "";
+    commitMsgEl.innerHTML = `<span class="commit-msg-text">${escapeHtml(ws.last_commit_message)}</span>${ago ? `<span class="commit-msg-ago">${ago}</span>` : ""}`;
+  } else {
+    commitMsgEl.innerHTML = "";
+  }
 
   await loadBranches();
 }

@@ -53,15 +53,29 @@ header .header-select {
 }
 
 .header-commit-msg {
+  display: flex;
+  align-items: center;
   flex: 1;
   min-width: 0;
   padding: 0 8px;
   font-size: 12px;
   color: var(--text-muted);
+  cursor: pointer;
+}
+
+.commit-msg-text {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  cursor: pointer;
+  min-width: 0;
+}
+
+.commit-msg-ago {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: 11px;
+  opacity: 0.7;
 }
 
 .header-commit-msg:hover {
