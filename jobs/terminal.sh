@@ -16,7 +16,9 @@ PORT=$(pick_port)
 BASE_PATH="${TERMINAL_BASE_PATH:-/}"
 TMUX_SESSION="pi-${PORT}"
 
-/usr/local/bin/ttyd \
+unset CLAUDECODE
+
+ttyd \
   --writable \
   --interface 127.0.0.1 \
   --port "$PORT" \
