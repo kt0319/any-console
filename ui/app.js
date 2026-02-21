@@ -930,19 +930,17 @@ function renderJobMenu() {
         closeMenu();
         openJobConfirmModal(name);
       });
-      if (job.source === "workspace") {
-        let holdTimer = null;
-        btn.addEventListener("contextmenu", (e) => {
-          e.preventDefault();
-          closeMenu();
-          deleteJob(name);
-        });
-        btn.addEventListener("touchstart", () => {
-          holdTimer = setTimeout(() => { closeMenu(); deleteJob(name); }, 600);
-        }, { passive: true });
-        btn.addEventListener("touchend", () => clearTimeout(holdTimer));
-        btn.addEventListener("touchmove", () => clearTimeout(holdTimer));
-      }
+      let holdTimer = null;
+      btn.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        closeMenu();
+        deleteJob(name);
+      });
+      btn.addEventListener("touchstart", () => {
+        holdTimer = setTimeout(() => { closeMenu(); deleteJob(name); }, 600);
+      }, { passive: true });
+      btn.addEventListener("touchend", () => clearTimeout(holdTimer));
+      btn.addEventListener("touchmove", () => clearTimeout(holdTimer));
       dropdown.insertBefore(btn, refNode);
     }
   }

@@ -27,17 +27,9 @@ class JobDefinition:
         return PROJECT_ROOT / self.script
 
 
-JOBS: dict[str, JobDefinition] = {
-    "status": JobDefinition(
-        script="jobs/status.sh",
-        label="ステータス",
-        description="システムステータス確認",
-        args=[],
-    ),
-    "terminal": JobDefinition(
-        script="jobs/terminal.sh",
-        label="ターミナル",
-        description="一時Webターミナル起動（10分）",
-        args=[],
-    ),
-}
+TERMINAL_JOB = JobDefinition(
+    script="jobs/terminal.sh",
+    label="ターミナル",
+    description="一時Webターミナル起動（10分）",
+    args=[],
+)

@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .auth import verify_token
-from .jobs import JOBS, JobDefinition
+from .jobs import TERMINAL_JOB, JobDefinition
 from .runner import run_job
 
 app = FastAPI(title="pi-console")
@@ -436,10 +436,6 @@ def websockets_available() -> bool:
     return importlib.util.find_spec("websockets") is not None
 
 
-def get_workspace_jobs_config_path(workspace_path: Path) -> Path:
-    return workspace_path / ".pi-console-jobs.json"
-
-
 def get_workspace_custom_jobs_dir(workspace_path: Path) -> Path:
     jobs_dir = workspace_path / WORKSPACE_JOBS_DIR
     jobs_dir.mkdir(parents=True, exist_ok=True)
@@ -464,34 +460,9 @@ def get_workspace_custom_jobs(workspace_path: Path) -> dict[str, JobDefinition]:
 
 
 def get_workspace_jobs(workspace_path: Path | None) -> dict:
-    available_jobs: dict[str, JobDefinition] = dict(JOBS)
-    if workspace_path:
-        available_jobs.update(get_workspace_custom_jobs(workspace_path))
-    else:
-        return available_jobs
-
-    config_path = get_workspace_jobs_config_path(workspace_path)
-    if not config_path.is_file():
-        return available_jobs
-
-    try:
-        raw = json.loads(config_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return JOBS
-
-    names: list[str] = []
-    if isinstance(raw, list):
-        names = [n for n in raw if isinstance(n, str)]
-    elif isinstance(raw, dict) and isinstance(raw.get("jobs"), list):
-        names = [n for n in raw["jobs"] if isinstance(n, str)]
-    else:
-        return available_jobs
-
-    filtered: dict = {}
-    for name in names:
-        if name in available_jobs:
-            filtered[name] = available_jobs[name]
-    return filtered
+    if not workspace_path:
+        return {}
+    return get_workspace_custom_jobs(workspace_path)
 
 
 def read_script_content(job_def) -> str:
@@ -554,13 +525,7 @@ def list_remote_branches(name: str):
 def list_workspace_jobs(name: str):
     ws_path = resolve_workspace_path(name)
     jobs = get_workspace_jobs(ws_path)
-    custom_names = set(get_workspace_custom_jobs(ws_path).keys())
-    payload = {}
-    for job_name, job_def in jobs.items():
-        item = job_definition_to_dict(job_def)
-        item["source"] = "workspace" if job_name in custom_names else "common"
-        payload[job_name] = item
-    return payload
+    return {name: job_definition_to_dict(job_def) for name, job_def in jobs.items()}
 
 
 class CreateJobRequest(BaseModel):
@@ -919,11 +884,14 @@ async def upload_image(file: UploadFile):
 @app.post("/run", dependencies=[Depends(verify_token)])
 def execute_job(body: RunRequest):
     ws_path = resolve_workspace_path(body.workspace)
-    available_jobs = get_workspace_jobs(ws_path)
 
-    job_def = available_jobs.get(body.job)
-    if not job_def:
-        raise HTTPException(status_code=400, detail=f"Unknown job: {body.job}")
+    if body.job == "terminal":
+        job_def = TERMINAL_JOB
+    else:
+        available_jobs = get_workspace_jobs(ws_path)
+        job_def = available_jobs.get(body.job)
+        if not job_def:
+            raise HTTPException(status_code=400, detail=f"Unknown job: {body.job}")
 
     ordered_args: list[str] = []
     for arg_option in job_def.args:
