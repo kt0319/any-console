@@ -322,6 +322,11 @@ header .header-select {
   color: var(--text-muted) !important;
 }
 
+.menu-job-url-icon {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
 /* Main panel */
 .main-panel {
   display: flex;
@@ -733,12 +738,10 @@ button:disabled {
 
 
 .menu-dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  min-width: 120px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  position: fixed;
+  right: 10px;
+  background: rgba(30, 30, 30, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   z-index: 50;
@@ -746,7 +749,7 @@ button:disabled {
 }
 
 .menu-section-label {
-  padding: 8px 16px 4px;
+  padding: 8px 12px 4px;
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
@@ -758,7 +761,7 @@ button:disabled {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 10px 16px;
+  padding: 10px 12px;
   font-size: 13px;
   background: none;
   border: none;
