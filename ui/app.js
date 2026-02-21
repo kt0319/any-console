@@ -583,26 +583,39 @@ async function openGitLogModal() {
         if (refs) {
           refsHtml = refs.split(",").map((r) => {
             const name = r.trim();
-            if (!name) return "";
+            if (!name || name === "origin/HEAD" || name === "HEAD") return "";
             const isTag = name.startsWith("tag: ");
-            const isHead = name.includes("HEAD");
-            const cls = isTag ? "git-ref-tag" : isHead ? "git-ref-head" : "git-ref-branch";
-            return `<span class="git-ref ${cls}">${escapeHtml(name)}</span>`;
+            const isHead = name.startsWith("HEAD -> ");
+            const remoteMatch = name.match(/^(origin|upstream)\/(.*)/);
+            const isRemote = remoteMatch && !isTag && !isHead;
+            const cls = isTag ? "git-ref-tag" : isHead ? "git-ref-head" : isRemote ? "git-ref-remote" : "git-ref-branch";
+            let label;
+            if (isRemote) {
+              const icon = remoteMatch[1] === "origin" ? "mdi-github" : "mdi-server";
+              label = `<span class="mdi ${icon}"></span> ${escapeHtml(remoteMatch[2])}`;
+            } else if (isTag) {
+              label = `<span class="mdi mdi-tag-outline"></span> ${escapeHtml(name.replace("tag: ", ""))}`;
+            } else if (isHead) {
+              const branchName = name.replace("HEAD -> ", "");
+              label = `<span class="mdi mdi-source-branch"></span> ${escapeHtml(branchName)}`;
+            } else {
+              label = `<span class="mdi mdi-source-branch"></span> ${escapeHtml(name)}`;
+            }
+            return `<span class="git-ref ${cls}">${label}</span>`;
           }).join("");
         }
         entry.innerHTML =
-          `<span class="git-log-entry-graph">${escapeHtml(graph)}</span>` +
           `<span class="git-log-entry-body">` +
+            (refsHtml ? `<span class="git-log-entry-refs">${refsHtml}</span>` : "") +
             `<span class="git-log-entry-row1"><span class="git-log-entry-msg">${escapeHtml(msg)}</span></span>` +
-            `<span class="git-log-entry-meta">${refsHtml}<span class="git-log-entry-author">${escapeHtml(author)}</span><span class="git-log-entry-time">${escapeHtml(time)}</span></span>` +
+            `<span class="git-log-entry-meta"><span class="git-log-entry-time">${escapeHtml(time)}</span><span class="git-log-entry-author">${escapeHtml(author)}</span></span>` +
           `</span>`;
         entry.addEventListener("click", () => {
           $("git-log-modal").style.display = "none";
           openCommitDiffModal(hash, msg);
         });
       } else {
-        entry.className = "git-log-entry git-log-graph-only";
-        entry.innerHTML = `<span class="git-log-entry-graph">${escapeHtml(line.replace(/\*/g, " "))}</span>`;
+        continue;
       }
       listEl.appendChild(entry);
     }
@@ -1554,7 +1567,18 @@ function addTerminalTab(url, workspace, tabId, skipSwitch) {
   iframe.id = `frame-${id}`;
   iframe.src = url;
   iframe.style.display = "none";
-  iframe.addEventListener("load", () => attachPasteListener(iframe));
+  iframe.addEventListener("load", () => {
+    attachPasteListener(iframe);
+    try {
+      const doc = iframe.contentDocument;
+      if (doc) {
+        doc.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
+        doc.addEventListener("touchmove", (e) => {
+          if (e.touches.length > 1) e.preventDefault();
+        }, { passive: false });
+      }
+    } catch (err) {}
+  });
   $("output-container").appendChild(iframe);
 
   if (skipSwitch) return;
@@ -1779,6 +1803,11 @@ function updateViewportHeight() {
   const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
   document.documentElement.style.setProperty("--app-height", `${vh}px`);
 }
+
+document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
+document.addEventListener("touchmove", (e) => {
+  if (e.touches.length > 1) e.preventDefault();
+}, { passive: false });
 
 document.addEventListener("DOMContentLoaded", async () => {
   updateViewportHeight();

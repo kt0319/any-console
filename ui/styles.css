@@ -929,11 +929,13 @@ button:disabled {
 
 .modal-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  overflow: hidden;
 }
 .modal-header h3 {
   margin: 0;
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1085,7 +1087,6 @@ button:disabled {
 .git-log-entry {
   display: flex;
   align-items: flex-start;
-  padding: 0 4px;
   font-size: 13px;
 }
 
@@ -1125,12 +1126,20 @@ button:disabled {
 
 .git-log-entry-msg {
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--accent);
+}
+
+.git-log-entry-refs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
 .git-log-entry-meta {
   display: flex;
-  gap: 8px;
+  justify-content: space-between;
   align-items: center;
 }
 
@@ -1151,11 +1160,18 @@ button:disabled {
 
 .git-ref {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   font-size: 10px;
-  padding: 1px 5px;
+  padding: 2px 6px;
   border-radius: 3px;
   white-space: nowrap;
   line-height: 1;
+}
+
+.git-ref .mdi {
+  font-size: 12px;
 }
 
 .git-ref-branch {
@@ -1168,6 +1184,12 @@ button:disabled {
   color: var(--bg-primary);
 }
 
+.git-ref-remote {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
 .git-ref-tag {
   background: var(--warning);
   color: var(--bg-primary);
@@ -1178,6 +1200,13 @@ button:disabled {
   max-width: 90vw;
   max-height: 90vh;
   width: 700px;
+}
+
+.diff-modal .modal-header h3 {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  word-break: break-all;
 }
 
 .diff-file-list {
