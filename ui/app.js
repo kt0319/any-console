@@ -2026,16 +2026,9 @@ function initQuickInput() {
   });
   panel.appendChild(fileInput);
 
-  const container = $("quick-input");
   const openFilePicker = () => {
-    container.style.display = "none";
     fileInput.click();
   };
-  const restorePanel = () => { container.style.display = ""; };
-  fileInput.addEventListener("change", restorePanel);
-  window.addEventListener("focus", () => {
-    if (container.style.display === "none") restorePanel();
-  });
 
   const imgBtn = document.createElement("div");
   imgBtn.className = "quick-key";
@@ -2090,7 +2083,7 @@ function initQuickInput() {
     toggleBtn.classList.toggle("active", open);
   });
 
-  container.insertBefore(extraPanel, panel);
+  panel.parentNode.insertBefore(extraPanel, panel);
 }
 
 function addTerminalTab(url, workspace, tabId, skipSwitch) {
