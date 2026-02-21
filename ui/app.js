@@ -11,7 +11,9 @@ let tabs = [];
 let activeTabId = null;
 let terminalIdCounter = 0;
 let orphanSessions = [];
-let quickInputOpen = localStorage.getItem("pi_console_quick_input") === "1";
+let closedSessionUrls = new Set();
+
+
 const TERMINAL_TABS_KEY = "pi_console_terminal_tabs";
 const QUICK_KEYS = [
   { label: "\u232B", key: "Backspace", code: "Backspace", keyCode: 8 },
@@ -1178,8 +1180,11 @@ function updateOrphanSessions() {
 function updateOrphanFromSessions(sessions) {
   const localUrls = new Set(tabs.filter((t) => t.type === "terminal").map((t) => t.url));
   orphanSessions = sessions
-    .filter((s) => !localUrls.has(s.url))
+    .filter((s) => !localUrls.has(s.url) && !closedSessionUrls.has(s.url))
     .map((s) => ({ url: s.url, workspace: s.workspace, expiresIn: s.expires_in }));
+  for (const url of closedSessionUrls) {
+    if (!sessions.some((s) => s.url === url)) closedSessionUrls.delete(url);
+  }
 }
 
 function joinOrphanSession(url, workspace) {
@@ -1193,59 +1198,95 @@ function updateQuickInputVisibility() {
   const el = $("quick-input");
   if (!el) return;
   const activeTab = tabs.find((t) => t.id === activeTabId);
-  const visible = activeTab && activeTab.type === "terminal";
-  el.style.display = visible ? "" : "none";
-  if (visible) {
-    applyQuickInputState();
+  el.style.display = activeTab && activeTab.type === "terminal" ? "" : "none";
+}
+
+function getTerminalTextarea() {
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  if (!activeTab || activeTab.type !== "terminal") return null;
+  const iframe = $(`frame-${activeTabId}`);
+  if (!iframe) return null;
+  try {
+    const doc = iframe.contentDocument;
+    if (!doc) return null;
+    return doc.querySelector(".xterm-helper-textarea");
+  } catch {}
+  return null;
+}
+
+function dispatchKeyToTerminal(keyDef) {
+  const textarea = getTerminalTextarea();
+  if (!textarea) return;
+  const eventInit = {
+    key: keyDef.key,
+    code: keyDef.code || "",
+    keyCode: keyDef.keyCode || 0,
+    which: keyDef.keyCode || 0,
+    ctrlKey: !!keyDef.ctrl,
+    bubbles: true,
+    cancelable: true,
+  };
+  textarea.dispatchEvent(new KeyboardEvent("keydown", eventInit));
+  if (keyDef.char && !keyDef.ctrl) {
+    textarea.dispatchEvent(new KeyboardEvent("keypress", {
+      ...eventInit,
+      charCode: keyDef.char.charCodeAt(0),
+    }));
   }
-}
-
-function toggleQuickInput() {
-  quickInputOpen = !quickInputOpen;
-  localStorage.setItem("pi_console_quick_input", quickInputOpen ? "1" : "0");
-  applyQuickInputState();
-}
-
-function applyQuickInputState() {
-  $("quick-input-panel").style.display = quickInputOpen ? "flex" : "none";
-  $("quick-input-fab").classList.toggle("open", quickInputOpen);
+  textarea.dispatchEvent(new KeyboardEvent("keyup", eventInit));
+  return textarea;
 }
 
 function sendKeyToTerminal(keyDef) {
+  const textarea = getTerminalTextarea();
+  if (!textarea) return;
+  const origFocus = textarea.focus;
+  textarea.focus = () => {};
+  dispatchKeyToTerminal(keyDef);
+  requestAnimationFrame(() => { textarea.focus = origFocus; });
+}
+
+function sendTextToTerminal(text) {
+  for (const ch of text) {
+    dispatchKeyToTerminal({ key: ch, char: ch, code: "", keyCode: ch.charCodeAt(0) });
+  }
+}
+
+async function uploadClipboardImage(file) {
   const activeTab = tabs.find((t) => t.id === activeTabId);
   if (!activeTab || activeTab.type !== "terminal") return;
 
-  const iframe = $(`frame-${activeTabId}`);
-  if (!iframe) return;
+  const form = new FormData();
+  form.append("file", file);
+  try {
+    const res = await fetch("/upload-image", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.path) sendTextToTerminal(data.path);
+  } catch {}
+}
 
+function attachPasteListener(iframe) {
   try {
     const doc = iframe.contentDocument;
     if (!doc) return;
-
-    const textarea = doc.querySelector(".xterm-helper-textarea");
-    if (!textarea) return;
-
-    const eventInit = {
-      key: keyDef.key,
-      code: keyDef.code || "",
-      keyCode: keyDef.keyCode || 0,
-      which: keyDef.keyCode || 0,
-      ctrlKey: !!keyDef.ctrl,
-      bubbles: true,
-      cancelable: true,
-    };
-
-    textarea.dispatchEvent(new KeyboardEvent("keydown", eventInit));
-
-    if (keyDef.char && !keyDef.ctrl) {
-      textarea.dispatchEvent(new KeyboardEvent("keypress", {
-        ...eventInit,
-        charCode: keyDef.char.charCodeAt(0),
-      }));
-    }
-
-    textarea.dispatchEvent(new KeyboardEvent("keyup", eventInit));
-    textarea.blur();
+    doc.addEventListener("paste", (e) => {
+      const items = e.clipboardData && e.clipboardData.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          e.preventDefault();
+          e.stopPropagation();
+          const file = item.getAsFile();
+          if (file) uploadClipboardImage(file);
+          return;
+        }
+      }
+    });
   } catch {}
 }
 
@@ -1262,7 +1303,6 @@ function initQuickInput() {
     btn.addEventListener("click", () => sendKeyToTerminal(keyDef));
     panel.appendChild(btn);
   }
-  $("quick-input-fab").addEventListener("click", toggleQuickInput);
 }
 
 function addTerminalTab(url, workspace, tabId, skipSwitch) {
@@ -1276,6 +1316,7 @@ function addTerminalTab(url, workspace, tabId, skipSwitch) {
   iframe.id = `frame-${id}`;
   iframe.src = url;
   iframe.style.display = "none";
+  iframe.addEventListener("load", () => attachPasteListener(iframe));
   $("output-container").appendChild(iframe);
 
   if (skipSwitch) return;
@@ -1303,6 +1344,17 @@ function setOutputTab(id, label, htmlContent) {
 }
 
 function removeTab(id) {
+  const tab = tabs.find((t) => t.id === id);
+  if (tab && tab.type === "terminal" && tab.url) {
+    closedSessionUrls.add(tab.url);
+    const match = tab.url.match(/\/terminal\/s\/([^/]+)\//);
+    if (match) {
+      fetch(`/terminal/sessions/${match[1]}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
+  }
   tabs = tabs.filter((t) => t.id !== id);
   const el = $(`frame-${id}`);
   if (el) el.remove();

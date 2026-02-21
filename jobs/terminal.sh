@@ -23,6 +23,7 @@ ttyd \
   --interface 127.0.0.1 \
   --port "$PORT" \
   --base-path "$BASE_PATH" \
+  -t disableResizeOverlay=true \
   tmux new-session -A -s "$TMUX_SESSION" \; set-option status off >/tmp/pi-console-ttyd-"$PORT".log 2>&1 &
 
 PID=$!
