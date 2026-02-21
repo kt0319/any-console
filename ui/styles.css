@@ -219,7 +219,12 @@ header .header-select {
 
 .git-action-btn.running {
   pointer-events: none;
-  opacity: 0.6;
+  animation: git-action-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes git-action-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 .git-action-count:empty {
