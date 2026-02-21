@@ -43,6 +43,9 @@
         <div id="clean-dirty-status" class="clean-dirty-status"></div>
         <div class="git-summary-panel" id="main-git-status"></div>
         <div class="git-actions" id="git-actions" style="display:none">
+          <button type="button" class="git-action-btn fetch-btn" id="fetch-btn" title="Fetch">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
+          </button>
           <button type="button" class="git-action-btn pull-btn" id="pull-btn" title="Pull">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
             <span class="git-action-count" id="pull-count"></span>
@@ -62,13 +65,13 @@
           <button type="button" id="settings-close" class="modal-close-btn">&times;</button>
         </div>
         <div id="settings-menu" class="settings-menu">
-          <button type="button" class="settings-menu-item" id="settings-clone">リポジトリを追加</button>
-          <button type="button" class="settings-menu-item" id="settings-visibility">表示するワークスペース</button>
+          <button type="button" class="settings-menu-item" id="settings-visibility">ワークスペース設定</button>
           <button type="button" class="settings-menu-item" id="settings-server-info">サーバー情報</button>
           <button type="button" class="settings-menu-item settings-menu-logout" id="settings-logout">ログアウト</button>
         </div>
         <div id="settings-ws-visibility" style="display:none">
           <div class="ws-check-list" id="ws-check-list"></div>
+          <button type="button" class="settings-menu-item" id="settings-clone" style="margin-top:12px">リポジトリを追加</button>
         </div>
         <div id="settings-server-info-view" style="display:none">
           <div class="server-info-list" id="server-info-list"></div>

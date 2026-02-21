@@ -172,6 +172,15 @@ function startAutoRefresh() {
   }, AUTO_REFRESH_INTERVAL);
 }
 
+async function fetchWorkspace(name) {
+  try {
+    await fetch(`/workspaces/${encodeURIComponent(name)}/fetch`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {}
+}
+
 function stopAutoRefresh() {
   if (autoRefreshTimer) {
     clearInterval(autoRefreshTimer);
@@ -370,20 +379,13 @@ function updateGithubLink(ws) {
   }
   const branch = ws.branch || "main";
   const baseUrl = ws.github_url;
-  const webUrl = `${baseUrl}/tree/${encodeURIComponent(branch)}`;
+  const path = baseUrl.replace(/^https?:\/\/github\.com/, "");
   const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
-  if (isMobile) {
-    const path = baseUrl.replace(/^https?:\/\/github\.com/, "");
-    link.href = `github://github.com${path}/tree/${encodeURIComponent(branch)}`;
-    link.addEventListener("click", function fallback(e) {
-      setTimeout(() => { window.open(webUrl, "_blank"); }, 500);
-    }, { once: true });
-  } else {
-    link.href = webUrl;
-  }
-  issuesLink.href = `${baseUrl}/issues`;
-  pullsLink.href = `${baseUrl}/pulls`;
-  actionsLink.href = `${baseUrl}/actions`;
+  const scheme = isMobile ? "github://github.com" : baseUrl;
+  link.href = isMobile ? `${scheme}${path}/tree/${encodeURIComponent(branch)}` : `${baseUrl}/tree/${encodeURIComponent(branch)}`;
+  issuesLink.href = `${scheme}${isMobile ? path : ""}/issues`;
+  pullsLink.href = `${scheme}${isMobile ? path : ""}/pulls`;
+  actionsLink.href = `${scheme}${isMobile ? path : ""}/actions`;
   githubEls.forEach(el => el.style.display = "block");
 }
 
@@ -450,6 +452,22 @@ function updateGitActions(ws) {
   pushCount.textContent = ws.ahead > 0 ? ws.ahead : "";
   pullBtn.classList.toggle("has-count", ws.behind > 0);
   pushBtn.classList.toggle("has-count", ws.ahead > 0);
+}
+
+async function gitFetch() {
+  if (!selectedWorkspace) return;
+  const fetchBtn = $("fetch-btn");
+  fetchBtn.classList.add("running");
+  try {
+    await fetchWorkspace(selectedWorkspace);
+    await loadWorkspaces();
+    await updateHeaderInfo();
+    showToast("fetch 完了", "success");
+  } catch (e) {
+    showToast(`fetch エラー: ${e.message}`);
+  } finally {
+    fetchBtn.classList.remove("running");
+  }
 }
 
 async function gitPull() {
@@ -1240,7 +1258,7 @@ function openSettings() {
 
 function openSettingsWsVisibility() {
   $("settings-menu").style.display = "none";
-  $("settings-title").textContent = "表示するワークスペース";
+  $("settings-title").textContent = "ワークスペース設定";
   const list = $("ws-check-list");
   list.innerHTML = "";
   for (const ws of allWorkspaces) {
@@ -1308,6 +1326,13 @@ function settingsLogout() {
   token = "";
   closeSettings();
   showLogin();
+}
+
+function toSshUrl(url) {
+  const m = url.match(/^https?:\/\/github\.com\/(.+)/);
+  if (!m) return url;
+  const path = m[1].replace(/\/$/, "");
+  return `git@github.com:${path}.git`;
 }
 
 let cloneTab = "github";
@@ -1390,7 +1415,8 @@ function selectGithubRepo(url) {
 }
 
 async function submitClone() {
-  const url = cloneTab === "github" ? selectedCloneUrl : $("clone-url").value.trim();
+  let url = cloneTab === "github" ? selectedCloneUrl : $("clone-url").value.trim();
+  url = toSshUrl(url);
   const name = $("clone-name").value.trim();
   const errorEl = $("clone-error");
   const outputEl = $("clone-output");
@@ -2369,6 +2395,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     closeMenu();
     openSettings();
   });
+  for (const id of ["github-link", "github-issues", "github-pulls", "github-actions"]) {
+    $(id).addEventListener("click", closeMenu);
+  }
   document.addEventListener("click", closeMenu);
   window.addEventListener("blur", closeMenu);
   $("settings-close").addEventListener("click", closeSettings);
@@ -2394,6 +2423,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       closeWsSelectDropdown();
     }
   });
+  $("fetch-btn").addEventListener("click", gitFetch);
   $("pull-btn").addEventListener("click", gitPull);
   $("push-btn").addEventListener("click", gitPush);
   initQuickInput();

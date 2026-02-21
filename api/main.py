@@ -243,6 +243,9 @@ def clone_workspace(body: CloneRequest):
     url = body.url.strip()
     if not url:
         raise HTTPException(status_code=400, detail="URLを入力してください")
+    m = re.match(r"https?://github\.com/(.+?)/?$", url)
+    if m:
+        url = f"git@github.com:{m.group(1)}.git"
 
     # ディレクトリ名を決定
     if body.name:
@@ -825,6 +828,23 @@ def git_reset(name: str, body: ResetRequest):
         }
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=504, detail="git reset timed out")
+
+
+@app.post("/workspaces/{name}/fetch", dependencies=[Depends(verify_token)])
+def git_fetch(name: str):
+    ws_path = resolve_workspace_path(name)
+    try:
+        result = subprocess.run(
+            ["git", "fetch", "--prune"],
+            capture_output=True, text=True, timeout=60, cwd=str(ws_path),
+        )
+        return {
+            "status": "ok" if result.returncode == 0 else "error",
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="git fetch timed out")
 
 
 @app.post("/workspaces/{name}/stash", dependencies=[Depends(verify_token)])

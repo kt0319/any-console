@@ -248,6 +248,11 @@ header .ws-select-wrap {
   transition: background 0.15s, color 0.15s;
 }
 
+.git-action-btn.fetch-btn {
+  color: var(--text-muted);
+  background: transparent;
+}
+
 .git-action-btn.pull-btn {
   color: var(--text-muted);
   background: transparent;
