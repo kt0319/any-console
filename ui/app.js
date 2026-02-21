@@ -35,11 +35,11 @@ const EXTRA_KEYS = [
   { label: "8", key: "8", code: "Digit8", keyCode: 56 },
   { label: "9", key: "9", code: "Digit9", keyCode: 57 },
   { label: "0", key: "0", code: "Digit0", keyCode: 48 },
-  { label: "/", key: "/", code: "Slash", keyCode: 191 },
   { label: "Esc", key: "Escape", code: "Escape", keyCode: 27 },
   { label: "S-Tab", shift: true, key: "Tab", code: "Tab", keyCode: 9 },
   { label: "Tab", key: "Tab", code: "Tab", keyCode: 9 },
   { label: "Ctrl+C", ctrl: true, key: "c", code: "KeyC", keyCode: 67 },
+  { label: "/", key: "/", code: "Slash", keyCode: 191 },
   { label: "Del", key: "Delete", code: "Delete", keyCode: 46 },
 ];
 const AUTO_REFRESH_INTERVAL = 10000;
@@ -1474,9 +1474,31 @@ function initQuickInput() {
   toggleBtn.innerHTML = '<span class="mdi mdi-keyboard-outline"></span>';
   panel.appendChild(toggleBtn);
 
-  for (const keyDef of QUICK_KEYS) {
-    panel.appendChild(createQuickKeyBtn(keyDef));
-  }
+  const quickKeyBtns = QUICK_KEYS.map(k => createQuickKeyBtn(k));
+  for (const btn of quickKeyBtns) panel.appendChild(btn);
+
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = "image/*";
+  fileInput.style.display = "none";
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    if (file) uploadClipboardImage(file);
+    fileInput.value = "";
+  });
+  panel.appendChild(fileInput);
+
+  const imgBtn = document.createElement("div");
+  imgBtn.className = "quick-key";
+  imgBtn.textContent = "+";
+  imgBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  imgBtn.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    fileInput.click();
+  });
+  imgBtn.addEventListener("click", () => fileInput.click());
+  panel.insertBefore(imgBtn, quickKeyBtns[0]);
+
   const extraPanel = document.createElement("div");
   extraPanel.className = "quick-extra-panel";
   extraPanel.style.display = "none";
@@ -1490,28 +1512,6 @@ function initQuickInput() {
     const isDigit = keyDef.code && keyDef.code.startsWith("Digit");
     (isDigit ? row1 : row2).appendChild(createQuickKeyBtn(keyDef));
   }
-
-  const fileInput = document.createElement("input");
-  fileInput.type = "file";
-  fileInput.accept = "image/*";
-  fileInput.style.display = "none";
-  fileInput.addEventListener("change", () => {
-    const file = fileInput.files[0];
-    if (file) uploadClipboardImage(file);
-    fileInput.value = "";
-  });
-  row2.appendChild(fileInput);
-
-  const imgBtn = document.createElement("div");
-  imgBtn.className = "quick-key";
-  imgBtn.textContent = "+";
-  imgBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
-  imgBtn.addEventListener("touchend", (e) => {
-    e.preventDefault();
-    fileInput.click();
-  });
-  imgBtn.addEventListener("click", () => fileInput.click());
-  row2.insertBefore(imgBtn, row2.firstChild);
 
   extraPanel.appendChild(row1);
   extraPanel.appendChild(row2);
