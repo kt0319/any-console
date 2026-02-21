@@ -31,7 +31,7 @@ body {
 header {
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
-  padding: 10px 20px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 20px 10px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -561,6 +561,20 @@ header .header-select {
   color: var(--text-primary);
 }
 
+.tab-btn.orphan {
+  border: 1px dashed var(--text-muted);
+  color: var(--text-muted);
+  background: transparent;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+.tab-btn.orphan:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  opacity: 1;
+}
+
 .tab-add-btn {
   display: flex;
   align-items: center;
@@ -588,12 +602,17 @@ header .header-select {
   flex: 1;
   min-height: 0;
   display: flex;
+  flex-direction: column;
   position: relative;
+  overflow: hidden;
 }
 
 .output-area {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 16px 20px;
   font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
   font-size: 13px;
@@ -1148,6 +1167,98 @@ button:disabled {
 
 .diff-line-range {
   color: var(--warning);
+}
+
+/* Quick Input */
+.quick-input {
+  position: fixed;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  z-index: 40;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.quick-input-fab {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 50%;
+  background: rgba(130, 170, 255, 0.25);
+  border: none;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  order: 1;
+  touch-action: none;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.quick-input-fab:hover {
+  background: rgba(130, 170, 255, 0.4);
+}
+
+.quick-input-fab .qi-icon-close {
+  display: none;
+}
+
+.quick-input-fab.open .qi-icon-open {
+  display: none;
+}
+
+.quick-input-fab.open .qi-icon-close {
+  display: block;
+}
+
+.quick-input-panel {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+}
+
+.quick-key {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(47, 51, 71, 0.6);
+  color: var(--text-primary);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.quick-key:hover {
+  background: rgba(130, 170, 255, 0.3);
+  color: var(--accent);
+}
+
+.quick-key:active {
+  background: rgba(130, 170, 255, 0.4);
+}
+
+@media (min-width: 769px) {
+  .quick-input {
+    display: none !important;
+  }
 }
 
 /* Responsive */

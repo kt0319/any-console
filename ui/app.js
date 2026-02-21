@@ -10,7 +10,17 @@ let cachedBranches = [];
 let tabs = [];
 let activeTabId = null;
 let terminalIdCounter = 0;
+let orphanSessions = [];
+let quickInputOpen = localStorage.getItem("pi_console_quick_input") === "1";
 const TERMINAL_TABS_KEY = "pi_console_terminal_tabs";
+const QUICK_KEYS = [
+  { label: "\u232B", key: "Backspace", code: "Backspace", keyCode: 8 },
+  { label: "\u2190", key: "ArrowLeft", code: "ArrowLeft", keyCode: 37 },
+  { label: "\u2193", key: "ArrowDown", code: "ArrowDown", keyCode: 40 },
+  { label: "\u2191", key: "ArrowUp", code: "ArrowUp", keyCode: 38 },
+  { label: "\u2192", key: "ArrowRight", code: "ArrowRight", keyCode: 39 },
+  { label: "\u21B5", key: "Enter", code: "Enter", keyCode: 13 },
+];
 const AUTO_REFRESH_INTERVAL = 10000;
 let autoRefreshTimer = null;
 let autoRefreshing = false;
@@ -82,10 +92,11 @@ async function refreshCurrentWorkspaceStatus() {
 function startAutoRefresh() {
   if (autoRefreshTimer) return;
   autoRefreshTimer = setInterval(async () => {
-    if (document.hidden || autoRefreshing || !selectedWorkspace) return;
+    if (document.hidden || autoRefreshing) return;
     autoRefreshing = true;
     try {
-      await refreshCurrentWorkspaceStatus();
+      if (selectedWorkspace) await refreshCurrentWorkspaceStatus();
+      await fetchOrphanSessions();
     } finally {
       autoRefreshing = false;
     }
@@ -179,6 +190,7 @@ async function initApp() {
   await loadJobsForWorkspace();
   renderJobMenu();
   await restoreTerminalTabs();
+  await fetchOrphanSessions();
 }
 
 async function loadWorkspaces() {
@@ -1137,6 +1149,120 @@ function saveTerminalTabs() {
   } else {
     localStorage.removeItem("pi_console_active_tab");
   }
+  updateOrphanSessions();
+}
+
+async function fetchOrphanSessions() {
+  try {
+    const res = await fetch("/terminal/sessions", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      orphanSessions = [];
+      renderTabBar();
+      return;
+    }
+    const sessions = await res.json();
+    updateOrphanFromSessions(sessions);
+  } catch {
+    orphanSessions = [];
+  }
+  renderTabBar();
+}
+
+function updateOrphanSessions() {
+  const localUrls = new Set(tabs.filter((t) => t.type === "terminal").map((t) => t.url));
+  orphanSessions = orphanSessions.filter((s) => !localUrls.has(s.url));
+}
+
+function updateOrphanFromSessions(sessions) {
+  const localUrls = new Set(tabs.filter((t) => t.type === "terminal").map((t) => t.url));
+  orphanSessions = sessions
+    .filter((s) => !localUrls.has(s.url))
+    .map((s) => ({ url: s.url, workspace: s.workspace, expiresIn: s.expires_in }));
+}
+
+function joinOrphanSession(url, workspace) {
+  const label = workspace || "terminal";
+  addTerminalTab(url, label);
+  orphanSessions = orphanSessions.filter((s) => s.url !== url);
+  renderTabBar();
+}
+
+function updateQuickInputVisibility() {
+  const el = $("quick-input");
+  if (!el) return;
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const visible = activeTab && activeTab.type === "terminal";
+  el.style.display = visible ? "" : "none";
+  if (visible) {
+    applyQuickInputState();
+  }
+}
+
+function toggleQuickInput() {
+  quickInputOpen = !quickInputOpen;
+  localStorage.setItem("pi_console_quick_input", quickInputOpen ? "1" : "0");
+  applyQuickInputState();
+}
+
+function applyQuickInputState() {
+  $("quick-input-panel").style.display = quickInputOpen ? "flex" : "none";
+  $("quick-input-fab").classList.toggle("open", quickInputOpen);
+}
+
+function sendKeyToTerminal(keyDef) {
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  if (!activeTab || activeTab.type !== "terminal") return;
+
+  const iframe = $(`frame-${activeTabId}`);
+  if (!iframe) return;
+
+  try {
+    const doc = iframe.contentDocument;
+    if (!doc) return;
+
+    const textarea = doc.querySelector(".xterm-helper-textarea");
+    if (!textarea) return;
+
+    const eventInit = {
+      key: keyDef.key,
+      code: keyDef.code || "",
+      keyCode: keyDef.keyCode || 0,
+      which: keyDef.keyCode || 0,
+      ctrlKey: !!keyDef.ctrl,
+      bubbles: true,
+      cancelable: true,
+    };
+
+    textarea.dispatchEvent(new KeyboardEvent("keydown", eventInit));
+
+    if (keyDef.char && !keyDef.ctrl) {
+      textarea.dispatchEvent(new KeyboardEvent("keypress", {
+        ...eventInit,
+        charCode: keyDef.char.charCodeAt(0),
+      }));
+    }
+
+    textarea.dispatchEvent(new KeyboardEvent("keyup", eventInit));
+    textarea.blur();
+  } catch {}
+}
+
+function initQuickInput() {
+  const panel = $("quick-input-panel");
+  for (const keyDef of QUICK_KEYS) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "quick-key";
+    btn.textContent = keyDef.label;
+    btn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+    btn.addEventListener("touchend", (e) => { e.preventDefault(); sendKeyToTerminal(keyDef); });
+    btn.addEventListener("mousedown", (e) => e.preventDefault());
+    btn.addEventListener("click", () => sendKeyToTerminal(keyDef));
+    panel.appendChild(btn);
+  }
+  $("quick-input-fab").addEventListener("click", toggleQuickInput);
 }
 
 function addTerminalTab(url, workspace, tabId, skipSwitch) {
@@ -1209,6 +1335,7 @@ function switchTab(id) {
       }
     }
   }
+  updateQuickInputVisibility();
   renderTabBar();
 }
 
@@ -1221,13 +1348,23 @@ function renderTabBar() {
     html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}" data-tab="${tab.id}">`
       + `${escapeHtml(tab.label)}<span class="tab-close" data-close="${tab.id}">&times;</span></button>`;
   }
+  for (const s of orphanSessions) {
+    const label = s.workspace || "terminal";
+    html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.url)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
+      + `${escapeHtml(label)}</button>`;
+  }
   html += '<button class="tab-add-btn" id="tab-add-btn" title="ターミナルを開く">+</button>';
   bar.innerHTML = html;
 
-  bar.querySelectorAll(".tab-btn").forEach((btn) => {
+  bar.querySelectorAll(".tab-btn:not(.orphan)").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       if (e.target.classList.contains("tab-close")) return;
       switchTab(btn.dataset.tab);
+    });
+  });
+  bar.querySelectorAll(".tab-btn.orphan").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      joinOrphanSession(btn.dataset.orphanUrl, btn.dataset.orphanWs);
     });
   });
   bar.querySelectorAll(".tab-close").forEach((btn) => {
@@ -1335,7 +1472,16 @@ async function refreshApp() {
   await loadJobsForWorkspace();
 }
 
+function updateViewportHeight() {
+  const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  document.documentElement.style.setProperty("--app-height", `${vh}px`);
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
+  updateViewportHeight();
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", updateViewportHeight);
+  }
   $("login-btn").addEventListener("click", login);
   $("token-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") login();
@@ -1380,6 +1526,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
   $("pull-btn").addEventListener("click", gitPull);
   $("push-btn").addEventListener("click", gitPush);
+  initQuickInput();
   $("header-commit-msg").addEventListener("click", openGitLogModal);
   $("git-log-close").addEventListener("click", () => {
     $("git-log-modal").style.display = "none";
