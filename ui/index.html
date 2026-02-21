@@ -126,6 +126,10 @@
           <label class="form-label">スクリプト</label>
           <textarea id="job-create-script" class="form-textarea" rows="6" placeholder="echo hello"></textarea>
         </div>
+        <div class="form-group">
+          <label class="form-label">URL <span class="form-hint">(任意・メニューからブラウザで開く)</span></label>
+          <input type="url" id="job-create-url" class="form-input" placeholder="http://localhost:3000" autocomplete="off" />
+        </div>
         <div id="job-create-error" class="form-error"></div>
         <div class="modal-actions">
           <button type="button" id="job-create-submit" class="primary" style="width:auto">作成</button>

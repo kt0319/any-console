@@ -1159,12 +1159,20 @@ function renderJobMenu() {
       btn.className = "menu-item menu-dynamic";
       const label = job.label || name;
       const isRunning = runningJobName === name;
-      btn.innerHTML = isRunning
-        ? `${escapeHtml(label)} <span class="job-state">◌</span>`
-        : escapeHtml(label);
+      if (job.open_url) {
+        btn.innerHTML = `<span class="menu-job-url-icon">⧉</span> ${escapeHtml(label)}`;
+      } else if (isRunning) {
+        btn.innerHTML = `${escapeHtml(label)} <span class="job-state">◌</span>`;
+      } else {
+        btn.textContent = label;
+      }
       btn.addEventListener("click", () => {
         closeMenu();
-        openJobConfirmModal(name);
+        if (job.open_url) {
+          window.open(job.open_url, "_blank");
+        } else {
+          openJobConfirmModal(name);
+        }
       });
       let holdTimer = null;
       btn.addEventListener("contextmenu", (e) => {
@@ -1257,6 +1265,7 @@ function openJobCreateModal() {
   $("job-create-name").value = "";
   $("job-create-label").value = "";
   $("job-create-script").value = "";
+  $("job-create-url").value = "";
   $("job-create-error").style.display = "none";
   $("job-create-modal").style.display = "flex";
   $("job-create-name").focus();
@@ -1270,6 +1279,7 @@ async function submitJobCreate() {
   const name = $("job-create-name").value.trim();
   const label = $("job-create-label").value.trim();
   const script = $("job-create-script").value;
+  const openUrl = $("job-create-url").value.trim();
   const errorEl = $("job-create-error");
 
   if (!name) {
@@ -1290,7 +1300,7 @@ async function submitJobCreate() {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name, label: label || name, script }),
+      body: JSON.stringify({ name, label: label || name, script, open_url: openUrl }),
     });
     if (res.status === 401) {
       localStorage.removeItem("pi_console_token");
@@ -1940,7 +1950,15 @@ async function runJob(jobName = null, argsOverride = null) {
 
 function toggleMenu() {
   const dd = $("menu-dropdown");
-  dd.style.display = dd.style.display === "none" ? "block" : "none";
+  if (dd.style.display === "none") {
+    const btn = $("menu-btn");
+    const rect = btn.getBoundingClientRect();
+    dd.style.left = rect.left + "px";
+    dd.style.top = rect.bottom + 4 + "px";
+    dd.style.display = "block";
+  } else {
+    dd.style.display = "none";
+  }
 }
 
 function closeMenu() {

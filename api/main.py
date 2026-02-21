@@ -444,6 +444,17 @@ def get_workspace_custom_jobs_dir(workspace_path: Path) -> Path:
     return jobs_dir
 
 
+def parse_open_url(script_path: Path) -> str:
+    try:
+        for line in script_path.read_text(encoding="utf-8").splitlines():
+            m = re.match(r"^#\s*open-url:\s*(.+)$", line)
+            if m:
+                return m.group(1).strip()
+    except OSError:
+        pass
+    return ""
+
+
 def get_workspace_custom_jobs(workspace_path: Path) -> dict[str, JobDefinition]:
     jobs_dir = get_workspace_custom_jobs_dir(workspace_path)
     custom: dict[str, JobDefinition] = {}
@@ -457,6 +468,7 @@ def get_workspace_custom_jobs(workspace_path: Path) -> dict[str, JobDefinition]:
             description=f"Workspace custom job: {job_name}",
             args=[],
             script_path_override=script_path,
+            open_url=parse_open_url(script_path),
         )
     return custom
 
@@ -480,6 +492,7 @@ def job_definition_to_dict(job_def) -> dict:
         "description": job_def.description,
         "script": job_def.script,
         "script_content": read_script_content(job_def),
+        "open_url": job_def.open_url,
         "args": [
             {
                 "name": arg.name,
@@ -534,6 +547,7 @@ class CreateJobRequest(BaseModel):
     name: str
     label: str = ""
     script: str
+    open_url: str = ""
 
 
 class CheckoutRequest(BaseModel):
@@ -553,9 +567,19 @@ def create_workspace_job(name: str, body: CreateJobRequest):
     script_content = body.script.strip()
     if not script_content:
         raise HTTPException(status_code=400, detail="スクリプト内容が空です")
+    open_url = body.open_url.strip()
     header = "#!/usr/bin/env bash\nset -euo pipefail\n\n"
     if not script_content.startswith("#!"):
         script_content = header + script_content
+    if open_url:
+        lines = script_content.split("\n")
+        insert_idx = 0
+        for i, line in enumerate(lines):
+            if line.startswith("#!"):
+                insert_idx = i + 1
+                break
+        lines.insert(insert_idx, f"# open-url: {open_url}")
+        script_content = "\n".join(lines)
     script_path.write_text(script_content + "\n", encoding="utf-8")
     script_path.chmod(0o755)
     return {"status": "ok", "name": job_name}
