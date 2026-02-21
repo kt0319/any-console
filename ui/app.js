@@ -1671,8 +1671,21 @@ function renderTabBar() {
   bar.innerHTML = html;
 
   bar.querySelectorAll(".tab-btn:not(.orphan)").forEach((btn) => {
+    let longPressTimer = null;
+    let didLongPress = false;
+    btn.addEventListener("touchstart", () => {
+      didLongPress = false;
+      longPressTimer = setTimeout(() => {
+        didLongPress = true;
+        if (confirm(`「${btn.textContent.replace("×", "").trim()}」を閉じますか？`)) {
+          removeTab(btn.dataset.tab);
+        }
+      }, 500);
+    }, { passive: true });
+    btn.addEventListener("touchend", () => clearTimeout(longPressTimer));
+    btn.addEventListener("touchmove", () => clearTimeout(longPressTimer));
     btn.addEventListener("click", (e) => {
-      if (e.target.classList.contains("tab-close")) return;
+      if (e.target.classList.contains("tab-close") || didLongPress) return;
       switchTab(btn.dataset.tab);
     });
   });
@@ -1688,6 +1701,9 @@ function renderTabBar() {
     });
   });
   $("tab-add-btn").addEventListener("click", () => runJob("terminal"));
+
+  const activeBtn = bar.querySelector(".tab-btn.active");
+  if (activeBtn) activeBtn.scrollIntoView({ inline: "nearest", block: "nearest" });
 }
 
 function collectArgs() {
