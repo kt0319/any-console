@@ -827,6 +827,40 @@ def git_reset(name: str, body: ResetRequest):
         raise HTTPException(status_code=504, detail="git reset timed out")
 
 
+@app.post("/workspaces/{name}/stash", dependencies=[Depends(verify_token)])
+def git_stash(name: str):
+    ws_path = resolve_workspace_path(name)
+    try:
+        result = subprocess.run(
+            ["git", "stash"],
+            capture_output=True, text=True, timeout=60, cwd=str(ws_path),
+        )
+        return {
+            "status": "ok" if result.returncode == 0 else "error",
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="git stash timed out")
+
+
+@app.post("/workspaces/{name}/stash-pop", dependencies=[Depends(verify_token)])
+def git_stash_pop(name: str):
+    ws_path = resolve_workspace_path(name)
+    try:
+        result = subprocess.run(
+            ["git", "stash", "pop"],
+            capture_output=True, text=True, timeout=60, cwd=str(ws_path),
+        )
+        return {
+            "status": "ok" if result.returncode == 0 else "error",
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="git stash pop timed out")
+
+
 @app.get("/workspaces/{name}/diff/{commit_hash}", dependencies=[Depends(verify_token)])
 def get_commit_diff(name: str, commit_hash: str):
     ws_path = resolve_workspace_path(name)

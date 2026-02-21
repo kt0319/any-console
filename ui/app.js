@@ -332,6 +332,7 @@ function toggleWsSelectDropdown() {
     btn.classList.remove("active");
     return;
   }
+  closeMenu();
   dropdown.innerHTML = "";
   for (const ws of visibleWorkspaces()) {
     const item = document.createElement("button");
@@ -339,8 +340,7 @@ function toggleWsSelectDropdown() {
     item.className = "ws-select-item" + (ws.name === selectedWorkspace ? " selected" : "");
     item.textContent = ws.branch ? `${ws.name} (${ws.branch})` : ws.name;
     item.addEventListener("click", async () => {
-      dropdown.style.display = "none";
-      btn.classList.remove("active");
+      closeWsSelectDropdown();
       selectedWorkspace = ws.name;
       localStorage.setItem("pi_console_workspace", ws.name);
       renderHeaderWsSelect();
@@ -572,6 +572,7 @@ function toggleCommitActionMenu(entry, hash, msg, branches = []) {
       label: `switch: ${b}`,
       cls: "",
       fn: async () => {
+        if (!confirm(`${b} に切り替えますか？`)) return;
         await checkoutBranch(b);
         closeGitLogModal();
         await loadWorkspaces();
@@ -582,7 +583,7 @@ function toggleCommitActionMenu(entry, hash, msg, branches = []) {
   const actions = [
     ...switchActions,
     { label: "diff", cls: "", fn: () => { $("git-log-modal").style.display = "none"; openCommitDiffModal(hash, msg); } },
-    { label: "branch", cls: "", fn: () => toggleCreateBranchArea(hash) },
+    { label: "checkout -b", cls: "", fn: () => toggleCreateBranchArea(hash) },
     { label: "cherry-pick", cls: "", fn: () => execCommitAction("cherry-pick", hash) },
     { label: "revert", cls: "", fn: () => execCommitAction("revert", hash) },
     { label: "reset --soft", cls: "", fn: () => execCommitResetAction(hash, "soft") },
@@ -606,6 +607,8 @@ function toggleCommitActionMenu(entry, hash, msg, branches = []) {
 
 async function execCommitAction(action, hash) {
   if (!selectedWorkspace) return;
+  const shortHash = hash.substring(0, 8);
+  if (!confirm(`${action} ${shortHash} を実行しますか？`)) return;
   try {
     const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/${action}`, {
       method: "POST",
@@ -817,7 +820,9 @@ function renderGitLogEntries(listEl, stdout) {
       }
       const branches = [...branchSet];
       entry.addEventListener("click", () => {
-        toggleCommitActionMenu(entry, hash, msg, branches);
+        $("git-log-modal").style.display = "none";
+        diffOpenedFromGitLog = true;
+        openCommitDiffModal(hash, msg, branches);
       });
       count++;
     } else {
@@ -899,13 +904,60 @@ async function openGitLogModal() {
   }
 }
 
-async function openCommitDiffModal(commitHash, commitMsg) {
+function renderDiffActions(container, hash, branches) {
+  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
+  const switchActions = branches
+    .filter((b) => !ws || b !== ws.branch)
+    .map((b) => ({
+      label: `switch: ${b}`,
+      cls: "",
+      fn: async () => {
+        if (!confirm(`${b} に切り替えますか？`)) return;
+        $("diff-modal").style.display = "none";
+        await checkoutBranch(b);
+        closeGitLogModal();
+        await loadWorkspaces();
+        await updateHeaderInfo();
+      },
+    }));
+
+  const actions = [
+    ...switchActions,
+    { label: "checkout -b", cls: "", fn: () => { $("diff-modal").style.display = "none"; $("git-log-modal").style.display = "flex"; toggleCreateBranchArea(hash); } },
+    { label: "cherry-pick", cls: "", fn: () => { $("diff-modal").style.display = "none"; execCommitAction("cherry-pick", hash); } },
+    { label: "revert", cls: "", fn: () => { $("diff-modal").style.display = "none"; execCommitAction("revert", hash); } },
+    { label: "reset --soft", cls: "", fn: () => { $("diff-modal").style.display = "none"; execCommitResetAction(hash, "soft"); } },
+    { label: "reset --hard", cls: "commit-action-danger", fn: () => { $("diff-modal").style.display = "none"; execCommitResetAction(hash, "hard"); } },
+  ];
+
+  for (const action of actions) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "commit-action-item" + (action.cls ? ` ${action.cls}` : "");
+    btn.textContent = action.label;
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      action.fn();
+    });
+    container.appendChild(btn);
+  }
+  container.style.display = "flex";
+}
+
+async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
   const fileList = $("diff-file-list");
   const diffContent = $("diff-content");
+  const actionsEl = $("diff-actions");
   fileList.innerHTML = '<span class="diff-file-tag">loading...</span>';
   diffContent.textContent = "";
+  actionsEl.innerHTML = "";
+  actionsEl.style.display = "none";
   $("diff-modal").querySelector("h3").textContent = commitMsg || "変更内容";
   $("diff-modal").style.display = "flex";
+
+  if (commitHash) {
+    renderDiffActions(actionsEl, commitHash, branches);
+  }
 
   try {
     const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/diff/${encodeURIComponent(commitHash)}`, {
@@ -1082,14 +1134,62 @@ function selectDiffFile(file) {
   diffContent.scrollTop = 0;
 }
 
+async function execStashAction(action) {
+  if (!selectedWorkspace) return;
+  const endpoint = action === "pop" ? "stash-pop" : "stash";
+  const label = action === "pop" ? "stash pop" : "stash";
+  if (!confirm(`${label} を実行しますか？`)) return;
+  try {
+    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/${endpoint}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 401) {
+      await handleUnauthorized();
+      return;
+    }
+    const data = await res.json();
+    if (data.status === "ok") {
+      showToast(`${label} 完了`, "success");
+    } else {
+      showToast(`${label} 失敗: ${data.stderr || data.stdout || "unknown error"}`);
+    }
+  } catch (e) {
+    showToast(`${label} エラー: ${e.message}`);
+  }
+  $("diff-modal").style.display = "none";
+  await loadWorkspaces();
+  await updateHeaderInfo();
+}
+
 async function openDiffModal() {
   if (!selectedWorkspace) return;
   $("diff-modal").querySelector("h3").textContent = "変更内容";
 
   const fileList = $("diff-file-list");
   const diffContent = $("diff-content");
+  const actionsEl = $("diff-actions");
   fileList.innerHTML = '<span class="diff-file-tag">loading...</span>';
   diffContent.textContent = "";
+  actionsEl.innerHTML = "";
+
+  const stashActions = [
+    { label: "stash", cls: "", fn: () => execStashAction("save") },
+    { label: "stash pop", cls: "", fn: () => execStashAction("pop") },
+  ];
+  for (const action of stashActions) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "commit-action-item" + (action.cls ? ` ${action.cls}` : "");
+    btn.textContent = action.label;
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      action.fn();
+    });
+    actionsEl.appendChild(btn);
+  }
+  actionsEl.style.display = "flex";
+
   $("diff-modal").style.display = "flex";
 
   try {
@@ -1120,8 +1220,14 @@ async function openDiffModal() {
   }
 }
 
+let diffOpenedFromGitLog = false;
+
 function closeDiffModal() {
   $("diff-modal").style.display = "none";
+  if (diffOpenedFromGitLog) {
+    diffOpenedFromGitLog = false;
+    $("git-log-modal").style.display = "flex";
+  }
 }
 
 function openSettings() {
@@ -2206,6 +2312,7 @@ function toggleMenu() {
   const dd = $("menu-dropdown");
   const btn = $("menu-btn");
   if (dd.style.display === "none") {
+    closeWsSelectDropdown();
     const rect = btn.getBoundingClientRect();
     dd.style.left = rect.left + "px";
     dd.style.top = rect.bottom + 4 + "px";
@@ -2220,6 +2327,11 @@ function toggleMenu() {
 function closeMenu() {
   $("menu-dropdown").style.display = "none";
   $("menu-btn").classList.remove("active");
+}
+
+function closeWsSelectDropdown() {
+  $("ws-select-dropdown").style.display = "none";
+  $("ws-select-btn").classList.remove("active");
 }
 
 
@@ -2279,8 +2391,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("ws-select-btn").addEventListener("click", toggleWsSelectDropdown);
   document.addEventListener("click", (e) => {
     if (!$("ws-select-wrap").contains(e.target)) {
-      $("ws-select-dropdown").style.display = "none";
-      $("ws-select-btn").classList.remove("active");
+      closeWsSelectDropdown();
     }
   });
   $("pull-btn").addEventListener("click", gitPull);
