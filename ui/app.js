@@ -462,6 +462,9 @@ async function gitFetch() {
     await fetchWorkspace(selectedWorkspace);
     await loadWorkspaces();
     await updateHeaderInfo();
+    if ($("git-log-modal").style.display !== "none") {
+      await reloadGitLog();
+    }
     showToast("fetch 完了", "success");
   } catch (e) {
     showToast(`fetch エラー: ${e.message}`);
@@ -881,12 +884,11 @@ async function loadMoreGitLog() {
   }
 }
 
-async function openGitLogModal() {
+async function reloadGitLog() {
   if (!selectedWorkspace) return;
 
   const listEl = $("git-log-list-modal");
   listEl.innerHTML = '<div class="git-log-entry-msg" style="color:var(--text-muted);padding:16px">読み込み中...</div>';
-  $("git-log-modal").style.display = "flex";
 
   gitLogLoaded = 0;
   gitLogLoading = false;
@@ -920,6 +922,12 @@ async function openGitLogModal() {
   } catch (e) {
     listEl.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
   }
+}
+
+async function openGitLogModal() {
+  if (!selectedWorkspace) return;
+  $("git-log-modal").style.display = "flex";
+  await reloadGitLog();
 }
 
 function renderDiffActions(container, hash, branches) {
