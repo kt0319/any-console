@@ -69,6 +69,7 @@ sudo systemctl start pi-console
 - `:hover` スタイルは使わない（モバイルファーストのため）
 - クリック可能な要素はボタン風スタイル（背景色・ボーダーなど）で視覚的に区別する。下線でのクリック表現は使わない
 - 状態変化はJSによるクラス付替え（`.active`, `.selected` など）で表現する
+- `backdrop-filter`（blur等）は使わない
 
 ## 設計上の注意点
 
