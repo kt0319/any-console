@@ -25,19 +25,22 @@ const QUICK_KEYS = [
   { label: "\u21B5", key: "Enter", code: "Enter", keyCode: 13 },
 ];
 const EXTRA_KEYS = [
-  { label: "Tab", key: "Tab", code: "Tab", keyCode: 9 },
-  { label: "S-Tab", shift: true, key: "Tab", code: "Tab", keyCode: 9 },
+  { label: "1", key: "1", code: "Digit1", keyCode: 49 },
+  { label: "2", key: "2", code: "Digit2", keyCode: 50 },
+  { label: "3", key: "3", code: "Digit3", keyCode: 51 },
+  { label: "4", key: "4", code: "Digit4", keyCode: 52 },
+  { label: "5", key: "5", code: "Digit5", keyCode: 53 },
+  { label: "6", key: "6", code: "Digit6", keyCode: 54 },
+  { label: "7", key: "7", code: "Digit7", keyCode: 55 },
+  { label: "8", key: "8", code: "Digit8", keyCode: 56 },
+  { label: "9", key: "9", code: "Digit9", keyCode: 57 },
+  { label: "0", key: "0", code: "Digit0", keyCode: 48 },
+  { label: "/", key: "/", code: "Slash", keyCode: 191 },
   { label: "Esc", key: "Escape", code: "Escape", keyCode: 27 },
+  { label: "S-Tab", shift: true, key: "Tab", code: "Tab", keyCode: 9 },
+  { label: "Tab", key: "Tab", code: "Tab", keyCode: 9 },
   { label: "Ctrl+C", ctrl: true, key: "c", code: "KeyC", keyCode: 67 },
-  { label: "Ctrl+D", ctrl: true, key: "d", code: "KeyD", keyCode: 68 },
-  { label: "Ctrl+Z", ctrl: true, key: "z", code: "KeyZ", keyCode: 90 },
-  { label: "Ctrl+L", ctrl: true, key: "l", code: "KeyL", keyCode: 76 },
-  { label: "Ctrl+A", ctrl: true, key: "a", code: "KeyA", keyCode: 65 },
-  { label: "Ctrl+E", ctrl: true, key: "e", code: "KeyE", keyCode: 69 },
-  { label: "Home", key: "Home", code: "Home", keyCode: 36 },
-  { label: "End", key: "End", code: "End", keyCode: 35 },
-  { label: "PgUp", key: "PageUp", code: "PageUp", keyCode: 33 },
-  { label: "PgDn", key: "PageDown", code: "PageDown", keyCode: 34 },
+  { label: "Del", key: "Delete", code: "Delete", keyCode: 46 },
 ];
 const AUTO_REFRESH_INTERVAL = 10000;
 let autoRefreshTimer = null;
@@ -673,9 +676,6 @@ async function checkoutBranch(branch) {
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
   if (ws && ws.branch === branch) return;
 
-  switchTab(null);
-  $("output").innerHTML = '<div class="output-status"><span class="status-badge running">switching</span></div>';
-
   try {
     const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/checkout`, {
       method: "POST",
@@ -694,25 +694,25 @@ async function checkoutBranch(branch) {
 
     const data = await res.json();
     const statusText = data.status || (res.ok ? "ok" : "error");
-    const badgeClass = statusText === "ok" ? "ok" : "error";
-    let html = `<div class="output-status"><span class="status-badge ${badgeClass}">${escapeHtml(statusText)}</span></div>`;
-    if (!res.ok && data.detail) {
-      html += `\n<span style="color:var(--error)">${escapeHtml(data.detail)}</span>`;
-    }
-    if (data.stdout) html += escapeHtml(data.stdout);
-    if (data.stderr && statusText !== "ok") {
-      html += `\n<span style="color:var(--error)">${escapeHtml(data.stderr)}</span>`;
-    } else if (data.stderr) {
-      html += escapeHtml(data.stderr);
-    }
-    $("output").innerHTML = html;
 
     if (statusText === "ok") {
       await loadWorkspaces();
       await updateHeaderInfo();
       renderJobMenu();
+    } else {
+      switchTab(null);
+      let html = `<div class="output-status"><span class="status-badge error">${escapeHtml(statusText)}</span></div>`;
+      if (!res.ok && data.detail) {
+        html += `\n<span style="color:var(--error)">${escapeHtml(data.detail)}</span>`;
+      }
+      if (data.stdout) html += escapeHtml(data.stdout);
+      if (data.stderr) {
+        html += `\n<span style="color:var(--error)">${escapeHtml(data.stderr)}</span>`;
+      }
+      $("output").innerHTML = html;
     }
   } catch (e) {
+    switchTab(null);
     $("output").innerHTML = `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(e.message)}`;
   }
 }
@@ -1471,7 +1471,7 @@ function initQuickInput() {
 
   const toggleBtn = document.createElement("div");
   toggleBtn.className = "quick-key quick-key-toggle";
-  toggleBtn.textContent = "...";
+  toggleBtn.innerHTML = '<span class="mdi mdi-keyboard-outline"></span>';
   panel.appendChild(toggleBtn);
 
   for (const keyDef of QUICK_KEYS) {
@@ -1480,9 +1480,52 @@ function initQuickInput() {
   const extraPanel = document.createElement("div");
   extraPanel.className = "quick-extra-panel";
   extraPanel.style.display = "none";
+
+  const row1 = document.createElement("div");
+  row1.className = "quick-extra-row";
+  const row2 = document.createElement("div");
+  row2.className = "quick-extra-row";
+
   for (const keyDef of EXTRA_KEYS) {
-    extraPanel.appendChild(createQuickKeyBtn(keyDef));
+    const isDigit = keyDef.code && keyDef.code.startsWith("Digit");
+    (isDigit ? row1 : row2).appendChild(createQuickKeyBtn(keyDef));
   }
+
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = "image/*";
+  fileInput.style.display = "none";
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    if (file) uploadClipboardImage(file);
+    fileInput.value = "";
+  });
+  row2.appendChild(fileInput);
+
+  const imgBtn = document.createElement("div");
+  imgBtn.className = "quick-key";
+  imgBtn.textContent = "+";
+  imgBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  imgBtn.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    fileInput.click();
+  });
+  imgBtn.addEventListener("click", () => fileInput.click());
+  row2.insertBefore(imgBtn, row2.firstChild);
+
+  extraPanel.appendChild(row1);
+  extraPanel.appendChild(row2);
+
+  const closeExtra = () => {
+    extraPanel.style.display = "none";
+    toggleBtn.classList.remove("active");
+  };
+  extraPanel.addEventListener("touchend", (e) => {
+    if (e.target.closest(".quick-key")) closeExtra();
+  });
+  panel.addEventListener("touchend", (e) => {
+    if (e.target.closest(".quick-key") && !e.target.closest(".quick-key-toggle")) closeExtra();
+  });
 
   toggleBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
   toggleBtn.addEventListener("touchend", (e) => {
