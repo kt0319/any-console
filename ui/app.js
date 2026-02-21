@@ -23,6 +23,20 @@ const QUICK_KEYS = [
   { label: "\u2192", key: "ArrowRight", code: "ArrowRight", keyCode: 39 },
   { label: "\u21B5", key: "Enter", code: "Enter", keyCode: 13 },
 ];
+const EXTRA_KEYS = [
+  { label: "Tab", key: "Tab", code: "Tab", keyCode: 9 },
+  { label: "Esc", key: "Escape", code: "Escape", keyCode: 27 },
+  { label: "Ctrl+C", ctrl: true, key: "c", code: "KeyC", keyCode: 67 },
+  { label: "Ctrl+D", ctrl: true, key: "d", code: "KeyD", keyCode: 68 },
+  { label: "Ctrl+Z", ctrl: true, key: "z", code: "KeyZ", keyCode: 90 },
+  { label: "Ctrl+L", ctrl: true, key: "l", code: "KeyL", keyCode: 76 },
+  { label: "Ctrl+A", ctrl: true, key: "a", code: "KeyA", keyCode: 65 },
+  { label: "Ctrl+E", ctrl: true, key: "e", code: "KeyE", keyCode: 69 },
+  { label: "Home", key: "Home", code: "Home", keyCode: 36 },
+  { label: "End", key: "End", code: "End", keyCode: 35 },
+  { label: "PgUp", key: "PageUp", code: "PageUp", keyCode: 33 },
+  { label: "PgDn", key: "PageDown", code: "PageDown", keyCode: 34 },
+];
 const AUTO_REFRESH_INTERVAL = 10000;
 let autoRefreshTimer = null;
 let autoRefreshing = false;
@@ -1339,25 +1353,51 @@ function attachPasteListener(iframe) {
   }
 }
 
+function createQuickKeyBtn(keyDef) {
+  const btn = document.createElement("div");
+  btn.className = "quick-key";
+  btn.textContent = keyDef.label;
+  btn.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    btn.classList.add("pressed");
+  }, { passive: false });
+  btn.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    btn.classList.remove("pressed");
+    sendKeyToTerminal(keyDef);
+  });
+  btn.addEventListener("touchcancel", () => btn.classList.remove("pressed"));
+  return btn;
+}
+
 function initQuickInput() {
   const panel = $("quick-input-panel");
 
+  const toggleBtn = document.createElement("div");
+  toggleBtn.className = "quick-key quick-key-toggle";
+  toggleBtn.textContent = "...";
+  panel.appendChild(toggleBtn);
+
   for (const keyDef of QUICK_KEYS) {
-    const btn = document.createElement("div");
-    btn.className = "quick-key";
-    btn.textContent = keyDef.label;
-    btn.addEventListener("touchstart", (e) => {
-      e.preventDefault();
-      btn.classList.add("pressed");
-    }, { passive: false });
-    btn.addEventListener("touchend", (e) => {
-      e.preventDefault();
-      btn.classList.remove("pressed");
-      sendKeyToTerminal(keyDef);
-    });
-    btn.addEventListener("touchcancel", () => btn.classList.remove("pressed"));
-    panel.appendChild(btn);
+    panel.appendChild(createQuickKeyBtn(keyDef));
   }
+  const extraPanel = document.createElement("div");
+  extraPanel.className = "quick-extra-panel";
+  extraPanel.style.display = "none";
+  for (const keyDef of EXTRA_KEYS) {
+    extraPanel.appendChild(createQuickKeyBtn(keyDef));
+  }
+
+  toggleBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  toggleBtn.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    const open = extraPanel.style.display === "none";
+    extraPanel.style.display = open ? "flex" : "none";
+    toggleBtn.classList.toggle("active", open);
+  });
+
+  const container = $("quick-input");
+  container.insertBefore(extraPanel, panel);
 }
 
 function addTerminalTab(url, workspace, tabId, skipSwitch) {

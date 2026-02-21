@@ -7,6 +7,7 @@ import http.client
 import asyncio
 import importlib.util
 import re
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -164,10 +165,6 @@ def git_info(directory: Path) -> dict:
                 if m_del:
                     info["deletions"] += int(m_del.group(1))
 
-        subprocess.run(
-            ["git", "fetch", "--quiet"],
-            capture_output=True, text=True, timeout=15, cwd=str(directory),
-        )
         result = subprocess.run(
             ["git", "rev-list", "--left-right", "--count", "HEAD...@{upstream}"],
             capture_output=True, text=True, timeout=5, cwd=str(directory),
@@ -278,28 +275,47 @@ def clone_workspace(body: CloneRequest):
         raise HTTPException(status_code=504, detail="Clone timed out")
 
 
+def _build_workspace_entry(d: Path) -> dict:
+    gi = git_info(d)
+    return {
+        "name": d.name,
+        "branch": gi["branch"],
+        "last_commit": gi["last_commit"],
+        "last_commit_message": gi["last_commit_message"],
+        "github_url": gi["github_url"],
+        "clean": gi["clean"],
+        "ahead": gi["ahead"],
+        "behind": gi["behind"],
+        "insertions": gi["insertions"],
+        "deletions": gi["deletions"],
+        "changed_files": gi["changed_files"],
+    }
+
+
+def _background_fetch(dirs: list[Path]):
+    def fetch(d):
+        try:
+            subprocess.run(
+                ["git", "fetch", "--quiet"],
+                capture_output=True, text=True, timeout=15, cwd=str(d),
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        pool.map(fetch, dirs)
+
+
 @app.get("/workspaces", dependencies=[Depends(verify_token)])
 def list_workspaces():
     if not WORK_DIR.is_dir():
         return []
-    result = []
-    for d in sorted(WORK_DIR.iterdir(), key=lambda d: d.name):
-        if not d.is_dir() or d.name.startswith("."):
-            continue
-        gi = git_info(d)
-        result.append({
-            "name": d.name,
-            "branch": gi["branch"],
-            "last_commit": gi["last_commit"],
-            "last_commit_message": gi["last_commit_message"],
-            "github_url": gi["github_url"],
-            "clean": gi["clean"],
-            "ahead": gi["ahead"],
-            "behind": gi["behind"],
-            "insertions": gi["insertions"],
-            "deletions": gi["deletions"],
-            "changed_files": gi["changed_files"],
-        })
+    dirs = sorted(
+        [d for d in WORK_DIR.iterdir() if d.is_dir() and not d.name.startswith(".")],
+        key=lambda d: d.name,
+    )
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        result = list(pool.map(_build_workspace_entry, dirs))
+    ThreadPoolExecutor(max_workers=1).submit(_background_fetch, dirs)
     return result
 
 
