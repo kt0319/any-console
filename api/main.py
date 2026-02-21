@@ -186,6 +186,11 @@ class CloneRequest(BaseModel):
     name: str | None = None
 
 
+@app.get("/auth/check", dependencies=[Depends(verify_token)])
+def auth_check():
+    return {"ok": True}
+
+
 @app.get("/github/repos", dependencies=[Depends(verify_token)])
 def list_github_repos():
     try:
@@ -716,20 +721,23 @@ def git_push(name: str):
 
 
 @app.get("/workspaces/{name}/git-log", dependencies=[Depends(verify_token)])
-def get_git_log(name: str, limit: int = 50):
+def get_git_log(name: str, limit: int = 50, skip: int = 0):
     ws_path = resolve_workspace_path(name)
     safe_limit = max(1, min(limit, 200))
+    safe_skip = max(0, skip)
     try:
+        cmd = [
+            "git",
+            "--no-pager",
+            "log",
+            f"--max-count={safe_limit}",
+            "--date=format:%Y-%m-%d %H:%M",
+            "--pretty=format:%H\t%ad\t%an\t%D\t%s",
+        ]
+        if safe_skip > 0:
+            cmd.insert(4, f"--skip={safe_skip}")
         result = subprocess.run(
-            [
-                "git",
-                "--no-pager",
-                "log",
-                "--graph",
-                f"--max-count={safe_limit}",
-                "--date=format:%Y-%m-%d %H:%M",
-                "--pretty=format:%H\t%ad\t%an\t%D\t%s",
-            ],
+            cmd,
             capture_output=True,
             text=True,
             timeout=30,
@@ -743,6 +751,80 @@ def get_git_log(name: str, limit: int = 50):
         }
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=504, detail="git log timed out")
+
+
+def validate_commit_hash(commit_hash: str) -> str:
+    if not re.match(r"^[0-9a-f]{4,40}$", commit_hash):
+        raise HTTPException(status_code=400, detail=f"Invalid commit hash: {commit_hash}")
+    return commit_hash
+
+
+class CommitActionRequest(BaseModel):
+    commit_hash: str
+
+
+class ResetRequest(BaseModel):
+    commit_hash: str
+    mode: str = "soft"
+
+
+@app.post("/workspaces/{name}/cherry-pick", dependencies=[Depends(verify_token)])
+def git_cherry_pick(name: str, body: CommitActionRequest):
+    ws_path = resolve_workspace_path(name)
+    commit_hash = validate_commit_hash(body.commit_hash)
+    try:
+        result = subprocess.run(
+            ["git", "cherry-pick", commit_hash],
+            capture_output=True, text=True, timeout=60, cwd=str(ws_path),
+        )
+        return {
+            "status": "ok" if result.returncode == 0 else "error",
+            "exit_code": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="git cherry-pick timed out")
+
+
+@app.post("/workspaces/{name}/revert", dependencies=[Depends(verify_token)])
+def git_revert(name: str, body: CommitActionRequest):
+    ws_path = resolve_workspace_path(name)
+    commit_hash = validate_commit_hash(body.commit_hash)
+    try:
+        result = subprocess.run(
+            ["git", "revert", "--no-edit", commit_hash],
+            capture_output=True, text=True, timeout=60, cwd=str(ws_path),
+        )
+        return {
+            "status": "ok" if result.returncode == 0 else "error",
+            "exit_code": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="git revert timed out")
+
+
+@app.post("/workspaces/{name}/reset", dependencies=[Depends(verify_token)])
+def git_reset(name: str, body: ResetRequest):
+    ws_path = resolve_workspace_path(name)
+    commit_hash = validate_commit_hash(body.commit_hash)
+    if body.mode not in ("soft", "hard"):
+        raise HTTPException(status_code=400, detail=f"Invalid reset mode: {body.mode}")
+    try:
+        result = subprocess.run(
+            ["git", "reset", f"--{body.mode}", commit_hash],
+            capture_output=True, text=True, timeout=60, cwd=str(ws_path),
+        )
+        return {
+            "status": "ok" if result.returncode == 0 else "error",
+            "exit_code": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="git reset timed out")
 
 
 @app.get("/workspaces/{name}/diff/{commit_hash}", dependencies=[Depends(verify_token)])
@@ -1085,7 +1167,19 @@ def get_system_info():
     return info
 
 
-app.mount("/", StaticFiles(directory=str(UI_DIR), html=True), name="ui")
+BOOT_VERSION = str(int(time.time()))
+
+
+@app.get("/")
+def serve_index():
+    html = (UI_DIR / "index.html").read_text()
+    html = html.replace('href="styles.css"', f'href="styles.css?v={BOOT_VERSION}"')
+    html = html.replace('src="app.js"', f'src="app.js?v={BOOT_VERSION}"')
+    return Response(content=html, media_type="text/html",
+                    headers={"Cache-Control": "no-cache"})
+
+
+app.mount("/", StaticFiles(directory=str(UI_DIR)), name="ui")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8888)
