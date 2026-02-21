@@ -109,6 +109,102 @@ def git_info(directory: Path) -> dict:
     return info
 
 
+class CloneRequest(BaseModel):
+    url: str
+    name: str | None = None
+
+
+@app.get("/github/repos", dependencies=[Depends(verify_token)])
+def list_github_repos():
+    try:
+        all_repos = []
+
+        # 自分のリポジトリ
+        result = subprocess.run(
+            ["gh", "repo", "list", "--limit", "100", "--json", "nameWithOwner,url,description"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode == 0:
+            all_repos.extend(json.loads(result.stdout))
+
+        # 所属組織一覧を取得
+        org_result = subprocess.run(
+            ["gh", "org", "list"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if org_result.returncode == 0:
+            orgs = [o.strip() for o in org_result.stdout.strip().splitlines() if o.strip()]
+            for org in orgs:
+                org_repos = subprocess.run(
+                    ["gh", "repo", "list", org, "--limit", "100", "--json", "nameWithOwner,url,description"],
+                    capture_output=True, text=True, timeout=30,
+                )
+                if org_repos.returncode == 0:
+                    all_repos.extend(json.loads(org_repos.stdout))
+
+        # 重複排除してソート
+        seen = set()
+        unique_repos = []
+        for repo in all_repos:
+            key = repo.get("nameWithOwner")
+            if key and key not in seen:
+                seen.add(key)
+                unique_repos.append(repo)
+        unique_repos.sort(key=lambda r: r.get("nameWithOwner", "").lower())
+
+        return unique_repos
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="gh command not found")
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="gh command timed out")
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Failed to parse gh output")
+
+
+@app.post("/workspaces", dependencies=[Depends(verify_token)])
+def clone_workspace(body: CloneRequest):
+    url = body.url.strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="URLを入力してください")
+
+    # ディレクトリ名を決定
+    if body.name:
+        dir_name = body.name.strip()
+    else:
+        # URLからリポジトリ名を抽出
+        dir_name = url.rstrip("/").split("/")[-1].removesuffix(".git")
+
+    if not dir_name or not re.match(r"^[a-zA-Z0-9_.-]+$", dir_name):
+        raise HTTPException(status_code=400, detail="無効なディレクトリ名です")
+
+    target_path = WORK_DIR / dir_name
+    if target_path.exists():
+        raise HTTPException(status_code=409, detail=f"'{dir_name}' は既に存在します")
+
+    WORK_DIR.mkdir(parents=True, exist_ok=True)
+
+    try:
+        result = subprocess.run(
+            ["git", "clone", url, str(target_path)],
+            capture_output=True, text=True, timeout=300, cwd=str(WORK_DIR),
+        )
+        if result.returncode != 0:
+            return {
+                "status": "error",
+                "exit_code": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+            }
+        return {
+            "status": "ok",
+            "name": dir_name,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Clone timed out")
+
+
 @app.get("/workspaces", dependencies=[Depends(verify_token)])
 def list_workspaces():
     if not WORK_DIR.is_dir():

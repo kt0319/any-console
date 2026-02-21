@@ -679,6 +679,136 @@ button:disabled {
   flex-shrink: 0;
 }
 
+.modal-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.modal-header-row h3 {
+  margin-bottom: 0;
+}
+
+.ws-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.ws-add-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.clone-output {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 8px 0;
+  display: none;
+}
+
+.clone-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.clone-tab {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.clone-tab:hover {
+  border-color: var(--accent);
+}
+
+.clone-tab.active {
+  background: rgba(130, 170, 255, 0.2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.clone-tab-content {
+  margin-bottom: 12px;
+}
+
+.clone-repo-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-tertiary);
+}
+
+.clone-repo-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.clone-repo-item:last-child {
+  border-bottom: none;
+}
+
+.clone-repo-item:hover {
+  background: rgba(130, 170, 255, 0.1);
+}
+
+.clone-repo-item.selected {
+  background: rgba(130, 170, 255, 0.2);
+  border-left: 3px solid var(--accent);
+}
+
+.clone-repo-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.clone-repo-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clone-repo-loading,
+.clone-repo-empty,
+.clone-repo-error {
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.clone-repo-error {
+  color: var(--error);
+}
+
 .modal .modal-actions {
   display: flex;
   justify-content: flex-end;

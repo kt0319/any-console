@@ -3,9 +3,9 @@ Description=pi-console API
 After=network.target
 
 [Service]
-User=pi
-WorkingDirectory=/home/pi/pi-console
-EnvironmentFile=/home/pi/pi-console/.env
+User=kentaro
+WorkingDirectory=/home/kentaro/work/pi-console
+EnvironmentFile=/home/kentaro/work/pi-console/.env
 ExecStart=/usr/bin/python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8888
 Restart=always
 
