@@ -54,7 +54,7 @@ function formatTimeAgo(isoStr) {
   const diff = Date.now() - new Date(isoStr).getTime();
   if (diff < 0) return "";
   const sec = Math.floor(diff / 1000);
-  if (sec < 300) return "";
+  if (sec < 300) return "now";
   const min = Math.floor(sec / 60);
   if (min < 60) return `${min}m`;
   const hr = Math.floor(min / 60);

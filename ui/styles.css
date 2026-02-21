@@ -31,7 +31,7 @@ body {
 header {
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
-  padding: calc(10px + env(safe-area-inset-top, 0px)) 20px 10px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 4px 10px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -45,7 +45,7 @@ header .header-select {
 .header-row2 {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   flex: 1;
   min-width: 0;
   min-height: 36px;
@@ -79,7 +79,7 @@ header .header-select {
   margin-left: auto;
   padding-left: 8px;
   font-size: 11px;
-  opacity: 0.7;
+  color: var(--text-muted);
 }
 
 
@@ -333,6 +333,10 @@ header .header-select {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.git-summary-panel:empty {
+  display: none;
 }
 
 .commit-message-panel {
