@@ -64,6 +64,12 @@ sudo systemctl start pi-console
 | `GET /github/repos` | GitHubリポジトリ一覧（gh CLI経由） |
 | `GET/WS /terminal/s/{id}/{path}` | ttydプロキシ |
 
+## CSSルール
+
+- `:hover` スタイルは使わない（モバイルファーストのため）
+- クリック可能な要素はボタン風スタイル（背景色・ボーダーなど）で視覚的に区別する。下線でのクリック表現は使わない
+- 状態変化はJSによるクラス付替え（`.active`, `.selected` など）で表現する
+
 ## 設計上の注意点
 
 - ワークスペースルートは `~/work/` 固定（`WORK_DIR = Path.home() / "work"`）

@@ -570,6 +570,29 @@ def delete_workspace_job(name: str, job_name: str):
     return {"status": "ok", "name": job_name}
 
 
+@app.post("/workspaces/{name}/create-branch", dependencies=[Depends(verify_token)])
+def create_branch(name: str, body: CheckoutRequest):
+    ws_path = resolve_workspace_path(name)
+    branch = body.branch.strip()
+    if not branch:
+        raise HTTPException(status_code=400, detail="Branch is required")
+    if not re.match(r"^[a-zA-Z0-9_./-]+$", branch):
+        raise HTTPException(status_code=400, detail=f"Invalid branch name: {branch}")
+    try:
+        result = subprocess.run(
+            ["git", "checkout", "-b", branch],
+            capture_output=True, text=True, timeout=30, cwd=str(ws_path),
+        )
+        return {
+            "status": "ok" if result.returncode == 0 else "error",
+            "exit_code": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Branch creation timed out")
+
+
 @app.post("/workspaces/{name}/checkout", dependencies=[Depends(verify_token)])
 def checkout_branch(name: str, body: CheckoutRequest):
     ws_path = resolve_workspace_path(name)
@@ -676,9 +699,10 @@ def get_git_log(name: str, limit: int = 50):
                 "git",
                 "--no-pager",
                 "log",
+                "--graph",
                 f"--max-count={safe_limit}",
                 "--date=format:%Y-%m-%d %H:%M",
-                "--pretty=format:%H\t%ad\t%s",
+                "--pretty=format:%H\t%ad\t%an\t%D\t%s",
             ],
             capture_output=True,
             text=True,
@@ -819,22 +843,28 @@ async def terminal_ws_proxy(websocket: WebSocket, session_id: str, path: str):
             subprotocols=[websockets.Subprotocol(s) for s in client_subprotocols] if client_subprotocols else None,
         ) as upstream:
             async def client_to_upstream():
-                while True:
-                    msg = await websocket.receive()
-                    if msg.get("type") == "websocket.disconnect":
-                        break
-                    data = msg.get("bytes")
-                    if data is None and msg.get("text") is not None:
-                        data = msg["text"].encode("utf-8")
-                    if data:
-                        await upstream.send(data)
+                try:
+                    while True:
+                        msg = await websocket.receive()
+                        if msg.get("type") == "websocket.disconnect":
+                            break
+                        data = msg.get("bytes")
+                        if data is None and msg.get("text") is not None:
+                            data = msg["text"].encode("utf-8")
+                        if data:
+                            await upstream.send(data)
+                except (WebSocketDisconnect, OSError):
+                    pass
 
             async def upstream_to_client():
-                async for message in upstream:
-                    if isinstance(message, bytes):
-                        await websocket.send_bytes(message)
-                    else:
-                        await websocket.send_text(message)
+                try:
+                    async for message in upstream:
+                        if isinstance(message, bytes):
+                            await websocket.send_bytes(message)
+                        else:
+                            await websocket.send_text(message)
+                except (WebSocketDisconnect, OSError):
+                    pass
 
             done, pending = await asyncio.wait(
                 [
@@ -845,11 +875,7 @@ async def terminal_ws_proxy(websocket: WebSocket, session_id: str, path: str):
             )
             for task in pending:
                 task.cancel()
-            for task in done:
-                exc = task.exception()
-                if exc:
-                    raise exc
-    except (WebSocketDisconnect, OSError):
+    except (WebSocketDisconnect, OSError, websockets.exceptions.ConnectionClosed):
         pass
     finally:
         try:

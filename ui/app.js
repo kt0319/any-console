@@ -6,6 +6,7 @@ let allWorkspaces = [];
 let selectedWorkspace = localStorage.getItem("pi_console_workspace") || null;
 let hiddenWorkspaces = JSON.parse(localStorage.getItem("hidden_workspaces") || "[]");
 let runningJobName = null;
+let launchingTerminal = false;
 let cachedBranches = [];
 let tabs = [];
 let activeTabId = null;
@@ -25,6 +26,7 @@ const QUICK_KEYS = [
 ];
 const EXTRA_KEYS = [
   { label: "Tab", key: "Tab", code: "Tab", keyCode: 9 },
+  { label: "S-Tab", shift: true, key: "Tab", code: "Tab", keyCode: 9 },
   { label: "Esc", key: "Escape", code: "Escape", keyCode: 27 },
   { label: "Ctrl+C", ctrl: true, key: "c", code: "KeyC", keyCode: 67 },
   { label: "Ctrl+D", ctrl: true, key: "d", code: "KeyD", keyCode: 68 },
@@ -225,8 +227,11 @@ async function initApp() {
   setLoadingStatus("ジョブを読み込み中...");
   await loadJobsForWorkspace();
   renderJobMenu();
-  setLoadingStatus("ターミナルを復元中...");
-  await restoreTerminalTabs();
+  const savedTabs = JSON.parse(localStorage.getItem(TERMINAL_TABS_KEY) || "[]");
+  if (savedTabs.length > 0) {
+    setLoadingStatus("ターミナルを復元中...");
+    await restoreTerminalTabs();
+  }
   await fetchOrphanSessions();
   if (!selectedWorkspace) {
     setLoadingStatus("ワークスペースを選択してください");
@@ -454,6 +459,82 @@ async function loadJobsForWorkspace() {
   renderTabBar();
 }
 
+function closeGitLogModal() {
+  $("git-log-modal").style.display = "none";
+  resetCreateBranchArea();
+}
+
+function resetCreateBranchArea() {
+  $("git-log-create-branch-area").style.display = "none";
+  $("git-log-create-branch-submit").style.display = "none";
+  $("git-log-branch-name").value = "";
+  $("git-log-branch-error").style.display = "none";
+}
+
+function toggleCreateBranchArea() {
+  const area = $("git-log-create-branch-area");
+  const submitBtn = $("git-log-create-branch-submit");
+  const visible = area.style.display !== "none";
+  if (visible) {
+    resetCreateBranchArea();
+  } else {
+    area.style.display = "block";
+    submitBtn.style.display = "";
+    $("git-log-branch-name").focus();
+  }
+}
+
+async function submitCreateBranch() {
+  if (!selectedWorkspace) return;
+  const branchName = $("git-log-branch-name").value.trim();
+  const errorEl = $("git-log-branch-error");
+
+  if (!branchName) {
+    errorEl.textContent = "ブランチ名を入力してください";
+    errorEl.style.display = "block";
+    return;
+  }
+  if (!/^[a-zA-Z0-9_./-]+$/.test(branchName)) {
+    errorEl.textContent = "ブランチ名に使えない文字が含まれています";
+    errorEl.style.display = "block";
+    return;
+  }
+
+  errorEl.style.display = "none";
+  $("git-log-create-branch-submit").disabled = true;
+
+  try {
+    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/create-branch`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ branch: branchName }),
+    });
+    if (res.status === 401) {
+      localStorage.removeItem("pi_console_token");
+      showLogin();
+      return;
+    }
+    const data = await res.json();
+    if (!res.ok || data.status !== "ok") {
+      errorEl.textContent = data.detail || data.stderr || "ブランチ作成に失敗しました";
+      errorEl.style.display = "block";
+      return;
+    }
+    closeGitLogModal();
+    await loadWorkspaces();
+    await updateHeaderInfo();
+    renderJobMenu();
+  } catch (e) {
+    errorEl.textContent = e.message;
+    errorEl.style.display = "block";
+  } finally {
+    $("git-log-create-branch-submit").disabled = false;
+  }
+}
+
 async function openGitLogModal() {
   if (!selectedWorkspace) return;
 
@@ -481,30 +562,44 @@ async function openGitLogModal() {
     }
 
     listEl.innerHTML = "";
-    const lines = data.stdout.split("\n").filter((l) => l.trim());
+    const lines = data.stdout.split("\n");
     for (const line of lines) {
-      const parts = line.split("\t");
-      let hash, time, msg;
-      if (parts.length >= 3) {
-        hash = parts[0];
-        time = parts[1];
-        msg = parts.slice(2).join("\t");
-      } else {
-        hash = null;
-        time = "";
-        msg = line;
-      }
+      if (!line.trim()) continue;
 
       const entry = document.createElement("div");
-      entry.className = "git-log-entry";
-      entry.innerHTML = time
-        ? `<span class="git-log-entry-time">${escapeHtml(time)}</span><span class="git-log-entry-msg">${escapeHtml(msg)}</span>`
-        : `<span class="git-log-entry-msg">${escapeHtml(msg)}</span>`;
-      if (hash) {
+      const commitMatch = line.match(/^(.*?)([0-9a-f]{40})\t(.+?)\t(.+?)\t(.*?)\t(.*)$/);
+      if (commitMatch) {
+        const graph = commitMatch[1].replace(/\*/g, " ");
+        const hash = commitMatch[2];
+        const time = commitMatch[3];
+        const author = commitMatch[4];
+        const refs = commitMatch[5];
+        const msg = commitMatch[6];
+        entry.className = "git-log-entry git-log-commit";
+        let refsHtml = "";
+        if (refs) {
+          refsHtml = refs.split(",").map((r) => {
+            const name = r.trim();
+            if (!name) return "";
+            const isTag = name.startsWith("tag: ");
+            const isHead = name.includes("HEAD");
+            const cls = isTag ? "git-ref-tag" : isHead ? "git-ref-head" : "git-ref-branch";
+            return `<span class="git-ref ${cls}">${escapeHtml(name)}</span>`;
+          }).join("");
+        }
+        entry.innerHTML =
+          `<span class="git-log-entry-graph">${escapeHtml(graph)}</span>` +
+          `<span class="git-log-entry-body">` +
+            `<span class="git-log-entry-row1"><span class="git-log-entry-msg">${escapeHtml(msg)}</span></span>` +
+            `<span class="git-log-entry-meta">${refsHtml}<span class="git-log-entry-author">${escapeHtml(author)}</span><span class="git-log-entry-time">${escapeHtml(time)}</span></span>` +
+          `</span>`;
         entry.addEventListener("click", () => {
           $("git-log-modal").style.display = "none";
           openCommitDiffModal(hash, msg);
         });
+      } else {
+        entry.className = "git-log-entry git-log-graph-only";
+        entry.innerHTML = `<span class="git-log-entry-graph">${escapeHtml(line.replace(/\*/g, " "))}</span>`;
       }
       listEl.appendChild(entry);
     }
@@ -1403,6 +1498,10 @@ function initQuickInput() {
 
 function addTerminalTab(url, workspace, tabId, skipSwitch) {
   const id = tabId || `term-${++terminalIdCounter}`;
+  if (tabId) {
+    const m = tabId.match(/^term-(\d+)$/);
+    if (m) terminalIdCounter = Math.max(terminalIdCounter, parseInt(m[1]));
+  }
   const label = workspace || "terminal";
   if (tabs.some((t) => t.id === id)) return;
   tabs.push({ id, type: "terminal", url, label });
@@ -1539,7 +1638,12 @@ function collectArgs() {
 async function runJob(jobName = null, argsOverride = null) {
   const targetJob = jobName || selectedJob;
   if (!targetJob) return;
-  if (runningJobName) return;
+  const isTerminal = targetJob === "terminal";
+  if (isTerminal) {
+    if (launchingTerminal) return;
+  } else {
+    if (runningJobName) return;
+  }
   if (selectedJob !== targetJob) {
     selectedJob = targetJob;
   }
@@ -1548,7 +1652,7 @@ async function runJob(jobName = null, argsOverride = null) {
   const args = argsOverride || collectArgs();
   const job = JOBS[targetJob] || {};
   const tabLabel = job.label || targetJob;
-  const outputTabId = `output-${targetJob}`;
+  const outputTabId = isTerminal ? `output-term-${Date.now()}` : `output-${targetJob}`;
 
   for (const arg of (job.args || [])) {
     if (arg.required && !args[arg.name]) {
@@ -1557,7 +1661,11 @@ async function runJob(jobName = null, argsOverride = null) {
     }
   }
 
-  runningJobName = targetJob;
+  if (isTerminal) {
+    launchingTerminal = true;
+  } else {
+    runningJobName = targetJob;
+  }
   renderJobMenu();
   setOutputTab(outputTabId, tabLabel, '<div class="output-status"><span class="status-badge running">running</span></div>');
 
@@ -1588,7 +1696,7 @@ async function runJob(jobName = null, argsOverride = null) {
       html += `\n<span style="color:var(--error)">${escapeHtml(data.stderr)}</span>`;
     }
 
-    if (targetJob === "terminal" && data.status === "ok" && data.terminal_url) {
+    if (isTerminal && data.status === "ok" && data.terminal_url) {
       removeTab(outputTabId);
       addTerminalTab(data.terminal_url, selectedWorkspace);
       return;
@@ -1598,7 +1706,11 @@ async function runJob(jobName = null, argsOverride = null) {
   } catch (e) {
     setOutputTab(outputTabId, tabLabel, `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(e.message)}`);
   } finally {
-    runningJobName = null;
+    if (isTerminal) {
+      launchingTerminal = false;
+    } else {
+      runningJobName = null;
+    }
     renderJobMenu();
     loadWorkspaces().then(() => updateHeaderInfo());
   }
@@ -1676,9 +1788,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("push-btn").addEventListener("click", gitPush);
   initQuickInput();
   $("header-commit-msg").addEventListener("click", openGitLogModal);
-  $("git-log-close").addEventListener("click", () => {
-    $("git-log-modal").style.display = "none";
-  });
+  $("git-log-close").addEventListener("click", closeGitLogModal);
+  $("git-log-create-branch-toggle").addEventListener("click", toggleCreateBranchArea);
+  $("git-log-create-branch-submit").addEventListener("click", submitCreateBranch);
 
   if (token) {
     const valid = await checkToken();
