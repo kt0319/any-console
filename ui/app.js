@@ -350,9 +350,6 @@ async function gitPull() {
   const pullBtn = $("pull-btn");
   pullBtn.classList.add("running");
 
-  const outputTabId = "output-git-pull";
-  setOutputTab(outputTabId, "pull", '<div class="output-status"><span class="status-badge running">pulling</span></div>');
-
   try {
     const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/pull`, {
       method: "POST",
@@ -364,16 +361,11 @@ async function gitPull() {
       return;
     }
     const data = await res.json();
-    const badgeClass = data.status === "ok" ? "ok" : "error";
-    let html = `<div class="output-status"><span class="status-badge ${badgeClass}">${escapeHtml(data.status)}</span></div>`;
-    if (data.stdout) html += escapeHtml(data.stdout);
-    if (data.stderr) {
-      const stderrClass = data.status === "ok" ? "" : ' style="color:var(--error)"';
-      html += `\n<span${stderrClass}>${escapeHtml(data.stderr)}</span>`;
+    if (data.status !== "ok") {
+      alert(`pull failed: ${data.stderr || data.stdout || "unknown error"}`);
     }
-    setOutputTab(outputTabId, "pull", html);
   } catch (e) {
-    setOutputTab(outputTabId, "pull", `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(e.message)}`);
+    alert(`pull error: ${e.message}`);
   } finally {
     pullBtn.classList.remove("running");
     await loadWorkspaces();
@@ -388,9 +380,6 @@ async function gitPush() {
   const pushBtn = $("push-btn");
   pushBtn.classList.add("running");
 
-  const outputTabId = "output-git-push";
-  setOutputTab(outputTabId, "push", '<div class="output-status"><span class="status-badge running">pushing</span></div>');
-
   try {
     const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/push`, {
       method: "POST",
@@ -402,16 +391,11 @@ async function gitPush() {
       return;
     }
     const data = await res.json();
-    const badgeClass = data.status === "ok" ? "ok" : "error";
-    let html = `<div class="output-status"><span class="status-badge ${badgeClass}">${escapeHtml(data.status)}</span></div>`;
-    if (data.stdout) html += escapeHtml(data.stdout);
-    if (data.stderr) {
-      const stderrClass = data.status === "ok" ? "" : ' style="color:var(--error)"';
-      html += `\n<span${stderrClass}>${escapeHtml(data.stderr)}</span>`;
+    if (data.status !== "ok") {
+      alert(`push failed: ${data.stderr || data.stdout || "unknown error"}`);
     }
-    setOutputTab(outputTabId, "push", html);
   } catch (e) {
-    setOutputTab(outputTabId, "push", `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(e.message)}`);
+    alert(`push error: ${e.message}`);
   } finally {
     pushBtn.classList.remove("running");
     await loadWorkspaces();

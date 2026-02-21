@@ -49,6 +49,7 @@ header .header-select {
   gap: 10px;
   flex: 1;
   min-width: 0;
+  min-height: 36px;
 }
 
 .header-commit-msg {
@@ -721,21 +722,22 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  min-height: 36px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   padding: 0;
   background: transparent;
-  border: none;
-  border-radius: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
   color: var(--text-muted);
   cursor: pointer;
-  transition: color 0.15s;
+  transition: color 0.15s, border-color 0.15s;
 }
 
 .menu-btn:hover {
   color: var(--text-primary);
+  border-color: var(--text-muted);
 }
 
 .menu-dropdown {
