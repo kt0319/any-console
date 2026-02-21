@@ -164,6 +164,10 @@ def git_info(directory: Path) -> dict:
                 if m_del:
                     info["deletions"] += int(m_del.group(1))
 
+        subprocess.run(
+            ["git", "fetch", "--quiet"],
+            capture_output=True, text=True, timeout=15, cwd=str(directory),
+        )
         result = subprocess.run(
             ["git", "rev-list", "--left-right", "--count", "HEAD...@{upstream}"],
             capture_output=True, text=True, timeout=5, cwd=str(directory),
@@ -636,17 +640,27 @@ def ssh_env() -> dict[str, str]:
 @app.post("/workspaces/{name}/pull", dependencies=[Depends(verify_token)])
 def git_pull(name: str):
     ws_path = resolve_workspace_path(name)
+    env = ssh_env()
+    run_opts = dict(capture_output=True, text=True, timeout=60, cwd=str(ws_path), env=env)
     try:
-        result = subprocess.run(
-            ["git", "pull"],
-            capture_output=True, text=True, timeout=60, cwd=str(ws_path),
-            env=ssh_env(),
-        )
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain"], capture_output=True, text=True, cwd=str(ws_path),
+        ).stdout.strip()
+        stashed = False
+        if dirty:
+            stash_result = subprocess.run(["git", "stash"], **run_opts)
+            stashed = stash_result.returncode == 0
+        result = subprocess.run(["git", "pull", "--rebase"], **run_opts)
+        stash_msg = ""
+        if stashed:
+            pop = subprocess.run(["git", "stash", "pop"], **run_opts)
+            if pop.returncode != 0:
+                stash_msg = f"\n⚠️ stash pop failed:\n{pop.stderr}"
         return {
             "status": "ok" if result.returncode == 0 else "error",
             "exit_code": result.returncode,
             "stdout": result.stdout,
-            "stderr": result.stderr,
+            "stderr": result.stderr + stash_msg,
         }
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=504, detail="git pull timed out")

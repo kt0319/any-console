@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>pi-console</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=3" />
 </head>
 <body>
   <!-- Login -->
@@ -26,8 +26,10 @@
         </button>
         <div class="menu-dropdown" id="menu-dropdown" style="display:none">
           <a class="menu-item" id="github-link" href="#" target="_blank" rel="noopener" style="display:none">GitHub</a>
+          <a class="menu-item" id="github-issues" href="#" target="_blank" rel="noopener" style="display:none">Issues</a>
+          <a class="menu-item" id="github-pulls" href="#" target="_blank" rel="noopener" style="display:none">Pull Requests</a>
+          <a class="menu-item" id="github-actions" href="#" target="_blank" rel="noopener" style="display:none">Actions</a>
           <div class="menu-separator" id="github-sep" style="display:none"></div>
-          <button type="button" class="menu-item" id="menu-refresh">更新</button>
           <button type="button" class="menu-item" id="menu-settings">設定</button>
         </div>
       </div>
@@ -59,6 +61,7 @@
         </div>
         <div class="ws-check-list" id="ws-check-list"></div>
         <div class="modal-actions">
+          <button id="menu-refresh">更新</button>
           <button id="settings-close">閉じる</button>
         </div>
       </div>
@@ -167,7 +170,6 @@
         <div class="tab-bar" id="tab-bar"></div>
         <div class="output-container" id="output-container">
           <div class="output-area" id="output">
-            <div class="empty-state">ジョブを選択して実行</div>
           </div>
         </div>
       </div>
@@ -178,6 +180,6 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>

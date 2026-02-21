@@ -181,18 +181,29 @@ async function restoreTerminalTabs() {
   }
 }
 
+function setLoadingStatus(text) {
+  $("output").innerHTML = `<div class="empty-state">${escapeHtml(text)}</div>`;
+}
+
 async function initApp() {
+  setLoadingStatus("ワークスペースを読み込み中...");
   await loadWorkspaces();
   if (selectedWorkspace && !visibleWorkspaces().some((ws) => ws.name === selectedWorkspace)) {
     selectedWorkspace = null;
     localStorage.removeItem("pi_console_workspace");
   }
+  setLoadingStatus("ワークスペース情報を取得中...");
   renderWorkspaceSelects();
   await updateHeaderInfo();
+  setLoadingStatus("ジョブを読み込み中...");
   await loadJobsForWorkspace();
   renderJobMenu();
+  setLoadingStatus("ターミナルを復元中...");
   await restoreTerminalTabs();
   await fetchOrphanSessions();
+  if (!selectedWorkspace) {
+    setLoadingStatus("ワークスペースを選択してください");
+  }
 }
 
 async function loadWorkspaces() {
@@ -232,15 +243,31 @@ function renderHeaderWsSelect() {
 function updateGithubLink(ws) {
   const link = $("github-link");
   const sep = $("github-sep");
+  const issuesLink = $("github-issues");
+  const pullsLink = $("github-pulls");
+  const actionsLink = $("github-actions");
+  const githubEls = [link, issuesLink, pullsLink, actionsLink, sep];
   if (!ws || !ws.github_url) {
-    link.style.display = "none";
-    sep.style.display = "none";
+    githubEls.forEach(el => el.style.display = "none");
     return;
   }
   const branch = ws.branch || "main";
-  link.href = `${ws.github_url}/tree/${encodeURIComponent(branch)}`;
-  link.style.display = "block";
-  sep.style.display = "";
+  const baseUrl = ws.github_url;
+  const webUrl = `${baseUrl}/tree/${encodeURIComponent(branch)}`;
+  const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
+  if (isMobile) {
+    const path = baseUrl.replace(/^https?:\/\/github\.com/, "");
+    link.href = `github://github.com${path}/tree/${encodeURIComponent(branch)}`;
+    link.addEventListener("click", function fallback(e) {
+      setTimeout(() => { window.location.href = webUrl; }, 500);
+    }, { once: true });
+  } else {
+    link.href = webUrl;
+  }
+  issuesLink.href = `${baseUrl}/issues`;
+  pullsLink.href = `${baseUrl}/pulls`;
+  actionsLink.href = `${baseUrl}/actions`;
+  githubEls.forEach(el => el.style.display = "block");
 }
 
 async function updateHeaderInfo() {
@@ -249,7 +276,8 @@ async function updateHeaderInfo() {
   if (!selectedWorkspace) {
     mainGitStatusEl.innerHTML = "";
     $("clean-dirty-status").innerHTML = "";
-    $("header-commit-msg").textContent = "";
+    $("header-commit-msg").textContent = "ワークスペースを選択してください";
+    $("header-row2").style.display = "flex";
     updateGithubLink(null);
     updateGitActions(null);
     return;
@@ -829,7 +857,7 @@ function renderJobMenu() {
 
   if (!selectedWorkspace) return;
 
-  const refNode = $("menu-refresh");
+  const refNode = $("menu-settings");
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
   const currentBranch = ws ? ws.branch : null;
 
@@ -1247,15 +1275,22 @@ function sendKeyToTerminal(keyDef) {
 }
 
 function sendTextToTerminal(text) {
-  for (const ch of text) {
-    dispatchKeyToTerminal({ key: ch, char: ch, code: "", keyCode: ch.charCodeAt(0) });
-  }
+  const textarea = getTerminalTextarea();
+  if (!textarea) return;
+  textarea.focus();
+  textarea.value = text;
+  textarea.dispatchEvent(new InputEvent("input", {
+    data: text,
+    inputType: "insertText",
+    bubbles: true,
+  }));
 }
 
 async function uploadClipboardImage(file) {
   const activeTab = tabs.find((t) => t.id === activeTabId);
   if (!activeTab || activeTab.type !== "terminal") return;
 
+  console.warn("[paste] uploading image:", file.type, file.size);
   const form = new FormData();
   form.append("file", file);
   try {
@@ -1264,20 +1299,32 @@ async function uploadClipboardImage(file) {
       headers: { Authorization: `Bearer ${token}` },
       body: form,
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+      console.error("[paste] upload failed:", res.status, await res.text());
+      return;
+    }
     const data = await res.json();
+    console.warn("[paste] upload ok:", data.path);
     if (data.path) sendTextToTerminal(data.path);
-  } catch {}
+  } catch (err) {
+    console.error("[paste] upload error:", err);
+  }
 }
 
 function attachPasteListener(iframe) {
   try {
     const doc = iframe.contentDocument;
-    if (!doc) return;
+    if (!doc) {
+      console.warn("[paste] contentDocument is null (cross-origin?)");
+      return;
+    }
+    console.warn("[paste] listener attached to iframe");
     doc.addEventListener("paste", (e) => {
       const items = e.clipboardData && e.clipboardData.items;
+      console.warn("[paste] paste event fired, items:", items?.length);
       if (!items) return;
       for (const item of items) {
+        console.warn("[paste] item:", item.kind, item.type);
         if (item.type.startsWith("image/")) {
           e.preventDefault();
           e.stopPropagation();
@@ -1286,21 +1333,29 @@ function attachPasteListener(iframe) {
           return;
         }
       }
-    });
-  } catch {}
+    }, { capture: true });
+  } catch (err) {
+    console.error("[paste] attachPasteListener failed:", err);
+  }
 }
 
 function initQuickInput() {
   const panel = $("quick-input-panel");
+
   for (const keyDef of QUICK_KEYS) {
-    const btn = document.createElement("button");
-    btn.type = "button";
+    const btn = document.createElement("div");
     btn.className = "quick-key";
     btn.textContent = keyDef.label;
-    btn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
-    btn.addEventListener("touchend", (e) => { e.preventDefault(); sendKeyToTerminal(keyDef); });
-    btn.addEventListener("mousedown", (e) => e.preventDefault());
-    btn.addEventListener("click", () => sendKeyToTerminal(keyDef));
+    btn.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      btn.classList.add("pressed");
+    }, { passive: false });
+    btn.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      btn.classList.remove("pressed");
+      sendKeyToTerminal(keyDef);
+    });
+    btn.addEventListener("touchcancel", () => btn.classList.remove("pressed"));
     panel.appendChild(btn);
   }
 }
