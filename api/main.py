@@ -38,6 +38,47 @@ class TerminalSession:
 TERMINAL_SESSIONS: dict[str, TerminalSession] = {}
 
 
+def recover_terminal_sessions() -> None:
+    """起動時に既存の ttyd プロセスを検出して TERMINAL_SESSIONS に再登録する"""
+    try:
+        result = subprocess.run(
+            ["pgrep", "-a", "ttyd"], capture_output=True, text=True, timeout=5,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return
+    if result.returncode != 0:
+        return
+
+    for line in result.stdout.strip().splitlines():
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        pid_str = parts[0]
+        port = None
+        session_id = None
+        for i, arg in enumerate(parts):
+            if arg == "--port" and i + 1 < len(parts):
+                try:
+                    port = int(parts[i + 1])
+                except ValueError:
+                    pass
+            if arg == "--base-path" and i + 1 < len(parts):
+                bp = parts[i + 1]
+                prefix = "/terminal/s/"
+                if bp.startswith(prefix):
+                    session_id = bp[len(prefix):].rstrip("/")
+        if port and session_id and session_id not in TERMINAL_SESSIONS:
+            TERMINAL_SESSIONS[session_id] = TerminalSession(
+                workspace=None,
+                port=port,
+                pid=int(pid_str),
+                expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
+            )
+
+
+recover_terminal_sessions()
+
+
 class RunRequest(BaseModel):
     job: str
     args: dict[str, str] = {}
@@ -53,6 +94,9 @@ def git_info(directory: Path) -> dict:
         "clean": None,
         "ahead": 0,
         "behind": 0,
+        "insertions": 0,
+        "deletions": 0,
+        "changed_files": 0,
     }
     try:
         result = subprocess.run(
@@ -94,6 +138,28 @@ def git_info(directory: Path) -> dict:
         )
         if result.returncode == 0:
             info["clean"] = len(result.stdout.strip()) == 0
+
+        if not info["clean"]:
+            stat_result = subprocess.run(
+                ["git", "diff", "--shortstat"],
+                capture_output=True, text=True, timeout=5, cwd=str(directory),
+            )
+            staged_result = subprocess.run(
+                ["git", "diff", "--staged", "--shortstat"],
+                capture_output=True, text=True, timeout=5, cwd=str(directory),
+            )
+            for out in (stat_result.stdout, staged_result.stdout):
+                if not out:
+                    continue
+                m_files = re.search(r"(\d+) file", out)
+                m_ins = re.search(r"(\d+) insertion", out)
+                m_del = re.search(r"(\d+) deletion", out)
+                if m_files:
+                    info["changed_files"] += int(m_files.group(1))
+                if m_ins:
+                    info["insertions"] += int(m_ins.group(1))
+                if m_del:
+                    info["deletions"] += int(m_del.group(1))
 
         result = subprocess.run(
             ["git", "rev-list", "--left-right", "--count", "HEAD...@{upstream}"],
@@ -223,6 +289,9 @@ def list_workspaces():
             "clean": gi["clean"],
             "ahead": gi["ahead"],
             "behind": gi["behind"],
+            "insertions": gi["insertions"],
+            "deletions": gi["deletions"],
+            "changed_files": gi["changed_files"],
         })
     return result
 
@@ -238,6 +307,36 @@ def get_git_branches(directory: Path) -> list[str]:
         )
         if result.returncode == 0:
             return [b for b in result.stdout.strip().splitlines() if b]
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    return []
+
+
+def get_git_remote_branches(directory: Path) -> list[str]:
+    try:
+        subprocess.run(
+            ["git", "fetch", "--prune"],
+            capture_output=True, text=True, timeout=30, cwd=str(directory),
+        )
+        result = subprocess.run(
+            ["git", "branch", "-r", "--format=%(refname:short)"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=str(directory),
+        )
+        if result.returncode == 0:
+            branches = []
+            for b in result.stdout.strip().splitlines():
+                b = b.strip()
+                if not b or b.endswith("/HEAD"):
+                    continue
+                # "origin/main" -> "main"
+                if "/" in b:
+                    b = b.split("/", 1)[1]
+                if b not in branches:
+                    branches.append(b)
+            return branches
     except (subprocess.TimeoutExpired, OSError):
         pass
     return []
@@ -285,6 +384,7 @@ def get_terminal_session(session_id: str) -> TerminalSession:
     if session.expires_at <= time.time():
         TERMINAL_SESSIONS.pop(session_id, None)
         raise HTTPException(status_code=410, detail="Terminal session expired")
+    session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
     return session
 
 
@@ -383,10 +483,35 @@ def job_definition_to_dict(job_def) -> dict:
     }
 
 
+@app.get("/workspaces/{name}/status", dependencies=[Depends(verify_token)])
+def get_workspace_status(name: str):
+    ws_path = resolve_workspace_path(name)
+    gi = git_info(ws_path)
+    return {
+        "name": name,
+        "branch": gi["branch"],
+        "last_commit": gi["last_commit"],
+        "last_commit_message": gi["last_commit_message"],
+        "github_url": gi["github_url"],
+        "clean": gi["clean"],
+        "ahead": gi["ahead"],
+        "behind": gi["behind"],
+        "insertions": gi["insertions"],
+        "deletions": gi["deletions"],
+        "changed_files": gi["changed_files"],
+    }
+
+
 @app.get("/workspaces/{name}/branches", dependencies=[Depends(verify_token)])
 def list_branches(name: str):
     ws_path = resolve_workspace_path(name)
     return get_git_branches(ws_path)
+
+
+@app.get("/workspaces/{name}/branches/remote", dependencies=[Depends(verify_token)])
+def list_remote_branches(name: str):
+    ws_path = resolve_workspace_path(name)
+    return get_git_remote_branches(ws_path)
 
 
 @app.get("/workspaces/{name}/jobs", dependencies=[Depends(verify_token)])
@@ -450,16 +575,23 @@ def checkout_branch(name: str, body: CheckoutRequest):
     branch = body.branch.strip()
     if not branch:
         raise HTTPException(status_code=400, detail="Branch is required")
+    if not re.match(r"^[a-zA-Z0-9_./-]+$", branch):
+        raise HTTPException(status_code=400, detail=f"Invalid branch name: {branch}")
 
-    branches = get_git_branches(ws_path)
-    if branch not in branches:
-        raise HTTPException(status_code=400, detail=f"Invalid branch: {body.branch}")
+    local_branches = get_git_branches(ws_path)
+    is_local = branch in local_branches
 
     try:
-        result = subprocess.run(
-            ["git", "checkout", branch],
-            capture_output=True, text=True, timeout=30, cwd=str(ws_path),
-        )
+        if is_local:
+            result = subprocess.run(
+                ["git", "checkout", branch],
+                capture_output=True, text=True, timeout=30, cwd=str(ws_path),
+            )
+        else:
+            result = subprocess.run(
+                ["git", "checkout", "-b", branch, f"origin/{branch}"],
+                capture_output=True, text=True, timeout=30, cwd=str(ws_path),
+            )
         return {
             "status": "ok" if result.returncode == 0 else "error",
             "exit_code": result.returncode,
@@ -482,7 +614,7 @@ def get_git_log(name: str, limit: int = 50):
                 "log",
                 f"--max-count={safe_limit}",
                 "--date=format:%Y-%m-%d %H:%M",
-                "--pretty=format:%ad %s",
+                "--pretty=format:%H\t%ad\t%s",
             ],
             capture_output=True,
             text=True,
@@ -497,6 +629,31 @@ def get_git_log(name: str, limit: int = 50):
         }
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=504, detail="git log timed out")
+
+
+@app.get("/workspaces/{name}/diff/{commit_hash}", dependencies=[Depends(verify_token)])
+def get_commit_diff(name: str, commit_hash: str):
+    ws_path = resolve_workspace_path(name)
+    if not commit_hash.isalnum():
+        raise HTTPException(status_code=400, detail="Invalid commit hash")
+    try:
+        result = subprocess.run(
+            ["git", "--no-pager", "diff", f"{commit_hash}~1", commit_hash],
+            capture_output=True, text=True, timeout=30, cwd=str(ws_path),
+        )
+        files_result = subprocess.run(
+            ["git", "diff", "--name-only", f"{commit_hash}~1", commit_hash],
+            capture_output=True, text=True, timeout=10, cwd=str(ws_path),
+        )
+        files = [f for f in files_result.stdout.splitlines() if f.strip()] if files_result.returncode == 0 else []
+        return {
+            "status": "ok" if result.returncode == 0 else "error",
+            "files": files,
+            "diff": result.stdout,
+            "stderr": result.stderr,
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="git diff timed out")
 
 
 @app.get("/workspaces/{name}/diff", dependencies=[Depends(verify_token)])

@@ -5,13 +5,15 @@ let selectedJob = null;
 let allWorkspaces = [];
 let selectedWorkspace = localStorage.getItem("pi_console_workspace") || null;
 let hiddenWorkspaces = JSON.parse(localStorage.getItem("hidden_workspaces") || "[]");
-let commitLogOpen = false;
-let commitLogContent = "";
 let runningJobName = null;
-let terminalTabs = [];
-let activeTabId = "output";
+let cachedBranches = [];
+let tabs = [];
+let activeTabId = null;
 let terminalIdCounter = 0;
 const TERMINAL_TABS_KEY = "pi_console_terminal_tabs";
+const AUTO_REFRESH_INTERVAL = 10000;
+let autoRefreshTimer = null;
+let autoRefreshing = false;
 
 function $(id) {
   return document.getElementById(id);
@@ -47,11 +49,54 @@ function formatCommitTime(timeText) {
 function showLogin() {
   $("login-screen").style.display = "flex";
   $("app-screen").style.display = "none";
+  stopAutoRefresh();
 }
 
 function showApp() {
   $("login-screen").style.display = "none";
   $("app-screen").style.display = "flex";
+  startAutoRefresh();
+}
+
+async function refreshCurrentWorkspaceStatus() {
+  if (!selectedWorkspace) return;
+  try {
+    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/status`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 401) {
+      localStorage.removeItem("pi_console_token");
+      showLogin();
+      return;
+    }
+    if (!res.ok) return;
+    const ws = await res.json();
+    const idx = allWorkspaces.findIndex((w) => w.name === selectedWorkspace);
+    if (idx >= 0) {
+      allWorkspaces[idx] = ws;
+    }
+    await updateHeaderInfo();
+  } catch {}
+}
+
+function startAutoRefresh() {
+  if (autoRefreshTimer) return;
+  autoRefreshTimer = setInterval(async () => {
+    if (document.hidden || autoRefreshing || !selectedWorkspace) return;
+    autoRefreshing = true;
+    try {
+      await refreshCurrentWorkspaceStatus();
+    } finally {
+      autoRefreshing = false;
+    }
+  }, AUTO_REFRESH_INTERVAL);
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
 }
 
 async function checkToken() {
@@ -113,6 +158,10 @@ async function restoreTerminalTabs() {
     for (const t of alive) {
       addTerminalTab(t.url, t.label, t.id);
     }
+    const lastActive = localStorage.getItem("pi_console_active_tab");
+    if (lastActive && tabs.some((t) => t.id === lastActive)) {
+      switchTab(lastActive);
+    }
   } catch {
     localStorage.removeItem(TERMINAL_TABS_KEY);
   }
@@ -127,7 +176,7 @@ async function initApp() {
   renderWorkspaceSelects();
   await updateHeaderInfo();
   await loadJobsForWorkspace();
-  renderJobList();
+  renderJobMenu();
   await restoreTerminalTabs();
 }
 
@@ -159,76 +208,46 @@ function renderHeaderWsSelect() {
   for (const ws of visibleWorkspaces()) {
     const opt = document.createElement("option");
     opt.value = ws.name;
-    opt.textContent = ws.name;
+    opt.textContent = ws.branch ? `${ws.name} (${ws.branch})` : ws.name;
     if (ws.name === selectedWorkspace) opt.selected = true;
     select.appendChild(opt);
   }
 }
 
-function renderCommitMessagePanel(timeText, messageHtml) {
-  const mainCommitMessageEl = $("main-commit-message");
-  if (!mainCommitMessageEl.querySelector(".commit-message-line")) {
-    mainCommitMessageEl.innerHTML = `
-      <div class="commit-message-line">
-        <span class="commit-message-time"></span>
-        <span class="commit-message-text"></span>
-      </div>
-      <div class="commit-log-wrap">
-        <div class="commit-log-list"></div>
-      </div>
-    `;
-  }
-
-  const timeEl = mainCommitMessageEl.querySelector(".commit-message-time");
-  const textEl = mainCommitMessageEl.querySelector(".commit-message-text");
-  const logListEl = mainCommitMessageEl.querySelector(".commit-log-list");
-
-  if (timeEl) timeEl.textContent = timeText;
-  if (textEl) textEl.innerHTML = messageHtml;
-  if (logListEl) {
-    logListEl.innerHTML = commitLogContent || '<div class="commit-log-item muted">loading...</div>';
-  }
-
-  mainCommitMessageEl.classList.toggle("log-open", commitLogOpen);
-}
-
 function updateGithubLink(ws) {
   const link = $("github-link");
+  const sep = $("github-sep");
   if (!ws || !ws.github_url) {
     link.style.display = "none";
+    sep.style.display = "none";
     return;
   }
   const branch = ws.branch || "main";
   link.href = `${ws.github_url}/tree/${encodeURIComponent(branch)}`;
-  link.style.display = "flex";
+  link.style.display = "block";
+  sep.style.display = "";
 }
 
 async function updateHeaderInfo() {
   const mainGitStatusEl = $("main-git-status");
-  const mainCommitMessageEl = $("main-commit-message");
 
   if (!selectedWorkspace) {
-    commitLogOpen = false;
-    commitLogContent = "";
-    mainCommitMessageEl.classList.remove("clickable");
     mainGitStatusEl.innerHTML = "";
-    mainCommitMessageEl.innerHTML = '<div class="commit-placeholder">ワークスペースを選択してください</div>';
     $("clean-dirty-status").innerHTML = "";
-    $("branch-select").innerHTML = '<option value="">branch...</option>';
+    $("header-commit-msg").textContent = "";
     updateGithubLink(null);
     return;
   }
-  mainCommitMessageEl.classList.add("clickable");
-
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
 
   let cleanDirtyHtml = "";
-  if (ws) {
-    if (ws.clean === false) {
-      cleanDirtyHtml = '<span class="git-badge dirty" id="dirty-badge">\u25cf</span>';
-    } else if (ws.clean === true) {
-      cleanDirtyHtml = '<span class="git-badge clean">\u25cf</span>';
-    }
+  if (ws && ws.clean === false) {
+    let statParts = [];
+    if (ws.changed_files > 0) statParts.push(`<span class="stat-files">${ws.changed_files}F</span>`);
+    if (ws.insertions > 0) statParts.push(`<span class="stat-add">+${ws.insertions}</span>`);
+    if (ws.deletions > 0) statParts.push(`<span class="stat-del">-${ws.deletions}</span>`);
+    const statText = statParts.length > 0 ? statParts.join(" ") : "\u25cf";
+    cleanDirtyHtml = `<span class="git-badge dirty" id="dirty-badge">${statText}</span>`;
   }
   $("clean-dirty-status").innerHTML = cleanDirtyHtml;
 
@@ -246,17 +265,10 @@ async function updateHeaderInfo() {
       statusHtml += `<span class="git-badge behind">\u2193${ws.behind}</span>`;
     }
   }
-  const statusLine = statusHtml;
-  const commitMessage = formatCommitMessage(
-    ws ? ws.last_commit_message : "",
-    ws ? ws.github_url : "",
-  );
-  const commitTime = ws && ws.last_commit ? formatCommitTime(ws.last_commit) : "-";
 
   updateGithubLink(ws);
-  mainGitStatusEl.innerHTML = statusLine;
-
-  renderCommitMessagePanel(commitTime, commitMessage);
+  mainGitStatusEl.innerHTML = statusHtml;
+  $("header-commit-msg").textContent = ws && ws.last_commit_message ? ws.last_commit_message : "";
 
   await loadBranches();
 }
@@ -265,8 +277,7 @@ async function loadJobsForWorkspace() {
   if (!selectedWorkspace) {
     JOBS = {};
     selectedJob = null;
-    renderJobList();
-    $("detail-section").style.display = "none";
+    renderJobMenu();
     $("output").innerHTML = '<div class="empty-state"></div>';
     return;
   }
@@ -289,40 +300,20 @@ async function loadJobsForWorkspace() {
     JOBS = {};
   }
 
-  if (!JOBS[selectedJob]) {
-    const names = Object.keys(JOBS);
-    selectedJob = names.length > 0 ? names[0] : null;
-  }
-  renderJobList();
-  if (selectedJob) {
-    renderDetail();
-  } else {
-    $("detail-section").style.display = "none";
-    $("output").innerHTML = '<div class="empty-state">このWorkspaceに有効なjobがありません</div>';
-  }
+  selectedJob = null;
+  renderJobMenu();
+  renderTabBar();
 }
 
-async function toggleCommitLogPanel() {
+async function openGitLogModal() {
   if (!selectedWorkspace) return;
-  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
-  const commitMessage = formatCommitMessage(
-    ws ? ws.last_commit_message : "",
-    ws ? ws.github_url : "",
-  );
-  const commitTime = ws && ws.last_commit ? formatCommitTime(ws.last_commit) : "-";
 
-  if (commitLogOpen) {
-    commitLogOpen = false;
-    renderCommitMessagePanel(commitTime, commitMessage);
-    return;
-  }
-
-  commitLogOpen = true;
-  commitLogContent = "";
-  renderCommitMessagePanel(commitTime, commitMessage);
+  const listEl = $("git-log-list-modal");
+  listEl.innerHTML = '<div class="git-log-entry-msg" style="color:var(--text-muted);padding:16px">読み込み中...</div>';
+  $("git-log-modal").style.display = "flex";
 
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/git-log?limit=10`, {
+    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/git-log?limit=30`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.status === 401) {
@@ -332,31 +323,96 @@ async function toggleCommitLogPanel() {
     }
     const data = await res.json();
     if (!res.ok || data.status !== "ok") {
-      const msg = escapeHtml(data.detail || data.stderr || "failed to load git log");
-      commitLogContent = `<div class="commit-log-item error">${msg}</div>`;
-    } else if (!data.stdout) {
-      commitLogContent = '<div class="commit-log-item muted">log is empty</div>';
-    } else {
-      const lines = data.stdout
-        .split("\n")
-        .filter((line) => line.trim() !== "")
-        .slice(0, 10);
-      commitLogContent = lines
-        .map((line) => `<div class="commit-log-item">${escapeHtml(line)}</div>`)
-        .join("");
+      listEl.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(data.detail || data.stderr || "failed to load git log")}</div>`;
+      return;
     }
-    renderCommitMessagePanel(commitTime, commitMessage);
+    if (!data.stdout) {
+      listEl.innerHTML = '<div style="color:var(--text-muted);padding:16px">ログがありません</div>';
+      return;
+    }
+
+    listEl.innerHTML = "";
+    const lines = data.stdout.split("\n").filter((l) => l.trim());
+    for (const line of lines) {
+      const parts = line.split("\t");
+      let hash, time, msg;
+      if (parts.length >= 3) {
+        hash = parts[0];
+        time = parts[1];
+        msg = parts.slice(2).join("\t");
+      } else {
+        hash = null;
+        time = "";
+        msg = line;
+      }
+
+      const entry = document.createElement("div");
+      entry.className = "git-log-entry";
+      entry.innerHTML = time
+        ? `<span class="git-log-entry-time">${escapeHtml(time)}</span><span class="git-log-entry-msg">${escapeHtml(msg)}</span>`
+        : `<span class="git-log-entry-msg">${escapeHtml(msg)}</span>`;
+      if (hash) {
+        entry.addEventListener("click", () => {
+          $("git-log-modal").style.display = "none";
+          openCommitDiffModal(hash, msg);
+        });
+      }
+      listEl.appendChild(entry);
+    }
   } catch (e) {
-    commitLogContent = `<div class="commit-log-item error">${escapeHtml(e.message)}</div>`;
-    renderCommitMessagePanel(commitTime, commitMessage);
+    listEl.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function openCommitDiffModal(commitHash, commitMsg) {
+  const fileList = $("diff-file-list");
+  const diffContent = $("diff-content");
+  fileList.innerHTML = '<span class="diff-file-tag">loading...</span>';
+  diffContent.textContent = "";
+  $("diff-modal").querySelector("h3").textContent = commitMsg || "変更内容";
+  $("diff-modal").style.display = "flex";
+
+  try {
+    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/diff/${encodeURIComponent(commitHash)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 401) {
+      localStorage.removeItem("pi_console_token");
+      showLogin();
+      return;
+    }
+    const data = await res.json();
+    if (!res.ok || data.status !== "ok") {
+      fileList.innerHTML = "";
+      diffContent.textContent = data.detail || data.stderr || "diff の取得に失敗しました";
+      return;
+    }
+
+    fileList.innerHTML = "";
+    for (const f of data.files) {
+      const tag = document.createElement("span");
+      tag.className = "diff-file-tag";
+      tag.textContent = f;
+      fileList.appendChild(tag);
+    }
+    if (data.files.length === 0) {
+      fileList.innerHTML = '<span class="diff-file-tag">変更ファイルなし</span>';
+    }
+
+    diffContent.textContent = "";
+    if (data.diff) {
+      diffContent.appendChild(colorDiff(data.diff));
+    } else {
+      diffContent.textContent = "差分なし";
+    }
+  } catch (e) {
+    fileList.innerHTML = "";
+    diffContent.textContent = e.message;
   }
 }
 
 async function loadBranches() {
-  const selects = [$("branch-select")];
-  for (const s of selects) {
-    s.innerHTML = '<option value="">branch...</option>';
-  }
+  cachedBranches = [];
   if (!selectedWorkspace) return;
 
   try {
@@ -364,19 +420,7 @@ async function loadBranches() {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) return;
-    const branches = await res.json();
-    const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
-    const currentBranch = ws ? ws.branch : null;
-
-    for (const s of selects) {
-      for (const b of branches) {
-        const opt = document.createElement("option");
-        opt.value = b;
-        opt.textContent = b;
-        if (b === currentBranch) opt.selected = true;
-        s.appendChild(opt);
-      }
-    }
+    cachedBranches = await res.json();
   } catch {}
 }
 
@@ -385,7 +429,7 @@ async function checkoutBranch(branch) {
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
   if (ws && ws.branch === branch) return;
 
-  switchTab("output");
+  switchTab(null);
   $("output").innerHTML = '<div class="output-status"><span class="status-badge running">switching</span></div>';
 
   try {
@@ -422,6 +466,7 @@ async function checkoutBranch(branch) {
     if (statusText === "ok") {
       await loadWorkspaces();
       await updateHeaderInfo();
+      renderJobMenu();
     }
   } catch (e) {
     $("output").innerHTML = `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(e.message)}`;
@@ -451,6 +496,7 @@ function colorDiff(text) {
 
 async function openDiffModal() {
   if (!selectedWorkspace) return;
+  $("diff-modal").querySelector("h3").textContent = "変更内容";
 
   const fileList = $("diff-file-list");
   const diffContent = $("diff-content");
@@ -673,43 +719,158 @@ function toggleWorkspace(name, visible) {
   }
 }
 
-function renderJobList() {
-  const container = $("job-cards");
-  container.innerHTML = "";
-  for (const [name, job] of Object.entries(JOBS)) {
-    const card = document.createElement("div");
-    const isRunning = runningJobName === name;
-    const sourceClass = job.source === "workspace" ? " workspace" : " common";
-    card.className = `job-card${sourceClass}${selectedJob === name ? " active" : ""}${isRunning ? " running" : ""}`;
-    const label = job.label || name;
-    let inner = `<div class="job-label">${escapeHtml(label)}</div>`;
-    if (isRunning) inner += '<span class="job-state" aria-hidden="true">◌</span>';
-    card.innerHTML = inner;
-    card.addEventListener("click", () => selectJob(name));
-    if (job.source === "workspace") {
-      let holdTimer = null;
-      card.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        deleteJob(name);
+function renderJobMenu() {
+  const dropdown = $("menu-dropdown");
+  dropdown.querySelectorAll(".menu-dynamic").forEach((el) => el.remove());
+
+  if (!selectedWorkspace) return;
+
+  const refNode = $("menu-refresh");
+  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
+  const currentBranch = ws ? ws.branch : null;
+
+  if (cachedBranches.length > 0) {
+    const branchLabel = document.createElement("div");
+    branchLabel.className = "menu-section-label menu-dynamic";
+    branchLabel.textContent = "ブランチ";
+    dropdown.insertBefore(branchLabel, refNode);
+
+    for (const b of cachedBranches) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "menu-item menu-dynamic";
+      btn.textContent = b === currentBranch ? `${b} ✓` : b;
+      if (b === currentBranch) btn.style.color = "var(--accent)";
+      btn.addEventListener("click", () => {
+        closeMenu();
+        if (b !== currentBranch) checkoutBranch(b);
       });
-      card.addEventListener("touchstart", () => {
-        holdTimer = setTimeout(() => deleteJob(name), 600);
-      }, { passive: true });
-      card.addEventListener("touchend", () => clearTimeout(holdTimer));
-      card.addEventListener("touchmove", () => clearTimeout(holdTimer));
+      dropdown.insertBefore(btn, refNode);
     }
-    container.appendChild(card);
+
+    const moreBtn = document.createElement("button");
+    moreBtn.type = "button";
+    moreBtn.className = "menu-item menu-dynamic";
+    moreBtn.style.color = "var(--text-muted)";
+    moreBtn.textContent = "more...";
+    moreBtn.addEventListener("click", () => {
+      closeMenu();
+      openBranchModal();
+    });
+    dropdown.insertBefore(moreBtn, refNode);
+
+    const branchSep = document.createElement("div");
+    branchSep.className = "menu-separator menu-dynamic";
+    dropdown.insertBefore(branchSep, refNode);
   }
-  if (selectedWorkspace) {
-    const addBtn = document.createElement("button");
-    addBtn.type = "button";
-    addBtn.className = "job-add-btn";
-    addBtn.title = "ジョブ追加";
-    addBtn.textContent = "+";
-    addBtn.addEventListener("click", openJobCreateModal);
-    container.appendChild(addBtn);
+
+  const entries = Object.entries(JOBS).filter(([name]) => name !== "terminal");
+  if (entries.length > 0) {
+    const jobLabel = document.createElement("div");
+    jobLabel.className = "menu-section-label menu-dynamic";
+    jobLabel.textContent = "ジョブ";
+    dropdown.insertBefore(jobLabel, refNode);
+
+    for (const [name, job] of entries) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "menu-item menu-dynamic";
+      const label = job.label || name;
+      const isRunning = runningJobName === name;
+      btn.innerHTML = isRunning
+        ? `${escapeHtml(label)} <span class="job-state">◌</span>`
+        : escapeHtml(label);
+      btn.addEventListener("click", () => {
+        closeMenu();
+        openJobConfirmModal(name);
+      });
+      if (job.source === "workspace") {
+        let holdTimer = null;
+        btn.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          closeMenu();
+          deleteJob(name);
+        });
+        btn.addEventListener("touchstart", () => {
+          holdTimer = setTimeout(() => { closeMenu(); deleteJob(name); }, 600);
+        }, { passive: true });
+        btn.addEventListener("touchend", () => clearTimeout(holdTimer));
+        btn.addEventListener("touchmove", () => clearTimeout(holdTimer));
+      }
+      dropdown.insertBefore(btn, refNode);
+    }
   }
-  updateJobRunButton();
+
+  const addBtn = document.createElement("button");
+  addBtn.type = "button";
+  addBtn.className = "menu-item menu-dynamic";
+  addBtn.style.color = "var(--text-muted)";
+  addBtn.textContent = "+ ジョブ追加";
+  addBtn.addEventListener("click", () => {
+    closeMenu();
+    openJobCreateModal();
+  });
+  dropdown.insertBefore(addBtn, refNode);
+
+  const sep = document.createElement("div");
+  sep.className = "menu-separator menu-dynamic";
+  dropdown.insertBefore(sep, refNode);
+}
+
+async function openBranchModal() {
+  const listEl = $("branch-list");
+  listEl.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
+  $("branch-modal").style.display = "flex";
+
+  try {
+    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/branches/remote`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 401) {
+      localStorage.removeItem("pi_console_token");
+      showLogin();
+      return;
+    }
+    if (!res.ok) {
+      listEl.innerHTML = '<div class="clone-repo-error">取得に失敗しました</div>';
+      return;
+    }
+    const remoteBranches = await res.json();
+    if (remoteBranches.length === 0) {
+      listEl.innerHTML = '<div class="clone-repo-empty">リモートブランチがありません</div>';
+      return;
+    }
+
+    const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
+    const currentBranch = ws ? ws.branch : null;
+
+    listEl.innerHTML = "";
+    for (const branch of remoteBranches) {
+      const item = document.createElement("div");
+      item.className = "branch-item";
+      if (branch === currentBranch) {
+        item.classList.add("current");
+        item.textContent = `${branch} ✓`;
+      } else if (cachedBranches.includes(branch)) {
+        item.classList.add("local-exists");
+        item.textContent = branch;
+      } else {
+        item.textContent = branch;
+      }
+      item.addEventListener("click", () => {
+        if (branch === currentBranch) return;
+        $("branch-modal").style.display = "none";
+        checkoutBranch(branch);
+      });
+      listEl.appendChild(item);
+    }
+  } catch (e) {
+    listEl.innerHTML = `<div class="clone-repo-error">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function closeBranchModal() {
+  $("branch-modal").style.display = "none";
 }
 
 function openJobCreateModal() {
@@ -796,20 +957,69 @@ async function deleteJob(jobName) {
   }
 }
 
-function updateJobRunButton() {
-  const btn = $("job-run-main");
-  if (!btn) return;
-  const hasSelection = !!selectedJob;
-  const isRunning = !!runningJobName;
-  btn.disabled = !hasSelection || isRunning;
-  btn.classList.toggle("running", isRunning);
-  btn.innerHTML = isRunning ? "◌" : "&#9654;";
+function openJobConfirmModal(name) {
+  const job = JOBS[name];
+  if (!job) return;
+  selectedJob = name;
+  $("job-confirm-title").textContent = job.label || name;
+
+  const argsContainer = $("job-confirm-args");
+  argsContainer.innerHTML = "";
+  if (job.args && job.args.length > 0) {
+    for (const arg of job.args) {
+      const group = document.createElement("div");
+      group.className = "arg-group";
+      const label = document.createElement("label");
+      label.className = "arg-label";
+      label.textContent = arg.name;
+      if (arg.required) label.innerHTML += ' <span class="required">*</span>';
+      group.appendChild(label);
+
+      if (Array.isArray(arg.values) && arg.values.length > 0) {
+        const radioGroup = document.createElement("div");
+        radioGroup.className = "radio-group";
+        for (const val of arg.values) {
+          const lbl = document.createElement("label");
+          const radio = document.createElement("input");
+          radio.type = "radio";
+          radio.name = `confirm-arg-${arg.name}`;
+          radio.value = val;
+          if (val === arg.values[0]) radio.checked = true;
+          const span = document.createElement("span");
+          span.className = "radio-btn";
+          span.textContent = val;
+          lbl.appendChild(radio);
+          lbl.appendChild(span);
+          radioGroup.appendChild(lbl);
+        }
+        group.appendChild(radioGroup);
+      }
+      argsContainer.appendChild(group);
+    }
+  } else {
+    const commands = extractCommands(job.script_content || "");
+    if (commands) {
+      const preview = escapeHtml(commands.length > 300 ? commands.slice(0, 300) + "..." : commands);
+      argsContainer.innerHTML = `<pre class="script-preview">${preview}</pre>`;
+    }
+  }
+
+  $("job-confirm-modal").style.display = "flex";
 }
 
-function selectJob(name) {
-  selectedJob = name;
-  renderJobList();
-  renderDetail();
+function closeJobConfirmModal() {
+  $("job-confirm-modal").style.display = "none";
+}
+
+function collectConfirmArgs() {
+  const job = JOBS[selectedJob];
+  if (!job || !job.args) return {};
+  const args = {};
+  for (const arg of job.args) {
+    const checked = document.querySelector(`input[name="confirm-arg-${arg.name}"]:checked`);
+    if (checked) args[arg.name] = checked.value;
+  }
+  return args;
 }
 
 function extractCommands(content) {
@@ -830,15 +1040,20 @@ function extractCommands(content) {
 }
 
 function saveTerminalTabs() {
-  const data = terminalTabs.map((t) => ({ id: t.id, url: t.url, label: t.label }));
+  const data = tabs.filter((t) => t.type === "terminal").map((t) => ({ id: t.id, url: t.url, label: t.label }));
   localStorage.setItem(TERMINAL_TABS_KEY, JSON.stringify(data));
+  if (activeTabId) {
+    localStorage.setItem("pi_console_active_tab", activeTabId);
+  } else {
+    localStorage.removeItem("pi_console_active_tab");
+  }
 }
 
 function addTerminalTab(url, workspace, tabId) {
   const id = tabId || `term-${++terminalIdCounter}`;
   const label = workspace || "terminal";
-  if (terminalTabs.some((t) => t.id === id)) return;
-  terminalTabs.push({ id, url, label });
+  if (tabs.some((t) => t.id === id)) return;
+  tabs.push({ id, type: "terminal", url, label });
 
   const iframe = document.createElement("iframe");
   iframe.className = "terminal-frame";
@@ -851,13 +1066,32 @@ function addTerminalTab(url, workspace, tabId) {
   switchTab(id);
 }
 
-function removeTerminalTab(id) {
-  terminalTabs = terminalTabs.filter((t) => t.id !== id);
-  const frame = $(`frame-${id}`);
-  if (frame) frame.remove();
+function setOutputTab(id, label, htmlContent) {
+  const existing = tabs.find((t) => t.id === id);
+  if (existing) {
+    existing.label = label;
+    const el = $(`frame-${id}`);
+    if (el) el.innerHTML = htmlContent;
+    switchTab(id);
+    return;
+  }
+  tabs.push({ id, type: "output", label });
+  const div = document.createElement("div");
+  div.className = "output-area";
+  div.id = `frame-${id}`;
+  div.innerHTML = htmlContent;
+  div.style.display = "none";
+  $("output-container").appendChild(div);
+  switchTab(id);
+}
+
+function removeTab(id) {
+  tabs = tabs.filter((t) => t.id !== id);
+  const el = $(`frame-${id}`);
+  if (el) el.remove();
   saveTerminalTabs();
   if (activeTabId === id) {
-    switchTab(terminalTabs.length > 0 ? terminalTabs[terminalTabs.length - 1].id : "output");
+    switchTab(tabs.length > 0 ? tabs[tabs.length - 1].id : null);
   } else {
     renderTabBar();
   }
@@ -865,15 +1099,22 @@ function removeTerminalTab(id) {
 
 function switchTab(id) {
   activeTabId = id;
-  const output = $("output");
-  output.style.display = id === "output" ? "" : "none";
-
-  for (const tab of terminalTabs) {
-    const frame = $(`frame-${tab.id}`);
-    if (frame) {
-      frame.style.display = tab.id === id ? "block" : "none";
+  if (id) {
+    localStorage.setItem("pi_console_active_tab", id);
+  } else {
+    localStorage.removeItem("pi_console_active_tab");
+  }
+  $("output").style.display = id === null ? "" : "none";
+  for (const tab of tabs) {
+    const el = $(`frame-${tab.id}`);
+    if (el) {
       if (tab.id === id) {
-        try { frame.contentWindow.focus(); } catch {}
+        el.style.display = tab.type === "terminal" ? "block" : "";
+        if (tab.type === "terminal") {
+          try { el.contentWindow.focus(); } catch {}
+        }
+      } else {
+        el.style.display = "none";
       }
     }
   }
@@ -882,17 +1123,14 @@ function switchTab(id) {
 
 function renderTabBar() {
   const bar = $("tab-bar");
-  if (terminalTabs.length === 0) {
-    bar.style.display = "none";
-    return;
-  }
   bar.style.display = "flex";
 
-  let html = `<button class="tab-btn${activeTabId === "output" ? " active" : ""}" data-tab="output">出力</button>`;
-  for (const tab of terminalTabs) {
+  let html = "";
+  for (const tab of tabs) {
     html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}" data-tab="${tab.id}">`
       + `${escapeHtml(tab.label)}<span class="tab-close" data-close="${tab.id}">&times;</span></button>`;
   }
+  html += '<button class="tab-add-btn" id="tab-add-btn" title="ターミナルを開く">+</button>';
   bar.innerHTML = html;
 
   bar.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -904,28 +1142,15 @@ function renderTabBar() {
   bar.querySelectorAll(".tab-close").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      removeTerminalTab(btn.dataset.close);
+      removeTab(btn.dataset.close);
     });
   });
-}
-
-function renderDetail() {
-  const job = JOBS[selectedJob];
-  if (!job) return;
-
-  switchTab("output");
-  $("detail-section").style.display = "none";
-  const commands = extractCommands(job.script_content || "");
-  if (commands) {
-    const preview = escapeHtml(commands.length > 500 ? commands.slice(0, 500) + "..." : commands);
-    $("output").innerHTML = `<div class="empty-state"><pre class="script-preview">${preview}</pre></div>`;
-  } else {
-    $("output").innerHTML = `<div class="empty-state">${escapeHtml(job.script)}</div>`;
-  }
+  $("tab-add-btn").addEventListener("click", () => runJob("terminal"));
 }
 
 function collectArgs() {
   const job = JOBS[selectedJob];
+  if (!job || !job.args) return {};
   const args = {};
   for (const arg of job.args) {
     if (arg.required && Array.isArray(arg.values) && arg.values.length > 0) {
@@ -935,29 +1160,30 @@ function collectArgs() {
   return args;
 }
 
-async function runJob(jobName = null) {
+async function runJob(jobName = null, argsOverride = null) {
   const targetJob = jobName || selectedJob;
   if (!targetJob) return;
   if (runningJobName) return;
   if (selectedJob !== targetJob) {
     selectedJob = targetJob;
   }
-  renderJobList();
+  renderJobMenu();
 
-  const args = collectArgs();
-  const job = JOBS[targetJob];
+  const args = argsOverride || collectArgs();
+  const job = JOBS[targetJob] || {};
+  const tabLabel = job.label || targetJob;
+  const outputTabId = `output-${targetJob}`;
 
-  for (const arg of job.args) {
+  for (const arg of (job.args || [])) {
     if (arg.required && !args[arg.name]) {
-      $("output").innerHTML = `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(arg.name)} の既定値がありません`;
+      setOutputTab(outputTabId, tabLabel, `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(arg.name)} の既定値がありません`);
       return;
     }
   }
 
   runningJobName = targetJob;
-  renderJobList();
-  switchTab("output");
-  $("output").innerHTML = '<div class="output-status"><span class="status-badge running">running</span></div>';
+  renderJobMenu();
+  setOutputTab(outputTabId, tabLabel, '<div class="output-status"><span class="status-badge running">running</span></div>');
 
   try {
     const res = await fetch("/run", {
@@ -987,18 +1213,35 @@ async function runJob(jobName = null) {
     }
 
     if (targetJob === "terminal" && data.status === "ok" && data.terminal_url) {
+      removeTab(outputTabId);
       addTerminalTab(data.terminal_url, selectedWorkspace);
       return;
     }
 
-    switchTab("output");
-    $("output").innerHTML = html;
+    setOutputTab(outputTabId, tabLabel, html);
   } catch (e) {
-    $("output").innerHTML = `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(e.message)}`;
+    setOutputTab(outputTabId, tabLabel, `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(e.message)}`);
   } finally {
     runningJobName = null;
-    renderJobList();
+    renderJobMenu();
+    loadWorkspaces().then(() => updateHeaderInfo());
   }
+}
+
+function toggleMenu() {
+  const dd = $("menu-dropdown");
+  dd.style.display = dd.style.display === "none" ? "block" : "none";
+}
+
+function closeMenu() {
+  $("menu-dropdown").style.display = "none";
+}
+
+async function refreshApp() {
+  closeMenu();
+  await loadWorkspaces();
+  await updateHeaderInfo();
+  await loadJobsForWorkspace();
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -1006,8 +1249,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("token-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") login();
   });
-  $("job-run-main").addEventListener("click", () => runJob());
-  $("settings-btn").addEventListener("click", openSettings);
+  $("job-confirm-cancel").addEventListener("click", closeJobConfirmModal);
+  $("job-confirm-run").addEventListener("click", () => {
+    const args = collectConfirmArgs();
+    closeJobConfirmModal();
+    runJob(null, args);
+  });
+  $("menu-btn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleMenu();
+  });
+  $("menu-refresh").addEventListener("click", refreshApp);
+  $("menu-settings").addEventListener("click", () => {
+    closeMenu();
+    openSettings();
+  });
+  document.addEventListener("click", closeMenu);
+  window.addEventListener("blur", closeMenu);
   $("settings-close").addEventListener("click", closeSettings);
   $("ws-add-btn").addEventListener("click", openCloneModal);
   $("clone-cancel").addEventListener("click", closeCloneModal);
@@ -1015,6 +1273,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   for (const tab of document.querySelectorAll(".clone-tab")) {
     tab.addEventListener("click", () => switchCloneTab(tab.dataset.tab));
   }
+  $("branch-modal-close").addEventListener("click", closeBranchModal);
   $("diff-close").addEventListener("click", closeDiffModal);
   $("job-create-cancel").addEventListener("click", closeJobCreateModal);
   $("job-create-submit").addEventListener("click", submitJobCreate);
@@ -1025,19 +1284,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     } else {
       localStorage.removeItem("pi_console_workspace");
     }
-    commitLogOpen = false;
-    commitLogContent = "";
     await updateHeaderInfo();
     await loadJobsForWorkspace();
   });
-  $("branch-select").addEventListener("change", (e) => {
-    const branch = e.target.value;
-    if (branch) checkoutBranch(branch);
-  });
-  $("main-commit-message").addEventListener("click", (e) => {
-    if (e.target.closest(".commit-issue-link")) return;
-    if (!e.target.closest(".commit-message-line")) return;
-    toggleCommitLogPanel();
+  $("header-commit-msg").addEventListener("click", openGitLogModal);
+  $("git-log-close").addEventListener("click", () => {
+    $("git-log-modal").style.display = "none";
   });
 
   if (token) {

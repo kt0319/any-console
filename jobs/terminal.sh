@@ -14,13 +14,14 @@ pick_port() {
 
 PORT=$(pick_port)
 BASE_PATH="${TERMINAL_BASE_PATH:-/}"
+TMUX_SESSION="pi-${PORT}"
 
-/usr/bin/timeout 600 /usr/local/bin/ttyd \
+/usr/local/bin/ttyd \
   --writable \
   --interface 127.0.0.1 \
   --port "$PORT" \
   --base-path "$BASE_PATH" \
-  zsh >/tmp/pi-console-ttyd-"$PORT".log 2>&1 &
+  tmux new-session -A -s "$TMUX_SESSION" \; set-option status off >/tmp/pi-console-ttyd-"$PORT".log 2>&1 &
 
 PID=$!
 sleep 0.3
