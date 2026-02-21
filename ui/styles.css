@@ -162,6 +162,68 @@ header .header-select {
   background: rgba(255, 85, 114, 0.2);
 }
 
+.git-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.git-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.git-action-btn.pull-btn {
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.git-action-btn.pull-btn.has-count {
+  color: var(--error);
+  background: rgba(255, 85, 114, 0.15);
+}
+
+.git-action-btn.pull-btn:hover {
+  color: var(--error);
+  background: rgba(255, 85, 114, 0.25);
+}
+
+.git-action-btn.push-btn {
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.git-action-btn.push-btn.has-count {
+  color: var(--accent);
+  background: rgba(130, 170, 255, 0.15);
+}
+
+.git-action-btn.push-btn:hover {
+  color: var(--accent);
+  background: rgba(130, 170, 255, 0.25);
+}
+
+.git-action-btn.running {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.git-action-count:empty {
+  display: none;
+}
+
 /* Login */
 #login-screen {
   display: flex;

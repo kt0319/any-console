@@ -138,6 +138,7 @@ async function login() {
 async function restoreTerminalTabs() {
   const saved = JSON.parse(localStorage.getItem(TERMINAL_TABS_KEY) || "[]");
   if (saved.length === 0) return;
+  const lastActive = localStorage.getItem("pi_console_active_tab");
 
   try {
     const res = await fetch("/terminal/sessions", {
@@ -156,12 +157,12 @@ async function restoreTerminalTabs() {
       return;
     }
     for (const t of alive) {
-      addTerminalTab(t.url, t.label, t.id);
+      addTerminalTab(t.url, t.label, t.id, true);
     }
-    const lastActive = localStorage.getItem("pi_console_active_tab");
-    if (lastActive && tabs.some((t) => t.id === lastActive)) {
-      switchTab(lastActive);
-    }
+    const restoreId = lastActive && tabs.some((t) => t.id === lastActive)
+      ? lastActive
+      : alive[alive.length - 1].id;
+    switchTab(restoreId);
   } catch {
     localStorage.removeItem(TERMINAL_TABS_KEY);
   }
@@ -236,6 +237,7 @@ async function updateHeaderInfo() {
     $("clean-dirty-status").innerHTML = "";
     $("header-commit-msg").textContent = "";
     updateGithubLink(null);
+    updateGitActions(null);
     return;
   }
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
@@ -256,21 +258,109 @@ async function updateHeaderInfo() {
     dirtyBadge.addEventListener("click", openDiffModal);
   }
 
-  let statusHtml = "";
-  if (ws) {
-    if (ws.ahead > 0) {
-      statusHtml += `<span class="git-badge ahead">\u2191${ws.ahead}</span>`;
-    }
-    if (ws.behind > 0) {
-      statusHtml += `<span class="git-badge behind">\u2193${ws.behind}</span>`;
-    }
-  }
-
   updateGithubLink(ws);
-  mainGitStatusEl.innerHTML = statusHtml;
+  mainGitStatusEl.innerHTML = "";
+  updateGitActions(ws);
   $("header-commit-msg").textContent = ws && ws.last_commit_message ? ws.last_commit_message : "";
 
   await loadBranches();
+}
+
+function updateGitActions(ws) {
+  const actions = $("git-actions");
+  if (!selectedWorkspace || !ws) {
+    actions.style.display = "none";
+    return;
+  }
+  actions.style.display = "flex";
+
+  const pullBtn = $("pull-btn");
+  const pushBtn = $("push-btn");
+  const pullCount = $("pull-count");
+  const pushCount = $("push-count");
+
+  pullBtn.style.display = ws.behind > 0 ? "" : "none";
+  pushBtn.style.display = ws.ahead > 0 ? "" : "none";
+  pullCount.textContent = ws.behind > 0 ? ws.behind : "";
+  pushCount.textContent = ws.ahead > 0 ? ws.ahead : "";
+  pullBtn.classList.toggle("has-count", ws.behind > 0);
+  pushBtn.classList.toggle("has-count", ws.ahead > 0);
+}
+
+async function gitPull() {
+  if (!selectedWorkspace) return;
+  if (!confirm(`${selectedWorkspace} を pull しますか？`)) return;
+
+  const pullBtn = $("pull-btn");
+  pullBtn.classList.add("running");
+
+  const outputTabId = "output-git-pull";
+  setOutputTab(outputTabId, "pull", '<div class="output-status"><span class="status-badge running">pulling</span></div>');
+
+  try {
+    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/pull`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 401) {
+      localStorage.removeItem("pi_console_token");
+      showLogin();
+      return;
+    }
+    const data = await res.json();
+    const badgeClass = data.status === "ok" ? "ok" : "error";
+    let html = `<div class="output-status"><span class="status-badge ${badgeClass}">${escapeHtml(data.status)}</span></div>`;
+    if (data.stdout) html += escapeHtml(data.stdout);
+    if (data.stderr) {
+      const stderrClass = data.status === "ok" ? "" : ' style="color:var(--error)"';
+      html += `\n<span${stderrClass}>${escapeHtml(data.stderr)}</span>`;
+    }
+    setOutputTab(outputTabId, "pull", html);
+  } catch (e) {
+    setOutputTab(outputTabId, "pull", `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(e.message)}`);
+  } finally {
+    pullBtn.classList.remove("running");
+    await loadWorkspaces();
+    await updateHeaderInfo();
+  }
+}
+
+async function gitPush() {
+  if (!selectedWorkspace) return;
+  if (!confirm(`${selectedWorkspace} を push しますか？`)) return;
+
+  const pushBtn = $("push-btn");
+  pushBtn.classList.add("running");
+
+  const outputTabId = "output-git-push";
+  setOutputTab(outputTabId, "push", '<div class="output-status"><span class="status-badge running">pushing</span></div>');
+
+  try {
+    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/push`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 401) {
+      localStorage.removeItem("pi_console_token");
+      showLogin();
+      return;
+    }
+    const data = await res.json();
+    const badgeClass = data.status === "ok" ? "ok" : "error";
+    let html = `<div class="output-status"><span class="status-badge ${badgeClass}">${escapeHtml(data.status)}</span></div>`;
+    if (data.stdout) html += escapeHtml(data.stdout);
+    if (data.stderr) {
+      const stderrClass = data.status === "ok" ? "" : ' style="color:var(--error)"';
+      html += `\n<span${stderrClass}>${escapeHtml(data.stderr)}</span>`;
+    }
+    setOutputTab(outputTabId, "push", html);
+  } catch (e) {
+    setOutputTab(outputTabId, "push", `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(e.message)}`);
+  } finally {
+    pushBtn.classList.remove("running");
+    await loadWorkspaces();
+    await updateHeaderInfo();
+  }
 }
 
 async function loadJobsForWorkspace() {
@@ -1049,7 +1139,7 @@ function saveTerminalTabs() {
   }
 }
 
-function addTerminalTab(url, workspace, tabId) {
+function addTerminalTab(url, workspace, tabId, skipSwitch) {
   const id = tabId || `term-${++terminalIdCounter}`;
   const label = workspace || "terminal";
   if (tabs.some((t) => t.id === id)) return;
@@ -1062,6 +1152,7 @@ function addTerminalTab(url, workspace, tabId) {
   iframe.style.display = "none";
   $("output-container").appendChild(iframe);
 
+  if (skipSwitch) return;
   saveTerminalTabs();
   switchTab(id);
 }
@@ -1287,6 +1378,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     await updateHeaderInfo();
     await loadJobsForWorkspace();
   });
+  $("pull-btn").addEventListener("click", gitPull);
+  $("push-btn").addEventListener("click", gitPush);
   $("header-commit-msg").addEventListener("click", openGitLogModal);
   $("git-log-close").addEventListener("click", () => {
     $("git-log-modal").style.display = "none";

@@ -1,4 +1,5 @@
 import json
+import os
 import secrets
 import subprocess
 import time
@@ -600,6 +601,59 @@ def checkout_branch(name: str, body: CheckoutRequest):
         }
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=504, detail="Checkout timed out")
+
+
+def ssh_env() -> dict[str, str]:
+    if os.environ.get("SSH_AUTH_SOCK"):
+        return dict(os.environ)
+    candidates = [
+        Path(f"/run/user/{os.getuid()}/gnupg/S.gpg-agent.ssh"),
+        Path(f"/run/user/{os.getuid()}/ssh-agent.socket"),
+    ]
+    for sock in candidates:
+        if sock.exists():
+            env = dict(os.environ)
+            env["SSH_AUTH_SOCK"] = str(sock)
+            return env
+    return dict(os.environ)
+
+
+@app.post("/workspaces/{name}/pull", dependencies=[Depends(verify_token)])
+def git_pull(name: str):
+    ws_path = resolve_workspace_path(name)
+    try:
+        result = subprocess.run(
+            ["git", "pull"],
+            capture_output=True, text=True, timeout=60, cwd=str(ws_path),
+            env=ssh_env(),
+        )
+        return {
+            "status": "ok" if result.returncode == 0 else "error",
+            "exit_code": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="git pull timed out")
+
+
+@app.post("/workspaces/{name}/push", dependencies=[Depends(verify_token)])
+def git_push(name: str):
+    ws_path = resolve_workspace_path(name)
+    try:
+        result = subprocess.run(
+            ["git", "push"],
+            capture_output=True, text=True, timeout=60, cwd=str(ws_path),
+            env=ssh_env(),
+        )
+        return {
+            "status": "ok" if result.returncode == 0 else "error",
+            "exit_code": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="git push timed out")
 
 
 @app.get("/workspaces/{name}/git-log", dependencies=[Depends(verify_token)])
