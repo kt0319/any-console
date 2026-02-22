@@ -107,6 +107,7 @@ function updateGitActions(ws) {
   pushCount.textContent = ws.ahead > 0 ? ws.ahead : "";
   pullBtn.classList.toggle("has-count", ws.behind > 0);
   pushBtn.classList.toggle("has-count", ws.ahead > 0);
+  actions.style.display = (ws.behind > 0 || ws.ahead > 0) ? "flex" : "none";
 }
 
 async function refreshCurrentWorkspaceStatus() {
@@ -164,7 +165,7 @@ function toggleMenu() {
   if (dd.style.display === "none") {
     const rect = btn.getBoundingClientRect();
     dd.style.left = "";
-    dd.style.right = (window.innerWidth - rect.right) + "px";
+    dd.style.right = "8px";
     dd.style.top = rect.bottom + 4 + "px";
     dd.style.display = "block";
     btn.classList.add("active");
