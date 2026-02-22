@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 import secrets
@@ -11,6 +12,7 @@ from ..auth import verify_token
 from ..common import (
     TERMINAL_TIMEOUT_SEC,
     WORKSPACE_JOBS_DIR,
+    WORKSPACE_LINKS_FILE,
     get_git_branches,
     resolve_workspace_path,
 )
@@ -34,17 +36,6 @@ def get_workspace_custom_jobs_dir(workspace_path):
     return jobs_dir
 
 
-def parse_open_url(script_path):
-    try:
-        for line in script_path.read_text(encoding="utf-8").splitlines():
-            m = re.match(r"^#\s*open-url:\s*(.+)$", line)
-            if m:
-                return m.group(1).strip()
-    except OSError:
-        pass
-    return ""
-
-
 def get_workspace_custom_jobs(workspace_path):
     jobs_dir = get_workspace_custom_jobs_dir(workspace_path)
     custom = {}
@@ -58,7 +49,6 @@ def get_workspace_custom_jobs(workspace_path):
             description=f"Workspace custom job: {job_name}",
             args=[],
             script_path_override=script_path,
-            open_url=parse_open_url(script_path),
         )
     return custom
 
@@ -82,7 +72,6 @@ def job_definition_to_dict(job_def):
         "description": job_def.description,
         "script": job_def.script,
         "script_content": read_script_content(job_def),
-        "open_url": job_def.open_url,
         "args": [
             {
                 "name": arg.name,
@@ -106,7 +95,6 @@ class CreateJobRequest(BaseModel):
     name: str
     label: str = ""
     script: str
-    open_url: str = ""
 
 
 @router.post("/workspaces/{name}/jobs")
@@ -122,19 +110,9 @@ def create_workspace_job(name: str, body: CreateJobRequest):
     script_content = body.script.strip()
     if not script_content:
         raise HTTPException(status_code=400, detail="スクリプト内容が空です")
-    open_url = body.open_url.strip()
     header = "#!/usr/bin/env bash\nset -euo pipefail\n\n"
     if not script_content.startswith("#!"):
         script_content = header + script_content
-    if open_url:
-        lines = script_content.split("\n")
-        insert_idx = 0
-        for i, line in enumerate(lines):
-            if line.startswith("#!"):
-                insert_idx = i + 1
-                break
-        lines.insert(insert_idx, f"# open-url: {open_url}")
-        script_content = "\n".join(lines)
     script_path.write_text(script_content + "\n", encoding="utf-8")
     script_path.chmod(0o755)
     logger.info("job created workspace=%s job=%s", name, job_name)
@@ -151,6 +129,68 @@ def delete_workspace_job(name: str, job_name: str):
     script_path.unlink()
     logger.info("job deleted workspace=%s job=%s", name, job_name)
     return {"status": "ok", "name": job_name}
+
+
+def get_workspace_links(workspace_path):
+    links_file = workspace_path / WORKSPACE_LINKS_FILE
+    if not links_file.is_file():
+        return []
+    try:
+        return json.loads(links_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def save_workspace_links(workspace_path, links):
+    links_file = workspace_path / WORKSPACE_LINKS_FILE
+    links_file.parent.mkdir(parents=True, exist_ok=True)
+    links_file.write_text(json.dumps(links, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def normalize_url(url):
+    url = url.strip()
+    if not url.startswith(("http://", "https://")):
+        url = "http://" + url
+    return url
+
+
+@router.get("/workspaces/{name}/links")
+def list_workspace_links(name: str):
+    ws_path = resolve_workspace_path(name)
+    return get_workspace_links(ws_path)
+
+
+class CreateLinkRequest(BaseModel):
+    label: str
+    url: str
+
+
+@router.post("/workspaces/{name}/links")
+def create_workspace_link(name: str, body: CreateLinkRequest):
+    ws_path = resolve_workspace_path(name)
+    label = body.label.strip()
+    url = normalize_url(body.url)
+    if not label:
+        raise HTTPException(status_code=400, detail="表示名を入力してください")
+    if not url:
+        raise HTTPException(status_code=400, detail="URLを入力してください")
+    links = get_workspace_links(ws_path)
+    links.append({"label": label, "url": url})
+    save_workspace_links(ws_path, links)
+    logger.info("link created workspace=%s label=%s", name, label)
+    return {"status": "ok"}
+
+
+@router.delete("/workspaces/{name}/links/{index}")
+def delete_workspace_link(name: str, index: int):
+    ws_path = resolve_workspace_path(name)
+    links = get_workspace_links(ws_path)
+    if index < 0 or index >= len(links):
+        raise HTTPException(status_code=404, detail="リンクが見つかりません")
+    removed = links.pop(index)
+    save_workspace_links(ws_path, links)
+    logger.info("link deleted workspace=%s label=%s", name, removed.get("label", ""))
+    return {"status": "ok"}
 
 
 class RunRequest(BaseModel):

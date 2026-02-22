@@ -19,7 +19,6 @@ class JobDefinition:
     description: str
     args: list[ArgOption] = field(default_factory=list)
     script_path_override: Path | None = None
-    open_url: str = ""
 
     @property
     def script_path(self) -> Path:
