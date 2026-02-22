@@ -164,7 +164,7 @@ function addLongPressEditHandler(btn, openEditFn) {
   btn.addEventListener("contextmenu", (e) => { e.preventDefault(); openEditFn(); });
   btn.addEventListener("touchstart", startHold, { passive: true });
   btn.addEventListener("touchend", cancelHold);
-  btn.addEventListener("touchmove", cancelHold);
+  btn.addEventListener("touchmove", cancelHold, { passive: true });
   btn.addEventListener("mousedown", (e) => { if (e.button === 0) startHold(); });
   btn.addEventListener("mouseup", cancelHold);
   btn.addEventListener("mouseleave", cancelHold);

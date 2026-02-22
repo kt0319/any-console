@@ -296,6 +296,12 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
   term.loadAddon(fitAddon);
   term.loadAddon(webLinksAddon);
   term.open(container);
+  term.attachCustomKeyEventHandler((e) => {
+    if (e.type === "keydown" && e.key === "v" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+      return false;
+    }
+    return true;
+  });
 
   const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _restored: !!restored, _initialCommand: initialCommand || null, icon: tabIcon || null };
   tabs.push(tab);
