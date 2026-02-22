@@ -8,6 +8,7 @@ import select
 import signal
 import struct
 import termios
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -19,17 +20,20 @@ from ..common import TERMINAL_TIMEOUT_SEC
 
 logger = logging.getLogger(__name__)
 
+WS_PING_INTERVAL_SEC = 25
+
 router = APIRouter(dependencies=[Depends(verify_token)])
 
 
 class TerminalSession:
-    __slots__ = ("workspace", "fd", "pid", "expires_at")
+    __slots__ = ("workspace", "fd", "pid", "expires_at", "_read_lock")
 
     def __init__(self, workspace: str | None, fd: int, pid: int, expires_at: float):
         self.workspace = workspace
         self.fd = fd
         self.pid = pid
         self.expires_at = expires_at
+        self._read_lock = threading.Lock()
 
 
 TERMINAL_SESSIONS: dict[str, TerminalSession] = {}
@@ -125,6 +129,14 @@ PTY_EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="pty-reader"
 ws_router = APIRouter()
 
 
+def _is_process_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+
+
 @ws_router.websocket("/terminal/ws/{session_id}")
 async def terminal_ws(websocket: WebSocket, session_id: str):
     session = TERMINAL_SESSIONS.get(session_id)
@@ -132,18 +144,26 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
         await websocket.close(code=1008)
         return
 
+    if not _is_process_alive(session.pid):
+        TERMINAL_SESSIONS.pop(session_id, None)
+        await websocket.close(code=1008)
+        return
+
     await websocket.accept()
     session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
+    stop_event = threading.Event()
     loop = asyncio.get_event_loop()
 
     async def pty_to_ws():
         try:
-            while True:
-                data = await loop.run_in_executor(PTY_EXECUTOR, _read_pty, session.fd)
+            while not stop_event.is_set():
+                data = await loop.run_in_executor(
+                    PTY_EXECUTOR, _read_pty, session.fd, session._read_lock, stop_event
+                )
                 if data == b"":
                     break
                 if data == b"\x00":
-                    continue  # selectタイムアウト、ループ継続
+                    continue
                 await websocket.send_bytes(data)
         except (WebSocketDisconnect, OSError, asyncio.CancelledError):
             pass
@@ -159,7 +179,6 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
                 if data is None and msg.get("text") is not None:
                     data = msg["text"].encode("utf-8")
                 if not data:
-                    logger.debug("ws_to_pty: empty msg type=%s keys=%s", msg_type, list(msg.keys()))
                     continue
                 if data[0:1] == b"\x00":
                     _handle_resize(session.fd, data[1:])
@@ -168,44 +187,50 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
         except (WebSocketDisconnect, OSError, asyncio.CancelledError):
             pass
 
-    async def keep_session_alive():
+    async def ping_loop():
         try:
             while True:
-                await asyncio.sleep(TERMINAL_TIMEOUT_SEC // 2)
+                await asyncio.sleep(WS_PING_INTERVAL_SEC)
+                await websocket.send_bytes(b"")
                 s = TERMINAL_SESSIONS.get(session_id)
                 if s:
                     s.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
-        except asyncio.CancelledError:
+        except (WebSocketDisconnect, OSError, asyncio.CancelledError):
             pass
 
     done, pending = await asyncio.wait(
         [
             asyncio.create_task(pty_to_ws()),
             asyncio.create_task(ws_to_pty()),
-            asyncio.create_task(keep_session_alive()),
+            asyncio.create_task(ping_loop()),
         ],
         return_when=asyncio.FIRST_COMPLETED,
     )
+    stop_event.set()
     for task in pending:
         task.cancel()
-    try:
-        os.waitpid(session.pid, os.WNOHANG)
-    except ChildProcessError:
-        pass
     try:
         await websocket.close()
     except Exception:
         pass
 
 
-def _read_pty(fd: int) -> bytes:
+def _read_pty(fd: int, lock: threading.Lock, stop: threading.Event) -> bytes:
+    if not lock.acquire(timeout=2.0):
+        return b"\x00"
     try:
+        if stop.is_set():
+            return b""
         r, _, _ = select.select([fd], [], [], 1.0)
         if not r:
-            return b"\x00"  # タイムアウト（空でないセンチネル、ループ継続用）
+            return b"\x00"
+        if stop.is_set():
+            return b""
         return os.read(fd, 4096)
     except (OSError, ValueError):
         return b""
+    finally:
+        lock.release()
 
 
 def _handle_resize(fd: int, payload: bytes) -> None:

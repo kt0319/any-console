@@ -119,13 +119,21 @@ function updateQuickInputVisibility() {
 }
 
 function connectTerminalWs(tab) {
+  if (tab._wsDisposed) return;
+  if (tab._reconnectTimer) {
+    clearTimeout(tab._reconnectTimer);
+    tab._reconnectTimer = null;
+  }
+
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = `${proto}//${location.host}${tab.wsUrl}`;
   const ws = new WebSocket(wsUrl);
   ws.binaryType = "arraybuffer";
   tab.ws = ws;
+  tab._reconnectAttempts = tab._reconnectAttempts || 0;
 
   ws.onopen = () => {
+    tab._reconnectAttempts = 0;
     setTimeout(() => {
       try { tab.fitAddon.fit(); } catch {}
       const cols = tab.term.cols;
@@ -137,29 +145,42 @@ function connectTerminalWs(tab) {
 
   ws.onmessage = (e) => {
     if (e.data instanceof ArrayBuffer) {
+      if (e.data.byteLength === 0) return;
       tab.term.write(new Uint8Array(e.data));
     } else {
+      if (e.data.length === 0) return;
       tab.term.write(e.data);
     }
   };
 
-  ws.onclose = () => {
+  ws.onclose = (e) => {
     tab.ws = null;
+    if (tab._wsDisposed) return;
+    if (e.code === 1008) return;
+    const MAX_ATTEMPTS = 10;
+    if (tab._reconnectAttempts >= MAX_ATTEMPTS) {
+      tab.term.write("\r\n\x1b[31m[接続が切断されました]\x1b[0m\r\n");
+      return;
+    }
+    const delay = Math.min(1000 * Math.pow(2, tab._reconnectAttempts), 30000);
+    tab._reconnectAttempts++;
+    tab._reconnectTimer = setTimeout(() => connectTerminalWs(tab), delay);
   };
 
-  tab.term.onData((data) => {
-    console.log("[term.onData]", data.length, "bytes, ws.readyState=", ws.readyState);
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(new TextEncoder().encode(data));
-    }
-  });
-
-  tab.term.onResize(({ cols, rows }) => {
-    if (ws.readyState === WebSocket.OPEN) {
-      const resizePayload = new Uint8Array([0, ...new TextEncoder().encode(JSON.stringify({ cols, rows }))]);
-      ws.send(resizePayload);
-    }
-  });
+  if (!tab._inputBound) {
+    tab._inputBound = true;
+    tab.term.onData((data) => {
+      if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
+        tab.ws.send(new TextEncoder().encode(data));
+      }
+    });
+    tab.term.onResize(({ cols, rows }) => {
+      if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
+        const resizePayload = new Uint8Array([0, ...new TextEncoder().encode(JSON.stringify({ cols, rows }))]);
+        tab.ws.send(resizePayload);
+      }
+    });
+  }
 }
 
 async function restoreTerminalTabs() {
@@ -272,6 +293,8 @@ function removeTab(id) {
         }).catch(() => {});
       }
     }
+    tab._wsDisposed = true;
+    if (tab._reconnectTimer) clearTimeout(tab._reconnectTimer);
     if (tab.ws) tab.ws.close();
     if (tab.term) tab.term.dispose();
   }
