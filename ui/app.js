@@ -25,8 +25,11 @@ async function initApp() {
 }
 
 function updateViewportHeight() {
-  const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  const vv = window.visualViewport;
+  const vh = vv ? vv.height : window.innerHeight;
   document.documentElement.style.setProperty("--app-height", `${vh}px`);
+  const keyboardOpen = vv && (window.innerHeight - vv.height > 100);
+  document.querySelector(".main-panel").classList.toggle("keyboard-open", keyboardOpen);
 }
 
 document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
