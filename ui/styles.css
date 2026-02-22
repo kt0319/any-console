@@ -506,6 +506,11 @@ header .ws-select-wrap {
   display: none;
 }
 
+#app-screen {
+  position: fixed;
+  inset: 0;
+}
+
 /* Main layout */
 .main-container {
   flex: 1;
@@ -582,8 +587,8 @@ header .ws-select-wrap {
   border-top: 1px solid var(--border);
 }
 
-.main-panel.panel-bottom.keyboard-open .tab-bar-row,
-.main-panel.panel-bottom.keyboard-open .header-row2 {
+.main-panel.keyboard-open .tab-bar-row,
+.main-panel.keyboard-open .header-row2 {
   display: none !important;
 }
 

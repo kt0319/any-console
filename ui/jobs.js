@@ -282,10 +282,8 @@ function setIconSelectPreview(btnId, iconClass, iconColor) {
 function openItemCreateModal(workspace, type) {
   const modal = $("item-create-modal");
   modal.dataset.workspace = workspace || selectedWorkspace;
-  $("link-create-label").value = "";
   $("link-create-url").value = "";
   $("job-create-name").value = "";
-  $("job-create-label").value = "";
   $("job-create-script").value = "";
   $("item-create-error").style.display = "none";
   selectedLinkIcon = "";
@@ -332,7 +330,6 @@ async function submitItemCreate() {
 async function submitJobCreate() {
   const workspace = $("item-create-modal").dataset.workspace;
   const name = $("job-create-name").value.trim();
-  const label = $("job-create-label").value.trim();
   const script = $("job-create-script").value;
   const errorEl = $("item-create-error");
 
@@ -354,7 +351,7 @@ async function submitJobCreate() {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name, label: label || name, script, icon: selectedJobIcon, icon_color: selectedJobIconColor }),
+      body: JSON.stringify({ name, script, icon: selectedJobIcon, icon_color: selectedJobIconColor }),
     });
     if (res.status === 401) {
       await handleUnauthorized();
@@ -376,7 +373,6 @@ async function submitJobCreate() {
 
 async function submitLinkCreate() {
   const workspace = $("item-create-modal").dataset.workspace;
-  const label = $("link-create-label").value.trim();
   const url = $("link-create-url").value.trim();
   const errorEl = $("item-create-error");
 
@@ -393,7 +389,7 @@ async function submitLinkCreate() {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ label, url, icon: selectedLinkIcon, icon_color: selectedLinkIconColor }),
+      body: JSON.stringify({ url, icon: selectedLinkIcon, icon_color: selectedLinkIconColor }),
     });
     if (res.status === 401) {
       await handleUnauthorized();
