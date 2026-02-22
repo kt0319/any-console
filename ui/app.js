@@ -128,6 +128,20 @@ document.addEventListener("DOMContentLoaded", async () => {
       setIconSelectPreview("job-icon-select-btn", icon, color);
     }, selectedJobIconColor);
   });
+  $("link-edit-icon-select-btn").addEventListener("click", () => {
+    openIconPicker(({ icon, color }) => {
+      editLinkIcon = icon;
+      editLinkIconColor = color;
+      setIconSelectPreview("link-edit-icon-select-btn", icon, color);
+    }, editLinkIconColor);
+  });
+  $("job-edit-icon-select-btn").addEventListener("click", () => {
+    openIconPicker(({ icon, color }) => {
+      editJobIcon = icon;
+      editJobIconColor = color;
+      setIconSelectPreview("job-edit-icon-select-btn", icon, color);
+    }, editJobIconColor);
+  });
   $("fetch-btn").addEventListener("click", gitFetch);
   $("pull-btn").addEventListener("click", gitPull);
   $("push-btn").addEventListener("click", gitPush);

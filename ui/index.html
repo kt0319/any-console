@@ -71,6 +71,46 @@
         </div>
       </div>
     </div>
+    <!-- Item Edit Modal -->
+    <div id="item-edit-modal" class="modal-overlay" style="display:none">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 id="item-edit-title">編集</h3>
+          <button type="button" id="item-edit-close" class="modal-close-btn">&times;</button>
+        </div>
+        <div class="modal-scroll-body">
+          <div id="item-edit-link-form" style="display:none">
+            <div class="form-group">
+              <label class="form-label">URL</label>
+              <input type="url" id="link-edit-url" class="form-input" placeholder="http://localhost:3000" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">アイコン</label>
+              <button type="button" id="link-edit-icon-select-btn" class="icon-select-btn"><span class="icon-select-preview">未設定</span></button>
+            </div>
+          </div>
+          <div id="item-edit-job-form" style="display:none">
+            <div class="form-group">
+              <label class="form-label">ジョブ名</label>
+              <input type="text" id="job-edit-name" class="form-input" disabled />
+            </div>
+            <div class="form-group">
+              <label class="form-label">スクリプト</label>
+              <textarea id="job-edit-script" class="form-textarea" rows="3" placeholder="echo hello"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">アイコン</label>
+              <button type="button" id="job-edit-icon-select-btn" class="icon-select-btn"><span class="icon-select-preview">未設定</span></button>
+            </div>
+          </div>
+          <div id="item-edit-error" class="form-error"></div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="item-edit-delete" class="danger" style="width:auto">削除</button>
+          <button type="button" id="item-edit-save" class="primary" style="width:auto">保存</button>
+        </div>
+      </div>
+    </div>
     <!-- Item Create Modal (Link / Job) -->
     <div id="item-create-modal" class="modal-overlay" style="display:none">
       <div class="modal">

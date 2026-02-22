@@ -267,6 +267,10 @@ let selectedLinkIcon = "";
 let selectedLinkIconColor = "";
 let selectedJobIcon = "";
 let selectedJobIconColor = "";
+let editLinkIcon = "";
+let editLinkIconColor = "";
+let editJobIcon = "";
+let editJobIconColor = "";
 
 function setIconSelectPreview(btnId, iconClass, iconColor) {
   const btn = $(btnId);
@@ -409,8 +413,116 @@ async function submitLinkCreate() {
   }
 }
 
+function openItemEditModal(type, data) {
+  const modal = $("item-edit-modal");
+  modal.dataset.type = type;
+  modal.dataset.workspace = data.workspace;
+  $("item-edit-title").textContent = type === "link" ? "リンク編集" : "ジョブ編集";
+  $("item-edit-error").style.display = "none";
+
+  $("item-edit-link-form").style.display = type === "link" ? "" : "none";
+  $("item-edit-job-form").style.display = type === "job" ? "" : "none";
+
+  if (type === "link") {
+    modal.dataset.index = data.index;
+    $("link-edit-url").value = data.url || "";
+    editLinkIcon = data.icon || "";
+    editLinkIconColor = data.iconColor || "";
+    setIconSelectPreview("link-edit-icon-select-btn", editLinkIcon, editLinkIconColor);
+  } else {
+    modal.dataset.jobName = data.name;
+    $("job-edit-name").value = data.name;
+    $("job-edit-script").value = data.scriptContent || "";
+    editJobIcon = data.icon || "";
+    editJobIconColor = data.iconColor || "";
+    setIconSelectPreview("job-edit-icon-select-btn", editJobIcon, editJobIconColor);
+  }
+
+  const deleteBtn = $("item-edit-delete");
+  deleteBtn.onclick = async () => {
+    if (type === "link") {
+      await deleteLink(data.workspace, data.index, data.label);
+    } else {
+      await deleteJob(data.name, data.workspace);
+    }
+    closeItemEditModal();
+  };
+  $("item-edit-save").onclick = () => submitItemEdit();
+  $("item-edit-close").onclick = closeItemEditModal;
+  modal.onclick = (e) => { if (e.target === modal) closeItemEditModal(); };
+  modal.style.display = "flex";
+}
+
+async function submitItemEdit() {
+  const modal = $("item-edit-modal");
+  const type = modal.dataset.type;
+  const workspace = modal.dataset.workspace;
+  const errorEl = $("item-edit-error");
+
+  if (type === "link") {
+    const url = $("link-edit-url").value.trim();
+    if (!url) {
+      errorEl.textContent = "URLを入力してください";
+      errorEl.style.display = "block";
+      return;
+    }
+    const index = parseInt(modal.dataset.index, 10);
+    try {
+      const res = await fetch(`/workspaces/${encodeURIComponent(workspace)}/links/${index}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ url, icon: editLinkIcon, icon_color: editLinkIconColor }),
+      });
+      if (res.status === 401) { await handleUnauthorized(); return; }
+      const data = await res.json();
+      if (!res.ok) {
+        errorEl.textContent = data.detail || "保存に失敗しました";
+        errorEl.style.display = "block";
+        return;
+      }
+      closeItemEditModal();
+      showToast("リンクを更新しました", "success");
+      showTerminalWsPicker();
+    } catch (e) {
+      errorEl.textContent = e.message;
+      errorEl.style.display = "block";
+    }
+  } else {
+    const script = $("job-edit-script").value;
+    if (!script.trim()) {
+      errorEl.textContent = "スクリプトを入力してください";
+      errorEl.style.display = "block";
+      return;
+    }
+    const jobName = modal.dataset.jobName;
+    try {
+      const res = await fetch(`/workspaces/${encodeURIComponent(workspace)}/jobs/${encodeURIComponent(jobName)}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ script, icon: editJobIcon, icon_color: editJobIconColor }),
+      });
+      if (res.status === 401) { await handleUnauthorized(); return; }
+      const data = await res.json();
+      if (!res.ok) {
+        errorEl.textContent = data.detail || "保存に失敗しました";
+        errorEl.style.display = "block";
+        return;
+      }
+      closeItemEditModal();
+      await loadJobsForWorkspace();
+      showTerminalWsPicker();
+    } catch (e) {
+      errorEl.textContent = e.message;
+      errorEl.style.display = "block";
+    }
+  }
+}
+
+function closeItemEditModal() {
+  $("item-edit-modal").style.display = "none";
+}
+
 async function deleteLink(workspace, index, label) {
-  if (!confirm(`リンク '${label}' を削除しますか？`)) return;
   try {
     const res = await fetch(`/workspaces/${encodeURIComponent(workspace)}/links/${index}`, {
       method: "DELETE",
@@ -431,12 +543,12 @@ async function deleteLink(workspace, index, label) {
   }
 }
 
-async function deleteJob(jobName) {
-  if (!selectedWorkspace) return;
-  if (!confirm(`ジョブ '${jobName}' を削除しますか？`)) return;
+async function deleteJob(jobName, workspace) {
+  const ws = workspace || selectedWorkspace;
+  if (!ws) return;
 
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/jobs/${encodeURIComponent(jobName)}`, {
+    const res = await fetch(`/workspaces/${encodeURIComponent(ws)}/jobs/${encodeURIComponent(jobName)}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
