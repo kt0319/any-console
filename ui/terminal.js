@@ -268,8 +268,40 @@ function renderTabBar() {
       removeTab(btn.dataset.close);
     });
   });
-  $("tab-add-btn").addEventListener("click", () => runJob("terminal"));
+  $("tab-add-btn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    showTerminalWsPicker();
+  });
 
   const activeBtn = bar.querySelector(".tab-btn.active");
   if (activeBtn) activeBtn.scrollIntoView({ inline: "nearest", block: "nearest" });
+}
+
+function showTerminalWsPicker() {
+  const list = $("terminal-ws-list");
+  if (!list) return;
+
+  list.innerHTML = "";
+  for (const ws of visibleWorkspaces()) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "ws-select-item";
+    item.textContent = ws.name;
+    item.addEventListener("click", () => {
+      closeTerminalWsPicker();
+      runJob("terminal", null, ws.name);
+    });
+    list.appendChild(item);
+  }
+
+  const picker = $("terminal-ws-picker");
+  picker.style.display = "flex";
+  $("terminal-ws-picker-close").onclick = closeTerminalWsPicker;
+  picker.onclick = (e) => {
+    if (e.target === picker) closeTerminalWsPicker();
+  };
+}
+
+function closeTerminalWsPicker() {
+  $("terminal-ws-picker").style.display = "none";
 }

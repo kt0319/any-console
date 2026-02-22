@@ -227,7 +227,7 @@ function collectArgs() {
   return args;
 }
 
-async function runJob(jobName = null, argsOverride = null) {
+async function runJob(jobName = null, argsOverride = null, workspaceOverride = null) {
   const targetJob = jobName || selectedJob;
   if (!targetJob) return;
   const isTerminal = targetJob === "terminal";
@@ -241,9 +241,10 @@ async function runJob(jobName = null, argsOverride = null) {
   }
   renderJobMenu();
 
+  const workspace = workspaceOverride || selectedWorkspace;
   const args = argsOverride || collectArgs();
   const job = JOBS[targetJob] || {};
-  const tabLabel = job.label || targetJob;
+  const tabLabel = isTerminal && workspaceOverride ? workspaceOverride : (job.label || targetJob);
   const outputTabId = isTerminal ? `output-term-${Date.now()}` : `output-${targetJob}`;
 
   for (const arg of (job.args || [])) {
@@ -268,7 +269,7 @@ async function runJob(jobName = null, argsOverride = null) {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ job: targetJob, args, workspace: selectedWorkspace }),
+      body: JSON.stringify({ job: targetJob, args, workspace }),
     });
 
     if (res.status === 401) {
@@ -289,7 +290,7 @@ async function runJob(jobName = null, argsOverride = null) {
 
     if (isTerminal && data.status === "ok" && data.terminal_url) {
       removeTab(outputTabId);
-      addTerminalTab(data.terminal_url, selectedWorkspace);
+      addTerminalTab(data.terminal_url, workspace);
       return;
     }
 
