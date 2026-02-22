@@ -1,8 +1,11 @@
+import logging
 import os
 import subprocess
 from pathlib import Path
 
 from .jobs import JobDefinition
+
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -22,7 +25,9 @@ def run_job(
     if extra_env:
         env.update(extra_env)
     cwd = workspace if workspace else str(PROJECT_ROOT)
-    return subprocess.run(
+
+    logger.info("run script=%s args=%s cwd=%s", script, args, cwd)
+    result = subprocess.run(
         cmd,
         capture_output=True,
         text=True,
@@ -30,3 +35,6 @@ def run_job(
         cwd=cwd,
         env=env,
     )
+    logger.info("done script=%s rc=%d stdout_len=%d stderr_len=%d",
+                script, result.returncode, len(result.stdout), len(result.stderr))
+    return result
