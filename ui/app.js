@@ -22,6 +22,7 @@ async function initApp() {
   } else {
     $("output").innerHTML = '<div class="empty-state"></div>';
   }
+  updateQuickInputVisibility();
 }
 
 function updateViewportHeight() {
@@ -64,12 +65,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("menu-modal").addEventListener("click", (e) => {
     if (e.target === $("menu-modal")) closeMenu();
   });
-  $("settings-gear-btn").addEventListener("click", () => {
-    openSettings();
-  });
   for (const id of ["github-link", "github-issues", "github-pulls", "github-actions"]) {
     $(id).addEventListener("click", closeMenu);
   }
+  $("menu-settings-btn").addEventListener("click", () => {
+    closeMenu();
+    openSettings();
+  });
   $("settings-close").addEventListener("click", closeSettings);
   $("settings-clone").addEventListener("click", () => {
     closeSettings();

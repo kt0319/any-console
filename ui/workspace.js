@@ -44,12 +44,13 @@ function updateGithubLink(ws) {
 async function updateHeaderInfo() {
   const mainGitStatusEl = $("main-git-status");
 
+  $("header-row2").style.display = "flex";
   if (!selectedWorkspace) {
     mainGitStatusEl.innerHTML = "";
     $("clean-dirty-status").innerHTML = "";
-    $("header-commit-msg").style.display = "none";
-    const activeTab = tabs.find((t) => t.id === activeTabId);
-    $("header-row2").style.display = activeTab && activeTab.type === "terminal" ? "flex" : "none";
+    const commitMsgBtn = $("header-commit-msg");
+    commitMsgBtn.style.display = "";
+    commitMsgBtn.innerHTML = `<span class="commit-btn-msg" style="color:var(--text-muted)">ワークスペースを選択してください</span>`;
     updateGithubLink(null);
     updateGitActions(null);
     return;
@@ -76,13 +77,13 @@ async function updateHeaderInfo() {
   mainGitStatusEl.innerHTML = "";
   updateGitActions(ws);
   const commitMsgBtn = $("header-commit-msg");
-  commitMsgBtn.style.display = selectedWorkspace ? "" : "none";
+  commitMsgBtn.style.display = "";
   if (ws) {
     const branch = ws.branch || "";
     const msg = ws.last_commit_message || "";
     commitMsgBtn.innerHTML = `<span class="commit-btn-branch">${escapeHtml(branch)}</span> <span class="commit-btn-msg">${escapeHtml(msg)}</span>`;
   } else {
-    commitMsgBtn.textContent = "";
+    commitMsgBtn.innerHTML = `<span class="commit-btn-msg" style="color:var(--text-muted)">ワークスペースを選択してください</span>`;
   }
 
   await loadBranches();

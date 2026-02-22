@@ -683,13 +683,6 @@ header .ws-select-wrap {
   flex-shrink: 0;
   touch-action: pan-x;
 }
-.tab-bar-row .settings-gear-btn {
-  margin: 0 4px 0 0;
-  border: none;
-  background: transparent;
-  width: 32px;
-  height: 32px;
-}
 .tab-bar {
   display: flex;
   flex: 1;
@@ -905,21 +898,6 @@ button:disabled {
   color: var(--accent);
 }
 
-.settings-gear-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  border-radius: var(--radius);
-  color: var(--text-muted);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
 
 .menu-modal {
   max-width: 360px;
@@ -955,6 +933,12 @@ button:disabled {
   min-width: auto;
 }
 
+
+.menu-settings-btn {
+  margin-top: auto;
+  border-top: 1px solid var(--border) !important;
+  flex-shrink: 0;
+}
 
 /* Settings modal */
 .modal-overlay {

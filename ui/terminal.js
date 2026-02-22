@@ -52,8 +52,7 @@ function joinOrphanSession(url, workspace) {
 function updateQuickInputVisibility() {
   const el = $("quick-input");
   if (!el) return;
-  const activeTab = tabs.find((t) => t.id === activeTabId);
-  el.style.display = activeTab && activeTab.type === "terminal" ? "" : "none";
+  el.style.display = "";
 }
 
 function attachPasteListener(iframe) {
@@ -87,7 +86,6 @@ function attachPasteListener(iframe) {
 async function restoreTerminalTabs() {
   const saved = JSON.parse(localStorage.getItem(TERMINAL_TABS_KEY) || "[]");
   if (saved.length === 0) return;
-  const lastActive = localStorage.getItem("pi_console_active_tab");
 
   try {
     const res = await fetch("/terminal/sessions", {
@@ -108,10 +106,7 @@ async function restoreTerminalTabs() {
     for (const t of alive) {
       addTerminalTab(t.url, t.label, t.id, true);
     }
-    const restoreId = lastActive && tabs.some((t) => t.id === lastActive)
-      ? lastActive
-      : alive[alive.length - 1].id;
-    switchTab(restoreId);
+    switchTab(null);
   } catch {
     localStorage.removeItem(TERMINAL_TABS_KEY);
   }
@@ -216,10 +211,19 @@ function switchTab(id) {
   }
   updateQuickInputVisibility();
   renderTabBar();
+  $("header-row2").style.display = "flex";
+
+  if (id === null) {
+    selectedWorkspace = null;
+    localStorage.removeItem("pi_console_workspace");
+    updateHeaderInfo();
+    loadJobsForWorkspace();
+    renderJobMenu();
+    return;
+  }
 
   const activeTab = tabs.find((t) => t.id === id);
   const isTerminalTab = activeTab && activeTab.type === "terminal";
-  $("header-row2").style.display = isTerminalTab ? "flex" : "none";
 
   if (isTerminalTab && activeTab.label) {
     const ws = allWorkspaces.find((w) => w.name === activeTab.label);
