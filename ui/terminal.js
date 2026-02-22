@@ -258,6 +258,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored) {
   const term = new Terminal({
     cursorBlink: true,
     fontSize: 12,
+    fontFamily: "'JetBrainsMono Nerd Font', 'Hack Nerd Font', 'FiraCode Nerd Font', 'MesloLGS NF', monospace",
     scrollback: 5000,
     scrollOnOutput: true,
     theme: {
@@ -506,6 +507,16 @@ function showTerminalWsPicker() {
 
     loadPickerWsIcons(icons, ws);
   }
+
+  const wsSettingsBtn = document.createElement("button");
+  wsSettingsBtn.type = "button";
+  wsSettingsBtn.className = "picker-ws-settings-btn";
+  wsSettingsBtn.textContent = "ワークスペース設定";
+  wsSettingsBtn.addEventListener("click", () => {
+    closeTerminalWsPicker();
+    openSettingsWsVisibility();
+  });
+  list.appendChild(wsSettingsBtn);
 
   const picker = $("terminal-ws-picker");
   picker.style.display = "flex";

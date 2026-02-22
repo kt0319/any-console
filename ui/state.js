@@ -7,7 +7,7 @@ let hiddenWorkspaces = JSON.parse(localStorage.getItem("hidden_workspaces") || "
 let runningJobName = null;
 let launchingTerminal = false;
 let cachedBranches = [];
-let panelBottom = localStorage.getItem("pi_console_panel_bottom") === "true";
+let panelBottom = window.matchMedia("(max-width: 768px)").matches;
 
 let tabs = [];
 let activeTabId = null;

@@ -2,14 +2,6 @@ function applyPanelBottom() {
   document.querySelector(".main-panel").classList.toggle("panel-bottom", panelBottom);
 }
 
-function togglePanelBottom() {
-  panelBottom = !panelBottom;
-  localStorage.setItem("pi_console_panel_bottom", panelBottom);
-  applyPanelBottom();
-  closeMenu();
-  renderJobMenu();
-}
-
 function openSettings() {
   $("settings-ws-visibility").style.display = "none";
   $("settings-server-info-view").style.display = "none";
@@ -31,16 +23,6 @@ function renderSettingsMenuItems(dropdown, refNode) {
   label.textContent = "設定";
   dropdown.insertBefore(label, refNode);
 
-  const wsBtn = document.createElement("button");
-  wsBtn.type = "button";
-  wsBtn.className = "menu-item menu-dynamic";
-  wsBtn.textContent = "ワークスペース設定";
-  wsBtn.addEventListener("click", () => {
-    closeMenu();
-    openSettingsWsVisibility();
-  });
-  dropdown.insertBefore(wsBtn, refNode);
-
   const infoBtn = document.createElement("button");
   infoBtn.type = "button";
   infoBtn.className = "menu-item menu-dynamic";
@@ -51,12 +33,6 @@ function renderSettingsMenuItems(dropdown, refNode) {
   });
   dropdown.insertBefore(infoBtn, refNode);
 
-  const panelBtn = document.createElement("button");
-  panelBtn.type = "button";
-  panelBtn.className = "menu-item menu-dynamic";
-  panelBtn.textContent = panelBottom ? "操作パネルを上段に表示" : "操作パネルを下段に表示";
-  panelBtn.addEventListener("click", togglePanelBottom);
-  dropdown.insertBefore(panelBtn, refNode);
 }
 
 function openSettingsWsVisibility() {
