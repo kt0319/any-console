@@ -93,6 +93,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (e.target === $("menu-modal")) closeMenu();
   });
   $("settings-close").addEventListener("click", closeSettings);
+  $("settings-modal").addEventListener("click", (e) => {
+    if (e.target === $("settings-modal")) closeSettings();
+  });
+  $("ws-icon-edit-modal").addEventListener("click", (e) => {
+    if (e.target === $("ws-icon-edit-modal")) closeWsIconEditModal();
+  });
   $("settings-clone").addEventListener("click", () => {
     closeSettings();
     openCloneModal();
@@ -114,6 +120,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("icon-picker-modal").addEventListener("click", (e) => {
     if (e.target === $("icon-picker-modal")) closeIconPicker();
   });
+  $("icon-picker-url-ok").addEventListener("click", submitIconPickerUrl);
   for (const key of Object.keys(ICON_COLOR_FIELDS)) {
     setupIconPickerBtn(key);
   }

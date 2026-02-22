@@ -124,7 +124,7 @@ function joinOrphanSession(wsUrl, workspace) {
 function updateQuickInputVisibility() {
   const el = $("quick-input");
   if (!el) return;
-  el.style.display = "";
+  el.style.display = panelBottom ? "" : "none";
 }
 
 function fitAndSync(tab, redraw) {
@@ -415,7 +415,7 @@ function renderTabBar() {
   let html = "";
   for (const tab of tabs) {
     const iconHtml = tab.icon
-      ? `<span class="mdi ${escapeHtml(tab.icon.name)}"${tab.icon.color ? ` style="color:${escapeHtml(tab.icon.color)}"` : ""}></span> `
+      ? renderIcon(tab.icon.name, tab.icon.color, 14) + " "
       : "";
     html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}" data-tab="${tab.id}">`
       + `${iconHtml}${escapeHtml(tab.label)}<span class="tab-close" data-close="${tab.id}">&times;</span></button>`;
@@ -509,6 +509,12 @@ function showTerminalWsPicker() {
 
     const header = document.createElement("div");
     header.className = "picker-ws-header";
+    if (ws.icon) {
+      const wsIconEl = document.createElement("span");
+      wsIconEl.className = "picker-ws-favicon";
+      wsIconEl.innerHTML = renderIcon(ws.icon, ws.icon_color, 16);
+      header.appendChild(wsIconEl);
+    }
     const headerLabel = document.createElement("button");
     headerLabel.type = "button";
     headerLabel.className = "picker-ws-header-label";
@@ -565,10 +571,7 @@ async function loadPickerWsIcons(container, ws) {
     btn.type = "button";
     btn.className = "picker-ws-icon-btn";
     btn.title = link.label || link.url;
-    const colorStyle = link.icon_color ? ` style="color: ${escapeHtml(link.icon_color)}"` : "";
-    btn.innerHTML = link.icon
-      ? `<span class="mdi ${escapeHtml(link.icon)}"${colorStyle}></span>`
-      : `<span class="mdi mdi-web"${colorStyle}></span>`;
+    btn.innerHTML = renderIcon(link.icon || "mdi-web", link.icon_color, 16);
     btn.addEventListener("click", () => {
       window.open(link.url, "_blank");
       closeTerminalWsPicker();
@@ -583,10 +586,7 @@ async function loadPickerWsIcons(container, ws) {
     btn.type = "button";
     btn.className = "picker-ws-icon-btn";
     btn.title = job.label || name;
-    const colorStyle = job.icon_color ? ` style="color: ${escapeHtml(job.icon_color)}"` : "";
-    btn.innerHTML = job.icon
-      ? `<span class="mdi ${escapeHtml(job.icon)}"${colorStyle}></span>`
-      : `<span class="mdi mdi-play"${colorStyle}></span>`;
+    btn.innerHTML = renderIcon(job.icon || "mdi-play", job.icon_color, 16);
     btn.addEventListener("click", () => {
       closeTerminalWsPicker();
       if (job.args && job.args.length > 0) {

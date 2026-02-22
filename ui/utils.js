@@ -139,6 +139,24 @@ function renderActionButtons(container, actions) {
   }
 }
 
+function faviconUrl(domain) {
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`;
+}
+
+function renderIcon(icon, iconColor, size = 16) {
+  if (!icon) return "";
+  if (icon.startsWith("favicon:")) {
+    const domain = icon.slice("favicon:".length);
+    return `<img src="${faviconUrl(domain)}" width="${size}" height="${size}" class="favicon-icon" alt="" />`;
+  }
+  const colorStyle = iconColor ? ` style="color:${escapeHtml(iconColor)}"` : "";
+  return `<span class="mdi ${escapeHtml(icon)}"${colorStyle}></span>`;
+}
+
+function isFaviconIcon(icon) {
+  return icon && icon.startsWith("favicon:");
+}
+
 function addLongPressEditHandler(btn, openEditFn) {
   let holdTimer = null;
   const startHold = () => { holdTimer = setTimeout(openEditFn, 600); };

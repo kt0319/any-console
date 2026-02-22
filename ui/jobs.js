@@ -227,41 +227,40 @@ function getItemCreateType() {
 }
 
 const ICON_COLOR_FIELDS = {
-  linkCreate: { btnId: "link-icon-select-btn", paletteId: "link-color-palette", defaultIcon: "mdi-web" },
-  jobCreate: { btnId: "job-icon-select-btn", paletteId: "job-color-palette", defaultIcon: "mdi-play" },
-  linkEdit: { btnId: "link-edit-icon-select-btn", paletteId: "link-edit-color-palette", defaultIcon: "mdi-web" },
-  jobEdit: { btnId: "job-edit-icon-select-btn", paletteId: "job-edit-color-palette", defaultIcon: "mdi-play" },
+  linkCreate: { btnId: "link-create-icon-btn", defaultIcon: "mdi-web" },
+  jobCreate: { btnId: "job-create-icon-btn", defaultIcon: "mdi-play" },
+  linkEdit: { btnId: "link-edit-icon-btn", defaultIcon: "mdi-web" },
+  jobEdit: { btnId: "job-edit-icon-btn", defaultIcon: "mdi-play" },
 };
 const iconColorState = {};
 for (const key of Object.keys(ICON_COLOR_FIELDS)) {
   iconColorState[key] = { icon: "", color: "" };
 }
 
-function setIconSelectPreview(btnId, iconClass, iconColor, defaultIcon) {
-  const preview = $(btnId).querySelector(".icon-select-preview");
-  const icon = iconClass || defaultIcon || "mdi-play";
-  const label = iconClass || "デフォルト";
-  const colorStyle = iconColor ? ` style="color: ${iconColor}"` : "";
-  preview.innerHTML = `<span class="mdi ${icon}"${colorStyle}></span> ${label}`;
+function updateIconSelectPreview(key) {
+  const f = ICON_COLOR_FIELDS[key];
+  const s = iconColorState[key];
+  const preview = $(f.btnId).querySelector(".icon-select-preview");
+  if (!preview) return;
+  const icon = s.icon || f.defaultIcon;
+  const label = isFaviconIcon(icon) ? icon.slice("favicon:".length) : (s.icon || "デフォルト");
+  preview.innerHTML = renderIcon(icon, s.color, 18) + " " + escapeHtml(label);
 }
 
 function initIconColorField(key, icon, color) {
   const f = ICON_COLOR_FIELDS[key];
-  const s = iconColorState[key] = { icon: icon || "", color: color || "" };
-  setIconSelectPreview(f.btnId, s.icon, s.color, f.defaultIcon);
-  renderColorPalette(f.paletteId, s.color, (c) => {
-    s.color = c;
-    setIconSelectPreview(f.btnId, s.icon, c, f.defaultIcon);
-  });
+  iconColorState[key] = { icon: icon || "", color: color || "" };
+  updateIconSelectPreview(key);
 }
 
 function setupIconPickerBtn(key) {
   const f = ICON_COLOR_FIELDS[key];
   $(f.btnId).addEventListener("click", () => {
-    openIconPicker((icon) => {
+    openIconPicker((icon, color) => {
       iconColorState[key].icon = icon;
-      setIconSelectPreview(f.btnId, icon, iconColorState[key].color, f.defaultIcon);
-    });
+      iconColorState[key].color = color;
+      updateIconSelectPreview(key);
+    }, iconColorState[key].icon, iconColorState[key].color);
   });
 }
 

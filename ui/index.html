@@ -36,6 +36,28 @@
         <div id="settings-server-info-view" style="display:none">
           <div class="server-info-list" id="server-info-list"></div>
         </div>
+        <div id="settings-ws-icons" style="display:none">
+          <div class="ws-icon-list" id="ws-icon-list"></div>
+        </div>
+      </div>
+    </div>
+    <!-- WS Icon Edit Modal -->
+    <div id="ws-icon-edit-modal" class="modal-overlay" style="display:none">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>アイコン設定: <span id="ws-icon-edit-name"></span></h3>
+          <button type="button" onclick="closeWsIconEditModal()" class="modal-close-btn">&times;</button>
+        </div>
+        <div class="form-group">
+          <label class="form-label">アイコン</label>
+          <div class="icon-select-row">
+            <button type="button" id="ws-icon-btn" class="icon-select-btn"><span class="icon-select-preview"></span></button>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" onclick="closeWsIconEditModal()">キャンセル</button>
+          <button type="button" class="primary" style="width:auto" onclick="submitWsIconEdit()">保存</button>
+        </div>
       </div>
     </div>
     <!-- Clone Modal -->
@@ -82,10 +104,9 @@
           <div id="item-edit-link-form" style="display:none">
             <div class="form-group">
               <label class="form-label">アイコン</label>
-              <div class="icon-color-row">
-                <button type="button" id="link-edit-icon-select-btn" class="icon-select-btn"><span class="icon-select-preview">未設定</span></button>
+              <div class="icon-select-row">
+                <button type="button" id="link-edit-icon-btn" class="icon-select-btn"><span class="icon-select-preview"></span></button>
               </div>
-              <div id="link-edit-color-palette" class="color-palette"></div>
             </div>
             <div class="form-group">
               <label class="form-label">URL</label>
@@ -95,10 +116,9 @@
           <div id="item-edit-job-form" style="display:none">
             <div class="form-group">
               <label class="form-label">アイコン</label>
-              <div class="icon-color-row">
-                <button type="button" id="job-edit-icon-select-btn" class="icon-select-btn"><span class="icon-select-preview">未設定</span></button>
+              <div class="icon-select-row">
+                <button type="button" id="job-edit-icon-btn" class="icon-select-btn"><span class="icon-select-preview"></span></button>
               </div>
-              <div id="job-edit-color-palette" class="color-palette"></div>
             </div>
             <div class="form-group">
               <label class="form-label">ジョブ名</label>
@@ -138,10 +158,9 @@
           <div id="item-create-link-form">
             <div class="form-group">
               <label class="form-label">アイコン</label>
-              <div class="icon-color-row">
-                <button type="button" id="link-icon-select-btn" class="icon-select-btn"><span class="icon-select-preview">未設定</span></button>
+              <div class="icon-select-row">
+                <button type="button" id="link-create-icon-btn" class="icon-select-btn"><span class="icon-select-preview"></span></button>
               </div>
-              <div id="link-color-palette" class="color-palette"></div>
             </div>
             <div class="form-group">
               <label class="form-label">URL</label>
@@ -151,10 +170,9 @@
           <div id="item-create-job-form" style="display:none">
             <div class="form-group">
               <label class="form-label">アイコン</label>
-              <div class="icon-color-row">
-                <button type="button" id="job-icon-select-btn" class="icon-select-btn"><span class="icon-select-preview">未設定</span></button>
+              <div class="icon-select-row">
+                <button type="button" id="job-create-icon-btn" class="icon-select-btn"><span class="icon-select-preview"></span></button>
               </div>
-              <div id="job-color-palette" class="color-palette"></div>
             </div>
             <div class="form-group">
               <label class="form-label">ジョブ名 <span class="form-hint">(英数字・ハイフン・アンダースコア)</span></label>
@@ -279,7 +297,14 @@
           <h3>アイコン選択</h3>
           <button type="button" id="icon-picker-close" class="modal-close-btn">&times;</button>
         </div>
-        <input type="text" id="icon-picker-search" class="form-input icon-picker-search" placeholder="アイコンを検索..." autocomplete="off" />
+        <div class="icon-picker-input-row">
+          <input type="text" id="icon-picker-search" class="form-input icon-picker-search" placeholder="アイコン検索 / URLでfavicon" autocomplete="off" />
+          <span id="icon-picker-favicon-preview" class="icon-picker-favicon-preview"></span>
+          <button type="button" id="icon-picker-url-ok" class="primary icon-picker-url-ok-btn" style="display:none">決定</button>
+        </div>
+        <div id="icon-picker-color-section">
+          <div id="icon-picker-color-palette" class="color-palette"></div>
+        </div>
         <div id="icon-picker-grid" class="icon-picker-grid"></div>
       </div>
     </div>
