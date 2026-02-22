@@ -164,14 +164,8 @@ function connectTerminalWs(tab) {
     } else {
       tab._needRedraw = needRedraw;
     }
-    if (tab._initialCommand) {
-      const cmd = tab._initialCommand;
-      tab._initialCommand = null;
-      setTimeout(() => {
-        if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
-          tab.ws.send(new TextEncoder().encode(cmd + "\n"));
-        }
-      }, 300);
+    if (tab._initialCommand && !tab._waitingInitialCommand) {
+      tab._waitingInitialCommand = true;
     }
   };
 
@@ -182,6 +176,16 @@ function connectTerminalWs(tab) {
     } else {
       if (e.data.length === 0) return;
       tab.term.write(e.data);
+    }
+    if (tab._waitingInitialCommand && tab._initialCommand) {
+      const cmd = tab._initialCommand;
+      tab._initialCommand = null;
+      tab._waitingInitialCommand = false;
+      setTimeout(() => {
+        if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
+          tab.ws.send(new TextEncoder().encode(cmd + "\n"));
+        }
+      }, 50);
     }
     if (scrollTimer) clearTimeout(scrollTimer);
     scrollTimer = setTimeout(() => { tab.term.scrollToBottom(); scrollTimer = null; }, 200);
