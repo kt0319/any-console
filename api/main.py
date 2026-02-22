@@ -30,13 +30,14 @@ app = FastAPI(title="pi-console")
 
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
 
-terminal.recover_terminal_sessions()
+import signal as _signal
+_signal.signal(_signal.SIGCHLD, _signal.SIG_IGN)
 
 app.include_router(workspaces.router)
 app.include_router(git.router)
 app.include_router(jobs.router)
 app.include_router(terminal.router)
-app.include_router(terminal.terminal_proxy_router)
+app.include_router(terminal.ws_router)
 
 
 @app.on_event("shutdown")

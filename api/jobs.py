@@ -28,8 +28,8 @@ class JobDefinition:
 
 
 TERMINAL_JOB = JobDefinition(
-    script="jobs/terminal.sh",
+    script="",
     label="ターミナル",
-    description="一時Webターミナル起動（10分）",
+    description="Webターミナル起動",
     args=[],
 )

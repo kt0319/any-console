@@ -21,8 +21,7 @@ from ..runner import run_job
 from .terminal import (
     TERMINAL_SESSIONS,
     TerminalSession,
-    parse_terminal_stdout,
-    websockets_available,
+    create_pty_session,
 )
 
 logger = logging.getLogger(__name__)
@@ -238,23 +237,33 @@ def execute_job(body: RunRequest):
             )
         ordered_args.append(value)
 
-    workspace_path = str(ws_path) if ws_path else ""
-    terminal_session_id: str | None = None
-    extra_env: dict[str, str] | None = None
     if body.job == "terminal":
-        if not websockets_available():
-            return {
-                "status": "error",
-                "exit_code": 1,
-                "stdout": "",
-                "stderr": "server missing dependency: websockets (pip install websockets)",
-            }
-        terminal_session_id = secrets.token_urlsafe(24)
-        extra_env = {"TERMINAL_BASE_PATH": f"/terminal/s/{terminal_session_id}"}
+        workspace_str = str(ws_path) if ws_path else None
+        session_id = secrets.token_urlsafe(24)
+        try:
+            fd, pid = create_pty_session(workspace_str)
+        except OSError as e:
+            logger.error("pty fork failed: %s", e)
+            raise HTTPException(status_code=500, detail=f"Failed to create terminal: {e}")
+        TERMINAL_SESSIONS[session_id] = TerminalSession(
+            workspace=body.workspace,
+            fd=fd,
+            pid=pid,
+            expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
+        )
+        logger.info("terminal session created session=%s pid=%d workspace=%s",
+                     session_id, pid, body.workspace or "(none)")
+        return {
+            "status": "ok",
+            "session_id": session_id,
+            "ws_url": f"/terminal/ws/{session_id}",
+            "expires_in": TERMINAL_TIMEOUT_SEC,
+        }
 
+    workspace_path = str(ws_path) if ws_path else ""
     logger.info("job start job=%s workspace=%s", body.job, body.workspace or "(none)")
     try:
-        result = run_job(job_def, ordered_args, workspace=workspace_path, extra_env=extra_env)
+        result = run_job(job_def, ordered_args, workspace=workspace_path)
     except subprocess.TimeoutExpired:
         logger.warning("job timeout job=%s workspace=%s", body.job, body.workspace or "(none)")
         raise HTTPException(status_code=504, detail="Job timed out")
@@ -271,25 +280,4 @@ def execute_job(body: RunRequest):
     else:
         logger.warning("job failed job=%s workspace=%s rc=%d stderr=%s",
                         body.job, body.workspace or "(none)", result.returncode, result.stderr[:200])
-
-    if body.job == "terminal":
-        port, pid = parse_terminal_stdout(result.stdout)
-        if payload["status"] == "ok" and port:
-            session_id = terminal_session_id or secrets.token_urlsafe(24)
-            TERMINAL_SESSIONS[session_id] = TerminalSession(
-                workspace=body.workspace,
-                port=port,
-                pid=pid,
-                expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
-            )
-            payload["port"] = port
-            payload["session_id"] = session_id
-            payload["terminal_url"] = f"/terminal/s/{session_id}/"
-            payload["expires_in"] = TERMINAL_TIMEOUT_SEC
-            logger.info("terminal session created session=%s port=%d", session_id, port)
-        elif payload["status"] == "ok":
-            payload["status"] = "error"
-            payload["stderr"] = (
-                (payload.get("stderr") or "") + "\nfailed to parse ttyd port"
-            ).strip()
     return payload
