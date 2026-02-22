@@ -2,16 +2,43 @@ function $(id) {
   return document.getElementById(id);
 }
 
+function copyToClipboard(text) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).catch(() => copyToClipboardFallback(text));
+  } else {
+    copyToClipboardFallback(text);
+  }
+}
+
+function copyToClipboardFallback(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.cssText = "position:fixed;opacity:0";
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand("copy");
+  ta.remove();
+}
+
 function showToast(message, type = "error") {
   const el = document.createElement("div");
   el.className = `toast toast-${type}`;
   el.textContent = message;
-  document.body.appendChild(el);
-  requestAnimationFrame(() => el.classList.add("show"));
-  setTimeout(() => {
+  el.style.cursor = "pointer";
+  let dismissed = false;
+  const dismiss = () => {
+    if (dismissed) return;
+    dismissed = true;
     el.classList.remove("show");
     el.addEventListener("transitionend", () => el.remove());
-  }, 3000);
+  };
+  el.addEventListener("click", () => {
+    copyToClipboard(message);
+    dismiss();
+  });
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("show"));
+  setTimeout(dismiss, 3000);
 }
 
 function formatTimeAgo(isoStr) {

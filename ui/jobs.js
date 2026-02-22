@@ -172,68 +172,45 @@ function collectArgs() {
 async function runJob(jobName = null, argsOverride = null, workspaceOverride = null) {
   const targetJob = jobName || selectedJob;
   if (!targetJob) return;
-  const isTerminal = targetJob === "terminal";
-  if (isTerminal) {
-    if (launchingTerminal) return;
-  } else {
-    if (runningJobName) return;
-  }
+  if (launchingTerminal) return;
   if (selectedJob !== targetJob) {
     selectedJob = targetJob;
   }
   renderJobMenu();
 
   const workspace = workspaceOverride || selectedWorkspace;
-  const args = argsOverride || collectArgs();
   const job = JOBS[targetJob] || {};
-  const tabLabel = isTerminal && workspaceOverride ? workspaceOverride : (job.label || targetJob);
+  const tabLabel = targetJob === "terminal" ? (workspaceOverride || workspace) : (job.label || targetJob);
 
-  for (const arg of (job.args || [])) {
-    if (arg.required && !args[arg.name]) {
-      showToast(`${tabLabel}: ${arg.name} の既定値がありません`);
-      return;
-    }
-  }
-
-  if (isTerminal) {
-    launchingTerminal = true;
-  } else {
-    runningJobName = targetJob;
-  }
+  launchingTerminal = true;
   renderJobMenu();
 
   try {
     const res = await apiFetch("/run", {
       method: "POST",
-      body: { job: targetJob, args, workspace },
+      body: { job: "terminal", args: {}, workspace },
     });
     if (!res) return;
 
     const data = await res.json();
-
-    if (isTerminal && data.status === "ok" && data.ws_url) {
-      addTerminalTab(data.ws_url, workspace);
+    if (data.status !== "ok" || !data.ws_url) {
+      showToast(`${tabLabel} エラー: ターミナル作成に失敗`);
       return;
     }
 
-    if (data.status === "ok") {
-      const stdout = data.stdout ? data.stdout.replace(/\n/g, " ").trim() : "";
-      const msg = stdout ? `${tabLabel} 完了: ${stdout}`.slice(0, 200) : `${tabLabel} 完了`;
-      showToast(msg, "success");
-    } else {
-      const detail = (data.stderr || data.stdout || `exit: ${data.exit_code}`).replace(/\n/g, " ").trim();
-      showToast(`${tabLabel} 失敗: ${detail}`.slice(0, 200));
+    let initialCommand = null;
+    let tabIcon = null;
+    if (targetJob !== "terminal" && job.script) {
+      initialCommand = job.script;
+      const iconName = job.icon || "mdi-play";
+      tabIcon = { name: iconName, color: job.icon_color || "" };
     }
+    addTerminalTab(data.ws_url, workspace, null, false, false, initialCommand, tabIcon);
   } catch (e) {
     showToast(`${tabLabel} エラー: ${e.message}`);
   } finally {
-    if (isTerminal) {
-      launchingTerminal = false;
-    } else {
-      runningJobName = null;
-    }
+    launchingTerminal = false;
     renderJobMenu();
-    loadWorkspaces().then(() => updateHeaderInfo());
   }
 }
 

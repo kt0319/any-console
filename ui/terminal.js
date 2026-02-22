@@ -64,7 +64,11 @@ function refitActiveTerminal() {
 }
 
 function saveTerminalTabs() {
-  const data = tabs.filter((t) => t.type === "terminal").map((t) => ({ id: t.id, wsUrl: t.wsUrl, label: t.label }));
+  const data = tabs.filter((t) => t.type === "terminal").map((t) => {
+    const entry = { id: t.id, wsUrl: t.wsUrl, label: t.label };
+    if (t.icon) entry.icon = t.icon;
+    return entry;
+  });
   localStorage.setItem(TERMINAL_TABS_KEY, JSON.stringify(data));
   if (activeTabId) {
     localStorage.setItem("pi_console_active_tab", activeTabId);
@@ -153,11 +157,21 @@ function connectTerminalWs(tab) {
     const needRedraw = tab._reconnectAttempts > 0 || tab._restored;
     tab._reconnectAttempts = 0;
     tab._restored = false;
-    tab._needRedraw = needRedraw;
     const container = $(`frame-${tab.id}`);
     const isVisible = container && container.style.display !== "none";
     if (isVisible) {
       setTimeout(() => fitAndSync(tab, needRedraw), 150);
+    } else {
+      tab._needRedraw = needRedraw;
+    }
+    if (tab._initialCommand) {
+      const cmd = tab._initialCommand;
+      tab._initialCommand = null;
+      setTimeout(() => {
+        if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
+          tab.ws.send(new TextEncoder().encode(cmd + "\n"));
+        }
+      }, 300);
     }
   };
 
@@ -176,7 +190,10 @@ function connectTerminalWs(tab) {
   ws.onclose = (e) => {
     tab.ws = null;
     if (tab._wsDisposed) return;
-    if (e.code === 1008) return;
+    if (e.code === 1000 || e.code === 1008) {
+      removeTab(tab.id);
+      return;
+    }
     const MAX_ATTEMPTS = 10;
     if (tab._reconnectAttempts >= MAX_ATTEMPTS) {
       tab.term.write("\r\n\x1b[31m[接続が切断されました]\x1b[0m\r\n");
@@ -227,7 +244,7 @@ async function restoreTerminalTabs() {
       return;
     }
     for (const t of alive) {
-      addTerminalTab(t.wsUrl, t.label, t.id, true, true);
+      addTerminalTab(t.wsUrl, t.label, t.id, true, true, null, t.icon || null);
     }
     startSessionKeepalive();
     const savedActive = localStorage.getItem("pi_console_active_tab");
@@ -240,7 +257,7 @@ async function restoreTerminalTabs() {
   }
 }
 
-function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored) {
+function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCommand, tabIcon) {
   const id = tabId || `term-${++terminalIdCounter}`;
   if (tabId) {
     const m = tabId.match(/^term-(\d+)$/);
@@ -276,7 +293,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored) {
   term.loadAddon(webLinksAddon);
   term.open(container);
 
-  const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _restored: !!restored };
+  const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _restored: !!restored, _initialCommand: initialCommand || null, icon: tabIcon || null };
   tabs.push(tab);
 
   connectTerminalWs(tab);
@@ -347,8 +364,9 @@ async function switchTab(id) {
         if (tab.type === "terminal") {
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
+              const wsReady = tab.ws && tab.ws.readyState === WebSocket.OPEN;
               const needRedraw = tab._needRedraw;
-              tab._needRedraw = false;
+              if (wsReady) tab._needRedraw = false;
               fitAndSync(tab, needRedraw);
               tab.term.focus();
             });
@@ -396,8 +414,11 @@ function renderTabBar() {
 
   let html = "";
   for (const tab of tabs) {
+    const iconHtml = tab.icon
+      ? `<span class="mdi ${escapeHtml(tab.icon.name)}"${tab.icon.color ? ` style="color:${escapeHtml(tab.icon.color)}"` : ""}></span> `
+      : "";
     html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}" data-tab="${tab.id}">`
-      + `${escapeHtml(tab.label)}<span class="tab-close" data-close="${tab.id}">&times;</span></button>`;
+      + `${iconHtml}${escapeHtml(tab.label)}<span class="tab-close" data-close="${tab.id}">&times;</span></button>`;
   }
   for (const s of orphanSessions) {
     const label = s.workspace || "terminal";
