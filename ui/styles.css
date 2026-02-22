@@ -240,8 +240,8 @@ header .ws-select-wrap {
   align-items: center;
   justify-content: center;
   min-width: 36px;
-  min-height: 36px;
-  padding: 4px 10px;
+  height: 36px;
+  padding: 0 10px;
   border-radius: 6px;
   font-size: 14px;
   font-weight: 600;
@@ -249,7 +249,9 @@ header .ws-select-wrap {
 }
 
 .clean-dirty-status .git-badge {
-  min-height: 36px;
+  height: 36px;
+  max-height: 36px;
+  box-sizing: border-box;
 }
 
 .git-badge.clean {
@@ -299,13 +301,16 @@ header .ws-select-wrap {
   justify-content: center;
   gap: 3px;
   min-width: 36px;
+  height: 36px;
   min-height: 36px;
-  padding: 4px 8px;
+  max-height: 36px;
+  padding: 0 8px;
   box-sizing: border-box;
+  line-height: 1;
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
-  border: none;
+  border: 1px solid transparent;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
@@ -323,6 +328,7 @@ header .ws-select-wrap {
 .git-action-btn.pull-btn.has-count {
   color: var(--error);
   background: rgba(255, 85, 114, 0.15);
+  border: 1px solid rgba(255, 85, 114, 0.3);
 }
 
 
@@ -334,6 +340,7 @@ header .ws-select-wrap {
 .git-action-btn.push-btn.has-count {
   color: var(--accent);
   background: rgba(130, 170, 255, 0.15);
+  border: 1px solid rgba(130, 170, 255, 0.3);
 }
 
 
@@ -837,10 +844,10 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  min-height: 36px;
+  width: 37px;
+  height: 37px;
+  min-width: 37px;
+  min-height: 37px;
   box-sizing: border-box;
   padding: 0;
   background: transparent;
