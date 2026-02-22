@@ -115,6 +115,13 @@
         <div class="diff-file-list" id="diff-file-list"></div>
         <pre class="diff-content" id="diff-content"></pre>
         <div class="diff-actions" id="diff-actions" style="display:none"></div>
+        <div id="diff-commit-area" style="display:none; padding: 8px 0 4px; flex-shrink: 0">
+          <input type="text" id="diff-commit-msg" class="form-input" placeholder="コミットメッセージ" autocomplete="off" />
+          <div id="diff-commit-error" class="form-error"></div>
+          <div style="margin-top:8px; display:flex; justify-content:flex-end">
+            <button type="button" id="diff-commit-submit" class="primary" style="width:auto">コミット実行</button>
+          </div>
+        </div>
       </div>
     </div>
     <!-- Git Log Modal -->

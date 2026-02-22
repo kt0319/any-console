@@ -89,6 +89,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   $("branch-modal-close").addEventListener("click", closeBranchModal);
   $("diff-close").addEventListener("click", closeDiffModal);
+  $("diff-commit-submit").addEventListener("click", submitDiffCommit);
+  $("diff-commit-msg").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); submitDiffCommit(); }
+  });
   $("job-create-cancel").addEventListener("click", closeJobCreateModal);
   $("job-create-submit").addEventListener("click", submitJobCreate);
   $("fetch-btn").addEventListener("click", gitFetch);

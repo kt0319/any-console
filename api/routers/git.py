@@ -308,6 +308,50 @@ def git_stash(name: str):
         raise HTTPException(status_code=504, detail="git stash timed out")
 
 
+class CommitRequest(BaseModel):
+    message: str
+    add_all: bool = True
+
+
+@router.post("/workspaces/{name}/commit")
+def git_commit(name: str, body: CommitRequest):
+    ws_path = resolve_workspace_path(name)
+    message = body.message.strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="コミットメッセージが必要です")
+    if len(message) > 500:
+        raise HTTPException(status_code=400, detail="コミットメッセージは500文字以内で入力してください")
+    if any(c in message for c in ("\x00", "\r")):
+        raise HTTPException(status_code=400, detail="コミットメッセージに使用できない文字が含まれています")
+    try:
+        if body.add_all:
+            add_result = subprocess.run(
+                ["git", "add", "-A"],
+                capture_output=True, text=True, timeout=30, cwd=str(ws_path),
+            )
+            if add_result.returncode != 0:
+                logger.warning("git add failed workspace=%s rc=%d", name, add_result.returncode)
+                return {
+                    "status": "error",
+                    "exit_code": add_result.returncode,
+                    "stdout": add_result.stdout,
+                    "stderr": add_result.stderr,
+                }
+        result = subprocess.run(
+            ["git", "commit", "-m", message],
+            capture_output=True, text=True, timeout=60, cwd=str(ws_path),
+        )
+        logger.info("commit workspace=%s rc=%d", name, result.returncode)
+        return {
+            "status": "ok" if result.returncode == 0 else "error",
+            "exit_code": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="git commit timed out")
+
+
 @router.post("/workspaces/{name}/stash-pop")
 def git_stash_pop(name: str):
     ws_path = resolve_workspace_path(name)

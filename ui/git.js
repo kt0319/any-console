@@ -697,6 +697,7 @@ async function openDiffModal() {
   const stashActions = [
     { label: "stash", cls: "", fn: () => execStashAction("save") },
     { label: "stash pop", cls: "", fn: () => execStashAction("pop") },
+    { label: "commit", cls: "", fn: () => toggleDiffCommitArea() },
   ];
   for (const action of stashActions) {
     const btn = document.createElement("button");
@@ -711,6 +712,9 @@ async function openDiffModal() {
   }
   actionsEl.style.display = "flex";
 
+  $("diff-commit-area").style.display = "none";
+  $("diff-commit-msg").value = "";
+  $("diff-commit-error").style.display = "none";
   $("diff-modal").style.display = "flex";
 
   try {
@@ -743,11 +747,71 @@ async function openDiffModal() {
 
 function closeDiffModal() {
   $("diff-modal").style.display = "none";
+  $("diff-commit-area").style.display = "none";
   if (diffOpenedFromGitLog) {
     diffOpenedFromGitLog = false;
     $("git-log-modal").style.display = "flex";
   }
 }
+
+function toggleDiffCommitArea() {
+  const area = $("diff-commit-area");
+  if (area.style.display !== "none") {
+    area.style.display = "none";
+  } else {
+    $("diff-commit-msg").value = "";
+    $("diff-commit-error").style.display = "none";
+    area.style.display = "block";
+    $("diff-commit-msg").focus();
+  }
+}
+
+async function submitDiffCommit() {
+  if (!selectedWorkspace) return;
+  const message = $("diff-commit-msg").value.trim();
+  const errorEl = $("diff-commit-error");
+
+  if (!message) {
+    errorEl.textContent = "コミットメッセージを入力してください";
+    errorEl.style.display = "block";
+    return;
+  }
+
+  errorEl.style.display = "none";
+  $("diff-commit-submit").disabled = true;
+
+  try {
+    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/commit`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ message, add_all: true }),
+    });
+    if (res.status === 401) {
+      await handleUnauthorized();
+      return;
+    }
+    const data = await res.json();
+    if (data.status === "ok") {
+      showToast("コミット完了", "success");
+      $("diff-modal").style.display = "none";
+      $("diff-commit-area").style.display = "none";
+      await loadWorkspaces();
+      await updateHeaderInfo();
+    } else {
+      errorEl.textContent = (data.stderr || data.stdout || "コミットに失敗しました").trim().slice(0, 200);
+      errorEl.style.display = "block";
+    }
+  } catch (e) {
+    errorEl.textContent = e.message;
+    errorEl.style.display = "block";
+  } finally {
+    $("diff-commit-submit").disabled = false;
+  }
+}
+
 
 async function openBranchModal() {
   const listEl = $("branch-list");
