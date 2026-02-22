@@ -142,73 +142,74 @@ function initQuickInput() {
   });
   panel.appendChild(fileInput);
 
-  const openFilePicker = () => {
-    fileInput.click();
+  const createCameraBtn = () => {
+    const btn = document.createElement("div");
+    btn.className = "quick-key";
+    btn.innerHTML = '<span class="mdi mdi-camera"></span>';
+    btn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+    btn.addEventListener("touchend", (e) => { e.preventDefault(); fileInput.click(); });
+    btn.addEventListener("click", () => fileInput.click());
+    return btn;
   };
-
-  const imgBtn = document.createElement("div");
-  imgBtn.className = "quick-key";
-  imgBtn.innerHTML = '<span class="mdi mdi-camera"></span>';
-  imgBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
-  imgBtn.addEventListener("touchend", (e) => {
-    e.preventDefault();
-    openFilePicker();
-  });
-  imgBtn.addEventListener("click", openFilePicker);
-
-  const menuBtn = document.createElement("div");
-  menuBtn.className = "quick-key quick-key-toggle";
-  menuBtn.innerHTML = '<span class="mdi mdi-menu"></span>';
+  const imgBtn = createCameraBtn();
+  const menuBtn = createCameraBtn();
 
   panel.appendChild(menuBtn);
   panel.appendChild(imgBtn);
   const middleKeys = quickKeyBtns.slice(0, -1);
   const enterKey = quickKeyBtns[quickKeyBtns.length - 1];
 
-  const escKey = createQuickKeyBtn({ label: "Esc", key: "Escape", code: "Escape", keyCode: 27 });
-  escKey.style.display = "none";
+  const inputBtn = document.createElement("div");
+  inputBtn.className = "quick-key quick-key-toggle";
+  inputBtn.innerHTML = '<span class="mdi mdi-form-textbox"></span>';
+  inputBtn.style.display = "none";
 
   for (const btn of middleKeys) panel.appendChild(btn);
   for (const btn of extraKeyBtns) panel.appendChild(btn);
   panel.appendChild(toggleBtn);
-  panel.appendChild(escKey);
+  panel.appendChild(inputBtn);
   panel.appendChild(enterKey);
 
   const textInput = document.createElement("input");
   textInput.type = "text";
-  textInput.className = "quick-text-inline";
+  textInput.className = "quick-text-float";
   textInput.placeholder = "テキスト入力・音声入力";
   textInput.style.display = "none";
-  panel.insertBefore(textInput, toggleBtn);
+  panel.parentNode.insertBefore(textInput, panel);
+
+  const textIndicator = document.createElement("div");
+  textIndicator.className = "quick-text-indicator";
+  textIndicator.textContent = "テキスト入力中";
+  textIndicator.style.display = "none";
+  document.body.appendChild(textIndicator);
 
   const extraPanel = document.createElement("div");
   extraPanel.className = "quick-extra-panel";
   extraPanel.style.display = "none";
+  const escKey = createQuickKeyBtn({ label: "Esc", key: "Escape", code: "Escape", keyCode: 27 });
   for (const [keys, cls] of [[NUMBER_KEYS, "quick-extra-row"], [EXTRA_ROW_KEYS, "quick-extra-row"]]) {
     const row = document.createElement("div");
     row.className = cls;
     for (const keyDef of keys) row.appendChild(createQuickKeyBtn(keyDef));
+    if (cls === "quick-extra-row" && keys === EXTRA_ROW_KEYS) row.appendChild(escKey);
     extraPanel.appendChild(row);
   }
 
-  let mode = "normal";
-  let extraEnabled = false;
+  let textVisible = false;
+  let extraPanelOpen = false;
+
+  const normalModeElements = [menuBtn, enterKey, ...middleKeys];
+  const extraModeElements = [imgBtn, inputBtn, ...extraKeyBtns];
 
   const applyMode = () => {
-    const isText = mode === "text";
-    const isExtra = extraEnabled && !isText;
-    textInput.style.display = isText ? "" : "none";
-    menuBtn.style.flex = isText ? "1" : "";
-    menuBtn.style.display = isExtra ? "none" : "";
-    menuBtn.classList.toggle("active", isText);
-    toggleBtn.style.display = isText ? "none" : "";
-    toggleBtn.classList.toggle("active", extraEnabled);
-    imgBtn.style.display = isExtra ? "" : "none";
-    enterKey.style.display = isExtra ? "none" : isText ? "none" : "";
-    escKey.style.display = isExtra ? "" : "none";
-    for (const btn of middleKeys) btn.style.display = isText || isExtra ? "none" : "";
-    for (const btn of extraKeyBtns) btn.style.display = isExtra ? "" : "none";
-    extraPanel.style.display = extraEnabled && !isText ? "flex" : "none";
+    const showExtraKeys = extraPanelOpen && !textVisible;
+    textInput.style.display = textVisible ? "" : "none";
+    textIndicator.style.display = textVisible ? "" : "none";
+    inputBtn.classList.toggle("active", textVisible);
+    toggleBtn.classList.toggle("active", extraPanelOpen);
+    for (const el of normalModeElements) el.style.display = showExtraKeys ? "none" : "";
+    for (const el of extraModeElements) el.style.display = showExtraKeys ? "" : "none";
+    extraPanel.style.display = showExtraKeys ? "flex" : "none";
   };
   applyMode();
 
@@ -219,24 +220,42 @@ function initQuickInput() {
     textInput.value = "";
   };
 
-  const setMode = (newMode) => {
-    if (newMode === "text" && mode !== "text") {
-      mode = "text";
-      applyMode();
-      textInput.focus();
-    } else if (newMode !== "text" && mode === "text") {
-      flushTextInput();
-      mode = newMode;
-      applyMode();
-    } else {
-      mode = newMode;
-      applyMode();
-    }
+  const positionIndicator = () => {
+    if (!window.visualViewport) return;
+    const vv = window.visualViewport;
+    textIndicator.style.top = (vv.offsetTop + vv.height - 40) + "px";
+  };
+
+  const showTextInput = () => {
+    textVisible = true;
+    applyMode();
+    textInput.focus({ preventScroll: true });
+    requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+      positionIndicator();
+    });
+  };
+
+  const updateIndicatorText = () => {
+    const hasText = !!textInput.value;
+    textIndicator.textContent = textInput.value || "テキスト入力中";
+    textIndicator.classList.toggle("has-text", hasText);
+  };
+
+  const hideTextInput = () => {
+    flushTextInput();
+    textVisible = false;
+    updateIndicatorText();
+    applyMode();
   };
 
   let composing = false;
   textInput.addEventListener("compositionstart", () => { composing = true; });
-  textInput.addEventListener("compositionend", () => { composing = false; });
+  textInput.addEventListener("compositionend", () => {
+    composing = false;
+    updateIndicatorText();
+  });
+  textInput.addEventListener("input", updateIndicatorText);
   textInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !composing) {
       flushTextInput();
@@ -245,8 +264,18 @@ function initQuickInput() {
   });
   textInput.addEventListener("blur", () => {
     if (composing) { textInput.focus(); return; }
-    setTimeout(() => { setMode("normal"); }, 100);
+    setTimeout(hideTextInput, 100);
   });
+
+  if (window.visualViewport) {
+    const onViewportChange = () => {
+      if (!textVisible) return;
+      window.scrollTo(0, 0);
+      positionIndicator();
+    };
+    window.visualViewport.addEventListener("resize", onViewportChange);
+    window.visualViewport.addEventListener("scroll", onViewportChange);
+  }
 
   const addTouchBtn = (el, handler) => {
     el.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
@@ -255,24 +284,24 @@ function initQuickInput() {
 
   panel.addEventListener("touchend", (e) => {
     const t = e.target.closest(".quick-key");
-    if (t && !t.classList.contains("quick-key-toggle")) setMode("normal");
+    if (t && !t.classList.contains("quick-key-toggle") && textVisible) hideTextInput();
   });
   document.addEventListener("touchend", (e) => {
-    if (mode === "text" && !e.target.closest(".quick-key-toggle") && !textInput.contains(e.target)) {
-      setMode("normal");
+    if (textVisible && !e.target.closest(".quick-key-toggle") && !textInput.contains(e.target)) {
+      hideTextInput();
     }
-    if (extraEnabled && !e.target.closest(".quick-key-toggle") && !extraPanel.contains(e.target) && !panel.contains(e.target)) {
-      extraEnabled = false;
+    if (extraPanelOpen && !e.target.closest(".quick-key-toggle") && !extraPanel.contains(e.target) && !panel.contains(e.target)) {
+      extraPanelOpen = false;
       applyMode();
     }
   });
 
-  addTouchBtn(menuBtn, () => {
-    setMode(mode === "text" ? "normal" : "text");
+  addTouchBtn(inputBtn, () => {
+    textVisible ? hideTextInput() : showTextInput();
   });
   addTouchBtn(toggleBtn, () => {
-    setMode("normal");
-    extraEnabled = !extraEnabled;
+    if (textVisible) hideTextInput();
+    extraPanelOpen = !extraPanelOpen;
     applyMode();
   });
 

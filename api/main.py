@@ -1265,8 +1265,8 @@ BOOT_VERSION = str(int(time.time()))
 @app.get("/")
 def serve_index():
     html = (UI_DIR / "index.html").read_text()
-    html = html.replace('href="styles.css"', f'href="styles.css?v={BOOT_VERSION}"')
-    html = html.replace('src="app.js"', f'src="app.js?v={BOOT_VERSION}"')
+    html = re.sub(r'href="([^"]+\.css)"', rf'href="\1?v={BOOT_VERSION}"', html)
+    html = re.sub(r'src="([^"]+\.js)"', rf'src="\1?v={BOOT_VERSION}"', html)
     return Response(content=html, media_type="text/html",
                     headers={"Cache-Control": "no-cache"})
 

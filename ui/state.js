@@ -46,6 +46,7 @@ const EXTRA_ROW_KEYS = [
   { label: "Tab", key: "Tab", code: "Tab", keyCode: 9 },
   { label: "S-Tab", shift: true, key: "Tab", code: "Tab", keyCode: 9 },
   { label: "C-c", ctrl: true, key: "c", code: "KeyC", keyCode: 67 },
+  { label: "C-o", ctrl: true, key: "o", code: "KeyO", keyCode: 79 },
   { label: "/", key: "/", code: "Slash", keyCode: 191 },
 ];
 
