@@ -259,10 +259,21 @@ async def terminal_ws_proxy(websocket: WebSocket, session_id: str, path: str):
                 except (WebSocketDisconnect, OSError):
                     pass
 
+            async def keep_session_alive():
+                try:
+                    while True:
+                        await asyncio.sleep(TERMINAL_TIMEOUT_SEC // 2)
+                        s = TERMINAL_SESSIONS.get(session_id)
+                        if s:
+                            s.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
+                except asyncio.CancelledError:
+                    pass
+
             done, pending = await asyncio.wait(
                 [
                     asyncio.create_task(client_to_upstream()),
                     asyncio.create_task(upstream_to_client()),
+                    asyncio.create_task(keep_session_alive()),
                 ],
                 return_when=asyncio.FIRST_COMPLETED,
             )

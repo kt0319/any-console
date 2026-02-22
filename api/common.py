@@ -11,8 +11,9 @@ logger = logging.getLogger(__name__)
 
 WORK_DIR = Path.home() / "work"
 UPLOAD_DIR = Path("/tmp/pi-console-uploads")
-TERMINAL_TIMEOUT_SEC = 600
+TERMINAL_TIMEOUT_SEC = 1800
 WORKSPACE_JOBS_DIR = Path(".pi-console/jobs")
+WORKSPACE_LINKS_FILE = Path(".pi-console/links.json")
 
 BACKGROUND_EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
