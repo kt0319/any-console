@@ -225,8 +225,8 @@ async function runJob(jobName = null, argsOverride = null, workspaceOverride = n
 
     const data = await res.json();
 
-    if (isTerminal && data.status === "ok" && data.terminal_url) {
-      addTerminalTab(data.terminal_url, workspace);
+    if (isTerminal && data.status === "ok" && data.ws_url) {
+      addTerminalTab(data.ws_url, workspace);
       return;
     }
 

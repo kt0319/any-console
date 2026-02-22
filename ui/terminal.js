@@ -37,14 +37,10 @@ async function onVisibilityRestore() {
     });
     if (!res.ok) return;
     const sessions = await res.json();
-    const aliveUrls = new Set(sessions.map((s) => s.url));
+    const aliveWsUrls = new Set(sessions.map((s) => s.ws_url));
 
     for (const tab of termTabs) {
-      const frame = $(`frame-${tab.id}`);
-      if (!frame) continue;
-      if (aliveUrls.has(tab.url)) {
-        frame.src = tab.url;
-      } else {
+      if (!aliveWsUrls.has(tab.wsUrl)) {
         removeTab(tab.id);
         showToast("ターミナルセッションが期限切れになりました");
       }
@@ -61,7 +57,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 function saveTerminalTabs() {
-  const data = tabs.filter((t) => t.type === "terminal").map((t) => ({ id: t.id, url: t.url, label: t.label }));
+  const data = tabs.filter((t) => t.type === "terminal").map((t) => ({ id: t.id, wsUrl: t.wsUrl, label: t.label }));
   localStorage.setItem(TERMINAL_TABS_KEY, JSON.stringify(data));
   if (activeTabId) {
     localStorage.setItem("pi_console_active_tab", activeTabId);
@@ -95,24 +91,24 @@ async function fetchOrphanSessions() {
 }
 
 function updateOrphanSessions() {
-  const localUrls = new Set(tabs.filter((t) => t.type === "terminal").map((t) => t.url));
-  orphanSessions = orphanSessions.filter((s) => !localUrls.has(s.url));
+  const localWsUrls = new Set(tabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
+  orphanSessions = orphanSessions.filter((s) => !localWsUrls.has(s.wsUrl));
 }
 
 function updateOrphanFromSessions(sessions) {
-  const localUrls = new Set(tabs.filter((t) => t.type === "terminal").map((t) => t.url));
+  const localWsUrls = new Set(tabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
   orphanSessions = sessions
-    .filter((s) => !localUrls.has(s.url) && !closedSessionUrls.has(s.url))
-    .map((s) => ({ url: s.url, workspace: s.workspace, expiresIn: s.expires_in }));
+    .filter((s) => !localWsUrls.has(s.ws_url) && !closedSessionUrls.has(s.ws_url))
+    .map((s) => ({ wsUrl: s.ws_url, workspace: s.workspace, expiresIn: s.expires_in }));
   for (const url of closedSessionUrls) {
-    if (!sessions.some((s) => s.url === url)) closedSessionUrls.delete(url);
+    if (!sessions.some((s) => s.ws_url === url)) closedSessionUrls.delete(url);
   }
 }
 
-function joinOrphanSession(url, workspace) {
+function joinOrphanSession(wsUrl, workspace) {
   const label = workspace || "terminal";
-  addTerminalTab(url, label);
-  orphanSessions = orphanSessions.filter((s) => s.url !== url);
+  addTerminalTab(wsUrl, label);
+  orphanSessions = orphanSessions.filter((s) => s.wsUrl !== wsUrl);
   renderTabBar();
 }
 
@@ -122,37 +118,54 @@ function updateQuickInputVisibility() {
   el.style.display = "";
 }
 
-function attachPasteListener(iframe) {
-  try {
-    const doc = iframe.contentDocument;
-    if (!doc) {
-      console.warn("[paste] contentDocument is null (cross-origin?)");
-      return;
+function connectTerminalWs(tab) {
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  const wsUrl = `${proto}//${location.host}${tab.wsUrl}`;
+  const ws = new WebSocket(wsUrl);
+  ws.binaryType = "arraybuffer";
+  tab.ws = ws;
+
+  ws.onopen = () => {
+    const cols = tab.term.cols;
+    const rows = tab.term.rows;
+    const resizePayload = new Uint8Array([0, ...new TextEncoder().encode(JSON.stringify({ cols, rows }))]);
+    ws.send(resizePayload);
+  };
+
+  ws.onmessage = (e) => {
+    if (e.data instanceof ArrayBuffer) {
+      tab.term.write(new Uint8Array(e.data));
+    } else {
+      tab.term.write(e.data);
     }
-    console.warn("[paste] listener attached to iframe");
-    doc.addEventListener("paste", (e) => {
-      const items = e.clipboardData && e.clipboardData.items;
-      console.warn("[paste] paste event fired, items:", items?.length);
-      if (!items) return;
-      for (const item of items) {
-        console.warn("[paste] item:", item.kind, item.type);
-        if (item.type.startsWith("image/")) {
-          e.preventDefault();
-          e.stopPropagation();
-          const file = item.getAsFile();
-          if (file) uploadClipboardImage(file);
-          return;
-        }
-      }
-    }, { capture: true });
-  } catch (err) {
-    console.error("[paste] attachPasteListener failed:", err);
-  }
+  };
+
+  ws.onclose = () => {
+    tab.ws = null;
+  };
+
+  tab.term.onData((data) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(new TextEncoder().encode(data));
+    }
+  });
+
+  tab.term.onResize(({ cols, rows }) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      const resizePayload = new Uint8Array([0, ...new TextEncoder().encode(JSON.stringify({ cols, rows }))]);
+      ws.send(resizePayload);
+    }
+  });
 }
 
 async function restoreTerminalTabs() {
   const saved = JSON.parse(localStorage.getItem(TERMINAL_TABS_KEY) || "[]");
   if (saved.length === 0) return;
+
+  if (saved.some((t) => t.url && !t.wsUrl)) {
+    localStorage.removeItem(TERMINAL_TABS_KEY);
+    return;
+  }
 
   try {
     const res = await fetch("/terminal/sessions", {
@@ -163,15 +176,15 @@ async function restoreTerminalTabs() {
       return;
     }
     const sessions = await res.json();
-    const aliveUrls = new Set(sessions.map((s) => s.url));
+    const aliveWsUrls = new Set(sessions.map((s) => s.ws_url));
 
-    const alive = saved.filter((t) => aliveUrls.has(t.url));
+    const alive = saved.filter((t) => aliveWsUrls.has(t.wsUrl));
     if (alive.length === 0) {
       localStorage.removeItem(TERMINAL_TABS_KEY);
       return;
     }
     for (const t of alive) {
-      addTerminalTab(t.url, t.label, t.id, true);
+      addTerminalTab(t.wsUrl, t.label, t.id, true);
     }
     startSessionKeepalive();
     switchTab(null);
@@ -180,7 +193,7 @@ async function restoreTerminalTabs() {
   }
 }
 
-function addTerminalTab(url, workspace, tabId, skipSwitch) {
+function addTerminalTab(wsUrl, workspace, tabId, skipSwitch) {
   const id = tabId || `term-${++terminalIdCounter}`;
   if (tabId) {
     const m = tabId.match(/^term-(\d+)$/);
@@ -188,26 +201,34 @@ function addTerminalTab(url, workspace, tabId, skipSwitch) {
   }
   const label = workspace || "terminal";
   if (tabs.some((t) => t.id === id)) return;
-  tabs.push({ id, type: "terminal", url, label });
 
-  const iframe = document.createElement("iframe");
-  iframe.className = "terminal-frame";
-  iframe.id = `frame-${id}`;
-  iframe.src = url;
-  iframe.style.display = "none";
-  iframe.addEventListener("load", () => {
-    attachPasteListener(iframe);
-    try {
-      const doc = iframe.contentDocument;
-      if (doc) {
-        doc.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
-        doc.addEventListener("touchmove", (e) => {
-          if (e.touches.length > 1) e.preventDefault();
-        }, { passive: false });
-      }
-    } catch (err) {}
+  const container = document.createElement("div");
+  container.className = "terminal-frame";
+  container.id = `frame-${id}`;
+  container.style.display = "none";
+  $("output-container").appendChild(container);
+
+  const term = new Terminal({
+    cursorBlink: true,
+    fontSize: 14,
+    scrollback: 5000,
+    theme: {
+      background: "#1a1b26",
+      foreground: "#e0e4fc",
+      cursor: "#82aaff",
+      selectionBackground: "rgba(130, 170, 255, 0.3)",
+    },
   });
-  $("output-container").appendChild(iframe);
+  const fitAddon = new FitAddon.FitAddon();
+  const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+  term.loadAddon(fitAddon);
+  term.loadAddon(webLinksAddon);
+  term.open(container);
+
+  const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null };
+  tabs.push(tab);
+
+  connectTerminalWs(tab);
 
   if (skipSwitch) return;
   saveTerminalTabs();
@@ -235,15 +256,19 @@ function setOutputTab(id, label, htmlContent) {
 
 function removeTab(id) {
   const tab = tabs.find((t) => t.id === id);
-  if (tab && tab.type === "terminal" && tab.url) {
-    closedSessionUrls.add(tab.url);
-    const match = tab.url.match(/\/terminal\/s\/([^/]+)\//);
-    if (match) {
-      fetch(`/terminal/sessions/${match[1]}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {});
+  if (tab && tab.type === "terminal") {
+    if (tab.wsUrl) {
+      closedSessionUrls.add(tab.wsUrl);
+      const match = tab.wsUrl.match(/\/terminal\/ws\/([^/]+)/);
+      if (match) {
+        fetch(`/terminal/sessions/${match[1]}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {});
+      }
     }
+    if (tab.ws) tab.ws.close();
+    if (tab.term) tab.term.dispose();
   }
   tabs = tabs.filter((t) => t.id !== id);
   const el = $(`frame-${id}`);
@@ -270,7 +295,10 @@ function switchTab(id) {
       if (tab.id === id) {
         el.style.display = tab.type === "terminal" ? "block" : "";
         if (tab.type === "terminal") {
-          try { el.contentWindow.focus(); } catch {}
+          requestAnimationFrame(() => {
+            tab.fitAddon.fit();
+            tab.term.focus();
+          });
         }
       } else {
         el.style.display = "none";
@@ -316,7 +344,7 @@ function renderTabBar() {
   }
   for (const s of orphanSessions) {
     const label = s.workspace || "terminal";
-    html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.url)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
+    html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
       + `${escapeHtml(label)}</button>`;
   }
   html += '<button class="tab-add-btn" id="tab-add-btn" title="ターミナル・ジョブを開く">+</button>';
@@ -564,3 +592,19 @@ async function renderPickerWsBody(body, ws) {
 function closeTerminalWsPicker() {
   $("terminal-ws-picker").style.display = "none";
 }
+
+document.addEventListener("paste", (e) => {
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  if (!activeTab || activeTab.type !== "terminal") return;
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith("image/")) {
+      e.preventDefault();
+      e.stopPropagation();
+      const file = item.getAsFile();
+      if (file) uploadClipboardImage(file);
+      return;
+    }
+  }
+});

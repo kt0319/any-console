@@ -1,65 +1,58 @@
-function getTerminalTextarea() {
-  const activeTab = tabs.find((t) => t.id === activeTabId);
-  if (!activeTab || activeTab.type !== "terminal") return null;
-  const iframe = $(`frame-${activeTabId}`);
-  if (!iframe) return null;
-  try {
-    const doc = iframe.contentDocument;
-    if (!doc) return null;
-    return doc.querySelector(".xterm-helper-textarea");
-  } catch {}
-  return null;
-}
-
-function dispatchKeyToTerminal(keyDef) {
-  const textarea = getTerminalTextarea();
-  if (!textarea) return;
-  const eventInit = {
-    key: keyDef.key,
-    code: keyDef.code || "",
-    keyCode: keyDef.keyCode || 0,
-    which: keyDef.keyCode || 0,
-    ctrlKey: !!keyDef.ctrl,
-    bubbles: true,
-    cancelable: true,
-  };
-  textarea.dispatchEvent(new KeyboardEvent("keydown", eventInit));
-  if (keyDef.char && !keyDef.ctrl) {
-    textarea.dispatchEvent(new KeyboardEvent("keypress", {
-      ...eventInit,
-      charCode: keyDef.char.charCodeAt(0),
-    }));
-  }
-  textarea.dispatchEvent(new KeyboardEvent("keyup", eventInit));
-  return textarea;
+function getActiveTerminalTab() {
+  const tab = tabs.find((t) => t.id === activeTabId);
+  if (!tab || tab.type !== "terminal") return null;
+  return tab;
 }
 
 function sendKeyToTerminal(keyDef) {
-  const textarea = getTerminalTextarea();
-  if (!textarea) return;
-  const origFocus = textarea.focus;
-  textarea.focus = () => {};
-  dispatchKeyToTerminal(keyDef);
-  requestAnimationFrame(() => { textarea.focus = origFocus; });
+  const tab = getActiveTerminalTab();
+  if (!tab || !tab.ws || tab.ws.readyState !== WebSocket.OPEN) return;
+  const seq = keyDefToAnsi(keyDef);
+  if (seq) tab.ws.send(new TextEncoder().encode(seq));
+}
+
+function keyDefToAnsi(keyDef) {
+  if (keyDef.ctrl && keyDef.key.length === 1) {
+    const code = keyDef.key.toLowerCase().charCodeAt(0) - 96;
+    if (code > 0 && code < 27) return String.fromCharCode(code);
+  }
+  if (keyDef.shift && keyDef.key === "Tab") return "\x1b[Z";
+  const mapping = {
+    Backspace: "\x7f",
+    Enter: "\r",
+    Tab: "\t",
+    Escape: "\x1b",
+    ArrowUp: "\x1b[A",
+    ArrowDown: "\x1b[B",
+    ArrowRight: "\x1b[C",
+    ArrowLeft: "\x1b[D",
+    Home: "\x1b[H",
+    End: "\x1b[F",
+    Delete: "\x1b[3~",
+    " ": " ",
+    "/": "/",
+  };
+  if (mapping[keyDef.key]) return mapping[keyDef.key];
+  if (keyDef.key.length === 1) return keyDef.key;
+  return null;
 }
 
 function sendTextToTerminal(text) {
-  const textarea = getTerminalTextarea();
-  if (!textarea) return;
-  textarea.focus();
-  textarea.value = text;
-  textarea.dispatchEvent(new InputEvent("input", {
-    data: text,
-    inputType: "insertText",
-    bubbles: true,
-  }));
+  const tab = getActiveTerminalTab();
+  if (!tab || !tab.ws || tab.ws.readyState !== WebSocket.OPEN) return;
+  tab.ws.send(new TextEncoder().encode(text));
+}
+
+function scrollTerminal(direction) {
+  const tab = getActiveTerminalTab();
+  if (!tab || !tab.term) return;
+  tab.term.scrollLines(direction === "up" ? -20 : 20);
 }
 
 async function uploadClipboardImage(file) {
   const activeTab = tabs.find((t) => t.id === activeTabId);
   if (!activeTab || activeTab.type !== "terminal") return;
 
-  console.warn("[paste] uploading image:", file.type, file.size);
   const form = new FormData();
   form.append("file", file);
   try {
@@ -68,30 +61,9 @@ async function uploadClipboardImage(file) {
       headers: { Authorization: `Bearer ${token}` },
       body: form,
     });
-    if (!res.ok) {
-      console.error("[paste] upload failed:", res.status, await res.text());
-      return;
-    }
+    if (!res.ok) return;
     const data = await res.json();
-    console.warn("[paste] upload ok:", data.path);
     if (data.path) sendTextToTerminal(data.path);
-  } catch (err) {
-    console.error("[paste] upload error:", err);
-  }
-}
-
-async function sendTmuxScroll(direction) {
-  const activeTab = tabs.find((t) => t.id === activeTabId);
-  if (!activeTab || activeTab.type !== "terminal") return;
-  const m = activeTab.url.match(/\/terminal\/s\/([^/]+)\//);
-  if (!m) return;
-  const sessionId = m[1];
-  try {
-    await fetch(`/terminal/sessions/${sessionId}/scroll`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ direction }),
-    });
   } catch {}
 }
 
@@ -107,8 +79,8 @@ function createQuickKeyBtn(keyDef) {
   btn.addEventListener("touchend", (e) => {
     e.preventDefault();
     btn.classList.remove("pressed");
-    if (keyDef.tmuxScroll) {
-      sendTmuxScroll(keyDef.tmuxScroll);
+    if (keyDef.xtermScroll) {
+      scrollTerminal(keyDef.xtermScroll);
     } else {
       sendKeyToTerminal(keyDef);
     }

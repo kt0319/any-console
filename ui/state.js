@@ -39,8 +39,8 @@ const NUMBER_KEYS = [
 const EXTRA_MAIN_KEYS = [
   { label: "Del", key: "Delete", code: "Delete", keyCode: 46 },
   { label: "\u00AB", key: "Home", code: "Home", keyCode: 36 },
-  { html: '<span class="mdi mdi-chevron-double-down"></span>', tmuxScroll: "down" },
-  { html: '<span class="mdi mdi-chevron-double-up"></span>', tmuxScroll: "up" },
+  { html: '<span class="mdi mdi-chevron-double-down"></span>', xtermScroll: "down" },
+  { html: '<span class="mdi mdi-chevron-double-up"></span>', xtermScroll: "up" },
   { label: "\u00BB", key: "End", code: "End", keyCode: 35 },
 ];
 const EXTRA_ROW_KEYS = [
