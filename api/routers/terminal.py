@@ -4,10 +4,12 @@ import json
 import logging
 import os
 import pty
+import select
 import signal
 import struct
 import termios
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket
 from fastapi.websockets import WebSocketDisconnect
@@ -34,12 +36,13 @@ TERMINAL_SESSIONS: dict[str, TerminalSession] = {}
 
 
 def create_pty_session(workspace_path: str | None) -> tuple[int, int]:
+    user_shell = os.environ.get("SHELL", "/bin/zsh")
     env = {
         "TERM": "xterm-256color",
         "HOME": os.environ.get("HOME", "/"),
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "LANG": os.environ.get("LANG", "en_US.UTF-8"),
-        "SHELL": "/bin/bash",
+        "SHELL": user_shell,
     }
     if workspace_path:
         env["WORKSPACE"] = workspace_path
@@ -49,7 +52,7 @@ def create_pty_session(workspace_path: str | None) -> tuple[int, int]:
     pid, fd = pty.fork()
     if pid == 0:
         os.chdir(cwd)
-        os.execvpe("/bin/bash", ["/bin/bash", "-l"], env)
+        os.execvpe(user_shell, [user_shell, "-l"], env)
     return fd, pid
 
 
@@ -116,6 +119,8 @@ async def delete_terminal_session(session_id: str):
     return {"status": "ok"}
 
 
+PTY_EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="pty-reader")
+
 # WS認証はsession_id(192bitトークン)で担保
 ws_router = APIRouter()
 
@@ -134,9 +139,11 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
     async def pty_to_ws():
         try:
             while True:
-                data = await loop.run_in_executor(None, _read_pty, session.fd)
-                if not data:
+                data = await loop.run_in_executor(PTY_EXECUTOR, _read_pty, session.fd)
+                if data == b"":
                     break
+                if data == b"\x00":
+                    continue  # selectタイムアウト、ループ継続
                 await websocket.send_bytes(data)
         except (WebSocketDisconnect, OSError, asyncio.CancelledError):
             pass
@@ -145,10 +152,14 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
         try:
             while True:
                 msg = await websocket.receive()
-                if msg.get("type") == "websocket.disconnect":
+                msg_type = msg.get("type")
+                if msg_type == "websocket.disconnect":
                     break
-                data = msg.get("bytes") or (msg.get("text", "").encode("utf-8") if msg.get("text") is not None else None)
+                data = msg.get("bytes")
+                if data is None and msg.get("text") is not None:
+                    data = msg["text"].encode("utf-8")
                 if not data:
+                    logger.debug("ws_to_pty: empty msg type=%s keys=%s", msg_type, list(msg.keys()))
                     continue
                 if data[0:1] == b"\x00":
                     _handle_resize(session.fd, data[1:])
@@ -178,6 +189,10 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
     for task in pending:
         task.cancel()
     try:
+        os.waitpid(session.pid, os.WNOHANG)
+    except ChildProcessError:
+        pass
+    try:
         await websocket.close()
     except Exception:
         pass
@@ -185,8 +200,11 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
 
 def _read_pty(fd: int) -> bytes:
     try:
+        r, _, _ = select.select([fd], [], [], 1.0)
+        if not r:
+            return b"\x00"  # タイムアウト（空でないセンチネル、ループ継続用）
         return os.read(fd, 4096)
-    except OSError:
+    except (OSError, ValueError):
         return b""
 
 

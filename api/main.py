@@ -30,9 +30,6 @@ app = FastAPI(title="pi-console")
 
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
 
-import signal as _signal
-_signal.signal(_signal.SIGCHLD, _signal.SIG_IGN)
-
 app.include_router(workspaces.router)
 app.include_router(git.router)
 app.include_router(jobs.router)

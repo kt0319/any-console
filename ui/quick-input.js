@@ -6,8 +6,10 @@ function getActiveTerminalTab() {
 
 function sendKeyToTerminal(keyDef) {
   const tab = getActiveTerminalTab();
+  console.log("[quickkey]", keyDef.key, "tab=", !!tab, "ws=", tab?.ws?.readyState);
   if (!tab || !tab.ws || tab.ws.readyState !== WebSocket.OPEN) return;
   const seq = keyDefToAnsi(keyDef);
+  console.log("[quickkey] seq=", seq ? seq.length + "chars" : "null");
   if (seq) tab.ws.send(new TextEncoder().encode(seq));
 }
 

@@ -126,10 +126,13 @@ function connectTerminalWs(tab) {
   tab.ws = ws;
 
   ws.onopen = () => {
-    const cols = tab.term.cols;
-    const rows = tab.term.rows;
-    const resizePayload = new Uint8Array([0, ...new TextEncoder().encode(JSON.stringify({ cols, rows }))]);
-    ws.send(resizePayload);
+    setTimeout(() => {
+      try { tab.fitAddon.fit(); } catch {}
+      const cols = tab.term.cols;
+      const rows = tab.term.rows;
+      const resizePayload = new Uint8Array([0, ...new TextEncoder().encode(JSON.stringify({ cols, rows }))]);
+      ws.send(resizePayload);
+    }, 150);
   };
 
   ws.onmessage = (e) => {
@@ -145,6 +148,7 @@ function connectTerminalWs(tab) {
   };
 
   tab.term.onData((data) => {
+    console.log("[term.onData]", data.length, "bytes, ws.readyState=", ws.readyState);
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(new TextEncoder().encode(data));
     }
@@ -210,7 +214,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch) {
 
   const term = new Terminal({
     cursorBlink: true,
-    fontSize: 14,
+    fontSize: 12,
     scrollback: 5000,
     theme: {
       background: "#1a1b26",
@@ -296,8 +300,10 @@ function switchTab(id) {
         el.style.display = tab.type === "terminal" ? "block" : "";
         if (tab.type === "terminal") {
           requestAnimationFrame(() => {
-            tab.fitAddon.fit();
-            tab.term.focus();
+            requestAnimationFrame(() => {
+              tab.fitAddon.fit();
+              tab.term.focus();
+            });
           });
         }
       } else {
