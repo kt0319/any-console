@@ -151,11 +151,7 @@ function initQuickInput() {
   textInput.style.display = "none";
   panel.parentNode.insertBefore(textInput, panel);
 
-  const textIndicator = document.createElement("div");
-  textIndicator.className = "quick-text-indicator";
-  textIndicator.textContent = "テキスト入力中";
-  textIndicator.style.display = "none";
-  document.body.appendChild(textIndicator);
+  const getIndicator = () => $("keyboard-indicator");
 
   const extraPanel = document.createElement("div");
   extraPanel.className = "quick-extra-panel";
@@ -178,7 +174,6 @@ function initQuickInput() {
   const applyMode = () => {
     const showExtraKeys = extraPanelOpen && !textVisible;
     textInput.style.display = textVisible ? "" : "none";
-    textIndicator.style.display = textVisible ? "" : "none";
     inputBtn.classList.toggle("active", textVisible);
     toggleBtn.classList.toggle("active", extraPanelOpen);
     for (const el of normalModeElements) el.style.display = showExtraKeys ? "none" : "";
@@ -194,32 +189,33 @@ function initQuickInput() {
     textInput.value = "";
   };
 
-  const positionIndicator = () => {
-    if (!window.visualViewport) return;
-    const vv = window.visualViewport;
-    textIndicator.style.top = (vv.offsetTop + vv.height - 40) + "px";
-  };
-
   const showTextInput = () => {
     textVisible = true;
     applyMode();
     textInput.focus({ preventScroll: true });
     requestAnimationFrame(() => {
       window.scrollTo(0, 0);
-      positionIndicator();
     });
   };
 
+  window.showQuickTextInput = showTextInput;
+
   const updateIndicatorText = () => {
+    const ind = getIndicator();
+    if (!ind) return;
     const hasText = !!textInput.value;
-    textIndicator.textContent = textInput.value || "テキスト入力中";
-    textIndicator.classList.toggle("has-text", hasText);
+    ind.textContent = textInput.value || "テキスト入力中";
+    ind.classList.toggle("has-text", hasText);
   };
 
   const hideTextInput = () => {
     flushTextInput();
     textVisible = false;
-    updateIndicatorText();
+    const ind = getIndicator();
+    if (ind) {
+      ind.textContent = "テキスト入力中";
+      ind.classList.remove("has-text");
+    }
     applyMode();
   };
 
@@ -240,16 +236,6 @@ function initQuickInput() {
     if (composing) { textInput.focus(); return; }
     setTimeout(hideTextInput, 100);
   });
-
-  if (window.visualViewport) {
-    const onViewportChange = () => {
-      if (!textVisible) return;
-      window.scrollTo(0, 0);
-      positionIndicator();
-    };
-    window.visualViewport.addEventListener("resize", onViewportChange);
-    window.visualViewport.addEventListener("scroll", onViewportChange);
-  }
 
   const addTouchBtn = (el, handler) => {
     el.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });

@@ -29,6 +29,26 @@ function updateViewportHeight() {
   const vv = window.visualViewport;
   const keyboardOpen = vv && (window.innerHeight - vv.height > 100);
   document.querySelector(".main-panel").classList.toggle("keyboard-open", keyboardOpen);
+  updateKeyboardIndicator(keyboardOpen);
+}
+
+function updateKeyboardIndicator(keyboardOpen) {
+  let el = $("keyboard-indicator");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "keyboard-indicator";
+    el.className = "keyboard-indicator";
+    el.textContent = "テキスト入力中";
+    document.body.appendChild(el);
+  }
+  if (keyboardOpen) {
+    el.style.display = "";
+    const vv = window.visualViewport;
+    if (vv) el.style.top = (vv.offsetTop + vv.height - 52) + "px";
+    if (window.showQuickTextInput) window.showQuickTextInput();
+  } else {
+    el.style.display = "none";
+  }
 }
 
 document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });

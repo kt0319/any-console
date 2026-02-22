@@ -353,11 +353,13 @@ function switchTab(id) {
 
   if (isTerminalTab && activeTab.label) {
     const ws = allWorkspaces.find((w) => w.name === activeTab.label);
-    if (ws && ws.name !== selectedWorkspace) {
-      selectedWorkspace = ws.name;
-      localStorage.setItem("pi_console_workspace", ws.name);
+    if (ws) {
+      if (ws.name !== selectedWorkspace) {
+        selectedWorkspace = ws.name;
+        localStorage.setItem("pi_console_workspace", ws.name);
+        loadJobsForWorkspace();
+      }
       updateHeaderInfo();
-      loadJobsForWorkspace();
     }
   }
 }

@@ -263,9 +263,6 @@ header .ws-select-wrap {
 
 .picker-ws-group {
   overflow: hidden;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
 }
 
 .picker-ws-header {
@@ -1783,29 +1780,30 @@ button:disabled {
   color: rgba(255, 255, 255, 0.3);
 }
 
-.quick-text-indicator {
+.keyboard-indicator {
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: calc(100% - 32px);
-  font-size: 11px;
-  color: var(--accent);
-  padding: 4px 14px;
-  border-radius: 12px;
-  background: rgba(130, 170, 255, 0.2);
-  border: 1px solid rgba(130, 170, 255, 0.4);
+  left: 16px;
+  right: 16px;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(25, 28, 40, 0.95);
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 14px;
+  line-height: 44px;
+  box-sizing: border-box;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   z-index: 9999;
   pointer-events: none;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color 0.15s;
 }
 
-.quick-text-indicator.has-text {
-  color: var(--bg-primary);
-  background: var(--accent);
-  border-color: var(--accent);
+.keyboard-indicator.has-text {
+  color: var(--text-primary);
 }
 
 @media (min-width: 769px) {
