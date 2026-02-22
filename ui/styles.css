@@ -46,41 +46,45 @@ header .ws-select-wrap {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 1;
-  min-width: 0;
   min-height: 36px;
+  padding: 4px 8px 6px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
 }
 
-.header-commit-msg {
+.commit-msg-btn {
   display: flex;
   align-items: center;
   flex: 1;
   min-width: 0;
+  height: 36px;
   min-height: 36px;
-  padding: 0 4px 0 8px;
+  max-height: 36px;
+  box-sizing: border-box;
+  line-height: 1;
+  padding: 0 10px;
   font-size: 12px;
+  font-family: inherit;
   color: var(--text-muted);
-  cursor: pointer;
-  background: var(--surface-alt);
+  background: var(--bg-tertiary);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  gap: 6px;
 }
 
-.commit-msg-text {
-  white-space: nowrap;
+.commit-btn-branch {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.commit-btn-msg {
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--text);
-  min-width: 0;
-}
-
-.commit-msg-ago {
-  flex-shrink: 0;
-  margin-left: auto;
-  padding-left: 8px;
-  padding-right: 2px;
-  font-size: 11px;
-  color: var(--text-muted);
+  color: var(--text-primary);
 }
 
 
@@ -127,6 +131,44 @@ header .ws-select-wrap {
 }
 
 .ws-select-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2382aaff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 15 12 9 18 15'/%3E%3C/svg%3E");
+}
+
+.branch-select-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.branch-select-btn {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-height: 36px;
+  min-height: 36px;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 28px 0 10px;
+  line-height: 1;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa5ce' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+.branch-select-btn.active {
   border-color: var(--accent);
   color: var(--accent);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2382aaff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 15 12 9 18 15'/%3E%3C/svg%3E");
@@ -259,6 +301,7 @@ header .ws-select-wrap {
   min-width: 36px;
   min-height: 36px;
   padding: 4px 8px;
+  box-sizing: border-box;
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
@@ -794,10 +837,11 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  box-sizing: border-box;
   padding: 0;
   background: transparent;
   border: 1px solid var(--border);
@@ -814,7 +858,6 @@ button:disabled {
 
 .menu-dropdown {
   position: fixed;
-  right: 10px;
   background: rgba(30, 30, 30, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius);
@@ -1564,25 +1607,13 @@ button:disabled {
     align-items: flex-start;
   }
 
-  header .menu-wrap {
-    order: 0;
-  }
-
   header .ws-select-wrap {
     order: 1;
     flex: 1;
     min-width: 0;
   }
 
-  header .header-row2 {
-    order: 2;
-    flex: 0 0 100%;
-    flex-wrap: wrap;
-    padding: 4px 0 0;
-  }
-
-
-  header .header-row2 .git-summary-panel {
+  .header-row2 .git-summary-panel {
     max-width: 45vw;
   }
 

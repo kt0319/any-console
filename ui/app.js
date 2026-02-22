@@ -80,12 +80,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("diff-close").addEventListener("click", closeDiffModal);
   $("job-create-cancel").addEventListener("click", closeJobCreateModal);
   $("job-create-submit").addEventListener("click", submitJobCreate);
-  $("ws-select-btn").addEventListener("click", toggleWsSelectDropdown);
-  document.addEventListener("click", (e) => {
-    if (!$("ws-select-wrap").contains(e.target)) {
-      closeWsSelectDropdown();
-    }
-  });
   $("fetch-btn").addEventListener("click", gitFetch);
   $("pull-btn").addEventListener("click", gitPull);
   $("push-btn").addEventListener("click", gitPush);

@@ -216,6 +216,17 @@ function switchTab(id) {
   }
   updateQuickInputVisibility();
   renderTabBar();
+
+  const activeTab = tabs.find((t) => t.id === id);
+  if (activeTab && activeTab.type === "terminal" && activeTab.label) {
+    const ws = allWorkspaces.find((w) => w.name === activeTab.label);
+    if (ws && ws.name !== selectedWorkspace) {
+      selectedWorkspace = ws.name;
+      localStorage.setItem("pi_console_workspace", ws.name);
+      updateHeaderInfo();
+      loadJobsForWorkspace();
+    }
+  }
 }
 
 function renderTabBar() {

@@ -17,51 +17,6 @@ function visibleWorkspaces() {
 }
 
 function renderWorkspaceSelects() {
-  renderHeaderWsSelect();
-}
-
-function renderHeaderWsSelect() {
-  const btn = $("ws-select-btn");
-  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
-  btn.textContent = ws ? (ws.branch ? `${ws.name} (${ws.branch})` : ws.name) : "Workspace...";
-}
-
-function toggleWsSelectDropdown() {
-  const dropdown = $("ws-select-dropdown");
-  const btn = $("ws-select-btn");
-  if (dropdown.style.display !== "none") {
-    dropdown.style.display = "none";
-    btn.classList.remove("active");
-    return;
-  }
-  closeMenu();
-  dropdown.innerHTML = "";
-  for (const ws of visibleWorkspaces()) {
-    const item = document.createElement("button");
-    item.type = "button";
-    item.className = "ws-select-item" + (ws.name === selectedWorkspace ? " selected" : "");
-    item.textContent = ws.branch ? `${ws.name} (${ws.branch})` : ws.name;
-    item.addEventListener("click", async () => {
-      closeWsSelectDropdown();
-      selectedWorkspace = ws.name;
-      localStorage.setItem("pi_console_workspace", ws.name);
-      renderHeaderWsSelect();
-      await updateHeaderInfo();
-      await loadJobsForWorkspace();
-    });
-    dropdown.appendChild(item);
-  }
-  const rect = btn.getBoundingClientRect();
-  dropdown.style.top = rect.bottom + 4 + "px";
-  dropdown.style.left = rect.left + "px";
-  dropdown.style.width = rect.width + "px";
-  dropdown.style.display = "block";
-  btn.classList.add("active");
-}
-
-function closeWsSelectDropdown() {
-  $("ws-select-dropdown").style.display = "none";
-  $("ws-select-btn").classList.remove("active");
 }
 
 function updateGithubLink(ws) {
@@ -93,7 +48,7 @@ async function updateHeaderInfo() {
   if (!selectedWorkspace) {
     mainGitStatusEl.innerHTML = "";
     $("clean-dirty-status").innerHTML = "";
-    $("header-commit-msg").textContent = "ワークスペースを選択してください";
+    $("header-commit-msg").style.display = "none";
     $("header-row2").style.display = "flex";
     updateGithubLink(null);
     updateGitActions(null);
@@ -120,12 +75,14 @@ async function updateHeaderInfo() {
   updateGithubLink(ws);
   mainGitStatusEl.innerHTML = "";
   updateGitActions(ws);
-  const commitMsgEl = $("header-commit-msg");
-  if (ws && ws.last_commit_message) {
-    const ago = ws.last_commit ? formatTimeAgo(ws.last_commit) : "";
-    commitMsgEl.innerHTML = `<span class="commit-msg-text">${escapeHtml(ws.last_commit_message)}</span>${ago ? `<span class="commit-msg-ago">${ago}</span>` : ""}`;
+  const commitMsgBtn = $("header-commit-msg");
+  commitMsgBtn.style.display = selectedWorkspace ? "" : "none";
+  if (ws) {
+    const branch = ws.branch || "";
+    const msg = ws.last_commit_message || "";
+    commitMsgBtn.innerHTML = `<span class="commit-btn-branch">${escapeHtml(branch)}</span> <span class="commit-btn-msg">${escapeHtml(msg)}</span>`;
   } else {
-    commitMsgEl.innerHTML = "";
+    commitMsgBtn.textContent = "";
   }
 
   await loadBranches();
@@ -205,9 +162,9 @@ function toggleMenu() {
   const dd = $("menu-dropdown");
   const btn = $("menu-btn");
   if (dd.style.display === "none") {
-    closeWsSelectDropdown();
     const rect = btn.getBoundingClientRect();
-    dd.style.left = rect.left + "px";
+    dd.style.left = "";
+    dd.style.right = (window.innerWidth - rect.right) + "px";
     dd.style.top = rect.bottom + 4 + "px";
     dd.style.display = "block";
     btn.classList.add("active");
