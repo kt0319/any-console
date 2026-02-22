@@ -132,14 +132,18 @@ function connectTerminalWs(tab) {
   tab.ws = ws;
   tab._reconnectAttempts = tab._reconnectAttempts || 0;
 
+  let scrollTimer = null;
   ws.onopen = () => {
+    const needRedraw = tab._reconnectAttempts > 0 || tab._restored;
     tab._reconnectAttempts = 0;
+    tab._restored = false;
     setTimeout(() => {
       try { tab.fitAddon.fit(); } catch {}
       const cols = tab.term.cols;
       const rows = tab.term.rows;
       const resizePayload = new Uint8Array([0, ...new TextEncoder().encode(JSON.stringify({ cols, rows }))]);
       ws.send(resizePayload);
+      if (needRedraw) ws.send(new Uint8Array([0x0c]));
     }, 150);
   };
 
@@ -151,6 +155,8 @@ function connectTerminalWs(tab) {
       if (e.data.length === 0) return;
       tab.term.write(e.data);
     }
+    if (scrollTimer) clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => { tab.term.scrollToBottom(); scrollTimer = null; }, 200);
   };
 
   ws.onclose = (e) => {
@@ -209,16 +215,20 @@ async function restoreTerminalTabs() {
       return;
     }
     for (const t of alive) {
-      addTerminalTab(t.wsUrl, t.label, t.id, true);
+      addTerminalTab(t.wsUrl, t.label, t.id, true, true);
     }
     startSessionKeepalive();
-    switchTab(null);
+    const savedActive = localStorage.getItem("pi_console_active_tab");
+    const restoreId = (savedActive && tabs.some((t) => t.id === savedActive))
+      ? savedActive
+      : tabs[tabs.length - 1]?.id ?? null;
+    switchTab(restoreId);
   } catch {
     localStorage.removeItem(TERMINAL_TABS_KEY);
   }
 }
 
-function addTerminalTab(wsUrl, workspace, tabId, skipSwitch) {
+function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored) {
   const id = tabId || `term-${++terminalIdCounter}`;
   if (tabId) {
     const m = tabId.match(/^term-(\d+)$/);
@@ -251,7 +261,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch) {
   term.loadAddon(webLinksAddon);
   term.open(container);
 
-  const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null };
+  const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _restored: !!restored };
   tabs.push(tab);
 
   connectTerminalWs(tab);

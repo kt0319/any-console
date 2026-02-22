@@ -30,6 +30,15 @@ function updateViewportHeight() {
   const keyboardOpen = vv && (window.innerHeight - vv.height > 100);
   document.querySelector(".main-panel").classList.toggle("keyboard-open", keyboardOpen);
   updateKeyboardIndicator(keyboardOpen);
+  fitActiveTerminal();
+}
+
+function fitActiveTerminal() {
+  const tab = tabs.find((t) => t.id === activeTabId);
+  if (tab && tab.type === "terminal" && tab.fitAddon) {
+    try { tab.fitAddon.fit(); } catch {}
+    tab.term.scrollToBottom();
+  }
 }
 
 function updateKeyboardIndicator(keyboardOpen) {
