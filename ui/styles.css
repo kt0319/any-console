@@ -43,7 +43,7 @@ header .ws-select-wrap {
 }
 
 .header-row2 {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 6px;
   min-height: 36px;
@@ -642,13 +642,26 @@ header .ws-select-wrap {
 
 
 /* Tab bar */
-.tab-bar {
+.tab-bar-row {
   display: none;
-  gap: 2px;
-  padding: 4px 8px 0;
+  align-items: center;
   background: var(--bg-primary);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+}
+.tab-bar-row .settings-gear-btn {
+  margin: 0 4px 0 0;
+  border: none;
+  background: transparent;
+  width: 32px;
+  height: 32px;
+}
+.tab-bar {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+  padding: 4px 8px 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -844,15 +857,16 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 37px;
-  height: 37px;
-  min-width: 37px;
-  min-height: 37px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  max-height: 36px;
   box-sizing: border-box;
   padding: 0;
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 6px;
   color: var(--text-primary);
   cursor: pointer;
 }
@@ -860,6 +874,21 @@ button:disabled {
 .menu-btn.active {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.settings-gear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 

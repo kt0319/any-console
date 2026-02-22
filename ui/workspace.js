@@ -21,11 +21,10 @@ function renderWorkspaceSelects() {
 
 function updateGithubLink(ws) {
   const link = $("github-link");
-  const sep = $("github-sep");
   const issuesLink = $("github-issues");
   const pullsLink = $("github-pulls");
   const actionsLink = $("github-actions");
-  const githubEls = [link, issuesLink, pullsLink, actionsLink, sep];
+  const githubEls = [link, issuesLink, pullsLink, actionsLink];
   if (!ws || !ws.github_url) {
     githubEls.forEach(el => el.style.display = "none");
     return;
@@ -49,7 +48,8 @@ async function updateHeaderInfo() {
     mainGitStatusEl.innerHTML = "";
     $("clean-dirty-status").innerHTML = "";
     $("header-commit-msg").style.display = "none";
-    $("header-row2").style.display = "flex";
+    const activeTab = tabs.find((t) => t.id === activeTabId);
+    $("header-row2").style.display = activeTab && activeTab.type === "terminal" ? "flex" : "none";
     updateGithubLink(null);
     updateGitActions(null);
     return;

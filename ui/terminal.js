@@ -218,7 +218,10 @@ function switchTab(id) {
   renderTabBar();
 
   const activeTab = tabs.find((t) => t.id === id);
-  if (activeTab && activeTab.type === "terminal" && activeTab.label) {
+  const isTerminalTab = activeTab && activeTab.type === "terminal";
+  $("header-row2").style.display = isTerminalTab ? "flex" : "none";
+
+  if (isTerminalTab && activeTab.label) {
     const ws = allWorkspaces.find((w) => w.name === activeTab.label);
     if (ws && ws.name !== selectedWorkspace) {
       selectedWorkspace = ws.name;
@@ -230,8 +233,9 @@ function switchTab(id) {
 }
 
 function renderTabBar() {
+  const barRow = $("tab-bar").parentNode;
+  barRow.style.display = "flex";
   const bar = $("tab-bar");
-  bar.style.display = "flex";
 
   let html = "";
   for (const tab of tabs) {

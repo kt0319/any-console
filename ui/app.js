@@ -54,8 +54,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     e.stopPropagation();
     toggleMenu();
   });
-  $("menu-settings").addEventListener("click", () => {
-    closeMenu();
+  $("settings-gear-btn").addEventListener("click", () => {
     openSettings();
   });
   for (const id of ["github-link", "github-issues", "github-pulls", "github-actions"]) {

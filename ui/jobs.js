@@ -35,11 +35,15 @@ function renderJobMenu() {
 
   if (!selectedWorkspace) return;
 
-  const refNode = $("menu-settings");
+  const refNode = null;
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
   const currentBranch = ws ? ws.branch : null;
 
   if (cachedBranches.length > 0) {
+    const branchSepTop = document.createElement("div");
+    branchSepTop.className = "menu-separator menu-dynamic";
+    dropdown.insertBefore(branchSepTop, refNode);
+
     const branchLabel = document.createElement("div");
     branchLabel.className = "menu-section-label menu-dynamic";
     branchLabel.textContent = "ブランチ";
@@ -127,10 +131,6 @@ function renderJobMenu() {
     openJobCreateModal();
   });
   dropdown.insertBefore(addBtn, refNode);
-
-  const sep = document.createElement("div");
-  sep.className = "menu-separator menu-dynamic";
-  dropdown.insertBefore(sep, refNode);
 }
 
 function openJobConfirmModal(name) {
@@ -245,11 +245,10 @@ async function runJob(jobName = null, argsOverride = null, workspaceOverride = n
   const args = argsOverride || collectArgs();
   const job = JOBS[targetJob] || {};
   const tabLabel = isTerminal && workspaceOverride ? workspaceOverride : (job.label || targetJob);
-  const outputTabId = isTerminal ? `output-term-${Date.now()}` : `output-${targetJob}`;
 
   for (const arg of (job.args || [])) {
     if (arg.required && !args[arg.name]) {
-      setOutputTab(outputTabId, tabLabel, `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(arg.name)} の既定値がありません`);
+      showToast(`${tabLabel}: ${arg.name} の既定値がありません`);
       return;
     }
   }
@@ -260,7 +259,6 @@ async function runJob(jobName = null, argsOverride = null, workspaceOverride = n
     runningJobName = targetJob;
   }
   renderJobMenu();
-  setOutputTab(outputTabId, tabLabel, '<div class="output-status"><span class="status-badge running">running</span></div>');
 
   try {
     const res = await fetch("/run", {
@@ -278,25 +276,22 @@ async function runJob(jobName = null, argsOverride = null, workspaceOverride = n
     }
 
     const data = await res.json();
-    const badgeClass = data.status === "ok" ? "ok" : "error";
-    let html = `<div class="output-status"><span class="status-badge ${badgeClass}">${escapeHtml(data.status)}</span> exit: ${data.exit_code}</div>`;
-
-    if (data.stdout) {
-      html += escapeHtml(data.stdout);
-    }
-    if (data.stderr) {
-      html += `\n<span style="color:var(--error)">${escapeHtml(data.stderr)}</span>`;
-    }
 
     if (isTerminal && data.status === "ok" && data.terminal_url) {
-      removeTab(outputTabId);
       addTerminalTab(data.terminal_url, workspace);
       return;
     }
 
-    setOutputTab(outputTabId, tabLabel, html);
+    if (data.status === "ok") {
+      const stdout = data.stdout ? data.stdout.replace(/\n/g, " ").trim() : "";
+      const msg = stdout ? `${tabLabel} 完了: ${stdout}`.slice(0, 200) : `${tabLabel} 完了`;
+      showToast(msg, "success");
+    } else {
+      const detail = (data.stderr || data.stdout || `exit: ${data.exit_code}`).replace(/\n/g, " ").trim();
+      showToast(`${tabLabel} 失敗: ${detail}`.slice(0, 200));
+    }
   } catch (e) {
-    setOutputTab(outputTabId, tabLabel, `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(e.message)}`);
+    showToast(`${tabLabel} エラー: ${e.message}`);
   } finally {
     if (isTerminal) {
       launchingTerminal = false;
@@ -382,12 +377,12 @@ async function deleteJob(jobName) {
     }
     const data = await res.json();
     if (!res.ok) {
-      $("output").innerHTML = `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(data.detail || "削除に失敗しました")}`;
+      showToast(data.detail || "削除に失敗しました");
       return;
     }
     if (selectedJob === jobName) selectedJob = null;
     await loadJobsForWorkspace();
   } catch (e) {
-    $("output").innerHTML = `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(e.message)}`;
+    showToast(`削除エラー: ${e.message}`);
   }
 }
