@@ -297,7 +297,12 @@ function initQuickInput() {
   });
 
   addTouchBtn(inputBtn, () => {
-    textVisible ? hideTextInput() : showTextInput();
+    if (textVisible) {
+      hideTextInput();
+    } else {
+      if (extraPanelOpen) { extraPanelOpen = false; applyMode(); }
+      showTextInput();
+    }
   });
   addTouchBtn(toggleBtn, () => {
     if (textVisible) hideTextInput();

@@ -160,22 +160,14 @@ async function fetchWorkspace(name) {
 }
 
 function toggleMenu() {
-  const dd = $("menu-dropdown");
-  const btn = $("menu-btn");
-  if (dd.style.display === "none") {
-    const rect = btn.getBoundingClientRect();
-    dd.style.left = "";
-    dd.style.right = "8px";
-    dd.style.top = rect.bottom + 4 + "px";
-    dd.style.display = "block";
-    btn.classList.add("active");
+  const modal = $("menu-modal");
+  if (modal.style.display === "none") {
+    modal.style.display = "flex";
   } else {
-    dd.style.display = "none";
-    btn.classList.remove("active");
+    closeMenu();
   }
 }
 
 function closeMenu() {
-  $("menu-dropdown").style.display = "none";
-  $("menu-btn").classList.remove("active");
+  $("menu-modal").style.display = "none";
 }

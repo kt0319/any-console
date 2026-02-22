@@ -454,6 +454,34 @@ header .ws-select-wrap {
   overflow: hidden;
 }
 
+.main-panel.panel-bottom .output-container {
+  order: -1;
+}
+
+.main-panel.panel-bottom .tab-bar-row {
+  order: 1;
+  border-bottom: none;
+  border-top: 1px solid var(--border);
+  padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+}
+
+.main-panel.panel-bottom .tab-bar {
+  padding: 0 8px 4px;
+}
+
+.main-panel.panel-bottom .tab-btn {
+  border-radius: 0 0 6px 6px;
+}
+
+.main-panel.panel-bottom .tab-add-btn {
+  border-radius: 0 0 6px 6px;
+}
+
+.main-panel.panel-bottom .header-row2 {
+  border-bottom: none;
+  border-top: 1px solid var(--border);
+}
+
 .git-summary-panel {
   display: flex;
   align-items: center;
@@ -848,11 +876,6 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.menu-wrap {
-  position: relative;
-  flex-shrink: 0;
-}
-
 .menu-btn {
   display: flex;
   align-items: center;
@@ -869,6 +892,7 @@ button:disabled {
   border-radius: 6px;
   color: var(--text-primary);
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .menu-btn.active {
@@ -892,14 +916,13 @@ button:disabled {
 }
 
 
-.menu-dropdown {
-  position: fixed;
-  background: rgba(30, 30, 30, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  z-index: 50;
-  padding: 4px 0;
+.menu-modal {
+  max-width: 360px;
+}
+
+.menu-modal-body {
+  overflow-y: auto;
+  flex: 1;
 }
 
 .menu-section-label {

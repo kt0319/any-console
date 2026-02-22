@@ -31,6 +31,7 @@
         <div id="settings-menu" class="settings-menu">
           <button type="button" class="settings-menu-item" id="settings-visibility">ワークスペース設定</button>
           <button type="button" class="settings-menu-item" id="settings-server-info">サーバー情報</button>
+          <button type="button" class="settings-menu-item" id="settings-panel-bottom">操作パネルを下段に表示</button>
           <button type="button" class="settings-menu-item settings-menu-logout" id="settings-logout">ログアウト</button>
         </div>
         <div id="settings-ws-visibility" style="display:none">
@@ -163,6 +164,21 @@
         </div>
       </div>
     </div>
+    <!-- Menu Modal -->
+    <div id="menu-modal" class="modal-overlay" style="display:none">
+      <div class="modal menu-modal">
+        <div class="modal-header">
+          <h3>メニュー</h3>
+          <button type="button" id="menu-close" class="modal-close-btn">&times;</button>
+        </div>
+        <div class="menu-modal-body" id="menu-dropdown">
+          <a class="menu-item" id="github-link" href="#" target="_blank" rel="noopener" style="display:none">GitHub</a>
+          <a class="menu-item" id="github-issues" href="#" target="_blank" rel="noopener" style="display:none">Issues</a>
+          <a class="menu-item" id="github-pulls" href="#" target="_blank" rel="noopener" style="display:none">Pull Requests</a>
+          <a class="menu-item" id="github-actions" href="#" target="_blank" rel="noopener" style="display:none">Actions</a>
+        </div>
+      </div>
+    </div>
     <div class="main-container">
       <!-- Main panel -->
       <div class="main-panel">
@@ -186,17 +202,9 @@
               <span class="git-action-count" id="push-count"></span>
             </button>
           </div>
-          <div class="menu-wrap" id="menu-wrap">
-            <button type="button" class="menu-btn" id="menu-btn" title="メニュー">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-            </button>
-            <div class="menu-dropdown" id="menu-dropdown" style="display:none">
-              <a class="menu-item" id="github-link" href="#" target="_blank" rel="noopener" style="display:none">GitHub</a>
-              <a class="menu-item" id="github-issues" href="#" target="_blank" rel="noopener" style="display:none">Issues</a>
-              <a class="menu-item" id="github-pulls" href="#" target="_blank" rel="noopener" style="display:none">Pull Requests</a>
-              <a class="menu-item" id="github-actions" href="#" target="_blank" rel="noopener" style="display:none">Actions</a>
-            </div>
-          </div>
+          <button type="button" class="menu-btn" id="menu-btn" title="メニュー">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
         </div>
         <div class="output-container" id="output-container">
           <div class="output-area" id="output">

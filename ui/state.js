@@ -7,6 +7,7 @@ let hiddenWorkspaces = JSON.parse(localStorage.getItem("hidden_workspaces") || "
 let runningJobName = null;
 let launchingTerminal = false;
 let cachedBranches = [];
+let panelBottom = localStorage.getItem("pi_console_panel_bottom") === "true";
 
 let tabs = [];
 let activeTabId = null;
@@ -48,6 +49,7 @@ const EXTRA_ROW_KEYS = [
   { label: "C-c", ctrl: true, key: "c", code: "KeyC", keyCode: 67 },
   { label: "C-o", ctrl: true, key: "o", code: "KeyO", keyCode: 79 },
   { label: "/", key: "/", code: "Slash", keyCode: 191 },
+  { label: "Space", key: " ", code: "Space", keyCode: 32 },
 ];
 
 const AUTO_REFRESH_INTERVAL = 10000;

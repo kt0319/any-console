@@ -50,9 +50,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     closeJobConfirmModal();
     runJob(null, args);
   });
-  $("menu-btn").addEventListener("click", (e) => {
-    e.stopPropagation();
-    toggleMenu();
+  $("menu-btn").addEventListener("click", () => toggleMenu());
+  $("menu-close").addEventListener("click", closeMenu);
+  $("menu-modal").addEventListener("click", (e) => {
+    if (e.target === $("menu-modal")) closeMenu();
   });
   $("settings-gear-btn").addEventListener("click", () => {
     openSettings();
@@ -60,8 +61,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   for (const id of ["github-link", "github-issues", "github-pulls", "github-actions"]) {
     $(id).addEventListener("click", closeMenu);
   }
-  document.addEventListener("click", closeMenu);
-  window.addEventListener("blur", closeMenu);
   $("settings-close").addEventListener("click", closeSettings);
   $("settings-clone").addEventListener("click", () => {
     closeSettings();
@@ -70,6 +69,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("settings-visibility").addEventListener("click", openSettingsWsVisibility);
   $("settings-server-info").addEventListener("click", openSettingsServerInfo);
   $("settings-logout").addEventListener("click", settingsLogout);
+  applyPanelBottom();
+  $("settings-panel-bottom").addEventListener("click", togglePanelBottom);
   $("clone-cancel").addEventListener("click", closeCloneModal);
   $("clone-submit").addEventListener("click", submitClone);
   for (const tab of document.querySelectorAll(".clone-tab")) {

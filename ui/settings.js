@@ -1,8 +1,22 @@
+function applyPanelBottom() {
+  document.querySelector(".main-panel").classList.toggle("panel-bottom", panelBottom);
+  const btn = $("settings-panel-bottom");
+  btn.textContent = panelBottom ? "操作パネルを上段に表示" : "操作パネルを下段に表示";
+}
+
+function togglePanelBottom() {
+  panelBottom = !panelBottom;
+  localStorage.setItem("pi_console_panel_bottom", panelBottom);
+  applyPanelBottom();
+  closeSettings();
+}
+
 function openSettings() {
   $("settings-menu").style.display = "";
   $("settings-ws-visibility").style.display = "none";
   $("settings-server-info-view").style.display = "none";
   $("settings-title").textContent = "設定";
+  applyPanelBottom();
   $("settings-modal").style.display = "flex";
 }
 
