@@ -330,7 +330,7 @@ function removeTab(id) {
   }
 }
 
-function switchTab(id) {
+async function switchTab(id) {
   activeTabId = id;
   if (id) {
     localStorage.setItem("pi_console_active_tab", id);
@@ -365,8 +365,8 @@ function switchTab(id) {
   if (id === null) {
     selectedWorkspace = null;
     localStorage.removeItem("pi_console_workspace");
-    updateHeaderInfo();
-    loadJobsForWorkspace();
+    await updateHeaderInfo();
+    await loadJobsForWorkspace();
     renderJobMenu();
     return;
   }
@@ -380,9 +380,10 @@ function switchTab(id) {
       if (ws.name !== selectedWorkspace) {
         selectedWorkspace = ws.name;
         localStorage.setItem("pi_console_workspace", ws.name);
-        loadJobsForWorkspace();
+        await loadJobsForWorkspace();
       }
-      updateHeaderInfo();
+      await updateHeaderInfo();
+      renderJobMenu();
     }
   }
 }
