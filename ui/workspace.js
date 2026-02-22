@@ -1,0 +1,223 @@
+async function loadWorkspaces() {
+  try {
+    const res = await fetch("/workspaces", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      allWorkspaces = await res.json();
+      renderWorkspaceSelects();
+    }
+  } catch {
+    allWorkspaces = [];
+  }
+}
+
+function visibleWorkspaces() {
+  return allWorkspaces.filter((ws) => !hiddenWorkspaces.includes(ws.name));
+}
+
+function renderWorkspaceSelects() {
+  renderHeaderWsSelect();
+}
+
+function renderHeaderWsSelect() {
+  const btn = $("ws-select-btn");
+  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
+  btn.textContent = ws ? (ws.branch ? `${ws.name} (${ws.branch})` : ws.name) : "Workspace...";
+}
+
+function toggleWsSelectDropdown() {
+  const dropdown = $("ws-select-dropdown");
+  const btn = $("ws-select-btn");
+  if (dropdown.style.display !== "none") {
+    dropdown.style.display = "none";
+    btn.classList.remove("active");
+    return;
+  }
+  closeMenu();
+  dropdown.innerHTML = "";
+  for (const ws of visibleWorkspaces()) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "ws-select-item" + (ws.name === selectedWorkspace ? " selected" : "");
+    item.textContent = ws.branch ? `${ws.name} (${ws.branch})` : ws.name;
+    item.addEventListener("click", async () => {
+      closeWsSelectDropdown();
+      selectedWorkspace = ws.name;
+      localStorage.setItem("pi_console_workspace", ws.name);
+      renderHeaderWsSelect();
+      await updateHeaderInfo();
+      await loadJobsForWorkspace();
+    });
+    dropdown.appendChild(item);
+  }
+  const rect = btn.getBoundingClientRect();
+  dropdown.style.top = rect.bottom + 4 + "px";
+  dropdown.style.left = rect.left + "px";
+  dropdown.style.width = rect.width + "px";
+  dropdown.style.display = "block";
+  btn.classList.add("active");
+}
+
+function closeWsSelectDropdown() {
+  $("ws-select-dropdown").style.display = "none";
+  $("ws-select-btn").classList.remove("active");
+}
+
+function updateGithubLink(ws) {
+  const link = $("github-link");
+  const sep = $("github-sep");
+  const issuesLink = $("github-issues");
+  const pullsLink = $("github-pulls");
+  const actionsLink = $("github-actions");
+  const githubEls = [link, issuesLink, pullsLink, actionsLink, sep];
+  if (!ws || !ws.github_url) {
+    githubEls.forEach(el => el.style.display = "none");
+    return;
+  }
+  const branch = ws.branch || "main";
+  const baseUrl = ws.github_url;
+  const path = baseUrl.replace(/^https?:\/\/github\.com/, "");
+  const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
+  const scheme = isMobile ? "github://github.com" : baseUrl;
+  link.href = isMobile ? `${scheme}${path}/tree/${encodeURIComponent(branch)}` : `${baseUrl}/tree/${encodeURIComponent(branch)}`;
+  issuesLink.href = `${scheme}${isMobile ? path : ""}/issues`;
+  pullsLink.href = `${scheme}${isMobile ? path : ""}/pulls`;
+  actionsLink.href = `${scheme}${isMobile ? path : ""}/actions`;
+  githubEls.forEach(el => el.style.display = "block");
+}
+
+async function updateHeaderInfo() {
+  const mainGitStatusEl = $("main-git-status");
+
+  if (!selectedWorkspace) {
+    mainGitStatusEl.innerHTML = "";
+    $("clean-dirty-status").innerHTML = "";
+    $("header-commit-msg").textContent = "ワークスペースを選択してください";
+    $("header-row2").style.display = "flex";
+    updateGithubLink(null);
+    updateGitActions(null);
+    return;
+  }
+  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
+
+  let cleanDirtyHtml = "";
+  if (ws && ws.clean === false) {
+    let statParts = [];
+    if (ws.changed_files > 0) statParts.push(`<span class="stat-files">${ws.changed_files}F</span>`);
+    if (ws.insertions > 0) statParts.push(`<span class="stat-add">+${ws.insertions}</span>`);
+    if (ws.deletions > 0) statParts.push(`<span class="stat-del">-${ws.deletions}</span>`);
+    const statText = statParts.length > 0 ? statParts.join(" ") : "\u25cf";
+    cleanDirtyHtml = `<span class="git-badge dirty" id="dirty-badge">${statText}</span>`;
+  }
+  $("clean-dirty-status").innerHTML = cleanDirtyHtml;
+
+  const dirtyBadge = $("dirty-badge");
+  if (dirtyBadge) {
+    dirtyBadge.addEventListener("click", openDiffModal);
+  }
+
+  updateGithubLink(ws);
+  mainGitStatusEl.innerHTML = "";
+  updateGitActions(ws);
+  const commitMsgEl = $("header-commit-msg");
+  if (ws && ws.last_commit_message) {
+    const ago = ws.last_commit ? formatTimeAgo(ws.last_commit) : "";
+    commitMsgEl.innerHTML = `<span class="commit-msg-text">${escapeHtml(ws.last_commit_message)}</span>${ago ? `<span class="commit-msg-ago">${ago}</span>` : ""}`;
+  } else {
+    commitMsgEl.innerHTML = "";
+  }
+
+  await loadBranches();
+}
+
+function updateGitActions(ws) {
+  const actions = $("git-actions");
+  if (!selectedWorkspace || !ws) {
+    actions.style.display = "none";
+    return;
+  }
+  actions.style.display = "flex";
+
+  const pullBtn = $("pull-btn");
+  const pushBtn = $("push-btn");
+  const pullCount = $("pull-count");
+  const pushCount = $("push-count");
+
+  pullBtn.style.display = ws.behind > 0 ? "" : "none";
+  pushBtn.style.display = ws.ahead > 0 ? "" : "none";
+  pullCount.textContent = ws.behind > 0 ? ws.behind : "";
+  pushCount.textContent = ws.ahead > 0 ? ws.ahead : "";
+  pullBtn.classList.toggle("has-count", ws.behind > 0);
+  pushBtn.classList.toggle("has-count", ws.ahead > 0);
+}
+
+async function refreshCurrentWorkspaceStatus() {
+  if (!selectedWorkspace) return;
+  const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/status`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) {
+    await handleUnauthorized();
+    return;
+  }
+  if (!res.ok) return;
+  const ws = await res.json();
+  const idx = allWorkspaces.findIndex((w) => w.name === selectedWorkspace);
+  if (idx >= 0) {
+    allWorkspaces[idx] = ws;
+  }
+  await updateHeaderInfo();
+}
+
+function startAutoRefresh() {
+  if (autoRefreshTimer) return;
+  autoRefreshTimer = setInterval(async () => {
+    if (document.hidden || autoRefreshing) return;
+    autoRefreshing = true;
+    try {
+      if (selectedWorkspace) await refreshCurrentWorkspaceStatus();
+      await fetchOrphanSessions();
+    } catch {
+    } finally {
+      autoRefreshing = false;
+    }
+  }, AUTO_REFRESH_INTERVAL);
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+}
+
+async function fetchWorkspace(name) {
+  try {
+    await fetch(`/workspaces/${encodeURIComponent(name)}/fetch`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {}
+}
+
+function toggleMenu() {
+  const dd = $("menu-dropdown");
+  const btn = $("menu-btn");
+  if (dd.style.display === "none") {
+    closeWsSelectDropdown();
+    const rect = btn.getBoundingClientRect();
+    dd.style.left = rect.left + "px";
+    dd.style.top = rect.bottom + 4 + "px";
+    dd.style.display = "block";
+    btn.classList.add("active");
+  } else {
+    dd.style.display = "none";
+    btn.classList.remove("active");
+  }
+}
+
+function closeMenu() {
+  $("menu-dropdown").style.display = "none";
+  $("menu-btn").classList.remove("active");
+}
