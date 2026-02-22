@@ -114,34 +114,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("icon-picker-modal").addEventListener("click", (e) => {
     if (e.target === $("icon-picker-modal")) closeIconPicker();
   });
-  $("link-icon-select-btn").addEventListener("click", () => {
-    openIconPicker(({ icon, color }) => {
-      selectedLinkIcon = icon;
-      selectedLinkIconColor = color;
-      setIconSelectPreview("link-icon-select-btn", icon, color);
-    }, selectedLinkIconColor);
-  });
-  $("job-icon-select-btn").addEventListener("click", () => {
-    openIconPicker(({ icon, color }) => {
-      selectedJobIcon = icon;
-      selectedJobIconColor = color;
-      setIconSelectPreview("job-icon-select-btn", icon, color);
-    }, selectedJobIconColor);
-  });
-  $("link-edit-icon-select-btn").addEventListener("click", () => {
-    openIconPicker(({ icon, color }) => {
-      editLinkIcon = icon;
-      editLinkIconColor = color;
-      setIconSelectPreview("link-edit-icon-select-btn", icon, color);
-    }, editLinkIconColor);
-  });
-  $("job-edit-icon-select-btn").addEventListener("click", () => {
-    openIconPicker(({ icon, color }) => {
-      editJobIcon = icon;
-      editJobIconColor = color;
-      setIconSelectPreview("job-edit-icon-select-btn", icon, color);
-    }, editJobIconColor);
-  });
+  for (const key of Object.keys(ICON_COLOR_FIELDS)) {
+    setupIconPickerBtn(key);
+  }
   $("fetch-btn").addEventListener("click", gitFetch);
   $("pull-btn").addEventListener("click", gitPull);
   $("push-btn").addEventListener("click", gitPush);

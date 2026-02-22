@@ -97,13 +97,8 @@ async function openSettingsServerInfo() {
   };
 
   try {
-    const res = await fetch("/system/info", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    const res = await apiFetch("/system/info");
+    if (!res) return;
     if (!res.ok) {
       list.innerHTML = '<div style="color:var(--error);padding:16px">取得に失敗しました</div>';
       return;
@@ -153,7 +148,7 @@ function toSshUrl(url) {
 async function openCloneModal() {
   $("clone-url").value = "";
   $("clone-name").value = "";
-  $("clone-error").style.display = "none";
+  hideFormError("clone-error");
   $("clone-output").style.display = "none";
   $("clone-output").textContent = "";
   $("clone-submit").disabled = false;
@@ -184,13 +179,8 @@ async function loadGithubRepos() {
   listEl.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
 
   try {
-    const res = await fetch("/github/repos", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    const res = await apiFetch("/github/repos");
+    if (!res) return;
     if (!res.ok) {
       const data = await res.json();
       listEl.innerHTML = `<div class="clone-repo-error">${escapeHtml(data.detail || "取得に失敗しました")}</div>`;
@@ -229,37 +219,27 @@ async function submitClone() {
   let url = cloneTab === "github" ? selectedCloneUrl : $("clone-url").value.trim();
   url = toSshUrl(url);
   const name = $("clone-name").value.trim();
-  const errorEl = $("clone-error");
   const outputEl = $("clone-output");
 
   if (!url) {
-    errorEl.textContent = cloneTab === "github" ? "リポジトリを選択してください" : "URLを入力してください";
-    errorEl.style.display = "block";
+    showFormError("clone-error", cloneTab === "github" ? "リポジトリを選択してください" : "URLを入力してください");
     return;
   }
 
-  errorEl.style.display = "none";
+  hideFormError("clone-error");
   outputEl.style.display = "block";
   outputEl.textContent = "cloning...";
   $("clone-submit").disabled = true;
 
   try {
-    const res = await fetch("/workspaces", {
+    const res = await apiFetch("/workspaces", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ url, name: name || null }),
+      body: { url, name: name || null },
     });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    if (!res) return;
     const data = await res.json();
     if (!res.ok || data.status === "error") {
-      errorEl.textContent = data.detail || data.stderr || "クローンに失敗しました";
-      errorEl.style.display = "block";
+      showFormError("clone-error", data.detail || data.stderr || "クローンに失敗しました");
       outputEl.style.display = "none";
       $("clone-submit").disabled = false;
       return;
@@ -269,8 +249,7 @@ async function submitClone() {
     await loadWorkspaces();
     openSettingsWsVisibility();
   } catch (e) {
-    errorEl.textContent = e.message;
-    errorEl.style.display = "block";
+    showFormError("clone-error", e.message);
     outputEl.style.display = "none";
     $("clone-submit").disabled = false;
   }

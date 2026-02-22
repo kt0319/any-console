@@ -69,3 +69,58 @@ function showApp() {
 function setLoadingStatus(text) {
   $("output").innerHTML = `<div class="empty-state">${escapeHtml(text)}</div>`;
 }
+
+async function apiFetch(endpoint, { method = "GET", body = null } = {}) {
+  const headers = { Authorization: `Bearer ${token}` };
+  if (body !== null && typeof body === "object") {
+    headers["Content-Type"] = "application/json";
+    body = JSON.stringify(body);
+  }
+  const res = await fetch(endpoint, { method, headers, body });
+  if (res.status === 401) {
+    await handleUnauthorized();
+    return null;
+  }
+  return res;
+}
+
+function workspaceApiPath(workspace, path = "") {
+  return `/workspaces/${encodeURIComponent(workspace)}${path}`;
+}
+
+function showFormError(errorElementId, message) {
+  const el = $(errorElementId);
+  el.textContent = message;
+  el.style.display = "block";
+}
+
+function hideFormError(errorElementId) {
+  $(errorElementId).style.display = "none";
+}
+
+function renderActionButtons(container, actions) {
+  for (const action of actions) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "commit-action-item" + (action.cls ? ` ${action.cls}` : "");
+    btn.textContent = action.label;
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      action.fn();
+    });
+    container.appendChild(btn);
+  }
+}
+
+function addLongPressEditHandler(btn, openEditFn) {
+  let holdTimer = null;
+  const startHold = () => { holdTimer = setTimeout(openEditFn, 600); };
+  const cancelHold = () => clearTimeout(holdTimer);
+  btn.addEventListener("contextmenu", (e) => { e.preventDefault(); openEditFn(); });
+  btn.addEventListener("touchstart", startHold, { passive: true });
+  btn.addEventListener("touchend", cancelHold);
+  btn.addEventListener("touchmove", cancelHold);
+  btn.addEventListener("mousedown", (e) => { if (e.button === 0) startHold(); });
+  btn.addEventListener("mouseup", cancelHold);
+  btn.addEventListener("mouseleave", cancelHold);
+}

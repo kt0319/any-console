@@ -1,6 +1,5 @@
 let iconPickerCache = null;
 let iconPickerCallback = null;
-let selectedIconColor = "";
 
 const ICON_PRESET_COLORS = [
   { label: "デフォルト", value: "" },
@@ -27,46 +26,13 @@ async function fetchIconMeta() {
   return iconPickerCache;
 }
 
-function renderIconColorPalette(currentColor) {
-  const container = $("icon-picker-colors");
-  container.innerHTML = "";
-  for (const preset of ICON_PRESET_COLORS) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "icon-picker-color-item";
-    if (preset.value === selectedIconColor) btn.classList.add("selected");
-    btn.title = preset.label;
-    if (preset.value) {
-      btn.style.background = preset.value;
-    } else {
-      btn.style.background = "var(--text-primary)";
-    }
-    btn.addEventListener("click", () => {
-      selectedIconColor = preset.value;
-      container.querySelectorAll(".icon-picker-color-item").forEach((el) => el.classList.remove("selected"));
-      btn.classList.add("selected");
-      applyIconGridColor();
-    });
-    container.appendChild(btn);
-  }
-}
-
-function applyIconGridColor() {
-  const grid = $("icon-picker-grid");
-  for (const item of grid.querySelectorAll(".icon-picker-item")) {
-    item.style.color = selectedIconColor || "";
-  }
-}
-
-function openIconPicker(callback, currentColor) {
+function openIconPicker(callback) {
   iconPickerCallback = callback;
-  selectedIconColor = currentColor || "";
   const modal = $("icon-picker-modal");
   const search = $("icon-picker-search");
   const grid = $("icon-picker-grid");
   search.value = "";
   grid.innerHTML = '<div class="icon-picker-loading">読み込み中...</div>';
-  renderIconColorPalette(currentColor);
   modal.style.display = "flex";
 
   fetchIconMeta().then((icons) => {
@@ -104,10 +70,10 @@ function renderIconGrid(icons, query) {
     btn.className = "icon-picker-item";
     btn.innerHTML = `<span class="mdi mdi-${icon.name}"></span>`;
     btn.title = icon.name;
-    if (selectedIconColor) btn.style.color = selectedIconColor;
     btn.addEventListener("click", () => {
+      const cb = iconPickerCallback;
       closeIconPicker();
-      if (iconPickerCallback) iconPickerCallback({ icon: `mdi-${icon.name}`, color: selectedIconColor });
+      if (cb) cb(`mdi-${icon.name}`);
     });
     grid.appendChild(btn);
   }
@@ -130,4 +96,23 @@ function renderIconGrid(icons, query) {
 function closeIconPicker() {
   $("icon-picker-modal").style.display = "none";
   iconPickerCallback = null;
+}
+
+function renderColorPalette(paletteId, currentColor, onSelect) {
+  const palette = $(paletteId);
+  palette.innerHTML = "";
+  for (const preset of ICON_PRESET_COLORS) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "color-palette-item";
+    if (preset.value === currentColor) btn.classList.add("selected");
+    btn.title = preset.label;
+    btn.style.background = preset.value || "var(--text-primary)";
+    btn.addEventListener("click", () => {
+      palette.querySelectorAll(".color-palette-item").forEach((el) => el.classList.remove("selected"));
+      btn.classList.add("selected");
+      onSelect(preset.value);
+    });
+    palette.appendChild(btn);
+  }
 }

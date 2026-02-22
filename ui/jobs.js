@@ -8,14 +8,8 @@ async function loadJobsForWorkspace() {
   }
 
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/jobs`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
-    if (!res.ok) {
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/jobs"));
+    if (!res || !res.ok) {
       JOBS = {};
     } else {
       JOBS = await res.json();
@@ -209,19 +203,11 @@ async function runJob(jobName = null, argsOverride = null, workspaceOverride = n
   renderJobMenu();
 
   try {
-    const res = await fetch("/run", {
+    const res = await apiFetch("/run", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ job: targetJob, args, workspace }),
+      body: { job: targetJob, args, workspace },
     });
-
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    if (!res) return;
 
     const data = await res.json();
 
@@ -254,7 +240,7 @@ async function runJob(jobName = null, argsOverride = null, workspaceOverride = n
 function switchItemCreateType(type) {
   $("item-create-link-form").style.display = type === "link" ? "" : "none";
   $("item-create-job-form").style.display = type === "job" ? "" : "none";
-  $("item-create-error").style.display = "none";
+  hideFormError("item-create-error");
   $("item-create-submit").textContent = type === "link" ? "追加" : "作成";
 }
 
@@ -263,24 +249,43 @@ function getItemCreateType() {
   return checked ? checked.value : "link";
 }
 
-let selectedLinkIcon = "";
-let selectedLinkIconColor = "";
-let selectedJobIcon = "";
-let selectedJobIconColor = "";
-let editLinkIcon = "";
-let editLinkIconColor = "";
-let editJobIcon = "";
-let editJobIconColor = "";
+const ICON_COLOR_FIELDS = {
+  linkCreate: { btnId: "link-icon-select-btn", paletteId: "link-color-palette", defaultIcon: "mdi-web" },
+  jobCreate: { btnId: "job-icon-select-btn", paletteId: "job-color-palette", defaultIcon: "mdi-play" },
+  linkEdit: { btnId: "link-edit-icon-select-btn", paletteId: "link-edit-color-palette", defaultIcon: "mdi-web" },
+  jobEdit: { btnId: "job-edit-icon-select-btn", paletteId: "job-edit-color-palette", defaultIcon: "mdi-play" },
+};
+const iconColorState = {};
+for (const key of Object.keys(ICON_COLOR_FIELDS)) {
+  iconColorState[key] = { icon: "", color: "" };
+}
 
-function setIconSelectPreview(btnId, iconClass, iconColor) {
-  const btn = $(btnId);
-  const preview = btn.querySelector(".icon-select-preview");
-  if (iconClass) {
-    const colorStyle = iconColor ? ` style="color: ${iconColor}"` : "";
-    preview.innerHTML = `<span class="mdi ${iconClass}"${colorStyle}></span> ${iconClass}`;
-  } else {
-    preview.textContent = "未設定";
-  }
+function setIconSelectPreview(btnId, iconClass, iconColor, defaultIcon) {
+  const preview = $(btnId).querySelector(".icon-select-preview");
+  const icon = iconClass || defaultIcon || "mdi-play";
+  const label = iconClass || "デフォルト";
+  const colorStyle = iconColor ? ` style="color: ${iconColor}"` : "";
+  preview.innerHTML = `<span class="mdi ${icon}"${colorStyle}></span> ${label}`;
+}
+
+function initIconColorField(key, icon, color) {
+  const f = ICON_COLOR_FIELDS[key];
+  const s = iconColorState[key] = { icon: icon || "", color: color || "" };
+  setIconSelectPreview(f.btnId, s.icon, s.color, f.defaultIcon);
+  renderColorPalette(f.paletteId, s.color, (c) => {
+    s.color = c;
+    setIconSelectPreview(f.btnId, s.icon, c, f.defaultIcon);
+  });
+}
+
+function setupIconPickerBtn(key) {
+  const f = ICON_COLOR_FIELDS[key];
+  $(f.btnId).addEventListener("click", () => {
+    openIconPicker((icon) => {
+      iconColorState[key].icon = icon;
+      setIconSelectPreview(f.btnId, icon, iconColorState[key].color, f.defaultIcon);
+    });
+  });
 }
 
 function openItemCreateModal(workspace, type) {
@@ -289,13 +294,9 @@ function openItemCreateModal(workspace, type) {
   $("link-create-url").value = "";
   $("job-create-name").value = "";
   $("job-create-script").value = "";
-  $("item-create-error").style.display = "none";
-  selectedLinkIcon = "";
-  selectedLinkIconColor = "";
-  selectedJobIcon = "";
-  selectedJobIconColor = "";
-  setIconSelectPreview("link-icon-select-btn", "");
-  setIconSelectPreview("job-icon-select-btn", "");
+  hideFormError("item-create-error");
+  initIconColorField("linkCreate");
+  initIconColorField("jobCreate");
   const radios = document.querySelectorAll('input[name="item-create-type"]');
   for (const r of radios) r.checked = r.value === type;
   switchItemCreateType(type);
@@ -335,81 +336,58 @@ async function submitJobCreate() {
   const workspace = $("item-create-modal").dataset.workspace;
   const name = $("job-create-name").value.trim();
   const script = $("job-create-script").value;
-  const errorEl = $("item-create-error");
 
   if (!name) {
-    errorEl.textContent = "ジョブ名を入力してください";
-    errorEl.style.display = "block";
+    showFormError("item-create-error", "ジョブ名を入力してください");
     return;
   }
   if (!script.trim()) {
-    errorEl.textContent = "スクリプトを入力してください";
-    errorEl.style.display = "block";
+    showFormError("item-create-error", "スクリプトを入力してください");
     return;
   }
 
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(workspace)}/jobs`, {
+    const res = await apiFetch(workspaceApiPath(workspace, "/jobs"), {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name, script, icon: selectedJobIcon, icon_color: selectedJobIconColor }),
+      body: { name, script, icon: iconColorState.jobCreate.icon, icon_color: iconColorState.jobCreate.color },
     });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    if (!res) return;
     const data = await res.json();
     if (!res.ok) {
-      errorEl.textContent = data.detail || "作成に失敗しました";
-      errorEl.style.display = "block";
+      showFormError("item-create-error", data.detail || "作成に失敗しました");
       return;
     }
     closeItemCreateModal();
     await loadJobsForWorkspace();
   } catch (e) {
-    errorEl.textContent = e.message;
-    errorEl.style.display = "block";
+    showFormError("item-create-error", e.message);
   }
 }
 
 async function submitLinkCreate() {
   const workspace = $("item-create-modal").dataset.workspace;
   const url = $("link-create-url").value.trim();
-  const errorEl = $("item-create-error");
 
   if (!url) {
-    errorEl.textContent = "URLを入力してください";
-    errorEl.style.display = "block";
+    showFormError("item-create-error", "URLを入力してください");
     return;
   }
 
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(workspace)}/links`, {
+    const res = await apiFetch(workspaceApiPath(workspace, "/links"), {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ url, icon: selectedLinkIcon, icon_color: selectedLinkIconColor }),
+      body: { url, icon: iconColorState.linkCreate.icon, icon_color: iconColorState.linkCreate.color },
     });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    if (!res) return;
     const data = await res.json();
     if (!res.ok) {
-      errorEl.textContent = data.detail || "追加に失敗しました";
-      errorEl.style.display = "block";
+      showFormError("item-create-error", data.detail || "追加に失敗しました");
       return;
     }
     closeItemCreateModal();
     showToast("リンクを追加しました", "success");
   } catch (e) {
-    errorEl.textContent = e.message;
-    errorEl.style.display = "block";
+    showFormError("item-create-error", e.message);
   }
 }
 
@@ -418,7 +396,7 @@ function openItemEditModal(type, data) {
   modal.dataset.type = type;
   modal.dataset.workspace = data.workspace;
   $("item-edit-title").textContent = type === "link" ? "リンク編集" : "ジョブ編集";
-  $("item-edit-error").style.display = "none";
+  hideFormError("item-edit-error");
 
   $("item-edit-link-form").style.display = type === "link" ? "" : "none";
   $("item-edit-job-form").style.display = type === "job" ? "" : "none";
@@ -426,16 +404,12 @@ function openItemEditModal(type, data) {
   if (type === "link") {
     modal.dataset.index = data.index;
     $("link-edit-url").value = data.url || "";
-    editLinkIcon = data.icon || "";
-    editLinkIconColor = data.iconColor || "";
-    setIconSelectPreview("link-edit-icon-select-btn", editLinkIcon, editLinkIconColor);
+    initIconColorField("linkEdit", data.icon, data.iconColor);
   } else {
     modal.dataset.jobName = data.name;
     $("job-edit-name").value = data.name;
     $("job-edit-script").value = data.scriptContent || "";
-    editJobIcon = data.icon || "";
-    editJobIconColor = data.iconColor || "";
-    setIconSelectPreview("job-edit-icon-select-btn", editJobIcon, editJobIconColor);
+    initIconColorField("jobEdit", data.icon, data.iconColor);
   }
 
   const deleteBtn = $("item-edit-delete");
@@ -457,63 +431,54 @@ async function submitItemEdit() {
   const modal = $("item-edit-modal");
   const type = modal.dataset.type;
   const workspace = modal.dataset.workspace;
-  const errorEl = $("item-edit-error");
 
   if (type === "link") {
     const url = $("link-edit-url").value.trim();
     if (!url) {
-      errorEl.textContent = "URLを入力してください";
-      errorEl.style.display = "block";
+      showFormError("item-edit-error", "URLを入力してください");
       return;
     }
     const index = parseInt(modal.dataset.index, 10);
     try {
-      const res = await fetch(`/workspaces/${encodeURIComponent(workspace)}/links/${index}`, {
+      const res = await apiFetch(workspaceApiPath(workspace, `/links/${index}`), {
         method: "PUT",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ url, icon: editLinkIcon, icon_color: editLinkIconColor }),
+        body: { url, icon: iconColorState.linkEdit.icon, icon_color: iconColorState.linkEdit.color },
       });
-      if (res.status === 401) { await handleUnauthorized(); return; }
+      if (!res) return;
       const data = await res.json();
       if (!res.ok) {
-        errorEl.textContent = data.detail || "保存に失敗しました";
-        errorEl.style.display = "block";
+        showFormError("item-edit-error", data.detail || "保存に失敗しました");
         return;
       }
       closeItemEditModal();
       showToast("リンクを更新しました", "success");
       showTerminalWsPicker();
     } catch (e) {
-      errorEl.textContent = e.message;
-      errorEl.style.display = "block";
+      showFormError("item-edit-error", e.message);
     }
   } else {
     const script = $("job-edit-script").value;
     if (!script.trim()) {
-      errorEl.textContent = "スクリプトを入力してください";
-      errorEl.style.display = "block";
+      showFormError("item-edit-error", "スクリプトを入力してください");
       return;
     }
     const jobName = modal.dataset.jobName;
     try {
-      const res = await fetch(`/workspaces/${encodeURIComponent(workspace)}/jobs/${encodeURIComponent(jobName)}`, {
+      const res = await apiFetch(workspaceApiPath(workspace, `/jobs/${encodeURIComponent(jobName)}`), {
         method: "PUT",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ script, icon: editJobIcon, icon_color: editJobIconColor }),
+        body: { script, icon: iconColorState.jobEdit.icon, icon_color: iconColorState.jobEdit.color },
       });
-      if (res.status === 401) { await handleUnauthorized(); return; }
+      if (!res) return;
       const data = await res.json();
       if (!res.ok) {
-        errorEl.textContent = data.detail || "保存に失敗しました";
-        errorEl.style.display = "block";
+        showFormError("item-edit-error", data.detail || "保存に失敗しました");
         return;
       }
       closeItemEditModal();
       await loadJobsForWorkspace();
       showTerminalWsPicker();
     } catch (e) {
-      errorEl.textContent = e.message;
-      errorEl.style.display = "block";
+      showFormError("item-edit-error", e.message);
     }
   }
 }
@@ -524,14 +489,8 @@ function closeItemEditModal() {
 
 async function deleteLink(workspace, index, label) {
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(workspace)}/links/${index}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    const res = await apiFetch(workspaceApiPath(workspace, `/links/${index}`), { method: "DELETE" });
+    if (!res) return;
     const data = await res.json();
     if (!res.ok) {
       showToast(data.detail || "削除に失敗しました");
@@ -548,14 +507,8 @@ async function deleteJob(jobName, workspace) {
   if (!ws) return;
 
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(ws)}/jobs/${encodeURIComponent(jobName)}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    const res = await apiFetch(workspaceApiPath(ws, `/jobs/${encodeURIComponent(jobName)}`), { method: "DELETE" });
+    if (!res) return;
     const data = await res.json();
     if (!res.ok) {
       showToast(data.detail || "削除に失敗しました");

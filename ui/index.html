@@ -81,15 +81,25 @@
         <div class="modal-scroll-body">
           <div id="item-edit-link-form" style="display:none">
             <div class="form-group">
+              <label class="form-label">アイコン</label>
+              <div class="icon-color-row">
+                <button type="button" id="link-edit-icon-select-btn" class="icon-select-btn"><span class="icon-select-preview">未設定</span></button>
+              </div>
+              <div id="link-edit-color-palette" class="color-palette"></div>
+            </div>
+            <div class="form-group">
               <label class="form-label">URL</label>
               <input type="url" id="link-edit-url" class="form-input" placeholder="http://localhost:3000" autocomplete="off" />
             </div>
-            <div class="form-group">
-              <label class="form-label">アイコン</label>
-              <button type="button" id="link-edit-icon-select-btn" class="icon-select-btn"><span class="icon-select-preview">未設定</span></button>
-            </div>
           </div>
           <div id="item-edit-job-form" style="display:none">
+            <div class="form-group">
+              <label class="form-label">アイコン</label>
+              <div class="icon-color-row">
+                <button type="button" id="job-edit-icon-select-btn" class="icon-select-btn"><span class="icon-select-preview">未設定</span></button>
+              </div>
+              <div id="job-edit-color-palette" class="color-palette"></div>
+            </div>
             <div class="form-group">
               <label class="form-label">ジョブ名</label>
               <input type="text" id="job-edit-name" class="form-input" disabled />
@@ -97,10 +107,6 @@
             <div class="form-group">
               <label class="form-label">スクリプト</label>
               <textarea id="job-edit-script" class="form-textarea" rows="3" placeholder="echo hello"></textarea>
-            </div>
-            <div class="form-group">
-              <label class="form-label">アイコン</label>
-              <button type="button" id="job-edit-icon-select-btn" class="icon-select-btn"><span class="icon-select-preview">未設定</span></button>
             </div>
           </div>
           <div id="item-edit-error" class="form-error"></div>
@@ -131,15 +137,25 @@
         <div class="modal-scroll-body">
           <div id="item-create-link-form">
             <div class="form-group">
+              <label class="form-label">アイコン</label>
+              <div class="icon-color-row">
+                <button type="button" id="link-icon-select-btn" class="icon-select-btn"><span class="icon-select-preview">未設定</span></button>
+              </div>
+              <div id="link-color-palette" class="color-palette"></div>
+            </div>
+            <div class="form-group">
               <label class="form-label">URL</label>
               <input type="url" id="link-create-url" class="form-input" placeholder="http://localhost:3000" autocomplete="off" />
             </div>
-            <div class="form-group">
-              <label class="form-label">アイコン</label>
-              <button type="button" id="link-icon-select-btn" class="icon-select-btn"><span class="icon-select-preview">未設定</span></button>
-            </div>
           </div>
           <div id="item-create-job-form" style="display:none">
+            <div class="form-group">
+              <label class="form-label">アイコン</label>
+              <div class="icon-color-row">
+                <button type="button" id="job-icon-select-btn" class="icon-select-btn"><span class="icon-select-preview">未設定</span></button>
+              </div>
+              <div id="job-color-palette" class="color-palette"></div>
+            </div>
             <div class="form-group">
               <label class="form-label">ジョブ名 <span class="form-hint">(英数字・ハイフン・アンダースコア)</span></label>
               <input type="text" id="job-create-name" class="form-input" placeholder="my-job" autocomplete="off" />
@@ -147,10 +163,6 @@
             <div class="form-group">
               <label class="form-label">スクリプト</label>
               <textarea id="job-create-script" class="form-textarea" rows="3" placeholder="echo hello"></textarea>
-            </div>
-            <div class="form-group">
-              <label class="form-label">アイコン</label>
-              <button type="button" id="job-icon-select-btn" class="icon-select-btn"><span class="icon-select-preview">未設定</span></button>
             </div>
           </div>
           <div id="item-create-error" class="form-error"></div>
@@ -267,7 +279,6 @@
           <h3>アイコン選択</h3>
           <button type="button" id="icon-picker-close" class="modal-close-btn">&times;</button>
         </div>
-        <div id="icon-picker-colors" class="icon-picker-colors"></div>
         <input type="text" id="icon-picker-search" class="form-input icon-picker-search" placeholder="アイコンを検索..." autocomplete="off" />
         <div id="icon-picker-grid" class="icon-picker-grid"></div>
       </div>

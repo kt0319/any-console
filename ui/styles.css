@@ -223,8 +223,8 @@ header .ws-select-wrap {
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 12px 14px;
-  font-size: 15px;
+  padding: 8px 12px;
+  font-size: 14px;
   text-align: left;
   color: var(--text-primary);
 }
@@ -269,8 +269,8 @@ header .ws-select-wrap {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px;
-  font-size: 14px;
+  padding: 6px 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -1885,29 +1885,6 @@ button:disabled {
   max-height: 80vh;
 }
 
-.icon-picker-colors {
-  display: flex;
-  gap: 6px;
-  padding: 4px 0 8px;
-  overflow-x: auto;
-}
-
-.icon-picker-color-item {
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  min-height: 28px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-  padding: 0;
-  background: none;
-  box-sizing: border-box;
-}
-
-.icon-picker-color-item.selected {
-  border-color: var(--text-primary);
-}
 
 .icon-picker-search {
   margin-bottom: 8px;
@@ -1948,6 +1925,12 @@ button:disabled {
   padding: 12px 0;
 }
 
+.icon-color-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .icon-select-btn {
   display: flex;
   align-items: center;
@@ -1960,11 +1943,40 @@ button:disabled {
   border-radius: var(--radius);
   color: var(--text-secondary);
   cursor: pointer;
+  flex: 1;
 }
 
 .icon-select-preview .mdi {
   font-size: 18px;
   vertical-align: middle;
+}
+
+.color-palette {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0 0;
+  flex-wrap: wrap;
+}
+
+.color-palette-item {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+  line-height: 0;
+  font-size: 0;
+}
+
+.color-palette-item.selected {
+  border-color: var(--text-primary);
 }
 
 .picker-type-icon .mdi {

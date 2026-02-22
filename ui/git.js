@@ -1,11 +1,15 @@
+async function refreshAfterGitOp() {
+  await loadWorkspaces();
+  await updateHeaderInfo();
+}
+
 async function gitFetch() {
   if (!selectedWorkspace) return;
   const fetchBtn = $("fetch-btn");
   fetchBtn.classList.add("running");
   try {
     await fetchWorkspace(selectedWorkspace);
-    await loadWorkspaces();
-    await updateHeaderInfo();
+    await refreshAfterGitOp();
     if ($("git-log-modal").style.display !== "none") {
       await reloadGitLog();
     }
@@ -25,14 +29,8 @@ async function gitPull() {
   pullBtn.classList.add("running");
 
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/pull`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/pull"), { method: "POST" });
+    if (!res) return;
     const data = await res.json();
     if (data.status === "ok") {
       showToast("pull 完了", "success");
@@ -43,8 +41,7 @@ async function gitPull() {
     showToast(`pull エラー: ${e.message}`);
   } finally {
     pullBtn.classList.remove("running");
-    await loadWorkspaces();
-    await updateHeaderInfo();
+    await refreshAfterGitOp();
   }
 }
 
@@ -56,14 +53,8 @@ async function gitPush() {
   pushBtn.classList.add("running");
 
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/push`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/push"), { method: "POST" });
+    if (!res) return;
     const data = await res.json();
     if (data.status === "ok") {
       showToast("push 完了", "success");
@@ -74,8 +65,7 @@ async function gitPush() {
     showToast(`push エラー: ${e.message}`);
   } finally {
     pushBtn.classList.remove("running");
-    await loadWorkspaces();
-    await updateHeaderInfo();
+    await refreshAfterGitOp();
   }
 }
 
@@ -84,10 +74,8 @@ async function loadBranches() {
   if (!selectedWorkspace) return;
 
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/branches`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return;
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/branches"));
+    if (!res || !res.ok) return;
     cachedBranches = await res.json();
   } catch {}
 }
@@ -98,26 +86,17 @@ async function checkoutBranch(branch) {
   if (ws && ws.branch === branch) return;
 
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/checkout`, {
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/checkout"), {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ branch }),
+      body: { branch },
     });
-
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    if (!res) return;
 
     const data = await res.json();
     const statusText = data.status || (res.ok ? "ok" : "error");
 
     if (statusText === "ok") {
-      await loadWorkspaces();
-      await updateHeaderInfo();
+      await refreshAfterGitOp();
       renderJobMenu();
     } else {
       const msg = data.detail || data.stderr || data.stdout || "checkout に失敗しました";
@@ -158,8 +137,7 @@ function toggleCommitActionMenu(entry, hash, msg, branches = []) {
         if (!confirm(`${b} に切り替えますか？`)) return;
         await checkoutBranch(b);
         closeGitLogModal();
-        await loadWorkspaces();
-        await updateHeaderInfo();
+        await refreshAfterGitOp();
       },
     }));
 
@@ -173,18 +151,7 @@ function toggleCommitActionMenu(entry, hash, msg, branches = []) {
     { label: "reset --hard", cls: "commit-action-danger", fn: () => execCommitResetAction(hash, "hard") },
   ];
 
-  for (const action of actions) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "commit-action-item" + (action.cls ? ` ${action.cls}` : "");
-    btn.textContent = action.label;
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      action.fn();
-    });
-    menuEl.appendChild(btn);
-  }
-
+  renderActionButtons(menuEl, actions);
   menuEl.style.display = "flex";
 }
 
@@ -193,18 +160,11 @@ async function execCommitAction(action, hash) {
   const shortHash = hash.substring(0, 8);
   if (!confirm(`${action} ${shortHash} を実行しますか？`)) return;
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/${action}`, {
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/${action}`), {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ commit_hash: hash }),
+      body: { commit_hash: hash },
     });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    if (!res) return;
     const data = await res.json();
     if (data.status === "ok") {
       showToast(`${action} 完了`, "success");
@@ -215,8 +175,7 @@ async function execCommitAction(action, hash) {
     showToast(`${action} エラー: ${e.message}`);
   }
   closeGitLogModal();
-  await loadWorkspaces();
-  await updateHeaderInfo();
+  await refreshAfterGitOp();
 }
 
 async function execCommitResetAction(hash, mode) {
@@ -227,18 +186,11 @@ async function execCommitResetAction(hash, mode) {
     : `reset --soft ${shortHash} を実行しますか？`;
   if (!confirm(warning)) return;
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/reset`, {
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/reset"), {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ commit_hash: hash, mode }),
+      body: { commit_hash: hash, mode },
     });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    if (!res) return;
     const data = await res.json();
     if (data.status === "ok") {
       showToast(`reset --${mode} 完了`, "success");
@@ -249,8 +201,7 @@ async function execCommitResetAction(hash, mode) {
     showToast(`reset エラー: ${e.message}`);
   }
   closeGitLogModal();
-  await loadWorkspaces();
-  await updateHeaderInfo();
+  await refreshAfterGitOp();
 }
 
 function closeGitLogModal() {
@@ -264,7 +215,7 @@ function resetCreateBranchArea() {
   $("git-log-create-branch-area").style.display = "none";
   $("git-log-create-branch-submit").style.display = "none";
   $("git-log-branch-name").value = "";
-  $("git-log-branch-error").style.display = "none";
+  hideFormError("git-log-branch-error");
 }
 
 function toggleCreateBranchArea(hash) {
@@ -282,48 +233,35 @@ function toggleCreateBranchArea(hash) {
 async function submitCreateBranch() {
   if (!selectedWorkspace) return;
   const branchName = $("git-log-branch-name").value.trim();
-  const errorEl = $("git-log-branch-error");
 
   if (!branchName) {
-    errorEl.textContent = "ブランチ名を入力してください";
-    errorEl.style.display = "block";
+    showFormError("git-log-branch-error", "ブランチ名を入力してください");
     return;
   }
   if (!/^[a-zA-Z0-9_./-]+$/.test(branchName)) {
-    errorEl.textContent = "ブランチ名に使えない文字が含まれています";
-    errorEl.style.display = "block";
+    showFormError("git-log-branch-error", "ブランチ名に使えない文字が含まれています");
     return;
   }
 
-  errorEl.style.display = "none";
+  hideFormError("git-log-branch-error");
   $("git-log-create-branch-submit").disabled = true;
 
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/create-branch`, {
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/create-branch"), {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ branch: branchName }),
+      body: { branch: branchName },
     });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    if (!res) return;
     const data = await res.json();
     if (!res.ok || data.status !== "ok") {
-      errorEl.textContent = data.detail || data.stderr || "ブランチ作成に失敗しました";
-      errorEl.style.display = "block";
+      showFormError("git-log-branch-error", data.detail || data.stderr || "ブランチ作成に失敗しました");
       return;
     }
     closeGitLogModal();
-    await loadWorkspaces();
-    await updateHeaderInfo();
+    await refreshAfterGitOp();
     renderJobMenu();
   } catch (e) {
-    errorEl.textContent = e.message;
-    errorEl.style.display = "block";
+    showFormError("git-log-branch-error", e.message);
   } finally {
     $("git-log-create-branch-submit").disabled = false;
   }
@@ -338,14 +276,10 @@ function renderGitLogEntries(listEl, stdout) {
     const entry = document.createElement("div");
     const commitMatch = line.match(/^(.*?)([0-9a-f]{40})\t(.+?)\t(.+?)\t(.*?)\t(.*)$/);
     if (commitMatch) {
-      const graph = commitMatch[1].replace(/\*/g, " ");
-      const hash = commitMatch[2];
+      const [, graph, hash, time, author, refs, msg] = commitMatch;
+      const trimmedGraph = graph.replace(/\*/g, " ");
       if (gitLogSeenHashes.has(hash)) continue;
       gitLogSeenHashes.add(hash);
-      const time = commitMatch[3];
-      const author = commitMatch[4];
-      const refs = commitMatch[5];
-      const msg = commitMatch[6];
       entry.className = "git-log-entry git-log-commit";
       let refsHtml = "";
       if (refs) {
@@ -414,13 +348,8 @@ async function loadMoreGitLog() {
 
   const listEl = $("git-log-list-modal");
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/git-log?limit=${GIT_LOG_PAGE_SIZE}&skip=${gitLogLoaded}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?limit=${GIT_LOG_PAGE_SIZE}&skip=${gitLogLoaded}`));
+    if (!res) return;
     const data = await res.json();
     if (!res.ok || data.status !== "ok" || !data.stdout) {
       gitLogHasMore = false;
@@ -450,13 +379,8 @@ async function reloadGitLog() {
   gitLogSeenHashes.clear();
 
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/git-log?limit=${GIT_LOG_PAGE_SIZE}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?limit=${GIT_LOG_PAGE_SIZE}`));
+    if (!res) return;
     const data = await res.json();
     if (!res.ok || data.status !== "ok") {
       listEl.innerHTML = "";
@@ -498,8 +422,7 @@ function renderDiffActions(container, hash, branches) {
         $("diff-modal").style.display = "none";
         await checkoutBranch(b);
         closeGitLogModal();
-        await loadWorkspaces();
-        await updateHeaderInfo();
+        await refreshAfterGitOp();
       },
     }));
 
@@ -512,17 +435,7 @@ function renderDiffActions(container, hash, branches) {
     { label: "reset --hard", cls: "commit-action-danger", fn: () => { $("diff-modal").style.display = "none"; execCommitResetAction(hash, "hard"); } },
   ];
 
-  for (const action of actions) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "commit-action-item" + (action.cls ? ` ${action.cls}` : "");
-    btn.textContent = action.label;
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      action.fn();
-    });
-    container.appendChild(btn);
-  }
+  renderActionButtons(container, actions);
   container.style.display = "flex";
 }
 
@@ -542,13 +455,8 @@ async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
   }
 
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/diff/${encodeURIComponent(commitHash)}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/diff/${encodeURIComponent(commitHash)}`));
+    if (!res) return;
     const data = await res.json();
     if (!res.ok || data.status !== "ok") {
       fileList.innerHTML = "";
@@ -661,14 +569,8 @@ async function execStashAction(action) {
   const label = action === "pop" ? "stash pop" : "stash";
   if (!confirm(`${label} を実行しますか？`)) return;
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/${endpoint}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/${endpoint}`), { method: "POST" });
+    if (!res) return;
     const data = await res.json();
     if (data.status === "ok") {
       showToast(`${label} 完了`, "success");
@@ -679,8 +581,7 @@ async function execStashAction(action) {
     showToast(`${label} エラー: ${e.message}`);
   }
   $("diff-modal").style.display = "none";
-  await loadWorkspaces();
-  await updateHeaderInfo();
+  await refreshAfterGitOp();
 }
 
 async function openDiffModal() {
@@ -698,29 +599,14 @@ async function openDiffModal() {
     { label: "stash", cls: "", fn: () => execStashAction("save") },
     { label: "stash pop", cls: "", fn: () => execStashAction("pop") },
   ];
-  for (const action of stashActions) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "commit-action-item" + (action.cls ? ` ${action.cls}` : "");
-    btn.textContent = action.label;
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      action.fn();
-    });
-    actionsEl.appendChild(btn);
-  }
+  renderActionButtons(actionsEl, stashActions);
   actionsEl.style.display = "flex";
 
   $("diff-modal").style.display = "flex";
 
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/diff`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/diff"));
+    if (!res) return;
     const data = await res.json();
     if (!res.ok || data.status !== "ok") {
       fileList.innerHTML = "";
@@ -755,13 +641,8 @@ async function openBranchModal() {
   $("branch-modal").style.display = "flex";
 
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/branches/remote`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) {
-      await handleUnauthorized();
-      return;
-    }
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/branches/remote"));
+    if (!res) return;
     if (!res.ok) {
       listEl.innerHTML = '<div class="clone-repo-error">取得に失敗しました</div>';
       return;

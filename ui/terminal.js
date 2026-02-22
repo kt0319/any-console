@@ -17,9 +17,7 @@ async function pingTerminalSessions() {
   const termTabs = tabs.filter((t) => t.type === "terminal");
   if (termTabs.length === 0) return;
   try {
-    await fetch("/terminal/sessions", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    await apiFetch("/terminal/sessions");
   } catch {}
 }
 
@@ -32,10 +30,8 @@ async function onVisibilityRestore() {
   if (termTabs.length === 0) return;
 
   try {
-    const res = await fetch("/terminal/sessions", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return;
+    const res = await apiFetch("/terminal/sessions");
+    if (!res || !res.ok) return;
     const sessions = await res.json();
     const aliveWsUrls = new Set(sessions.map((s) => s.ws_url));
 
@@ -85,10 +81,8 @@ function saveTerminalTabs() {
 
 async function fetchOrphanSessions() {
   try {
-    const res = await fetch("/terminal/sessions", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
+    const res = await apiFetch("/terminal/sessions");
+    if (!res || !res.ok) {
       orphanSessions = [];
       renderTabBar();
       return;
@@ -219,10 +213,8 @@ async function restoreTerminalTabs() {
   }
 
   try {
-    const res = await fetch("/terminal/sessions", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
+    const res = await apiFetch("/terminal/sessions");
+    if (!res || !res.ok) {
       localStorage.removeItem(TERMINAL_TABS_KEY);
       return;
     }
@@ -319,10 +311,7 @@ function removeTab(id) {
       closedSessionUrls.add(tab.wsUrl);
       const match = tab.wsUrl.match(/\/terminal\/ws\/([^/]+)/);
       if (match) {
-        fetch(`/terminal/sessions/${match[1]}`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        }).catch(() => {});
+        apiFetch(`/terminal/sessions/${match[1]}`, { method: "DELETE" }).catch(() => {});
       }
     }
     tab._wsDisposed = true;
@@ -459,8 +448,7 @@ function renderTabBar() {
 }
 
 function addLinkEditHandlers(btn, workspace, index, link) {
-  let holdTimer = null;
-  const openEdit = () => {
+  addLongPressEditHandler(btn, () => {
     closeTerminalWsPicker();
     openItemEditModal("link", {
       workspace, index,
@@ -469,18 +457,11 @@ function addLinkEditHandlers(btn, workspace, index, link) {
       icon: link.icon,
       iconColor: link.icon_color,
     });
-  };
-  btn.addEventListener("contextmenu", (e) => { e.preventDefault(); openEdit(); });
-  btn.addEventListener("touchstart", () => {
-    holdTimer = setTimeout(openEdit, 600);
-  }, { passive: true });
-  btn.addEventListener("touchend", () => clearTimeout(holdTimer));
-  btn.addEventListener("touchmove", () => clearTimeout(holdTimer));
+  });
 }
 
 function addJobEditHandlers(btn, workspace, jobName, job) {
-  let holdTimer = null;
-  const openEdit = () => {
+  addLongPressEditHandler(btn, () => {
     closeTerminalWsPicker();
     openItemEditModal("job", {
       workspace,
@@ -490,13 +471,7 @@ function addJobEditHandlers(btn, workspace, jobName, job) {
       iconColor: job.icon_color,
       scriptContent: job.script_content || "",
     });
-  };
-  btn.addEventListener("contextmenu", (e) => { e.preventDefault(); openEdit(); });
-  btn.addEventListener("touchstart", () => {
-    holdTimer = setTimeout(openEdit, 600);
-  }, { passive: true });
-  btn.addEventListener("touchend", () => clearTimeout(holdTimer));
-  btn.addEventListener("touchmove", () => clearTimeout(holdTimer));
+  });
 }
 
 function showTerminalWsPicker() {
@@ -544,15 +519,11 @@ async function loadPickerWsIcons(container, ws) {
   let links = [];
   try {
     const [jobsRes, linksRes] = await Promise.all([
-      fetch(`/workspaces/${encodeURIComponent(ws.name)}/jobs`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
-      fetch(`/workspaces/${encodeURIComponent(ws.name)}/links`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
+      apiFetch(workspaceApiPath(ws.name, "/jobs")),
+      apiFetch(workspaceApiPath(ws.name, "/links")),
     ]);
-    if (jobsRes.ok) jobs = await jobsRes.json();
-    if (linksRes.ok) links = await linksRes.json();
+    if (jobsRes && jobsRes.ok) jobs = await jobsRes.json();
+    if (linksRes && linksRes.ok) links = await linksRes.json();
   } catch {}
 
   for (let i = 0; i < links.length; i++) {
@@ -564,7 +535,7 @@ async function loadPickerWsIcons(container, ws) {
     const colorStyle = link.icon_color ? ` style="color: ${escapeHtml(link.icon_color)}"` : "";
     btn.innerHTML = link.icon
       ? `<span class="mdi ${escapeHtml(link.icon)}"${colorStyle}></span>`
-      : `<span class="mdi mdi-link-variant"${colorStyle}></span>`;
+      : `<span class="mdi mdi-web"${colorStyle}></span>`;
     btn.addEventListener("click", () => {
       window.open(link.url, "_blank");
       closeTerminalWsPicker();

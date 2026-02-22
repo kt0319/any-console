@@ -1,9 +1,7 @@
 async function loadWorkspaces() {
   try {
-    const res = await fetch("/workspaces", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) {
+    const res = await apiFetch("/workspaces");
+    if (res && res.ok) {
       allWorkspaces = await res.json();
       renderWorkspaceSelects();
     }
@@ -94,14 +92,8 @@ function updateGitActions(ws) {
 
 async function refreshCurrentWorkspaceStatus() {
   if (!selectedWorkspace) return;
-  const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/status`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (res.status === 401) {
-    await handleUnauthorized();
-    return;
-  }
-  if (!res.ok) return;
+  const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/status"));
+  if (!res || !res.ok) return;
   const ws = await res.json();
   const idx = allWorkspaces.findIndex((w) => w.name === selectedWorkspace);
   if (idx >= 0) {
@@ -134,10 +126,7 @@ function stopAutoRefresh() {
 
 async function fetchWorkspace(name) {
   try {
-    await fetch(`/workspaces/${encodeURIComponent(name)}/fetch`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    await apiFetch(workspaceApiPath(name, "/fetch"), { method: "POST" });
   } catch {}
 }
 
