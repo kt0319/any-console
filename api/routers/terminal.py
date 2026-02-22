@@ -66,9 +66,12 @@ def _kill_pty_session(session: TerminalSession) -> None:
     except OSError:
         pass
     try:
-        os.kill(session.pid, signal.SIGTERM)
-    except ProcessLookupError:
-        pass
+        os.killpg(os.getpgid(session.pid), signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):
+        try:
+            os.kill(session.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
     try:
         os.waitpid(session.pid, os.WNOHANG)
     except ChildProcessError:
