@@ -254,7 +254,7 @@ function updateIconSelectPreview(key) {
     return;
   }
   const label = isFaviconIcon(s.icon) ? s.icon.slice("favicon:".length) : s.icon;
-  preview.innerHTML = renderIcon(s.icon, s.color, 18) + " " + escapeHtml(label);
+  preview.innerHTML = renderIcon(s.icon, s.color, 18) + `<span class="icon-select-label">${escapeHtml(label)}</span>`;
 }
 
 function initIconColorField(key, icon, color) {

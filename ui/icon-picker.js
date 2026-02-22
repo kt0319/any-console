@@ -51,11 +51,11 @@ function openIconPicker(callback, currentIcon, currentColor) {
   const search = $("icon-picker-search");
   const grid = $("icon-picker-grid");
   const faviconPreview = $("icon-picker-favicon-preview");
-  const urlOk = $("icon-picker-url-ok");
+  const faviconConfirm = $("icon-picker-favicon-confirm");
 
   grid.innerHTML = '<div class="icon-picker-loading">読み込み中...</div>';
   faviconPreview.innerHTML = "";
-  urlOk.style.display = "none";
+  faviconConfirm.style.display = "none";
 
   search.value = "";
 
@@ -77,11 +77,11 @@ function openIconPicker(callback, currentIcon, currentColor) {
     if (looksLikeUrl(raw)) {
       const domain = extractDomain(raw);
       faviconPreview.innerHTML = renderIcon(`favicon:${domain}`, "", 24);
-      urlOk.style.display = "";
+      faviconConfirm.style.display = "";
       if (iconPickerCache) renderIconGrid(iconPickerCache, "");
     } else {
       faviconPreview.innerHTML = "";
-      urlOk.style.display = "none";
+      faviconConfirm.style.display = "none";
       if (iconPickerCache) renderIconGrid(iconPickerCache, raw.toLowerCase());
     }
   };
