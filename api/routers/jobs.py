@@ -69,7 +69,7 @@ def get_workspace_custom_jobs(workspace_path):
             label=job_name,
             description=f"Workspace custom job: {job_name}",
             args=[],
-            script_path_override=script_path,
+            script_path=script_path,
             icon=metadata["icon"],
             icon_color=metadata["icon_color"],
         )

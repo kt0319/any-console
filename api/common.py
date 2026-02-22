@@ -9,6 +9,7 @@ from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 WORK_DIR = Path.home() / "work"
 UPLOAD_DIR = Path("/tmp/pi-console-uploads")
 TERMINAL_TIMEOUT_SEC = 1800

@@ -1,13 +1,11 @@
 import logging
 import os
 import subprocess
-from pathlib import Path
 
+from .common import PROJECT_ROOT
 from .jobs import JobDefinition
 
 logger = logging.getLogger(__name__)
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 EXEC_TIMEOUT_SEC = 120
 
