@@ -771,6 +771,8 @@ def get_git_log(name: str, limit: int = 50, skip: int = 0):
             "git",
             "--no-pager",
             "log",
+            "--all",
+            "--date-order",
             f"--max-count={safe_limit}",
             "--date=format:%Y-%m-%d %H:%M",
             "--pretty=format:%H\t%ad\t%an\t%D\t%s",

@@ -120,20 +120,11 @@ async function checkoutBranch(branch) {
       await updateHeaderInfo();
       renderJobMenu();
     } else {
-      switchTab(null);
-      let html = `<div class="output-status"><span class="status-badge error">${escapeHtml(statusText)}</span></div>`;
-      if (!res.ok && data.detail) {
-        html += `\n<span style="color:var(--error)">${escapeHtml(data.detail)}</span>`;
-      }
-      if (data.stdout) html += escapeHtml(data.stdout);
-      if (data.stderr) {
-        html += `\n<span style="color:var(--error)">${escapeHtml(data.stderr)}</span>`;
-      }
-      $("output").innerHTML = html;
+      const msg = data.detail || data.stderr || data.stdout || "checkout に失敗しました";
+      showToast(msg);
     }
   } catch (e) {
-    switchTab(null);
-    $("output").innerHTML = `<div class="output-status"><span class="status-badge error">error</span></div>${escapeHtml(e.message)}`;
+    showToast(`checkout エラー: ${e.message}`);
   }
 }
 
@@ -468,7 +459,8 @@ async function reloadGitLog() {
     }
     const data = await res.json();
     if (!res.ok || data.status !== "ok") {
-      listEl.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(data.detail || data.stderr || "failed to load git log")}</div>`;
+      listEl.innerHTML = "";
+      showToast(data.detail || data.stderr || "git log の読み込みに失敗しました");
       return;
     }
     if (!data.stdout) {
@@ -483,7 +475,8 @@ async function reloadGitLog() {
       gitLogHasMore = false;
     }
   } catch (e) {
-    listEl.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
+    listEl.innerHTML = "";
+    showToast(`git log エラー: ${e.message}`);
   }
 }
 
