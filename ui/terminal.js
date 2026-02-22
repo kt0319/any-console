@@ -216,6 +216,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch) {
     cursorBlink: true,
     fontSize: 12,
     scrollback: 5000,
+    scrollOnOutput: true,
     theme: {
       background: "#1a1b26",
       foreground: "#e0e4fc",
