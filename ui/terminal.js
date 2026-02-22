@@ -51,10 +51,21 @@ async function onVisibilityRestore() {
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     onVisibilityRestore();
+    refitActiveTerminal();
   } else {
     lastVisibleTime = Date.now();
   }
 });
+
+function refitActiveTerminal() {
+  const tab = tabs.find((t) => t.id === activeTabId && t.type === "terminal");
+  if (!tab) return;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      try { tab.fitAddon.fit(); } catch {}
+    });
+  });
+}
 
 function saveTerminalTabs() {
   const data = tabs.filter((t) => t.type === "terminal").map((t) => ({ id: t.id, wsUrl: t.wsUrl, label: t.label }));
@@ -118,6 +129,17 @@ function updateQuickInputVisibility() {
   el.style.display = "";
 }
 
+function fitAndSync(tab, redraw) {
+  try { tab.fitAddon.fit(); } catch {}
+  const cols = tab.term.cols;
+  const rows = tab.term.rows;
+  if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
+    const resizePayload = new Uint8Array([0, ...new TextEncoder().encode(JSON.stringify({ cols, rows }))]);
+    tab.ws.send(resizePayload);
+    if (redraw) tab.ws.send(new Uint8Array([0x0c]));
+  }
+}
+
 function connectTerminalWs(tab) {
   if (tab._wsDisposed) return;
   if (tab._reconnectTimer) {
@@ -137,14 +159,12 @@ function connectTerminalWs(tab) {
     const needRedraw = tab._reconnectAttempts > 0 || tab._restored;
     tab._reconnectAttempts = 0;
     tab._restored = false;
-    setTimeout(() => {
-      try { tab.fitAddon.fit(); } catch {}
-      const cols = tab.term.cols;
-      const rows = tab.term.rows;
-      const resizePayload = new Uint8Array([0, ...new TextEncoder().encode(JSON.stringify({ cols, rows }))]);
-      ws.send(resizePayload);
-      if (needRedraw) ws.send(new Uint8Array([0x0c]));
-    }, 150);
+    tab._needRedraw = needRedraw;
+    const container = $(`frame-${tab.id}`);
+    const isVisible = container && container.style.display !== "none";
+    if (isVisible) {
+      setTimeout(() => fitAndSync(tab, needRedraw), 150);
+    }
   };
 
   ws.onmessage = (e) => {
@@ -256,7 +276,9 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored) {
     },
   });
   const fitAddon = new FitAddon.FitAddon();
-  const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+  const webLinksAddon = new WebLinksAddon.WebLinksAddon((e, uri) => {
+    window.open(uri, "_blank", "noopener");
+  });
   term.loadAddon(fitAddon);
   term.loadAddon(webLinksAddon);
   term.open(container);
@@ -335,7 +357,9 @@ function switchTab(id) {
         if (tab.type === "terminal") {
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-              tab.fitAddon.fit();
+              const needRedraw = tab._needRedraw;
+              tab._needRedraw = false;
+              fitAndSync(tab, needRedraw);
               tab.term.focus();
             });
           });
@@ -434,29 +458,42 @@ function renderTabBar() {
   if (activeBtn) activeBtn.scrollIntoView({ inline: "nearest", block: "nearest" });
 }
 
-function addLinkDeleteHandlers(btn, workspace, index, label) {
+function addLinkEditHandlers(btn, workspace, index, link) {
   let holdTimer = null;
-  btn.addEventListener("contextmenu", (e) => {
-    e.preventDefault();
+  const openEdit = () => {
     closeTerminalWsPicker();
-    deleteLink(workspace, index, label);
-  });
+    openItemEditModal("link", {
+      workspace, index,
+      label: link.label || link.url,
+      url: link.url,
+      icon: link.icon,
+      iconColor: link.icon_color,
+    });
+  };
+  btn.addEventListener("contextmenu", (e) => { e.preventDefault(); openEdit(); });
   btn.addEventListener("touchstart", () => {
-    holdTimer = setTimeout(() => { closeTerminalWsPicker(); deleteLink(workspace, index, label); }, 600);
+    holdTimer = setTimeout(openEdit, 600);
   }, { passive: true });
   btn.addEventListener("touchend", () => clearTimeout(holdTimer));
   btn.addEventListener("touchmove", () => clearTimeout(holdTimer));
 }
 
-function addJobDeleteHandlers(btn, jobName) {
+function addJobEditHandlers(btn, workspace, jobName, job) {
   let holdTimer = null;
-  btn.addEventListener("contextmenu", (e) => {
-    e.preventDefault();
+  const openEdit = () => {
     closeTerminalWsPicker();
-    deleteJob(jobName);
-  });
+    openItemEditModal("job", {
+      workspace,
+      name: jobName,
+      label: job.label || jobName,
+      icon: job.icon,
+      iconColor: job.icon_color,
+      scriptContent: job.script_content || "",
+    });
+  };
+  btn.addEventListener("contextmenu", (e) => { e.preventDefault(); openEdit(); });
   btn.addEventListener("touchstart", () => {
-    holdTimer = setTimeout(() => { closeTerminalWsPicker(); deleteJob(jobName); }, 600);
+    holdTimer = setTimeout(openEdit, 600);
   }, { passive: true });
   btn.addEventListener("touchend", () => clearTimeout(holdTimer));
   btn.addEventListener("touchmove", () => clearTimeout(holdTimer));
@@ -532,7 +569,7 @@ async function loadPickerWsIcons(container, ws) {
       window.open(link.url, "_blank");
       closeTerminalWsPicker();
     });
-    addLinkDeleteHandlers(btn, ws.name, i, link.label || link.url);
+    addLinkEditHandlers(btn, ws.name, i, link);
     container.appendChild(btn);
   }
 
@@ -556,7 +593,7 @@ async function loadPickerWsIcons(container, ws) {
         runJob(name, null, ws.name);
       }
     });
-    addJobDeleteHandlers(btn, name);
+    addJobEditHandlers(btn, ws.name, name, job);
     container.appendChild(btn);
   }
 
