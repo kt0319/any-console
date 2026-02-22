@@ -638,4 +638,9 @@ document.addEventListener("paste", (e) => {
       return;
     }
   }
-});
+  const text = e.clipboardData.getData("text");
+  if (text && activeTab.ws && activeTab.ws.readyState === WebSocket.OPEN) {
+    e.preventDefault();
+    activeTab.ws.send(new TextEncoder().encode(text));
+  }
+}, true);
