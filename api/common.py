@@ -13,8 +13,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 WORK_DIR = Path.home() / "work"
 UPLOAD_DIR = Path("/tmp/pi-console-uploads")
 TERMINAL_TIMEOUT_SEC = 1800
-WORKSPACE_JOBS_DIR = Path(".pi-console/jobs")
-WORKSPACE_LINKS_FILE = Path(".pi-console/links.json")
+CONFIG_DIR = Path.home() / ".config" / "pi-console"
+OLD_WORKSPACE_CONFIG_DIR = Path(".pi-console")
 
 GIT_QUICK_TIMEOUT_SEC = 5
 GIT_SHORT_TIMEOUT_SEC = 10
@@ -30,6 +30,30 @@ BRANCH_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_./-]+$")
 COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{4,40}$")
 
 BACKGROUND_EXECUTOR = ThreadPoolExecutor(max_workers=4)
+
+
+def workspace_config_dir(workspace_name: str) -> Path:
+    return CONFIG_DIR / "workspaces" / workspace_name
+
+
+def migrate_workspace_config(workspace_name: str, workspace_path: Path) -> None:
+    old_dir = workspace_path / OLD_WORKSPACE_CONFIG_DIR
+    if not old_dir.is_dir():
+        return
+    new_dir = workspace_config_dir(workspace_name)
+    if new_dir.exists():
+        return
+    import shutil
+    new_dir.mkdir(parents=True, exist_ok=True)
+    for item in old_dir.iterdir():
+        dest = new_dir / item.name
+        if dest.exists():
+            continue
+        if item.is_dir():
+            shutil.copytree(item, dest)
+        else:
+            shutil.copy2(item, dest)
+    logger.info("migrated workspace config workspace=%s from=%s to=%s", workspace_name, old_dir, new_dir)
 
 
 def resolve_workspace_path(workspace: str | None) -> Path | None:
