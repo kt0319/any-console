@@ -35,6 +35,27 @@ def get_workspace_custom_jobs_dir(workspace_path):
     return jobs_dir
 
 
+def parse_script_metadata(script_path):
+    metadata = {"open_url": "", "icon": "", "icon_color": ""}
+    try:
+        content = script_path.read_text(encoding="utf-8")
+    except OSError:
+        return metadata
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("#"):
+            if stripped and not stripped.startswith("set "):
+                break
+            continue
+        if stripped.startswith("# open-url:"):
+            metadata["open_url"] = stripped.split(":", 1)[1].strip()
+        elif stripped.startswith("# icon-color:"):
+            metadata["icon_color"] = stripped.split(":", 1)[1].strip()
+        elif stripped.startswith("# icon:"):
+            metadata["icon"] = stripped.split(":", 1)[1].strip()
+    return metadata
+
+
 def get_workspace_custom_jobs(workspace_path):
     jobs_dir = get_workspace_custom_jobs_dir(workspace_path)
     custom = {}
@@ -42,12 +63,15 @@ def get_workspace_custom_jobs(workspace_path):
         if not script_path.is_file():
             continue
         job_name = script_path.stem
+        metadata = parse_script_metadata(script_path)
         custom[job_name] = JobDefinition(
             script=str(script_path),
             label=job_name,
             description=f"Workspace custom job: {job_name}",
             args=[],
             script_path_override=script_path,
+            icon=metadata["icon"],
+            icon_color=metadata["icon_color"],
         )
     return custom
 
@@ -71,6 +95,8 @@ def job_definition_to_dict(job_def):
         "description": job_def.description,
         "script": job_def.script,
         "script_content": read_script_content(job_def),
+        "icon": job_def.icon,
+        "icon_color": job_def.icon_color,
         "args": [
             {
                 "name": arg.name,
@@ -94,6 +120,8 @@ class CreateJobRequest(BaseModel):
     name: str
     label: str = ""
     script: str
+    icon: str = ""
+    icon_color: str = ""
 
 
 @router.post("/workspaces/{name}/jobs")
@@ -109,9 +137,21 @@ def create_workspace_job(name: str, body: CreateJobRequest):
     script_content = body.script.strip()
     if not script_content:
         raise HTTPException(status_code=400, detail="スクリプト内容が空です")
-    header = "#!/usr/bin/env bash\nset -euo pipefail\n\n"
+    header = "#!/usr/bin/env bash\nset -euo pipefail\n"
+    icon = body.icon.strip()
+    icon_color = body.icon_color.strip()
+    metadata_lines = ""
+    if icon:
+        metadata_lines += f"# icon: {icon}\n"
+    if icon_color:
+        metadata_lines += f"# icon-color: {icon_color}\n"
     if not script_content.startswith("#!"):
+        header += metadata_lines + "\n"
         script_content = header + script_content
+    elif metadata_lines:
+        lines = script_content.split("\n", 1)
+        rest = lines[1] if len(lines) > 1 else ""
+        script_content = f"{lines[0]}\n{metadata_lines}{rest}"
     script_path.write_text(script_content + "\n", encoding="utf-8")
     script_path.chmod(0o755)
     logger.info("job created workspace=%s job=%s", name, job_name)
@@ -160,8 +200,10 @@ def list_workspace_links(name: str):
 
 
 class CreateLinkRequest(BaseModel):
-    label: str
+    label: str = ""
     url: str
+    icon: str = ""
+    icon_color: str = ""
 
 
 @router.post("/workspaces/{name}/links")
@@ -169,12 +211,17 @@ def create_workspace_link(name: str, body: CreateLinkRequest):
     ws_path = resolve_workspace_path(name)
     label = body.label.strip()
     url = normalize_url(body.url)
-    if not label:
-        raise HTTPException(status_code=400, detail="表示名を入力してください")
     if not url:
         raise HTTPException(status_code=400, detail="URLを入力してください")
     links = get_workspace_links(ws_path)
-    links.append({"label": label, "url": url})
+    link_entry = {"label": label, "url": url}
+    icon = body.icon.strip()
+    if icon:
+        link_entry["icon"] = icon
+    icon_color = body.icon_color.strip()
+    if icon_color:
+        link_entry["icon_color"] = icon_color
+    links.append(link_entry)
     save_workspace_links(ws_path, links)
     logger.info("link created workspace=%s label=%s", name, label)
     return {"status": "ok"}

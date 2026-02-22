@@ -288,64 +288,45 @@ header .ws-select-wrap {
   color: inherit;
   cursor: pointer;
   text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.picker-ws-header-add {
-  background: none;
-  border: none;
-  padding: 0 4px;
-  font-size: 18px;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.picker-ws-header-toggle {
-  background: none;
-  border: none;
-  padding: 0 4px;
-  font-size: 12px;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.picker-ws-body {
+.picker-ws-icons {
   display: flex;
-  flex-direction: column;
-  border-top: 1px solid var(--border);
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
-.picker-ws-body .ws-select-item {
-  background: none;
-  border: none;
-  border-radius: 0;
-  padding: 8px 14px 8px 28px;
-  font-size: 13px;
-}
-
-.picker-job-add {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.picker-github-row {
+.picker-ws-icon-btn {
   display: flex;
-  gap: 6px;
-  padding: 6px 14px 8px;
-}
-
-.picker-github-link {
-  flex: 1;
-  padding: 6px 4px;
-  font-size: 13px;
-  color: var(--text-primary);
-  text-align: center;
-  text-decoration: none;
-  cursor: pointer;
-  background: var(--bg-tertiary);
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
 }
 
+.picker-ws-icon-btn .mdi {
+  font-size: 16px;
+}
+
+.picker-ws-add-btn {
+  font-size: 14px;
+  color: var(--text-muted);
+  border-style: dashed;
+}
 
 .header-date {
   font-size: 12px;
@@ -1333,6 +1314,40 @@ button:disabled {
 }
 
 
+/* Item create type tabs */
+.item-create-type-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.item-create-type-tab {
+  flex: 1;
+  cursor: pointer;
+}
+
+.item-create-type-tab input[type="radio"] {
+  display: none;
+}
+
+.item-create-type-btn {
+  display: block;
+  padding: 8px 12px;
+  font-size: 13px;
+  text-align: center;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  transition: all 0.15s;
+}
+
+.item-create-type-tab input[type="radio"]:checked + .item-create-type-btn {
+  background: rgba(130, 170, 255, 0.2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* Job create form */
 .form-group {
   margin-bottom: 12px;
@@ -1859,4 +1874,96 @@ button:disabled {
 .toast-success {
   background: var(--accent);
   color: var(--bg-primary);
+}
+
+/* Icon Picker */
+.icon-picker-modal {
+  max-width: 440px;
+  max-height: 80vh;
+}
+
+.icon-picker-colors {
+  display: flex;
+  gap: 6px;
+  padding: 4px 0 8px;
+  overflow-x: auto;
+}
+
+.icon-picker-color-item {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  background: none;
+  box-sizing: border-box;
+}
+
+.icon-picker-color-item.selected {
+  border-color: var(--text-primary);
+}
+
+.icon-picker-search {
+  margin-bottom: 8px;
+}
+
+.icon-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 4px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  max-height: 50vh;
+  padding: 4px 0;
+}
+
+.icon-picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.icon-picker-loading,
+.icon-picker-more {
+  grid-column: 1 / -1;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 12px 0;
+}
+
+.icon-select-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  min-height: 40px;
+  font-size: 13px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.icon-select-preview .mdi {
+  font-size: 18px;
+  vertical-align: middle;
+}
+
+.picker-type-icon .mdi {
+  font-size: 16px;
 }

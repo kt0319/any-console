@@ -71,53 +71,60 @@
         </div>
       </div>
     </div>
-    <!-- Job Create Modal -->
-    <div id="job-create-modal" class="modal-overlay" style="display:none">
+    <!-- Item Create Modal (Link / Job) -->
+    <div id="item-create-modal" class="modal-overlay" style="display:none">
       <div class="modal">
         <div class="modal-header">
-          <h3>ジョブ作成</h3>
-          <button type="button" id="job-create-cancel" class="modal-close-btn">&times;</button>
+          <h3 id="item-create-title">追加</h3>
+          <button type="button" id="item-create-cancel" class="modal-close-btn">&times;</button>
+        </div>
+        <div class="item-create-type-tabs">
+          <label class="item-create-type-tab">
+            <input type="radio" name="item-create-type" value="link" checked />
+            <span class="item-create-type-btn">リンク</span>
+          </label>
+          <label class="item-create-type-tab">
+            <input type="radio" name="item-create-type" value="job" />
+            <span class="item-create-type-btn">ジョブ</span>
+          </label>
         </div>
         <div class="modal-scroll-body">
-          <div class="form-group">
-            <label class="form-label">ジョブ名 <span class="form-hint">(英数字・ハイフン・アンダースコア)</span></label>
-            <input type="text" id="job-create-name" class="form-input" placeholder="my-job" autocomplete="off" />
+          <div id="item-create-link-form">
+            <div class="form-group">
+              <label class="form-label">表示名 <span class="form-hint">(省略可)</span></label>
+              <input type="text" id="link-create-label" class="form-input" placeholder="Console" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">URL</label>
+              <input type="url" id="link-create-url" class="form-input" placeholder="http://localhost:3000" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">アイコン</label>
+              <button type="button" id="link-icon-select-btn" class="icon-select-btn"><span class="icon-select-preview">未設定</span></button>
+            </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">表示名</label>
-            <input type="text" id="job-create-label" class="form-input" placeholder="マイジョブ" autocomplete="off" />
+          <div id="item-create-job-form" style="display:none">
+            <div class="form-group">
+              <label class="form-label">ジョブ名 <span class="form-hint">(英数字・ハイフン・アンダースコア)</span></label>
+              <input type="text" id="job-create-name" class="form-input" placeholder="my-job" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">表示名 <span class="form-hint">(省略可)</span></label>
+              <input type="text" id="job-create-label" class="form-input" placeholder="マイジョブ" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">スクリプト</label>
+              <textarea id="job-create-script" class="form-textarea" rows="3" placeholder="echo hello"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">アイコン</label>
+              <button type="button" id="job-icon-select-btn" class="icon-select-btn"><span class="icon-select-preview">未設定</span></button>
+            </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">スクリプト</label>
-            <textarea id="job-create-script" class="form-textarea" rows="6" placeholder="echo hello"></textarea>
-          </div>
-          <div id="job-create-error" class="form-error"></div>
+          <div id="item-create-error" class="form-error"></div>
         </div>
         <div class="modal-actions">
-          <button type="button" id="job-create-submit" class="primary" style="width:auto">作成</button>
-        </div>
-      </div>
-    </div>
-    <!-- Link Create Modal -->
-    <div id="link-create-modal" class="modal-overlay" style="display:none">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>リンク追加</h3>
-          <button type="button" id="link-create-cancel" class="modal-close-btn">&times;</button>
-        </div>
-        <div class="modal-scroll-body">
-          <div class="form-group">
-            <label class="form-label">表示名</label>
-            <input type="text" id="link-create-label" class="form-input" placeholder="Console" autocomplete="off" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">URL</label>
-            <input type="url" id="link-create-url" class="form-input" placeholder="http://localhost:3000" autocomplete="off" />
-          </div>
-          <div id="link-create-error" class="form-error"></div>
-        </div>
-        <div class="modal-actions">
-          <button type="button" id="link-create-submit" class="primary" style="width:auto">追加</button>
+          <button type="button" id="item-create-submit" class="primary" style="width:auto">追加</button>
         </div>
       </div>
     </div>
@@ -221,6 +228,18 @@
         </div>
       </div>
     </div>
+    <!-- Icon Picker Modal -->
+    <div id="icon-picker-modal" class="modal-overlay" style="display:none">
+      <div class="modal icon-picker-modal">
+        <div class="modal-header">
+          <h3>アイコン選択</h3>
+          <button type="button" id="icon-picker-close" class="modal-close-btn">&times;</button>
+        </div>
+        <div id="icon-picker-colors" class="icon-picker-colors"></div>
+        <input type="text" id="icon-picker-search" class="form-input icon-picker-search" placeholder="アイコンを検索..." autocomplete="off" />
+        <div id="icon-picker-grid" class="icon-picker-grid"></div>
+      </div>
+    </div>
     <!-- Terminal Workspace Picker Modal -->
     <div id="terminal-ws-picker" class="modal-overlay" style="display:none">
       <div class="modal">
@@ -247,6 +266,7 @@
   <script src="quick-input.js"></script>
   <script src="workspace.js"></script>
   <script src="git.js"></script>
+  <script src="icon-picker.js"></script>
   <script src="jobs.js"></script>
   <script src="settings.js"></script>
   <script src="app.js"></script>

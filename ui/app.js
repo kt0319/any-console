@@ -78,10 +78,29 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   $("branch-modal-close").addEventListener("click", closeBranchModal);
   $("diff-close").addEventListener("click", closeDiffModal);
-  $("job-create-cancel").addEventListener("click", closeJobCreateModal);
-  $("job-create-submit").addEventListener("click", submitJobCreate);
-  $("link-create-cancel").addEventListener("click", closeLinkCreateModal);
-  $("link-create-submit").addEventListener("click", submitLinkCreate);
+  $("item-create-cancel").addEventListener("click", closeItemCreateModal);
+  $("item-create-submit").addEventListener("click", submitItemCreate);
+  for (const radio of document.querySelectorAll('input[name="item-create-type"]')) {
+    radio.addEventListener("change", () => switchItemCreateType(radio.value));
+  }
+  $("icon-picker-close").addEventListener("click", closeIconPicker);
+  $("icon-picker-modal").addEventListener("click", (e) => {
+    if (e.target === $("icon-picker-modal")) closeIconPicker();
+  });
+  $("link-icon-select-btn").addEventListener("click", () => {
+    openIconPicker(({ icon, color }) => {
+      selectedLinkIcon = icon;
+      selectedLinkIconColor = color;
+      setIconSelectPreview("link-icon-select-btn", icon, color);
+    }, selectedLinkIconColor);
+  });
+  $("job-icon-select-btn").addEventListener("click", () => {
+    openIconPicker(({ icon, color }) => {
+      selectedJobIcon = icon;
+      selectedJobIconColor = color;
+      setIconSelectPreview("job-icon-select-btn", icon, color);
+    }, selectedJobIconColor);
+  });
   $("fetch-btn").addEventListener("click", gitFetch);
   $("pull-btn").addEventListener("click", gitPull);
   $("push-btn").addEventListener("click", gitPush);

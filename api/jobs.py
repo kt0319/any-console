@@ -19,6 +19,8 @@ class JobDefinition:
     description: str
     args: list[ArgOption] = field(default_factory=list)
     script_path_override: Path | None = None
+    icon: str = ""
+    icon_color: str = ""
 
     @property
     def script_path(self) -> Path:

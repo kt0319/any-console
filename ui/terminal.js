@@ -422,21 +422,6 @@ function renderTabBar() {
   if (activeBtn) activeBtn.scrollIntoView({ inline: "nearest", block: "nearest" });
 }
 
-function buildGithubLinks(ws) {
-  if (!ws || !ws.github_url) return null;
-  const baseUrl = ws.github_url;
-  const path = baseUrl.replace(/^https?:\/\/github\.com/, "");
-  const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
-  const scheme = isMobile ? "github://github.com" : baseUrl;
-  const branch = ws.branch || "main";
-  return [
-    { label: "GitHub", href: isMobile ? `${scheme}${path}/tree/${encodeURIComponent(branch)}` : `${baseUrl}/tree/${encodeURIComponent(branch)}` },
-    { label: "Issues", href: `${scheme}${isMobile ? path : ""}/issues` },
-    { label: "PRs", href: `${scheme}${isMobile ? path : ""}/pulls` },
-    { label: "Actions", href: `${scheme}${isMobile ? path : ""}/actions` },
-  ];
-}
-
 function addLinkDeleteHandlers(btn, workspace, index, label) {
   let holdTimer = null;
   btn.addEventListener("contextmenu", (e) => {
@@ -470,7 +455,6 @@ function showTerminalWsPicker() {
   if (!list) return;
   list.innerHTML = "";
   const workspaces = visibleWorkspaces();
-  const currentWs = selectedWorkspace || (workspaces.length === 1 ? workspaces[0].name : null);
 
   for (const ws of workspaces) {
     const group = document.createElement("div");
@@ -487,30 +471,15 @@ function showTerminalWsPicker() {
       runJob("terminal", null, ws.name);
     });
     header.appendChild(headerLabel);
-    const headerToggle = document.createElement("button");
-    headerToggle.type = "button";
-    headerToggle.className = "picker-ws-header-toggle";
-    headerToggle.textContent = "▼";
-    header.appendChild(headerToggle);
+
+    const icons = document.createElement("div");
+    icons.className = "picker-ws-icons";
+    header.appendChild(icons);
+
     group.appendChild(header);
-
-    const body = document.createElement("div");
-    body.className = "picker-ws-body";
-    body.style.display = "none";
-    let loaded = false;
-
-    headerToggle.addEventListener("click", async () => {
-      const open = body.style.display !== "none";
-      body.style.display = open ? "none" : "";
-      headerToggle.textContent = open ? "▼" : "▲";
-      if (!open && !loaded) {
-        loaded = true;
-        await renderPickerWsBody(body, ws);
-      }
-    });
-
-    group.appendChild(body);
     list.appendChild(group);
+
+    loadPickerWsIcons(icons, ws);
   }
 
   const picker = $("terminal-ws-picker");
@@ -521,31 +490,7 @@ function showTerminalWsPicker() {
   };
 }
 
-async function renderPickerWsBody(body, ws) {
-  body.innerHTML = "";
-
-  const ghLinks = buildGithubLinks(ws);
-  if (ghLinks) {
-    const ghRow = document.createElement("div");
-    ghRow.className = "picker-github-row";
-    for (const link of ghLinks) {
-      const a = document.createElement("a");
-      a.className = "picker-github-link";
-      a.href = link.href;
-      a.target = "_blank";
-      a.rel = "noopener";
-      if (link.label === "GitHub") {
-        a.innerHTML = '<span class="mdi mdi-github"></span>';
-        a.title = "GitHub";
-      } else {
-        a.textContent = link.label;
-      }
-      a.addEventListener("click", () => closeTerminalWsPicker());
-      ghRow.appendChild(a);
-    }
-    body.appendChild(ghRow);
-  }
-
+async function loadPickerWsIcons(container, ws) {
   let jobs = {};
   let links = [];
   try {
@@ -565,23 +510,30 @@ async function renderPickerWsBody(body, ws) {
     const link = links[i];
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "ws-select-item ws-picker-url";
-    btn.innerHTML = `<span class="picker-type-icon picker-icon-url">&#10697;</span>${escapeHtml(link.label)}`;
+    btn.className = "picker-ws-icon-btn";
+    btn.title = link.label || link.url;
+    const colorStyle = link.icon_color ? ` style="color: ${escapeHtml(link.icon_color)}"` : "";
+    btn.innerHTML = link.icon
+      ? `<span class="mdi ${escapeHtml(link.icon)}"${colorStyle}></span>`
+      : `<span class="mdi mdi-link-variant"${colorStyle}></span>`;
     btn.addEventListener("click", () => {
       window.open(link.url, "_blank");
       closeTerminalWsPicker();
     });
-    addLinkDeleteHandlers(btn, ws.name, i, link.label);
-    body.appendChild(btn);
+    addLinkDeleteHandlers(btn, ws.name, i, link.label || link.url);
+    container.appendChild(btn);
   }
 
   const entries = Object.entries(jobs).filter(([name]) => name !== "terminal");
   for (const [name, job] of entries) {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "ws-select-item ws-picker-job";
-    const label = job.label || name;
-    btn.innerHTML = `<span class="picker-type-icon picker-icon-job">&#9654;</span>${escapeHtml(label)}`;
+    btn.className = "picker-ws-icon-btn";
+    btn.title = job.label || name;
+    const colorStyle = job.icon_color ? ` style="color: ${escapeHtml(job.icon_color)}"` : "";
+    btn.innerHTML = job.icon
+      ? `<span class="mdi ${escapeHtml(job.icon)}"${colorStyle}></span>`
+      : `<span class="mdi mdi-play"${colorStyle}></span>`;
     btn.addEventListener("click", () => {
       closeTerminalWsPicker();
       if (job.args && job.args.length > 0) {
@@ -593,30 +545,21 @@ async function renderPickerWsBody(body, ws) {
       }
     });
     addJobDeleteHandlers(btn, name);
-    body.appendChild(btn);
+    container.appendChild(btn);
   }
 
-  const addLinkBtn = document.createElement("button");
-  addLinkBtn.type = "button";
-  addLinkBtn.className = "ws-select-item picker-job-add";
-  addLinkBtn.textContent = "+ リンク追加";
-  addLinkBtn.addEventListener("click", () => {
-    closeTerminalWsPicker();
-    openLinkCreateModal(ws.name);
-  });
-  body.appendChild(addLinkBtn);
-
-  const addJobBtn = document.createElement("button");
-  addJobBtn.type = "button";
-  addJobBtn.className = "ws-select-item picker-job-add";
-  addJobBtn.textContent = "+ ジョブ追加";
-  addJobBtn.addEventListener("click", () => {
+  const addBtn = document.createElement("button");
+  addBtn.type = "button";
+  addBtn.className = "picker-ws-icon-btn picker-ws-add-btn";
+  addBtn.title = "追加";
+  addBtn.innerHTML = "+";
+  addBtn.addEventListener("click", () => {
     closeTerminalWsPicker();
     selectedWorkspace = ws.name;
     localStorage.setItem("pi_console_workspace", ws.name);
-    openJobCreateModal();
+    openItemCreateModal(ws.name, "link");
   });
-  body.appendChild(addJobBtn);
+  container.appendChild(addBtn);
 }
 
 function closeTerminalWsPicker() {

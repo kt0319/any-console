@@ -251,24 +251,90 @@ async function runJob(jobName = null, argsOverride = null, workspaceOverride = n
   }
 }
 
-function openJobCreateModal() {
+function switchItemCreateType(type) {
+  $("item-create-link-form").style.display = type === "link" ? "" : "none";
+  $("item-create-job-form").style.display = type === "job" ? "" : "none";
+  $("item-create-error").style.display = "none";
+  $("item-create-submit").textContent = type === "link" ? "追加" : "作成";
+}
+
+function getItemCreateType() {
+  const checked = document.querySelector('input[name="item-create-type"]:checked');
+  return checked ? checked.value : "link";
+}
+
+let selectedLinkIcon = "";
+let selectedLinkIconColor = "";
+let selectedJobIcon = "";
+let selectedJobIconColor = "";
+
+function setIconSelectPreview(btnId, iconClass, iconColor) {
+  const btn = $(btnId);
+  const preview = btn.querySelector(".icon-select-preview");
+  if (iconClass) {
+    const colorStyle = iconColor ? ` style="color: ${iconColor}"` : "";
+    preview.innerHTML = `<span class="mdi ${iconClass}"${colorStyle}></span> ${iconClass}`;
+  } else {
+    preview.textContent = "未設定";
+  }
+}
+
+function openItemCreateModal(workspace, type) {
+  const modal = $("item-create-modal");
+  modal.dataset.workspace = workspace || selectedWorkspace;
+  $("link-create-label").value = "";
+  $("link-create-url").value = "";
   $("job-create-name").value = "";
   $("job-create-label").value = "";
   $("job-create-script").value = "";
-  $("job-create-error").style.display = "none";
-  $("job-create-modal").style.display = "flex";
-  $("job-create-name").focus();
+  $("item-create-error").style.display = "none";
+  selectedLinkIcon = "";
+  selectedLinkIconColor = "";
+  selectedJobIcon = "";
+  selectedJobIconColor = "";
+  setIconSelectPreview("link-icon-select-btn", "");
+  setIconSelectPreview("job-icon-select-btn", "");
+  const radios = document.querySelectorAll('input[name="item-create-type"]');
+  for (const r of radios) r.checked = r.value === type;
+  switchItemCreateType(type);
+  modal.style.display = "flex";
+}
+
+function openJobCreateModal() {
+  openItemCreateModal(selectedWorkspace, "job");
+}
+
+function openLinkCreateModal(workspace) {
+  openItemCreateModal(workspace, "link");
+}
+
+function closeItemCreateModal() {
+  $("item-create-modal").style.display = "none";
 }
 
 function closeJobCreateModal() {
-  $("job-create-modal").style.display = "none";
+  closeItemCreateModal();
+}
+
+function closeLinkCreateModal() {
+  closeItemCreateModal();
+}
+
+async function submitItemCreate() {
+  const type = getItemCreateType();
+  if (type === "link") {
+    await submitLinkCreate();
+  } else {
+    await submitJobCreate();
+  }
 }
 
 async function submitJobCreate() {
+  const workspace = $("item-create-modal").dataset.workspace;
   const name = $("job-create-name").value.trim();
   const label = $("job-create-label").value.trim();
   const script = $("job-create-script").value;
-  const errorEl = $("job-create-error");
+  const errorEl = $("item-create-error");
 
   if (!name) {
     errorEl.textContent = "ジョブ名を入力してください";
@@ -282,13 +348,13 @@ async function submitJobCreate() {
   }
 
   try {
-    const res = await fetch(`/workspaces/${encodeURIComponent(selectedWorkspace)}/jobs`, {
+    const res = await fetch(`/workspaces/${encodeURIComponent(workspace)}/jobs`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name, label: label || name, script }),
+      body: JSON.stringify({ name, label: label || name, script, icon: selectedJobIcon, icon_color: selectedJobIconColor }),
     });
     if (res.status === 401) {
       await handleUnauthorized();
@@ -300,7 +366,7 @@ async function submitJobCreate() {
       errorEl.style.display = "block";
       return;
     }
-    closeJobCreateModal();
+    closeItemCreateModal();
     await loadJobsForWorkspace();
   } catch (e) {
     errorEl.textContent = e.message;
@@ -308,30 +374,12 @@ async function submitJobCreate() {
   }
 }
 
-function openLinkCreateModal(workspace) {
-  $("link-create-label").value = "";
-  $("link-create-url").value = "";
-  $("link-create-error").style.display = "none";
-  $("link-create-modal").dataset.workspace = workspace;
-  $("link-create-modal").style.display = "flex";
-  $("link-create-label").focus();
-}
-
-function closeLinkCreateModal() {
-  $("link-create-modal").style.display = "none";
-}
-
 async function submitLinkCreate() {
-  const workspace = $("link-create-modal").dataset.workspace;
+  const workspace = $("item-create-modal").dataset.workspace;
   const label = $("link-create-label").value.trim();
   const url = $("link-create-url").value.trim();
-  const errorEl = $("link-create-error");
+  const errorEl = $("item-create-error");
 
-  if (!label) {
-    errorEl.textContent = "表示名を入力してください";
-    errorEl.style.display = "block";
-    return;
-  }
   if (!url) {
     errorEl.textContent = "URLを入力してください";
     errorEl.style.display = "block";
@@ -345,7 +393,7 @@ async function submitLinkCreate() {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ label, url }),
+      body: JSON.stringify({ label, url, icon: selectedLinkIcon, icon_color: selectedLinkIconColor }),
     });
     if (res.status === 401) {
       await handleUnauthorized();
@@ -357,7 +405,7 @@ async function submitLinkCreate() {
       errorEl.style.display = "block";
       return;
     }
-    closeLinkCreateModal();
+    closeItemCreateModal();
     showToast("リンクを追加しました", "success");
   } catch (e) {
     errorEl.textContent = e.message;
