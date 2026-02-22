@@ -137,21 +137,7 @@ def create_workspace_job(name: str, body: CreateJobRequest):
     script_content = body.script.strip()
     if not script_content:
         raise HTTPException(status_code=400, detail="スクリプト内容が空です")
-    header = "#!/usr/bin/env bash\nset -euo pipefail\n"
-    icon = body.icon.strip()
-    icon_color = body.icon_color.strip()
-    metadata_lines = ""
-    if icon:
-        metadata_lines += f"# icon: {icon}\n"
-    if icon_color:
-        metadata_lines += f"# icon-color: {icon_color}\n"
-    if not script_content.startswith("#!"):
-        header += metadata_lines + "\n"
-        script_content = header + script_content
-    elif metadata_lines:
-        lines = script_content.split("\n", 1)
-        rest = lines[1] if len(lines) > 1 else ""
-        script_content = f"{lines[0]}\n{metadata_lines}{rest}"
+    script_content = build_script_with_metadata(script_content, body.icon.strip(), body.icon_color.strip())
     script_path.write_text(script_content + "\n", encoding="utf-8")
     script_path.chmod(0o755)
     logger.info("job created workspace=%s job=%s", name, job_name)
@@ -174,21 +160,7 @@ def update_workspace_job(name: str, job_name: str, body: UpdateJobRequest):
     script_content = body.script.strip()
     if not script_content:
         raise HTTPException(status_code=400, detail="スクリプト内容が空です")
-    header = "#!/usr/bin/env bash\nset -euo pipefail\n"
-    icon = body.icon.strip()
-    icon_color = body.icon_color.strip()
-    metadata_lines = ""
-    if icon:
-        metadata_lines += f"# icon: {icon}\n"
-    if icon_color:
-        metadata_lines += f"# icon-color: {icon_color}\n"
-    if not script_content.startswith("#!"):
-        header += metadata_lines + "\n"
-        script_content = header + script_content
-    elif metadata_lines:
-        lines = script_content.split("\n", 1)
-        rest = lines[1] if len(lines) > 1 else ""
-        script_content = f"{lines[0]}\n{metadata_lines}{rest}"
+    script_content = build_script_with_metadata(script_content, body.icon.strip(), body.icon_color.strip())
     script_path.write_text(script_content + "\n", encoding="utf-8")
     script_path.chmod(0o755)
     logger.info("job updated workspace=%s job=%s", name, job_name)
@@ -230,6 +202,32 @@ def normalize_url(url):
     return url
 
 
+def build_script_with_metadata(script_content: str, icon: str, icon_color: str) -> str:
+    header = "#!/usr/bin/env bash\nset -euo pipefail\n"
+    metadata_lines = ""
+    if icon:
+        metadata_lines += f"# icon: {icon}\n"
+    if icon_color:
+        metadata_lines += f"# icon-color: {icon_color}\n"
+    if not script_content.startswith("#!"):
+        header += metadata_lines + "\n"
+        return header + script_content
+    if metadata_lines:
+        lines = script_content.split("\n", 1)
+        rest = lines[1] if len(lines) > 1 else ""
+        return f"{lines[0]}\n{metadata_lines}{rest}"
+    return script_content
+
+
+def build_link_entry(label: str, url: str, icon: str, icon_color: str) -> dict:
+    entry = {"label": label, "url": url}
+    if icon:
+        entry["icon"] = icon
+    if icon_color:
+        entry["icon_color"] = icon_color
+    return entry
+
+
 @router.get("/workspaces/{name}/links")
 def list_workspace_links(name: str):
     ws_path = resolve_workspace_path(name)
@@ -251,14 +249,7 @@ def create_workspace_link(name: str, body: CreateLinkRequest):
     if not url:
         raise HTTPException(status_code=400, detail="URLを入力してください")
     links = get_workspace_links(ws_path)
-    link_entry = {"label": label, "url": url}
-    icon = body.icon.strip()
-    if icon:
-        link_entry["icon"] = icon
-    icon_color = body.icon_color.strip()
-    if icon_color:
-        link_entry["icon_color"] = icon_color
-    links.append(link_entry)
+    links.append(build_link_entry(label, url, body.icon.strip(), body.icon_color.strip()))
     save_workspace_links(ws_path, links)
     logger.info("link created workspace=%s label=%s", name, label)
     return {"status": "ok"}
@@ -274,14 +265,7 @@ def update_workspace_link(name: str, index: int, body: CreateLinkRequest):
     if not url:
         raise HTTPException(status_code=400, detail="URLを入力してください")
     label = body.label.strip()
-    link_entry = {"label": label, "url": url}
-    icon = body.icon.strip()
-    if icon:
-        link_entry["icon"] = icon
-    icon_color = body.icon_color.strip()
-    if icon_color:
-        link_entry["icon_color"] = icon_color
-    links[index] = link_entry
+    links[index] = build_link_entry(label, url, body.icon.strip(), body.icon_color.strip())
     save_workspace_links(ws_path, links)
     logger.info("link updated workspace=%s index=%d", name, index)
     return {"status": "ok"}

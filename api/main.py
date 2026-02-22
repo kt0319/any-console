@@ -17,7 +17,7 @@ from fastapi import Depends, FastAPI, HTTPException, Response, UploadFile
 from fastapi.staticfiles import StaticFiles
 
 from .auth import verify_token
-from .common import BACKGROUND_EXECUTOR, UPLOAD_DIR
+from .common import BACKGROUND_EXECUTOR, SYSTEM_CMD_TIMEOUT_SEC, UPLOAD_DIR
 from .routers import git, jobs, terminal, workspaces
 
 logging.basicConfig(
@@ -78,7 +78,7 @@ def get_system_info():
 
     try:
         result = subprocess.run(
-            ["hostname", "-I"], capture_output=True, text=True, timeout=5,
+            ["hostname", "-I"], capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
         )
         if result.returncode == 0:
             addrs = result.stdout.strip().split()
@@ -97,7 +97,7 @@ def get_system_info():
 
     try:
         result = subprocess.run(
-            ["uptime", "-p"], capture_output=True, text=True, timeout=5,
+            ["uptime", "-p"], capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
         )
         if result.returncode == 0:
             info["uptime"] = result.stdout.strip()

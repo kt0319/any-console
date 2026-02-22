@@ -16,6 +16,19 @@ TERMINAL_TIMEOUT_SEC = 1800
 WORKSPACE_JOBS_DIR = Path(".pi-console/jobs")
 WORKSPACE_LINKS_FILE = Path(".pi-console/links.json")
 
+GIT_QUICK_TIMEOUT_SEC = 5
+GIT_SHORT_TIMEOUT_SEC = 10
+GIT_STANDARD_TIMEOUT_SEC = 30
+GIT_LONG_TIMEOUT_SEC = 60
+GIT_CLONE_TIMEOUT_SEC = 300
+GITHUB_CLI_TIMEOUT_SEC = 30
+SYSTEM_CMD_TIMEOUT_SEC = 5
+BACKGROUND_FETCH_TIMEOUT_SEC = 15
+GIT_LOG_MAX_ENTRIES = 200
+
+BRANCH_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_./-]+$")
+COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{4,40}$")
+
 BACKGROUND_EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
 
@@ -45,6 +58,36 @@ def ssh_env() -> dict[str, str]:
     return dict(os.environ)
 
 
+def run_git_command(
+    args: list[str],
+    cwd: Path,
+    timeout: int = GIT_STANDARD_TIMEOUT_SEC,
+    env: dict | None = None,
+    operation: str = "",
+) -> dict:
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            capture_output=True, text=True, timeout=timeout, cwd=str(cwd),
+            env=env,
+        )
+        return {
+            "status": "ok" if result.returncode == 0 else "error",
+            "exit_code": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+        }
+    except subprocess.TimeoutExpired:
+        label = operation or " ".join(args[:2])
+        raise HTTPException(status_code=504, detail=f"git {label} timed out")
+
+
+def validate_commit_hash(commit_hash: str) -> str:
+    if not COMMIT_HASH_PATTERN.match(commit_hash):
+        raise HTTPException(status_code=400, detail=f"Invalid commit hash: {commit_hash}")
+    return commit_hash
+
+
 def git_info(directory: Path) -> dict:
     info = {
         "branch": None,
@@ -62,7 +105,8 @@ def git_info(directory: Path) -> dict:
     def run_git(*args):
         return subprocess.run(
             ["git", *args],
-            capture_output=True, text=True, timeout=5, cwd=str(directory),
+            capture_output=True, text=True, timeout=GIT_QUICK_TIMEOUT_SEC,
+            cwd=str(directory),
         )
 
     try:
@@ -102,18 +146,18 @@ def git_info(directory: Path) -> dict:
             info["clean"] = len(result.stdout.strip()) == 0
 
         if not info["clean"]:
-            for out in (f_diff.result().stdout, f_staged.result().stdout):
-                if not out:
+            for diff_stat_output in (f_diff.result().stdout, f_staged.result().stdout):
+                if not diff_stat_output:
                     continue
-                m_files = re.search(r"(\d+) file", out)
-                m_ins = re.search(r"(\d+) insertion", out)
-                m_del = re.search(r"(\d+) deletion", out)
-                if m_files:
-                    info["changed_files"] += int(m_files.group(1))
-                if m_ins:
-                    info["insertions"] += int(m_ins.group(1))
-                if m_del:
-                    info["deletions"] += int(m_del.group(1))
+                files_match = re.search(r"(\d+) file", diff_stat_output)
+                insertions_match = re.search(r"(\d+) insertion", diff_stat_output)
+                deletions_match = re.search(r"(\d+) deletion", diff_stat_output)
+                if files_match:
+                    info["changed_files"] += int(files_match.group(1))
+                if insertions_match:
+                    info["insertions"] += int(insertions_match.group(1))
+                if deletions_match:
+                    info["deletions"] += int(deletions_match.group(1))
 
         result = f_revlist.result()
         if result.returncode == 0:
@@ -126,11 +170,29 @@ def git_info(directory: Path) -> dict:
     return info
 
 
+def git_info_to_status_dict(directory: Path, name: str) -> dict:
+    git_data = git_info(directory)
+    return {
+        "name": name,
+        "branch": git_data["branch"],
+        "last_commit": git_data["last_commit"],
+        "last_commit_message": git_data["last_commit_message"],
+        "github_url": git_data["github_url"],
+        "clean": git_data["clean"],
+        "ahead": git_data["ahead"],
+        "behind": git_data["behind"],
+        "insertions": git_data["insertions"],
+        "deletions": git_data["deletions"],
+        "changed_files": git_data["changed_files"],
+    }
+
+
 def get_git_branches(directory: Path) -> list[str]:
     try:
         result = subprocess.run(
             ["git", "branch", "--format=%(refname:short)"],
-            capture_output=True, text=True, timeout=5, cwd=str(directory),
+            capture_output=True, text=True, timeout=GIT_QUICK_TIMEOUT_SEC,
+            cwd=str(directory),
         )
         if result.returncode == 0:
             return [b for b in result.stdout.strip().splitlines() if b]
@@ -143,11 +205,13 @@ def get_git_remote_branches(directory: Path) -> list[str]:
     try:
         subprocess.run(
             ["git", "fetch", "--prune"],
-            capture_output=True, text=True, timeout=30, cwd=str(directory),
+            capture_output=True, text=True, timeout=GIT_STANDARD_TIMEOUT_SEC,
+            cwd=str(directory),
         )
         result = subprocess.run(
             ["git", "branch", "-r", "--format=%(refname:short)"],
-            capture_output=True, text=True, timeout=5, cwd=str(directory),
+            capture_output=True, text=True, timeout=GIT_QUICK_TIMEOUT_SEC,
+            cwd=str(directory),
         )
         if result.returncode == 0:
             branches = []

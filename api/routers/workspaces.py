@@ -9,8 +9,11 @@ from pydantic import BaseModel
 from ..auth import verify_token
 from ..common import (
     BACKGROUND_EXECUTOR,
+    BACKGROUND_FETCH_TIMEOUT_SEC,
+    GIT_CLONE_TIMEOUT_SEC,
+    GITHUB_CLI_TIMEOUT_SEC,
     WORK_DIR,
-    git_info,
+    git_info_to_status_dict,
     resolve_workspace_path,
 )
 
@@ -19,32 +22,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(verify_token)])
 
 
-def _build_workspace_entry(d):
-    gi = git_info(d)
-    return {
-        "name": d.name,
-        "branch": gi["branch"],
-        "last_commit": gi["last_commit"],
-        "last_commit_message": gi["last_commit_message"],
-        "github_url": gi["github_url"],
-        "clean": gi["clean"],
-        "ahead": gi["ahead"],
-        "behind": gi["behind"],
-        "insertions": gi["insertions"],
-        "deletions": gi["deletions"],
-        "changed_files": gi["changed_files"],
-    }
-
-
 def _background_fetch(dirs):
-    def fetch(d):
+    def fetch(workspace_dir):
         try:
             subprocess.run(
                 ["git", "fetch", "--quiet"],
-                capture_output=True, text=True, timeout=15, cwd=str(d),
+                capture_output=True, text=True,
+                timeout=BACKGROUND_FETCH_TIMEOUT_SEC, cwd=str(workspace_dir),
             )
         except (subprocess.TimeoutExpired, OSError) as e:
-            logger.warning("background fetch failed dir=%s: %s", d.name, e)
+            logger.warning("background fetch failed dir=%s: %s", workspace_dir.name, e)
 
     from concurrent.futures import ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=4) as pool:
@@ -56,12 +43,16 @@ def list_workspaces():
     if not WORK_DIR.is_dir():
         return []
     dirs = sorted(
-        [d for d in WORK_DIR.iterdir() if d.is_dir() and not d.name.startswith(".")],
-        key=lambda d: d.name,
+        [workspace_dir for workspace_dir in WORK_DIR.iterdir()
+         if workspace_dir.is_dir() and not workspace_dir.name.startswith(".")],
+        key=lambda workspace_dir: workspace_dir.name,
     )
     from concurrent.futures import ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=4) as pool:
-        result = list(pool.map(_build_workspace_entry, dirs))
+        result = list(pool.map(
+            lambda workspace_dir: git_info_to_status_dict(workspace_dir, workspace_dir.name),
+            dirs,
+        ))
     BACKGROUND_EXECUTOR.submit(_background_fetch, dirs)
     return result
 
@@ -76,9 +67,9 @@ def clone_workspace(body: CloneRequest):
     url = body.url.strip()
     if not url:
         raise HTTPException(status_code=400, detail="URLを入力してください")
-    m = re.match(r"https?://github\.com/(.+?)/?$", url)
-    if m:
-        url = f"git@github.com:{m.group(1)}.git"
+    github_url_match = re.match(r"https?://github\.com/(.+?)/?$", url)
+    if github_url_match:
+        url = f"git@github.com:{github_url_match.group(1)}.git"
 
     if body.name:
         dir_name = body.name.strip()
@@ -97,7 +88,8 @@ def clone_workspace(body: CloneRequest):
     try:
         result = subprocess.run(
             ["git", "clone", url, str(target_path)],
-            capture_output=True, text=True, timeout=300, cwd=str(WORK_DIR),
+            capture_output=True, text=True,
+            timeout=GIT_CLONE_TIMEOUT_SEC, cwd=str(WORK_DIR),
         )
         if result.returncode != 0:
             logger.warning("clone failed url=%s rc=%d stderr=%s", url, result.returncode, result.stderr)
@@ -125,21 +117,21 @@ def list_github_repos():
 
         result = subprocess.run(
             ["gh", "repo", "list", "--limit", "100", "--json", "nameWithOwner,url,description"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, timeout=GITHUB_CLI_TIMEOUT_SEC,
         )
         if result.returncode == 0:
             all_repos.extend(json.loads(result.stdout))
 
         org_result = subprocess.run(
             ["gh", "org", "list"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, timeout=GITHUB_CLI_TIMEOUT_SEC,
         )
         if org_result.returncode == 0:
             orgs = [o.strip() for o in org_result.stdout.strip().splitlines() if o.strip()]
             for org in orgs:
                 org_repos = subprocess.run(
                     ["gh", "repo", "list", org, "--limit", "100", "--json", "nameWithOwner,url,description"],
-                    capture_output=True, text=True, timeout=30,
+                    capture_output=True, text=True, timeout=GITHUB_CLI_TIMEOUT_SEC,
                 )
                 if org_repos.returncode == 0:
                     all_repos.extend(json.loads(org_repos.stdout))
