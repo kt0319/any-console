@@ -569,10 +569,11 @@ async function loadPickerWsIcons(container, ws) {
     const link = links[i];
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "picker-ws-icon-btn";
+    btn.className = "picker-ws-icon-btn picker-ws-link-btn";
     btn.title = link.label || link.url;
     btn.innerHTML = renderIcon(link.icon || "mdi-web", link.icon_color, 16);
     btn.addEventListener("click", () => {
+      if (!confirm(`${link.label || link.url} を開きますか？`)) return;
       window.open(link.url, "_blank");
       closeTerminalWsPicker();
     });
@@ -588,14 +589,9 @@ async function loadPickerWsIcons(container, ws) {
     btn.title = job.label || name;
     btn.innerHTML = renderIcon(job.icon || "mdi-play", job.icon_color, 16);
     btn.addEventListener("click", () => {
+      if (!confirm(`${job.label || name} を実行しますか？`)) return;
       closeTerminalWsPicker();
-      if (job.args && job.args.length > 0) {
-        selectedWorkspace = ws.name;
-        localStorage.setItem("pi_console_workspace", ws.name);
-        openJobConfirmModal(name);
-      } else {
-        runJob(name, null, ws.name);
-      }
+      runJob(name, null, ws.name);
     });
     addJobEditHandlers(btn, ws.name, name, job);
     container.appendChild(btn);
@@ -614,6 +610,7 @@ async function loadPickerWsIcons(container, ws) {
   });
   container.appendChild(addBtn);
 }
+
 
 function closeTerminalWsPicker() {
   $("terminal-ws-picker").style.display = "none";

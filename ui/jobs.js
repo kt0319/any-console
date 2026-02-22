@@ -200,10 +200,11 @@ async function runJob(jobName = null, argsOverride = null, workspaceOverride = n
 
     let initialCommand = null;
     let tabIcon = null;
-    if (targetJob !== "terminal" && job.script) {
+    if (targetJob === "terminal") {
+      tabIcon = { name: "mdi-terminal", color: "" };
+    } else if (job.script) {
       initialCommand = job.script;
-      const iconName = job.icon || "mdi-play";
-      tabIcon = { name: iconName, color: job.icon_color || "" };
+      tabIcon = { name: job.icon || "mdi-play", color: job.icon_color || "" };
     }
     addTerminalTab(data.ws_url, workspace, null, false, false, initialCommand, tabIcon);
   } catch (e) {

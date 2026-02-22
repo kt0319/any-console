@@ -315,6 +315,10 @@ header .ws-select-wrap {
   cursor: pointer;
 }
 
+.picker-ws-icon-btn.picker-ws-link-btn {
+  border-radius: 50%;
+}
+
 .picker-ws-icon-btn .mdi {
   font-size: 16px;
 }
@@ -324,6 +328,7 @@ header .ws-select-wrap {
   color: var(--text-muted);
   border-style: dashed;
 }
+
 
 .picker-ws-settings-btn {
   width: 100%;
@@ -1091,7 +1096,7 @@ button:disabled {
   padding: 12px 16px 16px;
   width: 100%;
   max-width: 400px;
-  max-height: 80vh;
+  height: 80vh;
   display: flex;
   flex-direction: column;
 }
@@ -1450,7 +1455,7 @@ button:disabled {
 
 .git-log-modal-wide {
   max-width: 90vw;
-  max-height: 90vh;
+  height: 90vh;
   width: 700px;
 }
 
@@ -1603,8 +1608,7 @@ button:disabled {
 /* Diff modal */
 .diff-modal {
   max-width: 90vw;
-  max-height: 90vh;
-  min-height: 90vh;
+  height: 90vh;
   width: 700px;
 }
 
@@ -1895,7 +1899,6 @@ button:disabled {
 /* Icon Picker */
 .icon-picker-modal {
   max-width: 440px;
-  max-height: 80vh;
 }
 
 
