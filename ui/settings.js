@@ -1,22 +1,19 @@
 function applyPanelBottom() {
   document.querySelector(".main-panel").classList.toggle("panel-bottom", panelBottom);
-  const btn = $("settings-panel-bottom");
-  btn.textContent = panelBottom ? "操作パネルを上段に表示" : "操作パネルを下段に表示";
 }
 
 function togglePanelBottom() {
   panelBottom = !panelBottom;
   localStorage.setItem("pi_console_panel_bottom", panelBottom);
   applyPanelBottom();
-  closeSettings();
+  closeMenu();
+  renderJobMenu();
 }
 
 function openSettings() {
-  $("settings-menu").style.display = "";
   $("settings-ws-visibility").style.display = "none";
   $("settings-server-info-view").style.display = "none";
   $("settings-title").textContent = "設定";
-  applyPanelBottom();
   $("settings-modal").style.display = "flex";
 }
 
@@ -24,16 +21,48 @@ function closeSettings() {
   $("settings-modal").style.display = "none";
 }
 
-function settingsLogout() {
-  clearToken();
-  token = "";
-  closeSettings();
-  showLogin();
+function renderSettingsMenuItems(dropdown, refNode) {
+  const sep = document.createElement("div");
+  sep.className = "menu-separator menu-dynamic";
+  dropdown.insertBefore(sep, refNode);
+
+  const label = document.createElement("div");
+  label.className = "menu-section-label menu-dynamic";
+  label.textContent = "設定";
+  dropdown.insertBefore(label, refNode);
+
+  const wsBtn = document.createElement("button");
+  wsBtn.type = "button";
+  wsBtn.className = "menu-item menu-dynamic";
+  wsBtn.textContent = "ワークスペース設定";
+  wsBtn.addEventListener("click", () => {
+    closeMenu();
+    openSettingsWsVisibility();
+  });
+  dropdown.insertBefore(wsBtn, refNode);
+
+  const infoBtn = document.createElement("button");
+  infoBtn.type = "button";
+  infoBtn.className = "menu-item menu-dynamic";
+  infoBtn.textContent = "サーバー情報";
+  infoBtn.addEventListener("click", () => {
+    closeMenu();
+    openSettingsServerInfo();
+  });
+  dropdown.insertBefore(infoBtn, refNode);
+
+  const panelBtn = document.createElement("button");
+  panelBtn.type = "button";
+  panelBtn.className = "menu-item menu-dynamic";
+  panelBtn.textContent = panelBottom ? "操作パネルを上段に表示" : "操作パネルを下段に表示";
+  panelBtn.addEventListener("click", togglePanelBottom);
+  dropdown.insertBefore(panelBtn, refNode);
 }
 
 function openSettingsWsVisibility() {
-  $("settings-menu").style.display = "none";
   $("settings-title").textContent = "ワークスペース設定";
+  $("settings-ws-visibility").style.display = "";
+  $("settings-server-info-view").style.display = "none";
   const list = $("ws-check-list");
   list.innerHTML = "";
   for (const ws of allWorkspaces) {
@@ -46,15 +75,16 @@ function openSettingsWsVisibility() {
     });
     list.appendChild(item);
   }
-  $("settings-ws-visibility").style.display = "";
+  $("settings-modal").style.display = "flex";
 }
 
 async function openSettingsServerInfo() {
-  $("settings-menu").style.display = "none";
   $("settings-title").textContent = "サーバー情報";
+  $("settings-ws-visibility").style.display = "none";
+  $("settings-server-info-view").style.display = "";
+  $("settings-modal").style.display = "flex";
   const list = $("server-info-list");
   list.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>';
-  $("settings-server-info-view").style.display = "";
 
   const labels = {
     hostname: "ホスト名",
@@ -237,7 +267,7 @@ async function submitClone() {
     outputEl.textContent = `${data.name} をクローンしました`;
     closeCloneModal();
     await loadWorkspaces();
-    openSettings();
+    openSettingsWsVisibility();
   } catch (e) {
     errorEl.textContent = e.message;
     errorEl.style.display = "block";

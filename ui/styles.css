@@ -213,11 +213,13 @@ header .ws-select-wrap {
   max-height: 60vh;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   padding: 4px 0;
 }
 
 .terminal-ws-list .ws-select-item {
+  display: flex;
+  align-items: center;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -225,6 +227,123 @@ header .ws-select-wrap {
   font-size: 15px;
   text-align: left;
   color: var(--text-primary);
+}
+
+.picker-type-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.picker-icon-terminal {
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--success);
+  background: rgba(122, 159, 106, 0.2);
+}
+
+.picker-icon-job {
+  font-size: 10px;
+  color: var(--warning);
+  background: rgba(255, 203, 107, 0.2);
+}
+
+.picker-icon-url {
+  font-size: 14px;
+  color: var(--accent);
+  background: rgba(130, 170, 255, 0.2);
+}
+
+.picker-ws-group {
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.picker-ws-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.picker-ws-header-label {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.picker-ws-header-add {
+  background: none;
+  border: none;
+  padding: 0 4px;
+  font-size: 18px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.picker-ws-header-toggle {
+  background: none;
+  border: none;
+  padding: 0 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.picker-ws-body {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+}
+
+.picker-ws-body .ws-select-item {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 8px 14px 8px 28px;
+  font-size: 13px;
+}
+
+.picker-job-add {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.picker-github-row {
+  display: flex;
+  gap: 6px;
+  padding: 6px 14px 8px;
+}
+
+.picker-github-link {
+  flex: 1;
+  padding: 6px 4px;
+  font-size: 13px;
+  color: var(--text-primary);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 
 
@@ -608,6 +727,8 @@ header .ws-select-wrap {
 .args-form {
   padding: 16px 20px;
   border-bottom: 1px solid var(--border);
+  overflow-y: auto;
+  flex: 1;
 }
 
 .arg-group {
@@ -746,6 +867,24 @@ header .ws-select-wrap {
   opacity: 0.7;
 }
 
+
+.tab-type-icon {
+  font-size: 10px;
+  margin-right: 4px;
+  opacity: 0.6;
+}
+
+.tab-type-terminal {
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  color: var(--success);
+  opacity: 1;
+}
+
+.tab-type-job {
+  font-size: 8px;
+  color: var(--warning);
+  opacity: 1;
+}
 
 .tab-add-btn {
   display: flex;
@@ -934,12 +1073,6 @@ button:disabled {
 }
 
 
-.menu-settings-btn {
-  margin-top: auto;
-  border-top: 1px solid var(--border) !important;
-  flex-shrink: 0;
-}
-
 /* Settings modal */
 .modal-overlay {
   position: fixed;
@@ -989,14 +1122,12 @@ button:disabled {
   color: var(--text);
 }
 
-.settings-menu-logout {
-  color: var(--danger, #e74c3c);
-  border-color: var(--danger, #e74c3c);
-}
 
 .server-info-list {
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .server-info-row {
@@ -1116,6 +1247,11 @@ button:disabled {
   color: var(--error);
 }
 
+.modal-scroll-body {
+  overflow-y: auto;
+  flex: 1;
+}
+
 .modal .modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -1157,9 +1293,17 @@ button:disabled {
   justify-content: center;
 }
 
+#settings-ws-visibility {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
 .ws-check-list {
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
 }
 
 .ws-check-item {

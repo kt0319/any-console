@@ -65,23 +65,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("menu-modal").addEventListener("click", (e) => {
     if (e.target === $("menu-modal")) closeMenu();
   });
-  for (const id of ["github-link", "github-issues", "github-pulls", "github-actions"]) {
-    $(id).addEventListener("click", closeMenu);
-  }
-  $("menu-settings-btn").addEventListener("click", () => {
-    closeMenu();
-    openSettings();
-  });
   $("settings-close").addEventListener("click", closeSettings);
   $("settings-clone").addEventListener("click", () => {
     closeSettings();
     openCloneModal();
   });
-  $("settings-visibility").addEventListener("click", openSettingsWsVisibility);
-  $("settings-server-info").addEventListener("click", openSettingsServerInfo);
-  $("settings-logout").addEventListener("click", settingsLogout);
   applyPanelBottom();
-  $("settings-panel-bottom").addEventListener("click", togglePanelBottom);
   $("clone-cancel").addEventListener("click", closeCloneModal);
   $("clone-submit").addEventListener("click", submitClone);
   for (const tab of document.querySelectorAll(".clone-tab")) {
@@ -91,6 +80,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("diff-close").addEventListener("click", closeDiffModal);
   $("job-create-cancel").addEventListener("click", closeJobCreateModal);
   $("job-create-submit").addEventListener("click", submitJobCreate);
+  $("link-create-cancel").addEventListener("click", closeLinkCreateModal);
+  $("link-create-submit").addEventListener("click", submitLinkCreate);
   $("fetch-btn").addEventListener("click", gitFetch);
   $("pull-btn").addEventListener("click", gitPull);
   $("push-btn").addEventListener("click", gitPush);

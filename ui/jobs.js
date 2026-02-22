@@ -33,7 +33,10 @@ function renderJobMenu() {
   const dropdown = $("menu-dropdown");
   dropdown.querySelectorAll(".menu-dynamic").forEach((el) => el.remove());
 
-  if (!selectedWorkspace) return;
+  if (!selectedWorkspace) {
+    renderSettingsMenuItems(dropdown, null);
+    return;
+  }
 
   const refNode = null;
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
@@ -73,64 +76,9 @@ function renderJobMenu() {
     });
     dropdown.insertBefore(moreBtn, refNode);
 
-    const branchSep = document.createElement("div");
-    branchSep.className = "menu-separator menu-dynamic";
-    dropdown.insertBefore(branchSep, refNode);
   }
 
-  const entries = Object.entries(JOBS).filter(([name]) => name !== "terminal");
-  if (entries.length > 0) {
-    const jobLabel = document.createElement("div");
-    jobLabel.className = "menu-section-label menu-dynamic";
-    jobLabel.textContent = "ジョブ";
-    dropdown.insertBefore(jobLabel, refNode);
-
-    for (const [name, job] of entries) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "menu-item menu-dynamic";
-      const label = job.label || name;
-      const isRunning = runningJobName === name;
-      if (job.open_url) {
-        btn.innerHTML = `<span class="menu-job-url-icon">⧉</span> ${escapeHtml(label)}`;
-      } else if (isRunning) {
-        btn.innerHTML = `${escapeHtml(label)} <span class="job-state">◌</span>`;
-      } else {
-        btn.textContent = label;
-      }
-      btn.addEventListener("click", () => {
-        closeMenu();
-        if (job.open_url) {
-          window.open(job.open_url, "_blank");
-        } else {
-          openJobConfirmModal(name);
-        }
-      });
-      let holdTimer = null;
-      btn.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        closeMenu();
-        deleteJob(name);
-      });
-      btn.addEventListener("touchstart", () => {
-        holdTimer = setTimeout(() => { closeMenu(); deleteJob(name); }, 600);
-      }, { passive: true });
-      btn.addEventListener("touchend", () => clearTimeout(holdTimer));
-      btn.addEventListener("touchmove", () => clearTimeout(holdTimer));
-      dropdown.insertBefore(btn, refNode);
-    }
-  }
-
-  const addBtn = document.createElement("button");
-  addBtn.type = "button";
-  addBtn.className = "menu-item menu-dynamic";
-  addBtn.style.color = "var(--text-muted)";
-  addBtn.textContent = "+ ジョブ追加";
-  addBtn.addEventListener("click", () => {
-    closeMenu();
-    openJobCreateModal();
-  });
-  dropdown.insertBefore(addBtn, refNode);
+  renderSettingsMenuItems(dropdown, refNode);
 }
 
 function openJobConfirmModal(name) {
@@ -307,7 +255,6 @@ function openJobCreateModal() {
   $("job-create-name").value = "";
   $("job-create-label").value = "";
   $("job-create-script").value = "";
-  $("job-create-url").value = "";
   $("job-create-error").style.display = "none";
   $("job-create-modal").style.display = "flex";
   $("job-create-name").focus();
@@ -321,7 +268,6 @@ async function submitJobCreate() {
   const name = $("job-create-name").value.trim();
   const label = $("job-create-label").value.trim();
   const script = $("job-create-script").value;
-  const openUrl = $("job-create-url").value.trim();
   const errorEl = $("job-create-error");
 
   if (!name) {
@@ -342,7 +288,7 @@ async function submitJobCreate() {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name, label: label || name, script, open_url: openUrl }),
+      body: JSON.stringify({ name, label: label || name, script }),
     });
     if (res.status === 401) {
       await handleUnauthorized();
@@ -359,6 +305,85 @@ async function submitJobCreate() {
   } catch (e) {
     errorEl.textContent = e.message;
     errorEl.style.display = "block";
+  }
+}
+
+function openLinkCreateModal(workspace) {
+  $("link-create-label").value = "";
+  $("link-create-url").value = "";
+  $("link-create-error").style.display = "none";
+  $("link-create-modal").dataset.workspace = workspace;
+  $("link-create-modal").style.display = "flex";
+  $("link-create-label").focus();
+}
+
+function closeLinkCreateModal() {
+  $("link-create-modal").style.display = "none";
+}
+
+async function submitLinkCreate() {
+  const workspace = $("link-create-modal").dataset.workspace;
+  const label = $("link-create-label").value.trim();
+  const url = $("link-create-url").value.trim();
+  const errorEl = $("link-create-error");
+
+  if (!label) {
+    errorEl.textContent = "表示名を入力してください";
+    errorEl.style.display = "block";
+    return;
+  }
+  if (!url) {
+    errorEl.textContent = "URLを入力してください";
+    errorEl.style.display = "block";
+    return;
+  }
+
+  try {
+    const res = await fetch(`/workspaces/${encodeURIComponent(workspace)}/links`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ label, url }),
+    });
+    if (res.status === 401) {
+      await handleUnauthorized();
+      return;
+    }
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.detail || "追加に失敗しました";
+      errorEl.style.display = "block";
+      return;
+    }
+    closeLinkCreateModal();
+    showToast("リンクを追加しました", "success");
+  } catch (e) {
+    errorEl.textContent = e.message;
+    errorEl.style.display = "block";
+  }
+}
+
+async function deleteLink(workspace, index, label) {
+  if (!confirm(`リンク '${label}' を削除しますか？`)) return;
+  try {
+    const res = await fetch(`/workspaces/${encodeURIComponent(workspace)}/links/${index}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 401) {
+      await handleUnauthorized();
+      return;
+    }
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.detail || "削除に失敗しました");
+      return;
+    }
+    showToast("リンクを削除しました", "success");
+  } catch (e) {
+    showToast(`削除エラー: ${e.message}`);
   }
 }
 

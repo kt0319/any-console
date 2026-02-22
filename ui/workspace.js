@@ -20,25 +20,6 @@ function renderWorkspaceSelects() {
 }
 
 function updateGithubLink(ws) {
-  const link = $("github-link");
-  const issuesLink = $("github-issues");
-  const pullsLink = $("github-pulls");
-  const actionsLink = $("github-actions");
-  const githubEls = [link, issuesLink, pullsLink, actionsLink];
-  if (!ws || !ws.github_url) {
-    githubEls.forEach(el => el.style.display = "none");
-    return;
-  }
-  const branch = ws.branch || "main";
-  const baseUrl = ws.github_url;
-  const path = baseUrl.replace(/^https?:\/\/github\.com/, "");
-  const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
-  const scheme = isMobile ? "github://github.com" : baseUrl;
-  link.href = isMobile ? `${scheme}${path}/tree/${encodeURIComponent(branch)}` : `${baseUrl}/tree/${encodeURIComponent(branch)}`;
-  issuesLink.href = `${scheme}${isMobile ? path : ""}/issues`;
-  pullsLink.href = `${scheme}${isMobile ? path : ""}/pulls`;
-  actionsLink.href = `${scheme}${isMobile ? path : ""}/actions`;
-  githubEls.forEach(el => el.style.display = "block");
 }
 
 async function updateHeaderInfo() {
