@@ -12,6 +12,9 @@ env/
 logs/
 *.log
 
+# Data
+data/
+
 # Environment
 .env
 
