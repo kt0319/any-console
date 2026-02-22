@@ -57,14 +57,7 @@ function openIconPicker(callback, currentIcon, currentColor) {
   faviconPreview.innerHTML = "";
   urlOk.style.display = "none";
 
-  if (isFaviconIcon(currentIcon)) {
-    const domain = currentIcon.slice("favicon:".length);
-    search.value = domain;
-    faviconPreview.innerHTML = renderIcon(currentIcon, "", 24);
-    urlOk.style.display = "";
-  } else {
-    search.value = "";
-  }
+  search.value = "";
 
   renderPickerColorPalette(iconPickerSelectedColor);
   modal.style.display = "flex";
@@ -167,6 +160,12 @@ function submitIconPickerUrl() {
   const cb = iconPickerCallback;
   closeIconPicker();
   if (cb) cb(`favicon:${domain}`, "");
+}
+
+function clearIconPicker() {
+  const cb = iconPickerCallback;
+  closeIconPicker();
+  if (cb) cb("", "");
 }
 
 function closeIconPicker() {

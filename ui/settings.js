@@ -5,7 +5,6 @@ function applyPanelBottom() {
 function openSettings() {
   $("settings-ws-visibility").style.display = "none";
   $("settings-server-info-view").style.display = "none";
-  $("settings-ws-icons").style.display = "none";
   $("settings-title").textContent = "設定";
   $("settings-modal").style.display = "flex";
 }
@@ -24,16 +23,6 @@ function renderSettingsMenuItems(dropdown, refNode) {
   label.textContent = "設定";
   dropdown.insertBefore(label, refNode);
 
-  const wsIconBtn = document.createElement("button");
-  wsIconBtn.type = "button";
-  wsIconBtn.className = "menu-item menu-dynamic";
-  wsIconBtn.textContent = "ワークスペースアイコン";
-  wsIconBtn.addEventListener("click", () => {
-    closeMenu();
-    openSettingsWsIcons();
-  });
-  dropdown.insertBefore(wsIconBtn, refNode);
-
   const infoBtn = document.createElement("button");
   infoBtn.type = "button";
   infoBtn.className = "menu-item menu-dynamic";
@@ -50,17 +39,34 @@ function openSettingsWsVisibility() {
   $("settings-title").textContent = "ワークスペース設定";
   $("settings-ws-visibility").style.display = "";
   $("settings-server-info-view").style.display = "none";
-  $("settings-ws-icons").style.display = "none";
   const list = $("ws-check-list");
   list.innerHTML = "";
   for (const ws of allWorkspaces) {
     const visible = !hiddenWorkspaces.includes(ws.name);
-    const item = document.createElement("label");
+    const item = document.createElement("div");
     item.className = "ws-check-item";
-    item.innerHTML = `<input type="checkbox" data-ws="${escapeHtml(ws.name)}" ${visible ? "checked" : ""} />${escapeHtml(ws.name)}`;
-    item.querySelector("input").addEventListener("change", (e) => {
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = visible;
+    checkbox.dataset.ws = ws.name;
+    checkbox.addEventListener("change", (e) => {
       toggleWorkspace(ws.name, e.target.checked);
     });
+
+    const label = document.createElement("span");
+    label.className = "ws-check-label";
+    label.textContent = ws.name;
+
+    const iconBtn = document.createElement("button");
+    iconBtn.type = "button";
+    iconBtn.className = "ws-icon-edit-btn";
+    iconBtn.innerHTML = ws.icon ? renderIcon(ws.icon, ws.icon_color, 18) : '<span class="mdi mdi-console" style="color:var(--text-muted)"></span>';
+    iconBtn.addEventListener("click", () => openWsIconPicker(ws));
+
+    item.appendChild(checkbox);
+    item.appendChild(label);
+    item.appendChild(iconBtn);
     list.appendChild(item);
   }
   $("settings-modal").style.display = "flex";
@@ -70,7 +76,6 @@ async function openSettingsServerInfo() {
   $("settings-title").textContent = "サーバー情報";
   $("settings-ws-visibility").style.display = "none";
   $("settings-server-info-view").style.display = "";
-  $("settings-ws-icons").style.display = "none";
   $("settings-modal").style.display = "flex";
   const list = $("server-info-list");
   list.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>';
@@ -106,86 +111,27 @@ async function openSettingsServerInfo() {
   }
 }
 
-function openSettingsWsIcons() {
-  $("settings-title").textContent = "ワークスペースアイコン";
-  $("settings-ws-visibility").style.display = "none";
-  $("settings-server-info-view").style.display = "none";
-  $("settings-ws-icons").style.display = "";
-  $("settings-modal").style.display = "flex";
-  renderWsIconList();
-}
-
-function renderWsIconList() {
-  const list = $("ws-icon-list");
-  list.innerHTML = "";
-  for (const ws of allWorkspaces) {
-    const row = document.createElement("div");
-    row.className = "ws-icon-row";
-
-    const label = document.createElement("span");
-    label.className = "ws-icon-label";
-    label.textContent = ws.name;
-
-    const preview = document.createElement("span");
-    preview.className = "ws-icon-preview";
-    preview.innerHTML = ws.icon ? renderIcon(ws.icon, ws.icon_color, 20) : '<span class="mdi mdi-folder-outline" style="color:var(--text-muted)"></span>';
-
-    const editBtn = document.createElement("button");
-    editBtn.type = "button";
-    editBtn.className = "ws-icon-edit-btn";
-    editBtn.textContent = "変更";
-    editBtn.addEventListener("click", () => openWsIconEditModal(ws));
-
-    row.appendChild(preview);
-    row.appendChild(label);
-    row.appendChild(editBtn);
-    list.appendChild(row);
-  }
-}
-
-function openWsIconEditModal(ws) {
-  closeSettings();
-  const key = "wsIcon";
-  if (!ICON_COLOR_FIELDS[key]) {
-    ICON_COLOR_FIELDS[key] = { btnId: "ws-icon-btn", defaultIcon: "mdi-folder-outline" };
-    iconColorState[key] = { icon: "", color: "" };
-    setupIconPickerBtn(key);
-  }
-  $("ws-icon-edit-modal").dataset.workspace = ws.name;
-  $("ws-icon-edit-name").textContent = ws.name;
-  initIconColorField(key, ws.icon, ws.icon_color);
-  $("ws-icon-edit-modal").style.display = "flex";
-}
-
-function closeWsIconEditModal() {
-  $("ws-icon-edit-modal").style.display = "none";
-}
-
-async function submitWsIconEdit() {
-  const workspace = $("ws-icon-edit-modal").dataset.workspace;
-  const s = iconColorState.wsIcon;
-  try {
-    const res = await apiFetch(workspaceApiPath(workspace, "/config"), {
-      method: "PUT",
-      body: { icon: s.icon, icon_color: s.color },
-    });
-    if (!res) return;
-    if (!res.ok) {
-      const data = await res.json();
-      showToast(data.detail || "保存に失敗しました");
-      return;
+function openWsIconPicker(ws) {
+  openIconPicker(async (icon, color) => {
+    try {
+      const res = await apiFetch(workspaceApiPath(ws.name, "/config"), {
+        method: "PUT",
+        body: { icon, icon_color: color },
+      });
+      if (!res) return;
+      if (!res.ok) {
+        const data = await res.json();
+        showToast(data.detail || "保存に失敗しました");
+        return;
+      }
+      ws.icon = icon;
+      ws.icon_color = color;
+      openSettingsWsVisibility();
+      showToast("アイコンを更新しました", "success");
+    } catch (e) {
+      showToast(e.message);
     }
-    const ws = allWorkspaces.find((w) => w.name === workspace);
-    if (ws) {
-      ws.icon = s.icon;
-      ws.icon_color = s.color;
-    }
-    closeWsIconEditModal();
-    openSettingsWsIcons();
-    showToast("アイコンを更新しました", "success");
-  } catch (e) {
-    showToast(e.message);
-  }
+  }, ws.icon, ws.icon_color);
 }
 
 function toggleWorkspace(name, visible) {

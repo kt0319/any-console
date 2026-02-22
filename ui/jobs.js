@@ -169,15 +169,20 @@ function collectArgs() {
   return args;
 }
 
+let _runJobQueue = Promise.resolve();
+
 async function runJob(jobName = null, argsOverride = null, workspaceOverride = null) {
   const targetJob = jobName || selectedJob;
   if (!targetJob) return;
-  if (launchingTerminal) return;
   if (selectedJob !== targetJob) {
     selectedJob = targetJob;
   }
   renderJobMenu();
 
+  _runJobQueue = _runJobQueue.then(() => _runJobInner(targetJob, workspaceOverride));
+}
+
+async function _runJobInner(targetJob, workspaceOverride) {
   const workspace = workspaceOverride || selectedWorkspace;
   const job = JOBS[targetJob] || {};
   const tabLabel = targetJob === "terminal" ? (workspaceOverride || workspace) : (job.label || targetJob);
@@ -201,7 +206,8 @@ async function runJob(jobName = null, argsOverride = null, workspaceOverride = n
     let initialCommand = null;
     let tabIcon = null;
     if (targetJob === "terminal") {
-      tabIcon = { name: "mdi-terminal", color: "" };
+      const ws = allWorkspaces.find((w) => w.name === workspace);
+      tabIcon = ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : { name: "mdi-console", color: "" };
     } else if (job.script) {
       initialCommand = job.script;
       tabIcon = { name: job.icon || "mdi-play", color: job.icon_color || "" };
@@ -243,9 +249,12 @@ function updateIconSelectPreview(key) {
   const s = iconColorState[key];
   const preview = $(f.btnId).querySelector(".icon-select-preview");
   if (!preview) return;
-  const icon = s.icon || f.defaultIcon;
-  const label = isFaviconIcon(icon) ? icon.slice("favicon:".length) : (s.icon || "デフォルト");
-  preview.innerHTML = renderIcon(icon, s.color, 18) + " " + escapeHtml(label);
+  if (!s.icon) {
+    preview.innerHTML = '<span style="color:var(--text-muted)">アイコンを選択</span>';
+    return;
+  }
+  const label = isFaviconIcon(s.icon) ? s.icon.slice("favicon:".length) : s.icon;
+  preview.innerHTML = renderIcon(s.icon, s.color, 18) + " " + escapeHtml(label);
 }
 
 function initIconColorField(key, icon, color) {

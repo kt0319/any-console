@@ -96,9 +96,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("settings-modal").addEventListener("click", (e) => {
     if (e.target === $("settings-modal")) closeSettings();
   });
-  $("ws-icon-edit-modal").addEventListener("click", (e) => {
-    if (e.target === $("ws-icon-edit-modal")) closeWsIconEditModal();
-  });
   $("settings-clone").addEventListener("click", () => {
     closeSettings();
     openCloneModal();
@@ -117,6 +114,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     radio.addEventListener("change", () => switchItemCreateType(radio.value));
   }
   $("icon-picker-close").addEventListener("click", closeIconPicker);
+  $("icon-picker-clear").addEventListener("click", clearIconPicker);
   $("icon-picker-modal").addEventListener("click", (e) => {
     if (e.target === $("icon-picker-modal")) closeIconPicker();
   });

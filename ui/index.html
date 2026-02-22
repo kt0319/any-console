@@ -36,28 +36,6 @@
         <div id="settings-server-info-view" style="display:none">
           <div class="server-info-list" id="server-info-list"></div>
         </div>
-        <div id="settings-ws-icons" style="display:none">
-          <div class="ws-icon-list" id="ws-icon-list"></div>
-        </div>
-      </div>
-    </div>
-    <!-- WS Icon Edit Modal -->
-    <div id="ws-icon-edit-modal" class="modal-overlay" style="display:none">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>アイコン設定: <span id="ws-icon-edit-name"></span></h3>
-          <button type="button" onclick="closeWsIconEditModal()" class="modal-close-btn">&times;</button>
-        </div>
-        <div class="form-group">
-          <label class="form-label">アイコン</label>
-          <div class="icon-select-row">
-            <button type="button" id="ws-icon-btn" class="icon-select-btn"><span class="icon-select-preview"></span></button>
-          </div>
-        </div>
-        <div class="modal-actions">
-          <button type="button" onclick="closeWsIconEditModal()">キャンセル</button>
-          <button type="button" class="primary" style="width:auto" onclick="submitWsIconEdit()">保存</button>
-        </div>
       </div>
     </div>
     <!-- Clone Modal -->
@@ -295,6 +273,7 @@
       <div class="modal icon-picker-modal">
         <div class="modal-header">
           <h3>アイコン選択</h3>
+          <button type="button" id="icon-picker-clear" class="icon-picker-clear-btn">クリア</button>
           <button type="button" id="icon-picker-close" class="modal-close-btn">&times;</button>
         </div>
         <div class="icon-picker-input-row">

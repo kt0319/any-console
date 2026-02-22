@@ -187,6 +187,10 @@ function connectTerminalWs(tab) {
     scrollTimer = setTimeout(() => { tab.term.scrollToBottom(); scrollTimer = null; }, 200);
   };
 
+  ws.onerror = () => {
+    console.error("WebSocket error:", tab.wsUrl);
+  };
+
   ws.onclose = (e) => {
     tab.ws = null;
     if (tab._wsDisposed) return;
@@ -444,7 +448,7 @@ function renderTabBar() {
       clearTimeout(longPressTimer);
       if (didLongPress) e.preventDefault();
     });
-    btn.addEventListener("touchmove", () => clearTimeout(longPressTimer));
+    btn.addEventListener("touchmove", () => clearTimeout(longPressTimer), { passive: true });
     btn.addEventListener("click", (e) => {
       if (e.target.classList.contains("tab-close") || didLongPress) return;
       switchTab(btn.dataset.tab);
@@ -509,16 +513,10 @@ function showTerminalWsPicker() {
 
     const header = document.createElement("div");
     header.className = "picker-ws-header";
-    if (ws.icon) {
-      const wsIconEl = document.createElement("span");
-      wsIconEl.className = "picker-ws-favicon";
-      wsIconEl.innerHTML = renderIcon(ws.icon, ws.icon_color, 16);
-      header.appendChild(wsIconEl);
-    }
     const headerLabel = document.createElement("button");
     headerLabel.type = "button";
     headerLabel.className = "picker-ws-header-label";
-    headerLabel.textContent = ws.name;
+    headerLabel.innerHTML = renderIcon(ws.icon || "mdi-console", ws.icon_color, 16) + " " + escapeHtml(ws.name);
     headerLabel.addEventListener("click", () => {
       closeTerminalWsPicker();
       runJob("terminal", null, ws.name);
