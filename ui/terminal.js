@@ -119,7 +119,7 @@ function joinOrphanSession(wsUrl, workspace) {
 function updateQuickInputVisibility() {
   const el = $("quick-input");
   if (!el) return;
-  el.style.display = panelBottom ? "" : "none";
+  el.style.display = isTouchDevice ? "" : "none";
 }
 
 function fitAndSync(tab) {
@@ -295,7 +295,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
       clearTimeout(longPressTimer);
       if (didLongPress) { e.preventDefault(); return; }
       if (container.classList.contains("copy-mode")) return;
-      if (panelBottom) showKeyboardInput();
+      if (isTouchDevice) showKeyboardInput();
     });
     container.addEventListener("touchmove", () => clearTimeout(longPressTimer), { passive: true });
   }

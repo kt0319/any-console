@@ -6,7 +6,15 @@ let selectedWorkspace = null;
 let runningJobName = null;
 let launchingTerminal = false;
 let cachedBranches = [];
-let panelBottom = window.matchMedia("(max-width: 768px)").matches;
+const panelBottomMql = window.matchMedia("(max-width: 768px) and (orientation: portrait)");
+let panelBottom = panelBottomMql.matches;
+const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+panelBottomMql.addEventListener("change", (e) => {
+  panelBottom = e.matches;
+  applyPanelBottom();
+  updateQuickInputVisibility();
+  renderTabBar();
+});
 
 let tabs = [];
 let activeTabId = null;
