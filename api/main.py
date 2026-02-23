@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import logging
+import platform
 import re
 import secrets
 import shutil
@@ -70,46 +71,119 @@ async def upload_image(file: UploadFile):
     return {"status": "ok", "path": str(filepath)}
 
 
-@app.get("/system/info", dependencies=[Depends(verify_token)])
-def get_system_info():
-    info = {}
+IS_DARWIN = platform.system() == "Darwin"
 
-    info["hostname"] = socket.gethostname()
 
+def _get_ip() -> str | None:
+    if not IS_DARWIN:
+        try:
+            result = subprocess.run(
+                ["hostname", "-I"], capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
+            )
+            if result.returncode == 0:
+                addrs = result.stdout.strip().split()
+                if addrs:
+                    return addrs[0]
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
     try:
-        result = subprocess.run(
-            ["hostname", "-I"], capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
-        )
-        if result.returncode == 0:
-            addrs = result.stdout.strip().split()
-            info["ip"] = addrs[0] if addrs else ""
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        info["ip"] = ""
+        return socket.gethostbyname(socket.gethostname())
+    except socket.gaierror:
+        return None
 
+
+def _get_os_name() -> str | None:
+    if IS_DARWIN:
+        mac_ver = platform.mac_ver()[0]
+        return f"macOS {mac_ver}" if mac_ver else "macOS"
     try:
         os_release = Path("/etc/os-release").read_text(encoding="utf-8")
         for line in os_release.splitlines():
             if line.startswith("PRETTY_NAME="):
-                info["os"] = line.split("=", 1)[1].strip('"')
-                break
+                return line.split("=", 1)[1].strip('"')
     except OSError:
         pass
+    return None
 
+
+def _get_uptime() -> str | None:
+    if IS_DARWIN:
+        try:
+            result = subprocess.run(
+                ["sysctl", "-n", "kern.boottime"],
+                capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
+            )
+            if result.returncode == 0:
+                m = re.search(r"sec\s*=\s*(\d+)", result.stdout)
+                if m:
+                    boot_sec = int(m.group(1))
+                    elapsed = int(time.time()) - boot_sec
+                    days, rem = divmod(elapsed, 86400)
+                    hours, rem = divmod(rem, 3600)
+                    minutes = rem // 60
+                    parts = []
+                    if days:
+                        parts.append(f"{days} day{'s' if days != 1 else ''}")
+                    if hours:
+                        parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
+                    if minutes:
+                        parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
+                    return "up " + ", ".join(parts) if parts else "up 0 minutes"
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+        return None
     try:
         result = subprocess.run(
             ["uptime", "-p"], capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
         )
         if result.returncode == 0:
-            info["uptime"] = result.stdout.strip()
+            return result.stdout.strip()
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
+    return None
 
+
+def _get_cpu_temp() -> str | None:
+    if IS_DARWIN:
+        return None
     try:
         temp_raw = Path("/sys/class/thermal/thermal_zone0/temp").read_text().strip()
-        info["cpu_temp"] = f"{int(temp_raw) / 1000:.1f} °C"
+        return f"{int(temp_raw) / 1000:.1f} °C"
     except (OSError, ValueError):
-        pass
+        return None
 
+
+def _get_memory() -> str | None:
+    if IS_DARWIN:
+        try:
+            result = subprocess.run(
+                ["sysctl", "-n", "hw.memsize"],
+                capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
+            )
+            if result.returncode != 0:
+                return None
+            total_bytes = int(result.stdout.strip())
+
+            result = subprocess.run(
+                ["vm_stat"], capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
+            )
+            if result.returncode != 0:
+                return None
+            page_size = 16384
+            ps_match = re.search(r"page size of (\d+) bytes", result.stdout)
+            if ps_match:
+                page_size = int(ps_match.group(1))
+            free_pages = 0
+            for key in ("Pages free", "Pages inactive", "Pages speculative"):
+                m = re.search(rf"{key}:\s+(\d+)", result.stdout)
+                if m:
+                    free_pages += int(m.group(1))
+            available_bytes = free_pages * page_size
+            total_gb = total_bytes / (1024 ** 3)
+            used_gb = (total_bytes - available_bytes) / (1024 ** 3)
+            return f"{used_gb:.1f} / {total_gb:.1f} GB"
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
+            return None
     try:
         meminfo = Path("/proc/meminfo").read_text(encoding="utf-8")
         mem = {}
@@ -121,9 +195,28 @@ def get_system_info():
             total_gb = mem["MemTotal"] / 1024 / 1024
             available_gb = mem.get("MemAvailable", 0) / 1024 / 1024
             used_gb = total_gb - available_gb
-            info["memory"] = f"{used_gb:.1f} / {total_gb:.1f} GB"
+            return f"{used_gb:.1f} / {total_gb:.1f} GB"
     except (OSError, ValueError):
         pass
+    return None
+
+
+@app.get("/system/info", dependencies=[Depends(verify_token)])
+def get_system_info():
+    info = {}
+
+    info["hostname"] = socket.gethostname()
+
+    for key, getter in [
+        ("ip", _get_ip),
+        ("os", _get_os_name),
+        ("uptime", _get_uptime),
+        ("cpu_temp", _get_cpu_temp),
+        ("memory", _get_memory),
+    ]:
+        value = getter()
+        if value is not None:
+            info[key] = value
 
     try:
         usage = shutil.disk_usage("/")
