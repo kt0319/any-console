@@ -529,7 +529,7 @@ function addJobEditHandlers(btn, workspace, jobName, job) {
       label: job.label || jobName,
       icon: job.icon,
       iconColor: job.icon_color,
-      scriptContent: job.script_content || "",
+      command: job.command || "",
     });
   });
 }

@@ -115,9 +115,8 @@ function openJobConfirmModal(name) {
       argsContainer.appendChild(group);
     }
   } else {
-    const commands = extractCommands(job.script_content || "");
-    if (commands) {
-      const preview = escapeHtml(commands.length > 300 ? commands.slice(0, 300) + "..." : commands);
+    if (job.command) {
+      const preview = escapeHtml(job.command.length > 300 ? job.command.slice(0, 300) + "..." : job.command);
       argsContainer.innerHTML = `<pre class="script-preview">${preview}</pre>`;
     }
   }
@@ -138,23 +137,6 @@ function collectConfirmArgs() {
     if (checked) args[arg.name] = checked.value;
   }
   return args;
-}
-
-function extractCommands(content) {
-  if (!content) return "";
-  return content
-    .split("\n")
-    .filter((line) => {
-      const trimmed = line.trim();
-      if (!trimmed) return false;
-      if (trimmed.startsWith("#")) return false;
-      if (trimmed === "set -euo pipefail") return false;
-      if (trimmed === "set -eu") return false;
-      if (trimmed === "set -e") return false;
-      return true;
-    })
-    .join("\n")
-    .trim();
 }
 
 function collectArgs() {
@@ -218,8 +200,8 @@ async function _runJobInner(targetJob, workspaceOverride) {
     if (targetJob === "terminal") {
       const ws = allWorkspaces.find((w) => w.name === workspace);
       tabIcon = ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : { name: "mdi-console", color: "" };
-    } else if (job.script) {
-      initialCommand = job.script;
+    } else if (job.command) {
+      initialCommand = job.command;
       tabIcon = { name: job.icon || "mdi-play", color: job.icon_color || "" };
     }
     addTerminalTab(data.ws_url, workspace, null, false, false, initialCommand, tabIcon);
@@ -331,21 +313,21 @@ async function submitItemCreate() {
 async function submitJobCreate() {
   const workspace = $("item-create-modal").dataset.workspace;
   const name = $("job-create-name").value.trim();
-  const script = $("job-create-script").value;
+  const command = $("job-create-script").value;
 
   if (!name) {
     showFormError("item-create-error", "ジョブ名を入力してください");
     return;
   }
-  if (!script.trim()) {
-    showFormError("item-create-error", "スクリプトを入力してください");
+  if (!command.trim()) {
+    showFormError("item-create-error", "コマンドを入力してください");
     return;
   }
 
   try {
     const res = await apiFetch(workspaceApiPath(workspace, "/jobs"), {
       method: "POST",
-      body: { name, script, icon: iconColorState.jobCreate.icon, icon_color: iconColorState.jobCreate.color },
+      body: { name, command, icon: iconColorState.jobCreate.icon, icon_color: iconColorState.jobCreate.color },
     });
     if (!res) return;
     const data = await res.json();
@@ -404,7 +386,7 @@ function openItemEditModal(type, data) {
   } else {
     modal.dataset.jobName = data.name;
     $("job-edit-name").value = data.name;
-    $("job-edit-script").value = data.scriptContent || "";
+    $("job-edit-script").value = data.command || "";
     initIconColorField("jobEdit", data.icon, data.iconColor);
   }
 
@@ -453,16 +435,16 @@ async function submitItemEdit() {
       showFormError("item-edit-error", e.message);
     }
   } else {
-    const script = $("job-edit-script").value;
-    if (!script.trim()) {
-      showFormError("item-edit-error", "スクリプトを入力してください");
+    const command = $("job-edit-script").value;
+    if (!command.trim()) {
+      showFormError("item-edit-error", "コマンドを入力してください");
       return;
     }
     const jobName = modal.dataset.jobName;
     try {
       const res = await apiFetch(workspaceApiPath(workspace, `/jobs/${encodeURIComponent(jobName)}`), {
         method: "PUT",
-        body: { script, icon: iconColorState.jobEdit.icon, icon_color: iconColorState.jobEdit.color },
+        body: { command, icon: iconColorState.jobEdit.icon, icon_color: iconColorState.jobEdit.color },
       });
       if (!res) return;
       const data = await res.json();

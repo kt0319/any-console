@@ -34,7 +34,7 @@ BACKGROUND_EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
 
 def workspace_config_dir(workspace_name: str) -> Path:
-    return CONFIG_DIR / "workspaces" / workspace_name
+    return CONFIG_DIR / workspace_name
 
 
 def migrate_workspace_config(workspace_name: str, workspace_path: Path) -> None:
@@ -43,6 +43,7 @@ def migrate_workspace_config(workspace_name: str, workspace_path: Path) -> None:
         return
     import shutil
     source_dirs = [
+        CONFIG_DIR / "workspaces" / workspace_name,
         OLD_CONFIG_DIR / "workspaces" / workspace_name,
         workspace_path / OLD_WORKSPACE_CONFIG_DIR,
     ]

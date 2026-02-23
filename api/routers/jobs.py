@@ -28,83 +28,49 @@ logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(verify_token)])
 
 
-def get_workspace_jobs_dir(workspace_name):
-    jobs_dir = workspace_config_dir(workspace_name) / "jobs"
-    jobs_dir.mkdir(parents=True, exist_ok=True)
-    return jobs_dir
+def get_jobs_file(workspace_name):
+    return workspace_config_dir(workspace_name) / "jobs.json"
 
 
-def parse_script_metadata(script_path):
-    metadata = {"open_url": "", "icon": "", "icon_color": ""}
+def load_workspace_jobs_data(workspace_name):
+    jobs_file = get_jobs_file(workspace_name)
+    if not jobs_file.is_file():
+        return {}
     try:
-        content = script_path.read_text(encoding="utf-8")
-    except OSError:
-        return metadata
-    for line in content.splitlines():
-        stripped = line.strip()
-        if not stripped.startswith("#"):
-            if stripped and not stripped.startswith("set "):
-                break
-            continue
-        if stripped.startswith("# open-url:"):
-            metadata["open_url"] = stripped.split(":", 1)[1].strip()
-        elif stripped.startswith("# icon-color:"):
-            metadata["icon_color"] = stripped.split(":", 1)[1].strip()
-        elif stripped.startswith("# icon:"):
-            metadata["icon"] = stripped.split(":", 1)[1].strip()
-    return metadata
+        return json.loads(jobs_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
 
 
-def get_workspace_custom_jobs(workspace_name):
-    jobs_dir = get_workspace_jobs_dir(workspace_name)
-    custom = {}
-    for script_path in sorted(jobs_dir.glob("*.sh")):
-        if not script_path.is_file():
-            continue
-        job_name = script_path.stem
-        metadata = parse_script_metadata(script_path)
-        custom[job_name] = JobDefinition(
-            script=str(script_path),
-            label=job_name,
-            description=f"Workspace custom job: {job_name}",
-            args=[],
-            script_path=script_path,
-            icon=metadata["icon"],
-            icon_color=metadata["icon_color"],
-        )
-    return custom
+def save_workspace_jobs_data(workspace_name, data):
+    jobs_file = get_jobs_file(workspace_name)
+    jobs_file.parent.mkdir(parents=True, exist_ok=True)
+    jobs_file.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def get_workspace_jobs(workspace_name):
     if not workspace_name:
         return {}
-    return get_workspace_custom_jobs(workspace_name)
-
-
-def read_script_content(job_def):
-    try:
-        return job_def.script_path.read_text(encoding="utf-8")
-    except OSError:
-        return ""
+    data = load_workspace_jobs_data(workspace_name)
+    jobs = {}
+    for name, entry in data.items():
+        jobs[name] = JobDefinition(
+            command=entry.get("command", ""),
+            label=entry.get("label", name),
+            description=entry.get("description", ""),
+            icon=entry.get("icon", ""),
+            icon_color=entry.get("icon_color", ""),
+        )
+    return jobs
 
 
 def job_definition_to_dict(job_def):
     return {
         "label": job_def.label,
         "description": job_def.description,
-        "script": job_def.script,
-        "script_content": read_script_content(job_def),
+        "command": job_def.command,
         "icon": job_def.icon,
         "icon_color": job_def.icon_color,
-        "args": [
-            {
-                "name": arg.name,
-                "values": arg.values,
-                "required": arg.required,
-                "dynamic": arg.dynamic,
-            }
-            for arg in job_def.args
-        ],
     }
 
 
@@ -117,8 +83,7 @@ def list_workspace_jobs(name: str):
 
 class CreateJobRequest(BaseModel):
     name: str
-    label: str = ""
-    script: str
+    command: str
     icon: str = ""
     icon_color: str = ""
 
@@ -129,22 +94,25 @@ def create_workspace_job(name: str, body: CreateJobRequest):
     job_name = body.name.strip()
     if not job_name or not re.match(r"^[a-zA-Z0-9_-]+$", job_name):
         raise HTTPException(status_code=400, detail="ジョブ名は英数字・ハイフン・アンダースコアのみ")
-    jobs_dir = get_workspace_jobs_dir(name)
-    script_path = jobs_dir / f"{job_name}.sh"
-    if script_path.exists():
+    command = body.command.strip()
+    if not command:
+        raise HTTPException(status_code=400, detail="コマンドが空です")
+    data = load_workspace_jobs_data(name)
+    if job_name in data:
         raise HTTPException(status_code=409, detail=f"ジョブ '{job_name}' は既に存在します")
-    script_content = body.script.strip()
-    if not script_content:
-        raise HTTPException(status_code=400, detail="スクリプト内容が空です")
-    script_content = build_script_with_metadata(script_content, body.icon.strip(), body.icon_color.strip())
-    script_path.write_text(script_content + "\n", encoding="utf-8")
-    script_path.chmod(0o755)
+    entry = {"command": command}
+    if body.icon.strip():
+        entry["icon"] = body.icon.strip()
+    if body.icon_color.strip():
+        entry["icon_color"] = body.icon_color.strip()
+    data[job_name] = entry
+    save_workspace_jobs_data(name, data)
     logger.info("job created workspace=%s job=%s", name, job_name)
     return {"status": "ok", "name": job_name}
 
 
 class UpdateJobRequest(BaseModel):
-    script: str
+    command: str
     icon: str = ""
     icon_color: str = ""
 
@@ -152,16 +120,19 @@ class UpdateJobRequest(BaseModel):
 @router.put("/workspaces/{name}/jobs/{job_name}")
 def update_workspace_job(name: str, job_name: str, body: UpdateJobRequest):
     resolve_workspace_path(name)
-    jobs_dir = get_workspace_jobs_dir(name)
-    script_path = jobs_dir / f"{job_name}.sh"
-    if not script_path.is_file():
+    data = load_workspace_jobs_data(name)
+    if job_name not in data:
         raise HTTPException(status_code=404, detail=f"ジョブ '{job_name}' が見つかりません")
-    script_content = body.script.strip()
-    if not script_content:
-        raise HTTPException(status_code=400, detail="スクリプト内容が空です")
-    script_content = build_script_with_metadata(script_content, body.icon.strip(), body.icon_color.strip())
-    script_path.write_text(script_content + "\n", encoding="utf-8")
-    script_path.chmod(0o755)
+    command = body.command.strip()
+    if not command:
+        raise HTTPException(status_code=400, detail="コマンドが空です")
+    entry = {"command": command}
+    if body.icon.strip():
+        entry["icon"] = body.icon.strip()
+    if body.icon_color.strip():
+        entry["icon_color"] = body.icon_color.strip()
+    data[job_name] = entry
+    save_workspace_jobs_data(name, data)
     logger.info("job updated workspace=%s job=%s", name, job_name)
     return {"status": "ok", "name": job_name}
 
@@ -169,11 +140,11 @@ def update_workspace_job(name: str, job_name: str, body: UpdateJobRequest):
 @router.delete("/workspaces/{name}/jobs/{job_name}")
 def delete_workspace_job(name: str, job_name: str):
     resolve_workspace_path(name)
-    jobs_dir = get_workspace_jobs_dir(name)
-    script_path = jobs_dir / f"{job_name}.sh"
-    if not script_path.is_file():
+    data = load_workspace_jobs_data(name)
+    if job_name not in data:
         raise HTTPException(status_code=404, detail=f"ジョブ '{job_name}' が見つかりません")
-    script_path.unlink()
+    del data[job_name]
+    save_workspace_jobs_data(name, data)
     logger.info("job deleted workspace=%s job=%s", name, job_name)
     return {"status": "ok", "name": job_name}
 
@@ -200,22 +171,6 @@ def normalize_url(url):
         url = "http://" + url
     return url
 
-
-def build_script_with_metadata(script_content: str, icon: str, icon_color: str) -> str:
-    header = "#!/usr/bin/env bash\nset -euo pipefail\n"
-    metadata_lines = ""
-    if icon:
-        metadata_lines += f"# icon: {icon}\n"
-    if icon_color:
-        metadata_lines += f"# icon-color: {icon_color}\n"
-    if not script_content.startswith("#!"):
-        header += metadata_lines + "\n"
-        return header + script_content
-    if metadata_lines:
-        lines = script_content.split("\n", 1)
-        rest = lines[1] if len(lines) > 1 else ""
-        return f"{lines[0]}\n{metadata_lines}{rest}"
-    return script_content
 
 
 def build_link_entry(label: str, url: str, icon: str, icon_color: str) -> dict:

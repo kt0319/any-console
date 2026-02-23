@@ -12,18 +12,16 @@ class ArgOption:
 
 @dataclass
 class JobDefinition:
-    script: str
+    command: str
     label: str
     description: str
     args: list[ArgOption] = field(default_factory=list)
-    script_path: Path | None = None
     icon: str = ""
     icon_color: str = ""
 
 
 TERMINAL_JOB = JobDefinition(
-    script="",
+    command="",
     label="ターミナル",
     description="Webターミナル起動",
-    args=[],
 )
