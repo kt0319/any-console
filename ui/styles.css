@@ -871,6 +871,15 @@ header .ws-select-wrap {
 }
 
 
+@keyframes tab-activity-glow {
+  0%, 100% { background: var(--bg-primary); }
+  50% { background: rgba(130, 170, 255, 0.25); }
+}
+
+.tab-btn.tab-activity {
+  animation: tab-activity-glow 2s ease-in-out 6;
+}
+
 .tab-btn.orphan {
   border: 1px dashed var(--text-muted);
   color: var(--text-muted);
@@ -2203,6 +2212,9 @@ button:disabled {
 @media (min-width: 769px) {
   .quick-input {
     display: none !important;
+  }
+  .panel-bottom .quick-input {
+    display: flex !important;
   }
 }
 

@@ -1,6 +1,8 @@
 let sessionKeepaliveTimer = null;
 let lastVisibleTime = Date.now();
 
+const OSC_TITLE_RE = /\x1b\]0;/;
+
 function startSessionKeepalive() {
   stopSessionKeepalive();
   sessionKeepaliveTimer = setInterval(pingTerminalSessions, 5 * 60 * 1000);
@@ -119,7 +121,8 @@ function joinOrphanSession(wsUrl, workspace) {
 function updateQuickInputVisibility() {
   const el = $("quick-input");
   if (!el) return;
-  el.style.display = isTouchDevice ? "" : "none";
+  const show = isTouchDevice || panelBottom;
+  el.style.display = show ? "" : "none";
 }
 
 function fitAndSync(tab) {
@@ -181,12 +184,25 @@ function connectTerminalWs(tab) {
   };
 
   ws.onmessage = (e) => {
+    let hasOscTitle = false;
     if (e.data instanceof ArrayBuffer) {
       if (e.data.byteLength === 0) return;
-      tab.term.write(new Uint8Array(e.data));
+      const arr = new Uint8Array(e.data);
+      hasOscTitle = arr.length >= 3 && arr.includes(0x1b) && arr.includes(0x5d);
+      tab.term.write(arr);
     } else {
       if (e.data.length === 0) return;
+      hasOscTitle = OSC_TITLE_RE.test(e.data);
       tab.term.write(e.data);
+    }
+    if (hasOscTitle && tab.id !== activeTabId && !tab._activity) {
+      tab._activity = true;
+      clearTimeout(tab._activityTimer);
+      tab._activityTimer = setTimeout(() => {
+        tab._activity = false;
+        renderTabBar();
+      }, 12000);
+      renderTabBar();
     }
     if (tab._waitingInitialCommand && tab._initialCommand) {
       const cmd = tab._initialCommand;
@@ -300,6 +316,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
     container.addEventListener("touchmove", () => clearTimeout(longPressTimer), { passive: true });
   }
 
+
   const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
   tabs.push(tab);
 
@@ -363,6 +380,8 @@ function removeTab(id) {
 
 async function switchTab(id) {
   activeTabId = id;
+  const switchedTab = tabs.find((t) => t.id === id);
+  if (switchedTab) switchedTab._activity = false;
   $("output").style.display = id === null ? "" : "none";
   for (const tab of tabs) {
     const el = $(`frame-${tab.id}`);
@@ -428,13 +447,15 @@ function renderTabBar() {
     const iconHtml = tab.icon
       ? renderIcon(tab.icon.name, tab.icon.color, 14) + " "
       : "";
+    const actCls = tab._activity ? " tab-activity" : "";
     if (panelBottom) {
       const wsIconHtml = tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14) + " " : "";
-      html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}" data-tab="${tab.id}">`
+      html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}${actCls}" data-tab="${tab.id}">`
         + `${wsIconHtml}${iconHtml}</button>`;
     } else {
-      html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}" data-tab="${tab.id}">`
-        + `${iconHtml}${escapeHtml(tab.label)}<span class="tab-close" data-close="${tab.id}">&times;</span></button>`;
+      const wsIconHtml = tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14) + " " : "";
+      html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}${actCls}" data-tab="${tab.id}">`
+        + `${wsIconHtml}${escapeHtml(tab.label)} ${iconHtml}<span class="tab-close" data-close="${tab.id}">&times;</span></button>`;
     }
   }
   for (const s of orphanSessions) {
@@ -446,8 +467,10 @@ function renderTabBar() {
       html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
         + `${owsIconHtml}${orphanIcon}</button>`;
     } else {
+      const ows = s.workspace ? allWorkspaces.find((w) => w.name === s.workspace) : null;
+      const owsIconHtml = ows && ows.icon ? renderIcon(ows.icon, ows.icon_color, 14) + " " : "";
       html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
-        + `${orphanIcon}${escapeHtml(label)}</button>`;
+        + `${owsIconHtml}${escapeHtml(label)} ${orphanIcon}</button>`;
     }
   }
   html += '<button class="tab-add-btn" id="tab-add-btn" title="ターミナル・ジョブを開く">+</button>';
@@ -469,7 +492,10 @@ function renderTabBar() {
     }, { passive: true });
     btn.addEventListener("touchend", (e) => {
       clearTimeout(longPressTimer);
-      if (didLongPress) e.preventDefault();
+      if (didLongPress) {
+        e.preventDefault();
+        didLongPress = false;
+      }
     });
     btn.addEventListener("touchmove", () => clearTimeout(longPressTimer), { passive: true });
     btn.addEventListener("click", (e) => {

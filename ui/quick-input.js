@@ -74,6 +74,13 @@ function createQuickKeyBtn(keyDef) {
   btn.className = "quick-key";
   if (keyDef.html) btn.innerHTML = keyDef.html;
   else btn.textContent = keyDef.label;
+  const activate = () => {
+    if (keyDef.xtermScroll) {
+      scrollTerminal(keyDef.xtermScroll);
+    } else {
+      sendKeyToTerminal(keyDef);
+    }
+  };
   btn.addEventListener("touchstart", (e) => {
     e.preventDefault();
     btn.classList.add("pressed");
@@ -81,13 +88,19 @@ function createQuickKeyBtn(keyDef) {
   btn.addEventListener("touchend", (e) => {
     e.preventDefault();
     btn.classList.remove("pressed");
-    if (keyDef.xtermScroll) {
-      scrollTerminal(keyDef.xtermScroll);
-    } else {
-      sendKeyToTerminal(keyDef);
-    }
+    activate();
   });
   btn.addEventListener("touchcancel", () => btn.classList.remove("pressed"));
+  btn.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    btn.classList.add("pressed");
+  });
+  btn.addEventListener("mouseup", (e) => {
+    if (e.button !== 0) return;
+    btn.classList.remove("pressed");
+    activate();
+  });
+  btn.addEventListener("mouseleave", () => btn.classList.remove("pressed"));
   return btn;
 }
 
@@ -189,8 +202,7 @@ function initQuickInput() {
       chip.className = "quick-snippet-item";
       chip.textContent = s.label;
       let longPressTimer = null;
-      chip.addEventListener("touchstart", (e) => {
-        e.preventDefault();
+      const startPress = () => {
         chip.classList.add("pressed");
         longPressTimer = setTimeout(() => {
           longPressTimer = null;
@@ -200,9 +212,8 @@ function initQuickInput() {
             renderSnippetRow();
           }
         }, 600);
-      }, { passive: false });
-      chip.addEventListener("touchend", (e) => {
-        e.preventDefault();
+      };
+      const endPress = () => {
         chip.classList.remove("pressed");
         if (longPressTimer !== null) {
           clearTimeout(longPressTimer);
@@ -211,29 +222,36 @@ function initQuickInput() {
           extraMode = 0;
           applyMode();
         }
-      });
-      chip.addEventListener("touchcancel", () => {
+      };
+      const cancelPress = () => {
         chip.classList.remove("pressed");
         if (longPressTimer !== null) {
           clearTimeout(longPressTimer);
           longPressTimer = null;
         }
-      });
+      };
+      chip.addEventListener("touchstart", (e) => { e.preventDefault(); startPress(); }, { passive: false });
+      chip.addEventListener("touchend", (e) => { e.preventDefault(); endPress(); });
+      chip.addEventListener("touchcancel", cancelPress);
+      chip.addEventListener("mousedown", (e) => { if (e.button === 0) startPress(); });
+      chip.addEventListener("mouseup", (e) => { if (e.button === 0) endPress(); });
+      chip.addEventListener("mouseleave", cancelPress);
       snippetRow.appendChild(chip);
     });
 
     const addChip = document.createElement("div");
     addChip.className = "quick-snippet-item quick-snippet-add";
     addChip.textContent = "+";
-    addChip.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
-    addChip.addEventListener("touchend", (e) => {
-      e.preventDefault();
+    const addSnippetHandler = () => {
       const cmd = prompt("コマンドを入力:");
       if (cmd) {
         addSnippet(cmd);
         renderSnippetRow();
       }
-    });
+    };
+    addChip.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+    addChip.addEventListener("touchend", (e) => { e.preventDefault(); addSnippetHandler(); });
+    addChip.addEventListener("click", addSnippetHandler);
     snippetRow.appendChild(addChip);
   }
 
@@ -247,6 +265,7 @@ function initQuickInput() {
   const addTouchBtn = (el, handler) => {
     el.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
     el.addEventListener("touchend", (e) => { e.preventDefault(); handler(); });
+    el.addEventListener("click", handler);
   };
 
   const cycleMode = () => {
@@ -267,12 +286,14 @@ function initQuickInput() {
   };
   applyMode();
 
-  document.addEventListener("touchend", (e) => {
+  const closeExtraOnOutside = (e) => {
     if (extraMode > 0 && !e.target.closest(".quick-key-toggle") && !extraPanel.contains(e.target) && !qwertyPanel.contains(e.target) && !panel.contains(e.target) && !qwertyToggle.contains(e.target)) {
       extraMode = 0;
       applyMode();
     }
-  });
+  };
+  document.addEventListener("touchend", closeExtraOnOutside);
+  document.addEventListener("click", closeExtraOnOutside);
 
   addTouchBtn(toggleBtn, cycleMode);
   addTouchBtn(qwertyToggle, cycleMode);
