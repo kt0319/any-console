@@ -545,7 +545,7 @@ header .ws-select-wrap {
   order: 1;
   border-bottom: none;
   border-top: 1px solid var(--border);
-  padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
 }
 
 .main-panel.panel-bottom .tab-bar {
@@ -787,16 +787,6 @@ header .ws-select-wrap {
 
 .tab-bar::-webkit-scrollbar {
   display: none;
-}
-
-.tab-bar-settings-btn {
-  flex-shrink: 0;
-  padding: 4px 10px;
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 16px;
-  cursor: pointer;
 }
 
 .tab-btn {
@@ -1991,14 +1981,20 @@ button:disabled {
 /* Quick Input */
 .quick-input {
   position: fixed;
-  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-  left: calc(8px + env(safe-area-inset-left, 0px));
-  right: calc(8px + env(safe-area-inset-right, 0px));
+  bottom: 0;
+  left: 4px;
+  right: 4px;
   z-index: 40;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  padding-bottom: 4px;
+  pointer-events: none;
+}
+
+.quick-input > * {
+  pointer-events: auto;
 }
 
 .quick-input-panel {
@@ -2006,6 +2002,79 @@ button:disabled {
   flex-direction: row;
   gap: 4px;
   align-self: stretch;
+}
+
+
+.quick-input-panel.minimal-mode {
+  justify-content: flex-end;
+  width: 25%;
+  margin-left: auto;
+}
+
+.quick-flick-arrow,
+.quick-flick-enter {
+  position: relative;
+}
+
+.quick-flick-enter {
+  flex: 1.5;
+}
+
+.quick-flick-enter .flick-main,
+.quick-flick-arrow .flick-main {
+  font-size: 18px;
+}
+
+.quick-flick-enter .flick-hint-top,
+.quick-flick-enter .flick-hint-left {
+  position: absolute;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.quick-flick-enter .flick-hint-top {
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.quick-flick-enter .flick-hint-left {
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.quick-flick-arrow .flick-hint-top,
+.quick-flick-arrow .flick-hint-left,
+.quick-flick-arrow .flick-hint-right,
+.quick-flick-arrow .flick-hint-bottom {
+  position: absolute;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.quick-flick-arrow .flick-hint-top {
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.quick-flick-arrow .flick-hint-left {
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.quick-flick-arrow .flick-hint-right {
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.quick-flick-arrow .flick-hint-bottom {
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .quick-key {
@@ -2072,8 +2141,8 @@ button:disabled {
 
 .quick-snippet-row {
   display: flex;
-  gap: 6px;
-  padding: 2px 0;
+  gap: 4px;
+  padding: 0;
   overflow-x: auto;
   align-self: stretch;
   -webkit-overflow-scrolling: touch;

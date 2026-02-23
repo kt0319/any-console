@@ -269,7 +269,6 @@
       <div class="main-panel">
         <div class="tab-bar-row">
           <div class="tab-bar" id="tab-bar"></div>
-          <button type="button" class="tab-bar-settings-btn" onclick="openSettings()" title="設定"><span class="mdi mdi-cog"></span></button>
         </div>
         <div class="header-row2" id="header-row2">
           <button type="button" class="commit-msg-btn" id="header-commit-msg" title="コミット履歴"></button>
@@ -322,6 +321,7 @@
         </div>
         <div class="terminal-ws-list" id="terminal-ws-list"></div>
         <div class="menu-footer-row" id="terminal-ws-picker-footer" style="display:none"></div>
+        <div class="menu-footer-row"><button type="button" class="menu-footer-btn" onclick="closeTerminalWsPicker(); openSettings()"><span class="mdi mdi-cog"></span> 設定</button></div>
       </div>
     </div>
     <!-- Quick Input -->

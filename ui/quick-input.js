@@ -146,6 +146,39 @@ function initQuickInput() {
   toggleBtn.className = "quick-key quick-key-toggle";
   toggleBtn.innerHTML = '<span class="mdi mdi-keyboard-outline"></span>';
 
+  const minimalArrow = document.createElement("div");
+  minimalArrow.className = "quick-key quick-flick-arrow";
+  minimalArrow.innerHTML = '<span class="flick-hint-top">\u2191</span><span class="flick-hint-left">\u2190</span><span class="flick-main">\u2193</span><span class="flick-hint-right">\u2192</span><span class="flick-hint-bottom"><span class="mdi mdi-keyboard-outline"></span></span>';
+  const FLICK_THRESHOLD = 40;
+  let arrowStartX = 0, arrowStartY = 0;
+  minimalArrow.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    arrowStartX = e.touches[0].clientX;
+    arrowStartY = e.touches[0].clientY;
+    minimalArrow.classList.add("pressed");
+  }, { passive: false });
+  minimalArrow.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    minimalArrow.classList.remove("pressed");
+    const dx = e.changedTouches[0].clientX - arrowStartX;
+    const dy = e.changedTouches[0].clientY - arrowStartY;
+    let key;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > FLICK_THRESHOLD) {
+      key = dx < 0
+        ? { key: "ArrowLeft", code: "ArrowLeft", keyCode: 37 }
+        : { key: "ArrowRight", code: "ArrowRight", keyCode: 39 };
+    } else if (Math.abs(dy) > FLICK_THRESHOLD && dy < 0) {
+      key = { key: "ArrowUp", code: "ArrowUp", keyCode: 38 };
+    } else if (Math.abs(dy) > FLICK_THRESHOLD && dy > 0) {
+      cycleMode();
+      return;
+    } else {
+      key = { key: "ArrowDown", code: "ArrowDown", keyCode: 40 };
+    }
+    sendKeyToTerminal(key);
+  });
+  minimalArrow.addEventListener("touchcancel", () => minimalArrow.classList.remove("pressed"));
+  const minimalKeyBtns = [minimalArrow];
   const quickKeyBtns = QUICK_KEYS.map(k => createQuickKeyBtn(k));
   const extraKeyBtns = EXTRA_MAIN_KEYS.map(k => {
     const btn = createQuickKeyBtn(k);
@@ -176,27 +209,87 @@ function initQuickInput() {
   const imgBtn = createCameraBtn();
   const menuBtn = createCameraBtn();
 
+  const minimalEnter = document.createElement("div");
+  minimalEnter.className = "quick-key quick-flick-enter";
+  minimalEnter.innerHTML = '<span class="flick-hint-top">Del</span><span class="flick-hint-left">BS</span><span class="flick-main">\u21B5</span>';
+  let flickStartX = 0, flickStartY = 0;
+  minimalEnter.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    flickStartX = e.touches[0].clientX;
+    flickStartY = e.touches[0].clientY;
+    minimalEnter.classList.add("pressed");
+  }, { passive: false });
+  minimalEnter.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    minimalEnter.classList.remove("pressed");
+    const dx = e.changedTouches[0].clientX - flickStartX;
+    const dy = e.changedTouches[0].clientY - flickStartY;
+    if (Math.abs(dy) > Math.abs(dx) && dy < -FLICK_THRESHOLD) {
+      sendKeyToTerminal({ key: "Delete", code: "Delete", keyCode: 46 });
+    } else if (Math.abs(dx) > Math.abs(dy) && dx < -FLICK_THRESHOLD) {
+      sendKeyToTerminal({ key: "Backspace", code: "Backspace", keyCode: 8 });
+    } else {
+      sendKeyToTerminal({ key: "Enter", code: "Enter", keyCode: 13 });
+    }
+  });
+  minimalEnter.addEventListener("touchcancel", () => minimalEnter.classList.remove("pressed"));
+
   panel.appendChild(menuBtn);
-  panel.appendChild(imgBtn);
-  const middleKeys = quickKeyBtns.slice(0, -1);
+  for (const btn of minimalKeyBtns) panel.appendChild(btn);
+  panel.appendChild(minimalEnter);
+  const bsKey = quickKeyBtns[0];
   const enterKey = quickKeyBtns[quickKeyBtns.length - 1];
 
-  for (const btn of middleKeys) panel.appendChild(btn);
-  for (const btn of extraKeyBtns) panel.appendChild(btn);
+  const flickNav = document.createElement("div");
+  flickNav.className = "quick-key quick-flick-arrow";
+  flickNav.innerHTML = '<span class="flick-hint-top"><span class="mdi mdi-chevron-double-up"></span></span><span class="flick-hint-left">\u00AB</span><span class="flick-main"><span class="mdi mdi-chevron-double-down"></span></span><span class="flick-hint-right">\u00BB</span>';
+  let navStartX = 0, navStartY = 0;
+  flickNav.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    navStartX = e.touches[0].clientX;
+    navStartY = e.touches[0].clientY;
+    flickNav.classList.add("pressed");
+  }, { passive: false });
+  flickNav.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    flickNav.classList.remove("pressed");
+    const dx = e.changedTouches[0].clientX - navStartX;
+    const dy = e.changedTouches[0].clientY - navStartY;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > FLICK_THRESHOLD) {
+      sendKeyToTerminal(dx < 0
+        ? { key: "Home", code: "Home", keyCode: 36 }
+        : { key: "End", code: "End", keyCode: 35 });
+    } else if (Math.abs(dy) > FLICK_THRESHOLD && dy < 0) {
+      scrollTerminal("up");
+    } else {
+      scrollTerminal("down");
+    }
+  });
+  flickNav.addEventListener("touchcancel", () => flickNav.classList.remove("pressed"));
+
+  const delKey = createQuickKeyBtn({ label: "Del", key: "Delete", code: "Delete", keyCode: 46 });
+  const escKey2 = createQuickKeyBtn({ label: "Esc", key: "Escape", code: "Escape", keyCode: 27 });
+  const tabKey = createQuickKeyBtn({ label: "Tab", key: "Tab", code: "Tab", keyCode: 9 });
+
+  panel.appendChild(bsKey);
+  panel.appendChild(delKey);
+  panel.appendChild(escKey2);
+  panel.appendChild(tabKey);
+  panel.appendChild(flickNav);
   panel.appendChild(toggleBtn);
   panel.appendChild(enterKey);
 
   const extraPanel = document.createElement("div");
   extraPanel.className = "quick-extra-panel";
   extraPanel.style.display = "none";
-  const escKey = createQuickKeyBtn({ label: "Esc", key: "Escape", code: "Escape", keyCode: 27 });
-  for (const [keys, cls] of [[NUMBER_KEYS, "quick-extra-row"], [EXTRA_ROW_KEYS, "quick-extra-row"]]) {
-    const row = document.createElement("div");
-    row.className = cls;
-    for (const keyDef of keys) row.appendChild(createQuickKeyBtn(keyDef));
-    if (cls === "quick-extra-row" && keys === EXTRA_ROW_KEYS) row.appendChild(escKey);
-    extraPanel.appendChild(row);
-  }
+  const numberRow = document.createElement("div");
+  numberRow.className = "quick-extra-row";
+  for (const keyDef of NUMBER_KEYS) numberRow.appendChild(createQuickKeyBtn(keyDef));
+  extraPanel.appendChild(numberRow);
+  const combinedRow = document.createElement("div");
+  combinedRow.className = "quick-extra-row";
+  for (const keyDef of EXTRA_ROW_KEYS.slice(1)) combinedRow.appendChild(createQuickKeyBtn(keyDef));
+  extraPanel.appendChild(combinedRow);
 
   const qwertyPanel = document.createElement("div");
   qwertyPanel.className = "quick-extra-panel quick-qwerty-panel";
@@ -349,8 +442,8 @@ function initQuickInput() {
 
   let extraMode = 0;
 
-  const normalModeElements = [menuBtn, ...middleKeys];
-  const extraModeElements = [imgBtn, ...extraKeyBtns];
+  const minimalModeElements = [...minimalKeyBtns, minimalEnter];
+  const mergedModeElements = [menuBtn, bsKey, delKey, escKey2, tabKey, flickNav];
 
   const addTouchBtn = (el, handler) => {
     el.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
@@ -367,11 +460,14 @@ function initQuickInput() {
   };
 
   const applyMode = () => {
-    const active = extraMode > 0;
+    const active = extraMode === 1;
     toggleBtn.classList.toggle("active", active);
     panel.classList.toggle("extra-open", active);
-    for (const el of normalModeElements) el.style.display = extraMode === 0 ? "" : "none";
-    for (const el of extraModeElements) el.style.display = extraMode === 1 ? "" : "none";
+    panel.classList.toggle("minimal-mode", extraMode === 0);
+    for (const el of minimalModeElements) el.style.display = extraMode === 0 ? "" : "none";
+    for (const el of mergedModeElements) el.style.display = extraMode === 1 ? "" : "none";
+    toggleBtn.style.display = extraMode === 0 ? "none" : "";
+    enterKey.style.display = extraMode === 0 ? "none" : "";
     extraPanel.style.display = extraMode === 1 ? "flex" : "none";
     qwertyPanel.style.display = extraMode === 2 ? "flex" : "none";
     panel.style.display = extraMode === 2 ? "none" : "";
@@ -380,7 +476,7 @@ function initQuickInput() {
   applyMode();
 
   const closeExtraOnOutside = (e) => {
-    if (extraMode > 0 && !e.target.closest(".quick-key-toggle") && !extraPanel.contains(e.target) && !qwertyPanel.contains(e.target) && !panel.contains(e.target) && !qwertyToggle.contains(e.target)) {
+    if (extraMode > 1 && !e.target.closest(".quick-key-toggle") && !extraPanel.contains(e.target) && !qwertyPanel.contains(e.target) && !panel.contains(e.target) && !qwertyToggle.contains(e.target)) {
       extraMode = 0;
       applyMode();
     }
