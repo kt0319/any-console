@@ -61,6 +61,7 @@ def list_workspaces():
         config = load_workspace_config(workspace_dir.name)
         ws_data["icon"] = config.get("icon", "")
         ws_data["icon_color"] = config.get("icon_color", "")
+        ws_data["hidden"] = config.get("hidden", False)
     BACKGROUND_EXECUTOR.submit(_background_fetch, dirs)
     return result
 
@@ -68,6 +69,7 @@ def list_workspaces():
 class UpdateConfigRequest(BaseModel):
     icon: str = ""
     icon_color: str = ""
+    hidden: bool = False
 
 
 @router.put("/workspaces/{name}/config")
@@ -76,6 +78,7 @@ def update_workspace_config_endpoint(name: str, body: UpdateConfigRequest):
     config = load_workspace_config(name)
     config["icon"] = body.icon.strip()
     config["icon_color"] = body.icon_color.strip()
+    config["hidden"] = body.hidden
     save_workspace_config(name, config)
     logger.info("workspace config updated workspace=%s", name)
     return {"status": "ok"}

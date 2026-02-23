@@ -42,7 +42,7 @@ function openSettingsWsVisibility() {
   const list = $("ws-check-list");
   list.innerHTML = "";
   for (const ws of allWorkspaces) {
-    const visible = !hiddenWorkspaces.includes(ws.name);
+    const visible = !ws.hidden;
     const item = document.createElement("div");
     item.className = "ws-check-item";
 
@@ -205,20 +205,29 @@ function openWsIconPicker(ws) {
   }, ws.icon, ws.icon_color);
 }
 
-function toggleWorkspace(name, visible) {
-  let selectionCleared = false;
-  if (visible) {
-    hiddenWorkspaces = hiddenWorkspaces.filter((n) => n !== name);
-  } else {
-    if (!hiddenWorkspaces.includes(name)) {
-      hiddenWorkspaces.push(name);
+async function toggleWorkspace(name, visible) {
+  const ws = allWorkspaces.find((w) => w.name === name);
+  if (!ws) return;
+  const hidden = !visible;
+  try {
+    const res = await apiFetch(workspaceApiPath(name, "/config"), {
+      method: "PUT",
+      body: { icon: ws.icon || "", icon_color: ws.icon_color || "", hidden },
+    });
+    if (!res || !res.ok) {
+      showToast("設定の保存に失敗しました", "error");
+      return;
     }
-    if (selectedWorkspace === name) {
-      selectedWorkspace = null;
-      selectionCleared = true;
-    }
+  } catch (e) {
+    showToast(e.message, "error");
+    return;
   }
-  localStorage.setItem("hidden_workspaces", JSON.stringify(hiddenWorkspaces));
+  ws.hidden = hidden;
+  let selectionCleared = false;
+  if (!visible && selectedWorkspace === name) {
+    selectedWorkspace = null;
+    selectionCleared = true;
+  }
   renderWorkspaceSelects();
   if (selectionCleared) {
     updateHeaderInfo();

@@ -11,7 +11,7 @@ async function loadWorkspaces() {
 }
 
 function visibleWorkspaces() {
-  return allWorkspaces.filter((ws) => !hiddenWorkspaces.includes(ws.name));
+  return allWorkspaces.filter((ws) => !ws.hidden);
 }
 
 function renderWorkspaceSelects() {

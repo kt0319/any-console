@@ -3,7 +3,6 @@ let JOBS = {};
 let selectedJob = null;
 let allWorkspaces = [];
 let selectedWorkspace = null;
-let hiddenWorkspaces = JSON.parse(localStorage.getItem("hidden_workspaces") || "[]");
 let runningJobName = null;
 let launchingTerminal = false;
 let cachedBranches = [];
