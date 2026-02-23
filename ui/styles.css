@@ -1680,7 +1680,7 @@ button:disabled {
   flex: 1;
   overflow: auto;
   font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1.5;
   background: var(--bg-primary);
   border: 1px solid var(--border);
