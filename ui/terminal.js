@@ -97,9 +97,13 @@ function updateOrphanSessions() {
 
 function updateOrphanFromSessions(sessions) {
   const localWsUrls = new Set(tabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
+  const oldOrphans = new Map(orphanSessions.map((s) => [s.wsUrl, s]));
   orphanSessions = sessions
     .filter((s) => !localWsUrls.has(s.ws_url) && !closedSessionUrls.has(s.ws_url))
-    .map((s) => ({ wsUrl: s.ws_url, workspace: s.workspace, expiresIn: s.expires_in, icon: s.icon, iconColor: s.icon_color }));
+    .map((s, i) => {
+      const old = oldOrphans.get(s.ws_url);
+      return { wsUrl: s.ws_url, workspace: s.workspace, expiresIn: s.expires_in, icon: s.icon, iconColor: s.icon_color, tabIndex: old ? old.tabIndex : tabs.length + i };
+    });
   for (const url of closedSessionUrls) {
     if (!sessions.some((s) => s.ws_url === url)) closedSessionUrls.delete(url);
   }
@@ -111,11 +115,17 @@ function joinOrphanSession(wsUrl, workspace) {
   const tabIcon = orphan && orphan.icon ? { name: orphan.icon, color: orphan.iconColor || "" } : null;
   const ws = workspace ? allWorkspaces.find((w) => w.name === workspace) : null;
   const wsIcon = ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null;
-  addTerminalTab(wsUrl, label, null, false, false, null, tabIcon, wsIcon);
+  const insertIndex = orphan && orphan.tabIndex != null ? Math.min(orphan.tabIndex, tabs.length) : tabs.length;
+  addTerminalTab(wsUrl, label, null, true, false, null, tabIcon, wsIcon);
   const tab = tabs.find((t) => t.wsUrl === wsUrl);
-  if (tab) tab._pendingRedraw = true;
+  if (tab) {
+    tab._pendingRedraw = true;
+    tabs.splice(tabs.indexOf(tab), 1);
+    tabs.splice(insertIndex, 0, tab);
+  }
   orphanSessions = orphanSessions.filter((s) => s.wsUrl !== wsUrl);
-  renderTabBar();
+  saveTerminalTabs();
+  switchTab(tab ? tab.id : null);
 }
 
 function updateQuickInputVisibility() {
@@ -433,35 +443,42 @@ function renderTabBar() {
   barRow.style.display = "flex";
   const bar = $("tab-bar");
 
-  let html = "";
-  for (const tab of tabs) {
-    const iconHtml = tab.icon
-      ? renderIcon(tab.icon.name, tab.icon.color, 14) + " "
-      : "";
-    const actCls = tab._activity ? " tab-activity" : "";
-    if (panelBottom) {
-      const wsIconHtml = tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14) + " " : "";
-      html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}${actCls}" data-tab="${tab.id}">`
-        + `${wsIconHtml}${iconHtml}</button>`;
-    } else {
-      const wsIconHtml = tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14) + " " : "";
-      html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}${actCls}" data-tab="${tab.id}">`
-        + `${wsIconHtml}${escapeHtml(tab.label)} ${iconHtml}<span class="tab-close" data-close="${tab.id}">&times;</span></button>`;
-    }
-  }
+  const items = tabs.map((tab, i) => ({ type: "tab", tab, index: i }));
   for (const s of orphanSessions) {
-    const label = s.workspace || "terminal";
-    const orphanIcon = renderIcon(s.icon || "mdi-console", s.iconColor || "", 14) + " ";
-    if (panelBottom) {
-      const ows = s.workspace ? allWorkspaces.find((w) => w.name === s.workspace) : null;
-      const owsIconHtml = ows && ows.icon ? renderIcon(ows.icon, ows.icon_color, 14) + " " : "";
-      html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
-        + `${owsIconHtml}${orphanIcon}</button>`;
+    items.push({ type: "orphan", orphan: s, index: s.tabIndex != null ? s.tabIndex : items.length });
+  }
+  items.sort((a, b) => a.index - b.index);
+
+  let html = "";
+  for (const item of items) {
+    if (item.type === "tab") {
+      const tab = item.tab;
+      const iconHtml = tab.icon
+        ? renderIcon(tab.icon.name, tab.icon.color, 14) + " "
+        : "";
+      const actCls = tab._activity ? " tab-activity" : "";
+      if (panelBottom) {
+        const wsIconHtml = tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14) + " " : "";
+        html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}${actCls}" data-tab="${tab.id}">`
+          + `${wsIconHtml}${iconHtml}</button>`;
+      } else {
+        const wsIconHtml = tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14) + " " : "";
+        html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}${actCls}" data-tab="${tab.id}">`
+          + `${wsIconHtml}${escapeHtml(tab.label)} ${iconHtml}<span class="tab-close" data-close="${tab.id}">&times;</span></button>`;
+      }
     } else {
+      const s = item.orphan;
+      const label = s.workspace || "terminal";
+      const orphanIcon = renderIcon(s.icon || "mdi-console", s.iconColor || "", 14) + " ";
       const ows = s.workspace ? allWorkspaces.find((w) => w.name === s.workspace) : null;
       const owsIconHtml = ows && ows.icon ? renderIcon(ows.icon, ows.icon_color, 14) + " " : "";
-      html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
-        + `${owsIconHtml}${escapeHtml(label)} ${orphanIcon}</button>`;
+      if (panelBottom) {
+        html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
+          + `${owsIconHtml}${orphanIcon}</button>`;
+      } else {
+        html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
+          + `${owsIconHtml}${escapeHtml(label)} ${orphanIcon}</button>`;
+      }
     }
   }
   html += '<button class="tab-add-btn" id="tab-add-btn" title="ターミナル・ジョブを開く">+</button>';

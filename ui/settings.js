@@ -319,7 +319,10 @@ async function exportSettings() {
     const a = document.createElement("a");
     a.href = url;
     a.download = "pi-console-config.json";
+    a.style.display = "none";
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
     showToast("設定をエクスポートしました", "success");
   } catch (e) {

@@ -35,8 +35,10 @@ function updateViewportHeight() {
 function fitActiveTerminal() {
   const tab = tabs.find((t) => t.id === activeTabId);
   if (tab && tab.type === "terminal" && tab.fitAddon) {
-    try { tab.fitAddon.fit(); } catch {}
-    tab.term.scrollToBottom();
+    requestAnimationFrame(() => {
+      try { tab.fitAddon.fit(); } catch {}
+      tab.term.scrollToBottom();
+    });
   }
 }
 
