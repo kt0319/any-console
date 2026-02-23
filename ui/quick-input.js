@@ -150,16 +150,48 @@ function initQuickInput() {
     extraPanel.appendChild(row);
   }
 
-  let extraPanelOpen = false;
+  const qwertyPanel = document.createElement("div");
+  qwertyPanel.className = "quick-extra-panel quick-qwerty-panel";
+  qwertyPanel.style.display = "none";
+  for (let i = 0; i < QWERTY_ROWS.length; i++) {
+    const row = document.createElement("div");
+    row.className = "quick-extra-row";
+    for (const keyDef of QWERTY_ROWS[i]) row.appendChild(createQuickKeyBtn(keyDef));
+    if (i === 1) row.appendChild(createQuickKeyBtn({ label: "\u21B5", key: "Enter" }));
+    qwertyPanel.appendChild(row);
+  }
+  const qwertyBottomRow = document.createElement("div");
+  qwertyBottomRow.className = "quick-extra-row";
+  const qwertyBottomKeys = [
+    { label: "Tab", key: "Tab" },
+    { label: "Esc", key: "Escape" },
+    { label: "/", key: "/" },
+    { label: "-", key: "-" },
+    { label: ".", key: "." },
+  ];
+  for (const keyDef of qwertyBottomKeys) qwertyBottomRow.appendChild(createQuickKeyBtn(keyDef));
+  const qwertyToggle = document.createElement("div");
+  qwertyToggle.className = "quick-key quick-key-toggle active";
+  qwertyToggle.innerHTML = '<span class="mdi mdi-keyboard-outline"></span>';
+  qwertyBottomRow.appendChild(createQuickKeyBtn({ label: "@", key: "@" }));
+  qwertyBottomRow.appendChild(qwertyToggle);
+  qwertyBottomRow.appendChild(createQuickKeyBtn({ label: "\u2423", key: " " }));
+  qwertyPanel.appendChild(qwertyBottomRow);
+
+  let extraMode = 0;
 
   const normalModeElements = [menuBtn, ...middleKeys];
   const extraModeElements = [imgBtn, ...extraKeyBtns];
 
   const applyMode = () => {
-    toggleBtn.classList.toggle("active", extraPanelOpen);
-    for (const el of normalModeElements) el.style.display = extraPanelOpen ? "none" : "";
-    for (const el of extraModeElements) el.style.display = extraPanelOpen ? "" : "none";
-    extraPanel.style.display = extraPanelOpen ? "flex" : "none";
+    const active = extraMode > 0;
+    toggleBtn.classList.toggle("active", active);
+    panel.classList.toggle("extra-open", active);
+    for (const el of normalModeElements) el.style.display = extraMode === 0 ? "" : "none";
+    for (const el of extraModeElements) el.style.display = extraMode === 1 ? "" : "none";
+    extraPanel.style.display = extraMode === 1 ? "flex" : "none";
+    qwertyPanel.style.display = extraMode === 2 ? "flex" : "none";
+    panel.style.display = extraMode === 2 ? "none" : "";
   };
   applyMode();
 
@@ -169,16 +201,20 @@ function initQuickInput() {
   };
 
   document.addEventListener("touchend", (e) => {
-    if (extraPanelOpen && !e.target.closest(".quick-key-toggle") && !extraPanel.contains(e.target) && !panel.contains(e.target)) {
-      extraPanelOpen = false;
+    if (extraMode > 0 && !e.target.closest(".quick-key-toggle") && !extraPanel.contains(e.target) && !qwertyPanel.contains(e.target) && !panel.contains(e.target) && !qwertyToggle.contains(e.target)) {
+      extraMode = 0;
       applyMode();
     }
   });
 
-  addTouchBtn(toggleBtn, () => {
-    extraPanelOpen = !extraPanelOpen;
+  const cycleMode = () => {
+    extraMode = (extraMode + 1) % 3;
     applyMode();
-  });
+  };
+  addTouchBtn(toggleBtn, cycleMode);
+  addTouchBtn(qwertyToggle, cycleMode);
 
-  panel.parentNode.insertBefore(extraPanel, panel);
+  const parentEl = panel.parentNode;
+  parentEl.insertBefore(extraPanel, panel);
+  parentEl.insertBefore(qwertyPanel, panel);
 }

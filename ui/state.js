@@ -57,6 +57,11 @@ const EXTRA_ROW_KEYS = [
   { label: "/", key: "/", code: "Slash", keyCode: 191 },
   { label: "\u2423", key: " ", code: "Space", keyCode: 32 },
 ];
+const QWERTY_ROWS = [
+  "qwertyuiop".split("").map(c => ({ label: c, key: c })),
+  "asdfghjkl".split("").map(c => ({ label: c, key: c })),
+  [..."zxcvbnm".split("").map(c => ({ label: c, key: c })), { label: "⌫", key: "Backspace" }],
+];
 
 const AUTO_REFRESH_INTERVAL = 10000;
 let autoRefreshTimer = null;
