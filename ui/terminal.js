@@ -281,9 +281,24 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
     return true;
   });
 
-  container.addEventListener("click", () => {
-    if (panelBottom) showKeyboardInput();
-  });
+  {
+    let longPressTimer = null;
+    let didLongPress = false;
+    container.addEventListener("touchstart", () => {
+      didLongPress = false;
+      longPressTimer = setTimeout(() => {
+        didLongPress = true;
+        enterTerminalCopyMode(id);
+      }, 500);
+    }, { passive: true });
+    container.addEventListener("touchend", (e) => {
+      clearTimeout(longPressTimer);
+      if (didLongPress) { e.preventDefault(); return; }
+      if (container.classList.contains("copy-mode")) return;
+      if (panelBottom) showKeyboardInput();
+    });
+    container.addEventListener("touchmove", () => clearTimeout(longPressTimer), { passive: true });
+  }
 
   const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
   tabs.push(tab);
@@ -599,6 +614,60 @@ async function loadPickerWsIcons(container, ws) {
 
 function closeTerminalWsPicker() {
   $("terminal-ws-picker").style.display = "none";
+}
+
+function enterTerminalCopyMode(tabId) {
+  const tab = tabs.find((t) => t.id === tabId);
+  if (!tab || tab.type !== "terminal") return;
+  const container = $(`frame-${tabId}`);
+  if (!container || container.classList.contains("copy-mode")) return;
+
+  container.classList.add("copy-mode");
+
+  const wrapper = $("keyboard-input");
+  if (wrapper) {
+    const kbWrapper = wrapper.closest(".keyboard-input-wrapper");
+    if (kbWrapper) kbWrapper.style.display = "none";
+  }
+
+  const bar = document.createElement("div");
+  bar.className = "copy-mode-bar";
+  bar.innerHTML = '<button class="copy-mode-btn copy-mode-copy-btn">全コピー</button>'
+    + '<button class="copy-mode-btn copy-mode-close-btn">閉じる</button>';
+  container.appendChild(bar);
+
+  tab.term.selectAll();
+
+  const textarea = document.createElement("textarea");
+  textarea.className = "copy-mode-textarea";
+  textarea.readOnly = true;
+  textarea.value = tab.term.getSelection();
+  container.appendChild(textarea);
+  textarea.scrollTop = textarea.scrollHeight;
+
+  bar.querySelector(".copy-mode-copy-btn").addEventListener("click", () => {
+    const text = textarea.selectionStart !== textarea.selectionEnd
+      ? textarea.value.substring(textarea.selectionStart, textarea.selectionEnd)
+      : textarea.value;
+    copyToClipboard(text);
+    showToast("コピーしました", "success");
+  });
+
+  bar.querySelector(".copy-mode-close-btn").addEventListener("click", () => {
+    exitTerminalCopyMode(tabId);
+  });
+}
+
+function exitTerminalCopyMode(tabId) {
+  const container = $(`frame-${tabId}`);
+  if (!container) return;
+  container.classList.remove("copy-mode");
+  const bar = container.querySelector(".copy-mode-bar");
+  if (bar) bar.remove();
+  const textarea = container.querySelector(".copy-mode-textarea");
+  if (textarea) textarea.remove();
+  const tab = tabs.find((t) => t.id === tabId);
+  if (tab) tab.term.clearSelection();
 }
 
 document.addEventListener("paste", (e) => {
