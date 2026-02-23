@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="pi-console")
 
+BOOT_VERSION = str(int(time.time()))
+
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
 
 app.include_router(workspaces.router)
@@ -45,7 +47,7 @@ def shutdown_executor():
 
 @app.get("/auth/check", dependencies=[Depends(verify_token)])
 def auth_check():
-    return {"ok": True}
+    return {"ok": True, "boot": BOOT_VERSION}
 
 
 ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
@@ -227,9 +229,6 @@ def get_system_info():
         pass
 
     return info
-
-
-BOOT_VERSION = str(int(time.time()))
 
 
 @app.get("/")

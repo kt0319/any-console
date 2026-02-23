@@ -26,14 +26,17 @@ router = APIRouter(dependencies=[Depends(verify_token)])
 
 
 class TerminalSession:
-    __slots__ = ("workspace", "fd", "pid", "expires_at", "_read_lock")
+    __slots__ = ("workspace", "fd", "pid", "expires_at", "_read_lock", "icon", "icon_color")
 
-    def __init__(self, workspace: str | None, fd: int, pid: int, expires_at: float):
+    def __init__(self, workspace: str | None, fd: int, pid: int, expires_at: float,
+                 icon: str | None = None, icon_color: str | None = None):
         self.workspace = workspace
         self.fd = fd
         self.pid = pid
         self.expires_at = expires_at
         self._read_lock = threading.Lock()
+        self.icon = icon
+        self.icon_color = icon_color
 
 
 TERMINAL_SESSIONS: dict[str, TerminalSession] = {}
@@ -111,6 +114,8 @@ async def list_terminal_sessions():
             "workspace": s.workspace,
             "ws_url": f"/terminal/ws/{sid}",
             "expires_in": int(s.expires_at - now),
+            "icon": s.icon,
+            "icon_color": s.icon_color,
         }
         for sid, s in TERMINAL_SESSIONS.items()
     ]

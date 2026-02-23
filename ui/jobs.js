@@ -179,13 +179,23 @@ async function _runJobInner(targetJob, workspaceOverride) {
   job = job || {};
   const tabLabel = targetJob === "terminal" ? (workspaceOverride || workspace) : (job.label || targetJob);
 
+  let initialCommand = null;
+  let tabIcon = null;
+  if (targetJob === "terminal") {
+    const ws = allWorkspaces.find((w) => w.name === workspace);
+    tabIcon = ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : { name: "mdi-console", color: "" };
+  } else if (job.command) {
+    initialCommand = job.command;
+    tabIcon = { name: job.icon || "mdi-play", color: job.icon_color || "" };
+  }
+
   launchingTerminal = true;
   renderJobMenu();
 
   try {
     const res = await apiFetch("/run", {
       method: "POST",
-      body: { job: "terminal", args: {}, workspace },
+      body: { job: "terminal", args: {}, workspace, icon: tabIcon?.name, icon_color: tabIcon?.color },
     });
     if (!res) return;
 
@@ -195,16 +205,8 @@ async function _runJobInner(targetJob, workspaceOverride) {
       return;
     }
 
-    let initialCommand = null;
-    let tabIcon = null;
-    if (targetJob === "terminal") {
-      const ws = allWorkspaces.find((w) => w.name === workspace);
-      tabIcon = ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : { name: "mdi-console", color: "" };
-    } else if (job.command) {
-      initialCommand = job.command;
-      tabIcon = { name: job.icon || "mdi-play", color: job.icon_color || "" };
-    }
     addTerminalTab(data.ws_url, workspace, null, false, false, initialCommand, tabIcon);
+
   } catch (e) {
     showToast(`${tabLabel} エラー: ${e.message}`);
   } finally {

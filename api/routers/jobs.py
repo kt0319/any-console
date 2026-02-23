@@ -225,6 +225,8 @@ class RunRequest(BaseModel):
     job: str
     args: dict[str, str] = {}
     workspace: str | None = None
+    icon: str | None = None
+    icon_color: str | None = None
 
 
 @router.post("/run")
@@ -279,6 +281,8 @@ def execute_job(body: RunRequest):
             fd=fd,
             pid=pid,
             expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
+            icon=body.icon,
+            icon_color=body.icon_color,
         )
         logger.info("terminal session created session=%s pid=%d workspace=%s",
                      session_id, pid, body.workspace or "(none)")

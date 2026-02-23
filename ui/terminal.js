@@ -97,7 +97,7 @@ function updateOrphanFromSessions(sessions) {
   const localWsUrls = new Set(tabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
   orphanSessions = sessions
     .filter((s) => !localWsUrls.has(s.ws_url) && !closedSessionUrls.has(s.ws_url))
-    .map((s) => ({ wsUrl: s.ws_url, workspace: s.workspace, expiresIn: s.expires_in }));
+    .map((s) => ({ wsUrl: s.ws_url, workspace: s.workspace, expiresIn: s.expires_in, icon: s.icon, iconColor: s.icon_color }));
   for (const url of closedSessionUrls) {
     if (!sessions.some((s) => s.ws_url === url)) closedSessionUrls.delete(url);
   }
@@ -105,7 +105,11 @@ function updateOrphanFromSessions(sessions) {
 
 function joinOrphanSession(wsUrl, workspace) {
   const label = workspace || "terminal";
-  addTerminalTab(wsUrl, label);
+  const orphan = orphanSessions.find((s) => s.wsUrl === wsUrl);
+  const tabIcon = orphan && orphan.icon ? { name: orphan.icon, color: orphan.iconColor || "" } : null;
+  addTerminalTab(wsUrl, label, null, false, false, null, tabIcon);
+  const tab = tabs.find((t) => t.wsUrl === wsUrl);
+  if (tab) tab._pendingRedraw = true;
   orphanSessions = orphanSessions.filter((s) => s.wsUrl !== wsUrl);
   renderTabBar();
 }
@@ -409,8 +413,9 @@ function renderTabBar() {
   }
   for (const s of orphanSessions) {
     const label = s.workspace || "terminal";
+    const orphanIcon = renderIcon(s.icon || "mdi-console", s.iconColor || "", 14) + " ";
     html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
-      + `${escapeHtml(label)}</button>`;
+      + `${orphanIcon}${escapeHtml(label)}</button>`;
   }
   html += '<button class="tab-add-btn" id="tab-add-btn" title="ターミナル・ジョブを開く">+</button>';
   bar.innerHTML = html;

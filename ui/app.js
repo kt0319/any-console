@@ -19,6 +19,10 @@ async function initApp() {
     $("output").innerHTML = '<div class="empty-state"></div>';
   }
   updateQuickInputVisibility();
+  if (sessionStorage.getItem("pi_console_server_reloaded")) {
+    sessionStorage.removeItem("pi_console_server_reloaded");
+    showToast("サーバーが再起動されました");
+  }
 }
 
 function updateViewportHeight() {

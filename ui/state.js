@@ -55,6 +55,7 @@ const AUTO_REFRESH_INTERVAL = 10000;
 let autoRefreshTimer = null;
 let autoRefreshing = false;
 let serverDisconnected = false;
+let serverBootVersion = null;
 
 let handlingUnauthorized = false;
 
