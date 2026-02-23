@@ -107,7 +107,9 @@ function joinOrphanSession(wsUrl, workspace) {
   const label = workspace || "terminal";
   const orphan = orphanSessions.find((s) => s.wsUrl === wsUrl);
   const tabIcon = orphan && orphan.icon ? { name: orphan.icon, color: orphan.iconColor || "" } : null;
-  addTerminalTab(wsUrl, label, null, false, false, null, tabIcon);
+  const ws = workspace ? allWorkspaces.find((w) => w.name === workspace) : null;
+  const wsIcon = ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null;
+  addTerminalTab(wsUrl, label, null, false, false, null, tabIcon, wsIcon);
   const tab = tabs.find((t) => t.wsUrl === wsUrl);
   if (tab) tab._pendingRedraw = true;
   orphanSessions = orphanSessions.filter((s) => s.wsUrl !== wsUrl);
@@ -238,7 +240,7 @@ function connectTerminalWs(tab) {
 }
 
 
-function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCommand, tabIcon) {
+function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCommand, tabIcon, wsIcon) {
   const id = tabId || `term-${++terminalIdCounter}`;
   if (tabId) {
     const m = tabId.match(/^term-(\d+)$/);
@@ -283,7 +285,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
     if (panelBottom) showKeyboardInput();
   });
 
-  const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
+  const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
   tabs.push(tab);
 
   if (!restored) {
@@ -408,14 +410,27 @@ function renderTabBar() {
     const iconHtml = tab.icon
       ? renderIcon(tab.icon.name, tab.icon.color, 14) + " "
       : "";
-    html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}" data-tab="${tab.id}">`
-      + `${iconHtml}${escapeHtml(tab.label)}<span class="tab-close" data-close="${tab.id}">&times;</span></button>`;
+    if (panelBottom) {
+      const wsIconHtml = tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14) + " " : "";
+      html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}" data-tab="${tab.id}">`
+        + `${wsIconHtml}${iconHtml}</button>`;
+    } else {
+      html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}" data-tab="${tab.id}">`
+        + `${iconHtml}${escapeHtml(tab.label)}<span class="tab-close" data-close="${tab.id}">&times;</span></button>`;
+    }
   }
   for (const s of orphanSessions) {
     const label = s.workspace || "terminal";
     const orphanIcon = renderIcon(s.icon || "mdi-console", s.iconColor || "", 14) + " ";
-    html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
-      + `${orphanIcon}${escapeHtml(label)}</button>`;
+    if (panelBottom) {
+      const ows = s.workspace ? allWorkspaces.find((w) => w.name === s.workspace) : null;
+      const owsIconHtml = ows && ows.icon ? renderIcon(ows.icon, ows.icon_color, 14) + " " : "";
+      html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
+        + `${owsIconHtml}${orphanIcon}</button>`;
+    } else {
+      html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
+        + `${orphanIcon}${escapeHtml(label)}</button>`;
+    }
   }
   html += '<button class="tab-add-btn" id="tab-add-btn" title="ターミナル・ジョブを開く">+</button>';
   bar.innerHTML = html;
@@ -427,7 +442,9 @@ function renderTabBar() {
       didLongPress = false;
       longPressTimer = setTimeout(() => {
         didLongPress = true;
-        if (confirm(`「${btn.textContent.replace("×", "").trim()}」を閉じますか？`)) {
+        const tab = tabs.find((t) => t.id === btn.dataset.tab);
+        const tabName = tab ? tab.label : btn.textContent.replace("×", "").trim();
+        if (confirm(`「${tabName}」を閉じますか？`)) {
           removeTab(btn.dataset.tab);
         }
       }, 500);
@@ -530,7 +547,7 @@ async function loadPickerWsIcons(container, ws) {
     btn.type = "button";
     btn.className = "picker-ws-icon-btn picker-ws-link-btn";
     btn.title = link.label || link.url;
-    btn.innerHTML = renderIcon(link.icon || "mdi-web", link.icon_color, 16);
+    btn.innerHTML = renderIcon(link.icon || "mdi-web", link.icon_color, 20);
     btn.addEventListener("click", () => {
       if (!confirm(`${link.label || link.url} を開きますか？`)) return;
       window.open(link.url, "_blank");
@@ -545,7 +562,7 @@ async function loadPickerWsIcons(container, ws) {
     btn.type = "button";
     btn.className = "picker-ws-icon-btn";
     btn.title = job.label || name;
-    btn.innerHTML = renderIcon(job.icon || "mdi-play", job.icon_color, 16);
+    btn.innerHTML = renderIcon(job.icon || "mdi-play", job.icon_color, 20);
     btn.addEventListener("click", () => {
       if (!confirm(`${job.label || name} を実行しますか？`)) return;
       closeTerminalWsPicker();

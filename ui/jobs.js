@@ -181,12 +181,15 @@ async function _runJobInner(targetJob, workspaceOverride) {
 
   let initialCommand = null;
   let tabIcon = null;
+  let wsIcon = null;
+  const ws = allWorkspaces.find((w) => w.name === workspace);
+  const wsIconObj = ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : { name: "mdi-console", color: "" };
   if (targetJob === "terminal") {
-    const ws = allWorkspaces.find((w) => w.name === workspace);
-    tabIcon = ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : { name: "mdi-console", color: "" };
+    tabIcon = wsIconObj;
   } else if (job.command) {
     initialCommand = job.command;
     tabIcon = { name: job.icon || "mdi-play", color: job.icon_color || "" };
+    wsIcon = wsIconObj;
   }
 
   launchingTerminal = true;
@@ -205,7 +208,7 @@ async function _runJobInner(targetJob, workspaceOverride) {
       return;
     }
 
-    addTerminalTab(data.ws_url, workspace, null, false, false, initialCommand, tabIcon);
+    addTerminalTab(data.ws_url, workspace, null, false, false, initialCommand, tabIcon, wsIcon);
 
   } catch (e) {
     showToast(`${tabLabel} エラー: ${e.message}`);

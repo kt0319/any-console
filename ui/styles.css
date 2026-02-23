@@ -263,6 +263,7 @@ header .ws-select-wrap {
 
 .picker-ws-group {
   overflow: hidden;
+  border-bottom: 1px solid var(--border);
 }
 
 .picker-ws-header {
@@ -302,16 +303,16 @@ header .ws-select-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 32px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg-secondary);
   color: var(--text-secondary);
-  font-size: 16px;
+  font-size: 20px;
   cursor: pointer;
 }
 
@@ -320,7 +321,7 @@ header .ws-select-wrap {
 }
 
 .picker-ws-icon-btn .mdi {
-  font-size: 16px;
+  font-size: 20px;
 }
 
 .picker-ws-add-btn {
@@ -591,6 +592,10 @@ header .ws-select-wrap {
 
 .main-panel.panel-bottom .tab-btn {
   border-radius: 0 0 6px 6px;
+  padding: 6px 12px;
+  gap: 2px;
+  min-width: 80px;
+  justify-content: center;
 }
 
 .main-panel.panel-bottom .tab-add-btn {
@@ -2173,13 +2178,15 @@ button:disabled {
 }
 
 .picker-ws-icon-btn .favicon-icon {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
 }
 
 .tab-btn .favicon-icon {
   width: 14px;
   height: 14px;
+  pointer-events: none;
+  -webkit-touch-callout: none;
 }
 
 
