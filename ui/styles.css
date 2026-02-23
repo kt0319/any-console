@@ -230,6 +230,82 @@ header .ws-select-wrap {
   color: var(--text-primary);
 }
 
+.picker-top-bar {
+  display: flex;
+  align-items: center;
+  padding: 4px 4px 4px 12px;
+  flex-shrink: 0;
+  min-height: 36px;
+}
+
+.picker-top-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.picker-top-title:empty {
+  pointer-events: none;
+}
+
+.picker-close-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  margin-left: auto;
+  font-size: 20px;
+  line-height: 1;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.picker-main-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.picker-settings-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 12px;
+}
+
+.picker-settings-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
 .picker-type-icon {
   display: inline-flex;
   align-items: center;
@@ -560,6 +636,12 @@ header .ws-select-wrap {
   justify-content: center;
 }
 
+.main-panel.panel-bottom .tab-btn[data-tab="picker"] {
+  min-width: 40px;
+  max-width: 40px;
+  padding: 6px 0;
+}
+
 .main-panel.panel-bottom .tab-add-btn {
   border-radius: 0 0 6px 6px;
 }
@@ -807,6 +889,13 @@ header .ws-select-wrap {
   -webkit-user-select: none;
 }
 
+.tab-btn[data-tab="picker"] {
+  min-width: 40px;
+  max-width: 40px;
+  padding: 6px 0;
+  justify-content: center;
+}
+
 .tab-btn.active {
   background: var(--bg-tertiary);
   color: var(--text-primary);
@@ -905,6 +994,17 @@ header .ws-select-wrap {
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+.picker-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
 }
 
 .terminal-frame {
