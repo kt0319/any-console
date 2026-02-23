@@ -317,9 +317,9 @@ header .ws-select-wrap {
 }
 
 .picker-ws-icon-btn.picker-ws-file-btn {
-  background: var(--bg-tertiary);
-  border-color: var(--accent);
-  color: var(--accent);
+  background: none;
+  border: none;
+  color: var(--text-muted);
 }
 
 .picker-ws-icon-btn.picker-ws-link-btn {
