@@ -256,7 +256,14 @@ function connectTerminalWs(tab) {
 }
 
 
-function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCommand, tabIcon, wsIcon) {
+function tabDisplayName(tab) {
+  if (!tab) return "";
+  const parts = [tab.workspace || tab.label];
+  if (tab.jobName) parts.push(tab.jobName);
+  return parts.join(" / ");
+}
+
+function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCommand, tabIcon, wsIcon, jobName) {
   const id = tabId || `term-${++terminalIdCounter}`;
   if (tabId) {
     const m = tabId.match(/^term-(\d+)$/);
@@ -317,7 +324,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
   }
 
 
-  const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
+  const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, jobName: jobName || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
   tabs.push(tab);
 
   if (!restored) {
@@ -484,7 +491,7 @@ function renderTabBar() {
       longPressTimer = setTimeout(() => {
         didLongPress = true;
         const tab = tabs.find((t) => t.id === btn.dataset.tab);
-        const tabName = tab && tab.workspace ? `${tab.workspace} / ${tab.label}` : tab ? tab.label : btn.textContent.replace("×", "").trim();
+        const tabName = tabDisplayName(tab) || btn.textContent.replace("×", "").trim();
         if (confirm(`「${tabName}」を閉じますか？`)) {
           removeTab(btn.dataset.tab);
         }
@@ -513,7 +520,7 @@ function renderTabBar() {
       e.stopPropagation();
       const tabId = btn.dataset.close;
       const tab = tabs.find((t) => t.id === tabId);
-      const tabName = tab && tab.workspace ? `${tab.workspace} / ${tab.label}` : tab ? tab.label : "";
+      const tabName = tabDisplayName(tab);
       if (tabName && !confirm(`「${tabName}」を閉じますか？`)) return;
       removeTab(tabId);
     });

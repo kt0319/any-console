@@ -250,6 +250,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   $("branch-modal-close").addEventListener("click", closeBranchModal);
   $("diff-close").addEventListener("click", closeDiffModal);
+  $("diff-commit-cancel").addEventListener("click", closeCommitForm);
+  $("diff-commit-submit").addEventListener("click", submitCommit);
   $("item-create-cancel").addEventListener("click", closeItemCreateModal);
   $("item-create-submit").addEventListener("click", submitItemCreate);
   for (const radio of document.querySelectorAll('input[name="item-create-type"]')) {

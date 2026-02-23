@@ -697,6 +697,7 @@ async function openDiffModal() {
   actionsEl.innerHTML = "";
 
   const stashActions = [
+    { label: "コミット", cls: "", fn: () => openCommitForm() },
     { label: "stash", cls: "", fn: () => execStashAction("save") },
     { label: "stash pop", cls: "", fn: () => execStashAction("pop") },
   ];
@@ -728,8 +729,51 @@ async function openDiffModal() {
   }
 }
 
+function openCommitForm() {
+  $("diff-actions").style.display = "none";
+  $("diff-commit-message").value = "";
+  hideFormError("diff-commit-error");
+  $("diff-commit-form").style.display = "block";
+  $("diff-commit-message").focus();
+}
+
+function closeCommitForm() {
+  $("diff-commit-form").style.display = "none";
+  $("diff-actions").style.display = "flex";
+}
+
+async function submitCommit() {
+  const message = $("diff-commit-message").value.trim();
+  if (!message) {
+    showFormError("diff-commit-error", "コミットメッセージを入力してください");
+    return;
+  }
+  hideFormError("diff-commit-error");
+  $("diff-commit-submit").disabled = true;
+  try {
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/commit"), {
+      method: "POST",
+      body: { message },
+    });
+    if (!res) return;
+    const data = await res.json();
+    if (!res.ok || data.status !== "ok") {
+      showFormError("diff-commit-error", data.detail || data.stderr || "コミットに失敗しました");
+      return;
+    }
+    $("diff-modal").style.display = "none";
+    showToast("コミット完了", "success");
+    await updateHeaderInfo();
+  } catch (e) {
+    showFormError("diff-commit-error", e.message);
+  } finally {
+    $("diff-commit-submit").disabled = false;
+  }
+}
+
 function closeDiffModal() {
   $("diff-modal").style.display = "none";
+  $("diff-commit-form").style.display = "none";
   if (diffOpenedFromGitLog) {
     diffOpenedFromGitLog = false;
     $("git-log-modal").style.display = "flex";

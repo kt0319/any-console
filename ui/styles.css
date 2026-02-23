@@ -1883,6 +1883,25 @@ button:disabled {
   white-space: nowrap;
 }
 
+#diff-commit-form {
+  margin-top: auto;
+  padding: 12px 0 4px;
+  flex-shrink: 0;
+}
+
+#diff-commit-form textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 48px;
+  margin-bottom: 8px;
+}
+
+.diff-commit-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .diff-file-list {
   display: flex;
   flex-wrap: wrap;

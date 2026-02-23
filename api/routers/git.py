@@ -45,6 +45,10 @@ def list_remote_branches(name: str):
     return get_git_remote_branches(ws_path)
 
 
+class CommitRequest(BaseModel):
+    message: str
+
+
 class CheckoutRequest(BaseModel):
     branch: str
 
@@ -186,6 +190,20 @@ def git_reset(name: str, body: ResetRequest):
         timeout=GIT_LONG_TIMEOUT_SEC, operation="reset",
     )
     logger.info("reset workspace=%s mode=%s commit=%s rc=%d", name, body.mode, commit_hash[:8], result["exit_code"])
+    return result
+
+
+@router.post("/workspaces/{name}/commit")
+def git_commit(name: str, body: CommitRequest):
+    ws_path = resolve_workspace_path(name)
+    message = body.message.strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="コミットメッセージを入力してください")
+    add_result = run_git_command(["add", "-A"], cwd=ws_path, operation="add")
+    if add_result["exit_code"] != 0:
+        return add_result
+    result = run_git_command(["commit", "-m", message], cwd=ws_path, operation="commit")
+    logger.info("commit workspace=%s rc=%d", name, result["exit_code"])
     return result
 
 

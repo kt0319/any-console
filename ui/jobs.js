@@ -208,7 +208,8 @@ async function _runJobInner(targetJob, workspaceOverride) {
       return;
     }
 
-    addTerminalTab(data.ws_url, workspace, null, false, false, initialCommand, tabIcon, wsIcon);
+    const jobName = targetJob !== "terminal" ? (job.label || targetJob) : null;
+    addTerminalTab(data.ws_url, workspace, null, false, false, initialCommand, tabIcon, wsIcon, jobName);
 
   } catch (e) {
     showToast(`${tabLabel} エラー: ${e.message}`);
