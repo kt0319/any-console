@@ -2,7 +2,6 @@ async function loadJobsForWorkspace() {
   if (!selectedWorkspace) {
     JOBS = {};
     selectedJob = null;
-    renderJobMenu();
     $("output").innerHTML = '<div class="empty-state"></div>';
     return;
   }
@@ -19,60 +18,7 @@ async function loadJobsForWorkspace() {
   }
 
   selectedJob = null;
-  renderJobMenu();
   renderTabBar();
-}
-
-function renderJobMenu() {
-  const dropdown = $("menu-dropdown");
-  dropdown.querySelectorAll(".menu-dynamic").forEach((el) => el.remove());
-
-  if (!selectedWorkspace) {
-    renderSettingsMenuItems(dropdown, null);
-    return;
-  }
-
-  const refNode = null;
-  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
-  const currentBranch = ws ? ws.branch : null;
-
-  if (cachedBranches.length > 0) {
-    const branchSepTop = document.createElement("div");
-    branchSepTop.className = "menu-separator menu-dynamic";
-    dropdown.insertBefore(branchSepTop, refNode);
-
-    const branchLabel = document.createElement("div");
-    branchLabel.className = "menu-section-label menu-dynamic";
-    branchLabel.textContent = "ブランチ";
-    dropdown.insertBefore(branchLabel, refNode);
-
-    for (const b of cachedBranches) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "menu-item menu-dynamic";
-      btn.textContent = b === currentBranch ? `${b} ✓` : b;
-      if (b === currentBranch) btn.style.color = "var(--accent)";
-      btn.addEventListener("click", () => {
-        closeMenu();
-        if (b !== currentBranch) checkoutBranch(b);
-      });
-      dropdown.insertBefore(btn, refNode);
-    }
-
-    const moreBtn = document.createElement("button");
-    moreBtn.type = "button";
-    moreBtn.className = "menu-item menu-dynamic";
-    moreBtn.style.color = "var(--text-muted)";
-    moreBtn.textContent = "more...";
-    moreBtn.addEventListener("click", () => {
-      closeMenu();
-      openBranchModal();
-    });
-    dropdown.insertBefore(moreBtn, refNode);
-
-  }
-
-  renderSettingsMenuItems(dropdown, refNode);
 }
 
 function openJobConfirmModal(name) {
@@ -159,8 +105,6 @@ async function runJob(jobName = null, argsOverride = null, workspaceOverride = n
   if (selectedJob !== targetJob) {
     selectedJob = targetJob;
   }
-  renderJobMenu();
-
   _runJobQueue = _runJobQueue.then(() => _runJobInner(targetJob, workspaceOverride));
 }
 
@@ -193,7 +137,6 @@ async function _runJobInner(targetJob, workspaceOverride) {
   }
 
   launchingTerminal = true;
-  renderJobMenu();
 
   try {
     const res = await apiFetch("/run", {
@@ -215,7 +158,6 @@ async function _runJobInner(targetJob, workspaceOverride) {
     showToast(`${tabLabel} エラー: ${e.message}`);
   } finally {
     launchingTerminal = false;
-    renderJobMenu();
   }
 }
 

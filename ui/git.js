@@ -182,7 +182,6 @@ async function checkoutBranch(branch) {
 
     if (statusText === "ok") {
       await refreshAfterGitOp();
-      renderJobMenu();
     } else {
       const msg = data.detail || data.stderr || data.stdout || "checkout に失敗しました";
       showToast(msg);
@@ -327,7 +326,6 @@ async function submitCreateBranch() {
     }
     closeGitLogModal();
     await refreshAfterGitOp();
-    renderJobMenu();
   } catch (e) {
     showFormError("git-log-branch-error", e.message);
   } finally {
@@ -435,6 +433,48 @@ async function loadMoreGitLog() {
   }
 }
 
+function renderGitLogBranchBar() {
+  let bar = $("git-log-branch-bar");
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.id = "git-log-branch-bar";
+    bar.className = "git-log-branch-bar";
+    const listEl = $("git-log-list-modal");
+    listEl.parentNode.insertBefore(bar, listEl);
+  }
+  bar.innerHTML = "";
+
+  if (!selectedWorkspace || cachedBranches.length === 0) {
+    bar.style.display = "none";
+    return;
+  }
+  bar.style.display = "";
+
+  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
+  const currentBranch = ws ? ws.branch : null;
+
+  for (const b of cachedBranches) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "git-log-branch-btn" + (b === currentBranch ? " current" : "");
+    btn.textContent = b;
+    btn.addEventListener("click", async () => {
+      if (b === currentBranch) return;
+      await checkoutBranch(b);
+      await reloadGitLog();
+      renderGitLogBranchBar();
+    });
+    bar.appendChild(btn);
+  }
+
+  const moreBtn = document.createElement("button");
+  moreBtn.type = "button";
+  moreBtn.className = "git-log-branch-btn more";
+  moreBtn.textContent = "more...";
+  moreBtn.addEventListener("click", () => openBranchModal());
+  bar.appendChild(moreBtn);
+}
+
 async function reloadGitLog() {
   if (!selectedWorkspace) return;
 
@@ -475,6 +515,7 @@ async function reloadGitLog() {
 async function openGitLogModal() {
   if (!selectedWorkspace) return;
   $("git-log-modal").style.display = "flex";
+  renderGitLogBranchBar();
   await reloadGitLog();
 }
 

@@ -175,15 +175,3 @@ async function fetchWorkspace(name) {
   } catch {}
 }
 
-function toggleMenu() {
-  const modal = $("menu-modal");
-  if (modal.style.display === "none") {
-    modal.style.display = "flex";
-  } else {
-    closeMenu();
-  }
-}
-
-function closeMenu() {
-  $("menu-modal").style.display = "none";
-}

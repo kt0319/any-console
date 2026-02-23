@@ -210,7 +210,8 @@ header .ws-select-wrap {
 
 .terminal-ws-list {
   overflow-y: auto;
-  max-height: 60vh;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -336,19 +337,6 @@ header .ws-select-wrap {
   border-style: dashed;
 }
 
-
-.picker-ws-settings-btn {
-  width: 100%;
-  padding: 8px 12px;
-  margin-top: 4px;
-  font-size: 13px;
-  color: var(--text-muted);
-  background: none;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
-  text-align: center;
-}
 
 .header-date {
   font-size: 12px;
@@ -540,38 +528,6 @@ header .ws-select-wrap {
   overflow: hidden;
 }
 
-
-/* Menu separator & job state */
-.menu-separator {
-  height: 1px;
-  background: var(--border);
-  margin: 4px 0;
-}
-
-.menu-job-item .job-state {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  font-size: 11px;
-  color: var(--accent);
-  animation: spin-dot 0.9s linear infinite;
-}
-
-@keyframes spin-dot {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.menu-job-add {
-  color: var(--text-muted) !important;
-}
-
-.menu-job-url-icon {
-  color: var(--text-muted);
-  font-size: 14px;
-}
 
 /* Main panel */
 .main-panel {
@@ -1242,65 +1198,33 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.menu-btn {
+
+.menu-footer-row {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+}
+
+.menu-footer-btn {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  min-height: 36px;
-  max-height: 36px;
-  box-sizing: border-box;
-  padding: 0;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-primary);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.menu-btn.active {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-
-.menu-modal {
-  max-width: 360px;
-}
-
-.menu-modal-body {
-  overflow-y: auto;
-  flex: 1;
-}
-
-.menu-section-label {
-  padding: 8px 12px 4px;
+  gap: 4px;
+  padding: 6px 4px;
   font-size: 11px;
-  font-weight: 600;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.menu-item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 10px 12px;
-  font-size: 15px;
-  background: none;
-  border: none;
-  border-radius: 0;
-  color: var(--text-primary);
-  text-decoration: none;
   cursor: pointer;
-  min-height: auto;
-  min-width: auto;
 }
 
+.menu-footer-btn .mdi {
+  font-size: 14px;
+}
 
 /* Settings modal */
 .modal-overlay {
@@ -1708,6 +1632,46 @@ button:disabled {
   max-width: 90vw;
   height: 90vh;
   width: 700px;
+}
+
+.git-log-branch-bar {
+  display: flex;
+  gap: 6px;
+  padding: 8px 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.git-log-branch-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.git-log-branch-btn {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  font-size: 12px;
+  min-height: 32px;
+  min-width: auto;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.git-log-branch-btn.current {
+  background: rgba(130, 170, 255, 0.2);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.git-log-branch-btn.more {
+  color: var(--text-muted);
 }
 
 /* Git log modal */

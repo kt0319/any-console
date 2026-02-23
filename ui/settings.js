@@ -13,28 +13,6 @@ function closeSettings() {
   $("settings-modal").style.display = "none";
 }
 
-function renderSettingsMenuItems(dropdown, refNode) {
-  const sep = document.createElement("div");
-  sep.className = "menu-separator menu-dynamic";
-  dropdown.insertBefore(sep, refNode);
-
-  const label = document.createElement("div");
-  label.className = "menu-section-label menu-dynamic";
-  label.textContent = "設定";
-  dropdown.insertBefore(label, refNode);
-
-  const infoBtn = document.createElement("button");
-  infoBtn.type = "button";
-  infoBtn.className = "menu-item menu-dynamic";
-  infoBtn.textContent = "サーバー情報";
-  infoBtn.addEventListener("click", () => {
-    closeMenu();
-    openSettingsServerInfo();
-  });
-  dropdown.insertBefore(infoBtn, refNode);
-
-}
-
 function openSettingsWsVisibility() {
   $("settings-title").textContent = "ワークスペース設定";
   $("settings-ws-visibility").style.display = "";

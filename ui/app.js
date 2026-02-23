@@ -9,7 +9,6 @@ async function initApp() {
   await updateHeaderInfo();
   setLoadingStatus("ジョブを読み込み中...");
   await loadJobsForWorkspace();
-  renderJobMenu();
   localStorage.removeItem("pi_console_terminal_tabs");
   localStorage.removeItem("pi_console_active_tab");
   await fetchOrphanSessions();
@@ -229,20 +228,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     closeJobConfirmModal();
     runJob(null, args);
   });
-  $("menu-btn").addEventListener("click", () => toggleMenu());
-  $("menu-close").addEventListener("click", closeMenu);
-  $("menu-modal").addEventListener("click", (e) => {
-    if (e.target === $("menu-modal")) closeMenu();
-  });
   $("settings-close").addEventListener("click", closeSettings);
   $("settings-modal").addEventListener("click", (e) => {
     if (e.target === $("settings-modal")) closeSettings();
   });
-  $("settings-clone").addEventListener("click", () => {
-    closeSettings();
-    openCloneModal();
-  });
-  applyPanelBottom();
+applyPanelBottom();
   $("clone-cancel").addEventListener("click", closeCloneModal);
   $("clone-submit").addEventListener("click", submitClone);
   for (const tab of document.querySelectorAll(".clone-tab")) {
