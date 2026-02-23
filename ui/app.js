@@ -256,6 +256,7 @@ applyPanelBottom();
   for (const key of Object.keys(ICON_COLOR_FIELDS)) {
     setupIconPickerBtn(key);
   }
+  $("git-log-branch-btn").addEventListener("click", openLocalBranchModal);
   $("fetch-btn").addEventListener("click", gitFetch);
   $("pull-btn").addEventListener("click", gitPull);
   $("push-btn").addEventListener("click", gitPush);

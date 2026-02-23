@@ -1634,44 +1634,53 @@ button:disabled {
   width: 700px;
 }
 
-.git-log-branch-bar {
+.git-log-sub-header {
   display: flex;
-  gap: 6px;
-  padding: 8px 6px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
 }
 
-.git-log-branch-bar::-webkit-scrollbar {
-  display: none;
+.git-log-sub-header .fetch-btn {
+  margin-left: auto;
 }
 
-.git-log-branch-btn {
-  flex-shrink: 0;
-  padding: 4px 12px;
-  font-size: 12px;
+.git-log-branch-select-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 24px 0 10px;
   min-height: 32px;
   min-width: auto;
+  font-size: 12px;
+  font-weight: 600;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: 4px;
-  color: var(--text-primary);
+  color: var(--accent);
   cursor: pointer;
   white-space: nowrap;
+  overflow: hidden;
+  max-width: 60%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2382aaff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
 }
 
-.git-log-branch-btn.current {
-  background: rgba(130, 170, 255, 0.2);
-  border-color: var(--accent);
-  color: var(--accent);
-  font-weight: 600;
+.git-log-branch-select-btn .mdi {
+  flex-shrink: 0;
 }
 
-.git-log-branch-btn.more {
+.git-log-branch-select-btn #git-log-branch-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.branch-item-action {
   color: var(--text-muted);
+  font-style: italic;
 }
 
 /* Git log modal */
