@@ -169,15 +169,3 @@ function renderIcon(icon, iconColor, size = 16) {
   return `<span class="mdi ${escapeHtml(icon)}"${colorStyle}></span>`;
 }
 
-function addLongPressEditHandler(btn, openEditFn) {
-  let holdTimer = null;
-  const startHold = () => { holdTimer = setTimeout(openEditFn, 600); };
-  const cancelHold = () => clearTimeout(holdTimer);
-  btn.addEventListener("contextmenu", (e) => { e.preventDefault(); openEditFn(); });
-  btn.addEventListener("touchstart", startHold, { passive: true });
-  btn.addEventListener("touchend", cancelHold);
-  btn.addEventListener("touchmove", cancelHold, { passive: true });
-  btn.addEventListener("mousedown", (e) => { if (e.button === 0) startHold(); });
-  btn.addEventListener("mouseup", cancelHold);
-  btn.addEventListener("mouseleave", cancelHold);
-}

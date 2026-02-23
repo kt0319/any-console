@@ -371,10 +371,11 @@ async function submitLinkCreate() {
   }
 }
 
-function openItemEditModal(type, data) {
+function openItemEditModal(type, data, source) {
   const modal = $("item-edit-modal");
   modal.dataset.type = type;
   modal.dataset.workspace = data.workspace;
+  modal.dataset.source = source || "picker";
   $("item-edit-title").textContent = type === "link" ? "リンク編集" : "ジョブ編集";
   hideFormError("item-edit-error");
 
@@ -400,6 +401,7 @@ function openItemEditModal(type, data) {
       await deleteJob(data.name, data.workspace);
     }
     closeItemEditModal();
+    reopenAfterItemEdit(modal.dataset.source);
   };
   $("item-edit-save").onclick = () => submitItemEdit();
   $("item-edit-close").onclick = closeItemEditModal;
@@ -432,7 +434,7 @@ async function submitItemEdit() {
       }
       closeItemEditModal();
       showToast("リンクを更新しました", "success");
-      showTerminalWsPicker();
+      reopenAfterItemEdit(modal.dataset.source);
     } catch (e) {
       showFormError("item-edit-error", e.message);
     }
@@ -456,10 +458,18 @@ async function submitItemEdit() {
       }
       closeItemEditModal();
       await loadJobsForWorkspace();
-      showTerminalWsPicker();
+      reopenAfterItemEdit(modal.dataset.source);
     } catch (e) {
       showFormError("item-edit-error", e.message);
     }
+  }
+}
+
+function reopenAfterItemEdit(source) {
+  if (source === "settings") {
+    openSettingsWsVisibility();
+  } else {
+    showTerminalWsPicker();
   }
 }
 

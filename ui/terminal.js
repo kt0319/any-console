@@ -462,33 +462,6 @@ function renderTabBar() {
   if (activeBtn) activeBtn.scrollIntoView({ inline: "nearest", block: "nearest" });
 }
 
-function addLinkEditHandlers(btn, workspace, index, link) {
-  addLongPressEditHandler(btn, () => {
-    closeTerminalWsPicker();
-    openItemEditModal("link", {
-      workspace, index,
-      label: link.label || link.url,
-      url: link.url,
-      icon: link.icon,
-      iconColor: link.icon_color,
-    });
-  });
-}
-
-function addJobEditHandlers(btn, workspace, jobName, job) {
-  addLongPressEditHandler(btn, () => {
-    closeTerminalWsPicker();
-    openItemEditModal("job", {
-      workspace,
-      name: jobName,
-      label: job.label || jobName,
-      icon: job.icon,
-      iconColor: job.icon_color,
-      command: job.command || "",
-    });
-  });
-}
-
 function showTerminalWsPicker() {
   const list = $("terminal-ws-list");
   if (!list) return;
@@ -563,7 +536,6 @@ async function loadPickerWsIcons(container, ws) {
       window.open(link.url, "_blank");
       closeTerminalWsPicker();
     });
-    addLinkEditHandlers(btn, ws.name, i, link);
     container.appendChild(btn);
   }
 
@@ -579,21 +551,9 @@ async function loadPickerWsIcons(container, ws) {
       closeTerminalWsPicker();
       runJob(name, null, ws.name);
     });
-    addJobEditHandlers(btn, ws.name, name, job);
     container.appendChild(btn);
   }
 
-  const addBtn = document.createElement("button");
-  addBtn.type = "button";
-  addBtn.className = "picker-ws-icon-btn picker-ws-add-btn";
-  addBtn.title = "追加";
-  addBtn.innerHTML = "+";
-  addBtn.addEventListener("click", () => {
-    closeTerminalWsPicker();
-    selectedWorkspace = ws.name;
-    openItemCreateModal(ws.name, "link");
-  });
-  container.appendChild(addBtn);
 }
 
 

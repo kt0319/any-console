@@ -54,20 +54,37 @@ function openSettingsWsVisibility() {
       toggleWorkspace(ws.name, e.target.checked);
     });
 
-    const label = document.createElement("span");
-    label.className = "ws-check-label";
-    label.textContent = ws.name;
-
     const iconBtn = document.createElement("button");
     iconBtn.type = "button";
     iconBtn.className = "ws-icon-edit-btn";
     iconBtn.innerHTML = ws.icon ? renderIcon(ws.icon, ws.icon_color, 18) : '<span class="mdi mdi-console" style="color:var(--text-muted)"></span>';
     iconBtn.addEventListener("click", () => openWsIconPicker(ws));
 
+    const label = document.createElement("span");
+    label.className = "ws-check-label";
+    label.textContent = ws.name;
+
+    const iconsWrap = document.createElement("div");
+    iconsWrap.className = "ws-setting-icons";
+
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "ws-add-item-btn";
+    addBtn.innerHTML = '<i class="mdi mdi-plus"></i>';
+    addBtn.addEventListener("click", () => {
+      $("settings-modal").style.display = "none";
+      selectedWorkspace = ws.name;
+      openItemCreateModal(ws.name, "job");
+    });
+
     item.appendChild(checkbox);
-    item.appendChild(label);
     item.appendChild(iconBtn);
+    item.appendChild(label);
+    item.appendChild(iconsWrap);
+    item.appendChild(addBtn);
     list.appendChild(item);
+
+    loadSettingsWsIcons(iconsWrap, ws);
   }
   $("settings-modal").style.display = "flex";
 }
@@ -108,6 +125,60 @@ async function openSettingsServerInfo() {
     }
   } catch (e) {
     list.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function loadSettingsWsIcons(container, ws) {
+  let jobs = {};
+  let links = [];
+  try {
+    const [jobsRes, linksRes] = await Promise.all([
+      apiFetch(workspaceApiPath(ws.name, "/jobs")),
+      apiFetch(workspaceApiPath(ws.name, "/links")),
+    ]);
+    if (jobsRes && jobsRes.ok) jobs = await jobsRes.json();
+    if (linksRes && linksRes.ok) links = await linksRes.json();
+  } catch {}
+
+  for (let i = 0; i < links.length; i++) {
+    const link = links[i];
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "picker-ws-icon-btn picker-ws-link-btn";
+    btn.title = link.label || link.url;
+    btn.innerHTML = renderIcon(link.icon || "mdi-web", link.icon_color, 16);
+    btn.addEventListener("click", () => {
+      $("settings-modal").style.display = "none";
+      openItemEditModal("link", {
+        workspace: ws.name, index: i,
+        label: link.label || link.url,
+        url: link.url,
+        icon: link.icon,
+        iconColor: link.icon_color,
+      }, "settings");
+    });
+    container.appendChild(btn);
+  }
+
+  const entries = Object.entries(jobs).filter(([name]) => name !== "terminal");
+  for (const [name, job] of entries) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "picker-ws-icon-btn";
+    btn.title = job.label || name;
+    btn.innerHTML = renderIcon(job.icon || "mdi-play", job.icon_color, 16);
+    btn.addEventListener("click", () => {
+      $("settings-modal").style.display = "none";
+      openItemEditModal("job", {
+        workspace: ws.name,
+        name,
+        label: job.label || name,
+        icon: job.icon,
+        iconColor: job.icon_color,
+        command: job.command || "",
+      }, "settings");
+    });
+    container.appendChild(btn);
   }
 }
 

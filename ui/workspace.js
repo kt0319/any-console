@@ -97,7 +97,7 @@ async function refreshCurrentWorkspaceStatus() {
   const ws = await res.json();
   const idx = allWorkspaces.findIndex((w) => w.name === selectedWorkspace);
   if (idx >= 0) {
-    allWorkspaces[idx] = ws;
+    allWorkspaces[idx] = { ...allWorkspaces[idx], ...ws };
   }
   await updateHeaderInfo();
 }
