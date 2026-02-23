@@ -23,12 +23,6 @@ function updateGithubLink(ws) {
 async function updateHeaderInfo() {
   const mainGitStatusEl = $("main-git-status");
 
-  const activeTab = tabs.find((t) => t.id === activeTabId);
-  if (activeTab && activeTab.type === "picker") {
-    $("header-row2").style.display = "none";
-  } else {
-    $("header-row2").style.display = "flex";
-  }
   if (!selectedWorkspace) {
     mainGitStatusEl.innerHTML = "";
     $("clean-dirty-status").innerHTML = "";

@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from ..auth import verify_token
 from ..common import (
     TERMINAL_TIMEOUT_SEC,
+    command_result_dict,
     get_git_branches,
     load_workspace_config_section,
     resolve_workspace_path,
@@ -302,12 +303,7 @@ def execute_job(body: RunRequest):
         logger.warning("job timeout job=%s workspace=%s", body.job, body.workspace or "(none)")
         raise HTTPException(status_code=504, detail="Job timed out")
 
-    payload = {
-        "status": "ok" if result.returncode == 0 else "error",
-        "exit_code": result.returncode,
-        "stdout": result.stdout,
-        "stderr": result.stderr,
-    }
+    payload = command_result_dict(result)
 
     if result.returncode == 0:
         logger.info("job ok job=%s workspace=%s", body.job, body.workspace or "(none)")

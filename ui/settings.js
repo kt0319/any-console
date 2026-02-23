@@ -18,23 +18,17 @@ function closeSettings() {
   $("settings-modal").style.display = "none";
 }
 
-function openSettingsWsVisibility() {
-  $("settings-title").textContent = "ワークスペース設定";
-  showSettingsView("settings-ws-visibility");
-  const list = $("ws-check-list");
-  list.innerHTML = "";
+function renderWsVisibilityTo(container, onAddClick, loadIconsFn) {
+  container.innerHTML = "";
   for (const ws of allWorkspaces) {
-    const visible = !ws.hidden;
     const item = document.createElement("div");
     item.className = "ws-check-item";
 
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
-    checkbox.checked = visible;
+    checkbox.checked = !ws.hidden;
     checkbox.dataset.ws = ws.name;
-    checkbox.addEventListener("change", (e) => {
-      toggleWorkspace(ws.name, e.target.checked);
-    });
+    checkbox.addEventListener("change", (e) => toggleWorkspace(ws.name, e.target.checked));
 
     const iconBtn = document.createElement("button");
     iconBtn.type = "button";
@@ -53,78 +47,83 @@ function openSettingsWsVisibility() {
     addBtn.type = "button";
     addBtn.className = "ws-add-item-btn";
     addBtn.innerHTML = '<i class="mdi mdi-plus"></i>';
-    addBtn.addEventListener("click", () => {
-      $("settings-modal").style.display = "none";
-      selectedWorkspace = ws.name;
-      openItemCreateModal(ws.name, "job");
-    });
+    addBtn.addEventListener("click", () => onAddClick(ws));
 
     item.appendChild(checkbox);
     item.appendChild(iconBtn);
     item.appendChild(label);
     item.appendChild(iconsWrap);
     item.appendChild(addBtn);
-    list.appendChild(item);
+    container.appendChild(item);
 
-    loadSettingsWsIcons(iconsWrap, ws);
+    loadIconsFn(iconsWrap, ws);
   }
+}
+
+function openSettingsWsVisibility() {
+  $("settings-title").textContent = "ワークスペース設定";
+  showSettingsView("settings-ws-visibility");
+  renderWsVisibilityTo(
+    $("ws-check-list"),
+    (ws) => {
+      $("settings-modal").style.display = "none";
+      selectedWorkspace = ws.name;
+      openItemCreateModal(ws.name, "job");
+    },
+    loadSettingsWsIcons,
+  );
   $("settings-modal").style.display = "flex";
+}
+
+const SERVER_INFO_LABELS = {
+  hostname: "ホスト名",
+  ip: "IPアドレス",
+  os: "OS",
+  uptime: "稼働時間",
+  cpu_temp: "CPU温度",
+  memory: "メモリ",
+  disk: "ディスク",
+};
+
+async function renderServerInfoTo(container) {
+  container.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>';
+  try {
+    const res = await apiFetch("/system/info");
+    if (!res || !res.ok) {
+      container.innerHTML = '<div style="color:var(--error);padding:16px">取得に失敗しました</div>';
+      return;
+    }
+    const data = await res.json();
+    container.innerHTML = "";
+    for (const [key, label] of Object.entries(SERVER_INFO_LABELS)) {
+      if (!(key in data)) continue;
+      const row = document.createElement("div");
+      row.className = "server-info-row";
+      row.innerHTML = `<span class="server-info-label">${escapeHtml(label)}</span><span class="server-info-value">${escapeHtml(String(data[key]))}</span>`;
+      container.appendChild(row);
+    }
+  } catch (e) {
+    container.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
+  }
 }
 
 async function openSettingsServerInfo() {
   $("settings-title").textContent = "サーバー情報";
   showSettingsView("settings-server-info-view");
   $("settings-modal").style.display = "flex";
-  const list = $("server-info-list");
-  list.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>';
-
-  const labels = {
-    hostname: "ホスト名",
-    ip: "IPアドレス",
-    os: "OS",
-    uptime: "稼働時間",
-    cpu_temp: "CPU温度",
-    memory: "メモリ",
-    disk: "ディスク",
-  };
-
-  try {
-    const res = await apiFetch("/system/info");
-    if (!res) return;
-    if (!res.ok) {
-      list.innerHTML = '<div style="color:var(--error);padding:16px">取得に失敗しました</div>';
-      return;
-    }
-    const data = await res.json();
-    list.innerHTML = "";
-    for (const [key, label] of Object.entries(labels)) {
-      if (!(key in data)) continue;
-      const row = document.createElement("div");
-      row.className = "server-info-row";
-      row.innerHTML = `<span class="server-info-label">${escapeHtml(label)}</span><span class="server-info-value">${escapeHtml(String(data[key]))}</span>`;
-      list.appendChild(row);
-    }
-  } catch (e) {
-    list.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
-  }
+  await renderServerInfoTo($("server-info-list"));
 }
 
-async function openProcessList() {
-  $("settings-title").textContent = "プロセス一覧";
-  showSettingsView("settings-process-list-view");
-  $("settings-modal").style.display = "flex";
-  const list = $("process-list");
-  list.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>';
-
+async function renderProcessListTo(container) {
+  container.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>';
   try {
     const res = await apiFetch("/system/processes");
-    if (!res) return;
-    if (!res.ok) {
-      list.innerHTML = '<div style="color:var(--error);padding:16px">取得に失敗しました</div>';
+    if (!res || !res.ok) {
+      container.innerHTML = '<div style="color:var(--error);padding:16px">取得に失敗しました</div>';
       return;
     }
     const data = await res.json();
-    list.innerHTML = "";
+    container.innerHTML = "";
     for (const proc of data) {
       const row = document.createElement("div");
       row.className = "server-info-row process-row";
@@ -135,11 +134,18 @@ async function openProcessList() {
         `<span class="process-mem">${proc.mem.toFixed(1)}%</span>` +
         `</span>`;
       row.title = `PID: ${proc.pid}\n${proc.command}`;
-      list.appendChild(row);
+      container.appendChild(row);
     }
   } catch (e) {
-    list.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
+    container.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
   }
+}
+
+async function openProcessList() {
+  $("settings-title").textContent = "プロセス一覧";
+  showSettingsView("settings-process-list-view");
+  $("settings-modal").style.display = "flex";
+  await renderProcessListTo($("process-list"));
 }
 
 function loadSettingsWsIcons(container, ws) {

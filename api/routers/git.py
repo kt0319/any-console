@@ -50,14 +50,19 @@ class CheckoutRequest(BaseModel):
     branch: str
 
 
-@router.post("/workspaces/{name}/create-branch")
-def create_branch(name: str, body: CheckoutRequest):
-    ws_path = resolve_workspace_path(name)
-    branch = body.branch.strip()
+def validate_branch_name(branch: str) -> str:
+    branch = branch.strip()
     if not branch:
         raise HTTPException(status_code=400, detail="Branch is required")
     if not BRANCH_NAME_PATTERN.match(branch):
         raise HTTPException(status_code=400, detail=f"Invalid branch name: {branch}")
+    return branch
+
+
+@router.post("/workspaces/{name}/create-branch")
+def create_branch(name: str, body: CheckoutRequest):
+    ws_path = resolve_workspace_path(name)
+    branch = validate_branch_name(body.branch)
     result = run_git_command(
         ["checkout", "-b", branch], cwd=ws_path, operation="create-branch",
     )
@@ -68,11 +73,7 @@ def create_branch(name: str, body: CheckoutRequest):
 @router.post("/workspaces/{name}/checkout")
 def checkout_branch(name: str, body: CheckoutRequest):
     ws_path = resolve_workspace_path(name)
-    branch = body.branch.strip()
-    if not branch:
-        raise HTTPException(status_code=400, detail="Branch is required")
-    if not BRANCH_NAME_PATTERN.match(branch):
-        raise HTTPException(status_code=400, detail=f"Invalid branch name: {branch}")
+    branch = validate_branch_name(body.branch)
 
     local_branches = get_git_branches(ws_path)
     is_local = branch in local_branches

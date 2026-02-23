@@ -501,54 +501,41 @@ function renderTabBar() {
   bar.innerHTML = html;
 
   bar.querySelectorAll(".tab-btn:not(.orphan)").forEach((btn) => {
-    let longPressTimer = null;
-    let didLongPress = false;
-    btn.addEventListener("touchstart", (e) => {
-      didLongPress = false;
-      const tab = tabs.find((t) => t.id === btn.dataset.tab);
-      if (tab && tab.type === "picker") return;
-      longPressTimer = setTimeout(() => {
-        didLongPress = true;
+    const tab = tabs.find((t) => t.id === btn.dataset.tab);
+    if (tab && tab.type === "picker") {
+      btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+      return;
+    }
+    bindLongPress(btn, {
+      onLongPress: () => {
         const tabName = tabDisplayName(tab) || btn.textContent.replace("×", "").trim();
         if (confirm(`「${tabName}」を閉じますか？`)) {
           removeTab(btn.dataset.tab);
         }
-      }, 800);
-    }, { passive: true });
-    btn.addEventListener("touchend", (e) => {
-      clearTimeout(longPressTimer);
-      if (didLongPress) {
-        e.preventDefault();
-        didLongPress = false;
-      }
-    });
-    btn.addEventListener("touchmove", () => clearTimeout(longPressTimer), { passive: true });
-    btn.addEventListener("click", (e) => {
-      if (e.target.classList.contains("tab-close") || didLongPress) return;
-      const tabId = btn.dataset.tab;
-      if (tabId === activeTabId) {
-        const tab = tabs.find(t => t.id === tabId);
-        if (tab && tab.type === "terminal") {
-          const frame = $(`frame-${tabId}`);
-          if (frame && frame.classList.contains("view-mode")) {
-            exitTerminalCopyMode(tabId);
-          } else {
-            tab.term.scrollToBottom();
-            enterTerminalCopyMode(tabId);
+      },
+      onClick: (e) => {
+        if (e.target.classList.contains("tab-close")) return;
+        const tabId = btn.dataset.tab;
+        if (tabId === activeTabId) {
+          const t = tabs.find(t => t.id === tabId);
+          if (t && t.type === "terminal") {
+            const frame = $(`frame-${tabId}`);
+            if (frame && frame.classList.contains("view-mode")) {
+              exitTerminalCopyMode(tabId);
+            } else {
+              t.term.scrollToBottom();
+              enterTerminalCopyMode(tabId);
+            }
+            return;
           }
-          return;
         }
-      }
-      switchTab(tabId);
+        switchTab(tabId);
+      },
     });
   });
   bar.querySelectorAll(".tab-btn.orphan").forEach((btn) => {
-    let longPressTimer = null;
-    let didLongPress = false;
-    btn.addEventListener("touchstart", () => {
-      didLongPress = false;
-      longPressTimer = setTimeout(() => {
-        didLongPress = true;
+    bindLongPress(btn, {
+      onLongPress: () => {
         const label = btn.dataset.orphanWs || "terminal";
         if (confirm(`「${label}」を閉じますか？`)) {
           const wsUrl = btn.dataset.orphanUrl;
@@ -559,19 +546,8 @@ function renderTabBar() {
           orphanSessions = orphanSessions.filter((s) => s.wsUrl !== wsUrl);
           renderTabBar();
         }
-      }, 800);
-    }, { passive: true });
-    btn.addEventListener("touchend", (e) => {
-      clearTimeout(longPressTimer);
-      if (didLongPress) {
-        e.preventDefault();
-        didLongPress = false;
-      }
-    });
-    btn.addEventListener("touchmove", () => clearTimeout(longPressTimer), { passive: true });
-    btn.addEventListener("click", () => {
-      if (didLongPress) return;
-      joinOrphanSession(btn.dataset.orphanUrl, btn.dataset.orphanWs);
+      },
+      onClick: () => joinOrphanSession(btn.dataset.orphanUrl, btn.dataset.orphanWs),
     });
   });
   bar.querySelectorAll(".tab-close").forEach((btn) => {
@@ -600,6 +576,48 @@ function showTerminalWsPicker() {
 function ensurePickerTab() {
   const existing = tabs.find((t) => t.type === "picker");
   if (!existing) addPickerTab();
+}
+
+function renderPickerWsList(container) {
+  const workspaces = visibleWorkspaces();
+  for (const ws of workspaces) {
+    const group = document.createElement("div");
+    group.className = "picker-ws-group";
+
+    const header = document.createElement("div");
+    header.className = "picker-ws-header";
+    const headerLabel = document.createElement("button");
+    headerLabel.type = "button";
+    headerLabel.className = "picker-ws-header-label";
+    headerLabel.innerHTML = renderIcon(ws.icon || "mdi-console", ws.icon_color, 16) + " " + escapeHtml(ws.name);
+    headerLabel.addEventListener("click", () => {
+      resetPickerView();
+      runJob("terminal", null, ws.name);
+    });
+    header.appendChild(headerLabel);
+
+    const fileBtn = document.createElement("button");
+    fileBtn.type = "button";
+    fileBtn.className = "picker-ws-icon-btn picker-ws-file-btn";
+    fileBtn.title = "ファイル一覧";
+    fileBtn.innerHTML = renderIcon("mdi-folder", "", 18);
+    fileBtn.addEventListener("click", () => {
+      resetPickerView();
+      selectedWorkspace = ws.name;
+      renderWorkspaceSelects();
+      openFileBrowser();
+    });
+    header.insertBefore(fileBtn, headerLabel);
+
+    const icons = document.createElement("div");
+    icons.className = "picker-ws-icons";
+    header.appendChild(icons);
+
+    group.appendChild(header);
+    container.appendChild(group);
+
+    loadPickerWsIcons(icons, ws);
+  }
 }
 
 function addPickerTab() {
@@ -636,6 +654,8 @@ function addPickerTab() {
     const otherTabs = tabs.filter((t) => t.type !== "picker");
     if (otherTabs.length > 0) {
       switchTab(otherTabs[otherTabs.length - 1].id);
+    } else {
+      showPickerMainView();
     }
   });
   topBar.appendChild(closeBtn);
@@ -647,46 +667,7 @@ function addPickerTab() {
 
   const list = document.createElement("div");
   list.className = "terminal-ws-list";
-
-  const workspaces = visibleWorkspaces();
-  for (const ws of workspaces) {
-    const group = document.createElement("div");
-    group.className = "picker-ws-group";
-
-    const header = document.createElement("div");
-    header.className = "picker-ws-header";
-    const headerLabel = document.createElement("button");
-    headerLabel.type = "button";
-    headerLabel.className = "picker-ws-header-label";
-    headerLabel.innerHTML = renderIcon(ws.icon || "mdi-console", ws.icon_color, 16) + " " + escapeHtml(ws.name);
-    headerLabel.addEventListener("click", () => {
-      resetPickerView();
-      runJob("terminal", null, ws.name);
-    });
-    header.appendChild(headerLabel);
-
-    const fileBtn = document.createElement("button");
-    fileBtn.type = "button";
-    fileBtn.className = "picker-ws-icon-btn picker-ws-file-btn";
-    fileBtn.title = "ファイル一覧";
-    fileBtn.innerHTML = renderIcon("mdi-folder", "", 18);
-    fileBtn.addEventListener("click", () => {
-      resetPickerView();
-      selectedWorkspace = ws.name;
-      renderWorkspaceSelects();
-      openFileBrowser();
-    });
-    header.insertBefore(fileBtn, headerLabel);
-
-    const icons = document.createElement("div");
-    icons.className = "picker-ws-icons";
-    header.appendChild(icons);
-
-    group.appendChild(header);
-    list.appendChild(group);
-
-    loadPickerWsIcons(icons, ws);
-  }
+  renderPickerWsList(list);
 
   mainView.appendChild(list);
 
@@ -781,48 +762,14 @@ function showPickerWsVisibility(container) {
     list.style.overflow = "auto";
     list.style.flex = "1";
 
-    for (const ws of allWorkspaces) {
-      const visible = !ws.hidden;
-      const item = document.createElement("div");
-      item.className = "ws-check-item";
-
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.checked = visible;
-      checkbox.dataset.ws = ws.name;
-      checkbox.addEventListener("change", (e) => toggleWorkspace(ws.name, e.target.checked));
-
-      const iconBtn = document.createElement("button");
-      iconBtn.type = "button";
-      iconBtn.className = "ws-icon-edit-btn";
-      iconBtn.innerHTML = ws.icon ? renderIcon(ws.icon, ws.icon_color, 18) : '<span class="mdi mdi-console" style="color:var(--text-muted)"></span>';
-      iconBtn.addEventListener("click", () => openWsIconPicker(ws));
-
-      const label = document.createElement("span");
-      label.className = "ws-check-label";
-      label.textContent = ws.name;
-
-      const iconsWrap = document.createElement("div");
-      iconsWrap.className = "ws-setting-icons";
-
-      const addBtn = document.createElement("button");
-      addBtn.type = "button";
-      addBtn.className = "ws-add-item-btn";
-      addBtn.innerHTML = '<i class="mdi mdi-plus"></i>';
-      addBtn.addEventListener("click", () => {
+    renderWsVisibilityTo(
+      list,
+      (ws) => {
         selectedWorkspace = ws.name;
         openItemCreateModal(ws.name, "job");
-      });
-
-      item.appendChild(checkbox);
-      item.appendChild(iconBtn);
-      item.appendChild(label);
-      item.appendChild(iconsWrap);
-      item.appendChild(addBtn);
-      list.appendChild(item);
-
-      loadPickerSettingsWsIcons(iconsWrap, ws);
-    }
+      },
+      loadPickerSettingsWsIcons,
+    );
     content.appendChild(list);
   });
 }
@@ -856,32 +803,8 @@ async function showPickerServerInfo(container) {
   showPickerSettingsSubView(container, "サーバー情報", async (content) => {
     const list = document.createElement("div");
     list.className = "server-info-list";
-    list.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>';
     content.appendChild(list);
-
-    const labels = {
-      hostname: "ホスト名", ip: "IPアドレス", os: "OS",
-      uptime: "稼働時間", cpu_temp: "CPU温度", memory: "メモリ", disk: "ディスク",
-    };
-
-    try {
-      const res = await apiFetch("/system/info");
-      if (!res || !res.ok) {
-        list.innerHTML = '<div style="color:var(--error);padding:16px">取得に失敗しました</div>';
-        return;
-      }
-      const data = await res.json();
-      list.innerHTML = "";
-      for (const [key, label] of Object.entries(labels)) {
-        if (!(key in data)) continue;
-        const row = document.createElement("div");
-        row.className = "server-info-row";
-        row.innerHTML = `<span class="server-info-label">${escapeHtml(label)}</span><span class="server-info-value">${escapeHtml(String(data[key]))}</span>`;
-        list.appendChild(row);
-      }
-    } catch (e) {
-      list.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
-    }
+    await renderServerInfoTo(list);
   });
 }
 
@@ -889,32 +812,8 @@ async function showPickerProcessList(container) {
   showPickerSettingsSubView(container, "プロセス一覧", async (content) => {
     const list = document.createElement("div");
     list.className = "server-info-list";
-    list.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>';
     content.appendChild(list);
-
-    try {
-      const res = await apiFetch("/system/processes");
-      if (!res || !res.ok) {
-        list.innerHTML = '<div style="color:var(--error);padding:16px">取得に失敗しました</div>';
-        return;
-      }
-      const data = await res.json();
-      list.innerHTML = "";
-      for (const proc of data) {
-        const row = document.createElement("div");
-        row.className = "server-info-row process-row";
-        row.innerHTML =
-          `<span class="process-name">${escapeHtml(proc.name)}</span>` +
-          `<span class="process-stats">` +
-          `<span class="process-cpu">${proc.cpu.toFixed(1)}%</span>` +
-          `<span class="process-mem">${proc.mem.toFixed(1)}%</span>` +
-          `</span>`;
-        row.title = `PID: ${proc.pid}\n${proc.command}`;
-        list.appendChild(row);
-      }
-    } catch (e) {
-      list.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
-    }
+    await renderProcessListTo(list);
   });
 }
 
@@ -933,19 +832,6 @@ function loadPickerWsIcons(container, ws) {
   );
 }
 
-function removePickerTab() {
-  const pickerTab = tabs.find((t) => t.type === "picker");
-  if (!pickerTab) return;
-  tabs = tabs.filter((t) => t.type !== "picker");
-  const el = $(`frame-${pickerTab.id}`);
-  if (el) el.remove();
-  if (activeTabId === pickerTab.id) {
-    switchTab(tabs.length > 0 ? tabs[tabs.length - 1].id : null);
-  } else {
-    renderTabBar();
-  }
-}
-
 function resetPickerView() {
   const mainView = $("picker-main-view");
   const settingsView = $("picker-settings-view");
@@ -961,15 +847,6 @@ function movePickerToEnd() {
     const [picker] = tabs.splice(idx, 1);
     tabs.push(picker);
   }
-}
-
-function refreshPickerTab() {
-  const pickerTab = tabs.find((t) => t.type === "picker");
-  if (!pickerTab) return;
-  const el = $(`frame-${pickerTab.id}`);
-  if (el) el.remove();
-  tabs = tabs.filter((t) => t.type !== "picker");
-  addPickerTab();
 }
 
 function enterTerminalCopyMode(tabId) {

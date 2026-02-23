@@ -191,6 +191,23 @@ async function checkoutBranch(branch) {
   }
 }
 
+function buildBranchSwitchActions(branches, beforeSwitch) {
+  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
+  return branches
+    .filter((b) => !ws || b !== ws.branch)
+    .map((b) => ({
+      label: `switch: ${b}`,
+      cls: "",
+      fn: async () => {
+        if (!confirm(`${b} に切り替えますか？`)) return;
+        if (beforeSwitch) beforeSwitch();
+        await checkoutBranch(b);
+        closeGitLogModal();
+        await refreshAfterGitOp();
+      },
+    }));
+}
+
 function toggleCommitActionMenu(entry, hash, msg, branches = []) {
   const list = entry.closest(".git-log-list-modal");
   const menuEl = $("git-log-action-menu");
@@ -211,19 +228,7 @@ function toggleCommitActionMenu(entry, hash, msg, branches = []) {
   menuEl.innerHTML = "";
   resetCreateBranchArea();
 
-  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
-  const switchActions = branches
-    .filter((b) => !ws || b !== ws.branch)
-    .map((b) => ({
-      label: `switch: ${b}`,
-      cls: "",
-      fn: async () => {
-        if (!confirm(`${b} に切り替えますか？`)) return;
-        await checkoutBranch(b);
-        closeGitLogModal();
-        await refreshAfterGitOp();
-      },
-    }));
+  const switchActions = buildBranchSwitchActions(branches);
 
   const actions = [
     ...switchActions,
@@ -521,20 +526,8 @@ async function openGitLogModal() {
 }
 
 function renderDiffActions(container, hash, branches) {
-  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
-  const switchActions = branches
-    .filter((b) => !ws || b !== ws.branch)
-    .map((b) => ({
-      label: `switch: ${b}`,
-      cls: "",
-      fn: async () => {
-        if (!confirm(`${b} に切り替えますか？`)) return;
-        $("diff-modal").style.display = "none";
-        await checkoutBranch(b);
-        closeGitLogModal();
-        await refreshAfterGitOp();
-      },
-    }));
+  const closeDiffBeforeSwitch = () => { $("diff-modal").style.display = "none"; };
+  const switchActions = buildBranchSwitchActions(branches, closeDiffBeforeSwitch);
 
   const actions = [
     ...switchActions,
@@ -852,23 +845,27 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function buildFileBrowserHtml(path, entries) {
-  const parts = path ? path.split("/") : [];
+function buildBreadcrumbHtml(parts) {
   const rootLabel = selectedWorkspace || "~";
-
-  let breadcrumb = '<div class="file-browser-header">';
-  breadcrumb += `<button type="button" class="file-browser-crumb" data-path="">${escapeHtml(rootLabel)}/</button>`;
+  let html = '<div class="file-browser-header">';
+  html += `<button type="button" class="file-browser-crumb" data-path="">${escapeHtml(rootLabel)}/</button>`;
   for (let i = 0; i < parts.length; i++) {
     const subPath = parts.slice(0, i + 1).join("/");
-    breadcrumb += '<span class="file-browser-crumb-sep">/</span>';
+    html += '<span class="file-browser-crumb-sep">/</span>';
     if (i === parts.length - 1) {
-      breadcrumb += `<span class="file-browser-crumb-current">${escapeHtml(parts[i])}</span>`;
+      html += `<span class="file-browser-crumb-current">${escapeHtml(parts[i])}</span>`;
     } else {
-      breadcrumb += `<button type="button" class="file-browser-crumb" data-path="${escapeHtml(subPath)}">${escapeHtml(parts[i])}</button>`;
+      html += `<button type="button" class="file-browser-crumb" data-path="${escapeHtml(subPath)}">${escapeHtml(parts[i])}</button>`;
     }
   }
-  breadcrumb += '<button type="button" class="file-browser-close">&times;</button>';
-  breadcrumb += "</div>";
+  html += '<button type="button" class="file-browser-close">&times;</button>';
+  html += "</div>";
+  return html;
+}
+
+function buildFileBrowserHtml(path, entries) {
+  const parts = path ? path.split("/") : [];
+  const breadcrumb = buildBreadcrumbHtml(parts);
 
   let list = '<ul class="file-browser-list">';
   if (path) {
@@ -902,25 +899,30 @@ function buildFileBrowserHtml(path, entries) {
   return `<div class="file-browser">${breadcrumb}${list}</div>`;
 }
 
+function fileBrowserMessage(text, muted = false) {
+  const style = muted ? "border-bottom:none;color:var(--text-muted)" : "border-bottom:none";
+  return `<div class="file-browser"><div class="file-browser-header" style="${style}">${escapeHtml(text)}</div></div>`;
+}
+
 async function loadDirectory(path) {
   if (!selectedWorkspace) return;
   const el = $("frame-file-browser");
   if (!el) return;
 
-  el.innerHTML = '<div class="file-browser"><div class="file-browser-header" style="border-bottom:none;color:var(--text-muted)">読み込み中...</div></div>';
+  el.innerHTML = fileBrowserMessage("読み込み中...", true);
 
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/files?path=${encodeURIComponent(path)}`));
     if (!res) return;
     const data = await res.json();
     if (!res.ok || data.status !== "ok") {
-      el.innerHTML = `<div class="file-browser"><div class="file-browser-header" style="border-bottom:none">${escapeHtml(data.detail || "読み込みに失敗しました")}</div></div>`;
+      el.innerHTML = fileBrowserMessage(data.detail || "読み込みに失敗しました");
       return;
     }
     el.innerHTML = buildFileBrowserHtml(data.path, data.entries);
     bindFileBrowserEvents(el);
   } catch (e) {
-    el.innerHTML = `<div class="file-browser"><div class="file-browser-header" style="border-bottom:none">${escapeHtml(e.message)}</div></div>`;
+    el.innerHTML = fileBrowserMessage(e.message);
   }
 }
 
@@ -943,40 +945,26 @@ async function loadFileContent(path) {
   const el = $("frame-file-browser");
   if (!el) return;
 
-  el.innerHTML = '<div class="file-browser"><div class="file-browser-header" style="border-bottom:none;color:var(--text-muted)">読み込み中...</div></div>';
+  el.innerHTML = fileBrowserMessage("読み込み中...", true);
 
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/file-content?path=${encodeURIComponent(path)}`));
     if (!res) return;
     const data = await res.json();
     if (!res.ok || data.status !== "ok") {
-      el.innerHTML = `<div class="file-browser"><div class="file-browser-header" style="border-bottom:none">${escapeHtml(data.detail || "読み込みに失敗しました")}</div></div>`;
+      el.innerHTML = fileBrowserMessage(data.detail || "読み込みに失敗しました");
       return;
     }
     el.innerHTML = buildFileContentHtml(path, data);
-    bindFileContentEvents(el);
+    bindFileBrowserEvents(el);
   } catch (e) {
-    el.innerHTML = `<div class="file-browser"><div class="file-browser-header" style="border-bottom:none">${escapeHtml(e.message)}</div></div>`;
+    el.innerHTML = fileBrowserMessage(e.message);
   }
 }
 
 function buildFileContentHtml(path, data) {
   const parts = path.split("/");
-  const fileName = parts[parts.length - 1];
-  const dirPath = parts.slice(0, -1).join("/");
-  const rootLabel = selectedWorkspace || "~";
-
-  let breadcrumb = '<div class="file-browser-header">';
-  breadcrumb += `<button type="button" class="file-browser-crumb" data-path="">${escapeHtml(rootLabel)}/</button>`;
-  for (let i = 0; i < parts.length - 1; i++) {
-    const subPath = parts.slice(0, i + 1).join("/");
-    breadcrumb += '<span class="file-browser-crumb-sep">/</span>';
-    breadcrumb += `<button type="button" class="file-browser-crumb" data-path="${escapeHtml(subPath)}">${escapeHtml(parts[i])}</button>`;
-  }
-  breadcrumb += '<span class="file-browser-crumb-sep">/</span>';
-  breadcrumb += `<span class="file-browser-crumb-current">${escapeHtml(fileName)}</span>`;
-  breadcrumb += '<button type="button" class="file-browser-close">&times;</button>';
-  breadcrumb += "</div>";
+  const breadcrumb = buildBreadcrumbHtml(parts);
 
   let body = "";
   if (data.binary) {
@@ -1009,19 +997,11 @@ function buildFileContentHtml(path, data) {
   return `<div class="file-browser">${breadcrumb}${body}</div>`;
 }
 
-function bindFileContentEvents(container) {
-  for (const crumb of container.querySelectorAll(".file-browser-crumb")) {
-    crumb.addEventListener("click", () => loadDirectory(crumb.dataset.path));
-  }
-  const closeBtn = container.querySelector(".file-browser-close");
-  if (closeBtn) closeBtn.addEventListener("click", () => removeTab("file-browser"));
-}
-
 function openFileBrowser() {
   if (!selectedWorkspace) return;
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
   const wsIcon = ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null;
   const folderIcon = { name: "mdi-folder", color: "" };
-  setOutputTab("file-browser", "ファイル", '<div class="file-browser"><div class="file-browser-header" style="border-bottom:none;color:var(--text-muted)">読み込み中...</div></div>', folderIcon, wsIcon, selectedWorkspace);
+  setOutputTab("file-browser", "ファイル", fileBrowserMessage("読み込み中...", true), folderIcon, wsIcon, selectedWorkspace);
   loadDirectory("");
 }
