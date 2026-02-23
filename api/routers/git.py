@@ -1,8 +1,7 @@
 import logging
 import os
 
-from fastapi import APIRouter, Depends, Query
-from fastapi import HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from ..auth import verify_token
@@ -11,7 +10,6 @@ from ..common import (
     GIT_LOG_MAX_ENTRIES,
     GIT_LONG_TIMEOUT_SEC,
     GIT_SHORT_TIMEOUT_SEC,
-    GIT_STANDARD_TIMEOUT_SEC,
     get_git_branches,
     get_git_remote_branches,
     git_info_to_status_dict,

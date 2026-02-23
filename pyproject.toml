@@ -1,0 +1,13 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+include = ["api/**/*.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+"api/main.py" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
