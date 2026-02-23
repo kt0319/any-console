@@ -54,6 +54,16 @@ def save_workspace_config(workspace_name: str, config: dict) -> None:
     config_file.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def load_workspace_config_section(workspace_name: str, key: str, default=None):
+    return load_workspace_config(workspace_name).get(key, default if default is not None else {})
+
+
+def save_workspace_config_section(workspace_name: str, key: str, data) -> None:
+    config = load_workspace_config(workspace_name)
+    config[key] = data
+    save_workspace_config(workspace_name, config)
+
+
 def _read_json_file(path: Path, default=None):
     if not path.is_file():
         return default
@@ -126,6 +136,15 @@ def ssh_env() -> dict[str, str]:
     return dict(os.environ)
 
 
+def command_result_dict(result: subprocess.CompletedProcess) -> dict:
+    return {
+        "status": "ok" if result.returncode == 0 else "error",
+        "exit_code": result.returncode,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+    }
+
+
 def run_git_command(
     args: list[str],
     cwd: Path,
@@ -139,12 +158,7 @@ def run_git_command(
             capture_output=True, text=True, timeout=timeout, cwd=str(cwd),
             env=env,
         )
-        return {
-            "status": "ok" if result.returncode == 0 else "error",
-            "exit_code": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-        }
+        return command_result_dict(result)
     except subprocess.TimeoutExpired:
         label = operation or " ".join(args[:2])
         raise HTTPException(status_code=504, detail=f"git {label} timed out")
@@ -239,20 +253,9 @@ def git_info(directory: Path) -> dict:
 
 
 def git_info_to_status_dict(directory: Path, name: str) -> dict:
-    git_data = git_info(directory)
-    return {
-        "name": name,
-        "branch": git_data["branch"],
-        "last_commit": git_data["last_commit"],
-        "last_commit_message": git_data["last_commit_message"],
-        "github_url": git_data["github_url"],
-        "clean": git_data["clean"],
-        "ahead": git_data["ahead"],
-        "behind": git_data["behind"],
-        "insertions": git_data["insertions"],
-        "deletions": git_data["deletions"],
-        "changed_files": git_data["changed_files"],
-    }
+    result = git_info(directory)
+    result["name"] = name
+    return result
 
 
 def get_git_branches(directory: Path) -> list[str]:

@@ -11,9 +11,9 @@ from ..auth import verify_token
 from ..common import (
     TERMINAL_TIMEOUT_SEC,
     get_git_branches,
-    load_workspace_config,
+    load_workspace_config_section,
     resolve_workspace_path,
-    save_workspace_config,
+    save_workspace_config_section,
 )
 from ..jobs import TERMINAL_JOB, JobDefinition
 from ..runner import run_job
@@ -29,13 +29,11 @@ router = APIRouter(dependencies=[Depends(verify_token)])
 
 
 def load_workspace_jobs_data(workspace_name):
-    return load_workspace_config(workspace_name).get("jobs", {})
+    return load_workspace_config_section(workspace_name, "jobs", {})
 
 
 def save_workspace_jobs_data(workspace_name, data):
-    config = load_workspace_config(workspace_name)
-    config["jobs"] = data
-    save_workspace_config(workspace_name, config)
+    save_workspace_config_section(workspace_name, "jobs", data)
 
 
 def get_workspace_jobs(workspace_name):
@@ -73,6 +71,17 @@ def list_workspace_jobs(name: str):
     return {jname: job_definition_to_dict(job_def) for jname, job_def in jobs.items()}
 
 
+def build_job_entry(command: str, icon: str, icon_color: str, confirm: bool) -> dict:
+    entry = {"command": command}
+    if icon.strip():
+        entry["icon"] = icon.strip()
+    if icon_color.strip():
+        entry["icon_color"] = icon_color.strip()
+    if not confirm:
+        entry["confirm"] = False
+    return entry
+
+
 class CreateJobRequest(BaseModel):
     name: str
     command: str
@@ -93,14 +102,7 @@ def create_workspace_job(name: str, body: CreateJobRequest):
     data = load_workspace_jobs_data(name)
     if job_name in data:
         raise HTTPException(status_code=409, detail=f"ジョブ '{job_name}' は既に存在します")
-    entry = {"command": command}
-    if body.icon.strip():
-        entry["icon"] = body.icon.strip()
-    if body.icon_color.strip():
-        entry["icon_color"] = body.icon_color.strip()
-    if not body.confirm:
-        entry["confirm"] = False
-    data[job_name] = entry
+    data[job_name] = build_job_entry(command, body.icon, body.icon_color, body.confirm)
     save_workspace_jobs_data(name, data)
     logger.info("job created workspace=%s job=%s", name, job_name)
     return {"status": "ok", "name": job_name}
@@ -122,14 +124,7 @@ def update_workspace_job(name: str, job_name: str, body: UpdateJobRequest):
     command = body.command.strip()
     if not command:
         raise HTTPException(status_code=400, detail="コマンドが空です")
-    entry = {"command": command}
-    if body.icon.strip():
-        entry["icon"] = body.icon.strip()
-    if body.icon_color.strip():
-        entry["icon_color"] = body.icon_color.strip()
-    if not body.confirm:
-        entry["confirm"] = False
-    data[job_name] = entry
+    data[job_name] = build_job_entry(command, body.icon, body.icon_color, body.confirm)
     save_workspace_jobs_data(name, data)
     logger.info("job updated workspace=%s job=%s", name, job_name)
     return {"status": "ok", "name": job_name}
@@ -148,13 +143,11 @@ def delete_workspace_job(name: str, job_name: str):
 
 
 def get_workspace_links(workspace_name):
-    return load_workspace_config(workspace_name).get("links", [])
+    return load_workspace_config_section(workspace_name, "links", [])
 
 
 def save_workspace_links(workspace_name, links):
-    config = load_workspace_config(workspace_name)
-    config["links"] = links
-    save_workspace_config(workspace_name, config)
+    save_workspace_config_section(workspace_name, "links", links)
 
 
 def normalize_url(url):

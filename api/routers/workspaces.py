@@ -13,6 +13,7 @@ from ..common import (
     GIT_CLONE_TIMEOUT_SEC,
     GITHUB_CLI_TIMEOUT_SEC,
     WORK_DIR,
+    command_result_dict,
     git_info_to_status_dict,
     load_workspace_config,
     migrate_workspace_config,
@@ -36,9 +37,7 @@ def _background_fetch(dirs):
         except (subprocess.TimeoutExpired, OSError) as e:
             logger.warning("background fetch failed dir=%s: %s", workspace_dir.name, e)
 
-    from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        pool.map(fetch, dirs)
+    list(BACKGROUND_EXECUTOR.map(fetch, dirs))
 
 
 @router.get("/workspaces")
@@ -50,12 +49,10 @@ def list_workspaces():
          if workspace_dir.is_dir() and not workspace_dir.name.startswith(".")],
         key=lambda workspace_dir: workspace_dir.name,
     )
-    from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        result = list(pool.map(
-            lambda workspace_dir: git_info_to_status_dict(workspace_dir, workspace_dir.name),
-            dirs,
-        ))
+    result = list(BACKGROUND_EXECUTOR.map(
+        lambda workspace_dir: git_info_to_status_dict(workspace_dir, workspace_dir.name),
+        dirs,
+    ))
     for ws_data, workspace_dir in zip(result, dirs):
         migrate_workspace_config(workspace_dir.name, workspace_dir)
         config = load_workspace_config(workspace_dir.name)
@@ -118,21 +115,13 @@ def clone_workspace(body: CloneRequest):
             capture_output=True, text=True,
             timeout=GIT_CLONE_TIMEOUT_SEC, cwd=str(WORK_DIR),
         )
+        resp = command_result_dict(result)
         if result.returncode != 0:
             logger.warning("clone failed url=%s rc=%d stderr=%s", url, result.returncode, result.stderr)
-            return {
-                "status": "error",
-                "exit_code": result.returncode,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-            }
-        logger.info("clone ok dir=%s", dir_name)
-        return {
-            "status": "ok",
-            "name": dir_name,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-        }
+        else:
+            logger.info("clone ok dir=%s", dir_name)
+            resp["name"] = dir_name
+        return resp
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=504, detail="Clone timed out")
 

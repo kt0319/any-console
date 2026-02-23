@@ -128,26 +128,9 @@ async function openSettingsServerInfo() {
   }
 }
 
-async function loadSettingsWsIcons(container, ws) {
-  let jobs = {};
-  let links = [];
-  try {
-    const [jobsRes, linksRes] = await Promise.all([
-      apiFetch(workspaceApiPath(ws.name, "/jobs")),
-      apiFetch(workspaceApiPath(ws.name, "/links")),
-    ]);
-    if (jobsRes && jobsRes.ok) jobs = await jobsRes.json();
-    if (linksRes && linksRes.ok) links = await linksRes.json();
-  } catch {}
-
-  for (let i = 0; i < links.length; i++) {
-    const link = links[i];
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "picker-ws-icon-btn picker-ws-link-btn";
-    btn.title = link.label || link.url;
-    btn.innerHTML = renderIcon(link.icon || "mdi-web", link.icon_color, 16);
-    btn.addEventListener("click", () => {
+function loadSettingsWsIcons(container, ws) {
+  loadWsIconButtons(container, ws, 16,
+    (link, i) => {
       $("settings-modal").style.display = "none";
       openItemEditModal("link", {
         workspace: ws.name, index: i,
@@ -156,18 +139,8 @@ async function loadSettingsWsIcons(container, ws) {
         icon: link.icon,
         iconColor: link.icon_color,
       }, "settings");
-    });
-    container.appendChild(btn);
-  }
-
-  const entries = Object.entries(jobs).filter(([name]) => name !== "terminal");
-  for (const [name, job] of entries) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "picker-ws-icon-btn";
-    btn.title = job.label || name;
-    btn.innerHTML = renderIcon(job.icon || "mdi-play", job.icon_color, 16);
-    btn.addEventListener("click", () => {
+    },
+    (name, job) => {
       $("settings-modal").style.display = "none";
       openItemEditModal("job", {
         workspace: ws.name,
@@ -178,9 +151,8 @@ async function loadSettingsWsIcons(container, ws) {
         command: job.command || "",
         confirm: job.confirm,
       }, "settings");
-    });
-    container.appendChild(btn);
-  }
+    },
+  );
 }
 
 function openWsIconPicker(ws) {

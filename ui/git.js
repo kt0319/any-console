@@ -122,52 +122,36 @@ async function gitFetch() {
   }
 }
 
-async function gitPull() {
+async function executeGitRemoteOp(buttonId, endpoint, label) {
   if (!selectedWorkspace) return;
-  if (!confirm(`${selectedWorkspace} を pull しますか？`)) return;
+  if (!confirm(`${selectedWorkspace} を ${label} しますか？`)) return;
 
-  const pullBtn = $("pull-btn");
-  pullBtn.classList.add("running");
+  const btn = $(buttonId);
+  btn.classList.add("running");
 
   try {
-    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/pull"), { method: "POST" });
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, endpoint), { method: "POST" });
     if (!res) return;
     const data = await res.json();
     if (data.status === "ok") {
-      showToast("pull 完了", "success");
+      showToast(`${label} 完了`, "success");
     } else {
-      showToast(`pull 失敗: ${data.stderr || data.stdout || "unknown error"}`);
+      showToast(`${label} 失敗: ${data.stderr || data.stdout || "unknown error"}`);
     }
   } catch (e) {
-    showToast(`pull エラー: ${e.message}`);
+    showToast(`${label} エラー: ${e.message}`);
   } finally {
-    pullBtn.classList.remove("running");
+    btn.classList.remove("running");
     await refreshAfterGitOp();
   }
 }
 
+async function gitPull() {
+  await executeGitRemoteOp("pull-btn", "/pull", "pull");
+}
+
 async function gitPush() {
-  if (!selectedWorkspace) return;
-  if (!confirm(`${selectedWorkspace} を push しますか？`)) return;
-
-  const pushBtn = $("push-btn");
-  pushBtn.classList.add("running");
-
-  try {
-    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/push"), { method: "POST" });
-    if (!res) return;
-    const data = await res.json();
-    if (data.status === "ok") {
-      showToast("push 完了", "success");
-    } else {
-      showToast(`push 失敗: ${data.stderr || data.stdout || "unknown error"}`);
-    }
-  } catch (e) {
-    showToast(`push エラー: ${e.message}`);
-  } finally {
-    pushBtn.classList.remove("running");
-    await refreshAfterGitOp();
-  }
+  await executeGitRemoteOp("push-btn", "/push", "push");
 }
 
 async function loadBranches() {
@@ -256,14 +240,15 @@ function toggleCommitActionMenu(entry, hash, msg, branches = []) {
   menuEl.style.display = "flex";
 }
 
-async function execCommitAction(action, hash) {
+async function execCommitAction(action, hash, body = null, confirmMsg = null) {
   if (!selectedWorkspace) return;
   const shortHash = hash.substring(0, 8);
-  if (!confirm(`${action} ${shortHash} を実行しますか？`)) return;
+  const msg = confirmMsg || `${action} ${shortHash} を実行しますか？`;
+  if (!confirm(msg)) return;
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/${action}`), {
       method: "POST",
-      body: { commit_hash: hash },
+      body: body || { commit_hash: hash },
     });
     if (!res) return;
     const data = await res.json();
@@ -279,30 +264,12 @@ async function execCommitAction(action, hash) {
   await refreshAfterGitOp();
 }
 
-async function execCommitResetAction(hash, mode) {
-  if (!selectedWorkspace) return;
+function execCommitResetAction(hash, mode) {
   const shortHash = hash.substring(0, 8);
-  const warning = mode === "hard"
+  const confirmMsg = mode === "hard"
     ? `reset --hard ${shortHash} を実行します。作業ツリーの変更はすべて失われます。実行しますか？`
     : `reset --soft ${shortHash} を実行しますか？`;
-  if (!confirm(warning)) return;
-  try {
-    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/reset"), {
-      method: "POST",
-      body: { commit_hash: hash, mode },
-    });
-    if (!res) return;
-    const data = await res.json();
-    if (data.status === "ok") {
-      showToast(`reset --${mode} 完了`, "success");
-    } else {
-      showToast(`reset 失敗: ${data.stderr || data.stdout || "unknown error"}`);
-    }
-  } catch (e) {
-    showToast(`reset エラー: ${e.message}`);
-  }
-  closeGitLogModal();
-  await refreshAfterGitOp();
+  return execCommitAction(`reset`, hash, { commit_hash: hash, mode }, confirmMsg);
 }
 
 function closeGitLogModal() {

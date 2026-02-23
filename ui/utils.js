@@ -156,6 +156,41 @@ function isImageDataIcon(icon) {
   return icon && (icon.startsWith("data:image/") || icon.startsWith("favicon:"));
 }
 
+async function loadWsIconButtons(container, ws, iconSize, onLinkClick, onJobClick) {
+  let jobs = {};
+  let links = [];
+  try {
+    const [jobsRes, linksRes] = await Promise.all([
+      apiFetch(workspaceApiPath(ws.name, "/jobs")),
+      apiFetch(workspaceApiPath(ws.name, "/links")),
+    ]);
+    if (jobsRes && jobsRes.ok) jobs = await jobsRes.json();
+    if (linksRes && linksRes.ok) links = await linksRes.json();
+  } catch {}
+
+  for (let i = 0; i < links.length; i++) {
+    const link = links[i];
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "picker-ws-icon-btn picker-ws-link-btn";
+    btn.title = link.label || link.url;
+    btn.innerHTML = renderIcon(link.icon || "mdi-web", link.icon_color, iconSize);
+    btn.addEventListener("click", () => onLinkClick(link, i));
+    container.appendChild(btn);
+  }
+
+  const entries = Object.entries(jobs).filter(([name]) => name !== "terminal");
+  for (const [name, job] of entries) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "picker-ws-icon-btn";
+    btn.title = job.label || name;
+    btn.innerHTML = renderIcon(job.icon || "mdi-play", job.icon_color, iconSize);
+    btn.addEventListener("click", () => onJobClick(name, job));
+    container.appendChild(btn);
+  }
+}
+
 function renderIcon(icon, iconColor, size = 16) {
   if (!icon) return "";
   if (icon.startsWith("data:image/")) {

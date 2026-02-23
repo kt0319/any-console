@@ -1,6 +1,5 @@
 import logging
 import os
-import subprocess
 
 from fastapi import APIRouter, Depends, Query
 from fastapi import HTTPException
@@ -93,30 +92,32 @@ def checkout_branch(name: str, body: CheckoutRequest):
 def git_pull(name: str):
     ws_path = resolve_workspace_path(name)
     env = ssh_env()
-    run_opts = dict(capture_output=True, text=True, timeout=GIT_LONG_TIMEOUT_SEC, cwd=str(ws_path), env=env)
-    try:
-        dirty = subprocess.run(
-            ["git", "status", "--porcelain"], capture_output=True, text=True, cwd=str(ws_path),
-        ).stdout.strip()
-        stashed = False
-        if dirty:
-            stash_result = subprocess.run(["git", "stash"], **run_opts)
-            stashed = stash_result.returncode == 0
-        result = subprocess.run(["git", "pull", "--rebase"], **run_opts)
-        stash_msg = ""
-        if stashed:
-            pop = subprocess.run(["git", "stash", "pop"], **run_opts)
-            if pop.returncode != 0:
-                stash_msg = f"\n⚠️ stash pop failed:\n{pop.stderr}"
-        logger.info("pull workspace=%s rc=%d", name, result.returncode)
-        return {
-            "status": "ok" if result.returncode == 0 else "error",
-            "exit_code": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr + stash_msg,
-        }
-    except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="git pull timed out")
+    dirty_result = run_git_command(
+        ["status", "--porcelain"], cwd=ws_path, operation="status",
+    )
+    dirty = dirty_result["stdout"].strip()
+    stashed = False
+    if dirty:
+        stash_result = run_git_command(
+            ["stash"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC,
+            env=env, operation="stash",
+        )
+        stashed = stash_result["exit_code"] == 0
+    result = run_git_command(
+        ["pull", "--rebase"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC,
+        env=env, operation="pull",
+    )
+    stash_msg = ""
+    if stashed:
+        pop = run_git_command(
+            ["stash", "pop"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC,
+            env=env, operation="stash pop",
+        )
+        if pop["exit_code"] != 0:
+            stash_msg = f"\n⚠️ stash pop failed:\n{pop['stderr']}"
+    logger.info("pull workspace=%s rc=%d", name, result["exit_code"])
+    result["stderr"] += stash_msg
+    return result
 
 
 @router.post("/workspaces/{name}/push")
@@ -242,64 +243,47 @@ def git_stash_pop(name: str):
 def get_commit_diff(name: str, commit_hash: str):
     ws_path = resolve_workspace_path(name)
     validate_commit_hash(commit_hash)
-    try:
-        result = subprocess.run(
-            ["git", "--no-pager", "diff", f"{commit_hash}~1", commit_hash],
-            capture_output=True, text=True, timeout=GIT_STANDARD_TIMEOUT_SEC,
-            cwd=str(ws_path),
-        )
-        files_result = subprocess.run(
-            ["git", "diff", "--name-only", f"{commit_hash}~1", commit_hash],
-            capture_output=True, text=True, timeout=GIT_SHORT_TIMEOUT_SEC,
-            cwd=str(ws_path),
-        )
-        files = [f for f in files_result.stdout.splitlines() if f.strip()] if files_result.returncode == 0 else []
-        return {
-            "status": "ok" if result.returncode == 0 else "error",
-            "files": files,
-            "diff": result.stdout,
-            "stderr": result.stderr,
-        }
-    except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="git diff timed out")
+    result = run_git_command(
+        ["--no-pager", "diff", f"{commit_hash}~1", commit_hash],
+        cwd=ws_path, operation="diff",
+    )
+    files_result = run_git_command(
+        ["diff", "--name-only", f"{commit_hash}~1", commit_hash],
+        cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, operation="diff --name-only",
+    )
+    files = [f for f in files_result["stdout"].splitlines() if f.strip()] if files_result["exit_code"] == 0 else []
+    return {
+        "status": result["status"],
+        "files": files,
+        "diff": result["stdout"],
+        "stderr": result["stderr"],
+    }
 
 
 @router.get("/workspaces/{name}/diff")
 def get_workspace_diff(name: str):
     ws_path = resolve_workspace_path(name)
-    try:
-        status_result = subprocess.run(
-            ["git", "status", "--porcelain"],
-            capture_output=True, text=True, timeout=GIT_SHORT_TIMEOUT_SEC,
-            cwd=str(ws_path),
-        )
-        diff_result = subprocess.run(
-            ["git", "diff"],
-            capture_output=True, text=True, timeout=GIT_STANDARD_TIMEOUT_SEC,
-            cwd=str(ws_path),
-        )
-        diff_staged_result = subprocess.run(
-            ["git", "diff", "--staged"],
-            capture_output=True, text=True, timeout=GIT_STANDARD_TIMEOUT_SEC,
-            cwd=str(ws_path),
-        )
-        files = [
-            line[3:] for line in status_result.stdout.splitlines() if len(line) > 3
-        ] if status_result.returncode == 0 else []
-        diff_text = ""
-        if diff_staged_result.returncode == 0 and diff_staged_result.stdout:
-            diff_text += diff_staged_result.stdout
-        if diff_result.returncode == 0 and diff_result.stdout:
-            if diff_text:
-                diff_text += "\n"
-            diff_text += diff_result.stdout
-        return {
-            "status": "ok",
-            "files": files,
-            "diff": diff_text,
-        }
-    except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="git diff timed out")
+    status_result = run_git_command(
+        ["status", "--porcelain"], cwd=ws_path,
+        timeout=GIT_SHORT_TIMEOUT_SEC, operation="status",
+    )
+    diff_result = run_git_command(["diff"], cwd=ws_path, operation="diff")
+    diff_staged_result = run_git_command(["diff", "--staged"], cwd=ws_path, operation="diff --staged")
+    files = [
+        line[3:] for line in status_result["stdout"].splitlines() if len(line) > 3
+    ] if status_result["exit_code"] == 0 else []
+    diff_text = ""
+    if diff_staged_result["exit_code"] == 0 and diff_staged_result["stdout"]:
+        diff_text += diff_staged_result["stdout"]
+    if diff_result["exit_code"] == 0 and diff_result["stdout"]:
+        if diff_text:
+            diff_text += "\n"
+        diff_text += diff_result["stdout"]
+    return {
+        "status": "ok",
+        "files": files,
+        "diff": diff_text,
+    }
 
 
 HIDDEN_DIRS = {".git"}
