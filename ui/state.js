@@ -97,3 +97,32 @@ function addInputHistory(text) {
   if (inputHistory.length > INPUT_HISTORY_MAX) inputHistory.length = INPUT_HISTORY_MAX;
   localStorage.setItem(INPUT_HISTORY_KEY, JSON.stringify(inputHistory));
 }
+
+const SNIPPETS_KEY = "pi_console_snippets";
+const DEFAULT_SNIPPETS = [
+  { label: "ls -la", command: "ls -la" },
+  { label: "git status", command: "git status" },
+  { label: "git diff", command: "git diff" },
+  { label: "docker ps", command: "docker ps" },
+];
+
+function loadSnippets() {
+  const raw = localStorage.getItem(SNIPPETS_KEY);
+  return raw ? JSON.parse(raw) : DEFAULT_SNIPPETS.map(s => ({ ...s }));
+}
+
+function addSnippet(command) {
+  const snippets = loadSnippets();
+  const label = command.length <= 20 ? command : command.slice(0, 20) + "…";
+  const snippet = { label, command };
+  snippets.push(snippet);
+  localStorage.setItem(SNIPPETS_KEY, JSON.stringify(snippets));
+  return snippet;
+}
+
+function deleteSnippet(index) {
+  const snippets = loadSnippets();
+  if (index < 0 || index >= snippets.length) return;
+  snippets.splice(index, 1);
+  localStorage.setItem(SNIPPETS_KEY, JSON.stringify(snippets));
+}

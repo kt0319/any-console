@@ -2007,6 +2007,55 @@ button:disabled {
 
 .quick-qwerty-panel .quick-key {
   font-size: 14px;
+  border-color: #c0885a;
+}
+
+.quick-qwerty-panel .quick-key-toggle.active {
+  background: rgba(224, 138, 62, 0.2);
+  color: #c0885a;
+  border-color: #c0885a;
+}
+
+.quick-snippet-row {
+  display: flex;
+  gap: 6px;
+  padding: 2px 0;
+  overflow-x: auto;
+  align-self: stretch;
+  -webkit-overflow-scrolling: touch;
+}
+
+.quick-snippet-item {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(47, 51, 71, 0.6);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.quick-snippet-item.pressed {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+}
+
+.quick-snippet-add {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--text-muted);
+  min-width: 32px;
+  font-size: 16px;
 }
 
 

@@ -178,10 +178,81 @@ function initQuickInput() {
   qwertyBottomRow.appendChild(createQuickKeyBtn({ label: "\u2423", key: " " }));
   qwertyPanel.appendChild(qwertyBottomRow);
 
+  const snippetRow = document.createElement("div");
+  snippetRow.className = "quick-snippet-row";
+
+  function renderSnippetRow() {
+    snippetRow.innerHTML = "";
+    const snippets = loadSnippets();
+    snippets.forEach((s, idx) => {
+      const chip = document.createElement("div");
+      chip.className = "quick-snippet-item";
+      chip.textContent = s.label;
+      let longPressTimer = null;
+      chip.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        chip.classList.add("pressed");
+        longPressTimer = setTimeout(() => {
+          longPressTimer = null;
+          chip.classList.remove("pressed");
+          if (confirm(`「${s.command}」を削除しますか？`)) {
+            deleteSnippet(idx);
+            renderSnippetRow();
+          }
+        }, 600);
+      }, { passive: false });
+      chip.addEventListener("touchend", (e) => {
+        e.preventDefault();
+        chip.classList.remove("pressed");
+        if (longPressTimer !== null) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+          sendTextToTerminal(s.command);
+          extraMode = 0;
+          applyMode();
+        }
+      });
+      chip.addEventListener("touchcancel", () => {
+        chip.classList.remove("pressed");
+        if (longPressTimer !== null) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+      });
+      snippetRow.appendChild(chip);
+    });
+
+    const addChip = document.createElement("div");
+    addChip.className = "quick-snippet-item quick-snippet-add";
+    addChip.textContent = "+";
+    addChip.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+    addChip.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      const cmd = prompt("コマンドを入力:");
+      if (cmd) {
+        addSnippet(cmd);
+        renderSnippetRow();
+      }
+    });
+    snippetRow.appendChild(addChip);
+  }
+
+  extraPanel.insertBefore(snippetRow, extraPanel.firstChild);
+
   let extraMode = 0;
 
   const normalModeElements = [menuBtn, ...middleKeys];
   const extraModeElements = [imgBtn, ...extraKeyBtns];
+
+  const addTouchBtn = (el, handler) => {
+    el.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); handler(); });
+  };
+
+  const cycleMode = () => {
+    extraMode = (extraMode + 1) % 3;
+    applyMode();
+  };
 
   const applyMode = () => {
     const active = extraMode > 0;
@@ -192,13 +263,9 @@ function initQuickInput() {
     extraPanel.style.display = extraMode === 1 ? "flex" : "none";
     qwertyPanel.style.display = extraMode === 2 ? "flex" : "none";
     panel.style.display = extraMode === 2 ? "none" : "";
+    if (extraMode === 1) renderSnippetRow();
   };
   applyMode();
-
-  const addTouchBtn = (el, handler) => {
-    el.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
-    el.addEventListener("touchend", (e) => { e.preventDefault(); handler(); });
-  };
 
   document.addEventListener("touchend", (e) => {
     if (extraMode > 0 && !e.target.closest(".quick-key-toggle") && !extraPanel.contains(e.target) && !qwertyPanel.contains(e.target) && !panel.contains(e.target) && !qwertyToggle.contains(e.target)) {
@@ -207,10 +274,6 @@ function initQuickInput() {
     }
   });
 
-  const cycleMode = () => {
-    extraMode = (extraMode + 1) % 3;
-    applyMode();
-  };
   addTouchBtn(toggleBtn, cycleMode);
   addTouchBtn(qwertyToggle, cycleMode);
 
