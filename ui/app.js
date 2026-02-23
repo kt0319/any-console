@@ -11,12 +11,8 @@ async function initApp() {
   await loadJobsForWorkspace();
   localStorage.removeItem("pi_console_terminal_tabs");
   localStorage.removeItem("pi_console_active_tab");
+  ensurePickerTab();
   await fetchOrphanSessions();
-  if (!selectedWorkspace) {
-    setLoadingStatus("ワークスペースを選択してください");
-  } else {
-    $("output").innerHTML = '<div class="empty-state"></div>';
-  }
   updateQuickInputVisibility();
   if (sessionStorage.getItem("pi_console_server_reloaded")) {
     sessionStorage.removeItem("pi_console_server_reloaded");

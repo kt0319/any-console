@@ -322,6 +322,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
 
   const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, jobName: jobName || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
   tabs.push(tab);
+  movePickerToEnd();
 
   if (!restored) {
     term.open(container);
@@ -346,6 +347,7 @@ function setOutputTab(id, label, htmlContent, icon, wsIcon, workspace) {
     return;
   }
   tabs.push({ id, type: "output", label, icon: icon || null, wsIcon: wsIcon || null, workspace: workspace || null });
+  movePickerToEnd();
   const div = document.createElement("div");
   div.className = "output-area";
   div.id = `frame-${id}`;
@@ -414,6 +416,13 @@ async function switchTab(id) {
   }
   updateQuickInputVisibility();
   renderTabBar();
+
+  const switchedTabObj = tabs.find((t) => t.id === id);
+  if (switchedTabObj && switchedTabObj.type === "picker") {
+    $("header-row2").style.display = "none";
+    return;
+  }
+
   $("header-row2").style.display = "flex";
 
   if (id === null) {
@@ -443,7 +452,9 @@ function renderTabBar() {
   barRow.style.display = "flex";
   const bar = $("tab-bar");
 
-  const items = tabs.map((tab, i) => ({ type: "tab", tab, index: i }));
+  const pickerTab = tabs.find((t) => t.type === "picker");
+  const nonPickerTabs = tabs.filter((t) => t.type !== "picker");
+  const items = nonPickerTabs.map((tab, i) => ({ type: "tab", tab, index: i }));
   for (const s of orphanSessions) {
     items.push({ type: "orphan", orphan: s, index: s.tabIndex != null ? s.tabIndex : items.length });
   }
@@ -481,7 +492,12 @@ function renderTabBar() {
       }
     }
   }
-  html += '<button class="tab-add-btn" id="tab-add-btn" title="ターミナル・ジョブを開く">+</button>';
+  if (pickerTab) {
+    html += `<button class="tab-btn${activeTabId === pickerTab.id ? " active" : ""}" data-tab="${pickerTab.id}">`
+      + `<span class="mdi mdi-plus"></span>`
+      + (panelBottom ? "" : ` ${escapeHtml(pickerTab.label)}`)
+      + `</button>`;
+  }
   bar.innerHTML = html;
 
   bar.querySelectorAll(".tab-btn:not(.orphan)").forEach((btn) => {
@@ -489,9 +505,10 @@ function renderTabBar() {
     let didLongPress = false;
     btn.addEventListener("touchstart", (e) => {
       didLongPress = false;
+      const tab = tabs.find((t) => t.id === btn.dataset.tab);
+      if (tab && tab.type === "picker") return;
       longPressTimer = setTimeout(() => {
         didLongPress = true;
-        const tab = tabs.find((t) => t.id === btn.dataset.tab);
         const tabName = tabDisplayName(tab) || btn.textContent.replace("×", "").trim();
         if (confirm(`「${tabName}」を閉じますか？`)) {
           removeTab(btn.dataset.tab);
@@ -567,21 +584,71 @@ function renderTabBar() {
       removeTab(tabId);
     });
   });
-  $("tab-add-btn").addEventListener("click", (e) => {
-    e.stopPropagation();
-    showTerminalWsPicker();
-  });
-
   const activeBtn = bar.querySelector(".tab-btn.active");
   if (activeBtn) activeBtn.scrollIntoView({ inline: "nearest", block: "nearest" });
 }
 
 function showTerminalWsPicker() {
-  const list = $("terminal-ws-list");
-  if (!list) return;
-  list.innerHTML = "";
-  const workspaces = visibleWorkspaces();
+  const existing = tabs.find((t) => t.type === "picker");
+  if (existing) {
+    switchTab(existing.id);
+    return;
+  }
+  addPickerTab();
+}
 
+function ensurePickerTab() {
+  const existing = tabs.find((t) => t.type === "picker");
+  if (!existing) addPickerTab();
+}
+
+function addPickerTab() {
+  const id = "picker";
+  const container = document.createElement("div");
+  container.className = "picker-frame";
+  container.id = `frame-${id}`;
+  container.style.display = "none";
+
+  const topBar = document.createElement("div");
+  topBar.className = "picker-top-bar";
+  const topTitle = document.createElement("button");
+  topTitle.type = "button";
+  topTitle.className = "picker-top-title";
+  topTitle.id = "picker-top-title";
+  topTitle.textContent = "";
+  topTitle.addEventListener("click", () => {
+    const settingsView = $("picker-settings-view");
+    if (!settingsView || settingsView.style.display === "none") return;
+    if ($("picker-top-title").dataset.level === "sub") {
+      $("picker-top-title").textContent = "設定";
+      $("picker-top-title").dataset.level = "menu";
+      renderPickerSettingsMenu(settingsView);
+    } else {
+      showPickerMainView();
+    }
+  });
+  topBar.appendChild(topTitle);
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "picker-close-btn";
+  closeBtn.innerHTML = "&times;";
+  closeBtn.addEventListener("click", () => {
+    const otherTabs = tabs.filter((t) => t.type !== "picker");
+    if (otherTabs.length > 0) {
+      switchTab(otherTabs[otherTabs.length - 1].id);
+    }
+  });
+  topBar.appendChild(closeBtn);
+  container.appendChild(topBar);
+
+  const mainView = document.createElement("div");
+  mainView.className = "picker-main-view";
+  mainView.id = "picker-main-view";
+
+  const list = document.createElement("div");
+  list.className = "terminal-ws-list";
+
+  const workspaces = visibleWorkspaces();
   for (const ws of workspaces) {
     const group = document.createElement("div");
     group.className = "picker-ws-group";
@@ -593,7 +660,7 @@ function showTerminalWsPicker() {
     headerLabel.className = "picker-ws-header-label";
     headerLabel.innerHTML = renderIcon(ws.icon || "mdi-console", ws.icon_color, 16) + " " + escapeHtml(ws.name);
     headerLabel.addEventListener("click", () => {
-      closeTerminalWsPicker();
+      resetPickerView();
       runJob("terminal", null, ws.name);
     });
     header.appendChild(headerLabel);
@@ -604,7 +671,7 @@ function showTerminalWsPicker() {
     fileBtn.title = "ファイル一覧";
     fileBtn.innerHTML = renderIcon("mdi-folder", "", 18);
     fileBtn.addEventListener("click", () => {
-      closeTerminalWsPicker();
+      resetPickerView();
       selectedWorkspace = ws.name;
       renderWorkspaceSelects();
       openFileBrowser();
@@ -621,35 +688,288 @@ function showTerminalWsPicker() {
     loadPickerWsIcons(icons, ws);
   }
 
-  $("terminal-ws-picker-footer").style.display = "none";
+  mainView.appendChild(list);
 
-  const picker = $("terminal-ws-picker");
-  picker.style.display = "flex";
-  $("terminal-ws-picker-close").onclick = closeTerminalWsPicker;
-  picker.onclick = (e) => {
-    if (e.target === picker) closeTerminalWsPicker();
-  };
+  const footer = document.createElement("div");
+  footer.className = "menu-footer-row";
+  const settingsBtn = document.createElement("button");
+  settingsBtn.type = "button";
+  settingsBtn.className = "menu-footer-btn";
+  settingsBtn.innerHTML = '<span class="mdi mdi-cog"></span> 設定';
+  settingsBtn.addEventListener("click", () => showPickerSettings());
+  footer.appendChild(settingsBtn);
+  mainView.appendChild(footer);
+  container.appendChild(mainView);
+
+  const settingsView = document.createElement("div");
+  settingsView.className = "picker-settings-view";
+  settingsView.id = "picker-settings-view";
+  settingsView.style.display = "none";
+  container.appendChild(settingsView);
+
+  $("output-container").appendChild(container);
+  tabs.push({ id, type: "picker", label: "開く" });
+  switchTab(id);
+}
+
+function showPickerSettings() {
+  const mainView = $("picker-main-view");
+  const settingsView = $("picker-settings-view");
+  if (!mainView || !settingsView) return;
+
+  mainView.style.display = "none";
+  settingsView.style.display = "";
+  renderPickerSettingsMenu(settingsView);
+}
+
+function showPickerMainView() {
+  const mainView = $("picker-main-view");
+  const settingsView = $("picker-settings-view");
+  const title = $("picker-top-title");
+  if (!mainView || !settingsView) return;
+
+  settingsView.style.display = "none";
+  mainView.style.display = "";
+  title.textContent = "";
+  title.dataset.level = "";
+}
+
+function renderPickerSettingsMenu(container) {
+  container.innerHTML = "";
+  $("picker-top-title").innerHTML = '<span class="mdi mdi-arrow-left"></span> 設定';
+  $("picker-top-title").dataset.level = "menu";
+  const menu = document.createElement("div");
+  menu.className = "settings-menu";
+
+  const items = [
+    { icon: "mdi-cog", label: "ワークスペース設定", action: () => showPickerWsVisibility(container) },
+    { icon: "mdi-plus", label: "ワークスペース追加", action: () => openCloneModal() },
+    { icon: "mdi-download", label: "設定エクスポート", action: () => exportSettings() },
+    { icon: "mdi-upload", label: "設定インポート", action: () => importSettings() },
+    { icon: "mdi-format-list-bulleted", label: "プロセス一覧", action: () => showPickerProcessList(container) },
+    { icon: "mdi-information-outline", label: "サーバー情報", action: () => showPickerServerInfo(container) },
+  ];
+
+  for (const item of items) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "settings-menu-item";
+    btn.innerHTML = `<span class="mdi ${item.icon}"></span> ${item.label}`;
+    btn.addEventListener("click", item.action);
+    menu.appendChild(btn);
+  }
+
+  container.appendChild(menu);
+}
+
+function showPickerSettingsSubView(container, title, renderContent) {
+  container.innerHTML = "";
+  $("picker-top-title").innerHTML = '<span class="mdi mdi-arrow-left"></span> ' + escapeHtml(title);
+  $("picker-top-title").dataset.level = "sub";
+
+  const content = document.createElement("div");
+  content.className = "picker-settings-content";
+  container.appendChild(content);
+
+  renderContent(content);
+}
+
+function showPickerWsVisibility(container) {
+  showPickerSettingsSubView(container, "ワークスペース設定", (content) => {
+    const list = document.createElement("div");
+    list.className = "ws-check-list";
+    list.style.overflow = "auto";
+    list.style.flex = "1";
+
+    for (const ws of allWorkspaces) {
+      const visible = !ws.hidden;
+      const item = document.createElement("div");
+      item.className = "ws-check-item";
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = visible;
+      checkbox.dataset.ws = ws.name;
+      checkbox.addEventListener("change", (e) => toggleWorkspace(ws.name, e.target.checked));
+
+      const iconBtn = document.createElement("button");
+      iconBtn.type = "button";
+      iconBtn.className = "ws-icon-edit-btn";
+      iconBtn.innerHTML = ws.icon ? renderIcon(ws.icon, ws.icon_color, 18) : '<span class="mdi mdi-console" style="color:var(--text-muted)"></span>';
+      iconBtn.addEventListener("click", () => openWsIconPicker(ws));
+
+      const label = document.createElement("span");
+      label.className = "ws-check-label";
+      label.textContent = ws.name;
+
+      const iconsWrap = document.createElement("div");
+      iconsWrap.className = "ws-setting-icons";
+
+      const addBtn = document.createElement("button");
+      addBtn.type = "button";
+      addBtn.className = "ws-add-item-btn";
+      addBtn.innerHTML = '<i class="mdi mdi-plus"></i>';
+      addBtn.addEventListener("click", () => {
+        selectedWorkspace = ws.name;
+        openItemCreateModal(ws.name, "job");
+      });
+
+      item.appendChild(checkbox);
+      item.appendChild(iconBtn);
+      item.appendChild(label);
+      item.appendChild(iconsWrap);
+      item.appendChild(addBtn);
+      list.appendChild(item);
+
+      loadPickerSettingsWsIcons(iconsWrap, ws);
+    }
+    content.appendChild(list);
+  });
+}
+
+function loadPickerSettingsWsIcons(container, ws) {
+  loadWsIconButtons(container, ws, 16,
+    (link, i) => {
+      openItemEditModal("link", {
+        workspace: ws.name, index: i,
+        label: link.label || link.url,
+        url: link.url,
+        icon: link.icon,
+        iconColor: link.icon_color,
+      }, "picker-settings");
+    },
+    (name, job) => {
+      openItemEditModal("job", {
+        workspace: ws.name,
+        name,
+        label: job.label || name,
+        icon: job.icon,
+        iconColor: job.icon_color,
+        command: job.command || "",
+        confirm: job.confirm,
+      }, "picker-settings");
+    },
+  );
+}
+
+async function showPickerServerInfo(container) {
+  showPickerSettingsSubView(container, "サーバー情報", async (content) => {
+    const list = document.createElement("div");
+    list.className = "server-info-list";
+    list.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>';
+    content.appendChild(list);
+
+    const labels = {
+      hostname: "ホスト名", ip: "IPアドレス", os: "OS",
+      uptime: "稼働時間", cpu_temp: "CPU温度", memory: "メモリ", disk: "ディスク",
+    };
+
+    try {
+      const res = await apiFetch("/system/info");
+      if (!res || !res.ok) {
+        list.innerHTML = '<div style="color:var(--error);padding:16px">取得に失敗しました</div>';
+        return;
+      }
+      const data = await res.json();
+      list.innerHTML = "";
+      for (const [key, label] of Object.entries(labels)) {
+        if (!(key in data)) continue;
+        const row = document.createElement("div");
+        row.className = "server-info-row";
+        row.innerHTML = `<span class="server-info-label">${escapeHtml(label)}</span><span class="server-info-value">${escapeHtml(String(data[key]))}</span>`;
+        list.appendChild(row);
+      }
+    } catch (e) {
+      list.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
+    }
+  });
+}
+
+async function showPickerProcessList(container) {
+  showPickerSettingsSubView(container, "プロセス一覧", async (content) => {
+    const list = document.createElement("div");
+    list.className = "server-info-list";
+    list.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>';
+    content.appendChild(list);
+
+    try {
+      const res = await apiFetch("/system/processes");
+      if (!res || !res.ok) {
+        list.innerHTML = '<div style="color:var(--error);padding:16px">取得に失敗しました</div>';
+        return;
+      }
+      const data = await res.json();
+      list.innerHTML = "";
+      for (const proc of data) {
+        const row = document.createElement("div");
+        row.className = "server-info-row process-row";
+        row.innerHTML =
+          `<span class="process-name">${escapeHtml(proc.name)}</span>` +
+          `<span class="process-stats">` +
+          `<span class="process-cpu">${proc.cpu.toFixed(1)}%</span>` +
+          `<span class="process-mem">${proc.mem.toFixed(1)}%</span>` +
+          `</span>`;
+        row.title = `PID: ${proc.pid}\n${proc.command}`;
+        list.appendChild(row);
+      }
+    } catch (e) {
+      list.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
+    }
+  });
 }
 
 function loadPickerWsIcons(container, ws) {
   loadWsIconButtons(container, ws, 18,
     (link) => {
       window.open(link.url, "_blank");
-      closeTerminalWsPicker();
     },
     (name, job) => {
       if (job.confirm !== false) {
         if (!confirm(`${job.label || name} を実行しますか？`)) return;
       }
-      closeTerminalWsPicker();
+      resetPickerView();
       runJob(name, null, ws.name);
     },
   );
 }
 
+function removePickerTab() {
+  const pickerTab = tabs.find((t) => t.type === "picker");
+  if (!pickerTab) return;
+  tabs = tabs.filter((t) => t.type !== "picker");
+  const el = $(`frame-${pickerTab.id}`);
+  if (el) el.remove();
+  if (activeTabId === pickerTab.id) {
+    switchTab(tabs.length > 0 ? tabs[tabs.length - 1].id : null);
+  } else {
+    renderTabBar();
+  }
+}
 
-function closeTerminalWsPicker() {
-  $("terminal-ws-picker").style.display = "none";
+function resetPickerView() {
+  const mainView = $("picker-main-view");
+  const settingsView = $("picker-settings-view");
+  const title = $("picker-top-title");
+  if (mainView) mainView.style.display = "";
+  if (settingsView) settingsView.style.display = "none";
+  if (title) title.textContent = "";
+}
+
+function movePickerToEnd() {
+  const idx = tabs.findIndex((t) => t.type === "picker");
+  if (idx >= 0 && idx < tabs.length - 1) {
+    const [picker] = tabs.splice(idx, 1);
+    tabs.push(picker);
+  }
+}
+
+function refreshPickerTab() {
+  const pickerTab = tabs.find((t) => t.type === "picker");
+  if (!pickerTab) return;
+  const el = $(`frame-${pickerTab.id}`);
+  if (el) el.remove();
+  tabs = tabs.filter((t) => t.type !== "picker");
+  addPickerTab();
 }
 
 function enterTerminalCopyMode(tabId) {
