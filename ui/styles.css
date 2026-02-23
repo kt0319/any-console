@@ -847,6 +847,8 @@ header .ws-select-wrap {
   font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   cursor: pointer;
   white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .tab-btn.active {
@@ -961,7 +963,12 @@ header .ws-select-wrap {
   height: 100%;
 }
 
-.copy-mode-bar {
+.terminal-frame.copy-mode {
+  border: 2px solid #ff9800;
+  box-sizing: border-box;
+}
+
+.copy-mode-overlay {
   position: absolute;
   top: 0;
   left: 0;
@@ -969,45 +976,41 @@ header .ws-select-wrap {
   z-index: 10;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
+  justify-content: space-between;
+  padding: 4px 6px 4px 12px;
+  pointer-events: none;
 }
 
 .copy-mode-label {
-  flex: 1;
   font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.copy-mode-btn {
-  padding: 4px 12px;
-  border: none;
-  border-radius: 4px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.copy-mode-copy-btn {
-  background: var(--accent);
+  font-weight: 600;
   color: #fff;
+  background: var(--accent);
+  padding: 4px 12px;
+  border-radius: 12px;
 }
 
 .copy-mode-close-btn {
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
+  padding: 4px 12px;
+  border: none;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  pointer-events: auto;
 }
 
 .copy-mode-textarea {
   position: absolute;
-  top: 40px;
+  top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 9;
   width: 100%;
-  height: calc(100% - 40px);
+  height: 100%;
   padding: 8px;
   margin: 0;
   border: none;
@@ -1018,6 +1021,7 @@ header .ws-select-wrap {
   font-size: 12px;
   line-height: 1.4;
   box-sizing: border-box;
+  outline: none;
 }
 
 .output-area .empty-state {

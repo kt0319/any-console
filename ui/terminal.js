@@ -307,12 +307,17 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
   {
     let longPressTimer = null;
     let didLongPress = false;
-    container.addEventListener("touchstart", () => {
+    let touchStartX = 0;
+    let touchStartY = 0;
+    container.addEventListener("touchstart", (e) => {
       didLongPress = false;
+      const touch = e.touches[0];
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
       longPressTimer = setTimeout(() => {
         didLongPress = true;
         enterTerminalCopyMode(id);
-      }, 500);
+      }, 800);
     }, { passive: true });
     container.addEventListener("touchend", (e) => {
       clearTimeout(longPressTimer);
@@ -320,7 +325,12 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
       if (container.classList.contains("copy-mode")) return;
       if (isTouchDevice) showKeyboardInput();
     });
-    container.addEventListener("touchmove", () => clearTimeout(longPressTimer), { passive: true });
+    container.addEventListener("touchmove", (e) => {
+      const touch = e.touches[0];
+      const dx = touch.clientX - touchStartX;
+      const dy = touch.clientY - touchStartY;
+      if (dx * dx + dy * dy > 100) clearTimeout(longPressTimer);
+    }, { passive: true });
   }
 
 
@@ -495,7 +505,7 @@ function renderTabBar() {
         if (confirm(`「${tabName}」を閉じますか？`)) {
           removeTab(btn.dataset.tab);
         }
-      }, 500);
+      }, 800);
     }, { passive: true });
     btn.addEventListener("touchend", (e) => {
       clearTimeout(longPressTimer);
@@ -511,7 +521,34 @@ function renderTabBar() {
     });
   });
   bar.querySelectorAll(".tab-btn.orphan").forEach((btn) => {
+    let longPressTimer = null;
+    let didLongPress = false;
+    btn.addEventListener("touchstart", () => {
+      didLongPress = false;
+      longPressTimer = setTimeout(() => {
+        didLongPress = true;
+        const label = btn.dataset.orphanWs || "terminal";
+        if (confirm(`「${label}」を閉じますか？`)) {
+          const wsUrl = btn.dataset.orphanUrl;
+          const match = wsUrl.match(/\/terminal\/ws\/([^/]+)/);
+          if (match) {
+            apiFetch(`/terminal/sessions/${match[1]}`, { method: "DELETE" }).catch(() => {});
+          }
+          orphanSessions = orphanSessions.filter((s) => s.wsUrl !== wsUrl);
+          renderTabBar();
+        }
+      }, 800);
+    }, { passive: true });
+    btn.addEventListener("touchend", (e) => {
+      clearTimeout(longPressTimer);
+      if (didLongPress) {
+        e.preventDefault();
+        didLongPress = false;
+      }
+    });
+    btn.addEventListener("touchmove", () => clearTimeout(longPressTimer), { passive: true });
     btn.addEventListener("click", () => {
+      if (didLongPress) return;
       joinOrphanSession(btn.dataset.orphanUrl, btn.dataset.orphanWs);
     });
   });
@@ -632,11 +669,17 @@ function enterTerminalCopyMode(tabId) {
     if (kbWrapper) kbWrapper.style.display = "none";
   }
 
-  const bar = document.createElement("div");
-  bar.className = "copy-mode-bar";
-  bar.innerHTML = '<button class="copy-mode-btn copy-mode-copy-btn">全コピー</button>'
-    + '<button class="copy-mode-btn copy-mode-close-btn">閉じる</button>';
-  container.appendChild(bar);
+  const overlay = document.createElement("div");
+  overlay.className = "copy-mode-overlay";
+  const label = document.createElement("span");
+  label.className = "copy-mode-label";
+  label.textContent = "コピーモード";
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "copy-mode-close-btn";
+  closeBtn.textContent = "×";
+  closeBtn.addEventListener("click", () => exitTerminalCopyMode(tabId));
+  overlay.append(label, closeBtn);
+  container.appendChild(overlay);
 
   tab.term.selectAll();
 
@@ -646,26 +689,14 @@ function enterTerminalCopyMode(tabId) {
   textarea.value = tab.term.getSelection();
   container.appendChild(textarea);
   textarea.scrollTop = textarea.scrollHeight;
-
-  bar.querySelector(".copy-mode-copy-btn").addEventListener("click", () => {
-    const text = textarea.selectionStart !== textarea.selectionEnd
-      ? textarea.value.substring(textarea.selectionStart, textarea.selectionEnd)
-      : textarea.value;
-    copyToClipboard(text);
-    showToast("コピーしました", "success");
-  });
-
-  bar.querySelector(".copy-mode-close-btn").addEventListener("click", () => {
-    exitTerminalCopyMode(tabId);
-  });
 }
 
 function exitTerminalCopyMode(tabId) {
   const container = $(`frame-${tabId}`);
   if (!container) return;
   container.classList.remove("copy-mode");
-  const bar = container.querySelector(".copy-mode-bar");
-  if (bar) bar.remove();
+  const overlay = container.querySelector(".copy-mode-overlay");
+  if (overlay) overlay.remove();
   const textarea = container.querySelector(".copy-mode-textarea");
   if (textarea) textarea.remove();
   const tab = tabs.find((t) => t.id === tabId);
