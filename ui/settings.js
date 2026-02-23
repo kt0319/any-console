@@ -3,7 +3,7 @@ function applyPanelBottom() {
 }
 
 function showSettingsView(viewId) {
-  for (const id of ["settings-menu-view", "settings-ws-visibility", "settings-server-info-view"]) {
+  for (const id of ["settings-menu-view", "settings-ws-visibility", "settings-server-info-view", "settings-process-list-view"]) {
     $(id).style.display = id === viewId ? "" : "none";
   }
 }
@@ -102,6 +102,39 @@ async function openSettingsServerInfo() {
       const row = document.createElement("div");
       row.className = "server-info-row";
       row.innerHTML = `<span class="server-info-label">${escapeHtml(label)}</span><span class="server-info-value">${escapeHtml(String(data[key]))}</span>`;
+      list.appendChild(row);
+    }
+  } catch (e) {
+    list.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function openProcessList() {
+  $("settings-title").textContent = "プロセス一覧";
+  showSettingsView("settings-process-list-view");
+  $("settings-modal").style.display = "flex";
+  const list = $("process-list");
+  list.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>';
+
+  try {
+    const res = await apiFetch("/system/processes");
+    if (!res) return;
+    if (!res.ok) {
+      list.innerHTML = '<div style="color:var(--error);padding:16px">取得に失敗しました</div>';
+      return;
+    }
+    const data = await res.json();
+    list.innerHTML = "";
+    for (const proc of data) {
+      const row = document.createElement("div");
+      row.className = "server-info-row process-row";
+      row.innerHTML =
+        `<span class="process-name">${escapeHtml(proc.name)}</span>` +
+        `<span class="process-stats">` +
+        `<span class="process-cpu">${proc.cpu.toFixed(1)}%</span>` +
+        `<span class="process-mem">${proc.mem.toFixed(1)}%</span>` +
+        `</span>`;
+      row.title = `PID: ${proc.pid}\n${proc.command}`;
       list.appendChild(row);
     }
   } catch (e) {

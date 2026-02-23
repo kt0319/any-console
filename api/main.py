@@ -203,6 +203,40 @@ def _get_memory() -> str | None:
     return None
 
 
+@app.get("/system/processes", dependencies=[Depends(verify_token)])
+def get_system_processes():
+    PROCESS_LIMIT = 15
+    try:
+        if IS_DARWIN:
+            cmd = ["ps", "aux", "-r"]
+        else:
+            cmd = ["ps", "aux", "--sort=-%cpu"]
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
+        )
+        if result.returncode != 0:
+            raise HTTPException(status_code=500, detail="ps command failed")
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=500, detail="ps command timed out")
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="ps command not found")
+
+    lines = result.stdout.strip().splitlines()
+    processes = []
+    for line in lines[1:PROCESS_LIMIT + 1]:
+        parts = line.split(None, 10)
+        if len(parts) < 11:
+            continue
+        processes.append({
+            "pid": int(parts[1]),
+            "name": Path(parts[10].split()[0]).name,
+            "cpu": float(parts[2]),
+            "mem": float(parts[3]),
+            "command": parts[10],
+        })
+    return processes
+
+
 @app.get("/system/info", dependencies=[Depends(verify_token)])
 def get_system_info():
     info = {}

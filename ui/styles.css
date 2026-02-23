@@ -1326,6 +1326,38 @@ button:disabled {
   white-space: nowrap;
 }
 
+.process-row {
+  gap: 8px;
+}
+
+.process-name {
+  color: var(--text-primary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.process-stats {
+  flex-shrink: 0;
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.process-cpu {
+  color: var(--text-secondary);
+  min-width: 44px;
+  text-align: right;
+}
+
+.process-mem {
+  color: var(--text-muted);
+  min-width: 44px;
+  text-align: right;
+}
+
 .clone-output {
   font-size: 12px;
   color: var(--text-secondary);
@@ -1461,7 +1493,9 @@ button:disabled {
   justify-content: center;
 }
 
-#settings-ws-visibility {
+#settings-ws-visibility,
+#settings-server-info-view,
+#settings-process-list-view {
   display: flex;
   flex-direction: column;
   overflow: hidden;

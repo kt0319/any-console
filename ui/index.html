@@ -40,6 +40,7 @@
             <button type="button" class="settings-menu-item" onclick="closeSettings(); openCloneModal()"><span class="mdi mdi-plus"></span> ワークスペース追加</button>
             <button type="button" class="settings-menu-item" onclick="exportSettings()"><span class="mdi mdi-download"></span> 設定エクスポート</button>
             <button type="button" class="settings-menu-item" onclick="importSettings()"><span class="mdi mdi-upload"></span> 設定インポート</button>
+            <button type="button" class="settings-menu-item" onclick="openProcessList()"><span class="mdi mdi-format-list-bulleted"></span> プロセス一覧</button>
             <button type="button" class="settings-menu-item" onclick="openSettingsServerInfo()"><span class="mdi mdi-information-outline"></span> サーバー情報</button>
           </div>
         </div>
@@ -48,6 +49,9 @@
         </div>
         <div id="settings-server-info-view" style="display:none">
           <div class="server-info-list" id="server-info-list"></div>
+        </div>
+        <div id="settings-process-list-view" style="display:none">
+          <div class="server-info-list" id="process-list"></div>
         </div>
         <input type="file" id="settings-import-file" accept=".json" style="display:none">
       </div>
