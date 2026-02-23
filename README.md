@@ -1,17 +1,20 @@
 # pi-console
 
-Raspberry Pi用Web操作コンソール。スマホからTailscale経由でシェルスクリプトのジョブを実行する。
+Raspberry Pi用Web操作コンソール。スマホからTailscale経由でシェルスクリプトのジョブ実行、Git操作、Webターミナルを提供する。UIはモバイルファースト、PCにも対応。
 
 ## セットアップ
 
 ```bash
-pip install fastapi uvicorn websockets
-chmod +x jobs/*.sh
+pip install fastapi uvicorn websockets python-dotenv
 ```
 
 ## 起動
 
 ```bash
+# .envがある場合はTOKEN指定不要
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8888 --reload
+
+# .envがない場合はTOKENを明示指定
 PI_CONSOLE_TOKEN=your-secret-token python -m uvicorn api.main:app --host 0.0.0.0 --port 8888
 ```
 
@@ -32,71 +35,31 @@ sudo systemctl enable --now pi-console
 ## ディレクトリ構成
 
 ```
-api/          API (FastAPI)
-ui/           Web UI (静的ファイル)
-jobs/         ジョブスクリプト
-systemd/      systemdサービス定義
+api/              API (FastAPI)
+  routers/        ルーター (workspaces, git, jobs, terminal)
+  main.py         アプリ初期化、静的ファイル配信
+  auth.py         Bearerトークン認証
+  runner.py       ジョブ実行 (subprocess)
+  jobs.py         ジョブ定義 (dataclass)
+  common.py       共通定数・ユーティリティ
+ui/               Web UI (バニラJS、ビルド不要)
+data/             設定ファイル (config.json)
+systemd/          systemdサービス定義
 ```
 
-## API
+## ジョブシステム
 
-```
-POST /run
-Authorization: Bearer <token>
+各ワークスペースの `.pi-console/jobs/*.sh` にジョブスクリプトを配置する。
 
-{"job": "deploy", "args": {"env": "stg", "service": "api"}}
-→ {"status": "ok", "exit_code": 0, "stdout": "...", "stderr": ""}
-```
-
-## Workspace別のjobs設定
-
-各Workspace直下に `.pi-console-jobs.json` を置くと、そのWorkspaceで表示/実行できるjobを制限できます。
-
-例:
-
-```json
-{
-  "jobs": ["status", "docker"]
-}
-```
-
-または配列形式でも指定できます。
-
-```json
-["status", "docker"]
-```
-
-`terminal` を有効化する場合の例:
-
-```json
-{
-  "jobs": ["status", "docker", "terminal"]
-}
-```
-
-## 一時Webターミナル（ttyd）
-
-### 依存
+スクリプトヘッダにメタデータを記述可能:
 
 ```bash
-sudo apt install ttyd
+#!/usr/bin/env bash
+# icon: rocket
+# icon-color: #ff6600
+# open-url: http://localhost:3000
 ```
 
-### 制限ユーザー作成
+## 設定
 
-```bash
-sudo useradd -m terminal
-```
-
-`terminal` ユーザーには sudo 権限を付与しないでください。
-
-### sudoers（pi-console 実行ユーザーから terminal で ttyd 実行）
-
-`pi` ユーザーで動かす場合の例:
-
-```bash
-echo 'pi ALL=(terminal) NOPASSWD: /usr/bin/timeout 600 /usr/bin/ttyd *' | sudo tee /etc/sudoers.d/pi-console-terminal
-sudo chmod 440 /etc/sudoers.d/pi-console-terminal
-```
-
-この設定がない場合、`terminal` ジョブは `sudo` で失敗します。
+設定は `data/config.json` に統合管理される。設定モーダルからエクスポート/インポートが可能。
