@@ -1,4 +1,3 @@
-import json
 import logging
 import re
 import secrets
@@ -12,8 +11,9 @@ from ..auth import verify_token
 from ..common import (
     TERMINAL_TIMEOUT_SEC,
     get_git_branches,
+    load_workspace_config,
     resolve_workspace_path,
-    workspace_config_dir,
+    save_workspace_config,
 )
 from ..jobs import TERMINAL_JOB, JobDefinition
 from ..runner import run_job
@@ -28,24 +28,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(verify_token)])
 
 
-def get_jobs_file(workspace_name):
-    return workspace_config_dir(workspace_name) / "jobs.json"
-
-
 def load_workspace_jobs_data(workspace_name):
-    jobs_file = get_jobs_file(workspace_name)
-    if not jobs_file.is_file():
-        return {}
-    try:
-        return json.loads(jobs_file.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return {}
+    return load_workspace_config(workspace_name).get("jobs", {})
 
 
 def save_workspace_jobs_data(workspace_name, data):
-    jobs_file = get_jobs_file(workspace_name)
-    jobs_file.parent.mkdir(parents=True, exist_ok=True)
-    jobs_file.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    config = load_workspace_config(workspace_name)
+    config["jobs"] = data
+    save_workspace_config(workspace_name, config)
 
 
 def get_workspace_jobs(workspace_name):
@@ -150,19 +140,13 @@ def delete_workspace_job(name: str, job_name: str):
 
 
 def get_workspace_links(workspace_name):
-    links_file = workspace_config_dir(workspace_name) / "links.json"
-    if not links_file.is_file():
-        return []
-    try:
-        return json.loads(links_file.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return []
+    return load_workspace_config(workspace_name).get("links", [])
 
 
 def save_workspace_links(workspace_name, links):
-    links_file = workspace_config_dir(workspace_name) / "links.json"
-    links_file.parent.mkdir(parents=True, exist_ok=True)
-    links_file.write_text(json.dumps(links, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    config = load_workspace_config(workspace_name)
+    config["links"] = links
+    save_workspace_config(workspace_name, config)
 
 
 def normalize_url(url):

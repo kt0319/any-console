@@ -14,30 +14,15 @@ from ..common import (
     GITHUB_CLI_TIMEOUT_SEC,
     WORK_DIR,
     git_info_to_status_dict,
+    load_workspace_config,
     migrate_workspace_config,
     resolve_workspace_path,
-    workspace_config_dir,
+    save_workspace_config,
 )
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(verify_token)])
-
-
-def get_workspace_config(workspace_name):
-    config_file = workspace_config_dir(workspace_name) / "config.json"
-    if not config_file.is_file():
-        return {}
-    try:
-        return json.loads(config_file.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return {}
-
-
-def save_workspace_config(workspace_name, config):
-    config_file = workspace_config_dir(workspace_name) / "config.json"
-    config_file.parent.mkdir(parents=True, exist_ok=True)
-    config_file.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def _background_fetch(dirs):
@@ -73,7 +58,7 @@ def list_workspaces():
         ))
     for ws_data, workspace_dir in zip(result, dirs):
         migrate_workspace_config(workspace_dir.name, workspace_dir)
-        config = get_workspace_config(workspace_dir.name)
+        config = load_workspace_config(workspace_dir.name)
         ws_data["icon"] = config.get("icon", "")
         ws_data["icon_color"] = config.get("icon_color", "")
     BACKGROUND_EXECUTOR.submit(_background_fetch, dirs)
@@ -86,9 +71,9 @@ class UpdateConfigRequest(BaseModel):
 
 
 @router.put("/workspaces/{name}/config")
-def update_workspace_config(name: str, body: UpdateConfigRequest):
+def update_workspace_config_endpoint(name: str, body: UpdateConfigRequest):
     resolve_workspace_path(name)
-    config = get_workspace_config(name)
+    config = load_workspace_config(name)
     config["icon"] = body.icon.strip()
     config["icon_color"] = body.icon_color.strip()
     save_workspace_config(name, config)

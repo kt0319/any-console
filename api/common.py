@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import re
@@ -33,34 +34,70 @@ COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{4,40}$")
 BACKGROUND_EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
 
-def workspace_config_dir(workspace_name: str) -> Path:
-    return CONFIG_DIR / workspace_name
+def workspace_config_file(workspace_name: str) -> Path:
+    return CONFIG_DIR / f"{workspace_name}.json"
+
+
+def load_workspace_config(workspace_name: str) -> dict:
+    config_file = workspace_config_file(workspace_name)
+    if not config_file.is_file():
+        return {}
+    try:
+        return json.loads(config_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_workspace_config(workspace_name: str, config: dict) -> None:
+    config_file = workspace_config_file(workspace_name)
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    config_file.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _read_json_file(path: Path, default=None):
+    if not path.is_file():
+        return default
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return default
 
 
 def migrate_workspace_config(workspace_name: str, workspace_path: Path) -> None:
-    new_dir = workspace_config_dir(workspace_name)
-    if new_dir.exists():
+    new_file = workspace_config_file(workspace_name)
+    if new_file.exists():
         return
-    import shutil
-    source_dirs = [
-        CONFIG_DIR / "workspaces" / workspace_name,
-        OLD_CONFIG_DIR / "workspaces" / workspace_name,
-        workspace_path / OLD_WORKSPACE_CONFIG_DIR,
-    ]
-    for old_dir in source_dirs:
-        if not old_dir.is_dir():
-            continue
-        new_dir.mkdir(parents=True, exist_ok=True)
-        for item in old_dir.iterdir():
-            dest = new_dir / item.name
-            if dest.exists():
-                continue
-            if item.is_dir():
-                shutil.copytree(item, dest)
-            else:
-                shutil.copy2(item, dest)
-        logger.info("migrated workspace config workspace=%s from=%s to=%s", workspace_name, old_dir, new_dir)
-        return
+
+    old_dir = CONFIG_DIR / workspace_name
+    if not old_dir.is_dir():
+        source_dirs = [
+            CONFIG_DIR / "workspaces" / workspace_name,
+            OLD_CONFIG_DIR / "workspaces" / workspace_name,
+            workspace_path / OLD_WORKSPACE_CONFIG_DIR,
+        ]
+        for candidate in source_dirs:
+            if candidate.is_dir():
+                old_dir = candidate
+                break
+        else:
+            return
+
+    config = _read_json_file(old_dir / "config.json", {})
+    jobs = _read_json_file(old_dir / "jobs.json", {})
+    links = _read_json_file(old_dir / "links.json", [])
+
+    merged = {}
+    if config.get("icon"):
+        merged["icon"] = config["icon"]
+    if config.get("icon_color"):
+        merged["icon_color"] = config["icon_color"]
+    if jobs:
+        merged["jobs"] = jobs
+    if links:
+        merged["links"] = links
+
+    save_workspace_config(workspace_name, merged)
+    logger.info("migrated workspace config workspace=%s from=%s to=%s", workspace_name, old_dir, new_file)
 
 
 def resolve_workspace_path(workspace: str | None) -> Path | None:
