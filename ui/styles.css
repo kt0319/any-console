@@ -1784,51 +1784,26 @@ button:disabled {
   padding: 0 8px;
 }
 
-.quick-text-float {
-  position: fixed;
-  left: 16px;
-  right: 16px;
-  height: 44px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 8px;
-  background: rgba(25, 28, 40, 0.95);
-  color: var(--text-primary);
-  font-size: 14px;
-  outline: none;
-  box-sizing: border-box;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  z-index: 41;
-}
-
-.quick-text-float::placeholder {
-  color: rgba(255, 255, 255, 0.3);
-}
-
 .keyboard-indicator {
   position: absolute;
   left: 16px;
   right: 16px;
   height: 44px;
-  padding: 0 12px;
+  padding: 10px 12px;
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 8px;
   background: rgba(25, 28, 40, 0.95);
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 14px;
-  line-height: 44px;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-family: inherit;
   box-sizing: border-box;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   z-index: 9999;
-  pointer-events: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: color 0.15s;
+  outline: none;
 }
 
-.keyboard-indicator.has-text {
-  color: var(--text-primary);
+.keyboard-indicator::placeholder {
+  color: rgba(255, 255, 255, 0.3);
 }
 
 @media (min-width: 769px) {

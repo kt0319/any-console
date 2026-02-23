@@ -44,17 +44,30 @@ function fitActiveTerminal() {
 function updateKeyboardIndicator(keyboardOpen) {
   let el = $("keyboard-indicator");
   if (!el) {
-    el = document.createElement("div");
+    el = document.createElement("input");
+    el.type = "text";
     el.id = "keyboard-indicator";
     el.className = "keyboard-indicator";
-    el.textContent = "テキスト入力中";
+    el.placeholder = "テキスト入力中";
+    el.enterKeyHint = "send";
     document.body.appendChild(el);
+
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.isComposing) {
+        e.preventDefault();
+        e.stopPropagation();
+        const val = el.value;
+        el.value = "";
+        if (val) sendTextToTerminal(val);
+        el.blur();
+      }
+    });
   }
   if (keyboardOpen) {
     el.style.display = "";
     const vv = window.visualViewport;
-    if (vv) el.style.top = (vv.offsetTop + vv.height - 52) + "px";
-    if (window.showQuickTextInput) window.showQuickTextInput();
+    if (vv) el.style.top = (vv.offsetTop + vv.height - el.offsetHeight - 8) + "px";
+    el.focus({ preventScroll: true });
   } else {
     el.style.display = "none";
   }

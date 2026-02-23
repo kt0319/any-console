@@ -133,25 +133,10 @@ function initQuickInput() {
   const middleKeys = quickKeyBtns.slice(0, -1);
   const enterKey = quickKeyBtns[quickKeyBtns.length - 1];
 
-  const inputBtn = document.createElement("div");
-  inputBtn.className = "quick-key quick-key-toggle";
-  inputBtn.innerHTML = '<span class="mdi mdi-form-textbox"></span>';
-  inputBtn.style.display = "none";
-
   for (const btn of middleKeys) panel.appendChild(btn);
   for (const btn of extraKeyBtns) panel.appendChild(btn);
   panel.appendChild(toggleBtn);
-  panel.appendChild(inputBtn);
   panel.appendChild(enterKey);
-
-  const textInput = document.createElement("input");
-  textInput.type = "text";
-  textInput.className = "quick-text-float";
-  textInput.placeholder = "テキスト入力・音声入力";
-  textInput.style.display = "none";
-  panel.parentNode.insertBefore(textInput, panel);
-
-  const getIndicator = () => $("keyboard-indicator");
 
   const extraPanel = document.createElement("div");
   extraPanel.className = "quick-extra-panel";
@@ -165,107 +150,32 @@ function initQuickInput() {
     extraPanel.appendChild(row);
   }
 
-  let textVisible = false;
   let extraPanelOpen = false;
 
   const normalModeElements = [menuBtn, enterKey, ...middleKeys];
-  const extraModeElements = [imgBtn, inputBtn, ...extraKeyBtns];
+  const extraModeElements = [imgBtn, ...extraKeyBtns];
 
   const applyMode = () => {
-    const showExtraKeys = extraPanelOpen && !textVisible;
-    textInput.style.display = textVisible ? "" : "none";
-    inputBtn.classList.toggle("active", textVisible);
     toggleBtn.classList.toggle("active", extraPanelOpen);
-    for (const el of normalModeElements) el.style.display = showExtraKeys ? "none" : "";
-    for (const el of extraModeElements) el.style.display = showExtraKeys ? "" : "none";
-    extraPanel.style.display = showExtraKeys ? "flex" : "none";
+    for (const el of normalModeElements) el.style.display = extraPanelOpen ? "none" : "";
+    for (const el of extraModeElements) el.style.display = extraPanelOpen ? "" : "none";
+    extraPanel.style.display = extraPanelOpen ? "flex" : "none";
   };
   applyMode();
-
-  const flushTextInput = () => {
-    const val = textInput.value;
-    if (!val) return;
-    sendTextToTerminal(val);
-    textInput.value = "";
-  };
-
-  const showTextInput = () => {
-    textVisible = true;
-    applyMode();
-    textInput.focus({ preventScroll: true });
-    requestAnimationFrame(() => {
-      window.scrollTo(0, 0);
-    });
-  };
-
-  window.showQuickTextInput = showTextInput;
-
-  const updateIndicatorText = () => {
-    const ind = getIndicator();
-    if (!ind) return;
-    const hasText = !!textInput.value;
-    ind.textContent = textInput.value || "テキスト入力中";
-    ind.classList.toggle("has-text", hasText);
-  };
-
-  const hideTextInput = () => {
-    flushTextInput();
-    textVisible = false;
-    const ind = getIndicator();
-    if (ind) {
-      ind.textContent = "テキスト入力中";
-      ind.classList.remove("has-text");
-    }
-    applyMode();
-  };
-
-  let composing = false;
-  textInput.addEventListener("compositionstart", () => { composing = true; });
-  textInput.addEventListener("compositionend", () => {
-    composing = false;
-    updateIndicatorText();
-  });
-  textInput.addEventListener("input", updateIndicatorText);
-  textInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !composing) {
-      flushTextInput();
-      textInput.blur();
-    }
-  });
-  textInput.addEventListener("blur", () => {
-    if (composing) { textInput.focus(); return; }
-    setTimeout(hideTextInput, 100);
-  });
 
   const addTouchBtn = (el, handler) => {
     el.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
     el.addEventListener("touchend", (e) => { e.preventDefault(); handler(); });
   };
 
-  panel.addEventListener("touchend", (e) => {
-    const t = e.target.closest(".quick-key");
-    if (t && !t.classList.contains("quick-key-toggle") && textVisible) hideTextInput();
-  });
   document.addEventListener("touchend", (e) => {
-    if (textVisible && !e.target.closest(".quick-key-toggle") && !textInput.contains(e.target)) {
-      hideTextInput();
-    }
     if (extraPanelOpen && !e.target.closest(".quick-key-toggle") && !extraPanel.contains(e.target) && !panel.contains(e.target)) {
       extraPanelOpen = false;
       applyMode();
     }
   });
 
-  addTouchBtn(inputBtn, () => {
-    if (textVisible) {
-      hideTextInput();
-    } else {
-      if (extraPanelOpen) { extraPanelOpen = false; applyMode(); }
-      showTextInput();
-    }
-  });
   addTouchBtn(toggleBtn, () => {
-    if (textVisible) hideTextInput();
     extraPanelOpen = !extraPanelOpen;
     applyMode();
   });
