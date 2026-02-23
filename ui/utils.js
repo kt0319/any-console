@@ -139,45 +139,34 @@ function renderActionButtons(container, actions) {
   }
 }
 
-const faviconBlobCache = new Map();
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
 
 function faviconUrl(domain) {
   return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`;
 }
 
-function cacheFavicon(domain) {
-  if (faviconBlobCache.has(domain)) return;
-  faviconBlobCache.set(domain, null);
-  fetch(faviconUrl(domain))
-    .then((res) => {
-      if (!res.ok) throw new Error(res.status);
-      return res.blob();
-    })
-    .then((blob) => {
-      const blobUrl = URL.createObjectURL(blob);
-      faviconBlobCache.set(domain, blobUrl);
-      for (const img of document.querySelectorAll(`img[data-favicon-domain="${CSS.escape(domain)}"]`)) {
-        img.src = blobUrl;
-      }
-    })
-    .catch(() => faviconBlobCache.delete(domain));
+function isImageDataIcon(icon) {
+  return icon && (icon.startsWith("data:image/") || icon.startsWith("favicon:"));
 }
 
 function renderIcon(icon, iconColor, size = 16) {
   if (!icon) return "";
+  if (icon.startsWith("data:image/")) {
+    return `<img src="${icon}" width="${size}" height="${size}" class="favicon-icon" alt="" />`;
+  }
   if (icon.startsWith("favicon:")) {
     const domain = icon.slice("favicon:".length);
-    const cached = faviconBlobCache.get(domain);
-    const src = cached || faviconUrl(domain);
-    if (!cached) cacheFavicon(domain);
-    return `<img src="${src}" width="${size}" height="${size}" class="favicon-icon" data-favicon-domain="${escapeHtml(domain)}" alt="" />`;
+    return `<img src="${faviconUrl(domain)}" width="${size}" height="${size}" class="favicon-icon" alt="" />`;
   }
   const colorStyle = iconColor ? ` style="color:${escapeHtml(iconColor)}"` : "";
   return `<span class="mdi ${escapeHtml(icon)}"${colorStyle}></span>`;
-}
-
-function isFaviconIcon(icon) {
-  return icon && icon.startsWith("favicon:");
 }
 
 function addLongPressEditHandler(btn, openEditFn) {

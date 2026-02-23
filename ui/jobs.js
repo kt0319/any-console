@@ -247,7 +247,7 @@ function updateIconSelectPreview(key) {
     preview.innerHTML = '<span style="color:var(--text-muted)">アイコンを選択</span>';
     return;
   }
-  const label = isFaviconIcon(s.icon) ? s.icon.slice("favicon:".length) : s.icon;
+  const label = isImageDataIcon(s.icon) ? "favicon" : s.icon;
   preview.innerHTML = renderIcon(s.icon, s.color, 18) + `<span class="icon-select-label">${escapeHtml(label)}</span>`;
 }
 
