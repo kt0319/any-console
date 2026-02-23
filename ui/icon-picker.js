@@ -1,6 +1,7 @@
 let iconPickerCache = null;
 let iconPickerCallback = null;
 let iconPickerSelectedColor = "";
+let iconPickerSelectedIcon = null;
 
 const ICON_PRESET_COLORS = [
   { label: "デフォルト", value: "" },
@@ -47,15 +48,16 @@ async function fetchIconMeta() {
 function openIconPicker(callback, currentIcon, currentColor) {
   iconPickerCallback = callback;
   iconPickerSelectedColor = currentColor || "";
+  iconPickerSelectedIcon = null;
   const modal = $("icon-picker-modal");
   const search = $("icon-picker-search");
   const grid = $("icon-picker-grid");
-  const faviconPreview = $("icon-picker-favicon-preview");
-  const faviconConfirm = $("icon-picker-favicon-confirm");
+  const preview = $("icon-picker-favicon-preview");
+  const confirm = $("icon-picker-favicon-confirm");
 
   grid.innerHTML = '<div class="icon-picker-loading">読み込み中...</div>';
-  faviconPreview.innerHTML = "";
-  faviconConfirm.style.display = "none";
+  preview.innerHTML = "";
+  confirm.style.display = "none";
 
   search.value = "";
 
@@ -74,14 +76,15 @@ function openIconPicker(callback, currentIcon, currentColor) {
 
   search.oninput = () => {
     const raw = search.value.trim();
+    iconPickerSelectedIcon = null;
     if (looksLikeUrl(raw)) {
       const domain = extractDomain(raw);
-      faviconPreview.innerHTML = renderIcon(`favicon:${domain}`, "", 24);
-      faviconConfirm.style.display = "";
+      preview.innerHTML = renderIcon(`favicon:${domain}`, "", 24);
+      confirm.style.display = "";
       if (iconPickerCache) renderIconGrid(iconPickerCache, "");
     } else {
-      faviconPreview.innerHTML = "";
-      faviconConfirm.style.display = "none";
+      preview.innerHTML = "";
+      confirm.style.display = "none";
       if (iconPickerCache) renderIconGrid(iconPickerCache, raw.toLowerCase());
     }
   };
@@ -101,6 +104,9 @@ function renderPickerColorPalette(currentColor) {
       palette.querySelectorAll(".color-palette-item").forEach((el) => el.classList.remove("selected"));
       btn.classList.add("selected");
       iconPickerSelectedColor = preset.value;
+      if (iconPickerSelectedIcon) {
+        $("icon-picker-favicon-preview").innerHTML = renderIcon(iconPickerSelectedIcon, iconPickerSelectedColor, 24);
+      }
     });
     palette.appendChild(btn);
   }
@@ -130,10 +136,7 @@ function renderIconGrid(icons, query) {
     btn.innerHTML = `<span class="mdi mdi-${icon.name}"></span>`;
     btn.title = icon.name;
     btn.addEventListener("click", () => {
-      const cb = iconPickerCallback;
-      const color = iconPickerSelectedColor;
-      closeIconPicker();
-      if (cb) cb(`mdi-${icon.name}`, color);
+      selectMdiIcon(`mdi-${icon.name}`);
     });
     grid.appendChild(btn);
   }
@@ -153,13 +156,30 @@ function renderIconGrid(icons, query) {
   }
 }
 
-function submitIconPickerUrl() {
+function selectMdiIcon(iconName) {
+  iconPickerSelectedIcon = iconName;
+  const preview = $("icon-picker-favicon-preview");
+  const confirm = $("icon-picker-favicon-confirm");
+  preview.innerHTML = renderIcon(iconName, iconPickerSelectedColor, 24);
+  confirm.style.display = "";
+  $("icon-picker-grid").querySelectorAll(".icon-picker-item").forEach((el) => {
+    el.classList.toggle("selected", el.title === iconName.replace("mdi-", ""));
+  });
+}
+
+function submitIconPicker() {
   const raw = $("icon-picker-search").value.trim();
-  if (!raw) return;
-  const domain = extractDomain(raw);
-  const cb = iconPickerCallback;
-  closeIconPicker();
-  if (cb) cb(`favicon:${domain}`, "");
+  if (looksLikeUrl(raw)) {
+    const domain = extractDomain(raw);
+    const cb = iconPickerCallback;
+    closeIconPicker();
+    if (cb) cb(`favicon:${domain}`, "");
+  } else if (iconPickerSelectedIcon) {
+    const cb = iconPickerCallback;
+    const color = iconPickerSelectedColor;
+    closeIconPicker();
+    if (cb) cb(iconPickerSelectedIcon, color);
+  }
 }
 
 function clearIconPicker() {

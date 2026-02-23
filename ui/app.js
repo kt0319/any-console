@@ -260,7 +260,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("icon-picker-modal").addEventListener("click", (e) => {
     if (e.target === $("icon-picker-modal")) closeIconPicker();
   });
-  $("icon-picker-url-ok").addEventListener("click", submitIconPickerUrl);
+  $("icon-picker-url-ok").addEventListener("click", submitIconPicker);
   for (const key of Object.keys(ICON_COLOR_FIELDS)) {
     setupIconPickerBtn(key);
   }

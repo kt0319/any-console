@@ -525,7 +525,7 @@ function showTerminalWsPicker() {
 
     const fileBtn = document.createElement("button");
     fileBtn.type = "button";
-    fileBtn.className = "picker-ws-icon-btn";
+    fileBtn.className = "picker-ws-icon-btn picker-ws-file-btn";
     fileBtn.title = "ファイル一覧";
     fileBtn.innerHTML = renderIcon("mdi-folder", "", 18);
     fileBtn.addEventListener("click", () => {

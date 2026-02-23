@@ -316,6 +316,12 @@ header .ws-select-wrap {
   cursor: pointer;
 }
 
+.picker-ws-icon-btn.picker-ws-file-btn {
+  background: var(--bg-tertiary);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .picker-ws-icon-btn.picker-ws-link-btn {
   border-radius: 50%;
 }
@@ -2255,6 +2261,11 @@ button:disabled {
   font-size: 22px;
   line-height: 1;
   cursor: pointer;
+}
+
+.icon-picker-item.selected {
+  border-color: var(--accent);
+  background: var(--accent-muted, rgba(33, 150, 243, 0.15));
 }
 
 .icon-picker-input-row {
