@@ -3,7 +3,6 @@ async function initApp() {
   await loadWorkspaces();
   if (selectedWorkspace && !visibleWorkspaces().some((ws) => ws.name === selectedWorkspace)) {
     selectedWorkspace = null;
-    localStorage.removeItem("pi_console_workspace");
   }
   setLoadingStatus("ワークスペース情報を取得中...");
   renderWorkspaceSelects();
@@ -11,11 +10,8 @@ async function initApp() {
   setLoadingStatus("ジョブを読み込み中...");
   await loadJobsForWorkspace();
   renderJobMenu();
-  const savedTabs = JSON.parse(localStorage.getItem(TERMINAL_TABS_KEY) || "[]");
-  if (savedTabs.length > 0) {
-    setLoadingStatus("ターミナルを復元中...");
-    await restoreTerminalTabs();
-  }
+  localStorage.removeItem("pi_console_terminal_tabs");
+  localStorage.removeItem("pi_console_active_tab");
   await fetchOrphanSessions();
   if (!selectedWorkspace) {
     setLoadingStatus("ワークスペースを選択してください");
@@ -29,7 +25,7 @@ function updateViewportHeight() {
   const vv = window.visualViewport;
   const keyboardOpen = vv && (window.innerHeight - vv.height > 100);
   document.querySelector(".main-panel").classList.toggle("keyboard-open", keyboardOpen);
-  updateKeyboardIndicator(keyboardOpen);
+  repositionKeyboardInput(keyboardOpen);
   fitActiveTerminal();
 }
 
@@ -41,33 +37,46 @@ function fitActiveTerminal() {
   }
 }
 
-function updateKeyboardIndicator(keyboardOpen) {
-  let el = $("keyboard-indicator");
-  if (!el) {
-    el = document.createElement("input");
-    el.type = "text";
-    el.id = "keyboard-indicator";
-    el.className = "keyboard-indicator";
-    el.placeholder = "テキスト入力中";
-    el.enterKeyHint = "send";
-    document.body.appendChild(el);
+function createKeyboardInput() {
+  const el = document.createElement("input");
+  el.type = "text";
+  el.id = "keyboard-input";
+  el.className = "keyboard-input";
+  el.placeholder = "テキスト入力";
+  el.enterKeyHint = "send";
+  document.body.appendChild(el);
 
-    el.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.isComposing) {
-        e.preventDefault();
-        e.stopPropagation();
-        const val = el.value;
-        el.value = "";
-        if (val) sendTextToTerminal(val);
-        el.blur();
-      }
-    });
-  }
+  el.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.isComposing) {
+      e.preventDefault();
+      e.stopPropagation();
+      const val = el.value;
+      el.value = "";
+      if (val) sendTextToTerminal(val);
+      el.blur();
+    }
+  });
+  el.addEventListener("blur", () => {
+    el.style.display = "none";
+  });
+  return el;
+}
+
+function showKeyboardInput() {
+  let el = $("keyboard-input");
+  if (!el) el = createKeyboardInput();
+  el.style.display = "";
+  const vv = window.visualViewport;
+  if (vv) el.style.top = (vv.offsetTop + vv.height - el.offsetHeight - 8) + "px";
+  el.focus({ preventScroll: true });
+}
+
+function repositionKeyboardInput(keyboardOpen) {
+  const el = $("keyboard-input");
+  if (!el || el.style.display === "none") return;
   if (keyboardOpen) {
-    el.style.display = "";
     const vv = window.visualViewport;
     if (vv) el.style.top = (vv.offsetTop + vv.height - el.offsetHeight - 8) + "px";
-    el.focus({ preventScroll: true });
   } else {
     el.style.display = "none";
   }

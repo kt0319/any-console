@@ -104,17 +104,49 @@ async function refreshCurrentWorkspaceStatus() {
 
 function startAutoRefresh() {
   if (autoRefreshTimer) return;
-  autoRefreshTimer = setInterval(async () => {
-    if (document.hidden || autoRefreshing) return;
-    autoRefreshing = true;
-    try {
+  autoRefreshTimer = setInterval(() => runAutoRefresh(), AUTO_REFRESH_INTERVAL);
+  document.addEventListener("visibilitychange", onVisibilityChangeForRefresh);
+}
+
+function onVisibilityChangeForRefresh() {
+  if (document.visibilityState === "visible" && autoRefreshTimer) {
+    runAutoRefresh();
+  }
+}
+
+async function runAutoRefresh() {
+  if (document.hidden || autoRefreshing) return;
+  autoRefreshing = true;
+  try {
+    const health = await checkServerHealth();
+    if (!health) {
+      if (!serverDisconnected) {
+        serverDisconnected = true;
+        showToast("サーバーとの接続が切断されました", "error");
+      }
+    } else if (serverDisconnected) {
+      location.reload();
+      return;
+    }
+    if (health) {
       if (selectedWorkspace) await refreshCurrentWorkspaceStatus();
       await fetchOrphanSessions();
-    } catch {
-    } finally {
-      autoRefreshing = false;
     }
-  }, AUTO_REFRESH_INTERVAL);
+  } catch {
+  } finally {
+    autoRefreshing = false;
+  }
+}
+
+async function checkServerHealth() {
+  try {
+    const res = await fetch("/auth/check", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.ok || res.status === 401;
+  } catch {
+    return false;
+  }
 }
 
 function stopAutoRefresh() {
@@ -122,6 +154,7 @@ function stopAutoRefresh() {
     clearInterval(autoRefreshTimer);
     autoRefreshTimer = null;
   }
+  document.removeEventListener("visibilitychange", onVisibilityChangeForRefresh);
 }
 
 async function fetchWorkspace(name) {

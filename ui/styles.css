@@ -1784,7 +1784,7 @@ button:disabled {
   padding: 0 8px;
 }
 
-.keyboard-indicator {
+.keyboard-input {
   position: absolute;
   left: 16px;
   right: 16px;
@@ -1802,7 +1802,7 @@ button:disabled {
   outline: none;
 }
 
-.keyboard-indicator::placeholder {
+.keyboard-input::placeholder {
   color: rgba(255, 255, 255, 0.3);
 }
 

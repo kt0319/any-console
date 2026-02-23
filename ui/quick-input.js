@@ -152,7 +152,7 @@ function initQuickInput() {
 
   let extraPanelOpen = false;
 
-  const normalModeElements = [menuBtn, enterKey, ...middleKeys];
+  const normalModeElements = [menuBtn, ...middleKeys];
   const extraModeElements = [imgBtn, ...extraKeyBtns];
 
   const applyMode = () => {

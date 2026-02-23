@@ -2,7 +2,7 @@ let token = "";
 let JOBS = {};
 let selectedJob = null;
 let allWorkspaces = [];
-let selectedWorkspace = localStorage.getItem("pi_console_workspace") || null;
+let selectedWorkspace = null;
 let hiddenWorkspaces = JSON.parse(localStorage.getItem("hidden_workspaces") || "[]");
 let runningJobName = null;
 let launchingTerminal = false;
@@ -14,7 +14,6 @@ let activeTabId = null;
 let terminalIdCounter = 0;
 let orphanSessions = [];
 let closedSessionUrls = new Set();
-const TERMINAL_TABS_KEY = "pi_console_terminal_tabs";
 
 const QUICK_KEYS = [
   { label: "\u232B", key: "Backspace", code: "Backspace", keyCode: 8 },
@@ -49,12 +48,13 @@ const EXTRA_ROW_KEYS = [
   { label: "C-c", ctrl: true, key: "c", code: "KeyC", keyCode: 67 },
   { label: "C-o", ctrl: true, key: "o", code: "KeyO", keyCode: 79 },
   { label: "/", key: "/", code: "Slash", keyCode: 191 },
-  { label: "Space", key: " ", code: "Space", keyCode: 32 },
+  { label: "\u2423", key: " ", code: "Space", keyCode: 32 },
 ];
 
 const AUTO_REFRESH_INTERVAL = 10000;
 let autoRefreshTimer = null;
 let autoRefreshing = false;
+let serverDisconnected = false;
 
 let handlingUnauthorized = false;
 

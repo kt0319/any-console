@@ -64,19 +64,8 @@ function refitActiveTerminal() {
 }
 
 function saveTerminalTabs() {
-  const data = tabs.filter((t) => t.type === "terminal").map((t) => {
-    const entry = { id: t.id, wsUrl: t.wsUrl, label: t.label };
-    if (t.icon) entry.icon = t.icon;
-    return entry;
-  });
-  localStorage.setItem(TERMINAL_TABS_KEY, JSON.stringify(data));
-  if (activeTabId) {
-    localStorage.setItem("pi_console_active_tab", activeTabId);
-  } else {
-    localStorage.removeItem("pi_console_active_tab");
-  }
   updateOrphanSessions();
-  if (data.length > 0) {
+  if (tabs.some((t) => t.type === "terminal")) {
     startSessionKeepalive();
   } else {
     stopSessionKeepalive();
@@ -244,42 +233,6 @@ function connectTerminalWs(tab) {
   }
 }
 
-async function restoreTerminalTabs() {
-  const saved = JSON.parse(localStorage.getItem(TERMINAL_TABS_KEY) || "[]");
-  if (saved.length === 0) return;
-
-  if (saved.some((t) => t.url && !t.wsUrl)) {
-    localStorage.removeItem(TERMINAL_TABS_KEY);
-    return;
-  }
-
-  try {
-    const res = await apiFetch("/terminal/sessions");
-    if (!res || !res.ok) {
-      localStorage.removeItem(TERMINAL_TABS_KEY);
-      return;
-    }
-    const sessions = await res.json();
-    const aliveWsUrls = new Set(sessions.map((s) => s.ws_url));
-
-    const alive = saved.filter((t) => aliveWsUrls.has(t.wsUrl));
-    if (alive.length === 0) {
-      localStorage.removeItem(TERMINAL_TABS_KEY);
-      return;
-    }
-    for (const t of alive) {
-      addTerminalTab(t.wsUrl, t.label, t.id, true, true, null, t.icon || null);
-    }
-    startSessionKeepalive();
-    const savedActive = localStorage.getItem("pi_console_active_tab");
-    const restoreId = (savedActive && tabs.some((t) => t.id === savedActive))
-      ? savedActive
-      : tabs[tabs.length - 1]?.id ?? null;
-    switchTab(restoreId);
-  } catch {
-    localStorage.removeItem(TERMINAL_TABS_KEY);
-  }
-}
 
 function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCommand, tabIcon) {
   const id = tabId || `term-${++terminalIdCounter}`;
@@ -320,6 +273,10 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
       return false;
     }
     return true;
+  });
+
+  container.addEventListener("click", () => {
+    if (panelBottom) showKeyboardInput();
   });
 
   const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
@@ -382,11 +339,6 @@ function removeTab(id) {
 
 async function switchTab(id) {
   activeTabId = id;
-  if (id) {
-    localStorage.setItem("pi_console_active_tab", id);
-  } else {
-    localStorage.removeItem("pi_console_active_tab");
-  }
   $("output").style.display = id === null ? "" : "none";
   for (const tab of tabs) {
     const el = $(`frame-${tab.id}`);
@@ -420,7 +372,6 @@ async function switchTab(id) {
 
   if (id === null) {
     selectedWorkspace = null;
-    localStorage.removeItem("pi_console_workspace");
     await updateHeaderInfo();
     await loadJobsForWorkspace();
     renderJobMenu();
@@ -435,7 +386,6 @@ async function switchTab(id) {
     if (ws) {
       if (ws.name !== selectedWorkspace) {
         selectedWorkspace = ws.name;
-        localStorage.setItem("pi_console_workspace", ws.name);
         await loadJobsForWorkspace();
       }
       await updateHeaderInfo();
@@ -636,7 +586,6 @@ async function loadPickerWsIcons(container, ws) {
   addBtn.addEventListener("click", () => {
     closeTerminalWsPicker();
     selectedWorkspace = ws.name;
-    localStorage.setItem("pi_console_workspace", ws.name);
     openItemCreateModal(ws.name, "link");
   });
   container.appendChild(addBtn);
