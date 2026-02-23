@@ -929,12 +929,16 @@ header .ws-select-wrap {
   height: 100%;
 }
 
-.terminal-frame.copy-mode {
+.terminal-frame.view-mode::after {
+  content: "";
+  position: absolute;
+  inset: 0;
   border: 2px solid #ff9800;
-  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 11;
 }
 
-.copy-mode-overlay {
+.view-mode-overlay {
   position: absolute;
   top: 0;
   left: 0;
@@ -947,7 +951,7 @@ header .ws-select-wrap {
   pointer-events: none;
 }
 
-.copy-mode-label {
+.view-mode-label {
   font-size: 13px;
   font-weight: 600;
   color: #fff;
@@ -956,7 +960,7 @@ header .ws-select-wrap {
   border-radius: 12px;
 }
 
-.copy-mode-close-btn {
+.view-mode-close-btn {
   padding: 4px 12px;
   border: none;
   border-radius: 12px;
@@ -968,7 +972,7 @@ header .ws-select-wrap {
   pointer-events: auto;
 }
 
-.copy-mode-textarea {
+.view-mode-textarea {
   position: absolute;
   top: 0;
   left: 0;

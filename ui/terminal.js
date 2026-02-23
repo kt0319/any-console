@@ -305,7 +305,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
   });
 
   container.addEventListener("touchend", () => {
-    if (container.classList.contains("copy-mode")) return;
+    if (container.classList.contains("view-mode")) return;
     if (isTouchDevice) showKeyboardInput();
   });
 
@@ -496,7 +496,7 @@ function renderTabBar() {
         const tab = tabs.find(t => t.id === tabId);
         if (tab && tab.type === "terminal") {
           const frame = $(`frame-${tabId}`);
-          if (frame && frame.classList.contains("copy-mode")) {
+          if (frame && frame.classList.contains("view-mode")) {
             exitTerminalCopyMode(tabId);
           } else {
             tab.term.scrollToBottom();
@@ -639,9 +639,9 @@ function enterTerminalCopyMode(tabId) {
   const tab = tabs.find((t) => t.id === tabId);
   if (!tab || tab.type !== "terminal") return;
   const container = $(`frame-${tabId}`);
-  if (!container || container.classList.contains("copy-mode")) return;
+  if (!container || container.classList.contains("view-mode")) return;
 
-  container.classList.add("copy-mode");
+  container.classList.add("view-mode");
 
   const wrapper = $("keyboard-input");
   if (wrapper) {
@@ -650,12 +650,12 @@ function enterTerminalCopyMode(tabId) {
   }
 
   const overlay = document.createElement("div");
-  overlay.className = "copy-mode-overlay";
+  overlay.className = "view-mode-overlay";
   const label = document.createElement("span");
-  label.className = "copy-mode-label";
-  label.textContent = "コピーモード";
+  label.className = "view-mode-label";
+  label.textContent = "閲覧モード";
   const closeBtn = document.createElement("button");
-  closeBtn.className = "copy-mode-close-btn";
+  closeBtn.className = "view-mode-close-btn";
   closeBtn.textContent = "×";
   closeBtn.addEventListener("click", () => exitTerminalCopyMode(tabId));
   overlay.append(label, closeBtn);
@@ -664,7 +664,7 @@ function enterTerminalCopyMode(tabId) {
   tab.term.selectAll();
 
   const textarea = document.createElement("textarea");
-  textarea.className = "copy-mode-textarea";
+  textarea.className = "view-mode-textarea";
   textarea.readOnly = true;
   textarea.value = tab.term.getSelection();
   container.appendChild(textarea);
@@ -674,10 +674,10 @@ function enterTerminalCopyMode(tabId) {
 function exitTerminalCopyMode(tabId) {
   const container = $(`frame-${tabId}`);
   if (!container) return;
-  container.classList.remove("copy-mode");
-  const overlay = container.querySelector(".copy-mode-overlay");
+  container.classList.remove("view-mode");
+  const overlay = container.querySelector(".view-mode-overlay");
   if (overlay) overlay.remove();
-  const textarea = container.querySelector(".copy-mode-textarea");
+  const textarea = container.querySelector(".view-mode-textarea");
   if (textarea) textarea.remove();
   const tab = tabs.find((t) => t.id === tabId);
   if (tab) tab.term.clearSelection();
