@@ -19,6 +19,7 @@ function keyDefToAnsi(keyDef) {
     if (code > 0 && code < 27) return String.fromCharCode(code);
   }
   if (keyDef.shift && keyDef.key === "Tab") return "\x1b[Z";
+  if (keyDef.shift && keyDef.key.length === 1) return keyDef.key.toUpperCase();
   const mapping = {
     Backspace: "\x7f",
     Enter: "\r",
@@ -69,16 +70,50 @@ async function uploadClipboardImage(file) {
   } catch {}
 }
 
+const modifierState = { ctrl: false, shift: false };
+
+function createModifierBtn(mod, label, onChange) {
+  const btn = document.createElement("div");
+  btn.className = "quick-key quick-modifier";
+  btn.textContent = label;
+  const toggle = () => {
+    modifierState[mod] = !modifierState[mod];
+    btn.classList.toggle("active", modifierState[mod]);
+    if (onChange) onChange();
+  };
+  btn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  btn.addEventListener("touchend", (e) => { e.preventDefault(); toggle(); });
+  btn.addEventListener("click", toggle);
+  return btn;
+}
+
+let onModifiersCleared = null;
+
+function clearModifiers() {
+  modifierState.ctrl = false;
+  modifierState.shift = false;
+  for (const el of document.querySelectorAll(".quick-modifier.active")) {
+    el.classList.remove("active");
+  }
+  if (onModifiersCleared) onModifiersCleared();
+}
+
 function createQuickKeyBtn(keyDef) {
   const btn = document.createElement("div");
   btn.className = "quick-key";
+  btn._keyDef = keyDef;
   if (keyDef.html) btn.innerHTML = keyDef.html;
   else btn.textContent = keyDef.label;
   const activate = () => {
-    if (keyDef.xtermScroll) {
-      scrollTerminal(keyDef.xtermScroll);
+    const kd = btn._keyDef;
+    if (kd.xtermScroll) {
+      scrollTerminal(kd.xtermScroll);
     } else {
-      sendKeyToTerminal(keyDef);
+      const merged = { ...kd };
+      if (modifierState.ctrl) merged.ctrl = true;
+      if (modifierState.shift) merged.shift = true;
+      sendKeyToTerminal(merged);
+      if (modifierState.ctrl || modifierState.shift) clearModifiers();
     }
   };
   btn.addEventListener("touchstart", (e) => {
@@ -166,29 +201,84 @@ function initQuickInput() {
   const qwertyPanel = document.createElement("div");
   qwertyPanel.className = "quick-extra-panel quick-qwerty-panel";
   qwertyPanel.style.display = "none";
+  let qwertyFnActive = false;
+  let qwertyRow2BsBtn = null;
+  const qwertyKeyBtns = [];
   for (let i = 0; i < QWERTY_ROWS.length; i++) {
     const row = document.createElement("div");
     row.className = "quick-extra-row";
-    for (const keyDef of QWERTY_ROWS[i]) row.appendChild(createQuickKeyBtn(keyDef));
-    if (i === 1) row.appendChild(createQuickKeyBtn({ label: "\u21B5", key: "Enter" }));
+    for (let j = 0; j < QWERTY_ROWS[i].length; j++) {
+      const btn = createQuickKeyBtn(QWERTY_ROWS[i][j]);
+      row.appendChild(btn);
+      qwertyKeyBtns.push({ btn, row: i, col: j });
+    }
+    if (i === 2) {
+      const bsBtn = createQuickKeyBtn({ label: "\u232B", key: "Backspace" });
+      row.appendChild(bsBtn);
+      qwertyRow2BsBtn = bsBtn;
+    }
     qwertyPanel.appendChild(row);
   }
+  const bottomDynBtns = [];
+  const updateQwertyKeys = () => {
+    for (const { btn, row, col } of qwertyKeyBtns) {
+      let keyDef;
+      if (qwertyFnActive) {
+        keyDef = FN_ROWS[row][col];
+      } else if (modifierState.shift) {
+        const base = QWERTY_ROWS[row][col];
+        keyDef = { ...base, label: base.key.toUpperCase() };
+      } else {
+        keyDef = QWERTY_ROWS[row][col];
+      }
+      btn._keyDef = keyDef;
+      btn.textContent = keyDef.label;
+    }
+    for (const { btn, normal, fn } of bottomDynBtns) {
+      const keyDef = qwertyFnActive ? fn : normal;
+      btn._keyDef = keyDef;
+      btn.textContent = keyDef.label;
+    }
+    if (qwertyRow2BsBtn) {
+      const kd = qwertyFnActive ? { label: ">", key: ">" } : { label: "\u232B", key: "Backspace" };
+      qwertyRow2BsBtn._keyDef = kd;
+      qwertyRow2BsBtn.textContent = kd.label;
+    }
+  };
+  onModifiersCleared = updateQwertyKeys;
+  const fnBtn = document.createElement("div");
+  fnBtn.className = "quick-key quick-modifier";
+  fnBtn.textContent = "Fn";
+  const toggleFn = () => {
+    qwertyFnActive = !qwertyFnActive;
+    fnBtn.classList.toggle("active", qwertyFnActive);
+    updateQwertyKeys();
+  };
+  fnBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  fnBtn.addEventListener("touchend", (e) => { e.preventDefault(); toggleFn(); });
+  fnBtn.addEventListener("click", toggleFn);
   const qwertyBottomRow = document.createElement("div");
   qwertyBottomRow.className = "quick-extra-row";
-  const qwertyBottomKeys = [
-    { label: "Tab", key: "Tab" },
-    { label: "Esc", key: "Escape" },
-    { label: "/", key: "/" },
-    { label: "-", key: "-" },
-    { label: ".", key: "." },
+  const qwertyBottomDynDefs = [
+    { normal: { label: "-", key: "-" }, fn: { label: "{", key: "{" } },
+    { normal: { label: ".", key: "." }, fn: { label: "}", key: "}" } },
+    { normal: { label: "\u2423", key: " " }, fn: { label: ",", key: "," } },
   ];
-  for (const keyDef of qwertyBottomKeys) qwertyBottomRow.appendChild(createQuickKeyBtn(keyDef));
+  qwertyBottomRow.appendChild(createModifierBtn("ctrl", "Ctrl"));
+  qwertyBottomRow.appendChild(createModifierBtn("shift", "Shift", updateQwertyKeys));
+  qwertyBottomRow.appendChild(fnBtn);
+  for (const def of qwertyBottomDynDefs) {
+    const btn = createQuickKeyBtn(def.normal);
+    qwertyBottomRow.appendChild(btn);
+    bottomDynBtns.push({ btn, normal: def.normal, fn: def.fn });
+  }
   const qwertyToggle = document.createElement("div");
   qwertyToggle.className = "quick-key quick-key-toggle active";
   qwertyToggle.innerHTML = '<span class="mdi mdi-keyboard-outline"></span>';
-  qwertyBottomRow.appendChild(createQuickKeyBtn({ label: "@", key: "@" }));
   qwertyBottomRow.appendChild(qwertyToggle);
-  qwertyBottomRow.appendChild(createQuickKeyBtn({ label: "\u2423", key: " " }));
+  const enterBtn = createQuickKeyBtn({ label: "\u21B5", key: "Enter" });
+  qwertyBottomRow.appendChild(enterBtn);
+  bottomDynBtns.push({ btn: enterBtn, normal: { label: "\u21B5", key: "Enter" }, fn: { label: "Esc", key: "Escape" } });
   qwertyPanel.appendChild(qwertyBottomRow);
 
   const snippetRow = document.createElement("div");
@@ -270,6 +360,9 @@ function initQuickInput() {
 
   const cycleMode = () => {
     extraMode = (extraMode + 1) % 3;
+    qwertyFnActive = false;
+    fnBtn.classList.remove("active");
+    clearModifiers();
     applyMode();
   };
 

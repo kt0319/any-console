@@ -60,7 +60,12 @@ const EXTRA_ROW_KEYS = [
 const QWERTY_ROWS = [
   "qwertyuiop".split("").map(c => ({ label: c, key: c })),
   "asdfghjkl".split("").map(c => ({ label: c, key: c })),
-  [..."zxcvbnm".split("").map(c => ({ label: c, key: c })), { label: "⌫", key: "Backspace" }],
+  "zxcvbnm".split("").map(c => ({ label: c, key: c })),
+];
+const FN_ROWS = [
+  ["'", '"', "!", "?", ";", ":", "@", "/", "_", "="].map(c => ({ label: c, key: c })),
+  ["#", "$", "%", "^", "&", "*", "(", ")", "+"].map(c => ({ label: c, key: c })),
+  ["~", "`", "|", "\\", "[", "]", "<"].map(c => ({ label: c, key: c })),
 ];
 
 const AUTO_REFRESH_INTERVAL = 10000;

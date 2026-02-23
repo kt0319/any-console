@@ -1997,7 +1997,8 @@ button:disabled {
   color: var(--text-primary);
 }
 
-.quick-key-toggle.active {
+.quick-key-toggle.active,
+.quick-modifier.active {
   background: rgba(130, 170, 255, 0.2);
   color: var(--accent);
   border-color: var(--accent);
