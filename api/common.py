@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import subprocess
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -15,8 +16,11 @@ WORK_DIR = Path.home() / "work"
 UPLOAD_DIR = Path("/tmp/pi-console-uploads")
 TERMINAL_TIMEOUT_SEC = 7200
 CONFIG_DIR = PROJECT_ROOT / "data"
+CONFIG_FILE = CONFIG_DIR / "config.json"
 OLD_CONFIG_DIR = Path.home() / ".config" / "pi-console"
 OLD_WORKSPACE_CONFIG_DIR = Path(".pi-console")
+
+_config_lock = threading.Lock()
 
 GIT_QUICK_TIMEOUT_SEC = 5
 GIT_SHORT_TIMEOUT_SEC = 10
@@ -34,34 +38,73 @@ COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{4,40}$")
 BACKGROUND_EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
 
-def workspace_config_file(workspace_name: str) -> Path:
-    return CONFIG_DIR / f"{workspace_name}.json"
+def _read_config_unlocked() -> dict:
+    if CONFIG_FILE.is_file():
+        try:
+            return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return {}
+    return _migrate_to_unified_config()
+
+
+def _write_config_unlocked(config: dict) -> None:
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG_FILE.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _migrate_to_unified_config() -> dict:
+    merged = {}
+    if not CONFIG_DIR.is_dir():
+        return merged
+    for f in CONFIG_DIR.iterdir():
+        if f.suffix == ".json" and f.name != "config.json":
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                ws_name = f.stem
+                merged[ws_name] = data
+            except (json.JSONDecodeError, OSError):
+                continue
+    if merged:
+        _write_config_unlocked(merged)
+        logger.info("migrated %d workspace configs to %s", len(merged), CONFIG_FILE)
+    return merged
+
+
+def load_all_config() -> dict:
+    with _config_lock:
+        return _read_config_unlocked()
+
+
+def save_all_config(config: dict) -> None:
+    with _config_lock:
+        _write_config_unlocked(config)
 
 
 def load_workspace_config(workspace_name: str) -> dict:
-    config_file = workspace_config_file(workspace_name)
-    if not config_file.is_file():
-        return {}
-    try:
-        return json.loads(config_file.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return {}
+    with _config_lock:
+        return _read_config_unlocked().get(workspace_name, {})
 
 
 def save_workspace_config(workspace_name: str, config: dict) -> None:
-    config_file = workspace_config_file(workspace_name)
-    config_file.parent.mkdir(parents=True, exist_ok=True)
-    config_file.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    with _config_lock:
+        all_config = _read_config_unlocked()
+        all_config[workspace_name] = config
+        _write_config_unlocked(all_config)
 
 
 def load_workspace_config_section(workspace_name: str, key: str, default=None):
-    return load_workspace_config(workspace_name).get(key, default if default is not None else {})
+    with _config_lock:
+        ws_config = _read_config_unlocked().get(workspace_name, {})
+        return ws_config.get(key, default if default is not None else {})
 
 
 def save_workspace_config_section(workspace_name: str, key: str, data) -> None:
-    config = load_workspace_config(workspace_name)
-    config[key] = data
-    save_workspace_config(workspace_name, config)
+    with _config_lock:
+        all_config = _read_config_unlocked()
+        ws_config = all_config.get(workspace_name, {})
+        ws_config[key] = data
+        all_config[workspace_name] = ws_config
+        _write_config_unlocked(all_config)
 
 
 def _read_json_file(path: Path, default=None):
@@ -74,8 +117,8 @@ def _read_json_file(path: Path, default=None):
 
 
 def migrate_workspace_config(workspace_name: str, workspace_path: Path) -> None:
-    new_file = workspace_config_file(workspace_name)
-    if new_file.exists():
+    existing = load_workspace_config(workspace_name)
+    if existing:
         return
 
     old_dir = CONFIG_DIR / workspace_name
@@ -106,8 +149,9 @@ def migrate_workspace_config(workspace_name: str, workspace_path: Path) -> None:
     if links:
         merged["links"] = links
 
-    save_workspace_config(workspace_name, merged)
-    logger.info("migrated workspace config workspace=%s from=%s to=%s", workspace_name, old_dir, new_file)
+    if merged:
+        save_workspace_config(workspace_name, merged)
+        logger.info("migrated workspace config workspace=%s from=%s", workspace_name, old_dir)
 
 
 def resolve_workspace_path(workspace: str | None) -> Path | None:

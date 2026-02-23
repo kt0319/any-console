@@ -2,9 +2,14 @@ function applyPanelBottom() {
   document.querySelector(".main-panel").classList.toggle("panel-bottom", panelBottom);
 }
 
+function showSettingsView(viewId) {
+  for (const id of ["settings-menu-view", "settings-ws-visibility", "settings-server-info-view"]) {
+    $(id).style.display = id === viewId ? "" : "none";
+  }
+}
+
 function openSettings() {
-  $("settings-ws-visibility").style.display = "none";
-  $("settings-server-info-view").style.display = "none";
+  showSettingsView("settings-menu-view");
   $("settings-title").textContent = "設定";
   $("settings-modal").style.display = "flex";
 }
@@ -15,8 +20,7 @@ function closeSettings() {
 
 function openSettingsWsVisibility() {
   $("settings-title").textContent = "ワークスペース設定";
-  $("settings-ws-visibility").style.display = "";
-  $("settings-server-info-view").style.display = "none";
+  showSettingsView("settings-ws-visibility");
   const list = $("ws-check-list");
   list.innerHTML = "";
   for (const ws of allWorkspaces) {
@@ -69,8 +73,7 @@ function openSettingsWsVisibility() {
 
 async function openSettingsServerInfo() {
   $("settings-title").textContent = "サーバー情報";
-  $("settings-ws-visibility").style.display = "none";
-  $("settings-server-info-view").style.display = "";
+  showSettingsView("settings-server-info-view");
   $("settings-modal").style.display = "flex";
   const list = $("server-info-list");
   list.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>';
@@ -301,4 +304,52 @@ async function submitClone() {
     outputEl.style.display = "none";
     $("clone-submit").disabled = false;
   }
+}
+
+async function exportSettings() {
+  try {
+    const res = await apiFetch("/settings/export");
+    if (!res || !res.ok) {
+      showToast("エクスポートに失敗しました", "error");
+      return;
+    }
+    const data = await res.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "pi-console-config.json";
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("設定をエクスポートしました", "success");
+  } catch (e) {
+    showToast(e.message, "error");
+  }
+}
+
+function importSettings() {
+  const input = $("settings-import-file");
+  input.value = "";
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const res = await apiFetch("/settings/import", {
+        method: "POST",
+        body: data,
+      });
+      if (!res || !res.ok) {
+        showToast("インポートに失敗しました", "error");
+        return;
+      }
+      showToast("設定をインポートしました", "success");
+      closeSettings();
+      await loadWorkspaces();
+    } catch (e) {
+      showToast(e.message, "error");
+    }
+  };
+  input.click();
 }

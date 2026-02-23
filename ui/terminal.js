@@ -614,40 +614,7 @@ function showTerminalWsPicker() {
     loadPickerWsIcons(icons, ws);
   }
 
-  const footer = $("terminal-ws-picker-footer");
-  footer.innerHTML = "";
-
-  const wsSettingsBtn = document.createElement("button");
-  wsSettingsBtn.type = "button";
-  wsSettingsBtn.className = "menu-footer-btn";
-  wsSettingsBtn.innerHTML = '<span class="mdi mdi-cog"></span>WS設定';
-  wsSettingsBtn.addEventListener("click", () => {
-    closeTerminalWsPicker();
-    openSettingsWsVisibility();
-  });
-  footer.appendChild(wsSettingsBtn);
-
-  const cloneBtn = document.createElement("button");
-  cloneBtn.type = "button";
-  cloneBtn.className = "menu-footer-btn";
-  cloneBtn.innerHTML = '<span class="mdi mdi-plus"></span>WS追加';
-  cloneBtn.addEventListener("click", () => {
-    closeTerminalWsPicker();
-    openCloneModal();
-  });
-  footer.appendChild(cloneBtn);
-
-  const infoBtn = document.createElement("button");
-  infoBtn.type = "button";
-  infoBtn.className = "menu-footer-btn";
-  infoBtn.innerHTML = '<span class="mdi mdi-information-outline"></span>サーバー';
-  infoBtn.addEventListener("click", () => {
-    closeTerminalWsPicker();
-    openSettingsServerInfo();
-  });
-  footer.appendChild(infoBtn);
-
-  footer.style.display = "";
+  $("terminal-ws-picker-footer").style.display = "none";
 
   const picker = $("terminal-ws-picker");
   picker.style.display = "flex";

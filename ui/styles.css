@@ -789,6 +789,16 @@ header .ws-select-wrap {
   display: none;
 }
 
+.tab-bar-settings-btn {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+}
+
 .tab-btn {
   display: flex;
   align-items: center;

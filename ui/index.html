@@ -34,12 +34,22 @@
           <h3 id="settings-title">設定</h3>
           <button type="button" id="settings-close" class="modal-close-btn">&times;</button>
         </div>
+        <div id="settings-menu-view">
+          <div class="settings-menu">
+            <button type="button" class="settings-menu-item" onclick="openSettingsWsVisibility()"><span class="mdi mdi-cog"></span> ワークスペース設定</button>
+            <button type="button" class="settings-menu-item" onclick="closeSettings(); openCloneModal()"><span class="mdi mdi-plus"></span> ワークスペース追加</button>
+            <button type="button" class="settings-menu-item" onclick="exportSettings()"><span class="mdi mdi-download"></span> 設定エクスポート</button>
+            <button type="button" class="settings-menu-item" onclick="importSettings()"><span class="mdi mdi-upload"></span> 設定インポート</button>
+            <button type="button" class="settings-menu-item" onclick="openSettingsServerInfo()"><span class="mdi mdi-information-outline"></span> サーバー情報</button>
+          </div>
+        </div>
         <div id="settings-ws-visibility" style="display:none">
           <div class="ws-check-list" id="ws-check-list"></div>
         </div>
         <div id="settings-server-info-view" style="display:none">
           <div class="server-info-list" id="server-info-list"></div>
         </div>
+        <input type="file" id="settings-import-file" accept=".json" style="display:none">
       </div>
     </div>
     <!-- Clone Modal -->
@@ -255,6 +265,7 @@
       <div class="main-panel">
         <div class="tab-bar-row">
           <div class="tab-bar" id="tab-bar"></div>
+          <button type="button" class="tab-bar-settings-btn" onclick="openSettings()" title="設定"><span class="mdi mdi-cog"></span></button>
         </div>
         <div class="header-row2" id="header-row2">
           <button type="button" class="commit-msg-btn" id="header-commit-msg" title="コミット履歴"></button>

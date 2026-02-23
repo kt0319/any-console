@@ -14,11 +14,11 @@ from datetime import datetime
 from pathlib import Path
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Response, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, UploadFile
 from fastapi.staticfiles import StaticFiles
 
 from .auth import verify_token
-from .common import BACKGROUND_EXECUTOR, SYSTEM_CMD_TIMEOUT_SEC, UPLOAD_DIR
+from .common import BACKGROUND_EXECUTOR, SYSTEM_CMD_TIMEOUT_SEC, UPLOAD_DIR, WORK_DIR, load_all_config, save_all_config
 from .routers import git, jobs, terminal, workspaces
 
 logging.basicConfig(
@@ -229,6 +229,39 @@ def get_system_info():
         pass
 
     return info
+
+
+def _existing_workspace_names() -> set[str]:
+    if not WORK_DIR.is_dir():
+        return set()
+    return {
+        d.name for d in WORK_DIR.iterdir()
+        if d.is_dir() and not d.name.startswith(".")
+    }
+
+
+@app.get("/settings/export", dependencies=[Depends(verify_token)])
+def export_settings():
+    config = load_all_config()
+    existing = _existing_workspace_names()
+    return {k: v for k, v in config.items() if k in existing}
+
+
+@app.post("/settings/import", dependencies=[Depends(verify_token)])
+async def import_settings(request: Request):
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400, detail="Expected JSON object")
+    existing = _existing_workspace_names()
+    current = load_all_config()
+    for name, ws_config in data.items():
+        if name in existing and isinstance(ws_config, dict):
+            current[name] = ws_config
+    save_all_config(current)
+    return {"status": "ok"}
 
 
 @app.get("/")
