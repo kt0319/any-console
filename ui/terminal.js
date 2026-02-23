@@ -127,14 +127,14 @@ function updateQuickInputVisibility() {
   el.style.display = panelBottom ? "" : "none";
 }
 
-function fitAndSync(tab, redraw) {
+function fitAndSync(tab) {
   try { tab.fitAddon.fit(); } catch {}
   const cols = tab.term.cols;
   const rows = tab.term.rows;
+  if (cols < 2 || rows < 2) return;
   if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
     const resizePayload = new Uint8Array([0, ...new TextEncoder().encode(JSON.stringify({ cols, rows }))]);
     tab.ws.send(resizePayload);
-    if (redraw) tab.ws.send(new Uint8Array([0x0c]));
   }
 }
 
@@ -154,15 +154,31 @@ function connectTerminalWs(tab) {
 
   let scrollTimer = null;
   ws.onopen = () => {
-    const needRedraw = tab._reconnectAttempts > 0 || tab._restored;
+    const restored = tab._reconnectAttempts > 0 || tab._pendingRedraw;
     tab._reconnectAttempts = 0;
-    tab._restored = false;
+    tab._pendingRedraw = false;
     const container = $(`frame-${tab.id}`);
     const isVisible = container && container.style.display !== "none";
     if (isVisible) {
-      setTimeout(() => fitAndSync(tab, needRedraw), 150);
-    } else {
-      tab._needRedraw = needRedraw;
+      fitAndSync(tab);
+    }
+    if (restored) {
+      setTimeout(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          const cols = tab.term.cols;
+          const rows = tab.term.rows;
+          if (cols >= 2 && rows >= 2) {
+            const smaller = JSON.stringify({ cols: cols - 1, rows });
+            ws.send(new Uint8Array([0, ...new TextEncoder().encode(smaller)]));
+            setTimeout(() => {
+              if (ws.readyState === WebSocket.OPEN) {
+                const original = JSON.stringify({ cols, rows });
+                ws.send(new Uint8Array([0, ...new TextEncoder().encode(original)]));
+              }
+            }, 100);
+          }
+        }
+      }, 200);
     }
     if (tab._initialCommand && !tab._waitingInitialCommand) {
       tab._waitingInitialCommand = true;
@@ -299,7 +315,6 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
   });
   term.loadAddon(fitAddon);
   term.loadAddon(webLinksAddon);
-  term.open(container);
   term.attachCustomKeyEventHandler((e) => {
     if (e.type === "keydown" && e.key === "v" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
       return false;
@@ -307,10 +322,13 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
     return true;
   });
 
-  const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _restored: !!restored, _initialCommand: initialCommand || null, icon: tabIcon || null };
+  const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
   tabs.push(tab);
 
-  connectTerminalWs(tab);
+  if (!restored) {
+    term.open(container);
+    connectTerminalWs(tab);
+  }
 
   if (skipSwitch) return;
   saveTerminalTabs();
@@ -376,15 +394,20 @@ async function switchTab(id) {
       if (tab.id === id) {
         el.style.display = tab.type === "terminal" ? "block" : "";
         if (tab.type === "terminal") {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              const wsReady = tab.ws && tab.ws.readyState === WebSocket.OPEN;
-              const needRedraw = tab._needRedraw;
-              if (wsReady) tab._needRedraw = false;
-              fitAndSync(tab, needRedraw);
+          if (tab._pendingOpen) {
+            tab._pendingOpen = false;
+            tab.term.open(el);
+            connectTerminalWs(tab);
+          } else {
+            const doFit = () => {
+              fitAndSync(tab);
               tab.term.focus();
+            };
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => doFit());
             });
-          });
+            setTimeout(() => doFit(), 300);
+          }
         }
       } else {
         el.style.display = "none";
