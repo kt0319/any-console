@@ -523,6 +523,19 @@ function showTerminalWsPicker() {
     });
     header.appendChild(headerLabel);
 
+    const fileBtn = document.createElement("button");
+    fileBtn.type = "button";
+    fileBtn.className = "picker-ws-icon-btn";
+    fileBtn.title = "ファイル一覧";
+    fileBtn.innerHTML = renderIcon("mdi-folder", "", 18);
+    fileBtn.addEventListener("click", () => {
+      closeTerminalWsPicker();
+      selectedWorkspace = ws.name;
+      renderWorkspaceSelects();
+      openFileBrowser();
+    });
+    header.insertBefore(fileBtn, headerLabel);
+
     const icons = document.createElement("div");
     icons.className = "picker-ws-icons";
     header.appendChild(icons);
@@ -562,22 +575,6 @@ async function loadPickerWsIcons(container, ws) {
     if (jobsRes && jobsRes.ok) jobs = await jobsRes.json();
     if (linksRes && linksRes.ok) links = await linksRes.json();
   } catch {}
-
-  const header = container.closest(".picker-ws-group").querySelector(".picker-ws-header");
-  const headerLabel = header.querySelector(".picker-ws-header-label");
-
-  const fileBtn = document.createElement("button");
-  fileBtn.type = "button";
-  fileBtn.className = "picker-ws-icon-btn";
-  fileBtn.title = "ファイル一覧";
-  fileBtn.innerHTML = renderIcon("mdi-folder", "", 18);
-  fileBtn.addEventListener("click", () => {
-    closeTerminalWsPicker();
-    selectedWorkspace = ws.name;
-    renderWorkspaceSelects();
-    openFileBrowser();
-  });
-  header.insertBefore(fileBtn, headerLabel);
 
   for (let i = 0; i < links.length; i++) {
     const link = links[i];
