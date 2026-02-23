@@ -73,3 +73,15 @@ let diffOpenedFromGitLog = false;
 let cloneTab = "github";
 let selectedCloneUrl = "";
 let githubRepos = [];
+
+const INPUT_HISTORY_KEY = "pi_console_input_history";
+const INPUT_HISTORY_MAX = 20;
+let inputHistory = JSON.parse(localStorage.getItem(INPUT_HISTORY_KEY) || "[]");
+
+function addInputHistory(text) {
+  if (!text) return;
+  inputHistory = inputHistory.filter((h) => h !== text);
+  inputHistory.unshift(text);
+  if (inputHistory.length > INPUT_HISTORY_MAX) inputHistory.length = INPUT_HISTORY_MAX;
+  localStorage.setItem(INPUT_HISTORY_KEY, JSON.stringify(inputHistory));
+}

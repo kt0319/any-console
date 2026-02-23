@@ -42,13 +42,39 @@ function fitActiveTerminal() {
 }
 
 function createKeyboardInput() {
+  const wrapper = document.createElement("div");
+  wrapper.id = "keyboard-input-wrapper";
+  wrapper.className = "keyboard-input-wrapper";
+
+  const stock = document.createElement("div");
+  stock.className = "keyboard-input-stock";
+  wrapper.appendChild(stock);
+
+  const inputRow = document.createElement("div");
+  inputRow.className = "keyboard-input-row";
+
   const el = document.createElement("input");
   el.type = "text";
   el.id = "keyboard-input";
   el.className = "keyboard-input";
   el.placeholder = "テキスト入力";
   el.enterKeyHint = "send";
-  document.body.appendChild(el);
+  inputRow.appendChild(el);
+
+  const clearBtn = document.createElement("button");
+  clearBtn.type = "button";
+  clearBtn.className = "keyboard-input-clear";
+  clearBtn.textContent = "クリア";
+  clearBtn.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    el.value = "";
+    el.focus({ preventScroll: true });
+  });
+  inputRow.appendChild(clearBtn);
+
+  wrapper.appendChild(inputRow);
+
+  document.body.appendChild(wrapper);
 
   el.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.isComposing) {
@@ -56,33 +82,123 @@ function createKeyboardInput() {
       e.stopPropagation();
       const val = el.value;
       el.value = "";
-      if (val) sendTextToTerminal(val);
+      if (val) {
+        addInputHistory(val);
+        sendTextToTerminal(val);
+      }
       el.blur();
     }
   });
   el.addEventListener("blur", () => {
-    el.style.display = "none";
+    setTimeout(() => {
+      if (!wrapper.contains(document.activeElement)) {
+        wrapper.style.display = "none";
+      }
+    }, 150);
   });
+
   return el;
+}
+
+const INPUT_STOCK_PAGE_SIZE = 3;
+let inputStockOffset = 0;
+
+function renderInputStock() {
+  const wrapper = document.getElementById("keyboard-input-wrapper");
+  if (!wrapper) return;
+  const stock = wrapper.querySelector(".keyboard-input-stock");
+  const input = wrapper.querySelector(".keyboard-input");
+  stock.innerHTML = "";
+  if (inputHistory.length === 0) {
+    stock.style.display = "none";
+    return;
+  }
+  stock.style.display = "";
+
+  const maxOffset = Math.max(0, inputHistory.length - INPUT_STOCK_PAGE_SIZE);
+  if (inputStockOffset > maxOffset) inputStockOffset = maxOffset;
+
+  const hasPrev = inputStockOffset + INPUT_STOCK_PAGE_SIZE < inputHistory.length;
+  const hasNext = inputStockOffset > 0;
+
+  const navRow = document.createElement("div");
+  navRow.className = "keyboard-input-stock-nav-row";
+  navRow.appendChild(createStockNav("mdi-menu-left", -1, input, !hasNext));
+  const pageInfo = document.createElement("span");
+  pageInfo.className = "keyboard-input-stock-page";
+  const from = inputStockOffset + 1;
+  const to = Math.min(inputStockOffset + INPUT_STOCK_PAGE_SIZE, inputHistory.length);
+  pageInfo.textContent = `${from}-${to} / ${inputHistory.length}`;
+  navRow.appendChild(pageInfo);
+  navRow.appendChild(createStockNav("mdi-menu-right", 1, input, !hasPrev));
+  stock.appendChild(navRow);
+
+  const visible = inputHistory.slice(inputStockOffset, inputStockOffset + INPUT_STOCK_PAGE_SIZE);
+  for (const text of [...visible].reverse()) {
+    stock.appendChild(createStockChip(text, input));
+  }
+}
+
+function createStockChip(text, input) {
+  const chip = document.createElement("button");
+  chip.type = "button";
+  chip.className = "keyboard-input-stock-chip";
+  chip.textContent = text;
+  chip.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    input.value = text;
+    input.focus({ preventScroll: true });
+  });
+  return chip;
+}
+
+function createStockNav(label, direction, input, disabled) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "keyboard-input-stock-nav";
+  btn.innerHTML = `<i class="mdi ${label}"></i>`;
+  btn.disabled = disabled;
+  btn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  btn.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    if (btn.disabled) return;
+    inputStockOffset += direction * INPUT_STOCK_PAGE_SIZE;
+    inputStockOffset = Math.max(0, Math.min(inputStockOffset, inputHistory.length - INPUT_STOCK_PAGE_SIZE));
+    renderInputStock();
+    input.focus({ preventScroll: true });
+  });
+  return btn;
 }
 
 function showKeyboardInput() {
   let el = $("keyboard-input");
   if (!el) el = createKeyboardInput();
-  el.style.display = "";
+  const wrapper = el.closest(".keyboard-input-wrapper");
+  wrapper.style.display = "";
+  wrapper.style.top = "";
+  inputStockOffset = 0;
+  renderInputStock();
   const vv = window.visualViewport;
-  if (vv) el.style.top = (vv.offsetTop + vv.height - el.offsetHeight - 8) + "px";
+  if (vv) {
+    const bottomOffset = window.innerHeight - (vv.offsetTop + vv.height);
+    wrapper.style.bottom = (bottomOffset + 8) + "px";
+  }
   el.focus({ preventScroll: true });
 }
 
 function repositionKeyboardInput(keyboardOpen) {
   const el = $("keyboard-input");
-  if (!el || el.style.display === "none") return;
+  if (!el) return;
+  const wrapper = el.closest(".keyboard-input-wrapper");
+  if (!wrapper || wrapper.style.display === "none") return;
   if (keyboardOpen) {
     const vv = window.visualViewport;
-    if (vv) el.style.top = (vv.offsetTop + vv.height - el.offsetHeight - 8) + "px";
+    if (vv) {
+      const bottomOffset = window.innerHeight - (vv.offsetTop + vv.height);
+      wrapper.style.bottom = (bottomOffset + 8) + "px";
+    }
   } else {
-    el.style.display = "none";
+    wrapper.style.display = "none";
   }
 }
 
