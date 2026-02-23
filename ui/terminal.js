@@ -304,34 +304,10 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
     return true;
   });
 
-  {
-    let longPressTimer = null;
-    let didLongPress = false;
-    let touchStartX = 0;
-    let touchStartY = 0;
-    container.addEventListener("touchstart", (e) => {
-      didLongPress = false;
-      const touch = e.touches[0];
-      touchStartX = touch.clientX;
-      touchStartY = touch.clientY;
-      longPressTimer = setTimeout(() => {
-        didLongPress = true;
-        enterTerminalCopyMode(id);
-      }, 800);
-    }, { passive: true });
-    container.addEventListener("touchend", (e) => {
-      clearTimeout(longPressTimer);
-      if (didLongPress) { e.preventDefault(); return; }
-      if (container.classList.contains("copy-mode")) return;
-      if (isTouchDevice) showKeyboardInput();
-    });
-    container.addEventListener("touchmove", (e) => {
-      const touch = e.touches[0];
-      const dx = touch.clientX - touchStartX;
-      const dy = touch.clientY - touchStartY;
-      if (dx * dx + dy * dy > 100) clearTimeout(longPressTimer);
-    }, { passive: true });
-  }
+  container.addEventListener("touchend", () => {
+    if (container.classList.contains("copy-mode")) return;
+    if (isTouchDevice) showKeyboardInput();
+  });
 
 
   const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, jobName: jobName || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
@@ -515,7 +491,21 @@ function renderTabBar() {
     btn.addEventListener("touchmove", () => clearTimeout(longPressTimer), { passive: true });
     btn.addEventListener("click", (e) => {
       if (e.target.classList.contains("tab-close") || didLongPress) return;
-      switchTab(btn.dataset.tab);
+      const tabId = btn.dataset.tab;
+      if (tabId === activeTabId) {
+        const tab = tabs.find(t => t.id === tabId);
+        if (tab && tab.type === "terminal") {
+          const frame = $(`frame-${tabId}`);
+          if (frame && frame.classList.contains("copy-mode")) {
+            exitTerminalCopyMode(tabId);
+          } else {
+            tab.term.scrollToBottom();
+            enterTerminalCopyMode(tabId);
+          }
+          return;
+        }
+      }
+      switchTab(tabId);
     });
   });
   bar.querySelectorAll(".tab-btn.orphan").forEach((btn) => {
