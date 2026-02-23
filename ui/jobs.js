@@ -277,6 +277,7 @@ function openItemCreateModal(workspace, type) {
   $("link-create-url").value = "";
   $("job-create-name").value = "";
   $("job-create-script").value = "";
+  $("job-create-confirm").checked = true;
   hideFormError("item-create-error");
   initIconColorField("linkCreate");
   initIconColorField("jobCreate");
@@ -332,7 +333,7 @@ async function submitJobCreate() {
   try {
     const res = await apiFetch(workspaceApiPath(workspace, "/jobs"), {
       method: "POST",
-      body: { name, command, icon: iconColorState.jobCreate.icon, icon_color: iconColorState.jobCreate.color },
+      body: { name, command, icon: iconColorState.jobCreate.icon, icon_color: iconColorState.jobCreate.color, confirm: $("job-create-confirm").checked },
     });
     if (!res) return;
     const data = await res.json();
@@ -393,6 +394,7 @@ function openItemEditModal(type, data, source) {
     modal.dataset.jobName = data.name;
     $("job-edit-name").value = data.name;
     $("job-edit-script").value = data.command || "";
+    $("job-edit-confirm").checked = data.confirm !== false;
     initIconColorField("jobEdit", data.icon, data.iconColor);
   }
 
@@ -451,7 +453,7 @@ async function submitItemEdit() {
     try {
       const res = await apiFetch(workspaceApiPath(workspace, `/jobs/${encodeURIComponent(jobName)}`), {
         method: "PUT",
-        body: { command, icon: iconColorState.jobEdit.icon, icon_color: iconColorState.jobEdit.color },
+        body: { command, icon: iconColorState.jobEdit.icon, icon_color: iconColorState.jobEdit.color, confirm: $("job-edit-confirm").checked },
       });
       if (!res) return;
       const data = await res.json();

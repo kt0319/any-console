@@ -1,7 +1,8 @@
 import logging
+import os
 import subprocess
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi import HTTPException
 from pydantic import BaseModel
 
@@ -281,3 +282,80 @@ def get_workspace_diff(name: str):
         }
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=504, detail="git diff timed out")
+
+
+HIDDEN_DIRS = {".git"}
+
+
+@router.get("/workspaces/{name}/files")
+def list_files(name: str, path: str = Query("")):
+    ws_path = resolve_workspace_path(name)
+    target = (ws_path / path).resolve()
+    if not str(target).startswith(str(ws_path.resolve())):
+        raise HTTPException(status_code=400, detail="Invalid path")
+    if not target.is_dir():
+        raise HTTPException(status_code=404, detail="Directory not found")
+
+    rel_path = str(target.relative_to(ws_path.resolve()))
+    if rel_path == ".":
+        rel_path = ""
+
+    entries = []
+    try:
+        with os.scandir(target) as it:
+            for entry in it:
+                if entry.name in HIDDEN_DIRS:
+                    continue
+                entry_type = "dir" if entry.is_dir(follow_symlinks=False) else "file"
+                item = {"name": entry.name, "type": entry_type}
+                if entry_type == "file":
+                    try:
+                        item["size"] = entry.stat(follow_symlinks=False).st_size
+                    except OSError:
+                        pass
+                entries.append(item)
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    entries.sort(key=lambda e: (0 if e["type"] == "dir" else 1, e["name"].lower()))
+    return {"status": "ok", "path": rel_path, "entries": entries}
+
+
+MAX_FILE_SIZE = 512 * 1024
+BINARY_EXTENSIONS = {
+    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".svg",
+    ".zip", ".gz", ".tar", ".bz2", ".7z", ".rar",
+    ".exe", ".dll", ".so", ".dylib", ".bin",
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx",
+    ".mp3", ".mp4", ".wav", ".avi", ".mov", ".mkv",
+    ".woff", ".woff2", ".ttf", ".otf", ".eot",
+}
+
+
+@router.get("/workspaces/{name}/file-content")
+def get_file_content(name: str, path: str = Query(...)):
+    ws_path = resolve_workspace_path(name)
+    target = (ws_path / path).resolve()
+    if not str(target).startswith(str(ws_path.resolve())):
+        raise HTTPException(status_code=400, detail="Invalid path")
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    try:
+        size = target.stat().st_size
+    except OSError:
+        raise HTTPException(status_code=500, detail="Cannot stat file")
+
+    ext = target.suffix.lower()
+    if ext in BINARY_EXTENSIONS:
+        return {"status": "ok", "path": path, "binary": True, "size": size}
+
+    if size > MAX_FILE_SIZE:
+        return {"status": "ok", "path": path, "too_large": True, "size": size}
+
+    try:
+        content = target.read_text(encoding="utf-8", errors="replace")
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    return {"status": "ok", "path": path, "content": content, "size": size}

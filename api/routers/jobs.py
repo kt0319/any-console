@@ -50,6 +50,7 @@ def get_workspace_jobs(workspace_name):
             description=entry.get("description", ""),
             icon=entry.get("icon", ""),
             icon_color=entry.get("icon_color", ""),
+            confirm=entry.get("confirm", True),
         )
     return jobs
 
@@ -61,6 +62,7 @@ def job_definition_to_dict(job_def):
         "command": job_def.command,
         "icon": job_def.icon,
         "icon_color": job_def.icon_color,
+        "confirm": job_def.confirm,
     }
 
 
@@ -76,6 +78,7 @@ class CreateJobRequest(BaseModel):
     command: str
     icon: str = ""
     icon_color: str = ""
+    confirm: bool = True
 
 
 @router.post("/workspaces/{name}/jobs")
@@ -95,6 +98,8 @@ def create_workspace_job(name: str, body: CreateJobRequest):
         entry["icon"] = body.icon.strip()
     if body.icon_color.strip():
         entry["icon_color"] = body.icon_color.strip()
+    if not body.confirm:
+        entry["confirm"] = False
     data[job_name] = entry
     save_workspace_jobs_data(name, data)
     logger.info("job created workspace=%s job=%s", name, job_name)
@@ -105,6 +110,7 @@ class UpdateJobRequest(BaseModel):
     command: str
     icon: str = ""
     icon_color: str = ""
+    confirm: bool = True
 
 
 @router.put("/workspaces/{name}/jobs/{job_name}")
@@ -121,6 +127,8 @@ def update_workspace_job(name: str, job_name: str, body: UpdateJobRequest):
         entry["icon"] = body.icon.strip()
     if body.icon_color.strip():
         entry["icon_color"] = body.icon_color.strip()
+    if not body.confirm:
+        entry["confirm"] = False
     data[job_name] = entry
     save_workspace_jobs_data(name, data)
     logger.info("job updated workspace=%s job=%s", name, job_name)

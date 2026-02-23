@@ -18,6 +18,7 @@ class JobDefinition:
     args: list[ArgOption] = field(default_factory=list)
     icon: str = ""
     icon_color: str = ""
+    confirm: bool = True
 
 
 TERMINAL_JOB = JobDefinition(

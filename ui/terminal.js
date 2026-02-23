@@ -298,16 +298,19 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
   switchTab(id);
 }
 
-function setOutputTab(id, label, htmlContent) {
+function setOutputTab(id, label, htmlContent, icon, wsIcon, workspace) {
   const existing = tabs.find((t) => t.id === id);
   if (existing) {
     existing.label = label;
+    if (icon !== undefined) existing.icon = icon;
+    if (wsIcon !== undefined) existing.wsIcon = wsIcon;
+    if (workspace !== undefined) existing.workspace = workspace;
     const el = $(`frame-${id}`);
     if (el) el.innerHTML = htmlContent;
     switchTab(id);
     return;
   }
-  tabs.push({ id, type: "output", label });
+  tabs.push({ id, type: "output", label, icon: icon || null, wsIcon: wsIcon || null, workspace: workspace || null });
   const div = document.createElement("div");
   div.className = "output-area";
   div.id = `frame-${id}`;
@@ -443,7 +446,7 @@ function renderTabBar() {
       longPressTimer = setTimeout(() => {
         didLongPress = true;
         const tab = tabs.find((t) => t.id === btn.dataset.tab);
-        const tabName = tab ? tab.label : btn.textContent.replace("×", "").trim();
+        const tabName = tab && tab.workspace ? `${tab.workspace} / ${tab.label}` : tab ? tab.label : btn.textContent.replace("×", "").trim();
         if (confirm(`「${tabName}」を閉じますか？`)) {
           removeTab(btn.dataset.tab);
         }
@@ -467,7 +470,11 @@ function renderTabBar() {
   bar.querySelectorAll(".tab-close").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      removeTab(btn.dataset.close);
+      const tabId = btn.dataset.close;
+      const tab = tabs.find((t) => t.id === tabId);
+      const tabName = tab && tab.workspace ? `${tab.workspace} / ${tab.label}` : tab ? tab.label : "";
+      if (tabName && !confirm(`「${tabName}」を閉じますか？`)) return;
+      removeTab(tabId);
     });
   });
   $("tab-add-btn").addEventListener("click", (e) => {
@@ -541,15 +548,30 @@ async function loadPickerWsIcons(container, ws) {
     if (linksRes && linksRes.ok) links = await linksRes.json();
   } catch {}
 
+  const header = container.closest(".picker-ws-group").querySelector(".picker-ws-header");
+  const headerLabel = header.querySelector(".picker-ws-header-label");
+
+  const fileBtn = document.createElement("button");
+  fileBtn.type = "button";
+  fileBtn.className = "picker-ws-icon-btn";
+  fileBtn.title = "ファイル一覧";
+  fileBtn.innerHTML = renderIcon("mdi-folder", "", 18);
+  fileBtn.addEventListener("click", () => {
+    closeTerminalWsPicker();
+    selectedWorkspace = ws.name;
+    renderWorkspaceSelects();
+    openFileBrowser();
+  });
+  header.insertBefore(fileBtn, headerLabel);
+
   for (let i = 0; i < links.length; i++) {
     const link = links[i];
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "picker-ws-icon-btn picker-ws-link-btn";
     btn.title = link.label || link.url;
-    btn.innerHTML = renderIcon(link.icon || "mdi-web", link.icon_color, 20);
+    btn.innerHTML = renderIcon(link.icon || "mdi-web", link.icon_color, 18);
     btn.addEventListener("click", () => {
-      if (!confirm(`${link.label || link.url} を開きますか？`)) return;
       window.open(link.url, "_blank");
       closeTerminalWsPicker();
     });
@@ -562,15 +584,16 @@ async function loadPickerWsIcons(container, ws) {
     btn.type = "button";
     btn.className = "picker-ws-icon-btn";
     btn.title = job.label || name;
-    btn.innerHTML = renderIcon(job.icon || "mdi-play", job.icon_color, 20);
+    btn.innerHTML = renderIcon(job.icon || "mdi-play", job.icon_color, 18);
     btn.addEventListener("click", () => {
-      if (!confirm(`${job.label || name} を実行しますか？`)) return;
+      if (job.confirm !== false) {
+        if (!confirm(`${job.label || name} を実行しますか？`)) return;
+      }
       closeTerminalWsPicker();
       runJob(name, null, ws.name);
     });
     container.appendChild(btn);
   }
-
 }
 
 

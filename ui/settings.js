@@ -176,6 +176,7 @@ async function loadSettingsWsIcons(container, ws) {
         icon: job.icon,
         iconColor: job.icon_color,
         command: job.command || "",
+        confirm: job.confirm,
       }, "settings");
     });
     container.appendChild(btn);
