@@ -139,15 +139,38 @@ function renderActionButtons(container, actions) {
   }
 }
 
+const faviconBlobCache = new Map();
+
 function faviconUrl(domain) {
   return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`;
+}
+
+function cacheFavicon(domain) {
+  if (faviconBlobCache.has(domain)) return;
+  faviconBlobCache.set(domain, null);
+  fetch(faviconUrl(domain))
+    .then((res) => {
+      if (!res.ok) throw new Error(res.status);
+      return res.blob();
+    })
+    .then((blob) => {
+      const blobUrl = URL.createObjectURL(blob);
+      faviconBlobCache.set(domain, blobUrl);
+      for (const img of document.querySelectorAll(`img[data-favicon-domain="${CSS.escape(domain)}"]`)) {
+        img.src = blobUrl;
+      }
+    })
+    .catch(() => faviconBlobCache.delete(domain));
 }
 
 function renderIcon(icon, iconColor, size = 16) {
   if (!icon) return "";
   if (icon.startsWith("favicon:")) {
     const domain = icon.slice("favicon:".length);
-    return `<img src="${faviconUrl(domain)}" width="${size}" height="${size}" class="favicon-icon" alt="" />`;
+    const cached = faviconBlobCache.get(domain);
+    const src = cached || faviconUrl(domain);
+    if (!cached) cacheFavicon(domain);
+    return `<img src="${src}" width="${size}" height="${size}" class="favicon-icon" data-favicon-domain="${escapeHtml(domain)}" alt="" />`;
   }
   const colorStyle = iconColor ? ` style="color:${escapeHtml(iconColor)}"` : "";
   return `<span class="mdi ${escapeHtml(icon)}"${colorStyle}></span>`;
