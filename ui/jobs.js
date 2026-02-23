@@ -184,7 +184,17 @@ async function runJob(jobName = null, argsOverride = null, workspaceOverride = n
 
 async function _runJobInner(targetJob, workspaceOverride) {
   const workspace = workspaceOverride || selectedWorkspace;
-  const job = JOBS[targetJob] || {};
+  let job = JOBS[targetJob];
+  if (!job && targetJob !== "terminal" && workspace) {
+    try {
+      const jobsRes = await apiFetch(workspaceApiPath(workspace, "/jobs"));
+      if (jobsRes && jobsRes.ok) {
+        const wsJobs = await jobsRes.json();
+        job = wsJobs[targetJob];
+      }
+    } catch {}
+  }
+  job = job || {};
   const tabLabel = targetJob === "terminal" ? (workspaceOverride || workspace) : (job.label || targetJob);
 
   launchingTerminal = true;
