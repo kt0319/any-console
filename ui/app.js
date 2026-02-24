@@ -245,6 +245,7 @@ document.addEventListener("touchmove", (e) => {
 }, { passive: false });
 let lastTouchEnd = 0;
 document.addEventListener("touchend", (e) => {
+  if (e.target.closest(".modal-overlay")) return;
   const now = Date.now();
   if (now - lastTouchEnd <= 300) e.preventDefault();
   lastTouchEnd = now;

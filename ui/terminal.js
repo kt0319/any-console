@@ -741,16 +741,7 @@ function renderTabBar() {
       + `<span class="mdi mdi-plus"></span>`
       + `</button>`;
   }
-  if (nonPickerTabs.length >= 2) {
-    html += `<button class="tab-btn split-toggle-btn">`
-      + `<span class="mdi mdi-arrow-split-vertical"></span>`
-      + `</button>`;
-  }
   bar.innerHTML = html;
-
-  bar.querySelectorAll(".split-toggle-btn").forEach((btn) => {
-    btn.addEventListener("click", () => enterSplitMode());
-  });
 
   bar.querySelectorAll(".tab-btn[data-action='add-tab']").forEach((btn) => {
     btn.addEventListener("click", () => showTerminalWsPicker());
@@ -785,6 +776,10 @@ function renderTabBar() {
       },
     });
     if (!isTouchDevice && tab) bindMouseDrag(btn, tab);
+    btn.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      openTabEditModal();
+    });
   });
   bar.querySelectorAll(".tab-btn.orphan").forEach((btn) => {
     bindLongPress(btn, {
@@ -1473,6 +1468,31 @@ function openTabEditModal() {
 
   let dragState = null;
 
+  function toggleRow(tab) {
+    if (splitMode) {
+      const included = splitPaneTabIds.includes(tab.id);
+      if (included) {
+        if (splitPaneTabIds.length <= 2) return;
+        splitPaneTabIds = splitPaneTabIds.filter((id) => id !== tab.id);
+        const frame = $(`frame-${tab.id}`);
+        if (frame) frame.style.display = "none";
+      } else {
+        splitPaneTabIds.push(tab.id);
+      }
+      if (activePaneIndex >= splitPaneTabIds.length) activePaneIndex = 0;
+      activeTabId = splitPaneTabIds[activePaneIndex];
+      const container = $("output-container");
+      clearSplitDom(container);
+      container.classList.remove("split-active", "split-mobile");
+      buildSplitDom();
+      fitAllSplitTerminals();
+      renderTabList();
+    } else {
+      switchTab(tab.id);
+      renderTabList();
+    }
+  }
+
   function renderTabList() {
     list.innerHTML = "";
     const nonPicker = tabs.filter((t) => t.type !== "picker");
@@ -1482,7 +1502,26 @@ function openTabEditModal() {
       const row = document.createElement("div");
       row.className = "split-tab-row";
       row.dataset.idx = i;
-      if (tab.id === activeTabId) row.classList.add("active");
+      if (!splitMode && tab.id === activeTabId) row.classList.add("active");
+
+      const inputWrap = document.createElement("span");
+      inputWrap.className = "split-tab-input-wrap";
+      if (splitMode) {
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "split-tab-input";
+        checkbox.checked = splitPaneTabIds.includes(tab.id);
+        checkbox.disabled = true;
+        inputWrap.appendChild(checkbox);
+      } else {
+        const radio = document.createElement("input");
+        radio.type = "radio";
+        radio.className = "split-tab-input";
+        radio.checked = tab.id === activeTabId;
+        radio.disabled = true;
+        inputWrap.appendChild(radio);
+      }
+      row.appendChild(inputWrap);
 
       const handle = document.createElement("span");
       handle.className = "split-tab-drag-handle";
@@ -1496,6 +1535,12 @@ function openTabEditModal() {
       const iconHtml = tab.icon ? renderIcon(tab.icon.name, tab.icon.color, 14) : "";
       info.innerHTML = wsIconHtml + iconHtml + escapeHtml(tabDisplayName(tab) || tab.label || "");
       row.appendChild(info);
+
+      row.addEventListener("click", (e) => {
+        if (e.target.closest(".split-tab-drag-handle")) return;
+        if (e.target.closest(".split-tab-close-btn")) return;
+        toggleRow(tab);
+      });
 
       const closeBtn = document.createElement("button");
       closeBtn.type = "button";
@@ -1630,6 +1675,7 @@ function exitSplitModeWithTab(targetTabId) {
 
 function rebuildSplitLayout() {
   if (!splitMode) return;
+  blurAllTerminals();
   const container = $("output-container");
   clearSplitDom(container);
   container.classList.remove("split-active", "split-mobile");
@@ -1683,7 +1729,17 @@ function clearSplitDom(container) {
   });
 }
 
+function blurAllTerminals() {
+  for (const t of tabs) {
+    if (t.type === "terminal" && t.term) {
+      t.term.blur();
+      t.term.clearSelection();
+    }
+  }
+}
+
 function buildSplitDom() {
+  blurAllTerminals();
   const container = $("output-container");
   container.classList.add("split-active");
 
@@ -1776,10 +1832,23 @@ function updatePaneLabels() {
     closeBtn.type = "button";
     closeBtn.className = "split-pane-close-btn";
     closeBtn.innerHTML = "&times;";
-    closeBtn.title = "タブを閉じる";
+    closeBtn.title = "分割から外す";
     closeBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      removeTab(tabId);
+      if (splitPaneTabIds.length <= 2) {
+        exitSplitModeWithTab(splitPaneTabIds.find((id) => id !== tabId) || tabId);
+        return;
+      }
+      splitPaneTabIds = splitPaneTabIds.filter((id) => id !== tabId);
+      const frame = $(`frame-${tabId}`);
+      if (frame) frame.style.display = "none";
+      if (activePaneIndex >= splitPaneTabIds.length) activePaneIndex = 0;
+      activeTabId = splitPaneTabIds[activePaneIndex];
+      const container = $("output-container");
+      clearSplitDom(container);
+      container.classList.remove("split-active", "split-mobile");
+      buildSplitDom();
+      fitAllSplitTerminals();
     });
     label.appendChild(closeBtn);
 
@@ -1803,6 +1872,11 @@ function updatePaneLabels() {
       },
     });
 
+    label.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      openTabEditModal();
+    });
+
     pane.appendChild(label);
   });
 }
@@ -1812,7 +1886,10 @@ function fitAllSplitTerminals() {
     requestAnimationFrame(() => {
       for (const tabId of splitPaneTabIds) {
         const tab = tabs.find((t) => t.id === tabId);
-        if (tab && tab.type === "terminal") fitAndSync(tab);
+        if (tab && tab.type === "terminal") {
+          tab.term.clearSelection();
+          fitAndSync(tab);
+        }
       }
     });
   });

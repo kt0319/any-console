@@ -1609,10 +1609,10 @@ button:disabled {
 .split-tab-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 10px 8px;
   border-bottom: 1px solid var(--border);
   gap: 8px;
+  cursor: pointer;
 }
 
 .split-tab-row.active {
@@ -1624,6 +1624,7 @@ button:disabled {
   align-items: center;
   gap: 4px;
   font-size: 14px;
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1640,6 +1641,24 @@ button:disabled {
   font-size: 20px;
   cursor: grab;
   touch-action: none;
+}
+
+.split-tab-input-wrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  cursor: pointer;
+}
+
+.split-tab-input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+  pointer-events: none;
+  opacity: 1;
 }
 
 .split-tab-row.dragging {
