@@ -165,6 +165,7 @@ function createStockChip(text, input) {
   chip.addEventListener("pointerdown", (e) => {
     e.preventDefault();
     input.value = text;
+    input.dispatchEvent(new Event("input"));
     input.focus({ preventScroll: true });
   });
   return chip;

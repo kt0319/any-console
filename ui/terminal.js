@@ -399,7 +399,8 @@ function removeTab(id) {
   if (splitMode) {
     const nonPicker = getNonPickerTabs();
     if (nonPicker.length < 2) {
-      exitSplitMode();
+      const remaining = nonPicker.length > 0 ? nonPicker[0].id : "picker";
+      exitSplitModeWithTab(remaining);
       return;
     }
     rebuildSplitLayout();
@@ -554,7 +555,7 @@ function renderTabBar() {
     }
   }
   if (pickerTab && activeTabId === pickerTab.id) {
-    html += `<button class="tab-btn active" data-tab="${pickerTab.id}">`
+    html += `<button class="tab-btn tab-add-btn active" data-tab="${pickerTab.id}">`
       + `<span class="mdi mdi-plus"></span>`
       + `</button>`;
   } else {
@@ -563,17 +564,18 @@ function renderTabBar() {
       + `</button>`;
   }
   if (nonPickerTabs.length >= 2) {
-    html += `<button class="split-toggle-btn" data-action="toggle-split">`
+    html += `<button class="tab-btn split-toggle-btn">`
       + `<span class="mdi mdi-arrow-split-vertical"></span>`
       + `</button>`;
   }
   bar.innerHTML = html;
 
+  bar.querySelectorAll(".split-toggle-btn").forEach((btn) => {
+    btn.addEventListener("click", () => enterSplitMode());
+  });
+
   bar.querySelectorAll(".tab-btn[data-action='add-tab']").forEach((btn) => {
     btn.addEventListener("click", () => showTerminalWsPicker());
-  });
-  bar.querySelectorAll(".split-toggle-btn[data-action='toggle-split']").forEach((btn) => {
-    btn.addEventListener("click", () => enterSplitMode());
   });
   bar.querySelectorAll(".tab-btn:not(.orphan):not([data-action])").forEach((btn) => {
     const tab = tabs.find((t) => t.id === btn.dataset.tab);

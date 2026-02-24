@@ -636,12 +636,10 @@ header .ws-select-wrap {
   justify-content: center;
 }
 
-.main-panel.panel-bottom .tab-btn[data-tab="picker"] {
+.main-panel.panel-bottom .tab-btn[data-tab="picker"],
+.main-panel.panel-bottom .tab-add-btn,
+.main-panel.panel-bottom .split-toggle-btn {
   min-width: unset;
-}
-
-.main-panel.panel-bottom .tab-add-btn {
-  border-radius: 0 0 6px 6px;
 }
 
 .main-panel.panel-bottom .header-row2 {
@@ -861,8 +859,8 @@ header .ws-select-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  mask-image: linear-gradient(to right, #000 85%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, #000 85%, transparent 100%);
+  mask-image: linear-gradient(to right, #000 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, #000 92%, transparent 100%);
 }
 
 .tab-bar::-webkit-scrollbar {
@@ -952,20 +950,9 @@ header .ws-select-wrap {
 }
 
 .tab-add-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   min-width: 28px;
-  height: 28px;
-  aspect-ratio: 1;
-  padding: 0;
-  border: 1px dashed var(--border);
-  border-radius: 6px 6px 0 0;
-  background: transparent;
-  color: var(--text-muted);
+  padding: 6px 8px;
   font-size: 16px;
-  cursor: pointer;
-  flex-shrink: 0;
 }
 
 
@@ -1084,20 +1071,9 @@ header .ws-select-wrap {
 }
 
 .split-toggle-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 28px;
-  height: 28px;
-  aspect-ratio: 1;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 6px 6px 0 0;
-  background: transparent;
-  color: var(--text-muted);
+  min-width: unset;
+  padding: 6px 8px;
   font-size: 16px;
-  cursor: pointer;
-  flex-shrink: 0;
 }
 
 /* Mobile split: all panes stacked vertically */
@@ -2126,8 +2102,8 @@ button:disabled {
   flex-shrink: 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  mask-image: linear-gradient(to right, #000 85%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, #000 85%, transparent 100%);
+  mask-image: linear-gradient(to right, #000 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, #000 92%, transparent 100%);
 }
 
 .diff-actions .commit-action-item {
