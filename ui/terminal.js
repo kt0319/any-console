@@ -516,7 +516,35 @@ async function updateHeaderForTab(id) {
   }
 }
 
-function startTabDrag(btn, tab, touch) {
+function bindMouseDrag(btn, tab) {
+  const DRAG_THRESHOLD = 5;
+  let startX = 0;
+  let mouseDown = false;
+  btn.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    if (e.target.classList.contains("tab-close")) return;
+    startX = e.clientX;
+    mouseDown = true;
+    const onMove = (me) => {
+      if (!mouseDown) return;
+      if (Math.abs(me.clientX - startX) > DRAG_THRESHOLD) {
+        mouseDown = false;
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        startTabDrag(btn, tab, { clientX: startX });
+      }
+    };
+    const onUp = () => {
+      mouseDown = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+}
+
+function startTabDrag(btn, tab, pointer) {
   const bar = $("tab-bar");
   const rect = btn.getBoundingClientRect();
   const barRect = bar.getBoundingClientRect();
@@ -534,7 +562,8 @@ function startTabDrag(btn, tab, touch) {
   btn.style.width = rect.width + "px";
   btn.style.zIndex = "100";
 
-  const offsetX = touch.clientX - rect.left;
+  const offsetX = pointer.clientX - rect.left;
+  const isTouch = !!pointer.touches;
 
   tabDragState = {
     btn,
@@ -543,36 +572,44 @@ function startTabDrag(btn, tab, touch) {
     bar,
     barRect,
     offsetX,
-    startX: touch.clientX,
+    startX: pointer.clientX,
     moved: false,
+    isTouch,
   };
 
   navigator.vibrate?.(30);
 
-  document.addEventListener("touchmove", onTabDragMove, { capture: true, passive: false });
-  document.addEventListener("touchend", onTabDragEnd, { capture: true });
+  if (isTouch) {
+    document.addEventListener("touchmove", onTabDragMove, { capture: true, passive: false });
+    document.addEventListener("touchend", onTabDragEnd, { capture: true });
+  } else {
+    document.addEventListener("mousemove", onTabDragMove, { capture: true });
+    document.addEventListener("mouseup", onTabDragEnd, { capture: true });
+  }
+}
+
+function getPointerXFromEvent(e) {
+  return e.touches ? e.touches[0].clientX : e.clientX;
 }
 
 function onTabDragMove(e) {
   if (!tabDragState) return;
   e.preventDefault();
-  const touch = e.touches[0];
+  const clientX = getPointerXFromEvent(e);
   const { btn, bar, barRect, offsetX } = tabDragState;
 
-  const dx = Math.abs(touch.clientX - tabDragState.startX);
+  const dx = Math.abs(clientX - tabDragState.startX);
   if (dx > 5) tabDragState.moved = true;
 
-  const left = touch.clientX - offsetX;
-  btn.style.left = left + "px";
+  btn.style.left = (clientX - offsetX) + "px";
 
-  const centerX = touch.clientX;
   const siblings = Array.from(bar.querySelectorAll(".tab-btn:not(.tab-dragging), .tab-drag-placeholder"));
   for (const sib of siblings) {
     if (sib === tabDragState.placeholder) continue;
     if (sib.classList.contains("tab-add-btn") || sib.classList.contains("split-toggle-btn")) continue;
     const sibRect = sib.getBoundingClientRect();
     const sibCenter = sibRect.left + sibRect.width / 2;
-    if (centerX < sibCenter) {
+    if (clientX < sibCenter) {
       bar.insertBefore(tabDragState.placeholder, sib);
       return;
     }
@@ -583,21 +620,24 @@ function onTabDragMove(e) {
   }
 
   const SCROLL_ZONE = 40;
-  const barLeft = barRect.left;
-  const barRight = barRect.right;
-  if (touch.clientX - barLeft < SCROLL_ZONE) {
+  if (clientX - barRect.left < SCROLL_ZONE) {
     bar.scrollLeft -= 10;
-  } else if (barRight - touch.clientX < SCROLL_ZONE) {
+  } else if (barRect.right - clientX < SCROLL_ZONE) {
     bar.scrollLeft += 10;
   }
 }
 
 function onTabDragEnd(e) {
   if (!tabDragState) return;
-  const { btn, tab, placeholder, bar, moved } = tabDragState;
+  const { btn, tab, placeholder, bar, moved, isTouch } = tabDragState;
 
-  document.removeEventListener("touchmove", onTabDragMove, { capture: true });
-  document.removeEventListener("touchend", onTabDragEnd, { capture: true });
+  if (isTouch) {
+    document.removeEventListener("touchmove", onTabDragMove, { capture: true });
+    document.removeEventListener("touchend", onTabDragEnd, { capture: true });
+  } else {
+    document.removeEventListener("mousemove", onTabDragMove, { capture: true });
+    document.removeEventListener("mouseup", onTabDragEnd, { capture: true });
+  }
 
   if (!moved && panelBottom) {
     btn.classList.remove("tab-dragging");
@@ -745,6 +785,7 @@ function renderTabBar() {
         switchTab(tabId);
       },
     });
+    if (!isTouchDevice && tab) bindMouseDrag(btn, tab);
   });
   bar.querySelectorAll(".tab-btn.orphan").forEach((btn) => {
     bindLongPress(btn, {

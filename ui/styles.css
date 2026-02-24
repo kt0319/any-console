@@ -927,6 +927,7 @@ header .ws-select-wrap {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
   z-index: 100;
   pointer-events: none;
+  cursor: grabbing;
 }
 
 .tab-drag-placeholder {
