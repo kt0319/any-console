@@ -192,7 +192,7 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
                 if data[0:1] == b"\x00":
                     _handle_resize(session.fd, data[1:])
                 else:
-                    os.write(session.fd, data)
+                    await loop.run_in_executor(PTY_EXECUTOR, os.write, session.fd, data)
         except (WebSocketDisconnect, OSError, asyncio.CancelledError):
             pass
 

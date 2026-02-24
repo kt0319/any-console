@@ -1139,6 +1139,7 @@ document.addEventListener("paste", (e) => {
   const text = e.clipboardData.getData("text");
   if (text && activeTab.ws && activeTab.ws.readyState === WebSocket.OPEN) {
     e.preventDefault();
-    activeTab.ws.send(new TextEncoder().encode(text));
+    const bracketedPaste = "\x1b[200~" + text + "\x1b[201~";
+    activeTab.ws.send(new TextEncoder().encode(bracketedPaste));
   }
 }, true);
