@@ -710,6 +710,8 @@ function showPickerMainView() {
   mainView.style.display = "";
   title.textContent = "ワークスペースを開く";
   title.dataset.level = "";
+  const closeBtn = mainView.parentNode.querySelector(".picker-close-btn");
+  if (closeBtn) closeBtn.style.display = "none";
 }
 
 function renderPickerSettingsMenu(container) {

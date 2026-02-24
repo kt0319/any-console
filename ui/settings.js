@@ -68,7 +68,7 @@ function openSettingsWsVisibility() {
     (ws) => {
       $("settings-modal").style.display = "none";
       selectedWorkspace = ws.name;
-      openItemCreateModal(ws.name, "job");
+      openItemCreateModal(ws.name, "job", "settings");
     },
     loadSettingsWsIcons,
   );

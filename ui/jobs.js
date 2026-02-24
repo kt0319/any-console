@@ -190,7 +190,7 @@ function updateIconSelectPreview(key) {
   const preview = $(f.btnId).querySelector(".icon-select-preview");
   if (!preview) return;
   if (!s.icon) {
-    preview.innerHTML = '<span style="color:var(--text-muted)">アイコンを選択</span>';
+    preview.innerHTML = renderIcon(f.defaultIcon, "", 18) + '<span class="icon-select-label" style="color:var(--text-muted)">アイコンを選択</span>';
     return;
   }
   const label = isImageDataIcon(s.icon) ? "favicon" : s.icon;
@@ -214,9 +214,10 @@ function setupIconPickerBtn(key) {
   });
 }
 
-function openItemCreateModal(workspace, type) {
+function openItemCreateModal(workspace, type, source) {
   const modal = $("item-create-modal");
   modal.dataset.workspace = workspace || selectedWorkspace;
+  modal.dataset.source = source || "";
   $("link-create-url").value = "";
   $("job-create-name").value = "";
   $("job-create-script").value = "";
@@ -286,6 +287,7 @@ async function submitJobCreate() {
     }
     closeItemCreateModal();
     await loadJobsForWorkspace();
+    reopenAfterItemEdit($("item-create-modal").dataset.source);
   } catch (e) {
     showFormError("item-create-error", e.message);
   }
@@ -312,7 +314,9 @@ async function submitLinkCreate() {
       return;
     }
     closeItemCreateModal();
+    await loadJobsForWorkspace();
     showToast("リンクを追加しました", "success");
+    reopenAfterItemEdit($("item-create-modal").dataset.source);
   } catch (e) {
     showFormError("item-create-error", e.message);
   }
@@ -349,6 +353,7 @@ function openItemEditModal(type, data, source) {
       await deleteJob(data.name, data.workspace);
     }
     closeItemEditModal();
+    await loadJobsForWorkspace();
     reopenAfterItemEdit(modal.dataset.source);
   };
   $("item-edit-save").onclick = () => submitItemEdit();
@@ -381,6 +386,7 @@ async function submitItemEdit() {
         return;
       }
       closeItemEditModal();
+      await loadJobsForWorkspace();
       showToast("リンクを更新しました", "success");
       reopenAfterItemEdit(modal.dataset.source);
     } catch (e) {
@@ -461,7 +467,6 @@ async function deleteJob(jobName, workspace) {
       return;
     }
     if (selectedJob === jobName) selectedJob = null;
-    await loadJobsForWorkspace();
   } catch (e) {
     showToast(`削除エラー: ${e.message}`);
   }
