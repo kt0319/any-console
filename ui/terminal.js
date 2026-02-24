@@ -158,6 +158,7 @@ function connectTerminalWs(tab) {
 
   let scrollTimer = null;
   ws.onopen = () => {
+    addLog("ws", "open", { url: tab.wsUrl });
     const restored = tab._reconnectAttempts > 0 || tab._pendingRedraw;
     tab._reconnectAttempts = 0;
     tab._pendingRedraw = false;
@@ -225,10 +226,12 @@ function connectTerminalWs(tab) {
   };
 
   ws.onerror = () => {
+    addLog("ws", "error", { url: tab.wsUrl });
     console.error("WebSocket error:", tab.wsUrl);
   };
 
   ws.onclose = (e) => {
+    addLog("ws", "close", { url: tab.wsUrl, code: e.code });
     tab.ws = null;
     if (tab._wsDisposed || isPageUnloading) return;
     if (e.code === 1000 || e.code === 1008) {
@@ -269,7 +272,17 @@ function tabDisplayName(tab) {
   return parts.join(" / ");
 }
 
+function removePickerTab() {
+  const pickerIdx = tabs.findIndex((t) => t.type === "picker");
+  if (pickerIdx >= 0) {
+    tabs.splice(pickerIdx, 1);
+    const pickerEl = $("frame-picker");
+    if (pickerEl) pickerEl.remove();
+  }
+}
+
 function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCommand, tabIcon, wsIcon, jobName) {
+  removePickerTab();
   const id = tabId || `term-${++terminalIdCounter}`;
   if (tabId) {
     const m = tabId.match(/^term-(\d+)$/);
@@ -330,6 +343,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
 }
 
 function setOutputTab(id, label, htmlContent, icon, wsIcon, workspace) {
+  removePickerTab();
   const existing = tabs.find((t) => t.id === id);
   if (existing) {
     existing.label = label;
@@ -486,11 +500,21 @@ function renderTabBar() {
       }
     }
   }
-  html += `<button class="tab-btn${activeTabId === "picker" ? " active" : ""}" data-tab="picker">`
-    + `<span class="mdi mdi-plus"></span></button>`;
+  if (pickerTab && activeTabId === pickerTab.id) {
+    html += `<button class="tab-btn active" data-tab="${pickerTab.id}">`
+      + `<span class="mdi mdi-plus"></span>`
+      + `</button>`;
+  } else {
+    html += `<button class="tab-btn tab-add-btn" data-action="add-tab">`
+      + `<span class="mdi mdi-plus"></span>`
+      + `</button>`;
+  }
   bar.innerHTML = html;
 
-  bar.querySelectorAll(".tab-btn:not(.orphan)").forEach((btn) => {
+  bar.querySelectorAll(".tab-btn[data-action='add-tab']").forEach((btn) => {
+    btn.addEventListener("click", () => showTerminalWsPicker());
+  });
+  bar.querySelectorAll(".tab-btn:not(.orphan):not([data-action])").forEach((btn) => {
     const tab = tabs.find((t) => t.id === btn.dataset.tab);
     if (btn.dataset.tab === "picker") {
       btn.addEventListener("click", () => showTerminalWsPicker());
@@ -737,6 +761,7 @@ function renderPickerSettingsMenu(container) {
     { icon: "mdi-upload", label: "設定インポート", action: () => importSettings() },
     { icon: "mdi-format-list-bulleted", label: "プロセス一覧", action: () => showPickerProcessList(container) },
     { icon: "mdi-information-outline", label: "サーバー情報", action: () => showPickerServerInfo(container) },
+    { icon: "mdi-text-box-outline", label: "操作ログ", action: () => showPickerOpLog(container) },
   ];
 
   for (const item of items) {
@@ -822,6 +847,15 @@ async function showPickerProcessList(container) {
     list.className = "server-info-list";
     content.appendChild(list);
     await renderProcessListTo(list);
+  });
+}
+
+async function showPickerOpLog(container) {
+  showPickerSettingsSubView(container, "操作ログ", async (content) => {
+    const list = document.createElement("div");
+    list.className = "server-info-list";
+    content.appendChild(list);
+    await renderOpLogTo(list);
   });
 }
 

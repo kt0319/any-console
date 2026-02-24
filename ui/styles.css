@@ -1590,7 +1590,8 @@ button:disabled {
 
 #settings-ws-visibility,
 #settings-server-info-view,
-#settings-process-list-view {
+#settings-process-list-view,
+#settings-op-log-view {
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2748,6 +2749,39 @@ button:disabled {
   border-radius: var(--radius);
   cursor: pointer;
   flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.op-log-row {
+  display: flex;
+  font-family: monospace;
+  font-size: 11px;
+  gap: 6px;
+  align-items: baseline;
+  padding: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.op-log-row:last-child {
+  border-bottom: none;
+}
+
+.op-log-ts {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  min-width: 56px;
+}
+
+.op-log-method {
+  color: var(--accent);
+  flex-shrink: 0;
+  min-width: 52px;
+}
+
+.op-log-path {
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

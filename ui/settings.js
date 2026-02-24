@@ -3,7 +3,7 @@ function applyPanelBottom() {
 }
 
 function showSettingsView(viewId) {
-  for (const id of ["settings-menu-view", "settings-ws-visibility", "settings-server-info-view", "settings-process-list-view"]) {
+  for (const id of ["settings-menu-view", "settings-ws-visibility", "settings-server-info-view", "settings-process-list-view", "settings-op-log-view"]) {
     $(id).style.display = id === viewId ? "" : "none";
   }
 }
@@ -146,6 +146,46 @@ async function openProcessList() {
   showSettingsView("settings-process-list-view");
   $("settings-modal").style.display = "flex";
   await renderProcessListTo($("process-list"));
+}
+
+async function renderOpLogTo(container) {
+  container.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>';
+  try {
+    const res = await apiFetch("/logs");
+    if (!res || !res.ok) {
+      container.innerHTML = '<div style="color:var(--error);padding:16px">取得に失敗しました</div>';
+      return;
+    }
+    const entries = await res.json();
+    container.innerHTML = "";
+    if (entries.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">ログなし</div>';
+      return;
+    }
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const e = entries[i];
+      const row = document.createElement("div");
+      row.className = "op-log-row";
+      const ts = e.ts ? new Date(e.ts).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "";
+      const status = e.status_code ? ` ${e.status_code}` : "";
+      const duration = e.duration_ms ? ` ${e.duration_ms}ms` : "";
+      const detail = e.detail ? ` ${e.detail}` : "";
+      row.innerHTML =
+        `<span class="op-log-ts">${escapeHtml(ts)}</span>` +
+        `<span class="op-log-method">${escapeHtml(e.method || "")}</span>` +
+        `<span class="op-log-path">${escapeHtml(e.path || "")}${escapeHtml(status)}${escapeHtml(duration)}${escapeHtml(detail)}</span>`;
+      container.appendChild(row);
+    }
+  } catch (e) {
+    container.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function openOpLog() {
+  $("settings-title").textContent = "操作ログ";
+  showSettingsView("settings-op-log-view");
+  $("settings-modal").style.display = "flex";
+  await renderOpLogTo($("op-log-list"));
 }
 
 function loadSettingsWsIcons(container, ws) {

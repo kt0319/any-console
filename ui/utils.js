@@ -103,7 +103,11 @@ async function apiFetch(endpoint, { method = "GET", body = null } = {}) {
     headers["Content-Type"] = "application/json";
     body = JSON.stringify(body);
   }
+  const t0 = Date.now();
   const res = await fetch(endpoint, { method, headers, body });
+  if (endpoint !== "/logs/client" && typeof addLog === "function") {
+    addLog("api", method, { path: endpoint, status: res.status, ms: Date.now() - t0 });
+  }
   if (res.status === 401) {
     await handleUnauthorized();
     return null;

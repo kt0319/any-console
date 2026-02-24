@@ -19,7 +19,8 @@ from fastapi.staticfiles import StaticFiles
 
 from .auth import verify_token
 from .common import BACKGROUND_EXECUTOR, SYSTEM_CMD_TIMEOUT_SEC, UPLOAD_DIR, WORK_DIR, load_all_config, save_all_config
-from .routers import git, jobs, terminal, workspaces
+from .common import LOG_BUFFER
+from .routers import git, jobs, logs, terminal, workspaces
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",

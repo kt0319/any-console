@@ -136,6 +136,7 @@ async function _runJobInner(targetJob, workspaceOverride) {
     wsIcon = wsIconObj;
   }
 
+  addLog("ui", "job_run", { workspace, job: targetJob });
   launchingTerminal = true;
 
   try {
@@ -424,7 +425,7 @@ function reopenAfterItemEdit(source) {
   if (source === "settings") {
     openSettingsWsVisibility();
   } else if (source === "picker-settings") {
-    ensurePickerTab();
+    showTerminalWsPicker();
     switchTab("picker");
     const sv = $("picker-settings-view");
     if (sv) {

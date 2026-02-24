@@ -1,3 +1,4 @@
+import collections
 import json
 import logging
 import os
@@ -36,6 +37,22 @@ BRANCH_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_./-]+$")
 COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{4,40}$")
 
 BACKGROUND_EXECUTOR = ThreadPoolExecutor(max_workers=4)
+
+LOG_BUFFER_MAX = 500
+
+
+class LogBuffer:
+    def __init__(self, maxlen: int = LOG_BUFFER_MAX):
+        self.entries = collections.deque(maxlen=maxlen)
+
+    def add(self, entry: dict) -> None:
+        self.entries.append(entry)
+
+    def clear(self) -> None:
+        self.entries.clear()
+
+
+LOG_BUFFER = LogBuffer()
 
 
 def _read_config_unlocked() -> dict:

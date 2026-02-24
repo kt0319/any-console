@@ -44,6 +44,7 @@
             <button type="button" class="settings-menu-item" onclick="importSettings()"><span class="mdi mdi-upload"></span> 設定インポート</button>
             <button type="button" class="settings-menu-item" onclick="openProcessList()"><span class="mdi mdi-format-list-bulleted"></span> プロセス一覧</button>
             <button type="button" class="settings-menu-item" onclick="openSettingsServerInfo()"><span class="mdi mdi-information-outline"></span> サーバー情報</button>
+            <button type="button" class="settings-menu-item" onclick="openOpLog()"><span class="mdi mdi-text-box-outline"></span> 操作ログ</button>
           </div>
         </div>
         <div id="settings-ws-visibility" style="display:none">
@@ -54,6 +55,9 @@
         </div>
         <div id="settings-process-list-view" style="display:none">
           <div class="server-info-list" id="process-list"></div>
+        </div>
+        <div id="settings-op-log-view" style="display:none">
+          <div class="server-info-list" id="op-log-list"></div>
         </div>
         <input type="file" id="settings-import-file" accept=".json" style="display:none">
       </div>
@@ -325,6 +329,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.js"></script>
   <script src="state.js"></script>
+  <script src="logger.js"></script>
   <script src="utils.js"></script>
   <script src="auth.js"></script>
   <script src="terminal.js"></script>
