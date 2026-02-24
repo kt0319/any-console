@@ -475,6 +475,11 @@ async function switchTab(id) {
 }
 
 async function updateHeaderForTab(id) {
+  if (splitMode) {
+    $("header-row2").style.display = "none";
+    return;
+  }
+
   const switchedTabObj = tabs.find((t) => t.id === id);
   if (switchedTabObj && switchedTabObj.type === "picker") {
     resetPickerView();
@@ -1200,6 +1205,9 @@ function enterSplitMode() {
   if (splitMode) return;
 
   splitMode = true;
+  for (const t of nonPicker) {
+    if (t.type === "terminal") exitTerminalCopyMode(t.id);
+  }
   splitPaneTabIds = nonPicker.map((t) => t.id);
   const activeIdx = splitPaneTabIds.indexOf(activeTabId);
   activePaneIndex = activeIdx >= 0 ? activeIdx : 0;
@@ -1387,6 +1395,26 @@ function updatePaneLabels() {
       e.stopPropagation();
       e.preventDefault();
       exitSplitModeWithTab(tabId);
+    });
+
+    let longPressTimer = null;
+    label.addEventListener("touchstart", (e) => {
+      longPressTimer = setTimeout(() => {
+        longPressTimer = null;
+        const tabName = tabDisplayName(tab) || tab.label || "";
+        if (confirm(`「${tabName}」で分割解除しますか？`)) {
+          exitSplitModeWithTab(tabId);
+        }
+      }, 600);
+    }, { passive: true });
+    label.addEventListener("touchend", () => {
+      if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+    });
+    label.addEventListener("touchcancel", () => {
+      if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+    });
+    label.addEventListener("touchmove", () => {
+      if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
     });
 
     pane.appendChild(label);
