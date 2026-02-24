@@ -1546,6 +1546,120 @@ button:disabled {
   color: var(--text);
 }
 
+/* Split tab modal */
+.split-tab-modal {
+  height: auto;
+  max-height: 70vh;
+  max-width: 340px;
+  padding-bottom: 12px;
+}
+
+.split-tab-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  margin-bottom: 8px;
+}
+
+.split-tab-modal-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.split-tab-mode-row {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-bottom: 8px;
+}
+
+.split-tab-mode-option {
+  flex: 1;
+  padding: 8px 0;
+  font-size: 13px;
+  border: none;
+  background: var(--surface);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.split-tab-mode-option.active {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.split-tab-list {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.split-tab-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+}
+
+.split-tab-row.active {
+  background: var(--surface);
+}
+
+.split-tab-row-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.split-tab-drag-handle {
+  flex-shrink: 0;
+  width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.split-tab-row.dragging {
+  opacity: 0.7;
+  background: var(--surface);
+}
+
+.split-tab-close-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 
 .server-info-list {
   display: flex;

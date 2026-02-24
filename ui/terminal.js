@@ -762,9 +762,8 @@ function renderTabBar() {
       return;
     }
     bindLongPress(btn, {
-      onLongPress: (e) => {
-        const touch = e && e.touches ? e.touches[0] : null;
-        if (touch && tab) startTabDrag(btn, tab, touch);
+      onLongPress: () => {
+        openTabEditModal();
       },
       onClick: (e) => {
         if (e.target.classList.contains("tab-close")) return;
@@ -1399,6 +1398,210 @@ function enterSplitMode() {
   renderTabBar();
 }
 
+function openTabEditModal() {
+  let overlay = document.getElementById("split-tab-modal-overlay");
+  if (overlay) overlay.remove();
+
+  overlay = document.createElement("div");
+  overlay.id = "split-tab-modal-overlay";
+  overlay.className = "modal-overlay";
+
+  const modal = document.createElement("div");
+  modal.className = "modal split-tab-modal";
+
+  const header = document.createElement("div");
+  header.className = "split-tab-modal-header";
+  const title = document.createElement("h3");
+  title.textContent = "タブ編集";
+  header.appendChild(title);
+
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "split-tab-modal-close";
+  closeBtn.innerHTML = "&times;";
+  closeBtn.addEventListener("click", () => closeModal());
+  header.appendChild(closeBtn);
+
+  modal.appendChild(header);
+
+  const canSplit = getNonPickerTabs().length >= 2;
+  let radioNormal, radioSplit;
+  if (canSplit) {
+    const modeRow = document.createElement("div");
+    modeRow.className = "split-tab-mode-row";
+
+    radioNormal = document.createElement("button");
+    radioNormal.type = "button";
+    radioSplit = document.createElement("button");
+    radioSplit.type = "button";
+
+    radioNormal.textContent = "通常";
+    radioSplit.textContent = "分割";
+
+    updateModeRadio();
+
+    radioNormal.addEventListener("click", () => {
+      if (splitMode) { exitSplitMode(); updateModeRadio(); renderTabList(); }
+    });
+    radioSplit.addEventListener("click", () => {
+      if (!splitMode) { enterSplitMode(); updateModeRadio(); renderTabList(); }
+    });
+
+    modeRow.appendChild(radioNormal);
+    modeRow.appendChild(radioSplit);
+    modal.appendChild(modeRow);
+  }
+
+  function updateModeRadio() {
+    if (!radioNormal) return;
+    radioNormal.className = "split-tab-mode-option" + (splitMode ? "" : " active");
+    radioSplit.className = "split-tab-mode-option" + (splitMode ? " active" : "");
+  }
+
+  const list = document.createElement("div");
+  list.className = "split-tab-list";
+  modal.appendChild(list);
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeModal();
+  });
+
+  renderTabList();
+
+  let dragState = null;
+
+  function renderTabList() {
+    list.innerHTML = "";
+    const nonPicker = tabs.filter((t) => t.type !== "picker");
+    for (let i = 0; i < nonPicker.length; i++) {
+      const tab = nonPicker[i];
+
+      const row = document.createElement("div");
+      row.className = "split-tab-row";
+      row.dataset.idx = i;
+      if (tab.id === activeTabId) row.classList.add("active");
+
+      const handle = document.createElement("span");
+      handle.className = "split-tab-drag-handle";
+      handle.innerHTML = '<span class="mdi mdi-drag"></span>';
+      bindDragHandle(handle, row, i);
+      row.appendChild(handle);
+
+      const info = document.createElement("span");
+      info.className = "split-tab-row-info";
+      const wsIconHtml = tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14) : "";
+      const iconHtml = tab.icon ? renderIcon(tab.icon.name, tab.icon.color, 14) : "";
+      info.innerHTML = wsIconHtml + iconHtml + escapeHtml(tabDisplayName(tab) || tab.label || "");
+      row.appendChild(info);
+
+      const closeBtn = document.createElement("button");
+      closeBtn.type = "button";
+      closeBtn.className = "split-tab-close-btn";
+      closeBtn.innerHTML = "&times;";
+      closeBtn.addEventListener("click", () => {
+        removeTab(tab.id);
+        renderTabList();
+      });
+      row.appendChild(closeBtn);
+
+      list.appendChild(row);
+    }
+  }
+
+  function bindDragHandle(handle, row, idx) {
+    function onStart(e) {
+      e.preventDefault();
+      const y = e.touches ? e.touches[0].clientY : e.clientY;
+      const rowRect = row.getBoundingClientRect();
+      const listRect = list.getBoundingClientRect();
+      dragState = { idx, startY: y, offsetY: y - rowRect.top, rowHeight: rowRect.height };
+      row.classList.add("dragging");
+      row.style.position = "relative";
+      row.style.zIndex = "10";
+
+      function onMove(ev) {
+        if (!dragState) return;
+        const cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
+        const dy = cy - dragState.startY;
+        row.style.transform = `translateY(${dy}px)`;
+
+        const currentListRect = list.getBoundingClientRect();
+        const relY = cy - currentListRect.top;
+        let targetIdx = Math.floor(relY / dragState.rowHeight);
+        targetIdx = Math.max(0, Math.min(targetIdx, list.children.length - 1));
+
+        if (targetIdx !== dragState.idx) {
+          moveTab(dragState.idx, targetIdx);
+          dragState.idx = targetIdx;
+          dragState.startY = cy;
+          row.style.transform = "";
+        }
+      }
+
+      function onEnd() {
+        if (!dragState) return;
+        row.classList.remove("dragging");
+        row.style.position = "";
+        row.style.zIndex = "";
+        row.style.transform = "";
+        dragState = null;
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onEnd);
+        document.removeEventListener("touchmove", onMove);
+        document.removeEventListener("touchend", onEnd);
+        applyTabOrder();
+        renderTabList();
+      }
+
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onEnd);
+      document.addEventListener("touchmove", onMove, { passive: false });
+      document.addEventListener("touchend", onEnd);
+    }
+
+    handle.addEventListener("mousedown", onStart);
+    handle.addEventListener("touchstart", onStart, { passive: false });
+  }
+
+  function moveTab(fromIdx, toIdx) {
+    if (fromIdx === toIdx) return;
+    const rows = Array.from(list.children);
+    const row = rows[fromIdx];
+    if (toIdx > fromIdx) {
+      list.insertBefore(row, rows[toIdx].nextSibling);
+    } else {
+      list.insertBefore(row, rows[toIdx]);
+    }
+  }
+
+  function applyTabOrder() {
+    const nonPicker = tabs.filter((t) => t.type !== "picker");
+    const rows = Array.from(list.children);
+    const newOrder = rows.map((r) => nonPicker[parseInt(r.dataset.idx)]).filter(Boolean);
+
+    const picker = tabs.find((t) => t.type === "picker");
+    const reordered = newOrder.slice();
+    if (picker) reordered.push(picker);
+    tabs.length = 0;
+    tabs.push(...reordered);
+
+    if (splitMode) {
+      splitPaneTabIds = newOrder.map((t) => t.id);
+      activePaneIndex = splitPaneTabIds.indexOf(activeTabId);
+      rebuildSplitLayout();
+    } else {
+      renderTabBar();
+    }
+  }
+
+  function closeModal() {
+    overlay.remove();
+  }
+}
+
 function exitSplitMode() {
   exitSplitModeWithTab(activeTabId);
 }
@@ -1437,7 +1640,11 @@ function rebuildSplitLayout() {
     return;
   }
 
-  splitPaneTabIds = nonPicker.map((t) => t.id);
+  const nonPickerIds = new Set(nonPicker.map((t) => t.id));
+  const kept = splitPaneTabIds.filter((id) => nonPickerIds.has(id));
+  const added = nonPicker.filter((t) => !splitPaneTabIds.includes(t.id)).map((t) => t.id);
+  splitPaneTabIds = [...kept, ...added];
+
   if (activePaneIndex >= splitPaneTabIds.length) {
     activePaneIndex = 0;
   }
@@ -1584,10 +1791,7 @@ function updatePaneLabels() {
 
     bindLongPress(label, {
       onLongPress: () => {
-        const tabName = tabDisplayName(tab) || tab.label || "";
-        if (confirm(`「${tabName}」で分割解除しますか？`)) {
-          exitSplitModeWithTab(tabId);
-        }
+        openTabEditModal();
       },
       onClick: () => {
         if (splitPaneTabIds[activePaneIndex] === tabId) {
