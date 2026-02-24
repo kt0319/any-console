@@ -368,6 +368,16 @@ function setOutputTab(id, label, htmlContent, icon, wsIcon, workspace) {
 function removeTab(id) {
   const tab = tabs.find((t) => t.id === id);
   if (!tab || tab.type === "picker") return;
+
+  if (splitMode) {
+    const container = $("output-container");
+    const frame = $(`frame-${id}`);
+    if (frame) {
+      const pane = frame.closest(".split-pane");
+      if (pane) container.appendChild(frame);
+    }
+  }
+
   if (tab.type === "terminal") {
     if (tab.wsUrl) {
       closedSessionUrls.add(tab.wsUrl);
@@ -385,6 +395,17 @@ function removeTab(id) {
   const el = $(`frame-${id}`);
   if (el) el.remove();
   saveTerminalTabs();
+
+  if (splitMode) {
+    const nonPicker = getNonPickerTabs();
+    if (nonPicker.length < 2) {
+      exitSplitMode();
+      return;
+    }
+    rebuildSplitLayout();
+    return;
+  }
+
   if (activeTabId === id) {
     const nonPicker = tabs.filter((t) => t.type !== "picker");
     const next = nonPicker.length > 0 ? nonPicker[nonPicker.length - 1].id : "picker";
@@ -395,6 +416,27 @@ function removeTab(id) {
 }
 
 async function switchTab(id) {
+  if (splitMode) {
+    const switchedTab = tabs.find((t) => t.id === id);
+    if (switchedTab) switchedTab._activity = false;
+
+    const nonPicker = getNonPickerTabs();
+    const needsRebuild = nonPicker.length !== splitPaneTabIds.length ||
+      nonPicker.some((t) => !splitPaneTabIds.includes(t.id));
+    if (needsRebuild) {
+      splitPaneTabIds = nonPicker.map((t) => t.id);
+      const idx = splitPaneTabIds.indexOf(id);
+      activePaneIndex = idx >= 0 ? idx : 0;
+      activeTabId = splitPaneTabIds[activePaneIndex];
+      rebuildSplitLayout();
+    } else {
+      const paneIdx = splitPaneTabIds.indexOf(id);
+      if (paneIdx >= 0) setActivePaneIndex(paneIdx);
+    }
+    await updateHeaderForTab(activeTabId);
+    return;
+  }
+
   activeTabId = id;
   const switchedTab = tabs.find((t) => t.id === id);
   if (switchedTab) switchedTab._activity = false;
@@ -428,6 +470,10 @@ async function switchTab(id) {
   updateQuickInputVisibility();
   renderTabBar();
 
+  await updateHeaderForTab(id);
+}
+
+async function updateHeaderForTab(id) {
   const switchedTabObj = tabs.find((t) => t.id === id);
   if (switchedTabObj && switchedTabObj.type === "picker") {
     resetPickerView();
@@ -461,6 +507,11 @@ async function switchTab(id) {
 
 function renderTabBar() {
   const barRow = $("tab-bar").parentNode;
+  if (splitMode) {
+    barRow.style.display = "none";
+    $("header-row2").style.display = "none";
+    return;
+  }
   barRow.style.display = "flex";
   const bar = $("tab-bar");
 
@@ -479,11 +530,12 @@ function renderTabBar() {
       const wsIconHtml = tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14) : "";
       const iconHtml = tab.icon ? renderIcon(tab.icon.name, tab.icon.color, 14) : "";
       const actCls = tab._activity ? " tab-activity" : "";
+      const activeCls = activeTabId === tab.id ? " active" : "";
       if (panelBottom) {
-        html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}${actCls}" data-tab="${tab.id}">`
+        html += `<button class="tab-btn${activeCls}${actCls}" data-tab="${tab.id}">`
           + `${wsIconHtml}${iconHtml}</button>`;
       } else {
-        html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}${actCls}" data-tab="${tab.id}">`
+        html += `<button class="tab-btn${activeCls}${actCls}" data-tab="${tab.id}">`
           + `${wsIconHtml}${iconHtml}${escapeHtml(tab.label)}<span class="tab-close" data-close="${tab.id}">&times;</span></button>`;
       }
     } else {
@@ -510,10 +562,18 @@ function renderTabBar() {
       + `<span class="mdi mdi-plus"></span>`
       + `</button>`;
   }
+  if (nonPickerTabs.length >= 2) {
+    html += `<button class="split-toggle-btn" data-action="toggle-split">`
+      + `<span class="mdi mdi-arrow-split-vertical"></span>`
+      + `</button>`;
+  }
   bar.innerHTML = html;
 
   bar.querySelectorAll(".tab-btn[data-action='add-tab']").forEach((btn) => {
     btn.addEventListener("click", () => showTerminalWsPicker());
+  });
+  bar.querySelectorAll(".split-toggle-btn[data-action='toggle-split']").forEach((btn) => {
+    btn.addEventListener("click", () => enterSplitMode());
   });
   bar.querySelectorAll(".tab-btn:not(.orphan):not([data-action])").forEach((btn) => {
     const tab = tabs.find((t) => t.id === btn.dataset.tab);
@@ -1122,15 +1182,235 @@ function exitTerminalCopyMode(tabId) {
   if (tab) tab.term.clearSelection();
 }
 
+function getNonPickerTabs() {
+  return tabs.filter((t) => t.type !== "picker");
+}
+
+function calcGridLayout(count) {
+  if (count <= 4) return [count];
+  const topRow = Math.ceil(count / 2);
+  return [topRow, count - topRow];
+}
+
+function enterSplitMode() {
+  const nonPicker = getNonPickerTabs();
+  if (nonPicker.length < 2) return;
+  if (splitMode) return;
+
+  splitMode = true;
+  splitPaneTabIds = nonPicker.map((t) => t.id);
+  const activeIdx = splitPaneTabIds.indexOf(activeTabId);
+  activePaneIndex = activeIdx >= 0 ? activeIdx : 0;
+  activeTabId = splitPaneTabIds[activePaneIndex];
+
+  buildSplitDom();
+  fitAllSplitTerminals();
+  renderTabBar();
+}
+
+function exitSplitMode() {
+  exitSplitModeWithTab(activeTabId);
+}
+
+function exitSplitModeWithTab(targetTabId) {
+  if (!splitMode) return;
+
+  const container = $("output-container");
+  clearSplitDom(container);
+  container.classList.remove("split-active", "split-mobile");
+
+  splitMode = false;
+  splitPaneTabIds = [];
+  activePaneIndex = 0;
+
+  const target = tabs.find((t) => t.id === targetTabId) ? targetTabId : activeTabId;
+  for (const tab of tabs) {
+    const el = $(`frame-${tab.id}`);
+    if (el) {
+      el.style.display = tab.id === target ? (tab.type === "terminal" ? "block" : "") : "none";
+    }
+  }
+
+  switchTab(target);
+}
+
+function rebuildSplitLayout() {
+  if (!splitMode) return;
+  const container = $("output-container");
+  clearSplitDom(container);
+  container.classList.remove("split-active", "split-mobile");
+
+  const nonPicker = getNonPickerTabs();
+  if (nonPicker.length < 2) {
+    exitSplitMode();
+    return;
+  }
+
+  splitPaneTabIds = nonPicker.map((t) => t.id);
+  if (activePaneIndex >= splitPaneTabIds.length) {
+    activePaneIndex = 0;
+  }
+  activeTabId = splitPaneTabIds[activePaneIndex];
+
+  buildSplitDom();
+  fitAllSplitTerminals();
+}
+
+function clearSplitDom(container) {
+  const rows = container.querySelectorAll(".split-row");
+  rows.forEach((row) => {
+    const panes = row.querySelectorAll(".split-pane");
+    panes.forEach((pane) => {
+      while (pane.firstChild) {
+        if (pane.firstChild.classList && pane.firstChild.classList.contains("split-pane-label")) {
+          pane.firstChild.remove();
+        } else {
+          container.appendChild(pane.firstChild);
+        }
+      }
+      pane.remove();
+    });
+    row.remove();
+  });
+  const directPanes = container.querySelectorAll(":scope > .split-pane");
+  directPanes.forEach((pane) => {
+    while (pane.firstChild) {
+      if (pane.firstChild.classList && pane.firstChild.classList.contains("split-pane-label")) {
+        pane.firstChild.remove();
+      } else {
+        container.appendChild(pane.firstChild);
+      }
+    }
+    pane.remove();
+  });
+}
+
+function buildSplitDom() {
+  const container = $("output-container");
+  container.classList.add("split-active");
+
+  if (panelBottom) {
+    container.classList.add("split-mobile");
+    for (let i = 0; i < splitPaneTabIds.length; i++) {
+      container.appendChild(createSplitPane(i));
+    }
+  } else {
+    const rows = calcGridLayout(splitPaneTabIds.length);
+    let paneIdx = 0;
+    for (const rowCount of rows) {
+      const row = document.createElement("div");
+      row.className = "split-row";
+      for (let j = 0; j < rowCount; j++) {
+        row.appendChild(createSplitPane(paneIdx));
+        paneIdx++;
+      }
+      container.appendChild(row);
+    }
+  }
+
+  updatePaneLabels();
+  updateActivePaneVisual();
+}
+
+function createSplitPane(index) {
+  const pane = document.createElement("div");
+  pane.className = `split-pane pane-${index}`;
+  if (index === activePaneIndex) pane.classList.add("active-pane");
+
+  const tabId = splitPaneTabIds[index];
+  const frame = $(`frame-${tabId}`);
+  const tab = tabs.find((t) => t.id === tabId);
+  if (frame && tab) {
+    pane.appendChild(frame);
+    frame.style.display = tab.type === "terminal" ? "block" : "";
+  }
+
+  pane.addEventListener("pointerdown", () => {
+    if (activePaneIndex === index) return;
+    setActivePaneIndex(index);
+  });
+
+  return pane;
+}
+
+function setActivePaneIndex(index) {
+  activePaneIndex = index;
+  activeTabId = splitPaneTabIds[index];
+  updateActivePaneVisual();
+  const tab = tabs.find((t) => t.id === activeTabId);
+  if (tab && tab.type === "terminal") tab.term.focus();
+}
+
+function updateActivePaneVisual() {
+  const container = $("output-container");
+  container.querySelectorAll(".split-pane").forEach((pane, i) => {
+    pane.classList.toggle("active-pane", i === activePaneIndex);
+  });
+}
+
+function updatePaneLabels() {
+  const container = $("output-container");
+  if (!container || !splitMode) return;
+  const panes = container.querySelectorAll(".split-pane");
+  panes.forEach((pane, i) => {
+    const old = pane.querySelector(".split-pane-label");
+    if (old) old.remove();
+
+    const tabId = splitPaneTabIds[i];
+    const tab = tabId ? tabs.find((t) => t.id === tabId) : null;
+    if (!tab) return;
+
+    const label = document.createElement("div");
+    label.className = "split-pane-label";
+
+    const wsIconHtml = tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14) : "";
+    const iconHtml = tab.icon ? renderIcon(tab.icon.name, tab.icon.color, 14) : "";
+    const info = document.createElement("span");
+    info.className = "split-pane-label-info";
+    info.innerHTML = wsIconHtml + iconHtml + escapeHtml(tab.label || "");
+    label.appendChild(info);
+
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "split-pane-close-btn";
+    closeBtn.innerHTML = "&times;";
+    closeBtn.title = "タブを閉じる";
+    closeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeTab(tabId);
+    });
+    label.appendChild(closeBtn);
+
+    label.addEventListener("dblclick", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      exitSplitModeWithTab(tabId);
+    });
+
+    pane.appendChild(label);
+  });
+}
+
+function fitAllSplitTerminals() {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      for (const tabId of splitPaneTabIds) {
+        const tab = tabs.find((t) => t.id === tabId);
+        if (tab && tab.type === "terminal") fitAndSync(tab);
+      }
+    });
+  });
+}
+
 document.addEventListener("paste", (e) => {
   const activeTab = tabs.find((t) => t.id === activeTabId);
   if (!activeTab || activeTab.type !== "terminal") return;
+  e.preventDefault();
+  e.stopPropagation();
   const items = e.clipboardData && e.clipboardData.items;
   if (!items) return;
   for (const item of items) {
     if (item.type.startsWith("image/")) {
-      e.preventDefault();
-      e.stopPropagation();
       const file = item.getAsFile();
       if (file) uploadClipboardImage(file);
       return;
@@ -1138,7 +1418,6 @@ document.addEventListener("paste", (e) => {
   }
   const text = e.clipboardData.getData("text");
   if (text && activeTab.ws && activeTab.ws.readyState === WebSocket.OPEN) {
-    e.preventDefault();
     const bracketedPaste = "\x1b[200~" + text + "\x1b[201~";
     activeTab.ws.send(new TextEncoder().encode(bracketedPaste));
   }

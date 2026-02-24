@@ -29,6 +29,18 @@ function updateViewportHeight() {
 }
 
 function fitActiveTerminal() {
+  if (splitMode) {
+    requestAnimationFrame(() => {
+      for (const tabId of splitPaneTabIds) {
+        const tab = tabs.find((t) => t.id === tabId);
+        if (tab && tab.type === "terminal" && tab.fitAddon) {
+          try { tab.fitAddon.fit(); } catch {}
+          tab.term.scrollToBottom();
+        }
+      }
+    });
+    return;
+  }
   const tab = tabs.find((t) => t.id === activeTabId);
   if (tab && tab.type === "terminal" && tab.fitAddon) {
     requestAnimationFrame(() => {

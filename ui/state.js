@@ -13,12 +13,18 @@ panelBottomMql.addEventListener("change", (e) => {
   panelBottom = e.matches;
   applyPanelBottom();
   updateQuickInputVisibility();
+  if (splitMode) {
+    rebuildSplitLayout();
+  }
   renderTabBar();
 });
 
 let tabs = [];
 let activeTabId = null;
 let terminalIdCounter = 0;
+let splitMode = false;
+let splitPaneTabIds = [];
+let activePaneIndex = 0;
 let orphanSessions = [];
 let closedSessionUrls = new Set();
 let isPageUnloading = false;

@@ -979,6 +979,137 @@ header .ws-select-wrap {
   overflow: hidden;
 }
 
+/* Split pane */
+.output-container.split-active {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.split-row {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-height: 0;
+  gap: 2px;
+}
+
+.split-pane {
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  border: 1px solid var(--border);
+}
+
+.split-pane .terminal-frame,
+.split-pane .output-area,
+.split-pane .picker-frame {
+  position: absolute;
+  inset: 0;
+}
+
+.split-pane.active-pane {
+  border-color: var(--accent);
+  z-index: 1;
+}
+
+.split-pane-label {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 8px 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: rgba(26, 27, 38, 0.93);
+  border: 1px solid var(--border);
+  border-radius: 17px;
+  white-space: nowrap;
+  line-height: 1;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.split-pane.active-pane .split-pane-label {
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.split-pane-label-info {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  pointer-events: none;
+}
+
+.split-pane-label .favicon-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.split-pane-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+/* Hide scrollbar in split terminal */
+.split-pane .xterm-viewport {
+  scrollbar-width: none;
+}
+
+.split-pane .xterm-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.split-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* Mobile split: all panes stacked vertically */
+.output-container.split-mobile {
+  flex-direction: column;
+}
+
+.output-container.split-mobile > .split-pane {
+  flex: 1;
+  min-height: 0;
+}
+
 .output-area {
   flex: 1;
   min-height: 0;
