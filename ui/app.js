@@ -61,11 +61,20 @@ function createKeyboardInput() {
   const clearBtn = document.createElement("button");
   clearBtn.type = "button";
   clearBtn.className = "keyboard-input-clear";
-  clearBtn.textContent = "クリア";
+  const updateClearBtnLabel = () => {
+    clearBtn.textContent = el.value ? "クリア" : "閉じる";
+  };
+  updateClearBtnLabel();
+  el.addEventListener("input", updateClearBtnLabel);
   clearBtn.addEventListener("pointerdown", (e) => {
     e.preventDefault();
-    el.value = "";
-    el.focus({ preventScroll: true });
+    if (el.value) {
+      el.value = "";
+      updateClearBtnLabel();
+      el.focus({ preventScroll: true });
+    } else {
+      el.blur();
+    }
   });
   inputRow.appendChild(clearBtn);
 
@@ -170,6 +179,8 @@ function createStockNav(label, direction, input, disabled) {
 function showKeyboardInput() {
   let el = $("keyboard-input");
   if (!el) el = createKeyboardInput();
+  el.value = "";
+  el.dispatchEvent(new Event("input"));
   const wrapper = el.closest(".keyboard-input-wrapper");
   wrapper.style.display = "";
   wrapper.style.top = "";
