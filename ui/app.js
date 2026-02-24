@@ -70,25 +70,38 @@ function createKeyboardInput() {
   el.enterKeyHint = "send";
   inputRow.appendChild(el);
 
-  const clearBtn = document.createElement("button");
-  clearBtn.type = "button";
-  clearBtn.className = "keyboard-input-clear";
-  const updateClearBtnLabel = () => {
-    clearBtn.textContent = el.value ? "クリア" : "閉じる";
-  };
-  updateClearBtnLabel();
-  el.addEventListener("input", updateClearBtnLabel);
-  clearBtn.addEventListener("pointerdown", (e) => {
+  const sendBtn = document.createElement("button");
+  sendBtn.type = "button";
+  sendBtn.className = "keyboard-input-send";
+  sendBtn.innerHTML = '<span class="mdi mdi-send"></span>';
+  sendBtn.disabled = true;
+  sendBtn.addEventListener("pointerdown", (e) => {
     e.preventDefault();
-    if (el.value) {
-      el.value = "";
-      updateClearBtnLabel();
-      el.focus({ preventScroll: true });
-    } else {
-      el.blur();
-    }
+    if (!el.value) return;
+    const val = el.value;
+    el.value = "";
+    addInputHistory(val);
+    sendTextToTerminal(val);
+    updateBtnState();
+    el.blur();
   });
-  inputRow.appendChild(clearBtn);
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "keyboard-input-clear";
+  closeBtn.innerHTML = '<span class="mdi mdi-close"></span>';
+  const updateBtnState = () => {
+    sendBtn.disabled = !el.value;
+  };
+  updateBtnState();
+  el.addEventListener("input", updateBtnState);
+  closeBtn.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    el.value = "";
+    updateBtnState();
+    el.blur();
+  });
+  inputRow.appendChild(closeBtn);
+  inputRow.appendChild(sendBtn);
 
   wrapper.appendChild(inputRow);
 
@@ -104,6 +117,7 @@ function createKeyboardInput() {
         addInputHistory(val);
         sendTextToTerminal(val);
       }
+      updateBtnState();
       el.blur();
     }
   });

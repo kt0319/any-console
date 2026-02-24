@@ -2484,18 +2484,44 @@ button:disabled {
   outline: none;
 }
 
+.keyboard-input-send {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  background: rgba(25, 28, 40, 0.95);
+  color: var(--accent);
+  font-size: 18px;
+  font-family: inherit;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  flex-shrink: 0;
+}
+
+.keyboard-input-send:disabled {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.3);
+}
+
 .keyboard-input-clear {
   display: flex;
   align-items: center;
   justify-content: center;
   align-self: center;
+  width: 44px;
   height: 44px;
-  padding: 0 12px;
+  padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 8px;
+  border-radius: 50%;
   background: rgba(25, 28, 40, 0.95);
   color: rgba(255, 255, 255, 0.6);
-  font-size: 13px;
+  font-size: 18px;
   font-family: inherit;
   line-height: 1;
   cursor: pointer;
