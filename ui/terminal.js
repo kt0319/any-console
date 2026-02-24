@@ -97,12 +97,13 @@ function updateOrphanSessions() {
 
 function updateOrphanFromSessions(sessions) {
   const localWsUrls = new Set(tabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
+  const nonPickerCount = tabs.filter((t) => t.type !== "picker").length;
   const oldOrphans = new Map(orphanSessions.map((s) => [s.wsUrl, s]));
   orphanSessions = sessions
     .filter((s) => !localWsUrls.has(s.ws_url) && !closedSessionUrls.has(s.ws_url))
     .map((s, i) => {
       const old = oldOrphans.get(s.ws_url);
-      return { wsUrl: s.ws_url, workspace: s.workspace, expiresIn: s.expires_in, icon: s.icon, iconColor: s.icon_color, tabIndex: old ? old.tabIndex : tabs.length + i };
+      return { wsUrl: s.ws_url, workspace: s.workspace, expiresIn: s.expires_in, icon: s.icon, iconColor: s.icon_color, tabIndex: old ? old.tabIndex : nonPickerCount + i };
     });
   for (const url of closedSessionUrls) {
     if (!sessions.some((s) => s.ws_url === url)) closedSessionUrls.delete(url);
@@ -115,13 +116,19 @@ function joinOrphanSession(wsUrl, workspace) {
   const tabIcon = orphan && orphan.icon ? { name: orphan.icon, color: orphan.iconColor || "" } : null;
   const ws = workspace ? allWorkspaces.find((w) => w.name === workspace) : null;
   const wsIcon = ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null;
-  const insertIndex = orphan && orphan.tabIndex != null ? Math.min(orphan.tabIndex, tabs.length) : tabs.length;
+  const nonPickerCount = tabs.filter((t) => t.type !== "picker").length;
+  const insertIndex = orphan && orphan.tabIndex != null ? Math.min(orphan.tabIndex, nonPickerCount) : nonPickerCount;
   addTerminalTab(wsUrl, label, null, true, false, null, tabIcon, wsIcon);
   const tab = tabs.find((t) => t.wsUrl === wsUrl);
   if (tab) {
     tab._pendingRedraw = true;
-    tabs.splice(tabs.indexOf(tab), 1);
-    tabs.splice(insertIndex, 0, tab);
+    const pickerIdx = tabs.findIndex((t) => t.type === "picker");
+    const nonPicker = tabs.filter((t) => t.type !== "picker");
+    nonPicker.splice(nonPicker.indexOf(tab), 1);
+    nonPicker.splice(insertIndex, 0, tab);
+    tabs.length = 0;
+    tabs.push(...nonPicker);
+    if (pickerIdx >= 0) movePickerToEnd();
   }
   orphanSessions = orphanSessions.filter((s) => s.wsUrl !== wsUrl);
   saveTerminalTabs();
@@ -485,7 +492,7 @@ function renderTabBar() {
           + `${owsIconHtml}${orphanIcon}</button>`;
       } else {
         html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
-          + `${owsIconHtml}${orphanIcon}${escapeHtml(label)}</button>`;
+          + `${owsIconHtml}${orphanIcon}${escapeHtml(label)}<span class="tab-close" data-close-orphan="${escapeHtml(s.wsUrl)}">&times;</span></button>`;
       }
     }
   }
@@ -544,17 +551,28 @@ function renderTabBar() {
           renderTabBar();
         }
       },
-      onClick: () => joinOrphanSession(btn.dataset.orphanUrl, btn.dataset.orphanWs),
+      onClick: (e) => {
+        if (e.target.classList.contains("tab-close")) return;
+        joinOrphanSession(btn.dataset.orphanUrl, btn.dataset.orphanWs);
+      },
     });
   });
   bar.querySelectorAll(".tab-close").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      const tabId = btn.dataset.close;
-      const tab = tabs.find((t) => t.id === tabId);
-      const tabName = tabDisplayName(tab);
-      if (tabName && !confirm(`「${tabName}」を閉じますか？`)) return;
-      removeTab(tabId);
+      if (btn.dataset.close) {
+        removeTab(btn.dataset.close);
+      } else if (btn.dataset.closeOrphan) {
+        const wsUrl = btn.dataset.closeOrphan;
+        const label = orphanSessions.find((s) => s.wsUrl === wsUrl)?.workspace || "terminal";
+        if (!confirm(`「${label}」を閉じますか？`)) return;
+        const match = wsUrl.match(/\/terminal\/ws\/([^/]+)/);
+        if (match) {
+          apiFetch(`/terminal/sessions/${match[1]}`, { method: "DELETE" }).catch(() => {});
+        }
+        orphanSessions = orphanSessions.filter((s) => s.wsUrl !== wsUrl);
+        renderTabBar();
+      }
     });
   });
   const activeBtn = bar.querySelector(".tab-btn.active");
@@ -728,7 +746,7 @@ function renderPickerSettingsMenu(container) {
 
   const items = [
     { icon: "mdi-cog", label: "ワークスペース設定", action: () => showPickerWsVisibility(container) },
-    { icon: "mdi-plus", label: "ワークスペース追加", action: () => openCloneModal() },
+    { icon: "mdi-plus", label: "ワークスペース追加", action: () => showPickerClone(container) },
     { icon: "mdi-download", label: "設定エクスポート", action: () => exportSettings() },
     { icon: "mdi-upload", label: "設定インポート", action: () => importSettings() },
     { icon: "mdi-format-list-bulleted", label: "プロセス一覧", action: () => showPickerProcessList(container) },
@@ -818,6 +836,170 @@ async function showPickerProcessList(container) {
     list.className = "server-info-list";
     content.appendChild(list);
     await renderProcessListTo(list);
+  });
+}
+
+function showPickerClone(container) {
+  showPickerSettingsSubView(container, "ワークスペース追加", (content) => {
+    let pickerCloneTab = "github";
+    let pickerSelectedUrl = "";
+    let pickerRepos = [];
+
+    const tabs = document.createElement("div");
+    tabs.className = "clone-tabs";
+    const githubBtn = document.createElement("button");
+    githubBtn.type = "button";
+    githubBtn.className = "clone-tab active";
+    githubBtn.textContent = "GitHub";
+    const urlBtn = document.createElement("button");
+    urlBtn.type = "button";
+    urlBtn.className = "clone-tab";
+    urlBtn.textContent = "手動入力";
+    tabs.append(githubBtn, urlBtn);
+    content.appendChild(tabs);
+
+    const githubPane = document.createElement("div");
+    githubPane.className = "clone-tab-content";
+    const repoList = document.createElement("div");
+    repoList.className = "clone-repo-list";
+    repoList.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
+    githubPane.appendChild(repoList);
+    content.appendChild(githubPane);
+
+    const urlPane = document.createElement("div");
+    urlPane.className = "clone-tab-content";
+    urlPane.style.display = "none";
+    const urlGroup = document.createElement("div");
+    urlGroup.className = "form-group";
+    urlGroup.innerHTML = '<label class="form-label">リポジトリ</label>';
+    const urlInput = document.createElement("input");
+    urlInput.type = "text";
+    urlInput.className = "form-input";
+    urlInput.placeholder = "git@github.com:user/repo.git or https://...";
+    urlInput.autocomplete = "off";
+    urlGroup.appendChild(urlInput);
+    urlPane.appendChild(urlGroup);
+    content.appendChild(urlPane);
+
+    const nameGroup = document.createElement("div");
+    nameGroup.className = "form-group";
+    nameGroup.innerHTML = '<label class="form-label">ディレクトリ名 <span class="form-hint">(省略時はリポジトリ名)</span></label>';
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.className = "form-input";
+    nameInput.autocomplete = "off";
+    nameGroup.appendChild(nameInput);
+    content.appendChild(nameGroup);
+
+    const errorEl = document.createElement("div");
+    errorEl.className = "form-error";
+    content.appendChild(errorEl);
+
+    const outputEl = document.createElement("div");
+    outputEl.className = "clone-output";
+    outputEl.style.display = "none";
+    content.appendChild(outputEl);
+
+    const actions = document.createElement("div");
+    actions.className = "modal-actions";
+    const submitBtn = document.createElement("button");
+    submitBtn.type = "button";
+    submitBtn.className = "primary";
+    submitBtn.style.width = "auto";
+    submitBtn.textContent = "クローン";
+    actions.appendChild(submitBtn);
+    content.appendChild(actions);
+
+    function switchTab(tab) {
+      pickerCloneTab = tab;
+      githubBtn.classList.toggle("active", tab === "github");
+      urlBtn.classList.toggle("active", tab === "url");
+      githubPane.style.display = tab === "github" ? "block" : "none";
+      urlPane.style.display = tab === "url" ? "block" : "none";
+      if (tab === "url") urlInput.focus();
+    }
+
+    githubBtn.addEventListener("click", () => switchTab("github"));
+    urlBtn.addEventListener("click", () => switchTab("url"));
+
+    function renderRepos() {
+      if (pickerRepos.length === 0) {
+        repoList.innerHTML = '<div class="clone-repo-empty">リポジトリがありません</div>';
+        return;
+      }
+      repoList.innerHTML = "";
+      for (const repo of pickerRepos) {
+        const item = document.createElement("div");
+        item.className = "clone-repo-item" + (pickerSelectedUrl === repo.url ? " selected" : "");
+        item.innerHTML = `<div class="clone-repo-name">${escapeHtml(repo.nameWithOwner)}</div>` +
+          (repo.description ? `<div class="clone-repo-desc">${escapeHtml(repo.description)}</div>` : "");
+        item.addEventListener("click", () => {
+          pickerSelectedUrl = repo.url;
+          renderRepos();
+        });
+        repoList.appendChild(item);
+      }
+    }
+
+    async function loadRepos() {
+      repoList.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
+      try {
+        const res = await apiFetch("/github/repos");
+        if (!res) return;
+        if (!res.ok) {
+          const data = await res.json();
+          repoList.innerHTML = `<div class="clone-repo-error">${escapeHtml(data.detail || "取得に失敗しました")}</div>`;
+          return;
+        }
+        pickerRepos = await res.json();
+        renderRepos();
+      } catch (e) {
+        repoList.innerHTML = `<div class="clone-repo-error">${escapeHtml(e.message)}</div>`;
+      }
+    }
+
+    submitBtn.addEventListener("click", async () => {
+      let url = pickerCloneTab === "github" ? pickerSelectedUrl : urlInput.value.trim();
+      url = toSshUrl(url);
+      const name = nameInput.value.trim();
+
+      if (!url) {
+        errorEl.textContent = pickerCloneTab === "github" ? "リポジトリを選択してください" : "URLを入力してください";
+        errorEl.style.display = "block";
+        return;
+      }
+
+      errorEl.style.display = "none";
+      outputEl.style.display = "block";
+      outputEl.textContent = "cloning...";
+      submitBtn.disabled = true;
+
+      try {
+        const res = await apiFetch("/workspaces", {
+          method: "POST",
+          body: { url, name: name || null },
+        });
+        if (!res) return;
+        const data = await res.json();
+        if (!res.ok || data.status === "error") {
+          errorEl.textContent = data.detail || data.stderr || "クローンに失敗しました";
+          errorEl.style.display = "block";
+          outputEl.style.display = "none";
+          submitBtn.disabled = false;
+          return;
+        }
+        outputEl.textContent = `${data.name} をクローンしました`;
+        await loadWorkspaces();
+        showPickerWsVisibility(container);
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = "block";
+        outputEl.style.display = "none";
+        submitBtn.disabled = false;
+      }
+    });
+
+    loadRepos();
   });
 }
 
