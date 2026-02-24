@@ -49,6 +49,7 @@ const NUMBER_KEYS = [
   { label: "9", key: "9", code: "Digit9", keyCode: 57 },
   { label: "0", key: "0", code: "Digit0", keyCode: 48 },
 ];
+const SYMBOL_KEYS = [];
 const EXTRA_MAIN_KEYS = [
   { label: "Del", key: "Delete", code: "Delete", keyCode: 46 },
   { label: "\u00AB", key: "Home", code: "Home", keyCode: 36 },
@@ -70,9 +71,9 @@ const QWERTY_ROWS = [
   "zxcvbnm".split("").map(c => ({ label: c, key: c })),
 ];
 const FN_ROWS = [
-  ["'", '"', "!", "?", ";", ":", "@", "/", "_", "="].map(c => ({ label: c, key: c })),
-  ["#", "$", "%", "^", "&", "*", "(", ")", "+"].map(c => ({ label: c, key: c })),
-  ["~", "`", "|", "\\", "[", "]", "<"].map(c => ({ label: c, key: c })),
+  ["!", '"', "#", "$", "%", "&", "@", "+", "-", "="].map(c => ({ label: c, key: c })),
+  ["`", "'", "*", "^", "[", "]", "(", ")", ":"].map(c => ({ label: c, key: c })),
+  ["~", "|", "/", ",", ".", "?", "_"].map(c => ({ label: c, key: c })),
 ];
 
 const AUTO_REFRESH_INTERVAL = 10000;

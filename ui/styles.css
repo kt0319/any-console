@@ -626,7 +626,7 @@ header .ws-select-wrap {
 
 .main-panel.panel-bottom .tab-bar {
   padding: 0 8px 4px;
-  padding-right: max(28%, 100px);
+  padding-right: max(35%, 120px);
 }
 
 .main-panel.panel-bottom .tab-btn {
@@ -860,8 +860,6 @@ header .ws-select-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  mask-image: linear-gradient(to right, #000 92%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, #000 92%, transparent 100%);
 }
 
 .tab-bar::-webkit-scrollbar {
@@ -2408,7 +2406,7 @@ button:disabled {
 
 .quick-input-panel.minimal-mode {
   justify-content: flex-end;
-  width: 25%;
+  width: 33.3%;
   margin-left: auto;
 }
 
@@ -2486,6 +2484,7 @@ button:disabled {
 }
 
 .quick-key {
+  position: relative;
   height: 44px;
   min-height: 44px;
   min-width: 0;
@@ -2519,9 +2518,10 @@ button:disabled {
   border-color: var(--accent);
 }
 
-.quick-input-panel.extra-open .quick-key,
+.quick-key-mode1,
 .quick-extra-panel .quick-key {
-  border-color: var(--accent);
+  border-color: rgba(130, 170, 255, 0.6);
+  background: rgba(40, 50, 80, 0.6);
 }
 
 .quick-extra-panel {
@@ -2537,22 +2537,18 @@ button:disabled {
 }
 
 .quick-qwerty-panel .quick-key {
-  height: 38px;
-  min-height: 38px;
-  font-size: 14px;
-  border-color: #c0885a;
+  border-color: rgba(130, 170, 255, 0.6);
+  background: rgba(40, 50, 80, 0.6);
 }
 
-.quick-number-row .quick-key {
-  height: 30px;
-  min-height: 30px;
-  font-size: 13px;
+.quick-qwerty-panel .flick-main {
+  font-size: 14px;
 }
 
 .quick-qwerty-panel .quick-key-toggle.active {
-  background: rgba(224, 138, 62, 0.2);
-  color: #c0885a;
-  border-color: #c0885a;
+  background: rgba(130, 170, 255, 0.12);
+  color: rgba(130, 170, 255, 0.7);
+  border-color: rgba(130, 170, 255, 0.6);
 }
 
 .quick-snippet-row {
@@ -2561,9 +2557,15 @@ button:disabled {
   align-items: flex-end;
   gap: 4px;
   padding: 4px 0;
+  padding-left: 50%;
   align-self: stretch;
   max-height: 40vh;
   overflow-y: auto;
+  pointer-events: none;
+}
+
+.quick-snippet-row > * {
+  pointer-events: auto;
 }
 
 .quick-snippet-item {
@@ -2571,7 +2573,7 @@ button:disabled {
   padding: 0 16px;
   border: 1px solid rgba(130, 170, 255, 0.5);
   border-radius: 19px;
-  background: rgba(20, 22, 35, 0.85);
+  background: rgba(20, 22, 35, 0.4);
   color: var(--accent);
   font-size: 14px;
   display: flex;
@@ -2595,10 +2597,12 @@ button:disabled {
   min-height: 38px;
   border: 1px dashed rgba(130, 170, 255, 0.5);
   border-radius: 19px;
-  background: rgba(130, 170, 255, 0.1);
+  background: rgba(40, 45, 65, 0.85);
   color: var(--accent);
-  font-size: 18px;
-  align-self: center;
+  font-size: 14px;
+  align-self: flex-end;
+  padding: 0 12px;
+  gap: 4px;
 }
 
 .quick-key-pg {
