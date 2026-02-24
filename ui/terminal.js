@@ -116,20 +116,9 @@ function joinOrphanSession(wsUrl, workspace) {
   const tabIcon = orphan && orphan.icon ? { name: orphan.icon, color: orphan.iconColor || "" } : null;
   const ws = workspace ? allWorkspaces.find((w) => w.name === workspace) : null;
   const wsIcon = ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null;
-  const nonPickerCount = tabs.filter((t) => t.type !== "picker").length;
-  const insertIndex = orphan && orphan.tabIndex != null ? Math.min(orphan.tabIndex, nonPickerCount) : nonPickerCount;
   addTerminalTab(wsUrl, label, null, true, false, null, tabIcon, wsIcon);
   const tab = tabs.find((t) => t.wsUrl === wsUrl);
-  if (tab) {
-    tab._pendingRedraw = true;
-    const pickerIdx = tabs.findIndex((t) => t.type === "picker");
-    const nonPicker = tabs.filter((t) => t.type !== "picker");
-    nonPicker.splice(nonPicker.indexOf(tab), 1);
-    nonPicker.splice(insertIndex, 0, tab);
-    tabs.length = 0;
-    tabs.push(...nonPicker);
-    if (pickerIdx >= 0) movePickerToEnd();
-  }
+  if (tab) tab._pendingRedraw = true;
   orphanSessions = orphanSessions.filter((s) => s.wsUrl !== wsUrl);
   saveTerminalTabs();
   switchTab(tab ? tab.id : null);
@@ -328,8 +317,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
 
 
   const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, jobName: jobName || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
-  tabs.push(tab);
-  movePickerToEnd();
+  insertBeforePicker(tab);
 
   if (!restored) {
     term.open(container);
@@ -353,8 +341,7 @@ function setOutputTab(id, label, htmlContent, icon, wsIcon, workspace) {
     switchTab(id);
     return;
   }
-  tabs.push({ id, type: "output", label, icon: icon || null, wsIcon: wsIcon || null, workspace: workspace || null });
-  movePickerToEnd();
+  insertBeforePicker({ id, type: "output", label, icon: icon || null, wsIcon: wsIcon || null, workspace: workspace || null });
   const div = document.createElement("div");
   div.className = "output-area";
   div.id = `frame-${id}`;
@@ -366,7 +353,8 @@ function setOutputTab(id, label, htmlContent, icon, wsIcon, workspace) {
 
 function removeTab(id) {
   const tab = tabs.find((t) => t.id === id);
-  if (tab && tab.type === "terminal") {
+  if (!tab || tab.type === "picker") return;
+  if (tab.type === "terminal") {
     if (tab.wsUrl) {
       closedSessionUrls.add(tab.wsUrl);
       const match = tab.wsUrl.match(/\/terminal\/ws\/([^/]+)/);
@@ -384,7 +372,9 @@ function removeTab(id) {
   if (el) el.remove();
   saveTerminalTabs();
   if (activeTabId === id) {
-    switchTab(tabs.length > 0 ? tabs[tabs.length - 1].id : null);
+    const nonPicker = tabs.filter((t) => t.type !== "picker");
+    const next = nonPicker.length > 0 ? nonPicker[nonPicker.length - 1].id : "picker";
+    switchTab(next);
   } else {
     renderTabBar();
   }
@@ -496,18 +486,14 @@ function renderTabBar() {
       }
     }
   }
-  if (pickerTab) {
-    html += `<button class="tab-btn${activeTabId === pickerTab.id ? " active" : ""}" data-tab="${pickerTab.id}">`
-      + `<span class="mdi mdi-plus"></span>`
-      + ""
-      + `</button>`;
-  }
+  html += `<button class="tab-btn${activeTabId === "picker" ? " active" : ""}" data-tab="picker">`
+    + `<span class="mdi mdi-plus"></span></button>`;
   bar.innerHTML = html;
 
   bar.querySelectorAll(".tab-btn:not(.orphan)").forEach((btn) => {
     const tab = tabs.find((t) => t.id === btn.dataset.tab);
-    if (tab && tab.type === "picker") {
-      btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+    if (btn.dataset.tab === "picker") {
+      btn.addEventListener("click", () => showTerminalWsPicker());
       return;
     }
     bindLongPress(btn, {
@@ -1034,6 +1020,15 @@ function resetPickerView() {
   if (mainView) mainView.style.display = "";
   if (settingsView) settingsView.style.display = "none";
   if (title) title.textContent = "ワークスペースを開く";
+}
+
+function insertBeforePicker(tab) {
+  const pickerIdx = tabs.findIndex((t) => t.type === "picker");
+  if (pickerIdx >= 0) {
+    tabs.splice(pickerIdx, 0, tab);
+  } else {
+    tabs.push(tab);
+  }
 }
 
 function movePickerToEnd() {

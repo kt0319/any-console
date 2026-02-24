@@ -637,7 +637,7 @@ header .ws-select-wrap {
 }
 
 .main-panel.panel-bottom .tab-btn[data-tab="picker"] {
-  min-width: 40px;
+  min-width: unset;
 }
 
 .main-panel.panel-bottom .tab-add-btn {
@@ -889,7 +889,6 @@ header .ws-select-wrap {
 
 .tab-btn[data-tab="picker"] {
   min-width: 40px;
-  max-width: 40px;
   padding: 6px 0;
   justify-content: center;
 }
