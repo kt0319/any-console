@@ -2239,7 +2239,8 @@ button:disabled {
 }
 
 .quick-flick-enter .flick-hint-top,
-.quick-flick-enter .flick-hint-left {
+.quick-flick-enter .flick-hint-left,
+.quick-flick-enter .flick-hint-bottom {
   position: absolute;
   font-size: 10px;
   color: rgba(255, 255, 255, 0.3);
@@ -2255,6 +2256,12 @@ button:disabled {
   left: 4px;
   top: 50%;
   transform: translateY(-50%);
+}
+
+.quick-flick-enter .flick-hint-bottom {
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .quick-flick-arrow .flick-hint-top,
@@ -2342,8 +2349,16 @@ button:disabled {
 }
 
 .quick-qwerty-panel .quick-key {
+  height: 38px;
+  min-height: 38px;
   font-size: 14px;
   border-color: #c0885a;
+}
+
+.quick-number-row .quick-key {
+  height: 30px;
+  min-height: 30px;
+  font-size: 13px;
 }
 
 .quick-qwerty-panel .quick-key-toggle.active {
@@ -2354,21 +2369,20 @@ button:disabled {
 
 .quick-snippet-row {
   display: flex;
-  gap: 4px;
-  padding: 0;
-  overflow-x: auto;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
   align-self: stretch;
-  -webkit-overflow-scrolling: touch;
 }
 
 .quick-snippet-item {
-  height: 32px;
-  padding: 0 10px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 8px;
-  background: rgba(47, 51, 71, 0.6);
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 13px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid rgba(130, 170, 255, 0.5);
+  border-radius: 17px;
+  background: rgba(20, 22, 35, 0.85);
+  color: var(--accent);
+  font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2378,20 +2392,20 @@ button:disabled {
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
   white-space: nowrap;
-  flex-shrink: 0;
 }
 
 .quick-snippet-item.pressed {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(130, 170, 255, 0.3);
   color: var(--text-primary);
 }
 
 .quick-snippet-add {
-  border-style: dashed;
-  border-color: rgba(255, 255, 255, 0.3);
-  color: var(--text-muted);
-  min-width: 32px;
+  background: rgba(130, 170, 255, 0.1);
+  border: 1px dashed rgba(130, 170, 255, 0.5);
+  color: var(--accent);
+  min-width: 34px;
   font-size: 16px;
+  font-weight: 600;
 }
 
 
