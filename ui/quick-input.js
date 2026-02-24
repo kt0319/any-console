@@ -242,16 +242,6 @@ function initQuickInput() {
   for (const btn of minimalKeyBtns) panel.appendChild(btn);
   panel.appendChild(minimalEnter);
 
-  const mode1ExtraKeys = [];
-  for (let i = 0; i < 3; i++) {
-    const btn = document.createElement("div");
-    btn.className = "quick-key";
-    btn.textContent = "";
-    btn.style.display = "none";
-    panel.appendChild(btn);
-    mode1ExtraKeys.push(btn);
-  }
-
   const bsKey = quickKeyBtns[0];
   const enterKey = quickKeyBtns[quickKeyBtns.length - 1];
 
@@ -276,9 +266,37 @@ function initQuickInput() {
   });
   flickNav.addEventListener("touchcancel", () => flickNav.classList.remove("pressed"));
 
+  const escBtn = document.createElement("div");
+  escBtn.className = "quick-key";
+  escBtn.textContent = "Esc";
+  escBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  escBtn.addEventListener("touchend", (e) => { e.preventDefault(); sendKeyToTerminal({ key: "Escape", code: "Escape", keyCode: 27 }); });
+  escBtn.addEventListener("click", () => sendKeyToTerminal({ key: "Escape", code: "Escape", keyCode: 27 }));
+
+  const flickKill = document.createElement("div");
+  flickKill.className = "quick-key quick-flick-arrow";
+  flickKill.innerHTML = '<span class="flick-hint-left">^U</span><span class="flick-main"><span class="mdi mdi-backspace-outline"></span></span><span class="flick-hint-right">^K</span>';
+  let killStartX = 0;
+  flickKill.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    killStartX = e.touches[0].clientX;
+    flickKill.classList.add("pressed");
+  }, { passive: false });
+  flickKill.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    flickKill.classList.remove("pressed");
+    const dx = e.changedTouches[0].clientX - killStartX;
+    if (Math.abs(dx) > FLICK_THRESHOLD) {
+      sendKeyToTerminal(dx < 0
+        ? { key: "u", ctrl: true }
+        : { key: "k", ctrl: true });
+    }
+  });
+  flickKill.addEventListener("touchcancel", () => flickKill.classList.remove("pressed"));
+
   const flickCtrl = document.createElement("div");
   flickCtrl.className = "quick-key quick-flick-arrow";
-  flickCtrl.innerHTML = '<span class="flick-hint-top">^C</span><span class="flick-hint-left">^L</span><span class="flick-main">Esc</span><span class="flick-hint-right">^R</span><span class="flick-hint-bottom">^O</span>';
+  flickCtrl.innerHTML = '<span class="flick-hint-top">^C</span><span class="flick-hint-left">^L</span><span class="flick-main">Ctrl</span><span class="flick-hint-right">^R</span><span class="flick-hint-bottom">^O</span>';
   let ctrlStartX = 0, ctrlStartY = 0;
   flickCtrl.addEventListener("touchstart", (e) => {
     e.preventDefault();
@@ -299,14 +317,9 @@ function initQuickInput() {
       sendKeyToTerminal({ key: "l", ctrl: true });
     } else if (Math.abs(dx) > Math.abs(dy) && dx > FLICK_THRESHOLD) {
       sendKeyToTerminal({ key: "r", ctrl: true });
-    } else {
-      sendKeyToTerminal({ key: "Escape", code: "Escape", keyCode: 27 });
     }
   });
   flickCtrl.addEventListener("touchcancel", () => flickCtrl.classList.remove("pressed"));
-  flickCtrl.addEventListener("click", () => {
-    sendKeyToTerminal({ key: "Escape", code: "Escape", keyCode: 27 });
-  });
 
   const flickTab = document.createElement("div");
   flickTab.className = "quick-key quick-flick-arrow";
@@ -355,6 +368,8 @@ function initQuickInput() {
   snippetAddBtn.addEventListener("touchend", (e) => { e.preventDefault(); addSnippetHandler(); });
   snippetAddBtn.addEventListener("click", addSnippetHandler);
 
+  panel.appendChild(escBtn);
+  panel.appendChild(flickKill);
   panel.appendChild(flickCtrl);
   panel.appendChild(flickTab);
   panel.appendChild(toggleBtn);
@@ -539,7 +554,7 @@ function initQuickInput() {
   let extraMode = 0;
 
   const minimalModeElements = [...minimalKeyBtns, minimalEnter];
-  const mergedModeElements = [menuBtn, ...mode1ExtraKeys, flickCtrl, flickTab];
+  const mergedModeElements = [menuBtn, escBtn, flickKill, flickCtrl, flickTab];
 
   const addTouchBtn = (el, handler) => {
     el.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
