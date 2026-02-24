@@ -922,7 +922,7 @@ header .ws-select-wrap {
 }
 
 .tab-btn.tab-activity {
-  animation: tab-activity-glow 2s ease-in-out 6;
+  animation: tab-activity-glow 3s ease-in-out 1;
 }
 
 .tab-btn.orphan {
