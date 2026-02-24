@@ -72,12 +72,18 @@ def list_workspace_jobs(name: str):
     return {jname: job_definition_to_dict(job_def) for jname, job_def in jobs.items()}
 
 
+def _apply_icon_fields(entry: dict, icon: str, icon_color: str) -> None:
+    icon = icon.strip()
+    icon_color = icon_color.strip()
+    if icon:
+        entry["icon"] = icon
+    if icon_color:
+        entry["icon_color"] = icon_color
+
+
 def build_job_entry(command: str, icon: str, icon_color: str, confirm: bool) -> dict:
     entry = {"command": command}
-    if icon.strip():
-        entry["icon"] = icon.strip()
-    if icon_color.strip():
-        entry["icon_color"] = icon_color.strip()
+    _apply_icon_fields(entry, icon, icon_color)
     if not confirm:
         entry["confirm"] = False
     return entry
@@ -161,10 +167,7 @@ def normalize_url(url):
 
 def build_link_entry(label: str, url: str, icon: str, icon_color: str) -> dict:
     entry = {"label": label, "url": url}
-    if icon:
-        entry["icon"] = icon
-    if icon_color:
-        entry["icon_color"] = icon_color
+    _apply_icon_fields(entry, icon, icon_color)
     return entry
 
 
@@ -189,7 +192,7 @@ def create_workspace_link(name: str, body: CreateLinkRequest):
     if not url:
         raise HTTPException(status_code=400, detail="URLを入力してください")
     links = get_workspace_links(name)
-    links.append(build_link_entry(label, url, body.icon.strip(), body.icon_color.strip()))
+    links.append(build_link_entry(label, url, body.icon, body.icon_color))
     save_workspace_links(name, links)
     logger.info("link created workspace=%s label=%s", name, label)
     return {"status": "ok"}
@@ -205,7 +208,7 @@ def update_workspace_link(name: str, index: int, body: CreateLinkRequest):
     if not url:
         raise HTTPException(status_code=400, detail="URLを入力してください")
     label = body.label.strip()
-    links[index] = build_link_entry(label, url, body.icon.strip(), body.icon_color.strip())
+    links[index] = build_link_entry(label, url, body.icon, body.icon_color)
     save_workspace_links(name, links)
     logger.info("link updated workspace=%s index=%d", name, index)
     return {"status": "ok"}
@@ -271,10 +274,10 @@ def execute_job(body: RunRequest):
         ordered_args.append(value)
 
     if body.job == "terminal":
-        workspace_str = str(ws_path) if ws_path else None
+        cwd_path = str(ws_path) if ws_path else None
         session_id = secrets.token_urlsafe(24)
         try:
-            fd, pid = create_pty_session(workspace_str)
+            fd, pid = create_pty_session(cwd_path)
         except OSError as e:
             logger.error("pty fork failed: %s", e)
             raise HTTPException(status_code=500, detail=f"Failed to create terminal: {e}")
@@ -295,10 +298,10 @@ def execute_job(body: RunRequest):
             "expires_in": TERMINAL_TIMEOUT_SEC,
         }
 
-    workspace_path = str(ws_path) if ws_path else ""
+    cwd_path = str(ws_path) if ws_path else ""
     logger.info("job start job=%s workspace=%s", body.job, body.workspace or "(none)")
     try:
-        result = run_job(job_def, ordered_args, workspace=workspace_path)
+        result = run_job(job_def, ordered_args, workspace=cwd_path)
     except subprocess.TimeoutExpired:
         logger.warning("job timeout job=%s workspace=%s", body.job, body.workspace or "(none)")
         raise HTTPException(status_code=504, detail="Job timed out")

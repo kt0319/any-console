@@ -3,21 +3,7 @@ function $(id) {
 }
 
 function copyToClipboard(text) {
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).catch(() => copyToClipboardFallback(text));
-  } else {
-    copyToClipboardFallback(text);
-  }
-}
-
-function copyToClipboardFallback(text) {
-  const ta = document.createElement("textarea");
-  ta.value = text;
-  ta.style.cssText = "position:fixed;opacity:0";
-  document.body.appendChild(ta);
-  ta.select();
-  document.execCommand("copy");
-  ta.remove();
+  navigator.clipboard.writeText(text).catch((e) => console.error("clipboard write failed:", e));
 }
 
 function showToast(message, type = "error") {
@@ -170,7 +156,9 @@ async function loadWsIconButtons(container, ws, iconSize, onLinkClick, onJobClic
     ]);
     if (jobsRes && jobsRes.ok) jobs = await jobsRes.json();
     if (linksRes && linksRes.ok) links = await linksRes.json();
-  } catch {}
+  } catch (e) {
+    console.error("loadWsIconButtons failed:", e);
+  }
 
   for (let i = 0; i < links.length; i++) {
     const link = links[i];

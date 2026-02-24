@@ -89,8 +89,8 @@ def _get_app_version() -> str:
         )
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
-    except (subprocess.TimeoutExpired, OSError):
-        pass
+    except (subprocess.TimeoutExpired, OSError) as e:
+        logger.debug("app version fetch failed: %s", e)
     return ""
 
 
@@ -130,11 +130,12 @@ def _get_ip() -> str | None:
                 addrs = result.stdout.strip().split()
                 if addrs:
                     return addrs[0]
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            pass
+        except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+            logger.debug("hostname -I failed: %s", e)
     try:
         return socket.gethostbyname(socket.gethostname())
-    except socket.gaierror:
+    except socket.gaierror as e:
+        logger.debug("gethostbyname failed: %s", e)
         return None
 
 
@@ -147,8 +148,8 @@ def _get_os_name() -> str | None:
         for line in os_release.splitlines():
             if line.startswith("PRETTY_NAME="):
                 return line.split("=", 1)[1].strip('"')
-    except OSError:
-        pass
+    except OSError as e:
+        logger.debug("os-release read failed: %s", e)
     return None
 
 
@@ -175,8 +176,8 @@ def _get_uptime() -> str | None:
                     if minutes:
                         parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
                     return "up " + ", ".join(parts) if parts else "up 0 minutes"
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            pass
+        except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+            logger.debug("macOS uptime failed: %s", e)
         return None
     try:
         result = subprocess.run(
@@ -184,8 +185,8 @@ def _get_uptime() -> str | None:
         )
         if result.returncode == 0:
             return result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        pass
+    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+        logger.debug("uptime -p failed: %s", e)
     return None
 
 
@@ -195,7 +196,8 @@ def _get_cpu_temp() -> str | None:
     try:
         temp_raw = Path("/sys/class/thermal/thermal_zone0/temp").read_text().strip()
         return f"{int(temp_raw) / 1000:.1f} °C"
-    except (OSError, ValueError):
+    except (OSError, ValueError) as e:
+        logger.debug("cpu temp read failed: %s", e)
         return None
 
 
@@ -228,7 +230,8 @@ def _get_memory() -> str | None:
             total_gb = total_bytes / (1024 ** 3)
             used_gb = (total_bytes - available_bytes) / (1024 ** 3)
             return f"{used_gb:.1f} / {total_gb:.1f} GB"
-        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as e:
+            logger.debug("macOS memory info failed: %s", e)
             return None
     try:
         meminfo = Path("/proc/meminfo").read_text(encoding="utf-8")
@@ -242,8 +245,8 @@ def _get_memory() -> str | None:
             available_gb = mem.get("MemAvailable", 0) / 1024 / 1024
             used_gb = total_gb - available_gb
             return f"{used_gb:.1f} / {total_gb:.1f} GB"
-    except (OSError, ValueError):
-        pass
+    except (OSError, ValueError) as e:
+        logger.debug("memory info read failed: %s", e)
     return None
 
 

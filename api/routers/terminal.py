@@ -132,6 +132,9 @@ async def delete_terminal_session(session_id: str):
     return {"status": "ok"}
 
 
+PTY_NO_DATA = b"\x00"
+PTY_EOF = b""
+
 PTY_EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="pty-reader")
 
 # WS認証はsession_id(192bitトークン)で担保
@@ -169,9 +172,9 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
                 data = await loop.run_in_executor(
                     PTY_EXECUTOR, _read_pty, session.fd, session._read_lock, stop_event
                 )
-                if data == b"":
+                if data == PTY_EOF:
                     break
-                if data == b"\x00":
+                if data == PTY_NO_DATA:
                     continue
                 await websocket.send_bytes(data)
         except (WebSocketDisconnect, OSError, asyncio.CancelledError):
@@ -226,18 +229,18 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
 
 def _read_pty(fd: int, lock: threading.Lock, stop: threading.Event) -> bytes:
     if not lock.acquire(timeout=2.0):
-        return b"\x00"
+        return PTY_NO_DATA
     try:
         if stop.is_set():
-            return b""
+            return PTY_EOF
         r, _, _ = select.select([fd], [], [], 1.0)
         if not r:
-            return b"\x00"
+            return PTY_NO_DATA
         if stop.is_set():
-            return b""
+            return PTY_EOF
         return os.read(fd, 4096)
     except (OSError, ValueError):
-        return b""
+        return PTY_EOF
     finally:
         lock.release()
 

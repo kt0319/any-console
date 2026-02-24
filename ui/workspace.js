@@ -5,7 +5,8 @@ async function loadWorkspaces() {
       allWorkspaces = await res.json();
       renderWorkspaceSelects();
     }
-  } catch {
+  } catch (e) {
+    showToast("ワークスペース一覧の取得に失敗しました", "error");
     allWorkspaces = [];
   }
 }
@@ -132,7 +133,8 @@ async function runAutoRefresh() {
       if (selectedWorkspace) await refreshCurrentWorkspaceStatus();
       await fetchOrphanSessions();
     }
-  } catch {
+  } catch (e) {
+    console.error("auto refresh failed:", e);
   } finally {
     autoRefreshing = false;
   }
@@ -160,6 +162,8 @@ function stopAutoRefresh() {
 async function fetchWorkspace(name) {
   try {
     await apiFetch(workspaceApiPath(name, "/fetch"), { method: "POST" });
-  } catch {}
+  } catch (e) {
+    console.error("fetchWorkspace failed:", e);
+  }
 }
 

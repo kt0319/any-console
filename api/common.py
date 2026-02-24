@@ -59,7 +59,8 @@ def _read_config_unlocked() -> dict:
     if CONFIG_FILE.is_file():
         try:
             return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning("config read failed path=%s: %s", CONFIG_FILE, e)
             return {}
     return _migrate_to_unified_config()
 
@@ -79,7 +80,8 @@ def _migrate_to_unified_config() -> dict:
                 data = json.loads(f.read_text(encoding="utf-8"))
                 ws_name = f.stem
                 merged[ws_name] = data
-            except (json.JSONDecodeError, OSError):
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning("migration skip file=%s: %s", f, e)
                 continue
     if merged:
         _write_config_unlocked(merged)
@@ -129,7 +131,10 @@ def _read_json_file(path: Path, default=None):
         return default
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError as e:
+        logger.warning("json parse failed path=%s: %s", path, e)
+        return default
+    except OSError:
         return default
 
 
@@ -308,8 +313,8 @@ def git_info(directory: Path) -> dict:
             if len(parts) == 2:
                 info["ahead"] = int(parts[0])
                 info["behind"] = int(parts[1])
-    except (subprocess.TimeoutExpired, OSError):
-        pass
+    except (subprocess.TimeoutExpired, OSError) as e:
+        logger.warning("git_info failed dir=%s: %s", directory, e)
     return info
 
 
@@ -328,8 +333,8 @@ def get_git_branches(directory: Path) -> list[str]:
         )
         if result.returncode == 0:
             return [b for b in result.stdout.strip().splitlines() if b]
-    except (subprocess.TimeoutExpired, OSError):
-        pass
+    except (subprocess.TimeoutExpired, OSError) as e:
+        logger.warning("get_git_branches failed dir=%s: %s", directory, e)
     return []
 
 
@@ -356,6 +361,6 @@ def get_git_remote_branches(directory: Path) -> list[str]:
                 if b not in branches:
                     branches.append(b)
             return branches
-    except (subprocess.TimeoutExpired, OSError):
-        pass
+    except (subprocess.TimeoutExpired, OSError) as e:
+        logger.warning("get_git_remote_branches failed dir=%s: %s", directory, e)
     return []
