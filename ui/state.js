@@ -21,6 +21,7 @@ let activeTabId = null;
 let terminalIdCounter = 0;
 let orphanSessions = [];
 let closedSessionUrls = new Set();
+let isPageUnloading = false;
 
 const QUICK_KEYS = [
   { label: "\u232B", key: "Backspace", code: "Backspace", keyCode: 8 },
@@ -72,7 +73,6 @@ const AUTO_REFRESH_INTERVAL = 10000;
 let autoRefreshTimer = null;
 let autoRefreshing = false;
 let serverDisconnected = false;
-let serverBootVersion = null;
 
 let handlingUnauthorized = false;
 
@@ -86,6 +86,9 @@ const gitLogSeenHashes = new Set();
 let diffChunks = {};
 let diffFullText = "";
 let diffOpenedFromGitLog = false;
+
+let serverHostname = "";
+let serverVersion = "";
 
 let cloneTab = "github";
 let selectedCloneUrl = "";

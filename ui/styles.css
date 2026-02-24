@@ -1328,6 +1328,14 @@ button:disabled {
   font-size: 14px;
 }
 
+.picker-server-info {
+  text-align: center;
+  padding: 4px 12px 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
 /* Settings modal */
 .modal-overlay {
   position: fixed;

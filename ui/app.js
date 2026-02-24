@@ -210,6 +210,8 @@ function repositionKeyboardInput(keyboardOpen) {
   }
 }
 
+window.addEventListener("beforeunload", () => { isPageUnloading = true; });
+
 document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
 document.addEventListener("touchmove", (e) => {
   if (e.touches.length > 1) e.preventDefault();
@@ -283,6 +285,7 @@ applyPanelBottom();
   if (token) {
     const result = await checkToken();
     if (result.ok) {
+      setServerInfo(result.hostname, result.version);
       showApp();
       await initApp();
     } else if (!result.auth) {

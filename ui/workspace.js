@@ -143,17 +143,6 @@ async function checkServerHealth() {
     const res = await fetch("/auth/check", {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.boot) {
-        if (serverBootVersion && serverBootVersion !== data.boot) {
-          sessionStorage.setItem("pi_console_server_reloaded", "1");
-          location.reload();
-          return true;
-        }
-        serverBootVersion = data.boot;
-      }
-    }
     return res.ok || res.status === 401;
   } catch {
     return false;

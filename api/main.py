@@ -47,7 +47,21 @@ def shutdown_executor():
 
 @app.get("/auth/check", dependencies=[Depends(verify_token)])
 def auth_check():
-    return {"ok": True, "boot": BOOT_VERSION}
+    return {"ok": True, "hostname": socket.gethostname(), "version": _get_app_version()}
+
+
+def _get_app_version() -> str:
+    try:
+        result = subprocess.run(
+            ["git", "log", "-1", "--format=%cd", "--date=format:%Y-%m-%d %H:%M"],
+            capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
+            cwd=str(Path(__file__).resolve().parent.parent),
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    return ""
 
 
 ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}

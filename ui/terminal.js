@@ -234,7 +234,7 @@ function connectTerminalWs(tab) {
 
   ws.onclose = (e) => {
     tab.ws = null;
-    if (tab._wsDisposed) return;
+    if (tab._wsDisposed || isPageUnloading) return;
     if (e.code === 1000 || e.code === 1008) {
       removeTab(tab.id);
       return;
@@ -647,13 +647,9 @@ function addPickerTab() {
   closeBtn.type = "button";
   closeBtn.className = "picker-close-btn";
   closeBtn.innerHTML = "&times;";
+  closeBtn.style.display = "none";
   closeBtn.addEventListener("click", () => {
-    const otherTabs = tabs.filter((t) => t.type !== "picker");
-    if (otherTabs.length > 0) {
-      switchTab(otherTabs[otherTabs.length - 1].id);
-    } else {
-      showPickerMainView();
-    }
+    showPickerMainView();
   });
   topBar.appendChild(closeBtn);
   container.appendChild(topBar);
@@ -677,6 +673,13 @@ function addPickerTab() {
   settingsBtn.addEventListener("click", () => showPickerSettings());
   footer.appendChild(settingsBtn);
   mainView.appendChild(footer);
+
+  const serverInfo = document.createElement("div");
+  serverInfo.className = "picker-server-info";
+  const parts = [serverHostname, serverVersion].filter(Boolean);
+  serverInfo.textContent = parts.join(" / ");
+  mainView.appendChild(serverInfo);
+
   container.appendChild(mainView);
 
   const settingsView = document.createElement("div");
@@ -697,6 +700,8 @@ function showPickerSettings() {
 
   mainView.style.display = "none";
   settingsView.style.display = "";
+  const closeBtn = mainView.parentNode.querySelector(".picker-close-btn");
+  if (closeBtn) closeBtn.style.display = "";
   renderPickerSettingsMenu(settingsView);
 }
 
@@ -765,7 +770,7 @@ function showPickerWsVisibility(container) {
       list,
       (ws) => {
         selectedWorkspace = ws.name;
-        openItemCreateModal(ws.name, "job");
+        openItemCreateModal(ws.name, "job", "picker-settings");
       },
       loadPickerSettingsWsIcons,
     );

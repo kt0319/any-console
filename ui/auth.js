@@ -28,7 +28,8 @@ async function checkToken() {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.status === 401) return { ok: false, auth: false, error: "認証に失敗しました" };
-    return { ok: true };
+    const data = await res.json();
+    return { ok: true, hostname: data.hostname, version: data.version };
   } catch (e) {
     return { ok: false, auth: true, error: `サーバーに接続できません: ${e.message}` };
   }
@@ -64,6 +65,7 @@ async function login() {
 
   const result = await checkToken();
   if (result.ok) {
+    setServerInfo(result.hostname, result.version);
     saveToken(token);
     $("login-error").style.display = "none";
     showApp();
@@ -72,6 +74,14 @@ async function login() {
     showToast(result.error);
     token = "";
   }
+}
+
+function setServerInfo(hostname, version) {
+  if (hostname) {
+    serverHostname = hostname;
+    document.title = `${hostname} - pi-console`;
+  }
+  if (version) serverVersion = version;
 }
 
 token = loadToken();
