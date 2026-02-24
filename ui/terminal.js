@@ -438,6 +438,10 @@ async function switchTab(id) {
     return;
   }
 
+  for (const t of tabs) {
+    if (t.type === "terminal") exitTerminalCopyMode(t.id);
+  }
+
   activeTabId = id;
   const switchedTab = tabs.find((t) => t.id === id);
   if (switchedTab) switchedTab._activity = false;
