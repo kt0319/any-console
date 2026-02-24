@@ -68,7 +68,10 @@ async def log_requests(request: Request, call_next):
 
 
 @app.on_event("shutdown")
-def shutdown_executor():
+def shutdown_cleanup():
+    for sid, session in list(terminal.TERMINAL_SESSIONS.items()):
+        terminal._kill_pty_session(session)
+    terminal.TERMINAL_SESSIONS.clear()
     BACKGROUND_EXECUTOR.shutdown(wait=False)
 
 

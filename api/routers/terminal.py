@@ -71,10 +71,14 @@ def _kill_pty_session(session: TerminalSession) -> None:
     try:
         os.kill(session.pid, signal.SIGTERM)
     except (ProcessLookupError, PermissionError, OSError):
-        pass
+        return
     try:
-        os.waitpid(session.pid, os.WNOHANG)
-    except ChildProcessError:
+        pid, _ = os.waitpid(session.pid, os.WNOHANG)
+        if pid == 0:
+            time.sleep(0.1)
+            os.kill(session.pid, signal.SIGKILL)
+            os.waitpid(session.pid, os.WNOHANG)
+    except (ChildProcessError, ProcessLookupError, PermissionError, OSError):
         pass
 
 
