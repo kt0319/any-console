@@ -464,31 +464,28 @@ function renderTabBar() {
   for (const item of items) {
     if (item.type === "tab") {
       const tab = item.tab;
-      const iconHtml = tab.icon
-        ? renderIcon(tab.icon.name, tab.icon.color, 14) + " "
-        : "";
+      const wsIconHtml = tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14) : "";
+      const iconHtml = tab.icon ? renderIcon(tab.icon.name, tab.icon.color, 14) : "";
       const actCls = tab._activity ? " tab-activity" : "";
       if (panelBottom) {
-        const wsIconHtml = tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14) + " " : "";
         html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}${actCls}" data-tab="${tab.id}">`
           + `${wsIconHtml}${iconHtml}</button>`;
       } else {
-        const wsIconHtml = tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14) + " " : "";
         html += `<button class="tab-btn${activeTabId === tab.id ? " active" : ""}${actCls}" data-tab="${tab.id}">`
-          + `${wsIconHtml}${escapeHtml(tab.label)} ${iconHtml}<span class="tab-close" data-close="${tab.id}">&times;</span></button>`;
+          + `${wsIconHtml}${iconHtml}${escapeHtml(tab.label)}<span class="tab-close" data-close="${tab.id}">&times;</span></button>`;
       }
     } else {
       const s = item.orphan;
       const label = s.workspace || "terminal";
-      const orphanIcon = renderIcon(s.icon || "mdi-console", s.iconColor || "", 14) + " ";
+      const orphanIcon = renderIcon(s.icon || "mdi-console", s.iconColor || "", 14);
       const ows = s.workspace ? allWorkspaces.find((w) => w.name === s.workspace) : null;
-      const owsIconHtml = ows && ows.icon ? renderIcon(ows.icon, ows.icon_color, 14) + " " : "";
+      const owsIconHtml = ows && ows.icon ? renderIcon(ows.icon, ows.icon_color, 14) : "";
       if (panelBottom) {
         html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
           + `${owsIconHtml}${orphanIcon}</button>`;
       } else {
         html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
-          + `${owsIconHtml}${escapeHtml(label)} ${orphanIcon}</button>`;
+          + `${owsIconHtml}${orphanIcon}${escapeHtml(label)}</button>`;
       }
     }
   }
