@@ -2428,6 +2428,9 @@ button:disabled {
   .panel-bottom .quick-input {
     display: flex !important;
   }
+  .picker-frame {
+    max-width: 480px;
+  }
 }
 
 /* Responsive */

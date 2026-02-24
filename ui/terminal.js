@@ -495,7 +495,7 @@ function renderTabBar() {
   if (pickerTab) {
     html += `<button class="tab-btn${activeTabId === pickerTab.id ? " active" : ""}" data-tab="${pickerTab.id}">`
       + `<span class="mdi mdi-plus"></span>`
-      + (panelBottom ? "" : ` ${escapeHtml(pickerTab.label)}`)
+      + ""
       + `</button>`;
   }
   bar.innerHTML = html;
