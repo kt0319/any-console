@@ -39,6 +39,32 @@ app.include_router(git.router)
 app.include_router(jobs.router)
 app.include_router(terminal.router)
 app.include_router(terminal.ws_router)
+app.include_router(logs.router)
+
+
+EXCLUDE_LOG_PREFIXES = ("/logs", "/auth/check", "/system/", "/ui/", "/styles", "/app.", "/state.", "/auth.", "/workspace.", "/git.", "/jobs.", "/terminal.", "/settings.", "/quick-input.", "/icon-picker.", "/utils.", "/favicon")
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    path = request.url.path
+    if any(path.startswith(p) for p in EXCLUDE_LOG_PREFIXES):
+        return await call_next(request)
+    if path == "/" and request.method == "GET":
+        return await call_next(request)
+
+    start = time.time()
+    response = await call_next(request)
+    duration_ms = round((time.time() - start) * 1000)
+
+    LOG_BUFFER.add({
+        "ts": datetime.now().astimezone().isoformat(),
+        "method": request.method,
+        "path": path,
+        "status_code": response.status_code,
+        "duration_ms": duration_ms,
+        "detail": "",
+    })
+    return response
 
 
 @app.on_event("shutdown")
