@@ -626,6 +626,7 @@ header .ws-select-wrap {
 
 .main-panel.panel-bottom .tab-bar {
   padding: 0 8px 4px;
+  padding-right: max(28%, 100px);
 }
 
 .main-panel.panel-bottom .tab-btn {
