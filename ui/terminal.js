@@ -1,7 +1,6 @@
 let sessionKeepaliveTimer = null;
 let lastVisibleTime = Date.now();
 let tabDragState = null;
-
 const OSC_TITLE_RE = /\x1b\]0;/;
 
 function startSessionKeepalive() {
@@ -326,6 +325,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
 
   container.addEventListener("touchend", () => {
     if (container.classList.contains("view-mode")) return;
+    if (splitMode) return;
     if (isTouchDevice) showKeyboardInput();
   });
 
@@ -1475,14 +1475,16 @@ function createSplitPane(index) {
     frame.style.display = tab.type === "terminal" ? "block" : "";
   }
 
-  pane.addEventListener("pointerdown", () => {
+  pane.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".split-pane-label")) return;
     if (activePaneIndex === index) {
-      const tab = tabs.find((t) => t.id === splitPaneTabIds[index]);
-      if (tab && tab.type === "terminal") tab.term.focus();
+      if (isTouchDevice) showKeyboardInput();
       return;
     }
+    e.stopPropagation();
+    e.preventDefault();
     setActivePaneIndex(index);
-  });
+  }, true);
 
   return pane;
 }
@@ -1544,6 +1546,14 @@ function updatePaneLabels() {
         const tabName = tabDisplayName(tab) || tab.label || "";
         if (confirm(`「${tabName}」で分割解除しますか？`)) {
           exitSplitModeWithTab(tabId);
+        }
+      },
+      onClick: () => {
+        if (splitPaneTabIds[activePaneIndex] === tabId) {
+          if (isTouchDevice) showKeyboardInput();
+        } else {
+          const idx = splitPaneTabIds.indexOf(tabId);
+          if (idx >= 0) setActivePaneIndex(idx);
         }
       },
     });
