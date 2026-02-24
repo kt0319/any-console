@@ -952,11 +952,11 @@ header .ws-select-wrap {
 @keyframes long-press-feedback {
   0% {
     transform: scale(1);
-    background-color: inherit;
+    opacity: 1;
   }
   100% {
     transform: scale(0.92);
-    background-color: rgba(255, 255, 255, 0.12);
+    opacity: 0.6;
   }
 }
 
