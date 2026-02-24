@@ -1406,24 +1406,13 @@ function updatePaneLabels() {
       exitSplitModeWithTab(tabId);
     });
 
-    let longPressTimer = null;
-    label.addEventListener("touchstart", (e) => {
-      longPressTimer = setTimeout(() => {
-        longPressTimer = null;
+    bindLongPress(label, {
+      onLongPress: () => {
         const tabName = tabDisplayName(tab) || tab.label || "";
         if (confirm(`「${tabName}」で分割解除しますか？`)) {
           exitSplitModeWithTab(tabId);
         }
-      }, 600);
-    }, { passive: true });
-    label.addEventListener("touchend", () => {
-      if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
-    });
-    label.addEventListener("touchcancel", () => {
-      if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
-    });
-    label.addEventListener("touchmove", () => {
-      if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+      },
     });
 
     pane.appendChild(label);

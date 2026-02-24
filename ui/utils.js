@@ -195,18 +195,25 @@ async function loadWsIconButtons(container, ws, iconSize, onLinkClick, onJobClic
   }
 }
 
-function bindLongPress(el, { onLongPress, onClick, delay = 800 } = {}) {
+function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 20 } = {}) {
   let timer = null;
   let fired = false;
-  el.addEventListener("touchstart", () => {
+  let startX = 0, startY = 0;
+  el.addEventListener("touchstart", (e) => {
     fired = false;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
     timer = setTimeout(() => { fired = true; onLongPress(); }, delay);
   }, { passive: true });
   el.addEventListener("touchend", (e) => {
     clearTimeout(timer);
     if (fired) { e.preventDefault(); fired = false; }
   });
-  el.addEventListener("touchmove", () => clearTimeout(timer), { passive: true });
+  el.addEventListener("touchmove", (e) => {
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if (dx * dx + dy * dy > moveThreshold * moveThreshold) clearTimeout(timer);
+  }, { passive: true });
   if (onClick) {
     el.addEventListener("click", (e) => { if (!fired) onClick(e); });
   }
