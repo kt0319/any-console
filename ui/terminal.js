@@ -522,7 +522,7 @@ function renderTabBar() {
             const frame = $(`frame-${tabId}`);
             if (frame && frame.classList.contains("view-mode")) {
               exitTerminalCopyMode(tabId);
-            } else {
+            } else if (isTouchDevice) {
               t.term.scrollToBottom();
               enterTerminalCopyMode(tabId);
             }
@@ -633,7 +633,7 @@ function addPickerTab() {
   topTitle.type = "button";
   topTitle.className = "picker-top-title";
   topTitle.id = "picker-top-title";
-  topTitle.textContent = "";
+  topTitle.textContent = "ワークスペースを開く";
   topTitle.addEventListener("click", () => {
     const settingsView = $("picker-settings-view");
     if (!settingsView || settingsView.style.display === "none") return;
@@ -711,7 +711,7 @@ function showPickerMainView() {
 
   settingsView.style.display = "none";
   mainView.style.display = "";
-  title.textContent = "";
+  title.textContent = "ワークスペースを開く";
   title.dataset.level = "";
 }
 
@@ -838,7 +838,7 @@ function resetPickerView() {
   const title = $("picker-top-title");
   if (mainView) mainView.style.display = "";
   if (settingsView) settingsView.style.display = "none";
-  if (title) title.textContent = "";
+  if (title) title.textContent = "ワークスペースを開く";
 }
 
 function movePickerToEnd() {
