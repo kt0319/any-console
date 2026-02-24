@@ -430,6 +430,7 @@ async function switchTab(id) {
 
   const switchedTabObj = tabs.find((t) => t.id === id);
   if (switchedTabObj && switchedTabObj.type === "picker") {
+    resetPickerView();
     $("header-row2").style.display = "none";
     return;
   }

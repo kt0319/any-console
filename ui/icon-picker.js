@@ -53,11 +53,11 @@ function openIconPicker(callback, currentIcon, currentColor) {
   const search = $("icon-picker-search");
   const grid = $("icon-picker-grid");
   const preview = $("icon-picker-favicon-preview");
-  const confirm = $("icon-picker-favicon-confirm");
+  const confirmBtn = $("icon-picker-url-ok");
 
   grid.innerHTML = '<div class="icon-picker-loading">読み込み中...</div>';
   preview.innerHTML = "";
-  confirm.style.display = "none";
+  confirmBtn.disabled = true;
 
   search.value = "";
 
@@ -80,11 +80,11 @@ function openIconPicker(callback, currentIcon, currentColor) {
     if (looksLikeUrl(raw)) {
       const domain = extractDomain(raw);
       preview.innerHTML = renderIcon(`favicon:${domain}`, "", 24);
-      confirm.style.display = "";
+      confirmBtn.disabled = false;
       if (iconPickerCache) renderIconGrid(iconPickerCache, "");
     } else {
       preview.innerHTML = "";
-      confirm.style.display = "none";
+      confirmBtn.disabled = true;
       if (iconPickerCache) renderIconGrid(iconPickerCache, raw.toLowerCase());
     }
   };
@@ -159,9 +159,8 @@ function renderIconGrid(icons, query) {
 function selectMdiIcon(iconName) {
   iconPickerSelectedIcon = iconName;
   const preview = $("icon-picker-favicon-preview");
-  const confirm = $("icon-picker-favicon-confirm");
   preview.innerHTML = renderIcon(iconName, iconPickerSelectedColor, 24);
-  confirm.style.display = "";
+  $("icon-picker-url-ok").disabled = false;
   $("icon-picker-grid").querySelectorAll(".icon-picker-item").forEach((el) => {
     el.classList.toggle("selected", el.title === iconName.replace("mdi-", ""));
   });
