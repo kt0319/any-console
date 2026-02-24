@@ -420,6 +420,7 @@ async function submitItemEdit() {
 }
 
 function reopenAfterItemEdit(source) {
+  refreshPickerContent();
   if (source === "settings") {
     openSettingsWsVisibility();
   } else if (source === "picker-settings") {

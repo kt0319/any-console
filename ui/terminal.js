@@ -836,6 +836,15 @@ function loadPickerWsIcons(container, ws) {
   );
 }
 
+function refreshPickerContent() {
+  const mainView = $("picker-main-view");
+  if (!mainView) return;
+  const list = mainView.querySelector(".terminal-ws-list");
+  if (!list) return;
+  list.innerHTML = "";
+  renderPickerWsList(list);
+}
+
 function resetPickerView() {
   const mainView = $("picker-main-view");
   const settingsView = $("picker-settings-view");
