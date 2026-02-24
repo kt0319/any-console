@@ -1157,14 +1157,23 @@ function enterTerminalCopyMode(tabId) {
 
   const overlay = document.createElement("div");
   overlay.className = "view-mode-overlay";
-  const label = document.createElement("span");
+  const label = document.createElement("div");
   label.className = "view-mode-label";
-  label.textContent = "閲覧モード";
+
+  const wsIconHtml = tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14) : "";
+  const iconHtml = tab.icon ? renderIcon(tab.icon.name, tab.icon.color, 14) : "";
+  const info = document.createElement("span");
+  info.className = "view-mode-label-info";
+  info.innerHTML = wsIconHtml + iconHtml + escapeHtml(tab.label || "") + " 閲覧モード";
+  label.appendChild(info);
+
   const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
   closeBtn.className = "view-mode-close-btn";
-  closeBtn.textContent = "×";
+  closeBtn.innerHTML = "&times;";
   closeBtn.addEventListener("click", () => exitTerminalCopyMode(tabId));
-  overlay.append(label, closeBtn);
+  label.appendChild(closeBtn);
+  overlay.appendChild(label);
   container.appendChild(overlay);
 
   tab.term.selectAll();

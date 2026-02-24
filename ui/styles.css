@@ -1134,36 +1134,61 @@ header .ws-select-wrap {
 
 .view-mode-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 6px 4px 12px;
+  top: 4px;
+  right: 4px;
+  z-index: 12;
   pointer-events: none;
 }
 
 .view-mode-label {
-  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 8px 0 12px;
+  font-size: 14px;
   font-weight: 600;
-  color: #fff;
-  background: var(--accent);
-  padding: 4px 12px;
-  border-radius: 12px;
+  color: var(--text-primary);
+  background: rgba(26, 27, 38, 0.93);
+  border: 1px solid #ff9800;
+  border-radius: 17px;
+  white-space: nowrap;
+  line-height: 1;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.view-mode-label-info {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  pointer-events: none;
+}
+
+.view-mode-label .favicon-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .view-mode-close-btn {
-  padding: 4px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
   border: none;
-  border-radius: 12px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
   cursor: pointer;
   pointer-events: auto;
+  opacity: 0.6;
 }
 
 .view-mode-textarea {
