@@ -1,5 +1,6 @@
 let sessionKeepaliveTimer = null;
 let lastVisibleTime = Date.now();
+let tabDragState = null;
 
 const OSC_TITLE_RE = /\x1b\]0;/;
 
@@ -515,7 +516,135 @@ async function updateHeaderForTab(id) {
   }
 }
 
+function startTabDrag(btn, tab, touch) {
+  const bar = $("tab-bar");
+  const rect = btn.getBoundingClientRect();
+  const barRect = bar.getBoundingClientRect();
+
+  const placeholder = document.createElement("div");
+  placeholder.className = "tab-drag-placeholder";
+  placeholder.style.width = rect.width + "px";
+  placeholder.style.height = rect.height + "px";
+  btn.parentNode.insertBefore(placeholder, btn);
+
+  btn.classList.add("tab-dragging");
+  btn.style.position = "fixed";
+  btn.style.top = rect.top + "px";
+  btn.style.left = rect.left + "px";
+  btn.style.width = rect.width + "px";
+  btn.style.zIndex = "100";
+
+  const offsetX = touch.clientX - rect.left;
+
+  tabDragState = {
+    btn,
+    tab,
+    placeholder,
+    bar,
+    barRect,
+    offsetX,
+    startX: touch.clientX,
+    moved: false,
+  };
+
+  navigator.vibrate?.(30);
+
+  document.addEventListener("touchmove", onTabDragMove, { capture: true, passive: false });
+  document.addEventListener("touchend", onTabDragEnd, { capture: true });
+}
+
+function onTabDragMove(e) {
+  if (!tabDragState) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  const { btn, bar, barRect, offsetX } = tabDragState;
+
+  const dx = Math.abs(touch.clientX - tabDragState.startX);
+  if (dx > 5) tabDragState.moved = true;
+
+  const left = touch.clientX - offsetX;
+  btn.style.left = left + "px";
+
+  const centerX = touch.clientX;
+  const siblings = Array.from(bar.querySelectorAll(".tab-btn:not(.tab-dragging), .tab-drag-placeholder"));
+  for (const sib of siblings) {
+    if (sib === tabDragState.placeholder) continue;
+    if (sib.classList.contains("tab-add-btn") || sib.classList.contains("split-toggle-btn")) continue;
+    const sibRect = sib.getBoundingClientRect();
+    const sibCenter = sibRect.left + sibRect.width / 2;
+    if (centerX < sibCenter) {
+      bar.insertBefore(tabDragState.placeholder, sib);
+      return;
+    }
+  }
+  const lastNonUtil = [...bar.querySelectorAll(".tab-btn:not(.tab-dragging):not(.tab-add-btn):not(.split-toggle-btn), .tab-drag-placeholder")].pop();
+  if (lastNonUtil && lastNonUtil !== tabDragState.placeholder) {
+    lastNonUtil.after(tabDragState.placeholder);
+  }
+
+  const SCROLL_ZONE = 40;
+  const barLeft = barRect.left;
+  const barRight = barRect.right;
+  if (touch.clientX - barLeft < SCROLL_ZONE) {
+    bar.scrollLeft -= 10;
+  } else if (barRight - touch.clientX < SCROLL_ZONE) {
+    bar.scrollLeft += 10;
+  }
+}
+
+function onTabDragEnd(e) {
+  if (!tabDragState) return;
+  const { btn, tab, placeholder, bar, moved } = tabDragState;
+
+  document.removeEventListener("touchmove", onTabDragMove, { capture: true });
+  document.removeEventListener("touchend", onTabDragEnd, { capture: true });
+
+  if (!moved && panelBottom) {
+    btn.classList.remove("tab-dragging");
+    btn.style.position = "";
+    btn.style.top = "";
+    btn.style.left = "";
+    btn.style.width = "";
+    btn.style.zIndex = "";
+    placeholder.remove();
+    tabDragState = null;
+    const tabName = tabDisplayName(tab) || btn.textContent.replace("×", "").trim();
+    if (confirm(`「${tabName}」を閉じますか？`)) {
+      removeTab(tab.id);
+    }
+    return;
+  }
+
+  if (moved) {
+    const ordered = Array.from(bar.querySelectorAll(".tab-btn:not(.tab-dragging):not(.tab-add-btn):not(.split-toggle-btn), .tab-drag-placeholder"));
+    const pickerTab = tabs.find((t) => t.type === "picker");
+    const nonPicker = [];
+    for (const el of ordered) {
+      if (el === placeholder) {
+        nonPicker.push(tab);
+        continue;
+      }
+      const tabId = el.dataset.tab;
+      if (!tabId) continue;
+      const t = tabs.find((t) => t.id === tabId);
+      if (t && t.type !== "picker") nonPicker.push(t);
+    }
+    tabs = pickerTab ? [...nonPicker, pickerTab] : [...nonPicker];
+  }
+
+  btn.classList.remove("tab-dragging");
+  btn.style.position = "";
+  btn.style.top = "";
+  btn.style.left = "";
+  btn.style.width = "";
+  btn.style.zIndex = "";
+  placeholder.remove();
+  tabDragState = null;
+  renderTabBar();
+}
+
 function renderTabBar() {
+  if (tabDragState) return;
   const barRow = $("tab-bar").parentNode;
   if (splitMode) {
     barRow.style.display = "none";
@@ -593,11 +722,9 @@ function renderTabBar() {
       return;
     }
     bindLongPress(btn, {
-      onLongPress: () => {
-        const tabName = tabDisplayName(tab) || btn.textContent.replace("×", "").trim();
-        if (confirm(`「${tabName}」を閉じますか？`)) {
-          removeTab(btn.dataset.tab);
-        }
+      onLongPress: (e) => {
+        const touch = e && e.touches ? e.touches[0] : null;
+        if (touch && tab) startTabDrag(btn, tab, touch);
       },
       onClick: (e) => {
         if (e.target.classList.contains("tab-close")) return;
@@ -1349,7 +1476,11 @@ function createSplitPane(index) {
   }
 
   pane.addEventListener("pointerdown", () => {
-    if (activePaneIndex === index) return;
+    if (activePaneIndex === index) {
+      const tab = tabs.find((t) => t.id === splitPaneTabIds[index]);
+      if (tab && tab.type === "terminal") tab.term.focus();
+      return;
+    }
     setActivePaneIndex(index);
   });
 
@@ -1360,8 +1491,6 @@ function setActivePaneIndex(index) {
   activePaneIndex = index;
   activeTabId = splitPaneTabIds[index];
   updateActivePaneVisual();
-  const tab = tabs.find((t) => t.id === activeTabId);
-  if (tab && tab.type === "terminal") tab.term.focus();
 }
 
 function updateActivePaneVisual() {

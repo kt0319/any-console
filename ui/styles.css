@@ -922,6 +922,20 @@ header .ws-select-wrap {
   animation: tab-activity-glow 3s ease-in-out 1;
 }
 
+.tab-dragging {
+  opacity: 0.85;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  pointer-events: none;
+}
+
+.tab-drag-placeholder {
+  flex-shrink: 0;
+  border: 1px dashed var(--text-muted);
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+}
+
 .tab-btn.orphan {
   border: 1px dashed var(--text-muted);
   color: var(--text-muted);

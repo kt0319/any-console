@@ -203,7 +203,8 @@ function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 
     fired = false;
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
-    timer = setTimeout(() => { fired = true; onLongPress(); }, delay);
+    const startEvt = e;
+    timer = setTimeout(() => { fired = true; onLongPress(startEvt); }, delay);
   }, { passive: true });
   el.addEventListener("touchend", (e) => {
     clearTimeout(timer);
