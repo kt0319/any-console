@@ -222,6 +222,7 @@ async function toggleWorkspace(name, visible) {
     selectionCleared = true;
   }
   renderWorkspaceSelects();
+  refreshPickerContent();
   if (selectionCleared) {
     updateHeaderInfo();
     loadJobsForWorkspace();
