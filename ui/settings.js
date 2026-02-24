@@ -346,6 +346,7 @@ async function submitClone() {
 }
 
 async function exportSettings() {
+  if (!confirm("設定をエクスポートしますか？")) return;
   try {
     const res = await apiFetch("/settings/export");
     if (!res || !res.ok) {
