@@ -944,6 +944,20 @@ header .ws-select-wrap {
   opacity: 0.7;
 }
 
+.long-pressing {
+  animation: long-press-feedback 0.8s ease-out forwards;
+}
+
+@keyframes long-press-feedback {
+  0% {
+    transform: scale(1);
+    background-color: inherit;
+  }
+  100% {
+    transform: scale(0.92);
+    background-color: rgba(255, 255, 255, 0.12);
+  }
+}
 
 .tab-type-icon {
   font-size: 10px;

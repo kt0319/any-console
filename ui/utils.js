@@ -192,16 +192,21 @@ function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     const startEvt = e;
-    timer = setTimeout(() => { fired = true; onLongPress(startEvt); }, delay);
+    el.classList.add("long-pressing");
+    timer = setTimeout(() => { fired = true; el.classList.remove("long-pressing"); onLongPress(startEvt); }, delay);
   }, { passive: true });
   el.addEventListener("touchend", (e) => {
     clearTimeout(timer);
+    el.classList.remove("long-pressing");
     if (fired) { e.preventDefault(); fired = false; }
   });
   el.addEventListener("touchmove", (e) => {
     const dx = e.touches[0].clientX - startX;
     const dy = e.touches[0].clientY - startY;
-    if (dx * dx + dy * dy > moveThreshold * moveThreshold) clearTimeout(timer);
+    if (dx * dx + dy * dy > moveThreshold * moveThreshold) {
+      clearTimeout(timer);
+      el.classList.remove("long-pressing");
+    }
   }, { passive: true });
   if (onClick) {
     el.addEventListener("click", (e) => { if (!fired) onClick(e); });
