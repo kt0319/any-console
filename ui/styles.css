@@ -2369,23 +2369,25 @@ button:disabled {
 
 .quick-snippet-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
   padding: 4px 0;
   align-self: stretch;
+  max-height: 40vh;
+  overflow-y: auto;
 }
 
 .quick-snippet-item {
-  height: 34px;
-  padding: 0 14px;
+  height: 38px;
+  padding: 0 16px;
   border: 1px solid rgba(130, 170, 255, 0.5);
-  border-radius: 17px;
+  border-radius: 19px;
   background: rgba(20, 22, 35, 0.85);
   color: var(--accent);
-  font-size: 12px;
+  font-size: 14px;
   display: flex;
   align-items: center;
-  justify-content: center;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
@@ -2399,15 +2401,17 @@ button:disabled {
   color: var(--text-primary);
 }
 
-.quick-snippet-add {
-  background: rgba(130, 170, 255, 0.1);
-  border: 1px dashed rgba(130, 170, 255, 0.5);
-  color: var(--accent);
-  min-width: 34px;
-  font-size: 16px;
-  font-weight: 600;
-}
 
+.quick-snippet-add-btn {
+  height: 38px;
+  min-height: 38px;
+  border: 1px dashed rgba(130, 170, 255, 0.5);
+  border-radius: 19px;
+  background: rgba(130, 170, 255, 0.1);
+  color: var(--accent);
+  font-size: 18px;
+  align-self: center;
+}
 
 .quick-key-pg {
   display: flex;

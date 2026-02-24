@@ -241,6 +241,17 @@ function initQuickInput() {
   panel.appendChild(menuBtn);
   for (const btn of minimalKeyBtns) panel.appendChild(btn);
   panel.appendChild(minimalEnter);
+
+  const mode1ExtraKeys = [];
+  for (let i = 0; i < 3; i++) {
+    const btn = document.createElement("div");
+    btn.className = "quick-key";
+    btn.textContent = "";
+    btn.style.display = "none";
+    panel.appendChild(btn);
+    mode1ExtraKeys.push(btn);
+  }
+
   const bsKey = quickKeyBtns[0];
   const enterKey = quickKeyBtns[quickKeyBtns.length - 1];
 
@@ -329,9 +340,25 @@ function initQuickInput() {
     sendKeyToTerminal({ key: "Tab", code: "Tab", keyCode: 9 });
   });
 
+  const snippetAddBtn = document.createElement("div");
+  snippetAddBtn.className = "quick-key quick-snippet-add-btn";
+  snippetAddBtn.innerHTML = '<span class="mdi mdi-plus"></span>';
+  snippetAddBtn.style.display = "none";
+  const addSnippetHandler = () => {
+    const cmd = prompt("コマンドを入力:");
+    if (cmd) {
+      addSnippet(cmd);
+      renderSnippetRow();
+    }
+  };
+  snippetAddBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  snippetAddBtn.addEventListener("touchend", (e) => { e.preventDefault(); addSnippetHandler(); });
+  snippetAddBtn.addEventListener("click", addSnippetHandler);
+
   panel.appendChild(flickCtrl);
   panel.appendChild(flickTab);
   panel.appendChild(toggleBtn);
+  panel.appendChild(snippetAddBtn);
 
 
   const extraPanel = document.createElement("div");
@@ -505,19 +532,6 @@ function initQuickInput() {
       snippetRow.appendChild(chip);
     });
 
-    const addChip = document.createElement("div");
-    addChip.className = "quick-snippet-item quick-snippet-add";
-    addChip.textContent = "+";
-    const addSnippetHandler = () => {
-      const cmd = prompt("コマンドを入力:");
-      if (cmd) {
-        addSnippet(cmd);
-        renderSnippetRow();
-      }
-    };
-    addChip.addEventListener("touchend", (e) => { e.preventDefault(); addSnippetHandler(); });
-    addChip.addEventListener("click", addSnippetHandler);
-    snippetRow.appendChild(addChip);
   }
 
   snippetRow.style.display = "none";
@@ -525,7 +539,7 @@ function initQuickInput() {
   let extraMode = 0;
 
   const minimalModeElements = [...minimalKeyBtns, minimalEnter];
-  const mergedModeElements = [menuBtn, flickCtrl, flickTab];
+  const mergedModeElements = [menuBtn, ...mode1ExtraKeys, flickCtrl, flickTab];
 
   const addTouchBtn = (el, handler) => {
     el.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
@@ -554,9 +568,11 @@ function initQuickInput() {
     toggleBtn.style.display = extraMode === 0 ? "none" : "";
     if (extraMode === 1) {
       snippetRow.style.display = "flex";
+      snippetAddBtn.style.display = "";
       renderSnippetRow();
     } else {
       snippetRow.style.display = "none";
+      snippetAddBtn.style.display = "none";
     }
   };
   applyMode();
