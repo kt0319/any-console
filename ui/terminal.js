@@ -115,7 +115,8 @@ function joinOrphanSession(wsUrl, workspace) {
   const orphan = orphanSessions.find((s) => s.wsUrl === wsUrl);
   const tabIcon = orphan && orphan.icon ? { name: orphan.icon, color: orphan.iconColor || "" } : null;
   const ws = workspace ? allWorkspaces.find((w) => w.name === workspace) : null;
-  const wsIcon = ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null;
+  const isDuplicateIcon = ws && ws.icon && orphan && orphan.icon === ws.icon;
+  const wsIcon = isDuplicateIcon ? null : (ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null);
   addTerminalTab(wsUrl, label, null, true, false, null, tabIcon, wsIcon);
   const tab = tabs.find((t) => t.wsUrl === wsUrl);
   if (tab) tab._pendingRedraw = true;
@@ -720,9 +721,10 @@ function renderTabBar() {
     } else {
       const s = item.orphan;
       const label = s.workspace || "terminal";
-      const orphanIcon = renderIcon(s.icon || "mdi-console", s.iconColor || "", 14);
       const ows = s.workspace ? allWorkspaces.find((w) => w.name === s.workspace) : null;
       const owsIconHtml = ows && ows.icon ? renderIcon(ows.icon, ows.icon_color, 14) : "";
+      const isDuplicateIcon = ows && ows.icon && s.icon === ows.icon;
+      const orphanIcon = isDuplicateIcon ? "" : renderIcon(s.icon || "mdi-console", s.iconColor || "", 14);
       if (panelBottom) {
         html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
           + `${owsIconHtml}${orphanIcon}</button>`;
