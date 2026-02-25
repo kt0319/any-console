@@ -174,6 +174,7 @@ function connectTerminalWs(tab) {
       fitAndSync(tab);
     }
     if (restored) {
+      tab.term.write("\x1bc");
       setTimeout(() => {
         if (ws.readyState === WebSocket.OPEN) {
           const cols = tab.term.cols;
