@@ -2539,7 +2539,6 @@ button:disabled {
   border-color: var(--accent);
 }
 
-.quick-key-mode1,
 .quick-extra-panel .quick-key {
   border-color: rgba(130, 170, 255, 0.6);
   background: rgba(40, 50, 80, 0.6);
@@ -2574,14 +2573,11 @@ button:disabled {
 
 .quick-snippet-row {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  flex-direction: row;
   gap: 4px;
   padding: 4px 0;
-  padding-left: 50%;
   align-self: stretch;
   max-height: 40vh;
-  overflow-y: auto;
   pointer-events: none;
 }
 
@@ -2589,26 +2585,54 @@ button:disabled {
   pointer-events: auto;
 }
 
+.quick-snippet-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  pointer-events: none;
+}
+
+.quick-snippet-col > * {
+  pointer-events: auto;
+}
+
 .quick-snippet-item {
+  width: 100%;
   height: 38px;
   padding: 0 16px;
   border: 1px solid rgba(130, 170, 255, 0.5);
   border-radius: 19px;
-  background: rgba(20, 22, 35, 0.4);
+  background: rgba(20, 22, 35, 0.85);
   color: var(--accent);
-  font-size: 14px;
-  display: flex;
-  align-items: center;
+  font-size: 12px;
+  line-height: 36px;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
 }
 
 .quick-snippet-item.pressed {
   background: rgba(130, 170, 255, 0.3);
+  color: var(--text-primary);
+}
+
+.quick-history-item {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text-secondary);
+}
+
+.quick-history-item.pressed {
+  background: rgba(255, 255, 255, 0.15);
   color: var(--text-primary);
 }
 

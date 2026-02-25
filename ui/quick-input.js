@@ -79,15 +79,22 @@ document.addEventListener("animationend", (e) => {
 const REPEAT_DELAY = 400;
 const REPEAT_INTERVAL = 80;
 
-function setupFlickRepeat(el, resolveKey, onTap) {
+const LONG_PRESS_MS = 400;
+
+function setupFlickRepeat(el, resolveKey, onTap, opts = {}) {
   const THRESHOLD = 40;
   let startX = 0, startY = 0;
   let repeatTimer = null;
   let repeatingKey = null;
+  let longPressTimer = null;
+  let longPressFired = false;
 
   const stopRepeat = () => {
     if (repeatTimer !== null) { clearInterval(repeatTimer); repeatTimer = null; }
     repeatingKey = null;
+  };
+  const cancelLongPress = () => {
+    if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
   };
 
   el.addEventListener("touchstart", (e) => {
@@ -96,12 +103,22 @@ function setupFlickRepeat(el, resolveKey, onTap) {
     startY = e.touches[0].clientY;
     el.classList.add("pressed");
     stopRepeat();
+    longPressFired = false;
+    if (opts.onLongPress && (!opts.longPressGuard || opts.longPressGuard())) {
+      longPressTimer = setTimeout(() => {
+        longPressTimer = null;
+        longPressFired = true;
+        el.classList.remove("pressed");
+        opts.onLongPress();
+      }, LONG_PRESS_MS);
+    }
   }, { passive: false });
 
   el.addEventListener("touchmove", (e) => {
     const dx = e.touches[0].clientX - startX;
     const dy = e.touches[0].clientY - startY;
     const key = resolveKey(dx, dy, THRESHOLD);
+    cancelLongPress();
     if (!key) { stopRepeat(); return; }
     if (repeatingKey && repeatingKey.key === key.key) return;
     stopRepeat();
@@ -115,18 +132,21 @@ function setupFlickRepeat(el, resolveKey, onTap) {
   el.addEventListener("touchend", (e) => {
     e.preventDefault();
     el.classList.remove("pressed");
+    cancelLongPress();
+    if (longPressFired) return;
     if (repeatingKey) { stopRepeat(); return; }
     const dx = e.changedTouches[0].clientX - startX;
     const dy = e.changedTouches[0].clientY - startY;
     const key = resolveKey(dx, dy, THRESHOLD);
     if (key) sendKeyToTerminal(key);
-    else {
-      exitViewModeIfActive();
-      if (onTap) onTap();
-    }
+    else if (onTap) onTap();
   });
 
-  el.addEventListener("touchcancel", () => { el.classList.remove("pressed"); stopRepeat(); });
+  el.addEventListener("touchcancel", () => {
+    el.classList.remove("pressed");
+    stopRepeat();
+    cancelLongPress();
+  });
 }
 
 async function uploadClipboardImage(file) {
@@ -183,6 +203,7 @@ function createQuickKeyBtn(keyDef) {
   if (keyDef.html) btn.innerHTML = keyDef.html;
   else btn.textContent = keyDef.label;
   const activate = () => {
+    if (btn._overrideAction) { btn._overrideAction(); return; }
     exitViewModeIfActive();
     const kd = btn._keyDef;
     if (kd.xtermScroll) {
@@ -233,8 +254,8 @@ function initQuickInput() {
   const panel = $("quick-input-panel");
 
   const minimalArrow = document.createElement("div");
-  minimalArrow.className = "quick-key quick-flick-arrow";
-  minimalArrow.innerHTML = '<span class="flick-hint-top">\u2191</span><span class="flick-hint-left">\u2190</span><span class="flick-main"><span class="mdi mdi-cached"></span></span><span class="flick-hint-right">\u2192</span><span class="flick-hint-bottom">\u2193</span>';
+  minimalArrow.className = "quick-key quick-flick-arrow quick-key-toggle";
+  minimalArrow.innerHTML = '<span class="flick-hint-top">\u2191</span><span class="flick-hint-left">\u2190</span><span class="flick-main"><span class="mdi mdi-keyboard"></span></span><span class="flick-hint-right">\u2192</span><span class="flick-hint-bottom">\u2193</span>';
   const FLICK_THRESHOLD = 40;
   const resolveArrowKey = (dx, dy, threshold) => {
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > threshold)
@@ -247,8 +268,12 @@ function initQuickInput() {
       return { key: "ArrowDown", code: "ArrowDown", keyCode: 40 };
     return null;
   };
-  setupFlickRepeat(minimalArrow, resolveArrowKey, () => cycleMode());
-  minimalArrow.addEventListener("click", () => cycleMode());
+  setupFlickRepeat(minimalArrow, resolveArrowKey, () => {
+    if (extraMode === 1) cycleMode();
+  }, {
+    onLongPress: () => cycleMode(),
+    longPressGuard: () => extraMode === 0,
+  });
   const minimalKeyBtns = [minimalArrow];
   const quickKeyBtns = QUICK_KEYS.map(k => createQuickKeyBtn(k));
   const extraKeyBtns = EXTRA_MAIN_KEYS.map(k => {
@@ -268,45 +293,6 @@ function initQuickInput() {
   });
   panel.appendChild(fileInput);
 
-  const createCameraBtn = (flick) => {
-    const btn = document.createElement("div");
-    if (flick) {
-      btn.className = "quick-key quick-flick-arrow";
-      btn.innerHTML = '<span class="flick-hint-top">Esc</span><span class="flick-hint-left">^U</span><span class="flick-main"><span class="mdi mdi-camera"></span></span><span class="flick-hint-right">^K</span>';
-      let camStartX = 0, camStartY = 0;
-      btn.addEventListener("touchstart", (e) => {
-        e.preventDefault();
-        camStartX = e.touches[0].clientX;
-        camStartY = e.touches[0].clientY;
-        btn.classList.add("pressed");
-      }, { passive: false });
-      btn.addEventListener("touchend", (e) => {
-        e.preventDefault();
-        btn.classList.remove("pressed");
-        const dx = e.changedTouches[0].clientX - camStartX;
-        const dy = e.changedTouches[0].clientY - camStartY;
-        if (Math.abs(dy) > Math.abs(dx) && dy < -FLICK_THRESHOLD) {
-          sendKeyToTerminal({ key: "Escape", code: "Escape", keyCode: 27 });
-        } else if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > FLICK_THRESHOLD) {
-          sendKeyToTerminal(dx < 0
-            ? { key: "u", ctrl: true }
-            : { key: "k", ctrl: true });
-        } else {
-          fileInput.click();
-        }
-      });
-      btn.addEventListener("touchcancel", () => btn.classList.remove("pressed"));
-      btn.addEventListener("click", () => fileInput.click());
-    } else {
-      btn.className = "quick-key";
-      btn.innerHTML = '<span class="mdi mdi-camera"></span>';
-      btn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
-      btn.addEventListener("touchend", (e) => { e.preventDefault(); fileInput.click(); });
-      btn.addEventListener("click", () => fileInput.click());
-    }
-    return btn;
-  };
-  const imgBtn = createCameraBtn(false);
   const menuBtn = document.createElement("div");
   menuBtn.className = "quick-key quick-flick-arrow";
   menuBtn.innerHTML = '<span class="flick-hint-top"><span class="mdi mdi-plus-circle-outline"></span></span><span class="flick-main"><span class="mdi mdi-camera" style="font-size:14px"></span></span>';
@@ -322,55 +308,19 @@ function initQuickInput() {
     menuBtn.classList.remove("pressed");
     const dy = e.changedTouches[0].clientY - menuStartY;
     if (Math.abs(dy) > FLICK_THRESHOLD && dy < 0) {
-      addSnippetHandler();
+      const cmd = prompt("スニペットを入力:");
+      if (cmd) {
+        addSnippet(cmd);
+        snippetRow.style.display = "flex";
+        renderSnippetRow();
+        updateEnterBtn();
+      }
     } else {
       fileInput.click();
     }
   });
   menuBtn.addEventListener("touchcancel", () => menuBtn.classList.remove("pressed"));
   menuBtn.addEventListener("click", () => fileInput.click());
-
-  const minimalEnter = document.createElement("div");
-  minimalEnter.className = "quick-key quick-flick-enter quick-flick-arrow";
-  minimalEnter.innerHTML = '<span class="flick-hint-top">Tab</span><span class="flick-hint-left">BS</span><span class="flick-main">\u21B5</span><span class="flick-hint-bottom">Space</span><span class="flick-hint-right">Del</span>';
-  const resolveEnterKey = (dx, dy, threshold) => {
-    if (Math.abs(dy) > Math.abs(dx) && dy < -threshold)
-      return { key: "Tab", code: "Tab", keyCode: 9 };
-    if (Math.abs(dy) > Math.abs(dx) && dy > threshold)
-      return { key: " ", code: "Space", keyCode: 32 };
-    if (Math.abs(dx) > Math.abs(dy) && dx < -threshold)
-      return { key: "Backspace", code: "Backspace", keyCode: 8 };
-    if (Math.abs(dx) > Math.abs(dy) && dx > threshold)
-      return { key: "Delete", code: "Delete", keyCode: 46 };
-    return null;
-  };
-  setupFlickRepeat(minimalEnter, resolveEnterKey, () => {
-    sendKeyToTerminal({ key: "Enter", code: "Enter", keyCode: 13 });
-  });
-
-  const bsKey = quickKeyBtns[0];
-  const enterKey = quickKeyBtns[quickKeyBtns.length - 1];
-
-  const flickNav = document.createElement("div");
-  flickNav.className = "quick-key quick-flick-arrow";
-  flickNav.innerHTML = '<span class="flick-hint-top"><span class="mdi mdi-chevron-double-up"></span></span><span class="flick-main"><span class="mdi mdi-chevron-double-down"></span></span>';
-  let navStartY = 0;
-  flickNav.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    navStartY = e.touches[0].clientY;
-    flickNav.classList.add("pressed");
-  }, { passive: false });
-  flickNav.addEventListener("touchend", (e) => {
-    e.preventDefault();
-    flickNav.classList.remove("pressed");
-    const dy = e.changedTouches[0].clientY - navStartY;
-    if (Math.abs(dy) > FLICK_THRESHOLD && dy < 0) {
-      scrollTerminal("up");
-    } else {
-      scrollTerminal("down");
-    }
-  });
-  flickNav.addEventListener("touchcancel", () => flickNav.classList.remove("pressed"));
 
   const mode1Shift = document.createElement("div");
   mode1Shift.className = "quick-key quick-flick-arrow quick-modifier";
@@ -440,6 +390,56 @@ function initQuickInput() {
     flickCtrl.classList.toggle("active", modifierState.ctrl);
   });
 
+  const minimalEnter = document.createElement("div");
+  minimalEnter.className = "quick-key quick-flick-enter quick-flick-arrow quick-key-toggle";
+  minimalEnter.innerHTML = '<span class="flick-hint-top">Tab</span><span class="flick-hint-left">BS</span><span class="flick-main">\u21B5</span><span class="flick-hint-bottom">Space</span><span class="flick-hint-right">Del</span>';
+  const resolveEnterKey = (dx, dy, threshold) => {
+    if (Math.abs(dy) > Math.abs(dx) && dy < -threshold)
+      return { key: "Tab", code: "Tab", keyCode: 9 };
+    if (Math.abs(dy) > Math.abs(dx) && dy > threshold)
+      return { key: " ", code: "Space", keyCode: 32 };
+    if (Math.abs(dx) > Math.abs(dy) && dx < -threshold)
+      return { key: "Backspace", code: "Backspace", keyCode: 8 };
+    if (Math.abs(dx) > Math.abs(dy) && dx > threshold)
+      return { key: "Delete", code: "Delete", keyCode: 46 };
+    return null;
+  };
+  setupFlickRepeat(minimalEnter, resolveEnterKey, () => {
+    if (snippetRow.style.display === "flex") {
+      closeSnippetMode();
+    } else {
+      exitViewModeIfActive();
+      sendKeyToTerminal({ key: "Enter", code: "Enter", keyCode: 13 });
+    }
+  }, {
+    onLongPress: () => toggleSnippetRow(),
+  });
+
+  const bsKey = quickKeyBtns[0];
+  const enterKey = quickKeyBtns[quickKeyBtns.length - 1];
+
+  const flickNav = document.createElement("div");
+  flickNav.className = "quick-key quick-flick-arrow";
+  flickNav.innerHTML = '<span class="flick-hint-top"><span class="mdi mdi-chevron-double-up"></span></span><span class="flick-main"><span class="mdi mdi-chevron-double-down"></span></span>';
+  let navStartY = 0;
+  flickNav.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    navStartY = e.touches[0].clientY;
+    flickNav.classList.add("pressed");
+  }, { passive: false });
+  flickNav.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    flickNav.classList.remove("pressed");
+    const dy = e.changedTouches[0].clientY - navStartY;
+    if (Math.abs(dy) > FLICK_THRESHOLD && dy < 0) {
+      scrollTerminal("up");
+    } else {
+      scrollTerminal("down");
+    }
+  });
+  flickNav.addEventListener("touchcancel", () => flickNav.classList.remove("pressed"));
+
+
   const createFlickTab = (opts = {}) => {
     const leftLabel = opts.leftLabel || "Home";
     const leftKey = opts.leftKey || { key: "Home", code: "Home", keyCode: 36 };
@@ -477,23 +477,11 @@ function initQuickInput() {
     return el;
   };
   const flickTab = createFlickTab();
-
-  const addSnippetHandler = () => {
-    const cmd = prompt("スニペットを入力:");
-    if (cmd) {
-      addSnippet(cmd);
-      renderSnippetRow();
-    }
-  };
-
-  menuBtn.classList.add("quick-key-mode1");
-  mode1Shift.classList.add("quick-key-mode1");
-  flickCtrl.classList.add("quick-key-mode1");
-  flickTab.classList.add("quick-key-mode1");
-  panel.appendChild(menuBtn);
-  panel.appendChild(mode1Shift);
-  panel.appendChild(flickCtrl);
-  panel.appendChild(flickTab);
+  const mode1Elements = [menuBtn, mode1Shift, flickCtrl, flickTab];
+  for (const el of mode1Elements) {
+    el.style.display = "none";
+    panel.appendChild(el);
+  }
   for (const btn of minimalKeyBtns) panel.appendChild(btn);
   panel.appendChild(minimalEnter);
 
@@ -672,9 +660,10 @@ function initQuickInput() {
   const qwertyFlickTab = createFlickTab();
   qwertyBottomRow.appendChild(qwertyFlickTab);
   const qwertyToggle = document.createElement("div");
-  qwertyToggle.className = "quick-key quick-key-toggle quick-flick-arrow active";
-  qwertyToggle.innerHTML = '<span class="flick-hint-top">\u2191</span><span class="flick-hint-left">\u2190</span><span class="flick-main"><span class="mdi mdi-cached"></span></span><span class="flick-hint-right">\u2192</span><span class="flick-hint-bottom">\u2193</span>';
-  setupFlickRepeat(qwertyToggle, resolveArrowKey, () => cycleMode());
+  qwertyToggle.className = "quick-key quick-key-toggle";
+  qwertyToggle.innerHTML = '<span class="mdi mdi-close"></span>';
+  qwertyToggle.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  qwertyToggle.addEventListener("touchend", (e) => { e.preventDefault(); cycleMode(); });
   qwertyToggle.addEventListener("click", () => cycleMode());
   qwertyBottomRow.appendChild(qwertyToggle);
   const enterBtn = createQuickKeyBtn({ label: "\u21B5", key: "Enter" });
@@ -683,119 +672,195 @@ function initQuickInput() {
   const snippetRow = document.createElement("div");
   snippetRow.className = "quick-snippet-row";
 
+  const updateEnterBtn = () => {
+    const snippetVisible = snippetRow.style.display === "flex";
+    if (snippetVisible) {
+      enterBtn.innerHTML = '<span class="mdi mdi-close"></span>';
+      enterBtn._overrideAction = () => { snippetRow.style.display = "none"; updateEnterBtn(); };
+    } else {
+      enterBtn._overrideAction = null;
+      const dynEntry = bottomDynBtns.find((d) => d.btn === enterBtn);
+      const def = qwertyFnActive ? dynEntry.fn : dynEntry.normal;
+      enterBtn._keyDef = def;
+      if (def.html) enterBtn.innerHTML = def.html;
+      else enterBtn.textContent = def.label;
+    }
+  };
+
+  function closeSnippetMode() {
+    snippetRow.style.display = "none";
+    minimalEnter.innerHTML = minimalEnterDefaultHTML;
+    minimalEnter.classList.remove("active");
+    updateEnterBtn();
+  }
+
+  function createSnippetChip(text, onTap, onDelete) {
+    const chip = document.createElement("div");
+    chip.className = "quick-snippet-item";
+    chip.textContent = text.length <= 20 ? text : text.slice(0, 20) + "\u2026";
+    let longPressTimer = null;
+    let scrolled = false;
+    let startX = 0;
+    const SCROLL_THRESHOLD = 10;
+    chip.addEventListener("touchstart", (e) => {
+      scrolled = false;
+      startX = e.touches[0].clientX;
+      chip.classList.add("pressed");
+      if (onDelete) {
+        longPressTimer = setTimeout(() => {
+          longPressTimer = null;
+          chip.classList.remove("pressed");
+          onDelete();
+        }, 600);
+      }
+    }, { passive: true });
+    chip.addEventListener("touchmove", (e) => {
+      if (!scrolled && Math.abs(e.touches[0].clientX - startX) > SCROLL_THRESHOLD) {
+        scrolled = true;
+        chip.classList.remove("pressed");
+        if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+      }
+    }, { passive: true });
+    chip.addEventListener("touchend", (e) => {
+      chip.classList.remove("pressed");
+      if (scrolled) return;
+      if (longPressTimer !== null) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      e.preventDefault();
+      onTap();
+    });
+    chip.addEventListener("touchcancel", () => {
+      chip.classList.remove("pressed");
+      if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+    });
+    chip.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      chip.classList.add("pressed");
+      if (onDelete) {
+        longPressTimer = setTimeout(() => {
+          longPressTimer = null;
+          chip.classList.remove("pressed");
+          onDelete();
+        }, 600);
+      }
+    });
+    chip.addEventListener("mouseup", (e) => {
+      if (e.button !== 0) return;
+      chip.classList.remove("pressed");
+      if (longPressTimer !== null) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      onTap();
+    });
+    chip.addEventListener("mouseleave", () => {
+      chip.classList.remove("pressed");
+      if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+    });
+    return chip;
+  }
+
   function renderSnippetRow() {
     snippetRow.innerHTML = "";
+    const snippetCol = document.createElement("div");
+    snippetCol.className = "quick-snippet-col";
+    const historyCol = document.createElement("div");
+    historyCol.className = "quick-snippet-col quick-snippet-col-right";
+
     const snippets = loadSnippets();
     snippets.forEach((s, idx) => {
-      const chip = document.createElement("div");
-      chip.className = "quick-snippet-item";
-      chip.textContent = s.label;
-      let longPressTimer = null;
-      let scrolled = false;
-      let startX = 0;
-      const SCROLL_THRESHOLD = 10;
-      chip.addEventListener("touchstart", (e) => {
-        scrolled = false;
-        startX = e.touches[0].clientX;
-        chip.classList.add("pressed");
-        longPressTimer = setTimeout(() => {
-          longPressTimer = null;
-          chip.classList.remove("pressed");
-          if (confirm(`「${s.command}」を削除しますか？`)) {
-            deleteSnippet(idx);
-            renderSnippetRow();
-          }
-        }, 600);
-      }, { passive: true });
-      chip.addEventListener("touchmove", (e) => {
-        if (!scrolled && Math.abs(e.touches[0].clientX - startX) > SCROLL_THRESHOLD) {
-          scrolled = true;
-          chip.classList.remove("pressed");
-          if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
-        }
-      }, { passive: true });
-      chip.addEventListener("touchend", (e) => {
-        chip.classList.remove("pressed");
-        if (scrolled) return;
-        if (longPressTimer !== null) {
-          clearTimeout(longPressTimer);
-          longPressTimer = null;
-          e.preventDefault();
-          sendTextToTerminal(s.command);
-          extraMode = 0;
-          applyMode();
+      const chip = createSnippetChip(s.label, () => {
+        sendTextToTerminal(s.command);
+        closeSnippetMode();
+      }, () => {
+        if (confirm(`「${s.command}」を削除しますか？`)) {
+          deleteSnippet(idx);
+          renderSnippetRow();
         }
       });
-      chip.addEventListener("touchcancel", () => {
-        chip.classList.remove("pressed");
-        if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
-      });
-      chip.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
-        chip.classList.add("pressed");
-        longPressTimer = setTimeout(() => {
-          longPressTimer = null;
-          chip.classList.remove("pressed");
-          if (confirm(`「${s.command}」を削除しますか？`)) {
-            deleteSnippet(idx);
-            renderSnippetRow();
-          }
-        }, 600);
-      });
-      chip.addEventListener("mouseup", (e) => {
-        if (e.button !== 0) return;
-        chip.classList.remove("pressed");
-        if (longPressTimer !== null) {
-          clearTimeout(longPressTimer);
-          longPressTimer = null;
-          sendTextToTerminal(s.command);
-          extraMode = 0;
-          applyMode();
-        }
-      });
-      chip.addEventListener("mouseleave", () => {
-        chip.classList.remove("pressed");
-        if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
-      });
-      snippetRow.appendChild(chip);
+      chip.classList.add("quick-history-item");
+      snippetCol.appendChild(chip);
     });
 
+    inputHistory.slice(0, 5).reverse().forEach((text) => {
+      const chip = createSnippetChip(text, () => {
+        sendTextToTerminal(text);
+        closeSnippetMode();
+      });
+      historyCol.appendChild(chip);
+    });
+
+    snippetRow.appendChild(snippetCol);
+    snippetRow.appendChild(historyCol);
   }
 
   snippetRow.style.display = "none";
 
   let extraMode = 0;
 
-  const mode1Elements = [menuBtn, mode1Shift, flickCtrl, flickTab];
-
   const cycleMode = () => {
-    extraMode = (extraMode + 1) % 3;
+    extraMode = (extraMode + 1) % 2;
     qwertyFnActive = false;
     fnBtn.classList.remove("active");
     clearModifiers();
+    snippetRow.style.display = "none";
+    minimalEnter.innerHTML = minimalEnterDefaultHTML;
+    minimalEnter.classList.remove("active");
+    updateEnterBtn();
     applyMode();
   };
 
-  const applyMode = () => {
-    panel.classList.toggle("minimal-mode", extraMode === 0);
-    panel.classList.toggle("extra-open", extraMode >= 1);
-    for (const el of mode1Elements) el.style.display = extraMode >= 1 ? "" : "none";
-    extraPanel.style.display = "none";
-    qwertyPanel.style.display = extraMode === 2 ? "flex" : "none";
-    if (extraMode === 1) {
+  const minimalEnterDefaultHTML = '<span class="flick-hint-top">Tab</span><span class="flick-hint-left">BS</span><span class="flick-main">\u21B5</span><span class="flick-hint-bottom">Space</span><span class="flick-hint-right">Del</span>';
+
+  const toggleSnippetRow = () => {
+    const visible = snippetRow.style.display === "flex";
+    if (visible) {
+      snippetRow.style.display = "none";
+      minimalEnter.innerHTML = minimalEnterDefaultHTML;
+      minimalEnter.classList.remove("active");
+    } else {
+      if (extraMode !== 0) {
+        extraMode = 0;
+        clearModifiers();
+        applyMode();
+      }
       snippetRow.style.display = "flex";
       renderSnippetRow();
-    } else {
-      snippetRow.style.display = "none";
+      minimalEnter.innerHTML = '<span class="mdi mdi-close"></span>';
+      minimalEnter.classList.add("active");
     }
+    updateEnterBtn();
+  };
+
+  const minimalArrowDefaultHTML = '<span class="flick-hint-top">\u2191</span><span class="flick-hint-left">\u2190</span><span class="flick-main"><span class="mdi mdi-keyboard"></span></span><span class="flick-hint-right">\u2192</span><span class="flick-hint-bottom">\u2193</span>';
+
+  const applyMode = () => {
+    panel.classList.toggle("minimal-mode", extraMode === 0);
+    panel.classList.toggle("extra-open", extraMode === 1);
+    minimalArrow.classList.toggle("active", extraMode === 1);
+    if (extraMode === 1) {
+      minimalArrow.innerHTML = '<span class="flick-hint-top">\u2191</span><span class="flick-hint-left">\u2190</span><span class="flick-main"><span class="mdi mdi-close"></span></span><span class="flick-hint-right">\u2192</span><span class="flick-hint-bottom">\u2193</span>';
+    } else {
+      minimalArrow.innerHTML = minimalArrowDefaultHTML;
+    }
+    for (const el of mode1Elements) el.style.display = extraMode === 1 ? "" : "none";
+    extraPanel.style.display = "none";
+    qwertyPanel.style.display = extraMode === 1 ? "flex" : "none";
   };
   applyMode();
 
   const closeExtraOnOutside = (e) => {
-    if (extraMode === 0) return;
     if (panel.contains(e.target) || qwertyPanel.contains(e.target) || snippetRow.contains(e.target)) return;
-    extraMode = 0;
-    applyMode();
+    if (extraMode !== 0) {
+      extraMode = 0;
+      applyMode();
+    }
+    snippetRow.style.display = "none";
+    minimalEnter.innerHTML = minimalEnterDefaultHTML;
+    minimalEnter.classList.remove("active");
+    updateEnterBtn();
   };
   document.addEventListener("touchend", closeExtraOnOutside);
   document.addEventListener("click", closeExtraOnOutside);
