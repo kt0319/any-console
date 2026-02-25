@@ -2512,11 +2512,24 @@ button:disabled {
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
   outline: none;
+  transition: transform 0.12s ease, background 0.12s ease;
 }
 
 .quick-key.pressed {
   background: rgba(255, 255, 255, 0.15);
   color: var(--text-primary);
+  transform: scale(0.85);
+  transition: transform 0.06s ease, background 0.06s ease;
+}
+
+.quick-key.tap-bounce {
+  animation: quick-key-bounce 0.25s ease-out;
+}
+
+@keyframes quick-key-bounce {
+  0% { transform: scale(0.85); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
 }
 
 .quick-key-toggle.active,

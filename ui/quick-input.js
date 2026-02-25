@@ -62,6 +62,20 @@ function scrollTerminal(direction) {
   tab.term.scrollLines(direction === "up" ? -20 : 20);
 }
 
+document.addEventListener("touchend", (e) => {
+  const el = e.target.closest(".quick-key");
+  if (!el) return;
+  el.classList.remove("tap-bounce");
+  void el.offsetWidth;
+  el.classList.add("tap-bounce");
+}, { passive: true });
+
+document.addEventListener("animationend", (e) => {
+  if (e.animationName === "quick-key-bounce") {
+    e.target.classList.remove("tap-bounce");
+  }
+});
+
 const REPEAT_DELAY = 400;
 const REPEAT_INTERVAL = 80;
 
