@@ -2711,7 +2711,7 @@ button:disabled {
   height: 38px;
   padding: 0 16px;
   border: 1px solid rgba(130, 170, 255, 0.5);
-  border-radius: 19px;
+  border-radius: 6px;
   background: rgba(20, 22, 35, 0.85);
   color: var(--accent);
   font-size: 12px;
@@ -2747,7 +2747,7 @@ button:disabled {
   height: 38px;
   min-height: 38px;
   border: 1px dashed rgba(130, 170, 255, 0.5);
-  border-radius: 19px;
+  border-radius: 6px;
   background: rgba(40, 45, 65, 0.85);
   color: var(--accent);
   font-size: 14px;
@@ -2851,76 +2851,16 @@ button:disabled {
   color: rgba(255, 255, 255, 0.3);
 }
 
-.keyboard-input-stock {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
+.keyboard-input-snippets {
   margin-bottom: 5px;
-  width: 100%;
-  overflow: hidden;
+  pointer-events: auto;
 }
 
-.keyboard-input-stock-chip {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-width: 0;
-  min-height: 32px;
-  padding: 0 12px;
+.snippet-chip-icon {
   font-size: 13px;
-  font-family: inherit;
-  color: rgba(255, 255, 255, 0.75);
-  background: rgba(20, 22, 35, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  cursor: pointer;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  text-align: left;
-  box-sizing: border-box;
-}
-
-.keyboard-input-stock-nav-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  touch-action: manipulation;
-}
-
-.keyboard-input-stock-page {
-  flex: 1;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-  white-space: nowrap;
-  text-align: center;
-  padding: 4px 0;
-  background: rgba(20, 22, 35, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-}
-
-.keyboard-input-stock-nav {
-  flex: 1;
-  min-width: 0;
-  touch-action: manipulation;
-  min-height: 32px;
-  padding: 4px 12px;
-  font-size: 13px;
-  line-height: 1;
-  color: rgba(255, 255, 255, 0.7);
-  background: rgba(20, 22, 35, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  cursor: pointer;
-  text-align: center;
-  box-sizing: border-box;
-}
-
-.keyboard-input-stock-nav .mdi {
-  font-size: 22px;
+  margin-right: 4px;
+  opacity: 0.6;
+  flex-shrink: 0;
 }
 
 @media (min-width: 769px) {

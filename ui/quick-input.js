@@ -250,6 +250,111 @@ function createQuickKeyBtn(keyDef) {
   return btn;
 }
 
+function createSnippetChip(text, onTap, onDelete, iconClass) {
+  const chip = document.createElement("div");
+  chip.className = "quick-snippet-item";
+  if (iconClass) {
+    const icon = document.createElement("span");
+    icon.className = `mdi ${iconClass} snippet-chip-icon`;
+    chip.appendChild(icon);
+  }
+  chip.appendChild(document.createTextNode(text.length <= 20 ? text : text.slice(0, 20) + "\u2026"));
+  let longPressTimer = null;
+  let scrolled = false;
+  let startX = 0;
+  const SCROLL_THRESHOLD = 10;
+  chip.addEventListener("touchstart", (e) => {
+    scrolled = false;
+    startX = e.touches[0].clientX;
+    chip.classList.add("pressed");
+    if (onDelete) {
+      longPressTimer = setTimeout(() => {
+        longPressTimer = null;
+        chip.classList.remove("pressed");
+        onDelete();
+      }, 600);
+    }
+  }, { passive: true });
+  chip.addEventListener("touchmove", (e) => {
+    if (!scrolled && Math.abs(e.touches[0].clientX - startX) > SCROLL_THRESHOLD) {
+      scrolled = true;
+      chip.classList.remove("pressed");
+      if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+    }
+  }, { passive: true });
+  chip.addEventListener("touchend", (e) => {
+    chip.classList.remove("pressed");
+    if (scrolled) return;
+    if (longPressTimer !== null) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+    e.preventDefault();
+    onTap();
+  });
+  chip.addEventListener("touchcancel", () => {
+    chip.classList.remove("pressed");
+    if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+  });
+  chip.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    chip.classList.add("pressed");
+    if (onDelete) {
+      longPressTimer = setTimeout(() => {
+        longPressTimer = null;
+        chip.classList.remove("pressed");
+        onDelete();
+      }, 600);
+    }
+  });
+  chip.addEventListener("mouseup", (e) => {
+    if (e.button !== 0) return;
+    chip.classList.remove("pressed");
+    if (longPressTimer !== null) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+    onTap();
+  });
+  chip.addEventListener("mouseleave", () => {
+    chip.classList.remove("pressed");
+    if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+  });
+  return chip;
+}
+
+function renderSnippetRow(container, onChipTap) {
+  container.innerHTML = "";
+  const snippetCol = document.createElement("div");
+  snippetCol.className = "quick-snippet-col";
+  const historyCol = document.createElement("div");
+  historyCol.className = "quick-snippet-col quick-snippet-col-right";
+
+  const snippets = loadSnippets();
+  snippets.forEach((s, idx) => {
+    const chip = createSnippetChip(s.label, () => {
+      onChipTap(s.command);
+    }, () => {
+      if (confirm(`「${s.command}」を削除しますか？`)) {
+        deleteSnippet(idx);
+        renderSnippetRow(container, onChipTap);
+      }
+    }, "mdi-pin");
+    chip.classList.add("quick-history-item");
+    snippetCol.appendChild(chip);
+  });
+
+  inputHistory.slice(0, 5).reverse().forEach((text) => {
+    const chip = createSnippetChip(text, () => {
+      onChipTap(text);
+    }, null, "mdi-history");
+    historyCol.appendChild(chip);
+  });
+
+  container.appendChild(snippetCol);
+  container.appendChild(historyCol);
+}
+
 function initQuickInput() {
   const panel = $("quick-input-panel");
 
@@ -317,7 +422,7 @@ function initQuickInput() {
       if (cmd) {
         addSnippet(cmd);
         snippetRow.style.display = "flex";
-        renderSnippetRow();
+        renderQuickSnippets();
         updateEnterBtn();
       }
     } else {
@@ -699,107 +804,10 @@ function initQuickInput() {
     updateEnterBtn();
   }
 
-  function createSnippetChip(text, onTap, onDelete) {
-    const chip = document.createElement("div");
-    chip.className = "quick-snippet-item";
-    chip.textContent = text.length <= 20 ? text : text.slice(0, 20) + "\u2026";
-    let longPressTimer = null;
-    let scrolled = false;
-    let startX = 0;
-    const SCROLL_THRESHOLD = 10;
-    chip.addEventListener("touchstart", (e) => {
-      scrolled = false;
-      startX = e.touches[0].clientX;
-      chip.classList.add("pressed");
-      if (onDelete) {
-        longPressTimer = setTimeout(() => {
-          longPressTimer = null;
-          chip.classList.remove("pressed");
-          onDelete();
-        }, 600);
-      }
-    }, { passive: true });
-    chip.addEventListener("touchmove", (e) => {
-      if (!scrolled && Math.abs(e.touches[0].clientX - startX) > SCROLL_THRESHOLD) {
-        scrolled = true;
-        chip.classList.remove("pressed");
-        if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
-      }
-    }, { passive: true });
-    chip.addEventListener("touchend", (e) => {
-      chip.classList.remove("pressed");
-      if (scrolled) return;
-      if (longPressTimer !== null) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-      }
-      e.preventDefault();
-      onTap();
-    });
-    chip.addEventListener("touchcancel", () => {
-      chip.classList.remove("pressed");
-      if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
-    });
-    chip.addEventListener("mousedown", (e) => {
-      if (e.button !== 0) return;
-      chip.classList.add("pressed");
-      if (onDelete) {
-        longPressTimer = setTimeout(() => {
-          longPressTimer = null;
-          chip.classList.remove("pressed");
-          onDelete();
-        }, 600);
-      }
-    });
-    chip.addEventListener("mouseup", (e) => {
-      if (e.button !== 0) return;
-      chip.classList.remove("pressed");
-      if (longPressTimer !== null) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-      }
-      onTap();
-    });
-    chip.addEventListener("mouseleave", () => {
-      chip.classList.remove("pressed");
-      if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
-    });
-    return chip;
-  }
-
-  function renderSnippetRow() {
-    snippetRow.innerHTML = "";
-    const snippetCol = document.createElement("div");
-    snippetCol.className = "quick-snippet-col";
-    const historyCol = document.createElement("div");
-    historyCol.className = "quick-snippet-col quick-snippet-col-right";
-
-    const snippets = loadSnippets();
-    snippets.forEach((s, idx) => {
-      const chip = createSnippetChip(s.label, () => {
-        sendTextToTerminal(s.command);
-        closeSnippetMode();
-      }, () => {
-        if (confirm(`「${s.command}」を削除しますか？`)) {
-          deleteSnippet(idx);
-          renderSnippetRow();
-        }
-      });
-      chip.classList.add("quick-history-item");
-      snippetCol.appendChild(chip);
-    });
-
-    inputHistory.slice(0, 5).reverse().forEach((text) => {
-      const chip = createSnippetChip(text, () => {
-        sendTextToTerminal(text);
-        closeSnippetMode();
-      });
-      historyCol.appendChild(chip);
-    });
-
-    snippetRow.appendChild(snippetCol);
-    snippetRow.appendChild(historyCol);
-  }
+  const renderQuickSnippets = () => renderSnippetRow(snippetRow, (text) => {
+    sendTextToTerminal(text);
+    closeSnippetMode();
+  });
 
   snippetRow.style.display = "none";
 
@@ -832,7 +840,7 @@ function initQuickInput() {
         applyMode();
       }
       snippetRow.style.display = "flex";
-      renderSnippetRow();
+      renderQuickSnippets();
       minimalEnter.innerHTML = '<span class="mdi mdi-close"></span>';
       minimalEnter.classList.add("active");
     }

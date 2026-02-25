@@ -75,9 +75,9 @@ function createKeyboardInput() {
   wrapper.id = "keyboard-input-wrapper";
   wrapper.className = "keyboard-input-wrapper";
 
-  const stock = document.createElement("div");
-  stock.className = "keyboard-input-stock";
-  wrapper.appendChild(stock);
+  const snippetContainer = document.createElement("div");
+  snippetContainer.className = "quick-snippet-row keyboard-input-snippets";
+  wrapper.appendChild(snippetContainer);
 
   const inputRow = document.createElement("div");
   inputRow.className = "keyboard-input-row";
@@ -152,75 +152,17 @@ function createKeyboardInput() {
   return el;
 }
 
-const INPUT_STOCK_PAGE_SIZE = 3;
-let inputStockOffset = 0;
-
-function renderInputStock() {
+function renderKeyboardSnippets() {
   const wrapper = document.getElementById("keyboard-input-wrapper");
   if (!wrapper) return;
-  const stock = wrapper.querySelector(".keyboard-input-stock");
+  const container = wrapper.querySelector(".keyboard-input-snippets");
   const input = wrapper.querySelector(".keyboard-input");
-  stock.innerHTML = "";
-  if (inputHistory.length === 0) {
-    stock.style.display = "none";
-    return;
-  }
-  stock.style.display = "";
-
-  const maxOffset = Math.max(0, inputHistory.length - INPUT_STOCK_PAGE_SIZE);
-  if (inputStockOffset > maxOffset) inputStockOffset = maxOffset;
-
-  const hasPrev = inputStockOffset + INPUT_STOCK_PAGE_SIZE < inputHistory.length;
-  const hasNext = inputStockOffset > 0;
-
-  const navRow = document.createElement("div");
-  navRow.className = "keyboard-input-stock-nav-row";
-  navRow.appendChild(createStockNav("mdi-menu-left", -1, input, !hasNext));
-  const pageInfo = document.createElement("span");
-  pageInfo.className = "keyboard-input-stock-page";
-  const from = inputStockOffset + 1;
-  const to = Math.min(inputStockOffset + INPUT_STOCK_PAGE_SIZE, inputHistory.length);
-  pageInfo.textContent = `${from}-${to} / ${inputHistory.length}`;
-  navRow.appendChild(pageInfo);
-  navRow.appendChild(createStockNav("mdi-menu-right", 1, input, !hasPrev));
-  stock.appendChild(navRow);
-
-  const visible = inputHistory.slice(inputStockOffset, inputStockOffset + INPUT_STOCK_PAGE_SIZE);
-  for (const text of [...visible].reverse()) {
-    stock.appendChild(createStockChip(text, input));
-  }
-}
-
-function createStockChip(text, input) {
-  const chip = document.createElement("button");
-  chip.type = "button";
-  chip.className = "keyboard-input-stock-chip";
-  chip.textContent = text;
-  chip.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
+  if (!container || !input) return;
+  renderSnippetRow(container, (text) => {
     input.value = text;
     input.dispatchEvent(new Event("input"));
     input.focus({ preventScroll: true });
   });
-  return chip;
-}
-
-function createStockNav(label, direction, input, disabled) {
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "keyboard-input-stock-nav";
-  btn.innerHTML = `<i class="mdi ${label}"></i>`;
-  btn.disabled = disabled;
-  btn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
-  btn.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    if (btn.disabled) return;
-    inputStockOffset += direction * INPUT_STOCK_PAGE_SIZE;
-    inputStockOffset = Math.max(0, Math.min(inputStockOffset, inputHistory.length - INPUT_STOCK_PAGE_SIZE));
-    renderInputStock();
-    input.focus({ preventScroll: true });
-  });
-  return btn;
 }
 
 function showKeyboardInput() {
@@ -232,8 +174,7 @@ function showKeyboardInput() {
   const wrapper = el.closest(".keyboard-input-wrapper");
   wrapper.style.display = "";
   wrapper.style.top = "";
-  inputStockOffset = 0;
-  renderInputStock();
+  renderKeyboardSnippets();
   const vv = window.visualViewport;
   if (vv) {
     const bottomOffset = window.innerHeight - (vv.offsetTop + vv.height);
