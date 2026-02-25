@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import json
 import logging
 import platform
 import re
@@ -328,11 +329,20 @@ def export_settings():
     return {k: v for k, v in config.items() if k in existing}
 
 
+MAX_IMPORT_SIZE = 1024 * 1024
+
+
 @app.post("/settings/import", dependencies=[Depends(verify_token)])
 async def import_settings(request: Request):
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_IMPORT_SIZE:
+        raise HTTPException(status_code=413, detail="Import data too large (max 1MB)")
+    body = await request.body()
+    if len(body) > MAX_IMPORT_SIZE:
+        raise HTTPException(status_code=413, detail="Import data too large (max 1MB)")
     try:
-        data = await request.json()
-    except Exception:
+        data = json.loads(body)
+    except (json.JSONDecodeError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid JSON")
     if not isinstance(data, dict):
         raise HTTPException(status_code=400, detail="Expected JSON object")

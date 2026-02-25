@@ -13,11 +13,13 @@ function loadToken() {
   if (ls) return ls;
   const match = document.cookie.match(/(?:^|;\s*)pi_console_token=([^;]*)/);
   if (match) {
-    const val = decodeURIComponent(match[1]);
-    if (val) {
-      localStorage.setItem("pi_console_token", val);
-      return val;
-    }
+    try {
+      const val = decodeURIComponent(match[1]);
+      if (val) {
+        localStorage.setItem("pi_console_token", val);
+        return val;
+      }
+    } catch {}
   }
   return "";
 }

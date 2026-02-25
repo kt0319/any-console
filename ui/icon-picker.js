@@ -35,7 +35,10 @@ function extractDomain(text) {
 
 async function fetchIconMeta() {
   if (iconPickerCache) return iconPickerCache;
-  const res = await fetch("https://cdn.jsdelivr.net/npm/@mdi/svg@7/meta.json");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  const res = await fetch("https://cdn.jsdelivr.net/npm/@mdi/svg@7/meta.json", { signal: controller.signal });
+  clearTimeout(timeout);
   const data = await res.json();
   iconPickerCache = data.map((item) => ({
     name: item.name,

@@ -1,11 +1,13 @@
 import logging
+import os
 import re
 import secrets
+import signal
 import subprocess
 import time
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..auth import verify_token
 from ..common import (
@@ -72,9 +74,33 @@ def list_workspace_jobs(name: str):
     return {jname: job_definition_to_dict(job_def) for jname, job_def in jobs.items()}
 
 
-def _apply_icon_fields(entry: dict, icon: str, icon_color: str) -> None:
+ICON_PATTERN = re.compile(r"^(mdi-[a-zA-Z0-9-]+|favicon:[a-zA-Z0-9._-]+|data:image/.+)$")
+ICON_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{3,6}$")
+
+
+def validate_icon(icon: str) -> str:
     icon = icon.strip()
-    icon_color = icon_color.strip()
+    if not icon:
+        return ""
+    if len(icon) > 500:
+        raise HTTPException(status_code=400, detail="Icon value too long")
+    if not ICON_PATTERN.match(icon):
+        raise HTTPException(status_code=400, detail=f"Invalid icon format: {icon}")
+    return icon
+
+
+def validate_icon_color(color: str) -> str:
+    color = color.strip()
+    if not color:
+        return ""
+    if not ICON_COLOR_PATTERN.match(color):
+        raise HTTPException(status_code=400, detail=f"Invalid icon color: {color}")
+    return color
+
+
+def _apply_icon_fields(entry: dict, icon: str, icon_color: str) -> None:
+    icon = validate_icon(icon)
+    icon_color = validate_icon_color(icon_color)
     if icon:
         entry["icon"] = icon
     if icon_color:
@@ -90,10 +116,10 @@ def build_job_entry(command: str, icon: str, icon_color: str, confirm: bool) -> 
 
 
 class CreateJobRequest(BaseModel):
-    name: str
-    command: str
-    icon: str = ""
-    icon_color: str = ""
+    name: str = Field(..., max_length=100)
+    command: str = Field(..., max_length=10000)
+    icon: str = Field("", max_length=500)
+    icon_color: str = Field("", max_length=20)
     confirm: bool = True
 
 
@@ -116,9 +142,9 @@ def create_workspace_job(name: str, body: CreateJobRequest):
 
 
 class UpdateJobRequest(BaseModel):
-    command: str
-    icon: str = ""
-    icon_color: str = ""
+    command: str = Field(..., max_length=10000)
+    icon: str = Field("", max_length=500)
+    icon_color: str = Field("", max_length=20)
     confirm: bool = True
 
 
@@ -178,10 +204,10 @@ def list_workspace_links(name: str):
 
 
 class CreateLinkRequest(BaseModel):
-    label: str = ""
-    url: str
-    icon: str = ""
-    icon_color: str = ""
+    label: str = Field("", max_length=200)
+    url: str = Field(..., max_length=2000)
+    icon: str = Field("", max_length=500)
+    icon_color: str = Field("", max_length=20)
 
 
 @router.post("/workspaces/{name}/links")
@@ -281,14 +307,22 @@ def execute_job(body: RunRequest):
         except OSError as e:
             logger.error("pty fork failed: %s", e)
             raise HTTPException(status_code=500, detail=f"Failed to create terminal: {e}")
-        TERMINAL_SESSIONS[session_id] = TerminalSession(
-            workspace=body.workspace,
-            fd=fd,
-            pid=pid,
-            expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
-            icon=body.icon,
-            icon_color=body.icon_color,
-        )
+        try:
+            TERMINAL_SESSIONS[session_id] = TerminalSession(
+                workspace=body.workspace,
+                fd=fd,
+                pid=pid,
+                expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
+                icon=body.icon,
+                icon_color=body.icon_color,
+            )
+        except Exception:
+            os.close(fd)
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except (ProcessLookupError, OSError):
+                pass
+            raise
         logger.info("terminal session created session=%s pid=%d workspace=%s",
                      session_id, pid, body.workspace or "(none)")
         return {

@@ -222,6 +222,8 @@ function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 
   }
 }
 
+const VALID_ICON_COLOR = /^#[0-9a-fA-F]{3,6}$/;
+
 function renderIcon(icon, iconColor, size = 16) {
   if (!icon) return "";
   if (icon.startsWith("data:image/")) {
@@ -232,7 +234,9 @@ function renderIcon(icon, iconColor, size = 16) {
     return `<img src="${faviconUrl(domain)}" width="${size}" height="${size}" class="favicon-icon" alt="" />`;
   }
   const styles = [`font-size:${size}px`];
-  if (iconColor) styles.push(`color:${escapeHtml(iconColor)}`);
+  if (iconColor && VALID_ICON_COLOR.test(iconColor)) {
+    styles.push(`color:${iconColor}`);
+  }
   return `<span class="mdi ${escapeHtml(icon)}" style="${styles.join(";")}"></span>`;
 }
 

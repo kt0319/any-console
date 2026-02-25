@@ -80,7 +80,7 @@ function collectConfirmArgs() {
   if (!job || !job.args) return {};
   const args = {};
   for (const arg of job.args) {
-    const checked = document.querySelector(`input[name="confirm-arg-${arg.name}"]:checked`);
+    const checked = document.querySelector(`input[name="confirm-arg-${CSS.escape(arg.name)}"]:checked`);
     if (checked) args[arg.name] = checked.value;
   }
   return args;
@@ -107,7 +107,9 @@ async function _runJobInner(targetJob, workspaceOverride) {
         const wsJobs = await jobsRes.json();
         job = wsJobs[targetJob];
       }
-    } catch {}
+    } catch (e) {
+      console.error("job fetch failed:", e);
+    }
   }
   if (!job && targetJob !== "terminal") {
     showToast(`ジョブ "${targetJob}" が見つかりません`);

@@ -69,7 +69,9 @@ def _read_config_unlocked() -> dict:
 
 def _write_config_unlocked(config: dict) -> None:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    CONFIG_FILE.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp_path = CONFIG_FILE.with_suffix(".tmp")
+    tmp_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp_path.replace(CONFIG_FILE)
 
 
 def _migrate_to_unified_config() -> dict:

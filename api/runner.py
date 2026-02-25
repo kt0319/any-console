@@ -1,5 +1,6 @@
 import logging
 import os
+import shlex
 import subprocess
 
 from .common import PROJECT_ROOT
@@ -13,9 +14,9 @@ EXEC_TIMEOUT_SEC = 120
 def run_job(
     job: JobDefinition, args: list[str], workspace: str = "", extra_env: dict[str, str] | None = None
 ) -> subprocess.CompletedProcess:
-    cmd = job.command
+    cmd_parts = shlex.split(job.command)
     if args:
-        cmd = cmd + " " + " ".join(args)
+        cmd_parts.extend(args)
     env = {**os.environ}
     if workspace:
         env["WORKSPACE"] = workspace
@@ -25,8 +26,7 @@ def run_job(
 
     logger.info("run command=%s args=%s cwd=%s", job.command, args, cwd)
     result = subprocess.run(
-        cmd,
-        shell=True,
+        cmd_parts,
         capture_output=True,
         text=True,
         timeout=EXEC_TIMEOUT_SEC,

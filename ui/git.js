@@ -107,6 +107,8 @@ async function refreshAfterGitOp() {
 async function gitFetch() {
   if (!selectedWorkspace) return;
   const fetchBtn = $("fetch-btn");
+  if (fetchBtn.disabled) return;
+  fetchBtn.disabled = true;
   fetchBtn.classList.add("running");
   try {
     await fetchWorkspace(selectedWorkspace);
@@ -119,6 +121,7 @@ async function gitFetch() {
     showToast(`fetch エラー: ${e.message}`);
   } finally {
     fetchBtn.classList.remove("running");
+    fetchBtn.disabled = false;
   }
 }
 
@@ -127,6 +130,8 @@ async function executeGitRemoteOp(buttonId, endpoint, label) {
   if (!confirm(`${selectedWorkspace} を ${label} しますか？`)) return;
 
   const btn = $(buttonId);
+  if (btn.disabled) return;
+  btn.disabled = true;
   btn.classList.add("running");
 
   try {
@@ -142,6 +147,7 @@ async function executeGitRemoteOp(buttonId, endpoint, label) {
     showToast(`${label} エラー: ${e.message}`);
   } finally {
     btn.classList.remove("running");
+    btn.disabled = false;
     await refreshAfterGitOp();
   }
 }

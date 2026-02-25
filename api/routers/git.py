@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -18,6 +19,10 @@ from ..common import (
     ssh_env,
     validate_commit_hash,
 )
+
+STASH_REF_PATTERN = re.compile(r"^stash@\{\d+\}$")
+MAX_DIFF_SIZE = 10 * 1024 * 1024
+GIT_LOG_MAX_SKIP = 10000
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +139,7 @@ def git_push(name: str):
 def get_git_log(name: str, limit: int = 50, skip: int = 0):
     ws_path = resolve_workspace_path(name)
     safe_limit = max(1, min(limit, GIT_LOG_MAX_ENTRIES))
-    safe_skip = max(0, skip)
+    safe_skip = min(max(0, skip), GIT_LOG_MAX_SKIP)
     args = [
         "--no-pager", "log", "--date-order",
         f"--max-count={safe_limit}",
@@ -245,7 +250,7 @@ def git_stash_list(name: str):
 def git_stash_drop(name: str, body: StashDropRequest):
     ws_path = resolve_workspace_path(name)
     ref = body.stash_ref.strip()
-    if not ref.startswith("stash@{"):
+    if not STASH_REF_PATTERN.match(ref):
         raise HTTPException(status_code=400, detail=f"Invalid stash ref: {ref}")
     result = run_git_command(
         ["stash", "drop", ref], cwd=ws_path,
@@ -259,7 +264,7 @@ def git_stash_drop(name: str, body: StashDropRequest):
 def git_stash_pop_index(name: str, body: StashDropRequest):
     ws_path = resolve_workspace_path(name)
     ref = body.stash_ref.strip()
-    if not ref.startswith("stash@{"):
+    if not STASH_REF_PATTERN.match(ref):
         raise HTTPException(status_code=400, detail=f"Invalid stash ref: {ref}")
     result = run_git_command(
         ["stash", "pop", ref], cwd=ws_path,
@@ -302,10 +307,13 @@ def get_commit_diff(name: str, commit_hash: str):
         cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, operation="diff --name-only",
     )
     files = [f for f in files_result["stdout"].splitlines() if f.strip()] if files_result["exit_code"] == 0 else []
+    diff_text = result["stdout"]
+    if len(diff_text) > MAX_DIFF_SIZE:
+        diff_text = diff_text[:MAX_DIFF_SIZE] + "\n... (truncated)"
     return {
         "status": result["status"],
         "files": files,
-        "diff": result["stdout"],
+        "diff": diff_text,
         "stderr": result["stderr"],
     }
 
@@ -329,6 +337,8 @@ def get_workspace_diff(name: str):
         if diff_text:
             diff_text += "\n"
         diff_text += diff_result["stdout"]
+    if len(diff_text) > MAX_DIFF_SIZE:
+        diff_text = diff_text[:MAX_DIFF_SIZE] + "\n... (truncated)"
     return {
         "status": "ok",
         "files": files,
@@ -343,7 +353,9 @@ HIDDEN_DIRS = {".git"}
 def list_files(name: str, path: str = Query("")):
     ws_path = resolve_workspace_path(name)
     target = (ws_path / path).resolve()
-    if not str(target).startswith(str(ws_path.resolve())):
+    try:
+        target.relative_to(ws_path.resolve())
+    except ValueError:
         raise HTTPException(status_code=400, detail="Invalid path")
     if not target.is_dir():
         raise HTTPException(status_code=404, detail="Directory not found")
@@ -356,7 +368,7 @@ def list_files(name: str, path: str = Query("")):
     try:
         with os.scandir(target) as it:
             for entry in it:
-                if entry.name in HIDDEN_DIRS:
+                if entry.name in HIDDEN_DIRS or entry.is_symlink():
                     continue
                 entry_type = "dir" if entry.is_dir(follow_symlinks=False) else "file"
                 item = {"name": entry.name, "type": entry_type}
@@ -388,8 +400,12 @@ BINARY_EXTENSIONS = {
 def get_file_content(name: str, path: str = Query(...)):
     ws_path = resolve_workspace_path(name)
     target = (ws_path / path).resolve()
-    if not str(target).startswith(str(ws_path.resolve())):
+    try:
+        target.relative_to(ws_path.resolve())
+    except ValueError:
         raise HTTPException(status_code=400, detail="Invalid path")
+    if target.is_symlink():
+        raise HTTPException(status_code=400, detail="Symlinks not supported")
     if not target.is_file():
         raise HTTPException(status_code=404, detail="File not found")
 

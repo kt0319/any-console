@@ -50,7 +50,7 @@ sudo systemctl restart pi-console
 - `auth.py`: 環境変数 `PI_CONSOLE_TOKEN` によるBearerトークン認証
 - `runner.py`: subprocessでシェルスクリプトを実行（タイムアウト120秒）
 - `jobs.py`: ジョブ定義（`JobDefinition` / `ArgOption` dataclass）
-- `common.py`: 共通定数（`WORK_DIR`, `UPLOAD_DIR`, `TERMINAL_TIMEOUT_SEC`）、Git情報取得ユーティリティ
+- `common.py`: 共通定数、設定ファイル管理（`data/config.json`）、Gitユーティリティ、ログバッファ
 - `.env`: `python-dotenv` で `main.py` 起動時に自動読み込み
 
 ### ルーター: `api/routers/`
@@ -80,8 +80,9 @@ sudo systemctl restart pi-console
 
 ### ジョブシステム
 
-- 各ワークスペースの `.pi-console/jobs/*.sh` にジョブスクリプトを配置
-- スクリプトヘッダにメタデータ記述可能（`# icon:`, `# icon-color:`, `# open-url:`）
+- ジョブ定義は `data/config.json` に統合管理（ワークスペースごとの `jobs` セクション）
+- UIからジョブの作成・編集・削除が可能（API経由で `config.json` を更新）
+- 各ジョブはコマンド文字列・アイコン・確認ダイアログ有無を設定可能
 
 ### ターミナル: Python PTY
 

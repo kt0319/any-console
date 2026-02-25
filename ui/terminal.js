@@ -417,7 +417,9 @@ function removeTab(id) {
     }
     tab._wsDisposed = true;
     if (tab._reconnectTimer) clearTimeout(tab._reconnectTimer);
+    if (tab._activityTimer) clearTimeout(tab._activityTimer);
     if (tab.ws) tab.ws.close();
+    if (tab.fitAddon) try { tab.fitAddon.dispose(); } catch {}
     if (tab.term) tab.term.dispose();
   }
   tabs = tabs.filter((t) => t.id !== id);
