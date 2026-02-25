@@ -399,19 +399,8 @@ async function submitItemEdit() {
 }
 
 function reopenAfterItemEdit(source) {
-  refreshPickerContent();
   if (source === "settings") {
     openSettingsWsVisibility();
-  } else if (source === "picker-settings") {
-    showTerminalWsPicker();
-    switchTab("picker");
-    const sv = $("picker-settings-view");
-    if (sv) {
-      showPickerSettings();
-      showPickerWsVisibility(sv);
-    }
-  } else {
-    showTerminalWsPicker();
   }
 }
 

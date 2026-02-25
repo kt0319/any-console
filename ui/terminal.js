@@ -103,13 +103,12 @@ function updateOrphanSessions() {
 
 function updateOrphanFromSessions(sessions) {
   const localWsUrls = new Set(tabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
-  const nonPickerCount = tabs.filter((t) => t.type !== "picker").length;
   const oldOrphans = new Map(orphanSessions.map((s) => [s.wsUrl, s]));
   orphanSessions = sessions
     .filter((s) => !localWsUrls.has(s.ws_url) && !closedSessionUrls.has(s.ws_url))
     .map((s, i) => {
       const old = oldOrphans.get(s.ws_url);
-      return { wsUrl: s.ws_url, workspace: s.workspace, expiresIn: s.expires_in, icon: s.icon, iconColor: s.icon_color, tabIndex: old ? old.tabIndex : nonPickerCount + i };
+      return { wsUrl: s.ws_url, workspace: s.workspace, expiresIn: s.expires_in, icon: s.icon, iconColor: s.icon_color, tabIndex: old ? old.tabIndex : tabs.length + i };
     });
   for (const url of closedSessionUrls) {
     if (!sessions.some((s) => s.ws_url === url)) closedSessionUrls.delete(url);
@@ -279,17 +278,7 @@ function tabDisplayName(tab) {
   return parts.join(" / ");
 }
 
-function removePickerTab() {
-  const pickerIdx = tabs.findIndex((t) => t.type === "picker");
-  if (pickerIdx >= 0) {
-    tabs.splice(pickerIdx, 1);
-    const pickerEl = $("frame-picker");
-    if (pickerEl) pickerEl.remove();
-  }
-}
-
 function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCommand, tabIcon, wsIcon, jobName) {
-  removePickerTab();
   const id = tabId || `term-${++terminalIdCounter}`;
   if (tabId) {
     const m = tabId.match(/^term-(\d+)$/);
@@ -359,7 +348,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
 
 
   const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, jobName: jobName || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
-  insertBeforePicker(tab);
+  tabs.push(tab);
   createTabNamePill(tab, container);
 
   if (!restored) {
@@ -373,7 +362,6 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
 }
 
 function setOutputTab(id, label, htmlContent, icon, wsIcon, workspace) {
-  removePickerTab();
   const existing = tabs.find((t) => t.id === id);
   if (existing) {
     existing.label = label;
@@ -389,7 +377,7 @@ function setOutputTab(id, label, htmlContent, icon, wsIcon, workspace) {
     return;
   }
   const tab = { id, type: "output", label, icon: icon || null, wsIcon: wsIcon || null, workspace: workspace || null };
-  insertBeforePicker(tab);
+  tabs.push(tab);
   const div = document.createElement("div");
   div.className = "output-area";
   div.id = `frame-${id}`;
@@ -402,7 +390,7 @@ function setOutputTab(id, label, htmlContent, icon, wsIcon, workspace) {
 
 function removeTab(id) {
   const tab = tabs.find((t) => t.id === id);
-  if (!tab || tab.type === "picker") return;
+  if (!tab) return;
 
   if (splitMode) {
     const container = $("output-container");
@@ -434,19 +422,26 @@ function removeTab(id) {
   saveTerminalTabs();
 
   if (splitMode) {
-    const nonPicker = getNonPickerTabs();
-    if (nonPicker.length < 2) {
-      const remaining = nonPicker.length > 0 ? nonPicker[0].id : "picker";
+    if (tabs.length < 2) {
+      const remaining = tabs.length > 0 ? tabs[0].id : null;
       exitSplitModeWithTab(remaining);
+      if (tabs.length === 0) {
+        updateHeaderForTab(null);
+        if (!document.getElementById("split-tab-modal-overlay")) openTabEditModal("open");
+      }
       return;
     }
     rebuildSplitLayout();
     return;
   }
 
-  if (activeTabId === id) {
-    const nonPicker = tabs.filter((t) => t.type !== "picker");
-    const next = nonPicker.length > 0 ? nonPicker[nonPicker.length - 1].id : "picker";
+  if (tabs.length === 0) {
+    activeTabId = null;
+    renderTabBar();
+    updateHeaderForTab(null);
+    if (!document.getElementById("split-tab-modal-overlay")) openTabEditModal("open");
+  } else if (activeTabId === id) {
+    const next = tabs[tabs.length - 1].id;
     switchTab(next);
   } else {
     renderTabBar();
@@ -458,11 +453,10 @@ async function switchTab(id) {
     const switchedTab = tabs.find((t) => t.id === id);
     if (switchedTab) switchedTab._activity = false;
 
-    const nonPicker = getNonPickerTabs();
-    const needsRebuild = nonPicker.length !== splitPaneTabIds.length ||
-      nonPicker.some((t) => !splitPaneTabIds.includes(t.id));
+    const needsRebuild = tabs.length !== splitPaneTabIds.length ||
+      tabs.some((t) => !splitPaneTabIds.includes(t.id));
     if (needsRebuild) {
-      splitPaneTabIds = nonPicker.map((t) => t.id);
+      splitPaneTabIds = tabs.map((t) => t.id);
       const idx = splitPaneTabIds.indexOf(id);
       activePaneIndex = idx >= 0 ? idx : 0;
       activeTabId = splitPaneTabIds[activePaneIndex];
@@ -517,13 +511,6 @@ async function switchTab(id) {
 
 async function updateHeaderForTab(id) {
   if (splitMode) {
-    $("header-row2").style.display = "none";
-    return;
-  }
-
-  const switchedTabObj = tabs.find((t) => t.id === id);
-  if (switchedTabObj && switchedTabObj.type === "picker") {
-    resetPickerView();
     $("header-row2").style.display = "none";
     return;
   }
@@ -693,19 +680,18 @@ function onTabDragEnd(e) {
 
   if (moved) {
     const ordered = Array.from(bar.querySelectorAll(".tab-btn:not(.tab-dragging):not(.tab-add-btn):not(.split-toggle-btn), .tab-drag-placeholder"));
-    const pickerTab = tabs.find((t) => t.type === "picker");
-    const nonPicker = [];
+    const reordered = [];
     for (const el of ordered) {
       if (el === placeholder) {
-        nonPicker.push(tab);
+        reordered.push(tab);
         continue;
       }
       const tabId = el.dataset.tab;
       if (!tabId) continue;
       const t = tabs.find((t) => t.id === tabId);
-      if (t && t.type !== "picker") nonPicker.push(t);
+      if (t) reordered.push(t);
     }
-    tabs = pickerTab ? [...nonPicker, pickerTab] : [...nonPicker];
+    tabs = reordered;
   }
 
   btn.classList.remove("tab-dragging");
@@ -727,16 +713,14 @@ function renderTabBar() {
     $("header-row2").style.display = "none";
     return;
   }
-  barRow.style.display = "flex";
   const bar = $("tab-bar");
-
-  const pickerTab = tabs.find((t) => t.type === "picker");
-  const nonPickerTabs = tabs.filter((t) => t.type !== "picker");
-  const items = nonPickerTabs.map((tab, i) => ({ type: "tab", tab, index: i }));
+  const items = tabs.map((tab, i) => ({ type: "tab", tab, index: i }));
   for (const s of orphanSessions) {
     items.push({ type: "orphan", orphan: s, index: s.tabIndex != null ? s.tabIndex : items.length });
   }
   items.sort((a, b) => a.index - b.index);
+
+  barRow.style.display = "flex";
 
   let html = "";
   for (const item of items) {
@@ -758,26 +742,14 @@ function renderTabBar() {
       html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}">${owsIconHtml}${orphanIcon}${suffix}</button>`;
     }
   }
-  if (pickerTab && activeTabId === pickerTab.id) {
-    html += `<button class="tab-btn tab-add-btn active" data-tab="${pickerTab.id}">`
-      + `<span class="mdi mdi-plus"></span>`
-      + `</button>`;
-  } else {
-    html += `<button class="tab-btn tab-add-btn" data-action="add-tab">`
-      + `<span class="mdi mdi-plus"></span>`
-      + `</button>`;
-  }
   bar.innerHTML = html;
 
-  bar.querySelectorAll(".tab-btn[data-action='add-tab']").forEach((btn) => {
-    btn.addEventListener("click", () => showTerminalWsPicker());
+  bar.addEventListener("dblclick", (e) => {
+    if (!e.target.closest(".tab-btn")) openTabEditModal("open");
   });
-  bar.querySelectorAll(".tab-btn:not(.orphan):not([data-action])").forEach((btn) => {
+
+  bar.querySelectorAll(".tab-btn:not(.orphan)").forEach((btn) => {
     const tab = tabs.find((t) => t.id === btn.dataset.tab);
-    if (btn.dataset.tab === "picker") {
-      btn.addEventListener("click", () => showTerminalWsPicker());
-      return;
-    }
     bindLongPress(btn, {
       onLongPress: () => {
         openTabEditModal();
@@ -844,6 +816,20 @@ function renderTabBar() {
   });
   const activeBtn = bar.querySelector(".tab-btn.active");
   if (activeBtn) activeBtn.scrollIntoView({ inline: "nearest", block: "nearest" });
+
+  const container = $("output-container");
+  const existing = container.querySelector(".empty-tab-placeholder");
+  if (tabs.length === 0) {
+    if (!existing) {
+      const ph = document.createElement("div");
+      ph.className = "empty-tab-placeholder";
+      ph.innerHTML = `<button type="button" class="empty-tab-open-btn"><span class="mdi mdi-plus"></span> ワークスペースを開く</button>`;
+      ph.querySelector("button").addEventListener("click", () => openTabEditModal("open"));
+      container.appendChild(ph);
+    }
+  } else if (existing) {
+    existing.remove();
+  }
 }
 
 function createTabNamePill(tab, frame) {
@@ -854,8 +840,7 @@ function createTabNamePill(tab, frame) {
   info.innerHTML = renderTabIconHtml(tab) + escapeHtml(tab.label || "");
   pill.appendChild(info);
   bindLongPress(pill, {
-    onLongPress: () => openTabEditModal(),
-    onClick: () => {
+    onLongPress: () => {
       if (tab.type === "terminal") {
         const f = $(`frame-${tab.id}`);
         if (f && f.classList.contains("view-mode")) {
@@ -865,6 +850,16 @@ function createTabNamePill(tab, frame) {
           enterTerminalCopyMode(tab.id);
         }
       }
+    },
+    onClick: () => {
+      if (tab.type === "terminal") {
+        const f = $(`frame-${tab.id}`);
+        if (f && f.classList.contains("view-mode")) {
+          exitTerminalCopyMode(tab.id);
+          return;
+        }
+      }
+      openTabEditModal("open");
     },
   });
   pill.addEventListener("contextmenu", (e) => {
@@ -883,474 +878,8 @@ function refreshTabNamePill(tab) {
   }
 }
 
-function showTerminalWsPicker() {
-  const existing = tabs.find((t) => t.type === "picker");
-  if (existing) {
-    switchTab(existing.id);
-    return;
-  }
-  addPickerTab();
-}
 
-function ensurePickerTab() {
-  const existing = tabs.find((t) => t.type === "picker");
-  if (!existing) addPickerTab();
-}
 
-function renderPickerWsList(container) {
-  const workspaces = visibleWorkspaces();
-  for (const ws of workspaces) {
-    const group = document.createElement("div");
-    group.className = "picker-ws-group";
-
-    const header = document.createElement("div");
-    header.className = "picker-ws-header";
-    const headerLabel = document.createElement("button");
-    headerLabel.type = "button";
-    headerLabel.className = "picker-ws-header-label";
-    headerLabel.innerHTML = renderIcon(ws.icon || "mdi-console", ws.icon_color, 18) + escapeHtml(ws.name);
-    headerLabel.addEventListener("click", () => {
-      resetPickerView();
-      runJob("terminal", null, ws.name);
-    });
-    header.appendChild(headerLabel);
-
-    const fileBtn = document.createElement("button");
-    fileBtn.type = "button";
-    fileBtn.className = "picker-ws-icon-btn picker-ws-file-btn";
-    fileBtn.title = "ファイル一覧";
-    fileBtn.innerHTML = renderIcon("mdi-folder", "", 18);
-    fileBtn.addEventListener("click", () => {
-      resetPickerView();
-      selectedWorkspace = ws.name;
-      openFileBrowser();
-    });
-    header.insertBefore(fileBtn, headerLabel);
-
-    const icons = document.createElement("div");
-    icons.className = "picker-ws-icons";
-    header.appendChild(icons);
-
-    group.appendChild(header);
-    container.appendChild(group);
-
-    loadPickerWsIcons(icons, ws);
-  }
-}
-
-function addPickerTab() {
-  const id = "picker";
-  const container = document.createElement("div");
-  container.className = "picker-frame";
-  container.id = `frame-${id}`;
-  container.style.display = "none";
-
-  const topBar = document.createElement("div");
-  topBar.className = "picker-top-bar";
-  const topTitle = document.createElement("button");
-  topTitle.type = "button";
-  topTitle.className = "picker-top-title";
-  topTitle.id = "picker-top-title";
-  topTitle.textContent = "ワークスペースを開く";
-  topTitle.addEventListener("click", () => {
-    const settingsView = $("picker-settings-view");
-    if (!settingsView || settingsView.style.display === "none") return;
-    if ($("picker-top-title").dataset.level === "sub") {
-      $("picker-top-title").textContent = "設定";
-      $("picker-top-title").dataset.level = "menu";
-      renderPickerSettingsMenu(settingsView);
-    } else {
-      showPickerMainView();
-    }
-  });
-  topBar.appendChild(topTitle);
-  const closeBtn = document.createElement("button");
-  closeBtn.type = "button";
-  closeBtn.className = "picker-close-btn";
-  closeBtn.innerHTML = "&times;";
-  closeBtn.style.display = "none";
-  closeBtn.addEventListener("click", () => {
-    showPickerMainView();
-  });
-  topBar.appendChild(closeBtn);
-  container.appendChild(topBar);
-
-  const mainView = document.createElement("div");
-  mainView.className = "picker-main-view";
-  mainView.id = "picker-main-view";
-
-  const list = document.createElement("div");
-  list.className = "terminal-ws-list";
-  renderPickerWsList(list);
-
-  mainView.appendChild(list);
-
-  const footer = document.createElement("div");
-  footer.className = "menu-footer-row";
-  const settingsBtn = document.createElement("button");
-  settingsBtn.type = "button";
-  settingsBtn.className = "menu-footer-btn";
-  settingsBtn.innerHTML = '<span class="mdi mdi-cog"></span> 設定';
-  settingsBtn.addEventListener("click", () => showPickerSettings());
-  footer.appendChild(settingsBtn);
-  mainView.appendChild(footer);
-
-  const serverInfo = document.createElement("div");
-  serverInfo.className = "picker-server-info";
-  const parts = [serverHostname, serverVersion].filter(Boolean);
-  serverInfo.textContent = parts.join(" / ");
-  mainView.appendChild(serverInfo);
-
-  container.appendChild(mainView);
-
-  const settingsView = document.createElement("div");
-  settingsView.className = "picker-settings-view";
-  settingsView.id = "picker-settings-view";
-  settingsView.style.display = "none";
-  container.appendChild(settingsView);
-
-  $("output-container").appendChild(container);
-  tabs.push({ id, type: "picker", label: "開く" });
-  switchTab(id);
-}
-
-function showPickerSettings() {
-  const mainView = $("picker-main-view");
-  const settingsView = $("picker-settings-view");
-  if (!mainView || !settingsView) return;
-
-  mainView.style.display = "none";
-  settingsView.style.display = "";
-  const closeBtn = mainView.parentNode.querySelector(".picker-close-btn");
-  if (closeBtn) closeBtn.style.display = "";
-  renderPickerSettingsMenu(settingsView);
-}
-
-function showPickerMainView() {
-  const mainView = $("picker-main-view");
-  const settingsView = $("picker-settings-view");
-  const title = $("picker-top-title");
-  if (!mainView || !settingsView) return;
-
-  settingsView.style.display = "none";
-  mainView.style.display = "";
-  title.textContent = "ワークスペースを開く";
-  title.dataset.level = "";
-  const closeBtn = mainView.parentNode.querySelector(".picker-close-btn");
-  if (closeBtn) closeBtn.style.display = "none";
-}
-
-function renderPickerSettingsMenu(container) {
-  container.innerHTML = "";
-  $("picker-top-title").innerHTML = '<span class="mdi mdi-arrow-left"></span> 設定';
-  $("picker-top-title").dataset.level = "menu";
-  const menu = document.createElement("div");
-  menu.className = "settings-menu";
-
-  const items = [
-    { icon: "mdi-cog", label: "ワークスペース設定", action: () => showPickerWsVisibility(container) },
-    { icon: "mdi-plus", label: "ワークスペース追加", action: () => showPickerClone(container) },
-    { icon: "mdi-download", label: "設定エクスポート", action: () => exportSettings() },
-    { icon: "mdi-upload", label: "設定インポート", action: () => importSettings() },
-    { icon: "mdi-format-list-bulleted", label: "プロセス一覧", action: () => showPickerProcessList(container) },
-    { icon: "mdi-information-outline", label: "サーバー情報", action: () => showPickerServerInfo(container) },
-    { icon: "mdi-text-box-outline", label: "操作ログ", action: () => showPickerOpLog(container) },
-  ];
-
-  for (const item of items) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "settings-menu-item";
-    btn.innerHTML = `<span class="mdi ${item.icon}"></span> ${item.label}`;
-    btn.addEventListener("click", item.action);
-    menu.appendChild(btn);
-  }
-
-  container.appendChild(menu);
-}
-
-function showPickerSettingsSubView(container, title, renderContent) {
-  container.innerHTML = "";
-  $("picker-top-title").innerHTML = '<span class="mdi mdi-arrow-left"></span> ' + escapeHtml(title);
-  $("picker-top-title").dataset.level = "sub";
-
-  const content = document.createElement("div");
-  content.className = "picker-settings-content";
-  container.appendChild(content);
-
-  renderContent(content);
-}
-
-function showPickerWsVisibility(container) {
-  showPickerSettingsSubView(container, "ワークスペース設定", (content) => {
-    const list = document.createElement("div");
-    list.className = "ws-check-list";
-    list.style.overflow = "auto";
-    list.style.flex = "1";
-
-    renderWsVisibilityTo(
-      list,
-      (ws) => {
-        selectedWorkspace = ws.name;
-        openItemCreateModal(ws.name, "job", "picker-settings");
-      },
-      loadPickerSettingsWsIcons,
-    );
-    content.appendChild(list);
-  });
-}
-
-function loadPickerSettingsWsIcons(container, ws) {
-  loadWsIconButtons(container, ws, 16,
-    (link, i) => {
-      openItemEditModal("link", {
-        workspace: ws.name, index: i,
-        label: link.label || link.url,
-        url: link.url,
-        icon: link.icon,
-        iconColor: link.icon_color,
-      }, "picker-settings");
-    },
-    (name, job) => {
-      openItemEditModal("job", {
-        workspace: ws.name,
-        name,
-        label: job.label || name,
-        icon: job.icon,
-        iconColor: job.icon_color,
-        command: job.command || "",
-        confirm: job.confirm,
-      }, "picker-settings");
-    },
-  );
-}
-
-function showPickerSubViewWithList(container, title, renderFn) {
-  showPickerSettingsSubView(container, title, async (content) => {
-    const list = document.createElement("div");
-    list.className = "server-info-list";
-    content.appendChild(list);
-    await renderFn(list);
-  });
-}
-
-async function showPickerServerInfo(container) {
-  showPickerSubViewWithList(container, "サーバー情報", renderServerInfoTo);
-}
-
-async function showPickerProcessList(container) {
-  showPickerSubViewWithList(container, "プロセス一覧", renderProcessListTo);
-}
-
-async function showPickerOpLog(container) {
-  showPickerSubViewWithList(container, "操作ログ", renderOpLogTo);
-}
-
-function showPickerClone(container) {
-  showPickerSettingsSubView(container, "ワークスペース追加", (content) => {
-    let pickerCloneTab = "github";
-    let pickerSelectedUrl = "";
-    let pickerRepos = [];
-
-    const tabs = document.createElement("div");
-    tabs.className = "clone-tabs";
-    const githubBtn = document.createElement("button");
-    githubBtn.type = "button";
-    githubBtn.className = "clone-tab active";
-    githubBtn.textContent = "GitHub";
-    const urlBtn = document.createElement("button");
-    urlBtn.type = "button";
-    urlBtn.className = "clone-tab";
-    urlBtn.textContent = "手動入力";
-    tabs.append(githubBtn, urlBtn);
-    content.appendChild(tabs);
-
-    const githubPane = document.createElement("div");
-    githubPane.className = "clone-tab-content";
-    const repoList = document.createElement("div");
-    repoList.className = "clone-repo-list";
-    repoList.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
-    githubPane.appendChild(repoList);
-    content.appendChild(githubPane);
-
-    const urlPane = document.createElement("div");
-    urlPane.className = "clone-tab-content";
-    urlPane.style.display = "none";
-    const urlGroup = document.createElement("div");
-    urlGroup.className = "form-group";
-    urlGroup.innerHTML = '<label class="form-label">リポジトリ</label>';
-    const urlInput = document.createElement("input");
-    urlInput.type = "text";
-    urlInput.className = "form-input";
-    urlInput.placeholder = "git@github.com:user/repo.git or https://...";
-    urlInput.autocomplete = "off";
-    urlGroup.appendChild(urlInput);
-    urlPane.appendChild(urlGroup);
-    content.appendChild(urlPane);
-
-    const nameGroup = document.createElement("div");
-    nameGroup.className = "form-group";
-    nameGroup.innerHTML = '<label class="form-label">ディレクトリ名 <span class="form-hint">(省略時はリポジトリ名)</span></label>';
-    const nameInput = document.createElement("input");
-    nameInput.type = "text";
-    nameInput.className = "form-input";
-    nameInput.autocomplete = "off";
-    nameGroup.appendChild(nameInput);
-    content.appendChild(nameGroup);
-
-    const errorEl = document.createElement("div");
-    errorEl.className = "form-error";
-    content.appendChild(errorEl);
-
-    const outputEl = document.createElement("div");
-    outputEl.className = "clone-output";
-    outputEl.style.display = "none";
-    content.appendChild(outputEl);
-
-    const actions = document.createElement("div");
-    actions.className = "modal-actions";
-    const submitBtn = document.createElement("button");
-    submitBtn.type = "button";
-    submitBtn.className = "primary";
-    submitBtn.style.width = "auto";
-    submitBtn.textContent = "クローン";
-    actions.appendChild(submitBtn);
-    content.appendChild(actions);
-
-    function switchTab(tab) {
-      pickerCloneTab = tab;
-      githubBtn.classList.toggle("active", tab === "github");
-      urlBtn.classList.toggle("active", tab === "url");
-      githubPane.style.display = tab === "github" ? "block" : "none";
-      urlPane.style.display = tab === "url" ? "block" : "none";
-      if (tab === "url") urlInput.focus();
-    }
-
-    githubBtn.addEventListener("click", () => switchTab("github"));
-    urlBtn.addEventListener("click", () => switchTab("url"));
-
-    function renderRepos() {
-      if (pickerRepos.length === 0) {
-        repoList.innerHTML = '<div class="clone-repo-empty">リポジトリがありません</div>';
-        return;
-      }
-      repoList.innerHTML = "";
-      for (const repo of pickerRepos) {
-        const item = document.createElement("div");
-        item.className = "clone-repo-item" + (pickerSelectedUrl === repo.url ? " selected" : "");
-        item.innerHTML = `<div class="clone-repo-name">${escapeHtml(repo.nameWithOwner)}</div>` +
-          (repo.description ? `<div class="clone-repo-desc">${escapeHtml(repo.description)}</div>` : "");
-        item.addEventListener("click", () => {
-          pickerSelectedUrl = repo.url;
-          renderRepos();
-        });
-        repoList.appendChild(item);
-      }
-    }
-
-    async function loadRepos() {
-      repoList.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
-      try {
-        const res = await apiFetch("/github/repos");
-        if (!res) return;
-        if (!res.ok) {
-          const data = await res.json();
-          repoList.innerHTML = `<div class="clone-repo-error">${escapeHtml(data.detail || "取得に失敗しました")}</div>`;
-          return;
-        }
-        pickerRepos = await res.json();
-        renderRepos();
-      } catch (e) {
-        repoList.innerHTML = `<div class="clone-repo-error">${escapeHtml(e.message)}</div>`;
-      }
-    }
-
-    submitBtn.addEventListener("click", async () => {
-      let url = pickerCloneTab === "github" ? pickerSelectedUrl : urlInput.value.trim();
-      url = toSshUrl(url);
-      const name = nameInput.value.trim();
-
-      if (!url) {
-        errorEl.textContent = pickerCloneTab === "github" ? "リポジトリを選択してください" : "URLを入力してください";
-        errorEl.style.display = "block";
-        return;
-      }
-
-      errorEl.style.display = "none";
-      outputEl.style.display = "block";
-      outputEl.textContent = "cloning...";
-      submitBtn.disabled = true;
-
-      try {
-        const res = await apiFetch("/workspaces", {
-          method: "POST",
-          body: { url, name: name || null },
-        });
-        if (!res) return;
-        const data = await res.json();
-        if (!res.ok || data.status === "error") {
-          errorEl.textContent = data.detail || data.stderr || "クローンに失敗しました";
-          errorEl.style.display = "block";
-          outputEl.style.display = "none";
-          submitBtn.disabled = false;
-          return;
-        }
-        outputEl.textContent = `${data.name} をクローンしました`;
-        await loadWorkspaces();
-        showPickerWsVisibility(container);
-      } catch (e) {
-        errorEl.textContent = e.message;
-        errorEl.style.display = "block";
-        outputEl.style.display = "none";
-        submitBtn.disabled = false;
-      }
-    });
-
-    loadRepos();
-  });
-}
-
-function loadPickerWsIcons(container, ws) {
-  loadWsIconButtons(container, ws, 18,
-    (link) => {
-      window.open(link.url, "_blank");
-    },
-    (name, job) => {
-      if (job.confirm !== false) {
-        if (!confirm(`${job.label || name} を実行しますか？`)) return;
-      }
-      resetPickerView();
-      runJob(name, null, ws.name);
-    },
-  );
-}
-
-function refreshPickerContent() {
-  const mainView = $("picker-main-view");
-  if (!mainView) return;
-  const list = mainView.querySelector(".terminal-ws-list");
-  if (!list) return;
-  list.innerHTML = "";
-  renderPickerWsList(list);
-}
-
-function resetPickerView() {
-  const mainView = $("picker-main-view");
-  const settingsView = $("picker-settings-view");
-  const title = $("picker-top-title");
-  if (mainView) mainView.style.display = "";
-  if (settingsView) settingsView.style.display = "none";
-  if (title) title.textContent = "ワークスペースを開く";
-}
-
-function insertBeforePicker(tab) {
-  const pickerIdx = tabs.findIndex((t) => t.type === "picker");
-  if (pickerIdx >= 0) {
-    tabs.splice(pickerIdx, 0, tab);
-  } else {
-    tabs.push(tab);
-  }
-}
 
 const XTERM_PALETTE = (() => {
   const base = [
@@ -1451,9 +980,6 @@ function exitTerminalCopyMode(tabId) {
   if (pre) pre.remove();
 }
 
-function getNonPickerTabs() {
-  return tabs.filter((t) => t.type !== "picker");
-}
 
 function calcGridLayout(count) {
   if (count <= 1) return [count];
@@ -1462,16 +988,15 @@ function calcGridLayout(count) {
 }
 
 function enterSplitMode() {
-  const nonPicker = getNonPickerTabs();
-  if (nonPicker.length < 2) return;
+  if (tabs.length < 2) return;
   if (splitMode) return;
 
   splitMode = true;
   paneSelectedByTap = false;
-  for (const t of nonPicker) {
+  for (const t of tabs) {
     if (t.type === "terminal") exitTerminalCopyMode(t.id);
   }
-  splitPaneTabIds = nonPicker.map((t) => t.id);
+  splitPaneTabIds = tabs.map((t) => t.id);
   const activeIdx = splitPaneTabIds.indexOf(activeTabId);
   activePaneIndex = activeIdx >= 0 ? activeIdx : 0;
   activeTabId = splitPaneTabIds[activePaneIndex];
@@ -1481,7 +1006,7 @@ function enterSplitMode() {
   renderTabBar();
 }
 
-function openTabEditModal() {
+function openTabEditModal(initialTab = "layout") {
   let overlay = document.getElementById("split-tab-modal-overlay");
   if (overlay) overlay.remove();
 
@@ -1507,59 +1032,29 @@ function openTabEditModal() {
 
   modal.appendChild(header);
 
-  const nonPickerCount = getNonPickerTabs().length;
-  const modeBtns = [];
-  const modeRow = document.createElement("div");
-  modeRow.className = "split-tab-mode-row";
-
-  const modes = [
-    { value: "normal", icon: "split-icon-normal", minTabs: 0 },
-    { value: "vertical", icon: "split-icon-v", minTabs: 2 },
-    { value: "horizontal", icon: "split-icon-h", minTabs: 2 },
-    { value: "grid", icon: "split-icon-grid", minTabs: 3 },
+  const nav = document.createElement("div");
+  nav.className = "split-tab-nav";
+  const navItems = [
+    { key: "open", icon: "mdi-plus", label: "開く" },
+    { key: "layout", icon: "mdi-tab", label: "タブ" },
+    { key: "settings", icon: "mdi-cog", label: "設定" },
   ];
-  for (const m of modes) {
+  const navBtns = {};
+  for (const item of navItems) {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.dataset.mode = m.value;
-    const iconEl = document.createElement("span");
-    iconEl.className = m.icon;
-    btn.appendChild(iconEl);
-    if (nonPickerCount < m.minTabs) {
-      btn.disabled = true;
-    }
-    btn.addEventListener("click", () => {
-      if (btn.disabled) return;
-      if (m.value === "normal") {
-        if (splitMode) { exitSplitMode(); updateModeRadio(); renderTabList(); }
-      } else {
-        splitLayout = m.value;
-        if (!splitMode) { enterSplitMode(); } else { rebuildSplitLayout(); }
-        updateModeRadio();
-        renderTabList();
-      }
-    });
-    modeBtns.push(btn);
-    modeRow.appendChild(btn);
+    btn.className = "split-tab-nav-btn";
+    btn.innerHTML = `<span class="mdi ${item.icon}"></span> ${item.label}`;
+    btn.dataset.modalNav = item.key;
+    btn.addEventListener("click", () => switchModalTab(item.key));
+    nav.appendChild(btn);
+    navBtns[item.key] = btn;
   }
+  modal.appendChild(nav);
 
-  modal.appendChild(modeRow);
-  updateModeRadio();
-
-  function updateModeRadio() {
-    const current = splitMode ? splitLayout : "normal";
-    const count = getNonPickerTabs().length;
-    const minTabsMap = { normal: 0, vertical: 2, horizontal: 2, grid: 3 };
-    for (const b of modeBtns) {
-      b.className = "split-tab-mode-option" + (b.dataset.mode === current ? " active" : "");
-      const mobileDisabled = panelBottom && b.dataset.mode !== "normal" && b.dataset.mode !== "vertical";
-      b.disabled = count < (minTabsMap[b.dataset.mode] || 0) || mobileDisabled;
-    }
-  }
-
-  const list = document.createElement("div");
-  list.className = "split-tab-list";
-  modal.appendChild(list);
+  const contentContainer = document.createElement("div");
+  contentContainer.className = "split-tab-content";
+  modal.appendChild(contentContainer);
 
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
@@ -1568,7 +1063,83 @@ function openTabEditModal() {
     if (e.target === overlay) closeModal();
   });
 
-  renderTabList();
+  let currentTab = "layout";
+
+  function switchModalTab(key) {
+    currentTab = key;
+    for (const [k, btn] of Object.entries(navBtns)) {
+      btn.classList.toggle("active", k === key);
+    }
+    title.textContent = key === "open" ? "ワークスペースを開く" : key === "layout" ? "タブ・レイアウト" : "設定";
+    renderCurrentTab();
+  }
+
+  function renderCurrentTab() {
+    contentContainer.innerHTML = "";
+    if (currentTab === "layout") renderLayoutTab();
+    else if (currentTab === "open") renderOpenTab();
+    else if (currentTab === "settings") renderSettingsTab();
+  }
+
+  // --- Layout tab ---
+  const modeBtns = [];
+
+  function renderLayoutTab() {
+    const tabCount = tabs.length;
+    const modeRow = document.createElement("div");
+    modeRow.className = "split-tab-mode-row";
+    modeBtns.length = 0;
+
+    const modes = [
+      { value: "normal", icon: "split-icon-normal", minTabs: 0 },
+      { value: "vertical", icon: "split-icon-v", minTabs: 2 },
+      { value: "horizontal", icon: "split-icon-h", minTabs: 2 },
+      { value: "grid", icon: "split-icon-grid", minTabs: 3 },
+    ];
+    for (const m of modes) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.dataset.mode = m.value;
+      const iconEl = document.createElement("span");
+      iconEl.className = m.icon;
+      btn.appendChild(iconEl);
+      if (tabCount < m.minTabs) {
+        btn.disabled = true;
+      }
+      btn.addEventListener("click", () => {
+        if (btn.disabled) return;
+        if (m.value === "normal") {
+          if (splitMode) { exitSplitMode(); updateModeRadio(); renderTabList(); }
+        } else {
+          splitLayout = m.value;
+          if (!splitMode) { enterSplitMode(); } else { rebuildSplitLayout(); }
+          updateModeRadio();
+          renderTabList();
+        }
+      });
+      modeBtns.push(btn);
+      modeRow.appendChild(btn);
+    }
+
+    contentContainer.appendChild(modeRow);
+    updateModeRadio();
+
+    const list = document.createElement("div");
+    list.className = "split-tab-list";
+    contentContainer.appendChild(list);
+    renderTabList();
+  }
+
+  function updateModeRadio() {
+    const current = splitMode ? splitLayout : "normal";
+    const count = tabs.length;
+    const minTabsMap = { normal: 0, vertical: 2, horizontal: 2, grid: 3 };
+    for (const b of modeBtns) {
+      b.className = "split-tab-mode-option" + (b.dataset.mode === current ? " active" : "");
+      const mobileDisabled = panelBottom && b.dataset.mode !== "normal" && b.dataset.mode !== "vertical";
+      b.disabled = count < (minTabsMap[b.dataset.mode] || 0) || mobileDisabled;
+    }
+  }
 
   let dragState = null;
 
@@ -1608,10 +1179,11 @@ function openTabEditModal() {
   }
 
   function renderTabList() {
+    const list = contentContainer.querySelector(".split-tab-list");
+    if (!list) return;
     list.innerHTML = "";
-    const nonPicker = tabs.filter((t) => t.type !== "picker");
-    for (let i = 0; i < nonPicker.length; i++) {
-      const tab = nonPicker[i];
+    for (let i = 0; i < tabs.length; i++) {
+      const tab = tabs[i];
 
       const row = document.createElement("div");
       row.className = "split-tab-row";
@@ -1640,7 +1212,7 @@ function openTabEditModal() {
       const handle = document.createElement("span");
       handle.className = "split-tab-drag-handle";
       handle.innerHTML = '<span class="mdi mdi-drag"></span>';
-      bindDragHandle(handle, row, i);
+      bindDragHandle(handle, row, i, list);
       row.appendChild(handle);
 
       const info = document.createElement("span");
@@ -1654,15 +1226,17 @@ function openTabEditModal() {
         toggleRow(tab);
       });
 
-      const closeBtn = document.createElement("button");
-      closeBtn.type = "button";
-      closeBtn.className = "split-tab-close-btn";
-      closeBtn.innerHTML = "&times;";
-      closeBtn.addEventListener("click", () => {
+      const closeBtnEl = document.createElement("button");
+      closeBtnEl.type = "button";
+      closeBtnEl.className = "split-tab-close-btn";
+      closeBtnEl.innerHTML = "&times;";
+      closeBtnEl.addEventListener("click", () => {
         removeTab(tab.id);
+        if (!document.body.contains(contentContainer)) return;
+        updateModeRadio();
         renderTabList();
       });
-      row.appendChild(closeBtn);
+      row.appendChild(closeBtnEl);
 
       list.appendChild(row);
     }
@@ -1695,11 +1269,11 @@ function openTabEditModal() {
         updateModeRadio();
       });
 
-      const closeBtn = document.createElement("button");
-      closeBtn.type = "button";
-      closeBtn.className = "split-tab-close-btn";
-      closeBtn.innerHTML = "&times;";
-      closeBtn.addEventListener("click", () => {
+      const closeBtnEl = document.createElement("button");
+      closeBtnEl.type = "button";
+      closeBtnEl.className = "split-tab-close-btn";
+      closeBtnEl.innerHTML = "&times;";
+      closeBtnEl.addEventListener("click", () => {
         const label = s.workspace || "terminal";
         if (!confirm(`「${label}」を閉じますか？`)) return;
         const match = s.wsUrl.match(/\/terminal\/ws\/([^/]+)/);
@@ -1709,18 +1283,17 @@ function openTabEditModal() {
         orphanSessions = orphanSessions.filter((o) => o.wsUrl !== s.wsUrl);
         renderTabList();
       });
-      row.appendChild(closeBtn);
+      row.appendChild(closeBtnEl);
 
       list.appendChild(row);
     }
   }
 
-  function bindDragHandle(handle, row, idx) {
+  function bindDragHandle(handle, row, idx, list) {
     function onStart(e) {
       e.preventDefault();
       const y = e.touches ? e.touches[0].clientY : e.clientY;
       const rowRect = row.getBoundingClientRect();
-      const listRect = list.getBoundingClientRect();
       dragState = { idx, startY: y, offsetY: y - rowRect.top, rowHeight: rowRect.height };
       row.classList.add("dragging");
       row.style.position = "relative";
@@ -1738,7 +1311,7 @@ function openTabEditModal() {
         targetIdx = Math.max(0, Math.min(targetIdx, list.children.length - 1));
 
         if (targetIdx !== dragState.idx) {
-          moveTab(dragState.idx, targetIdx);
+          moveTab(dragState.idx, targetIdx, list);
           dragState.idx = targetIdx;
           dragState.startY = cy;
           row.style.transform = "";
@@ -1756,7 +1329,7 @@ function openTabEditModal() {
         document.removeEventListener("mouseup", onEnd);
         document.removeEventListener("touchmove", onMove);
         document.removeEventListener("touchend", onEnd);
-        applyTabOrder();
+        applyTabOrder(list);
         renderTabList();
       }
 
@@ -1770,7 +1343,7 @@ function openTabEditModal() {
     handle.addEventListener("touchstart", onStart, { passive: false });
   }
 
-  function moveTab(fromIdx, toIdx) {
+  function moveTab(fromIdx, toIdx, list) {
     if (fromIdx === toIdx) return;
     const rows = Array.from(list.children);
     const row = rows[fromIdx];
@@ -1781,16 +1354,12 @@ function openTabEditModal() {
     }
   }
 
-  function applyTabOrder() {
-    const nonPicker = tabs.filter((t) => t.type !== "picker");
+  function applyTabOrder(list) {
     const rows = Array.from(list.children);
-    const newOrder = rows.map((r) => nonPicker[parseInt(r.dataset.idx)]).filter(Boolean);
+    const newOrder = rows.map((r) => tabs[parseInt(r.dataset.idx)]).filter(Boolean);
 
-    const picker = tabs.find((t) => t.type === "picker");
-    const reordered = newOrder.slice();
-    if (picker) reordered.push(picker);
     tabs.length = 0;
-    tabs.push(...reordered);
+    tabs.push(...newOrder);
 
     if (splitMode) {
       splitPaneTabIds = newOrder.map((t) => t.id);
@@ -1801,9 +1370,356 @@ function openTabEditModal() {
     }
   }
 
+  // --- Open tab ---
+  function renderOpenTab() {
+    const list = document.createElement("div");
+    list.className = "terminal-ws-list";
+    renderModalWsList(list);
+    contentContainer.appendChild(list);
+  }
+
+  function renderModalWsList(container) {
+    const workspaces = visibleWorkspaces();
+    for (const ws of workspaces) {
+      const group = document.createElement("div");
+      group.className = "picker-ws-group";
+
+      const headerEl = document.createElement("div");
+      headerEl.className = "picker-ws-header";
+
+      const fileBtn = document.createElement("button");
+      fileBtn.type = "button";
+      fileBtn.className = "picker-ws-icon-btn picker-ws-file-btn";
+      fileBtn.title = "ファイル一覧";
+      fileBtn.innerHTML = renderIcon("mdi-folder", "", 18);
+      fileBtn.addEventListener("click", () => {
+        closeModal();
+        selectedWorkspace = ws.name;
+        openFileBrowser();
+      });
+      headerEl.appendChild(fileBtn);
+
+      const headerLabel = document.createElement("button");
+      headerLabel.type = "button";
+      headerLabel.className = "picker-ws-header-label";
+      headerLabel.innerHTML = renderIcon(ws.icon || "mdi-console", ws.icon_color, 18) + escapeHtml(ws.name);
+      headerLabel.addEventListener("click", () => {
+        runJob("terminal", null, ws.name);
+      });
+      headerEl.appendChild(headerLabel);
+
+      const icons = document.createElement("div");
+      icons.className = "picker-ws-icons";
+      headerEl.appendChild(icons);
+
+      group.appendChild(headerEl);
+      container.appendChild(group);
+
+      loadWsIconButtons(icons, ws, 18,
+        (link) => { window.open(link.url, "_blank"); },
+        (name, job) => {
+          if (job.confirm !== false) {
+            if (!confirm(`${job.label || name} を実行しますか？`)) return;
+          }
+          closeModal();
+          runJob(name, null, ws.name);
+        },
+      );
+    }
+  }
+
+  // --- Settings tab ---
+  function renderSettingsTab() {
+    renderSettingsMenu();
+  }
+
+  function renderSettingsMenu() {
+    contentContainer.innerHTML = "";
+    const menu = document.createElement("div");
+    menu.className = "settings-menu";
+
+    const items = [
+      { icon: "mdi-cog", label: "ワークスペース設定", action: () => showModalWsVisibility() },
+      { icon: "mdi-plus", label: "ワークスペース追加", action: () => showModalClone() },
+      { icon: "mdi-download", label: "設定エクスポート", action: () => exportSettings() },
+      { icon: "mdi-upload", label: "設定インポート", action: () => importSettings() },
+      { icon: "mdi-format-list-bulleted", label: "プロセス一覧", action: () => showModalSubView("プロセス一覧", renderProcessListTo) },
+      { icon: "mdi-information-outline", label: "サーバー情報", action: () => showModalSubView("サーバー情報", renderServerInfoTo) },
+      { icon: "mdi-text-box-outline", label: "操作ログ", action: () => showModalSubView("操作ログ", renderOpLogTo) },
+    ];
+
+    for (const item of items) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "settings-menu-item";
+      btn.innerHTML = `<span class="mdi ${item.icon}"></span> ${item.label}`;
+      btn.addEventListener("click", item.action);
+      menu.appendChild(btn);
+    }
+
+    contentContainer.appendChild(menu);
+  }
+
+  function showModalSubView(subTitle, renderFn) {
+    contentContainer.innerHTML = "";
+    const sub = document.createElement("div");
+    sub.className = "split-tab-settings-sub";
+
+    const backBtn = document.createElement("button");
+    backBtn.type = "button";
+    backBtn.className = "split-tab-settings-back";
+    backBtn.innerHTML = '<span class="mdi mdi-arrow-left"></span> ' + escapeHtml(subTitle);
+    backBtn.addEventListener("click", () => renderSettingsMenu());
+    sub.appendChild(backBtn);
+
+    const body = document.createElement("div");
+    body.className = "split-tab-settings-body";
+    sub.appendChild(body);
+
+    contentContainer.appendChild(sub);
+    renderFn(body);
+  }
+
+  function showModalWsVisibility() {
+    contentContainer.innerHTML = "";
+    const sub = document.createElement("div");
+    sub.className = "split-tab-settings-sub";
+
+    const backBtn = document.createElement("button");
+    backBtn.type = "button";
+    backBtn.className = "split-tab-settings-back";
+    backBtn.innerHTML = '<span class="mdi mdi-arrow-left"></span> ワークスペース設定';
+    backBtn.addEventListener("click", () => renderSettingsMenu());
+    sub.appendChild(backBtn);
+
+    const body = document.createElement("div");
+    body.className = "split-tab-settings-body";
+    sub.appendChild(body);
+
+    contentContainer.appendChild(sub);
+
+    renderWsVisibilityTo(
+      body,
+      (ws) => {
+        selectedWorkspace = ws.name;
+        openItemCreateModal(ws.name, "job", "modal-settings");
+      },
+      (container, ws) => {
+        loadWsIconButtons(container, ws, 16,
+          (link, i) => {
+            openItemEditModal("link", {
+              workspace: ws.name, index: i,
+              label: link.label || link.url,
+              url: link.url,
+              icon: link.icon,
+              iconColor: link.icon_color,
+            }, "modal-settings");
+          },
+          (name, job) => {
+            openItemEditModal("job", {
+              workspace: ws.name,
+              name,
+              label: job.label || name,
+              icon: job.icon,
+              iconColor: job.icon_color,
+              command: job.command || "",
+              confirm: job.confirm,
+            }, "modal-settings");
+          },
+        );
+      },
+    );
+  }
+
+  function showModalClone() {
+    contentContainer.innerHTML = "";
+    const sub = document.createElement("div");
+    sub.className = "split-tab-settings-sub";
+
+    const backBtn = document.createElement("button");
+    backBtn.type = "button";
+    backBtn.className = "split-tab-settings-back";
+    backBtn.innerHTML = '<span class="mdi mdi-arrow-left"></span> ワークスペース追加';
+    backBtn.addEventListener("click", () => renderSettingsMenu());
+    sub.appendChild(backBtn);
+
+    const body = document.createElement("div");
+    body.className = "split-tab-settings-body";
+    body.style.padding = "0 4px";
+    sub.appendChild(body);
+
+    contentContainer.appendChild(sub);
+
+    showPickerCloneInContainer(body);
+  }
+
+  function showPickerCloneInContainer(content) {
+    let pickerCloneTab = "github";
+    let pickerSelectedUrl = "";
+    let pickerRepos = [];
+
+    const cloneTabs = document.createElement("div");
+    cloneTabs.className = "clone-tabs";
+    const githubBtn = document.createElement("button");
+    githubBtn.type = "button";
+    githubBtn.className = "clone-tab active";
+    githubBtn.textContent = "GitHub";
+    const urlBtn = document.createElement("button");
+    urlBtn.type = "button";
+    urlBtn.className = "clone-tab";
+    urlBtn.textContent = "手動入力";
+    cloneTabs.append(githubBtn, urlBtn);
+    content.appendChild(cloneTabs);
+
+    const githubPane = document.createElement("div");
+    githubPane.className = "clone-tab-content";
+    const repoList = document.createElement("div");
+    repoList.className = "clone-repo-list";
+    repoList.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
+    githubPane.appendChild(repoList);
+    content.appendChild(githubPane);
+
+    const urlPane = document.createElement("div");
+    urlPane.className = "clone-tab-content";
+    urlPane.style.display = "none";
+    const urlGroup = document.createElement("div");
+    urlGroup.className = "form-group";
+    urlGroup.innerHTML = '<label class="form-label">リポジトリ</label>';
+    const urlInput = document.createElement("input");
+    urlInput.type = "text";
+    urlInput.className = "form-input";
+    urlInput.placeholder = "git@github.com:user/repo.git or https://...";
+    urlInput.autocomplete = "off";
+    urlGroup.appendChild(urlInput);
+    urlPane.appendChild(urlGroup);
+    content.appendChild(urlPane);
+
+    const nameGroup = document.createElement("div");
+    nameGroup.className = "form-group";
+    nameGroup.innerHTML = '<label class="form-label">ディレクトリ名 <span class="form-hint">(省略時はリポジトリ名)</span></label>';
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.className = "form-input";
+    nameInput.autocomplete = "off";
+    nameGroup.appendChild(nameInput);
+    content.appendChild(nameGroup);
+
+    const errorEl = document.createElement("div");
+    errorEl.className = "form-error";
+    content.appendChild(errorEl);
+
+    const outputEl = document.createElement("div");
+    outputEl.className = "clone-output";
+    outputEl.style.display = "none";
+    content.appendChild(outputEl);
+
+    const actions = document.createElement("div");
+    actions.className = "modal-actions";
+    const submitBtn = document.createElement("button");
+    submitBtn.type = "button";
+    submitBtn.className = "primary";
+    submitBtn.style.width = "auto";
+    submitBtn.textContent = "クローン";
+    actions.appendChild(submitBtn);
+    content.appendChild(actions);
+
+    function switchCloneTabInner(tab) {
+      pickerCloneTab = tab;
+      githubBtn.classList.toggle("active", tab === "github");
+      urlBtn.classList.toggle("active", tab === "url");
+      githubPane.style.display = tab === "github" ? "block" : "none";
+      urlPane.style.display = tab === "url" ? "block" : "none";
+      if (tab === "url") urlInput.focus();
+    }
+
+    githubBtn.addEventListener("click", () => switchCloneTabInner("github"));
+    urlBtn.addEventListener("click", () => switchCloneTabInner("url"));
+
+    function renderRepos() {
+      if (pickerRepos.length === 0) {
+        repoList.innerHTML = '<div class="clone-repo-empty">リポジトリがありません</div>';
+        return;
+      }
+      repoList.innerHTML = "";
+      for (const repo of pickerRepos) {
+        const item = document.createElement("div");
+        item.className = "clone-repo-item" + (pickerSelectedUrl === repo.url ? " selected" : "");
+        item.innerHTML = `<div class="clone-repo-name">${escapeHtml(repo.nameWithOwner)}</div>` +
+          (repo.description ? `<div class="clone-repo-desc">${escapeHtml(repo.description)}</div>` : "");
+        item.addEventListener("click", () => {
+          pickerSelectedUrl = repo.url;
+          renderRepos();
+        });
+        repoList.appendChild(item);
+      }
+    }
+
+    async function loadRepos() {
+      repoList.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
+      try {
+        const res = await apiFetch("/github/repos");
+        if (!res) return;
+        if (!res.ok) {
+          const data = await res.json();
+          repoList.innerHTML = `<div class="clone-repo-error">${escapeHtml(data.detail || "取得に失敗しました")}</div>`;
+          return;
+        }
+        pickerRepos = await res.json();
+        renderRepos();
+      } catch (e) {
+        repoList.innerHTML = `<div class="clone-repo-error">${escapeHtml(e.message)}</div>`;
+      }
+    }
+
+    submitBtn.addEventListener("click", async () => {
+      let url = pickerCloneTab === "github" ? pickerSelectedUrl : urlInput.value.trim();
+      url = toSshUrl(url);
+      const name = nameInput.value.trim();
+
+      if (!url) {
+        errorEl.textContent = pickerCloneTab === "github" ? "リポジトリを選択してください" : "URLを入力してください";
+        errorEl.style.display = "block";
+        return;
+      }
+
+      errorEl.style.display = "none";
+      outputEl.style.display = "block";
+      outputEl.textContent = "cloning...";
+      submitBtn.disabled = true;
+
+      try {
+        const res = await apiFetch("/workspaces", {
+          method: "POST",
+          body: { url, name: name || null },
+        });
+        if (!res) return;
+        const data = await res.json();
+        if (!res.ok || data.status === "error") {
+          errorEl.textContent = data.detail || data.stderr || "クローンに失敗しました";
+          errorEl.style.display = "block";
+          outputEl.style.display = "none";
+          submitBtn.disabled = false;
+          return;
+        }
+        outputEl.textContent = `${data.name} をクローンしました`;
+        await loadWorkspaces();
+        showModalWsVisibility();
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = "block";
+        outputEl.style.display = "none";
+        submitBtn.disabled = false;
+      }
+    });
+
+    loadRepos();
+  }
+
   function closeModal() {
     overlay.remove();
   }
+
+  switchModalTab(initialTab);
 }
 
 function exitSplitMode() {
@@ -1839,16 +1755,15 @@ function rebuildSplitLayout() {
   clearSplitDom(container);
   container.classList.remove("split-active", "split-mobile", "split-vertical", "split-horizontal");
 
-  const nonPicker = getNonPickerTabs();
-  if (nonPicker.length < 2) {
-    const remaining = nonPicker.length > 0 ? nonPicker[0].id : activeTabId;
+  if (tabs.length < 2) {
+    const remaining = tabs.length > 0 ? tabs[0].id : activeTabId;
     exitSplitModeWithTab(remaining);
     return;
   }
 
-  const nonPickerIds = new Set(nonPicker.map((t) => t.id));
-  const kept = splitPaneTabIds.filter((id) => nonPickerIds.has(id));
-  const added = nonPicker.filter((t) => !splitPaneTabIds.includes(t.id)).map((t) => t.id);
+  const tabIds = new Set(tabs.map((t) => t.id));
+  const kept = splitPaneTabIds.filter((id) => tabIds.has(id));
+  const added = tabs.filter((t) => !splitPaneTabIds.includes(t.id)).map((t) => t.id);
   splitPaneTabIds = [...kept, ...added];
 
   if (activePaneIndex >= splitPaneTabIds.length) {
