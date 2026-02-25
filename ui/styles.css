@@ -2139,7 +2139,8 @@ button:disabled {
   color: var(--accent);
 }
 
-#commit-modal-tab-commits {
+#commit-modal-tab-commits,
+#commit-modal-tab-diff {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -2292,13 +2293,7 @@ button:disabled {
   background: rgba(130, 170, 255, 0.08);
 }
 
-/* Diff modal */
-#diff-modal .modal-header h3 {
-  white-space: normal;
-  overflow: visible;
-  text-overflow: unset;
-  word-break: break-all;
-}
+/* Diff tab in git-log modal */
 
 .diff-actions {
   display: flex;
@@ -2378,7 +2373,6 @@ button:disabled {
   word-break: break-all;
   color: var(--text-primary);
   min-height: 100px;
-  max-height: 60vh;
 }
 
 .diff-line-add {

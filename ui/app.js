@@ -239,7 +239,6 @@ applyPanelBottom();
     tab.addEventListener("click", () => switchCloneTab(tab.dataset.tab));
   }
   $("branch-modal-close").addEventListener("click", closeBranchModal);
-  $("diff-close").addEventListener("click", closeDiffModal);
   $("diff-commit-cancel").addEventListener("click", closeCommitForm);
   $("diff-commit-submit").addEventListener("click", submitCommit);
   $("item-create-cancel").addEventListener("click", closeItemCreateModal);
