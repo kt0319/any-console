@@ -1030,6 +1030,10 @@ header .ws-select-wrap {
   z-index: 1;
 }
 
+.split-pane.active-pane .tab-name-pill {
+  border-color: var(--accent);
+}
+
 
 .tab-name-pill {
   position: absolute;
@@ -2827,6 +2831,14 @@ button:disabled {
   .picker-frame {
     max-width: 480px;
     margin: 0 auto;
+  }
+  .tab-name-pill,
+  .view-mode-overlay {
+    display: none;
+  }
+  .split-pane .tab-name-pill,
+  .split-pane .view-mode-overlay {
+    display: flex;
   }
 }
 

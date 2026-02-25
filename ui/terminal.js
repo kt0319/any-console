@@ -865,7 +865,10 @@ function updateTabNamePill() {
     pill.appendChild(info);
     bindLongPress(pill, {
       onLongPress: () => openTabEditModal(),
-      onClick: () => enterTerminalCopyMode(tab.id),
+    });
+    pill.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      openTabEditModal();
     });
     frame.appendChild(pill);
   }
@@ -1883,10 +1886,7 @@ function createSplitPane(index) {
     if (e.target.closest(".tab-name-pill") || e.target.closest(".view-mode-label")) return;
     const frame = pane.querySelector(".terminal-frame");
     if (frame && frame.classList.contains("view-mode")) return;
-    if (activePaneIndex === index) {
-      showKeyboardInput();
-      return;
-    }
+    if (activePaneIndex === index) return;
     e.stopPropagation();
     e.preventDefault();
     setActivePaneIndex(index);
