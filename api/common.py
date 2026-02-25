@@ -59,7 +59,9 @@ def _read_config_unlocked() -> dict:
     if CONFIG_FILE.is_file():
         try:
             return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as e:
+        except json.JSONDecodeError:
+            raise
+        except OSError as e:
             logger.warning("config read failed path=%s: %s", CONFIG_FILE, e)
             return {}
     return _migrate_to_unified_config()
@@ -131,9 +133,8 @@ def _read_json_file(path: Path, default=None):
         return default
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as e:
-        logger.warning("json parse failed path=%s: %s", path, e)
-        return default
+    except json.JSONDecodeError:
+        raise
     except OSError:
         return default
 

@@ -3,6 +3,11 @@ let lastVisibleTime = Date.now();
 let tabDragState = null;
 const OSC_TITLE_RE = /\x1b\]0;/;
 
+function renderTabIconHtml(tab, size = 14) {
+  return (tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, size) : "")
+       + (tab.icon ? renderIcon(tab.icon.name, tab.icon.color, size) : "");
+}
+
 function startSessionKeepalive() {
   stopSessionKeepalive();
   sessionKeepaliveTimer = setInterval(pingTerminalSessions, 5 * 60 * 1000);
@@ -84,7 +89,8 @@ async function fetchOrphanSessions() {
     }
     const sessions = await res.json();
     updateOrphanFromSessions(sessions);
-  } catch {
+  } catch (e) {
+    console.error("fetchOrphanSessions failed:", e);
     orphanSessions = [];
   }
   renderTabBar();
@@ -707,17 +713,11 @@ function renderTabBar() {
   for (const item of items) {
     if (item.type === "tab") {
       const tab = item.tab;
-      const wsIconHtml = tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14) : "";
-      const iconHtml = tab.icon ? renderIcon(tab.icon.name, tab.icon.color, 14) : "";
+      const tabIconHtml = renderTabIconHtml(tab);
       const actCls = tab._activity ? " tab-activity" : "";
       const activeCls = activeTabId === tab.id ? " active" : "";
-      if (panelBottom) {
-        html += `<button class="tab-btn${activeCls}${actCls}" data-tab="${tab.id}">`
-          + `${wsIconHtml}${iconHtml}</button>`;
-      } else {
-        html += `<button class="tab-btn${activeCls}${actCls}" data-tab="${tab.id}">`
-          + `${wsIconHtml}${iconHtml}${escapeHtml(tab.label)}<span class="tab-close" data-close="${tab.id}">&times;</span></button>`;
-      }
+      const suffix = panelBottom ? "" : `${escapeHtml(tab.label)}<span class="tab-close" data-close="${tab.id}">&times;</span>`;
+      html += `<button class="tab-btn${activeCls}${actCls}" data-tab="${tab.id}">${tabIconHtml}${suffix}</button>`;
     } else {
       const s = item.orphan;
       const label = s.workspace || "terminal";
@@ -725,13 +725,8 @@ function renderTabBar() {
       const owsIconHtml = ows && ows.icon ? renderIcon(ows.icon, ows.icon_color, 14) : "";
       const isDuplicateIcon = ows && ows.icon && s.icon === ows.icon;
       const orphanIcon = isDuplicateIcon ? "" : renderIcon(s.icon || "mdi-console", s.iconColor || "", 14);
-      if (panelBottom) {
-        html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
-          + `${owsIconHtml}${orphanIcon}</button>`;
-      } else {
-        html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">`
-          + `${owsIconHtml}${orphanIcon}${escapeHtml(label)}<span class="tab-close" data-close-orphan="${escapeHtml(s.wsUrl)}">&times;</span></button>`;
-      }
+      const suffix = panelBottom ? "" : `${escapeHtml(label)}<span class="tab-close" data-close-orphan="${escapeHtml(s.wsUrl)}">&times;</span>`;
+      html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">${owsIconHtml}${orphanIcon}${suffix}</button>`;
     }
   }
   if (pickerTab && activeTabId === pickerTab.id) {
@@ -865,7 +860,6 @@ function renderPickerWsList(container) {
     fileBtn.addEventListener("click", () => {
       resetPickerView();
       selectedWorkspace = ws.name;
-      renderWorkspaceSelects();
       openFileBrowser();
     });
     header.insertBefore(fileBtn, headerLabel);
@@ -1068,31 +1062,25 @@ function loadPickerSettingsWsIcons(container, ws) {
   );
 }
 
-async function showPickerServerInfo(container) {
-  showPickerSettingsSubView(container, "サーバー情報", async (content) => {
+function showPickerSubViewWithList(container, title, renderFn) {
+  showPickerSettingsSubView(container, title, async (content) => {
     const list = document.createElement("div");
     list.className = "server-info-list";
     content.appendChild(list);
-    await renderServerInfoTo(list);
+    await renderFn(list);
   });
+}
+
+async function showPickerServerInfo(container) {
+  showPickerSubViewWithList(container, "サーバー情報", renderServerInfoTo);
 }
 
 async function showPickerProcessList(container) {
-  showPickerSettingsSubView(container, "プロセス一覧", async (content) => {
-    const list = document.createElement("div");
-    list.className = "server-info-list";
-    content.appendChild(list);
-    await renderProcessListTo(list);
-  });
+  showPickerSubViewWithList(container, "プロセス一覧", renderProcessListTo);
 }
 
 async function showPickerOpLog(container) {
-  showPickerSettingsSubView(container, "操作ログ", async (content) => {
-    const list = document.createElement("div");
-    list.className = "server-info-list";
-    content.appendChild(list);
-    await renderOpLogTo(list);
-  });
+  showPickerSubViewWithList(container, "操作ログ", renderOpLogTo);
 }
 
 function showPickerClone(container) {
@@ -1301,14 +1289,6 @@ function insertBeforePicker(tab) {
   }
 }
 
-function movePickerToEnd() {
-  const idx = tabs.findIndex((t) => t.type === "picker");
-  if (idx >= 0 && idx < tabs.length - 1) {
-    const [picker] = tabs.splice(idx, 1);
-    tabs.push(picker);
-  }
-}
-
 function enterTerminalCopyMode(tabId) {
   const tab = tabs.find((t) => t.id === tabId);
   if (!tab || tab.type !== "terminal") return;
@@ -1328,11 +1308,9 @@ function enterTerminalCopyMode(tabId) {
   const label = document.createElement("div");
   label.className = "view-mode-label";
 
-  const wsIconHtml = tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14) : "";
-  const iconHtml = tab.icon ? renderIcon(tab.icon.name, tab.icon.color, 14) : "";
   const info = document.createElement("span");
   info.className = "view-mode-label-info";
-  info.innerHTML = wsIconHtml + iconHtml + escapeHtml(tab.label || "") + " 閲覧モード";
+  info.innerHTML = renderTabIconHtml(tab) + escapeHtml(tab.label || "") + " 閲覧モード";
   label.appendChild(info);
 
   const closeBtn = document.createElement("button");
@@ -1533,9 +1511,7 @@ function openTabEditModal() {
 
       const info = document.createElement("span");
       info.className = "split-tab-row-info";
-      const wsIconHtml = tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14) : "";
-      const iconHtml = tab.icon ? renderIcon(tab.icon.name, tab.icon.color, 14) : "";
-      info.innerHTML = wsIconHtml + iconHtml + escapeHtml(tabDisplayName(tab) || tab.label || "");
+      info.innerHTML = renderTabIconHtml(tab) + escapeHtml(tabDisplayName(tab) || tab.label || "");
       row.appendChild(info);
 
       row.addEventListener("click", (e) => {
@@ -1823,11 +1799,9 @@ function updatePaneLabels() {
     const label = document.createElement("div");
     label.className = "split-pane-label";
 
-    const wsIconHtml = tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14) : "";
-    const iconHtml = tab.icon ? renderIcon(tab.icon.name, tab.icon.color, 14) : "";
     const info = document.createElement("span");
     info.className = "split-pane-label-info";
-    info.innerHTML = wsIconHtml + iconHtml + escapeHtml(tab.label || "");
+    info.innerHTML = renderTabIconHtml(tab) + escapeHtml(tab.label || "");
     label.appendChild(info);
 
     const closeBtn = document.createElement("button");

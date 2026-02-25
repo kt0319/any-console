@@ -3,7 +3,6 @@ async function loadWorkspaces() {
     const res = await apiFetch("/workspaces");
     if (res && res.ok) {
       allWorkspaces = await res.json();
-      renderWorkspaceSelects();
     }
   } catch (e) {
     showToast("ワークスペース一覧の取得に失敗しました", "error");
@@ -15,12 +14,6 @@ function visibleWorkspaces() {
   return allWorkspaces.filter((ws) => !ws.hidden);
 }
 
-function renderWorkspaceSelects() {
-}
-
-function updateGithubLink(ws) {
-}
-
 async function updateHeaderInfo() {
   const mainGitStatusEl = $("main-git-status");
 
@@ -30,7 +23,6 @@ async function updateHeaderInfo() {
     const commitMsgBtn = $("header-commit-msg");
     commitMsgBtn.style.display = "";
     commitMsgBtn.innerHTML = `<span class="commit-btn-msg" style="color:var(--text-muted)">ワークスペースを選択してください</span>`;
-    updateGithubLink(null);
     updateGitActions(null);
     return;
   }
@@ -52,7 +44,6 @@ async function updateHeaderInfo() {
     dirtyBadge.addEventListener("click", openDiffModal);
   }
 
-  updateGithubLink(ws);
   mainGitStatusEl.innerHTML = "";
   updateGitActions(ws);
   const commitMsgBtn = $("header-commit-msg");

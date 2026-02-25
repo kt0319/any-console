@@ -27,19 +27,6 @@ function showToast(message, type = "error") {
   setTimeout(dismiss, 3000);
 }
 
-function formatTimeAgo(isoStr) {
-  const diff = Date.now() - new Date(isoStr).getTime();
-  if (diff < 0) return "";
-  const sec = Math.floor(diff / 1000);
-  if (sec < 300) return "now";
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h`;
-  const day = Math.floor(hr / 24);
-  return `${day}d`;
-}
-
 function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;

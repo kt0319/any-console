@@ -13,7 +13,8 @@ async function loadJobsForWorkspace() {
     } else {
       JOBS = await res.json();
     }
-  } catch {
+  } catch (e) {
+    console.error("loadJobsForWorkspace failed:", e);
     JOBS = {};
   }
 
@@ -85,18 +86,6 @@ function collectConfirmArgs() {
   return args;
 }
 
-function collectArgs() {
-  const job = JOBS[selectedJob];
-  if (!job || !job.args) return {};
-  const args = {};
-  for (const arg of job.args) {
-    if (arg.required && Array.isArray(arg.values) && arg.values.length > 0) {
-      args[arg.name] = arg.values[0];
-    }
-  }
-  return args;
-}
-
 let _runJobQueue = Promise.resolve();
 
 async function runJob(jobName = null, argsOverride = null, workspaceOverride = null) {
@@ -120,7 +109,10 @@ async function _runJobInner(targetJob, workspaceOverride) {
       }
     } catch {}
   }
-  job = job || {};
+  if (!job && targetJob !== "terminal") {
+    showToast(`ジョブ "${targetJob}" が見つかりません`);
+    return;
+  }
   const tabLabel = targetJob === "terminal" ? (workspaceOverride || workspace) : (job.label || targetJob);
 
   let initialCommand = null;
@@ -232,24 +224,8 @@ function openItemCreateModal(workspace, type, source) {
   modal.style.display = "flex";
 }
 
-function openJobCreateModal() {
-  openItemCreateModal(selectedWorkspace, "job");
-}
-
-function openLinkCreateModal(workspace) {
-  openItemCreateModal(workspace, "link");
-}
-
 function closeItemCreateModal() {
   $("item-create-modal").style.display = "none";
-}
-
-function closeJobCreateModal() {
-  closeItemCreateModal();
-}
-
-function closeLinkCreateModal() {
-  closeItemCreateModal();
 }
 
 async function submitItemCreate() {

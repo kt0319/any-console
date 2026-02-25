@@ -16,10 +16,8 @@ function exitViewModeIfActive() {
 function sendKeyToTerminal(keyDef) {
   exitViewModeIfActive();
   const tab = getActiveTerminalTab();
-  console.log("[quickkey]", keyDef.key, "tab=", !!tab, "ws=", tab?.ws?.readyState);
   if (!tab || !tab.ws || tab.ws.readyState !== WebSocket.OPEN) return;
   const seq = keyDefToAnsi(keyDef);
-  console.log("[quickkey] seq=", seq ? seq.length + "chars" : "null");
   if (seq) tab.ws.send(new TextEncoder().encode(seq));
 }
 
@@ -502,7 +500,6 @@ function initQuickInput() {
       const btn = createQuickKeyBtn(QWERTY_ROWS[i][j]);
       if (i === 0 && j < NUMBER_KEYS.length) {
         btn._flickUpKeyDef = NUMBER_KEYS[j];
-        if (j < SYMBOL_KEYS.length) btn._flickDownKeyDef = SYMBOL_KEYS[j];
         btn.classList.add("quick-flick-arrow");
         const mainText = btn.textContent;
         btn.textContent = "";
@@ -514,12 +511,6 @@ function initQuickInput() {
         main.textContent = mainText;
         btn.appendChild(hintTop);
         btn.appendChild(main);
-        if (j < SYMBOL_KEYS.length) {
-          const hintBottom = document.createElement("span");
-          hintBottom.className = "flick-hint-bottom";
-          hintBottom.textContent = SYMBOL_KEYS[j].label;
-          btn.appendChild(hintBottom);
-        }
       }
       row.appendChild(btn);
       qwertyKeyBtns.push({ btn, row: i, col: j });

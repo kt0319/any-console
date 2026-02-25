@@ -5,7 +5,6 @@ async function initApp() {
     selectedWorkspace = null;
   }
   setLoadingStatus("ワークスペース情報を取得中...");
-  renderWorkspaceSelects();
   await updateHeaderInfo();
   setLoadingStatus("ジョブを読み込み中...");
   await loadJobsForWorkspace();

@@ -3,7 +3,6 @@ let JOBS = {};
 let selectedJob = null;
 let allWorkspaces = [];
 let selectedWorkspace = null;
-let runningJobName = null;
 let launchingTerminal = false;
 let cachedBranches = [];
 const panelBottomMql = window.matchMedia("(max-width: 768px) and (orientation: portrait)");
@@ -49,21 +48,12 @@ const NUMBER_KEYS = [
   { label: "9", key: "9", code: "Digit9", keyCode: 57 },
   { label: "0", key: "0", code: "Digit0", keyCode: 48 },
 ];
-const SYMBOL_KEYS = [];
 const EXTRA_MAIN_KEYS = [
   { label: "Del", key: "Delete", code: "Delete", keyCode: 46 },
   { label: "\u00AB", key: "Home", code: "Home", keyCode: 36 },
   { html: '<span class="mdi mdi-chevron-double-down"></span>', xtermScroll: "down" },
   { html: '<span class="mdi mdi-chevron-double-up"></span>', xtermScroll: "up" },
   { label: "\u00BB", key: "End", code: "End", keyCode: 35 },
-];
-const EXTRA_ROW_KEYS = [
-  { label: "Tab", key: "Tab", code: "Tab", keyCode: 9 },
-  { label: "S-Tab", shift: true, key: "Tab", code: "Tab", keyCode: 9 },
-  { label: "C-c", ctrl: true, key: "c", code: "KeyC", keyCode: 67 },
-  { label: "C-o", ctrl: true, key: "o", code: "KeyO", keyCode: 79 },
-  { label: "/", key: "/", code: "Slash", keyCode: 191 },
-  { label: "\u2423", key: " ", code: "Space", keyCode: 32 },
 ];
 const QWERTY_ROWS = [
   "qwertyuiop".split("").map(c => ({ label: c, key: c })),
