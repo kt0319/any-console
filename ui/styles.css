@@ -414,7 +414,8 @@ header .ws-select-wrap {
 
 .git-action-btn.fetch-btn {
   color: var(--text-muted);
-  background: transparent;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
 }
 
 .git-action-btn.pull-btn {
@@ -2264,9 +2265,9 @@ button:disabled {
 
 .diff-actions {
   display: flex;
-  gap: 6px;
-  margin-top: auto;
-  padding: 16px 0 4px;
+  gap: 8px;
+  padding: 4px 0 10px;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -2301,7 +2302,8 @@ button:disabled {
 .diff-file-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
+  padding-top: 10px;
   margin-bottom: 12px;
   max-height: 120px;
   overflow-y: auto;
@@ -2309,8 +2311,8 @@ button:disabled {
 
 .diff-file-tag {
   font-size: 12px;
-  padding: 3px 8px;
-  border-radius: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   color: var(--text-primary);

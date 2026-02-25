@@ -634,10 +634,10 @@ function renderDiffActions(container, hash, branches) {
   const actions = [
     ...switchActions,
     { label: "checkout -b", cls: "", fn: () => { $("diff-modal").style.display = "none"; $("git-log-modal").style.display = "flex"; toggleCreateBranchArea(hash); } },
-    { label: "cherry-pick", cls: "", fn: () => { $("diff-modal").style.display = "none"; execCommitAction("cherry-pick", hash); } },
-    { label: "revert", cls: "", fn: () => { $("diff-modal").style.display = "none"; execCommitAction("revert", hash); } },
-    { label: "reset --soft", cls: "", fn: () => { $("diff-modal").style.display = "none"; execCommitResetAction(hash, "soft"); } },
-    { label: "reset --hard", cls: "commit-action-danger", fn: () => { $("diff-modal").style.display = "none"; execCommitResetAction(hash, "hard"); } },
+    { label: "cherry-pick", cls: "", fn: () => { if (!confirm("cherry-pick を実行しますか？")) return; $("diff-modal").style.display = "none"; execCommitAction("cherry-pick", hash); } },
+    { label: "revert", cls: "", fn: () => { if (!confirm("revert を実行しますか？")) return; $("diff-modal").style.display = "none"; execCommitAction("revert", hash); } },
+    { label: "reset --soft", cls: "", fn: () => { if (!confirm("reset --soft を実行しますか？")) return; $("diff-modal").style.display = "none"; execCommitResetAction(hash, "soft"); } },
+    { label: "reset --hard", cls: "commit-action-danger", fn: () => { if (!confirm("reset --hard を実行しますか？\nこの操作は取り消せません。")) return; $("diff-modal").style.display = "none"; execCommitResetAction(hash, "hard"); } },
   ];
 
   renderActionButtons(container, actions);
@@ -802,8 +802,8 @@ async function openDiffModal() {
 
   const stashActions = [
     { label: "コミット", cls: "", fn: () => openCommitForm() },
-    { label: "stash", cls: "", fn: () => execStashAction("save") },
-    { label: "stash pop", cls: "", fn: () => execStashAction("pop") },
+    { label: "stash", cls: "", fn: () => { if (confirm("stash を実行しますか？")) execStashAction("save"); } },
+    { label: "stash pop", cls: "", fn: () => { if (confirm("stash pop を実行しますか？")) execStashAction("pop"); } },
   ];
   renderActionButtons(actionsEl, stashActions);
   actionsEl.style.display = "flex";
