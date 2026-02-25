@@ -351,7 +351,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
     if (container.classList.contains("view-mode")) return;
     if (splitMode) return;
     if (!isTouchDevice) return;
-    if (e.target.closest(".tab-name-pill") || e.target.closest(".view-mode-label")) return;
+    if (e.target.closest(".tab-name-pill")) return;
     const endY = e.changedTouches[0].clientY;
     if (touchStartY !== null && Math.abs(endY - touchStartY) > 10) return;
     showKeyboardInput();
@@ -360,6 +360,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
 
   const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, jobName: jobName || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
   insertBeforePicker(tab);
+  createTabNamePill(tab, container);
 
   if (!restored) {
     term.open(container);
@@ -380,17 +381,22 @@ function setOutputTab(id, label, htmlContent, icon, wsIcon, workspace) {
     if (wsIcon !== undefined) existing.wsIcon = wsIcon;
     if (workspace !== undefined) existing.workspace = workspace;
     const el = $(`frame-${id}`);
-    if (el) el.innerHTML = htmlContent;
+    if (el) {
+      el.innerHTML = htmlContent;
+      createTabNamePill(existing, el);
+    }
     switchTab(id);
     return;
   }
-  insertBeforePicker({ id, type: "output", label, icon: icon || null, wsIcon: wsIcon || null, workspace: workspace || null });
+  const tab = { id, type: "output", label, icon: icon || null, wsIcon: wsIcon || null, workspace: workspace || null };
+  insertBeforePicker(tab);
   const div = document.createElement("div");
   div.className = "output-area";
   div.id = `frame-${id}`;
   div.innerHTML = htmlContent;
   div.style.display = "none";
   $("output-container").appendChild(div);
+  createTabNamePill(tab, div);
   switchTab(id);
 }
 
@@ -838,49 +844,42 @@ function renderTabBar() {
   });
   const activeBtn = bar.querySelector(".tab-btn.active");
   if (activeBtn) activeBtn.scrollIntoView({ inline: "nearest", block: "nearest" });
-  updateTabNamePill();
 }
 
-function updateTabNamePill() {
-  for (const tab of tabs) {
-    const frame = $(`frame-${tab.id}`);
-    if (frame) {
-      const old = frame.querySelector(".tab-name-pill");
-      if (old) old.remove();
-    }
-  }
-  const activeTabs = splitMode
-    ? tabs.filter((t) => t.type !== "picker")
-    : [tabs.find((t) => t.id === activeTabId)].filter(Boolean);
-  for (const tab of activeTabs) {
-    if (!tab || tab.type === "picker") continue;
-    const frame = $(`frame-${tab.id}`);
-    if (!frame) continue;
-    const pill = document.createElement("div");
-    pill.className = "tab-name-pill";
-    const info = document.createElement("span");
-    info.className = "tab-name-pill-info";
-    info.innerHTML = renderTabIconHtml(tab) + escapeHtml(tab.label || "");
-    pill.appendChild(info);
-    bindLongPress(pill, {
-      onLongPress: () => openTabEditModal(),
-      onClick: () => {
-        if (tab.type === "terminal") {
-          const frame = $(`frame-${tab.id}`);
-          if (frame && frame.classList.contains("view-mode")) {
-            exitTerminalCopyMode(tab.id);
-          } else {
-            tab.term && tab.term.scrollToBottom();
-            enterTerminalCopyMode(tab.id);
-          }
+function createTabNamePill(tab, frame) {
+  const pill = document.createElement("div");
+  pill.className = "tab-name-pill";
+  const info = document.createElement("span");
+  info.className = "tab-name-pill-info";
+  info.innerHTML = renderTabIconHtml(tab) + escapeHtml(tab.label || "");
+  pill.appendChild(info);
+  bindLongPress(pill, {
+    onLongPress: () => openTabEditModal(),
+    onClick: () => {
+      if (tab.type === "terminal") {
+        const f = $(`frame-${tab.id}`);
+        if (f && f.classList.contains("view-mode")) {
+          exitTerminalCopyMode(tab.id);
+        } else {
+          tab.term && tab.term.scrollToBottom();
+          enterTerminalCopyMode(tab.id);
         }
-      },
-    });
-    pill.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-      openTabEditModal();
-    });
-    frame.appendChild(pill);
+      }
+    },
+  });
+  pill.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    openTabEditModal();
+  });
+  frame.appendChild(pill);
+}
+
+function refreshTabNamePill(tab) {
+  const frame = $(`frame-${tab.id}`);
+  if (!frame) return;
+  const info = frame.querySelector(".tab-name-pill-info");
+  if (info) {
+    info.innerHTML = renderTabIconHtml(tab) + escapeHtml(tab.label || "");
   }
 }
 
@@ -1437,24 +1436,6 @@ function enterTerminalCopyMode(tabId) {
     if (kbWrapper) kbWrapper.style.display = "none";
   }
 
-  const overlay = document.createElement("div");
-  overlay.className = "view-mode-overlay";
-  const label = document.createElement("div");
-  label.className = "view-mode-label";
-
-  const info = document.createElement("span");
-  info.className = "view-mode-label-info";
-  info.innerHTML = renderTabIconHtml(tab) + escapeHtml(tab.label || "");
-  label.appendChild(info);
-
-  label.style.pointerEvents = "auto";
-  bindLongPress(label, {
-    onLongPress: () => openTabEditModal(),
-    onClick: () => exitTerminalCopyMode(tabId),
-  });
-  overlay.appendChild(label);
-  container.appendChild(overlay);
-
   const pre = document.createElement("pre");
   pre.className = "view-mode-textarea";
   pre.innerHTML = terminalBufferToHtml(tab.term);
@@ -1466,8 +1447,6 @@ function exitTerminalCopyMode(tabId) {
   const container = $(`frame-${tabId}`);
   if (!container) return;
   container.classList.remove("view-mode");
-  const overlay = container.querySelector(".view-mode-overlay");
-  if (overlay) overlay.remove();
   const pre = container.querySelector(".view-mode-textarea");
   if (pre) pre.remove();
 }
@@ -1500,7 +1479,6 @@ function enterSplitMode() {
   buildSplitDom();
   fitAllSplitTerminals();
   renderTabBar();
-  updateTabNamePill();
 }
 
 function openTabEditModal() {
@@ -1963,7 +1941,7 @@ function createSplitPane(index) {
     paneTouchStartY = e.touches[0].clientY;
   }, { passive: true });
   pane.addEventListener("touchend", (e) => {
-    if (e.target.closest(".tab-name-pill") || e.target.closest(".view-mode-label")) return;
+    if (e.target.closest(".tab-name-pill")) return;
     const frame = pane.querySelector(".terminal-frame");
     if (frame && frame.classList.contains("view-mode")) return;
     const endY = e.changedTouches[0].clientY;
@@ -1977,7 +1955,7 @@ function createSplitPane(index) {
   });
   pane.addEventListener("pointerdown", (e) => {
     if (isTouchDevice) return;
-    if (e.target.closest(".tab-name-pill") || e.target.closest(".view-mode-label")) return;
+    if (e.target.closest(".tab-name-pill")) return;
     const frame = pane.querySelector(".terminal-frame");
     if (frame && frame.classList.contains("view-mode")) return;
     if (activePaneIndex === index) return;

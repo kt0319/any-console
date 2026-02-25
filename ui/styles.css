@@ -1082,7 +1082,7 @@ header .ws-select-wrap {
 }
 
 .terminal-frame.view-mode .tab-name-pill {
-  display: none;
+  border-color: #ff9800;
 }
 
 
@@ -1162,52 +1162,6 @@ header .ws-select-wrap {
   }
 }
 
-
-.view-mode-overlay {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  z-index: 12;
-  pointer-events: none;
-}
-
-
-.view-mode-label {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  height: 30px;
-  padding: 0 8px 0 12px;
-  font-size: 13px;
-  font-weight: normal;
-  color: var(--text-secondary);
-  background: rgba(26, 27, 38, 0.93);
-  border: 1px solid #ff9800;
-  border-radius: 15px;
-  white-space: nowrap;
-  line-height: 1;
-  cursor: default;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.view-mode-label-info {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  pointer-events: none;
-}
-
-.view-mode-label .favicon-icon {
-  width: 14px;
-  height: 14px;
-}
-
-.view-mode-label:active {
-  transform: scale(0.93);
-  background: rgba(26, 27, 38, 1);
-  transition: transform 0.1s ease, background 0.1s ease;
-}
 
 .view-mode-close-btn {
   display: flex;
@@ -2980,12 +2934,10 @@ button:disabled {
     max-width: 480px;
     margin: 0 auto;
   }
-  .tab-name-pill,
-  .view-mode-overlay {
+  .tab-name-pill {
     display: none;
   }
-  .split-pane .tab-name-pill,
-  .split-pane .view-mode-overlay {
+  .split-pane .tab-name-pill {
     display: flex;
   }
 }
