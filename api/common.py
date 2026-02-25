@@ -241,6 +241,7 @@ def validate_commit_hash(commit_hash: str) -> str:
 
 def git_info(directory: Path) -> dict:
     info = {
+        "is_git_repo": False,
         "branch": None,
         "last_commit": None,
         "last_commit_message": None,
@@ -261,6 +262,10 @@ def git_info(directory: Path) -> dict:
         )
 
     try:
+        check = run_git("rev-parse", "--is-inside-work-tree")
+        if check.returncode != 0:
+            return info
+        info["is_git_repo"] = True
         with ThreadPoolExecutor(max_workers=4) as pool:
             f_branch = pool.submit(run_git, "rev-parse", "--abbrev-ref", "HEAD")
             f_commit = pool.submit(run_git, "log", "-1", "--format=%cI")

@@ -15,21 +15,13 @@ function visibleWorkspaces() {
 }
 
 async function updateHeaderInfo() {
-  const mainGitStatusEl = $("main-git-status");
+  if (!selectedWorkspace) return;
 
-  if (!selectedWorkspace) {
-    mainGitStatusEl.innerHTML = "";
-    $("clean-dirty-status").innerHTML = "";
-    const commitMsgBtn = $("header-commit-msg");
-    commitMsgBtn.style.display = "";
-    commitMsgBtn.innerHTML = `<span class="commit-btn-msg" style="color:var(--text-muted)">ワークスペースを選択してください</span>`;
-    updateGitActions(null);
-    return;
-  }
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
+  if (!ws) return;
 
   let cleanDirtyHtml = "";
-  if (ws && ws.clean === false) {
+  if (ws.clean === false) {
     let statParts = [];
     if (ws.changed_files > 0) statParts.push(`<span class="stat-files">${ws.changed_files}F</span>`);
     if (ws.insertions > 0) statParts.push(`<span class="stat-add">+${ws.insertions}</span>`);
@@ -44,28 +36,17 @@ async function updateHeaderInfo() {
     dirtyBadge.addEventListener("click", openDiffModal);
   }
 
-  mainGitStatusEl.innerHTML = "";
+  $("main-git-status").innerHTML = "";
   updateGitActions(ws);
-  const commitMsgBtn = $("header-commit-msg");
-  commitMsgBtn.style.display = "";
-  if (ws) {
-    const branch = ws.branch || "";
-    const msg = ws.last_commit_message || "";
-    commitMsgBtn.innerHTML = `<span class="commit-btn-branch">${escapeHtml(branch)}</span> <span class="commit-btn-msg">${escapeHtml(msg)}</span>`;
-  } else {
-    commitMsgBtn.innerHTML = `<span class="commit-btn-msg" style="color:var(--text-muted)">ワークスペースを選択してください</span>`;
-  }
+  const branch = ws.branch || "";
+  const msg = ws.last_commit_message || "";
+  $("header-commit-msg").innerHTML = `<span class="commit-btn-branch">${escapeHtml(branch)}</span> <span class="commit-btn-msg">${escapeHtml(msg)}</span>`;
 
   await loadBranches();
 }
 
 function updateGitActions(ws) {
   const actions = $("git-actions");
-  if (!selectedWorkspace || !ws) {
-    actions.style.display = "none";
-    return;
-  }
-  actions.style.display = "flex";
 
   const pullBtn = $("pull-btn");
   const pushBtn = $("push-btn");

@@ -510,17 +510,11 @@ async function switchTab(id) {
 }
 
 async function updateHeaderForTab(id) {
-  if (splitMode) {
-    $("header-row2").style.display = "none";
-    return;
-  }
-
-  $("header-row2").style.display = "flex";
-
-  if (id === null) {
+  if (splitMode || id === null) {
     selectedWorkspace = null;
     await updateHeaderInfo();
     await loadJobsForWorkspace();
+    updateGitBarVisibility();
     return;
   }
 
@@ -536,6 +530,32 @@ async function updateHeaderForTab(id) {
       }
       await updateHeaderInfo();
     }
+  }
+  updateGitBarVisibility();
+}
+
+function updateGitBarVisibility() {
+  const show = selectedWorkspace && !splitMode;
+  $("header-row2").style.display = show ? "flex" : "none";
+  if (!show) return;
+  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
+  const isGitRepo = ws && ws.branch !== null;
+  $("header-commit-msg").style.display = isGitRepo ? "" : "none";
+  $("clean-dirty-status").style.display = isGitRepo ? "" : "none";
+  $("main-git-status").style.display = isGitRepo ? "" : "none";
+  $("git-actions").style.display = isGitRepo && (ws.behind > 0 || ws.ahead > 0) ? "flex" : "none";
+  let hint = $("non-git-hint");
+  if (!isGitRepo) {
+    if (!hint) {
+      hint = document.createElement("span");
+      hint.id = "non-git-hint";
+      hint.className = "non-git-hint";
+      hint.textContent = "Gitリポジトリではありません";
+      $("header-row2").appendChild(hint);
+    }
+    hint.style.display = "";
+  } else if (hint) {
+    hint.style.display = "none";
   }
 }
 
@@ -710,7 +730,6 @@ function renderTabBar() {
   const barRow = $("tab-bar").parentNode;
   if (splitMode) {
     barRow.style.display = "none";
-    $("header-row2").style.display = "none";
     return;
   }
   const bar = $("tab-bar");
@@ -720,7 +739,11 @@ function renderTabBar() {
   }
   items.sort((a, b) => a.index - b.index);
 
-  barRow.style.display = "flex";
+  const hasAnyTabs = tabs.length > 0 || orphanSessions.length > 0;
+  barRow.style.display = hasAnyTabs ? "flex" : "none";
+  const hasActiveContent = tabs.some((t) => t.id === activeTabId);
+  updateEmptyPlaceholder(!hasActiveContent);
+  if (!hasAnyTabs) return;
 
   let html = "";
   for (const item of items) {
@@ -816,10 +839,13 @@ function renderTabBar() {
   });
   const activeBtn = bar.querySelector(".tab-btn.active");
   if (activeBtn) activeBtn.scrollIntoView({ inline: "nearest", block: "nearest" });
+}
 
+function updateEmptyPlaceholder(show) {
   const container = $("output-container");
+  const outputArea = $("output");
   const existing = container.querySelector(".empty-tab-placeholder");
-  if (tabs.length === 0) {
+  if (show) {
     if (!existing) {
       const ph = document.createElement("div");
       ph.className = "empty-tab-placeholder";
@@ -827,8 +853,10 @@ function renderTabBar() {
       ph.querySelector("button").addEventListener("click", () => openTabEditModal("open"));
       container.appendChild(ph);
     }
-  } else if (existing) {
-    existing.remove();
+    if (outputArea) outputArea.style.display = "none";
+  } else {
+    if (existing) existing.remove();
+    if (outputArea) outputArea.style.display = "";
   }
 }
 
