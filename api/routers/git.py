@@ -138,7 +138,7 @@ def get_git_log(name: str, limit: int = 50, skip: int = 0):
     args = [
         "--no-pager", "log", "--date-order",
         f"--max-count={safe_limit}",
-        "--date=format:%Y-%m-%d %H:%M",
+        "--date=format-local:%Y-%m-%d %H:%M",
         "--pretty=format:%H\t%ad\t%an\t%D\t%s",
     ]
     if safe_skip > 0:
