@@ -5,8 +5,10 @@ import os
 import re
 import subprocess
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any
 
 from fastapi import HTTPException
 
@@ -39,6 +41,34 @@ COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{4,40}$")
 BACKGROUND_EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
 LOG_BUFFER_MAX = 500
+
+
+class TTLCache:
+    def __init__(self, ttl_sec: float):
+        self._ttl = ttl_sec
+        self._store: dict[str, tuple[float, Any]] = {}
+        self._lock = threading.Lock()
+
+    def get(self, key: str):
+        with self._lock:
+            if key in self._store:
+                ts, val = self._store[key]
+                if time.monotonic() - ts < self._ttl:
+                    return val
+                del self._store[key]
+        return None
+
+    def set(self, key: str, value):
+        with self._lock:
+            self._store[key] = (time.monotonic(), value)
+
+    def invalidate(self, key: str):
+        with self._lock:
+            self._store.pop(key, None)
+
+    def invalidate_all(self):
+        with self._lock:
+            self._store.clear()
 
 
 class LogBuffer:
@@ -239,7 +269,19 @@ def validate_commit_hash(commit_hash: str) -> str:
     return commit_hash
 
 
+_git_info_cache = TTLCache(5)
+
+
+def invalidate_git_info(workspace_name: str):
+    cache_key = str(WORK_DIR / workspace_name)
+    _git_info_cache.invalidate(cache_key)
+
+
 def git_info(directory: Path) -> dict:
+    cache_key = str(directory)
+    cached = _git_info_cache.get(cache_key)
+    if cached is not None:
+        return cached
     info = {
         "is_git_repo": False,
         "branch": None,
@@ -323,6 +365,7 @@ def git_info(directory: Path) -> dict:
                 info["behind"] = int(parts[1])
     except (subprocess.TimeoutExpired, OSError) as e:
         logger.warning("git_info failed dir=%s: %s", directory, e)
+    _git_info_cache.set(cache_key, info)
     return info
 
 

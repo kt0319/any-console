@@ -14,6 +14,7 @@ from ..common import (
     get_git_branches,
     get_git_remote_branches,
     git_info_to_status_dict,
+    invalidate_git_info,
     resolve_workspace_path,
     run_git_command,
     ssh_env,
@@ -72,6 +73,7 @@ def create_branch(name: str, body: CheckoutRequest):
         ["checkout", "-b", branch], cwd=ws_path, operation="create-branch",
     )
     logger.info("create-branch workspace=%s branch=%s rc=%d", name, branch, result["exit_code"])
+    invalidate_git_info(name)
     return result
 
 
@@ -89,6 +91,7 @@ def checkout_branch(name: str, body: CheckoutRequest):
         args = ["checkout", "-b", branch, f"origin/{branch}"]
     result = run_git_command(args, cwd=ws_path, operation="checkout")
     logger.info("checkout workspace=%s branch=%s rc=%d", name, branch, result["exit_code"])
+    invalidate_git_info(name)
     return result
 
 
@@ -121,6 +124,7 @@ def git_pull(name: str):
             stash_msg = f"\n⚠️ stash pop failed:\n{pop['stderr']}"
     logger.info("pull workspace=%s rc=%d", name, result["exit_code"])
     result["stderr"] += stash_msg
+    invalidate_git_info(name)
     return result
 
 
@@ -132,6 +136,7 @@ def git_push(name: str):
         env=ssh_env(), operation="push",
     )
     logger.info("push workspace=%s rc=%d", name, result["exit_code"])
+    invalidate_git_info(name)
     return result
 
 
@@ -169,6 +174,7 @@ def git_cherry_pick(name: str, body: CommitActionRequest):
         timeout=GIT_LONG_TIMEOUT_SEC, operation="cherry-pick",
     )
     logger.info("cherry-pick workspace=%s commit=%s rc=%d", name, commit_hash[:8], result["exit_code"])
+    invalidate_git_info(name)
     return result
 
 
@@ -181,6 +187,7 @@ def git_revert(name: str, body: CommitActionRequest):
         timeout=GIT_LONG_TIMEOUT_SEC, operation="revert",
     )
     logger.info("revert workspace=%s commit=%s rc=%d", name, commit_hash[:8], result["exit_code"])
+    invalidate_git_info(name)
     return result
 
 
@@ -195,6 +202,7 @@ def git_reset(name: str, body: ResetRequest):
         timeout=GIT_LONG_TIMEOUT_SEC, operation="reset",
     )
     logger.info("reset workspace=%s mode=%s commit=%s rc=%d", name, body.mode, commit_hash[:8], result["exit_code"])
+    invalidate_git_info(name)
     return result
 
 
@@ -209,6 +217,7 @@ def git_commit(name: str, body: CommitRequest):
         return add_result
     result = run_git_command(["commit", "-m", message], cwd=ws_path, operation="commit")
     logger.info("commit workspace=%s rc=%d", name, result["exit_code"])
+    invalidate_git_info(name)
     return result
 
 
@@ -220,6 +229,7 @@ def git_fetch(name: str):
         timeout=GIT_LONG_TIMEOUT_SEC, operation="fetch",
     )
     logger.info("fetch workspace=%s rc=%d", name, result["exit_code"])
+    invalidate_git_info(name)
     return result
 
 
@@ -257,6 +267,7 @@ def git_stash_drop(name: str, body: StashDropRequest):
         timeout=GIT_LONG_TIMEOUT_SEC, operation="stash drop",
     )
     logger.info("stash-drop workspace=%s ref=%s rc=%d", name, ref, result["exit_code"])
+    invalidate_git_info(name)
     return result
 
 
@@ -271,6 +282,7 @@ def git_stash_pop_index(name: str, body: StashDropRequest):
         timeout=GIT_LONG_TIMEOUT_SEC, operation="stash pop",
     )
     logger.info("stash-pop workspace=%s ref=%s rc=%d", name, ref, result["exit_code"])
+    invalidate_git_info(name)
     return result
 
 
@@ -281,6 +293,7 @@ def git_stash(name: str):
         ["stash"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="stash",
     )
     logger.info("stash workspace=%s rc=%d", name, result["exit_code"])
+    invalidate_git_info(name)
     return result
 
 
@@ -291,6 +304,7 @@ def git_stash_pop(name: str):
         ["stash", "pop"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="stash pop",
     )
     logger.info("stash-pop workspace=%s rc=%d", name, result["exit_code"])
+    invalidate_git_info(name)
     return result
 
 

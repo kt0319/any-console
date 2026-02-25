@@ -12,6 +12,7 @@ from ..common import (
     BACKGROUND_FETCH_TIMEOUT_SEC,
     GIT_CLONE_TIMEOUT_SEC,
     GITHUB_CLI_TIMEOUT_SEC,
+    TTLCache,
     WORK_DIR,
     command_result_dict,
     git_info_to_status_dict,
@@ -24,6 +25,8 @@ from ..common import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(verify_token)])
+
+_github_repos_cache = TTLCache(300)
 
 
 def _background_fetch(dirs):
@@ -128,6 +131,9 @@ def clone_workspace(body: CloneRequest):
 
 @router.get("/github/repos")
 def list_github_repos():
+    cached = _github_repos_cache.get("repos")
+    if cached is not None:
+        return cached
     try:
         all_repos = []
 
@@ -161,6 +167,7 @@ def list_github_repos():
                 unique_repos.append(repo)
         unique_repos.sort(key=lambda r: r.get("nameWithOwner", "").lower())
 
+        _github_repos_cache.set("repos", unique_repos)
         return unique_repos
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail="gh command not found")
