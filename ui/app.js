@@ -15,19 +15,40 @@ async function initApp() {
   updateQuickInputVisibility();
   if (sessionStorage.getItem("pi_console_server_reloaded")) {
     sessionStorage.removeItem("pi_console_server_reloaded");
-    showToast("サーバーが再起動されました");
+    showToast("サーバーに再接続しました");
   }
 }
 
+let prevKeyboardOpen = false;
+let keyboardCloseTimer = null;
 function updateViewportHeight() {
   const vv = window.visualViewport;
   const keyboardOpen = vv && (window.innerHeight - vv.height > 100);
   document.querySelector(".main-panel").classList.toggle("keyboard-open", keyboardOpen);
   repositionKeyboardInput(keyboardOpen);
-  fitActiveTerminal();
+  if (prevKeyboardOpen && !keyboardOpen) {
+    if (keyboardCloseTimer) clearTimeout(keyboardCloseTimer);
+    keyboardCloseTimer = setTimeout(() => {
+      keyboardCloseTimer = null;
+      doFitActiveTerminal();
+    }, 500);
+  } else if (!keyboardOpen) {
+    fitActiveTerminal();
+  }
+  prevKeyboardOpen = keyboardOpen;
 }
 
+let fitDebounceTimer = null;
 function fitActiveTerminal() {
+  if (keyboardCloseTimer) return;
+  if (fitDebounceTimer) clearTimeout(fitDebounceTimer);
+  fitDebounceTimer = setTimeout(() => {
+    fitDebounceTimer = null;
+    doFitActiveTerminal();
+  }, 100);
+}
+
+function doFitActiveTerminal() {
   if (splitMode) {
     requestAnimationFrame(() => {
       for (const tabId of splitPaneTabIds) {

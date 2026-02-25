@@ -269,7 +269,12 @@ function initQuickInput() {
     return null;
   };
   setupFlickRepeat(minimalArrow, resolveArrowKey, () => {
-    if (extraMode === 1) cycleMode();
+    if (extraMode === 1) { cycleMode(); return; }
+    const tab = tabs.find(t => t.id === activeTabId);
+    if (tab && tab.type === "terminal" && tab.term) {
+      tab.term.scrollToBottom();
+      if (tab.fitAddon) try { tab.fitAddon.fit(); } catch {}
+    }
   }, {
     onLongPress: () => cycleMode(),
     longPressGuard: () => extraMode === 0,

@@ -783,9 +783,6 @@ function renderTabBar() {
             const frame = $(`frame-${tabId}`);
             if (frame && frame.classList.contains("view-mode")) {
               exitTerminalCopyMode(tabId);
-            } else if (isTouchDevice) {
-              t.term.scrollToBottom();
-              enterTerminalCopyMode(tabId);
             }
             return;
           }
@@ -865,6 +862,17 @@ function updateTabNamePill() {
     pill.appendChild(info);
     bindLongPress(pill, {
       onLongPress: () => openTabEditModal(),
+      onClick: () => {
+        if (tab.type === "terminal") {
+          const frame = $(`frame-${tab.id}`);
+          if (frame && frame.classList.contains("view-mode")) {
+            exitTerminalCopyMode(tab.id);
+          } else {
+            tab.term && tab.term.scrollToBottom();
+            enterTerminalCopyMode(tab.id);
+          }
+        }
+      },
     });
     pill.addEventListener("contextmenu", (e) => {
       e.preventDefault();
@@ -899,7 +907,7 @@ function renderPickerWsList(container) {
     const headerLabel = document.createElement("button");
     headerLabel.type = "button";
     headerLabel.className = "picker-ws-header-label";
-    headerLabel.innerHTML = renderIcon(ws.icon || "mdi-console", ws.icon_color, 16) + " " + escapeHtml(ws.name);
+    headerLabel.innerHTML = renderIcon(ws.icon || "mdi-console", ws.icon_color, 18) + escapeHtml(ws.name);
     headerLabel.addEventListener("click", () => {
       resetPickerView();
       runJob("terminal", null, ws.name);
@@ -1507,7 +1515,7 @@ function openTabEditModal() {
   const header = document.createElement("div");
   header.className = "split-tab-modal-header";
   const title = document.createElement("h3");
-  title.textContent = "タブ編集";
+  title.textContent = "タブ・レイアウト";
   header.appendChild(title);
 
   const closeBtn = document.createElement("button");
@@ -1564,7 +1572,8 @@ function openTabEditModal() {
     const minTabsMap = { normal: 0, vertical: 2, horizontal: 2, grid: 3 };
     for (const b of modeBtns) {
       b.className = "split-tab-mode-option" + (b.dataset.mode === current ? " active" : "");
-      b.disabled = count < (minTabsMap[b.dataset.mode] || 0);
+      const mobileDisabled = panelBottom && b.dataset.mode !== "normal" && b.dataset.mode !== "vertical";
+      b.disabled = count < (minTabsMap[b.dataset.mode] || 0) || mobileDisabled;
     }
   }
 

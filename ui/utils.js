@@ -231,7 +231,8 @@ function renderIcon(icon, iconColor, size = 16) {
     const domain = icon.slice("favicon:".length);
     return `<img src="${faviconUrl(domain)}" width="${size}" height="${size}" class="favicon-icon" alt="" />`;
   }
-  const colorStyle = iconColor ? ` style="color:${escapeHtml(iconColor)}"` : "";
-  return `<span class="mdi ${escapeHtml(icon)}"${colorStyle}></span>`;
+  const styles = [`font-size:${size}px`];
+  if (iconColor) styles.push(`color:${escapeHtml(iconColor)}`);
+  return `<span class="mdi ${escapeHtml(icon)}" style="${styles.join(";")}"></span>`;
 }
 
