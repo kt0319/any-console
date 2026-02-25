@@ -48,16 +48,16 @@
           </div>
         </div>
         <div id="settings-ws-visibility" style="display:none">
-          <div class="ws-check-list" id="ws-check-list"></div>
+          <div class="modal-scroll-body" id="ws-check-list"></div>
         </div>
         <div id="settings-server-info-view" style="display:none">
-          <div class="server-info-list" id="server-info-list"></div>
+          <div class="modal-scroll-body" id="server-info-list"></div>
         </div>
         <div id="settings-process-list-view" style="display:none">
-          <div class="server-info-list" id="process-list"></div>
+          <div class="modal-scroll-body" id="process-list"></div>
         </div>
         <div id="settings-op-log-view" style="display:none">
-          <div class="server-info-list" id="op-log-list"></div>
+          <div class="modal-scroll-body" id="op-log-list"></div>
         </div>
         <input type="file" id="settings-import-file" accept=".json" style="display:none">
       </div>
@@ -137,7 +137,7 @@
           <div id="item-edit-error" class="form-error"></div>
         </div>
         <div class="modal-actions">
-          <button type="button" id="item-edit-delete" class="danger" style="width:auto">削除</button>
+          <button type="button" id="item-edit-delete"  style="width:auto">削除</button>
           <button type="button" id="item-edit-save" class="primary" style="width:auto">保存</button>
         </div>
       </div>
@@ -200,7 +200,7 @@
     </div>
     <!-- Diff Modal -->
     <div id="diff-modal" class="modal-overlay" style="display:none">
-      <div class="modal diff-modal">
+      <div class="modal">
         <div class="modal-header">
           <h3>変更内容</h3>
           <button id="diff-close" class="modal-close-btn" title="閉じる">&times;</button>
@@ -220,7 +220,7 @@
     </div>
     <!-- Git Log Modal -->
     <div id="git-log-modal" class="modal-overlay" style="display:none">
-      <div class="modal git-log-modal-wide">
+      <div class="modal">
         <div class="modal-header">
           <h3>コミット履歴</h3>
           <button id="git-log-close" class="modal-close-btn" title="閉じる">&times;</button>
@@ -233,10 +233,10 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
           </button>
         </div>
-        <div class="git-log-list-modal" id="git-log-list-modal"></div>
+        <div class="modal-scroll-body" id="git-log-list-modal"></div>
         <div id="git-log-action-menu" class="commit-action-menu" style="display:none"></div>
         <div id="git-log-create-branch-area" style="display:none">
-          <div class="git-log-branch-form">
+          <div>
             <input type="text" id="git-log-branch-name" class="form-input" placeholder="新しいブランチ名" autocomplete="off" />
             <button id="git-log-create-branch-submit" class="primary">作成</button>
           </div>
@@ -299,7 +299,7 @@
     </div>
     <!-- Icon Picker Modal -->
     <div id="icon-picker-modal" class="modal-overlay" style="display:none">
-      <div class="modal icon-picker-modal">
+      <div class="modal">
         <div class="modal-header">
           <h3>アイコン選択</h3>
           <button type="button" id="icon-picker-clear" class="icon-picker-clear-btn">クリア</button>

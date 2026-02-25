@@ -215,7 +215,7 @@ function buildBranchSwitchActions(branches, beforeSwitch) {
 }
 
 function toggleCommitActionMenu(entry, hash, msg, branches = []) {
-  const list = entry.closest(".git-log-list-modal");
+  const list = $("git-log-list-modal");
   const menuEl = $("git-log-action-menu");
   const wasOpen = entry.classList.contains("action-open");
 

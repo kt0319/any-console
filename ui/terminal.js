@@ -887,7 +887,7 @@ function createTabNamePill(tab, frame) {
           return;
         }
       }
-      openTabEditModal("open");
+      openTabEditModal(splitMode ? "layout" : "open");
     },
   });
   pill.addEventListener("contextmenu", (e) => {
@@ -1032,6 +1032,7 @@ function enterSplitMode() {
   buildSplitDom();
   fitAllSplitTerminals();
   renderTabBar();
+  updateGitBarVisibility();
 }
 
 function openTabEditModal(initialTab = "layout") {
@@ -1046,14 +1047,14 @@ function openTabEditModal(initialTab = "layout") {
   modal.className = "modal split-tab-modal";
 
   const header = document.createElement("div");
-  header.className = "split-tab-modal-header";
+  header.className = "modal-header";
   const title = document.createElement("h3");
   title.textContent = "タブ・レイアウト";
   header.appendChild(title);
 
   const closeBtn = document.createElement("button");
   closeBtn.type = "button";
-  closeBtn.className = "split-tab-modal-close";
+  closeBtn.className = "modal-close-btn";
   closeBtn.innerHTML = "&times;";
   closeBtn.addEventListener("click", () => closeModal());
   header.appendChild(closeBtn);
@@ -1153,7 +1154,7 @@ function openTabEditModal(initialTab = "layout") {
     updateModeRadio();
 
     const list = document.createElement("div");
-    list.className = "split-tab-list";
+    list.className = "modal-scroll-body split-tab-list";
     contentContainer.appendChild(list);
     renderTabList();
   }

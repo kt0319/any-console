@@ -1370,7 +1370,7 @@ button:disabled {
   gap: 6px;
   padding: 8px 4px;
   font-size: 15px;
-  background: var(--surface);
+  background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--text-muted);
@@ -1400,7 +1400,7 @@ button:disabled {
   border-radius: var(--radius);
   padding: 12px 16px 16px;
   width: 100%;
-  max-width: 400px;
+  max-width: min(600px, 90vw);
   height: 80vh;
   display: flex;
   flex-direction: column;
@@ -1428,37 +1428,15 @@ button:disabled {
   font-size: 15px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 /* Split tab modal */
 .split-tab-modal {
-  height: 80vh;
-  max-width: 380px;
   padding-bottom: 12px;
 }
 
-.split-tab-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-  margin-bottom: 8px;
-}
-
-.split-tab-modal-close {
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: none;
-  color: var(--text-muted);
-  font-size: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
 
 .split-tab-mode-row {
   display: flex;
@@ -1476,7 +1454,7 @@ button:disabled {
   justify-content: center;
   padding: 10px 0;
   border: none;
-  background: var(--surface);
+  background: var(--bg-tertiary);
   color: var(--text-muted);
 }
 
@@ -1545,12 +1523,6 @@ button:disabled {
   transform: translateY(-50%);
 }
 
-.split-tab-list {
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  flex: 1;
-}
 
 .split-tab-row {
   display: flex;
@@ -1562,7 +1534,7 @@ button:disabled {
 }
 
 .split-tab-row.active {
-  background: var(--surface);
+  background: var(--bg-tertiary);
 }
 
 .split-tab-row-info {
@@ -1650,7 +1622,7 @@ button:disabled {
 
 .split-tab-row.dragging {
   opacity: 0.7;
-  background: var(--surface);
+  background: var(--bg-tertiary);
 }
 
 .split-tab-close-btn {
@@ -1666,13 +1638,6 @@ button:disabled {
   flex-shrink: 0;
 }
 
-
-.server-info-list {
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  flex: 1;
-}
 
 .server-info-row {
   display: flex;
@@ -1824,8 +1789,11 @@ button:disabled {
 }
 
 .modal-scroll-body {
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
 }
 
 .modal .modal-actions {
@@ -1879,11 +1847,6 @@ button:disabled {
   min-height: 0;
 }
 
-.ws-check-list {
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-}
 
 .ws-check-item {
   display: flex;
@@ -2097,12 +2060,6 @@ button:disabled {
   color: var(--text-muted);
 }
 
-.git-log-modal-wide {
-  max-width: 90vw;
-  height: 90vh;
-  width: 700px;
-}
-
 .git-log-sub-header {
   display: flex;
   align-items: center;
@@ -2153,10 +2110,6 @@ button:disabled {
 }
 
 /* Git log modal */
-.git-log-list-modal {
-  overflow: auto;
-  flex: 1;
-}
 
 .git-log-entry {
   display: flex;
@@ -2302,13 +2255,7 @@ button:disabled {
 }
 
 /* Diff modal */
-.diff-modal {
-  max-width: 90vw;
-  height: 90vh;
-  width: 700px;
-}
-
-.diff-modal .modal-header h3 {
+#diff-modal .modal-header h3 {
   white-space: normal;
   overflow: visible;
   text-overflow: unset;
@@ -2867,10 +2814,6 @@ button:disabled {
 }
 
 /* Icon Picker */
-.icon-picker-modal {
-  max-width: 440px;
-}
-
 .icon-picker-clear-btn {
   min-width: auto;
   padding: 4px 8px;
