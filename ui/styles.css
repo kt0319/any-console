@@ -936,6 +936,11 @@ header .ws-select-wrap {
   gap: 2px;
 }
 
+.output-container.split-active > .output-area,
+.output-container.split-active > .terminal-frame {
+  display: none;
+}
+
 .split-row {
   display: flex;
   flex-direction: row;
@@ -976,14 +981,14 @@ header .ws-select-wrap {
   z-index: 10;
   display: flex;
   align-items: center;
-  height: 30px;
-  padding: 0 12px;
-  font-size: 13px;
+  height: 36px;
+  padding: 0 14px;
+  font-size: 14px;
   font-weight: normal;
   color: var(--text-secondary);
   background: rgba(26, 27, 38, 0.93);
   border: 1px solid var(--border);
-  border-radius: 15px;
+  border-radius: 18px;
   white-space: nowrap;
   line-height: 1;
   cursor: default;
@@ -1001,8 +1006,8 @@ header .ws-select-wrap {
 }
 
 .tab-name-pill .favicon-icon {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   pointer-events: none;
 }
 

@@ -14,7 +14,7 @@ async function initApp() {
   updateQuickInputVisibility();
   if (sessionStorage.getItem("pi_console_server_reloaded")) {
     sessionStorage.removeItem("pi_console_server_reloaded");
-    showToast("サーバーに再接続しました");
+    showToast("サーバーに再接続しました", "success");
   }
 }
 
