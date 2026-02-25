@@ -24,6 +24,7 @@ let terminalIdCounter = 0;
 let splitMode = false;
 let splitPaneTabIds = [];
 let activePaneIndex = 0;
+let paneSelectedByTap = false;
 let orphanSessions = [];
 let closedSessionUrls = new Set();
 let isPageUnloading = false;

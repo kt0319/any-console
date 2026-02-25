@@ -203,6 +203,7 @@ function createStockNav(label, direction, input, disabled) {
 }
 
 function showKeyboardInput() {
+  if (document.querySelector(".terminal-frame.view-mode")) return;
   let el = $("keyboard-input");
   if (!el) el = createKeyboardInput();
   el.value = "";

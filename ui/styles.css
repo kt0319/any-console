@@ -1030,64 +1030,54 @@ header .ws-select-wrap {
   z-index: 1;
 }
 
-.split-pane-label {
+
+.tab-name-pill {
   position: absolute;
   top: 4px;
   right: 4px;
-  z-index: 5;
+  z-index: 10;
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 8px 0 12px;
-  font-size: 14px;
-  font-weight: 600;
+  height: 30px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: normal;
   color: var(--text-secondary);
   background: rgba(26, 27, 38, 0.93);
   border: 1px solid var(--border);
-  border-radius: 17px;
+  border-radius: 15px;
   white-space: nowrap;
   line-height: 1;
   cursor: default;
   user-select: none;
   -webkit-user-select: none;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
 }
 
-.split-pane.active-pane .split-pane-label {
-  color: var(--text-primary);
-  border-color: var(--accent);
-}
-
-.split-pane-label-info {
+.tab-name-pill-info {
   display: flex;
   align-items: center;
   gap: 3px;
+}
+
+.tab-name-pill .favicon-icon {
+  width: 14px;
+  height: 14px;
   pointer-events: none;
 }
 
-.split-pane-label .favicon-icon {
-  width: 14px;
-  height: 14px;
+.tab-name-pill:active {
+  transform: scale(0.93);
+  background: rgba(26, 27, 38, 1);
+  transition: transform 0.1s ease, background 0.1s ease;
 }
 
-.split-pane-close-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  min-height: 24px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: inherit;
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  opacity: 0.6;
+.terminal-frame.view-mode .tab-name-pill {
+  display: none;
 }
+
 
 /* Hide scrollbar in split terminal */
 .split-pane .xterm-viewport {
@@ -1159,6 +1149,12 @@ header .ws-select-wrap {
   height: 100%;
 }
 
+@media (pointer: coarse) {
+  .terminal-frame .xterm textarea {
+    pointer-events: none !important;
+  }
+}
+
 
 .view-mode-overlay {
   position: absolute;
@@ -1168,18 +1164,19 @@ header .ws-select-wrap {
   pointer-events: none;
 }
 
+
 .view-mode-label {
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 34px;
+  gap: 3px;
+  height: 30px;
   padding: 0 8px 0 12px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: normal;
+  color: var(--text-secondary);
   background: rgba(26, 27, 38, 0.93);
   border: 1px solid #ff9800;
-  border-radius: 17px;
+  border-radius: 15px;
   white-space: nowrap;
   line-height: 1;
   cursor: default;
@@ -1197,6 +1194,12 @@ header .ws-select-wrap {
 .view-mode-label .favicon-icon {
   width: 14px;
   height: 14px;
+}
+
+.view-mode-label:active {
+  transform: scale(0.93);
+  background: rgba(26, 27, 38, 1);
+  transition: transform 0.1s ease, background 0.1s ease;
 }
 
 .view-mode-close-btn {
@@ -1237,7 +1240,7 @@ header .ws-select-wrap {
   color: #e0e4fc;
   font-family: 'JetBrainsMono Nerd Font', 'Hack Nerd Font', 'FiraCode Nerd Font', 'MesloLGS NF', monospace;
   font-size: 12px;
-  line-height: 1.2;
+  line-height: 1.0;
   box-sizing: border-box;
   outline: none;
   white-space: pre-wrap;
