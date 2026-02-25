@@ -747,7 +747,7 @@ function renderTabBar() {
       const isDuplicateIcon = ows && ows.icon && s.icon === ows.icon;
       const orphanIcon = isDuplicateIcon ? "" : renderIcon(s.icon || "mdi-console", s.iconColor || "", 14);
       const suffix = panelBottom ? "" : `${escapeHtml(label)}<span class="tab-close" data-close-orphan="${escapeHtml(s.wsUrl)}">&times;</span>`;
-      html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" title="他デバイスのセッション">${owsIconHtml}${orphanIcon}${suffix}</button>`;
+      html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}">${owsIconHtml}${orphanIcon}${suffix}</button>`;
     }
   }
   if (pickerTab && activeTabId === pickerTab.id) {
@@ -1467,7 +1467,7 @@ function getNonPickerTabs() {
 }
 
 function calcGridLayout(count) {
-  if (count <= 4) return [count];
+  if (count <= 1) return [count];
   const topRow = Math.ceil(count / 2);
   return [topRow, count - topRow];
 }
@@ -1519,69 +1519,53 @@ function openTabEditModal() {
 
   modal.appendChild(header);
 
-  const canSplit = getNonPickerTabs().length >= 2;
-  let radioNormal, radioSplit;
-  if (canSplit) {
-    const modeRow = document.createElement("div");
-    modeRow.className = "split-tab-mode-row";
+  const nonPickerCount = getNonPickerTabs().length;
+  const modeBtns = [];
+  const modeRow = document.createElement("div");
+  modeRow.className = "split-tab-mode-row";
 
-    radioNormal = document.createElement("button");
-    radioNormal.type = "button";
-    radioSplit = document.createElement("button");
-    radioSplit.type = "button";
-
-    radioNormal.textContent = "通常";
-    radioSplit.textContent = "分割";
-
-    updateModeRadio();
-
-    radioNormal.addEventListener("click", () => {
-      if (splitMode) { exitSplitMode(); updateModeRadio(); updateLayoutRow(); renderTabList(); }
-    });
-    radioSplit.addEventListener("click", () => {
-      if (!splitMode) { enterSplitMode(); updateModeRadio(); updateLayoutRow(); renderTabList(); }
-    });
-
-    modeRow.appendChild(radioNormal);
-    modeRow.appendChild(radioSplit);
-    modal.appendChild(modeRow);
-
-    const layoutRow = document.createElement("div");
-    layoutRow.className = "split-layout-row";
-    layoutRow.style.display = "none";
-
-    const layouts = [
-      { value: "horizontal", label: "━" },
-      { value: "vertical", label: "┃" },
-      { value: "grid", label: "╋" },
-    ];
-    const layoutBtns = [];
-    for (const l of layouts) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "split-layout-option" + (splitLayout === l.value ? " active" : "");
-      btn.textContent = l.label;
-      btn.title = l.value;
-      btn.addEventListener("click", () => {
-        splitLayout = l.value;
-        for (const b of layoutBtns) b.classList.toggle("active", b.title === l.value);
-        rebuildSplitLayout();
-      });
-      layoutBtns.push(btn);
-      layoutRow.appendChild(btn);
+  const modes = [
+    { value: "normal", icon: "split-icon-normal", minTabs: 0 },
+    { value: "vertical", icon: "split-icon-v", minTabs: 2 },
+    { value: "horizontal", icon: "split-icon-h", minTabs: 2 },
+    { value: "grid", icon: "split-icon-grid", minTabs: 3 },
+  ];
+  for (const m of modes) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.dataset.mode = m.value;
+    const iconEl = document.createElement("span");
+    iconEl.className = m.icon;
+    btn.appendChild(iconEl);
+    if (nonPickerCount < m.minTabs) {
+      btn.disabled = true;
     }
-    modal.appendChild(layoutRow);
-
-    function updateLayoutRow() {
-      layoutRow.style.display = splitMode ? "flex" : "none";
-    }
-    updateLayoutRow();
+    btn.addEventListener("click", () => {
+      if (btn.disabled) return;
+      if (m.value === "normal") {
+        if (splitMode) { exitSplitMode(); updateModeRadio(); renderTabList(); }
+      } else {
+        splitLayout = m.value;
+        if (!splitMode) { enterSplitMode(); } else { rebuildSplitLayout(); }
+        updateModeRadio();
+        renderTabList();
+      }
+    });
+    modeBtns.push(btn);
+    modeRow.appendChild(btn);
   }
 
+  modal.appendChild(modeRow);
+  updateModeRadio();
+
   function updateModeRadio() {
-    if (!radioNormal) return;
-    radioNormal.className = "split-tab-mode-option" + (splitMode ? "" : " active");
-    radioSplit.className = "split-tab-mode-option" + (splitMode ? " active" : "");
+    const current = splitMode ? splitLayout : "normal";
+    const count = getNonPickerTabs().length;
+    const minTabsMap = { normal: 0, vertical: 2, horizontal: 2, grid: 3 };
+    for (const b of modeBtns) {
+      b.className = "split-tab-mode-option" + (b.dataset.mode === current ? " active" : "");
+      b.disabled = count < (minTabsMap[b.dataset.mode] || 0);
+    }
   }
 
   const list = document.createElement("div");
@@ -1608,10 +1592,13 @@ function openTabEditModal() {
         const frame = $(`frame-${tab.id}`);
         if (frame) frame.style.display = "none";
         if (splitPaneTabIds.length < 2) {
-          exitSplitMode();
+          exitSplitModeWithTab(splitPaneTabIds[0] || activeTabId);
           updateModeRadio();
           renderTabList();
           return;
+        }
+        if (splitLayout === "grid" && splitPaneTabIds.length < 3) {
+          splitLayout = "vertical";
         }
       } else {
         splitPaneTabIds.push(tab.id);
@@ -1623,6 +1610,7 @@ function openTabEditModal() {
       container.classList.remove("split-active", "split-mobile", "split-vertical", "split-horizontal");
       buildSplitDom();
       fitAllSplitTerminals();
+      updateModeRadio();
       renderTabList();
     } else {
       switchTab(tab.id);
@@ -1692,7 +1680,7 @@ function openTabEditModal() {
 
     for (const s of orphanSessions) {
       const row = document.createElement("div");
-      row.className = "split-tab-row";
+      row.className = "split-tab-row split-tab-row-orphan";
 
       const inputWrap = document.createElement("span");
       inputWrap.className = "split-tab-input-wrap";
@@ -1708,14 +1696,14 @@ function openTabEditModal() {
       const ows = s.workspace ? allWorkspaces.find((w) => w.name === s.workspace) : null;
       const owsIconHtml = ows && ows.icon ? renderIcon(ows.icon, ows.icon_color, 14) : "";
       const orphanIcon = s.icon ? renderIcon(s.icon, s.iconColor || "", 14) : "";
-      info.innerHTML = owsIconHtml + orphanIcon + escapeHtml(s.workspace || "terminal") +
-        ' <span class="split-tab-orphan-badge">他デバイス</span>';
+      info.innerHTML = owsIconHtml + orphanIcon + escapeHtml(s.workspace || "terminal");
       row.appendChild(info);
 
       row.addEventListener("click", (e) => {
         if (e.target.closest(".split-tab-close-btn")) return;
         joinOrphanSession(s.wsUrl, s.workspace);
-        closeModal();
+        renderTabList();
+        updateModeRadio();
       });
 
       const closeBtn = document.createElement("button");
@@ -1864,7 +1852,8 @@ function rebuildSplitLayout() {
 
   const nonPicker = getNonPickerTabs();
   if (nonPicker.length < 2) {
-    exitSplitMode();
+    const remaining = nonPicker.length > 0 ? nonPicker[0].id : activeTabId;
+    exitSplitModeWithTab(remaining);
     return;
   }
 

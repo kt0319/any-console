@@ -1597,17 +1597,78 @@ button:disabled {
 
 .split-tab-mode-option {
   flex: 1;
-  padding: 8px 0;
-  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0;
   border: none;
   background: var(--surface);
   color: var(--text-muted);
-  text-align: center;
 }
 
 .split-tab-mode-option.active {
   background: var(--accent);
   color: var(--bg);
+}
+
+.split-tab-mode-option:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+[class^="split-icon-"] {
+  display: inline-block;
+  width: 16px;
+  height: 14px;
+  vertical-align: middle;
+  border: 1.5px solid currentColor;
+  border-radius: 1px;
+  position: relative;
+}
+
+.split-icon-h::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1.5px;
+  background: currentColor;
+  transform: translateX(-50%);
+}
+
+.split-icon-v::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  background: currentColor;
+  transform: translateY(-50%);
+}
+
+.split-icon-grid::before,
+.split-icon-grid::after {
+  content: "";
+  position: absolute;
+  background: currentColor;
+}
+
+.split-icon-grid::before {
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1.5px;
+  transform: translateX(-50%);
+}
+
+.split-icon-grid::after {
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  transform: translateY(-50%);
 }
 
 .split-tab-list {
@@ -3363,43 +3424,10 @@ button:disabled {
   border-color: var(--error);
 }
 
-/* Orphan badge in tab edit modal */
-.split-tab-orphan-badge {
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 3px;
-  background: rgba(255, 203, 107, 0.2);
-  color: var(--warning);
-  flex-shrink: 0;
-  white-space: nowrap;
+.split-tab-row-orphan {
+  opacity: 0.5;
 }
 
-/* Split layout selector */
-.split-layout-row {
-  display: flex;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  flex-shrink: 0;
-  margin-bottom: 8px;
-}
-
-.split-layout-option {
-  flex: 1;
-  padding: 6px 0;
-  font-size: 16px;
-  border: none;
-  background: var(--surface);
-  color: var(--text-muted);
-  text-align: center;
-  min-height: 36px;
-  min-width: auto;
-}
-
-.split-layout-option.active {
-  background: var(--accent);
-  color: var(--bg);
-}
 
 /* Vertical split layout */
 .output-container.split-vertical {
