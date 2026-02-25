@@ -222,23 +222,32 @@
     <div id="git-log-modal" class="modal-overlay" style="display:none">
       <div class="modal">
         <div class="modal-header">
-          <h3>コミット履歴</h3>
+          <h3 id="git-log-modal-title">コミット履歴</h3>
           <button id="git-log-close" class="modal-close-btn" title="閉じる">&times;</button>
         </div>
-        <div class="git-log-sub-header">
-          <button type="button" class="git-log-branch-select-btn" id="git-log-branch-btn">
-            <span class="mdi mdi-source-branch"></span> <span id="git-log-branch-label"></span>
-          </button>
-          <button type="button" class="git-action-btn fetch-btn" id="fetch-btn">fetch</button>
+        <div class="commit-modal-tabs">
+          <button type="button" class="commit-modal-tab active" data-tab="commits">コミット</button>
+          <button type="button" class="commit-modal-tab" data-tab="files">ファイル</button>
         </div>
-        <div class="modal-scroll-body" id="git-log-list-modal"></div>
-        <div id="git-log-action-menu" class="commit-action-menu" style="display:none"></div>
-        <div id="git-log-create-branch-area" style="display:none">
-          <div>
-            <input type="text" id="git-log-branch-name" class="form-input" placeholder="新しいブランチ名" autocomplete="off" />
-            <button id="git-log-create-branch-submit" class="primary">作成</button>
+        <div id="commit-modal-tab-commits">
+          <div class="git-log-sub-header">
+            <button type="button" class="git-log-branch-select-btn" id="git-log-branch-btn">
+              <span class="mdi mdi-source-branch"></span> <span id="git-log-branch-label"></span>
+            </button>
+            <button type="button" class="git-action-btn fetch-btn" id="fetch-btn">fetch</button>
           </div>
-          <div id="git-log-branch-error" class="form-error"></div>
+          <div class="modal-scroll-body" id="git-log-list-modal"></div>
+          <div id="git-log-action-menu" class="commit-action-menu" style="display:none"></div>
+          <div id="git-log-create-branch-area" style="display:none">
+            <div>
+              <input type="text" id="git-log-branch-name" class="form-input" placeholder="新しいブランチ名" autocomplete="off" />
+              <button id="git-log-create-branch-submit" class="primary">作成</button>
+            </div>
+            <div id="git-log-branch-error" class="form-error"></div>
+          </div>
+        </div>
+        <div id="commit-modal-tab-files" class="modal-scroll-body" style="display:none">
+          <div id="commit-modal-file-browser"></div>
         </div>
       </div>
     </div>

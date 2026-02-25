@@ -1271,6 +1271,10 @@ header .ws-select-wrap {
   line-height: 1.5;
 }
 
+#commit-modal-file-browser .file-content-viewer {
+  max-height: none;
+}
+
 .file-content-code {
   flex: 1;
   margin: 0;
@@ -2108,6 +2112,39 @@ button:disabled {
 .branch-item-action {
   color: var(--text-muted);
   font-style: italic;
+}
+
+/* Commit modal tabs */
+.commit-modal-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.commit-modal-tab {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.commit-modal-tab.active {
+  background: rgba(130, 170, 255, 0.2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+#commit-modal-tab-commits {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* Git log modal */

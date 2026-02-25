@@ -1424,7 +1424,7 @@ function openTabEditModal(initialTab = "layout") {
       fileBtn.addEventListener("click", () => {
         closeModal();
         selectedWorkspace = ws.name;
-        openFileBrowser();
+        openGitLogModalFiles();
       });
       headerEl.appendChild(fileBtn);
 

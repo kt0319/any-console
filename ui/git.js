@@ -620,11 +620,97 @@ async function execStashRefAction(action, ref) {
   await reloadGitLog();
 }
 
+let commitModalFilesLoaded = false;
+
+function switchCommitModalTab(tab) {
+  const commitsPane = $("commit-modal-tab-commits");
+  const filesPane = $("commit-modal-tab-files");
+  for (const btn of document.querySelectorAll(".commit-modal-tab")) {
+    btn.classList.toggle("active", btn.dataset.tab === tab);
+  }
+  commitsPane.style.display = tab === "commits" ? "" : "none";
+  filesPane.style.display = tab === "files" ? "" : "none";
+  if (tab === "files" && !commitModalFilesLoaded) {
+    commitModalFilesLoaded = true;
+    loadDirectoryInModal("");
+  }
+}
+
 async function openGitLogModal() {
   if (!selectedWorkspace) return;
+  commitModalFilesLoaded = false;
+  switchCommitModalTab("commits");
   $("git-log-modal").style.display = "flex";
   updateGitLogBranchLabel();
   await reloadGitLog();
+}
+
+async function openGitLogModalFiles() {
+  if (!selectedWorkspace) return;
+  commitModalFilesLoaded = false;
+  switchCommitModalTab("files");
+  $("git-log-modal").style.display = "flex";
+  updateGitLogBranchLabel();
+  commitModalFilesLoaded = true;
+  await loadDirectoryInModal("");
+}
+
+async function loadDirectoryInModal(path) {
+  if (!selectedWorkspace) return;
+  const el = $("commit-modal-file-browser");
+  if (!el) return;
+
+  el.innerHTML = fileBrowserMessage("読み込み中...", true);
+
+  try {
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/files?path=${encodeURIComponent(path)}`));
+    if (!res) return;
+    const data = await res.json();
+    if (!res.ok || data.status !== "ok") {
+      el.innerHTML = fileBrowserMessage(data.detail || "読み込みに失敗しました");
+      return;
+    }
+    el.innerHTML = buildFileBrowserHtml(path, data.entries);
+    bindFileBrowserEventsInModal(el);
+  } catch (e) {
+    el.innerHTML = fileBrowserMessage(e.message);
+  }
+}
+
+async function loadFileContentInModal(path) {
+  if (!selectedWorkspace) return;
+  const el = $("commit-modal-file-browser");
+  if (!el) return;
+
+  el.innerHTML = fileBrowserMessage("読み込み中...", true);
+
+  try {
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/file-content?path=${encodeURIComponent(path)}`));
+    if (!res) return;
+    const data = await res.json();
+    if (!res.ok || data.status !== "ok") {
+      el.innerHTML = fileBrowserMessage(data.detail || "読み込みに失敗しました");
+      return;
+    }
+    el.innerHTML = buildFileContentHtml(path, data);
+    bindFileBrowserEventsInModal(el);
+  } catch (e) {
+    el.innerHTML = fileBrowserMessage(e.message);
+  }
+}
+
+function bindFileBrowserEventsInModal(container) {
+  for (const crumb of container.querySelectorAll(".file-browser-crumb")) {
+    crumb.addEventListener("click", () => loadDirectoryInModal(crumb.dataset.path));
+  }
+  for (const item of container.querySelectorAll('.file-browser-item[data-type="dir"]')) {
+    item.addEventListener("click", () => loadDirectoryInModal(item.dataset.path));
+  }
+  for (const item of container.querySelectorAll('.file-browser-item[data-type="file"]')) {
+    item.addEventListener("click", () => loadFileContentInModal(item.dataset.path));
+  }
+  const closeBtn = container.querySelector(".file-browser-close");
+  if (closeBtn) closeBtn.style.display = "none";
 }
 
 function renderDiffActions(container, hash, branches) {

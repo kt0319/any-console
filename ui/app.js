@@ -256,6 +256,9 @@ applyPanelBottom();
   for (const key of Object.keys(ICON_COLOR_FIELDS)) {
     setupIconPickerBtn(key);
   }
+  for (const tab of document.querySelectorAll(".commit-modal-tab")) {
+    tab.addEventListener("click", () => switchCommitModalTab(tab.dataset.tab));
+  }
   $("git-log-branch-btn").addEventListener("click", openLocalBranchModal);
   $("fetch-btn").addEventListener("click", gitFetch);
   $("pull-btn").addEventListener("click", gitPull);
