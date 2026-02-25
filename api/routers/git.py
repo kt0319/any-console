@@ -218,6 +218,57 @@ def git_fetch(name: str):
     return result
 
 
+class StashDropRequest(BaseModel):
+    stash_ref: str
+
+
+@router.get("/workspaces/{name}/stash-list")
+def git_stash_list(name: str):
+    ws_path = resolve_workspace_path(name)
+    result = run_git_command(
+        ["stash", "list", "--format=%gd\t%gs\t%cr"],
+        cwd=ws_path, operation="stash list",
+    )
+    if result["exit_code"] != 0:
+        return result
+    entries = []
+    for line in result["stdout"].splitlines():
+        if not line.strip():
+            continue
+        parts = line.split("\t", 2)
+        if len(parts) >= 3:
+            entries.append({"ref": parts[0], "message": parts[1], "time": parts[2]})
+    return {"status": "ok", "entries": entries}
+
+
+@router.post("/workspaces/{name}/stash-drop")
+def git_stash_drop(name: str, body: StashDropRequest):
+    ws_path = resolve_workspace_path(name)
+    ref = body.stash_ref.strip()
+    if not ref.startswith("stash@{"):
+        raise HTTPException(status_code=400, detail=f"Invalid stash ref: {ref}")
+    result = run_git_command(
+        ["stash", "drop", ref], cwd=ws_path,
+        timeout=GIT_LONG_TIMEOUT_SEC, operation="stash drop",
+    )
+    logger.info("stash-drop workspace=%s ref=%s rc=%d", name, ref, result["exit_code"])
+    return result
+
+
+@router.post("/workspaces/{name}/stash-pop-index")
+def git_stash_pop_index(name: str, body: StashDropRequest):
+    ws_path = resolve_workspace_path(name)
+    ref = body.stash_ref.strip()
+    if not ref.startswith("stash@{"):
+        raise HTTPException(status_code=400, detail=f"Invalid stash ref: {ref}")
+    result = run_git_command(
+        ["stash", "pop", ref], cwd=ws_path,
+        timeout=GIT_LONG_TIMEOUT_SEC, operation="stash pop",
+    )
+    logger.info("stash-pop workspace=%s ref=%s rc=%d", name, ref, result["exit_code"])
+    return result
+
+
 @router.post("/workspaces/{name}/stash")
 def git_stash(name: str):
     ws_path = resolve_workspace_path(name)

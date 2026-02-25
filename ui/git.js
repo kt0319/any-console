@@ -493,20 +493,31 @@ async function reloadGitLog() {
   gitLogSeenHashes.clear();
 
   try {
-    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?limit=${GIT_LOG_PAGE_SIZE}`));
-    if (!res) return;
-    const data = await res.json();
-    if (!res.ok || data.status !== "ok") {
-      listEl.innerHTML = "";
+    const [logRes, stashRes] = await Promise.all([
+      apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?limit=${GIT_LOG_PAGE_SIZE}`)),
+      apiFetch(workspaceApiPath(selectedWorkspace, "/stash-list")),
+    ]);
+
+    listEl.innerHTML = "";
+
+    if (stashRes && stashRes.ok) {
+      const stashData = await stashRes.json();
+      if (stashData.status === "ok" && stashData.entries && stashData.entries.length > 0) {
+        renderStashSection(listEl, stashData.entries);
+      }
+    }
+
+    if (!logRes) return;
+    const data = await logRes.json();
+    if (!logRes.ok || data.status !== "ok") {
       showToast(data.detail || data.stderr || "git log の読み込みに失敗しました");
       return;
     }
     if (!data.stdout) {
-      listEl.innerHTML = '<div style="color:var(--text-muted);padding:16px">ログがありません</div>';
+      listEl.innerHTML += '<div style="color:var(--text-muted);padding:16px">ログがありません</div>';
       return;
     }
 
-    listEl.innerHTML = "";
     const count = renderGitLogEntries(listEl, data.stdout);
     gitLogLoaded = count;
     if (count < GIT_LOG_PAGE_SIZE) {
@@ -516,6 +527,91 @@ async function reloadGitLog() {
     listEl.innerHTML = "";
     showToast(`git log エラー: ${e.message}`);
   }
+}
+
+function renderStashSection(container, entries) {
+  const section = document.createElement("div");
+  section.className = "stash-section";
+
+  const header = document.createElement("div");
+  header.className = "stash-section-header";
+  header.innerHTML = `<span class="mdi mdi-tray-full"></span> Stash (${entries.length}件)`;
+  let collapsed = false;
+  header.addEventListener("click", () => {
+    collapsed = !collapsed;
+    body.style.display = collapsed ? "none" : "";
+    header.classList.toggle("collapsed", collapsed);
+  });
+  section.appendChild(header);
+
+  const body = document.createElement("div");
+  body.className = "stash-section-body";
+
+  for (const entry of entries) {
+    const row = document.createElement("div");
+    row.className = "stash-entry";
+
+    const info = document.createElement("div");
+    info.className = "stash-entry-info";
+    info.innerHTML =
+      `<span class="stash-entry-ref">${escapeHtml(entry.ref)}</span>` +
+      `<span class="stash-entry-msg">${escapeHtml(entry.message)}</span>` +
+      `<span class="stash-entry-time">${escapeHtml(entry.time)}</span>`;
+    row.appendChild(info);
+
+    const actions = document.createElement("div");
+    actions.className = "stash-entry-actions";
+
+    const popBtn = document.createElement("button");
+    popBtn.type = "button";
+    popBtn.className = "stash-action-btn";
+    popBtn.textContent = "pop";
+    popBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      execStashRefAction("pop", entry.ref);
+    });
+    actions.appendChild(popBtn);
+
+    const dropBtn = document.createElement("button");
+    dropBtn.type = "button";
+    dropBtn.className = "stash-action-btn stash-action-danger";
+    dropBtn.textContent = "drop";
+    dropBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      execStashRefAction("drop", entry.ref);
+    });
+    actions.appendChild(dropBtn);
+
+    row.appendChild(actions);
+    body.appendChild(row);
+  }
+
+  section.appendChild(body);
+  container.appendChild(section);
+}
+
+async function execStashRefAction(action, ref) {
+  if (!selectedWorkspace) return;
+  const label = action === "pop" ? `stash pop ${ref}` : `stash drop ${ref}`;
+  if (!confirm(`${label} を実行しますか？`)) return;
+  const endpoint = action === "pop" ? "stash-pop-index" : "stash-drop";
+  try {
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/${endpoint}`), {
+      method: "POST",
+      body: { stash_ref: ref },
+    });
+    if (!res) return;
+    const data = await res.json();
+    if (data.status === "ok") {
+      showToast(`${label} 完了`, "success");
+    } else {
+      showToast(`${label} 失敗: ${data.stderr || data.stdout || "unknown error"}`);
+    }
+  } catch (e) {
+    showToast(`${label} エラー: ${e.message}`);
+  }
+  await refreshAfterGitOp();
+  await reloadGitLog();
 }
 
 async function openGitLogModal() {

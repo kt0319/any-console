@@ -1536,15 +1536,46 @@ function openTabEditModal() {
     updateModeRadio();
 
     radioNormal.addEventListener("click", () => {
-      if (splitMode) { exitSplitMode(); updateModeRadio(); renderTabList(); }
+      if (splitMode) { exitSplitMode(); updateModeRadio(); updateLayoutRow(); renderTabList(); }
     });
     radioSplit.addEventListener("click", () => {
-      if (!splitMode) { enterSplitMode(); updateModeRadio(); renderTabList(); }
+      if (!splitMode) { enterSplitMode(); updateModeRadio(); updateLayoutRow(); renderTabList(); }
     });
 
     modeRow.appendChild(radioNormal);
     modeRow.appendChild(radioSplit);
     modal.appendChild(modeRow);
+
+    const layoutRow = document.createElement("div");
+    layoutRow.className = "split-layout-row";
+    layoutRow.style.display = "none";
+
+    const layouts = [
+      { value: "horizontal", label: "━" },
+      { value: "vertical", label: "┃" },
+      { value: "grid", label: "╋" },
+    ];
+    const layoutBtns = [];
+    for (const l of layouts) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "split-layout-option" + (splitLayout === l.value ? " active" : "");
+      btn.textContent = l.label;
+      btn.title = l.value;
+      btn.addEventListener("click", () => {
+        splitLayout = l.value;
+        for (const b of layoutBtns) b.classList.toggle("active", b.title === l.value);
+        rebuildSplitLayout();
+      });
+      layoutBtns.push(btn);
+      layoutRow.appendChild(btn);
+    }
+    modal.appendChild(layoutRow);
+
+    function updateLayoutRow() {
+      layoutRow.style.display = splitMode ? "flex" : "none";
+    }
+    updateLayoutRow();
   }
 
   function updateModeRadio() {
@@ -1572,10 +1603,16 @@ function openTabEditModal() {
     if (splitMode) {
       const included = splitPaneTabIds.includes(tab.id);
       if (included) {
-        if (splitPaneTabIds.length <= 2) return;
+        if (splitPaneTabIds.length <= 1) return;
         splitPaneTabIds = splitPaneTabIds.filter((id) => id !== tab.id);
         const frame = $(`frame-${tab.id}`);
         if (frame) frame.style.display = "none";
+        if (splitPaneTabIds.length < 2) {
+          exitSplitMode();
+          updateModeRadio();
+          renderTabList();
+          return;
+        }
       } else {
         splitPaneTabIds.push(tab.id);
       }
@@ -1583,7 +1620,7 @@ function openTabEditModal() {
       activeTabId = splitPaneTabIds[activePaneIndex];
       const container = $("output-container");
       clearSplitDom(container);
-      container.classList.remove("split-active", "split-mobile");
+      container.classList.remove("split-active", "split-mobile", "split-vertical", "split-horizontal");
       buildSplitDom();
       fitAllSplitTerminals();
       renderTabList();
@@ -1646,6 +1683,53 @@ function openTabEditModal() {
       closeBtn.innerHTML = "&times;";
       closeBtn.addEventListener("click", () => {
         removeTab(tab.id);
+        renderTabList();
+      });
+      row.appendChild(closeBtn);
+
+      list.appendChild(row);
+    }
+
+    for (const s of orphanSessions) {
+      const row = document.createElement("div");
+      row.className = "split-tab-row";
+
+      const inputWrap = document.createElement("span");
+      inputWrap.className = "split-tab-input-wrap";
+      row.appendChild(inputWrap);
+
+      const handle = document.createElement("span");
+      handle.className = "split-tab-drag-handle";
+      handle.style.visibility = "hidden";
+      row.appendChild(handle);
+
+      const info = document.createElement("span");
+      info.className = "split-tab-row-info";
+      const ows = s.workspace ? allWorkspaces.find((w) => w.name === s.workspace) : null;
+      const owsIconHtml = ows && ows.icon ? renderIcon(ows.icon, ows.icon_color, 14) : "";
+      const orphanIcon = s.icon ? renderIcon(s.icon, s.iconColor || "", 14) : "";
+      info.innerHTML = owsIconHtml + orphanIcon + escapeHtml(s.workspace || "terminal") +
+        ' <span class="split-tab-orphan-badge">他デバイス</span>';
+      row.appendChild(info);
+
+      row.addEventListener("click", (e) => {
+        if (e.target.closest(".split-tab-close-btn")) return;
+        joinOrphanSession(s.wsUrl, s.workspace);
+        closeModal();
+      });
+
+      const closeBtn = document.createElement("button");
+      closeBtn.type = "button";
+      closeBtn.className = "split-tab-close-btn";
+      closeBtn.innerHTML = "&times;";
+      closeBtn.addEventListener("click", () => {
+        const label = s.workspace || "terminal";
+        if (!confirm(`「${label}」を閉じますか？`)) return;
+        const match = s.wsUrl.match(/\/terminal\/ws\/([^/]+)/);
+        if (match) {
+          apiFetch(`/terminal/sessions/${match[1]}`, { method: "DELETE" }).catch(() => {});
+        }
+        orphanSessions = orphanSessions.filter((o) => o.wsUrl !== s.wsUrl);
         renderTabList();
       });
       row.appendChild(closeBtn);
@@ -1754,7 +1838,7 @@ function exitSplitModeWithTab(targetTabId) {
 
   const container = $("output-container");
   clearSplitDom(container);
-  container.classList.remove("split-active", "split-mobile");
+  container.classList.remove("split-active", "split-mobile", "split-vertical", "split-horizontal");
 
   splitMode = false;
   splitPaneTabIds = [];
@@ -1776,7 +1860,7 @@ function rebuildSplitLayout() {
   blurAllTerminals();
   const container = $("output-container");
   clearSplitDom(container);
-  container.classList.remove("split-active", "split-mobile");
+  container.classList.remove("split-active", "split-mobile", "split-vertical", "split-horizontal");
 
   const nonPicker = getNonPickerTabs();
   if (nonPicker.length < 2) {
@@ -1831,6 +1915,16 @@ function buildSplitDom() {
 
   if (panelBottom) {
     container.classList.add("split-mobile");
+    for (let i = 0; i < splitPaneTabIds.length; i++) {
+      container.appendChild(createSplitPane(i));
+    }
+  } else if (splitLayout === "horizontal") {
+    container.classList.add("split-horizontal");
+    for (let i = 0; i < splitPaneTabIds.length; i++) {
+      container.appendChild(createSplitPane(i));
+    }
+  } else if (splitLayout === "vertical") {
+    container.classList.add("split-vertical");
     for (let i = 0; i < splitPaneTabIds.length; i++) {
       container.appendChild(createSplitPane(i));
     }

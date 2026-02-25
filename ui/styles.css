@@ -1664,12 +1664,53 @@ button:disabled {
 }
 
 .split-tab-input {
-  width: 18px;
-  height: 18px;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
   margin: 0;
-  accent-color: var(--accent);
+  border: 2px solid var(--text-muted);
+  background: transparent;
   pointer-events: none;
   opacity: 1;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.split-tab-input[type="checkbox"] {
+  border-radius: 4px;
+}
+
+.split-tab-input[type="radio"] {
+  border-radius: 50%;
+}
+
+.split-tab-input:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.split-tab-input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid var(--bg-primary);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.split-tab-input[type="radio"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bg-primary);
 }
 
 .split-tab-row.dragging {
@@ -1925,11 +1966,33 @@ button:disabled {
 }
 
 .ws-check-item input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent);
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--text-muted);
+  border-radius: 4px;
+  background: transparent;
   cursor: pointer;
   flex-shrink: 0;
+  position: relative;
+}
+
+.ws-check-item input[type="checkbox"]:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.ws-check-item input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid var(--bg-primary);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 
 .ws-check-label {
@@ -2027,11 +2090,33 @@ button:disabled {
 }
 
 .form-check-label input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent);
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--text-muted);
+  border-radius: 4px;
+  background: transparent;
   cursor: pointer;
   flex-shrink: 0;
+  position: relative;
+}
+
+.form-check-label input[type="checkbox"]:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.form-check-label input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid var(--bg-primary);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 
 .form-error {
@@ -3183,5 +3268,156 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Stash section in git log */
+.stash-section {
+  border-bottom: 2px solid var(--border);
+}
+
+.stash-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--warning);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.stash-section-header::after {
+  content: "";
+  margin-left: auto;
+  border: 5px solid transparent;
+  border-top-color: var(--text-muted);
+  transition: transform 0.15s;
+}
+
+.stash-section-header.collapsed::after {
+  transform: rotate(-90deg);
+  border-top-color: var(--text-muted);
+}
+
+.stash-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.stash-entry:last-child {
+  border-bottom: none;
+}
+
+.stash-entry-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stash-entry-ref {
+  color: var(--warning);
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.stash-entry-msg {
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stash-entry-time {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.stash-entry-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.stash-action-btn {
+  padding: 4px 10px;
+  min-height: 28px;
+  min-width: auto;
+  font-size: 11px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.stash-action-danger {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+/* Orphan badge in tab edit modal */
+.split-tab-orphan-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(255, 203, 107, 0.2);
+  color: var(--warning);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Split layout selector */
+.split-layout-row {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-bottom: 8px;
+}
+
+.split-layout-option {
+  flex: 1;
+  padding: 6px 0;
+  font-size: 16px;
+  border: none;
+  background: var(--surface);
+  color: var(--text-muted);
+  text-align: center;
+  min-height: 36px;
+  min-width: auto;
+}
+
+.split-layout-option.active {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* Vertical split layout */
+.output-container.split-vertical {
+  flex-direction: column;
+}
+
+.output-container.split-vertical > .split-pane {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Horizontal split layout */
+.output-container.split-horizontal {
+  flex-direction: row;
+}
+
+.output-container.split-horizontal > .split-pane {
+  flex: 1;
+  min-width: 0;
 }
 
