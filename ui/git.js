@@ -509,6 +509,29 @@ async function openLocalBranchModal() {
   listEl.appendChild(remoteBtn);
 }
 
+function renderDirtyEntry(listEl) {
+  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
+  if (!ws || ws.clean !== false) return;
+  const entry = document.createElement("div");
+  entry.className = "git-log-entry git-log-dirty";
+  let statParts = [];
+  if (ws.changed_files > 0) statParts.push(`<span class="stat-files">${ws.changed_files}F</span>`);
+  if (ws.insertions > 0) statParts.push(`<span class="stat-add">+${ws.insertions}</span>`);
+  if (ws.deletions > 0) statParts.push(`<span class="stat-del">-${ws.deletions}</span>`);
+  const statText = statParts.length > 0 ? statParts.join(" ") : "\u25cf";
+  entry.innerHTML =
+    `<span class="git-log-entry-body">` +
+      `<span class="git-log-entry-refs"><span class="git-ref git-ref-dirty">${statText}</span></span>` +
+      `<span class="git-log-entry-row1"><span class="git-log-entry-msg">未コミットの変更</span></span>` +
+    `</span>`;
+  entry.addEventListener("click", () => {
+    diffPaneReturnTab = "commits";
+    showDiffPane("変更内容");
+    loadDiffTab();
+  });
+  listEl.appendChild(entry);
+}
+
 async function reloadGitLog() {
   if (!selectedWorkspace) return;
 
@@ -536,6 +559,7 @@ async function reloadGitLog() {
       return;
     }
 
+    renderDirtyEntry(listEl);
     const count = renderGitLogEntries(listEl, data.stdout);
     gitLogLoaded = count;
     if (count < GIT_LOG_PAGE_SIZE) {
@@ -637,30 +661,37 @@ async function execStashRefAction(action, ref) {
 
 let commitModalFilesLoaded = false;
 
-const COMMIT_MODAL_TAB_TITLES = { commits: "履歴", files: "ファイル", diff: "変更内容" };
+const COMMIT_MODAL_TAB_TITLES = { commits: "履歴", files: "ファイル" };
+let diffPaneReturnTab = "commits";
 
-function switchCommitModalTab(tab, { skipLoad = false } = {}) {
+function switchCommitModalTab(tab) {
   const commitsPane = $("commit-modal-tab-commits");
   const filesPane = $("commit-modal-tab-files");
   const diffPane = $("commit-modal-tab-diff");
-  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
-  const isDirty = ws && ws.clean === false;
   for (const btn of document.querySelectorAll(".commit-modal-tab")) {
     btn.classList.toggle("active", btn.dataset.tab === tab);
-    if (btn.dataset.tab === "diff") btn.disabled = !isDirty;
   }
   $("git-log-modal-title").textContent = COMMIT_MODAL_TAB_TITLES[tab] || "履歴";
+  $("commit-modal-tabs").style.display = "";
   commitsPane.style.display = tab === "commits" ? "" : "none";
   filesPane.style.display = tab === "files" ? "" : "none";
-  diffPane.style.display = tab === "diff" ? "" : "none";
-  if (skipLoad) return;
+  diffPane.style.display = "none";
   if (tab === "files" && !commitModalFilesLoaded) {
     commitModalFilesLoaded = true;
     loadDirectoryInModal("");
   }
-  if (tab === "diff" && isDirty) {
-    loadDiffTab();
-  }
+}
+
+function showDiffPane(title) {
+  $("commit-modal-tabs").style.display = "none";
+  $("commit-modal-tab-commits").style.display = "none";
+  $("commit-modal-tab-files").style.display = "none";
+  $("commit-modal-tab-diff").style.display = "";
+  $("diff-back-title").textContent = title || "変更内容";
+}
+
+function closeDiffPane() {
+  switchCommitModalTab(diffPaneReturnTab);
 }
 
 async function openGitLogModal() {
@@ -743,7 +774,7 @@ function bindFileBrowserEventsInModal(container) {
 function renderDiffActions(container, hash, branches) {
   const actions = buildCommitActions(hash, {
     branches,
-    checkoutBranchFn: () => { switchCommitModalTab("commits"); toggleCreateBranchArea(hash); },
+    checkoutBranchFn: () => { closeDiffPane(); toggleCreateBranchArea(hash); },
   });
 
   renderActionButtons(container, actions);
@@ -759,8 +790,8 @@ async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
   actionsEl.innerHTML = "";
   actionsEl.style.display = "none";
   $("diff-commit-form").style.display = "none";
-  switchCommitModalTab("diff", { skipLoad: true });
-  if (commitMsg) $("git-log-modal-title").textContent = commitMsg;
+  diffPaneReturnTab = "commits";
+  showDiffPane(commitMsg || "");
 
   if (commitHash) {
     renderDiffActions(actionsEl, commitHash, branches);
@@ -941,9 +972,10 @@ async function openDiffModal() {
   if (!selectedWorkspace) return;
 
   commitModalFilesLoaded = false;
-  switchCommitModalTab("diff");
+  diffPaneReturnTab = "commits";
   $("git-log-modal").style.display = "flex";
   updateGitLogBranchLabel();
+  showDiffPane("変更内容");
   await loadDiffTab();
 }
 

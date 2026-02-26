@@ -205,9 +205,8 @@
           <h3 id="git-log-modal-title">コミット履歴</h3>
           <button id="git-log-close" class="modal-close-btn" title="閉じる">&times;</button>
         </div>
-        <div class="commit-modal-tabs">
+        <div class="commit-modal-tabs" id="commit-modal-tabs">
           <button type="button" class="commit-modal-tab active" data-tab="commits"><span class="mdi mdi-history"></span> 履歴</button>
-          <button type="button" class="commit-modal-tab" data-tab="diff"><span class="mdi mdi-file-diff"></span> 変更内容</button>
           <button type="button" class="commit-modal-tab" data-tab="files"><span class="mdi mdi-folder-outline"></span> ファイル</button>
         </div>
         <div id="commit-modal-tab-commits">
@@ -232,6 +231,7 @@
           <div id="commit-modal-file-browser"></div>
         </div>
         <div id="commit-modal-tab-diff" style="display:none">
+          <button type="button" class="diff-back-btn" id="diff-back-btn" onclick="closeDiffPane()"><span class="mdi mdi-arrow-left"></span> <span id="diff-back-title"></span></button>
           <div class="diff-actions" id="diff-actions" style="display:none"></div>
           <div class="diff-file-list" id="diff-file-list"></div>
           <pre class="diff-content" id="diff-content"></pre>

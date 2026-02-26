@@ -2147,15 +2147,23 @@ button:disabled {
   cursor: pointer;
 }
 
-.commit-modal-tab:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
 .commit-modal-tab.active {
   background: rgba(130, 170, 255, 0.2);
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.diff-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  font-size: 13px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 #commit-modal-tab-commits,
@@ -2175,12 +2183,17 @@ button:disabled {
   font-size: 13px;
 }
 
-.git-log-commit {
+.git-log-commit,
+.git-log-dirty {
   padding: 8px 6px;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
 }
 
+.git-ref-dirty {
+  color: var(--warning);
+  background: rgba(255, 203, 107, 0.2);
+}
 
 .git-log-entry-graph {
   flex-shrink: 0;
@@ -2303,14 +2316,23 @@ button:disabled {
   border-color: var(--error);
 }
 
-.commit-action-menu,
-.diff-actions {
+.commit-action-menu {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   padding: 6px 10px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+}
+
+.diff-actions {
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .git-log-commit.action-open {
@@ -2338,12 +2360,12 @@ button:disabled {
 
 .diff-file-list {
   display: flex;
-  flex-wrap: wrap;
   gap: 8px;
   padding-top: 10px;
   margin-bottom: 12px;
-  max-height: 120px;
-  overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  flex-shrink: 0;
 }
 
 .diff-file-tag {
@@ -2355,6 +2377,8 @@ button:disabled {
   color: var(--text-primary);
   font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
   cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
 }
 
