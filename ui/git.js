@@ -284,7 +284,6 @@ function execCommitResetAction(hash, mode) {
 
 function closeGitLogModal() {
   $("git-log-modal").style.display = "none";
-  $("git-log-modal-title").textContent = "コミット履歴";
   $("git-log-action-menu").style.display = "none";
   $("git-log-action-menu").innerHTML = "";
   $("diff-commit-form").style.display = "none";
@@ -623,6 +622,8 @@ async function execStashRefAction(action, ref) {
 
 let commitModalFilesLoaded = false;
 
+const COMMIT_MODAL_TAB_TITLES = { commits: "コミット履歴", files: "ファイル", diff: "変更内容" };
+
 function switchCommitModalTab(tab) {
   const commitsPane = $("commit-modal-tab-commits");
   const filesPane = $("commit-modal-tab-files");
@@ -630,6 +631,7 @@ function switchCommitModalTab(tab) {
   for (const btn of document.querySelectorAll(".commit-modal-tab")) {
     btn.classList.toggle("active", btn.dataset.tab === tab);
   }
+  $("git-log-modal-title").textContent = COMMIT_MODAL_TAB_TITLES[tab] || "コミット履歴";
   commitsPane.style.display = tab === "commits" ? "" : "none";
   filesPane.style.display = tab === "files" ? "" : "none";
   diffPane.style.display = tab === "diff" ? "" : "none";
@@ -642,7 +644,6 @@ function switchCommitModalTab(tab) {
 async function openGitLogModal() {
   if (!selectedWorkspace) return;
   commitModalFilesLoaded = false;
-  $("git-log-modal-title").textContent = "コミット履歴";
   switchCommitModalTab("commits");
   $("git-log-modal").style.display = "flex";
   updateGitLogBranchLabel();
@@ -744,8 +745,8 @@ async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
   actionsEl.innerHTML = "";
   actionsEl.style.display = "none";
   $("diff-commit-form").style.display = "none";
-  $("git-log-modal-title").textContent = commitMsg || "変更内容";
   switchCommitModalTab("diff");
+  if (commitMsg) $("git-log-modal-title").textContent = commitMsg;
 
   if (commitHash) {
     renderDiffActions(actionsEl, commitHash, branches);
@@ -901,7 +902,6 @@ async function openDiffModal() {
   actionsEl.style.display = "flex";
 
   $("diff-commit-form").style.display = "none";
-  $("git-log-modal-title").textContent = "変更内容";
   commitModalFilesLoaded = false;
   switchCommitModalTab("diff");
   $("git-log-modal").style.display = "flex";
@@ -976,7 +976,6 @@ function closeDiffModal() {
   $("diff-commit-form").style.display = "none";
   if (diffOpenedFromGitLog) {
     diffOpenedFromGitLog = false;
-    $("git-log-modal-title").textContent = "コミット履歴";
     switchCommitModalTab("commits");
   } else {
     closeGitLogModal();
