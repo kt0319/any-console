@@ -366,7 +366,7 @@ def get_commit_diff(name: str, commit_hash: str):
 def get_workspace_diff(name: str):
     ws_path = resolve_workspace_path(name)
     status_result = run_git_command(
-        ["status", "--porcelain"], cwd=ws_path,
+        ["status", "--porcelain", "--untracked-files=all"], cwd=ws_path,
         timeout=GIT_SHORT_TIMEOUT_SEC, operation="status",
     )
     diff_result = run_git_command(["diff"], cwd=ws_path, operation="diff")
