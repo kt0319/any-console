@@ -1,6 +1,7 @@
-# CLAUDE.md
+# AGENTS.md / CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+このファイルは、このリポジトリで作業するコーディングエージェント向けの共通ガイドです。
+`AGENTS.md` として参照されても同じ内容を適用します。
 
 ## プロジェクト概要
 
