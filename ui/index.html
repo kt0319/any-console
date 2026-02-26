@@ -111,10 +111,6 @@
           <h3 id="git-log-modal-title" class="split-modal-title">コミット履歴</h3>
           <button id="git-log-close" class="modal-close-btn" title="閉じる">&times;</button>
         </div>
-        <div class="commit-modal-tabs" id="commit-modal-tabs">
-          <button type="button" class="commit-modal-tab active" data-tab="commits"><span class="mdi mdi-history"></span> 履歴</button>
-          <button type="button" class="commit-modal-tab" data-tab="files"><span class="mdi mdi-folder-outline"></span> ファイル</button>
-        </div>
         <div id="commit-modal-tab-commits">
           <div class="git-log-sub-header">
             <button type="button" class="git-log-branch-select-btn" id="git-log-branch-btn">
@@ -122,6 +118,7 @@
             </button>
             <button type="button" class="git-action-btn fetch-btn" id="fetch-btn" onclick="gitFetch()">fetch</button>
             <button type="button" class="git-action-btn stash-btn" id="stash-btn" onclick="openStashPane()">stash</button>
+            <button type="button" class="git-action-btn" id="git-log-file-browser-toggle"><span class="mdi mdi-folder-outline"></span></button>
           </div>
           <div class="modal-scroll-body" id="git-log-list-modal"></div>
           <div id="git-log-action-menu" class="commit-action-menu" style="display:none"></div>
@@ -132,9 +129,6 @@
             </div>
             <div id="git-log-branch-error" class="form-error"></div>
           </div>
-        </div>
-        <div id="commit-modal-tab-files" class="modal-scroll-body" style="display:none">
-          <div id="commit-modal-file-browser"></div>
         </div>
         <div id="commit-modal-tab-diff" style="display:none">
           <div class="diff-actions" id="diff-actions" style="display:none"></div>
@@ -154,6 +148,9 @@
         </div>
         <div id="commit-modal-tab-branch" style="display:none">
           <div class="modal-scroll-body" id="branch-pane-list"></div>
+        </div>
+        <div id="commit-modal-tab-files" style="display:none">
+          <div class="modal-scroll-body" id="commit-modal-file-browser"></div>
         </div>
       </div>
     </div>

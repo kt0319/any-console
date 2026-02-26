@@ -207,7 +207,7 @@ async function openDiffModal() {
   previousModalTab = "commits";
   $("git-log-modal").style.display = "flex";
   updateGitLogBranchLabel();
-  showDiffPane("変更内容");
+  showDiffPane("未コミットの変更");
   await loadDiffTab();
 }
 

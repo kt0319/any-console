@@ -433,7 +433,7 @@ function renderDirtyEntry(listEl) {
   if (isDirty) {
     entry.addEventListener("click", () => {
       previousModalTab = "commits";
-      showDiffPane("変更内容");
+      showDiffPane("未コミットの変更");
       loadDiffTab();
     });
   }
@@ -560,25 +560,25 @@ async function execStashRefAction(action, ref) {
 
 let isGitLogFilesLoaded = false;
 
-const GIT_LOG_MODAL_TAB_TITLES = { commits: "履歴", files: "ファイル" };
 let previousModalTab = "commits";
 
 function switchCommitModalTab(tab) {
   const allPanes = ["commit-modal-tab-commits", "commit-modal-tab-files", "commit-modal-tab-diff", "commit-modal-tab-stash", "commit-modal-tab-branch"];
-  for (const btn of document.querySelectorAll(".commit-modal-tab")) {
-    btn.classList.toggle("active", btn.dataset.tab === tab);
-  }
   const titleEl = $("git-log-modal-title");
-  titleEl.textContent = GIT_LOG_MODAL_TAB_TITLES[tab] || "履歴";
+  titleEl.textContent = "履歴";
   titleEl.classList.remove("split-modal-title-back");
   titleEl.onclick = null;
-  $("commit-modal-tabs").style.display = "";
   for (const id of allPanes) {
     const pane = $(id);
     if (pane) pane.style.display = "none";
   }
   $("commit-modal-tab-" + tab).style.display = "";
-  if (tab === "files" && !isGitLogFilesLoaded) {
+}
+
+function openFileBrowserPane() {
+  previousModalTab = "commits";
+  showSubPane("commit-modal-tab-files", "ファイル");
+  if (!isGitLogFilesLoaded) {
     isGitLogFilesLoaded = true;
     loadDirectoryInModal("");
   }
@@ -586,15 +586,18 @@ function switchCommitModalTab(tab) {
 
 function showSubPane(paneId, title) {
   const allPanes = ["commit-modal-tab-commits", "commit-modal-tab-files", "commit-modal-tab-diff", "commit-modal-tab-stash", "commit-modal-tab-branch"];
-  $("commit-modal-tabs").style.display = "none";
   for (const id of allPanes) {
     const pane = $(id);
     if (pane) pane.style.display = "none";
   }
   $(paneId).style.display = "";
   const titleEl = $("git-log-modal-title");
-  titleEl.textContent = title;
+  titleEl.textContent = "";
   titleEl.classList.add("split-modal-title-back");
+  const arrow = document.createElement("span");
+  arrow.className = "mdi mdi-arrow-left";
+  titleEl.appendChild(arrow);
+  titleEl.appendChild(document.createTextNode(" " + title));
   titleEl.onclick = () => closeSubPane();
 }
 
@@ -603,7 +606,7 @@ function closeSubPane() {
 }
 
 function showDiffPane(title) {
-  showSubPane("commit-modal-tab-diff", title || "変更内容");
+  showSubPane("commit-modal-tab-diff", title || "未コミットの変更");
 }
 
 function closeDiffPane() {
@@ -622,11 +625,9 @@ async function openGitLogModal() {
 async function openGitLogModalFiles() {
   if (!selectedWorkspace) return;
   isGitLogFilesLoaded = false;
-  switchCommitModalTab("files");
   $("git-log-modal").style.display = "flex";
   updateGitLogBranchLabel();
-  isGitLogFilesLoaded = true;
-  await loadDirectoryInModal("");
+  openFileBrowserPane();
 }
 
 async function execStashAction(action) {

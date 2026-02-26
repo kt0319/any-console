@@ -246,9 +246,7 @@ applyPanelBottom();
     if (e.target === $("icon-picker-modal")) closeIconPicker();
   });
   $("icon-picker-url-ok").addEventListener("click", submitIconPicker);
-  for (const tab of document.querySelectorAll(".commit-modal-tab")) {
-    tab.addEventListener("click", () => switchCommitModalTab(tab.dataset.tab));
-  }
+  $("git-log-file-browser-toggle").addEventListener("click", openFileBrowserPane);
   $("git-log-branch-btn").addEventListener("click", openLocalBranchPane);
   $("fetch-btn").addEventListener("click", gitFetch);
   $("stash-btn").addEventListener("click", openStashPane);

@@ -448,12 +448,15 @@ header .ws-select-wrap {
 
 .git-action-btn.running {
   pointer-events: none;
-  animation: git-action-pulse 0.8s ease-in-out infinite;
+  color: var(--accent);
+  background: rgba(130, 170, 255, 0.15);
+  border-color: var(--accent);
+  animation: git-action-running 1.2s ease-in-out infinite;
 }
 
-@keyframes git-action-pulse {
+@keyframes git-action-running {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+  50% { opacity: 0.5; }
 }
 
 .git-action-count:empty {
@@ -2112,30 +2115,6 @@ button:disabled {
   font-style: italic;
 }
 
-/* Commit modal tabs */
-.commit-modal-tabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 8px;
-  flex-shrink: 0;
-}
-
-.commit-modal-tab {
-  flex: 1;
-  padding: 8px 12px;
-  font-size: 13px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.commit-modal-tab.active {
-  background: var(--accent-bg-20);
-  border-color: var(--accent);
-  color: var(--accent);
-}
 
 .diff-back-btn {
   display: flex;
@@ -2151,7 +2130,8 @@ button:disabled {
 }
 
 #commit-modal-tab-commits,
-#commit-modal-tab-diff {
+#commit-modal-tab-diff,
+#commit-modal-tab-files {
   display: flex;
   flex-direction: column;
   flex: 1;
