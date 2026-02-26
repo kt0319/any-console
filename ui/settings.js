@@ -177,18 +177,7 @@ function renderWorkspaceSettingsPane(container, ws, onBack, setTitleFn) {
 }
 
 async function loadWorkspaceSettingsItems(jobList, linkList, container, ws, onBack, setTitleFn) {
-  let jobs = {};
-  let links = [];
-  try {
-    const [jobsRes, linksRes] = await Promise.all([
-      apiFetch(workspaceApiPath(ws.name, "/jobs")),
-      apiFetch(workspaceApiPath(ws.name, "/links")),
-    ]);
-    if (jobsRes && jobsRes.ok) jobs = await jobsRes.json();
-    if (linksRes && linksRes.ok) links = await linksRes.json();
-  } catch (e) {
-    console.error("loadWorkspaceSettingsItems failed:", e);
-  }
+  const { jobs, links } = await fetchWorkspaceJobsAndLinks(ws.name);
 
   const goBackToSettings = () => renderWorkspaceSettingsPane(container, ws, onBack, setTitleFn);
 
@@ -464,14 +453,7 @@ async function loadGithubRepos() {
   listEl.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
 
   try {
-    const res = await apiFetch("/github/repos");
-    if (!res) return;
-    if (!res.ok) {
-      const data = await res.json();
-      listEl.innerHTML = `<div class="clone-repo-error">${escapeHtml(data.detail || "取得に失敗しました")}</div>`;
-      return;
-    }
-    githubRepos = await res.json();
+    githubRepos = await fetchGithubRepos();
     renderGithubRepos();
   } catch (e) {
     listEl.innerHTML = `<div class="clone-repo-error">${escapeHtml(e.message)}</div>`;
@@ -530,6 +512,7 @@ async function submitClone() {
       return;
     }
     outputEl.textContent = `${data.name} をクローンしました`;
+    invalidateWorkspaceMetaCache();
     closeCloneModal();
     await loadWorkspaces();
     openSettingsWsVisibility();
@@ -583,6 +566,8 @@ function importSettings() {
         return;
       }
       showToast("設定をインポートしました", "success");
+      invalidateWorkspaceMetaCache();
+      invalidateGithubReposCache();
       closeSettings();
       await loadWorkspaces();
     } catch (e) {

@@ -192,6 +192,7 @@ async function deleteLink(workspace, index, label) {
       showToast(data.detail || "削除に失敗しました");
       return;
     }
+    invalidateWorkspaceMetaCache(workspace);
     showToast("リンクを削除しました", "success");
   } catch (e) {
     showToast(`削除エラー: ${e.message}`);
@@ -346,6 +347,7 @@ function renderInlineLinkCreate(container, workspace, onDone, setTitleFn) {
       if (!res) return;
       const data = await res.json();
       if (!res.ok) { showFormErr(errorEl, data.detail || "追加に失敗しました"); return; }
+      invalidateWorkspaceMetaCache(workspace);
       await loadJobsForWorkspace();
       showToast("リンクを追加しました", "success");
       onDone();
@@ -408,6 +410,7 @@ function renderInlineJobCreate(container, workspace, onDone, setTitleFn) {
       if (!res) return;
       const data = await res.json();
       if (!res.ok) { showFormErr(errorEl, data.detail || "作成に失敗しました"); return; }
+      invalidateWorkspaceMetaCache(workspace);
       await loadJobsForWorkspace();
       onDone();
     } catch (e) { showFormErr(errorEl, e.message); }
@@ -459,6 +462,7 @@ function renderInlineLinkEdit(container, data, onDone, setTitleFn) {
       if (!res) return;
       const d = await res.json();
       if (!res.ok) { showFormErr(errorEl, d.detail || "保存に失敗しました"); return; }
+      invalidateWorkspaceMetaCache(data.workspace);
       await loadJobsForWorkspace();
       showToast("リンクを更新しました", "success");
       onDone();
@@ -530,6 +534,7 @@ function renderInlineJobEdit(container, data, onDone, setTitleFn) {
       if (!res) return;
       const d = await res.json();
       if (!res.ok) { showFormErr(errorEl, d.detail || "保存に失敗しました"); return; }
+      invalidateWorkspaceMetaCache(data.workspace);
       await loadJobsForWorkspace();
       onDone();
     } catch (e) { showFormErr(errorEl, e.message); }
@@ -549,6 +554,7 @@ async function deleteJob(jobName, workspace) {
       return;
     }
     if (pendingJob === jobName) pendingJob = null;
+    invalidateWorkspaceMetaCache(ws);
   } catch (e) {
     showToast(`削除エラー: ${e.message}`);
   }

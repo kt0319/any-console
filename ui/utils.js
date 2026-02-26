@@ -134,19 +134,149 @@ function isImageDataIcon(icon) {
   return icon && (icon.startsWith("data:image/") || icon.startsWith("favicon:"));
 }
 
-async function loadWorkspaceIconButtons(container, ws, iconSize, onLinkClick, onJobClick) {
-  let jobs = {};
-  let links = [];
-  try {
-    const [jobsRes, linksRes] = await Promise.all([
-      apiFetch(workspaceApiPath(ws.name, "/jobs")),
-      apiFetch(workspaceApiPath(ws.name, "/links")),
-    ]);
-    if (jobsRes && jobsRes.ok) jobs = await jobsRes.json();
-    if (linksRes && linksRes.ok) links = await linksRes.json();
-  } catch (e) {
-    console.error("loadWorkspaceIconButtons failed:", e);
+const WORKSPACE_META_CACHE_TTL_MS = 30 * 1000;
+const workspaceMetaCache = new Map();
+const workspaceMetaInFlight = new Map();
+const GITHUB_REPOS_CACHE_TTL_MS = 60 * 1000;
+let githubReposCache = null;
+let githubReposInFlight = null;
+
+function cloneWorkspaceMeta(meta) {
+  const jobs = {};
+  for (const [name, job] of Object.entries(meta.jobs || {})) {
+    jobs[name] = job && typeof job === "object" ? { ...job } : job;
   }
+  const links = Array.isArray(meta.links) ? meta.links.map((link) => ({ ...link })) : [];
+  return { jobs, links };
+}
+
+function getWorkspaceMetaCache(workspaceName) {
+  const cached = workspaceMetaCache.get(workspaceName);
+  if (!cached) return null;
+  if (Date.now() - cached.fetchedAt > WORKSPACE_META_CACHE_TTL_MS) return null;
+  return cloneWorkspaceMeta(cached);
+}
+
+function setWorkspaceMetaCache(workspaceName, jobs, links) {
+  workspaceMetaCache.set(workspaceName, {
+    jobs: jobs || {},
+    links: links || [],
+    fetchedAt: Date.now(),
+  });
+}
+
+function invalidateWorkspaceMetaCache(workspaceName = null) {
+  if (workspaceName) {
+    workspaceMetaCache.delete(workspaceName);
+    workspaceMetaInFlight.delete(workspaceName);
+    return;
+  }
+  workspaceMetaCache.clear();
+  workspaceMetaInFlight.clear();
+}
+
+function invalidateGithubReposCache() {
+  githubReposCache = null;
+  githubReposInFlight = null;
+}
+
+async function fetchWorkspaceJobsAndLinks(workspaceName, { forceRefresh = false } = {}) {
+  if (!workspaceName) return { jobs: {}, links: [] };
+
+  if (!forceRefresh) {
+    const cached = getWorkspaceMetaCache(workspaceName);
+    if (cached) return cached;
+  }
+
+  if (!forceRefresh && workspaceMetaInFlight.has(workspaceName)) {
+    const inFlight = await workspaceMetaInFlight.get(workspaceName);
+    return cloneWorkspaceMeta(inFlight);
+  }
+
+  const request = (async () => {
+    const stale = workspaceMetaCache.get(workspaceName);
+    let jobs = stale?.jobs || {};
+    let links = stale?.links || [];
+    let fetched = false;
+    try {
+      const [jobsRes, linksRes] = await Promise.all([
+        apiFetch(workspaceApiPath(workspaceName, "/jobs")),
+        apiFetch(workspaceApiPath(workspaceName, "/links")),
+      ]);
+      if (jobsRes && jobsRes.ok) {
+        jobs = await jobsRes.json();
+        fetched = true;
+      }
+      if (linksRes && linksRes.ok) {
+        links = await linksRes.json();
+        fetched = true;
+      }
+    } catch (e) {
+      console.error("fetchWorkspaceJobsAndLinks failed:", e);
+    }
+
+    if (fetched) {
+      setWorkspaceMetaCache(workspaceName, jobs, links);
+      return { jobs, links };
+    }
+    return stale ? { jobs: stale.jobs, links: stale.links } : { jobs: {}, links: [] };
+  })();
+
+  workspaceMetaInFlight.set(workspaceName, request);
+  try {
+    const result = await request;
+    return cloneWorkspaceMeta(result);
+  } finally {
+    workspaceMetaInFlight.delete(workspaceName);
+  }
+}
+
+async function fetchGithubRepos({ forceRefresh = false } = {}) {
+  const hasFreshCache =
+    githubReposCache &&
+    (Date.now() - githubReposCache.fetchedAt <= GITHUB_REPOS_CACHE_TTL_MS);
+
+  if (!forceRefresh && hasFreshCache) {
+    return githubReposCache.repos.map((repo) => ({ ...repo }));
+  }
+
+  if (!forceRefresh && githubReposInFlight) {
+    const inFlightRepos = await githubReposInFlight;
+    return inFlightRepos.map((repo) => ({ ...repo }));
+  }
+
+  const request = (async () => {
+    try {
+      const res = await apiFetch("/github/repos");
+      if (!res) throw new Error("取得に失敗しました");
+      if (!res.ok) {
+        let detail = "取得に失敗しました";
+        try {
+          const data = await res.json();
+          if (data?.detail) detail = data.detail;
+        } catch {}
+        throw new Error(detail);
+      }
+      const repos = await res.json();
+      githubReposCache = { repos, fetchedAt: Date.now() };
+      return repos;
+    } catch (e) {
+      if (githubReposCache) return githubReposCache.repos;
+      throw e;
+    }
+  })();
+
+  githubReposInFlight = request;
+  try {
+    const repos = await request;
+    return repos.map((repo) => ({ ...repo }));
+  } finally {
+    githubReposInFlight = null;
+  }
+}
+
+async function loadWorkspaceIconButtons(container, ws, iconSize, onLinkClick, onJobClick) {
+  const { jobs, links } = await fetchWorkspaceJobsAndLinks(ws.name);
 
   for (let i = 0; i < links.length; i++) {
     const link = links[i];
@@ -240,4 +370,3 @@ function renderIcon(icon, iconColor, size = 16) {
   }
   return `<span class="mdi ${escapeHtml(icon)}" style="${styles.join(";")}"></span>`;
 }
-

@@ -615,14 +615,7 @@ function openTabEditModal(initialTab = "layout") {
     async function loadRepos() {
       repoList.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
       try {
-        const res = await apiFetch("/github/repos");
-        if (!res) return;
-        if (!res.ok) {
-          const data = await res.json();
-          repoList.innerHTML = `<div class="clone-repo-error">${escapeHtml(data.detail || "取得に失敗しました")}</div>`;
-          return;
-        }
-        pickerRepos = await res.json();
+        pickerRepos = await fetchGithubRepos();
         renderRepos();
       } catch (e) {
         repoList.innerHTML = `<div class="clone-repo-error">${escapeHtml(e.message)}</div>`;
@@ -660,6 +653,7 @@ function openTabEditModal(initialTab = "layout") {
           return;
         }
         outputEl.textContent = `${data.name} をクローンしました`;
+        invalidateWorkspaceMetaCache();
         await loadWorkspaces();
         switchModalTab("open");
       } catch (e) {
