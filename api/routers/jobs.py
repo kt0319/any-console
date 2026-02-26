@@ -109,8 +109,18 @@ def _apply_icon_fields(entry: dict, icon: str, icon_color: str) -> None:
         entry["icon_color"] = icon_color
 
 
-def build_job_entry(command: str, icon: str, icon_color: str, confirm: bool, terminal: bool = True) -> dict:
+def build_job_entry(
+    command: str,
+    label: str,
+    icon: str,
+    icon_color: str,
+    confirm: bool,
+    terminal: bool = True,
+) -> dict:
     entry = {"command": command}
+    label = label.strip()
+    if label:
+        entry["label"] = label
     _apply_icon_fields(entry, icon, icon_color)
     if not confirm:
         entry["confirm"] = False
@@ -120,7 +130,7 @@ def build_job_entry(command: str, icon: str, icon_color: str, confirm: bool, ter
 
 
 class CreateJobRequest(BaseModel):
-    name: str = Field(..., max_length=100)
+    label: str = Field(..., max_length=200)
     command: str = Field(..., max_length=10000)
     icon: str = Field("", max_length=500)
     icon_color: str = Field("", max_length=20)
@@ -128,25 +138,33 @@ class CreateJobRequest(BaseModel):
     terminal: bool = True
 
 
+def generate_job_key(existing: dict) -> str:
+    for _ in range(20):
+        candidate = f"job_{secrets.token_hex(6)}"
+        if candidate not in existing:
+            return candidate
+    return f"job_{int(time.time())}"
+
+
 @router.post("/workspaces/{name}/jobs")
 def create_workspace_job(name: str, body: CreateJobRequest):
     resolve_workspace_path(name)
-    job_name = body.name.strip()
-    if not job_name or not re.match(r"^[a-zA-Z0-9_-]+$", job_name):
-        raise HTTPException(status_code=400, detail="ジョブ名は英数字・ハイフン・アンダースコアのみ")
+    label = body.label.strip()
+    if not label:
+        raise HTTPException(status_code=400, detail="表示名を入力してください")
     command = body.command.strip()
     if not command:
         raise HTTPException(status_code=400, detail="コマンドが空です")
     data = load_workspace_jobs_data(name)
-    if job_name in data:
-        raise HTTPException(status_code=409, detail=f"ジョブ '{job_name}' は既に存在します")
-    data[job_name] = build_job_entry(command, body.icon, body.icon_color, body.confirm, body.terminal)
+    job_name = generate_job_key(data)
+    data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.terminal)
     save_workspace_jobs_data(name, data)
     logger.info("job created workspace=%s job=%s", name, job_name)
     return {"status": "ok", "name": job_name}
 
 
 class UpdateJobRequest(BaseModel):
+    label: str = Field(..., max_length=200)
     command: str = Field(..., max_length=10000)
     icon: str = Field("", max_length=500)
     icon_color: str = Field("", max_length=20)
@@ -160,10 +178,13 @@ def update_workspace_job(name: str, job_name: str, body: UpdateJobRequest):
     data = load_workspace_jobs_data(name)
     if job_name not in data:
         raise HTTPException(status_code=404, detail=f"ジョブ '{job_name}' が見つかりません")
+    label = body.label.strip()
+    if not label:
+        raise HTTPException(status_code=400, detail="表示名を入力してください")
     command = body.command.strip()
     if not command:
         raise HTTPException(status_code=400, detail="コマンドが空です")
-    data[job_name] = build_job_entry(command, body.icon, body.icon_color, body.confirm, body.terminal)
+    data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.terminal)
     save_workspace_jobs_data(name, data)
     logger.info("job updated workspace=%s job=%s", name, job_name)
     return {"status": "ok", "name": job_name}

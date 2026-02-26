@@ -361,16 +361,16 @@ function renderInlineJobCreate(container, workspace, onDone, setTitleFn) {
   const iconBtn = buildIconSelectBtn(iconState, "mdi-play", container, setTitleFn, restoreTitle);
   body.appendChild(buildIconGroup(iconBtn));
 
-  const nameGroup = document.createElement("div");
-  nameGroup.className = "form-group";
-  nameGroup.innerHTML = '<label class="form-label">ジョブ名 <span class="form-hint">(英数字・ハイフン・アンダースコア)</span></label>';
-  const nameInput = document.createElement("input");
-  nameInput.type = "text";
-  nameInput.className = "form-input";
-  nameInput.placeholder = "my-job";
-  nameInput.autocomplete = "off";
-  nameGroup.appendChild(nameInput);
-  body.appendChild(nameGroup);
+  const labelGroup = document.createElement("div");
+  labelGroup.className = "form-group";
+  labelGroup.innerHTML = '<label class="form-label">表示名</label>';
+  const labelInput = document.createElement("input");
+  labelInput.type = "text";
+  labelInput.className = "form-input";
+  labelInput.placeholder = "ビルド";
+  labelInput.autocomplete = "off";
+  labelGroup.appendChild(labelInput);
+  body.appendChild(labelGroup);
 
   const cmdGroup = document.createElement("div");
   cmdGroup.className = "form-group";
@@ -396,14 +396,14 @@ function renderInlineJobCreate(container, workspace, onDone, setTitleFn) {
 
   submitBtn.addEventListener("click", async () => {
     errorEl.style.display = "none";
-    const name = nameInput.value.trim();
+    const label = labelInput.value.trim();
     const command = cmdInput.value;
-    if (!name) { showFormErr(errorEl, "ジョブ名を入力してください"); return; }
+    if (!label) { showFormErr(errorEl, "表示名を入力してください"); return; }
     if (!command.trim()) { showFormErr(errorEl, "コマンドを入力してください"); return; }
     try {
       const res = await apiFetch(workspaceApiPath(workspace, "/jobs"), {
         method: "POST",
-        body: { name, command, icon: iconState.icon, icon_color: iconState.color, confirm: confirmCheck.checked, terminal: termCheck.checked },
+        body: { label, command, icon: iconState.icon, icon_color: iconState.color, confirm: confirmCheck.checked, terminal: termCheck.checked },
       });
       if (!res) return;
       const data = await res.json();
@@ -474,16 +474,17 @@ function renderInlineJobEdit(container, data, onDone, setTitleFn) {
   const iconBtn = buildIconSelectBtn(iconState, "mdi-play", container, setTitleFn, restoreTitle);
   body.appendChild(buildIconGroup(iconBtn));
 
-  const nameGroup = document.createElement("div");
-  nameGroup.className = "form-group";
-  nameGroup.innerHTML = '<label class="form-label">ジョブ名</label>';
-  const nameInput = document.createElement("input");
-  nameInput.type = "text";
-  nameInput.className = "form-input";
-  nameInput.disabled = true;
-  nameInput.value = data.name;
-  nameGroup.appendChild(nameInput);
-  body.appendChild(nameGroup);
+  const labelGroup = document.createElement("div");
+  labelGroup.className = "form-group";
+  labelGroup.innerHTML = '<label class="form-label">表示名</label>';
+  const labelInput = document.createElement("input");
+  labelInput.type = "text";
+  labelInput.className = "form-input";
+  labelInput.placeholder = "ビルド";
+  labelInput.autocomplete = "off";
+  labelInput.value = data.label || "";
+  labelGroup.appendChild(labelInput);
+  body.appendChild(labelGroup);
 
   const cmdGroup = document.createElement("div");
   cmdGroup.className = "form-group";
@@ -517,12 +518,14 @@ function renderInlineJobEdit(container, data, onDone, setTitleFn) {
 
   saveBtn.addEventListener("click", async () => {
     errorEl.style.display = "none";
+    const label = labelInput.value.trim();
     const command = cmdInput.value;
+    if (!label) { showFormErr(errorEl, "表示名を入力してください"); return; }
     if (!command.trim()) { showFormErr(errorEl, "コマンドを入力してください"); return; }
     try {
       const res = await apiFetch(workspaceApiPath(data.workspace, `/jobs/${encodeURIComponent(data.name)}`), {
         method: "PUT",
-        body: { command, icon: iconState.icon, icon_color: iconState.color, confirm: confirmCheck.checked, terminal: termCheck.checked },
+        body: { label, command, icon: iconState.icon, icon_color: iconState.color, confirm: confirmCheck.checked, terminal: termCheck.checked },
       });
       if (!res) return;
       const d = await res.json();
