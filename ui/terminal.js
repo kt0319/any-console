@@ -446,13 +446,10 @@ function removeTab(id) {
   saveTerminalTabs();
 
   if (splitMode) {
-    if (tabs.length < 2) {
-      const remaining = tabs.length > 0 ? tabs[0].id : null;
-      exitSplitModeWithTab(remaining);
-      if (tabs.length === 0) {
-        updateHeaderForTab(null);
-        if (!document.getElementById("split-tab-modal-overlay")) openTabEditModal("open");
-      }
+    if (tabs.length === 0) {
+      exitSplitModeWithTab(null);
+      updateHeaderForTab(null);
+      if (!document.getElementById("split-tab-modal-overlay")) openTabEditModal("open");
       return;
     }
     rebuildSplitLayout();
@@ -754,6 +751,7 @@ function renderTabBar() {
   const barRow = $("tab-bar").parentNode;
   if (splitMode) {
     barRow.style.display = "none";
+    updateEmptyPlaceholder(tabs.length === 0);
     return;
   }
   const bar = $("tab-bar");
@@ -934,7 +932,11 @@ function createTabNamePill(tab, frame) {
   });
   pill.addEventListener("contextmenu", (e) => {
     e.preventDefault();
-    openTabEditModal();
+    if (splitMode) {
+      exitSplitModeWithTab(tab.id);
+    } else {
+      openTabEditModal();
+    }
   });
   frame.appendChild(pill);
 }
@@ -1058,7 +1060,7 @@ function calcGridLayout(count) {
 }
 
 function enterSplitMode() {
-  if (tabs.length < 2) return;
+  if (tabs.length < 1) return;
   if (splitMode) return;
 
   splitMode = true;
@@ -1066,13 +1068,19 @@ function enterSplitMode() {
   for (const t of tabs) {
     if (t.type === "terminal") exitTerminalCopyMode(t.id);
   }
-  splitPaneTabIds = tabs.map((t) => t.id);
-  const activeIdx = splitPaneTabIds.indexOf(activeTabId);
-  activePaneIndex = activeIdx >= 0 ? activeIdx : 0;
-  activeTabId = splitPaneTabIds[activePaneIndex];
-
-  buildSplitDom();
-  fitAllSplitTerminals();
+  if (activeTabId && tabs.some((t) => t.id === activeTabId)) {
+    splitPaneTabIds = [activeTabId];
+    activePaneIndex = 0;
+    buildSplitDom();
+    fitAllSplitTerminals();
+  } else {
+    splitPaneTabIds = [];
+    activePaneIndex = 0;
+    for (const tab of tabs) {
+      const el = $(`frame-${tab.id}`);
+      if (el) el.style.display = "none";
+    }
+  }
   renderTabBar();
   updateGitBarVisibility();
 }
@@ -1168,8 +1176,8 @@ function openTabEditModal(initialTab = "layout") {
 
     const modes = [
       { value: "normal", icon: "split-icon-normal", minTabs: 0 },
-      { value: "vertical", icon: "split-icon-v", minTabs: 2 },
-      { value: "horizontal", icon: "split-icon-h", minTabs: 2 },
+      { value: "vertical", icon: "split-icon-v", minTabs: 1 },
+      { value: "horizontal", icon: "split-icon-h", minTabs: 1 },
       { value: "grid", icon: "split-icon-grid", minTabs: 3 },
     ];
     for (const m of modes) {
@@ -1223,29 +1231,24 @@ function openTabEditModal(initialTab = "layout") {
     if (splitMode) {
       const included = splitPaneTabIds.includes(tab.id);
       if (included) {
-        if (splitPaneTabIds.length <= 1) return;
         splitPaneTabIds = splitPaneTabIds.filter((id) => id !== tab.id);
         const frame = $(`frame-${tab.id}`);
         if (frame) frame.style.display = "none";
-        if (splitPaneTabIds.length < 2) {
-          exitSplitModeWithTab(splitPaneTabIds[0] || activeTabId);
-          updateModeRadio();
-          renderTabList();
-          return;
-        }
         if (splitLayout === "grid" && splitPaneTabIds.length < 3) {
           splitLayout = "vertical";
         }
       } else {
         splitPaneTabIds.push(tab.id);
       }
-      if (activePaneIndex >= splitPaneTabIds.length) activePaneIndex = 0;
-      activeTabId = splitPaneTabIds[activePaneIndex];
-      const container = $("output-container");
-      clearSplitDom(container);
-      container.classList.remove("split-active", "split-mobile", "split-vertical", "split-horizontal");
-      buildSplitDom();
-      fitAllSplitTerminals();
+      if (splitPaneTabIds.length >= 1) {
+        if (activePaneIndex >= splitPaneTabIds.length) activePaneIndex = 0;
+        activeTabId = splitPaneTabIds[activePaneIndex];
+        const container = $("output-container");
+        clearSplitDom(container);
+        container.classList.remove("split-active", "split-mobile", "split-vertical", "split-horizontal");
+        buildSplitDom();
+        fitAllSplitTerminals();
+      }
       updateModeRadio();
       renderTabList();
     } else {
@@ -1805,24 +1808,22 @@ function rebuildSplitLayout() {
   clearSplitDom(container);
   container.classList.remove("split-active", "split-mobile", "split-vertical", "split-horizontal");
 
-  if (tabs.length < 2) {
-    const remaining = tabs.length > 0 ? tabs[0].id : activeTabId;
-    exitSplitModeWithTab(remaining);
+  if (tabs.length === 0) {
+    exitSplitModeWithTab(null);
     return;
   }
 
   const tabIds = new Set(tabs.map((t) => t.id));
-  const kept = splitPaneTabIds.filter((id) => tabIds.has(id));
-  const added = tabs.filter((t) => !splitPaneTabIds.includes(t.id)).map((t) => t.id);
-  splitPaneTabIds = [...kept, ...added];
+  splitPaneTabIds = splitPaneTabIds.filter((id) => tabIds.has(id));
 
-  if (activePaneIndex >= splitPaneTabIds.length) {
-    activePaneIndex = 0;
+  if (splitPaneTabIds.length > 0) {
+    if (activePaneIndex >= splitPaneTabIds.length) {
+      activePaneIndex = 0;
+    }
+    activeTabId = splitPaneTabIds[activePaneIndex];
+    buildSplitDom();
+    fitAllSplitTerminals();
   }
-  activeTabId = splitPaneTabIds[activePaneIndex];
-
-  buildSplitDom();
-  fitAllSplitTerminals();
 }
 
 function clearSplitDom(container) {
