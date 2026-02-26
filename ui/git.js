@@ -893,7 +893,7 @@ function renderDiffFileList(fileList, files, diffText) {
   }
 }
 
-function selectDiffFile(file) {
+async function selectDiffFile(file) {
   const fileList = $("diff-file-list");
   const diffContent = $("diff-content");
   for (const tag of fileList.querySelectorAll(".diff-file-tag")) {
@@ -907,10 +907,36 @@ function selectDiffFile(file) {
   const text = file ? (diffChunks[file] || "") : diffFullText;
   if (text) {
     diffContent.appendChild(colorDiff(text));
+  } else if (file) {
+    await loadFileContent(file, diffContent);
   } else {
-    diffContent.textContent = file ? "このファイルのdiffはありません" : "差分なし";
+    diffContent.textContent = "差分なし";
   }
   diffContent.scrollTop = 0;
+}
+
+async function loadFileContent(filePath, container) {
+  container.textContent = "読み込み中...";
+  try {
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/file-content?path=${encodeURIComponent(filePath)}`));
+    if (!res) return;
+    const data = await res.json();
+    if (!res.ok || data.status !== "ok") {
+      container.textContent = data.detail || "ファイルの読み込みに失敗しました";
+      return;
+    }
+    if (data.binary) {
+      container.textContent = `バイナリファイル (${data.size} bytes)`;
+      return;
+    }
+    if (data.too_large) {
+      container.textContent = `ファイルが大きすぎます (${data.size} bytes)`;
+      return;
+    }
+    container.textContent = data.content;
+  } catch (e) {
+    container.textContent = e.message;
+  }
 }
 
 async function execStashAction(action) {
