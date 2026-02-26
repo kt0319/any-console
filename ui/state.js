@@ -58,14 +58,20 @@ const EXTRA_MAIN_KEYS = [
   { label: "\u00BB", key: "End", code: "End", keyCode: 35 },
 ];
 const QWERTY_ROWS = [
-  "qwertyuiop".split("").map(c => ({ label: c, key: c })),
-  "asdfghjkl".split("").map(c => ({ label: c, key: c })),
-  "zxcvbnm".split("").map(c => ({ label: c, key: c })),
-];
-const FN_ROWS = [
-  ["!", '"', "#", "$", "%", "&", "@", "+", "-", "="].map(c => ({ label: c, key: c })),
-  ["`", "'", "*", "^", "[", "]", "(", ")", ":"].map(c => ({ label: c, key: c })),
-  ["~", "|", "/", ",", ".", "?", "_"].map(c => ({ label: c, key: c })),
+  "qwertyuiop".split("").map((c, i) => {
+    const flickDown = ["!", '"', "#", "$", "%", "&", "@", "+", "-", "="][i];
+    return { label: c, key: c, flickDown };
+  }),
+  "asdfghjkl".split("").map((c, i) => {
+    const flickUp = ["`", "'", "*", "^", "[", "]", "(", ")", ":"][i];
+    const flickDownMap = { g: "{", h: "}", j: "<", k: ">", l: ";" };
+    return { label: c, key: c, flickUp, ...(flickDownMap[c] ? { flickDown: flickDownMap[c] } : {}) };
+  }),
+  "zxcvbnm".split("").map((c, i) => {
+    const flickUp = ["~", "|", "/", ",", ".", "?", "_"][i];
+    const flickDownMap = { c: "\\" };
+    return { label: c, key: c, flickUp, ...(flickDownMap[c] ? { flickDown: flickDownMap[c] } : {}) };
+  }),
 ];
 
 const STATUS_POLL_INTERVAL_MS = 10000;

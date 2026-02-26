@@ -50,12 +50,6 @@ function initQuickInput() {
   });
   panel.appendChild(fileInput);
 
-  const mode1FnBtn = document.createElement("div");
-  mode1FnBtn.className = "quick-key quick-modifier";
-  mode1FnBtn.textContent = "Fn";
-  mode1FnBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
-  mode1FnBtn.addEventListener("touchend", (e) => { e.preventDefault(); toggleFn(); });
-  mode1FnBtn.addEventListener("click", () => toggleFn());
 
   const mode1Shift = document.createElement("div");
   mode1Shift.className = "quick-key quick-flick-arrow quick-modifier";
@@ -212,7 +206,7 @@ function initQuickInput() {
     return el;
   };
   const flickTab = createFlickTab();
-  const mode1Elements = [mode1FnBtn, mode1Shift, flickControlKey, flickTab];
+  const mode1Elements = [mode1Shift, flickControlKey, flickTab];
   for (const el of mode1Elements) {
     el.style.display = "none";
     panel.appendChild(el);
@@ -228,88 +222,54 @@ function initQuickInput() {
   const qwertyPanel = document.createElement("div");
   qwertyPanel.className = "quick-extra-panel quick-qwerty-panel";
   qwertyPanel.style.display = "none";
-  let isQwertyFnActive = false;
   const qwertyKeyBtns = [];
   for (let i = 0; i < QWERTY_ROWS.length; i++) {
     const row = document.createElement("div");
     row.className = "quick-extra-row";
     for (let j = 0; j < QWERTY_ROWS[i].length; j++) {
-      const btn = createQuickKeyBtn(QWERTY_ROWS[i][j]);
-      if (i === 0 && j < NUMBER_KEYS.length) {
-        btn._flickUpKeyDef = NUMBER_KEYS[j];
+      const keyDef = QWERTY_ROWS[i][j];
+      const btn = createQuickKeyBtn(keyDef);
+      const hasFlickUp = (i === 0 && j < NUMBER_KEYS.length) || keyDef.flickUp;
+      const hasFlickDown = !!keyDef.flickDown;
+      if (hasFlickUp || hasFlickDown) {
         btn.classList.add("quick-flick-arrow");
         const mainText = btn.textContent;
         btn.textContent = "";
-        const hintTop = document.createElement("span");
-        hintTop.className = "flick-hint-top";
-        hintTop.textContent = NUMBER_KEYS[j].label;
+        if (hasFlickUp) {
+          const hintTop = document.createElement("span");
+          hintTop.className = "flick-hint-top";
+          if (i === 0) {
+            btn._flickUpKeyDef = NUMBER_KEYS[j];
+            hintTop.textContent = NUMBER_KEYS[j].label;
+          } else {
+            btn._flickUpKeyDef = { label: keyDef.flickUp, key: keyDef.flickUp };
+            hintTop.textContent = keyDef.flickUp;
+          }
+          btn.appendChild(hintTop);
+        }
         const main = document.createElement("span");
         main.className = "flick-main";
         main.textContent = mainText;
-        btn.appendChild(hintTop);
         btn.appendChild(main);
+        if (hasFlickDown) {
+          btn._flickDownKeyDef = { label: keyDef.flickDown, key: keyDef.flickDown };
+          const hintBottom = document.createElement("span");
+          hintBottom.className = "flick-hint-bottom";
+          hintBottom.textContent = keyDef.flickDown;
+          btn.appendChild(hintBottom);
+        }
       }
       row.appendChild(btn);
       qwertyKeyBtns.push({ btn, row: i, col: j });
     }
     qwertyPanel.appendChild(row);
   }
-  const bottomDynBtns = [];
-  const FN_FLICK_UP = { "(": "<", ")": ">", "[": "{", "]": "}", "/": "\\", "-": "9", ":": ";", ",": "`" };
   const updateQwertyKeys = () => {
     for (const { btn, row, col } of qwertyKeyBtns) {
-      let keyDef;
-      if (isQwertyFnActive) {
-        keyDef = FN_ROWS[row][col];
-      } else if (modifierState.shift) {
-        const base = QWERTY_ROWS[row][col];
-        keyDef = { ...base, label: base.key.toUpperCase() };
-      } else {
-        keyDef = QWERTY_ROWS[row][col];
-      }
-      btn._keyDef = keyDef;
-      const fnFlickChar = isQwertyFnActive ? FN_FLICK_UP[keyDef.key] : null;
-      if (row === 0 && col < NUMBER_KEYS.length) {
-        btn._flickUpKeyDef = fnFlickChar
-          ? { label: fnFlickChar, key: fnFlickChar }
-          : NUMBER_KEYS[col];
-        const hintTop = btn.querySelector(".flick-hint-top");
-        if (hintTop) hintTop.textContent = fnFlickChar || NUMBER_KEYS[col].label;
-        const flickMain = btn.querySelector(".flick-main");
-        if (flickMain) flickMain.textContent = keyDef.label;
-        const hintBottom = btn.querySelector(".flick-hint-bottom");
-        if (hintBottom) hintBottom.style.display = isQwertyFnActive ? "none" : "";
-      } else {
-        if (!fnFlickChar && btn._fnFlick) {
-          btn._flickUpKeyDef = null;
-          btn.classList.remove("quick-flick-arrow");
-          btn.innerHTML = "";
-          btn._fnFlick = false;
-        }
-        if (fnFlickChar) {
-          btn._flickUpKeyDef = { label: fnFlickChar, key: fnFlickChar };
-          if (!btn._fnFlick) {
-            btn.classList.add("quick-flick-arrow");
-            btn.textContent = "";
-            const ht = document.createElement("span");
-            ht.className = "flick-hint-top";
-            const fm = document.createElement("span");
-            fm.className = "flick-main";
-            btn.appendChild(ht);
-            btn.appendChild(fm);
-            btn._fnFlick = true;
-          }
-          btn.querySelector(".flick-hint-top").textContent = fnFlickChar;
-          btn.querySelector(".flick-main").textContent = keyDef.label;
-        } else {
-          const flickMain = btn.querySelector(".flick-main");
-          if (flickMain) flickMain.textContent = keyDef.label;
-          else btn.textContent = keyDef.label;
-        }
-      }
-    }
-    for (const { btn, normal, fn } of bottomDynBtns) {
-      const keyDef = isQwertyFnActive ? fn : normal;
+      const base = QWERTY_ROWS[row][col];
+      const keyDef = modifierState.shift
+        ? { ...base, label: base.key.toUpperCase() }
+        : base;
       btn._keyDef = keyDef;
       const flickMain = btn.querySelector(".flick-main");
       if (flickMain) flickMain.textContent = keyDef.label;
@@ -318,24 +278,15 @@ function initQuickInput() {
   };
   onModifiersCleared = updateQwertyKeys;
   onModifierToggled = updateQwertyKeys;
-  const fnBtn = document.createElement("div");
-  fnBtn.className = "quick-key quick-modifier";
-  fnBtn.textContent = "Fn";
-  const toggleFn = () => {
-    isQwertyFnActive = !isQwertyFnActive;
-    fnBtn.classList.toggle("active", isQwertyFnActive);
-    mode1FnBtn.classList.toggle("active", isQwertyFnActive);
-    updateQwertyKeys();
-  };
   const qwertyBottomRow = document.createElement("div");
   qwertyBottomRow.className = "quick-extra-row";
   const qwertyBottomDynDefs = [
-    { normal: { label: "\u2423", key: " " }, fn: { label: "}", key: "}" } },
+    { label: "\u2423", key: " " },
   ];
   qwertyBottomRow.appendChild(createModifierBtn("ctrl", "\u2303"));
   for (const def of qwertyBottomDynDefs) {
-    const btn = createQuickKeyBtn(def.normal);
-    if (def.normal.key === " ") {
+    const btn = createQuickKeyBtn(def);
+    if (def.key === " ") {
       btn._flickUpKeyDef = { label: "-", key: "-" };
       btn._flickDownKeyDef = { label: "_", key: "_" };
       btn.classList.add("quick-flick-arrow");
@@ -354,7 +305,6 @@ function initQuickInput() {
       btn.appendChild(hintBottom);
     }
     qwertyBottomRow.appendChild(btn);
-    bottomDynBtns.push({ btn, normal: def.normal, fn: def.fn });
   }
   const qwertyFlickBs = document.createElement("div");
   qwertyFlickBs.className = "quick-key quick-flick-arrow";
@@ -397,7 +347,6 @@ function initQuickInput() {
   qwertyBottomRow.appendChild(qwertyToggle);
   const enterBtn = createQuickKeyBtn({ label: "\u21B5", key: "Enter" });
   qwertyBottomRow.appendChild(enterBtn);
-  bottomDynBtns.push({ btn: enterBtn, normal: { label: "\u21B5", key: "Enter" }, fn: { label: "Esc", key: "Escape" } });
   const snippetRow = document.createElement("div");
   snippetRow.className = "quick-snippet-row";
 
@@ -408,11 +357,8 @@ function initQuickInput() {
       enterBtn._overrideAction = () => { snippetRow.style.display = "none"; updateEnterBtn(); };
     } else {
       enterBtn._overrideAction = null;
-      const dynEntry = bottomDynBtns.find((d) => d.btn === enterBtn);
-      const def = isQwertyFnActive ? dynEntry.fn : dynEntry.normal;
-      enterBtn._keyDef = def;
-      if (def.html) enterBtn.innerHTML = def.html;
-      else enterBtn.textContent = def.label;
+      enterBtn._keyDef = { label: "\u21B5", key: "Enter" };
+      enterBtn.textContent = "\u21B5";
     }
   };
 
@@ -436,9 +382,6 @@ function initQuickInput() {
 
   const cycleMode = () => {
     keyboardPanelMode = (keyboardPanelMode + 1) % 2;
-    isQwertyFnActive = false;
-    fnBtn.classList.remove("active");
-    mode1FnBtn.classList.remove("active");
     clearModifiers();
     snippetModeActive = false;
     snippetRow.style.display = "none";
@@ -469,7 +412,7 @@ function initQuickInput() {
       renderQuickSnippets();
       minimalEnter.innerHTML = '<span class="mdi mdi-close"></span>';
       minimalEnter.classList.add("active");
-      minimalArrow.innerHTML = '<span class="flick-main"><span class="mdi mdi-camera" style="font-size:14px"></span></span>';
+      minimalArrow.innerHTML = '<span class="flick-main"><span class="mdi mdi-camera"></span></span>';
     }
     updateEnterBtn();
   };

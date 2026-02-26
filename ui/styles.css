@@ -2482,7 +2482,7 @@ button:disabled {
 
 .quick-input-panel.minimal-mode {
   justify-content: flex-end;
-  width: 33.3%;
+  width: 40%;
   margin-left: auto;
 }
 
@@ -2494,6 +2494,11 @@ button:disabled {
 
 .quick-flick-enter {
   flex: 1.5;
+}
+
+.quick-input-panel.extra-open .quick-key-toggle,
+.quick-input-panel.extra-open .quick-flick-enter {
+  flex: 1;
 }
 
 .quick-flick-enter .flick-main,
@@ -2569,7 +2574,7 @@ button:disabled {
   padding: 0;
   border: 1px solid var(--white-30);
   border-radius: 8px;
-  background: rgba(20, 22, 35, 0.4);
+  background: rgba(20, 22, 35, 0.75);
   color: rgba(255, 255, 255, 0.7);
   font-size: 16px;
   cursor: pointer;
@@ -2610,7 +2615,7 @@ button:disabled {
 
 .quick-extra-panel .quick-key {
   border-color: rgba(130, 170, 255, 0.6);
-  background: rgba(15, 20, 40, 0.4);
+  background: rgba(15, 20, 40, 0.75);
 }
 
 .quick-extra-panel {
@@ -2625,9 +2630,13 @@ button:disabled {
   gap: 4px;
 }
 
+.quick-qwerty-panel .quick-extra-row {
+  gap: 2px;
+}
+
 .quick-qwerty-panel .quick-key {
   border-color: rgba(130, 170, 255, 0.6);
-  background: rgba(15, 20, 40, 0.4);
+  background: rgba(15, 20, 40, 0.75);
 }
 
 .quick-qwerty-panel .flick-main {
