@@ -115,71 +115,76 @@ class TestJobsCRUD:
 
     def test_create_and_list(self, workspace):
         res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
-            "name": "hello",
+            "label": "hello",
             "command": "echo hello",
         })
         assert res.status_code == 200
-        assert res.json()["name"] == "hello"
+        job_name = res.json()["name"]
+        assert job_name.startswith("job_")
 
         res = client.get("/workspaces/test-ws/jobs", headers=AUTH)
         jobs = res.json()
-        assert "hello" in jobs
-        assert jobs["hello"]["command"] == "echo hello"
+        assert job_name in jobs
+        assert jobs[job_name]["command"] == "echo hello"
+        assert jobs[job_name]["label"] == "hello"
 
-    def test_create_duplicate(self, workspace):
-        client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
-            "name": "dup",
+    def test_create_requires_label(self, workspace):
+        res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "command": "echo 1",
         })
-        res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
-            "name": "dup",
-            "command": "echo 2",
-        })
-        assert res.status_code == 409
+        assert res.status_code == 422
 
-    def test_create_invalid_name(self, workspace):
+    def test_create_empty_label(self, workspace):
         res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
-            "name": "bad name!",
+            "label": "  ",
             "command": "echo x",
         })
         assert res.status_code == 400
 
     def test_create_empty_command(self, workspace):
         res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
-            "name": "empty",
+            "label": "empty",
             "command": "  ",
         })
         assert res.status_code == 400
 
     def test_update_job(self, workspace):
-        client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
-            "name": "upd",
+        create_res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
+            "label": "upd",
             "command": "echo old",
         })
-        res = client.put("/workspaces/test-ws/jobs/upd", headers=AUTH, json={
+        assert create_res.status_code == 200
+        job_name = create_res.json()["name"]
+
+        res = client.put(f"/workspaces/test-ws/jobs/{job_name}", headers=AUTH, json={
+            "label": "upd",
             "command": "echo new",
         })
         assert res.status_code == 200
 
         res = client.get("/workspaces/test-ws/jobs", headers=AUTH)
-        assert res.json()["upd"]["command"] == "echo new"
+        assert res.json()[job_name]["command"] == "echo new"
 
     def test_update_nonexistent(self, workspace):
         res = client.put("/workspaces/test-ws/jobs/ghost", headers=AUTH, json={
+            "label": "ghost",
             "command": "echo x",
         })
         assert res.status_code == 404
 
     def test_delete_job(self, workspace):
-        client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
-            "name": "del",
+        create_res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
+            "label": "del",
             "command": "echo del",
         })
-        res = client.delete("/workspaces/test-ws/jobs/del", headers=AUTH)
+        assert create_res.status_code == 200
+        job_name = create_res.json()["name"]
+
+        res = client.delete(f"/workspaces/test-ws/jobs/{job_name}", headers=AUTH)
         assert res.status_code == 200
 
         res = client.get("/workspaces/test-ws/jobs", headers=AUTH)
-        assert "del" not in res.json()
+        assert job_name not in res.json()
 
     def test_delete_nonexistent(self, workspace):
         res = client.delete("/workspaces/test-ws/jobs/ghost", headers=AUTH)
@@ -187,17 +192,18 @@ class TestJobsCRUD:
 
     def test_create_with_icon(self, workspace):
         res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
-            "name": "iconic",
+            "label": "iconic",
             "command": "echo x",
-            "icon": "star",
+            "icon": "mdi-star",
             "icon_color": "#ff0000",
             "confirm": False,
         })
         assert res.status_code == 200
+        job_name = res.json()["name"]
         jobs = client.get("/workspaces/test-ws/jobs", headers=AUTH).json()
-        assert jobs["iconic"]["icon"] == "star"
-        assert jobs["iconic"]["icon_color"] == "#ff0000"
-        assert jobs["iconic"]["confirm"] is False
+        assert jobs[job_name]["icon"] == "mdi-star"
+        assert jobs[job_name]["icon_color"] == "#ff0000"
+        assert jobs[job_name]["confirm"] is False
 
     def test_nonexistent_workspace(self):
         res = client.get("/workspaces/no-such-ws/jobs", headers=AUTH)
