@@ -52,6 +52,7 @@ def get_workspace_jobs(workspace_name):
             icon=entry.get("icon", ""),
             icon_color=entry.get("icon_color", ""),
             confirm=entry.get("confirm", True),
+            terminal=entry.get("terminal", True),
         )
     return jobs
 
@@ -64,6 +65,7 @@ def job_definition_to_dict(job_def):
         "icon": job_def.icon,
         "icon_color": job_def.icon_color,
         "confirm": job_def.confirm,
+        "terminal": job_def.terminal,
     }
 
 
@@ -107,11 +109,13 @@ def _apply_icon_fields(entry: dict, icon: str, icon_color: str) -> None:
         entry["icon_color"] = icon_color
 
 
-def build_job_entry(command: str, icon: str, icon_color: str, confirm: bool) -> dict:
+def build_job_entry(command: str, icon: str, icon_color: str, confirm: bool, terminal: bool = True) -> dict:
     entry = {"command": command}
     _apply_icon_fields(entry, icon, icon_color)
     if not confirm:
         entry["confirm"] = False
+    if not terminal:
+        entry["terminal"] = False
     return entry
 
 
@@ -121,6 +125,7 @@ class CreateJobRequest(BaseModel):
     icon: str = Field("", max_length=500)
     icon_color: str = Field("", max_length=20)
     confirm: bool = True
+    terminal: bool = True
 
 
 @router.post("/workspaces/{name}/jobs")
@@ -135,7 +140,7 @@ def create_workspace_job(name: str, body: CreateJobRequest):
     data = load_workspace_jobs_data(name)
     if job_name in data:
         raise HTTPException(status_code=409, detail=f"ジョブ '{job_name}' は既に存在します")
-    data[job_name] = build_job_entry(command, body.icon, body.icon_color, body.confirm)
+    data[job_name] = build_job_entry(command, body.icon, body.icon_color, body.confirm, body.terminal)
     save_workspace_jobs_data(name, data)
     logger.info("job created workspace=%s job=%s", name, job_name)
     return {"status": "ok", "name": job_name}
@@ -146,6 +151,7 @@ class UpdateJobRequest(BaseModel):
     icon: str = Field("", max_length=500)
     icon_color: str = Field("", max_length=20)
     confirm: bool = True
+    terminal: bool = True
 
 
 @router.put("/workspaces/{name}/jobs/{job_name}")
@@ -157,7 +163,7 @@ def update_workspace_job(name: str, job_name: str, body: UpdateJobRequest):
     command = body.command.strip()
     if not command:
         raise HTTPException(status_code=400, detail="コマンドが空です")
-    data[job_name] = build_job_entry(command, body.icon, body.icon_color, body.confirm)
+    data[job_name] = build_job_entry(command, body.icon, body.icon_color, body.confirm, body.terminal)
     save_workspace_jobs_data(name, data)
     logger.info("job updated workspace=%s job=%s", name, job_name)
     return {"status": "ok", "name": job_name}

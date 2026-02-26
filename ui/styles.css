@@ -314,6 +314,10 @@ header .ws-select-wrap {
   border-radius: 50%;
 }
 
+.picker-ws-icon-btn.picker-ws-job-direct {
+  border-style: dashed;
+}
+
 .picker-ws-icon-btn .mdi {
   font-size: 18px;
 }
@@ -3087,28 +3091,25 @@ button:disabled {
 }
 
 
-.ws-icon-edit-btn {
+
+.ws-icon-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 18px;
+}
+
+.ws-gear-btn {
   min-width: auto;
   min-height: auto;
   padding: 4px 8px;
-  font-size: 18px;
+  font-size: 16px;
   flex-shrink: 0;
   line-height: 1;
-}
-
-.ws-setting-icons {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.ws-check-item .picker-ws-icon-btn {
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  min-height: 28px;
-  font-size: 14px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
 }
 
 .ws-add-item-btn {
@@ -3123,6 +3124,102 @@ button:disabled {
   cursor: pointer;
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+.ws-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ws-settings-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  min-width: 48px;
+}
+
+.ws-settings-section {
+  padding: 8px 0;
+}
+
+.ws-settings-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.ws-settings-item-list {
+  padding: 0;
+}
+
+.ws-settings-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 13px;
+  min-height: 40px;
+}
+
+.ws-settings-item:last-child {
+  border-bottom: none;
+}
+
+.ws-settings-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-settings-empty {
+  padding: 12px 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ws-add-clone-section {
+  padding: 8px 0;
+}
+
+.picker-ws-add-section {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+}
+.ws-add-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 0;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.picker-ws-add-label {
+  color: var(--text-muted);
+}
+.split-modal-title-back {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .op-log-row {

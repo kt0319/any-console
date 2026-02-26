@@ -241,20 +241,12 @@ applyPanelBottom();
   $("branch-modal-close").addEventListener("click", closeBranchModal);
   $("diff-commit-cancel").addEventListener("click", closeCommitForm);
   $("diff-commit-submit").addEventListener("click", submitCommit);
-  $("item-create-cancel").addEventListener("click", closeItemCreateModal);
-  $("item-create-submit").addEventListener("click", submitItemCreate);
-  for (const radio of document.querySelectorAll('input[name="item-create-type"]')) {
-    radio.addEventListener("change", () => switchItemCreateType(radio.value));
-  }
   $("icon-picker-close").addEventListener("click", closeIconPicker);
   $("icon-picker-clear").addEventListener("click", clearIconPicker);
   $("icon-picker-modal").addEventListener("click", (e) => {
     if (e.target === $("icon-picker-modal")) closeIconPicker();
   });
   $("icon-picker-url-ok").addEventListener("click", submitIconPicker);
-  for (const key of Object.keys(ICON_COLOR_FIELDS)) {
-    setupIconPickerBtn(key);
-  }
   for (const tab of document.querySelectorAll(".commit-modal-tab")) {
     tab.addEventListener("click", () => switchCommitModalTab(tab.dataset.tab));
   }

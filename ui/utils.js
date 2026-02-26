@@ -162,7 +162,7 @@ async function loadWsIconButtons(container, ws, iconSize, onLinkClick, onJobClic
   for (const [name, job] of entries) {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "picker-ws-icon-btn";
+    btn.className = "picker-ws-icon-btn" + (job.terminal === false ? " picker-ws-job-direct" : "");
     btn.title = job.label || name;
     btn.innerHTML = renderIcon(job.icon || "mdi-play", job.icon_color, iconSize);
     btn.addEventListener("click", () => onJobClick(name, job));

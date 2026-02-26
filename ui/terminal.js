@@ -1090,9 +1090,10 @@ function openTabEditModal(initialTab = "layout") {
 
   const header = document.createElement("div");
   header.className = "modal-header";
-  const title = document.createElement("h3");
-  title.textContent = "タブ・レイアウト";
-  header.appendChild(title);
+  const titleEl = document.createElement("h3");
+  titleEl.id = "split-modal-title";
+  titleEl.textContent = "ワークスペース";
+  header.appendChild(titleEl);
 
   const closeBtn = document.createElement("button");
   closeBtn.type = "button";
@@ -1103,59 +1104,63 @@ function openTabEditModal(initialTab = "layout") {
 
   modal.appendChild(header);
 
-  const nav = document.createElement("div");
-  nav.className = "split-tab-nav";
-  const navItems = [
-    { key: "open", icon: "mdi-plus", label: "開く" },
-    { key: "layout", icon: "mdi-tab", label: "タブ" },
-    { key: "settings", icon: "mdi-cog", label: "設定" },
-  ];
-  const navBtns = {};
-  for (const item of navItems) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "split-tab-nav-btn";
-    btn.innerHTML = `<span class="mdi ${item.icon}"></span> ${item.label}`;
-    btn.dataset.modalNav = item.key;
-    btn.addEventListener("click", () => switchModalTab(item.key));
-    nav.appendChild(btn);
-    navBtns[item.key] = btn;
+  function setTitle(text, backFn) {
+    titleEl.textContent = "";
+    titleEl.className = "";
+    if (backFn) {
+      titleEl.className = "split-modal-title-back";
+      const arrow = document.createElement("span");
+      arrow.className = "mdi mdi-arrow-left";
+      titleEl.appendChild(arrow);
+      titleEl.appendChild(document.createTextNode(" " + text));
+      titleEl.style.cursor = "pointer";
+      titleEl.onclick = backFn;
+    } else {
+      titleEl.textContent = text;
+      titleEl.style.cursor = "";
+      titleEl.onclick = null;
+    }
   }
-  modal.appendChild(nav);
 
   const contentContainer = document.createElement("div");
   contentContainer.className = "split-tab-content";
   modal.appendChild(contentContainer);
 
   overlay.appendChild(modal);
-  document.body.appendChild(overlay);
+  $("app-screen").appendChild(overlay);
 
   overlay.addEventListener("click", (e) => {
     if (e.target === overlay) closeModal();
   });
 
-  let currentTab = "layout";
-
-  function switchModalTab(key) {
-    currentTab = key;
-    for (const [k, btn] of Object.entries(navBtns)) {
-      btn.classList.toggle("active", k === key);
-    }
-    title.textContent = key === "open" ? "ワークスペースを開く" : key === "layout" ? "タブ・レイアウト" : "設定";
-    renderCurrentTab();
+  function showMainView() {
+    contentContainer.innerHTML = "";
+    setTitle("ワークスペース");
+    renderOpenTab();
   }
 
-  function renderCurrentTab() {
+  function switchModalTab(key) {
     contentContainer.innerHTML = "";
-    if (currentTab === "layout") renderLayoutTab();
-    else if (currentTab === "open") renderOpenTab();
-    else if (currentTab === "settings") renderSettingsTab();
+    if (key === "open") {
+      showMainView();
+    } else {
+      renderSubPane(key);
+    }
+  }
+
+  function renderSubPane(key) {
+    const labels = { "ws-add": "WS追加", "layout": "タブ", "settings": "設定" };
+    setTitle(labels[key], () => showMainView());
+    if (key === "ws-add") showPickerCloneInContainer(contentContainer, "visibility");
+    else if (key === "layout") renderLayoutTab(contentContainer);
+    else if (key === "settings") renderSettingsTab(contentContainer);
   }
 
   // --- Layout tab ---
   const modeBtns = [];
 
-  function renderLayoutTab() {
+  function renderLayoutTab(target) {
+    const container = target || contentContainer;
     const tabCount = tabs.length;
     const modeRow = document.createElement("div");
     modeRow.className = "split-tab-mode-row";
@@ -1192,12 +1197,12 @@ function openTabEditModal(initialTab = "layout") {
       modeRow.appendChild(btn);
     }
 
-    contentContainer.appendChild(modeRow);
+    container.appendChild(modeRow);
     updateModeRadio();
 
     const list = document.createElement("div");
     list.className = "modal-scroll-body split-tab-list";
-    contentContainer.appendChild(list);
+    container.appendChild(list);
     renderTabList();
   }
 
@@ -1450,8 +1455,24 @@ function openTabEditModal(initialTab = "layout") {
     }
   }
 
-  // --- Open tab ---
+  // --- Open tab (main view) ---
   function renderOpenTab() {
+    const actionRow = document.createElement("div");
+    actionRow.className = "picker-ws-add-section";
+    const subItems = [
+      { key: "layout", icon: "mdi-tab", label: "タブ" },
+      { key: "settings", icon: "mdi-cog", label: "設定" },
+    ];
+    for (const item of subItems) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ws-add-action-btn";
+      btn.innerHTML = `<span class="mdi ${item.icon}"></span> ${item.label}`;
+      btn.addEventListener("click", () => switchModalTab(item.key));
+      actionRow.appendChild(btn);
+    }
+    contentContainer.appendChild(actionRow);
+
     const list = document.createElement("div");
     list.className = "terminal-ws-list";
     renderModalWsList(list);
@@ -1467,18 +1488,6 @@ function openTabEditModal(initialTab = "layout") {
       const headerEl = document.createElement("div");
       headerEl.className = "picker-ws-header";
 
-      const fileBtn = document.createElement("button");
-      fileBtn.type = "button";
-      fileBtn.className = "picker-ws-icon-btn picker-ws-file-btn";
-      fileBtn.title = "ファイル一覧";
-      fileBtn.innerHTML = renderIcon("mdi-folder", "", 18);
-      fileBtn.addEventListener("click", () => {
-        closeModal();
-        selectedWorkspace = ws.name;
-        openGitLogModalFiles();
-      });
-      headerEl.appendChild(fileBtn);
-
       const headerLabel = document.createElement("button");
       headerLabel.type = "button";
       headerLabel.className = "picker-ws-header-label";
@@ -1491,6 +1500,17 @@ function openTabEditModal(initialTab = "layout") {
       const icons = document.createElement("div");
       icons.className = "picker-ws-icons";
       headerEl.appendChild(icons);
+
+      const gearBtn = document.createElement("button");
+      gearBtn.type = "button";
+      gearBtn.className = "picker-ws-icon-btn ws-gear-btn";
+      gearBtn.innerHTML = '<span class="mdi mdi-cog"></span>';
+      gearBtn.addEventListener("click", () => {
+        contentContainer.innerHTML = "";
+        setTitle(ws.name, () => showMainView());
+        renderWsSettingsPane(contentContainer, ws, () => showMainView(), setTitle);
+      });
+      headerEl.appendChild(gearBtn);
 
       group.appendChild(headerEl);
       container.appendChild(group);
@@ -1506,21 +1526,34 @@ function openTabEditModal(initialTab = "layout") {
         },
       );
     }
+
+    const addItem = document.createElement("div");
+    addItem.className = "picker-ws-group";
+    const addHeader = document.createElement("div");
+    addHeader.className = "picker-ws-header";
+    const addLabel = document.createElement("button");
+    addLabel.type = "button";
+    addLabel.className = "picker-ws-header-label picker-ws-add-label";
+    addLabel.innerHTML = '<span class="mdi mdi-plus"></span> WS追加';
+    addLabel.addEventListener("click", () => switchModalTab("ws-add"));
+    addHeader.appendChild(addLabel);
+    addItem.appendChild(addHeader);
+    container.appendChild(addItem);
   }
 
   // --- Settings tab ---
-  function renderSettingsTab() {
-    renderSettingsMenu();
+  function renderSettingsTab(target) {
+    const container = target || contentContainer;
+    renderSettingsMenu(container);
   }
 
-  function renderSettingsMenu() {
-    contentContainer.innerHTML = "";
+  function renderSettingsMenu(target) {
+    const container = target || contentContainer;
+    container.innerHTML = "";
     const menu = document.createElement("div");
     menu.className = "settings-menu";
 
     const items = [
-      { icon: "mdi-cog", label: "ワークスペース設定", action: () => showModalWsVisibility() },
-      { icon: "mdi-plus", label: "ワークスペース追加", action: () => showModalClone() },
       { icon: "mdi-download", label: "設定エクスポート", action: () => exportSettings() },
       { icon: "mdi-upload", label: "設定インポート", action: () => importSettings() },
       { icon: "mdi-format-list-bulleted", label: "プロセス一覧", action: () => showModalSubView("プロセス一覧", renderProcessListTo) },
@@ -1537,104 +1570,20 @@ function openTabEditModal(initialTab = "layout") {
       menu.appendChild(btn);
     }
 
-    contentContainer.appendChild(menu);
+    container.appendChild(menu);
   }
 
   function showModalSubView(subTitle, renderFn) {
     contentContainer.innerHTML = "";
-    const sub = document.createElement("div");
-    sub.className = "split-tab-settings-sub";
-
-    const backBtn = document.createElement("button");
-    backBtn.type = "button";
-    backBtn.className = "split-tab-settings-back";
-    backBtn.innerHTML = '<span class="mdi mdi-arrow-left"></span> ' + escapeHtml(subTitle);
-    backBtn.addEventListener("click", () => renderSettingsMenu());
-    sub.appendChild(backBtn);
-
+    setTitle(subTitle, () => switchModalTab("settings"));
     const body = document.createElement("div");
     body.className = "split-tab-settings-body";
-    sub.appendChild(body);
-
-    contentContainer.appendChild(sub);
+    contentContainer.appendChild(body);
     renderFn(body);
   }
 
-  function showModalWsVisibility() {
-    contentContainer.innerHTML = "";
-    const sub = document.createElement("div");
-    sub.className = "split-tab-settings-sub";
-
-    const backBtn = document.createElement("button");
-    backBtn.type = "button";
-    backBtn.className = "split-tab-settings-back";
-    backBtn.innerHTML = '<span class="mdi mdi-arrow-left"></span> ワークスペース設定';
-    backBtn.addEventListener("click", () => renderSettingsMenu());
-    sub.appendChild(backBtn);
-
-    const body = document.createElement("div");
-    body.className = "split-tab-settings-body";
-    sub.appendChild(body);
-
-    contentContainer.appendChild(sub);
-
-    renderWsVisibilityTo(
-      body,
-      (ws) => {
-        selectedWorkspace = ws.name;
-        openItemCreateModal(ws.name, "job", "modal-settings");
-      },
-      (container, ws) => {
-        loadWsIconButtons(container, ws, 16,
-          (link, i) => {
-            openItemEditModal("link", {
-              workspace: ws.name, index: i,
-              label: link.label || link.url,
-              url: link.url,
-              icon: link.icon,
-              iconColor: link.icon_color,
-            }, "modal-settings");
-          },
-          (name, job) => {
-            openItemEditModal("job", {
-              workspace: ws.name,
-              name,
-              label: job.label || name,
-              icon: job.icon,
-              iconColor: job.icon_color,
-              command: job.command || "",
-              confirm: job.confirm,
-            }, "modal-settings");
-          },
-        );
-      },
-    );
-  }
-
-  function showModalClone() {
-    contentContainer.innerHTML = "";
-    const sub = document.createElement("div");
-    sub.className = "split-tab-settings-sub";
-
-    const backBtn = document.createElement("button");
-    backBtn.type = "button";
-    backBtn.className = "split-tab-settings-back";
-    backBtn.innerHTML = '<span class="mdi mdi-arrow-left"></span> ワークスペース追加';
-    backBtn.addEventListener("click", () => renderSettingsMenu());
-    sub.appendChild(backBtn);
-
-    const body = document.createElement("div");
-    body.className = "split-tab-settings-body";
-    body.style.padding = "0 4px";
-    sub.appendChild(body);
-
-    contentContainer.appendChild(sub);
-
-    showPickerCloneInContainer(body);
-  }
-
-  function showPickerCloneInContainer(content) {
-    let pickerCloneTab = "github";
+  function showPickerCloneInContainer(content, defaultTab = "github") {
+    let pickerCloneTab = defaultTab;
     let pickerSelectedUrl = "";
     let pickerRepos = [];
 
@@ -1642,17 +1591,22 @@ function openTabEditModal(initialTab = "layout") {
     cloneTabs.className = "clone-tabs";
     const githubBtn = document.createElement("button");
     githubBtn.type = "button";
-    githubBtn.className = "clone-tab active";
+    githubBtn.className = "clone-tab" + (defaultTab === "github" ? " active" : "");
     githubBtn.textContent = "GitHub";
     const urlBtn = document.createElement("button");
     urlBtn.type = "button";
-    urlBtn.className = "clone-tab";
+    urlBtn.className = "clone-tab" + (defaultTab === "url" ? " active" : "");
     urlBtn.textContent = "手動入力";
-    cloneTabs.append(githubBtn, urlBtn);
+    const visibilityBtn = document.createElement("button");
+    visibilityBtn.type = "button";
+    visibilityBtn.className = "clone-tab" + (defaultTab === "visibility" ? " active" : "");
+    visibilityBtn.textContent = "表示設定";
+    cloneTabs.append(visibilityBtn, githubBtn, urlBtn);
     content.appendChild(cloneTabs);
 
     const githubPane = document.createElement("div");
     githubPane.className = "clone-tab-content";
+    githubPane.style.display = defaultTab === "github" ? "block" : "none";
     const repoList = document.createElement("div");
     repoList.className = "clone-repo-list";
     repoList.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
@@ -1661,7 +1615,7 @@ function openTabEditModal(initialTab = "layout") {
 
     const urlPane = document.createElement("div");
     urlPane.className = "clone-tab-content";
-    urlPane.style.display = "none";
+    urlPane.style.display = defaultTab === "url" ? "block" : "none";
     const urlGroup = document.createElement("div");
     urlGroup.className = "form-group";
     urlGroup.innerHTML = '<label class="form-label">リポジトリ</label>';
@@ -1674,6 +1628,12 @@ function openTabEditModal(initialTab = "layout") {
     urlPane.appendChild(urlGroup);
     content.appendChild(urlPane);
 
+    const visibilityPane = document.createElement("div");
+    visibilityPane.className = "clone-tab-content";
+    visibilityPane.style.display = defaultTab === "visibility" ? "block" : "none";
+    if (defaultTab === "visibility") renderWsVisibilityChecklistTo(visibilityPane);
+    content.appendChild(visibilityPane);
+
     const nameGroup = document.createElement("div");
     nameGroup.className = "form-group";
     nameGroup.innerHTML = '<label class="form-label">ディレクトリ名 <span class="form-hint">(省略時はリポジトリ名)</span></label>';
@@ -1682,16 +1642,18 @@ function openTabEditModal(initialTab = "layout") {
     nameInput.className = "form-input";
     nameInput.autocomplete = "off";
     nameGroup.appendChild(nameInput);
-    content.appendChild(nameGroup);
+    const cloneFields = document.createElement("div");
+    if (defaultTab === "visibility") cloneFields.style.display = "none";
+    cloneFields.appendChild(nameGroup);
 
     const errorEl = document.createElement("div");
     errorEl.className = "form-error";
-    content.appendChild(errorEl);
+    cloneFields.appendChild(errorEl);
 
     const outputEl = document.createElement("div");
     outputEl.className = "clone-output";
     outputEl.style.display = "none";
-    content.appendChild(outputEl);
+    cloneFields.appendChild(outputEl);
 
     const actions = document.createElement("div");
     actions.className = "modal-actions";
@@ -1701,19 +1663,26 @@ function openTabEditModal(initialTab = "layout") {
     submitBtn.style.width = "auto";
     submitBtn.textContent = "クローン";
     actions.appendChild(submitBtn);
-    content.appendChild(actions);
+    cloneFields.appendChild(actions);
+    content.appendChild(cloneFields);
 
     function switchCloneTabInner(tab) {
       pickerCloneTab = tab;
       githubBtn.classList.toggle("active", tab === "github");
       urlBtn.classList.toggle("active", tab === "url");
+      visibilityBtn.classList.toggle("active", tab === "visibility");
       githubPane.style.display = tab === "github" ? "block" : "none";
       urlPane.style.display = tab === "url" ? "block" : "none";
+      visibilityPane.style.display = tab === "visibility" ? "block" : "none";
+      cloneFields.style.display = tab === "visibility" ? "none" : "";
       if (tab === "url") urlInput.focus();
+      if (tab === "visibility") renderWsVisibilityChecklistTo(visibilityPane);
+      if (tab === "github" && pickerRepos.length === 0) loadRepos();
     }
 
     githubBtn.addEventListener("click", () => switchCloneTabInner("github"));
     urlBtn.addEventListener("click", () => switchCloneTabInner("url"));
+    visibilityBtn.addEventListener("click", () => switchCloneTabInner("visibility"));
 
     function renderRepos() {
       if (pickerRepos.length === 0) {
@@ -1783,7 +1752,7 @@ function openTabEditModal(initialTab = "layout") {
         }
         outputEl.textContent = `${data.name} をクローンしました`;
         await loadWorkspaces();
-        showModalWsVisibility();
+        switchModalTab("open");
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = "block";
@@ -1792,14 +1761,15 @@ function openTabEditModal(initialTab = "layout") {
       }
     });
 
-    loadRepos();
+    if (defaultTab === "github") loadRepos();
   }
 
   function closeModal() {
     overlay.remove();
   }
 
-  switchModalTab(initialTab);
+  if (initialTab === "open") showMainView();
+  else switchModalTab(initialTab);
 }
 
 function exitSplitMode() {

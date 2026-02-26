@@ -115,6 +115,12 @@ async function _runJobInner(targetJob, workspaceOverride) {
     showToast(`ジョブ "${targetJob}" が見つかりません`);
     return;
   }
+
+  if (targetJob !== "terminal" && job.terminal === false) {
+    await _runJobDirect(targetJob, job, workspace);
+    return;
+  }
+
   const tabLabel = targetJob === "terminal" ? (workspaceOverride || workspace) : (job.label || targetJob);
 
   let initialCommand = null;
@@ -156,257 +162,28 @@ async function _runJobInner(targetJob, workspaceOverride) {
   }
 }
 
-function switchItemCreateType(type) {
-  $("item-create-link-form").style.display = type === "link" ? "" : "none";
-  $("item-create-job-form").style.display = type === "job" ? "" : "none";
-  hideFormError("item-create-error");
-  $("item-create-submit").textContent = type === "link" ? "追加" : "作成";
-}
-
-function getItemCreateType() {
-  const checked = document.querySelector('input[name="item-create-type"]:checked');
-  return checked ? checked.value : "link";
-}
-
-const ICON_COLOR_FIELDS = {
-  linkCreate: { btnId: "link-create-icon-btn", defaultIcon: "mdi-web" },
-  jobCreate: { btnId: "job-create-icon-btn", defaultIcon: "mdi-play" },
-  linkEdit: { btnId: "link-edit-icon-btn", defaultIcon: "mdi-web" },
-  jobEdit: { btnId: "job-edit-icon-btn", defaultIcon: "mdi-play" },
-};
-const iconColorState = {};
-for (const key of Object.keys(ICON_COLOR_FIELDS)) {
-  iconColorState[key] = { icon: "", color: "" };
-}
-
-function updateIconSelectPreview(key) {
-  const f = ICON_COLOR_FIELDS[key];
-  const s = iconColorState[key];
-  const preview = $(f.btnId).querySelector(".icon-select-preview");
-  if (!preview) return;
-  if (!s.icon) {
-    preview.innerHTML = renderIcon(f.defaultIcon, "", 18) + '<span class="icon-select-label" style="color:var(--text-muted)">アイコンを選択</span>';
-    return;
-  }
-  const label = isImageDataIcon(s.icon) ? "favicon" : s.icon;
-  preview.innerHTML = renderIcon(s.icon, s.color, 18) + `<span class="icon-select-label">${escapeHtml(label)}</span>`;
-}
-
-function initIconColorField(key, icon, color) {
-  const f = ICON_COLOR_FIELDS[key];
-  iconColorState[key] = { icon: icon || "", color: color || "" };
-  updateIconSelectPreview(key);
-}
-
-function setupIconPickerBtn(key) {
-  const f = ICON_COLOR_FIELDS[key];
-  $(f.btnId).addEventListener("click", () => {
-    openIconPicker((icon, color) => {
-      iconColorState[key].icon = icon;
-      iconColorState[key].color = color;
-      updateIconSelectPreview(key);
-    }, iconColorState[key].icon, iconColorState[key].color);
-  });
-}
-
-function openItemCreateModal(workspace, type, source) {
-  const modal = $("item-create-modal");
-  modal.dataset.workspace = workspace || selectedWorkspace;
-  modal.dataset.source = source || "";
-  $("link-create-url").value = "";
-  $("job-create-name").value = "";
-  $("job-create-script").value = "";
-  $("job-create-confirm").checked = true;
-  hideFormError("item-create-error");
-  initIconColorField("linkCreate");
-  initIconColorField("jobCreate");
-  const radios = document.querySelectorAll('input[name="item-create-type"]');
-  for (const r of radios) r.checked = r.value === type;
-  switchItemCreateType(type);
-  modal.style.display = "flex";
-}
-
-function closeItemCreateModal() {
-  $("item-create-modal").style.display = "none";
-}
-
-async function submitItemCreate() {
-  const type = getItemCreateType();
-  if (type === "link") {
-    await submitLinkCreate();
-  } else {
-    await submitJobCreate();
-  }
-}
-
-async function submitJobCreate() {
-  const workspace = $("item-create-modal").dataset.workspace;
-  const name = $("job-create-name").value.trim();
-  const command = $("job-create-script").value;
-
-  if (!name) {
-    showFormError("item-create-error", "ジョブ名を入力してください");
-    return;
-  }
-  if (!command.trim()) {
-    showFormError("item-create-error", "コマンドを入力してください");
-    return;
-  }
-
+async function _runJobDirect(targetJob, job, workspace) {
+  const label = job.label || targetJob;
+  addLog("ui", "job_run_direct", { workspace, job: targetJob });
   try {
-    const res = await apiFetch(workspaceApiPath(workspace, "/jobs"), {
+    const res = await apiFetch("/run", {
       method: "POST",
-      body: { name, command, icon: iconColorState.jobCreate.icon, icon_color: iconColorState.jobCreate.color, confirm: $("job-create-confirm").checked },
+      body: { job: targetJob, args: collectConfirmArgs(), workspace },
     });
     if (!res) return;
     const data = await res.json();
-    if (!res.ok) {
-      showFormError("item-create-error", data.detail || "作成に失敗しました");
-      return;
-    }
-    closeItemCreateModal();
-    await loadJobsForWorkspace();
-    reopenAfterItemEdit($("item-create-modal").dataset.source);
-  } catch (e) {
-    showFormError("item-create-error", e.message);
-  }
-}
-
-async function submitLinkCreate() {
-  const workspace = $("item-create-modal").dataset.workspace;
-  const url = $("link-create-url").value.trim();
-
-  if (!url) {
-    showFormError("item-create-error", "URLを入力してください");
-    return;
-  }
-
-  try {
-    const res = await apiFetch(workspaceApiPath(workspace, "/links"), {
-      method: "POST",
-      body: { url, icon: iconColorState.linkCreate.icon, icon_color: iconColorState.linkCreate.color },
-    });
-    if (!res) return;
-    const data = await res.json();
-    if (!res.ok) {
-      showFormError("item-create-error", data.detail || "追加に失敗しました");
-      return;
-    }
-    closeItemCreateModal();
-    await loadJobsForWorkspace();
-    showToast("リンクを追加しました", "success");
-    reopenAfterItemEdit($("item-create-modal").dataset.source);
-  } catch (e) {
-    showFormError("item-create-error", e.message);
-  }
-}
-
-function openItemEditModal(type, data, source) {
-  const modal = $("item-edit-modal");
-  modal.dataset.type = type;
-  modal.dataset.workspace = data.workspace;
-  modal.dataset.source = source || "picker";
-  $("item-edit-title").textContent = type === "link" ? "リンク編集" : "ジョブ編集";
-  hideFormError("item-edit-error");
-
-  $("item-edit-link-form").style.display = type === "link" ? "" : "none";
-  $("item-edit-job-form").style.display = type === "job" ? "" : "none";
-
-  if (type === "link") {
-    modal.dataset.index = data.index;
-    $("link-edit-url").value = data.url || "";
-    initIconColorField("linkEdit", data.icon, data.iconColor);
-  } else {
-    modal.dataset.jobName = data.name;
-    $("job-edit-name").value = data.name;
-    $("job-edit-script").value = data.command || "";
-    $("job-edit-confirm").checked = data.confirm !== false;
-    initIconColorField("jobEdit", data.icon, data.iconColor);
-  }
-
-  const deleteBtn = $("item-edit-delete");
-  deleteBtn.onclick = async () => {
-    if (type === "link") {
-      await deleteLink(data.workspace, data.index, data.label);
+    if (data.status === "error" || data.returncode !== 0) {
+      const msg = (data.stderr || data.stdout || "失敗").slice(0, 200);
+      showToast(`${label}: ${msg}`);
     } else {
-      await deleteJob(data.name, data.workspace);
+      const msg = (data.stdout || "完了").slice(0, 200);
+      showToast(`${label}: ${msg}`, "success");
     }
-    closeItemEditModal();
-    await loadJobsForWorkspace();
-    reopenAfterItemEdit(modal.dataset.source);
-  };
-  $("item-edit-save").onclick = () => submitItemEdit();
-  $("item-edit-close").onclick = closeItemEditModal;
-  modal.onclick = (e) => { if (e.target === modal) closeItemEditModal(); };
-  modal.style.display = "flex";
-}
-
-async function submitItemEdit() {
-  const modal = $("item-edit-modal");
-  const type = modal.dataset.type;
-  const workspace = modal.dataset.workspace;
-
-  if (type === "link") {
-    const url = $("link-edit-url").value.trim();
-    if (!url) {
-      showFormError("item-edit-error", "URLを入力してください");
-      return;
-    }
-    const index = parseInt(modal.dataset.index, 10);
-    try {
-      const res = await apiFetch(workspaceApiPath(workspace, `/links/${index}`), {
-        method: "PUT",
-        body: { url, icon: iconColorState.linkEdit.icon, icon_color: iconColorState.linkEdit.color },
-      });
-      if (!res) return;
-      const data = await res.json();
-      if (!res.ok) {
-        showFormError("item-edit-error", data.detail || "保存に失敗しました");
-        return;
-      }
-      closeItemEditModal();
-      await loadJobsForWorkspace();
-      showToast("リンクを更新しました", "success");
-      reopenAfterItemEdit(modal.dataset.source);
-    } catch (e) {
-      showFormError("item-edit-error", e.message);
-    }
-  } else {
-    const command = $("job-edit-script").value;
-    if (!command.trim()) {
-      showFormError("item-edit-error", "コマンドを入力してください");
-      return;
-    }
-    const jobName = modal.dataset.jobName;
-    try {
-      const res = await apiFetch(workspaceApiPath(workspace, `/jobs/${encodeURIComponent(jobName)}`), {
-        method: "PUT",
-        body: { command, icon: iconColorState.jobEdit.icon, icon_color: iconColorState.jobEdit.color, confirm: $("job-edit-confirm").checked },
-      });
-      if (!res) return;
-      const data = await res.json();
-      if (!res.ok) {
-        showFormError("item-edit-error", data.detail || "保存に失敗しました");
-        return;
-      }
-      closeItemEditModal();
-      await loadJobsForWorkspace();
-      reopenAfterItemEdit(modal.dataset.source);
-    } catch (e) {
-      showFormError("item-edit-error", e.message);
-    }
+  } catch (e) {
+    showToast(`${label}: ${e.message}`);
   }
 }
 
-function reopenAfterItemEdit(source) {
-  if (source === "settings") {
-    openSettingsWsVisibility();
-  }
-}
-
-function closeItemEditModal() {
-  $("item-edit-modal").style.display = "none";
-}
 
 async function deleteLink(workspace, index, label) {
   try {
@@ -421,6 +198,341 @@ async function deleteLink(workspace, index, label) {
   } catch (e) {
     showToast(`削除エラー: ${e.message}`);
   }
+}
+
+function createFormSubPane(container, title, onDone, setTitleFn) {
+  container.innerHTML = "";
+  const sub = document.createElement("div");
+  sub.className = "split-tab-settings-sub";
+  if (!setTitleFn) {
+    const backBtn = document.createElement("button");
+    backBtn.type = "button";
+    backBtn.className = "split-tab-settings-back";
+    backBtn.innerHTML = '<span class="mdi mdi-arrow-left"></span> ' + title;
+    backBtn.addEventListener("click", onDone);
+    sub.appendChild(backBtn);
+  }
+  const body = document.createElement("div");
+  body.className = "split-tab-settings-body";
+  sub.appendChild(body);
+  container.appendChild(sub);
+  return body;
+}
+
+function createCheckboxGroup(label, checked) {
+  const group = document.createElement("div");
+  group.className = "form-group";
+  const lbl = document.createElement("label");
+  lbl.className = "form-check-label";
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.checked = checked;
+  lbl.appendChild(input);
+  lbl.append(" " + label);
+  group.appendChild(lbl);
+  return { group, input };
+}
+
+function createFormActions(...buttons) {
+  const actions = document.createElement("div");
+  actions.className = "modal-actions";
+  for (const btn of buttons) actions.appendChild(btn);
+  return actions;
+}
+
+function createSubmitBtn(text, className) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = className || "";
+  btn.style.width = "auto";
+  btn.textContent = text;
+  return btn;
+}
+
+function createFormError() {
+  const el = document.createElement("div");
+  el.className = "form-error";
+  return el;
+}
+
+function showFormErr(el, msg) {
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+function buildIconSelectBtn(iconState, defaultIconName, container, setTitleFn, restoreTitleFn) {
+  const iconBtn = document.createElement("button");
+  iconBtn.type = "button";
+  iconBtn.className = "icon-select-btn";
+  iconBtn.innerHTML = '<span class="icon-select-preview"></span>';
+
+  function updatePreview() {
+    const preview = iconBtn.querySelector(".icon-select-preview");
+    if (!iconState.icon) {
+      preview.innerHTML = renderIcon(defaultIconName, "", 18) + '<span class="icon-select-label" style="color:var(--text-muted)">アイコンを選択</span>';
+    } else {
+      const label = isImageDataIcon(iconState.icon) ? "favicon" : iconState.icon;
+      preview.innerHTML = renderIcon(iconState.icon, iconState.color, 18) + `<span class="icon-select-label">${escapeHtml(label)}</span>`;
+    }
+  }
+
+  iconBtn.addEventListener("click", () => {
+    const cb = (icon, color) => {
+      iconState.icon = icon;
+      iconState.color = color;
+      updatePreview();
+      if (restoreTitleFn) restoreTitleFn();
+    };
+    if (container) {
+      const closePicker = renderInlineIconPicker(container, cb, iconState.icon, iconState.color, !!setTitleFn);
+      if (setTitleFn) {
+        setTitleFn("アイコン選択", () => {
+          closePicker();
+          if (restoreTitleFn) restoreTitleFn();
+        });
+      }
+    } else {
+      openIconPicker(cb, iconState.icon, iconState.color);
+    }
+  });
+
+  updatePreview();
+  return iconBtn;
+}
+
+function buildIconGroup(iconBtn) {
+  const group = document.createElement("div");
+  group.className = "form-group";
+  group.innerHTML = '<label class="form-label">アイコン</label>';
+  const row = document.createElement("div");
+  row.className = "icon-select-row";
+  row.appendChild(iconBtn);
+  group.appendChild(row);
+  return group;
+}
+
+function renderInlineLinkCreate(container, workspace, onDone, setTitleFn) {
+  const body = createFormSubPane(container, "リンク追加", onDone, setTitleFn);
+
+  const restoreTitle = setTitleFn ? () => setTitleFn("リンク追加", onDone) : null;
+  const iconState = { icon: "", color: "" };
+  const iconBtn = buildIconSelectBtn(iconState, "mdi-web", container, setTitleFn, restoreTitle);
+  body.appendChild(buildIconGroup(iconBtn));
+
+  const urlGroup = document.createElement("div");
+  urlGroup.className = "form-group";
+  urlGroup.innerHTML = '<label class="form-label">URL</label>';
+  const urlInput = document.createElement("input");
+  urlInput.type = "url";
+  urlInput.className = "form-input";
+  urlInput.placeholder = "http://localhost:3000";
+  urlInput.autocomplete = "off";
+  urlGroup.appendChild(urlInput);
+  body.appendChild(urlGroup);
+
+  const errorEl = createFormError();
+  body.appendChild(errorEl);
+
+  const submitBtn = createSubmitBtn("追加", "primary");
+  body.appendChild(createFormActions(submitBtn));
+
+  submitBtn.addEventListener("click", async () => {
+    errorEl.style.display = "none";
+    const url = urlInput.value.trim();
+    if (!url) { showFormErr(errorEl, "URLを入力してください"); return; }
+    try {
+      const res = await apiFetch(workspaceApiPath(workspace, "/links"), {
+        method: "POST",
+        body: { url, icon: iconState.icon, icon_color: iconState.color },
+      });
+      if (!res) return;
+      const data = await res.json();
+      if (!res.ok) { showFormErr(errorEl, data.detail || "追加に失敗しました"); return; }
+      await loadJobsForWorkspace();
+      showToast("リンクを追加しました", "success");
+      onDone();
+    } catch (e) { showFormErr(errorEl, e.message); }
+  });
+}
+
+function renderInlineJobCreate(container, workspace, onDone, setTitleFn) {
+  const body = createFormSubPane(container, "ジョブ追加", onDone, setTitleFn);
+
+  const restoreTitle = setTitleFn ? () => setTitleFn("ジョブ追加", onDone) : null;
+  const iconState = { icon: "", color: "" };
+  const iconBtn = buildIconSelectBtn(iconState, "mdi-play", container, setTitleFn, restoreTitle);
+  body.appendChild(buildIconGroup(iconBtn));
+
+  const nameGroup = document.createElement("div");
+  nameGroup.className = "form-group";
+  nameGroup.innerHTML = '<label class="form-label">ジョブ名 <span class="form-hint">(英数字・ハイフン・アンダースコア)</span></label>';
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.className = "form-input";
+  nameInput.placeholder = "my-job";
+  nameInput.autocomplete = "off";
+  nameGroup.appendChild(nameInput);
+  body.appendChild(nameGroup);
+
+  const cmdGroup = document.createElement("div");
+  cmdGroup.className = "form-group";
+  cmdGroup.innerHTML = '<label class="form-label">コマンド</label>';
+  const cmdInput = document.createElement("input");
+  cmdInput.type = "text";
+  cmdInput.className = "form-input";
+  cmdInput.placeholder = "echo hello";
+  cmdInput.autocomplete = "off";
+  cmdGroup.appendChild(cmdInput);
+  body.appendChild(cmdGroup);
+
+  const { group: confirmGroup, input: confirmCheck } = createCheckboxGroup("実行前に確認", true);
+  body.appendChild(confirmGroup);
+  const { group: termGroup, input: termCheck } = createCheckboxGroup("ターミナルで実行", true);
+  body.appendChild(termGroup);
+
+  const errorEl = createFormError();
+  body.appendChild(errorEl);
+
+  const submitBtn = createSubmitBtn("作成", "primary");
+  body.appendChild(createFormActions(submitBtn));
+
+  submitBtn.addEventListener("click", async () => {
+    errorEl.style.display = "none";
+    const name = nameInput.value.trim();
+    const command = cmdInput.value;
+    if (!name) { showFormErr(errorEl, "ジョブ名を入力してください"); return; }
+    if (!command.trim()) { showFormErr(errorEl, "コマンドを入力してください"); return; }
+    try {
+      const res = await apiFetch(workspaceApiPath(workspace, "/jobs"), {
+        method: "POST",
+        body: { name, command, icon: iconState.icon, icon_color: iconState.color, confirm: confirmCheck.checked, terminal: termCheck.checked },
+      });
+      if (!res) return;
+      const data = await res.json();
+      if (!res.ok) { showFormErr(errorEl, data.detail || "作成に失敗しました"); return; }
+      await loadJobsForWorkspace();
+      onDone();
+    } catch (e) { showFormErr(errorEl, e.message); }
+  });
+}
+
+function renderInlineLinkEdit(container, data, onDone, setTitleFn) {
+  const body = createFormSubPane(container, "リンク編集", onDone, setTitleFn);
+
+  const restoreTitle = setTitleFn ? () => setTitleFn("リンク編集", onDone) : null;
+  const iconState = { icon: data.icon || "", color: data.iconColor || "" };
+  const iconBtn = buildIconSelectBtn(iconState, "mdi-web", container, setTitleFn, restoreTitle);
+  body.appendChild(buildIconGroup(iconBtn));
+
+  const urlGroup = document.createElement("div");
+  urlGroup.className = "form-group";
+  urlGroup.innerHTML = '<label class="form-label">URL</label>';
+  const urlInput = document.createElement("input");
+  urlInput.type = "url";
+  urlInput.className = "form-input";
+  urlInput.placeholder = "http://localhost:3000";
+  urlInput.autocomplete = "off";
+  urlInput.value = data.url || "";
+  urlGroup.appendChild(urlInput);
+  body.appendChild(urlGroup);
+
+  const errorEl = createFormError();
+  body.appendChild(errorEl);
+
+  const deleteBtn = createSubmitBtn("削除");
+  const saveBtn = createSubmitBtn("保存", "primary");
+  body.appendChild(createFormActions(deleteBtn, saveBtn));
+
+  deleteBtn.addEventListener("click", async () => {
+    await deleteLink(data.workspace, data.index, data.label);
+    await loadJobsForWorkspace();
+    onDone();
+  });
+
+  saveBtn.addEventListener("click", async () => {
+    errorEl.style.display = "none";
+    const url = urlInput.value.trim();
+    if (!url) { showFormErr(errorEl, "URLを入力してください"); return; }
+    try {
+      const res = await apiFetch(workspaceApiPath(data.workspace, `/links/${data.index}`), {
+        method: "PUT",
+        body: { url, icon: iconState.icon, icon_color: iconState.color },
+      });
+      if (!res) return;
+      const d = await res.json();
+      if (!res.ok) { showFormErr(errorEl, d.detail || "保存に失敗しました"); return; }
+      await loadJobsForWorkspace();
+      showToast("リンクを更新しました", "success");
+      onDone();
+    } catch (e) { showFormErr(errorEl, e.message); }
+  });
+}
+
+function renderInlineJobEdit(container, data, onDone, setTitleFn) {
+  const body = createFormSubPane(container, "ジョブ編集", onDone, setTitleFn);
+
+  const restoreTitle = setTitleFn ? () => setTitleFn("ジョブ編集", onDone) : null;
+  const iconState = { icon: data.icon || "", color: data.iconColor || "" };
+  const iconBtn = buildIconSelectBtn(iconState, "mdi-play", container, setTitleFn, restoreTitle);
+  body.appendChild(buildIconGroup(iconBtn));
+
+  const nameGroup = document.createElement("div");
+  nameGroup.className = "form-group";
+  nameGroup.innerHTML = '<label class="form-label">ジョブ名</label>';
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.className = "form-input";
+  nameInput.disabled = true;
+  nameInput.value = data.name;
+  nameGroup.appendChild(nameInput);
+  body.appendChild(nameGroup);
+
+  const cmdGroup = document.createElement("div");
+  cmdGroup.className = "form-group";
+  cmdGroup.innerHTML = '<label class="form-label">コマンド</label>';
+  const cmdInput = document.createElement("input");
+  cmdInput.type = "text";
+  cmdInput.className = "form-input";
+  cmdInput.placeholder = "echo hello";
+  cmdInput.autocomplete = "off";
+  cmdInput.value = data.command || "";
+  cmdGroup.appendChild(cmdInput);
+  body.appendChild(cmdGroup);
+
+  const { group: confirmGroup, input: confirmCheck } = createCheckboxGroup("実行前に確認", data.confirm !== false);
+  body.appendChild(confirmGroup);
+  const { group: termGroup, input: termCheck } = createCheckboxGroup("ターミナルで実行", data.terminal !== false);
+  body.appendChild(termGroup);
+
+  const errorEl = createFormError();
+  body.appendChild(errorEl);
+
+  const deleteBtn = createSubmitBtn("削除");
+  const saveBtn = createSubmitBtn("保存", "primary");
+  body.appendChild(createFormActions(deleteBtn, saveBtn));
+
+  deleteBtn.addEventListener("click", async () => {
+    await deleteJob(data.name, data.workspace);
+    await loadJobsForWorkspace();
+    onDone();
+  });
+
+  saveBtn.addEventListener("click", async () => {
+    errorEl.style.display = "none";
+    const command = cmdInput.value;
+    if (!command.trim()) { showFormErr(errorEl, "コマンドを入力してください"); return; }
+    try {
+      const res = await apiFetch(workspaceApiPath(data.workspace, `/jobs/${encodeURIComponent(data.name)}`), {
+        method: "PUT",
+        body: { command, icon: iconState.icon, icon_color: iconState.color, confirm: confirmCheck.checked, terminal: termCheck.checked },
+      });
+      if (!res) return;
+      const d = await res.json();
+      if (!res.ok) { showFormErr(errorEl, d.detail || "保存に失敗しました"); return; }
+      await loadJobsForWorkspace();
+      onDone();
+    } catch (e) { showFormErr(errorEl, e.message); }
+  });
 }
 
 async function deleteJob(jobName, workspace) {
