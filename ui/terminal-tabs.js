@@ -209,6 +209,9 @@ async function switchTab(id) {
   activeTabId = id;
   const switchedTab = openTabs.find((t) => t.id === id);
   if (switchedTab) switchedTab._activity = false;
+
+  syncWorkspaceForTab(id);
+
   $("output").style.display = id === null ? "" : "none";
   for (const tab of openTabs) {
     const el = $(`frame-${tab.id}`);
@@ -242,6 +245,18 @@ async function switchTab(id) {
   await updateHeaderForTab(id);
 }
 
+function syncWorkspaceForTab(id) {
+  if (splitMode || id === null) {
+    selectedWorkspace = null;
+    return;
+  }
+  const tab = openTabs.find((t) => t.id === id);
+  if (tab && tab.type === "terminal" && tab.label) {
+    const ws = allWorkspaces.find((w) => w.name === tab.label);
+    if (ws) selectedWorkspace = ws.name;
+  }
+}
+
 async function updateHeaderForTab(id) {
   if (splitMode || id === null) {
     selectedWorkspace = null;
@@ -257,10 +272,7 @@ async function updateHeaderForTab(id) {
   if (isTerminalTab && activeTab.label) {
     const ws = allWorkspaces.find((w) => w.name === activeTab.label);
     if (ws) {
-      if (ws.name !== selectedWorkspace) {
-        selectedWorkspace = ws.name;
-        await loadJobsForWorkspace();
-      }
+      await loadJobsForWorkspace();
       await refreshWorkspaceHeader();
     }
   }
