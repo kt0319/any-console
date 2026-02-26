@@ -260,6 +260,7 @@ applyPanelBottom();
   }
   $("git-log-branch-btn").addEventListener("click", openLocalBranchModal);
   $("fetch-btn").addEventListener("click", gitFetch);
+  $("stash-btn").addEventListener("click", openStashPanel);
   $("pull-btn").addEventListener("click", gitPull);
   $("push-btn").addEventListener("click", gitPush);
   initQuickInput();

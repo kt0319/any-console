@@ -447,6 +447,24 @@ async function loadMoreGitLog() {
 function updateGitLogBranchLabel() {
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
   $("git-log-branch-label").textContent = ws ? ws.branch : "";
+  updateStashBtn();
+}
+
+async function updateStashBtn() {
+  const btn = $("stash-btn");
+  if (!btn) return;
+  if (!selectedWorkspace) { btn.disabled = true; btn.textContent = "stash"; return; }
+  try {
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/stash-list"));
+    if (!res || !res.ok) { btn.disabled = true; btn.textContent = "stash"; return; }
+    const data = await res.json();
+    const count = (data.status === "ok" && data.entries) ? data.entries.length : 0;
+    btn.textContent = count > 0 ? `stash (${count})` : "stash";
+    btn.disabled = count === 0;
+  } catch {
+    btn.disabled = true;
+    btn.textContent = "stash";
+  }
 }
 
 async function openLocalBranchModal() {
@@ -499,19 +517,9 @@ async function reloadGitLog() {
   gitLogSeenHashes.clear();
 
   try {
-    const [logRes, stashRes] = await Promise.all([
-      apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?limit=${GIT_LOG_PAGE_SIZE}`)),
-      apiFetch(workspaceApiPath(selectedWorkspace, "/stash-list")),
-    ]);
+    const logRes = await apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?limit=${GIT_LOG_PAGE_SIZE}`));
 
     listEl.innerHTML = "";
-
-    if (stashRes && stashRes.ok) {
-      const stashData = await stashRes.json();
-      if (stashData.status === "ok" && stashData.entries && stashData.entries.length > 0) {
-        renderStashSection(listEl, stashData.entries);
-      }
-    }
 
     if (!logRes) return;
     const data = await logRes.json();
@@ -535,24 +543,57 @@ async function reloadGitLog() {
   }
 }
 
-function renderStashSection(container, entries) {
-  const section = document.createElement("div");
-  section.className = "stash-section";
+async function openStashPanel() {
+  if (!selectedWorkspace) return;
+
+  const existing = document.getElementById("stash-modal-overlay");
+  if (existing) { existing.remove(); return; }
+
+  const overlay = document.createElement("div");
+  overlay.id = "stash-modal-overlay";
+  overlay.className = "modal-overlay";
+
+  const modal = document.createElement("div");
+  modal.className = "modal stash-modal";
 
   const header = document.createElement("div");
-  header.className = "stash-section-header";
-  header.innerHTML = `<span class="mdi mdi-tray-full"></span> Stash (${entries.length}件)`;
-  let collapsed = false;
-  header.addEventListener("click", () => {
-    collapsed = !collapsed;
-    body.style.display = collapsed ? "none" : "";
-    header.classList.toggle("collapsed", collapsed);
-  });
-  section.appendChild(header);
+  header.className = "modal-header";
+  const title = document.createElement("h3");
+  title.textContent = "Stash";
+  header.appendChild(title);
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "modal-close-btn";
+  closeBtn.innerHTML = "&times;";
+  closeBtn.addEventListener("click", () => overlay.remove());
+  header.appendChild(closeBtn);
+  modal.appendChild(header);
 
   const body = document.createElement("div");
-  body.className = "stash-section-body";
+  body.className = "modal-scroll-body";
+  body.innerHTML = '<div style="padding:16px;color:var(--text-muted)">読み込み中...</div>';
+  modal.appendChild(body);
 
+  overlay.appendChild(modal);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+
+  try {
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/stash-list"));
+    if (!res || !res.ok) { body.innerHTML = '<div style="padding:16px;color:var(--text-muted)">取得に失敗しました</div>'; return; }
+    const data = await res.json();
+    if (data.status !== "ok" || !data.entries || data.entries.length === 0) {
+      body.innerHTML = '<div style="padding:16px;color:var(--text-muted)">stashはありません</div>';
+      return;
+    }
+    renderStashList(body, data.entries, overlay);
+  } catch (e) {
+    body.innerHTML = `<div style="padding:16px;color:var(--text-muted)">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderStashList(container, entries, overlay) {
+  container.innerHTML = "";
   for (const entry of entries) {
     const row = document.createElement("div");
     row.className = "stash-entry";
@@ -574,6 +615,7 @@ function renderStashSection(container, entries) {
     popBtn.textContent = "pop";
     popBtn.addEventListener("click", (e) => {
       e.stopPropagation();
+      overlay.remove();
       execStashRefAction("pop", entry.ref);
     });
     actions.appendChild(popBtn);
@@ -584,16 +626,14 @@ function renderStashSection(container, entries) {
     dropBtn.textContent = "drop";
     dropBtn.addEventListener("click", (e) => {
       e.stopPropagation();
+      overlay.remove();
       execStashRefAction("drop", entry.ref);
     });
     actions.appendChild(dropBtn);
 
     row.appendChild(actions);
-    body.appendChild(row);
+    container.appendChild(row);
   }
-
-  section.appendChild(body);
-  container.appendChild(section);
 }
 
 async function execStashRefAction(action, ref) {
@@ -622,7 +662,7 @@ async function execStashRefAction(action, ref) {
 
 let commitModalFilesLoaded = false;
 
-const COMMIT_MODAL_TAB_TITLES = { commits: "コミット履歴", files: "ファイル", diff: "変更内容" };
+const COMMIT_MODAL_TAB_TITLES = { commits: "履歴", files: "ファイル", diff: "変更内容" };
 
 function switchCommitModalTab(tab) {
   const commitsPane = $("commit-modal-tab-commits");
@@ -631,7 +671,7 @@ function switchCommitModalTab(tab) {
   for (const btn of document.querySelectorAll(".commit-modal-tab")) {
     btn.classList.toggle("active", btn.dataset.tab === tab);
   }
-  $("git-log-modal-title").textContent = COMMIT_MODAL_TAB_TITLES[tab] || "コミット履歴";
+  $("git-log-modal-title").textContent = COMMIT_MODAL_TAB_TITLES[tab] || "履歴";
   commitsPane.style.display = tab === "commits" ? "" : "none";
   filesPane.style.display = tab === "files" ? "" : "none";
   diffPane.style.display = tab === "diff" ? "" : "none";

@@ -2086,7 +2086,7 @@ button:disabled {
   border-bottom: 1px solid var(--border);
 }
 
-.git-log-sub-header .fetch-btn {
+.git-log-sub-header #stash-btn {
   margin-left: auto;
 }
 
@@ -3128,34 +3128,10 @@ button:disabled {
 }
 
 /* Stash section in git log */
-.stash-section {
-  border-bottom: 2px solid var(--border);
-}
-
-.stash-section-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--warning);
-  cursor: pointer;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.stash-section-header::after {
-  content: "";
-  margin-left: auto;
-  border: 5px solid transparent;
-  border-top-color: var(--text-muted);
-  transition: transform 0.15s;
-}
-
-.stash-section-header.collapsed::after {
-  transform: rotate(-90deg);
-  border-top-color: var(--text-muted);
+.stash-modal {
+  max-width: min(500px, 90vw);
+  height: auto;
+  max-height: 60vh;
 }
 
 .stash-entry {
