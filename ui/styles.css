@@ -2447,8 +2447,8 @@ button:disabled {
 .quick-input {
   position: fixed;
   bottom: 0;
-  left: 4px;
-  right: 4px;
+  left: 8px;
+  right: 8px;
   z-index: 40;
   display: flex;
   flex-direction: column;
@@ -2475,6 +2475,7 @@ button:disabled {
   width: 33.3%;
   margin-left: auto;
 }
+
 
 .quick-flick-arrow,
 .quick-flick-enter {
@@ -2558,7 +2559,7 @@ button:disabled {
   padding: 0;
   border: 1px solid var(--white-30);
   border-radius: 8px;
-  background: rgba(47, 51, 71, 0.6);
+  background: rgba(20, 22, 35, 0.4);
   color: rgba(255, 255, 255, 0.7);
   font-size: 16px;
   cursor: pointer;
@@ -2599,7 +2600,7 @@ button:disabled {
 
 .quick-extra-panel .quick-key {
   border-color: rgba(130, 170, 255, 0.6);
-  background: rgba(40, 50, 80, 0.6);
+  background: rgba(15, 20, 40, 0.4);
 }
 
 .quick-extra-panel {
@@ -2616,7 +2617,7 @@ button:disabled {
 
 .quick-qwerty-panel .quick-key {
   border-color: rgba(130, 170, 255, 0.6);
-  background: rgba(40, 50, 80, 0.6);
+  background: rgba(15, 20, 40, 0.4);
 }
 
 .quick-qwerty-panel .flick-main {
@@ -2629,12 +2630,20 @@ button:disabled {
   border-color: rgba(130, 170, 255, 0.6);
 }
 
+.quick-minimal-snippet-wrap {
+  display: flex;
+  justify-content: flex-end;
+  width: 33.3%;
+  margin-left: auto;
+  pointer-events: none;
+}
+
 .quick-snippet-row {
   display: flex;
   flex-direction: row;
   gap: 4px;
   padding: 4px 0;
-  align-self: stretch;
+  flex: 1;
   max-height: 40vh;
   pointer-events: none;
 }
@@ -2742,7 +2751,7 @@ button:disabled {
   z-index: 9999;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
 }
 
 .keyboard-input-row {
@@ -2818,6 +2827,8 @@ button:disabled {
 
 .keyboard-input-snippets {
   margin-bottom: 5px;
+  padding: 0 8px;
+  box-sizing: border-box;
   pointer-events: auto;
 }
 

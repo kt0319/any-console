@@ -16,8 +16,11 @@ function initQuickInput() {
       return { key: "ArrowDown", code: "ArrowDown", keyCode: 40 };
     return null;
   };
+  let snippetModeActive = false;
+
   setupFlickRepeat(minimalArrow, resolveArrowKey, () => {
     if (keyboardPanelMode === 1) { cycleMode(); return; }
+    if (snippetModeActive) { closeSnippetMode(); fileInput.click(); return; }
     const tab = openTabs.find(t => t.id === activeTabId);
     if (tab && tab.type === "terminal" && tab.term) {
       tab.term.scrollToBottom();
@@ -26,6 +29,7 @@ function initQuickInput() {
   }, {
     onLongPress: () => cycleMode(),
     longPressGuard: () => keyboardPanelMode === 0,
+    onFlick: () => snippetModeActive,
   });
   const minimalKeyBtns = [minimalArrow];
   const quickKeyBtns = QUICK_KEYS.map(k => createQuickKeyBtn(k));
@@ -46,34 +50,12 @@ function initQuickInput() {
   });
   panel.appendChild(fileInput);
 
-  const menuBtn = document.createElement("div");
-  menuBtn.className = "quick-key quick-flick-arrow";
-  menuBtn.innerHTML = '<span class="flick-hint-top"><span class="mdi mdi-plus-circle-outline"></span></span><span class="flick-main"><span class="mdi mdi-camera" style="font-size:14px"></span></span>';
-  let menuStartX = 0, menuStartY = 0;
-  menuBtn.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    menuStartX = e.touches[0].clientX;
-    menuStartY = e.touches[0].clientY;
-    menuBtn.classList.add("pressed");
-  }, { passive: false });
-  menuBtn.addEventListener("touchend", (e) => {
-    e.preventDefault();
-    menuBtn.classList.remove("pressed");
-    const dy = e.changedTouches[0].clientY - menuStartY;
-    if (Math.abs(dy) > FLICK_THRESHOLD && dy < 0) {
-      const cmd = prompt("スニペットを入力:");
-      if (cmd) {
-        addSnippet(cmd);
-        snippetRow.style.display = "flex";
-        renderQuickSnippets();
-        updateEnterBtn();
-      }
-    } else {
-      fileInput.click();
-    }
-  });
-  menuBtn.addEventListener("touchcancel", () => menuBtn.classList.remove("pressed"));
-  menuBtn.addEventListener("click", () => fileInput.click());
+  const mode1FnBtn = document.createElement("div");
+  mode1FnBtn.className = "quick-key quick-modifier";
+  mode1FnBtn.textContent = "Fn";
+  mode1FnBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  mode1FnBtn.addEventListener("touchend", (e) => { e.preventDefault(); toggleFn(); });
+  mode1FnBtn.addEventListener("click", () => toggleFn());
 
   const mode1Shift = document.createElement("div");
   mode1Shift.className = "quick-key quick-flick-arrow quick-modifier";
@@ -230,7 +212,7 @@ function initQuickInput() {
     return el;
   };
   const flickTab = createFlickTab();
-  const mode1Elements = [menuBtn, mode1Shift, flickControlKey, flickTab];
+  const mode1Elements = [mode1FnBtn, mode1Shift, flickControlKey, flickTab];
   for (const el of mode1Elements) {
     el.style.display = "none";
     panel.appendChild(el);
@@ -342,15 +324,9 @@ function initQuickInput() {
   const toggleFn = () => {
     isQwertyFnActive = !isQwertyFnActive;
     fnBtn.classList.toggle("active", isQwertyFnActive);
+    mode1FnBtn.classList.toggle("active", isQwertyFnActive);
     updateQwertyKeys();
   };
-  fnBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
-  fnBtn.addEventListener("touchend", (e) => { e.preventDefault(); toggleFn(); });
-  fnBtn.addEventListener("click", toggleFn);
-  const qwertyRow2 = qwertyPanel.querySelector(".quick-extra-row:nth-child(3)");
-  if (qwertyRow2) {
-    qwertyRow2.appendChild(fnBtn);
-  }
   const qwertyBottomRow = document.createElement("div");
   qwertyBottomRow.className = "quick-extra-row";
   const qwertyBottomDynDefs = [
@@ -441,9 +417,11 @@ function initQuickInput() {
   };
 
   function closeSnippetMode() {
+    snippetModeActive = false;
     snippetRow.style.display = "none";
     minimalEnter.innerHTML = minimalEnterDefaultHTML;
     minimalEnter.classList.remove("active");
+    minimalArrow.innerHTML = minimalArrowDefaultHTML;
     updateEnterBtn();
   }
 
@@ -460,7 +438,9 @@ function initQuickInput() {
     keyboardPanelMode = (keyboardPanelMode + 1) % 2;
     isQwertyFnActive = false;
     fnBtn.classList.remove("active");
+    mode1FnBtn.classList.remove("active");
     clearModifiers();
+    snippetModeActive = false;
     snippetRow.style.display = "none";
     minimalEnter.innerHTML = minimalEnterDefaultHTML;
     minimalEnter.classList.remove("active");
@@ -473,19 +453,23 @@ function initQuickInput() {
   const toggleSnippetRow = () => {
     const visible = snippetRow.style.display === "flex";
     if (visible) {
+      snippetModeActive = false;
       snippetRow.style.display = "none";
       minimalEnter.innerHTML = minimalEnterDefaultHTML;
       minimalEnter.classList.remove("active");
+      minimalArrow.innerHTML = minimalArrowDefaultHTML;
     } else {
       if (keyboardPanelMode !== 0) {
         keyboardPanelMode = 0;
         clearModifiers();
         applyMode();
       }
+      snippetModeActive = true;
       snippetRow.style.display = "flex";
       renderQuickSnippets();
       minimalEnter.innerHTML = '<span class="mdi mdi-close"></span>';
       minimalEnter.classList.add("active");
+      minimalArrow.innerHTML = '<span class="flick-main"><span class="mdi mdi-camera" style="font-size:14px"></span></span>';
     }
     updateEnterBtn();
   };
@@ -513,16 +497,22 @@ function initQuickInput() {
       keyboardPanelMode = 0;
       applyMode();
     }
+    snippetModeActive = false;
     snippetRow.style.display = "none";
     minimalEnter.innerHTML = minimalEnterDefaultHTML;
     minimalEnter.classList.remove("active");
+    minimalArrow.innerHTML = minimalArrowDefaultHTML;
     updateEnterBtn();
   };
   document.addEventListener("touchend", closeExtraOnOutside);
   document.addEventListener("click", closeExtraOnOutside);
 
+  const minimalSnippetWrap = document.createElement("div");
+  minimalSnippetWrap.className = "quick-minimal-snippet-wrap";
+  minimalSnippetWrap.appendChild(snippetRow);
+
   const parentEl = panel.parentNode;
   parentEl.insertBefore(extraPanel, panel);
   parentEl.insertBefore(qwertyPanel, panel);
-  parentEl.insertBefore(snippetRow, panel);
+  parentEl.insertBefore(minimalSnippetWrap, panel);
 }

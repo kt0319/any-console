@@ -120,6 +120,7 @@ function setupFlickRepeat(el, resolveKey, onTap, opts = {}) {
     const key = resolveKey(dx, dy, THRESHOLD);
     cancelLongPress();
     if (!key) { stopRepeat(); return; }
+    if (opts.onFlick && opts.onFlick(key, dx, dy)) { stopRepeat(); return; }
     if (repeatingKey && repeatingKey.key === key.key) return;
     stopRepeat();
     repeatingKey = key;
@@ -138,7 +139,10 @@ function setupFlickRepeat(el, resolveKey, onTap, opts = {}) {
     const dx = e.changedTouches[0].clientX - startX;
     const dy = e.changedTouches[0].clientY - startY;
     const key = resolveKey(dx, dy, THRESHOLD);
-    if (key) sendKeyToTerminal(key);
+    if (key) {
+      if (opts.onFlick && opts.onFlick(key, dx, dy)) return;
+      sendKeyToTerminal(key);
+    }
     else if (onTap) onTap();
   });
 
