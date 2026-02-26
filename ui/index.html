@@ -206,17 +206,17 @@
           <button id="git-log-close" class="modal-close-btn" title="閉じる">&times;</button>
         </div>
         <div class="commit-modal-tabs">
-          <button type="button" class="commit-modal-tab active" data-tab="commits">履歴</button>
-          <button type="button" class="commit-modal-tab" data-tab="files">ファイル</button>
-          <button type="button" class="commit-modal-tab" data-tab="diff">変更内容</button>
+          <button type="button" class="commit-modal-tab active" data-tab="commits"><span class="mdi mdi-history"></span> 履歴</button>
+          <button type="button" class="commit-modal-tab" data-tab="diff"><span class="mdi mdi-file-diff"></span> 変更内容</button>
+          <button type="button" class="commit-modal-tab" data-tab="files"><span class="mdi mdi-folder-outline"></span> ファイル</button>
         </div>
         <div id="commit-modal-tab-commits">
           <div class="git-log-sub-header">
             <button type="button" class="git-log-branch-select-btn" id="git-log-branch-btn">
               <span class="mdi mdi-source-branch"></span> <span id="git-log-branch-label"></span>
             </button>
-            <button type="button" class="git-action-btn fetch-btn" id="fetch-btn">fetch</button>
-            <button type="button" class="git-action-btn" id="stash-btn">stash</button>
+            <button type="button" class="git-action-btn fetch-btn" id="fetch-btn" onclick="gitFetch()">fetch</button>
+            <button type="button" class="git-action-btn stash-btn" id="stash-btn" onclick="openStashPanel()">stash</button>
           </div>
           <div class="modal-scroll-body" id="git-log-list-modal"></div>
           <div id="git-log-action-menu" class="commit-action-menu" style="display:none"></div>
@@ -247,6 +247,15 @@
       </div>
     </div>
     <!-- Branch Modal -->
+    <div id="stash-modal" class="modal-overlay" style="display:none">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Stash</h3>
+          <button type="button" id="stash-modal-close" class="modal-close-btn" onclick="closeStashModal()">&times;</button>
+        </div>
+        <div class="modal-scroll-body" id="stash-list"></div>
+      </div>
+    </div>
     <div id="branch-modal" class="modal-overlay" style="display:none">
       <div class="modal">
         <div class="modal-header">

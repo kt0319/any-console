@@ -453,16 +453,14 @@ function updateGitLogBranchLabel() {
 async function updateStashBtn() {
   const btn = $("stash-btn");
   if (!btn) return;
-  if (!selectedWorkspace) { btn.disabled = true; btn.textContent = "stash"; return; }
+  if (!selectedWorkspace) { btn.textContent = "stash"; return; }
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/stash-list"));
-    if (!res || !res.ok) { btn.disabled = true; btn.textContent = "stash"; return; }
+    if (!res || !res.ok) { btn.textContent = "stash"; return; }
     const data = await res.json();
     const count = (data.status === "ok" && data.entries) ? data.entries.length : 0;
     btn.textContent = count > 0 ? `stash (${count})` : "stash";
-    btn.disabled = count === 0;
   } catch {
-    btn.disabled = true;
     btn.textContent = "stash";
   }
 }
@@ -546,94 +544,65 @@ async function reloadGitLog() {
 async function openStashPanel() {
   if (!selectedWorkspace) return;
 
-  const existing = document.getElementById("stash-modal-overlay");
-  if (existing) { existing.remove(); return; }
-
-  const overlay = document.createElement("div");
-  overlay.id = "stash-modal-overlay";
-  overlay.className = "modal-overlay";
-
-  const modal = document.createElement("div");
-  modal.className = "modal stash-modal";
-
-  const header = document.createElement("div");
-  header.className = "modal-header";
-  const title = document.createElement("h3");
-  title.textContent = "Stash";
-  header.appendChild(title);
-  const closeBtn = document.createElement("button");
-  closeBtn.type = "button";
-  closeBtn.className = "modal-close-btn";
-  closeBtn.innerHTML = "&times;";
-  closeBtn.addEventListener("click", () => overlay.remove());
-  header.appendChild(closeBtn);
-  modal.appendChild(header);
-
-  const body = document.createElement("div");
-  body.className = "modal-scroll-body";
-  body.innerHTML = '<div style="padding:16px;color:var(--text-muted)">読み込み中...</div>';
-  modal.appendChild(body);
-
-  overlay.appendChild(modal);
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
-  document.body.appendChild(overlay);
+  const modal = $("stash-modal");
+  const listEl = $("stash-list");
+  listEl.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
+  modal.style.display = "flex";
 
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/stash-list"));
-    if (!res || !res.ok) { body.innerHTML = '<div style="padding:16px;color:var(--text-muted)">取得に失敗しました</div>'; return; }
+    if (!res || !res.ok) { listEl.innerHTML = '<div class="clone-repo-loading">取得に失敗しました</div>'; return; }
     const data = await res.json();
     if (data.status !== "ok" || !data.entries || data.entries.length === 0) {
-      body.innerHTML = '<div style="padding:16px;color:var(--text-muted)">stashはありません</div>';
+      listEl.innerHTML = '<div class="clone-repo-loading">stashはありません</div>';
       return;
     }
-    renderStashList(body, data.entries, overlay);
+    listEl.innerHTML = "";
+    for (const entry of data.entries) {
+      const row = document.createElement("div");
+      row.className = "stash-entry";
+
+      const info = document.createElement("div");
+      info.className = "stash-entry-info";
+      info.innerHTML =
+        `<span class="stash-entry-ref">${escapeHtml(entry.ref)}</span>` +
+        `<span class="stash-entry-msg">${escapeHtml(entry.message)}</span>` +
+        `<span class="stash-entry-time">${escapeHtml(entry.time)}</span>`;
+      row.appendChild(info);
+
+      const actions = document.createElement("div");
+      actions.className = "stash-entry-actions";
+
+      const popBtn = document.createElement("button");
+      popBtn.type = "button";
+      popBtn.className = "commit-action-item";
+      popBtn.textContent = "pop";
+      popBtn.addEventListener("click", () => {
+        modal.style.display = "none";
+        execStashRefAction("pop", entry.ref);
+      });
+      actions.appendChild(popBtn);
+
+      const dropBtn = document.createElement("button");
+      dropBtn.type = "button";
+      dropBtn.className = "commit-action-item commit-action-danger";
+      dropBtn.textContent = "drop";
+      dropBtn.addEventListener("click", () => {
+        modal.style.display = "none";
+        execStashRefAction("drop", entry.ref);
+      });
+      actions.appendChild(dropBtn);
+
+      row.appendChild(actions);
+      listEl.appendChild(row);
+    }
   } catch (e) {
-    body.innerHTML = `<div style="padding:16px;color:var(--text-muted)">${escapeHtml(e.message)}</div>`;
+    listEl.innerHTML = `<div class="clone-repo-loading">${escapeHtml(e.message)}</div>`;
   }
 }
 
-function renderStashList(container, entries, overlay) {
-  container.innerHTML = "";
-  for (const entry of entries) {
-    const row = document.createElement("div");
-    row.className = "stash-entry";
-
-    const info = document.createElement("div");
-    info.className = "stash-entry-info";
-    info.innerHTML =
-      `<span class="stash-entry-ref">${escapeHtml(entry.ref)}</span>` +
-      `<span class="stash-entry-msg">${escapeHtml(entry.message)}</span>` +
-      `<span class="stash-entry-time">${escapeHtml(entry.time)}</span>`;
-    row.appendChild(info);
-
-    const actions = document.createElement("div");
-    actions.className = "stash-entry-actions";
-
-    const popBtn = document.createElement("button");
-    popBtn.type = "button";
-    popBtn.className = "stash-action-btn";
-    popBtn.textContent = "pop";
-    popBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      overlay.remove();
-      execStashRefAction("pop", entry.ref);
-    });
-    actions.appendChild(popBtn);
-
-    const dropBtn = document.createElement("button");
-    dropBtn.type = "button";
-    dropBtn.className = "stash-action-btn stash-action-danger";
-    dropBtn.textContent = "drop";
-    dropBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      overlay.remove();
-      execStashRefAction("drop", entry.ref);
-    });
-    actions.appendChild(dropBtn);
-
-    row.appendChild(actions);
-    container.appendChild(row);
-  }
+function closeStashModal() {
+  $("stash-modal").style.display = "none";
 }
 
 async function execStashRefAction(action, ref) {
@@ -668,8 +637,11 @@ function switchCommitModalTab(tab) {
   const commitsPane = $("commit-modal-tab-commits");
   const filesPane = $("commit-modal-tab-files");
   const diffPane = $("commit-modal-tab-diff");
+  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
+  const isDirty = ws && ws.clean === false;
   for (const btn of document.querySelectorAll(".commit-modal-tab")) {
     btn.classList.toggle("active", btn.dataset.tab === tab);
+    if (btn.dataset.tab === "diff") btn.disabled = !isDirty;
   }
   $("git-log-modal-title").textContent = COMMIT_MODAL_TAB_TITLES[tab] || "履歴";
   commitsPane.style.display = tab === "commits" ? "" : "none";

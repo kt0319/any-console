@@ -412,7 +412,8 @@ header .ws-select-wrap {
   transition: background 0.15s, color 0.15s;
 }
 
-.git-action-btn.fetch-btn {
+.git-action-btn.fetch-btn,
+.git-action-btn.stash-btn {
   color: var(--text-muted);
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
@@ -2086,22 +2087,23 @@ button:disabled {
   border-bottom: 1px solid var(--border);
 }
 
-.git-log-sub-header #stash-btn {
+.git-log-sub-header .stash-btn {
   margin-left: auto;
 }
 
 .git-log-branch-select-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 0 24px 0 10px;
-  min-height: 32px;
+  min-height: 36px;
+  max-height: 36px;
   min-width: auto;
   font-size: 12px;
   font-weight: 600;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
   color: var(--accent);
   cursor: pointer;
   white-space: nowrap;
@@ -2143,6 +2145,11 @@ button:disabled {
   border-radius: var(--radius);
   color: var(--text-secondary);
   cursor: pointer;
+}
+
+.commit-modal-tab:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .commit-modal-tab.active {
@@ -3128,12 +3135,6 @@ button:disabled {
 }
 
 /* Stash section in git log */
-.stash-modal {
-  max-width: min(500px, 90vw);
-  height: auto;
-  max-height: 60vh;
-}
-
 .stash-entry {
   display: flex;
   align-items: center;
@@ -3179,22 +3180,6 @@ button:disabled {
   flex-shrink: 0;
 }
 
-.stash-action-btn {
-  padding: 4px 10px;
-  min-height: 28px;
-  min-width: auto;
-  font-size: 11px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
-.stash-action-danger {
-  color: var(--error);
-  border-color: var(--error);
-}
 
 .split-tab-row-orphan {
   opacity: 0.5;
