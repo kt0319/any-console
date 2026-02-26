@@ -44,8 +44,12 @@ async function onVisibilityRestore() {
 
     for (const tab of termTabs) {
       if (!aliveWsUrls.has(tab.wsUrl)) {
+        orphanSessions.push({
+          wsUrl: tab.wsUrl, workspace: tab.label, expired: true,
+          icon: tab.icon?.name, iconColor: tab.icon?.color,
+          tabIndex: tabs.indexOf(tab), jobName: tab.jobName || null,
+        });
         removeTab(tab.id);
-        showToast("ターミナルセッションが期限切れになりました");
       }
     }
   } catch {}
@@ -103,13 +107,25 @@ function updateOrphanSessions() {
 
 function updateOrphanFromSessions(sessions) {
   const localWsUrls = new Set(tabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
+  const serverUrls = new Set(sessions.map((s) => s.ws_url));
   const oldOrphans = new Map(orphanSessions.map((s) => [s.wsUrl, s]));
-  orphanSessions = sessions
+
+  const liveOrphans = sessions
     .filter((s) => !localWsUrls.has(s.ws_url) && !closedSessionUrls.has(s.ws_url))
     .map((s, i) => {
       const old = oldOrphans.get(s.ws_url);
-      return { wsUrl: s.ws_url, workspace: s.workspace, expiresIn: s.expires_in, icon: s.icon, iconColor: s.icon_color, tabIndex: old ? old.tabIndex : tabs.length + i };
+      return { wsUrl: s.ws_url, workspace: s.workspace, expiresIn: s.expires_in, icon: s.icon, iconColor: s.icon_color, tabIndex: old ? old.tabIndex : tabs.length + i, expired: false };
     });
+
+  const expiredOrphans = orphanSessions
+    .filter((s) => !s.expired && !serverUrls.has(s.wsUrl) && !localWsUrls.has(s.wsUrl) && !closedSessionUrls.has(s.wsUrl))
+    .map((s) => ({ ...s, expired: true }));
+
+  const existingExpired = orphanSessions
+    .filter((s) => s.expired && !closedSessionUrls.has(s.wsUrl));
+
+  orphanSessions = [...liveOrphans, ...expiredOrphans, ...existingExpired];
+
   for (const url of closedSessionUrls) {
     if (!sessions.some((s) => s.ws_url === url)) closedSessionUrls.delete(url);
   }
@@ -242,6 +258,13 @@ function connectTerminalWs(tab) {
     tab.ws = null;
     if (tab._wsDisposed || isPageUnloading) return;
     if (e.code === 1000 || e.code === 1008) {
+      if (e.code === 1008) {
+        orphanSessions.push({
+          wsUrl: tab.wsUrl, workspace: tab.label, expired: true,
+          icon: tab.icon?.name, iconColor: tab.icon?.color,
+          tabIndex: tabs.indexOf(tab), jobName: tab.jobName || null,
+        });
+      }
       removeTab(tab.id);
       return;
     }
@@ -762,8 +785,9 @@ function renderTabBar() {
       const owsIconHtml = ows && ows.icon ? renderIcon(ows.icon, ows.icon_color, 14) : "";
       const isDuplicateIcon = ows && ows.icon && s.icon === ows.icon;
       const orphanIcon = isDuplicateIcon ? "" : renderIcon(s.icon || "mdi-console", s.iconColor || "", 14);
+      const expiredCls = s.expired ? " expired" : "";
       const suffix = panelBottom ? "" : `${escapeHtml(label)}<span class="tab-close" data-close-orphan="${escapeHtml(s.wsUrl)}">&times;</span>`;
-      html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}">${owsIconHtml}${orphanIcon}${suffix}</button>`;
+      html += `<button class="tab-btn orphan${expiredCls}" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" data-orphan-expired="${s.expired ? "true" : ""}">${owsIconHtml}${orphanIcon}${suffix}</button>`;
     }
   }
   bar.innerHTML = html;
@@ -801,21 +825,34 @@ function renderTabBar() {
     });
   });
   bar.querySelectorAll(".tab-btn.orphan").forEach((btn) => {
+    const isExpired = btn.dataset.orphanExpired === "true";
     bindLongPress(btn, {
       onLongPress: () => {
         const label = btn.dataset.orphanWs || "terminal";
         if (confirm(`「${label}」を閉じますか？`)) {
           const wsUrl = btn.dataset.orphanUrl;
-          const match = wsUrl.match(/\/terminal\/ws\/([^/]+)/);
-          if (match) {
-            apiFetch(`/terminal/sessions/${match[1]}`, { method: "DELETE" }).catch(() => {});
+          if (!isExpired) {
+            const match = wsUrl.match(/\/terminal\/ws\/([^/]+)/);
+            if (match) {
+              apiFetch(`/terminal/sessions/${match[1]}`, { method: "DELETE" }).catch(() => {});
+            }
           }
           orphanSessions = orphanSessions.filter((s) => s.wsUrl !== wsUrl);
+          closedSessionUrls.add(wsUrl);
           renderTabBar();
         }
       },
       onClick: (e) => {
         if (e.target.classList.contains("tab-close")) return;
+        if (isExpired) {
+          const wsUrl = btn.dataset.orphanUrl;
+          const orphan = orphanSessions.find((s) => s.wsUrl === wsUrl);
+          const workspace = btn.dataset.orphanWs;
+          orphanSessions = orphanSessions.filter((s) => s.wsUrl !== wsUrl);
+          closedSessionUrls.add(wsUrl);
+          runJob(orphan?.jobName || "terminal", null, workspace);
+          return;
+        }
         joinOrphanSession(btn.dataset.orphanUrl, btn.dataset.orphanWs);
       },
     });
@@ -827,13 +864,17 @@ function renderTabBar() {
         removeTab(btn.dataset.close);
       } else if (btn.dataset.closeOrphan) {
         const wsUrl = btn.dataset.closeOrphan;
-        const label = orphanSessions.find((s) => s.wsUrl === wsUrl)?.workspace || "terminal";
+        const orphan = orphanSessions.find((s) => s.wsUrl === wsUrl);
+        const label = orphan?.workspace || "terminal";
         if (!confirm(`「${label}」を閉じますか？`)) return;
-        const match = wsUrl.match(/\/terminal\/ws\/([^/]+)/);
-        if (match) {
-          apiFetch(`/terminal/sessions/${match[1]}`, { method: "DELETE" }).catch(() => {});
+        if (!orphan?.expired) {
+          const match = wsUrl.match(/\/terminal\/ws\/([^/]+)/);
+          if (match) {
+            apiFetch(`/terminal/sessions/${match[1]}`, { method: "DELETE" }).catch(() => {});
+          }
         }
         orphanSessions = orphanSessions.filter((s) => s.wsUrl !== wsUrl);
+        closedSessionUrls.add(wsUrl);
         renderTabBar();
       }
     });
@@ -1273,7 +1314,7 @@ function openTabEditModal(initialTab = "layout") {
 
     for (const s of orphanSessions) {
       const row = document.createElement("div");
-      row.className = "split-tab-row split-tab-row-orphan";
+      row.className = "split-tab-row split-tab-row-orphan" + (s.expired ? " split-tab-row-expired" : "");
 
       const inputWrap = document.createElement("span");
       inputWrap.className = "split-tab-input-wrap";
@@ -1294,6 +1335,12 @@ function openTabEditModal(initialTab = "layout") {
 
       row.addEventListener("click", (e) => {
         if (e.target.closest(".split-tab-close-btn")) return;
+        if (s.expired) {
+          orphanSessions = orphanSessions.filter((o) => o.wsUrl !== s.wsUrl);
+          closedSessionUrls.add(s.wsUrl);
+          runJob(s.jobName || "terminal", null, s.workspace);
+          return;
+        }
         joinOrphanSession(s.wsUrl, s.workspace);
         renderTabList();
         updateModeRadio();
@@ -1306,11 +1353,14 @@ function openTabEditModal(initialTab = "layout") {
       closeBtnEl.addEventListener("click", () => {
         const label = s.workspace || "terminal";
         if (!confirm(`「${label}」を閉じますか？`)) return;
-        const match = s.wsUrl.match(/\/terminal\/ws\/([^/]+)/);
-        if (match) {
-          apiFetch(`/terminal/sessions/${match[1]}`, { method: "DELETE" }).catch(() => {});
+        if (!s.expired) {
+          const match = s.wsUrl.match(/\/terminal\/ws\/([^/]+)/);
+          if (match) {
+            apiFetch(`/terminal/sessions/${match[1]}`, { method: "DELETE" }).catch(() => {});
+          }
         }
         orphanSessions = orphanSessions.filter((o) => o.wsUrl !== s.wsUrl);
+        closedSessionUrls.add(s.wsUrl);
         renderTabList();
       });
       row.appendChild(closeBtnEl);

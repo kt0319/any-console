@@ -858,6 +858,18 @@ header .ws-select-wrap {
   opacity: 0.7;
 }
 
+.tab-btn.orphan.expired {
+  font-style: italic;
+  text-decoration: line-through;
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+
+.split-tab-row-expired .split-tab-row-info {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
 .long-pressing {
   animation: long-press-feedback 0.8s ease-out forwards;
 }
