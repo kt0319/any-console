@@ -802,27 +802,33 @@ function renderTabBar() {
 
   bar.querySelectorAll(".tab-btn:not(.orphan)").forEach((btn) => {
     const tab = tabs.find((t) => t.id === btn.dataset.tab);
-    bindLongPress(btn, {
-      onLongPress: () => {
-        openTabEditModal();
-      },
-      onClick: (e) => {
+    if (panelBottom) {
+      bindLongPress(btn, {
+        onLongPress: () => {
+          openTabEditModal();
+        },
+        onClick: (e) => {
+          if (e.target.classList.contains("tab-close")) return;
+          const tabId = btn.dataset.tab;
+          if (tabId === activeTabId) {
+            openTabEditModal("open");
+            return;
+          }
+          switchTab(tabId);
+        },
+      });
+    } else {
+      btn.addEventListener("click", (e) => {
         if (e.target.classList.contains("tab-close")) return;
         const tabId = btn.dataset.tab;
         if (tabId === activeTabId) {
-          const t = tabs.find(t => t.id === tabId);
-          if (t && t.type === "terminal") {
-            const frame = $(`frame-${tabId}`);
-            if (frame && frame.classList.contains("view-mode")) {
-              exitTerminalCopyMode(tabId);
-            }
-            return;
-          }
+          openTabEditModal("open");
+          return;
         }
         switchTab(tabId);
-      },
-    });
-    if (!isTouchDevice && tab) bindMouseDrag(btn, tab);
+      });
+      if (tab) bindMouseDrag(btn, tab);
+    }
     btn.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       openTabEditModal();
@@ -933,15 +939,19 @@ function createTabNamePill(tab, frame) {
           return;
         }
       }
-      openTabEditModal(splitMode ? "layout" : "open");
+      openTabEditModal("open");
     },
   });
   pill.addEventListener("contextmenu", (e) => {
     e.preventDefault();
+    openTabEditModal("layout");
+  });
+  pill.addEventListener("dblclick", (e) => {
+    e.preventDefault();
     if (splitMode) {
       exitSplitModeWithTab(tab.id);
     } else {
-      openTabEditModal();
+      switchTab(tab.id);
     }
   });
   frame.appendChild(pill);
@@ -1026,6 +1036,7 @@ function terminalBufferToHtml(term) {
 }
 
 function enterTerminalCopyMode(tabId) {
+  if (!panelBottom) return;
   const tab = tabs.find((t) => t.id === tabId);
   if (!tab || tab.type !== "terminal") return;
   const container = $(`frame-${tabId}`);
@@ -1193,9 +1204,6 @@ function openTabEditModal(initialTab = "layout") {
       const iconEl = document.createElement("span");
       iconEl.className = m.icon;
       btn.appendChild(iconEl);
-      if (tabCount < m.minTabs) {
-        btn.disabled = true;
-      }
       btn.addEventListener("click", () => {
         if (btn.disabled) return;
         if (m.value === "normal") {
@@ -1222,12 +1230,8 @@ function openTabEditModal(initialTab = "layout") {
 
   function updateModeRadio() {
     const current = splitMode ? splitLayout : "normal";
-    const count = tabs.length;
-    const minTabsMap = { normal: 0, vertical: 2, horizontal: 2, grid: 3 };
     for (const b of modeBtns) {
       b.className = "split-tab-mode-option" + (b.dataset.mode === current ? " active" : "");
-      const mobileDisabled = panelBottom && b.dataset.mode !== "normal" && b.dataset.mode !== "vertical";
-      b.disabled = count < (minTabsMap[b.dataset.mode] || 0) || mobileDisabled;
     }
   }
 
