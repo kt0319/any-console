@@ -238,7 +238,6 @@ applyPanelBottom();
   for (const tab of document.querySelectorAll(".clone-tab")) {
     tab.addEventListener("click", () => switchCloneTab(tab.dataset.tab));
   }
-  $("branch-modal-close").addEventListener("click", closeBranchModal);
   $("diff-commit-cancel").addEventListener("click", closeCommitForm);
   $("diff-commit-submit").addEventListener("click", submitCommit);
   $("icon-picker-close").addEventListener("click", closeIconPicker);
@@ -250,10 +249,9 @@ applyPanelBottom();
   for (const tab of document.querySelectorAll(".commit-modal-tab")) {
     tab.addEventListener("click", () => switchCommitModalTab(tab.dataset.tab));
   }
-  $("git-log-branch-btn").addEventListener("click", openLocalBranchModal);
+  $("git-log-branch-btn").addEventListener("click", openLocalBranchPane);
   $("fetch-btn").addEventListener("click", gitFetch);
-  $("stash-btn").addEventListener("click", openStashPanel);
-  $("stash-modal-close").addEventListener("click", closeStashModal);
+  $("stash-btn").addEventListener("click", openStashPane);
   $("pull-btn").addEventListener("click", gitPull);
   $("push-btn").addEventListener("click", gitPush);
   initQuickInput();

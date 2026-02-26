@@ -293,6 +293,9 @@ function closeGitLogModal() {
   $("git-log-action-menu").style.display = "none";
   $("git-log-action-menu").innerHTML = "";
   $("diff-commit-form").style.display = "none";
+  const titleEl = $("git-log-modal-title");
+  titleEl.classList.remove("split-modal-title-back");
+  titleEl.onclick = null;
 
   resetCreateBranchArea();
 }
@@ -471,12 +474,11 @@ async function updateStashBtn() {
   }
 }
 
-async function openLocalBranchModal() {
-  const modal = $("branch-modal");
-  const listEl = $("branch-list");
-  modal.querySelector("h3").textContent = "ブランチ";
+async function openLocalBranchPane() {
+  subPaneReturnTab = "commits";
+  showSubPane("commit-modal-tab-branch", "ブランチ");
+  const listEl = $("branch-pane-list");
   listEl.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
-  modal.style.display = "flex";
 
   await loadBranches();
 
@@ -493,7 +495,7 @@ async function openLocalBranchModal() {
     } else {
       item.textContent = b;
       item.addEventListener("click", async () => {
-        modal.style.display = "none";
+        closeSubPane();
         await checkoutBranch(b);
         updateGitLogBranchLabel();
         await reloadGitLog();
@@ -505,7 +507,7 @@ async function openLocalBranchModal() {
   const remoteBtn = document.createElement("div");
   remoteBtn.className = "branch-item branch-item-action";
   remoteBtn.textContent = "リモートブランチを表示...";
-  remoteBtn.addEventListener("click", () => openBranchModal());
+  remoteBtn.addEventListener("click", () => openRemoteBranchPane());
   listEl.appendChild(remoteBtn);
 }
 
@@ -531,7 +533,7 @@ function renderDirtyEntry(listEl) {
     `</span>`;
   if (isDirty) {
     entry.addEventListener("click", () => {
-      diffPaneReturnTab = "commits";
+      subPaneReturnTab = "commits";
       showDiffPane("変更内容");
       loadDiffTab();
     });
@@ -578,13 +580,13 @@ async function reloadGitLog() {
   }
 }
 
-async function openStashPanel() {
+async function openStashPane() {
   if (!selectedWorkspace) return;
 
-  const modal = $("stash-modal");
-  const listEl = $("stash-list");
+  subPaneReturnTab = "commits";
+  showSubPane("commit-modal-tab-stash", "Stash");
+  const listEl = $("stash-pane-list");
   listEl.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
-  modal.style.display = "flex";
 
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/stash-list"));
@@ -614,20 +616,14 @@ async function openStashPanel() {
       popBtn.type = "button";
       popBtn.className = "commit-action-item";
       popBtn.textContent = "pop";
-      popBtn.addEventListener("click", () => {
-        modal.style.display = "none";
-        execStashRefAction("pop", entry.ref);
-      });
+      popBtn.addEventListener("click", () => execStashRefAction("pop", entry.ref));
       actions.appendChild(popBtn);
 
       const dropBtn = document.createElement("button");
       dropBtn.type = "button";
       dropBtn.className = "commit-action-item commit-action-danger";
       dropBtn.textContent = "drop";
-      dropBtn.addEventListener("click", () => {
-        modal.style.display = "none";
-        execStashRefAction("drop", entry.ref);
-      });
+      dropBtn.addEventListener("click", () => execStashRefAction("drop", entry.ref));
       actions.appendChild(dropBtn);
 
       row.appendChild(actions);
@@ -636,10 +632,6 @@ async function openStashPanel() {
   } catch (e) {
     listEl.innerHTML = `<div class="clone-repo-loading">${escapeHtml(e.message)}</div>`;
   }
-}
-
-function closeStashModal() {
-  $("stash-modal").style.display = "none";
 }
 
 async function execStashRefAction(action, ref) {
@@ -662,6 +654,7 @@ async function execStashRefAction(action, ref) {
   } catch (e) {
     showToast(`${label} エラー: ${e.message}`);
   }
+  closeSubPane();
   await refreshAfterGitOp();
   await reloadGitLog();
 }
@@ -669,36 +662,53 @@ async function execStashRefAction(action, ref) {
 let commitModalFilesLoaded = false;
 
 const COMMIT_MODAL_TAB_TITLES = { commits: "履歴", files: "ファイル" };
-let diffPaneReturnTab = "commits";
+let subPaneReturnTab = "commits";
 
 function switchCommitModalTab(tab) {
-  const commitsPane = $("commit-modal-tab-commits");
-  const filesPane = $("commit-modal-tab-files");
-  const diffPane = $("commit-modal-tab-diff");
+  const allPanes = ["commit-modal-tab-commits", "commit-modal-tab-files", "commit-modal-tab-diff", "commit-modal-tab-stash", "commit-modal-tab-branch"];
   for (const btn of document.querySelectorAll(".commit-modal-tab")) {
     btn.classList.toggle("active", btn.dataset.tab === tab);
   }
-  $("git-log-modal-title").textContent = COMMIT_MODAL_TAB_TITLES[tab] || "履歴";
+  const titleEl = $("git-log-modal-title");
+  titleEl.textContent = COMMIT_MODAL_TAB_TITLES[tab] || "履歴";
+  titleEl.classList.remove("split-modal-title-back");
+  titleEl.onclick = null;
   $("commit-modal-tabs").style.display = "";
-  commitsPane.style.display = tab === "commits" ? "" : "none";
-  filesPane.style.display = tab === "files" ? "" : "none";
-  diffPane.style.display = "none";
+  for (const id of allPanes) {
+    const pane = $(id);
+    if (pane) pane.style.display = "none";
+  }
+  $("commit-modal-tab-" + tab).style.display = "";
   if (tab === "files" && !commitModalFilesLoaded) {
     commitModalFilesLoaded = true;
     loadDirectoryInModal("");
   }
 }
 
-function showDiffPane(title) {
+function showSubPane(paneId, title) {
+  const allPanes = ["commit-modal-tab-commits", "commit-modal-tab-files", "commit-modal-tab-diff", "commit-modal-tab-stash", "commit-modal-tab-branch"];
   $("commit-modal-tabs").style.display = "none";
-  $("commit-modal-tab-commits").style.display = "none";
-  $("commit-modal-tab-files").style.display = "none";
-  $("commit-modal-tab-diff").style.display = "";
-  $("diff-back-title").textContent = title || "変更内容";
+  for (const id of allPanes) {
+    const pane = $(id);
+    if (pane) pane.style.display = "none";
+  }
+  $(paneId).style.display = "";
+  const titleEl = $("git-log-modal-title");
+  titleEl.textContent = title;
+  titleEl.classList.add("split-modal-title-back");
+  titleEl.onclick = () => closeSubPane();
+}
+
+function closeSubPane() {
+  switchCommitModalTab(subPaneReturnTab);
+}
+
+function showDiffPane(title) {
+  showSubPane("commit-modal-tab-diff", title || "変更内容");
 }
 
 function closeDiffPane() {
-  switchCommitModalTab(diffPaneReturnTab);
+  closeSubPane();
 }
 
 async function openGitLogModal() {
@@ -797,7 +807,7 @@ async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
   actionsEl.innerHTML = "";
   actionsEl.style.display = "none";
   $("diff-commit-form").style.display = "none";
-  diffPaneReturnTab = "commits";
+  subPaneReturnTab = "commits";
   showDiffPane(commitMsg || "");
 
   if (commitHash) {
@@ -908,14 +918,14 @@ async function selectDiffFile(file) {
   if (text) {
     diffContent.appendChild(colorDiff(text));
   } else if (file) {
-    await loadFileContent(file, diffContent);
+    await loadFileContentInto(file, diffContent);
   } else {
     diffContent.textContent = "差分なし";
   }
   diffContent.scrollTop = 0;
 }
 
-async function loadFileContent(filePath, container) {
+async function loadFileContentInto(filePath, container) {
   container.textContent = "読み込み中...";
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/file-content?path=${encodeURIComponent(filePath)}`));
@@ -1005,7 +1015,7 @@ async function openDiffModal() {
   if (!selectedWorkspace) return;
 
   commitModalFilesLoaded = false;
-  diffPaneReturnTab = "commits";
+  subPaneReturnTab = "commits";
   $("git-log-modal").style.display = "flex";
   updateGitLogBranchLabel();
   showDiffPane("変更内容");
@@ -1054,12 +1064,11 @@ async function submitCommit() {
   }
 }
 
-async function openBranchModal() {
-  const modal = $("branch-modal");
-  const listEl = $("branch-list");
-  modal.querySelector("h3").textContent = "リモートブランチ";
+async function openRemoteBranchPane() {
+  subPaneReturnTab = "commits";
+  showSubPane("commit-modal-tab-branch", "リモートブランチ");
+  const listEl = $("branch-pane-list");
   listEl.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
-  modal.style.display = "flex";
 
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/branches/remote"));
@@ -1092,22 +1101,16 @@ async function openBranchModal() {
       }
       item.addEventListener("click", async () => {
         if (branch === currentBranch) return;
-        $("branch-modal").style.display = "none";
+        closeSubPane();
         await checkoutBranch(branch);
-        if ($("git-log-modal").style.display !== "none") {
-          updateGitLogBranchLabel();
-          await reloadGitLog();
-        }
+        updateGitLogBranchLabel();
+        await reloadGitLog();
       });
       listEl.appendChild(item);
     }
   } catch (e) {
     listEl.innerHTML = `<div class="clone-repo-error">${escapeHtml(e.message)}</div>`;
   }
-}
-
-function closeBranchModal() {
-  $("branch-modal").style.display = "none";
 }
 
 function formatFileSize(bytes) {

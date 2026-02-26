@@ -108,7 +108,7 @@
     <div id="git-log-modal" class="modal-overlay" style="display:none">
       <div class="modal">
         <div class="modal-header">
-          <h3 id="git-log-modal-title">コミット履歴</h3>
+          <h3 id="git-log-modal-title" class="split-modal-title">コミット履歴</h3>
           <button id="git-log-close" class="modal-close-btn" title="閉じる">&times;</button>
         </div>
         <div class="commit-modal-tabs" id="commit-modal-tabs">
@@ -121,7 +121,7 @@
               <span class="mdi mdi-source-branch"></span> <span id="git-log-branch-label"></span>
             </button>
             <button type="button" class="git-action-btn fetch-btn" id="fetch-btn" onclick="gitFetch()">fetch</button>
-            <button type="button" class="git-action-btn stash-btn" id="stash-btn" onclick="openStashPanel()">stash</button>
+            <button type="button" class="git-action-btn stash-btn" id="stash-btn" onclick="openStashPane()">stash</button>
           </div>
           <div class="modal-scroll-body" id="git-log-list-modal"></div>
           <div id="git-log-action-menu" class="commit-action-menu" style="display:none"></div>
@@ -137,7 +137,6 @@
           <div id="commit-modal-file-browser"></div>
         </div>
         <div id="commit-modal-tab-diff" style="display:none">
-          <button type="button" class="diff-back-btn" id="diff-back-btn" onclick="closeDiffPane()"><span class="mdi mdi-arrow-left"></span> <span id="diff-back-title"></span></button>
           <div class="diff-actions" id="diff-actions" style="display:none"></div>
           <div class="diff-file-list" id="diff-file-list"></div>
           <pre class="diff-content" id="diff-content"></pre>
@@ -150,26 +149,11 @@
             </div>
           </div>
         </div>
-      </div>
-    </div>
-    <!-- Branch Modal -->
-    <div id="stash-modal" class="modal-overlay" style="display:none">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>Stash</h3>
-          <button type="button" id="stash-modal-close" class="modal-close-btn" onclick="closeStashModal()">&times;</button>
+        <div id="commit-modal-tab-stash" style="display:none">
+          <div class="modal-scroll-body" id="stash-pane-list"></div>
         </div>
-        <div class="modal-scroll-body" id="stash-list"></div>
-      </div>
-    </div>
-    <div id="branch-modal" class="modal-overlay" style="display:none">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>リモートブランチ</h3>
-          <button type="button" id="branch-modal-close" class="modal-close-btn">&times;</button>
-        </div>
-        <div class="branch-list" id="branch-list">
-          <div class="clone-repo-loading">読み込み中...</div>
+        <div id="commit-modal-tab-branch" style="display:none">
+          <div class="modal-scroll-body" id="branch-pane-list"></div>
         </div>
       </div>
     </div>
