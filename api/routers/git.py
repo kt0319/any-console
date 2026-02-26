@@ -371,9 +371,12 @@ def get_workspace_diff(name: str):
     )
     diff_result = run_git_command(["diff"], cwd=ws_path, operation="diff")
     diff_staged_result = run_git_command(["diff", "--staged"], cwd=ws_path, operation="diff --staged")
-    files = [
-        line[3:] for line in status_result["stdout"].splitlines() if len(line) > 3
-    ] if status_result["exit_code"] == 0 else []
+    files = []
+    if status_result["exit_code"] == 0:
+        for line in status_result["stdout"].splitlines():
+            if len(line) > 3:
+                status_code = line[:2].strip()
+                files.append({"name": line[3:], "status": status_code})
     diff_text = ""
     if diff_staged_result["exit_code"] == 0 and diff_staged_result["stdout"]:
         diff_text += diff_staged_result["stdout"]

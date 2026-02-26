@@ -225,6 +225,9 @@ function connectTerminalWs(tab) {
     }
     if (hasOscTitle && tab.id !== activeTabId && !tab._activity) {
       tab._activity = true;
+      if (!document.title.startsWith("* ")) {
+        document.title = "* " + document.title;
+      }
       clearTimeout(tab._activityTimer);
       tab._activityTimer = setTimeout(() => {
         tab._activity = false;

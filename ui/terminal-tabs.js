@@ -209,6 +209,9 @@ async function switchTab(id) {
   activeTabId = id;
   const switchedTab = openTabs.find((t) => t.id === id);
   if (switchedTab) switchedTab._activity = false;
+  if (document.title.startsWith("* ")) {
+    document.title = document.title.slice(2);
+  }
 
   syncWorkspaceForTab(id);
 

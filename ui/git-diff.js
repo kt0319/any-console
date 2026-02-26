@@ -87,6 +87,8 @@ function splitDiffByFile(diffText) {
   return chunks;
 }
 
+const DIFF_NEW_STATUSES = new Set(["??", "A"]);
+
 function renderDiffFileList(fileList, files, diffText) {
   diffChunks = splitDiffByFile(diffText);
   diffFullText = diffText;
@@ -104,11 +106,19 @@ function renderDiffFileList(fileList, files, diffText) {
   fileList.appendChild(allTag);
 
   for (const f of files) {
+    const isObj = typeof f === "object";
+    const name = isObj ? f.name : f;
+    const isNew = isObj && DIFF_NEW_STATUSES.has(f.status);
     const tag = document.createElement("span");
     tag.className = "diff-file-tag";
-    tag.dataset.file = f;
-    tag.textContent = f;
-    tag.addEventListener("click", () => selectDiffFile(f));
+    tag.dataset.file = name;
+    if (isNew) {
+      const dot = document.createElement("span");
+      dot.className = "diff-new-dot";
+      tag.appendChild(dot);
+    }
+    tag.appendChild(document.createTextNode(name));
+    tag.addEventListener("click", () => selectDiffFile(name));
     fileList.appendChild(tag);
   }
 }

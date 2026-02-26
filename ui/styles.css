@@ -2404,6 +2404,16 @@ button:disabled {
   -webkit-tap-highlight-color: transparent;
 }
 
+.diff-new-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
 .diff-file-tag.active {
   background: var(--accent);
   color: var(--bg-primary);
