@@ -170,9 +170,8 @@ async function executeJobDirect(targetJob, job, workspace) {
     });
     if (!res) return;
     const data = await res.json();
-    if (data.status === "error" || data.returncode !== 0) {
-      const msg = (data.stderr || data.stdout || "失敗").slice(0, 200);
-      showToast(`${label}: ${msg}`);
+    if (!res.ok || data.status === "error" || data.exit_code !== 0) {
+      showToast(data.detail || data.stderr || data.stdout || "失敗");
     } else {
       const msg = (data.stdout || "完了").slice(0, 200);
       showToast(`${label}: ${msg}`, "success");
