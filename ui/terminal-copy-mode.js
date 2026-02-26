@@ -1,5 +1,5 @@
 function exitAllCopyModes(exceptId) {
-  for (const t of tabs) {
+  for (const t of openTabs) {
     if (t.type === "terminal" && t.id !== exceptId) exitTerminalCopyMode(t.id);
   }
 }
@@ -72,7 +72,7 @@ function terminalBufferToHtml(term) {
 
 function enterTerminalCopyMode(tabId) {
   if (!panelBottom) return;
-  const tab = tabs.find((t) => t.id === tabId);
+  const tab = openTabs.find((t) => t.id === tabId);
   if (!tab || tab.type !== "terminal") return;
   const container = $(`frame-${tabId}`);
   if (!container || container.classList.contains("view-mode")) return;

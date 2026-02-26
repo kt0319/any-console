@@ -149,10 +149,10 @@ function onTabDragEnd(e) {
       }
       const tabId = el.dataset.tab;
       if (!tabId) continue;
-      const t = tabs.find((t) => t.id === tabId);
+      const t = openTabs.find((t) => t.id === tabId);
       if (t) reordered.push(t);
     }
-    tabs = reordered;
+    openTabs = reordered;
   }
 
   btn.classList.remove("tab-dragging");
@@ -170,7 +170,7 @@ document.addEventListener("paste", (e) => {
   const el = document.activeElement;
   const isInput = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
   if (isInput) return;
-  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const activeTab = openTabs.find((t) => t.id === activeTabId);
   if (!activeTab || activeTab.type !== "terminal") return;
   e.preventDefault();
   e.stopPropagation();

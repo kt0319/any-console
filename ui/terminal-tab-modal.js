@@ -81,7 +81,7 @@ function openTabEditModal(initialTab = "layout") {
 
   function renderLayoutTab(target) {
     const container = target || contentContainer;
-    const tabCount = tabs.length;
+    const tabCount = openTabs.length;
     const modeRow = document.createElement("div");
     modeRow.className = "split-tab-mode-row";
     modeBtns.length = 0;
@@ -169,8 +169,8 @@ function openTabEditModal(initialTab = "layout") {
     const list = contentContainer.querySelector(".split-tab-list");
     if (!list) return;
     list.innerHTML = "";
-    for (let i = 0; i < tabs.length; i++) {
-      const tab = tabs[i];
+    for (let i = 0; i < openTabs.length; i++) {
+      const tab = openTabs[i];
 
       const row = document.createElement("div");
       row.className = "split-tab-row";
@@ -228,7 +228,7 @@ function openTabEditModal(initialTab = "layout") {
       list.appendChild(row);
     }
 
-    for (const s of orphanSessions) {
+    for (const s of disconnectedSessions) {
       const row = document.createElement("div");
       row.className = "split-tab-row split-tab-row-orphan" + (s.expired ? " split-tab-row-expired" : "");
 
@@ -252,7 +252,7 @@ function openTabEditModal(initialTab = "layout") {
       row.addEventListener("click", (e) => {
         if (e.target.closest(".split-tab-close-btn")) return;
         if (s.expired) {
-          orphanSessions = orphanSessions.filter((o) => o.wsUrl !== s.wsUrl);
+          disconnectedSessions = disconnectedSessions.filter((o) => o.wsUrl !== s.wsUrl);
           closedSessionUrls.add(s.wsUrl);
           runJob(s.jobName || "terminal", null, s.workspace);
           return;
@@ -275,7 +275,7 @@ function openTabEditModal(initialTab = "layout") {
             deleteTerminalSession(match[1]);
           }
         }
-        orphanSessions = orphanSessions.filter((o) => o.wsUrl !== s.wsUrl);
+        disconnectedSessions = disconnectedSessions.filter((o) => o.wsUrl !== s.wsUrl);
         closedSessionUrls.add(s.wsUrl);
         renderTabList();
       });
@@ -352,10 +352,10 @@ function openTabEditModal(initialTab = "layout") {
 
   function applyTabOrder(list) {
     const rows = Array.from(list.children);
-    const newOrder = rows.map((r) => tabs[parseInt(r.dataset.idx)]).filter(Boolean);
+    const newOrder = rows.map((r) => openTabs[parseInt(r.dataset.idx)]).filter(Boolean);
 
-    tabs.length = 0;
-    tabs.push(...newOrder);
+    openTabs.length = 0;
+    openTabs.push(...newOrder);
 
     if (splitMode) {
       splitPaneTabIds = newOrder.map((t) => t.id);
@@ -418,14 +418,14 @@ function openTabEditModal(initialTab = "layout") {
       gearBtn.addEventListener("click", () => {
         contentContainer.innerHTML = "";
         setTitle(ws.name, () => showMainView());
-        renderWsSettingsPane(contentContainer, ws, () => showMainView(), setTitle);
+        renderWorkspaceSettingsPane(contentContainer, ws, () => showMainView(), setTitle);
       });
       headerEl.appendChild(gearBtn);
 
       group.appendChild(headerEl);
       container.appendChild(group);
 
-      loadWsIconButtons(icons, ws, 18,
+      loadWorkspaceIconButtons(icons, ws, 18,
         (link) => { window.open(link.url, "_blank"); },
         (name, job) => {
           if (job.confirm !== false) {
@@ -496,8 +496,8 @@ function openTabEditModal(initialTab = "layout") {
     let pickerSelectedUrl = "";
     let pickerRepos = [];
 
-    const cloneTabs = document.createElement("div");
-    cloneTabs.className = "clone-tabs";
+    const cloneModalActiveTabs = document.createElement("div");
+    cloneModalActiveTabs.className = "clone-openTabs";
     const githubBtn = document.createElement("button");
     githubBtn.type = "button";
     githubBtn.className = "clone-tab" + (defaultTab === "github" ? " active" : "");
@@ -510,8 +510,8 @@ function openTabEditModal(initialTab = "layout") {
     visibilityBtn.type = "button";
     visibilityBtn.className = "clone-tab" + (defaultTab === "visibility" ? " active" : "");
     visibilityBtn.textContent = "表示設定";
-    cloneTabs.append(visibilityBtn, githubBtn, urlBtn);
-    content.appendChild(cloneTabs);
+    cloneModalActiveTabs.append(visibilityBtn, githubBtn, urlBtn);
+    content.appendChild(cloneModalActiveTabs);
 
     const githubPane = document.createElement("div");
     githubPane.className = "clone-tab-content";
@@ -540,7 +540,7 @@ function openTabEditModal(initialTab = "layout") {
     const visibilityPane = document.createElement("div");
     visibilityPane.className = "clone-tab-content";
     visibilityPane.style.display = defaultTab === "visibility" ? "block" : "none";
-    if (defaultTab === "visibility") renderWsVisibilityChecklistTo(visibilityPane);
+    if (defaultTab === "visibility") renderWorkspaceVisibilityChecklistTo(visibilityPane);
     content.appendChild(visibilityPane);
 
     const nameGroup = document.createElement("div");
@@ -585,7 +585,7 @@ function openTabEditModal(initialTab = "layout") {
       visibilityPane.style.display = tab === "visibility" ? "block" : "none";
       cloneFields.style.display = tab === "visibility" ? "none" : "";
       if (tab === "url") urlInput.focus();
-      if (tab === "visibility") renderWsVisibilityChecklistTo(visibilityPane);
+      if (tab === "visibility") renderWorkspaceVisibilityChecklistTo(visibilityPane);
       if (tab === "github" && pickerRepos.length === 0) loadRepos();
     }
 

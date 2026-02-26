@@ -17,7 +17,7 @@ async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
   actionsEl.innerHTML = "";
   actionsEl.style.display = "none";
   $("diff-commit-form").style.display = "none";
-  subPaneReturnTab = "commits";
+  previousModalTab = "commits";
   showDiffPane(commitMsg || "");
 
   if (commitHash) {
@@ -203,8 +203,8 @@ async function loadDiffTab() {
 async function openDiffModal() {
   if (!selectedWorkspace) return;
 
-  commitModalFilesLoaded = false;
-  subPaneReturnTab = "commits";
+  isGitLogFilesLoaded = false;
+  previousModalTab = "commits";
   $("git-log-modal").style.display = "flex";
   updateGitLogBranchLabel();
   showDiffPane("変更内容");
@@ -245,7 +245,7 @@ async function submitCommit() {
     }
     closeGitLogModal();
     showToast("コミット完了", "success");
-    await updateHeaderInfo();
+    await refreshWorkspaceHeader();
   } catch (e) {
     showFormError("diff-commit-error", e.message);
   } finally {

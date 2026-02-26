@@ -19,7 +19,7 @@ function closeSettings() {
   $("settings-modal").style.display = "none";
 }
 
-function createWsItemElements(ws) {
+function createWorkspaceItemElements(ws) {
   const iconSpan = document.createElement("span");
   iconSpan.className = "ws-icon-display";
   iconSpan.innerHTML = ws.icon ? renderIcon(ws.icon, ws.icon_color, 18) : '<span class="mdi mdi-console" style="color:var(--text-muted)"></span>';
@@ -29,12 +29,12 @@ function createWsItemElements(ws) {
   return { iconSpan, label };
 }
 
-function renderWsVisibilityTo(container, onGearClick) {
+function renderWorkspaceListTo(container, onGearClick) {
   container.innerHTML = "";
   for (const ws of allWorkspaces) {
     const item = document.createElement("div");
     item.className = "ws-check-item";
-    const { iconSpan, label } = createWsItemElements(ws);
+    const { iconSpan, label } = createWorkspaceItemElements(ws);
     item.append(iconSpan, label);
 
     if (onGearClick) {
@@ -50,7 +50,7 @@ function renderWsVisibilityTo(container, onGearClick) {
   }
 }
 
-function renderWsVisibilityChecklistTo(container) {
+function renderWorkspaceVisibilityChecklistTo(container) {
   container.innerHTML = "";
   for (const ws of allWorkspaces) {
     const item = document.createElement("div");
@@ -60,7 +60,7 @@ function renderWsVisibilityChecklistTo(container) {
     checkbox.checked = !ws.hidden;
     checkbox.dataset.ws = ws.name;
     checkbox.addEventListener("change", (e) => toggleWorkspace(ws.name, e.target.checked));
-    const { iconSpan, label } = createWsItemElements(ws);
+    const { iconSpan, label } = createWorkspaceItemElements(ws);
     item.append(checkbox, iconSpan, label);
     container.appendChild(item);
   }
@@ -70,8 +70,8 @@ function openSettingsWsVisibility() {
   $("settings-title").textContent = "ワークスペース設定";
   showSettingsView("settings-ws-visibility");
   const wsCheckList = $("ws-check-list");
-  renderWsVisibilityTo(wsCheckList, (ws) => {
-    renderWsSettingsPane(wsCheckList, ws, () => openSettingsWsVisibility());
+  renderWorkspaceListTo(wsCheckList, (ws) => {
+    renderWorkspaceSettingsPane(wsCheckList, ws, () => openSettingsWsVisibility());
   });
   $("settings-modal").style.display = "flex";
 }
@@ -80,7 +80,7 @@ function openSettingsWsAdd() {
   openCloneModal("visibility");
 }
 
-function renderWsSettingsPane(container, ws, onBack, setTitleFn) {
+function renderWorkspaceSettingsPane(container, ws, onBack, setTitleFn) {
   container.innerHTML = "";
   const sub = document.createElement("div");
   sub.className = "split-tab-settings-sub";
@@ -101,7 +101,7 @@ function renderWsSettingsPane(container, ws, onBack, setTitleFn) {
   sub.appendChild(body);
   container.appendChild(sub);
 
-  const goBackToSettings = () => renderWsSettingsPane(container, ws, onBack, setTitleFn);
+  const goBackToSettings = () => renderWorkspaceSettingsPane(container, ws, onBack, setTitleFn);
 
   const iconRow = document.createElement("div");
   iconRow.className = "ws-settings-row";
@@ -117,13 +117,13 @@ function renderWsSettingsPane(container, ws, onBack, setTitleFn) {
     '<span class="icon-select-label">' + escapeHtml(ws.icon || "デフォルト") + '</span></span>';
   iconBtn.addEventListener("click", () => {
     if (setTitleFn) {
-      const closePicker = openWsIconPickerInline(container, ws, goBackToSettings);
+      const closePicker = openWorkspaceIconPickerInline(container, ws, goBackToSettings);
       setTitleFn("アイコン選択", () => {
         closePicker();
         goBackToSettings();
       });
     } else {
-      openWsIconPicker(ws, goBackToSettings);
+      openWorkspaceIconPicker(ws, goBackToSettings);
     }
   });
   iconRow.appendChild(iconBtn);
@@ -173,10 +173,10 @@ function renderWsSettingsPane(container, ws, onBack, setTitleFn) {
   linkSection.appendChild(linkList);
   body.appendChild(linkSection);
 
-  loadWsSettingsItems(jobList, linkList, container, ws, onBack, setTitleFn);
+  loadWorkspaceSettingsItems(jobList, linkList, container, ws, onBack, setTitleFn);
 }
 
-async function loadWsSettingsItems(jobList, linkList, container, ws, onBack, setTitleFn) {
+async function loadWorkspaceSettingsItems(jobList, linkList, container, ws, onBack, setTitleFn) {
   let jobs = {};
   let links = [];
   try {
@@ -187,10 +187,10 @@ async function loadWsSettingsItems(jobList, linkList, container, ws, onBack, set
     if (jobsRes && jobsRes.ok) jobs = await jobsRes.json();
     if (linksRes && linksRes.ok) links = await linksRes.json();
   } catch (e) {
-    console.error("loadWsSettingsItems failed:", e);
+    console.error("loadWorkspaceSettingsItems failed:", e);
   }
 
-  const goBackToSettings = () => renderWsSettingsPane(container, ws, onBack, setTitleFn);
+  const goBackToSettings = () => renderWorkspaceSettingsPane(container, ws, onBack, setTitleFn);
 
   const jobEntries = Object.entries(jobs).filter(([name]) => name !== "terminal");
   if (jobEntries.length === 0) {
@@ -352,7 +352,7 @@ async function openOpLog() {
 }
 
 
-async function saveWsIcon(ws, icon, color) {
+async function saveWorkspaceIcon(ws, icon, color) {
   try {
     const res = await apiFetch(workspaceApiPath(ws.name, "/config"), {
       method: "PUT",
@@ -374,20 +374,20 @@ async function saveWsIcon(ws, icon, color) {
   }
 }
 
-function openWsIconPicker(ws, refreshFn) {
+function openWorkspaceIconPicker(ws, refreshFn) {
   openIconPicker(async (icon, color) => {
-    if (await saveWsIcon(ws, icon, color)) {
+    if (await saveWorkspaceIcon(ws, icon, color)) {
       refreshFn ? refreshFn() : openSettingsWsVisibility();
     }
   }, ws.icon, ws.icon_color);
 }
 
-function openWsIconPickerInline(container, ws, refreshFn) {
+function openWorkspaceIconPickerInline(container, ws, refreshFn) {
   container.innerHTML = "";
   const wrapper = document.createElement("div");
   container.appendChild(wrapper);
   return renderInlineIconPicker(wrapper, async (icon, color) => {
-    await saveWsIcon(ws, icon, color);
+    await saveWorkspaceIcon(ws, icon, color);
     refreshFn();
   }, ws.icon, ws.icon_color, true);
 }
@@ -416,7 +416,7 @@ async function toggleWorkspace(name, visible) {
     selectionCleared = true;
   }
   if (selectionCleared) {
-    updateHeaderInfo();
+    refreshWorkspaceHeader();
     loadJobsForWorkspace();
   }
 }
@@ -446,7 +446,7 @@ function closeCloneModal() {
 }
 
 function switchCloneTab(tab) {
-  cloneTab = tab;
+  cloneModalActiveTab = tab;
   for (const btn of document.querySelectorAll("#clone-modal .clone-tab")) {
     btn.classList.toggle("active", btn.dataset.tab === tab);
   }
@@ -456,7 +456,7 @@ function switchCloneTab(tab) {
   const cloneFields = $("clone-modal-clone-fields");
   if (cloneFields) cloneFields.style.display = tab === "visibility" ? "none" : "";
   if (tab === "url") $("clone-url").focus();
-  if (tab === "visibility") renderWsVisibilityChecklistTo($("clone-visibility-list"));
+  if (tab === "visibility") renderWorkspaceVisibilityChecklistTo($("clone-visibility-list"));
 }
 
 async function loadGithubRepos() {
@@ -501,13 +501,13 @@ function selectGithubRepo(url) {
 }
 
 async function submitClone() {
-  let url = cloneTab === "github" ? selectedCloneUrl : $("clone-url").value.trim();
+  let url = cloneModalActiveTab === "github" ? selectedCloneUrl : $("clone-url").value.trim();
   url = toSshUrl(url);
   const name = $("clone-name").value.trim();
   const outputEl = $("clone-output");
 
   if (!url) {
-    showFormError("clone-error", cloneTab === "github" ? "リポジトリを選択してください" : "URLを入力してください");
+    showFormError("clone-error", cloneModalActiveTab === "github" ? "リポジトリを選択してください" : "URLを入力してください");
     return;
   }
 

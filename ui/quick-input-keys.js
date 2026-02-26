@@ -1,5 +1,5 @@
 function getActiveTerminalTab() {
-  const tab = tabs.find((t) => t.id === activeTabId);
+  const tab = openTabs.find((t) => t.id === activeTabId);
   if (!tab || tab.type !== "terminal") return null;
   return tab;
 }
@@ -150,7 +150,7 @@ function setupFlickRepeat(el, resolveKey, onTap, opts = {}) {
 }
 
 async function uploadClipboardImage(file) {
-  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const activeTab = openTabs.find((t) => t.id === activeTabId);
   if (!activeTab || activeTab.type !== "terminal") return;
 
   const form = new FormData();

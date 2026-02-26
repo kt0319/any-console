@@ -20,7 +20,7 @@ function stopSessionKeepalive() {
 }
 
 async function pingTerminalSessions() {
-  const termTabs = tabs.filter((t) => t.type === "terminal");
+  const termTabs = openTabs.filter((t) => t.type === "terminal");
   if (termTabs.length === 0) return;
   try {
     await apiFetch("/terminal/sessions");
@@ -32,7 +32,7 @@ async function onVisibilityRestore() {
   lastVisibleTime = Date.now();
   if (elapsed < 30_000) return;
 
-  const termTabs = tabs.filter((t) => t.type === "terminal");
+  const termTabs = openTabs.filter((t) => t.type === "terminal");
   if (termTabs.length === 0) return;
 
   try {
@@ -43,10 +43,10 @@ async function onVisibilityRestore() {
 
     for (const tab of termTabs) {
       if (!aliveWsUrls.has(tab.wsUrl)) {
-        orphanSessions.push({
+        disconnectedSessions.push({
           wsUrl: tab.wsUrl, workspace: tab.label, expired: true,
           icon: tab.icon?.name, iconColor: tab.icon?.color,
-          tabIndex: tabs.indexOf(tab), jobName: tab.jobName || null,
+          tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null,
         });
         removeTab(tab.id);
       }
@@ -64,7 +64,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 function refitActiveTerminal() {
-  const tab = tabs.find((t) => t.id === activeTabId && t.type === "terminal");
+  const tab = openTabs.find((t) => t.id === activeTabId && t.type === "terminal");
   if (!tab) return;
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
@@ -73,9 +73,9 @@ function refitActiveTerminal() {
   });
 }
 
-function saveTerminalTabs() {
-  updateOrphanSessions();
-  if (tabs.some((t) => t.type === "terminal")) {
+function syncTerminalSessionState() {
+  removeLocalSessionsFromOrphans();
+  if (openTabs.some((t) => t.type === "terminal")) {
     startSessionKeepalive();
   } else {
     stopSessionKeepalive();
@@ -86,44 +86,44 @@ async function fetchOrphanSessions() {
   try {
     const res = await apiFetch("/terminal/sessions");
     if (!res || !res.ok) {
-      orphanSessions = [];
+      disconnectedSessions = [];
       renderTabBar();
       return;
     }
     const sessions = await res.json();
-    updateOrphanFromSessions(sessions);
+    reconcileOrphansWithServer(sessions);
   } catch (e) {
     console.error("fetchOrphanSessions failed:", e);
-    orphanSessions = [];
+    disconnectedSessions = [];
   }
   renderTabBar();
 }
 
-function updateOrphanSessions() {
-  const localWsUrls = new Set(tabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
-  orphanSessions = orphanSessions.filter((s) => !localWsUrls.has(s.wsUrl));
+function removeLocalSessionsFromOrphans() {
+  const localWsUrls = new Set(openTabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
+  disconnectedSessions = disconnectedSessions.filter((s) => !localWsUrls.has(s.wsUrl));
 }
 
-function updateOrphanFromSessions(sessions) {
-  const localWsUrls = new Set(tabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
+function reconcileOrphansWithServer(sessions) {
+  const localWsUrls = new Set(openTabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
   const serverUrls = new Set(sessions.map((s) => s.ws_url));
-  const oldOrphans = new Map(orphanSessions.map((s) => [s.wsUrl, s]));
+  const oldOrphans = new Map(disconnectedSessions.map((s) => [s.wsUrl, s]));
 
   const liveOrphans = sessions
     .filter((s) => !localWsUrls.has(s.ws_url) && !closedSessionUrls.has(s.ws_url))
     .map((s, i) => {
       const old = oldOrphans.get(s.ws_url);
-      return { wsUrl: s.ws_url, workspace: s.workspace, expiresIn: s.expires_in, icon: s.icon, iconColor: s.icon_color, tabIndex: old ? old.tabIndex : tabs.length + i, expired: false };
+      return { wsUrl: s.ws_url, workspace: s.workspace, expiresIn: s.expires_in, icon: s.icon, iconColor: s.icon_color, tabIndex: old ? old.tabIndex : openTabs.length + i, expired: false };
     });
 
-  const expiredOrphans = orphanSessions
+  const expiredOrphans = disconnectedSessions
     .filter((s) => !s.expired && !serverUrls.has(s.wsUrl) && !localWsUrls.has(s.wsUrl) && !closedSessionUrls.has(s.wsUrl))
     .map((s) => ({ ...s, expired: true }));
 
-  const existingExpired = orphanSessions
+  const existingExpired = disconnectedSessions
     .filter((s) => s.expired && !closedSessionUrls.has(s.wsUrl));
 
-  orphanSessions = [...liveOrphans, ...expiredOrphans, ...existingExpired];
+  disconnectedSessions = [...liveOrphans, ...expiredOrphans, ...existingExpired];
 
   for (const url of closedSessionUrls) {
     if (!sessions.some((s) => s.ws_url === url)) closedSessionUrls.delete(url);
@@ -132,16 +132,16 @@ function updateOrphanFromSessions(sessions) {
 
 function joinOrphanSession(wsUrl, workspace) {
   const label = workspace || "terminal";
-  const orphan = orphanSessions.find((s) => s.wsUrl === wsUrl);
+  const orphan = disconnectedSessions.find((s) => s.wsUrl === wsUrl);
   const tabIcon = orphan && orphan.icon ? { name: orphan.icon, color: orphan.iconColor || "" } : null;
   const ws = workspace ? allWorkspaces.find((w) => w.name === workspace) : null;
   const isDuplicateIcon = ws && ws.icon && orphan && orphan.icon === ws.icon;
   const wsIcon = isDuplicateIcon ? null : (ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null);
   addTerminalTab(wsUrl, label, null, true, false, null, tabIcon, wsIcon);
-  const tab = tabs.find((t) => t.wsUrl === wsUrl);
+  const tab = openTabs.find((t) => t.wsUrl === wsUrl);
   if (tab) tab._pendingRedraw = true;
-  orphanSessions = orphanSessions.filter((s) => s.wsUrl !== wsUrl);
-  saveTerminalTabs();
+  disconnectedSessions = disconnectedSessions.filter((s) => s.wsUrl !== wsUrl);
+  syncTerminalSessionState();
   switchTab(tab ? tab.id : null);
 }
 
@@ -255,10 +255,10 @@ function connectTerminalWs(tab) {
     if (tab._wsDisposed || isPageUnloading) return;
     if (e.code === 1000 || e.code === 1008) {
       if (e.code === 1008) {
-        orphanSessions.push({
+        disconnectedSessions.push({
           wsUrl: tab.wsUrl, workspace: tab.label, expired: true,
           icon: tab.icon?.name, iconColor: tab.icon?.color,
-          tabIndex: tabs.indexOf(tab), jobName: tab.jobName || null,
+          tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null,
         });
       }
       removeTab(tab.id);

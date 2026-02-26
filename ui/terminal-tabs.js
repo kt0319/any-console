@@ -17,7 +17,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
     if (m) terminalIdCounter = Math.max(terminalIdCounter, parseInt(m[1]));
   }
   const label = workspace || "terminal";
-  if (tabs.some((t) => t.id === id)) return;
+  if (openTabs.some((t) => t.id === id)) return;
 
   const container = document.createElement("div");
   container.className = "terminal-frame";
@@ -86,7 +86,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
 
 
   const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, jobName: jobName || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
-  tabs.push(tab);
+  openTabs.push(tab);
   createTabNamePill(tab, container);
 
   if (!restored) {
@@ -95,12 +95,12 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
   }
 
   if (skipSwitch) return;
-  saveTerminalTabs();
+  syncTerminalSessionState();
   switchTab(id);
 }
 
 function setOutputTab(id, label, htmlContent, icon, wsIcon, workspace) {
-  const existing = tabs.find((t) => t.id === id);
+  const existing = openTabs.find((t) => t.id === id);
   if (existing) {
     existing.label = label;
     if (icon !== undefined) existing.icon = icon;
@@ -115,7 +115,7 @@ function setOutputTab(id, label, htmlContent, icon, wsIcon, workspace) {
     return;
   }
   const tab = { id, type: "output", label, icon: icon || null, wsIcon: wsIcon || null, workspace: workspace || null };
-  tabs.push(tab);
+  openTabs.push(tab);
   const div = document.createElement("div");
   div.className = "output-area";
   div.id = `frame-${id}`;
@@ -127,7 +127,7 @@ function setOutputTab(id, label, htmlContent, icon, wsIcon, workspace) {
 }
 
 function removeTab(id) {
-  const tab = tabs.find((t) => t.id === id);
+  const tab = openTabs.find((t) => t.id === id);
   if (!tab) return;
 
   if (splitMode) {
@@ -154,13 +154,13 @@ function removeTab(id) {
     if (tab.fitAddon) try { tab.fitAddon.dispose(); } catch (e) { console.warn("fitAddon.dispose failed:", e); }
     if (tab.term) tab.term.dispose();
   }
-  tabs = tabs.filter((t) => t.id !== id);
+  openTabs = openTabs.filter((t) => t.id !== id);
   const el = $(`frame-${id}`);
   if (el) el.remove();
-  saveTerminalTabs();
+  syncTerminalSessionState();
 
   if (splitMode) {
-    if (tabs.length === 0) {
+    if (openTabs.length === 0) {
       exitSplitModeWithTab(null);
       updateHeaderForTab(null);
       if (!document.getElementById("split-tab-modal-overlay")) openTabEditModal("open");
@@ -170,13 +170,13 @@ function removeTab(id) {
     return;
   }
 
-  if (tabs.length === 0) {
+  if (openTabs.length === 0) {
     activeTabId = null;
     renderTabBar();
     updateHeaderForTab(null);
     if (!document.getElementById("split-tab-modal-overlay")) openTabEditModal("open");
   } else if (activeTabId === id) {
-    const next = tabs[tabs.length - 1].id;
+    const next = openTabs[openTabs.length - 1].id;
     switchTab(next);
   } else {
     renderTabBar();
@@ -185,13 +185,13 @@ function removeTab(id) {
 
 async function switchTab(id) {
   if (splitMode) {
-    const switchedTab = tabs.find((t) => t.id === id);
+    const switchedTab = openTabs.find((t) => t.id === id);
     if (switchedTab) switchedTab._activity = false;
 
-    const needsRebuild = tabs.length !== splitPaneTabIds.length ||
-      tabs.some((t) => !splitPaneTabIds.includes(t.id));
+    const needsRebuild = openTabs.length !== splitPaneTabIds.length ||
+      openTabs.some((t) => !splitPaneTabIds.includes(t.id));
     if (needsRebuild) {
-      splitPaneTabIds = tabs.map((t) => t.id);
+      splitPaneTabIds = openTabs.map((t) => t.id);
       const idx = splitPaneTabIds.indexOf(id);
       activePaneIndex = idx >= 0 ? idx : 0;
       activeTabId = splitPaneTabIds[activePaneIndex];
@@ -207,10 +207,10 @@ async function switchTab(id) {
   exitAllCopyModes();
 
   activeTabId = id;
-  const switchedTab = tabs.find((t) => t.id === id);
+  const switchedTab = openTabs.find((t) => t.id === id);
   if (switchedTab) switchedTab._activity = false;
   $("output").style.display = id === null ? "" : "none";
-  for (const tab of tabs) {
+  for (const tab of openTabs) {
     const el = $(`frame-${tab.id}`);
     if (el) {
       if (tab.id === id) {
@@ -245,13 +245,13 @@ async function switchTab(id) {
 async function updateHeaderForTab(id) {
   if (splitMode || id === null) {
     selectedWorkspace = null;
-    await updateHeaderInfo();
+    await refreshWorkspaceHeader();
     await loadJobsForWorkspace();
     updateGitBarVisibility();
     return;
   }
 
-  const activeTab = tabs.find((t) => t.id === id);
+  const activeTab = openTabs.find((t) => t.id === id);
   const isTerminalTab = activeTab && activeTab.type === "terminal";
 
   if (isTerminalTab && activeTab.label) {
@@ -261,7 +261,7 @@ async function updateHeaderForTab(id) {
         selectedWorkspace = ws.name;
         await loadJobsForWorkspace();
       }
-      await updateHeaderInfo();
+      await refreshWorkspaceHeader();
     }
   }
   updateGitBarVisibility();
@@ -297,19 +297,19 @@ function renderTabBar() {
   const barRow = $("tab-bar").parentNode;
   if (splitMode) {
     barRow.style.display = "none";
-    updateEmptyPlaceholder(tabs.length === 0);
+    updateEmptyPlaceholder(openTabs.length === 0);
     return;
   }
   const bar = $("tab-bar");
-  const items = tabs.map((tab, i) => ({ type: "tab", tab, index: i }));
-  for (const s of orphanSessions) {
+  const items = openTabs.map((tab, i) => ({ type: "tab", tab, index: i }));
+  for (const s of disconnectedSessions) {
     items.push({ type: "orphan", orphan: s, index: s.tabIndex != null ? s.tabIndex : items.length });
   }
   items.sort((a, b) => a.index - b.index);
 
-  const hasAnyTabs = tabs.length > 0 || orphanSessions.length > 0;
+  const hasAnyTabs = openTabs.length > 0 || disconnectedSessions.length > 0;
   barRow.style.display = hasAnyTabs ? "flex" : "none";
-  const hasActiveContent = tabs.some((t) => t.id === activeTabId);
+  const hasActiveContent = openTabs.some((t) => t.id === activeTabId);
   updateEmptyPlaceholder(!hasActiveContent);
   if (!hasAnyTabs) return;
 
@@ -341,7 +341,7 @@ function renderTabBar() {
   });
 
   bar.querySelectorAll(".tab-btn:not(.orphan)").forEach((btn) => {
-    const tab = tabs.find((t) => t.id === btn.dataset.tab);
+    const tab = openTabs.find((t) => t.id === btn.dataset.tab);
     if (panelBottom) {
       bindLongPress(btn, {
         onLongPress: () => {
@@ -387,7 +387,7 @@ function renderTabBar() {
               deleteTerminalSession(match[1]);
             }
           }
-          orphanSessions = orphanSessions.filter((s) => s.wsUrl !== wsUrl);
+          disconnectedSessions = disconnectedSessions.filter((s) => s.wsUrl !== wsUrl);
           closedSessionUrls.add(wsUrl);
           renderTabBar();
         }
@@ -396,9 +396,9 @@ function renderTabBar() {
         if (e.target.classList.contains("tab-close")) return;
         if (isExpired) {
           const wsUrl = btn.dataset.orphanUrl;
-          const orphan = orphanSessions.find((s) => s.wsUrl === wsUrl);
+          const orphan = disconnectedSessions.find((s) => s.wsUrl === wsUrl);
           const workspace = btn.dataset.orphanWs;
-          orphanSessions = orphanSessions.filter((s) => s.wsUrl !== wsUrl);
+          disconnectedSessions = disconnectedSessions.filter((s) => s.wsUrl !== wsUrl);
           closedSessionUrls.add(wsUrl);
           runJob(orphan?.jobName || "terminal", null, workspace);
           return;
@@ -414,7 +414,7 @@ function renderTabBar() {
         removeTab(btn.dataset.close);
       } else if (btn.dataset.closeOrphan) {
         const wsUrl = btn.dataset.closeOrphan;
-        const orphan = orphanSessions.find((s) => s.wsUrl === wsUrl);
+        const orphan = disconnectedSessions.find((s) => s.wsUrl === wsUrl);
         const label = orphan?.workspace || "terminal";
         if (!confirm(`「${label}」を閉じますか？`)) return;
         if (!orphan?.expired) {
@@ -423,7 +423,7 @@ function renderTabBar() {
             deleteTerminalSession(match[1]);
           }
         }
-        orphanSessions = orphanSessions.filter((s) => s.wsUrl !== wsUrl);
+        disconnectedSessions = disconnectedSessions.filter((s) => s.wsUrl !== wsUrl);
         closedSessionUrls.add(wsUrl);
         renderTabBar();
       }

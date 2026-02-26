@@ -1,7 +1,7 @@
 async function loadJobsForWorkspace() {
   if (!selectedWorkspace) {
-    JOBS = {};
-    selectedJob = null;
+    workspaceJobs = {};
+    pendingJob = null;
     $("output").innerHTML = '<div class="empty-state"></div>';
     return;
   }
@@ -9,23 +9,23 @@ async function loadJobsForWorkspace() {
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/jobs"));
     if (!res || !res.ok) {
-      JOBS = {};
+      workspaceJobs = {};
     } else {
-      JOBS = await res.json();
+      workspaceJobs = await res.json();
     }
   } catch (e) {
     console.error("loadJobsForWorkspace failed:", e);
-    JOBS = {};
+    workspaceJobs = {};
   }
 
-  selectedJob = null;
+  pendingJob = null;
   renderTabBar();
 }
 
 function openJobConfirmModal(name) {
-  const job = JOBS[name];
+  const job = workspaceJobs[name];
   if (!job) return;
-  selectedJob = name;
+  pendingJob = name;
   $("job-confirm-title").textContent = job.label || name;
 
   const argsContainer = $("job-confirm-args");
@@ -76,7 +76,7 @@ function closeJobConfirmModal() {
 }
 
 function collectConfirmArgs() {
-  const job = JOBS[selectedJob];
+  const job = workspaceJobs[pendingJob];
   if (!job || !job.args) return {};
   const args = {};
   for (const arg of job.args) {
@@ -86,20 +86,20 @@ function collectConfirmArgs() {
   return args;
 }
 
-let _runJobQueue = Promise.resolve();
+let jobExecutionQueue = Promise.resolve();
 
 async function runJob(jobName = null, argsOverride = null, workspaceOverride = null) {
-  const targetJob = jobName || selectedJob;
+  const targetJob = jobName || pendingJob;
   if (!targetJob) return;
-  if (selectedJob !== targetJob) {
-    selectedJob = targetJob;
+  if (pendingJob !== targetJob) {
+    pendingJob = targetJob;
   }
-  _runJobQueue = _runJobQueue.then(() => _runJobInner(targetJob, workspaceOverride));
+  jobExecutionQueue = jobExecutionQueue.then(() => executeJobInTerminal(targetJob, workspaceOverride));
 }
 
-async function _runJobInner(targetJob, workspaceOverride) {
+async function executeJobInTerminal(targetJob, workspaceOverride) {
   const workspace = workspaceOverride || selectedWorkspace;
-  let job = JOBS[targetJob];
+  let job = workspaceJobs[targetJob];
   if (!job && targetJob !== "terminal" && workspace) {
     try {
       const jobsRes = await apiFetch(workspaceApiPath(workspace, "/jobs"));
@@ -117,7 +117,7 @@ async function _runJobInner(targetJob, workspaceOverride) {
   }
 
   if (targetJob !== "terminal" && job.terminal === false) {
-    await _runJobDirect(targetJob, job, workspace);
+    await executeJobDirect(targetJob, job, workspace);
     return;
   }
 
@@ -136,7 +136,7 @@ async function _runJobInner(targetJob, workspaceOverride) {
     wsIcon = wsIconObj;
   }
 
-  launchingTerminal = true;
+  isLaunchingTerminal = true;
 
   try {
     const res = await apiFetch("/run", {
@@ -157,11 +157,11 @@ async function _runJobInner(targetJob, workspaceOverride) {
   } catch (e) {
     showToast(`${tabLabel} エラー: ${e.message}`);
   } finally {
-    launchingTerminal = false;
+    isLaunchingTerminal = false;
   }
 }
 
-async function _runJobDirect(targetJob, job, workspace) {
+async function executeJobDirect(targetJob, job, workspace) {
   const label = job.label || targetJob;
   try {
     const res = await apiFetch("/run", {
@@ -545,7 +545,7 @@ async function deleteJob(jobName, workspace) {
       showToast(data.detail || "削除に失敗しました");
       return;
     }
-    if (selectedJob === jobName) selectedJob = null;
+    if (pendingJob === jobName) pendingJob = null;
   } catch (e) {
     showToast(`削除エラー: ${e.message}`);
   }

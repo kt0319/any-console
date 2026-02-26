@@ -62,13 +62,13 @@ function formatCommitTime(timeText) {
 function showLogin() {
   $("login-screen").style.display = "flex";
   $("app-screen").style.display = "none";
-  stopAutoRefresh();
+  stopStatusPolling();
 }
 
 function showApp() {
   $("login-screen").style.display = "none";
   $("app-screen").style.display = "flex";
-  startAutoRefresh();
+  startStatusPolling();
 }
 
 function setLoadingStatus(text) {
@@ -134,7 +134,7 @@ function isImageDataIcon(icon) {
   return icon && (icon.startsWith("data:image/") || icon.startsWith("favicon:"));
 }
 
-async function loadWsIconButtons(container, ws, iconSize, onLinkClick, onJobClick) {
+async function loadWorkspaceIconButtons(container, ws, iconSize, onLinkClick, onJobClick) {
   let jobs = {};
   let links = [];
   try {
@@ -145,7 +145,7 @@ async function loadWsIconButtons(container, ws, iconSize, onLinkClick, onJobClic
     if (jobsRes && jobsRes.ok) jobs = await jobsRes.json();
     if (linksRes && linksRes.ok) links = await linksRes.json();
   } catch (e) {
-    console.error("loadWsIconButtons failed:", e);
+    console.error("loadWorkspaceIconButtons failed:", e);
   }
 
   for (let i = 0; i < links.length; i++) {

@@ -14,7 +14,7 @@ function visibleWorkspaces() {
   return allWorkspaces.filter((ws) => !ws.hidden);
 }
 
-async function updateHeaderInfo() {
+async function refreshWorkspaceHeader() {
   if (!selectedWorkspace) return;
 
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
@@ -37,7 +37,7 @@ async function updateHeaderInfo() {
   }
 
   $("main-git-status").innerHTML = "";
-  updateGitActions(ws);
+  updatePullPushButtons(ws);
   const branch = ws.branch || "";
   const msg = ws.last_commit_message || "";
   $("header-commit-msg").innerHTML = `<span class="commit-btn-branch">${escapeHtml(branch)}</span> <span class="commit-btn-msg">${escapeHtml(msg)}</span>`;
@@ -45,7 +45,7 @@ async function updateHeaderInfo() {
   await loadBranches();
 }
 
-function updateGitActions(ws) {
+function updatePullPushButtons(ws) {
   const actions = $("git-actions");
 
   const pullBtn = $("pull-btn");
@@ -71,24 +71,24 @@ async function refreshCurrentWorkspaceStatus() {
   if (idx >= 0) {
     allWorkspaces[idx] = { ...allWorkspaces[idx], ...ws };
   }
-  await updateHeaderInfo();
+  await refreshWorkspaceHeader();
 }
 
-function startAutoRefresh() {
-  if (autoRefreshTimer) return;
-  autoRefreshTimer = setInterval(() => runAutoRefresh(), AUTO_REFRESH_INTERVAL);
+function startStatusPolling() {
+  if (statusPollTimer) return;
+  statusPollTimer = setInterval(() => pollWorkspaceStatus(), STATUS_POLL_INTERVAL_MS);
   document.addEventListener("visibilitychange", onVisibilityChangeForRefresh);
 }
 
 function onVisibilityChangeForRefresh() {
-  if (document.visibilityState === "visible" && autoRefreshTimer) {
-    runAutoRefresh();
+  if (document.visibilityState === "visible" && statusPollTimer) {
+    pollWorkspaceStatus();
   }
 }
 
-async function runAutoRefresh() {
-  if (document.hidden || autoRefreshing) return;
-  autoRefreshing = true;
+async function pollWorkspaceStatus() {
+  if (document.hidden || isPollingStatus) return;
+  isPollingStatus = true;
   try {
     const health = await checkServerHealth();
     if (!health) {
@@ -108,7 +108,7 @@ async function runAutoRefresh() {
   } catch (e) {
     console.error("auto refresh failed:", e);
   } finally {
-    autoRefreshing = false;
+    isPollingStatus = false;
   }
 }
 
@@ -123,19 +123,19 @@ async function checkServerHealth() {
   }
 }
 
-function stopAutoRefresh() {
-  if (autoRefreshTimer) {
-    clearInterval(autoRefreshTimer);
-    autoRefreshTimer = null;
+function stopStatusPolling() {
+  if (statusPollTimer) {
+    clearInterval(statusPollTimer);
+    statusPollTimer = null;
   }
   document.removeEventListener("visibilitychange", onVisibilityChangeForRefresh);
 }
 
-async function fetchWorkspace(name) {
+async function gitFetchWorkspace(name) {
   try {
     await apiFetch(workspaceApiPath(name, "/fetch"), { method: "POST" });
   } catch (e) {
-    console.error("fetchWorkspace failed:", e);
+    console.error("gitFetchWorkspace failed:", e);
   }
 }
 

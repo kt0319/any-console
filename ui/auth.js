@@ -38,8 +38,8 @@ async function checkToken() {
 }
 
 async function handleUnauthorized(caller) {
-  if (handlingUnauthorized || !token) return false;
-  handlingUnauthorized = true;
+  if (isHandlingUnauthorized || !token) return false;
+  isHandlingUnauthorized = true;
   console.warn(`[auth] 401 from: ${caller || "unknown"}, verifying token...`);
   try {
     const res = await fetch("/auth/check", {
@@ -55,7 +55,7 @@ async function handleUnauthorized(caller) {
     console.warn("[auth] token still valid, ignoring 401");
   } catch {
   } finally {
-    handlingUnauthorized = false;
+    isHandlingUnauthorized = false;
   }
   return false;
 }

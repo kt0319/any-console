@@ -5,10 +5,10 @@ async function initApp() {
     selectedWorkspace = null;
   }
   setLoadingStatus("ワークスペース情報を取得中...");
-  await updateHeaderInfo();
+  await refreshWorkspaceHeader();
   setLoadingStatus("ジョブを読み込み中...");
   await loadJobsForWorkspace();
-  localStorage.removeItem("pi_console_terminal_tabs");
+  localStorage.removeItem("pi_console_terminal_openTabs");
   localStorage.removeItem("pi_console_active_tab");
   await fetchOrphanSessions();
   updateQuickInputVisibility();
@@ -51,7 +51,7 @@ function doFitActiveTerminal() {
   if (splitMode) {
     requestAnimationFrame(() => {
       for (const tabId of splitPaneTabIds) {
-        const tab = tabs.find((t) => t.id === tabId);
+        const tab = openTabs.find((t) => t.id === tabId);
         if (tab && tab.type === "terminal" && tab.fitAddon) {
           safeFit(tab);
           tab.term.scrollToBottom();
@@ -60,7 +60,7 @@ function doFitActiveTerminal() {
     });
     return;
   }
-  const tab = tabs.find((t) => t.id === activeTabId);
+  const tab = openTabs.find((t) => t.id === activeTabId);
   if (tab && tab.type === "terminal" && tab.fitAddon) {
     requestAnimationFrame(() => {
       safeFit(tab);
@@ -69,7 +69,7 @@ function doFitActiveTerminal() {
   }
 }
 
-function createKeyboardInput() {
+function createMobileKeyboardInput() {
   const wrapper = document.createElement("div");
   wrapper.id = "keyboard-input-wrapper";
   wrapper.className = "keyboard-input-wrapper";
@@ -167,7 +167,7 @@ function renderKeyboardSnippets() {
 function showKeyboardInput() {
   if (document.querySelector(".terminal-frame.view-mode")) return;
   let el = $("keyboard-input");
-  if (!el) el = createKeyboardInput();
+  if (!el) el = createMobileKeyboardInput();
   el.value = "";
   el.dispatchEvent(new Event("input"));
   const wrapper = el.closest(".keyboard-input-wrapper");

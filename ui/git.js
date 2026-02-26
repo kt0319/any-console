@@ -1,6 +1,6 @@
 async function refreshAfterGitOp() {
   await loadWorkspaces();
-  await updateHeaderInfo();
+  await refreshWorkspaceHeader();
 }
 
 async function gitFetch() {
@@ -10,7 +10,7 @@ async function gitFetch() {
   fetchBtn.disabled = true;
   fetchBtn.classList.add("running");
   try {
-    await fetchWorkspace(selectedWorkspace);
+    await gitFetchWorkspace(selectedWorkspace);
     await refreshAfterGitOp();
     if ($("git-log-modal").style.display !== "none") {
       await reloadGitLog();
@@ -328,12 +328,12 @@ function renderGitLogEntries(listEl, stdout) {
 }
 
 async function loadMoreGitLog() {
-  if (!selectedWorkspace || gitLogLoading || !gitLogHasMore) return;
-  gitLogLoading = true;
+  if (!selectedWorkspace || isGitLogLoading || !gitLogHasMore) return;
+  isGitLogLoading = true;
 
   const listEl = $("git-log-list-modal");
   try {
-    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?limit=${GIT_LOG_PAGE_SIZE}&skip=${gitLogLoaded}`));
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?limit=${GIT_LOG_ENTRIES_PER_PAGE}&skip=${gitLogLoaded}`));
     if (!res) return;
     const data = await res.json();
     if (!res.ok || data.status !== "ok" || !data.stdout) {
@@ -342,13 +342,13 @@ async function loadMoreGitLog() {
     }
     const count = renderGitLogEntries(listEl, data.stdout);
     gitLogLoaded += count;
-    if (count < GIT_LOG_PAGE_SIZE) {
+    if (count < GIT_LOG_ENTRIES_PER_PAGE) {
       gitLogHasMore = false;
     }
   } catch (e) {
     gitLogHasMore = false;
   } finally {
-    gitLogLoading = false;
+    isGitLogLoading = false;
   }
 }
 
@@ -374,7 +374,7 @@ async function updateStashBtn() {
 }
 
 async function openLocalBranchPane() {
-  subPaneReturnTab = "commits";
+  previousModalTab = "commits";
   showSubPane("commit-modal-tab-branch", "ブランチ");
   const listEl = $("branch-pane-list");
   listEl.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
@@ -432,7 +432,7 @@ function renderDirtyEntry(listEl) {
     `</span>`;
   if (isDirty) {
     entry.addEventListener("click", () => {
-      subPaneReturnTab = "commits";
+      previousModalTab = "commits";
       showDiffPane("変更内容");
       loadDiffTab();
     });
@@ -447,12 +447,12 @@ async function reloadGitLog() {
   listEl.innerHTML = '<div class="git-log-entry-msg" style="color:var(--text-muted);padding:16px">読み込み中...</div>';
 
   gitLogLoaded = 0;
-  gitLogLoading = false;
+  isGitLogLoading = false;
   gitLogHasMore = true;
   gitLogSeenHashes.clear();
 
   try {
-    const logRes = await apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?limit=${GIT_LOG_PAGE_SIZE}`));
+    const logRes = await apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?limit=${GIT_LOG_ENTRIES_PER_PAGE}`));
 
     listEl.innerHTML = "";
 
@@ -470,7 +470,7 @@ async function reloadGitLog() {
     renderDirtyEntry(listEl);
     const count = renderGitLogEntries(listEl, data.stdout);
     gitLogLoaded = count;
-    if (count < GIT_LOG_PAGE_SIZE) {
+    if (count < GIT_LOG_ENTRIES_PER_PAGE) {
       gitLogHasMore = false;
     }
   } catch (e) {
@@ -482,7 +482,7 @@ async function reloadGitLog() {
 async function openStashPane() {
   if (!selectedWorkspace) return;
 
-  subPaneReturnTab = "commits";
+  previousModalTab = "commits";
   showSubPane("commit-modal-tab-stash", "Stash");
   const listEl = $("stash-pane-list");
   listEl.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
@@ -558,10 +558,10 @@ async function execStashRefAction(action, ref) {
   await reloadGitLog();
 }
 
-let commitModalFilesLoaded = false;
+let isGitLogFilesLoaded = false;
 
-const COMMIT_MODAL_TAB_TITLES = { commits: "履歴", files: "ファイル" };
-let subPaneReturnTab = "commits";
+const GIT_LOG_MODAL_TAB_TITLES = { commits: "履歴", files: "ファイル" };
+let previousModalTab = "commits";
 
 function switchCommitModalTab(tab) {
   const allPanes = ["commit-modal-tab-commits", "commit-modal-tab-files", "commit-modal-tab-diff", "commit-modal-tab-stash", "commit-modal-tab-branch"];
@@ -569,7 +569,7 @@ function switchCommitModalTab(tab) {
     btn.classList.toggle("active", btn.dataset.tab === tab);
   }
   const titleEl = $("git-log-modal-title");
-  titleEl.textContent = COMMIT_MODAL_TAB_TITLES[tab] || "履歴";
+  titleEl.textContent = GIT_LOG_MODAL_TAB_TITLES[tab] || "履歴";
   titleEl.classList.remove("split-modal-title-back");
   titleEl.onclick = null;
   $("commit-modal-tabs").style.display = "";
@@ -578,8 +578,8 @@ function switchCommitModalTab(tab) {
     if (pane) pane.style.display = "none";
   }
   $("commit-modal-tab-" + tab).style.display = "";
-  if (tab === "files" && !commitModalFilesLoaded) {
-    commitModalFilesLoaded = true;
+  if (tab === "files" && !isGitLogFilesLoaded) {
+    isGitLogFilesLoaded = true;
     loadDirectoryInModal("");
   }
 }
@@ -599,7 +599,7 @@ function showSubPane(paneId, title) {
 }
 
 function closeSubPane() {
-  switchCommitModalTab(subPaneReturnTab);
+  switchCommitModalTab(previousModalTab);
 }
 
 function showDiffPane(title) {
@@ -612,7 +612,7 @@ function closeDiffPane() {
 
 async function openGitLogModal() {
   if (!selectedWorkspace) return;
-  commitModalFilesLoaded = false;
+  isGitLogFilesLoaded = false;
   switchCommitModalTab("commits");
   $("git-log-modal").style.display = "flex";
   updateGitLogBranchLabel();
@@ -621,11 +621,11 @@ async function openGitLogModal() {
 
 async function openGitLogModalFiles() {
   if (!selectedWorkspace) return;
-  commitModalFilesLoaded = false;
+  isGitLogFilesLoaded = false;
   switchCommitModalTab("files");
   $("git-log-modal").style.display = "flex";
   updateGitLogBranchLabel();
-  commitModalFilesLoaded = true;
+  isGitLogFilesLoaded = true;
   await loadDirectoryInModal("");
 }
 
@@ -651,7 +651,7 @@ async function execStashAction(action) {
 }
 
 async function openRemoteBranchPane() {
-  subPaneReturnTab = "commits";
+  previousModalTab = "commits";
   showSubPane("commit-modal-tab-branch", "リモートブランチ");
   const listEl = $("branch-pane-list");
   listEl.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';

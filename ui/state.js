@@ -1,14 +1,14 @@
 let token = "";
-let JOBS = {};
-let selectedJob = null;
+let workspaceJobs = {};
+let pendingJob = null;
 let allWorkspaces = [];
 let selectedWorkspace = null;
-let launchingTerminal = false;
+let isLaunchingTerminal = false;
 let cachedBranches = [];
-const panelBottomMql = window.matchMedia("(max-width: 768px) and (orientation: portrait)");
-let panelBottom = panelBottomMql.matches;
+const panelBottomMediaQuery = window.matchMedia("(max-width: 768px) and (orientation: portrait)");
+let panelBottom = panelBottomMediaQuery.matches;
 const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-panelBottomMql.addEventListener("change", (e) => {
+panelBottomMediaQuery.addEventListener("change", (e) => {
   panelBottom = e.matches;
   applyPanelBottom();
   updateQuickInputVisibility();
@@ -18,15 +18,15 @@ panelBottomMql.addEventListener("change", (e) => {
   renderTabBar();
 });
 
-let tabs = [];
+let openTabs = [];
 let activeTabId = null;
 let terminalIdCounter = 0;
 let splitMode = false;
 let splitPaneTabIds = [];
 let activePaneIndex = 0;
 let splitLayout = "grid";
-let paneSelectedByTap = false;
-let orphanSessions = [];
+let isPaneSelectedByTap = false;
+let disconnectedSessions = [];
 let closedSessionUrls = new Set();
 let isPageUnloading = false;
 
@@ -68,17 +68,17 @@ const FN_ROWS = [
   ["~", "|", "/", ",", ".", "?", "_"].map(c => ({ label: c, key: c })),
 ];
 
-const AUTO_REFRESH_INTERVAL = 10000;
-let autoRefreshTimer = null;
-let autoRefreshing = false;
+const STATUS_POLL_INTERVAL_MS = 10000;
+let statusPollTimer = null;
+let isPollingStatus = false;
 let serverDisconnected = false;
 
-let handlingUnauthorized = false;
+let isHandlingUnauthorized = false;
 
 let createBranchFromHash = null;
-const GIT_LOG_PAGE_SIZE = 30;
+const GIT_LOG_ENTRIES_PER_PAGE = 30;
 let gitLogLoaded = 0;
-let gitLogLoading = false;
+let isGitLogLoading = false;
 let gitLogHasMore = true;
 const gitLogSeenHashes = new Set();
 
@@ -89,7 +89,7 @@ let diffFullText = "";
 let serverHostname = "";
 let serverVersion = "";
 
-let cloneTab = "github";
+let cloneModalActiveTab = "github";
 let selectedCloneUrl = "";
 let githubRepos = [];
 
