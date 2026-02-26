@@ -360,11 +360,13 @@ function renderSnippetRow(container, onChipTap) {
     const chip = createSnippetChip(text, () => {
       onChipTap(text);
     }, () => {
-      const cmd = prompt("スニペットを入力:", text);
-      if (cmd) {
-        addSnippet(cmd);
-        renderSnippetRow(container, onChipTap);
-      }
+      setTimeout(() => {
+        const cmd = prompt("スニペットを入力:", text);
+        if (cmd) {
+          addSnippet(cmd);
+          renderSnippetRow(container, onChipTap);
+        }
+      }, 50);
     }, "mdi-history");
     historyCol.appendChild(chip);
   });
