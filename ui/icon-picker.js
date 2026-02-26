@@ -282,8 +282,12 @@ function renderInlineIconPicker(container, callback, currentIcon, currentColor, 
   }
 
   function onIconSelect(iconName) {
-    close();
-    callback(iconName, selectedColor);
+    selectedIcon = iconName;
+    preview.innerHTML = renderIcon(iconName, selectedColor, 24);
+    urlOkBtn.disabled = false;
+    grid.querySelectorAll(".icon-picker-item").forEach((el) => {
+      el.classList.toggle("selected", el.title === iconName.replace("mdi-", ""));
+    });
   }
 
   if (backBtn) backBtn.addEventListener("click", close);
@@ -299,6 +303,11 @@ function renderInlineIconPicker(container, callback, currentIcon, currentColor, 
       const domain = extractDomain(raw);
       close();
       callback(`favicon:${domain}`, "");
+      return;
+    }
+    if (selectedIcon) {
+      close();
+      callback(selectedIcon, selectedColor);
     }
   });
 
@@ -309,6 +318,7 @@ function renderInlineIconPicker(container, callback, currentIcon, currentColor, 
 
   search.oninput = () => {
     const raw = search.value.trim();
+    selectedIcon = null;
     if (looksLikeUrl(raw)) {
       const domain = extractDomain(raw);
       preview.innerHTML = renderIcon(`favicon:${domain}`, "", 24);
