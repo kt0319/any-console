@@ -340,6 +340,12 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
     if (e.type === "keydown" && e.key === "v" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
       return false;
     }
+    if (e.key === "Enter" && e.shiftKey) {
+      if (e.type === "keydown") {
+        term.paste("\x16\x0a");
+      }
+      return false;
+    }
     return true;
   });
 
