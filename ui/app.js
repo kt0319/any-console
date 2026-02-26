@@ -53,7 +53,7 @@ function doFitActiveTerminal() {
       for (const tabId of splitPaneTabIds) {
         const tab = tabs.find((t) => t.id === tabId);
         if (tab && tab.type === "terminal" && tab.fitAddon) {
-          try { tab.fitAddon.fit(); } catch {}
+          safeFit(tab);
           tab.term.scrollToBottom();
         }
       }
@@ -63,7 +63,7 @@ function doFitActiveTerminal() {
   const tab = tabs.find((t) => t.id === activeTabId);
   if (tab && tab.type === "terminal" && tab.fitAddon) {
     requestAnimationFrame(() => {
-      try { tab.fitAddon.fit(); } catch {}
+      safeFit(tab);
       tab.term.scrollToBottom();
     });
   }

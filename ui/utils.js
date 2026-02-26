@@ -2,6 +2,11 @@ function $(id) {
   return document.getElementById(id);
 }
 
+function safeFit(tab) {
+  if (!tab || !tab.fitAddon) return;
+  try { tab.fitAddon.fit(); } catch (e) { console.warn("fitAddon.fit failed:", e); }
+}
+
 function copyToClipboard(text) {
   navigator.clipboard.writeText(text).catch((e) => console.error("clipboard write failed:", e));
 }
@@ -76,11 +81,7 @@ async function apiFetch(endpoint, { method = "GET", body = null } = {}) {
     headers["Content-Type"] = "application/json";
     body = JSON.stringify(body);
   }
-  const t0 = Date.now();
   const res = await fetch(endpoint, { method, headers, body });
-  if (endpoint !== "/logs/client" && typeof addLog === "function") {
-    addLog("api", method, { path: endpoint, status: res.status, ms: Date.now() - t0 });
-  }
   if (res.status === 401) {
     await handleUnauthorized();
     return null;

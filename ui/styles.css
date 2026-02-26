@@ -11,6 +11,11 @@
   --warning: #ffcb6b;
   --border: #3b4261;
   --radius: 8px;
+  --accent-bg-20: rgba(130, 170, 255, 0.2);
+  --white-30: var(--white-30);
+  --success-bg-20: rgba(195, 232, 141, 0.2);
+  --error-bg-20: rgba(255, 85, 114, 0.2);
+  --warning-bg-20: rgba(255, 203, 107, 0.2);
 }
 
 * {
@@ -150,12 +155,6 @@ header .ws-select-wrap {
   border-color: var(--accent);
   color: var(--accent);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2382aaff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 15 12 9 18 15'/%3E%3C/svg%3E");
-}
-
-.branch-select-wrap {
-  position: relative;
-  flex: 1;
-  min-width: 0;
 }
 
 .branch-select-btn {
@@ -357,12 +356,12 @@ header .ws-select-wrap {
 
 .git-badge.clean {
   color: var(--success);
-  background: rgba(195, 232, 141, 0.2);
+  background: var(--success-bg-20);
 }
 
 .git-badge.dirty {
   color: var(--warning);
-  background: rgba(255, 203, 107, 0.2);
+  background: var(--warning-bg-20);
   gap: 4px;
   font-size: 12px;
 }
@@ -381,12 +380,12 @@ header .ws-select-wrap {
 
 .git-badge.ahead {
   color: var(--accent);
-  background: rgba(130, 170, 255, 0.2);
+  background: var(--accent-bg-20);
 }
 
 .git-badge.behind {
   color: var(--error);
-  background: rgba(255, 85, 114, 0.2);
+  background: var(--error-bg-20);
 }
 
 .git-actions {
@@ -754,7 +753,7 @@ header .ws-select-wrap {
 
 .radio-group input[type="radio"]:checked + .radio-btn {
   border-color: var(--accent);
-  background: rgba(130, 170, 255, 0.2);
+  background: var(--accent-bg-20);
   color: var(--accent);
 }
 
@@ -888,24 +887,6 @@ header .ws-select-wrap {
     transform: scale(0.92);
     opacity: 0.6;
   }
-}
-
-.tab-type-icon {
-  font-size: 10px;
-  margin-right: 4px;
-  opacity: 0.6;
-}
-
-.tab-type-terminal {
-  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-  color: var(--success);
-  opacity: 1;
-}
-
-.tab-type-job {
-  font-size: 8px;
-  color: var(--warning);
-  opacity: 1;
 }
 
 .tab-add-btn {
@@ -1333,17 +1314,17 @@ header .ws-select-wrap {
 
 .status-badge.ok {
   color: var(--success);
-  background: rgba(195, 232, 141, 0.2);
+  background: var(--success-bg-20);
 }
 
 .status-badge.error {
   color: var(--error);
-  background: rgba(255, 85, 114, 0.2);
+  background: var(--error-bg-20);
 }
 
 .status-badge.running {
   color: var(--warning);
-  background: rgba(255, 203, 107, 0.2);
+  background: var(--warning-bg-20);
 }
 
 /* Buttons */
@@ -1757,7 +1738,7 @@ button:disabled {
 
 
 .clone-tab.active {
-  background: rgba(130, 170, 255, 0.2);
+  background: var(--accent-bg-20);
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -1787,7 +1768,7 @@ button:disabled {
 
 
 .clone-repo-item.selected {
-  background: rgba(130, 170, 255, 0.2);
+  background: var(--accent-bg-20);
   border-left: 3px solid var(--accent);
 }
 
@@ -1962,7 +1943,7 @@ button:disabled {
 }
 
 .item-create-type-tab input[type="radio"]:checked + .item-create-type-btn {
-  background: rgba(130, 170, 255, 0.2);
+  background: var(--accent-bg-20);
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -2055,16 +2036,6 @@ button:disabled {
   display: none;
 }
 
-
-/* Branch list */
-.branch-list {
-  overflow-y: auto;
-  flex: 1;
-  max-height: 50vh;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-tertiary);
-}
 
 .branch-item {
   padding: 10px 12px;
@@ -2161,7 +2132,7 @@ button:disabled {
 }
 
 .commit-modal-tab.active {
-  background: rgba(130, 170, 255, 0.2);
+  background: var(--accent-bg-20);
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -2210,7 +2181,7 @@ button:disabled {
 
 .git-ref-dirty {
   color: var(--warning);
-  background: rgba(255, 203, 107, 0.2);
+  background: var(--warning-bg-20);
 }
 
 .git-log-entry-graph {
@@ -2491,7 +2462,7 @@ button:disabled {
 .quick-flick-enter .flick-hint-bottom {
   position: absolute;
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--white-30);
 }
 
 .quick-flick-enter .flick-hint-top {
@@ -2518,7 +2489,7 @@ button:disabled {
 .quick-flick-arrow .flick-hint-bottom {
   position: absolute;
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--white-30);
 }
 
 .quick-flick-arrow .flick-hint-top {
@@ -2552,7 +2523,7 @@ button:disabled {
   min-width: 0;
   flex: 1;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid var(--white-30);
   border-radius: 8px;
   background: rgba(47, 51, 71, 0.6);
   color: rgba(255, 255, 255, 0.7);
@@ -2588,7 +2559,7 @@ button:disabled {
 
 .quick-key-toggle.active,
 .quick-modifier.active {
-  background: rgba(130, 170, 255, 0.2);
+  background: var(--accent-bg-20);
   color: var(--accent);
   border-color: var(--accent);
 }
@@ -2739,7 +2710,7 @@ button:disabled {
   min-width: 0;
   height: 44px;
   padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid var(--white-30);
   border-radius: 8px;
   background: rgba(25, 28, 40, 0.95);
   color: var(--text-primary);
@@ -2772,7 +2743,7 @@ button:disabled {
 
 .keyboard-input-send:disabled {
   border-color: rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--white-30);
 }
 
 .keyboard-input-clear {
@@ -2783,7 +2754,7 @@ button:disabled {
   width: 44px;
   height: 44px;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid var(--white-30);
   border-radius: 50%;
   background: rgba(25, 28, 40, 0.95);
   color: rgba(255, 255, 255, 0.6);
@@ -2796,7 +2767,7 @@ button:disabled {
 }
 
 .keyboard-input::placeholder {
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--white-30);
 }
 
 .keyboard-input-snippets {
@@ -3332,7 +3303,7 @@ button:disabled {
 
 
 .split-tab-nav-btn.active {
-  background: rgba(130, 170, 255, 0.2);
+  background: var(--accent-bg-20);
   border-color: var(--accent);
   color: var(--accent);
 }

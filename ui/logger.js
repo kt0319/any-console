@@ -1,5 +1,3 @@
-function addLog() {}
-
 async function sendClientLog(category, action, detail = {}) {
   if (typeof apiFetch !== "function" || !token) return;
   try {

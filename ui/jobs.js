@@ -136,7 +136,6 @@ async function _runJobInner(targetJob, workspaceOverride) {
     wsIcon = wsIconObj;
   }
 
-  addLog("ui", "job_run", { workspace, job: targetJob });
   launchingTerminal = true;
 
   try {
@@ -164,7 +163,6 @@ async function _runJobInner(targetJob, workspaceOverride) {
 
 async function _runJobDirect(targetJob, job, workspace) {
   const label = job.label || targetJob;
-  addLog("ui", "job_run_direct", { workspace, job: targetJob });
   try {
     const res = await apiFetch("/run", {
       method: "POST",
