@@ -1,9 +1,16 @@
 function saveToken(val) {
+  const prev = localStorage.getItem("pi_console_token") || "";
+  if (prev && prev !== val && typeof clearPersistedApiCaches === "function") {
+    clearPersistedApiCaches();
+  }
   localStorage.setItem("pi_console_token", val);
   document.cookie = `pi_console_token=${encodeURIComponent(val)};path=/;max-age=31536000;SameSite=Strict`;
 }
 
 function clearToken() {
+  if (typeof clearPersistedApiCaches === "function") {
+    clearPersistedApiCaches();
+  }
   localStorage.removeItem("pi_console_token");
   document.cookie = "pi_console_token=;path=/;max-age=0;SameSite=Strict";
 }

@@ -134,12 +134,56 @@ function isImageDataIcon(icon) {
   return icon && (icon.startsWith("data:image/") || icon.startsWith("favicon:"));
 }
 
-const WORKSPACE_META_CACHE_TTL_MS = 30 * 1000;
+const WORKSPACE_META_CACHE_PREFIX = "pi_console_cache_workspace_meta:";
+const GITHUB_REPOS_CACHE_KEY = "pi_console_cache_github_repos";
+const CACHE_OWNER_KEY = "pi_console_cache_owner_token";
 const workspaceMetaCache = new Map();
 const workspaceMetaInFlight = new Map();
-const GITHUB_REPOS_CACHE_TTL_MS = 60 * 1000;
 let githubReposCache = null;
 let githubReposInFlight = null;
+
+function cacheOwnerToken() {
+  return token || localStorage.getItem("pi_console_token") || "";
+}
+
+function readJsonCache(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function writeJsonCache(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {}
+}
+
+function deleteByPrefix(prefix) {
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(prefix)) keys.push(k);
+    }
+    for (const k of keys) localStorage.removeItem(k);
+  } catch {}
+}
+
+function syncCacheOwnerToken() {
+  const owner = cacheOwnerToken();
+  const cachedOwner = localStorage.getItem(CACHE_OWNER_KEY) || "";
+  if (cachedOwner === owner) return;
+  clearPersistedApiCaches();
+  if (owner) {
+    localStorage.setItem(CACHE_OWNER_KEY, owner);
+  } else {
+    localStorage.removeItem(CACHE_OWNER_KEY);
+  }
+}
 
 function cloneWorkspaceMeta(meta) {
   const jobs = {};
@@ -152,35 +196,50 @@ function cloneWorkspaceMeta(meta) {
 
 function getWorkspaceMetaCache(workspaceName) {
   const cached = workspaceMetaCache.get(workspaceName);
-  if (!cached) return null;
-  if (Date.now() - cached.fetchedAt > WORKSPACE_META_CACHE_TTL_MS) return null;
-  return cloneWorkspaceMeta(cached);
+  if (cached) return cloneWorkspaceMeta(cached);
+
+  const stored = readJsonCache(WORKSPACE_META_CACHE_PREFIX + workspaceName);
+  if (!stored || typeof stored !== "object") return null;
+  if (!stored.jobs || !Array.isArray(stored.links)) return null;
+  workspaceMetaCache.set(workspaceName, stored);
+  return cloneWorkspaceMeta(stored);
 }
 
 function setWorkspaceMetaCache(workspaceName, jobs, links) {
-  workspaceMetaCache.set(workspaceName, {
+  const data = {
     jobs: jobs || {},
     links: links || [],
     fetchedAt: Date.now(),
-  });
+  };
+  workspaceMetaCache.set(workspaceName, data);
+  writeJsonCache(WORKSPACE_META_CACHE_PREFIX + workspaceName, data);
 }
 
 function invalidateWorkspaceMetaCache(workspaceName = null) {
   if (workspaceName) {
     workspaceMetaCache.delete(workspaceName);
     workspaceMetaInFlight.delete(workspaceName);
+    try { localStorage.removeItem(WORKSPACE_META_CACHE_PREFIX + workspaceName); } catch {}
     return;
   }
   workspaceMetaCache.clear();
   workspaceMetaInFlight.clear();
+  deleteByPrefix(WORKSPACE_META_CACHE_PREFIX);
 }
 
 function invalidateGithubReposCache() {
   githubReposCache = null;
   githubReposInFlight = null;
+  try { localStorage.removeItem(GITHUB_REPOS_CACHE_KEY); } catch {}
+}
+
+function clearPersistedApiCaches() {
+  invalidateWorkspaceMetaCache();
+  invalidateGithubReposCache();
 }
 
 async function fetchWorkspaceJobsAndLinks(workspaceName, { forceRefresh = false } = {}) {
+  syncCacheOwnerToken();
   if (!workspaceName) return { jobs: {}, links: [] };
 
   if (!forceRefresh) {
@@ -232,11 +291,16 @@ async function fetchWorkspaceJobsAndLinks(workspaceName, { forceRefresh = false 
 }
 
 async function fetchGithubRepos({ forceRefresh = false } = {}) {
-  const hasFreshCache =
-    githubReposCache &&
-    (Date.now() - githubReposCache.fetchedAt <= GITHUB_REPOS_CACHE_TTL_MS);
+  syncCacheOwnerToken();
 
-  if (!forceRefresh && hasFreshCache) {
+  if (!githubReposCache) {
+    const stored = readJsonCache(GITHUB_REPOS_CACHE_KEY);
+    if (stored && Array.isArray(stored.repos)) {
+      githubReposCache = stored;
+    }
+  }
+
+  if (!forceRefresh && githubReposCache) {
     return githubReposCache.repos.map((repo) => ({ ...repo }));
   }
 
@@ -259,6 +323,7 @@ async function fetchGithubRepos({ forceRefresh = false } = {}) {
       }
       const repos = await res.json();
       githubReposCache = { repos, fetchedAt: Date.now() };
+      writeJsonCache(GITHUB_REPOS_CACHE_KEY, githubReposCache);
       return repos;
     } catch (e) {
       if (githubReposCache) return githubReposCache.repos;
