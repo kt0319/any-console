@@ -272,6 +272,61 @@ class TestLinksCRUD:
         assert res.status_code == 404
 
 
+class TestFileContent:
+    def test_image_file_returns_data_url(self, workspace):
+        img = workspace / "icon.png"
+        img.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\x00")
+
+        res = client.get("/workspaces/test-ws/file-content", headers=AUTH, params={"path": "icon.png"})
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "ok"
+        assert data["image"] is True
+        assert data["data_url"].startswith("data:image/png;base64,")
+
+    def test_large_image_returns_too_large(self, workspace):
+        large = workspace / "large.png"
+        large.write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * (5 * 1024 * 1024))
+
+        res = client.get("/workspaces/test-ws/file-content", headers=AUTH, params={"path": "large.png"})
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "ok"
+        assert data["image"] is True
+        assert data["too_large"] is True
+
+    def test_non_image_binary_returns_binary_flag(self, workspace):
+        binary = workspace / "archive.zip"
+        binary.write_bytes(b"PK\x03\x04\x00\x00")
+
+        res = client.get("/workspaces/test-ws/file-content", headers=AUTH, params={"path": "archive.zip"})
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "ok"
+        assert data["binary"] is True
+
+
+class TestFilesList:
+    def test_list_includes_symlink(self, workspace):
+        target = workspace / "target.txt"
+        target.write_text("hello", encoding="utf-8")
+        link = workspace / "target-link.txt"
+        try:
+            link.symlink_to(target)
+        except (NotImplementedError, OSError):
+            pytest.skip("symlink is not supported in this environment")
+
+        res = client.get("/workspaces/test-ws/files", headers=AUTH, params={"path": ""})
+        assert res.status_code == 200
+        data = res.json()
+        entries = {e["name"]: e for e in data["entries"]}
+        assert "target-link.txt" in entries
+        link_entry = entries["target-link.txt"]
+        assert link_entry["type"] == "symlink"
+        assert link_entry["target_type"] == "file"
+        assert link_entry["target_path"] == "target.txt"
+
+
 # --- ユーティリティ ---
 
 

@@ -141,6 +141,8 @@ function buildFileBrowserHtml(path, entries) {
     let iconHtml;
     if (entry.type === "dir") {
       iconHtml = '<span class="file-browser-item-icon dir-icon"><i class="mdi mdi-folder"></i></span>';
+    } else if (entry.type === "symlink") {
+      iconHtml = '<span class="file-browser-item-icon symlink-icon"><i class="mdi mdi-link-variant"></i></span>';
     } else {
       const fi = getFileIcon(entry.name);
       const style = fi.color ? ` style="color:${fi.color}"` : "";
@@ -149,7 +151,10 @@ function buildFileBrowserHtml(path, entries) {
     const sizeHtml = entry.type === "file" && entry.size != null
       ? `<span class="file-browser-item-size">${formatFileSize(entry.size)}</span>`
       : "";
-    list += `<li class="file-browser-item" data-type="${entry.type}" data-path="${escapeHtml(entryPath)}">` +
+    const symlinkAttrs = entry.type === "symlink"
+      ? ` data-target-type="${escapeHtml(entry.target_type || "")}" data-target-path="${escapeHtml(entry.target_path || "")}" data-link-target="${escapeHtml(entry.link_target || "")}"`
+      : "";
+    list += `<li class="file-browser-item" data-type="${entry.type}" data-path="${escapeHtml(entryPath)}"${symlinkAttrs}>` +
       `${iconHtml}` +
       `<span class="file-browser-item-name">${escapeHtml(entry.name)}</span>` +
       sizeHtml +
@@ -170,7 +175,14 @@ function buildFileContentHtml(path, data) {
   const breadcrumb = buildBreadcrumbHtml(parts);
 
   let body = "";
-  if (data.binary) {
+  if (data.image) {
+    if (data.too_large) {
+      body = `<div class="file-content-message">画像が大きすぎるためプレビューできません (${formatFileSize(data.size)})</div>`;
+    } else {
+      const fileName = parts[parts.length - 1] || "image";
+      body = `<div class="file-content-image-wrap"><img class="file-content-image" src="${data.data_url}" alt="${escapeHtml(fileName)}" /></div>`;
+    }
+  } else if (data.binary) {
     body = `<div class="file-content-message">バイナリファイル (${formatFileSize(data.size)})</div>`;
   } else if (data.too_large) {
     body = `<div class="file-content-message">ファイルが大きすぎます (${formatFileSize(data.size)})</div>`;
@@ -232,8 +244,34 @@ function bindFileBrowserEvents(container) {
   for (const item of container.querySelectorAll('.file-browser-item[data-type="file"]')) {
     item.addEventListener("click", () => loadFileContent(item.dataset.path));
   }
+  for (const item of container.querySelectorAll('.file-browser-item[data-type="symlink"]')) {
+    item.addEventListener("click", () => openSymlinkFromList(item, loadDirectory, loadFileContent));
+  }
   const closeBtn = container.querySelector(".file-browser-close");
   if (closeBtn) closeBtn.addEventListener("click", () => removeTab("file-browser"));
+}
+
+function openSymlinkFromList(item, openDirFn, openFileFn) {
+  const targetType = item.dataset.targetType || "";
+  const targetPath = item.dataset.targetPath || "";
+  const linkTarget = item.dataset.linkTarget || "";
+  if (targetType === "outside") {
+    showToast(`リンク先がワークスペース外です: ${linkTarget || "(不明)"}`);
+    return;
+  }
+  if (targetType === "missing") {
+    showToast("リンク先が存在しません");
+    return;
+  }
+  if (!targetPath) {
+    showToast("リンク先を解決できません");
+    return;
+  }
+  const title = item.querySelector(".file-browser-item-name")?.textContent || "シンボリックリンク";
+  const actionLabel = targetType === "dir" ? "フォルダ" : "ファイル";
+  if (!confirm(`${title} はシンボリックリンクです。リンク先の${actionLabel}を開きますか？`)) return;
+  if (targetType === "dir") openDirFn(targetPath);
+  else if (targetType === "file") openFileFn(targetPath);
 }
 
 async function loadFileContent(path) {
@@ -320,6 +358,9 @@ function bindFileBrowserEventsInModal(container) {
   }
   for (const item of container.querySelectorAll('.file-browser-item[data-type="file"]')) {
     item.addEventListener("click", () => loadFileContentInModal(item.dataset.path));
+  }
+  for (const item of container.querySelectorAll('.file-browser-item[data-type="symlink"]')) {
+    item.addEventListener("click", () => openSymlinkFromList(item, loadDirectoryInModal, loadFileContentInModal));
   }
   const closeBtn = container.querySelector(".file-browser-close");
   if (closeBtn) closeBtn.style.display = "none";

@@ -1,4 +1,6 @@
+import base64
 import logging
+import mimetypes
 import os
 import re
 
@@ -396,18 +398,31 @@ def get_workspace_diff(name: str):
 HIDDEN_DIRS = {".git"}
 
 
-@router.get("/workspaces/{name}/files")
-def list_files(name: str, path: str = Query("")):
-    ws_path = resolve_workspace_path(name)
+def resolve_workspace_target_path(ws_path, path: str):
     target = (ws_path / path).resolve()
     try:
         target.relative_to(ws_path.resolve())
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid path")
+    return target
+
+
+def validate_workspace_relative_target(ws_path, target):
+    rel = target.relative_to(ws_path.resolve())
+    if any(part in HIDDEN_DIRS for part in rel.parts):
+        raise HTTPException(status_code=400, detail="Invalid path")
+    return rel
+
+
+@router.get("/workspaces/{name}/files")
+def list_files(name: str, path: str = Query("")):
+    ws_path = resolve_workspace_path(name)
+    target = resolve_workspace_target_path(ws_path, path)
+    rel = validate_workspace_relative_target(ws_path, target)
     if not target.is_dir():
         raise HTTPException(status_code=404, detail="Directory not found")
 
-    rel_path = str(target.relative_to(ws_path.resolve()))
+    rel_path = str(rel)
     if rel_path == ".":
         rel_path = ""
 
@@ -415,8 +430,31 @@ def list_files(name: str, path: str = Query("")):
     try:
         with os.scandir(target) as it:
             for entry in it:
-                if entry.name in HIDDEN_DIRS or entry.is_symlink():
+                if entry.name in HIDDEN_DIRS:
                     continue
+                if entry.is_symlink():
+                    item = {"name": entry.name, "type": "symlink"}
+                    try:
+                        target_raw = os.readlink(entry.path)
+                        item["link_target"] = target_raw
+                        resolved = (target / target_raw).resolve()
+                        try:
+                            rel_target = resolved.relative_to(ws_path.resolve())
+                            rel_target_path = str(rel_target)
+                            item["target_path"] = "" if rel_target_path == "." else rel_target_path
+                            if resolved.is_dir():
+                                item["target_type"] = "dir"
+                            elif resolved.is_file():
+                                item["target_type"] = "file"
+                            else:
+                                item["target_type"] = "missing"
+                        except ValueError:
+                            item["target_type"] = "outside"
+                    except OSError:
+                        item["target_type"] = "missing"
+                    entries.append(item)
+                    continue
+
                 entry_type = "dir" if entry.is_dir(follow_symlinks=False) else "file"
                 item = {"name": entry.name, "type": entry_type}
                 if entry_type == "file":
@@ -428,7 +466,8 @@ def list_files(name: str, path: str = Query("")):
     except PermissionError:
         raise HTTPException(status_code=403, detail="Permission denied")
 
-    entries.sort(key=lambda e: (0 if e["type"] == "dir" else 1, e["name"].lower()))
+    type_order = {"dir": 0, "symlink": 1, "file": 2}
+    entries.sort(key=lambda e: (type_order.get(e["type"], 3), e["name"].lower()))
     return {"status": "ok", "path": rel_path, "entries": entries}
 
 
@@ -441,16 +480,15 @@ BINARY_EXTENSIONS = {
     ".mp3", ".mp4", ".wav", ".avi", ".mov", ".mkv",
     ".woff", ".woff2", ".ttf", ".otf", ".eot",
 }
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".svg"}
+MAX_IMAGE_PREVIEW_SIZE = 5 * 1024 * 1024
 
 
 @router.get("/workspaces/{name}/file-content")
 def get_file_content(name: str, path: str = Query(...)):
     ws_path = resolve_workspace_path(name)
-    target = (ws_path / path).resolve()
-    try:
-        target.relative_to(ws_path.resolve())
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid path")
+    target = resolve_workspace_target_path(ws_path, path)
+    validate_workspace_relative_target(ws_path, target)
     if target.is_symlink():
         raise HTTPException(status_code=400, detail="Symlinks not supported")
     if not target.is_file():
@@ -462,6 +500,19 @@ def get_file_content(name: str, path: str = Query(...)):
         raise HTTPException(status_code=500, detail="Cannot stat file")
 
     ext = target.suffix.lower()
+    if ext in IMAGE_EXTENSIONS:
+        if size > MAX_IMAGE_PREVIEW_SIZE:
+            return {"status": "ok", "path": path, "image": True, "too_large": True, "size": size}
+        try:
+            raw = target.read_bytes()
+        except PermissionError:
+            raise HTTPException(status_code=403, detail="Permission denied")
+        except OSError:
+            raise HTTPException(status_code=500, detail="Cannot read file")
+        mime_type = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+        data_url = f"data:{mime_type};base64,{base64.b64encode(raw).decode('ascii')}"
+        return {"status": "ok", "path": path, "image": True, "size": size, "mime_type": mime_type, "data_url": data_url}
+
     if ext in BINARY_EXTENSIONS:
         return {"status": "ok", "path": path, "binary": True, "size": size}
 
@@ -474,3 +525,4 @@ def get_file_content(name: str, path: str = Query(...)):
         raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"status": "ok", "path": path, "content": content, "size": size}
+
