@@ -71,7 +71,7 @@ document.addEventListener("touchend", (e) => {
 }, { passive: true });
 
 document.addEventListener("animationend", (e) => {
-  if (e.animationName === "quick-key-bounce") {
+  if (e.animationName === "quick-key-bounce" || e.animationName === "snippet-bounce") {
     e.target.classList.remove("tap-bounce");
   }
 });
@@ -260,16 +260,19 @@ function createSnippetChip(text, onTap, onDelete, iconClass) {
   }
   chip.appendChild(document.createTextNode(text.length <= 20 ? text : text.slice(0, 20) + "\u2026"));
   let longPressTimer = null;
+  let longPressFired = false;
   let scrolled = false;
   let startX = 0;
   const SCROLL_THRESHOLD = 10;
   chip.addEventListener("touchstart", (e) => {
     scrolled = false;
+    longPressFired = false;
     startX = e.touches[0].clientX;
     chip.classList.add("pressed");
     if (onDelete) {
       longPressTimer = setTimeout(() => {
         longPressTimer = null;
+        longPressFired = true;
         chip.classList.remove("pressed");
         onDelete();
       }, 600);
@@ -284,12 +287,15 @@ function createSnippetChip(text, onTap, onDelete, iconClass) {
   }, { passive: true });
   chip.addEventListener("touchend", (e) => {
     chip.classList.remove("pressed");
-    if (scrolled) return;
+    if (scrolled || longPressFired) return;
     if (longPressTimer !== null) {
       clearTimeout(longPressTimer);
       longPressTimer = null;
     }
     e.preventDefault();
+    chip.classList.remove("tap-bounce");
+    void chip.offsetWidth;
+    chip.classList.add("tap-bounce");
     onTap();
   });
   chip.addEventListener("touchcancel", () => {
@@ -298,10 +304,12 @@ function createSnippetChip(text, onTap, onDelete, iconClass) {
   });
   chip.addEventListener("mousedown", (e) => {
     if (e.button !== 0) return;
+    longPressFired = false;
     chip.classList.add("pressed");
     if (onDelete) {
       longPressTimer = setTimeout(() => {
         longPressTimer = null;
+        longPressFired = true;
         chip.classList.remove("pressed");
         onDelete();
       }, 600);
@@ -310,10 +318,14 @@ function createSnippetChip(text, onTap, onDelete, iconClass) {
   chip.addEventListener("mouseup", (e) => {
     if (e.button !== 0) return;
     chip.classList.remove("pressed");
+    if (longPressFired) return;
     if (longPressTimer !== null) {
       clearTimeout(longPressTimer);
       longPressTimer = null;
     }
+    chip.classList.remove("tap-bounce");
+    void chip.offsetWidth;
+    chip.classList.add("tap-bounce");
     onTap();
   });
   chip.addEventListener("mouseleave", () => {
@@ -347,7 +359,13 @@ function renderSnippetRow(container, onChipTap) {
   inputHistory.slice(0, 5).reverse().forEach((text) => {
     const chip = createSnippetChip(text, () => {
       onChipTap(text);
-    }, null, "mdi-history");
+    }, () => {
+      const cmd = prompt("スニペットを入力:", text);
+      if (cmd) {
+        addSnippet(cmd);
+        renderSnippetRow(container, onChipTap);
+      }
+    }, "mdi-history");
     historyCol.appendChild(chip);
   });
 

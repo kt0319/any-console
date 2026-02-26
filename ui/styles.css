@@ -2627,19 +2627,20 @@ button:disabled {
 
 .quick-snippet-item {
   width: 100%;
-  height: 38px;
-  padding: 0 16px;
+  height: 30px;
+  padding: 0 10px;
   border: 1px solid rgba(130, 170, 255, 0.5);
   border-radius: 6px;
   background: rgba(20, 22, 35, 0.85);
   color: var(--accent);
-  font-size: 12px;
-  line-height: 36px;
+  font-size: 11px;
+  line-height: 28px;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2649,6 +2650,18 @@ button:disabled {
 .quick-snippet-item.pressed {
   background: rgba(130, 170, 255, 0.3);
   color: var(--text-primary);
+  transform: scale(0.92);
+  transition: transform 0.06s ease, background 0.06s ease;
+}
+
+.quick-snippet-item.tap-bounce {
+  animation: snippet-bounce 0.25s ease-out;
+}
+
+@keyframes snippet-bounce {
+  0% { transform: scale(0.92); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
 }
 
 .quick-history-item {
@@ -2663,8 +2676,8 @@ button:disabled {
 
 
 .quick-snippet-add-btn {
-  height: 38px;
-  min-height: 38px;
+  height: 30px;
+  min-height: 30px;
   border: 1px dashed rgba(130, 170, 255, 0.5);
   border-radius: 6px;
   background: rgba(40, 45, 65, 0.85);
