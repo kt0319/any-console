@@ -84,7 +84,7 @@ const gitLogSeenHashes = new Set();
 
 let diffChunks = {};
 let diffFullText = "";
-let diffOpenedFromGitLog = false;
+
 
 let serverHostname = "";
 let serverVersion = "";

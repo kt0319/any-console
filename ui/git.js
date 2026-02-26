@@ -214,6 +214,19 @@ function buildBranchSwitchActions(branches, beforeSwitch) {
     }));
 }
 
+function buildCommitActions(hash, { branches = [], checkoutBranchFn, extraActions = [] } = {}) {
+  const switchActions = buildBranchSwitchActions(branches);
+  return [
+    ...switchActions,
+    ...extraActions,
+    { label: "checkout -b", cls: "", fn: checkoutBranchFn || (() => toggleCreateBranchArea(hash)) },
+    { label: "cherry-pick", cls: "", fn: () => execCommitAction("cherry-pick", hash) },
+    { label: "revert", cls: "", fn: () => execCommitAction("revert", hash) },
+    { label: "reset --soft", cls: "", fn: () => execCommitResetAction(hash, "soft") },
+    { label: "reset --hard", cls: "commit-action-danger", fn: () => execCommitResetAction(hash, "hard") },
+  ];
+}
+
 function toggleCommitActionMenu(entry, hash, msg, branches = []) {
   const list = $("git-log-list-modal");
   const menuEl = $("git-log-action-menu");
@@ -234,17 +247,10 @@ function toggleCommitActionMenu(entry, hash, msg, branches = []) {
   menuEl.innerHTML = "";
   resetCreateBranchArea();
 
-  const switchActions = buildBranchSwitchActions(branches);
-
-  const actions = [
-    ...switchActions,
-    { label: "diff", cls: "", fn: () => openCommitDiffModal(hash, msg) },
-    { label: "checkout -b", cls: "", fn: () => toggleCreateBranchArea(hash) },
-    { label: "cherry-pick", cls: "", fn: () => execCommitAction("cherry-pick", hash) },
-    { label: "revert", cls: "", fn: () => execCommitAction("revert", hash) },
-    { label: "reset --soft", cls: "", fn: () => execCommitResetAction(hash, "soft") },
-    { label: "reset --hard", cls: "commit-action-danger", fn: () => execCommitResetAction(hash, "hard") },
-  ];
+  const actions = buildCommitActions(hash, {
+    branches,
+    extraActions: [{ label: "diff", cls: "", fn: () => openCommitDiffModal(hash, msg) }],
+  });
 
   renderActionButtons(menuEl, actions);
   menuEl.style.display = "flex";
@@ -287,7 +293,7 @@ function closeGitLogModal() {
   $("git-log-action-menu").style.display = "none";
   $("git-log-action-menu").innerHTML = "";
   $("diff-commit-form").style.display = "none";
-  diffOpenedFromGitLog = false;
+
   resetCreateBranchArea();
 }
 
@@ -633,7 +639,7 @@ let commitModalFilesLoaded = false;
 
 const COMMIT_MODAL_TAB_TITLES = { commits: "履歴", files: "ファイル", diff: "変更内容" };
 
-function switchCommitModalTab(tab) {
+function switchCommitModalTab(tab, { skipLoad = false } = {}) {
   const commitsPane = $("commit-modal-tab-commits");
   const filesPane = $("commit-modal-tab-files");
   const diffPane = $("commit-modal-tab-diff");
@@ -647,9 +653,13 @@ function switchCommitModalTab(tab) {
   commitsPane.style.display = tab === "commits" ? "" : "none";
   filesPane.style.display = tab === "files" ? "" : "none";
   diffPane.style.display = tab === "diff" ? "" : "none";
+  if (skipLoad) return;
   if (tab === "files" && !commitModalFilesLoaded) {
     commitModalFilesLoaded = true;
     loadDirectoryInModal("");
+  }
+  if (tab === "diff" && isDirty) {
+    loadDiffTab();
   }
 }
 
@@ -731,24 +741,16 @@ function bindFileBrowserEventsInModal(container) {
 }
 
 function renderDiffActions(container, hash, branches) {
-  const closeDiffBeforeSwitch = () => closeGitLogModal();
-  const switchActions = buildBranchSwitchActions(branches, closeDiffBeforeSwitch);
-
-  const actions = [
-    ...switchActions,
-    { label: "checkout -b", cls: "", fn: () => { switchCommitModalTab("commits"); toggleCreateBranchArea(hash); } },
-    { label: "cherry-pick", cls: "", fn: () => { if (!confirm("cherry-pick を実行しますか？")) return; closeGitLogModal(); execCommitAction("cherry-pick", hash); } },
-    { label: "revert", cls: "", fn: () => { if (!confirm("revert を実行しますか？")) return; closeGitLogModal(); execCommitAction("revert", hash); } },
-    { label: "reset --soft", cls: "", fn: () => { if (!confirm("reset --soft を実行しますか？")) return; closeGitLogModal(); execCommitResetAction(hash, "soft"); } },
-    { label: "reset --hard", cls: "commit-action-danger", fn: () => { if (!confirm("reset --hard を実行しますか？\nこの操作は取り消せません。")) return; closeGitLogModal(); execCommitResetAction(hash, "hard"); } },
-  ];
+  const actions = buildCommitActions(hash, {
+    branches,
+    checkoutBranchFn: () => { switchCommitModalTab("commits"); toggleCreateBranchArea(hash); },
+  });
 
   renderActionButtons(container, actions);
   container.style.display = "flex";
 }
 
 async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
-  diffOpenedFromGitLog = true;
   const fileList = $("diff-file-list");
   const diffContent = $("diff-content");
   const actionsEl = $("diff-actions");
@@ -757,7 +759,7 @@ async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
   actionsEl.innerHTML = "";
   actionsEl.style.display = "none";
   $("diff-commit-form").style.display = "none";
-  switchCommitModalTab("diff");
+  switchCommitModalTab("diff", { skipLoad: true });
   if (commitMsg) $("git-log-modal-title").textContent = commitMsg;
 
   if (commitHash) {
@@ -894,10 +896,8 @@ async function execStashAction(action) {
   await refreshAfterGitOp();
 }
 
-async function openDiffModal() {
+async function loadDiffTab() {
   if (!selectedWorkspace) return;
-  diffOpenedFromGitLog = false;
-
   const fileList = $("diff-file-list");
   const diffContent = $("diff-content");
   const actionsEl = $("diff-actions");
@@ -912,12 +912,7 @@ async function openDiffModal() {
   ];
   renderActionButtons(actionsEl, stashActions);
   actionsEl.style.display = "flex";
-
   $("diff-commit-form").style.display = "none";
-  commitModalFilesLoaded = false;
-  switchCommitModalTab("diff");
-  $("git-log-modal").style.display = "flex";
-  updateGitLogBranchLabel();
 
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/diff"));
@@ -940,6 +935,16 @@ async function openDiffModal() {
     fileList.innerHTML = "";
     diffContent.textContent = e.message;
   }
+}
+
+async function openDiffModal() {
+  if (!selectedWorkspace) return;
+
+  commitModalFilesLoaded = false;
+  switchCommitModalTab("diff");
+  $("git-log-modal").style.display = "flex";
+  updateGitLogBranchLabel();
+  await loadDiffTab();
 }
 
 function openCommitForm() {
@@ -981,16 +986,6 @@ async function submitCommit() {
     showFormError("diff-commit-error", e.message);
   } finally {
     $("diff-commit-submit").disabled = false;
-  }
-}
-
-function closeDiffModal() {
-  $("diff-commit-form").style.display = "none";
-  if (diffOpenedFromGitLog) {
-    diffOpenedFromGitLog = false;
-    switchCommitModalTab("commits");
-  } else {
-    closeGitLogModal();
   }
 }
 

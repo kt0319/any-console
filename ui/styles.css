@@ -2283,19 +2283,14 @@ button:disabled {
   color: var(--bg-primary);
 }
 
-/* Commit action menu */
-.commit-action-menu {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 8px 16px 4px;
-}
-
+/* Git action buttons (shared) */
 .commit-action-item {
   padding: 4px 10px;
   font-size: 12px;
   min-height: 32px;
   min-width: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -2308,27 +2303,18 @@ button:disabled {
   border-color: var(--error);
 }
 
-.git-log-commit.action-open {
-  background: rgba(130, 170, 255, 0.08);
-}
-
-/* Diff tab in git-log modal */
-
+.commit-action-menu,
 .diff-actions {
   display: flex;
-  gap: 8px;
-  padding: 4px 0 10px;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  mask-image: linear-gradient(to right, #000 92%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, #000 92%, transparent 100%);
 }
 
-.diff-actions .commit-action-item {
-  flex-shrink: 0;
-  white-space: nowrap;
+.git-log-commit.action-open {
+  background: rgba(130, 170, 255, 0.08);
 }
 
 #diff-commit-form {
