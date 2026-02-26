@@ -511,24 +511,31 @@ async function openLocalBranchModal() {
 
 function renderDirtyEntry(listEl) {
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
-  if (!ws || ws.clean !== false) return;
+  const isDirty = ws && ws.clean === false;
   const entry = document.createElement("div");
   entry.className = "git-log-entry git-log-dirty";
-  let statParts = [];
-  if (ws.changed_files > 0) statParts.push(`<span class="stat-files">${ws.changed_files}F</span>`);
-  if (ws.insertions > 0) statParts.push(`<span class="stat-add">+${ws.insertions}</span>`);
-  if (ws.deletions > 0) statParts.push(`<span class="stat-del">-${ws.deletions}</span>`);
-  const statText = statParts.length > 0 ? statParts.join(" ") : "\u25cf";
+  if (!isDirty) entry.classList.add("git-log-clean");
+  let badgeHtml = "";
+  if (isDirty) {
+    let statParts = [];
+    if (ws.changed_files > 0) statParts.push(`<span class="stat-files">${ws.changed_files}F</span>`);
+    if (ws.insertions > 0) statParts.push(`<span class="stat-add">+${ws.insertions}</span>`);
+    if (ws.deletions > 0) statParts.push(`<span class="stat-del">-${ws.deletions}</span>`);
+    const statText = statParts.length > 0 ? statParts.join(" ") : "\u25cf";
+    badgeHtml = `<span class="git-log-entry-refs"><span class="git-ref git-ref-dirty">${statText}</span></span>`;
+  }
   entry.innerHTML =
     `<span class="git-log-entry-body">` +
-      `<span class="git-log-entry-refs"><span class="git-ref git-ref-dirty">${statText}</span></span>` +
-      `<span class="git-log-entry-row1"><span class="git-log-entry-msg">未コミットの変更</span></span>` +
+      badgeHtml +
+      `<span class="git-log-entry-row1"><span class="git-log-entry-msg">${isDirty ? "未コミットの変更" : "変更なし"}</span></span>` +
     `</span>`;
-  entry.addEventListener("click", () => {
-    diffPaneReturnTab = "commits";
-    showDiffPane("変更内容");
-    loadDiffTab();
-  });
+  if (isDirty) {
+    entry.addEventListener("click", () => {
+      diffPaneReturnTab = "commits";
+      showDiffPane("変更内容");
+      loadDiffTab();
+    });
+  }
   listEl.appendChild(entry);
 }
 

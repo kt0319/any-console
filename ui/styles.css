@@ -1412,6 +1412,15 @@ button:disabled {
   padding: 20px;
 }
 
+#item-create-modal,
+#item-edit-modal {
+  z-index: 110;
+}
+
+#icon-picker-modal {
+  z-index: 120;
+}
+
 .modal {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -2188,6 +2197,11 @@ button:disabled {
   padding: 8px 6px;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
+}
+
+.git-log-dirty.git-log-clean {
+  cursor: default;
+  opacity: 0.5;
 }
 
 .git-ref-dirty {
