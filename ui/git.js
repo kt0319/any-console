@@ -390,16 +390,36 @@ async function openLocalBranchPane() {
     item.className = "branch-item";
     if (b === currentBranch) {
       item.classList.add("current");
-      item.textContent = `${b} ✓`;
-    } else {
-      item.textContent = b;
-      item.addEventListener("click", async () => {
+    }
+
+    const nameEl = document.createElement("div");
+    nameEl.className = "branch-item-name";
+    nameEl.textContent = b === currentBranch ? `${b} ✓` : b;
+    if (b !== currentBranch) {
+      nameEl.addEventListener("click", async () => {
         closeSubPane();
         await checkoutBranch(b);
         updateGitLogBranchLabel();
         await reloadGitLog();
       });
     }
+    item.appendChild(nameEl);
+
+    if (b !== currentBranch) {
+      const actions = document.createElement("div");
+      actions.className = "branch-item-actions";
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "commit-action-item commit-action-danger";
+      delBtn.textContent = "削除";
+      delBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        await deleteBranch(b, false, delBtn);
+      });
+      actions.appendChild(delBtn);
+      item.appendChild(actions);
+    }
+
     listEl.appendChild(item);
   }
 
@@ -679,23 +699,78 @@ async function openRemoteBranchPane() {
       item.className = "branch-item";
       if (branch === currentBranch) {
         item.classList.add("current");
-        item.textContent = `${branch} ✓`;
       } else if (cachedBranches.includes(branch)) {
         item.classList.add("local-exists");
-        item.textContent = branch;
-      } else {
-        item.textContent = branch;
       }
-      item.addEventListener("click", async () => {
-        if (branch === currentBranch) return;
-        closeSubPane();
-        await checkoutBranch(branch);
-        updateGitLogBranchLabel();
-        await reloadGitLog();
-      });
+
+      const nameEl = document.createElement("div");
+      nameEl.className = "branch-item-name";
+      nameEl.textContent = branch === currentBranch ? `${branch} ✓` : branch;
+      if (branch !== currentBranch) {
+        nameEl.addEventListener("click", async () => {
+          closeSubPane();
+          await checkoutBranch(branch);
+          updateGitLogBranchLabel();
+          await reloadGitLog();
+        });
+      }
+      item.appendChild(nameEl);
+
+      if (branch !== currentBranch) {
+        const actions = document.createElement("div");
+        actions.className = "branch-item-actions";
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "commit-action-item commit-action-danger";
+        delBtn.textContent = "削除";
+        delBtn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          await deleteBranch(branch, true, delBtn);
+        });
+        actions.appendChild(delBtn);
+        item.appendChild(actions);
+      }
+
       listEl.appendChild(item);
     }
   } catch (e) {
     listEl.innerHTML = `<div class="clone-repo-error">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function deleteBranch(branch, remote, triggerBtn) {
+  if (!selectedWorkspace) return;
+  const label = remote ? `リモートブランチ ${branch}` : `ブランチ ${branch}`;
+  if (!confirm(`${label} を削除しますか？`)) return;
+
+  if (triggerBtn) {
+    triggerBtn.disabled = true;
+    triggerBtn.classList.add("running");
+  }
+
+  try {
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/delete-branch"), {
+      method: "POST",
+      body: { branch, remote },
+    });
+    if (!res) return;
+    const data = await res.json();
+    if (data.status === "ok") {
+      showToast(`${label} を削除しました`, "success");
+    } else {
+      showToast(`削除失敗: ${data.stderr || data.stdout || "unknown error"}`);
+    }
+  } catch (e) {
+    showToast(`削除エラー: ${e.message}`);
+  } finally {
+    if (triggerBtn) {
+      triggerBtn.classList.remove("running");
+      triggerBtn.disabled = false;
+    }
+  }
+  if (remote) {
+    await openRemoteBranchPane();
+  } else {
+    await openLocalBranchPane();
   }
 }

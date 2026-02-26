@@ -48,6 +48,36 @@ def list_remote_branches(name: str):
     return get_git_remote_branches(ws_path)
 
 
+class DeleteBranchRequest(BaseModel):
+    branch: str
+    remote: bool = False
+
+
+@router.post("/workspaces/{name}/delete-branch")
+def delete_branch(name: str, body: DeleteBranchRequest):
+    ws_path = resolve_workspace_path(name)
+    branch = validate_branch_name(body.branch)
+
+    if body.remote:
+        result = run_git_command(
+            ["push", "origin", "--delete", branch], cwd=ws_path,
+            timeout=GIT_LONG_TIMEOUT_SEC, env=ssh_env(), operation="delete remote branch",
+        )
+    else:
+        current_branch = run_git_command(
+            ["rev-parse", "--abbrev-ref", "HEAD"], cwd=ws_path, operation="current branch",
+        )["stdout"].strip()
+        if branch == current_branch:
+            raise HTTPException(status_code=400, detail="現在のブランチは削除できません")
+        result = run_git_command(
+            ["branch", "-D", branch], cwd=ws_path, operation="delete branch",
+        )
+
+    logger.info("delete-branch workspace=%s branch=%s remote=%s rc=%d", name, branch, body.remote, result["exit_code"])
+    invalidate_git_info(name)
+    return result
+
+
 class CommitRequest(BaseModel):
     message: str
 

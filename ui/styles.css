@@ -396,6 +396,7 @@ header .ws-select-wrap {
 }
 
 .git-action-btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -448,15 +449,28 @@ header .ws-select-wrap {
 
 .git-action-btn.running {
   pointer-events: none;
-  color: var(--accent);
+  color: transparent;
   background: rgba(130, 170, 255, 0.15);
   border-color: var(--accent);
-  animation: git-action-running 1.2s ease-in-out infinite;
 }
 
-@keyframes git-action-running {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+.git-action-btn.running > * {
+  visibility: hidden;
+}
+
+.git-action-btn.running::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(130, 170, 255, 0.3);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .git-action-count:empty {
@@ -2057,8 +2071,23 @@ button:disabled {
 }
 
 
+.branch-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
 .branch-item.current {
   color: var(--accent);
+  cursor: default;
 }
 
 .branch-item.local-exists {
@@ -2131,7 +2160,9 @@ button:disabled {
 
 #commit-modal-tab-commits,
 #commit-modal-tab-diff,
-#commit-modal-tab-files {
+#commit-modal-tab-files,
+#commit-modal-tab-stash,
+#commit-modal-tab-branch {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -2283,6 +2314,28 @@ button:disabled {
 .commit-action-danger {
   color: var(--error);
   border-color: var(--error);
+}
+
+.commit-action-danger.running {
+  pointer-events: none;
+  color: transparent;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.commit-action-danger.running::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 85, 114, 0.3);
+  border-top-color: var(--error);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  inset: 0;
+  margin: auto;
 }
 
 .commit-action-menu {
