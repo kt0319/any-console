@@ -80,6 +80,106 @@ function openSettingsWsAdd() {
   openCloneModal("visibility");
 }
 
+function createWorkspaceSettingsSection(body, title, onAdd) {
+  const section = document.createElement("div");
+  section.className = "ws-settings-section";
+  const header = document.createElement("div");
+  header.className = "ws-settings-section-header";
+  const titleEl = document.createElement("span");
+  titleEl.textContent = title;
+  header.appendChild(titleEl);
+  const addBtn = document.createElement("button");
+  addBtn.type = "button";
+  addBtn.className = "ws-add-item-btn";
+  addBtn.innerHTML = '<i class="mdi mdi-plus"></i>';
+  addBtn.addEventListener("click", onAdd);
+  header.appendChild(addBtn);
+  section.appendChild(header);
+  const list = document.createElement("div");
+  list.className = "ws-settings-item-list";
+  section.appendChild(list);
+  body.appendChild(section);
+  return list;
+}
+
+function createWorkspaceSettingsItemRow({
+  icon,
+  iconColor,
+  defaultIcon,
+  label,
+  onClick,
+}) {
+  const row = document.createElement("div");
+  row.className = "ws-settings-item";
+  row.innerHTML = renderIcon(icon || defaultIcon, iconColor, 16) +
+    '<span class="ws-settings-item-name">' + escapeHtml(label) + "</span>";
+  row.addEventListener("click", onClick);
+  return row;
+}
+
+function renderWorkspaceSettingsList(listEl, items, emptyText, renderItem) {
+  if (items.length === 0) {
+    listEl.innerHTML = `<div class="ws-settings-empty">${escapeHtml(emptyText)}</div>`;
+    return;
+  }
+  for (const item of items) {
+    listEl.appendChild(renderItem(item));
+  }
+}
+
+function toJobEditData(workspaceName, name, job) {
+  return {
+    workspace: workspaceName,
+    name,
+    label: job.label || name,
+    icon: job.icon,
+    iconColor: job.icon_color,
+    command: job.command || "",
+    confirm: job.confirm,
+    terminal: job.terminal,
+  };
+}
+
+function toLinkEditData(workspaceName, index, link) {
+  return {
+    workspace: workspaceName,
+    index,
+    label: link.label || link.url,
+    url: link.url,
+    icon: link.icon,
+    iconColor: link.icon_color,
+  };
+}
+
+function createWorkspaceIconRow(container, ws, setTitleFn, goBackToSettings) {
+  const iconRow = document.createElement("div");
+  iconRow.className = "ws-settings-row";
+  const iconLabel = document.createElement("span");
+  iconLabel.className = "ws-settings-label";
+  iconLabel.textContent = "アイコン";
+  iconRow.appendChild(iconLabel);
+
+  const iconBtn = document.createElement("button");
+  iconBtn.type = "button";
+  iconBtn.className = "icon-select-btn";
+  iconBtn.innerHTML = '<span class="icon-select-preview">' +
+    renderIcon(ws.icon || "mdi-console", ws.icon_color, 18) +
+    '<span class="icon-select-label">' + escapeHtml(ws.icon || "デフォルト") + '</span></span>';
+  iconBtn.addEventListener("click", () => {
+    if (setTitleFn) {
+      const closePicker = openWorkspaceIconPickerInline(container, ws, goBackToSettings);
+      setTitleFn("アイコン選択", () => {
+        closePicker();
+        goBackToSettings();
+      });
+      return;
+    }
+    openWorkspaceIconPicker(ws, goBackToSettings);
+  });
+  iconRow.appendChild(iconBtn);
+  return iconRow;
+}
+
 function renderWorkspaceSettingsPane(container, ws, onBack, setTitleFn) {
   container.innerHTML = "";
   const sub = document.createElement("div");
@@ -102,129 +202,66 @@ function renderWorkspaceSettingsPane(container, ws, onBack, setTitleFn) {
   container.appendChild(sub);
 
   const goBackToSettings = () => renderWorkspaceSettingsPane(container, ws, onBack, setTitleFn);
+  body.appendChild(createWorkspaceIconRow(container, ws, setTitleFn, goBackToSettings));
 
-  const iconRow = document.createElement("div");
-  iconRow.className = "ws-settings-row";
-  const iconLabel = document.createElement("span");
-  iconLabel.className = "ws-settings-label";
-  iconLabel.textContent = "アイコン";
-  iconRow.appendChild(iconLabel);
-  const iconBtn = document.createElement("button");
-  iconBtn.type = "button";
-  iconBtn.className = "icon-select-btn";
-  iconBtn.innerHTML = '<span class="icon-select-preview">' +
-    renderIcon(ws.icon || "mdi-console", ws.icon_color, 18) +
-    '<span class="icon-select-label">' + escapeHtml(ws.icon || "デフォルト") + '</span></span>';
-  iconBtn.addEventListener("click", () => {
-    if (setTitleFn) {
-      const closePicker = openWorkspaceIconPickerInline(container, ws, goBackToSettings);
-      setTitleFn("アイコン選択", () => {
-        closePicker();
-        goBackToSettings();
-      });
-    } else {
-      openWorkspaceIconPicker(ws, goBackToSettings);
-    }
-  });
-  iconRow.appendChild(iconBtn);
-  body.appendChild(iconRow);
-
-  const jobSection = document.createElement("div");
-  jobSection.className = "ws-settings-section";
-  const jobHeader = document.createElement("div");
-  jobHeader.className = "ws-settings-section-header";
-  const jobTitle = document.createElement("span");
-  jobTitle.textContent = "ジョブ";
-  jobHeader.appendChild(jobTitle);
-  const jobAddBtn = document.createElement("button");
-  jobAddBtn.type = "button";
-  jobAddBtn.className = "ws-add-item-btn";
-  jobAddBtn.innerHTML = '<i class="mdi mdi-plus"></i>';
-  jobAddBtn.addEventListener("click", () => {
+  const jobList = createWorkspaceSettingsSection(body, "ジョブ", () => {
     if (setTitleFn) setTitleFn("ジョブ追加", goBackToSettings);
     renderInlineJobCreate(container, ws.name, goBackToSettings, setTitleFn);
   });
-  jobHeader.appendChild(jobAddBtn);
-  jobSection.appendChild(jobHeader);
-  const jobList = document.createElement("div");
-  jobList.className = "ws-settings-item-list";
-  jobSection.appendChild(jobList);
-  body.appendChild(jobSection);
 
-  const linkSection = document.createElement("div");
-  linkSection.className = "ws-settings-section";
-  const linkHeader = document.createElement("div");
-  linkHeader.className = "ws-settings-section-header";
-  const linkTitle = document.createElement("span");
-  linkTitle.textContent = "リンク";
-  linkHeader.appendChild(linkTitle);
-  const linkAddBtn = document.createElement("button");
-  linkAddBtn.type = "button";
-  linkAddBtn.className = "ws-add-item-btn";
-  linkAddBtn.innerHTML = '<i class="mdi mdi-plus"></i>';
-  linkAddBtn.addEventListener("click", () => {
+  const linkList = createWorkspaceSettingsSection(body, "リンク", () => {
     if (setTitleFn) setTitleFn("リンク追加", goBackToSettings);
     renderInlineLinkCreate(container, ws.name, goBackToSettings, setTitleFn);
   });
-  linkHeader.appendChild(linkAddBtn);
-  linkSection.appendChild(linkHeader);
-  const linkList = document.createElement("div");
-  linkList.className = "ws-settings-item-list";
-  linkSection.appendChild(linkList);
-  body.appendChild(linkSection);
 
-  loadWorkspaceSettingsItems(jobList, linkList, container, ws, onBack, setTitleFn);
+  loadWorkspaceSettingsItems({ jobList, linkList }, container, ws, onBack, setTitleFn);
 }
 
-async function loadWorkspaceSettingsItems(jobList, linkList, container, ws, onBack, setTitleFn) {
+async function loadWorkspaceSettingsItems(lists, container, ws, onBack, setTitleFn) {
   const { jobs, links } = await fetchWorkspaceJobsAndLinks(ws.name);
+  const { jobList, linkList } = lists;
 
   const goBackToSettings = () => renderWorkspaceSettingsPane(container, ws, onBack, setTitleFn);
 
-  const jobEntries = Object.entries(jobs).filter(([name]) => name !== "terminal");
-  if (jobEntries.length === 0) {
-    jobList.innerHTML = '<div class="ws-settings-empty">ジョブなし</div>';
-  } else {
-    for (const [name, job] of jobEntries) {
-      const row = document.createElement("div");
-      row.className = "ws-settings-item";
-      row.innerHTML = renderIcon(job.icon || "mdi-play", job.icon_color, 16) +
-        '<span class="ws-settings-item-name">' + escapeHtml(job.label || name) + '</span>';
-      row.addEventListener("click", () => {
+  const jobEntries = Object.entries(jobs)
+    .filter(([name]) => name !== "terminal")
+    .map(([name, job]) => ({ name, job }));
+  renderWorkspaceSettingsList(jobList, jobEntries, "ジョブなし", ({ name, job }) => {
+    return createWorkspaceSettingsItemRow({
+      icon: job.icon,
+      iconColor: job.icon_color,
+      defaultIcon: "mdi-play",
+      label: job.label || name,
+      onClick: () => {
         if (setTitleFn) setTitleFn("ジョブ編集", goBackToSettings);
-        renderInlineJobEdit(container, {
-          workspace: ws.name, name,
-          label: job.label || name,
-          icon: job.icon, iconColor: job.icon_color,
-          command: job.command || "",
-          confirm: job.confirm, terminal: job.terminal,
-        }, goBackToSettings, setTitleFn);
-      });
-      jobList.appendChild(row);
-    }
-  }
+        renderInlineJobEdit(
+          container,
+          toJobEditData(ws.name, name, job),
+          goBackToSettings,
+          setTitleFn,
+        );
+      },
+    });
+  });
 
-  if (links.length === 0) {
-    linkList.innerHTML = '<div class="ws-settings-empty">リンクなし</div>';
-  } else {
-    for (let i = 0; i < links.length; i++) {
-      const link = links[i];
-      const row = document.createElement("div");
-      row.className = "ws-settings-item";
-      row.innerHTML = renderIcon(link.icon || "mdi-web", link.icon_color, 16) +
-        '<span class="ws-settings-item-name">' + escapeHtml(link.label || link.url) + '</span>';
-      row.addEventListener("click", () => {
+  const linkEntries = links.map((link, index) => ({ link, index }));
+  renderWorkspaceSettingsList(linkList, linkEntries, "リンクなし", ({ link, index }) => {
+    return createWorkspaceSettingsItemRow({
+      icon: link.icon,
+      iconColor: link.icon_color,
+      defaultIcon: "mdi-web",
+      label: link.label || link.url,
+      onClick: () => {
         if (setTitleFn) setTitleFn("リンク編集", goBackToSettings);
-        renderInlineLinkEdit(container, {
-          workspace: ws.name, index: i,
-          label: link.label || link.url,
-          url: link.url,
-          icon: link.icon, iconColor: link.icon_color,
-        }, goBackToSettings, setTitleFn);
-      });
-      linkList.appendChild(row);
-    }
-  }
+        renderInlineLinkEdit(
+          container,
+          toLinkEditData(ws.name, index, link),
+          goBackToSettings,
+          setTitleFn,
+        );
+      },
+    });
+  });
 }
 
 const SERVER_INFO_LABELS = {
@@ -237,130 +274,118 @@ const SERVER_INFO_LABELS = {
   disk: "ディスク",
 };
 
-async function renderServerInfoTo(container) {
-  container.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>';
-  try {
-    const res = await apiFetch("/system/info");
-    if (!res || !res.ok) {
-      container.innerHTML = '<div style="color:var(--error);padding:16px">取得に失敗しました</div>';
-      return;
-    }
-    const data = await res.json();
-    container.innerHTML = "";
-    for (const [key, label] of Object.entries(SERVER_INFO_LABELS)) {
-      if (!(key in data)) continue;
-      const row = document.createElement("div");
-      row.className = "server-info-row";
-      row.innerHTML = `<span class="server-info-label">${escapeHtml(label)}</span><span class="server-info-value">${escapeHtml(String(data[key]))}</span>`;
-      container.appendChild(row);
-    }
-  } catch (e) {
-    container.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
+function renderServerInfoRows(container, data) {
+  for (const [key, label] of Object.entries(SERVER_INFO_LABELS)) {
+    if (!(key in data)) continue;
+    const row = document.createElement("div");
+    row.className = "server-info-row";
+    row.innerHTML = `<span class="server-info-label">${escapeHtml(label)}</span><span class="server-info-value">${escapeHtml(String(data[key]))}</span>`;
+    container.appendChild(row);
   }
 }
 
-async function openSettingsServerInfo() {
-  $("settings-title").textContent = "サーバー情報";
-  showSettingsView("settings-server-info-view");
-  $("settings-modal").style.display = "flex";
-  await renderServerInfoTo($("server-info-list"));
+function renderProcessRows(container, processes) {
+  for (const proc of processes) {
+    const row = document.createElement("div");
+    row.className = "server-info-row process-row";
+    row.innerHTML =
+      `<span class="process-name">${escapeHtml(proc.name)}</span>` +
+      `<span class="process-stats">` +
+      `<span class="process-cpu">${proc.cpu.toFixed(1)}%</span>` +
+      `<span class="process-mem">${proc.mem.toFixed(1)}%</span>` +
+      `</span>`;
+    row.title = `PID: ${proc.pid}\n${proc.command}`;
+    container.appendChild(row);
+  }
+}
+
+function renderOpLogRows(container, entries) {
+  if (entries.length === 0) {
+    setInlineStatus(container, "ログなし");
+    return;
+  }
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const entry = entries[i];
+    const row = document.createElement("div");
+    row.className = "op-log-row";
+    const ts = entry.ts ? new Date(entry.ts).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "";
+    const status = entry.status_code ? ` ${entry.status_code}` : "";
+    const duration = entry.duration_ms ? ` ${entry.duration_ms}ms` : "";
+    const detail = entry.detail ? ` ${entry.detail}` : "";
+    row.innerHTML =
+      `<span class="op-log-ts">${escapeHtml(ts)}</span>` +
+      `<span class="op-log-method">${escapeHtml(entry.method || "")}</span>` +
+      `<span class="op-log-path">${escapeHtml(entry.path || "")}${escapeHtml(status)}${escapeHtml(duration)}${escapeHtml(detail)}</span>`;
+    container.appendChild(row);
+  }
+}
+
+async function renderServerInfoTo(container) {
+  await fetchAndRenderWithStatus(container, "/system/info", (data) => renderServerInfoRows(container, data));
 }
 
 async function renderProcessListTo(container) {
-  container.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>';
-  try {
-    const res = await apiFetch("/system/processes");
-    if (!res || !res.ok) {
-      container.innerHTML = '<div style="color:var(--error);padding:16px">取得に失敗しました</div>';
-      return;
-    }
-    const data = await res.json();
-    container.innerHTML = "";
-    for (const proc of data) {
-      const row = document.createElement("div");
-      row.className = "server-info-row process-row";
-      row.innerHTML =
-        `<span class="process-name">${escapeHtml(proc.name)}</span>` +
-        `<span class="process-stats">` +
-        `<span class="process-cpu">${proc.cpu.toFixed(1)}%</span>` +
-        `<span class="process-mem">${proc.mem.toFixed(1)}%</span>` +
-        `</span>`;
-      row.title = `PID: ${proc.pid}\n${proc.command}`;
-      container.appendChild(row);
-    }
-  } catch (e) {
-    container.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
-  }
-}
-
-async function openProcessList() {
-  $("settings-title").textContent = "プロセス一覧";
-  showSettingsView("settings-process-list-view");
-  $("settings-modal").style.display = "flex";
-  await renderProcessListTo($("process-list"));
+  await fetchAndRenderWithStatus(container, "/system/processes", (data) => renderProcessRows(container, data));
 }
 
 async function renderOpLogTo(container) {
-  container.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>';
-  try {
-    const res = await apiFetch("/logs");
-    if (!res || !res.ok) {
-      container.innerHTML = '<div style="color:var(--error);padding:16px">取得に失敗しました</div>';
-      return;
-    }
-    const entries = await res.json();
-    container.innerHTML = "";
-    if (entries.length === 0) {
-      container.innerHTML = '<div style="color:var(--text-muted);padding:16px;text-align:center">ログなし</div>';
-      return;
-    }
-    for (let i = entries.length - 1; i >= 0; i--) {
-      const e = entries[i];
-      const row = document.createElement("div");
-      row.className = "op-log-row";
-      const ts = e.ts ? new Date(e.ts).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "";
-      const status = e.status_code ? ` ${e.status_code}` : "";
-      const duration = e.duration_ms ? ` ${e.duration_ms}ms` : "";
-      const detail = e.detail ? ` ${e.detail}` : "";
-      row.innerHTML =
-        `<span class="op-log-ts">${escapeHtml(ts)}</span>` +
-        `<span class="op-log-method">${escapeHtml(e.method || "")}</span>` +
-        `<span class="op-log-path">${escapeHtml(e.path || "")}${escapeHtml(status)}${escapeHtml(duration)}${escapeHtml(detail)}</span>`;
-      container.appendChild(row);
-    }
-  } catch (e) {
-    container.innerHTML = `<div style="color:var(--error);padding:16px">${escapeHtml(e.message)}</div>`;
-  }
+  await fetchAndRenderWithStatus(container, "/logs", (entries) => renderOpLogRows(container, entries));
+}
+
+async function openSettingsDataView({
+  title,
+  viewId,
+  listId,
+  renderFn,
+}) {
+  $("settings-title").textContent = title;
+  showSettingsView(viewId);
+  $("settings-modal").style.display = "flex";
+  await renderFn($(listId));
+}
+
+async function openSettingsServerInfo() {
+  await openSettingsDataView({
+    title: "サーバー情報",
+    viewId: "settings-server-info-view",
+    listId: "server-info-list",
+    renderFn: renderServerInfoTo,
+  });
+}
+
+async function openProcessList() {
+  await openSettingsDataView({
+    title: "プロセス一覧",
+    viewId: "settings-process-list-view",
+    listId: "process-list",
+    renderFn: renderProcessListTo,
+  });
 }
 
 async function openOpLog() {
-  $("settings-title").textContent = "操作ログ";
-  showSettingsView("settings-op-log-view");
-  $("settings-modal").style.display = "flex";
-  await renderOpLogTo($("op-log-list"));
+  await openSettingsDataView({
+    title: "操作ログ",
+    viewId: "settings-op-log-view",
+    listId: "op-log-list",
+    renderFn: renderOpLogTo,
+  });
 }
 
 
 async function saveWorkspaceIcon(ws, icon, color) {
-  try {
-    const res = await apiFetch(workspaceApiPath(ws.name, "/config"), {
-      method: "PUT",
-      body: { icon, icon_color: color },
-    });
-    if (!res) return false;
-    if (!res.ok) {
-      const data = await res.json();
-      showToast(data.detail || "保存に失敗しました");
-      return false;
+  const result = await putWorkspaceConfig(ws.name, { icon, icon_color: color });
+  if (!result.ok) {
+    if (result.error) {
+      showToast(result.error.message);
+    } else {
+      showToast((result.data && result.data.detail) || "保存に失敗しました");
     }
-    ws.icon = icon;
-    ws.icon_color = color;
-    showToast("アイコンを更新しました", "success");
-    return true;
-  } catch (e) {
-    showToast(e.message);
     return false;
   }
+  ws.icon = icon;
+  ws.icon_color = color;
+  showToast("アイコンを更新しました", "success");
+  return true;
 }
 
 function openWorkspaceIconPicker(ws, refreshFn) {
@@ -385,17 +410,17 @@ async function toggleWorkspace(name, visible) {
   const ws = allWorkspaces.find((w) => w.name === name);
   if (!ws) return;
   const hidden = !visible;
-  try {
-    const res = await apiFetch(workspaceApiPath(name, "/config"), {
-      method: "PUT",
-      body: { icon: ws.icon || "", icon_color: ws.icon_color || "", hidden },
-    });
-    if (!res || !res.ok) {
-      showToast("設定の保存に失敗しました", "error");
-      return;
+  const result = await putWorkspaceConfig(name, {
+    icon: ws.icon || "",
+    icon_color: ws.icon_color || "",
+    hidden,
+  });
+  if (!result.ok) {
+    if (result.error) {
+      showToast(result.error.message, "error");
+    } else {
+      showToast((result.data && result.data.detail) || "設定の保存に失敗しました", "error");
     }
-  } catch (e) {
-    showToast(e.message, "error");
     return;
   }
   ws.hidden = hidden;

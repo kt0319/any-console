@@ -182,20 +182,9 @@ async function executeJobDirect(targetJob, job, workspace) {
 }
 
 
-async function deleteLink(workspace, index, label) {
-  try {
-    const res = await apiFetch(workspaceApiPath(workspace, `/links/${index}`), { method: "DELETE" });
-    if (!res) return;
-    const data = await res.json();
-    if (!res.ok) {
-      showToast(data.detail || "削除に失敗しました");
-      return;
-    }
-    invalidateWorkspaceMetaCache(workspace);
-    showToast("リンクを削除しました", "success");
-  } catch (e) {
-    showToast(`削除エラー: ${e.message}`);
-  }
+async function deleteLink(workspace, index) {
+  const ok = await deleteWorkspaceAction(workspace, `/links/${index}`, "リンクを削除しました");
+  if (ok) invalidateWorkspaceMetaCache(workspace);
 }
 
 function createFormSubPane(container, title, onDone, setTitleFn) {
@@ -258,6 +247,34 @@ function showFormErr(el, msg) {
   el.style.display = "block";
 }
 
+async function submitWorkspaceFormAction({
+  workspace,
+  endpoint,
+  method,
+  body,
+  errorEl,
+  errorFallback,
+  successMessage = "",
+}) {
+  try {
+    const res = await apiFetch(workspaceApiPath(workspace, endpoint), {
+      method,
+      body,
+    });
+    if (!res) return false;
+    const data = await res.json();
+    if (!res.ok) {
+      showFormErr(errorEl, data.detail || errorFallback);
+      return false;
+    }
+    if (successMessage) showToast(successMessage, "success");
+    return true;
+  } catch (e) {
+    showFormErr(errorEl, e.message);
+    return false;
+  }
+}
+
 function buildIconSelectBtn(iconState, defaultIconName, container, setTitleFn, restoreTitleFn) {
   const iconBtn = document.createElement("button");
   iconBtn.type = "button";
@@ -309,252 +326,239 @@ function buildIconGroup(iconBtn) {
   return group;
 }
 
-function renderInlineLinkCreate(container, workspace, onDone, setTitleFn) {
-  const body = createFormSubPane(container, "リンク追加", onDone, setTitleFn);
+function createTextInputGroup({
+  label,
+  type = "text",
+  placeholder = "",
+  value = "",
+  autocomplete = "off",
+} = {}) {
+  const group = document.createElement("div");
+  group.className = "form-group";
+  group.innerHTML = `<label class="form-label">${escapeHtml(label)}</label>`;
+  const input = document.createElement("input");
+  input.type = type;
+  input.className = "form-input";
+  input.placeholder = placeholder;
+  input.autocomplete = autocomplete;
+  input.value = value;
+  group.appendChild(input);
+  return { group, input };
+}
 
-  const restoreTitle = setTitleFn ? () => setTitleFn("リンク追加", onDone) : null;
-  const iconState = { icon: "", color: "" };
-  const iconBtn = buildIconSelectBtn(iconState, "mdi-web", container, setTitleFn, restoreTitle);
+function createFormRenderer({
+  container,
+  title,
+  workspace,
+  onDone,
+  setTitleFn,
+  defaultIconName,
+  initialIcon = "",
+  initialIconColor = "",
+  fields = [],
+  checks = [],
+  submitLabel,
+  deleteLabel = "",
+  onSubmit,
+  onDelete = null,
+}) {
+  const body = createFormSubPane(container, title, onDone, setTitleFn);
+  const restoreTitle = setTitleFn ? () => setTitleFn(title, onDone) : null;
+  const iconState = { icon: initialIcon, color: initialIconColor };
+  const iconBtn = buildIconSelectBtn(iconState, defaultIconName, container, setTitleFn, restoreTitle);
   body.appendChild(buildIconGroup(iconBtn));
 
-  const urlGroup = document.createElement("div");
-  urlGroup.className = "form-group";
-  urlGroup.innerHTML = '<label class="form-label">URL</label>';
-  const urlInput = document.createElement("input");
-  urlInput.type = "url";
-  urlInput.className = "form-input";
-  urlInput.placeholder = "http://localhost:3000";
-  urlInput.autocomplete = "off";
-  urlGroup.appendChild(urlInput);
-  body.appendChild(urlGroup);
+  const fieldInputs = {};
+  for (const def of fields) {
+    const { group, input } = createTextInputGroup(def);
+    body.appendChild(group);
+    fieldInputs[def.name] = input;
+  }
+
+  const checkInputs = {};
+  for (const def of checks) {
+    const { group, input } = createCheckboxGroup(def.label, !!def.checked);
+    body.appendChild(group);
+    checkInputs[def.name] = input;
+  }
 
   const errorEl = createFormError();
   body.appendChild(errorEl);
 
-  const submitBtn = createSubmitBtn("追加", "primary");
-  body.appendChild(createFormActions(submitBtn));
-
+  const actions = [];
+  if (onDelete) {
+    const deleteBtn = createSubmitBtn(deleteLabel || "削除");
+    deleteBtn.addEventListener("click", async () => {
+      await onDelete({ workspace, onDone });
+    });
+    actions.push(deleteBtn);
+  }
+  const submitBtn = createSubmitBtn(submitLabel, "primary");
   submitBtn.addEventListener("click", async () => {
-    errorEl.style.display = "none";
-    const url = urlInput.value.trim();
-    if (!url) { showFormErr(errorEl, "URLを入力してください"); return; }
-    try {
-      const res = await apiFetch(workspaceApiPath(workspace, "/links"), {
-        method: "POST",
-        body: { url, icon: iconState.icon, icon_color: iconState.color },
-      });
-      if (!res) return;
-      const data = await res.json();
-      if (!res.ok) { showFormErr(errorEl, data.detail || "追加に失敗しました"); return; }
-      invalidateWorkspaceMetaCache(workspace);
-      await loadJobsForWorkspace();
-      showToast("リンクを追加しました", "success");
-      onDone();
-    } catch (e) { showFormErr(errorEl, e.message); }
+    await onSubmit({
+      workspace,
+      iconState,
+      fieldInputs,
+      checkInputs,
+      errorEl,
+      onDone,
+    });
   });
+  actions.push(submitBtn);
+  body.appendChild(createFormActions(...actions));
+}
+
+async function finalizeWorkspaceMutation(workspace, onDone) {
+  invalidateWorkspaceMetaCache(workspace);
+  await loadJobsForWorkspace();
+  onDone();
+}
+
+function validateRequiredValue(errorEl, value, message) {
+  if (value) return true;
+  showFormErr(errorEl, message);
+  return false;
+}
+
+function buildLinkFormRendererOptions({
+  container,
+  workspace,
+  data = null,
+  onDone,
+  setTitleFn,
+}) {
+  const isEdit = !!data;
+  const targetWorkspace = isEdit ? data.workspace : workspace;
+  const endpoint = isEdit ? `/links/${data.index}` : "/links";
+  const method = isEdit ? "PUT" : "POST";
+  return {
+    container,
+    title: isEdit ? "リンク編集" : "リンク追加",
+    workspace: targetWorkspace,
+    onDone,
+    setTitleFn,
+    defaultIconName: "mdi-web",
+    initialIcon: data?.icon || "",
+    initialIconColor: data?.iconColor || "",
+    fields: [
+      {
+        name: "url",
+        label: "URL",
+        type: "url",
+        placeholder: "http://localhost:3000",
+        value: data?.url || "",
+      },
+    ],
+    submitLabel: isEdit ? "保存" : "追加",
+    deleteLabel: "削除",
+    onDelete: isEdit ? async ({ workspace, onDone }) => {
+      await deleteLink(workspace, data.index);
+      await loadJobsForWorkspace();
+      onDone();
+    } : null,
+    onSubmit: async ({ workspace, iconState, fieldInputs, errorEl, onDone }) => {
+      errorEl.style.display = "none";
+      const url = fieldInputs.url.value.trim();
+      if (!validateRequiredValue(errorEl, url, "URLを入力してください")) return;
+      const ok = await submitWorkspaceFormAction({
+        workspace,
+        endpoint,
+        method,
+        body: { url, icon: iconState.icon, icon_color: iconState.color },
+        errorEl,
+        errorFallback: isEdit ? "保存に失敗しました" : "追加に失敗しました",
+        successMessage: isEdit ? "リンクを更新しました" : "リンクを追加しました",
+      });
+      if (!ok) return;
+      await finalizeWorkspaceMutation(workspace, onDone);
+    },
+  };
+}
+
+function buildJobFormRendererOptions({
+  container,
+  workspace,
+  data = null,
+  onDone,
+  setTitleFn,
+}) {
+  const isEdit = !!data;
+  const targetWorkspace = isEdit ? data.workspace : workspace;
+  const endpoint = isEdit ? `/jobs/${encodeURIComponent(data.name)}` : "/jobs";
+  const method = isEdit ? "PUT" : "POST";
+  return {
+    container,
+    title: isEdit ? "ジョブ編集" : "ジョブ追加",
+    workspace: targetWorkspace,
+    onDone,
+    setTitleFn,
+    defaultIconName: "mdi-play",
+    initialIcon: data?.icon || "",
+    initialIconColor: data?.iconColor || "",
+    fields: [
+      { name: "label", label: "表示名", placeholder: "ビルド", value: data?.label || "" },
+      { name: "command", label: "コマンド", placeholder: "echo hello", value: data?.command || "" },
+    ],
+    checks: [
+      { name: "confirm", label: "実行前に確認", checked: isEdit ? data.confirm !== false : true },
+      { name: "terminal", label: "ターミナルで実行", checked: isEdit ? data.terminal !== false : true },
+    ],
+    submitLabel: isEdit ? "保存" : "作成",
+    deleteLabel: "削除",
+    onDelete: isEdit ? async ({ workspace, onDone }) => {
+      await deleteJob(data.name, workspace);
+      await loadJobsForWorkspace();
+      onDone();
+    } : null,
+    onSubmit: async ({ workspace, iconState, fieldInputs, checkInputs, errorEl, onDone }) => {
+      errorEl.style.display = "none";
+      const label = fieldInputs.label.value.trim();
+      const command = fieldInputs.command.value;
+      if (!validateRequiredValue(errorEl, label, "表示名を入力してください")) return;
+      if (!validateRequiredValue(errorEl, command.trim(), "コマンドを入力してください")) return;
+      const ok = await submitWorkspaceFormAction({
+        workspace,
+        endpoint,
+        method,
+        body: {
+          label,
+          command,
+          icon: iconState.icon,
+          icon_color: iconState.color,
+          confirm: checkInputs.confirm.checked,
+          terminal: checkInputs.terminal.checked,
+        },
+        errorEl,
+        errorFallback: isEdit ? "保存に失敗しました" : "作成に失敗しました",
+      });
+      if (!ok) return;
+      await finalizeWorkspaceMutation(workspace, onDone);
+    },
+  };
+}
+
+function renderInlineLinkCreate(container, workspace, onDone, setTitleFn) {
+  createFormRenderer(buildLinkFormRendererOptions({ container, workspace, onDone, setTitleFn }));
 }
 
 function renderInlineJobCreate(container, workspace, onDone, setTitleFn) {
-  const body = createFormSubPane(container, "ジョブ追加", onDone, setTitleFn);
-
-  const restoreTitle = setTitleFn ? () => setTitleFn("ジョブ追加", onDone) : null;
-  const iconState = { icon: "", color: "" };
-  const iconBtn = buildIconSelectBtn(iconState, "mdi-play", container, setTitleFn, restoreTitle);
-  body.appendChild(buildIconGroup(iconBtn));
-
-  const labelGroup = document.createElement("div");
-  labelGroup.className = "form-group";
-  labelGroup.innerHTML = '<label class="form-label">表示名</label>';
-  const labelInput = document.createElement("input");
-  labelInput.type = "text";
-  labelInput.className = "form-input";
-  labelInput.placeholder = "ビルド";
-  labelInput.autocomplete = "off";
-  labelGroup.appendChild(labelInput);
-  body.appendChild(labelGroup);
-
-  const cmdGroup = document.createElement("div");
-  cmdGroup.className = "form-group";
-  cmdGroup.innerHTML = '<label class="form-label">コマンド</label>';
-  const cmdInput = document.createElement("input");
-  cmdInput.type = "text";
-  cmdInput.className = "form-input";
-  cmdInput.placeholder = "echo hello";
-  cmdInput.autocomplete = "off";
-  cmdGroup.appendChild(cmdInput);
-  body.appendChild(cmdGroup);
-
-  const { group: confirmGroup, input: confirmCheck } = createCheckboxGroup("実行前に確認", true);
-  body.appendChild(confirmGroup);
-  const { group: termGroup, input: termCheck } = createCheckboxGroup("ターミナルで実行", true);
-  body.appendChild(termGroup);
-
-  const errorEl = createFormError();
-  body.appendChild(errorEl);
-
-  const submitBtn = createSubmitBtn("作成", "primary");
-  body.appendChild(createFormActions(submitBtn));
-
-  submitBtn.addEventListener("click", async () => {
-    errorEl.style.display = "none";
-    const label = labelInput.value.trim();
-    const command = cmdInput.value;
-    if (!label) { showFormErr(errorEl, "表示名を入力してください"); return; }
-    if (!command.trim()) { showFormErr(errorEl, "コマンドを入力してください"); return; }
-    try {
-      const res = await apiFetch(workspaceApiPath(workspace, "/jobs"), {
-        method: "POST",
-        body: { label, command, icon: iconState.icon, icon_color: iconState.color, confirm: confirmCheck.checked, terminal: termCheck.checked },
-      });
-      if (!res) return;
-      const data = await res.json();
-      if (!res.ok) { showFormErr(errorEl, data.detail || "作成に失敗しました"); return; }
-      invalidateWorkspaceMetaCache(workspace);
-      await loadJobsForWorkspace();
-      onDone();
-    } catch (e) { showFormErr(errorEl, e.message); }
-  });
+  createFormRenderer(buildJobFormRendererOptions({ container, workspace, onDone, setTitleFn }));
 }
 
 function renderInlineLinkEdit(container, data, onDone, setTitleFn) {
-  const body = createFormSubPane(container, "リンク編集", onDone, setTitleFn);
-
-  const restoreTitle = setTitleFn ? () => setTitleFn("リンク編集", onDone) : null;
-  const iconState = { icon: data.icon || "", color: data.iconColor || "" };
-  const iconBtn = buildIconSelectBtn(iconState, "mdi-web", container, setTitleFn, restoreTitle);
-  body.appendChild(buildIconGroup(iconBtn));
-
-  const urlGroup = document.createElement("div");
-  urlGroup.className = "form-group";
-  urlGroup.innerHTML = '<label class="form-label">URL</label>';
-  const urlInput = document.createElement("input");
-  urlInput.type = "url";
-  urlInput.className = "form-input";
-  urlInput.placeholder = "http://localhost:3000";
-  urlInput.autocomplete = "off";
-  urlInput.value = data.url || "";
-  urlGroup.appendChild(urlInput);
-  body.appendChild(urlGroup);
-
-  const errorEl = createFormError();
-  body.appendChild(errorEl);
-
-  const deleteBtn = createSubmitBtn("削除");
-  const saveBtn = createSubmitBtn("保存", "primary");
-  body.appendChild(createFormActions(deleteBtn, saveBtn));
-
-  deleteBtn.addEventListener("click", async () => {
-    await deleteLink(data.workspace, data.index, data.label);
-    await loadJobsForWorkspace();
-    onDone();
-  });
-
-  saveBtn.addEventListener("click", async () => {
-    errorEl.style.display = "none";
-    const url = urlInput.value.trim();
-    if (!url) { showFormErr(errorEl, "URLを入力してください"); return; }
-    try {
-      const res = await apiFetch(workspaceApiPath(data.workspace, `/links/${data.index}`), {
-        method: "PUT",
-        body: { url, icon: iconState.icon, icon_color: iconState.color },
-      });
-      if (!res) return;
-      const d = await res.json();
-      if (!res.ok) { showFormErr(errorEl, d.detail || "保存に失敗しました"); return; }
-      invalidateWorkspaceMetaCache(data.workspace);
-      await loadJobsForWorkspace();
-      showToast("リンクを更新しました", "success");
-      onDone();
-    } catch (e) { showFormErr(errorEl, e.message); }
-  });
+  createFormRenderer(buildLinkFormRendererOptions({ container, data, onDone, setTitleFn }));
 }
 
 function renderInlineJobEdit(container, data, onDone, setTitleFn) {
-  const body = createFormSubPane(container, "ジョブ編集", onDone, setTitleFn);
-
-  const restoreTitle = setTitleFn ? () => setTitleFn("ジョブ編集", onDone) : null;
-  const iconState = { icon: data.icon || "", color: data.iconColor || "" };
-  const iconBtn = buildIconSelectBtn(iconState, "mdi-play", container, setTitleFn, restoreTitle);
-  body.appendChild(buildIconGroup(iconBtn));
-
-  const labelGroup = document.createElement("div");
-  labelGroup.className = "form-group";
-  labelGroup.innerHTML = '<label class="form-label">表示名</label>';
-  const labelInput = document.createElement("input");
-  labelInput.type = "text";
-  labelInput.className = "form-input";
-  labelInput.placeholder = "ビルド";
-  labelInput.autocomplete = "off";
-  labelInput.value = data.label || "";
-  labelGroup.appendChild(labelInput);
-  body.appendChild(labelGroup);
-
-  const cmdGroup = document.createElement("div");
-  cmdGroup.className = "form-group";
-  cmdGroup.innerHTML = '<label class="form-label">コマンド</label>';
-  const cmdInput = document.createElement("input");
-  cmdInput.type = "text";
-  cmdInput.className = "form-input";
-  cmdInput.placeholder = "echo hello";
-  cmdInput.autocomplete = "off";
-  cmdInput.value = data.command || "";
-  cmdGroup.appendChild(cmdInput);
-  body.appendChild(cmdGroup);
-
-  const { group: confirmGroup, input: confirmCheck } = createCheckboxGroup("実行前に確認", data.confirm !== false);
-  body.appendChild(confirmGroup);
-  const { group: termGroup, input: termCheck } = createCheckboxGroup("ターミナルで実行", data.terminal !== false);
-  body.appendChild(termGroup);
-
-  const errorEl = createFormError();
-  body.appendChild(errorEl);
-
-  const deleteBtn = createSubmitBtn("削除");
-  const saveBtn = createSubmitBtn("保存", "primary");
-  body.appendChild(createFormActions(deleteBtn, saveBtn));
-
-  deleteBtn.addEventListener("click", async () => {
-    await deleteJob(data.name, data.workspace);
-    await loadJobsForWorkspace();
-    onDone();
-  });
-
-  saveBtn.addEventListener("click", async () => {
-    errorEl.style.display = "none";
-    const label = labelInput.value.trim();
-    const command = cmdInput.value;
-    if (!label) { showFormErr(errorEl, "表示名を入力してください"); return; }
-    if (!command.trim()) { showFormErr(errorEl, "コマンドを入力してください"); return; }
-    try {
-      const res = await apiFetch(workspaceApiPath(data.workspace, `/jobs/${encodeURIComponent(data.name)}`), {
-        method: "PUT",
-        body: { label, command, icon: iconState.icon, icon_color: iconState.color, confirm: confirmCheck.checked, terminal: termCheck.checked },
-      });
-      if (!res) return;
-      const d = await res.json();
-      if (!res.ok) { showFormErr(errorEl, d.detail || "保存に失敗しました"); return; }
-      invalidateWorkspaceMetaCache(data.workspace);
-      await loadJobsForWorkspace();
-      onDone();
-    } catch (e) { showFormErr(errorEl, e.message); }
-  });
+  createFormRenderer(buildJobFormRendererOptions({ container, data, onDone, setTitleFn }));
 }
 
 async function deleteJob(jobName, workspace) {
   const ws = workspace || selectedWorkspace;
   if (!ws) return;
 
-  try {
-    const res = await apiFetch(workspaceApiPath(ws, `/jobs/${encodeURIComponent(jobName)}`), { method: "DELETE" });
-    if (!res) return;
-    const data = await res.json();
-    if (!res.ok) {
-      showToast(data.detail || "削除に失敗しました");
-      return;
-    }
-    if (pendingJob === jobName) pendingJob = null;
-    invalidateWorkspaceMetaCache(ws);
-  } catch (e) {
-    showToast(`削除エラー: ${e.message}`);
-  }
+  const ok = await deleteWorkspaceAction(ws, `/jobs/${encodeURIComponent(jobName)}`, null);
+  if (!ok) return;
+  if (pendingJob === jobName) pendingJob = null;
+  invalidateWorkspaceMetaCache(ws);
 }

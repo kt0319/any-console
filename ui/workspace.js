@@ -22,11 +22,7 @@ async function refreshWorkspaceHeader() {
 
   let cleanDirtyHtml = "";
   if (ws.clean === false) {
-    let statParts = [];
-    if (ws.changed_files > 0) statParts.push(`<span class="stat-files">${ws.changed_files}F</span>`);
-    if (ws.insertions > 0) statParts.push(`<span class="stat-add">+${ws.insertions}</span>`);
-    if (ws.deletions > 0) statParts.push(`<span class="stat-del">-${ws.deletions}</span>`);
-    const statText = statParts.length > 0 ? statParts.join(" ") : "\u25cf";
+    const statText = buildWorkspaceChangeSummaryHtml(ws);
     cleanDirtyHtml = `<span class="git-badge dirty" id="dirty-badge">${statText}</span>`;
   }
   $("clean-dirty-status").innerHTML = cleanDirtyHtml;

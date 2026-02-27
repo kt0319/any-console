@@ -405,16 +405,7 @@ function openTabEditModal(initialTab = "layout") {
         button.classList.add("running");
       }
       try {
-        const res = await apiFetch(workspaceApiPath(wsName, endpoint), { method: "POST" });
-        if (!res) return;
-        const data = await res.json();
-        if (data.status === "ok") {
-          showToast(`${label} 完了`, "success");
-        } else {
-          showToast(`${label} 失敗: ${data.stderr || data.stdout || data.detail || "unknown error"}`);
-        }
-      } catch (e) {
-        showToast(`${label} エラー: ${e.message}`);
+        await postWorkspaceAction(wsName, endpoint, label);
       } finally {
         if (button) {
           button.classList.remove("running");
@@ -427,15 +418,6 @@ function openTabEditModal(initialTab = "layout") {
         container.innerHTML = "";
         renderModalWsList(container);
       }
-    }
-
-    function buildDirtyHtml(ws) {
-      if (ws.clean !== false) return "";
-      const parts = [];
-      if (ws.changed_files > 0) parts.push(`<span class="stat-files">${ws.changed_files}F</span>`);
-      if (ws.insertions > 0) parts.push(`<span class="stat-add">+${ws.insertions}</span>`);
-      if (ws.deletions > 0) parts.push(`<span class="stat-del">-${ws.deletions}</span>`);
-      return parts.length > 0 ? parts.join(" ") : "\u25cf";
     }
 
     const workspaces = visibleWorkspaces();
@@ -461,7 +443,7 @@ function openTabEditModal(initialTab = "layout") {
       const topMeta = document.createElement("div");
       topMeta.className = "picker-ws-top-meta";
 
-      const dirtyHtml = buildDirtyHtml(ws);
+      const dirtyHtml = buildWorkspaceChangeSummaryHtml(ws);
       if (dirtyHtml) {
         const dirtyBadge = document.createElement("span");
         dirtyBadge.className = "git-badge dirty";

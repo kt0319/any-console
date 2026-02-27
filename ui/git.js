@@ -38,16 +38,7 @@ async function executeGitRemoteOp(buttonId, endpoint, label) {
   btn.classList.add("running");
 
   try {
-    const res = await apiFetch(workspaceApiPath(selectedWorkspace, endpoint), { method: "POST" });
-    if (!res) return;
-    const data = await res.json();
-    if (data.status === "ok") {
-      showToast(`${label} 完了`, "success");
-    } else {
-      showToast(`${label} 失敗: ${data.stderr || data.stdout || "unknown error"}`);
-    }
-  } catch (e) {
-    showToast(`${label} エラー: ${e.message}`);
+    await postWorkspaceAction(selectedWorkspace, endpoint, label);
   } finally {
     btn.classList.remove("running");
     btn.disabled = false;
@@ -172,21 +163,12 @@ async function execCommitAction(action, hash, body = null, confirmMsg = null) {
   const shortHash = hash.substring(0, 8);
   const msg = confirmMsg || `${action} ${shortHash} を実行しますか？`;
   if (!confirm(msg)) return;
-  try {
-    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/${action}`), {
-      method: "POST",
-      body: body || { commit_hash: hash },
-    });
-    if (!res) return;
-    const data = await res.json();
-    if (data.status === "ok") {
-      showToast(`${action} 完了`, "success");
-    } else {
-      showToast(`${action} 失敗: ${data.stderr || data.stdout || "unknown error"}`);
-    }
-  } catch (e) {
-    showToast(`${action} エラー: ${e.message}`);
-  }
+  await postWorkspaceAction(
+    selectedWorkspace,
+    `/${action}`,
+    action,
+    body || { commit_hash: hash },
+  );
   closeGitLogModal();
   await refreshAfterGitOp();
 }
@@ -450,11 +432,7 @@ function renderDirtyEntry(listEl) {
   if (!isDirty) entry.classList.add("git-log-clean");
   let badgeHtml = "";
   if (isDirty) {
-    let statParts = [];
-    if (ws.changed_files > 0) statParts.push(`<span class="stat-files">${ws.changed_files}F</span>`);
-    if (ws.insertions > 0) statParts.push(`<span class="stat-add">+${ws.insertions}</span>`);
-    if (ws.deletions > 0) statParts.push(`<span class="stat-del">-${ws.deletions}</span>`);
-    const statText = statParts.length > 0 ? statParts.join(" ") : "\u25cf";
+    const statText = buildWorkspaceChangeSummaryHtml(ws);
     badgeHtml = `<span class="git-log-entry-refs"><span class="git-ref git-ref-dirty">${statText}</span></span>`;
   }
   entry.innerHTML =
@@ -517,14 +495,17 @@ async function openStashPane() {
   previousModalTab = "commits";
   showSubPane("commit-modal-tab-stash", "Stash");
   const listEl = $("stash-pane-list");
-  listEl.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
+  setCloneRepoStatus(listEl, "loading", "読み込み中...");
 
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/stash-list"));
-    if (!res || !res.ok) { listEl.innerHTML = '<div class="clone-repo-loading">取得に失敗しました</div>'; return; }
+    if (!res || !res.ok) {
+      setCloneRepoStatus(listEl, "error", "取得に失敗しました");
+      return;
+    }
     const data = await res.json();
     if (data.status !== "ok" || !data.entries || data.entries.length === 0) {
-      listEl.innerHTML = '<div class="clone-repo-loading">stashはありません</div>';
+      setCloneRepoStatus(listEl, "empty", "stashはありません");
       return;
     }
     listEl.innerHTML = "";
@@ -561,7 +542,7 @@ async function openStashPane() {
       listEl.appendChild(row);
     }
   } catch (e) {
-    listEl.innerHTML = `<div class="clone-repo-loading">${escapeHtml(e.message)}</div>`;
+    setCloneRepoStatus(listEl, "error", e.message);
   }
 }
 
@@ -570,21 +551,12 @@ async function execStashRefAction(action, ref) {
   const label = action === "pop" ? `stash pop ${ref}` : `stash drop ${ref}`;
   if (!confirm(`${label} を実行しますか？`)) return;
   const endpoint = action === "pop" ? "stash-pop-index" : "stash-drop";
-  try {
-    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/${endpoint}`), {
-      method: "POST",
-      body: { stash_ref: ref },
-    });
-    if (!res) return;
-    const data = await res.json();
-    if (data.status === "ok") {
-      showToast(`${label} 完了`, "success");
-    } else {
-      showToast(`${label} 失敗: ${data.stderr || data.stdout || "unknown error"}`);
-    }
-  } catch (e) {
-    showToast(`${label} エラー: ${e.message}`);
-  }
+  await postWorkspaceAction(
+    selectedWorkspace,
+    `/${endpoint}`,
+    label,
+    { stash_ref: ref },
+  );
   closeSubPane();
   await refreshAfterGitOp();
   await reloadGitLog();
@@ -674,18 +646,7 @@ async function execStashAction(action) {
   const endpoint = action === "pop" ? "stash-pop" : "stash";
   const label = action === "pop" ? "stash pop" : "stash";
   if (!confirm(`${label} を実行しますか？`)) return;
-  try {
-    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/${endpoint}`), { method: "POST" });
-    if (!res) return;
-    const data = await res.json();
-    if (data.status === "ok") {
-      showToast(`${label} 完了`, "success");
-    } else {
-      showToast(`${label} 失敗: ${data.stderr || data.stdout || "unknown error"}`);
-    }
-  } catch (e) {
-    showToast(`${label} エラー: ${e.message}`);
-  }
+  await postWorkspaceAction(selectedWorkspace, `/${endpoint}`, label);
   closeGitLogModal();
   await refreshAfterGitOp();
 }
@@ -694,18 +655,18 @@ async function openRemoteBranchPane() {
   previousModalTab = "commits";
   showSubPane("commit-modal-tab-branch", "リモートブランチ");
   const listEl = $("branch-pane-list");
-  listEl.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
+  setCloneRepoStatus(listEl, "loading", "読み込み中...");
 
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/branches/remote"));
     if (!res) return;
     if (!res.ok) {
-      listEl.innerHTML = '<div class="clone-repo-error">取得に失敗しました</div>';
+      setCloneRepoStatus(listEl, "error", "取得に失敗しました");
       return;
     }
     const remoteBranches = await res.json();
     if (remoteBranches.length === 0) {
-      listEl.innerHTML = '<div class="clone-repo-empty">リモートブランチがありません</div>';
+      setCloneRepoStatus(listEl, "empty", "リモートブランチがありません");
       return;
     }
 
@@ -753,7 +714,7 @@ async function openRemoteBranchPane() {
       listEl.appendChild(item);
     }
   } catch (e) {
-    listEl.innerHTML = `<div class="clone-repo-error">${escapeHtml(e.message)}</div>`;
+    setCloneRepoStatus(listEl, "error", e.message);
   }
 }
 
