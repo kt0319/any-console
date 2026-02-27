@@ -52,8 +52,60 @@ Object.assign(GitLogModal, {
     const remoteBtn = document.createElement("div");
     remoteBtn.className = "branch-item branch-item-action";
     remoteBtn.textContent = "リモートブランチを表示...";
-    remoteBtn.addEventListener("click", () => GitLogModal.openRemoteBranchPane());
+    remoteBtn.addEventListener("click", async () => {
+      remoteBtn.remove();
+      await GitLogModal.renderRemoteBranchInlineList(listEl, currentBranch);
+    });
     listEl.appendChild(remoteBtn);
+  },
+
+  async renderRemoteBranchInlineList(listEl, currentBranch) {
+    try {
+      const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/branches/remote"));
+      if (!res || !res.ok) return;
+
+      const remoteBranches = await res.json();
+      const remoteOnlyBranches = remoteBranches.filter((branch) => !cachedBranches.includes(branch));
+      if (remoteOnlyBranches.length === 0) return;
+
+      for (const branch of remoteOnlyBranches) {
+        const item = document.createElement("div");
+        item.className = "branch-item remote-only";
+        if (branch === currentBranch) {
+          item.classList.add("current");
+        }
+
+        const nameEl = document.createElement("div");
+        nameEl.className = "branch-item-name";
+        nameEl.textContent = branch === currentBranch ? `${branch} ✓` : branch;
+        if (branch !== currentBranch) {
+          nameEl.addEventListener("click", async () => {
+            GitLogModal.closeSubPane();
+            await GitCore.checkoutBranch(branch);
+            GitLogModal.updateGitLogBranchLabel();
+            await GitLogModal.reloadGitLog();
+          });
+        }
+        item.appendChild(nameEl);
+
+        if (branch !== currentBranch) {
+          const actions = document.createElement("div");
+          actions.className = "branch-item-actions";
+          const delBtn = document.createElement("button");
+          delBtn.type = "button";
+          delBtn.className = "commit-action-item commit-action-danger";
+          delBtn.textContent = "削除";
+          delBtn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            await GitLogModal.deleteBranch(branch, true, delBtn);
+          });
+          actions.appendChild(delBtn);
+          item.appendChild(actions);
+        }
+
+        listEl.appendChild(item);
+      }
+    } catch {}
   },
 
   async openStashPane() {
@@ -133,73 +185,6 @@ Object.assign(GitLogModal, {
     await GitLogModal.reloadGitLog();
   },
 
-  async openRemoteBranchPane() {
-    GitLogModal.state.previousModalTab = "commits";
-    GitLogModal.showSubPane("commit-modal-tab-branch", "リモートブランチ");
-    const listEl = $("branch-pane-list");
-    setCloneRepoStatus(listEl, "loading", "読み込み中...");
-
-    try {
-      const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/branches/remote"));
-      if (!res) return;
-      if (!res.ok) {
-        setCloneRepoStatus(listEl, "error", "取得に失敗しました");
-        return;
-      }
-      const remoteBranches = await res.json();
-      if (remoteBranches.length === 0) {
-        setCloneRepoStatus(listEl, "empty", "リモートブランチがありません");
-        return;
-      }
-
-      const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
-      const currentBranch = ws ? ws.branch : null;
-
-      listEl.innerHTML = "";
-      for (const branch of remoteBranches) {
-        const item = document.createElement("div");
-        item.className = "branch-item";
-        if (branch === currentBranch) {
-          item.classList.add("current");
-        } else if (cachedBranches.includes(branch)) {
-          item.classList.add("local-exists");
-        }
-
-        const nameEl = document.createElement("div");
-        nameEl.className = "branch-item-name";
-        nameEl.textContent = branch === currentBranch ? `${branch} ✓` : branch;
-        if (branch !== currentBranch) {
-          nameEl.addEventListener("click", async () => {
-            GitLogModal.closeSubPane();
-            await GitCore.checkoutBranch(branch);
-            GitLogModal.updateGitLogBranchLabel();
-            await GitLogModal.reloadGitLog();
-          });
-        }
-        item.appendChild(nameEl);
-
-        if (branch !== currentBranch) {
-          const actions = document.createElement("div");
-          actions.className = "branch-item-actions";
-          const delBtn = document.createElement("button");
-          delBtn.type = "button";
-          delBtn.className = "commit-action-item commit-action-danger";
-          delBtn.textContent = "削除";
-          delBtn.addEventListener("click", async (e) => {
-            e.stopPropagation();
-            await GitLogModal.deleteBranch(branch, true, delBtn);
-          });
-          actions.appendChild(delBtn);
-          item.appendChild(actions);
-        }
-
-        listEl.appendChild(item);
-      }
-    } catch (e) {
-      setCloneRepoStatus(listEl, "error", e.message);
-    }
-  },
-
   async deleteBranch(branch, remote, triggerBtn) {
     if (!selectedWorkspace) return;
     const label = remote ? `リモートブランチ ${branch}` : `ブランチ ${branch}`;
@@ -230,10 +215,6 @@ Object.assign(GitLogModal, {
         triggerBtn.disabled = false;
       }
     }
-    if (remote) {
-      await GitLogModal.openRemoteBranchPane();
-    } else {
-      await GitLogModal.openLocalBranchPane();
-    }
+    await GitLogModal.openLocalBranchPane();
   },
 });

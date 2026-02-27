@@ -1905,15 +1905,17 @@ button:disabled {
 
 
 .branch-item {
+  box-sizing: border-box;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
   font-size: 13px;
   color: var(--text-primary);
   transition: background 0.15s;
-  min-height: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
 }
 
 .branch-item:last-child {
@@ -1931,6 +1933,7 @@ button:disabled {
 
 .branch-item-actions {
   display: flex;
+  align-items: center;
   gap: 4px;
   flex-shrink: 0;
 }
@@ -1941,6 +1944,10 @@ button:disabled {
 }
 
 .branch-item.local-exists {
+  color: var(--text-muted);
+}
+
+.branch-item.remote-only {
   color: var(--text-muted);
 }
 
