@@ -1,4 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#1a1a2e"/>
-  <text x="8" y="44" font-family="monospace" font-size="36" font-weight="bold" fill="#c3e88d">π&gt;</text>
+  <defs>
+    <radialGradient id="screenGrad" cx="50%" cy="42%" r="70%">
+      <stop offset="0%" stop-color="#1a3142"/>
+      <stop offset="65%" stop-color="#112231"/>
+      <stop offset="100%" stop-color="#0a131b"/>
+    </radialGradient>
+    <linearGradient id="screenGloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.12)"/>
+      <stop offset="45%" stop-color="rgba(255,255,255,0.02)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </linearGradient>
+    <linearGradient id="piGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ff7b7b"/>
+      <stop offset="100%" stop-color="#d62a2a"/>
+    </linearGradient>
+    <linearGradient id="caretGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#b2f0ff"/>
+      <stop offset="100%" stop-color="#66b7d7"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="12" fill="url(#screenGrad)"/>
+  <rect width="64" height="64" rx="12" fill="url(#screenGloss)"/>
+  <rect x="0.5" y="0.5" width="63" height="63" rx="11.5" fill="none" stroke="rgba(170,220,255,0.12)"/>
+  <text x="32" y="32" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="34" font-weight="700">
+    <tspan fill="url(#piGrad)">π</tspan>
+    <tspan dx="-2" fill="url(#caretGrad)">›</tspan>
+  </text>
 </svg>
