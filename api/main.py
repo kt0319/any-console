@@ -356,10 +356,14 @@ async def import_settings(request: Request):
 
 
 @app.get("/")
-def serve_index():
+def serve_index(request: Request):
+    version = BOOT_VERSION
+    cache_bust = request.query_params.get("_")
+    if cache_bust and re.fullmatch(r"[0-9]{8,20}", cache_bust):
+        version = cache_bust
     html = (UI_DIR / "index.html").read_text()
-    html = re.sub(r'href="([^"]+\.css)"', rf'href="\1?v={BOOT_VERSION}"', html)
-    html = re.sub(r'src="([^"]+\.js)"', rf'src="\1?v={BOOT_VERSION}"', html)
+    html = re.sub(r'href="([^"]+\.css)"', rf'href="\1?v={version}"', html)
+    html = re.sub(r'src="([^"]+\.js)"', rf'src="\1?v={version}"', html)
     return Response(content=html, media_type="text/html",
                     headers={"Cache-Control": "no-cache"})
 
