@@ -31,7 +31,28 @@ function initQuickInput() {
     longPressGuard: () => keyboardPanelMode === 0,
     onFlick: () => snippetModeActive,
   });
-  const minimalKeyBtns = [minimalArrow];
+  const hardReloadBtn = document.createElement("div");
+  hardReloadBtn.className = "quick-key quick-hard-reload";
+  hardReloadBtn.innerHTML = '<span class="mdi mdi-refresh"></span>';
+  hardReloadBtn.style.display = "none";
+  hardReloadBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  hardReloadBtn.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    window.location.href = window.location.pathname + "?_=" + Date.now();
+  });
+  hardReloadBtn.addEventListener("click", () => {
+    window.location.href = window.location.pathname + "?_=" + Date.now();
+  });
+
+  const snippetSpacer1 = document.createElement("div");
+  snippetSpacer1.className = "quick-key quick-snippet-spacer";
+  snippetSpacer1.style.display = "none";
+  const snippetSpacer2 = document.createElement("div");
+  snippetSpacer2.className = "quick-key quick-snippet-spacer";
+  snippetSpacer2.style.display = "none";
+
+  const snippetExtras = [snippetSpacer1, snippetSpacer2, hardReloadBtn];
+  const minimalKeyBtns = [snippetSpacer1, snippetSpacer2, hardReloadBtn, minimalArrow];
   const quickKeyBtns = QUICK_KEYS.map(k => createQuickKeyBtn(k));
   const extraKeyBtns = EXTRA_MAIN_KEYS.map(k => {
     const btn = createQuickKeyBtn(k);
@@ -365,6 +386,8 @@ function initQuickInput() {
   function closeSnippetMode() {
     snippetModeActive = false;
     snippetRow.style.display = "none";
+    for (const el of snippetExtras) el.style.display = "none";
+    panel.classList.remove("snippet-open");
     minimalEnter.innerHTML = minimalEnterDefaultHTML;
     minimalEnter.classList.remove("active");
     minimalArrow.innerHTML = minimalArrowDefaultHTML;
@@ -385,6 +408,8 @@ function initQuickInput() {
     clearModifiers();
     snippetModeActive = false;
     snippetRow.style.display = "none";
+    for (const el of snippetExtras) el.style.display = "none";
+    panel.classList.remove("snippet-open");
     minimalEnter.innerHTML = minimalEnterDefaultHTML;
     minimalEnter.classList.remove("active");
     updateEnterBtn();
@@ -398,6 +423,8 @@ function initQuickInput() {
     if (visible) {
       snippetModeActive = false;
       snippetRow.style.display = "none";
+      for (const el of snippetExtras) el.style.display = "none";
+      panel.classList.remove("snippet-open");
       minimalEnter.innerHTML = minimalEnterDefaultHTML;
       minimalEnter.classList.remove("active");
       minimalArrow.innerHTML = minimalArrowDefaultHTML;
@@ -409,6 +436,8 @@ function initQuickInput() {
       }
       snippetModeActive = true;
       snippetRow.style.display = "flex";
+      for (const el of snippetExtras) el.style.display = "";
+      panel.classList.add("snippet-open");
       renderQuickSnippets();
       minimalEnter.innerHTML = '<span class="mdi mdi-close"></span>';
       minimalEnter.classList.add("active");
@@ -442,6 +471,8 @@ function initQuickInput() {
     }
     snippetModeActive = false;
     snippetRow.style.display = "none";
+    for (const el of snippetExtras) el.style.display = "none";
+    panel.classList.remove("snippet-open");
     minimalEnter.innerHTML = minimalEnterDefaultHTML;
     minimalEnter.classList.remove("active");
     minimalArrow.innerHTML = minimalArrowDefaultHTML;

@@ -2789,6 +2789,11 @@ button:disabled {
   margin-left: auto;
 }
 
+.quick-input-panel.minimal-mode.snippet-open {
+  width: 100%;
+  margin-left: 0;
+}
+
 
 .quick-flick-arrow,
 .quick-flick-enter {
@@ -2890,6 +2895,16 @@ button:disabled {
   -webkit-tap-highlight-color: transparent;
   outline: none;
   transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.quick-snippet-spacer {
+  pointer-events: none;
+  border-color: transparent;
+  background: transparent;
+}
+
+.quick-hard-reload {
+  font-size: 20px;
 }
 
 .quick-key.pressed {

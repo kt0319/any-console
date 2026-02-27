@@ -169,20 +169,25 @@ function onTabDragEnd(e) {
 document.addEventListener("paste", (e) => {
   const el = document.activeElement;
   const isInput = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
-  if (isInput) return;
+  const isXtermTextarea = isInput && el.closest(".xterm");
+  if (isInput && !isXtermTextarea) return;
   const activeTab = openTabs.find((t) => t.id === activeTabId);
   if (!activeTab || activeTab.type !== "terminal") return;
-  e.preventDefault();
-  e.stopPropagation();
   const items = e.clipboardData && e.clipboardData.items;
-  if (!items) return;
-  for (const item of items) {
-    if (item.type.startsWith("image/")) {
-      const file = item.getAsFile();
-      if (file) uploadClipboardImage(file);
-      return;
+  if (items) {
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        e.stopPropagation();
+        const file = item.getAsFile();
+        if (file) uploadClipboardImage(file);
+        return;
+      }
     }
   }
+  if (isXtermTextarea) return;
+  e.preventDefault();
+  e.stopPropagation();
   const text = e.clipboardData.getData("text");
   if (text && activeTab.ws && activeTab.ws.readyState === WebSocket.OPEN) {
     const bracketedPaste = "\x1b[200~" + text + "\x1b[201~";
