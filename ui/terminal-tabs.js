@@ -23,6 +23,7 @@ function persistOpenTabs() {
       tabIndex: s.tabIndex != null ? s.tabIndex : (openTabs.length + i),
     }));
   const data = [...openTerminalTabs, ...orphanTabs];
+  if (data.length === 0 && !hasRestoredTabsFromStorage) return;
   localStorage.setItem("pi_console_terminal_openTabs", JSON.stringify(data));
 }
 

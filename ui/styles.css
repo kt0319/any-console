@@ -2931,6 +2931,11 @@ button:disabled {
   font-size: 20px;
 }
 
+.quick-local-storage-clear {
+  font-size: 20px;
+  color: rgba(255, 120, 120, 0.8);
+}
+
 .quick-key.pressed {
   background: rgba(255, 255, 255, 0.15);
   color: var(--text-primary);
@@ -2993,9 +2998,7 @@ button:disabled {
 
 .quick-minimal-snippet-wrap {
   display: flex;
-  justify-content: flex-end;
-  width: 33.3%;
-  margin-left: auto;
+  width: 100%;
   pointer-events: none;
 }
 
@@ -3018,7 +3021,7 @@ button:disabled {
   flex-direction: column;
   justify-content: flex-end;
   gap: 4px;
-  flex: 1;
+  flex: 1 1 50%;
   min-width: 0;
   overflow-y: auto;
   pointer-events: none;

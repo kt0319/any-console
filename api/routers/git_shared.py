@@ -28,6 +28,16 @@ MAX_IMAGE_PREVIEW_SIZE = 5 * 1024 * 1024
 MAX_WORKSPACE_UPLOAD_SIZE = 10 * 1024 * 1024
 
 
+def _resolve_rename_path(path: str) -> str:
+    """'dir/{old => new}' 形式のリネームパスからリネーム後のパスを抽出する"""
+    import re
+    m = re.search(r'\{[^}]* => ([^}]*)\}', path)
+    if not m:
+        return path
+    new_name = m.group(1).strip()
+    return path[:m.start()] + new_name + path[m.end():]
+
+
 def parse_numstat(stdout: str) -> dict[str, dict[str, int | None]]:
     stats: dict[str, dict[str, int | None]] = {}
     for line in stdout.splitlines():
@@ -41,7 +51,11 @@ def parse_numstat(stdout: str) -> dict[str, dict[str, int | None]]:
             continue
         insertions = None if ins_raw == "-" else int(ins_raw or 0)
         deletions = None if del_raw == "-" else int(del_raw or 0)
-        stats[path] = {"insertions": insertions, "deletions": deletions}
+        stat = {"insertions": insertions, "deletions": deletions}
+        stats[path] = stat
+        resolved = _resolve_rename_path(path)
+        if resolved != path:
+            stats[resolved] = stat
     return stats
 
 

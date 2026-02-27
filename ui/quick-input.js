@@ -44,6 +44,29 @@ function initQuickInput() {
     window.location.href = window.location.pathname + "?_=" + Date.now();
   });
 
+  const clearLocalStorageBtn = document.createElement("div");
+  clearLocalStorageBtn.className = "quick-key quick-local-storage-clear";
+  clearLocalStorageBtn.innerHTML = '<span class="mdi mdi-trash-can-outline"></span>';
+  clearLocalStorageBtn.style.display = "none";
+  clearLocalStorageBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  const clearPiConsoleStorage = () => {
+    const ok = window.confirm("pi_console のローカルデータを削除します。続行しますか？");
+    if (!ok) return;
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("pi_console_")) keys.push(key);
+    }
+    for (const key of keys) localStorage.removeItem(key);
+    sessionStorage.removeItem("pi_console_server_reloaded");
+    window.location.href = window.location.pathname + "?_=" + Date.now();
+  };
+  clearLocalStorageBtn.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    clearPiConsoleStorage();
+  });
+  clearLocalStorageBtn.addEventListener("click", clearPiConsoleStorage);
+
   const snippetSpacer1 = document.createElement("div");
   snippetSpacer1.className = "quick-key quick-snippet-spacer";
   snippetSpacer1.style.display = "none";
@@ -51,8 +74,8 @@ function initQuickInput() {
   snippetSpacer2.className = "quick-key quick-snippet-spacer";
   snippetSpacer2.style.display = "none";
 
-  const snippetExtras = [snippetSpacer1, snippetSpacer2, hardReloadBtn];
-  const minimalKeyBtns = [snippetSpacer1, snippetSpacer2, hardReloadBtn, minimalArrow];
+  const snippetExtras = [snippetSpacer1, snippetSpacer2, clearLocalStorageBtn, hardReloadBtn];
+  const minimalKeyBtns = [snippetSpacer1, snippetSpacer2, clearLocalStorageBtn, hardReloadBtn, minimalArrow];
   const quickKeyBtns = QUICK_KEYS.map(k => createQuickKeyBtn(k));
   const extraKeyBtns = EXTRA_MAIN_KEYS.map(k => {
     const btn = createQuickKeyBtn(k);

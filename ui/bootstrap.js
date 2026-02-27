@@ -12,10 +12,11 @@ async function initApp() {
   }
   setLoadingStatus("ワークスペース情報を取得中...");
   await refreshWorkspaceHeader();
+  localStorage.removeItem("pi_console_active_tab");
+  setLoadingStatus("タブを復元中...");
+  await fetchOrphanSessions();
   setLoadingStatus("ジョブを読み込み中...");
   await loadJobsForWorkspace();
-  localStorage.removeItem("pi_console_active_tab");
-  await fetchOrphanSessions();
   updateGitBarVisibility();
   updateQuickInputVisibility();
   if (sessionStorage.getItem("pi_console_server_reloaded")) {

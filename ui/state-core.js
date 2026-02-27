@@ -28,6 +28,7 @@ let isPaneSelectedByTap = false;
 let disconnectedSessions = [];
 let closedSessionUrls = new Set();
 let isPageUnloading = false;
+let hasRestoredTabsFromStorage = false;
 
 const STATUS_POLL_INTERVAL_MS = 10000;
 let statusPollTimer = null;

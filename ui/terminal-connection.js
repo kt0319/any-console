@@ -88,6 +88,7 @@ async function fetchOrphanSessions() {
     if (!res || !res.ok) {
       disconnectedSessions = [];
       restoreTabsFromLocalStorage([]);
+      hasRestoredTabsFromStorage = true;
       renderTabBar();
       return;
     }
@@ -95,10 +96,12 @@ async function fetchOrphanSessions() {
     restoreLiveSessionsFromServer(sessions);
     reconcileExpiredOrphansWithServer(sessions);
     restoreTabsFromLocalStorage(sessions);
+    hasRestoredTabsFromStorage = true;
   } catch (e) {
     console.error("fetchOrphanSessions failed:", e);
     disconnectedSessions = [];
     restoreTabsFromLocalStorage([]);
+    hasRestoredTabsFromStorage = true;
   }
   renderTabBar();
 }
