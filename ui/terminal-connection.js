@@ -44,7 +44,7 @@ async function onVisibilityRestore() {
     for (const tab of termTabs) {
       if (!aliveWsUrls.has(tab.wsUrl)) {
         disconnectedSessions.push({
-          wsUrl: tab.wsUrl, workspace: tab.label, expired: true,
+          wsUrl: tab.wsUrl, workspace: tab.workspace || tab.label, expired: true,
           icon: tab.icon?.name, iconColor: tab.icon?.color,
           tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null, jobLabel: tab.jobLabel || null,
         });
@@ -150,8 +150,8 @@ function reconcileOrphansWithServer(sessions) {
         icon: s.icon,
         iconColor: s.icon_color,
         tabIndex: old ? old.tabIndex : openTabs.length + i,
-        jobName: old ? (old.jobName || null) : null,
-        jobLabel: old ? (old.jobLabel || null) : null,
+        jobName: s.job_name || (old ? (old.jobName || null) : null),
+        jobLabel: s.job_label || (old ? (old.jobLabel || null) : null),
         expired: false,
       };
     });
@@ -170,7 +170,8 @@ function reconcileOrphansWithServer(sessions) {
   }
 }
 
-function joinOrphanSession(wsUrl, workspace) {
+function joinOrphanSession(wsUrl, workspace, options = {}) {
+  const skipSwitch = !!options.skipSwitch;
   const label = workspace || "terminal";
   const orphan = disconnectedSessions.find((s) => s.wsUrl === wsUrl);
   const tabIcon = orphan && orphan.icon ? { name: orphan.icon, color: orphan.iconColor || "" } : null;
@@ -182,7 +183,8 @@ function joinOrphanSession(wsUrl, workspace) {
   if (tab) tab._pendingRedraw = true;
   disconnectedSessions = disconnectedSessions.filter((s) => s.wsUrl !== wsUrl);
   syncTerminalSessionState();
-  switchTab(tab ? tab.id : null);
+  if (!skipSwitch) switchTab(tab ? tab.id : null);
+  return tab || null;
 }
 
 function updateQuickInputVisibility() {
@@ -303,7 +305,7 @@ function connectTerminalWs(tab) {
     if (e.code === 1000 || e.code === 1008) {
       if (e.code === 1008) {
         disconnectedSessions.push({
-          wsUrl: tab.wsUrl, workspace: tab.label, expired: true,
+          wsUrl: tab.wsUrl, workspace: tab.workspace || tab.label, expired: true,
           icon: tab.icon?.name, iconColor: tab.icon?.color,
           tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null, jobLabel: tab.jobLabel || null,
         });

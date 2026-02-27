@@ -286,6 +286,8 @@ class RunRequest(BaseModel):
     workspace: str | None = None
     icon: str | None = None
     icon_color: str | None = None
+    job_name: str | None = None
+    job_label: str | None = None
 
 
 @router.post("/run")
@@ -343,6 +345,8 @@ def execute_job(body: RunRequest):
                 expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
                 icon=body.icon,
                 icon_color=body.icon_color,
+                job_name=body.job_name,
+                job_label=body.job_label,
             )
         except Exception:
             os.close(fd)

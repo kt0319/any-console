@@ -203,9 +203,7 @@ function openTabEditModal(initialTab = "layout") {
   function openOrphanRow(orphan, preferSplit = false) {
     const baseTabId = activeTabId;
     if (orphan.expired) {
-      disconnectedSessions = disconnectedSessions.filter((o) => o.wsUrl !== orphan.wsUrl);
-      closedSessionUrls.add(orphan.wsUrl);
-      runJob(orphan.jobName || "terminal", null, orphan.workspace);
+      relaunchExpiredOrphan(orphan, orphan.workspace);
       return null;
     }
 

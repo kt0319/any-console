@@ -3,7 +3,7 @@ function persistOpenTabs() {
     .filter(t => t.type === "terminal")
     .map(t => ({
       wsUrl: t.wsUrl,
-      workspace: t.label,
+      workspace: t.workspace || t.label,
       icon: t.icon?.name || null,
       iconColor: t.icon?.color || null,
       jobName: t.jobName || null,
@@ -36,6 +36,15 @@ function tabDisplayName(tab) {
 function renderTabIconHtml(tab, size = 14) {
   return (tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, size) : "")
        + (tab.icon ? renderIcon(tab.icon.name, tab.icon.color, size) : "");
+}
+
+function relaunchExpiredOrphan(orphan, workspaceOverride = null) {
+  if (!orphan) return Promise.resolve();
+  const workspace = workspaceOverride || orphan.workspace || null;
+  const targetJob = orphan.jobName || orphan.jobLabel || "terminal";
+  disconnectedSessions = disconnectedSessions.filter((s) => s.wsUrl !== orphan.wsUrl);
+  if (orphan.wsUrl) closedSessionUrls.add(orphan.wsUrl);
+  return runJob(targetJob, null, workspace);
 }
 
 function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCommand, tabIcon, wsIcon, jobName, jobLabel) {
@@ -113,7 +122,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
   });
 
 
-  const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, jobName: jobName || null, jobLabel: jobLabel || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
+  const tab = { id, type: "terminal", wsUrl, workspace: workspace || null, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, jobName: jobName || null, jobLabel: jobLabel || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
   openTabs.push(tab);
   createTabNamePill(tab, container);
 
@@ -451,9 +460,7 @@ function renderTabBar() {
           const wsUrl = btn.dataset.orphanUrl;
           const orphan = disconnectedSessions.find((s) => s.wsUrl === wsUrl);
           const workspace = btn.dataset.orphanWs;
-          disconnectedSessions = disconnectedSessions.filter((s) => s.wsUrl !== wsUrl);
-          closedSessionUrls.add(wsUrl);
-          runJob(orphan?.jobName || "terminal", null, workspace);
+          relaunchExpiredOrphan(orphan || { wsUrl, workspace }, workspace);
           return;
         }
         joinOrphanSession(btn.dataset.orphanUrl, btn.dataset.orphanWs);
@@ -491,18 +498,67 @@ function updateEmptyPlaceholder(show) {
   const outputArea = $("output");
   const existing = container.querySelector(".empty-tab-placeholder");
   if (show) {
-    if (!existing) {
-      const ph = document.createElement("div");
-      ph.className = "empty-tab-placeholder";
-      ph.innerHTML = `<button type="button" class="empty-tab-open-btn"><span class="mdi mdi-plus"></span> ワークスペースを開く</button>`;
-      ph.querySelector("button").addEventListener("click", () => openTabEditModal("open"));
-      container.appendChild(ph);
+    if (existing) existing.remove();
+    const ph = document.createElement("div");
+    ph.className = "empty-tab-placeholder";
+    const orphanCount = disconnectedSessions.filter((s) => s && s.wsUrl && !closedSessionUrls.has(s.wsUrl)).length;
+    const restoreBtnHtml = orphanCount > 0
+      ? `<button type="button" class="empty-tab-open-btn empty-tab-restore-btn" data-restore-all="1"><span class="mdi mdi-restore"></span> 全て復元 (${orphanCount})</button>`
+      : "";
+    ph.innerHTML = `<div class="empty-tab-actions"><button type="button" class="empty-tab-open-btn"><span class="mdi mdi-plus"></span> ワークスペースを開く</button>${restoreBtnHtml}</div>`;
+    ph.querySelector(".empty-tab-open-btn:not(.empty-tab-restore-btn)").addEventListener("click", () => openTabEditModal("open"));
+    const restoreBtn = ph.querySelector("[data-restore-all='1']");
+    if (restoreBtn) {
+      restoreBtn.addEventListener("click", () => restoreAllOrphansFromPlaceholder(restoreBtn));
     }
+    container.appendChild(ph);
     if (outputArea) outputArea.style.display = "none";
   } else {
     if (existing) existing.remove();
     if (outputArea) outputArea.style.display = "";
   }
+}
+
+async function restoreAllOrphansFromPlaceholder(buttonEl) {
+  if (!buttonEl || buttonEl.disabled) return;
+  const targets = disconnectedSessions.filter((s) => s && s.wsUrl && !closedSessionUrls.has(s.wsUrl));
+  if (!targets.length) return;
+  buttonEl.disabled = true;
+  const originalText = buttonEl.innerHTML;
+  buttonEl.innerHTML = '<span class="mdi mdi-loading mdi-spin"></span> 復元中...';
+
+  let joinedCount = 0;
+  let relaunchedCount = 0;
+  let failedCount = 0;
+  let lastJoinedTabId = null;
+
+  for (const orphan of targets) {
+    try {
+      if (orphan.expired) {
+        await relaunchExpiredOrphan(orphan, orphan.workspace);
+        relaunchedCount += 1;
+        continue;
+      }
+      const tab = joinOrphanSession(orphan.wsUrl, orphan.workspace, { skipSwitch: true });
+      if (tab && tab.id) {
+        joinedCount += 1;
+        lastJoinedTabId = tab.id;
+      } else {
+        failedCount += 1;
+      }
+    } catch (e) {
+      failedCount += 1;
+      console.warn("restore orphan failed:", e);
+    }
+  }
+
+  renderTabBar();
+  if (lastJoinedTabId) switchTab(lastJoinedTabId);
+  const summary = `復元 ${joinedCount}件 / 再作成 ${relaunchedCount}件${failedCount ? ` / 失敗 ${failedCount}件` : ""}`;
+  showToast(summary, failedCount ? "error" : "success");
+  if (!document.body.contains(buttonEl)) return;
+  buttonEl.innerHTML = originalText;
+  buttonEl.disabled = false;
 }
 
 function createTabNamePill(tab, frame) {

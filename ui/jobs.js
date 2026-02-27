@@ -101,11 +101,15 @@ function resolveJobByNameOrLabel(jobs, identifier) {
 
 async function runJob(jobName = null, argsOverride = null, workspaceOverride = null) {
   const targetJob = jobName || pendingJob;
-  if (!targetJob) return;
+  if (!targetJob) return Promise.resolve();
   if (pendingJob !== targetJob) {
     pendingJob = targetJob;
   }
-  jobExecutionQueue = jobExecutionQueue.then(() => executeJobInTerminal(targetJob, workspaceOverride));
+  const runPromise = jobExecutionQueue.then(() => executeJobInTerminal(targetJob, workspaceOverride));
+  jobExecutionQueue = runPromise.catch((e) => {
+    console.error("runJob queue failed:", e);
+  });
+  return runPromise;
 }
 
 async function executeJobInTerminal(targetJob, workspaceOverride) {
@@ -160,9 +164,19 @@ async function executeJobInTerminal(targetJob, workspaceOverride) {
   isLaunchingTerminal = true;
 
   try {
+    const requestedJobName = resolvedJobKey !== "terminal" ? resolvedJobKey : null;
+    const requestedJobLabel = resolvedJobKey !== "terminal" ? (job.label || resolvedJobKey) : null;
     const res = await apiFetch("/run", {
       method: "POST",
-      body: { job: "terminal", args: {}, workspace, icon: tabIcon?.name, icon_color: tabIcon?.color },
+      body: {
+        job: "terminal",
+        args: {},
+        workspace,
+        icon: tabIcon?.name,
+        icon_color: tabIcon?.color,
+        job_name: requestedJobName,
+        job_label: requestedJobLabel,
+      },
     });
     if (!res) return;
 
@@ -172,9 +186,7 @@ async function executeJobInTerminal(targetJob, workspaceOverride) {
       return;
     }
 
-    const jobName = resolvedJobKey !== "terminal" ? resolvedJobKey : null;
-    const jobLabel = resolvedJobKey !== "terminal" ? (job.label || resolvedJobKey) : null;
-    addTerminalTab(data.ws_url, workspace, null, false, false, initialCommand, tabIcon, wsIcon, jobName, jobLabel);
+    addTerminalTab(data.ws_url, workspace, null, false, false, initialCommand, tabIcon, wsIcon, requestedJobName, requestedJobLabel);
 
   } catch (e) {
     showToast(`${tabLabel} エラー: ${e.message}`);
