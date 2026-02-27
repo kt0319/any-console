@@ -233,11 +233,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (e.target === $("settings-modal")) closeSettings();
   });
 applyPanelBottom();
-  $("clone-cancel").addEventListener("click", closeCloneModal);
-  $("clone-submit").addEventListener("click", submitClone);
-  for (const tab of document.querySelectorAll(".clone-tab")) {
-    tab.addEventListener("click", () => switchCloneTab(tab.dataset.tab));
-  }
   $("diff-commit-cancel").addEventListener("click", closeCommitForm);
   $("diff-commit-submit").addEventListener("click", submitCommit);
   $("icon-picker-close").addEventListener("click", closeIconPicker);

@@ -2016,10 +2016,6 @@ button:disabled {
   margin-bottom: 12px;
 }
 
-#clone-modal-clone-fields {
-  flex-shrink: 0;
-}
-
 .clone-repo-list {
   max-height: 200px;
   overflow-y: auto;
@@ -2122,7 +2118,6 @@ button:disabled {
   justify-content: center;
 }
 
-#settings-ws-visibility,
 #settings-server-info-view,
 #settings-process-list-view,
 #settings-op-log-view {

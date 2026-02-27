@@ -95,10 +95,6 @@ let diffFullText = "";
 let serverHostname = "";
 let serverVersion = "";
 
-let cloneModalActiveTab = "github";
-let selectedCloneUrl = "";
-let githubRepos = [];
-
 const INPUT_HISTORY_KEY = "pi_console_input_history";
 const INPUT_HISTORY_MAX = 20;
 let inputHistory = JSON.parse(localStorage.getItem(INPUT_HISTORY_KEY) || "[]");

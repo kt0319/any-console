@@ -3,7 +3,7 @@ function applyPanelBottom() {
 }
 
 function showSettingsView(viewId) {
-  for (const id of ["settings-menu-view", "settings-ws-visibility", "settings-ws-add-view", "settings-server-info-view", "settings-process-list-view", "settings-op-log-view"]) {
+  for (const id of ["settings-menu-view", "settings-server-info-view", "settings-process-list-view", "settings-op-log-view"]) {
     const el = $(id);
     if (el) el.style.display = id === viewId ? "" : "none";
   }
@@ -29,27 +29,6 @@ function createWorkspaceItemElements(ws) {
   return { iconSpan, label };
 }
 
-function renderWorkspaceListTo(container, onGearClick) {
-  container.innerHTML = "";
-  for (const ws of allWorkspaces) {
-    const item = document.createElement("div");
-    item.className = "ws-check-item";
-    const { iconSpan, label } = createWorkspaceItemElements(ws);
-    item.append(iconSpan, label);
-
-    if (onGearClick) {
-      const gearBtn = document.createElement("button");
-      gearBtn.type = "button";
-      gearBtn.className = "ws-gear-btn";
-      gearBtn.innerHTML = '<span class="mdi mdi-cog"></span>';
-      gearBtn.addEventListener("click", () => onGearClick(ws));
-      item.appendChild(gearBtn);
-    }
-
-    container.appendChild(item);
-  }
-}
-
 function renderWorkspaceVisibilityChecklistTo(container) {
   container.innerHTML = "";
   for (const ws of allWorkspaces) {
@@ -64,20 +43,6 @@ function renderWorkspaceVisibilityChecklistTo(container) {
     item.append(checkbox, iconSpan, label);
     container.appendChild(item);
   }
-}
-
-function openSettingsWsVisibility() {
-  $("settings-title").textContent = "ワークスペース設定";
-  showSettingsView("settings-ws-visibility");
-  const wsCheckList = $("ws-check-list");
-  renderWorkspaceListTo(wsCheckList, (ws) => {
-    renderWorkspaceSettingsPane(wsCheckList, ws, () => openSettingsWsVisibility());
-  });
-  $("settings-modal").style.display = "flex";
-}
-
-function openSettingsWsAdd() {
-  openCloneModal("visibility");
 }
 
 function createWorkspaceSettingsSection(body, title, onAdd) {
@@ -391,7 +356,7 @@ async function saveWorkspaceIcon(ws, icon, color) {
 function openWorkspaceIconPicker(ws, refreshFn) {
   openIconPicker(async (icon, color) => {
     if (await saveWorkspaceIcon(ws, icon, color)) {
-      refreshFn ? refreshFn() : openSettingsWsVisibility();
+      if (refreshFn) refreshFn();
     }
   }, ws.icon, ws.icon_color);
 }
@@ -440,119 +405,6 @@ function toSshUrl(url) {
   if (!m) return url;
   const path = m[1].replace(/\/$/, "");
   return `git@github.com:${path}.git`;
-}
-
-async function openCloneModal(defaultTab = "github") {
-  $("clone-url").value = "";
-  $("clone-name").value = "";
-  hideFormError("clone-error");
-  $("clone-output").style.display = "none";
-  $("clone-output").textContent = "";
-  $("clone-submit").disabled = false;
-  selectedCloneUrl = "";
-  switchCloneTab(defaultTab);
-  $("clone-modal").style.display = "flex";
-  if (defaultTab === "github") await loadGithubRepos();
-}
-
-function closeCloneModal() {
-  $("clone-modal").style.display = "none";
-}
-
-function switchCloneTab(tab) {
-  cloneModalActiveTab = tab;
-  for (const btn of document.querySelectorAll("#clone-modal .clone-tab")) {
-    btn.classList.toggle("active", btn.dataset.tab === tab);
-  }
-  $("clone-tab-github").style.display = tab === "github" ? "block" : "none";
-  $("clone-tab-url").style.display = tab === "url" ? "block" : "none";
-  $("clone-tab-visibility").style.display = tab === "visibility" ? "block" : "none";
-  const cloneFields = $("clone-modal-clone-fields");
-  if (cloneFields) cloneFields.style.display = tab === "visibility" ? "none" : "";
-  if (tab === "url") $("clone-url").focus();
-  if (tab === "visibility") renderWorkspaceVisibilityChecklistTo($("clone-visibility-list"));
-}
-
-async function loadGithubRepos() {
-  const listEl = $("clone-repo-list");
-  listEl.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
-
-  try {
-    githubRepos = await fetchGithubRepos();
-    renderGithubRepos();
-  } catch (e) {
-    listEl.innerHTML = `<div class="clone-repo-error">${escapeHtml(e.message)}</div>`;
-  }
-}
-
-function renderGithubRepos() {
-  const listEl = $("clone-repo-list");
-  if (githubRepos.length === 0) {
-    listEl.innerHTML = '<div class="clone-repo-empty">リポジトリがありません</div>';
-    return;
-  }
-  listEl.innerHTML = "";
-  for (const repo of githubRepos) {
-    const item = document.createElement("div");
-    item.className = "clone-repo-item" + (selectedCloneUrl === repo.url ? " selected" : "");
-    item.innerHTML = `<div class="clone-repo-name">${escapeHtml(repo.nameWithOwner)}</div>` +
-      (repo.description ? `<div class="clone-repo-desc">${escapeHtml(repo.description)}</div>` : "");
-    item.addEventListener("click", () => selectGithubRepo(repo.url));
-    listEl.appendChild(item);
-  }
-}
-
-function selectGithubRepo(url) {
-  selectedCloneUrl = url;
-  renderGithubRepos();
-}
-
-async function submitClone() {
-  let url = cloneModalActiveTab === "github" ? selectedCloneUrl : $("clone-url").value.trim();
-  url = toSshUrl(url);
-  const name = $("clone-name").value.trim();
-  const outputEl = $("clone-output");
-
-  if (cloneModalActiveTab === "github" && !url) {
-    showFormError("clone-error", "リポジトリを選択してください");
-    return;
-  }
-
-  if (cloneModalActiveTab === "url" && !url && !name) {
-    showFormError("clone-error", "URLまたはディレクトリ名を入力してください");
-    return;
-  }
-
-  hideFormError("clone-error");
-  outputEl.style.display = "block";
-  outputEl.textContent = cloneModalActiveTab === "url" && !url ? "creating directory..." : "cloning...";
-  $("clone-submit").disabled = true;
-
-  try {
-    const res = await apiFetch("/workspaces", {
-      method: "POST",
-      body: { url, name: name || null },
-    });
-    if (!res) return;
-    const data = await res.json();
-    if (!res.ok || data.status === "error") {
-      showFormError("clone-error", data.detail || data.stderr || "クローンに失敗しました");
-      outputEl.style.display = "none";
-      $("clone-submit").disabled = false;
-      return;
-    }
-    outputEl.textContent = data.mode === "directory"
-      ? `${data.name} ディレクトリを作成しました`
-      : `${data.name} をクローンしました`;
-    invalidateWorkspaceMetaCache();
-    closeCloneModal();
-    await loadWorkspaces();
-    openSettingsWsVisibility();
-  } catch (e) {
-    showFormError("clone-error", e.message);
-    outputEl.style.display = "none";
-    $("clone-submit").disabled = false;
-  }
 }
 
 async function exportSettings() {

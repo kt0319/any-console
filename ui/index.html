@@ -38,20 +38,12 @@
         </div>
         <div id="settings-menu-view">
           <div class="settings-menu">
-            <button type="button" class="settings-menu-item" onclick="openSettingsWsVisibility()"><span class="mdi mdi-cog"></span> ワークスペース設定</button>
-            <button type="button" class="settings-menu-item" onclick="openSettingsWsAdd()"><span class="mdi mdi-plus"></span> WS追加</button>
             <button type="button" class="settings-menu-item" onclick="exportSettings()"><span class="mdi mdi-download"></span> 設定エクスポート</button>
             <button type="button" class="settings-menu-item" onclick="importSettings()"><span class="mdi mdi-upload"></span> 設定インポート</button>
             <button type="button" class="settings-menu-item" onclick="openProcessList()"><span class="mdi mdi-format-list-bulleted"></span> プロセス一覧</button>
             <button type="button" class="settings-menu-item" onclick="openSettingsServerInfo()"><span class="mdi mdi-information-outline"></span> サーバー情報</button>
             <button type="button" class="settings-menu-item" onclick="openOpLog()"><span class="mdi mdi-text-box-outline"></span> 操作ログ</button>
           </div>
-        </div>
-        <div id="settings-ws-visibility" style="display:none">
-          <div class="modal-scroll-body" id="ws-check-list"></div>
-        </div>
-        <div id="settings-ws-add-view" style="display:none">
-          <div class="modal-scroll-body" id="ws-add-list"></div>
         </div>
         <div id="settings-server-info-view" style="display:none">
           <div class="modal-scroll-body" id="server-info-list"></div>
@@ -63,47 +55,6 @@
           <div class="modal-scroll-body" id="op-log-list"></div>
         </div>
         <input type="file" id="settings-import-file" accept=".json" style="display:none">
-      </div>
-    </div>
-    <!-- Clone Modal -->
-    <div id="clone-modal" class="modal-overlay" style="display:none">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>リポジトリをクローン</h3>
-          <button type="button" id="clone-cancel" class="modal-close-btn">&times;</button>
-        </div>
-        <div class="clone-tabs">
-          <button type="button" class="clone-tab" data-tab="visibility">表示設定</button>
-          <button type="button" class="clone-tab active" data-tab="github">GitHub</button>
-          <button type="button" class="clone-tab" data-tab="url">手動入力</button>
-        </div>
-        <div class="modal-scroll-body">
-          <div id="clone-tab-github" class="clone-tab-content">
-            <div class="clone-repo-list" id="clone-repo-list">
-              <div class="clone-repo-loading">読み込み中...</div>
-            </div>
-          </div>
-          <div id="clone-tab-url" class="clone-tab-content" style="display:none">
-            <div class="form-group">
-              <label class="form-label">リポジトリ <span class="form-hint">(省略可)</span></label>
-              <input type="text" id="clone-url" class="form-input" placeholder="git@github.com:user/repo.git or https://..." autocomplete="off" />
-            </div>
-          </div>
-          <div id="clone-tab-visibility" class="clone-tab-content" style="display:none">
-            <div id="clone-visibility-list"></div>
-          </div>
-        </div>
-        <div id="clone-modal-clone-fields">
-          <div class="form-group">
-            <label class="form-label">ディレクトリ名 <span class="form-hint">(リポジトリ未入力ならこの名前で空ディレクトリを作成)</span></label>
-            <input type="text" id="clone-name" class="form-input" placeholder="" autocomplete="off" />
-          </div>
-          <div id="clone-error" class="form-error"></div>
-          <div id="clone-output" class="clone-output"></div>
-          <div class="modal-actions">
-            <button type="button" id="clone-submit" class="primary" style="width:auto">クローン</button>
-          </div>
-        </div>
       </div>
     </div>
     <!-- Git Log Modal -->
