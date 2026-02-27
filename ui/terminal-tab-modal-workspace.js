@@ -218,7 +218,7 @@ function createTerminalTabModalWorkspaceSection(deps) {
     urlPane.style.display = defaultTab === "url" ? "block" : "none";
     const urlGroup = document.createElement("div");
     urlGroup.className = "form-group";
-    urlGroup.innerHTML = '<label class="form-label">リポジトリ</label>';
+    urlGroup.innerHTML = '<label class="form-label">リポジトリ <span class="form-hint">(省略可)</span></label>';
     const urlInput = document.createElement("input");
     urlInput.type = "text";
     urlInput.className = "form-input";
@@ -236,7 +236,7 @@ function createTerminalTabModalWorkspaceSection(deps) {
 
     const nameGroup = document.createElement("div");
     nameGroup.className = "form-group";
-    nameGroup.innerHTML = '<label class="form-label">ディレクトリ名 <span class="form-hint">(省略時はリポジトリ名)</span></label>';
+    nameGroup.innerHTML = '<label class="form-label">ディレクトリ名 <span class="form-hint">(リポジトリ未入力ならこの名前で空ディレクトリを作成)</span></label>';
     const nameInput = document.createElement("input");
     nameInput.type = "text";
     nameInput.className = "form-input";
@@ -318,15 +318,21 @@ function createTerminalTabModalWorkspaceSection(deps) {
       url = toSshUrl(url);
       const name = nameInput.value.trim();
 
-      if (!url) {
-        errorEl.textContent = pickerCloneTab === "github" ? "リポジトリを選択してください" : "URLを入力してください";
+      if (pickerCloneTab === "github" && !url) {
+        errorEl.textContent = "リポジトリを選択してください";
+        errorEl.style.display = "block";
+        return;
+      }
+
+      if (pickerCloneTab === "url" && !url && !name) {
+        errorEl.textContent = "URLまたはディレクトリ名を入力してください";
         errorEl.style.display = "block";
         return;
       }
 
       errorEl.style.display = "none";
       outputEl.style.display = "block";
-      outputEl.textContent = "cloning...";
+      outputEl.textContent = pickerCloneTab === "url" && !url ? "creating directory..." : "cloning...";
       submitBtn.disabled = true;
 
       try {
@@ -343,7 +349,9 @@ function createTerminalTabModalWorkspaceSection(deps) {
           submitBtn.disabled = false;
           return;
         }
-        outputEl.textContent = `${data.name} をクローンしました`;
+        outputEl.textContent = data.mode === "directory"
+          ? `${data.name} ディレクトリを作成しました`
+          : `${data.name} をクローンしました`;
         invalidateWorkspaceMetaCache();
         await loadWorkspaces();
         switchModalTab("open");
