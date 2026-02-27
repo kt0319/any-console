@@ -400,6 +400,29 @@ async function toggleWorkspace(name, visible) {
   }
 }
 
+async function restoreAllWorkspaceVisibility() {
+  const hiddenTargets = allWorkspaces.filter((ws) => ws.hidden);
+  if (hiddenTargets.length === 0) return { restored: 0, failed: 0 };
+
+  let restored = 0;
+  let failed = 0;
+  for (const ws of hiddenTargets) {
+    const result = await putWorkspaceConfig(ws.name, {
+      icon: ws.icon || "",
+      icon_color: ws.icon_color || "",
+      hidden: false,
+    });
+    if (result.ok) {
+      ws.hidden = false;
+      restored += 1;
+    } else {
+      failed += 1;
+    }
+  }
+
+  return { restored, failed };
+}
+
 function toSshUrl(url) {
   const m = url.match(/^https?:\/\/github\.com\/(.+)/);
   if (!m) return url;

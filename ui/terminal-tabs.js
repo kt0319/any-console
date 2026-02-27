@@ -353,12 +353,20 @@ function updateGitBarVisibility() {
   }
 }
 
+function hasVisibleTabContent() {
+  if (splitMode) {
+    return splitPaneTabIds.some((id) => openTabs.some((t) => t.id === id));
+  }
+  return openTabs.some((t) => t.id === activeTabId);
+}
+
 function renderTabBar() {
   if (tabDragState) return;
   const barRow = $("tab-bar").parentNode;
+  const hasContent = hasVisibleTabContent();
   if (splitMode) {
     barRow.style.display = "none";
-    updateEmptyPlaceholder(openTabs.length === 0);
+    updateEmptyPlaceholder(!hasContent);
     return;
   }
   const bar = $("tab-bar");
@@ -371,8 +379,7 @@ function renderTabBar() {
   const hasAnyTabs = openTabs.length > 0 || disconnectedSessions.length > 0;
   persistOpenTabs();
   barRow.style.display = hasAnyTabs ? "flex" : "none";
-  const hasActiveContent = openTabs.some((t) => t.id === activeTabId);
-  updateEmptyPlaceholder(!hasActiveContent);
+  updateEmptyPlaceholder(!hasContent);
   if (!hasAnyTabs) return;
 
   let html = "";
@@ -484,14 +491,22 @@ function updateEmptyPlaceholder(show) {
     const ph = document.createElement("div");
     ph.className = "empty-tab-placeholder";
     const orphanCount = disconnectedSessions.filter((s) => s && s.wsUrl && !closedSessionUrls.has(s.wsUrl)).length;
+    const hiddenWorkspaceCount = allWorkspaces.filter((ws) => ws.hidden).length;
     const restoreBtnHtml = orphanCount > 0
       ? `<button type="button" class="empty-tab-open-btn empty-tab-restore-btn" data-restore-all="1"><span class="mdi mdi-restore"></span> 全て復元 (${orphanCount})</button>`
       : "";
-    ph.innerHTML = `<div class="empty-tab-actions"><button type="button" class="empty-tab-open-btn"><span class="mdi mdi-plus"></span> ワークスペースを開く</button>${restoreBtnHtml}</div>`;
+    const restoreVisibilityBtnHtml = hiddenWorkspaceCount > 0 && visibleWorkspaces().length === 0
+      ? `<button type="button" class="empty-tab-open-btn empty-tab-restore-btn" data-restore-hidden-workspaces="1"><span class="mdi mdi-eye-refresh"></span> 全て復元 (${hiddenWorkspaceCount})</button>`
+      : "";
+    ph.innerHTML = `<div class="empty-tab-actions"><button type="button" class="empty-tab-open-btn"><span class="mdi mdi-plus"></span> ワークスペースを開く</button>${restoreBtnHtml}${restoreVisibilityBtnHtml}</div>`;
     ph.querySelector(".empty-tab-open-btn:not(.empty-tab-restore-btn)").addEventListener("click", () => openTabEditModal("open"));
     const restoreBtn = ph.querySelector("[data-restore-all='1']");
     if (restoreBtn) {
       restoreBtn.addEventListener("click", () => restoreAllOrphansFromPlaceholder(restoreBtn));
+    }
+    const restoreHiddenBtn = ph.querySelector("[data-restore-hidden-workspaces='1']");
+    if (restoreHiddenBtn) {
+      restoreHiddenBtn.addEventListener("click", () => restoreAllHiddenWorkspacesWithButton(restoreHiddenBtn));
     }
     container.appendChild(ph);
     if (outputArea) outputArea.style.display = "none";
@@ -525,6 +540,29 @@ async function restoreAllOrphansFromPlaceholder(buttonEl) {
   renderTabBar();
   const summary = `復元 ${relaunchedCount}件${failedCount ? ` / 失敗 ${failedCount}件` : ""}`;
   showToast(summary, failedCount ? "error" : "success");
+  if (!document.body.contains(buttonEl)) return;
+  buttonEl.innerHTML = originalText;
+  buttonEl.disabled = false;
+}
+
+async function restoreAllHiddenWorkspacesWithButton(buttonEl, afterRestore = null) {
+  if (!buttonEl || buttonEl.disabled) return;
+  buttonEl.disabled = true;
+  const originalText = buttonEl.innerHTML;
+  buttonEl.innerHTML = '<span class="mdi mdi-loading mdi-spin"></span> 復元中...';
+  try {
+    const { restored, failed } = await restoreAllWorkspaceVisibility();
+    await loadWorkspaces();
+    if (typeof afterRestore === "function") {
+      await afterRestore({ restored, failed });
+    } else {
+      renderTabBar();
+    }
+    const summary = `復元 ${restored}件${failed ? ` / 失敗 ${failed}件` : ""}`;
+    showToast(summary, failed ? "error" : "success");
+  } catch (e) {
+    showToast(e.message || "復元に失敗しました", "error");
+  }
   if (!document.body.contains(buttonEl)) return;
   buttonEl.innerHTML = originalText;
   buttonEl.disabled = false;

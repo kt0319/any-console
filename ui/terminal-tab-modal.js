@@ -188,10 +188,8 @@ function openTabEditModal(initialTab = "layout") {
         container.classList.remove("split-active", "split-mobile", "split-vertical", "split-horizontal");
         buildSplitDom();
         fitAllSplitTerminals();
-        updateEmptyPlaceholder(false);
-      } else {
-        updateEmptyPlaceholder(true);
       }
+      renderTabBar();
       updateModeRadio();
       renderTabList();
     } else {

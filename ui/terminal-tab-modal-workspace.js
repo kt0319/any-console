@@ -60,6 +60,31 @@ function createTerminalTabModalWorkspaceSection(deps) {
     }
 
     const workspaces = visibleWorkspaces();
+    if (workspaces.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "clone-repo-empty";
+      empty.textContent = "表示中のワークスペースがありません";
+      container.appendChild(empty);
+
+      const hiddenCount = allWorkspaces.filter((ws) => ws.hidden).length;
+      if (hiddenCount > 0) {
+        const actions = document.createElement("div");
+        actions.className = "empty-tab-actions";
+        const restoreBtn = document.createElement("button");
+        restoreBtn.type = "button";
+        restoreBtn.className = "empty-tab-open-btn empty-tab-restore-btn";
+        restoreBtn.innerHTML = `<span class="mdi mdi-eye-refresh"></span> 全て復元 (${hiddenCount})`;
+        restoreBtn.addEventListener("click", () => restoreAllHiddenWorkspacesWithButton(restoreBtn, async () => {
+          container.innerHTML = "";
+          renderModalWsList(container);
+          renderTabBar();
+        }));
+        actions.appendChild(restoreBtn);
+        container.appendChild(actions);
+      }
+      return;
+    }
+
     for (const ws of workspaces) {
       const group = document.createElement("div");
       group.className = "picker-ws-group";
