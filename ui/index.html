@@ -85,7 +85,7 @@
           </div>
           <div id="clone-tab-url" class="clone-tab-content" style="display:none">
             <div class="form-group">
-              <label class="form-label">リポジトリ</label>
+              <label class="form-label">リポジトリ <span class="form-hint">(省略可)</span></label>
               <input type="text" id="clone-url" class="form-input" placeholder="git@github.com:user/repo.git or https://..." autocomplete="off" />
             </div>
           </div>
@@ -95,7 +95,7 @@
         </div>
         <div id="clone-modal-clone-fields">
           <div class="form-group">
-            <label class="form-label">ディレクトリ名 <span class="form-hint">(省略時はリポジトリ名)</span></label>
+            <label class="form-label">ディレクトリ名 <span class="form-hint">(リポジトリ未入力ならこの名前で空ディレクトリを作成)</span></label>
             <input type="text" id="clone-name" class="form-input" placeholder="" autocomplete="off" />
           </div>
           <div id="clone-error" class="form-error"></div>

@@ -513,14 +513,19 @@ async function submitClone() {
   const name = $("clone-name").value.trim();
   const outputEl = $("clone-output");
 
-  if (!url) {
-    showFormError("clone-error", cloneModalActiveTab === "github" ? "リポジトリを選択してください" : "URLを入力してください");
+  if (cloneModalActiveTab === "github" && !url) {
+    showFormError("clone-error", "リポジトリを選択してください");
+    return;
+  }
+
+  if (cloneModalActiveTab === "url" && !url && !name) {
+    showFormError("clone-error", "URLまたはディレクトリ名を入力してください");
     return;
   }
 
   hideFormError("clone-error");
   outputEl.style.display = "block";
-  outputEl.textContent = "cloning...";
+  outputEl.textContent = cloneModalActiveTab === "url" && !url ? "creating directory..." : "cloning...";
   $("clone-submit").disabled = true;
 
   try {
@@ -536,7 +541,9 @@ async function submitClone() {
       $("clone-submit").disabled = false;
       return;
     }
-    outputEl.textContent = `${data.name} をクローンしました`;
+    outputEl.textContent = data.mode === "directory"
+      ? `${data.name} ディレクトリを作成しました`
+      : `${data.name} をクローンしました`;
     invalidateWorkspaceMetaCache();
     closeCloneModal();
     await loadWorkspaces();

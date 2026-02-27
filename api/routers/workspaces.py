@@ -85,23 +85,23 @@ def update_workspace_config_endpoint(name: str, body: UpdateConfigRequest):
 
 
 class CloneRequest(BaseModel):
-    url: str
+    url: str | None = None
     name: str | None = None
 
 
 @router.post("/workspaces")
 def clone_workspace(body: CloneRequest):
-    url = body.url.strip()
-    if not url:
-        raise HTTPException(status_code=400, detail="URLを入力してください")
+    url = (body.url or "").strip()
     github_url_match = re.match(r"https?://github\.com/(.+?)/?$", url)
-    if github_url_match:
+    if url and github_url_match:
         url = f"git@github.com:{github_url_match.group(1)}.git"
 
     if body.name:
         dir_name = body.name.strip()
-    else:
+    elif url:
         dir_name = url.rstrip("/").split("/")[-1].removesuffix(".git")
+    else:
+        raise HTTPException(status_code=400, detail="URLまたはディレクトリ名を入力してください")
 
     if not dir_name or not re.match(r"^[a-zA-Z0-9_.-]+$", dir_name):
         raise HTTPException(status_code=400, detail="無効なディレクトリ名です")
@@ -111,6 +111,11 @@ def clone_workspace(body: CloneRequest):
         raise HTTPException(status_code=409, detail=f"'{dir_name}' は既に存在します")
 
     WORK_DIR.mkdir(parents=True, exist_ok=True)
+
+    if not url:
+        target_path.mkdir(parents=False, exist_ok=False)
+        logger.info("workspace dir created dir=%s", dir_name)
+        return {"status": "ok", "name": dir_name, "mode": "directory"}
 
     try:
         result = subprocess.run(
