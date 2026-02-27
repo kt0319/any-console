@@ -24,11 +24,17 @@ function updateViewportHeight() {
   const vv = window.visualViewport;
   const viewportHeight = vv ? vv.height : window.innerHeight;
   const viewportHeightPx = Math.round(viewportHeight);
-  if (prevViewportHeightPx !== viewportHeightPx) {
-    prevViewportHeightPx = viewportHeightPx;
-    document.documentElement.style.setProperty("--app-dvh", `${viewportHeightPx}px`);
-  }
   const keyboardOpen = vv && (window.innerHeight - vv.height > 100);
+  const iconPickerModal = $("icon-picker-modal");
+  const iconPickerOpen = !!iconPickerModal && iconPickerModal.style.display !== "none";
+  // Keep modal height stable while typing in the icon picker on mobile.
+  const appliedViewportHeightPx = (keyboardOpen && iconPickerOpen)
+    ? Math.round(window.innerHeight)
+    : viewportHeightPx;
+  if (prevViewportHeightPx !== appliedViewportHeightPx) {
+    prevViewportHeightPx = appliedViewportHeightPx;
+    document.documentElement.style.setProperty("--app-dvh", `${appliedViewportHeightPx}px`);
+  }
   document.querySelector(".main-panel").classList.toggle("keyboard-open", keyboardOpen);
   repositionKeyboardInput(keyboardOpen);
   if (prevKeyboardOpen && !keyboardOpen) {

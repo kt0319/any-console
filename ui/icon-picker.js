@@ -106,7 +106,6 @@ function openIconPicker(callback, currentIcon, currentColor) {
     } else {
       renderIconGrid(icons, "");
     }
-    search.focus();
   });
 
   search.oninput = () => {
@@ -425,7 +424,6 @@ function renderInlineIconPicker(container, callback, currentIcon, currentColor, 
 
   fetchIconMeta().then((icons) => {
     renderIconGridTo(grid, icons, "", onIconSelect);
-    search.focus();
   });
 
   search.oninput = () => {
