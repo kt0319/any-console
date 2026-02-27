@@ -25,6 +25,10 @@ function openTabEditModal(initialTab = "layout") {
 
   modal.appendChild(header);
 
+  const scrollBody = document.createElement("div");
+  scrollBody.className = "modal-scroll-body split-tab-scroll";
+  modal.appendChild(scrollBody);
+
   function setTitle(text, backFn) {
     titleEl.textContent = "";
     titleEl.className = "";
@@ -45,7 +49,7 @@ function openTabEditModal(initialTab = "layout") {
 
   const contentContainer = document.createElement("div");
   contentContainer.className = "split-tab-content";
-  modal.appendChild(contentContainer);
+  scrollBody.appendChild(contentContainer);
 
   overlay.appendChild(modal);
   $("app-screen").appendChild(overlay);
@@ -390,26 +394,104 @@ function openTabEditModal(initialTab = "layout") {
   }
 
   function renderModalWsList(container) {
+    async function executeWsRemoteOp(wsName, endpoint, label, button) {
+      if (!confirm(`${wsName} を ${label} しますか？`)) return;
+      if (button) {
+        button.disabled = true;
+        button.classList.add("running");
+      }
+      try {
+        const res = await apiFetch(workspaceApiPath(wsName, endpoint), { method: "POST" });
+        if (!res) return;
+        const data = await res.json();
+        if (data.status === "ok") {
+          showToast(`${label} 完了`, "success");
+        } else {
+          showToast(`${label} 失敗: ${data.stderr || data.stdout || data.detail || "unknown error"}`);
+        }
+      } catch (e) {
+        showToast(`${label} エラー: ${e.message}`);
+      } finally {
+        if (button) {
+          button.classList.remove("running");
+          button.disabled = false;
+        }
+        await loadWorkspaces();
+        if (selectedWorkspace === wsName) {
+          await refreshWorkspaceHeader();
+        }
+        container.innerHTML = "";
+        renderModalWsList(container);
+      }
+    }
+
+    function buildDirtyHtml(ws) {
+      if (ws.clean !== false) return "";
+      const parts = [];
+      if (ws.changed_files > 0) parts.push(`<span class="stat-files">${ws.changed_files}F</span>`);
+      if (ws.insertions > 0) parts.push(`<span class="stat-add">+${ws.insertions}</span>`);
+      if (ws.deletions > 0) parts.push(`<span class="stat-del">-${ws.deletions}</span>`);
+      return parts.length > 0 ? parts.join(" ") : "\u25cf";
+    }
+
     const workspaces = visibleWorkspaces();
     for (const ws of workspaces) {
       const group = document.createElement("div");
       group.className = "picker-ws-group";
 
-      const headerEl = document.createElement("div");
-      headerEl.className = "picker-ws-header";
+      const topRow = document.createElement("div");
+      topRow.className = "picker-ws-row picker-ws-row-top";
 
       const headerLabel = document.createElement("button");
       headerLabel.type = "button";
       headerLabel.className = "picker-ws-header-label";
-      headerLabel.innerHTML = renderIcon(ws.icon || "mdi-console", ws.icon_color, 18) + escapeHtml(ws.name);
+      headerLabel.innerHTML =
+        renderIcon(ws.icon || "mdi-console", ws.icon_color, 18) +
+        `<span class="picker-ws-header-text"><span class="picker-ws-name">${escapeHtml(ws.name)}</span><span class="picker-ws-branch">${escapeHtml(ws.branch || "-")}</span></span>`;
       headerLabel.addEventListener("click", () => {
+        closeModal();
         runJob("terminal", null, ws.name);
       });
-      headerEl.appendChild(headerLabel);
+      topRow.appendChild(headerLabel);
+
+      const topMeta = document.createElement("div");
+      topMeta.className = "picker-ws-top-meta";
+
+      const dirtyHtml = buildDirtyHtml(ws);
+      if (dirtyHtml) {
+        const dirtyBadge = document.createElement("span");
+        dirtyBadge.className = "git-badge dirty";
+        dirtyBadge.innerHTML = dirtyHtml;
+        topMeta.appendChild(dirtyBadge);
+      }
+
+      if (ws.ahead > 0) {
+        const pushBtn = document.createElement("button");
+        pushBtn.type = "button";
+        pushBtn.className = "picker-ws-mini-btn push-btn has-count";
+        pushBtn.innerHTML = `<span class="mdi mdi-arrow-up"></span><span>${ws.ahead}</span>`;
+        pushBtn.addEventListener("click", () => executeWsRemoteOp(ws.name, "/push", "push", pushBtn));
+        topMeta.appendChild(pushBtn);
+      }
+
+      if (ws.behind > 0) {
+        const pullBtn = document.createElement("button");
+        pullBtn.type = "button";
+        pullBtn.className = "picker-ws-mini-btn pull-btn has-count";
+        pullBtn.innerHTML = `<span class="mdi mdi-arrow-down"></span><span>${ws.behind}</span>`;
+        pullBtn.addEventListener("click", () => executeWsRemoteOp(ws.name, "/pull", "pull", pullBtn));
+        topMeta.appendChild(pullBtn);
+      }
+
+      topRow.appendChild(topMeta);
+      group.appendChild(topRow);
+
+      const bottomRow = document.createElement("div");
+      bottomRow.className = "picker-ws-row picker-ws-row-bottom";
 
       const icons = document.createElement("div");
-      icons.className = "picker-ws-icons";
-      headerEl.appendChild(icons);
+      icons.className = "picker-ws-icons picker-ws-icons-bottom";
+      bottomRow.appendChild(icons);
 
       const gearBtn = document.createElement("button");
       gearBtn.type = "button";
@@ -420,13 +502,13 @@ function openTabEditModal(initialTab = "layout") {
         setTitle(ws.name, () => showMainView());
         renderWorkspaceSettingsPane(contentContainer, ws, () => showMainView(), setTitle);
       });
-      headerEl.appendChild(gearBtn);
+      bottomRow.appendChild(gearBtn);
 
-      group.appendChild(headerEl);
+      group.appendChild(bottomRow);
       container.appendChild(group);
 
       loadWorkspaceIconButtons(icons, ws, 18,
-        (link) => { window.open(link.url, "_blank"); },
+        (link) => { closeModal(); window.open(link.url, "_blank"); },
         (name, job) => {
           if (job.confirm !== false) {
             if (!confirm(`${job.label || name} を実行しますか？`)) return;
@@ -434,7 +516,14 @@ function openTabEditModal(initialTab = "layout") {
           closeModal();
           runJob(name, null, ws.name);
         },
-      );
+      )
+        .then((count) => {
+          if (count === 0) bottomRow.classList.add("is-empty");
+        })
+        .catch((e) => {
+          console.error("workspace icon buttons load failed:", e);
+          bottomRow.classList.add("is-empty");
+        });
     }
 
     const addItem = document.createElement("div");
