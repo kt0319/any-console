@@ -2681,6 +2681,10 @@ button:disabled {
   color: var(--text-secondary);
 }
 
+.diff-file-row-status-left {
+  margin-right: 2px;
+}
+
 .diff-file-row-status.diff-status-mod {
   color: #8cb6ff;
   border-color: rgba(140, 182, 255, 0.45);
@@ -2707,14 +2711,32 @@ button:disabled {
 
 .diff-file-row-numstat {
   display: inline-flex;
-  align-items: center;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: center;
   gap: 6px;
   margin-left: auto;
   margin-right: 8px;
-  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-  font-size: 13px;
-  line-height: 1.1;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1;
   font-weight: 700;
+  white-space: nowrap;
+}
+
+.diff-file-row-numstat-offset {
+  margin-right: 44px;
+}
+
+.diff-file-row-numstat-note {
+  margin-left: auto;
+  margin-right: 8px;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  white-space: nowrap;
 }
 
 .diff-num-plus {

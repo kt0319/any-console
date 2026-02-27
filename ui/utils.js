@@ -4,7 +4,11 @@ function $(id) {
 
 function safeFit(tab) {
   if (!tab || !tab.fitAddon) return;
-  try { tab.fitAddon.fit(); } catch (e) { console.warn("fitAddon.fit failed:", e); }
+  try {
+    tab.fitAddon.fit();
+  } catch (e) {
+    console.warn("fitAddon.fit failed:", e);
+  }
 }
 
 function copyToClipboard(text) {
@@ -117,129 +121,6 @@ function setLoadingStatus(text) {
   $("output").innerHTML = `<div class="empty-state">${escapeHtml(text)}</div>`;
 }
 
-async function apiFetch(endpoint, { method = "GET", body = null } = {}) {
-  const headers = { Authorization: `Bearer ${token}` };
-  if (body !== null && typeof body === "object") {
-    headers["Content-Type"] = "application/json";
-    body = JSON.stringify(body);
-  }
-  const res = await fetch(endpoint, { method, headers, body });
-  if (res.status === 401) {
-    await handleUnauthorized();
-    return null;
-  }
-  return res;
-}
-
-function renderInlineStatusHtml(text, tone = "muted", centered = true) {
-  const color = tone === "error" ? "var(--error)" : "var(--text-muted)";
-  const align = centered ? "text-align:center;" : "";
-  return `<div style="color:${color};padding:16px;${align}">${escapeHtml(text)}</div>`;
-}
-
-function setInlineStatus(container, text, tone = "muted", centered = true) {
-  container.innerHTML = renderInlineStatusHtml(text, tone, centered);
-}
-
-async function fetchAndRenderWithStatus(
-  container,
-  endpoint,
-  renderData,
-  {
-    loadingText = "読み込み中...",
-    fetchErrorText = "取得に失敗しました",
-    fetchErrorTone = "error",
-    fetchErrorCentered = false,
-    catchErrorTone = "error",
-    catchErrorCentered = false,
-  } = {},
-) {
-  setInlineStatus(container, loadingText);
-  try {
-    const res = await apiFetch(endpoint);
-    if (!res || !res.ok) {
-      setInlineStatus(container, fetchErrorText, fetchErrorTone, fetchErrorCentered);
-      return false;
-    }
-    const data = await res.json();
-    container.innerHTML = "";
-    await renderData(data);
-    return true;
-  } catch (e) {
-    setInlineStatus(container, e.message, catchErrorTone, catchErrorCentered);
-    return false;
-  }
-}
-
-function setCloneRepoStatus(container, variant, text) {
-  container.innerHTML = `<div class="clone-repo-${variant}">${escapeHtml(text)}</div>`;
-}
-
-function getActionFailureMessage(data, fallback = "unknown error") {
-  if (!data || typeof data !== "object") return fallback;
-  return toDisplayMessage(data.stderr || data.stdout || data.detail, fallback);
-}
-
-async function postWorkspaceAction(workspace, endpoint, label, body = null) {
-  try {
-    const res = await apiFetch(workspaceApiPath(workspace, endpoint), {
-      method: "POST",
-      body,
-    });
-    if (!res) return null;
-    const data = await res.json();
-    if (data.status === "ok") {
-      showToast(`${label} 完了`, "success");
-      return data;
-    }
-    showToast(`${label} 失敗: ${getActionFailureMessage(data)}`);
-    return data;
-  } catch (e) {
-    showToast(`${label} エラー: ${e.message}`);
-    return null;
-  }
-}
-
-async function deleteWorkspaceAction(
-  workspace,
-  endpoint,
-  successMessage,
-  defaultError = "削除に失敗しました",
-) {
-  try {
-    const res = await apiFetch(workspaceApiPath(workspace, endpoint), { method: "DELETE" });
-    if (!res) return false;
-    const data = await res.json();
-    if (!res.ok) {
-      showToast(data.detail || defaultError);
-      return false;
-    }
-    if (successMessage) showToast(successMessage, "success");
-    return true;
-  } catch (e) {
-    showToast(`削除エラー: ${e.message}`);
-    return false;
-  }
-}
-
-async function putWorkspaceConfig(workspace, body) {
-  try {
-    const res = await apiFetch(workspaceApiPath(workspace, "/config"), {
-      method: "PUT",
-      body,
-    });
-    if (!res) return { ok: false, data: null };
-    const data = await res.json();
-    return { ok: res.ok, data };
-  } catch (e) {
-    return { ok: false, error: e };
-  }
-}
-
-function workspaceApiPath(workspace, path = "") {
-  return `/workspaces/${encodeURIComponent(workspace)}${path}`;
-}
-
 function showFormError(errorElementId, message) {
   const el = $(errorElementId);
   el.textContent = toDisplayMessage(message, "入力内容を確認してください");
@@ -281,259 +162,30 @@ function isImageDataIcon(icon) {
   return icon && (icon.startsWith("data:image/") || icon.startsWith("favicon:"));
 }
 
-const WORKSPACE_META_CACHE_PREFIX = "pi_console_cache_workspace_meta:";
-const GITHUB_REPOS_CACHE_KEY = "pi_console_cache_github_repos";
-const CACHE_OWNER_KEY = "pi_console_cache_owner_token";
-const workspaceMetaCache = new Map();
-const workspaceMetaInFlight = new Map();
-let githubReposCache = null;
-let githubReposInFlight = null;
-
-function cacheOwnerToken() {
-  return token || localStorage.getItem("pi_console_token") || "";
-}
-
-function readJsonCache(key) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-function writeJsonCache(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {}
-}
-
-function deleteByPrefix(prefix) {
-  try {
-    const keys = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith(prefix)) keys.push(k);
-    }
-    for (const k of keys) localStorage.removeItem(k);
-  } catch {}
-}
-
-function syncCacheOwnerToken() {
-  const owner = cacheOwnerToken();
-  const cachedOwner = localStorage.getItem(CACHE_OWNER_KEY) || "";
-  if (cachedOwner === owner) return;
-  clearPersistedApiCaches();
-  if (owner) {
-    localStorage.setItem(CACHE_OWNER_KEY, owner);
-  } else {
-    localStorage.removeItem(CACHE_OWNER_KEY);
-  }
-}
-
-function cloneWorkspaceMeta(meta) {
-  const jobs = {};
-  for (const [name, job] of Object.entries(meta.jobs || {})) {
-    jobs[name] = job && typeof job === "object" ? { ...job } : job;
-  }
-  const links = Array.isArray(meta.links) ? meta.links.map((link) => ({ ...link })) : [];
-  return { jobs, links };
-}
-
-function getWorkspaceMetaCache(workspaceName) {
-  const cached = workspaceMetaCache.get(workspaceName);
-  if (cached) return cloneWorkspaceMeta(cached);
-
-  const stored = readJsonCache(WORKSPACE_META_CACHE_PREFIX + workspaceName);
-  if (!stored || typeof stored !== "object") return null;
-  if (!stored.jobs || !Array.isArray(stored.links)) return null;
-  workspaceMetaCache.set(workspaceName, stored);
-  return cloneWorkspaceMeta(stored);
-}
-
-function setWorkspaceMetaCache(workspaceName, jobs, links) {
-  const data = {
-    jobs: jobs || {},
-    links: links || [],
-    fetchedAt: Date.now(),
-  };
-  workspaceMetaCache.set(workspaceName, data);
-  writeJsonCache(WORKSPACE_META_CACHE_PREFIX + workspaceName, data);
-}
-
-function invalidateWorkspaceMetaCache(workspaceName = null) {
-  if (workspaceName) {
-    workspaceMetaCache.delete(workspaceName);
-    workspaceMetaInFlight.delete(workspaceName);
-    try { localStorage.removeItem(WORKSPACE_META_CACHE_PREFIX + workspaceName); } catch {}
-    return;
-  }
-  workspaceMetaCache.clear();
-  workspaceMetaInFlight.clear();
-  deleteByPrefix(WORKSPACE_META_CACHE_PREFIX);
-}
-
-function invalidateGithubReposCache() {
-  githubReposCache = null;
-  githubReposInFlight = null;
-  try { localStorage.removeItem(GITHUB_REPOS_CACHE_KEY); } catch {}
-}
-
-function clearPersistedApiCaches() {
-  invalidateWorkspaceMetaCache();
-  invalidateGithubReposCache();
-}
-
-async function fetchWorkspaceJobsAndLinks(workspaceName, { forceRefresh = false } = {}) {
-  syncCacheOwnerToken();
-  if (!workspaceName) return { jobs: {}, links: [] };
-
-  if (!forceRefresh) {
-    const cached = getWorkspaceMetaCache(workspaceName);
-    if (cached) return cached;
-  }
-
-  if (!forceRefresh && workspaceMetaInFlight.has(workspaceName)) {
-    const inFlight = await workspaceMetaInFlight.get(workspaceName);
-    return cloneWorkspaceMeta(inFlight);
-  }
-
-  const request = (async () => {
-    const stale = workspaceMetaCache.get(workspaceName);
-    let jobs = stale?.jobs || {};
-    let links = stale?.links || [];
-    let fetched = false;
-    try {
-      const [jobsRes, linksRes] = await Promise.all([
-        apiFetch(workspaceApiPath(workspaceName, "/jobs")),
-        apiFetch(workspaceApiPath(workspaceName, "/links")),
-      ]);
-      if (jobsRes && jobsRes.ok) {
-        jobs = await jobsRes.json();
-        fetched = true;
-      }
-      if (linksRes && linksRes.ok) {
-        links = await linksRes.json();
-        fetched = true;
-      }
-    } catch (e) {
-      console.error("fetchWorkspaceJobsAndLinks failed:", e);
-    }
-
-    if (fetched) {
-      setWorkspaceMetaCache(workspaceName, jobs, links);
-      return { jobs, links };
-    }
-    return stale ? { jobs: stale.jobs, links: stale.links } : { jobs: {}, links: [] };
-  })();
-
-  workspaceMetaInFlight.set(workspaceName, request);
-  try {
-    const result = await request;
-    return cloneWorkspaceMeta(result);
-  } finally {
-    workspaceMetaInFlight.delete(workspaceName);
-  }
-}
-
-async function fetchGithubRepos({ forceRefresh = false } = {}) {
-  syncCacheOwnerToken();
-
-  if (!githubReposCache) {
-    const stored = readJsonCache(GITHUB_REPOS_CACHE_KEY);
-    if (stored && Array.isArray(stored.repos)) {
-      githubReposCache = stored;
-    }
-  }
-
-  if (!forceRefresh && githubReposCache) {
-    return githubReposCache.repos.map((repo) => ({ ...repo }));
-  }
-
-  if (!forceRefresh && githubReposInFlight) {
-    const inFlightRepos = await githubReposInFlight;
-    return inFlightRepos.map((repo) => ({ ...repo }));
-  }
-
-  const request = (async () => {
-    try {
-      const res = await apiFetch("/github/repos");
-      if (!res) throw new Error("取得に失敗しました");
-      if (!res.ok) {
-        let detail = "取得に失敗しました";
-        try {
-          const data = await res.json();
-          if (data?.detail) detail = data.detail;
-        } catch {}
-        throw new Error(detail);
-      }
-      const repos = await res.json();
-      githubReposCache = { repos, fetchedAt: Date.now() };
-      writeJsonCache(GITHUB_REPOS_CACHE_KEY, githubReposCache);
-      return repos;
-    } catch (e) {
-      if (githubReposCache) return githubReposCache.repos;
-      throw e;
-    }
-  })();
-
-  githubReposInFlight = request;
-  try {
-    const repos = await request;
-    return repos.map((repo) => ({ ...repo }));
-  } finally {
-    githubReposInFlight = null;
-  }
-}
-
-async function loadWorkspaceIconButtons(container, ws, iconSize, onLinkClick, onJobClick) {
-  const { jobs, links } = await fetchWorkspaceJobsAndLinks(ws.name);
-  let addedCount = 0;
-
-  for (let i = 0; i < links.length; i++) {
-    const link = links[i];
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "picker-ws-icon-btn picker-ws-link-btn";
-    btn.title = link.label || link.url;
-    btn.innerHTML = renderIcon(link.icon || "mdi-web", link.icon_color, iconSize);
-    btn.addEventListener("click", () => onLinkClick(link, i));
-    container.appendChild(btn);
-    addedCount += 1;
-  }
-
-  const entries = Object.entries(jobs).filter(([name]) => name !== "terminal");
-  for (const [name, job] of entries) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "picker-ws-icon-btn" + (job.terminal === false ? " picker-ws-job-direct" : "");
-    btn.title = job.label || name;
-    btn.innerHTML = renderIcon(job.icon || "mdi-play", job.icon_color, iconSize);
-    btn.addEventListener("click", () => onJobClick(name, job));
-    container.appendChild(btn);
-    addedCount += 1;
-  }
-
-  return addedCount;
-}
-
 function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 20 } = {}) {
   let timer = null;
   let fired = false;
-  let startX = 0, startY = 0;
+  let startX = 0;
+  let startY = 0;
   el.addEventListener("touchstart", (e) => {
     fired = false;
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     const startEvt = e;
     el.classList.add("long-pressing");
-    timer = setTimeout(() => { fired = true; el.classList.remove("long-pressing"); onLongPress(startEvt); }, delay);
+    timer = setTimeout(() => {
+      fired = true;
+      el.classList.remove("long-pressing");
+      onLongPress(startEvt);
+    }, delay);
   }, { passive: true });
   el.addEventListener("touchend", (e) => {
     clearTimeout(timer);
     el.classList.remove("long-pressing");
-    if (fired) { e.preventDefault(); fired = false; }
+    if (fired) {
+      e.preventDefault();
+      fired = false;
+    }
   });
   el.addEventListener("touchmove", (e) => {
     const dx = e.touches[0].clientX - startX;
@@ -549,7 +201,11 @@ function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 
     startX = e.clientX;
     startY = e.clientY;
     el.classList.add("long-pressing");
-    timer = setTimeout(() => { fired = true; el.classList.remove("long-pressing"); onLongPress(e); }, delay);
+    timer = setTimeout(() => {
+      fired = true;
+      el.classList.remove("long-pressing");
+      onLongPress(e);
+    }, delay);
   });
   el.addEventListener("pointerup", (e) => {
     if (e.pointerType === "touch") return;
@@ -566,7 +222,9 @@ function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 
     }
   });
   if (onClick) {
-    el.addEventListener("click", (e) => { if (!fired) onClick(e); });
+    el.addEventListener("click", (e) => {
+      if (!fired) onClick(e);
+    });
   }
 }
 

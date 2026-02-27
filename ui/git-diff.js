@@ -1,7 +1,10 @@
 function renderDiffActions(container, hash, branches) {
-  const actions = buildCommitActions(hash, {
+  const actions = GitCore.buildCommitActions(hash, {
     branches,
-    checkoutBranchFn: () => { closeDiffPane(); toggleCreateBranchArea(hash); },
+    checkoutBranchFn: () => {
+      GitLogModal.closeDiffPane();
+      GitLogModal.toggleCreateBranchArea(hash);
+    },
   });
 
   renderActionButtons(container, actions);
@@ -17,14 +20,14 @@ async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
   actionsEl.innerHTML = "";
   actionsEl.style.display = "none";
   $("diff-commit-form").style.display = "none";
-  previousModalTab = "commits";
-  showDiffPane(commitMsg || "");
+  GitLogModal.previousModalTab = "commits";
+  GitLogModal.showDiffPane(commitMsg || "");
 
   if (commitHash) {
     if (commitHash.startsWith("stash@")) {
       const actions = [
-        { label: "stash pop", cls: "", fn: () => execStashRefAction("pop", commitHash) },
-        { label: "stash drop", cls: "commit-action-danger", fn: () => execStashRefAction("drop", commitHash) },
+        { label: "stash pop", cls: "", fn: () => GitLogModal.execStashRefAction("pop", commitHash) },
+        { label: "stash drop", cls: "commit-action-danger", fn: () => GitLogModal.execStashRefAction("drop", commitHash) },
       ];
       renderActionButtons(actionsEl, actions);
       actionsEl.style.display = "flex";
@@ -102,16 +105,92 @@ function getDiffStatusTone(status) {
   return "neutral";
 }
 
-function renderNumstatHtml(insertions, deletions) {
+function renderNumstatHtml(insertions, deletions, extraClass = "") {
   const hasIns = Number.isFinite(insertions);
   const hasDel = Number.isFinite(deletions);
   if (!hasIns && !hasDel) return "";
   const ins = hasIns ? insertions : 0;
   const del = hasDel ? deletions : 0;
-  return `<span class="diff-file-row-numstat"><span class="diff-num-plus">+${ins}</span><span class="diff-num-del">-${del}</span></span>`;
+  const cls = extraClass ? `diff-file-row-numstat ${extraClass}` : "diff-file-row-numstat";
+  return `<span class="${cls}"><span class="diff-num-plus">+${ins}</span><span class="diff-num-del">-${del}</span></span>`;
 }
 
-function renderDiffFileList(fileList, files, diffText) {
+function renderNumstatNoteHtml(text) {
+  return `<span class="diff-file-row-numstat-note">${escapeHtml(text)}</span>`;
+}
+
+function estimateAddedLineCountFromChunk(fileName) {
+  const chunk = diffChunks[fileName];
+  if (!chunk) return null;
+  let inHunk = false;
+  let added = 0;
+  for (const line of chunk.split("\n")) {
+    if (line.startsWith("@@")) {
+      inHunk = true;
+      continue;
+    }
+    if (!inHunk) continue;
+    if (line.startsWith("+") && !line.startsWith("+++")) added += 1;
+  }
+  return added;
+}
+
+function countTextLines(content) {
+  if (!content) return 0;
+  const newlines = (content.match(/\n/g) || []).length;
+  return content.endsWith("\n") ? newlines : newlines + 1;
+}
+
+async function estimateAddedLineCountFromFileContent(fileName, workspaceName) {
+  try {
+    const res = await apiFetch(workspaceApiPath(workspaceName, `/file-content?path=${encodeURIComponent(fileName)}`));
+    if (!res) return null;
+    const data = await res.json();
+    if (!res.ok || data.status !== "ok") return null;
+    if (data.binary || data.too_large || data.image) return null;
+    if (typeof data.content !== "string") return null;
+    return countTextLines(data.content);
+  } catch {
+    return null;
+  }
+}
+
+function renderDiffFileStatHtml(name, status, insertions, deletions) {
+  if (Number.isFinite(insertions) || Number.isFinite(deletions)) {
+    return renderNumstatHtml(insertions, deletions);
+  }
+  if (DIFF_NEW_STATUSES.has(status || "")) {
+    const added = estimateAddedLineCountFromChunk(name);
+    if (Number.isFinite(added)) return renderNumstatNoteHtml(`+${added}`);
+  }
+  return "";
+}
+
+async function fillMissingAddedFileStats(fileList, files, workspaceName) {
+  if (!workspaceName) return;
+  for (const f of files) {
+    if (!f || typeof f !== "object") continue;
+    const status = f.status || "";
+    if (!DIFF_NEW_STATUSES.has(status)) continue;
+    if (Number.isFinite(f.insertions) || Number.isFinite(f.deletions)) continue;
+    const name = f.name;
+    if (!name) continue;
+    const fromChunk = estimateAddedLineCountFromChunk(name);
+    if (Number.isFinite(fromChunk)) continue;
+
+    const row = Array.from(fileList.querySelectorAll(".diff-file-row[data-file]"))
+      .find((el) => el.dataset.file === name);
+    if (!row || row.querySelector(".diff-file-row-numstat, .diff-file-row-numstat-note")) continue;
+
+    const added = await estimateAddedLineCountFromFileContent(name, workspaceName);
+    if (!Number.isFinite(added)) continue;
+    if (selectedWorkspace !== workspaceName) return;
+    row.insertAdjacentHTML("beforeend", renderNumstatNoteHtml(`+${added}`));
+  }
+}
+
+function renderDiffFileList(fileList, files, diffText, options = {}) {
+  const statusBadgeLeft = !!options.statusBadgeLeft;
   diffChunks = splitDiffByFile(diffText);
   diffFullText = diffText;
   fileList.innerHTML = "";
@@ -157,11 +236,15 @@ function renderDiffFileList(fileList, files, diffText) {
         }
       }
       const rowClass = isNew ? "file-browser-item diff-file-row diff-file-row-new" : "file-browser-item diff-file-row";
+      const statusHtml = status
+        ? `<span class="file-browser-item-size diff-file-row-status${statusBadgeLeft ? " diff-file-row-status-left" : ""} diff-status-${getDiffStatusTone(status)}">${escapeHtml(status)}</span>`
+        : "";
       html += `<li class="${rowClass}" data-file="${escapeHtml(name)}">` +
+        (statusBadgeLeft ? statusHtml : "") +
         `<span class="file-browser-item-icon file-icon">${iconHtml}</span>` +
         `<span class="file-browser-item-name">${escapeHtml(name)}</span>` +
-        renderNumstatHtml(insertions, deletions) +
-        (status ? `<span class="file-browser-item-size diff-file-row-status diff-status-${getDiffStatusTone(status)}">${escapeHtml(status)}</span>` : "") +
+        renderDiffFileStatHtml(name, status, insertions, deletions) +
+        (statusBadgeLeft ? "" : statusHtml) +
         "</li>";
     }
   }
@@ -174,6 +257,8 @@ function renderDiffFileList(fileList, files, diffText) {
       selectDiffFile(file);
     });
   }
+
+  void fillMissingAddedFileStats(fileList, files, selectedWorkspace);
 }
 
 async function selectDiffFile(file) {
@@ -196,9 +281,9 @@ async function selectDiffFile(file) {
     diffContent.textContent = "差分なし";
   }
   diffContent.scrollTop = 0;
-  previousModalTab = "diff";
+  GitLogModal.previousModalTab = "diff";
   const title = file ? file.split("/").pop() : "差分（すべて）";
-  showSubPane("commit-modal-tab-diff-view", title);
+  GitLogModal.showSubPane("commit-modal-tab-diff-view", title);
 }
 
 async function loadFileContentInto(filePath, container) {
@@ -267,8 +352,8 @@ async function loadDiffTab() {
 
   const stashActions = [
     { label: "コミット", cls: "", fn: () => openCommitForm() },
-    { label: "stash", cls: "", fn: () => execStashAction("save") },
-    { label: "stash pop", cls: "", fn: () => execStashAction("pop") },
+    { label: "stash", cls: "", fn: () => GitCore.execStashAction("save") },
+    { label: "stash pop", cls: "", fn: () => GitCore.execStashAction("pop") },
   ];
   renderActionButtons(actionsEl, stashActions);
   actionsEl.style.display = "flex";
@@ -284,7 +369,7 @@ async function loadDiffTab() {
       return;
     }
 
-    renderDiffFileList(fileList, data.files, data.diff || "");
+    renderDiffFileList(fileList, data.files, data.diff || "", { statusBadgeLeft: true });
     diffContent.textContent = "ファイルを選択してください";
   } catch (e) {
     fileList.innerHTML = "";
@@ -295,11 +380,11 @@ async function loadDiffTab() {
 async function openDiffModal() {
   if (!selectedWorkspace) return;
 
-  isGitLogFilesLoaded = false;
-  previousModalTab = "commits";
+  GitLogModal.isGitLogFilesLoaded = false;
+  GitLogModal.previousModalTab = "commits";
   $("git-log-modal").style.display = "flex";
-  updateGitLogBranchLabel();
-  showDiffPane("未コミットの変更");
+  GitLogModal.updateGitLogBranchLabel();
+  GitLogModal.showDiffPane("未コミットの変更");
   await loadDiffTab();
 }
 
@@ -335,7 +420,7 @@ async function submitCommit() {
       showFormError("diff-commit-error", data.detail || data.stderr || "コミットに失敗しました");
       return;
     }
-    closeGitLogModal();
+    GitLogModal.closeGitLogModal();
     showToast("コミット完了", "success");
     await refreshWorkspaceHeader();
   } catch (e) {

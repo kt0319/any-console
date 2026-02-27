@@ -38,7 +38,7 @@ async function refreshWorkspaceHeader() {
   const msg = ws.last_commit_message || "";
   $("header-commit-msg").innerHTML = `<span class="commit-btn-branch">${escapeHtml(branch)}</span> <span class="commit-btn-msg">${escapeHtml(msg)}</span>`;
 
-  await loadBranches();
+  await GitCore.loadBranches();
 }
 
 function updatePullPushButtons(ws) {

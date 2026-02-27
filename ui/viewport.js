@@ -1,25 +1,7 @@
-async function initApp() {
-  setLoadingStatus("ワークスペースを読み込み中...");
-  await loadWorkspaces();
-  if (selectedWorkspace && !visibleWorkspaces().some((ws) => ws.name === selectedWorkspace)) {
-    selectedWorkspace = null;
-  }
-  setLoadingStatus("ワークスペース情報を取得中...");
-  await refreshWorkspaceHeader();
-  setLoadingStatus("ジョブを読み込み中...");
-  await loadJobsForWorkspace();
-  localStorage.removeItem("pi_console_active_tab");
-  await fetchOrphanSessions();
-  updateQuickInputVisibility();
-  if (sessionStorage.getItem("pi_console_server_reloaded")) {
-    sessionStorage.removeItem("pi_console_server_reloaded");
-    showToast("サーバーに再接続しました", "success");
-  }
-}
-
 let prevKeyboardOpen = false;
 let keyboardCloseTimer = null;
 let prevViewportHeightPx = 0;
+
 function updateViewportHeight() {
   const vv = window.visualViewport;
   const viewportHeight = vv ? vv.height : window.innerHeight;
@@ -27,7 +9,6 @@ function updateViewportHeight() {
   const keyboardOpen = vv && (window.innerHeight - vv.height > 100);
   const iconPickerModal = $("icon-picker-modal");
   const iconPickerOpen = !!iconPickerModal && iconPickerModal.style.display !== "none";
-  // Keep modal height stable while typing in the icon picker on mobile.
   const appliedViewportHeightPx = (keyboardOpen && iconPickerOpen)
     ? Math.round(window.innerHeight)
     : viewportHeightPx;
@@ -210,7 +191,9 @@ function repositionKeyboardInput(keyboardOpen) {
   }
 }
 
-window.addEventListener("beforeunload", () => { isPageUnloading = true; });
+window.addEventListener("beforeunload", () => {
+  isPageUnloading = true;
+});
 
 document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
 document.addEventListener("touchmove", (e) => {
@@ -223,71 +206,3 @@ document.addEventListener("touchend", (e) => {
   if (now - lastTouchEnd <= 300) e.preventDefault();
   lastTouchEnd = now;
 }, { passive: false });
-
-document.addEventListener("DOMContentLoaded", async () => {
-  updateViewportHeight();
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", updateViewportHeight);
-    window.visualViewport.addEventListener("scroll", updateViewportHeight);
-  }
-  window.addEventListener("resize", updateViewportHeight);
-  window.addEventListener("orientationchange", () => setTimeout(updateViewportHeight, 120));
-  $("login-btn").addEventListener("click", login);
-  $("job-confirm-cancel").addEventListener("click", closeJobConfirmModal);
-  $("job-confirm-cancel-x").addEventListener("click", closeJobConfirmModal);
-  $("job-confirm-run").addEventListener("click", () => {
-    const args = collectConfirmArgs();
-    closeJobConfirmModal();
-    runJob(null, args);
-  });
-  $("settings-close").addEventListener("click", closeSettings);
-  $("settings-modal").addEventListener("click", (e) => {
-    if (e.target === $("settings-modal")) closeSettings();
-  });
-applyPanelBottom();
-  $("diff-commit-cancel").addEventListener("click", closeCommitForm);
-  $("diff-commit-submit").addEventListener("click", submitCommit);
-  $("icon-picker-close").addEventListener("click", closeIconPicker);
-  $("icon-picker-clear").addEventListener("click", clearIconPicker);
-  $("icon-picker-modal").addEventListener("click", (e) => {
-    if (e.target === $("icon-picker-modal")) closeIconPicker();
-  });
-  $("icon-picker-url-ok").addEventListener("click", submitIconPicker);
-  $("git-log-file-browser-toggle").addEventListener("click", openFileBrowserPane);
-  $("git-log-branch-btn").addEventListener("click", openLocalBranchPane);
-  $("fetch-btn").addEventListener("click", gitFetch);
-  $("stash-btn").addEventListener("click", openStashPane);
-  $("pull-btn").addEventListener("click", gitPull);
-  $("set-upstream-btn").addEventListener("click", gitSetUpstream);
-  $("push-upstream-btn").addEventListener("click", gitPushUpstream);
-  $("push-btn").addEventListener("click", gitPush);
-  initQuickInput();
-  $("header-commit-msg").addEventListener("click", openGitLogModal);
-  $("git-log-close").addEventListener("click", closeGitLogModal);
-  $("git-log-list-modal").addEventListener("scroll", (e) => {
-    const el = e.target;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 50) {
-      loadMoreGitLog();
-    }
-  });
-  $("git-log-create-branch-submit").addEventListener("click", submitCreateBranch);
-
-  if (token) {
-    const result = await checkToken();
-    if (result.ok) {
-      setServerInfo(result.hostname, result.version);
-      showApp();
-      await initApp();
-    } else if (!result.auth) {
-      token = "";
-      clearToken();
-      showLogin();
-    } else {
-      showToast(result.error);
-      showApp();
-      await initApp();
-    }
-  } else {
-    showLogin();
-  }
-});

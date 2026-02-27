@@ -164,7 +164,8 @@ function setOutputTab(id, label, htmlContent, icon, wsIcon, workspace) {
   switchTab(id);
 }
 
-function removeTab(id) {
+function removeTab(id, options = {}) {
+  const preserveSessionForRestore = !!options.preserveSessionForRestore;
   const tab = openTabs.find((t) => t.id === id);
   if (!tab) return;
 
@@ -178,7 +179,7 @@ function removeTab(id) {
   }
 
   if (tab.type === "terminal") {
-    if (tab.wsUrl) {
+    if (tab.wsUrl && !preserveSessionForRestore) {
       closedSessionUrls.add(tab.wsUrl);
       const match = tab.wsUrl.match(/\/terminal\/ws\/([^/]+)/);
       if (match) {
@@ -299,10 +300,15 @@ function syncWorkspaceForTab(id) {
     return;
   }
   const tab = openTabs.find((t) => t.id === id);
-  if (tab && tab.type === "terminal" && tab.label) {
-    const ws = allWorkspaces.find((w) => w.name === tab.label);
-    if (ws) selectedWorkspace = ws.name;
+  if (!tab) return;
+  const workspaceName = tab.workspace || tab.label || null;
+  if (!workspaceName) return;
+  const ws = allWorkspaces.find((w) => w.name === workspaceName);
+  if (ws) {
+    selectedWorkspace = ws.name;
+    return;
   }
+  selectedWorkspace = workspaceName;
 }
 
 async function updateHeaderForTab(id) {
@@ -315,11 +321,15 @@ async function updateHeaderForTab(id) {
   }
 
   const activeTab = openTabs.find((t) => t.id === id);
-  const isTerminalTab = activeTab && activeTab.type === "terminal";
-
-  if (isTerminalTab && activeTab.label) {
-    const ws = allWorkspaces.find((w) => w.name === activeTab.label);
+  const workspaceName = activeTab ? (activeTab.workspace || activeTab.label || null) : null;
+  if (workspaceName) {
+    selectedWorkspace = workspaceName;
+    const ws = allWorkspaces.find((w) => w.name === workspaceName);
     if (ws) {
+      selectedWorkspace = ws.name;
+      await loadJobsForWorkspace();
+      await refreshWorkspaceHeader();
+    } else {
       await loadJobsForWorkspace();
       await refreshWorkspaceHeader();
     }

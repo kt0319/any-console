@@ -2,14 +2,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-import json
 import logging
-import platform
 import re
 import secrets
-import shutil
 import socket
-import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
@@ -19,9 +15,8 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response, UploadFi
 from fastapi.staticfiles import StaticFiles
 
 from .auth import verify_token
-from .common import BACKGROUND_EXECUTOR, SYSTEM_CMD_TIMEOUT_SEC, UPLOAD_DIR, WORK_DIR, load_all_config, save_all_config
-from .common import LOG_BUFFER
-from .routers import git, jobs, logs, terminal, workspaces
+from .common import BACKGROUND_EXECUTOR, LOG_BUFFER, UPLOAD_DIR, WORK_DIR
+from .routers import git, jobs, logs, settings, system, terminal, workspaces
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -32,7 +27,6 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="pi-console")
 
 BOOT_VERSION = str(int(time.time()))
-
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
 
 app.include_router(workspaces.router)
@@ -41,9 +35,30 @@ app.include_router(jobs.router)
 app.include_router(terminal.router)
 app.include_router(terminal.ws_router)
 app.include_router(logs.router)
+app.include_router(system.router)
+app.include_router(settings.router)
 
 
-EXCLUDE_LOG_PREFIXES = ("/logs", "/auth/check", "/system/", "/ui/", "/styles", "/app.", "/state.", "/auth.", "/workspace.", "/git.", "/jobs.", "/terminal.", "/settings.", "/quick-input.", "/icon-picker.", "/utils.", "/favicon")
+EXCLUDE_LOG_PREFIXES = (
+    "/logs",
+    "/auth/check",
+    "/system/",
+    "/ui/",
+    "/styles",
+    "/app.",
+    "/state.",
+    "/auth.",
+    "/workspace.",
+    "/git.",
+    "/jobs.",
+    "/terminal.",
+    "/settings.",
+    "/quick-input.",
+    "/icon-picker.",
+    "/utils.",
+    "/favicon",
+)
+
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -57,14 +72,16 @@ async def log_requests(request: Request, call_next):
     response = await call_next(request)
     duration_ms = round((time.time() - start) * 1000)
 
-    LOG_BUFFER.add({
-        "ts": datetime.now().astimezone().isoformat(),
-        "method": request.method,
-        "path": path,
-        "status_code": response.status_code,
-        "duration_ms": duration_ms,
-        "detail": "",
-    })
+    LOG_BUFFER.add(
+        {
+            "ts": datetime.now().astimezone().isoformat(),
+            "method": request.method,
+            "path": path,
+            "status_code": response.status_code,
+            "duration_ms": duration_ms,
+            "detail": "",
+        }
+    )
     return response
 
 
@@ -78,21 +95,7 @@ def shutdown_cleanup():
 
 @app.get("/auth/check", dependencies=[Depends(verify_token)])
 def auth_check():
-    return {"ok": True, "hostname": socket.gethostname(), "version": _get_app_version()}
-
-
-def _get_app_version() -> str:
-    try:
-        result = subprocess.run(
-            ["git", "log", "-1", "--format=%cd", "--date=format:%Y-%m-%d %H:%M"],
-            capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
-            cwd=str(Path(__file__).resolve().parent.parent),
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
-    except (subprocess.TimeoutExpired, OSError) as e:
-        logger.debug("app version fetch failed: %s", e)
-    return ""
+    return {"ok": True, "hostname": socket.gethostname(), "version": system.get_app_version()}
 
 
 ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
@@ -118,243 +121,6 @@ async def upload_image(file: UploadFile):
     return {"status": "ok", "path": str(filepath)}
 
 
-IS_DARWIN = platform.system() == "Darwin"
-
-
-def _get_ip() -> str | None:
-    if not IS_DARWIN:
-        try:
-            result = subprocess.run(
-                ["hostname", "-I"], capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
-            )
-            if result.returncode == 0:
-                addrs = result.stdout.strip().split()
-                if addrs:
-                    return addrs[0]
-        except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-            logger.debug("hostname -I failed: %s", e)
-    try:
-        return socket.gethostbyname(socket.gethostname())
-    except socket.gaierror as e:
-        logger.debug("gethostbyname failed: %s", e)
-        return None
-
-
-def _get_os_name() -> str | None:
-    if IS_DARWIN:
-        mac_ver = platform.mac_ver()[0]
-        return f"macOS {mac_ver}" if mac_ver else "macOS"
-    try:
-        os_release = Path("/etc/os-release").read_text(encoding="utf-8")
-        for line in os_release.splitlines():
-            if line.startswith("PRETTY_NAME="):
-                return line.split("=", 1)[1].strip('"')
-    except OSError as e:
-        logger.debug("os-release read failed: %s", e)
-    return None
-
-
-def _get_uptime() -> str | None:
-    if IS_DARWIN:
-        try:
-            result = subprocess.run(
-                ["sysctl", "-n", "kern.boottime"],
-                capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
-            )
-            if result.returncode == 0:
-                m = re.search(r"sec\s*=\s*(\d+)", result.stdout)
-                if m:
-                    boot_sec = int(m.group(1))
-                    elapsed = int(time.time()) - boot_sec
-                    days, rem = divmod(elapsed, 86400)
-                    hours, rem = divmod(rem, 3600)
-                    minutes = rem // 60
-                    parts = []
-                    if days:
-                        parts.append(f"{days} day{'s' if days != 1 else ''}")
-                    if hours:
-                        parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
-                    if minutes:
-                        parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
-                    return "up " + ", ".join(parts) if parts else "up 0 minutes"
-        except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-            logger.debug("macOS uptime failed: %s", e)
-        return None
-    try:
-        result = subprocess.run(
-            ["uptime", "-p"], capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-        logger.debug("uptime -p failed: %s", e)
-    return None
-
-
-def _get_cpu_temp() -> str | None:
-    if IS_DARWIN:
-        return None
-    try:
-        temp_raw = Path("/sys/class/thermal/thermal_zone0/temp").read_text().strip()
-        return f"{int(temp_raw) / 1000:.1f} °C"
-    except (OSError, ValueError) as e:
-        logger.debug("cpu temp read failed: %s", e)
-        return None
-
-
-def _get_memory() -> str | None:
-    if IS_DARWIN:
-        try:
-            result = subprocess.run(
-                ["sysctl", "-n", "hw.memsize"],
-                capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
-            )
-            if result.returncode != 0:
-                return None
-            total_bytes = int(result.stdout.strip())
-
-            result = subprocess.run(
-                ["vm_stat"], capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
-            )
-            if result.returncode != 0:
-                return None
-            page_size = 16384
-            ps_match = re.search(r"page size of (\d+) bytes", result.stdout)
-            if ps_match:
-                page_size = int(ps_match.group(1))
-            free_pages = 0
-            for key in ("Pages free", "Pages inactive", "Pages speculative"):
-                m = re.search(rf"{key}:\s+(\d+)", result.stdout)
-                if m:
-                    free_pages += int(m.group(1))
-            available_bytes = free_pages * page_size
-            total_gb = total_bytes / (1024 ** 3)
-            used_gb = (total_bytes - available_bytes) / (1024 ** 3)
-            return f"{used_gb:.1f} / {total_gb:.1f} GB"
-        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as e:
-            logger.debug("macOS memory info failed: %s", e)
-            return None
-    try:
-        meminfo = Path("/proc/meminfo").read_text(encoding="utf-8")
-        mem = {}
-        for line in meminfo.splitlines():
-            parts = line.split()
-            if len(parts) >= 2 and parts[0] in ("MemTotal:", "MemAvailable:"):
-                mem[parts[0].rstrip(":")] = int(parts[1])
-        if "MemTotal" in mem:
-            total_gb = mem["MemTotal"] / 1024 / 1024
-            available_gb = mem.get("MemAvailable", 0) / 1024 / 1024
-            used_gb = total_gb - available_gb
-            return f"{used_gb:.1f} / {total_gb:.1f} GB"
-    except (OSError, ValueError) as e:
-        logger.debug("memory info read failed: %s", e)
-    return None
-
-
-@app.get("/system/processes", dependencies=[Depends(verify_token)])
-def get_system_processes():
-    PROCESS_LIMIT = 15
-    try:
-        if IS_DARWIN:
-            cmd = ["ps", "aux", "-r"]
-        else:
-            cmd = ["ps", "aux", "--sort=-%cpu"]
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
-        )
-        if result.returncode != 0:
-            raise HTTPException(status_code=500, detail="ps command failed")
-    except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=500, detail="ps command timed out")
-    except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="ps command not found")
-
-    lines = result.stdout.strip().splitlines()
-    processes = []
-    for line in lines[1:PROCESS_LIMIT + 1]:
-        parts = line.split(None, 10)
-        if len(parts) < 11:
-            continue
-        processes.append({
-            "pid": int(parts[1]),
-            "name": Path(parts[10].split()[0]).name,
-            "cpu": float(parts[2]),
-            "mem": float(parts[3]),
-            "command": parts[10],
-        })
-    return processes
-
-
-@app.get("/system/info", dependencies=[Depends(verify_token)])
-def get_system_info():
-    info = {}
-
-    info["hostname"] = socket.gethostname()
-
-    for key, getter in [
-        ("ip", _get_ip),
-        ("os", _get_os_name),
-        ("uptime", _get_uptime),
-        ("cpu_temp", _get_cpu_temp),
-        ("memory", _get_memory),
-    ]:
-        value = getter()
-        if value is not None:
-            info[key] = value
-
-    try:
-        usage = shutil.disk_usage("/")
-        total_gb = usage.total / (1024 ** 3)
-        used_gb = usage.used / (1024 ** 3)
-        info["disk"] = f"{used_gb:.1f} / {total_gb:.1f} GB"
-    except OSError:
-        pass
-
-    return info
-
-
-def _existing_workspace_names() -> set[str]:
-    if not WORK_DIR.is_dir():
-        return set()
-    return {
-        d.name for d in WORK_DIR.iterdir()
-        if d.is_dir() and not d.name.startswith(".")
-    }
-
-
-@app.get("/settings/export", dependencies=[Depends(verify_token)])
-def export_settings():
-    config = load_all_config()
-    existing = _existing_workspace_names()
-    return {k: v for k, v in config.items() if k in existing}
-
-
-MAX_IMPORT_SIZE = 1024 * 1024
-
-
-@app.post("/settings/import", dependencies=[Depends(verify_token)])
-async def import_settings(request: Request):
-    content_length = request.headers.get("content-length")
-    if content_length and int(content_length) > MAX_IMPORT_SIZE:
-        raise HTTPException(status_code=413, detail="Import data too large (max 1MB)")
-    body = await request.body()
-    if len(body) > MAX_IMPORT_SIZE:
-        raise HTTPException(status_code=413, detail="Import data too large (max 1MB)")
-    try:
-        data = json.loads(body)
-    except (json.JSONDecodeError, ValueError):
-        raise HTTPException(status_code=400, detail="Invalid JSON")
-    if not isinstance(data, dict):
-        raise HTTPException(status_code=400, detail="Expected JSON object")
-    existing = _existing_workspace_names()
-    current = load_all_config()
-    for name, ws_config in data.items():
-        if name in existing and isinstance(ws_config, dict):
-            current[name] = ws_config
-    save_all_config(current)
-    return {"status": "ok"}
-
-
 @app.get("/")
 def serve_index(request: Request):
     version = BOOT_VERSION
@@ -364,8 +130,7 @@ def serve_index(request: Request):
     html = (UI_DIR / "index.html").read_text()
     html = re.sub(r'href="([^"]+\.css)"', rf'href="\1?v={version}"', html)
     html = re.sub(r'src="([^"]+\.js)"', rf'src="\1?v={version}"', html)
-    return Response(content=html, media_type="text/html",
-                    headers={"Cache-Control": "no-cache"})
+    return Response(content=html, media_type="text/html", headers={"Cache-Control": "no-cache"})
 
 
 app.mount("/", StaticFiles(directory=str(UI_DIR)), name="ui")

@@ -69,8 +69,8 @@
             <button type="button" class="git-log-branch-select-btn" id="git-log-branch-btn">
               <span class="mdi mdi-source-branch"></span> <span id="git-log-branch-label"></span>
             </button>
-            <button type="button" class="git-action-btn fetch-btn" id="fetch-btn" onclick="gitFetch()">fetch</button>
-            <button type="button" class="git-action-btn stash-btn" id="stash-btn" onclick="openStashPane()">stash</button>
+            <button type="button" class="git-action-btn fetch-btn" id="fetch-btn">fetch</button>
+            <button type="button" class="git-action-btn stash-btn" id="stash-btn">stash</button>
             <button type="button" class="git-action-btn" id="git-log-file-browser-toggle"><span class="mdi mdi-folder-outline"></span></button>
           </div>
           <div class="modal-scroll-body" id="git-log-list-modal"></div>
@@ -190,8 +190,12 @@
   <script src="vendor/js/xterm.js"></script>
   <script src="vendor/js/addon-fit.js"></script>
   <script src="vendor/js/addon-web-links.js"></script>
-  <script src="state.js"></script>
+  <script src="state-core.js"></script>
+  <script src="state-input.js"></script>
+  <script src="state-git.js"></script>
   <script src="logger.js"></script>
+  <script src="api-client.js"></script>
+  <script src="cache.js"></script>
   <script src="utils.js"></script>
   <script src="auth.js"></script>
   <script src="terminal-connection.js"></script>
@@ -207,9 +211,13 @@
   <script src="git-file-browser.js"></script>
   <script src="git-diff.js"></script>
   <script src="git.js"></script>
+  <script src="git-log-modal.js"></script>
+  <script src="git-log-history.js"></script>
+  <script src="git-log-branch-stash.js"></script>
   <script src="icon-picker.js"></script>
   <script src="jobs.js"></script>
   <script src="settings.js"></script>
-  <script src="app.js"></script>
+  <script src="viewport.js"></script>
+  <script src="bootstrap.js"></script>
 </body>
 </html>

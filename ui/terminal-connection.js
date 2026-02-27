@@ -87,6 +87,7 @@ async function fetchOrphanSessions() {
     const res = await apiFetch("/terminal/sessions");
     if (!res || !res.ok) {
       disconnectedSessions = [];
+      restoreTabsFromLocalStorage([]);
       renderTabBar();
       return;
     }
@@ -97,6 +98,7 @@ async function fetchOrphanSessions() {
   } catch (e) {
     console.error("fetchOrphanSessions failed:", e);
     disconnectedSessions = [];
+    restoreTabsFromLocalStorage([]);
   }
   renderTabBar();
 }
@@ -136,27 +138,32 @@ function restoreLiveSessionsFromServer(sessions) {
 
 function restoreTabsFromLocalStorage(sessions) {
   const raw = localStorage.getItem("pi_console_terminal_openTabs");
-  localStorage.removeItem("pi_console_terminal_openTabs");
   if (!raw) return;
   let saved;
-  try { saved = JSON.parse(raw); } catch { return; }
+  try {
+    saved = JSON.parse(raw);
+  } catch {
+    return;
+  }
   if (!Array.isArray(saved) || saved.length === 0) return;
+  localStorage.removeItem("pi_console_terminal_openTabs");
 
   const serverUrls = new Set(sessions.map(s => s.ws_url));
   const orphanUrls = new Set(disconnectedSessions.map(s => s.wsUrl));
 
   for (const entry of saved) {
-    if (!entry.wsUrl) continue;
-    if (closedSessionUrls.has(entry.wsUrl)) continue;
-    if (serverUrls.has(entry.wsUrl)) continue;
-    if (orphanUrls.has(entry.wsUrl)) continue;
+    const wsUrl = entry.wsUrl || entry.ws_url;
+    if (!wsUrl) continue;
+    if (closedSessionUrls.has(wsUrl)) continue;
+    if (serverUrls.has(wsUrl)) continue;
+    if (orphanUrls.has(wsUrl)) continue;
     disconnectedSessions.push({
-      wsUrl: entry.wsUrl,
+      wsUrl,
       workspace: entry.workspace || null,
       icon: entry.icon || null,
-      iconColor: entry.iconColor || null,
-      jobName: entry.jobName || null,
-      jobLabel: entry.jobLabel || null,
+      iconColor: entry.iconColor || entry.icon_color || null,
+      jobName: entry.jobName || entry.job_name || null,
+      jobLabel: entry.jobLabel || entry.job_label || null,
       tabIndex: entry.tabIndex != null ? entry.tabIndex : disconnectedSessions.length,
       expired: true,
     });
@@ -306,12 +313,18 @@ function connectTerminalWs(tab) {
           tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null, jobLabel: tab.jobLabel || null,
         });
       }
-      removeTab(tab.id);
+      removeTab(tab.id, { preserveSessionForRestore: e.code === 1008 });
       return;
     }
     const MAX_ATTEMPTS = 10;
     if (tab._reconnectAttempts >= MAX_ATTEMPTS) {
-      tab.term.write("\r\n\x1b[31m[接続が切断されました]\x1b[0m\r\n");
+      disconnectedSessions.push({
+        wsUrl: tab.wsUrl, workspace: tab.workspace || tab.label, expired: true,
+        icon: tab.icon?.name, iconColor: tab.icon?.color,
+        tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null, jobLabel: tab.jobLabel || null,
+      });
+      removeTab(tab.id, { preserveSessionForRestore: true });
+      showToast("接続が切断されたため復元タブに移動しました", "error");
       return;
     }
     const delay = Math.min(1000 * Math.pow(2, tab._reconnectAttempts), 30000);

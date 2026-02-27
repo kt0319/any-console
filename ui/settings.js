@@ -397,6 +397,7 @@ async function toggleWorkspace(name, visible) {
   if (selectionCleared) {
     refreshWorkspaceHeader();
     loadJobsForWorkspace();
+    updateGitBarVisibility();
   }
 }
 

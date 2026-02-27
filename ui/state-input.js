@@ -1,35 +1,3 @@
-let token = "";
-let workspaceJobs = {};
-let pendingJob = null;
-let allWorkspaces = [];
-let selectedWorkspace = null;
-let isLaunchingTerminal = false;
-let cachedBranches = [];
-const panelBottomMediaQuery = window.matchMedia("(max-width: 768px) and (orientation: portrait)");
-let panelBottom = panelBottomMediaQuery.matches;
-const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-panelBottomMediaQuery.addEventListener("change", (e) => {
-  panelBottom = e.matches;
-  applyPanelBottom();
-  updateQuickInputVisibility();
-  if (splitMode) {
-    rebuildSplitLayout();
-  }
-  renderTabBar();
-});
-
-let openTabs = [];
-let activeTabId = null;
-let terminalIdCounter = 0;
-let splitMode = false;
-let splitPaneTabIds = [];
-let activePaneIndex = 0;
-let splitLayout = "grid";
-let isPaneSelectedByTap = false;
-let disconnectedSessions = [];
-let closedSessionUrls = new Set();
-let isPageUnloading = false;
-
 const QUICK_KEYS = [
   { label: "\u232B", key: "Backspace", code: "Backspace", keyCode: 8 },
   { label: "\u2190", key: "ArrowLeft", code: "ArrowLeft", keyCode: 37 },
@@ -74,27 +42,6 @@ const QWERTY_ROWS = [
   }),
 ];
 
-const STATUS_POLL_INTERVAL_MS = 10000;
-let statusPollTimer = null;
-let isPollingStatus = false;
-let serverDisconnected = false;
-
-let isHandlingUnauthorized = false;
-
-let createBranchFromHash = null;
-const GIT_LOG_ENTRIES_PER_PAGE = 30;
-let gitLogLoaded = 0;
-let isGitLogLoading = false;
-let gitLogHasMore = true;
-const gitLogSeenHashes = new Set();
-
-let diffChunks = {};
-let diffFullText = "";
-
-
-let serverHostname = "";
-let serverVersion = "";
-
 const INPUT_HISTORY_KEY = "pi_console_input_history";
 const INPUT_HISTORY_MAX = 20;
 let inputHistory = JSON.parse(localStorage.getItem(INPUT_HISTORY_KEY) || "[]");
@@ -117,7 +64,7 @@ const DEFAULT_SNIPPETS = [
 
 function loadSnippets() {
   const raw = localStorage.getItem(SNIPPETS_KEY);
-  return raw ? JSON.parse(raw) : DEFAULT_SNIPPETS.map(s => ({ ...s }));
+  return raw ? JSON.parse(raw) : DEFAULT_SNIPPETS.map((s) => ({ ...s }));
 }
 
 function addSnippet(command) {
