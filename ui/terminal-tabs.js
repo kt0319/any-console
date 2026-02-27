@@ -391,9 +391,8 @@ function renderTabBar() {
       const owsIconHtml = ows && ows.icon ? renderIcon(ows.icon, ows.icon_color, 14) : "";
       const isDuplicateIcon = ows && ows.icon && s.icon === ows.icon;
       const orphanIcon = isDuplicateIcon ? "" : renderIcon(s.icon || "mdi-console", s.iconColor || "", 14);
-      const expiredCls = s.expired ? " expired" : "";
       const suffix = panelBottom ? "" : `${escapeHtml(label)}<span class="tab-close" data-close-orphan="${escapeHtml(s.wsUrl)}">&times;</span>`;
-      html += `<button class="tab-btn orphan${expiredCls}" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}" data-orphan-expired="${s.expired ? "true" : ""}">${owsIconHtml}${orphanIcon}${suffix}</button>`;
+      html += `<button class="tab-btn orphan" data-orphan-url="${escapeHtml(s.wsUrl)}" data-orphan-ws="${escapeHtml(s.workspace || "")}">${owsIconHtml}${orphanIcon}${suffix}</button>`;
     }
   }
   bar.innerHTML = html;
@@ -437,18 +436,11 @@ function renderTabBar() {
     });
   });
   bar.querySelectorAll(".tab-btn.orphan").forEach((btn) => {
-    const isExpired = btn.dataset.orphanExpired === "true";
     bindLongPress(btn, {
       onLongPress: () => {
         const label = btn.dataset.orphanWs || "terminal";
         if (confirm(`「${label}」を閉じますか？`)) {
           const wsUrl = btn.dataset.orphanUrl;
-          if (!isExpired) {
-            const match = wsUrl.match(/\/terminal\/ws\/([^/]+)/);
-            if (match) {
-              deleteTerminalSession(match[1]);
-            }
-          }
           disconnectedSessions = disconnectedSessions.filter((s) => s.wsUrl !== wsUrl);
           closedSessionUrls.add(wsUrl);
           renderTabBar();
@@ -456,14 +448,10 @@ function renderTabBar() {
       },
       onClick: (e) => {
         if (e.target.classList.contains("tab-close")) return;
-        if (isExpired) {
-          const wsUrl = btn.dataset.orphanUrl;
-          const orphan = disconnectedSessions.find((s) => s.wsUrl === wsUrl);
-          const workspace = btn.dataset.orphanWs;
-          relaunchExpiredOrphan(orphan || { wsUrl, workspace }, workspace);
-          return;
-        }
-        joinOrphanSession(btn.dataset.orphanUrl, btn.dataset.orphanWs);
+        const wsUrl = btn.dataset.orphanUrl;
+        const orphan = disconnectedSessions.find((s) => s.wsUrl === wsUrl);
+        const workspace = btn.dataset.orphanWs;
+        relaunchExpiredOrphan(orphan || { wsUrl, workspace }, workspace);
       },
     });
   });
@@ -477,12 +465,6 @@ function renderTabBar() {
         const orphan = disconnectedSessions.find((s) => s.wsUrl === wsUrl);
         const label = orphan?.workspace || "terminal";
         if (!confirm(`「${label}」を閉じますか？`)) return;
-        if (!orphan?.expired) {
-          const match = wsUrl.match(/\/terminal\/ws\/([^/]+)/);
-          if (match) {
-            deleteTerminalSession(match[1]);
-          }
-        }
         disconnectedSessions = disconnectedSessions.filter((s) => s.wsUrl !== wsUrl);
         closedSessionUrls.add(wsUrl);
         renderTabBar();
@@ -527,25 +509,13 @@ async function restoreAllOrphansFromPlaceholder(buttonEl) {
   const originalText = buttonEl.innerHTML;
   buttonEl.innerHTML = '<span class="mdi mdi-loading mdi-spin"></span> 復元中...';
 
-  let joinedCount = 0;
   let relaunchedCount = 0;
   let failedCount = 0;
-  let lastJoinedTabId = null;
 
   for (const orphan of targets) {
     try {
-      if (orphan.expired) {
-        await relaunchExpiredOrphan(orphan, orphan.workspace);
-        relaunchedCount += 1;
-        continue;
-      }
-      const tab = joinOrphanSession(orphan.wsUrl, orphan.workspace, { skipSwitch: true });
-      if (tab && tab.id) {
-        joinedCount += 1;
-        lastJoinedTabId = tab.id;
-      } else {
-        failedCount += 1;
-      }
+      await relaunchExpiredOrphan(orphan, orphan.workspace);
+      relaunchedCount += 1;
     } catch (e) {
       failedCount += 1;
       console.warn("restore orphan failed:", e);
@@ -553,8 +523,7 @@ async function restoreAllOrphansFromPlaceholder(buttonEl) {
   }
 
   renderTabBar();
-  if (lastJoinedTabId) switchTab(lastJoinedTabId);
-  const summary = `復元 ${joinedCount}件 / 再作成 ${relaunchedCount}件${failedCount ? ` / 失敗 ${failedCount}件` : ""}`;
+  const summary = `復元 ${relaunchedCount}件${failedCount ? ` / 失敗 ${failedCount}件` : ""}`;
   showToast(summary, failedCount ? "error" : "success");
   if (!document.body.contains(buttonEl)) return;
   buttonEl.innerHTML = originalText;

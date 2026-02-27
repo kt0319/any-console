@@ -200,28 +200,9 @@ function openTabEditModal(initialTab = "layout") {
     }
   }
 
-  function openOrphanRow(orphan, preferSplit = false) {
-    const baseTabId = activeTabId;
-    if (orphan.expired) {
-      relaunchExpiredOrphan(orphan, orphan.workspace);
-      return null;
-    }
-
-    joinOrphanSession(orphan.wsUrl, orphan.workspace);
-    const joinedTab = openTabs.find((t) => t.wsUrl === orphan.wsUrl);
-
-    if (preferSplit && !splitMode) {
-      const hasBaseTab = !!baseTabId && openTabs.some((t) => t.id === baseTabId);
-      if (joinedTab && hasBaseTab && joinedTab.id !== baseTabId) {
-        if (splitLayout === "grid") splitLayout = "vertical";
-        enterSplitMode();
-        if (!splitPaneTabIds.includes(baseTabId)) splitPaneTabIds.unshift(baseTabId);
-        activePaneIndex = Math.max(0, splitPaneTabIds.indexOf(joinedTab.id));
-        activeTabId = splitPaneTabIds[activePaneIndex] || joinedTab.id;
-        rebuildSplitLayout();
-      }
-    }
-    return joinedTab ? joinedTab.id : null;
+  function openOrphanRow(orphan) {
+    relaunchExpiredOrphan(orphan, orphan.workspace);
+    return null;
   }
 
   function renderTabList() {
@@ -331,7 +312,7 @@ function openTabEditModal(initialTab = "layout") {
 
     function renderOrphanRow(s) {
       const row = document.createElement("div");
-      row.className = "split-tab-row split-tab-row-orphan" + (s.expired ? " split-tab-row-expired" : "");
+      row.className = "split-tab-row split-tab-row-orphan";
 
       const inputWrap = document.createElement("span");
       inputWrap.className = "split-tab-input-wrap";
@@ -341,7 +322,7 @@ function openTabEditModal(initialTab = "layout") {
       radio.checked = false;
       radio.addEventListener("click", (e) => {
         e.stopPropagation();
-        openOrphanRow(s, false);
+        openOrphanRow(s);
         renderTabList();
         updateModeRadio();
       });
@@ -352,7 +333,7 @@ function openTabEditModal(initialTab = "layout") {
       checkbox.checked = false;
       checkbox.addEventListener("click", (e) => {
         e.stopPropagation();
-        openOrphanRow(s, !splitMode);
+        openOrphanRow(s);
         renderTabList();
         updateModeRadio();
       });
@@ -372,10 +353,7 @@ function openTabEditModal(initialTab = "layout") {
       info.innerHTML = owsIconHtml + orphanIcon + escapeHtml(s.workspace || "terminal");
       info.addEventListener("click", (e) => {
         e.stopPropagation();
-        const joinedTabId = openOrphanRow(s, false);
-        if (joinedTabId && splitMode) {
-          exitSplitModeWithTab(joinedTabId);
-        }
+        openOrphanRow(s);
         renderTabList();
         updateModeRadio();
       });
@@ -384,7 +362,7 @@ function openTabEditModal(initialTab = "layout") {
       row.addEventListener("click", (e) => {
         if (e.target.closest(".split-tab-close-btn")) return;
         if (e.target.closest(".split-tab-input")) return;
-        openOrphanRow(s, false);
+        openOrphanRow(s);
         renderTabList();
         updateModeRadio();
       });
@@ -396,12 +374,6 @@ function openTabEditModal(initialTab = "layout") {
       closeBtnEl.addEventListener("click", () => {
         const label = s.workspace || "terminal";
         if (!confirm(`「${label}」を閉じますか？`)) return;
-        if (!s.expired) {
-          const match = s.wsUrl.match(/\/terminal\/ws\/([^/]+)/);
-          if (match) {
-            deleteTerminalSession(match[1]);
-          }
-        }
         disconnectedSessions = disconnectedSessions.filter((o) => o.wsUrl !== s.wsUrl);
         closedSessionUrls.add(s.wsUrl);
         renderTabList();

@@ -91,13 +91,47 @@ async function fetchOrphanSessions() {
       return;
     }
     const sessions = await res.json();
-    reconcileOrphansWithServer(sessions);
+    restoreLiveSessionsFromServer(sessions);
+    reconcileExpiredOrphansWithServer(sessions);
     restoreTabsFromLocalStorage(sessions);
   } catch (e) {
     console.error("fetchOrphanSessions failed:", e);
     disconnectedSessions = [];
   }
   renderTabBar();
+}
+
+function restoreLiveSessionsFromServer(sessions) {
+  const localWsUrls = new Set(openTabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
+  const targets = sessions.filter((s) => !localWsUrls.has(s.ws_url) && !closedSessionUrls.has(s.ws_url));
+  if (targets.length === 0) return;
+  let firstRestoredTabId = null;
+  for (const session of targets) {
+    const workspace = session.workspace || null;
+    const tabIcon = session.icon ? { name: session.icon, color: session.icon_color || "" } : null;
+    const ws = workspace ? allWorkspaces.find((w) => w.name === workspace) : null;
+    const isDuplicateIcon = ws && ws.icon && session.icon === ws.icon;
+    const wsIcon = isDuplicateIcon ? null : (ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null);
+    addTerminalTab(
+      session.ws_url,
+      workspace || "terminal",
+      null,
+      true,
+      false,
+      null,
+      tabIcon,
+      wsIcon,
+      session.job_name || null,
+      session.job_label || session.job_name || null,
+    );
+    const tab = openTabs.find((t) => t.wsUrl === session.ws_url);
+    if (!firstRestoredTabId && tab && tab.id) firstRestoredTabId = tab.id;
+  }
+
+  if (!firstRestoredTabId) return;
+  syncTerminalSessionState();
+  const hasActiveContent = openTabs.some((t) => t.id === activeTabId);
+  if (!hasActiveContent) switchTab(firstRestoredTabId);
 }
 
 function restoreTabsFromLocalStorage(sessions) {
@@ -134,57 +168,19 @@ function removeLocalSessionsFromOrphans() {
   disconnectedSessions = disconnectedSessions.filter((s) => !localWsUrls.has(s.wsUrl));
 }
 
-function reconcileOrphansWithServer(sessions) {
+function reconcileExpiredOrphansWithServer(sessions) {
   const localWsUrls = new Set(openTabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
   const serverUrls = new Set(sessions.map((s) => s.ws_url));
-  const oldOrphans = new Map(disconnectedSessions.map((s) => [s.wsUrl, s]));
-
-  const liveOrphans = sessions
-    .filter((s) => !localWsUrls.has(s.ws_url) && !closedSessionUrls.has(s.ws_url))
-    .map((s, i) => {
-      const old = oldOrphans.get(s.ws_url);
-      return {
-        wsUrl: s.ws_url,
-        workspace: s.workspace,
-        expiresIn: s.expires_in,
-        icon: s.icon,
-        iconColor: s.icon_color,
-        tabIndex: old ? old.tabIndex : openTabs.length + i,
-        jobName: s.job_name || (old ? (old.jobName || null) : null),
-        jobLabel: s.job_label || (old ? (old.jobLabel || null) : null),
-        expired: false,
-      };
-    });
-
-  const expiredOrphans = disconnectedSessions
-    .filter((s) => !s.expired && !serverUrls.has(s.wsUrl) && !localWsUrls.has(s.wsUrl) && !closedSessionUrls.has(s.wsUrl))
-    .map((s) => ({ ...s, expired: true }));
-
-  const existingExpired = disconnectedSessions
-    .filter((s) => s.expired && !closedSessionUrls.has(s.wsUrl));
-
-  disconnectedSessions = [...liveOrphans, ...expiredOrphans, ...existingExpired];
+  disconnectedSessions = disconnectedSessions.filter((s) => (
+    s.expired
+    && !closedSessionUrls.has(s.wsUrl)
+    && !localWsUrls.has(s.wsUrl)
+    && !serverUrls.has(s.wsUrl)
+  ));
 
   for (const url of closedSessionUrls) {
     if (!sessions.some((s) => s.ws_url === url)) closedSessionUrls.delete(url);
   }
-}
-
-function joinOrphanSession(wsUrl, workspace, options = {}) {
-  const skipSwitch = !!options.skipSwitch;
-  const label = workspace || "terminal";
-  const orphan = disconnectedSessions.find((s) => s.wsUrl === wsUrl);
-  const tabIcon = orphan && orphan.icon ? { name: orphan.icon, color: orphan.iconColor || "" } : null;
-  const ws = workspace ? allWorkspaces.find((w) => w.name === workspace) : null;
-  const isDuplicateIcon = ws && ws.icon && orphan && orphan.icon === ws.icon;
-  const wsIcon = isDuplicateIcon ? null : (ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null);
-  addTerminalTab(wsUrl, label, null, true, false, null, tabIcon, wsIcon, orphan?.jobName || null, orphan?.jobLabel || orphan?.jobName || null);
-  const tab = openTabs.find((t) => t.wsUrl === wsUrl);
-  if (tab) tab._pendingRedraw = true;
-  disconnectedSessions = disconnectedSessions.filter((s) => s.wsUrl !== wsUrl);
-  syncTerminalSessionState();
-  if (!skipSwitch) switchTab(tab ? tab.id : null);
-  return tab || null;
 }
 
 function updateQuickInputVisibility() {
