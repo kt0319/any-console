@@ -2,6 +2,7 @@ let iconPickerCache = null;
 let iconPickerCallback = null;
 let iconPickerSelectedColor = "";
 let iconPickerSelectedIcon = null;
+let iconPickerPendingClear = false;
 
 const ICON_PRESET_COLORS = [
   { label: "デフォルト", value: "" },
@@ -79,6 +80,7 @@ function openIconPicker(callback, currentIcon, currentColor) {
   iconPickerCallback = callback;
   iconPickerSelectedColor = currentColor || "";
   iconPickerSelectedIcon = null;
+  iconPickerPendingClear = false;
   const modal = $("icon-picker-modal");
   const search = $("icon-picker-search");
   const grid = $("icon-picker-grid");
@@ -110,6 +112,7 @@ function openIconPicker(callback, currentIcon, currentColor) {
   search.oninput = () => {
     const raw = search.value.trim();
     iconPickerSelectedIcon = null;
+    iconPickerPendingClear = false;
     if (looksLikeUrl(raw)) {
       const domain = extractDomain(raw);
       preview.innerHTML = renderIcon(`favicon:${domain}`, "", 24);
@@ -136,6 +139,7 @@ function openIconPicker(callback, currentIcon, currentColor) {
       try {
         const dataUrl = await iconFileToDataUrl(file);
         iconPickerSelectedIcon = dataUrl;
+        iconPickerPendingClear = false;
         search.value = "";
         preview.innerHTML = renderIcon(dataUrl, "", 24);
         confirmBtn.disabled = false;
@@ -218,6 +222,7 @@ function renderIconGrid(icons, query) {
 
 function selectMdiIcon(iconName) {
   iconPickerSelectedIcon = iconName;
+  iconPickerPendingClear = false;
   const preview = $("icon-picker-favicon-preview");
   preview.innerHTML = renderIcon(iconName, iconPickerSelectedColor, 24);
   $("icon-picker-url-ok").disabled = false;
@@ -238,13 +243,26 @@ function submitIconPicker() {
     const color = iconPickerSelectedIcon.startsWith("data:image/") ? "" : iconPickerSelectedColor;
     closeIconPicker();
     if (cb) cb(iconPickerSelectedIcon, color);
+  } else if (iconPickerPendingClear) {
+    const cb = iconPickerCallback;
+    closeIconPicker();
+    if (cb) cb("", "");
   }
 }
 
 function clearIconPicker() {
-  const cb = iconPickerCallback;
-  closeIconPicker();
-  if (cb) cb("", "");
+  const search = $("icon-picker-search");
+  const preview = $("icon-picker-favicon-preview");
+  const confirmBtn = $("icon-picker-url-ok");
+  const grid = $("icon-picker-grid");
+  iconPickerSelectedIcon = null;
+  iconPickerPendingClear = true;
+  if (search) search.value = "";
+  if (preview) preview.innerHTML = "";
+  if (confirmBtn) confirmBtn.disabled = false;
+  if (grid) {
+    grid.querySelectorAll(".icon-picker-item").forEach((el) => el.classList.remove("selected"));
+  }
 }
 
 function closeIconPicker() {
@@ -258,6 +276,7 @@ function renderInlineIconPicker(container, callback, currentIcon, currentColor, 
 
   let selectedIcon = currentIcon || null;
   let selectedColor = currentColor || "";
+  let pendingClear = false;
 
   const sub = document.createElement("div");
   sub.className = "split-tab-settings-sub";
@@ -298,7 +317,11 @@ function renderInlineIconPicker(container, callback, currentIcon, currentColor, 
   urlOkBtn.className = "primary icon-picker-url-ok-btn";
   urlOkBtn.disabled = true;
   urlOkBtn.textContent = "決定";
-  faviconConfirm.append(preview, uploadBtn, uploadInput, urlOkBtn);
+  const clearBtn = document.createElement("button");
+  clearBtn.type = "button";
+  clearBtn.className = "icon-picker-clear-btn";
+  clearBtn.textContent = "クリア";
+  faviconConfirm.append(preview, clearBtn, uploadBtn, uploadInput, urlOkBtn);
   inputRow.append(search, faviconConfirm);
   body.appendChild(inputRow);
 
@@ -328,15 +351,6 @@ function renderInlineIconPicker(container, callback, currentIcon, currentColor, 
   grid.innerHTML = '<div class="icon-picker-loading">読み込み中...</div>';
   body.appendChild(grid);
 
-  const actions = document.createElement("div");
-  actions.className = "modal-actions";
-  const clearBtn = document.createElement("button");
-  clearBtn.type = "button";
-  clearBtn.style.width = "auto";
-  clearBtn.textContent = "クリア";
-  actions.appendChild(clearBtn);
-  body.appendChild(actions);
-
   sub.appendChild(body);
   container.appendChild(sub);
 
@@ -347,6 +361,7 @@ function renderInlineIconPicker(container, callback, currentIcon, currentColor, 
 
   function onIconSelect(iconName) {
     selectedIcon = iconName;
+    pendingClear = false;
     preview.innerHTML = renderIcon(iconName, selectedColor, 24);
     urlOkBtn.disabled = false;
     grid.querySelectorAll(".icon-picker-item").forEach((el) => {
@@ -357,8 +372,12 @@ function renderInlineIconPicker(container, callback, currentIcon, currentColor, 
   if (backBtn) backBtn.addEventListener("click", close);
 
   clearBtn.addEventListener("click", () => {
-    close();
-    callback("", "");
+    selectedIcon = null;
+    pendingClear = true;
+    search.value = "";
+    preview.innerHTML = "";
+    urlOkBtn.disabled = false;
+    grid.querySelectorAll(".icon-picker-item").forEach((el) => el.classList.remove("selected"));
   });
 
   urlOkBtn.addEventListener("click", () => {
@@ -372,6 +391,11 @@ function renderInlineIconPicker(container, callback, currentIcon, currentColor, 
     if (selectedIcon) {
       close();
       callback(selectedIcon, selectedIcon.startsWith("data:image/") ? "" : selectedColor);
+      return;
+    }
+    if (pendingClear) {
+      close();
+      callback("", "");
     }
   });
 
@@ -387,6 +411,7 @@ function renderInlineIconPicker(container, callback, currentIcon, currentColor, 
     }
     try {
       selectedIcon = await iconFileToDataUrl(file);
+      pendingClear = false;
       search.value = "";
       preview.innerHTML = renderIcon(selectedIcon, "", 24);
       urlOkBtn.disabled = false;
@@ -406,6 +431,7 @@ function renderInlineIconPicker(container, callback, currentIcon, currentColor, 
   search.oninput = () => {
     const raw = search.value.trim();
     selectedIcon = null;
+    pendingClear = false;
     if (looksLikeUrl(raw)) {
       const domain = extractDomain(raw);
       preview.innerHTML = renderIcon(`favicon:${domain}`, "", 24);

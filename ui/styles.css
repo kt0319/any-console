@@ -3244,16 +3244,16 @@ button:disabled {
 /* Icon Picker */
 .icon-picker-clear-btn {
   min-width: auto;
-  padding: 4px 8px;
-  font-size: 11px;
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
   flex-shrink: 0;
   color: var(--text-muted);
-  background: none;
+  background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 6px;
   cursor: pointer;
 }
-
 
 .icon-picker-search {
   margin-bottom: 8px;
