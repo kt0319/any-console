@@ -230,12 +230,11 @@ function openTabEditModal(initialTab = "layout") {
     const list = contentContainer.querySelector(".split-tab-list");
     if (!list) return;
     list.innerHTML = "";
-    for (let i = 0; i < openTabs.length; i++) {
-      const tab = openTabs[i];
 
+    function renderTabRow(tab, tabIndex) {
       const row = document.createElement("div");
       row.className = "split-tab-row";
-      row.dataset.idx = i;
+      row.dataset.idx = tabIndex;
       if (!splitMode && tab.id === activeTabId) row.classList.add("active");
 
       const inputWrap = document.createElement("span");
@@ -282,7 +281,7 @@ function openTabEditModal(initialTab = "layout") {
       const handle = document.createElement("span");
       handle.className = "split-tab-drag-handle";
       handle.innerHTML = '<span class="mdi mdi-drag"></span>';
-      bindDragHandle(handle, row, i, list);
+      bindDragHandle(handle, row, tabIndex, list);
       row.appendChild(handle);
 
       const info = document.createElement("span");
@@ -331,7 +330,7 @@ function openTabEditModal(initialTab = "layout") {
       list.appendChild(row);
     }
 
-    for (const s of disconnectedSessions) {
+    function renderOrphanRow(s) {
       const row = document.createElement("div");
       row.className = "split-tab-row split-tab-row-orphan" + (s.expired ? " split-tab-row-expired" : "");
 
@@ -411,6 +410,22 @@ function openTabEditModal(initialTab = "layout") {
       row.appendChild(closeBtnEl);
 
       list.appendChild(row);
+    }
+
+    const items = openTabs.map((tab, i) => ({
+      type: "tab",
+      tab,
+      tabIndex: i,
+      sortIndex: i,
+    }));
+    disconnectedSessions.forEach((s, i) => {
+      const sortIndex = s.tabIndex != null ? s.tabIndex : openTabs.length + i;
+      items.push({ type: "orphan", orphan: s, sortIndex });
+    });
+    items.sort((a, b) => a.sortIndex - b.sortIndex);
+    for (const item of items) {
+      if (item.type === "tab") renderTabRow(item.tab, item.tabIndex);
+      else renderOrphanRow(item.orphan);
     }
   }
 
