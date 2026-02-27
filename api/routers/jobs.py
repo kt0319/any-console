@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from ..auth import verify_token
 from ..common import (
     TERMINAL_TIMEOUT_SEC,
+    TTLCache,
     command_result_dict,
     get_git_branches,
     load_workspace_config_section,
@@ -29,14 +30,21 @@ from .terminal import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(verify_token)])
+_workspace_jobs_cache = TTLCache(60)
 
 
 def load_workspace_jobs_data(workspace_name):
-    return load_workspace_config_section(workspace_name, "jobs", {})
+    cached = _workspace_jobs_cache.get(workspace_name)
+    if cached is not None:
+        return cached
+    data = load_workspace_config_section(workspace_name, "jobs", {})
+    _workspace_jobs_cache.set(workspace_name, data)
+    return data
 
 
 def save_workspace_jobs_data(workspace_name, data):
     save_workspace_config_section(workspace_name, "jobs", data)
+    _workspace_jobs_cache.invalidate(workspace_name)
 
 
 def get_workspace_jobs(workspace_name):
@@ -69,11 +77,32 @@ def job_definition_to_dict(job_def):
     }
 
 
+def job_definition_to_summary_dict(job_def):
+    return {
+        "label": job_def.label,
+        "description": job_def.description,
+        "icon": job_def.icon,
+        "icon_color": job_def.icon_color,
+        "confirm": job_def.confirm,
+        "terminal": job_def.terminal,
+    }
+
+
 @router.get("/workspaces/{name}/jobs")
 def list_workspace_jobs(name: str):
     resolve_workspace_path(name)
     jobs = get_workspace_jobs(name)
-    return {jname: job_definition_to_dict(job_def) for jname, job_def in jobs.items()}
+    return {jname: job_definition_to_summary_dict(job_def) for jname, job_def in jobs.items()}
+
+
+@router.get("/workspaces/{name}/jobs/{job_name}")
+def get_workspace_job(name: str, job_name: str):
+    resolve_workspace_path(name)
+    jobs = get_workspace_jobs(name)
+    job_def = jobs.get(job_name)
+    if not job_def:
+        raise HTTPException(status_code=404, detail=f"ジョブ '{job_name}' が見つかりません")
+    return job_definition_to_dict(job_def)
 
 
 ICON_PATTERN = re.compile(r"^(mdi-[a-zA-Z0-9-]+|favicon:[a-zA-Z0-9._-]+|data:image/.+)$")

@@ -14,7 +14,8 @@ function visibleWorkspaces() {
   return allWorkspaces.filter((ws) => !ws.hidden);
 }
 
-async function refreshWorkspaceHeader() {
+async function refreshWorkspaceHeader(options = {}) {
+  const { reloadBranches = true } = options;
   if (!selectedWorkspace) return;
 
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
@@ -38,7 +39,9 @@ async function refreshWorkspaceHeader() {
   const msg = ws.last_commit_message || "";
   $("header-commit-msg").innerHTML = `<span class="commit-btn-branch">${escapeHtml(branch)}</span> <span class="commit-btn-msg">${escapeHtml(msg)}</span>`;
 
-  await GitCore.loadBranches();
+  if (reloadBranches) {
+    await GitCore.loadBranches();
+  }
 }
 
 function updatePullPushButtons(ws) {

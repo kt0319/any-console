@@ -244,7 +244,7 @@ async function switchTab(id) {
       const paneIdx = splitPaneTabIds.indexOf(id);
       if (paneIdx >= 0) setActivePaneIndex(paneIdx);
     }
-    await updateHeaderForTab(activeTabId);
+    updateHeaderForTab(activeTabId);
     return;
   }
 
@@ -292,7 +292,7 @@ async function switchTab(id) {
   updateQuickInputVisibility();
   renderTabBar();
 
-  await updateHeaderForTab(id);
+  updateHeaderForTab(id);
 }
 
 function syncWorkspaceForTab(id) {
@@ -302,7 +302,7 @@ function syncWorkspaceForTab(id) {
   }
   const tab = openTabs.find((t) => t.id === id);
   if (!tab) return;
-  const workspaceName = tab.workspace || tab.label || null;
+  const workspaceName = resolveWorkspaceNameForTab(tab);
   if (!workspaceName) return;
   const ws = allWorkspaces.find((w) => w.name === workspaceName);
   if (ws) {
@@ -312,28 +312,35 @@ function syncWorkspaceForTab(id) {
   selectedWorkspace = workspaceName;
 }
 
+function resolveWorkspaceNameForTab(tab) {
+  if (!tab) return null;
+  if (tab.workspace) return tab.workspace;
+  if (tab.type === "terminal" && tab.label && tab.label !== "terminal") return tab.label;
+  return null;
+}
+
 async function updateHeaderForTab(id) {
   if (splitMode || id === null) {
     selectedWorkspace = null;
-    await refreshWorkspaceHeader();
-    await loadJobsForWorkspace();
     updateGitBarVisibility();
+    await refreshWorkspaceHeader({ reloadBranches: false });
+    await loadJobsForWorkspace();
     return;
   }
 
   const activeTab = openTabs.find((t) => t.id === id);
-  const workspaceName = activeTab ? (activeTab.workspace || activeTab.label || null) : null;
+  const workspaceName = resolveWorkspaceNameForTab(activeTab);
   if (workspaceName) {
-    selectedWorkspace = workspaceName;
     const ws = allWorkspaces.find((w) => w.name === workspaceName);
-    if (ws) {
-      selectedWorkspace = ws.name;
-      await loadJobsForWorkspace();
-      await refreshWorkspaceHeader();
-    } else {
-      await loadJobsForWorkspace();
-      await refreshWorkspaceHeader();
+    const nextWorkspace = ws ? ws.name : workspaceName;
+    const workspaceChanged = selectedWorkspace !== nextWorkspace;
+    selectedWorkspace = nextWorkspace;
+    updateGitBarVisibility();
+    const shouldReloadJobs = workspaceChanged || workspaceJobsLoadedFor !== nextWorkspace;
+    if (shouldReloadJobs) {
+      await loadJobsForWorkspace(workspaceChanged);
     }
+    await refreshWorkspaceHeader({ reloadBranches: workspaceChanged });
   }
   updateGitBarVisibility();
 }

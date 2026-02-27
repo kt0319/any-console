@@ -105,6 +105,17 @@ function toJobEditData(workspaceName, name, job) {
   };
 }
 
+async function fetchWorkspaceJobDetailForSettings(workspaceName, jobName) {
+  try {
+    const res = await apiFetch(workspaceApiPath(workspaceName, `/jobs/${encodeURIComponent(jobName)}`));
+    if (!res || !res.ok) return null;
+    return await res.json();
+  } catch (e) {
+    console.error("fetchWorkspaceJobDetailForSettings failed:", e);
+    return null;
+  }
+}
+
 function toLinkEditData(workspaceName, index, link) {
   return {
     workspace: workspaceName,
@@ -197,11 +208,13 @@ async function loadWorkspaceSettingsItems(lists, container, ws, onBack, setTitle
       iconColor: job.icon_color,
       defaultIcon: "mdi-play",
       label: job.label || name,
-      onClick: () => {
+      onClick: async () => {
+        const detailed = await fetchWorkspaceJobDetailForSettings(ws.name, name);
+        const editJob = detailed ? { ...job, ...detailed } : job;
         if (setTitleFn) setTitleFn("ジョブ編集", goBackToSettings);
         renderInlineJobEdit(
           container,
-          toJobEditData(ws.name, name, job),
+          toJobEditData(ws.name, name, editJob),
           goBackToSettings,
           setTitleFn,
         );
