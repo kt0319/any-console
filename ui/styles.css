@@ -1179,8 +1179,10 @@ header {
   font-size: 13px;
 }
 
+.viewer-surface,
 .text-viewer-box,
-.file-content-viewer {
+.file-content-viewer,
+.diff-content {
   display: flex;
   flex: 1;
   min-height: 0;
@@ -1226,6 +1228,7 @@ header {
   height: auto;
 }
 
+.viewer-content,
 .text-viewer-box-content,
 .file-content-code {
   display: block;
@@ -1239,6 +1242,7 @@ header {
   color: var(--text-primary);
 }
 
+.viewer-content.hljs,
 .text-viewer-box-content.hljs,
 .file-content-code.hljs {
   background: transparent;
@@ -2315,17 +2319,6 @@ button:disabled {
 }
 
 .diff-content {
-  overflow: auto;
-  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-  font-size: 11px;
-  line-height: 1.5;
-  background: #07090f;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px;
-  white-space: pre;
-  word-break: break-all;
-  color: var(--text-primary);
   min-height: 100px;
 }
 

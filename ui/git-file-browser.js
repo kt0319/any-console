@@ -210,7 +210,7 @@ function buildFileContentHtml(path, data) {
     body = `<div class="file-content-message">ファイルが大きすぎます (${formatFileSize(data.size)})</div>`;
   } else {
     const codeHtml = renderHighlightedTextHtml(data.content, path);
-    body = `<div class="file-content-viewer text-viewer-box"><pre class="file-content-code text-viewer-box-content hljs">${codeHtml}</pre></div>`;
+    body = `<div class="file-content-viewer text-viewer-box viewer-surface"><pre class="file-content-code text-viewer-box-content viewer-content hljs">${codeHtml}</pre></div>`;
   }
 
   return `<div class="file-browser">${breadcrumb}${body}</div>`;
@@ -264,44 +264,94 @@ function bindFileUploadEvents(container, loadDirFn) {
   });
 }
 
-async function loadDirectory(path) {
+function getFileBrowserViewConfig(view) {
+  if (view === "modal") {
+    return {
+      containerId: "commit-modal-file-browser",
+      hideCloseButton: true,
+      onClose: null,
+      openDirectory: loadDirectoryInModal,
+      openFile: loadFileContentInModal,
+    };
+  }
+  return {
+    containerId: "frame-file-browser",
+    hideCloseButton: false,
+    onClose: () => removeTab("file-browser"),
+    openDirectory: loadDirectory,
+    openFile: loadFileContent,
+  };
+}
+
+async function fetchDirectoryData(path) {
+  const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/files?path=${encodeURIComponent(path)}`));
+  if (!res) return { ok: false, message: "読み込みに失敗しました" };
+  const data = await res.json();
+  if (!res.ok || data.status !== "ok") {
+    return { ok: false, message: data.detail || "読み込みに失敗しました" };
+  }
+  return { ok: true, data };
+}
+
+async function fetchFileContentData(path) {
+  const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/file-content?path=${encodeURIComponent(path)}`));
+  if (!res) return { ok: false, message: "読み込みに失敗しました" };
+  const data = await res.json();
+  if (!res.ok || data.status !== "ok") {
+    return { ok: false, message: data.detail || "読み込みに失敗しました" };
+  }
+  return { ok: true, data };
+}
+
+function bindFileBrowserEvents(container, view = "tab") {
+  const config = getFileBrowserViewConfig(view);
+  bindFileUploadEvents(container, config.openDirectory);
+  for (const crumb of container.querySelectorAll(".file-browser-crumb")) {
+    crumb.addEventListener("click", () => config.openDirectory(crumb.dataset.path));
+  }
+  for (const item of container.querySelectorAll('.file-browser-item[data-type="dir"]')) {
+    item.addEventListener("click", () => config.openDirectory(item.dataset.path));
+  }
+  for (const item of container.querySelectorAll('.file-browser-item[data-type="file"]')) {
+    item.addEventListener("click", () => config.openFile(item.dataset.path));
+  }
+  for (const item of container.querySelectorAll('.file-browser-item[data-type="symlink"]')) {
+    item.addEventListener("click", () => openSymlinkFromList(item, config.openDirectory, config.openFile));
+  }
+  const closeBtn = container.querySelector(".file-browser-close");
+  if (!closeBtn) return;
+  if (config.hideCloseButton) {
+    closeBtn.style.display = "none";
+    return;
+  }
+  if (config.onClose) {
+    closeBtn.addEventListener("click", config.onClose);
+  }
+}
+
+async function loadDirectoryByView(path, view) {
   if (!selectedWorkspace) return;
-  const el = $("frame-file-browser");
+  const el = $(getFileBrowserViewConfig(view).containerId);
   if (!el) return;
 
   el.innerHTML = fileBrowserMessage("読み込み中...", true);
 
   try {
-    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/files?path=${encodeURIComponent(path)}`));
-    if (!res) return;
-    const data = await res.json();
-    if (!res.ok || data.status !== "ok") {
-      el.innerHTML = fileBrowserMessage(data.detail || "読み込みに失敗しました");
+    const result = await fetchDirectoryData(path);
+    if (!result.ok) {
+      el.innerHTML = fileBrowserMessage(result.message);
       return;
     }
+    const data = result.data;
     el.innerHTML = buildFileBrowserHtml(data.path, data.entries);
-    bindFileBrowserEvents(el);
+    bindFileBrowserEvents(el, view);
   } catch (e) {
     el.innerHTML = fileBrowserMessage(e.message);
   }
 }
 
-function bindFileBrowserEvents(container) {
-  bindFileUploadEvents(container, loadDirectory);
-  for (const crumb of container.querySelectorAll(".file-browser-crumb")) {
-    crumb.addEventListener("click", () => loadDirectory(crumb.dataset.path));
-  }
-  for (const item of container.querySelectorAll('.file-browser-item[data-type="dir"]')) {
-    item.addEventListener("click", () => loadDirectory(item.dataset.path));
-  }
-  for (const item of container.querySelectorAll('.file-browser-item[data-type="file"]')) {
-    item.addEventListener("click", () => loadFileContent(item.dataset.path));
-  }
-  for (const item of container.querySelectorAll('.file-browser-item[data-type="symlink"]')) {
-    item.addEventListener("click", () => openSymlinkFromList(item, loadDirectory, loadFileContent));
-  }
-  const closeBtn = container.querySelector(".file-browser-close");
-  if (closeBtn) closeBtn.addEventListener("click", () => removeTab("file-browser"));
+async function loadDirectory(path) {
+  await loadDirectoryByView(path, "tab");
 }
 
 function openSymlinkFromList(item, openDirFn, openFileFn) {
@@ -328,25 +378,7 @@ function openSymlinkFromList(item, openDirFn, openFileFn) {
 }
 
 async function loadFileContent(path) {
-  if (!selectedWorkspace) return;
-  const el = $("frame-file-browser");
-  if (!el) return;
-
-  el.innerHTML = fileBrowserMessage("読み込み中...", true);
-
-  try {
-    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/file-content?path=${encodeURIComponent(path)}`));
-    if (!res) return;
-    const data = await res.json();
-    if (!res.ok || data.status !== "ok") {
-      el.innerHTML = fileBrowserMessage(data.detail || "読み込みに失敗しました");
-      return;
-    }
-    el.innerHTML = buildFileContentHtml(path, data);
-    bindFileBrowserEvents(el);
-  } catch (e) {
-    el.innerHTML = fileBrowserMessage(e.message);
-  }
+  await loadFileContentByView(path, "tab");
 }
 
 function openFileBrowser() {
@@ -359,63 +391,30 @@ function openFileBrowser() {
 }
 
 async function loadDirectoryInModal(path) {
+  await loadDirectoryByView(path, "modal");
+}
+
+async function loadFileContentByView(path, view) {
   if (!selectedWorkspace) return;
-  const el = $("commit-modal-file-browser");
+  const el = $(getFileBrowserViewConfig(view).containerId);
   if (!el) return;
 
   el.innerHTML = fileBrowserMessage("読み込み中...", true);
 
   try {
-    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/files?path=${encodeURIComponent(path)}`));
-    if (!res) return;
-    const data = await res.json();
-    if (!res.ok || data.status !== "ok") {
-      el.innerHTML = fileBrowserMessage(data.detail || "読み込みに失敗しました");
+    const result = await fetchFileContentData(path);
+    if (!result.ok) {
+      el.innerHTML = fileBrowserMessage(result.message);
       return;
     }
-    el.innerHTML = buildFileBrowserHtml(path, data.entries);
-    bindFileBrowserEventsInModal(el);
+    const data = result.data;
+    el.innerHTML = buildFileContentHtml(path, data);
+    bindFileBrowserEvents(el, view);
   } catch (e) {
     el.innerHTML = fileBrowserMessage(e.message);
   }
 }
 
 async function loadFileContentInModal(path) {
-  if (!selectedWorkspace) return;
-  const el = $("commit-modal-file-browser");
-  if (!el) return;
-
-  el.innerHTML = fileBrowserMessage("読み込み中...", true);
-
-  try {
-    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/file-content?path=${encodeURIComponent(path)}`));
-    if (!res) return;
-    const data = await res.json();
-    if (!res.ok || data.status !== "ok") {
-      el.innerHTML = fileBrowserMessage(data.detail || "読み込みに失敗しました");
-      return;
-    }
-    el.innerHTML = buildFileContentHtml(path, data);
-    bindFileBrowserEventsInModal(el);
-  } catch (e) {
-    el.innerHTML = fileBrowserMessage(e.message);
-  }
-}
-
-function bindFileBrowserEventsInModal(container) {
-  bindFileUploadEvents(container, loadDirectoryInModal);
-  for (const crumb of container.querySelectorAll(".file-browser-crumb")) {
-    crumb.addEventListener("click", () => loadDirectoryInModal(crumb.dataset.path));
-  }
-  for (const item of container.querySelectorAll('.file-browser-item[data-type="dir"]')) {
-    item.addEventListener("click", () => loadDirectoryInModal(item.dataset.path));
-  }
-  for (const item of container.querySelectorAll('.file-browser-item[data-type="file"]')) {
-    item.addEventListener("click", () => loadFileContentInModal(item.dataset.path));
-  }
-  for (const item of container.querySelectorAll('.file-browser-item[data-type="symlink"]')) {
-    item.addEventListener("click", () => openSymlinkFromList(item, loadDirectoryInModal, loadFileContentInModal));
-  }
-  const closeBtn = container.querySelector(".file-browser-close");
-  if (closeBtn) closeBtn.style.display = "none";
+  await loadFileContentByView(path, "modal");
 }

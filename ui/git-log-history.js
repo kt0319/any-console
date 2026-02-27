@@ -1,5 +1,10 @@
+function renderCommitMeta(author, time) {
+  return `<span class="git-log-entry-meta"><span class="git-log-entry-author">${escapeHtml(author)}</span><span class="git-log-entry-time">${escapeHtml(time)}</span></span>`;
+}
+
 Object.assign(GitLogModal, {
   renderGitLogEntries(listEl, stdout) {
+    const history = GitLogModal.state.history;
     const lines = stdout.split("\n");
     let count = 0;
     for (const line of lines) {
@@ -9,8 +14,8 @@ Object.assign(GitLogModal, {
       const commitMatch = line.match(/^(.*?)([0-9a-f]{40})\t(.+?)\t(.+?)\t(.*?)\t(.*)$/);
       if (commitMatch) {
         const [, , hash, time, author, refs, msg] = commitMatch;
-        if (gitLogSeenHashes.has(hash)) continue;
-        gitLogSeenHashes.add(hash);
+        if (history.seenHashes.has(hash)) continue;
+        history.seenHashes.add(hash);
         entry.className = "git-log-entry git-log-commit";
         let refsHtml = "";
         if (refs) {
@@ -42,7 +47,7 @@ Object.assign(GitLogModal, {
             `<span class="git-log-entry-msg">${escapeHtml(msg)}</span>` +
             `<span class="git-log-entry-row1">` +
               `<span class="git-log-entry-row1-left">${refsHtml ? `<span class="git-log-entry-refs">${refsHtml}</span>` : ""}</span>` +
-              `<span class="git-log-entry-meta"><span class="git-log-entry-author">${escapeHtml(author)}</span><span class="git-log-entry-time">${escapeHtml(time)}</span></span>` +
+              renderCommitMeta(author, time) +
             `</span>` +
           `</span>`;
         const branchSet = new Set();
@@ -74,27 +79,28 @@ Object.assign(GitLogModal, {
   },
 
   async loadMoreGitLog() {
-    if (!selectedWorkspace || isGitLogLoading || !gitLogHasMore) return;
-    isGitLogLoading = true;
+    const history = GitLogModal.state.history;
+    if (!selectedWorkspace || history.isLoading || !history.hasMore) return;
+    history.isLoading = true;
 
     const listEl = $("git-log-list-modal");
     try {
-      const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?limit=${GIT_LOG_ENTRIES_PER_PAGE}&skip=${gitLogLoaded}`));
+      const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?limit=${GIT_LOG_ENTRIES_PER_PAGE}&skip=${history.loaded}`));
       if (!res) return;
       const data = await res.json();
       if (!res.ok || data.status !== "ok" || !data.stdout) {
-        gitLogHasMore = false;
+        history.hasMore = false;
         return;
       }
       const count = GitLogModal.renderGitLogEntries(listEl, data.stdout);
-      gitLogLoaded += count;
+      history.loaded += count;
       if (count < GIT_LOG_ENTRIES_PER_PAGE) {
-        gitLogHasMore = false;
+        history.hasMore = false;
       }
     } catch {
-      gitLogHasMore = false;
+      history.hasMore = false;
     } finally {
-      isGitLogLoading = false;
+      history.isLoading = false;
     }
   },
 
@@ -139,7 +145,7 @@ Object.assign(GitLogModal, {
         '<span class="git-log-entry-msg" style="color:var(--text-muted)">未コミットの変更</span>' +
       `</span>`;
     entry.addEventListener("click", () => {
-      GitLogModal.previousModalTab = "commits";
+      GitLogModal.state.previousModalTab = "commits";
       GitLogModal.showDiffPane("未コミットの変更");
       loadDiffTab();
     });
@@ -152,10 +158,11 @@ Object.assign(GitLogModal, {
     const listEl = $("git-log-list-modal");
     listEl.innerHTML = '<div class="git-log-entry-msg" style="color:var(--text-muted);padding:16px">読み込み中...</div>';
 
-    gitLogLoaded = 0;
-    isGitLogLoading = false;
-    gitLogHasMore = true;
-    gitLogSeenHashes.clear();
+    const history = GitLogModal.state.history;
+    history.loaded = 0;
+    history.isLoading = false;
+    history.hasMore = true;
+    history.seenHashes.clear();
 
     try {
       const logRes = await apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?limit=${GIT_LOG_ENTRIES_PER_PAGE}`));
@@ -165,25 +172,25 @@ Object.assign(GitLogModal, {
       if (!logRes) return;
       const data = await logRes.json();
       if (!logRes.ok || data.status !== "ok") {
-        gitLogLoadedWorkspace = null;
+        GitLogModal.state.gitLogLoadedWorkspace = null;
         showToast(data.detail || data.stderr || "git log の読み込みに失敗しました");
         return;
       }
       if (!data.stdout) {
-        gitLogLoadedWorkspace = selectedWorkspace;
+        GitLogModal.state.gitLogLoadedWorkspace = selectedWorkspace;
         listEl.innerHTML += '<div style="color:var(--text-muted);padding:16px">ログがありません</div>';
         return;
       }
 
       GitLogModal.renderDirtyEntry(listEl);
       const count = GitLogModal.renderGitLogEntries(listEl, data.stdout);
-      gitLogLoadedWorkspace = selectedWorkspace;
-      gitLogLoaded = count;
+      GitLogModal.state.gitLogLoadedWorkspace = selectedWorkspace;
+      history.loaded = count;
       if (count < GIT_LOG_ENTRIES_PER_PAGE) {
-        gitLogHasMore = false;
+        history.hasMore = false;
       }
     } catch (e) {
-      gitLogLoadedWorkspace = null;
+      GitLogModal.state.gitLogLoadedWorkspace = null;
       listEl.innerHTML = "";
       showToast(`git log エラー: ${e.message}`);
     }

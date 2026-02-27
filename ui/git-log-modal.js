@@ -1,7 +1,16 @@
 const GitLogModal = {
-  isGitLogFilesLoaded: false,
-  previousModalTab: "commits",
-  diffPaneTitle: "未コミットの変更",
+  state: {
+    isGitLogFilesLoaded: false,
+    previousModalTab: "commits",
+    diffPaneTitle: "未コミットの変更",
+    gitLogLoadedWorkspace: null,
+    history: {
+      loaded: 0,
+      isLoading: false,
+      hasMore: true,
+      seenHashes: new Set(),
+    },
+  },
 
   toggleCommitActionMenu(entry, hash, msg, branches = []) {
     const list = $("git-log-list-modal");
@@ -113,10 +122,10 @@ const GitLogModal = {
   },
 
   openFileBrowserPane() {
-    GitLogModal.previousModalTab = "commits";
+    GitLogModal.state.previousModalTab = "commits";
     GitLogModal.showSubPane("commit-modal-tab-files", "ファイル");
-    if (!GitLogModal.isGitLogFilesLoaded) {
-      GitLogModal.isGitLogFilesLoaded = true;
+    if (!GitLogModal.state.isGitLogFilesLoaded) {
+      GitLogModal.state.isGitLogFilesLoaded = true;
       loadDirectoryInModal("");
     }
   },
@@ -127,7 +136,7 @@ const GitLogModal = {
     if (!listEl) return;
     const hasEntry = !!listEl.querySelector(".git-log-entry");
     const hasText = !!listEl.textContent.trim();
-    const workspaceChanged = gitLogLoadedWorkspace !== selectedWorkspace;
+    const workspaceChanged = GitLogModal.state.gitLogLoadedWorkspace !== selectedWorkspace;
     if (workspaceChanged || (!hasEntry && !hasText)) {
       await GitLogModal.reloadGitLog();
     }
@@ -151,12 +160,12 @@ const GitLogModal = {
   },
 
   async closeSubPane() {
-    if (GitLogModal.previousModalTab === "diff") {
-      GitLogModal.previousModalTab = "commits";
-      GitLogModal.showDiffPane(GitLogModal.diffPaneTitle);
+    if (GitLogModal.state.previousModalTab === "diff") {
+      GitLogModal.state.previousModalTab = "commits";
+      GitLogModal.showDiffPane(GitLogModal.state.diffPaneTitle);
       return;
     }
-    const nextTab = GitLogModal.previousModalTab;
+    const nextTab = GitLogModal.state.previousModalTab;
     GitLogModal.switchCommitModalTab(nextTab);
     if (nextTab === "commits") {
       await GitLogModal.ensureCommitLogReady();
@@ -164,8 +173,8 @@ const GitLogModal = {
   },
 
   showDiffPane(title) {
-    GitLogModal.diffPaneTitle = title || "未コミットの変更";
-    GitLogModal.showSubPane("commit-modal-tab-diff", GitLogModal.diffPaneTitle);
+    GitLogModal.state.diffPaneTitle = title || "未コミットの変更";
+    GitLogModal.showSubPane("commit-modal-tab-diff", GitLogModal.state.diffPaneTitle);
   },
 
   closeDiffPane() {
@@ -174,7 +183,7 @@ const GitLogModal = {
 
   async openGitLogModal() {
     if (!selectedWorkspace) return;
-    GitLogModal.isGitLogFilesLoaded = false;
+    GitLogModal.state.isGitLogFilesLoaded = false;
     GitLogModal.switchCommitModalTab("commits");
     $("git-log-modal").style.display = "flex";
     GitLogModal.updateGitLogBranchLabel();
@@ -183,7 +192,7 @@ const GitLogModal = {
 
   async openGitLogModalFiles() {
     if (!selectedWorkspace) return;
-    GitLogModal.isGitLogFilesLoaded = false;
+    GitLogModal.state.isGitLogFilesLoaded = false;
     $("git-log-modal").style.display = "flex";
     GitLogModal.updateGitLogBranchLabel();
     GitLogModal.openFileBrowserPane();

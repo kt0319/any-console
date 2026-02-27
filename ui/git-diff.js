@@ -11,7 +11,7 @@ function renderDiffActions(container, hash, branches) {
   container.style.display = "flex";
 }
 
-async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
+function initDiffPane(actions = null) {
   const fileList = $("diff-file-list");
   const diffContent = $("diff-content");
   const actionsEl = $("diff-actions");
@@ -20,7 +20,24 @@ async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
   actionsEl.innerHTML = "";
   actionsEl.style.display = "none";
   $("diff-commit-form").style.display = "none";
-  GitLogModal.previousModalTab = "commits";
+
+  if (Array.isArray(actions) && actions.length > 0) {
+    renderActionButtons(actionsEl, actions);
+    actionsEl.style.display = "flex";
+  }
+}
+
+function showDiffError(message) {
+  const fileList = $("diff-file-list");
+  const diffContent = $("diff-content");
+  fileList.innerHTML = "";
+  diffContent.textContent = message || "diff の取得に失敗しました";
+}
+
+async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
+  const actionsEl = $("diff-actions");
+  initDiffPane();
+  GitLogModal.state.previousModalTab = "commits";
   GitLogModal.showDiffPane(commitMsg || "");
 
   if (commitHash) {
@@ -41,16 +58,16 @@ async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
     if (!res) return;
     const data = await res.json();
     if (!res.ok || data.status !== "ok") {
-      fileList.innerHTML = "";
-      diffContent.textContent = data.detail || data.stderr || "diff の取得に失敗しました";
+      showDiffError(data.detail || data.stderr || "diff の取得に失敗しました");
       return;
     }
 
+    const fileList = $("diff-file-list");
+    const diffContent = $("diff-content");
     renderDiffFileList(fileList, data.files, data.diff || "");
     diffContent.textContent = "ファイルを選択してください";
   } catch (e) {
-    fileList.innerHTML = "";
-    diffContent.textContent = e.message;
+    showDiffError(e.message);
   }
 }
 
@@ -280,7 +297,7 @@ async function selectDiffFile(file) {
     diffContent.textContent = "差分なし";
   }
   diffContent.scrollTop = 0;
-  GitLogModal.previousModalTab = "diff";
+  GitLogModal.state.previousModalTab = "diff";
   const title = file ? file.split("/").pop() : "差分（すべて）";
   GitLogModal.showSubPane("commit-modal-tab-diff-view", title);
 }
@@ -315,50 +332,42 @@ function renderHighlightedFileContent(container, filePath, content) {
     return;
   }
   const codeHtml = renderHighlightedTextHtml(content, filePath);
-  container.innerHTML = `<code class="text-viewer-box-content hljs">${codeHtml}</code>`;
+  container.innerHTML = `<code class="text-viewer-box-content viewer-content hljs">${codeHtml}</code>`;
 }
 
 async function loadDiffTab() {
   if (!selectedWorkspace) return;
-  const fileList = $("diff-file-list");
-  const diffContent = $("diff-content");
-  const actionsEl = $("diff-actions");
-  fileList.innerHTML = '<div class="file-browser"><div class="file-browser-header"><span class="file-browser-crumb-current">読み込み中...</span></div></div>';
-  diffContent.textContent = "ファイルを選択してください";
-  actionsEl.innerHTML = "";
 
   const stashActions = [
     { label: "コミット", cls: "", fn: () => openCommitForm() },
     { label: "stash", cls: "", fn: () => GitCore.execStashAction("save") },
     { label: "stash pop", cls: "", fn: () => GitCore.execStashAction("pop") },
   ];
-  renderActionButtons(actionsEl, stashActions);
-  actionsEl.style.display = "flex";
-  $("diff-commit-form").style.display = "none";
+  initDiffPane(stashActions);
 
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/diff"));
     if (!res) return;
     const data = await res.json();
     if (!res.ok || data.status !== "ok") {
-      fileList.innerHTML = "";
-      diffContent.textContent = data.detail || "diff の取得に失敗しました";
+      showDiffError(data.detail || "diff の取得に失敗しました");
       return;
     }
 
+    const fileList = $("diff-file-list");
+    const diffContent = $("diff-content");
     renderDiffFileList(fileList, data.files, data.diff || "", { statusBadgeLeft: true });
     diffContent.textContent = "ファイルを選択してください";
   } catch (e) {
-    fileList.innerHTML = "";
-    diffContent.textContent = e.message;
+    showDiffError(e.message);
   }
 }
 
 async function openDiffModal() {
   if (!selectedWorkspace) return;
 
-  GitLogModal.isGitLogFilesLoaded = false;
-  GitLogModal.previousModalTab = "commits";
+  GitLogModal.state.isGitLogFilesLoaded = false;
+  GitLogModal.state.previousModalTab = "commits";
   $("git-log-modal").style.display = "flex";
   GitLogModal.updateGitLogBranchLabel();
   GitLogModal.showDiffPane("未コミットの変更");
