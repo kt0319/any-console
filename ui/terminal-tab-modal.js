@@ -81,9 +81,15 @@ function openTabEditModal(initialTab = "layout") {
   }
 
   function renderSubPane(key) {
-    const labels = { "ws-add": "WS追加", "layout": "タブ", "settings": "設定" };
+    const labels = {
+      "ws-add": "新規追加",
+      "ws-visibility": "表示設定",
+      "layout": "タブ",
+      "settings": "設定",
+    };
     setTitle(labels[key], () => showMainView());
-    if (key === "ws-add") showPickerCloneInContainer(contentContainer, "visibility");
+    if (key === "ws-visibility") showPickerCloneInContainer(contentContainer, "visibility");
+    else if (key === "ws-add") showPickerCloneInContainer(contentContainer, "add");
     else if (key === "layout") renderLayoutTab(contentContainer);
     else if (key === "settings") renderSettingsTab(contentContainer);
   }

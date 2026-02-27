@@ -12,6 +12,8 @@ function createTerminalTabModalWorkspaceSection(deps) {
     actionRow.className = "picker-ws-add-section";
     const subItems = [
       { key: "layout", icon: "mdi-tab", label: "タブ" },
+      { key: "ws-visibility", icon: "mdi-eye", label: "表示" },
+      { key: "ws-add", icon: "mdi-plus", label: "追加" },
       { key: "settings", icon: "mdi-cog", label: "設定" },
     ];
     for (const item of subItems) {
@@ -168,47 +170,24 @@ function createTerminalTabModalWorkspaceSection(deps) {
         });
     }
 
-    const addItem = document.createElement("div");
-    addItem.className = "picker-ws-group";
-    const addHeader = document.createElement("div");
-    addHeader.className = "picker-ws-header";
-    const addLabel = document.createElement("button");
-    addLabel.type = "button";
-    addLabel.className = "picker-ws-header-label picker-ws-add-label";
-    addLabel.innerHTML = '<span class="mdi mdi-plus"></span> WS追加';
-    addLabel.addEventListener("click", () => switchModalTab("ws-add"));
-    addHeader.appendChild(addLabel);
-    addItem.appendChild(addHeader);
-    container.appendChild(addItem);
+    // ワークスペース項目の末尾に新規追加ボタンは出さない
   }
 
-  function showPickerCloneInContainer(content, defaultTab = "visibility") {
-    let pickerCloneTab = defaultTab;
+  function showPickerCloneInContainer(content, mode = "visibility") {
     let pickerSelectedUrl = "";
     let pickerRepos = [];
 
-    const cloneModalActiveTabs = document.createElement("div");
-    cloneModalActiveTabs.className = "clone-openTabs";
-    const visibilityBtn = document.createElement("button");
-    visibilityBtn.type = "button";
-    visibilityBtn.className = "clone-tab" + (defaultTab === "visibility" ? " active" : "");
-    visibilityBtn.textContent = "表示設定";
-    const addBtn = document.createElement("button");
-    addBtn.type = "button";
-    addBtn.className = "clone-tab" + (defaultTab === "add" ? " active" : "");
-    addBtn.textContent = "新規追加";
-    cloneModalActiveTabs.append(visibilityBtn, addBtn);
-    content.appendChild(cloneModalActiveTabs);
-
-    const visibilityPane = document.createElement("div");
-    visibilityPane.className = "clone-tab-content";
-    visibilityPane.style.display = defaultTab === "visibility" ? "block" : "none";
-    renderWorkspaceVisibilityChecklistTo(visibilityPane);
-    content.appendChild(visibilityPane);
+    if (mode === "visibility") {
+      const visibilityPane = document.createElement("div");
+      visibilityPane.className = "clone-tab-content";
+      renderWorkspaceVisibilityChecklistTo(visibilityPane);
+      content.appendChild(visibilityPane);
+      return;
+    }
 
     const addPane = document.createElement("div");
     addPane.className = "clone-tab-content";
-    addPane.style.display = defaultTab === "add" ? "block" : "none";
+    addPane.style.display = "block";
 
     const sourceGroup = document.createElement("div");
     sourceGroup.className = "form-group";
@@ -241,7 +220,6 @@ function createTerminalTabModalWorkspaceSection(deps) {
     nameInput.autocomplete = "off";
     nameGroup.appendChild(nameInput);
     const cloneFields = document.createElement("div");
-    if (defaultTab === "visibility") cloneFields.style.display = "none";
     cloneFields.appendChild(nameGroup);
 
     const errorEl = document.createElement("div");
@@ -263,19 +241,6 @@ function createTerminalTabModalWorkspaceSection(deps) {
     actions.appendChild(submitBtn);
     cloneFields.appendChild(actions);
     content.appendChild(cloneFields);
-
-    function switchCloneTabInner(tab) {
-      pickerCloneTab = tab;
-      visibilityBtn.classList.toggle("active", tab === "visibility");
-      addBtn.classList.toggle("active", tab === "add");
-      visibilityPane.style.display = tab === "visibility" ? "block" : "none";
-      addPane.style.display = tab === "add" ? "block" : "none";
-      cloneFields.style.display = tab === "visibility" ? "none" : "";
-      if (tab === "add" && pickerRepos.length === 0) loadRepos();
-    }
-
-    addBtn.addEventListener("click", () => switchCloneTabInner("add"));
-    visibilityBtn.addEventListener("click", () => switchCloneTabInner("visibility"));
 
     function renderRepos() {
       if (pickerRepos.length === 0) {
@@ -351,7 +316,7 @@ function createTerminalTabModalWorkspaceSection(deps) {
       }
     });
 
-    if (defaultTab === "add") loadRepos();
+    loadRepos();
   }
 
   return {
