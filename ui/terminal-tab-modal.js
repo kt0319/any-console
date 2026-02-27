@@ -227,6 +227,7 @@ function openTabEditModal(initialTab = "layout") {
   }
 
   function renderTabList() {
+    persistOpenTabs();
     const list = contentContainer.querySelector(".split-tab-list");
     if (!list) return;
     list.innerHTML = "";

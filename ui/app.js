@@ -8,7 +8,6 @@ async function initApp() {
   await refreshWorkspaceHeader();
   setLoadingStatus("ジョブを読み込み中...");
   await loadJobsForWorkspace();
-  localStorage.removeItem("pi_console_terminal_openTabs");
   localStorage.removeItem("pi_console_active_tab");
   await fetchOrphanSessions();
   updateQuickInputVisibility();

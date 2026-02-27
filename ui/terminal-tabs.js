@@ -1,7 +1,35 @@
+function persistOpenTabs() {
+  const openTerminalTabs = openTabs
+    .filter(t => t.type === "terminal")
+    .map(t => ({
+      wsUrl: t.wsUrl,
+      workspace: t.label,
+      icon: t.icon?.name || null,
+      iconColor: t.icon?.color || null,
+      jobName: t.jobName || null,
+      jobLabel: t.jobLabel || null,
+      tabIndex: openTabs.indexOf(t),
+    }));
+  const liveUrls = new Set(openTerminalTabs.map((t) => t.wsUrl));
+  const orphanTabs = disconnectedSessions
+    .filter((s) => s && s.wsUrl && !closedSessionUrls.has(s.wsUrl) && !liveUrls.has(s.wsUrl))
+    .map((s, i) => ({
+      wsUrl: s.wsUrl,
+      workspace: s.workspace || null,
+      icon: s.icon || null,
+      iconColor: s.iconColor || null,
+      jobName: s.jobName || null,
+      jobLabel: s.jobLabel || null,
+      tabIndex: s.tabIndex != null ? s.tabIndex : (openTabs.length + i),
+    }));
+  const data = [...openTerminalTabs, ...orphanTabs];
+  localStorage.setItem("pi_console_terminal_openTabs", JSON.stringify(data));
+}
+
 function tabDisplayName(tab) {
   if (!tab) return "";
   const parts = [tab.workspace || tab.label];
-  if (tab.jobName) parts.push(tab.jobName);
+  if (tab.jobLabel || tab.jobName) parts.push(tab.jobLabel || tab.jobName);
   return parts.join(" / ");
 }
 
@@ -10,7 +38,7 @@ function renderTabIconHtml(tab, size = 14) {
        + (tab.icon ? renderIcon(tab.icon.name, tab.icon.color, size) : "");
 }
 
-function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCommand, tabIcon, wsIcon, jobName) {
+function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCommand, tabIcon, wsIcon, jobName, jobLabel) {
   const id = tabId || `term-${++terminalIdCounter}`;
   if (tabId) {
     const m = tabId.match(/^term-(\d+)$/);
@@ -85,7 +113,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
   });
 
 
-  const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, jobName: jobName || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
+  const tab = { id, type: "terminal", wsUrl, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, jobName: jobName || null, jobLabel: jobLabel || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
   openTabs.push(tab);
   createTabNamePill(tab, container);
 
@@ -94,6 +122,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
     connectTerminalWs(tab);
   }
 
+  persistOpenTabs();
   if (skipSwitch) return;
   syncTerminalSessionState();
   switchTab(id);
@@ -157,6 +186,7 @@ function removeTab(id) {
   openTabs = openTabs.filter((t) => t.id !== id);
   const el = $(`frame-${id}`);
   if (el) el.remove();
+  persistOpenTabs();
   syncTerminalSessionState();
 
   if (splitMode) {
@@ -330,6 +360,7 @@ function renderTabBar() {
   items.sort((a, b) => a.index - b.index);
 
   const hasAnyTabs = openTabs.length > 0 || disconnectedSessions.length > 0;
+  persistOpenTabs();
   barRow.style.display = hasAnyTabs ? "flex" : "none";
   const hasActiveContent = openTabs.some((t) => t.id === activeTabId);
   updateEmptyPlaceholder(!hasActiveContent);

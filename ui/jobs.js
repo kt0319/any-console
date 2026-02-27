@@ -88,6 +88,17 @@ function collectConfirmArgs() {
 
 let jobExecutionQueue = Promise.resolve();
 
+function resolveJobByNameOrLabel(jobs, identifier) {
+  if (!jobs || identifier === "terminal") return { key: identifier, job: null };
+  if (jobs[identifier]) return { key: identifier, job: jobs[identifier] };
+  for (const [name, def] of Object.entries(jobs)) {
+    if ((def.label || name) === identifier) {
+      return { key: name, job: def };
+    }
+  }
+  return { key: identifier, job: null };
+}
+
 async function runJob(jobName = null, argsOverride = null, workspaceOverride = null) {
   const targetJob = jobName || pendingJob;
   if (!targetJob) return;
@@ -99,13 +110,23 @@ async function runJob(jobName = null, argsOverride = null, workspaceOverride = n
 
 async function executeJobInTerminal(targetJob, workspaceOverride) {
   const workspace = workspaceOverride || selectedWorkspace;
-  let job = workspaceJobs[targetJob];
+  let resolvedJobKey = targetJob;
+  let job = null;
+
+  if (targetJob !== "terminal") {
+    const localResolved = resolveJobByNameOrLabel(workspaceJobs, targetJob);
+    resolvedJobKey = localResolved.key;
+    job = localResolved.job;
+  }
+
   if (!job && targetJob !== "terminal" && workspace) {
     try {
       const jobsRes = await apiFetch(workspaceApiPath(workspace, "/jobs"));
       if (jobsRes && jobsRes.ok) {
         const wsJobs = await jobsRes.json();
-        job = wsJobs[targetJob];
+        const fetchedResolved = resolveJobByNameOrLabel(wsJobs, targetJob);
+        resolvedJobKey = fetchedResolved.key;
+        job = fetchedResolved.job;
       }
     } catch (e) {
       console.error("job fetch failed:", e);
@@ -116,19 +137,19 @@ async function executeJobInTerminal(targetJob, workspaceOverride) {
     return;
   }
 
-  if (targetJob !== "terminal" && job.terminal === false) {
-    await executeJobDirect(targetJob, job, workspace);
+  if (resolvedJobKey !== "terminal" && job.terminal === false) {
+    await executeJobDirect(resolvedJobKey, job, workspace);
     return;
   }
 
-  const tabLabel = targetJob === "terminal" ? (workspaceOverride || workspace) : (job.label || targetJob);
+  const tabLabel = resolvedJobKey === "terminal" ? (workspaceOverride || workspace) : (job.label || resolvedJobKey);
 
   let initialCommand = null;
   let tabIcon = null;
   let wsIcon = null;
   const ws = allWorkspaces.find((w) => w.name === workspace);
   const wsIconObj = ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : { name: "mdi-console", color: "" };
-  if (targetJob === "terminal") {
+  if (resolvedJobKey === "terminal") {
     tabIcon = wsIconObj;
   } else if (job.command) {
     initialCommand = job.command;
@@ -151,8 +172,9 @@ async function executeJobInTerminal(targetJob, workspaceOverride) {
       return;
     }
 
-    const jobName = targetJob !== "terminal" ? (job.label || targetJob) : null;
-    addTerminalTab(data.ws_url, workspace, null, false, false, initialCommand, tabIcon, wsIcon, jobName);
+    const jobName = resolvedJobKey !== "terminal" ? resolvedJobKey : null;
+    const jobLabel = resolvedJobKey !== "terminal" ? (job.label || resolvedJobKey) : null;
+    addTerminalTab(data.ws_url, workspace, null, false, false, initialCommand, tabIcon, wsIcon, jobName, jobLabel);
 
   } catch (e) {
     showToast(`${tabLabel} エラー: ${e.message}`);

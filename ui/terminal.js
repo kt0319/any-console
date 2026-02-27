@@ -153,6 +153,7 @@ function onTabDragEnd(e) {
       if (t) reordered.push(t);
     }
     openTabs = reordered;
+    persistOpenTabs();
   }
 
   btn.classList.remove("tab-dragging");

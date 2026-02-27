@@ -46,7 +46,7 @@ async function onVisibilityRestore() {
         disconnectedSessions.push({
           wsUrl: tab.wsUrl, workspace: tab.label, expired: true,
           icon: tab.icon?.name, iconColor: tab.icon?.color,
-          tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null,
+          tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null, jobLabel: tab.jobLabel || null,
         });
         removeTab(tab.id);
       }
@@ -92,11 +92,41 @@ async function fetchOrphanSessions() {
     }
     const sessions = await res.json();
     reconcileOrphansWithServer(sessions);
+    restoreTabsFromLocalStorage(sessions);
   } catch (e) {
     console.error("fetchOrphanSessions failed:", e);
     disconnectedSessions = [];
   }
   renderTabBar();
+}
+
+function restoreTabsFromLocalStorage(sessions) {
+  const raw = localStorage.getItem("pi_console_terminal_openTabs");
+  localStorage.removeItem("pi_console_terminal_openTabs");
+  if (!raw) return;
+  let saved;
+  try { saved = JSON.parse(raw); } catch { return; }
+  if (!Array.isArray(saved) || saved.length === 0) return;
+
+  const serverUrls = new Set(sessions.map(s => s.ws_url));
+  const orphanUrls = new Set(disconnectedSessions.map(s => s.wsUrl));
+
+  for (const entry of saved) {
+    if (!entry.wsUrl) continue;
+    if (closedSessionUrls.has(entry.wsUrl)) continue;
+    if (serverUrls.has(entry.wsUrl)) continue;
+    if (orphanUrls.has(entry.wsUrl)) continue;
+    disconnectedSessions.push({
+      wsUrl: entry.wsUrl,
+      workspace: entry.workspace || null,
+      icon: entry.icon || null,
+      iconColor: entry.iconColor || null,
+      jobName: entry.jobName || null,
+      jobLabel: entry.jobLabel || null,
+      tabIndex: entry.tabIndex != null ? entry.tabIndex : disconnectedSessions.length,
+      expired: true,
+    });
+  }
 }
 
 function removeLocalSessionsFromOrphans() {
@@ -113,7 +143,17 @@ function reconcileOrphansWithServer(sessions) {
     .filter((s) => !localWsUrls.has(s.ws_url) && !closedSessionUrls.has(s.ws_url))
     .map((s, i) => {
       const old = oldOrphans.get(s.ws_url);
-      return { wsUrl: s.ws_url, workspace: s.workspace, expiresIn: s.expires_in, icon: s.icon, iconColor: s.icon_color, tabIndex: old ? old.tabIndex : openTabs.length + i, expired: false };
+      return {
+        wsUrl: s.ws_url,
+        workspace: s.workspace,
+        expiresIn: s.expires_in,
+        icon: s.icon,
+        iconColor: s.icon_color,
+        tabIndex: old ? old.tabIndex : openTabs.length + i,
+        jobName: old ? (old.jobName || null) : null,
+        jobLabel: old ? (old.jobLabel || null) : null,
+        expired: false,
+      };
     });
 
   const expiredOrphans = disconnectedSessions
@@ -137,7 +177,7 @@ function joinOrphanSession(wsUrl, workspace) {
   const ws = workspace ? allWorkspaces.find((w) => w.name === workspace) : null;
   const isDuplicateIcon = ws && ws.icon && orphan && orphan.icon === ws.icon;
   const wsIcon = isDuplicateIcon ? null : (ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null);
-  addTerminalTab(wsUrl, label, null, true, false, null, tabIcon, wsIcon);
+  addTerminalTab(wsUrl, label, null, true, false, null, tabIcon, wsIcon, orphan?.jobName || null, orphan?.jobLabel || orphan?.jobName || null);
   const tab = openTabs.find((t) => t.wsUrl === wsUrl);
   if (tab) tab._pendingRedraw = true;
   disconnectedSessions = disconnectedSessions.filter((s) => s.wsUrl !== wsUrl);
@@ -265,7 +305,7 @@ function connectTerminalWs(tab) {
         disconnectedSessions.push({
           wsUrl: tab.wsUrl, workspace: tab.label, expired: true,
           icon: tab.icon?.name, iconColor: tab.icon?.color,
-          tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null,
+          tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null, jobLabel: tab.jobLabel || null,
         });
       }
       removeTab(tab.id);
