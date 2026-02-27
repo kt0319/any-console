@@ -99,7 +99,7 @@ sudo systemctl restart pi-console
 - `terminal-split.js`: ターミナル分割表示
 - `terminal-connection.js`: 端末セッション同期
 - `terminal-tab-modal.js`: ワークスペース/設定モーダル
-- `terminal-copy-mode.js`: ターミナルコピー
+- `terminal-view-mode.js`: ターミナルビュー
 - `settings.js`: 設定画面、設定インポート/エクスポート
 - `quick-input.js`: 汎用入力UI
 - `quick-input-keys.js`: 端末ショートカット/画像アップロード

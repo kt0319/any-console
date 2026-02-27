@@ -248,7 +248,7 @@ async function switchTab(id) {
     return;
   }
 
-  exitAllCopyModes();
+  exitAllViewModes();
 
   activeTabId = id;
   const switchedTab = openTabs.find((t) => t.id === id);
@@ -598,10 +598,10 @@ function createTabNamePill(tab, frame) {
       if (tab.type === "terminal") {
         const f = $(`frame-${tab.id}`);
         if (f && f.classList.contains("view-mode")) {
-          exitTerminalCopyMode(tab.id);
+          exitTerminalViewMode(tab.id);
         } else {
           tab.term && tab.term.scrollToBottom();
-          enterTerminalCopyMode(tab.id);
+          enterTerminalViewMode(tab.id);
         }
       }
     },
@@ -609,7 +609,7 @@ function createTabNamePill(tab, frame) {
       if (tab.type === "terminal") {
         const f = $(`frame-${tab.id}`);
         if (f && f.classList.contains("view-mode")) {
-          exitTerminalCopyMode(tab.id);
+          exitTerminalViewMode(tab.id);
           return;
         }
       }

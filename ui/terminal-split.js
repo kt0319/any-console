@@ -13,7 +13,7 @@ function enterSplitMode() {
     document.title = document.title.slice(2);
   }
   isPaneSelectedByTap = false;
-  exitAllCopyModes();
+  exitAllViewModes();
   const openTabIds = new Set(openTabs.map((t) => t.id));
   splitPaneTabIds = splitPaneTabIds.filter((id) => openTabIds.has(id));
   if (activeTabId && openTabIds.has(activeTabId) && !splitPaneTabIds.includes(activeTabId)) {
@@ -202,7 +202,7 @@ function createSplitPane(index) {
 
 function setActivePaneIndex(index) {
   for (const tabId of splitPaneTabIds) {
-    if (tabId !== splitPaneTabIds[index]) exitTerminalCopyMode(tabId);
+    if (tabId !== splitPaneTabIds[index]) exitTerminalViewMode(tabId);
   }
   activePaneIndex = index;
   activeTabId = splitPaneTabIds[index];

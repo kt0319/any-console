@@ -43,11 +43,6 @@ header {
   gap: 10px;
 }
 
-header .ws-select-wrap {
-  flex: 1;
-  min-width: 0;
-}
-
 .header-row2 {
   display: none;
   align-items: center;
@@ -110,118 +105,10 @@ header .ws-select-wrap {
 }
 
 
-.sub-header {
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  padding: 8px 20px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .clean-dirty-status {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-}
-
-.ws-select-wrap {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-}
-
-.ws-select-btn {
-  width: 100%;
-  padding: 10px 32px 10px 12px;
-  font-size: 16px;
-  font-weight: 600;
-  font-family: inherit;
-  background: transparent;
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  min-height: 44px;
-  cursor: pointer;
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa5ce' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-}
-
-.ws-select-btn.active {
-  border-color: var(--accent);
-  color: var(--accent);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2382aaff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 15 12 9 18 15'/%3E%3C/svg%3E");
-}
-
-.branch-select-btn {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  max-height: 36px;
-  min-height: 36px;
-  height: 36px;
-  box-sizing: border-box;
-  padding: 0 28px 0 10px;
-  line-height: 1;
-  font-size: 13px;
-  font-family: inherit;
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa5ce' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-}
-
-.branch-select-btn.active {
-  border-color: var(--accent);
-  color: var(--accent);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2382aaff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 15 12 9 18 15'/%3E%3C/svg%3E");
-}
-
-.ws-select-dropdown {
-  position: fixed;
-  background: rgba(30, 30, 30, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  z-index: 50;
-  padding: 4px 0;
-  max-height: calc(var(--app-dvh) * 0.6);
-  overflow-y: auto;
-}
-
-.ws-select-item {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  text-align: left;
-  padding: 10px 12px;
-  font-size: 15px;
-  font-family: inherit;
-  background: none;
-  border: none;
-  border-radius: 0;
-  color: var(--text-primary);
-  text-decoration: none;
-  cursor: pointer;
-  min-height: auto;
-  min-width: auto;
-}
-
-.ws-select-item.selected {
-  color: var(--accent);
 }
 
 .terminal-ws-list {
@@ -232,18 +119,6 @@ header .ws-select-wrap {
   flex-direction: column;
   gap: 4px;
   padding: 4px 0;
-}
-
-.terminal-ws-list .ws-select-item {
-  display: flex;
-  align-items: center;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 8px 12px;
-  font-size: 14px;
-  text-align: left;
-  color: var(--text-primary);
 }
 
 
@@ -269,15 +144,6 @@ header .ws-select-wrap {
 
 .picker-ws-row-bottom.is-empty {
   padding: 4px 12px 14px;
-}
-
-.picker-ws-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  font-size: 13px;
-  color: var(--text-primary);
 }
 
 .picker-ws-header-label {
@@ -439,12 +305,6 @@ header .ws-select-wrap {
   cursor: pointer;
 }
 
-.picker-ws-icon-btn.picker-ws-file-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-}
-
 .picker-ws-icon-btn.picker-ws-link-btn {
   border-radius: 50%;
 }
@@ -455,20 +315,6 @@ header .ws-select-wrap {
 
 .picker-ws-icon-btn .mdi {
   font-size: 18px;
-}
-
-.picker-ws-add-btn {
-  font-size: 14px;
-  color: var(--text-muted);
-  border-style: dashed;
-}
-
-
-.header-date {
-  font-size: 12px;
-  color: var(--text-muted);
-  flex-shrink: 0;
-  white-space: nowrap;
 }
 
 .git-badge {
@@ -598,11 +444,6 @@ header .ws-select-wrap {
   background: var(--success-bg-20);
   border: 1px solid rgba(120, 200, 140, 0.3);
 }
-
-.git-action-label {
-  white-space: nowrap;
-}
-
 
 .git-action-btn.running {
   pointer-events: none;
@@ -753,107 +594,6 @@ header .ws-select-wrap {
   display: none;
 }
 
-.commit-message-panel {
-  padding: 8px 20px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(122, 162, 247, 0.06);
-  overflow: hidden;
-}
-
-.commit-message-panel.clickable {
-  cursor: pointer;
-}
-
-.git-summary-one-line {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 24px;
-}
-
-.git-summary-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.git-summary-value {
-  font-size: 12px;
-  color: var(--text-primary);
-}
-
-.git-summary-message {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: nowrap;
-  white-space: nowrap;
-}
-
-.commit-message-line {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.commit-message-time {
-  flex-shrink: 0;
-  color: var(--text-secondary);
-}
-
-.commit-message-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.commit-log-wrap {
-  display: none;
-}
-
-.commit-message-panel.log-open .commit-log-wrap {
-  display: block;
-}
-
-.commit-log-list {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-}
-
-.commit-log-item {
-  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--text-primary);
-  white-space: pre-wrap;
-  word-break: break-word;
-  padding: 2px 0;
-}
-
-.commit-log-item.muted {
-  color: var(--text-muted);
-}
-
-.commit-log-item.error {
-  color: var(--error);
-}
-
-.git-summary-empty {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.commit-placeholder {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
 .commit-issue-link {
   color: var(--accent);
   text-decoration: none;
@@ -887,12 +627,6 @@ header .ws-select-wrap {
 .arg-label .required {
   color: var(--error);
   margin-left: 2px;
-}
-
-.dynamic-hint {
-  font-size: 12px;
-  color: var(--text-muted);
-  padding: 8px 0;
 }
 
 .radio-group {
@@ -1263,26 +997,6 @@ header .ws-select-wrap {
 }
 
 
-.view-mode-close-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  min-height: 24px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: inherit;
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  pointer-events: auto;
-  opacity: 0.6;
-}
-
 .view-mode-textarea {
   position: absolute;
   top: 0;
@@ -1526,34 +1240,6 @@ header .ws-select-wrap {
   opacity: 0.7;
 }
 
-.output-status {
-  margin-bottom: 8px;
-  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-}
-
-.status-badge {
-  display: inline-block;
-  font-size: 12px;
-  padding: 2px 10px;
-  border-radius: 4px;
-  font-weight: 600;
-}
-
-.status-badge.ok {
-  color: var(--success);
-  background: var(--success-bg-20);
-}
-
-.status-badge.error {
-  color: var(--error);
-  background: var(--error-bg-20);
-}
-
-.status-badge.running {
-  color: var(--warning);
-  background: var(--warning-bg-20);
-}
-
 /* Buttons */
 button {
   font-family: inherit;
@@ -1584,32 +1270,6 @@ button:disabled {
   cursor: not-allowed;
 }
 
-
-.menu-footer-row {
-  display: flex;
-  gap: 6px;
-  padding: 8px 12px;
-  flex-shrink: 0;
-}
-
-.menu-footer-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 4px;
-  font-size: 15px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.menu-footer-btn .mdi {
-  font-size: 16px;
-}
 
 
 /* Settings modal */
@@ -1965,46 +1625,6 @@ button:disabled {
   display: none;
 }
 
-.clone-tabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 12px;
-  flex-shrink: 0;
-}
-
-.clone-openTabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 12px;
-  flex-shrink: 0;
-  width: 100%;
-}
-
-.clone-tab {
-  flex: 1;
-  min-width: 0;
-  padding: 8px 12px;
-  font-size: 13px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.clone-openTabs .clone-tab {
-  flex: 1;
-  min-width: 0;
-}
-
-
-.clone-tab.active {
-  background: var(--accent-bg-20);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
 .clone-tab-content {
   margin-bottom: 12px;
 }
@@ -2174,40 +1794,6 @@ button:disabled {
   white-space: nowrap;
 }
 
-
-/* Item create type tabs */
-.item-create-type-tabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 12px;
-}
-
-.item-create-type-tab {
-  flex: 1;
-  cursor: pointer;
-}
-
-.item-create-type-tab input[type="radio"] {
-  display: none;
-}
-
-.item-create-type-btn {
-  display: block;
-  padding: 8px 12px;
-  font-size: 13px;
-  text-align: center;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-secondary);
-  transition: all 0.15s;
-}
-
-.item-create-type-tab input[type="radio"]:checked + .item-create-type-btn {
-  background: var(--accent-bg-20);
-  border-color: var(--accent);
-  color: var(--accent);
-}
 
 /* Job create form */
 .form-group {
@@ -2389,19 +1975,6 @@ button:disabled {
 }
 
 
-.diff-back-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 4px;
-  font-size: 13px;
-  color: var(--accent);
-  background: none;
-  border: none;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
 #commit-modal-tab-commits,
 #commit-modal-tab-diff,
 #commit-modal-tab-files,
@@ -2429,27 +2002,9 @@ button:disabled {
   cursor: pointer;
 }
 
-.git-log-dirty.git-log-clean {
-  cursor: default;
-  opacity: 0.5;
-}
-
 .git-ref-dirty {
   color: var(--warning);
   background: var(--warning-bg-20);
-}
-
-.git-log-entry-graph {
-  flex-shrink: 0;
-  font-family: monospace;
-  color: var(--accent);
-  white-space: pre;
-  line-height: 1.4;
-}
-
-.git-log-graph-only {
-  min-height: 0;
-  line-height: 1.2;
 }
 
 .git-log-entry-body {
@@ -2722,10 +2277,6 @@ button:disabled {
   line-height: 1;
   font-weight: 700;
   white-space: nowrap;
-}
-
-.diff-file-row-numstat-offset {
-  margin-right: 44px;
 }
 
 .diff-file-row-numstat-note {
@@ -3090,32 +2641,6 @@ button:disabled {
 }
 
 
-.quick-snippet-add-btn {
-  height: 30px;
-  min-height: 30px;
-  border: 1px dashed rgba(130, 170, 255, 0.5);
-  border-radius: 6px;
-  background: rgba(40, 45, 65, 0.85);
-  color: var(--accent);
-  font-size: 14px;
-  align-self: flex-end;
-  padding: 0 12px;
-  gap: 4px;
-}
-
-.quick-key-pg {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.quick-key-pg .quick-key {
-  height: 21px;
-  min-height: 21px;
-  font-size: 11px;
-  padding: 0 8px;
-}
-
 .keyboard-input-wrapper {
   position: absolute;
   left: 16px;
@@ -3235,22 +2760,8 @@ button:disabled {
     align-items: flex-start;
   }
 
-  header .ws-select-wrap {
-    order: 1;
-    flex: 1;
-    min-width: 0;
-  }
-
   .header-row2 .git-summary-panel {
     max-width: 45vw;
-  }
-
-  .sub-header {
-    padding: 6px 12px;
-  }
-
-  .commit-message-panel {
-    padding: 8px 16px;
   }
 
   .args-form {
@@ -3491,12 +3002,6 @@ button:disabled {
   border-radius: 2px;
 }
 
-.picker-ws-favicon {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
 .picker-ws-icon-btn .favicon-icon {
   width: 18px;
   height: 18px;
@@ -3611,10 +3116,6 @@ button:disabled {
   color: var(--text-muted);
 }
 
-.ws-add-clone-section {
-  padding: 8px 0;
-}
-
 .picker-ws-add-section {
   display: flex;
   gap: 8px;
@@ -3639,9 +3140,6 @@ button:disabled {
 }
 .ws-add-action-btn .mdi {
   font-size: 16px;
-}
-.picker-ws-add-label {
-  color: var(--text-muted);
 }
 .split-modal-title-back {
   cursor: pointer;
@@ -3729,40 +3227,6 @@ button:disabled {
   flex-shrink: 0;
 }
 
-
-/* Split tab modal nav tabs */
-.split-tab-nav {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 8px;
-  flex-shrink: 0;
-}
-
-.split-tab-nav-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 8px 4px;
-  font-size: 12px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-
-.split-tab-nav-btn.active {
-  background: var(--accent-bg-20);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.split-tab-nav-btn .mdi {
-  font-size: 16px;
-}
 
 .split-tab-content {
   display: flex;

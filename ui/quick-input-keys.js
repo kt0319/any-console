@@ -9,7 +9,7 @@ function exitViewModeIfActive() {
   if (!tab) return;
   const container = $(`frame-${tab.id}`);
   if (container && container.classList.contains("view-mode")) {
-    exitTerminalCopyMode(tab.id);
+    exitTerminalViewMode(tab.id);
   }
 }
 

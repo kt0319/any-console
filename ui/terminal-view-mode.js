@@ -1,6 +1,6 @@
-function exitAllCopyModes(exceptId) {
+function exitAllViewModes(exceptId) {
   for (const t of openTabs) {
-    if (t.type === "terminal" && t.id !== exceptId) exitTerminalCopyMode(t.id);
+    if (t.type === "terminal" && t.id !== exceptId) exitTerminalViewMode(t.id);
   }
 }
 
@@ -70,14 +70,14 @@ function terminalBufferToHtml(term) {
   return lines.join("\n");
 }
 
-function enterTerminalCopyMode(tabId) {
+function enterTerminalViewMode(tabId) {
   if (!panelBottom) return;
   const tab = openTabs.find((t) => t.id === tabId);
   if (!tab || tab.type !== "terminal") return;
   const container = $(`frame-${tabId}`);
   if (!container || container.classList.contains("view-mode")) return;
 
-  exitAllCopyModes(tabId);
+  exitAllViewModes(tabId);
 
   container.classList.add("view-mode");
 
@@ -94,7 +94,7 @@ function enterTerminalCopyMode(tabId) {
   pre.scrollTop = pre.scrollHeight;
 }
 
-function exitTerminalCopyMode(tabId) {
+function exitTerminalViewMode(tabId) {
   const container = $(`frame-${tabId}`);
   if (!container) return;
   container.classList.remove("view-mode");
