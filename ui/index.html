@@ -135,7 +135,6 @@
         <div id="commit-modal-tab-diff" style="display:none">
           <div class="diff-actions" id="diff-actions" style="display:none"></div>
           <div class="diff-file-list" id="diff-file-list"></div>
-          <pre class="diff-content" id="diff-content"></pre>
           <div id="diff-commit-form" style="display:none">
             <textarea id="diff-commit-message" class="form-input" rows="2" placeholder="コミットメッセージ"></textarea>
             <div id="diff-commit-error" class="form-error"></div>
@@ -144,6 +143,9 @@
               <button type="button" id="diff-commit-submit" class="primary">コミット</button>
             </div>
           </div>
+        </div>
+        <div id="commit-modal-tab-diff-view" style="display:none">
+          <pre class="diff-content" id="diff-content"></pre>
         </div>
         <div id="commit-modal-tab-stash" style="display:none">
           <div class="modal-scroll-body" id="stash-pane-list"></div>

@@ -1646,11 +1646,22 @@ button:disabled {
   border-radius: var(--radius);
   padding: 12px 16px 16px;
   width: 100%;
-  max-width: min(600px, 90vw);
+  max-width: min(600px, 92vw);
   height: 80vh;
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+
+@media (min-width: 900px) {
+  .modal-overlay {
+    padding: 28px;
+  }
+
+  .modal {
+    max-width: min(900px, 90vw);
+    height: 84vh;
+  }
 }
 
 .modal h3 {
@@ -2464,7 +2475,7 @@ button:disabled {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--accent);
+  color: #fff;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -2595,6 +2606,14 @@ button:disabled {
   -webkit-overflow-scrolling: touch;
 }
 
+#commit-modal-tab-diff,
+#commit-modal-tab-diff-view {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
 .git-log-commit.action-open {
   background: rgba(130, 170, 255, 0.08);
 }
@@ -2620,36 +2639,86 @@ button:disabled {
 
 .diff-file-list {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 0;
   padding-top: 10px;
   margin-bottom: 12px;
-  overflow-x: auto;
+  overflow: hidden;
   -webkit-overflow-scrolling: touch;
-  flex-shrink: 0;
+  flex: 1;
+  min-height: 0;
 }
 
-.diff-file-tag {
-  font-size: 12px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  color: var(--text-primary);
-  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+.diff-file-browser {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+.diff-file-browser-list {
+  flex: 1;
+}
+
+.diff-file-row {
   cursor: pointer;
-  flex-shrink: 0;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
 }
 
-.diff-file-tag-new {
-  border-color: var(--accent);
+.diff-file-row-status {
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  min-width: 28px;
+  text-align: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
 }
 
-.diff-file-tag.active {
-  background: var(--accent);
-  color: var(--bg-primary);
-  border-color: var(--accent);
+.diff-file-row-status.diff-status-mod {
+  color: #8cb6ff;
+  border-color: rgba(140, 182, 255, 0.45);
+  background: rgba(140, 182, 255, 0.12);
+}
+
+.diff-file-row-status.diff-status-add {
+  color: #7edb9a;
+  border-color: rgba(126, 219, 154, 0.45);
+  background: rgba(126, 219, 154, 0.12);
+}
+
+.diff-file-row-status.diff-status-del {
+  color: #ff8e9a;
+  border-color: rgba(255, 142, 154, 0.45);
+  background: rgba(255, 142, 154, 0.12);
+}
+
+.diff-file-row-status.diff-status-ren {
+  color: #ffd27a;
+  border-color: rgba(255, 210, 122, 0.45);
+  background: rgba(255, 210, 122, 0.12);
+}
+
+.diff-file-row-numstat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  margin-right: 8px;
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 13px;
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+.diff-num-plus {
+  color: var(--success);
+}
+
+.diff-num-del {
+  color: var(--error);
 }
 
 .diff-content {

@@ -32,6 +32,23 @@ logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(verify_token)])
 
 
+def parse_numstat(stdout: str) -> dict[str, dict[str, int | None]]:
+    stats: dict[str, dict[str, int | None]] = {}
+    for line in stdout.splitlines():
+        if not line.strip():
+            continue
+        parts = line.split("\t", 2)
+        if len(parts) < 3:
+            continue
+        ins_raw, del_raw, path = parts
+        if not path:
+            continue
+        insertions = None if ins_raw == "-" else int(ins_raw or 0)
+        deletions = None if del_raw == "-" else int(del_raw or 0)
+        stats[path] = {"insertions": insertions, "deletions": deletions}
+    return stats
+
+
 @router.get("/workspaces/{name}/status")
 def get_workspace_status(name: str):
     ws_path = resolve_workspace_path(name)
@@ -388,7 +405,23 @@ def get_commit_diff(name: str, commit_hash: str):
         ["diff", "--name-only", f"{commit_hash}~1", commit_hash],
         cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, operation="diff --name-only",
     )
-    files = [f for f in files_result["stdout"].splitlines() if f.strip()] if files_result["exit_code"] == 0 else []
+    numstat_result = run_git_command(
+        ["diff", "--numstat", f"{commit_hash}~1", commit_hash],
+        cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, operation="diff --numstat",
+    )
+    numstat = parse_numstat(numstat_result["stdout"]) if numstat_result["exit_code"] == 0 else {}
+    files = []
+    if files_result["exit_code"] == 0:
+        for f in files_result["stdout"].splitlines():
+            name = f.strip()
+            if not name:
+                continue
+            stat = numstat.get(name, {})
+            files.append({
+                "name": name,
+                "insertions": stat.get("insertions"),
+                "deletions": stat.get("deletions"),
+            })
     diff_text = result["stdout"]
     if len(diff_text) > MAX_DIFF_SIZE:
         diff_text = diff_text[:MAX_DIFF_SIZE] + "\n... (truncated)"
@@ -409,12 +442,23 @@ def get_workspace_diff(name: str):
     )
     diff_result = run_git_command(["diff"], cwd=ws_path, operation="diff")
     diff_staged_result = run_git_command(["diff", "--staged"], cwd=ws_path, operation="diff --staged")
+    numstat_result = run_git_command(
+        ["diff", "--numstat", "HEAD"], cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, operation="diff --numstat HEAD",
+    )
+    numstat = parse_numstat(numstat_result["stdout"]) if numstat_result["exit_code"] == 0 else {}
     files = []
     if status_result["exit_code"] == 0:
         for line in status_result["stdout"].splitlines():
             if len(line) > 3:
                 status_code = line[:2].strip()
-                files.append({"name": line[3:], "status": status_code})
+                name = line[3:]
+                stat = numstat.get(name, {})
+                files.append({
+                    "name": name,
+                    "status": status_code,
+                    "insertions": stat.get("insertions"),
+                    "deletions": stat.get("deletions"),
+                })
     diff_text = ""
     if diff_staged_result["exit_code"] == 0 and diff_staged_result["stdout"]:
         diff_text += diff_staged_result["stdout"]

@@ -12,8 +12,8 @@ async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
   const fileList = $("diff-file-list");
   const diffContent = $("diff-content");
   const actionsEl = $("diff-actions");
-  fileList.innerHTML = '<span class="diff-file-tag">loading...</span>';
-  diffContent.textContent = "";
+  fileList.innerHTML = '<div class="file-browser"><div class="file-browser-header"><span class="file-browser-crumb-current">読み込み中...</span></div></div>';
+  diffContent.textContent = "ファイルを選択してください";
   actionsEl.innerHTML = "";
   actionsEl.style.display = "none";
   $("diff-commit-form").style.display = "none";
@@ -35,12 +35,7 @@ async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
     }
 
     renderDiffFileList(fileList, data.files, data.diff || "");
-    diffContent.textContent = "";
-    if (data.diff) {
-      diffContent.appendChild(colorDiff(data.diff));
-    } else {
-      diffContent.textContent = "差分なし";
-    }
+    diffContent.textContent = "ファイルを選択してください";
   } catch (e) {
     fileList.innerHTML = "";
     diffContent.textContent = e.message;
@@ -89,46 +84,97 @@ function splitDiffByFile(diffText) {
 
 const DIFF_NEW_STATUSES = new Set(["??", "A"]);
 
+function getDiffStatusTone(status) {
+  const s = (status || "").toUpperCase();
+  if (s === "??" || s === "A") return "add";
+  if (s.includes("D")) return "del";
+  if (s.includes("R")) return "ren";
+  if (s.includes("M")) return "mod";
+  return "neutral";
+}
+
+function renderNumstatHtml(insertions, deletions) {
+  const hasIns = Number.isFinite(insertions);
+  const hasDel = Number.isFinite(deletions);
+  if (!hasIns && !hasDel) return "";
+  const ins = hasIns ? insertions : 0;
+  const del = hasDel ? deletions : 0;
+  return `<span class="diff-file-row-numstat"><span class="diff-num-plus">+${ins}</span><span class="diff-num-del">-${del}</span></span>`;
+}
+
 function renderDiffFileList(fileList, files, diffText) {
   diffChunks = splitDiffByFile(diffText);
   diffFullText = diffText;
   fileList.innerHTML = "";
 
+  let html = '<div class="file-browser diff-file-browser">';
+  html += '<div class="file-browser-header"><span class="file-browser-crumb-current">ファイル</span></div>';
+  html += '<ul class="file-browser-list diff-file-browser-list">';
   if (files.length === 0) {
-    fileList.innerHTML = '<span class="diff-file-tag">変更ファイルなし</span>';
-    return;
-  }
-
-  const allTag = document.createElement("span");
-  allTag.className = "diff-file-tag active";
-  allTag.textContent = "すべて";
-  allTag.addEventListener("click", () => selectDiffFile(null));
-  fileList.appendChild(allTag);
-
-  for (const f of files) {
-    const isObj = typeof f === "object";
-    const name = isObj ? f.name : f;
-    const isNew = isObj && DIFF_NEW_STATUSES.has(f.status);
-    const tag = document.createElement("span");
-    tag.className = "diff-file-tag";
-    tag.dataset.file = name;
-    if (isNew) {
-      tag.classList.add("diff-file-tag-new");
+    html += '<li class="file-browser-item diff-file-row-empty"><span class="file-browser-item-name">変更ファイルなし</span></li>';
+  } else {
+    let totalInsertions = 0;
+    let totalDeletions = 0;
+    let hasTotalNumstat = false;
+    for (const f of files) {
+      if (typeof f !== "object") continue;
+      if (Number.isFinite(f.insertions)) {
+        totalInsertions += f.insertions;
+        hasTotalNumstat = true;
+      }
+      if (Number.isFinite(f.deletions)) {
+        totalDeletions += f.deletions;
+        hasTotalNumstat = true;
+      }
     }
-    tag.appendChild(document.createTextNode(name));
-    tag.addEventListener("click", () => selectDiffFile(name));
-    fileList.appendChild(tag);
+    html += '<li class="file-browser-item diff-file-row active" data-file="">' +
+      '<span class="file-browser-item-icon file-icon"><i class="mdi mdi-file-multiple-outline"></i></span>' +
+      '<span class="file-browser-item-name">すべて</span>' +
+      (hasTotalNumstat ? renderNumstatHtml(totalInsertions, totalDeletions) : "") +
+      '</li>';
+    for (const f of files) {
+      const isObj = typeof f === "object";
+      const name = isObj ? f.name : f;
+      const status = isObj && f.status ? f.status : "";
+      const insertions = isObj ? f.insertions : null;
+      const deletions = isObj ? f.deletions : null;
+      const isNew = isObj && DIFF_NEW_STATUSES.has(f.status);
+      let iconHtml = '<i class="mdi mdi-file-outline"></i>';
+      if (typeof getFileIcon === "function") {
+        const fi = getFileIcon(name);
+        if (fi && fi.icon) {
+          const colorStyle = fi.color ? ` style="color:${fi.color}"` : "";
+          iconHtml = `<i class="mdi ${fi.icon}"${colorStyle}></i>`;
+        }
+      }
+      const rowClass = isNew ? "file-browser-item diff-file-row diff-file-row-new" : "file-browser-item diff-file-row";
+      html += `<li class="${rowClass}" data-file="${escapeHtml(name)}">` +
+        `<span class="file-browser-item-icon file-icon">${iconHtml}</span>` +
+        `<span class="file-browser-item-name">${escapeHtml(name)}</span>` +
+        renderNumstatHtml(insertions, deletions) +
+        (status ? `<span class="file-browser-item-size diff-file-row-status diff-status-${getDiffStatusTone(status)}">${escapeHtml(status)}</span>` : "") +
+        "</li>";
+    }
+  }
+  html += "</ul></div>";
+  fileList.innerHTML = html;
+
+  for (const row of fileList.querySelectorAll(".diff-file-row[data-file]")) {
+    row.addEventListener("click", () => {
+      const file = row.dataset.file || null;
+      selectDiffFile(file);
+    });
   }
 }
 
 async function selectDiffFile(file) {
   const fileList = $("diff-file-list");
   const diffContent = $("diff-content");
-  for (const tag of fileList.querySelectorAll(".diff-file-tag")) {
+  for (const row of fileList.querySelectorAll(".diff-file-row[data-file]")) {
     if (file === null) {
-      tag.classList.toggle("active", !tag.dataset.file);
+      row.classList.toggle("active", !row.dataset.file);
     } else {
-      tag.classList.toggle("active", tag.dataset.file === file);
+      row.classList.toggle("active", row.dataset.file === file);
     }
   }
   diffContent.textContent = "";
@@ -141,6 +187,9 @@ async function selectDiffFile(file) {
     diffContent.textContent = "差分なし";
   }
   diffContent.scrollTop = 0;
+  previousModalTab = "diff";
+  const title = file ? file.split("/").pop() : "差分（すべて）";
+  showSubPane("commit-modal-tab-diff-view", title);
 }
 
 async function loadFileContentInto(filePath, container) {
@@ -203,8 +252,8 @@ async function loadDiffTab() {
   const fileList = $("diff-file-list");
   const diffContent = $("diff-content");
   const actionsEl = $("diff-actions");
-  fileList.innerHTML = '<span class="diff-file-tag">loading...</span>';
-  diffContent.textContent = "";
+  fileList.innerHTML = '<div class="file-browser"><div class="file-browser-header"><span class="file-browser-crumb-current">読み込み中...</span></div></div>';
+  diffContent.textContent = "ファイルを選択してください";
   actionsEl.innerHTML = "";
 
   const stashActions = [
@@ -227,12 +276,7 @@ async function loadDiffTab() {
     }
 
     renderDiffFileList(fileList, data.files, data.diff || "");
-    diffContent.textContent = "";
-    if (data.diff) {
-      diffContent.appendChild(colorDiff(data.diff));
-    } else {
-      diffContent.textContent = "差分なし（untracked files のみの可能性）";
-    }
+    diffContent.textContent = "ファイルを選択してください";
   } catch (e) {
     fileList.innerHTML = "";
     diffContent.textContent = e.message;

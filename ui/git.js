@@ -593,9 +593,10 @@ async function execStashRefAction(action, ref) {
 let isGitLogFilesLoaded = false;
 
 let previousModalTab = "commits";
+let diffPaneTitle = "未コミットの変更";
 
 function switchCommitModalTab(tab) {
-  const allPanes = ["commit-modal-tab-commits", "commit-modal-tab-files", "commit-modal-tab-diff", "commit-modal-tab-stash", "commit-modal-tab-branch"];
+  const allPanes = ["commit-modal-tab-commits", "commit-modal-tab-files", "commit-modal-tab-diff", "commit-modal-tab-diff-view", "commit-modal-tab-stash", "commit-modal-tab-branch"];
   const titleEl = $("git-log-modal-title");
   titleEl.textContent = "履歴";
   titleEl.classList.remove("split-modal-title-back");
@@ -617,7 +618,7 @@ function openFileBrowserPane() {
 }
 
 function showSubPane(paneId, title) {
-  const allPanes = ["commit-modal-tab-commits", "commit-modal-tab-files", "commit-modal-tab-diff", "commit-modal-tab-stash", "commit-modal-tab-branch"];
+  const allPanes = ["commit-modal-tab-commits", "commit-modal-tab-files", "commit-modal-tab-diff", "commit-modal-tab-diff-view", "commit-modal-tab-stash", "commit-modal-tab-branch"];
   for (const id of allPanes) {
     const pane = $(id);
     if (pane) pane.style.display = "none";
@@ -634,11 +635,17 @@ function showSubPane(paneId, title) {
 }
 
 function closeSubPane() {
+  if (previousModalTab === "diff") {
+    previousModalTab = "commits";
+    showDiffPane(diffPaneTitle);
+    return;
+  }
   switchCommitModalTab(previousModalTab);
 }
 
 function showDiffPane(title) {
-  showSubPane("commit-modal-tab-diff", title || "未コミットの変更");
+  diffPaneTitle = title || "未コミットの変更";
+  showSubPane("commit-modal-tab-diff", diffPaneTitle);
 }
 
 function closeDiffPane() {
