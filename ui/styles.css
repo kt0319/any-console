@@ -3333,7 +3333,10 @@ button:disabled {
   padding: 0 10px;
   display: inline-flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 4px;
+  white-space: nowrap;
+  line-height: 1;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg-secondary);
