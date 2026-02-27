@@ -62,12 +62,14 @@ const GitLogModal = {
 
   toggleCreateBranchArea(hash) {
     const area = $("git-log-create-branch-area");
+    const submitBtn = $("git-log-create-branch-submit");
     const visible = area.style.display !== "none";
     if (visible) {
       GitLogModal.resetCreateBranchArea();
     } else {
       createBranchFromHash = hash || null;
       area.style.display = "block";
+      if (submitBtn) submitBtn.style.display = "";
       $("git-log-branch-name").focus();
     }
   },

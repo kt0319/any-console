@@ -107,7 +107,7 @@ const GitCore = {
     return branches
       .filter((b) => !ws || b !== ws.branch)
       .map((b) => ({
-        label: `switch: ${b}`,
+        label: `ブランチ変更: ${b}`,
         cls: "",
         fn: async () => {
           if (!confirm(`${b} に切り替えますか？`)) return;
@@ -125,7 +125,7 @@ const GitCore = {
       ...switchActions,
       ...extraActions,
       {
-        label: "checkout -b",
+        label: "ブランチ作成",
         cls: "",
         fn: checkoutBranchFn || (() => GitLogModal.toggleCreateBranchArea(hash)),
       },

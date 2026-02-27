@@ -114,20 +114,20 @@ Object.assign(GitLogModal, {
     const btn = $("stash-btn");
     if (!btn) return;
     if (!selectedWorkspace) {
-      btn.textContent = "stash";
+      btn.textContent = "Stash一覧";
       return;
     }
     try {
       const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/stash-list"));
       if (!res || !res.ok) {
-        btn.textContent = "stash";
+        btn.textContent = "Stash一覧";
         return;
       }
       const data = await res.json();
       const count = (data.status === "ok" && data.entries) ? data.entries.length : 0;
-      btn.textContent = count > 0 ? `stash (${count})` : "stash";
+      btn.textContent = count > 0 ? `Stash一覧 (${count})` : "Stash一覧";
     } catch {
-      btn.textContent = "stash";
+      btn.textContent = "Stash一覧";
     }
   },
 

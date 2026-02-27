@@ -96,14 +96,14 @@ Object.assign(GitLogModal, {
         const popBtn = document.createElement("button");
         popBtn.type = "button";
         popBtn.className = "commit-action-item";
-        popBtn.textContent = "pop";
+        popBtn.textContent = "適用";
         popBtn.addEventListener("click", () => GitLogModal.execStashRefAction("pop", entry.ref));
         actions.appendChild(popBtn);
 
         const dropBtn = document.createElement("button");
         dropBtn.type = "button";
         dropBtn.className = "commit-action-item commit-action-danger";
-        dropBtn.textContent = "drop";
+        dropBtn.textContent = "削除";
         dropBtn.addEventListener("click", () => GitLogModal.execStashRefAction("drop", entry.ref));
         actions.appendChild(dropBtn);
 
@@ -117,8 +117,10 @@ Object.assign(GitLogModal, {
 
   async execStashRefAction(action, ref) {
     if (!selectedWorkspace) return;
-    const label = action === "pop" ? `stash pop ${ref}` : `stash drop ${ref}`;
-    if (!confirm(`${label} を実行しますか？`)) return;
+    const actionLabel = action === "pop" ? "適用" : "削除";
+    const label = `stash ${action} ${ref}`;
+    const confirmLabel = `stash ${actionLabel} ${ref}`;
+    if (!confirm(`${confirmLabel} を実行しますか？`)) return;
     const endpoint = action === "pop" ? "stash-pop-index" : "stash-drop";
     await postWorkspaceAction(
       selectedWorkspace,
