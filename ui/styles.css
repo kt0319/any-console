@@ -3053,6 +3053,15 @@ button:disabled {
   box-sizing: border-box;
 }
 
+.quick-snippet-item-empty {
+  display: flex;
+  align-items: center;
+  border-style: dashed;
+  color: var(--text-muted);
+  justify-content: center;
+  pointer-events: none;
+}
+
 .quick-snippet-item.pressed {
   background: rgba(130, 170, 255, 0.3);
   color: var(--text-primary);

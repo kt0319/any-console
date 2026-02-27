@@ -347,6 +347,13 @@ function renderSnippetRow(container, onChipTap) {
   historyCol.className = "quick-snippet-col quick-snippet-col-right";
 
   const snippets = loadSnippets();
+  if (snippets.length === 0) {
+    const emptySnippet = document.createElement("div");
+    emptySnippet.className = "quick-snippet-item quick-snippet-item-empty";
+    emptySnippet.textContent = "スニペットなし";
+    snippetCol.appendChild(emptySnippet);
+  }
+
   snippets.forEach((s, idx) => {
     const chip = createSnippetChip(s.label, () => {
       onChipTap(s.command);
@@ -360,7 +367,15 @@ function renderSnippetRow(container, onChipTap) {
     snippetCol.appendChild(chip);
   });
 
-  inputHistory.slice(0, 5).reverse().forEach((text) => {
+  const recentHistory = inputHistory.slice(0, 5).reverse();
+  if (recentHistory.length === 0) {
+    const emptyHistory = document.createElement("div");
+    emptyHistory.className = "quick-snippet-item quick-snippet-item-empty";
+    emptyHistory.textContent = "履歴なし";
+    historyCol.appendChild(emptyHistory);
+  }
+
+  recentHistory.forEach((text) => {
     const chip = createSnippetChip(text, () => {
       onChipTap(text);
     }, () => {
