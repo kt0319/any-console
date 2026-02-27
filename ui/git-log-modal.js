@@ -121,6 +121,18 @@ const GitLogModal = {
     }
   },
 
+  async ensureCommitLogReady() {
+    if (!selectedWorkspace) return;
+    const listEl = $("git-log-list-modal");
+    if (!listEl) return;
+    const hasEntry = !!listEl.querySelector(".git-log-entry");
+    const hasText = !!listEl.textContent.trim();
+    const workspaceChanged = gitLogLoadedWorkspace !== selectedWorkspace;
+    if (workspaceChanged || (!hasEntry && !hasText)) {
+      await GitLogModal.reloadGitLog();
+    }
+  },
+
   showSubPane(paneId, title) {
     const allPanes = ["commit-modal-tab-commits", "commit-modal-tab-files", "commit-modal-tab-diff", "commit-modal-tab-diff-view", "commit-modal-tab-stash", "commit-modal-tab-branch"];
     for (const id of allPanes) {
@@ -138,13 +150,17 @@ const GitLogModal = {
     titleEl.onclick = () => GitLogModal.closeSubPane();
   },
 
-  closeSubPane() {
+  async closeSubPane() {
     if (GitLogModal.previousModalTab === "diff") {
       GitLogModal.previousModalTab = "commits";
       GitLogModal.showDiffPane(GitLogModal.diffPaneTitle);
       return;
     }
-    GitLogModal.switchCommitModalTab(GitLogModal.previousModalTab);
+    const nextTab = GitLogModal.previousModalTab;
+    GitLogModal.switchCommitModalTab(nextTab);
+    if (nextTab === "commits") {
+      await GitLogModal.ensureCommitLogReady();
+    }
   },
 
   showDiffPane(title) {

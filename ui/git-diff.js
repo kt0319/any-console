@@ -309,35 +309,13 @@ async function loadFileContentInto(filePath, container) {
   }
 }
 
-function getHighlightKeyFromPath(path) {
-  const name = (path || "").split("/").pop().toLowerCase();
-  const dotIdx = name.lastIndexOf(".");
-  return dotIdx > 0 ? name.slice(dotIdx + 1) : name;
-}
-
 function renderHighlightedFileContent(container, filePath, content) {
-  if (typeof hljs === "undefined") {
+  if (typeof renderHighlightedTextHtml !== "function") {
     container.textContent = content;
     return;
   }
-
-  const highlightKey = getHighlightKeyFromPath(filePath);
-  const lang = typeof getHighlightLang === "function" ? getHighlightLang(highlightKey) : null;
-  let codeHtml = "";
-  try {
-    codeHtml = lang
-      ? hljs.highlight(content, { language: lang }).value
-      : hljs.highlightAuto(content).value;
-  } catch {
-    if (typeof escapeHtml === "function") {
-      codeHtml = escapeHtml(content);
-    } else {
-      container.textContent = content;
-      return;
-    }
-  }
-
-  container.innerHTML = `<code class="hljs">${codeHtml}</code>`;
+  const codeHtml = renderHighlightedTextHtml(content, filePath);
+  container.innerHTML = `<code class="text-viewer-box-content hljs">${codeHtml}</code>`;
 }
 
 async function loadDiffTab() {

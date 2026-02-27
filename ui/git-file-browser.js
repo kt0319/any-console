@@ -99,6 +99,25 @@ function getHighlightLang(ext) {
   return HIGHLIGHT_LANG_MAP[ext] || null;
 }
 
+function getHighlightKeyFromPath(path) {
+  const name = (path || "").split("/").pop().toLowerCase();
+  const dotIdx = name.lastIndexOf(".");
+  return dotIdx > 0 ? name.slice(dotIdx + 1) : name;
+}
+
+function renderHighlightedTextHtml(content, path) {
+  const highlightKey = getHighlightKeyFromPath(path);
+  const lang = getHighlightLang(highlightKey);
+  if (typeof hljs === "undefined") return escapeHtml(content);
+  try {
+    return lang
+      ? hljs.highlight(content, { language: lang }).value
+      : hljs.highlightAuto(content).value;
+  } catch {
+    return escapeHtml(content);
+  }
+}
+
 function formatFileSize(bytes) {
   if (bytes == null) return "";
   if (bytes < 1024) return `${bytes} B`;
@@ -109,7 +128,7 @@ function formatFileSize(bytes) {
 function buildBreadcrumbHtml(parts, uploadPath = "") {
   const rootLabel = selectedWorkspace || "~";
   let html = '<div class="file-browser-header">';
-  html += `<button type="button" class="file-browser-crumb" data-path="">${escapeHtml(rootLabel)}/</button>`;
+  html += `<button type="button" class="file-browser-crumb" data-path="">${escapeHtml(rootLabel)}</button>`;
   for (let i = 0; i < parts.length; i++) {
     const subPath = parts.slice(0, i + 1).join("/");
     html += '<span class="file-browser-crumb-sep">/</span>';
@@ -190,26 +209,8 @@ function buildFileContentHtml(path, data) {
   } else if (data.too_large) {
     body = `<div class="file-content-message">ファイルが大きすぎます (${formatFileSize(data.size)})</div>`;
   } else {
-    const ext = path.split(".").pop().toLowerCase();
-    const lang = getHighlightLang(ext);
-    let codeHtml;
-    if (lang && typeof hljs !== "undefined") {
-      try {
-        codeHtml = hljs.highlight(data.content, { language: lang }).value;
-      } catch {
-        codeHtml = escapeHtml(data.content);
-      }
-    } else if (typeof hljs !== "undefined") {
-      try {
-        const result = hljs.highlightAuto(data.content);
-        codeHtml = result.value;
-      } catch {
-        codeHtml = escapeHtml(data.content);
-      }
-    } else {
-      codeHtml = escapeHtml(data.content);
-    }
-    body = `<div class="file-content-viewer"><pre class="file-content-code hljs">${codeHtml}</pre></div>`;
+    const codeHtml = renderHighlightedTextHtml(data.content, path);
+    body = `<div class="file-content-viewer text-viewer-box"><pre class="file-content-code text-viewer-box-content hljs">${codeHtml}</pre></div>`;
   }
 
   return `<div class="file-browser">${breadcrumb}${body}</div>`;

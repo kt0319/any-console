@@ -42,7 +42,7 @@ Object.assign(GitLogModal, {
             `<span class="git-log-entry-msg">${escapeHtml(msg)}</span>` +
             `<span class="git-log-entry-row1">` +
               `<span class="git-log-entry-row1-left">${refsHtml ? `<span class="git-log-entry-refs">${refsHtml}</span>` : ""}</span>` +
-              `<span class="git-log-entry-meta"><span class="git-log-entry-time">${escapeHtml(time)}</span><span class="git-log-entry-author">${escapeHtml(author)}</span></span>` +
+              `<span class="git-log-entry-meta"><span class="git-log-entry-author">${escapeHtml(author)}</span><span class="git-log-entry-time">${escapeHtml(time)}</span></span>` +
             `</span>` +
           `</span>`;
         const branchSet = new Set();
@@ -165,21 +165,25 @@ Object.assign(GitLogModal, {
       if (!logRes) return;
       const data = await logRes.json();
       if (!logRes.ok || data.status !== "ok") {
+        gitLogLoadedWorkspace = null;
         showToast(data.detail || data.stderr || "git log の読み込みに失敗しました");
         return;
       }
       if (!data.stdout) {
+        gitLogLoadedWorkspace = selectedWorkspace;
         listEl.innerHTML += '<div style="color:var(--text-muted);padding:16px">ログがありません</div>';
         return;
       }
 
       GitLogModal.renderDirtyEntry(listEl);
       const count = GitLogModal.renderGitLogEntries(listEl, data.stdout);
+      gitLogLoadedWorkspace = selectedWorkspace;
       gitLogLoaded = count;
       if (count < GIT_LOG_ENTRIES_PER_PAGE) {
         gitLogHasMore = false;
       }
     } catch (e) {
+      gitLogLoadedWorkspace = null;
       listEl.innerHTML = "";
       showToast(`git log エラー: ${e.message}`);
     }

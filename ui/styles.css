@@ -1179,6 +1179,7 @@ header {
   font-size: 13px;
 }
 
+.text-viewer-box,
 .file-content-viewer {
   display: flex;
   flex: 1;
@@ -1186,8 +1187,19 @@ header {
   overflow: auto;
   min-width: 0;
   font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.5;
+  background: #07090f;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  color: var(--text-primary);
+  white-space: pre;
+  word-break: break-all;
+}
+
+.file-content-viewer {
+  margin: 12px;
 }
 
 .file-content-image-wrap {
@@ -1214,19 +1226,23 @@ header {
   height: auto;
 }
 
+.text-viewer-box-content,
 .file-content-code {
+  display: block;
   flex: 1;
   margin: 0;
-  padding: 8px 12px;
+  padding: 0;
   white-space: pre;
-  overflow-x: auto;
+  overflow-wrap: normal;
+  overflow-x: visible;
   min-width: 0;
   color: var(--text-primary);
 }
 
+.text-viewer-box-content.hljs,
 .file-content-code.hljs {
   background: transparent;
-  padding: 8px 12px;
+  padding: 0;
 }
 
 .script-preview {
@@ -2299,12 +2315,11 @@ button:disabled {
 }
 
 .diff-content {
-  flex: 1;
   overflow: auto;
   font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.5;
-  background: var(--bg-primary);
+  background: #07090f;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px;
