@@ -1825,7 +1825,8 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
+  gap: 18px;
+  width: 76px;
   cursor: pointer;
 }
 
@@ -1837,10 +1838,16 @@ button:disabled {
   margin: 0;
   border: 2px solid var(--text-muted);
   background: transparent;
-  pointer-events: none;
+  pointer-events: auto;
   opacity: 1;
   position: relative;
   flex-shrink: 0;
+  cursor: pointer;
+}
+
+.split-tab-input:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .split-tab-input[type="checkbox"] {

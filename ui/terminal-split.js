@@ -14,13 +14,20 @@ function enterSplitMode() {
   }
   isPaneSelectedByTap = false;
   exitAllCopyModes();
-  if (activeTabId && openTabs.some((t) => t.id === activeTabId)) {
+  const openTabIds = new Set(openTabs.map((t) => t.id));
+  splitPaneTabIds = splitPaneTabIds.filter((id) => openTabIds.has(id));
+  if (activeTabId && openTabIds.has(activeTabId) && !splitPaneTabIds.includes(activeTabId)) {
+    splitPaneTabIds.unshift(activeTabId);
+  }
+  if (splitPaneTabIds.length === 0 && activeTabId && openTabIds.has(activeTabId)) {
     splitPaneTabIds = [activeTabId];
-    activePaneIndex = 0;
+  }
+  if (splitPaneTabIds.length > 0) {
+    if (activePaneIndex >= splitPaneTabIds.length) activePaneIndex = 0;
+    activeTabId = splitPaneTabIds[activePaneIndex];
     buildSplitDom();
     fitAllSplitTerminals();
   } else {
-    splitPaneTabIds = [];
     activePaneIndex = 0;
     for (const tab of openTabs) {
       const el = $(`frame-${tab.id}`);
@@ -43,8 +50,12 @@ function exitSplitModeWithTab(targetTabId) {
   container.classList.remove("split-active", "split-mobile", "split-vertical", "split-horizontal");
 
   splitMode = false;
-  splitPaneTabIds = [];
-  activePaneIndex = 0;
+  if (splitPaneTabIds.length > 0) {
+    const currentIdx = splitPaneTabIds.indexOf(targetTabId);
+    activePaneIndex = currentIdx >= 0 ? currentIdx : Math.min(activePaneIndex, splitPaneTabIds.length - 1);
+  } else {
+    activePaneIndex = 0;
+  }
 
   const target = openTabs.find((t) => t.id === targetTabId) ? targetTabId : activeTabId;
   for (const tab of openTabs) {
