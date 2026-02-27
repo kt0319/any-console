@@ -289,9 +289,11 @@ function renderGitLogEntries(listEl, stdout) {
       }
       entry.innerHTML =
         `<span class="git-log-entry-body">` +
-          (refsHtml ? `<span class="git-log-entry-refs">${refsHtml}</span>` : "") +
-          `<span class="git-log-entry-row1"><span class="git-log-entry-msg">${escapeHtml(msg)}</span></span>` +
-          `<span class="git-log-entry-meta"><span class="git-log-entry-time">${escapeHtml(time)}</span><span class="git-log-entry-author">${escapeHtml(author)}</span></span>` +
+          `<span class="git-log-entry-msg">${escapeHtml(msg)}</span>` +
+          `<span class="git-log-entry-row1">` +
+            `<span class="git-log-entry-row1-left">${refsHtml ? `<span class="git-log-entry-refs">${refsHtml}</span>` : ""}</span>` +
+            `<span class="git-log-entry-meta"><span class="git-log-entry-time">${escapeHtml(time)}</span><span class="git-log-entry-author">${escapeHtml(author)}</span></span>` +
+          `</span>` +
         `</span>`;
       const branchSet = new Set();
       if (refs) {
@@ -437,8 +439,8 @@ function renderDirtyEntry(listEl) {
   }
   entry.innerHTML =
     `<span class="git-log-entry-body">` +
-      badgeHtml +
-      `<span class="git-log-entry-row1"><span class="git-log-entry-msg" style="color:var(--text-muted)">${isDirty ? "未コミットの変更" : "変更なし"}</span></span>` +
+      `<span class="git-log-entry-row1">${badgeHtml}</span>` +
+      `<span class="git-log-entry-msg" style="color:var(--text-muted)">${isDirty ? "未コミットの変更" : "変更なし"}</span>` +
     `</span>`;
   if (isDirty) {
     entry.addEventListener("click", () => {

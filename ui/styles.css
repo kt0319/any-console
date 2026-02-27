@@ -2482,8 +2482,15 @@ button:disabled {
 
 .git-log-entry-row1 {
   display: flex;
-  align-items: baseline;
-  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.git-log-entry-row1-left {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .git-log-entry-msg {
@@ -2498,13 +2505,15 @@ button:disabled {
 .git-log-entry-refs {
   display: flex;
   gap: 4px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 
 .git-log-entry-meta {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .git-log-entry-author {
