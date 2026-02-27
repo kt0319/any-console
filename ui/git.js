@@ -429,26 +429,21 @@ async function openLocalBranchPane() {
 function renderDirtyEntry(listEl) {
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
   const isDirty = ws && ws.clean === false;
+  if (!isDirty) return;
   const entry = document.createElement("div");
   entry.className = "git-log-entry git-log-dirty";
-  if (!isDirty) entry.classList.add("git-log-clean");
-  let badgeHtml = "";
-  if (isDirty) {
-    const statText = buildWorkspaceChangeSummaryHtml(ws);
-    badgeHtml = `<span class="git-log-entry-refs"><span class="git-ref git-ref-dirty">${statText}</span></span>`;
-  }
+  const statText = buildWorkspaceChangeSummaryHtml(ws);
+  const badgeHtml = `<span class="git-log-entry-refs"><span class="git-ref git-ref-dirty">${statText}</span></span>`;
   entry.innerHTML =
     `<span class="git-log-entry-body">` +
       `<span class="git-log-entry-row1">${badgeHtml}</span>` +
-      `<span class="git-log-entry-msg" style="color:var(--text-muted)">${isDirty ? "未コミットの変更" : "変更なし"}</span>` +
+      `<span class="git-log-entry-msg" style="color:var(--text-muted)">未コミットの変更</span>` +
     `</span>`;
-  if (isDirty) {
-    entry.addEventListener("click", () => {
-      previousModalTab = "commits";
-      showDiffPane("未コミットの変更");
-      loadDiffTab();
-    });
-  }
+  entry.addEventListener("click", () => {
+    previousModalTab = "commits";
+    showDiffPane("未コミットの変更");
+    loadDiffTab();
+  });
   listEl.appendChild(entry);
 }
 
