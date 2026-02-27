@@ -29,9 +29,7 @@ function persistOpenTabs() {
 
 function tabDisplayName(tab) {
   if (!tab) return "";
-  const parts = [tab.workspace || tab.label];
-  if (tab.jobLabel || tab.jobName) parts.push(tab.jobLabel || tab.jobName);
-  return parts.join(" / ");
+  return tab.workspace || tab.label || "";
 }
 
 function renderTabIconHtml(tab, size = 14) {
