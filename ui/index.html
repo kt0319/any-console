@@ -77,19 +77,21 @@
           <button type="button" class="clone-tab active" data-tab="github">GitHub</button>
           <button type="button" class="clone-tab" data-tab="url">手動入力</button>
         </div>
-        <div id="clone-tab-github" class="clone-tab-content">
-          <div class="clone-repo-list" id="clone-repo-list">
-            <div class="clone-repo-loading">読み込み中...</div>
+        <div class="modal-scroll-body">
+          <div id="clone-tab-github" class="clone-tab-content">
+            <div class="clone-repo-list" id="clone-repo-list">
+              <div class="clone-repo-loading">読み込み中...</div>
+            </div>
           </div>
-        </div>
-        <div id="clone-tab-url" class="clone-tab-content" style="display:none">
-          <div class="form-group">
-            <label class="form-label">リポジトリ</label>
-            <input type="text" id="clone-url" class="form-input" placeholder="git@github.com:user/repo.git or https://..." autocomplete="off" />
+          <div id="clone-tab-url" class="clone-tab-content" style="display:none">
+            <div class="form-group">
+              <label class="form-label">リポジトリ</label>
+              <input type="text" id="clone-url" class="form-input" placeholder="git@github.com:user/repo.git or https://..." autocomplete="off" />
+            </div>
           </div>
-        </div>
-        <div id="clone-tab-visibility" class="clone-tab-content" style="display:none">
-          <div id="clone-visibility-list"></div>
+          <div id="clone-tab-visibility" class="clone-tab-content" style="display:none">
+            <div id="clone-visibility-list"></div>
+          </div>
         </div>
         <div id="clone-modal-clone-fields">
           <div class="form-group">

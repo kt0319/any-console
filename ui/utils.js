@@ -342,6 +342,7 @@ async function fetchGithubRepos({ forceRefresh = false } = {}) {
 
 async function loadWorkspaceIconButtons(container, ws, iconSize, onLinkClick, onJobClick) {
   const { jobs, links } = await fetchWorkspaceJobsAndLinks(ws.name);
+  let addedCount = 0;
 
   for (let i = 0; i < links.length; i++) {
     const link = links[i];
@@ -352,6 +353,7 @@ async function loadWorkspaceIconButtons(container, ws, iconSize, onLinkClick, on
     btn.innerHTML = renderIcon(link.icon || "mdi-web", link.icon_color, iconSize);
     btn.addEventListener("click", () => onLinkClick(link, i));
     container.appendChild(btn);
+    addedCount += 1;
   }
 
   const entries = Object.entries(jobs).filter(([name]) => name !== "terminal");
@@ -363,7 +365,10 @@ async function loadWorkspaceIconButtons(container, ws, iconSize, onLinkClick, on
     btn.innerHTML = renderIcon(job.icon || "mdi-play", job.icon_color, iconSize);
     btn.addEventListener("click", () => onJobClick(name, job));
     container.appendChild(btn);
+    addedCount += 1;
   }
+
+  return addedCount;
 }
 
 function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 20 } = {}) {

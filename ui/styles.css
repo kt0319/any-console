@@ -251,6 +251,25 @@ header .ws-select-wrap {
   border-bottom: 1px solid var(--border);
 }
 
+.picker-ws-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.picker-ws-row-top {
+  padding-bottom: 4px;
+}
+
+.picker-ws-row-bottom {
+  padding: 4px 12px 14px;
+}
+
+.picker-ws-row-bottom.is-empty {
+  padding: 4px 12px 14px;
+}
+
 .picker-ws-header {
   display: flex;
   align-items: center;
@@ -278,12 +297,119 @@ header .ws-select-wrap {
   white-space: nowrap;
 }
 
+.picker-ws-header-text {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.picker-ws-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-ws-top-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+.picker-ws-branch {
+  max-width: 100px;
+  padding: 0 8px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .picker-ws-icons {
   display: flex;
   align-items: center;
   gap: 4px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.picker-ws-icons-bottom {
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-start;
+}
+
+.picker-ws-mini-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.picker-ws-mini-btn .mdi {
+  font-size: 12px;
+}
+
+.picker-ws-mini-btn.pull-btn.has-count {
+  color: var(--error);
+  background: rgba(255, 85, 114, 0.15);
+  border-color: rgba(255, 85, 114, 0.3);
+}
+
+.picker-ws-mini-btn.push-btn.has-count {
+  color: var(--accent);
+  background: rgba(130, 170, 255, 0.15);
+  border-color: rgba(130, 170, 255, 0.3);
+}
+
+.picker-ws-mini-btn.running {
+  pointer-events: none;
+  color: transparent;
+}
+
+.picker-ws-mini-btn.running > * {
+  visibility: hidden;
+}
+
+.picker-ws-mini-btn.running::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(130, 170, 255, 0.3);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+.picker-ws-top-meta .git-badge,
+.picker-ws-top-meta .picker-ws-mini-btn {
+  height: 22px;
+  min-height: 22px;
+  max-height: 22px;
+  min-width: auto;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 1;
 }
 
 .picker-ws-icon-btn {
@@ -1593,6 +1719,8 @@ button:disabled {
   border-bottom: 1px solid var(--border);
   gap: 8px;
   cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .split-tab-row.active {
@@ -1772,10 +1900,20 @@ button:disabled {
   display: flex;
   gap: 4px;
   margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.clone-openTabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+  width: 100%;
 }
 
 .clone-tab {
   flex: 1;
+  min-width: 0;
   padding: 8px 12px;
   font-size: 13px;
   background: var(--bg-tertiary);
@@ -1784,6 +1922,11 @@ button:disabled {
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s;
+}
+
+.clone-openTabs .clone-tab {
+  flex: 1;
+  min-width: 0;
 }
 
 
@@ -1795,6 +1938,10 @@ button:disabled {
 
 .clone-tab-content {
   margin-bottom: 12px;
+}
+
+#clone-modal-clone-fields {
+  flex-shrink: 0;
 }
 
 .clone-repo-list {
@@ -3181,15 +3328,18 @@ button:disabled {
 }
 
 .ws-gear-btn {
-  min-width: auto;
-  min-height: auto;
-  padding: 4px 8px;
-  font-size: 16px;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0;
+  font-size: 15px;
   flex-shrink: 0;
   line-height: 1;
-  color: var(--text-muted);
-  background: none;
-  border: none;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
 }
 
 .ws-add-item-btn {
@@ -3285,12 +3435,18 @@ button:disabled {
   justify-content: center;
   gap: 6px;
   padding: 8px 0;
+  height: 36px;
+  min-height: 36px;
+  line-height: 1;
   background: var(--bg-tertiary);
   color: var(--text-secondary);
   border: none;
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
+}
+.ws-add-action-btn .mdi {
+  font-size: 16px;
 }
 .picker-ws-add-label {
   color: var(--text-muted);
@@ -3424,9 +3580,9 @@ button:disabled {
 .split-tab-content {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 0 0 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .split-tab-content > .terminal-ws-list {
@@ -3434,7 +3590,27 @@ button:disabled {
 }
 
 .split-tab-content > .settings-menu {
-  overflow-y: auto;
+  overflow: visible;
+}
+
+.split-tab-scroll {
+  padding-top: 4px;
+}
+
+.split-tab-modal .terminal-ws-list {
+  overflow: visible;
+  flex: 0 0 auto;
+}
+
+.split-tab-modal .split-tab-list {
+  overflow: visible;
+  flex: 0 0 auto;
+}
+
+.split-tab-modal .split-tab-settings-body {
+  overflow: visible;
+  flex: 0 0 auto;
+  min-height: auto;
 }
 
 .split-tab-settings-sub {
