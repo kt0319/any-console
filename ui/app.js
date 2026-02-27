@@ -218,9 +218,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     window.visualViewport.addEventListener("resize", updateViewportHeight);
   }
   $("login-btn").addEventListener("click", login);
-  $("token-input").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") login();
-  });
   $("job-confirm-cancel").addEventListener("click", closeJobConfirmModal);
   $("job-confirm-cancel-x").addEventListener("click", closeJobConfirmModal);
   $("job-confirm-run").addEventListener("click", () => {

@@ -128,7 +128,7 @@ function setupFlickRepeat(el, resolveKey, onTap, opts = {}) {
     repeatTimer = setTimeout(() => {
       repeatTimer = setInterval(() => sendKeyToTerminal(key), REPEAT_INTERVAL);
     }, REPEAT_DELAY);
-  });
+  }, { passive: true });
 
   el.addEventListener("touchend", (e) => {
     e.preventDefault();

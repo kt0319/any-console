@@ -19,12 +19,12 @@
 <body>
   <!-- Login -->
   <div id="login-screen">
-    <div class="login-box">
+    <form class="login-box" onsubmit="event.preventDefault(); return false;">
       <h2>pi-console</h2>
-      <input type="password" id="token-input" placeholder="Token" autocomplete="off" />
+      <input type="password" id="token-input" placeholder="Token" autocomplete="current-password" name="token" />
       <div id="login-error"></div>
-      <button id="login-btn" class="primary">Login</button>
-    </div>
+      <button id="login-btn" class="primary" type="submit">Login</button>
+    </form>
   </div>
 
   <!-- App -->
