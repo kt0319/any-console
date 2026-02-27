@@ -19,8 +19,15 @@ async function initApp() {
 
 let prevKeyboardOpen = false;
 let keyboardCloseTimer = null;
+let prevViewportHeightPx = 0;
 function updateViewportHeight() {
   const vv = window.visualViewport;
+  const viewportHeight = vv ? vv.height : window.innerHeight;
+  const viewportHeightPx = Math.round(viewportHeight);
+  if (prevViewportHeightPx !== viewportHeightPx) {
+    prevViewportHeightPx = viewportHeightPx;
+    document.documentElement.style.setProperty("--app-dvh", `${viewportHeightPx}px`);
+  }
   const keyboardOpen = vv && (window.innerHeight - vv.height > 100);
   document.querySelector(".main-panel").classList.toggle("keyboard-open", keyboardOpen);
   repositionKeyboardInput(keyboardOpen);
@@ -215,7 +222,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   updateViewportHeight();
   if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", updateViewportHeight);
+    window.visualViewport.addEventListener("scroll", updateViewportHeight);
   }
+  window.addEventListener("resize", updateViewportHeight);
+  window.addEventListener("orientationchange", () => setTimeout(updateViewportHeight, 120));
   $("login-btn").addEventListener("click", login);
   $("job-confirm-cancel").addEventListener("click", closeJobConfirmModal);
   $("job-confirm-cancel-x").addEventListener("click", closeJobConfirmModal);

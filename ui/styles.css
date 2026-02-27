@@ -1,4 +1,5 @@
 :root {
+  --app-dvh: 100vh;
   --bg-primary: #1a1b26;
   --bg-secondary: #24283b;
   --bg-tertiary: #2f3347;
@@ -29,7 +30,7 @@ body {
   font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
-  height: 100vh;
+  height: var(--app-dvh);
   overflow: hidden;
 }
 
@@ -197,7 +198,7 @@ header .ws-select-wrap {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   z-index: 50;
   padding: 4px 0;
-  max-height: 60vh;
+  max-height: calc(var(--app-dvh) * 0.6);
   overflow-y: auto;
 }
 
@@ -638,7 +639,7 @@ header .ws-select-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
+  min-height: var(--app-dvh);
   padding: 20px;
 }
 
@@ -1496,7 +1497,7 @@ header .ws-select-wrap {
 
 .file-content-image {
   max-width: 100%;
-  max-height: calc(100vh - 200px);
+  max-height: calc(var(--app-dvh) - 200px);
   object-fit: contain;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -1647,7 +1648,7 @@ button:disabled {
   padding: 12px 16px 16px;
   width: 100%;
   max-width: min(600px, 92vw);
-  height: 80vh;
+  height: calc(var(--app-dvh) * 0.8);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -1660,7 +1661,7 @@ button:disabled {
 
   .modal {
     max-width: min(900px, 90vw);
-    height: 84vh;
+    height: calc(var(--app-dvh) * 0.84);
   }
 }
 
@@ -2981,7 +2982,7 @@ button:disabled {
   gap: 4px;
   padding: 4px 0;
   flex: 1;
-  max-height: 40vh;
+  max-height: calc(var(--app-dvh) * 0.4);
   pointer-events: none;
 }
 
