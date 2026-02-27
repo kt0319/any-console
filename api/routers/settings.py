@@ -1,6 +1,7 @@
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
 
 from ..auth import verify_token
 from .. import common
@@ -20,7 +21,10 @@ def _existing_workspace_names() -> set[str]:
 def export_settings():
     config = common.load_all_config()
     existing = _existing_workspace_names()
-    return {k: v for k, v in config.items() if k in existing}
+    exported = {k: v for k, v in config.items() if k in existing}
+    if isinstance(config.get(common.GLOBAL_CONFIG_KEY), dict):
+        exported[common.GLOBAL_CONFIG_KEY] = config[common.GLOBAL_CONFIG_KEY]
+    return exported
 
 
 @router.post("/settings/import")
@@ -40,7 +44,51 @@ async def import_settings(request: Request):
     existing = _existing_workspace_names()
     current = common.load_all_config()
     for name, ws_config in data.items():
+        if name == common.GLOBAL_CONFIG_KEY and isinstance(ws_config, dict):
+            current[name] = ws_config
+            continue
         if name in existing and isinstance(ws_config, dict):
             current[name] = ws_config
     common.save_all_config(current)
     return {"status": "ok"}
+
+
+class SnippetItem(BaseModel):
+    label: str = Field("", max_length=200)
+    command: str = Field(..., max_length=10000)
+
+
+class UpdateSnippetsRequest(BaseModel):
+    snippets: list[SnippetItem] = Field(default_factory=list)
+
+
+@router.get("/snippets")
+def get_snippets():
+    snippets = common.load_global_config_section("snippets", [])
+    if not isinstance(snippets, list):
+        snippets = []
+    sanitized: list[dict] = []
+    for item in snippets:
+        if not isinstance(item, dict):
+            continue
+        command = str(item.get("command", "")).strip()
+        if not command:
+            continue
+        label = str(item.get("label", "")).strip()
+        if not label:
+            label = command[:20] + ("…" if len(command) > 20 else "")
+        sanitized.append({"label": label[:200], "command": command[:10000]})
+    return {"snippets": sanitized}
+
+
+@router.put("/snippets")
+def put_snippets(body: UpdateSnippetsRequest):
+    snippets: list[dict] = []
+    for item in body.snippets:
+        command = item.command.strip()
+        if not command:
+            continue
+        label = item.label.strip() or (command[:20] + ("…" if len(command) > 20 else ""))
+        snippets.append({"label": label[:200], "command": command[:10000]})
+    common.save_global_config_section("snippets", snippets)
+    return {"status": "ok", "snippets": snippets}

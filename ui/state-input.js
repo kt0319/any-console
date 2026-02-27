@@ -55,24 +55,101 @@ function addInputHistory(text) {
 }
 
 const SNIPPETS_KEY = "pi_console_snippets";
+let snippetsCache = [];
+let snippetsLoaded = false;
+let snippetsLoadPromise = null;
 
-function loadSnippets() {
-  const raw = localStorage.getItem(SNIPPETS_KEY);
-  return raw ? JSON.parse(raw) : [];
+function normalizeSnippets(items) {
+  if (!Array.isArray(items)) return [];
+  const normalized = [];
+  for (const item of items) {
+    if (!item || typeof item !== "object") continue;
+    const command = String(item.command || "").trim();
+    if (!command) continue;
+    const labelRaw = String(item.label || "").trim();
+    const label = labelRaw || (command.length <= 20 ? command : command.slice(0, 20) + "…");
+    normalized.push({ label, command });
+  }
+  return normalized;
 }
 
-function addSnippet(command) {
+function loadLegacyLocalSnippets() {
+  try {
+    return normalizeSnippets(JSON.parse(localStorage.getItem(SNIPPETS_KEY) || "[]"));
+  } catch {
+    return [];
+  }
+}
+
+async function saveSnippets(snippets) {
+  const normalized = normalizeSnippets(snippets);
+  const res = await apiFetch("/snippets", {
+    method: "PUT",
+    body: { snippets: normalized },
+  });
+  if (!res) throw new Error("スニペット保存に失敗しました");
+  const data = await res.json();
+  if (!res.ok || data.status !== "ok") {
+    throw new Error(data.detail || "スニペット保存に失敗しました");
+  }
+  snippetsCache = normalizeSnippets(data.snippets);
+  snippetsLoaded = true;
+  return snippetsCache.slice();
+}
+
+async function ensureSnippetsLoaded(force = false) {
+  if (snippetsLoaded && !force) return snippetsCache.slice();
+  if (snippetsLoadPromise && !force) return snippetsLoadPromise;
+  snippetsLoadPromise = (async () => {
+    try {
+      const res = await apiFetch("/snippets");
+      if (!res) throw new Error("snippets fetch failed");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "snippets fetch failed");
+      let serverSnippets = normalizeSnippets(data.snippets);
+
+      const legacyRaw = localStorage.getItem(SNIPPETS_KEY);
+      const legacySnippets = loadLegacyLocalSnippets();
+      if (serverSnippets.length === 0 && legacySnippets.length > 0) {
+        serverSnippets = await saveSnippets(legacySnippets);
+        localStorage.removeItem(SNIPPETS_KEY);
+      } else if (legacyRaw) {
+        localStorage.removeItem(SNIPPETS_KEY);
+      }
+
+      snippetsCache = serverSnippets;
+      snippetsLoaded = true;
+      return snippetsCache.slice();
+    } catch (e) {
+      console.warn("load snippets failed:", e);
+      snippetsCache = loadLegacyLocalSnippets();
+      snippetsLoaded = true;
+      return snippetsCache.slice();
+    } finally {
+      snippetsLoadPromise = null;
+    }
+  })();
+  return snippetsLoadPromise;
+}
+
+function loadSnippets() {
+  return snippetsCache.slice();
+}
+
+async function addSnippet(command) {
+  await ensureSnippetsLoaded();
   const snippets = loadSnippets();
   const label = command.length <= 20 ? command : command.slice(0, 20) + "…";
   const snippet = { label, command };
   snippets.push(snippet);
-  localStorage.setItem(SNIPPETS_KEY, JSON.stringify(snippets));
+  await saveSnippets(snippets);
   return snippet;
 }
 
-function deleteSnippet(index) {
+async function deleteSnippet(index) {
+  await ensureSnippetsLoaded();
   const snippets = loadSnippets();
   if (index < 0 || index >= snippets.length) return;
   snippets.splice(index, 1);
-  localStorage.setItem(SNIPPETS_KEY, JSON.stringify(snippets));
+  await saveSnippets(snippets);
 }

@@ -20,6 +20,7 @@ UPLOAD_DIR = Path("/tmp/pi-console-uploads")
 TERMINAL_TIMEOUT_SEC = 7200
 CONFIG_DIR = PROJECT_ROOT / "data"
 CONFIG_FILE = CONFIG_DIR / "config.json"
+GLOBAL_CONFIG_KEY = "__global__"
 OLD_CONFIG_DIR = Path.home() / ".config" / "pi-console"
 OLD_WORKSPACE_CONFIG_DIR = Path(".pi-console")
 
@@ -157,6 +158,21 @@ def save_workspace_config_section(workspace_name: str, key: str, data) -> None:
         ws_config = all_config.get(workspace_name, {})
         ws_config[key] = data
         all_config[workspace_name] = ws_config
+        _write_config_unlocked(all_config)
+
+
+def load_global_config_section(key: str, default=None):
+    with _config_lock:
+        global_config = _read_config_unlocked().get(GLOBAL_CONFIG_KEY, {})
+        return global_config.get(key, default if default is not None else {})
+
+
+def save_global_config_section(key: str, data) -> None:
+    with _config_lock:
+        all_config = _read_config_unlocked()
+        global_config = all_config.get(GLOBAL_CONFIG_KEY, {})
+        global_config[key] = data
+        all_config[GLOBAL_CONFIG_KEY] = global_config
         _write_config_unlocked(all_config)
 
 

@@ -339,7 +339,8 @@ function createSnippetChip(text, onTap, onDelete, iconClass) {
   return chip;
 }
 
-function renderSnippetRow(container, onChipTap) {
+async function renderSnippetRow(container, onChipTap) {
+  await ensureSnippetsLoaded();
   container.innerHTML = "";
   const snippetCol = document.createElement("div");
   snippetCol.className = "quick-snippet-col";
@@ -357,10 +358,14 @@ function renderSnippetRow(container, onChipTap) {
   snippets.forEach((s, idx) => {
     const chip = createSnippetChip(s.label, () => {
       onChipTap(s.command);
-    }, () => {
+    }, async () => {
       if (confirm(`「${s.command}」を削除しますか？`)) {
-        deleteSnippet(idx);
-        renderSnippetRow(container, onChipTap);
+        try {
+          await deleteSnippet(idx);
+          await renderSnippetRow(container, onChipTap);
+        } catch (e) {
+          showToast(e.message || "スニペット削除に失敗しました", "error");
+        }
       }
     }, "mdi-pin");
     chip.classList.add("quick-history-item");
@@ -379,11 +384,15 @@ function renderSnippetRow(container, onChipTap) {
     const chip = createSnippetChip(text, () => {
       onChipTap(text);
     }, () => {
-      setTimeout(() => {
+      setTimeout(async () => {
         const cmd = prompt("スニペットを入力:", text);
         if (cmd) {
-          addSnippet(cmd);
-          renderSnippetRow(container, onChipTap);
+          try {
+            await addSnippet(cmd);
+            await renderSnippetRow(container, onChipTap);
+          } catch (e) {
+            showToast(e.message || "スニペット保存に失敗しました", "error");
+          }
         }
       }, 50);
     }, "mdi-history");

@@ -150,7 +150,7 @@ function renderKeyboardSnippets() {
   const container = wrapper.querySelector(".keyboard-input-snippets");
   const input = wrapper.querySelector(".keyboard-input");
   if (!container || !input) return;
-  renderSnippetRow(container, (text) => {
+  void renderSnippetRow(container, (text) => {
     input.value = text;
     input.dispatchEvent(new Event("input"));
     input.focus({ preventScroll: true });

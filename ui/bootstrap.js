@@ -17,6 +17,7 @@ async function initApp() {
   await fetchOrphanSessions();
   setLoadingStatus("ジョブを読み込み中...");
   await loadJobsForWorkspace();
+  await ensureSnippetsLoaded();
   updateGitBarVisibility();
   updateQuickInputVisibility();
   if (sessionStorage.getItem("pi_console_server_reloaded")) {
