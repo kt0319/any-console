@@ -74,6 +74,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
   $("git-log-create-branch-submit").addEventListener("click", () => GitLogModal.submitCreateBranch());
+  $("git-log-create-branch-close").addEventListener("click", () => GitLogModal.resetCreateBranchArea());
 
   if (token) {
     const result = await checkToken();

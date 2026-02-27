@@ -53,21 +53,43 @@ const GitLogModal = {
     GitLogModal.resetCreateBranchArea();
   },
 
+  restoreCreateBranchAreaPosition() {
+    const area = $("git-log-create-branch-area");
+    const menuEl = $("git-log-action-menu");
+    const commitsPane = $("commit-modal-tab-commits");
+    if (!area || !menuEl || !commitsPane) return;
+    if (area.parentElement !== commitsPane) {
+      commitsPane.insertBefore(area, menuEl.nextSibling);
+    }
+  },
+
   resetCreateBranchArea() {
-    $("git-log-create-branch-area").style.display = "none";
-    $("git-log-create-branch-submit").style.display = "none";
-    $("git-log-branch-name").value = "";
+    const area = $("git-log-create-branch-area");
+    const submitBtn = $("git-log-create-branch-submit");
+    const input = $("git-log-branch-name");
+    if (area) area.style.display = "none";
+    if (submitBtn) submitBtn.style.display = "none";
+    if (input) input.value = "";
+    GitLogModal.restoreCreateBranchAreaPosition();
     hideFormError("git-log-branch-error");
   },
 
   toggleCreateBranchArea(hash) {
     const area = $("git-log-create-branch-area");
     const submitBtn = $("git-log-create-branch-submit");
+    const menuEl = $("git-log-action-menu");
+    const diffActionsEl = $("diff-actions");
+    const triggerBtn = menuEl?.querySelector('[data-action-key="create-branch"]')
+      || diffActionsEl?.querySelector('[data-action-key="create-branch"]');
+    const hostEl = triggerBtn?.closest(".commit-action-menu, .diff-actions");
     const visible = area.style.display !== "none";
     if (visible) {
       GitLogModal.resetCreateBranchArea();
     } else {
       createBranchFromHash = hash || null;
+      if (hostEl?.parentElement) {
+        hostEl.insertAdjacentElement("afterend", area);
+      }
       area.style.display = "block";
       if (submitBtn) submitBtn.style.display = "";
       $("git-log-branch-name").focus();
@@ -162,6 +184,11 @@ const GitLogModal = {
   },
 
   async closeSubPane() {
+    const createBranchArea = $("git-log-create-branch-area");
+    if (createBranchArea && createBranchArea.style.display !== "none") {
+      GitLogModal.resetCreateBranchArea();
+      return;
+    }
     if (GitLogModal.state.previousModalTab === "diff") {
       GitLogModal.state.previousModalTab = "commits";
       GitLogModal.showDiffPane(GitLogModal.state.diffPaneTitle);

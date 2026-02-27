@@ -1181,8 +1181,7 @@ header {
 
 .viewer-surface,
 .text-viewer-box,
-.file-content-viewer,
-.diff-content {
+.file-content-viewer {
   display: flex;
   flex: 1;
   min-height: 0;
@@ -1202,6 +1201,9 @@ header {
 
 .file-content-viewer {
   margin: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .file-content-image-wrap {
@@ -1240,6 +1242,14 @@ header {
   overflow-x: visible;
   min-width: 0;
   color: var(--text-primary);
+}
+
+.file-content-viewer .file-content-code,
+.file-content-viewer .text-viewer-box-content,
+.file-content-viewer .viewer-content {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .viewer-content.hljs,
@@ -2182,6 +2192,32 @@ button:disabled {
   flex-shrink: 0;
 }
 
+#git-log-create-branch-area {
+  flex: 0 0 100%;
+  padding: 6px 10px 10px;
+}
+
+#git-log-create-branch-area .git-log-create-branch-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 6px;
+  align-items: center;
+}
+
+#git-log-create-branch-area .form-input {
+  min-width: 0;
+}
+
+#git-log-create-branch-submit,
+#git-log-create-branch-close {
+  width: auto;
+  min-width: 64px;
+  min-height: 36px;
+  height: 36px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
 .diff-actions {
   display: flex;
   gap: 6px;
@@ -2326,6 +2362,20 @@ button:disabled {
 }
 
 .diff-content {
+  display: block;
+  flex: 1;
+  overflow: auto;
+  min-width: 0;
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  background: #07090f;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  color: var(--text-primary);
+  white-space: pre;
+  word-break: break-all;
   min-height: 100px;
 }
 

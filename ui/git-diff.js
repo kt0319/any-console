@@ -1,10 +1,7 @@
 function renderDiffActions(container, hash, branches) {
   const actions = GitCore.buildCommitActions(hash, {
     branches,
-    checkoutBranchFn: () => {
-      GitLogModal.closeDiffPane();
-      GitLogModal.toggleCreateBranchArea(hash);
-    },
+    checkoutBranchFn: () => GitLogModal.toggleCreateBranchArea(hash),
   });
 
   renderActionButtons(container, actions);

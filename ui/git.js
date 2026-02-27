@@ -125,6 +125,7 @@ const GitCore = {
       ...switchActions,
       ...extraActions,
       {
+        key: "create-branch",
         label: "ブランチ作成",
         cls: "",
         fn: checkoutBranchFn || (() => GitLogModal.toggleCreateBranchArea(hash)),

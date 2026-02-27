@@ -76,9 +76,10 @@
           <div class="modal-scroll-body" id="git-log-list-modal"></div>
           <div id="git-log-action-menu" class="commit-action-menu" style="display:none"></div>
           <div id="git-log-create-branch-area" style="display:none">
-            <div>
+            <div class="git-log-create-branch-row">
               <input type="text" id="git-log-branch-name" class="form-input" placeholder="新しいブランチ名" autocomplete="off" />
-              <button id="git-log-create-branch-submit" class="primary">作成</button>
+              <button type="button" id="git-log-create-branch-submit" class="primary">作成</button>
+              <button type="button" id="git-log-create-branch-close">閉じる</button>
             </div>
             <div id="git-log-branch-error" class="form-error"></div>
           </div>

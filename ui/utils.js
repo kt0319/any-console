@@ -136,6 +136,7 @@ function renderActionButtons(container, actions) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "commit-action-item" + (action.cls ? ` ${action.cls}` : "");
+    if (action.key) btn.dataset.actionKey = action.key;
     btn.textContent = action.label;
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
