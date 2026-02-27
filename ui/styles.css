@@ -1012,6 +1012,15 @@ header .ws-select-wrap {
   animation: tab-activity-glow 3s ease-in-out 1;
 }
 
+@keyframes tab-name-pill-activity-glow {
+  0%, 100% { background: rgba(26, 27, 38, 0.93); }
+  50% { background: rgba(130, 170, 255, 0.25); }
+}
+
+.tab-name-pill.tab-activity {
+  animation: tab-name-pill-activity-glow 3s ease-in-out 1;
+}
+
 .tab-dragging {
   opacity: 0.85;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);

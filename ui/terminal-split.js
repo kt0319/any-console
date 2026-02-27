@@ -9,6 +9,9 @@ function enterSplitMode() {
   if (splitMode) return;
 
   splitMode = true;
+  if (document.title.startsWith("* ")) {
+    document.title = document.title.slice(2);
+  }
   isPaneSelectedByTap = false;
   exitAllCopyModes();
   if (activeTabId && openTabs.some((t) => t.id === activeTabId)) {

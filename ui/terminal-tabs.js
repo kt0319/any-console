@@ -186,7 +186,10 @@ function removeTab(id) {
 async function switchTab(id) {
   if (splitMode) {
     const switchedTab = openTabs.find((t) => t.id === id);
-    if (switchedTab) switchedTab._activity = false;
+    if (switchedTab) {
+      switchedTab._activity = false;
+      refreshTabNamePill(switchedTab);
+    }
 
     const needsRebuild = openTabs.length !== splitPaneTabIds.length ||
       openTabs.some((t) => !splitPaneTabIds.includes(t.id));
@@ -208,7 +211,10 @@ async function switchTab(id) {
 
   activeTabId = id;
   const switchedTab = openTabs.find((t) => t.id === id);
-  if (switchedTab) switchedTab._activity = false;
+  if (switchedTab) {
+    switchedTab._activity = false;
+    refreshTabNamePill(switchedTab);
+  }
   if (document.title.startsWith("* ")) {
     document.title = document.title.slice(2);
   }
@@ -470,7 +476,7 @@ function updateEmptyPlaceholder(show) {
 
 function createTabNamePill(tab, frame) {
   const pill = document.createElement("div");
-  pill.className = "tab-name-pill";
+  pill.className = "tab-name-pill" + (tab._activity ? " tab-activity" : "");
   const info = document.createElement("span");
   info.className = "tab-name-pill-info";
   info.innerHTML = renderTabIconHtml(tab) + escapeHtml(tab.label || "");
@@ -516,6 +522,10 @@ function createTabNamePill(tab, frame) {
 function refreshTabNamePill(tab) {
   const frame = $(`frame-${tab.id}`);
   if (!frame) return;
+  const pill = frame.querySelector(".tab-name-pill");
+  if (pill) {
+    pill.classList.toggle("tab-activity", !!tab._activity);
+  }
   const info = frame.querySelector(".tab-name-pill-info");
   if (info) {
     info.innerHTML = renderTabIconHtml(tab) + escapeHtml(tab.label || "");
