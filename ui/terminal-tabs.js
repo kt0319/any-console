@@ -288,10 +288,11 @@ function updateGitBarVisibility() {
   if (!show) return;
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
   const isGitRepo = ws && ws.branch !== null;
+  const hasUpstream = ws ? ws.has_upstream !== false : true;
   $("header-commit-msg").style.display = isGitRepo ? "" : "none";
   $("clean-dirty-status").style.display = isGitRepo ? "" : "none";
   $("main-git-status").style.display = isGitRepo ? "" : "none";
-  $("git-actions").style.display = isGitRepo && (ws.behind > 0 || ws.ahead > 0) ? "flex" : "none";
+  $("git-actions").style.display = isGitRepo && (ws.behind > 0 || ws.ahead > 0 || !hasUpstream) ? "flex" : "none";
   let hint = $("non-git-hint");
   if (!isGitRepo) {
     if (!hint) {

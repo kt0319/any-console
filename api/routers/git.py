@@ -97,6 +97,16 @@ def validate_branch_name(branch: str) -> str:
     return branch
 
 
+def get_current_branch(ws_path):
+    result = run_git_command(
+        ["rev-parse", "--abbrev-ref", "HEAD"], cwd=ws_path, operation="current branch",
+    )
+    branch = result["stdout"].strip()
+    if result["exit_code"] != 0 or not branch:
+        raise HTTPException(status_code=400, detail="現在のブランチを取得できません")
+    return branch
+
+
 @router.post("/workspaces/{name}/create-branch")
 def create_branch(name: str, body: CheckoutRequest):
     ws_path = resolve_workspace_path(name)
@@ -168,6 +178,32 @@ def git_push(name: str):
         env=ssh_env(), operation="push",
     )
     logger.info("push workspace=%s rc=%d", name, result["exit_code"])
+    invalidate_git_info(name)
+    return result
+
+
+@router.post("/workspaces/{name}/set-upstream")
+def git_set_upstream(name: str):
+    ws_path = resolve_workspace_path(name)
+    branch = get_current_branch(ws_path)
+    result = run_git_command(
+        ["branch", "--set-upstream-to", f"origin/{branch}"],
+        cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC,
+        env=ssh_env(), operation="set upstream",
+    )
+    logger.info("set-upstream workspace=%s branch=%s rc=%d", name, branch, result["exit_code"])
+    invalidate_git_info(name)
+    return result
+
+
+@router.post("/workspaces/{name}/push-upstream")
+def git_push_upstream(name: str):
+    ws_path = resolve_workspace_path(name)
+    result = run_git_command(
+        ["push", "-u", "origin", "HEAD"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC,
+        env=ssh_env(), operation="push upstream",
+    )
+    logger.info("push-upstream workspace=%s rc=%d", name, result["exit_code"])
     invalidate_git_info(name)
     return result
 
@@ -525,4 +561,3 @@ def get_file_content(name: str, path: str = Query(...)):
         raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"status": "ok", "path": path, "content": content, "size": size}
-

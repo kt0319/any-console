@@ -55,6 +55,14 @@ async function gitPull() {
   await executeGitRemoteOp("pull-btn", "/pull", "pull");
 }
 
+async function gitSetUpstream() {
+  await executeGitRemoteOp("set-upstream-btn", "/set-upstream", "追跡設定");
+}
+
+async function gitPushUpstream() {
+  await executeGitRemoteOp("push-upstream-btn", "/push-upstream", "push");
+}
+
 async function gitPush() {
   await executeGitRemoteOp("push-btn", "/push", "push");
 }

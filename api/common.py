@@ -285,6 +285,9 @@ def git_info(directory: Path) -> dict:
     info = {
         "is_git_repo": False,
         "branch": None,
+        "upstream": None,
+        "has_upstream": None,
+        "has_remote_branch": None,
         "last_commit": None,
         "last_commit_message": None,
         "github_url": None,
@@ -316,11 +319,21 @@ def git_info(directory: Path) -> dict:
             f_status = pool.submit(run_git, "status", "--porcelain")
             f_diff = pool.submit(run_git, "diff", "--shortstat")
             f_staged = pool.submit(run_git, "diff", "--staged", "--shortstat")
+            f_upstream = pool.submit(run_git, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
+            f_remote_branches = pool.submit(run_git, "branch", "-r", "--format=%(refname:short)")
             f_revlist = pool.submit(run_git, "rev-list", "--left-right", "--count", "HEAD...@{upstream}")
 
         result = f_branch.result()
         if result.returncode == 0:
             info["branch"] = result.stdout.strip()
+
+        result = f_remote_branches.result()
+        if result.returncode == 0 and info["branch"]:
+            branch = info["branch"]
+            candidates = {b.strip() for b in result.stdout.splitlines() if b.strip()}
+            info["has_remote_branch"] = f"origin/{branch}" in candidates
+        elif info["branch"]:
+            info["has_remote_branch"] = False
 
         result = f_commit.result()
         if result.returncode == 0 and result.stdout.strip():
@@ -329,6 +342,13 @@ def git_info(directory: Path) -> dict:
         result = f_message.result()
         if result.returncode == 0 and result.stdout.strip():
             info["last_commit_message"] = result.stdout.strip()
+
+        result = f_upstream.result()
+        if result.returncode == 0 and result.stdout.strip():
+            info["upstream"] = result.stdout.strip()
+            info["has_upstream"] = True
+        else:
+            info["has_upstream"] = False
 
         result = f_remote.result()
         if result.returncode == 0:
@@ -357,12 +377,34 @@ def git_info(directory: Path) -> dict:
                 if deletions_match:
                     info["deletions"] += int(deletions_match.group(1))
 
+            status_output = f_status.result().stdout if f_status else ""
+            if status_output:
+                untracked = sum(1 for line in status_output.splitlines() if line.startswith("?? "))
+                info["changed_files"] += untracked
+
         result = f_revlist.result()
-        if result.returncode == 0:
+        if result.returncode == 0 and info["has_upstream"]:
             parts = result.stdout.strip().split()
             if len(parts) == 2:
                 info["ahead"] = int(parts[0])
                 info["behind"] = int(parts[1])
+        elif info["branch"] and info["has_remote_branch"] is True:
+            # Upstream未設定でも同名リモートブランチがあれば差分件数を出す
+            remote_ref = f"origin/{info['branch']}"
+            remote_diff = run_git("rev-list", "--left-right", "--count", f"HEAD...{remote_ref}")
+            if remote_diff.returncode == 0:
+                parts = remote_diff.stdout.strip().split()
+                if len(parts) == 2:
+                    info["ahead"] = int(parts[0])
+                    info["behind"] = int(parts[1])
+        elif info["has_remote_branch"] is False:
+            # 初回push向け: origin上のどのブランチにも含まれないローカルコミット数
+            unpublished = run_git("rev-list", "--count", "HEAD", "--not", "--remotes=origin")
+            if unpublished.returncode == 0:
+                try:
+                    info["ahead"] = int(unpublished.stdout.strip() or "0")
+                except ValueError:
+                    pass
     except (subprocess.TimeoutExpired, OSError) as e:
         logger.warning("git_info failed dir=%s: %s", directory, e)
     _git_info_cache.set(cache_key, info)

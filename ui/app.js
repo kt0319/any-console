@@ -251,6 +251,8 @@ applyPanelBottom();
   $("fetch-btn").addEventListener("click", gitFetch);
   $("stash-btn").addEventListener("click", openStashPane);
   $("pull-btn").addEventListener("click", gitPull);
+  $("set-upstream-btn").addEventListener("click", gitSetUpstream);
+  $("push-upstream-btn").addEventListener("click", gitPushUpstream);
   $("push-btn").addEventListener("click", gitPush);
   initQuickInput();
   $("header-commit-msg").addEventListener("click", openGitLogModal);

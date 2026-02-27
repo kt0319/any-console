@@ -113,9 +113,7 @@ function renderDiffFileList(fileList, files, diffText) {
     tag.className = "diff-file-tag";
     tag.dataset.file = name;
     if (isNew) {
-      const dot = document.createElement("span");
-      dot.className = "diff-new-dot";
-      tag.appendChild(dot);
+      tag.classList.add("diff-file-tag-new");
     }
     tag.appendChild(document.createTextNode(name));
     tag.addEventListener("click", () => selectDiffFile(name));
