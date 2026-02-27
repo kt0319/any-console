@@ -196,7 +196,6 @@ function renderDiffFileList(fileList, files, diffText, options = {}) {
   fileList.innerHTML = "";
 
   let html = '<div class="file-browser diff-file-browser">';
-  html += '<div class="file-browser-header"><span class="file-browser-crumb-current">ファイル</span></div>';
   html += '<ul class="file-browser-list diff-file-browser-list">';
   if (files.length === 0) {
     html += '<li class="file-browser-item diff-file-row-empty"><span class="file-browser-item-name">変更ファイルなし</span></li>';
