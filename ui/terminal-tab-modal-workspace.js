@@ -182,57 +182,55 @@ function createTerminalTabModalWorkspaceSection(deps) {
     container.appendChild(addItem);
   }
 
-  function showPickerCloneInContainer(content, defaultTab = "github") {
+  function showPickerCloneInContainer(content, defaultTab = "visibility") {
     let pickerCloneTab = defaultTab;
     let pickerSelectedUrl = "";
     let pickerRepos = [];
 
     const cloneModalActiveTabs = document.createElement("div");
     cloneModalActiveTabs.className = "clone-openTabs";
-    const githubBtn = document.createElement("button");
-    githubBtn.type = "button";
-    githubBtn.className = "clone-tab" + (defaultTab === "github" ? " active" : "");
-    githubBtn.textContent = "GitHub";
-    const urlBtn = document.createElement("button");
-    urlBtn.type = "button";
-    urlBtn.className = "clone-tab" + (defaultTab === "url" ? " active" : "");
-    urlBtn.textContent = "手動入力";
     const visibilityBtn = document.createElement("button");
     visibilityBtn.type = "button";
     visibilityBtn.className = "clone-tab" + (defaultTab === "visibility" ? " active" : "");
     visibilityBtn.textContent = "表示設定";
-    cloneModalActiveTabs.append(visibilityBtn, githubBtn, urlBtn);
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "clone-tab" + (defaultTab === "add" ? " active" : "");
+    addBtn.textContent = "新規追加";
+    cloneModalActiveTabs.append(visibilityBtn, addBtn);
     content.appendChild(cloneModalActiveTabs);
 
-    const githubPane = document.createElement("div");
-    githubPane.className = "clone-tab-content";
-    githubPane.style.display = defaultTab === "github" ? "block" : "none";
+    const visibilityPane = document.createElement("div");
+    visibilityPane.className = "clone-tab-content";
+    visibilityPane.style.display = defaultTab === "visibility" ? "block" : "none";
+    renderWorkspaceVisibilityChecklistTo(visibilityPane);
+    content.appendChild(visibilityPane);
+
+    const addPane = document.createElement("div");
+    addPane.className = "clone-tab-content";
+    addPane.style.display = defaultTab === "add" ? "block" : "none";
+
+    const sourceGroup = document.createElement("div");
+    sourceGroup.className = "form-group";
+    sourceGroup.innerHTML = '<label class="form-label">GitHub</label>';
+    addPane.appendChild(sourceGroup);
+
     const repoList = document.createElement("div");
     repoList.className = "clone-repo-list";
     repoList.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
-    githubPane.appendChild(repoList);
-    content.appendChild(githubPane);
+    addPane.appendChild(repoList);
 
-    const urlPane = document.createElement("div");
-    urlPane.className = "clone-tab-content";
-    urlPane.style.display = defaultTab === "url" ? "block" : "none";
     const urlGroup = document.createElement("div");
     urlGroup.className = "form-group";
-    urlGroup.innerHTML = '<label class="form-label">リポジトリ <span class="form-hint">(省略可)</span></label>';
+    urlGroup.innerHTML = '<label class="form-label">リポジトリパス <span class="form-hint">(省略可)</span></label>';
     const urlInput = document.createElement("input");
     urlInput.type = "text";
     urlInput.className = "form-input";
     urlInput.placeholder = "git@github.com:user/repo.git or https://...";
     urlInput.autocomplete = "off";
     urlGroup.appendChild(urlInput);
-    urlPane.appendChild(urlGroup);
-    content.appendChild(urlPane);
-
-    const visibilityPane = document.createElement("div");
-    visibilityPane.className = "clone-tab-content";
-    visibilityPane.style.display = defaultTab === "visibility" ? "block" : "none";
-    if (defaultTab === "visibility") renderWorkspaceVisibilityChecklistTo(visibilityPane);
-    content.appendChild(visibilityPane);
+    addPane.appendChild(urlGroup);
+    content.appendChild(addPane);
 
     const nameGroup = document.createElement("div");
     nameGroup.className = "form-group";
@@ -261,27 +259,22 @@ function createTerminalTabModalWorkspaceSection(deps) {
     submitBtn.type = "button";
     submitBtn.className = "primary";
     submitBtn.style.width = "auto";
-    submitBtn.textContent = "クローン";
+    submitBtn.textContent = "作成";
     actions.appendChild(submitBtn);
     cloneFields.appendChild(actions);
     content.appendChild(cloneFields);
 
     function switchCloneTabInner(tab) {
       pickerCloneTab = tab;
-      githubBtn.classList.toggle("active", tab === "github");
-      urlBtn.classList.toggle("active", tab === "url");
       visibilityBtn.classList.toggle("active", tab === "visibility");
-      githubPane.style.display = tab === "github" ? "block" : "none";
-      urlPane.style.display = tab === "url" ? "block" : "none";
+      addBtn.classList.toggle("active", tab === "add");
       visibilityPane.style.display = tab === "visibility" ? "block" : "none";
+      addPane.style.display = tab === "add" ? "block" : "none";
       cloneFields.style.display = tab === "visibility" ? "none" : "";
-      if (tab === "url") urlInput.focus();
-      if (tab === "visibility") renderWorkspaceVisibilityChecklistTo(visibilityPane);
-      if (tab === "github" && pickerRepos.length === 0) loadRepos();
+      if (tab === "add" && pickerRepos.length === 0) loadRepos();
     }
 
-    githubBtn.addEventListener("click", () => switchCloneTabInner("github"));
-    urlBtn.addEventListener("click", () => switchCloneTabInner("url"));
+    addBtn.addEventListener("click", () => switchCloneTabInner("add"));
     visibilityBtn.addEventListener("click", () => switchCloneTabInner("visibility"));
 
     function renderRepos() {
@@ -297,6 +290,7 @@ function createTerminalTabModalWorkspaceSection(deps) {
           (repo.description ? `<div class="clone-repo-desc">${escapeHtml(repo.description)}</div>` : "");
         item.addEventListener("click", () => {
           pickerSelectedUrl = repo.url;
+          urlInput.value = toSshUrl(repo.url);
           renderRepos();
         });
         repoList.appendChild(item);
@@ -314,25 +308,19 @@ function createTerminalTabModalWorkspaceSection(deps) {
     }
 
     submitBtn.addEventListener("click", async () => {
-      let url = pickerCloneTab === "github" ? pickerSelectedUrl : urlInput.value.trim();
+      let url = urlInput.value.trim() || pickerSelectedUrl;
       url = toSshUrl(url);
       const name = nameInput.value.trim();
 
-      if (pickerCloneTab === "github" && !url) {
+      if (!url && !name) {
         errorEl.textContent = "リポジトリを選択してください";
-        errorEl.style.display = "block";
-        return;
-      }
-
-      if (pickerCloneTab === "url" && !url && !name) {
-        errorEl.textContent = "URLまたはディレクトリ名を入力してください";
         errorEl.style.display = "block";
         return;
       }
 
       errorEl.style.display = "none";
       outputEl.style.display = "block";
-      outputEl.textContent = pickerCloneTab === "url" && !url ? "creating directory..." : "cloning...";
+      outputEl.textContent = !url ? "creating directory..." : "cloning...";
       submitBtn.disabled = true;
 
       try {
@@ -363,7 +351,7 @@ function createTerminalTabModalWorkspaceSection(deps) {
       }
     });
 
-    if (defaultTab === "github") loadRepos();
+    if (defaultTab === "add") loadRepos();
   }
 
   return {
