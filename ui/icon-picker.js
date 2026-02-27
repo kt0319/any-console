@@ -17,6 +17,14 @@ const ICON_PRESET_COLORS = [
 ];
 
 const URL_PATTERN = /^(https?:\/\/|[a-zA-Z0-9-]+\.[a-zA-Z]{2,})/;
+const ICON_UPLOAD_MAX_SIZE = 512 * 1024;
+const ICON_UPLOAD_ALLOWED_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+]);
 
 function looksLikeUrl(text) {
   return URL_PATTERN.test(text);
@@ -31,6 +39,25 @@ function extractDomain(text) {
   } catch {
     return text;
   }
+}
+
+function validateIconUploadFile(file) {
+  if (!file) return "ファイルを選択してください";
+  if (!ICON_UPLOAD_ALLOWED_TYPES.has(file.type)) {
+    return "PNG/JPG/GIF/WEBP/SVG の画像を選択してください";
+  }
+  if (file.size > ICON_UPLOAD_MAX_SIZE) {
+    return "画像サイズは500KB以下にしてください";
+  }
+  return "";
+}
+
+async function iconFileToDataUrl(file) {
+  const dataUrl = await blobToDataUrl(file);
+  if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
+    throw new Error("画像の読み込みに失敗しました");
+  }
+  return dataUrl;
 }
 
 async function fetchIconMeta() {
@@ -57,12 +84,15 @@ function openIconPicker(callback, currentIcon, currentColor) {
   const grid = $("icon-picker-grid");
   const preview = $("icon-picker-favicon-preview");
   const confirmBtn = $("icon-picker-url-ok");
+  const uploadBtn = $("icon-picker-upload");
+  const uploadInput = $("icon-picker-upload-input");
 
   grid.innerHTML = '<div class="icon-picker-loading">読み込み中...</div>';
   preview.innerHTML = "";
   confirmBtn.disabled = true;
 
   search.value = "";
+  if (uploadInput) uploadInput.value = "";
 
   renderPickerColorPalette(iconPickerSelectedColor);
   modal.style.display = "flex";
@@ -91,6 +121,32 @@ function openIconPicker(callback, currentIcon, currentColor) {
       if (iconPickerCache) renderIconGrid(iconPickerCache, raw.toLowerCase());
     }
   };
+
+  if (uploadBtn && uploadInput) {
+    uploadBtn.onclick = () => uploadInput.click();
+    uploadInput.onchange = async () => {
+      const file = uploadInput.files && uploadInput.files[0];
+      if (!file) return;
+      const validationError = validateIconUploadFile(file);
+      if (validationError) {
+        showToast(validationError);
+        uploadInput.value = "";
+        return;
+      }
+      try {
+        const dataUrl = await iconFileToDataUrl(file);
+        iconPickerSelectedIcon = dataUrl;
+        search.value = "";
+        preview.innerHTML = renderIcon(dataUrl, "", 24);
+        confirmBtn.disabled = false;
+        grid.querySelectorAll(".icon-picker-item").forEach((el) => el.classList.remove("selected"));
+      } catch (e) {
+        showToast(e.message || "画像の読み込みに失敗しました");
+      } finally {
+        uploadInput.value = "";
+      }
+    };
+  }
 }
 
 function renderPickerColorPalette(currentColor) {
@@ -179,7 +235,7 @@ function submitIconPicker() {
     if (cb) cb(`favicon:${domain}`, "");
   } else if (iconPickerSelectedIcon) {
     const cb = iconPickerCallback;
-    const color = iconPickerSelectedColor;
+    const color = iconPickerSelectedIcon.startsWith("data:image/") ? "" : iconPickerSelectedColor;
     closeIconPicker();
     if (cb) cb(iconPickerSelectedIcon, color);
   }
@@ -229,12 +285,20 @@ function renderInlineIconPicker(container, callback, currentIcon, currentColor, 
   faviconConfirm.className = "icon-picker-favicon-confirm";
   const preview = document.createElement("span");
   preview.className = "icon-picker-favicon-preview";
+  const uploadBtn = document.createElement("button");
+  uploadBtn.type = "button";
+  uploadBtn.className = "icon-picker-upload-btn";
+  uploadBtn.innerHTML = '<span class="mdi mdi-image-plus"></span> 画像';
+  const uploadInput = document.createElement("input");
+  uploadInput.type = "file";
+  uploadInput.accept = "image/png,image/jpeg,image/gif,image/webp,image/svg+xml";
+  uploadInput.style.display = "none";
   const urlOkBtn = document.createElement("button");
   urlOkBtn.type = "button";
   urlOkBtn.className = "primary icon-picker-url-ok-btn";
   urlOkBtn.disabled = true;
   urlOkBtn.textContent = "決定";
-  faviconConfirm.append(preview, urlOkBtn);
+  faviconConfirm.append(preview, uploadBtn, uploadInput, urlOkBtn);
   inputRow.append(search, faviconConfirm);
   body.appendChild(inputRow);
 
@@ -307,7 +371,30 @@ function renderInlineIconPicker(container, callback, currentIcon, currentColor, 
     }
     if (selectedIcon) {
       close();
-      callback(selectedIcon, selectedColor);
+      callback(selectedIcon, selectedIcon.startsWith("data:image/") ? "" : selectedColor);
+    }
+  });
+
+  uploadBtn.addEventListener("click", () => uploadInput.click());
+  uploadInput.addEventListener("change", async () => {
+    const file = uploadInput.files && uploadInput.files[0];
+    if (!file) return;
+    const validationError = validateIconUploadFile(file);
+    if (validationError) {
+      showToast(validationError);
+      uploadInput.value = "";
+      return;
+    }
+    try {
+      selectedIcon = await iconFileToDataUrl(file);
+      search.value = "";
+      preview.innerHTML = renderIcon(selectedIcon, "", 24);
+      urlOkBtn.disabled = false;
+      grid.querySelectorAll(".icon-picker-item").forEach((el) => el.classList.remove("selected"));
+    } catch (e) {
+      showToast(e.message || "画像の読み込みに失敗しました");
+    } finally {
+      uploadInput.value = "";
     }
   });
 

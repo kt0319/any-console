@@ -395,7 +395,11 @@ function openTabEditModal(initialTab = "layout") {
 
   function renderModalWsList(container) {
     async function executeWsRemoteOp(wsName, endpoint, label, button) {
-      if (!confirm(`${wsName} を ${label} しますか？`)) return;
+      const ws = allWorkspaces.find((w) => w.name === wsName);
+      const branch = ws && ws.branch ? ws.branch : "(不明)";
+      const actionLabel = label === "追跡設定" ? "追跡設定" : label;
+      const msg = `${actionLabel} を実行しますか？\nリポジトリ: ${wsName}\nブランチ: ${branch}`;
+      if (!confirm(msg)) return;
       if (button) {
         button.disabled = true;
         button.classList.add("running");

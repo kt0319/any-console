@@ -26,7 +26,11 @@ async function gitFetch() {
 
 async function executeGitRemoteOp(buttonId, endpoint, label) {
   if (!selectedWorkspace) return;
-  if (!confirm(`${selectedWorkspace} を ${label} しますか？`)) return;
+  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
+  const branch = ws && ws.branch ? ws.branch : "(不明)";
+  const actionLabel = label === "追跡設定" ? "追跡設定" : label;
+  const msg = `${actionLabel} を実行しますか？\nリポジトリ: ${selectedWorkspace}\nブランチ: ${branch}`;
+  if (!confirm(msg)) return;
 
   const btn = $(buttonId);
   if (btn.disabled) return;

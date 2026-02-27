@@ -1367,7 +1367,7 @@ header .ws-select-wrap {
 }
 
 .file-browser-close {
-  margin-left: auto;
+  margin-left: 4px;
   flex-shrink: 0;
   width: 28px;
   height: 28px;
@@ -1384,6 +1384,25 @@ header .ws-select-wrap {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+}
+
+.file-browser-upload {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.file-browser-upload .mdi {
+  font-size: 14px;
 }
 
 .file-browser-list {
@@ -3237,6 +3256,21 @@ button:disabled {
   min-height: 32px;
   padding: 0 10px;
   font-size: 12px;
+}
+
+.icon-picker-upload-btn {
+  min-width: auto;
+  min-height: 32px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .icon-picker-loading,

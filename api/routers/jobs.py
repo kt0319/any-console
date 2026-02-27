@@ -78,13 +78,14 @@ def list_workspace_jobs(name: str):
 
 ICON_PATTERN = re.compile(r"^(mdi-[a-zA-Z0-9-]+|favicon:[a-zA-Z0-9._-]+|data:image/.+)$")
 ICON_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{3,6}$")
+MAX_ICON_VALUE_LEN = 200_000
 
 
 def validate_icon(icon: str) -> str:
     icon = icon.strip()
     if not icon:
         return ""
-    if len(icon) > 500:
+    if len(icon) > MAX_ICON_VALUE_LEN:
         raise HTTPException(status_code=400, detail="Icon value too long")
     if not ICON_PATTERN.match(icon):
         raise HTTPException(status_code=400, detail=f"Invalid icon format: {icon}")

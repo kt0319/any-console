@@ -106,7 +106,7 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function buildBreadcrumbHtml(parts) {
+function buildBreadcrumbHtml(parts, uploadPath = "") {
   const rootLabel = selectedWorkspace || "~";
   let html = '<div class="file-browser-header">';
   html += `<button type="button" class="file-browser-crumb" data-path="">${escapeHtml(rootLabel)}/</button>`;
@@ -119,6 +119,8 @@ function buildBreadcrumbHtml(parts) {
       html += `<button type="button" class="file-browser-crumb" data-path="${escapeHtml(subPath)}">${escapeHtml(parts[i])}</button>`;
     }
   }
+  html += `<button type="button" class="file-browser-upload" data-path="${escapeHtml(uploadPath)}"><span class="mdi mdi-upload"></span> アップロード</button>`;
+  html += '<input type="file" class="file-browser-upload-input" style="display:none" />';
   html += '<button type="button" class="file-browser-close">&times;</button>';
   html += "</div>";
   return html;
@@ -126,7 +128,7 @@ function buildBreadcrumbHtml(parts) {
 
 function buildFileBrowserHtml(path, entries) {
   const parts = path ? path.split("/") : [];
-  const breadcrumb = buildBreadcrumbHtml(parts);
+  const breadcrumb = buildBreadcrumbHtml(parts, path || "");
 
   let list = '<ul class="file-browser-list">';
   if (path) {
@@ -172,7 +174,8 @@ function fileBrowserMessage(text, muted = false) {
 
 function buildFileContentHtml(path, data) {
   const parts = path.split("/");
-  const breadcrumb = buildBreadcrumbHtml(parts);
+  const parentPath = parts.slice(0, -1).join("/");
+  const breadcrumb = buildBreadcrumbHtml(parts, parentPath);
 
   let body = "";
   if (data.image) {
@@ -212,6 +215,54 @@ function buildFileContentHtml(path, data) {
   return `<div class="file-browser">${breadcrumb}${body}</div>`;
 }
 
+async function uploadFileToWorkspaceDir(dirPath, file) {
+  if (!selectedWorkspace || !file) return false;
+  const form = new FormData();
+  form.append("path", dirPath || "");
+  form.append("file", file);
+  try {
+    const res = await fetch(workspaceApiPath(selectedWorkspace, "/upload"), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    if (res.status === 401) {
+      await handleUnauthorized();
+      return false;
+    }
+    let data = {};
+    try {
+      data = await res.json();
+    } catch {}
+    if (!res.ok || data.status !== "ok") {
+      showToast(data.detail || "アップロードに失敗しました");
+      return false;
+    }
+    showToast(`アップロード完了: ${file.name}`, "success");
+    return true;
+  } catch (e) {
+    showToast(e.message || "アップロードに失敗しました");
+    return false;
+  }
+}
+
+function bindFileUploadEvents(container, loadDirFn) {
+  const uploadBtn = container.querySelector(".file-browser-upload");
+  const uploadInput = container.querySelector(".file-browser-upload-input");
+  if (!uploadBtn || !uploadInput) return;
+  uploadBtn.addEventListener("click", () => uploadInput.click());
+  uploadInput.addEventListener("change", async () => {
+    const file = uploadInput.files && uploadInput.files[0];
+    const targetPath = uploadBtn.dataset.path || "";
+    uploadInput.value = "";
+    if (!file) return;
+    const ok = await uploadFileToWorkspaceDir(targetPath, file);
+    if (ok) {
+      loadDirFn(targetPath);
+    }
+  });
+}
+
 async function loadDirectory(path) {
   if (!selectedWorkspace) return;
   const el = $("frame-file-browser");
@@ -235,6 +286,7 @@ async function loadDirectory(path) {
 }
 
 function bindFileBrowserEvents(container) {
+  bindFileUploadEvents(container, loadDirectory);
   for (const crumb of container.querySelectorAll(".file-browser-crumb")) {
     crumb.addEventListener("click", () => loadDirectory(crumb.dataset.path));
   }
@@ -350,6 +402,7 @@ async function loadFileContentInModal(path) {
 }
 
 function bindFileBrowserEventsInModal(container) {
+  bindFileUploadEvents(container, loadDirectoryInModal);
   for (const crumb of container.querySelectorAll(".file-browser-crumb")) {
     crumb.addEventListener("click", () => loadDirectoryInModal(crumb.dataset.path));
   }

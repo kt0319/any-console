@@ -4,7 +4,7 @@ import mimetypes
 import os
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
 from ..auth import verify_token
@@ -518,6 +518,7 @@ BINARY_EXTENSIONS = {
 }
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".svg"}
 MAX_IMAGE_PREVIEW_SIZE = 5 * 1024 * 1024
+MAX_WORKSPACE_UPLOAD_SIZE = 10 * 1024 * 1024
 
 
 @router.get("/workspaces/{name}/file-content")
@@ -561,3 +562,39 @@ def get_file_content(name: str, path: str = Query(...)):
         raise HTTPException(status_code=403, detail="Permission denied")
 
     return {"status": "ok", "path": path, "content": content, "size": size}
+
+
+@router.post("/workspaces/{name}/upload")
+async def upload_file_to_workspace(
+    name: str,
+    path: str = Form(""),
+    file: UploadFile = File(...),
+):
+    ws_path = resolve_workspace_path(name)
+    target_dir = resolve_workspace_target_path(ws_path, path)
+    rel_dir = validate_workspace_relative_target(ws_path, target_dir)
+    if not target_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Directory not found")
+
+    filename = (file.filename or "").strip()
+    if not filename or filename in {".", ".."} or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid file name")
+
+    target_file = (target_dir / filename).resolve()
+    validate_workspace_relative_target(ws_path, target_file)
+    if target_file.exists():
+        raise HTTPException(status_code=409, detail=f"File already exists: {filename}")
+
+    data = await file.read(MAX_WORKSPACE_UPLOAD_SIZE + 1)
+    if len(data) > MAX_WORKSPACE_UPLOAD_SIZE:
+        raise HTTPException(status_code=413, detail="File too large (max 10MB)")
+
+    try:
+        target_file.write_bytes(data)
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied")
+    except OSError:
+        raise HTTPException(status_code=500, detail="Cannot write file")
+
+    rel_path = str(rel_dir / filename)
+    return {"status": "ok", "path": rel_path, "size": len(data)}
