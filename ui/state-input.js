@@ -55,16 +55,10 @@ function addInputHistory(text) {
 }
 
 const SNIPPETS_KEY = "pi_console_snippets";
-const DEFAULT_SNIPPETS = [
-  { label: "ls -la", command: "ls -la" },
-  { label: "git status", command: "git status" },
-  { label: "git diff", command: "git diff" },
-  { label: "docker ps", command: "docker ps" },
-];
 
 function loadSnippets() {
   const raw = localStorage.getItem(SNIPPETS_KEY);
-  return raw ? JSON.parse(raw) : DEFAULT_SNIPPETS.map((s) => ({ ...s }));
+  return raw ? JSON.parse(raw) : [];
 }
 
 function addSnippet(command) {
