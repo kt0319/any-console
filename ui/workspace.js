@@ -50,16 +50,25 @@ function updatePullPushButtons(ws) {
 
   const pullBtn = $("pull-btn");
   const pushBtn = $("push-btn");
+  const setUpstreamBtn = $("set-upstream-btn");
+  const pushUpstreamBtn = $("push-upstream-btn");
   const pullCount = $("pull-count");
   const pushCount = $("push-count");
+  const pushUpstreamCount = $("push-upstream-count");
+  const hasUpstream = ws.has_upstream !== false;
+  const hasRemoteBranch = ws.has_remote_branch === true;
 
   pullBtn.style.display = ws.behind > 0 ? "" : "none";
-  pushBtn.style.display = ws.ahead > 0 ? "" : "none";
+  pushBtn.style.display = hasUpstream && ws.ahead > 0 ? "" : "none";
+  setUpstreamBtn.style.display = !hasUpstream && hasRemoteBranch ? "" : "none";
+  pushUpstreamBtn.style.display = !hasUpstream && !hasRemoteBranch ? "" : "none";
   pullCount.textContent = ws.behind > 0 ? ws.behind : "";
   pushCount.textContent = ws.ahead > 0 ? ws.ahead : "";
+  pushUpstreamCount.textContent = (!hasUpstream && !hasRemoteBranch) ? String(ws.ahead ?? 0) : "";
   pullBtn.classList.toggle("has-count", ws.behind > 0);
   pushBtn.classList.toggle("has-count", ws.ahead > 0);
-  actions.style.display = (ws.behind > 0 || ws.ahead > 0) ? "flex" : "none";
+  pushUpstreamBtn.classList.toggle("has-count", !hasUpstream && !hasRemoteBranch && ws.ahead > 0);
+  actions.style.display = (ws.behind > 0 || ws.ahead > 0 || !hasUpstream) ? "flex" : "none";
 }
 
 async function refreshCurrentWorkspaceStatus() {
@@ -138,4 +147,3 @@ async function gitFetchWorkspace(name) {
     console.error("gitFetchWorkspace failed:", e);
   }
 }
-

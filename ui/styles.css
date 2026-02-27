@@ -294,22 +294,25 @@ header .ws-select-wrap {
   text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .picker-ws-header-text {
   min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   flex: 1;
 }
 
 .picker-ws-name {
   min-width: 0;
+  width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 13px;
 }
 
 .picker-ws-top-meta {
@@ -322,15 +325,8 @@ header .ws-select-wrap {
 }
 
 .picker-ws-branch {
-  max-width: 100px;
-  padding: 0 8px;
-  height: 26px;
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
+  max-width: 100%;
+  color: var(--text-muted);
   font-size: 10px;
   white-space: nowrap;
   overflow: hidden;
@@ -348,6 +344,7 @@ header .ws-select-wrap {
 .picker-ws-icons-bottom {
   flex: 1;
   min-width: 0;
+  gap: 8px;
   justify-content: flex-start;
 }
 
@@ -379,6 +376,18 @@ header .ws-select-wrap {
   color: var(--accent);
   background: rgba(130, 170, 255, 0.15);
   border-color: rgba(130, 170, 255, 0.3);
+}
+
+.picker-ws-mini-btn.upstream-set-btn {
+  color: var(--warning);
+  background: rgba(238, 166, 68, 0.15);
+  border-color: rgba(238, 166, 68, 0.3);
+}
+
+.picker-ws-mini-btn.upstream-btn {
+  color: var(--success);
+  background: rgba(120, 200, 140, 0.15);
+  border-color: rgba(120, 200, 140, 0.3);
 }
 
 .picker-ws-mini-btn.running {
@@ -542,6 +551,11 @@ header .ws-select-wrap {
   transition: background 0.15s, color 0.15s;
 }
 
+.git-action-btn.icon-only {
+  width: 36px;
+  padding: 0;
+}
+
 .git-action-btn.fetch-btn,
 .git-action-btn.stash-btn {
   color: var(--text-muted);
@@ -570,6 +584,22 @@ header .ws-select-wrap {
   color: var(--accent);
   background: rgba(130, 170, 255, 0.15);
   border: 1px solid rgba(130, 170, 255, 0.3);
+}
+
+.git-action-btn.upstream-set-btn {
+  color: var(--warning);
+  background: var(--warning-bg-20);
+  border: 1px solid rgba(238, 166, 68, 0.3);
+}
+
+.git-action-btn.upstream-btn {
+  color: var(--success);
+  background: var(--success-bg-20);
+  border: 1px solid rgba(120, 200, 140, 0.3);
+}
+
+.git-action-label {
+  white-space: nowrap;
 }
 
 
@@ -2584,14 +2614,8 @@ button:disabled {
   -webkit-tap-highlight-color: transparent;
 }
 
-.diff-new-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--success);
-  margin-right: 5px;
-  vertical-align: middle;
+.diff-file-tag-new {
+  border-color: var(--accent);
 }
 
 .diff-file-tag.active {

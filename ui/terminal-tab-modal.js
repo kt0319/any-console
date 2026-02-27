@@ -465,7 +465,26 @@ function openTabEditModal(initialTab = "layout") {
         topMeta.appendChild(dirtyBadge);
       }
 
-      if (ws.ahead > 0) {
+      const hasUpstream = ws.has_upstream !== false;
+      const hasRemoteBranch = ws.has_remote_branch === true;
+      if (!hasUpstream) {
+        const upstreamBtn = document.createElement("button");
+        upstreamBtn.type = "button";
+        if (hasRemoteBranch) {
+          upstreamBtn.className = "picker-ws-mini-btn upstream-set-btn";
+          upstreamBtn.innerHTML = `<span class="mdi mdi-link-variant"></span><span>追跡</span>`;
+          upstreamBtn.addEventListener("click", () => executeWsRemoteOp(ws.name, "/set-upstream", "追跡設定", upstreamBtn));
+        } else {
+          const hasAhead = ws.ahead > 0;
+          const aheadCount = String(ws.ahead ?? 0);
+          upstreamBtn.className = "picker-ws-mini-btn upstream-btn" + (hasAhead ? " has-count" : "");
+          upstreamBtn.innerHTML = `<span class="mdi mdi-chevron-double-up"></span><span>${aheadCount}</span>`;
+          upstreamBtn.addEventListener("click", () => executeWsRemoteOp(ws.name, "/push-upstream", "push", upstreamBtn));
+        }
+        topMeta.appendChild(upstreamBtn);
+      }
+
+      if (hasUpstream && ws.ahead > 0) {
         const pushBtn = document.createElement("button");
         pushBtn.type = "button";
         pushBtn.className = "picker-ws-mini-btn push-btn has-count";
