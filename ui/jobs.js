@@ -243,7 +243,7 @@ function createFormError() {
 }
 
 function showFormErr(el, msg) {
-  el.textContent = msg;
+  el.textContent = toDisplayMessage(msg, "入力内容を確認してください");
   el.style.display = "block";
 }
 
@@ -264,13 +264,13 @@ async function submitWorkspaceFormAction({
     if (!res) return false;
     const data = await res.json();
     if (!res.ok) {
-      showFormErr(errorEl, data.detail || errorFallback);
+      showFormErr(errorEl, getActionFailureMessage(data, errorFallback));
       return false;
     }
     if (successMessage) showToast(successMessage, "success");
     return true;
   } catch (e) {
-    showFormErr(errorEl, e.message);
+    showFormErr(errorEl, e);
     return false;
   }
 }

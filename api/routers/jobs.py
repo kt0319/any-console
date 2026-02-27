@@ -133,7 +133,7 @@ def build_job_entry(
 class CreateJobRequest(BaseModel):
     label: str = Field(..., max_length=200)
     command: str = Field(..., max_length=10000)
-    icon: str = Field("", max_length=500)
+    icon: str = Field("", max_length=MAX_ICON_VALUE_LEN)
     icon_color: str = Field("", max_length=20)
     confirm: bool = True
     terminal: bool = True
@@ -167,7 +167,7 @@ def create_workspace_job(name: str, body: CreateJobRequest):
 class UpdateJobRequest(BaseModel):
     label: str = Field(..., max_length=200)
     command: str = Field(..., max_length=10000)
-    icon: str = Field("", max_length=500)
+    icon: str = Field("", max_length=MAX_ICON_VALUE_LEN)
     icon_color: str = Field("", max_length=20)
     confirm: bool = True
     terminal: bool = True
@@ -234,7 +234,7 @@ def list_workspace_links(name: str):
 class CreateLinkRequest(BaseModel):
     label: str = Field("", max_length=200)
     url: str = Field(..., max_length=2000)
-    icon: str = Field("", max_length=500)
+    icon: str = Field("", max_length=MAX_ICON_VALUE_LEN)
     icon_color: str = Field("", max_length=20)
 
 

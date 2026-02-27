@@ -11,10 +11,43 @@ function copyToClipboard(text) {
   navigator.clipboard.writeText(text).catch((e) => console.error("clipboard write failed:", e));
 }
 
+function toDisplayMessage(value, fallback = "") {
+  if (value == null) return fallback;
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (value instanceof Error) return toDisplayMessage(value.message, fallback);
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((item) => {
+        if (item && typeof item === "object" && typeof item.msg === "string") {
+          return item.msg;
+        }
+        return toDisplayMessage(item, "");
+      })
+      .filter(Boolean);
+    return parts.length > 0 ? parts.join(" / ") : fallback;
+  }
+  if (typeof value === "object") {
+    if ("detail" in value) return toDisplayMessage(value.detail, fallback);
+    if ("message" in value) return toDisplayMessage(value.message, fallback);
+    if ("msg" in value) return toDisplayMessage(value.msg, fallback);
+    if ("error" in value) return toDisplayMessage(value.error, fallback);
+    if ("stderr" in value) return toDisplayMessage(value.stderr, fallback);
+    if ("stdout" in value) return toDisplayMessage(value.stdout, fallback);
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return fallback;
+    }
+  }
+  return fallback;
+}
+
 function showToast(message, type = "error") {
+  const text = toDisplayMessage(message, "不明なエラー");
   const el = document.createElement("div");
   el.className = `toast toast-${type}`;
-  el.textContent = message;
+  el.textContent = text;
   el.style.cursor = "pointer";
   let dismissed = false;
   const dismiss = () => {
@@ -24,7 +57,7 @@ function showToast(message, type = "error") {
     el.addEventListener("transitionend", () => el.remove());
   };
   el.addEventListener("click", () => {
-    copyToClipboard(message);
+    copyToClipboard(text);
     dismiss();
   });
   document.body.appendChild(el);
@@ -144,7 +177,7 @@ function setCloneRepoStatus(container, variant, text) {
 
 function getActionFailureMessage(data, fallback = "unknown error") {
   if (!data || typeof data !== "object") return fallback;
-  return data.stderr || data.stdout || data.detail || fallback;
+  return toDisplayMessage(data.stderr || data.stdout || data.detail, fallback);
 }
 
 async function postWorkspaceAction(workspace, endpoint, label, body = null) {
@@ -209,7 +242,7 @@ function workspaceApiPath(workspace, path = "") {
 
 function showFormError(errorElementId, message) {
   const el = $(errorElementId);
-  el.textContent = message;
+  el.textContent = toDisplayMessage(message, "入力内容を確認してください");
   el.style.display = "block";
 }
 
