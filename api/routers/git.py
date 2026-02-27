@@ -394,11 +394,18 @@ def git_stash_pop_index(name: str, body: StashDropRequest):
     return result
 
 
+class StashRequest(BaseModel):
+    include_untracked: bool = False
+
+
 @router.post("/workspaces/{name}/stash")
-def git_stash(name: str):
+def git_stash(name: str, body: StashRequest = None):
     ws_path = resolve_workspace_path(name)
+    args = ["stash"]
+    if body and body.include_untracked:
+        args.append("-u")
     result = run_git_command(
-        ["stash"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="stash",
+        args, cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="stash",
     )
     logger.info("stash workspace=%s rc=%d", name, result["exit_code"])
     invalidate_git_info(name)
@@ -419,6 +426,51 @@ def git_stash_pop(name: str):
 @router.get("/workspaces/{name}/diff/{commit_hash}")
 def get_commit_diff(name: str, commit_hash: str):
     ws_path = resolve_workspace_path(name)
+    
+    # Allow stash refs
+    if STASH_REF_PATTERN.match(commit_hash):
+        # For stash, use "stash show -p" logic or diff against parent
+        # git stash show -p returns the diff
+        # To make it compatible with the frontend which expects file list and diff content
+        
+        # 1. Get diff content
+        result = run_git_command(
+            ["stash", "show", "-p", commit_hash],
+            cwd=ws_path, operation="stash show",
+        )
+        diff_text = result["stdout"]
+        
+        # 2. Get file stats (numstat)
+        numstat_result = run_git_command(
+            ["stash", "show", "--numstat", commit_hash],
+            cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, operation="stash show --numstat",
+        )
+        numstat = parse_numstat_result(numstat_result)
+        
+        # 3. Get file list (name-only)
+        files_result = run_git_command(
+            ["stash", "show", "--name-only", commit_hash],
+            cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, operation="stash show --name-only",
+        )
+        
+        files = []
+        if files_result["exit_code"] == 0:
+            for f in files_result["stdout"].splitlines():
+                file_name = f.strip()
+                if not file_name:
+                    continue
+                files.append(build_file_entry(file_name, numstat))
+
+        if len(diff_text) > MAX_DIFF_SIZE:
+            diff_text = diff_text[:MAX_DIFF_SIZE] + "\n... (truncated)"
+            
+        return {
+            "status": result["status"],
+            "files": files,
+            "diff": diff_text,
+            "stderr": result["stderr"],
+        }
+
     validate_commit_hash(commit_hash)
     result = run_git_command(
         ["--no-pager", "diff", f"{commit_hash}~1", commit_hash],

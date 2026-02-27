@@ -438,7 +438,7 @@ function renderDirtyEntry(listEl) {
   entry.innerHTML =
     `<span class="git-log-entry-body">` +
       badgeHtml +
-      `<span class="git-log-entry-row1"><span class="git-log-entry-msg">${isDirty ? "未コミットの変更" : "変更なし"}</span></span>` +
+      `<span class="git-log-entry-row1"><span class="git-log-entry-msg" style="color:var(--text-muted)">${isDirty ? "未コミットの変更" : "変更なし"}</span></span>` +
     `</span>`;
   if (isDirty) {
     entry.addEventListener("click", () => {
@@ -515,6 +515,8 @@ async function openStashPane() {
 
       const info = document.createElement("div");
       info.className = "stash-entry-info";
+      info.style.cursor = "pointer";
+      info.addEventListener("click", () => openCommitDiffModal(entry.ref, `Stash: ${entry.message}`));
       info.innerHTML =
         `<span class="stash-entry-ref">${escapeHtml(entry.ref)}</span>` +
         `<span class="stash-entry-msg">${escapeHtml(entry.message)}</span>` +
@@ -646,7 +648,8 @@ async function execStashAction(action) {
   const endpoint = action === "pop" ? "stash-pop" : "stash";
   const label = action === "pop" ? "stash pop" : "stash";
   if (!confirm(`${label} を実行しますか？`)) return;
-  await postWorkspaceAction(selectedWorkspace, `/${endpoint}`, label);
+  const body = action === "pop" ? null : { include_untracked: true };
+  await postWorkspaceAction(selectedWorkspace, `/${endpoint}`, label, body);
   closeGitLogModal();
   await refreshAfterGitOp();
 }

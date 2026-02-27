@@ -21,7 +21,16 @@ async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
   showDiffPane(commitMsg || "");
 
   if (commitHash) {
-    renderDiffActions(actionsEl, commitHash, branches);
+    if (commitHash.startsWith("stash@")) {
+      const actions = [
+        { label: "stash pop", cls: "", fn: () => execStashRefAction("pop", commitHash) },
+        { label: "stash drop", cls: "commit-action-danger", fn: () => execStashRefAction("drop", commitHash) },
+      ];
+      renderActionButtons(actionsEl, actions);
+      actionsEl.style.display = "flex";
+    } else {
+      renderDiffActions(actionsEl, commitHash, branches);
+    }
   }
 
   try {
@@ -258,8 +267,8 @@ async function loadDiffTab() {
 
   const stashActions = [
     { label: "コミット", cls: "", fn: () => openCommitForm() },
-    { label: "stash", cls: "", fn: () => { if (confirm("stash を実行しますか？")) execStashAction("save"); } },
-    { label: "stash pop", cls: "", fn: () => { if (confirm("stash pop を実行しますか？")) execStashAction("pop"); } },
+    { label: "stash", cls: "", fn: () => execStashAction("save") },
+    { label: "stash pop", cls: "", fn: () => execStashAction("pop") },
   ];
   renderActionButtons(actionsEl, stashActions);
   actionsEl.style.display = "flex";

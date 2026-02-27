@@ -36,7 +36,7 @@ BACKGROUND_FETCH_TIMEOUT_SEC = 15
 GIT_LOG_MAX_ENTRIES = 200
 
 BRANCH_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_./-]+$")
-COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{4,40}$")
+COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{4,40}$|^stash@\{\d+\}$")
 
 BACKGROUND_EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
