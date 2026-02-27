@@ -1,5 +1,7 @@
 let token = "";
 let workspaceJobs = {};
+let workspaceJobsCache = {};
+let workspaceJobsLoadedFor = null;
 let pendingJob = null;
 let allWorkspaces = [];
 let selectedWorkspace = null;

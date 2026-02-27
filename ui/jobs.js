@@ -1,28 +1,97 @@
-async function loadJobsForWorkspace() {
+function getCachedJobsForWorkspace(workspace) {
+  if (!workspace) return null;
+  if (!Object.prototype.hasOwnProperty.call(workspaceJobsCache, workspace)) return null;
+  return workspaceJobsCache[workspace];
+}
+
+function setCachedJobsForWorkspace(workspace, jobs) {
+  if (!workspace) return;
+  workspaceJobsCache[workspace] = jobs || {};
+}
+
+function invalidateWorkspaceJobsCache(workspace) {
+  if (!workspace) {
+    workspaceJobsCache = {};
+    workspaceJobsLoadedFor = null;
+    return;
+  }
+  delete workspaceJobsCache[workspace];
+  if (workspaceJobsLoadedFor === workspace) {
+    workspaceJobsLoadedFor = null;
+  }
+}
+
+async function loadJobsForWorkspace(force = false) {
   if (!selectedWorkspace) {
     workspaceJobs = {};
+    workspaceJobsLoadedFor = null;
     pendingJob = null;
     $("output").innerHTML = '<div class="empty-state"></div>';
     return;
   }
 
+  const targetWorkspace = selectedWorkspace;
+  const cachedJobs = getCachedJobsForWorkspace(targetWorkspace);
+  if (!force && cachedJobs) {
+    workspaceJobs = cachedJobs;
+    workspaceJobsLoadedFor = targetWorkspace;
+    pendingJob = null;
+    renderTabBar();
+    return;
+  }
+  if (!force && workspaceJobsLoadedFor === targetWorkspace) {
+    pendingJob = null;
+    renderTabBar();
+    return;
+  }
+
   try {
-    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/jobs"));
+    const res = await apiFetch(workspaceApiPath(targetWorkspace, "/jobs"));
     if (!res || !res.ok) {
-      workspaceJobs = {};
+      if (selectedWorkspace !== targetWorkspace) return;
+      if (cachedJobs) {
+        workspaceJobs = cachedJobs;
+        workspaceJobsLoadedFor = targetWorkspace;
+      } else {
+        workspaceJobs = {};
+        workspaceJobsLoadedFor = null;
+      }
     } else {
-      workspaceJobs = await res.json();
+      const jobs = await res.json();
+      if (selectedWorkspace !== targetWorkspace) return;
+      workspaceJobs = jobs;
+      setCachedJobsForWorkspace(targetWorkspace, jobs);
+      workspaceJobsLoadedFor = targetWorkspace;
     }
   } catch (e) {
     console.error("loadJobsForWorkspace failed:", e);
-    workspaceJobs = {};
+    if (selectedWorkspace !== targetWorkspace) return;
+    if (cachedJobs) {
+      workspaceJobs = cachedJobs;
+      workspaceJobsLoadedFor = targetWorkspace;
+    } else {
+      workspaceJobs = {};
+      workspaceJobsLoadedFor = null;
+    }
   }
 
   pendingJob = null;
   renderTabBar();
 }
 
-function openJobConfirmModal(name) {
+async function fetchWorkspaceJobDetail(workspace, jobName) {
+  if (!workspace || !jobName || jobName === "terminal") return null;
+  try {
+    const res = await apiFetch(workspaceApiPath(workspace, `/jobs/${encodeURIComponent(jobName)}`));
+    if (!res || !res.ok) return null;
+    return await res.json();
+  } catch (e) {
+    console.error("fetchWorkspaceJobDetail failed:", e);
+    return null;
+  }
+}
+
+async function openJobConfirmModal(name) {
   const job = workspaceJobs[name];
   if (!job) return;
   pendingJob = name;
@@ -62,8 +131,17 @@ function openJobConfirmModal(name) {
       argsContainer.appendChild(group);
     }
   } else {
-    if (job.command) {
-      const preview = escapeHtml(job.command.length > 300 ? job.command.slice(0, 300) + "..." : job.command);
+    let detail = job;
+    if (!detail.command && selectedWorkspace) {
+      const fetched = await fetchWorkspaceJobDetail(selectedWorkspace, name);
+      if (fetched) {
+        workspaceJobs[name] = { ...job, ...fetched };
+        setCachedJobsForWorkspace(selectedWorkspace, workspaceJobs);
+        detail = workspaceJobs[name];
+      }
+    }
+    if (detail.command) {
+      const preview = escapeHtml(detail.command.length > 300 ? detail.command.slice(0, 300) + "..." : detail.command);
       argsContainer.innerHTML = `<pre class="script-preview">${preview}</pre>`;
     }
   }
@@ -124,10 +202,20 @@ async function executeJobInTerminal(targetJob, workspaceOverride) {
   }
 
   if (!job && targetJob !== "terminal" && workspace) {
+    const cachedWorkspaceJobs = getCachedJobsForWorkspace(workspace);
+    if (cachedWorkspaceJobs) {
+      const cachedResolved = resolveJobByNameOrLabel(cachedWorkspaceJobs, targetJob);
+      resolvedJobKey = cachedResolved.key;
+      job = cachedResolved.job;
+    }
+  }
+
+  if (!job && targetJob !== "terminal" && workspace) {
     try {
       const jobsRes = await apiFetch(workspaceApiPath(workspace, "/jobs"));
       if (jobsRes && jobsRes.ok) {
         const wsJobs = await jobsRes.json();
+        setCachedJobsForWorkspace(workspace, wsJobs);
         const fetchedResolved = resolveJobByNameOrLabel(wsJobs, targetJob);
         resolvedJobKey = fetchedResolved.key;
         job = fetchedResolved.job;
@@ -139,6 +227,19 @@ async function executeJobInTerminal(targetJob, workspaceOverride) {
   if (!job && targetJob !== "terminal") {
     showToast(`ジョブ "${targetJob}" が見つかりません`);
     return;
+  }
+
+  if (resolvedJobKey !== "terminal" && !job.command && workspace) {
+    const detailed = await fetchWorkspaceJobDetail(workspace, resolvedJobKey);
+    if (detailed) {
+      job = { ...job, ...detailed };
+      const existingWorkspaceJobs = getCachedJobsForWorkspace(workspace) || {};
+      existingWorkspaceJobs[resolvedJobKey] = job;
+      setCachedJobsForWorkspace(workspace, existingWorkspaceJobs);
+      if (workspace === selectedWorkspace) {
+        workspaceJobs[resolvedJobKey] = job;
+      }
+    }
   }
 
   if (resolvedJobKey !== "terminal" && job.terminal === false) {
@@ -444,6 +545,7 @@ function createFormRenderer({
 
 async function finalizeWorkspaceMutation(workspace, onDone) {
   invalidateWorkspaceMetaCache(workspace);
+  invalidateWorkspaceJobsCache(workspace);
   await loadJobsForWorkspace();
   onDone();
 }
@@ -595,4 +697,5 @@ async function deleteJob(jobName, workspace) {
   if (!ok) return;
   if (pendingJob === jobName) pendingJob = null;
   invalidateWorkspaceMetaCache(ws);
+  invalidateWorkspaceJobsCache(ws);
 }
