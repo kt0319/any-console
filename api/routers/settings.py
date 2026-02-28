@@ -49,7 +49,10 @@ async def import_settings(request: Request):
             continue
         if name in existing and isinstance(ws_config, dict):
             current[name] = ws_config
-    common.save_all_config(current)
+    try:
+        common.save_all_config(current)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {"status": "ok"}
 
 

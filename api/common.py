@@ -12,6 +12,8 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from .config_schema import normalize_loaded_config, validate_config_entry
+
 logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -89,19 +91,27 @@ LOG_BUFFER = LogBuffer()
 def _read_config_unlocked() -> dict:
     if CONFIG_FILE.is_file():
         try:
-            return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            raw = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             raise
         except OSError as e:
             logger.warning("config read failed path=%s: %s", CONFIG_FILE, e)
             return {}
+        normalized, errors = normalize_loaded_config(raw, GLOBAL_CONFIG_KEY)
+        for name, error in errors:
+            logger.warning("config validation failed key=%s: %s", name, error)
+        return normalized
     return _migrate_to_unified_config()
 
 
 def _write_config_unlocked(config: dict) -> None:
+    normalized, errors = normalize_loaded_config(config, GLOBAL_CONFIG_KEY)
+    if errors:
+        name, error = errors[0]
+        raise ValueError(f"Invalid config entry '{name}': {error}")
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     tmp_path = CONFIG_FILE.with_suffix(".tmp")
-    tmp_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp_path.write_text(json.dumps(normalized, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tmp_path.replace(CONFIG_FILE)
 
 
@@ -142,7 +152,7 @@ def load_workspace_config(workspace_name: str) -> dict:
 def save_workspace_config(workspace_name: str, config: dict) -> None:
     with _config_lock:
         all_config = _read_config_unlocked()
-        all_config[workspace_name] = config
+        all_config[workspace_name] = validate_config_entry(workspace_name, config, GLOBAL_CONFIG_KEY)
         _write_config_unlocked(all_config)
 
 
@@ -157,7 +167,7 @@ def save_workspace_config_section(workspace_name: str, key: str, data) -> None:
         all_config = _read_config_unlocked()
         ws_config = all_config.get(workspace_name, {})
         ws_config[key] = data
-        all_config[workspace_name] = ws_config
+        all_config[workspace_name] = validate_config_entry(workspace_name, ws_config, GLOBAL_CONFIG_KEY)
         _write_config_unlocked(all_config)
 
 
@@ -172,7 +182,7 @@ def save_global_config_section(key: str, data) -> None:
         all_config = _read_config_unlocked()
         global_config = all_config.get(GLOBAL_CONFIG_KEY, {})
         global_config[key] = data
-        all_config[GLOBAL_CONFIG_KEY] = global_config
+        all_config[GLOBAL_CONFIG_KEY] = validate_config_entry(GLOBAL_CONFIG_KEY, global_config, GLOBAL_CONFIG_KEY)
         _write_config_unlocked(all_config)
 
 

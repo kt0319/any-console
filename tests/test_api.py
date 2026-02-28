@@ -104,6 +104,16 @@ class TestSettings:
             config = json.loads(isolate_fs["config_file"].read_text())
             assert "ghost" not in config
 
+    def test_import_rejects_invalid_workspace_schema(self, workspace):
+        res = client.post("/settings/import", headers=AUTH, json={"test-ws": {"links": [{}]}})
+        assert res.status_code == 400
+
+    def test_export_skips_invalid_workspace_config(self, workspace, isolate_fs):
+        isolate_fs["config_file"].write_text(json.dumps({"test-ws": {"links": [{}]}}))
+        res = client.get("/settings/export", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json() == {}
+
 
 # --- ジョブCRUD ---
 
@@ -253,6 +263,12 @@ class TestJobsCRUD:
 
 class TestLinksCRUD:
     def test_list_empty(self, workspace):
+        res = client.get("/workspaces/test-ws/links", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json() == []
+
+    def test_list_invalid_saved_links_as_empty(self, workspace, isolate_fs):
+        isolate_fs["config_file"].write_text(json.dumps({"test-ws": {"links": [{}]}}))
         res = client.get("/workspaces/test-ws/links", headers=AUTH)
         assert res.status_code == 200
         assert res.json() == []
