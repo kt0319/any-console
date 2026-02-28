@@ -267,8 +267,10 @@ function createSnippetChip(text, onTap, onDelete, iconClass) {
   let longPressFired = false;
   let scrolled = false;
   let startX = 0;
+  let lastTouchAt = 0;
   const SCROLL_THRESHOLD = 10;
   chip.addEventListener("touchstart", (e) => {
+    lastTouchAt = Date.now();
     scrolled = false;
     longPressFired = false;
     startX = e.touches[0].clientX;
@@ -290,6 +292,7 @@ function createSnippetChip(text, onTap, onDelete, iconClass) {
     }
   }, { passive: true });
   chip.addEventListener("touchend", (e) => {
+    lastTouchAt = Date.now();
     chip.classList.remove("pressed");
     if (scrolled || longPressFired) return;
     if (longPressTimer !== null) {
@@ -303,10 +306,12 @@ function createSnippetChip(text, onTap, onDelete, iconClass) {
     onTap();
   });
   chip.addEventListener("touchcancel", () => {
+    lastTouchAt = Date.now();
     chip.classList.remove("pressed");
     if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
   });
   chip.addEventListener("mousedown", (e) => {
+    if (Date.now() - lastTouchAt < 1000) return;
     if (e.button !== 0) return;
     longPressFired = false;
     chip.classList.add("pressed");
@@ -320,6 +325,7 @@ function createSnippetChip(text, onTap, onDelete, iconClass) {
     }
   });
   chip.addEventListener("mouseup", (e) => {
+    if (Date.now() - lastTouchAt < 1000) return;
     if (e.button !== 0) return;
     chip.classList.remove("pressed");
     if (longPressFired) return;
