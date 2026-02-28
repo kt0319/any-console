@@ -2250,6 +2250,14 @@ button:disabled {
   visibility: hidden;
 }
 
+.git-log-dirty-actions {
+  display: flex;
+  align-self: stretch;
+  flex-shrink: 0;
+  gap: 6px;
+  max-width: 52%;
+}
+
 .git-log-entry-row1 {
   display: flex;
   align-items: center;
@@ -2263,13 +2271,23 @@ button:disabled {
   overflow: hidden;
 }
 
+.git-log-dirty-fetch-btn {
+  align-self: stretch;
+  width: 40px;
+  min-width: 40px;
+  min-height: 100%;
+  height: auto;
+  padding: 0;
+}
+
 .git-log-dirty-branch-btn {
   flex-shrink: 0;
   align-self: stretch;
   min-height: 100%;
   padding: 0 28px 0 12px;
   font-size: 13px;
-  max-width: 42%;
+  max-width: none;
+  flex: 1 1 auto;
 }
 
 .git-log-dirty-branch-label {
@@ -2417,19 +2435,23 @@ button:disabled {
   padding: 6px 10px 10px;
 }
 
-#git-log-create-branch-area .git-log-create-branch-row {
+#git-log-create-branch-area .git-log-create-branch-row,
+#diff-commit-form .diff-commit-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 6px;
   align-items: center;
 }
 
-#git-log-create-branch-area .form-input {
+#git-log-create-branch-area .form-input,
+#diff-commit-form .form-input {
   min-width: 0;
 }
 
 #git-log-create-branch-submit,
-#git-log-create-branch-close {
+#git-log-create-branch-close,
+#diff-commit-submit,
+#diff-commit-cancel {
   width: auto;
   min-width: 64px;
   min-height: 36px;
@@ -2494,22 +2516,8 @@ button:disabled {
 }
 
 #diff-commit-form {
-  margin-top: auto;
-  padding: 12px 0 4px;
+  padding: 6px 10px 10px;
   flex-shrink: 0;
-}
-
-#diff-commit-form textarea {
-  width: 100%;
-  resize: vertical;
-  min-height: 48px;
-  margin-bottom: 8px;
-}
-
-.diff-commit-buttons {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
 }
 
 .diff-file-list {

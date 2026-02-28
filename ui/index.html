@@ -87,12 +87,12 @@
                 <div class="diff-actions" id="diff-actions" style="display:none"></div>
                 <div class="diff-file-list" id="diff-file-list"></div>
                 <div id="diff-commit-form" style="display:none">
-                  <textarea id="diff-commit-message" class="form-input" rows="2" placeholder="コミットメッセージ"></textarea>
-                  <div id="diff-commit-error" class="form-error"></div>
-                  <div class="diff-commit-buttons">
-                    <button type="button" id="diff-commit-cancel">キャンセル</button>
+                  <div class="git-log-create-branch-row diff-commit-row">
+                    <input type="text" id="diff-commit-message" class="form-input" placeholder="コミットメッセージ" autocomplete="off" />
                     <button type="button" id="diff-commit-submit" class="primary">コミット</button>
+                    <button type="button" id="diff-commit-cancel">閉じる</button>
                   </div>
+                  <div id="diff-commit-error" class="form-error"></div>
                 </div>
               </div>
               <div id="diff-stash-pane" style="display:none">

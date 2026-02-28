@@ -34,7 +34,7 @@ function initDiffPane(actions = null) {
   fileList.innerHTML = '<div class="file-browser"><div class="file-browser-header"><span class="file-browser-crumb-current">読み込み中...</span></div></div>';
   actionsEl.innerHTML = "";
   actionsEl.style.display = "none";
-  $("diff-commit-form").style.display = "none";
+  closeCommitForm();
 
   if (Array.isArray(actions) && actions.length > 0) {
     renderActionButtons(actionsEl, actions);
@@ -348,16 +348,22 @@ async function openDiffModal() {
 }
 
 function openCommitForm() {
-  $("diff-actions").style.display = "none";
+  const form = $("diff-commit-form");
+  const visible = form.style.display !== "none";
+  if (visible) {
+    closeCommitForm();
+    return;
+  }
   $("diff-commit-message").value = "";
   hideFormError("diff-commit-error");
-  $("diff-commit-form").style.display = "block";
+  form.style.display = "block";
   $("diff-commit-message").focus();
 }
 
 function closeCommitForm() {
   $("diff-commit-form").style.display = "none";
-  $("diff-actions").style.display = "flex";
+  $("diff-commit-message").value = "";
+  hideFormError("diff-commit-error");
 }
 
 async function submitCommit() {

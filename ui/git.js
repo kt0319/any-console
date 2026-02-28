@@ -4,12 +4,14 @@ const GitCore = {
     await refreshWorkspaceHeader();
   },
 
-  async gitFetch() {
+  async gitFetch(trigger = "fetch-btn") {
     if (!selectedWorkspace) return;
-    const fetchBtn = $("fetch-btn");
-    if (fetchBtn.disabled) return;
-    fetchBtn.disabled = true;
-    fetchBtn.classList.add("running");
+    const fetchBtn = typeof trigger === "string" ? $(trigger) : trigger;
+    if (fetchBtn?.disabled) return;
+    if (fetchBtn) {
+      fetchBtn.disabled = true;
+      fetchBtn.classList.add("running");
+    }
     try {
       await gitFetchWorkspace(selectedWorkspace);
       await GitCore.refreshAfterGitOp();
@@ -20,8 +22,10 @@ const GitCore = {
     } catch (e) {
       showToast(`fetch エラー: ${e.message}`);
     } finally {
-      fetchBtn.classList.remove("running");
-      fetchBtn.disabled = false;
+      if (fetchBtn) {
+        fetchBtn.classList.remove("running");
+        fetchBtn.disabled = false;
+      }
     }
   },
 

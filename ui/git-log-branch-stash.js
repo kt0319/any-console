@@ -11,20 +11,6 @@ Object.assign(GitLogModal, {
     const currentBranch = ws ? ws.branch : null;
 
     listEl.innerHTML = "";
-    const fetchRow = document.createElement("div");
-    fetchRow.className = "branch-pane-toolbar";
-    const fetchBtn = document.createElement("button");
-    fetchBtn.type = "button";
-    fetchBtn.className = "git-action-btn fetch-btn icon-only";
-    fetchBtn.title = "Fetch";
-    fetchBtn.ariaLabel = "Fetch";
-    fetchBtn.innerHTML = '<span class="mdi mdi-refresh"></span>';
-    fetchBtn.addEventListener("click", async () => {
-      await GitCore.gitFetch();
-      await GitLogModal.openLocalBranchPane();
-    });
-    fetchRow.appendChild(fetchBtn);
-    listEl.appendChild(fetchRow);
 
     for (const b of cachedBranches) {
       const item = document.createElement("div");
@@ -68,8 +54,11 @@ Object.assign(GitLogModal, {
     remoteBtn.className = "branch-item branch-item-action";
     remoteBtn.textContent = "リモートブランチを表示...";
     remoteBtn.addEventListener("click", async () => {
-      remoteBtn.remove();
+      remoteBtn.textContent = "読み込み中...";
+      remoteBtn.classList.add("clone-repo-loading");
+      remoteBtn.style.pointerEvents = "none";
       await GitLogModal.renderRemoteBranchInlineList(listEl, currentBranch);
+      remoteBtn.remove();
     });
     listEl.appendChild(remoteBtn);
   },

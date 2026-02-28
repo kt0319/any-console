@@ -135,13 +135,18 @@ Object.assign(GitLogModal, {
     const entry = document.createElement("div");
     entry.className = "git-log-entry git-log-dirty";
     const branchLabel = escapeHtml((ws && ws.branch) ? ws.branch : "");
+    const fetchButtonHtml =
+      '<button type="button" class="git-action-btn fetch-btn icon-only git-log-dirty-fetch-btn" title="Fetch" aria-label="Fetch">' +
+        '<span class="mdi mdi-refresh"></span>' +
+      "</button>";
     const branchButtonHtml =
       '<button type="button" class="git-log-branch-select-btn git-log-dirty-branch-btn">' +
         `<span class="mdi mdi-source-branch"></span> <span class="git-log-dirty-branch-label">${branchLabel}</span>` +
       "</button>";
+    const mainClass = isDirty ? "git-log-dirty-main" : "git-log-dirty-main git-log-dirty-main-clean";
     let bodyHtml =
       '<span class="git-log-entry-body git-log-dirty-body">' +
-        '<span class="git-log-dirty-main">';
+        `<span class="${mainClass}">`;
     if (isDirty) {
       const statText = buildWorkspaceChangeSummaryHtml(ws);
       const badgeHtml = `<span class="git-log-entry-refs"><span class="git-ref git-ref-dirty">${statText}</span></span>`;
@@ -149,12 +154,15 @@ Object.assign(GitLogModal, {
         '<span class="git-log-entry-msg git-log-dirty-msg">未コミットの変更</span>' +
         `${badgeHtml}`;
     } else {
-      bodyHtml +=
-        '<span class="git-log-entry-msg git-log-dirty-msg">変更なし</span>' +
-        '<span class="git-log-entry-refs git-log-dirty-placeholder" aria-hidden="true"></span>';
+      bodyHtml += '<span class="git-log-entry-msg git-log-dirty-msg">変更なし</span>';
     }
-    bodyHtml += `</span>${branchButtonHtml}</span>`;
+    bodyHtml += `</span><span class="git-log-dirty-actions">${fetchButtonHtml}${branchButtonHtml}</span></span>`;
     entry.innerHTML = bodyHtml;
+    const fetchBtn = entry.querySelector(".git-log-dirty-fetch-btn");
+    fetchBtn?.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      await GitCore.gitFetch(fetchBtn);
+    });
     const branchBtn = entry.querySelector(".git-log-dirty-branch-btn");
     branchBtn?.addEventListener("click", (event) => {
       event.stopPropagation();

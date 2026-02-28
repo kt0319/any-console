@@ -47,7 +47,9 @@ const GitLogModal = {
   closeGitLogModal() {
     $("git-log-modal").style.display = "none";
     GitLogModal.resetActionMenu();
-    $("diff-commit-form").style.display = "none";
+    if (typeof closeCommitForm === "function") {
+      closeCommitForm();
+    }
     GitLogModal.setModalTitle("コミット履歴");
     GitLogModal.resetCreateBranchArea();
   },
