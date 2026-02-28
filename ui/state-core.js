@@ -135,7 +135,7 @@ function getTerminalRuntimeOptions() {
   return {
     cursorBlink: terminalSettings.cursorBlink,
     fontSize: terminalSettings.fontSize,
-    fontFamily: '"SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace',
+    fontFamily: '"Hack Nerd Font", "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace',
     scrollback: terminalSettings.scrollback,
     scrollOnOutput: terminalSettings.scrollOnOutput,
   };
