@@ -190,6 +190,43 @@ class TestJobsCRUD:
         res = client.delete("/workspaces/test-ws/jobs/ghost", headers=AUTH)
         assert res.status_code == 404
 
+    def test_reorder_jobs(self, workspace):
+        first = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
+            "label": "first",
+            "command": "echo first",
+        }).json()["name"]
+        second = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
+            "label": "second",
+            "command": "echo second",
+        }).json()["name"]
+        third = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
+            "label": "third",
+            "command": "echo third",
+        }).json()["name"]
+
+        res = client.put("/workspaces/test-ws/job-order", headers=AUTH, json={
+            "order": [third, first, second],
+        })
+        assert res.status_code == 200
+
+        jobs = client.get("/workspaces/test-ws/jobs", headers=AUTH).json()
+        assert list(jobs.keys()) == [third, first, second]
+
+    def test_reorder_jobs_rejects_missing_items(self, workspace):
+        first = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
+            "label": "first",
+            "command": "echo first",
+        }).json()["name"]
+        second = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
+            "label": "second",
+            "command": "echo second",
+        }).json()["name"]
+
+        res = client.put("/workspaces/test-ws/job-order", headers=AUTH, json={
+            "order": [first],
+        })
+        assert res.status_code == 400
+
     def test_create_with_icon(self, workspace):
         res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "label": "iconic",

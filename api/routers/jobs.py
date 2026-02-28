@@ -33,18 +33,23 @@ router = APIRouter(dependencies=[Depends(verify_token)])
 _workspace_jobs_cache = TTLCache(60)
 
 
+def workspace_jobs_cache_key(workspace_name):
+    return (str(os.fspath(resolve_workspace_path(workspace_name))), workspace_name)
+
+
 def load_workspace_jobs_data(workspace_name):
-    cached = _workspace_jobs_cache.get(workspace_name)
+    cache_key = workspace_jobs_cache_key(workspace_name)
+    cached = _workspace_jobs_cache.get(cache_key)
     if cached is not None:
         return cached
     data = load_workspace_config_section(workspace_name, "jobs", {})
-    _workspace_jobs_cache.set(workspace_name, data)
+    _workspace_jobs_cache.set(cache_key, data)
     return data
 
 
 def save_workspace_jobs_data(workspace_name, data):
     save_workspace_config_section(workspace_name, "jobs", data)
-    _workspace_jobs_cache.invalidate(workspace_name)
+    _workspace_jobs_cache.invalidate(workspace_jobs_cache_key(workspace_name))
 
 
 def get_workspace_jobs(workspace_name):
@@ -81,6 +86,7 @@ def job_definition_to_summary_dict(job_def):
     return {
         "label": job_def.label,
         "description": job_def.description,
+        "command": job_def.command,
         "icon": job_def.icon,
         "icon_color": job_def.icon_color,
         "confirm": job_def.confirm,
@@ -200,6 +206,24 @@ class UpdateJobRequest(BaseModel):
     icon_color: str = Field("", max_length=20)
     confirm: bool = True
     terminal: bool = True
+
+
+class ReorderJobsRequest(BaseModel):
+    order: list[str] = Field(default_factory=list)
+
+
+@router.put("/workspaces/{name}/job-order")
+def reorder_workspace_jobs(name: str, body: ReorderJobsRequest):
+    resolve_workspace_path(name)
+    data = load_workspace_jobs_data(name)
+    existing_names = list(data.keys())
+    if sorted(body.order) != sorted(existing_names):
+        raise HTTPException(status_code=400, detail="ジョブ一覧が一致しません")
+
+    reordered = {job_name: data[job_name] for job_name in body.order}
+    save_workspace_jobs_data(name, reordered)
+    logger.info("jobs reordered workspace=%s count=%d", name, len(body.order))
+    return {"status": "ok"}
 
 
 @router.put("/workspaces/{name}/jobs/{job_name}")
