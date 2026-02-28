@@ -2242,12 +2242,12 @@ button:disabled {
   min-width: 0;
   flex: 1;
   gap: 4px;
+  min-height: 42px;
 }
 
-.git-log-dirty-placeholder {
-  display: block;
-  min-height: 24px;
+.git-log-dirty-replacement {
   visibility: hidden;
+  pointer-events: none;
 }
 
 .git-log-dirty-actions {
@@ -2256,6 +2256,7 @@ button:disabled {
   flex-shrink: 0;
   gap: 6px;
   max-width: 52%;
+  min-height: 42px;
 }
 
 .git-log-entry-row1 {
