@@ -747,13 +747,8 @@ header {
   animation: tab-activity-glow 3s ease-in-out 1;
 }
 
-@keyframes tab-name-pill-activity-glow {
-  0%, 100% { background: rgba(26, 27, 38, 0.93); }
-  50% { background: rgba(130, 170, 255, 0.25); }
-}
-
 .tab-name-pill.tab-activity {
-  animation: tab-name-pill-activity-glow 3s ease-in-out 1;
+  animation: tab-activity-glow 3s ease-in-out 1;
 }
 
 .tab-dragging {
