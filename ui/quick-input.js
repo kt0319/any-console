@@ -27,6 +27,7 @@ function initQuickInput() {
       safeFit(tab);
     }
   }, {
+    accelerateRepeat: true,
     onLongPress: () => cycleMode(),
     longPressGuard: () => keyboardPanelMode === 0,
     onFlick: () => snippetModeActive,
@@ -185,6 +186,7 @@ function initQuickInput() {
       sendKeyToTerminal({ key: "Enter", code: "Enter", keyCode: 13 });
     }
   }, {
+    accelerateRepeat: true,
     onLongPress: () => toggleSnippetRow(),
   });
 

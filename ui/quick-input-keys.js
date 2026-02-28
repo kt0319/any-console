@@ -78,6 +78,8 @@ document.addEventListener("animationend", (e) => {
 
 const REPEAT_DELAY = 400;
 const REPEAT_INTERVAL = 80;
+const MIN_REPEAT_INTERVAL = 30;
+const REPEAT_ACCELERATION = 8;
 
 const LONG_PRESS_MS = 400;
 
@@ -90,11 +92,20 @@ function setupFlickRepeat(el, resolveKey, onTap, opts = {}) {
   let longPressFired = false;
 
   const stopRepeat = () => {
-    if (repeatTimer !== null) { clearInterval(repeatTimer); repeatTimer = null; }
+    if (repeatTimer !== null) { clearTimeout(repeatTimer); repeatTimer = null; }
     repeatingKey = null;
   };
   const cancelLongPress = () => {
     if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+  };
+  const scheduleRepeat = (key, interval) => {
+    repeatTimer = setTimeout(() => {
+      sendKeyToTerminal(key);
+      const nextInterval = opts.accelerateRepeat
+        ? Math.max(MIN_REPEAT_INTERVAL, interval - REPEAT_ACCELERATION)
+        : interval;
+      scheduleRepeat(key, nextInterval);
+    }, interval);
   };
 
   el.addEventListener("touchstart", (e) => {
@@ -126,7 +137,7 @@ function setupFlickRepeat(el, resolveKey, onTap, opts = {}) {
     repeatingKey = key;
     sendKeyToTerminal(key);
     repeatTimer = setTimeout(() => {
-      repeatTimer = setInterval(() => sendKeyToTerminal(key), REPEAT_INTERVAL);
+      scheduleRepeat(key, REPEAT_INTERVAL);
     }, REPEAT_DELAY);
   }, { passive: true });
 
