@@ -171,7 +171,7 @@ function buildBreadcrumbHtml(parts, uploadPath = "", options = {}) {
       html += `<span class="file-browser-crumb-badge">${escapeHtml(badgeLabel)}</span>`;
     }
   }
-  html += `<button type="button" class="file-browser-upload" data-path="${escapeHtml(uploadPath)}"><span class="mdi mdi-upload"></span> アップロード</button>`;
+  html += `<button type="button" class="file-browser-upload" data-path="${escapeHtml(uploadPath)}"><span class="mdi mdi-upload"></span></button>`;
   html += '<input type="file" class="file-browser-upload-input" style="display:none" />';
   html += '<button type="button" class="file-browser-close">&times;</button>';
   html += "</div>";
