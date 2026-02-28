@@ -69,6 +69,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   initQuickInput();
   $("header-commit-msg").addEventListener("click", () => GitLogModal.openGitLogModal());
   $("git-log-close").addEventListener("click", () => GitLogModal.closeGitLogModal());
+  $("git-log-modal").addEventListener("click", (e) => {
+    if (e.target === $("git-log-modal")) GitLogModal.closeGitLogModal();
+  });
   $("git-log-list-modal").addEventListener("scroll", (e) => {
     const el = e.target;
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - 50) {

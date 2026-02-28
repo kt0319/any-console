@@ -224,18 +224,14 @@ function openTabEditModal(initialTab = "layout") {
       radio.type = "radio";
       radio.className = "split-tab-input";
       radio.checked = isActiveTab;
-      radio.disabled = splitMode ? !isIncluded : false;
+      radio.disabled = false;
       radio.addEventListener("click", (e) => {
         e.stopPropagation();
         if (splitMode) {
-          const idx = splitPaneTabIds.indexOf(tab.id);
-          if (idx >= 0) {
-            setActivePaneIndex(idx);
-            renderTabList();
-          }
-          return;
+          exitSplitMode();
         }
         switchTab(tab.id);
+        updateModeRadio();
         renderTabList();
       });
       inputWrap.appendChild(radio);
