@@ -11,6 +11,21 @@ Object.assign(GitLogModal, {
     const currentBranch = ws ? ws.branch : null;
 
     listEl.innerHTML = "";
+    const fetchRow = document.createElement("div");
+    fetchRow.className = "branch-pane-toolbar";
+    const fetchBtn = document.createElement("button");
+    fetchBtn.type = "button";
+    fetchBtn.className = "git-action-btn fetch-btn icon-only";
+    fetchBtn.title = "Fetch";
+    fetchBtn.ariaLabel = "Fetch";
+    fetchBtn.innerHTML = '<span class="mdi mdi-refresh"></span>';
+    fetchBtn.addEventListener("click", async () => {
+      await GitCore.gitFetch();
+      await GitLogModal.openLocalBranchPane();
+    });
+    fetchRow.appendChild(fetchBtn);
+    listEl.appendChild(fetchRow);
+
     for (const b of cachedBranches) {
       const item = document.createElement("div");
       item.className = "branch-item";

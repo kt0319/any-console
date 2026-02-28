@@ -62,9 +62,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (e.target === $("icon-picker-modal")) closeIconPicker();
   });
   $("icon-picker-url-ok").addEventListener("click", submitIconPicker);
-  $("git-log-branch-btn").addEventListener("click", () => GitLogModal.openLocalBranchPane());
-  $("fetch-btn").addEventListener("click", () => GitCore.gitFetch());
-  $("stash-btn").addEventListener("click", () => GitLogModal.openStashPane());
   $("pull-btn").addEventListener("click", () => GitCore.gitPull());
   $("set-upstream-btn").addEventListener("click", () => GitCore.gitSetUpstream());
   $("push-upstream-btn").addEventListener("click", () => GitCore.gitPushUpstream());

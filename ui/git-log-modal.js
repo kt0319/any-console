@@ -1,3 +1,5 @@
+const GIT_LOG_MODAL_PANE_IDS = ["commit-modal-tab-diff", "commit-modal-tab-stash", "commit-modal-tab-branch"];
+
 const GitLogModal = {
   state: {
     previousModalTab: "diff",
@@ -43,14 +45,17 @@ const GitLogModal = {
 
   closeGitLogModal() {
     $("git-log-modal").style.display = "none";
-    $("git-log-action-menu").style.display = "none";
-    $("git-log-action-menu").innerHTML = "";
+    GitLogModal.resetActionMenu();
     $("diff-commit-form").style.display = "none";
-    const titleEl = $("git-log-modal-title");
-    titleEl.classList.remove("split-modal-title-back");
-    titleEl.onclick = null;
-
+    GitLogModal.setModalTitle("コミット履歴");
     GitLogModal.resetCreateBranchArea();
+  },
+
+  resetActionMenu() {
+    const menuEl = $("git-log-action-menu");
+    if (!menuEl) return;
+    menuEl.style.display = "none";
+    menuEl.innerHTML = "";
   },
 
   restoreCreateBranchAreaPosition() {
@@ -133,9 +138,8 @@ const GitLogModal = {
   },
 
   switchCommitModalTab(tab) {
-    const allPanes = ["commit-modal-tab-diff", "commit-modal-tab-stash", "commit-modal-tab-branch"];
     GitLogModal.setModalTitle("コミット履歴");
-    for (const id of allPanes) {
+    for (const id of GIT_LOG_MODAL_PANE_IDS) {
       const pane = $(id);
       if (pane) pane.style.display = "none";
     }
@@ -160,30 +164,36 @@ const GitLogModal = {
   },
 
   showDiffHistoryTop() {
-    GitLogModal.state.diffTopMode = "history";
-    const historyPane = $("diff-history-pane");
-    const filesPane = $("diff-files-pane");
-    if (historyPane) historyPane.style.display = "";
-    if (filesPane) filesPane.style.display = "none";
-    $("git-log-action-menu").style.display = "none";
-    $("git-log-action-menu").innerHTML = "";
-    GitLogModal.resetCreateBranchArea();
-    GitLogModal.setModalTitle("コミット履歴");
+    GitLogModal.setDiffTopMode("history", {
+      title: "コミット履歴",
+    });
   },
 
   showDiffFilesTop() {
-    GitLogModal.state.diffTopMode = "files";
-    const historyPane = $("diff-history-pane");
-    const filesPane = $("diff-files-pane");
-    if (historyPane) historyPane.style.display = "none";
-    if (filesPane) filesPane.style.display = "";
-    $("git-log-action-menu").style.display = "none";
-    $("git-log-action-menu").innerHTML = "";
-    GitLogModal.resetCreateBranchArea();
-    GitLogModal.setModalTitle(GitLogModal.state.diffPaneTitle || "差分", {
+    GitLogModal.setDiffTopMode("files", {
+      title: GitLogModal.state.diffPaneTitle || "差分",
       back: true,
       onClick: () => GitLogModal.returnToDiffHistoryTop(),
     });
+  },
+
+  setDiffTopMode(mode, titleOptions) {
+    GitLogModal.state.diffTopMode = mode;
+    GitLogModal.toggleDiffTopPane(mode);
+    GitLogModal.resetActionMenu();
+    GitLogModal.resetCreateBranchArea();
+    GitLogModal.setModalTitle(titleOptions.title, {
+      back: !!titleOptions.back,
+      onClick: titleOptions.onClick || null,
+    });
+  },
+
+  toggleDiffTopPane(mode) {
+    const historyPane = $("diff-history-pane");
+    const filesPane = $("diff-files-pane");
+    const showHistory = mode === "history";
+    if (historyPane) historyPane.style.display = showHistory ? "" : "none";
+    if (filesPane) filesPane.style.display = showHistory ? "none" : "";
   },
 
   async returnToDiffHistoryTop() {
@@ -214,8 +224,7 @@ const GitLogModal = {
   },
 
   showSubPane(paneId, title) {
-    const allPanes = ["commit-modal-tab-diff", "commit-modal-tab-stash", "commit-modal-tab-branch"];
-    for (const id of allPanes) {
+    for (const id of GIT_LOG_MODAL_PANE_IDS) {
       const pane = $(id);
       if (pane) pane.style.display = "none";
     }
@@ -241,10 +250,6 @@ const GitLogModal = {
     GitLogModal.state.diffPaneTitle = title || "未コミットの変更";
     GitLogModal.switchCommitModalTab("diff");
     GitLogModal.showDiffFilesTop();
-  },
-
-  closeDiffPane() {
-    GitLogModal.closeSubPane();
   },
 
   async openGitLogModal() {

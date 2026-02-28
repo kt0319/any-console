@@ -9,11 +9,6 @@ function getDiffViewerMode() {
   return diffViewerMode;
 }
 
-function setDiffViewerTitle(title) {
-  const viewerTitle = $("diff-viewer-title");
-  if (viewerTitle) viewerTitle.textContent = title || "";
-}
-
 function clearActiveDiffRef() {
   currentDiffRef = null;
   setDiffViewerMode("file");
@@ -49,7 +44,6 @@ function initDiffPane(actions = null) {
 
 function showDiffError(message) {
   const fileList = $("diff-file-list");
-  setDiffViewerTitle("エラー");
   fileList.innerHTML = "";
   renderDiffViewerMessage(message || "diff の取得に失敗しました");
 }
@@ -57,6 +51,18 @@ function showDiffError(message) {
 function renderDiffViewerMessage(message) {
   const diffContent = $("diff-content");
   diffContent.innerHTML = `<div class="file-content-message diff-viewer-message">${escapeHtml(message || "")}</div>`;
+}
+
+async function showLoadedDiff(fileList, data, options = {}) {
+  const { statusBadgeLeft = false, focusFileBrowser = false } = options;
+  renderDiffFileList(fileList, data.files, data.diff || "", { statusBadgeLeft });
+  if (Array.isArray(data.files) && data.files.length > 0) {
+    if (focusFileBrowser) {
+      await selectDiffFile(null);
+    }
+    return;
+  }
+  renderDiffViewerMessage("変更ファイルなし");
 }
 
 async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
@@ -89,14 +95,7 @@ async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
       return;
     }
 
-    const fileList = $("diff-file-list");
-    renderDiffFileList(fileList, data.files, data.diff || "");
-    if (Array.isArray(data.files) && data.files.length > 0) {
-      setDiffViewerTitle("ファイル");
-    } else {
-      setDiffViewerTitle("差分なし");
-      renderDiffViewerMessage("変更ファイルなし");
-    }
+    await showLoadedDiff($("diff-file-list"), data);
   } catch (e) {
     showDiffError(e.message);
   }
@@ -295,7 +294,6 @@ async function selectDiffFile(file) {
     row.classList.toggle("active", !!file && row.dataset.file === file);
   }
   if (!file) {
-    setDiffViewerTitle("ファイル");
     if (typeof loadDirectoryInDiffPane === "function") {
       await loadDirectoryInDiffPane("");
     } else {
@@ -304,79 +302,22 @@ async function selectDiffFile(file) {
     $("diff-content").scrollTop = 0;
     return;
   }
-  setDiffViewerTitle(file);
   if (currentDiffRef && typeof showDiffFileInDiffPane === "function") {
     showDiffFileInDiffPane(file);
-  } else if (typeof loadFileContentInDiffPane === "function") {
-    await loadFileContentInDiffPane(file);
   } else {
-    await loadFileContentInto(file, $("diff-content"));
+    await loadFileContentInDiffPane(file);
   }
   $("diff-content").scrollTop = 0;
 }
 
-async function loadFileContentInto(filePath, container) {
-  container.innerHTML = '<div class="file-content-message diff-viewer-message">読み込み中...</div>';
-  try {
-    const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/file-content?path=${encodeURIComponent(filePath)}`));
-    if (!res) return;
-    const data = await res.json();
-    if (!res.ok || data.status !== "ok") {
-      renderDiffFallbackContent(container, filePath, data.detail || "ファイルの読み込みに失敗しました");
-      return;
-    }
-    if (data.image) {
-      if (data.too_large) {
-        renderDiffViewerMessage(`画像が大きすぎるためプレビューできません (${formatFileSize(data.size)})`);
-      } else {
-        const fileName = filePath.split("/").pop() || "image";
-        container.innerHTML = `<div class="file-content-image-wrap"><img class="file-content-image" src="${data.data_url}" alt="${escapeHtml(fileName)}" /></div>`;
-      }
-      return;
-    }
-    if (data.binary) {
-      renderDiffViewerMessage(`バイナリファイル (${formatFileSize(data.size)})`);
-      return;
-    }
-    if (data.too_large) {
-      renderDiffViewerMessage(`ファイルが大きすぎます (${formatFileSize(data.size)})`);
-      return;
-    }
-    renderHighlightedFileContent(container, filePath, data.content);
-  } catch (e) {
-    renderDiffFallbackContent(container, filePath, e.message);
-  }
-}
-
-function renderHighlightedFileContent(container, filePath, content) {
-  if (typeof renderHighlightedTextHtml !== "function") {
-    container.innerHTML = `<pre class="text-viewer-box-content viewer-content">${escapeHtml(content)}</pre>`;
-    return;
-  }
-  const codeHtml = renderHighlightedTextHtml(content, filePath);
-  container.innerHTML = `<div class="file-content-viewer text-viewer-box viewer-surface"><pre class="file-content-code text-viewer-box-content viewer-content hljs">${codeHtml}</pre></div>`;
-}
-
-function renderDiffFallbackContent(container, filePath, message) {
-  const chunk = diffChunks[filePath] || "";
-  if (!chunk) {
-    renderDiffViewerMessage(message || "ファイルの読み込みに失敗しました");
-    return;
-  }
-  const note = message ? `<div class="file-content-message diff-viewer-message">${escapeHtml(message)}</div>` : "";
-  container.innerHTML = `${note}<pre class="diff-content-code"></pre>`;
-  const pre = container.querySelector(".diff-content-code");
-  pre.appendChild(colorDiff(chunk));
-}
-
 async function loadDiffTab() {
   if (!selectedWorkspace) return;
-  setDiffViewerMode("file");
-  currentDiffRef = null;
+  clearActiveDiffRef();
 
   const stashActions = [
     { label: "コミット", cls: "", fn: () => openCommitForm() },
-    { label: "Stash", cls: "", fn: () => GitCore.execStashAction("save") },
+    { label: "Stash一覧", key: "stash-list", cls: "", fn: () => GitLogModal.openStashPane() },
+    { label: "Stash保存", cls: "", fn: () => GitCore.execStashAction("save") },
     { label: "Stash適用", cls: "", fn: () => GitCore.execStashAction("pop") },
   ];
   initDiffPane(stashActions);
@@ -390,14 +331,7 @@ async function loadDiffTab() {
       return;
     }
 
-    const fileList = $("diff-file-list");
-    renderDiffFileList(fileList, data.files, data.diff || "", { statusBadgeLeft: true });
-    if (Array.isArray(data.files) && data.files.length > 0) {
-      await selectDiffFile(null);
-    } else {
-      setDiffViewerTitle("差分なし");
-      renderDiffViewerMessage("変更ファイルなし");
-    }
+    await showLoadedDiff($("diff-file-list"), data, { statusBadgeLeft: true, focusFileBrowser: true });
   } catch (e) {
     showDiffError(e.message);
   }

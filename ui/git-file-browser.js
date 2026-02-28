@@ -390,15 +390,6 @@ function bindFileUploadEvents(container, loadDirFn) {
 }
 
 function getFileBrowserViewConfig(view) {
-  if (view === "modal") {
-    return {
-      containerId: "commit-modal-file-browser",
-      hideCloseButton: true,
-      onClose: null,
-      openDirectory: loadDirectoryInModal,
-      openFile: loadFileContentInModal,
-    };
-  }
   if (view === "diff-pane") {
     return {
       containerId: "diff-content",
@@ -424,12 +415,28 @@ function getFileBrowserRef(view) {
   return "";
 }
 
-async function fetchDirectoryData(path, view = "tab") {
+function getFileBrowserContainer(view) {
+  return $(getFileBrowserViewConfig(view).containerId);
+}
+
+function buildFileBrowserQuery(path, view = "tab") {
   const ref = getFileBrowserRef(view);
-  const query = ref
+  return ref
     ? `?path=${encodeURIComponent(path)}&ref=${encodeURIComponent(ref)}`
     : `?path=${encodeURIComponent(path)}`;
-  const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/files${query}`));
+}
+
+function getFileBrowserRenderOptions(view, extra = {}) {
+  return {
+    rootLabel: getFileBrowserRootLabel(view),
+    badgeLabel: getFileBrowserBadgeLabel(view),
+    ...extra,
+  };
+}
+
+async function fetchFileBrowserData(endpoint, path, view = "tab") {
+  const query = buildFileBrowserQuery(path, view);
+  const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/${endpoint}${query}`));
   if (!res) return { ok: false, message: "読み込みに失敗しました" };
   const data = await res.json();
   if (!res.ok || data.status !== "ok") {
@@ -438,18 +445,12 @@ async function fetchDirectoryData(path, view = "tab") {
   return { ok: true, data };
 }
 
+async function fetchDirectoryData(path, view = "tab") {
+  return fetchFileBrowserData("files", path, view);
+}
+
 async function fetchFileContentData(path, view = "tab") {
-  const ref = getFileBrowserRef(view);
-  const query = ref
-    ? `?path=${encodeURIComponent(path)}&ref=${encodeURIComponent(ref)}`
-    : `?path=${encodeURIComponent(path)}`;
-  const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/file-content${query}`));
-  if (!res) return { ok: false, message: "読み込みに失敗しました" };
-  const data = await res.json();
-  if (!res.ok || data.status !== "ok") {
-    return { ok: false, message: data.detail || "読み込みに失敗しました" };
-  }
-  return { ok: true, data };
+  return fetchFileBrowserData("file-content", path, view);
 }
 
 function bindFileBrowserEvents(container, view = "tab") {
@@ -508,7 +509,7 @@ function bindFileBrowserEvents(container, view = "tab") {
 
 async function loadDirectoryByView(path, view) {
   if (!selectedWorkspace) return;
-  const el = $(getFileBrowserViewConfig(view).containerId);
+  const el = getFileBrowserContainer(view);
   if (!el) return;
 
   el.innerHTML = fileBrowserMessage("読み込み中...", true);
@@ -520,10 +521,7 @@ async function loadDirectoryByView(path, view) {
       return;
     }
     const data = result.data;
-    el.innerHTML = buildFileBrowserHtml(data.path, data.entries, {
-      rootLabel: data.rootLabel || getFileBrowserRootLabel(view),
-      badgeLabel: data.badgeLabel || getFileBrowserBadgeLabel(view),
-    });
+    el.innerHTML = buildFileBrowserHtml(data.path, data.entries, getFileBrowserRenderOptions(view, data));
     bindFileBrowserEvents(el, view);
   } catch (e) {
     el.innerHTML = fileBrowserMessage(e.message);
@@ -561,21 +559,8 @@ async function loadFileContent(path) {
   await loadFileContentByView(path, "tab");
 }
 
-function openFileBrowser() {
-  if (!selectedWorkspace) return;
-  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
-  const wsIcon = ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null;
-  const folderIcon = { name: "mdi-folder", color: "" };
-  setOutputTab("file-browser", "ファイル", fileBrowserMessage("読み込み中...", true), folderIcon, wsIcon, selectedWorkspace);
-  loadDirectory("");
-}
-
-async function loadDirectoryInModal(path) {
-  await loadDirectoryByView(path, "modal");
-}
-
-async function loadDirectoryInDiffPane(path, options = {}) {
-  if (!options.keepDiffMode && typeof setDiffViewerMode === "function") {
+async function loadDirectoryInDiffPane(path) {
+  if (typeof setDiffViewerMode === "function") {
     setDiffViewerMode("file");
   }
   await loadDirectoryByView(path, "diff-pane");
@@ -583,7 +568,7 @@ async function loadDirectoryInDiffPane(path, options = {}) {
 
 async function loadFileContentByView(path, view) {
   if (!selectedWorkspace) return;
-  const el = $(getFileBrowserViewConfig(view).containerId);
+  const el = getFileBrowserContainer(view);
   if (!el) return;
 
   el.innerHTML = fileBrowserMessage("読み込み中...", true);
@@ -595,20 +580,14 @@ async function loadFileContentByView(path, view) {
       return;
     }
     const data = result.data;
-    el.innerHTML = buildFileContentHtml(path, data, {
-      rootLabel: getFileBrowserRootLabel(view),
-      badgeLabel: getFileBrowserBadgeLabel(view),
+    el.innerHTML = buildFileContentHtml(path, data, getFileBrowserRenderOptions(view, {
       badgePath: path,
       badgeInteractive: view === "diff-pane" && !!getFileBrowserRef(view),
-    });
+    }));
     bindFileBrowserEvents(el, view);
   } catch (e) {
     el.innerHTML = fileBrowserMessage(e.message);
   }
-}
-
-async function loadFileContentInModal(path) {
-  await loadFileContentByView(path, "modal");
 }
 
 async function loadFileContentInDiffPane(path) {
@@ -623,15 +602,13 @@ function showDiffFileInDiffPane(path) {
   if (typeof setDiffViewerMode === "function") {
     setDiffViewerMode("diff");
   }
-  const el = $(getFileBrowserViewConfig("diff-pane").containerId);
+  const el = getFileBrowserContainer("diff-pane");
   if (!el) return;
   const diffText = typeof diffChunks === "object" && diffChunks ? (diffChunks[path] || "") : "";
-  el.innerHTML = buildDiffContentHtml(path, diffText, {
-    rootLabel: getFileBrowserRootLabel("diff-pane"),
-    badgeLabel: getFileBrowserBadgeLabel("diff-pane"),
+  el.innerHTML = buildDiffContentHtml(path, diffText, getFileBrowserRenderOptions("diff-pane", {
     currentPath: path,
     currentInteractive: true,
-  }, diffText ? "" : "差分を表示できません");
+  }), diffText ? "" : "差分を表示できません");
   const pre = el.querySelector(".diff-content-code");
   if (pre) {
     if (diffText && typeof colorDiff === "function") {

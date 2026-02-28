@@ -105,13 +105,11 @@ Object.assign(GitLogModal, {
   },
 
   updateGitLogBranchLabel() {
-    const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
-    $("git-log-branch-label").textContent = ws ? ws.branch : "";
     GitLogModal.updateStashBtn();
   },
 
   async updateStashBtn() {
-    const btn = $("stash-btn");
+    const btn = $("diff-actions")?.querySelector('[data-action-key="stash-list"]');
     if (!btn) return;
     if (!selectedWorkspace) {
       btn.textContent = "Stash一覧";
@@ -138,12 +136,25 @@ Object.assign(GitLogModal, {
     const entry = document.createElement("div");
     entry.className = "git-log-entry git-log-dirty";
     const statText = buildWorkspaceChangeSummaryHtml(ws);
+    const branchLabel = escapeHtml((ws && ws.branch) ? ws.branch : "");
+    const branchButtonHtml =
+      '<button type="button" class="git-log-branch-select-btn git-log-dirty-branch-btn">' +
+        `<span class="mdi mdi-source-branch"></span> <span class="git-log-dirty-branch-label">${branchLabel}</span>` +
+      "</button>";
     const badgeHtml = `<span class="git-log-entry-refs"><span class="git-ref git-ref-dirty">${statText}</span></span>`;
     entry.innerHTML =
-      `<span class="git-log-entry-body">` +
-        `<span class="git-log-entry-row1">${badgeHtml}</span>` +
-        '<span class="git-log-entry-msg" style="color:var(--text-muted)">未コミットの変更</span>' +
-      `</span>`;
+      '<span class="git-log-entry-body git-log-dirty-body">' +
+        '<span class="git-log-dirty-main">' +
+          '<span class="git-log-entry-msg git-log-dirty-msg">未コミットの変更</span>' +
+          `${badgeHtml}` +
+        "</span>" +
+        `${branchButtonHtml}` +
+      "</span>";
+    const branchBtn = entry.querySelector(".git-log-dirty-branch-btn");
+    branchBtn?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      GitLogModal.openLocalBranchPane();
+    });
     entry.addEventListener("click", () => {
       GitLogModal.state.previousModalTab = "diff";
       GitLogModal.showDiffPane("未コミットの変更");

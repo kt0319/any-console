@@ -1173,7 +1173,7 @@ header {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 24px;
+  height: 20px;
   padding: 0 6px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -1299,10 +1299,6 @@ header {
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg-secondary);
-}
-
-#commit-modal-file-browser .file-browser {
-  height: auto;
 }
 
 .viewer-content,
@@ -2109,6 +2105,12 @@ button:disabled {
   flex-shrink: 0;
 }
 
+.branch-pane-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 6px 4px;
+}
+
 .branch-item.current {
   color: var(--accent);
   cursor: default;
@@ -2199,8 +2201,21 @@ button:disabled {
 }
 
 .git-ref-dirty {
+  display: inline-flex;
+  align-items: center;
+  min-height: 0;
+  padding: 4px 10px;
   color: var(--warning);
   background: var(--warning-bg-20);
+}
+
+.git-ref-dirty .header-git-numstat {
+  font-size: 10px;
+  gap: 8px;
+}
+
+.git-ref-dirty .header-git-files {
+  font-size: 10px;
 }
 
 .git-log-entry-body {
@@ -2209,6 +2224,21 @@ button:disabled {
   gap: 3px;
   min-width: 0;
   flex: 1;
+}
+
+.git-log-dirty-body {
+  flex-direction: row;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.git-log-dirty-main {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  flex: 1;
+  gap: 4px;
 }
 
 .git-log-entry-row1 {
@@ -2222,6 +2252,28 @@ button:disabled {
 .git-log-entry-row1-left {
   min-width: 0;
   overflow: hidden;
+}
+
+.git-log-dirty-branch-btn {
+  flex-shrink: 0;
+  align-self: stretch;
+  min-height: 100%;
+  padding: 0 28px 0 12px;
+  font-size: 13px;
+  max-width: 42%;
+}
+
+.git-log-dirty-branch-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.git-log-dirty-msg {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted) !important;
 }
 
 .git-log-entry-msg {
@@ -2481,16 +2533,6 @@ button:disabled {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-secondary);
-}
-
-.diff-viewer-title {
-  padding: 10px 12px 8px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  border-bottom: 1px solid var(--border);
 }
 
 .diff-file-row {
