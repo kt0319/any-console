@@ -12,12 +12,14 @@ from ..common import (
     BACKGROUND_FETCH_TIMEOUT_SEC,
     GIT_CLONE_TIMEOUT_SEC,
     GITHUB_CLI_TIMEOUT_SEC,
-    TTLCache,
     WORK_DIR,
+    TTLCache,
     command_result_dict,
     git_info_to_status_dict,
+    load_global_config_section,
     load_workspace_config,
     resolve_workspace_path,
+    save_global_config_section,
     save_workspace_config,
 )
 
@@ -42,14 +44,27 @@ def _background_fetch(dirs):
     list(BACKGROUND_EXECUTOR.map(fetch, dirs))
 
 
+def _sort_key_by_workspace_order(order_list):
+    order_map = {name: i for i, name in enumerate(order_list)}
+
+    def key(workspace_dir):
+        name = workspace_dir.name
+        if name in order_map:
+            return (0, order_map[name], name)
+        return (1, 0, name)
+
+    return key
+
+
 @router.get("/workspaces")
 def list_workspaces():
     if not WORK_DIR.is_dir():
         return []
+    workspace_order = load_global_config_section("workspace_order", [])
     dirs = sorted(
         [workspace_dir for workspace_dir in WORK_DIR.iterdir()
          if workspace_dir.is_dir() and not workspace_dir.name.startswith(".")],
-        key=lambda workspace_dir: workspace_dir.name,
+        key=_sort_key_by_workspace_order(workspace_order),
     )
     result = list(BACKGROUND_EXECUTOR.map(
         lambda workspace_dir: git_info_to_status_dict(workspace_dir, workspace_dir.name),
@@ -62,6 +77,17 @@ def list_workspaces():
         ws_data["hidden"] = config.get("hidden", False)
     BACKGROUND_EXECUTOR.submit(_background_fetch, dirs)
     return result
+
+
+class WorkspaceOrderRequest(BaseModel):
+    order: list[str]
+
+
+@router.put("/workspace-order")
+def update_workspace_order(body: WorkspaceOrderRequest):
+    save_global_config_section("workspace_order", body.order)
+    logger.info("workspace order updated count=%d", len(body.order))
+    return {"status": "ok"}
 
 
 class UpdateConfigRequest(BaseModel):

@@ -41,6 +41,7 @@ class WorkspaceConfig(_ConfigModel):
 
 class GlobalConfig(_ConfigModel):
     snippets: list[SnippetConfig] = Field(default_factory=list)
+    workspace_order: list[str] = Field(default_factory=list)
 
 
 def _model_validate(model_cls: type[BaseModel], data: Any) -> BaseModel:

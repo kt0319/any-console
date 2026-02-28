@@ -203,19 +203,74 @@ function createWorkspaceItemElements(ws) {
   return { iconSpan, label };
 }
 
+async function reorderWorkspaces(orderedNames) {
+  try {
+    const res = await apiFetch("/workspace-order", {
+      method: "PUT",
+      body: { order: orderedNames },
+    });
+    if (!res) return false;
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.detail || "並び替えに失敗しました", "error");
+      return false;
+    }
+    showToast("ワークスペース順を更新しました", "success");
+    return true;
+  } catch (e) {
+    showToast(`並び替えエラー: ${e.message}`, "error");
+    return false;
+  }
+}
+
 function renderWorkspaceVisibilityChecklistTo(container) {
   container.innerHTML = "";
+  let orderSaving = false;
+  let orderSnapshot = null;
+
   for (const ws of allWorkspaces) {
     const item = document.createElement("div");
     item.className = "ws-check-item";
+    item.dataset.wsName = ws.name;
+
+    const handle = document.createElement("span");
+    handle.className = "ws-check-drag-handle";
+    handle.innerHTML = '<span class="mdi mdi-drag"></span>';
+
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.checked = !ws.hidden;
     checkbox.dataset.ws = ws.name;
     checkbox.addEventListener("change", (e) => toggleWorkspace(ws.name, e.target.checked));
+
     const { iconSpan, label } = createWorkspaceItemElements(ws);
-    item.append(checkbox, iconSpan, label);
+    item.append(handle, checkbox, iconSpan, label);
     container.appendChild(item);
+
+    bindVerticalDragHandle({
+      handle,
+      row: item,
+      list: container,
+      rowSelector: ".ws-check-item",
+      canStart: () => !orderSaving,
+      onStart: () => {
+        orderSnapshot = allWorkspaces.slice();
+      },
+      onReorder: (fromIdx, toIdx) => {
+        if (fromIdx === toIdx) return;
+        const [moved] = allWorkspaces.splice(fromIdx, 1);
+        if (moved) allWorkspaces.splice(toIdx, 0, moved);
+      },
+      onCommit: async (didMove) => {
+        if (!didMove) return;
+        orderSaving = true;
+        const ok = await reorderWorkspaces(allWorkspaces.map((w) => w.name));
+        if (!ok && orderSnapshot) {
+          allWorkspaces.splice(0, allWorkspaces.length, ...orderSnapshot);
+        }
+        orderSaving = false;
+      },
+    });
   }
 }
 
