@@ -23,8 +23,9 @@
   <rect width="64" height="64" rx="12" fill="url(#screenGrad)"/>
   <rect width="64" height="64" rx="12" fill="url(#screenGloss)"/>
   <rect x="0.5" y="0.5" width="63" height="63" rx="11.5" fill="none" stroke="rgba(170,220,255,0.12)"/>
-  <text x="32" y="32" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="34" font-weight="700">
-    <tspan fill="url(#piGrad)">π</tspan>
-    <tspan dx="-2" fill="url(#caretGrad)">›</tspan>
-  </text>
+
+  <g transform="translate(32,32)">
+    <text x="-11" y="1" text-anchor="middle" dominant-baseline="central" font-family="monospace" font-size="38" font-weight="700" fill="url(#piGrad)">π</text>
+    <path d="M11 -9 L20 0 L11 9" fill="none" stroke="url(#caretGrad)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
 </svg>
