@@ -900,12 +900,16 @@ header {
   inset: 0;
 }
 
-.split-pane.active-pane {
+.split-pane.split-single {
+  border-color: transparent;
+}
+
+.split-pane.active-pane:not(.split-single) {
   border-color: var(--accent);
   z-index: 1;
 }
 
-.split-pane.active-pane .tab-name-pill {
+.split-pane.active-pane:not(.split-single) .tab-name-pill {
   border-color: var(--accent);
 }
 

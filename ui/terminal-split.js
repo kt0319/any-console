@@ -212,8 +212,11 @@ function setActivePaneIndex(index) {
 
 function updateActivePaneVisual() {
   const container = $("output-container");
-  container.querySelectorAll(".split-pane").forEach((pane, i) => {
+  const panes = container.querySelectorAll(".split-pane");
+  const singlePane = panes.length <= 1;
+  panes.forEach((pane, i) => {
     pane.classList.toggle("active-pane", i === activePaneIndex);
+    pane.classList.toggle("split-single", singlePane);
   });
 }
 
