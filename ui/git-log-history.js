@@ -132,34 +132,41 @@ Object.assign(GitLogModal, {
   renderDirtyEntry(listEl) {
     const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
     const isDirty = ws && ws.clean === false;
-    if (!isDirty) return;
     const entry = document.createElement("div");
     entry.className = "git-log-entry git-log-dirty";
-    const statText = buildWorkspaceChangeSummaryHtml(ws);
     const branchLabel = escapeHtml((ws && ws.branch) ? ws.branch : "");
     const branchButtonHtml =
       '<button type="button" class="git-log-branch-select-btn git-log-dirty-branch-btn">' +
         `<span class="mdi mdi-source-branch"></span> <span class="git-log-dirty-branch-label">${branchLabel}</span>` +
       "</button>";
-    const badgeHtml = `<span class="git-log-entry-refs"><span class="git-ref git-ref-dirty">${statText}</span></span>`;
-    entry.innerHTML =
+    let bodyHtml =
       '<span class="git-log-entry-body git-log-dirty-body">' +
-        '<span class="git-log-dirty-main">' +
-          '<span class="git-log-entry-msg git-log-dirty-msg">未コミットの変更</span>' +
-          `${badgeHtml}` +
-        "</span>" +
-        `${branchButtonHtml}` +
-      "</span>";
+        '<span class="git-log-dirty-main">';
+    if (isDirty) {
+      const statText = buildWorkspaceChangeSummaryHtml(ws);
+      const badgeHtml = `<span class="git-log-entry-refs"><span class="git-ref git-ref-dirty">${statText}</span></span>`;
+      bodyHtml +=
+        '<span class="git-log-entry-msg git-log-dirty-msg">未コミットの変更</span>' +
+        `${badgeHtml}`;
+    } else {
+      bodyHtml += '<span class="git-log-entry-msg git-log-dirty-msg">変更なし</span>';
+    }
+    bodyHtml += `</span>${branchButtonHtml}</span>`;
+    entry.innerHTML = bodyHtml;
     const branchBtn = entry.querySelector(".git-log-dirty-branch-btn");
     branchBtn?.addEventListener("click", (event) => {
       event.stopPropagation();
       GitLogModal.openLocalBranchPane();
     });
-    entry.addEventListener("click", () => {
-      GitLogModal.state.previousModalTab = "diff";
-      GitLogModal.showDiffPane("未コミットの変更");
-      loadDiffTab();
-    });
+    if (isDirty) {
+      entry.addEventListener("click", () => {
+        GitLogModal.state.previousModalTab = "diff";
+        GitLogModal.showDiffPane("未コミットの変更");
+        loadDiffTab();
+      });
+    } else {
+      entry.style.cursor = "default";
+    }
     listEl.appendChild(entry);
   },
 

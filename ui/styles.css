@@ -1075,7 +1075,7 @@ header {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 10px 16px;
+  padding: 6px 12px;
   font-size: 12px;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
@@ -1108,7 +1108,7 @@ header {
   border: none;
   color: var(--accent);
   font-size: 12px;
-  padding: 2px 4px;
+  padding: 1px 3px;
   cursor: pointer;
   font-family: inherit;
 }
@@ -1119,13 +1119,13 @@ header {
 
 .file-browser-crumb-current {
   color: var(--text-primary);
-  padding: 2px 4px;
+  padding: 1px 3px;
 }
 
 .file-browser-crumb-current-action {
   display: inline-flex;
   align-items: center;
-  padding: 2px 4px;
+  padding: 1px 3px;
   border: none;
   background: transparent;
   color: var(--accent);
@@ -1137,8 +1137,8 @@ header {
   margin-left: 4px;
   display: inline-flex;
   align-items: center;
-  min-height: 18px;
-  padding: 0 8px;
+  min-height: 16px;
+  padding: 0 6px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg-secondary);
@@ -1172,14 +1172,19 @@ header {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  height: 20px;
+  height: 24px;
+  min-height: 24px;
+  max-height: 24px;
+  min-width: 0;
   padding: 0 6px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg-secondary);
   color: var(--text-muted);
   font-size: 10px;
+  line-height: 1;
   cursor: pointer;
 }
 
