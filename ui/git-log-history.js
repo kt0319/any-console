@@ -2,6 +2,16 @@ function renderCommitMeta(author, time) {
   return `<span class="git-log-entry-meta"><span class="git-log-entry-author">${escapeHtml(author)}</span><span class="git-log-entry-time">${escapeHtml(time)}</span></span>`;
 }
 
+function renderDirtyWorkspaceLabel(ws) {
+  if (ws && ws.clean === false) {
+    const statText = buildWorkspaceChangeSummaryHtml(ws);
+    return '<span class="git-log-entry-msg git-log-dirty-msg">未コミットの変更</span>'
+      + `<span class="git-log-entry-refs"><span class="git-ref git-ref-dirty">${statText}</span></span>`;
+  }
+  return '<span class="git-log-entry-msg git-log-dirty-msg">変更なし</span>'
+    + '<span class="git-log-entry-refs git-log-dirty-replacement" aria-hidden="true"><span class="git-ref git-ref-dirty">0F +0 -0</span></span>';
+}
+
 Object.assign(GitLogModal, {
   renderGitLogEntries(listEl, stdout) {
     const history = GitLogModal.state.history;
@@ -104,10 +114,6 @@ Object.assign(GitLogModal, {
     }
   },
 
-  updateGitLogBranchLabel() {
-    GitLogModal.updateStashBtn();
-  },
-
   async updateStashBtn() {
     const btn = $("diff-actions")?.querySelector('[data-action-key="stash-list"]');
     if (!btn) return;
@@ -143,21 +149,10 @@ Object.assign(GitLogModal, {
       '<button type="button" class="git-log-branch-select-btn git-log-dirty-branch-btn">' +
         `<span class="mdi mdi-source-branch"></span> <span class="git-log-dirty-branch-label">${branchLabel}</span>` +
       "</button>";
-    const mainClass = isDirty ? "git-log-dirty-main" : "git-log-dirty-main git-log-dirty-main-clean";
     let bodyHtml =
       '<span class="git-log-entry-body git-log-dirty-body">' +
-        `<span class="${mainClass}">`;
-    if (isDirty) {
-      const statText = buildWorkspaceChangeSummaryHtml(ws);
-      const badgeHtml = `<span class="git-log-entry-refs"><span class="git-ref git-ref-dirty">${statText}</span></span>`;
-      bodyHtml +=
-        '<span class="git-log-entry-msg git-log-dirty-msg">未コミットの変更</span>' +
-        `${badgeHtml}`;
-    } else {
-      bodyHtml +=
-        '<span class="git-log-entry-msg git-log-dirty-msg">変更なし</span>' +
-        '<span class="git-log-entry-refs git-log-dirty-replacement" aria-hidden="true"><span class="git-ref git-ref-dirty">0F +0 -0</span></span>';
-    }
+        '<span class="git-log-dirty-main">';
+    bodyHtml += renderDirtyWorkspaceLabel(ws);
     bodyHtml += `</span><span class="git-log-dirty-actions">${fetchButtonHtml}${branchButtonHtml}</span></span>`;
     entry.innerHTML = bodyHtml;
     const fetchBtn = entry.querySelector(".git-log-dirty-fetch-btn");
@@ -172,7 +167,6 @@ Object.assign(GitLogModal, {
     });
     if (isDirty) {
       entry.addEventListener("click", () => {
-        GitLogModal.state.previousModalTab = "diff";
         GitLogModal.showDiffPane("未コミットの変更");
         loadDiffTab();
       });

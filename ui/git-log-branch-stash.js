@@ -1,6 +1,46 @@
 Object.assign(GitLogModal, {
+  async selectBranch(branch) {
+    GitLogModal.closeSubPane();
+    await GitCore.checkoutBranch(branch);
+    await GitLogModal.reloadGitLog();
+  },
+
+  createBranchListItem(branch, currentBranch, { remote = false } = {}) {
+    const item = document.createElement("div");
+    item.className = `branch-item${remote ? " remote-only" : ""}`;
+    if (branch === currentBranch) {
+      item.classList.add("current");
+    }
+
+    const nameEl = document.createElement("div");
+    nameEl.className = "branch-item-name";
+    nameEl.textContent = branch === currentBranch ? `${branch} ✓` : branch;
+    if (branch !== currentBranch) {
+      nameEl.addEventListener("click", async () => {
+        await GitLogModal.selectBranch(branch);
+      });
+    }
+    item.appendChild(nameEl);
+
+    if (branch !== currentBranch) {
+      const actions = document.createElement("div");
+      actions.className = "branch-item-actions";
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "commit-action-item commit-action-danger";
+      delBtn.textContent = "削除";
+      delBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        await GitLogModal.deleteBranch(branch, remote, delBtn);
+      });
+      actions.appendChild(delBtn);
+      item.appendChild(actions);
+    }
+
+    return item;
+  },
+
   async openLocalBranchPane() {
-    GitLogModal.state.previousModalTab = "diff";
     GitLogModal.showSubPane("branch", "ブランチ");
     const listEl = $("branch-pane-list");
     listEl.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
@@ -13,41 +53,7 @@ Object.assign(GitLogModal, {
     listEl.innerHTML = "";
 
     for (const b of cachedBranches) {
-      const item = document.createElement("div");
-      item.className = "branch-item";
-      if (b === currentBranch) {
-        item.classList.add("current");
-      }
-
-      const nameEl = document.createElement("div");
-      nameEl.className = "branch-item-name";
-      nameEl.textContent = b === currentBranch ? `${b} ✓` : b;
-      if (b !== currentBranch) {
-        nameEl.addEventListener("click", async () => {
-          GitLogModal.closeSubPane();
-          await GitCore.checkoutBranch(b);
-          GitLogModal.updateGitLogBranchLabel();
-          await GitLogModal.reloadGitLog();
-        });
-      }
-      item.appendChild(nameEl);
-
-      if (b !== currentBranch) {
-        const actions = document.createElement("div");
-        actions.className = "branch-item-actions";
-        const delBtn = document.createElement("button");
-        delBtn.type = "button";
-        delBtn.className = "commit-action-item commit-action-danger";
-        delBtn.textContent = "削除";
-        delBtn.addEventListener("click", async (e) => {
-          e.stopPropagation();
-          await GitLogModal.deleteBranch(b, false, delBtn);
-        });
-        actions.appendChild(delBtn);
-        item.appendChild(actions);
-      }
-
-      listEl.appendChild(item);
+      listEl.appendChild(GitLogModal.createBranchListItem(b, currentBranch));
     }
 
     const remoteBtn = document.createElement("div");
@@ -73,41 +79,7 @@ Object.assign(GitLogModal, {
       if (remoteOnlyBranches.length === 0) return;
 
       for (const branch of remoteOnlyBranches) {
-        const item = document.createElement("div");
-        item.className = "branch-item remote-only";
-        if (branch === currentBranch) {
-          item.classList.add("current");
-        }
-
-        const nameEl = document.createElement("div");
-        nameEl.className = "branch-item-name";
-        nameEl.textContent = branch === currentBranch ? `${branch} ✓` : branch;
-        if (branch !== currentBranch) {
-          nameEl.addEventListener("click", async () => {
-            GitLogModal.closeSubPane();
-            await GitCore.checkoutBranch(branch);
-            GitLogModal.updateGitLogBranchLabel();
-            await GitLogModal.reloadGitLog();
-          });
-        }
-        item.appendChild(nameEl);
-
-        if (branch !== currentBranch) {
-          const actions = document.createElement("div");
-          actions.className = "branch-item-actions";
-          const delBtn = document.createElement("button");
-          delBtn.type = "button";
-          delBtn.className = "commit-action-item commit-action-danger";
-          delBtn.textContent = "削除";
-          delBtn.addEventListener("click", async (e) => {
-            e.stopPropagation();
-            await GitLogModal.deleteBranch(branch, true, delBtn);
-          });
-          actions.appendChild(delBtn);
-          item.appendChild(actions);
-        }
-
-        listEl.appendChild(item);
+        listEl.appendChild(GitLogModal.createBranchListItem(branch, currentBranch, { remote: true }));
       }
     } catch {}
   },
@@ -115,7 +87,6 @@ Object.assign(GitLogModal, {
   async openStashPane() {
     if (!selectedWorkspace) return;
 
-    GitLogModal.state.previousModalTab = "diff";
     GitLogModal.showSubPane("stash", "Stash");
     const listEl = $("stash-pane-list");
     setCloneRepoStatus(listEl, "loading", "読み込み中...");

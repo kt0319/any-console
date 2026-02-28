@@ -1,9 +1,7 @@
-const GIT_LOG_MODAL_PANE_IDS = ["commit-modal-tab-diff"];
 const DIFF_TOP_PANE_IDS = ["diff-history-pane", "diff-files-pane", "diff-stash-pane", "diff-branch-pane"];
 
 const GitLogModal = {
   state: {
-    previousModalTab: "diff",
     diffPaneTitle: "未コミットの変更",
     diffTopMode: "history",
     gitLogLoadedWorkspace: null,
@@ -140,13 +138,9 @@ const GitLogModal = {
     }
   },
 
-  switchCommitModalTab(tab) {
-    GitLogModal.setModalTitle("コミット履歴");
-    for (const id of GIT_LOG_MODAL_PANE_IDS) {
-      const pane = $(id);
-      if (pane) pane.style.display = "none";
-    }
-    $("commit-modal-tab-" + tab).style.display = "";
+  ensureDiffTabVisible() {
+    const diffTab = $("commit-modal-tab-diff");
+    if (diffTab) diffTab.style.display = "";
   },
 
   setModalTitle(title, options = {}) {
@@ -204,20 +198,6 @@ const GitLogModal = {
     await GitLogModal.ensureCommitLogReady();
   },
 
-  async restoreDiffPane() {
-    GitLogModal.switchCommitModalTab("diff");
-    if (GitLogModal.state.diffTopMode === "files") {
-      GitLogModal.showDiffFilesTop();
-    } else if (GitLogModal.state.diffTopMode === "branch") {
-      GitLogModal.showSubPane("branch", "ブランチ");
-    } else if (GitLogModal.state.diffTopMode === "stash") {
-      GitLogModal.showSubPane("stash", "Stash");
-    } else {
-      GitLogModal.showDiffHistoryTop();
-      await GitLogModal.ensureCommitLogReady();
-    }
-  },
-
   async ensureCommitLogReady() {
     if (!selectedWorkspace) return;
     const listEl = $("git-log-list-modal");
@@ -231,7 +211,7 @@ const GitLogModal = {
   },
 
   showSubPane(mode, title) {
-    GitLogModal.switchCommitModalTab("diff");
+    GitLogModal.ensureDiffTabVisible();
     GitLogModal.setDiffTopMode(mode, {
       title,
       back: true,
@@ -245,31 +225,26 @@ const GitLogModal = {
       GitLogModal.resetCreateBranchArea();
       return;
     }
-    const nextTab = GitLogModal.state.previousModalTab;
-    if (nextTab === "diff") {
-      if (typeof getActiveDiffRef === "function" && getActiveDiffRef()) {
-        GitLogModal.showDiffFilesTop();
-        return;
-      }
-      GitLogModal.showDiffHistoryTop();
-      await GitLogModal.ensureCommitLogReady();
+    if (typeof getActiveDiffRef === "function" && getActiveDiffRef()) {
+      GitLogModal.showDiffFilesTop();
       return;
     }
-    GitLogModal.switchCommitModalTab(nextTab);
+    GitLogModal.showDiffHistoryTop();
+    await GitLogModal.ensureCommitLogReady();
   },
 
   showDiffPane(title) {
     GitLogModal.state.diffPaneTitle = title || "未コミットの変更";
-    GitLogModal.switchCommitModalTab("diff");
+    GitLogModal.ensureDiffTabVisible();
     GitLogModal.showDiffFilesTop();
   },
 
   async openGitLogModal() {
     if (!selectedWorkspace) return;
-    GitLogModal.switchCommitModalTab("diff");
+    GitLogModal.ensureDiffTabVisible();
     GitLogModal.showDiffHistoryTop();
     $("git-log-modal").style.display = "flex";
-    GitLogModal.updateGitLogBranchLabel();
+    GitLogModal.updateStashBtn();
     if (typeof clearActiveDiffRef === "function") {
       clearActiveDiffRef();
     }

@@ -70,7 +70,6 @@ async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
   setDiffViewerMode("file");
   currentDiffRef = commitHash || null;
   initDiffPane();
-  GitLogModal.state.previousModalTab = "diff";
   GitLogModal.showDiffPane(commitMsg || "");
 
   if (commitHash) {
@@ -340,9 +339,8 @@ async function loadDiffTab() {
 async function openDiffModal() {
   if (!selectedWorkspace) return;
 
-  GitLogModal.state.previousModalTab = "diff";
   $("git-log-modal").style.display = "flex";
-  GitLogModal.updateGitLogBranchLabel();
+  GitLogModal.updateStashBtn();
   GitLogModal.showDiffPane("未コミットの変更");
   await loadDiffTab();
 }

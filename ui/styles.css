@@ -2110,36 +2110,13 @@ button:disabled {
   flex-shrink: 0;
 }
 
-.branch-pane-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  padding: 8px 6px 4px;
-}
-
 .branch-item.current {
   color: var(--accent);
   cursor: default;
 }
 
-.branch-item.local-exists {
-  color: var(--text-muted);
-}
-
 .branch-item.remote-only {
   color: var(--text-muted);
-}
-
-.git-log-sub-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 6px;
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.git-log-sub-header .stash-btn {
-  margin-left: auto;
 }
 
 .git-log-branch-select-btn {
@@ -2167,11 +2144,6 @@ button:disabled {
 
 .git-log-branch-select-btn .mdi {
   flex-shrink: 0;
-}
-
-.git-log-branch-select-btn #git-log-branch-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .branch-item-action {
