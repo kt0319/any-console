@@ -3249,8 +3249,20 @@ button:disabled {
   min-height: 40px;
 }
 
+.ws-settings-item.dragging {
+  opacity: 0.72;
+  background: var(--bg-tertiary);
+}
+
 .ws-settings-item:last-child {
   border-bottom: none;
+}
+
+.ws-settings-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .ws-settings-item-name {
@@ -3259,6 +3271,35 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ws-settings-item-drag-handle {
+  width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.ws-settings-item-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.ws-settings-item-action-btn {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  font-size: 16px;
+  line-height: 1;
 }
 
 .ws-settings-empty {

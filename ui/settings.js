@@ -247,23 +247,155 @@ function createWorkspaceSettingsItemRow({
   defaultIcon,
   label,
   onClick,
+  actions = [],
+  leadingControl = null,
+  className = "",
 }) {
   const row = document.createElement("div");
-  row.className = "ws-settings-item";
-  row.innerHTML = renderIcon(icon || defaultIcon, iconColor, 16) +
-    '<span class="ws-settings-item-name">' + escapeHtml(label) + "</span>";
+  row.className = `ws-settings-item${className ? ` ${className}` : ""}`;
+  if (leadingControl) row.appendChild(leadingControl);
+
+  const iconEl = document.createElement("span");
+  iconEl.className = "ws-settings-item-icon";
+  iconEl.innerHTML = renderIcon(icon || defaultIcon, iconColor, 16);
+  row.appendChild(iconEl);
+
+  const labelEl = document.createElement("span");
+  labelEl.className = "ws-settings-item-name";
+  labelEl.textContent = label;
+  row.appendChild(labelEl);
+
+  if (actions.length > 0) {
+    const actionWrap = document.createElement("div");
+    actionWrap.className = "ws-settings-item-actions";
+    for (const action of actions) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ws-settings-item-action-btn";
+      btn.innerHTML = action.iconHtml;
+      btn.title = action.title || "";
+      if (action.disabled) btn.disabled = true;
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        action.onClick();
+      });
+      actionWrap.appendChild(btn);
+    }
+    row.appendChild(actionWrap);
+  }
   row.addEventListener("click", onClick);
   return row;
 }
 
 function renderWorkspaceSettingsList(listEl, items, emptyText, renderItem) {
+  listEl.innerHTML = "";
   if (items.length === 0) {
     listEl.innerHTML = `<div class="ws-settings-empty">${escapeHtml(emptyText)}</div>`;
     return;
   }
-  for (const item of items) {
-    listEl.appendChild(renderItem(item));
+  items.forEach((item, index) => {
+    listEl.appendChild(renderItem(item, index));
+  });
+}
+
+function moveWorkspaceSettingsListRow(list, rowSelector, fromIdx, toIdx) {
+  if (fromIdx === toIdx) return;
+  const rows = Array.from(list.querySelectorAll(rowSelector));
+  const row = rows[fromIdx];
+  const target = rows[toIdx];
+  if (!row || !target) return;
+  if (toIdx > fromIdx) {
+    list.insertBefore(row, target.nextSibling);
+    return;
   }
+  list.insertBefore(row, target);
+}
+
+function bindVerticalDragHandle({
+  handle,
+  row,
+  list,
+  rowSelector,
+  canStart,
+  onStart,
+  onReorder,
+  onCommit,
+}) {
+  let dragState = null;
+
+  function cleanup(onMove, onEnd) {
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onEnd);
+    document.removeEventListener("touchmove", onMove);
+    document.removeEventListener("touchend", onEnd);
+    document.removeEventListener("touchcancel", onEnd);
+  }
+
+  function onPointerStart(e) {
+    if (canStart && !canStart()) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const rows = Array.from(list.querySelectorAll(rowSelector));
+    if (rows.length < 2) return;
+
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const rowRect = row.getBoundingClientRect();
+    dragState = {
+      idx: rows.indexOf(row),
+      startY: clientY,
+      rowHeight: rowRect.height || 1,
+      didMove: false,
+    };
+    if (dragState.idx < 0) {
+      dragState = null;
+      return;
+    }
+
+    if (onStart) onStart();
+    row.classList.add("dragging");
+
+    function onMove(ev) {
+      if (!dragState) return;
+      if (ev.cancelable) ev.preventDefault();
+      const currentY = ev.touches ? ev.touches[0].clientY : ev.clientY;
+      row.style.transform = `translateY(${currentY - dragState.startY}px)`;
+
+      const currentRows = Array.from(list.querySelectorAll(rowSelector));
+      const listRect = list.getBoundingClientRect();
+      let targetIdx = Math.floor((currentY - listRect.top) / dragState.rowHeight);
+      targetIdx = Math.max(0, Math.min(targetIdx, currentRows.length - 1));
+      if (targetIdx === dragState.idx) return;
+
+      moveWorkspaceSettingsListRow(list, rowSelector, dragState.idx, targetIdx);
+      if (onReorder) onReorder(dragState.idx, targetIdx);
+      dragState.idx = targetIdx;
+      dragState.startY = currentY;
+      dragState.didMove = true;
+      row.style.transform = "";
+    }
+
+    function onEnd() {
+      if (!dragState) return;
+      const didMove = dragState.didMove;
+      dragState = null;
+      row.classList.remove("dragging");
+      row.style.transform = "";
+      cleanup(onMove, onEnd);
+      Promise.resolve(onCommit ? onCommit(didMove) : null).catch((err) => {
+        console.error("drag commit failed:", err);
+      });
+    }
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onEnd);
+    document.addEventListener("touchmove", onMove, { passive: false });
+    document.addEventListener("touchend", onEnd);
+    document.addEventListener("touchcancel", onEnd);
+  }
+
+  handle.addEventListener("mousedown", onPointerStart);
+  handle.addEventListener("touchstart", onPointerStart, { passive: false });
 }
 
 function toJobEditData(workspaceName, name, job) {
@@ -287,6 +419,31 @@ async function fetchWorkspaceJobDetailForSettings(workspaceName, jobName) {
   } catch (e) {
     console.error("fetchWorkspaceJobDetailForSettings failed:", e);
     return null;
+  }
+}
+
+async function reorderWorkspaceJobs(workspaceName, orderedNames) {
+  try {
+    const res = await apiFetch(workspaceApiPath(workspaceName, "/job-order"), {
+      method: "PUT",
+      body: { order: orderedNames },
+    });
+    if (!res) return false;
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.detail || "ジョブの並び替えに失敗しました", "error");
+      return false;
+    }
+    invalidateWorkspaceMetaCache(workspaceName);
+    invalidateWorkspaceJobsCache(workspaceName);
+    if (selectedWorkspace === workspaceName) {
+      await loadJobsForWorkspace(true);
+    }
+    showToast("ジョブ順を更新しました", "success");
+    return true;
+  } catch (e) {
+    showToast(`ジョブ順の更新エラー: ${e.message}`, "error");
+    return false;
   }
 }
 
@@ -376,25 +533,73 @@ async function loadWorkspaceSettingsItems(lists, container, ws, onBack, setTitle
   const jobEntries = Object.entries(jobs)
     .filter(([name]) => name !== "terminal")
     .map(([name, job]) => ({ name, job }));
-  renderWorkspaceSettingsList(jobList, jobEntries, "ジョブなし", ({ name, job }) => {
-    return createWorkspaceSettingsItemRow({
-      icon: job.icon,
-      iconColor: job.icon_color,
-      defaultIcon: "mdi-play",
-      label: job.label || name,
-      onClick: async () => {
-        const detailed = await fetchWorkspaceJobDetailForSettings(ws.name, name);
-        const editJob = detailed ? { ...job, ...detailed } : job;
-        if (setTitleFn) setTitleFn("ジョブ編集", goBackToSettings);
-        renderInlineJobEdit(
-          container,
-          toJobEditData(ws.name, name, editJob),
-          goBackToSettings,
-          setTitleFn,
-        );
-      },
+  let jobOrderSaving = false;
+  let jobOrderSnapshot = null;
+
+  function moveJobEntry(fromIdx, toIdx) {
+    if (fromIdx === toIdx) return;
+    const [moved] = jobEntries.splice(fromIdx, 1);
+    if (!moved) return;
+    jobEntries.splice(toIdx, 0, moved);
+  }
+
+  function renderJobList() {
+    renderWorkspaceSettingsList(jobList, jobEntries, "ジョブなし", ({ name, job }) => {
+      const handle = document.createElement("span");
+      handle.className = "ws-settings-item-drag-handle";
+      handle.innerHTML = '<span class="mdi mdi-drag"></span>';
+
+      const row = createWorkspaceSettingsItemRow({
+        icon: job.icon,
+        iconColor: job.icon_color,
+        defaultIcon: "mdi-play",
+        label: job.label || name,
+        leadingControl: handle,
+        className: "ws-settings-item-draggable",
+        onClick: async () => {
+          if (jobOrderSaving) return;
+          const detailed = await fetchWorkspaceJobDetailForSettings(ws.name, name);
+          const editJob = detailed ? { ...job, ...detailed } : job;
+          if (setTitleFn) setTitleFn("ジョブ編集", goBackToSettings);
+          renderInlineJobEdit(
+            container,
+            toJobEditData(ws.name, name, editJob),
+            goBackToSettings,
+            setTitleFn,
+          );
+        },
+      });
+      row.dataset.jobName = name;
+
+      bindVerticalDragHandle({
+        handle,
+        row,
+        list: jobList,
+        rowSelector: ".ws-settings-item",
+        canStart: () => !jobOrderSaving,
+        onStart: () => {
+          jobOrderSnapshot = jobEntries.slice();
+        },
+        onReorder: (fromIdx, toIdx) => {
+          moveJobEntry(fromIdx, toIdx);
+        },
+        onCommit: async (didMove) => {
+          if (!didMove) return;
+          jobOrderSaving = true;
+          const ok = await reorderWorkspaceJobs(ws.name, jobEntries.map((entry) => entry.name));
+          if (!ok && jobOrderSnapshot) {
+            jobEntries.splice(0, jobEntries.length, ...jobOrderSnapshot);
+          }
+          jobOrderSaving = false;
+          renderJobList();
+        },
+      });
+
+      return row;
     });
-  });
+  }
+
+  renderJobList();
 
   const linkEntries = links.map((link, index) => ({ link, index }));
   renderWorkspaceSettingsList(linkList, linkEntries, "リンクなし", ({ link, index }) => {
