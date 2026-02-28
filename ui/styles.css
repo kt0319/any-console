@@ -2861,7 +2861,6 @@ button:disabled {
 
 .quick-extra-panel .quick-key {
   border-color: var(--white-30);
-  background: rgba(15, 20, 40, 0.75);
 }
 
 .quick-extra-panel {
@@ -2876,13 +2875,16 @@ button:disabled {
   gap: 4px;
 }
 
+.quick-qwerty-panel {
+  gap: 6px;
+}
+
 .quick-qwerty-panel .quick-extra-row {
   gap: 2px;
 }
 
 .quick-qwerty-panel .quick-key {
   border-color: var(--white-30);
-  background: rgba(15, 20, 40, 0.75);
 }
 
 .quick-qwerty-panel .flick-main {

@@ -106,7 +106,99 @@ function initQuickInput() {
   workspaceModalBtn.addEventListener("click", openWorkspaceModal);
 
   const snippetExtras = [workspaceModalBtn, clearLocalStorageBtn, hardReloadBtn];
-  const minimalKeyBtns = [workspaceModalBtn, clearLocalStorageBtn, hardReloadBtn, minimalArrow];
+  const qwertyShiftBtn = document.createElement("div");
+  qwertyShiftBtn.className = "quick-key quick-flick-arrow quick-modifier";
+  qwertyShiftBtn.innerHTML = '<span class="flick-hint-top">Esc</span><span class="flick-hint-left">^U</span><span class="flick-main">\u21E7</span><span class="flick-hint-right">^K</span>';
+  {
+    let sx = 0, sy = 0;
+    qwertyShiftBtn.addEventListener("touchstart", (e) => {
+      e.preventDefault(); sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+      qwertyShiftBtn.classList.add("pressed");
+    }, { passive: false });
+    qwertyShiftBtn.addEventListener("touchend", (e) => {
+      e.preventDefault(); qwertyShiftBtn.classList.remove("pressed");
+      const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+      if (Math.abs(dy) > Math.abs(dx) && dy < -FLICK_THRESHOLD) {
+        sendKeyToTerminal({ key: "Escape", code: "Escape", keyCode: 27 });
+      } else if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > FLICK_THRESHOLD) {
+        sendKeyToTerminal(dx < 0 ? { key: "u", ctrl: true } : { key: "k", ctrl: true });
+      } else {
+        modifierState.shift = !modifierState.shift;
+        qwertyShiftBtn.classList.toggle("active", modifierState.shift);
+        if (onModifierToggled) onModifierToggled();
+      }
+    });
+    qwertyShiftBtn.addEventListener("touchcancel", () => qwertyShiftBtn.classList.remove("pressed"));
+    qwertyShiftBtn.addEventListener("click", () => {
+      modifierState.shift = !modifierState.shift;
+      qwertyShiftBtn.classList.toggle("active", modifierState.shift);
+      if (onModifierToggled) onModifierToggled();
+    });
+  }
+
+  const qwertyCtrlBtn = document.createElement("div");
+  qwertyCtrlBtn.className = "quick-key quick-flick-arrow quick-modifier";
+  qwertyCtrlBtn.innerHTML = '<span class="flick-hint-top">^C</span><span class="flick-hint-left">^L</span><span class="flick-main">\u2303</span><span class="flick-hint-right">^R</span><span class="flick-hint-bottom">^O</span>';
+  {
+    let sx = 0, sy = 0;
+    qwertyCtrlBtn.addEventListener("touchstart", (e) => {
+      e.preventDefault(); sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+      qwertyCtrlBtn.classList.add("pressed");
+    }, { passive: false });
+    qwertyCtrlBtn.addEventListener("touchend", (e) => {
+      e.preventDefault(); qwertyCtrlBtn.classList.remove("pressed");
+      const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+      if (Math.abs(dy) > Math.abs(dx) && dy < -FLICK_THRESHOLD) {
+        sendKeyToTerminal({ key: "c", ctrl: true });
+      } else if (Math.abs(dy) > Math.abs(dx) && dy > FLICK_THRESHOLD) {
+        sendKeyToTerminal({ key: "o", ctrl: true });
+      } else if (Math.abs(dx) > Math.abs(dy) && dx < -FLICK_THRESHOLD) {
+        sendKeyToTerminal({ key: "l", ctrl: true });
+      } else if (Math.abs(dx) > Math.abs(dy) && dx > FLICK_THRESHOLD) {
+        sendKeyToTerminal({ key: "r", ctrl: true });
+      } else {
+        modifierState.ctrl = !modifierState.ctrl;
+        qwertyCtrlBtn.classList.toggle("active", modifierState.ctrl);
+      }
+    });
+    qwertyCtrlBtn.addEventListener("touchcancel", () => qwertyCtrlBtn.classList.remove("pressed"));
+    qwertyCtrlBtn.addEventListener("click", () => {
+      modifierState.ctrl = !modifierState.ctrl;
+      qwertyCtrlBtn.classList.toggle("active", modifierState.ctrl);
+    });
+  }
+
+  const qwertySpaceBtn = document.createElement("div");
+  qwertySpaceBtn.className = "quick-key quick-flick-arrow";
+  qwertySpaceBtn.innerHTML = '<span class="flick-hint-top">PgU</span><span class="flick-hint-left">Home</span><span class="flick-main">\u2423</span><span class="flick-hint-right">End</span><span class="flick-hint-bottom">PgD</span>';
+  {
+    let sx = 0, sy = 0;
+    qwertySpaceBtn.addEventListener("touchstart", (e) => {
+      e.preventDefault(); sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+      qwertySpaceBtn.classList.add("pressed");
+    }, { passive: false });
+    qwertySpaceBtn.addEventListener("touchend", (e) => {
+      e.preventDefault(); qwertySpaceBtn.classList.remove("pressed");
+      const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > FLICK_THRESHOLD) {
+        sendKeyToTerminal(dx < 0
+          ? { key: "Home", code: "Home", keyCode: 36 }
+          : { key: "End", code: "End", keyCode: 35 });
+      } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > FLICK_THRESHOLD) {
+        sendKeyToTerminal(dy < 0
+          ? { key: "PageUp", code: "PageUp", keyCode: 33 }
+          : { key: "PageDown", code: "PageDown", keyCode: 34 });
+      } else {
+        sendKeyToTerminal({ key: " " });
+      }
+    });
+    qwertySpaceBtn.addEventListener("touchcancel", () => qwertySpaceBtn.classList.remove("pressed"));
+    qwertySpaceBtn.addEventListener("click", () => sendKeyToTerminal({ key: " " }));
+  }
+
+  const qwertyModKeys = [qwertyShiftBtn, qwertyCtrlBtn, qwertySpaceBtn];
+  for (const el of qwertyModKeys) el.style.display = "none";
+  const minimalKeyBtns = [workspaceModalBtn, clearLocalStorageBtn, hardReloadBtn, ...qwertyModKeys, minimalArrow];
   const quickKeyBtns = QUICK_KEYS.map(k => createQuickKeyBtn(k));
   const extraKeyBtns = EXTRA_MAIN_KEYS.map(k => {
     const btn = createQuickKeyBtn(k);
@@ -125,74 +217,6 @@ function initQuickInput() {
   });
   panel.appendChild(fileInput);
 
-
-  const mode1Shift = document.createElement("div");
-  mode1Shift.className = "quick-key quick-flick-arrow quick-modifier";
-  mode1Shift.innerHTML = '<span class="flick-hint-top">Esc</span><span class="flick-hint-left">^U</span><span class="flick-main">\u21E7</span><span class="flick-hint-right">^K</span>';
-  let shiftStartX = 0, shiftStartY = 0;
-  mode1Shift.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    shiftStartX = e.touches[0].clientX;
-    shiftStartY = e.touches[0].clientY;
-    mode1Shift.classList.add("pressed");
-  }, { passive: false });
-  mode1Shift.addEventListener("touchend", (e) => {
-    e.preventDefault();
-    mode1Shift.classList.remove("pressed");
-    const dx = e.changedTouches[0].clientX - shiftStartX;
-    const dy = e.changedTouches[0].clientY - shiftStartY;
-    if (Math.abs(dy) > Math.abs(dx) && dy < -FLICK_THRESHOLD) {
-      sendKeyToTerminal({ key: "Escape", code: "Escape", keyCode: 27 });
-    } else if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > FLICK_THRESHOLD) {
-      sendKeyToTerminal(dx < 0
-        ? { key: "u", ctrl: true }
-        : { key: "k", ctrl: true });
-    } else {
-      modifierState.shift = !modifierState.shift;
-      mode1Shift.classList.toggle("active", modifierState.shift);
-      if (onModifierToggled) onModifierToggled();
-    }
-  });
-  mode1Shift.addEventListener("touchcancel", () => mode1Shift.classList.remove("pressed"));
-  mode1Shift.addEventListener("click", () => {
-    modifierState.shift = !modifierState.shift;
-    mode1Shift.classList.toggle("active", modifierState.shift);
-    if (onModifierToggled) onModifierToggled();
-  });
-
-  const flickControlKey = document.createElement("div");
-  flickControlKey.className = "quick-key quick-flick-arrow quick-modifier";
-  flickControlKey.innerHTML = '<span class="flick-hint-top">^C</span><span class="flick-hint-left">^L</span><span class="flick-main">\u2303</span><span class="flick-hint-right">^R</span><span class="flick-hint-bottom">^O</span>';
-  let ctrlStartX = 0, ctrlStartY = 0;
-  flickControlKey.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    ctrlStartX = e.touches[0].clientX;
-    ctrlStartY = e.touches[0].clientY;
-    flickControlKey.classList.add("pressed");
-  }, { passive: false });
-  flickControlKey.addEventListener("touchend", (e) => {
-    e.preventDefault();
-    flickControlKey.classList.remove("pressed");
-    const dx = e.changedTouches[0].clientX - ctrlStartX;
-    const dy = e.changedTouches[0].clientY - ctrlStartY;
-    if (Math.abs(dy) > Math.abs(dx) && dy < -FLICK_THRESHOLD) {
-      sendKeyToTerminal({ key: "c", ctrl: true });
-    } else if (Math.abs(dy) > Math.abs(dx) && dy > FLICK_THRESHOLD) {
-      sendKeyToTerminal({ key: "o", ctrl: true });
-    } else if (Math.abs(dx) > Math.abs(dy) && dx < -FLICK_THRESHOLD) {
-      sendKeyToTerminal({ key: "l", ctrl: true });
-    } else if (Math.abs(dx) > Math.abs(dy) && dx > FLICK_THRESHOLD) {
-      sendKeyToTerminal({ key: "r", ctrl: true });
-    } else {
-      modifierState.ctrl = !modifierState.ctrl;
-      flickControlKey.classList.toggle("active", modifierState.ctrl);
-    }
-  });
-  flickControlKey.addEventListener("touchcancel", () => flickControlKey.classList.remove("pressed"));
-  flickControlKey.addEventListener("click", () => {
-    modifierState.ctrl = !modifierState.ctrl;
-    flickControlKey.classList.toggle("active", modifierState.ctrl);
-  });
 
   const minimalEnter = document.createElement("div");
   minimalEnter.className = "quick-key quick-flick-enter quick-flick-arrow quick-key-toggle";
@@ -245,48 +269,6 @@ function initQuickInput() {
   flickNav.addEventListener("touchcancel", () => flickNav.classList.remove("pressed"));
 
 
-  const createFlickTab = (opts = {}) => {
-    const leftLabel = opts.leftLabel || "Home";
-    const leftKey = opts.leftKey || { key: "Home", code: "Home", keyCode: 36 };
-    const el = document.createElement("div");
-    el.className = "quick-key quick-flick-arrow";
-    el.innerHTML = `<span class="flick-hint-top">PgU</span><span class="flick-hint-left">${leftLabel}</span><span class="flick-main">\u2423</span><span class="flick-hint-right">End</span><span class="flick-hint-bottom">PgD</span>`;
-    let startX = 0, startY = 0;
-    el.addEventListener("touchstart", (e) => {
-      e.preventDefault();
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      el.classList.add("pressed");
-    }, { passive: false });
-    el.addEventListener("touchend", (e) => {
-      e.preventDefault();
-      el.classList.remove("pressed");
-      const dx = e.changedTouches[0].clientX - startX;
-      const dy = e.changedTouches[0].clientY - startY;
-      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > FLICK_THRESHOLD) {
-        sendKeyToTerminal(dx < 0
-          ? leftKey
-          : { key: "End", code: "End", keyCode: 35 });
-      } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > FLICK_THRESHOLD) {
-        sendKeyToTerminal(dy < 0
-          ? { key: "PageUp", code: "PageUp", keyCode: 33 }
-          : { key: "PageDown", code: "PageDown", keyCode: 34 });
-      } else {
-        sendKeyToTerminal({ key: " " });
-      }
-    });
-    el.addEventListener("touchcancel", () => el.classList.remove("pressed"));
-    el.addEventListener("click", () => {
-      sendKeyToTerminal({ key: " " });
-    });
-    return el;
-  };
-  const flickTab = createFlickTab();
-  const mode1Elements = [mode1Shift, flickControlKey, flickTab];
-  for (const el of mode1Elements) {
-    el.style.display = "none";
-    panel.appendChild(el);
-  }
   for (const btn of minimalKeyBtns) panel.appendChild(btn);
   panel.appendChild(minimalEnter);
 
@@ -354,75 +336,7 @@ function initQuickInput() {
   };
   onModifiersCleared = updateQwertyKeys;
   onModifierToggled = updateQwertyKeys;
-  const qwertyBottomRow = document.createElement("div");
-  qwertyBottomRow.className = "quick-extra-row";
-  const qwertyBottomDynDefs = [
-    { label: "\u2423", key: " " },
-  ];
-  qwertyBottomRow.appendChild(createModifierBtn("ctrl", "\u2303"));
-  for (const def of qwertyBottomDynDefs) {
-    const btn = createQuickKeyBtn(def);
-    if (def.key === " ") {
-      btn._flickUpKeyDef = { label: "-", key: "-" };
-      btn._flickDownKeyDef = { label: "_", key: "_" };
-      btn.classList.add("quick-flick-arrow");
-      btn.textContent = "";
-      const hintTop = document.createElement("span");
-      hintTop.className = "flick-hint-top";
-      hintTop.textContent = "-";
-      const main = document.createElement("span");
-      main.className = "flick-main";
-      main.textContent = "\u2423";
-      const hintBottom = document.createElement("span");
-      hintBottom.className = "flick-hint-bottom";
-      hintBottom.textContent = "_";
-      btn.appendChild(hintTop);
-      btn.appendChild(main);
-      btn.appendChild(hintBottom);
-    }
-    qwertyBottomRow.appendChild(btn);
-  }
-  const qwertyFlickBs = document.createElement("div");
-  qwertyFlickBs.className = "quick-key quick-flick-arrow";
-  qwertyFlickBs.innerHTML = '<span class="flick-hint-top">Esc</span><span class="flick-hint-left">^U</span><span class="flick-main"><span class="mdi mdi-backspace-outline"></span></span><span class="flick-hint-right">^K</span>';
-  let qBsStartX = 0, qBsStartY = 0;
-  qwertyFlickBs.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    qBsStartX = e.touches[0].clientX;
-    qBsStartY = e.touches[0].clientY;
-    qwertyFlickBs.classList.add("pressed");
-  }, { passive: false });
-  qwertyFlickBs.addEventListener("touchend", (e) => {
-    e.preventDefault();
-    qwertyFlickBs.classList.remove("pressed");
-    const dx = e.changedTouches[0].clientX - qBsStartX;
-    const dy = e.changedTouches[0].clientY - qBsStartY;
-    if (Math.abs(dy) > Math.abs(dx) && dy < -FLICK_THRESHOLD) {
-      sendKeyToTerminal({ key: "Escape", code: "Escape", keyCode: 27 });
-    } else if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > FLICK_THRESHOLD) {
-      sendKeyToTerminal(dx < 0
-        ? { key: "u", ctrl: true }
-        : { key: "k", ctrl: true });
-    } else {
-      sendKeyToTerminal({ key: "Backspace", code: "Backspace", keyCode: 8 });
-    }
-  });
-  qwertyFlickBs.addEventListener("touchcancel", () => qwertyFlickBs.classList.remove("pressed"));
-  qwertyFlickBs.addEventListener("click", () => {
-    sendKeyToTerminal({ key: "Backspace", code: "Backspace", keyCode: 8 });
-  });
-  qwertyBottomRow.appendChild(qwertyFlickBs);
-  const qwertyFlickTab = createFlickTab();
-  qwertyBottomRow.appendChild(qwertyFlickTab);
-  const qwertyToggle = document.createElement("div");
-  qwertyToggle.className = "quick-key quick-key-toggle";
-  qwertyToggle.innerHTML = '<span class="mdi mdi-close"></span>';
-  qwertyToggle.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
-  qwertyToggle.addEventListener("touchend", (e) => { e.preventDefault(); cycleMode(); });
-  qwertyToggle.addEventListener("click", () => cycleMode());
-  qwertyBottomRow.appendChild(qwertyToggle);
   const enterBtn = createQuickKeyBtn({ label: "\u21B5", key: "Enter" });
-  qwertyBottomRow.appendChild(enterBtn);
   const snippetRow = document.createElement("div");
   snippetRow.className = "quick-snippet-row";
 
@@ -517,7 +431,7 @@ function initQuickInput() {
     } else {
       minimalArrow.innerHTML = minimalArrowDefaultHTML;
     }
-    for (const el of mode1Elements) el.style.display = keyboardPanelMode === 1 ? "" : "none";
+    for (const el of qwertyModKeys) el.style.display = keyboardPanelMode === 1 ? "" : "none";
     extraPanel.style.display = "none";
     qwertyPanel.style.display = keyboardPanelMode === 1 ? "flex" : "none";
     if (animate) scheduleAnimateVisibleModeElements();
