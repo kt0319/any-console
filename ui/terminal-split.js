@@ -167,6 +167,7 @@ function createSplitPane(index) {
   if (frame && tab) {
     pane.appendChild(frame);
     frame.style.display = tab.type === "terminal" ? "block" : "";
+    ensureTerminalOpened(tab, frame);
   }
 
   let paneTouchStartY = null;

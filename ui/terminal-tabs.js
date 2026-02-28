@@ -64,7 +64,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
   const term = new Terminal({
     cursorBlink: true,
     fontSize: 12,
-    fontFamily: "'JetBrainsMono Nerd Font', 'Hack Nerd Font', 'FiraCode Nerd Font', 'MesloLGS NF', monospace",
+    fontFamily: '"SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace',
     scrollback: 5000,
     scrollOnOutput: true,
     theme: {
@@ -121,14 +121,9 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
   });
 
 
-  const tab = { id, type: "terminal", wsUrl, workspace: workspace || null, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, jobName: jobName || null, jobLabel: jobLabel || null, _pendingOpen: !!restored, _pendingRedraw: !!restored };
+  const tab = { id, type: "terminal", wsUrl, workspace: workspace || null, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, jobName: jobName || null, jobLabel: jobLabel || null, _pendingOpen: true, _pendingRedraw: !!restored };
   openTabs.push(tab);
   createTabNamePill(tab, container);
-
-  if (!restored) {
-    term.open(container);
-    connectTerminalWs(tab);
-  }
 
   persistOpenTabs();
   if (skipSwitch) return;
@@ -264,26 +259,10 @@ async function switchTab(id) {
   for (const tab of openTabs) {
     const el = $(`frame-${tab.id}`);
     if (el) {
-      if (tab.id === id) {
-        el.style.display = tab.type === "terminal" ? "block" : "";
-        if (tab.type === "terminal") {
-          if (tab._pendingOpen) {
-            tab._pendingOpen = false;
-            tab.term.open(el);
-            connectTerminalWs(tab);
-          } else {
-            const doFit = () => {
-              fitAndSync(tab);
-              tab.term.focus();
-            };
-            requestAnimationFrame(() => {
-              requestAnimationFrame(() => doFit());
-            });
-            setTimeout(() => doFit(), 300);
-          }
-        }
-      } else {
-        el.style.display = "none";
+      const isActive = tab.id === id;
+      setFrameVisible(tab, el, isActive);
+      if (isActive && tab.type === "terminal" && !ensureTerminalOpened(tab, el)) {
+        refitTerminalWithFocus(tab);
       }
     }
   }

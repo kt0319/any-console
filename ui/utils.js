@@ -4,11 +4,46 @@ function $(id) {
 
 function safeFit(tab) {
   if (!tab || !tab.fitAddon) return;
+  const frame = tab.id ? $(`frame-${tab.id}`) : null;
+  if (!frame || frame.style.display === "none") return;
+  const rect = frame.getBoundingClientRect();
+  if (rect.width < 2 || rect.height < 2) return;
   try {
     tab.fitAddon.fit();
   } catch (e) {
     console.warn("fitAddon.fit failed:", e);
   }
+}
+
+function fitTerminalAfterFonts(tab) {
+  if (!document.fonts?.ready) return;
+  document.fonts.ready.then(() => fitAndSync(tab)).catch(() => {});
+}
+
+function ensureTerminalOpened(tab, frame) {
+  if (!tab || tab.type !== "terminal" || !tab._pendingOpen || !frame) return false;
+  tab._pendingOpen = false;
+  tab.term.open(frame);
+  fitTerminalAfterFonts(tab);
+  connectTerminalWs(tab);
+  return true;
+}
+
+function setFrameVisible(tab, frame, visible) {
+  if (!tab || !frame) return;
+  frame.style.display = visible ? (tab.type === "terminal" ? "block" : "") : "none";
+}
+
+function refitTerminalWithFocus(tab) {
+  if (!tab || tab.type !== "terminal") return;
+  const doFit = () => {
+    fitAndSync(tab);
+    tab.term.focus();
+  };
+  requestAnimationFrame(() => {
+    requestAnimationFrame(doFit);
+  });
+  setTimeout(doFit, 300);
 }
 
 function copyToClipboard(text) {
