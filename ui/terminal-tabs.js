@@ -62,11 +62,7 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
   $("output-container").appendChild(container);
 
   const term = new Terminal({
-    cursorBlink: true,
-    fontSize: 12,
-    fontFamily: '"SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace',
-    scrollback: 5000,
-    scrollOnOutput: true,
+    ...getTerminalRuntimeOptions(),
     theme: {
       background: "#1a1b26",
       foreground: "#e0e4fc",

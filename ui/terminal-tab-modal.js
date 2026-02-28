@@ -499,6 +499,7 @@ function openTabEditModal(initialTab = "layout") {
     menu.className = "settings-menu";
 
     const items = [
+      { icon: "mdi-format-font-size-increase", label: "ターミナル", action: () => showModalSubView("ターミナル", (body) => renderTerminalSettingsPane(body, { onBack: () => switchModalTab("settings") })) },
       { icon: "mdi-download", label: "設定エクスポート", action: () => exportSettings() },
       { icon: "mdi-upload", label: "設定インポート", action: () => importSettings() },
       { icon: "mdi-format-list-bulleted", label: "プロセス一覧", action: () => showModalSubView("プロセス一覧", renderProcessListTo) },

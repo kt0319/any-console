@@ -1756,6 +1756,7 @@ button:disabled {
   justify-content: center;
 }
 
+#settings-terminal-view,
 #settings-server-info-view,
 #settings-process-list-view,
 #settings-op-log-view {
@@ -1763,6 +1764,91 @@ button:disabled {
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+}
+
+.terminal-settings-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.terminal-settings-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-tertiary);
+}
+
+.terminal-settings-item-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.terminal-settings-toggle {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.terminal-settings-toggle-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.terminal-settings-toggle input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+.terminal-settings-control-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.terminal-font-size-step-btn {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 10px;
+  font-size: 20px;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.terminal-font-size-input {
+  width: 92px;
+  flex: 1 1 auto;
+  text-align: right;
+}
+
+.terminal-settings-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.terminal-settings-note {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.terminal-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.terminal-settings-reset-btn {
+  min-height: 40px;
 }
 
 

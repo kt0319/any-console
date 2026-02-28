@@ -38,12 +38,16 @@
         </div>
         <div id="settings-menu-view">
           <div class="settings-menu">
+            <button type="button" class="settings-menu-item" onclick="openTerminalSettings()"><span class="mdi mdi-format-font-size-increase"></span> ターミナル</button>
             <button type="button" class="settings-menu-item" onclick="exportSettings()"><span class="mdi mdi-download"></span> 設定エクスポート</button>
             <button type="button" class="settings-menu-item" onclick="importSettings()"><span class="mdi mdi-upload"></span> 設定インポート</button>
             <button type="button" class="settings-menu-item" onclick="openProcessList()"><span class="mdi mdi-format-list-bulleted"></span> プロセス一覧</button>
             <button type="button" class="settings-menu-item" onclick="openSettingsServerInfo()"><span class="mdi mdi-information-outline"></span> サーバー情報</button>
             <button type="button" class="settings-menu-item" onclick="openOpLog()"><span class="mdi mdi-text-box-outline"></span> 操作ログ</button>
           </div>
+        </div>
+        <div id="settings-terminal-view" style="display:none">
+          <div class="modal-scroll-body" id="settings-terminal-body"></div>
         </div>
         <div id="settings-server-info-view" style="display:none">
           <div class="modal-scroll-body" id="server-info-list"></div>

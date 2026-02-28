@@ -46,8 +46,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     runJob(null, args);
   });
   $("settings-close").addEventListener("click", closeSettings);
-  $("settings-modal").addEventListener("click", (e) => {
-    if (e.target === $("settings-modal")) closeSettings();
+  const settingsModal = $("settings-modal");
+  const settingsDialog = settingsModal.querySelector(".modal");
+  settingsDialog.addEventListener("click", (e) => e.stopPropagation());
+  settingsDialog.addEventListener("touchend", (e) => e.stopPropagation(), { passive: true });
+  settingsModal.addEventListener("click", (e) => {
+    if (e.target === settingsModal) closeSettings();
   });
   applyPanelBottom();
   $("diff-commit-cancel").addEventListener("click", closeCommitForm);
