@@ -3104,6 +3104,15 @@ button:disabled {
 
 /* Responsive */
 @media (max-width: 768px) {
+  .modal-overlay {
+    padding: 8px;
+  }
+
+  .modal {
+    max-width: 100%;
+    height: calc(var(--app-dvh) * 0.9);
+  }
+
   header {
     padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px;
     flex-wrap: wrap;
