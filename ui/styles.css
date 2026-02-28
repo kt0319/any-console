@@ -2180,9 +2180,7 @@ button:disabled {
 }
 
 
-#commit-modal-tab-diff,
-#commit-modal-tab-stash,
-#commit-modal-tab-branch {
+#commit-modal-tab-diff {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -2244,6 +2242,12 @@ button:disabled {
   min-width: 0;
   flex: 1;
   gap: 4px;
+}
+
+.git-log-dirty-placeholder {
+  display: block;
+  min-height: 24px;
+  visibility: hidden;
 }
 
 .git-log-entry-row1 {
@@ -2476,7 +2480,9 @@ button:disabled {
 }
 
 #diff-history-pane,
-#diff-files-pane {
+#diff-files-pane,
+#diff-stash-pane,
+#diff-branch-pane {
   display: flex;
   flex-direction: column;
   flex: 1;

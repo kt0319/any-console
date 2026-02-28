@@ -149,7 +149,9 @@ Object.assign(GitLogModal, {
         '<span class="git-log-entry-msg git-log-dirty-msg">未コミットの変更</span>' +
         `${badgeHtml}`;
     } else {
-      bodyHtml += '<span class="git-log-entry-msg git-log-dirty-msg">変更なし</span>';
+      bodyHtml +=
+        '<span class="git-log-entry-msg git-log-dirty-msg">変更なし</span>' +
+        '<span class="git-log-entry-refs git-log-dirty-placeholder" aria-hidden="true"></span>';
     }
     bodyHtml += `</span>${branchButtonHtml}</span>`;
     entry.innerHTML = bodyHtml;

@@ -1,4 +1,5 @@
-const GIT_LOG_MODAL_PANE_IDS = ["commit-modal-tab-diff", "commit-modal-tab-stash", "commit-modal-tab-branch"];
+const GIT_LOG_MODAL_PANE_IDS = ["commit-modal-tab-diff"];
+const DIFF_TOP_PANE_IDS = ["diff-history-pane", "diff-files-pane", "diff-stash-pane", "diff-branch-pane"];
 
 const GitLogModal = {
   state: {
@@ -189,11 +190,11 @@ const GitLogModal = {
   },
 
   toggleDiffTopPane(mode) {
-    const historyPane = $("diff-history-pane");
-    const filesPane = $("diff-files-pane");
-    const showHistory = mode === "history";
-    if (historyPane) historyPane.style.display = showHistory ? "" : "none";
-    if (filesPane) filesPane.style.display = showHistory ? "none" : "";
+    for (const paneId of DIFF_TOP_PANE_IDS) {
+      const pane = $(paneId);
+      if (!pane) continue;
+      pane.style.display = paneId === `diff-${mode}-pane` ? "" : "none";
+    }
   },
 
   async returnToDiffHistoryTop() {
@@ -205,6 +206,10 @@ const GitLogModal = {
     GitLogModal.switchCommitModalTab("diff");
     if (GitLogModal.state.diffTopMode === "files") {
       GitLogModal.showDiffFilesTop();
+    } else if (GitLogModal.state.diffTopMode === "branch") {
+      GitLogModal.showSubPane("branch", "ブランチ");
+    } else if (GitLogModal.state.diffTopMode === "stash") {
+      GitLogModal.showSubPane("stash", "Stash");
     } else {
       GitLogModal.showDiffHistoryTop();
       await GitLogModal.ensureCommitLogReady();
@@ -223,13 +228,13 @@ const GitLogModal = {
     }
   },
 
-  showSubPane(paneId, title) {
-    for (const id of GIT_LOG_MODAL_PANE_IDS) {
-      const pane = $(id);
-      if (pane) pane.style.display = "none";
-    }
-    $(paneId).style.display = "";
-    GitLogModal.setModalTitle(title, { back: true, onClick: () => GitLogModal.closeSubPane() });
+  showSubPane(mode, title) {
+    GitLogModal.switchCommitModalTab("diff");
+    GitLogModal.setDiffTopMode(mode, {
+      title,
+      back: true,
+      onClick: () => GitLogModal.closeSubPane(),
+    });
   },
 
   async closeSubPane() {
@@ -240,7 +245,12 @@ const GitLogModal = {
     }
     const nextTab = GitLogModal.state.previousModalTab;
     if (nextTab === "diff") {
-      await GitLogModal.restoreDiffPane();
+      if (typeof getActiveDiffRef === "function" && getActiveDiffRef()) {
+        GitLogModal.showDiffFilesTop();
+        return;
+      }
+      GitLogModal.showDiffHistoryTop();
+      await GitLogModal.ensureCommitLogReady();
       return;
     }
     GitLogModal.switchCommitModalTab(nextTab);
