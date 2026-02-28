@@ -1404,7 +1404,7 @@ button:disabled {
 }
 
 .modal {
-  background: var(--bg-secondary);
+  background: color-mix(in srgb, var(--bg-secondary) 70%, transparent);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px 8px 0;
@@ -1824,6 +1824,10 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.modal-swipe-handle {
+  display: none;
 }
 
 .modal-close-btn {
@@ -3140,12 +3144,31 @@ button:disabled {
 /* Responsive */
 @media (max-width: 768px) {
   .modal-overlay {
-    padding: 8px;
+    padding: 0;
   }
 
   .modal {
     max-width: 100%;
-    height: calc(var(--app-dvh) * 0.9);
+    height: calc(var(--app-dvh));
+    border: none;
+    border-radius: 0;
+  }
+
+  .modal-swipe-handle {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px));
+    flex-shrink: 0;
+    touch-action: none;
+  }
+
+  .modal-swipe-bar {
+    width: 48px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--text-muted);
+    opacity: 0.5;
   }
 
   header {

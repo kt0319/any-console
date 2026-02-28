@@ -81,6 +81,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("git-log-create-branch-submit").addEventListener("click", () => GitLogModal.submitCreateBranch());
   $("git-log-create-branch-close").addEventListener("click", () => GitLogModal.resetCreateBranchArea());
 
+  setupModalSwipeClose($("settings-modal"), closeSettings);
+  setupModalSwipeClose($("git-log-modal"), () => GitLogModal.closeGitLogModal());
+  setupModalSwipeClose($("job-confirm-modal"), closeJobConfirmModal);
+  setupModalSwipeClose($("icon-picker-modal"), closeIconPicker);
+
   if (token) {
     const result = await checkToken();
     if (result.ok) {

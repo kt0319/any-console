@@ -65,6 +65,8 @@ function openTabEditModal(initialTab = "layout") {
     if (e.target === overlay) closeModal();
   });
 
+  setupModalSwipeClose(overlay, closeModal);
+
   function showMainView() {
     contentContainer.innerHTML = "";
     setTitle("ワークスペース");

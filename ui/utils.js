@@ -273,6 +273,66 @@ function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 
   }
 }
 
+function setupModalSwipeClose(overlay, closeFn) {
+  const modal = overlay.querySelector(".modal");
+  if (!modal) return;
+
+  const handle = document.createElement("div");
+  handle.className = "modal-swipe-handle";
+  handle.innerHTML = '<span class="modal-swipe-bar"></span>';
+  modal.appendChild(handle);
+
+  const THRESHOLD = 80;
+  let startY = 0;
+  let currentY = 0;
+  let dragging = false;
+
+  function onTouchStart(e) {
+    startY = e.touches[0].clientY;
+    currentY = startY;
+    dragging = true;
+    modal.style.transition = "none";
+  }
+
+  function onTouchMove(e) {
+    if (!dragging) return;
+    currentY = e.touches[0].clientY;
+    const dy = startY - currentY;
+    if (dy > 0) {
+      modal.style.transform = `translateY(-${dy}px)`;
+      modal.style.opacity = Math.max(0.2, 1 - dy / 400);
+    }
+  }
+
+  function onTouchEnd() {
+    if (!dragging) return;
+    dragging = false;
+    const dy = startY - currentY;
+    if (dy > THRESHOLD) {
+      modal.style.transition = "transform 0.2s ease-out, opacity 0.2s ease-out";
+      modal.style.transform = "translateY(-100%)";
+      modal.style.opacity = "0";
+      modal.addEventListener("transitionend", () => {
+        modal.style.transform = "";
+        modal.style.opacity = "";
+        modal.style.transition = "";
+        closeFn();
+      }, { once: true });
+    } else {
+      modal.style.transition = "transform 0.2s ease-out, opacity 0.2s ease-out";
+      modal.style.transform = "";
+      modal.style.opacity = "";
+      modal.addEventListener("transitionend", () => {
+        modal.style.transition = "";
+      }, { once: true });
+    }
+  }
+
+  handle.addEventListener("touchstart", onTouchStart, { passive: true });
+  handle.addEventListener("touchmove", onTouchMove, { passive: true });
+  handle.addEventListener("touchend", onTouchEnd);
+}
+
 const VALID_ICON_COLOR = /^#[0-9a-fA-F]{3,6}$/;
 
 function renderIcon(icon, iconColor, size = 16) {
