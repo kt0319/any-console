@@ -2654,7 +2654,7 @@ button:disabled {
   border: 1px solid var(--white-30);
   border-radius: 6px;
   background: rgba(20, 22, 35, 0.85);
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-primary);
   font-size: 11px;
   line-height: 28px;
   user-select: none;
@@ -2697,7 +2697,7 @@ button:disabled {
 
 .quick-history-item {
   border-color: rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-primary);
 }
 
 .quick-history-item.pressed {
