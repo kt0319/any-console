@@ -13,7 +13,7 @@ logs/
 *.log
 
 # Data
-data/
+config.json
 
 # Environment
 .env

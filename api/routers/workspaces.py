@@ -17,7 +17,6 @@ from ..common import (
     command_result_dict,
     git_info_to_status_dict,
     load_workspace_config,
-    migrate_workspace_config,
     resolve_workspace_path,
     save_workspace_config,
 )
@@ -57,7 +56,6 @@ def list_workspaces():
         dirs,
     ))
     for ws_data, workspace_dir in zip(result, dirs):
-        migrate_workspace_config(workspace_dir.name, workspace_dir)
         config = load_workspace_config(workspace_dir.name)
         ws_data["icon"] = config.get("icon", "")
         ws_data["icon_color"] = config.get("icon_color", "")

@@ -43,23 +43,14 @@ api/              API (FastAPI)
   jobs.py         ジョブ定義 (dataclass)
   common.py       共通定数・ユーティリティ
 ui/               Web UI (バニラJS、ビルド不要)
-data/             設定ファイル (config.json)
 systemd/          systemdサービス定義
+config.json       設定ファイル (.gitignore対象)
 ```
 
 ## ジョブシステム
 
-各ワークスペースの `.pi-console/jobs/*.sh` にジョブスクリプトを配置する。
-
-スクリプトヘッダにメタデータを記述可能:
-
-```bash
-#!/usr/bin/env bash
-# icon: rocket
-# icon-color: #ff6600
-# open-url: http://localhost:3000
-```
+ジョブはUIから作成・編集・削除が可能。定義は `config.json` にワークスペースごとに保存される。
 
 ## 設定
 
-設定は `data/config.json` に統合管理される。設定モーダルからエクスポート/インポートが可能。
+設定は `config.json` に統合管理される。設定モーダルからエクスポート/インポートが可能。

@@ -20,11 +20,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 WORK_DIR = Path.home() / "work"
 UPLOAD_DIR = Path("/tmp/pi-console-uploads")
 TERMINAL_TIMEOUT_SEC = 7200
-CONFIG_DIR = PROJECT_ROOT / "data"
-CONFIG_FILE = CONFIG_DIR / "config.json"
+CONFIG_FILE = PROJECT_ROOT / "config.json"
 GLOBAL_CONFIG_KEY = "__global__"
-OLD_CONFIG_DIR = Path.home() / ".config" / "pi-console"
-OLD_WORKSPACE_CONFIG_DIR = Path(".pi-console")
 
 _config_lock = threading.Lock()
 
@@ -101,7 +98,7 @@ def _read_config_unlocked() -> dict:
         for name, error in errors:
             logger.warning("config validation failed key=%s: %s", name, error)
         return normalized
-    return _migrate_to_unified_config()
+    return {}
 
 
 def _write_config_unlocked(config: dict) -> None:
@@ -109,29 +106,11 @@ def _write_config_unlocked(config: dict) -> None:
     if errors:
         name, error = errors[0]
         raise ValueError(f"Invalid config entry '{name}': {error}")
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = CONFIG_FILE.with_suffix(".tmp")
     tmp_path.write_text(json.dumps(normalized, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tmp_path.replace(CONFIG_FILE)
 
-
-def _migrate_to_unified_config() -> dict:
-    merged = {}
-    if not CONFIG_DIR.is_dir():
-        return merged
-    for f in CONFIG_DIR.iterdir():
-        if f.suffix == ".json" and f.name != "config.json":
-            try:
-                data = json.loads(f.read_text(encoding="utf-8"))
-                ws_name = f.stem
-                merged[ws_name] = data
-            except (json.JSONDecodeError, OSError) as e:
-                logger.warning("migration skip file=%s: %s", f, e)
-                continue
-    if merged:
-        _write_config_unlocked(merged)
-        logger.info("migrated %d workspace configs to %s", len(merged), CONFIG_FILE)
-    return merged
 
 
 def load_all_config() -> dict:
@@ -185,50 +164,6 @@ def save_global_config_section(key: str, data) -> None:
         all_config[GLOBAL_CONFIG_KEY] = validate_config_entry(GLOBAL_CONFIG_KEY, global_config, GLOBAL_CONFIG_KEY)
         _write_config_unlocked(all_config)
 
-
-def _read_json_file(path: Path, default=None):
-    if not path.is_file():
-        return default
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        raise
-    except OSError:
-        return default
-
-
-def migrate_workspace_config(workspace_name: str, workspace_path: Path) -> None:
-    existing = load_workspace_config(workspace_name)
-    if existing:
-        return
-
-    old_dir = CONFIG_DIR / workspace_name
-    if not old_dir.is_dir():
-        source_dirs = [
-            CONFIG_DIR / "workspaces" / workspace_name,
-            OLD_CONFIG_DIR / "workspaces" / workspace_name,
-            workspace_path / OLD_WORKSPACE_CONFIG_DIR,
-        ]
-        for candidate in source_dirs:
-            if candidate.is_dir():
-                old_dir = candidate
-                break
-        else:
-            return
-
-    config = _read_json_file(old_dir / "config.json", {})
-    jobs = _read_json_file(old_dir / "jobs.json", {})
-    merged = {}
-    if config.get("icon"):
-        merged["icon"] = config["icon"]
-    if config.get("icon_color"):
-        merged["icon_color"] = config["icon_color"]
-    if jobs:
-        merged["jobs"] = jobs
-
-    if merged:
-        save_workspace_config(workspace_name, merged)
-        logger.info("migrated workspace config workspace=%s from=%s", workspace_name, old_dir)
 
 
 def resolve_workspace_path(workspace: str | None) -> Path | None:

@@ -72,7 +72,7 @@ sudo systemctl restart pi-console
 - `auth.py`: 環境変数 `PI_CONSOLE_TOKEN` によるBearerトークン認証
 - `runner.py`: subprocessでジョブ実行（タイムアウト120秒）
 - `jobs.py`: ジョブ定義（`JobDefinition` / `ArgOption` dataclass）
-- `common.py`: 共通定数、設定ファイル管理（`data/config.json`）、Gitユーティリティ、ログバッファ
+- `common.py`: 共通定数、設定ファイル管理（`config.json`）、Gitユーティリティ、ログバッファ
 
 ### ルーター: `api/routers/`
 
@@ -111,7 +111,7 @@ sudo systemctl restart pi-console
 
 ## ジョブシステム
 
-- ジョブ定義は `data/config.json` に統合管理（ワークスペースごとの `jobs` セクション）
+- ジョブ定義は `config.json` に統合管理（ワークスペースごとの `jobs` セクション）
 - UIからジョブの作成・編集・削除が可能（API経由で `config.json` を更新）
 - 各ジョブは `command`, `label`, `icon`, `icon_color`, `confirm`, `terminal` を保持
 - 実行は `subprocess` で行い、タイムアウトは120秒
@@ -119,9 +119,8 @@ sudo systemctl restart pi-console
 ## ワークスペースと設定
 
 - ワークスペースルートは `~/work/` 固定（`WORK_DIR = Path.home() / "work"`）
-- 追加設定は `data/config.json`（ワークスペース単位）
+- 追加設定は `config.json`（ワークスペース単位）
   - `icon`, `icon_color`, `hidden`, `jobs`, `links`
-- 旧形式（`data/*.json` や `~/.config/pi-console`）からのマイグレーションあり
 
 ## ターミナル
 
