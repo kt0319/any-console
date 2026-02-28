@@ -447,17 +447,6 @@ async function reorderWorkspaceJobs(workspaceName, orderedNames) {
   }
 }
 
-function toLinkEditData(workspaceName, index, link) {
-  return {
-    workspace: workspaceName,
-    index,
-    label: link.label || link.url,
-    url: link.url,
-    icon: link.icon,
-    iconColor: link.icon_color,
-  };
-}
-
 function createWorkspaceIconRow(container, ws, setTitleFn, goBackToSettings) {
   const iconRow = document.createElement("div");
   iconRow.className = "ws-settings-row";
@@ -516,17 +505,12 @@ function renderWorkspaceSettingsPane(container, ws, onBack, setTitleFn) {
     renderInlineJobCreate(container, ws.name, goBackToSettings, setTitleFn);
   });
 
-  const linkList = createWorkspaceSettingsSection(body, "リンク", () => {
-    if (setTitleFn) setTitleFn("リンク追加", goBackToSettings);
-    renderInlineLinkCreate(container, ws.name, goBackToSettings, setTitleFn);
-  });
-
-  loadWorkspaceSettingsItems({ jobList, linkList }, container, ws, onBack, setTitleFn);
+  loadWorkspaceSettingsItems({ jobList }, container, ws, onBack, setTitleFn);
 }
 
 async function loadWorkspaceSettingsItems(lists, container, ws, onBack, setTitleFn) {
-  const { jobs, links } = await fetchWorkspaceJobsAndLinks(ws.name);
-  const { jobList, linkList } = lists;
+  const { jobs } = await fetchWorkspaceJobsAndLinks(ws.name);
+  const { jobList } = lists;
 
   const goBackToSettings = () => renderWorkspaceSettingsPane(container, ws, onBack, setTitleFn);
 
@@ -600,25 +584,6 @@ async function loadWorkspaceSettingsItems(lists, container, ws, onBack, setTitle
   }
 
   renderJobList();
-
-  const linkEntries = links.map((link, index) => ({ link, index }));
-  renderWorkspaceSettingsList(linkList, linkEntries, "リンクなし", ({ link, index }) => {
-    return createWorkspaceSettingsItemRow({
-      icon: link.icon,
-      iconColor: link.icon_color,
-      defaultIcon: "mdi-web",
-      label: link.label || link.url,
-      onClick: () => {
-        if (setTitleFn) setTitleFn("リンク編集", goBackToSettings);
-        renderInlineLinkEdit(
-          container,
-          toLinkEditData(ws.name, index, link),
-          goBackToSettings,
-          setTitleFn,
-        );
-      },
-    });
-  });
 }
 
 const SERVER_INFO_LABELS = {

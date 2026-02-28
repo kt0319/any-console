@@ -196,16 +196,13 @@ function createTerminalTabModalWorkspaceSection(deps) {
         });
       }
 
-      loadWorkspaceIconButtons(icons, ws, 18,
-        (link) => { closeModal(); window.open(link.url, "_blank"); },
-        (name, job) => {
+      loadWorkspaceIconButtons(icons, ws, 18, (name, job) => {
           if (job.confirm !== false) {
             if (!confirm(`${job.label || name} を実行しますか？`)) return;
           }
           closeModal();
           runJob(name, null, ws.name);
-        },
-      )
+        })
         .then((count) => {
           if (count === 0) bottomRow.classList.add("is-empty");
         })

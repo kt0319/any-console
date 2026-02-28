@@ -54,8 +54,7 @@ function cloneWorkspaceMeta(meta) {
   for (const [name, job] of Object.entries(meta.jobs || {})) {
     jobs[name] = job && typeof job === "object" ? { ...job } : job;
   }
-  const links = Array.isArray(meta.links) ? meta.links.map((link) => ({ ...link })) : [];
-  return { jobs, links };
+  return { jobs };
 }
 
 function getWorkspaceMetaCache(workspaceName) {
@@ -64,15 +63,14 @@ function getWorkspaceMetaCache(workspaceName) {
 
   const stored = readJsonCache(WORKSPACE_META_CACHE_PREFIX + workspaceName);
   if (!stored || typeof stored !== "object") return null;
-  if (!stored.jobs || !Array.isArray(stored.links)) return null;
+  if (!stored.jobs) return null;
   workspaceMetaCache.set(workspaceName, stored);
   return cloneWorkspaceMeta(stored);
 }
 
-function setWorkspaceMetaCache(workspaceName, jobs, links) {
+function setWorkspaceMetaCache(workspaceName, jobs) {
   const data = {
     jobs: jobs || {},
-    links: links || [],
     fetchedAt: Date.now(),
   };
   workspaceMetaCache.set(workspaceName, data);
@@ -108,7 +106,7 @@ function clearPersistedApiCaches() {
 
 async function fetchWorkspaceJobsAndLinks(workspaceName, { forceRefresh = false } = {}) {
   syncCacheOwnerToken();
-  if (!workspaceName) return { jobs: {}, links: [] };
+  if (!workspaceName) return { jobs: {} };
 
   if (!forceRefresh) {
     const cached = getWorkspaceMetaCache(workspaceName);
@@ -123,19 +121,11 @@ async function fetchWorkspaceJobsAndLinks(workspaceName, { forceRefresh = false 
   const request = (async () => {
     const stale = workspaceMetaCache.get(workspaceName);
     let jobs = stale?.jobs || {};
-    let links = stale?.links || [];
     let fetched = false;
     try {
-      const [jobsRes, linksRes] = await Promise.all([
-        apiFetch(workspaceApiPath(workspaceName, "/jobs")),
-        apiFetch(workspaceApiPath(workspaceName, "/links")),
-      ]);
+      const jobsRes = await apiFetch(workspaceApiPath(workspaceName, "/jobs"));
       if (jobsRes && jobsRes.ok) {
         jobs = await jobsRes.json();
-        fetched = true;
-      }
-      if (linksRes && linksRes.ok) {
-        links = await linksRes.json();
         fetched = true;
       }
     } catch (e) {
@@ -143,10 +133,10 @@ async function fetchWorkspaceJobsAndLinks(workspaceName, { forceRefresh = false 
     }
 
     if (fetched) {
-      setWorkspaceMetaCache(workspaceName, jobs, links);
-      return { jobs, links };
+      setWorkspaceMetaCache(workspaceName, jobs);
+      return { jobs };
     }
-    return stale ? { jobs: stale.jobs, links: stale.links } : { jobs: {}, links: [] };
+    return stale ? { jobs: stale.jobs } : { jobs: {} };
   })();
 
   workspaceMetaInFlight.set(workspaceName, request);
@@ -208,21 +198,9 @@ async function fetchGithubRepos({ forceRefresh = false } = {}) {
   }
 }
 
-async function loadWorkspaceIconButtons(container, ws, iconSize, onLinkClick, onJobClick) {
-  const { jobs, links } = await fetchWorkspaceJobsAndLinks(ws.name);
+async function loadWorkspaceIconButtons(container, ws, iconSize, onJobClick) {
+  const { jobs } = await fetchWorkspaceJobsAndLinks(ws.name);
   let addedCount = 0;
-
-  for (let i = 0; i < links.length; i++) {
-    const link = links[i];
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "picker-ws-icon-btn picker-ws-link-btn";
-    btn.title = link.label || link.url;
-    btn.innerHTML = renderIcon(link.icon || "mdi-web", link.icon_color, iconSize);
-    btn.addEventListener("click", () => onLinkClick(link, i));
-    container.appendChild(btn);
-    addedCount += 1;
-  }
 
   const entries = Object.entries(jobs).filter(([name]) => name !== "terminal");
   for (const [name, job] of entries) {

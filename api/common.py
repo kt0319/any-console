@@ -218,8 +218,6 @@ def migrate_workspace_config(workspace_name: str, workspace_path: Path) -> None:
 
     config = _read_json_file(old_dir / "config.json", {})
     jobs = _read_json_file(old_dir / "jobs.json", {})
-    links = _read_json_file(old_dir / "links.json", [])
-
     merged = {}
     if config.get("icon"):
         merged["icon"] = config["icon"]
@@ -227,8 +225,6 @@ def migrate_workspace_config(workspace_name: str, workspace_path: Path) -> None:
         merged["icon_color"] = config["icon_color"]
     if jobs:
         merged["jobs"] = jobs
-    if links:
-        merged["links"] = links
 
     if merged:
         save_workspace_config(workspace_name, merged)

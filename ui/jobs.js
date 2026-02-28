@@ -317,11 +317,6 @@ async function executeJobDirect(targetJob, job, workspace) {
 }
 
 
-async function deleteLink(workspace, index) {
-  const ok = await deleteWorkspaceAction(workspace, `/links/${index}`, "リンクを削除しました");
-  if (ok) invalidateWorkspaceMetaCache(workspace);
-}
-
 function createFormSubPane(container, title, onDone, setTitleFn) {
   container.innerHTML = "";
   const sub = document.createElement("div");
@@ -556,61 +551,6 @@ function validateRequiredValue(errorEl, value, message) {
   return false;
 }
 
-function buildLinkFormRendererOptions({
-  container,
-  workspace,
-  data = null,
-  onDone,
-  setTitleFn,
-}) {
-  const isEdit = !!data;
-  const targetWorkspace = isEdit ? data.workspace : workspace;
-  const endpoint = isEdit ? `/links/${data.index}` : "/links";
-  const method = isEdit ? "PUT" : "POST";
-  return {
-    container,
-    title: isEdit ? "リンク編集" : "リンク追加",
-    workspace: targetWorkspace,
-    onDone,
-    setTitleFn,
-    defaultIconName: "mdi-web",
-    initialIcon: data?.icon || "",
-    initialIconColor: data?.iconColor || "",
-    fields: [
-      {
-        name: "url",
-        label: "URL",
-        type: "url",
-        placeholder: "http://localhost:3000",
-        value: data?.url || "",
-      },
-    ],
-    submitLabel: isEdit ? "保存" : "追加",
-    deleteLabel: "削除",
-    onDelete: isEdit ? async ({ workspace, onDone }) => {
-      await deleteLink(workspace, data.index);
-      await loadJobsForWorkspace();
-      onDone();
-    } : null,
-    onSubmit: async ({ workspace, iconState, fieldInputs, errorEl, onDone }) => {
-      errorEl.style.display = "none";
-      const url = fieldInputs.url.value.trim();
-      if (!validateRequiredValue(errorEl, url, "URLを入力してください")) return;
-      const ok = await submitWorkspaceFormAction({
-        workspace,
-        endpoint,
-        method,
-        body: { url, icon: iconState.icon, icon_color: iconState.color },
-        errorEl,
-        errorFallback: isEdit ? "保存に失敗しました" : "追加に失敗しました",
-        successMessage: isEdit ? "リンクを更新しました" : "リンクを追加しました",
-      });
-      if (!ok) return;
-      await finalizeWorkspaceMutation(workspace, onDone);
-    },
-  };
-}
-
 function buildJobFormRendererOptions({
   container,
   workspace,
@@ -673,16 +613,8 @@ function buildJobFormRendererOptions({
   };
 }
 
-function renderInlineLinkCreate(container, workspace, onDone, setTitleFn) {
-  createFormRenderer(buildLinkFormRendererOptions({ container, workspace, onDone, setTitleFn }));
-}
-
 function renderInlineJobCreate(container, workspace, onDone, setTitleFn) {
   createFormRenderer(buildJobFormRendererOptions({ container, workspace, onDone, setTitleFn }));
-}
-
-function renderInlineLinkEdit(container, data, onDone, setTitleFn) {
-  createFormRenderer(buildLinkFormRendererOptions({ container, data, onDone, setTitleFn }));
 }
 
 function renderInlineJobEdit(container, data, onDone, setTitleFn) {

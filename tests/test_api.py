@@ -105,11 +105,11 @@ class TestSettings:
             assert "ghost" not in config
 
     def test_import_rejects_invalid_workspace_schema(self, workspace):
-        res = client.post("/settings/import", headers=AUTH, json={"test-ws": {"links": [{}]}})
+        res = client.post("/settings/import", headers=AUTH, json={"test-ws": {"jobs": {"bad": {}}}})
         assert res.status_code == 400
 
     def test_export_skips_invalid_workspace_config(self, workspace, isolate_fs):
-        isolate_fs["config_file"].write_text(json.dumps({"test-ws": {"links": [{}]}}))
+        isolate_fs["config_file"].write_text(json.dumps({"test-ws": {"jobs": {"bad": {}}}}))
         res = client.get("/settings/export", headers=AUTH)
         assert res.status_code == 200
         assert res.json() == {}
@@ -257,75 +257,6 @@ class TestJobsCRUD:
         res = client.get("/workspaces/no-such-ws/jobs", headers=AUTH)
         assert res.status_code == 400
 
-
-# --- リンクCRUD ---
-
-
-class TestLinksCRUD:
-    def test_list_empty(self, workspace):
-        res = client.get("/workspaces/test-ws/links", headers=AUTH)
-        assert res.status_code == 200
-        assert res.json() == []
-
-    def test_list_invalid_saved_links_as_empty(self, workspace, isolate_fs):
-        isolate_fs["config_file"].write_text(json.dumps({"test-ws": {"links": [{}]}}))
-        res = client.get("/workspaces/test-ws/links", headers=AUTH)
-        assert res.status_code == 200
-        assert res.json() == []
-
-    def test_create_and_list(self, workspace):
-        res = client.post("/workspaces/test-ws/links", headers=AUTH, json={
-            "label": "Google",
-            "url": "https://google.com",
-        })
-        assert res.status_code == 200
-        links = client.get("/workspaces/test-ws/links", headers=AUTH).json()
-        assert len(links) == 1
-        assert links[0]["label"] == "Google"
-        assert links[0]["url"] == "https://google.com"
-
-    def test_url_normalization(self, workspace):
-        client.post("/workspaces/test-ws/links", headers=AUTH, json={
-            "url": "example.com",
-        })
-        links = client.get("/workspaces/test-ws/links", headers=AUTH).json()
-        assert links[0]["url"] == "http://example.com"
-
-    def test_update_link(self, workspace):
-        client.post("/workspaces/test-ws/links", headers=AUTH, json={
-            "label": "Old",
-            "url": "https://old.com",
-        })
-        res = client.put("/workspaces/test-ws/links/0", headers=AUTH, json={
-            "label": "New",
-            "url": "https://new.com",
-        })
-        assert res.status_code == 200
-        links = client.get("/workspaces/test-ws/links", headers=AUTH).json()
-        assert links[0]["label"] == "New"
-
-    def test_update_invalid_index(self, workspace):
-        res = client.put("/workspaces/test-ws/links/99", headers=AUTH, json={
-            "label": "x",
-            "url": "https://x.com",
-        })
-        assert res.status_code == 404
-
-    def test_delete_link(self, workspace):
-        client.post("/workspaces/test-ws/links", headers=AUTH, json={
-            "label": "Del",
-            "url": "https://del.com",
-        })
-        res = client.delete("/workspaces/test-ws/links/0", headers=AUTH)
-        assert res.status_code == 200
-        links = client.get("/workspaces/test-ws/links", headers=AUTH).json()
-        assert len(links) == 0
-
-    def test_delete_invalid_index(self, workspace):
-        res = client.delete("/workspaces/test-ws/links/0", headers=AUTH)
-        assert res.status_code == 404
-
-
 class TestFileContent:
     def test_image_file_returns_data_url(self, workspace):
         img = workspace / "icon.png"
@@ -447,14 +378,6 @@ class TestUtils:
 
         with pytest.raises(HTTPException):
             validate_commit_hash("ABCD")
-
-    def test_normalize_url(self):
-        from api.routers.jobs import normalize_url
-
-        assert normalize_url("https://example.com") == "https://example.com"
-        assert normalize_url("http://example.com") == "http://example.com"
-        assert normalize_url("example.com") == "http://example.com"
-        assert normalize_url("  https://x.com  ") == "https://x.com"
 
     def test_resolve_workspace_path_invalid(self):
         from api.common import resolve_workspace_path

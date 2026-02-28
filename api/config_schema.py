@@ -32,19 +32,11 @@ class JobConfig(_ConfigModel):
     terminal: bool = True
 
 
-class LinkConfig(_ConfigModel):
-    label: str = ""
-    url: str
-    icon: str = ""
-    icon_color: str = ""
-
-
 class WorkspaceConfig(_ConfigModel):
     icon: str = ""
     icon_color: str = ""
     hidden: bool = False
     jobs: dict[str, JobConfig] = Field(default_factory=dict)
-    links: list[LinkConfig] = Field(default_factory=list)
 
 
 class GlobalConfig(_ConfigModel):
@@ -64,7 +56,9 @@ def _model_dump(model: BaseModel) -> dict[str, Any]:
 
 
 def validate_workspace_config(data: Any) -> dict[str, Any]:
-    return _model_dump(_model_validate(WorkspaceConfig, data))
+    normalized = _model_dump(_model_validate(WorkspaceConfig, data))
+    normalized.pop("links", None)
+    return normalized
 
 
 def validate_global_config(data: Any) -> dict[str, Any]:
