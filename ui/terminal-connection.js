@@ -41,15 +41,21 @@ async function onVisibilityRestore() {
     const sessions = await res.json();
     const aliveWsUrls = new Set(sessions.map((s) => s.ws_url));
 
+    const closedNames = [];
     for (const tab of termTabs) {
       if (!aliveWsUrls.has(tab.wsUrl)) {
+        closedNames.push(tab.workspace || tab.label);
         disconnectedSessions.push({
           wsUrl: tab.wsUrl, workspace: tab.workspace || tab.label, expired: true,
           icon: tab.icon?.name, iconColor: tab.icon?.color,
           tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null, jobLabel: tab.jobLabel || null,
         });
-        removeTab(tab.id);
+        removeTab(tab.id, { preserveSessionForRestore: true });
       }
+    }
+    if (closedNames.length > 0) {
+      const names = closedNames.join(", ");
+      showToast(`セッション切断: ${names}`, "error");
     }
   } catch (e) { console.warn("onVisibilityRestore failed:", e); }
 }
@@ -86,10 +92,11 @@ async function fetchOrphanSessions() {
   try {
     const res = await apiFetch("/terminal/sessions");
     if (!res || !res.ok) {
-      disconnectedSessions = [];
-      restoreTabsFromLocalStorage([]);
-      hasRestoredTabsFromStorage = true;
-      renderTabBar();
+      if (!hasRestoredTabsFromStorage) {
+        restoreTabsFromLocalStorage([]);
+        hasRestoredTabsFromStorage = true;
+        renderTabBar();
+      }
       return;
     }
     const sessions = await res.json();
@@ -99,9 +106,10 @@ async function fetchOrphanSessions() {
     hasRestoredTabsFromStorage = true;
   } catch (e) {
     console.error("fetchOrphanSessions failed:", e);
-    disconnectedSessions = [];
-    restoreTabsFromLocalStorage([]);
-    hasRestoredTabsFromStorage = true;
+    if (!hasRestoredTabsFromStorage) {
+      restoreTabsFromLocalStorage([]);
+      hasRestoredTabsFromStorage = true;
+    }
   }
   renderTabBar();
 }
@@ -310,13 +318,17 @@ function connectTerminalWs(tab) {
     if (tab._wsDisposed || isPageUnloading) return;
     if (e.code === 1000 || e.code === 1008) {
       if (e.code === 1008) {
+        const name = tab.workspace || tab.label;
         disconnectedSessions.push({
           wsUrl: tab.wsUrl, workspace: tab.workspace || tab.label, expired: true,
           icon: tab.icon?.name, iconColor: tab.icon?.color,
           tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null, jobLabel: tab.jobLabel || null,
         });
+        removeTab(tab.id, { preserveSessionForRestore: true });
+        showToast(`セッション切断: ${name}`, "error");
+      } else {
+        removeTab(tab.id);
       }
-      removeTab(tab.id, { preserveSessionForRestore: e.code === 1008 });
       return;
     }
     const MAX_ATTEMPTS = 10;
@@ -327,7 +339,8 @@ function connectTerminalWs(tab) {
         tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null, jobLabel: tab.jobLabel || null,
       });
       removeTab(tab.id, { preserveSessionForRestore: true });
-      showToast("接続が切断されたため復元タブに移動しました", "error");
+      const name = tab.workspace || tab.label;
+      showToast(`セッション切断: ${name}`, "error");
       return;
     }
     const delay = Math.min(1000 * Math.pow(2, tab._reconnectAttempts), 30000);

@@ -193,6 +193,7 @@ function repositionKeyboardInput(keyboardOpen) {
 
 window.addEventListener("beforeunload", () => {
   isPageUnloading = true;
+  persistOpenTabs();
 });
 
 document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });

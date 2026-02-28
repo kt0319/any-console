@@ -157,6 +157,8 @@ def _is_process_alive(pid: int) -> bool:
 @ws_router.websocket("/terminal/ws/{session_id}")
 async def terminal_ws(websocket: WebSocket, session_id: str):
     session = TERMINAL_SESSIONS.get(session_id)
+    await websocket.accept()
+
     if not session or session.expires_at <= time.time():
         await websocket.close(code=1008)
         return
@@ -165,8 +167,6 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
         TERMINAL_SESSIONS.pop(session_id, None)
         await websocket.close(code=1008)
         return
-
-    await websocket.accept()
     session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
     stop_event = threading.Event()
     loop = asyncio.get_event_loop()

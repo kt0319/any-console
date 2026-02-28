@@ -193,7 +193,7 @@ function removeTab(id, options = {}) {
     if (openTabs.length === 0) {
       exitSplitModeWithTab(null);
       updateHeaderForTab(null);
-      if (!document.getElementById("split-tab-modal-overlay")) openTabEditModal("open");
+      if (!document.getElementById("split-tab-modal-overlay") && disconnectedSessions.length === 0) openTabEditModal("open");
       return;
     }
     rebuildSplitLayout();
@@ -204,7 +204,7 @@ function removeTab(id, options = {}) {
     activeTabId = null;
     renderTabBar();
     updateHeaderForTab(null);
-    if (!document.getElementById("split-tab-modal-overlay")) openTabEditModal("open");
+    if (!document.getElementById("split-tab-modal-overlay") && disconnectedSessions.length === 0) openTabEditModal("open");
   } else if (activeTabId === id) {
     const next = openTabs[openTabs.length - 1].id;
     switchTab(next);
