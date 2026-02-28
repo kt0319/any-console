@@ -68,15 +68,45 @@ function initQuickInput() {
   });
   clearLocalStorageBtn.addEventListener("click", clearPiConsoleStorage);
 
-  const snippetSpacer1 = document.createElement("div");
-  snippetSpacer1.className = "quick-key quick-snippet-spacer";
-  snippetSpacer1.style.display = "none";
-  const snippetSpacer2 = document.createElement("div");
-  snippetSpacer2.className = "quick-key quick-snippet-spacer";
-  snippetSpacer2.style.display = "none";
+  const workspaceModalBtn = document.createElement("div");
+  workspaceModalBtn.className = "quick-key quick-workspace-modal-open";
+  workspaceModalBtn.innerHTML = '<span class="mdi mdi-view-grid-plus-outline"></span>';
+  workspaceModalBtn.style.display = "none";
+  const animateElements = (elements) => {
+    for (const el of elements) {
+      if (!el || el.offsetParent === null) continue;
+      el.classList.remove("tap-bounce");
+      void el.offsetWidth;
+      el.classList.add("tap-bounce");
+    }
+  };
+  const collectVisibleModeElements = () => [
+      ...panel.querySelectorAll(".quick-key"),
+      ...qwertyPanel.querySelectorAll(".quick-key"),
+      ...snippetRow.querySelectorAll(".quick-key"),
+      ...snippetRow.querySelectorAll(".quick-snippet-item"),
+    ];
+  const animateVisibleModeElements = () => {
+    animateElements(collectVisibleModeElements());
+  };
+  const scheduleAnimateVisibleModeElements = () => {
+    requestAnimationFrame(() => {
+      animateVisibleModeElements();
+    });
+  };
+  const openWorkspaceModal = () => {
+    closeSnippetMode();
+    if (typeof openTabEditModal === "function") openTabEditModal("open");
+  };
+  workspaceModalBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  workspaceModalBtn.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    openWorkspaceModal();
+  });
+  workspaceModalBtn.addEventListener("click", openWorkspaceModal);
 
-  const snippetExtras = [snippetSpacer1, snippetSpacer2, clearLocalStorageBtn, hardReloadBtn];
-  const minimalKeyBtns = [snippetSpacer1, snippetSpacer2, clearLocalStorageBtn, hardReloadBtn, minimalArrow];
+  const snippetExtras = [workspaceModalBtn, clearLocalStorageBtn, hardReloadBtn];
+  const minimalKeyBtns = [workspaceModalBtn, clearLocalStorageBtn, hardReloadBtn, minimalArrow];
   const quickKeyBtns = QUICK_KEYS.map(k => createQuickKeyBtn(k));
   const extraKeyBtns = EXTRA_MAIN_KEYS.map(k => {
     const btn = createQuickKeyBtn(k);
@@ -417,11 +447,14 @@ function initQuickInput() {
     minimalEnter.classList.remove("active");
     minimalArrow.innerHTML = minimalArrowDefaultHTML;
     updateEnterBtn();
+    scheduleAnimateVisibleModeElements();
   }
 
   const renderQuickSnippets = () => renderSnippetRow(snippetRow, (text) => {
     sendTextToTerminal(text);
     closeSnippetMode();
+  }).then(() => {
+    scheduleAnimateVisibleModeElements();
   });
 
   snippetRow.style.display = "none";
@@ -438,7 +471,7 @@ function initQuickInput() {
     minimalEnter.innerHTML = minimalEnterDefaultHTML;
     minimalEnter.classList.remove("active");
     updateEnterBtn();
-    applyMode();
+    applyMode(true);
   };
 
   const minimalEnterDefaultHTML = '<span class="flick-hint-top">Tab</span><span class="flick-hint-left">BS</span><span class="flick-main">\u21B5</span><span class="flick-hint-bottom">Space</span><span class="flick-hint-right">Del</span>';
@@ -453,6 +486,7 @@ function initQuickInput() {
       minimalEnter.innerHTML = minimalEnterDefaultHTML;
       minimalEnter.classList.remove("active");
       minimalArrow.innerHTML = minimalArrowDefaultHTML;
+      scheduleAnimateVisibleModeElements();
     } else {
       if (keyboardPanelMode !== 0) {
         keyboardPanelMode = 0;
@@ -467,13 +501,14 @@ function initQuickInput() {
       minimalEnter.innerHTML = '<span class="mdi mdi-close"></span>';
       minimalEnter.classList.add("active");
       minimalArrow.innerHTML = '<span class="flick-main"><span class="mdi mdi-camera"></span></span>';
+      scheduleAnimateVisibleModeElements();
     }
     updateEnterBtn();
   };
 
   const minimalArrowDefaultHTML = '<span class="flick-hint-top">\u2191</span><span class="flick-hint-left">\u2190</span><span class="flick-main"><span class="mdi mdi-keyboard"></span></span><span class="flick-hint-right">\u2192</span><span class="flick-hint-bottom">\u2193</span>';
 
-  const applyMode = () => {
+  const applyMode = (animate = false) => {
     panel.classList.toggle("minimal-mode", keyboardPanelMode === 0);
     panel.classList.toggle("extra-open", keyboardPanelMode === 1);
     minimalArrow.classList.toggle("active", keyboardPanelMode === 1);
@@ -485,6 +520,7 @@ function initQuickInput() {
     for (const el of mode1Elements) el.style.display = keyboardPanelMode === 1 ? "" : "none";
     extraPanel.style.display = "none";
     qwertyPanel.style.display = keyboardPanelMode === 1 ? "flex" : "none";
+    if (animate) scheduleAnimateVisibleModeElements();
   };
   applyMode();
 

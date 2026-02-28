@@ -2708,6 +2708,10 @@ button:disabled {
   margin-left: 0;
 }
 
+.quick-input-panel.minimal-mode.snippet-open .quick-flick-enter {
+  flex: 1;
+}
+
 
 .quick-flick-arrow,
 .quick-flick-enter {
@@ -2824,6 +2828,11 @@ button:disabled {
 .quick-local-storage-clear {
   font-size: 20px;
   color: rgba(255, 120, 120, 0.8);
+}
+
+.quick-workspace-modal-open {
+  font-size: 20px;
+  color: var(--accent);
 }
 
 .quick-key.pressed {
