@@ -20,6 +20,8 @@ async function initApp() {
   await ensureSnippetsLoaded();
   updateGitBarVisibility();
   updateQuickInputVisibility();
+  fitActiveTerminal();
+  setTimeout(fitActiveTerminal, 300);
   if (sessionStorage.getItem("pi_console_server_reloaded")) {
     sessionStorage.removeItem("pi_console_server_reloaded");
     showToast("サーバーに再接続しました", "success");
