@@ -125,6 +125,25 @@ header {
 .picker-ws-group {
   overflow: hidden;
   border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.picker-ws-group-drop-active {
+  background: rgba(76, 175, 80, 0.08);
+}
+
+.picker-ws-drop-hint {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px 12px;
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.picker-ws-group-drop-active .picker-ws-drop-hint {
+  display: flex;
 }
 
 .picker-ws-row {
@@ -1047,6 +1066,27 @@ header {
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
+}
+
+.file-browser {
+  position: relative;
+}
+
+.file-browser.file-browser-drop-active::after {
+  content: "ここにドロップでアップロード";
+  position: absolute;
+  inset: 12px;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius);
+  background: rgba(76, 175, 80, 0.08);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+  pointer-events: none;
+  z-index: 2;
 }
 
 .file-browser-crumb {

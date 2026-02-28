@@ -88,6 +88,7 @@ function createTerminalTabModalWorkspaceSection(deps) {
     for (const ws of workspaces) {
       const group = document.createElement("div");
       group.className = "picker-ws-group";
+      group.dataset.workspaceName = ws.name;
 
       const topRow = document.createElement("div");
       topRow.className = "picker-ws-row picker-ws-row-top";
@@ -175,6 +176,25 @@ function createTerminalTabModalWorkspaceSection(deps) {
 
       group.appendChild(bottomRow);
       container.appendChild(group);
+
+      const dropHint = document.createElement("div");
+      dropHint.className = "picker-ws-drop-hint";
+      dropHint.innerHTML = '<span class="mdi mdi-upload"></span> ここにドロップでルートへアップロード';
+      group.appendChild(dropHint);
+
+      if (typeof bindWorkspaceUploadDropTarget === "function") {
+        bindWorkspaceUploadDropTarget(group, {
+          workspaceName: ws.name,
+          getPath: () => "",
+          onSuccess: async () => {
+            await loadWorkspaces();
+            if (selectedWorkspace === ws.name) {
+              await refreshWorkspaceHeader();
+            }
+          },
+          activeClass: "picker-ws-group-drop-active",
+        });
+      }
 
       loadWorkspaceIconButtons(icons, ws, 18,
         (link) => { closeModal(); window.open(link.url, "_blank"); },
