@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 
 import pytest
 from fastapi.testclient import TestClient
@@ -342,6 +343,30 @@ class TestFileContent:
         assert data["status"] == "ok"
         assert data["binary"] is True
 
+    def test_file_content_can_read_past_commit(self, workspace):
+        subprocess.run(["git", "init"], cwd=workspace, check=True, capture_output=True, text=True)
+        subprocess.run(["git", "config", "user.name", "Test User"], cwd=workspace, check=True, capture_output=True, text=True)
+        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=workspace, check=True, capture_output=True, text=True)
+        target = workspace / "note.txt"
+        target.write_text("old\n", encoding="utf-8")
+        subprocess.run(["git", "add", "note.txt"], cwd=workspace, check=True, capture_output=True, text=True)
+        subprocess.run(["git", "commit", "-m", "first"], cwd=workspace, check=True, capture_output=True, text=True)
+        first_hash = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=workspace, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+
+        target.write_text("new\n", encoding="utf-8")
+
+        res = client.get(
+            "/workspaces/test-ws/file-content",
+            headers=AUTH,
+            params={"path": "note.txt", "ref": first_hash},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "ok"
+        assert data["content"] == "old\n"
+
 
 class TestFilesList:
     def test_list_includes_symlink(self, workspace):
@@ -362,6 +387,25 @@ class TestFilesList:
         assert link_entry["type"] == "symlink"
         assert link_entry["target_type"] == "file"
         assert link_entry["target_path"] == "target.txt"
+
+    def test_list_can_read_past_commit_tree(self, workspace):
+        subprocess.run(["git", "init"], cwd=workspace, check=True, capture_output=True, text=True)
+        subprocess.run(["git", "config", "user.name", "Test User"], cwd=workspace, check=True, capture_output=True, text=True)
+        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=workspace, check=True, capture_output=True, text=True)
+        subdir = workspace / "docs"
+        subdir.mkdir()
+        (subdir / "a.txt").write_text("hello\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=workspace, check=True, capture_output=True, text=True)
+        subprocess.run(["git", "commit", "-m", "first"], cwd=workspace, check=True, capture_output=True, text=True)
+        first_hash = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=workspace, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+
+        res = client.get("/workspaces/test-ws/files", headers=AUTH, params={"path": "", "ref": first_hash})
+        assert res.status_code == 200
+        data = res.json()
+        entries = {e["name"]: e for e in data["entries"]}
+        assert entries["docs"]["type"] == "dir"
 
 
 # --- ユーティリティ ---

@@ -145,7 +145,7 @@ Object.assign(GitLogModal, {
         '<span class="git-log-entry-msg" style="color:var(--text-muted)">未コミットの変更</span>' +
       `</span>`;
     entry.addEventListener("click", () => {
-      GitLogModal.state.previousModalTab = "commits";
+      GitLogModal.state.previousModalTab = "diff";
       GitLogModal.showDiffPane("未コミットの変更");
       loadDiffTab();
     });

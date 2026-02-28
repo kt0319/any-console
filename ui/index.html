@@ -68,49 +68,53 @@
           <h3 id="git-log-modal-title" class="split-modal-title">コミット履歴</h3>
           <button id="git-log-close" class="modal-close-btn" title="閉じる">&times;</button>
         </div>
-        <div id="commit-modal-tab-commits">
-          <div class="git-log-sub-header">
-            <button type="button" class="git-log-branch-select-btn" id="git-log-branch-btn">
-              <span class="mdi mdi-source-branch"></span> <span id="git-log-branch-label"></span>
-            </button>
-            <button type="button" class="git-action-btn fetch-btn icon-only" id="fetch-btn" title="Fetch" aria-label="Fetch"><span class="mdi mdi-refresh"></span></button>
-            <button type="button" class="git-action-btn stash-btn" id="stash-btn">Stash一覧</button>
-            <button type="button" class="git-action-btn" id="git-log-file-browser-toggle"><span class="mdi mdi-folder-outline"></span></button>
-          </div>
-          <div class="modal-scroll-body" id="git-log-list-modal"></div>
-          <div id="git-log-action-menu" class="commit-action-menu" style="display:none"></div>
-          <div id="git-log-create-branch-area" style="display:none">
-            <div class="git-log-create-branch-row">
-              <input type="text" id="git-log-branch-name" class="form-input" placeholder="新しいブランチ名" autocomplete="off" />
-              <button type="button" id="git-log-create-branch-submit" class="primary">作成</button>
-              <button type="button" id="git-log-create-branch-close">閉じる</button>
-            </div>
-            <div id="git-log-branch-error" class="form-error"></div>
-          </div>
-        </div>
         <div id="commit-modal-tab-diff" style="display:none">
-          <div class="diff-actions" id="diff-actions" style="display:none"></div>
-          <div class="diff-file-list" id="diff-file-list"></div>
-          <div id="diff-commit-form" style="display:none">
-            <textarea id="diff-commit-message" class="form-input" rows="2" placeholder="コミットメッセージ"></textarea>
-            <div id="diff-commit-error" class="form-error"></div>
-            <div class="diff-commit-buttons">
-              <button type="button" id="diff-commit-cancel">キャンセル</button>
-              <button type="button" id="diff-commit-submit" class="primary">コミット</button>
+          <div class="diff-layout">
+            <div class="diff-upper-pane">
+              <div id="diff-history-pane">
+                <div class="git-log-sub-header">
+                  <button type="button" class="git-log-branch-select-btn" id="git-log-branch-btn">
+                    <span class="mdi mdi-source-branch"></span> <span id="git-log-branch-label"></span>
+                  </button>
+                  <button type="button" class="git-action-btn fetch-btn icon-only" id="fetch-btn" title="Fetch" aria-label="Fetch"><span class="mdi mdi-refresh"></span></button>
+                  <button type="button" class="git-action-btn stash-btn" id="stash-btn">Stash一覧</button>
+                </div>
+                <div class="modal-scroll-body" id="git-log-list-modal"></div>
+                <div id="git-log-action-menu" class="commit-action-menu" style="display:none"></div>
+                <div id="git-log-create-branch-area" style="display:none">
+                  <div class="git-log-create-branch-row">
+                    <input type="text" id="git-log-branch-name" class="form-input" placeholder="新しいブランチ名" autocomplete="off" />
+                    <button type="button" id="git-log-create-branch-submit" class="primary">作成</button>
+                    <button type="button" id="git-log-create-branch-close">閉じる</button>
+                  </div>
+                  <div id="git-log-branch-error" class="form-error"></div>
+                </div>
+              </div>
+              <div id="diff-files-pane" style="display:none">
+                <div class="diff-actions" id="diff-actions" style="display:none"></div>
+                <div class="diff-file-list" id="diff-file-list"></div>
+                <div id="diff-commit-form" style="display:none">
+                  <textarea id="diff-commit-message" class="form-input" rows="2" placeholder="コミットメッセージ"></textarea>
+                  <div id="diff-commit-error" class="form-error"></div>
+                  <div class="diff-commit-buttons">
+                    <button type="button" id="diff-commit-cancel">キャンセル</button>
+                    <button type="button" id="diff-commit-submit" class="primary">コミット</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="diff-lower-pane">
+              <div class="diff-viewer-pane">
+                <div class="diff-content" id="diff-content"></div>
+              </div>
             </div>
           </div>
-        </div>
-        <div id="commit-modal-tab-diff-view" style="display:none">
-          <pre class="diff-content" id="diff-content"></pre>
         </div>
         <div id="commit-modal-tab-stash" style="display:none">
           <div class="modal-scroll-body" id="stash-pane-list"></div>
         </div>
         <div id="commit-modal-tab-branch" style="display:none">
           <div class="modal-scroll-body" id="branch-pane-list"></div>
-        </div>
-        <div id="commit-modal-tab-files" style="display:none">
-          <div class="modal-scroll-body" id="commit-modal-file-browser"></div>
         </div>
       </div>
     </div>
@@ -136,7 +140,6 @@
         </div>
         <div class="header-row2" id="header-row2" style="display:none">
           <button type="button" class="commit-msg-btn" id="header-commit-msg" title="コミット履歴"></button>
-          <div id="clean-dirty-status" class="clean-dirty-status"></div>
           <div class="git-summary-panel" id="main-git-status"></div>
           <div class="git-actions" id="git-actions" style="display:none">
             <button type="button" class="git-action-btn pull-btn" id="pull-btn" title="Pull">

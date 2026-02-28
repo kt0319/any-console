@@ -125,17 +125,50 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function buildBreadcrumbHtml(parts, uploadPath = "") {
-  const rootLabel = selectedWorkspace || "~";
+function getFileBrowserRootLabel(view = "tab") {
+  return selectedWorkspace || "~";
+}
+
+function getFileBrowserBadgeLabel(view = "tab") {
+  if (
+    view === "diff-pane"
+    && typeof getActiveDiffRef === "function"
+    && getActiveDiffRef()
+    && typeof getDiffViewerMode === "function"
+    && getDiffViewerMode() === "diff"
+  ) {
+    return "(差分)";
+  }
+  return "";
+}
+
+function buildBreadcrumbHtml(parts, uploadPath = "", options = {}) {
+  const rootLabel = options.rootLabel || selectedWorkspace || "~";
+  const badgeLabel = options.badgeLabel || "";
+  const badgePath = options.badgePath || "";
+  const badgeInteractive = !!options.badgeInteractive;
+  const currentPath = options.currentPath || "";
+  const currentInteractive = !!options.currentInteractive;
   let html = '<div class="file-browser-header">';
   html += `<button type="button" class="file-browser-crumb" data-path="">${escapeHtml(rootLabel)}</button>`;
   for (let i = 0; i < parts.length; i++) {
     const subPath = parts.slice(0, i + 1).join("/");
     html += '<span class="file-browser-crumb-sep">/</span>';
     if (i === parts.length - 1) {
-      html += `<span class="file-browser-crumb-current">${escapeHtml(parts[i])}</span>`;
+      if (currentInteractive && currentPath) {
+        html += `<button type="button" class="file-browser-crumb-current-action" data-file-path="${escapeHtml(currentPath)}">${escapeHtml(parts[i])}</button>`;
+      } else {
+        html += `<span class="file-browser-crumb-current">${escapeHtml(parts[i])}</span>`;
+      }
     } else {
       html += `<button type="button" class="file-browser-crumb" data-path="${escapeHtml(subPath)}">${escapeHtml(parts[i])}</button>`;
+    }
+  }
+  if (badgeLabel) {
+    if (badgeInteractive && badgePath) {
+      html += `<button type="button" class="file-browser-crumb-badge file-browser-crumb-badge-action" data-diff-path="${escapeHtml(badgePath)}">${escapeHtml(badgeLabel)}</button>`;
+    } else {
+      html += `<span class="file-browser-crumb-badge">${escapeHtml(badgeLabel)}</span>`;
     }
   }
   html += `<button type="button" class="file-browser-upload" data-path="${escapeHtml(uploadPath)}"><span class="mdi mdi-upload"></span> アップロード</button>`;
@@ -145,9 +178,9 @@ function buildBreadcrumbHtml(parts, uploadPath = "") {
   return html;
 }
 
-function buildFileBrowserHtml(path, entries) {
+function buildFileBrowserHtml(path, entries, options = {}) {
   const parts = path ? path.split("/") : [];
-  const breadcrumb = buildBreadcrumbHtml(parts, path || "");
+  const breadcrumb = buildBreadcrumbHtml(parts, path || "", options);
 
   let list = '<ul class="file-browser-list">';
   if (path) {
@@ -191,10 +224,10 @@ function fileBrowserMessage(text, muted = false) {
   return `<div class="file-browser"><div class="file-browser-header" style="${style}">${escapeHtml(text)}</div></div>`;
 }
 
-function buildFileContentHtml(path, data) {
+function buildFileContentHtml(path, data, options = {}) {
   const parts = path.split("/");
   const parentPath = parts.slice(0, -1).join("/");
-  const breadcrumb = buildBreadcrumbHtml(parts, parentPath);
+  const breadcrumb = buildBreadcrumbHtml(parts, parentPath, options);
 
   let body = "";
   if (data.image) {
@@ -214,6 +247,16 @@ function buildFileContentHtml(path, data) {
   }
 
   return `<div class="file-browser" data-upload-path="${escapeHtml(parentPath)}">${breadcrumb}${body}</div>`;
+}
+
+function buildDiffContentHtml(path, diffText, options = {}, message = "") {
+  const parts = path.split("/");
+  const parentPath = parts.slice(0, -1).join("/");
+  const breadcrumb = buildBreadcrumbHtml(parts, parentPath, options);
+  const note = message
+    ? `<div class="file-content-message diff-viewer-message">${escapeHtml(message)}</div>`
+    : "";
+  return `<div class="file-browser" data-upload-path="${escapeHtml(parentPath)}">${breadcrumb}${note}<pre class="diff-content-code"></pre></div>`;
 }
 
 async function uploadFileToWorkspaceDir(workspaceName, dirPath, file, options = {}) {
@@ -356,6 +399,15 @@ function getFileBrowserViewConfig(view) {
       openFile: loadFileContentInModal,
     };
   }
+  if (view === "diff-pane") {
+    return {
+      containerId: "diff-content",
+      hideCloseButton: true,
+      onClose: null,
+      openDirectory: loadDirectoryInDiffPane,
+      openFile: loadFileContentInDiffPane,
+    };
+  }
   return {
     containerId: "frame-file-browser",
     hideCloseButton: false,
@@ -365,8 +417,19 @@ function getFileBrowserViewConfig(view) {
   };
 }
 
-async function fetchDirectoryData(path) {
-  const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/files?path=${encodeURIComponent(path)}`));
+function getFileBrowserRef(view) {
+  if (view === "diff-pane" && typeof getActiveDiffRef === "function") {
+    return getActiveDiffRef() || "";
+  }
+  return "";
+}
+
+async function fetchDirectoryData(path, view = "tab") {
+  const ref = getFileBrowserRef(view);
+  const query = ref
+    ? `?path=${encodeURIComponent(path)}&ref=${encodeURIComponent(ref)}`
+    : `?path=${encodeURIComponent(path)}`;
+  const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/files${query}`));
   if (!res) return { ok: false, message: "読み込みに失敗しました" };
   const data = await res.json();
   if (!res.ok || data.status !== "ok") {
@@ -375,8 +438,12 @@ async function fetchDirectoryData(path) {
   return { ok: true, data };
 }
 
-async function fetchFileContentData(path) {
-  const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/file-content?path=${encodeURIComponent(path)}`));
+async function fetchFileContentData(path, view = "tab") {
+  const ref = getFileBrowserRef(view);
+  const query = ref
+    ? `?path=${encodeURIComponent(path)}&ref=${encodeURIComponent(ref)}`
+    : `?path=${encodeURIComponent(path)}`;
+  const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/file-content${query}`));
   if (!res) return { ok: false, message: "読み込みに失敗しました" };
   const data = await res.json();
   if (!res.ok || data.status !== "ok") {
@@ -387,9 +454,12 @@ async function fetchFileContentData(path) {
 
 function bindFileBrowserEvents(container, view = "tab") {
   const config = getFileBrowserViewConfig(view);
-  bindFileUploadEvents(container, config.openDirectory);
+  const ref = getFileBrowserRef(view);
+  if (!ref) {
+    bindFileUploadEvents(container, config.openDirectory);
+  }
   const browser = container.querySelector(".file-browser");
-  if (browser && selectedWorkspace) {
+  if (browser && selectedWorkspace && !ref) {
     bindWorkspaceUploadDropTarget(browser, {
       workspaceName: selectedWorkspace,
       getPath: () => browser.dataset.uploadPath || "",
@@ -402,16 +472,30 @@ function bindFileBrowserEvents(container, view = "tab") {
   for (const crumb of container.querySelectorAll(".file-browser-crumb")) {
     crumb.addEventListener("click", () => config.openDirectory(crumb.dataset.path));
   }
+  for (const crumb of container.querySelectorAll(".file-browser-crumb-current-action[data-file-path]")) {
+    crumb.addEventListener("click", () => loadFileContentInDiffPane(crumb.dataset.filePath || ""));
+  }
+  for (const badge of container.querySelectorAll(".file-browser-crumb-badge-action[data-diff-path]")) {
+    badge.addEventListener("click", () => showDiffFileInDiffPane(badge.dataset.diffPath || ""));
+  }
   for (const item of container.querySelectorAll('.file-browser-item[data-type="dir"]')) {
     item.addEventListener("click", () => config.openDirectory(item.dataset.path));
   }
-  for (const item of container.querySelectorAll('.file-browser-item[data-type="file"]')) {
-    item.addEventListener("click", () => config.openFile(item.dataset.path));
+  if (typeof config.openFile === "function") {
+    for (const item of container.querySelectorAll('.file-browser-item[data-type="file"]')) {
+      item.addEventListener("click", () => config.openFile(item.dataset.path));
+    }
   }
   for (const item of container.querySelectorAll('.file-browser-item[data-type="symlink"]')) {
     item.addEventListener("click", () => openSymlinkFromList(item, config.openDirectory, config.openFile));
   }
   const closeBtn = container.querySelector(".file-browser-close");
+  const uploadBtn = container.querySelector(".file-browser-upload");
+  const uploadInput = container.querySelector(".file-browser-upload-input");
+  if (ref) {
+    if (uploadBtn) uploadBtn.style.display = "none";
+    if (uploadInput) uploadInput.style.display = "none";
+  }
   if (!closeBtn) return;
   if (config.hideCloseButton) {
     closeBtn.style.display = "none";
@@ -430,13 +514,16 @@ async function loadDirectoryByView(path, view) {
   el.innerHTML = fileBrowserMessage("読み込み中...", true);
 
   try {
-    const result = await fetchDirectoryData(path);
+    const result = await fetchDirectoryData(path, view);
     if (!result.ok) {
       el.innerHTML = fileBrowserMessage(result.message);
       return;
     }
     const data = result.data;
-    el.innerHTML = buildFileBrowserHtml(data.path, data.entries);
+    el.innerHTML = buildFileBrowserHtml(data.path, data.entries, {
+      rootLabel: data.rootLabel || getFileBrowserRootLabel(view),
+      badgeLabel: data.badgeLabel || getFileBrowserBadgeLabel(view),
+    });
     bindFileBrowserEvents(el, view);
   } catch (e) {
     el.innerHTML = fileBrowserMessage(e.message);
@@ -467,7 +554,7 @@ function openSymlinkFromList(item, openDirFn, openFileFn) {
   const actionLabel = targetType === "dir" ? "フォルダ" : "ファイル";
   if (!confirm(`${title} はシンボリックリンクです。リンク先の${actionLabel}を開きますか？`)) return;
   if (targetType === "dir") openDirFn(targetPath);
-  else if (targetType === "file") openFileFn(targetPath);
+  else if (targetType === "file" && typeof openFileFn === "function") openFileFn(targetPath);
 }
 
 async function loadFileContent(path) {
@@ -487,6 +574,13 @@ async function loadDirectoryInModal(path) {
   await loadDirectoryByView(path, "modal");
 }
 
+async function loadDirectoryInDiffPane(path, options = {}) {
+  if (!options.keepDiffMode && typeof setDiffViewerMode === "function") {
+    setDiffViewerMode("file");
+  }
+  await loadDirectoryByView(path, "diff-pane");
+}
+
 async function loadFileContentByView(path, view) {
   if (!selectedWorkspace) return;
   const el = $(getFileBrowserViewConfig(view).containerId);
@@ -495,13 +589,18 @@ async function loadFileContentByView(path, view) {
   el.innerHTML = fileBrowserMessage("読み込み中...", true);
 
   try {
-    const result = await fetchFileContentData(path);
+    const result = await fetchFileContentData(path, view);
     if (!result.ok) {
       el.innerHTML = fileBrowserMessage(result.message);
       return;
     }
     const data = result.data;
-    el.innerHTML = buildFileContentHtml(path, data);
+    el.innerHTML = buildFileContentHtml(path, data, {
+      rootLabel: getFileBrowserRootLabel(view),
+      badgeLabel: getFileBrowserBadgeLabel(view),
+      badgePath: path,
+      badgeInteractive: view === "diff-pane" && !!getFileBrowserRef(view),
+    });
     bindFileBrowserEvents(el, view);
   } catch (e) {
     el.innerHTML = fileBrowserMessage(e.message);
@@ -510,4 +609,37 @@ async function loadFileContentByView(path, view) {
 
 async function loadFileContentInModal(path) {
   await loadFileContentByView(path, "modal");
+}
+
+async function loadFileContentInDiffPane(path) {
+  if (typeof setDiffViewerMode === "function") {
+    setDiffViewerMode("file");
+  }
+  await loadFileContentByView(path, "diff-pane");
+}
+
+function showDiffFileInDiffPane(path) {
+  if (!selectedWorkspace || !path) return;
+  if (typeof setDiffViewerMode === "function") {
+    setDiffViewerMode("diff");
+  }
+  const el = $(getFileBrowserViewConfig("diff-pane").containerId);
+  if (!el) return;
+  const diffText = typeof diffChunks === "object" && diffChunks ? (diffChunks[path] || "") : "";
+  el.innerHTML = buildDiffContentHtml(path, diffText, {
+    rootLabel: getFileBrowserRootLabel("diff-pane"),
+    badgeLabel: getFileBrowserBadgeLabel("diff-pane"),
+    currentPath: path,
+    currentInteractive: true,
+  }, diffText ? "" : "差分を表示できません");
+  const pre = el.querySelector(".diff-content-code");
+  if (pre) {
+    if (diffText && typeof colorDiff === "function") {
+      pre.appendChild(colorDiff(diffText));
+    } else {
+      pre.textContent = diffText || "";
+    }
+  }
+  bindFileBrowserEvents(el, "diff-pane");
+  el.scrollTop = 0;
 }

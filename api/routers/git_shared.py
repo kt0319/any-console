@@ -151,6 +151,28 @@ def read_file_content_response(path: str, target: Path):
     return {"status": "ok", "path": path, "content": content, "size": size}
 
 
+def read_blob_content_response(path: str, raw: bytes):
+    size = len(raw)
+    ext = Path(path).suffix.lower()
+    name = Path(path).name
+
+    if ext in IMAGE_EXTENSIONS:
+        if size > MAX_IMAGE_PREVIEW_SIZE:
+            return {"status": "ok", "path": path, "image": True, "too_large": True, "size": size}
+        mime_type = mimetypes.guess_type(name)[0] or "application/octet-stream"
+        data_url = f"data:{mime_type};base64,{base64.b64encode(raw).decode('ascii')}"
+        return {"status": "ok", "path": path, "image": True, "size": size, "mime_type": mime_type, "data_url": data_url}
+
+    if ext in BINARY_EXTENSIONS:
+        return {"status": "ok", "path": path, "binary": True, "size": size}
+
+    if size > MAX_FILE_SIZE:
+        return {"status": "ok", "path": path, "too_large": True, "size": size}
+
+    content = raw.decode("utf-8", errors="replace")
+    return {"status": "ok", "path": path, "content": content, "size": size}
+
+
 def list_directory_entries(ws_path, target):
     entries = []
     try:

@@ -140,6 +140,15 @@ function buildWorkspaceChangeSummaryHtml(ws) {
   return parts.length > 0 ? parts.join(" ") : "\u25cf";
 }
 
+function buildWorkspaceHeaderNumstatHtml(ws) {
+  if (!ws || ws.clean !== false) return "";
+  const changedFiles = Number.isFinite(ws.changed_files) ? ws.changed_files : 0;
+  const insertions = Number.isFinite(ws.insertions) ? ws.insertions : 0;
+  const deletions = Number.isFinite(ws.deletions) ? ws.deletions : 0;
+  const fileCountHtml = changedFiles > 0 ? `<span class="header-git-files">${changedFiles}F</span>` : "";
+  return `<span class="header-git-numstat">${fileCountHtml}<span class="diff-num-plus">+${insertions}</span><span class="diff-num-del">-${deletions}</span></span>`;
+}
+
 function showLogin() {
   $("login-screen").style.display = "flex";
   $("app-screen").style.display = "none";

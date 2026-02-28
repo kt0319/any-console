@@ -21,23 +21,17 @@ async function refreshWorkspaceHeader(options = {}) {
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
   if (!ws) return;
 
-  let cleanDirtyHtml = "";
-  if (ws.clean === false) {
-    const statText = buildWorkspaceChangeSummaryHtml(ws);
-    cleanDirtyHtml = `<span class="git-badge dirty" id="dirty-badge">${statText}</span>`;
-  }
-  $("clean-dirty-status").innerHTML = cleanDirtyHtml;
-
-  const dirtyBadge = $("dirty-badge");
-  if (dirtyBadge) {
-    dirtyBadge.addEventListener("click", openDiffModal);
-  }
-
   $("main-git-status").innerHTML = "";
   updatePullPushButtons(ws);
   const branch = ws.branch || "";
-  const msg = ws.last_commit_message || "";
-  $("header-commit-msg").innerHTML = `<span class="commit-btn-branch">${escapeHtml(branch)}</span> <span class="commit-btn-msg">${escapeHtml(msg)}</span>`;
+  const isDirty = ws.clean === false;
+  const msg = isDirty ? "未コミットの変更" : (ws.last_commit_message || "");
+  const msgClass = isDirty ? "commit-btn-msg commit-btn-msg-muted" : "commit-btn-msg";
+  const numstatHtml = isDirty ? buildWorkspaceHeaderNumstatHtml(ws) : "";
+  $("header-commit-msg").innerHTML =
+    `<span class="commit-btn-branch">${escapeHtml(branch)}</span>` +
+    `<span class="commit-btn-msg-wrap"><span class="${msgClass}">${escapeHtml(msg)}</span></span>` +
+    numstatHtml;
 
   if (reloadBranches) {
     await GitCore.loadBranches();

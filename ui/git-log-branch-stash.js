@@ -1,6 +1,6 @@
 Object.assign(GitLogModal, {
   async openLocalBranchPane() {
-    GitLogModal.state.previousModalTab = "commits";
+    GitLogModal.state.previousModalTab = "diff";
     GitLogModal.showSubPane("commit-modal-tab-branch", "ブランチ");
     const listEl = $("branch-pane-list");
     listEl.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
@@ -111,7 +111,7 @@ Object.assign(GitLogModal, {
   async openStashPane() {
     if (!selectedWorkspace) return;
 
-    GitLogModal.state.previousModalTab = "commits";
+    GitLogModal.state.previousModalTab = "diff";
     GitLogModal.showSubPane("commit-modal-tab-stash", "Stash");
     const listEl = $("stash-pane-list");
     setCloneRepoStatus(listEl, "loading", "読み込み中...");

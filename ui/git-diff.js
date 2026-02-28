@@ -1,3 +1,28 @@
+let diffViewerMode = "file";
+let currentDiffRef = null;
+
+function getActiveDiffRef() {
+  return currentDiffRef;
+}
+
+function getDiffViewerMode() {
+  return diffViewerMode;
+}
+
+function setDiffViewerTitle(title) {
+  const viewerTitle = $("diff-viewer-title");
+  if (viewerTitle) viewerTitle.textContent = title || "";
+}
+
+function clearActiveDiffRef() {
+  currentDiffRef = null;
+  setDiffViewerMode("file");
+}
+
+function setDiffViewerMode(mode) {
+  diffViewerMode = mode === "diff" ? "diff" : "file";
+}
+
 function renderDiffActions(container, hash, branches) {
   const actions = GitCore.buildCommitActions(hash, {
     branches,
@@ -10,10 +35,8 @@ function renderDiffActions(container, hash, branches) {
 
 function initDiffPane(actions = null) {
   const fileList = $("diff-file-list");
-  const diffContent = $("diff-content");
   const actionsEl = $("diff-actions");
   fileList.innerHTML = '<div class="file-browser"><div class="file-browser-header"><span class="file-browser-crumb-current">読み込み中...</span></div></div>';
-  diffContent.textContent = "ファイルを選択してください";
   actionsEl.innerHTML = "";
   actionsEl.style.display = "none";
   $("diff-commit-form").style.display = "none";
@@ -26,15 +49,22 @@ function initDiffPane(actions = null) {
 
 function showDiffError(message) {
   const fileList = $("diff-file-list");
-  const diffContent = $("diff-content");
+  setDiffViewerTitle("エラー");
   fileList.innerHTML = "";
-  diffContent.textContent = message || "diff の取得に失敗しました";
+  renderDiffViewerMessage(message || "diff の取得に失敗しました");
+}
+
+function renderDiffViewerMessage(message) {
+  const diffContent = $("diff-content");
+  diffContent.innerHTML = `<div class="file-content-message diff-viewer-message">${escapeHtml(message || "")}</div>`;
 }
 
 async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
   const actionsEl = $("diff-actions");
+  setDiffViewerMode("file");
+  currentDiffRef = commitHash || null;
   initDiffPane();
-  GitLogModal.state.previousModalTab = "commits";
+  GitLogModal.state.previousModalTab = "diff";
   GitLogModal.showDiffPane(commitMsg || "");
 
   if (commitHash) {
@@ -60,9 +90,13 @@ async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
     }
 
     const fileList = $("diff-file-list");
-    const diffContent = $("diff-content");
     renderDiffFileList(fileList, data.files, data.diff || "");
-    diffContent.textContent = "ファイルを選択してください";
+    if (Array.isArray(data.files) && data.files.length > 0) {
+      setDiffViewerTitle("ファイル");
+    } else {
+      setDiffViewerTitle("差分なし");
+      renderDiffViewerMessage("変更ファイルなし");
+    }
   } catch (e) {
     showDiffError(e.message);
   }
@@ -214,25 +248,6 @@ function renderDiffFileList(fileList, files, diffText, options = {}) {
   if (files.length === 0) {
     html += '<li class="file-browser-item diff-file-row-empty"><span class="file-browser-item-name">変更ファイルなし</span></li>';
   } else {
-    let totalInsertions = 0;
-    let totalDeletions = 0;
-    let hasTotalNumstat = false;
-    for (const f of files) {
-      if (typeof f !== "object") continue;
-      if (Number.isFinite(f.insertions)) {
-        totalInsertions += f.insertions;
-        hasTotalNumstat = true;
-      }
-      if (Number.isFinite(f.deletions)) {
-        totalDeletions += f.deletions;
-        hasTotalNumstat = true;
-      }
-    }
-    html += '<li class="file-browser-item diff-file-row active" data-file="">' +
-      '<span class="file-browser-item-icon file-icon"><i class="mdi mdi-file-multiple-outline"></i></span>' +
-      '<span class="file-browser-item-name">すべて</span>' +
-      (hasTotalNumstat ? renderNumstatHtml(totalInsertions, totalDeletions) : "") +
-      '</li>';
     for (const f of files) {
       const isObj = typeof f === "object";
       const name = isObj ? f.name : f;
@@ -276,64 +291,88 @@ function renderDiffFileList(fileList, files, diffText, options = {}) {
 
 async function selectDiffFile(file) {
   const fileList = $("diff-file-list");
-  const diffContent = $("diff-content");
   for (const row of fileList.querySelectorAll(".diff-file-row[data-file]")) {
-    if (file === null) {
-      row.classList.toggle("active", !row.dataset.file);
+    row.classList.toggle("active", !!file && row.dataset.file === file);
+  }
+  if (!file) {
+    setDiffViewerTitle("ファイル");
+    if (typeof loadDirectoryInDiffPane === "function") {
+      await loadDirectoryInDiffPane("");
     } else {
-      row.classList.toggle("active", row.dataset.file === file);
+      renderDiffViewerMessage("ファイルブラウザを読み込めません");
     }
+    $("diff-content").scrollTop = 0;
+    return;
   }
-  diffContent.textContent = "";
-  const text = file ? (diffChunks[file] || "") : diffFullText;
-  if (text) {
-    diffContent.appendChild(colorDiff(text));
-  } else if (file) {
-    await loadFileContentInto(file, diffContent);
+  setDiffViewerTitle(file);
+  if (currentDiffRef && typeof showDiffFileInDiffPane === "function") {
+    showDiffFileInDiffPane(file);
+  } else if (typeof loadFileContentInDiffPane === "function") {
+    await loadFileContentInDiffPane(file);
   } else {
-    diffContent.textContent = "差分なし";
+    await loadFileContentInto(file, $("diff-content"));
   }
-  diffContent.scrollTop = 0;
-  GitLogModal.state.previousModalTab = "diff";
-  const title = file ? file.split("/").pop() : "差分（すべて）";
-  GitLogModal.showSubPane("commit-modal-tab-diff-view", title);
+  $("diff-content").scrollTop = 0;
 }
 
 async function loadFileContentInto(filePath, container) {
-  container.textContent = "読み込み中...";
+  container.innerHTML = '<div class="file-content-message diff-viewer-message">読み込み中...</div>';
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/file-content?path=${encodeURIComponent(filePath)}`));
     if (!res) return;
     const data = await res.json();
     if (!res.ok || data.status !== "ok") {
-      container.textContent = data.detail || "ファイルの読み込みに失敗しました";
+      renderDiffFallbackContent(container, filePath, data.detail || "ファイルの読み込みに失敗しました");
+      return;
+    }
+    if (data.image) {
+      if (data.too_large) {
+        renderDiffViewerMessage(`画像が大きすぎるためプレビューできません (${formatFileSize(data.size)})`);
+      } else {
+        const fileName = filePath.split("/").pop() || "image";
+        container.innerHTML = `<div class="file-content-image-wrap"><img class="file-content-image" src="${data.data_url}" alt="${escapeHtml(fileName)}" /></div>`;
+      }
       return;
     }
     if (data.binary) {
-      container.textContent = `バイナリファイル (${data.size} bytes)`;
+      renderDiffViewerMessage(`バイナリファイル (${formatFileSize(data.size)})`);
       return;
     }
     if (data.too_large) {
-      container.textContent = `ファイルが大きすぎます (${data.size} bytes)`;
+      renderDiffViewerMessage(`ファイルが大きすぎます (${formatFileSize(data.size)})`);
       return;
     }
     renderHighlightedFileContent(container, filePath, data.content);
   } catch (e) {
-    container.textContent = e.message;
+    renderDiffFallbackContent(container, filePath, e.message);
   }
 }
 
 function renderHighlightedFileContent(container, filePath, content) {
   if (typeof renderHighlightedTextHtml !== "function") {
-    container.textContent = content;
+    container.innerHTML = `<pre class="text-viewer-box-content viewer-content">${escapeHtml(content)}</pre>`;
     return;
   }
   const codeHtml = renderHighlightedTextHtml(content, filePath);
-  container.innerHTML = `<code class="text-viewer-box-content viewer-content hljs">${codeHtml}</code>`;
+  container.innerHTML = `<div class="file-content-viewer text-viewer-box viewer-surface"><pre class="file-content-code text-viewer-box-content viewer-content hljs">${codeHtml}</pre></div>`;
+}
+
+function renderDiffFallbackContent(container, filePath, message) {
+  const chunk = diffChunks[filePath] || "";
+  if (!chunk) {
+    renderDiffViewerMessage(message || "ファイルの読み込みに失敗しました");
+    return;
+  }
+  const note = message ? `<div class="file-content-message diff-viewer-message">${escapeHtml(message)}</div>` : "";
+  container.innerHTML = `${note}<pre class="diff-content-code"></pre>`;
+  const pre = container.querySelector(".diff-content-code");
+  pre.appendChild(colorDiff(chunk));
 }
 
 async function loadDiffTab() {
   if (!selectedWorkspace) return;
+  setDiffViewerMode("file");
+  currentDiffRef = null;
 
   const stashActions = [
     { label: "コミット", cls: "", fn: () => openCommitForm() },
@@ -352,9 +391,13 @@ async function loadDiffTab() {
     }
 
     const fileList = $("diff-file-list");
-    const diffContent = $("diff-content");
     renderDiffFileList(fileList, data.files, data.diff || "", { statusBadgeLeft: true });
-    diffContent.textContent = "ファイルを選択してください";
+    if (Array.isArray(data.files) && data.files.length > 0) {
+      await selectDiffFile(null);
+    } else {
+      setDiffViewerTitle("差分なし");
+      renderDiffViewerMessage("変更ファイルなし");
+    }
   } catch (e) {
     showDiffError(e.message);
   }
@@ -363,8 +406,7 @@ async function loadDiffTab() {
 async function openDiffModal() {
   if (!selectedWorkspace) return;
 
-  GitLogModal.state.isGitLogFilesLoaded = false;
-  GitLogModal.state.previousModalTab = "commits";
+  GitLogModal.state.previousModalTab = "diff";
   $("git-log-modal").style.display = "flex";
   GitLogModal.updateGitLogBranchLabel();
   GitLogModal.showDiffPane("未コミットの変更");
