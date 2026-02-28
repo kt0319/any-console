@@ -3202,6 +3202,7 @@ button:disabled {
   border-radius: var(--radius);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   max-width: calc(100% - 32px);
+  min-width: 200px;
   width: auto;
   opacity: 0;
   transition: transform 0.3s, opacity 0.3s;

@@ -89,18 +89,32 @@ function showToast(message, type = "error") {
   el.textContent = text;
   el.style.cursor = "pointer";
   let dismissed = false;
+  const restack = () => {
+    const toasts = document.querySelectorAll(".toast.show");
+    let offset = 24;
+    toasts.forEach((t) => {
+      t.style.top = offset + "px";
+      offset += t.offsetHeight + 8;
+    });
+  };
   const dismiss = () => {
     if (dismissed) return;
     dismissed = true;
     el.classList.remove("show");
-    el.addEventListener("transitionend", () => el.remove());
+    el.addEventListener("transitionend", () => {
+      el.remove();
+      restack();
+    });
   };
   el.addEventListener("click", () => {
     copyToClipboard(text);
     dismiss();
   });
   document.body.appendChild(el);
-  requestAnimationFrame(() => el.classList.add("show"));
+  requestAnimationFrame(() => {
+    el.classList.add("show");
+    restack();
+  });
   setTimeout(dismiss, 3000);
 }
 
