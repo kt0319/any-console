@@ -301,7 +301,7 @@ async function selectDiffFile(file) {
     $("diff-content").scrollTop = 0;
     return;
   }
-  if (currentDiffRef && typeof showDiffFileInDiffPane === "function") {
+  if (diffChunks[file] && typeof showDiffFileInDiffPane === "function") {
     showDiffFileInDiffPane(file);
   } else {
     await loadFileContentInDiffPane(file);
