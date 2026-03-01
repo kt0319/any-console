@@ -98,7 +98,6 @@ const GitLogModal = {
       }
       area.style.display = "block";
       if (submitBtn) submitBtn.style.display = "";
-      $("git-log-branch-name").focus();
     }
   },
 
