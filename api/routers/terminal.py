@@ -257,7 +257,7 @@ def _read_pty(fd: int, lock: threading.Lock, stop: threading.Event) -> bytes:
             return PTY_NO_DATA
         if stop.is_set():
             return PTY_EOF
-        return os.read(fd, 4096)
+        return os.read(fd, 16384)
     except (OSError, ValueError):
         return PTY_EOF
     finally:

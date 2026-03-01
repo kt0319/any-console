@@ -241,7 +241,12 @@ function connectTerminalWs(tab) {
     const container = $(`frame-${tab.id}`);
     const isVisible = container && container.style.display !== "none";
     if (isVisible) {
-      fitAndSync(tab);
+      const doInitialFit = () => fitAndSync(tab);
+      if (document.fonts?.ready) {
+        document.fonts.ready.then(doInitialFit).catch(doInitialFit);
+      } else {
+        doInitialFit();
+      }
     }
     if (restored) {
       tab.term.write("\x1bc");
