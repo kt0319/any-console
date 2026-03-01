@@ -55,7 +55,7 @@ async function onVisibilityRestore() {
     }
     if (closedNames.length > 0) {
       const names = closedNames.join(", ");
-      showToast(`セッション切断: ${names}`, "error");
+      showToast(`${names}: サーバー再起動によりセッションが失われました`, "error");
     }
   } catch (e) { console.warn("onVisibilityRestore failed:", e); }
 }
@@ -329,13 +329,14 @@ function connectTerminalWs(tab) {
     if (e.code === 1000 || e.code === 1008) {
       if (e.code === 1008) {
         const name = tab.workspace || tab.label;
+        const reason = e.reason || "セッション切断";
         disconnectedSessions.push({
           wsUrl: tab.wsUrl, workspace: tab.workspace || tab.label, expired: true,
           icon: tab.icon?.name, iconColor: tab.icon?.color,
           tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null, jobLabel: tab.jobLabel || null,
         });
         removeTab(tab.id, { preserveSessionForRestore: true });
-        showToast(`セッション切断: ${name}`, "error");
+        showToast(`${name}: ${reason}`, "error");
       } else {
         removeTab(tab.id);
       }
@@ -350,7 +351,7 @@ function connectTerminalWs(tab) {
       });
       removeTab(tab.id, { preserveSessionForRestore: true });
       const name = tab.workspace || tab.label;
-      showToast(`セッション切断: ${name}`, "error");
+      showToast(`${name}: 再接続に失敗しました`, "error");
       return;
     }
     const delay = Math.min(1000 * Math.pow(2, tab._reconnectAttempts), 30000);

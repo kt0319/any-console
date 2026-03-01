@@ -162,13 +162,18 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
     session = TERMINAL_SESSIONS.get(session_id)
     await websocket.accept()
 
-    if not session or session.expires_at <= time.time():
-        await websocket.close(code=1008)
+    if not session:
+        await websocket.close(code=1008, reason="セッションが存在しません")
+        return
+
+    if session.expires_at <= time.time():
+        TERMINAL_SESSIONS.pop(session_id, None)
+        await websocket.close(code=1008, reason="セッションがタイムアウトしました")
         return
 
     if not _is_process_alive(session.pid):
         TERMINAL_SESSIONS.pop(session_id, None)
-        await websocket.close(code=1008)
+        await websocket.close(code=1008, reason="シェルプロセスが終了しました")
         return
 
     prev_ws = session.active_ws
