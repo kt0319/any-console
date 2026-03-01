@@ -2109,6 +2109,23 @@ button:disabled {
 }
 
 
+.stash-pane-toolbar {
+  padding: 0 0 8px;
+  flex-shrink: 0;
+}
+
+.stash-save-btn {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
 #branch-pane-list,
 #stash-pane-list {
   border: 1px solid var(--border);

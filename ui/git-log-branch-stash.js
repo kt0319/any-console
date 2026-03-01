@@ -88,6 +88,7 @@ Object.assign(GitLogModal, {
     if (!selectedWorkspace) return;
 
     GitLogModal.showSubPane("stash", "Stash");
+    $("stash-save-btn").onclick = () => GitLogModal.execStashSave();
     const listEl = $("stash-pane-list");
     setCloneRepoStatus(listEl, "loading", "読み込み中...");
 
@@ -140,6 +141,19 @@ Object.assign(GitLogModal, {
     } catch (e) {
       setCloneRepoStatus(listEl, "error", e.message);
     }
+  },
+
+  async execStashSave() {
+    if (!selectedWorkspace) return;
+    if (!confirm("stash save を実行しますか？")) return;
+    await postWorkspaceAction(
+      selectedWorkspace,
+      "/stash",
+      "stash",
+      { include_untracked: true },
+    );
+    await GitCore.refreshAfterGitOp();
+    await GitLogModal.openStashPane();
   },
 
   async execStashRefAction(action, ref) {
