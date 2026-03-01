@@ -313,13 +313,7 @@ async function loadDiffTab() {
   if (!selectedWorkspace) return;
   clearActiveDiffRef();
 
-  const stashActions = [
-    { label: "コミット", cls: "", fn: () => openCommitForm() },
-    { label: "Stash一覧", key: "stash-list", cls: "", fn: () => GitLogModal.openStashPane() },
-    { label: "Stash保存", cls: "", fn: () => GitCore.execStashAction("save") },
-    { label: "Stash適用", cls: "", fn: () => GitCore.execStashAction("pop") },
-  ];
-  initDiffPane(stashActions);
+  initDiffPane([]);
 
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/diff"));

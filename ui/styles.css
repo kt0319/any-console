@@ -2293,6 +2293,15 @@ button:disabled {
   overflow: hidden;
 }
 
+.git-log-dirty-commit-btn {
+  align-self: stretch;
+  width: 40px;
+  min-width: 40px;
+  min-height: 100%;
+  height: auto;
+  padding: 0;
+}
+
 .git-log-dirty-fetch-btn {
   align-self: stretch;
   width: 40px;
@@ -2333,18 +2342,12 @@ button:disabled {
 }
 
 .git-log-dirty-branch-btn {
-  flex-shrink: 0;
   align-self: stretch;
+  width: 40px;
+  min-width: 40px;
   min-height: 100%;
-  padding: 0 28px 0 12px;
-  font-size: 13px;
-  max-width: none;
-  flex: 1 1 auto;
-}
-
-.git-log-dirty-branch-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  height: auto;
+  padding: 0;
 }
 
 .git-log-dirty-msg {

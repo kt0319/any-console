@@ -153,29 +153,38 @@ Object.assign(GitLogModal, {
     const isDirty = ws && ws.clean === false;
     const entry = document.createElement("div");
     entry.className = "git-log-entry git-log-dirty";
-    const branchLabel = escapeHtml((ws && ws.branch) ? ws.branch : "");
     const fetchButtonHtml =
-      '<button type="button" class="git-action-btn fetch-btn icon-only git-log-dirty-fetch-btn" title="Fetch" aria-label="Fetch">' +
+      '<button type="button" class="git-action-btn icon-only git-log-dirty-fetch-btn" title="Fetch" aria-label="Fetch">' +
         '<span class="mdi mdi-refresh"></span>' +
+      "</button>";
+    const commitButtonHtml =
+      '<button type="button" class="git-action-btn icon-only git-log-dirty-commit-btn" title="コミット" aria-label="コミット">' +
+        '<span class="mdi mdi-check"></span>' +
       "</button>";
     const stashButtonHtml =
       '<button type="button" class="git-action-btn icon-only git-log-dirty-stash-btn" title="Stash一覧" aria-label="Stash一覧">' +
         '<span class="mdi mdi-tray-full"></span><span class="git-log-dirty-stash-badge"></span>' +
       "</button>";
     const branchButtonHtml =
-      '<button type="button" class="git-log-branch-select-btn git-log-dirty-branch-btn">' +
-        `<span class="mdi mdi-source-branch"></span> <span class="git-log-dirty-branch-label">${branchLabel}</span>` +
+      '<button type="button" class="git-action-btn icon-only git-log-dirty-branch-btn" title="ブランチ" aria-label="ブランチ">' +
+        '<span class="mdi mdi-source-branch"></span>' +
       "</button>";
     let bodyHtml =
       '<span class="git-log-entry-body git-log-dirty-body">' +
         '<span class="git-log-dirty-main">';
     bodyHtml += renderDirtyWorkspaceLabel(ws);
-    bodyHtml += `</span><span class="git-log-dirty-actions">${stashButtonHtml}${branchButtonHtml}${fetchButtonHtml}</span></span>`;
+    bodyHtml += `</span><span class="git-log-dirty-actions">${isDirty ? commitButtonHtml : ""}${stashButtonHtml}${branchButtonHtml}${fetchButtonHtml}</span></span>`;
     entry.innerHTML = bodyHtml;
     const fetchBtn = entry.querySelector(".git-log-dirty-fetch-btn");
     fetchBtn?.addEventListener("click", async (event) => {
       event.stopPropagation();
       await GitCore.gitFetch(fetchBtn);
+    });
+    const commitBtn = entry.querySelector(".git-log-dirty-commit-btn");
+    commitBtn?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      GitLogModal.showDiffPane("未コミットの変更");
+      loadDiffTab().then(() => openCommitForm());
     });
     const stashBtn = entry.querySelector(".git-log-dirty-stash-btn");
     stashBtn?.addEventListener("click", (event) => {
