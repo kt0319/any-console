@@ -258,6 +258,9 @@ async function switchTab(id) {
       const isActive = tab.id === id;
       setFrameVisible(tab, el, isActive);
       if (isActive && tab.type === "terminal" && !ensureTerminalOpened(tab, el)) {
+        if (!tab.ws && !tab._wsDisposed) {
+          connectTerminalWs(tab);
+        }
         refitTerminalWithFocus(tab);
       }
     }

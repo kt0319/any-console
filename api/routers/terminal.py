@@ -25,8 +25,10 @@ WS_PING_INTERVAL_SEC = 25
 router = APIRouter(dependencies=[Depends(verify_token)])
 
 
+WS_CLOSE_REPLACED = 4001
+
 class TerminalSession:
-    __slots__ = ("workspace", "fd", "pid", "expires_at", "_read_lock", "icon", "icon_color", "job_name", "job_label")
+    __slots__ = ("workspace", "fd", "pid", "expires_at", "_read_lock", "icon", "icon_color", "job_name", "job_label", "active_ws")
 
     def __init__(self, workspace: str | None, fd: int, pid: int, expires_at: float,
                  icon: str | None = None, icon_color: str | None = None,
@@ -40,6 +42,7 @@ class TerminalSession:
         self.icon_color = icon_color
         self.job_name = job_name
         self.job_label = job_label
+        self.active_ws: WebSocket | None = None
 
 
 TERMINAL_SESSIONS: dict[str, TerminalSession] = {}
@@ -167,6 +170,15 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
         TERMINAL_SESSIONS.pop(session_id, None)
         await websocket.close(code=1008)
         return
+
+    prev_ws = session.active_ws
+    if prev_ws is not None:
+        try:
+            await prev_ws.close(code=WS_CLOSE_REPLACED)
+        except Exception:
+            pass
+    session.active_ws = websocket
+
     session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
     stop_event = threading.Event()
     loop = asyncio.get_event_loop()
@@ -226,6 +238,8 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
     stop_event.set()
     for task in pending:
         task.cancel()
+    if session.active_ws is websocket:
+        session.active_ws = None
     try:
         await websocket.close()
     except Exception:

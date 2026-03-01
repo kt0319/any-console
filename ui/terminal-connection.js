@@ -316,6 +316,11 @@ function connectTerminalWs(tab) {
   ws.onclose = (e) => {
     tab.ws = null;
     if (tab._wsDisposed || isPageUnloading) return;
+    if (e.code === 4001) {
+      tab._pendingRedraw = true;
+      showToast("別のデバイスで接続されました", "info");
+      return;
+    }
     if (e.code === 1000 || e.code === 1008) {
       if (e.code === 1008) {
         const name = tab.workspace || tab.label;
