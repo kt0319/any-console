@@ -1,6 +1,7 @@
 import subprocess
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 
 from ..auth import verify_token
 from ..common import GIT_SHORT_TIMEOUT_SEC, resolve_workspace_path, validate_commit_hash
@@ -171,3 +172,19 @@ async def upload_file_to_workspace(
 
     rel_path = str(rel_dir / filename)
     return {"status": "ok", "path": rel_path, "size": len(data)}
+
+
+@router.get("/workspaces/{name}/download")
+def download_file(name: str, path: str = Query(...)):
+    ws_path = resolve_workspace_path(name)
+    target = resolve_workspace_target_path(ws_path, path)
+    validate_workspace_relative_target(ws_path, target)
+
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return FileResponse(
+        path=str(target),
+        filename=target.name,
+        media_type="application/octet-stream",
+    )

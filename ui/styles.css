@@ -1178,8 +1178,8 @@ header {
   cursor: pointer;
 }
 
+.file-browser-download,
 .file-browser-upload {
-  margin-left: auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1195,6 +1195,11 @@ header {
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
+  margin-left: auto;
+}
+
+.file-browser-download + .file-browser-upload {
+  margin-left: 4px;
 }
 
 .file-browser-list {

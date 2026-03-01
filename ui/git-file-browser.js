@@ -149,6 +149,7 @@ function buildBreadcrumbHtml(parts, uploadPath = "", options = {}) {
   const badgeInteractive = !!options.badgeInteractive;
   const currentPath = options.currentPath || "";
   const currentInteractive = !!options.currentInteractive;
+  const downloadPath = options.downloadPath || "";
   let html = '<div class="file-browser-header">';
   html += `<button type="button" class="file-browser-crumb" data-path="">${escapeHtml(rootLabel)}</button>`;
   for (let i = 0; i < parts.length; i++) {
@@ -171,8 +172,13 @@ function buildBreadcrumbHtml(parts, uploadPath = "", options = {}) {
       html += `<span class="file-browser-crumb-badge">${escapeHtml(badgeLabel)}</span>`;
     }
   }
-  html += `<button type="button" class="file-browser-upload" data-path="${escapeHtml(uploadPath)}"><span class="mdi mdi-upload"></span></button>`;
-  html += '<input type="file" class="file-browser-upload-input" style="display:none" />';
+  if (downloadPath) {
+    html += `<button type="button" class="file-browser-download" data-path="${escapeHtml(downloadPath)}"><span class="mdi mdi-download"></span></button>`;
+  }
+  if (!options.hideUpload) {
+    html += `<button type="button" class="file-browser-upload" data-path="${escapeHtml(uploadPath)}"><span class="mdi mdi-upload"></span></button>`;
+    html += '<input type="file" class="file-browser-upload-input" style="display:none" />';
+  }
   html += '<button type="button" class="file-browser-close">&times;</button>';
   html += "</div>";
   return html;
@@ -227,7 +233,7 @@ function fileBrowserMessage(text, muted = false) {
 function buildFileContentHtml(path, data, options = {}) {
   const parts = path.split("/");
   const parentPath = parts.slice(0, -1).join("/");
-  const breadcrumb = buildBreadcrumbHtml(parts, parentPath, options);
+  const breadcrumb = buildBreadcrumbHtml(parts, parentPath, { ...options, downloadPath: path, hideUpload: true });
 
   let body = "";
   if (data.image) {
@@ -490,10 +496,36 @@ function bindFileBrowserEvents(container, view = "tab") {
   for (const item of container.querySelectorAll('.file-browser-item[data-type="symlink"]')) {
     item.addEventListener("click", () => openSymlinkFromList(item, config.openDirectory, config.openFile));
   }
+  const downloadBtn = container.querySelector(".file-browser-download");
+  if (downloadBtn) {
+    downloadBtn.addEventListener("click", async () => {
+      const dlPath = downloadBtn.dataset.path || "";
+      if (!dlPath || !selectedWorkspace) return;
+      try {
+        const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/download?path=${encodeURIComponent(dlPath)}`));
+        if (!res || !res.ok) {
+          showToast("ダウンロードに失敗しました");
+          return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = dlPath.split("/").pop() || "download";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        showToast("ダウンロードに失敗しました");
+      }
+    });
+  }
   const closeBtn = container.querySelector(".file-browser-close");
   const uploadBtn = container.querySelector(".file-browser-upload");
   const uploadInput = container.querySelector(".file-browser-upload-input");
   if (ref) {
+    if (downloadBtn) downloadBtn.style.display = "none";
     if (uploadBtn) uploadBtn.style.display = "none";
     if (uploadInput) uploadInput.style.display = "none";
   }
