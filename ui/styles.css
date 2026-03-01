@@ -2290,6 +2290,36 @@ button:disabled {
   padding: 0;
 }
 
+.git-log-dirty-stash-btn {
+  align-self: stretch;
+  width: 40px;
+  min-width: 40px;
+  min-height: 100%;
+  height: auto;
+  padding: 0;
+  position: relative;
+}
+
+.git-log-dirty-stash-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 10px;
+  min-width: 14px;
+  height: 14px;
+  line-height: 14px;
+  text-align: center;
+  background: var(--accent);
+  color: var(--bg);
+  border-radius: 7px;
+  padding: 0 3px;
+  pointer-events: none;
+}
+
+.git-log-dirty-stash-badge:empty {
+  display: none;
+}
+
 .git-log-dirty-branch-btn {
   flex-shrink: 0;
   align-self: stretch;

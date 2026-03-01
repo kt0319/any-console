@@ -135,6 +135,19 @@ Object.assign(GitLogModal, {
     }
   },
 
+  async updateDirtyStashBadge(btn) {
+    if (!btn || !selectedWorkspace) return;
+    const badge = btn.querySelector(".git-log-dirty-stash-badge");
+    if (!badge) return;
+    try {
+      const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/stash-list"));
+      if (!res || !res.ok) return;
+      const data = await res.json();
+      const count = (data.status === "ok" && data.entries) ? data.entries.length : 0;
+      badge.textContent = count > 0 ? count : "";
+    } catch { /* ignore */ }
+  },
+
   renderDirtyEntry(listEl) {
     const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
     const isDirty = ws && ws.clean === false;
@@ -145,6 +158,10 @@ Object.assign(GitLogModal, {
       '<button type="button" class="git-action-btn fetch-btn icon-only git-log-dirty-fetch-btn" title="Fetch" aria-label="Fetch">' +
         '<span class="mdi mdi-refresh"></span>' +
       "</button>";
+    const stashButtonHtml =
+      '<button type="button" class="git-action-btn icon-only git-log-dirty-stash-btn" title="Stash一覧" aria-label="Stash一覧">' +
+        '<span class="mdi mdi-tray-full"></span><span class="git-log-dirty-stash-badge"></span>' +
+      "</button>";
     const branchButtonHtml =
       '<button type="button" class="git-log-branch-select-btn git-log-dirty-branch-btn">' +
         `<span class="mdi mdi-source-branch"></span> <span class="git-log-dirty-branch-label">${branchLabel}</span>` +
@@ -153,13 +170,19 @@ Object.assign(GitLogModal, {
       '<span class="git-log-entry-body git-log-dirty-body">' +
         '<span class="git-log-dirty-main">';
     bodyHtml += renderDirtyWorkspaceLabel(ws);
-    bodyHtml += `</span><span class="git-log-dirty-actions">${fetchButtonHtml}${branchButtonHtml}</span></span>`;
+    bodyHtml += `</span><span class="git-log-dirty-actions">${stashButtonHtml}${branchButtonHtml}${fetchButtonHtml}</span></span>`;
     entry.innerHTML = bodyHtml;
     const fetchBtn = entry.querySelector(".git-log-dirty-fetch-btn");
     fetchBtn?.addEventListener("click", async (event) => {
       event.stopPropagation();
       await GitCore.gitFetch(fetchBtn);
     });
+    const stashBtn = entry.querySelector(".git-log-dirty-stash-btn");
+    stashBtn?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      GitLogModal.openStashPane();
+    });
+    this.updateDirtyStashBadge(stashBtn);
     const branchBtn = entry.querySelector(".git-log-dirty-branch-btn");
     branchBtn?.addEventListener("click", (event) => {
       event.stopPropagation();
