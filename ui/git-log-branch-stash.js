@@ -1,5 +1,6 @@
 Object.assign(GitLogModal, {
   _remoteBranchesExpanded: false,
+  _renderingBranches: false,
 
   async selectBranch(branch) {
     GitLogModal.closeSubPane();
@@ -46,40 +47,50 @@ Object.assign(GitLogModal, {
   },
 
   async renderBranchList() {
-    const listEl = $("branch-pane-list");
-    if (!listEl) return;
+    if (GitLogModal._renderingBranches) return;
+    GitLogModal._renderingBranches = true;
+    try {
+      const listEl = $("branch-pane-list");
+      if (!listEl) return;
 
-    await GitCore.loadBranches();
-    const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
-    const currentBranch = ws ? ws.branch : null;
+      await GitCore.loadBranches();
+      const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
+      const currentBranch = ws ? ws.branch : null;
 
-    listEl.innerHTML = "";
-    const sorted = currentBranch
-      ? [currentBranch, ...cachedBranches.filter((b) => b !== currentBranch)]
-      : cachedBranches;
-    for (const b of sorted) {
-      listEl.appendChild(GitLogModal.createBranchListItem(b, currentBranch));
-    }
+      listEl.innerHTML = "";
+      const sorted = currentBranch
+        ? [currentBranch, ...cachedBranches.filter((b) => b !== currentBranch)]
+        : cachedBranches;
+      for (const b of sorted) {
+        listEl.appendChild(GitLogModal.createBranchListItem(b, currentBranch));
+      }
 
-    if (GitLogModal._remoteBranchesExpanded) {
-      await GitLogModal.appendRemoteBranches(listEl, currentBranch);
-    } else {
-      const remoteBtn = document.createElement("div");
-      remoteBtn.className = "branch-item branch-item-action";
-      remoteBtn.textContent = "リモートブランチを表示...";
-      remoteBtn.addEventListener("click", async () => {
-        GitLogModal._remoteBranchesExpanded = true;
-        remoteBtn.textContent = "読み込み中...";
-        remoteBtn.classList.add("clone-repo-loading");
-        remoteBtn.style.pointerEvents = "none";
-        await GitLogModal.appendRemoteBranches(listEl, currentBranch);
-        remoteBtn.remove();
-      });
-      listEl.appendChild(remoteBtn);
+      if (GitLogModal._remoteBranchesExpanded) {
+        const loading = document.createElement("div");
+        loading.className = "branch-item branch-item-action clone-repo-loading";
+        loading.textContent = "読み込み中...";
+        listEl.appendChild(loading);
+        await GitLogModal.renderRemoteBranches(listEl, currentBranch);
+        loading.remove();
+      } else {
+        const remoteBtn = document.createElement("div");
+        remoteBtn.className = "branch-item branch-item-action";
+        remoteBtn.textContent = "リモートブランチを表示...";
+        remoteBtn.addEventListener("click", async () => {
+          GitLogModal._remoteBranchesExpanded = true;
+          remoteBtn.textContent = "読み込み中...";
+          remoteBtn.classList.add("clone-repo-loading");
+          remoteBtn.style.pointerEvents = "none";
+          await GitLogModal.renderBranchList();
+        });
+        listEl.appendChild(remoteBtn);
+      }
+    } finally {
+      GitLogModal._renderingBranches = false;
     }
   },
 
-  async appendRemoteBranches(listEl, currentBranch) {
+  async renderRemoteBranches(listEl, currentBranch) {
     try {
       const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/branches/remote"));
       if (!res || !res.ok) return;

@@ -244,7 +244,7 @@ const GitLogModal = {
     GitLogModal.ensureDiffTabVisible();
     GitLogModal.showDiffHistoryTop();
     $("git-log-modal").style.display = "flex";
-    GitLogModal.updateStashBtn();
+    GitLogModal.updateStashIndicators();
     if (typeof clearActiveDiffRef === "function") {
       clearActiveDiffRef();
     }

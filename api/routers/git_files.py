@@ -35,11 +35,6 @@ def _git_tree_spec(ref: str, rel_path: str) -> str:
 
 def list_directory_entries_at_ref(ws_path, rel_path: str, ref: str):
     tree_spec = _git_tree_spec(ref, rel_path)
-    if rel_path:
-        type_result = run_git_subprocess(["git", "cat-file", "-t", tree_spec], cwd=ws_path)
-        if type_result.returncode != 0 or type_result.stdout.strip() != "tree":
-            raise HTTPException(status_code=404, detail="Directory not found")
-
     result = run_git_subprocess(["git", "ls-tree", "-z", tree_spec], cwd=ws_path)
     if result.returncode != 0:
         raise HTTPException(status_code=404, detail="Directory not found")

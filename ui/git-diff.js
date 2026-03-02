@@ -310,7 +310,7 @@ async function openDiffModal() {
   if (!selectedWorkspace) return;
 
   $("git-log-modal").style.display = "flex";
-  GitLogModal.updateStashBtn();
+  GitLogModal.updateStashIndicators();
   GitLogModal.showDiffPane("未コミットの変更");
   await loadDiffTab();
 }

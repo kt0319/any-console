@@ -313,6 +313,34 @@ async function fetchFileContentData(path, view = "tab") {
   return fetchFileBrowserData("file-content", path, view);
 }
 
+function handleDownloadClick(path) {
+  if (!path || !selectedWorkspace) return;
+  apiFetch(workspaceApiPath(selectedWorkspace, `/download?path=${encodeURIComponent(path)}`))
+    .then((res) => {
+      if (!res || !res.ok) {
+        showToast("ダウンロードに失敗しました");
+        return null;
+      }
+      return res.blob();
+    })
+    .then((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = path.split("/").pop() || "download";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    })
+    .catch(() => showToast("ダウンロードに失敗しました"));
+}
+
+function findFileBrowserItem(target) {
+  return target.closest(".file-browser-item");
+}
+
 function bindFileBrowserEvents(container, view = "tab") {
   const config = getFileBrowserViewConfig(view);
   const ref = getFileBrowserRef(view);
@@ -330,92 +358,92 @@ function bindFileBrowserEvents(container, view = "tab") {
       activeClass: "file-browser-drop-active",
     });
   }
-  for (const crumb of container.querySelectorAll(".file-browser-crumb")) {
-    crumb.addEventListener("click", () => config.openDirectory(crumb.dataset.path));
-  }
-  for (const crumb of container.querySelectorAll(".file-browser-crumb-current-action[data-file-path]")) {
-    crumb.addEventListener("click", () => loadFileContentInDiffPane(crumb.dataset.filePath || ""));
-  }
-  for (const badge of container.querySelectorAll(".file-browser-crumb-badge-action[data-diff-path]")) {
-    badge.addEventListener("click", () => showDiffFileInDiffPane(badge.dataset.diffPath || ""));
-  }
+
   const useLongPress = !ref && selectedWorkspace;
-  for (const item of container.querySelectorAll('.file-browser-item[data-type="dir"]')) {
-    const handler = () => config.openDirectory(item.dataset.path);
-    const isParent = item.querySelector(".file-browser-item-name")?.textContent === "..";
-    if (useLongPress && !isParent) {
-      bindLongPress(item, {
-        onClick: handler,
-        onLongPress: () => showFileBrowserActionMenu(item, container, config),
+  const listEl = container.querySelector(".file-browser-list");
+  if (listEl) {
+    if (useLongPress) {
+      bindLongPress(listEl, {
+        onClick: (e) => handleFileListClick(e, config, useLongPress),
+        onLongPress: (e) => {
+          const item = findFileBrowserItem(e.target);
+          if (!item) return;
+          const isParent = item.querySelector(".file-browser-item-name")?.textContent === "..";
+          if (isParent) return;
+          showFileBrowserActionMenu(item, container, config);
+        },
       });
-      item.addEventListener("contextmenu", (e) => {
+      listEl.addEventListener("contextmenu", (e) => {
+        const item = findFileBrowserItem(e.target);
+        if (!item) return;
+        const isParent = item.querySelector(".file-browser-item-name")?.textContent === "..";
+        if (isParent) return;
         e.preventDefault();
         showFileBrowserActionMenu(item, container, config);
       });
     } else {
-      item.addEventListener("click", handler);
+      listEl.addEventListener("click", (e) => handleFileListClick(e, config, false));
     }
   }
-  if (typeof config.openFile === "function") {
-    for (const item of container.querySelectorAll('.file-browser-item[data-type="file"]')) {
-      const handler = () => config.openFile(item.dataset.path);
-      if (useLongPress) {
-        bindLongPress(item, {
-          onClick: handler,
-          onLongPress: () => showFileBrowserActionMenu(item, container, config),
-        });
-        item.addEventListener("contextmenu", (e) => {
-          e.preventDefault();
-          showFileBrowserActionMenu(item, container, config);
-        });
-      } else {
-        item.addEventListener("click", handler);
+
+  const headerEl = container.querySelector(".file-browser-header");
+  if (headerEl) {
+    headerEl.addEventListener("click", (e) => {
+      const crumb = e.target.closest(".file-browser-crumb");
+      if (crumb) {
+        config.openDirectory(crumb.dataset.path);
+        return;
       }
-    }
-  }
-  for (const item of container.querySelectorAll('.file-browser-item[data-type="symlink"]')) {
-    item.addEventListener("click", () => openSymlinkFromList(item, config.openDirectory, config.openFile));
-  }
-  const downloadBtn = container.querySelector(".file-browser-download");
-  if (downloadBtn) {
-    downloadBtn.addEventListener("click", async () => {
-      const dlPath = downloadBtn.dataset.path || "";
-      if (!dlPath || !selectedWorkspace) return;
-      try {
-        const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/download?path=${encodeURIComponent(dlPath)}`));
-        if (!res || !res.ok) {
-          showToast("ダウンロードに失敗しました");
-          return;
-        }
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = dlPath.split("/").pop() || "download";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } catch (e) {
-        showToast("ダウンロードに失敗しました");
+      const currentAction = e.target.closest(".file-browser-crumb-current-action[data-file-path]");
+      if (currentAction) {
+        loadFileContentInDiffPane(currentAction.dataset.filePath || "");
+        return;
+      }
+      const badgeAction = e.target.closest(".file-browser-crumb-badge-action[data-diff-path]");
+      if (badgeAction) {
+        showDiffFileInDiffPane(badgeAction.dataset.diffPath || "");
+        return;
+      }
+      const downloadBtn = e.target.closest(".file-browser-download");
+      if (downloadBtn) {
+        handleDownloadClick(downloadBtn.dataset.path || "");
+        return;
+      }
+      const closeBtn = e.target.closest(".file-browser-close");
+      if (closeBtn && config.onClose) {
+        config.onClose();
       }
     });
   }
-  const closeBtn = container.querySelector(".file-browser-close");
+
+  const downloadBtn = container.querySelector(".file-browser-download");
   const uploadBtn = container.querySelector(".file-browser-upload");
   const uploadInput = container.querySelector(".file-browser-upload-input");
+  const closeBtn = container.querySelector(".file-browser-close");
   if (ref) {
     if (downloadBtn) downloadBtn.style.display = "none";
     if (uploadBtn) uploadBtn.style.display = "none";
     if (uploadInput) uploadInput.style.display = "none";
   }
-  if (!closeBtn) return;
-  if (config.hideCloseButton) {
-    closeBtn.style.display = "none";
-    return;
+  if (closeBtn) {
+    if (config.hideCloseButton) {
+      closeBtn.style.display = "none";
+    }
   }
-  if (config.onClose) {
-    closeBtn.addEventListener("click", config.onClose);
+}
+
+function handleFileListClick(e, config, useLongPress) {
+  const item = findFileBrowserItem(e.target);
+  if (!item) return;
+  const type = item.dataset.type;
+  const path = item.dataset.path;
+
+  if (type === "dir") {
+    config.openDirectory(path);
+  } else if (type === "file" && typeof config.openFile === "function") {
+    config.openFile(path);
+  } else if (type === "symlink") {
+    openSymlinkFromList(item, config.openDirectory, config.openFile);
   }
 }
 

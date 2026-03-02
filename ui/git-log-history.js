@@ -13,6 +13,34 @@ function renderDirtyWorkspaceLabel(ws) {
 }
 
 Object.assign(GitLogModal, {
+  parseRef(name) {
+    if (!name || name === "origin/HEAD" || name === "HEAD") return null;
+    const isTag = name.startsWith("tag: ");
+    const isHead = name.startsWith("HEAD -> ");
+    const remoteMatch = name.match(/^(origin|upstream)\/(.*)/);
+    const isRemote = remoteMatch && !isTag && !isHead;
+    let cls, label, branchName;
+    if (isTag) {
+      cls = "git-ref-tag";
+      label = `<span class="mdi mdi-tag-outline"></span> ${escapeHtml(name.replace("tag: ", ""))}`;
+      branchName = null;
+    } else if (isHead) {
+      branchName = name.replace("HEAD -> ", "");
+      cls = "git-ref-head";
+      label = `<span class="mdi mdi-source-branch"></span> ${escapeHtml(branchName)}`;
+    } else if (isRemote) {
+      const icon = remoteMatch[1] === "origin" ? "mdi-github" : "mdi-server";
+      cls = "git-ref-remote";
+      label = `<span class="mdi ${icon}"></span> ${escapeHtml(remoteMatch[2])}`;
+      branchName = remoteMatch[2];
+    } else {
+      cls = "git-ref-branch";
+      label = `<span class="mdi mdi-source-branch"></span> ${escapeHtml(name)}`;
+      branchName = name;
+    }
+    return { html: `<span class="git-ref ${cls}">${label}</span>`, branchName };
+  },
+
   renderGitLogEntries(listEl, stdout) {
     const history = GitLogModal.state.history;
     const lines = stdout.split("\n");
@@ -20,75 +48,47 @@ Object.assign(GitLogModal, {
     for (const line of lines) {
       if (!line.trim()) continue;
 
-      const entry = document.createElement("div");
       const commitMatch = line.match(/^(.*?)([0-9a-f]{40})\t(.+?)\t(.+?)\t(.*?)\t(.*)$/);
-      if (commitMatch) {
-        const [, , hash, time, author, refs, msg] = commitMatch;
-        if (history.seenHashes.has(hash)) continue;
-        history.seenHashes.add(hash);
-        entry.className = "git-log-entry git-log-commit";
-        let refsHtml = "";
-        if (refs) {
-          refsHtml = refs.split(",").map((r) => {
-            const name = r.trim();
-            if (!name || name === "origin/HEAD" || name === "HEAD") return "";
-            const isTag = name.startsWith("tag: ");
-            const isHead = name.startsWith("HEAD -> ");
-            const remoteMatch = name.match(/^(origin|upstream)\/(.*)/);
-            const isRemote = remoteMatch && !isTag && !isHead;
-            const cls = isTag ? "git-ref-tag" : isHead ? "git-ref-head" : isRemote ? "git-ref-remote" : "git-ref-branch";
-            let label;
-            if (isRemote) {
-              const icon = remoteMatch[1] === "origin" ? "mdi-github" : "mdi-server";
-              label = `<span class="mdi ${icon}"></span> ${escapeHtml(remoteMatch[2])}`;
-            } else if (isTag) {
-              label = `<span class="mdi mdi-tag-outline"></span> ${escapeHtml(name.replace("tag: ", ""))}`;
-            } else if (isHead) {
-              const branchName = name.replace("HEAD -> ", "");
-              label = `<span class="mdi mdi-source-branch"></span> ${escapeHtml(branchName)}`;
-            } else {
-              label = `<span class="mdi mdi-source-branch"></span> ${escapeHtml(name)}`;
-            }
-            return `<span class="git-ref ${cls}">${label}</span>`;
-          }).join("");
+      if (!commitMatch) continue;
+
+      const [, , hash, time, author, refs, msg] = commitMatch;
+      if (history.seenHashes.has(hash)) continue;
+      history.seenHashes.add(hash);
+
+      let refsHtml = "";
+      const branchSet = new Set();
+      if (refs) {
+        const htmlParts = [];
+        for (const r of refs.split(",")) {
+          const parsed = GitLogModal.parseRef(r.trim());
+          if (!parsed) continue;
+          htmlParts.push(parsed.html);
+          if (parsed.branchName) branchSet.add(parsed.branchName);
         }
-        entry.innerHTML =
-          `<span class="git-log-entry-body">` +
-            `<span class="git-log-entry-msg">${escapeHtml(msg)}</span>` +
-            `<span class="git-log-entry-row1">` +
-              `<span class="git-log-entry-row1-left">${refsHtml ? `<span class="git-log-entry-refs">${refsHtml}</span>` : ""}</span>` +
-              renderCommitMeta(author, time) +
-            `</span>` +
-          `</span>`;
-        const branchSet = new Set();
-        if (refs) {
-          for (const r of refs.split(",")) {
-            const name = r.trim();
-            if (!name || name === "origin/HEAD" || name === "HEAD") continue;
-            if (name.startsWith("HEAD -> ")) {
-              branchSet.add(name.replace("HEAD -> ", ""));
-            } else if (name.startsWith("tag: ")) {
-              continue;
-            } else {
-              const rm = name.match(/^(?:origin|upstream)\/(.*)/);
-              branchSet.add(rm ? rm[1] : name);
-            }
-          }
-        }
-        const branches = [...branchSet];
-        bindLongPress(entry, {
-          onClick: () => openCommitDiffModal(hash, msg, branches),
-          onLongPress: () => GitLogModal.toggleCommitActionMenu(entry, hash, msg, branches),
-        });
-        entry.addEventListener("contextmenu", (e) => {
-          e.preventDefault();
-          GitLogModal.toggleCommitActionMenu(entry, hash, msg, branches);
-        });
-        count++;
-      } else {
-        continue;
+        refsHtml = htmlParts.join("");
       }
+
+      const entry = document.createElement("div");
+      entry.className = "git-log-entry git-log-commit";
+      entry.innerHTML =
+        `<span class="git-log-entry-body">` +
+          `<span class="git-log-entry-msg">${escapeHtml(msg)}</span>` +
+          `<span class="git-log-entry-row1">` +
+            `<span class="git-log-entry-row1-left">${refsHtml ? `<span class="git-log-entry-refs">${refsHtml}</span>` : ""}</span>` +
+            renderCommitMeta(author, time) +
+          `</span>` +
+        `</span>`;
+      const branches = [...branchSet];
+      bindLongPress(entry, {
+        onClick: () => openCommitDiffModal(hash, msg, branches),
+        onLongPress: () => GitLogModal.toggleCommitActionMenu(entry, hash, msg, branches),
+      });
+      entry.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        GitLogModal.toggleCommitActionMenu(entry, hash, msg, branches);
+      });
       listEl.appendChild(entry);
+      count++;
     }
     return count;
   },
@@ -119,38 +119,28 @@ Object.assign(GitLogModal, {
     }
   },
 
-  async updateStashBtn() {
-    const btn = $("diff-actions")?.querySelector('[data-action-key="stash-list"]');
-    if (!btn) return;
-    if (!selectedWorkspace) {
-      btn.textContent = "Stash一覧";
-      return;
-    }
+  async fetchStashCount() {
+    if (!selectedWorkspace) return 0;
     try {
       const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/stash-list"));
-      if (!res || !res.ok) {
-        btn.textContent = "Stash一覧";
-        return;
-      }
+      if (!res || !res.ok) return 0;
       const data = await res.json();
-      const count = (data.status === "ok" && data.entries) ? data.entries.length : 0;
-      btn.textContent = count > 0 ? `Stash一覧 (${count})` : "Stash一覧";
+      return (data.status === "ok" && data.entries) ? data.entries.length : 0;
     } catch {
-      btn.textContent = "Stash一覧";
+      return 0;
     }
   },
 
-  async updateDirtyStashBadge(btn) {
-    if (!btn || !selectedWorkspace) return;
-    const badge = btn.querySelector(".git-log-dirty-stash-badge");
-    if (!badge) return;
-    try {
-      const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/stash-list"));
-      if (!res || !res.ok) return;
-      const data = await res.json();
-      const count = (data.status === "ok" && data.entries) ? data.entries.length : 0;
-      badge.textContent = count > 0 ? count : "";
-    } catch { /* ignore */ }
+  async updateStashIndicators(dirtyStashBtn) {
+    const count = await GitLogModal.fetchStashCount();
+    const actionBtn = $("diff-actions")?.querySelector('[data-action-key="stash-list"]');
+    if (actionBtn) {
+      actionBtn.textContent = count > 0 ? `Stash一覧 (${count})` : "Stash一覧";
+    }
+    if (dirtyStashBtn) {
+      const badge = dirtyStashBtn.querySelector(".git-log-dirty-stash-badge");
+      if (badge) badge.textContent = count > 0 ? count : "";
+    }
   },
 
   renderDirtyEntry(listEl) {
@@ -187,7 +177,7 @@ Object.assign(GitLogModal, {
       event.stopPropagation();
       GitLogModal.openStashPane();
     });
-    this.updateDirtyStashBadge(stashBtn);
+    this.updateStashIndicators(stashBtn);
     const branchBtn = entry.querySelector(".git-log-dirty-branch-btn");
     branchBtn?.addEventListener("click", (event) => {
       event.stopPropagation();
