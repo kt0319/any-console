@@ -27,11 +27,15 @@ def isolate_fs(tmp_path, monkeypatch):
     config_file = data / "config.json"
 
     import api.common as common_mod
+    import api.config as config_mod
     import api.main as main_mod
+    import api.routers.settings as settings_mod
 
     monkeypatch.setattr(common_mod, "WORK_DIR", work)
     monkeypatch.setattr(common_mod, "CONFIG_FILE", config_file)
+    monkeypatch.setattr(config_mod, "CONFIG_FILE", config_file)
     monkeypatch.setattr(main_mod, "WORK_DIR", work)
+    monkeypatch.setattr(settings_mod, "WORK_DIR", work)
 
     return {"work": work, "data": data, "config_file": config_file}
 
@@ -446,13 +450,13 @@ class TestRenameFile:
 
 class TestUtils:
     def test_validate_commit_hash_valid(self):
-        from api.common import validate_commit_hash
+        from api.git_utils import validate_commit_hash
 
         assert validate_commit_hash("abcd") == "abcd"
         assert validate_commit_hash("a" * 40) == "a" * 40
 
     def test_validate_commit_hash_invalid(self):
-        from api.common import validate_commit_hash
+        from api.git_utils import validate_commit_hash
         from fastapi import HTTPException
 
         with pytest.raises(HTTPException) as exc_info:

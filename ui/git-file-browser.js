@@ -180,6 +180,7 @@ function buildFileBrowserHtml(path, entries, options = {}) {
   }
   for (const entry of entries) {
     const entryPath = path ? `${path}/${entry.name}` : entry.name;
+    const dimmed = entry.gitignored || entry.type === "symlink";
     let iconHtml;
     if (entry.type === "dir") {
       iconHtml = '<span class="file-browser-item-icon dir-icon"><i class="mdi mdi-folder"></i></span>';
@@ -196,9 +197,10 @@ function buildFileBrowserHtml(path, entries, options = {}) {
     const symlinkAttrs = entry.type === "symlink"
       ? ` data-target-type="${escapeHtml(entry.target_type || "")}" data-target-path="${escapeHtml(entry.target_path || "")}" data-link-target="${escapeHtml(entry.link_target || "")}"`
       : "";
+    const nameClass = dimmed ? "file-browser-item-name dimmed" : "file-browser-item-name";
     list += `<li class="file-browser-item" data-type="${entry.type}" data-path="${escapeHtml(entryPath)}"${symlinkAttrs}>` +
       `${iconHtml}` +
-      `<span class="file-browser-item-name">${escapeHtml(entry.name)}</span>` +
+      `<span class="${nameClass}">${escapeHtml(entry.name)}</span>` +
       sizeHtml +
       `</li>`;
   }

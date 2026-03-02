@@ -212,15 +212,40 @@ def read_blob_content_response(path: str, raw: bytes):
     return {"status": "ok", "path": path, "content": content, "size": size}
 
 
+def _get_gitignored_names(ws_path, target):
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "--others", "--ignored", "--exclude-standard", "--directory"],
+            capture_output=True,
+            text=True,
+            cwd=str(target),
+            timeout=GIT_SHORT_TIMEOUT_SEC,
+        )
+        if result.returncode != 0:
+            return set()
+        names = set()
+        for line in result.stdout.splitlines():
+            name = line.rstrip("/")
+            if name and "/" not in name:
+                names.add(name)
+        return names
+    except Exception:
+        return set()
+
+
 def list_directory_entries(ws_path, target):
+    ignored_names = _get_gitignored_names(ws_path, target)
     entries = []
     try:
         with os.scandir(target) as it:
             for entry in it:
                 if entry.name in HIDDEN_DIRS:
                     continue
+                is_ignored = entry.name in ignored_names
                 if entry.is_symlink():
                     item = {"name": entry.name, "type": "symlink"}
+                    if is_ignored:
+                        item["gitignored"] = True
                     try:
                         target_raw = os.readlink(entry.path)
                         item["link_target"] = target_raw
@@ -244,6 +269,8 @@ def list_directory_entries(ws_path, target):
 
                 entry_type = "dir" if entry.is_dir(follow_symlinks=False) else "file"
                 item = {"name": entry.name, "type": entry_type}
+                if is_ignored:
+                    item["gitignored"] = True
                 if entry_type == "file":
                     try:
                         item["size"] = entry.stat(follow_symlinks=False).st_size
