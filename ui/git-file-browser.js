@@ -722,8 +722,7 @@ async function renameFileInWorkspace(src, dest, config) {
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/rename"), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ src, dest }),
+      body: { src, dest },
     });
     if (!res) return;
     const data = await res.json();
@@ -731,7 +730,14 @@ async function renameFileInWorkspace(src, dest, config) {
       showToast(data.detail || "操作に失敗しました");
       return;
     }
-    showToast("完了", "success");
+    const srcName = src.split("/").pop();
+    const destName = dest.split("/").pop();
+    const srcDir = src.includes("/") ? src.slice(0, src.lastIndexOf("/")) : "";
+    const destDir = dest.includes("/") ? dest.slice(0, dest.lastIndexOf("/")) : "";
+    const toastMsg = srcDir !== destDir
+      ? `${srcName} を ${destDir || "/"} に移動しました`
+      : `${srcName} → ${destName} にリネームしました`;
+    showToast(toastMsg, "success");
     const parentPath = src.includes("/") ? src.slice(0, src.lastIndexOf("/")) : "";
     config.openDirectory(parentPath);
   } catch (e) {
@@ -744,8 +750,7 @@ async function deleteFileInWorkspace(path, config) {
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/delete-file"), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path }),
+      body: { path },
     });
     if (!res) return;
     const data = await res.json();
