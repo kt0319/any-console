@@ -231,7 +231,7 @@ function isImageDataIcon(icon) {
   return icon && (icon.startsWith("data:image/") || icon.startsWith("favicon:"));
 }
 
-function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 20 } = {}) {
+function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 30 } = {}) {
   let timer = null;
   let fired = false;
   let startX = 0;
