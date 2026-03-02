@@ -1,6 +1,7 @@
+import shutil
 import subprocess
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 
 from ..auth import verify_token
@@ -172,6 +173,53 @@ async def upload_file_to_workspace(
 
     rel_path = str(rel_dir / filename)
     return {"status": "ok", "path": rel_path, "size": len(data)}
+
+
+@router.post("/workspaces/{name}/rename")
+def rename_file(name: str, src: str = Body(...), dest: str = Body(...)):
+    ws_path = resolve_workspace_path(name)
+    src_target = resolve_workspace_target_path(ws_path, src)
+    validate_workspace_relative_target(ws_path, src_target)
+    dest_target = resolve_workspace_target_path(ws_path, dest)
+    validate_workspace_relative_target(ws_path, dest_target)
+
+    if not src_target.exists():
+        raise HTTPException(status_code=404, detail="Source not found")
+    if not dest_target.parent.exists():
+        raise HTTPException(status_code=400, detail="Destination directory not found")
+    if dest_target.exists():
+        raise HTTPException(status_code=409, detail="Destination already exists")
+
+    try:
+        src_target.rename(dest_target)
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied")
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Rename failed: {e}")
+
+    return {"status": "ok"}
+
+
+@router.post("/workspaces/{name}/delete-file")
+def delete_file(name: str, path: str = Body(..., embed=True)):
+    ws_path = resolve_workspace_path(name)
+    target = resolve_workspace_target_path(ws_path, path)
+    validate_workspace_relative_target(ws_path, target)
+
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    try:
+        if target.is_dir():
+            shutil.rmtree(target)
+        else:
+            target.unlink()
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied")
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Delete failed: {e}")
+
+    return {"status": "ok"}
 
 
 @router.get("/workspaces/{name}/download")

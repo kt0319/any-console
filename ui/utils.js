@@ -243,7 +243,6 @@ function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 
     el.classList.remove("long-pressing");
     if (fired) {
       e.preventDefault();
-      fired = false;
     }
   });
   el.addEventListener("touchmove", (e) => {

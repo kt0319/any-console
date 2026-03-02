@@ -2502,6 +2502,25 @@ button:disabled {
   flex-shrink: 0;
 }
 
+.file-browser-action-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.file-browser-action-menu button {
+  padding: 6px 14px;
+  font-size: 13px;
+  min-height: 36px;
+}
+
+.file-browser-action-delete {
+  color: var(--error);
+  border-color: var(--error);
+}
+
 #git-log-create-branch-area {
   flex: 0 0 100%;
   padding: 6px 10px 10px;

@@ -354,6 +354,93 @@ class TestFilesList:
         assert entries["docs"]["type"] == "dir"
 
 
+class TestRenameFile:
+    def test_rename_file(self, workspace):
+        (workspace / "old.txt").write_text("hello", encoding="utf-8")
+        res = client.post(
+            "/workspaces/test-ws/rename",
+            headers=AUTH,
+            json={"src": "old.txt", "dest": "new.txt"},
+        )
+        assert res.status_code == 200
+        assert res.json()["status"] == "ok"
+        assert not (workspace / "old.txt").exists()
+        assert (workspace / "new.txt").read_text(encoding="utf-8") == "hello"
+
+    def test_rename_to_existing_returns_409(self, workspace):
+        (workspace / "a.txt").write_text("a", encoding="utf-8")
+        (workspace / "b.txt").write_text("b", encoding="utf-8")
+        res = client.post(
+            "/workspaces/test-ws/rename",
+            headers=AUTH,
+            json={"src": "a.txt", "dest": "b.txt"},
+        )
+        assert res.status_code == 409
+
+    def test_rename_nonexistent_returns_404(self, workspace):
+        res = client.post(
+            "/workspaces/test-ws/rename",
+            headers=AUTH,
+            json={"src": "missing.txt", "dest": "new.txt"},
+        )
+        assert res.status_code == 404
+
+    def test_move_file_to_subdir(self, workspace):
+        (workspace / "file.txt").write_text("data", encoding="utf-8")
+        sub = workspace / "sub"
+        sub.mkdir()
+        res = client.post(
+            "/workspaces/test-ws/rename",
+            headers=AUTH,
+            json={"src": "file.txt", "dest": "sub/file.txt"},
+        )
+        assert res.status_code == 200
+        assert (sub / "file.txt").read_text(encoding="utf-8") == "data"
+
+    def test_rename_directory(self, workspace):
+        d = workspace / "olddir"
+        d.mkdir()
+        (d / "f.txt").write_text("x", encoding="utf-8")
+        res = client.post(
+            "/workspaces/test-ws/rename",
+            headers=AUTH,
+            json={"src": "olddir", "dest": "newdir"},
+        )
+        assert res.status_code == 200
+        assert (workspace / "newdir" / "f.txt").exists()
+
+    def test_delete_file(self, workspace):
+        (workspace / "delete-me.txt").write_text("bye", encoding="utf-8")
+        res = client.post(
+            "/workspaces/test-ws/delete-file",
+            headers=AUTH,
+            json={"path": "delete-me.txt"},
+        )
+        assert res.status_code == 200
+        assert res.json()["status"] == "ok"
+        assert not (workspace / "delete-me.txt").exists()
+
+    def test_delete_nonexistent_returns_404(self, workspace):
+        res = client.post(
+            "/workspaces/test-ws/delete-file",
+            headers=AUTH,
+            json={"path": "no-such.txt"},
+        )
+        assert res.status_code == 404
+
+    def test_delete_directory(self, workspace):
+        d = workspace / "rmdir"
+        d.mkdir()
+        (d / "f.txt").write_text("x", encoding="utf-8")
+        res = client.post(
+            "/workspaces/test-ws/delete-file",
+            headers=AUTH,
+            json={"path": "rmdir"},
+        )
+        assert res.status_code == 200
+        assert not d.exists()
+
+
 # --- ユーティリティ ---
 
 

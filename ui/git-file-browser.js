@@ -485,12 +485,38 @@ function bindFileBrowserEvents(container, view = "tab") {
   for (const badge of container.querySelectorAll(".file-browser-crumb-badge-action[data-diff-path]")) {
     badge.addEventListener("click", () => showDiffFileInDiffPane(badge.dataset.diffPath || ""));
   }
+  const useLongPress = !ref && selectedWorkspace;
   for (const item of container.querySelectorAll('.file-browser-item[data-type="dir"]')) {
-    item.addEventListener("click", () => config.openDirectory(item.dataset.path));
+    const handler = () => config.openDirectory(item.dataset.path);
+    const isParent = item.querySelector(".file-browser-item-name")?.textContent === "..";
+    if (useLongPress && !isParent) {
+      bindLongPress(item, {
+        onClick: handler,
+        onLongPress: () => showFileBrowserActionMenu(item, container, config),
+      });
+      item.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        showFileBrowserActionMenu(item, container, config);
+      });
+    } else {
+      item.addEventListener("click", handler);
+    }
   }
   if (typeof config.openFile === "function") {
     for (const item of container.querySelectorAll('.file-browser-item[data-type="file"]')) {
-      item.addEventListener("click", () => config.openFile(item.dataset.path));
+      const handler = () => config.openFile(item.dataset.path);
+      if (useLongPress) {
+        bindLongPress(item, {
+          onClick: handler,
+          onLongPress: () => showFileBrowserActionMenu(item, container, config),
+        });
+        item.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          showFileBrowserActionMenu(item, container, config);
+        });
+      } else {
+        item.addEventListener("click", handler);
+      }
     }
   }
   for (const item of container.querySelectorAll('.file-browser-item[data-type="symlink"]')) {
@@ -627,6 +653,112 @@ async function loadFileContentInDiffPane(path) {
     setDiffViewerMode("file");
   }
   await loadFileContentByView(path, "diff-pane");
+}
+
+function closeFileBrowserActionMenus(container) {
+  for (const m of container.querySelectorAll(".file-browser-action-menu")) {
+    m.remove();
+  }
+}
+
+function showFileBrowserActionMenu(item, container, config) {
+  closeFileBrowserActionMenus(container);
+  const filePath = item.dataset.path || "";
+  const fileName = filePath.split("/").pop() || "";
+  if (!fileName) return;
+
+  const menu = document.createElement("div");
+  menu.className = "file-browser-action-menu";
+
+  const renameBtn = document.createElement("button");
+  renameBtn.type = "button";
+  renameBtn.innerHTML = '<i class="mdi mdi-rename-box"></i> リネーム';
+  renameBtn.addEventListener("click", async () => {
+    menu.remove();
+    const newName = prompt("新しい名前:", fileName);
+    if (!newName || newName === fileName) return;
+    const parentPath = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
+    const destPath = parentPath ? `${parentPath}/${newName}` : newName;
+    await renameFileInWorkspace(filePath, destPath, config);
+  });
+
+  const moveBtn = document.createElement("button");
+  moveBtn.type = "button";
+  moveBtn.innerHTML = '<i class="mdi mdi-file-move-outline"></i> 移動';
+  moveBtn.addEventListener("click", async () => {
+    menu.remove();
+    const destPath = prompt("移動先パス:", filePath);
+    if (!destPath || destPath === filePath) return;
+    await renameFileInWorkspace(filePath, destPath, config);
+  });
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.type = "button";
+  deleteBtn.className = "file-browser-action-delete";
+  deleteBtn.innerHTML = '<i class="mdi mdi-delete-outline"></i> 削除';
+  deleteBtn.addEventListener("click", async () => {
+    menu.remove();
+    if (!confirm(`「${fileName}」を削除しますか？`)) return;
+    await deleteFileInWorkspace(filePath, config);
+  });
+
+  menu.appendChild(renameBtn);
+  menu.appendChild(moveBtn);
+  menu.appendChild(deleteBtn);
+  item.after(menu);
+
+  const closeOnOutsideClick = (e) => {
+    if (!menu.contains(e.target) && !item.contains(e.target)) {
+      menu.remove();
+      document.removeEventListener("click", closeOnOutsideClick);
+    }
+  };
+  setTimeout(() => document.addEventListener("click", closeOnOutsideClick), 0);
+}
+
+
+async function renameFileInWorkspace(src, dest, config) {
+  if (!selectedWorkspace) return;
+  try {
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/rename"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ src, dest }),
+    });
+    if (!res) return;
+    const data = await res.json();
+    if (!res.ok || data.status !== "ok") {
+      showToast(data.detail || "操作に失敗しました");
+      return;
+    }
+    showToast("完了", "success");
+    const parentPath = src.includes("/") ? src.slice(0, src.lastIndexOf("/")) : "";
+    config.openDirectory(parentPath);
+  } catch (e) {
+    showToast(e.message || "操作に失敗しました");
+  }
+}
+
+async function deleteFileInWorkspace(path, config) {
+  if (!selectedWorkspace) return;
+  try {
+    const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/delete-file"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    });
+    if (!res) return;
+    const data = await res.json();
+    if (!res.ok || data.status !== "ok") {
+      showToast(data.detail || "削除に失敗しました");
+      return;
+    }
+    showToast("削除しました", "success");
+    const parentPath = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+    config.openDirectory(parentPath);
+  } catch (e) {
+    showToast(e.message || "削除に失敗しました");
+  }
 }
 
 function showDiffFileInDiffPane(path) {
