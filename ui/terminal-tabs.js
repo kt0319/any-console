@@ -299,8 +299,10 @@ async function updateHeaderForTab(id) {
   if (splitMode || id === null) {
     selectedWorkspace = null;
     updateGitBarVisibility();
-    await refreshWorkspaceHeader({ reloadBranches: false });
-    await loadJobsForWorkspace();
+    await Promise.all([
+      refreshWorkspaceHeader({ reloadBranches: false }),
+      loadJobsForWorkspace(),
+    ]);
     return;
   }
 
@@ -313,10 +315,9 @@ async function updateHeaderForTab(id) {
     selectedWorkspace = nextWorkspace;
     updateGitBarVisibility();
     const shouldReloadJobs = workspaceChanged || workspaceJobsLoadedFor !== nextWorkspace;
-    if (shouldReloadJobs) {
-      await loadJobsForWorkspace(workspaceChanged);
-    }
-    await refreshWorkspaceHeader({ reloadBranches: workspaceChanged });
+    const tasks = [refreshWorkspaceHeader({ reloadBranches: workspaceChanged })];
+    if (shouldReloadJobs) tasks.push(loadJobsForWorkspace(workspaceChanged));
+    await Promise.all(tasks);
   }
   updateGitBarVisibility();
 }
