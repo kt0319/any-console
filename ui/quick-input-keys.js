@@ -364,7 +364,7 @@ async function renderSnippetRow(container, onChipTap) {
   const historyCol = document.createElement("div");
   historyCol.className = "quick-snippet-col quick-snippet-col-right";
 
-  const snippets = loadSnippets();
+  const snippets = loadSnippets().slice(-5);
   if (snippets.length === 0) {
     const emptySnippet = document.createElement("div");
     emptySnippet.className = "quick-snippet-item quick-snippet-item-empty";
@@ -385,7 +385,6 @@ async function renderSnippetRow(container, onChipTap) {
         }
       }
     }, "mdi-pin");
-    chip.classList.add("quick-history-item");
     snippetCol.appendChild(chip);
   });
 
@@ -415,6 +414,17 @@ async function renderSnippetRow(container, onChipTap) {
     }, "mdi-history");
     historyCol.appendChild(chip);
   });
+
+  const snippetCount = snippetCol.children.length;
+  const historyCount = historyCol.children.length;
+  const shorter = snippetCount < historyCount ? snippetCol : historyCol;
+  const diff = Math.abs(snippetCount - historyCount);
+  for (let i = 0; i < diff; i++) {
+    const spacer = document.createElement("div");
+    spacer.className = "quick-snippet-item";
+    spacer.style.visibility = "hidden";
+    shorter.insertBefore(spacer, shorter.firstChild);
+  }
 
   container.appendChild(snippetCol);
   container.appendChild(historyCol);

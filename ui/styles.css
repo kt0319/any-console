@@ -2130,8 +2130,7 @@ button:disabled {
   color: var(--text-muted);
 }
 
-.form-input,
-.form-textarea {
+.form-input {
   width: 100%;
   padding: 10px 12px;
   background: var(--bg-tertiary);
@@ -2142,14 +2141,7 @@ button:disabled {
   font-family: inherit;
 }
 
-.form-textarea {
-  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-  resize: vertical;
-  min-height: 80px;
-}
-
-.form-input:focus,
-.form-textarea:focus {
+.form-input:focus {
   outline: none;
   border-color: var(--accent);
 }
@@ -2265,33 +2257,6 @@ button:disabled {
 
 .branch-item.remote-only {
   color: var(--text-muted);
-}
-
-.git-log-branch-select-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 24px 0 10px;
-  min-height: 36px;
-  max-height: 36px;
-  min-width: auto;
-  font-size: 12px;
-  font-weight: 600;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--accent);
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  max-width: 60%;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2382aaff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-}
-
-.git-log-branch-select-btn .mdi {
-  flex-shrink: 0;
 }
 
 .branch-item-action {
@@ -3015,12 +2980,6 @@ button:disabled {
   transition: transform 0.12s ease, background 0.12s ease;
 }
 
-.quick-snippet-spacer {
-  pointer-events: none;
-  border-color: transparent;
-  background: transparent;
-}
-
 .quick-hard-reload {
   font-size: 20px;
 }
@@ -3181,17 +3140,6 @@ button:disabled {
   50% { transform: scale(1.05); }
   100% { transform: scale(1); }
 }
-
-.quick-history-item {
-  border-color: rgba(255, 255, 255, 0.2);
-  color: var(--text-primary);
-}
-
-.quick-history-item.pressed {
-  background: rgba(255, 255, 255, 0.15);
-  color: var(--text-primary);
-}
-
 
 .keyboard-input-wrapper {
   position: absolute;
@@ -3616,6 +3564,7 @@ button:disabled {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  width: 24px;
   font-size: 18px;
 }
 
