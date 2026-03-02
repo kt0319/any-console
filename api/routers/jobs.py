@@ -82,23 +82,11 @@ def job_definition_to_dict(job_def):
     }
 
 
-def job_definition_to_summary_dict(job_def):
-    return {
-        "label": job_def.label,
-        "description": job_def.description,
-        "command": job_def.command,
-        "icon": job_def.icon,
-        "icon_color": job_def.icon_color,
-        "confirm": job_def.confirm,
-        "terminal": job_def.terminal,
-    }
-
-
 @router.get("/workspaces/{name}/jobs")
 def list_workspace_jobs(name: str):
     resolve_workspace_path(name)
     jobs = get_workspace_jobs(name)
-    return {jname: job_definition_to_summary_dict(job_def) for jname, job_def in jobs.items()}
+    return {jname: job_definition_to_dict(job_def) for jname, job_def in jobs.items()}
 
 
 @router.get("/workspaces/{name}/jobs/{job_name}")

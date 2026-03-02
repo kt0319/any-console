@@ -2,13 +2,27 @@ import base64
 import mimetypes
 import os
 import re
+import subprocess
 from pathlib import Path
 
 from fastapi import HTTPException
 
-from ..common import BRANCH_NAME_PATTERN, run_git_command
+from ..common import BRANCH_NAME_PATTERN, GIT_SHORT_TIMEOUT_SEC, run_git_command
 
 STASH_REF_PATTERN = re.compile(r"^stash@\{\d+\}$")
+
+
+def run_git_subprocess(args, cwd, text=True):
+    try:
+        return subprocess.run(
+            args,
+            capture_output=True,
+            text=text,
+            timeout=GIT_SHORT_TIMEOUT_SEC,
+            cwd=str(cwd),
+        )
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Git operation timed out")
 MAX_DIFF_SIZE = 10 * 1024 * 1024
 GIT_LOG_MAX_SKIP = 10000
 
@@ -115,6 +129,12 @@ def validate_workspace_relative_target(ws_path, target):
     if any(part in HIDDEN_DIRS for part in rel.parts):
         raise HTTPException(status_code=400, detail="Invalid path")
     return rel
+
+
+def resolve_and_validate_workspace_path(ws_path, path: str):
+    target = resolve_workspace_target_path(ws_path, path)
+    rel = validate_workspace_relative_target(ws_path, target)
+    return target, rel
 
 
 def read_file_content_response(path: str, target: Path):

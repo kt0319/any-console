@@ -1,18 +1,18 @@
 import shutil
-import subprocess
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 
 from ..auth import verify_token
-from ..common import GIT_SHORT_TIMEOUT_SEC, resolve_workspace_path, validate_commit_hash
+from ..common import resolve_workspace_path, validate_commit_hash
 from .git_shared import (
     MAX_WORKSPACE_UPLOAD_SIZE,
     STASH_REF_PATTERN,
     list_directory_entries,
     read_blob_content_response,
     read_file_content_response,
-    resolve_workspace_target_path,
+    resolve_and_validate_workspace_path,
+    run_git_subprocess,
     validate_workspace_relative_target,
 )
 
@@ -35,23 +35,11 @@ def _git_tree_spec(ref: str, rel_path: str) -> str:
 def list_directory_entries_at_ref(ws_path, rel_path: str, ref: str):
     tree_spec = _git_tree_spec(ref, rel_path)
     if rel_path:
-        type_result = subprocess.run(
-            ["git", "cat-file", "-t", tree_spec],
-            capture_output=True,
-            text=True,
-            timeout=GIT_SHORT_TIMEOUT_SEC,
-            cwd=str(ws_path),
-        )
+        type_result = run_git_subprocess(["git", "cat-file", "-t", tree_spec], cwd=ws_path)
         if type_result.returncode != 0 or type_result.stdout.strip() != "tree":
             raise HTTPException(status_code=404, detail="Directory not found")
 
-    result = subprocess.run(
-        ["git", "ls-tree", "-z", tree_spec],
-        capture_output=True,
-        text=True,
-        timeout=GIT_SHORT_TIMEOUT_SEC,
-        cwd=str(ws_path),
-    )
+    result = run_git_subprocess(["git", "ls-tree", "-z", tree_spec], cwd=ws_path)
     if result.returncode != 0:
         raise HTTPException(status_code=404, detail="Directory not found")
 
@@ -74,23 +62,11 @@ def list_directory_entries_at_ref(ws_path, rel_path: str, ref: str):
 
 def read_file_content_at_ref(ws_path, path: str, ref: str):
     blob_spec = _git_tree_spec(ref, path)
-    type_result = subprocess.run(
-        ["git", "cat-file", "-t", blob_spec],
-        capture_output=True,
-        text=True,
-        timeout=GIT_SHORT_TIMEOUT_SEC,
-        cwd=str(ws_path),
-    )
+    type_result = run_git_subprocess(["git", "cat-file", "-t", blob_spec], cwd=ws_path)
     if type_result.returncode != 0 or type_result.stdout.strip() != "blob":
         raise HTTPException(status_code=404, detail="File not found")
 
-    result = subprocess.run(
-        ["git", "show", blob_spec],
-        capture_output=True,
-        text=False,
-        timeout=GIT_SHORT_TIMEOUT_SEC,
-        cwd=str(ws_path),
-    )
+    result = run_git_subprocess(["git", "show", blob_spec], cwd=ws_path, text=False)
     if result.returncode != 0:
         raise HTTPException(status_code=404, detail="File not found")
     return read_blob_content_response(path, result.stdout)
@@ -99,8 +75,7 @@ def read_file_content_at_ref(ws_path, path: str, ref: str):
 @router.get("/workspaces/{name}/files")
 def list_files(name: str, path: str = Query(""), ref: str | None = Query(None)):
     ws_path = resolve_workspace_path(name)
-    target = resolve_workspace_target_path(ws_path, path)
-    rel = validate_workspace_relative_target(ws_path, target)
+    target, rel = resolve_and_validate_workspace_path(ws_path, path)
 
     rel_path = str(rel)
     if rel_path == ".":
@@ -121,9 +96,7 @@ def list_files(name: str, path: str = Query(""), ref: str | None = Query(None)):
 @router.get("/workspaces/{name}/file-content")
 def get_file_content(name: str, path: str = Query(...), ref: str | None = Query(None)):
     ws_path = resolve_workspace_path(name)
-    target = resolve_workspace_target_path(ws_path, path)
-
-    rel = validate_workspace_relative_target(ws_path, target)
+    target, rel = resolve_and_validate_workspace_path(ws_path, path)
     rel_path = str(rel)
     if rel_path == ".":
         raise HTTPException(status_code=404, detail="File not found")
@@ -146,8 +119,7 @@ async def upload_file_to_workspace(
     file: UploadFile = File(...),
 ):
     ws_path = resolve_workspace_path(name)
-    target_dir = resolve_workspace_target_path(ws_path, path)
-    rel_dir = validate_workspace_relative_target(ws_path, target_dir)
+    target_dir, rel_dir = resolve_and_validate_workspace_path(ws_path, path)
     if not target_dir.is_dir():
         raise HTTPException(status_code=404, detail="Directory not found")
 
@@ -178,10 +150,8 @@ async def upload_file_to_workspace(
 @router.post("/workspaces/{name}/rename")
 def rename_file(name: str, src: str = Body(...), dest: str = Body(...)):
     ws_path = resolve_workspace_path(name)
-    src_target = resolve_workspace_target_path(ws_path, src)
-    validate_workspace_relative_target(ws_path, src_target)
-    dest_target = resolve_workspace_target_path(ws_path, dest)
-    validate_workspace_relative_target(ws_path, dest_target)
+    src_target, _ = resolve_and_validate_workspace_path(ws_path, src)
+    dest_target, _ = resolve_and_validate_workspace_path(ws_path, dest)
 
     if not src_target.exists():
         raise HTTPException(status_code=404, detail="Source not found")
@@ -203,8 +173,7 @@ def rename_file(name: str, src: str = Body(...), dest: str = Body(...)):
 @router.post("/workspaces/{name}/delete-file")
 def delete_file(name: str, path: str = Body(..., embed=True)):
     ws_path = resolve_workspace_path(name)
-    target = resolve_workspace_target_path(ws_path, path)
-    validate_workspace_relative_target(ws_path, target)
+    target, _ = resolve_and_validate_workspace_path(ws_path, path)
 
     if not target.exists():
         raise HTTPException(status_code=404, detail="File not found")
@@ -225,8 +194,7 @@ def delete_file(name: str, path: str = Body(..., embed=True)):
 @router.get("/workspaces/{name}/download")
 def download_file(name: str, path: str = Query(...)):
     ws_path = resolve_workspace_path(name)
-    target = resolve_workspace_target_path(ws_path, path)
-    validate_workspace_relative_target(ws_path, target)
+    target, _ = resolve_and_validate_workspace_path(ws_path, path)
 
     if not target.is_file():
         raise HTTPException(status_code=404, detail="File not found")
