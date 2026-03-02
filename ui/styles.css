@@ -581,9 +581,10 @@ header {
 
 .main-panel.panel-bottom .tab-bar-row {
   order: 1;
+  position: relative;
   border-bottom: none;
   border-top: 1px solid var(--border);
-  padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: 4px;
 }
 
 .main-panel.panel-bottom .tab-bar {
@@ -2749,10 +2750,10 @@ button:disabled {
 
 /* Quick Input */
 .quick-input {
-  position: fixed;
+  position: absolute;
   bottom: 0;
-  left: 8px;
-  right: 8px;
+  right: 0;
+  left: 0;
   z-index: 40;
   display: flex;
   flex-direction: column;
@@ -2763,8 +2764,6 @@ button:disabled {
 }
 
 .quick-input > * {
-  width: 100%;
-  min-width: 0;
   pointer-events: auto;
 }
 
@@ -3156,7 +3155,7 @@ button:disabled {
   .quick-input {
     display: none !important;
   }
-  .panel-bottom .quick-input {
+  .main-panel.panel-bottom .quick-input {
     display: flex !important;
   }
   .tab-name-pill {
