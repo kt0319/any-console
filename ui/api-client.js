@@ -74,7 +74,7 @@ async function postWorkspaceAction(workspace, endpoint, label, body = null) {
     if (!res) return null;
     const data = await res.json();
     if (data.status === "ok") {
-      showToast(`${label} 完了`, "success");
+      showToast(`${workspace}: ${label} 完了`, "success");
       return data;
     }
     showToast(`${label} 失敗: ${getActionFailureMessage(data)}`);
