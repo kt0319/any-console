@@ -66,7 +66,7 @@ async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
     if (!res) return;
     const data = await res.json();
     if (!res.ok || data.status !== "ok") {
-      showDiffError(data.detail || data.stderr || "diff の取得に失敗しました");
+      showDiffError(getActionFailureMessage(data, "diff の取得に失敗しました"));
       return;
     }
 
@@ -341,7 +341,7 @@ async function submitCommit() {
     if (!res) return;
     const data = await res.json();
     if (!res.ok || data.status !== "ok") {
-      showFormError("diff-commit-error", data.detail || data.stderr || "コミットに失敗しました");
+      showFormError("diff-commit-error", getActionFailureMessage(data, "コミットに失敗しました"));
       return;
     }
     GitLogModal.closeGitLogModal();

@@ -73,8 +73,7 @@ const GitCore = {
       if (statusText === "ok") {
         await GitCore.refreshAfterGitOp();
       } else {
-        const msg = data.detail || data.stderr || data.stdout || "checkout に失敗しました";
-        showToast(msg);
+        showToast(getActionFailureMessage(data, "checkout に失敗しました"));
       }
     } catch (e) {
       showToast(`checkout エラー: ${e.message}`);

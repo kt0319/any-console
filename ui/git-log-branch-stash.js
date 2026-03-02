@@ -142,7 +142,7 @@ Object.assign(GitLogModal, {
           return;
         }
       } else {
-        showToast(`削除失敗: ${data.stderr || data.stdout || "unknown error"}`);
+        showToast(`削除失敗: ${getActionFailureMessage(data, "unknown error")}`);
       }
     } catch (e) {
       showToast(`削除エラー: ${e.message}`);

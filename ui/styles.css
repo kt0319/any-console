@@ -305,15 +305,24 @@ header {
   visibility: hidden;
 }
 
-.picker-ws-mini-btn.running::after {
+.picker-ws-mini-btn.running::after,
+.git-action-btn.running::after,
+.commit-action-danger.running::after {
   content: "";
   position: absolute;
-  width: 12px;
-  height: 12px;
+  width: var(--spinner-size, 12px);
+  height: var(--spinner-size, 12px);
   border: 2px solid rgba(130, 170, 255, 0.3);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
+}
+.git-action-btn.running::after { --spinner-size: 14px; }
+.commit-action-danger.running::after {
+  border-color: rgba(255, 85, 114, 0.3);
+  border-top-color: var(--error);
+  inset: 0;
+  margin: auto;
 }
 
 .picker-ws-top-meta .git-badge,
@@ -488,16 +497,6 @@ header {
   visibility: hidden;
 }
 
-.git-action-btn.running::after {
-  content: "";
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(130, 170, 255, 0.3);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-}
 
 @keyframes spin {
   to { transform: rotate(360deg); }
@@ -1668,7 +1667,9 @@ button:disabled {
   white-space: nowrap;
 }
 
-.split-tab-drag-handle {
+.split-tab-drag-handle,
+.ws-check-drag-handle,
+.ws-settings-item-drag-handle {
   flex-shrink: 0;
   width: 28px;
   display: flex;
@@ -1690,40 +1691,31 @@ button:disabled {
   cursor: pointer;
 }
 
-.split-tab-input {
+.split-tab-input,
+.ws-check-item input[type="checkbox"],
+.form-check-label input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
   width: 20px;
   height: 20px;
-  margin: 0;
   border: 2px solid var(--text-muted);
-  background: transparent;
-  pointer-events: auto;
-  opacity: 1;
-  position: relative;
-  flex-shrink: 0;
-  cursor: pointer;
-}
-
-.split-tab-input:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.split-tab-input[type="checkbox"] {
   border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
 }
 
-.split-tab-input[type="radio"] {
-  border-radius: 50%;
-}
-
-.split-tab-input:checked {
+.split-tab-input:checked,
+.ws-check-item input[type="checkbox"]:checked,
+.form-check-label input[type="checkbox"]:checked {
   border-color: var(--accent);
   background: var(--accent);
 }
 
-.split-tab-input[type="checkbox"]:checked::after {
+.split-tab-input[type="checkbox"]:checked::after,
+.ws-check-item input[type="checkbox"]:checked::after,
+.form-check-label input[type="checkbox"]:checked::after {
   content: "";
   position: absolute;
   left: 5px;
@@ -1734,6 +1726,10 @@ button:disabled {
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
+
+.split-tab-input { margin: 0; pointer-events: auto; opacity: 1; }
+.split-tab-input[type="radio"] { border-radius: 50%; }
+.split-tab-input:disabled { opacity: 0.45; cursor: default; }
 
 .split-tab-input[type="radio"]:checked::after {
   content: "";
@@ -2056,47 +2052,7 @@ button:disabled {
   border-bottom: none;
 }
 
-.ws-check-item input[type="checkbox"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--text-muted);
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-  flex-shrink: 0;
-  position: relative;
-}
 
-.ws-check-item input[type="checkbox"]:checked {
-  border-color: var(--accent);
-  background: var(--accent);
-}
-
-.ws-check-item input[type="checkbox"]:checked::after {
-  content: "";
-  position: absolute;
-  left: 5px;
-  top: 2px;
-  width: 5px;
-  height: 10px;
-  border: solid var(--bg-primary);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-
-.ws-check-drag-handle {
-  width: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: var(--text-muted);
-  font-size: 20px;
-  cursor: grab;
-  touch-action: none;
-}
 
 .ws-check-item.dragging {
   opacity: 0.72;
@@ -2155,35 +2111,6 @@ button:disabled {
   cursor: pointer;
 }
 
-.form-check-label input[type="checkbox"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--text-muted);
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-  flex-shrink: 0;
-  position: relative;
-}
-
-.form-check-label input[type="checkbox"]:checked {
-  border-color: var(--accent);
-  background: var(--accent);
-}
-
-.form-check-label input[type="checkbox"]:checked::after {
-  content: "";
-  position: absolute;
-  left: 5px;
-  top: 2px;
-  width: 5px;
-  height: 10px;
-  border: solid var(--bg-primary);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
 
 .form-error {
   color: var(--error);
@@ -2527,18 +2454,6 @@ button:disabled {
   justify-content: center;
 }
 
-.commit-action-danger.running::after {
-  content: "";
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  border: 2px solid rgba(255, 85, 114, 0.3);
-  border-top-color: var(--error);
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-  inset: 0;
-  margin: auto;
-}
 
 .commit-action-menu {
   display: flex;
@@ -3666,17 +3581,6 @@ button:disabled {
   white-space: nowrap;
 }
 
-.ws-settings-item-drag-handle {
-  width: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: var(--text-muted);
-  font-size: 20px;
-  cursor: grab;
-  touch-action: none;
-}
 
 .ws-settings-item-actions {
   display: flex;

@@ -124,7 +124,7 @@ const GitLogModal = {
       if (!res) return;
       const data = await res.json();
       if (!res.ok || data.status !== "ok") {
-        showFormError("git-log-branch-error", data.detail || data.stderr || "ブランチ作成に失敗しました");
+        showFormError("git-log-branch-error", getActionFailureMessage(data, "ブランチ作成に失敗しました"));
         return;
       }
       GitLogModal.closeGitLogModal();

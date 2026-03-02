@@ -215,7 +215,7 @@ Object.assign(GitLogModal, {
       const data = await logRes.json();
       if (!logRes.ok || data.status !== "ok") {
         GitLogModal.state.gitLogLoadedWorkspace = null;
-        showToast(data.detail || data.stderr || "git log の読み込みに失敗しました");
+        showToast(getActionFailureMessage(data, "git log の読み込みに失敗しました"));
         return;
       }
       if (!data.stdout) {

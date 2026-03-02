@@ -469,7 +469,7 @@ function createTerminalTabModalWorkspaceSection(deps) {
         if (!res) return;
         const data = await res.json();
         if (!res.ok || data.status === "error") {
-          errorEl.textContent = data.detail || data.stderr || "クローンに失敗しました";
+          errorEl.textContent = getActionFailureMessage(data, "クローンに失敗しました");
           errorEl.style.display = "block";
           outputEl.style.display = "none";
           submitBtn.disabled = false;
