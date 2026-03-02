@@ -62,9 +62,8 @@ function createTerminalTabModalWorkspaceSection(deps) {
       if (!res || !res.ok) return;
       const status = await res.json();
       const idx = allWorkspaces.findIndex((w) => w.name === wsName);
-      if (idx >= 0) {
-        allWorkspaces[idx] = { ...allWorkspaces[idx], ...status };
-      }
+      if (idx < 0) return;
+      allWorkspaces[idx] = { ...allWorkspaces[idx], ...status };
       const group = listContainer.querySelector(`[data-workspace-name="${wsName}"]`);
       if (group) {
         updateModalWsGroupGitInfo(group, allWorkspaces[idx]);
@@ -233,12 +232,11 @@ function createTerminalTabModalWorkspaceSection(deps) {
           if (!res || !res.ok) return;
           const status = await res.json();
           const idx = allWorkspaces.findIndex((w) => w.name === ws.name);
-          if (idx >= 0) {
-            allWorkspaces[idx] = { ...allWorkspaces[idx], ...status };
-          }
+          if (idx < 0) return;
+          allWorkspaces[idx] = { ...allWorkspaces[idx], ...status };
           const group = listContainer.querySelector(`[data-workspace-name="${ws.name}"]`);
           if (group) {
-            updateModalWsGroupGitInfo(group, allWorkspaces[idx >= 0 ? idx : 0]);
+            updateModalWsGroupGitInfo(group, allWorkspaces[idx]);
           }
         })
         .catch(() => {});
@@ -336,10 +334,10 @@ function createTerminalTabModalWorkspaceSection(deps) {
         const idx = allWorkspaces.findIndex((w) => w.name === wsName);
         if (idx >= 0) {
           allWorkspaces[idx] = { ...allWorkspaces[idx], ...status };
-        }
-        const group = listContainer.querySelector(`[data-workspace-name="${wsName}"]`);
-        if (group) {
-          updateModalWsGroupGitInfo(group, allWorkspaces[idx >= 0 ? idx : 0]);
+          const group = listContainer.querySelector(`[data-workspace-name="${wsName}"]`);
+          if (group) {
+            updateModalWsGroupGitInfo(group, allWorkspaces[idx]);
+          }
         }
       }
       if (selectedWorkspace === wsName) {
