@@ -295,7 +295,11 @@ function resolveWorkspaceNameForTab(tab) {
   return null;
 }
 
+let _headerUpdateSeq = 0;
+
 async function updateHeaderForTab(id) {
+  const seq = ++_headerUpdateSeq;
+
   if (splitMode || id === null) {
     selectedWorkspace = null;
     updateGitBarVisibility();
@@ -318,6 +322,8 @@ async function updateHeaderForTab(id) {
     const tasks = [refreshWorkspaceHeader({ reloadBranches: workspaceChanged })];
     if (shouldReloadJobs) tasks.push(loadJobsForWorkspace(workspaceChanged));
     await Promise.all(tasks);
+    if (seq !== _headerUpdateSeq) return;
+    refreshCurrentWorkspaceStatus();
   }
   updateGitBarVisibility();
 }
