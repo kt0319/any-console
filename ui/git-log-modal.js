@@ -47,7 +47,7 @@ const GitLogModal = {
     $("git-log-modal").style.display = "none";
     GitLogModal.resetActionMenu();
     closeCommitForm();
-    GitLogModal.setModalTitle("コミット履歴");
+    GitLogModal.setModalTitle("");
     GitLogModal.resetCreateBranchArea();
   },
 
@@ -158,22 +158,33 @@ const GitLogModal = {
     titleEl.onclick = typeof onClick === "function" ? onClick : null;
   },
 
+  isCurrentWorkspaceGitRepo() {
+    const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
+    return ws && ws.is_git_repo === true;
+  },
+
+  modalTitle() {
+    return selectedWorkspace || "";
+  },
+
   showDiffHistoryTop() {
     GitLogModal.setDiffTopMode("history", {
-      title: "コミット履歴",
+      title: GitLogModal.modalTitle(),
     });
   },
 
   showDiffFilesTop() {
+    const isGit = GitLogModal.isCurrentWorkspaceGitRepo();
     GitLogModal.setDiffTopMode("files", {
-      title: GitLogModal.state.diffPaneTitle || "差分",
-      back: true,
-      onClick: () => GitLogModal.returnToDiffHistoryTop(),
+      title: isGit ? (GitLogModal.state.diffPaneTitle || "差分") : GitLogModal.modalTitle(),
+      back: isGit,
+      onClick: isGit ? () => GitLogModal.returnToDiffHistoryTop() : null,
     });
   },
 
   setDiffTopMode(mode, titleOptions) {
     GitLogModal.state.diffTopMode = mode;
+    $("diff-upper-pane").style.display = "";
     GitLogModal.toggleDiffTopPane(mode);
     GitLogModal.resetActionMenu();
     GitLogModal.resetCreateBranchArea();
@@ -227,6 +238,10 @@ const GitLogModal = {
       GitLogModal.showDiffFilesTop();
       return;
     }
+    if (!GitLogModal.isCurrentWorkspaceGitRepo()) {
+      GitLogModal.showDiffFilesTop();
+      return;
+    }
     GitLogModal.showDiffHistoryTop();
     await GitLogModal.ensureCommitLogReady();
   },
@@ -252,7 +267,8 @@ const GitLogModal = {
     if (!selectedWorkspace) return;
     GitLogModal.ensureDiffTabVisible();
     $("git-log-modal").style.display = "flex";
-    GitLogModal.setDiffTopMode("files", { title: "ファイル" });
+    GitLogModal.setDiffTopMode("files", { title: GitLogModal.modalTitle() });
+    $("diff-upper-pane").style.display = "none";
     clearActiveDiffRef();
     await loadDirectoryInDiffPane("");
   },
