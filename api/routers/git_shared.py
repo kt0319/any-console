@@ -23,6 +23,8 @@ def run_git_subprocess(args, cwd, text=True):
         )
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=504, detail="Git operation timed out")
+
+
 MAX_DIFF_SIZE = 10 * 1024 * 1024
 GIT_LOG_MAX_SKIP = 10000
 
@@ -44,7 +46,6 @@ MAX_WORKSPACE_UPLOAD_SIZE = 10 * 1024 * 1024
 
 def _resolve_rename_path(path: str) -> str:
     """'dir/{old => new}' 形式のリネームパスからリネーム後のパスを抽出する"""
-    import re
     m = re.search(r'\{[^}]* => ([^}]*)\}', path)
     if not m:
         return path
@@ -94,6 +95,23 @@ def build_file_entry(
     if status is not None:
         entry["status"] = status
     return entry
+
+
+def build_file_list(files_result, numstat):
+    files = []
+    if files_result["exit_code"] == 0:
+        for f in files_result["stdout"].splitlines():
+            file_name = f.strip()
+            if file_name:
+                files.append(build_file_entry(file_name, numstat))
+    return files
+
+
+def validate_stash_ref(stash_ref: str) -> str:
+    ref = stash_ref.strip()
+    if not STASH_REF_PATTERN.match(ref):
+        raise HTTPException(status_code=400, detail=f"Invalid stash ref: {ref}")
+    return ref
 
 
 def validate_branch_name(branch: str) -> str:

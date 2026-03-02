@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 
 from ..auth import verify_token
 from ..common import GIT_SHORT_TIMEOUT_SEC, resolve_workspace_path, run_git_command, validate_commit_hash
-from .git_shared import MAX_DIFF_SIZE, STASH_REF_PATTERN, build_file_entry, parse_numstat_result
+from .git_shared import MAX_DIFF_SIZE, STASH_REF_PATTERN, build_file_entry, build_file_list, parse_numstat_result
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
@@ -25,13 +25,7 @@ def get_commit_diff(name: str, commit_hash: str):
             cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, operation="stash show --name-only",
         )
 
-        files = []
-        if files_result["exit_code"] == 0:
-            for f in files_result["stdout"].splitlines():
-                file_name = f.strip()
-                if not file_name:
-                    continue
-                files.append(build_file_entry(file_name, numstat))
+        files = build_file_list(files_result, numstat)
 
         if len(diff_text) > MAX_DIFF_SIZE:
             diff_text = diff_text[:MAX_DIFF_SIZE] + "\n... (truncated)"
@@ -48,13 +42,7 @@ def get_commit_diff(name: str, commit_hash: str):
     files_result = run_git_command(["diff", "--name-only", f"{commit_hash}~1", commit_hash], cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, operation="diff --name-only")
     numstat_result = run_git_command(["diff", "--numstat", f"{commit_hash}~1", commit_hash], cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, operation="diff --numstat")
     numstat = parse_numstat_result(numstat_result)
-    files = []
-    if files_result["exit_code"] == 0:
-        for f in files_result["stdout"].splitlines():
-            file_name = f.strip()
-            if not file_name:
-                continue
-            files.append(build_file_entry(file_name, numstat))
+    files = build_file_list(files_result, numstat)
     diff_text = result["stdout"]
     if len(diff_text) > MAX_DIFF_SIZE:
         diff_text = diff_text[:MAX_DIFF_SIZE] + "\n... (truncated)"

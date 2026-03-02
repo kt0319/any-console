@@ -12,7 +12,7 @@ from ..common import (
     validate_commit_hash,
     invalidate_git_info,
 )
-from .git_shared import GIT_LOG_MAX_SKIP, STASH_REF_PATTERN
+from .git_shared import GIT_LOG_MAX_SKIP, validate_stash_ref
 
 logger = logging.getLogger(__name__)
 
@@ -122,9 +122,7 @@ def git_stash_list(name: str):
 @router.post("/workspaces/{name}/stash-drop")
 def git_stash_drop(name: str, body: StashDropRequest):
     ws_path = resolve_workspace_path(name)
-    ref = body.stash_ref.strip()
-    if not STASH_REF_PATTERN.match(ref):
-        raise HTTPException(status_code=400, detail=f"Invalid stash ref: {ref}")
+    ref = validate_stash_ref(body.stash_ref)
     result = run_git_command(["stash", "drop", ref], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="stash drop")
     logger.info("stash-drop workspace=%s ref=%s rc=%d", name, ref, result["exit_code"])
     invalidate_git_info(name)
@@ -134,9 +132,7 @@ def git_stash_drop(name: str, body: StashDropRequest):
 @router.post("/workspaces/{name}/stash-pop-index")
 def git_stash_pop_index(name: str, body: StashDropRequest):
     ws_path = resolve_workspace_path(name)
-    ref = body.stash_ref.strip()
-    if not STASH_REF_PATTERN.match(ref):
-        raise HTTPException(status_code=400, detail=f"Invalid stash ref: {ref}")
+    ref = validate_stash_ref(body.stash_ref)
     result = run_git_command(["stash", "pop", ref], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="stash pop")
     logger.info("stash-pop workspace=%s ref=%s rc=%d", name, ref, result["exit_code"])
     invalidate_git_info(name)
