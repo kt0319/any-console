@@ -960,6 +960,95 @@ header {
   border-color: #ff9800;
 }
 
+.split-drop-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.split-drop-zone {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  background: rgba(130, 170, 255, 0.08);
+  border: 2px dashed rgba(130, 170, 255, 0.3);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.split-drop-zone.drop-left,
+.split-drop-zone.drop-right {
+  top: 0;
+  bottom: 0;
+  width: 25%;
+}
+
+.split-drop-zone.drop-left {
+  left: 0;
+  border-right-style: dashed;
+  border-left: none;
+  border-top: none;
+  border-bottom: none;
+}
+
+.split-drop-zone.drop-right {
+  right: 0;
+  border-left-style: dashed;
+  border-right: none;
+  border-top: none;
+  border-bottom: none;
+}
+
+.split-drop-zone.drop-top,
+.split-drop-zone.drop-bottom {
+  left: 25%;
+  right: 25%;
+  height: 25%;
+}
+
+.split-drop-zone.drop-top {
+  top: 0;
+  border-bottom-style: dashed;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+
+.split-drop-zone.drop-bottom {
+  bottom: 0;
+  border-top-style: dashed;
+  border-bottom: none;
+  border-left: none;
+  border-right: none;
+}
+
+.split-drop-zone.drop-center {
+  top: 25%;
+  left: 25%;
+  right: 25%;
+  bottom: 25%;
+  border: 2px dashed rgba(130, 170, 255, 0.3);
+}
+
+.split-drop-zone.drag-over {
+  background: rgba(130, 170, 255, 0.2);
+  border-color: var(--accent);
+}
+
+.split-drop-zone .drop-zone-icon {
+  font-size: 24px;
+  color: rgba(130, 170, 255, 0.4);
+  transition: color 0.15s ease;
+}
+
+.split-drop-zone.drag-over .drop-zone-icon {
+  color: var(--accent);
+}
 
 /* Hide scrollbar in split terminal */
 .split-pane .xterm-viewport {
@@ -3205,15 +3294,29 @@ button:disabled {
     display: flex !important;
   }
   .tab-name-pill {
-    display: none;
+    cursor: grab;
+    right: 20px;
   }
-  .split-pane .tab-name-pill {
-    display: flex;
+  .tab-name-pill.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
   }
 }
 
 /* Responsive */
 @media (max-width: 768px) {
+  .split-drop-zone.drop-top,
+  .split-drop-zone.drop-bottom {
+    left: 0;
+    right: 0;
+    height: 30%;
+  }
+  .split-drop-zone.drop-center {
+    left: 0;
+    right: 0;
+    top: 30%;
+    bottom: 30%;
+  }
   .modal-overlay {
     padding: 0;
   }

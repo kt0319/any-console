@@ -220,6 +220,99 @@ function updateActivePaneVisual() {
   });
 }
 
+function showSplitDropZones(dragTabId) {
+  hideSplitDropZones();
+  const container = $("output-container");
+  const overlay = document.createElement("div");
+  overlay.className = "split-drop-overlay";
+
+  const allZones = [
+    { dir: "left", icon: "mdi-arrow-left" },
+    { dir: "right", icon: "mdi-arrow-right" },
+    { dir: "top", icon: "mdi-arrow-up" },
+    { dir: "bottom", icon: "mdi-arrow-down" },
+    { dir: "center", icon: "mdi-fullscreen" },
+  ];
+  const zones = panelBottom
+    ? allZones.filter((z) => z.dir === "top" || z.dir === "bottom" || z.dir === "center")
+    : allZones;
+
+  for (const { dir, icon } of zones) {
+    const zone = document.createElement("div");
+    zone.className = `split-drop-zone drop-${dir}`;
+    zone.innerHTML = `<span class="mdi ${icon} drop-zone-icon"></span>`;
+    zone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+    });
+    zone.addEventListener("dragenter", (e) => {
+      e.preventDefault();
+      zone.classList.add("drag-over");
+    });
+    zone.addEventListener("dragleave", () => {
+      zone.classList.remove("drag-over");
+    });
+    zone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      hideSplitDropZones();
+      splitWithDrop(dragTabId, dir);
+    });
+    overlay.appendChild(zone);
+  }
+
+  container.appendChild(overlay);
+}
+
+function hideSplitDropZones() {
+  const existing = document.querySelector(".split-drop-overlay");
+  if (existing) existing.remove();
+}
+
+function splitWithDrop(dragTabId, direction) {
+  const dragTab = openTabs.find((t) => t.id === dragTabId);
+  if (!dragTab) return;
+
+  if (direction === "center") {
+    if (splitMode) exitSplitModeWithTab(dragTabId);
+    else switchTab(dragTabId);
+    return;
+  }
+
+  const newLayout = (direction === "left" || direction === "right") ? "horizontal" : "vertical";
+
+  if (splitMode) {
+    const wantFirst = direction === "left" || direction === "top";
+    const currentIdx = splitPaneTabIds.indexOf(dragTabId);
+    const alreadyFirst = currentIdx === 0;
+    const alreadyLast = currentIdx === splitPaneTabIds.length - 1;
+    if ((wantFirst && alreadyFirst) || (!wantFirst && alreadyLast)) {
+      return;
+    }
+    const others = splitPaneTabIds.filter((id) => id !== dragTabId);
+    splitLayout = newLayout;
+    splitPaneTabIds = wantFirst ? [dragTabId, ...others] : [...others, dragTabId];
+    activePaneIndex = splitPaneTabIds.indexOf(dragTabId);
+    activeTabId = dragTabId;
+    rebuildSplitLayout();
+    return;
+  }
+
+  const currentActiveId = activeTabId;
+  const otherId = currentActiveId && currentActiveId !== dragTabId
+    ? currentActiveId
+    : openTabs.find((t) => t.id !== dragTabId)?.id;
+  if (!otherId) return;
+
+  splitLayout = newLayout;
+  splitPaneTabIds = (direction === "left" || direction === "top")
+    ? [dragTabId, otherId]
+    : [otherId, dragTabId];
+  activePaneIndex = splitPaneTabIds.indexOf(dragTabId);
+  activeTabId = dragTabId;
+
+  enterSplitMode();
+}
+
 function fitAllSplitTerminals() {
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {

@@ -47,7 +47,17 @@ function refitTerminalWithFocus(tab) {
 }
 
 function copyToClipboard(text) {
-  navigator.clipboard.writeText(text).catch((e) => console.error("clipboard write failed:", e));
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).catch((e) => console.error("clipboard write failed:", e));
+    return;
+  }
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.cssText = "position:fixed;opacity:0";
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand("copy");
+  ta.remove();
 }
 
 function toDisplayMessage(value, fallback = "") {
