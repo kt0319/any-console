@@ -79,7 +79,7 @@ async function fetchIconMeta() {
 function openIconPicker(callback, currentIcon, currentColor) {
   iconPickerCallback = callback;
   iconPickerSelectedColor = currentColor || "";
-  iconPickerSelectedIcon = null;
+  iconPickerSelectedIcon = currentIcon || null;
   iconPickerPendingClear = false;
   const modal = $("icon-picker-modal");
   const search = $("icon-picker-search");
@@ -99,12 +99,26 @@ function openIconPicker(callback, currentIcon, currentColor) {
   renderPickerColorPalette(iconPickerSelectedColor);
   modal.style.display = "flex";
 
+  if (iconPickerSelectedIcon && iconPickerSelectedIcon.startsWith("mdi-")) {
+    preview.innerHTML = renderIcon(iconPickerSelectedIcon, iconPickerSelectedColor, 24);
+    confirmBtn.disabled = false;
+  } else if (iconPickerSelectedIcon) {
+    preview.innerHTML = renderIcon(iconPickerSelectedIcon, iconPickerSelectedColor, 24);
+    confirmBtn.disabled = false;
+  }
+
   fetchIconMeta().then((icons) => {
     const q = search.value.trim().toLowerCase();
     if (!looksLikeUrl(q)) {
       renderIconGrid(icons, q);
     } else {
       renderIconGrid(icons, "");
+    }
+    if (iconPickerSelectedIcon && iconPickerSelectedIcon.startsWith("mdi-")) {
+      const grid = $("icon-picker-grid");
+      grid.querySelectorAll(".icon-picker-item").forEach((el) => {
+        el.classList.toggle("selected", el.title === iconPickerSelectedIcon.replace("mdi-", ""));
+      });
     }
   });
 
@@ -422,8 +436,18 @@ function renderInlineIconPicker(container, callback, currentIcon, currentColor, 
     }
   });
 
+  if (selectedIcon) {
+    preview.innerHTML = renderIcon(selectedIcon, selectedColor, 24);
+    urlOkBtn.disabled = false;
+  }
+
   fetchIconMeta().then((icons) => {
     renderIconGridTo(grid, icons, "", onIconSelect);
+    if (selectedIcon && selectedIcon.startsWith("mdi-")) {
+      grid.querySelectorAll(".icon-picker-item").forEach((el) => {
+        el.classList.toggle("selected", el.title === selectedIcon.replace("mdi-", ""));
+      });
+    }
   });
 
   search.oninput = () => {
