@@ -1,4 +1,6 @@
 Object.assign(GitLogModal, {
+  _remoteBranchesExpanded: false,
+
   async selectBranch(branch) {
     GitLogModal.closeSubPane();
     await GitCore.checkoutBranch(branch);
@@ -8,17 +10,13 @@ Object.assign(GitLogModal, {
   createBranchListItem(branch, currentBranch, { remote = false } = {}) {
     const item = document.createElement("div");
     item.className = `branch-item${remote ? " remote-only" : ""}`;
-    if (branch === currentBranch) {
-      item.classList.add("current");
-    }
+    if (branch === currentBranch) item.classList.add("current");
 
     const nameEl = document.createElement("div");
     nameEl.className = "branch-item-name";
     nameEl.textContent = branch === currentBranch ? `${branch} ✓` : branch;
     if (branch !== currentBranch) {
-      nameEl.addEventListener("click", async () => {
-        await GitLogModal.selectBranch(branch);
-      });
+      nameEl.addEventListener("click", () => GitLogModal.selectBranch(branch));
     }
     item.appendChild(nameEl);
 
@@ -29,9 +27,9 @@ Object.assign(GitLogModal, {
       delBtn.type = "button";
       delBtn.className = "commit-action-item commit-action-danger";
       delBtn.textContent = "削除";
-      delBtn.addEventListener("click", async (e) => {
+      delBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        await GitLogModal.deleteBranch(branch, remote, delBtn);
+        GitLogModal.deleteBranch(branch, remote, delBtn, item);
       });
       actions.appendChild(delBtn);
       item.appendChild(actions);
@@ -42,33 +40,55 @@ Object.assign(GitLogModal, {
 
   async openLocalBranchPane() {
     GitLogModal.showSubPane("branch", "ブランチ");
+    GitLogModal._remoteBranchesExpanded = false;
+    await GitLogModal.renderBranchList();
+    GitLogModal.backgroundFetch();
+  },
+
+  async renderBranchList() {
     const listEl = $("branch-pane-list");
-    listEl.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
+    if (!listEl) return;
 
     await GitCore.loadBranches();
-
     const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
     const currentBranch = ws ? ws.branch : null;
 
     listEl.innerHTML = "";
-
-    for (const b of cachedBranches) {
+    const sorted = currentBranch
+      ? [currentBranch, ...cachedBranches.filter((b) => b !== currentBranch)]
+      : cachedBranches;
+    for (const b of sorted) {
       listEl.appendChild(GitLogModal.createBranchListItem(b, currentBranch));
     }
 
-    const remoteBtn = document.createElement("div");
-    remoteBtn.className = "branch-item branch-item-action";
-    remoteBtn.textContent = "リモートブランチを表示...";
-    remoteBtn.addEventListener("click", async () => {
-      remoteBtn.textContent = "読み込み中...";
-      remoteBtn.classList.add("clone-repo-loading");
-      remoteBtn.style.pointerEvents = "none";
-      await GitLogModal.renderRemoteBranchInlineList(listEl, currentBranch);
-      remoteBtn.remove();
-    });
-    listEl.appendChild(remoteBtn);
+    if (GitLogModal._remoteBranchesExpanded) {
+      await GitLogModal.appendRemoteBranches(listEl, currentBranch);
+    } else {
+      const remoteBtn = document.createElement("div");
+      remoteBtn.className = "branch-item branch-item-action";
+      remoteBtn.textContent = "リモートブランチを表示...";
+      remoteBtn.addEventListener("click", async () => {
+        GitLogModal._remoteBranchesExpanded = true;
+        remoteBtn.textContent = "読み込み中...";
+        remoteBtn.classList.add("clone-repo-loading");
+        remoteBtn.style.pointerEvents = "none";
+        await GitLogModal.appendRemoteBranches(listEl, currentBranch);
+        remoteBtn.remove();
+      });
+      listEl.appendChild(remoteBtn);
+    }
+  },
 
-    GitLogModal.backgroundFetch();
+  async appendRemoteBranches(listEl, currentBranch) {
+    try {
+      const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/branches/remote"));
+      if (!res || !res.ok) return;
+      const remoteBranches = await res.json();
+      const remoteOnly = remoteBranches.filter((b) => !cachedBranches.includes(b));
+      for (const branch of remoteOnly) {
+        listEl.appendChild(GitLogModal.createBranchListItem(branch, currentBranch, { remote: true }));
+      }
+    } catch {}
   },
 
   async backgroundFetch() {
@@ -79,31 +99,53 @@ Object.assign(GitLogModal, {
       if (!res || !res.ok) return;
       const data = await res.json();
       if (data.status === "ok") {
-        await GitLogModal.openLocalBranchPane();
+        await GitLogModal.renderBranchList();
       }
     } catch {} finally {
       GitLogModal._fetchingInBackground = false;
     }
   },
 
-  async renderRemoteBranchInlineList(listEl, currentBranch) {
+  async deleteBranch(branch, remote, triggerBtn, itemEl) {
+    if (!selectedWorkspace) return;
+    const label = remote ? `リモートブランチ ${branch}` : `ブランチ ${branch}`;
+    if (!confirm(`${label} を削除しますか？`)) return;
+
+    if (triggerBtn) {
+      triggerBtn.disabled = true;
+      triggerBtn.classList.add("running");
+    }
+
     try {
-      const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/branches/remote"));
-      if (!res || !res.ok) return;
-
-      const remoteBranches = await res.json();
-      const remoteOnlyBranches = remoteBranches.filter((branch) => !cachedBranches.includes(branch));
-      if (remoteOnlyBranches.length === 0) return;
-
-      for (const branch of remoteOnlyBranches) {
-        listEl.appendChild(GitLogModal.createBranchListItem(branch, currentBranch, { remote: true }));
+      const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/delete-branch"), {
+        method: "POST",
+        body: { branch, remote },
+      });
+      if (!res) return;
+      const data = await res.json();
+      if (data.status === "ok") {
+        showToast(`${label} を削除しました`, "success");
+        if (itemEl) {
+          itemEl.remove();
+          if (!remote) await GitCore.loadBranches();
+          return;
+        }
+      } else {
+        showToast(`削除失敗: ${data.stderr || data.stdout || "unknown error"}`);
       }
-    } catch {}
+    } catch (e) {
+      showToast(`削除エラー: ${e.message}`);
+    } finally {
+      if (triggerBtn) {
+        triggerBtn.classList.remove("running");
+        triggerBtn.disabled = false;
+      }
+    }
+    await GitLogModal.renderBranchList();
   },
 
   async openStashPane() {
     if (!selectedWorkspace) return;
-
     GitLogModal.showSubPane("stash", "Stash");
     $("stash-save-btn").onclick = () => GitLogModal.execStashSave();
     const listEl = $("stash-pane-list");
@@ -176,51 +218,17 @@ Object.assign(GitLogModal, {
   async execStashRefAction(action, ref) {
     if (!selectedWorkspace) return;
     const actionLabel = action === "pop" ? "適用" : "削除";
-    const label = `stash ${action} ${ref}`;
     const confirmLabel = `stash ${actionLabel} ${ref}`;
     if (!confirm(`${confirmLabel} を実行しますか？`)) return;
     const endpoint = action === "pop" ? "stash-pop-index" : "stash-drop";
     await postWorkspaceAction(
       selectedWorkspace,
       `/${endpoint}`,
-      label,
+      `stash ${action} ${ref}`,
       { stash_ref: ref },
     );
     GitLogModal.closeSubPane();
     await GitCore.refreshAfterGitOp();
     await GitLogModal.reloadGitLog();
-  },
-
-  async deleteBranch(branch, remote, triggerBtn) {
-    if (!selectedWorkspace) return;
-    const label = remote ? `リモートブランチ ${branch}` : `ブランチ ${branch}`;
-    if (!confirm(`${label} を削除しますか？`)) return;
-
-    if (triggerBtn) {
-      triggerBtn.disabled = true;
-      triggerBtn.classList.add("running");
-    }
-
-    try {
-      const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/delete-branch"), {
-        method: "POST",
-        body: { branch, remote },
-      });
-      if (!res) return;
-      const data = await res.json();
-      if (data.status === "ok") {
-        showToast(`${label} を削除しました`, "success");
-      } else {
-        showToast(`削除失敗: ${data.stderr || data.stdout || "unknown error"}`);
-      }
-    } catch (e) {
-      showToast(`削除エラー: ${e.message}`);
-    } finally {
-      if (triggerBtn) {
-        triggerBtn.classList.remove("running");
-        triggerBtn.disabled = false;
-      }
-    }
-    await GitLogModal.openLocalBranchPane();
   },
 });

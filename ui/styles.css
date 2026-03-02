@@ -2218,7 +2218,6 @@ button:disabled {
 #stash-pane-list {
   border: 1px solid var(--border);
   border-radius: 8px;
-  overflow: hidden;
 }
 
 .branch-item {
