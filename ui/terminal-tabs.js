@@ -335,10 +335,11 @@ function updateGitBarVisibility() {
   let hint = $("non-git-hint");
   if (!isGitRepo) {
     if (!hint) {
-      hint = document.createElement("span");
+      hint = document.createElement("button");
       hint.id = "non-git-hint";
-      hint.className = "non-git-hint";
+      hint.className = "non-git-hint commit-msg-btn";
       hint.textContent = "Gitリポジトリではありません";
+      hint.onclick = () => GitLogModal.openFileBrowserModal();
       $("header-row2").appendChild(hint);
     }
     hint.style.display = "";

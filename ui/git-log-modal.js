@@ -247,4 +247,13 @@ const GitLogModal = {
     GitLogModal.state.history.hasMore = false;
     await Promise.all([loadDirectoryInDiffPane(""), GitLogModal.reloadGitLog()]);
   },
+
+  async openFileBrowserModal() {
+    if (!selectedWorkspace) return;
+    GitLogModal.ensureDiffTabVisible();
+    $("git-log-modal").style.display = "flex";
+    GitLogModal.setDiffTopMode("files", { title: "ファイル" });
+    clearActiveDiffRef();
+    await loadDirectoryInDiffPane("");
+  },
 };
