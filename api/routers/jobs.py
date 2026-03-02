@@ -17,6 +17,7 @@ from ..common import (
 )
 from ..config import load_workspace_config_section, save_workspace_config_section
 from ..git_utils import command_result_dict, get_git_branches
+from ..icons import normalize_icon
 from ..jobs import TERMINAL_JOB, JobDefinition
 from ..runner import run_job
 from .terminal import (
@@ -97,7 +98,7 @@ def get_workspace_job(name: str, job_name: str):
     return job_definition_to_dict(job_def)
 
 
-ICON_PATTERN = re.compile(r"^(mdi-[a-zA-Z0-9-]+|favicon:[a-zA-Z0-9._-]+|data:image/.+)$")
+ICON_PATTERN = re.compile(r"^(mdi-[a-zA-Z0-9-]+|favicon:[a-zA-Z0-9._-]+|data:image/.+|icon:[a-f0-9]{16}\.(png|jpg|gif|webp|svg))$")
 ICON_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{3,6}$")
 MAX_ICON_VALUE_LEN = 200_000
 
@@ -108,6 +109,7 @@ def validate_icon(icon: str) -> str:
         return ""
     if len(icon) > MAX_ICON_VALUE_LEN:
         raise HTTPException(status_code=400, detail="Icon value too long")
+    icon = normalize_icon(icon)
     if not ICON_PATTERN.match(icon):
         raise HTTPException(status_code=400, detail=f"Invalid icon format: {icon}")
     return icon

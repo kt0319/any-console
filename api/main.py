@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .auth import verify_token
 from .common import BACKGROUND_EXECUTOR, LOG_BUFFER, UPLOAD_DIR, WORK_DIR
+from .icons import ICONS_DIR
 from .routers import git, jobs, logs, settings, system, terminal, workspaces
 
 logging.basicConfig(
@@ -43,6 +44,7 @@ EXCLUDE_LOG_PREFIXES = (
     "/logs",
     "/auth/check",
     "/system/",
+    "/icons/",
     "/ui/",
     "/styles",
     "/app.",
@@ -133,6 +135,8 @@ def serve_index(request: Request):
     return Response(content=html, media_type="text/html", headers={"Cache-Control": "no-cache"})
 
 
+ICONS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/icons", StaticFiles(directory=str(ICONS_DIR)), name="icons")
 app.mount("/", StaticFiles(directory=str(UI_DIR)), name="ui")
 
 if __name__ == "__main__":

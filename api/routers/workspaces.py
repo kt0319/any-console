@@ -23,6 +23,7 @@ from ..config import (
     save_workspace_config,
 )
 from ..git_utils import command_result_dict, git_branch, git_is_repo
+from ..icons import normalize_icon
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +109,7 @@ class UpdateConfigRequest(BaseModel):
 def update_workspace_config_endpoint(name: str, body: UpdateConfigRequest):
     resolve_workspace_path(name)
     config = load_workspace_config(name)
-    config["icon"] = body.icon.strip()
+    config["icon"] = normalize_icon(body.icon.strip())
     config["icon_color"] = body.icon_color.strip()
     config["hidden"] = body.hidden
     save_workspace_config(name, config)

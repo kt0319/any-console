@@ -228,7 +228,7 @@ function faviconUrl(domain) {
 }
 
 function isImageDataIcon(icon) {
-  return icon && (icon.startsWith("data:image/") || icon.startsWith("favicon:"));
+  return icon && (icon.startsWith("data:image/") || icon.startsWith("favicon:") || icon.startsWith("icon:"));
 }
 
 function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 30, animationTarget } = {}) {
@@ -368,8 +368,9 @@ const VALID_ICON_COLOR = /^#[0-9a-fA-F]{3,6}$/;
 
 function renderIcon(icon, iconColor, size = 16) {
   if (!icon) return "";
-  if (icon.startsWith("data:image/")) {
-    return `<img src="${icon}" width="${size}" height="${size}" class="favicon-icon" alt="" />`;
+  if (icon.startsWith("data:image/") || icon.startsWith("icon:")) {
+    const src = icon.startsWith("icon:") ? `/icons/${icon.slice(5)}` : icon;
+    return `<img src="${escapeHtml(src)}" width="${size}" height="${size}" class="favicon-icon" alt="" />`;
   }
   if (icon.startsWith("favicon:")) {
     const domain = icon.slice("favicon:".length);
