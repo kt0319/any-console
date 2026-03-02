@@ -133,10 +133,3 @@ function stopStatusPolling() {
   document.removeEventListener("visibilitychange", onVisibilityChangeForRefresh);
 }
 
-async function gitFetchWorkspace(name) {
-  try {
-    await apiFetch(workspaceApiPath(name, "/fetch"), { method: "POST" });
-  } catch (e) {
-    console.error("gitFetchWorkspace failed:", e);
-  }
-}

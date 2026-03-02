@@ -18,16 +18,6 @@ function setDiffViewerMode(mode) {
   diffViewerMode = mode === "diff" ? "diff" : "file";
 }
 
-function renderDiffActions(container, hash, branches) {
-  const actions = GitCore.buildCommitActions(hash, {
-    branches,
-    checkoutBranchFn: () => GitLogModal.toggleCreateBranchArea(hash),
-  });
-
-  renderActionButtons(container, actions);
-  container.style.display = "flex";
-}
-
 function initDiffPane(actions = null) {
   const fileList = $("diff-file-list");
   const actionsEl = $("diff-actions");
@@ -66,24 +56,10 @@ async function showLoadedDiff(fileList, data, options = {}) {
 }
 
 async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
-  const actionsEl = $("diff-actions");
   setDiffViewerMode("file");
   currentDiffRef = commitHash || null;
   initDiffPane();
   GitLogModal.showDiffPane(commitMsg || "");
-
-  if (commitHash) {
-    if (commitHash.startsWith("stash@")) {
-      const actions = [
-        { label: "適用", cls: "", fn: () => GitLogModal.execStashRefAction("pop", commitHash) },
-        { label: "削除", cls: "commit-action-danger", fn: () => GitLogModal.execStashRefAction("drop", commitHash) },
-      ];
-      renderActionButtons(actionsEl, actions);
-      actionsEl.style.display = "flex";
-    } else {
-      renderDiffActions(actionsEl, commitHash, branches);
-    }
-  }
 
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/diff/${encodeURIComponent(commitHash)}`));

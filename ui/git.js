@@ -4,30 +4,6 @@ const GitCore = {
     await refreshWorkspaceHeader();
   },
 
-  async gitFetch(trigger = "fetch-btn") {
-    if (!selectedWorkspace) return;
-    const fetchBtn = typeof trigger === "string" ? $(trigger) : trigger;
-    if (fetchBtn?.disabled) return;
-    if (fetchBtn) {
-      fetchBtn.disabled = true;
-      fetchBtn.classList.add("running");
-    }
-    try {
-      await gitFetchWorkspace(selectedWorkspace);
-      await GitCore.refreshAfterGitOp();
-      if ($("git-log-modal").style.display !== "none") {
-        await GitLogModal.reloadGitLog();
-      }
-      showToast("fetch 完了", "success");
-    } catch (e) {
-      showToast(`fetch エラー: ${e.message}`);
-    } finally {
-      if (fetchBtn) {
-        fetchBtn.classList.remove("running");
-        fetchBtn.disabled = false;
-      }
-    }
-  },
 
   async executeGitRemoteOp(buttonId, endpoint, label) {
     if (!selectedWorkspace) return;

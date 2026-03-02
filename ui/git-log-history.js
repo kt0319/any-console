@@ -76,8 +76,13 @@ Object.assign(GitLogModal, {
           }
         }
         const branches = [...branchSet];
-        entry.addEventListener("click", () => {
-          openCommitDiffModal(hash, msg, branches);
+        bindLongPress(entry, {
+          onClick: () => openCommitDiffModal(hash, msg, branches),
+          onLongPress: () => GitLogModal.toggleCommitActionMenu(entry, hash, msg, branches),
+        });
+        entry.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          GitLogModal.toggleCommitActionMenu(entry, hash, msg, branches);
         });
         count++;
       } else {
@@ -153,10 +158,6 @@ Object.assign(GitLogModal, {
     const isDirty = ws && ws.clean === false;
     const entry = document.createElement("div");
     entry.className = "git-log-entry git-log-dirty";
-    const fetchButtonHtml =
-      '<button type="button" class="git-action-btn icon-only git-log-dirty-fetch-btn" title="Fetch" aria-label="Fetch">' +
-        '<span class="mdi mdi-refresh"></span>' +
-      "</button>";
     const commitButtonHtml =
       '<button type="button" class="git-action-btn icon-only git-log-dirty-commit-btn" title="コミット" aria-label="コミット">' +
         '<span class="mdi mdi-check"></span>' +
@@ -173,13 +174,8 @@ Object.assign(GitLogModal, {
       '<span class="git-log-entry-body git-log-dirty-body">' +
         '<span class="git-log-dirty-main">';
     bodyHtml += renderDirtyWorkspaceLabel(ws);
-    bodyHtml += `</span><span class="git-log-dirty-actions">${isDirty ? commitButtonHtml : ""}${stashButtonHtml}${branchButtonHtml}${fetchButtonHtml}</span></span>`;
+    bodyHtml += `</span><span class="git-log-dirty-actions">${isDirty ? commitButtonHtml : ""}${stashButtonHtml}${branchButtonHtml}</span></span>`;
     entry.innerHTML = bodyHtml;
-    const fetchBtn = entry.querySelector(".git-log-dirty-fetch-btn");
-    fetchBtn?.addEventListener("click", async (event) => {
-      event.stopPropagation();
-      await GitCore.gitFetch(fetchBtn);
-    });
     const commitBtn = entry.querySelector(".git-log-dirty-commit-btn");
     commitBtn?.addEventListener("click", (event) => {
       event.stopPropagation();

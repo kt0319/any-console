@@ -39,6 +39,7 @@ const GitLogModal = {
     });
 
     renderActionButtons(menuEl, actions);
+    entry.after(menuEl);
     menuEl.style.display = "flex";
   },
 

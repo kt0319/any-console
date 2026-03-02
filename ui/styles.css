@@ -436,7 +436,6 @@ header {
   padding: 0;
 }
 
-.git-action-btn.fetch-btn,
 .git-action-btn.stash-btn {
   color: var(--text-muted);
   background: var(--bg-tertiary);
@@ -2311,15 +2310,6 @@ button:disabled {
 }
 
 .git-log-dirty-commit-btn {
-  align-self: stretch;
-  width: 40px;
-  min-width: 40px;
-  min-height: 100%;
-  height: auto;
-  padding: 0;
-}
-
-.git-log-dirty-fetch-btn {
   align-self: stretch;
   width: 40px;
   min-width: 40px;

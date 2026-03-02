@@ -67,6 +67,23 @@ Object.assign(GitLogModal, {
       remoteBtn.remove();
     });
     listEl.appendChild(remoteBtn);
+
+    GitLogModal.backgroundFetch();
+  },
+
+  async backgroundFetch() {
+    if (GitLogModal._fetchingInBackground) return;
+    GitLogModal._fetchingInBackground = true;
+    try {
+      const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/fetch"), { method: "POST" });
+      if (!res || !res.ok) return;
+      const data = await res.json();
+      if (data.status === "ok") {
+        await GitLogModal.openLocalBranchPane();
+      }
+    } catch {} finally {
+      GitLogModal._fetchingInBackground = false;
+    }
   },
 
   async renderRemoteBranchInlineList(listEl, currentBranch) {
