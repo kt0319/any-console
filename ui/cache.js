@@ -1,3 +1,4 @@
+const WORKSPACES_CACHE_KEY = "pi_console_cache_workspaces";
 const WORKSPACE_META_CACHE_PREFIX = "pi_console_cache_workspace_meta:";
 const GITHUB_REPOS_CACHE_KEY = "pi_console_cache_github_repos";
 const CACHE_OWNER_KEY = "pi_console_cache_owner_token";
@@ -99,7 +100,22 @@ function invalidateGithubReposCache() {
   } catch {}
 }
 
+function getWorkspacesCache() {
+  return readJsonCache(WORKSPACES_CACHE_KEY);
+}
+
+function setWorkspacesCache(workspaces) {
+  writeJsonCache(WORKSPACES_CACHE_KEY, workspaces);
+}
+
+function invalidateWorkspacesCache() {
+  try {
+    localStorage.removeItem(WORKSPACES_CACHE_KEY);
+  } catch {}
+}
+
 function clearPersistedApiCaches() {
+  invalidateWorkspacesCache();
   invalidateWorkspaceMetaCache();
   invalidateGithubReposCache();
 }

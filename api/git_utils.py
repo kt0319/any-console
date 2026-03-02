@@ -75,6 +75,32 @@ def invalidate_git_info(workspace_name: str):
     _git_info_cache.invalidate(cache_key)
 
 
+def git_branch(directory: Path) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True, text=True, timeout=GIT_QUICK_TIMEOUT_SEC,
+            cwd=str(directory),
+        )
+        if result.returncode == 0:
+            return result.stdout.strip() or None
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    return None
+
+
+def git_is_repo(directory: Path) -> bool:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            capture_output=True, text=True, timeout=GIT_QUICK_TIMEOUT_SEC,
+            cwd=str(directory),
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+
+
 def git_info(directory: Path) -> dict:
     cache_key = str(directory)
     cached = _git_info_cache.get(cache_key)

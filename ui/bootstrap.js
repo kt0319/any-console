@@ -1,6 +1,6 @@
 async function initApp() {
   setLoadingStatus("ワークスペースを読み込み中...");
-  await loadWorkspaces();
+  await loadWorkspaces({ useCache: true });
   if (!selectedWorkspace) {
     const firstVisibleWorkspace = visibleWorkspaces()[0];
     if (firstVisibleWorkspace) {

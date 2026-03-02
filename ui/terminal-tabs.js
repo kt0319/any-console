@@ -327,7 +327,7 @@ function updateGitBarVisibility() {
   $("header-row2").style.display = show ? "flex" : "none";
   if (!show) return;
   const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
-  const isGitRepo = ws && ws.branch !== null;
+  const isGitRepo = ws && ws.is_git_repo === true;
   const hasUpstream = ws ? ws.has_upstream !== false : true;
   $("header-commit-msg").style.display = isGitRepo ? "" : "none";
   $("main-git-status").style.display = isGitRepo ? "" : "none";

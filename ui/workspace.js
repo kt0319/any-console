@@ -1,12 +1,20 @@
-async function loadWorkspaces() {
+async function loadWorkspaces({ useCache = false } = {}) {
+  if (useCache) {
+    const cached = getWorkspacesCache();
+    if (cached && Array.isArray(cached) && cached.length > 0) {
+      allWorkspaces = cached;
+    }
+  }
   try {
     const res = await apiFetch("/workspaces");
     if (res && res.ok) {
       allWorkspaces = await res.json();
+      setWorkspacesCache(allWorkspaces);
     }
   } catch (e) {
-    showToast("ワークスペース一覧の取得に失敗しました", "error");
-    allWorkspaces = [];
+    if (allWorkspaces.length === 0) {
+      showToast("ワークスペース一覧の取得に失敗しました", "error");
+    }
   }
 }
 

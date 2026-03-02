@@ -1,7 +1,6 @@
 const GitCore = {
   async refreshAfterGitOp() {
-    await loadWorkspaces();
-    await refreshWorkspaceHeader();
+    await refreshCurrentWorkspaceStatus();
   },
 
 

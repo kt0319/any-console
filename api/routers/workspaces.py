@@ -22,7 +22,7 @@ from ..config import (
     save_global_config_section,
     save_workspace_config,
 )
-from ..git_utils import command_result_dict, git_info_to_status_dict
+from ..git_utils import command_result_dict, git_branch, git_is_repo
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,21 @@ def _sort_key_by_workspace_order(order_list):
     return key
 
 
+def _lightweight_workspace_info(workspace_dir):
+    name = workspace_dir.name
+    is_git = git_is_repo(workspace_dir)
+    branch = git_branch(workspace_dir) if is_git else None
+    config = load_workspace_config(name)
+    return {
+        "name": name,
+        "is_git_repo": is_git,
+        "branch": branch,
+        "icon": config.get("icon", ""),
+        "icon_color": config.get("icon_color", ""),
+        "hidden": config.get("hidden", False),
+    }
+
+
 @router.get("/workspaces")
 def list_workspaces():
     if not WORK_DIR.is_dir():
@@ -67,15 +82,7 @@ def list_workspaces():
          if workspace_dir.is_dir() and not workspace_dir.name.startswith(".")],
         key=_sort_key_by_workspace_order(workspace_order),
     )
-    result = list(BACKGROUND_EXECUTOR.map(
-        lambda workspace_dir: git_info_to_status_dict(workspace_dir, workspace_dir.name),
-        dirs,
-    ))
-    for ws_data, workspace_dir in zip(result, dirs):
-        config = load_workspace_config(workspace_dir.name)
-        ws_data["icon"] = config.get("icon", "")
-        ws_data["icon_color"] = config.get("icon_color", "")
-        ws_data["hidden"] = config.get("hidden", False)
+    result = list(BACKGROUND_EXECUTOR.map(_lightweight_workspace_info, dirs))
     BACKGROUND_EXECUTOR.submit(_background_fetch, dirs)
     return result
 

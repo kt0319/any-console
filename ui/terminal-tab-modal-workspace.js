@@ -50,12 +50,24 @@ function createTerminalTabModalWorkspaceSection(deps) {
           button.classList.remove("running");
           button.disabled = false;
         }
-        await loadWorkspaces();
+        await refreshWorkspaceStatusInModal(wsName, container);
         if (selectedWorkspace === wsName) {
           await refreshWorkspaceHeader();
         }
-        container.innerHTML = "";
-        renderModalWsList(container);
+      }
+    }
+
+    async function refreshWorkspaceStatusInModal(wsName, listContainer) {
+      const res = await apiFetch(workspaceApiPath(wsName, "/status"));
+      if (!res || !res.ok) return;
+      const status = await res.json();
+      const idx = allWorkspaces.findIndex((w) => w.name === wsName);
+      if (idx >= 0) {
+        allWorkspaces[idx] = { ...allWorkspaces[idx], ...status };
+      }
+      const group = listContainer.querySelector(`[data-workspace-name="${wsName}"]`);
+      if (group) {
+        updateModalWsGroupGitInfo(group, allWorkspaces[idx]);
       }
     }
 
@@ -186,7 +198,7 @@ function createTerminalTabModalWorkspaceSection(deps) {
         workspaceName: ws.name,
         getPath: () => "",
         onSuccess: async () => {
-          await loadWorkspaces();
+          await refreshWorkspaceStatusInModal(ws.name, container);
           if (selectedWorkspace === ws.name) {
             await refreshWorkspaceHeader();
           }
@@ -210,7 +222,130 @@ function createTerminalTabModalWorkspaceSection(deps) {
         });
     }
 
-    // ワークスペース項目の末尾に新規追加ボタンは出さない
+    fetchModalWsGitStatuses(workspaces, container);
+  }
+
+  function fetchModalWsGitStatuses(workspaces, listContainer) {
+    const gitWorkspaces = workspaces.filter((ws) => ws.is_git_repo);
+    for (const ws of gitWorkspaces) {
+      apiFetch(workspaceApiPath(ws.name, "/status"))
+        .then(async (res) => {
+          if (!res || !res.ok) return;
+          const status = await res.json();
+          const idx = allWorkspaces.findIndex((w) => w.name === ws.name);
+          if (idx >= 0) {
+            allWorkspaces[idx] = { ...allWorkspaces[idx], ...status };
+          }
+          const group = listContainer.querySelector(`[data-workspace-name="${ws.name}"]`);
+          if (group) {
+            updateModalWsGroupGitInfo(group, allWorkspaces[idx >= 0 ? idx : 0]);
+          }
+        })
+        .catch(() => {});
+    }
+  }
+
+  function updateModalWsGroupGitInfo(group, ws) {
+    const topMeta = group.querySelector(".picker-ws-top-meta");
+    if (!topMeta) return;
+    topMeta.innerHTML = "";
+
+    const dirtyHtml = buildWorkspaceChangeSummaryHtml(ws);
+    if (dirtyHtml) {
+      const dirtyBadge = document.createElement("span");
+      dirtyBadge.className = "git-badge dirty";
+      dirtyBadge.innerHTML = dirtyHtml;
+      topMeta.appendChild(dirtyBadge);
+    }
+
+    const hasUpstream = ws.has_upstream !== false;
+    const hasRemoteBranch = ws.has_remote_branch === true;
+    if (!hasUpstream) {
+      const upstreamBtn = document.createElement("button");
+      upstreamBtn.type = "button";
+      if (hasRemoteBranch) {
+        upstreamBtn.className = "picker-ws-mini-btn upstream-set-btn";
+        upstreamBtn.innerHTML = `<span class="mdi mdi-link-variant"></span><span>追跡</span>`;
+        upstreamBtn.addEventListener("click", () => {
+          const container = group.closest(".terminal-ws-list");
+          if (container) executeWsRemoteOpFromGroup(ws.name, "/set-upstream", "追跡設定", upstreamBtn, container);
+        });
+      } else {
+        const hasAhead = ws.ahead > 0;
+        const aheadCount = String(ws.ahead ?? 0);
+        upstreamBtn.className = "picker-ws-mini-btn upstream-btn" + (hasAhead ? " has-count" : "");
+        upstreamBtn.innerHTML = `<span class="mdi mdi-chevron-double-up"></span><span>${aheadCount}</span>`;
+        upstreamBtn.addEventListener("click", () => {
+          const container = group.closest(".terminal-ws-list");
+          if (container) executeWsRemoteOpFromGroup(ws.name, "/push-upstream", "push", upstreamBtn, container);
+        });
+      }
+      topMeta.appendChild(upstreamBtn);
+    }
+
+    if (hasUpstream && ws.ahead > 0) {
+      const pushBtn = document.createElement("button");
+      pushBtn.type = "button";
+      pushBtn.className = "picker-ws-mini-btn push-btn has-count";
+      pushBtn.innerHTML = `<span class="mdi mdi-arrow-up"></span><span>${ws.ahead}</span>`;
+      pushBtn.addEventListener("click", () => {
+        const container = group.closest(".terminal-ws-list");
+        if (container) executeWsRemoteOpFromGroup(ws.name, "/push", "push", pushBtn, container);
+      });
+      topMeta.appendChild(pushBtn);
+    }
+
+    if (ws.behind > 0) {
+      const pullBtn = document.createElement("button");
+      pullBtn.type = "button";
+      pullBtn.className = "picker-ws-mini-btn pull-btn has-count";
+      pullBtn.innerHTML = `<span class="mdi mdi-arrow-down"></span><span>${ws.behind}</span>`;
+      pullBtn.addEventListener("click", () => {
+        const container = group.closest(".terminal-ws-list");
+        if (container) executeWsRemoteOpFromGroup(ws.name, "/pull", "pull", pullBtn, container);
+      });
+      topMeta.appendChild(pullBtn);
+    }
+
+    const branchEl = group.querySelector(".picker-ws-branch");
+    if (branchEl) {
+      branchEl.textContent = ws.branch || "-";
+    }
+  }
+
+  async function executeWsRemoteOpFromGroup(wsName, endpoint, label, button, listContainer) {
+    const ws = allWorkspaces.find((w) => w.name === wsName);
+    const branch = ws && ws.branch ? ws.branch : "(不明)";
+    const actionLabel = label === "追跡設定" ? "追跡設定" : label;
+    const msg = `${actionLabel} を実行しますか？\nリポジトリ: ${wsName}\nブランチ: ${branch}`;
+    if (!confirm(msg)) return;
+    if (button) {
+      button.disabled = true;
+      button.classList.add("running");
+    }
+    try {
+      await postWorkspaceAction(wsName, endpoint, label);
+    } finally {
+      if (button) {
+        button.classList.remove("running");
+        button.disabled = false;
+      }
+      const res = await apiFetch(workspaceApiPath(wsName, "/status"));
+      if (res && res.ok) {
+        const status = await res.json();
+        const idx = allWorkspaces.findIndex((w) => w.name === wsName);
+        if (idx >= 0) {
+          allWorkspaces[idx] = { ...allWorkspaces[idx], ...status };
+        }
+        const group = listContainer.querySelector(`[data-workspace-name="${wsName}"]`);
+        if (group) {
+          updateModalWsGroupGitInfo(group, allWorkspaces[idx >= 0 ? idx : 0]);
+        }
+      }
+      if (selectedWorkspace === wsName) {
+        await refreshWorkspaceHeader();
+      }
+    }
   }
 
   function showPickerCloneInContainer(content, mode = "visibility") {
