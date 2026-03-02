@@ -248,9 +248,10 @@ const GitLogModal = {
     if (typeof clearActiveDiffRef === "function") {
       clearActiveDiffRef();
     }
-    if (typeof loadDirectoryInDiffPane === "function") {
-      await loadDirectoryInDiffPane("");
-    }
-    await GitLogModal.reloadGitLog();
+    GitLogModal.state.history.hasMore = false;
+    const fileBrowserPromise = typeof loadDirectoryInDiffPane === "function"
+      ? loadDirectoryInDiffPane("")
+      : Promise.resolve();
+    await Promise.all([fileBrowserPromise, GitLogModal.reloadGitLog()]);
   },
 };

@@ -202,7 +202,7 @@ Object.assign(GitLogModal, {
 
     const history = GitLogModal.state.history;
     history.loaded = 0;
-    history.isLoading = false;
+    history.isLoading = true;
     history.hasMore = true;
     history.seenHashes.clear();
 
@@ -235,6 +235,8 @@ Object.assign(GitLogModal, {
       GitLogModal.state.gitLogLoadedWorkspace = null;
       listEl.innerHTML = "";
       showToast(`git log エラー: ${e.message}`);
+    } finally {
+      history.isLoading = false;
     }
   },
 });
