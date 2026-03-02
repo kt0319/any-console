@@ -114,9 +114,7 @@ function getFileBrowserRootLabel(view = "tab") {
 function getFileBrowserBadgeLabel(view = "tab") {
   if (
     view === "diff-pane"
-    && typeof getActiveDiffRef === "function"
     && getActiveDiffRef()
-    && typeof getDiffViewerMode === "function"
     && getDiffViewerMode() === "diff"
   ) {
     return "(差分)";
@@ -269,7 +267,7 @@ function getFileBrowserViewConfig(view) {
 }
 
 function getFileBrowserRef(view) {
-  if (view === "diff-pane" && typeof getActiveDiffRef === "function") {
+  if (view === "diff-pane") {
     return getActiveDiffRef() || "";
   }
   return "";
@@ -365,6 +363,7 @@ function bindFileBrowserEvents(container, view = "tab") {
     if (useLongPress) {
       bindLongPress(listEl, {
         onClick: (e) => handleFileListClick(e, config, useLongPress),
+        animationTarget: (e) => findFileBrowserItem(e.target),
         onLongPress: (e) => {
           const item = findFileBrowserItem(e.target);
           if (!item) return;
@@ -396,17 +395,17 @@ function bindFileBrowserEvents(container, view = "tab") {
       }
       const currentAction = e.target.closest(".file-browser-crumb-current-action[data-file-path]");
       if (currentAction) {
-        loadFileContentInDiffPane(currentAction.dataset.filePath || "");
+        loadFileContentInDiffPane(currentAction.dataset.filePath);
         return;
       }
       const badgeAction = e.target.closest(".file-browser-crumb-badge-action[data-diff-path]");
       if (badgeAction) {
-        showDiffFileInDiffPane(badgeAction.dataset.diffPath || "");
+        showDiffFileInDiffPane(badgeAction.dataset.diffPath);
         return;
       }
       const downloadBtn = e.target.closest(".file-browser-download");
       if (downloadBtn) {
-        handleDownloadClick(downloadBtn.dataset.path || "");
+        handleDownloadClick(downloadBtn.dataset.path);
         return;
       }
       const closeBtn = e.target.closest(".file-browser-close");
@@ -440,7 +439,7 @@ function handleFileListClick(e, config, useLongPress) {
 
   if (type === "dir") {
     config.openDirectory(path);
-  } else if (type === "file" && typeof config.openFile === "function") {
+  } else if (type === "file") {
     config.openFile(path);
   } else if (type === "symlink") {
     openSymlinkFromList(item, config.openDirectory, config.openFile);
@@ -500,9 +499,7 @@ async function loadFileContent(path) {
 }
 
 async function loadDirectoryInDiffPane(path) {
-  if (typeof setDiffViewerMode === "function") {
-    setDiffViewerMode("file");
-  }
+  setDiffViewerMode("file");
   await loadDirectoryByView(path, "diff-pane");
 }
 
@@ -531,9 +528,7 @@ async function loadFileContentByView(path, view) {
 }
 
 async function loadFileContentInDiffPane(path) {
-  if (typeof setDiffViewerMode === "function") {
-    setDiffViewerMode("file");
-  }
+  setDiffViewerMode("file");
   await loadFileContentByView(path, "diff-pane");
 }
 
@@ -650,9 +645,7 @@ async function deleteFileInWorkspace(path, config) {
 
 function showDiffFileInDiffPane(path) {
   if (!selectedWorkspace || !path) return;
-  if (typeof setDiffViewerMode === "function") {
-    setDiffViewerMode("diff");
-  }
+  setDiffViewerMode("diff");
   const el = getFileBrowserContainer("diff-pane");
   if (!el) return;
   const diffText = typeof diffChunks === "object" && diffChunks ? (diffChunks[path] || "") : "";
@@ -662,7 +655,7 @@ function showDiffFileInDiffPane(path) {
   }), diffText ? "" : "差分を表示できません");
   const pre = el.querySelector(".diff-content-code");
   if (pre) {
-    if (diffText && typeof colorDiff === "function") {
+    if (diffText) {
       pre.appendChild(colorDiff(diffText));
     } else {
       pre.textContent = diffText || "";

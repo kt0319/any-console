@@ -46,9 +46,7 @@ const GitLogModal = {
   closeGitLogModal() {
     $("git-log-modal").style.display = "none";
     GitLogModal.resetActionMenu();
-    if (typeof closeCommitForm === "function") {
-      closeCommitForm();
-    }
+    closeCommitForm();
     GitLogModal.setModalTitle("コミット履歴");
     GitLogModal.resetCreateBranchArea();
   },
@@ -225,7 +223,7 @@ const GitLogModal = {
       GitLogModal.resetCreateBranchArea();
       return;
     }
-    if (typeof getActiveDiffRef === "function" && getActiveDiffRef()) {
+    if (getActiveDiffRef()) {
       GitLogModal.showDiffFilesTop();
       return;
     }
@@ -245,13 +243,8 @@ const GitLogModal = {
     GitLogModal.showDiffHistoryTop();
     $("git-log-modal").style.display = "flex";
     GitLogModal.updateStashIndicators();
-    if (typeof clearActiveDiffRef === "function") {
-      clearActiveDiffRef();
-    }
+    clearActiveDiffRef();
     GitLogModal.state.history.hasMore = false;
-    const fileBrowserPromise = typeof loadDirectoryInDiffPane === "function"
-      ? loadDirectoryInDiffPane("")
-      : Promise.resolve();
-    await Promise.all([fileBrowserPromise, GitLogModal.reloadGitLog()]);
+    await Promise.all([loadDirectoryInDiffPane(""), GitLogModal.reloadGitLog()]);
   },
 };

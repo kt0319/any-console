@@ -229,14 +229,9 @@ function renderDiffFileList(fileList, files, diffText, options = {}) {
       const insertions = isObj ? f.insertions : null;
       const deletions = isObj ? f.deletions : null;
       const isNew = isObj && DIFF_NEW_STATUSES.has(f.status);
-      let iconHtml = '<i class="mdi mdi-file-outline"></i>';
-      if (typeof getFileIcon === "function") {
-        const fi = getFileIcon(name);
-        if (fi && fi.icon) {
-          const colorStyle = fi.color ? ` style="color:${fi.color}"` : "";
-          iconHtml = `<i class="mdi ${fi.icon}"${colorStyle}></i>`;
-        }
-      }
+      const fi = getFileIcon(name);
+      const colorStyle = fi.color ? ` style="color:${fi.color}"` : "";
+      const iconHtml = `<i class="mdi ${fi.icon}"${colorStyle}></i>`;
       const rowClass = isNew ? "file-browser-item diff-file-row diff-file-row-new" : "file-browser-item diff-file-row";
       const statusHtml = status
         ? `<span class="file-browser-item-size diff-file-row-status${statusBadgeLeft ? " diff-file-row-status-left" : ""} diff-status-${getDiffStatusTone(status)}">${escapeHtml(status)}</span>`
@@ -269,15 +264,11 @@ async function selectDiffFile(file) {
     row.classList.toggle("active", !!file && row.dataset.file === file);
   }
   if (!file) {
-    if (typeof loadDirectoryInDiffPane === "function") {
-      await loadDirectoryInDiffPane("");
-    } else {
-      renderDiffViewerMessage("ファイルブラウザを読み込めません");
-    }
+    await loadDirectoryInDiffPane("");
     $("diff-content").scrollTop = 0;
     return;
   }
-  if (diffChunks[file] && typeof showDiffFileInDiffPane === "function") {
+  if (diffChunks[file]) {
     showDiffFileInDiffPane(file);
   } else {
     await loadFileContentInDiffPane(file);

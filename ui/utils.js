@@ -231,26 +231,30 @@ function isImageDataIcon(icon) {
   return icon && (icon.startsWith("data:image/") || icon.startsWith("favicon:"));
 }
 
-function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 30 } = {}) {
+function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 30, animationTarget } = {}) {
   let timer = null;
   let fired = false;
   let startX = 0;
   let startY = 0;
+  let activeTarget = null;
+  const resolveTarget = (e) => typeof animationTarget === "function" ? animationTarget(e) : el;
   el.addEventListener("touchstart", (e) => {
     fired = false;
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     const startEvt = e;
-    el.classList.add("long-pressing");
+    activeTarget = resolveTarget(e);
+    if (activeTarget) activeTarget.classList.add("long-pressing");
     timer = setTimeout(() => {
       fired = true;
-      el.classList.remove("long-pressing");
+      if (activeTarget) activeTarget.classList.remove("long-pressing");
       onLongPress(startEvt);
     }, delay);
   }, { passive: true });
   el.addEventListener("touchend", (e) => {
     clearTimeout(timer);
-    el.classList.remove("long-pressing");
+    if (activeTarget) activeTarget.classList.remove("long-pressing");
+    activeTarget = null;
     if (fired) {
       e.preventDefault();
     }
@@ -260,7 +264,8 @@ function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 
     const dy = e.touches[0].clientY - startY;
     if (dx * dx + dy * dy > moveThreshold * moveThreshold) {
       clearTimeout(timer);
-      el.classList.remove("long-pressing");
+      if (activeTarget) activeTarget.classList.remove("long-pressing");
+      activeTarget = null;
     }
   }, { passive: true });
   el.addEventListener("pointerdown", (e) => {
@@ -268,17 +273,19 @@ function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 
     fired = false;
     startX = e.clientX;
     startY = e.clientY;
-    el.classList.add("long-pressing");
+    activeTarget = resolveTarget(e);
+    if (activeTarget) activeTarget.classList.add("long-pressing");
     timer = setTimeout(() => {
       fired = true;
-      el.classList.remove("long-pressing");
+      if (activeTarget) activeTarget.classList.remove("long-pressing");
       onLongPress(e);
     }, delay);
   });
   el.addEventListener("pointerup", (e) => {
     if (e.pointerType === "touch") return;
     clearTimeout(timer);
-    el.classList.remove("long-pressing");
+    if (activeTarget) activeTarget.classList.remove("long-pressing");
+    activeTarget = null;
   });
   el.addEventListener("pointermove", (e) => {
     if (e.pointerType === "touch") return;
@@ -286,7 +293,8 @@ function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 
     const dy = e.clientY - startY;
     if (dx * dx + dy * dy > moveThreshold * moveThreshold) {
       clearTimeout(timer);
-      el.classList.remove("long-pressing");
+      if (activeTarget) activeTarget.classList.remove("long-pressing");
+      activeTarget = null;
     }
   });
   if (onClick) {

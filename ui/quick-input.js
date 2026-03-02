@@ -96,7 +96,7 @@ function initQuickInput() {
   };
   const openWorkspaceModal = () => {
     closeSnippetMode();
-    if (typeof openTabEditModal === "function") openTabEditModal("open");
+    openTabEditModal("open");
   };
   workspaceModalBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
   workspaceModalBtn.addEventListener("touchend", (e) => {

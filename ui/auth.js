@@ -1,6 +1,6 @@
 function saveToken(val) {
   const prev = localStorage.getItem("pi_console_token") || "";
-  if (prev && prev !== val && typeof clearPersistedApiCaches === "function") {
+  if (prev && prev !== val) {
     clearPersistedApiCaches();
   }
   localStorage.setItem("pi_console_token", val);
@@ -8,9 +8,7 @@ function saveToken(val) {
 }
 
 function clearToken() {
-  if (typeof clearPersistedApiCaches === "function") {
-    clearPersistedApiCaches();
-  }
+  clearPersistedApiCaches();
   localStorage.removeItem("pi_console_token");
   document.cookie = "pi_console_token=;path=/;max-age=0;SameSite=Strict";
 }

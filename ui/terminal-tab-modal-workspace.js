@@ -182,19 +182,17 @@ function createTerminalTabModalWorkspaceSection(deps) {
       dropHint.innerHTML = '<span class="mdi mdi-upload"></span> ここにドロップでルートへアップロード';
       group.appendChild(dropHint);
 
-      if (typeof bindWorkspaceUploadDropTarget === "function") {
-        bindWorkspaceUploadDropTarget(group, {
-          workspaceName: ws.name,
-          getPath: () => "",
-          onSuccess: async () => {
-            await loadWorkspaces();
-            if (selectedWorkspace === ws.name) {
-              await refreshWorkspaceHeader();
-            }
-          },
-          activeClass: "picker-ws-group-drop-active",
-        });
-      }
+      bindWorkspaceUploadDropTarget(group, {
+        workspaceName: ws.name,
+        getPath: () => "",
+        onSuccess: async () => {
+          await loadWorkspaces();
+          if (selectedWorkspace === ws.name) {
+            await refreshWorkspaceHeader();
+          }
+        },
+        activeClass: "picker-ws-group-drop-active",
+      });
 
       loadWorkspaceIconButtons(icons, ws, 18, (name, job) => {
           if (job.confirm !== false) {
