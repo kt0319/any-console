@@ -36,12 +36,15 @@ sudo systemctl enable --now pi-console
 
 ```
 api/              API (FastAPI)
-  routers/        ルーター (workspaces, git, jobs, terminal)
+  routers/        ルーター (workspaces, git, jobs, terminal, settings, system, logs)
   main.py         アプリ初期化、静的ファイル配信
   auth.py         Bearerトークン認証
   runner.py       ジョブ実行 (subprocess)
   jobs.py         ジョブ定義 (dataclass)
-  common.py       共通定数・ユーティリティ
+  common.py       共通定数、TTLCache、LogBuffer
+  config.py       config.json 読み書き・ロック管理
+  config_schema.py  config.json スキーマ定義 (Pydantic)
+  git_utils.py    Gitコマンド実行ユーティリティ
 ui/               Web UI (バニラJS、ビルド不要)
 systemd/          systemdサービス定義
 config.json       設定ファイル (.gitignore対象)

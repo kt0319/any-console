@@ -68,46 +68,88 @@ sudo systemctl restart pi-console
 ### バックエンド: `api/`
 
 - **FastAPI** (Python 3.11+)
-- `main.py`: アプリ初期化、ルーターマウント、画像アップロード、システム情報、静的ファイル配信、設定インポート/エクスポート
+- `main.py`: アプリ初期化、ルーターマウント、画像アップロード、静的ファイル配信
 - `auth.py`: 環境変数 `PI_CONSOLE_TOKEN` によるBearerトークン認証
 - `runner.py`: subprocessでジョブ実行（タイムアウト120秒）
 - `jobs.py`: ジョブ定義（`JobDefinition` / `ArgOption` dataclass）
-- `common.py`: 共通定数、設定ファイル管理（`config.json`）、Gitユーティリティ、ログバッファ
+- `common.py`: 共通定数（パス・タイムアウト・パターン）、`TTLCache`、`LogBuffer`、`BACKGROUND_EXECUTOR`
+- `config.py`: `config.json` の読み書き・ロック管理
+- `config_schema.py`: Pydanticによるconfig.jsonのスキーマ定義・検証
+- `git_utils.py`: Gitコマンド実行ユーティリティ、ブランチ取得、git info キャッシュ
 
 ### ルーター: `api/routers/`
 
 - `workspaces.py`: ワークスペース一覧・clone・GitHubリポジトリ一覧・ワークスペース設定
-- `git.py`: ブランチ操作、checkout、pull/push、git-log、diff、stash、commit、ファイルブラウザ
+- `git.py`: Git関連サブルーターの結合マウント
+- `git_refs.py`: ブランチ操作（checkout、作成、削除）、pull/push/fetch
+- `git_history.py`: コミット履歴、cherry-pick、revert、reset
+- `git_diff.py`: ワーキングツリーdiff、コミットdiff
+- `git_files.py`: ファイルブラウザ、ファイル内容取得
+- `git_shared.py`: Git操作の共通ユーティリティ（パス検証・stash ref検証）
 - `jobs.py`: ジョブ一覧・作成・更新・削除、リンク管理、ジョブ実行、ターミナルセッション作成
 - `terminal.py`: PTYベースのターミナルセッション管理、WebSocket通信
+- `settings.py`: 設定インポート/エクスポート
+- `system.py`: システム情報・プロセス一覧
 - `logs.py`: 操作ログの取得・クリア・クライアントログ受信
 
 ### フロントエンド: `ui/`
 
 - **バニラJS**（フレームワーク・ビルドステップなし）
 - `index.html`: SPAシェル
-- `app.js`: メインロジック、初期化
-- `state.js`: グローバル状態管理
+- 状態はグローバル変数 + LocalStorageで永続化
+
+#### 状態・基盤
+
+- `state-core.js`: token・workspaces・タブ・パネル配置などのグローバル状態
+- `state-input.js`: ターミナルのキーボード・キー入力データ定義
+- `state-git.js`: Git操作用のグローバル状態（diffチャンク・ブランチ作成情報等）
+- `logger.js`: クライアントログ送信
+- `api-client.js`: API通信共通処理（Bearerトークン付与）
+- `cache.js`: LocalStorageキャッシュ管理（ワークスペースメタ・GitHubリポ）
+- `utils.js`: ユーティリティ
 - `auth.js`: 認証処理（Token保存はLocalStorage+Cookie）
+- `bootstrap.js`: アプリ初期化・ワークスペース読み込み・タブ復元
+- `viewport.js`: ビューポート高さ監視・キーボード表示判定
+
+#### ターミナル
+
+- `terminal.js`: xterm.js統合のWebターミナル
+- `terminal-connection.js`: 端末セッション同期
+- `terminal-view-mode.js`: ターミナルビューモード切替
+- `terminal-split.js`: ターミナル分割表示
+- `terminal-tab-pill.js`: タブ名ピルの描画・長押し処理
+- `terminal-tabs.js`: タブ管理（追加・削除・切替）
+- `terminal-tab-modal.js`: タブモーダル（ワークスペース/設定選択）
+- `terminal-tab-modal-workspace.js`: タブモーダルのワークスペースセクション
+
+#### Git
+
 - `workspace.js`: ワークスペース一覧・選択
 - `git.js`: Git操作UI
 - `git-diff.js`: Git差分表示
 - `git-file-browser.js`: ファイルブラウザ
-- `jobs.js`: ジョブ一覧・実行・作成UI
-- `terminal.js`: xterm.js統合のWebターミナル
-- `terminal-tabs.js`: タブ管理
-- `terminal-split.js`: ターミナル分割表示
-- `terminal-connection.js`: 端末セッション同期
-- `terminal-tab-modal.js`: ワークスペース/設定モーダル
-- `terminal-view-mode.js`: ターミナルビュー
-- `settings.js`: 設定画面、設定インポート/エクスポート
+- `file-browser-upload.js`: ファイルアップロード・ドラッグ&ドロップ
+- `git-log-modal.js`: Git履歴モーダルの状態管理
+- `git-log-history.js`: コミット履歴一覧の描画
+- `git-log-branch-stash.js`: ブランチ・スタッシュ選択UI
+
+#### ジョブ・設定
+
+- `job-form.js`: ジョブ作成・編集フォームUI
+- `jobs.js`: ジョブ一覧・実行・確認モーダル
+- `settings.js`: 設定モーダル制御、サーバー情報、インポート/エクスポート
+- `settings-workspace.js`: ワークスペース設定UI（並び替え・表示/非表示・アイコン）
+- `settings-terminal.js`: ターミナル設定UI（フォントサイズ等の全タブ適用）
+
+#### UI部品
+
 - `quick-input.js`: 汎用入力UI
-- `quick-input-keys.js`: 端末ショートカット/画像アップロード
+- `quick-input-keys.js`: 端末ショートカット・画像アップロード
 - `icon-picker.js`: アイコン選択UI
-- `logger.js`: クライアントログ送信
-- `utils.js`: ユーティリティ
+
+#### スタイル
+
 - `styles.css`: CSS変数によるダークテーマ
-- 状態はグローバル変数 + LocalStorageで永続化
 
 ## ジョブシステム
 

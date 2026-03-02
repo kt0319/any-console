@@ -7,11 +7,13 @@ from ..auth import verify_token
 from ..common import (
     GIT_LONG_TIMEOUT_SEC,
     GIT_SHORT_TIMEOUT_SEC,
+    resolve_workspace_path,
+)
+from ..git_utils import (
     get_git_branches,
     get_git_remote_branches,
     git_info_to_status_dict,
     invalidate_git_info,
-    resolve_workspace_path,
     run_git_command,
     ssh_env,
 )

@@ -14,14 +14,15 @@ from ..common import (
     GITHUB_CLI_TIMEOUT_SEC,
     WORK_DIR,
     TTLCache,
-    command_result_dict,
-    git_info_to_status_dict,
+    resolve_workspace_path,
+)
+from ..config import (
     load_global_config_section,
     load_workspace_config,
-    resolve_workspace_path,
     save_global_config_section,
     save_workspace_config,
 )
+from ..git_utils import command_result_dict, git_info_to_status_dict
 
 logger = logging.getLogger(__name__)
 

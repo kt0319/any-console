@@ -7,7 +7,8 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
-from ..common import BRANCH_NAME_PATTERN, GIT_SHORT_TIMEOUT_SEC, run_git_command
+from ..common import BRANCH_NAME_PATTERN, GIT_SHORT_TIMEOUT_SEC
+from ..git_utils import run_git_command
 
 STASH_REF_PATTERN = re.compile(r"^stash@\{\d+\}$")
 

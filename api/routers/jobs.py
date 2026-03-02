@@ -13,12 +13,10 @@ from ..auth import verify_token
 from ..common import (
     TERMINAL_TIMEOUT_SEC,
     TTLCache,
-    command_result_dict,
-    get_git_branches,
-    load_workspace_config_section,
     resolve_workspace_path,
-    save_workspace_config_section,
 )
+from ..config import load_workspace_config_section, save_workspace_config_section
+from ..git_utils import command_result_dict, get_git_branches
 from ..jobs import TERMINAL_JOB, JobDefinition
 from ..runner import run_job
 from .terminal import (

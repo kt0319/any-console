@@ -8,10 +8,8 @@ from ..common import (
     GIT_LOG_MAX_ENTRIES,
     GIT_LONG_TIMEOUT_SEC,
     resolve_workspace_path,
-    run_git_command,
-    validate_commit_hash,
-    invalidate_git_info,
 )
+from ..git_utils import invalidate_git_info, run_git_command, validate_commit_hash
 from .git_shared import GIT_LOG_MAX_SKIP, validate_stash_ref
 
 logger = logging.getLogger(__name__)
