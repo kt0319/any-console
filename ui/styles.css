@@ -3160,6 +3160,7 @@ button:disabled {
   }
   .tab-name-pill {
     cursor: grab;
+    top: 20px;
     right: 20px;
   }
   .tab-name-pill.dragging {

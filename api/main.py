@@ -59,6 +59,9 @@ EXCLUDE_LOG_PREFIXES = (
     "/icon-picker.",
     "/utils.",
     "/favicon",
+    "/sw.js",
+    "/manifest",
+    "/icon-",
 )
 
 
@@ -140,4 +143,12 @@ app.mount("/icons", StaticFiles(directory=str(ICONS_DIR)), name="icons")
 app.mount("/", StaticFiles(directory=str(UI_DIR)), name="ui")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8888)
+    import os
+
+    ssl_kwargs = {}
+    ssl_keyfile = os.environ.get("SSL_KEYFILE")
+    ssl_certfile = os.environ.get("SSL_CERTFILE")
+    if ssl_keyfile and ssl_certfile:
+        ssl_kwargs["ssl_keyfile"] = ssl_keyfile
+        ssl_kwargs["ssl_certfile"] = ssl_certfile
+    uvicorn.run(app, host="0.0.0.0", port=8888, **ssl_kwargs)

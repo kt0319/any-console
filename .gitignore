@@ -29,3 +29,7 @@ data/
 # OS
 .DS_Store
 Thumbs.db
+
+# SSL certificates
+*.crt
+*.key
