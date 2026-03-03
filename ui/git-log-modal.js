@@ -16,6 +16,7 @@ const GitLogModal = {
   toggleCommitActionMenu(entry, hash, msg, branches = []) {
     const list = $("git-log-list-modal");
     const menuEl = $("git-log-action-menu");
+    if (!menuEl) return;
     const wasOpen = entry.classList.contains("action-open");
 
     if (list) {
@@ -65,7 +66,11 @@ const GitLogModal = {
     const historyPane = $("diff-history-pane");
     if (!area || !menuEl || !historyPane) return;
     if (area.parentElement !== historyPane) {
-      historyPane.insertBefore(area, menuEl.nextSibling);
+      if (menuEl.parentElement === historyPane) {
+        historyPane.insertBefore(area, menuEl.nextSibling);
+      } else {
+        historyPane.appendChild(area);
+      }
     }
   },
 
@@ -78,6 +83,14 @@ const GitLogModal = {
     if (input) input.value = "";
     GitLogModal.restoreCreateBranchAreaPosition();
     hideFormError("git-log-branch-error");
+    const host = GitLogModal.state._branchAreaHost;
+    if (host) {
+      const children = GitLogModal.state._branchAreaHostChildren || [];
+      while (host.firstChild) host.removeChild(host.firstChild);
+      for (const child of children) host.appendChild(child);
+      GitLogModal.state._branchAreaHost = null;
+      GitLogModal.state._branchAreaHostChildren = null;
+    }
   },
 
   toggleCreateBranchArea(hash) {
@@ -93,8 +106,12 @@ const GitLogModal = {
       GitLogModal.resetCreateBranchArea();
     } else {
       createBranchFromHash = hash || null;
-      if (hostEl?.parentElement) {
-        hostEl.insertAdjacentElement("afterend", area);
+      if (hostEl) {
+        GitLogModal.state._branchAreaHost = hostEl;
+        GitLogModal.state._branchAreaHostChildren = Array.from(hostEl.childNodes);
+        while (hostEl.firstChild) hostEl.removeChild(hostEl.firstChild);
+        hostEl.appendChild(area);
+        hostEl.style.display = "";
       }
       area.style.display = "block";
       if (submitBtn) submitBtn.style.display = "";
