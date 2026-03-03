@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Request
 
 from ..auth import verify_token
-from ..common import LOG_BUFFER
+from ..common import LOG_BUFFER, OPERATION_LOG
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
@@ -16,6 +16,17 @@ def get_logs():
 @router.delete("/logs")
 def clear_logs():
     LOG_BUFFER.clear()
+    return {"status": "ok"}
+
+
+@router.get("/op-logs")
+def get_op_logs():
+    return list(OPERATION_LOG.entries)
+
+
+@router.delete("/op-logs")
+def clear_op_logs():
+    OPERATION_LOG.clear()
     return {"status": "ok"}
 
 

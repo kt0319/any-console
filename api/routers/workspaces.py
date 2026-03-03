@@ -14,6 +14,7 @@ from ..common import (
     GITHUB_CLI_TIMEOUT_SEC,
     WORK_DIR,
     TTLCache,
+    log_operation,
     resolve_workspace_path,
 )
 from ..config import (
@@ -161,6 +162,7 @@ def clone_workspace(body: CloneRequest):
             logger.warning("clone failed url=%s rc=%d stderr=%s", url, result.returncode, result.stderr)
         else:
             logger.info("clone ok dir=%s", dir_name)
+            log_operation("clone", "", url)
             resp["name"] = dir_name
         return resp
     except subprocess.TimeoutExpired:

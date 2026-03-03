@@ -73,6 +73,18 @@ class LogBuffer:
 
 
 LOG_BUFFER = LogBuffer()
+OPERATION_LOG = LogBuffer()
+
+
+def log_operation(action: str, workspace: str = "", detail: str = "") -> None:
+    from datetime import datetime, timezone
+
+    OPERATION_LOG.add({
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "action": action,
+        "workspace": workspace,
+        "detail": detail,
+    })
 
 
 def resolve_workspace_path(workspace: str | None) -> Path | None:

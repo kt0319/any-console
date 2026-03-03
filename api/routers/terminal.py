@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, WebSocket
 from fastapi.websockets import WebSocketDisconnect
 
 from ..auth import verify_token
-from ..common import TERMINAL_TIMEOUT_SEC
+from ..common import TERMINAL_TIMEOUT_SEC, log_operation
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +136,8 @@ async def delete_terminal_session(session_id: str):
     if not session:
         raise HTTPException(status_code=404, detail="Terminal session not found")
     _kill_pty_session(session)
+    action = "ジョブ終了" if session.job_name else "ターミナル終了"
+    log_operation(action, session.workspace or "", session.job_label or session.job_name or "")
     logger.info("terminal session deleted session=%s", session_id)
     return {"status": "ok"}
 

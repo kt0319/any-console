@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, 
 from fastapi.responses import FileResponse
 
 from ..auth import verify_token
-from ..common import resolve_workspace_path
+from ..common import log_operation, resolve_workspace_path
 from ..git_utils import validate_commit_hash
 from .git_shared import (
     MAX_WORKSPACE_UPLOAD_SIZE,
@@ -140,6 +140,7 @@ async def upload_file_to_workspace(
         raise HTTPException(status_code=500, detail="Cannot write file")
 
     rel_path = str(rel_dir / filename)
+    log_operation("アップロード", name, filename)
     return {"status": "ok", "path": rel_path, "size": len(data)}
 
 
@@ -163,6 +164,7 @@ def rename_file(name: str, src: str = Body(...), dest: str = Body(...)):
     except OSError as e:
         raise HTTPException(status_code=500, detail=f"Rename failed: {e}")
 
+    log_operation("ファイル移動", name, f"{src} → {dest}")
     return {"status": "ok"}
 
 
@@ -184,6 +186,7 @@ def delete_file(name: str, path: str = Body(..., embed=True)):
     except OSError as e:
         raise HTTPException(status_code=500, detail=f"Delete failed: {e}")
 
+    log_operation("ファイル削除", name, path)
     return {"status": "ok"}
 
 

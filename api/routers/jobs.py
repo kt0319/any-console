@@ -13,6 +13,7 @@ from ..auth import verify_token
 from ..common import (
     TERMINAL_TIMEOUT_SEC,
     TTLCache,
+    log_operation,
     resolve_workspace_path,
 )
 from ..config import load_workspace_config_section, save_workspace_config_section
@@ -319,6 +320,8 @@ def execute_job(body: RunRequest):
             except (ProcessLookupError, OSError):
                 pass
             raise
+        action = "ジョブ実行" if body.job_name else "ターミナル起動"
+        log_operation(action, body.workspace or "", body.job_label or body.job_name or job_def.label)
         logger.info("terminal session created session=%s pid=%d workspace=%s",
                      session_id, pid, body.workspace or "(none)")
         return {
@@ -329,6 +332,7 @@ def execute_job(body: RunRequest):
         }
 
     cwd_path = str(ws_path) if ws_path else ""
+    log_operation("ジョブ実行", body.workspace or "", job_def.label)
     logger.info("job start job=%s workspace=%s", body.job, body.workspace or "(none)")
     try:
         result = run_job(job_def, ordered_args, workspace=cwd_path)

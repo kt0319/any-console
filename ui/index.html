@@ -44,7 +44,8 @@
             <button type="button" class="settings-menu-item" onclick="importSettings()"><span class="mdi mdi-upload"></span> 設定インポート</button>
             <button type="button" class="settings-menu-item" onclick="openProcessList()"><span class="mdi mdi-format-list-bulleted"></span> プロセス一覧</button>
             <button type="button" class="settings-menu-item" onclick="openSettingsServerInfo()"><span class="mdi mdi-information-outline"></span> サーバー情報</button>
-            <button type="button" class="settings-menu-item" onclick="openOpLog()"><span class="mdi mdi-text-box-outline"></span> 操作ログ</button>
+            <button type="button" class="settings-menu-item" onclick="openActivityLog()"><span class="mdi mdi-history"></span> 操作ログ</button>
+            <button type="button" class="settings-menu-item" onclick="openOpLog()"><span class="mdi mdi-text-box-outline"></span> ネットワークログ</button>
           </div>
         </div>
         <div id="settings-terminal-view" style="display:none">
@@ -58,6 +59,9 @@
         </div>
         <div id="settings-op-log-view" style="display:none">
           <div class="modal-scroll-body" id="op-log-list"></div>
+        </div>
+        <div id="settings-activity-log-view" style="display:none">
+          <div class="modal-scroll-body" id="activity-log-list"></div>
         </div>
         <input type="file" id="settings-import-file" accept=".json" style="display:none">
       </div>

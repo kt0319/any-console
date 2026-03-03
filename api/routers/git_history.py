@@ -7,6 +7,7 @@ from ..auth import verify_token
 from ..common import (
     GIT_LOG_MAX_ENTRIES,
     GIT_LONG_TIMEOUT_SEC,
+    log_operation,
     resolve_workspace_path,
 )
 from ..git_utils import invalidate_git_info, run_git_command, validate_commit_hash
@@ -60,6 +61,8 @@ def git_cherry_pick(name: str, body: CommitActionRequest):
     commit_hash = validate_commit_hash(body.commit_hash)
     result = run_git_command(["cherry-pick", commit_hash], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="cherry-pick")
     logger.info("cherry-pick workspace=%s commit=%s rc=%d", name, commit_hash[:8], result["exit_code"])
+    if result["exit_code"] == 0:
+        log_operation("cherry-pick", name, commit_hash[:8])
     invalidate_git_info(name)
     return result
 
@@ -70,6 +73,8 @@ def git_revert(name: str, body: CommitActionRequest):
     commit_hash = validate_commit_hash(body.commit_hash)
     result = run_git_command(["revert", "--no-edit", commit_hash], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="revert")
     logger.info("revert workspace=%s commit=%s rc=%d", name, commit_hash[:8], result["exit_code"])
+    if result["exit_code"] == 0:
+        log_operation("revert", name, commit_hash[:8])
     invalidate_git_info(name)
     return result
 
@@ -82,6 +87,8 @@ def git_reset(name: str, body: ResetRequest):
         raise HTTPException(status_code=400, detail=f"Invalid reset mode: {body.mode}")
     result = run_git_command(["reset", f"--{body.mode}", commit_hash], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="reset")
     logger.info("reset workspace=%s mode=%s commit=%s rc=%d", name, body.mode, commit_hash[:8], result["exit_code"])
+    if result["exit_code"] == 0:
+        log_operation("reset", name, f"{body.mode} {commit_hash[:8]}")
     invalidate_git_info(name)
     return result
 
@@ -97,6 +104,8 @@ def git_commit(name: str, body: CommitRequest):
         return add_result
     result = run_git_command(["commit", "-m", message], cwd=ws_path, operation="commit")
     logger.info("commit workspace=%s rc=%d", name, result["exit_code"])
+    if result["exit_code"] == 0:
+        log_operation("コミット", name, message)
     invalidate_git_info(name)
     return result
 
@@ -123,6 +132,8 @@ def git_stash_drop(name: str, body: StashDropRequest):
     ref = validate_stash_ref(body.stash_ref)
     result = run_git_command(["stash", "drop", ref], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="stash drop")
     logger.info("stash-drop workspace=%s ref=%s rc=%d", name, ref, result["exit_code"])
+    if result["exit_code"] == 0:
+        log_operation("stash drop", name, ref)
     invalidate_git_info(name)
     return result
 
@@ -133,6 +144,8 @@ def git_stash_pop_index(name: str, body: StashDropRequest):
     ref = validate_stash_ref(body.stash_ref)
     result = run_git_command(["stash", "pop", ref], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="stash pop")
     logger.info("stash-pop workspace=%s ref=%s rc=%d", name, ref, result["exit_code"])
+    if result["exit_code"] == 0:
+        log_operation("stash pop", name, ref)
     invalidate_git_info(name)
     return result
 
@@ -145,6 +158,8 @@ def git_stash(name: str, body: StashRequest = None):
         args.append("-u")
     result = run_git_command(args, cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="stash")
     logger.info("stash workspace=%s rc=%d", name, result["exit_code"])
+    if result["exit_code"] == 0:
+        log_operation("stash", name)
     invalidate_git_info(name)
     return result
 
@@ -154,5 +169,7 @@ def git_stash_pop(name: str):
     ws_path = resolve_workspace_path(name)
     result = run_git_command(["stash", "pop"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="stash pop")
     logger.info("stash-pop workspace=%s rc=%d", name, result["exit_code"])
+    if result["exit_code"] == 0:
+        log_operation("stash pop", name)
     invalidate_git_info(name)
     return result

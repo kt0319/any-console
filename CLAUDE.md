@@ -90,7 +90,7 @@ sudo systemctl restart pi-console
 - `terminal.py`: PTYベースのターミナルセッション管理、WebSocket通信
 - `settings.py`: 設定インポート/エクスポート
 - `system.py`: システム情報・プロセス一覧
-- `logs.py`: 操作ログの取得・クリア・クライアントログ受信
+- `logs.py`: ネットワークログの取得・クリア・クライアントログ受信、操作ログ（ユーザー操作履歴）の取得・クリア
 
 ### フロントエンド: `ui/`
 
@@ -219,9 +219,11 @@ sudo systemctl restart pi-console
 | `GET /system/info` | システム情報 |
 | `GET /settings/export` | 設定エクスポート |
 | `POST /settings/import` | 設定インポート |
-| `GET /logs` | 操作ログ取得 |
-| `DELETE /logs` | 操作ログ消去 |
+| `GET /logs` | ネットワークログ取得 |
+| `DELETE /logs` | ネットワークログ消去 |
 | `POST /logs/client` | クライアントログ送信 |
+| `GET /op-logs` | 操作ログ取得 |
+| `DELETE /op-logs` | 操作ログクリア |
 
 ## CSSルール
 

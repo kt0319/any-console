@@ -3,7 +3,7 @@ function applyPanelBottom() {
 }
 
 function showSettingsView(viewId) {
-  for (const id of ["settings-menu-view", "settings-terminal-view", "settings-server-info-view", "settings-process-list-view", "settings-op-log-view"]) {
+  for (const id of ["settings-menu-view", "settings-terminal-view", "settings-server-info-view", "settings-process-list-view", "settings-op-log-view", "settings-activity-log-view"]) {
     const el = $(id);
     if (el) el.style.display = id === viewId ? "" : "none";
   }
@@ -123,6 +123,39 @@ async function openOpLog() {
     viewId: "settings-op-log-view",
     listId: "op-log-list",
     renderFn: renderOpLogTo,
+  });
+}
+
+function renderActivityLogRows(container, entries) {
+  if (entries.length === 0) {
+    setInlineStatus(container, "ログなし");
+    return;
+  }
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const entry = entries[i];
+    const row = document.createElement("div");
+    row.className = "op-log-row";
+    const ts = entry.ts ? new Date(entry.ts).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "";
+    const ws = entry.workspace ? ` [${entry.workspace}]` : "";
+    const detail = entry.detail ? ` ${entry.detail}` : "";
+    row.innerHTML =
+      `<span class="op-log-ts">${escapeHtml(ts)}</span>` +
+      `<span class="op-log-method">${escapeHtml(entry.action || "")}</span>` +
+      `<span class="op-log-path">${escapeHtml(ws)}${escapeHtml(detail)}</span>`;
+    container.appendChild(row);
+  }
+}
+
+async function renderActivityLogTo(container) {
+  await fetchAndRenderWithStatus(container, "/op-logs", (entries) => renderActivityLogRows(container, entries));
+}
+
+async function openActivityLog() {
+  await openSettingsDataView({
+    title: "操作ログ",
+    viewId: "settings-activity-log-view",
+    listId: "activity-log-list",
+    renderFn: renderActivityLogTo,
   });
 }
 

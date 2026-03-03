@@ -502,7 +502,8 @@ function openTabEditModal(initialTab = "layout") {
       { icon: "mdi-upload", label: "設定インポート", action: () => importSettings() },
       { icon: "mdi-format-list-bulleted", label: "プロセス一覧", action: () => showModalSubView("プロセス一覧", renderProcessListTo) },
       { icon: "mdi-information-outline", label: "サーバー情報", action: () => showModalSubView("サーバー情報", renderServerInfoTo) },
-      { icon: "mdi-text-box-outline", label: "操作ログ", action: () => showModalSubView("操作ログ", renderOpLogTo) },
+      { icon: "mdi-text-box-outline", label: "操作ログ", action: () => showModalSubView("操作ログ", renderActivityLogTo) },
+      { icon: "mdi-history", label: "ネットワークログ", action: () => showModalSubView("ネットワークログ", renderOpLogTo) },
     ];
 
     for (const item of items) {
