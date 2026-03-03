@@ -579,6 +579,16 @@ function showFileBrowserActionMenu(item, container, config) {
     await deleteFileInWorkspace(filePath, config);
   });
 
+  if (item.dataset.type !== "dir") {
+    const downloadBtn = document.createElement("button");
+    downloadBtn.type = "button";
+    downloadBtn.innerHTML = '<i class="mdi mdi-download"></i> ダウンロード';
+    downloadBtn.addEventListener("click", () => {
+      menu.remove();
+      handleDownloadClick(filePath);
+    });
+    menu.appendChild(downloadBtn);
+  }
   menu.appendChild(renameBtn);
   menu.appendChild(moveBtn);
   menu.appendChild(deleteBtn);
