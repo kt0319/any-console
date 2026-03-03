@@ -67,7 +67,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("push-upstream-btn").addEventListener("click", () => GitCore.gitPushUpstream());
   $("push-btn").addEventListener("click", () => GitCore.gitPush());
   initQuickInput();
-  $("header-commit-msg").addEventListener("click", () => GitLogModal.openGitLogModal());
+  $("header-commit-msg").addEventListener("click", () => GitLogModal.openGitLogModal({
+    onBack: () => {
+      GitLogModal.closeGitLogModal();
+      openTabEditModal("workspace");
+    },
+  }));
   $("git-log-close").addEventListener("click", () => GitLogModal.closeGitLogModal());
   $("git-log-modal").addEventListener("click", (e) => {
     if (e.target === $("git-log-modal")) GitLogModal.closeGitLogModal();

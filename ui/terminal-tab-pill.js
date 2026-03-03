@@ -29,7 +29,7 @@ function createTabNamePill(tab, frame) {
           return;
         }
       }
-      openTabEditModal("open");
+      openTabEditModal("workspace");
     },
   });
   pill.addEventListener("contextmenu", (e) => {

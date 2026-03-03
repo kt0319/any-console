@@ -49,6 +49,7 @@ const GitLogModal = {
     closeCommitForm();
     GitLogModal.setModalTitle("");
     GitLogModal.resetCreateBranchArea();
+    GitLogModal.state.onBack = null;
   },
 
   resetActionMenu() {
@@ -168,8 +169,11 @@ const GitLogModal = {
   },
 
   showDiffHistoryTop() {
+    const onBack = GitLogModal.state.onBack;
     GitLogModal.setDiffTopMode("history", {
       title: GitLogModal.modalTitle(),
+      back: !!onBack,
+      onClick: onBack || null,
     });
   },
 
@@ -252,8 +256,9 @@ const GitLogModal = {
     GitLogModal.showDiffFilesTop();
   },
 
-  async openGitLogModal() {
+  async openGitLogModal({ onBack } = {}) {
     if (!selectedWorkspace) return;
+    GitLogModal.state.onBack = onBack || null;
     GitLogModal.ensureDiffTabVisible();
     GitLogModal.showDiffHistoryTop();
     $("git-log-modal").style.display = "flex";

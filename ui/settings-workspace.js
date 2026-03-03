@@ -28,7 +28,7 @@ async function reorderWorkspaces(orderedNames) {
   }
 }
 
-function renderWorkspaceVisibilityChecklistTo(container) {
+function renderWorkspaceVisibilityChecklistTo(container, { onGear } = {}) {
   container.innerHTML = "";
   let orderSaving = false;
   let orderSnapshot = null;
@@ -50,6 +50,17 @@ function renderWorkspaceVisibilityChecklistTo(container) {
 
     const { iconSpan, label } = createWorkspaceItemElements(ws);
     item.append(handle, checkbox, iconSpan, label);
+    if (onGear) {
+      const gearBtn = document.createElement("button");
+      gearBtn.type = "button";
+      gearBtn.className = "picker-ws-icon-btn ws-gear-btn";
+      gearBtn.innerHTML = '<span class="mdi mdi-cog"></span>';
+      gearBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        onGear(ws);
+      });
+      item.appendChild(gearBtn);
+    }
     container.appendChild(item);
 
     bindVerticalDragHandle({

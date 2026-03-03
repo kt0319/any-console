@@ -406,7 +406,7 @@ function renderTabBar() {
   bar.innerHTML = html;
 
   bar.addEventListener("dblclick", (e) => {
-    if (!e.target.closest(".tab-btn")) openTabEditModal("open");
+    if (!e.target.closest(".tab-btn")) openTabEditModal("workspace");
   });
 
   bar.querySelectorAll(".tab-btn:not(.orphan)").forEach((btn) => {
@@ -420,7 +420,7 @@ function renderTabBar() {
           if (e.target.classList.contains("tab-close")) return;
           const tabId = btn.dataset.tab;
           if (tabId === activeTabId) {
-            openTabEditModal("open");
+            openTabEditModal("workspace");
             return;
           }
           switchTab(tabId);
@@ -431,7 +431,7 @@ function renderTabBar() {
         if (e.target.classList.contains("tab-close")) return;
         const tabId = btn.dataset.tab;
         if (tabId === activeTabId) {
-          openTabEditModal("open");
+          openTabEditModal("workspace");
           return;
         }
         switchTab(tabId);

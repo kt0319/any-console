@@ -69,13 +69,13 @@ function openTabEditModal(initialTab = "layout") {
 
   function showMainView() {
     contentContainer.innerHTML = "";
-    setTitle("ワークスペース");
-    renderOpenTab();
+    setTitle("設定");
+    renderSettingsTab(contentContainer);
   }
 
   function switchModalTab(key) {
     contentContainer.innerHTML = "";
-    if (key === "open") {
+    if (key === "settings") {
       showMainView();
     } else {
       renderSubPane(key);
@@ -84,16 +84,16 @@ function openTabEditModal(initialTab = "layout") {
 
   function renderSubPane(key) {
     const labels = {
+      "open": "ワークスペース",
       "ws-add": "新規追加",
-      "ws-visibility": "表示設定",
+      "ws-visibility": "ワークスペース設定",
       "layout": "タブ",
-      "settings": "設定",
     };
-    setTitle(labels[key], () => showMainView());
-    if (key === "ws-visibility") showPickerCloneInContainer(contentContainer, "visibility");
+    setTitle(labels[key] || key, () => switchModalTab("settings"));
+    if (key === "open") renderOpenTab();
+    else if (key === "ws-visibility") showPickerCloneInContainer(contentContainer, "visibility");
     else if (key === "ws-add") showPickerCloneInContainer(contentContainer, "add");
     else if (key === "layout") renderLayoutTab(contentContainer);
-    else if (key === "settings") renderSettingsTab(contentContainer);
   }
 
   const modeBtns = [];
@@ -252,13 +252,13 @@ function openTabEditModal(initialTab = "layout") {
         switchToSplitModeWithTab(tab.id);
       });
       inputWrap.appendChild(checkbox);
-      row.appendChild(inputWrap);
 
       const handle = document.createElement("span");
       handle.className = "split-tab-drag-handle";
       handle.innerHTML = '<span class="mdi mdi-drag"></span>';
       bindDragHandle(handle, row, tabIndex, list);
       row.appendChild(handle);
+      row.appendChild(inputWrap);
 
       const info = document.createElement("span");
       info.className = "split-tab-row-info";
@@ -497,6 +497,10 @@ function openTabEditModal(initialTab = "layout") {
     menu.className = "settings-menu";
 
     const items = [
+      { icon: "mdi-console", label: "ワークスペース", action: () => switchModalTab("open") },
+      { icon: "mdi-eye", label: "ワークスペース設定", action: () => switchModalTab("ws-visibility") },
+      { icon: "mdi-plus", label: "ワークスペース追加", action: () => switchModalTab("ws-add") },
+      { icon: "mdi-tab", label: "タブ", action: () => switchModalTab("layout") },
       { icon: "mdi-format-font-size-increase", label: "ターミナル", action: () => showModalSubView("ターミナル", (body) => renderTerminalSettingsPane(body, { onBack: () => switchModalTab("settings") })) },
       { icon: "mdi-download", label: "設定エクスポート", action: () => exportSettings() },
       { icon: "mdi-upload", label: "設定インポート", action: () => importSettings() },
@@ -535,6 +539,7 @@ function openTabEditModal(initialTab = "layout") {
     overlay.remove();
   }
 
-  if (initialTab === "open") showMainView();
+  if (initialTab === "workspace") switchModalTab("open");
+  else if (initialTab === "settings" || initialTab === "open") showMainView();
   else switchModalTab(initialTab);
 }

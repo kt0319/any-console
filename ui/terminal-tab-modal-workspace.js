@@ -8,24 +8,6 @@ function createTerminalTabModalWorkspaceSection(deps) {
   } = deps;
 
   function renderOpenTab() {
-    const actionRow = document.createElement("div");
-    actionRow.className = "picker-ws-add-section";
-    const subItems = [
-      { key: "layout", icon: "mdi-tab", label: "タブ" },
-      { key: "ws-visibility", icon: "mdi-eye", label: "表示" },
-      { key: "ws-add", icon: "mdi-plus", label: "追加" },
-      { key: "settings", icon: "mdi-cog", label: "設定" },
-    ];
-    for (const item of subItems) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "ws-add-action-btn";
-      btn.innerHTML = `<span class="mdi ${item.icon}"></span> ${item.label}`;
-      btn.addEventListener("click", () => switchModalTab(item.key));
-      actionRow.appendChild(btn);
-    }
-    contentContainer.appendChild(actionRow);
-
     const list = document.createElement("div");
     list.className = "terminal-ws-list";
     renderModalWsList(list);
@@ -174,16 +156,23 @@ function createTerminalTabModalWorkspaceSection(deps) {
       icons.className = "picker-ws-icons picker-ws-icons-bottom";
       bottomRow.appendChild(icons);
 
-      const gearBtn = document.createElement("button");
-      gearBtn.type = "button";
-      gearBtn.className = "picker-ws-icon-btn ws-gear-btn";
-      gearBtn.innerHTML = '<span class="mdi mdi-cog"></span>';
-      gearBtn.addEventListener("click", () => {
-        contentContainer.innerHTML = "";
-        setTitle(ws.name, () => showMainView());
-        renderWorkspaceSettingsPane(contentContainer, ws, () => showMainView(), setTitle);
-      });
-      bottomRow.appendChild(gearBtn);
+      if (ws.is_git_repo) {
+        const detailBtn = document.createElement("button");
+        detailBtn.type = "button";
+        detailBtn.className = "picker-ws-icon-btn ws-gear-btn";
+        detailBtn.innerHTML = '<span class="mdi mdi-history"></span>';
+        detailBtn.addEventListener("click", () => {
+          closeModal();
+          selectedWorkspace = ws.name;
+          GitLogModal.openGitLogModal({
+            onBack: () => {
+              GitLogModal.closeGitLogModal();
+              openTabEditModal("workspace");
+            },
+          });
+        });
+        bottomRow.appendChild(detailBtn);
+      }
 
       group.appendChild(bottomRow);
       container.appendChild(group);
@@ -353,7 +342,13 @@ function createTerminalTabModalWorkspaceSection(deps) {
     if (mode === "visibility") {
       const visibilityPane = document.createElement("div");
       visibilityPane.className = "clone-tab-content";
-      renderWorkspaceVisibilityChecklistTo(visibilityPane);
+      renderWorkspaceVisibilityChecklistTo(visibilityPane, {
+        onGear: (ws) => {
+          contentContainer.innerHTML = "";
+          setTitle(ws.name, () => switchModalTab("ws-visibility"));
+          renderWorkspaceSettingsPane(contentContainer, ws, () => switchModalTab("ws-visibility"), setTitle);
+        },
+      });
       content.appendChild(visibilityPane);
       return;
     }
