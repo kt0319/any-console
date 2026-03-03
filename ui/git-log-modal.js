@@ -5,7 +5,14 @@ const GitLogModal = {
     diffPaneTitle: "未コミットの変更",
     diffTopMode: "history",
     gitLogLoadedWorkspace: null,
+    historyFullscreen: false,
     history: {
+      loaded: 0,
+      isLoading: false,
+      hasMore: true,
+      seenHashes: new Set(),
+    },
+    graph: {
       loaded: 0,
       isLoading: false,
       hasMore: true,
@@ -51,6 +58,7 @@ const GitLogModal = {
     GitLogModal.setModalTitle("");
     GitLogModal.resetCreateBranchArea();
     GitLogModal.state.onBack = null;
+    GitLogModal.exitHistoryFullscreen();
   },
 
   resetActionMenu() {
@@ -195,6 +203,7 @@ const GitLogModal = {
   },
 
   showDiffFilesTop() {
+    GitLogModal.exitHistoryFullscreen();
     const isGit = GitLogModal.isCurrentWorkspaceGitRepo();
     GitLogModal.setDiffTopMode("files", {
       title: isGit ? (GitLogModal.state.diffPaneTitle || "差分") : GitLogModal.modalTitle(),
@@ -283,6 +292,94 @@ const GitLogModal = {
     clearActiveDiffRef();
     GitLogModal.state.history.hasMore = false;
     await Promise.all([loadDirectoryInDiffPane(""), GitLogModal.reloadGitLog()]);
+  },
+
+  async toggleHistoryFullscreen() {
+    const entering = !GitLogModal.state.historyFullscreen;
+    GitLogModal.state.historyFullscreen = entering;
+    const graphPane = $("git-graph-pane");
+    const diffLayout = graphPane?.parentElement?.querySelector(".diff-layout");
+    if (entering) {
+      if (diffLayout) diffLayout.style.display = "none";
+      if (graphPane) graphPane.style.display = "";
+      GitLogModal.setModalTitle("コミットグラフ", {
+        back: true,
+        onClick: () => GitLogModal.toggleHistoryFullscreen(),
+      });
+      await GitLogModal.loadGraphLog();
+    } else {
+      if (graphPane) graphPane.style.display = "none";
+      if (diffLayout) diffLayout.style.display = "";
+      GitLogModal.showDiffHistoryTop();
+    }
+    const icon = document.querySelector(".git-log-history-fullscreen-btn .mdi");
+    if (icon) {
+      icon.className = entering
+        ? "mdi mdi-arrow-collapse-vertical"
+        : "mdi mdi-arrow-expand-vertical";
+    }
+  },
+
+  exitHistoryFullscreen() {
+    if (!GitLogModal.state.historyFullscreen) return;
+    GitLogModal.state.historyFullscreen = false;
+    const graphPane = $("git-graph-pane");
+    const diffLayout = graphPane?.parentElement?.querySelector(".diff-layout");
+    if (graphPane) graphPane.style.display = "none";
+    if (diffLayout) diffLayout.style.display = "";
+    const icon = document.querySelector(".git-log-history-fullscreen-btn .mdi");
+    if (icon) icon.className = "mdi mdi-arrow-expand-vertical";
+  },
+
+  async loadGraphLog() {
+    if (!selectedWorkspace) return;
+    const listEl = $("git-graph-list");
+    if (!listEl) return;
+    listEl.innerHTML = "";
+    const graph = GitLogModal.state.graph;
+    graph.loaded = 0;
+    graph.isLoading = true;
+    graph.hasMore = true;
+    graph.seenHashes.clear();
+    try {
+      const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?graph=true&limit=${GIT_LOG_ENTRIES_PER_PAGE}`));
+      if (!res) return;
+      const data = await res.json();
+      if (data.exit_code !== 0 || !data.stdout) {
+        graph.hasMore = false;
+        return;
+      }
+      const count = GitLogModal.renderGitLogEntries(listEl, data.stdout, { graph: true, seenHashes: graph.seenHashes });
+      graph.loaded += count;
+      if (count < GIT_LOG_ENTRIES_PER_PAGE) graph.hasMore = false;
+    } catch {
+      graph.hasMore = false;
+    } finally {
+      graph.isLoading = false;
+    }
+  },
+
+  async loadMoreGraphLog() {
+    const graph = GitLogModal.state.graph;
+    if (!selectedWorkspace || graph.isLoading || !graph.hasMore) return;
+    graph.isLoading = true;
+    const listEl = $("git-graph-list");
+    try {
+      const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?graph=true&limit=${GIT_LOG_ENTRIES_PER_PAGE}&skip=${graph.loaded}`));
+      if (!res) return;
+      const data = await res.json();
+      if (!res.ok || data.exit_code !== 0 || !data.stdout) {
+        graph.hasMore = false;
+        return;
+      }
+      const count = GitLogModal.renderGitLogEntries(listEl, data.stdout, { graph: true, seenHashes: graph.seenHashes });
+      graph.loaded += count;
+      if (count < GIT_LOG_ENTRIES_PER_PAGE) graph.hasMore = false;
+    } catch {
+      graph.hasMore = false;
+    } finally {
+      graph.isLoading = false;
+    }
   },
 
   async openFileBrowserModal() {

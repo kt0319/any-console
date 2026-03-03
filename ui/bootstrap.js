@@ -83,6 +83,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       GitLogModal.loadMoreGitLog();
     }
   });
+  $("git-graph-list").addEventListener("scroll", (e) => {
+    const el = e.target;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 50) {
+      GitLogModal.loadMoreGraphLog();
+    }
+  });
   $("git-log-create-branch-submit").addEventListener("click", () => GitLogModal.submitCreateBranch());
   $("git-log-create-branch-close").addEventListener("click", () => GitLogModal.resetCreateBranchArea());
 

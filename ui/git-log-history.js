@@ -1,3 +1,48 @@
+const GRAPH_COLORS = [
+  "#82aaff", "#c3e88d", "#f78c6c", "#c792ea",
+  "#89ddff", "#ffcb6b", "#ff5370", "#f07178",
+];
+
+const GRAPH_CELL_W = 10;
+
+function renderGraphSvg(graphStr, rowHeight) {
+  const cw = GRAPH_CELL_W;
+  const cols = graphStr.length;
+  if (!cols) return "";
+  const cy = rowHeight / 2;
+  const sw = 1.5;
+  let svgContent = "";
+  for (let i = 0; i < cols; i++) {
+    const ch = graphStr[i];
+    if (ch === " ") continue;
+    const lane = Math.floor(i / 2);
+    const color = GRAPH_COLORS[lane % GRAPH_COLORS.length];
+    const x = i * cw;
+    const cx = x + cw / 2;
+    switch (ch) {
+      case "*":
+        svgContent += `<circle cx="${cx}" cy="${cy}" r="3" fill="${color}"/>`;
+        svgContent += `<line x1="${cx}" y1="0" x2="${cx}" y2="${cy - 3}" stroke="${color}" stroke-width="${sw}"/>`;
+        svgContent += `<line x1="${cx}" y1="${cy + 3}" x2="${cx}" y2="${rowHeight}" stroke="${color}" stroke-width="${sw}"/>`;
+        break;
+      case "|":
+        svgContent += `<line x1="${cx}" y1="0" x2="${cx}" y2="${rowHeight}" stroke="${color}" stroke-width="${sw}"/>`;
+        break;
+      case "/":
+        svgContent += `<line x1="${x + cw}" y1="0" x2="${x}" y2="${rowHeight}" stroke="${color}" stroke-width="${sw}"/>`;
+        break;
+      case "\\":
+        svgContent += `<line x1="${x}" y1="0" x2="${x + cw}" y2="${rowHeight}" stroke="${color}" stroke-width="${sw}"/>`;
+        break;
+      case "_":
+        svgContent += `<line x1="${x}" y1="${cy}" x2="${x + cw}" y2="${cy}" stroke="${color}" stroke-width="${sw}"/>`;
+        break;
+    }
+  }
+  const width = cols * cw;
+  return `<svg class="git-log-graph-svg" width="${width}" height="${rowHeight}" viewBox="0 0 ${width} ${rowHeight}">${svgContent}</svg>`;
+}
+
 function renderCommitMeta(author, time) {
   return `<span class="git-log-entry-meta"><span class="git-log-entry-author">${escapeHtml(author)}</span><span class="git-log-entry-time">${escapeHtml(time)}</span></span>`;
 }
@@ -41,19 +86,27 @@ Object.assign(GitLogModal, {
     return { html: `<span class="git-ref ${cls}">${label}</span>`, branchName };
   },
 
-  renderGitLogEntries(listEl, stdout) {
-    const history = GitLogModal.state.history;
+  renderGitLogEntries(listEl, stdout, { graph = false, seenHashes = null } = {}) {
+    const seen = seenHashes || GitLogModal.state.history.seenHashes;
     const lines = stdout.split("\n");
     let count = 0;
     for (const line of lines) {
       if (!line.trim()) continue;
 
       const commitMatch = line.match(/^(.*?)([0-9a-f]{40})\t(.+?)\t(.+?)\t(.*?)\t(.*)$/);
-      if (!commitMatch) continue;
+      if (!commitMatch) {
+        if (graph) {
+          const graphLine = document.createElement("div");
+          graphLine.className = "git-log-graph-line";
+          graphLine.innerHTML = renderGraphSvg(line, 16);
+          listEl.appendChild(graphLine);
+        }
+        continue;
+      }
 
-      const [, , hash, time, author, refs, msg] = commitMatch;
-      if (history.seenHashes.has(hash)) continue;
-      history.seenHashes.add(hash);
+      const [, graphPrefix, hash, time, author, refs, msg] = commitMatch;
+      if (seen.has(hash)) continue;
+      seen.add(hash);
 
       let refsHtml = "";
       const branchSet = new Set();
@@ -68,9 +121,11 @@ Object.assign(GitLogModal, {
         refsHtml = htmlParts.join("");
       }
 
+      const graphHtml = graph && graphPrefix.trim() ? renderGraphSvg(graphPrefix, 44) : "";
       const entry = document.createElement("div");
       entry.className = "git-log-entry git-log-commit";
       entry.innerHTML =
+        graphHtml +
         `<span class="git-log-entry-body">` +
           `<span class="git-log-entry-msg">${escapeHtml(msg)}</span>` +
           `<span class="git-log-entry-row1">` +
@@ -160,11 +215,15 @@ Object.assign(GitLogModal, {
       '<button type="button" class="git-action-btn icon-only git-log-dirty-branch-btn" title="ブランチ" aria-label="ブランチ">' +
         '<span class="mdi mdi-source-branch"></span>' +
       "</button>";
+    const fullscreenButtonHtml =
+      '<button type="button" class="git-action-btn icon-only git-log-history-fullscreen-btn" title="履歴全画面" aria-label="履歴全画面">' +
+        '<span class="mdi mdi-arrow-expand-vertical"></span>' +
+      "</button>";
     let bodyHtml =
       '<span class="git-log-entry-body git-log-dirty-body">' +
         '<span class="git-log-dirty-main">';
     bodyHtml += renderDirtyWorkspaceLabel(ws);
-    bodyHtml += `</span><span class="git-log-dirty-actions">${isDirty ? commitButtonHtml : ""}${stashButtonHtml}${branchButtonHtml}</span></span>`;
+    bodyHtml += `</span><span class="git-log-dirty-actions">${isDirty ? commitButtonHtml : ""}${stashButtonHtml}${branchButtonHtml}${fullscreenButtonHtml}</span></span>`;
     entry.innerHTML = bodyHtml;
     const commitBtn = entry.querySelector(".git-log-dirty-commit-btn");
     commitBtn?.addEventListener("click", (event) => {
@@ -182,6 +241,11 @@ Object.assign(GitLogModal, {
     branchBtn?.addEventListener("click", (event) => {
       event.stopPropagation();
       GitLogModal.openLocalBranchPane();
+    });
+    const fullscreenBtn = entry.querySelector(".git-log-history-fullscreen-btn");
+    fullscreenBtn?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      GitLogModal.toggleHistoryFullscreen();
     });
     if (isDirty) {
       entry.addEventListener("click", () => {

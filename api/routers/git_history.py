@@ -40,7 +40,7 @@ class StashRequest(BaseModel):
 
 
 @router.get("/workspaces/{name}/git-log")
-def get_git_log(name: str, limit: int = 50, skip: int = 0):
+def get_git_log(name: str, limit: int = 50, skip: int = 0, graph: bool = False):
     ws_path = resolve_workspace_path(name)
     safe_limit = max(1, min(limit, GIT_LOG_MAX_ENTRIES))
     safe_skip = min(max(0, skip), GIT_LOG_MAX_SKIP)
@@ -50,8 +50,10 @@ def get_git_log(name: str, limit: int = 50, skip: int = 0):
         "--date=format-local:%Y-%m-%d %H:%M",
         "--pretty=format:%H\t%ad\t%an\t%D\t%s",
     ]
+    if graph:
+        args.insert(3, "--graph")
     if safe_skip > 0:
-        args.insert(4, f"--skip={safe_skip}")
+        args.insert(4 + (1 if graph else 0), f"--skip={safe_skip}")
     return run_git_command(args, cwd=ws_path, operation="log")
 
 

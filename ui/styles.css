@@ -2311,8 +2311,11 @@ button:disabled {
   align-self: stretch;
   flex-shrink: 0;
   gap: 6px;
-  max-width: 52%;
   min-height: 42px;
+}
+
+.git-log-dirty-actions .git-action-btn {
+  flex-shrink: 0;
 }
 
 .git-log-entry-row1 {
@@ -2367,7 +2370,8 @@ button:disabled {
   display: none;
 }
 
-.git-log-dirty-branch-btn {
+.git-log-dirty-branch-btn,
+.git-log-history-fullscreen-btn {
   align-self: stretch;
   width: 40px;
   min-width: 40px;
@@ -2596,6 +2600,24 @@ button:disabled {
   flex-direction: column;
   flex: 1;
   min-height: 0;
+}
+
+.git-graph-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding-top: 10px;
+}
+
+.git-log-graph-svg {
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.git-log-graph-line {
+  line-height: 0;
+  padding: 0 6px;
 }
 
 .git-log-commit.action-open {
