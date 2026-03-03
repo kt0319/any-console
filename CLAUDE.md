@@ -199,7 +199,7 @@ sudo systemctl restart pi-console
 | `POST /workspaces/{name}/stash` | git stash |
 | `POST /workspaces/{name}/stash-pop` | git stash pop |
 | `POST /workspaces/{name}/stash-drop` | git stash drop |
-| `POST /workspaces/{name}/stash-pop-index` | stash pop by ref |
+| `POST /workspaces/{name}/stash-pop-ref` | stash pop by ref |
 | `GET /workspaces/{name}/files` | ファイル一覧 |
 | `GET /workspaces/{name}/file-content` | ファイル内容取得 |
 | `GET /workspaces/{name}/jobs` | ジョブ一覧 |

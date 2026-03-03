@@ -67,33 +67,29 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("push-upstream-btn").addEventListener("click", () => GitCore.gitPushUpstream());
   $("push-btn").addEventListener("click", () => GitCore.gitPush());
   initQuickInput();
-  $("header-commit-msg").addEventListener("click", () => GitLogModal.openGitLogModal({
+  $("header-commit-msg").addEventListener("click", () => GitLogModal.openGitModal({
     onBack: () => {
-      GitLogModal.closeGitLogModal();
+      GitLogModal.closeGitModal();
       openTabEditModal("workspace");
     },
   }));
-  $("git-log-close").addEventListener("click", () => GitLogModal.closeGitLogModal());
-  $("git-log-modal").addEventListener("click", (e) => {
-    if (e.target === $("git-log-modal")) GitLogModal.closeGitLogModal();
+  $("git-modal-close").addEventListener("click", () => GitLogModal.closeGitModal());
+  $("git-modal").addEventListener("click", (e) => {
+    if (e.target === $("git-modal")) GitLogModal.closeGitModal();
   });
-  $("git-log-list-modal").addEventListener("scroll", (e) => {
-    const el = e.target;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 50) {
-      GitLogModal.loadMoreGitLog();
-    }
-  });
-  $("git-graph-list").addEventListener("scroll", (e) => {
-    const el = e.target;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 50) {
-      GitLogModal.loadMoreGraphLog();
-    }
-  });
-  $("git-log-create-branch-submit").addEventListener("click", () => GitLogModal.submitCreateBranch());
-  $("git-log-create-branch-close").addEventListener("click", () => GitLogModal.resetCreateBranchArea());
+  function bindScrollLoadMore(id, loadMore) {
+    $(id).addEventListener("scroll", (e) => {
+      const el = e.target;
+      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 50) loadMore();
+    });
+  }
+  bindScrollLoadMore("git-history-list", () => GitLogModal.loadMoreGitLog());
+  bindScrollLoadMore("git-graph-list", () => GitLogModal.loadMoreGraphLog());
+  $("git-create-branch-submit").addEventListener("click", () => GitLogModal.submitCreateBranch());
+  $("git-create-branch-close").addEventListener("click", () => GitLogModal.resetCreateBranchArea());
 
   setupModalSwipeClose($("settings-modal"), closeSettings);
-  setupModalSwipeClose($("git-log-modal"), () => GitLogModal.closeGitLogModal());
+  setupModalSwipeClose($("git-modal"), () => GitLogModal.closeGitModal());
   setupModalSwipeClose($("job-confirm-modal"), closeJobConfirmModal);
   setupModalSwipeClose($("icon-picker-modal"), closeIconPicker);
 

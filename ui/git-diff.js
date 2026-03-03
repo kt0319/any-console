@@ -300,7 +300,7 @@ async function loadDiffTab() {
 async function openDiffModal() {
   if (!selectedWorkspace) return;
 
-  $("git-log-modal").style.display = "flex";
+  $("git-modal").style.display = "flex";
   GitLogModal.updateStashIndicators();
   GitLogModal.showDiffPane("未コミットの変更");
   await loadDiffTab();
@@ -344,7 +344,7 @@ async function submitCommit() {
       showFormError("diff-commit-error", getActionFailureMessage(data, "コミットに失敗しました"));
       return;
     }
-    GitLogModal.closeGitLogModal();
+    GitLogModal.closeGitModal();
     showToast("コミット完了", "success");
     await refreshWorkspaceHeader();
   } catch (e) {

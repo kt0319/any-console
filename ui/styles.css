@@ -2172,8 +2172,8 @@ button:disabled {
   cursor: pointer;
 }
 
-#branch-pane-list,
-#stash-pane-list {
+#git-branch-list,
+#git-stash-list {
   border: 1px solid var(--border);
   border-radius: 8px;
 }
@@ -2227,7 +2227,7 @@ button:disabled {
 }
 
 
-#commit-modal-tab-diff {
+#git-modal-content {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -2243,7 +2243,7 @@ button:disabled {
   font-size: 13px;
 }
 
-#diff-history-pane > .modal-scroll-body {
+#git-history-pane > .modal-scroll-body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
@@ -2301,7 +2301,7 @@ button:disabled {
   min-height: 42px;
 }
 
-.git-log-dirty-replacement {
+.git-dirty-spacer {
   visibility: hidden;
   pointer-events: none;
 }
@@ -2522,12 +2522,12 @@ button:disabled {
   border-color: var(--error);
 }
 
-#git-log-create-branch-area {
+#git-create-branch-area {
   flex: 0 0 100%;
   padding: 6px 10px 10px;
 }
 
-#git-log-create-branch-area .git-log-create-branch-row,
+#git-create-branch-area .git-create-branch-row,
 #diff-commit-form .diff-commit-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -2535,13 +2535,13 @@ button:disabled {
   align-items: center;
 }
 
-#git-log-create-branch-area .form-input,
+#git-create-branch-area .form-input,
 #diff-commit-form .form-input {
   min-width: 0;
 }
 
-#git-log-create-branch-submit,
-#git-log-create-branch-close,
+#git-create-branch-submit,
+#git-create-branch-close,
 #diff-commit-submit,
 #diff-commit-cancel {
   width: auto;
@@ -2561,7 +2561,7 @@ button:disabled {
   -webkit-overflow-scrolling: touch;
 }
 
-#commit-modal-tab-diff {
+#git-modal-content {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -2577,14 +2577,14 @@ button:disabled {
   padding-top: 10px;
 }
 
-.diff-upper-pane,
+.git-upper-pane,
 .diff-lower-pane {
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
-.diff-upper-pane {
+.git-upper-pane {
   flex: 1 1 33.333%;
 }
 
@@ -2592,10 +2592,10 @@ button:disabled {
   flex: 2 1 66.667%;
 }
 
-#diff-history-pane,
-#diff-files-pane,
-#diff-stash-pane,
-#diff-branch-pane {
+#git-history-pane,
+#git-files-pane,
+#git-stash-pane,
+#git-branch-pane {
   display: flex;
   flex-direction: column;
   flex: 1;

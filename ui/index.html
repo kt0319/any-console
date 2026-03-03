@@ -66,36 +66,36 @@
         <input type="file" id="settings-import-file" accept=".json" style="display:none">
       </div>
     </div>
-    <!-- Git Log Modal -->
-    <div id="git-log-modal" class="modal-overlay" style="display:none">
+    <!-- Git Modal -->
+    <div id="git-modal" class="modal-overlay" style="display:none">
       <div class="modal">
         <div class="modal-header">
-          <h3 id="git-log-modal-title" class="split-modal-title">コミット履歴</h3>
-          <button id="git-log-close" class="modal-close-btn" title="閉じる">&times;</button>
+          <h3 id="git-modal-title" class="split-modal-title">コミット履歴</h3>
+          <button id="git-modal-close" class="modal-close-btn" title="閉じる">&times;</button>
         </div>
-        <div id="commit-modal-tab-diff" style="display:none">
+        <div id="git-modal-content" style="display:none">
           <div id="git-graph-pane" class="git-graph-pane" style="display:none">
             <div class="modal-scroll-body" id="git-graph-list"></div>
           </div>
           <div class="diff-layout">
-            <div id="diff-upper-pane" class="diff-upper-pane">
-              <div id="diff-history-pane">
-                <div class="modal-scroll-body" id="git-log-list-modal"></div>
-                <div id="git-log-action-menu" class="commit-action-menu" style="display:none"></div>
-                <div id="git-log-create-branch-area" style="display:none">
-                  <div class="git-log-create-branch-row">
-                    <input type="text" id="git-log-branch-name" class="form-input" placeholder="新しいブランチ名" autocomplete="off" />
-                    <button type="button" id="git-log-create-branch-submit" class="primary">作成</button>
-                    <button type="button" id="git-log-create-branch-close">閉じる</button>
+            <div id="git-upper-pane" class="git-upper-pane">
+              <div id="git-history-pane">
+                <div class="modal-scroll-body" id="git-history-list"></div>
+                <div id="git-commit-action-menu" class="commit-action-menu" style="display:none"></div>
+                <div id="git-create-branch-area" style="display:none">
+                  <div class="git-create-branch-row">
+                    <input type="text" id="git-branch-name-input" class="form-input" placeholder="新しいブランチ名" autocomplete="off" />
+                    <button type="button" id="git-create-branch-submit" class="primary">作成</button>
+                    <button type="button" id="git-create-branch-close">閉じる</button>
                   </div>
-                  <div id="git-log-branch-error" class="form-error"></div>
+                  <div id="git-branch-error" class="form-error"></div>
                 </div>
               </div>
-              <div id="diff-files-pane" style="display:none">
+              <div id="git-files-pane" style="display:none">
                 <div class="diff-actions" id="diff-actions" style="display:none"></div>
                 <div class="diff-file-list" id="diff-file-list"></div>
                 <div id="diff-commit-form" style="display:none">
-                  <div class="git-log-create-branch-row diff-commit-row">
+                  <div class="git-create-branch-row diff-commit-row">
                     <input type="text" id="diff-commit-message" class="form-input" placeholder="コミットメッセージ" autocomplete="off" />
                     <button type="button" id="diff-commit-submit" class="primary">コミット</button>
                     <button type="button" id="diff-commit-cancel">閉じる</button>
@@ -103,14 +103,14 @@
                   <div id="diff-commit-error" class="form-error"></div>
                 </div>
               </div>
-              <div id="diff-stash-pane" style="display:none">
+              <div id="git-stash-pane" style="display:none">
                 <div class="stash-pane-toolbar">
                   <button type="button" class="stash-save-btn" id="stash-save-btn">stash save</button>
                 </div>
-                <div class="modal-scroll-body" id="stash-pane-list"></div>
+                <div class="modal-scroll-body" id="git-stash-list"></div>
               </div>
-              <div id="diff-branch-pane" style="display:none">
-                <div class="modal-scroll-body" id="branch-pane-list"></div>
+              <div id="git-branch-pane" style="display:none">
+                <div class="modal-scroll-body" id="git-branch-list"></div>
               </div>
             </div>
             <div class="diff-lower-pane">

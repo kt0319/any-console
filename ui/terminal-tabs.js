@@ -345,7 +345,7 @@ function updateGitBarVisibility() {
       hint.id = "non-git-hint";
       hint.className = "non-git-hint commit-msg-btn";
       hint.textContent = "Gitリポジトリではありません";
-      hint.onclick = () => GitLogModal.openFileBrowserModal();
+      hint.onclick = () => GitLogModal.openFileModal();
       $("header-row2").appendChild(hint);
     }
     hint.style.display = "";

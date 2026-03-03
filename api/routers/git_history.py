@@ -140,8 +140,8 @@ def git_stash_drop(name: str, body: StashDropRequest):
     return result
 
 
-@router.post("/workspaces/{name}/stash-pop-index")
-def git_stash_pop_index(name: str, body: StashDropRequest):
+@router.post("/workspaces/{name}/stash-pop-ref")
+def git_stash_pop_ref(name: str, body: StashDropRequest):
     ws_path = resolve_workspace_path(name)
     ref = validate_stash_ref(body.stash_ref)
     result = run_git_command(["stash", "pop", ref], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="stash pop")

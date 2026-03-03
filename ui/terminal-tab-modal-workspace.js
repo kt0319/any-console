@@ -14,44 +14,84 @@ function createTerminalTabModalWorkspaceSection(deps) {
     contentContainer.appendChild(list);
   }
 
-  function renderModalWsList(container) {
-    async function executeWsRemoteOp(wsName, endpoint, label, button) {
-      const ws = allWorkspaces.find((w) => w.name === wsName);
-      const branch = ws && ws.branch ? ws.branch : "(不明)";
-      const actionLabel = label === "追跡設定" ? "追跡設定" : label;
-      const msg = `${actionLabel} を実行しますか？\nリポジトリ: ${wsName}\nブランチ: ${branch}`;
-      if (!confirm(msg)) return;
+  async function executeWsRemoteOp(wsName, endpoint, label, button) {
+    const ws = allWorkspaces.find((w) => w.name === wsName);
+    const branch = ws && ws.branch ? ws.branch : "(不明)";
+    const actionLabel = label === "追跡設定" ? "追跡設定" : label;
+    const msg = `${actionLabel} を実行しますか？\nリポジトリ: ${wsName}\nブランチ: ${branch}`;
+    if (!confirm(msg)) return;
+    if (button) {
+      button.disabled = true;
+      button.classList.add("running");
+    }
+    try {
+      await postWorkspaceAction(wsName, endpoint, label);
+    } finally {
       if (button) {
-        button.disabled = true;
-        button.classList.add("running");
+        button.classList.remove("running");
+        button.disabled = false;
       }
-      try {
-        await postWorkspaceAction(wsName, endpoint, label);
-      } finally {
-        if (button) {
-          button.classList.remove("running");
-          button.disabled = false;
-        }
-        await refreshWorkspaceStatusInModal(wsName, container);
-        if (selectedWorkspace === wsName) {
-          await refreshWorkspaceHeader();
-        }
+      const listContainer = button?.closest(".terminal-ws-list");
+      if (listContainer) await refreshWorkspaceStatusInModal(wsName, listContainer);
+      if (selectedWorkspace === wsName) {
+        await refreshWorkspaceHeader();
       }
     }
+  }
 
-    async function refreshWorkspaceStatusInModal(wsName, listContainer) {
-      const res = await apiFetch(workspaceApiPath(wsName, "/status"));
-      if (!res || !res.ok) return;
-      const status = await res.json();
-      const idx = allWorkspaces.findIndex((w) => w.name === wsName);
-      if (idx < 0) return;
-      allWorkspaces[idx] = { ...allWorkspaces[idx], ...status };
-      const group = listContainer.querySelector(`[data-workspace-name="${wsName}"]`);
-      if (group) {
-        updateModalWsGroupGitInfo(group, allWorkspaces[idx]);
+  async function refreshWorkspaceStatusInModal(wsName, listContainer) {
+    const res = await apiFetch(workspaceApiPath(wsName, "/status"));
+    if (!res || !res.ok) return;
+    const status = await res.json();
+    const idx = allWorkspaces.findIndex((w) => w.name === wsName);
+    if (idx < 0) return;
+    allWorkspaces[idx] = { ...allWorkspaces[idx], ...status };
+    const group = listContainer.querySelector(`[data-workspace-name="${wsName}"]`);
+    if (group) {
+      updateModalWsGroupGitInfo(group, allWorkspaces[idx]);
+    }
+  }
+
+  function createRemoteActionButtons(ws, topMeta) {
+    const hasUpstream = ws.has_upstream !== false;
+    const hasRemoteBranch = ws.has_remote_branch === true;
+    if (!hasUpstream) {
+      const upstreamBtn = document.createElement("button");
+      upstreamBtn.type = "button";
+      if (hasRemoteBranch) {
+        upstreamBtn.className = "picker-ws-mini-btn upstream-set-btn";
+        upstreamBtn.innerHTML = `<span class="mdi mdi-link-variant"></span><span>追跡</span>`;
+        upstreamBtn.addEventListener("click", () => executeWsRemoteOp(ws.name, "/set-upstream", "追跡設定", upstreamBtn));
+      } else {
+        const hasAhead = ws.ahead > 0;
+        const aheadCount = String(ws.ahead ?? 0);
+        upstreamBtn.className = "picker-ws-mini-btn upstream-btn" + (hasAhead ? " has-count" : "");
+        upstreamBtn.innerHTML = `<span class="mdi mdi-chevron-double-up"></span><span>${aheadCount}</span>`;
+        upstreamBtn.addEventListener("click", () => executeWsRemoteOp(ws.name, "/push-upstream", "push", upstreamBtn));
       }
+      topMeta.appendChild(upstreamBtn);
     }
 
+    if (hasUpstream && ws.ahead > 0) {
+      const pushBtn = document.createElement("button");
+      pushBtn.type = "button";
+      pushBtn.className = "picker-ws-mini-btn push-btn has-count";
+      pushBtn.innerHTML = `<span class="mdi mdi-arrow-up"></span><span>${ws.ahead}</span>`;
+      pushBtn.addEventListener("click", () => executeWsRemoteOp(ws.name, "/push", "push", pushBtn));
+      topMeta.appendChild(pushBtn);
+    }
+
+    if (ws.behind > 0) {
+      const pullBtn = document.createElement("button");
+      pullBtn.type = "button";
+      pullBtn.className = "picker-ws-mini-btn pull-btn has-count";
+      pullBtn.innerHTML = `<span class="mdi mdi-arrow-down"></span><span>${ws.behind}</span>`;
+      pullBtn.addEventListener("click", () => executeWsRemoteOp(ws.name, "/pull", "pull", pullBtn));
+      topMeta.appendChild(pullBtn);
+    }
+  }
+
+  function renderModalWsList(container) {
     const workspaces = visibleWorkspaces();
     if (workspaces.length === 0) {
       const empty = document.createElement("div");
@@ -109,42 +149,7 @@ function createTerminalTabModalWorkspaceSection(deps) {
         topMeta.appendChild(dirtyBadge);
       }
 
-      const hasUpstream = ws.has_upstream !== false;
-      const hasRemoteBranch = ws.has_remote_branch === true;
-      if (!hasUpstream) {
-        const upstreamBtn = document.createElement("button");
-        upstreamBtn.type = "button";
-        if (hasRemoteBranch) {
-          upstreamBtn.className = "picker-ws-mini-btn upstream-set-btn";
-          upstreamBtn.innerHTML = `<span class="mdi mdi-link-variant"></span><span>追跡</span>`;
-          upstreamBtn.addEventListener("click", () => executeWsRemoteOp(ws.name, "/set-upstream", "追跡設定", upstreamBtn));
-        } else {
-          const hasAhead = ws.ahead > 0;
-          const aheadCount = String(ws.ahead ?? 0);
-          upstreamBtn.className = "picker-ws-mini-btn upstream-btn" + (hasAhead ? " has-count" : "");
-          upstreamBtn.innerHTML = `<span class="mdi mdi-chevron-double-up"></span><span>${aheadCount}</span>`;
-          upstreamBtn.addEventListener("click", () => executeWsRemoteOp(ws.name, "/push-upstream", "push", upstreamBtn));
-        }
-        topMeta.appendChild(upstreamBtn);
-      }
-
-      if (hasUpstream && ws.ahead > 0) {
-        const pushBtn = document.createElement("button");
-        pushBtn.type = "button";
-        pushBtn.className = "picker-ws-mini-btn push-btn has-count";
-        pushBtn.innerHTML = `<span class="mdi mdi-arrow-up"></span><span>${ws.ahead}</span>`;
-        pushBtn.addEventListener("click", () => executeWsRemoteOp(ws.name, "/push", "push", pushBtn));
-        topMeta.appendChild(pushBtn);
-      }
-
-      if (ws.behind > 0) {
-        const pullBtn = document.createElement("button");
-        pullBtn.type = "button";
-        pullBtn.className = "picker-ws-mini-btn pull-btn has-count";
-        pullBtn.innerHTML = `<span class="mdi mdi-arrow-down"></span><span>${ws.behind}</span>`;
-        pullBtn.addEventListener("click", () => executeWsRemoteOp(ws.name, "/pull", "pull", pullBtn));
-        topMeta.appendChild(pullBtn);
-      }
+      createRemoteActionButtons(ws, topMeta);
 
       topRow.appendChild(topMeta);
       group.appendChild(topRow);
@@ -164,9 +169,9 @@ function createTerminalTabModalWorkspaceSection(deps) {
         detailBtn.addEventListener("click", () => {
           closeModal();
           selectedWorkspace = ws.name;
-          GitLogModal.openGitLogModal({
+          GitLogModal.openGitModal({
             onBack: () => {
-              GitLogModal.closeGitLogModal();
+              GitLogModal.closeGitModal();
               openTabEditModal("workspace");
             },
           });
@@ -214,21 +219,8 @@ function createTerminalTabModalWorkspaceSection(deps) {
   }
 
   function fetchModalWsGitStatuses(workspaces, listContainer) {
-    const gitWorkspaces = workspaces.filter((ws) => ws.is_git_repo);
-    for (const ws of gitWorkspaces) {
-      apiFetch(workspaceApiPath(ws.name, "/status"))
-        .then(async (res) => {
-          if (!res || !res.ok) return;
-          const status = await res.json();
-          const idx = allWorkspaces.findIndex((w) => w.name === ws.name);
-          if (idx < 0) return;
-          allWorkspaces[idx] = { ...allWorkspaces[idx], ...status };
-          const group = listContainer.querySelector(`[data-workspace-name="${ws.name}"]`);
-          if (group) {
-            updateModalWsGroupGitInfo(group, allWorkspaces[idx]);
-          }
-        })
-        .catch(() => {});
+    for (const ws of workspaces.filter((w) => w.is_git_repo)) {
+      refreshWorkspaceStatusInModal(ws.name, listContainer).catch(() => {});
     }
   }
 
@@ -245,93 +237,11 @@ function createTerminalTabModalWorkspaceSection(deps) {
       topMeta.appendChild(dirtyBadge);
     }
 
-    const hasUpstream = ws.has_upstream !== false;
-    const hasRemoteBranch = ws.has_remote_branch === true;
-    if (!hasUpstream) {
-      const upstreamBtn = document.createElement("button");
-      upstreamBtn.type = "button";
-      if (hasRemoteBranch) {
-        upstreamBtn.className = "picker-ws-mini-btn upstream-set-btn";
-        upstreamBtn.innerHTML = `<span class="mdi mdi-link-variant"></span><span>追跡</span>`;
-        upstreamBtn.addEventListener("click", () => {
-          const container = group.closest(".terminal-ws-list");
-          if (container) executeWsRemoteOpFromGroup(ws.name, "/set-upstream", "追跡設定", upstreamBtn, container);
-        });
-      } else {
-        const hasAhead = ws.ahead > 0;
-        const aheadCount = String(ws.ahead ?? 0);
-        upstreamBtn.className = "picker-ws-mini-btn upstream-btn" + (hasAhead ? " has-count" : "");
-        upstreamBtn.innerHTML = `<span class="mdi mdi-chevron-double-up"></span><span>${aheadCount}</span>`;
-        upstreamBtn.addEventListener("click", () => {
-          const container = group.closest(".terminal-ws-list");
-          if (container) executeWsRemoteOpFromGroup(ws.name, "/push-upstream", "push", upstreamBtn, container);
-        });
-      }
-      topMeta.appendChild(upstreamBtn);
-    }
-
-    if (hasUpstream && ws.ahead > 0) {
-      const pushBtn = document.createElement("button");
-      pushBtn.type = "button";
-      pushBtn.className = "picker-ws-mini-btn push-btn has-count";
-      pushBtn.innerHTML = `<span class="mdi mdi-arrow-up"></span><span>${ws.ahead}</span>`;
-      pushBtn.addEventListener("click", () => {
-        const container = group.closest(".terminal-ws-list");
-        if (container) executeWsRemoteOpFromGroup(ws.name, "/push", "push", pushBtn, container);
-      });
-      topMeta.appendChild(pushBtn);
-    }
-
-    if (ws.behind > 0) {
-      const pullBtn = document.createElement("button");
-      pullBtn.type = "button";
-      pullBtn.className = "picker-ws-mini-btn pull-btn has-count";
-      pullBtn.innerHTML = `<span class="mdi mdi-arrow-down"></span><span>${ws.behind}</span>`;
-      pullBtn.addEventListener("click", () => {
-        const container = group.closest(".terminal-ws-list");
-        if (container) executeWsRemoteOpFromGroup(ws.name, "/pull", "pull", pullBtn, container);
-      });
-      topMeta.appendChild(pullBtn);
-    }
+    createRemoteActionButtons(ws, topMeta);
 
     const branchEl = group.querySelector(".picker-ws-branch");
     if (branchEl) {
       branchEl.textContent = ws.branch || "-";
-    }
-  }
-
-  async function executeWsRemoteOpFromGroup(wsName, endpoint, label, button, listContainer) {
-    const ws = allWorkspaces.find((w) => w.name === wsName);
-    const branch = ws && ws.branch ? ws.branch : "(不明)";
-    const actionLabel = label === "追跡設定" ? "追跡設定" : label;
-    const msg = `${actionLabel} を実行しますか？\nリポジトリ: ${wsName}\nブランチ: ${branch}`;
-    if (!confirm(msg)) return;
-    if (button) {
-      button.disabled = true;
-      button.classList.add("running");
-    }
-    try {
-      await postWorkspaceAction(wsName, endpoint, label);
-    } finally {
-      if (button) {
-        button.classList.remove("running");
-        button.disabled = false;
-      }
-      const res = await apiFetch(workspaceApiPath(wsName, "/status"));
-      if (res && res.ok) {
-        const status = await res.json();
-        const idx = allWorkspaces.findIndex((w) => w.name === wsName);
-        if (idx >= 0) {
-          allWorkspaces[idx] = { ...allWorkspaces[idx], ...status };
-          const group = listContainer.querySelector(`[data-workspace-name="${wsName}"]`);
-          if (group) {
-            updateModalWsGroupGitInfo(group, allWorkspaces[idx]);
-          }
-        }
-      }
-      if (selectedWorkspace === wsName) {
-        await refreshWorkspaceHeader();
-      }
     }
   }
 

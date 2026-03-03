@@ -56,7 +56,7 @@ async function fetchAndRenderWithStatus(
   }
 }
 
-function setCloneRepoStatus(container, variant, text) {
+function setListStatus(container, variant, text) {
   container.innerHTML = `<div class="clone-repo-${variant}">${escapeHtml(text)}</div>`;
 }
 

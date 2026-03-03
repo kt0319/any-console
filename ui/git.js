@@ -91,7 +91,7 @@ const GitCore = {
           if (!confirm(`${b} に切り替えますか？`)) return;
           if (beforeSwitch) beforeSwitch();
           await GitCore.checkoutBranch(b);
-          GitLogModal.closeGitLogModal();
+          GitLogModal.closeGitModal();
           await GitCore.refreshAfterGitOp();
         },
       }));
@@ -126,7 +126,7 @@ const GitCore = {
       action,
       body || { commit_hash: hash },
     );
-    GitLogModal.closeGitLogModal();
+    GitLogModal.closeGitModal();
     await GitCore.refreshAfterGitOp();
   },
 
@@ -145,7 +145,7 @@ const GitCore = {
     if (!confirm(`${label} を実行しますか？`)) return;
     const body = action === "pop" ? null : { include_untracked: true };
     await postWorkspaceAction(selectedWorkspace, `/${endpoint}`, label, body);
-    GitLogModal.closeGitLogModal();
+    GitLogModal.closeGitModal();
     await GitCore.refreshAfterGitOp();
   },
 };

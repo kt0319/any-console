@@ -1,10 +1,11 @@
-const DIFF_TOP_PANE_IDS = ["diff-history-pane", "diff-files-pane", "diff-stash-pane", "diff-branch-pane"];
+const GIT_PANE_MAP = { history: "git-history-pane", files: "git-files-pane", stash: "git-stash-pane", branch: "git-branch-pane" };
 
 const GitLogModal = {
   state: {
     diffPaneTitle: "未コミットの変更",
     diffTopMode: "history",
     gitLogLoadedWorkspace: null,
+    createBranchFromHash: null,
     graphVisible: false,
     history: {
       loaded: 0,
@@ -21,8 +22,8 @@ const GitLogModal = {
   },
 
   toggleCommitActionMenu(entry, hash, msg, branches = []) {
-    const list = $("git-log-list-modal");
-    const menuEl = $("git-log-action-menu");
+    const list = $("git-history-list");
+    const menuEl = $("git-commit-action-menu");
     if (!menuEl) return;
     const wasOpen = entry.classList.contains("action-open");
 
@@ -51,27 +52,28 @@ const GitLogModal = {
     menuEl.style.display = "flex";
   },
 
-  closeGitLogModal() {
-    $("git-log-modal").style.display = "none";
+  closeGitModal() {
+    $("git-modal").style.display = "none";
     GitLogModal.resetActionMenu();
     closeCommitForm();
     GitLogModal.setModalTitle("");
+    GitLogModal.state.createBranchFromHash = null;
     GitLogModal.resetCreateBranchArea();
     GitLogModal.state.onBack = null;
     GitLogModal.closeGraphView();
   },
 
   resetActionMenu() {
-    const menuEl = $("git-log-action-menu");
+    const menuEl = $("git-commit-action-menu");
     if (!menuEl) return;
     menuEl.style.display = "none";
     menuEl.innerHTML = "";
   },
 
   restoreCreateBranchAreaPosition() {
-    const area = $("git-log-create-branch-area");
-    const menuEl = $("git-log-action-menu");
-    const historyPane = $("diff-history-pane");
+    const area = $("git-create-branch-area");
+    const menuEl = $("git-commit-action-menu");
+    const historyPane = $("git-history-pane");
     if (!area || !menuEl || !historyPane) return;
     if (area.parentElement !== historyPane) {
       if (menuEl.parentElement === historyPane) {
@@ -83,14 +85,14 @@ const GitLogModal = {
   },
 
   resetCreateBranchArea() {
-    const area = $("git-log-create-branch-area");
-    const submitBtn = $("git-log-create-branch-submit");
-    const input = $("git-log-branch-name");
+    const area = $("git-create-branch-area");
+    const submitBtn = $("git-create-branch-submit");
+    const input = $("git-branch-name-input");
     if (area) area.style.display = "none";
     if (submitBtn) submitBtn.style.display = "none";
     if (input) input.value = "";
     GitLogModal.restoreCreateBranchAreaPosition();
-    hideFormError("git-log-branch-error");
+    hideFormError("git-branch-error");
     const host = GitLogModal.state._branchAreaHost;
     if (host) {
       const children = GitLogModal.state._branchAreaHostChildren || [];
@@ -102,9 +104,9 @@ const GitLogModal = {
   },
 
   toggleCreateBranchArea(hash) {
-    const area = $("git-log-create-branch-area");
-    const submitBtn = $("git-log-create-branch-submit");
-    const menuEl = $("git-log-action-menu");
+    const area = $("git-create-branch-area");
+    const submitBtn = $("git-create-branch-submit");
+    const menuEl = $("git-commit-action-menu");
     const diffActionsEl = $("diff-actions");
     const triggerBtn = menuEl?.querySelector('[data-action-key="create-branch"]')
       || diffActionsEl?.querySelector('[data-action-key="create-branch"]');
@@ -113,7 +115,7 @@ const GitLogModal = {
     if (visible) {
       GitLogModal.resetCreateBranchArea();
     } else {
-      createBranchFromHash = hash || null;
+      GitLogModal.state.createBranchFromHash = hash || null;
       if (hostEl) {
         GitLogModal.state._branchAreaHost = hostEl;
         GitLogModal.state._branchAreaHostChildren = Array.from(hostEl.childNodes);
@@ -128,19 +130,19 @@ const GitLogModal = {
 
   async submitCreateBranch() {
     if (!selectedWorkspace) return;
-    const branchName = $("git-log-branch-name").value.trim();
+    const branchName = $("git-branch-name-input").value.trim();
 
     if (!branchName) {
-      showFormError("git-log-branch-error", "ブランチ名を入力してください");
+      showFormError("git-branch-error", "ブランチ名を入力してください");
       return;
     }
     if (!/^[a-zA-Z0-9_./-]+$/.test(branchName)) {
-      showFormError("git-log-branch-error", "ブランチ名に使えない文字が含まれています");
+      showFormError("git-branch-error", "ブランチ名に使えない文字が含まれています");
       return;
     }
 
-    hideFormError("git-log-branch-error");
-    $("git-log-create-branch-submit").disabled = true;
+    hideFormError("git-branch-error");
+    $("git-create-branch-submit").disabled = true;
 
     try {
       const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/create-branch"), {
@@ -150,25 +152,25 @@ const GitLogModal = {
       if (!res) return;
       const data = await res.json();
       if (!res.ok || data.status !== "ok") {
-        showFormError("git-log-branch-error", getActionFailureMessage(data, "ブランチ作成に失敗しました"));
+        showFormError("git-branch-error", getActionFailureMessage(data, "ブランチ作成に失敗しました"));
         return;
       }
-      GitLogModal.closeGitLogModal();
+      GitLogModal.closeGitModal();
       await GitCore.refreshAfterGitOp();
     } catch (e) {
-      showFormError("git-log-branch-error", e.message);
+      showFormError("git-branch-error", e.message);
     } finally {
-      $("git-log-create-branch-submit").disabled = false;
+      $("git-create-branch-submit").disabled = false;
     }
   },
 
   ensureDiffTabVisible() {
-    const diffTab = $("commit-modal-tab-diff");
+    const diffTab = $("git-modal-content");
     if (diffTab) diffTab.style.display = "";
   },
 
   setModalTitle(title, options = {}) {
-    const titleEl = $("git-log-modal-title");
+    const titleEl = $("git-modal-title");
     if (!titleEl) return;
     const { back = false, onClick = null } = options;
     titleEl.textContent = "";
@@ -214,7 +216,7 @@ const GitLogModal = {
 
   setDiffTopMode(mode, titleOptions) {
     GitLogModal.state.diffTopMode = mode;
-    $("diff-upper-pane").style.display = "";
+    $("git-upper-pane").style.display = "";
     GitLogModal.toggleDiffTopPane(mode);
     GitLogModal.resetActionMenu();
     GitLogModal.resetCreateBranchArea();
@@ -225,10 +227,11 @@ const GitLogModal = {
   },
 
   toggleDiffTopPane(mode) {
-    for (const paneId of DIFF_TOP_PANE_IDS) {
+    const targetId = GIT_PANE_MAP[mode];
+    for (const [, paneId] of Object.entries(GIT_PANE_MAP)) {
       const pane = $(paneId);
       if (!pane) continue;
-      pane.style.display = paneId === `diff-${mode}-pane` ? "" : "none";
+      pane.style.display = paneId === targetId ? "" : "none";
     }
   },
 
@@ -239,7 +242,7 @@ const GitLogModal = {
 
   async ensureCommitLogReady() {
     if (!selectedWorkspace) return;
-    const listEl = $("git-log-list-modal");
+    const listEl = $("git-history-list");
     if (!listEl) return;
     const hasEntry = !!listEl.querySelector(".git-log-entry");
     const hasText = !!listEl.textContent.trim();
@@ -259,16 +262,12 @@ const GitLogModal = {
   },
 
   async closeSubPane() {
-    const createBranchArea = $("git-log-create-branch-area");
+    const createBranchArea = $("git-create-branch-area");
     if (createBranchArea && createBranchArea.style.display !== "none") {
       GitLogModal.resetCreateBranchArea();
       return;
     }
-    if (getActiveDiffRef()) {
-      GitLogModal.showDiffFilesTop();
-      return;
-    }
-    if (!GitLogModal.isCurrentWorkspaceGitRepo()) {
+    if (getActiveDiffRef() || !GitLogModal.isCurrentWorkspaceGitRepo()) {
       GitLogModal.showDiffFilesTop();
       return;
     }
@@ -282,12 +281,12 @@ const GitLogModal = {
     GitLogModal.showDiffFilesTop();
   },
 
-  async openGitLogModal({ onBack } = {}) {
+  async openGitModal({ onBack } = {}) {
     if (!selectedWorkspace) return;
     GitLogModal.state.onBack = onBack || null;
     GitLogModal.ensureDiffTabVisible();
     GitLogModal.showDiffHistoryTop();
-    $("git-log-modal").style.display = "flex";
+    $("git-modal").style.display = "flex";
     GitLogModal.updateStashIndicators();
     clearActiveDiffRef();
     GitLogModal.state.history.hasMore = false;
@@ -295,29 +294,23 @@ const GitLogModal = {
   },
 
   async toggleGraphView() {
-    const entering = !GitLogModal.state.graphVisible;
-    GitLogModal.state.graphVisible = entering;
+    if (GitLogModal.state.graphVisible) {
+      GitLogModal.closeGraphView();
+      GitLogModal.showDiffHistoryTop();
+      return;
+    }
+    GitLogModal.state.graphVisible = true;
     const graphPane = $("git-graph-pane");
     const diffLayout = graphPane?.parentElement?.querySelector(".diff-layout");
-    if (entering) {
-      if (diffLayout) diffLayout.style.display = "none";
-      if (graphPane) graphPane.style.display = "";
-      GitLogModal.setModalTitle("コミットグラフ", {
-        back: true,
-        onClick: () => GitLogModal.toggleGraphView(),
-      });
-      await GitLogModal.loadGraphLog();
-    } else {
-      if (graphPane) graphPane.style.display = "none";
-      if (diffLayout) diffLayout.style.display = "";
-      GitLogModal.showDiffHistoryTop();
-    }
+    if (diffLayout) diffLayout.style.display = "none";
+    if (graphPane) graphPane.style.display = "";
+    GitLogModal.setModalTitle("コミットグラフ", {
+      back: true,
+      onClick: () => GitLogModal.toggleGraphView(),
+    });
     const icon = document.querySelector(".git-log-graph-btn .mdi");
-    if (icon) {
-      icon.className = entering
-        ? "mdi mdi-close"
-        : "mdi mdi-history";
-    }
+    if (icon) icon.className = "mdi mdi-close";
+    await GitLogModal.loadGraphLog();
   },
 
   closeGraphView() {
@@ -331,41 +324,23 @@ const GitLogModal = {
     if (icon) icon.className = "mdi mdi-history";
   },
 
-  async loadGraphLog() {
+  async fetchGraphEntries(reset) {
+    const graph = GitLogModal.state.graph;
     if (!selectedWorkspace) return;
     const listEl = $("git-graph-list");
     if (!listEl) return;
-    listEl.innerHTML = "";
-    const graph = GitLogModal.state.graph;
-    graph.loaded = 0;
-    graph.isLoading = true;
-    graph.hasMore = true;
-    graph.seenHashes.clear();
-    try {
-      const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?graph=true&limit=${GIT_LOG_ENTRIES_PER_PAGE}`));
-      if (!res) return;
-      const data = await res.json();
-      if (data.exit_code !== 0 || !data.stdout) {
-        graph.hasMore = false;
-        return;
-      }
-      const count = GitLogModal.renderGitLogEntries(listEl, data.stdout, { graph: true, seenHashes: graph.seenHashes });
-      graph.loaded += count;
-      if (count < GIT_LOG_ENTRIES_PER_PAGE) graph.hasMore = false;
-    } catch {
-      graph.hasMore = false;
-    } finally {
-      graph.isLoading = false;
+    if (reset) {
+      listEl.innerHTML = "";
+      graph.loaded = 0;
+      graph.hasMore = true;
+      graph.seenHashes.clear();
+    } else if (graph.isLoading || !graph.hasMore) {
+      return;
     }
-  },
-
-  async loadMoreGraphLog() {
-    const graph = GitLogModal.state.graph;
-    if (!selectedWorkspace || graph.isLoading || !graph.hasMore) return;
     graph.isLoading = true;
-    const listEl = $("git-graph-list");
     try {
-      const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?graph=true&limit=${GIT_LOG_ENTRIES_PER_PAGE}&skip=${graph.loaded}`));
+      const skip = reset ? "" : `&skip=${graph.loaded}`;
+      const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?graph=true&limit=${GIT_LOG_ENTRIES_PER_PAGE}${skip}`));
       if (!res) return;
       const data = await res.json();
       if (!res.ok || data.exit_code !== 0 || !data.stdout) {
@@ -382,12 +357,15 @@ const GitLogModal = {
     }
   },
 
-  async openFileBrowserModal() {
+  loadGraphLog() { return GitLogModal.fetchGraphEntries(true); },
+  loadMoreGraphLog() { return GitLogModal.fetchGraphEntries(false); },
+
+  async openFileModal() {
     if (!selectedWorkspace) return;
     GitLogModal.ensureDiffTabVisible();
-    $("git-log-modal").style.display = "flex";
+    $("git-modal").style.display = "flex";
     GitLogModal.setDiffTopMode("files", { title: GitLogModal.modalTitle() });
-    $("diff-upper-pane").style.display = "none";
+    $("git-upper-pane").style.display = "none";
     clearActiveDiffRef();
     await loadDirectoryInDiffPane("");
   },

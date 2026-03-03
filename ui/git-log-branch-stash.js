@@ -50,7 +50,7 @@ Object.assign(GitLogModal, {
     if (GitLogModal._renderingBranches) return;
     GitLogModal._renderingBranches = true;
     try {
-      const listEl = $("branch-pane-list");
+      const listEl = $("git-branch-list");
       if (!listEl) return;
 
       await GitCore.loadBranches();
@@ -159,18 +159,18 @@ Object.assign(GitLogModal, {
     if (!selectedWorkspace) return;
     GitLogModal.showSubPane("stash", "Stash");
     $("stash-save-btn").onclick = () => GitLogModal.execStashSave();
-    const listEl = $("stash-pane-list");
-    setCloneRepoStatus(listEl, "loading", "読み込み中...");
+    const listEl = $("git-stash-list");
+    setListStatus(listEl, "loading", "読み込み中...");
 
     try {
       const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/stash-list"));
       if (!res || !res.ok) {
-        setCloneRepoStatus(listEl, "error", "取得に失敗しました");
+        setListStatus(listEl, "error", "取得に失敗しました");
         return;
       }
       const data = await res.json();
       if (data.status !== "ok" || !data.entries || data.entries.length === 0) {
-        setCloneRepoStatus(listEl, "empty", "stashはありません");
+        setListStatus(listEl, "empty", "stashはありません");
         return;
       }
       listEl.innerHTML = "";
@@ -209,7 +209,7 @@ Object.assign(GitLogModal, {
         listEl.appendChild(row);
       }
     } catch (e) {
-      setCloneRepoStatus(listEl, "error", e.message);
+      setListStatus(listEl, "error", e.message);
     }
   },
 
@@ -231,7 +231,7 @@ Object.assign(GitLogModal, {
     const actionLabel = action === "pop" ? "適用" : "削除";
     const confirmLabel = `stash ${actionLabel} ${ref}`;
     if (!confirm(`${confirmLabel} を実行しますか？`)) return;
-    const endpoint = action === "pop" ? "stash-pop-index" : "stash-drop";
+    const endpoint = action === "pop" ? "stash-pop-ref" : "stash-drop";
     await postWorkspaceAction(
       selectedWorkspace,
       `/${endpoint}`,

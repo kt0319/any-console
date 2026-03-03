@@ -54,7 +54,7 @@ function renderDirtyWorkspaceLabel(ws) {
       + `<span class="git-log-entry-refs"><span class="git-ref git-ref-dirty">${statText}</span></span>`;
   }
   return '<span class="git-log-entry-msg git-log-dirty-msg">変更なし</span>'
-    + '<span class="git-log-entry-refs git-log-dirty-replacement" aria-hidden="true"><span class="git-ref git-ref-dirty">0F +0 -0</span></span>';
+    + '<span class="git-log-entry-refs git-dirty-spacer" aria-hidden="true"><span class="git-ref git-ref-dirty">0F +0 -0</span></span>';
 }
 
 Object.assign(GitLogModal, {
@@ -153,7 +153,7 @@ Object.assign(GitLogModal, {
     if (!selectedWorkspace || history.isLoading || !history.hasMore) return;
     history.isLoading = true;
 
-    const listEl = $("git-log-list-modal");
+    const listEl = $("git-history-list");
     try {
       const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/git-log?limit=${GIT_LOG_ENTRIES_PER_PAGE}&skip=${history.loaded}`));
       if (!res) return;
@@ -261,7 +261,7 @@ Object.assign(GitLogModal, {
   async reloadGitLog() {
     if (!selectedWorkspace) return;
 
-    const listEl = $("git-log-list-modal");
+    const listEl = $("git-history-list");
     listEl.innerHTML = '<div class="git-log-entry-msg" style="color:var(--text-muted);padding:16px">読み込み中...</div>';
 
     const history = GitLogModal.state.history;
