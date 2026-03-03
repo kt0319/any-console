@@ -277,9 +277,9 @@ function syncWorkspaceForTab(id) {
     return;
   }
   const tab = openTabs.find((t) => t.id === id);
-  if (!tab) return;
+  if (!tab) { selectedWorkspace = null; return; }
   const workspaceName = resolveWorkspaceNameForTab(tab);
-  if (!workspaceName) return;
+  if (!workspaceName) { selectedWorkspace = null; return; }
   const ws = allWorkspaces.find((w) => w.name === workspaceName);
   if (ws) {
     selectedWorkspace = ws.name;
@@ -312,20 +312,22 @@ async function updateHeaderForTab(id) {
 
   const activeTab = openTabs.find((t) => t.id === id);
   const workspaceName = resolveWorkspaceNameForTab(activeTab);
-  if (workspaceName) {
-    const ws = allWorkspaces.find((w) => w.name === workspaceName);
-    const nextWorkspace = ws ? ws.name : workspaceName;
-    const workspaceChanged = selectedWorkspace !== nextWorkspace;
-    selectedWorkspace = nextWorkspace;
+  if (!workspaceName) {
+    selectedWorkspace = null;
     updateGitBarVisibility();
-    const shouldReloadJobs = workspaceChanged || workspaceJobsLoadedFor !== nextWorkspace;
-    const tasks = [refreshWorkspaceHeader({ reloadBranches: workspaceChanged })];
-    if (shouldReloadJobs) tasks.push(loadJobsForWorkspace(workspaceChanged));
-    await Promise.all(tasks);
-    if (seq !== _headerUpdateSeq) return;
-    refreshCurrentWorkspaceStatus();
+    return;
   }
+  const ws = allWorkspaces.find((w) => w.name === workspaceName);
+  const nextWorkspace = ws ? ws.name : workspaceName;
+  const workspaceChanged = selectedWorkspace !== nextWorkspace;
+  selectedWorkspace = nextWorkspace;
   updateGitBarVisibility();
+  const shouldReloadJobs = workspaceChanged || workspaceJobsLoadedFor !== nextWorkspace;
+  const tasks = [refreshWorkspaceHeader({ reloadBranches: workspaceChanged })];
+  if (shouldReloadJobs) tasks.push(loadJobsForWorkspace(workspaceChanged));
+  await Promise.all(tasks);
+  if (seq !== _headerUpdateSeq) return;
+  refreshCurrentWorkspaceStatus();
 }
 
 function updateGitBarVisibility() {
