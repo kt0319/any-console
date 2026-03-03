@@ -780,7 +780,12 @@ header {
 }
 
 .tab-name-pill.tab-activity {
-  animation: tab-activity-glow 3s ease-in-out 1;
+  animation: pill-activity-glow 3s ease-in-out 1;
+}
+
+@keyframes pill-activity-glow {
+  0%, 100% { border-color: var(--border); }
+  50% { border-color: rgba(130, 170, 255, 0.7); }
 }
 
 .tab-dragging {
