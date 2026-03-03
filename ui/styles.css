@@ -1084,12 +1084,12 @@ header {
   color: rgba(255, 80, 80, 0.9);
 }
 
-/* Hide scrollbar in split terminal */
-.split-pane .xterm-viewport {
+/* Hide scrollbar visually but keep scroll functionality */
+.xterm-viewport {
   scrollbar-width: none;
 }
 
-.split-pane .xterm-viewport::-webkit-scrollbar {
+.xterm-viewport::-webkit-scrollbar {
   display: none;
 }
 
