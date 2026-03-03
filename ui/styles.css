@@ -1050,6 +1050,35 @@ header {
   color: var(--accent);
 }
 
+.pill-close-drop-zone {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  background: rgba(255, 80, 80, 0.1);
+  border-bottom: 2px dashed rgba(255, 80, 80, 0.3);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.pill-close-drop-zone .drop-zone-icon {
+  font-size: 20px;
+  color: rgba(255, 80, 80, 0.4);
+  transition: color 0.15s ease;
+}
+
+.pill-close-drop-zone.drag-over {
+  background: rgba(255, 80, 80, 0.25);
+  border-color: rgba(255, 80, 80, 0.7);
+}
+
+.pill-close-drop-zone.drag-over .drop-zone-icon {
+  color: rgba(255, 80, 80, 0.9);
+}
+
 /* Hide scrollbar in split terminal */
 .split-pane .xterm-viewport {
   scrollbar-width: none;

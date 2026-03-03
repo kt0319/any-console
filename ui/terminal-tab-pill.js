@@ -48,10 +48,6 @@ function createTabNamePill(tab, frame) {
   if (!isTouchDevice) {
     pill.draggable = true;
     pill.addEventListener("dragstart", (e) => {
-      if (openTabs.length < 2) {
-        e.preventDefault();
-        return;
-      }
       e.dataTransfer.setData("text/plain", tab.id);
       e.dataTransfer.effectAllowed = "move";
       pill.classList.add("dragging");
@@ -74,7 +70,6 @@ function createTabNamePill(tab, frame) {
       touchStartY = e.touches[0].clientY;
     }, { passive: true });
     pill.addEventListener("touchmove", (e) => {
-      if (openTabs.length < 2) return;
       e.preventDefault();
       const dx = e.touches[0].clientX - touchStartX;
       const dy = e.touches[0].clientY - touchStartY;
@@ -85,9 +80,9 @@ function createTabNamePill(tab, frame) {
         showSplitDropZones(tab.id);
       }
       if (pillDragging) {
+        const touch = e.touches[0];
         const overlay = document.querySelector(".split-drop-overlay");
         if (overlay) {
-          const touch = e.touches[0];
           const oRect = overlay.getBoundingClientRect();
           const tx = Math.max(oRect.left, Math.min(oRect.right, touch.clientX));
           const ty = Math.max(oRect.top, Math.min(oRect.bottom, touch.clientY));
@@ -96,6 +91,13 @@ function createTabNamePill(tab, frame) {
             z.classList.toggle("drag-over",
               tx >= r.left && tx <= r.right && ty >= r.top && ty <= r.bottom);
           });
+        }
+        const closeZone = document.querySelector(".pill-close-drop-zone");
+        if (closeZone) {
+          const r = closeZone.getBoundingClientRect();
+          closeZone.classList.toggle("drag-over",
+            touch.clientX >= r.left && touch.clientX <= r.right &&
+            touch.clientY >= r.top && touch.clientY <= r.bottom);
         }
       }
     }, { passive: false });
@@ -118,8 +120,19 @@ function createTabNamePill(tab, frame) {
           }
         }
       }
+      const closeZone = document.querySelector(".pill-close-drop-zone");
+      let closeDrop = false;
+      if (closeZone) {
+        const cr = closeZone.getBoundingClientRect();
+        closeDrop = touch.clientX >= cr.left && touch.clientX <= cr.right &&
+                    touch.clientY >= cr.top && touch.clientY <= cr.bottom;
+      }
       hideSplitDropZones();
-      if (dropDir) splitWithDrop(tab.id, dropDir);
+      if (closeDrop) {
+        removeTab(tab.id);
+      } else if (dropDir) {
+        splitWithDrop(tab.id, dropDir);
+      }
       setTimeout(() => { pillDragging = false; }, 100);
     });
   }

@@ -261,11 +261,49 @@ function showSplitDropZones(dragTabId) {
   }
 
   container.appendChild(overlay);
+
+  if (!splitMode) {
+    const headerTargets = [$("tab-bar")?.parentNode, $("header-row2")].filter(Boolean);
+    const closeZone = document.createElement("div");
+    closeZone.className = "pill-close-drop-zone";
+    closeZone.innerHTML = '<span class="mdi mdi-close drop-zone-icon"></span>';
+    let top = Infinity, bottom = 0;
+    for (const el of headerTargets) {
+      const r = el.getBoundingClientRect();
+      if (r.height > 0) {
+        top = Math.min(top, r.top);
+        bottom = Math.max(bottom, r.bottom);
+      }
+    }
+    if (top < bottom) {
+      closeZone.style.top = top + "px";
+      closeZone.style.height = (bottom - top) + "px";
+    }
+    closeZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+    });
+    closeZone.addEventListener("dragenter", (e) => {
+      e.preventDefault();
+      closeZone.classList.add("drag-over");
+    });
+    closeZone.addEventListener("dragleave", () => {
+      closeZone.classList.remove("drag-over");
+    });
+    closeZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      hideSplitDropZones();
+      removeTab(dragTabId);
+    });
+    document.body.appendChild(closeZone);
+  }
 }
 
 function hideSplitDropZones() {
   const existing = document.querySelector(".split-drop-overlay");
   if (existing) existing.remove();
+  const closeZone = document.querySelector(".pill-close-drop-zone");
+  if (closeZone) closeZone.remove();
 }
 
 function splitWithDrop(dragTabId, direction) {
