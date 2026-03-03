@@ -2371,7 +2371,7 @@ button:disabled {
 }
 
 .git-log-dirty-branch-btn,
-.git-log-history-fullscreen-btn {
+.git-log-graph-btn {
   align-self: stretch;
   width: 40px;
   min-width: 40px;

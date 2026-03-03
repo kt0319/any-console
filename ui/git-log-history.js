@@ -215,15 +215,15 @@ Object.assign(GitLogModal, {
       '<button type="button" class="git-action-btn icon-only git-log-dirty-branch-btn" title="ブランチ" aria-label="ブランチ">' +
         '<span class="mdi mdi-source-branch"></span>' +
       "</button>";
-    const fullscreenButtonHtml =
-      '<button type="button" class="git-action-btn icon-only git-log-history-fullscreen-btn" title="履歴全画面" aria-label="履歴全画面">' +
-        '<span class="mdi mdi-arrow-expand-vertical"></span>' +
+    const graphButtonHtml =
+      '<button type="button" class="git-action-btn icon-only git-log-graph-btn" title="コミットグラフ" aria-label="コミットグラフ">' +
+        '<span class="mdi mdi-history"></span>' +
       "</button>";
     let bodyHtml =
       '<span class="git-log-entry-body git-log-dirty-body">' +
         '<span class="git-log-dirty-main">';
     bodyHtml += renderDirtyWorkspaceLabel(ws);
-    bodyHtml += `</span><span class="git-log-dirty-actions">${isDirty ? commitButtonHtml : ""}${stashButtonHtml}${branchButtonHtml}${fullscreenButtonHtml}</span></span>`;
+    bodyHtml += `</span><span class="git-log-dirty-actions">${isDirty ? commitButtonHtml : ""}${stashButtonHtml}${branchButtonHtml}${graphButtonHtml}</span></span>`;
     entry.innerHTML = bodyHtml;
     const commitBtn = entry.querySelector(".git-log-dirty-commit-btn");
     commitBtn?.addEventListener("click", (event) => {
@@ -242,10 +242,10 @@ Object.assign(GitLogModal, {
       event.stopPropagation();
       GitLogModal.openLocalBranchPane();
     });
-    const fullscreenBtn = entry.querySelector(".git-log-history-fullscreen-btn");
-    fullscreenBtn?.addEventListener("click", (event) => {
+    const graphBtn = entry.querySelector(".git-log-graph-btn");
+    graphBtn?.addEventListener("click", (event) => {
       event.stopPropagation();
-      GitLogModal.toggleHistoryFullscreen();
+      GitLogModal.toggleGraphView();
     });
     if (isDirty) {
       entry.addEventListener("click", () => {

@@ -159,8 +159,8 @@ function createTerminalTabModalWorkspaceSection(deps) {
       if (ws.is_git_repo) {
         const detailBtn = document.createElement("button");
         detailBtn.type = "button";
-        detailBtn.className = "picker-ws-icon-btn ws-gear-btn";
-        detailBtn.innerHTML = '<span class="mdi mdi-history"></span>';
+        detailBtn.className = "picker-ws-icon-btn";
+        detailBtn.innerHTML = '<span class="mdi mdi-folder-outline"></span>';
         detailBtn.addEventListener("click", () => {
           closeModal();
           selectedWorkspace = ws.name;

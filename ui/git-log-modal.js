@@ -5,7 +5,7 @@ const GitLogModal = {
     diffPaneTitle: "未コミットの変更",
     diffTopMode: "history",
     gitLogLoadedWorkspace: null,
-    historyFullscreen: false,
+    graphVisible: false,
     history: {
       loaded: 0,
       isLoading: false,
@@ -58,7 +58,7 @@ const GitLogModal = {
     GitLogModal.setModalTitle("");
     GitLogModal.resetCreateBranchArea();
     GitLogModal.state.onBack = null;
-    GitLogModal.exitHistoryFullscreen();
+    GitLogModal.closeGraphView();
   },
 
   resetActionMenu() {
@@ -203,7 +203,7 @@ const GitLogModal = {
   },
 
   showDiffFilesTop() {
-    GitLogModal.exitHistoryFullscreen();
+    GitLogModal.closeGraphView();
     const isGit = GitLogModal.isCurrentWorkspaceGitRepo();
     GitLogModal.setDiffTopMode("files", {
       title: isGit ? (GitLogModal.state.diffPaneTitle || "差分") : GitLogModal.modalTitle(),
@@ -294,9 +294,9 @@ const GitLogModal = {
     await Promise.all([loadDirectoryInDiffPane(""), GitLogModal.reloadGitLog()]);
   },
 
-  async toggleHistoryFullscreen() {
-    const entering = !GitLogModal.state.historyFullscreen;
-    GitLogModal.state.historyFullscreen = entering;
+  async toggleGraphView() {
+    const entering = !GitLogModal.state.graphVisible;
+    GitLogModal.state.graphVisible = entering;
     const graphPane = $("git-graph-pane");
     const diffLayout = graphPane?.parentElement?.querySelector(".diff-layout");
     if (entering) {
@@ -304,7 +304,7 @@ const GitLogModal = {
       if (graphPane) graphPane.style.display = "";
       GitLogModal.setModalTitle("コミットグラフ", {
         back: true,
-        onClick: () => GitLogModal.toggleHistoryFullscreen(),
+        onClick: () => GitLogModal.toggleGraphView(),
       });
       await GitLogModal.loadGraphLog();
     } else {
@@ -312,23 +312,23 @@ const GitLogModal = {
       if (diffLayout) diffLayout.style.display = "";
       GitLogModal.showDiffHistoryTop();
     }
-    const icon = document.querySelector(".git-log-history-fullscreen-btn .mdi");
+    const icon = document.querySelector(".git-log-graph-btn .mdi");
     if (icon) {
       icon.className = entering
-        ? "mdi mdi-arrow-collapse-vertical"
-        : "mdi mdi-arrow-expand-vertical";
+        ? "mdi mdi-close"
+        : "mdi mdi-history";
     }
   },
 
-  exitHistoryFullscreen() {
-    if (!GitLogModal.state.historyFullscreen) return;
-    GitLogModal.state.historyFullscreen = false;
+  closeGraphView() {
+    if (!GitLogModal.state.graphVisible) return;
+    GitLogModal.state.graphVisible = false;
     const graphPane = $("git-graph-pane");
     const diffLayout = graphPane?.parentElement?.querySelector(".diff-layout");
     if (graphPane) graphPane.style.display = "none";
     if (diffLayout) diffLayout.style.display = "";
-    const icon = document.querySelector(".git-log-history-fullscreen-btn .mdi");
-    if (icon) icon.className = "mdi mdi-arrow-expand-vertical";
+    const icon = document.querySelector(".git-log-graph-btn .mdi");
+    if (icon) icon.className = "mdi mdi-history";
   },
 
   async loadGraphLog() {
