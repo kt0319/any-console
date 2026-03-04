@@ -88,6 +88,42 @@ function syncTerminalSessionState() {
   }
 }
 
+function restoreTabsFromLocalStorageImmediate() {
+  if (hasRestoredTabsFromStorage) return;
+  const raw = localStorage.getItem("pi_console_terminal_openTabs");
+  if (!raw) return;
+  let saved;
+  try {
+    saved = JSON.parse(raw);
+  } catch {
+    return;
+  }
+  if (!Array.isArray(saved) || saved.length === 0) return;
+  saved.sort((a, b) => (a.tabIndex ?? 0) - (b.tabIndex ?? 0));
+  let firstTabId = null;
+  for (const entry of saved) {
+    const wsUrl = entry.wsUrl || entry.ws_url;
+    if (!wsUrl) continue;
+    if (closedSessionUrls.has(wsUrl)) continue;
+    const workspace = entry.workspace || null;
+    const ws = workspace ? allWorkspaces.find((w) => w.name === workspace) : null;
+    const tabIcon = entry.icon ? { name: entry.icon, color: entry.iconColor || "" } : null;
+    const wsIcon = ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null;
+    addTerminalTab(
+      wsUrl, workspace || "terminal", null, true, true, null,
+      tabIcon, wsIcon, entry.jobName || null, entry.jobLabel || null,
+    );
+    const tab = openTabs.find((t) => t.wsUrl === wsUrl);
+    if (!firstTabId && tab) firstTabId = tab.id;
+  }
+  hasRestoredTabsFromStorage = true;
+  if (firstTabId) {
+    syncTerminalSessionState();
+    if (!openTabs.some((t) => t.id === activeTabId)) switchTab(firstTabId);
+  }
+  renderTabBar();
+}
+
 async function fetchOrphanSessions() {
   try {
     const res = await apiFetch("/terminal/sessions");

@@ -296,6 +296,7 @@ function resolveWorkspaceNameForTab(tab) {
 let _headerUpdateSeq = 0;
 
 async function updateHeaderForTab(id) {
+  if (appInitializing) return;
   const seq = ++_headerUpdateSeq;
 
   if (splitMode || id === null) {

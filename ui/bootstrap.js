@@ -1,5 +1,5 @@
 async function initApp() {
-  setLoadingStatus("ワークスペースを読み込み中...");
+  setLoadingStatus("読み込み中...");
   await loadWorkspaces({ useCache: true });
   if (!selectedWorkspace) {
     const firstVisibleWorkspace = visibleWorkspaces()[0];
@@ -10,15 +10,15 @@ async function initApp() {
   if (selectedWorkspace && !visibleWorkspaces().some((ws) => ws.name === selectedWorkspace)) {
     selectedWorkspace = null;
   }
-  setLoadingStatus("ワークスペース情報を取得中...");
-  await refreshWorkspaceHeader();
   localStorage.removeItem("pi_console_active_tab");
-  setLoadingStatus("タブを復元中...");
-  await fetchOrphanSessions();
-  setLoadingStatus("ジョブを読み込み中...");
-  await loadJobsForWorkspace();
-  await ensureSnippetsLoaded();
-  updateGitBarVisibility();
+  appInitializing = true;
+  restoreTabsFromLocalStorageImmediate();
+  appInitializing = false;
+  fetchOrphanSessions();
+  await Promise.all([
+    updateHeaderForTab(activeTabId),
+    ensureSnippetsLoaded(),
+  ]);
   updateQuickInputVisibility();
   fitActiveTerminal();
   setTimeout(fitActiveTerminal, 300);

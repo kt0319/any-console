@@ -1,21 +1,26 @@
 async function loadWorkspaces({ useCache = false } = {}) {
+  let hasCacheHit = false;
   if (useCache) {
     const cached = getWorkspacesCache();
     if (cached && Array.isArray(cached) && cached.length > 0) {
       allWorkspaces = cached;
+      hasCacheHit = true;
     }
   }
-  try {
-    const res = await apiFetch("/workspaces");
-    if (res && res.ok) {
-      allWorkspaces = await res.json();
-      setWorkspacesCache(allWorkspaces);
+  const fetchPromise = (async () => {
+    try {
+      const res = await apiFetch("/workspaces");
+      if (res && res.ok) {
+        allWorkspaces = await res.json();
+        setWorkspacesCache(allWorkspaces);
+      }
+    } catch (e) {
+      if (allWorkspaces.length === 0) {
+        showToast("ワークスペース一覧の取得に失敗しました", "error");
+      }
     }
-  } catch (e) {
-    if (allWorkspaces.length === 0) {
-      showToast("ワークスペース一覧の取得に失敗しました", "error");
-    }
-  }
+  })();
+  if (!hasCacheHit) await fetchPromise;
 }
 
 function visibleWorkspaces() {
