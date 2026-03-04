@@ -148,6 +148,8 @@ def git_set_upstream(name: str):
         cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, env=ssh_env(), operation="set upstream",
     )
     logger.info("set-upstream workspace=%s branch=%s rc=%d", name, branch, result["exit_code"])
+    if result["exit_code"] == 0:
+        log_operation("追跡設定", name, branch)
     invalidate_git_info(name)
     return result
 

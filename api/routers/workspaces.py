@@ -149,6 +149,7 @@ def clone_workspace(body: CloneRequest):
     if not url:
         target_path.mkdir(parents=False, exist_ok=False)
         logger.info("workspace dir created dir=%s", dir_name)
+        log_operation("ワークスペース作成", dir_name)
         return {"status": "ok", "name": dir_name, "mode": "directory"}
 
     try:

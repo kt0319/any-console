@@ -38,6 +38,10 @@
           <button type="button" id="settings-close" class="modal-close-btn">&times;</button>
         </div>
         <div id="settings-menu-view">
+          <div class="settings-device-name">
+            <label for="device-name-input">端末名</label>
+            <input type="text" id="device-name-input" placeholder="例: iPhone, iPad, PC" maxlength="30" autocomplete="off">
+          </div>
           <div class="settings-menu">
             <button type="button" class="settings-menu-item" onclick="openTerminalSettings()"><span class="mdi mdi-format-font-size-increase"></span> ターミナル</button>
             <button type="button" class="settings-menu-item" onclick="exportSettings()"><span class="mdi mdi-download"></span> 設定エクスポート</button>

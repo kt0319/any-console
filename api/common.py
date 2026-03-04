@@ -1,4 +1,5 @@
 import collections
+import contextvars
 import re
 import threading
 import time
@@ -29,6 +30,8 @@ BRANCH_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_./-]+$")
 COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{4,40}$|^stash@\{\d+\}$")
 
 BACKGROUND_EXECUTOR = ThreadPoolExecutor(max_workers=4)
+
+_current_device: contextvars.ContextVar[str] = contextvars.ContextVar("_current_device", default="")
 
 LOG_BUFFER_MAX = 500
 
@@ -79,12 +82,16 @@ OPERATION_LOG = LogBuffer()
 def log_operation(action: str, workspace: str = "", detail: str = "") -> None:
     from datetime import datetime, timezone
 
-    OPERATION_LOG.add({
+    entry = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "action": action,
         "workspace": workspace,
         "detail": detail,
-    })
+    }
+    device = _current_device.get()
+    if device:
+        entry["device"] = device
+    OPERATION_LOG.add(entry)
 
 
 def resolve_workspace_path(workspace: str | None) -> Path | None:

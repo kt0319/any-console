@@ -1,5 +1,7 @@
 async function apiFetch(endpoint, { method = "GET", body = null } = {}) {
   const headers = { Authorization: `Bearer ${token}` };
+  const deviceName = localStorage.getItem("deviceName");
+  if (deviceName) headers["X-Device-Name"] = deviceName;
   if (body !== null && typeof body === "object") {
     headers["Content-Type"] = "application/json";
     body = JSON.stringify(body);

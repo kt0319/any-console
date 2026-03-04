@@ -9,9 +9,23 @@ function showSettingsView(viewId) {
   }
 }
 
+function initDeviceName() {
+  const input = $("device-name-input");
+  input.value = localStorage.getItem("deviceName") || "";
+  input.addEventListener("input", () => {
+    const name = input.value.trim();
+    if (name) {
+      localStorage.setItem("deviceName", name);
+    } else {
+      localStorage.removeItem("deviceName");
+    }
+  });
+}
+
 function openSettings() {
   showSettingsView("settings-menu-view");
   $("settings-title").textContent = "設定";
+  $("device-name-input").value = localStorage.getItem("deviceName") || "";
   $("settings-modal").style.display = "flex";
 }
 
@@ -135,13 +149,17 @@ function renderActivityLogRows(container, entries) {
     const entry = entries[i];
     const row = document.createElement("div");
     row.className = "op-log-row";
-    const ts = entry.ts ? new Date(entry.ts).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "";
-    const ws = entry.workspace ? ` [${entry.workspace}]` : "";
+    const d = entry.ts ? new Date(entry.ts) : null;
+    const ts = d ? d.toLocaleDateString("ja-JP", { month: "2-digit", day: "2-digit" }) + " " + d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "";
     const detail = entry.detail ? ` ${entry.detail}` : "";
+    const device = entry.device ? `<span class="op-log-device">${escapeHtml(entry.device)}</span>` : "";
+    const ws = entry.workspace ? `<span class="op-log-ws">${escapeHtml(entry.workspace)}</span>` : "";
     row.innerHTML =
       `<span class="op-log-ts">${escapeHtml(ts)}</span>` +
+      device +
+      ws +
       `<span class="op-log-method">${escapeHtml(entry.action || "")}</span>` +
-      `<span class="op-log-path">${escapeHtml(ws)}${escapeHtml(detail)}</span>`;
+      `<span class="op-log-path">${escapeHtml(detail)}</span>`;
     container.appendChild(row);
   }
 }

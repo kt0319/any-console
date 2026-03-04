@@ -15,7 +15,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response, UploadFi
 from fastapi.staticfiles import StaticFiles
 
 from .auth import verify_token
-from .common import BACKGROUND_EXECUTOR, LOG_BUFFER, UPLOAD_DIR, WORK_DIR
+from .common import BACKGROUND_EXECUTOR, LOG_BUFFER, UPLOAD_DIR, WORK_DIR, _current_device
 from .icons import ICONS_DIR
 from .routers import git, jobs, logs, settings, system, terminal, workspaces
 
@@ -63,6 +63,13 @@ EXCLUDE_LOG_PREFIXES = (
     "/manifest",
     "/icon-",
 )
+
+
+@app.middleware("http")
+async def set_device_name(request: Request, call_next):
+    device = request.headers.get("X-Device-Name", "")
+    _current_device.set(device)
+    return await call_next(request)
 
 
 @app.middleware("http")

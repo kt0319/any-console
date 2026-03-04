@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from ..auth import verify_token
-from ..common import GLOBAL_CONFIG_KEY, WORK_DIR
+from ..common import GLOBAL_CONFIG_KEY, WORK_DIR, log_operation
 from ..config import (
     load_all_config,
     load_global_config_section,
@@ -30,6 +30,7 @@ def export_settings():
     exported = {k: v for k, v in config.items() if k in existing}
     if isinstance(config.get(GLOBAL_CONFIG_KEY), dict):
         exported[GLOBAL_CONFIG_KEY] = config[GLOBAL_CONFIG_KEY]
+    log_operation("設定エクスポート")
     return exported
 
 
@@ -59,6 +60,7 @@ async def import_settings(request: Request):
         save_all_config(current)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    log_operation("設定インポート")
     return {"status": "ok"}
 
 

@@ -45,6 +45,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     closeJobConfirmModal();
     runJob(null, args);
   });
+  initDeviceName();
   $("settings-close").addEventListener("click", closeSettings);
   const settingsModal = $("settings-modal");
   const settingsDialog = settingsModal.querySelector(".modal");
