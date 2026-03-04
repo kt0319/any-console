@@ -246,8 +246,8 @@ async function switchTab(id) {
   if (document.title.startsWith("* ")) {
     document.title = document.title.slice(2);
   }
-
   syncWorkspaceForTab(id);
+  updateDocumentTitle();
 
   $("output").style.display = id === null ? "" : "none";
   for (const tab of openTabs) {

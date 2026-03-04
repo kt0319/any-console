@@ -84,11 +84,15 @@ async function login() {
 }
 
 function setServerInfo(hostname, version) {
-  if (hostname) {
-    serverHostname = hostname;
-    document.title = `${hostname} - pi-console`;
-  }
+  if (hostname) serverHostname = hostname;
   if (version) serverVersion = version;
+  updateDocumentTitle();
+}
+
+function updateDocumentTitle() {
+  const hadNotify = document.title.startsWith("* ");
+  const parts = [serverHostname, selectedWorkspace].filter(Boolean);
+  document.title = (hadNotify ? "* " : "") + (parts.length > 0 ? parts.join(" - ") : "pi-console");
 }
 
 token = loadToken();
