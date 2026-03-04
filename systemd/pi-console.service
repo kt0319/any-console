@@ -3,9 +3,9 @@ Description=pi-console API
 After=network.target
 
 [Service]
-User=kentaro
-WorkingDirectory=/home/kentaro/work/pi-console
-EnvironmentFile=/home/kentaro/work/pi-console/.env
+User=%USER%
+WorkingDirectory=%INSTALL_DIR%
+EnvironmentFile=%INSTALL_DIR%/.env
 ExecStart=/usr/bin/python3 -m api.main
 Restart=always
 

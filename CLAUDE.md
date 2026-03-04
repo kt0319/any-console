@@ -7,10 +7,6 @@
 
 Raspberry Pi用Web操作コンソール。スマホからTailscale経由でシェルスクリプトのジョブ実行、Git操作、Webターミナルを提供する。UIはモバイルファースト、PCにも対応。
 
-## コミットメッセージ
-
-- コミットメッセージは日本語で記述する
-
 ## 動作環境
 
 - **本番**: Raspberry Pi (Raspberry Pi OS / Debian系)
@@ -238,4 +234,4 @@ sudo systemctl restart pi-console
 - 認証は単一トークン（ユーザー区別なし）
 - フロントエンドはビルド不要。`ui/` 配下を直接StaticFilesとしてマウント
 - `main.py` で起動時にCSS/JSにキャッシュバスト用クエリパラメータを付与
-- systemdサービスは `kentaro` ユーザーで実行（`systemd/pi-console.service`）
+- systemdサービス定義は `systemd/pi-console.service`（パスはインストール環境に合わせて編集）
