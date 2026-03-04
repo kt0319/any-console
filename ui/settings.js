@@ -1,15 +1,29 @@
-function applyPanelBottom() {
+// @ts-check
+import { panelBottom, getTerminalRuntimeOptions } from './state-core.js';
+import { $, escapeHtml, showToast, toDisplayMessage } from './utils.js';
+import { apiFetch, fetchAndRenderWithStatus, setInlineStatus } from './api-client.js';
+import { refreshWorkspaceHeader, loadWorkspaces } from './workspace.js';
+import { invalidateWorkspaceMetaCache, invalidateGithubReposCache } from './cache.js';
+
+/**
+ */
+export function applyPanelBottom() {
   document.querySelector(".main-panel").classList.toggle("panel-bottom", panelBottom);
 }
 
-function showSettingsView(viewId) {
+/**
+ * @param {string} viewId
+ */
+export function showSettingsView(viewId) {
   for (const id of ["settings-menu-view", "settings-terminal-view", "settings-server-info-view", "settings-process-list-view", "settings-op-log-view", "settings-activity-log-view"]) {
     const el = $(id);
     if (el) el.style.display = id === viewId ? "" : "none";
   }
 }
 
-function initDeviceName() {
+/**
+ */
+export function initDeviceName() {
   const input = $("device-name-input");
   input.value = localStorage.getItem("deviceName") || "";
   input.addEventListener("input", () => {
@@ -22,18 +36,22 @@ function initDeviceName() {
   });
 }
 
-function openSettings() {
+/**
+ */
+export function openSettings() {
   showSettingsView("settings-menu-view");
   $("settings-title").textContent = "設定";
   $("device-name-input").value = localStorage.getItem("deviceName") || "";
   $("settings-modal").style.display = "flex";
 }
 
-function closeSettings() {
+/**
+ */
+export function closeSettings() {
   $("settings-modal").style.display = "none";
 }
 
-const SERVER_INFO_LABELS = {
+export const SERVER_INFO_LABELS = {
   hostname: "ホスト名",
   ip: "IPアドレス",
   os: "OS",
@@ -43,7 +61,11 @@ const SERVER_INFO_LABELS = {
   disk: "ディスク",
 };
 
-function renderServerInfoRows(container, data) {
+/**
+ * @param {HTMLElement} container
+ * @param {object} data
+ */
+export function renderServerInfoRows(container, data) {
   for (const [key, label] of Object.entries(SERVER_INFO_LABELS)) {
     if (!(key in data)) continue;
     const row = document.createElement("div");
@@ -53,7 +75,11 @@ function renderServerInfoRows(container, data) {
   }
 }
 
-function renderProcessRows(container, processes) {
+/**
+ * @param {HTMLElement} container
+ * @param {Array<{name: string, cpu: number, mem: number, pid: number, command: string}>} processes
+ */
+export function renderProcessRows(container, processes) {
   for (const proc of processes) {
     const row = document.createElement("div");
     row.className = "server-info-row process-row";
@@ -68,7 +94,11 @@ function renderProcessRows(container, processes) {
   }
 }
 
-function renderOpLogRows(container, entries) {
+/**
+ * @param {HTMLElement} container
+ * @param {Array<{ts?: string, status_code?: number, duration_ms?: number, method?: string, path?: string, detail?: string}>} entries
+ */
+export function renderOpLogRows(container, entries) {
   if (entries.length === 0) {
     setInlineStatus(container, "ログなし");
     return;
@@ -89,19 +119,35 @@ function renderOpLogRows(container, entries) {
   }
 }
 
-async function renderServerInfoTo(container) {
+/**
+ * @param {HTMLElement} container
+ * @returns {Promise<void>}
+ */
+export async function renderServerInfoTo(container) {
   await fetchAndRenderWithStatus(container, "/system/info", (data) => renderServerInfoRows(container, data));
 }
 
-async function renderProcessListTo(container) {
+/**
+ * @param {HTMLElement} container
+ * @returns {Promise<void>}
+ */
+export async function renderProcessListTo(container) {
   await fetchAndRenderWithStatus(container, "/system/processes", (data) => renderProcessRows(container, data));
 }
 
-async function renderOpLogTo(container) {
+/**
+ * @param {HTMLElement} container
+ * @returns {Promise<void>}
+ */
+export async function renderOpLogTo(container) {
   await fetchAndRenderWithStatus(container, "/logs", (entries) => renderOpLogRows(container, entries));
 }
 
-async function openSettingsDataView({
+/**
+ * @param {{ title: string, viewId: string, listId: string, renderFn: (container: HTMLElement) => Promise<void> }} options
+ * @returns {Promise<void>}
+ */
+export async function openSettingsDataView({
   title,
   viewId,
   listId,
@@ -113,7 +159,10 @@ async function openSettingsDataView({
   await renderFn($(listId));
 }
 
-async function openSettingsServerInfo() {
+/**
+ * @returns {Promise<void>}
+ */
+export async function openSettingsServerInfo() {
   await openSettingsDataView({
     title: "サーバー情報",
     viewId: "settings-server-info-view",
@@ -122,7 +171,10 @@ async function openSettingsServerInfo() {
   });
 }
 
-async function openProcessList() {
+/**
+ * @returns {Promise<void>}
+ */
+export async function openProcessList() {
   await openSettingsDataView({
     title: "プロセス一覧",
     viewId: "settings-process-list-view",
@@ -131,7 +183,10 @@ async function openProcessList() {
   });
 }
 
-async function openOpLog() {
+/**
+ * @returns {Promise<void>}
+ */
+export async function openOpLog() {
   await openSettingsDataView({
     title: "操作ログ",
     viewId: "settings-op-log-view",
@@ -140,7 +195,11 @@ async function openOpLog() {
   });
 }
 
-function renderActivityLogRows(container, entries) {
+/**
+ * @param {HTMLElement} container
+ * @param {Array<{ts?: string, action?: string, detail?: string, device?: string, workspace?: string}>} entries
+ */
+export function renderActivityLogRows(container, entries) {
   if (entries.length === 0) {
     setInlineStatus(container, "ログなし");
     return;
@@ -164,11 +223,18 @@ function renderActivityLogRows(container, entries) {
   }
 }
 
-async function renderActivityLogTo(container) {
+/**
+ * @param {HTMLElement} container
+ * @returns {Promise<void>}
+ */
+export async function renderActivityLogTo(container) {
   await fetchAndRenderWithStatus(container, "/op-logs", (entries) => renderActivityLogRows(container, entries));
 }
 
-async function openActivityLog() {
+/**
+ * @returns {Promise<void>}
+ */
+export async function openActivityLog() {
   await openSettingsDataView({
     title: "操作ログ",
     viewId: "settings-activity-log-view",
@@ -177,14 +243,21 @@ async function openActivityLog() {
   });
 }
 
-function toSshUrl(url) {
+/**
+ * @param {string} url
+ * @returns {string}
+ */
+export function toSshUrl(url) {
   const m = url.match(/^https?:\/\/github\.com\/(.+)/);
   if (!m) return url;
   const path = m[1].replace(/\/$/, "");
   return `git@github.com:${path}.git`;
 }
 
-async function exportSettings() {
+/**
+ * @returns {Promise<void>}
+ */
+export async function exportSettings() {
   if (!confirm("設定をエクスポートしますか？")) return;
   try {
     const res = await apiFetch("/settings/export");
@@ -209,7 +282,9 @@ async function exportSettings() {
   }
 }
 
-function importSettings() {
+/**
+ */
+export function importSettings() {
   const input = $("settings-import-file");
   input.value = "";
   input.onchange = async () => {

@@ -1,25 +1,63 @@
+// @ts-check
+import {
+  openTabs,
+  setOpenTabs,
+  activeTabId,
+  setActiveTabId,
+  allWorkspaces,
+  isPageUnloading,
+  closedSessionUrls,
+  disconnectedSessions,
+  setDisconnectedSessions,
+  isTouchDevice,
+  hasRestoredTabsFromStorage,
+  setHasRestoredTabsFromStorage,
+  panelBottom,
+  splitMode,
+  splitPaneTabIds,
+  getTerminalRuntimeOptions,
+} from './state-core.js';
+import { apiFetch } from './api-client.js';
+import { showToast, $, safeFit, refitTerminalWithFocus } from './utils.js';
+import { removeTab, switchTab, persistOpenTabs, addTerminalTab, renderTabBar } from './terminal-tabs.js';
+import { refreshTabNamePill } from './terminal-tab-pill.js';
+
 let sessionKeepaliveTimer = null;
 let lastVisibleTime = Date.now();
 const OSC_TITLE_RE = /\x1b\]0;/;
 
-function deleteTerminalSession(sessionId) {
+/**
+ * Sends a DELETE request to remove a terminal session from the server.
+ * @param {string} sessionId - The ID of the session to delete.
+ */
+export function deleteTerminalSession(sessionId) {
   apiFetch(`/terminal/sessions/${sessionId}`, { method: "DELETE" })
     .catch((e) => console.warn("session delete failed:", e));
 }
 
-function startSessionKeepalive() {
+/**
+ * Starts the periodic keepalive interval for terminal sessions.
+ */
+export function startSessionKeepalive() {
   stopSessionKeepalive();
   sessionKeepaliveTimer = setInterval(pingTerminalSessions, 5 * 60 * 1000);
 }
 
-function stopSessionKeepalive() {
+/**
+ * Stops the periodic keepalive interval for terminal sessions.
+ */
+export function stopSessionKeepalive() {
   if (sessionKeepaliveTimer) {
     clearInterval(sessionKeepaliveTimer);
     sessionKeepaliveTimer = null;
   }
 }
 
-async function pingTerminalSessions() {
+/**
+ * Pings the server to keep terminal sessions alive.
+ * @returns {Promise<void>}
+ */
+export async function pingTerminalSessions() {
   const termTabs = openTabs.filter((t) => t.type === "terminal");
   if (termTabs.length === 0) return;
   try {
@@ -27,7 +65,11 @@ async function pingTerminalSessions() {
   } catch (e) { console.warn("ping sessions failed:", e); }
 }
 
-async function onVisibilityRestore() {
+/**
+ * Handles page visibility restoration by checking if any sessions have expired.
+ * @returns {Promise<void>}
+ */
+export async function onVisibilityRestore() {
   const elapsed = Date.now() - lastVisibleTime;
   lastVisibleTime = Date.now();
   if (elapsed < 30_000) return;
@@ -69,7 +111,10 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-function refitActiveTerminal() {
+/**
+ * Refits the currently active terminal tab using requestAnimationFrame.
+ */
+export function refitActiveTerminal() {
   const tab = openTabs.find((t) => t.id === activeTabId && t.type === "terminal");
   if (!tab) return;
   requestAnimationFrame(() => {
@@ -79,7 +124,11 @@ function refitActiveTerminal() {
   });
 }
 
-function syncTerminalSessionState() {
+/**
+ * Syncs terminal session state: removes local sessions from orphan list and
+ * starts or stops the keepalive timer based on whether any terminal tabs exist.
+ */
+export function syncTerminalSessionState() {
   removeLocalSessionsFromOrphans();
   if (openTabs.some((t) => t.type === "terminal")) {
     startSessionKeepalive();
@@ -88,7 +137,10 @@ function syncTerminalSessionState() {
   }
 }
 
-function restoreTabsFromLocalStorageImmediate() {
+/**
+ * Immediately restores terminal tabs from localStorage without waiting for the server.
+ */
+export function restoreTabsFromLocalStorageImmediate() {
   if (hasRestoredTabsFromStorage) return;
   const raw = localStorage.getItem("pi_console_terminal_openTabs");
   if (!raw) return;
@@ -116,7 +168,7 @@ function restoreTabsFromLocalStorageImmediate() {
     const tab = openTabs.find((t) => t.wsUrl === wsUrl);
     if (!firstTabId && tab) firstTabId = tab.id;
   }
-  hasRestoredTabsFromStorage = true;
+  setHasRestoredTabsFromStorage(true);
   if (firstTabId) {
     syncTerminalSessionState();
     if (!openTabs.some((t) => t.id === activeTabId)) switchTab(firstTabId);
@@ -124,13 +176,17 @@ function restoreTabsFromLocalStorageImmediate() {
   renderTabBar();
 }
 
-async function fetchOrphanSessions() {
+/**
+ * Fetches active sessions from the server and restores any orphaned sessions.
+ * @returns {Promise<void>}
+ */
+export async function fetchOrphanSessions() {
   try {
     const res = await apiFetch("/terminal/sessions");
     if (!res || !res.ok) {
       if (!hasRestoredTabsFromStorage) {
         restoreTabsFromLocalStorage([]);
-        hasRestoredTabsFromStorage = true;
+        setHasRestoredTabsFromStorage(true);
         renderTabBar();
       }
       return;
@@ -139,18 +195,22 @@ async function fetchOrphanSessions() {
     restoreLiveSessionsFromServer(sessions);
     reconcileExpiredOrphansWithServer(sessions);
     restoreTabsFromLocalStorage(sessions);
-    hasRestoredTabsFromStorage = true;
+    setHasRestoredTabsFromStorage(true);
   } catch (e) {
     console.error("fetchOrphanSessions failed:", e);
     if (!hasRestoredTabsFromStorage) {
       restoreTabsFromLocalStorage([]);
-      hasRestoredTabsFromStorage = true;
+      setHasRestoredTabsFromStorage(true);
     }
   }
   renderTabBar();
 }
 
-function restoreLiveSessionsFromServer(sessions) {
+/**
+ * Restores terminal tabs for sessions that are live on the server but not yet open locally.
+ * @param {Array<Object>} sessions - List of session objects returned from the server.
+ */
+export function restoreLiveSessionsFromServer(sessions) {
   const localWsUrls = new Set(openTabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
   const targets = sessions.filter((s) => !localWsUrls.has(s.ws_url) && !closedSessionUrls.has(s.ws_url));
   if (targets.length === 0) return;
@@ -183,7 +243,11 @@ function restoreLiveSessionsFromServer(sessions) {
   if (!hasActiveContent) switchTab(firstRestoredTabId);
 }
 
-function restoreTabsFromLocalStorage(sessions) {
+/**
+ * Restores disconnected sessions from localStorage that are not alive on the server.
+ * @param {Array<Object>} sessions - List of session objects returned from the server.
+ */
+export function restoreTabsFromLocalStorage(sessions) {
   const raw = localStorage.getItem("pi_console_terminal_openTabs");
   if (!raw) return;
   let saved;
@@ -217,34 +281,50 @@ function restoreTabsFromLocalStorage(sessions) {
   }
 }
 
-function removeLocalSessionsFromOrphans() {
+/**
+ * Removes from the disconnected sessions list any sessions that are already open locally.
+ */
+export function removeLocalSessionsFromOrphans() {
   const localWsUrls = new Set(openTabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
-  disconnectedSessions = disconnectedSessions.filter((s) => !localWsUrls.has(s.wsUrl));
+  setDisconnectedSessions(disconnectedSessions.filter((s) => !localWsUrls.has(s.wsUrl)));
 }
 
-function reconcileExpiredOrphansWithServer(sessions) {
+/**
+ * Reconciles the disconnected sessions list against the server session list,
+ * removing any entries that are now alive on the server or have been closed.
+ * Also cleans up closedSessionUrls entries that are no longer on the server.
+ * @param {Array<Object>} sessions - List of session objects returned from the server.
+ */
+export function reconcileExpiredOrphansWithServer(sessions) {
   const localWsUrls = new Set(openTabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
   const serverUrls = new Set(sessions.map((s) => s.ws_url));
-  disconnectedSessions = disconnectedSessions.filter((s) => (
+  setDisconnectedSessions(disconnectedSessions.filter((s) => (
     s.expired
     && !closedSessionUrls.has(s.wsUrl)
     && !localWsUrls.has(s.wsUrl)
     && !serverUrls.has(s.wsUrl)
-  ));
+  )));
 
   for (const url of closedSessionUrls) {
     if (!sessions.some((s) => s.ws_url === url)) closedSessionUrls.delete(url);
   }
 }
 
-function updateQuickInputVisibility() {
+/**
+ * Updates the visibility of the quick input element based on device type and panel layout.
+ */
+export function updateQuickInputVisibility() {
   const el = $("quick-input");
   if (!el) return;
   const show = isTouchDevice || panelBottom;
   el.style.display = show ? "" : "none";
 }
 
-function fitAndSync(tab) {
+/**
+ * Fits the terminal to its container and sends a resize message to the server via WebSocket.
+ * @param {Object} tab - The terminal tab object.
+ */
+export function fitAndSync(tab) {
   safeFit(tab);
   const cols = tab.term.cols;
   const rows = tab.term.rows;
@@ -255,7 +335,12 @@ function fitAndSync(tab) {
   }
 }
 
-function connectTerminalWs(tab) {
+/**
+ * Connects a WebSocket to the terminal session for the given tab,
+ * handling reconnection, input binding, and message routing.
+ * @param {Object} tab - The terminal tab object.
+ */
+export function connectTerminalWs(tab) {
   if (tab._wsDisposed) return;
   if (tab._reconnectTimer) {
     clearTimeout(tab._reconnectTimer);

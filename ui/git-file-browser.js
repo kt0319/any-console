@@ -1,4 +1,14 @@
-const FILE_EXT_MAP = {
+// @ts-check
+import { selectedWorkspace } from './state-core.js';
+import { $, escapeHtml } from './utils.js';
+import { getActiveDiffRef, getDiffViewerMode } from './git-diff.js';
+
+/**
+ * @typedef {{ icon: string | null, color: string | null, lang?: string }} FileExtEntry
+ */
+
+/** @type {Record<string, FileExtEntry>} */
+export const FILE_EXT_MAP = {
   js: { icon: "mdi-language-javascript", color: "#f7df1e", lang: "javascript" },
   mjs: { icon: "mdi-language-javascript", color: "#f7df1e", lang: "javascript" },
   cjs: { icon: "mdi-language-javascript", color: "#f7df1e", lang: "javascript" },
@@ -69,7 +79,12 @@ const FILE_EXT_MAP = {
   tar: { icon: "mdi-zip-box", color: "#e5a028" },
 };
 
-function getFileIcon(name) {
+/**
+ * Returns the MDI icon class and color for a given filename based on its extension.
+ * @param {string} name - The filename
+ * @returns {{ icon: string, color: string }}
+ */
+export function getFileIcon(name) {
   const dotIdx = name.lastIndexOf(".");
   const ext = dotIdx > 0 ? name.slice(dotIdx + 1).toLowerCase() : name.toLowerCase();
   const entry = FILE_EXT_MAP[ext];
@@ -77,17 +92,34 @@ function getFileIcon(name) {
   return { icon: entry.icon, color: entry.color || "" };
 }
 
-function getHighlightLang(ext) {
+/**
+ * Returns the highlight.js language identifier for the given file extension key.
+ * @param {string} ext - File extension (without leading dot)
+ * @returns {string | null}
+ */
+export function getHighlightLang(ext) {
   return FILE_EXT_MAP[ext]?.lang || null;
 }
 
-function getHighlightKeyFromPath(path) {
+/**
+ * Derives the file extension key from a file path for highlight.js lookup.
+ * @param {string} path - The file path
+ * @returns {string}
+ */
+export function getHighlightKeyFromPath(path) {
   const name = (path || "").split("/").pop().toLowerCase();
   const dotIdx = name.lastIndexOf(".");
   return dotIdx > 0 ? name.slice(dotIdx + 1) : name;
 }
 
-function renderHighlightedTextHtml(content, path) {
+/**
+ * Renders file content as syntax-highlighted HTML using highlight.js when available,
+ * falling back to escaped plain text.
+ * @param {string} content - Raw file content
+ * @param {string} path - File path used to determine language
+ * @returns {string} HTML string
+ */
+export function renderHighlightedTextHtml(content, path) {
   const highlightKey = getHighlightKeyFromPath(path);
   const lang = getHighlightLang(highlightKey);
   if (typeof hljs === "undefined") return escapeHtml(content);
@@ -100,18 +132,33 @@ function renderHighlightedTextHtml(content, path) {
   }
 }
 
-function formatFileSize(bytes) {
+/**
+ * Formats a byte count as a human-readable string (B / KB / MB).
+ * @param {number | null | undefined} bytes
+ * @returns {string}
+ */
+export function formatFileSize(bytes) {
   if (bytes == null) return "";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function getFileBrowserRootLabel(view = "tab") {
+/**
+ * Returns the root breadcrumb label for the file browser, typically the workspace name.
+ * @param {string} [view="tab"] - The view context ("tab" or "diff-pane")
+ * @returns {string}
+ */
+export function getFileBrowserRootLabel(view = "tab") {
   return selectedWorkspace || "~";
 }
 
-function getFileBrowserBadgeLabel(view = "tab") {
+/**
+ * Returns a badge label shown next to the breadcrumb when viewing diffs in the diff pane.
+ * @param {string} [view="tab"] - The view context ("tab" or "diff-pane")
+ * @returns {string}
+ */
+export function getFileBrowserBadgeLabel(view = "tab") {
   if (
     view === "diff-pane"
     && getActiveDiffRef()
@@ -122,7 +169,22 @@ function getFileBrowserBadgeLabel(view = "tab") {
   return "";
 }
 
-function buildBreadcrumbHtml(parts, uploadPath = "", options = {}) {
+/**
+ * Builds the HTML string for the file browser header breadcrumb navigation.
+ * @param {string[]} parts - Path segments
+ * @param {string} [uploadPath=""] - Path used as data attribute for upload button
+ * @param {Object} [options={}] - Additional rendering options
+ * @param {string} [options.rootLabel] - Label for the root breadcrumb entry
+ * @param {string} [options.badgeLabel] - Text for the optional badge element
+ * @param {string} [options.badgePath] - Diff path for interactive badge
+ * @param {boolean} [options.badgeInteractive] - Whether the badge is clickable
+ * @param {string} [options.currentPath] - File path for interactive current segment
+ * @param {boolean} [options.currentInteractive] - Whether the current segment is clickable
+ * @param {string} [options.downloadPath] - Path for download button
+ * @param {boolean} [options.hideUpload] - Whether to hide the upload button
+ * @returns {string} HTML string
+ */
+export function buildBreadcrumbHtml(parts, uploadPath = "", options = {}) {
   const rootLabel = options.rootLabel || selectedWorkspace || "~";
   const badgeLabel = options.badgeLabel || "";
   const badgePath = options.badgePath || "";
@@ -164,6 +226,13 @@ function buildBreadcrumbHtml(parts, uploadPath = "", options = {}) {
   return html;
 }
 
+/**
+ * Builds the complete HTML for the file browser directory listing.
+ * @param {string} path - Current directory path
+ * @param {Array<Object>} entries - Directory entries
+ * @param {Object} [options={}] - Rendering options forwarded to buildBreadcrumbHtml
+ * @returns {string} HTML string
+ */
 function buildFileBrowserHtml(path, entries, options = {}) {
   const parts = path ? path.split("/") : [];
   const breadcrumb = buildBreadcrumbHtml(parts, path || "", options);
@@ -207,11 +276,24 @@ function buildFileBrowserHtml(path, entries, options = {}) {
   return `<div class="file-browser" data-upload-path="${escapeHtml(path || "")}">${breadcrumb}${list}</div>`;
 }
 
+/**
+ * Builds a simple file browser wrapper with a single text message.
+ * @param {string} text - Message to display
+ * @param {boolean} [muted=false] - Whether to style the message as muted/subtle
+ * @returns {string} HTML string
+ */
 function fileBrowserMessage(text, muted = false) {
   const style = muted ? "border-bottom:none;color:var(--text-muted)" : "border-bottom:none";
   return `<div class="file-browser"><div class="file-browser-header" style="${style}">${escapeHtml(text)}</div></div>`;
 }
 
+/**
+ * Builds the HTML for displaying file content with breadcrumb, syntax highlight, image preview, or binary notice.
+ * @param {string} path - File path
+ * @param {Object} data - File content data from the API
+ * @param {Object} [options={}] - Rendering options forwarded to buildBreadcrumbHtml
+ * @returns {string} HTML string
+ */
 function buildFileContentHtml(path, data, options = {}) {
   const parts = path.split("/");
   const parentPath = parts.slice(0, -1).join("/");
@@ -237,6 +319,14 @@ function buildFileContentHtml(path, data, options = {}) {
   return `<div class="file-browser" data-upload-path="${escapeHtml(parentPath)}">${breadcrumb}${body}</div>`;
 }
 
+/**
+ * Builds the HTML for the diff content view within the file browser.
+ * @param {string} path - File path
+ * @param {string} diffText - Raw diff text
+ * @param {Object} [options={}] - Rendering options forwarded to buildBreadcrumbHtml
+ * @param {string} [message=""] - Optional message shown above the diff
+ * @returns {string} HTML string
+ */
 function buildDiffContentHtml(path, diffText, options = {}, message = "") {
   const parts = path.split("/");
   const parentPath = parts.slice(0, -1).join("/");
@@ -247,6 +337,11 @@ function buildDiffContentHtml(path, diffText, options = {}, message = "") {
   return `<div class="file-browser" data-upload-path="${escapeHtml(parentPath)}">${breadcrumb}${note}<pre class="diff-content-code"></pre></div>`;
 }
 
+/**
+ * Returns the view configuration object (container ID, callbacks) for a given file browser view.
+ * @param {string} view - The view context ("tab" or "diff-pane")
+ * @returns {Object}
+ */
 function getFileBrowserViewConfig(view) {
   if (view === "diff-pane") {
     return {
@@ -266,6 +361,11 @@ function getFileBrowserViewConfig(view) {
   };
 }
 
+/**
+ * Returns the git ref to use for file browser requests in the given view.
+ * @param {string} view - The view context ("tab" or "diff-pane")
+ * @returns {string}
+ */
 function getFileBrowserRef(view) {
   if (view === "diff-pane") {
     return getActiveDiffRef() || "";
@@ -273,10 +373,21 @@ function getFileBrowserRef(view) {
   return "";
 }
 
+/**
+ * Returns the DOM container element for the file browser in the given view.
+ * @param {string} view - The view context ("tab" or "diff-pane")
+ * @returns {HTMLElement | null}
+ */
 function getFileBrowserContainer(view) {
   return $(getFileBrowserViewConfig(view).containerId);
 }
 
+/**
+ * Builds the query string for a file browser API request including path and optional ref.
+ * @param {string} path - Directory or file path
+ * @param {string} [view="tab"] - The view context
+ * @returns {string} Query string starting with "?"
+ */
 function buildFileBrowserQuery(path, view = "tab") {
   const ref = getFileBrowserRef(view);
   return ref
@@ -284,6 +395,12 @@ function buildFileBrowserQuery(path, view = "tab") {
     : `?path=${encodeURIComponent(path)}`;
 }
 
+/**
+ * Returns the render options object (rootLabel, badgeLabel, plus extras) for a given view.
+ * @param {string} view - The view context
+ * @param {Object} [extra={}] - Additional options to merge
+ * @returns {Object}
+ */
 function getFileBrowserRenderOptions(view, extra = {}) {
   return {
     rootLabel: getFileBrowserRootLabel(view),
@@ -292,6 +409,13 @@ function getFileBrowserRenderOptions(view, extra = {}) {
   };
 }
 
+/**
+ * Fetches file browser data (directory listing or file content) from the API.
+ * @param {string} endpoint - API endpoint name ("files" or "file-content")
+ * @param {string} path - Path to fetch
+ * @param {string} [view="tab"] - The view context
+ * @returns {Promise<{ ok: boolean, data?: Object, message?: string }>}
+ */
 async function fetchFileBrowserData(endpoint, path, view = "tab") {
   const query = buildFileBrowserQuery(path, view);
   const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/${endpoint}${query}`));
@@ -303,14 +427,30 @@ async function fetchFileBrowserData(endpoint, path, view = "tab") {
   return { ok: true, data };
 }
 
+/**
+ * Fetches directory listing data for the given path and view.
+ * @param {string} path - Directory path
+ * @param {string} [view="tab"] - The view context
+ * @returns {Promise<{ ok: boolean, data?: Object, message?: string }>}
+ */
 async function fetchDirectoryData(path, view = "tab") {
   return fetchFileBrowserData("files", path, view);
 }
 
+/**
+ * Fetches file content data for the given path and view.
+ * @param {string} path - File path
+ * @param {string} [view="tab"] - The view context
+ * @returns {Promise<{ ok: boolean, data?: Object, message?: string }>}
+ */
 async function fetchFileContentData(path, view = "tab") {
   return fetchFileBrowserData("file-content", path, view);
 }
 
+/**
+ * Triggers a file download for the given workspace-relative path.
+ * @param {string} path - File path to download
+ */
 function handleDownloadClick(path) {
   if (!path || !selectedWorkspace) return;
   apiFetch(workspaceApiPath(selectedWorkspace, `/download?path=${encodeURIComponent(path)}`))
@@ -335,10 +475,20 @@ function handleDownloadClick(path) {
     .catch(() => showToast("ダウンロードに失敗しました"));
 }
 
+/**
+ * Finds the closest `.file-browser-item` ancestor of the given event target.
+ * @param {EventTarget} target
+ * @returns {HTMLElement | null}
+ */
 function findFileBrowserItem(target) {
   return target.closest(".file-browser-item");
 }
 
+/**
+ * Attaches all event listeners to the file browser container for a given view.
+ * @param {HTMLElement} container - The file browser container element
+ * @param {string} [view="tab"] - The view context
+ */
 function bindFileBrowserEvents(container, view = "tab") {
   const config = getFileBrowserViewConfig(view);
   const ref = getFileBrowserRef(view);
@@ -431,6 +581,12 @@ function bindFileBrowserEvents(container, view = "tab") {
   }
 }
 
+/**
+ * Handles a click event on the file browser list and delegates to the appropriate open handler.
+ * @param {MouseEvent} e
+ * @param {Object} config - View config from getFileBrowserViewConfig
+ * @param {boolean} useLongPress - Whether long-press mode is active
+ */
 function handleFileListClick(e, config, useLongPress) {
   const item = findFileBrowserItem(e.target);
   if (!item) return;
@@ -446,6 +602,11 @@ function handleFileListClick(e, config, useLongPress) {
   }
 }
 
+/**
+ * Loads a directory listing into the file browser container for the given view.
+ * @param {string} path - Directory path to load
+ * @param {string} view - The view context ("tab" or "diff-pane")
+ */
 async function loadDirectoryByView(path, view) {
   if (!selectedWorkspace) return;
   const el = getFileBrowserContainer(view);
@@ -467,10 +628,21 @@ async function loadDirectoryByView(path, view) {
   }
 }
 
+/**
+ * Loads a directory listing into the tab-view file browser.
+ * @param {string} path - Directory path to load
+ */
 async function loadDirectory(path) {
   await loadDirectoryByView(path, "tab");
 }
 
+/**
+ * Handles navigation for symlink items in the file browser list.
+ * Shows a confirmation dialog and opens the resolved target.
+ * @param {HTMLElement} item - The symlink list item element
+ * @param {function(string): void} openDirFn - Function to open a directory
+ * @param {function(string): void} openFileFn - Function to open a file
+ */
 function openSymlinkFromList(item, openDirFn, openFileFn) {
   const targetType = item.dataset.targetType || "";
   const targetPath = item.dataset.targetPath || "";
@@ -494,15 +666,28 @@ function openSymlinkFromList(item, openDirFn, openFileFn) {
   else if (targetType === "file" && typeof openFileFn === "function") openFileFn(targetPath);
 }
 
+/**
+ * Loads file content into the tab-view file browser.
+ * @param {string} path - File path to load
+ */
 async function loadFileContent(path) {
   await loadFileContentByView(path, "tab");
 }
 
+/**
+ * Loads a directory listing into the diff-pane file browser and switches to file view mode.
+ * @param {string} path - Directory path to load
+ */
 async function loadDirectoryInDiffPane(path) {
   setDiffViewerMode("file");
   await loadDirectoryByView(path, "diff-pane");
 }
 
+/**
+ * Loads file content into the file browser container for the given view.
+ * @param {string} path - File path to load
+ * @param {string} view - The view context ("tab" or "diff-pane")
+ */
 async function loadFileContentByView(path, view) {
   if (!selectedWorkspace) return;
   const el = getFileBrowserContainer(view);
@@ -527,17 +712,31 @@ async function loadFileContentByView(path, view) {
   }
 }
 
+/**
+ * Loads file content into the diff-pane file browser and switches to file view mode.
+ * @param {string} path - File path to load
+ */
 async function loadFileContentInDiffPane(path) {
   setDiffViewerMode("file");
   await loadFileContentByView(path, "diff-pane");
 }
 
+/**
+ * Removes all open action menus within the given container.
+ * @param {HTMLElement} container
+ */
 function closeFileBrowserActionMenus(container) {
   for (const m of container.querySelectorAll(".file-browser-action-menu")) {
     m.remove();
   }
 }
 
+/**
+ * Displays a contextual action menu (rename, move, delete, download) for a file browser item.
+ * @param {HTMLElement} item - The file browser list item element
+ * @param {HTMLElement} container - The file browser container element
+ * @param {Object} config - View config from getFileBrowserViewConfig
+ */
 function showFileBrowserActionMenu(item, container, config) {
   closeFileBrowserActionMenus(container);
   const filePath = item.dataset.path || "";
@@ -604,6 +803,12 @@ function showFileBrowserActionMenu(item, container, config) {
 }
 
 
+/**
+ * Renames or moves a file within the current workspace via the API.
+ * @param {string} src - Source path
+ * @param {string} dest - Destination path
+ * @param {Object} config - View config from getFileBrowserViewConfig
+ */
 async function renameFileInWorkspace(src, dest, config) {
   if (!selectedWorkspace) return;
   try {
@@ -632,6 +837,11 @@ async function renameFileInWorkspace(src, dest, config) {
   }
 }
 
+/**
+ * Deletes a file within the current workspace via the API.
+ * @param {string} path - File path to delete
+ * @param {Object} config - View config from getFileBrowserViewConfig
+ */
 async function deleteFileInWorkspace(path, config) {
   if (!selectedWorkspace) return;
   try {
@@ -653,6 +863,10 @@ async function deleteFileInWorkspace(path, config) {
   }
 }
 
+/**
+ * Renders a diff view for the given file path in the diff pane using cached diff chunks.
+ * @param {string} path - File path whose diff to display
+ */
 function showDiffFileInDiffPane(path) {
   if (!selectedWorkspace || !path) return;
   setDiffViewerMode("diff");

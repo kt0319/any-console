@@ -1,4 +1,12 @@
-function applyAllTerminalSettingsToTabs() {
+// @ts-check
+import { openTabs, activeTabId, terminalSettings, TERMINAL_SETTINGS_SCHEMA, setTerminalSetting, splitMode, sanitizeTerminalSetting, resetTerminalSettings } from './state-core.js';
+import { escapeHtml, refitTerminalWithFocus, $ } from './utils.js';
+import { rebuildSplitLayout } from './terminal-split.js';
+import { showSettingsView } from './settings.js';
+
+/**
+ */
+export function applyAllTerminalSettingsToTabs() {
   let needsRefit = false;
   for (const [key, schema] of Object.entries(TERMINAL_SETTINGS_SCHEMA)) {
     if (schema.requiresRefit) needsRefit = true;
@@ -19,7 +27,12 @@ function applyAllTerminalSettingsToTabs() {
   });
 }
 
-function applyTerminalSettingToTabs(key, value) {
+/**
+ * @param {string} key
+ * @param {any} value
+ * @returns {any}
+ */
+export function applyTerminalSettingToTabs(key, value) {
   const next = setTerminalSetting(key, value);
   if (next == null) return null;
   const schema = TERMINAL_SETTINGS_SCHEMA[key];
@@ -42,7 +55,12 @@ function applyTerminalSettingToTabs(key, value) {
   return next;
 }
 
-function createTerminalNumberSettingRow(key, schema) {
+/**
+ * @param {string} key
+ * @param {object} schema
+ * @returns {HTMLElement}
+ */
+export function createTerminalNumberSettingRow(key, schema) {
   const row = document.createElement("div");
   row.className = "terminal-settings-item";
 
@@ -112,7 +130,12 @@ function createTerminalNumberSettingRow(key, schema) {
   return row;
 }
 
-function createTerminalBooleanSettingRow(key, schema) {
+/**
+ * @param {string} key
+ * @param {object} schema
+ * @returns {HTMLElement}
+ */
+export function createTerminalBooleanSettingRow(key, schema) {
   const row = document.createElement("label");
   row.className = "terminal-settings-item terminal-settings-toggle";
 
@@ -134,7 +157,10 @@ function createTerminalBooleanSettingRow(key, schema) {
   return row;
 }
 
-function renderTerminalSettingsPane(container) {
+/**
+ * @param {HTMLElement} container
+ */
+export function renderTerminalSettingsPane(container) {
   container.innerHTML = "";
 
   const section = document.createElement("div");
@@ -165,7 +191,9 @@ function renderTerminalSettingsPane(container) {
   container.appendChild(section);
 }
 
-function openTerminalSettings() {
+/**
+ */
+export function openTerminalSettings() {
   $("settings-title").textContent = "ターミナル";
   showSettingsView("settings-terminal-view");
   renderTerminalSettingsPane($("settings-terminal-body"));

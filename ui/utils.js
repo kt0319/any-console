@@ -1,8 +1,19 @@
-function $(id) {
+// @ts-check
+import { openTabs, activeTabId, splitMode, panelBottom, selectedWorkspace, isTouchDevice } from './state-core.js';
+
+/**
+ * @param {string} id
+ * @returns {HTMLElement | null}
+ */
+export function $(id) {
   return document.getElementById(id);
 }
 
-function safeFit(tab) {
+/**
+ * @param {object} tab
+ * @returns {void}
+ */
+export function safeFit(tab) {
   if (!tab || !tab.fitAddon) return;
   const frame = tab.id ? $(`frame-${tab.id}`) : null;
   if (!frame || frame.style.display === "none") return;
@@ -15,12 +26,21 @@ function safeFit(tab) {
   }
 }
 
-function fitTerminalAfterFonts(tab) {
+/**
+ * @param {object} tab
+ * @returns {void}
+ */
+export function fitTerminalAfterFonts(tab) {
   if (!document.fonts?.ready) return;
   document.fonts.ready.then(() => fitAndSync(tab)).catch(() => {});
 }
 
-function ensureTerminalOpened(tab, frame) {
+/**
+ * @param {object} tab
+ * @param {HTMLElement} frame
+ * @returns {boolean}
+ */
+export function ensureTerminalOpened(tab, frame) {
   if (!tab || tab.type !== "terminal" || !tab._pendingOpen || !frame) return false;
   tab._pendingOpen = false;
   tab.term.open(frame);
@@ -29,12 +49,22 @@ function ensureTerminalOpened(tab, frame) {
   return true;
 }
 
-function setFrameVisible(tab, frame, visible) {
+/**
+ * @param {object} tab
+ * @param {HTMLElement} frame
+ * @param {boolean} visible
+ * @returns {void}
+ */
+export function setFrameVisible(tab, frame, visible) {
   if (!tab || !frame) return;
   frame.style.display = visible ? (tab.type === "terminal" ? "block" : "") : "none";
 }
 
-function refitTerminalWithFocus(tab) {
+/**
+ * @param {object} tab
+ * @returns {void}
+ */
+export function refitTerminalWithFocus(tab) {
   if (!tab || tab.type !== "terminal") return;
   const doFit = () => {
     fitAndSync(tab);
@@ -46,7 +76,11 @@ function refitTerminalWithFocus(tab) {
   setTimeout(doFit, 300);
 }
 
-function copyToClipboard(text) {
+/**
+ * @param {string} text
+ * @returns {void}
+ */
+export function copyToClipboard(text) {
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(text).catch((e) => console.error("clipboard write failed:", e));
     return;
@@ -60,7 +94,12 @@ function copyToClipboard(text) {
   ta.remove();
 }
 
-function toDisplayMessage(value, fallback = "") {
+/**
+ * @param {*} value
+ * @param {string} [fallback]
+ * @returns {string}
+ */
+export function toDisplayMessage(value, fallback = "") {
   if (value == null) return fallback;
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
@@ -92,7 +131,12 @@ function toDisplayMessage(value, fallback = "") {
   return fallback;
 }
 
-function showToast(message, type = "error") {
+/**
+ * @param {*} message
+ * @param {string} [type]
+ * @returns {void}
+ */
+export function showToast(message, type = "error") {
   const text = toDisplayMessage(message, "不明なエラー");
   const el = document.createElement("div");
   el.className = `toast toast-${type}`;
@@ -128,13 +172,22 @@ function showToast(message, type = "error") {
   setTimeout(dismiss, 3000);
 }
 
-function escapeHtml(str) {
+/**
+ * @param {string} str
+ * @returns {string}
+ */
+export function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
   return div.innerHTML;
 }
 
-function formatCommitMessage(message, githubUrl) {
+/**
+ * @param {string} message
+ * @param {string} [githubUrl]
+ * @returns {string}
+ */
+export function formatCommitMessage(message, githubUrl) {
   if (!message) return "-";
   const escaped = escapeHtml(message);
   if (!githubUrl) return escaped;
@@ -143,7 +196,11 @@ function formatCommitMessage(message, githubUrl) {
   return escaped.replace(/#(\d+)/g, `<a class="commit-issue-link" href="${base}/issues/$1" target="_blank" rel="noopener">#$1</a>`);
 }
 
-function formatCommitTime(timeText) {
+/**
+ * @param {string} timeText
+ * @returns {string}
+ */
+export function formatCommitTime(timeText) {
   if (!timeText) return "-";
   const d = new Date(timeText);
   if (Number.isNaN(d.getTime())) return escapeHtml(timeText);
@@ -155,7 +212,11 @@ function formatCommitTime(timeText) {
   return `${y}-${m}-${day} ${h}:${min}`;
 }
 
-function buildWorkspaceChangeSummaryHtml(ws) {
+/**
+ * @param {object} ws
+ * @returns {string}
+ */
+export function buildWorkspaceChangeSummaryHtml(ws) {
   if (!ws || ws.clean !== false) return "";
   const parts = [];
   if (ws.changed_files > 0) parts.push(`<span class="stat-files">${ws.changed_files}F</span>`);
@@ -164,7 +225,11 @@ function buildWorkspaceChangeSummaryHtml(ws) {
   return parts.length > 0 ? parts.join(" ") : "\u25cf";
 }
 
-function buildWorkspaceHeaderNumstatHtml(ws) {
+/**
+ * @param {object} ws
+ * @returns {string}
+ */
+export function buildWorkspaceHeaderNumstatHtml(ws) {
   if (!ws || ws.clean !== false) return "";
   const changedFiles = Number.isFinite(ws.changed_files) ? ws.changed_files : 0;
   const insertions = Number.isFinite(ws.insertions) ? ws.insertions : 0;
@@ -173,33 +238,57 @@ function buildWorkspaceHeaderNumstatHtml(ws) {
   return `<span class="header-git-numstat">${fileCountHtml}<span class="diff-num-plus">+${insertions}</span><span class="diff-num-del">-${deletions}</span></span>`;
 }
 
-function showLogin() {
+/**
+ * @returns {void}
+ */
+export function showLogin() {
   $("login-screen").style.display = "flex";
   $("app-screen").style.display = "none";
   stopStatusPolling();
 }
 
-function showApp() {
+/**
+ * @returns {void}
+ */
+export function showApp() {
   $("login-screen").style.display = "none";
   $("app-screen").style.display = "flex";
   startStatusPolling();
 }
 
-function setLoadingStatus(text) {
+/**
+ * @param {string} text
+ * @returns {void}
+ */
+export function setLoadingStatus(text) {
   $("output").innerHTML = `<div class="empty-state">${escapeHtml(text)}</div>`;
 }
 
-function showFormError(errorElementId, message) {
+/**
+ * @param {string} errorElementId
+ * @param {*} message
+ * @returns {void}
+ */
+export function showFormError(errorElementId, message) {
   const el = $(errorElementId);
   el.textContent = toDisplayMessage(message, "入力内容を確認してください");
   el.style.display = "block";
 }
 
-function hideFormError(errorElementId) {
+/**
+ * @param {string} errorElementId
+ * @returns {void}
+ */
+export function hideFormError(errorElementId) {
   $(errorElementId).style.display = "none";
 }
 
-function renderActionButtons(container, actions) {
+/**
+ * @param {HTMLElement} container
+ * @param {Array<{label: string, fn: function, cls?: string, key?: string}>} actions
+ * @returns {void}
+ */
+export function renderActionButtons(container, actions) {
   for (const action of actions) {
     const btn = document.createElement("button");
     btn.type = "button";
@@ -214,7 +303,11 @@ function renderActionButtons(container, actions) {
   }
 }
 
-function blobToDataUrl(blob) {
+/**
+ * @param {Blob} blob
+ * @returns {Promise<string>}
+ */
+export function blobToDataUrl(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
@@ -223,15 +316,28 @@ function blobToDataUrl(blob) {
   });
 }
 
-function faviconUrl(domain) {
+/**
+ * @param {string} domain
+ * @returns {string}
+ */
+export function faviconUrl(domain) {
   return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`;
 }
 
-function isImageDataIcon(icon) {
+/**
+ * @param {string} icon
+ * @returns {boolean}
+ */
+export function isImageDataIcon(icon) {
   return icon && (icon.startsWith("data:image/") || icon.startsWith("favicon:") || icon.startsWith("icon:"));
 }
 
-function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 30, animationTarget } = {}) {
+/**
+ * @param {HTMLElement} el
+ * @param {{onLongPress: function, onClick?: function, delay?: number, moveThreshold?: number, animationTarget?: function}} [options]
+ * @returns {void}
+ */
+export function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 30, animationTarget } = {}) {
   let timer = null;
   let fired = false;
   let startX = 0;
@@ -304,7 +410,12 @@ function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 
   }
 }
 
-function setupModalSwipeClose(overlay, closeFn) {
+/**
+ * @param {HTMLElement} overlay
+ * @param {function} closeFn
+ * @returns {void}
+ */
+export function setupModalSwipeClose(overlay, closeFn) {
   const modal = overlay.querySelector(".modal");
   if (!modal) return;
 
@@ -364,9 +475,15 @@ function setupModalSwipeClose(overlay, closeFn) {
   handle.addEventListener("touchend", onTouchEnd);
 }
 
-const VALID_ICON_COLOR = /^#[0-9a-fA-F]{3,6}$/;
+export const VALID_ICON_COLOR = /^#[0-9a-fA-F]{3,6}$/;
 
-function renderIcon(icon, iconColor, size = 16) {
+/**
+ * @param {string} icon
+ * @param {string} iconColor
+ * @param {number} [size]
+ * @returns {string}
+ */
+export function renderIcon(icon, iconColor, size = 16) {
   if (!icon) return "";
   if (icon.startsWith("data:image/") || icon.startsWith("icon:")) {
     const src = icon.startsWith("icon:") ? `/icons/${icon.slice(5)}` : icon;

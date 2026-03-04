@@ -1,4 +1,13 @@
-async function apiFetch(endpoint, { method = "GET", body = null } = {}) {
+// @ts-check
+import { token } from './state-core.js';
+import { escapeHtml, toDisplayMessage, showToast } from './utils.js';
+
+/**
+ * @param {string} endpoint
+ * @param {{ method?: string, body?: any }} [options]
+ * @returns {Promise<Response | null>}
+ */
+export async function apiFetch(endpoint, { method = "GET", body = null } = {}) {
   const headers = { Authorization: `Bearer ${token}` };
   const deviceName = localStorage.getItem("deviceName");
   if (deviceName) headers["X-Device-Name"] = deviceName;
@@ -14,21 +23,53 @@ async function apiFetch(endpoint, { method = "GET", body = null } = {}) {
   return res;
 }
 
-function workspaceApiPath(workspace, path = "") {
+/**
+ * @param {string} workspace
+ * @param {string} [path]
+ * @returns {string}
+ */
+export function workspaceApiPath(workspace, path = "") {
   return `/workspaces/${encodeURIComponent(workspace)}${path}`;
 }
 
-function renderInlineStatusHtml(text, tone = "muted", centered = true) {
+/**
+ * @param {string} text
+ * @param {"muted" | "error"} [tone]
+ * @param {boolean} [centered]
+ * @returns {string}
+ */
+export function renderInlineStatusHtml(text, tone = "muted", centered = true) {
   const color = tone === "error" ? "var(--error)" : "var(--text-muted)";
   const align = centered ? "text-align:center;" : "";
   return `<div style="color:${color};padding:16px;${align}">${escapeHtml(text)}</div>`;
 }
 
-function setInlineStatus(container, text, tone = "muted", centered = true) {
+/**
+ * @param {HTMLElement} container
+ * @param {string} text
+ * @param {"muted" | "error"} [tone]
+ * @param {boolean} [centered]
+ * @returns {void}
+ */
+export function setInlineStatus(container, text, tone = "muted", centered = true) {
   container.innerHTML = renderInlineStatusHtml(text, tone, centered);
 }
 
-async function fetchAndRenderWithStatus(
+/**
+ * @param {HTMLElement} container
+ * @param {string} endpoint
+ * @param {(data: any) => void | Promise<void>} renderData
+ * @param {{
+ *   loadingText?: string,
+ *   fetchErrorText?: string,
+ *   fetchErrorTone?: "muted" | "error",
+ *   fetchErrorCentered?: boolean,
+ *   catchErrorTone?: "muted" | "error",
+ *   catchErrorCentered?: boolean,
+ * }} [options]
+ * @returns {Promise<boolean>}
+ */
+export async function fetchAndRenderWithStatus(
   container,
   endpoint,
   renderData,
@@ -58,16 +99,34 @@ async function fetchAndRenderWithStatus(
   }
 }
 
-function setListStatus(container, variant, text) {
+/**
+ * @param {HTMLElement} container
+ * @param {string} variant
+ * @param {string} text
+ * @returns {void}
+ */
+export function setListStatus(container, variant, text) {
   container.innerHTML = `<div class="clone-repo-${variant}">${escapeHtml(text)}</div>`;
 }
 
-function getActionFailureMessage(data, fallback = "unknown error") {
+/**
+ * @param {any} data
+ * @param {string} [fallback]
+ * @returns {string}
+ */
+export function getActionFailureMessage(data, fallback = "unknown error") {
   if (!data || typeof data !== "object") return fallback;
   return toDisplayMessage(data.stderr || data.stdout || data.detail, fallback);
 }
 
-async function postWorkspaceAction(workspace, endpoint, label, body = null) {
+/**
+ * @param {string} workspace
+ * @param {string} endpoint
+ * @param {string} label
+ * @param {any} [body]
+ * @returns {Promise<any | null>}
+ */
+export async function postWorkspaceAction(workspace, endpoint, label, body = null) {
   try {
     const res = await apiFetch(workspaceApiPath(workspace, endpoint), {
       method: "POST",
@@ -87,7 +146,14 @@ async function postWorkspaceAction(workspace, endpoint, label, body = null) {
   }
 }
 
-async function deleteWorkspaceAction(
+/**
+ * @param {string} workspace
+ * @param {string} endpoint
+ * @param {string} successMessage
+ * @param {string} [defaultError]
+ * @returns {Promise<boolean>}
+ */
+export async function deleteWorkspaceAction(
   workspace,
   endpoint,
   successMessage,
@@ -109,7 +175,12 @@ async function deleteWorkspaceAction(
   }
 }
 
-async function putWorkspaceConfig(workspace, body) {
+/**
+ * @param {string} workspace
+ * @param {any} body
+ * @returns {Promise<{ ok: boolean, data: any, error?: Error }>}
+ */
+export async function putWorkspaceConfig(workspace, body) {
   try {
     const res = await apiFetch(workspaceApiPath(workspace, "/config"), {
       method: "PUT",

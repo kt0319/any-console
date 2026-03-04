@@ -1,10 +1,24 @@
-function getActiveTerminalTab() {
+// @ts-check
+import { openTabs, activeTabId, token } from './state-core.js';
+import { $ } from './utils.js';
+import { exitTerminalViewMode } from './terminal-view-mode.js';
+import { ensureSnippetsLoaded, loadSnippets, addSnippet, deleteSnippet } from './state-input.js';
+
+/**
+ * Returns the currently active terminal tab, or null if not a terminal tab.
+ * @returns {{ id: string, type: string, ws: WebSocket|null, term: any }|null}
+ */
+export function getActiveTerminalTab() {
   const tab = openTabs.find((t) => t.id === activeTabId);
   if (!tab || tab.type !== "terminal") return null;
   return tab;
 }
 
-function exitViewModeIfActive() {
+/**
+ * Exits terminal view mode for the active tab if it is currently in view mode.
+ * @returns {void}
+ */
+export function exitViewModeIfActive() {
   const tab = getActiveTerminalTab();
   if (!tab) return;
   const container = $(`frame-${tab.id}`);
@@ -13,7 +27,12 @@ function exitViewModeIfActive() {
   }
 }
 
-function sendKeyToTerminal(keyDef) {
+/**
+ * Sends a key definition as an ANSI sequence to the active terminal WebSocket.
+ * @param {{ key: string, ctrl?: boolean, shift?: boolean, xtermScroll?: string }} keyDef
+ * @returns {void}
+ */
+export function sendKeyToTerminal(keyDef) {
   exitViewModeIfActive();
   const tab = getActiveTerminalTab();
   if (!tab || !tab.ws || tab.ws.readyState !== WebSocket.OPEN) return;
@@ -21,7 +40,12 @@ function sendKeyToTerminal(keyDef) {
   if (seq) tab.ws.send(new TextEncoder().encode(seq));
 }
 
-function keyDefToAnsi(keyDef) {
+/**
+ * Converts a key definition to its corresponding ANSI escape sequence string.
+ * @param {{ key: string, ctrl?: boolean, shift?: boolean }} keyDef
+ * @returns {string|null}
+ */
+export function keyDefToAnsi(keyDef) {
   if (keyDef.ctrl && keyDef.key.length === 1) {
     const code = keyDef.key.toLowerCase().charCodeAt(0) - 96;
     if (code > 0 && code < 27) return String.fromCharCode(code);
@@ -50,40 +74,62 @@ function keyDefToAnsi(keyDef) {
   return null;
 }
 
-function sendTextToTerminal(text) {
+/**
+ * Sends a raw text string to the active terminal WebSocket.
+ * @param {string} text
+ * @returns {void}
+ */
+export function sendTextToTerminal(text) {
   const tab = getActiveTerminalTab();
   if (!tab || !tab.ws || tab.ws.readyState !== WebSocket.OPEN) return;
   tab.ws.send(new TextEncoder().encode(text));
 }
 
-function scrollTerminal(direction) {
+/**
+ * Scrolls the active terminal up or down by 20 lines.
+ * @param {"up"|"down"} direction
+ * @returns {void}
+ */
+export function scrollTerminal(direction) {
   const tab = getActiveTerminalTab();
   if (!tab || !tab.term) return;
   tab.term.scrollLines(direction === "up" ? -20 : 20);
 }
 
 document.addEventListener("touchend", (e) => {
-  const el = e.target.closest(".quick-key");
+  const el = /** @type {Element} */ (e.target).closest(".quick-key");
   if (!el) return;
   el.classList.remove("tap-bounce");
-  void el.offsetWidth;
+  void /** @type {HTMLElement} */ (el).offsetWidth;
   el.classList.add("tap-bounce");
 }, { passive: true });
 
 document.addEventListener("animationend", (e) => {
   if (e.animationName === "quick-key-bounce" || e.animationName === "snippet-bounce") {
-    e.target.classList.remove("tap-bounce");
+    /** @type {Element} */ (e.target).classList.remove("tap-bounce");
   }
 });
 
-const REPEAT_DELAY = 400;
-const REPEAT_INTERVAL = 80;
-const MIN_REPEAT_INTERVAL = 30;
-const REPEAT_ACCELERATION = 8;
+export const REPEAT_DELAY = 400;
+export const REPEAT_INTERVAL = 80;
+export const MIN_REPEAT_INTERVAL = 30;
+export const REPEAT_ACCELERATION = 8;
 
-const LONG_PRESS_MS = 400;
+export const LONG_PRESS_MS = 400;
 
-function setupFlickRepeat(el, resolveKey, onTap, opts = {}) {
+/**
+ * @typedef {{ key: string, ctrl?: boolean, shift?: boolean, xtermScroll?: string }} KeyDef
+ */
+
+/**
+ * Sets up flick/repeat/long-press touch handling on an element for terminal key input.
+ * @param {HTMLElement} el
+ * @param {(dx: number, dy: number, threshold: number) => KeyDef|null} resolveKey
+ * @param {(() => void)|null} onTap
+ * @param {{ accelerateRepeat?: boolean, onLongPress?: () => void, longPressGuard?: () => boolean, onFlick?: (key: KeyDef, dx: number, dy: number) => boolean }} [opts]
+ * @returns {void}
+ */
+export function setupFlickRepeat(el, resolveKey, onTap, opts = {}) {
   const THRESHOLD = 40;
   let startX = 0, startY = 0;
   let repeatTimer = null;
@@ -164,7 +210,12 @@ function setupFlickRepeat(el, resolveKey, onTap, opts = {}) {
   });
 }
 
-async function uploadClipboardImage(file) {
+/**
+ * Uploads a clipboard image file to the server and sends the resulting path to the terminal.
+ * @param {File} file
+ * @returns {Promise<void>}
+ */
+export async function uploadClipboardImage(file) {
   const activeTab = openTabs.find((t) => t.id === activeTabId);
   if (!activeTab || activeTab.type !== "terminal") return;
 
@@ -182,10 +233,20 @@ async function uploadClipboardImage(file) {
   } catch (e) { console.warn("uploadClipboardImage failed:", e); }
 }
 
-const modifierState = { ctrl: false, shift: false };
-let onModifierToggled = null;
+/** @type {{ ctrl: boolean, shift: boolean }} */
+export const modifierState = { ctrl: false, shift: false };
 
-function createModifierBtn(mod, label, onChange) {
+/** @type {(() => void)|null} */
+export let onModifierToggled = null;
+
+/**
+ * Creates a modifier button (Ctrl/Shift) that toggles its state and updates UI.
+ * @param {"ctrl"|"shift"} mod
+ * @param {string} label
+ * @param {(() => void)|null} onChange
+ * @returns {HTMLElement}
+ */
+export function createModifierBtn(mod, label, onChange) {
   const btn = document.createElement("div");
   btn.className = "quick-key quick-modifier";
   btn.textContent = label;
@@ -200,9 +261,14 @@ function createModifierBtn(mod, label, onChange) {
   return btn;
 }
 
-let onModifiersCleared = null;
+/** @type {(() => void)|null} */
+export let onModifiersCleared = null;
 
-function clearModifiers() {
+/**
+ * Clears all active modifier states (ctrl, shift) and removes active CSS classes.
+ * @returns {void}
+ */
+export function clearModifiers() {
   modifierState.ctrl = false;
   modifierState.shift = false;
   for (const el of document.querySelectorAll(".quick-modifier.active")) {
@@ -211,7 +277,12 @@ function clearModifiers() {
   if (onModifiersCleared) onModifiersCleared();
 }
 
-function createQuickKeyBtn(keyDef) {
+/**
+ * Creates a quick key button element with touch and mouse event handling for terminal input.
+ * @param {KeyDef & { label?: string, html?: string, xtermScroll?: string }} keyDef
+ * @returns {HTMLElement}
+ */
+export function createQuickKeyBtn(keyDef) {
   const btn = document.createElement("div");
   btn.className = "quick-key";
   btn._keyDef = keyDef;
@@ -265,7 +336,15 @@ function createQuickKeyBtn(keyDef) {
   return btn;
 }
 
-function createSnippetChip(text, onTap, onDelete, iconClass) {
+/**
+ * Creates a snippet chip element with tap, long-press-to-delete, and scroll-cancel behavior.
+ * @param {string} text
+ * @param {() => void} onTap
+ * @param {(() => void)|null} onDelete
+ * @param {string|null} [iconClass]
+ * @returns {HTMLElement}
+ */
+export function createSnippetChip(text, onTap, onDelete, iconClass) {
   const chip = document.createElement("div");
   chip.className = "quick-snippet-item";
   if (iconClass) {
@@ -356,7 +435,13 @@ function createSnippetChip(text, onTap, onDelete, iconClass) {
   return chip;
 }
 
-async function renderSnippetRow(container, onChipTap) {
+/**
+ * Renders the snippet and history rows into the given container element.
+ * @param {HTMLElement} container
+ * @param {(text: string) => void} onChipTap
+ * @returns {Promise<void>}
+ */
+export async function renderSnippetRow(container, onChipTap) {
   await ensureSnippetsLoaded();
   container.innerHTML = "";
   const snippetCol = document.createElement("div");

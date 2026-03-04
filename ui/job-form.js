@@ -1,4 +1,19 @@
-function createFormSubPane(container, title, onDone, setTitleFn) {
+// @ts-check
+import { workspaceJobs, selectedWorkspace, pendingJob, setPendingJob } from './state-core.js';
+import { apiFetch, workspaceApiPath, getActionFailureMessage, deleteWorkspaceAction, putWorkspaceConfig } from './api-client.js';
+import { showToast, escapeHtml, toDisplayMessage, renderIcon, isImageDataIcon } from './utils.js';
+import { invalidateWorkspaceMetaCache } from './cache.js';
+import { invalidateWorkspaceJobsCache, loadJobsForWorkspace } from './jobs.js';
+import { openIconPicker, renderInlineIconPicker } from './icon-picker.js';
+
+/**
+ * @param {HTMLElement} container
+ * @param {string} title
+ * @param {() => void} onDone
+ * @param {((title: string, onBack: () => void) => void) | null | undefined} setTitleFn
+ * @returns {HTMLElement}
+ */
+export function createFormSubPane(container, title, onDone, setTitleFn) {
   container.innerHTML = "";
   const sub = document.createElement("div");
   sub.className = "split-tab-settings-sub";
@@ -17,7 +32,12 @@ function createFormSubPane(container, title, onDone, setTitleFn) {
   return body;
 }
 
-function createCheckboxGroup(label, checked) {
+/**
+ * @param {string} label
+ * @param {boolean} checked
+ * @returns {{ group: HTMLElement, input: HTMLInputElement }}
+ */
+export function createCheckboxGroup(label, checked) {
   const group = document.createElement("div");
   group.className = "form-group";
   const lbl = document.createElement("label");
@@ -31,14 +51,23 @@ function createCheckboxGroup(label, checked) {
   return { group, input };
 }
 
-function createFormActions(...buttons) {
+/**
+ * @param {...HTMLElement} buttons
+ * @returns {HTMLElement}
+ */
+export function createFormActions(...buttons) {
   const actions = document.createElement("div");
   actions.className = "modal-actions";
   for (const btn of buttons) actions.appendChild(btn);
   return actions;
 }
 
-function createSubmitBtn(text, className) {
+/**
+ * @param {string} text
+ * @param {string} [className]
+ * @returns {HTMLButtonElement}
+ */
+export function createSubmitBtn(text, className) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = className || "";
@@ -47,18 +76,37 @@ function createSubmitBtn(text, className) {
   return btn;
 }
 
-function createFormError() {
+/**
+ * @returns {HTMLElement}
+ */
+export function createFormError() {
   const el = document.createElement("div");
   el.className = "form-error";
   return el;
 }
 
-function showFormErr(el, msg) {
+/**
+ * @param {HTMLElement} el
+ * @param {string | Error | unknown} msg
+ */
+export function showFormErr(el, msg) {
   el.textContent = toDisplayMessage(msg, "入力内容を確認してください");
   el.style.display = "block";
 }
 
-async function submitWorkspaceFormAction({
+/**
+ * @param {{
+ *   workspace: string,
+ *   endpoint: string,
+ *   method: string,
+ *   body: object,
+ *   errorEl: HTMLElement,
+ *   errorFallback: string,
+ *   successMessage?: string,
+ * }} options
+ * @returns {Promise<boolean>}
+ */
+export async function submitWorkspaceFormAction({
   workspace,
   endpoint,
   method,
@@ -86,7 +134,15 @@ async function submitWorkspaceFormAction({
   }
 }
 
-function buildIconSelectBtn(iconState, defaultIconName, container, setTitleFn, restoreTitleFn) {
+/**
+ * @param {{ icon: string, color: string }} iconState
+ * @param {string} defaultIconName
+ * @param {HTMLElement | null} container
+ * @param {((title: string, onBack: () => void) => void) | null | undefined} setTitleFn
+ * @param {(() => void) | null} restoreTitleFn
+ * @returns {HTMLButtonElement}
+ */
+export function buildIconSelectBtn(iconState, defaultIconName, container, setTitleFn, restoreTitleFn) {
   const iconBtn = document.createElement("button");
   iconBtn.type = "button";
   iconBtn.className = "icon-select-btn";
@@ -126,7 +182,11 @@ function buildIconSelectBtn(iconState, defaultIconName, container, setTitleFn, r
   return iconBtn;
 }
 
-function buildIconGroup(iconBtn) {
+/**
+ * @param {HTMLButtonElement} iconBtn
+ * @returns {HTMLElement}
+ */
+export function buildIconGroup(iconBtn) {
   const group = document.createElement("div");
   group.className = "form-group";
   group.innerHTML = '<label class="form-label">アイコン</label>';
@@ -137,7 +197,17 @@ function buildIconGroup(iconBtn) {
   return group;
 }
 
-function createTextInputGroup({
+/**
+ * @param {{
+ *   label: string,
+ *   type?: string,
+ *   placeholder?: string,
+ *   value?: string,
+ *   autocomplete?: string,
+ * }} options
+ * @returns {{ group: HTMLElement, input: HTMLInputElement }}
+ */
+export function createTextInputGroup({
   label,
   type = "text",
   placeholder = "",
@@ -157,7 +227,25 @@ function createTextInputGroup({
   return { group, input };
 }
 
-function createFormRenderer({
+/**
+ * @param {{
+ *   container: HTMLElement,
+ *   title: string,
+ *   workspace: string,
+ *   onDone: () => void,
+ *   setTitleFn: ((title: string, onBack: () => void) => void) | null | undefined,
+ *   defaultIconName: string,
+ *   initialIcon?: string,
+ *   initialIconColor?: string,
+ *   fields?: Array<{ name: string, label: string, placeholder?: string, value?: string, type?: string, autocomplete?: string }>,
+ *   checks?: Array<{ name: string, label: string, checked?: boolean }>,
+ *   submitLabel: string,
+ *   deleteLabel?: string,
+ *   onSubmit: (args: { workspace: string, iconState: { icon: string, color: string }, fieldInputs: Record<string, HTMLInputElement>, checkInputs: Record<string, HTMLInputElement>, errorEl: HTMLElement, onDone: () => void }) => Promise<void>,
+ *   onDelete?: ((args: { workspace: string, onDone: () => void }) => Promise<void>) | null,
+ * }} options
+ */
+export function createFormRenderer({
   container,
   title,
   workspace,
@@ -219,20 +307,41 @@ function createFormRenderer({
   body.appendChild(createFormActions(...actions));
 }
 
-async function finalizeWorkspaceMutation(workspace, onDone) {
+/**
+ * @param {string} workspace
+ * @param {() => void} onDone
+ * @returns {Promise<void>}
+ */
+export async function finalizeWorkspaceMutation(workspace, onDone) {
   invalidateWorkspaceMetaCache(workspace);
   invalidateWorkspaceJobsCache(workspace);
   await loadJobsForWorkspace();
   onDone();
 }
 
-function validateRequiredValue(errorEl, value, message) {
+/**
+ * @param {HTMLElement} errorEl
+ * @param {string} value
+ * @param {string} message
+ * @returns {boolean}
+ */
+export function validateRequiredValue(errorEl, value, message) {
   if (value) return true;
   showFormErr(errorEl, message);
   return false;
 }
 
-function buildJobFormRendererOptions({
+/**
+ * @param {{
+ *   container: HTMLElement,
+ *   workspace?: string,
+ *   data?: object | null,
+ *   onDone: () => void,
+ *   setTitleFn: ((title: string, onBack: () => void) => void) | null | undefined,
+ * }} options
+ * @returns {object}
+ */
+export function buildJobFormRendererOptions({
   container,
   workspace,
   data = null,
@@ -294,21 +403,38 @@ function buildJobFormRendererOptions({
   };
 }
 
-function renderInlineJobCreate(container, workspace, onDone, setTitleFn) {
+/**
+ * @param {HTMLElement} container
+ * @param {string} workspace
+ * @param {() => void} onDone
+ * @param {((title: string, onBack: () => void) => void) | null | undefined} setTitleFn
+ */
+export function renderInlineJobCreate(container, workspace, onDone, setTitleFn) {
   createFormRenderer(buildJobFormRendererOptions({ container, workspace, onDone, setTitleFn }));
 }
 
-function renderInlineJobEdit(container, data, onDone, setTitleFn) {
+/**
+ * @param {HTMLElement} container
+ * @param {object} data
+ * @param {() => void} onDone
+ * @param {((title: string, onBack: () => void) => void) | null | undefined} setTitleFn
+ */
+export function renderInlineJobEdit(container, data, onDone, setTitleFn) {
   createFormRenderer(buildJobFormRendererOptions({ container, data, onDone, setTitleFn }));
 }
 
-async function deleteJob(jobName, workspace) {
+/**
+ * @param {string} jobName
+ * @param {string} [workspace]
+ * @returns {Promise<void>}
+ */
+export async function deleteJob(jobName, workspace) {
   const ws = workspace || selectedWorkspace;
   if (!ws) return;
 
   const ok = await deleteWorkspaceAction(ws, `/jobs/${encodeURIComponent(jobName)}`, null);
   if (!ok) return;
-  if (pendingJob === jobName) pendingJob = null;
+  if (pendingJob === jobName) setPendingJob(null);
   invalidateWorkspaceMetaCache(ws);
   invalidateWorkspaceJobsCache(ws);
 }

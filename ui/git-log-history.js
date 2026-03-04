@@ -1,63 +1,98 @@
-const GRAPH_COLORS = [
+// @ts-check
+
+import { selectedWorkspace, allWorkspaces } from './state-core.js';
+import { apiFetch, workspaceApiPath, getActionFailureMessage } from './api-client.js';
+import { $, escapeHtml, formatCommitTime, renderIcon, showToast, buildWorkspaceChangeSummaryHtml, bindLongPress } from './utils.js';
+import { GitLogModal } from './git-log-modal.js';
+import { GIT_LOG_ENTRIES_PER_PAGE } from './state-git.js';
+
+// Circular deps (only used in function bodies)
+import { openCommitDiffModal, loadDiffTab, openCommitForm } from './git-diff.js';
+
+/** @type {string[]} */
+export const GRAPH_COLORS = [
   "#82aaff", "#c3e88d", "#f78c6c", "#c792ea",
   "#89ddff", "#ffcb6b", "#ff5370", "#f07178",
 ];
 
-const GRAPH_CELL_W = 10;
-
-function renderGraphSvg(graphStr, rowHeight) {
-  const cw = GRAPH_CELL_W;
-  const cols = graphStr.length;
-  if (!cols) return "";
-  const cy = rowHeight / 2;
-  const sw = 1.5;
-  let svgContent = "";
-  for (let i = 0; i < cols; i++) {
-    const ch = graphStr[i];
-    if (ch === " ") continue;
-    const lane = Math.floor(i / 2);
-    const color = GRAPH_COLORS[lane % GRAPH_COLORS.length];
-    const x = i * cw;
-    const cx = x + cw / 2;
-    switch (ch) {
-      case "*":
-        svgContent += `<circle cx="${cx}" cy="${cy}" r="3" fill="${color}"/>`;
-        svgContent += `<line x1="${cx}" y1="0" x2="${cx}" y2="${cy - 3}" stroke="${color}" stroke-width="${sw}"/>`;
-        svgContent += `<line x1="${cx}" y1="${cy + 3}" x2="${cx}" y2="${rowHeight}" stroke="${color}" stroke-width="${sw}"/>`;
-        break;
-      case "|":
-        svgContent += `<line x1="${cx}" y1="0" x2="${cx}" y2="${rowHeight}" stroke="${color}" stroke-width="${sw}"/>`;
-        break;
-      case "/":
-        svgContent += `<line x1="${x + cw}" y1="0" x2="${x}" y2="${rowHeight}" stroke="${color}" stroke-width="${sw}"/>`;
-        break;
-      case "\\":
-        svgContent += `<line x1="${x}" y1="0" x2="${x + cw}" y2="${rowHeight}" stroke="${color}" stroke-width="${sw}"/>`;
-        break;
-      case "_":
-        svgContent += `<line x1="${x}" y1="${cy}" x2="${x + cw}" y2="${cy}" stroke="${color}" stroke-width="${sw}"/>`;
-        break;
-    }
-  }
-  const width = cols * cw;
-  return `<svg class="git-log-graph-svg" width="${width}" height="${rowHeight}" viewBox="0 0 ${width} ${rowHeight}">${svgContent}</svg>`;
-}
-
-function renderCommitMeta(author, time) {
-  return `<span class="git-log-entry-meta"><span class="git-log-entry-author">${escapeHtml(author)}</span><span class="git-log-entry-time">${escapeHtml(time)}</span></span>`;
-}
-
-function renderDirtyWorkspaceLabel(ws) {
-  if (ws && ws.clean === false) {
-    const statText = buildWorkspaceChangeSummaryHtml(ws);
-    return '<span class="git-log-entry-msg git-log-dirty-msg">未コミットの変更</span>'
-      + `<span class="git-log-entry-refs"><span class="git-ref git-ref-dirty">${statText}</span></span>`;
-  }
-  return '<span class="git-log-entry-msg git-log-dirty-msg">変更なし</span>'
-    + '<span class="git-log-entry-refs git-dirty-spacer" aria-hidden="true"><span class="git-ref git-ref-dirty">0F +0 -0</span></span>';
-}
+/** @type {number} */
+export const GRAPH_CELL_W = 10;
 
 Object.assign(GitLogModal, {
+  /**
+   * Renders an SVG graph cell string into an SVG element HTML string.
+   * @param {string} graphStr
+   * @param {number} rowHeight
+   * @returns {string}
+   */
+  renderGraphSvg(graphStr, rowHeight) {
+    const cw = GRAPH_CELL_W;
+    const cols = graphStr.length;
+    if (!cols) return "";
+    const cy = rowHeight / 2;
+    const sw = 1.5;
+    let svgContent = "";
+    for (let i = 0; i < cols; i++) {
+      const ch = graphStr[i];
+      if (ch === " ") continue;
+      const lane = Math.floor(i / 2);
+      const color = GRAPH_COLORS[lane % GRAPH_COLORS.length];
+      const x = i * cw;
+      const cx = x + cw / 2;
+      switch (ch) {
+        case "*":
+          svgContent += `<circle cx="${cx}" cy="${cy}" r="3" fill="${color}"/>`;
+          svgContent += `<line x1="${cx}" y1="0" x2="${cx}" y2="${cy - 3}" stroke="${color}" stroke-width="${sw}"/>`;
+          svgContent += `<line x1="${cx}" y1="${cy + 3}" x2="${cx}" y2="${rowHeight}" stroke="${color}" stroke-width="${sw}"/>`;
+          break;
+        case "|":
+          svgContent += `<line x1="${cx}" y1="0" x2="${cx}" y2="${rowHeight}" stroke="${color}" stroke-width="${sw}"/>`;
+          break;
+        case "/":
+          svgContent += `<line x1="${x + cw}" y1="0" x2="${x}" y2="${rowHeight}" stroke="${color}" stroke-width="${sw}"/>`;
+          break;
+        case "\\":
+          svgContent += `<line x1="${x}" y1="0" x2="${x + cw}" y2="${rowHeight}" stroke="${color}" stroke-width="${sw}"/>`;
+          break;
+        case "_":
+          svgContent += `<line x1="${x}" y1="${cy}" x2="${x + cw}" y2="${cy}" stroke="${color}" stroke-width="${sw}"/>`;
+          break;
+      }
+    }
+    const width = cols * cw;
+    return `<svg class="git-log-graph-svg" width="${width}" height="${rowHeight}" viewBox="0 0 ${width} ${rowHeight}">${svgContent}</svg>`;
+  },
+
+  /**
+   * Renders commit author and time metadata as HTML.
+   * @param {string} author
+   * @param {string} time
+   * @returns {string}
+   */
+  renderCommitMeta(author, time) {
+    return `<span class="git-log-entry-meta"><span class="git-log-entry-author">${escapeHtml(author)}</span><span class="git-log-entry-time">${escapeHtml(time)}</span></span>`;
+  },
+
+  /**
+   * Renders the dirty workspace label for the top entry in the git log.
+   * @param {{ clean?: boolean } | undefined} ws
+   * @returns {string}
+   */
+  renderDirtyWorkspaceLabel(ws) {
+    if (ws && ws.clean === false) {
+      const statText = buildWorkspaceChangeSummaryHtml(ws);
+      return '<span class="git-log-entry-msg git-log-dirty-msg">未コミットの変更</span>'
+        + `<span class="git-log-entry-refs"><span class="git-ref git-ref-dirty">${statText}</span></span>`;
+    }
+    return '<span class="git-log-entry-msg git-log-dirty-msg">変更なし</span>'
+      + '<span class="git-log-entry-refs git-dirty-spacer" aria-hidden="true"><span class="git-ref git-ref-dirty">0F +0 -0</span></span>';
+  },
+
+  /**
+   * Parses a git ref string into an HTML badge and optional branch name.
+   * @param {string} name
+   * @returns {{ html: string, branchName: string | null } | null}
+   */
   parseRef(name) {
     if (!name || name === "origin/HEAD" || name === "HEAD") return null;
     const isTag = name.startsWith("tag: ");
@@ -86,6 +121,13 @@ Object.assign(GitLogModal, {
     return { html: `<span class="git-ref ${cls}">${label}</span>`, branchName };
   },
 
+  /**
+   * Renders git log entries from stdout into the given list element.
+   * @param {HTMLElement} listEl
+   * @param {string} stdout
+   * @param {{ graph?: boolean, seenHashes?: Set<string> | null }} [options]
+   * @returns {number}
+   */
   renderGitLogEntries(listEl, stdout, { graph = false, seenHashes = null } = {}) {
     const seen = seenHashes || GitLogModal.state.history.seenHashes;
     const lines = stdout.split("\n");
@@ -98,7 +140,7 @@ Object.assign(GitLogModal, {
         if (graph) {
           const graphLine = document.createElement("div");
           graphLine.className = "git-log-graph-line";
-          graphLine.innerHTML = renderGraphSvg(line, 16);
+          graphLine.innerHTML = GitLogModal.renderGraphSvg(line, 16);
           listEl.appendChild(graphLine);
         }
         continue;
@@ -121,7 +163,7 @@ Object.assign(GitLogModal, {
         refsHtml = htmlParts.join("");
       }
 
-      const graphHtml = graph && graphPrefix.trim() ? renderGraphSvg(graphPrefix, 44) : "";
+      const graphHtml = graph && graphPrefix.trim() ? GitLogModal.renderGraphSvg(graphPrefix, 44) : "";
       const entry = document.createElement("div");
       entry.className = "git-log-entry git-log-commit";
       entry.innerHTML =
@@ -130,7 +172,7 @@ Object.assign(GitLogModal, {
           `<span class="git-log-entry-msg">${escapeHtml(msg)}</span>` +
           `<span class="git-log-entry-row1">` +
             `<span class="git-log-entry-row1-left">${refsHtml ? `<span class="git-log-entry-refs">${refsHtml}</span>` : ""}</span>` +
-            renderCommitMeta(author, time) +
+            GitLogModal.renderCommitMeta(author, time) +
           `</span>` +
         `</span>`;
       const branches = [...branchSet];
@@ -148,6 +190,7 @@ Object.assign(GitLogModal, {
     return count;
   },
 
+  /** @returns {Promise<void>} */
   async loadMoreGitLog() {
     const history = GitLogModal.state.history;
     if (!selectedWorkspace || history.isLoading || !history.hasMore) return;
@@ -174,6 +217,10 @@ Object.assign(GitLogModal, {
     }
   },
 
+  /**
+   * Fetches the current stash count for the selected workspace.
+   * @returns {Promise<number>}
+   */
   async fetchStashCount() {
     if (!selectedWorkspace) return 0;
     try {
@@ -186,6 +233,11 @@ Object.assign(GitLogModal, {
     }
   },
 
+  /**
+   * Updates stash count badge on the stash button and the diff-actions button.
+   * @param {HTMLElement | null} [dirtyStashBtn]
+   * @returns {Promise<void>}
+   */
   async updateStashIndicators(dirtyStashBtn) {
     const count = await GitLogModal.fetchStashCount();
     const actionBtn = $("diff-actions")?.querySelector('[data-action-key="stash-list"]');
@@ -198,6 +250,11 @@ Object.assign(GitLogModal, {
     }
   },
 
+  /**
+   * Renders the dirty workspace entry at the top of the git log list.
+   * @param {HTMLElement} listEl
+   * @returns {void}
+   */
   renderDirtyEntry(listEl) {
     const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
     const isDirty = ws && ws.clean === false;
@@ -222,7 +279,7 @@ Object.assign(GitLogModal, {
     let bodyHtml =
       '<span class="git-log-entry-body git-log-dirty-body">' +
         '<span class="git-log-dirty-main">';
-    bodyHtml += renderDirtyWorkspaceLabel(ws);
+    bodyHtml += GitLogModal.renderDirtyWorkspaceLabel(ws);
     bodyHtml += `</span><span class="git-log-dirty-actions">${isDirty ? commitButtonHtml : ""}${stashButtonHtml}${branchButtonHtml}${graphButtonHtml}</span></span>`;
     entry.innerHTML = bodyHtml;
     const commitBtn = entry.querySelector(".git-log-dirty-commit-btn");
@@ -258,6 +315,7 @@ Object.assign(GitLogModal, {
     listEl.appendChild(entry);
   },
 
+  /** @returns {Promise<void>} */
   async reloadGitLog() {
     if (!selectedWorkspace) return;
 

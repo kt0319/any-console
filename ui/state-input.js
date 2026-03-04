@@ -1,4 +1,7 @@
-const QUICK_KEYS = [
+// @ts-check
+import { apiFetch } from "./api-client.js";
+
+export const QUICK_KEYS = [
   { label: "\u232B", key: "Backspace", code: "Backspace", keyCode: 8 },
   { label: "\u2190", key: "ArrowLeft", code: "ArrowLeft", keyCode: 37 },
   { label: "\u2193", key: "ArrowDown", code: "ArrowDown", keyCode: 40 },
@@ -6,7 +9,7 @@ const QUICK_KEYS = [
   { label: "\u2192", key: "ArrowRight", code: "ArrowRight", keyCode: 39 },
   { label: "\u21B5", key: "Enter", code: "Enter", keyCode: 13 },
 ];
-const NUMBER_KEYS = [
+export const NUMBER_KEYS = [
   { label: "1", key: "1", code: "Digit1", keyCode: 49 },
   { label: "2", key: "2", code: "Digit2", keyCode: 50 },
   { label: "3", key: "3", code: "Digit3", keyCode: 51 },
@@ -18,14 +21,14 @@ const NUMBER_KEYS = [
   { label: "9", key: "9", code: "Digit9", keyCode: 57 },
   { label: "0", key: "0", code: "Digit0", keyCode: 48 },
 ];
-const EXTRA_MAIN_KEYS = [
+export const EXTRA_MAIN_KEYS = [
   { label: "Del", key: "Delete", code: "Delete", keyCode: 46 },
   { label: "\u00AB", key: "Home", code: "Home", keyCode: 36 },
   { html: '<span class="mdi mdi-chevron-double-down"></span>', xtermScroll: "down" },
   { html: '<span class="mdi mdi-chevron-double-up"></span>', xtermScroll: "up" },
   { label: "\u00BB", key: "End", code: "End", keyCode: 35 },
 ];
-const QWERTY_ROWS = [
+export const QWERTY_ROWS = [
   "qwertyuiop".split("").map((c, i) => {
     const flickDown = ["!", '"', "#", "$", "%", "&", "@", "+", "-", "="][i];
     return { label: c, key: c, flickDown };
@@ -42,11 +45,15 @@ const QWERTY_ROWS = [
   }),
 ];
 
-const INPUT_HISTORY_KEY = "pi_console_input_history";
-const INPUT_HISTORY_MAX = 20;
-let inputHistory = JSON.parse(localStorage.getItem(INPUT_HISTORY_KEY) || "[]");
+export const INPUT_HISTORY_KEY = "pi_console_input_history";
+export const INPUT_HISTORY_MAX = 20;
+export let inputHistory = JSON.parse(localStorage.getItem(INPUT_HISTORY_KEY) || "[]");
 
-function addInputHistory(text) {
+/**
+ * @param {string} text
+ * @returns {void}
+ */
+export function addInputHistory(text) {
   if (!text) return;
   inputHistory = inputHistory.filter((h) => h !== text);
   inputHistory.unshift(text);
@@ -54,26 +61,33 @@ function addInputHistory(text) {
   localStorage.setItem(INPUT_HISTORY_KEY, JSON.stringify(inputHistory));
 }
 
-const SNIPPETS_KEY = "pi_console_snippets";
-let snippetsCache = [];
-let snippetsLoaded = false;
-let snippetsLoadPromise = null;
+export const SNIPPETS_KEY = "pi_console_snippets";
+export let snippetsCache = [];
+export let snippetsLoaded = false;
+export let snippetsLoadPromise = null;
 
-function normalizeSnippets(items) {
+/**
+ * @param {unknown} items
+ * @returns {{ label: string, command: string }[]}
+ */
+export function normalizeSnippets(items) {
   if (!Array.isArray(items)) return [];
   const normalized = [];
   for (const item of items) {
     if (!item || typeof item !== "object") continue;
-    const command = String(item.command || "").trim();
+    const command = String(/** @type {any} */ (item).command || "").trim();
     if (!command) continue;
-    const labelRaw = String(item.label || "").trim();
+    const labelRaw = String(/** @type {any} */ (item).label || "").trim();
     const label = labelRaw || (command.length <= 20 ? command : command.slice(0, 20) + "…");
     normalized.push({ label, command });
   }
   return normalized;
 }
 
-function loadLegacyLocalSnippets() {
+/**
+ * @returns {{ label: string, command: string }[]}
+ */
+export function loadLegacyLocalSnippets() {
   try {
     return normalizeSnippets(JSON.parse(localStorage.getItem(SNIPPETS_KEY) || "[]"));
   } catch {
@@ -81,7 +95,11 @@ function loadLegacyLocalSnippets() {
   }
 }
 
-async function saveSnippets(snippets) {
+/**
+ * @param {{ label: string, command: string }[]} snippets
+ * @returns {Promise<{ label: string, command: string }[]>}
+ */
+export async function saveSnippets(snippets) {
   const normalized = normalizeSnippets(snippets);
   const res = await apiFetch("/snippets", {
     method: "PUT",
@@ -97,7 +115,11 @@ async function saveSnippets(snippets) {
   return snippetsCache.slice();
 }
 
-async function ensureSnippetsLoaded(force = false) {
+/**
+ * @param {boolean} [force]
+ * @returns {Promise<{ label: string, command: string }[]>}
+ */
+export async function ensureSnippetsLoaded(force = false) {
   if (snippetsLoaded && !force) return snippetsCache.slice();
   if (snippetsLoadPromise && !force) return snippetsLoadPromise;
   snippetsLoadPromise = (async () => {
@@ -132,11 +154,18 @@ async function ensureSnippetsLoaded(force = false) {
   return snippetsLoadPromise;
 }
 
-function loadSnippets() {
+/**
+ * @returns {{ label: string, command: string }[]}
+ */
+export function loadSnippets() {
   return snippetsCache.slice();
 }
 
-async function addSnippet(command) {
+/**
+ * @param {string} command
+ * @returns {Promise<{ label: string, command: string }>}
+ */
+export async function addSnippet(command) {
   await ensureSnippetsLoaded();
   const snippets = loadSnippets();
   const label = command.length <= 20 ? command : command.slice(0, 20) + "…";
@@ -146,7 +175,11 @@ async function addSnippet(command) {
   return snippet;
 }
 
-async function deleteSnippet(index) {
+/**
+ * @param {number} index
+ * @returns {Promise<void>}
+ */
+export async function deleteSnippet(index) {
   await ensureSnippetsLoaded();
   const snippets = loadSnippets();
   if (index < 0 || index >= snippets.length) return;

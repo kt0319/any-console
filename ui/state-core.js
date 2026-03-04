@@ -1,50 +1,151 @@
-let token = "";
-let workspaceJobs = {};
-let workspaceJobsCache = {};
-let workspaceJobsLoadedFor = null;
-let pendingJob = null;
-let allWorkspaces = [];
-let selectedWorkspace = null;
-let isLaunchingTerminal = false;
-let cachedBranches = [];
+// @ts-check
 
-const panelBottomMediaQuery = window.matchMedia("(max-width: 768px) and (orientation: portrait)");
-let panelBottom = panelBottomMediaQuery.matches;
-const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-panelBottomMediaQuery.addEventListener("change", (e) => {
-  panelBottom = e.matches;
-  applyPanelBottom();
-  updateQuickInputVisibility();
-  if (splitMode) rebuildSplitLayout();
-  renderTabBar();
-});
+// ── Auth / App ──
+export let token = "";
+/** @param {string} v */
+export function setToken(v) { token = v; }
 
-let openTabs = [];
-let activeTabId = null;
-let terminalIdCounter = 0;
-let splitMode = false;
-let splitPaneTabIds = [];
-let activePaneIndex = 0;
-let splitLayout = "grid";
-let isPaneSelectedByTap = false;
-let disconnectedSessions = [];
-let closedSessionUrls = new Set();
-let isPageUnloading = false;
-let hasRestoredTabsFromStorage = false;
-let appInitializing = false;
+// ── Jobs ──
+/** @type {Record<string, any>} */
+export let workspaceJobs = {};
+/** @param {Record<string, any>} v */
+export function setWorkspaceJobs(v) { workspaceJobs = v; }
 
-const STATUS_POLL_INTERVAL_MS = 10000;
-let statusPollTimer = null;
-let isPollingStatus = false;
-let serverDisconnected = false;
+/** @type {Record<string, any>} */
+export let workspaceJobsCache = {};
+/** @param {Record<string, any>} v */
+export function setWorkspaceJobsCache(v) { workspaceJobsCache = v; }
 
-let isHandlingUnauthorized = false;
+/** @type {string | null} */
+export let workspaceJobsLoadedFor = null;
+/** @param {string | null} v */
+export function setWorkspaceJobsLoadedFor(v) { workspaceJobsLoadedFor = v; }
 
-let serverHostname = "";
-let serverVersion = "";
+/** @type {string | null} */
+export let pendingJob = null;
+/** @param {string | null} v */
+export function setPendingJob(v) { pendingJob = v; }
 
-const TERMINAL_SETTINGS_KEY = "pi_console_terminal_settings";
-const TERMINAL_SETTINGS_SCHEMA = Object.freeze({
+// ── Workspaces ──
+/** @type {any[]} */
+export let allWorkspaces = [];
+/** @param {any[]} v */
+export function setAllWorkspaces(v) { allWorkspaces = v; }
+
+/** @type {string | null} */
+export let selectedWorkspace = null;
+/** @param {string | null} v */
+export function setSelectedWorkspace(v) { selectedWorkspace = v; }
+
+export let isLaunchingTerminal = false;
+/** @param {boolean} v */
+export function setIsLaunchingTerminal(v) { isLaunchingTerminal = v; }
+
+/** @type {string[]} */
+export let cachedBranches = [];
+/** @param {string[]} v */
+export function setCachedBranches(v) { cachedBranches = v; }
+
+// ── Layout ──
+export const panelBottomMediaQuery = window.matchMedia("(max-width: 768px) and (orientation: portrait)");
+export let panelBottom = panelBottomMediaQuery.matches;
+/** @param {boolean} v */
+export function setPanelBottom(v) { panelBottom = v; }
+
+export const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+
+// ── Tabs ──
+/** @type {any[]} */
+export let openTabs = [];
+/** @param {any[]} v */
+export function setOpenTabs(v) { openTabs = v; }
+
+/** @type {string | null} */
+export let activeTabId = null;
+/** @param {string | null} v */
+export function setActiveTabId(v) { activeTabId = v; }
+
+export let terminalIdCounter = 0;
+/** @param {number} v */
+export function setTerminalIdCounter(v) { terminalIdCounter = v; }
+
+// ── Split ──
+export let splitMode = false;
+/** @param {boolean} v */
+export function setSplitMode(v) { splitMode = v; }
+
+/** @type {string[]} */
+export let splitPaneTabIds = [];
+/** @param {string[]} v */
+export function setSplitPaneTabIds(v) { splitPaneTabIds = v; }
+
+export let activePaneIndex = 0;
+/** @param {number} v */
+export function setActivePaneIndex(v) { activePaneIndex = v; }
+
+/** @type {string} */
+export let splitLayout = "grid";
+/** @param {string} v */
+export function setSplitLayout(v) { splitLayout = v; }
+
+export let isPaneSelectedByTap = false;
+/** @param {boolean} v */
+export function setIsPaneSelectedByTap(v) { isPaneSelectedByTap = v; }
+
+// ── Disconnected / Orphan sessions ──
+/** @type {any[]} */
+export let disconnectedSessions = [];
+/** @param {any[]} v */
+export function setDisconnectedSessions(v) { disconnectedSessions = v; }
+
+/** @type {Set<string>} */
+export let closedSessionUrls = new Set();
+/** @param {Set<string>} v */
+export function setClosedSessionUrls(v) { closedSessionUrls = v; }
+
+export let isPageUnloading = false;
+/** @param {boolean} v */
+export function setIsPageUnloading(v) { isPageUnloading = v; }
+
+export let hasRestoredTabsFromStorage = false;
+/** @param {boolean} v */
+export function setHasRestoredTabsFromStorage(v) { hasRestoredTabsFromStorage = v; }
+
+export let appInitializing = false;
+/** @param {boolean} v */
+export function setAppInitializing(v) { appInitializing = v; }
+
+// ── Polling ──
+export const STATUS_POLL_INTERVAL_MS = 10000;
+
+/** @type {ReturnType<typeof setTimeout> | null} */
+export let statusPollTimer = null;
+/** @param {ReturnType<typeof setTimeout> | null} v */
+export function setStatusPollTimer(v) { statusPollTimer = v; }
+
+export let isPollingStatus = false;
+/** @param {boolean} v */
+export function setIsPollingStatus(v) { isPollingStatus = v; }
+
+export let serverDisconnected = false;
+/** @param {boolean} v */
+export function setServerDisconnected(v) { serverDisconnected = v; }
+
+export let isHandlingUnauthorized = false;
+/** @param {boolean} v */
+export function setIsHandlingUnauthorized(v) { isHandlingUnauthorized = v; }
+
+export let serverHostname = "";
+/** @param {string} v */
+export function setServerHostname(v) { serverHostname = v; }
+
+export let serverVersion = "";
+/** @param {string} v */
+export function setServerVersion(v) { serverVersion = v; }
+
+// ── Terminal Settings ──
+export const TERMINAL_SETTINGS_KEY = "pi_console_terminal_settings";
+export const TERMINAL_SETTINGS_SCHEMA = Object.freeze({
   fontSize: {
     type: "number",
     label: "フォントサイズ",
@@ -76,14 +177,19 @@ const TERMINAL_SETTINGS_SCHEMA = Object.freeze({
   },
 });
 
-const DEFAULT_TERMINAL_SETTINGS = Object.freeze({
+export const DEFAULT_TERMINAL_SETTINGS = Object.freeze({
   fontSize: 12,
   cursorBlink: true,
   scrollback: 5000,
   scrollOnOutput: true,
 });
 
-function sanitizeTerminalSetting(key, value) {
+/**
+ * @param {string} key
+ * @param {any} value
+ * @returns {any}
+ */
+export function sanitizeTerminalSetting(key, value) {
   const schema = TERMINAL_SETTINGS_SCHEMA[key];
   const fallback = DEFAULT_TERMINAL_SETTINGS[key];
   if (!schema) return fallback;
@@ -97,7 +203,11 @@ function sanitizeTerminalSetting(key, value) {
   return fallback;
 }
 
-function sanitizeTerminalSettings(raw) {
+/**
+ * @param {Record<string, any>} raw
+ * @returns {Record<string, any>}
+ */
+export function sanitizeTerminalSettings(raw) {
   const source = raw && typeof raw === "object" ? raw : {};
   const next = {};
   for (const key of Object.keys(DEFAULT_TERMINAL_SETTINGS)) {
@@ -106,7 +216,8 @@ function sanitizeTerminalSettings(raw) {
   return next;
 }
 
-function loadTerminalSettings() {
+/** @returns {Record<string, any>} */
+export function loadTerminalSettings() {
   try {
     return sanitizeTerminalSettings(JSON.parse(localStorage.getItem(TERMINAL_SETTINGS_KEY) || "{}"));
   } catch {
@@ -114,11 +225,16 @@ function loadTerminalSettings() {
   }
 }
 
-function saveTerminalSettings() {
+export function saveTerminalSettings() {
   localStorage.setItem(TERMINAL_SETTINGS_KEY, JSON.stringify(terminalSettings));
 }
 
-function setTerminalSetting(key, value) {
+/**
+ * @param {string} key
+ * @param {any} value
+ * @returns {any}
+ */
+export function setTerminalSetting(key, value) {
   if (!(key in DEFAULT_TERMINAL_SETTINGS)) return null;
   const next = sanitizeTerminalSetting(key, value);
   terminalSettings[key] = next;
@@ -126,13 +242,15 @@ function setTerminalSetting(key, value) {
   return next;
 }
 
-function resetTerminalSettings() {
+/** @returns {Record<string, any>} */
+export function resetTerminalSettings() {
   terminalSettings = { ...DEFAULT_TERMINAL_SETTINGS };
   saveTerminalSettings();
   return terminalSettings;
 }
 
-function getTerminalRuntimeOptions() {
+/** @returns {Record<string, any>} */
+export function getTerminalRuntimeOptions() {
   return {
     cursorBlink: terminalSettings.cursorBlink,
     fontSize: terminalSettings.fontSize,
@@ -142,4 +260,9 @@ function getTerminalRuntimeOptions() {
   };
 }
 
-let terminalSettings = loadTerminalSettings();
+/** @type {Record<string, any>} */
+export let terminalSettings = loadTerminalSettings();
+
+// ── panelBottomMediaQuery listener ──
+// Deferred: actual handler is registered in app.js after all modules are loaded,
+// because it depends on functions from settings.js, terminal-split.js, terminal-tabs.js.

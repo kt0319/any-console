@@ -1,10 +1,33 @@
-function initQuickInput() {
+// @ts-check
+import { openTabs, activeTabId, panelBottom, isTouchDevice } from './state-core.js';
+import { $, safeFit, showToast } from './utils.js';
+import { QUICK_KEYS, NUMBER_KEYS, EXTRA_MAIN_KEYS, QWERTY_ROWS, ensureSnippetsLoaded, loadSnippets, addSnippet, deleteSnippet } from './state-input.js';
+import { setupFlickRepeat, sendKeyToTerminal, sendTextToTerminal, scrollTerminal, exitViewModeIfActive, createQuickKeyBtn, createSnippetChip, renderSnippetRow as renderSnippetRowFromKeys, modifierState, onModifierToggled, onModifiersCleared, clearModifiers, uploadClipboardImage } from './quick-input-keys.js';
+import { openTabEditModal } from './terminal-tab-modal.js';
+
+// Re-export renderSnippetRow so viewport.js can import it from this module.
+export { renderSnippetRowFromKeys as renderSnippetRow };
+
+/**
+ * Initialises the quick-input panel: creates all buttons, sets up flick
+ * gestures, snippet row, QWERTY overlay, and appends everything to the DOM.
+ * @returns {void}
+ */
+export function initQuickInput() {
   const panel = $("quick-input-panel");
 
   const minimalArrow = document.createElement("div");
   minimalArrow.className = "quick-key quick-flick-arrow quick-key-toggle";
   minimalArrow.innerHTML = '<span class="flick-hint-top">\u2191</span><span class="flick-hint-left">\u2190</span><span class="flick-main"><span class="mdi mdi-keyboard"></span></span><span class="flick-hint-right">\u2192</span><span class="flick-hint-bottom">\u2193</span>';
   const FLICK_THRESHOLD = 40;
+  /**
+   * Resolves a flick gesture (dx, dy) to an arrow-key descriptor, or null if
+   * the movement does not exceed the threshold.
+   * @param {number} dx - Horizontal delta in pixels.
+   * @param {number} dy - Vertical delta in pixels.
+   * @param {number} threshold - Minimum pixel distance to count as a flick.
+   * @returns {{ key: string, code: string, keyCode: number } | null}
+   */
   const resolveArrowKey = (dx, dy, threshold) => {
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > threshold)
       return dx < 0
@@ -72,6 +95,10 @@ function initQuickInput() {
   workspaceModalBtn.className = "quick-key quick-workspace-modal-open";
   workspaceModalBtn.innerHTML = '<span class="mdi mdi-view-grid-plus-outline"></span>';
   workspaceModalBtn.style.display = "none";
+  /**
+   * Adds the "tap-bounce" animation class to each visible element.
+   * @param {Element[]} elements
+   */
   const animateElements = (elements) => {
     for (const el of elements) {
       if (!el || el.offsetParent === null) continue;
@@ -80,6 +107,7 @@ function initQuickInput() {
       el.classList.add("tap-bounce");
     }
   };
+  /** @returns {Element[]} */
   const collectVisibleModeElements = () => [
       ...panel.querySelectorAll(".quick-key"),
       ...qwertyPanel.querySelectorAll(".quick-key"),
@@ -221,6 +249,14 @@ function initQuickInput() {
   const minimalEnter = document.createElement("div");
   minimalEnter.className = "quick-key quick-flick-enter quick-flick-arrow quick-key-toggle";
   minimalEnter.innerHTML = '<span class="flick-hint-top">Tab</span><span class="flick-hint-left">BS</span><span class="flick-main">\u21B5</span><span class="flick-hint-bottom">Space</span><span class="flick-hint-right">Del</span>';
+  /**
+   * Resolves an Enter-button flick to a special key descriptor, or null for a
+   * plain Enter press.
+   * @param {number} dx
+   * @param {number} dy
+   * @param {number} threshold
+   * @returns {{ key: string, code?: string, keyCode?: number } | null}
+   */
   const resolveEnterKey = (dx, dy, threshold) => {
     if (Math.abs(dy) > Math.abs(dx) && dy < -threshold)
       return { key: "Tab", code: "Tab", keyCode: 9 };
@@ -352,6 +388,11 @@ function initQuickInput() {
     }
   };
 
+  /**
+   * Closes the snippet mode overlay, restoring all buttons to their default
+   * state and hiding the snippet row.
+   * @returns {void}
+   */
   function closeSnippetMode() {
     snippetModeActive = false;
     snippetRow.style.display = "none";
@@ -364,7 +405,7 @@ function initQuickInput() {
     scheduleAnimateVisibleModeElements();
   }
 
-  const renderQuickSnippets = () => renderSnippetRow(snippetRow, (text) => {
+  const renderQuickSnippets = () => renderSnippetRowFromKeys(snippetRow, (text) => {
     sendTextToTerminal(text);
     closeSnippetMode();
   }).then(() => {
@@ -375,6 +416,11 @@ function initQuickInput() {
 
   let keyboardPanelMode = 0;
 
+  /**
+   * Cycles the keyboard panel between minimal mode (0) and QWERTY mode (1),
+   * closing any open snippet row in the process.
+   * @returns {void}
+   */
   const cycleMode = () => {
     keyboardPanelMode = (keyboardPanelMode + 1) % 2;
     clearModifiers();
@@ -390,6 +436,11 @@ function initQuickInput() {
 
   const minimalEnterDefaultHTML = '<span class="flick-hint-top">Tab</span><span class="flick-hint-left">BS</span><span class="flick-main">\u21B5</span><span class="flick-hint-bottom">Space</span><span class="flick-hint-right">Del</span>';
 
+  /**
+   * Toggles the snippet row visibility. Switches to minimal mode first if the
+   * panel is currently in QWERTY mode.
+   * @returns {void}
+   */
   const toggleSnippetRow = () => {
     const visible = snippetRow.style.display === "flex";
     if (visible) {
@@ -422,6 +473,12 @@ function initQuickInput() {
 
   const minimalArrowDefaultHTML = '<span class="flick-hint-top">\u2191</span><span class="flick-hint-left">\u2190</span><span class="flick-main"><span class="mdi mdi-keyboard"></span></span><span class="flick-hint-right">\u2192</span><span class="flick-hint-bottom">\u2193</span>';
 
+  /**
+   * Applies the current `keyboardPanelMode` to the DOM, showing or hiding the
+   * appropriate panels and updating button states.
+   * @param {boolean} [animate=false] - Whether to trigger the tap-bounce animation.
+   * @returns {void}
+   */
   const applyMode = (animate = false) => {
     panel.classList.toggle("minimal-mode", keyboardPanelMode === 0);
     panel.classList.toggle("extra-open", keyboardPanelMode === 1);

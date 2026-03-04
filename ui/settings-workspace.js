@@ -1,4 +1,19 @@
-function createWorkspaceItemElements(ws) {
+// @ts-check
+import { allWorkspaces, selectedWorkspace } from './state-core.js';
+import { apiFetch, workspaceApiPath, putWorkspaceConfig } from './api-client.js';
+import { renderIcon, showToast, escapeHtml } from './utils.js';
+import { invalidateWorkspaceMetaCache, fetchWorkspaceJobsAndLinks } from './cache.js';
+import { invalidateWorkspaceJobsCache, loadJobsForWorkspace } from './jobs.js';
+import { openIconPicker, renderInlineIconPicker } from './icon-picker.js';
+import { renderInlineJobCreate, renderInlineJobEdit } from './job-form.js';
+import { refreshWorkspaceHeader, loadWorkspaces } from './workspace.js';
+import { updateGitBarVisibility } from './terminal-tabs.js';
+
+/**
+ * @param {{ name: string, icon?: string, icon_color?: string, hidden?: boolean }} ws
+ * @returns {{ iconSpan: HTMLElement, label: HTMLElement }}
+ */
+export function createWorkspaceItemElements(ws) {
   const iconSpan = document.createElement("span");
   iconSpan.className = "ws-icon-display";
   iconSpan.innerHTML = ws.icon ? renderIcon(ws.icon, ws.icon_color, 18) : '<span class="mdi mdi-console" style="color:var(--text-muted)"></span>';
@@ -8,7 +23,11 @@ function createWorkspaceItemElements(ws) {
   return { iconSpan, label };
 }
 
-async function reorderWorkspaces(orderedNames) {
+/**
+ * @param {string[]} orderedNames
+ * @returns {Promise<boolean>}
+ */
+export async function reorderWorkspaces(orderedNames) {
   try {
     const res = await apiFetch("/workspace-order", {
       method: "PUT",
@@ -28,7 +47,11 @@ async function reorderWorkspaces(orderedNames) {
   }
 }
 
-function renderWorkspaceVisibilityChecklistTo(container, { onGear } = {}) {
+/**
+ * @param {HTMLElement} container
+ * @param {{ onGear?: (ws: object) => void }} [options]
+ */
+export function renderWorkspaceVisibilityChecklistTo(container, { onGear } = {}) {
   container.innerHTML = "";
   let orderSaving = false;
   let orderSnapshot = null;
@@ -90,7 +113,13 @@ function renderWorkspaceVisibilityChecklistTo(container, { onGear } = {}) {
   }
 }
 
-function createWorkspaceSettingsSection(body, title, onAdd) {
+/**
+ * @param {HTMLElement} body
+ * @param {string} title
+ * @param {() => void} onAdd
+ * @returns {HTMLElement}
+ */
+export function createWorkspaceSettingsSection(body, title, onAdd) {
   const section = document.createElement("div");
   section.className = "ws-settings-section";
   const header = document.createElement("div");
@@ -112,7 +141,11 @@ function createWorkspaceSettingsSection(body, title, onAdd) {
   return list;
 }
 
-function createWorkspaceSettingsItemRow({
+/**
+ * @param {{ icon?: string, iconColor?: string, defaultIcon?: string, label: string, onClick: () => void, actions?: Array<{iconHtml: string, title?: string, disabled?: boolean, onClick: () => void}>, leadingControl?: HTMLElement|null, className?: string }} options
+ * @returns {HTMLElement}
+ */
+export function createWorkspaceSettingsItemRow({
   icon,
   iconColor,
   defaultIcon,
@@ -158,7 +191,13 @@ function createWorkspaceSettingsItemRow({
   return row;
 }
 
-function renderWorkspaceSettingsList(listEl, items, emptyText, renderItem) {
+/**
+ * @param {HTMLElement} listEl
+ * @param {any[]} items
+ * @param {string} emptyText
+ * @param {(item: any, index: number) => HTMLElement} renderItem
+ */
+export function renderWorkspaceSettingsList(listEl, items, emptyText, renderItem) {
   listEl.innerHTML = "";
   if (items.length === 0) {
     listEl.innerHTML = `<div class="ws-settings-empty">${escapeHtml(emptyText)}</div>`;
@@ -169,7 +208,13 @@ function renderWorkspaceSettingsList(listEl, items, emptyText, renderItem) {
   });
 }
 
-function moveWorkspaceSettingsListRow(list, rowSelector, fromIdx, toIdx) {
+/**
+ * @param {HTMLElement} list
+ * @param {string} rowSelector
+ * @param {number} fromIdx
+ * @param {number} toIdx
+ */
+export function moveWorkspaceSettingsListRow(list, rowSelector, fromIdx, toIdx) {
   if (fromIdx === toIdx) return;
   const rows = Array.from(list.querySelectorAll(rowSelector));
   const row = rows[fromIdx];
@@ -182,7 +227,10 @@ function moveWorkspaceSettingsListRow(list, rowSelector, fromIdx, toIdx) {
   list.insertBefore(row, target);
 }
 
-function bindVerticalDragHandle({
+/**
+ * @param {{ handle: HTMLElement, row: HTMLElement, list: HTMLElement, rowSelector: string, canStart?: () => boolean, onStart?: () => void, onReorder?: (fromIdx: number, toIdx: number) => void, onCommit?: (didMove: boolean) => void }} options
+ */
+export function bindVerticalDragHandle({
   handle,
   row,
   list,
@@ -269,7 +317,13 @@ function bindVerticalDragHandle({
   handle.addEventListener("touchstart", onPointerStart, { passive: false });
 }
 
-function toJobEditData(workspaceName, name, job) {
+/**
+ * @param {string} workspaceName
+ * @param {string} name
+ * @param {object} job
+ * @returns {object}
+ */
+export function toJobEditData(workspaceName, name, job) {
   return {
     workspace: workspaceName,
     name,
@@ -282,7 +336,12 @@ function toJobEditData(workspaceName, name, job) {
   };
 }
 
-async function fetchWorkspaceJobDetailForSettings(workspaceName, jobName) {
+/**
+ * @param {string} workspaceName
+ * @param {string} jobName
+ * @returns {Promise<object|null>}
+ */
+export async function fetchWorkspaceJobDetailForSettings(workspaceName, jobName) {
   try {
     const res = await apiFetch(workspaceApiPath(workspaceName, `/jobs/${encodeURIComponent(jobName)}`));
     if (!res || !res.ok) return null;
@@ -293,7 +352,12 @@ async function fetchWorkspaceJobDetailForSettings(workspaceName, jobName) {
   }
 }
 
-async function reorderWorkspaceJobs(workspaceName, orderedNames) {
+/**
+ * @param {string} workspaceName
+ * @param {string[]} orderedNames
+ * @returns {Promise<boolean>}
+ */
+export async function reorderWorkspaceJobs(workspaceName, orderedNames) {
   try {
     const res = await apiFetch(workspaceApiPath(workspaceName, "/job-order"), {
       method: "PUT",
@@ -318,7 +382,14 @@ async function reorderWorkspaceJobs(workspaceName, orderedNames) {
   }
 }
 
-function createWorkspaceIconRow(container, ws, setTitleFn, goBackToSettings) {
+/**
+ * @param {HTMLElement} container
+ * @param {object} ws
+ * @param {((title: string, onBack: () => void) => void)|null} setTitleFn
+ * @param {() => void} goBackToSettings
+ * @returns {HTMLElement}
+ */
+export function createWorkspaceIconRow(container, ws, setTitleFn, goBackToSettings) {
   const iconRow = document.createElement("div");
   iconRow.className = "ws-settings-row";
   const iconLabel = document.createElement("span");
@@ -347,7 +418,13 @@ function createWorkspaceIconRow(container, ws, setTitleFn, goBackToSettings) {
   return iconRow;
 }
 
-function renderWorkspaceSettingsPane(container, ws, onBack, setTitleFn) {
+/**
+ * @param {HTMLElement} container
+ * @param {object} ws
+ * @param {() => void} onBack
+ * @param {((title: string, onBack: () => void) => void)|null} [setTitleFn]
+ */
+export function renderWorkspaceSettingsPane(container, ws, onBack, setTitleFn) {
   container.innerHTML = "";
   const sub = document.createElement("div");
   sub.className = "split-tab-settings-sub";
@@ -379,7 +456,14 @@ function renderWorkspaceSettingsPane(container, ws, onBack, setTitleFn) {
   loadWorkspaceSettingsItems({ jobList }, container, ws, onBack, setTitleFn);
 }
 
-async function loadWorkspaceSettingsItems(lists, container, ws, onBack, setTitleFn) {
+/**
+ * @param {{ jobList: HTMLElement }} lists
+ * @param {HTMLElement} container
+ * @param {object} ws
+ * @param {() => void} onBack
+ * @param {((title: string, onBack: () => void) => void)|null} [setTitleFn]
+ */
+export async function loadWorkspaceSettingsItems(lists, container, ws, onBack, setTitleFn) {
   const { jobs } = await fetchWorkspaceJobsAndLinks(ws.name);
   const { jobList } = lists;
 
@@ -457,7 +541,13 @@ async function loadWorkspaceSettingsItems(lists, container, ws, onBack, setTitle
   renderJobList();
 }
 
-async function saveWorkspaceIcon(ws, icon, color) {
+/**
+ * @param {object} ws
+ * @param {string} icon
+ * @param {string} color
+ * @returns {Promise<boolean>}
+ */
+export async function saveWorkspaceIcon(ws, icon, color) {
   const result = await putWorkspaceConfig(ws.name, { icon, icon_color: color });
   if (!result.ok) {
     if (result.error) {
@@ -473,7 +563,11 @@ async function saveWorkspaceIcon(ws, icon, color) {
   return true;
 }
 
-function openWorkspaceIconPicker(ws, refreshFn) {
+/**
+ * @param {object} ws
+ * @param {(() => void)|null} [refreshFn]
+ */
+export function openWorkspaceIconPicker(ws, refreshFn) {
   openIconPicker(async (icon, color) => {
     if (await saveWorkspaceIcon(ws, icon, color)) {
       if (refreshFn) refreshFn();
@@ -481,7 +575,13 @@ function openWorkspaceIconPicker(ws, refreshFn) {
   }, ws.icon, ws.icon_color);
 }
 
-function openWorkspaceIconPickerInline(container, ws, refreshFn) {
+/**
+ * @param {HTMLElement} container
+ * @param {object} ws
+ * @param {() => void} refreshFn
+ * @returns {() => void}
+ */
+export function openWorkspaceIconPickerInline(container, ws, refreshFn) {
   container.innerHTML = "";
   const wrapper = document.createElement("div");
   container.appendChild(wrapper);
@@ -491,7 +591,11 @@ function openWorkspaceIconPickerInline(container, ws, refreshFn) {
   }, ws.icon, ws.icon_color, true);
 }
 
-async function toggleWorkspace(name, visible) {
+/**
+ * @param {string} name
+ * @param {boolean} visible
+ */
+export async function toggleWorkspace(name, visible) {
   const ws = allWorkspaces.find((w) => w.name === name);
   if (!ws) return;
   const hidden = !visible;
@@ -521,7 +625,10 @@ async function toggleWorkspace(name, visible) {
   }
 }
 
-async function restoreAllWorkspaceVisibility() {
+/**
+ * @returns {Promise<{ restored: number, failed: number }>}
+ */
+export async function restoreAllWorkspaceVisibility() {
   const hiddenTargets = allWorkspaces.filter((ws) => ws.hidden);
   if (hiddenTargets.length === 0) return { restored: 0, failed: 0 };
 

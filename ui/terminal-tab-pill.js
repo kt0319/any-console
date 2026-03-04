@@ -1,4 +1,18 @@
-function createTabNamePill(tab, frame) {
+// @ts-check
+import { isTouchDevice, activeTabId, splitMode, openTabs } from './state-core.js';
+import { $, escapeHtml, bindLongPress } from './utils.js';
+import { renderTabIconHtml, removeTab, switchTab } from './terminal-tabs.js';
+import { showSplitDropZones, hideSplitDropZones, splitWithDrop, enterSplitMode, exitSplitModeWithTab } from './terminal-split.js';
+import { enterTerminalViewMode, exitTerminalViewMode } from './terminal-view-mode.js';
+
+/**
+ * Creates and appends a tab name pill element to the given frame.
+ * Handles long-press, click, drag, and touch interactions for tab management.
+ * @param {{ id: string, type: string, label?: string, _activity?: boolean, term?: { scrollToBottom: () => void } }} tab - The tab object
+ * @param {HTMLElement} frame - The frame element to append the pill to
+ * @returns {void}
+ */
+export function createTabNamePill(tab, frame) {
   const pill = document.createElement("div");
   pill.className = "tab-name-pill" + (tab._activity ? " tab-activity" : "");
   const info = document.createElement("span");
@@ -140,7 +154,13 @@ function createTabNamePill(tab, frame) {
   frame.appendChild(pill);
 }
 
-function refreshTabNamePill(tab) {
+/**
+ * Refreshes the visual state of an existing tab name pill for the given tab.
+ * Updates the activity indicator and the icon/label content.
+ * @param {{ id: string, label?: string, _activity?: boolean }} tab - The tab object
+ * @returns {void}
+ */
+export function refreshTabNamePill(tab) {
   const frame = $(`frame-${tab.id}`);
   if (!frame) return;
   const pill = frame.querySelector(".tab-name-pill");

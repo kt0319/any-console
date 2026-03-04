@@ -1,9 +1,21 @@
-async function loadWorkspaces({ useCache = false } = {}) {
+// @ts-check
+import { allWorkspaces, setAllWorkspaces, selectedWorkspace, setSelectedWorkspace, statusPollTimer, setStatusPollTimer, isPollingStatus, setIsPollingStatus, serverDisconnected, setServerDisconnected, STATUS_POLL_INTERVAL_MS } from './state-core.js';
+import { apiFetch, workspaceApiPath } from './api-client.js';
+import { getWorkspacesCache, setWorkspacesCache } from './cache.js';
+import { showToast, escapeHtml, buildWorkspaceHeaderNumstatHtml, $ } from './utils.js';
+import { GitCore } from './git.js';
+import { fetchOrphanSessions } from './terminal-connection.js';
+
+/**
+ * @param {{ useCache?: boolean }} [options]
+ * @returns {Promise<void>}
+ */
+export async function loadWorkspaces({ useCache = false } = {}) {
   let hasCacheHit = false;
   if (useCache) {
     const cached = getWorkspacesCache();
     if (cached && Array.isArray(cached) && cached.length > 0) {
-      allWorkspaces = cached;
+      setAllWorkspaces(cached);
       hasCacheHit = true;
     }
   }
@@ -11,7 +23,7 @@ async function loadWorkspaces({ useCache = false } = {}) {
     try {
       const res = await apiFetch("/workspaces");
       if (res && res.ok) {
-        allWorkspaces = await res.json();
+        setAllWorkspaces(await res.json());
         setWorkspacesCache(allWorkspaces);
       }
     } catch (e) {
@@ -23,11 +35,18 @@ async function loadWorkspaces({ useCache = false } = {}) {
   if (!hasCacheHit) await fetchPromise;
 }
 
-function visibleWorkspaces() {
+/**
+ * @returns {Array<object>}
+ */
+export function visibleWorkspaces() {
   return allWorkspaces.filter((ws) => !ws.hidden);
 }
 
-async function refreshWorkspaceHeader(options = {}) {
+/**
+ * @param {{ reloadBranches?: boolean }} [options]
+ * @returns {Promise<void>}
+ */
+export async function refreshWorkspaceHeader(options = {}) {
   const { reloadBranches = true } = options;
   if (!selectedWorkspace) return;
 
@@ -51,7 +70,11 @@ async function refreshWorkspaceHeader(options = {}) {
   }
 }
 
-function updatePullPushButtons(ws) {
+/**
+ * @param {object} ws
+ * @returns {void}
+ */
+export function updatePullPushButtons(ws) {
   const actions = $("git-actions");
 
   const pullBtn = $("pull-btn");
@@ -77,38 +100,52 @@ function updatePullPushButtons(ws) {
   actions.style.display = (ws.behind > 0 || ws.ahead > 0 || !hasUpstream) ? "flex" : "none";
 }
 
-async function refreshCurrentWorkspaceStatus() {
+/**
+ * @returns {Promise<void>}
+ */
+export async function refreshCurrentWorkspaceStatus() {
   if (!selectedWorkspace) return;
   const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/status"));
   if (!res || !res.ok) return;
   const ws = await res.json();
   const idx = allWorkspaces.findIndex((w) => w.name === selectedWorkspace);
   if (idx >= 0) {
-    allWorkspaces[idx] = { ...allWorkspaces[idx], ...ws };
+    const updated = [...allWorkspaces];
+    updated[idx] = { ...allWorkspaces[idx], ...ws };
+    setAllWorkspaces(updated);
   }
   await refreshWorkspaceHeader();
 }
 
-function startStatusPolling() {
+/**
+ * @returns {void}
+ */
+export function startStatusPolling() {
   if (statusPollTimer) return;
-  statusPollTimer = setInterval(() => pollWorkspaceStatus(), STATUS_POLL_INTERVAL_MS);
+  setStatusPollTimer(setInterval(() => pollWorkspaceStatus(), STATUS_POLL_INTERVAL_MS));
   document.addEventListener("visibilitychange", onVisibilityChangeForRefresh);
 }
 
-function onVisibilityChangeForRefresh() {
+/**
+ * @returns {void}
+ */
+export function onVisibilityChangeForRefresh() {
   if (document.visibilityState === "visible" && statusPollTimer) {
     pollWorkspaceStatus();
   }
 }
 
-async function pollWorkspaceStatus() {
+/**
+ * @returns {Promise<void>}
+ */
+export async function pollWorkspaceStatus() {
   if (document.hidden || isPollingStatus) return;
-  isPollingStatus = true;
+  setIsPollingStatus(true);
   try {
     const health = await checkServerHealth();
     if (!health) {
       if (!serverDisconnected) {
-        serverDisconnected = true;
+        setServerDisconnected(true);
         showToast("サーバーとの接続が切断されました", "error");
       }
     } else if (serverDisconnected) {
@@ -123,11 +160,14 @@ async function pollWorkspaceStatus() {
   } catch (e) {
     console.error("auto refresh failed:", e);
   } finally {
-    isPollingStatus = false;
+    setIsPollingStatus(false);
   }
 }
 
-async function checkServerHealth() {
+/**
+ * @returns {Promise<boolean>}
+ */
+export async function checkServerHealth() {
   try {
     const res = await fetch("/auth/check", {
       headers: { Authorization: `Bearer ${token}` },
@@ -138,11 +178,13 @@ async function checkServerHealth() {
   }
 }
 
-function stopStatusPolling() {
+/**
+ * @returns {void}
+ */
+export function stopStatusPolling() {
   if (statusPollTimer) {
     clearInterval(statusPollTimer);
-    statusPollTimer = null;
+    setStatusPollTimer(null);
   }
   document.removeEventListener("visibilitychange", onVisibilityChangeForRefresh);
 }
-
