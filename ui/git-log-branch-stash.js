@@ -1,13 +1,33 @@
+// @ts-check
+import { selectedWorkspace, allWorkspaces, cachedBranches } from './state-core.js';
+import { apiFetch, workspaceApiPath, postWorkspaceAction, getActionFailureMessage, setListStatus } from './api-client.js';
+import { $, showToast, escapeHtml } from './utils.js';
+import { GitCore } from './git.js';
+import { GitLogModal } from './git-log-modal.js';
+import { openCommitDiffModal } from './git-diff.js';
+
 Object.assign(GitLogModal, {
   _remoteBranchesExpanded: false,
   _renderingBranches: false,
 
+  /**
+   * Checks out the given branch and reloads the git log.
+   * @param {string} branch
+   * @returns {Promise<void>}
+   */
   async selectBranch(branch) {
     GitLogModal.closeSubPane();
     await GitCore.checkoutBranch(branch);
     await GitLogModal.reloadGitLog();
   },
 
+  /**
+   * Creates a list item element for a branch.
+   * @param {string} branch
+   * @param {string | null} currentBranch
+   * @param {{ remote?: boolean }} [options]
+   * @returns {HTMLDivElement}
+   */
   createBranchListItem(branch, currentBranch, { remote = false } = {}) {
     const item = document.createElement("div");
     item.className = `branch-item${remote ? " remote-only" : ""}`;
@@ -39,6 +59,10 @@ Object.assign(GitLogModal, {
     return item;
   },
 
+  /**
+   * Opens the local branch sub-pane and renders the branch list.
+   * @returns {Promise<void>}
+   */
   async openLocalBranchPane() {
     GitLogModal.showSubPane("branch", "ブランチ");
     GitLogModal._remoteBranchesExpanded = false;
@@ -46,6 +70,10 @@ Object.assign(GitLogModal, {
     GitLogModal.backgroundFetch();
   },
 
+  /**
+   * Renders the list of local (and optionally remote) branches.
+   * @returns {Promise<void>}
+   */
   async renderBranchList() {
     if (GitLogModal._renderingBranches) return;
     GitLogModal._renderingBranches = true;
@@ -90,6 +118,12 @@ Object.assign(GitLogModal, {
     }
   },
 
+  /**
+   * Fetches and renders remote-only branches into the given list element.
+   * @param {HTMLElement} listEl
+   * @param {string | null} currentBranch
+   * @returns {Promise<void>}
+   */
   async renderRemoteBranches(listEl, currentBranch) {
     try {
       const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/branches/remote"));
@@ -102,6 +136,10 @@ Object.assign(GitLogModal, {
     } catch {}
   },
 
+  /**
+   * Runs a background git fetch and refreshes the branch list on success.
+   * @returns {Promise<void>}
+   */
   async backgroundFetch() {
     if (GitLogModal._fetchingInBackground) return;
     GitLogModal._fetchingInBackground = true;
@@ -117,6 +155,14 @@ Object.assign(GitLogModal, {
     }
   },
 
+  /**
+   * Deletes the specified branch (local or remote) after confirmation.
+   * @param {string} branch
+   * @param {boolean} remote
+   * @param {HTMLButtonElement | null} triggerBtn
+   * @param {HTMLElement | null} itemEl
+   * @returns {Promise<void>}
+   */
   async deleteBranch(branch, remote, triggerBtn, itemEl) {
     if (!selectedWorkspace) return;
     const label = remote ? `リモートブランチ ${branch}` : `ブランチ ${branch}`;
@@ -155,6 +201,10 @@ Object.assign(GitLogModal, {
     await GitLogModal.renderBranchList();
   },
 
+  /**
+   * Opens the stash sub-pane and renders the stash list.
+   * @returns {Promise<void>}
+   */
   async openStashPane() {
     if (!selectedWorkspace) return;
     GitLogModal.showSubPane("stash", "Stash");
@@ -213,6 +263,10 @@ Object.assign(GitLogModal, {
     }
   },
 
+  /**
+   * Prompts the user and executes a stash save, then refreshes the stash pane.
+   * @returns {Promise<void>}
+   */
   async execStashSave() {
     if (!selectedWorkspace) return;
     if (!confirm("stash save を実行しますか？")) return;
@@ -226,6 +280,12 @@ Object.assign(GitLogModal, {
     await GitLogModal.openStashPane();
   },
 
+  /**
+   * Prompts the user and executes a stash pop or drop for the given ref.
+   * @param {"pop" | "drop"} action
+   * @param {string} ref
+   * @returns {Promise<void>}
+   */
   async execStashRefAction(action, ref) {
     if (!selectedWorkspace) return;
     const actionLabel = action === "pop" ? "適用" : "削除";

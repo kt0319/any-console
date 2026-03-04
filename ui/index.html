@@ -43,13 +43,13 @@
             <input type="text" id="device-name-input" placeholder="例: iPhone, iPad, PC" maxlength="30" autocomplete="off">
           </div>
           <div class="settings-menu">
-            <button type="button" class="settings-menu-item" onclick="openTerminalSettings()"><span class="mdi mdi-format-font-size-increase"></span> ターミナル</button>
-            <button type="button" class="settings-menu-item" onclick="exportSettings()"><span class="mdi mdi-download"></span> 設定エクスポート</button>
-            <button type="button" class="settings-menu-item" onclick="importSettings()"><span class="mdi mdi-upload"></span> 設定インポート</button>
-            <button type="button" class="settings-menu-item" onclick="openProcessList()"><span class="mdi mdi-format-list-bulleted"></span> プロセス一覧</button>
-            <button type="button" class="settings-menu-item" onclick="openSettingsServerInfo()"><span class="mdi mdi-information-outline"></span> サーバー情報</button>
-            <button type="button" class="settings-menu-item" onclick="openActivityLog()"><span class="mdi mdi-history"></span> 操作ログ</button>
-            <button type="button" class="settings-menu-item" onclick="openOpLog()"><span class="mdi mdi-text-box-outline"></span> ネットワークログ</button>
+            <button type="button" class="settings-menu-item" id="btn-terminal-settings"><span class="mdi mdi-format-font-size-increase"></span> ターミナル</button>
+            <button type="button" class="settings-menu-item" id="btn-export-settings"><span class="mdi mdi-download"></span> 設定エクスポート</button>
+            <button type="button" class="settings-menu-item" id="btn-import-settings"><span class="mdi mdi-upload"></span> 設定インポート</button>
+            <button type="button" class="settings-menu-item" id="btn-process-list"><span class="mdi mdi-format-list-bulleted"></span> プロセス一覧</button>
+            <button type="button" class="settings-menu-item" id="btn-server-info"><span class="mdi mdi-information-outline"></span> サーバー情報</button>
+            <button type="button" class="settings-menu-item" id="btn-activity-log"><span class="mdi mdi-history"></span> 操作ログ</button>
+            <button type="button" class="settings-menu-item" id="btn-op-log"><span class="mdi mdi-text-box-outline"></span> ネットワークログ</button>
           </div>
         </div>
         <div id="settings-terminal-view" style="display:none">
@@ -205,45 +205,6 @@
   <script src="vendor/js/xterm.js"></script>
   <script src="vendor/js/addon-fit.js"></script>
   <script src="vendor/js/addon-web-links.js"></script>
-  <script src="state-core.js"></script>
-  <script src="state-input.js"></script>
-  <script src="state-git.js"></script>
-  <script src="logger.js"></script>
-  <script src="api-client.js"></script>
-  <script src="cache.js"></script>
-  <script src="utils.js"></script>
-  <script src="auth.js"></script>
-  <script src="terminal-connection.js"></script>
-  <script src="terminal-view-mode.js"></script>
-  <script src="terminal-split.js"></script>
-  <script src="terminal-tab-pill.js"></script>
-  <script src="terminal-tabs.js"></script>
-  <script src="terminal-tab-modal-workspace.js"></script>
-  <script src="terminal-tab-modal.js"></script>
-  <script src="terminal.js"></script>
-  <script src="quick-input-keys.js"></script>
-  <script src="quick-input.js"></script>
-  <script src="workspace.js"></script>
-  <script src="file-browser-upload.js"></script>
-  <script src="git-file-browser.js"></script>
-  <script src="git-diff.js"></script>
-  <script src="git.js"></script>
-  <script src="git-log-modal.js"></script>
-  <script src="git-log-graph.js"></script>
-  <script src="git-log-history.js"></script>
-  <script src="git-log-branch-stash.js"></script>
-  <script src="icon-picker.js"></script>
-  <script src="job-form.js"></script>
-  <script src="jobs.js"></script>
-  <script src="settings-workspace.js"></script>
-  <script src="settings-terminal.js"></script>
-  <script src="settings.js"></script>
-  <script src="viewport.js"></script>
-  <script src="bootstrap.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js');
-    }
-  </script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

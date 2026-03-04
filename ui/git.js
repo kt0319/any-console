@@ -1,9 +1,27 @@
-const GitCore = {
+// @ts-check
+import { selectedWorkspace, allWorkspaces, cachedBranches, setCachedBranches } from './state-core.js';
+import { apiFetch, workspaceApiPath, postWorkspaceAction, getActionFailureMessage } from './api-client.js';
+import { showToast, $ } from './utils.js';
+import { refreshCurrentWorkspaceStatus } from './workspace.js';
+import { GitLogModal } from './git-log-modal.js';
+
+export const GitCore = {
+  /**
+   * Refresh the current workspace status after a git operation.
+   * @returns {Promise<void>}
+   */
   async refreshAfterGitOp() {
     await refreshCurrentWorkspaceStatus();
   },
 
 
+  /**
+   * Execute a git remote operation (pull, push, etc.) with confirmation.
+   * @param {string} buttonId - The ID of the button element to disable during execution.
+   * @param {string} endpoint - The workspace API endpoint suffix (e.g. "/pull").
+   * @param {string} label - The human-readable label for the operation.
+   * @returns {Promise<void>}
+   */
   async executeGitRemoteOp(buttonId, endpoint, label) {
     if (!selectedWorkspace) return;
     const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
@@ -26,35 +44,60 @@ const GitCore = {
     }
   },
 
+  /**
+   * Execute git pull --rebase on the current workspace.
+   * @returns {Promise<void>}
+   */
   async gitPull() {
     await GitCore.executeGitRemoteOp("pull-btn", "/pull", "pull");
   },
 
+  /**
+   * Set upstream tracking branch for the current workspace.
+   * @returns {Promise<void>}
+   */
   async gitSetUpstream() {
     await GitCore.executeGitRemoteOp("set-upstream-btn", "/set-upstream", "追跡設定");
   },
 
+  /**
+   * Push to upstream (with upstream tracking) for the current workspace.
+   * @returns {Promise<void>}
+   */
   async gitPushUpstream() {
     await GitCore.executeGitRemoteOp("push-upstream-btn", "/push-upstream", "push");
   },
 
+  /**
+   * Execute git push on the current workspace.
+   * @returns {Promise<void>}
+   */
   async gitPush() {
     await GitCore.executeGitRemoteOp("push-btn", "/push", "push");
   },
 
+  /**
+   * Load local branches for the current workspace into the cache.
+   * @returns {Promise<void>}
+   */
   async loadBranches() {
-    cachedBranches = [];
+    setCachedBranches([]);
     if (!selectedWorkspace) return;
 
     try {
       const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/branches"));
       if (!res || !res.ok) return;
-      cachedBranches = await res.json();
+      setCachedBranches(await res.json());
     } catch (e) {
       console.warn("loadBranches failed:", e);
     }
   },
 
+  /**
+   * Checkout a branch in the current workspace.
+   * @param {string} branch - The branch name to checkout.
+   * @returns {Promise<void>}
+   */
   async checkoutBranch(branch) {
     if (!selectedWorkspace || !branch) return;
     const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
@@ -80,6 +123,12 @@ const GitCore = {
     }
   },
 
+  /**
+   * Build a list of branch switch actions for the git log modal.
+   * @param {string[]} branches - List of branch names.
+   * @param {(() => void) | null} [beforeSwitch] - Optional callback to call before switching.
+   * @returns {{ label: string, cls: string, fn: () => Promise<void> }[]}
+   */
   buildBranchSwitchActions(branches, beforeSwitch) {
     const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
     return branches
@@ -97,6 +146,12 @@ const GitCore = {
       }));
   },
 
+  /**
+   * Build the list of actions available for a given commit in the git log modal.
+   * @param {string} hash - The commit hash.
+   * @param {{ branches?: string[], checkoutBranchFn?: (() => void) | null, extraActions?: object[] }} [options]
+   * @returns {object[]}
+   */
   buildCommitActions(hash, { branches = [], checkoutBranchFn, extraActions = [] } = {}) {
     const switchActions = GitCore.buildBranchSwitchActions(branches);
     return [
@@ -115,6 +170,14 @@ const GitCore = {
     ];
   },
 
+  /**
+   * Execute a commit-level git action (cherry-pick, revert, reset) with confirmation.
+   * @param {string} action - The action name (e.g. "cherry-pick", "revert", "reset").
+   * @param {string} hash - The commit hash to act on.
+   * @param {object | null} [body] - Optional request body override.
+   * @param {string | null} [confirmMsg] - Optional confirmation message override.
+   * @returns {Promise<void>}
+   */
   async execCommitAction(action, hash, body = null, confirmMsg = null) {
     if (!selectedWorkspace) return;
     const shortHash = hash.substring(0, 8);
@@ -130,6 +193,12 @@ const GitCore = {
     await GitCore.refreshAfterGitOp();
   },
 
+  /**
+   * Execute a git reset action (soft or hard) on the given commit hash.
+   * @param {string} hash - The commit hash to reset to.
+   * @param {"soft" | "hard"} mode - The reset mode.
+   * @returns {Promise<void>}
+   */
   execCommitResetAction(hash, mode) {
     const shortHash = hash.substring(0, 8);
     const confirmMsg = mode === "hard"
@@ -138,6 +207,11 @@ const GitCore = {
     return GitCore.execCommitAction("reset", hash, { commit_hash: hash, mode }, confirmMsg);
   },
 
+  /**
+   * Execute a stash action (stash or stash pop) with confirmation.
+   * @param {"push" | "pop"} action - The stash action to perform.
+   * @returns {Promise<void>}
+   */
   async execStashAction(action) {
     if (!selectedWorkspace) return;
     const endpoint = action === "pop" ? "stash-pop" : "stash";

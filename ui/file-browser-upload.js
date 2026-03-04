@@ -1,4 +1,18 @@
-async function uploadFileToWorkspaceDir(workspaceName, dirPath, file, options = {}) {
+// @ts-check
+import { token, selectedWorkspace } from './state-core.js';
+import { workspaceApiPath } from './api-client.js';
+import { showToast } from './utils.js';
+import { handleUnauthorized } from './auth.js';
+
+/**
+ * Uploads a single file to the specified workspace directory.
+ * @param {string} workspaceName - The workspace name.
+ * @param {string} dirPath - The target directory path within the workspace.
+ * @param {File} file - The file to upload.
+ * @param {{ silentSuccess?: boolean }} [options] - Upload options.
+ * @returns {Promise<boolean>} True if upload succeeded, false otherwise.
+ */
+export async function uploadFileToWorkspaceDir(workspaceName, dirPath, file, options = {}) {
   if (!workspaceName || !file) return false;
   const { silentSuccess = false } = options;
   const form = new FormData();
@@ -32,7 +46,14 @@ async function uploadFileToWorkspaceDir(workspaceName, dirPath, file, options = 
   }
 }
 
-async function uploadFilesToWorkspaceDir(workspaceName, dirPath, files) {
+/**
+ * Uploads multiple files to the specified workspace directory.
+ * @param {string} workspaceName - The workspace name.
+ * @param {string} dirPath - The target directory path within the workspace.
+ * @param {FileList | File[]} files - The files to upload.
+ * @returns {Promise<boolean>} True if all uploads succeeded, false otherwise.
+ */
+export async function uploadFilesToWorkspaceDir(workspaceName, dirPath, files) {
   const uploadFiles = Array.from(files || []).filter(Boolean);
   if (!workspaceName || uploadFiles.length === 0) return false;
 
@@ -50,13 +71,23 @@ async function uploadFilesToWorkspaceDir(workspaceName, dirPath, files) {
   return uploadedCount > 0;
 }
 
-function extractDroppedFiles(event) {
+/**
+ * Extracts dropped files from a drag-and-drop event.
+ * @param {DragEvent} event - The drag event.
+ * @returns {File[]} Array of dropped files.
+ */
+export function extractDroppedFiles(event) {
   const fileList = event?.dataTransfer?.files;
   if (!fileList || fileList.length === 0) return [];
   return Array.from(fileList).filter((file) => file && file.size >= 0);
 }
 
-function eventHasFileDrag(event) {
+/**
+ * Returns whether the drag event contains file data.
+ * @param {DragEvent} event - The drag event.
+ * @returns {boolean} True if the event carries files.
+ */
+export function eventHasFileDrag(event) {
   const transfer = event?.dataTransfer;
   if (!transfer) return false;
   if (transfer.files && transfer.files.length > 0) return true;
@@ -64,7 +95,13 @@ function eventHasFileDrag(event) {
   return types.includes("Files");
 }
 
-function bindWorkspaceUploadDropTarget(target, {
+/**
+ * Binds drag-and-drop file upload handlers to a target element.
+ * @param {HTMLElement} target - The drop target element.
+ * @param {{ workspaceName: string, getPath?: () => string, onSuccess?: (dirPath: string, files: File[]) => Promise<void>, activeClass?: string }} [options] - Configuration options.
+ * @returns {void}
+ */
+export function bindWorkspaceUploadDropTarget(target, {
   workspaceName,
   getPath,
   onSuccess,
@@ -79,15 +116,15 @@ function bindWorkspaceUploadDropTarget(target, {
   }
 
   target.addEventListener("dragenter", (event) => {
-    if (!eventHasFileDrag(event)) return;
+    if (!eventHasFileDrag(/** @type {DragEvent} */ (event))) return;
     dragDepth += 1;
     target.classList.add(activeClass);
   });
 
   target.addEventListener("dragover", (event) => {
-    if (!eventHasFileDrag(event)) return;
+    if (!eventHasFileDrag(/** @type {DragEvent} */ (event))) return;
     event.preventDefault();
-    event.dataTransfer.dropEffect = "copy";
+    /** @type {DragEvent} */ (event).dataTransfer.dropEffect = "copy";
     target.classList.add(activeClass);
   });
 
@@ -99,7 +136,7 @@ function bindWorkspaceUploadDropTarget(target, {
   });
 
   target.addEventListener("drop", async (event) => {
-    const files = extractDroppedFiles(event);
+    const files = extractDroppedFiles(/** @type {DragEvent} */ (event));
     clearActive();
     if (files.length === 0) return;
     event.preventDefault();
@@ -111,15 +148,21 @@ function bindWorkspaceUploadDropTarget(target, {
   });
 }
 
-function bindFileUploadEvents(container, loadDirFn) {
+/**
+ * Binds file upload button and input events within a container element.
+ * @param {HTMLElement} container - The container element with upload button and input.
+ * @param {(path: string) => void} loadDirFn - Function to reload the directory after upload.
+ * @returns {void}
+ */
+export function bindFileUploadEvents(container, loadDirFn) {
   const uploadBtn = container.querySelector(".file-browser-upload");
   const uploadInput = container.querySelector(".file-browser-upload-input");
   if (!uploadBtn || !uploadInput) return;
-  uploadBtn.addEventListener("click", () => uploadInput.click());
+  uploadBtn.addEventListener("click", () => /** @type {HTMLInputElement} */ (uploadInput).click());
   uploadInput.addEventListener("change", async () => {
-    const file = uploadInput.files && uploadInput.files[0];
-    const targetPath = uploadBtn.dataset.path || "";
-    uploadInput.value = "";
+    const file = /** @type {HTMLInputElement} */ (uploadInput).files && /** @type {HTMLInputElement} */ (uploadInput).files[0];
+    const targetPath = /** @type {HTMLElement} */ (uploadBtn).dataset.path || "";
+    /** @type {HTMLInputElement} */ (uploadInput).value = "";
     if (!file) return;
     const ok = await uploadFileToWorkspaceDir(selectedWorkspace, targetPath, file);
     if (ok) {

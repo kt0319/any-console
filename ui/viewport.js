@@ -1,8 +1,25 @@
-let prevKeyboardOpen = false;
-let keyboardCloseTimer = null;
-let prevViewportHeightPx = 0;
+// @ts-check
+import { openTabs, activeTabId, splitMode, splitPaneTabIds, panelBottom, isTouchDevice, isPageUnloading, setIsPageUnloading } from './state-core.js';
+import { $, safeFit } from './utils.js';
+import { addInputHistory } from './state-input.js';
+import { persistOpenTabs } from './terminal-tabs.js';
+import { sendTextToTerminal } from './quick-input-keys.js';
+import { renderSnippetRow } from './quick-input.js';
 
-function updateViewportHeight() {
+/** @type {boolean} */
+export let prevKeyboardOpen = false;
+/** @type {ReturnType<typeof setTimeout> | null} */
+export let keyboardCloseTimer = null;
+/** @type {number} */
+export let prevViewportHeightPx = 0;
+
+/**
+ * Updates the CSS custom property `--app-dvh` to match the current visual
+ * viewport height, and toggles the `keyboard-open` class on the main panel.
+ * Also repositions the mobile keyboard input overlay and triggers terminal
+ * re-fitting when the software keyboard closes.
+ */
+export function updateViewportHeight() {
   const vv = window.visualViewport;
   const viewportHeight = vv ? vv.height : window.innerHeight;
   const viewportHeightPx = Math.round(viewportHeight);
@@ -30,8 +47,14 @@ function updateViewportHeight() {
   prevKeyboardOpen = keyboardOpen;
 }
 
+/** @type {ReturnType<typeof setTimeout> | null} */
 let fitDebounceTimer = null;
-function fitActiveTerminal() {
+
+/**
+ * Debounces a call to `doFitActiveTerminal` by 100 ms.
+ * Does nothing while a keyboard-close timer is pending.
+ */
+export function fitActiveTerminal() {
   if (keyboardCloseTimer) return;
   if (fitDebounceTimer) clearTimeout(fitDebounceTimer);
   fitDebounceTimer = setTimeout(() => {
@@ -40,7 +63,11 @@ function fitActiveTerminal() {
   }, 100);
 }
 
-function doFitActiveTerminal() {
+/**
+ * Immediately fits the active terminal (or all split-pane terminals) to their
+ * container size and scrolls to the bottom.
+ */
+export function doFitActiveTerminal() {
   if (splitMode) {
     requestAnimationFrame(() => {
       for (const tabId of splitPaneTabIds) {
@@ -62,7 +89,12 @@ function doFitActiveTerminal() {
   }
 }
 
-function createMobileKeyboardInput() {
+/**
+ * Creates and appends the mobile keyboard input overlay to `document.body`.
+ * Returns the text `<input>` element so the caller can focus it.
+ * @returns {HTMLInputElement} The created text input element.
+ */
+export function createMobileKeyboardInput() {
   const wrapper = document.createElement("div");
   wrapper.id = "keyboard-input-wrapper";
   wrapper.className = "keyboard-input-wrapper";
@@ -144,7 +176,11 @@ function createMobileKeyboardInput() {
   return el;
 }
 
-function renderKeyboardSnippets() {
+/**
+ * Re-renders the snippet row inside the keyboard input wrapper using the
+ * current snippet data, binding each snippet to populate the input field.
+ */
+export function renderKeyboardSnippets() {
   const wrapper = document.getElementById("keyboard-input-wrapper");
   if (!wrapper) return;
   const container = wrapper.querySelector(".keyboard-input-snippets");
@@ -157,7 +193,12 @@ function renderKeyboardSnippets() {
   });
 }
 
-function showKeyboardInput() {
+/**
+ * Shows the mobile keyboard input overlay.
+ * Creates the overlay DOM if it does not yet exist.
+ * Does nothing when a terminal view-mode frame is active.
+ */
+export function showKeyboardInput() {
   if (document.querySelector(".terminal-frame.view-mode")) return;
   let el = $("keyboard-input");
   if (!el) el = createMobileKeyboardInput();
@@ -175,7 +216,12 @@ function showKeyboardInput() {
   el.focus({ preventScroll: true });
 }
 
-function repositionKeyboardInput(keyboardOpen) {
+/**
+ * Repositions the keyboard input overlay to sit just above the software
+ * keyboard, or hides it when the keyboard is not open.
+ * @param {boolean} keyboardOpen Whether the software keyboard is currently visible.
+ */
+export function repositionKeyboardInput(keyboardOpen) {
   const el = $("keyboard-input");
   if (!el) return;
   const wrapper = el.closest(".keyboard-input-wrapper");
@@ -192,7 +238,7 @@ function repositionKeyboardInput(keyboardOpen) {
 }
 
 window.addEventListener("beforeunload", () => {
-  isPageUnloading = true;
+  setIsPageUnloading(true);
   persistOpenTabs();
 });
 

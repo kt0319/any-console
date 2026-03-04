@@ -1,4 +1,20 @@
-function openTabEditModal(initialTab = "layout") {
+// @ts-check
+import { openTabs, activeTabId, setActiveTabId, splitMode, splitPaneTabIds, setSplitPaneTabIds, activePaneIndex, setActivePaneIndex, splitLayout, setSplitLayout, disconnectedSessions, setDisconnectedSessions, closedSessionUrls, allWorkspaces, panelBottom, selectedWorkspace } from './state-core.js';
+import { $, setupModalSwipeClose, escapeHtml, showToast, renderIcon } from './utils.js';
+import { persistOpenTabs, tabDisplayName, switchTab, removeTab, renderTabBar, syncWorkspaceForTab, updateHeaderForTab, relaunchExpiredOrphan, updateGitBarVisibility, renderTabIconHtml } from './terminal-tabs.js';
+import { syncTerminalSessionState } from './terminal-connection.js';
+import { enterSplitMode, rebuildSplitLayout, exitSplitMode, exitSplitModeWithTab, selectActivePane as setSplitActivePaneIndex } from './terminal-split.js';
+import { createTerminalTabModalWorkspaceSection } from './terminal-tab-modal-workspace.js';
+import { GitLogModal } from './git-log-modal.js';
+import { runJob } from './jobs.js';
+import { renderTerminalSettingsPane } from './settings-terminal.js';
+import { renderWorkspaceSettingsPane } from './settings-workspace.js';
+
+/**
+ * Opens the tab/settings edit modal overlay.
+ * @param {string} [initialTab="layout"] - The tab key to show initially.
+ */
+export function openTabEditModal(initialTab = "layout") {
   let overlay = document.getElementById("split-tab-modal-overlay");
   if (overlay) overlay.remove();
 
@@ -29,6 +45,11 @@ function openTabEditModal(initialTab = "layout") {
   scrollBody.className = "modal-scroll-body split-tab-scroll";
   modal.appendChild(scrollBody);
 
+  /**
+   * Sets the modal title, optionally with a back button.
+   * @param {string} text
+   * @param {(() => void) | null} [backFn]
+   */
   function setTitle(text, backFn) {
     titleEl.textContent = "";
     titleEl.className = "";
@@ -67,12 +88,17 @@ function openTabEditModal(initialTab = "layout") {
 
   setupModalSwipeClose(overlay, closeModal);
 
+  /** Shows the main settings view. */
   function showMainView() {
     contentContainer.innerHTML = "";
     setTitle("設定");
     renderSettingsTab(contentContainer);
   }
 
+  /**
+   * Switches to a named modal tab.
+   * @param {string} key
+   */
   function switchModalTab(key) {
     contentContainer.innerHTML = "";
     if (key === "settings") {
@@ -82,6 +108,10 @@ function openTabEditModal(initialTab = "layout") {
     }
   }
 
+  /**
+   * Renders a named sub-pane inside the modal.
+   * @param {string} key
+   */
   function renderSubPane(key) {
     const labels = {
       "open": "ワークスペース",
@@ -96,8 +126,13 @@ function openTabEditModal(initialTab = "layout") {
     else if (key === "layout") renderLayoutTab(contentContainer);
   }
 
+  /** @type {HTMLButtonElement[]} */
   const modeBtns = [];
 
+  /**
+   * Renders the layout (split mode) tab into the given target element.
+   * @param {HTMLElement} target
+   */
   function renderLayoutTab(target) {
     const container = target || contentContainer;
     const tabCount = openTabs.length;
@@ -123,7 +158,7 @@ function openTabEditModal(initialTab = "layout") {
         if (m.value === "normal") {
           if (splitMode) { exitSplitMode(); updateModeRadio(); renderTabList(); }
         } else {
-          splitLayout = m.value;
+          setSplitLayout(m.value);
           if (!splitMode) { enterSplitMode(); } else { rebuildSplitLayout(); }
           updateModeRadio();
           renderTabList();
@@ -142,6 +177,7 @@ function openTabEditModal(initialTab = "layout") {
     renderTabList();
   }
 
+  /** Updates the split mode radio button visual state. */
   function updateModeRadio() {
     const current = splitMode ? splitLayout : "normal";
     for (const b of modeBtns) {
@@ -149,8 +185,13 @@ function openTabEditModal(initialTab = "layout") {
     }
   }
 
+  /** @type {{ idx: number, startY: number, offsetY: number, rowHeight: number } | null} */
   let dragState = null;
 
+  /**
+   * Enters split mode with the given tab as the secondary pane.
+   * @param {string} tabId
+   */
   function switchToSplitModeWithTab(tabId) {
     if (splitMode) return;
     const targetTab = openTabs.find((t) => t.id === tabId);
@@ -159,32 +200,36 @@ function openTabEditModal(initialTab = "layout") {
     const baseTabId = currentActive ? currentActive.id : openTabs[0]?.id;
     if (!baseTabId) return;
 
-    if (splitLayout === "grid") splitLayout = "vertical";
+    if (splitLayout === "grid") setSplitLayout("vertical");
     enterSplitMode();
     if (!splitPaneTabIds.includes(tabId)) splitPaneTabIds.push(tabId);
-    activePaneIndex = Math.max(0, splitPaneTabIds.indexOf(tabId));
-    activeTabId = splitPaneTabIds[activePaneIndex] || baseTabId;
+    setActivePaneIndex(Math.max(0, splitPaneTabIds.indexOf(tabId)));
+    setActiveTabId(splitPaneTabIds[activePaneIndex] || baseTabId);
     rebuildSplitLayout();
     updateModeRadio();
     renderTabList();
   }
 
+  /**
+   * Toggles a tab row's inclusion in the split pane, or switches to it.
+   * @param {{ id: string }} tab
+   */
   function toggleRow(tab) {
     if (splitMode) {
       const included = splitPaneTabIds.includes(tab.id);
       if (included) {
-        splitPaneTabIds = splitPaneTabIds.filter((id) => id !== tab.id);
+        setSplitPaneTabIds(splitPaneTabIds.filter((id) => id !== tab.id));
         const frame = $(`frame-${tab.id}`);
         if (frame) frame.style.display = "none";
         if (splitLayout === "grid" && splitPaneTabIds.length < 3) {
-          splitLayout = "vertical";
+          setSplitLayout("vertical");
         }
       } else {
         splitPaneTabIds.push(tab.id);
       }
       if (splitPaneTabIds.length >= 1) {
-        if (activePaneIndex >= splitPaneTabIds.length) activePaneIndex = 0;
-        activeTabId = splitPaneTabIds[activePaneIndex];
+        if (activePaneIndex >= splitPaneTabIds.length) setActivePaneIndex(0);
+        setActiveTabId(splitPaneTabIds[activePaneIndex]);
         const container = $("output-container");
         clearSplitDom(container);
         container.classList.remove("split-active", "split-mobile", "split-vertical", "split-horizontal");
@@ -200,17 +245,28 @@ function openTabEditModal(initialTab = "layout") {
     }
   }
 
+  /**
+   * Relaunches an orphan (disconnected) session row.
+   * @param {{ workspace: string }} orphan
+   * @returns {null}
+   */
   function openOrphanRow(orphan) {
     relaunchExpiredOrphan(orphan, orphan.workspace);
     return null;
   }
 
+  /** Renders the list of open tabs and orphan sessions. */
   function renderTabList() {
     persistOpenTabs();
     const list = contentContainer.querySelector(".split-tab-list");
     if (!list) return;
     list.innerHTML = "";
 
+    /**
+     * Renders a single open tab row.
+     * @param {{ id: string, label?: string }} tab
+     * @param {number} tabIndex
+     */
     function renderTabRow(tab, tabIndex) {
       const row = document.createElement("div");
       row.className = "split-tab-row";
@@ -283,7 +339,7 @@ function openTabEditModal(initialTab = "layout") {
         if (splitMode) {
           const idx = splitPaneTabIds.indexOf(tab.id);
           if (idx >= 0) {
-            setActivePaneIndex(idx);
+            setSplitActivePaneIndex(idx);
             renderTabList();
           }
           return;
@@ -306,6 +362,10 @@ function openTabEditModal(initialTab = "layout") {
       list.appendChild(row);
     }
 
+    /**
+     * Renders a single orphan (disconnected) session row.
+     * @param {{ wsUrl: string, workspace?: string, tabIndex?: number, icon?: string, iconColor?: string }} s
+     */
     function renderOrphanRow(s) {
       const row = document.createElement("div");
       row.className = "split-tab-row split-tab-row-orphan";
@@ -370,7 +430,7 @@ function openTabEditModal(initialTab = "layout") {
       closeBtnEl.addEventListener("click", () => {
         const label = s.workspace || "terminal";
         if (!confirm(`「${label}」を閉じますか？`)) return;
-        disconnectedSessions = disconnectedSessions.filter((o) => o.wsUrl !== s.wsUrl);
+        setDisconnectedSessions(disconnectedSessions.filter((o) => o.wsUrl !== s.wsUrl));
         closedSessionUrls.add(s.wsUrl);
         renderTabList();
       });
@@ -396,7 +456,15 @@ function openTabEditModal(initialTab = "layout") {
     }
   }
 
+  /**
+   * Binds drag-to-reorder behaviour to a drag handle element.
+   * @param {HTMLElement} handle
+   * @param {HTMLElement} row
+   * @param {number} idx
+   * @param {HTMLElement} list
+   */
   function bindDragHandle(handle, row, idx, list) {
+    /** @param {MouseEvent | TouchEvent} e */
     function onStart(e) {
       e.preventDefault();
       const y = e.touches ? e.touches[0].clientY : e.clientY;
@@ -406,6 +474,7 @@ function openTabEditModal(initialTab = "layout") {
       row.style.position = "relative";
       row.style.zIndex = "10";
 
+      /** @param {MouseEvent | TouchEvent} ev */
       function onMove(ev) {
         if (!dragState) return;
         const cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
@@ -450,6 +519,12 @@ function openTabEditModal(initialTab = "layout") {
     handle.addEventListener("touchstart", onStart, { passive: false });
   }
 
+  /**
+   * Moves a tab row in the DOM from one index to another.
+   * @param {number} fromIdx
+   * @param {number} toIdx
+   * @param {HTMLElement} list
+   */
   function moveTab(fromIdx, toIdx, list) {
     if (fromIdx === toIdx) return;
     const rows = Array.from(list.children);
@@ -461,6 +536,10 @@ function openTabEditModal(initialTab = "layout") {
     }
   }
 
+  /**
+   * Applies the current DOM row order back to the openTabs array.
+   * @param {HTMLElement} list
+   */
   function applyTabOrder(list) {
     const rows = Array.from(list.children);
     const newOrder = rows.map((r) => openTabs[parseInt(r.dataset.idx)]).filter(Boolean);
@@ -469,27 +548,40 @@ function openTabEditModal(initialTab = "layout") {
     openTabs.push(...newOrder);
 
     if (splitMode) {
-      splitPaneTabIds = newOrder.map((t) => t.id);
-      activePaneIndex = splitPaneTabIds.indexOf(activeTabId);
+      setSplitPaneTabIds(newOrder.map((t) => t.id));
+      setActivePaneIndex(splitPaneTabIds.indexOf(activeTabId));
       rebuildSplitLayout();
     } else {
       renderTabBar();
     }
   }
 
+  /** Delegates to workspaceSection to render the open-tab workspace list. */
   function renderOpenTab() {
     workspaceSection.renderOpenTab();
   }
 
+  /**
+   * Delegates to workspaceSection to render the workspace list into a container.
+   * @param {HTMLElement} container
+   */
   function renderModalWsList(container) {
     workspaceSection.renderModalWsList(container);
   }
 
+  /**
+   * Renders the settings tab into the given target element.
+   * @param {HTMLElement} target
+   */
   function renderSettingsTab(target) {
     const container = target || contentContainer;
     renderSettingsMenu(container);
   }
 
+  /**
+   * Renders the top-level settings menu.
+   * @param {HTMLElement} target
+   */
   function renderSettingsMenu(target) {
     const container = target || contentContainer;
     container.innerHTML = "";
@@ -522,6 +614,11 @@ function openTabEditModal(initialTab = "layout") {
     container.appendChild(menu);
   }
 
+  /**
+   * Shows a sub-view inside the modal by clearing content and calling a render function.
+   * @param {string} subTitle
+   * @param {(body: HTMLElement) => void} renderFn
+   */
   function showModalSubView(subTitle, renderFn) {
     contentContainer.innerHTML = "";
     setTitle(subTitle, () => switchModalTab("settings"));
@@ -531,10 +628,16 @@ function openTabEditModal(initialTab = "layout") {
     renderFn(body);
   }
 
+  /**
+   * Delegates to workspaceSection to show the picker/clone UI in the content container.
+   * @param {HTMLElement} content
+   * @param {string} [defaultTab="github"]
+   */
   function showPickerCloneInContainer(content, defaultTab = "github") {
     workspaceSection.showPickerCloneInContainer(content, defaultTab);
   }
 
+  /** Removes the modal overlay from the DOM. */
   function closeModal() {
     overlay.remove();
   }

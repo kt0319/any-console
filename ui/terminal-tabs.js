@@ -1,4 +1,27 @@
-function persistOpenTabs() {
+// @ts-check
+import { openTabs, setOpenTabs, activeTabId, setActiveTabId, splitMode, splitPaneTabIds, setSplitPaneTabIds, activePaneIndex, setActivePaneIndex, allWorkspaces, selectedWorkspace, setSelectedWorkspace, disconnectedSessions, setDisconnectedSessions, closedSessionUrls, panelBottom, isTouchDevice, terminalIdCounter, setTerminalIdCounter, getTerminalRuntimeOptions, appInitializing, hasRestoredTabsFromStorage, workspaceJobsLoadedFor } from './state-core.js';
+import { renderIcon, escapeHtml, bindLongPress, showToast, $, safeFit, refitTerminalWithFocus, setFrameVisible, ensureTerminalOpened } from './utils.js';
+import { apiFetch, workspaceApiPath } from './api-client.js';
+
+// Circular deps (only used inside function bodies):
+import { deleteTerminalSession, connectTerminalWs, syncTerminalSessionState, updateQuickInputVisibility } from './terminal-connection.js';
+import { exitAllViewModes, exitTerminalViewMode } from './terminal-view-mode.js';
+import { rebuildSplitLayout, enterSplitMode, exitSplitModeWithTab } from './terminal-split.js';
+import { loadWorkspaces, refreshWorkspaceHeader, refreshCurrentWorkspaceStatus, visibleWorkspaces } from './workspace.js';
+import { loadJobsForWorkspace, runJob } from './jobs.js';
+import { openTabEditModal } from './terminal-tab-modal.js';
+import { createTabNamePill, refreshTabNamePill } from './terminal-tab-pill.js';
+import { tabDragState, bindMouseDrag } from './terminal.js';
+import { updateDocumentTitle } from './auth.js';
+import { restoreAllWorkspaceVisibility } from './settings-workspace.js';
+import { GitLogModal } from './git-log-modal.js';
+import { showKeyboardInput } from './viewport.js';
+
+/**
+ * Persists open terminal tabs and disconnected sessions to localStorage.
+ * @returns {void}
+ */
+export function persistOpenTabs() {
   const openTerminalTabs = openTabs
     .filter(t => t.type === "terminal")
     .map(t => ({
@@ -27,30 +50,62 @@ function persistOpenTabs() {
   localStorage.setItem("pi_console_terminal_openTabs", JSON.stringify(data));
 }
 
-function tabDisplayName(tab) {
+/**
+ * Returns the display name for a tab.
+ * @param {any} tab
+ * @returns {string}
+ */
+export function tabDisplayName(tab) {
   if (!tab) return "";
   return tab.workspace || tab.label || "";
 }
 
-function renderTabIconHtml(tab, size = 14) {
+/**
+ * Returns the HTML string for a tab's icon(s).
+ * @param {any} tab
+ * @param {number} [size]
+ * @returns {string}
+ */
+export function renderTabIconHtml(tab, size = 14) {
   return (tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, size) : "")
        + (tab.icon ? renderIcon(tab.icon.name, tab.icon.color, size) : "");
 }
 
-function relaunchExpiredOrphan(orphan, workspaceOverride = null) {
+/**
+ * Relaunches an expired orphan terminal session.
+ * @param {any} orphan
+ * @param {string|null} [workspaceOverride]
+ * @returns {Promise<void>}
+ */
+export function relaunchExpiredOrphan(orphan, workspaceOverride = null) {
   if (!orphan) return Promise.resolve();
   const workspace = workspaceOverride || orphan.workspace || null;
   const targetJob = orphan.jobName || orphan.jobLabel || "terminal";
-  disconnectedSessions = disconnectedSessions.filter((s) => s.wsUrl !== orphan.wsUrl);
+  setDisconnectedSessions(disconnectedSessions.filter((s) => s.wsUrl !== orphan.wsUrl));
   if (orphan.wsUrl) closedSessionUrls.add(orphan.wsUrl);
   return runJob(targetJob, null, workspace);
 }
 
-function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCommand, tabIcon, wsIcon, jobName, jobLabel) {
-  const id = tabId || `term-${++terminalIdCounter}`;
+/**
+ * Adds a new terminal tab to the UI.
+ * @param {string} wsUrl
+ * @param {string|null} workspace
+ * @param {string|null} tabId
+ * @param {boolean} [skipSwitch]
+ * @param {boolean} [restored]
+ * @param {string|null} [initialCommand]
+ * @param {any} [tabIcon]
+ * @param {any} [wsIcon]
+ * @param {string|null} [jobName]
+ * @param {string|null} [jobLabel]
+ * @returns {void}
+ */
+export function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCommand, tabIcon, wsIcon, jobName, jobLabel) {
+  const id = tabId || `term-${terminalIdCounter + 1}`;
+  if (!tabId) setTerminalIdCounter(terminalIdCounter + 1);
   if (tabId) {
     const m = tabId.match(/^term-(\d+)$/);
-    if (m) terminalIdCounter = Math.max(terminalIdCounter, parseInt(m[1]));
+    if (m) setTerminalIdCounter(Math.max(terminalIdCounter, parseInt(m[1])));
   }
   const label = workspace || "terminal";
   if (openTabs.some((t) => t.id === id)) return;
@@ -127,7 +182,17 @@ function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, initialCo
   switchTab(id);
 }
 
-function setOutputTab(id, label, htmlContent, icon, wsIcon, workspace) {
+/**
+ * Sets or updates an output (non-terminal) tab with the given HTML content.
+ * @param {string} id
+ * @param {string} label
+ * @param {string} htmlContent
+ * @param {any} [icon]
+ * @param {any} [wsIcon]
+ * @param {string|null} [workspace]
+ * @returns {void}
+ */
+export function setOutputTab(id, label, htmlContent, icon, wsIcon, workspace) {
   const existing = openTabs.find((t) => t.id === id);
   if (existing) {
     existing.label = label;
@@ -154,7 +219,13 @@ function setOutputTab(id, label, htmlContent, icon, wsIcon, workspace) {
   switchTab(id);
 }
 
-function removeTab(id, options = {}) {
+/**
+ * Removes a tab by ID, optionally preserving its session for later restore.
+ * @param {string} id
+ * @param {{ preserveSessionForRestore?: boolean }} [options]
+ * @returns {void}
+ */
+export function removeTab(id, options = {}) {
   const preserveSessionForRestore = !!options.preserveSessionForRestore;
   const tab = openTabs.find((t) => t.id === id);
   if (!tab) return;
@@ -183,7 +254,7 @@ function removeTab(id, options = {}) {
     if (tab.fitAddon) try { tab.fitAddon.dispose(); } catch (e) { console.warn("fitAddon.dispose failed:", e); }
     if (tab.term) tab.term.dispose();
   }
-  openTabs = openTabs.filter((t) => t.id !== id);
+  setOpenTabs(openTabs.filter((t) => t.id !== id));
   const el = $(`frame-${id}`);
   if (el) el.remove();
   persistOpenTabs();
@@ -200,7 +271,7 @@ function removeTab(id, options = {}) {
   }
 
   if (openTabs.length === 0) {
-    activeTabId = null;
+    setActiveTabId(null);
     renderTabBar();
     updateHeaderForTab(null);
   } else if (activeTabId === id) {
@@ -211,7 +282,12 @@ function removeTab(id, options = {}) {
   }
 }
 
-async function switchTab(id) {
+/**
+ * Switches the active tab to the given tab ID.
+ * @param {string|null} id
+ * @returns {Promise<void>}
+ */
+export async function switchTab(id) {
   if (splitMode) {
     const switchedTab = openTabs.find((t) => t.id === id);
     if (switchedTab) {
@@ -222,10 +298,10 @@ async function switchTab(id) {
     const needsRebuild = openTabs.length !== splitPaneTabIds.length ||
       openTabs.some((t) => !splitPaneTabIds.includes(t.id));
     if (needsRebuild) {
-      splitPaneTabIds = openTabs.map((t) => t.id);
+      setSplitPaneTabIds(openTabs.map((t) => t.id));
       const idx = splitPaneTabIds.indexOf(id);
-      activePaneIndex = idx >= 0 ? idx : 0;
-      activeTabId = splitPaneTabIds[activePaneIndex];
+      setActivePaneIndex(idx >= 0 ? idx : 0);
+      setActiveTabId(splitPaneTabIds[activePaneIndex]);
       rebuildSplitLayout();
     } else {
       const paneIdx = splitPaneTabIds.indexOf(id);
@@ -237,7 +313,7 @@ async function switchTab(id) {
 
   exitAllViewModes();
 
-  activeTabId = id;
+  setActiveTabId(id);
   const switchedTab = openTabs.find((t) => t.id === id);
   if (switchedTab) {
     switchedTab._activity = false;
@@ -269,38 +345,54 @@ async function switchTab(id) {
   updateHeaderForTab(id);
 }
 
-function syncWorkspaceForTab(id) {
+/**
+ * Synchronizes the selected workspace state to match the given tab ID.
+ * @param {string|null} id
+ * @returns {void}
+ */
+export function syncWorkspaceForTab(id) {
   if (splitMode || id === null) {
-    selectedWorkspace = null;
+    setSelectedWorkspace(null);
     return;
   }
   const tab = openTabs.find((t) => t.id === id);
-  if (!tab) { selectedWorkspace = null; return; }
+  if (!tab) { setSelectedWorkspace(null); return; }
   const workspaceName = resolveWorkspaceNameForTab(tab);
-  if (!workspaceName) { selectedWorkspace = null; return; }
+  if (!workspaceName) { setSelectedWorkspace(null); return; }
   const ws = allWorkspaces.find((w) => w.name === workspaceName);
   if (ws) {
-    selectedWorkspace = ws.name;
+    setSelectedWorkspace(ws.name);
     return;
   }
-  selectedWorkspace = workspaceName;
+  setSelectedWorkspace(workspaceName);
 }
 
-function resolveWorkspaceNameForTab(tab) {
+/**
+ * Resolves the workspace name for a given tab object.
+ * @param {any} tab
+ * @returns {string|null}
+ */
+export function resolveWorkspaceNameForTab(tab) {
   if (!tab) return null;
   if (tab.workspace) return tab.workspace;
   if (tab.type === "terminal" && tab.label && tab.label !== "terminal") return tab.label;
   return null;
 }
 
-let _headerUpdateSeq = 0;
+/** @type {number} */
+export let _headerUpdateSeq = 0;
 
-async function updateHeaderForTab(id) {
+/**
+ * Updates the header UI to reflect the active tab's workspace.
+ * @param {string|null} id
+ * @returns {Promise<void>}
+ */
+export async function updateHeaderForTab(id) {
   if (appInitializing) return;
   const seq = ++_headerUpdateSeq;
 
   if (splitMode || id === null) {
-    selectedWorkspace = null;
+    setSelectedWorkspace(null);
     updateGitBarVisibility();
     await Promise.all([
       refreshWorkspaceHeader({ reloadBranches: false }),
@@ -312,14 +404,14 @@ async function updateHeaderForTab(id) {
   const activeTab = openTabs.find((t) => t.id === id);
   const workspaceName = resolveWorkspaceNameForTab(activeTab);
   if (!workspaceName) {
-    selectedWorkspace = null;
+    setSelectedWorkspace(null);
     updateGitBarVisibility();
     return;
   }
   const ws = allWorkspaces.find((w) => w.name === workspaceName);
   const nextWorkspace = ws ? ws.name : workspaceName;
   const workspaceChanged = selectedWorkspace !== nextWorkspace;
-  selectedWorkspace = nextWorkspace;
+  setSelectedWorkspace(nextWorkspace);
   updateGitBarVisibility();
   const shouldReloadJobs = workspaceChanged || workspaceJobsLoadedFor !== nextWorkspace;
   const tasks = [refreshWorkspaceHeader({ reloadBranches: workspaceChanged })];
@@ -329,7 +421,11 @@ async function updateHeaderForTab(id) {
   refreshCurrentWorkspaceStatus();
 }
 
-function updateGitBarVisibility() {
+/**
+ * Shows or hides the git bar in the header based on current state.
+ * @returns {void}
+ */
+export function updateGitBarVisibility() {
   const show = selectedWorkspace && !splitMode;
   $("header-row2").style.display = show ? "flex" : "none";
   if (!show) return;
@@ -355,14 +451,22 @@ function updateGitBarVisibility() {
   }
 }
 
-function hasVisibleTabContent() {
+/**
+ * Returns true if there is visible tab content in the current layout.
+ * @returns {boolean}
+ */
+export function hasVisibleTabContent() {
   if (splitMode) {
     return splitPaneTabIds.some((id) => openTabs.some((t) => t.id === id));
   }
   return openTabs.some((t) => t.id === activeTabId);
 }
 
-function renderTabBar() {
+/**
+ * Renders the tab bar UI, including open tabs and orphan (disconnected) session entries.
+ * @returns {void}
+ */
+export function renderTabBar() {
   if (tabDragState) return;
   const barRow = $("tab-bar").parentNode;
   const hasContent = hasVisibleTabContent();
@@ -450,7 +554,7 @@ function renderTabBar() {
         const label = btn.dataset.orphanWs || "terminal";
         if (confirm(`「${label}」を閉じますか？`)) {
           const wsUrl = btn.dataset.orphanUrl;
-          disconnectedSessions = disconnectedSessions.filter((s) => s.wsUrl !== wsUrl);
+          setDisconnectedSessions(disconnectedSessions.filter((s) => s.wsUrl !== wsUrl));
           closedSessionUrls.add(wsUrl);
           renderTabBar();
         }
@@ -474,7 +578,7 @@ function renderTabBar() {
         const orphan = disconnectedSessions.find((s) => s.wsUrl === wsUrl);
         const label = orphan?.workspace || "terminal";
         if (!confirm(`「${label}」を閉じますか？`)) return;
-        disconnectedSessions = disconnectedSessions.filter((s) => s.wsUrl !== wsUrl);
+        setDisconnectedSessions(disconnectedSessions.filter((s) => s.wsUrl !== wsUrl));
         closedSessionUrls.add(wsUrl);
         renderTabBar();
       }
@@ -484,7 +588,12 @@ function renderTabBar() {
   if (activeBtn) activeBtn.scrollIntoView({ inline: "nearest", block: "nearest" });
 }
 
-function updateEmptyPlaceholder(show) {
+/**
+ * Shows or hides the empty tab placeholder in the output container.
+ * @param {boolean} show
+ * @returns {void}
+ */
+export function updateEmptyPlaceholder(show) {
   const container = $("output-container");
   const outputArea = $("output");
   const existing = container.querySelector(".empty-tab-placeholder");
@@ -518,7 +627,12 @@ function updateEmptyPlaceholder(show) {
   }
 }
 
-async function restoreAllOrphansFromPlaceholder(buttonEl) {
+/**
+ * Restores all orphan (disconnected) terminal sessions from the empty placeholder button.
+ * @param {HTMLButtonElement} buttonEl
+ * @returns {Promise<void>}
+ */
+export async function restoreAllOrphansFromPlaceholder(buttonEl) {
   if (!buttonEl || buttonEl.disabled) return;
   const targets = disconnectedSessions.filter((s) => s && s.wsUrl && !closedSessionUrls.has(s.wsUrl));
   if (!targets.length) return;
@@ -547,7 +661,13 @@ async function restoreAllOrphansFromPlaceholder(buttonEl) {
   buttonEl.disabled = false;
 }
 
-async function restoreAllHiddenWorkspacesWithButton(buttonEl, afterRestore = null) {
+/**
+ * Restores all hidden workspaces via the placeholder button, then optionally calls a callback.
+ * @param {HTMLButtonElement} buttonEl
+ * @param {((result: { restored: number, failed: number }) => Promise<void>)|null} [afterRestore]
+ * @returns {Promise<void>}
+ */
+export async function restoreAllHiddenWorkspacesWithButton(buttonEl, afterRestore = null) {
   if (!buttonEl || buttonEl.disabled) return;
   buttonEl.disabled = true;
   const originalText = buttonEl.innerHTML;
@@ -569,4 +689,3 @@ async function restoreAllHiddenWorkspacesWithButton(buttonEl, afterRestore = nul
   buttonEl.innerHTML = originalText;
   buttonEl.disabled = false;
 }
-

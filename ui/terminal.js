@@ -1,6 +1,20 @@
-let tabDragState = null;
+// @ts-check
+import { openTabs, activeTabId, isTouchDevice, panelBottom, splitMode, setOpenTabs } from './state-core.js';
+import { $, safeFit, ensureTerminalOpened, refitTerminalWithFocus, setFrameVisible } from './utils.js';
+import { connectTerminalWs } from './terminal-connection.js';
+import { addTerminalTab, switchTab, tabDisplayName, removeTab, persistOpenTabs, renderTabBar } from './terminal-tabs.js';
+import { exitAllViewModes } from './terminal-view-mode.js';
+import { uploadClipboardImage } from './quick-input-keys.js';
 
-function bindMouseDrag(btn, tab) {
+/** @type {{ btn: HTMLElement, tab: object, placeholder: HTMLElement, bar: HTMLElement, barRect: DOMRect, offsetX: number, startX: number, moved: boolean, isTouch: boolean } | null} */
+export let tabDragState = null;
+
+/**
+ * Binds mouse drag behavior to a tab button for reordering.
+ * @param {HTMLElement} btn - The tab button element.
+ * @param {object} tab - The tab data object.
+ */
+export function bindMouseDrag(btn, tab) {
   const DRAG_THRESHOLD = 5;
   let startX = 0;
   let mouseDown = false;
@@ -28,7 +42,13 @@ function bindMouseDrag(btn, tab) {
   });
 }
 
-function startTabDrag(btn, tab, pointer) {
+/**
+ * Initiates a tab drag operation.
+ * @param {HTMLElement} btn - The tab button being dragged.
+ * @param {object} tab - The tab data object.
+ * @param {{ clientX: number, touches?: TouchList }} pointer - Pointer event info.
+ */
+export function startTabDrag(btn, tab, pointer) {
   const bar = $("tab-bar");
   const rect = btn.getBoundingClientRect();
   const barRect = bar.getBoundingClientRect();
@@ -72,11 +92,20 @@ function startTabDrag(btn, tab, pointer) {
   }
 }
 
-function getPointerXFromEvent(e) {
+/**
+ * Extracts the clientX value from a mouse or touch event.
+ * @param {MouseEvent | TouchEvent} e - The pointer event.
+ * @returns {number} The clientX coordinate.
+ */
+export function getPointerXFromEvent(e) {
   return e.touches ? e.touches[0].clientX : e.clientX;
 }
 
-function onTabDragMove(e) {
+/**
+ * Handles pointer move events during a tab drag operation.
+ * @param {MouseEvent | TouchEvent} e - The pointer move event.
+ */
+export function onTabDragMove(e) {
   if (!tabDragState) return;
   e.preventDefault();
   const clientX = getPointerXFromEvent(e);
@@ -111,7 +140,11 @@ function onTabDragMove(e) {
   }
 }
 
-function onTabDragEnd(e) {
+/**
+ * Handles pointer up/end events to finalize a tab drag operation.
+ * @param {MouseEvent | TouchEvent} e - The pointer end event.
+ */
+export function onTabDragEnd(e) {
   if (!tabDragState) return;
   const { btn, tab, placeholder, bar, moved, isTouch } = tabDragState;
 
@@ -152,7 +185,7 @@ function onTabDragEnd(e) {
       const t = openTabs.find((t) => t.id === tabId);
       if (t) reordered.push(t);
     }
-    openTabs = reordered;
+    setOpenTabs(reordered);
     persistOpenTabs();
   }
 

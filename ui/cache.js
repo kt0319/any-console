@@ -1,17 +1,29 @@
-const WORKSPACES_CACHE_KEY = "pi_console_cache_workspaces";
-const WORKSPACE_META_CACHE_PREFIX = "pi_console_cache_workspace_meta:";
-const GITHUB_REPOS_CACHE_KEY = "pi_console_cache_github_repos";
-const CACHE_OWNER_KEY = "pi_console_cache_owner_token";
-const workspaceMetaCache = new Map();
-const workspaceMetaInFlight = new Map();
-let githubReposCache = null;
-let githubReposInFlight = null;
+// @ts-check
+import { token } from './state-core.js';
+import { apiFetch, workspaceApiPath } from './api-client.js';
+import { renderIcon } from './utils.js';
 
-function cacheOwnerToken() {
+export const WORKSPACES_CACHE_KEY = "pi_console_cache_workspaces";
+export const WORKSPACE_META_CACHE_PREFIX = "pi_console_cache_workspace_meta:";
+export const GITHUB_REPOS_CACHE_KEY = "pi_console_cache_github_repos";
+export const CACHE_OWNER_KEY = "pi_console_cache_owner_token";
+export const workspaceMetaCache = new Map();
+export const workspaceMetaInFlight = new Map();
+export let githubReposCache = null;
+export let githubReposInFlight = null;
+
+/**
+ * @returns {string}
+ */
+export function cacheOwnerToken() {
   return token || localStorage.getItem("pi_console_token") || "";
 }
 
-function readJsonCache(key) {
+/**
+ * @param {string} key
+ * @returns {any}
+ */
+export function readJsonCache(key) {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
@@ -21,13 +33,22 @@ function readJsonCache(key) {
   }
 }
 
-function writeJsonCache(key, value) {
+/**
+ * @param {string} key
+ * @param {any} value
+ * @returns {void}
+ */
+export function writeJsonCache(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {}
 }
 
-function deleteByPrefix(prefix) {
+/**
+ * @param {string} prefix
+ * @returns {void}
+ */
+export function deleteByPrefix(prefix) {
   try {
     const keys = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -38,7 +59,10 @@ function deleteByPrefix(prefix) {
   } catch {}
 }
 
-function syncCacheOwnerToken() {
+/**
+ * @returns {void}
+ */
+export function syncCacheOwnerToken() {
   const owner = cacheOwnerToken();
   const cachedOwner = localStorage.getItem(CACHE_OWNER_KEY) || "";
   if (cachedOwner === owner) return;
@@ -50,7 +74,11 @@ function syncCacheOwnerToken() {
   }
 }
 
-function cloneWorkspaceMeta(meta) {
+/**
+ * @param {{ jobs?: Record<string, any> }} meta
+ * @returns {{ jobs: Record<string, any> }}
+ */
+export function cloneWorkspaceMeta(meta) {
   const jobs = {};
   for (const [name, job] of Object.entries(meta.jobs || {})) {
     jobs[name] = job && typeof job === "object" ? { ...job } : job;
@@ -58,7 +86,11 @@ function cloneWorkspaceMeta(meta) {
   return { jobs };
 }
 
-function getWorkspaceMetaCache(workspaceName) {
+/**
+ * @param {string} workspaceName
+ * @returns {{ jobs: Record<string, any> } | null}
+ */
+export function getWorkspaceMetaCache(workspaceName) {
   const cached = workspaceMetaCache.get(workspaceName);
   if (cached) return cloneWorkspaceMeta(cached);
 
@@ -69,7 +101,12 @@ function getWorkspaceMetaCache(workspaceName) {
   return cloneWorkspaceMeta(stored);
 }
 
-function setWorkspaceMetaCache(workspaceName, jobs) {
+/**
+ * @param {string} workspaceName
+ * @param {Record<string, any>} jobs
+ * @returns {void}
+ */
+export function setWorkspaceMetaCache(workspaceName, jobs) {
   const data = {
     jobs: jobs || {},
     fetchedAt: Date.now(),
@@ -78,7 +115,11 @@ function setWorkspaceMetaCache(workspaceName, jobs) {
   writeJsonCache(WORKSPACE_META_CACHE_PREFIX + workspaceName, data);
 }
 
-function invalidateWorkspaceMetaCache(workspaceName = null) {
+/**
+ * @param {string | null} [workspaceName]
+ * @returns {void}
+ */
+export function invalidateWorkspaceMetaCache(workspaceName = null) {
   if (workspaceName) {
     workspaceMetaCache.delete(workspaceName);
     workspaceMetaInFlight.delete(workspaceName);
@@ -92,7 +133,10 @@ function invalidateWorkspaceMetaCache(workspaceName = null) {
   deleteByPrefix(WORKSPACE_META_CACHE_PREFIX);
 }
 
-function invalidateGithubReposCache() {
+/**
+ * @returns {void}
+ */
+export function invalidateGithubReposCache() {
   githubReposCache = null;
   githubReposInFlight = null;
   try {
@@ -100,27 +144,45 @@ function invalidateGithubReposCache() {
   } catch {}
 }
 
-function getWorkspacesCache() {
+/**
+ * @returns {any}
+ */
+export function getWorkspacesCache() {
   return readJsonCache(WORKSPACES_CACHE_KEY);
 }
 
-function setWorkspacesCache(workspaces) {
+/**
+ * @param {any} workspaces
+ * @returns {void}
+ */
+export function setWorkspacesCache(workspaces) {
   writeJsonCache(WORKSPACES_CACHE_KEY, workspaces);
 }
 
-function invalidateWorkspacesCache() {
+/**
+ * @returns {void}
+ */
+export function invalidateWorkspacesCache() {
   try {
     localStorage.removeItem(WORKSPACES_CACHE_KEY);
   } catch {}
 }
 
-function clearPersistedApiCaches() {
+/**
+ * @returns {void}
+ */
+export function clearPersistedApiCaches() {
   invalidateWorkspacesCache();
   invalidateWorkspaceMetaCache();
   invalidateGithubReposCache();
 }
 
-async function fetchWorkspaceJobsAndLinks(workspaceName, { forceRefresh = false } = {}) {
+/**
+ * @param {string} workspaceName
+ * @param {{ forceRefresh?: boolean }} [options]
+ * @returns {Promise<{ jobs: Record<string, any> }>}
+ */
+export async function fetchWorkspaceJobsAndLinks(workspaceName, { forceRefresh = false } = {}) {
   syncCacheOwnerToken();
   if (!workspaceName) return { jobs: {} };
 
@@ -164,7 +226,11 @@ async function fetchWorkspaceJobsAndLinks(workspaceName, { forceRefresh = false 
   }
 }
 
-async function fetchGithubRepos({ forceRefresh = false } = {}) {
+/**
+ * @param {{ forceRefresh?: boolean }} [options]
+ * @returns {Promise<any[]>}
+ */
+export async function fetchGithubRepos({ forceRefresh = false } = {}) {
   syncCacheOwnerToken();
 
   if (!githubReposCache) {
@@ -214,7 +280,14 @@ async function fetchGithubRepos({ forceRefresh = false } = {}) {
   }
 }
 
-async function loadWorkspaceIconButtons(container, ws, iconSize, onJobClick) {
+/**
+ * @param {HTMLElement} container
+ * @param {{ name: string }} ws
+ * @param {number} iconSize
+ * @param {(name: string, job: any) => void} onJobClick
+ * @returns {Promise<number>}
+ */
+export async function loadWorkspaceIconButtons(container, ws, iconSize, onJobClick) {
   const { jobs } = await fetchWorkspaceJobsAndLinks(ws.name);
   let addedCount = 0;
 

@@ -1,10 +1,14 @@
-let iconPickerCache = null;
-let iconPickerCallback = null;
-let iconPickerSelectedColor = "";
-let iconPickerSelectedIcon = null;
-let iconPickerPendingClear = false;
+// @ts-check
+import { $, renderIcon, escapeHtml, blobToDataUrl, isImageDataIcon, showToast } from './utils.js';
+import { apiFetch } from './api-client.js';
 
-const ICON_PRESET_COLORS = [
+export let iconPickerCache = null;
+export let iconPickerCallback = null;
+export let iconPickerSelectedColor = "";
+export let iconPickerSelectedIcon = null;
+export let iconPickerPendingClear = false;
+
+export const ICON_PRESET_COLORS = [
   { label: "デフォルト", value: "" },
   { label: "赤", value: "#e53935" },
   { label: "ピンク", value: "#d81b60" },
@@ -25,9 +29,9 @@ const ICON_PRESET_COLORS = [
   { label: "白", value: "#ffffff" },
 ];
 
-const URL_PATTERN = /^(https?:\/\/|[a-zA-Z0-9-]+\.[a-zA-Z]{2,})/;
-const ICON_UPLOAD_MAX_SIZE = 512 * 1024;
-const ICON_UPLOAD_ALLOWED_TYPES = new Set([
+export const URL_PATTERN = /^(https?:\/\/|[a-zA-Z0-9-]+\.[a-zA-Z]{2,})/;
+export const ICON_UPLOAD_MAX_SIZE = 512 * 1024;
+export const ICON_UPLOAD_ALLOWED_TYPES = new Set([
   "image/png",
   "image/jpeg",
   "image/gif",
@@ -35,11 +39,19 @@ const ICON_UPLOAD_ALLOWED_TYPES = new Set([
   "image/svg+xml",
 ]);
 
-function looksLikeUrl(text) {
+/**
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function looksLikeUrl(text) {
   return URL_PATTERN.test(text);
 }
 
-function extractDomain(text) {
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+export function extractDomain(text) {
   try {
     if (text.startsWith("http://") || text.startsWith("https://")) {
       return new URL(text).hostname;
@@ -50,7 +62,11 @@ function extractDomain(text) {
   }
 }
 
-function validateIconUploadFile(file) {
+/**
+ * @param {File|null|undefined} file
+ * @returns {string}
+ */
+export function validateIconUploadFile(file) {
   if (!file) return "ファイルを選択してください";
   if (!ICON_UPLOAD_ALLOWED_TYPES.has(file.type)) {
     return "PNG/JPG/GIF/WEBP/SVG の画像を選択してください";
@@ -61,7 +77,11 @@ function validateIconUploadFile(file) {
   return "";
 }
 
-async function iconFileToDataUrl(file) {
+/**
+ * @param {File} file
+ * @returns {Promise<string>}
+ */
+export async function iconFileToDataUrl(file) {
   const dataUrl = await blobToDataUrl(file);
   if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
     throw new Error("画像の読み込みに失敗しました");
@@ -69,7 +89,10 @@ async function iconFileToDataUrl(file) {
   return dataUrl;
 }
 
-async function fetchIconMeta() {
+/**
+ * @returns {Promise<Array<{name: string, aliases: string[], tags: string[]}>>}
+ */
+export async function fetchIconMeta() {
   if (iconPickerCache) return iconPickerCache;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -84,7 +107,12 @@ async function fetchIconMeta() {
   return iconPickerCache;
 }
 
-function openIconPicker(callback, currentIcon, currentColor) {
+/**
+ * @param {(icon: string, color: string) => void} callback
+ * @param {string|null|undefined} currentIcon
+ * @param {string|undefined} currentColor
+ */
+export function openIconPicker(callback, currentIcon, currentColor) {
   iconPickerCallback = callback;
   iconPickerSelectedColor = currentColor || "";
   iconPickerSelectedIcon = currentIcon || null;
@@ -174,7 +202,10 @@ function openIconPicker(callback, currentIcon, currentColor) {
   }
 }
 
-function renderPickerColorPalette(currentColor) {
+/**
+ * @param {string} currentColor
+ */
+export function renderPickerColorPalette(currentColor) {
   const palette = $("icon-picker-color-palette");
   palette.innerHTML = "";
   for (const preset of ICON_PRESET_COLORS) {
@@ -196,7 +227,12 @@ function renderPickerColorPalette(currentColor) {
   }
 }
 
-function filterIcons(icons, query) {
+/**
+ * @param {Array<{name: string, aliases: string[], tags: string[]}>} icons
+ * @param {string} query
+ * @returns {Array<{name: string, aliases: string[], tags: string[]}>}
+ */
+export function filterIcons(icons, query) {
   if (!query) return icons;
   return icons.filter((icon) => {
     if (icon.name.includes(query)) return true;
@@ -206,7 +242,13 @@ function filterIcons(icons, query) {
   });
 }
 
-function renderIconGridTo(gridEl, icons, query, onSelect) {
+/**
+ * @param {HTMLElement} gridEl
+ * @param {Array<{name: string, aliases: string[], tags: string[]}>} icons
+ * @param {string} query
+ * @param {(iconName: string) => void} onSelect
+ */
+export function renderIconGridTo(gridEl, icons, query, onSelect) {
   gridEl.innerHTML = "";
   const filtered = filterIcons(icons, query);
   const MAX_DISPLAY = 200;
@@ -237,11 +279,18 @@ function renderIconGridTo(gridEl, icons, query, onSelect) {
   }
 }
 
-function renderIconGrid(icons, query) {
+/**
+ * @param {Array<{name: string, aliases: string[], tags: string[]}>} icons
+ * @param {string} query
+ */
+export function renderIconGrid(icons, query) {
   renderIconGridTo($("icon-picker-grid"), icons, query, selectMdiIcon);
 }
 
-function selectMdiIcon(iconName) {
+/**
+ * @param {string} iconName
+ */
+export function selectMdiIcon(iconName) {
   iconPickerSelectedIcon = iconName;
   iconPickerPendingClear = false;
   const preview = $("icon-picker-favicon-preview");
@@ -252,7 +301,9 @@ function selectMdiIcon(iconName) {
   });
 }
 
-function submitIconPicker() {
+/**
+ */
+export function submitIconPicker() {
   const raw = $("icon-picker-search").value.trim();
   if (looksLikeUrl(raw)) {
     const domain = extractDomain(raw);
@@ -271,7 +322,9 @@ function submitIconPicker() {
   }
 }
 
-function clearIconPicker() {
+/**
+ */
+export function clearIconPicker() {
   const search = $("icon-picker-search");
   const preview = $("icon-picker-favicon-preview");
   const confirmBtn = $("icon-picker-url-ok");
@@ -286,12 +339,22 @@ function clearIconPicker() {
   }
 }
 
-function closeIconPicker() {
+/**
+ */
+export function closeIconPicker() {
   $("icon-picker-modal").style.display = "none";
   iconPickerCallback = null;
 }
 
-function renderInlineIconPicker(container, callback, currentIcon, currentColor, skipBack) {
+/**
+ * @param {HTMLElement} container
+ * @param {(icon: string, color: string) => void} callback
+ * @param {string|null|undefined} currentIcon
+ * @param {string|undefined} currentColor
+ * @param {boolean} [skipBack]
+ * @returns {() => void}
+ */
+export function renderInlineIconPicker(container, callback, currentIcon, currentColor, skipBack) {
   const existing = Array.from(container.children);
   for (const el of existing) el.style.display = "none";
 

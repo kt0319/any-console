@@ -1,24 +1,46 @@
-let diffViewerMode = "file";
-let currentDiffRef = null;
+// @ts-check
 
-function getActiveDiffRef() {
+import { selectedWorkspace } from './state-core.js';
+import { diffChunks, setDiffChunks, diffFullText, setDiffFullText } from './state-git.js';
+import { apiFetch, workspaceApiPath, getActionFailureMessage } from './api-client.js';
+import { $, escapeHtml, renderActionButtons } from './utils.js';
+import { GitLogModal } from './git-log-modal.js';
+
+/** @type {string} */
+export let diffViewerMode = "file";
+
+/** @type {string | null} */
+export let currentDiffRef = null;
+
+/** @returns {string | null} */
+export function getActiveDiffRef() {
   return currentDiffRef;
 }
 
-function getDiffViewerMode() {
+/** @returns {string} */
+export function getDiffViewerMode() {
   return diffViewerMode;
 }
 
-function clearActiveDiffRef() {
+/** @returns {void} */
+export function clearActiveDiffRef() {
   currentDiffRef = null;
   setDiffViewerMode("file");
 }
 
-function setDiffViewerMode(mode) {
+/**
+ * @param {string} mode
+ * @returns {void}
+ */
+export function setDiffViewerMode(mode) {
   diffViewerMode = mode === "diff" ? "diff" : "file";
 }
 
-function initDiffPane(actions = null) {
+/**
+ * @param {any[] | null} [actions]
+ * @returns {void}
+ */
+export function initDiffPane(actions = null) {
   const fileList = $("diff-file-list");
   const actionsEl = $("diff-actions");
   fileList.innerHTML = '<div class="file-browser"><div class="file-browser-header"><span class="file-browser-crumb-current">読み込み中...</span></div></div>';
@@ -32,18 +54,32 @@ function initDiffPane(actions = null) {
   }
 }
 
-function showDiffError(message) {
+/**
+ * @param {string} message
+ * @returns {void}
+ */
+export function showDiffError(message) {
   const fileList = $("diff-file-list");
   fileList.innerHTML = "";
   renderDiffViewerMessage(message || "diff の取得に失敗しました");
 }
 
-function renderDiffViewerMessage(message) {
+/**
+ * @param {string} message
+ * @returns {void}
+ */
+export function renderDiffViewerMessage(message) {
   const diffContent = $("diff-content");
   diffContent.innerHTML = `<div class="file-content-message diff-viewer-message">${escapeHtml(message || "")}</div>`;
 }
 
-async function showLoadedDiff(fileList, data, options = {}) {
+/**
+ * @param {HTMLElement} fileList
+ * @param {any} data
+ * @param {{ statusBadgeLeft?: boolean, focusFileBrowser?: boolean }} [options]
+ * @returns {Promise<void>}
+ */
+export async function showLoadedDiff(fileList, data, options = {}) {
   const { statusBadgeLeft = false, focusFileBrowser = false } = options;
   renderDiffFileList(fileList, data.files, data.diff || "", { statusBadgeLeft });
   if (Array.isArray(data.files) && data.files.length > 0) {
@@ -55,7 +91,13 @@ async function showLoadedDiff(fileList, data, options = {}) {
   renderDiffViewerMessage("変更ファイルなし");
 }
 
-async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
+/**
+ * @param {string} commitHash
+ * @param {string} commitMsg
+ * @param {string[]} [branches]
+ * @returns {Promise<void>}
+ */
+export async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
   setDiffViewerMode("file");
   currentDiffRef = commitHash || null;
   initDiffPane();
@@ -76,7 +118,11 @@ async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
   }
 }
 
-function colorDiff(text) {
+/**
+ * @param {string} text
+ * @returns {DocumentFragment | string}
+ */
+export function colorDiff(text) {
   if (!text) return "";
   const frag = document.createDocumentFragment();
   for (const line of text.split("\n")) {
@@ -97,7 +143,11 @@ function colorDiff(text) {
   return frag;
 }
 
-function splitDiffByFile(diffText) {
+/**
+ * @param {string} diffText
+ * @returns {Record<string, string>}
+ */
+export function splitDiffByFile(diffText) {
   if (!diffText) return {};
   const chunks = {};
   let currentFile = null;
@@ -116,9 +166,14 @@ function splitDiffByFile(diffText) {
   return chunks;
 }
 
-const DIFF_NEW_STATUSES = new Set(["??", "A"]);
+/** @type {Set<string>} */
+export const DIFF_NEW_STATUSES = new Set(["??", "A"]);
 
-function getDiffStatusTone(status) {
+/**
+ * @param {string} status
+ * @returns {string}
+ */
+export function getDiffStatusTone(status) {
   const s = (status || "").toUpperCase();
   if (s === "??" || s === "A") return "add";
   if (s.includes("D")) return "del";
@@ -127,7 +182,13 @@ function getDiffStatusTone(status) {
   return "neutral";
 }
 
-function renderNumstatHtml(insertions, deletions, extraClass = "") {
+/**
+ * @param {number} insertions
+ * @param {number} deletions
+ * @param {string} [extraClass]
+ * @returns {string}
+ */
+export function renderNumstatHtml(insertions, deletions, extraClass = "") {
   const hasIns = Number.isFinite(insertions);
   const hasDel = Number.isFinite(deletions);
   if (!hasIns && !hasDel) return "";
@@ -137,11 +198,19 @@ function renderNumstatHtml(insertions, deletions, extraClass = "") {
   return `<span class="${cls}"><span class="diff-num-plus">+${ins}</span><span class="diff-num-del">-${del}</span></span>`;
 }
 
-function renderNumstatNoteHtml(text) {
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+export function renderNumstatNoteHtml(text) {
   return `<span class="diff-file-row-numstat-note">${escapeHtml(text)}</span>`;
 }
 
-function estimateAddedLineCountFromChunk(fileName) {
+/**
+ * @param {string} fileName
+ * @returns {number | null}
+ */
+export function estimateAddedLineCountFromChunk(fileName) {
   const chunk = diffChunks[fileName];
   if (!chunk) return null;
   let inHunk = false;
@@ -157,12 +226,21 @@ function estimateAddedLineCountFromChunk(fileName) {
   return added;
 }
 
+/**
+ * @param {string | null} content
+ * @returns {number}
+ */
 function countTextLines(content) {
   if (!content) return 0;
   const newlines = (content.match(/\n/g) || []).length;
   return content.endsWith("\n") ? newlines : newlines + 1;
 }
 
+/**
+ * @param {string} fileName
+ * @param {string} workspaceName
+ * @returns {Promise<number | null>}
+ */
 async function estimateAddedLineCountFromFileContent(fileName, workspaceName) {
   try {
     const res = await apiFetch(workspaceApiPath(workspaceName, `/file-content?path=${encodeURIComponent(fileName)}`));
@@ -177,6 +255,13 @@ async function estimateAddedLineCountFromFileContent(fileName, workspaceName) {
   }
 }
 
+/**
+ * @param {string} name
+ * @param {string} status
+ * @param {number} insertions
+ * @param {number} deletions
+ * @returns {string}
+ */
 function renderDiffFileStatHtml(name, status, insertions, deletions) {
   if (Number.isFinite(insertions) || Number.isFinite(deletions)) {
     return renderNumstatHtml(insertions, deletions);
@@ -188,6 +273,12 @@ function renderDiffFileStatHtml(name, status, insertions, deletions) {
   return "";
 }
 
+/**
+ * @param {HTMLElement} fileList
+ * @param {any[]} files
+ * @param {string} workspaceName
+ * @returns {Promise<void>}
+ */
 async function fillMissingAddedFileStats(fileList, files, workspaceName) {
   if (!workspaceName) return;
   for (const f of files) {
@@ -211,10 +302,17 @@ async function fillMissingAddedFileStats(fileList, files, workspaceName) {
   }
 }
 
+/**
+ * @param {HTMLElement} fileList
+ * @param {any[]} files
+ * @param {string} diffText
+ * @param {{ statusBadgeLeft?: boolean }} [options]
+ * @returns {void}
+ */
 function renderDiffFileList(fileList, files, diffText, options = {}) {
   const statusBadgeLeft = !!options.statusBadgeLeft;
-  diffChunks = splitDiffByFile(diffText);
-  diffFullText = diffText;
+  setDiffChunks(splitDiffByFile(diffText));
+  setDiffFullText(diffText);
   fileList.innerHTML = "";
 
   let html = '<div class="file-browser diff-file-browser">';
@@ -258,6 +356,10 @@ function renderDiffFileList(fileList, files, diffText, options = {}) {
   void fillMissingAddedFileStats(fileList, files, selectedWorkspace);
 }
 
+/**
+ * @param {string | null} file
+ * @returns {Promise<void>}
+ */
 async function selectDiffFile(file) {
   const fileList = $("diff-file-list");
   for (const row of fileList.querySelectorAll(".diff-file-row[data-file]")) {
@@ -276,7 +378,8 @@ async function selectDiffFile(file) {
   $("diff-content").scrollTop = 0;
 }
 
-async function loadDiffTab() {
+/** @returns {Promise<void>} */
+export async function loadDiffTab() {
   if (!selectedWorkspace) return;
   clearActiveDiffRef();
 
@@ -297,6 +400,7 @@ async function loadDiffTab() {
   }
 }
 
+/** @returns {Promise<void>} */
 async function openDiffModal() {
   if (!selectedWorkspace) return;
 
@@ -306,7 +410,8 @@ async function openDiffModal() {
   await loadDiffTab();
 }
 
-function openCommitForm() {
+/** @returns {void} */
+export function openCommitForm() {
   const form = $("diff-commit-form");
   const visible = form.style.display !== "none";
   if (visible) {
@@ -319,13 +424,15 @@ function openCommitForm() {
   $("diff-commit-message").focus();
 }
 
-function closeCommitForm() {
+/** @returns {void} */
+export function closeCommitForm() {
   $("diff-commit-form").style.display = "none";
   $("diff-commit-message").value = "";
   hideFormError("diff-commit-error");
 }
 
-async function submitCommit() {
+/** @returns {Promise<void>} */
+export async function submitCommit() {
   const message = $("diff-commit-message").value.trim();
   if (!message) {
     showFormError("diff-commit-error", "コミットメッセージを入力してください");

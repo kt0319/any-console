@@ -1,6 +1,19 @@
+// @ts-check
+import { selectedWorkspace, allWorkspaces, splitMode, openTabs, activeTabId } from './state-core.js';
+import { apiFetch, workspaceApiPath, getActionFailureMessage, setListStatus } from './api-client.js';
+import { showToast, escapeHtml, renderActionButtons, showFormError, hideFormError, $, formatCommitTime, setupModalSwipeClose } from './utils.js';
+import { GIT_LOG_ENTRIES_PER_PAGE } from './state-git.js';
+
+// Circular deps (only used in function bodies)
+import { GitCore } from './git.js';
+import { openCommitDiffModal, setDiffViewerMode, getActiveDiffRef, renderDiffViewerMessage, clearActiveDiffRef, closeCommitForm } from './git-diff.js';
+import { refreshWorkspaceHeader } from './workspace.js';
+import { syncWorkspaceForTab } from './terminal-tabs.js';
+import { loadDirectoryInDiffPane } from './git-file-browser.js';
+
 const GIT_PANE_MAP = { history: "git-history-pane", files: "git-files-pane", stash: "git-stash-pane", branch: "git-branch-pane" };
 
-const GitLogModal = {
+export const GitLogModal = {
   state: {
     diffPaneTitle: "未コミットの変更",
     diffTopMode: "history",
@@ -14,6 +27,13 @@ const GitLogModal = {
     },
   },
 
+  /**
+   * Toggles the commit action menu for a given history entry.
+   * @param {HTMLElement} entry - The commit list entry element.
+   * @param {string} hash - The commit hash.
+   * @param {string} msg - The commit message.
+   * @param {string[]} [branches] - Branch names associated with this commit.
+   */
   toggleCommitActionMenu(entry, hash, msg, branches = []) {
     const list = $("git-history-list");
     const menuEl = $("git-commit-action-menu");
@@ -45,6 +65,9 @@ const GitLogModal = {
     menuEl.style.display = "flex";
   },
 
+  /**
+   * Closes the git modal and resets all related state.
+   */
   closeGitModal() {
     $("git-modal").style.display = "none";
     GitLogModal.resetActionMenu();
@@ -58,6 +81,9 @@ const GitLogModal = {
     refreshWorkspaceHeader({ reloadBranches: false });
   },
 
+  /**
+   * Hides and clears the commit action menu.
+   */
   resetActionMenu() {
     const menuEl = $("git-commit-action-menu");
     if (!menuEl) return;
@@ -65,6 +91,9 @@ const GitLogModal = {
     menuEl.innerHTML = "";
   },
 
+  /**
+   * Restores the create branch area to its original position in the history pane.
+   */
   restoreCreateBranchAreaPosition() {
     const area = $("git-create-branch-area");
     const menuEl = $("git-commit-action-menu");
@@ -79,6 +108,9 @@ const GitLogModal = {
     }
   },
 
+  /**
+   * Hides and resets the create branch area and restores any displaced host children.
+   */
   resetCreateBranchArea() {
     const area = $("git-create-branch-area");
     const submitBtn = $("git-create-branch-submit");
@@ -98,6 +130,10 @@ const GitLogModal = {
     }
   },
 
+  /**
+   * Toggles visibility of the create branch area for the given commit hash.
+   * @param {string} hash - The commit hash to branch from.
+   */
   toggleCreateBranchArea(hash) {
     const area = $("git-create-branch-area");
     const submitBtn = $("git-create-branch-submit");
@@ -123,6 +159,10 @@ const GitLogModal = {
     }
   },
 
+  /**
+   * Submits the create branch form, calling the API to create a new branch.
+   * @returns {Promise<void>}
+   */
   async submitCreateBranch() {
     if (!selectedWorkspace) return;
     const branchName = $("git-branch-name-input").value.trim();
@@ -159,11 +199,19 @@ const GitLogModal = {
     }
   },
 
+  /**
+   * Ensures the diff tab content element is visible.
+   */
   ensureDiffTabVisible() {
     const diffTab = $("git-modal-content");
     if (diffTab) diffTab.style.display = "";
   },
 
+  /**
+   * Sets the modal title text, optionally with a back arrow and click handler.
+   * @param {string} title - The title text.
+   * @param {{ back?: boolean, onClick?: (() => void) | null }} [options]
+   */
   setModalTitle(title, options = {}) {
     const titleEl = $("git-modal-title");
     if (!titleEl) return;
@@ -181,15 +229,26 @@ const GitLogModal = {
     titleEl.onclick = typeof onClick === "function" ? onClick : null;
   },
 
+  /**
+   * Returns true if the currently selected workspace is a git repository.
+   * @returns {boolean}
+   */
   isCurrentWorkspaceGitRepo() {
     const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
     return ws && ws.is_git_repo === true;
   },
 
+  /**
+   * Returns the modal title string (currently selected workspace name).
+   * @returns {string}
+   */
   modalTitle() {
     return selectedWorkspace || "";
   },
 
+  /**
+   * Shows the history pane at the top of the diff modal.
+   */
   showDiffHistoryTop() {
     const onBack = GitLogModal.state.onBack;
     GitLogModal.setDiffTopMode("history", {
@@ -199,6 +258,9 @@ const GitLogModal = {
     });
   },
 
+  /**
+   * Shows the files pane at the top of the diff modal.
+   */
   showDiffFilesTop() {
     GitLogModal.closeGraphView();
     const isGit = GitLogModal.isCurrentWorkspaceGitRepo();
@@ -209,6 +271,11 @@ const GitLogModal = {
     });
   },
 
+  /**
+   * Sets the active top-level pane mode and updates the modal title.
+   * @param {string} mode - One of the keys in GIT_PANE_MAP.
+   * @param {{ title: string, back?: boolean, onClick?: (() => void) | null }} titleOptions
+   */
   setDiffTopMode(mode, titleOptions) {
     GitLogModal.state.diffTopMode = mode;
     $("git-upper-pane").style.display = "";
@@ -221,6 +288,10 @@ const GitLogModal = {
     });
   },
 
+  /**
+   * Shows only the pane corresponding to the given mode, hides all others.
+   * @param {string} mode - One of the keys in GIT_PANE_MAP.
+   */
   toggleDiffTopPane(mode) {
     const targetId = GIT_PANE_MAP[mode];
     for (const [, paneId] of Object.entries(GIT_PANE_MAP)) {
@@ -230,11 +301,19 @@ const GitLogModal = {
     }
   },
 
+  /**
+   * Navigates back to the history pane and ensures the commit log is loaded.
+   * @returns {Promise<void>}
+   */
   async returnToDiffHistoryTop() {
     GitLogModal.showDiffHistoryTop();
     await GitLogModal.ensureCommitLogReady();
   },
 
+  /**
+   * Loads the commit log if it has not been loaded yet or the workspace has changed.
+   * @returns {Promise<void>}
+   */
   async ensureCommitLogReady() {
     if (!selectedWorkspace) return;
     const listEl = $("git-history-list");
@@ -247,6 +326,11 @@ const GitLogModal = {
     }
   },
 
+  /**
+   * Opens a sub-pane with the given mode and title, with a back button to close it.
+   * @param {string} mode - One of the keys in GIT_PANE_MAP.
+   * @param {string} title - The pane title.
+   */
   showSubPane(mode, title) {
     GitLogModal.ensureDiffTabVisible();
     GitLogModal.setDiffTopMode(mode, {
@@ -256,6 +340,10 @@ const GitLogModal = {
     });
   },
 
+  /**
+   * Closes the current sub-pane, returning to the appropriate parent pane.
+   * @returns {Promise<void>}
+   */
   async closeSubPane() {
     const createBranchArea = $("git-create-branch-area");
     if (createBranchArea && createBranchArea.style.display !== "none") {
@@ -270,12 +358,21 @@ const GitLogModal = {
     await GitLogModal.ensureCommitLogReady();
   },
 
+  /**
+   * Shows the diff/files pane with the given title.
+   * @param {string} [title] - The pane title; defaults to "未コミットの変更".
+   */
   showDiffPane(title) {
     GitLogModal.state.diffPaneTitle = title || "未コミットの変更";
     GitLogModal.ensureDiffTabVisible();
     GitLogModal.showDiffFilesTop();
   },
 
+  /**
+   * Opens the main git modal, loading the directory listing and commit log.
+   * @param {{ onBack?: (() => void) | null }} [options]
+   * @returns {Promise<void>}
+   */
   async openGitModal({ onBack } = {}) {
     if (!selectedWorkspace) return;
     GitLogModal.state.onBack = onBack || null;
@@ -288,6 +385,10 @@ const GitLogModal = {
     await Promise.all([loadDirectoryInDiffPane(""), GitLogModal.reloadGitLog()]);
   },
 
+  /**
+   * Opens the file browser modal without git history, showing only the directory listing.
+   * @returns {Promise<void>}
+   */
   async openFileModal() {
     if (!selectedWorkspace) return;
     GitLogModal.ensureDiffTabVisible();

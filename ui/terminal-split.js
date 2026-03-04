@@ -1,34 +1,45 @@
+// @ts-check
+import { openTabs, splitMode, setSplitMode, splitPaneTabIds, setSplitPaneTabIds, activePaneIndex, setActivePaneIndex, activeTabId, setActiveTabId, panelBottom, splitLayout, setSplitLayout, isPaneSelectedByTap, setIsPaneSelectedByTap, isTouchDevice } from './state-core.js';
+import { $, safeFit, ensureTerminalOpened, refitTerminalWithFocus } from './utils.js';
+import { renderTabBar, updateGitBarVisibility, switchTab, updateHeaderForTab } from './terminal-tabs.js';
+import { exitTerminalViewMode, exitAllViewModes, enterTerminalViewMode } from './terminal-view-mode.js';
+import { showKeyboardInput } from './viewport.js';
+
+/**
+ * @param {number} count
+ * @returns {number[]}
+ */
 function calcGridLayout(count) {
   if (count <= 1) return [count];
   const topRow = Math.ceil(count / 2);
   return [topRow, count - topRow];
 }
 
-function enterSplitMode() {
+export function enterSplitMode() {
   if (openTabs.length < 1) return;
   if (splitMode) return;
 
-  splitMode = true;
+  setSplitMode(true);
   if (document.title.startsWith("* ")) {
     document.title = document.title.slice(2);
   }
-  isPaneSelectedByTap = false;
+  setIsPaneSelectedByTap(false);
   exitAllViewModes();
   const openTabIds = new Set(openTabs.map((t) => t.id));
-  splitPaneTabIds = splitPaneTabIds.filter((id) => openTabIds.has(id));
+  setSplitPaneTabIds(splitPaneTabIds.filter((id) => openTabIds.has(id)));
   if (activeTabId && openTabIds.has(activeTabId) && !splitPaneTabIds.includes(activeTabId)) {
-    splitPaneTabIds.unshift(activeTabId);
+    setSplitPaneTabIds([activeTabId, ...splitPaneTabIds]);
   }
   if (splitPaneTabIds.length === 0 && activeTabId && openTabIds.has(activeTabId)) {
-    splitPaneTabIds = [activeTabId];
+    setSplitPaneTabIds([activeTabId]);
   }
   if (splitPaneTabIds.length > 0) {
-    if (activePaneIndex >= splitPaneTabIds.length) activePaneIndex = 0;
-    activeTabId = splitPaneTabIds[activePaneIndex];
+    if (activePaneIndex >= splitPaneTabIds.length) setActivePaneIndex(0);
+    setActiveTabId(splitPaneTabIds[activePaneIndex]);
     buildSplitDom();
     fitAllSplitTerminals();
   } else {
-    activePaneIndex = 0;
+    setActivePaneIndex(0);
     for (const tab of openTabs) {
       const el = $(`frame-${tab.id}`);
       if (el) el.style.display = "none";
@@ -38,23 +49,23 @@ function enterSplitMode() {
   updateGitBarVisibility();
 }
 
-function exitSplitMode() {
+export function exitSplitMode() {
   exitSplitModeWithTab(activeTabId);
 }
 
-function exitSplitModeWithTab(targetTabId) {
+export function exitSplitModeWithTab(targetTabId) {
   if (!splitMode) return;
 
   const container = $("output-container");
   clearSplitDom(container);
   container.classList.remove("split-active", "split-mobile", "split-vertical", "split-horizontal");
 
-  splitMode = false;
+  setSplitMode(false);
   if (splitPaneTabIds.length > 0) {
     const currentIdx = splitPaneTabIds.indexOf(targetTabId);
-    activePaneIndex = currentIdx >= 0 ? currentIdx : Math.min(activePaneIndex, splitPaneTabIds.length - 1);
+    setActivePaneIndex(currentIdx >= 0 ? currentIdx : Math.min(activePaneIndex, splitPaneTabIds.length - 1));
   } else {
-    activePaneIndex = 0;
+    setActivePaneIndex(0);
   }
 
   const target = openTabs.find((t) => t.id === targetTabId) ? targetTabId : activeTabId;
@@ -68,7 +79,7 @@ function exitSplitModeWithTab(targetTabId) {
   switchTab(target);
 }
 
-function rebuildSplitLayout() {
+export function rebuildSplitLayout() {
   if (!splitMode) return;
   blurAllTerminals();
   const container = $("output-container");
@@ -81,19 +92,22 @@ function rebuildSplitLayout() {
   }
 
   const tabIds = new Set(openTabs.map((t) => t.id));
-  splitPaneTabIds = splitPaneTabIds.filter((id) => tabIds.has(id));
+  setSplitPaneTabIds(splitPaneTabIds.filter((id) => tabIds.has(id)));
 
   if (splitPaneTabIds.length > 0) {
     if (activePaneIndex >= splitPaneTabIds.length) {
-      activePaneIndex = 0;
+      setActivePaneIndex(0);
     }
-    activeTabId = splitPaneTabIds[activePaneIndex];
+    setActiveTabId(splitPaneTabIds[activePaneIndex]);
     buildSplitDom();
     fitAllSplitTerminals();
   }
 }
 
-function clearSplitDom(container) {
+/**
+ * @param {Element} container
+ */
+export function clearSplitDom(container) {
   const rows = container.querySelectorAll(".split-row");
   rows.forEach((row) => {
     const panes = row.querySelectorAll(".split-pane");
@@ -110,7 +124,7 @@ function clearSplitDom(container) {
   });
 }
 
-function blurAllTerminals() {
+export function blurAllTerminals() {
   for (const t of openTabs) {
     if (t.type === "terminal" && t.term) {
       t.term.blur();
@@ -119,7 +133,7 @@ function blurAllTerminals() {
   }
 }
 
-function buildSplitDom() {
+export function buildSplitDom() {
   blurAllTerminals();
   const container = $("output-container");
   container.classList.add("split-active");
@@ -156,7 +170,11 @@ function buildSplitDom() {
   updateActivePaneVisual();
 }
 
-function createSplitPane(index) {
+/**
+ * @param {number} index
+ * @returns {HTMLElement}
+ */
+export function createSplitPane(index) {
   const pane = document.createElement("div");
   pane.className = `split-pane pane-${index}`;
   if (index === activePaneIndex) pane.classList.add("active-pane");
@@ -184,8 +202,8 @@ function createSplitPane(index) {
       showKeyboardInput();
       return;
     }
-    if (activePaneIndex !== index) setActivePaneIndex(index);
-    isPaneSelectedByTap = true;
+    if (activePaneIndex !== index) selectActivePane(index);
+    setIsPaneSelectedByTap(true);
   });
   pane.addEventListener("pointerdown", (e) => {
     if (isTouchDevice) return;
@@ -195,22 +213,25 @@ function createSplitPane(index) {
     if (activePaneIndex === index) return;
     e.stopPropagation();
     e.preventDefault();
-    setActivePaneIndex(index);
+    selectActivePane(index);
   }, true);
 
   return pane;
 }
 
-function setActivePaneIndex(index) {
+/**
+ * @param {number} index
+ */
+export function selectActivePane(index) {
   for (const tabId of splitPaneTabIds) {
     if (tabId !== splitPaneTabIds[index]) exitTerminalViewMode(tabId);
   }
-  activePaneIndex = index;
-  activeTabId = splitPaneTabIds[index];
+  setActivePaneIndex(index);
+  setActiveTabId(splitPaneTabIds[index]);
   updateActivePaneVisual();
 }
 
-function updateActivePaneVisual() {
+export function updateActivePaneVisual() {
   const container = $("output-container");
   const panes = container.querySelectorAll(".split-pane");
   const singlePane = panes.length <= 1;
@@ -220,7 +241,10 @@ function updateActivePaneVisual() {
   });
 }
 
-function showSplitDropZones(dragTabId) {
+/**
+ * @param {string} dragTabId
+ */
+export function showSplitDropZones(dragTabId) {
   hideSplitDropZones();
   const container = $("output-container");
   const overlay = document.createElement("div");
@@ -299,14 +323,18 @@ function showSplitDropZones(dragTabId) {
   }
 }
 
-function hideSplitDropZones() {
+export function hideSplitDropZones() {
   const existing = document.querySelector(".split-drop-overlay");
   if (existing) existing.remove();
   const closeZone = document.querySelector(".pill-close-drop-zone");
   if (closeZone) closeZone.remove();
 }
 
-function splitWithDrop(dragTabId, direction) {
+/**
+ * @param {string} dragTabId
+ * @param {string} direction
+ */
+export function splitWithDrop(dragTabId, direction) {
   const dragTab = openTabs.find((t) => t.id === dragTabId);
   if (!dragTab) return;
 
@@ -327,10 +355,10 @@ function splitWithDrop(dragTabId, direction) {
       return;
     }
     const others = splitPaneTabIds.filter((id) => id !== dragTabId);
-    splitLayout = newLayout;
-    splitPaneTabIds = wantFirst ? [dragTabId, ...others] : [...others, dragTabId];
-    activePaneIndex = splitPaneTabIds.indexOf(dragTabId);
-    activeTabId = dragTabId;
+    setSplitLayout(newLayout);
+    setSplitPaneTabIds(wantFirst ? [dragTabId, ...others] : [...others, dragTabId]);
+    setActivePaneIndex(splitPaneTabIds.indexOf(dragTabId));
+    setActiveTabId(dragTabId);
     rebuildSplitLayout();
     return;
   }
@@ -341,17 +369,17 @@ function splitWithDrop(dragTabId, direction) {
     : openTabs.find((t) => t.id !== dragTabId)?.id;
   if (!otherId) return;
 
-  splitLayout = newLayout;
-  splitPaneTabIds = (direction === "left" || direction === "top")
+  setSplitLayout(newLayout);
+  setSplitPaneTabIds((direction === "left" || direction === "top")
     ? [dragTabId, otherId]
-    : [otherId, dragTabId];
-  activePaneIndex = splitPaneTabIds.indexOf(dragTabId);
-  activeTabId = dragTabId;
+    : [otherId, dragTabId]);
+  setActivePaneIndex(splitPaneTabIds.indexOf(dragTabId));
+  setActiveTabId(dragTabId);
 
   enterSplitMode();
 }
 
-function fitAllSplitTerminals() {
+export function fitAllSplitTerminals() {
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       for (const tabId of splitPaneTabIds) {

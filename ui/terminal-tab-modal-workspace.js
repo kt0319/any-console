@@ -1,4 +1,32 @@
-function createTerminalTabModalWorkspaceSection(deps) {
+// @ts-check
+import { allWorkspaces, selectedWorkspace, setSelectedWorkspace } from './state-core.js';
+import { $, renderIcon, escapeHtml, buildWorkspaceChangeSummaryHtml, showToast } from './utils.js';
+import { apiFetch, workspaceApiPath, getActionFailureMessage, postWorkspaceAction } from './api-client.js';
+import { fetchWorkspaceJobsAndLinks, fetchGithubRepos, invalidateWorkspaceMetaCache, loadWorkspaceIconButtons } from './cache.js';
+import { loadWorkspaces, refreshWorkspaceHeader } from './workspace.js';
+import { runJob } from './jobs.js';
+import { GitLogModal } from './git-log-modal.js';
+import { bindWorkspaceUploadDropTarget } from './file-browser-upload.js';
+import { renderWorkspaceVisibilityChecklistTo, renderWorkspaceSettingsPane } from './settings-workspace.js';
+import { toSshUrl } from './settings.js';
+import { restoreAllHiddenWorkspacesWithButton, renderTabBar } from './terminal-tabs.js';
+import { openTabEditModal } from './terminal-tab-modal.js';
+
+/**
+ * @typedef {Object} WorkspaceTabModalDeps
+ * @property {HTMLElement} contentContainer
+ * @property {function(string): void} switchModalTab
+ * @property {function(): void} closeModal
+ * @property {function(string, function|null=): void} setTitle
+ * @property {function(): void} showMainView
+ */
+
+/**
+ * Creates the workspace section for the terminal tab modal.
+ * @param {WorkspaceTabModalDeps} deps
+ * @returns {{ renderOpenTab: function(): void, renderModalWsList: function(HTMLElement): void, showPickerCloneInContainer: function(HTMLElement, string=): void }}
+ */
+export function createTerminalTabModalWorkspaceSection(deps) {
   const {
     contentContainer,
     switchModalTab,
@@ -7,6 +35,10 @@ function createTerminalTabModalWorkspaceSection(deps) {
     showMainView,
   } = deps;
 
+  /**
+   * Renders the open tab workspace list into contentContainer.
+   * @returns {void}
+   */
   function renderOpenTab() {
     const list = document.createElement("div");
     list.className = "terminal-ws-list";
@@ -14,6 +46,14 @@ function createTerminalTabModalWorkspaceSection(deps) {
     contentContainer.appendChild(list);
   }
 
+  /**
+   * Executes a remote Git operation on a workspace after confirming with the user.
+   * @param {string} wsName
+   * @param {string} endpoint
+   * @param {string} label
+   * @param {HTMLButtonElement|null} button
+   * @returns {Promise<void>}
+   */
   async function executeWsRemoteOp(wsName, endpoint, label, button) {
     const ws = allWorkspaces.find((w) => w.name === wsName);
     const branch = ws && ws.branch ? ws.branch : "(不明)";
@@ -39,6 +79,12 @@ function createTerminalTabModalWorkspaceSection(deps) {
     }
   }
 
+  /**
+   * Refreshes the Git status display for a workspace in the modal list.
+   * @param {string} wsName
+   * @param {HTMLElement} listContainer
+   * @returns {Promise<void>}
+   */
   async function refreshWorkspaceStatusInModal(wsName, listContainer) {
     const res = await apiFetch(workspaceApiPath(wsName, "/status"));
     if (!res || !res.ok) return;
@@ -52,6 +98,12 @@ function createTerminalTabModalWorkspaceSection(deps) {
     }
   }
 
+  /**
+   * Creates and appends remote action buttons (push, pull, upstream) to the given container.
+   * @param {Object} ws - Workspace object
+   * @param {HTMLElement} topMeta
+   * @returns {void}
+   */
   function createRemoteActionButtons(ws, topMeta) {
     const hasUpstream = ws.has_upstream !== false;
     const hasRemoteBranch = ws.has_remote_branch === true;
@@ -91,6 +143,11 @@ function createTerminalTabModalWorkspaceSection(deps) {
     }
   }
 
+  /**
+   * Renders the list of visible workspaces into the given container element.
+   * @param {HTMLElement} container
+   * @returns {void}
+   */
   function renderModalWsList(container) {
     const workspaces = visibleWorkspaces();
     if (workspaces.length === 0) {
@@ -168,7 +225,7 @@ function createTerminalTabModalWorkspaceSection(deps) {
         detailBtn.innerHTML = '<span class="mdi mdi-folder-outline"></span>';
         detailBtn.addEventListener("click", () => {
           closeModal();
-          selectedWorkspace = ws.name;
+          setSelectedWorkspace(ws.name);
           GitLogModal.openGitModal({
             onBack: () => {
               GitLogModal.closeGitModal();
@@ -218,12 +275,24 @@ function createTerminalTabModalWorkspaceSection(deps) {
     fetchModalWsGitStatuses(workspaces, container);
   }
 
+  /**
+   * Fetches and refreshes Git statuses for all Git-tracked workspaces in the modal list.
+   * @param {Array<Object>} workspaces
+   * @param {HTMLElement} listContainer
+   * @returns {void}
+   */
   function fetchModalWsGitStatuses(workspaces, listContainer) {
     for (const ws of workspaces.filter((w) => w.is_git_repo)) {
       refreshWorkspaceStatusInModal(ws.name, listContainer).catch(() => {});
     }
   }
 
+  /**
+   * Updates the Git info display (branch, dirty state, remote buttons) for a workspace group element.
+   * @param {HTMLElement} group
+   * @param {Object} ws - Workspace object
+   * @returns {void}
+   */
   function updateModalWsGroupGitInfo(group, ws) {
     const topMeta = group.querySelector(".picker-ws-top-meta");
     if (!topMeta) return;
@@ -245,6 +314,12 @@ function createTerminalTabModalWorkspaceSection(deps) {
     }
   }
 
+  /**
+   * Renders the clone/add workspace pane or visibility pane into the given content element.
+   * @param {HTMLElement} content
+   * @param {string} [mode="visibility"]
+   * @returns {void}
+   */
   function showPickerCloneInContainer(content, mode = "visibility") {
     let pickerSelectedUrl = "";
     let pickerRepos = [];
@@ -320,6 +395,10 @@ function createTerminalTabModalWorkspaceSection(deps) {
     cloneFields.appendChild(actions);
     content.appendChild(cloneFields);
 
+    /**
+     * Renders the GitHub repo list items into repoList.
+     * @returns {void}
+     */
     function renderRepos() {
       if (pickerRepos.length === 0) {
         repoList.innerHTML = '<div class="clone-repo-empty">リポジトリがありません</div>';
@@ -340,6 +419,10 @@ function createTerminalTabModalWorkspaceSection(deps) {
       }
     }
 
+    /**
+     * Loads GitHub repos and renders them into the repo list.
+     * @returns {Promise<void>}
+     */
     async function loadRepos() {
       repoList.innerHTML = '<div class="clone-repo-loading">読み込み中...</div>';
       try {

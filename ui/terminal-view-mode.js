@@ -1,10 +1,23 @@
-function exitAllViewModes(exceptId) {
+// @ts-check
+import { openTabs, panelBottom } from './state-core.js';
+import { $, escapeHtml } from './utils.js';
+
+/**
+ * Exit view mode for all terminal tabs except the one with the given ID.
+ * @param {string|undefined} exceptId - Tab ID to skip, or undefined to exit all.
+ * @returns {void}
+ */
+export function exitAllViewModes(exceptId) {
   for (const t of openTabs) {
     if (t.type === "terminal" && t.id !== exceptId) exitTerminalViewMode(t.id);
   }
 }
 
-const XTERM_PALETTE = (() => {
+/**
+ * Full 256-color xterm palette: 16 system colors, 6x6x6 color cube, 24 grayscale steps.
+ * @type {string[]}
+ */
+export const XTERM_PALETTE = (() => {
   const base = [
     "#000000","#cc0000","#4e9a06","#c4a000","#3465a4","#75507b","#06989a","#d3d7cf",
     "#555753","#ef2929","#8ae234","#fce94f","#729fcf","#ad7fa8","#34e2e2","#eeeeec",
@@ -21,7 +34,13 @@ const XTERM_PALETTE = (() => {
   return base;
 })();
 
-function xtermCellColor(cell, isFg) {
+/**
+ * Resolve the foreground or background color of an xterm.js cell.
+ * @param {import('@xterm/xterm').IBufferCell} cell - The terminal buffer cell.
+ * @param {boolean} isFg - True to resolve foreground color, false for background.
+ * @returns {string|null} CSS color string, or null if default/unset.
+ */
+export function xtermCellColor(cell, isFg) {
   const isPalette = isFg ? cell.isFgPalette() : cell.isBgPalette();
   const isRGB = isFg ? cell.isFgRGB() : cell.isBgRGB();
   const color = isFg ? cell.getFgColor() : cell.getBgColor();
@@ -30,7 +49,13 @@ function xtermCellColor(cell, isFg) {
   return null;
 }
 
-function terminalBufferToHtml(term) {
+/**
+ * Render the active buffer of an xterm.js terminal instance to an HTML string.
+ * Trailing blank lines are stripped.
+ * @param {import('@xterm/xterm').Terminal} term - The xterm.js Terminal instance.
+ * @returns {string} HTML string representing the terminal buffer contents.
+ */
+export function terminalBufferToHtml(term) {
   const buf = term.buffer.active;
   const lines = [];
   for (let y = 0; y < buf.length; y++) {
@@ -70,7 +95,14 @@ function terminalBufferToHtml(term) {
   return lines.join("\n");
 }
 
-function enterTerminalViewMode(tabId) {
+/**
+ * Enter view mode for the terminal tab with the given ID.
+ * Exits view mode on all other terminal tabs, hides the keyboard input wrapper,
+ * and renders the terminal buffer as a scrollable pre element.
+ * @param {string} tabId - The ID of the terminal tab to enter view mode for.
+ * @returns {void}
+ */
+export function enterTerminalViewMode(tabId) {
   if (!panelBottom) return;
   const tab = openTabs.find((t) => t.id === tabId);
   if (!tab || tab.type !== "terminal") return;
@@ -94,7 +126,13 @@ function enterTerminalViewMode(tabId) {
   pre.scrollTop = pre.scrollHeight;
 }
 
-function exitTerminalViewMode(tabId) {
+/**
+ * Exit view mode for the terminal tab with the given ID.
+ * Removes the view-mode class and the rendered pre element from the container.
+ * @param {string} tabId - The ID of the terminal tab to exit view mode for.
+ * @returns {void}
+ */
+export function exitTerminalViewMode(tabId) {
   const container = $(`frame-${tabId}`);
   if (!container) return;
   container.classList.remove("view-mode");

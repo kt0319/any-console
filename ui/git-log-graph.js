@@ -1,3 +1,10 @@
+// @ts-check
+import { selectedWorkspace, allWorkspaces } from './state-core.js';
+import { escapeHtml, buildWorkspaceChangeSummaryHtml, $ } from './utils.js';
+import { GitLogModal } from './git-log-modal.js';
+import { apiFetch, workspaceApiPath } from './api-client.js';
+import { GIT_LOG_ENTRIES_PER_PAGE } from './state-git.js';
+
 GitLogModal.state.graphVisible = false;
 GitLogModal.state.graph = {
   loaded: 0,
@@ -7,6 +14,10 @@ GitLogModal.state.graph = {
 };
 
 Object.assign(GitLogModal, {
+  /**
+   * Toggles the commit graph view open or closed.
+   * @returns {Promise<void>}
+   */
   async toggleGraphView() {
     if (GitLogModal.state.graphVisible) {
       GitLogModal.closeGraphView();
@@ -27,6 +38,10 @@ Object.assign(GitLogModal, {
     await GitLogModal.loadGraphLog();
   },
 
+  /**
+   * Closes the commit graph view and restores the diff layout.
+   * @returns {void}
+   */
   closeGraphView() {
     if (!GitLogModal.state.graphVisible) return;
     GitLogModal.state.graphVisible = false;
@@ -38,6 +53,11 @@ Object.assign(GitLogModal, {
     if (icon) icon.className = "mdi mdi-history";
   },
 
+  /**
+   * Fetches and renders graph log entries, optionally resetting the list.
+   * @param {boolean} reset - Whether to reset the list before loading.
+   * @returns {Promise<void>}
+   */
   async fetchGraphEntries(reset) {
     const graph = GitLogModal.state.graph;
     if (!selectedWorkspace) return;
@@ -71,6 +91,15 @@ Object.assign(GitLogModal, {
     }
   },
 
+  /**
+   * Loads the initial graph log (resets existing entries).
+   * @returns {Promise<void>}
+   */
   loadGraphLog() { return GitLogModal.fetchGraphEntries(true); },
+
+  /**
+   * Loads additional graph log entries (pagination).
+   * @returns {Promise<void>}
+   */
   loadMoreGraphLog() { return GitLogModal.fetchGraphEntries(false); },
 });

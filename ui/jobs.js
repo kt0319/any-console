@@ -1,31 +1,52 @@
-function getCachedJobsForWorkspace(workspace) {
+// @ts-check
+import { selectedWorkspace, workspaceJobs, setWorkspaceJobs, workspaceJobsCache, setWorkspaceJobsCache, workspaceJobsLoadedFor, setWorkspaceJobsLoadedFor, pendingJob, setPendingJob, allWorkspaces, isLaunchingTerminal, setIsLaunchingTerminal } from './state-core.js';
+import { apiFetch, workspaceApiPath, getActionFailureMessage } from './api-client.js';
+import { $, escapeHtml, showToast } from './utils.js';
+import { renderTabBar, addTerminalTab } from './terminal-tabs.js';
+
+/**
+ * @param {string|null} workspace
+ * @returns {Record<string,any>|null}
+ */
+export function getCachedJobsForWorkspace(workspace) {
   if (!workspace) return null;
   if (!Object.prototype.hasOwnProperty.call(workspaceJobsCache, workspace)) return null;
   return workspaceJobsCache[workspace];
 }
 
-function setCachedJobsForWorkspace(workspace, jobs) {
+/**
+ * @param {string|null} workspace
+ * @param {Record<string,any>|null} jobs
+ */
+export function setCachedJobsForWorkspace(workspace, jobs) {
   if (!workspace) return;
   workspaceJobsCache[workspace] = jobs || {};
 }
 
-function invalidateWorkspaceJobsCache(workspace) {
+/**
+ * @param {string|null} [workspace]
+ */
+export function invalidateWorkspaceJobsCache(workspace) {
   if (!workspace) {
-    workspaceJobsCache = {};
-    workspaceJobsLoadedFor = null;
+    setWorkspaceJobsCache({});
+    setWorkspaceJobsLoadedFor(null);
     return;
   }
   delete workspaceJobsCache[workspace];
   if (workspaceJobsLoadedFor === workspace) {
-    workspaceJobsLoadedFor = null;
+    setWorkspaceJobsLoadedFor(null);
   }
 }
 
-async function loadJobsForWorkspace(force = false) {
+/**
+ * @param {boolean} [force]
+ * @returns {Promise<void>}
+ */
+export async function loadJobsForWorkspace(force = false) {
   if (!selectedWorkspace) {
-    workspaceJobs = {};
-    workspaceJobsLoadedFor = null;
-    pendingJob = null;
+    setWorkspaceJobs({});
+    setWorkspaceJobsLoadedFor(null);
+    setPendingJob(null);
     $("output").innerHTML = '<div class="empty-state"></div>';
     return;
   }
@@ -33,14 +54,14 @@ async function loadJobsForWorkspace(force = false) {
   const targetWorkspace = selectedWorkspace;
   const cachedJobs = getCachedJobsForWorkspace(targetWorkspace);
   if (!force && cachedJobs) {
-    workspaceJobs = cachedJobs;
-    workspaceJobsLoadedFor = targetWorkspace;
-    pendingJob = null;
+    setWorkspaceJobs(cachedJobs);
+    setWorkspaceJobsLoadedFor(targetWorkspace);
+    setPendingJob(null);
     renderTabBar();
     return;
   }
   if (!force && workspaceJobsLoadedFor === targetWorkspace) {
-    pendingJob = null;
+    setPendingJob(null);
     renderTabBar();
     return;
   }
@@ -50,36 +71,41 @@ async function loadJobsForWorkspace(force = false) {
     if (!res || !res.ok) {
       if (selectedWorkspace !== targetWorkspace) return;
       if (cachedJobs) {
-        workspaceJobs = cachedJobs;
-        workspaceJobsLoadedFor = targetWorkspace;
+        setWorkspaceJobs(cachedJobs);
+        setWorkspaceJobsLoadedFor(targetWorkspace);
       } else {
-        workspaceJobs = {};
-        workspaceJobsLoadedFor = null;
+        setWorkspaceJobs({});
+        setWorkspaceJobsLoadedFor(null);
       }
     } else {
       const jobs = await res.json();
       if (selectedWorkspace !== targetWorkspace) return;
-      workspaceJobs = jobs;
+      setWorkspaceJobs(jobs);
       setCachedJobsForWorkspace(targetWorkspace, jobs);
-      workspaceJobsLoadedFor = targetWorkspace;
+      setWorkspaceJobsLoadedFor(targetWorkspace);
     }
   } catch (e) {
     console.error("loadJobsForWorkspace failed:", e);
     if (selectedWorkspace !== targetWorkspace) return;
     if (cachedJobs) {
-      workspaceJobs = cachedJobs;
-      workspaceJobsLoadedFor = targetWorkspace;
+      setWorkspaceJobs(cachedJobs);
+      setWorkspaceJobsLoadedFor(targetWorkspace);
     } else {
-      workspaceJobs = {};
-      workspaceJobsLoadedFor = null;
+      setWorkspaceJobs({});
+      setWorkspaceJobsLoadedFor(null);
     }
   }
 
-  pendingJob = null;
+  setPendingJob(null);
   renderTabBar();
 }
 
-async function fetchWorkspaceJobDetail(workspace, jobName) {
+/**
+ * @param {string} workspace
+ * @param {string} jobName
+ * @returns {Promise<Record<string,any>|null>}
+ */
+export async function fetchWorkspaceJobDetail(workspace, jobName) {
   if (!workspace || !jobName || jobName === "terminal") return null;
   try {
     const res = await apiFetch(workspaceApiPath(workspace, `/jobs/${encodeURIComponent(jobName)}`));
@@ -91,10 +117,14 @@ async function fetchWorkspaceJobDetail(workspace, jobName) {
   }
 }
 
-async function openJobConfirmModal(name) {
+/**
+ * @param {string} name
+ * @returns {Promise<void>}
+ */
+export async function openJobConfirmModal(name) {
   const job = workspaceJobs[name];
   if (!job) return;
-  pendingJob = name;
+  setPendingJob(name);
   $("job-confirm-title").textContent = job.label || name;
 
   const argsContainer = $("job-confirm-args");
@@ -149,24 +179,36 @@ async function openJobConfirmModal(name) {
   $("job-confirm-modal").style.display = "flex";
 }
 
-function closeJobConfirmModal() {
+/**
+ * @returns {void}
+ */
+export function closeJobConfirmModal() {
   $("job-confirm-modal").style.display = "none";
 }
 
-function collectConfirmArgs() {
+/**
+ * @returns {Record<string,string>}
+ */
+export function collectConfirmArgs() {
   const job = workspaceJobs[pendingJob];
   if (!job || !job.args) return {};
   const args = {};
   for (const arg of job.args) {
     const checked = document.querySelector(`input[name="confirm-arg-${CSS.escape(arg.name)}"]:checked`);
-    if (checked) args[arg.name] = checked.value;
+    if (checked) args[arg.name] = /** @type {HTMLInputElement} */ (checked).value;
   }
   return args;
 }
 
-let jobExecutionQueue = Promise.resolve();
+/** @type {Promise<void>} */
+export let jobExecutionQueue = Promise.resolve();
 
-function resolveJobByNameOrLabel(jobs, identifier) {
+/**
+ * @param {Record<string,any>|null} jobs
+ * @param {string} identifier
+ * @returns {{ key: string, job: Record<string,any>|null }}
+ */
+export function resolveJobByNameOrLabel(jobs, identifier) {
   if (!jobs || identifier === "terminal") return { key: identifier, job: null };
   if (jobs[identifier]) return { key: identifier, job: jobs[identifier] };
   for (const [name, def] of Object.entries(jobs)) {
@@ -177,11 +219,17 @@ function resolveJobByNameOrLabel(jobs, identifier) {
   return { key: identifier, job: null };
 }
 
-async function runJob(jobName = null, argsOverride = null, workspaceOverride = null) {
+/**
+ * @param {string|null} [jobName]
+ * @param {Record<string,string>|null} [argsOverride]
+ * @param {string|null} [workspaceOverride]
+ * @returns {Promise<void>}
+ */
+export async function runJob(jobName = null, argsOverride = null, workspaceOverride = null) {
   const targetJob = jobName || pendingJob;
   if (!targetJob) return Promise.resolve();
   if (pendingJob !== targetJob) {
-    pendingJob = targetJob;
+    setPendingJob(targetJob);
   }
   const runPromise = jobExecutionQueue.then(() => executeJobInTerminal(targetJob, workspaceOverride));
   jobExecutionQueue = runPromise.catch((e) => {
@@ -190,7 +238,12 @@ async function runJob(jobName = null, argsOverride = null, workspaceOverride = n
   return runPromise;
 }
 
-async function executeJobInTerminal(targetJob, workspaceOverride) {
+/**
+ * @param {string} targetJob
+ * @param {string|null} workspaceOverride
+ * @returns {Promise<void>}
+ */
+export async function executeJobInTerminal(targetJob, workspaceOverride) {
   const workspace = workspaceOverride || selectedWorkspace;
   let resolvedJobKey = targetJob;
   let job = null;
@@ -262,7 +315,7 @@ async function executeJobInTerminal(targetJob, workspaceOverride) {
     wsIcon = wsIconObj;
   }
 
-  isLaunchingTerminal = true;
+  setIsLaunchingTerminal(true);
 
   try {
     const requestedJobName = resolvedJobKey !== "terminal" ? resolvedJobKey : null;
@@ -292,11 +345,17 @@ async function executeJobInTerminal(targetJob, workspaceOverride) {
   } catch (e) {
     showToast(`${tabLabel} エラー: ${e.message}`);
   } finally {
-    isLaunchingTerminal = false;
+    setIsLaunchingTerminal(false);
   }
 }
 
-async function executeJobDirect(targetJob, job, workspace) {
+/**
+ * @param {string} targetJob
+ * @param {Record<string,any>} job
+ * @param {string|null} workspace
+ * @returns {Promise<void>}
+ */
+export async function executeJobDirect(targetJob, job, workspace) {
   const label = job.label || targetJob;
   try {
     const res = await apiFetch("/run", {
@@ -315,5 +374,3 @@ async function executeJobDirect(targetJob, job, workspace) {
     showToast(`${label}: ${e.message}`);
   }
 }
-
-
