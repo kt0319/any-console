@@ -54,6 +54,8 @@ const GitLogModal = {
     GitLogModal.resetCreateBranchArea();
     GitLogModal.state.onBack = null;
     GitLogModal.closeGraphView();
+    syncWorkspaceForTab(activeTabId);
+    refreshWorkspaceHeader({ reloadBranches: false });
   },
 
   resetActionMenu() {
