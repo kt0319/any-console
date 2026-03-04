@@ -7,7 +7,7 @@ import { exitAllViewModes } from './terminal-view-mode.js';
 import { uploadClipboardImage } from './quick-input-keys.js';
 
 /** @type {{ btn: HTMLElement, tab: object, placeholder: HTMLElement, bar: HTMLElement, barRect: DOMRect, offsetX: number, startX: number, moved: boolean, isTouch: boolean } | null} */
-let tabDragState = null;
+export let tabDragState = null;
 
 /**
  * Binds mouse drag behavior to a tab button for reordering.

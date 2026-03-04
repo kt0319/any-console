@@ -678,7 +678,7 @@ async function loadFileContent(path) {
  * Loads a directory listing into the diff-pane file browser and switches to file view mode.
  * @param {string} path - Directory path to load
  */
-async function loadDirectoryInDiffPane(path) {
+export async function loadDirectoryInDiffPane(path) {
   setDiffViewerMode("file");
   await loadDirectoryByView(path, "diff-pane");
 }

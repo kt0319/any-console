@@ -379,7 +379,7 @@ async function selectDiffFile(file) {
 }
 
 /** @returns {Promise<void>} */
-async function loadDiffTab() {
+export async function loadDiffTab() {
   if (!selectedWorkspace) return;
   clearActiveDiffRef();
 
@@ -411,7 +411,7 @@ async function openDiffModal() {
 }
 
 /** @returns {void} */
-function openCommitForm() {
+export function openCommitForm() {
   const form = $("diff-commit-form");
   const visible = form.style.display !== "none";
   if (visible) {
@@ -425,14 +425,14 @@ function openCommitForm() {
 }
 
 /** @returns {void} */
-function closeCommitForm() {
+export function closeCommitForm() {
   $("diff-commit-form").style.display = "none";
   $("diff-commit-message").value = "";
   hideFormError("diff-commit-error");
 }
 
 /** @returns {Promise<void>} */
-async function submitCommit() {
+export async function submitCommit() {
   const message = $("diff-commit-message").value.trim();
   if (!message) {
     showFormError("diff-commit-error", "コミットメッセージを入力してください");

@@ -3,7 +3,7 @@ import { openTabs, activeTabId, setActiveTabId, splitMode, splitPaneTabIds, setS
 import { $, setupModalSwipeClose, escapeHtml, showToast, renderIcon } from './utils.js';
 import { persistOpenTabs, tabDisplayName, switchTab, removeTab, renderTabBar, syncWorkspaceForTab, updateHeaderForTab, relaunchExpiredOrphan, updateGitBarVisibility, renderTabIconHtml } from './terminal-tabs.js';
 import { syncTerminalSessionState } from './terminal-connection.js';
-import { enterSplitMode, rebuildSplitLayout, exitSplitMode, exitSplitModeWithTab, setActivePaneIndex as setSplitActivePaneIndex } from './terminal-split.js';
+import { enterSplitMode, rebuildSplitLayout, exitSplitMode, exitSplitModeWithTab, selectActivePane as setSplitActivePaneIndex } from './terminal-split.js';
 import { createTerminalTabModalWorkspaceSection } from './terminal-tab-modal-workspace.js';
 import { GitLogModal } from './git-log-modal.js';
 import { runJob } from './jobs.js';
