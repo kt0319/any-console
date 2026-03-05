@@ -57,6 +57,13 @@ def _cleanup_terminal_sessions():
         _kill_pty_session(session)
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """各テスト前にレートリミッターのカウンターをリセット"""
+    from api.rate_limiter import _counter
+    _counter._counts.clear()
+
+
 @pytest.fixture()
 def git_workspace(workspace):
     """git initされたワークスペース"""
