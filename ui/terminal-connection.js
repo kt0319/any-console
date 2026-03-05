@@ -493,5 +493,48 @@ export function connectTerminalWs(tab) {
         tab.ws.send(resizePayload);
       }
     });
+
+    if (isTouchDevice) {
+      setupScrollBottomButton(tab);
+    }
   }
+}
+
+/**
+ * Sets up a scroll-to-bottom button overlay on the terminal frame.
+ * Only used on touch devices.
+ * @param {Object} tab - The terminal tab object.
+ */
+function setupScrollBottomButton(tab) {
+  const frame = $(`frame-${tab.id}`);
+  if (!frame) return;
+
+  const btn = document.createElement("button");
+  btn.className = "scroll-bottom-btn";
+  btn.style.display = "none";
+  btn.innerHTML = '<span class="mdi mdi-chevron-down"></span>';
+  btn.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    tab.term.scrollToBottom();
+  });
+  frame.appendChild(btn);
+  tab._scrollBottomBtn = btn;
+
+  const updateScrollBtn = () => {
+    const buffer = tab.term.buffer.active;
+    const scrolledUp = buffer.baseY > 0 && buffer.viewportY < buffer.baseY;
+    btn.style.display = scrolledUp ? "" : "none";
+  };
+  tab.term.onScroll(updateScrollBtn);
+
+  requestAnimationFrame(() => {
+    const viewport = frame.querySelector(".xterm-viewport");
+    if (viewport) {
+      viewport.addEventListener("scroll", updateScrollBtn, { passive: true });
+    }
+  });
+  frame.addEventListener("touchend", () => {
+    setTimeout(updateScrollBtn, 150);
+  }, { passive: true });
 }
