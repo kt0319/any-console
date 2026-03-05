@@ -1974,6 +1974,7 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
+  outline: none;
 }
 
 #settings-terminal-view,
@@ -2371,7 +2372,8 @@ button:disabled {
 }
 
 .git-log-dirty-branch-btn,
-.git-log-graph-btn {
+.git-log-graph-btn,
+.git-log-github-btn {
   align-self: stretch;
   width: 40px;
   min-width: 40px;
@@ -3901,12 +3903,12 @@ button:disabled {
   min-height: 44px;
   flex-shrink: 0;
   padding: 0;
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4015,6 +4017,32 @@ button:disabled {
   border-radius: 4px;
   background: var(--bg-tertiary);
   color: var(--text-secondary);
+}
+
+.github-run-icon {
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.github-run-success {
+  color: var(--success);
+}
+
+.github-run-failure {
+  color: var(--danger);
+}
+
+.github-run-cancelled {
+  color: var(--text-muted);
+}
+
+.github-run-progress {
+  color: var(--warning);
+}
+
+.github-run-workflow {
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .github-error,

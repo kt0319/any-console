@@ -26,7 +26,7 @@ from ..config import (
     save_global_config_section,
     save_workspace_config,
 )
-from ..git_utils import command_result_dict, git_branch, git_info_to_status_dict, git_is_repo
+from ..git_utils import command_result_dict, git_branch, git_github_url, git_info_to_status_dict, git_is_repo
 from ..icons import normalize_icon
 
 logger = logging.getLogger(__name__)
@@ -66,8 +66,9 @@ def _lightweight_workspace_info(workspace_dir):
     name = workspace_dir.name
     is_git = git_is_repo(workspace_dir)
     branch = git_branch(workspace_dir) if is_git else None
+    github_url = git_github_url(workspace_dir) if is_git else None
     config = load_workspace_config(name)
-    return {
+    info = {
         "name": name,
         "is_git_repo": is_git,
         "branch": branch,
@@ -75,6 +76,9 @@ def _lightweight_workspace_info(workspace_dir):
         "icon_color": config.get("icon_color", ""),
         "hidden": config.get("hidden", False),
     }
+    if github_url:
+        info["github_url"] = github_url
+    return info
 
 
 @router.get("/workspaces")

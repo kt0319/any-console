@@ -70,3 +70,12 @@ def git_workspace(workspace):
         cwd=workspace, check=True, capture_output=True,
     )
     return workspace
+
+
+@pytest.fixture()
+def git_workspace_with_commit(git_workspace):
+    """コミット済みのgitワークスペース"""
+    (git_workspace / "README.md").write_text("# test\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=git_workspace, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "initial"], cwd=git_workspace, check=True, capture_output=True)
+    return git_workspace

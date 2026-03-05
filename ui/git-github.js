@@ -8,10 +8,7 @@ import { GitLogModal } from './git-log-modal.js';
  * Updates the GitHub button visibility based on the current workspace's github_url.
  */
 export function updateGitHubButtonVisibility() {
-  const btn = $("git-modal-github-btn");
-  if (!btn) return;
-  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
-  btn.style.display = ws && ws.github_url ? "" : "none";
+  // no-op: GitHub button is now rendered inline in dirty entry
 }
 
 /**
@@ -35,10 +32,11 @@ export async function openGitHubPane() {
   content.innerHTML = '<div class="github-loading">読み込み中...</div>';
 
   const basePath = workspaceApiPath(selectedWorkspace, "/github");
-  const [infoRes, pullsRes, issuesRes] = await Promise.all([
+  const [infoRes, pullsRes, issuesRes, runsRes] = await Promise.all([
     apiFetch(`${basePath}/info`).then((r) => r && r.json()).catch(() => null),
     apiFetch(`${basePath}/pulls`).then((r) => r && r.json()).catch(() => null),
     apiFetch(`${basePath}/issues`).then((r) => r && r.json()).catch(() => null),
+    apiFetch(`${basePath}/runs`).then((r) => r && r.json()).catch(() => null),
   ]);
 
   const githubUrl = getGitHubUrl();
@@ -67,6 +65,7 @@ export async function openGitHubPane() {
 
   html += renderList("Pull Requests", pullsRes, githubUrl, "pull");
   html += renderList("Issues", issuesRes, githubUrl, "issues");
+  html += renderRuns("Actions", runsRes, githubUrl);
 
   content.innerHTML = html;
 }
@@ -120,6 +119,57 @@ function renderList(title, res, githubUrl, type) {
       }
       html += "</span>";
     }
+    html += "</div>";
+  }
+
+  return html;
+}
+
+/** @type {Record<string, { icon: string, cls: string }>} */
+const RUN_STATUS = {
+  success: { icon: "\u2714", cls: "github-run-success" },
+  failure: { icon: "\u2716", cls: "github-run-failure" },
+  cancelled: { icon: "\u25CB", cls: "github-run-cancelled" },
+  in_progress: { icon: "\u25F7", cls: "github-run-progress" },
+  queued: { icon: "\u25F7", cls: "github-run-progress" },
+  waiting: { icon: "\u25F7", cls: "github-run-progress" },
+};
+
+/**
+ * @param {string} title
+ * @param {object|null} res
+ * @param {string|null} githubUrl
+ */
+function renderRuns(title, res, githubUrl) {
+  let html = `<div class="github-section-title">${escapeHtml(title)}`;
+  if (githubUrl) {
+    html += ` <a href="${escapeHtml(githubUrl)}/actions" target="_blank" rel="noopener" class="github-section-link">Open</a>`;
+  }
+  html += "</div>";
+
+  if (!res || res.status !== "ok") {
+    const msg = res && res.message ? res.message : "取得できませんでした";
+    html += `<div class="github-error">${escapeHtml(msg)}</div>`;
+    return html;
+  }
+
+  const items = res.data;
+  if (!items || items.length === 0) {
+    html += '<div class="github-empty">なし</div>';
+    return html;
+  }
+
+  for (const run of items) {
+    const key = run.conclusion || run.status || "";
+    const st = RUN_STATUS[key] || { icon: "?", cls: "" };
+    const runUrl = run.url || null;
+
+    html += `<div class="github-item"${runUrl ? ` data-url="${escapeHtml(runUrl)}"` : ""}>`;
+    html += `<span class="github-run-icon ${st.cls}">${st.icon}</span> `;
+    html += `<span class="github-item-title">${escapeHtml(run.displayTitle || "")}</span>`;
+    if (run.workflowName) html += ` <span class="github-run-workflow">${escapeHtml(run.workflowName)}</span>`;
+    if (run.headBranch) html += ` <span class="github-branch">${escapeHtml(run.headBranch)}</span>`;
+    if (run.event) html += ` <span class="github-item-author">${escapeHtml(run.event)}</span>`;
     html += "</div>";
   }
 

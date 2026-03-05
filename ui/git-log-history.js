@@ -8,6 +8,7 @@ import { GIT_LOG_ENTRIES_PER_PAGE } from './state-git.js';
 
 // Circular deps (only used in function bodies)
 import { openCommitDiffModal, loadDiffTab, openCommitForm } from './git-diff.js';
+import { openGitHubPane } from './git-github.js';
 
 /** @type {string[]} */
 export const GRAPH_COLORS = [
@@ -276,11 +277,16 @@ Object.assign(GitLogModal, {
       '<button type="button" class="git-action-btn icon-only git-log-graph-btn" title="コミットグラフ" aria-label="コミットグラフ">' +
         '<span class="mdi mdi-history"></span>' +
       "</button>";
+    const githubButtonHtml = ws && ws.github_url
+      ? '<button type="button" class="git-action-btn icon-only git-log-github-btn" title="GitHub" aria-label="GitHub">' +
+          '<span class="mdi mdi-github"></span>' +
+        "</button>"
+      : "";
     let bodyHtml =
       '<span class="git-log-entry-body git-log-dirty-body">' +
         '<span class="git-log-dirty-main">';
     bodyHtml += GitLogModal.renderDirtyWorkspaceLabel(ws);
-    bodyHtml += `</span><span class="git-log-dirty-actions">${isDirty ? commitButtonHtml : ""}${stashButtonHtml}${branchButtonHtml}${graphButtonHtml}</span></span>`;
+    bodyHtml += `</span><span class="git-log-dirty-actions">${isDirty ? commitButtonHtml : ""}${stashButtonHtml}${branchButtonHtml}${graphButtonHtml}${githubButtonHtml}</span></span>`;
     entry.innerHTML = bodyHtml;
     const commitBtn = entry.querySelector(".git-log-dirty-commit-btn");
     commitBtn?.addEventListener("click", (event) => {
@@ -303,6 +309,11 @@ Object.assign(GitLogModal, {
     graphBtn?.addEventListener("click", (event) => {
       event.stopPropagation();
       GitLogModal.toggleGraphView();
+    });
+    const githubBtn = entry.querySelector(".git-log-github-btn");
+    githubBtn?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openGitHubPane();
     });
     if (isDirty) {
       entry.addEventListener("click", () => {

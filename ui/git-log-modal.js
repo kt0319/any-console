@@ -291,6 +291,10 @@ export const GitLogModal = {
       back: !!titleOptions.back,
       onClick: titleOptions.onClick || null,
     });
+    const lowerPane = document.querySelector(".diff-lower-pane");
+    if (lowerPane) {
+      lowerPane.style.display = mode === "github" ? "none" : "";
+    }
   },
 
   /**

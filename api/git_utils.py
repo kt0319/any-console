@@ -89,6 +89,25 @@ def git_branch(directory: Path) -> str | None:
     return None
 
 
+def git_github_url(directory: Path) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True, text=True, timeout=GIT_QUICK_TIMEOUT_SEC,
+            cwd=str(directory),
+        )
+        if result.returncode == 0:
+            url = result.stdout.strip()
+            if "github.com" in url:
+                url = url.removesuffix(".git")
+                if url.startswith("git@github.com:"):
+                    url = "https://github.com/" + url[len("git@github.com:"):]
+                return url
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    return None
+
+
 def git_is_repo(directory: Path) -> bool:
     try:
         result = subprocess.run(

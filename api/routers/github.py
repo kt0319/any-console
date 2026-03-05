@@ -70,3 +70,16 @@ def github_pulls(name: str):
     if data is None:
         return {"status": "error", "message": "Pull Requests を取得できませんでした"}
     return {"status": "ok", "data": data}
+
+
+@router.get("/workspaces/{name}/github/runs")
+def github_runs(name: str):
+    ws_path = resolve_workspace_path(name)
+    data = _run_gh(
+        ["run", "list", "--limit", "15", "--json",
+         "databaseId,displayTitle,status,conclusion,event,headBranch,createdAt,updatedAt,url,workflowName"],
+        cwd=str(ws_path),
+    )
+    if data is None:
+        return {"status": "error", "message": "Actions を取得できませんでした"}
+    return {"status": "ok", "data": data}
