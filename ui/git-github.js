@@ -45,26 +45,14 @@ export async function openGitHubPane() {
   if (infoRes && infoRes.status === "ok") {
     const d = infoRes.data;
     const ownerName = d.owner ? d.owner.login : "";
-    const visibility = d.isPrivate ? "Private" : "Public";
-    const lang = d.primaryLanguage ? d.primaryLanguage.name : "";
-    const defaultBranch = d.defaultBranchRef ? d.defaultBranchRef.name : "";
-    html += '<div class="github-repo-info">';
-    html += `<div class="github-repo-name">${escapeHtml(ownerName)}/${escapeHtml(d.name || "")}</div>`;
-    if (d.description) html += `<div class="github-repo-desc">${escapeHtml(d.description)}</div>`;
-    html += '<div class="github-repo-meta">';
-    html += `<span>${escapeHtml(visibility)}</span>`;
-    if (lang) html += `<span>${escapeHtml(lang)}</span>`;
-    if (defaultBranch) html += `<span>${escapeHtml(defaultBranch)}</span>`;
-    html += `<span>\u2605 ${d.stargazerCount ?? 0}</span>`;
-    html += `<span>\ud83c\udf74 ${d.forkCount ?? 0}</span>`;
-    html += "</div></div>";
+    html += `<div class="github-section-title github-section-link github-repo-name" data-url="${escapeHtml(githubUrl || "")}">${escapeHtml(ownerName)}/${escapeHtml(d.name || "")}</div>`;
   } else {
     const msg = infoRes && infoRes.message ? infoRes.message : "GitHub情報を取得できませんでした";
     html += `<div class="github-error">${escapeHtml(msg)}</div>`;
   }
 
-  html += renderList("Pull Requests", pullsRes, githubUrl, "pull");
   html += renderList("Issues", issuesRes, githubUrl, "issues");
+  html += renderList("Pull Requests", pullsRes, githubUrl, "pull");
   html += renderRuns("Actions", runsRes, githubUrl);
 
   content.innerHTML = html;
@@ -77,12 +65,10 @@ export async function openGitHubPane() {
  * @param {"pull"|"issues"} type
  */
 function renderList(title, res, githubUrl, type) {
-  let html = `<div class="github-section-title">${escapeHtml(title)}`;
-  if (githubUrl) {
-    const url = type === "pull" ? `${githubUrl}/pulls` : `${githubUrl}/issues`;
-    html += ` <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="github-section-link">Open</a>`;
-  }
-  html += "</div>";
+  const url = githubUrl ? (type === "pull" ? `${githubUrl}/pulls` : `${githubUrl}/issues`) : null;
+  const count = res && res.status === "ok" && res.data ? res.data.length : 0;
+  const badge = `<span class="github-section-badge">${count}</span>`;
+  let html = `<div class="github-section-title${url ? " github-section-link" : ""}"${url ? ` data-url="${escapeHtml(url)}"` : ""}>${escapeHtml(title)}${badge}</div>`;
 
   if (!res || res.status !== "ok") {
     const msg = res && res.message ? res.message : "取得できませんでした";
@@ -92,7 +78,6 @@ function renderList(title, res, githubUrl, type) {
 
   const items = res.data;
   if (!items || items.length === 0) {
-    html += '<div class="github-empty">なし</div>';
     return html;
   }
 
@@ -141,11 +126,10 @@ const RUN_STATUS = {
  * @param {string|null} githubUrl
  */
 function renderRuns(title, res, githubUrl) {
-  let html = `<div class="github-section-title">${escapeHtml(title)}`;
-  if (githubUrl) {
-    html += ` <a href="${escapeHtml(githubUrl)}/actions" target="_blank" rel="noopener" class="github-section-link">Open</a>`;
-  }
-  html += "</div>";
+  const actionsUrl = githubUrl ? `${githubUrl}/actions` : null;
+  const count = res && res.status === "ok" && res.data ? res.data.length : 0;
+  const badge = `<span class="github-section-badge">${count}</span>`;
+  let html = `<div class="github-section-title${actionsUrl ? " github-section-link" : ""}"${actionsUrl ? ` data-url="${escapeHtml(actionsUrl)}"` : ""}>${escapeHtml(title)}${badge}</div>`;
 
   if (!res || res.status !== "ok") {
     const msg = res && res.message ? res.message : "取得できませんでした";
@@ -155,7 +139,6 @@ function renderRuns(title, res, githubUrl) {
 
   const items = res.data;
   if (!items || items.length === 0) {
-    html += '<div class="github-empty">なし</div>';
     return html;
   }
 
@@ -180,9 +163,9 @@ export function initGitHubPane() {
   const content = $("git-github-content");
   if (!content) return;
   content.addEventListener("click", (e) => {
-    const item = /** @type {HTMLElement} */ (e.target).closest(".github-item[data-url]");
-    if (item) {
-      window.open(item.dataset.url, "_blank", "noopener");
+    const link = /** @type {HTMLElement} */ (e.target).closest("[data-url]");
+    if (link) {
+      window.open(link.dataset.url, "_blank");
     }
   });
 }
