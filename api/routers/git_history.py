@@ -61,7 +61,9 @@ def get_git_log(name: str, limit: int = 50, skip: int = 0, graph: bool = False):
 def git_cherry_pick(name: str, body: CommitActionRequest):
     ws_path = resolve_workspace_path(name)
     commit_hash = validate_commit_hash(body.commit_hash)
-    result = run_git_command(["cherry-pick", commit_hash], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="cherry-pick")
+    result = run_git_command(
+        ["cherry-pick", commit_hash], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="cherry-pick",
+    )
     logger.info("cherry-pick workspace=%s commit=%s rc=%d", name, commit_hash[:8], result["exit_code"])
     if result["exit_code"] == 0:
         log_operation("cherry-pick", name, commit_hash[:8])
@@ -73,7 +75,9 @@ def git_cherry_pick(name: str, body: CommitActionRequest):
 def git_revert(name: str, body: CommitActionRequest):
     ws_path = resolve_workspace_path(name)
     commit_hash = validate_commit_hash(body.commit_hash)
-    result = run_git_command(["revert", "--no-edit", commit_hash], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="revert")
+    result = run_git_command(
+        ["revert", "--no-edit", commit_hash], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="revert",
+    )
     logger.info("revert workspace=%s commit=%s rc=%d", name, commit_hash[:8], result["exit_code"])
     if result["exit_code"] == 0:
         log_operation("revert", name, commit_hash[:8])
@@ -87,7 +91,9 @@ def git_reset(name: str, body: ResetRequest):
     commit_hash = validate_commit_hash(body.commit_hash)
     if body.mode not in ("soft", "hard"):
         raise HTTPException(status_code=400, detail=f"Invalid reset mode: {body.mode}")
-    result = run_git_command(["reset", f"--{body.mode}", commit_hash], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="reset")
+    result = run_git_command(
+        ["reset", f"--{body.mode}", commit_hash], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="reset",
+    )
     logger.info("reset workspace=%s mode=%s commit=%s rc=%d", name, body.mode, commit_hash[:8], result["exit_code"])
     if result["exit_code"] == 0:
         log_operation("reset", name, f"{body.mode} {commit_hash[:8]}")

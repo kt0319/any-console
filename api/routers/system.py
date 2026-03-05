@@ -66,7 +66,9 @@ def _get_os_name() -> str | None:
 def _get_uptime() -> str | None:
     if IS_DARWIN:
         try:
-            result = subprocess.run(["sysctl", "-n", "kern.boottime"], capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC)
+            result = subprocess.run(
+                ["sysctl", "-n", "kern.boottime"], capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
+            )
             if result.returncode == 0:
                 m = re.search(r"sec\s*=\s*(\d+)", result.stdout)
                 if m:
@@ -109,7 +111,9 @@ def _get_cpu_temp() -> str | None:
 def _get_memory() -> str | None:
     if IS_DARWIN:
         try:
-            result = subprocess.run(["sysctl", "-n", "hw.memsize"], capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC)
+            result = subprocess.run(
+                ["sysctl", "-n", "hw.memsize"], capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
+            )
             if result.returncode != 0:
                 return None
             total_bytes = int(result.stdout.strip())
@@ -159,9 +163,9 @@ def get_system_processes():
         if result.returncode != 0:
             raise HTTPException(status_code=500, detail="ps command failed")
     except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=500, detail="ps command timed out")
+        raise HTTPException(status_code=500, detail="ps command timed out") from None
     except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="ps command not found")
+        raise HTTPException(status_code=500, detail="ps command not found") from None
 
     lines = result.stdout.strip().splitlines()
     processes = []

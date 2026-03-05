@@ -99,7 +99,9 @@ def get_workspace_job(name: str, job_name: str):
     return job_definition_to_dict(job_def)
 
 
-ICON_PATTERN = re.compile(r"^(mdi-[a-zA-Z0-9-]+|favicon:[a-zA-Z0-9._-]+|data:image/.+|icon:[a-f0-9]{16}\.(png|jpg|gif|webp|svg))$")
+ICON_PATTERN = re.compile(
+    r"^(mdi-[a-zA-Z0-9-]+|favicon:[a-zA-Z0-9._-]+|data:image/.+|icon:[a-f0-9]{16}\.(png|jpg|gif|webp|svg))$",
+)
 ICON_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{3,6}$")
 MAX_ICON_VALUE_LEN = 200_000
 
@@ -307,7 +309,7 @@ def execute_job(body: RunRequest):
             fd, pid = create_pty_session(cwd_path)
         except OSError as e:
             logger.error("pty fork failed: %s", e)
-            raise HTTPException(status_code=500, detail=f"Failed to create terminal: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to create terminal: {e}") from None
         try:
             TERMINAL_SESSIONS[session_id] = TerminalSession(
                 workspace=body.workspace,
@@ -344,7 +346,7 @@ def execute_job(body: RunRequest):
         result = run_job(job_def, ordered_args, workspace=cwd_path)
     except subprocess.TimeoutExpired:
         logger.warning("job timeout job=%s workspace=%s", body.job, body.workspace or "(none)")
-        raise HTTPException(status_code=504, detail="Job timed out")
+        raise HTTPException(status_code=504, detail="Job timed out") from None
 
     payload = command_result_dict(result)
 

@@ -15,7 +15,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response, UploadFi
 from fastapi.staticfiles import StaticFiles
 
 from .auth import verify_token
-from .common import BACKGROUND_EXECUTOR, LOG_BUFFER, UPLOAD_DIR, WORK_DIR, _current_device
+from .common import BACKGROUND_EXECUTOR, LOG_BUFFER, UPLOAD_DIR, _current_device
 from .icons import ICONS_DIR
 from .routers import git, jobs, logs, settings, system, terminal, workspaces
 
@@ -99,7 +99,7 @@ async def log_requests(request: Request, call_next):
 
 @app.on_event("shutdown")
 def shutdown_cleanup():
-    for sid, session in list(terminal.TERMINAL_SESSIONS.items()):
+    for _sid, session in list(terminal.TERMINAL_SESSIONS.items()):
         terminal._kill_pty_session(session)
     terminal.TERMINAL_SESSIONS.clear()
     BACKGROUND_EXECUTOR.shutdown(wait=False)

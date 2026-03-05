@@ -72,7 +72,9 @@ def validate_config_entry(name: str, data: Any, global_config_key: str) -> dict[
     return validate_workspace_config(data)
 
 
-def normalize_loaded_config(raw: Any, global_config_key: str) -> tuple[dict[str, Any], list[tuple[str, ValidationError | str]]]:
+def normalize_loaded_config(
+    raw: Any, global_config_key: str,
+) -> tuple[dict[str, Any], list[tuple[str, ValidationError | str]]]:
     if raw is None:
         return {}, []
     if not isinstance(raw, dict):

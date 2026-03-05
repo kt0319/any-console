@@ -135,9 +135,9 @@ async def upload_file_to_workspace(
     try:
         target_file.write_bytes(data)
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied")
+        raise HTTPException(status_code=403, detail="Permission denied") from None
     except OSError:
-        raise HTTPException(status_code=500, detail="Cannot write file")
+        raise HTTPException(status_code=500, detail="Cannot write file") from None
 
     rel_path = str(rel_dir / filename)
     log_operation("アップロード", name, filename)
@@ -160,9 +160,9 @@ def rename_file(name: str, src: str = Body(...), dest: str = Body(...)):
     try:
         src_target.rename(dest_target)
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied")
+        raise HTTPException(status_code=403, detail="Permission denied") from None
     except OSError as e:
-        raise HTTPException(status_code=500, detail=f"Rename failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Rename failed: {e}") from None
 
     log_operation("ファイル移動", name, f"{src} → {dest}")
     return {"status": "ok"}
@@ -182,9 +182,9 @@ def delete_file(name: str, path: str = Body(..., embed=True)):
         else:
             target.unlink()
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied")
+        raise HTTPException(status_code=403, detail="Permission denied") from None
     except OSError as e:
-        raise HTTPException(status_code=500, detail=f"Delete failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Delete failed: {e}") from None
 
     log_operation("ファイル削除", name, path)
     return {"status": "ok"}

@@ -8,6 +8,12 @@ WorkingDirectory=%INSTALL_DIR%
 EnvironmentFile=%INSTALL_DIR%/.env
 ExecStart=/usr/bin/python3 -m api.main
 Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%INSTALL_DIR% /tmp/pi-console-uploads
 
 [Install]
 WantedBy=multi-user.target

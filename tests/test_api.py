@@ -28,13 +28,11 @@ def isolate_fs(tmp_path, monkeypatch):
 
     import api.common as common_mod
     import api.config as config_mod
-    import api.main as main_mod
     import api.routers.settings as settings_mod
 
     monkeypatch.setattr(common_mod, "WORK_DIR", work)
     monkeypatch.setattr(common_mod, "CONFIG_FILE", config_file)
     monkeypatch.setattr(config_mod, "CONFIG_FILE", config_file)
-    monkeypatch.setattr(main_mod, "WORK_DIR", work)
     monkeypatch.setattr(settings_mod, "WORK_DIR", work)
 
     return {"work": work, "data": data, "config_file": config_file}

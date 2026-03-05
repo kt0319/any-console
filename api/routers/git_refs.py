@@ -117,7 +117,9 @@ def git_pull(name: str):
     result = run_git_command(["pull", "--rebase"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, env=env, operation="pull")
     stash_msg = ""
     if stashed:
-        pop = run_git_command(["stash", "pop"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, env=env, operation="stash pop")
+        pop = run_git_command(
+            ["stash", "pop"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, env=env, operation="stash pop",
+        )
         if pop["exit_code"] != 0:
             stash_msg = f"\n⚠️ stash pop failed:\n{pop['stderr']}"
     logger.info("pull workspace=%s rc=%d", name, result["exit_code"])

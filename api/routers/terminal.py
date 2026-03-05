@@ -28,7 +28,10 @@ router = APIRouter(dependencies=[Depends(verify_token)])
 WS_CLOSE_REPLACED = 4001
 
 class TerminalSession:
-    __slots__ = ("workspace", "fd", "pid", "expires_at", "_read_lock", "icon", "icon_color", "job_name", "job_label", "active_ws")
+    __slots__ = (
+        "workspace", "fd", "pid", "expires_at", "_read_lock",
+        "icon", "icon_color", "job_name", "job_label", "active_ws",
+    )
 
     def __init__(self, workspace: str | None, fd: int, pid: int, expires_at: float,
                  icon: str | None = None, icon_color: str | None = None,

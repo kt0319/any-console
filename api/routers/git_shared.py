@@ -23,7 +23,7 @@ def run_git_subprocess(args, cwd, text=True):
             cwd=str(cwd),
         )
     except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="Git operation timed out")
+        raise HTTPException(status_code=504, detail="Git operation timed out") from None
 
 
 MAX_DIFF_SIZE = 10 * 1024 * 1024
@@ -139,7 +139,7 @@ def resolve_workspace_target_path(ws_path, path: str):
     try:
         target.relative_to(ws_path.resolve())
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid path")
+        raise HTTPException(status_code=400, detail="Invalid path") from None
     return target
 
 
@@ -160,7 +160,7 @@ def read_file_content_response(path: str, target: Path):
     try:
         size = target.stat().st_size
     except OSError:
-        raise HTTPException(status_code=500, detail="Cannot stat file")
+        raise HTTPException(status_code=500, detail="Cannot stat file") from None
 
     ext = target.suffix.lower()
     if ext in IMAGE_EXTENSIONS:
@@ -169,9 +169,9 @@ def read_file_content_response(path: str, target: Path):
         try:
             raw = target.read_bytes()
         except PermissionError:
-            raise HTTPException(status_code=403, detail="Permission denied")
+            raise HTTPException(status_code=403, detail="Permission denied") from None
         except OSError:
-            raise HTTPException(status_code=500, detail="Cannot read file")
+            raise HTTPException(status_code=500, detail="Cannot read file") from None
         mime_type = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
         data_url = f"data:{mime_type};base64,{base64.b64encode(raw).decode('ascii')}"
         return {"status": "ok", "path": path, "image": True, "size": size, "mime_type": mime_type, "data_url": data_url}
@@ -185,7 +185,7 @@ def read_file_content_response(path: str, target: Path):
     try:
         content = target.read_text(encoding="utf-8", errors="replace")
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied")
+        raise HTTPException(status_code=403, detail="Permission denied") from None
 
     return {"status": "ok", "path": path, "content": content, "size": size}
 
@@ -278,7 +278,7 @@ def list_directory_entries(ws_path, target):
                         pass
                 entries.append(item)
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied")
+        raise HTTPException(status_code=403, detail="Permission denied") from None
 
     type_order = {"dir": 0, "symlink": 1, "file": 2}
     entries.sort(key=lambda e: (type_order.get(e["type"], 3), e["name"].lower()))

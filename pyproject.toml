@@ -4,10 +4,28 @@ line-length = 120
 include = ["api/**/*.py"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I"]
+select = ["E", "F", "W", "I", "B", "S", "C90"]
+ignore = [
+    "B008",
+    "S603",
+    "S607",
+]
 
 [tool.ruff.lint.per-file-ignores]
-"api/main.py" = ["E402"]
+"api/main.py" = ["E402", "S104"]
+"api/common.py" = ["S108"]
+"api/git_utils.py" = ["C901"]
+"api/routers/terminal.py" = ["S606", "S110", "C901"]
+"api/routers/workspaces.py" = ["C901"]
+"api/routers/git_shared.py" = ["C901"]
+"api/routers/jobs.py" = ["C901"]
+"api/routers/system.py" = ["C901"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

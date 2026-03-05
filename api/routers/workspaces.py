@@ -167,7 +167,7 @@ def clone_workspace(body: CloneRequest):
             resp["name"] = dir_name
         return resp
     except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="Clone timed out")
+        raise HTTPException(status_code=504, detail="Clone timed out") from None
 
 
 @router.get("/github/repos")
@@ -211,8 +211,8 @@ def list_github_repos():
         _github_repos_cache.set("repos", unique_repos)
         return unique_repos
     except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="gh command not found")
+        raise HTTPException(status_code=500, detail="gh command not found") from None
     except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="gh command timed out")
+        raise HTTPException(status_code=504, detail="gh command timed out") from None
     except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="Failed to parse gh output")
+        raise HTTPException(status_code=500, detail="Failed to parse gh output") from None

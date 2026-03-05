@@ -45,7 +45,7 @@ async def import_settings(request: Request):
     try:
         data = json.loads(body)
     except (json.JSONDecodeError, ValueError):
-        raise HTTPException(status_code=400, detail="Invalid JSON")
+        raise HTTPException(status_code=400, detail="Invalid JSON") from None
     if not isinstance(data, dict):
         raise HTTPException(status_code=400, detail="Expected JSON object")
     existing = _existing_workspace_names()
@@ -59,7 +59,7 @@ async def import_settings(request: Request):
     try:
         save_all_config(current)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from None
     log_operation("設定インポート")
     return {"status": "ok"}
 

@@ -58,7 +58,7 @@ def run_git_command(
         return command_result_dict(result)
     except subprocess.TimeoutExpired:
         label = operation or " ".join(args[:2])
-        raise HTTPException(status_code=504, detail=f"git {label} timed out")
+        raise HTTPException(status_code=504, detail=f"git {label} timed out") from None
 
 
 def validate_commit_hash(commit_hash: str) -> str:
