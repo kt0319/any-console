@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, WebSocket
 from fastapi.websockets import WebSocketDisconnect
 
 from ..auth import verify_token
-from ..common import TERMINAL_TIMEOUT_SEC, log_operation
+from ..common import PTY_READ_BUFFER_SIZE, PTY_READER_WORKERS, TERMINAL_TIMEOUT_SEC, log_operation
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +161,7 @@ async def delete_terminal_session(session_id: str):
 PTY_NO_DATA = b"\x00"
 PTY_EOF = b""
 
-PTY_EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="pty-reader")
+PTY_EXECUTOR = ThreadPoolExecutor(max_workers=PTY_READER_WORKERS, thread_name_prefix="pty-reader")
 
 # WS認証はsession_id(192bitトークン)で担保
 ws_router = APIRouter()
@@ -283,7 +283,7 @@ def _read_pty(fd: int, lock: threading.Lock, stop: threading.Event) -> bytes:
             return PTY_NO_DATA
         if stop.is_set():
             return PTY_EOF
-        return os.read(fd, 16384)
+        return os.read(fd, PTY_READ_BUFFER_SIZE)
     except (OSError, ValueError):
         return PTY_EOF
     finally:

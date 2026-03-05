@@ -52,7 +52,7 @@ class TestAuth:
     def test_valid_token(self):
         res = client.get("/auth/check", headers=AUTH)
         assert res.status_code == 200
-        assert res.json()["ok"] is True
+        assert res.json()["status"] == "ok"
 
     def test_missing_token(self):
         res = client.get("/auth/check")

@@ -12,9 +12,11 @@ from pydantic import BaseModel, Field
 from ..auth import verify_token
 from ..common import (
     TERMINAL_TIMEOUT_SEC,
+    WORKSPACE_JOBS_CACHE_TTL_SEC,
     TTLCache,
     log_operation,
     resolve_workspace_path,
+    sanitize_log_value,
 )
 from ..config import load_workspace_config_section, save_workspace_config_section
 from ..git_utils import command_result_dict, get_git_branches
@@ -31,7 +33,7 @@ from .terminal import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(verify_token)])
-_workspace_jobs_cache = TTLCache(60)
+_workspace_jobs_cache = TTLCache(WORKSPACE_JOBS_CACHE_TTL_SEC)
 
 
 def workspace_jobs_cache_key(workspace_name):
@@ -355,6 +357,9 @@ def execute_job(body: RunRequest):
     if result.returncode == 0:
         logger.info("job ok job=%s workspace=%s", body.job, body.workspace or "(none)")
     else:
-        logger.warning("job failed job=%s workspace=%s rc=%d stderr=%s",
-                        body.job, body.workspace or "(none)", result.returncode, result.stderr[:200])
+        logger.warning(
+            "job failed job=%s workspace=%s rc=%d stderr=%s",
+            body.job, body.workspace or "(none)",
+            result.returncode, sanitize_log_value(result.stderr[:200]),
+        )
     return payload

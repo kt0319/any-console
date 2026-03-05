@@ -15,7 +15,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response, UploadFi
 from fastapi.staticfiles import StaticFiles
 
 from .auth import verify_token
-from .common import BACKGROUND_EXECUTOR, LOG_BUFFER, UPLOAD_DIR, _current_device
+from .common import BACKGROUND_EXECUTOR, LOG_BUFFER, MAX_UPLOAD_SIZE, UPLOAD_DIR, _current_device
 from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
 from .routers import git, jobs, logs, settings, system, terminal, workspaces
@@ -110,11 +110,10 @@ def shutdown_cleanup():
 
 @app.get("/auth/check", dependencies=[Depends(verify_token)])
 def auth_check():
-    return {"ok": True, "hostname": socket.gethostname(), "version": system.get_app_version()}
+    return {"status": "ok", "hostname": socket.gethostname(), "version": system.get_app_version()}
 
 
 ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
-MAX_UPLOAD_SIZE = 10 * 1024 * 1024
 
 
 @app.post("/upload-image", dependencies=[Depends(verify_token)])

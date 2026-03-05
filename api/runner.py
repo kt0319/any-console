@@ -3,12 +3,10 @@ import os
 import shlex
 import subprocess
 
-from .common import PROJECT_ROOT
+from .common import EXEC_TIMEOUT_SEC, PROJECT_ROOT, sanitize_log_value
 from .jobs import JobDefinition
 
 logger = logging.getLogger(__name__)
-
-EXEC_TIMEOUT_SEC = 120
 
 
 def run_job(
@@ -24,7 +22,7 @@ def run_job(
         env.update(extra_env)
     cwd = workspace if workspace else str(PROJECT_ROOT)
 
-    logger.info("run command=%s args=%s cwd=%s", job.command, args, cwd)
+    logger.info("run command=%s args=%s cwd=%s", sanitize_log_value(job.command), args, cwd)
     result = subprocess.run(
         cmd_parts,
         capture_output=True,
@@ -34,5 +32,5 @@ def run_job(
         env=env,
     )
     logger.info("done command=%s rc=%d stdout_len=%d stderr_len=%d",
-                job.command, result.returncode, len(result.stdout), len(result.stderr))
+                sanitize_log_value(job.command), result.returncode, len(result.stdout), len(result.stderr))
     return result

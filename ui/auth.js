@@ -52,6 +52,7 @@ export function loadToken() {
 /**
  * Checks the current token against the server's auth endpoint.
  * @returns {Promise<{ok: true, hostname: string, version: string} | {ok: false, auth: boolean, error: string}>}
+ * Note: "ok" here is the client-side result flag, not the server response key (server uses "status": "ok").
  */
 export async function checkToken() {
   try {

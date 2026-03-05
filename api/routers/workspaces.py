@@ -11,11 +11,14 @@ from ..common import (
     BACKGROUND_EXECUTOR,
     BACKGROUND_FETCH_TIMEOUT_SEC,
     GIT_CLONE_TIMEOUT_SEC,
+    GITHUB_CLI_REPO_LIMIT,
     GITHUB_CLI_TIMEOUT_SEC,
+    GITHUB_REPOS_CACHE_TTL_SEC,
     WORK_DIR,
     TTLCache,
     log_operation,
     resolve_workspace_path,
+    sanitize_log_value,
 )
 from ..config import (
     load_global_config_section,
@@ -30,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
-_github_repos_cache = TTLCache(300)
+_github_repos_cache = TTLCache(GITHUB_REPOS_CACHE_TTL_SEC)
 
 
 def _background_fetch(dirs):
@@ -160,7 +163,10 @@ def clone_workspace(body: CloneRequest):
         )
         resp = command_result_dict(result)
         if result.returncode != 0:
-            logger.warning("clone failed url=%s rc=%d stderr=%s", url, result.returncode, result.stderr)
+            logger.warning(
+                "clone failed url=%s rc=%d stderr=%s",
+                url, result.returncode, sanitize_log_value(result.stderr),
+            )
         else:
             logger.info("clone ok dir=%s", dir_name)
             log_operation("clone", "", url)
@@ -179,7 +185,7 @@ def list_github_repos():
         all_repos = []
 
         result = subprocess.run(
-            ["gh", "repo", "list", "--limit", "100", "--json", "nameWithOwner,url,description"],
+            ["gh", "repo", "list", "--limit", str(GITHUB_CLI_REPO_LIMIT), "--json", "nameWithOwner,url,description"],
             capture_output=True, text=True, timeout=GITHUB_CLI_TIMEOUT_SEC,
         )
         if result.returncode == 0:
@@ -192,8 +198,13 @@ def list_github_repos():
         if org_result.returncode == 0:
             orgs = [o.strip() for o in org_result.stdout.strip().splitlines() if o.strip()]
             for org in orgs:
+                gh_cmd = [
+                    "gh", "repo", "list", org,
+                    "--limit", str(GITHUB_CLI_REPO_LIMIT),
+                    "--json", "nameWithOwner,url,description",
+                ]
                 org_repos = subprocess.run(
-                    ["gh", "repo", "list", org, "--limit", "100", "--json", "nameWithOwner,url,description"],
+                    gh_cmd,
                     capture_output=True, text=True, timeout=GITHUB_CLI_TIMEOUT_SEC,
                 )
                 if org_repos.returncode == 0:

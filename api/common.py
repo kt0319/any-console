@@ -26,6 +26,14 @@ SYSTEM_CMD_TIMEOUT_SEC = 5
 BACKGROUND_FETCH_TIMEOUT_SEC = 15
 GIT_LOG_MAX_ENTRIES = 200
 
+EXEC_TIMEOUT_SEC = 120
+MAX_UPLOAD_SIZE = 10 * 1024 * 1024
+GITHUB_REPOS_CACHE_TTL_SEC = 300
+WORKSPACE_JOBS_CACHE_TTL_SEC = 60
+GITHUB_CLI_REPO_LIMIT = 100
+PTY_READ_BUFFER_SIZE = 16384
+PTY_READER_WORKERS = 8
+
 BRANCH_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_./-]+$")
 COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{4,40}$|^stash@\{\d+\}$")
 
@@ -78,19 +86,25 @@ class LogBuffer:
 LOG_BUFFER = LogBuffer()
 OPERATION_LOG = LogBuffer()
 
+_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def sanitize_log_value(value: str) -> str:
+    return _CONTROL_CHAR_RE.sub(lambda m: f"\\x{ord(m.group()):02x}", value)
+
 
 def log_operation(action: str, workspace: str = "", detail: str = "") -> None:
     from datetime import datetime, timezone
 
     entry = {
         "ts": datetime.now(timezone.utc).isoformat(),
-        "action": action,
-        "workspace": workspace,
-        "detail": detail,
+        "action": sanitize_log_value(action),
+        "workspace": sanitize_log_value(workspace),
+        "detail": sanitize_log_value(detail),
     }
     device = _current_device.get()
     if device:
-        entry["device"] = device
+        entry["device"] = sanitize_log_value(device)
     OPERATION_LOG.add(entry)
 
 
