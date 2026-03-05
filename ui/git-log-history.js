@@ -266,7 +266,7 @@ Object.assign(GitLogModal, {
       "</button>";
     const stashButtonHtml =
       '<button type="button" class="git-action-btn icon-only git-log-dirty-stash-btn" title="Stash一覧" aria-label="Stash一覧">' +
-        '<span class="mdi mdi-tray-full"></span><span class="git-log-dirty-stash-badge"></span>' +
+        '<span class="mdi mdi-archive-outline"></span><span class="git-log-dirty-stash-badge"></span>' +
       "</button>";
     const branchButtonHtml =
       '<button type="button" class="git-action-btn icon-only git-log-dirty-branch-btn" title="ブランチ" aria-label="ブランチ">' +

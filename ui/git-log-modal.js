@@ -11,7 +11,7 @@ import { refreshWorkspaceHeader } from './workspace.js';
 import { syncWorkspaceForTab } from './terminal-tab-header.js';
 import { loadDirectoryInDiffPane } from './git-file-browser.js';
 
-const GIT_PANE_MAP = { history: "git-history-pane", files: "git-files-pane", stash: "git-stash-pane", branch: "git-branch-pane" };
+const GIT_PANE_MAP = { history: "git-history-pane", files: "git-files-pane", stash: "git-stash-pane", branch: "git-branch-pane", github: "git-github-pane" };
 let _releaseFocusTrap = null;
 
 export const GitLogModal = {
@@ -386,6 +386,7 @@ export const GitLogModal = {
     $("git-modal").style.display = "flex";
     _releaseFocusTrap = trapFocus($("git-modal"), GitLogModal.closeGitModal);
     GitLogModal.updateStashIndicators();
+    import('./git-github.js').then((m) => m.updateGitHubButtonVisibility());
     clearActiveDiffRef();
     GitLogModal.state.history.hasMore = false;
     await Promise.all([loadDirectoryInDiffPane(""), GitLogModal.reloadGitLog()]);

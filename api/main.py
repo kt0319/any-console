@@ -18,7 +18,7 @@ from .auth import verify_token
 from .common import BACKGROUND_EXECUTOR, LOG_BUFFER, MAX_UPLOAD_SIZE, UPLOAD_DIR, _current_device
 from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
-from .routers import git, jobs, logs, settings, system, terminal, workspaces
+from .routers import git, github, jobs, logs, settings, system, terminal, workspaces
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -33,6 +33,7 @@ UI_DIR = Path(__file__).resolve().parent.parent / "ui"
 
 app.include_router(workspaces.router)
 app.include_router(git.router)
+app.include_router(github.router)
 app.include_router(jobs.router)
 app.include_router(terminal.router)
 app.include_router(terminal.ws_router)

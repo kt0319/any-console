@@ -15,6 +15,7 @@ import { GitLogModal } from './git-log-modal.js';
 import { closeCommitForm, submitCommit } from './git-diff.js';
 import { closeIconPicker, clearIconPicker, submitIconPicker } from './icon-picker.js';
 import { GitCore } from './git.js';
+import { openGitHubPane, initGitHubPane } from './git-github.js';
 import { openTabEditModal } from './terminal-tab-modal.js';
 
 /**
@@ -104,6 +105,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     },
   }));
   $("git-modal-close").addEventListener("click", () => GitLogModal.closeGitModal());
+  $("git-modal-github-btn").addEventListener("click", () => openGitHubPane());
+  initGitHubPane();
   $("git-modal").addEventListener("click", (e) => {
     if (e.target === $("git-modal")) GitLogModal.closeGitModal();
   });
