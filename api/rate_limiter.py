@@ -4,11 +4,10 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
-RATE_LIMIT_AUTH = 20
 RATE_LIMIT_GENERAL = 200
 RATE_WINDOW_SEC = 60
 
-STATIC_PREFIXES = (
+SKIP_PREFIXES = (
     "/ui/",
     "/icons/",
     "/styles",
@@ -28,6 +27,8 @@ STATIC_PREFIXES = (
     "/quick-input.",
     "/icon-picker.",
     "/utils.",
+    "/auth/check",
+    "/terminal/ws/",
 )
 
 
@@ -56,19 +57,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         path = request.url.path
 
-        if any(path.startswith(p) for p in STATIC_PREFIXES):
+        if any(path.startswith(p) for p in SKIP_PREFIXES):
             return await call_next(request)
         if path == "/" and request.method == "GET":
             return await call_next(request)
 
         client_ip = request.client.host if request.client else "unknown"
-
-        if path == "/auth/check":
-            limit = RATE_LIMIT_AUTH
-            key = f"auth:{client_ip}"
-        else:
-            limit = RATE_LIMIT_GENERAL
-            key = f"api:{client_ip}"
+        limit = RATE_LIMIT_GENERAL
+        key = f"api:{client_ip}"
 
         if not _counter.is_allowed(key, limit, RATE_WINDOW_SEC):
             return JSONResponse(

@@ -1,8 +1,8 @@
 // @ts-check
 import { openTabs, activeTabId, token } from './state-core.js';
-import { $ } from './utils.js';
+import { $, showToast } from './utils.js';
 import { exitTerminalViewMode } from './terminal-view-mode.js';
-import { ensureSnippetsLoaded, loadSnippets, addSnippet, deleteSnippet } from './state-input.js';
+import { ensureSnippetsLoaded, inputHistory, loadSnippets, addSnippet, deleteSnippet } from './state-input.js';
 
 /**
  * Returns the currently active terminal tab, or null if not a terminal tab.
