@@ -4,7 +4,8 @@ import { $, setLoadingStatus, setupModalSwipeClose, showToast, showLogin, showAp
 import { loadWorkspaces, refreshWorkspaceHeader, startStatusPolling, stopStatusPolling, onVisibilityChangeForRefresh, visibleWorkspaces } from './workspace.js';
 import { ensureSnippetsLoaded } from './state-input.js';
 import { restoreTabsFromLocalStorageImmediate, fetchOrphanSessions, updateQuickInputVisibility } from './terminal-connection.js';
-import { updateHeaderForTab, renderTabBar } from './terminal-tabs.js';
+import { updateHeaderForTab } from './terminal-tab-header.js';
+import { renderTabBar } from './terminal-tabs.js';
 import { fitActiveTerminal, updateViewportHeight } from './viewport.js';
 import { initQuickInput } from './quick-input.js';
 import { login, checkToken, setServerInfo, loadToken, clearToken } from './auth.js';

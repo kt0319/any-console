@@ -8,7 +8,7 @@ import { GIT_LOG_ENTRIES_PER_PAGE } from './state-git.js';
 import { GitCore } from './git.js';
 import { openCommitDiffModal, setDiffViewerMode, getActiveDiffRef, renderDiffViewerMessage, clearActiveDiffRef, closeCommitForm } from './git-diff.js';
 import { refreshWorkspaceHeader } from './workspace.js';
-import { syncWorkspaceForTab } from './terminal-tabs.js';
+import { syncWorkspaceForTab } from './terminal-tab-header.js';
 import { loadDirectoryInDiffPane } from './git-file-browser.js';
 
 const GIT_PANE_MAP = { history: "git-history-pane", files: "git-files-pane", stash: "git-stash-pane", branch: "git-branch-pane" };

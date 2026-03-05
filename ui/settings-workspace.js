@@ -7,7 +7,7 @@ import { invalidateWorkspaceJobsCache, loadJobsForWorkspace } from './jobs.js';
 import { openIconPicker, renderInlineIconPicker } from './icon-picker.js';
 import { renderInlineJobCreate, renderInlineJobEdit } from './job-form.js';
 import { refreshWorkspaceHeader, loadWorkspaces } from './workspace.js';
-import { updateGitBarVisibility } from './terminal-tabs.js';
+import { updateGitBarVisibility } from './terminal-tab-header.js';
 
 /**
  * @param {{ name: string, icon?: string, icon_color?: string, hidden?: boolean }} ws

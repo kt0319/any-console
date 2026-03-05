@@ -2,7 +2,8 @@
 import { openTabs, activeTabId, isTouchDevice, panelBottom, splitMode, setOpenTabs } from './state-core.js';
 import { $, safeFit, refitTerminalWithFocus, setFrameVisible } from './utils.js';
 import { connectTerminalWs, ensureTerminalOpened } from './terminal-connection.js';
-import { addTerminalTab, switchTab, tabDisplayName, removeTab, persistOpenTabs, renderTabBar } from './terminal-tabs.js';
+import { tabDisplayName } from './terminal-tab-utils.js';
+import { addTerminalTab, switchTab, removeTab, persistOpenTabs, renderTabBar } from './terminal-tabs.js';
 import { exitAllViewModes } from './terminal-view-mode.js';
 import { uploadClipboardImage } from './quick-input-keys.js';
 

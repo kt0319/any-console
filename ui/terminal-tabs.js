@@ -1,20 +1,19 @@
 // @ts-check
-import { openTabs, setOpenTabs, activeTabId, setActiveTabId, splitMode, splitPaneTabIds, setSplitPaneTabIds, activePaneIndex, setActivePaneIndex, allWorkspaces, selectedWorkspace, setSelectedWorkspace, disconnectedSessions, setDisconnectedSessions, closedSessionUrls, panelBottom, isTouchDevice, terminalIdCounter, setTerminalIdCounter, getTerminalRuntimeOptions, appInitializing, hasRestoredTabsFromStorage, workspaceJobsLoadedFor } from './state-core.js';
-import { renderIcon, escapeHtml, bindLongPress, showToast, $, safeFit, refitTerminalWithFocus, setFrameVisible } from './utils.js';
-import { apiFetch, workspaceApiPath } from './api-client.js';
-
+import { openTabs, setOpenTabs, activeTabId, setActiveTabId, splitMode, splitPaneTabIds, setSplitPaneTabIds, activePaneIndex, setActivePaneIndex, allWorkspaces, disconnectedSessions, setDisconnectedSessions, closedSessionUrls, panelBottom, isTouchDevice, terminalIdCounter, setTerminalIdCounter, getTerminalRuntimeOptions, hasRestoredTabsFromStorage } from './state-core.js';
+import { renderIcon, escapeHtml, bindLongPress, showToast, $, refitTerminalWithFocus, setFrameVisible } from './utils.js';
+import { tabDisplayName, renderTabIconHtml, hasVisibleTabContent } from './terminal-tab-utils.js';
+import { syncWorkspaceForTab, updateHeaderForTab, updateGitBarVisibility } from './terminal-tab-header.js';
 // Circular deps (only used inside function bodies):
 import { deleteTerminalSession, connectTerminalWs, syncTerminalSessionState, updateQuickInputVisibility, ensureTerminalOpened } from './terminal-connection.js';
-import { exitAllViewModes, exitTerminalViewMode } from './terminal-view-mode.js';
-import { rebuildSplitLayout, enterSplitMode, exitSplitModeWithTab } from './terminal-split.js';
-import { loadWorkspaces, refreshWorkspaceHeader, refreshCurrentWorkspaceStatus, visibleWorkspaces } from './workspace.js';
-import { loadJobsForWorkspace, runJob } from './jobs.js';
+import { exitAllViewModes } from './terminal-view-mode.js';
+import { rebuildSplitLayout, exitSplitModeWithTab } from './terminal-split.js';
+import { loadWorkspaces, visibleWorkspaces } from './workspace.js';
+import { runJob } from './jobs.js';
 import { openTabEditModal } from './terminal-tab-modal.js';
 import { createTabNamePill, refreshTabNamePill } from './terminal-tab-pill.js';
 import { tabDragState, bindMouseDrag } from './terminal.js';
 import { updateDocumentTitle } from './auth.js';
 import { restoreAllWorkspaceVisibility } from './settings-workspace.js';
-import { GitLogModal } from './git-log-modal.js';
 import { showKeyboardInput } from './viewport.js';
 
 /**
@@ -50,26 +49,9 @@ export function persistOpenTabs() {
   localStorage.setItem("pi_console_terminal_openTabs", JSON.stringify(data));
 }
 
-/**
- * Returns the display name for a tab.
- * @param {any} tab
- * @returns {string}
- */
-export function tabDisplayName(tab) {
-  if (!tab) return "";
-  return tab.workspace || tab.label || "";
-}
-
-/**
- * Returns the HTML string for a tab's icon(s).
- * @param {any} tab
- * @param {number} [size]
- * @returns {string}
- */
-export function renderTabIconHtml(tab, size = 14) {
-  return (tab.wsIcon ? renderIcon(tab.wsIcon.name, tab.wsIcon.color, size) : "")
-       + (tab.icon ? renderIcon(tab.icon.name, tab.icon.color, size) : "");
-}
+// Re-export from extracted modules for backward compatibility
+export { tabDisplayName, renderTabIconHtml, resolveWorkspaceNameForTab, hasVisibleTabContent } from './terminal-tab-utils.js';
+export { syncWorkspaceForTab, updateHeaderForTab, updateGitBarVisibility } from './terminal-tab-header.js';
 
 /**
  * Relaunches an expired orphan terminal session.
@@ -345,123 +327,6 @@ export async function switchTab(id) {
   renderTabBar();
 
   updateHeaderForTab(id);
-}
-
-/**
- * Synchronizes the selected workspace state to match the given tab ID.
- * @param {string|null} id
- * @returns {void}
- */
-export function syncWorkspaceForTab(id) {
-  if (splitMode || id === null) {
-    setSelectedWorkspace(null);
-    return;
-  }
-  const tab = openTabs.find((t) => t.id === id);
-  if (!tab) { setSelectedWorkspace(null); return; }
-  const workspaceName = resolveWorkspaceNameForTab(tab);
-  if (!workspaceName) { setSelectedWorkspace(null); return; }
-  const ws = allWorkspaces.find((w) => w.name === workspaceName);
-  if (ws) {
-    setSelectedWorkspace(ws.name);
-    return;
-  }
-  setSelectedWorkspace(workspaceName);
-}
-
-/**
- * Resolves the workspace name for a given tab object.
- * @param {any} tab
- * @returns {string|null}
- */
-export function resolveWorkspaceNameForTab(tab) {
-  if (!tab) return null;
-  if (tab.workspace) return tab.workspace;
-  if (tab.type === "terminal" && tab.label && tab.label !== "terminal") return tab.label;
-  return null;
-}
-
-/** @type {number} */
-export let _headerUpdateSeq = 0;
-
-/**
- * Updates the header UI to reflect the active tab's workspace.
- * @param {string|null} id
- * @returns {Promise<void>}
- */
-export async function updateHeaderForTab(id) {
-  if (appInitializing) return;
-  const seq = ++_headerUpdateSeq;
-
-  if (splitMode || id === null) {
-    setSelectedWorkspace(null);
-    updateGitBarVisibility();
-    await Promise.all([
-      refreshWorkspaceHeader({ reloadBranches: false }),
-      loadJobsForWorkspace(),
-    ]);
-    return;
-  }
-
-  const activeTab = openTabs.find((t) => t.id === id);
-  const workspaceName = resolveWorkspaceNameForTab(activeTab);
-  if (!workspaceName) {
-    setSelectedWorkspace(null);
-    updateGitBarVisibility();
-    return;
-  }
-  const ws = allWorkspaces.find((w) => w.name === workspaceName);
-  const nextWorkspace = ws ? ws.name : workspaceName;
-  const workspaceChanged = selectedWorkspace !== nextWorkspace;
-  setSelectedWorkspace(nextWorkspace);
-  updateGitBarVisibility();
-  const shouldReloadJobs = workspaceChanged || workspaceJobsLoadedFor !== nextWorkspace;
-  const tasks = [refreshWorkspaceHeader({ reloadBranches: workspaceChanged })];
-  if (shouldReloadJobs) tasks.push(loadJobsForWorkspace(workspaceChanged));
-  await Promise.all(tasks);
-  if (seq !== _headerUpdateSeq) return;
-  refreshCurrentWorkspaceStatus();
-}
-
-/**
- * Shows or hides the git bar in the header based on current state.
- * @returns {void}
- */
-export function updateGitBarVisibility() {
-  const show = selectedWorkspace && !splitMode;
-  $("header-row2").style.display = show ? "flex" : "none";
-  if (!show) return;
-  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
-  const isGitRepo = ws && ws.is_git_repo === true;
-  const hasUpstream = ws ? ws.has_upstream !== false : true;
-  $("header-commit-msg").style.display = isGitRepo ? "" : "none";
-  $("main-git-status").style.display = isGitRepo ? "" : "none";
-  $("git-actions").style.display = isGitRepo && (ws.behind > 0 || ws.ahead > 0 || !hasUpstream) ? "flex" : "none";
-  let hint = $("non-git-hint");
-  if (!isGitRepo) {
-    if (!hint) {
-      hint = document.createElement("button");
-      hint.id = "non-git-hint";
-      hint.className = "non-git-hint commit-msg-btn";
-      hint.textContent = "Gitリポジトリではありません";
-      hint.onclick = () => GitLogModal.openFileModal();
-      $("header-row2").appendChild(hint);
-    }
-    hint.style.display = "";
-  } else if (hint) {
-    hint.style.display = "none";
-  }
-}
-
-/**
- * Returns true if there is visible tab content in the current layout.
- * @returns {boolean}
- */
-export function hasVisibleTabContent() {
-  if (splitMode) {
-    return splitPaneTabIds.some((id) => openTabs.some((t) => t.id === id));
-  }
-  return openTabs.some((t) => t.id === activeTabId);
 }
 
 /**

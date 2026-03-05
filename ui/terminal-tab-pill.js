@@ -1,7 +1,9 @@
 // @ts-check
 import { isTouchDevice, activeTabId, splitMode, openTabs } from './state-core.js';
 import { $, escapeHtml, bindLongPress } from './utils.js';
-import { renderTabIconHtml, removeTab, switchTab } from './terminal-tabs.js';
+import { renderTabIconHtml } from './terminal-tab-utils.js';
+import { removeTab, switchTab } from './terminal-tabs.js';
+import { openTabEditModal } from './terminal-tab-modal.js';
 import { showSplitDropZones, hideSplitDropZones, splitWithDrop, enterSplitMode, exitSplitModeWithTab } from './terminal-split.js';
 import { enterTerminalViewMode, exitTerminalViewMode } from './terminal-view-mode.js';
 
