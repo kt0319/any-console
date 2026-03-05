@@ -1,5 +1,5 @@
 // @ts-check
-import { allWorkspaces, setAllWorkspaces, selectedWorkspace, setSelectedWorkspace, statusPollTimer, setStatusPollTimer, isPollingStatus, setIsPollingStatus, serverDisconnected, setServerDisconnected, STATUS_POLL_INTERVAL_MS } from './state-core.js';
+import { allWorkspaces, setAllWorkspaces, selectedWorkspace, setSelectedWorkspace, statusPollTimer, setStatusPollTimer, isPollingStatus, setIsPollingStatus, serverDisconnected, setServerDisconnected, STATUS_POLL_INTERVAL_MS, token } from './state-core.js';
 import { apiFetch, workspaceApiPath } from './api-client.js';
 import { getWorkspacesCache, setWorkspacesCache } from './cache.js';
 import { showToast, escapeHtml, buildWorkspaceHeaderNumstatHtml, $ } from './utils.js';

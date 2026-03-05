@@ -2,7 +2,7 @@
 import { openTabs, splitMode, setSplitMode, splitPaneTabIds, setSplitPaneTabIds, activePaneIndex, setActivePaneIndex, activeTabId, setActiveTabId, panelBottom, splitLayout, setSplitLayout, isPaneSelectedByTap, setIsPaneSelectedByTap, isTouchDevice } from './state-core.js';
 import { $, safeFit, refitTerminalWithFocus, fitAndSync } from './utils.js';
 import { ensureTerminalOpened } from './terminal-connection.js';
-import { renderTabBar, updateGitBarVisibility, switchTab, updateHeaderForTab } from './terminal-tabs.js';
+import { renderTabBar, updateGitBarVisibility, switchTab, updateHeaderForTab, removeTab } from './terminal-tabs.js';
 import { exitTerminalViewMode, exitAllViewModes, enterTerminalViewMode } from './terminal-view-mode.js';
 import { showKeyboardInput } from './viewport.js';
 

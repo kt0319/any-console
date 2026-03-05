@@ -3,7 +3,7 @@ import { selectedWorkspace } from './state-core.js';
 import { diffChunks } from './state-git.js';
 import { $, escapeHtml, bindLongPress } from './utils.js';
 import { apiFetch, workspaceApiPath } from './api-client.js';
-import { getActiveDiffRef, getDiffViewerMode, setDiffViewerMode } from './git-diff.js';
+import { colorDiff, getActiveDiffRef, getDiffViewerMode, setDiffViewerMode } from './git-diff.js';
 import { bindFileUploadEvents, bindWorkspaceUploadDropTarget } from './file-browser-upload.js';
 
 /**

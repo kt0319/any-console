@@ -534,7 +534,7 @@ export function renderIcon(icon, iconColor, size = 16) {
   }
   if (icon.startsWith("favicon:")) {
     const domain = icon.slice("favicon:".length);
-    return `<img src="${faviconUrl(domain)}" width="${size}" height="${size}" class="favicon-icon" alt="" />`;
+    return `<img src="${faviconUrl(domain)}" width="${size}" height="${size}" class="favicon-icon" alt="" onerror="this.style.display='none'" />`;
   }
   const styles = [`font-size:${size}px`];
   if (iconColor && VALID_ICON_COLOR.test(iconColor)) {
