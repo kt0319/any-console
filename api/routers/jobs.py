@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from ..auth import verify_token
 from ..common import (
+    MAX_TERMINAL_SESSIONS,
     TERMINAL_TIMEOUT_SEC,
     WORKSPACE_JOBS_CACHE_TTL_SEC,
     TTLCache,
@@ -306,6 +307,12 @@ def execute_job(body: RunRequest):
         ordered_args.append(value)
 
     if body.job == "terminal":
+        with _sessions_lock:
+            if len(TERMINAL_SESSIONS) >= MAX_TERMINAL_SESSIONS:
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"セッション数が上限({MAX_TERMINAL_SESSIONS})に達しています",
+                )
         cwd_path = str(ws_path) if ws_path else None
         session_id = secrets.token_urlsafe(24)
         try:

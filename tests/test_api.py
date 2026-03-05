@@ -1,64 +1,25 @@
 import json
-import os
 import subprocess
 
 import pytest
-from fastapi.testclient import TestClient
 
-os.environ.setdefault("PI_CONSOLE_TOKEN", "test-token")
-
-from api.main import app
-
-TOKEN = os.environ["PI_CONSOLE_TOKEN"]
-AUTH = {"Authorization": f"Bearer {TOKEN}"}
-
-client = TestClient(app)
-
-
-# --- fixtures ---
-
-
-@pytest.fixture(autouse=True)
-def isolate_fs(tmp_path, monkeypatch):
-    work = tmp_path / "work"
-    work.mkdir()
-    data = tmp_path / "data"
-    data.mkdir()
-    config_file = data / "config.json"
-
-    import api.common as common_mod
-    import api.config as config_mod
-    import api.routers.settings as settings_mod
-
-    monkeypatch.setattr(common_mod, "WORK_DIR", work)
-    monkeypatch.setattr(common_mod, "CONFIG_FILE", config_file)
-    monkeypatch.setattr(config_mod, "CONFIG_FILE", config_file)
-    monkeypatch.setattr(settings_mod, "WORK_DIR", work)
-
-    return {"work": work, "data": data, "config_file": config_file}
-
-
-@pytest.fixture()
-def workspace(isolate_fs):
-    ws = isolate_fs["work"] / "test-ws"
-    ws.mkdir()
-    return ws
+from conftest import AUTH
 
 
 # --- 認証 ---
 
 
 class TestAuth:
-    def test_valid_token(self):
+    def test_valid_token(self, client):
         res = client.get("/auth/check", headers=AUTH)
         assert res.status_code == 200
         assert res.json()["status"] == "ok"
 
-    def test_missing_token(self):
+    def test_missing_token(self, client):
         res = client.get("/auth/check")
         assert res.status_code == 401
 
-    def test_invalid_token(self):
+    def test_invalid_token(self, client):
         res = client.get("/auth/check", headers={"Authorization": "Bearer wrong"})
         assert res.status_code == 401
 
@@ -67,12 +28,12 @@ class TestAuth:
 
 
 class TestSettings:
-    def test_export_empty(self):
+    def test_export_empty(self, client):
         res = client.get("/settings/export", headers=AUTH)
         assert res.status_code == 200
         assert res.json() == {}
 
-    def test_export_filters_existing_workspaces(self, workspace, isolate_fs):
+    def test_export_filters_existing_workspaces(self, client, workspace, isolate_fs):
         config = {"test-ws": {"icon": "star"}, "nonexistent": {"icon": "x"}}
         isolate_fs["config_file"].write_text(json.dumps(config))
         res = client.get("/settings/export", headers=AUTH)
@@ -80,13 +41,13 @@ class TestSettings:
         assert "test-ws" in data
         assert "nonexistent" not in data
 
-    def test_import_settings(self, workspace, isolate_fs):
+    def test_import_settings(self, client, workspace, isolate_fs):
         res = client.post("/settings/import", headers=AUTH, json={"test-ws": {"icon": "rocket"}})
         assert res.status_code == 200
         config = json.loads(isolate_fs["config_file"].read_text())
         assert config["test-ws"]["icon"] == "rocket"
 
-    def test_import_invalid_json(self):
+    def test_import_invalid_json(self, client):
         res = client.post(
             "/settings/import",
             headers={**AUTH, "Content-Type": "application/json"},
@@ -94,22 +55,22 @@ class TestSettings:
         )
         assert res.status_code == 400
 
-    def test_import_non_dict(self):
+    def test_import_non_dict(self, client):
         res = client.post("/settings/import", headers=AUTH, json=[1, 2, 3])
         assert res.status_code == 400
 
-    def test_import_ignores_nonexistent_workspace(self, isolate_fs):
+    def test_import_ignores_nonexistent_workspace(self, client, isolate_fs):
         res = client.post("/settings/import", headers=AUTH, json={"ghost": {"icon": "x"}})
         assert res.status_code == 200
         if isolate_fs["config_file"].exists():
             config = json.loads(isolate_fs["config_file"].read_text())
             assert "ghost" not in config
 
-    def test_import_rejects_invalid_workspace_schema(self, workspace):
+    def test_import_rejects_invalid_workspace_schema(self, client, workspace):
         res = client.post("/settings/import", headers=AUTH, json={"test-ws": {"jobs": {"bad": {}}}})
         assert res.status_code == 400
 
-    def test_export_skips_invalid_workspace_config(self, workspace, isolate_fs):
+    def test_export_skips_invalid_workspace_config(self, client, workspace, isolate_fs):
         isolate_fs["config_file"].write_text(json.dumps({"test-ws": {"jobs": {"bad": {}}}}))
         res = client.get("/settings/export", headers=AUTH)
         assert res.status_code == 200
@@ -120,12 +81,12 @@ class TestSettings:
 
 
 class TestJobsCRUD:
-    def test_list_empty(self, workspace):
+    def test_list_empty(self, client, workspace):
         res = client.get("/workspaces/test-ws/jobs", headers=AUTH)
         assert res.status_code == 200
         assert res.json() == {}
 
-    def test_create_and_list(self, workspace):
+    def test_create_and_list(self, client, workspace):
         res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "label": "hello",
             "command": "echo hello",
@@ -140,27 +101,27 @@ class TestJobsCRUD:
         assert jobs[job_name]["command"] == "echo hello"
         assert jobs[job_name]["label"] == "hello"
 
-    def test_create_requires_label(self, workspace):
+    def test_create_requires_label(self, client, workspace):
         res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "command": "echo 1",
         })
         assert res.status_code == 422
 
-    def test_create_empty_label(self, workspace):
+    def test_create_empty_label(self, client, workspace):
         res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "label": "  ",
             "command": "echo x",
         })
         assert res.status_code == 400
 
-    def test_create_empty_command(self, workspace):
+    def test_create_empty_command(self, client, workspace):
         res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "label": "empty",
             "command": "  ",
         })
         assert res.status_code == 400
 
-    def test_update_job(self, workspace):
+    def test_update_job(self, client, workspace):
         create_res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "label": "upd",
             "command": "echo old",
@@ -177,14 +138,14 @@ class TestJobsCRUD:
         res = client.get("/workspaces/test-ws/jobs", headers=AUTH)
         assert res.json()[job_name]["command"] == "echo new"
 
-    def test_update_nonexistent(self, workspace):
+    def test_update_nonexistent(self, client, workspace):
         res = client.put("/workspaces/test-ws/jobs/ghost", headers=AUTH, json={
             "label": "ghost",
             "command": "echo x",
         })
         assert res.status_code == 404
 
-    def test_delete_job(self, workspace):
+    def test_delete_job(self, client, workspace):
         create_res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "label": "del",
             "command": "echo del",
@@ -198,11 +159,11 @@ class TestJobsCRUD:
         res = client.get("/workspaces/test-ws/jobs", headers=AUTH)
         assert job_name not in res.json()
 
-    def test_delete_nonexistent(self, workspace):
+    def test_delete_nonexistent(self, client, workspace):
         res = client.delete("/workspaces/test-ws/jobs/ghost", headers=AUTH)
         assert res.status_code == 404
 
-    def test_reorder_jobs(self, workspace):
+    def test_reorder_jobs(self, client, workspace):
         first = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "label": "first",
             "command": "echo first",
@@ -224,22 +185,22 @@ class TestJobsCRUD:
         jobs = client.get("/workspaces/test-ws/jobs", headers=AUTH).json()
         assert list(jobs.keys()) == [third, first, second]
 
-    def test_reorder_jobs_rejects_missing_items(self, workspace):
+    def test_reorder_jobs_rejects_missing_items(self, client, workspace):
         first = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "label": "first",
             "command": "echo first",
         }).json()["name"]
-        second = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
+        client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "label": "second",
             "command": "echo second",
-        }).json()["name"]
+        })
 
         res = client.put("/workspaces/test-ws/job-order", headers=AUTH, json={
             "order": [first],
         })
         assert res.status_code == 400
 
-    def test_create_with_icon(self, workspace):
+    def test_create_with_icon(self, client, workspace):
         res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "label": "iconic",
             "command": "echo x",
@@ -254,12 +215,13 @@ class TestJobsCRUD:
         assert jobs[job_name]["icon_color"] == "#ff0000"
         assert jobs[job_name]["confirm"] is False
 
-    def test_nonexistent_workspace(self):
+    def test_nonexistent_workspace(self, client):
         res = client.get("/workspaces/no-such-ws/jobs", headers=AUTH)
         assert res.status_code == 400
 
+
 class TestFileContent:
-    def test_image_file_returns_data_url(self, workspace):
+    def test_image_file_returns_data_url(self, client, workspace):
         img = workspace / "icon.png"
         img.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\x00")
 
@@ -270,7 +232,7 @@ class TestFileContent:
         assert data["image"] is True
         assert data["data_url"].startswith("data:image/png;base64,")
 
-    def test_large_image_returns_too_large(self, workspace):
+    def test_large_image_returns_too_large(self, client, workspace):
         large = workspace / "large.png"
         large.write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * (5 * 1024 * 1024))
 
@@ -281,7 +243,7 @@ class TestFileContent:
         assert data["image"] is True
         assert data["too_large"] is True
 
-    def test_non_image_binary_returns_binary_flag(self, workspace):
+    def test_non_image_binary_returns_binary_flag(self, client, workspace):
         binary = workspace / "archive.zip"
         binary.write_bytes(b"PK\x03\x04\x00\x00")
 
@@ -291,7 +253,7 @@ class TestFileContent:
         assert data["status"] == "ok"
         assert data["binary"] is True
 
-    def test_file_content_can_read_past_commit(self, workspace):
+    def test_file_content_can_read_past_commit(self, client, workspace):
         subprocess.run(["git", "init"], cwd=workspace, check=True, capture_output=True, text=True)
         subprocess.run(["git", "config", "user.name", "Test User"], cwd=workspace, check=True, capture_output=True, text=True)
         subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=workspace, check=True, capture_output=True, text=True)
@@ -317,7 +279,7 @@ class TestFileContent:
 
 
 class TestFilesList:
-    def test_list_includes_symlink(self, workspace):
+    def test_list_includes_symlink(self, client, workspace):
         target = workspace / "target.txt"
         target.write_text("hello", encoding="utf-8")
         link = workspace / "target-link.txt"
@@ -336,7 +298,7 @@ class TestFilesList:
         assert link_entry["target_type"] == "file"
         assert link_entry["target_path"] == "target.txt"
 
-    def test_list_can_read_past_commit_tree(self, workspace):
+    def test_list_can_read_past_commit_tree(self, client, workspace):
         subprocess.run(["git", "init"], cwd=workspace, check=True, capture_output=True, text=True)
         subprocess.run(["git", "config", "user.name", "Test User"], cwd=workspace, check=True, capture_output=True, text=True)
         subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=workspace, check=True, capture_output=True, text=True)
@@ -357,7 +319,7 @@ class TestFilesList:
 
 
 class TestRenameFile:
-    def test_rename_file(self, workspace):
+    def test_rename_file(self, client, workspace):
         (workspace / "old.txt").write_text("hello", encoding="utf-8")
         res = client.post(
             "/workspaces/test-ws/rename",
@@ -369,7 +331,7 @@ class TestRenameFile:
         assert not (workspace / "old.txt").exists()
         assert (workspace / "new.txt").read_text(encoding="utf-8") == "hello"
 
-    def test_rename_to_existing_returns_409(self, workspace):
+    def test_rename_to_existing_returns_409(self, client, workspace):
         (workspace / "a.txt").write_text("a", encoding="utf-8")
         (workspace / "b.txt").write_text("b", encoding="utf-8")
         res = client.post(
@@ -379,7 +341,7 @@ class TestRenameFile:
         )
         assert res.status_code == 409
 
-    def test_rename_nonexistent_returns_404(self, workspace):
+    def test_rename_nonexistent_returns_404(self, client, workspace):
         res = client.post(
             "/workspaces/test-ws/rename",
             headers=AUTH,
@@ -387,7 +349,7 @@ class TestRenameFile:
         )
         assert res.status_code == 404
 
-    def test_move_file_to_subdir(self, workspace):
+    def test_move_file_to_subdir(self, client, workspace):
         (workspace / "file.txt").write_text("data", encoding="utf-8")
         sub = workspace / "sub"
         sub.mkdir()
@@ -399,7 +361,7 @@ class TestRenameFile:
         assert res.status_code == 200
         assert (sub / "file.txt").read_text(encoding="utf-8") == "data"
 
-    def test_rename_directory(self, workspace):
+    def test_rename_directory(self, client, workspace):
         d = workspace / "olddir"
         d.mkdir()
         (d / "f.txt").write_text("x", encoding="utf-8")
@@ -411,7 +373,7 @@ class TestRenameFile:
         assert res.status_code == 200
         assert (workspace / "newdir" / "f.txt").exists()
 
-    def test_delete_file(self, workspace):
+    def test_delete_file(self, client, workspace):
         (workspace / "delete-me.txt").write_text("bye", encoding="utf-8")
         res = client.post(
             "/workspaces/test-ws/delete-file",
@@ -422,7 +384,7 @@ class TestRenameFile:
         assert res.json()["status"] == "ok"
         assert not (workspace / "delete-me.txt").exists()
 
-    def test_delete_nonexistent_returns_404(self, workspace):
+    def test_delete_nonexistent_returns_404(self, client, workspace):
         res = client.post(
             "/workspaces/test-ws/delete-file",
             headers=AUTH,
@@ -430,7 +392,7 @@ class TestRenameFile:
         )
         assert res.status_code == 404
 
-    def test_delete_directory(self, workspace):
+    def test_delete_directory(self, client, workspace):
         d = workspace / "rmdir"
         d.mkdir()
         (d / "f.txt").write_text("x", encoding="utf-8")

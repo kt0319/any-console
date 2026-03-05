@@ -1,11 +1,12 @@
+# デプロイ時に ${USER}, ${INSTALL_DIR} を sed 等で置換すること
 [Unit]
 Description=pi-console API
 After=network.target
 
 [Service]
-User=%USER%
-WorkingDirectory=%INSTALL_DIR%
-EnvironmentFile=%INSTALL_DIR%/.env
+User=${USER}
+WorkingDirectory=${INSTALL_DIR}
+EnvironmentFile=${INSTALL_DIR}/.env
 ExecStart=/usr/bin/python3 -m api.main
 Restart=always
 RestartSec=3
@@ -13,7 +14,9 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=%INSTALL_DIR% /tmp/pi-console-uploads
+ReadWritePaths=${INSTALL_DIR} /tmp/pi-console-uploads
+MemoryMax=512M
+LimitNOFILE=4096
 
 [Install]
 WantedBy=multi-user.target
