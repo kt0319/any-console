@@ -292,6 +292,12 @@ def execute_job(body: RunRequest):
                 status_code=400,
                 detail=f"Invalid value for {arg_option.name}: {value} (allowed: {arg_option.values})",
             )
+        else:
+            if re.search(r"[\x00-\x1f\x7f]", value):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid characters in argument: {arg_option.name}",
+                )
         ordered_args.append(value)
 
     if body.job == "terminal":
