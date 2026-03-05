@@ -23,28 +23,33 @@ import { openTabEditModal } from './terminal-tab-modal.js';
  */
 export async function initApp() {
   setLoadingStatus("読み込み中...");
-  await loadWorkspaces({ useCache: true });
-  if (!selectedWorkspace) {
-    const firstVisibleWorkspace = visibleWorkspaces()[0];
-    if (firstVisibleWorkspace) {
-      setSelectedWorkspace(firstVisibleWorkspace.name);
+  try {
+    await loadWorkspaces({ useCache: true });
+    if (!selectedWorkspace) {
+      const firstVisibleWorkspace = visibleWorkspaces()[0];
+      if (firstVisibleWorkspace) {
+        setSelectedWorkspace(firstVisibleWorkspace.name);
+      }
     }
+    if (selectedWorkspace && !visibleWorkspaces().some((ws) => ws.name === selectedWorkspace)) {
+      setSelectedWorkspace(null);
+    }
+    localStorage.removeItem("pi_console_active_tab");
+    setAppInitializing(true);
+    restoreTabsFromLocalStorageImmediate();
+    setAppInitializing(false);
+    fetchOrphanSessions();
+    await Promise.all([
+      updateHeaderForTab(activeTabId),
+      ensureSnippetsLoaded(),
+    ]);
+    updateQuickInputVisibility();
+    fitActiveTerminal();
+    setTimeout(fitActiveTerminal, 300);
+  } catch (e) {
+    console.error("initApp failed:", e);
+    showToast("初期化に失敗しました。ページを再読み込みしてください");
   }
-  if (selectedWorkspace && !visibleWorkspaces().some((ws) => ws.name === selectedWorkspace)) {
-    setSelectedWorkspace(null);
-  }
-  localStorage.removeItem("pi_console_active_tab");
-  setAppInitializing(true);
-  restoreTabsFromLocalStorageImmediate();
-  setAppInitializing(false);
-  fetchOrphanSessions();
-  await Promise.all([
-    updateHeaderForTab(activeTabId),
-    ensureSnippetsLoaded(),
-  ]);
-  updateQuickInputVisibility();
-  fitActiveTerminal();
-  setTimeout(fitActiveTerminal, 300);
   if (sessionStorage.getItem("pi_console_server_reloaded")) {
     sessionStorage.removeItem("pi_console_server_reloaded");
     showToast("サーバーに再接続しました", "success");

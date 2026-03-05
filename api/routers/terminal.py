@@ -72,11 +72,12 @@ def create_pty_session(workspace_path: str | None) -> tuple[int, int]:
 def _kill_pty_session(session: TerminalSession) -> None:
     try:
         os.close(session.fd)
-    except OSError:
-        pass
+    except OSError as e:
+        logger.debug("close fd=%d failed: %s", session.fd, e)
     try:
         os.kill(session.pid, signal.SIGTERM)
-    except (ProcessLookupError, PermissionError, OSError):
+    except (ProcessLookupError, PermissionError, OSError) as e:
+        logger.debug("SIGTERM pid=%d failed: %s", session.pid, e)
         return
     try:
         pid, _ = os.waitpid(session.pid, os.WNOHANG)
@@ -84,8 +85,8 @@ def _kill_pty_session(session: TerminalSession) -> None:
             time.sleep(0.1)
             os.kill(session.pid, signal.SIGKILL)
             os.waitpid(session.pid, os.WNOHANG)
-    except (ChildProcessError, ProcessLookupError, PermissionError, OSError):
-        pass
+    except (ChildProcessError, ProcessLookupError, PermissionError, OSError) as e:
+        logger.debug("cleanup pid=%d failed: %s", session.pid, e)
 
 
 def cleanup_terminal_sessions() -> None:

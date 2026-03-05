@@ -144,6 +144,7 @@ export function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, in
     return true;
   });
 
+  let mutationObserver = null;
   if (isTouchDevice) {
     const patchTextarea = () => {
       const ta = container.querySelector("textarea");
@@ -152,8 +153,8 @@ export function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, in
       const origFocus = ta.focus.bind(ta);
       ta.focus = (opts) => { if (!splitMode) origFocus(opts); };
     };
-    const obs = new MutationObserver(patchTextarea);
-    obs.observe(container, { childList: true, subtree: true });
+    mutationObserver = new MutationObserver(patchTextarea);
+    mutationObserver.observe(container, { childList: true, subtree: true });
     patchTextarea();
   }
 
@@ -172,7 +173,7 @@ export function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, in
   });
 
 
-  const tab = { id, type: "terminal", wsUrl, workspace: workspace || null, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, jobName: jobName || null, jobLabel: jobLabel || null, _pendingOpen: true, _pendingRedraw: !!restored };
+  const tab = { id, type: "terminal", wsUrl, workspace: workspace || null, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, jobName: jobName || null, jobLabel: jobLabel || null, _pendingOpen: true, _pendingRedraw: !!restored, _mutationObserver: mutationObserver };
   openTabs.push(tab);
   createTabNamePill(tab, container);
 
@@ -250,6 +251,7 @@ export function removeTab(id, options = {}) {
     tab._wsDisposed = true;
     if (tab._reconnectTimer) clearTimeout(tab._reconnectTimer);
     if (tab._activityTimer) clearTimeout(tab._activityTimer);
+    if (tab._mutationObserver) tab._mutationObserver.disconnect();
     if (tab.ws) tab.ws.close();
     if (tab.fitAddon) try { tab.fitAddon.dispose(); } catch (e) { console.warn("fitAddon.dispose failed:", e); }
     if (tab.term) tab.term.dispose();
