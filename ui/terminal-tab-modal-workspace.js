@@ -281,9 +281,18 @@ export function createTerminalTabModalWorkspaceSection(deps) {
    * @param {HTMLElement} listContainer
    * @returns {void}
    */
-  function fetchModalWsGitStatuses(workspaces, listContainer) {
-    for (const ws of workspaces.filter((w) => w.is_git_repo)) {
-      refreshWorkspaceStatusInModal(ws.name, listContainer).catch(() => {});
+  async function fetchModalWsGitStatuses(workspaces, listContainer) {
+    const res = await apiFetch("/workspaces/statuses");
+    if (!res || !res.ok) return;
+    const data = await res.json();
+    for (const status of data.statuses) {
+      const idx = allWorkspaces.findIndex((w) => w.name === status.name);
+      if (idx < 0) continue;
+      allWorkspaces[idx] = { ...allWorkspaces[idx], ...status };
+      const group = listContainer.querySelector(`[data-workspace-name="${status.name}"]`);
+      if (group) {
+        updateModalWsGroupGitInfo(group, allWorkspaces[idx]);
+      }
     }
   }
 

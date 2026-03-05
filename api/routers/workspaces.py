@@ -26,7 +26,7 @@ from ..config import (
     save_global_config_section,
     save_workspace_config,
 )
-from ..git_utils import command_result_dict, git_branch, git_is_repo
+from ..git_utils import command_result_dict, git_branch, git_info_to_status_dict, git_is_repo
 from ..icons import normalize_icon
 
 logger = logging.getLogger(__name__)
@@ -90,6 +90,22 @@ def list_workspaces():
     result = list(BACKGROUND_EXECUTOR.map(_lightweight_workspace_info, dirs))
     BACKGROUND_EXECUTOR.submit(_background_fetch, dirs)
     return result
+
+
+@router.get("/workspaces/statuses")
+def list_workspace_statuses():
+    if not WORK_DIR.is_dir():
+        return {"statuses": []}
+    dirs = [
+        d for d in WORK_DIR.iterdir()
+        if d.is_dir() and not d.name.startswith(".") and git_is_repo(d)
+    ]
+
+    def _get_status(d):
+        return git_info_to_status_dict(d, d.name)
+
+    statuses = list(BACKGROUND_EXECUTOR.map(_get_status, dirs))
+    return {"statuses": statuses}
 
 
 class WorkspaceOrderRequest(BaseModel):
