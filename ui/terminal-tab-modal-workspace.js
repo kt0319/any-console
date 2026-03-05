@@ -284,6 +284,7 @@ export function createTerminalTabModalWorkspaceSection(deps) {
   async function fetchModalWsGitStatuses(workspaces, listContainer) {
     const res = await apiFetch("/workspaces/statuses");
     if (!res || !res.ok) return;
+    if (!listContainer.isConnected) return;
     const data = await res.json();
     for (const status of data.statuses) {
       const idx = allWorkspaces.findIndex((w) => w.name === status.name);

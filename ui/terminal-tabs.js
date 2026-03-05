@@ -512,9 +512,12 @@ export function renderTabBar() {
   }
   bar.innerHTML = html;
 
-  bar.addEventListener("dblclick", (e) => {
-    if (!e.target.closest(".tab-btn")) openTabEditModal("workspace");
-  });
+  if (!bar._dblclickBound) {
+    bar.addEventListener("dblclick", (e) => {
+      if (!e.target.closest(".tab-btn")) openTabEditModal("workspace");
+    });
+    bar._dblclickBound = true;
+  }
 
   bar.querySelectorAll(".tab-btn:not(.orphan)").forEach((btn) => {
     const tab = openTabs.find((t) => t.id === btn.dataset.tab);
