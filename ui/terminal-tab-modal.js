@@ -9,7 +9,7 @@ import { GitLogModal } from './git-log-modal.js';
 import { runJob } from './jobs.js';
 import { renderTerminalSettingsPane } from './settings-terminal.js';
 import { renderWorkspaceSettingsPane } from './settings-workspace.js';
-import { renderProcessListTo, renderOpLogTo, renderActivityLogTo, renderServerInfoTo } from './settings.js';
+import { renderProcessListTo, renderOpLogTo, renderActivityLogTo, renderServerInfoTo, exportSettings, importSettings } from './settings.js';
 
 /**
  * Opens the tab/settings edit modal overlay.

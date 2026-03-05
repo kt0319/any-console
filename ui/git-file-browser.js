@@ -869,7 +869,7 @@ async function deleteFileInWorkspace(path, config) {
  * Renders a diff view for the given file path in the diff pane using cached diff chunks.
  * @param {string} path - File path whose diff to display
  */
-function showDiffFileInDiffPane(path) {
+export function showDiffFileInDiffPane(path) {
   if (!selectedWorkspace || !path) return;
   setDiffViewerMode("diff");
   const el = getFileBrowserContainer("diff-pane");

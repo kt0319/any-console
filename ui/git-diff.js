@@ -5,7 +5,7 @@ import { diffChunks, setDiffChunks, diffFullText, setDiffFullText } from './stat
 import { apiFetch, workspaceApiPath, getActionFailureMessage } from './api-client.js';
 import { $, escapeHtml, renderActionButtons, hideFormError } from './utils.js';
 import { GitLogModal } from './git-log-modal.js';
-import { getFileIcon } from './git-file-browser.js';
+import { getFileIcon, showDiffFileInDiffPane } from './git-file-browser.js';
 
 /** @type {string} */
 export let diffViewerMode = "file";
