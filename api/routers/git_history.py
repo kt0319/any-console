@@ -52,8 +52,9 @@ def get_git_log(name: str, limit: int = 50, skip: int = 0, graph: bool = False):
     ]
     if graph:
         args.insert(3, "--graph")
+        args.insert(4, "--all")
     if safe_skip > 0:
-        args.insert(4 + (1 if graph else 0), f"--skip={safe_skip}")
+        args.insert(4 + (2 if graph else 0), f"--skip={safe_skip}")
     return run_git_command(args, cwd=ws_path, operation="log")
 
 
