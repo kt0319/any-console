@@ -57,9 +57,7 @@ def _model_dump(model: BaseModel) -> dict[str, Any]:
 
 
 def validate_workspace_config(data: Any) -> dict[str, Any]:
-    normalized = _model_dump(_model_validate(WorkspaceConfig, data))
-    normalized.pop("links", None)
-    return normalized
+    return _model_dump(_model_validate(WorkspaceConfig, data))
 
 
 def validate_global_config(data: Any) -> dict[str, Any]:

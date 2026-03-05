@@ -158,7 +158,7 @@ sudo systemctl restart pi-console
 
 - ワークスペースルートは `~/work/` 固定（`WORK_DIR = Path.home() / "work"`）
 - 追加設定は `config.json`（ワークスペース単位）
-  - `icon`, `icon_color`, `hidden`, `jobs`, `links`
+  - `icon`, `icon_color`, `hidden`, `jobs`
 
 ## ターミナル
 
@@ -202,10 +202,6 @@ sudo systemctl restart pi-console
 | `POST /workspaces/{name}/jobs` | ジョブ作成 |
 | `PUT /workspaces/{name}/jobs/{name}` | ジョブ更新 |
 | `DELETE /workspaces/{name}/jobs/{name}` | ジョブ削除 |
-| `GET /workspaces/{name}/links` | リンク一覧 |
-| `POST /workspaces/{name}/links` | リンク作成 |
-| `PUT /workspaces/{name}/links/{index}` | リンク更新 |
-| `DELETE /workspaces/{name}/links/{index}` | リンク削除 |
 | `GET /github/repos` | GitHubリポジトリ一覧（gh CLI経由） |
 | `GET /terminal/sessions` | ターミナルセッション一覧 |
 | `DELETE /terminal/sessions/{id}` | ターミナルセッション削除 |

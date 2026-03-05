@@ -228,11 +228,6 @@ class TestConfigSchema:
         result = validate_config_entry("ws", {"icon": "mdi-home"}, "__global__")
         assert result["icon"] == "mdi-home"
 
-    def test_validate_workspace_config_strips_links(self):
-        from api.config_schema import validate_workspace_config
-        result = validate_workspace_config({"icon": "mdi-star", "links": [{"url": "x"}]})
-        assert "links" not in result
-
     def test_validate_global_config_with_snippets(self):
         from api.config_schema import validate_global_config
         result = validate_global_config({
