@@ -386,23 +386,11 @@ export function renderTabBar() {
 
   bar.querySelectorAll(".tab-btn:not(.orphan)").forEach((btn) => {
     const tab = openTabs.find((t) => t.id === btn.dataset.tab);
-    if (panelBottom) {
-      bindLongPress(btn, {
-        onLongPress: () => {
-          openTabEditModal();
-        },
-        onClick: (e) => {
-          if (e.target.classList.contains("tab-close")) return;
-          const tabId = btn.dataset.tab;
-          if (tabId === activeTabId) {
-            openTabEditModal("workspace");
-            return;
-          }
-          switchTab(tabId);
-        },
-      });
-    } else {
-      btn.addEventListener("click", (e) => {
+    bindLongPress(btn, {
+      onLongPress: () => {
+        openTabEditModal();
+      },
+      onClick: (e) => {
         if (e.target.classList.contains("tab-close")) return;
         const tabId = btn.dataset.tab;
         if (tabId === activeTabId) {
@@ -410,9 +398,9 @@ export function renderTabBar() {
           return;
         }
         switchTab(tabId);
-      });
-      if (tab) bindMouseDrag(btn, tab);
-    }
+      },
+    });
+    if (!panelBottom && tab) bindMouseDrag(btn, tab);
     btn.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       openTabEditModal();

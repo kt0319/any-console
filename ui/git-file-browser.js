@@ -1,5 +1,5 @@
 // @ts-check
-import { selectedWorkspace } from './state-core.js';
+import { selectedWorkspace, allWorkspaces } from './state-core.js';
 import { diffChunks } from './state-git.js';
 import { $, escapeHtml, bindLongPress, showToast } from './utils.js';
 import { apiFetch, workspaceApiPath } from './api-client.js';
@@ -792,6 +792,23 @@ function showFileBrowserActionMenu(item, container, config) {
     });
     menu.appendChild(downloadBtn);
   }
+
+  const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
+  if (ws && ws.github_url) {
+    const baseUrl = ws.github_url.replace(/\.git$/, "");
+    const branch = ws.branch || "main";
+    const pathType = item.dataset.type === "dir" ? "tree" : "blob";
+    const githubLink = `${baseUrl}/${pathType}/${encodeURIComponent(branch)}/${filePath}`;
+    const ghBtn = document.createElement("button");
+    ghBtn.type = "button";
+    ghBtn.innerHTML = '<i class="mdi mdi-github"></i> GitHubで開く';
+    ghBtn.addEventListener("click", () => {
+      menu.remove();
+      window.open(githubLink, "_blank");
+    });
+    menu.appendChild(ghBtn);
+  }
+
   menu.appendChild(renameBtn);
   menu.appendChild(moveBtn);
   menu.appendChild(deleteBtn);
