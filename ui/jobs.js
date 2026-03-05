@@ -136,7 +136,13 @@ export async function openJobConfirmModal(name) {
       const label = document.createElement("label");
       label.className = "arg-label";
       label.textContent = arg.name;
-      if (arg.required) label.innerHTML += ' <span class="required">*</span>';
+      if (arg.required) {
+        const req = document.createElement("span");
+        req.className = "required";
+        req.textContent = "*";
+        label.appendChild(document.createTextNode(" "));
+        label.appendChild(req);
+      }
       group.appendChild(label);
 
       if (Array.isArray(arg.values) && arg.values.length > 0) {

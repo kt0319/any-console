@@ -173,7 +173,7 @@ def clone_workspace(body: CloneRequest):
 
     try:
         result = subprocess.run(
-            ["git", "clone", url, str(target_path)],
+            ["git", "clone", "--", url, str(target_path)],
             capture_output=True, text=True,
             timeout=GIT_CLONE_TIMEOUT_SEC, cwd=str(WORK_DIR),
         )

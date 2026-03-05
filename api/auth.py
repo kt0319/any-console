@@ -1,3 +1,4 @@
+import hmac
 import os
 
 from fastapi import Depends, HTTPException, status
@@ -16,7 +17,7 @@ def verify_token(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="PI_CONSOLE_TOKEN is not configured",
         )
-    if credentials.credentials != PI_CONSOLE_TOKEN:
+    if not hmac.compare_digest(credentials.credentials, PI_CONSOLE_TOKEN):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",

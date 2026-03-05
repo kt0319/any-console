@@ -1,6 +1,7 @@
 // @ts-check
 import { token } from './state-core.js';
 import { escapeHtml, toDisplayMessage, showToast } from './utils.js';
+import { handleUnauthorized } from './auth.js';
 
 /**
  * @param {string} endpoint

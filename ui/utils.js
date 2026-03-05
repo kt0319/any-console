@@ -1,5 +1,6 @@
 // @ts-check
 import { openTabs, activeTabId, splitMode, panelBottom, selectedWorkspace, isTouchDevice } from './state-core.js';
+import { stopStatusPolling } from './workspace.js';
 
 /**
  * @param {string} id

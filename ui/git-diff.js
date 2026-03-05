@@ -3,9 +3,10 @@
 import { selectedWorkspace } from './state-core.js';
 import { diffChunks, setDiffChunks, diffFullText, setDiffFullText } from './state-git.js';
 import { apiFetch, workspaceApiPath, getActionFailureMessage } from './api-client.js';
-import { $, escapeHtml, renderActionButtons, hideFormError } from './utils.js';
+import { $, escapeHtml, renderActionButtons, hideFormError, showFormError, showToast } from './utils.js';
 import { GitLogModal } from './git-log-modal.js';
 import { getFileIcon, showDiffFileInDiffPane } from './git-file-browser.js';
+import { refreshWorkspaceHeader } from './workspace.js';
 
 /** @type {string} */
 export let diffViewerMode = "file";
