@@ -49,6 +49,7 @@ class TerminalSession:
 
 
 TERMINAL_SESSIONS: dict[str, TerminalSession] = {}
+_sessions_lock = threading.Lock()
 
 
 def create_pty_session(workspace_path: str | None) -> tuple[int, int]:
@@ -67,8 +68,12 @@ def create_pty_session(workspace_path: str | None) -> tuple[int, int]:
 
     pid, fd = pty.fork()
     if pid == 0:
-        os.chdir(cwd)
-        os.execvpe(user_shell, [user_shell, "-l"], env)
+        try:
+            os.chdir(cwd)
+            os.execvpe(user_shell, [user_shell, "-l"], env)
+        except Exception:
+            pass
+        os._exit(1)
     return fd, pid
 
 
@@ -94,49 +99,56 @@ def _kill_pty_session(session: TerminalSession) -> None:
 
 def cleanup_terminal_sessions() -> None:
     now = time.time()
-    expired = [sid for sid, s in TERMINAL_SESSIONS.items() if s.expires_at <= now]
-    for sid in expired:
-        session = TERMINAL_SESSIONS.pop(sid, None)
-        if session:
-            logger.info("terminal session expired session=%s", sid)
-            _kill_pty_session(session)
+    with _sessions_lock:
+        expired = [sid for sid, s in TERMINAL_SESSIONS.items() if s.expires_at <= now]
+        expired_sessions = []
+        for sid in expired:
+            session = TERMINAL_SESSIONS.pop(sid, None)
+            if session:
+                expired_sessions.append((sid, session))
+    for sid, session in expired_sessions:
+        logger.info("terminal session expired session=%s", sid)
+        _kill_pty_session(session)
 
 
 def get_terminal_session(session_id: str) -> TerminalSession:
     cleanup_terminal_sessions()
-    session = TERMINAL_SESSIONS.get(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Terminal session not found")
-    if session.expires_at <= time.time():
-        TERMINAL_SESSIONS.pop(session_id, None)
-        _kill_pty_session(session)
-        raise HTTPException(status_code=410, detail="Terminal session expired")
-    session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
-    return session
+    with _sessions_lock:
+        session = TERMINAL_SESSIONS.get(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Terminal session not found")
+        if session.expires_at <= time.time():
+            TERMINAL_SESSIONS.pop(session_id, None)
+            _kill_pty_session(session)
+            raise HTTPException(status_code=410, detail="Terminal session expired")
+        session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
+        return session
 
 
 @router.get("/terminal/sessions")
 async def list_terminal_sessions():
     cleanup_terminal_sessions()
     now = time.time()
-    return [
-        {
-            "session_id": sid,
-            "workspace": s.workspace,
-            "ws_url": f"/terminal/ws/{sid}",
-            "expires_in": int(s.expires_at - now),
-            "icon": s.icon,
-            "icon_color": s.icon_color,
-            "job_name": s.job_name,
-            "job_label": s.job_label,
-        }
-        for sid, s in TERMINAL_SESSIONS.items()
-    ]
+    with _sessions_lock:
+        return [
+            {
+                "session_id": sid,
+                "workspace": s.workspace,
+                "ws_url": f"/terminal/ws/{sid}",
+                "expires_in": int(s.expires_at - now),
+                "icon": s.icon,
+                "icon_color": s.icon_color,
+                "job_name": s.job_name,
+                "job_label": s.job_label,
+            }
+            for sid, s in TERMINAL_SESSIONS.items()
+        ]
 
 
 @router.delete("/terminal/sessions/{session_id}")
 async def delete_terminal_session(session_id: str):
-    session = TERMINAL_SESSIONS.pop(session_id, None)
+    with _sessions_lock:
+        session = TERMINAL_SESSIONS.pop(session_id, None)
     if not session:
         raise HTTPException(status_code=404, detail="Terminal session not found")
     _kill_pty_session(session)
@@ -165,7 +177,8 @@ def _is_process_alive(pid: int) -> bool:
 
 @ws_router.websocket("/terminal/ws/{session_id}")
 async def terminal_ws(websocket: WebSocket, session_id: str):
-    session = TERMINAL_SESSIONS.get(session_id)
+    with _sessions_lock:
+        session = TERMINAL_SESSIONS.get(session_id)
     await websocket.accept()
 
     if not session:
@@ -173,12 +186,14 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
         return
 
     if session.expires_at <= time.time():
-        TERMINAL_SESSIONS.pop(session_id, None)
+        with _sessions_lock:
+            TERMINAL_SESSIONS.pop(session_id, None)
         await websocket.close(code=1008, reason="セッションがタイムアウトしました")
         return
 
     if not _is_process_alive(session.pid):
-        TERMINAL_SESSIONS.pop(session_id, None)
+        with _sessions_lock:
+            TERMINAL_SESSIONS.pop(session_id, None)
         await websocket.close(code=1008, reason="シェルプロセスが終了しました")
         return
 

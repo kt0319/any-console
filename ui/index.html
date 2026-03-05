@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="pi-console" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mshaugh/nerdfont-webfonts@v3.3.0/build/hack-nerd-font.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mshaugh/nerdfont-webfonts@v3.3.0/build/hack-nerd-font.css" integrity="sha384-qsvUYQ4b5u1viJpX3ORdCvicVqq4lxoEWqN4yPbGZfIuvSB2tGZv4+7/2jqpZwMu" crossorigin="anonymous" />
   <link rel="stylesheet" href="vendor/css/materialdesignicons.min.css" />
   <link rel="stylesheet" href="vendor/css/xterm.css" />
   <link rel="stylesheet" href="vendor/css/tokyo-night-dark.min.css" />
@@ -31,7 +31,7 @@
   <!-- App -->
   <div id="app-screen" style="display:none; flex-direction:column; overflow:hidden">
     <!-- Settings Modal -->
-    <div id="settings-modal" class="modal-overlay" style="display:none">
+    <div id="settings-modal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="settings-title">
       <div class="modal">
         <div class="modal-header">
           <h3 id="settings-title">設定</h3>
@@ -71,7 +71,7 @@
       </div>
     </div>
     <!-- Git Modal -->
-    <div id="git-modal" class="modal-overlay" style="display:none">
+    <div id="git-modal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="git-modal-title">
       <div class="modal">
         <div class="modal-header">
           <h3 id="git-modal-title" class="split-modal-title">コミット履歴</h3>
@@ -127,7 +127,7 @@
       </div>
     </div>
     <!-- Job Confirm Modal -->
-    <div id="job-confirm-modal" class="modal-overlay" style="display:none">
+    <div id="job-confirm-modal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="job-confirm-title">
       <div class="modal">
         <div class="modal-header">
           <h3 id="job-confirm-title">ジョブ実行</h3>
@@ -177,10 +177,10 @@
       </div>
     </div>
     <!-- Icon Picker Modal -->
-    <div id="icon-picker-modal" class="modal-overlay" style="display:none">
+    <div id="icon-picker-modal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="icon-picker-title">
       <div class="modal">
         <div class="modal-header">
-          <h3>アイコン選択</h3>
+          <h3 id="icon-picker-title">アイコン選択</h3>
           <button type="button" id="icon-picker-close" class="modal-close-btn">&times;</button>
         </div>
         <div class="icon-picker-input-row">

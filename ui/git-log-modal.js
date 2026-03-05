@@ -1,7 +1,7 @@
 // @ts-check
 import { selectedWorkspace, allWorkspaces, splitMode, openTabs, activeTabId } from './state-core.js';
 import { apiFetch, workspaceApiPath, getActionFailureMessage, setListStatus } from './api-client.js';
-import { showToast, escapeHtml, renderActionButtons, showFormError, hideFormError, $, formatCommitTime, setupModalSwipeClose } from './utils.js';
+import { showToast, escapeHtml, renderActionButtons, showFormError, hideFormError, $, formatCommitTime, setupModalSwipeClose, trapFocus } from './utils.js';
 import { GIT_LOG_ENTRIES_PER_PAGE } from './state-git.js';
 
 // Circular deps (only used in function bodies)
@@ -12,6 +12,7 @@ import { syncWorkspaceForTab } from './terminal-tabs.js';
 import { loadDirectoryInDiffPane } from './git-file-browser.js';
 
 const GIT_PANE_MAP = { history: "git-history-pane", files: "git-files-pane", stash: "git-stash-pane", branch: "git-branch-pane" };
+let _releaseFocusTrap = null;
 
 export const GitLogModal = {
   state: {
@@ -70,6 +71,10 @@ export const GitLogModal = {
    */
   closeGitModal() {
     $("git-modal").style.display = "none";
+    if (_releaseFocusTrap) {
+      _releaseFocusTrap();
+      _releaseFocusTrap = null;
+    }
     GitLogModal.resetActionMenu();
     closeCommitForm();
     GitLogModal.setModalTitle("");
@@ -379,6 +384,7 @@ export const GitLogModal = {
     GitLogModal.ensureDiffTabVisible();
     GitLogModal.showDiffHistoryTop();
     $("git-modal").style.display = "flex";
+    _releaseFocusTrap = trapFocus($("git-modal"), GitLogModal.closeGitModal);
     GitLogModal.updateStashIndicators();
     clearActiveDiffRef();
     GitLogModal.state.history.hasMore = false;
@@ -393,6 +399,7 @@ export const GitLogModal = {
     if (!selectedWorkspace) return;
     GitLogModal.ensureDiffTabVisible();
     $("git-modal").style.display = "flex";
+    _releaseFocusTrap = trapFocus($("git-modal"), GitLogModal.closeGitModal);
     GitLogModal.setDiffTopMode("files", { title: GitLogModal.modalTitle() });
     $("git-upper-pane").style.display = "none";
     clearActiveDiffRef();

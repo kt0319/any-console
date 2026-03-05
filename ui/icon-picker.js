@@ -1,5 +1,5 @@
 // @ts-check
-import { $, renderIcon, escapeHtml, blobToDataUrl, isImageDataIcon, showToast } from './utils.js';
+import { $, renderIcon, escapeHtml, blobToDataUrl, isImageDataIcon, showToast, trapFocus } from './utils.js';
 import { apiFetch } from './api-client.js';
 
 export let iconPickerCache = null;
@@ -7,6 +7,7 @@ export let iconPickerCallback = null;
 export let iconPickerSelectedColor = "";
 export let iconPickerSelectedIcon = null;
 export let iconPickerPendingClear = false;
+let _releaseFocusTrap = null;
 
 export const ICON_PRESET_COLORS = [
   { label: "デフォルト", value: "" },
@@ -134,6 +135,7 @@ export function openIconPicker(callback, currentIcon, currentColor) {
 
   renderPickerColorPalette(iconPickerSelectedColor);
   modal.style.display = "flex";
+  _releaseFocusTrap = trapFocus(modal, closeIconPicker);
 
   if (iconPickerSelectedIcon && iconPickerSelectedIcon.startsWith("mdi-")) {
     preview.innerHTML = renderIcon(iconPickerSelectedIcon, iconPickerSelectedColor, 24);
@@ -344,6 +346,10 @@ export function clearIconPicker() {
 export function closeIconPicker() {
   $("icon-picker-modal").style.display = "none";
   iconPickerCallback = null;
+  if (_releaseFocusTrap) {
+    _releaseFocusTrap();
+    _releaseFocusTrap = null;
+  }
 }
 
 /**

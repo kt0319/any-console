@@ -24,6 +24,7 @@ from ..runner import run_job
 from .terminal import (
     TERMINAL_SESSIONS,
     TerminalSession,
+    _sessions_lock,
     create_pty_session,
 )
 
@@ -311,16 +312,17 @@ def execute_job(body: RunRequest):
             logger.error("pty fork failed: %s", e)
             raise HTTPException(status_code=500, detail=f"Failed to create terminal: {e}") from None
         try:
-            TERMINAL_SESSIONS[session_id] = TerminalSession(
+            with _sessions_lock:
+                TERMINAL_SESSIONS[session_id] = TerminalSession(
                 workspace=body.workspace,
                 fd=fd,
                 pid=pid,
                 expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
-                icon=body.icon,
-                icon_color=body.icon_color,
-                job_name=body.job_name,
-                job_label=body.job_label,
-            )
+                    icon=body.icon,
+                    icon_color=body.icon_color,
+                    job_name=body.job_name,
+                    job_label=body.job_label,
+                )
         except Exception:
             os.close(fd)
             try:

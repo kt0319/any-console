@@ -1,6 +1,6 @@
 // @ts-check
 import { panelBottom, getTerminalRuntimeOptions } from './state-core.js';
-import { $, escapeHtml, showToast, toDisplayMessage } from './utils.js';
+import { $, escapeHtml, showToast, toDisplayMessage, trapFocus } from './utils.js';
 import { apiFetch, fetchAndRenderWithStatus, setInlineStatus } from './api-client.js';
 import { refreshWorkspaceHeader, loadWorkspaces } from './workspace.js';
 import { invalidateWorkspaceMetaCache, invalidateGithubReposCache } from './cache.js';
@@ -36,6 +36,8 @@ export function initDeviceName() {
   });
 }
 
+let _releaseFocusTrap = null;
+
 /**
  */
 export function openSettings() {
@@ -43,12 +45,17 @@ export function openSettings() {
   $("settings-title").textContent = "設定";
   $("device-name-input").value = localStorage.getItem("deviceName") || "";
   $("settings-modal").style.display = "flex";
+  _releaseFocusTrap = trapFocus($("settings-modal"), closeSettings);
 }
 
 /**
  */
 export function closeSettings() {
   $("settings-modal").style.display = "none";
+  if (_releaseFocusTrap) {
+    _releaseFocusTrap();
+    _releaseFocusTrap = null;
+  }
 }
 
 export const SERVER_INFO_LABELS = {

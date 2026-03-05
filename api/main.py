@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from .auth import verify_token
 from .common import BACKGROUND_EXECUTOR, LOG_BUFFER, UPLOAD_DIR, _current_device
 from .icons import ICONS_DIR
+from .rate_limiter import RateLimitMiddleware
 from .routers import git, jobs, logs, settings, system, terminal, workspaces
 
 logging.basicConfig(
@@ -99,9 +100,11 @@ async def log_requests(request: Request, call_next):
 
 @app.on_event("shutdown")
 def shutdown_cleanup():
-    for _sid, session in list(terminal.TERMINAL_SESSIONS.items()):
+    with terminal._sessions_lock:
+        sessions = list(terminal.TERMINAL_SESSIONS.items())
+        terminal.TERMINAL_SESSIONS.clear()
+    for _sid, session in sessions:
         terminal._kill_pty_session(session)
-    terminal.TERMINAL_SESSIONS.clear()
     BACKGROUND_EXECUTOR.shutdown(wait=False)
 
 
@@ -140,14 +143,16 @@ def serve_index(request: Request):
     if cache_bust and re.fullmatch(r"[0-9]{8,20}", cache_bust):
         version = cache_bust
     html = (UI_DIR / "index.html").read_text()
-    html = re.sub(r'href="([^"]+\.css)"', rf'href="\1?v={version}"', html)
-    html = re.sub(r'src="([^"]+\.js)"', rf'src="\1?v={version}"', html)
+    html = re.sub(r'href="(?!https?://)([^"]+\.css)"', rf'href="\1?v={version}"', html)
+    html = re.sub(r'src="(?!https?://)([^"]+\.js)"', rf'src="\1?v={version}"', html)
     return Response(content=html, media_type="text/html", headers={"Cache-Control": "no-cache"})
 
 
 ICONS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/icons", StaticFiles(directory=str(ICONS_DIR)), name="icons")
 app.mount("/", StaticFiles(directory=str(UI_DIR)), name="ui")
+
+app.add_middleware(RateLimitMiddleware)
 
 if __name__ == "__main__":
     import os
