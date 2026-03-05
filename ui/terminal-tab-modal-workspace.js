@@ -3,7 +3,7 @@ import { allWorkspaces, selectedWorkspace, setSelectedWorkspace } from './state-
 import { $, renderIcon, escapeHtml, buildWorkspaceChangeSummaryHtml, showToast } from './utils.js';
 import { apiFetch, workspaceApiPath, getActionFailureMessage, postWorkspaceAction } from './api-client.js';
 import { fetchWorkspaceJobsAndLinks, fetchGithubRepos, invalidateWorkspaceMetaCache, loadWorkspaceIconButtons } from './cache.js';
-import { loadWorkspaces, refreshWorkspaceHeader } from './workspace.js';
+import { loadWorkspaces, refreshWorkspaceHeader, visibleWorkspaces } from './workspace.js';
 import { runJob } from './jobs.js';
 import { GitLogModal } from './git-log-modal.js';
 import { bindWorkspaceUploadDropTarget } from './file-browser-upload.js';

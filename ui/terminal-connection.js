@@ -18,7 +18,7 @@ import {
   getTerminalRuntimeOptions,
 } from './state-core.js';
 import { apiFetch } from './api-client.js';
-import { showToast, $, safeFit, refitTerminalWithFocus } from './utils.js';
+import { showToast, $, safeFit, refitTerminalWithFocus, fitTerminalAfterFonts, fitAndSync } from './utils.js';
 import { removeTab, switchTab, persistOpenTabs, addTerminalTab, renderTabBar } from './terminal-tabs.js';
 import { refreshTabNamePill } from './terminal-tab-pill.js';
 
@@ -320,19 +320,19 @@ export function updateQuickInputVisibility() {
   el.style.display = show ? "" : "none";
 }
 
+
 /**
- * Fits the terminal to its container and sends a resize message to the server via WebSocket.
- * @param {Object} tab - The terminal tab object.
+ * @param {object} tab
+ * @param {HTMLElement} frame
+ * @returns {boolean}
  */
-export function fitAndSync(tab) {
-  safeFit(tab);
-  const cols = tab.term.cols;
-  const rows = tab.term.rows;
-  if (cols < 2 || rows < 2) return;
-  if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
-    const resizePayload = new Uint8Array([0, ...new TextEncoder().encode(JSON.stringify({ cols, rows }))]);
-    tab.ws.send(resizePayload);
-  }
+export function ensureTerminalOpened(tab, frame) {
+  if (!tab || tab.type !== "terminal" || !tab._pendingOpen || !frame) return false;
+  tab._pendingOpen = false;
+  tab.term.open(frame);
+  fitTerminalAfterFonts(tab);
+  connectTerminalWs(tab);
+  return true;
 }
 
 /**

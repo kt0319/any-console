@@ -4,6 +4,7 @@ import { apiFetch } from './api-client.js';
 import { $, showLogin, showApp, showToast } from './utils.js';
 import { clearPersistedApiCaches } from './cache.js';
 import { initApp } from './bootstrap.js';
+import { startStatusPolling } from './workspace.js';
 
 /**
  * Saves the auth token to localStorage and cookie.
@@ -108,6 +109,7 @@ export async function login() {
     saveToken(token);
     $("login-error").style.display = "none";
     showApp();
+    startStatusPolling();
     await initApp();
   } else {
     showToast(result.error);

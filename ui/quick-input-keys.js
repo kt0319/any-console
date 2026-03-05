@@ -237,7 +237,10 @@ export async function uploadClipboardImage(file) {
 export const modifierState = { ctrl: false, shift: false };
 
 /** @type {(() => void)|null} */
-export let onModifierToggled = null;
+let onModifierToggled = null;
+
+/** @param {(() => void)|null} fn */
+export function setOnModifierToggled(fn) { onModifierToggled = fn; }
 
 /**
  * Creates a modifier button (Ctrl/Shift) that toggles its state and updates UI.
@@ -262,7 +265,10 @@ export function createModifierBtn(mod, label, onChange) {
 }
 
 /** @type {(() => void)|null} */
-export let onModifiersCleared = null;
+let onModifiersCleared = null;
+
+/** @param {(() => void)|null} fn */
+export function setOnModifiersCleared(fn) { onModifiersCleared = fn; }
 
 /**
  * Clears all active modifier states (ctrl, shift) and removes active CSS classes.

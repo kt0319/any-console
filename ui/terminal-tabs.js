@@ -1,10 +1,10 @@
 // @ts-check
 import { openTabs, setOpenTabs, activeTabId, setActiveTabId, splitMode, splitPaneTabIds, setSplitPaneTabIds, activePaneIndex, setActivePaneIndex, allWorkspaces, selectedWorkspace, setSelectedWorkspace, disconnectedSessions, setDisconnectedSessions, closedSessionUrls, panelBottom, isTouchDevice, terminalIdCounter, setTerminalIdCounter, getTerminalRuntimeOptions, appInitializing, hasRestoredTabsFromStorage, workspaceJobsLoadedFor } from './state-core.js';
-import { renderIcon, escapeHtml, bindLongPress, showToast, $, safeFit, refitTerminalWithFocus, setFrameVisible, ensureTerminalOpened } from './utils.js';
+import { renderIcon, escapeHtml, bindLongPress, showToast, $, safeFit, refitTerminalWithFocus, setFrameVisible } from './utils.js';
 import { apiFetch, workspaceApiPath } from './api-client.js';
 
 // Circular deps (only used inside function bodies):
-import { deleteTerminalSession, connectTerminalWs, syncTerminalSessionState, updateQuickInputVisibility } from './terminal-connection.js';
+import { deleteTerminalSession, connectTerminalWs, syncTerminalSessionState, updateQuickInputVisibility, ensureTerminalOpened } from './terminal-connection.js';
 import { exitAllViewModes, exitTerminalViewMode } from './terminal-view-mode.js';
 import { rebuildSplitLayout, enterSplitMode, exitSplitModeWithTab } from './terminal-split.js';
 import { loadWorkspaces, refreshWorkspaceHeader, refreshCurrentWorkspaceStatus, visibleWorkspaces } from './workspace.js';

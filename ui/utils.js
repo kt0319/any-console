@@ -30,24 +30,22 @@ export function safeFit(tab) {
  * @param {object} tab
  * @returns {void}
  */
+export function fitAndSync(tab) {
+  safeFit(tab);
+  const cols = tab.term.cols;
+  const rows = tab.term.rows;
+  if (cols < 2 || rows < 2) return;
+  if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
+    const resizePayload = new Uint8Array([0, ...new TextEncoder().encode(JSON.stringify({ cols, rows }))]);
+    tab.ws.send(resizePayload);
+  }
+}
+
 export function fitTerminalAfterFonts(tab) {
   if (!document.fonts?.ready) return;
   document.fonts.ready.then(() => fitAndSync(tab)).catch(() => {});
 }
 
-/**
- * @param {object} tab
- * @param {HTMLElement} frame
- * @returns {boolean}
- */
-export function ensureTerminalOpened(tab, frame) {
-  if (!tab || tab.type !== "terminal" || !tab._pendingOpen || !frame) return false;
-  tab._pendingOpen = false;
-  tab.term.open(frame);
-  fitTerminalAfterFonts(tab);
-  connectTerminalWs(tab);
-  return true;
-}
 
 /**
  * @param {object} tab
@@ -253,7 +251,6 @@ export function showLogin() {
 export function showApp() {
   $("login-screen").style.display = "none";
   $("app-screen").style.display = "flex";
-  startStatusPolling();
 }
 
 /**

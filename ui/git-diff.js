@@ -3,8 +3,9 @@
 import { selectedWorkspace } from './state-core.js';
 import { diffChunks, setDiffChunks, diffFullText, setDiffFullText } from './state-git.js';
 import { apiFetch, workspaceApiPath, getActionFailureMessage } from './api-client.js';
-import { $, escapeHtml, renderActionButtons } from './utils.js';
+import { $, escapeHtml, renderActionButtons, hideFormError } from './utils.js';
 import { GitLogModal } from './git-log-modal.js';
+import { getFileIcon } from './git-file-browser.js';
 
 /** @type {string} */
 export let diffViewerMode = "file";

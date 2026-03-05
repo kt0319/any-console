@@ -1,7 +1,9 @@
 // @ts-check
 import { selectedWorkspace } from './state-core.js';
-import { $, escapeHtml } from './utils.js';
-import { getActiveDiffRef, getDiffViewerMode } from './git-diff.js';
+import { $, escapeHtml, bindLongPress } from './utils.js';
+import { apiFetch, workspaceApiPath } from './api-client.js';
+import { getActiveDiffRef, getDiffViewerMode, setDiffViewerMode } from './git-diff.js';
+import { bindFileUploadEvents, bindWorkspaceUploadDropTarget } from './file-browser-upload.js';
 
 /**
  * @typedef {{ icon: string | null, color: string | null, lang?: string }} FileExtEntry

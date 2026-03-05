@@ -122,6 +122,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (result.ok) {
       setServerInfo(result.hostname, result.version);
       showApp();
+      startStatusPolling();
       await initApp();
     } else if (!result.auth) {
       setToken("");
@@ -130,6 +131,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     } else {
       showToast(result.error);
       showApp();
+      startStatusPolling();
       await initApp();
     }
   } else {

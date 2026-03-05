@@ -2,7 +2,7 @@
 import { openTabs, activeTabId, panelBottom, isTouchDevice } from './state-core.js';
 import { $, safeFit, showToast } from './utils.js';
 import { QUICK_KEYS, NUMBER_KEYS, EXTRA_MAIN_KEYS, QWERTY_ROWS, ensureSnippetsLoaded, loadSnippets, addSnippet, deleteSnippet } from './state-input.js';
-import { setupFlickRepeat, sendKeyToTerminal, sendTextToTerminal, scrollTerminal, exitViewModeIfActive, createQuickKeyBtn, createSnippetChip, renderSnippetRow as renderSnippetRowFromKeys, modifierState, onModifierToggled, onModifiersCleared, clearModifiers, uploadClipboardImage } from './quick-input-keys.js';
+import { setupFlickRepeat, sendKeyToTerminal, sendTextToTerminal, scrollTerminal, exitViewModeIfActive, createQuickKeyBtn, createSnippetChip, renderSnippetRow as renderSnippetRowFromKeys, modifierState, setOnModifierToggled, setOnModifiersCleared, clearModifiers, uploadClipboardImage } from './quick-input-keys.js';
 import { openTabEditModal } from './terminal-tab-modal.js';
 
 // Re-export renderSnippetRow so viewport.js can import it from this module.
@@ -153,14 +153,14 @@ export function initQuickInput() {
       } else {
         modifierState.shift = !modifierState.shift;
         qwertyShiftBtn.classList.toggle("active", modifierState.shift);
-        if (onModifierToggled) onModifierToggled();
+        updateQwertyKeys();
       }
     });
     qwertyShiftBtn.addEventListener("touchcancel", () => qwertyShiftBtn.classList.remove("pressed"));
     qwertyShiftBtn.addEventListener("click", () => {
       modifierState.shift = !modifierState.shift;
       qwertyShiftBtn.classList.toggle("active", modifierState.shift);
-      if (onModifierToggled) onModifierToggled();
+      updateQwertyKeys();
     });
   }
 
@@ -370,8 +370,8 @@ export function initQuickInput() {
       else btn.textContent = keyDef.label;
     }
   };
-  onModifiersCleared = updateQwertyKeys;
-  onModifierToggled = updateQwertyKeys;
+  setOnModifiersCleared(updateQwertyKeys);
+  setOnModifierToggled(updateQwertyKeys);
   const enterBtn = createQuickKeyBtn({ label: "\u21B5", key: "Enter" });
   const snippetRow = document.createElement("div");
   snippetRow.className = "quick-snippet-row";
