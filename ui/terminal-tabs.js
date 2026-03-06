@@ -401,10 +401,6 @@ export function renderTabBar() {
       },
     });
     if (!panelBottom && tab) bindMouseDrag(btn, tab);
-    btn.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-      openTabEditModal();
-    });
   });
   bar.querySelectorAll(".tab-btn.orphan").forEach((btn) => {
     bindLongPress(btn, {

@@ -11,7 +11,7 @@ from ..common import (
     resolve_workspace_path,
 )
 from ..git_utils import invalidate_git_info, run_git_command, validate_commit_hash
-from .git_shared import GIT_LOG_MAX_SKIP, validate_stash_ref
+from .git_shared import GIT_LOG_MAX_SKIP, validate_branch_name, validate_stash_ref
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,10 @@ class ResetRequest(BaseModel):
 
 class StashDropRequest(BaseModel):
     stash_ref: str
+
+
+class MergeRequest(BaseModel):
+    branch: str
 
 
 class StashRequest(BaseModel):
@@ -82,6 +86,20 @@ def git_revert(name: str, body: CommitActionRequest):
     logger.info("revert workspace=%s commit=%s rc=%d", name, commit_hash[:8], result["exit_code"])
     if result["exit_code"] == 0:
         log_operation("revert", name, commit_hash[:8])
+    invalidate_git_info(name)
+    return result
+
+
+@router.post("/workspaces/{name}/merge")
+def git_merge(name: str, body: MergeRequest):
+    ws_path = resolve_workspace_path(name)
+    branch = validate_branch_name(body.branch)
+    result = run_git_command(
+        ["merge", branch], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="merge",
+    )
+    logger.info("merge workspace=%s branch=%s rc=%d", name, branch, result["exit_code"])
+    if result["exit_code"] == 0:
+        log_operation("merge", name, branch)
     invalidate_git_info(name)
     return result
 

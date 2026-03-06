@@ -147,6 +147,35 @@ export const GitCore = {
   },
 
   /**
+   * Build a list of merge actions for the git log modal.
+   * @param {string[]} branches - List of branch names.
+   * @returns {{ label: string, cls: string, fn: () => Promise<void> }[]}
+   */
+  buildMergeActions(branches) {
+    const ws = allWorkspaces.find((w) => w.name === selectedWorkspace);
+    return branches
+      .filter((b) => !ws || b !== ws.branch)
+      .map((b) => ({
+        label: `merge: ${b}`,
+        cls: "",
+        fn: () => GitCore.execMergeAction(b),
+      }));
+  },
+
+  /**
+   * Execute git merge on the given branch with confirmation.
+   * @param {string} branch - The branch to merge.
+   * @returns {Promise<void>}
+   */
+  async execMergeAction(branch) {
+    if (!selectedWorkspace) return;
+    if (!confirm(`${branch} を現在のブランチにマージしますか？`)) return;
+    await postWorkspaceAction(selectedWorkspace, "/merge", "merge", { branch });
+    GitLogModal.closeGitModal();
+    await GitCore.refreshAfterGitOp();
+  },
+
+  /**
    * Build the list of actions available for a given commit in the git log modal.
    * @param {string} hash - The commit hash.
    * @param {{ branches?: string[], checkoutBranchFn?: (() => void) | null, extraActions?: object[] }} [options]
@@ -154,8 +183,10 @@ export const GitCore = {
    */
   buildCommitActions(hash, { branches = [], checkoutBranchFn, extraActions = [] } = {}) {
     const switchActions = GitCore.buildBranchSwitchActions(branches);
+    const mergeActions = GitCore.buildMergeActions(branches);
     return [
       ...switchActions,
+      ...mergeActions,
       ...extraActions,
       {
         key: "create-branch",

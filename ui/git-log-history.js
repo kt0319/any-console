@@ -181,10 +181,6 @@ Object.assign(GitLogModal, {
         onClick: () => openCommitDiffModal(hash, msg, branches),
         onLongPress: () => GitLogModal.toggleCommitActionMenu(entry, hash, msg, branches),
       });
-      entry.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        GitLogModal.toggleCommitActionMenu(entry, hash, msg, branches);
-      });
       listEl.appendChild(entry);
       count++;
     }
@@ -331,6 +327,14 @@ Object.assign(GitLogModal, {
     if (!selectedWorkspace) return;
 
     const listEl = $("git-history-list");
+    const historyPane = $("git-history-pane");
+    for (const id of ["git-create-branch-area", "git-commit-action-menu"]) {
+      const el = $(id);
+      if (el && listEl.contains(el)) {
+        el.style.display = "none";
+        historyPane.appendChild(el);
+      }
+    }
     listEl.innerHTML = '<div class="git-log-entry-msg" style="color:var(--text-muted);padding:16px">読み込み中...</div>';
 
     const history = GitLogModal.state.history;

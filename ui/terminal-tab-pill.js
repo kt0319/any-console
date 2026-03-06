@@ -24,6 +24,7 @@ export function createTabNamePill(tab, frame) {
   let pillDragging = false;
 
   bindLongPress(pill, {
+    contextMenu: false,
     onLongPress: () => {
       if (pillDragging) return;
       if (tab.type === "terminal") {

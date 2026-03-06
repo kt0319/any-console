@@ -332,16 +332,23 @@ export function isImageDataIcon(icon) {
 
 /**
  * @param {HTMLElement} el
- * @param {{onLongPress: function, onClick?: function, delay?: number, moveThreshold?: number, animationTarget?: function}} [options]
+ * @param {{onLongPress: function, onClick?: function, delay?: number, moveThreshold?: number, animationTarget?: function, contextMenu?: boolean}} [options]
  * @returns {void}
  */
-export function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 30, animationTarget } = {}) {
+export function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 30, animationTarget, contextMenu = true } = {}) {
   let timer = null;
   let fired = false;
   let startX = 0;
   let startY = 0;
   let activeTarget = null;
   const resolveTarget = (e) => typeof animationTarget === "function" ? animationTarget(e) : el;
+  const fireLongPress = (e) => {
+    if (fired) return;
+    fired = true;
+    clearTimeout(timer);
+    if (activeTarget) activeTarget.classList.remove("long-pressing");
+    onLongPress(e);
+  };
   el.addEventListener("touchstart", (e) => {
     fired = false;
     startX = e.touches[0].clientX;
@@ -349,11 +356,7 @@ export function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThres
     const startEvt = e;
     activeTarget = resolveTarget(e);
     if (activeTarget) activeTarget.classList.add("long-pressing");
-    timer = setTimeout(() => {
-      fired = true;
-      if (activeTarget) activeTarget.classList.remove("long-pressing");
-      onLongPress(startEvt);
-    }, delay);
+    timer = setTimeout(() => fireLongPress(startEvt), delay);
   }, { passive: true });
   el.addEventListener("touchend", (e) => {
     clearTimeout(timer);
@@ -379,11 +382,7 @@ export function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThres
     startY = e.clientY;
     activeTarget = resolveTarget(e);
     if (activeTarget) activeTarget.classList.add("long-pressing");
-    timer = setTimeout(() => {
-      fired = true;
-      if (activeTarget) activeTarget.classList.remove("long-pressing");
-      onLongPress(e);
-    }, delay);
+    timer = setTimeout(() => fireLongPress(e), delay);
   });
   el.addEventListener("pointerup", (e) => {
     if (e.pointerType === "touch") return;
@@ -401,6 +400,12 @@ export function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThres
       activeTarget = null;
     }
   });
+  if (contextMenu) {
+    el.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      fireLongPress(e);
+    });
+  }
   if (onClick) {
     el.addEventListener("click", (e) => {
       if (!fired) onClick(e);

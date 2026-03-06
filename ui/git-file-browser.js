@@ -526,14 +526,6 @@ function bindFileBrowserEvents(container, view = "tab") {
           showFileBrowserActionMenu(item, container, config);
         },
       });
-      listEl.addEventListener("contextmenu", (e) => {
-        const item = findFileBrowserItem(e.target);
-        if (!item) return;
-        const isParent = item.querySelector(".file-browser-item-name")?.textContent === "..";
-        if (isParent) return;
-        e.preventDefault();
-        showFileBrowserActionMenu(item, container, config);
-      });
     } else {
       listEl.addEventListener("click", (e) => handleFileListClick(e, config, false));
     }
