@@ -380,22 +380,20 @@ export function connectTerminalWs(tab) {
       showToast("別のデバイスで接続されました", "info");
       return;
     }
-    if (e.code === 1000 || e.code === 1008) {
-      if (e.code === 1008) {
-        const name = tab.workspace || tab.label;
-        const reason = e.reason || "セッション切断";
-        disconnectedSessions.push({
-          wsUrl: tab.wsUrl, workspace: tab.workspace || tab.label, expired: true,
-          icon: tab.icon?.name, iconColor: tab.icon?.color,
-          tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null, jobLabel: tab.jobLabel || null,
-        });
-        removeTab(tab.id, { preserveSessionForRestore: true });
-        showToast(`${name}: ${reason}`, "error");
-      } else {
-        removeTab(tab.id);
-      }
+    if (e.code === 1008) {
+      const name = tab.workspace || tab.label;
+      const reason = e.reason || "セッション切断";
+      disconnectedSessions.push({
+        wsUrl: tab.wsUrl, workspace: tab.workspace || tab.label, expired: true,
+        icon: tab.icon?.name, iconColor: tab.icon?.color,
+        tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null, jobLabel: tab.jobLabel || null,
+      });
+      removeTab(tab.id, { preserveSessionForRestore: true });
+      showToast(`${name}: ${reason}`, "error");
       return;
     }
+    // code 1000: ユーザー操作ならtab._wsDisposedがtrueで376行目でreturn済み
+    // ここに来る＝サーバー起因の正常終了 → リトライフローにフォールスルー
     const MAX_ATTEMPTS = 10;
     if (tab._reconnectAttempts >= MAX_ATTEMPTS) {
       disconnectedSessions.push({
