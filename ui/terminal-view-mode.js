@@ -1,6 +1,7 @@
 // @ts-check
 import { openTabs, panelBottom } from './state-core.js';
 import { $, escapeHtml } from './utils.js';
+import { apiFetch } from './api-client.js';
 
 /**
  * Exit view mode for all terminal tabs except the one with the given ID.
@@ -96,13 +97,81 @@ export function terminalBufferToHtml(term) {
 }
 
 /**
+ * Convert ANSI escape sequences to HTML spans with inline styles.
+ * @param {string} text
+ * @returns {string}
+ */
+export function ansiToHtml(text) {
+  let fg = null;
+  let bg = null;
+  let bold = false;
+  let dim = false;
+  let italic = false;
+  let underline = false;
+  let strikethrough = false;
+  let html = "";
+
+  const parts = text.split(/(\x1b\[[0-9;]*m)/);
+  for (const part of parts) {
+    const m = part.match(/^\x1b\[([\d;]*)m$/);
+    if (!m) {
+      if (!part) continue;
+      const escaped = escapeHtml(part);
+      if (fg || bg || bold || dim || italic || underline || strikethrough) {
+        let style = "";
+        if (fg) style += `color:${fg};`;
+        if (bg) style += `background:${bg};`;
+        if (bold) style += "font-weight:bold;";
+        if (dim) style += "opacity:0.5;";
+        if (italic) style += "font-style:italic;";
+        if (underline) style += "text-decoration:underline;";
+        if (strikethrough) style += "text-decoration:line-through;";
+        html += `<span style="${style}">${escaped}</span>`;
+      } else {
+        html += escaped;
+      }
+      continue;
+    }
+    const codes = m[1] ? m[1].split(";").map(Number) : [0];
+    for (let i = 0; i < codes.length; i++) {
+      const c = codes[i];
+      if (c === 0) { fg = bg = null; bold = dim = italic = underline = strikethrough = false; }
+      else if (c === 1) bold = true;
+      else if (c === 2) dim = true;
+      else if (c === 3) italic = true;
+      else if (c === 4) underline = true;
+      else if (c === 9) strikethrough = true;
+      else if (c === 22) { bold = false; dim = false; }
+      else if (c === 23) italic = false;
+      else if (c === 24) underline = false;
+      else if (c === 29) strikethrough = false;
+      else if (c >= 30 && c <= 37) fg = XTERM_PALETTE[c - 30];
+      else if (c === 38) {
+        if (codes[i + 1] === 5) { fg = XTERM_PALETTE[codes[i + 2]] || null; i += 2; }
+        else if (codes[i + 1] === 2) { fg = `#${(codes[i+2]||0).toString(16).padStart(2,"0")}${(codes[i+3]||0).toString(16).padStart(2,"0")}${(codes[i+4]||0).toString(16).padStart(2,"0")}`; i += 4; }
+      }
+      else if (c === 39) fg = null;
+      else if (c >= 40 && c <= 47) bg = XTERM_PALETTE[c - 40];
+      else if (c === 48) {
+        if (codes[i + 1] === 5) { bg = XTERM_PALETTE[codes[i + 2]] || null; i += 2; }
+        else if (codes[i + 1] === 2) { bg = `#${(codes[i+2]||0).toString(16).padStart(2,"0")}${(codes[i+3]||0).toString(16).padStart(2,"0")}${(codes[i+4]||0).toString(16).padStart(2,"0")}`; i += 4; }
+      }
+      else if (c === 49) bg = null;
+      else if (c >= 90 && c <= 97) fg = XTERM_PALETTE[c - 90 + 8];
+      else if (c >= 100 && c <= 107) bg = XTERM_PALETTE[c - 100 + 8];
+    }
+  }
+  return html;
+}
+
+/**
  * Enter view mode for the terminal tab with the given ID.
  * Exits view mode on all other terminal tabs, hides the keyboard input wrapper,
  * and renders the terminal buffer as a scrollable pre element.
  * @param {string} tabId - The ID of the terminal tab to enter view mode for.
  * @returns {void}
  */
-export function enterTerminalViewMode(tabId) {
+export async function enterTerminalViewMode(tabId) {
   if (!panelBottom) return;
   const tab = openTabs.find((t) => t.id === tabId);
   if (!tab || tab.type !== "terminal") return;
@@ -121,8 +190,22 @@ export function enterTerminalViewMode(tabId) {
 
   const pre = document.createElement("pre");
   pre.className = "view-mode-textarea";
-  pre.innerHTML = terminalBufferToHtml(tab.term);
   container.appendChild(pre);
+
+  const match = tab.wsUrl && tab.wsUrl.match(/\/terminal\/ws\/([^/]+)/);
+  if (match) {
+    const sessionId = match[1];
+    try {
+      const res = await apiFetch(`/terminal/sessions/${sessionId}/buffer`);
+      if (res && res.ok) {
+        const data = await res.json();
+        pre.innerHTML = ansiToHtml(data.content || "");
+        pre.scrollTop = pre.scrollHeight;
+        return;
+      }
+    } catch (_) { /* fall through */ }
+  }
+  pre.innerHTML = terminalBufferToHtml(tab.term);
   pre.scrollTop = pre.scrollHeight;
 }
 

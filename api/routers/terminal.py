@@ -354,6 +354,23 @@ async def list_terminal_sessions():
     return sessions
 
 
+@router.get("/terminal/sessions/{session_id}/buffer")
+async def get_terminal_buffer(session_id: str):
+    session = get_terminal_session(session_id)
+    try:
+        result = subprocess.run(
+            ["tmux", "capture-pane", "-t", session.tmux_session_name, "-p", "-e", "-S", "-", "-E", "-"],
+            timeout=TMUX_CMD_TIMEOUT_SEC,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise HTTPException(status_code=500, detail="バッファ取得に失敗しました")
+        return {"content": result.stdout}
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="タイムアウト")
+
+
 @router.delete("/terminal/sessions/{session_id}")
 async def delete_terminal_session(session_id: str):
     with _sessions_lock:
