@@ -90,7 +90,9 @@ export async function showLoadedDiff(fileList, data, options = {}) {
     }
     return;
   }
-  renderDiffViewerMessage("変更ファイルなし");
+  if (focusFileBrowser) {
+    await loadDirectoryInDiffPane("");
+  }
 }
 
 /**
