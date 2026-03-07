@@ -1,5 +1,5 @@
 // @ts-check
-import { openTabs, setOpenTabs, activeTabId, setActiveTabId, splitMode, splitPaneTabIds, setSplitPaneTabIds, activePaneIndex, setActivePaneIndex, allWorkspaces, disconnectedSessions, setDisconnectedSessions, closedSessionUrls, panelBottom, isTouchDevice, terminalIdCounter, setTerminalIdCounter, getTerminalRuntimeOptions } from './state-core.js';
+import { openTabs, setOpenTabs, activeTabId, setActiveTabId, splitMode, splitPaneTabIds, setSplitPaneTabIds, activePaneIndex, setActivePaneIndex, allWorkspaces, orphanSessions, setOrphanSessions, closedSessionUrls, panelBottom, isTouchDevice, terminalIdCounter, setTerminalIdCounter, getTerminalRuntimeOptions } from './state-core.js';
 import { renderIcon, escapeHtml, bindLongPress, showToast, $, refitTerminalWithFocus, setFrameVisible } from './utils.js';
 import { tabDisplayName, renderTabIconHtml, hasVisibleTabContent } from './terminal-tab-utils.js';
 import { syncWorkspaceForTab, updateHeaderForTab, updateGitBarVisibility } from './terminal-tab-header.js';
@@ -30,14 +30,18 @@ export { syncWorkspaceForTab, updateHeaderForTab, updateGitBarVisibility } from 
 export function relaunchExpiredOrphan(orphan, workspaceOverride = null) {
   if (!orphan) return;
   const workspace = workspaceOverride || orphan.workspace || null;
-  setDisconnectedSessions(disconnectedSessions.filter((s) => s.wsUrl !== orphan.wsUrl));
+  setOrphanSessions(orphanSessions.filter((s) => s.wsUrl !== orphan.wsUrl));
 
   const tabIcon = orphan.icon ? { name: orphan.icon, color: orphan.iconColor || "" } : null;
   const ws = workspace ? allWorkspaces.find((w) => w.name === workspace) : null;
   const wsIcon = ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null;
-  addTerminalTab(orphan.wsUrl, workspace, null, false, false, null, tabIcon, wsIcon, orphan.jobName || null, orphan.jobLabel || null);
+  addTerminalTab(orphan.wsUrl, workspace, null, true, false, null, tabIcon, wsIcon, orphan.jobName || null, orphan.jobLabel || null);
   const tab = openTabs.find((t) => t.wsUrl === orphan.wsUrl);
-  if (tab) tab._orphanReconnect = true;
+  if (tab) {
+    tab._orphanReconnect = true;
+    syncTerminalSessionState();
+    switchTab(tab.id);
+  }
 }
 
 /**
@@ -319,12 +323,12 @@ export function renderTabBar() {
   }
   const bar = $("tab-bar");
   const items = openTabs.map((tab, i) => ({ type: "tab", tab, index: i }));
-  for (const s of disconnectedSessions) {
+  for (const s of orphanSessions) {
     items.push({ type: "orphan", orphan: s, index: s.tabIndex != null ? s.tabIndex : items.length });
   }
   items.sort((a, b) => a.index - b.index);
 
-  const hasAnyTabs = openTabs.length > 0 || disconnectedSessions.length > 0;
+  const hasAnyTabs = openTabs.length > 0 || orphanSessions.length > 0;
 
   const showBarRow = hasAnyTabs || isTouchDevice || panelBottom;
   barRow.style.display = showBarRow ? "flex" : "none";
@@ -391,7 +395,7 @@ export function renderTabBar() {
         const label = btn.dataset.orphanWs || "terminal";
         if (confirm(`「${label}」を閉じますか？`)) {
           const wsUrl = btn.dataset.orphanUrl;
-          setDisconnectedSessions(disconnectedSessions.filter((s) => s.wsUrl !== wsUrl));
+          setOrphanSessions(orphanSessions.filter((s) => s.wsUrl !== wsUrl));
           closedSessionUrls.add(wsUrl);
           renderTabBar();
         }
@@ -399,7 +403,7 @@ export function renderTabBar() {
       onClick: (e) => {
         if (e.target.classList.contains("tab-close")) return;
         const wsUrl = btn.dataset.orphanUrl;
-        const orphan = disconnectedSessions.find((s) => s.wsUrl === wsUrl);
+        const orphan = orphanSessions.find((s) => s.wsUrl === wsUrl);
         const workspace = btn.dataset.orphanWs;
         relaunchExpiredOrphan(orphan || { wsUrl, workspace }, workspace);
       },
@@ -412,10 +416,10 @@ export function renderTabBar() {
         removeTab(btn.dataset.close);
       } else if (btn.dataset.closeOrphan) {
         const wsUrl = btn.dataset.closeOrphan;
-        const orphan = disconnectedSessions.find((s) => s.wsUrl === wsUrl);
+        const orphan = orphanSessions.find((s) => s.wsUrl === wsUrl);
         const label = orphan?.workspace || "terminal";
         if (!confirm(`「${label}」を閉じますか？`)) return;
-        setDisconnectedSessions(disconnectedSessions.filter((s) => s.wsUrl !== wsUrl));
+        setOrphanSessions(orphanSessions.filter((s) => s.wsUrl !== wsUrl));
         closedSessionUrls.add(wsUrl);
         renderTabBar();
       }
@@ -438,7 +442,7 @@ export function updateEmptyPlaceholder(show) {
     if (existing) existing.remove();
     const ph = document.createElement("div");
     ph.className = "empty-tab-placeholder";
-    const orphanCount = disconnectedSessions.filter((s) => s && s.wsUrl && !closedSessionUrls.has(s.wsUrl)).length;
+    const orphanCount = orphanSessions.filter((s) => s && s.wsUrl && !closedSessionUrls.has(s.wsUrl)).length;
     const hiddenWorkspaceCount = allWorkspaces.filter((ws) => ws.hidden).length;
     const restoreBtnHtml = orphanCount > 0
       ? `<button type="button" class="empty-tab-open-btn empty-tab-restore-btn" data-restore-all="1"><span class="mdi mdi-restore"></span> 全て復元 (${orphanCount})</button>`
@@ -471,7 +475,7 @@ export function updateEmptyPlaceholder(show) {
  */
 export async function restoreAllOrphansFromPlaceholder(buttonEl) {
   if (!buttonEl || buttonEl.disabled) return;
-  const targets = disconnectedSessions.filter((s) => s && s.wsUrl && !closedSessionUrls.has(s.wsUrl));
+  const targets = orphanSessions.filter((s) => s && s.wsUrl && !closedSessionUrls.has(s.wsUrl));
   if (!targets.length) return;
   buttonEl.disabled = true;
   const originalText = buttonEl.innerHTML;

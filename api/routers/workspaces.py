@@ -62,7 +62,7 @@ def _sort_key_by_workspace_order(order_list):
     return key
 
 
-def _lightweight_workspace_info(workspace_dir):
+def _workspace_summary(workspace_dir):
     name = workspace_dir.name
     is_git = git_is_repo(workspace_dir)
     branch = git_branch(workspace_dir) if is_git else None
@@ -91,7 +91,7 @@ def list_workspaces():
          if workspace_dir.is_dir() and not workspace_dir.name.startswith(".")],
         key=_sort_key_by_workspace_order(workspace_order),
     )
-    result = list(BACKGROUND_EXECUTOR.map(_lightweight_workspace_info, dirs))
+    result = list(BACKGROUND_EXECUTOR.map(_workspace_summary, dirs))
     BACKGROUND_EXECUTOR.submit(_background_fetch, dirs)
     return result
 

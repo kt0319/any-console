@@ -1,5 +1,5 @@
 // @ts-check
-import { openTabs, activeTabId, splitMode, splitPaneTabIds, setSplitPaneTabIds, activePaneIndex, setActivePaneIndex, setActiveTabId, splitLayout, setSplitLayout, disconnectedSessions, setDisconnectedSessions, closedSessionUrls, allWorkspaces } from './state-core.js';
+import { openTabs, activeTabId, splitMode, splitPaneTabIds, setSplitPaneTabIds, activePaneIndex, setActivePaneIndex, setActiveTabId, splitLayout, setSplitLayout, orphanSessions, setOrphanSessions, closedSessionUrls, allWorkspaces } from './state-core.js';
 import { escapeHtml, renderIcon } from './utils.js';
 import { tabDisplayName, renderTabIconHtml } from './terminal-tab-utils.js';
 import { switchTab, removeTab, renderTabBar, relaunchExpiredOrphan } from './terminal-tabs.js';
@@ -257,7 +257,7 @@ export function createTabListRenderer(deps) {
       closeBtnEl.addEventListener("click", () => {
         const label = s.workspace || "terminal";
         if (!confirm(`「${label}」を閉じますか？`)) return;
-        setDisconnectedSessions(disconnectedSessions.filter((o) => o.wsUrl !== s.wsUrl));
+        setOrphanSessions(orphanSessions.filter((o) => o.wsUrl !== s.wsUrl));
         closedSessionUrls.add(s.wsUrl);
         renderTabList();
       });
@@ -272,7 +272,7 @@ export function createTabListRenderer(deps) {
       tabIndex: i,
       sortIndex: i,
     }));
-    disconnectedSessions.forEach((s, i) => {
+    orphanSessions.forEach((s, i) => {
       const sortIndex = s.tabIndex != null ? s.tabIndex : openTabs.length + i;
       items.push({ type: "orphan", orphan: s, sortIndex });
     });

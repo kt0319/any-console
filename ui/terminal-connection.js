@@ -7,8 +7,8 @@ import {
   allWorkspaces,
   isPageUnloading,
   closedSessionUrls,
-  disconnectedSessions,
-  setDisconnectedSessions,
+  orphanSessions,
+  setOrphanSessions,
   isTouchDevice,
   hasRestoredTabsFromStorage,
   setHasRestoredTabsFromStorage,
@@ -83,7 +83,8 @@ export async function onVisibilityRestore() {
     }
   }
 
-  if (elapsed < 30_000) return;
+  const hasDisconnectedTerminal = termTabs.some((t) => !t.ws && !t._wsDisposed);
+  if (elapsed < 30_000 && !hasDisconnectedTerminal) return;
 
   try {
     const res = await apiFetch("/terminal/sessions");
@@ -95,7 +96,7 @@ export async function onVisibilityRestore() {
     for (const tab of termTabs) {
       if (!aliveWsUrls.has(tab.wsUrl)) {
         closedNames.push(tab.workspace || tab.label);
-        disconnectedSessions.push({
+        orphanSessions.push({
           wsUrl: tab.wsUrl, workspace: tab.workspace || tab.label, expired: true,
           icon: tab.icon?.name, iconColor: tab.icon?.color,
           tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null, jobLabel: tab.jobLabel || null,
@@ -214,15 +215,15 @@ export function restoreValidatedTabs(sessions) {
 }
 
 /**
- * Removes from the disconnected sessions list any sessions that are already open locally.
+ * Removes from the orphan sessions list any sessions that are already open locally.
  */
 export function removeLocalSessionsFromOrphans() {
   const localWsUrls = new Set(openTabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
-  setDisconnectedSessions(disconnectedSessions.filter((s) => !localWsUrls.has(s.wsUrl)));
+  setOrphanSessions(orphanSessions.filter((s) => !localWsUrls.has(s.wsUrl)));
 }
 
 /**
- * Reconciles the disconnected sessions list against the server session list,
+ * Reconciles the orphan sessions list against the server session list,
  * removing any entries that are now alive on the server or have been closed.
  * Also cleans up closedSessionUrls entries that are no longer on the server.
  * @param {Array<Object>} sessions - List of session objects returned from the server.
@@ -230,7 +231,7 @@ export function removeLocalSessionsFromOrphans() {
 export function reconcileExpiredOrphansWithServer(sessions) {
   const localWsUrls = new Set(openTabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
   const serverUrls = new Set(sessions.map((s) => s.ws_url));
-  setDisconnectedSessions(disconnectedSessions.filter((s) => (
+  setOrphanSessions(orphanSessions.filter((s) => (
     s.expired
     && !closedSessionUrls.has(s.wsUrl)
     && !localWsUrls.has(s.wsUrl)
@@ -393,7 +394,7 @@ export function connectTerminalWs(tab) {
       }
       const name = tab.workspace || tab.label;
       const reason = e.reason || "セッション切断";
-      disconnectedSessions.push({
+      orphanSessions.push({
         wsUrl: tab.wsUrl, workspace: tab.workspace || tab.label, expired: true,
         icon: tab.icon?.name, iconColor: tab.icon?.color,
         tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null, jobLabel: tab.jobLabel || null,
@@ -404,18 +405,6 @@ export function connectTerminalWs(tab) {
     }
     // code 1000: ユーザー操作ならtab._wsDisposedがtrueで376行目でreturn済み
     // ここに来る＝サーバー起因の正常終了 → リトライフローにフォールスルー
-    const MAX_ATTEMPTS = 10;
-    if (tab._reconnectAttempts >= MAX_ATTEMPTS) {
-      disconnectedSessions.push({
-        wsUrl: tab.wsUrl, workspace: tab.workspace || tab.label, expired: true,
-        icon: tab.icon?.name, iconColor: tab.icon?.color,
-        tabIndex: openTabs.indexOf(tab), jobName: tab.jobName || null, jobLabel: tab.jobLabel || null,
-      });
-      removeTab(tab.id, { preserveSessionForRestore: true });
-      const name = tab.workspace || tab.label;
-      showToast(`${name}: 再接続に失敗しました`, "error");
-      return;
-    }
     const delay = Math.min(1000 * Math.pow(2, tab._reconnectAttempts), 30000);
     tab._reconnectAttempts++;
     tab._reconnectTimer = setTimeout(() => connectTerminalWs(tab), delay);

@@ -132,7 +132,7 @@ def git_commit(name: str, body: CommitRequest):
     result = run_git_command(["commit", "-m", message], cwd=ws_path, operation="commit")
     logger.info("commit workspace=%s rc=%d", name, result["exit_code"])
     if result["exit_code"] == 0:
-        log_operation("コミット", name, message)
+        log_operation("commit", name, message)
     invalidate_git_info(name)
     return result
 

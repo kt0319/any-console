@@ -92,11 +92,11 @@ export let isPaneSelectedByTap = false;
 /** @param {boolean} v */
 export function setIsPaneSelectedByTap(v) { isPaneSelectedByTap = v; }
 
-// ── Disconnected / Orphan sessions ──
+// ── Orphan sessions ──
 /** @type {any[]} */
-export let disconnectedSessions = [];
+export let orphanSessions = [];
 /** @param {any[]} v */
-export function setDisconnectedSessions(v) { disconnectedSessions = v; }
+export function setOrphanSessions(v) { orphanSessions = v; }
 
 /** @type {Set<string>} */
 export let closedSessionUrls = new Set();

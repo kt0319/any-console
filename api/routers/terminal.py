@@ -177,7 +177,7 @@ def _detect_workspace_from_tmux(tmux_name: str) -> str | None:
     return None
 
 
-_TMUX_META_KEYS = ("PI_WORKSPACE", "PI_ICON", "PI_ICON_COLOR", "PI_JOB_NAME", "PI_JOB_LABEL")
+_TMUX_META_ENV_NAMES = ("PI_WORKSPACE", "PI_ICON", "PI_ICON_COLOR", "PI_JOB_NAME", "PI_JOB_LABEL")
 
 
 def save_tmux_metadata(
@@ -221,7 +221,7 @@ def _load_tmux_metadata(tmux_name: str) -> dict:
         if "=" not in line:
             continue
         key, _, value = line.partition("=")
-        if key in _TMUX_META_KEYS:
+        if key in _TMUX_META_ENV_NAMES:
             meta[key] = value
     return meta
 

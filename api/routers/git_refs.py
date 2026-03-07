@@ -72,7 +72,7 @@ def delete_branch(name: str, body: DeleteBranchRequest):
 
     logger.info("delete-branch workspace=%s branch=%s remote=%s rc=%d", name, branch, body.remote, result["exit_code"])
     if result["exit_code"] == 0:
-        log_operation("ブランチ削除", name, branch)
+        log_operation("branch delete", name, branch)
     invalidate_git_info(name)
     return result
 
@@ -84,7 +84,7 @@ def create_branch(name: str, body: CheckoutRequest):
     result = run_git_command(["checkout", "-b", branch], cwd=ws_path, operation="create-branch")
     logger.info("create-branch workspace=%s branch=%s rc=%d", name, branch, result["exit_code"])
     if result["exit_code"] == 0:
-        log_operation("ブランチ作成", name, branch)
+        log_operation("branch create", name, branch)
     invalidate_git_info(name)
     return result
 
@@ -99,7 +99,7 @@ def checkout_branch(name: str, body: CheckoutRequest):
     result = run_git_command(args, cwd=ws_path, operation="checkout")
     logger.info("checkout workspace=%s branch=%s rc=%d", name, branch, result["exit_code"])
     if result["exit_code"] == 0:
-        log_operation("ブランチ切替", name, branch)
+        log_operation("checkout", name, branch)
     invalidate_git_info(name)
     return result
 
@@ -151,7 +151,7 @@ def git_set_upstream(name: str):
     )
     logger.info("set-upstream workspace=%s branch=%s rc=%d", name, branch, result["exit_code"])
     if result["exit_code"] == 0:
-        log_operation("追跡設定", name, branch)
+        log_operation("set-upstream", name, branch)
     invalidate_git_info(name)
     return result
 
@@ -165,7 +165,7 @@ def git_push_upstream(name: str):
     )
     logger.info("push-upstream workspace=%s rc=%d", name, result["exit_code"])
     if result["exit_code"] == 0:
-        log_operation("push (upstream)", name)
+        log_operation("push -u", name)
     invalidate_git_info(name)
     return result
 

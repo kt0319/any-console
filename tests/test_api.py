@@ -318,7 +318,7 @@ class TestFilesList:
         assert entries["docs"]["type"] == "dir"
 
 
-class TestRenameFile:
+class TestFileOperations:
     def test_rename_file(self, client, workspace):
         (workspace / "old.txt").write_text("hello", encoding="utf-8")
         res = client.post(
