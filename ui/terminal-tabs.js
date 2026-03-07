@@ -319,6 +319,7 @@ export async function switchTab(id) {
       setFrameVisible(tab, el, isActive);
       if (isActive && tab.type === "terminal" && !ensureTerminalOpened(tab, el)) {
         if (!tab.ws && !tab._wsDisposed) {
+          tab._replacedByOtherDevice = false;
           connectTerminalWs(tab);
         }
         refitTerminalWithFocus(tab);
@@ -398,6 +399,12 @@ export function renderTabBar() {
         if (e.target.classList.contains("tab-close")) return;
         const tabId = btn.dataset.tab;
         if (tabId === activeTabId) {
+          const tab = openTabs.find((t) => t.id === tabId);
+          if (tab?.type === "terminal" && !tab.ws && !tab._wsDisposed && tab._replacedByOtherDevice) {
+            tab._replacedByOtherDevice = false;
+            connectTerminalWs(tab);
+            return;
+          }
           openTabEditModal("workspace");
           return;
         }

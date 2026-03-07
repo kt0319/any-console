@@ -72,10 +72,18 @@ export async function pingTerminalSessions() {
 export async function onVisibilityRestore() {
   const elapsed = Date.now() - lastVisibleTime;
   lastVisibleTime = Date.now();
-  if (elapsed < 30_000) return;
 
   const termTabs = openTabs.filter((t) => t.type === "terminal");
   if (termTabs.length === 0) return;
+
+  for (const tab of termTabs) {
+    if (tab._replacedByOtherDevice && !tab.ws && !tab._wsDisposed) {
+      tab._replacedByOtherDevice = false;
+      connectTerminalWs(tab);
+    }
+  }
+
+  if (elapsed < 30_000) return;
 
   try {
     const res = await apiFetch("/terminal/sessions");
@@ -451,6 +459,7 @@ export function connectTerminalWs(tab) {
     if (tab._wsDisposed || isPageUnloading) return;
     if (e.code === 4001) {
       tab._pendingRedraw = true;
+      tab._replacedByOtherDevice = true;
       showToast("別のデバイスで接続されました", "info");
       return;
     }
