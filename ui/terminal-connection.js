@@ -479,10 +479,33 @@ export function connectTerminalWs(tab) {
       }
     });
 
-    tab.term.attachCustomWheelEventHandler((e) => {
-      const isAltBuffer = tab.term.buffer.active.type === "alternate";
-      if (isAltBuffer) return false;
-      return true;
+    tab.term.attachCustomWheelEventHandler(() => false);
+
+    const frame = $(`frame-${tab.id}`);
+    if (frame) {
+      frame.addEventListener("wheel", (e) => {
+        const isAltBuffer = tab.term.buffer.active.type === "alternate";
+        const lines = Math.max(1, Math.ceil(Math.abs(e.deltaY) / 20));
+        if (isAltBuffer) {
+          if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
+            const payload = JSON.stringify({ d: e.deltaY > 0 ? "down" : "up", n: lines });
+            const bytes = new TextEncoder().encode(payload);
+            const msg = new Uint8Array(1 + bytes.length);
+            msg[0] = 0x01;
+            msg.set(bytes, 1);
+            tab.ws.send(msg);
+          }
+        } else {
+          tab.term.scrollLines(e.deltaY > 0 ? lines : -lines);
+        }
+        e.preventDefault();
+      }, { passive: false });
+    }
+
+    frame.addEventListener("mousedown", () => {
+      if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
+        tab.ws.send(new Uint8Array([0x02]));
+      }
     });
 
     if (isTouchDevice) {

@@ -365,6 +365,10 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
                     continue
                 if data[0:1] == b"\x00":
                     _handle_resize(session, data[1:])
+                elif data[0:1] == b"\x01":
+                    _handle_scroll(session, data[1:])
+                elif data[0:1] == b"\x02":
+                    _cancel_copy_mode(session)
                 else:
                     if session.fd is not None:
                         await loop.run_in_executor(PTY_EXECUTOR, os.write, session.fd, data)
@@ -434,4 +438,42 @@ def _handle_resize(session: TerminalSession, payload: bytes) -> None:
             capture_output=True,
         )
     except (json.JSONDecodeError, OSError, KeyError, subprocess.TimeoutExpired):
+        pass
+
+
+def _cancel_copy_mode(session: TerminalSession) -> None:
+    try:
+        result = subprocess.run(
+            ["tmux", "send-keys", "-t", session.tmux_session_name, "-X", "cancel"],
+            timeout=TMUX_CMD_TIMEOUT_SEC,
+            capture_output=True,
+        )
+        logger.info(
+            "cancel_copy_mode target=%s rc=%d stderr=%s",
+            session.tmux_session_name,
+            result.returncode,
+            result.stderr.decode().strip(),
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        logger.warning("cancel_copy_mode failed: %s", e)
+
+
+def _handle_scroll(session: TerminalSession, payload: bytes) -> None:
+    try:
+        data = json.loads(payload)
+        direction = data.get("d", "up")
+        lines = max(1, min(data.get("n", 3), 50))
+        cmd = "scroll-up" if direction == "up" else "scroll-down"
+        target = session.tmux_session_name
+        subprocess.run(
+            ["tmux", "copy-mode", "-t", target],
+            timeout=TMUX_CMD_TIMEOUT_SEC,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["tmux", "send-keys", "-t", target, "-X", "-N", str(lines), cmd],
+            timeout=TMUX_CMD_TIMEOUT_SEC,
+            capture_output=True,
+        )
+    except (json.JSONDecodeError, OSError, subprocess.TimeoutExpired):
         pass
