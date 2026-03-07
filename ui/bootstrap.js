@@ -1,5 +1,5 @@
 // @ts-check
-import { token, setToken, selectedWorkspace, setSelectedWorkspace, setAppInitializing, activeTabId } from './state-core.js';
+import { token, setToken, selectedWorkspace, setSelectedWorkspace, setAppInitializing, activeTabId, isPwa } from './state-core.js';
 import { $, setLoadingStatus, setupModalSwipeClose, showToast, showLogin, showApp } from './utils.js';
 import { loadWorkspaces, refreshWorkspaceHeader, visibleWorkspaces } from './workspace.js';
 import { ensureSnippetsLoaded } from './state-input.js';
@@ -56,6 +56,7 @@ export async function initApp() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  if (isPwa) document.documentElement.classList.add("pwa");
   updateViewportHeight();
   if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", updateViewportHeight);

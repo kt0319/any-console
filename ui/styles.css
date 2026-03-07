@@ -37,7 +37,7 @@ body {
 header {
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
-  padding: calc(10px + env(safe-area-inset-top, 0px)) 0 10px 4px;
+  padding: 10px 0 10px 4px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -3249,7 +3249,7 @@ button:disabled {
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px));
+    padding: 12px 0;
     flex-shrink: 0;
     touch-action: none;
   }
@@ -3263,7 +3263,7 @@ button:disabled {
   }
 
   header {
-    padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px;
+    padding: 8px 12px 8px;
     flex-wrap: wrap;
     align-items: flex-start;
   }
@@ -4019,4 +4019,31 @@ button:disabled {
   opacity: 0.8;
   transition: opacity 0.2s;
   pointer-events: auto;
+}
+
+/* PWA safe area */
+.pwa header {
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+}
+
+.pwa:has(.panel-bottom) {
+  background: var(--bg-secondary);
+}
+
+.pwa .main-panel.panel-bottom .tab-bar-row {
+  padding-bottom: 0;
+}
+
+.pwa .main-panel.panel-bottom .tab-bar {
+  padding-bottom: 0;
+}
+
+.pwa .main-panel.panel-bottom .quick-input {
+  padding-bottom: 0;
+}
+
+@media (max-width: 768px) {
+  .pwa header {
+    padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  }
 }

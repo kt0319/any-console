@@ -5,6 +5,8 @@ export let token = "";
 /** @param {string} v */
 export function setToken(v) { token = v; }
 
+export const isPwa = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+
 // ── Jobs ──
 /** @type {Record<string, any>} */
 export let workspaceJobs = {};
