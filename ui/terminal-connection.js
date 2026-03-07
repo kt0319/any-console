@@ -160,7 +160,8 @@ export function restoreTabsFromLocalStorageImmediate() {
     const workspace = entry.workspace || null;
     const ws = workspace ? allWorkspaces.find((w) => w.name === workspace) : null;
     const tabIcon = entry.icon ? { name: entry.icon, color: entry.iconColor || "" } : null;
-    const wsIcon = ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null;
+    const isDuplicateIcon = ws && ws.icon && entry.icon === ws.icon;
+    const wsIcon = isDuplicateIcon ? null : (ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null);
     addTerminalTab(
       wsUrl, workspace || "terminal", null, true, true, null,
       tabIcon, wsIcon, entry.jobName || null, entry.jobLabel || null,
