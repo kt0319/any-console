@@ -166,4 +166,5 @@ if __name__ == "__main__":
     if ssl_keyfile and ssl_certfile:
         ssl_kwargs["ssl_keyfile"] = ssl_keyfile
         ssl_kwargs["ssl_certfile"] = ssl_certfile
-    uvicorn.run(app, host="0.0.0.0", port=8888, **ssl_kwargs)
+    port = int(os.environ.get("PI_CONSOLE_PORT", "8888"))
+    uvicorn.run(app, host="0.0.0.0", port=port, **ssl_kwargs)
