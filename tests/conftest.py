@@ -49,12 +49,12 @@ def workspace(isolate_fs):
 def _cleanup_terminal_sessions():
     """各テスト後にターミナルセッションをクリア"""
     yield
-    from api.routers.terminal import TERMINAL_SESSIONS, _kill_pty_session, _sessions_lock
+    from api.routers.terminal import TERMINAL_SESSIONS, _kill_tmux_session, _sessions_lock
     with _sessions_lock:
         sessions = list(TERMINAL_SESSIONS.items())
         TERMINAL_SESSIONS.clear()
     for _, session in sessions:
-        _kill_pty_session(session)
+        _kill_tmux_session(session)
 
 
 @pytest.fixture(autouse=True)

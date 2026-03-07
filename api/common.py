@@ -35,6 +35,9 @@ PTY_READ_BUFFER_SIZE = 16384
 PTY_READER_WORKERS = 8
 MAX_TERMINAL_SESSIONS = 20
 
+TMUX_SESSION_PREFIX = "pi-"
+TMUX_CMD_TIMEOUT_SEC = 5
+
 BRANCH_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_./-]+$")
 COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{4,40}$|^stash@\{\d+\}$")
 

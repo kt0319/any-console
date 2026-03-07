@@ -7,6 +7,7 @@ import pty
 import select
 import signal
 import struct
+import subprocess
 import termios
 import threading
 import time
@@ -16,7 +17,15 @@ from fastapi import APIRouter, Depends, HTTPException, WebSocket
 from fastapi.websockets import WebSocketDisconnect
 
 from ..auth import verify_token
-from ..common import PTY_READ_BUFFER_SIZE, PTY_READER_WORKERS, TERMINAL_TIMEOUT_SEC, log_operation
+from ..common import (
+    PTY_READ_BUFFER_SIZE,
+    PTY_READER_WORKERS,
+    TERMINAL_TIMEOUT_SEC,
+    TMUX_CMD_TIMEOUT_SEC,
+    TMUX_SESSION_PREFIX,
+    WORK_DIR,
+    log_operation,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +40,12 @@ class TerminalSession:
     __slots__ = (
         "workspace", "fd", "pid", "expires_at", "_read_lock",
         "icon", "icon_color", "job_name", "job_label", "active_ws",
+        "tmux_session_name",
     )
 
-    def __init__(self, workspace: str | None, fd: int, pid: int, expires_at: float,
+    def __init__(self, workspace: str | None, expires_at: float,
+                 tmux_session_name: str,
+                 fd: int | None = None, pid: int | None = None,
                  icon: str | None = None, icon_color: str | None = None,
                  job_name: str | None = None, job_label: str | None = None):
         self.workspace = workspace
@@ -46,69 +58,182 @@ class TerminalSession:
         self.job_name = job_name
         self.job_label = job_label
         self.active_ws: WebSocket | None = None
+        self.tmux_session_name = tmux_session_name
 
 
 TERMINAL_SESSIONS: dict[str, TerminalSession] = {}
 _sessions_lock = threading.Lock()
 
 
-def create_pty_session(workspace_path: str | None) -> tuple[int, int]:
+def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
     user_shell = os.environ.get("SHELL", "/bin/zsh")
+    cwd = workspace_path if workspace_path and os.path.isdir(workspace_path) else os.environ.get("HOME", "/")
+    env = os.environ.copy()
+    env["TERM"] = "xterm-256color"
+    if workspace_path:
+        env["WORKSPACE"] = workspace_path
+
+    subprocess.run(
+        ["tmux", "new-session", "-d", "-s", session_name, "-x", "80", "-y", "24", user_shell],
+        cwd=cwd,
+        env=env,
+        timeout=TMUX_CMD_TIMEOUT_SEC,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["tmux", "set-option", "-t", session_name, "status", "off"],
+        timeout=TMUX_CMD_TIMEOUT_SEC,
+        capture_output=True,
+    )
+
+
+def attach_tmux_session(session_name: str) -> tuple[int, int]:
     env = {
         "TERM": "xterm-256color",
         "HOME": os.environ.get("HOME", "/"),
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "LANG": os.environ.get("LANG", "en_US.UTF-8"),
-        "SHELL": user_shell,
+        "SHELL": os.environ.get("SHELL", "/bin/zsh"),
     }
-    if workspace_path:
-        env["WORKSPACE"] = workspace_path
-
-    cwd = workspace_path if workspace_path and os.path.isdir(workspace_path) else os.environ.get("HOME", "/")
-
     pid, fd = pty.fork()
     if pid == 0:
         try:
-            os.chdir(cwd)
-            os.execvpe(user_shell, [user_shell, "-l"], env)
+            os.execvpe("tmux", ["tmux", "attach-session", "-t", session_name], env)
         except Exception:
             pass
         os._exit(1)
     return fd, pid
 
 
-def _kill_pty_session(session: TerminalSession) -> None:
+def _detach_pty_bridge(session: TerminalSession) -> None:
+    if session.fd is not None:
+        try:
+            os.close(session.fd)
+        except OSError as e:
+            logger.debug("close fd=%d failed: %s", session.fd, e)
+    if session.pid is not None:
+        try:
+            os.kill(session.pid, signal.SIGTERM)
+        except (ProcessLookupError, PermissionError, OSError) as e:
+            logger.debug("SIGTERM pid=%d failed: %s", session.pid, e)
+            return
+        try:
+            pid, _ = os.waitpid(session.pid, os.WNOHANG)
+            if pid == 0:
+                time.sleep(0.1)
+                os.kill(session.pid, signal.SIGKILL)
+                os.waitpid(session.pid, os.WNOHANG)
+        except (ChildProcessError, ProcessLookupError, PermissionError, OSError) as e:
+            logger.debug("cleanup pid=%d failed: %s", session.pid, e)
+    session.fd = None
+    session.pid = None
+
+
+def _kill_tmux_session(session: TerminalSession) -> None:
+    _detach_pty_bridge(session)
     try:
-        os.close(session.fd)
-    except OSError as e:
-        logger.debug("close fd=%d failed: %s", session.fd, e)
+        subprocess.run(
+            ["tmux", "kill-session", "-t", session.tmux_session_name],
+            timeout=TMUX_CMD_TIMEOUT_SEC,
+            capture_output=True,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        logger.debug("kill tmux session %s failed: %s", session.tmux_session_name, e)
+
+
+def _tmux_session_exists(name: str) -> bool:
     try:
-        os.kill(session.pid, signal.SIGTERM)
-    except (ProcessLookupError, PermissionError, OSError) as e:
-        logger.debug("SIGTERM pid=%d failed: %s", session.pid, e)
-        return
+        result = subprocess.run(
+            ["tmux", "has-session", "-t", name],
+            timeout=TMUX_CMD_TIMEOUT_SEC,
+            capture_output=True,
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+
+
+def recover_tmux_sessions() -> int:
     try:
-        pid, _ = os.waitpid(session.pid, os.WNOHANG)
-        if pid == 0:
-            time.sleep(0.1)
-            os.kill(session.pid, signal.SIGKILL)
-            os.waitpid(session.pid, os.WNOHANG)
-    except (ChildProcessError, ProcessLookupError, PermissionError, OSError) as e:
-        logger.debug("cleanup pid=%d failed: %s", session.pid, e)
+        result = subprocess.run(
+            ["tmux", "list-sessions", "-F", "#{session_name}"],
+            timeout=TMUX_CMD_TIMEOUT_SEC,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        logger.warning("tmux list-sessions failed: %s", e)
+        return 0
+
+    if result.returncode != 0:
+        return 0
+
+    recovered = 0
+    for line in result.stdout.strip().splitlines():
+        name = line.strip()
+        if not name.startswith(TMUX_SESSION_PREFIX):
+            continue
+        session_id = name[len(TMUX_SESSION_PREFIX):]
+        if not session_id:
+            continue
+
+        with _sessions_lock:
+            if session_id in TERMINAL_SESSIONS:
+                continue
+
+        workspace = _detect_workspace_from_tmux(name)
+        with _sessions_lock:
+            TERMINAL_SESSIONS[session_id] = TerminalSession(
+                workspace=workspace,
+                expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
+                tmux_session_name=name,
+            )
+        recovered += 1
+        logger.info("recovered tmux session=%s workspace=%s", session_id, workspace or "(none)")
+
+    return recovered
+
+
+def _detect_workspace_from_tmux(tmux_name: str) -> str | None:
+    try:
+        result = subprocess.run(
+            ["tmux", "display-message", "-t", tmux_name, "-p", "#{pane_current_path}"],
+            timeout=TMUX_CMD_TIMEOUT_SEC,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            pane_path = result.stdout.strip()
+            work_dir = str(WORK_DIR)
+            if pane_path.startswith(work_dir + "/"):
+                relative = pane_path[len(work_dir) + 1:]
+                workspace = relative.split("/")[0]
+                if workspace:
+                    return workspace
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    return None
 
 
 def cleanup_terminal_sessions() -> None:
     now = time.time()
     with _sessions_lock:
         expired = [sid for sid, s in TERMINAL_SESSIONS.items() if s.expires_at <= now]
-        expired_sessions = []
-        for sid in expired:
+        dead_tmux = [
+            sid for sid, s in TERMINAL_SESSIONS.items()
+            if sid not in expired and not _tmux_session_exists(s.tmux_session_name)
+        ]
+        to_remove = expired + dead_tmux
+        removed_sessions = []
+        for sid in to_remove:
             session = TERMINAL_SESSIONS.pop(sid, None)
             if session:
-                expired_sessions.append((sid, session))
-    for sid, session in expired_sessions:
-        logger.info("terminal session expired session=%s", sid)
-        _kill_pty_session(session)
+                removed_sessions.append((sid, session))
+    for sid, session in removed_sessions:
+        logger.info("terminal session removed session=%s reason=%s",
+                     sid, "expired" if sid in expired else "tmux_dead")
+        _kill_tmux_session(session)
 
 
 def get_terminal_session(session_id: str) -> TerminalSession:
@@ -119,7 +244,7 @@ def get_terminal_session(session_id: str) -> TerminalSession:
             raise HTTPException(status_code=404, detail="Terminal session not found")
         if session.expires_at <= time.time():
             TERMINAL_SESSIONS.pop(session_id, None)
-            _kill_pty_session(session)
+            _kill_tmux_session(session)
             raise HTTPException(status_code=410, detail="Terminal session expired")
         session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
         return session
@@ -151,7 +276,7 @@ async def delete_terminal_session(session_id: str):
         session = TERMINAL_SESSIONS.pop(session_id, None)
     if not session:
         raise HTTPException(status_code=404, detail="Terminal session not found")
-    _kill_pty_session(session)
+    _kill_tmux_session(session)
     action = "ジョブ終了" if session.job_name else "ターミナル終了"
     log_operation(action, session.workspace or "", session.job_label or session.job_name or "")
     logger.info("terminal session deleted session=%s", session_id)
@@ -163,16 +288,7 @@ PTY_EOF = b""
 
 PTY_EXECUTOR = ThreadPoolExecutor(max_workers=PTY_READER_WORKERS, thread_name_prefix="pty-reader")
 
-# WS認証はsession_id(192bitトークン)で担保
 ws_router = APIRouter()
-
-
-def _is_process_alive(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-        return True
-    except ProcessLookupError:
-        return False
 
 
 @ws_router.websocket("/terminal/ws/{session_id}")
@@ -191,7 +307,7 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
         await websocket.close(code=1008, reason="セッションがタイムアウトしました")
         return
 
-    if not _is_process_alive(session.pid):
+    if not _tmux_session_exists(session.tmux_session_name):
         with _sessions_lock:
             TERMINAL_SESSIONS.pop(session_id, None)
         await websocket.close(code=1008, reason="シェルプロセスが終了しました")
@@ -203,8 +319,19 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
             await prev_ws.close(code=WS_CLOSE_REPLACED)
         except Exception:
             pass
-    session.active_ws = websocket
 
+    _detach_pty_bridge(session)
+
+    try:
+        fd, pid = attach_tmux_session(session.tmux_session_name)
+    except OSError as e:
+        logger.error("tmux attach failed session=%s: %s", session_id, e)
+        await websocket.close(code=1011, reason="tmux attach失敗")
+        return
+
+    session.fd = fd
+    session.pid = pid
+    session.active_ws = websocket
     session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
     stop_event = threading.Event()
     loop = asyncio.get_event_loop()
@@ -236,9 +363,10 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
                 if not data:
                     continue
                 if data[0:1] == b"\x00":
-                    _handle_resize(session.fd, data[1:])
+                    _handle_resize(session, data[1:])
                 else:
-                    await loop.run_in_executor(PTY_EXECUTOR, os.write, session.fd, data)
+                    if session.fd is not None:
+                        await loop.run_in_executor(PTY_EXECUTOR, os.write, session.fd, data)
         except (WebSocketDisconnect, OSError, asyncio.CancelledError):
             pass
 
@@ -266,6 +394,7 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
         task.cancel()
     if session.active_ws is websocket:
         session.active_ws = None
+    _detach_pty_bridge(session)
     try:
         await websocket.close()
     except Exception:
@@ -290,12 +419,18 @@ def _read_pty(fd: int, lock: threading.Lock, stop: threading.Event) -> bytes:
         lock.release()
 
 
-def _handle_resize(fd: int, payload: bytes) -> None:
+def _handle_resize(session: TerminalSession, payload: bytes) -> None:
     try:
         size = json.loads(payload)
         cols = size.get("cols", 80)
         rows = size.get("rows", 24)
-        winsize = struct.pack("HHHH", rows, cols, 0, 0)
-        fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
-    except (json.JSONDecodeError, OSError, KeyError):
+        if session.fd is not None:
+            winsize = struct.pack("HHHH", rows, cols, 0, 0)
+            fcntl.ioctl(session.fd, termios.TIOCSWINSZ, winsize)
+        subprocess.run(
+            ["tmux", "resize-window", "-t", session.tmux_session_name, "-x", str(cols), "-y", str(rows)],
+            timeout=TMUX_CMD_TIMEOUT_SEC,
+            capture_output=True,
+        )
+    except (json.JSONDecodeError, OSError, KeyError, subprocess.TimeoutExpired):
         pass

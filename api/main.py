@@ -101,13 +101,19 @@ async def log_requests(request: Request, call_next):
     return response
 
 
+@app.on_event("startup")
+def startup_recover():
+    count = terminal.recover_tmux_sessions()
+    if count > 0:
+        logger.info("recovered %d tmux sessions", count)
+
+
 @app.on_event("shutdown")
 def shutdown_cleanup():
     with terminal._sessions_lock:
-        sessions = list(terminal.TERMINAL_SESSIONS.items())
-        terminal.TERMINAL_SESSIONS.clear()
-    for _sid, session in sessions:
-        terminal._kill_pty_session(session)
+        sessions = list(terminal.TERMINAL_SESSIONS.values())
+    for session in sessions:
+        terminal._detach_pty_bridge(session)
     BACKGROUND_EXECUTOR.shutdown(wait=False)
 
 

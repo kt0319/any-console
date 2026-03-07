@@ -2,7 +2,6 @@ import logging
 import os
 import re
 import secrets
-import signal
 import subprocess
 import time
 
@@ -26,9 +25,10 @@ from ..jobs import TERMINAL_JOB, JobDefinition
 from ..runner import run_job
 from .terminal import (
     TERMINAL_SESSIONS,
+    TMUX_SESSION_PREFIX,
     TerminalSession,
     _sessions_lock,
-    create_pty_session,
+    create_tmux_session,
 )
 
 logger = logging.getLogger(__name__)
@@ -315,34 +315,26 @@ def execute_job(body: RunRequest):
                 )
         cwd_path = str(ws_path) if ws_path else None
         session_id = secrets.token_urlsafe(24)
+        tmux_name = f"{TMUX_SESSION_PREFIX}{session_id}"
         try:
-            fd, pid = create_pty_session(cwd_path)
-        except OSError as e:
-            logger.error("pty fork failed: %s", e)
+            create_tmux_session(cwd_path, tmux_name)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
+            logger.error("tmux session creation failed: %s", e)
             raise HTTPException(status_code=500, detail=f"Failed to create terminal: {e}") from None
-        try:
-            with _sessions_lock:
-                TERMINAL_SESSIONS[session_id] = TerminalSession(
+        with _sessions_lock:
+            TERMINAL_SESSIONS[session_id] = TerminalSession(
                 workspace=body.workspace,
-                fd=fd,
-                pid=pid,
                 expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
-                    icon=body.icon,
-                    icon_color=body.icon_color,
-                    job_name=body.job_name,
-                    job_label=body.job_label,
-                )
-        except Exception:
-            os.close(fd)
-            try:
-                os.kill(pid, signal.SIGTERM)
-            except (ProcessLookupError, OSError):
-                pass
-            raise
+                tmux_session_name=tmux_name,
+                icon=body.icon,
+                icon_color=body.icon_color,
+                job_name=body.job_name,
+                job_label=body.job_label,
+            )
         action = "ジョブ実行" if body.job_name else "ターミナル起動"
         log_operation(action, body.workspace or "", body.job_label or body.job_name or job_def.label)
-        logger.info("terminal session created session=%s pid=%d workspace=%s",
-                     session_id, pid, body.workspace or "(none)")
+        logger.info("terminal session created session=%s tmux=%s workspace=%s",
+                     session_id, tmux_name, body.workspace or "(none)")
         return {
             "status": "ok",
             "session_id": session_id,
