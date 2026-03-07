@@ -16,8 +16,8 @@ Object.assign(GitLogModal, {
    * @returns {Promise<void>}
    */
   async selectBranch(branch) {
-    GitLogModal.closeSubPane();
     await GitCore.checkoutBranch(branch);
+    GitLogModal.closeSubPane();
     await GitLogModal.reloadGitLog();
   },
 

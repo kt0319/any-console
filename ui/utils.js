@@ -338,6 +338,7 @@ export function isImageDataIcon(icon) {
 export function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 30, animationTarget, contextMenu = true } = {}) {
   let timer = null;
   let fired = false;
+  let touchActive = false;
   let startX = 0;
   let startY = 0;
   let activeTarget = null;
@@ -350,6 +351,7 @@ export function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThres
     onLongPress(e);
   };
   el.addEventListener("touchstart", (e) => {
+    touchActive = true;
     fired = false;
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
@@ -359,6 +361,7 @@ export function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThres
     timer = setTimeout(() => fireLongPress(startEvt), delay);
   }, { passive: true });
   el.addEventListener("touchend", (e) => {
+    touchActive = false;
     clearTimeout(timer);
     if (activeTarget) activeTarget.classList.remove("long-pressing");
     activeTarget = null;
@@ -403,7 +406,7 @@ export function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThres
   if (contextMenu) {
     el.addEventListener("contextmenu", (e) => {
       e.preventDefault();
-      fireLongPress(e);
+      if (!touchActive) fireLongPress(e);
     });
   }
   if (onClick) {
