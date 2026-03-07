@@ -289,21 +289,17 @@ export function showSplitDropZones(dragTabId) {
   container.appendChild(overlay);
 
   if (!splitMode) {
-    const headerTargets = [$("tab-bar")?.parentNode, $("header-row2")].filter(Boolean);
+    const headerRow = $("header-row2");
     const closeZone = document.createElement("div");
     closeZone.className = "pill-close-drop-zone";
     closeZone.innerHTML = '<span class="mdi mdi-close drop-zone-icon"></span>';
-    let top = Infinity, bottom = 0;
-    for (const el of headerTargets) {
-      const r = el.getBoundingClientRect();
-      if (r.height > 0) {
-        top = Math.min(top, r.top);
-        bottom = Math.max(bottom, r.bottom);
-      }
-    }
-    if (top < bottom) {
-      closeZone.style.top = top + "px";
-      closeZone.style.height = (bottom - top) + "px";
+    if (headerRow) {
+      const r = headerRow.getBoundingClientRect();
+      closeZone.style.top = r.top + "px";
+      closeZone.style.height = Math.max(r.height, 40) + "px";
+    } else {
+      closeZone.style.top = "0";
+      closeZone.style.height = "40px";
     }
     closeZone.addEventListener("dragover", (e) => {
       e.preventDefault();

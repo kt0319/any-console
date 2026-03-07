@@ -116,3 +116,23 @@ export async function refreshCurrentWorkspaceStatus() {
   await refreshWorkspaceHeader();
 }
 
+const STATUS_POLL_INTERVAL_MS = 10000;
+let statusPollTimer = null;
+
+function startStatusPolling() {
+  if (statusPollTimer) return;
+  statusPollTimer = setInterval(() => {
+    if (document.visibilityState === "visible") {
+      refreshCurrentWorkspaceStatus();
+    }
+  }, STATUS_POLL_INTERVAL_MS);
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    refreshCurrentWorkspaceStatus();
+  }
+});
+
+startStatusPolling();
+

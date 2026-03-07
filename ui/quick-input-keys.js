@@ -432,7 +432,7 @@ export async function renderSnippetRow(container, onChipTap) {
   const historyRow = document.createElement("div");
   historyRow.className = "quick-snippet-history-row";
 
-  const allHistory = [...inputHistory].reverse();
+  const allHistory = [...inputHistory];
   if (allHistory.length === 0) {
     const emptyHistory = document.createElement("div");
     emptyHistory.className = "quick-snippet-item quick-snippet-item-empty";

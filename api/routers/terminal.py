@@ -367,8 +367,8 @@ async def get_terminal_buffer(session_id: str):
         if result.returncode != 0:
             raise HTTPException(status_code=500, detail="バッファ取得に失敗しました")
         return {"content": result.stdout}
-    except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="タイムアウト")
+    except subprocess.TimeoutExpired as e:
+        raise HTTPException(status_code=504, detail="タイムアウト") from e
 
 
 @router.delete("/terminal/sessions/{session_id}")
