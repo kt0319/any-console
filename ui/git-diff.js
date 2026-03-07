@@ -385,7 +385,10 @@ export async function loadDiffTab() {
   if (!selectedWorkspace) return;
   clearActiveDiffRef();
 
-  initDiffPane([]);
+  initDiffPane([
+    { label: "コミット", fn: () => openCommitForm() },
+    { label: "Stash一覧", key: "stash-list", fn: () => GitLogModal.openStashPane() },
+  ]);
 
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/diff"));
@@ -423,7 +426,6 @@ export function openCommitForm() {
   $("diff-commit-message").value = "";
   hideFormError("diff-commit-error");
   form.style.display = "block";
-  $("diff-commit-message").focus();
 }
 
 /** @returns {void} */
