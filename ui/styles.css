@@ -3283,6 +3283,11 @@ button:disabled {
   color: var(--bg-primary);
 }
 
+.toast-info {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
 /* Icon Picker */
 .icon-picker-clear-btn {
   min-width: auto;
