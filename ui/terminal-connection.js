@@ -99,6 +99,12 @@ export async function onVisibilityRestore() {
       const names = closedNames.join(", ");
       showToast(`${names}: サーバー再起動によりセッションが失われました`, "error");
     }
+
+    for (const tab of openTabs.filter(t => t.type === "terminal")) {
+      if (!tab.ws && !tab._wsDisposed && !tab._pendingOpen && aliveWsUrls.has(tab.wsUrl)) {
+        connectTerminalWs(tab);
+      }
+    }
   } catch (e) { console.warn("onVisibilityRestore failed:", e); }
 }
 
