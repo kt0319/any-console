@@ -297,8 +297,6 @@ export function renderTabBar() {
   barRow.style.display = showBarRow ? "flex" : "none";
   updateEmptyPlaceholder(!hasContent);
   updateQuickInputVisibility();
-  if (!hasAnyTabs) return;
-
   let html = "";
   for (const item of items) {
     if (item.type === "tab") {

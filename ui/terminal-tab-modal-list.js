@@ -263,6 +263,10 @@ export function createTabListRenderer(deps) {
         if (!confirm(`「${label}」を閉じますか？`)) return;
         setOrphanSessions(orphanSessions.filter((o) => o.wsUrl !== s.wsUrl));
         closedSessionUrls.add(s.wsUrl);
+        if (openTabs.length === 0 && orphanSessions.length === 0) {
+          closeModal();
+          return;
+        }
         renderTabList();
       });
       row.appendChild(closeBtnEl);
