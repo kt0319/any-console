@@ -140,6 +140,12 @@ export function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, in
     patchTextarea();
   }
 
+  container.addEventListener("wheel", (e) => {
+    const lines = Math.round(e.deltaY / 20) || (e.deltaY > 0 ? 1 : -1);
+    term.scrollLines(lines);
+    e.preventDefault();
+  }, { passive: false });
+
   let touchStartY = null;
   container.addEventListener("touchstart", (e) => {
     touchStartY = e.touches[0].clientY;
