@@ -35,7 +35,7 @@ export function initQuickInput() {
   panel.appendChild(fileInput);
 
   const { qwertyPanel, qwertyKeyBtns, updateQwertyKeys } = createQwertyPanel({
-    openCamera: () => { fileInput.click(); },
+    openCamera: () => { keyboardPanelMode = 0; applyMode(true); fileInput.click(); },
     addSnippet: async () => {
       const cmd = prompt("スニペットを追加:");
       if (cmd) {
