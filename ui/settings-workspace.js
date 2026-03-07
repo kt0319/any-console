@@ -1,5 +1,5 @@
 // @ts-check
-import { allWorkspaces, selectedWorkspace } from './state-core.js';
+import { allWorkspaces, selectedWorkspace, setSelectedWorkspace } from './state-core.js';
 import { apiFetch, workspaceApiPath, putWorkspaceConfig } from './api-client.js';
 import { renderIcon, showToast, escapeHtml } from './utils.js';
 import { invalidateWorkspaceMetaCache, fetchWorkspaceJobsAndLinks } from './cache.js';
@@ -615,7 +615,7 @@ export async function toggleWorkspace(name, visible) {
   ws.hidden = hidden;
   let selectionCleared = false;
   if (!visible && selectedWorkspace === name) {
-    selectedWorkspace = null;
+    setSelectedWorkspace(null);
     selectionCleared = true;
   }
   if (selectionCleared) {
