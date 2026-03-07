@@ -3017,7 +3017,7 @@ button:disabled {
   flex-direction: column;
   justify-content: flex-end;
   gap: 4px;
-  flex: 1 1 50%;
+  flex: 1 1 0;
   min-width: 0;
   overflow-y: auto;
   pointer-events: none;
@@ -3035,7 +3035,7 @@ button:disabled {
   border-radius: 6px;
   background: rgba(20, 22, 35, 0.85);
   color: var(--text-primary);
-  font-size: 11px;
+  font-size: 9px;
   line-height: 28px;
   user-select: none;
   -webkit-user-select: none;

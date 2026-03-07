@@ -428,17 +428,20 @@ export function createSnippetChip(text, onTap, onDelete, iconClass) {
 export async function renderSnippetRow(container, onChipTap) {
   await ensureSnippetsLoaded();
   container.innerHTML = "";
-  const snippetCol = document.createElement("div");
-  snippetCol.className = "quick-snippet-col";
   const historyCol = document.createElement("div");
   historyCol.className = "quick-snippet-col quick-snippet-col-right";
 
-  const snippets = loadSnippets().slice(-5);
+  const snippetColLeft = document.createElement("div");
+  snippetColLeft.className = "quick-snippet-col";
+  const snippetColRight = document.createElement("div");
+  snippetColRight.className = "quick-snippet-col";
+
+  const snippets = loadSnippets().slice(-6);
   if (snippets.length === 0) {
     const emptySnippet = document.createElement("div");
     emptySnippet.className = "quick-snippet-item quick-snippet-item-empty";
     emptySnippet.textContent = "スニペットなし";
-    snippetCol.appendChild(emptySnippet);
+    snippetColLeft.appendChild(emptySnippet);
   }
 
   snippets.forEach((s, idx) => {
@@ -454,10 +457,11 @@ export async function renderSnippetRow(container, onChipTap) {
         }
       }
     }, "mdi-pin");
-    snippetCol.appendChild(chip);
+    const targetCol = snippetColLeft.children.length <= snippetColRight.children.length ? snippetColLeft : snippetColRight;
+    targetCol.appendChild(chip);
   });
 
-  const recentHistory = inputHistory.slice(0, 5).reverse();
+  const recentHistory = inputHistory.slice(0, 3).reverse();
   if (recentHistory.length === 0) {
     const emptyHistory = document.createElement("div");
     emptyHistory.className = "quick-snippet-item quick-snippet-item-empty";
@@ -484,17 +488,18 @@ export async function renderSnippetRow(container, onChipTap) {
     historyCol.appendChild(chip);
   });
 
-  const snippetCount = snippetCol.children.length;
-  const historyCount = historyCol.children.length;
-  const shorter = snippetCount < historyCount ? snippetCol : historyCol;
-  const diff = Math.abs(snippetCount - historyCount);
-  for (let i = 0; i < diff; i++) {
-    const spacer = document.createElement("div");
-    spacer.className = "quick-snippet-item";
-    spacer.style.visibility = "hidden";
-    shorter.insertBefore(spacer, shorter.firstChild);
+  const cols = [snippetColLeft, snippetColRight, historyCol];
+  const maxCount = Math.max(...cols.map(c => c.children.length));
+  for (const col of cols) {
+    while (col.children.length < maxCount) {
+      const spacer = document.createElement("div");
+      spacer.className = "quick-snippet-item";
+      spacer.style.visibility = "hidden";
+      col.insertBefore(spacer, col.firstChild);
+    }
   }
 
-  container.appendChild(snippetCol);
+  container.appendChild(snippetColLeft);
+  container.appendChild(snippetColRight);
   container.appendChild(historyCol);
 }

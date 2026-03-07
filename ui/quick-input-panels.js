@@ -2,7 +2,7 @@
 import { openTabs, activeTabId } from './state-core.js';
 import { safeFit } from './utils.js';
 import { NUMBER_KEYS, QWERTY_ROWS } from './state-input.js';
-import { setupFlickRepeat, sendKeyToTerminal, scrollTerminal, exitViewModeIfActive, createQuickKeyBtn, modifierState, setOnModifiersCleared, setOnModifierToggled, clearModifiers } from './quick-input-keys.js';
+import { setupFlickRepeat, sendKeyToTerminal, scrollTerminal, exitViewModeIfActive, createQuickKeyBtn, modifierState, setOnModifiersCleared, setOnModifierToggled, clearModifiers, LONG_PRESS_MS } from './quick-input-keys.js';
 
 const FLICK_THRESHOLD = 40;
 
@@ -57,7 +57,7 @@ export function createArrowFlickKey(ctx) {
 
 /**
  * Creates the debug/utility buttons (hard reload, clear localStorage, workspace modal).
- * @param {{ openWorkspaceModal: () => void }} ctx
+ * @param {{ openWorkspaceModal: () => void, openCamera: () => void }} ctx
  * @returns {{ hardReloadBtn: HTMLElement, clearLocalStorageBtn: HTMLElement, workspaceModalBtn: HTMLElement }}
  */
 export function createDebugButtons(ctx) {
@@ -65,9 +65,21 @@ export function createDebugButtons(ctx) {
   hardReloadBtn.className = "quick-key quick-hard-reload";
   hardReloadBtn.innerHTML = '<span class="mdi mdi-refresh"></span>';
   hardReloadBtn.style.display = "none";
-  hardReloadBtn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  let longPressTimer = null;
+  let longPressFired = false;
+  hardReloadBtn.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    longPressFired = false;
+    longPressTimer = setTimeout(() => {
+      longPressTimer = null;
+      longPressFired = true;
+      ctx.openCamera();
+    }, LONG_PRESS_MS);
+  }, { passive: false });
   hardReloadBtn.addEventListener("touchend", (e) => {
     e.preventDefault();
+    if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+    if (longPressFired) return;
     window.location.href = window.location.pathname + "?_=" + Date.now();
   });
   hardReloadBtn.addEventListener("click", () => {
@@ -214,7 +226,7 @@ export function createModifierButtons(ctx) {
  * @param {{ getSnippetRowDisplay: () => string, closeSnippetMode: () => void, toggleSnippetRow: () => void }} ctx
  * @returns {{ minimalEnter: HTMLElement, flickNav: HTMLElement }}
  */
-export function createEnterFlickKey(ctx) {
+export function createEnterFlickKey() {
   const minimalEnter = document.createElement("div");
   minimalEnter.className = "quick-key quick-flick-enter quick-flick-arrow quick-key-toggle";
   minimalEnter.innerHTML = '<span class="flick-hint-top">Tab</span><span class="flick-hint-left">BS</span><span class="flick-main">\u21B5</span><span class="flick-hint-bottom">Space</span><span class="flick-hint-right">Del</span>';
@@ -233,15 +245,10 @@ export function createEnterFlickKey(ctx) {
   };
 
   setupFlickRepeat(minimalEnter, resolveEnterKey, () => {
-    if (ctx.getSnippetRowDisplay() === "flex") {
-      ctx.closeSnippetMode();
-    } else {
-      exitViewModeIfActive();
-      sendKeyToTerminal({ key: "Enter", code: "Enter", keyCode: 13 });
-    }
+    exitViewModeIfActive();
+    sendKeyToTerminal({ key: "Enter", code: "Enter", keyCode: 13 });
   }, {
     accelerateRepeat: true,
-    onLongPress: () => ctx.toggleSnippetRow(),
   });
 
   const flickNav = document.createElement("div");
@@ -272,7 +279,7 @@ export function createEnterFlickKey(ctx) {
  * Creates the QWERTY keyboard panel.
  * @returns {{ qwertyPanel: HTMLElement, qwertyKeyBtns: Array<{ btn: HTMLElement, row: number, col: number }>, updateQwertyKeys: () => void }}
  */
-export function createQwertyPanel() {
+export function createQwertyPanel(ctx = {}) {
   const qwertyPanel = document.createElement("div");
   qwertyPanel.className = "quick-extra-panel quick-qwerty-panel";
   qwertyPanel.style.display = "none";
@@ -316,6 +323,41 @@ export function createQwertyPanel() {
       }
       row.appendChild(btn);
       qwertyKeyBtns.push({ btn, row: i, col: j });
+    }
+    if (i === 2 && ctx.openCamera) {
+      const cameraBtn = document.createElement("div");
+      cameraBtn.className = "quick-key quick-flick-arrow";
+      const hintTop = document.createElement("span");
+      hintTop.className = "flick-hint-top";
+      hintTop.innerHTML = '<span class="mdi mdi-refresh" style="font-size:10px"></span>';
+      const main = document.createElement("span");
+      main.className = "flick-main";
+      main.innerHTML = '<span class="mdi mdi-camera"></span>';
+      const hintBottom = document.createElement("span");
+      hintBottom.className = "flick-hint-bottom";
+      hintBottom.innerHTML = '<span class="mdi mdi-pin" style="font-size:10px"></span>';
+      cameraBtn.appendChild(hintTop);
+      cameraBtn.appendChild(main);
+      cameraBtn.appendChild(hintBottom);
+      let startY = null;
+      cameraBtn.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        startY = e.touches[0].clientY;
+      }, { passive: false });
+      cameraBtn.addEventListener("touchend", (e) => {
+        e.preventDefault();
+        const dy = startY !== null ? e.changedTouches[0].clientY - startY : 0;
+        startY = null;
+        if (dy < -FLICK_THRESHOLD) {
+          window.location.href = window.location.pathname + "?_=" + Date.now();
+        } else if (dy > FLICK_THRESHOLD) {
+          if (ctx.addSnippet) ctx.addSnippet();
+        } else {
+          ctx.openCamera();
+        }
+      });
+      cameraBtn.addEventListener("click", () => ctx.openCamera());
+      row.appendChild(cameraBtn);
     }
     qwertyPanel.appendChild(row);
   }
