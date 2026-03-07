@@ -101,12 +101,6 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-@app.on_event("startup")
-def startup_recover():
-    count = terminal.recover_tmux_sessions()
-    if count > 0:
-        logger.info("recovered %d tmux sessions", count)
-
 
 @app.on_event("shutdown")
 def shutdown_cleanup():

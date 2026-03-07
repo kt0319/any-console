@@ -19,7 +19,7 @@ import {
 } from './state-core.js';
 import { apiFetch } from './api-client.js';
 import { showToast, $, safeFit, refitTerminalWithFocus, fitTerminalAfterFonts, fitAndSync } from './utils.js';
-import { removeTab, switchTab, persistOpenTabs, addTerminalTab, renderTabBar } from './terminal-tabs.js';
+import { removeTab, switchTab, addTerminalTab, renderTabBar } from './terminal-tabs.js';
 import { refreshTabNamePill } from './terminal-tab-pill.js';
 
 let sessionKeepaliveTimer = null;
@@ -155,8 +155,7 @@ export function syncTerminalSessionState() {
 }
 
 /**
- * Fetches active sessions from the server and restores validated sessions.
- * localStorage entries are checked against the server before being displayed as tabs.
+ * Fetches active sessions from the server and restores validated sessions as tabs.
  * @returns {Promise<void>}
  */
 export async function fetchOrphanSessions() {
@@ -185,68 +184,17 @@ export async function fetchOrphanSessions() {
 }
 
 /**
- * Restores terminal tabs by validating localStorage entries against the server.
- * - localStorage entries alive on server → restore as tabs (preserving order)
- * - Server sessions not in localStorage → restore as tabs (appended)
- * - localStorage entries not on server → add to disconnectedSessions
+ * Restores terminal tabs from the server session list.
+ * Server sessions not already open locally → restore as tabs (sorted by created_at).
  * @param {Array<Object>} sessions - List of session objects returned from the server.
  */
 export function restoreValidatedTabs(sessions) {
-  const serverMap = new Map(sessions.map((s) => [s.ws_url, s]));
   const localWsUrls = new Set(openTabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
-  const orphanUrls = new Set(disconnectedSessions.map((s) => s.wsUrl));
 
-  const raw = localStorage.getItem("pi_console_terminal_openTabs");
-  let saved = [];
-  if (raw) {
-    try { saved = JSON.parse(raw); } catch { saved = []; }
-    if (!Array.isArray(saved)) saved = [];
-    saved.sort((a, b) => (a.tabIndex ?? 0) - (b.tabIndex ?? 0));
-    localStorage.removeItem("pi_console_terminal_openTabs");
-  }
-
-  const restoredUrls = new Set();
   let firstRestoredTabId = null;
 
-  for (const entry of saved) {
-    const wsUrl = entry.wsUrl || entry.ws_url;
-    if (!wsUrl || closedSessionUrls.has(wsUrl) || localWsUrls.has(wsUrl)) continue;
-    restoredUrls.add(wsUrl);
-
-    if (serverMap.has(wsUrl)) {
-      const session = serverMap.get(wsUrl);
-      const workspace = entry.workspace || session.workspace || null;
-      const tabIcon = entry.icon ? { name: entry.icon, color: entry.iconColor || "" }
-        : session.icon ? { name: session.icon, color: session.icon_color || "" } : null;
-      const ws = workspace ? allWorkspaces.find((w) => w.name === workspace) : null;
-      const isDuplicateIcon = ws && ws.icon && tabIcon && tabIcon.name === ws.icon;
-      const wsIcon = isDuplicateIcon ? null : (ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null);
-      addTerminalTab(
-        wsUrl, workspace || "terminal", null, true, false, null,
-        tabIcon, wsIcon,
-        entry.jobName || session.job_name || null,
-        entry.jobLabel || session.job_label || session.job_name || null,
-      );
-      const tab = openTabs.find((t) => t.wsUrl === wsUrl);
-      if (!firstRestoredTabId && tab) firstRestoredTabId = tab.id;
-    } else {
-      if (!orphanUrls.has(wsUrl)) {
-        disconnectedSessions.push({
-          wsUrl,
-          workspace: entry.workspace || null,
-          icon: entry.icon || null,
-          iconColor: entry.iconColor || entry.icon_color || null,
-          jobName: entry.jobName || entry.job_name || null,
-          jobLabel: entry.jobLabel || entry.job_label || null,
-          tabIndex: entry.tabIndex != null ? entry.tabIndex : disconnectedSessions.length,
-          expired: true,
-        });
-      }
-    }
-  }
-
   for (const session of sessions) {
-    if (restoredUrls.has(session.ws_url) || localWsUrls.has(session.ws_url) || closedSessionUrls.has(session.ws_url)) continue;
+    if (localWsUrls.has(session.ws_url) || closedSessionUrls.has(session.ws_url)) continue;
     const workspace = session.workspace || null;
     const tabIcon = session.icon ? { name: session.icon, color: session.icon_color || "" } : null;
     const ws = workspace ? allWorkspaces.find((w) => w.name === workspace) : null;

@@ -29,6 +29,7 @@ from .terminal import (
     TerminalSession,
     _sessions_lock,
     create_tmux_session,
+    save_tmux_metadata,
 )
 
 logger = logging.getLogger(__name__)
@@ -331,6 +332,7 @@ def execute_job(body: RunRequest):
                 job_name=body.job_name,
                 job_label=body.job_label,
             )
+        save_tmux_metadata(tmux_name, body.workspace, body.icon, body.icon_color, body.job_name, body.job_label)
         action = "ジョブ実行" if body.job_name else "ターミナル起動"
         log_operation(action, body.workspace or "", body.job_label or body.job_name or job_def.label)
         logger.info("terminal session created session=%s tmux=%s workspace=%s",

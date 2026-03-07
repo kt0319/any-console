@@ -155,46 +155,6 @@ def _tmux_session_exists(name: str) -> bool:
         return False
 
 
-def recover_tmux_sessions() -> int:
-    try:
-        result = subprocess.run(
-            ["tmux", "list-sessions", "-F", "#{session_name}"],
-            timeout=TMUX_CMD_TIMEOUT_SEC,
-            capture_output=True,
-            text=True,
-        )
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
-        logger.warning("tmux list-sessions failed: %s", e)
-        return 0
-
-    if result.returncode != 0:
-        return 0
-
-    recovered = 0
-    for line in result.stdout.strip().splitlines():
-        name = line.strip()
-        if not name.startswith(TMUX_SESSION_PREFIX):
-            continue
-        session_id = name[len(TMUX_SESSION_PREFIX):]
-        if not session_id:
-            continue
-
-        with _sessions_lock:
-            if session_id in TERMINAL_SESSIONS:
-                continue
-
-        workspace = _detect_workspace_from_tmux(name)
-        with _sessions_lock:
-            TERMINAL_SESSIONS[session_id] = TerminalSession(
-                workspace=workspace,
-                expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
-                tmux_session_name=name,
-            )
-        recovered += 1
-        logger.info("recovered tmux session=%s workspace=%s", session_id, workspace or "(none)")
-
-    return recovered
-
 
 def _detect_workspace_from_tmux(tmux_name: str) -> str | None:
     try:
@@ -217,58 +177,171 @@ def _detect_workspace_from_tmux(tmux_name: str) -> str | None:
     return None
 
 
+_TMUX_META_KEYS = ("PI_WORKSPACE", "PI_ICON", "PI_ICON_COLOR", "PI_JOB_NAME", "PI_JOB_LABEL")
+
+
+def save_tmux_metadata(
+    tmux_name: str,
+    workspace: str | None,
+    icon: str | None,
+    icon_color: str | None,
+    job_name: str | None,
+    job_label: str | None,
+) -> None:
+    env_vars = {
+        "PI_WORKSPACE": workspace,
+        "PI_ICON": icon,
+        "PI_ICON_COLOR": icon_color,
+        "PI_JOB_NAME": job_name,
+        "PI_JOB_LABEL": job_label,
+    }
+    for key, value in env_vars.items():
+        if value:
+            subprocess.run(
+                ["tmux", "set-environment", "-t", tmux_name, key, value],
+                timeout=TMUX_CMD_TIMEOUT_SEC,
+                capture_output=True,
+            )
+
+
+def _load_tmux_metadata(tmux_name: str) -> dict:
+    try:
+        result = subprocess.run(
+            ["tmux", "show-environment", "-t", tmux_name],
+            timeout=TMUX_CMD_TIMEOUT_SEC,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return {}
+    if result.returncode != 0:
+        return {}
+    meta = {}
+    for line in result.stdout.strip().splitlines():
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if key in _TMUX_META_KEYS:
+            meta[key] = value
+    return meta
+
+
+def _get_tmux_created(tmux_name: str) -> int | None:
+    try:
+        result = subprocess.run(
+            ["tmux", "display-message", "-t", tmux_name, "-p", "#{session_created}"],
+            timeout=TMUX_CMD_TIMEOUT_SEC,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return int(result.stdout.strip())
+    except (subprocess.TimeoutExpired, OSError, ValueError):
+        pass
+    return None
+
+
 def cleanup_terminal_sessions() -> None:
     now = time.time()
     with _sessions_lock:
         expired = [sid for sid, s in TERMINAL_SESSIONS.items() if s.expires_at <= now]
-        dead_tmux = [
-            sid for sid, s in TERMINAL_SESSIONS.items()
-            if sid not in expired and not _tmux_session_exists(s.tmux_session_name)
-        ]
-        to_remove = expired + dead_tmux
         removed_sessions = []
-        for sid in to_remove:
+        for sid in expired:
             session = TERMINAL_SESSIONS.pop(sid, None)
             if session:
                 removed_sessions.append((sid, session))
     for sid, session in removed_sessions:
-        logger.info("terminal session removed session=%s reason=%s",
-                     sid, "expired" if sid in expired else "tmux_dead")
+        logger.info("terminal session removed session=%s reason=expired", sid)
         _kill_tmux_session(session)
 
 
 def get_terminal_session(session_id: str) -> TerminalSession:
-    cleanup_terminal_sessions()
     with _sessions_lock:
         session = TERMINAL_SESSIONS.get(session_id)
-        if not session:
-            raise HTTPException(status_code=404, detail="Terminal session not found")
-        if session.expires_at <= time.time():
-            TERMINAL_SESSIONS.pop(session_id, None)
-            _kill_tmux_session(session)
-            raise HTTPException(status_code=410, detail="Terminal session expired")
-        session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
-        return session
+        if session:
+            if session.expires_at <= time.time():
+                TERMINAL_SESSIONS.pop(session_id, None)
+                _kill_tmux_session(session)
+                raise HTTPException(status_code=410, detail="Terminal session expired")
+            session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
+            return session
+
+    tmux_name = TMUX_SESSION_PREFIX + session_id
+    if not _tmux_session_exists(tmux_name):
+        raise HTTPException(status_code=404, detail="Terminal session not found")
+
+    meta = _load_tmux_metadata(tmux_name)
+    workspace = meta.get("PI_WORKSPACE") or _detect_workspace_from_tmux(tmux_name)
+    session = TerminalSession(
+        workspace=workspace,
+        expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
+        tmux_session_name=tmux_name,
+        icon=meta.get("PI_ICON"),
+        icon_color=meta.get("PI_ICON_COLOR"),
+        job_name=meta.get("PI_JOB_NAME"),
+        job_label=meta.get("PI_JOB_LABEL"),
+    )
+    with _sessions_lock:
+        TERMINAL_SESSIONS[session_id] = session
+    logger.info("on-demand registered tmux session=%s workspace=%s", session_id, workspace or "(none)")
+    return session
 
 
 @router.get("/terminal/sessions")
 async def list_terminal_sessions():
-    cleanup_terminal_sessions()
-    now = time.time()
-    with _sessions_lock:
-        return [
-            {
-                "session_id": sid,
-                "workspace": s.workspace,
-                "ws_url": f"/terminal/ws/{sid}",
-                "expires_in": int(s.expires_at - now),
-                "icon": s.icon,
-                "icon_color": s.icon_color,
-                "job_name": s.job_name,
-                "job_label": s.job_label,
-            }
-            for sid, s in TERMINAL_SESSIONS.items()
-        ]
+    try:
+        result = subprocess.run(
+            ["tmux", "list-sessions", "-F", "#{session_name}"],
+            timeout=TMUX_CMD_TIMEOUT_SEC,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return []
+
+    if result.returncode != 0:
+        return []
+
+    sessions = []
+    for line in result.stdout.strip().splitlines():
+        name = line.strip()
+        if not name.startswith(TMUX_SESSION_PREFIX):
+            continue
+        session_id = name[len(TMUX_SESSION_PREFIX):]
+        if not session_id:
+            continue
+
+        with _sessions_lock:
+            cached = TERMINAL_SESSIONS.get(session_id)
+
+        if cached:
+            workspace = cached.workspace
+            icon = cached.icon
+            icon_color = cached.icon_color
+            job_name = cached.job_name
+            job_label = cached.job_label
+        else:
+            meta = _load_tmux_metadata(name)
+            workspace = meta.get("PI_WORKSPACE") or _detect_workspace_from_tmux(name)
+            icon = meta.get("PI_ICON")
+            icon_color = meta.get("PI_ICON_COLOR")
+            job_name = meta.get("PI_JOB_NAME")
+            job_label = meta.get("PI_JOB_LABEL")
+
+        created_at = _get_tmux_created(name)
+        sessions.append({
+            "session_id": session_id,
+            "workspace": workspace,
+            "ws_url": f"/terminal/ws/{session_id}",
+            "icon": icon,
+            "icon_color": icon_color,
+            "job_name": job_name,
+            "job_label": job_label,
+            "created_at": created_at,
+        })
+
+    sessions.sort(key=lambda s: s.get("created_at") or 0)
+    return sessions
 
 
 @router.delete("/terminal/sessions/{session_id}")
@@ -296,6 +369,25 @@ ws_router = APIRouter()
 async def terminal_ws(websocket: WebSocket, session_id: str):
     with _sessions_lock:
         session = TERMINAL_SESSIONS.get(session_id)
+
+    if not session:
+        tmux_name = TMUX_SESSION_PREFIX + session_id
+        if _tmux_session_exists(tmux_name):
+            meta = _load_tmux_metadata(tmux_name)
+            workspace = meta.get("PI_WORKSPACE") or _detect_workspace_from_tmux(tmux_name)
+            session = TerminalSession(
+                workspace=workspace,
+                expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
+                tmux_session_name=tmux_name,
+                icon=meta.get("PI_ICON"),
+                icon_color=meta.get("PI_ICON_COLOR"),
+                job_name=meta.get("PI_JOB_NAME"),
+                job_label=meta.get("PI_JOB_LABEL"),
+            )
+            with _sessions_lock:
+                TERMINAL_SESSIONS[session_id] = session
+            logger.info("on-demand registered tmux session=%s (ws) workspace=%s", session_id, workspace or "(none)")
+
     await websocket.accept()
 
     if not session:

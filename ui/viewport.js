@@ -2,7 +2,7 @@
 import { openTabs, activeTabId, splitMode, splitPaneTabIds, panelBottom, isTouchDevice, isPageUnloading, setIsPageUnloading } from './state-core.js';
 import { $, safeFit } from './utils.js';
 import { addInputHistory } from './state-input.js';
-import { persistOpenTabs } from './terminal-tabs.js';
+
 import { sendTextToTerminal } from './quick-input-keys.js';
 import { renderSnippetRow } from './quick-input.js';
 
@@ -239,7 +239,6 @@ export function repositionKeyboardInput(keyboardOpen) {
 
 window.addEventListener("beforeunload", () => {
   setIsPageUnloading(true);
-  persistOpenTabs();
 });
 
 document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });

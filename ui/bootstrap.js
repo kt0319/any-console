@@ -37,6 +37,7 @@ export async function initApp() {
       setSelectedWorkspace(null);
     }
     localStorage.removeItem("pi_console_active_tab");
+    localStorage.removeItem("pi_console_terminal_openTabs");
     setAppInitializing(true);
     await fetchOrphanSessions();
     setAppInitializing(false);

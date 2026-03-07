@@ -2,7 +2,7 @@
 import { openTabs, activeTabId, splitMode, splitPaneTabIds, setSplitPaneTabIds, activePaneIndex, setActivePaneIndex, setActiveTabId, splitLayout, setSplitLayout, disconnectedSessions, setDisconnectedSessions, closedSessionUrls, allWorkspaces } from './state-core.js';
 import { escapeHtml, renderIcon } from './utils.js';
 import { tabDisplayName, renderTabIconHtml } from './terminal-tab-utils.js';
-import { persistOpenTabs, switchTab, removeTab, renderTabBar, relaunchExpiredOrphan } from './terminal-tabs.js';
+import { switchTab, removeTab, renderTabBar, relaunchExpiredOrphan } from './terminal-tabs.js';
 import { enterSplitMode, rebuildSplitLayout, exitSplitMode, exitSplitModeWithTab, selectActivePane as setSplitActivePaneIndex, clearSplitDom, buildSplitDom, fitAllSplitTerminals } from './terminal-split.js';
 
 /**
@@ -85,7 +85,6 @@ export function createTabListRenderer(deps) {
 
   /** Renders the list of open tabs and orphan sessions. */
   function renderTabList() {
-    persistOpenTabs();
     const list = contentContainer.querySelector(".split-tab-list");
     if (!list) return;
     list.innerHTML = "";

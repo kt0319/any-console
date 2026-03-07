@@ -1,5 +1,5 @@
 // @ts-check
-import { openTabs, setOpenTabs, activeTabId, setActiveTabId, splitMode, splitPaneTabIds, setSplitPaneTabIds, activePaneIndex, setActivePaneIndex, allWorkspaces, disconnectedSessions, setDisconnectedSessions, closedSessionUrls, panelBottom, isTouchDevice, terminalIdCounter, setTerminalIdCounter, getTerminalRuntimeOptions, hasRestoredTabsFromStorage } from './state-core.js';
+import { openTabs, setOpenTabs, activeTabId, setActiveTabId, splitMode, splitPaneTabIds, setSplitPaneTabIds, activePaneIndex, setActivePaneIndex, allWorkspaces, disconnectedSessions, setDisconnectedSessions, closedSessionUrls, panelBottom, isTouchDevice, terminalIdCounter, setTerminalIdCounter, getTerminalRuntimeOptions } from './state-core.js';
 import { renderIcon, escapeHtml, bindLongPress, showToast, $, refitTerminalWithFocus, setFrameVisible } from './utils.js';
 import { tabDisplayName, renderTabIconHtml, hasVisibleTabContent } from './terminal-tab-utils.js';
 import { syncWorkspaceForTab, updateHeaderForTab, updateGitBarVisibility } from './terminal-tab-header.js';
@@ -15,39 +15,6 @@ import { tabDragState, bindMouseDrag } from './terminal.js';
 import { updateDocumentTitle } from './auth.js';
 import { restoreAllWorkspaceVisibility } from './settings-workspace.js';
 import { showKeyboardInput } from './viewport.js';
-
-/**
- * Persists open terminal tabs and disconnected sessions to localStorage.
- * @returns {void}
- */
-export function persistOpenTabs() {
-  const openTerminalTabs = openTabs
-    .filter(t => t.type === "terminal")
-    .map(t => ({
-      wsUrl: t.wsUrl,
-      workspace: t.workspace || t.label,
-      icon: t.icon?.name || null,
-      iconColor: t.icon?.color || null,
-      jobName: t.jobName || null,
-      jobLabel: t.jobLabel || null,
-      tabIndex: openTabs.indexOf(t),
-    }));
-  const liveUrls = new Set(openTerminalTabs.map((t) => t.wsUrl));
-  const orphanTabs = disconnectedSessions
-    .filter((s) => s && s.wsUrl && !closedSessionUrls.has(s.wsUrl) && !liveUrls.has(s.wsUrl))
-    .map((s, i) => ({
-      wsUrl: s.wsUrl,
-      workspace: s.workspace || null,
-      icon: s.icon || null,
-      iconColor: s.iconColor || null,
-      jobName: s.jobName || null,
-      jobLabel: s.jobLabel || null,
-      tabIndex: s.tabIndex != null ? s.tabIndex : (openTabs.length + i),
-    }));
-  const data = [...openTerminalTabs, ...orphanTabs];
-  if (data.length === 0 && !hasRestoredTabsFromStorage) return;
-  localStorage.setItem("pi_console_terminal_openTabs", JSON.stringify(data));
-}
 
 // Re-export from extracted modules for backward compatibility
 export { tabDisplayName, renderTabIconHtml, resolveWorkspaceNameForTab, hasVisibleTabContent } from './terminal-tab-utils.js';
@@ -161,7 +128,7 @@ export function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, in
   openTabs.push(tab);
   createTabNamePill(tab, container);
 
-  persistOpenTabs();
+
   if (skipSwitch) return;
   syncTerminalSessionState();
   switchTab(id);
@@ -243,7 +210,7 @@ export function removeTab(id, options = {}) {
   setOpenTabs(openTabs.filter((t) => t.id !== id));
   const el = $(`frame-${id}`);
   if (el) el.remove();
-  persistOpenTabs();
+
   syncTerminalSessionState();
 
   if (splitMode) {
@@ -353,7 +320,7 @@ export function renderTabBar() {
   items.sort((a, b) => a.index - b.index);
 
   const hasAnyTabs = openTabs.length > 0 || disconnectedSessions.length > 0;
-  persistOpenTabs();
+
   const showBarRow = hasAnyTabs || isTouchDevice || panelBottom;
   barRow.style.display = showBarRow ? "flex" : "none";
   updateEmptyPlaceholder(!hasContent);

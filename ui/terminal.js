@@ -3,7 +3,7 @@ import { openTabs, activeTabId, isTouchDevice, panelBottom, splitMode, setOpenTa
 import { $, safeFit, refitTerminalWithFocus, setFrameVisible } from './utils.js';
 import { connectTerminalWs, ensureTerminalOpened } from './terminal-connection.js';
 import { tabDisplayName } from './terminal-tab-utils.js';
-import { addTerminalTab, switchTab, removeTab, persistOpenTabs, renderTabBar } from './terminal-tabs.js';
+import { addTerminalTab, switchTab, removeTab, renderTabBar } from './terminal-tabs.js';
 import { exitAllViewModes } from './terminal-view-mode.js';
 import { uploadClipboardImage } from './quick-input-keys.js';
 
@@ -187,7 +187,6 @@ export function onTabDragEnd(e) {
       if (t) reordered.push(t);
     }
     setOpenTabs(reordered);
-    persistOpenTabs();
   }
 
   btn.classList.remove("tab-dragging");
