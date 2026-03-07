@@ -81,11 +81,12 @@ def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
         check=True,
         capture_output=True,
     )
-    subprocess.run(
-        ["tmux", "set-option", "-t", session_name, "status", "off"],
-        timeout=TMUX_CMD_TIMEOUT_SEC,
-        capture_output=True,
-    )
+    for opt_args in (["status", "off"], ["mouse", "on"]):
+        subprocess.run(
+            ["tmux", "set-option", "-t", session_name, *opt_args],
+            timeout=TMUX_CMD_TIMEOUT_SEC,
+            capture_output=True,
+        )
 
 
 def attach_tmux_session(session_name: str) -> tuple[int, int]:
