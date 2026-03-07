@@ -255,6 +255,24 @@ def cleanup_terminal_sessions() -> None:
         _kill_tmux_session(session)
 
 
+def _register_tmux_session(session_id: str, tmux_name: str) -> TerminalSession:
+    meta = _load_tmux_metadata(tmux_name)
+    workspace = meta.get("PI_WORKSPACE") or _detect_workspace_from_tmux(tmux_name)
+    session = TerminalSession(
+        workspace=workspace,
+        expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
+        tmux_session_name=tmux_name,
+        icon=meta.get("PI_ICON"),
+        icon_color=meta.get("PI_ICON_COLOR"),
+        job_name=meta.get("PI_JOB_NAME"),
+        job_label=meta.get("PI_JOB_LABEL"),
+    )
+    with _sessions_lock:
+        TERMINAL_SESSIONS[session_id] = session
+    logger.info("on-demand registered tmux session=%s workspace=%s", session_id, workspace or "(none)")
+    return session
+
+
 def get_terminal_session(session_id: str) -> TerminalSession:
     with _sessions_lock:
         session = TERMINAL_SESSIONS.get(session_id)
@@ -270,20 +288,7 @@ def get_terminal_session(session_id: str) -> TerminalSession:
     if not _tmux_session_exists(tmux_name):
         raise HTTPException(status_code=404, detail="Terminal session not found")
 
-    meta = _load_tmux_metadata(tmux_name)
-    workspace = meta.get("PI_WORKSPACE") or _detect_workspace_from_tmux(tmux_name)
-    session = TerminalSession(
-        workspace=workspace,
-        expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
-        tmux_session_name=tmux_name,
-        icon=meta.get("PI_ICON"),
-        icon_color=meta.get("PI_ICON_COLOR"),
-        job_name=meta.get("PI_JOB_NAME"),
-        job_label=meta.get("PI_JOB_LABEL"),
-    )
-    with _sessions_lock:
-        TERMINAL_SESSIONS[session_id] = session
-    logger.info("on-demand registered tmux session=%s workspace=%s", session_id, workspace or "(none)")
+    session = _register_tmux_session(session_id, tmux_name)
     return session
 
 
@@ -373,20 +378,7 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
     if not session:
         tmux_name = TMUX_SESSION_PREFIX + session_id
         if _tmux_session_exists(tmux_name):
-            meta = _load_tmux_metadata(tmux_name)
-            workspace = meta.get("PI_WORKSPACE") or _detect_workspace_from_tmux(tmux_name)
-            session = TerminalSession(
-                workspace=workspace,
-                expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
-                tmux_session_name=tmux_name,
-                icon=meta.get("PI_ICON"),
-                icon_color=meta.get("PI_ICON_COLOR"),
-                job_name=meta.get("PI_JOB_NAME"),
-                job_label=meta.get("PI_JOB_LABEL"),
-            )
-            with _sessions_lock:
-                TERMINAL_SESSIONS[session_id] = session
-            logger.info("on-demand registered tmux session=%s (ws) workspace=%s", session_id, workspace or "(none)")
+            session = _register_tmux_session(session_id, tmux_name)
 
     await websocket.accept()
 

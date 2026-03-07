@@ -178,15 +178,20 @@ def generate_job_key(existing: dict) -> str:
     return f"job_{int(time.time())}"
 
 
-@router.post("/workspaces/{name}/jobs")
-def create_workspace_job(name: str, body: CreateJobRequest):
-    resolve_workspace_path(name)
+def _validate_job_fields(body):
     label = body.label.strip()
     if not label:
         raise HTTPException(status_code=400, detail="表示名を入力してください")
     command = body.command.strip()
     if not command:
         raise HTTPException(status_code=400, detail="コマンドが空です")
+    return label, command
+
+
+@router.post("/workspaces/{name}/jobs")
+def create_workspace_job(name: str, body: CreateJobRequest):
+    resolve_workspace_path(name)
+    label, command = _validate_job_fields(body)
     data = load_workspace_jobs_data(name)
     job_name = generate_job_key(data)
     data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.terminal)
@@ -228,12 +233,7 @@ def update_workspace_job(name: str, job_name: str, body: UpdateJobRequest):
     data = load_workspace_jobs_data(name)
     if job_name not in data:
         raise HTTPException(status_code=404, detail=f"ジョブ '{job_name}' が見つかりません")
-    label = body.label.strip()
-    if not label:
-        raise HTTPException(status_code=400, detail="表示名を入力してください")
-    command = body.command.strip()
-    if not command:
-        raise HTTPException(status_code=400, detail="コマンドが空です")
+    label, command = _validate_job_fields(body)
     data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.terminal)
     save_workspace_jobs_data(name, data)
     logger.info("job updated workspace=%s job=%s", name, job_name)

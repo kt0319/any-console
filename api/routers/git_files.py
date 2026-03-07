@@ -4,10 +4,9 @@ from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, 
 from fastapi.responses import FileResponse
 
 from ..auth import verify_token
-from ..common import log_operation, resolve_workspace_path
+from ..common import MAX_UPLOAD_SIZE, log_operation, resolve_workspace_path
 from ..git_utils import validate_commit_hash
 from .git_shared import (
-    MAX_WORKSPACE_UPLOAD_SIZE,
     STASH_REF_PATTERN,
     list_directory_entries,
     read_blob_content_response,
@@ -128,8 +127,8 @@ async def upload_file_to_workspace(
     if target_file.exists():
         raise HTTPException(status_code=409, detail=f"File already exists: {filename}")
 
-    data = await file.read(MAX_WORKSPACE_UPLOAD_SIZE + 1)
-    if len(data) > MAX_WORKSPACE_UPLOAD_SIZE:
+    data = await file.read(MAX_UPLOAD_SIZE + 1)
+    if len(data) > MAX_UPLOAD_SIZE:
         raise HTTPException(status_code=413, detail="File too large (max 10MB)")
 
     try:

@@ -3,7 +3,7 @@ import { allWorkspaces, selectedWorkspace, setSelectedWorkspace } from './state-
 import { apiFetch, workspaceApiPath, putWorkspaceConfig } from './api-client.js';
 import { renderIcon, showToast, escapeHtml } from './utils.js';
 import { invalidateWorkspaceMetaCache, fetchWorkspaceJobsAndLinks } from './cache.js';
-import { invalidateWorkspaceJobsCache, loadJobsForWorkspace } from './jobs.js';
+import { invalidateWorkspaceJobsCache, loadJobsForWorkspace, fetchWorkspaceJobDetail } from './jobs.js';
 import { openIconPicker, renderInlineIconPicker } from './icon-picker.js';
 import { renderInlineJobCreate, renderInlineJobEdit } from './job-form.js';
 import { refreshWorkspaceHeader, loadWorkspaces } from './workspace.js';
@@ -336,21 +336,6 @@ export function toJobEditData(workspaceName, name, job) {
   };
 }
 
-/**
- * @param {string} workspaceName
- * @param {string} jobName
- * @returns {Promise<object|null>}
- */
-export async function fetchWorkspaceJobDetailForSettings(workspaceName, jobName) {
-  try {
-    const res = await apiFetch(workspaceApiPath(workspaceName, `/jobs/${encodeURIComponent(jobName)}`));
-    if (!res || !res.ok) return null;
-    return await res.json();
-  } catch (e) {
-    console.error("fetchWorkspaceJobDetailForSettings failed:", e);
-    return null;
-  }
-}
 
 /**
  * @param {string} workspaceName
@@ -497,7 +482,7 @@ export async function loadWorkspaceSettingsItems(lists, container, ws, onBack, s
         className: "ws-settings-item-draggable",
         onClick: async () => {
           if (jobOrderSaving) return;
-          const detailed = await fetchWorkspaceJobDetailForSettings(ws.name, name);
+          const detailed = await fetchWorkspaceJobDetail(ws.name, name);
           const editJob = detailed ? { ...job, ...detailed } : job;
           if (setTitleFn) setTitleFn("ジョブ編集", goBackToSettings);
           renderInlineJobEdit(

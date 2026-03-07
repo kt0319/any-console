@@ -104,6 +104,16 @@ export function createTerminalTabModalWorkspaceSection(deps) {
    * @param {HTMLElement} topMeta
    * @returns {void}
    */
+  function appendDirtyBadge(parent, ws) {
+    const dirtyHtml = buildWorkspaceChangeSummaryHtml(ws);
+    if (dirtyHtml) {
+      const badge = document.createElement("span");
+      badge.className = "git-badge dirty";
+      badge.innerHTML = dirtyHtml;
+      parent.appendChild(badge);
+    }
+  }
+
   function createRemoteActionButtons(ws, topMeta) {
     const hasUpstream = ws.has_upstream !== false;
     const hasRemoteBranch = ws.has_remote_branch === true;
@@ -198,13 +208,7 @@ export function createTerminalTabModalWorkspaceSection(deps) {
       const topMeta = document.createElement("div");
       topMeta.className = "picker-ws-top-meta";
 
-      const dirtyHtml = buildWorkspaceChangeSummaryHtml(ws);
-      if (dirtyHtml) {
-        const dirtyBadge = document.createElement("span");
-        dirtyBadge.className = "git-badge dirty";
-        dirtyBadge.innerHTML = dirtyHtml;
-        topMeta.appendChild(dirtyBadge);
-      }
+      appendDirtyBadge(topMeta, ws);
 
       createRemoteActionButtons(ws, topMeta);
 
@@ -308,13 +312,7 @@ export function createTerminalTabModalWorkspaceSection(deps) {
     if (!topMeta) return;
     topMeta.innerHTML = "";
 
-    const dirtyHtml = buildWorkspaceChangeSummaryHtml(ws);
-    if (dirtyHtml) {
-      const dirtyBadge = document.createElement("span");
-      dirtyBadge.className = "git-badge dirty";
-      dirtyBadge.innerHTML = dirtyHtml;
-      topMeta.appendChild(dirtyBadge);
-    }
+    appendDirtyBadge(topMeta, ws);
 
     createRemoteActionButtons(ws, topMeta);
 
