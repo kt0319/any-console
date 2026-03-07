@@ -23,11 +23,15 @@ from ..common import (
     TERMINAL_TIMEOUT_SEC,
     TMUX_CMD_TIMEOUT_SEC,
     TMUX_SESSION_PREFIX,
+    TMUX_SOCKET_DIR,
     WORK_DIR,
     log_operation,
 )
 
 logger = logging.getLogger(__name__)
+
+TMUX_SOCKET_DIR.mkdir(parents=True, exist_ok=True)
+os.environ.setdefault("TMUX_TMPDIR", str(TMUX_SOCKET_DIR))
 
 WS_PING_INTERVAL_SEC = 25
 
@@ -96,6 +100,7 @@ def attach_tmux_session(session_name: str) -> tuple[int, int]:
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "LANG": os.environ.get("LANG", "en_US.UTF-8"),
         "SHELL": os.environ.get("SHELL", "/bin/zsh"),
+        "TMUX_TMPDIR": str(TMUX_SOCKET_DIR),
     }
     pid, fd = pty.fork()
     if pid == 0:

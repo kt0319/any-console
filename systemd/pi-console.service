@@ -12,10 +12,9 @@ KillMode=process
 Restart=always
 RestartSec=3
 NoNewPrivileges=no
-PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=${INSTALL_DIR} ${HOME}
+ReadWritePaths=${INSTALL_DIR} ${HOME} /tmp
 MemoryMax=512M
 LimitNOFILE=4096
 

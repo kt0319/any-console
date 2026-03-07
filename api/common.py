@@ -12,6 +12,8 @@ from fastapi import HTTPException
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 WORK_DIR = Path.home() / "work"
 UPLOAD_DIR = Path("/tmp/pi-console-uploads")
+
+TMUX_SOCKET_DIR = Path.home() / ".pi-console" / "tmux"
 TERMINAL_TIMEOUT_SEC = 7200
 CONFIG_FILE = PROJECT_ROOT / "config.json"
 GLOBAL_CONFIG_KEY = "__global__"
