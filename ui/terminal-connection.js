@@ -113,6 +113,9 @@ export async function onVisibilityRestore() {
         connectTerminalWs(tab);
       }
     }
+
+    restoreValidatedTabs(sessions);
+    reconcileExpiredOrphansWithServer(sessions);
   } catch (e) { console.warn("onVisibilityRestore failed:", e); }
 }
 
@@ -152,47 +155,8 @@ export function syncTerminalSessionState() {
 }
 
 /**
- * Immediately restores terminal tabs from localStorage without waiting for the server.
- */
-export function restoreTabsFromLocalStorageImmediate() {
-  if (hasRestoredTabsFromStorage) return;
-  const raw = localStorage.getItem("pi_console_terminal_openTabs");
-  if (!raw) return;
-  let saved;
-  try {
-    saved = JSON.parse(raw);
-  } catch {
-    return;
-  }
-  if (!Array.isArray(saved) || saved.length === 0) return;
-  saved.sort((a, b) => (a.tabIndex ?? 0) - (b.tabIndex ?? 0));
-  let firstTabId = null;
-  for (const entry of saved) {
-    const wsUrl = entry.wsUrl || entry.ws_url;
-    if (!wsUrl) continue;
-    if (closedSessionUrls.has(wsUrl)) continue;
-    const workspace = entry.workspace || null;
-    const ws = workspace ? allWorkspaces.find((w) => w.name === workspace) : null;
-    const tabIcon = entry.icon ? { name: entry.icon, color: entry.iconColor || "" } : null;
-    const isDuplicateIcon = ws && ws.icon && entry.icon === ws.icon;
-    const wsIcon = isDuplicateIcon ? null : (ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null);
-    addTerminalTab(
-      wsUrl, workspace || "terminal", null, true, true, null,
-      tabIcon, wsIcon, entry.jobName || null, entry.jobLabel || null,
-    );
-    const tab = openTabs.find((t) => t.wsUrl === wsUrl);
-    if (!firstTabId && tab) firstTabId = tab.id;
-  }
-  setHasRestoredTabsFromStorage(true);
-  if (firstTabId) {
-    syncTerminalSessionState();
-    if (!openTabs.some((t) => t.id === activeTabId)) switchTab(firstTabId);
-  }
-  renderTabBar();
-}
-
-/**
- * Fetches active sessions from the server and restores any orphaned sessions.
+ * Fetches active sessions from the server and restores validated sessions.
+ * localStorage entries are checked against the server before being displayed as tabs.
  * @returns {Promise<void>}
  */
 export async function fetchOrphanSessions() {
@@ -200,21 +164,20 @@ export async function fetchOrphanSessions() {
     const res = await apiFetch("/terminal/sessions");
     if (!res || !res.ok) {
       if (!hasRestoredTabsFromStorage) {
-        restoreTabsFromLocalStorage([]);
+        restoreValidatedTabs([]);
         setHasRestoredTabsFromStorage(true);
         renderTabBar();
       }
       return;
     }
     const sessions = await res.json();
-    restoreLiveSessionsFromServer(sessions);
+    restoreValidatedTabs(sessions);
     reconcileExpiredOrphansWithServer(sessions);
-    restoreTabsFromLocalStorage(sessions);
     setHasRestoredTabsFromStorage(true);
   } catch (e) {
     console.error("fetchOrphanSessions failed:", e);
     if (!hasRestoredTabsFromStorage) {
-      restoreTabsFromLocalStorage([]);
+      restoreValidatedTabs([]);
       setHasRestoredTabsFromStorage(true);
     }
   }
@@ -222,78 +185,84 @@ export async function fetchOrphanSessions() {
 }
 
 /**
- * Restores terminal tabs for sessions that are live on the server but not yet open locally.
+ * Restores terminal tabs by validating localStorage entries against the server.
+ * - localStorage entries alive on server → restore as tabs (preserving order)
+ * - Server sessions not in localStorage → restore as tabs (appended)
+ * - localStorage entries not on server → add to disconnectedSessions
  * @param {Array<Object>} sessions - List of session objects returned from the server.
  */
-export function restoreLiveSessionsFromServer(sessions) {
+export function restoreValidatedTabs(sessions) {
+  const serverMap = new Map(sessions.map((s) => [s.ws_url, s]));
   const localWsUrls = new Set(openTabs.filter((t) => t.type === "terminal").map((t) => t.wsUrl));
-  const targets = sessions.filter((s) => !localWsUrls.has(s.ws_url) && !closedSessionUrls.has(s.ws_url));
-  if (targets.length === 0) return;
+  const orphanUrls = new Set(disconnectedSessions.map((s) => s.wsUrl));
+
+  const raw = localStorage.getItem("pi_console_terminal_openTabs");
+  let saved = [];
+  if (raw) {
+    try { saved = JSON.parse(raw); } catch { saved = []; }
+    if (!Array.isArray(saved)) saved = [];
+    saved.sort((a, b) => (a.tabIndex ?? 0) - (b.tabIndex ?? 0));
+    localStorage.removeItem("pi_console_terminal_openTabs");
+  }
+
+  const restoredUrls = new Set();
   let firstRestoredTabId = null;
-  for (const session of targets) {
+
+  for (const entry of saved) {
+    const wsUrl = entry.wsUrl || entry.ws_url;
+    if (!wsUrl || closedSessionUrls.has(wsUrl) || localWsUrls.has(wsUrl)) continue;
+    restoredUrls.add(wsUrl);
+
+    if (serverMap.has(wsUrl)) {
+      const session = serverMap.get(wsUrl);
+      const workspace = entry.workspace || session.workspace || null;
+      const tabIcon = entry.icon ? { name: entry.icon, color: entry.iconColor || "" }
+        : session.icon ? { name: session.icon, color: session.icon_color || "" } : null;
+      const ws = workspace ? allWorkspaces.find((w) => w.name === workspace) : null;
+      const isDuplicateIcon = ws && ws.icon && tabIcon && tabIcon.name === ws.icon;
+      const wsIcon = isDuplicateIcon ? null : (ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null);
+      addTerminalTab(
+        wsUrl, workspace || "terminal", null, true, false, null,
+        tabIcon, wsIcon,
+        entry.jobName || session.job_name || null,
+        entry.jobLabel || session.job_label || session.job_name || null,
+      );
+      const tab = openTabs.find((t) => t.wsUrl === wsUrl);
+      if (!firstRestoredTabId && tab) firstRestoredTabId = tab.id;
+    } else {
+      if (!orphanUrls.has(wsUrl)) {
+        disconnectedSessions.push({
+          wsUrl,
+          workspace: entry.workspace || null,
+          icon: entry.icon || null,
+          iconColor: entry.iconColor || entry.icon_color || null,
+          jobName: entry.jobName || entry.job_name || null,
+          jobLabel: entry.jobLabel || entry.job_label || null,
+          tabIndex: entry.tabIndex != null ? entry.tabIndex : disconnectedSessions.length,
+          expired: true,
+        });
+      }
+    }
+  }
+
+  for (const session of sessions) {
+    if (restoredUrls.has(session.ws_url) || localWsUrls.has(session.ws_url) || closedSessionUrls.has(session.ws_url)) continue;
     const workspace = session.workspace || null;
     const tabIcon = session.icon ? { name: session.icon, color: session.icon_color || "" } : null;
     const ws = workspace ? allWorkspaces.find((w) => w.name === workspace) : null;
     const isDuplicateIcon = ws && ws.icon && session.icon === ws.icon;
     const wsIcon = isDuplicateIcon ? null : (ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null);
     addTerminalTab(
-      session.ws_url,
-      workspace || "terminal",
-      null,
-      true,
-      false,
-      null,
-      tabIcon,
-      wsIcon,
-      session.job_name || null,
-      session.job_label || session.job_name || null,
+      session.ws_url, workspace || "terminal", null, true, false, null,
+      tabIcon, wsIcon, session.job_name || null, session.job_label || session.job_name || null,
     );
     const tab = openTabs.find((t) => t.wsUrl === session.ws_url);
-    if (!firstRestoredTabId && tab && tab.id) firstRestoredTabId = tab.id;
+    if (!firstRestoredTabId && tab) firstRestoredTabId = tab.id;
   }
 
   if (!firstRestoredTabId) return;
   syncTerminalSessionState();
-  const hasActiveContent = openTabs.some((t) => t.id === activeTabId);
-  if (!hasActiveContent) switchTab(firstRestoredTabId);
-}
-
-/**
- * Restores disconnected sessions from localStorage that are not alive on the server.
- * @param {Array<Object>} sessions - List of session objects returned from the server.
- */
-export function restoreTabsFromLocalStorage(sessions) {
-  const raw = localStorage.getItem("pi_console_terminal_openTabs");
-  if (!raw) return;
-  let saved;
-  try {
-    saved = JSON.parse(raw);
-  } catch {
-    return;
-  }
-  if (!Array.isArray(saved) || saved.length === 0) return;
-  localStorage.removeItem("pi_console_terminal_openTabs");
-
-  const serverUrls = new Set(sessions.map(s => s.ws_url));
-  const orphanUrls = new Set(disconnectedSessions.map(s => s.wsUrl));
-
-  for (const entry of saved) {
-    const wsUrl = entry.wsUrl || entry.ws_url;
-    if (!wsUrl) continue;
-    if (closedSessionUrls.has(wsUrl)) continue;
-    if (serverUrls.has(wsUrl)) continue;
-    if (orphanUrls.has(wsUrl)) continue;
-    disconnectedSessions.push({
-      wsUrl,
-      workspace: entry.workspace || null,
-      icon: entry.icon || null,
-      iconColor: entry.iconColor || entry.icon_color || null,
-      jobName: entry.jobName || entry.job_name || null,
-      jobLabel: entry.jobLabel || entry.job_label || null,
-      tabIndex: entry.tabIndex != null ? entry.tabIndex : disconnectedSessions.length,
-      expired: true,
-    });
-  }
+  if (!openTabs.some((t) => t.id === activeTabId)) switchTab(firstRestoredTabId);
 }
 
 /**

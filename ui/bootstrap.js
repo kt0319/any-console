@@ -3,7 +3,7 @@ import { token, setToken, selectedWorkspace, setSelectedWorkspace, setAppInitial
 import { $, setLoadingStatus, setupModalSwipeClose, showToast, showLogin, showApp } from './utils.js';
 import { loadWorkspaces, refreshWorkspaceHeader, startStatusPolling, stopStatusPolling, onVisibilityChangeForRefresh, visibleWorkspaces } from './workspace.js';
 import { ensureSnippetsLoaded } from './state-input.js';
-import { restoreTabsFromLocalStorageImmediate, fetchOrphanSessions, updateQuickInputVisibility } from './terminal-connection.js';
+import { fetchOrphanSessions, updateQuickInputVisibility } from './terminal-connection.js';
 import { updateHeaderForTab } from './terminal-tab-header.js';
 import { renderTabBar } from './terminal-tabs.js';
 import { fitActiveTerminal, updateViewportHeight } from './viewport.js';
@@ -38,9 +38,8 @@ export async function initApp() {
     }
     localStorage.removeItem("pi_console_active_tab");
     setAppInitializing(true);
-    restoreTabsFromLocalStorageImmediate();
+    await fetchOrphanSessions();
     setAppInitializing(false);
-    fetchOrphanSessions();
     await Promise.all([
       updateHeaderForTab(activeTabId),
       ensureSnippetsLoaded(),
