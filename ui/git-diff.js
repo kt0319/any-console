@@ -6,7 +6,7 @@ import { apiFetch, workspaceApiPath, getActionFailureMessage } from './api-clien
 import { $, escapeHtml, renderActionButtons, hideFormError, showFormError, showToast } from './utils.js';
 import { GitLogModal } from './git-log-modal.js';
 import { getFileIcon, showDiffFileInDiffPane, loadDirectoryInDiffPane, loadFileContentInDiffPane } from './git-file-browser.js';
-import { refreshWorkspaceHeader } from './workspace.js';
+import { refreshCurrentWorkspaceStatus } from './workspace.js';
 
 /** @type {string} */
 export let diffViewerMode = "file";
@@ -456,7 +456,7 @@ export async function submitCommit() {
     }
     GitLogModal.closeGitModal();
     showToast("コミット完了", "success");
-    await refreshWorkspaceHeader();
+    await refreshCurrentWorkspaceStatus();
   } catch (e) {
     showFormError("diff-commit-error", e.message);
   } finally {
