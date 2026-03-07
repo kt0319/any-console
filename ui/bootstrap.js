@@ -1,7 +1,7 @@
 // @ts-check
 import { token, setToken, selectedWorkspace, setSelectedWorkspace, setAppInitializing, activeTabId } from './state-core.js';
 import { $, setLoadingStatus, setupModalSwipeClose, showToast, showLogin, showApp } from './utils.js';
-import { loadWorkspaces, refreshWorkspaceHeader, startStatusPolling, stopStatusPolling, onVisibilityChangeForRefresh, visibleWorkspaces } from './workspace.js';
+import { loadWorkspaces, refreshWorkspaceHeader, visibleWorkspaces } from './workspace.js';
 import { ensureSnippetsLoaded } from './state-input.js';
 import { fetchOrphanSessions, updateQuickInputVisibility } from './terminal-connection.js';
 import { updateHeaderForTab } from './terminal-tab-header.js';
@@ -52,10 +52,6 @@ export async function initApp() {
   } catch (e) {
     console.error("initApp failed:", e);
     showToast("初期化に失敗しました。ページを再読み込みしてください");
-  }
-  if (sessionStorage.getItem("pi_console_server_reloaded")) {
-    sessionStorage.removeItem("pi_console_server_reloaded");
-    showToast("サーバーに再接続しました", "success");
   }
 }
 
@@ -131,7 +127,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (result.ok) {
       setServerInfo(result.hostname, result.version);
       showApp();
-      startStatusPolling();
+
       await initApp();
     } else if (!result.auth) {
       setToken("");
@@ -140,7 +136,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     } else {
       showToast(result.error);
       showApp();
-      startStatusPolling();
+
       await initApp();
     }
   } else {

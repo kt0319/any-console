@@ -115,22 +115,6 @@ export let appInitializing = false;
 /** @param {boolean} v */
 export function setAppInitializing(v) { appInitializing = v; }
 
-// ── Polling ──
-export const STATUS_POLL_INTERVAL_MS = 10000;
-
-/** @type {ReturnType<typeof setTimeout> | null} */
-export let statusPollTimer = null;
-/** @param {ReturnType<typeof setTimeout> | null} v */
-export function setStatusPollTimer(v) { statusPollTimer = v; }
-
-export let isPollingStatus = false;
-/** @param {boolean} v */
-export function setIsPollingStatus(v) { isPollingStatus = v; }
-
-export let serverDisconnected = false;
-/** @param {boolean} v */
-export function setServerDisconnected(v) { serverDisconnected = v; }
-
 export let isHandlingUnauthorized = false;
 /** @param {boolean} v */
 export function setIsHandlingUnauthorized(v) { isHandlingUnauthorized = v; }
@@ -142,6 +126,7 @@ export function setServerHostname(v) { serverHostname = v; }
 export let serverVersion = "";
 /** @param {string} v */
 export function setServerVersion(v) { serverVersion = v; }
+
 
 // ── Terminal Settings ──
 export const TERMINAL_SETTINGS_KEY = "pi_console_terminal_settings";

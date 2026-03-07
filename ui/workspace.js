@@ -1,10 +1,9 @@
 // @ts-check
-import { allWorkspaces, setAllWorkspaces, selectedWorkspace, setSelectedWorkspace, statusPollTimer, setStatusPollTimer, isPollingStatus, setIsPollingStatus, serverDisconnected, setServerDisconnected, STATUS_POLL_INTERVAL_MS, token } from './state-core.js';
+import { allWorkspaces, setAllWorkspaces, selectedWorkspace, setSelectedWorkspace, token } from './state-core.js';
 import { apiFetch, workspaceApiPath } from './api-client.js';
 import { getWorkspacesCache, setWorkspacesCache } from './cache.js';
 import { showToast, escapeHtml, buildWorkspaceHeaderNumstatHtml, $ } from './utils.js';
 import { GitCore } from './git.js';
-import { fetchOrphanSessions } from './terminal-connection.js';
 
 /**
  * @param {{ useCache?: boolean }} [options]
@@ -117,74 +116,3 @@ export async function refreshCurrentWorkspaceStatus() {
   await refreshWorkspaceHeader();
 }
 
-/**
- * @returns {void}
- */
-export function startStatusPolling() {
-  if (statusPollTimer) return;
-  setStatusPollTimer(setInterval(() => pollWorkspaceStatus(), STATUS_POLL_INTERVAL_MS));
-  document.addEventListener("visibilitychange", onVisibilityChangeForRefresh);
-}
-
-/**
- * @returns {void}
- */
-export function onVisibilityChangeForRefresh() {
-  if (document.visibilityState === "visible" && statusPollTimer) {
-    pollWorkspaceStatus();
-  }
-}
-
-/**
- * @returns {Promise<void>}
- */
-export async function pollWorkspaceStatus() {
-  if (document.hidden || isPollingStatus) return;
-  setIsPollingStatus(true);
-  try {
-    const health = await checkServerHealth();
-    if (!health) {
-      if (!serverDisconnected) {
-        setServerDisconnected(true);
-        showToast("サーバーとの接続が切断されました", "error");
-      }
-    } else if (serverDisconnected) {
-      sessionStorage.setItem("pi_console_server_reloaded", "1");
-      location.reload();
-      return;
-    }
-    if (health) {
-      if (selectedWorkspace) await refreshCurrentWorkspaceStatus();
-      await fetchOrphanSessions();
-    }
-  } catch (e) {
-    console.error("auto refresh failed:", e);
-  } finally {
-    setIsPollingStatus(false);
-  }
-}
-
-/**
- * @returns {Promise<boolean>}
- */
-export async function checkServerHealth() {
-  try {
-    const res = await fetch("/auth/check", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return res.ok || res.status === 401;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * @returns {void}
- */
-export function stopStatusPolling() {
-  if (statusPollTimer) {
-    clearInterval(statusPollTimer);
-    setStatusPollTimer(null);
-  }
-  document.removeEventListener("visibilitychange", onVisibilityChangeForRefresh);
-}

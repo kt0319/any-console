@@ -88,7 +88,6 @@ export function createDebugButtons(ctx) {
       if (key && key.startsWith("pi_console_")) keys.push(key);
     }
     for (const key of keys) localStorage.removeItem(key);
-    sessionStorage.removeItem("pi_console_server_reloaded");
     window.location.href = window.location.pathname + "?_=" + Date.now();
   };
   clearLocalStorageBtn.addEventListener("touchend", (e) => {

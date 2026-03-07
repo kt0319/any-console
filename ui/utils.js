@@ -1,6 +1,5 @@
 // @ts-check
 import { openTabs, activeTabId, splitMode, panelBottom, selectedWorkspace, isTouchDevice } from './state-core.js';
-import { stopStatusPolling } from './workspace.js';
 
 /**
  * @param {string} id
@@ -243,7 +242,7 @@ export function buildWorkspaceHeaderNumstatHtml(ws) {
 export function showLogin() {
   $("login-screen").style.display = "flex";
   $("app-screen").style.display = "none";
-  stopStatusPolling();
+
 }
 
 /**
