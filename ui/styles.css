@@ -3630,31 +3630,6 @@ button:disabled {
   color: var(--text-muted);
 }
 
-.picker-ws-add-section {
-  display: flex;
-  gap: 8px;
-  padding: 8px 12px;
-}
-.ws-add-action-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 0;
-  height: 36px;
-  min-height: 36px;
-  line-height: 1;
-  background: transparent;
-  color: var(--text-secondary);
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.ws-add-action-btn .mdi {
-  font-size: 16px;
-}
 .split-modal-title-back {
   cursor: pointer;
   display: flex;
@@ -3863,25 +3838,6 @@ button:disabled {
   min-width: 0;
 }
 
-.modal-header-icon-btn {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
-  flex-shrink: 0;
-  padding: 0;
-  font-size: 20px;
-  line-height: 1;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-
 .github-section-title {
   display: flex;
   align-items: center;
@@ -4006,7 +3962,6 @@ button:disabled {
 }
 
 .github-error,
-.github-empty,
 .github-loading {
   padding: 12px;
   font-size: 13px;

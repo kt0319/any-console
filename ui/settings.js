@@ -64,16 +64,6 @@ let _releaseFocusTrap = null;
 
 /**
  */
-export function openSettings() {
-  showSettingsView("settings-menu-view");
-  $("settings-title").textContent = "設定";
-  $("device-name-input").value = localStorage.getItem("deviceName") || "";
-  $("settings-modal").style.display = "flex";
-  _releaseFocusTrap = trapFocus($("settings-modal"), closeSettings);
-}
-
-/**
- */
 export function closeSettings() {
   $("settings-modal").style.display = "none";
   if (_releaseFocusTrap) {

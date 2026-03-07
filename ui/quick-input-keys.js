@@ -242,28 +242,6 @@ let onModifierToggled = null;
 /** @param {(() => void)|null} fn */
 export function setOnModifierToggled(fn) { onModifierToggled = fn; }
 
-/**
- * Creates a modifier button (Ctrl/Shift) that toggles its state and updates UI.
- * @param {"ctrl"|"shift"} mod
- * @param {string} label
- * @param {(() => void)|null} onChange
- * @returns {HTMLElement}
- */
-export function createModifierBtn(mod, label, onChange) {
-  const btn = document.createElement("div");
-  btn.className = "quick-key quick-modifier";
-  btn.textContent = label;
-  const toggle = () => {
-    modifierState[mod] = !modifierState[mod];
-    btn.classList.toggle("active", modifierState[mod]);
-    if (onChange) onChange();
-  };
-  btn.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
-  btn.addEventListener("touchend", (e) => { e.preventDefault(); toggle(); });
-  btn.addEventListener("click", toggle);
-  return btn;
-}
-
 /** @type {(() => void)|null} */
 let onModifiersCleared = null;
 

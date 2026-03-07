@@ -100,8 +100,6 @@ export function setOrphanSessions(v) { orphanSessions = v; }
 
 /** @type {Set<string>} */
 export let closedSessionUrls = new Set();
-/** @param {Set<string>} v */
-export function setClosedSessionUrls(v) { closedSessionUrls = v; }
 
 export let isPageUnloading = false;
 /** @param {boolean} v */

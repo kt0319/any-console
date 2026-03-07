@@ -144,43 +144,6 @@ export function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, in
 }
 
 /**
- * Sets or updates an output (non-terminal) tab with the given HTML content.
- * @param {string} id
- * @param {string} label
- * @param {string} htmlContent
- * @param {any} [icon]
- * @param {any} [wsIcon]
- * @param {string|null} [workspace]
- * @returns {void}
- */
-export function setOutputTab(id, label, htmlContent, icon, wsIcon, workspace) {
-  const existing = openTabs.find((t) => t.id === id);
-  if (existing) {
-    existing.label = label;
-    if (icon !== undefined) existing.icon = icon;
-    if (wsIcon !== undefined) existing.wsIcon = wsIcon;
-    if (workspace !== undefined) existing.workspace = workspace;
-    const el = $(`frame-${id}`);
-    if (el) {
-      el.innerHTML = htmlContent;
-      createTabNamePill(existing, el);
-    }
-    switchTab(id);
-    return;
-  }
-  const tab = { id, type: "output", label, icon: icon || null, wsIcon: wsIcon || null, workspace: workspace || null };
-  openTabs.push(tab);
-  const div = document.createElement("div");
-  div.className = "output-area";
-  div.id = `frame-${id}`;
-  div.innerHTML = htmlContent;
-  div.style.display = "none";
-  $("output-container").appendChild(div);
-  createTabNamePill(tab, div);
-  switchTab(id);
-}
-
-/**
  * Removes a tab by ID, optionally preserving its session for later restore.
  * @param {string} id
  * @param {{ preserveSessionForRestore?: boolean }} [options]

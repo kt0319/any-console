@@ -181,20 +181,6 @@ export function escapeHtml(str) {
 }
 
 /**
- * @param {string} message
- * @param {string} [githubUrl]
- * @returns {string}
- */
-export function formatCommitMessage(message, githubUrl) {
-  if (!message) return "-";
-  const escaped = escapeHtml(message);
-  if (!githubUrl) return escaped;
-
-  const base = escapeHtml(githubUrl.replace(/\/+$/, ""));
-  return escaped.replace(/#(\d+)/g, `<a class="commit-issue-link" href="${base}/issues/$1" target="_blank" rel="noopener">#$1</a>`);
-}
-
-/**
  * @param {string} timeText
  * @returns {string}
  */
