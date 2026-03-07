@@ -8,7 +8,6 @@ import { deleteTerminalSession, connectTerminalWs, syncTerminalSessionState, upd
 import { exitAllViewModes } from './terminal-view-mode.js';
 import { rebuildSplitLayout, exitSplitModeWithTab } from './terminal-split.js';
 import { loadWorkspaces, visibleWorkspaces } from './workspace.js';
-import { runJob } from './jobs.js';
 import { openTabEditModal } from './terminal-tab-modal.js';
 import { createTabNamePill, refreshTabNamePill } from './terminal-tab-pill.js';
 import { tabDragState, bindMouseDrag } from './terminal.js';
@@ -22,17 +21,23 @@ export { syncWorkspaceForTab, updateHeaderForTab, updateGitBarVisibility } from 
 
 /**
  * Relaunches an expired orphan terminal session.
+ * まず旧wsUrlへの再接続を試み（サーバー再起動後のtmux復帰）、
+ * 失敗時は新規セッション作成にフォールバックする。
  * @param {any} orphan
  * @param {string|null} [workspaceOverride]
- * @returns {Promise<void>}
+ * @returns {void}
  */
 export function relaunchExpiredOrphan(orphan, workspaceOverride = null) {
-  if (!orphan) return Promise.resolve();
+  if (!orphan) return;
   const workspace = workspaceOverride || orphan.workspace || null;
-  const targetJob = orphan.jobName || orphan.jobLabel || "terminal";
   setDisconnectedSessions(disconnectedSessions.filter((s) => s.wsUrl !== orphan.wsUrl));
-  if (orphan.wsUrl) closedSessionUrls.add(orphan.wsUrl);
-  return runJob(targetJob, null, workspace);
+
+  const tabIcon = orphan.icon ? { name: orphan.icon, color: orphan.iconColor || "" } : null;
+  const ws = workspace ? allWorkspaces.find((w) => w.name === workspace) : null;
+  const wsIcon = ws && ws.icon ? { name: ws.icon, color: ws.icon_color || "" } : null;
+  addTerminalTab(orphan.wsUrl, workspace, null, false, false, null, tabIcon, wsIcon, orphan.jobName || null, orphan.jobLabel || null);
+  const tab = openTabs.find((t) => t.wsUrl === orphan.wsUrl);
+  if (tab) tab._orphanReconnect = true;
 }
 
 /**

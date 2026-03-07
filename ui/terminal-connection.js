@@ -381,6 +381,16 @@ export function connectTerminalWs(tab) {
       return;
     }
     if (e.code === 1008) {
+      if (tab._orphanReconnect) {
+        const ws = tab.workspace;
+        const jobName = tab.jobName;
+        const jobLabel = tab.jobLabel;
+        removeTab(tab.id);
+        import('./jobs.js').then(({ runJob }) => {
+          runJob(jobName || jobLabel || "terminal", null, ws);
+        });
+        return;
+      }
       const name = tab.workspace || tab.label;
       const reason = e.reason || "セッション切断";
       disconnectedSessions.push({
