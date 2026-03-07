@@ -30,6 +30,8 @@ app = FastAPI(title="pi-console")
 
 BOOT_VERSION = str(int(time.time()))
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
+DIST_DIR = Path(__file__).resolve().parent.parent / "dist"
+FRONTEND_DIR = DIST_DIR if DIST_DIR.is_dir() else UI_DIR
 
 app.include_router(workspaces.router)
 app.include_router(git.router)
@@ -138,19 +140,20 @@ async def upload_image(file: UploadFile):
 
 @app.get("/")
 def serve_index(request: Request):
-    version = BOOT_VERSION
-    cache_bust = request.query_params.get("_")
-    if cache_bust and re.fullmatch(r"[0-9]{8,20}", cache_bust):
-        version = cache_bust
-    html = (UI_DIR / "index.html").read_text()
-    html = re.sub(r'href="(?!https?://)([^"]+\.css)"', rf'href="\1?v={version}"', html)
-    html = re.sub(r'src="(?!https?://)([^"]+\.js)"', rf'src="\1?v={version}"', html)
+    html = (FRONTEND_DIR / "index.html").read_text()
+    if FRONTEND_DIR == UI_DIR:
+        version = BOOT_VERSION
+        cache_bust = request.query_params.get("_")
+        if cache_bust and re.fullmatch(r"[0-9]{8,20}", cache_bust):
+            version = cache_bust
+        html = re.sub(r'href="(?!https?://)([^"]+\.css)"', rf'href="\1?v={version}"', html)
+        html = re.sub(r'src="(?!https?://)([^"]+\.js)"', rf'src="\1?v={version}"', html)
     return Response(content=html, media_type="text/html", headers={"Cache-Control": "no-cache"})
 
 
 ICONS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/icons", StaticFiles(directory=str(ICONS_DIR)), name="icons")
-app.mount("/", StaticFiles(directory=str(UI_DIR)), name="ui")
+app.mount("/", StaticFiles(directory=str(FRONTEND_DIR)), name="ui")
 
 app.add_middleware(RateLimitMiddleware)
 
