@@ -381,14 +381,19 @@ async function selectDiffFile(file) {
 }
 
 /** @returns {Promise<void>} */
+/** @returns {Array<{label: string, key?: string, fn: () => void}>} */
+export function workingTreeActions() {
+  return [
+    { label: "コミット", fn: () => openCommitForm() },
+    { label: "Stash一覧", key: "stash-list", fn: () => GitLogModal.openStashPane() },
+  ];
+}
+
 export async function loadDiffTab() {
   if (!selectedWorkspace) return;
   clearActiveDiffRef();
 
-  initDiffPane([
-    { label: "コミット", fn: () => openCommitForm() },
-    { label: "Stash一覧", key: "stash-list", fn: () => GitLogModal.openStashPane() },
-  ]);
+  initDiffPane(workingTreeActions());
 
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, "/diff"));
@@ -405,15 +410,6 @@ export async function loadDiffTab() {
   }
 }
 
-/** @returns {Promise<void>} */
-async function openDiffModal() {
-  if (!selectedWorkspace) return;
-
-  $("git-modal").style.display = "flex";
-  GitLogModal.updateStashIndicators();
-  GitLogModal.showDiffPane("未コミットの変更");
-  await loadDiffTab();
-}
 
 /** @returns {void} */
 export function openCommitForm() {

@@ -7,7 +7,7 @@ import { GitLogModal } from './git-log-modal.js';
 import { GIT_LOG_ENTRIES_PER_PAGE } from './state-git.js';
 
 // Circular deps (only used in function bodies)
-import { openCommitDiffModal, loadDiffTab, initDiffPane, openCommitForm } from './git-diff.js';
+import { openCommitDiffModal, loadDiffTab } from './git-diff.js';
 import { openGitHubPane } from './git-github.js';
 
 /** @type {string[]} */
@@ -231,7 +231,7 @@ Object.assign(GitLogModal, {
   },
 
   /**
-   * Updates stash count badge on the diff-actions button.
+   * Updates stash count on the diff-actions Stash button text.
    * @returns {Promise<void>}
    */
   async updateStashIndicators() {
@@ -286,21 +286,10 @@ Object.assign(GitLogModal, {
       event.stopPropagation();
       openGitHubPane();
     });
-    if (isDirty) {
-      entry.addEventListener("click", () => {
-        GitLogModal.showDiffPane("未コミットの変更");
-        loadDiffTab();
-      });
-    } else {
-      entry.addEventListener("click", () => {
-        GitLogModal.showDiffPane("変更なし");
-        initDiffPane([
-          { label: "コミット", fn: () => openCommitForm() },
-          { label: "Stash一覧", key: "stash-list", fn: () => GitLogModal.openStashPane() },
-        ]);
-        $("diff-file-list").innerHTML = "";
-      });
-    }
+    entry.addEventListener("click", () => {
+      GitLogModal.showDiffPane(isDirty ? "未コミットの変更" : "変更なし");
+      loadDiffTab();
+    });
     listEl.appendChild(entry);
   },
 

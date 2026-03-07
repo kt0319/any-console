@@ -17,7 +17,6 @@ let _releaseFocusTrap = null;
 export const GitLogModal = {
   state: {
     diffPaneTitle: "未コミットの変更",
-    diffTopMode: "history",
     gitLogLoadedWorkspace: null,
     createBranchFromHash: null,
     history: {
@@ -205,11 +204,11 @@ export const GitLogModal = {
   },
 
   /**
-   * Ensures the diff tab content element is visible.
+   * Ensures the modal content element is visible.
    */
   ensureDiffTabVisible() {
-    const diffTab = $("git-modal-content");
-    if (diffTab) diffTab.style.display = "";
+    const modalContent = $("git-modal-content");
+    if (modalContent) modalContent.style.display = "";
   },
 
   /**
@@ -282,7 +281,6 @@ export const GitLogModal = {
    * @param {{ title: string, back?: boolean, onClick?: (() => void) | null }} titleOptions
    */
   setDiffTopMode(mode, titleOptions) {
-    GitLogModal.state.diffTopMode = mode;
     $("git-upper-pane").style.display = "";
     GitLogModal.toggleDiffTopPane(mode);
     GitLogModal.resetActionMenu();
