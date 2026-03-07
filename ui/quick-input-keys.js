@@ -428,48 +428,19 @@ export function createSnippetChip(text, onTap, onDelete, iconClass) {
 export async function renderSnippetRow(container, onChipTap) {
   await ensureSnippetsLoaded();
   container.innerHTML = "";
-  const historyCol = document.createElement("div");
-  historyCol.className = "quick-snippet-col quick-snippet-col-right";
 
-  const snippetColLeft = document.createElement("div");
-  snippetColLeft.className = "quick-snippet-col";
-  const snippetColRight = document.createElement("div");
-  snippetColRight.className = "quick-snippet-col";
+  const historyRow = document.createElement("div");
+  historyRow.className = "quick-snippet-history-row";
 
-  const snippets = loadSnippets().slice(-6);
-  if (snippets.length === 0) {
-    const emptySnippet = document.createElement("div");
-    emptySnippet.className = "quick-snippet-item quick-snippet-item-empty";
-    emptySnippet.textContent = "スニペットなし";
-    snippetColLeft.appendChild(emptySnippet);
-  }
-
-  snippets.forEach((s, idx) => {
-    const chip = createSnippetChip(s.label, () => {
-      onChipTap(s.command);
-    }, async () => {
-      if (confirm(`「${s.command}」を削除しますか？`)) {
-        try {
-          await deleteSnippet(idx);
-          await renderSnippetRow(container, onChipTap);
-        } catch (e) {
-          showToast(e.message || "スニペット削除に失敗しました", "error");
-        }
-      }
-    }, "mdi-pin");
-    const targetCol = snippetColLeft.children.length <= snippetColRight.children.length ? snippetColLeft : snippetColRight;
-    targetCol.appendChild(chip);
-  });
-
-  const recentHistory = inputHistory.slice(0, 3).reverse();
-  if (recentHistory.length === 0) {
+  const allHistory = [...inputHistory].reverse();
+  if (allHistory.length === 0) {
     const emptyHistory = document.createElement("div");
     emptyHistory.className = "quick-snippet-item quick-snippet-item-empty";
     emptyHistory.textContent = "履歴なし";
-    historyCol.appendChild(emptyHistory);
+    historyRow.appendChild(emptyHistory);
   }
 
-  recentHistory.forEach((text) => {
+  allHistory.forEach((text) => {
     const chip = createSnippetChip(text, () => {
       onChipTap(text);
     }, () => {
@@ -485,12 +456,45 @@ export async function renderSnippetRow(container, onChipTap) {
         }
       }, 50);
     }, "mdi-history");
-    historyCol.appendChild(chip);
+    historyRow.appendChild(chip);
   });
 
-  const cols = [snippetColLeft, snippetColRight, historyCol];
-  const maxCount = Math.max(...cols.map(c => c.children.length));
-  for (const col of cols) {
+  const snippetGrid = document.createElement("div");
+  snippetGrid.className = "quick-snippet-grid";
+
+  const snippetCols = [0, 1, 2].map(() => {
+    const col = document.createElement("div");
+    col.className = "quick-snippet-col";
+    return col;
+  });
+
+  const snippets = loadSnippets().slice(-6);
+  if (snippets.length === 0) {
+    const emptySnippet = document.createElement("div");
+    emptySnippet.className = "quick-snippet-item quick-snippet-item-empty";
+    emptySnippet.textContent = "スニペットなし";
+    snippetCols[0].appendChild(emptySnippet);
+  }
+
+  snippets.forEach((s, idx) => {
+    const chip = createSnippetChip(s.label, () => {
+      onChipTap(s.command);
+    }, async () => {
+      if (confirm(`「${s.command}」を削除しますか？`)) {
+        try {
+          await deleteSnippet(idx);
+          await renderSnippetRow(container, onChipTap);
+        } catch (e) {
+          showToast(e.message || "スニペット削除に失敗しました", "error");
+        }
+      }
+    }, "mdi-pin");
+    const target = snippetCols.reduce((a, b) => a.children.length <= b.children.length ? a : b);
+    target.appendChild(chip);
+  });
+
+  const maxCount = Math.max(...snippetCols.map(c => c.children.length));
+  for (const col of snippetCols) {
     while (col.children.length < maxCount) {
       const spacer = document.createElement("div");
       spacer.className = "quick-snippet-item";
@@ -499,7 +503,8 @@ export async function renderSnippetRow(container, onChipTap) {
     }
   }
 
-  container.appendChild(snippetColLeft);
-  container.appendChild(snippetColRight);
-  container.appendChild(historyCol);
+  for (const col of snippetCols) snippetGrid.appendChild(col);
+
+  container.appendChild(historyRow);
+  container.appendChild(snippetGrid);
 }

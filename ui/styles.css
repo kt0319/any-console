@@ -2999,16 +2999,48 @@ button:disabled {
 
 .quick-snippet-row {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 4px;
   padding: 4px 0;
   flex: 1;
   min-width: 0;
-  max-height: calc(var(--app-dvh) * 0.4);
   pointer-events: none;
 }
 
 .quick-snippet-row > * {
+  pointer-events: auto;
+}
+
+.quick-snippet-history-row {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  pointer-events: auto;
+  scrollbar-width: none;
+}
+
+.quick-snippet-history-row::-webkit-scrollbar {
+  display: none;
+}
+
+.quick-snippet-history-row > .quick-snippet-item {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 140px;
+  touch-action: pan-x;
+}
+
+.quick-snippet-grid {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.quick-snippet-grid > * {
   pointer-events: auto;
 }
 
@@ -3019,7 +3051,6 @@ button:disabled {
   gap: 4px;
   flex: 1 1 0;
   min-width: 0;
-  overflow-y: auto;
   pointer-events: none;
 }
 
