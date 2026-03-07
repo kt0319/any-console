@@ -374,7 +374,8 @@ async function selectDiffFile(file) {
     $("diff-content").scrollTop = 0;
     return;
   }
-  if (diffChunks[file]) {
+  const activeRow = fileList.querySelector(`.diff-file-row[data-file="${CSS.escape(file)}"]`);
+  if (diffChunks[file] && !(activeRow && activeRow.classList.contains("diff-file-row-new"))) {
     showDiffFileInDiffPane(file);
   } else {
     await loadFileContentInDiffPane(file);
