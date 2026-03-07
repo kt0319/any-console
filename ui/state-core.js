@@ -257,6 +257,7 @@ export function getTerminalRuntimeOptions() {
     fontFamily: '"Hack Nerd Font", "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace',
     scrollback: terminalSettings.scrollback,
     scrollOnOutput: terminalSettings.scrollOnOutput,
+    alternateScroll: false,
   };
 }
 

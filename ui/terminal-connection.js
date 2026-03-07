@@ -510,6 +510,12 @@ export function connectTerminalWs(tab) {
       }
     });
 
+    tab.term.attachCustomWheelEventHandler((e) => {
+      const isAltBuffer = tab.term.buffer.active.type === "alternate";
+      if (isAltBuffer) return false;
+      return true;
+    });
+
     if (isTouchDevice) {
       setupScrollBottomButton(tab);
     }

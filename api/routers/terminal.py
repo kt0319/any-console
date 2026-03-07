@@ -81,7 +81,7 @@ def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
         check=True,
         capture_output=True,
     )
-    for opt_args in (["status", "off"], ["mouse", "on"]):
+    for opt_args in (["status", "off"], ["mouse", "off"]):
         subprocess.run(
             ["tmux", "set-option", "-t", session_name, *opt_args],
             timeout=TMUX_CMD_TIMEOUT_SEC,
