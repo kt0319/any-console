@@ -1,5 +1,6 @@
 // @ts-check
 import { selectedWorkspace, allWorkspaces } from './state-core.js';
+import { getEditorSshHost } from './settings.js';
 import { diffChunks } from './state-git.js';
 import { $, escapeHtml, bindLongPress, showToast } from './utils.js';
 import { apiFetch, workspaceApiPath } from './api-client.js';
@@ -712,7 +713,7 @@ async function loadFileContentByView(path, view) {
  * Loads file content into the diff-pane file browser and switches to file view mode.
  * @param {string} path - File path to load
  */
-async function loadFileContentInDiffPane(path) {
+export async function loadFileContentInDiffPane(path) {
   setDiffViewerMode("file");
   await loadFileContentByView(path, "diff-pane");
 }
@@ -799,6 +800,20 @@ function showFileBrowserActionMenu(item, container, config) {
       window.open(githubLink, "_blank");
     });
     menu.appendChild(ghBtn);
+  }
+
+  const editorSshHost = getEditorSshHost();
+  if (editorSshHost && item.dataset.type !== "dir") {
+    const absolutePath = `/home/kentaro/work/${selectedWorkspace}/${filePath}`;
+    const editorUrl = `editor-ssh://${editorSshHost}${absolutePath}`;
+    const editorBtn = document.createElement("button");
+    editorBtn.type = "button";
+    editorBtn.innerHTML = '<i class="mdi mdi-application-edit-outline"></i> エディタで開く';
+    editorBtn.addEventListener("click", () => {
+      menu.remove();
+      window.open(editorUrl);
+    });
+    menu.appendChild(editorBtn);
   }
 
   menu.appendChild(renameBtn);

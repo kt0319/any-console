@@ -1,3 +1,4 @@
+import getpass
 import logging
 import platform
 import re
@@ -187,7 +188,7 @@ def get_system_processes():
 
 @router.get("/system/info")
 def get_system_info():
-    info = {"hostname": socket.gethostname()}
+    info = {"hostname": socket.gethostname(), "user": getpass.getuser()}
     for key, getter in [
         ("ip", _get_ip),
         ("os", _get_os_name),

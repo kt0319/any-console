@@ -36,6 +36,30 @@ export function initDeviceName() {
   });
 }
 
+/** @type {string} */
+let _editorSshHost = "";
+
+/**
+ * @returns {string}
+ */
+export function getEditorSshHost() {
+  return _editorSshHost;
+}
+
+/**
+ */
+export async function initEditorSshHost() {
+  try {
+    const res = await apiFetch("/system/info");
+    if (res && res.ok) {
+      const data = await res.json();
+      if (data.hostname && data.user) {
+        _editorSshHost = `${data.user}@${data.hostname}`;
+      }
+    }
+  } catch { /* ignore */ }
+}
+
 let _releaseFocusTrap = null;
 
 /**

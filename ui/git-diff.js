@@ -5,7 +5,7 @@ import { diffChunks, setDiffChunks, diffFullText, setDiffFullText } from './stat
 import { apiFetch, workspaceApiPath, getActionFailureMessage } from './api-client.js';
 import { $, escapeHtml, renderActionButtons, hideFormError, showFormError, showToast } from './utils.js';
 import { GitLogModal } from './git-log-modal.js';
-import { getFileIcon, showDiffFileInDiffPane, loadDirectoryInDiffPane } from './git-file-browser.js';
+import { getFileIcon, showDiffFileInDiffPane, loadDirectoryInDiffPane, loadFileContentInDiffPane } from './git-file-browser.js';
 import { refreshWorkspaceHeader } from './workspace.js';
 
 /** @type {string} */

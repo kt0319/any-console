@@ -10,7 +10,7 @@ import { fitActiveTerminal, updateViewportHeight } from './viewport.js';
 import { initQuickInput } from './quick-input.js';
 import { login, checkToken, setServerInfo, loadToken, clearToken } from './auth.js';
 import { openJobConfirmModal, closeJobConfirmModal, collectConfirmArgs, runJob } from './jobs.js';
-import { closeSettings, initDeviceName, applyPanelBottom } from './settings.js';
+import { closeSettings, initDeviceName, initEditorSshHost, applyPanelBottom } from './settings.js';
 import { GitLogModal } from './git-log-modal.js';
 import { closeCommitForm, submitCommit } from './git-diff.js';
 import { closeIconPicker, clearIconPicker, submitIconPicker } from './icon-picker.js';
@@ -44,6 +44,7 @@ export async function initApp() {
     await Promise.all([
       updateHeaderForTab(activeTabId),
       ensureSnippetsLoaded(),
+      initEditorSshHost(),
     ]);
     updateQuickInputVisibility();
     fitActiveTerminal();
