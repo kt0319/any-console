@@ -100,23 +100,23 @@ export async function showLoadedDiff(fileList, data, options = {}) {
  * @returns {Promise<void>}
  */
 export async function openCommitDiffModal(commitHash, commitMsg, branches = []) {
-  setDiffViewerMode("file");
-  currentDiffRef = commitHash || null;
-  initDiffPane();
-  GitLogModal.showDiffPane(commitMsg || "");
-
   try {
     const res = await apiFetch(workspaceApiPath(selectedWorkspace, `/diff/${encodeURIComponent(commitHash)}`));
     if (!res) return;
     const data = await res.json();
     if (!res.ok || data.status !== "ok") {
-      showDiffError(getActionFailureMessage(data, "diff の取得に失敗しました"));
+      showToast(getActionFailureMessage(data, "diff の取得に失敗しました"), "error");
       return;
     }
+    if (!Array.isArray(data.files) || data.files.length === 0) return;
 
+    setDiffViewerMode("file");
+    currentDiffRef = commitHash || null;
+    initDiffPane();
+    GitLogModal.showDiffPane(commitMsg || "");
     await showLoadedDiff($("diff-file-list"), data);
   } catch (e) {
-    showDiffError(e.message);
+    showToast(e.message, "error");
   }
 }
 
