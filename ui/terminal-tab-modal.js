@@ -98,7 +98,7 @@ export function openTabEditModal(initialTab = "layout") {
     }
   }
 
-  const tabListRenderer = createTabListRenderer({ updateModeRadio, contentContainer });
+  const tabListRenderer = createTabListRenderer({ updateModeRadio, contentContainer, closeModal });
   const { renderTabList } = tabListRenderer;
 
   /** Shows the main settings view. */

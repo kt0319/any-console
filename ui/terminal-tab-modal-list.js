@@ -7,11 +7,11 @@ import { enterSplitMode, rebuildSplitLayout, exitSplitMode, exitSplitModeWithTab
 
 /**
  * Creates a tab list renderer bound to modal lifecycle callbacks.
- * @param {{ updateModeRadio: () => void, contentContainer: HTMLElement }} deps
+ * @param {{ updateModeRadio: () => void, contentContainer: HTMLElement, closeModal: () => void }} deps
  * @returns {{ renderTabList: () => void, toggleRow: (tab: { id: string }) => void, switchToSplitModeWithTab: (tabId: string) => void }}
  */
 export function createTabListRenderer(deps) {
-  const { updateModeRadio, contentContainer } = deps;
+  const { updateModeRadio, contentContainer, closeModal } = deps;
 
   /** @type {{ idx: number, startY: number, offsetY: number, rowHeight: number } | null} */
   let dragState = null;
@@ -181,6 +181,10 @@ export function createTabListRenderer(deps) {
       closeBtnEl.addEventListener("click", () => {
         removeTab(tab.id);
         if (!document.body.contains(contentContainer)) return;
+        if (openTabs.length === 0 && orphanSessions.length === 0) {
+          closeModal();
+          return;
+        }
         updateModeRadio();
         renderTabList();
       });
