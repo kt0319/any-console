@@ -8,13 +8,14 @@ User=${USER}
 WorkingDirectory=${INSTALL_DIR}
 EnvironmentFile=${INSTALL_DIR}/.env
 ExecStart=/usr/bin/python3 -m api.main
+KillMode=process
 Restart=always
 RestartSec=3
-NoNewPrivileges=true
+NoNewPrivileges=no
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=${INSTALL_DIR} /tmp/pi-console-uploads
+ReadWritePaths=${INSTALL_DIR} ${HOME}
 MemoryMax=512M
 LimitNOFILE=4096
 

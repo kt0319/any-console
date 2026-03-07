@@ -393,10 +393,21 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
         return
 
     if not _tmux_session_exists(session.tmux_session_name):
-        with _sessions_lock:
-            TERMINAL_SESSIONS.pop(session_id, None)
-        await websocket.close(code=1008, reason="シェルプロセスが終了しました")
-        return
+        workspace_path = str(WORK_DIR / session.workspace) if session.workspace else None
+        try:
+            create_tmux_session(workspace_path, session.tmux_session_name)
+            save_tmux_metadata(
+                session.tmux_session_name,
+                session.workspace, session.icon, session.icon_color,
+                session.job_name, session.job_label,
+            )
+            logger.info("recreated tmux session=%s workspace=%s", session_id, session.workspace or "(none)")
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
+            logger.error("failed to recreate tmux session=%s: %s", session_id, e)
+            with _sessions_lock:
+                TERMINAL_SESSIONS.pop(session_id, None)
+            await websocket.close(code=1008, reason="シェルプロセスが終了しました")
+            return
 
     prev_ws = session.active_ws
     if prev_ws is not None:
