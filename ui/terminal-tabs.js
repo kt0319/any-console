@@ -357,7 +357,8 @@ export function renderTabBar() {
 
   const hasAnyTabs = openTabs.length > 0 || disconnectedSessions.length > 0;
   persistOpenTabs();
-  barRow.style.display = hasAnyTabs ? "flex" : "none";
+  const showBarRow = hasAnyTabs || isTouchDevice || panelBottom;
+  barRow.style.display = showBarRow ? "flex" : "none";
   updateEmptyPlaceholder(!hasContent);
   if (!hasAnyTabs) return;
 
