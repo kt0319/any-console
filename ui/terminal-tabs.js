@@ -280,10 +280,13 @@ export function renderTabBar() {
   const barRow = $("tab-bar").parentNode;
   const hasContent = hasVisibleTabContent();
   if (splitMode) {
-    barRow.style.display = "none";
+    barRow.style.display = "flex";
+    $("tab-bar").style.display = "none";
+    updateQuickInputVisibility();
     updateEmptyPlaceholder(!hasContent);
     return;
   }
+  $("tab-bar").style.display = "";
   const bar = $("tab-bar");
   const items = openTabs.map((tab, i) => ({ type: "tab", tab, index: i }));
   for (const s of orphanSessions) {
