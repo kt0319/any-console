@@ -17,13 +17,13 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from "vue";
+import { ref, nextTick } from "vue";
 import { useAuthStore } from "../stores/auth.js";
-import { emit } from "../app-bridge.js";
 
 const auth = useAuthStore();
+const emits = defineEmits(["authenticated"]);
 
-const visible = ref(false);
+const visible = ref(true);
 const tokenValue = ref("");
 const errorMessage = ref("");
 const submitting = ref(false);
@@ -42,7 +42,7 @@ async function handleLogin() {
     auth.setServerInfo(result.hostname, result.version, result.clientName);
     auth.saveToken(auth.token);
     visible.value = false;
-    emit("login:success");
+    emits("authenticated");
   } else {
     errorMessage.value = result.error;
     auth.token = "";
@@ -60,10 +60,6 @@ function show() {
 function hide() {
   visible.value = false;
 }
-
-watch(visible, (val) => {
-  emit("login:visibility", val);
-});
 
 defineExpose({ show, hide, visible });
 </script>
