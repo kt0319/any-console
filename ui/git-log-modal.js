@@ -57,7 +57,6 @@ export const GitLogModal = {
 
     const actions = GitCore.buildCommitActions(hash, {
       branches,
-      extraActions: [{ label: "diff", cls: "", fn: () => openCommitDiffModal(hash, msg) }],
     });
 
     renderActionButtons(menuEl, actions);

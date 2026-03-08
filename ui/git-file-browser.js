@@ -794,7 +794,7 @@ function showFileBrowserActionMenu(item, container, config) {
     const githubLink = `${baseUrl}/${pathType}/${encodeURIComponent(branch)}/${filePath}`;
     const ghBtn = document.createElement("button");
     ghBtn.type = "button";
-    ghBtn.innerHTML = '<i class="mdi mdi-github"></i> GitHubで開く';
+    ghBtn.innerHTML = '<i class="mdi mdi-github"></i> GitHub';
     ghBtn.addEventListener("click", () => {
       menu.remove();
       window.open(githubLink, "_blank");
@@ -808,7 +808,7 @@ function showFileBrowserActionMenu(item, container, config) {
     const editorUrl = `editor-ssh://${editorSshHost}${absolutePath}`;
     const editorBtn = document.createElement("button");
     editorBtn.type = "button";
-    editorBtn.innerHTML = '<i class="mdi mdi-application-edit-outline"></i> エディタで開く';
+    editorBtn.innerHTML = '<i class="mdi mdi-application-edit-outline"></i> エディタ';
     editorBtn.addEventListener("click", () => {
       menu.remove();
       window.open(editorUrl);

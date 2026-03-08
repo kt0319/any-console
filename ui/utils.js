@@ -321,6 +321,8 @@ export function isImageDataIcon(icon) {
  * @returns {void}
  */
 export function bindLongPress(el, { onLongPress, onClick, delay = 800, moveThreshold = 30, animationTarget, contextMenu = true } = {}) {
+  el.style.userSelect = "none";
+  el.style.webkitUserSelect = "none";
   let timer = null;
   let fired = false;
   let touchActive = false;
