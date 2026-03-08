@@ -1825,13 +1825,18 @@ button:disabled {
 }
 
 
-.server-info-compact-row {
-  padding: 4px;
-  font-size: 13px;
+.server-info-label {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.server-info-value {
   color: var(--text-primary);
-  white-space: nowrap;
+  text-align: right;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .process-section-separator {

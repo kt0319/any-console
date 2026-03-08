@@ -220,7 +220,7 @@ export function openTabEditModal(initialTab = "layout") {
       { icon: "mdi-format-font-size-increase", label: "ターミナル", action: () => showModalSubView("ターミナル", (body) => renderTerminalSettingsPane(body, { onBack: () => switchModalTab("settings") })) },
       { icon: "mdi-application-edit-outline", label: "エディタ", action: () => showModalSubView("エディタ", renderEditorSettingsPane) },
       { icon: "mdi-file-cog", label: "設定ファイル", action: () => showModalSubView("設定ファイル", renderConfigFileView) },
-      { icon: "mdi-information-outline", label: "サーバー", action: () => showModalSubView("サーバー", renderServerInfoTo) },
+      { icon: "mdi-information-outline", label: "サーバー情報", action: () => showModalSubView("サーバー情報", renderServerInfoTo) },
     ];
 
     for (const item of items) {

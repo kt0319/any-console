@@ -265,18 +265,20 @@ export function closeSettings() {
  * @param {object} data
  */
 export function renderServerInfoRows(container, data) {
-  const lines = [
-    [data.hostname, data.os],
-    [data.ip, data.uptime],
-    data.cpu_temp ? [data.memory, data.cpu_temp] : [data.memory],
-    [data.disk],
+  const items = [
+    { label: "ホスト名", value: data.hostname },
+    { label: "OS", value: data.os },
+    { label: "IP", value: data.ip },
+    { label: "稼働時間", value: data.uptime },
+    { label: "メモリ", value: data.memory },
+    { label: "CPU温度", value: data.cpu_temp },
+    { label: "ディスク", value: data.disk },
   ];
-  for (const parts of lines) {
-    const filtered = parts.filter(Boolean);
-    if (filtered.length === 0) continue;
+  for (const item of items) {
+    if (!item.value) continue;
     const row = document.createElement("div");
-    row.className = "server-info-compact-row";
-    row.textContent = filtered.join(" | ");
+    row.className = "server-info-row";
+    row.innerHTML = `<span class="server-info-label">${escapeHtml(item.label)}</span><span class="server-info-value">${escapeHtml(String(item.value))}</span>`;
     container.appendChild(row);
   }
 }
@@ -341,7 +343,7 @@ export async function renderServerInfoTo(container) {
  * @returns {Promise<void>}
  */
 export async function openSettingsServerInfo() {
-  $("settings-modal").querySelector(".modal-title").textContent = "サーバー";
+  $("settings-modal").querySelector(".modal-title").textContent = "サーバー情報";
   updateSettingsConnInfo();
   showSettingsView("settings-server-info-view");
   $("settings-modal").style.display = "flex";
