@@ -37,14 +37,15 @@ export async function openGitHubPane() {
   const pullsUrl = githubUrl ? `${githubUrl}/pulls` : "";
   const actionsUrl = githubUrl ? `${githubUrl}/actions` : "";
 
+  const loadingHtml = '<div class="github-loading">読み込み中...</div>';
   content.innerHTML =
     `<div class="github-section-title github-section-link github-repo-name" data-url="${escapeHtml(githubUrl || "")}">${escapeHtml(repoName)}</div>` +
     `<div class="github-section-title github-section-link" data-url="${escapeHtml(issuesUrl)}">Issues<span class="github-section-badge github-badge-loading" id="github-badge-issues">…</span></div>` +
-    `<div id="github-section-issues"></div>` +
+    `<div id="github-section-issues">${loadingHtml}</div>` +
     `<div class="github-section-title github-section-link" data-url="${escapeHtml(pullsUrl)}">Pull Requests<span class="github-section-badge github-badge-loading" id="github-badge-pulls">…</span></div>` +
-    `<div id="github-section-pulls"></div>` +
+    `<div id="github-section-pulls">${loadingHtml}</div>` +
     `<div class="github-section-title github-section-link" data-url="${escapeHtml(actionsUrl)}">Actions<span class="github-section-badge github-badge-loading" id="github-badge-runs">…</span></div>` +
-    `<div id="github-section-runs"></div>`;
+    `<div id="github-section-runs">${loadingHtml}</div>`;
 
   const basePath = workspaceApiPath(selectedWorkspace, "/github");
 

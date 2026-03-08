@@ -2369,15 +2369,10 @@ button:disabled {
 }
 
 
-.git-log-dirty-branch-btn,
-.git-log-graph-btn,
-.git-log-github-btn {
-  align-self: stretch;
-  width: 40px;
-  min-width: 40px;
-  min-height: 100%;
-  height: auto;
-  padding: 0;
+.git-log-dirty-actions .git-action-btn.icon-only {
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
 }
 
 .git-log-dirty-msg {

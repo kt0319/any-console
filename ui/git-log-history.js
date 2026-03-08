@@ -253,15 +253,15 @@ Object.assign(GitLogModal, {
     const entry = document.createElement("div");
     entry.className = "git-log-entry git-log-dirty";
     const branchButtonHtml =
-      '<button type="button" class="git-action-btn icon-only git-log-dirty-branch-btn" title="ブランチ" aria-label="ブランチ">' +
+      '<button type="button" class="git-action-btn icon-only" title="ブランチ" aria-label="ブランチ" data-role="branch">' +
         '<span class="mdi mdi-source-branch"></span>' +
       "</button>";
     const graphButtonHtml =
-      '<button type="button" class="git-action-btn icon-only git-log-graph-btn" title="コミットグラフ" aria-label="コミットグラフ">' +
+      '<button type="button" class="git-action-btn icon-only" title="コミットグラフ" aria-label="コミットグラフ" data-role="graph">' +
         '<span class="mdi mdi-history"></span>' +
       "</button>";
     const githubButtonHtml = ws && ws.github_url
-      ? '<button type="button" class="git-action-btn icon-only git-log-github-btn" title="GitHub" aria-label="GitHub">' +
+      ? '<button type="button" class="git-action-btn icon-only" title="GitHub" aria-label="GitHub" data-role="github">' +
           '<span class="mdi mdi-github"></span>' +
         "</button>"
       : "";
@@ -271,17 +271,17 @@ Object.assign(GitLogModal, {
     bodyHtml += GitLogModal.renderDirtyWorkspaceLabel(ws);
     bodyHtml += `</span><span class="git-log-dirty-actions">${branchButtonHtml}${graphButtonHtml}${githubButtonHtml}</span></span>`;
     entry.innerHTML = bodyHtml;
-    const branchBtn = entry.querySelector(".git-log-dirty-branch-btn");
+    const branchBtn = entry.querySelector('[data-role="branch"]');
     branchBtn?.addEventListener("click", (event) => {
       event.stopPropagation();
       GitLogModal.openLocalBranchPane();
     });
-    const graphBtn = entry.querySelector(".git-log-graph-btn");
+    const graphBtn = entry.querySelector('[data-role="graph"]');
     graphBtn?.addEventListener("click", (event) => {
       event.stopPropagation();
       GitLogModal.toggleGraphView();
     });
-    const githubBtn = entry.querySelector(".git-log-github-btn");
+    const githubBtn = entry.querySelector('[data-role="github"]');
     githubBtn?.addEventListener("click", (event) => {
       event.stopPropagation();
       openGitHubPane();
