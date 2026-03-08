@@ -3896,6 +3896,15 @@ button:disabled {
   color: var(--text-muted);
 }
 
+.github-badge-loading {
+  animation: github-badge-pulse 1s ease-in-out infinite;
+}
+
+@keyframes github-badge-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
 .github-section-title.github-repo-name {
   font-size: 15px;
   background: none;

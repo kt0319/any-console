@@ -29,58 +29,62 @@ export async function openGitHubPane() {
 
   const content = $("git-github-content");
   if (!content) return;
-  content.innerHTML = '<div class="github-loading">読み込み中...</div>';
-
-  const basePath = workspaceApiPath(selectedWorkspace, "/github");
-  const [infoRes, pullsRes, issuesRes, runsRes] = await Promise.all([
-    apiFetch(`${basePath}/info`).then((r) => r && r.json()).catch(() => null),
-    apiFetch(`${basePath}/pulls`).then((r) => r && r.json()).catch(() => null),
-    apiFetch(`${basePath}/issues`).then((r) => r && r.json()).catch(() => null),
-    apiFetch(`${basePath}/runs`).then((r) => r && r.json()).catch(() => null),
-  ]);
 
   const githubUrl = getGitHubUrl();
-  let html = "";
+  const repoName = githubUrl ? githubUrl.replace(/^https?:\/\/github\.com\//, "") : "";
 
-  if (infoRes && infoRes.status === "ok") {
-    const d = infoRes.data;
-    const ownerName = d.owner ? d.owner.login : "";
-    html += `<div class="github-section-title github-section-link github-repo-name" data-url="${escapeHtml(githubUrl || "")}">${escapeHtml(ownerName)}/${escapeHtml(d.name || "")}</div>`;
-  } else {
-    const msg = infoRes && infoRes.message ? infoRes.message : "GitHub情報を取得できませんでした";
-    html += `<div class="github-error">${escapeHtml(msg)}</div>`;
-  }
+  const issuesUrl = githubUrl ? `${githubUrl}/issues` : "";
+  const pullsUrl = githubUrl ? `${githubUrl}/pulls` : "";
+  const actionsUrl = githubUrl ? `${githubUrl}/actions` : "";
 
-  html += renderList("Issues", issuesRes, githubUrl, "issues");
-  html += renderList("Pull Requests", pullsRes, githubUrl, "pull");
-  html += renderRuns("Actions", runsRes, githubUrl);
+  content.innerHTML =
+    `<div class="github-section-title github-section-link github-repo-name" data-url="${escapeHtml(githubUrl || "")}">${escapeHtml(repoName)}</div>` +
+    `<div class="github-section-title github-section-link" data-url="${escapeHtml(issuesUrl)}">Issues<span class="github-section-badge github-badge-loading" id="github-badge-issues">…</span></div>` +
+    `<div id="github-section-issues"></div>` +
+    `<div class="github-section-title github-section-link" data-url="${escapeHtml(pullsUrl)}">Pull Requests<span class="github-section-badge github-badge-loading" id="github-badge-pulls">…</span></div>` +
+    `<div id="github-section-pulls"></div>` +
+    `<div class="github-section-title github-section-link" data-url="${escapeHtml(actionsUrl)}">Actions<span class="github-section-badge github-badge-loading" id="github-badge-runs">…</span></div>` +
+    `<div id="github-section-runs"></div>`;
 
-  content.innerHTML = html;
+  const basePath = workspaceApiPath(selectedWorkspace, "/github");
+
+  const loadSection = async (id, badgeId, fetchPath, renderer) => {
+    const el = content.querySelector(`#${id}`);
+    const badge = content.querySelector(`#${badgeId}`);
+    try {
+      const res = await apiFetch(fetchPath).then((r) => r && r.json());
+      if (badge) {
+        const count = res && res.status === "ok" && res.data ? res.data.length : 0;
+        badge.textContent = String(count);
+        badge.classList.remove("github-badge-loading");
+      }
+      if (el) el.innerHTML = renderer(res);
+    } catch {
+      if (badge) { badge.textContent = "?"; badge.classList.remove("github-badge-loading"); }
+      if (el) el.innerHTML = renderer(null);
+    }
+  };
+
+  loadSection("github-section-issues", "github-badge-issues", `${basePath}/issues`, (res) => renderListItems(res, githubUrl, "issues"));
+  loadSection("github-section-pulls", "github-badge-pulls", `${basePath}/pulls`, (res) => renderListItems(res, githubUrl, "pull"));
+  loadSection("github-section-runs", "github-badge-runs", `${basePath}/runs`, (res) => renderRunItems(res, githubUrl));
 }
 
 /**
- * @param {string} title
  * @param {object|null} res
  * @param {string|null} githubUrl
  * @param {"pull"|"issues"} type
  */
-function renderList(title, res, githubUrl, type) {
-  const url = githubUrl ? (type === "pull" ? `${githubUrl}/pulls` : `${githubUrl}/issues`) : null;
-  const count = res && res.status === "ok" && res.data ? res.data.length : 0;
-  const badge = `<span class="github-section-badge">${count}</span>`;
-  let html = `<div class="github-section-title${url ? " github-section-link" : ""}"${url ? ` data-url="${escapeHtml(url)}"` : ""}>${escapeHtml(title)}${badge}</div>`;
-
+function renderListItems(res, githubUrl, type) {
   if (!res || res.status !== "ok") {
     const msg = res && res.message ? res.message : "取得できませんでした";
-    html += `<div class="github-error">${escapeHtml(msg)}</div>`;
-    return html;
+    return `<div class="github-error">${escapeHtml(msg)}</div>`;
   }
 
   const items = res.data;
-  if (!items || items.length === 0) {
-    return html;
-  }
+  if (!items || items.length === 0) return "";
 
+  let html = "";
   for (const item of items) {
     const num = item.number;
     const itemUrl = githubUrl ? `${githubUrl}/${type === "pull" ? "pull" : "issues"}/${num}` : null;
@@ -121,27 +125,19 @@ const RUN_STATUS = {
 };
 
 /**
- * @param {string} title
  * @param {object|null} res
  * @param {string|null} githubUrl
  */
-function renderRuns(title, res, githubUrl) {
-  const actionsUrl = githubUrl ? `${githubUrl}/actions` : null;
-  const count = res && res.status === "ok" && res.data ? res.data.length : 0;
-  const badge = `<span class="github-section-badge">${count}</span>`;
-  let html = `<div class="github-section-title${actionsUrl ? " github-section-link" : ""}"${actionsUrl ? ` data-url="${escapeHtml(actionsUrl)}"` : ""}>${escapeHtml(title)}${badge}</div>`;
-
+function renderRunItems(res, githubUrl) {
   if (!res || res.status !== "ok") {
     const msg = res && res.message ? res.message : "取得できませんでした";
-    html += `<div class="github-error">${escapeHtml(msg)}</div>`;
-    return html;
+    return `<div class="github-error">${escapeHtml(msg)}</div>`;
   }
 
   const items = res.data;
-  if (!items || items.length === 0) {
-    return html;
-  }
+  if (!items || items.length === 0) return "";
 
+  let html = "";
   for (const run of items) {
     const key = run.conclusion || run.status || "";
     const st = RUN_STATUS[key] || { icon: "?", cls: "" };
