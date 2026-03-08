@@ -179,6 +179,19 @@ export async function addSnippet(command) {
  * @param {number} index
  * @returns {Promise<void>}
  */
+/**
+ * @param {number} index
+ * @returns {Promise<void>}
+ */
+export async function touchSnippet(index) {
+  await ensureSnippetsLoaded();
+  const snippets = loadSnippets();
+  if (index < 0 || index >= snippets.length) return;
+  const [item] = snippets.splice(index, 1);
+  snippets.push(item);
+  await saveSnippets(snippets);
+}
+
 export async function deleteSnippet(index) {
   await ensureSnippetsLoaded();
   const snippets = loadSnippets();

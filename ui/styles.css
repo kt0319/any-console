@@ -3032,7 +3032,7 @@ button:disabled {
   pointer-events: auto;
 }
 
-.quick-snippet-history-row {
+.quick-snippet-scroll-row {
   display: flex;
   flex-direction: row;
   gap: 4px;
@@ -3043,40 +3043,15 @@ button:disabled {
   scrollbar-width: none;
 }
 
-.quick-snippet-history-row::-webkit-scrollbar {
+.quick-snippet-scroll-row::-webkit-scrollbar {
   display: none;
 }
 
-.quick-snippet-history-row > .quick-snippet-item {
+.quick-snippet-scroll-row > .quick-snippet-item {
   flex: 0 0 auto;
   width: auto;
-  max-width: 140px;
+  max-width: 160px;
   touch-action: pan-x;
-}
-
-.quick-snippet-grid {
-  display: flex;
-  flex-direction: row;
-  gap: 4px;
-  pointer-events: none;
-}
-
-.quick-snippet-grid > * {
-  pointer-events: auto;
-}
-
-.quick-snippet-col {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 4px;
-  flex: 1 1 0;
-  min-width: 0;
-  pointer-events: none;
-}
-
-.quick-snippet-col > * {
-  pointer-events: auto;
 }
 
 .quick-snippet-item {

@@ -2,7 +2,7 @@
 import { openTabs, activeTabId, token } from './state-core.js';
 import { $, showToast } from './utils.js';
 import { exitTerminalViewMode } from './terminal-view-mode.js';
-import { ensureSnippetsLoaded, inputHistory, loadSnippets, addSnippet, deleteSnippet } from './state-input.js';
+import { ensureSnippetsLoaded, inputHistory, loadSnippets, addSnippet, deleteSnippet, touchSnippet } from './state-input.js';
 
 /**
  * Returns the currently active terminal tab, or null if not a terminal tab.
@@ -429,17 +429,38 @@ export async function renderSnippetRow(container, onChipTap) {
   await ensureSnippetsLoaded();
   container.innerHTML = "";
 
-  const historyRow = document.createElement("div");
-  historyRow.className = "quick-snippet-history-row";
-
+  const snippets = loadSnippets().reverse();
   const allHistory = [...inputHistory];
-  if (allHistory.length === 0) {
-    const emptyHistory = document.createElement("div");
-    emptyHistory.className = "quick-snippet-item quick-snippet-item-empty";
-    emptyHistory.textContent = "履歴なし";
-    historyRow.appendChild(emptyHistory);
-  }
 
+  const snippetRow = document.createElement("div");
+  snippetRow.className = "quick-snippet-scroll-row";
+  snippets.forEach((s, idx) => {
+    const origIdx = snippets.length - 1 - idx;
+    const chip = createSnippetChip(s.label, () => {
+      onChipTap(s.command);
+      touchSnippet(origIdx);
+    }, async () => {
+      if (confirm(`「${s.command}」を削除しますか？`)) {
+        try {
+          await deleteSnippet(origIdx);
+          await renderSnippetRow(container, onChipTap);
+        } catch (e) {
+          showToast(e.message || "スニペット削除に失敗しました", "error");
+        }
+      }
+    }, "mdi-pin");
+    snippetRow.appendChild(chip);
+  });
+  if (snippets.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "quick-snippet-item quick-snippet-item-empty";
+    empty.textContent = "スニペットなし";
+    snippetRow.appendChild(empty);
+  }
+  container.appendChild(snippetRow);
+
+  const historyRow = document.createElement("div");
+  historyRow.className = "quick-snippet-scroll-row";
   allHistory.forEach((text) => {
     const chip = createSnippetChip(text, () => {
       onChipTap(text);
@@ -458,53 +479,11 @@ export async function renderSnippetRow(container, onChipTap) {
     }, "mdi-history");
     historyRow.appendChild(chip);
   });
-
-  const snippetGrid = document.createElement("div");
-  snippetGrid.className = "quick-snippet-grid";
-
-  const snippetCols = [0, 1, 2].map(() => {
-    const col = document.createElement("div");
-    col.className = "quick-snippet-col";
-    return col;
-  });
-
-  const snippets = loadSnippets().slice(-6);
-  if (snippets.length === 0) {
-    const emptySnippet = document.createElement("div");
-    emptySnippet.className = "quick-snippet-item quick-snippet-item-empty";
-    emptySnippet.textContent = "スニペットなし";
-    snippetCols[0].appendChild(emptySnippet);
+  if (allHistory.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "quick-snippet-item quick-snippet-item-empty";
+    empty.textContent = "履歴なし";
+    historyRow.appendChild(empty);
   }
-
-  snippets.forEach((s, idx) => {
-    const chip = createSnippetChip(s.label, () => {
-      onChipTap(s.command);
-    }, async () => {
-      if (confirm(`「${s.command}」を削除しますか？`)) {
-        try {
-          await deleteSnippet(idx);
-          await renderSnippetRow(container, onChipTap);
-        } catch (e) {
-          showToast(e.message || "スニペット削除に失敗しました", "error");
-        }
-      }
-    }, "mdi-pin");
-    const target = snippetCols.reduce((a, b) => a.children.length <= b.children.length ? a : b);
-    target.appendChild(chip);
-  });
-
-  const maxCount = Math.max(...snippetCols.map(c => c.children.length));
-  for (const col of snippetCols) {
-    while (col.children.length < maxCount) {
-      const spacer = document.createElement("div");
-      spacer.className = "quick-snippet-item";
-      spacer.style.visibility = "hidden";
-      col.insertBefore(spacer, col.firstChild);
-    }
-  }
-
-  for (const col of snippetCols) snippetGrid.appendChild(col);
-
   container.appendChild(historyRow);
-  container.appendChild(snippetGrid);
 }
