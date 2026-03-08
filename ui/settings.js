@@ -1,7 +1,7 @@
 // @ts-check
 import { panelBottom, getTerminalRuntimeOptions } from './state-core.js';
 import { $, escapeHtml, showToast, toDisplayMessage, trapFocus } from './utils.js';
-import { apiFetch, fetchAndRenderWithStatus, setInlineStatus } from './api-client.js';
+import { apiFetch, fetchAndRenderWithStatus } from './api-client.js';
 import { refreshWorkspaceHeader, loadWorkspaces } from './workspace.js';
 import { updateSettingsConnInfo } from './auth.js';
 import { invalidateWorkspaceMetaCache, invalidateGithubReposCache } from './cache.js';
@@ -16,7 +16,7 @@ export function applyPanelBottom() {
  * @param {string} viewId
  */
 export function showSettingsView(viewId) {
-  for (const id of ["settings-menu-view", "settings-terminal-view", "settings-editor-view", "settings-server-info-view", "settings-process-list-view", "settings-op-log-view", "settings-activity-log-view", "settings-config-file-view"]) {
+  for (const id of ["settings-menu-view", "settings-terminal-view", "settings-editor-view", "settings-server-info-view", "settings-process-list-view", "settings-config-file-view"]) {
     const el = $(id);
     if (el) el.style.display = id === viewId ? "" : "none";
   }
@@ -305,31 +305,6 @@ export function renderProcessRows(container, processes) {
 
 /**
  * @param {HTMLElement} container
- * @param {Array<{ts?: string, status_code?: number, duration_ms?: number, method?: string, path?: string, detail?: string}>} entries
- */
-export function renderOpLogRows(container, entries) {
-  if (entries.length === 0) {
-    setInlineStatus(container, "ログなし");
-    return;
-  }
-  for (let i = entries.length - 1; i >= 0; i--) {
-    const entry = entries[i];
-    const row = document.createElement("div");
-    row.className = "op-log-row";
-    const ts = entry.ts ? new Date(entry.ts).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "";
-    const status = entry.status_code ? ` ${entry.status_code}` : "";
-    const duration = entry.duration_ms ? ` ${entry.duration_ms}ms` : "";
-    const detail = entry.detail ? ` ${entry.detail}` : "";
-    row.innerHTML =
-      `<span class="op-log-ts">${escapeHtml(ts)}</span>` +
-      `<span class="op-log-method">${escapeHtml(entry.method || "")}</span>` +
-      `<span class="op-log-path">${escapeHtml(entry.path || "")}${escapeHtml(status)}${escapeHtml(duration)}${escapeHtml(detail)}</span>`;
-    container.appendChild(row);
-  }
-}
-
-/**
- * @param {HTMLElement} container
  * @returns {Promise<void>}
  */
 export async function renderServerInfoTo(container) {
@@ -342,14 +317,6 @@ export async function renderServerInfoTo(container) {
  */
 export async function renderProcessListTo(container) {
   await fetchAndRenderWithStatus(container, "/system/processes", (data) => renderProcessRows(container, data));
-}
-
-/**
- * @param {HTMLElement} container
- * @returns {Promise<void>}
- */
-export async function renderOpLogTo(container) {
-  await fetchAndRenderWithStatus(container, "/logs", (entries) => renderOpLogRows(container, entries));
 }
 
 /**
@@ -390,66 +357,6 @@ export async function openProcessList() {
     viewId: "settings-process-list-view",
     listId: "process-list",
     renderFn: renderProcessListTo,
-  });
-}
-
-/**
- * @returns {Promise<void>}
- */
-export async function openOpLog() {
-  await openSettingsDataView({
-    title: "操作ログ",
-    viewId: "settings-op-log-view",
-    listId: "op-log-list",
-    renderFn: renderOpLogTo,
-  });
-}
-
-/**
- * @param {HTMLElement} container
- * @param {Array<{ts?: string, action?: string, detail?: string, device?: string, workspace?: string}>} entries
- */
-export function renderActivityLogRows(container, entries) {
-  if (entries.length === 0) {
-    setInlineStatus(container, "ログなし");
-    return;
-  }
-  for (let i = entries.length - 1; i >= 0; i--) {
-    const entry = entries[i];
-    const row = document.createElement("div");
-    row.className = "op-log-row";
-    const d = entry.ts ? new Date(entry.ts) : null;
-    const ts = d ? d.toLocaleDateString("ja-JP", { month: "2-digit", day: "2-digit" }) + " " + d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "";
-    const detail = entry.detail ? ` ${entry.detail}` : "";
-    const device = entry.device ? `<span class="op-log-device">${escapeHtml(entry.device)}</span>` : "";
-    const ws = entry.workspace ? `<span class="op-log-ws">${escapeHtml(entry.workspace)}</span>` : "";
-    row.innerHTML =
-      `<span class="op-log-ts">${escapeHtml(ts)}</span>` +
-      device +
-      ws +
-      `<span class="op-log-method">${escapeHtml(entry.action || "")}</span>` +
-      `<span class="op-log-path">${escapeHtml(detail)}</span>`;
-    container.appendChild(row);
-  }
-}
-
-/**
- * @param {HTMLElement} container
- * @returns {Promise<void>}
- */
-export async function renderActivityLogTo(container) {
-  await fetchAndRenderWithStatus(container, "/op-logs", (entries) => renderActivityLogRows(container, entries));
-}
-
-/**
- * @returns {Promise<void>}
- */
-export async function openActivityLog() {
-  await openSettingsDataView({
-    title: "操作ログ",
-    viewId: "settings-activity-log-view",
-    listId: "activity-log-list",
-    renderFn: renderActivityLogTo,
   });
 }
 

@@ -73,12 +73,6 @@ ENDPOINTS = [
     # system
     ("GET", "/system/processes"),
     ("GET", "/system/info"),
-    # logs
-    ("GET", "/logs"),
-    ("DELETE", "/logs"),
-    ("GET", "/op-logs"),
-    ("DELETE", "/op-logs"),
-    ("POST", "/logs/client"),
 ]
 
 

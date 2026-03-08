@@ -177,18 +177,6 @@ class TestSnippetsContract:
         assert data["snippets"][0]["command"] == "echo test"
 
 
-class TestLogsContract:
-    def test_logs_returns_list(self, client):
-        res = client.get("/logs", headers=AUTH)
-        assert res.status_code == 200
-        assert isinstance(res.json(), list)
-
-    def test_op_logs_returns_list(self, client):
-        res = client.get("/op-logs", headers=AUTH)
-        assert res.status_code == 200
-        assert isinstance(res.json(), list)
-
-
 class TestFilesContract:
     def test_files_list_structure(self, client, workspace):
         (workspace / "file.txt").write_text("x", encoding="utf-8")

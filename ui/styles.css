@@ -3688,50 +3688,6 @@ button:disabled {
   gap: 4px;
 }
 
-.op-log-row {
-  display: flex;
-  font-family: monospace;
-  font-size: 11px;
-  gap: 6px;
-  align-items: baseline;
-  padding: 4px;
-  border-bottom: 1px solid var(--border);
-}
-
-.op-log-row:last-child {
-  border-bottom: none;
-}
-
-.op-log-ts {
-  color: var(--text-muted);
-  flex-shrink: 0;
-  min-width: 56px;
-}
-
-.op-log-method {
-  color: var(--accent);
-  flex-shrink: 0;
-  min-width: 52px;
-}
-
-.op-log-path {
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.op-log-device {
-  color: var(--text-muted);
-  flex-shrink: 0;
-  font-size: 10px;
-}
-
-.op-log-ws {
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-
 /* Settings device name */
 .settings-device-name {
   display: flex;

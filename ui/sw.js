@@ -54,7 +54,6 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/upload-image') ||
     url.pathname.startsWith('/system/') ||
     url.pathname.startsWith('/settings/') ||
-    url.pathname.startsWith('/logs') ||
     url.pathname.startsWith('/icons/') ||
     event.request.headers.get('Upgrade') === 'websocket'
   ) {

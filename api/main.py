@@ -16,10 +16,10 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response, UploadFi
 from fastapi.staticfiles import StaticFiles
 
 from .auth import verify_token
-from .common import BACKGROUND_EXECUTOR, LOG_BUFFER, MAX_UPLOAD_SIZE, UPLOAD_DIR, _current_device
+from .common import BACKGROUND_EXECUTOR, MAX_UPLOAD_SIZE, UPLOAD_DIR
 from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
-from .routers import git, github, jobs, logs, settings, system, terminal, workspaces
+from .routers import git, github, jobs, settings, system, terminal, workspaces
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -40,67 +40,8 @@ app.include_router(github.router)
 app.include_router(jobs.router)
 app.include_router(terminal.router)
 app.include_router(terminal.ws_router)
-app.include_router(logs.router)
 app.include_router(system.router)
 app.include_router(settings.router)
-
-
-EXCLUDE_LOG_PREFIXES = (
-    "/logs",
-    "/auth/check",
-    "/system/",
-    "/icons/",
-    "/ui/",
-    "/styles",
-    "/app.",
-    "/state.",
-    "/auth.",
-    "/workspace.",
-    "/git.",
-    "/jobs.",
-    "/terminal.",
-    "/settings.",
-    "/quick-input.",
-    "/icon-picker.",
-    "/utils.",
-    "/favicon",
-    "/sw.js",
-    "/manifest",
-    "/icon-",
-)
-
-
-@app.middleware("http")
-async def set_device_name(request: Request, call_next):
-    device = request.headers.get("X-Device-Name", "")
-    _current_device.set(device)
-    return await call_next(request)
-
-
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    path = request.url.path
-    if any(path.startswith(p) for p in EXCLUDE_LOG_PREFIXES):
-        return await call_next(request)
-    if path == "/" and request.method == "GET":
-        return await call_next(request)
-
-    start = time.time()
-    response = await call_next(request)
-    duration_ms = round((time.time() - start) * 1000)
-
-    LOG_BUFFER.add(
-        {
-            "ts": datetime.now().astimezone().isoformat(),
-            "method": request.method,
-            "path": path,
-            "status_code": response.status_code,
-            "duration_ms": duration_ms,
-            "detail": "",
-        }
-    )
-    return response
-
 
 
 @app.on_event("shutdown")

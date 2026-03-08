@@ -7,7 +7,6 @@ from ..auth import verify_token
 from ..common import (
     GIT_LONG_TIMEOUT_SEC,
     GIT_SHORT_TIMEOUT_SEC,
-    log_operation,
     resolve_workspace_path,
 )
 from ..git_utils import (
@@ -71,8 +70,6 @@ def delete_branch(name: str, body: DeleteBranchRequest):
         result = run_git_command(["branch", "-D", branch], cwd=ws_path, operation="delete branch")
 
     logger.info("delete-branch workspace=%s branch=%s remote=%s rc=%d", name, branch, body.remote, result["exit_code"])
-    if result["exit_code"] == 0:
-        log_operation("branch delete", name, branch)
     invalidate_git_info(name)
     return result
 
@@ -83,8 +80,6 @@ def create_branch(name: str, body: CheckoutRequest):
     branch = validate_branch_name(body.branch)
     result = run_git_command(["checkout", "-b", branch], cwd=ws_path, operation="create-branch")
     logger.info("create-branch workspace=%s branch=%s rc=%d", name, branch, result["exit_code"])
-    if result["exit_code"] == 0:
-        log_operation("branch create", name, branch)
     invalidate_git_info(name)
     return result
 
@@ -98,8 +93,6 @@ def checkout_branch(name: str, body: CheckoutRequest):
     args = ["checkout", branch] if branch in local_branches else ["checkout", "-b", branch, f"origin/{branch}"]
     result = run_git_command(args, cwd=ws_path, operation="checkout")
     logger.info("checkout workspace=%s branch=%s rc=%d", name, branch, result["exit_code"])
-    if result["exit_code"] == 0:
-        log_operation("checkout", name, branch)
     invalidate_git_info(name)
     return result
 
@@ -123,8 +116,6 @@ def git_pull(name: str):
         if pop["exit_code"] != 0:
             stash_msg = f"\n⚠️ stash pop failed:\n{pop['stderr']}"
     logger.info("pull workspace=%s rc=%d", name, result["exit_code"])
-    if result["exit_code"] == 0:
-        log_operation("pull", name)
     result["stderr"] += stash_msg
     invalidate_git_info(name)
     return result
@@ -135,8 +126,6 @@ def git_push(name: str):
     ws_path = resolve_workspace_path(name)
     result = run_git_command(["push"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, env=ssh_env(), operation="push")
     logger.info("push workspace=%s rc=%d", name, result["exit_code"])
-    if result["exit_code"] == 0:
-        log_operation("push", name)
     invalidate_git_info(name)
     return result
 
@@ -150,8 +139,6 @@ def git_set_upstream(name: str):
         cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, env=ssh_env(), operation="set upstream",
     )
     logger.info("set-upstream workspace=%s branch=%s rc=%d", name, branch, result["exit_code"])
-    if result["exit_code"] == 0:
-        log_operation("set-upstream", name, branch)
     invalidate_git_info(name)
     return result
 
@@ -164,8 +151,6 @@ def git_push_upstream(name: str):
         env=ssh_env(), operation="push upstream",
     )
     logger.info("push-upstream workspace=%s rc=%d", name, result["exit_code"])
-    if result["exit_code"] == 0:
-        log_operation("push -u", name)
     invalidate_git_info(name)
     return result
 
@@ -175,7 +160,5 @@ def git_fetch(name: str):
     ws_path = resolve_workspace_path(name)
     result = run_git_command(["fetch", "--prune"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="fetch")
     logger.info("fetch workspace=%s rc=%d", name, result["exit_code"])
-    if result["exit_code"] == 0:
-        log_operation("fetch", name)
     invalidate_git_info(name)
     return result

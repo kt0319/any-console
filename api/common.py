@@ -1,5 +1,3 @@
-import collections
-import contextvars
 import os
 import re
 import threading
@@ -46,11 +44,6 @@ COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{4,40}$|^stash@\{\d+\}$")
 
 BACKGROUND_EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
-_current_device: contextvars.ContextVar[str] = contextvars.ContextVar("_current_device", default="")
-
-LOG_BUFFER_MAX = 500
-
-
 class TTLCache:
     def __init__(self, ttl_sec: float):
         self._ttl = ttl_sec
@@ -79,40 +72,11 @@ class TTLCache:
             self._store.clear()
 
 
-class LogBuffer:
-    def __init__(self, maxlen: int = LOG_BUFFER_MAX):
-        self.entries = collections.deque(maxlen=maxlen)
-
-    def add(self, entry: dict) -> None:
-        self.entries.append(entry)
-
-    def clear(self) -> None:
-        self.entries.clear()
-
-
-LOG_BUFFER = LogBuffer()
-OPERATION_LOG = LogBuffer()
-
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
 
 
 def sanitize_log_value(value: str) -> str:
     return _CONTROL_CHAR_RE.sub(lambda m: f"\\x{ord(m.group()):02x}", value)
-
-
-def log_operation(action: str, workspace: str = "", detail: str = "") -> None:
-    from datetime import datetime, timezone
-
-    entry = {
-        "ts": datetime.now(timezone.utc).isoformat(),
-        "action": sanitize_log_value(action),
-        "workspace": sanitize_log_value(workspace),
-        "detail": sanitize_log_value(detail),
-    }
-    device = _current_device.get()
-    if device:
-        entry["device"] = sanitize_log_value(device)
-    OPERATION_LOG.add(entry)
 
 
 def resolve_workspace_path(workspace: str | None) -> Path | None:

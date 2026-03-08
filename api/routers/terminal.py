@@ -25,7 +25,6 @@ from ..common import (
     TMUX_SESSION_PREFIX,
     TMUX_SOCKET_DIR,
     WORK_DIR,
-    log_operation,
 )
 
 logger = logging.getLogger(__name__)
@@ -378,8 +377,6 @@ async def delete_terminal_session(session_id: str):
     if not session:
         raise HTTPException(status_code=404, detail="Terminal session not found")
     _kill_tmux_session(session)
-    action = "ジョブ終了" if session.job_name else "ターミナル終了"
-    log_operation(action, session.workspace or "", session.job_label or session.job_name or "")
     logger.info("terminal session deleted session=%s", session_id)
     return {"status": "ok"}
 

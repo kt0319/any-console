@@ -14,7 +14,6 @@ from ..common import (
     TERMINAL_TIMEOUT_SEC,
     WORKSPACE_JOBS_CACHE_TTL_SEC,
     TTLCache,
-    log_operation,
     resolve_workspace_path,
     sanitize_log_value,
 )
@@ -333,8 +332,6 @@ def execute_job(body: RunRequest):
                 job_label=body.job_label,
             )
         save_tmux_metadata(tmux_name, body.workspace, body.icon, body.icon_color, body.job_name, body.job_label)
-        action = "ジョブ実行" if body.job_name else "ターミナル起動"
-        log_operation(action, body.workspace or "", body.job_label or body.job_name or job_def.label)
         logger.info("terminal session created session=%s tmux=%s workspace=%s",
                      session_id, tmux_name, body.workspace or "(none)")
         return {
@@ -345,7 +342,6 @@ def execute_job(body: RunRequest):
         }
 
     cwd_path = str(ws_path) if ws_path else ""
-    log_operation("ジョブ実行", body.workspace or "", job_def.label)
     logger.info("job start job=%s workspace=%s", body.job, body.workspace or "(none)")
     try:
         result = run_job(job_def, ordered_args, workspace=cwd_path)

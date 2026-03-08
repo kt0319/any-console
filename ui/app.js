@@ -7,7 +7,6 @@
 import { panelBottom, setPanelBottom, panelBottomMediaQuery, splitMode } from './state-core.js';
 
 // ── Side-effect modules (register global listeners at import time) ──
-import './logger.js';
 import './terminal.js';
 import './terminal-connection.js';
 import './quick-input-keys.js';
@@ -20,7 +19,7 @@ import './git-log-branch-stash.js';
 
 // ── Modules used for wiring ──
 import { openTerminalSettings } from './settings-terminal.js';
-import { applyPanelBottom, openConfigFileView, openEditorSettings, openSettingsServerInfo, openProcessList, openOpLog, openActivityLog } from './settings.js';
+import { applyPanelBottom, openConfigFileView, openEditorSettings, openSettingsServerInfo, openProcessList } from './settings.js';
 import { updateQuickInputVisibility } from './terminal-connection.js';
 import { rebuildSplitLayout } from './terminal-split.js';
 import { renderTabBar } from './terminal-tabs.js';
@@ -48,8 +47,6 @@ bind("btn-editor-settings", openEditorSettings);
 bind("btn-config-file", openConfigFileView);
 bind("btn-process-list", openProcessList);
 bind("btn-server-info", openSettingsServerInfo);
-bind("btn-activity-log", openActivityLog);
-bind("btn-op-log", openOpLog);
 
 // ── Service Worker ──
 if ("serviceWorker" in navigator) {
