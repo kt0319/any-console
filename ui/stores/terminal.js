@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { ref, markRaw } from "vue";
 
 const TERMINAL_SETTINGS_KEY = "pi_console_terminal_settings";
 
@@ -76,6 +76,66 @@ export const useTerminalStore = defineStore("terminal", () => {
     return terminalSettings.value;
   }
 
+  function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, initialCommand, restored }) {
+    const Terminal = window.Terminal;
+    const FitAddon = window.FitAddon?.FitAddon;
+    const WebLinksAddon = window.WebLinksAddon?.WebLinksAddon;
+
+    const opts = getTerminalRuntimeOptions();
+    const term = new Terminal(opts);
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    if (WebLinksAddon) {
+      term.loadAddon(new WebLinksAddon());
+    }
+
+    const sessionId = wsUrl.replace(/.*\/terminal\/ws\//, "").replace(/\?.*/, "");
+    const id = ++terminalIdCounter.value;
+    const label = jobLabel || workspace || "terminal";
+
+    const tab = markRaw({
+      id,
+      sessionId,
+      wsUrl,
+      workspace: workspace || null,
+      label,
+      wsIcon: wsIcon ? { name: wsIcon, color: wsIconColor || null } : null,
+      icon: icon ? { name: icon, color: iconColor || null } : null,
+      jobName: jobName || null,
+      jobLabel: jobLabel || null,
+      term,
+      fitAddon,
+      ws: null,
+      _pendingOpen: true,
+      _pendingRedraw: !!restored,
+      _initialCommand: initialCommand || null,
+      _waitingInitialCommand: !!initialCommand,
+      _wsDisposed: false,
+      _reconnectAttempts: 0,
+      _reconnectTimer: null,
+      _activityTimer: null,
+      _inputBound: false,
+      _replacedByOtherDevice: false,
+    });
+
+    openTabs.value.push(tab);
+    return tab;
+  }
+
+  function removeTab(tabId) {
+    const idx = openTabs.value.findIndex((t) => t.id === tabId);
+    if (idx === -1) return;
+    openTabs.value.splice(idx, 1);
+    if (activeTabId.value === tabId) {
+      const next = openTabs.value[Math.min(idx, openTabs.value.length - 1)];
+      activeTabId.value = next ? next.id : null;
+    }
+  }
+
+  function switchTab(tabId) {
+    activeTabId.value = tabId;
+  }
+
   function getTerminalRuntimeOptions() {
     return {
       cursorBlink: terminalSettings.value.cursorBlink,
@@ -101,6 +161,9 @@ export const useTerminalStore = defineStore("terminal", () => {
     DEFAULT_TERMINAL_SETTINGS,
     saveTerminalSettings,
     setTerminalSetting,
+    addTerminalTab,
+    removeTab,
+    switchTab,
     resetTerminalSettings,
     getTerminalRuntimeOptions,
     sanitizeTerminalSetting,

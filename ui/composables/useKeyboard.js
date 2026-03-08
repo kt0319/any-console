@@ -19,7 +19,7 @@ export function useKeyboard() {
     const tabs = terminalStore.openTabs;
     const id = terminalStore.activeTabId;
     const tab = tabs.find((t) => t.id === id);
-    if (!tab || tab.type !== "terminal") return null;
+    if (!tab || !tab.term) return null;
     return tab;
   }
 

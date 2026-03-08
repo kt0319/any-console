@@ -2,12 +2,9 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 
 const QUICK_KEYS = [
-  { label: "\u232B", key: "Backspace", code: "Backspace", keyCode: 8 },
-  { label: "\u2190", key: "ArrowLeft", code: "ArrowLeft", keyCode: 37 },
-  { label: "\u2193", key: "ArrowDown", code: "ArrowDown", keyCode: 40 },
-  { label: "\u2191", key: "ArrowUp", code: "ArrowUp", keyCode: 38 },
-  { label: "\u2192", key: "ArrowRight", code: "ArrowRight", keyCode: 39 },
-  { label: "\u21B5", key: "Enter", code: "Enter", keyCode: 13 },
+  { label: "Tab", key: "Tab", code: "Tab", keyCode: 9 },
+  { label: "Ctrl", key: "Control", code: "ControlLeft", keyCode: 17, modifier: "ctrl" },
+  { label: "Esc", key: "Escape", code: "Escape", keyCode: 27 },
 ];
 
 const NUMBER_KEYS = [
@@ -23,13 +20,7 @@ const NUMBER_KEYS = [
   { label: "0", key: "0", code: "Digit0", keyCode: 48 },
 ];
 
-const EXTRA_MAIN_KEYS = [
-  { label: "Del", key: "Delete", code: "Delete", keyCode: 46 },
-  { label: "\u00AB", key: "Home", code: "Home", keyCode: 36 },
-  { html: '<span class="mdi mdi-chevron-double-down"></span>', xtermScroll: "down" },
-  { html: '<span class="mdi mdi-chevron-double-up"></span>', xtermScroll: "up" },
-  { label: "\u00BB", key: "End", code: "End", keyCode: 35 },
-];
+const EXTRA_MAIN_KEYS = [];
 
 const QWERTY_ROWS = [
   "qwertyuiop".split("").map((c, i) => {

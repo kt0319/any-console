@@ -16,6 +16,22 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     allWorkspaces.value.filter((ws) => !ws.hidden),
   );
 
+  async function fetchStatuses(auth) {
+    try {
+      const res = await auth.apiFetch("/workspaces/statuses");
+      if (!res || !res.ok) return;
+      const data = await res.json();
+      if (data.statuses) {
+        for (const status of data.statuses) {
+          const ws = allWorkspaces.value.find((w) => w.name === status.name);
+          if (ws) Object.assign(ws, status);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   return {
     allWorkspaces,
     selectedWorkspace,
@@ -27,5 +43,6 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     isLaunchingTerminal,
     appInitializing,
     visibleWorkspaces,
+    fetchStatuses,
   };
 });

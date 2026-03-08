@@ -1,5 +1,5 @@
 <template>
-  <BaseModal ref="baseModal" title="アイコン選択">
+  <ModalBase ref="baseModal" title="アイコン選択">
     <div class="icon-picker-input-row">
       <input
         ref="searchRef"
@@ -46,12 +46,12 @@
     <div ref="gridRef" class="icon-picker-grid">
       <div v-if="loadingIcons" class="icon-picker-loading">読み込み中...</div>
     </div>
-  </BaseModal>
+  </ModalBase>
 </template>
 
 <script setup>
 import { ref, nextTick } from "vue";
-import BaseModal from "./BaseModal.vue";
+import ModalBase from "./ModalBase.vue";
 import { emit } from "../app-bridge.js";
 
 const URL_PATTERN = /^(https?:\/\/|[a-zA-Z0-9-]+\.[a-zA-Z]{2,})/;

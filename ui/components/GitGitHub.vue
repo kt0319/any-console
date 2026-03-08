@@ -155,11 +155,8 @@ async function load() {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
 
-  const metaRes = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/meta`);
-  if (metaRes && metaRes.ok) {
-    const meta = await metaRes.json();
-    githubUrl.value = meta.github_url || "";
-  }
+  const ws = workspaceStore.allWorkspaces.find((w) => w.name === workspace);
+  githubUrl.value = ws?.github_url || "";
   if (!githubUrl.value) return;
 
   loadSection("issues", issues, issuesLoading, issuesError, workspace);

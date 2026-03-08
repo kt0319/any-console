@@ -8,12 +8,19 @@
   >
     <div ref="modalEl" class="modal">
       <div class="modal-header">
-        <h3 class="modal-title">
+        <h3
+          class="modal-title"
+          :class="{ 'modal-title-back': back }"
+          @click="back ? $emit('back') : null"
+        >
+          <span v-if="back" class="mdi mdi-arrow-left"></span>
           <slot name="title">{{ title }}</slot>
         </h3>
         <button type="button" class="modal-close-btn" @click="modal.close()">&times;</button>
       </div>
-      <slot />
+      <div class="modal-body">
+        <slot />
+      </div>
       <div v-if="$slots.actions" class="modal-actions">
         <slot name="actions" />
       </div>
@@ -27,8 +34,11 @@ import { useModal } from "../composables/useModal.js";
 
 const props = defineProps({
   title: { type: String, default: "" },
+  back: { type: Boolean, default: false },
   swipeClose: { type: Boolean, default: false },
 });
+
+defineEmits(["back"]);
 
 const modal = useModal();
 const modalEl = ref(null);

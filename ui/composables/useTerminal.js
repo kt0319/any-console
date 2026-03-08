@@ -82,8 +82,11 @@ export function useTerminal() {
 
     tab.term?.onResize(({ cols, rows }) => {
       if (ws.readyState === WebSocket.OPEN) {
-        const payload = JSON.stringify({ type: "resize", cols, rows });
-        ws.send(encoder.encode(payload));
+        const payload = encoder.encode(JSON.stringify({ type: "resize", cols, rows }));
+        const msg = new Uint8Array(1 + payload.length);
+        msg[0] = 0x00;
+        msg.set(payload, 1);
+        ws.send(msg);
       }
     });
   }

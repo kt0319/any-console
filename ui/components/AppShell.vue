@@ -1,34 +1,39 @@
 <template>
-  <div class="app-shell" :class="{ 'panel-bottom': panelBottom }">
-    <header class="app-header">
-      <WorkspaceHeader ref="workspaceHeader" />
-      <TabBar ref="tabBar" />
-    </header>
-
-    <main class="app-main">
-      <TerminalSplit ref="terminalSplit" />
-    </main>
-
-    <footer v-if="panelBottom" class="app-footer">
-      <SnippetBar ref="snippetBar" />
-      <KeyboardBar ref="keyboardBar" />
-    </footer>
+  <div class="main-panel" :class="{ 'panel-bottom': panelBottom }">
+    <StatusTabBar ref="tabBar" :tabs="openTabs" :orphans="orphanSessions">
+      <template v-if="panelBottom" #quick-input>
+        <KeyboardInput ref="keyboardBar" />
+      </template>
+    </StatusTabBar>
+    <TerminalBase ref="terminalSplit" />
+    <KeyboardSnippet v-if="panelBottom" ref="snippetBar" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
-import WorkspaceHeader from "./WorkspaceHeader.vue";
-import TabBar from "./TabBar.vue";
-import TerminalSplit from "./TerminalSplit.vue";
-import SnippetBar from "./SnippetBar.vue";
-import KeyboardBar from "./KeyboardBar.vue";
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
+import StatusTabBar from "./StatusTabBar.vue";
+import TerminalBase from "./TerminalBase.vue";
+import KeyboardSnippet from "./KeyboardSnippet.vue";
+import KeyboardInput from "./KeyboardInput.vue";
 import { useLayoutStore } from "../stores/layout.js";
-import { on } from "../app-bridge.js";
+import { useTerminalStore } from "../stores/terminal.js";
+import { useAuthStore } from "../stores/auth.js";
+import { useWorkspaceStore } from "../stores/workspace.js";
+import { useTerminal } from "../composables/useTerminal.js";
+import { useKeyboard } from "../composables/useKeyboard.js";
+import { on, emit } from "../app-bridge.js";
 
 const layoutStore = useLayoutStore();
+const terminalStore = useTerminalStore();
+const auth = useAuthStore();
+const workspaceStore = useWorkspaceStore();
+const { disconnectTerminal, deleteSession } = useTerminal();
+const { sendTextToTerminal } = useKeyboard();
 
-const workspaceHeader = ref(null);
+const openTabs = computed(() => terminalStore.openTabs);
+const orphanSessions = computed(() => terminalStore.orphanSessions);
+
 const tabBar = ref(null);
 const terminalSplit = ref(null);
 const snippetBar = ref(null);
@@ -37,6 +42,58 @@ const keyboardBar = ref(null);
 const panelBottom = computed(() => layoutStore.panelBottom);
 
 let resizeObserver = null;
+
+async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, jobIcon, jobIconColor, initialCommand }) {
+  try {
+    const res = await auth.apiFetch("/run", {
+      method: "POST",
+      body: {
+        job: "terminal",
+        workspace: workspace || null,
+        icon: icon || null,
+        icon_color: iconColor || null,
+        job_name: jobName || null,
+        job_label: jobLabel || null,
+      },
+    });
+    if (!res || !res.ok) {
+      const detail = res ? await res.text() : "no response";
+      emit("toast:show", { message: `ターミナル起動失敗: ${detail}`, type: "error" });
+      return;
+    }
+    const data = await res.json();
+    const tab = terminalStore.addTerminalTab({
+      wsUrl: data.ws_url,
+      workspace,
+      wsIcon: icon || "mdi-console",
+      wsIconColor: iconColor,
+      icon: jobIcon,
+      iconColor: jobIconColor,
+      jobName,
+      jobLabel,
+      initialCommand,
+    });
+    terminalStore.switchTab(tab.id);
+    await nextTick();
+    terminalSplit.value?.fitAllTerminals();
+  } catch (e) {
+    emit("toast:show", { message: `ターミナル起動エラー: ${e.message}`, type: "error" });
+  }
+}
+
+async function closeTab(tab) {
+  const tabId = tab.id;
+  const sessionId = tab.sessionId;
+  const tabObj = terminalStore.openTabs.find((t) => t.id === tabId);
+  if (tabObj) {
+    disconnectTerminal(tabObj);
+    if (tabObj.term) tabObj.term.dispose();
+  }
+  terminalStore.removeTab(tabId);
+  if (sessionId) {
+    await deleteSession(sessionId);
+  }
+}
 
 onMounted(() => {
   on("layout:fitAll", () => {
@@ -47,11 +104,32 @@ onMounted(() => {
     snippetBar.value?.toggle();
   });
 
+  on("tab:select", ({ tab }) => {
+    terminalStore.switchTab(tab.id);
+    if (tab.workspace) {
+      workspaceStore.selectedWorkspace = tab.workspace;
+    }
+  });
+
+  on("tab:close", ({ tab }) => {
+    closeTab(tab);
+    const activeTab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
+    workspaceStore.selectedWorkspace = activeTab?.workspace || null;
+  });
+
+  on("terminal:launch", (detail) => {
+    launchTerminal(detail);
+  });
+
+  on("snippet:tap", ({ command }) => {
+    sendTextToTerminal(command + "\n");
+  });
+
   if (typeof ResizeObserver !== "undefined") {
     resizeObserver = new ResizeObserver(() => {
       terminalSplit.value?.fitAllTerminals();
     });
-    const main = document.querySelector(".app-main");
+    const main = document.querySelector(".main-panel");
     if (main) resizeObserver.observe(main);
   }
 });
@@ -65,6 +143,5 @@ defineExpose({
   terminalSplit,
   snippetBar,
   keyboardBar,
-  workspaceHeader,
 });
 </script>

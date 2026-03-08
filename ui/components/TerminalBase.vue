@@ -1,10 +1,39 @@
 <template>
   <div
-    id="output-container"
+    class="output-container"
     :class="splitContainerClasses"
     ref="containerEl"
   >
+    <div v-if="showDropZones" class="split-drop-overlay">
+      <template v-if="!panelBottom">
+        <div class="split-drop-zone drop-left" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'left')">
+          <span class="mdi mdi-arrow-left drop-zone-icon"></span>
+        </div>
+        <div class="split-drop-zone drop-right" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'right')">
+          <span class="mdi mdi-arrow-right drop-zone-icon"></span>
+        </div>
+      </template>
+      <div class="split-drop-zone drop-top" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'top')">
+        <span class="mdi mdi-arrow-up drop-zone-icon"></span>
+      </div>
+      <div class="split-drop-zone drop-bottom" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'bottom')">
+        <span class="mdi mdi-arrow-down drop-zone-icon"></span>
+      </div>
+      <div class="split-drop-zone drop-center" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'center')">
+        <span class="mdi mdi-fullscreen drop-zone-icon"></span>
+      </div>
+    </div>
+
+    <div v-if="openTabs.length === 0 && !splitMode" class="empty-tab-placeholder">
+      <div class="empty-tab-actions">
+        <button type="button" class="empty-tab-open-btn" @click="openWorkspaceModal">
+          <span class="mdi mdi-plus"></span> ワークスペースを開く
+        </button>
+      </div>
+    </div>
+
     <template v-if="!splitMode">
+      <StatusGitBar />
       <TerminalPane
         v-for="tab in openTabs"
         v-show="tab.id === activeTabId"
@@ -45,11 +74,17 @@
 <script setup>
 import { ref, computed, watch, nextTick } from "vue";
 import TerminalPane from "./TerminalPane.vue";
+import StatusGitBar from "./StatusGitBar.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
+import { emit } from "../app-bridge.js";
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
+
+function openWorkspaceModal() {
+  emit("workspace:openModal");
+}
 
 const containerEl = ref(null);
 const paneRefs = ref([]);
@@ -60,6 +95,28 @@ const splitMode = computed(() => layoutStore.splitMode);
 const splitLayout = computed(() => layoutStore.splitLayout || "horizontal");
 const splitPaneTabIds = computed(() => layoutStore.splitPaneTabIds);
 const activePaneIndex = computed(() => layoutStore.activePaneIndex);
+const showDropZones = computed(() => layoutStore.showDropZones);
+const panelBottom = computed(() => layoutStore.panelBottom);
+
+function onDragEnter(e) {
+  e.currentTarget.classList.add("drag-over");
+}
+
+function onDragLeave(e) {
+  e.currentTarget.classList.remove("drag-over");
+}
+
+function onDrop(e, direction) {
+  e.preventDefault();
+  e.currentTarget.classList.remove("drag-over");
+  layoutStore.showDropZones = false;
+  const raw = layoutStore.dragTabId || e.dataTransfer.getData("text/plain");
+  const tabId = typeof raw === "string" ? parseInt(raw, 10) : raw;
+  if (tabId) {
+    layoutStore.splitWithDrop(tabId, direction, terminalStore.openTabs, terminalStore.activeTabId);
+  }
+  layoutStore.dragTabId = null;
+}
 
 const splitContainerClasses = computed(() => {
   if (!splitMode.value) return {};

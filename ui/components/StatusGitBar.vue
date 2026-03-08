@@ -6,9 +6,8 @@
       class="commit-msg-btn"
       :title="commitTooltip"
       @click="openFileModal"
-      v-html="commitMsgHtml"
+      v-html="commitMsgHtml + numstatHtml"
     />
-    <div v-if="isGitRepo" class="git-summary-panel" v-html="gitStatusHtml"></div>
     <button
       v-if="!isGitRepo && workspace"
       type="button"
@@ -91,20 +90,21 @@ const commitMsgHtml = computed(() => {
   if (!ws.value) return "";
   const branch = ws.value.branch || "";
   const msg = isDirty.value ? "未コミットの変更" : (ws.value.last_commit_message || "");
+  const msgClass = isDirty.value ? "commit-btn-msg commit-btn-msg-muted" : "commit-btn-msg";
   const escaped = escapeHtml(msg);
-  return branch ? `<span class="branch-name">${escapeHtml(branch)}</span> ${escaped}` : escaped;
+  return `<span class="commit-btn-branch">${escapeHtml(branch)}</span>` +
+    `<span class="commit-btn-msg-wrap"><span class="${msgClass}">${escaped}</span></span>`;
 });
 
 const commitTooltip = computed(() => "コミット履歴");
 
-const gitStatusHtml = computed(() => {
+const numstatHtml = computed(() => {
   if (!ws.value || !isDirty.value) return "";
-  const parts = [];
-  if (ws.value.added) parts.push(`<span class="numstat-added">+${ws.value.added}</span>`);
-  if (ws.value.modified) parts.push(`<span class="numstat-modified">~${ws.value.modified}</span>`);
-  if (ws.value.deleted) parts.push(`<span class="numstat-deleted">-${ws.value.deleted}</span>`);
-  if (ws.value.untracked) parts.push(`<span class="numstat-untracked">?${ws.value.untracked}</span>`);
-  return parts.join(" ");
+  const changedFiles = ws.value.changed_files || 0;
+  const insertions = ws.value.insertions || 0;
+  const deletions = ws.value.deletions || 0;
+  const fileCountHtml = changedFiles > 0 ? `<span class="header-git-files">${changedFiles}F</span>` : "";
+  return `<span class="header-git-numstat">${fileCountHtml}<span class="diff-num-plus">+${insertions}</span><span class="diff-num-del">-${deletions}</span></span>`;
 });
 
 function escapeHtml(str) {

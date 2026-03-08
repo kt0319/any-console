@@ -8,12 +8,17 @@
         :key="entry.hash"
         class="git-log-entry git-log-commit"
         @click="selectCommit(entry)"
+        @touchstart.passive="onLongPressStart($event, entry)"
+        @touchend="onLongPressEnd"
+        @touchcancel="onLongPressEnd"
       >
         <span class="git-log-entry-body">
           <span class="git-log-entry-msg">{{ entry.message }}</span>
           <span class="git-log-entry-row1">
-            <span v-if="entry.refs.length" class="git-log-entry-refs">
-              <span v-for="r in entry.refs" :key="r" class="git-ref">{{ r }}</span>
+            <span class="git-log-entry-row1-left">
+              <span v-if="entry.refs.length" class="git-log-entry-refs">
+                <span v-for="r in entry.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type"><span :class="'mdi ' + r.icon"></span>{{ r.label }}</span>
+              </span>
             </span>
             <span class="git-log-entry-meta">
               <span class="git-log-entry-author">{{ entry.author }}</span>
@@ -44,16 +49,37 @@ const hasMore = ref(false);
 const listEl = ref(null);
 let page = 0;
 
+function parseRefs(refsStr) {
+  if (!refsStr) return [];
+  return refsStr.split(", ")
+    .filter((r) => r !== "HEAD" && r !== "origin/HEAD")
+    .map((r) => {
+      if (r.startsWith("HEAD -> ")) {
+        return { label: r.replace("HEAD -> ", ""), type: "head", icon: "mdi-source-branch" };
+      }
+      if (r.startsWith("tag: ")) {
+        return { label: r.replace("tag: ", ""), type: "tag", icon: "mdi-tag-outline" };
+      }
+      if (r.startsWith("origin/")) {
+        return { label: r, type: "remote", icon: "mdi-github" };
+      }
+      if (r.startsWith("upstream/")) {
+        return { label: r, type: "remote", icon: "mdi-server" };
+      }
+      return { label: r, type: "branch", icon: "mdi-source-branch" };
+    });
+}
+
 function parseLogEntries(stdout) {
   if (!stdout) return [];
   const lines = stdout.trim().split("\n");
   const result = [];
   for (const line of lines) {
-    const parts = line.split("\x00");
+    const parts = line.split("\t");
     if (parts.length < 5) continue;
-    const [hash, refs, author, time, ...msgParts] = parts;
-    const message = msgParts.join("\x00");
-    const refList = refs ? refs.split(", ").map((r) => r.replace(/^HEAD -> /, "").replace(/^tag: /, "")).filter(Boolean) : [];
+    const [hash, time, author, refs, ...msgParts] = parts;
+    const message = msgParts.join("\t");
+    const refList = refs ? parseRefs(refs) : [];
     result.push({ hash: hash.slice(0, 8), fullHash: hash, refs: refList, author, time: formatTime(time), message });
   }
   return result;
@@ -78,7 +104,7 @@ async function load() {
   page = 0;
   try {
     const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/log?limit=${perPage}&offset=0`);
+    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/git-log?limit=${perPage}&skip=0`);
     if (!res || !res.ok) { loading.value = false; return; }
     const data = await res.json();
     entries.value = parseLogEntries(data.stdout);
@@ -96,7 +122,7 @@ async function loadMore() {
   page++;
   const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/log?limit=${perPage}&offset=${page * perPage}`);
+    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/git-log?limit=${perPage}&skip=${page * perPage}`);
     if (!res || !res.ok) return;
     const data = await res.json();
     const newEntries = parseLogEntries(data.stdout);
@@ -107,7 +133,33 @@ async function loadMore() {
   }
 }
 
+let longPressTimer = null;
+let longPressEl = null;
+
+function onLongPressStart(e, entry) {
+  const el = e.currentTarget;
+  longPressEl = el;
+  el.classList.add("long-pressing");
+  longPressTimer = setTimeout(() => {
+    el.classList.remove("long-pressing");
+    el.classList.add("long-pressed");
+    emit("git:commitLongPress", { hash: entry.fullHash, message: entry.message, el });
+  }, 500);
+}
+
+function onLongPressEnd() {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+  if (longPressEl) {
+    longPressEl.classList.remove("long-pressing", "long-pressed");
+    longPressEl = null;
+  }
+}
+
 function selectCommit(entry) {
+  if (longPressEl) return;
   emit("git:selectCommit", { hash: entry.fullHash, message: entry.message, refs: entry.refs });
 }
 

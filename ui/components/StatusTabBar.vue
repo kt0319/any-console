@@ -1,7 +1,7 @@
 <template>
   <div class="tab-bar-row" :style="{ display: showBarRow ? 'flex' : 'none' }">
-    <div class="tab-bar" :style="{ display: splitMode ? 'none' : '' }">
-      <TabItem
+    <div class="tab-bar" :style="{ display: splitMode ? 'none' : '' }" @dblclick.self="onBarDblClick">
+      <StatusTabItem
         v-for="item in sortedItems"
         :key="item.tab.id || item.tab.wsUrl"
         :tab="item.tab"
@@ -10,6 +10,7 @@
         :is-orphan="item.type === 'orphan'"
         @select="onSelect"
         @close="onClose"
+        @active-click="onActiveClick"
       />
     </div>
     <slot name="quick-input" />
@@ -18,7 +19,7 @@
 
 <script setup>
 import { computed } from "vue";
-import TabItem from "./TabItem.vue";
+import StatusTabItem from "./StatusTabItem.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { emit } from "../app-bridge.js";
@@ -55,5 +56,13 @@ function onSelect(tab) {
 
 function onClose(tab) {
   emit("tab:close", { tab });
+}
+
+function onActiveClick() {
+  emit("workspace:openModal");
+}
+
+function onBarDblClick() {
+  emit("workspace:openModal");
 }
 </script>
