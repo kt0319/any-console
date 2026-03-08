@@ -4035,7 +4035,7 @@ button:disabled {
   padding-top: calc(10px + env(safe-area-inset-top, 0px));
 }
 
-.pwa:has(.panel-bottom) {
+.pwa, .pwa body {
   background: var(--bg-secondary);
 }
 

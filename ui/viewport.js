@@ -1,5 +1,5 @@
 // @ts-check
-import { openTabs, activeTabId, splitMode, splitPaneTabIds, panelBottom, isTouchDevice, isPageUnloading, setIsPageUnloading } from './state-core.js';
+import { openTabs, activeTabId, splitMode, splitPaneTabIds, panelBottom, isTouchDevice, isPageUnloading, setIsPageUnloading, isPwa } from './state-core.js';
 import { $, safeFit } from './utils.js';
 import { addInputHistory } from './state-input.js';
 
@@ -24,9 +24,10 @@ export function updateViewportHeight() {
   const viewportHeight = vv ? vv.height : window.innerHeight;
   const viewportHeightPx = Math.round(viewportHeight);
   const keyboardOpen = vv && (window.innerHeight - vv.height > 100);
+  const useFullHeight = isPwa && !keyboardOpen;
   const iconPickerModal = $("icon-picker-modal");
   const iconPickerOpen = !!iconPickerModal && iconPickerModal.style.display !== "none";
-  const appliedViewportHeightPx = (keyboardOpen && iconPickerOpen)
+  const appliedViewportHeightPx = (useFullHeight || (keyboardOpen && iconPickerOpen))
     ? Math.round(window.innerHeight)
     : viewportHeightPx;
   if (prevViewportHeightPx !== appliedViewportHeightPx) {
