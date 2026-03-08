@@ -187,6 +187,7 @@ export function getFileBrowserBadgeLabel(view = "tab") {
  * @param {boolean} [options.currentInteractive] - Whether the current segment is clickable
  * @param {string} [options.downloadPath] - Path for download button
  * @param {boolean} [options.hideUpload] - Whether to hide the upload button
+ * @param {string} [options.editorUrl] - URL to open file in editor
  * @returns {string} HTML string
  */
 export function buildBreadcrumbHtml(parts, uploadPath = "", options = {}) {
@@ -197,6 +198,7 @@ export function buildBreadcrumbHtml(parts, uploadPath = "", options = {}) {
   const currentPath = options.currentPath || "";
   const currentInteractive = !!options.currentInteractive;
   const downloadPath = options.downloadPath || "";
+  const editorUrl = options.editorUrl || "";
   let html = '<div class="file-browser-header">';
   html += `<button type="button" class="file-browser-crumb" data-path="">${escapeHtml(rootLabel)}</button>`;
   for (let i = 0; i < parts.length; i++) {
@@ -219,6 +221,9 @@ export function buildBreadcrumbHtml(parts, uploadPath = "", options = {}) {
       html += `<span class="file-browser-crumb-badge">${escapeHtml(badgeLabel)}</span>`;
     }
   }
+  if (editorUrl) {
+    html += `<a href="${escapeHtml(editorUrl)}" class="file-browser-editor" title="エディタで開く"><span class="mdi mdi-application-edit-outline"></span></a>`;
+  }
   if (downloadPath) {
     html += `<button type="button" class="file-browser-download" data-path="${escapeHtml(downloadPath)}"><span class="mdi mdi-download"></span></button>`;
   }
@@ -240,7 +245,10 @@ export function buildBreadcrumbHtml(parts, uploadPath = "", options = {}) {
  */
 function buildFileBrowserHtml(path, entries, options = {}) {
   const parts = path ? path.split("/") : [];
-  const breadcrumb = buildBreadcrumbHtml(parts, path || "", options);
+  const editorSshHost = getEditorSshHost();
+  const workDir = getWorkDir();
+  const editorUrl = (editorSshHost && workDir) ? `zed://ssh/${editorSshHost}${workDir}/${selectedWorkspace}` : "";
+  const breadcrumb = buildBreadcrumbHtml(parts, path || "", { ...options, editorUrl });
 
   let list = '<ul class="file-browser-list">';
   if (path) {
@@ -302,7 +310,10 @@ function fileBrowserMessage(text, muted = false) {
 function buildFileContentHtml(path, data, options = {}) {
   const parts = path.split("/");
   const parentPath = parts.slice(0, -1).join("/");
-  const breadcrumb = buildBreadcrumbHtml(parts, parentPath, { ...options, downloadPath: path, hideUpload: true });
+  const editorSshHost = getEditorSshHost();
+  const workDir = getWorkDir();
+  const editorUrl = (editorSshHost && workDir) ? `zed://ssh/${editorSshHost}${workDir}/${selectedWorkspace}` : "";
+  const breadcrumb = buildBreadcrumbHtml(parts, parentPath, { ...options, hideUpload: true, editorUrl });
 
   let body = "";
   if (data.image) {
@@ -800,21 +811,6 @@ function showFileBrowserActionMenu(item, container, config) {
       window.open(githubLink, "_blank");
     });
     menu.appendChild(ghBtn);
-  }
-
-  const editorSshHost = getEditorSshHost();
-  const workDir = getWorkDir();
-  if (editorSshHost && workDir && item.dataset.type !== "dir") {
-    const projectPath = `${workDir}/${selectedWorkspace}`;
-    const projectUrl = `zed://ssh/${editorSshHost}${projectPath}`;
-    const editorBtn = document.createElement("button");
-    editorBtn.type = "button";
-    editorBtn.innerHTML = '<i class="mdi mdi-application-edit-outline"></i> エディタ';
-    editorBtn.addEventListener("click", () => {
-      menu.remove();
-      window.location.href = projectUrl;
-    });
-    menu.appendChild(editorBtn);
   }
 
   menu.appendChild(renameBtn);

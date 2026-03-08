@@ -1300,6 +1300,7 @@ header {
   cursor: pointer;
 }
 
+.file-browser-editor,
 .file-browser-download,
 .file-browser-upload {
   display: inline-flex;
@@ -1318,8 +1319,11 @@ header {
   line-height: 1;
   cursor: pointer;
   margin-left: auto;
+  text-decoration: none;
 }
 
+.file-browser-editor + .file-browser-download,
+.file-browser-editor + .file-browser-upload,
 .file-browser-download + .file-browser-upload {
   margin-left: 4px;
 }
