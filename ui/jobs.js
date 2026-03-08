@@ -1,7 +1,7 @@
 // @ts-check
 import { selectedWorkspace, workspaceJobs, setWorkspaceJobs, workspaceJobsCache, setWorkspaceJobsCache, workspaceJobsLoadedFor, setWorkspaceJobsLoadedFor, pendingJob, setPendingJob, allWorkspaces, isLaunchingTerminal, setIsLaunchingTerminal } from './state-core.js';
 import { apiFetch, workspaceApiPath, getActionFailureMessage } from './api-client.js';
-import { $, escapeHtml, showToast, trapFocus } from './utils.js';
+import { $, escapeHtml, showToast, createModalTrap } from './utils.js';
 import { renderTabBar, addTerminalTab } from './terminal-tabs.js';
 
 /**
@@ -182,19 +182,14 @@ export async function openJobConfirmModal(name) {
     }
   }
 
-  $("job-confirm-modal").style.display = "flex";
-  _releaseFocusTrap = trapFocus($("job-confirm-modal"), closeJobConfirmModal);
+  _jobModalTrap.open();
 }
 
 /**
  * @returns {void}
  */
 export function closeJobConfirmModal() {
-  $("job-confirm-modal").style.display = "none";
-  if (_releaseFocusTrap) {
-    _releaseFocusTrap();
-    _releaseFocusTrap = null;
-  }
+  _jobModalTrap.close();
 }
 
 /**
@@ -211,7 +206,7 @@ export function collectConfirmArgs() {
   return args;
 }
 
-let _releaseFocusTrap = null;
+const _jobModalTrap = createModalTrap("job-confirm-modal", () => closeJobConfirmModal());
 
 /** @type {Promise<void>} */
 export let jobExecutionQueue = Promise.resolve();

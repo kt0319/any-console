@@ -514,6 +514,29 @@ export function trapFocus(modal, closeFn) {
   return () => modal.removeEventListener("keydown", onKeydown);
 }
 
+/**
+ * @param {string} modalId
+ * @param {() => void} closeFn
+ * @returns {{ open: () => void, close: () => void }}
+ */
+export function createModalTrap(modalId, closeFn) {
+  let release = null;
+  return {
+    open() {
+      const el = $(modalId);
+      el.style.display = "flex";
+      release = trapFocus(el, closeFn);
+    },
+    close() {
+      $(modalId).style.display = "none";
+      if (release) {
+        release();
+        release = null;
+      }
+    },
+  };
+}
+
 export const VALID_ICON_COLOR = /^#[0-9a-fA-F]{3,6}$/;
 
 /**

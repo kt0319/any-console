@@ -1,7 +1,7 @@
 // @ts-check
 import { selectedWorkspace, allWorkspaces, splitMode, openTabs, activeTabId } from './state-core.js';
 import { apiFetch, workspaceApiPath, getActionFailureMessage, setListStatus } from './api-client.js';
-import { showToast, escapeHtml, renderActionButtons, showFormError, hideFormError, $, formatCommitTime, setupModalSwipeClose, trapFocus } from './utils.js';
+import { showToast, escapeHtml, renderActionButtons, showFormError, hideFormError, $, formatCommitTime, setupModalSwipeClose, createModalTrap } from './utils.js';
 import { GIT_LOG_ENTRIES_PER_PAGE } from './state-git.js';
 
 // Circular deps (only used in function bodies)
@@ -12,7 +12,7 @@ import { syncWorkspaceForTab } from './terminal-tab-header.js';
 import { loadDirectoryInDiffPane } from './git-file-browser.js';
 
 const GIT_PANE_MAP = { history: "git-history-pane", files: "git-files-pane", stash: "git-stash-pane", branch: "git-branch-pane", github: "git-github-pane" };
-let _releaseFocusTrap = null;
+const _fileModalTrap = createModalTrap("file-modal", () => GitLogModal.closeFileModal());
 
 export const GitLogModal = {
   state: {
@@ -68,11 +68,7 @@ export const GitLogModal = {
    * Closes the file modal and resets all related state.
    */
   closeFileModal() {
-    $("file-modal").style.display = "none";
-    if (_releaseFocusTrap) {
-      _releaseFocusTrap();
-      _releaseFocusTrap = null;
-    }
+    _fileModalTrap.close();
     GitLogModal.resetActionMenu();
     closeCommitForm();
     GitLogModal.setModalTitle("");
@@ -383,8 +379,7 @@ export const GitLogModal = {
     if (!selectedWorkspace) return;
     GitLogModal.state.onBack = onBack || null;
     GitLogModal.ensureDiffTabVisible();
-    $("file-modal").style.display = "flex";
-    _releaseFocusTrap = trapFocus($("file-modal"), GitLogModal.closeFileModal);
+    _fileModalTrap.open();
     clearActiveDiffRef();
 
     if (GitLogModal.isCurrentWorkspaceGitRepo()) {

@@ -1,6 +1,6 @@
 // @ts-check
 import { panelBottom } from './state-core.js';
-import { $, escapeHtml, showToast, toDisplayMessage } from './utils.js';
+import { $, escapeHtml, showToast, toDisplayMessage, createModalTrap } from './utils.js';
 import { apiFetch } from './api-client.js';
 import { loadWorkspaces } from './workspace.js';
 import { updateSettingsConnInfo } from './auth.js';
@@ -239,25 +239,28 @@ export function renderEditorSettingsPane(container) {
 
 /**
  */
-export async function openEditorSettings() {
-  const title = "エディタ";
+/**
+ * @param {string} title
+ * @param {string} viewId
+ */
+function openSettingsPane(title, viewId) {
   $("settings-modal").querySelector(".modal-title").textContent = title;
   updateSettingsConnInfo();
-  showSettingsView("settings-editor-view");
-  $("settings-modal").style.display = "flex";
+  showSettingsView(viewId);
+  _settingsModalTrap.open();
+}
+
+export async function openEditorSettings() {
+  openSettingsPane("エディタ", "settings-editor-view");
   renderEditorSettingsPane($("settings-editor-body"));
 }
 
-let _releaseFocusTrap = null;
+const _settingsModalTrap = createModalTrap("settings-modal", () => closeSettings());
 
 /**
  */
 export function closeSettings() {
-  $("settings-modal").style.display = "none";
-  if (_releaseFocusTrap) {
-    _releaseFocusTrap();
-    _releaseFocusTrap = null;
-  }
+  _settingsModalTrap.close();
 }
 
 /**
@@ -340,10 +343,7 @@ export async function renderServerInfoTo(container) {
  * @returns {Promise<void>}
  */
 export async function openSettingsServerInfo() {
-  $("settings-modal").querySelector(".modal-title").textContent = "サーバー情報";
-  updateSettingsConnInfo();
-  showSettingsView("settings-server-info-view");
-  $("settings-modal").style.display = "flex";
+  openSettingsPane("サーバー情報", "settings-server-info-view");
   await renderServerInfoTo($("server-info-list"));
 }
 
@@ -465,11 +465,6 @@ export async function renderConfigFileView(container) {
  * @returns {Promise<void>}
  */
 export async function openConfigFileView() {
-  const title = "設定ファイル";
-  $("settings-modal").querySelector(".modal-title").textContent = title;
-  updateSettingsConnInfo();
-  showSettingsView("settings-config-file-view");
-  $("settings-modal").style.display = "flex";
-  const container = $("config-file-body");
-  await renderConfigFileView(container);
+  openSettingsPane("設定ファイル", "settings-config-file-view");
+  await renderConfigFileView($("config-file-body"));
 }
