@@ -1,8 +1,8 @@
 // @ts-check
-import { panelBottom, getTerminalRuntimeOptions } from './state-core.js';
-import { $, escapeHtml, showToast, toDisplayMessage, trapFocus } from './utils.js';
-import { apiFetch, fetchAndRenderWithStatus } from './api-client.js';
-import { refreshWorkspaceHeader, loadWorkspaces } from './workspace.js';
+import { panelBottom } from './state-core.js';
+import { $, escapeHtml, showToast, toDisplayMessage } from './utils.js';
+import { apiFetch } from './api-client.js';
+import { loadWorkspaces } from './workspace.js';
 import { updateSettingsConnInfo } from './auth.js';
 import { invalidateWorkspaceMetaCache, invalidateGithubReposCache } from './cache.js';
 
@@ -16,7 +16,7 @@ export function applyPanelBottom() {
  * @param {string} viewId
  */
 export function showSettingsView(viewId) {
-  for (const id of ["settings-menu-view", "settings-terminal-view", "settings-editor-view", "settings-server-info-view", "settings-process-list-view", "settings-config-file-view"]) {
+  for (const id of ["settings-menu-view", "settings-terminal-view", "settings-editor-view", "settings-server-info-view", "settings-config-file-view"]) {
     const el = $(id);
     if (el) el.style.display = id === viewId ? "" : "none";
   }
@@ -260,26 +260,23 @@ export function closeSettings() {
   }
 }
 
-export const SERVER_INFO_LABELS = {
-  hostname: "ホスト名",
-  ip: "IPアドレス",
-  os: "OS",
-  uptime: "稼働時間",
-  cpu_temp: "CPU温度",
-  memory: "メモリ",
-  disk: "ディスク",
-};
-
 /**
  * @param {HTMLElement} container
  * @param {object} data
  */
 export function renderServerInfoRows(container, data) {
-  for (const [key, label] of Object.entries(SERVER_INFO_LABELS)) {
-    if (!(key in data)) continue;
+  const lines = [
+    [data.hostname, data.os],
+    [data.ip, data.uptime],
+    data.cpu_temp ? [data.memory, data.cpu_temp] : [data.memory],
+    [data.disk],
+  ];
+  for (const parts of lines) {
+    const filtered = parts.filter(Boolean);
+    if (filtered.length === 0) continue;
     const row = document.createElement("div");
-    row.className = "server-info-row";
-    row.innerHTML = `<span class="server-info-label">${escapeHtml(label)}</span><span class="server-info-value">${escapeHtml(String(data[key]))}</span>`;
+    row.className = "server-info-compact-row";
+    row.textContent = filtered.join(" | ");
     container.appendChild(row);
   }
 }
@@ -308,56 +305,47 @@ export function renderProcessRows(container, processes) {
  * @returns {Promise<void>}
  */
 export async function renderServerInfoTo(container) {
-  await fetchAndRenderWithStatus(container, "/system/info", (data) => renderServerInfoRows(container, data));
-}
+  container.innerHTML = "";
+  const [infoRes, procRes] = await Promise.all([
+    apiFetch("/system/info"),
+    apiFetch("/system/processes"),
+  ]);
 
-/**
- * @param {HTMLElement} container
- * @returns {Promise<void>}
- */
-export async function renderProcessListTo(container) {
-  await fetchAndRenderWithStatus(container, "/system/processes", (data) => renderProcessRows(container, data));
-}
+  if (infoRes && infoRes.ok) {
+    const data = await infoRes.json();
+    renderServerInfoRows(container, data);
+  } else {
+    const msg = document.createElement("div");
+    msg.className = "status-message error";
+    msg.textContent = toDisplayMessage("サーバー情報の取得に失敗しました");
+    container.appendChild(msg);
+  }
 
-/**
- * @param {{ title: string, viewId: string, listId: string, renderFn: (container: HTMLElement) => Promise<void> }} options
- * @returns {Promise<void>}
- */
-export async function openSettingsDataView({
-  title,
-  viewId,
-  listId,
-  renderFn,
-}) {
-  $("settings-modal").querySelector(".modal-title").textContent = title;
-  updateSettingsConnInfo();
-  showSettingsView(viewId);
-  $("settings-modal").style.display = "flex";
-  await renderFn($(listId));
+  const sep = document.createElement("div");
+  sep.className = "process-section-separator";
+  sep.textContent = "プロセス";
+  container.appendChild(sep);
+
+  if (procRes && procRes.ok) {
+    const data = await procRes.json();
+    renderProcessRows(container, data);
+  } else {
+    const msg = document.createElement("div");
+    msg.className = "status-message error";
+    msg.textContent = toDisplayMessage("プロセス一覧の取得に失敗しました");
+    container.appendChild(msg);
+  }
 }
 
 /**
  * @returns {Promise<void>}
  */
 export async function openSettingsServerInfo() {
-  await openSettingsDataView({
-    title: "サーバー情報",
-    viewId: "settings-server-info-view",
-    listId: "server-info-list",
-    renderFn: renderServerInfoTo,
-  });
-}
-
-/**
- * @returns {Promise<void>}
- */
-export async function openProcessList() {
-  await openSettingsDataView({
-    title: "プロセス一覧",
-    viewId: "settings-process-list-view",
-    listId: "process-list",
-    renderFn: renderProcessListTo,
-  });
+  $("settings-modal").querySelector(".modal-title").textContent = "サーバー";
+  updateSettingsConnInfo();
+  showSettingsView("settings-server-info-view");
+  $("settings-modal").style.display = "flex";
+  await renderServerInfoTo($("server-info-list"));
 }
 
 /**

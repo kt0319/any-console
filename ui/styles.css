@@ -1815,32 +1815,36 @@ button:disabled {
 }
 
 
+.server-info-compact-row {
+  padding: 4px;
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.process-section-separator {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 8px 0 4px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+
 .server-info-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 4px;
+  padding: 6px 4px;
   border-bottom: 1px solid var(--border);
   font-size: 14px;
-  min-height: 44px;
+  min-height: 32px;
 }
 
 .server-info-row:last-child {
   border-bottom: none;
-}
-
-.server-info-label {
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-
-.server-info-value {
-  color: var(--text-primary);
-  text-align: right;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .process-row {
@@ -1997,9 +2001,7 @@ button:disabled {
 }
 
 #settings-terminal-view,
-#settings-server-info-view,
-#settings-process-list-view,
-#settings-op-log-view {
+#settings-server-info-view {
   display: flex;
   flex-direction: column;
   overflow: hidden;

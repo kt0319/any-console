@@ -7,7 +7,7 @@ import { createTerminalTabModalWorkspaceSection } from './terminal-tab-modal-wor
 import { createTabListRenderer } from './terminal-tab-modal-list.js';
 import { renderTerminalSettingsPane } from './settings-terminal.js';
 import { renderWorkspaceSettingsPane } from './settings-workspace.js';
-import { renderProcessListTo, renderServerInfoTo, renderConfigFileView, renderEditorSettingsPane } from './settings.js';
+import { renderServerInfoTo, renderConfigFileView, renderEditorSettingsPane } from './settings.js';
 import { updateSettingsConnInfo } from './auth.js';
 
 /**
@@ -220,8 +220,7 @@ export function openTabEditModal(initialTab = "layout") {
       { icon: "mdi-format-font-size-increase", label: "ターミナル", action: () => showModalSubView("ターミナル", (body) => renderTerminalSettingsPane(body, { onBack: () => switchModalTab("settings") })) },
       { icon: "mdi-application-edit-outline", label: "エディタ", action: () => showModalSubView("エディタ", renderEditorSettingsPane) },
       { icon: "mdi-file-cog", label: "設定ファイル", action: () => showModalSubView("設定ファイル", renderConfigFileView) },
-      { icon: "mdi-format-list-bulleted", label: "プロセス一覧", action: () => showModalSubView("プロセス一覧", renderProcessListTo) },
-      { icon: "mdi-information-outline", label: "サーバー情報", action: () => showModalSubView("サーバー情報", renderServerInfoTo) },
+      { icon: "mdi-information-outline", label: "サーバー", action: () => showModalSubView("サーバー", renderServerInfoTo) },
     ];
 
     for (const item of items) {
