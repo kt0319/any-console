@@ -3251,13 +3251,14 @@ button:disabled {
   }
   .modal-overlay {
     padding: 0;
+    align-items: flex-start;
   }
 
   .modal {
     max-width: 100%;
-    height: calc(var(--app-dvh));
+    height: calc(var(--app-dvh) - 28px);
     border: none;
-    border-radius: 0;
+    border-radius: 0 0 var(--radius) var(--radius);
   }
 
   .modal-swipe-handle {
