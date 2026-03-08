@@ -11,7 +11,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth import verify_token
-from ..common import SYSTEM_CMD_TIMEOUT_SEC
+from ..common import SYSTEM_CMD_TIMEOUT_SEC, WORK_DIR
 
 logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(verify_token)])
@@ -188,7 +188,7 @@ def get_system_processes():
 
 @router.get("/system/info")
 def get_system_info():
-    info = {"hostname": socket.gethostname(), "user": getpass.getuser()}
+    info = {"hostname": socket.gethostname(), "user": getpass.getuser(), "work_dir": str(WORK_DIR)}
     for key, getter in [
         ("ip", _get_ip),
         ("os", _get_os_name),

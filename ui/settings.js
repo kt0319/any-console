@@ -38,12 +38,21 @@ export function initDeviceName() {
 
 /** @type {string} */
 let _editorSshHost = "";
+/** @type {string} */
+let _workDir = "";
 
 /**
  * @returns {string}
  */
 export function getEditorSshHost() {
   return _editorSshHost;
+}
+
+/**
+ * @returns {string}
+ */
+export function getWorkDir() {
+  return _workDir;
 }
 
 /**
@@ -55,6 +64,9 @@ export async function initEditorSshHost() {
       const data = await res.json();
       if (data.hostname && data.user) {
         _editorSshHost = `${data.user}@${data.hostname}`;
+      }
+      if (data.work_dir) {
+        _workDir = data.work_dir;
       }
     }
   } catch { /* ignore */ }

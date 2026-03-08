@@ -1,6 +1,6 @@
 // @ts-check
 import { selectedWorkspace, allWorkspaces } from './state-core.js';
-import { getEditorSshHost } from './settings.js';
+import { getEditorSshHost, getWorkDir } from './settings.js';
 import { diffChunks } from './state-git.js';
 import { $, escapeHtml, bindLongPress, showToast } from './utils.js';
 import { apiFetch, workspaceApiPath } from './api-client.js';
@@ -803,15 +803,16 @@ function showFileBrowserActionMenu(item, container, config) {
   }
 
   const editorSshHost = getEditorSshHost();
-  if (editorSshHost && item.dataset.type !== "dir") {
-    const absolutePath = `/home/kentaro/work/${selectedWorkspace}/${filePath}`;
-    const editorUrl = `editor-ssh://${editorSshHost}${absolutePath}`;
+  const workDir = getWorkDir();
+  if (editorSshHost && workDir && item.dataset.type !== "dir") {
+    const projectPath = `${workDir}/${selectedWorkspace}`;
+    const projectUrl = `zed://ssh/${editorSshHost}${projectPath}`;
     const editorBtn = document.createElement("button");
     editorBtn.type = "button";
     editorBtn.innerHTML = '<i class="mdi mdi-application-edit-outline"></i> エディタ';
     editorBtn.addEventListener("click", () => {
       menu.remove();
-      window.open(editorUrl);
+      window.location.href = projectUrl;
     });
     menu.appendChild(editorBtn);
   }
