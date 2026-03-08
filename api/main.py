@@ -136,6 +136,9 @@ def _resolve_tailscale_name(ip: str) -> str:
 @app.get("/auth/check", dependencies=[Depends(verify_token)])
 def auth_check(request: Request):
     client_ip = request.client.host if request.client else ""
+    forwarded_for = request.headers.get("x-forwarded-for", "")
+    if forwarded_for:
+        client_ip = forwarded_for.split(",")[0].strip()
     client_name = _resolve_tailscale_name(client_ip)
     return {
         "status": "ok",
@@ -196,4 +199,4 @@ if __name__ == "__main__":
         ssl_kwargs["ssl_keyfile"] = ssl_keyfile
         ssl_kwargs["ssl_certfile"] = ssl_certfile
     port = int(os.environ.get("PI_CONSOLE_PORT", "8888"))
-    uvicorn.run(app, host="0.0.0.0", port=port, **ssl_kwargs)
+    uvicorn.run(app, host="0.0.0.0", port=port, proxy_headers=True, forwarded_allow_ips="127.0.0.1", **ssl_kwargs)
