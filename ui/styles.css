@@ -2264,7 +2264,7 @@ button:disabled {
 }
 
 
-#git-modal-content {
+#file-modal-content {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -2561,7 +2561,7 @@ button:disabled {
   -webkit-overflow-scrolling: touch;
 }
 
-#git-modal-content {
+#file-modal-content {
   display: flex;
   flex-direction: column;
   min-height: 0;

@@ -67,8 +67,8 @@ export const GitLogModal = {
   /**
    * Closes the git modal and resets all related state.
    */
-  closeGitModal() {
-    $("git-modal").style.display = "none";
+  closeFileModal() {
+    $("file-modal").style.display = "none";
     if (_releaseFocusTrap) {
       _releaseFocusTrap();
       _releaseFocusTrap = null;
@@ -193,7 +193,7 @@ export const GitLogModal = {
         showFormError("git-branch-error", getActionFailureMessage(data, "ブランチ作成に失敗しました"));
         return;
       }
-      GitLogModal.closeGitModal();
+      GitLogModal.closeFileModal();
       await GitCore.refreshAfterGitOp();
     } catch (e) {
       showFormError("git-branch-error", e.message);
@@ -206,7 +206,7 @@ export const GitLogModal = {
    * Ensures the modal content element is visible.
    */
   ensureDiffTabVisible() {
-    const modalContent = $("git-modal-content");
+    const modalContent = $("file-modal-content");
     if (modalContent) modalContent.style.display = "";
   },
 
@@ -216,7 +216,7 @@ export const GitLogModal = {
    * @param {{ back?: boolean, onClick?: (() => void) | null }} [options]
    */
   setModalTitle(title, options = {}) {
-    const titleEl = $("git-modal").querySelector(".modal-title");
+    const titleEl = $("file-modal").querySelector(".modal-title");
     if (!titleEl) return;
     const { back = false, onClick = null } = options;
     titleEl.textContent = "";
@@ -379,32 +379,29 @@ export const GitLogModal = {
    * @param {{ onBack?: (() => void) | null }} [options]
    * @returns {Promise<void>}
    */
-  async openGitModal({ onBack } = {}) {
+  async openFileModal({ onBack } = {}) {
     if (!selectedWorkspace) return;
     GitLogModal.state.onBack = onBack || null;
     GitLogModal.ensureDiffTabVisible();
-    GitLogModal.showDiffHistoryTop();
-    $("git-modal").style.display = "flex";
-    _releaseFocusTrap = trapFocus($("git-modal"), GitLogModal.closeGitModal);
-    GitLogModal.updateStashIndicators();
-    import('./git-github.js').then((m) => m.updateGitHubButtonVisibility());
+    $("file-modal").style.display = "flex";
+    _releaseFocusTrap = trapFocus($("file-modal"), GitLogModal.closeFileModal);
     clearActiveDiffRef();
-    GitLogModal.state.history.hasMore = false;
-    await Promise.all([loadDirectoryInDiffPane(""), GitLogModal.reloadGitLog()]);
-  },
 
-  /**
-   * Opens the file browser modal without git history, showing only the directory listing.
-   * @returns {Promise<void>}
-   */
-  async openFileModal() {
-    if (!selectedWorkspace) return;
-    GitLogModal.ensureDiffTabVisible();
-    $("git-modal").style.display = "flex";
-    _releaseFocusTrap = trapFocus($("git-modal"), GitLogModal.closeGitModal);
-    GitLogModal.setDiffTopMode("files", { title: GitLogModal.modalTitle() });
-    $("git-upper-pane").style.display = "none";
-    clearActiveDiffRef();
-    await loadDirectoryInDiffPane("");
+    if (GitLogModal.isCurrentWorkspaceGitRepo()) {
+      GitLogModal.showDiffHistoryTop();
+      GitLogModal.updateStashIndicators();
+      import('./git-github.js').then((m) => m.updateGitHubButtonVisibility());
+      GitLogModal.state.history.hasMore = false;
+      await Promise.all([loadDirectoryInDiffPane(""), GitLogModal.reloadGitLog()]);
+    } else {
+      const onBack = GitLogModal.state.onBack;
+      GitLogModal.setDiffTopMode("files", {
+        title: GitLogModal.modalTitle(),
+        back: !!onBack,
+        onClick: onBack || null,
+      });
+      $("git-upper-pane").style.display = "none";
+      await loadDirectoryInDiffPane("");
+    }
   },
 };

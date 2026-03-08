@@ -222,23 +222,21 @@ export function createTerminalTabModalWorkspaceSection(deps) {
       icons.className = "picker-ws-icons picker-ws-icons-bottom";
       bottomRow.appendChild(icons);
 
-      if (ws.is_git_repo) {
-        const detailBtn = document.createElement("button");
-        detailBtn.type = "button";
-        detailBtn.className = "picker-ws-icon-btn";
-        detailBtn.innerHTML = '<span class="mdi mdi-folder-outline"></span>';
-        detailBtn.addEventListener("click", () => {
-          closeModal();
-          setSelectedWorkspace(ws.name);
-          GitLogModal.openGitModal({
-            onBack: () => {
-              GitLogModal.closeGitModal();
-              openTabEditModal("workspace");
-            },
-          });
+      const detailBtn = document.createElement("button");
+      detailBtn.type = "button";
+      detailBtn.className = "picker-ws-icon-btn";
+      detailBtn.innerHTML = '<span class="mdi mdi-folder-outline"></span>';
+      detailBtn.addEventListener("click", () => {
+        closeModal();
+        setSelectedWorkspace(ws.name);
+        GitLogModal.openFileModal({
+          onBack: () => {
+            GitLogModal.closeFileModal();
+            openTabEditModal("workspace");
+          },
         });
-        bottomRow.appendChild(detailBtn);
-      }
+      });
+      bottomRow.appendChild(detailBtn);
 
       group.appendChild(bottomRow);
       container.appendChild(group);

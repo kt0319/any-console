@@ -454,7 +454,7 @@ export async function submitCommit() {
       showFormError("diff-commit-error", getActionFailureMessage(data, "コミットに失敗しました"));
       return;
     }
-    GitLogModal.closeGitModal();
+    GitLogModal.closeFileModal();
     showToast("コミット完了", "success");
     await refreshCurrentWorkspaceStatus();
   } catch (e) {

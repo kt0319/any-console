@@ -140,7 +140,7 @@ export const GitCore = {
           if (!confirm(`${b} に切り替えますか？`)) return;
           if (beforeSwitch) beforeSwitch();
           await GitCore.checkoutBranch(b);
-          GitLogModal.closeGitModal();
+          GitLogModal.closeFileModal();
           await GitCore.refreshAfterGitOp();
         },
       }));
@@ -171,7 +171,7 @@ export const GitCore = {
     if (!selectedWorkspace) return;
     if (!confirm(`${branch} を現在のブランチにマージしますか？`)) return;
     await postWorkspaceAction(selectedWorkspace, "/merge", "merge", { branch });
-    GitLogModal.closeGitModal();
+    GitLogModal.closeFileModal();
     await GitCore.refreshAfterGitOp();
   },
 
@@ -220,7 +220,7 @@ export const GitCore = {
       action,
       body || { commit_hash: hash },
     );
-    GitLogModal.closeGitModal();
+    GitLogModal.closeFileModal();
     await GitCore.refreshAfterGitOp();
   },
 
@@ -250,7 +250,7 @@ export const GitCore = {
     if (!confirm(`${label} を実行しますか？`)) return;
     const body = action === "pop" ? null : { include_untracked: true };
     await postWorkspaceAction(selectedWorkspace, `/${endpoint}`, label, body);
-    GitLogModal.closeGitModal();
+    GitLogModal.closeFileModal();
     await GitCore.refreshAfterGitOp();
   },
 };

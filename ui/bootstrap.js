@@ -96,16 +96,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("push-upstream-btn").addEventListener("click", () => GitCore.gitPushUpstream());
   $("push-btn").addEventListener("click", () => GitCore.gitPush());
   initQuickInput();
-  $("header-commit-msg").addEventListener("click", () => GitLogModal.openGitModal({
+  $("header-commit-msg").addEventListener("click", () => GitLogModal.openFileModal({
     onBack: () => {
-      GitLogModal.closeGitModal();
+      GitLogModal.closeFileModal();
       openTabEditModal("workspace");
     },
   }));
-  $("git-modal-close").addEventListener("click", () => GitLogModal.closeGitModal());
+  $("file-modal-close").addEventListener("click", () => GitLogModal.closeFileModal());
   initGitHubPane();
-  $("git-modal").addEventListener("click", (e) => {
-    if (e.target === $("git-modal")) GitLogModal.closeGitModal();
+  $("file-modal").addEventListener("click", (e) => {
+    if (e.target === $("file-modal")) GitLogModal.closeFileModal();
   });
   function bindScrollLoadMore(id, loadMore) {
     $(id).addEventListener("scroll", (e) => {
@@ -119,7 +119,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("git-create-branch-close").addEventListener("click", () => GitLogModal.resetCreateBranchArea());
 
   setupModalSwipeClose($("settings-modal"), closeSettings);
-  setupModalSwipeClose($("git-modal"), () => GitLogModal.closeGitModal());
+  setupModalSwipeClose($("file-modal"), () => GitLogModal.closeFileModal());
   setupModalSwipeClose($("job-confirm-modal"), closeJobConfirmModal);
   setupModalSwipeClose($("icon-picker-modal"), closeIconPicker);
 
