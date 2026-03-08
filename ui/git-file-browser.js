@@ -1,6 +1,6 @@
 // @ts-check
 import { selectedWorkspace, allWorkspaces } from './state-core.js';
-import { getEditorSshHost, getWorkDir } from './settings.js';
+import { buildEditorUrl } from './settings.js';
 import { diffChunks } from './state-git.js';
 import { $, escapeHtml, bindLongPress, showToast } from './utils.js';
 import { apiFetch, workspaceApiPath } from './api-client.js';
@@ -245,9 +245,7 @@ export function buildBreadcrumbHtml(parts, uploadPath = "", options = {}) {
  */
 function buildFileBrowserHtml(path, entries, options = {}) {
   const parts = path ? path.split("/") : [];
-  const editorSshHost = getEditorSshHost();
-  const workDir = getWorkDir();
-  const editorUrl = (editorSshHost && workDir) ? `zed://ssh/${editorSshHost}${workDir}/${selectedWorkspace}` : "";
+  const editorUrl = buildEditorUrl(selectedWorkspace);
   const breadcrumb = buildBreadcrumbHtml(parts, path || "", { ...options, editorUrl });
 
   let list = '<ul class="file-browser-list">';
@@ -310,9 +308,7 @@ function fileBrowserMessage(text, muted = false) {
 function buildFileContentHtml(path, data, options = {}) {
   const parts = path.split("/");
   const parentPath = parts.slice(0, -1).join("/");
-  const editorSshHost = getEditorSshHost();
-  const workDir = getWorkDir();
-  const editorUrl = (editorSshHost && workDir) ? `zed://ssh/${editorSshHost}${workDir}/${selectedWorkspace}` : "";
+  const editorUrl = buildEditorUrl(selectedWorkspace);
   const breadcrumb = buildBreadcrumbHtml(parts, parentPath, { ...options, hideUpload: true, editorUrl });
 
   let body = "";

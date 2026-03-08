@@ -64,6 +64,26 @@ async def import_settings(request: Request):
     return {"status": "ok"}
 
 
+class EditorSettings(BaseModel):
+    url_template: str = Field("", max_length=2000)
+
+
+@router.get("/settings/editor")
+def get_editor_settings():
+    editor = load_global_config_section("editor", {})
+    if not isinstance(editor, dict):
+        editor = {}
+    url_template = editor.get("url_template", "")
+    return {"url_template": url_template}
+
+
+@router.put("/settings/editor")
+def put_editor_settings(body: EditorSettings):
+    url_template = body.url_template.strip()
+    save_global_config_section("editor", {"url_template": url_template})
+    return {"status": "ok", "url_template": url_template}
+
+
 class SnippetItem(BaseModel):
     label: str = Field("", max_length=200)
     command: str = Field(..., max_length=10000)

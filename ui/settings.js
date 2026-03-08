@@ -16,7 +16,7 @@ export function applyPanelBottom() {
  * @param {string} viewId
  */
 export function showSettingsView(viewId) {
-  for (const id of ["settings-menu-view", "settings-terminal-view", "settings-server-info-view", "settings-process-list-view", "settings-op-log-view", "settings-activity-log-view", "settings-config-file-view"]) {
+  for (const id of ["settings-menu-view", "settings-terminal-view", "settings-editor-view", "settings-server-info-view", "settings-process-list-view", "settings-op-log-view", "settings-activity-log-view", "settings-config-file-view"]) {
     const el = $(id);
     if (el) el.style.display = id === viewId ? "" : "none";
   }
@@ -41,6 +41,12 @@ export function initDeviceName() {
 let _editorSshHost = "";
 /** @type {string} */
 let _workDir = "";
+/** @type {string} */
+let _editorUser = "";
+/** @type {string} */
+let _editorHost = "";
+/** @type {string} */
+let _editorUrlTemplate = "";
 
 /**
  * @returns {string}
@@ -57,6 +63,13 @@ export function getWorkDir() {
 }
 
 /**
+ * @returns {string}
+ */
+export function getEditorUrlTemplate() {
+  return _editorUrlTemplate;
+}
+
+/**
  */
 export async function initEditorSshHost() {
   try {
@@ -65,12 +78,174 @@ export async function initEditorSshHost() {
       const data = await res.json();
       if (data.hostname && data.user) {
         _editorSshHost = `${data.user}@${data.hostname}`;
+        _editorUser = data.user;
+        _editorHost = data.hostname;
       }
       if (data.work_dir) {
         _workDir = data.work_dir;
       }
     }
   } catch { /* ignore */ }
+  try {
+    const res = await apiFetch("/settings/editor");
+    if (res && res.ok) {
+      const data = await res.json();
+      _editorUrlTemplate = data.url_template || "";
+    }
+  } catch { /* ignore */ }
+}
+
+/**
+ * @param {string} workspace
+ * @returns {string}
+ */
+export function buildEditorUrl(workspace) {
+  if (!_editorUrlTemplate) return "";
+  return _editorUrlTemplate
+    .replace(/\{user\}/g, _editorUser)
+    .replace(/\{host\}/g, _editorHost)
+    .replace(/\{work_dir\}/g, _workDir)
+    .replace(/\{workspace\}/g, workspace || "");
+}
+
+/**
+ * @param {HTMLElement} container
+ */
+const EDITOR_PRESETS = [
+  { label: "Zed", template: "zed://ssh/{user}@{host}{work_dir}/{workspace}" },
+  { label: "VS Code", template: "vscode://vscode-remote/ssh-remote+{host}{work_dir}/{workspace}" },
+  { label: "Cursor", template: "cursor://vscode-remote/ssh-remote+{host}{work_dir}/{workspace}" },
+];
+
+/**
+ * @param {HTMLElement} container
+ */
+export function renderEditorSettingsPane(container) {
+  container.innerHTML = "";
+
+  const presetLabel = document.createElement("div");
+  presetLabel.className = "settings-section-label";
+  presetLabel.textContent = "プリセット";
+  container.appendChild(presetLabel);
+
+  const presetRow = document.createElement("div");
+  presetRow.className = "editor-preset-row";
+
+  /** @type {HTMLButtonElement[]} */
+  const presetBtns = [];
+
+  function updatePresetActive() {
+    const current = textarea.value.trim();
+    for (const btn of presetBtns) {
+      btn.classList.toggle("active", btn.dataset.template === current);
+    }
+  }
+
+  for (const preset of EDITOR_PRESETS) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "editor-preset-btn";
+    btn.textContent = preset.label;
+    btn.dataset.template = preset.template;
+    btn.addEventListener("click", () => {
+      textarea.value = preset.template;
+      textarea.dispatchEvent(new Event("input"));
+    });
+    presetBtns.push(btn);
+    presetRow.appendChild(btn);
+  }
+
+  const clearBtn = document.createElement("button");
+  clearBtn.type = "button";
+  clearBtn.className = "editor-preset-btn editor-preset-clear";
+  clearBtn.textContent = "なし";
+  clearBtn.dataset.template = "";
+  clearBtn.addEventListener("click", () => {
+    textarea.value = "";
+    textarea.dispatchEvent(new Event("input"));
+  });
+  presetBtns.push(clearBtn);
+  presetRow.appendChild(clearBtn);
+
+  container.appendChild(presetRow);
+
+  const label = document.createElement("div");
+  label.className = "settings-section-label";
+  label.textContent = "URLテンプレート";
+  container.appendChild(label);
+
+  const textarea = document.createElement("textarea");
+  textarea.className = "editor-url-template-input";
+  textarea.rows = 2;
+  textarea.value = _editorUrlTemplate;
+  textarea.placeholder = "zed://ssh/{user}@{host}{work_dir}/{workspace}";
+  container.appendChild(textarea);
+
+  const chips = document.createElement("div");
+  chips.className = "editor-template-chips";
+  for (const v of ["{user}", "{host}", "{work_dir}", "{workspace}"]) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "editor-template-chip";
+    chip.textContent = v;
+    chip.addEventListener("click", () => {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      textarea.value = textarea.value.slice(0, start) + v + textarea.value.slice(end);
+      textarea.focus();
+      const pos = start + v.length;
+      textarea.setSelectionRange(pos, pos);
+      textarea.dispatchEvent(new Event("input"));
+    });
+    chips.appendChild(chip);
+  }
+  container.appendChild(chips);
+
+  const previewLabel = document.createElement("div");
+  previewLabel.className = "settings-section-label";
+  previewLabel.textContent = "プレビュー";
+  container.appendChild(previewLabel);
+
+  const preview = document.createElement("div");
+  preview.className = "editor-url-preview";
+  container.appendChild(preview);
+
+  function updatePreview() {
+    const tmpl = textarea.value.trim();
+    updatePresetActive();
+    if (!tmpl) {
+      preview.textContent = "(エディタボタン非表示)";
+      return;
+    }
+    preview.textContent = tmpl
+      .replace(/\{user\}/g, _editorUser || "user")
+      .replace(/\{host\}/g, _editorHost || "host")
+      .replace(/\{work_dir\}/g, _workDir || "/home/user/work")
+      .replace(/\{workspace\}/g, "example-workspace");
+  }
+  updatePreview();
+
+  let saveTimer = null;
+  textarea.addEventListener("input", () => {
+    updatePreview();
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      const url_template = textarea.value.trim();
+      _editorUrlTemplate = url_template;
+      await apiFetch("/settings/editor", { method: "PUT", body: { url_template } });
+    }, 500);
+  });
+}
+
+/**
+ */
+export async function openEditorSettings() {
+  const title = "エディタ";
+  $("settings-modal").querySelector(".modal-title").textContent = title;
+  updateSettingsConnInfo();
+  showSettingsView("settings-editor-view");
+  $("settings-modal").style.display = "flex";
+  renderEditorSettingsPane($("settings-editor-body"));
 }
 
 let _releaseFocusTrap = null;
