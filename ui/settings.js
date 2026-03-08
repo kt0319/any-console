@@ -261,46 +261,68 @@ export function closeSettings() {
 }
 
 /**
- * @param {HTMLElement} container
- * @param {object} data
+ * @param {HTMLElement|DocumentFragment} container
+ * @param {{ label: string, values: string[], title?: string, header?: boolean }[]} rows
  */
-export function renderServerInfoRows(container, data) {
-  const items = [
-    { label: "ホスト名", value: data.hostname },
-    { label: "OS", value: data.os },
-    { label: "IP", value: data.ip },
-    { label: "稼働時間", value: data.uptime },
-    { label: "メモリ", value: data.memory },
-    { label: "CPU温度", value: data.cpu_temp },
-    { label: "ディスク", value: data.disk },
-  ];
-  for (const item of items) {
-    if (!item.value) continue;
+function renderInfoRows(container, rows) {
+  for (const { label, values, title, header } of rows) {
     const row = document.createElement("div");
-    row.className = "server-info-row";
-    row.innerHTML = `<span class="server-info-label">${escapeHtml(item.label)}</span><span class="server-info-value">${escapeHtml(String(item.value))}</span>`;
+    row.className = header ? "server-info-row server-info-header" : "server-info-row";
+    const valHtml = values.map((v) => `<span class="server-info-value">${escapeHtml(v)}</span>`).join("");
+    row.innerHTML = `<span class="server-info-label">${escapeHtml(label)}</span><span class="server-info-values">${valHtml}</span>`;
+    if (title) row.title = title;
     container.appendChild(row);
   }
 }
 
 /**
- * @param {HTMLElement} container
- * @param {Array<{name: string, cpu: number, mem: number, pid: number, command: string}>} processes
+ * @param {string} label
+ * @param {string} endpoint
+ * @param {(data: any) => { label: string, values: string[], title?: string, header?: boolean }[]} toRows
+ * @returns {Promise<DocumentFragment>}
  */
-export function renderProcessRows(container, processes) {
-  for (const proc of processes) {
-    const row = document.createElement("div");
-    row.className = "server-info-row process-row";
-    row.innerHTML =
-      `<span class="process-name">${escapeHtml(proc.name)}</span>` +
-      `<span class="process-stats">` +
-      `<span class="process-cpu">${proc.cpu.toFixed(1)}%</span>` +
-      `<span class="process-mem">${proc.mem.toFixed(1)}%</span>` +
-      `</span>`;
-    row.title = `PID: ${proc.pid}\n${proc.command}`;
-    container.appendChild(row);
+async function fetchInfoSection(label, endpoint, toRows) {
+  const frag = document.createDocumentFragment();
+  const res = await apiFetch(endpoint);
+  if (res && res.ok) {
+    renderInfoRows(frag, toRows(await res.json()));
+  } else {
+    const msg = document.createElement("div");
+    msg.className = "status-message error";
+    msg.textContent = toDisplayMessage(`${label}の取得に失敗しました`);
+    frag.appendChild(msg);
   }
+  return frag;
 }
+
+/** @type {readonly {label: string, endpoint: string, toRows: (data: any) => {label: string, values: string[], title?: string, header?: boolean}[]}[]} */
+const SERVER_INFO_SECTIONS = [
+  {
+    label: "サーバー情報",
+    endpoint: "/system/info",
+    toRows: (data) => [
+      { label: "ホスト名", values: [data.hostname] },
+      { label: "OS", values: [data.os] },
+      { label: "IP", values: [data.ip] },
+      { label: "稼働時間", values: [data.uptime] },
+      { label: "メモリ", values: [data.memory] },
+      { label: "CPU温度", values: [data.cpu_temp] },
+      { label: "ディスク", values: [data.disk] },
+    ].filter((r) => r.values[0]),
+  },
+  {
+    label: "プロセス一覧",
+    endpoint: "/system/processes",
+    toRows: (processes) => [
+      { label: "プロセス", values: ["CPU", "MEM"], header: true },
+      ...processes.map((p) => ({
+        label: p.name,
+        values: [`${p.cpu.toFixed(1)}%`, `${p.mem.toFixed(1)}%`],
+        title: `PID: ${p.pid}\n${p.command}`,
+      })),
+    ],
+  },
+];
 
 /**
  * @param {HTMLElement} container
@@ -308,35 +330,10 @@ export function renderProcessRows(container, processes) {
  */
 export async function renderServerInfoTo(container) {
   container.innerHTML = "";
-  const [infoRes, procRes] = await Promise.all([
-    apiFetch("/system/info"),
-    apiFetch("/system/processes"),
-  ]);
-
-  if (infoRes && infoRes.ok) {
-    const data = await infoRes.json();
-    renderServerInfoRows(container, data);
-  } else {
-    const msg = document.createElement("div");
-    msg.className = "status-message error";
-    msg.textContent = toDisplayMessage("サーバー情報の取得に失敗しました");
-    container.appendChild(msg);
-  }
-
-  const sep = document.createElement("div");
-  sep.className = "process-section-separator";
-  sep.textContent = "プロセス";
-  container.appendChild(sep);
-
-  if (procRes && procRes.ok) {
-    const data = await procRes.json();
-    renderProcessRows(container, data);
-  } else {
-    const msg = document.createElement("div");
-    msg.className = "status-message error";
-    msg.textContent = toDisplayMessage("プロセス一覧の取得に失敗しました");
-    container.appendChild(msg);
-  }
+  const fragments = await Promise.all(
+    SERVER_INFO_SECTIONS.map((s) => fetchInfoSection(s.label, s.endpoint, s.toRows)),
+  );
+  for (const frag of fragments) container.appendChild(frag);
 }
 
 /**

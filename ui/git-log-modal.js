@@ -65,7 +65,7 @@ export const GitLogModal = {
   },
 
   /**
-   * Closes the git modal and resets all related state.
+   * Closes the file modal and resets all related state.
    */
   closeFileModal() {
     $("file-modal").style.display = "none";
@@ -375,7 +375,7 @@ export const GitLogModal = {
   },
 
   /**
-   * Opens the main git modal, loading the directory listing and commit log.
+   * Opens the main file modal, loading the directory listing and commit log.
    * @param {{ onBack?: (() => void) | null }} [options]
    * @returns {Promise<void>}
    */

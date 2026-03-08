@@ -124,7 +124,7 @@ export const GitCore = {
   },
 
   /**
-   * Build a list of branch switch actions for the git log modal.
+   * Build a list of branch switch actions for the file modal.
    * @param {string[]} branches - List of branch names.
    * @param {(() => void) | null} [beforeSwitch] - Optional callback to call before switching.
    * @returns {{ label: string, cls: string, fn: () => Promise<void> }[]}
@@ -147,7 +147,7 @@ export const GitCore = {
   },
 
   /**
-   * Build a list of merge actions for the git log modal.
+   * Build a list of merge actions for the file modal.
    * @param {string[]} branches - List of branch names.
    * @returns {{ label: string, cls: string, fn: () => Promise<void> }[]}
    */
@@ -176,7 +176,7 @@ export const GitCore = {
   },
 
   /**
-   * Build the list of actions available for a given commit in the git log modal.
+   * Build the list of actions available for a given commit in the file modal.
    * @param {string} hash - The commit hash.
    * @param {{ branches?: string[], checkoutBranchFn?: (() => void) | null, extraActions?: object[] }} [options]
    * @returns {object[]}
