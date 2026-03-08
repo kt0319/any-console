@@ -121,7 +121,7 @@ export function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, in
   let touchStartY = null;
   container.addEventListener("touchstart", (e) => {
     touchStartY = e.touches[0].clientY;
-  }, { passive: true });
+  }, { passive: true, capture: true });
   container.addEventListener("touchend", (e) => {
     if (container.classList.contains("view-mode")) return;
     if (splitMode) return;
@@ -130,7 +130,7 @@ export function addTerminalTab(wsUrl, workspace, tabId, skipSwitch, restored, in
     const endY = e.changedTouches[0].clientY;
     if (touchStartY !== null && Math.abs(endY - touchStartY) > 10) return;
     showKeyboardInput();
-  });
+  }, { capture: true });
 
 
   const tab = { id, type: "terminal", wsUrl, workspace: workspace || null, label, term, fitAddon, ws: null, _initialCommand: initialCommand || null, icon: tabIcon || null, wsIcon: wsIcon || null, jobName: jobName || null, jobLabel: jobLabel || null, _pendingOpen: true, _pendingRedraw: !!restored, _mutationObserver: mutationObserver };
