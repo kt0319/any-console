@@ -20,7 +20,7 @@ import './git-log-branch-stash.js';
 
 // ── Modules used for wiring ──
 import { openTerminalSettings } from './settings-terminal.js';
-import { applyPanelBottom, exportSettings, importSettings, openSettingsServerInfo, openProcessList, openOpLog, openActivityLog } from './settings.js';
+import { applyPanelBottom, openConfigFileView, openSettingsServerInfo, openProcessList, openOpLog, openActivityLog } from './settings.js';
 import { updateQuickInputVisibility } from './terminal-connection.js';
 import { rebuildSplitLayout } from './terminal-split.js';
 import { renderTabBar } from './terminal-tabs.js';
@@ -44,8 +44,7 @@ function bind(id, handler) {
   if (el) el.addEventListener("click", handler);
 }
 bind("btn-terminal-settings", openTerminalSettings);
-bind("btn-export-settings", exportSettings);
-bind("btn-import-settings", importSettings);
+bind("btn-config-file", openConfigFileView);
 bind("btn-process-list", openProcessList);
 bind("btn-server-info", openSettingsServerInfo);
 bind("btn-activity-log", openActivityLog);

@@ -44,8 +44,7 @@
           </div>
           <div class="settings-menu">
             <button type="button" class="settings-menu-item" id="btn-terminal-settings"><span class="mdi mdi-format-font-size-increase"></span> ターミナル</button>
-            <button type="button" class="settings-menu-item" id="btn-export-settings"><span class="mdi mdi-download"></span> 設定エクスポート</button>
-            <button type="button" class="settings-menu-item" id="btn-import-settings"><span class="mdi mdi-upload"></span> 設定インポート</button>
+            <button type="button" class="settings-menu-item" id="btn-config-file"><span class="mdi mdi-file-cog"></span> 設定ファイル</button>
             <button type="button" class="settings-menu-item" id="btn-process-list"><span class="mdi mdi-format-list-bulleted"></span> プロセス一覧</button>
             <button type="button" class="settings-menu-item" id="btn-server-info"><span class="mdi mdi-information-outline"></span> サーバー情報</button>
             <button type="button" class="settings-menu-item" id="btn-activity-log"><span class="mdi mdi-history"></span> 操作ログ</button>
@@ -67,7 +66,9 @@
         <div id="settings-activity-log-view" style="display:none">
           <div class="modal-scroll-body" id="activity-log-list"></div>
         </div>
-        <input type="file" id="settings-import-file" accept=".json" style="display:none">
+        <div id="settings-config-file-view" style="display:none">
+          <div class="modal-scroll-body" id="config-file-body"></div>
+        </div>
       </div>
     </div>
     <!-- Git Modal -->

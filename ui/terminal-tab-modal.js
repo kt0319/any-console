@@ -7,7 +7,7 @@ import { createTerminalTabModalWorkspaceSection } from './terminal-tab-modal-wor
 import { createTabListRenderer } from './terminal-tab-modal-list.js';
 import { renderTerminalSettingsPane } from './settings-terminal.js';
 import { renderWorkspaceSettingsPane } from './settings-workspace.js';
-import { renderProcessListTo, renderOpLogTo, renderActivityLogTo, renderServerInfoTo, exportSettings, importSettings } from './settings.js';
+import { renderProcessListTo, renderOpLogTo, renderActivityLogTo, renderServerInfoTo, renderConfigFileView } from './settings.js';
 import { updateSettingsConnInfo } from './auth.js';
 
 /**
@@ -218,8 +218,7 @@ export function openTabEditModal(initialTab = "layout") {
       { icon: "mdi-plus", label: "ワークスペース追加", action: () => switchModalTab("ws-add") },
       { icon: "mdi-tab", label: "タブ", action: () => switchModalTab("layout") },
       { icon: "mdi-format-font-size-increase", label: "ターミナル", action: () => showModalSubView("ターミナル", (body) => renderTerminalSettingsPane(body, { onBack: () => switchModalTab("settings") })) },
-      { icon: "mdi-download", label: "設定エクスポート", action: () => exportSettings() },
-      { icon: "mdi-upload", label: "設定インポート", action: () => importSettings() },
+      { icon: "mdi-file-cog", label: "設定ファイル", action: () => showModalSubView("設定ファイル", renderConfigFileView) },
       { icon: "mdi-format-list-bulleted", label: "プロセス一覧", action: () => showModalSubView("プロセス一覧", renderProcessListTo) },
       { icon: "mdi-information-outline", label: "サーバー情報", action: () => showModalSubView("サーバー情報", renderServerInfoTo) },
       { icon: "mdi-text-box-outline", label: "操作ログ", action: () => showModalSubView("操作ログ", renderActivityLogTo) },

@@ -16,7 +16,7 @@ export function applyPanelBottom() {
  * @param {string} viewId
  */
 export function showSettingsView(viewId) {
-  for (const id of ["settings-menu-view", "settings-terminal-view", "settings-server-info-view", "settings-process-list-view", "settings-op-log-view", "settings-activity-log-view"]) {
+  for (const id of ["settings-menu-view", "settings-terminal-view", "settings-server-info-view", "settings-process-list-view", "settings-op-log-view", "settings-activity-log-view", "settings-config-file-view"]) {
     const el = $(id);
     if (el) el.style.display = id === viewId ? "" : "none";
   }
@@ -290,18 +290,66 @@ export function toSshUrl(url) {
 }
 
 /**
+ * @param {HTMLElement} container
  * @returns {Promise<void>}
  */
-export async function exportSettings() {
-  if (!confirm("設定をエクスポートしますか？")) return;
+export async function renderConfigFileView(container) {
+  container.innerHTML = "";
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "config-file-toolbar";
+
+  const downloadBtn = document.createElement("button");
+  downloadBtn.type = "button";
+  downloadBtn.className = "config-file-btn";
+  downloadBtn.innerHTML = '<span class="mdi mdi-download"></span> ダウンロード';
+
+  const uploadBtn = document.createElement("button");
+  uploadBtn.type = "button";
+  uploadBtn.className = "config-file-btn";
+  uploadBtn.innerHTML = '<span class="mdi mdi-upload"></span> アップロード';
+
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = ".json";
+  fileInput.style.display = "none";
+
+  toolbar.appendChild(downloadBtn);
+  toolbar.appendChild(uploadBtn);
+  toolbar.appendChild(fileInput);
+  container.appendChild(toolbar);
+
+  const pre = document.createElement("pre");
+  pre.className = "config-file-code";
+  const code = document.createElement("code");
+  code.className = "language-json";
+  pre.appendChild(code);
+  container.appendChild(pre);
+
+  let jsonText = "";
+
+  /** @param {string} text */
+  function updateCode(text) {
+    jsonText = text;
+    code.textContent = text;
+    // @ts-ignore
+    if (globalThis.hljs) globalThis.hljs.highlightElement(code);
+  }
+
   try {
     const res = await apiFetch("/settings/export");
     if (!res || !res.ok) {
-      showToast("エクスポートに失敗しました", "error");
+      updateCode("設定の取得に失敗しました");
       return;
     }
     const data = await res.json();
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    updateCode(JSON.stringify(data, null, 2));
+  } catch (e) {
+    updateCode(e.message);
+  }
+
+  downloadBtn.addEventListener("click", () => {
+    const blob = new Blob([jsonText], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -311,19 +359,16 @@ export async function exportSettings() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showToast("設定をエクスポートしました", "success");
-  } catch (e) {
-    showToast(e.message, "error");
-  }
-}
+    showToast("設定をダウンロードしました", "success");
+  });
 
-/**
- */
-export function importSettings() {
-  const input = $("settings-import-file");
-  input.value = "";
-  input.onchange = async () => {
-    const file = input.files[0];
+  uploadBtn.addEventListener("click", () => {
+    fileInput.value = "";
+    fileInput.click();
+  });
+
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files[0];
     if (!file) return;
     try {
       const text = await file.text();
@@ -337,13 +382,25 @@ export function importSettings() {
         return;
       }
       showToast("設定をインポートしました", "success");
+      updateCode(JSON.stringify(data, null, 2));
       invalidateWorkspaceMetaCache();
       invalidateGithubReposCache();
-      closeSettings();
       await loadWorkspaces();
     } catch (e) {
       showToast(e.message, "error");
     }
-  };
-  input.click();
+  });
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+export async function openConfigFileView() {
+  const title = "設定ファイル";
+  $("settings-modal").querySelector(".modal-title").textContent = title;
+  updateSettingsConnInfo();
+  showSettingsView("settings-config-file-view");
+  $("settings-modal").style.display = "flex";
+  const container = $("config-file-body");
+  await renderConfigFileView(container);
 }
