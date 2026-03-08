@@ -1,0 +1,130 @@
+import { shallowRef } from "vue";
+import { useAuthStore } from "../stores/auth.js";
+import { useTerminalStore } from "../stores/terminal.js";
+
+const RECONNECT_BACKOFF_MAX = 30000;
+const SESSION_KEEPALIVE_INTERVAL = 5 * 60 * 1000;
+
+export function useTerminal() {
+  const auth = useAuthStore();
+  const terminalStore = useTerminalStore();
+
+  function buildWsUrl(sessionId) {
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    return `${proto}//${location.host}/terminal/ws/${sessionId}?token=${encodeURIComponent(auth.token)}`;
+  }
+
+  function connectTerminalWs(tab) {
+    if (!tab || tab._wsDisposed) return;
+    const wsUrl = buildWsUrl(tab.sessionId);
+    const ws = new WebSocket(wsUrl);
+    ws.binaryType = "arraybuffer";
+    tab.ws = ws;
+
+    ws.onopen = () => {
+      tab._reconnectAttempts = 0;
+      if (tab.term && tab.fitAddon) {
+        try { tab.fitAddon.fit(); } catch {}
+      }
+      if (tab._pendingRedraw) {
+        tab._pendingRedraw = false;
+        tab.term?.write("\x1bc");
+      }
+      if (tab._initialCommand && tab._waitingInitialCommand) {
+        tab._waitingInitialCommand = false;
+        ws.send(new TextEncoder().encode(tab._initialCommand + "\n"));
+        tab._initialCommand = null;
+      }
+    };
+
+    ws.onmessage = (e) => {
+      if (!tab.term) return;
+      if (e.data instanceof ArrayBuffer) {
+        tab.term.write(new Uint8Array(e.data));
+      } else {
+        tab.term.write(e.data);
+      }
+    };
+
+    ws.onerror = () => {};
+
+    ws.onclose = (e) => {
+      tab.ws = null;
+      if (tab._wsDisposed) return;
+
+      if (e.code === 4001) {
+        tab._replacedByOtherDevice = true;
+        return;
+      }
+
+      const delay = Math.min(
+        Math.pow(2, tab._reconnectAttempts || 0) * 1000,
+        RECONNECT_BACKOFF_MAX,
+      );
+      tab._reconnectAttempts = (tab._reconnectAttempts || 0) + 1;
+      tab._pendingRedraw = true;
+      tab._reconnectTimer = setTimeout(() => connectTerminalWs(tab), delay);
+    };
+
+    bindTerminalInput(tab, ws);
+  }
+
+  function bindTerminalInput(tab, ws) {
+    if (tab._inputBound) return;
+    tab._inputBound = true;
+
+    const encoder = new TextEncoder();
+    tab.term?.onData((data) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(encoder.encode(data));
+      }
+    });
+
+    tab.term?.onResize(({ cols, rows }) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        const payload = JSON.stringify({ type: "resize", cols, rows });
+        ws.send(encoder.encode(payload));
+      }
+    });
+  }
+
+  function disconnectTerminal(tab) {
+    if (!tab) return;
+    tab._wsDisposed = true;
+    if (tab.ws) {
+      tab.ws.close(1000);
+      tab.ws = null;
+    }
+    clearTimeout(tab._reconnectTimer);
+    clearTimeout(tab._activityTimer);
+  }
+
+  function ensureTerminalOpened(tab, frameEl) {
+    if (!tab || !tab._pendingOpen || !frameEl) return false;
+    tab._pendingOpen = false;
+    tab.term.open(frameEl);
+    try { tab.fitAddon.fit(); } catch {}
+    connectTerminalWs(tab);
+    return true;
+  }
+
+  function fitTerminal(tab) {
+    if (!tab?.term || !tab?.fitAddon) return;
+    try { tab.fitAddon.fit(); } catch {}
+  }
+
+  async function deleteSession(sessionId) {
+    try {
+      await auth.apiFetch(`/terminal/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
+    } catch {}
+  }
+
+  return {
+    connectTerminalWs,
+    disconnectTerminal,
+    ensureTerminalOpened,
+    fitTerminal,
+    deleteSession,
+    buildWsUrl,
+  };
+}
