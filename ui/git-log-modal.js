@@ -216,11 +216,11 @@ export const GitLogModal = {
    * @param {{ back?: boolean, onClick?: (() => void) | null }} [options]
    */
   setModalTitle(title, options = {}) {
-    const titleEl = $("git-modal-title");
+    const titleEl = $("git-modal").querySelector(".modal-title");
     if (!titleEl) return;
     const { back = false, onClick = null } = options;
     titleEl.textContent = "";
-    titleEl.classList.toggle("split-modal-title-back", !!back);
+    titleEl.classList.toggle("modal-title-back", !!back);
     if (back) {
       const arrow = document.createElement("span");
       arrow.className = "mdi mdi-arrow-left";

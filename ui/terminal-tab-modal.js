@@ -8,6 +8,7 @@ import { createTabListRenderer } from './terminal-tab-modal-list.js';
 import { renderTerminalSettingsPane } from './settings-terminal.js';
 import { renderWorkspaceSettingsPane } from './settings-workspace.js';
 import { renderProcessListTo, renderOpLogTo, renderActivityLogTo, renderServerInfoTo, exportSettings, importSettings } from './settings.js';
+import { updateSettingsConnInfo } from './auth.js';
 
 /**
  * Opens the tab/settings edit modal overlay.
@@ -27,7 +28,7 @@ export function openTabEditModal(initialTab = "layout") {
   const header = document.createElement("div");
   header.className = "modal-header";
   const titleEl = document.createElement("h3");
-  titleEl.id = "split-modal-title";
+  titleEl.className = "modal-title";
   titleEl.textContent = "ワークスペース";
   header.appendChild(titleEl);
 
@@ -51,9 +52,9 @@ export function openTabEditModal(initialTab = "layout") {
    */
   function setTitle(text, backFn) {
     titleEl.textContent = "";
-    titleEl.className = "";
+    titleEl.className = "modal-title";
     if (backFn) {
-      titleEl.className = "split-modal-title-back";
+      titleEl.classList.add("modal-title-back");
       const arrow = document.createElement("span");
       arrow.className = "mdi mdi-arrow-left";
       titleEl.appendChild(arrow);
@@ -105,6 +106,7 @@ export function openTabEditModal(initialTab = "layout") {
   function showMainView() {
     contentContainer.innerHTML = "";
     setTitle("設定");
+    updateSettingsConnInfo();
     renderSettingsTab(contentContainer);
   }
 

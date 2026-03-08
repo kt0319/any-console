@@ -6,6 +6,7 @@ import logging
 import re
 import secrets
 import socket
+import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
@@ -111,9 +112,37 @@ def shutdown_cleanup():
     BACKGROUND_EXECUTOR.shutdown(wait=False)
 
 
+def _resolve_tailscale_name(ip: str) -> str:
+    try:
+        result = subprocess.run(
+            ["tailscale", "status", "--json"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            import json
+            data = json.loads(result.stdout)
+            for peer in (data.get("Peer") or {}).values():
+                for addr in peer.get("TailscaleIPs", []):
+                    if addr == ip:
+                        return peer.get("HostName", "")
+            self_ips = (data.get("Self") or {}).get("TailscaleIPs", [])
+            if ip in self_ips:
+                return data.get("Self", {}).get("HostName", "")
+    except Exception:
+        logger.debug("tailscale name resolve failed for %s", ip, exc_info=True)
+    return ""
+
+
 @app.get("/auth/check", dependencies=[Depends(verify_token)])
-def auth_check():
-    return {"status": "ok", "hostname": socket.gethostname(), "version": system.get_app_version()}
+def auth_check(request: Request):
+    client_ip = request.client.host if request.client else ""
+    client_name = _resolve_tailscale_name(client_ip)
+    return {
+        "status": "ok",
+        "hostname": socket.gethostname(),
+        "version": system.get_app_version(),
+        "client_name": client_name or client_ip,
+    }
 
 
 ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}

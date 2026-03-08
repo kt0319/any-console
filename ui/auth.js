@@ -1,5 +1,5 @@
 // @ts-check
-import { token, setToken, serverHostname, setServerHostname, serverVersion, setServerVersion, isHandlingUnauthorized, setIsHandlingUnauthorized, selectedWorkspace } from './state-core.js';
+import { token, setToken, serverHostname, setServerHostname, serverVersion, setServerVersion, clientName, setClientName, isHandlingUnauthorized, setIsHandlingUnauthorized, selectedWorkspace } from './state-core.js';
 import { apiFetch } from './api-client.js';
 import { $, showLogin, showApp, showToast } from './utils.js';
 import { clearPersistedApiCaches } from './cache.js';
@@ -60,7 +60,7 @@ export async function checkToken() {
     });
     if (res.status === 401) return { ok: false, auth: false, error: "認証に失敗しました" };
     const data = await res.json();
-    return { ok: true, hostname: data.hostname, version: data.version };
+    return { ok: true, hostname: data.hostname, version: data.version, clientName: data.client_name };
   } catch (e) {
     return { ok: false, auth: true, error: `サーバーに接続できません: ${e.message}` };
   }
@@ -105,7 +105,7 @@ export async function login() {
 
   const result = await checkToken();
   if (result.ok) {
-    setServerInfo(result.hostname, result.version);
+    setServerInfo(result.hostname, result.version, result.clientName);
     saveToken(token);
     $("login-error").style.display = "none";
     showApp();
@@ -121,10 +121,32 @@ export async function login() {
  * @param {string} hostname
  * @param {string} version
  */
-export function setServerInfo(hostname, version) {
+export function setServerInfo(hostname, version, client) {
   if (hostname) setServerHostname(hostname);
   if (version) setServerVersion(version);
+  if (client) setClientName(client);
   updateDocumentTitle();
+  updateSettingsConnInfo();
+}
+
+export function updateSettingsConnInfo() {
+  const server = serverHostname;
+  for (const title of document.querySelectorAll(".modal-title")) {
+    let el = title.querySelector(".settings-conn-info");
+    if (!el) {
+      el = document.createElement("span");
+      el.className = "settings-conn-info";
+      title.appendChild(el);
+    }
+    el.innerHTML = "";
+    if (clientName) el.appendChild(document.createTextNode(clientName));
+    if (clientName && server) {
+      const icon = document.createElement("span");
+      icon.className = "mdi mdi-chevron-right";
+      el.appendChild(icon);
+    }
+    if (server) el.appendChild(document.createTextNode(server));
+  }
 }
 
 /**

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pi-console-v4';
+const CACHE_NAME = 'pi-console-__BUILD_HASH__';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

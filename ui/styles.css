@@ -1565,10 +1565,25 @@ button:disabled {
   flex-shrink: 0;
 }
 
+#settings-menu-view {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
 .settings-menu {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.settings-conn-info {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: normal;
+  color: var(--text-secondary);
+  opacity: 0.6;
+  vertical-align: middle;
 }
 
 .settings-menu-item {
@@ -3661,7 +3676,7 @@ button:disabled {
   color: var(--text-muted);
 }
 
-.split-modal-title-back {
+.modal-title-back {
   cursor: pointer;
   display: flex;
   align-items: center;

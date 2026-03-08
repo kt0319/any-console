@@ -3,6 +3,7 @@ import { openTabs, activeTabId, terminalSettings, TERMINAL_SETTINGS_SCHEMA, setT
 import { escapeHtml, refitTerminalWithFocus, $ } from './utils.js';
 import { rebuildSplitLayout } from './terminal-split.js';
 import { showSettingsView } from './settings.js';
+import { updateSettingsConnInfo } from './auth.js';
 
 /**
  */
@@ -194,7 +195,8 @@ export function renderTerminalSettingsPane(container) {
 /**
  */
 export function openTerminalSettings() {
-  $("settings-title").textContent = "ターミナル";
+  $("settings-modal").querySelector(".modal-title").textContent = "ターミナル";
+  updateSettingsConnInfo();
   showSettingsView("settings-terminal-view");
   renderTerminalSettingsPane($("settings-terminal-body"));
   $("settings-modal").style.display = "flex";

@@ -1,4 +1,5 @@
-import { cpSync, existsSync } from "node:fs";
+import { cpSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { defineConfig } from "vite";
 
 const VENDOR_SCRIPTS = [
@@ -40,6 +41,12 @@ export default defineConfig({
           if (existsSync(src)) {
             cpSync(src, dest, { recursive: true });
           }
+        }
+        const swPath = "dist/sw.js";
+        if (existsSync(swPath)) {
+          const hash = execSync("git rev-parse --short HEAD").toString().trim();
+          const content = readFileSync(swPath, "utf-8");
+          writeFileSync(swPath, content.replace("__BUILD_HASH__", hash));
         }
       },
     },

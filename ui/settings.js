@@ -3,6 +3,7 @@ import { panelBottom, getTerminalRuntimeOptions } from './state-core.js';
 import { $, escapeHtml, showToast, toDisplayMessage, trapFocus } from './utils.js';
 import { apiFetch, fetchAndRenderWithStatus, setInlineStatus } from './api-client.js';
 import { refreshWorkspaceHeader, loadWorkspaces } from './workspace.js';
+import { updateSettingsConnInfo } from './auth.js';
 import { invalidateWorkspaceMetaCache, invalidateGithubReposCache } from './cache.js';
 
 /**
@@ -186,7 +187,8 @@ export async function openSettingsDataView({
   listId,
   renderFn,
 }) {
-  $("settings-title").textContent = title;
+  $("settings-modal").querySelector(".modal-title").textContent = title;
+  updateSettingsConnInfo();
   showSettingsView(viewId);
   $("settings-modal").style.display = "flex";
   await renderFn($(listId));

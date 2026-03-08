@@ -127,6 +127,10 @@ export let serverVersion = "";
 /** @param {string} v */
 export function setServerVersion(v) { serverVersion = v; }
 
+export let clientName = "";
+/** @param {string} v */
+export function setClientName(v) { clientName = v; }
+
 
 // ── Terminal Settings ──
 export const TERMINAL_SETTINGS_KEY = "pi_console_terminal_settings";

@@ -126,7 +126,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (token) {
     const result = await checkToken();
     if (result.ok) {
-      setServerInfo(result.hostname, result.version);
+      setServerInfo(result.hostname, result.version, result.clientName);
       showApp();
 
       await initApp();
