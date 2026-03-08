@@ -41,6 +41,10 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
+  if (url.origin !== self.location.origin) {
+    if (url.hostname !== 'cdn.jsdelivr.net') return;
+  }
+
   if (
     url.pathname.startsWith('/auth/') ||
     url.pathname.startsWith('/run') ||
