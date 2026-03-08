@@ -4031,10 +4031,6 @@ button:disabled {
 }
 
 /* PWA safe area */
-.pwa header {
-  padding-top: calc(10px + env(safe-area-inset-top, 0px));
-}
-
 .pwa, .pwa body {
   background: var(--bg-secondary);
 }
@@ -4048,11 +4044,10 @@ button:disabled {
 }
 
 .pwa .main-panel.panel-bottom .quick-input {
-  padding-bottom: 0;
+  padding-bottom: 20px;
 }
 
-@media (max-width: 768px) {
-  .pwa header {
-    padding-top: calc(8px + env(safe-area-inset-top, 0px));
-  }
+.pwa .main-panel.panel-bottom .tab-bar-row {
+  padding-bottom: 20px;
 }
+
