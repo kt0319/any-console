@@ -3,6 +3,7 @@
   <SettingsModal ref="settingsModal" />
   <JobConfirmModal ref="jobConfirmModal" />
   <IconPicker ref="iconPicker" />
+  <FileModal ref="fileModal" />
   <AppToast ref="appToast" />
 </template>
 
@@ -12,6 +13,7 @@ import LoginScreen from "./LoginScreen.vue";
 import SettingsModal from "./SettingsModal.vue";
 import JobConfirmModal from "./JobConfirmModal.vue";
 import IconPicker from "./IconPicker.vue";
+import FileModal from "./FileModal.vue";
 import AppToast from "./AppToast.vue";
 import { on } from "../app-bridge.js";
 
@@ -19,6 +21,7 @@ const loginScreen = ref(null);
 const settingsModal = ref(null);
 const jobConfirmModal = ref(null);
 const iconPicker = ref(null);
+const fileModal = ref(null);
 const appToast = ref(null);
 
 onMounted(() => {
@@ -31,5 +34,7 @@ onMounted(() => {
   on("job:closeConfirm", () => jobConfirmModal.value?.close());
   on("iconPicker:open", ({ callback, currentIcon, currentColor }) => iconPicker.value?.open(callback, currentIcon, currentColor));
   on("iconPicker:close", () => iconPicker.value?.close());
+  on("git:openFileModal", (detail) => fileModal.value?.open(detail));
+  on("git:closeFileModal", () => fileModal.value?.close());
 });
 </script>
