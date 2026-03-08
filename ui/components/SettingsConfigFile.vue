@@ -1,0 +1,89 @@
+<template>
+  <div class="modal-scroll-body">
+    <div class="config-file-toolbar">
+      <button type="button" class="config-file-btn" @click="download">
+        <span class="mdi mdi-download"></span> ダウンロード
+      </button>
+      <button type="button" class="config-file-btn" @click="triggerUpload">
+        <span class="mdi mdi-upload"></span> アップロード
+      </button>
+      <input ref="fileInput" type="file" accept=".json" style="display:none" @change="upload" />
+    </div>
+    <pre class="config-file-code"><code ref="codeEl" class="language-json">{{ jsonText }}</code></pre>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, nextTick } from "vue";
+import { useAuthStore } from "../stores/auth.js";
+import { emit } from "../app-bridge.js";
+
+const auth = useAuthStore();
+const jsonText = ref("");
+const fileInput = ref(null);
+const codeEl = ref(null);
+
+function highlight() {
+  nextTick(() => {
+    if (globalThis.hljs && codeEl.value) globalThis.hljs.highlightElement(codeEl.value);
+  });
+}
+
+async function load() {
+  try {
+    const res = await auth.apiFetch("/settings/export");
+    if (!res || !res.ok) {
+      jsonText.value = "設定の取得に失敗しました";
+      return;
+    }
+    const data = await res.json();
+    jsonText.value = JSON.stringify(data, null, 2);
+    highlight();
+  } catch (e) {
+    jsonText.value = e.message;
+  }
+}
+
+function download() {
+  const blob = new Blob([jsonText.value], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "pi-console-config.json";
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  emit("toast:show", { message: "設定をダウンロードしました", type: "success" });
+}
+
+function triggerUpload() {
+  if (fileInput.value) {
+    fileInput.value.value = "";
+    fileInput.value.click();
+  }
+}
+
+async function upload() {
+  const file = fileInput.value?.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const res = await auth.apiFetch("/settings/import", { method: "POST", body: data });
+    if (!res || !res.ok) {
+      emit("toast:show", { message: "インポートに失敗しました", type: "error" });
+      return;
+    }
+    emit("toast:show", { message: "設定をインポートしました", type: "success" });
+    jsonText.value = JSON.stringify(data, null, 2);
+    highlight();
+    emit("settings:imported");
+  } catch (e) {
+    emit("toast:show", { message: e.message, type: "error" });
+  }
+}
+
+onMounted(load);
+</script>
