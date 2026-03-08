@@ -8,6 +8,14 @@ import { renderSnippetRow } from './quick-input.js';
 
 /** @type {boolean} */
 export let prevKeyboardOpen = false;
+
+/**
+ * @param {boolean} active
+ */
+export function setInputOverlay(active) {
+  const el = $("output-container");
+  if (el) el.classList.toggle("input-overlay-active", active);
+}
 /** @type {ReturnType<typeof setTimeout> | null} */
 export let keyboardCloseTimer = null;
 /** @type {number} */
@@ -104,6 +112,10 @@ export function createMobileKeyboardInput() {
   snippetContainer.className = "quick-snippet-row keyboard-input-snippets";
   wrapper.appendChild(snippetContainer);
 
+  const inputForm = document.createElement("form");
+  inputForm.autocomplete = "off";
+  inputForm.addEventListener("submit", (e) => e.preventDefault());
+
   const inputRow = document.createElement("div");
   inputRow.className = "keyboard-input-row";
 
@@ -114,6 +126,12 @@ export function createMobileKeyboardInput() {
   el.placeholder = "テキスト入力";
   el.enterKeyHint = "send";
   el.autocomplete = "off";
+  el.setAttribute("autocomplete", "off");
+  el.setAttribute("autocorrect", "off");
+  el.setAttribute("autocapitalize", "off");
+  el.setAttribute("aria-autocomplete", "none");
+  el.spellcheck = false;
+  el.name = "terminal-cmd-" + Date.now();
   inputRow.appendChild(el);
 
   const sendBtn = document.createElement("button");
@@ -131,25 +149,15 @@ export function createMobileKeyboardInput() {
     updateBtnState();
     el.blur();
   });
-  const closeBtn = document.createElement("button");
-  closeBtn.type = "button";
-  closeBtn.className = "keyboard-input-clear";
-  closeBtn.innerHTML = '<span class="mdi mdi-close"></span>';
   const updateBtnState = () => {
     sendBtn.disabled = !el.value;
   };
   updateBtnState();
   el.addEventListener("input", updateBtnState);
-  closeBtn.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    el.value = "";
-    updateBtnState();
-    el.blur();
-  });
-  inputRow.appendChild(closeBtn);
   inputRow.appendChild(sendBtn);
 
-  wrapper.appendChild(inputRow);
+  inputForm.appendChild(inputRow);
+  wrapper.appendChild(inputForm);
 
   document.body.appendChild(wrapper);
 
@@ -213,9 +221,10 @@ export function showKeyboardInput() {
   const vv = window.visualViewport;
   if (vv) {
     const bottomOffset = window.innerHeight - (vv.offsetTop + vv.height);
-    wrapper.style.bottom = (bottomOffset + 8) + "px";
+    wrapper.style.bottom = bottomOffset + "px";
   }
   el.focus({ preventScroll: true });
+  setInputOverlay(true);
 }
 
 /**
@@ -232,10 +241,11 @@ export function repositionKeyboardInput(keyboardOpen) {
     const vv = window.visualViewport;
     if (vv) {
       const bottomOffset = window.innerHeight - (vv.offsetTop + vv.height);
-      wrapper.style.bottom = (bottomOffset + 8) + "px";
+      wrapper.style.bottom = bottomOffset + "px";
     }
   } else {
     wrapper.style.display = "none";
+    setInputOverlay(false);
   }
 }
 

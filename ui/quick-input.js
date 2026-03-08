@@ -134,6 +134,8 @@ export function initQuickInput() {
     for (const el of qwertyModKeys) el.style.display = keyboardPanelMode === 1 ? "" : "none";
     extraPanel.style.display = "none";
     qwertyPanel.style.display = keyboardPanelMode === 1 ? "flex" : "none";
+    const oc = $("output-container");
+    if (oc) oc.classList.toggle("input-overlay-active", keyboardPanelMode === 1);
     if (animate) scheduleAnimateVisibleModeElements();
   };
 
