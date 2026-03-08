@@ -11,8 +11,6 @@ const VENDOR_SCRIPTS = [
 const STATIC_COPY_TARGETS = [
   { src: "ui/vendor", dest: "dist/vendor" },
   { src: "ui/sw.js", dest: "dist/sw.js" },
-  { src: "ui/icon-192.png", dest: "dist/icon-192.png" },
-  { src: "ui/icon-512.png", dest: "dist/icon-512.png" },
 ];
 
 export default defineConfig({
