@@ -113,6 +113,7 @@ export function createMobileKeyboardInput() {
   el.className = "keyboard-input";
   el.placeholder = "テキスト入力";
   el.enterKeyHint = "send";
+  el.autocomplete = "off";
   inputRow.appendChild(el);
 
   const sendBtn = document.createElement("button");
