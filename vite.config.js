@@ -1,6 +1,7 @@
 import { cpSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { defineConfig } from "vite";
+import vue from "@vitejs/plugin-vue";
 
 const VENDOR_SCRIPTS = [
   "vendor/js/highlight.min.js",
@@ -21,6 +22,7 @@ export default defineConfig({
     emptyOutDir: true,
   },
   plugins: [
+    vue(),
     {
       name: "vendor-scripts",
       transformIndexHtml: {
