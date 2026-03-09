@@ -159,11 +159,11 @@ function selectPane(index) {
   layoutStore.activePaneIndex = index;
 }
 
-function fitAllTerminals() {
+function fitAllTerminals(opts) {
   if (!paneRefs.value) return;
   const refs = Array.isArray(paneRefs.value) ? paneRefs.value : [paneRefs.value];
   for (const pane of refs) {
-    pane?.fit?.();
+    pane?.fit?.(opts);
   }
 }
 

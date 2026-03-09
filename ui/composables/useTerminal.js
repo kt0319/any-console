@@ -130,7 +130,7 @@ export function useTerminal() {
     tab._frameResizeObserver.observe(frameEl);
   }
 
-  function fitTerminal(tab) {
+  function fitTerminal(tab, { force = false } = {}) {
     if (!tab?.term || !tab?.fitAddon) return;
     const frame = document.getElementById(`frame-${tab.id}`);
     if (frame) {
@@ -140,7 +140,7 @@ export function useTerminal() {
     try {
       const dims = tab.fitAddon.proposeDimensions();
       if (!dims || isNaN(dims.cols) || isNaN(dims.rows)) return;
-      if (tab._lastFitCols === dims.cols && tab._lastFitRows === dims.rows) return;
+      if (!force && tab._lastFitCols === dims.cols && tab._lastFitRows === dims.rows) return;
       tab._lastFitCols = dims.cols;
       tab._lastFitRows = dims.rows;
       tab.fitAddon.fit();

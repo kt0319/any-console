@@ -123,8 +123,8 @@ async function closeTab(tab) {
 }
 
 onMounted(() => {
-  on("layout:fitAll", () => {
-    terminalSplit.value?.fitAllTerminals();
+  on("layout:fitAll", (detail) => {
+    terminalSplit.value?.fitAllTerminals(detail);
   });
 
   on("layout:toggleSnippet", () => {

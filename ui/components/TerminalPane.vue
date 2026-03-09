@@ -15,7 +15,7 @@
         tabindex="-1"
         :draggable="canDrag"
         @mousedown="onPillMouseDown"
-        @mouseup="onPillMouseUp"
+        @click="onPillClick"
         @dragstart="onPillDragStart"
         @dragend="onPillDragEnd"
         @touchstart.passive="onPillTouchStart"
@@ -294,7 +294,7 @@ onBeforeUnmount(() => {
 
 defineExpose({
   tabId: props.tab.id,
-  fit() { fitTerminal(props.tab); },
+  fit(opts) { fitTerminal(props.tab, opts); },
   getFrameEl() { return frameEl.value; },
 });
 </script>
