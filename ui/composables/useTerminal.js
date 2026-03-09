@@ -115,7 +115,10 @@ export function useTerminal() {
   }
 
   function observeFrameResize(tab, frameEl) {
-    if (tab._frameResizeObserver) return;
+    if (tab._frameResizeObserver) {
+      tab._frameResizeObserver.disconnect();
+      tab._frameResizeObserver = null;
+    }
     let debounceTimer = null;
     tab._frameResizeObserver = new ResizeObserver(() => {
       if (debounceTimer) clearTimeout(debounceTimer);
@@ -173,6 +176,7 @@ export function useTerminal() {
     disconnectTerminal,
     ensureTerminalOpened,
     fitTerminal,
+    observeFrameResize,
     deleteSession,
     buildWsUrl,
   };

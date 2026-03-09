@@ -4,6 +4,7 @@
       <GitHistory ref="gitHistory" />
     </div>
     <div class="workspace-detail-bottom">
+      <TabPills :panes="PANES" :active-key="activePane" @select="switchPane" />
       <div v-show="activePane === 'files'" class="file-modal-pane file-modal-pane-split">
         <GitFiles ref="gitFiles" />
         <DiffViewer :file="selectedDiffFile" :message="diffMessage" />
@@ -28,6 +29,7 @@
 
 <script setup>
 import { ref } from "vue";
+import TabPills from "./TabPills.vue";
 import FileBrowser from "./FileBrowser.vue";
 import GitHistory from "./GitHistory.vue";
 import GitFiles from "./GitFiles.vue";
@@ -65,7 +67,6 @@ const PANES = [
   { key: "github", label: "GitHub" },
 ];
 
-const panes = ref(PANES);
 
 function currentTitle() {
   if (commitViewMessage.value) return commitViewMessage.value;
@@ -172,5 +173,5 @@ on("git:stashSave", async () => {
   bridgeEmit("git:execStashSave");
 });
 
-defineExpose({ open, close, goBack, showCommitDiff, panes, activePane, switchPane });
+defineExpose({ open, close, goBack, showCommitDiff });
 </script>

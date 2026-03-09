@@ -50,7 +50,7 @@ const emits = defineEmits(["select-pane"]);
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const auth = useAuthStore();
-const { ensureTerminalOpened, fitTerminal, disconnectTerminal } = useTerminal();
+const { ensureTerminalOpened, fitTerminal, observeFrameResize, disconnectTerminal } = useTerminal();
 
 const DRAG_THRESHOLD = 15;
 const LONG_PRESS_MS = 500;
@@ -256,7 +256,8 @@ onMounted(() => {
     ensureTerminalOpened(props.tab, frameEl.value);
   } else if (props.tab.term && frameEl.value && props.tab.term.element) {
     frameEl.value.appendChild(props.tab.term.element);
-    fitTerminal(props.tab);
+    observeFrameResize(props.tab, frameEl.value);
+    requestAnimationFrame(() => fitTerminal(props.tab));
   }
   if (pillEl.value) {
     pillEl.value.addEventListener("touchmove", onPillTouchMove, { passive: false });

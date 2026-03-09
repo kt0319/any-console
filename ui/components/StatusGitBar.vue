@@ -61,14 +61,18 @@
 <script setup>
 import { computed } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { useLayoutStore } from "../stores/layout.js";
+import { useTerminalStore } from "../stores/terminal.js";
 import { emit } from "../app-bridge.js";
 
 const workspaceStore = useWorkspaceStore();
-const layoutStore = useLayoutStore();
 
-const workspace = computed(() => workspaceStore.selectedWorkspace);
-const showHeader = computed(() => workspace.value && !layoutStore.splitMode);
+const terminalStore = useTerminalStore();
+
+const activeTab = computed(() =>
+  terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId),
+);
+const workspace = computed(() => activeTab.value?.workspace || null);
+const showHeader = computed(() => !!workspace.value);
 
 const ws = computed(() =>
   workspaceStore.allWorkspaces.find((w) => w.name === workspace.value),

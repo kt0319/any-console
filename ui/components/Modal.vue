@@ -42,15 +42,6 @@
           @close="closeModal"
         />
       </div>
-      <div v-if="currentView === 'file' && fileContent" class="modal-actions">
-        <button
-          v-for="tab in fileContent.panes.value"
-          :key="tab.key"
-          type="button"
-          :class="['modal-tab-btn', { active: fileContent.activePane.value === tab.key }]"
-          @click="fileContent.switchPane(tab.key)"
-        >{{ tab.label }}</button>
-      </div>
     </div>
   </div>
 </template>
