@@ -143,14 +143,15 @@ const ACTION_LABELS = {
 const runningAction = ref(null);
 
 async function gitAction(action) {
-  const ws = workspace.value;
-  if (!ws) return;
+  const wsName = workspace.value;
+  if (!wsName) return;
   if (runningAction.value) return;
   const label = ACTION_LABELS[action] || action;
-  if (!confirm(`${label} を実行しますか？`)) return;
+  const branch = ws.value?.branch || "";
+  if (!confirm(`${label}\n${wsName}  ${branch}`)) return;
   runningAction.value = action;
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(ws)}/${action}`, {
+    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(wsName)}/${action}`, {
       method: "POST",
     });
     if (!res || !res.ok) {

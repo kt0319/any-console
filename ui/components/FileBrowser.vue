@@ -1,13 +1,13 @@
 <template>
   <div class="file-browser">
     <div class="file-browser-header">
-      <button class="file-browser-crumb" @click="navigate('')">{{ workspaceStore.selectedWorkspace || 'root' }}</button>
+      <button class="file-browser-crumb" @click="onCrumbClick('')">{{ workspaceStore.selectedWorkspace || 'root' }}</button>
       <template v-for="(seg, i) in displayPathSegments" :key="i">
         <span class="file-browser-crumb-sep">/</span>
         <button
           v-if="i < displayPathSegments.length - 1"
           class="file-browser-crumb"
-          @click="navigate(displayPathSegments.slice(0, i + 1).join('/'))"
+          @click="onCrumbClick(displayPathSegments.slice(0, i + 1).join('/'))"
         >{{ seg }}</button>
         <span v-else class="file-browser-crumb-current">{{ seg }}</span>
       </template>
@@ -32,6 +32,9 @@
               :data-type="entry.type"
               @click="onEntryClick(entry)"
               @contextmenu.prevent="toggleContextMenu(entry)"
+              @mousedown="onLongPressStart($event, entry)"
+              @mouseup="onLongPressEnd"
+              @mouseleave="onLongPressEnd"
               @touchstart.passive="onLongPressStart($event, entry)"
               @touchend="onLongPressEnd"
               @touchcancel="onLongPressEnd"
@@ -41,6 +44,7 @@
               <span v-if="entry.type === 'file' && entry.size != null" class="file-browser-item-size">{{ formatSize(entry.size) }}</span>
             </li>
             <li v-if="contextEntry?.name === entry.name" class="file-browser-action-menu">
+              <button v-if="entry.type === 'file'" type="button" @click="openEntryInEditor"><span class="mdi mdi-file-edit-outline"></span> エディタ</button>
               <button v-if="entry.type === 'file'" type="button" @click="downloadEntry"><span class="mdi mdi-download"></span> ダウンロード</button>
               <button type="button" @click="renameEntry"><span class="mdi mdi-rename-box"></span> リネーム</button>
               <button type="button" @click="moveEntry"><span class="mdi mdi-file-move-outline"></span> 移動</button>
@@ -134,78 +138,78 @@ watch(() => props.diffMessage, (msg) => {
 }, { immediate: true });
 
 const NF_EXT_MAP = {
-  js: ["\uE781", "#f1e05a"],
-  mjs: ["\uE781", "#f1e05a"],
-  ts: ["\uE628", "#3178c6"],
-  tsx: ["\uE7ba", "#3178c6"],
-  jsx: ["\uE7ba", "#61dafb"],
-  vue: ["\uDB82\uDE20", "#42b883"],
-  json: ["\uE60b", "#cbcb41"],
-  html: ["\uE736", "#e44d26"],
-  css: ["\uE749", "#563d7c"],
-  scss: ["\uE749", "#c6538c"],
-  py: ["\uE73C", "#3572a5"],
-  rb: ["\uE739", "#cc342d"],
-  rs: ["\uE7a8", "#dea584"],
-  go: ["\uE627", "#00add8"],
-  java: ["\uE738", "#b07219"],
-  c: ["\uE61E", "#555555"],
-  cpp: ["\uE61D", "#f34b7d"],
-  h: ["\uE61E", "#555555"],
-  sh: ["\uE795", "#89e051"],
-  bash: ["\uE795", "#89e051"],
-  zsh: ["\uE795", "#89e051"],
-  md: ["\uE73E", "#083fa1"],
-  yml: ["\uE6A8", "#cb171e"],
-  yaml: ["\uE6A8", "#cb171e"],
-  toml: ["\uE6b2", "#9c4221"],
-  xml: ["\uE619", "#e44d26"],
-  svg: ["\uDB80\uDDA5", "#ffb13b"],
-  png: ["\uDB80\uDDA5", "#a074c4"],
-  jpg: ["\uDB80\uDDA5", "#a074c4"],
-  jpeg: ["\uDB80\uDDA5", "#a074c4"],
-  gif: ["\uDB80\uDDA5", "#a074c4"],
-  webp: ["\uDB80\uDDA5", "#a074c4"],
-  ico: ["\uDB80\uDDA5", "#a074c4"],
-  pdf: ["\uEAEB", "#e44d26"],
-  zip: ["\uF410", "#e8a835"],
-  gz: ["\uF410", "#e8a835"],
-  tar: ["\uF410", "#e8a835"],
-  lock: ["\uE21A", "#555555"],
-  env: ["\uE615", "#faf743"],
-  sql: ["\uE706", "#e38c00"],
-  docker: ["\uE7b0", "#2496ed"],
-  dockerfile: ["\uE7b0", "#2496ed"],
-  gitignore: ["\uE702", "#f54d27"],
-  txt: ["\uF0219", "#89e051"],
-  log: ["\uF0219", "#555555"],
-  conf: ["\uE615", "#6d8086"],
-  cfg: ["\uE615", "#6d8086"],
-  ini: ["\uE615", "#6d8086"],
-  csv: ["\uF0219", "#89e051"],
-  woff: ["\uE659", "#aaaaaa"],
-  woff2: ["\uE659", "#aaaaaa"],
-  ttf: ["\uE659", "#aaaaaa"],
-  eot: ["\uE659", "#aaaaaa"],
+  js: ["\u{E781}", "#f1e05a"],
+  mjs: ["\u{E781}", "#f1e05a"],
+  ts: ["\u{E628}", "#3178c6"],
+  tsx: ["\u{E7BA}", "#3178c6"],
+  jsx: ["\u{E7BA}", "#61dafb"],
+  vue: ["\u{F0A20}", "#42b883"],
+  json: ["\u{E60B}", "#cbcb41"],
+  html: ["\u{E736}", "#e44d26"],
+  css: ["\u{E749}", "#563d7c"],
+  scss: ["\u{E749}", "#c6538c"],
+  py: ["\u{E73C}", "#3572a5"],
+  rb: ["\u{E739}", "#cc342d"],
+  rs: ["\u{E7A8}", "#dea584"],
+  go: ["\u{E627}", "#00add8"],
+  java: ["\u{E738}", "#b07219"],
+  c: ["\u{E61E}", "#555555"],
+  cpp: ["\u{E61D}", "#f34b7d"],
+  h: ["\u{E61E}", "#555555"],
+  sh: ["\u{E795}", "#89e051"],
+  bash: ["\u{E795}", "#89e051"],
+  zsh: ["\u{E795}", "#89e051"],
+  md: ["\u{E73E}", "#083fa1"],
+  yml: ["\u{E6A8}", "#cb171e"],
+  yaml: ["\u{E6A8}", "#cb171e"],
+  toml: ["\u{E6B2}", "#9c4221"],
+  xml: ["\u{E619}", "#e44d26"],
+  svg: ["\u{F01A5}", "#ffb13b"],
+  png: ["\u{F01A5}", "#a074c4"],
+  jpg: ["\u{F01A5}", "#a074c4"],
+  jpeg: ["\u{F01A5}", "#a074c4"],
+  gif: ["\u{F01A5}", "#a074c4"],
+  webp: ["\u{F01A5}", "#a074c4"],
+  ico: ["\u{F01A5}", "#a074c4"],
+  pdf: ["\u{EAEB}", "#e44d26"],
+  zip: ["\u{F410}", "#e8a835"],
+  gz: ["\u{F410}", "#e8a835"],
+  tar: ["\u{F410}", "#e8a835"],
+  lock: ["\u{E21A}", "#555555"],
+  env: ["\u{E615}", "#faf743"],
+  sql: ["\u{E706}", "#e38c00"],
+  docker: ["\u{E7B0}", "#2496ed"],
+  dockerfile: ["\u{E7B0}", "#2496ed"],
+  gitignore: ["\u{E702}", "#f54d27"],
+  txt: ["\u{F0219}", "#89e051"],
+  log: ["\u{F0219}", "#555555"],
+  conf: ["\u{E615}", "#6d8086"],
+  cfg: ["\u{E615}", "#6d8086"],
+  ini: ["\u{E615}", "#6d8086"],
+  csv: ["\u{F0219}", "#89e051"],
+  woff: ["\u{E659}", "#aaaaaa"],
+  woff2: ["\u{E659}", "#aaaaaa"],
+  ttf: ["\u{E659}", "#aaaaaa"],
+  eot: ["\u{E659}", "#aaaaaa"],
 };
 
 const NF_NAME_MAP = {
-  Dockerfile: ["\uE7b0", "#2496ed"],
-  Makefile: ["\uE615", "#6d8086"],
-  LICENSE: ["\uF0219", "#d4aa00"],
-  README: ["\uE73E", "#083fa1"],
-  "README.md": ["\uE73E", "#083fa1"],
-  ".gitignore": ["\uE702", "#f54d27"],
-  ".env": ["\uE615", "#faf743"],
-  ".env.local": ["\uE615", "#faf743"],
+  Dockerfile: ["\u{E7B0}", "#2496ed"],
+  Makefile: ["\u{E615}", "#6d8086"],
+  LICENSE: ["\u{F0219}", "#d4aa00"],
+  README: ["\u{E73E}", "#083fa1"],
+  "README.md": ["\u{E73E}", "#083fa1"],
+  ".gitignore": ["\u{E702}", "#f54d27"],
+  ".env": ["\u{E615}", "#faf743"],
+  ".env.local": ["\u{E615}", "#faf743"],
 };
 
 function entryIcon(entry) {
   if (entry.type === "dir") {
-    return `<span style="color:#e8a735">\uF0751</span>`;
+    return `<span style="color:#e8a735">\u{F024B}</span>`;
   }
   if (entry.type === "symlink") {
-    return `<span style="color:#7aa2f7">\uEB15</span>`;
+    return `<span style="color:#7aa2f7">\u{EB15}</span>`;
   }
   const nameMatch = NF_NAME_MAP[entry.name];
   if (nameMatch) {
@@ -216,7 +220,7 @@ function entryIcon(entry) {
   if (extMatch) {
     return `<span style="color:${extMatch[1]}">${extMatch[0]}</span>`;
   }
-  return `<span style="color:#6d8086">\uF0219</span>`;
+  return `<span style="color:#6d8086">\u{F0219}</span>`;
 }
 
 function formatSize(bytes) {
@@ -282,12 +286,18 @@ async function openFile(path) {
 }
 
 let longPressTimer = null;
+let longPressEl = null;
 let longPressTriggered = false;
 
 function onLongPressStart(e, entry) {
   longPressTriggered = false;
+  const el = e.currentTarget;
+  longPressEl = el;
+  el.classList.add("long-pressing");
   longPressTimer = setTimeout(() => {
     longPressTriggered = true;
+    el.classList.remove("long-pressing");
+    el.classList.add("long-pressed");
     contextEntry.value = entry;
   }, 500);
 }
@@ -296,6 +306,13 @@ function onLongPressEnd() {
   if (longPressTimer) {
     clearTimeout(longPressTimer);
     longPressTimer = null;
+  }
+  if (longPressEl) {
+    longPressEl.classList.remove("long-pressing");
+    if (!longPressTriggered) {
+      longPressEl.classList.remove("long-pressed");
+    }
+    longPressEl = null;
   }
 }
 
@@ -404,9 +421,27 @@ async function downloadEntry() {
   }
 }
 
+function openEntryInEditor() {
+  const filePath = entryPath();
+  if (!filePath) return;
+  contextEntry.value = null;
+  currentPath.value = filePath;
+  openFile(filePath);
+}
+
+function onCrumbClick(path) {
+  if (props.diffFile) {
+    emit("git:selectDirty");
+    return;
+  }
+  navigate(path);
+}
+
 function onEntryClick(entry) {
-  if (longPressTriggered) { longPressTriggered = false; return; }
-  if (contextEntry.value) return;
+  if (longPressEl || contextEntry.value || longPressTriggered) {
+    longPressTriggered = false;
+    return;
+  }
   const childPath = currentPath.value ? `${currentPath.value}/${entry.name}` : entry.name;
   if (entry.type === "dir") {
     navigate(childPath);
