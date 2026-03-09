@@ -24,13 +24,7 @@
       </div>
     </div>
 
-    <div v-if="openTabs.length === 0 && !splitMode" class="empty-tab-placeholder">
-      <div class="empty-tab-actions">
-        <button type="button" class="empty-tab-open-btn" @click="openWorkspaceModal">
-          <span class="mdi mdi-plus"></span> ワークスペースを開く
-        </button>
-      </div>
-    </div>
+    <EmptyPane v-if="openTabs.length === 0 && !splitMode" @openWorkspace="openWorkspaceModal" />
 
     <template v-if="!splitMode">
       <TerminalPane
@@ -74,6 +68,7 @@
 <script setup>
 import { ref, computed, watch, nextTick } from "vue";
 import TerminalPane from "./TerminalPane.vue";
+import EmptyPane from "./EmptyPane.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { emit, on } from "../app-bridge.js";

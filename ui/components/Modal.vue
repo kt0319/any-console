@@ -21,12 +21,12 @@
       <div class="modal-body">
         <SettingsMenu v-if="currentView === 'settings'" @select="onViewSelect" />
         <WorkspaceOpen v-if="currentView === 'workspace'" ref="workspaceView" />
-        <SettingsWsAdd v-if="currentView === 'wsAdd'" />
-        <SettingsWsConfig v-if="currentView === 'wsConfig'" ref="wsConfigView" @update:title="onWsConfigTitle" />
+        <WorkspaceAdd v-if="currentView === 'wsAdd'" />
+        <WorkspaceConfig v-if="currentView === 'wsConfig'" ref="wsConfigView" @update:title="onWsConfigTitle" />
         <SettingsTab v-if="currentView === 'tab'" />
         <SettingsTerminal v-if="currentView === 'terminal'" />
         <SettingsEditor v-if="currentView === 'editor'" />
-        <SettingsServerInfo v-if="currentView === 'server'" />
+        <ServerInfo v-if="currentView === 'server'" />
         <SettingsConfigFile v-if="currentView === 'config'" />
 
         <IconPicker
@@ -51,12 +51,12 @@ import { ref, nextTick, onMounted } from "vue";
 import { useModal } from "../composables/useModal.js";
 import SettingsMenu from "./SettingsMenu.vue";
 import WorkspaceOpen from "./WorkspaceOpen.vue";
-import SettingsWsAdd from "./SettingsWsAdd.vue";
-import SettingsWsConfig from "./SettingsWsConfig.vue";
+import WorkspaceAdd from "./WorkspaceAdd.vue";
+import WorkspaceConfig from "./WorkspaceConfig.vue";
 import SettingsTab from "./SettingsTab.vue";
 import SettingsTerminal from "./SettingsTerminal.vue";
 import SettingsEditor from "./SettingsEditor.vue";
-import SettingsServerInfo from "./SettingsServerInfo.vue";
+import ServerInfo from "./ServerInfo.vue";
 import SettingsConfigFile from "./SettingsConfigFile.vue";
 import IconPicker from "./IconPicker.vue";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
