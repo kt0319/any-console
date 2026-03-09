@@ -1,63 +1,78 @@
 <template>
   <div class="file-browser">
     <div class="file-browser-header">
-      <button class="file-browser-crumb" @click="navigate('')">root</button>
-      <template v-for="(seg, i) in pathSegments" :key="i">
+      <button class="file-browser-crumb" @click="navigate('')">{{ workspaceStore.selectedWorkspace || 'root' }}</button>
+      <template v-for="(seg, i) in displayPathSegments" :key="i">
         <span class="file-browser-crumb-sep">/</span>
         <button
-          v-if="i < pathSegments.length - 1"
+          v-if="i < displayPathSegments.length - 1"
           class="file-browser-crumb"
-          @click="navigate(pathSegments.slice(0, i + 1).join('/'))"
+          @click="navigate(displayPathSegments.slice(0, i + 1).join('/'))"
         >{{ seg }}</button>
         <span v-else class="file-browser-crumb-current">{{ seg }}</span>
       </template>
     </div>
 
-    <div v-if="loading" class="file-content-message">読み込み中...</div>
-    <div v-else-if="error" class="file-content-message">{{ error }}</div>
-
-    <template v-else-if="!fileContent">
-      <ul class="file-browser-list">
-        <template v-for="entry in entries" :key="entry.name">
-          <li
-            class="file-browser-item"
-            :class="{ 'action-open': contextEntry?.name === entry.name, 'gitignored': entry.gitignored }"
-            :data-type="entry.type"
-            @click="onEntryClick(entry)"
-            @contextmenu.prevent="toggleContextMenu(entry)"
-            @touchstart.passive="onLongPressStart($event, entry)"
-            @touchend="onLongPressEnd"
-            @touchcancel="onLongPressEnd"
-          >
-            <span class="file-browser-item-icon nf-icon" v-html="entryIcon(entry)"></span>
-            <span class="file-browser-item-name">{{ entry.name }}</span>
-            <span v-if="entry.type === 'file' && entry.size != null" class="file-browser-item-size">{{ formatSize(entry.size) }}</span>
-          </li>
-          <li v-if="contextEntry?.name === entry.name" class="file-browser-action-menu">
-            <button v-if="entry.type === 'file'" type="button" @click="downloadEntry"><span class="mdi mdi-download"></span> ダウンロード</button>
-            <button type="button" @click="renameEntry"><span class="mdi mdi-rename-box"></span> リネーム</button>
-            <button type="button" @click="moveEntry"><span class="mdi mdi-file-move-outline"></span> 移動</button>
-            <button type="button" class="file-browser-action-delete" @click="deleteEntry"><span class="mdi mdi-delete-outline"></span> 削除</button>
-            <button type="button" @click="contextEntry = null"><span class="mdi mdi-close"></span></button>
-          </li>
-        </template>
-      </ul>
-      <div v-if="entries.length === 0" class="file-content-message">ファイルがありません</div>
+    <template v-if="diffFile">
+      <div class="diff-viewer-pane">
+        <div class="diff-content" v-html="diffHtml"></div>
+      </div>
     </template>
 
-    <FileTextViewer v-else :fileContent="fileContent" :fileName="currentPath" />
+    <template v-else>
+      <div v-if="loading" class="file-content-message">読み込み中...</div>
+      <div v-else-if="error" class="file-content-message">{{ error }}</div>
+
+      <template v-else-if="!fileContent">
+        <ul class="file-browser-list">
+          <template v-for="entry in entries" :key="entry.name">
+            <li
+              class="file-browser-item"
+              :class="{ 'action-open': contextEntry?.name === entry.name, 'gitignored': entry.gitignored }"
+              :data-type="entry.type"
+              @click="onEntryClick(entry)"
+              @contextmenu.prevent="toggleContextMenu(entry)"
+              @touchstart.passive="onLongPressStart($event, entry)"
+              @touchend="onLongPressEnd"
+              @touchcancel="onLongPressEnd"
+            >
+              <span class="file-browser-item-icon nf-icon" v-html="entryIcon(entry)"></span>
+              <span class="file-browser-item-name">{{ entry.name }}</span>
+              <span v-if="entry.type === 'file' && entry.size != null" class="file-browser-item-size">{{ formatSize(entry.size) }}</span>
+            </li>
+            <li v-if="contextEntry?.name === entry.name" class="file-browser-action-menu">
+              <button v-if="entry.type === 'file'" type="button" @click="downloadEntry"><span class="mdi mdi-download"></span> ダウンロード</button>
+              <button type="button" @click="renameEntry"><span class="mdi mdi-rename-box"></span> リネーム</button>
+              <button type="button" @click="moveEntry"><span class="mdi mdi-file-move-outline"></span> 移動</button>
+              <button type="button" class="file-browser-action-delete" @click="deleteEntry"><span class="mdi mdi-delete-outline"></span> 削除</button>
+              <button type="button" @click="contextEntry = null"><span class="mdi mdi-close"></span></button>
+            </li>
+          </template>
+        </ul>
+        <div v-if="entries.length === 0" class="file-content-message">ファイルがありません</div>
+      </template>
+
+      <FileTextViewer v-else :fileContent="fileContent" :fileName="currentPath" />
+    </template>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import FileTextViewer from "./FileTextViewer.vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { useGitStore } from "../stores/git.js";
 import { emit } from "../app-bridge.js";
 
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
+const gitStore = useGitStore();
+
+const props = defineProps({
+  diffFile: { type: String, default: "" },
+  diffMessage: { type: String, default: "" },
+});
 
 const currentPath = ref("");
 const entries = ref([]);
@@ -65,11 +80,58 @@ const fileContent = ref(null);
 const loading = ref(false);
 const error = ref("");
 const contextEntry = ref(null);
+const diffHtml = ref("");
 
 const pathSegments = computed(() => {
   if (!currentPath.value) return [];
   return currentPath.value.split("/").filter(Boolean);
 });
+
+const displayPathSegments = computed(() => {
+  if (props.diffFile) return props.diffFile.split("/").filter(Boolean);
+  return pathSegments.value;
+});
+
+const DIFF_COLORS = {
+  "+": "var(--diff-add, #9ece6a)",
+  "-": "var(--diff-del, #f7768e)",
+  "@": "var(--diff-hunk, #7aa2f7)",
+};
+
+function escapeDiffHtml(str) {
+  if (!str) return "";
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function colorDiff(text) {
+  if (!text) return "";
+  return text.split("\n").map((line) => {
+    const prefix = line[0];
+    const color = DIFF_COLORS[prefix];
+    if (color) return `<span style="color:${color}">${escapeDiffHtml(line)}</span>`;
+    return escapeDiffHtml(line);
+  }).join("\n");
+}
+
+watch(() => props.diffFile, (file) => {
+  if (!file) { diffHtml.value = ""; return; }
+  const chunk = gitStore.diffChunks[file];
+  if (chunk) {
+    diffHtml.value = `<pre>${colorDiff(chunk)}</pre>`;
+  } else if (gitStore.diffFullText) {
+    diffHtml.value = `<pre>${colorDiff(gitStore.diffFullText)}</pre>`;
+  } else {
+    diffHtml.value = "";
+  }
+}, { immediate: true });
+
+watch(() => props.diffMessage, (msg) => {
+  if (msg) {
+    diffHtml.value = `<div style="color:var(--text-muted);padding:16px;text-align:center">${escapeDiffHtml(msg)}</div>`;
+  }
+}, { immediate: true });
 
 const NF_EXT_MAP = {
   js: ["\uE781", "#f1e05a"],

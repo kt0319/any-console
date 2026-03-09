@@ -1504,7 +1504,8 @@ header {
 
 .viewer-content.hljs,
 .text-viewer-box-content.hljs,
-.file-content-code.hljs {
+.file-content-code.hljs,
+.file-content-viewer code.hljs {
   background: transparent;
   padding: 0;
 }

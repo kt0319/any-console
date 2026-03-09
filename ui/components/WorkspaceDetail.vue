@@ -1,20 +1,19 @@
 <template>
   <div class="workspace-detail">
     <div class="workspace-detail-top">
-      <GitHistory ref="gitHistory" @pane:select="switchPane" />
-      <div v-show="activePane === 'branch'" class="file-modal-pane">
-        <GitBranch ref="gitBranch" />
+      <div v-show="activePane !== 'branch' && activePane !== 'stash'" class="file-modal-pane">
+        <GitHistory ref="gitHistory" @pane:select="switchPane" />
       </div>
-      <div v-show="activePane === 'stash'" class="file-modal-pane">
+      <div v-if="activePane === 'branch'" class="file-modal-pane">
+        <GitChangeBranch ref="gitBranch" />
+      </div>
+      <div v-if="activePane === 'stash'" class="file-modal-pane">
         <GitStash ref="gitStash" />
       </div>
     </div>
     <div class="workspace-detail-bottom">
-      <div v-show="selectedDiffFile" class="file-modal-pane">
-        <FileDiffViewer :file="selectedDiffFile" :message="diffMessage" />
-      </div>
-      <div v-show="!selectedDiffFile" class="file-modal-pane">
-        <FileBrowser ref="fileBrowser" />
+      <div class="file-modal-pane">
+        <FileBrowser ref="fileBrowser" :diffFile="selectedDiffFile" :diffMessage="diffMessage" />
       </div>
       <GitCommitForm ref="commitForm" />
     </div>
@@ -22,12 +21,11 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, nextTick } from "vue";
 import FileBrowser from "./FileBrowser.vue";
 import GitHistory from "./GitHistory.vue";
-import GitBranch from "./GitBranch.vue";
+import GitChangeBranch from "./GitChangeBranch.vue";
 import GitStash from "./GitStash.vue";
-import FileDiffViewer from "./FileDiffViewer.vue";
 import GitCommitForm from "./GitCommitForm.vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
 import { useAuthStore } from "../stores/auth.js";
@@ -60,7 +58,9 @@ function emitTitleAndBack() {
 }
 
 function goBack() {
-  if (selectedDiffFile.value) {
+  if (activePane.value === "branch" || activePane.value === "stash") {
+    switchPane("browser");
+  } else if (selectedDiffFile.value) {
     selectedDiffFile.value = "";
     diffMessage.value = "";
   } else {
@@ -75,8 +75,6 @@ async function open(options) {
   gitHistory.value?.setActivePane(activePane.value);
   selectedDiffFile.value = "";
   diffMessage.value = "";
-  diffPaneTitle.value = "未コミットの変更";
-  commitViewMessage.value = "";
   emitTitleAndBack();
 
   const workspace = workspaceStore.selectedWorkspace;
@@ -105,10 +103,12 @@ function switchPane(key) {
   if (key === "browser") {
     fileBrowser.value?.load();
   } else if (key === "branch") {
-    gitBranch.value?.load();
-    gitBranch.value?.backgroundFetch();
+    nextTick(() => {
+      gitBranch.value?.load();
+      gitBranch.value?.backgroundFetch();
+    });
   } else if (key === "stash") {
-    gitStash.value?.load();
+    nextTick(() => gitStash.value?.load());
   } else if (key === "github") {
     bridgeEmit("git:openGitHub");
   }
