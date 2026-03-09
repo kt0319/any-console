@@ -5,11 +5,10 @@
   <div v-else class="main-panel" :class="{ 'panel-bottom': isPanelBottom }">
     <TabBar v-show="!isTextInputVisible" ref="tabBarView" :tabs="openTabs" :orphans="orphanSessions" />
     <WorkspaceStatusBar v-show="!isTextInputVisible" />
-    <TerminalBase ref="terminalBaseView" />
-    <KeyboardBase
-      ref="keyboardBase"
+    <TerminalBase
+      ref="terminalBaseView"
       :is-panel-bottom="isPanelBottom"
-      @visibility="updateKeyboardInputVisibility"
+      @keyboard-input-visibility="updateKeyboardInputVisibility"
     />
   </div>
   <Modal />
@@ -21,7 +20,6 @@ import WorkspaceStatusBar from "./WorkspaceStatusBar.vue";
 import TabBar from "./TabBar.vue";
 import TerminalBase from "./TerminalBase.vue";
 import ScreenEmpty from "./ScreenEmpty.vue";
-import KeyboardBase from "./KeyboardBase.vue";
 import Modal from "./Modal.vue";
 import { useLayoutStore } from "../stores/layout.js";
 import { useTerminalStore } from "../stores/terminal.js";
@@ -144,7 +142,6 @@ const isEmptyScreenVisible = computed(() => openTabs.value.length === 0 && !layo
 
 const tabBarView = ref(null);
 const terminalBaseView = ref(null);
-const keyboardBase = ref(null);
 const isTextInputVisible = ref(false);
 
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
@@ -285,11 +282,11 @@ onMounted(() => {
 
   on("keyboard:activate", () => {
     ensureKeyboardTargetTab();
-    keyboardBase.value?.showInput?.();
+    terminalBaseView.value?.showKeyboardInput?.();
   });
 
   on("keyboard:deactivate", () => {
-    keyboardBase.value?.hideInput?.();
+    terminalBaseView.value?.hideKeyboardInput?.();
   });
 
   initViewport(() => {
@@ -331,7 +328,6 @@ function updateKeyboardInputVisibility(visible) {
 defineExpose({
   tabBar: tabBarView,
   terminalSplit: terminalBaseView,
-  keyboardBase,
 });
 </script>
 

@@ -102,6 +102,13 @@
         />
       </template>
     </template>
+    <div class="terminal-keyboard-overlay">
+      <KeyboardBase
+        ref="keyboardBase"
+        :is-panel-bottom="isPanelBottom"
+        @visibility="onKeyboardInputVisibility"
+      />
+    </div>
     <slot />
   </div>
 </template>
@@ -109,14 +116,21 @@
 <script setup>
 import { ref, computed, watch, nextTick } from "vue";
 import TerminalPane from "./TerminalPane.vue";
+import KeyboardBase from "./KeyboardBase.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { on } from "../app-bridge.js";
+
+defineProps({
+  isPanelBottom: { type: Boolean, default: false },
+});
+const emit = defineEmits(["keyboardInputVisibility"]);
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const keyboardOverlay = ref(false);
 on("keyboard:modeChange", ({ mode }) => { keyboardOverlay.value = mode === 1; });
+const keyboardBase = ref(null);
 
 const paneRefs = ref([]);
 
@@ -202,6 +216,18 @@ function fitAllTerminals(opts) {
   }
 }
 
+function onKeyboardInputVisibility(visible) {
+  emit("keyboardInputVisibility", !!visible);
+}
+
+function showKeyboardInput() {
+  keyboardBase.value?.showInput?.();
+}
+
+function hideKeyboardInput() {
+  keyboardBase.value?.hideInput?.();
+}
+
 watch(isSplitMode, async () => {
   await nextTick();
   requestAnimationFrame(() => fitAllTerminals());
@@ -220,7 +246,7 @@ watch(activeTabId, async (id) => {
   });
 });
 
-defineExpose({ fitAllTerminals, selectPane });
+defineExpose({ fitAllTerminals, selectPane, showKeyboardInput, hideKeyboardInput });
 </script>
 
 <style scoped>
@@ -239,7 +265,17 @@ defineExpose({ fitAllTerminals, selectPane });
   inset: 0;
   background: var(--overlay-bg);
   z-index: 5;
+  pointer-events: none;
   touch-action: none;
+}
+
+.terminal-keyboard-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  pointer-events: auto;
 }
 
 .output-container.split-active {

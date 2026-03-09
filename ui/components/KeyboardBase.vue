@@ -107,7 +107,7 @@ defineExpose({
   position: absolute;
   right: 0;
   bottom: 0;
-  z-index: 10;
+  z-index: 30;
   pointer-events: auto;
   padding: 4px;
 }
@@ -299,7 +299,7 @@ defineExpose({
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 10;
+  z-index: 30;
   pointer-events: auto;
   padding: 4px;
   background: transparent;
@@ -447,7 +447,8 @@ defineExpose({
   position: fixed;
   inset: 0;
   background: var(--overlay-bg);
-  z-index: 5;
+  z-index: 20;
+  pointer-events: auto;
 }
 
 .keyboard-input-row {
@@ -502,6 +503,9 @@ defineExpose({
 }
 
 .keyboard-input-snippets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin-bottom: 5px;
   pointer-events: auto;
 }

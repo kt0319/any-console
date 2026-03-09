@@ -384,16 +384,11 @@ onMounted(() => {
     border-radius: 0 0 var(--radius) var(--radius);
   }
 
-  .modal-close-btn {
-    visibility: hidden;
-    pointer-events: none;
-  }
-
   .modal-flick-handle {
     display: flex;
-    padding: 10px 0 max(10px, env(safe-area-inset-bottom));
+    padding: 10px 0 calc(env(safe-area-inset-bottom) + 40px);
     border-top: 1px solid var(--border);
-    background: rgba(0, 0, 0, 0.18);
+    background: color-mix(in srgb, var(--bg-secondary) 70%, transparent);
   }
 }
 </style>
