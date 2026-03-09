@@ -99,7 +99,7 @@ function insertText(text) {
 function submit() {
   const text = draft.value.trim();
   if (!text) return;
-  sendTextToTerminal(text + "\n");
+  sendTextToTerminal(text);
   inputStore.addInputHistory(text);
   bridgeEmit("layout:fitAll");
   draft.value = "";

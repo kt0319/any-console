@@ -1,7 +1,7 @@
 <template>
   <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom }">
-    <TabBar ref="tabBar" :tabs="openTabs" :orphans="orphanSessions" />
-    <WorkspaceStatusBar />
+    <TabBar v-show="!isTextInputVisible" ref="tabBar" :tabs="openTabs" :orphans="orphanSessions" />
+    <WorkspaceStatusBar v-show="!isTextInputVisible" />
     <TerminalBase ref="terminalSplit">
       <KeyboardBase v-if="isPanelBottom" v-show="!isTextInputVisible" ref="quickKeyboardBar" />
       <KeyboardInput
@@ -73,6 +73,37 @@ const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 let resizeObserver = null;
 let resizeDebounceTimer = null;
 
+function focusTabTerminal(tabId) {
+  const tab = terminalStore.openTabs.find((t) => t.id === tabId);
+  if (!tab?.term) return;
+  requestAnimationFrame(() => {
+    try {
+      tab.term.focus();
+    } catch {}
+  });
+}
+
+function ensureKeyboardTargetTab() {
+  if (terminalStore.openTabs.length === 0) return;
+  const hasActive = terminalStore.openTabs.some((t) => t.id === terminalStore.activeTabId);
+  if (hasActive) return;
+
+  if (layoutStore.isSplitMode) {
+    const ids = layoutStore.splitPaneTabIds || [];
+    const paneIndex = layoutStore.activePaneIndex || 0;
+    const targetId = ids[paneIndex] || ids[0];
+    if (targetId) {
+      terminalStore.switchTab(targetId);
+      focusTabTerminal(targetId);
+      return;
+    }
+  }
+
+  const firstId = terminalStore.openTabs[0].id;
+  terminalStore.switchTab(firstId);
+  focusTabTerminal(firstId);
+}
+
 async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, jobIcon, jobIconColor, initialCommand }) {
   try {
     const res = await auth.apiFetch("/run", {
@@ -134,6 +165,7 @@ onMounted(() => {
 
   on("tab:select", ({ tab }) => {
     terminalStore.switchTab(tab.id);
+    focusTabTerminal(tab.id);
     if (tab.workspace) {
       workspaceStore.selectedWorkspace = tab.workspace;
     }
@@ -169,6 +201,7 @@ onMounted(() => {
   loadSnippets();
 
   on("keyboard:activate", () => {
+    ensureKeyboardTargetTab();
     keyboardInputBar.value?.show?.();
   });
 
@@ -197,6 +230,10 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect();
 });
 
+function onKeyboardInputVisibility(visible) {
+  isTextInputVisible.value = !!visible;
+}
+
 defineExpose({
   tabBar,
   terminalSplit,
@@ -204,6 +241,3 @@ defineExpose({
   keyboardInputBar,
 });
 </script>
-function onKeyboardInputVisibility(visible) {
-  isTextInputVisible.value = !!visible;
-}
