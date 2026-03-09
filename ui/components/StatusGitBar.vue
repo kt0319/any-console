@@ -19,6 +19,7 @@
         v-if="behind > 0"
         type="button"
         class="git-action-btn pull-btn has-count"
+        :class="{ running: runningAction === 'pull' }"
         title="Pull"
         @click="gitAction('pull')"
       >
@@ -29,6 +30,7 @@
         v-if="!hasUpstream && hasRemoteBranch"
         type="button"
         class="git-action-btn icon-only upstream-set-btn"
+        :class="{ running: runningAction === 'set-upstream' }"
         title="追跡設定"
         @click="gitAction('set-upstream')"
       >
@@ -38,6 +40,7 @@
         v-if="!hasUpstream && !hasRemoteBranch"
         type="button"
         class="git-action-btn upstream-btn"
+        :class="{ running: runningAction === 'push-upstream' }"
         title="Push"
         @click="gitAction('push-upstream')"
       >
@@ -48,6 +51,7 @@
         v-if="hasUpstream && ahead > 0"
         type="button"
         class="git-action-btn push-btn has-count"
+        :class="{ running: runningAction === 'push' }"
         title="Push"
         @click="gitAction('push')"
       >
@@ -59,11 +63,14 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { ref, computed } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
+import { useAuthStore } from "../stores/auth.js";
 import { emit } from "../app-bridge.js";
+
+const auth = useAuthStore();
 
 const workspaceStore = useWorkspaceStore();
 const terminalStore = useTerminalStore();
@@ -126,7 +133,42 @@ function openFileModal() {
   emit("git:openFileModal");
 }
 
-function gitAction(action) {
-  emit("git:action", { action, workspace: workspace.value });
+const ACTION_LABELS = {
+  pull: "Pull",
+  push: "Push",
+  "push-upstream": "Push (upstream設定)",
+  "set-upstream": "追跡設定",
+};
+
+const runningAction = ref(null);
+
+async function gitAction(action) {
+  const ws = workspace.value;
+  if (!ws) return;
+  if (runningAction.value) return;
+  const label = ACTION_LABELS[action] || action;
+  if (!confirm(`${label} を実行しますか？`)) return;
+  runningAction.value = action;
+  try {
+    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(ws)}/${action}`, {
+      method: "POST",
+    });
+    if (!res || !res.ok) {
+      const data = await res?.json().catch(() => null);
+      emit("toast:show", { message: data?.stderr || `${label}に失敗しました`, type: "error" });
+      return;
+    }
+    const data = await res.json();
+    if (data.exit_code !== 0) {
+      emit("toast:show", { message: data.stderr || `${label}に失敗しました`, type: "error" });
+      return;
+    }
+    emit("toast:show", { message: `${label}完了`, type: "success" });
+    workspaceStore.fetchStatuses(auth);
+  } catch (e) {
+    emit("toast:show", { message: e.message, type: "error" });
+  } finally {
+    runningAction.value = null;
+  }
 }
 </script>
