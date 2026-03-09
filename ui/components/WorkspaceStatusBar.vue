@@ -26,16 +26,40 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, onMounted, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
+import { useAuthStore } from "../stores/auth.js";
 import { useGitAction } from "../composables/useGitAction.js";
 import { emit } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import { escapeHtml } from "../utils/escape-html.js";
 
+const POLL_INTERVAL_MS = 15000;
+
 const { gitAction, isRunning } = useGitAction();
+const auth = useAuthStore();
+
+let pollTimer = null;
+
+function startPolling() {
+  stopPolling();
+  pollTimer = setInterval(() => {
+    if (document.hidden) return;
+    workspaceStore.fetchStatuses(auth);
+  }, POLL_INTERVAL_MS);
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+onMounted(() => startPolling());
+onBeforeUnmount(() => stopPolling());
 
 const workspaceStore = useWorkspaceStore();
 const terminalStore = useTerminalStore();
