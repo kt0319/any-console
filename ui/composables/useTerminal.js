@@ -103,7 +103,6 @@ export function useTerminal() {
     }
     clearTimeout(tab._reconnectTimer);
     clearTimeout(tab._activityTimer);
-    clearTimeout(tab._fitRetryTimer);
   }
 
   function ensureTerminalOpened(tab, frameEl) {
@@ -136,38 +135,18 @@ export function useTerminal() {
     const frame = document.getElementById(`frame-${tab.id}`);
     if (frame) {
       const rect = frame.getBoundingClientRect();
-      if (rect.width < 2 || rect.height < 2) {
-        scheduleRetryFit(tab);
-        return;
-      }
+      if (rect.width < 2 || rect.height < 2) return;
     }
     try {
       const dims = tab.fitAddon.proposeDimensions();
-      if (!dims || isNaN(dims.cols) || isNaN(dims.rows)) {
-        scheduleRetryFit(tab);
-        return;
-      }
+      if (!dims || isNaN(dims.cols) || isNaN(dims.rows)) return;
+      if (tab._lastFitCols === dims.cols && tab._lastFitRows === dims.rows) return;
+      tab._lastFitCols = dims.cols;
+      tab._lastFitRows = dims.rows;
       tab.fitAddon.fit();
     } catch {}
   }
 
-  function scheduleRetryFit(tab) {
-    if (tab._fitRetryTimer) return;
-    let retries = 0;
-    const retry = () => {
-      tab._fitRetryTimer = null;
-      if (retries++ >= 10) return;
-      try {
-        const dims = tab.fitAddon?.proposeDimensions();
-        if (dims && !isNaN(dims.cols) && !isNaN(dims.rows)) {
-          tab.fitAddon.fit();
-          return;
-        }
-      } catch {}
-      tab._fitRetryTimer = setTimeout(retry, 100);
-    };
-    tab._fitRetryTimer = setTimeout(retry, 100);
-  }
 
   async function deleteSession(sessionId) {
     try {

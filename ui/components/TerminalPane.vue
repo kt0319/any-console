@@ -276,6 +276,7 @@ onBeforeUnmount(() => {
 });
 
 defineExpose({
+  tabId: props.tab.id,
   fit() { fitTerminal(props.tab); },
   getFrameEl() { return frameEl.value; },
 });

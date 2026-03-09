@@ -582,7 +582,7 @@ header {
 }
 
 .main-panel.panel-bottom .tab-bar-row {
-  order: 1;
+  order: 2;
   position: relative;
   border-bottom: none;
   border-top: 1px solid var(--border);
@@ -608,6 +608,7 @@ header {
 }
 
 .main-panel.panel-bottom .header-row2 {
+  order: 1;
   border-bottom: none;
   border-top: 1px solid var(--border);
 }

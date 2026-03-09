@@ -338,6 +338,7 @@ const qwertyKeyboardSnippet = ref(null);
 watch(mode, (val) => {
   nextTick(() => {
     emit("layout:fitAll");
+    emit("keyboard:modeChange", { mode: val });
     if (val === 1 && qwertyKeyboardSnippet.value) {
       qwertyKeyboardSnippet.value.show();
     }

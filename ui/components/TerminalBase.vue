@@ -1,7 +1,7 @@
 <template>
   <div
     class="output-container"
-    :class="splitContainerClasses"
+    :class="[splitContainerClasses, { 'input-overlay-active': keyboardOverlay }]"
     ref="containerEl"
   >
     <div v-if="showDropZones" class="split-drop-overlay">
@@ -33,7 +33,6 @@
     </div>
 
     <template v-if="!splitMode">
-      <StatusGitBar />
       <TerminalPane
         v-for="tab in openTabs"
         v-show="tab.id === activeTabId"
@@ -75,13 +74,14 @@
 <script setup>
 import { ref, computed, watch, nextTick } from "vue";
 import TerminalPane from "./TerminalPane.vue";
-import StatusGitBar from "./StatusGitBar.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { emit } from "../app-bridge.js";
+import { emit, on } from "../app-bridge.js";
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
+const keyboardOverlay = ref(false);
+on("keyboard:modeChange", ({ mode }) => { keyboardOverlay.value = mode === 1; });
 
 function openWorkspaceModal() {
   emit("workspace:openModal");
@@ -177,10 +177,15 @@ watch(splitMode, async () => {
   requestAnimationFrame(() => fitAllTerminals());
 });
 
-watch(activeTabId, async () => {
+watch(activeTabId, async (id) => {
   if (splitMode.value) return;
   await nextTick();
-  requestAnimationFrame(() => fitAllTerminals());
+  requestAnimationFrame(() => {
+    if (!paneRefs.value) return;
+    const refs = Array.isArray(paneRefs.value) ? paneRefs.value : [paneRefs.value];
+    const active = refs.find((p) => p?.tabId === id);
+    active?.fit?.();
+  });
 });
 
 defineExpose({ fitAllTerminals, selectPane });
