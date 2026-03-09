@@ -87,7 +87,7 @@ export function useKeyboard() {
     };
 
     el.addEventListener("touchstart", (e) => {
-      e.preventDefault();
+      if (e.cancelable) e.preventDefault();
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       el.classList.add("pressed");
@@ -118,7 +118,7 @@ export function useKeyboard() {
     }, { passive: true });
 
     el.addEventListener("touchend", (e) => {
-      e.preventDefault();
+      if (e.cancelable) e.preventDefault();
       el.classList.remove("pressed");
       cancelLongPress();
       if (longPressFired) return;

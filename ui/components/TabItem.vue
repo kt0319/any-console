@@ -2,20 +2,28 @@
   <button
     ref="pillEl"
     class="tab-btn"
-    :class="{ active: isActive, 'tab-activity': tab._activity, orphan: isOrphan, dragging: isDragging }"
+    :class="{ active: isActive, 'tab-activity': tab._activity, orphan: isOrphan, dragging: isDragging, 'drag-over-left': dropSide === 'left', 'drag-over-right': dropSide === 'right' }"
     :draggable="canDrag"
     tabindex="-1"
     @mousedown="onMouseDown"
     @click="onClick"
     @dragstart="onDragStart"
     @dragend="onDragEnd"
+    @dragover="onDragOverTab"
+    @dragleave="onDragLeaveTab"
+    @drop="onDropOnTab"
     @touchstart.passive="onTouchStart"
   >
     <span v-if="wsIconHtml" v-html="wsIconHtml"></span>
     <span v-if="iconHtml" v-html="iconHtml"></span>
     <template v-if="!isPanelBottom">
       {{ label }}
-      <span class="tab-close" @click.stop="onClose">&times;</span>
+      <span
+        class="tab-close"
+        @mousedown.stop.prevent="onClosePress"
+        @touchstart.stop.prevent="onClosePress"
+        @click.stop="onClose"
+      >&times;</span>
     </template>
   </button>
 </template>
@@ -40,10 +48,11 @@ const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
 const pillEl = ref(null);
 const isDragging = ref(false);
+const dropSide = ref("");
 
 const isTouchDevice = layoutStore.isTouchDevice;
 const isActive = computed(() => props.activeTabId === props.tab.id);
-const canDrag = computed(() => terminalStore.openTabs.length >= 2);
+const canDrag = computed(() => terminalStore.openTabs.length >= 1);
 
 const label = computed(() => {
   return props.tab.workspace || props.tab.label || "terminal";
@@ -72,6 +81,11 @@ function onClick(e) {
 
 function onClose() {
   emits("close", props.tab);
+}
+
+function onClosePress() {
+  clearLongPress();
+  clearTouchLongPress();
 }
 
 // PC: long press
@@ -105,9 +119,62 @@ function onDragStart(e) {
 
 function onDragEnd(e) {
   isDragging.value = false;
+  dropSide.value = "";
   layoutStore.isShowDropZones = false;
   layoutStore.dragTabId = null;
   e.currentTarget?.blur();
+}
+
+function resolveDragTabId(e) {
+  const raw = layoutStore.dragTabId || e?.dataTransfer?.getData("text/plain");
+  const value = typeof raw === "string" ? parseInt(raw, 10) : Number(raw);
+  return Number.isFinite(value) ? value : null;
+}
+
+function onDragOverTab(e) {
+  if (!canDrag.value) return;
+  const dragTabId = resolveDragTabId(e);
+  if (!dragTabId || dragTabId === props.tab.id) {
+    dropSide.value = "";
+    return;
+  }
+  const fromIndex = terminalStore.openTabs.findIndex((t) => t.id === dragTabId);
+  const targetIndex = terminalStore.openTabs.findIndex((t) => t.id === props.tab.id);
+  if (fromIndex < 0 || targetIndex < 0) {
+    dropSide.value = "";
+    return;
+  }
+  e.preventDefault();
+  const rect = e.currentTarget.getBoundingClientRect();
+  const isLeft = e.clientX < rect.left + rect.width / 2;
+  dropSide.value = isLeft ? "left" : "right";
+}
+
+function onDragLeaveTab(e) {
+  if (e.currentTarget?.contains(e.relatedTarget)) return;
+  dropSide.value = "";
+}
+
+function onDropOnTab(e) {
+  dropSide.value = "";
+  if (!canDrag.value) return;
+  e.preventDefault();
+  const dragTabId = resolveDragTabId(e);
+  if (!dragTabId || dragTabId === props.tab.id) return;
+
+  const fromIndex = terminalStore.openTabs.findIndex((t) => t.id === dragTabId);
+  const targetIndex = terminalStore.openTabs.findIndex((t) => t.id === props.tab.id);
+  if (fromIndex < 0 || targetIndex < 0) return;
+
+  const rect = e.currentTarget.getBoundingClientRect();
+  const insertBefore = e.clientX < rect.left + rect.width / 2;
+  let toIndex = insertBefore ? targetIndex : targetIndex + 1;
+  if (fromIndex < toIndex) toIndex -= 1;
+  toIndex = Math.max(0, Math.min(toIndex, terminalStore.openTabs.length - 1));
+  terminalStore.moveTab(fromIndex, toIndex);
+
+  layoutStore.isShowDropZones = false;
+  layoutStore.dragTabId = null;
 }
 
 // Mobile: Touch drag + long press
@@ -149,11 +216,11 @@ function onTouchMove(e) {
     isDragging.value = true;
     layoutStore.dragTabId = props.tab.id;
     layoutStore.isShowDropZones = true;
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
   }
 
   if (touchDragging) {
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     updateTouchDropZoneHover(e.touches[0]);
   }
 }
@@ -162,7 +229,7 @@ function onTouchEnd(e) {
   clearTouchLongPress();
   if (touchLongPressed) { touchLongPressed = false; return; }
   if (!touchDragging) return;
-  e.preventDefault();
+  if (e.cancelable) e.preventDefault();
   isDragging.value = false;
 
   const touch = e.changedTouches[0];

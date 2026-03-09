@@ -68,7 +68,14 @@
       </div>
     </div>
 
-    <EmptyPane v-if="openTabs.length === 0 && !isSplitMode" @openWorkspace="openWorkspaceModal" />
+    <div v-if="openTabs.length === 0 && !isSplitMode && (restoreSessionsLoading || !!restoreSessionsError)" class="terminal-restore-overlay">
+      <div v-if="restoreSessionsLoading" class="terminal-restore-spinner" aria-hidden="true"></div>
+      <div class="terminal-restore-text">
+        {{ restoreSessionsLoading ? "tmuxセッションを読み込み中..." : restoreSessionsError }}
+      </div>
+    </div>
+
+    <EmptyPane v-if="openTabs.length === 0 && !isSplitMode && !restoreSessionsLoading && !restoreSessionsError" @openWorkspace="openWorkspaceModal" />
 
     <template v-if="!isSplitMode">
       <TerminalPane
@@ -130,6 +137,8 @@ const containerEl = ref(null);
 const paneRefs = ref([]);
 
 const openTabs = computed(() => terminalStore.openTabs);
+const restoreSessionsLoading = computed(() => terminalStore.restoreSessionsLoading);
+const restoreSessionsError = computed(() => terminalStore.restoreSessionsError);
 const activeTabId = computed(() => terminalStore.activeTabId);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
 const splitLayout = computed(() => layoutStore.splitLayout || "horizontal");
@@ -220,10 +229,12 @@ watch(activeTabId, async (id) => {
   if (isSplitMode.value) return;
   await nextTick();
   requestAnimationFrame(() => {
-    if (!paneRefs.value) return;
-    const refs = Array.isArray(paneRefs.value) ? paneRefs.value : [paneRefs.value];
-    const active = refs.find((p) => p?.tabId === id);
-    active?.fit?.();
+    requestAnimationFrame(() => {
+      if (!paneRefs.value) return;
+      const refs = Array.isArray(paneRefs.value) ? paneRefs.value : [paneRefs.value];
+      const active = refs.find((p) => p?.tabId === id);
+      active?.fit?.({ force: true });
+    });
   });
 });
 

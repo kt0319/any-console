@@ -3,9 +3,13 @@
     <TabBar ref="tabBar" :tabs="openTabs" :orphans="orphanSessions" />
     <WorkspaceStatusBar />
     <TerminalBase ref="terminalSplit">
-      <KeyboardBase v-if="isPanelBottom" ref="keyboardBar" />
+      <KeyboardBase v-if="isPanelBottom" v-show="!isTextInputVisible" ref="quickKeyboardBar" />
+      <KeyboardInput
+        v-if="isPanelBottom"
+        ref="keyboardInputBar"
+        @visibility="onKeyboardInputVisibility"
+      />
     </TerminalBase>
-    <KeyboardSnippet v-if="isPanelBottom" ref="snippetBar" />
   </div>
 </template>
 
@@ -14,8 +18,8 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
 import WorkspaceStatusBar from "./WorkspaceStatusBar.vue";
 import TabBar from "./TabBar.vue";
 import TerminalBase from "./TerminalBase.vue";
-import KeyboardSnippet from "./KeyboardSnippet.vue";
 import KeyboardBase from "./KeyboardBase.vue";
+import KeyboardInput from "./KeyboardInput.vue";
 import { useLayoutStore } from "../stores/layout.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useAuthStore } from "../stores/auth.js";
@@ -60,8 +64,9 @@ const orphanSessions = computed(() => terminalStore.orphanSessions);
 
 const tabBar = ref(null);
 const terminalSplit = ref(null);
-const snippetBar = ref(null);
-const keyboardBar = ref(null);
+const quickKeyboardBar = ref(null);
+const keyboardInputBar = ref(null);
+const isTextInputVisible = ref(false);
 
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 
@@ -127,10 +132,6 @@ onMounted(() => {
     terminalSplit.value?.fitAllTerminals(detail);
   });
 
-  on("layout:toggleSnippet", () => {
-    snippetBar.value?.toggle();
-  });
-
   on("tab:select", ({ tab }) => {
     terminalStore.switchTab(tab.id);
     if (tab.workspace) {
@@ -168,15 +169,11 @@ onMounted(() => {
   loadSnippets();
 
   on("keyboard:activate", () => {
-    if (keyboardBar.value && keyboardBar.value.mode === 0) {
-      keyboardBar.value.cycleMode();
-    }
+    keyboardInputBar.value?.show?.();
   });
 
   on("keyboard:deactivate", () => {
-    if (keyboardBar.value && keyboardBar.value.mode !== 0) {
-      keyboardBar.value.cycleMode();
-    }
+    keyboardInputBar.value?.hide?.();
   });
 
   initViewport(() => {
@@ -203,7 +200,10 @@ onBeforeUnmount(() => {
 defineExpose({
   tabBar,
   terminalSplit,
-  snippetBar,
-  keyboardBar,
+  quickKeyboardBar,
+  keyboardInputBar,
 });
 </script>
+function onKeyboardInputVisibility(visible) {
+  isTextInputVisible.value = !!visible;
+}

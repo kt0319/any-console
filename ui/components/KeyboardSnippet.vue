@@ -82,7 +82,7 @@ function onSnippetTouchMove(e) {
 function onSnippetTouchEnd(e, snippet, idx) {
   if (scrolled || longPressFired) return;
   if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
-  e.preventDefault();
+  if (e.cancelable) e.preventDefault();
   emit("snippet:tap", { command: snippet.command });
 }
 
@@ -118,7 +118,7 @@ function onHistoryTouchStart(e, text) {
 
 function onHistoryTouchEnd(e, text) {
   if (scrolled) return;
-  e.preventDefault();
+  if (e.cancelable) e.preventDefault();
   emit("snippet:tap", { command: text });
 }
 

@@ -10,16 +10,17 @@
       <div class="modal-header">
         <button
           type="button"
-          class="modal-back-btn"
-          :class="{ 'is-placeholder': !modalBack }"
-          :disabled="!modalBack"
+          class="modal-title-wrap"
+          :class="{ 'is-clickable': modalBack, 'no-back': !modalBack }"
           :tabindex="modalBack ? 0 : -1"
-          :aria-hidden="!modalBack ? 'true' : 'false'"
+          :aria-disabled="!modalBack ? 'true' : 'false'"
           @click="modalBack ? onBack() : null"
         >
-          <span class="mdi mdi-arrow-left"></span>
+          <span class="modal-title-back-slot" aria-hidden="true">
+            <span v-if="modalBack" class="mdi mdi-arrow-left modal-title-back-icon"></span>
+          </span>
+          <h3 class="modal-title">{{ modalTitle }}</h3>
         </button>
-        <h3 class="modal-title" :class="{ 'modal-title-clickable': modalBack }" @click="modalBack ? onBack() : null">{{ modalTitle }}</h3>
         <button type="button" class="modal-close-btn" @click="closeModal">&times;</button>
       </div>
       <div class="modal-body">
@@ -49,7 +50,7 @@
       <div
         class="modal-flick-handle"
         @touchstart.passive="onFlickStart"
-        @touchmove.prevent="onFlickMove"
+        @touchmove="onFlickMove"
         @touchend="onFlickEnd"
         @touchcancel="onFlickCancel"
       >
@@ -128,6 +129,7 @@ function onFlickStart(e) {
 
 function onFlickMove(e) {
   if (!flickDragging || !modalEl.value) return;
+  if (e.cancelable) e.preventDefault();
   flickCurrentY = e.touches[0].clientY;
   const dy = flickCurrentY - flickStartY;
   modalEl.value.style.transform = `translateY(${dy}px)`;

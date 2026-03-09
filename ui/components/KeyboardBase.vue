@@ -1,4 +1,5 @@
 <template>
+  <div v-if="mode === 1" class="keyboard-qwerty-overlay" @click="switchToMinimum"></div>
   <KeyboardMinimumKey
     :active="mode === 0"
     :snippet-open="snippetOpen"
@@ -27,6 +28,11 @@ function cycleMode() {
   clearModifiers();
 }
 
+function switchToMinimum() {
+  mode.value = 0;
+  clearModifiers();
+}
+
 watch(mode, (val) => {
   nextTick(() => {
     emit("layout:fitAll");
@@ -34,5 +40,5 @@ watch(mode, (val) => {
   });
 });
 
-defineExpose({ mode, cycleMode, snippetOpen });
+defineExpose({ mode, cycleMode, switchToMinimum, snippetOpen });
 </script>

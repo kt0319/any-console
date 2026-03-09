@@ -156,7 +156,8 @@ export function useTerminal() {
     tab._frameResizeObserver.observe(frameEl);
   }
 
-  function fitTerminal(tab, { force = false } = {}) {
+  function fitTerminal(tab, opts = {}) {
+    const force = !!opts?.force;
     if (!tab?.term || !tab?.fitAddon) return;
     const frame = document.getElementById(`frame-${tab.id}`);
     if (frame) {

@@ -2,21 +2,13 @@
   <div class="git-history-pane-wrapper">
     <!-- ファイル一覧モード -->
     <template v-if="expandedEntry">
-      <div class="git-log-commit-files-header" @click="closeExpanded">
-        <span class="mdi mdi-arrow-left"></span>
-        <span class="git-log-commit-files-header-msg">{{ expandedEntry.message }}</span>
-        <span class="git-log-entry-meta">
-          <span class="git-log-entry-author">{{ expandedEntry.author }}</span>
-          <span class="git-log-entry-time">{{ expandedEntry.time }}</span>
-        </span>
-      </div>
       <div class="modal-scroll-body">
         <div v-if="expandedLoading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
         <ul v-else class="file-browser-list diff-file-browser-list">
           <li v-for="file in expandedFiles" :key="file.path"
               class="file-browser-item diff-file-row"
               @click="selectExpandedFile(file)">
-            <span class="file-browser-item-icon" v-html="fileIconHtml(file)"></span>
+            <span class="file-browser-item-icon nf-icon" v-html="fileIconHtml(file)"></span>
             <span class="file-browser-item-name">{{ file.path }}</span>
             <span v-if="file.numstat" class="diff-file-row-numstat" v-html="file.numstat"></span>
             <span :class="['diff-file-row-status', statusClass(file.status)]">{{ file.status }}</span>
@@ -25,7 +17,7 @@
       </div>
     </template>
     <!-- コミット履歴モード -->
-    <div v-else class="modal-scroll-body" ref="listEl">
+    <div v-else class="modal-scroll-body" ref="listEl" @scroll.passive="onListScroll">
       <div v-if="loading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
       <div v-else-if="entries.length === 0" style="color:var(--text-muted);padding:16px;text-align:center">コミットログがありません</div>
       <!-- 未コミットの変更 / 変更なし -->
@@ -55,7 +47,7 @@
       </div>
       <template v-for="entry in entries" :key="entry.hash">
         <div
-          class="git-log-entry git-log-commit"
+          class="git-log-entry git-log-commit long-press-surface"
           :class="{ 'action-open': longPressEntry?.hash === entry.hash }"
           @click="selectCommit(entry)"
           @mousedown="onLongPressStart($event, entry)"
@@ -91,7 +83,6 @@
           </button>
         </div>
       </template>
-      <div v-if="hasMore" class="git-log-load-more" @click="loadMore">さらに読み込む</div>
     </div>
   </div>
 </template>
@@ -104,7 +95,7 @@ import { useGitStore, parseDiffChunks } from "../stores/git.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
 
-const vueEmit = defineEmits(["pane:select"]);
+const vueEmit = defineEmits(["pane:select", "commit:expanded", "commit:collapsed"]);
 
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
@@ -135,6 +126,7 @@ const dirtyStat = computed(() => {
 const entries = ref([]);
 const loading = ref(true);
 const hasMore = ref(false);
+const loadingMore = ref(false);
 const listEl = ref(null);
 let page = 0;
 
@@ -204,6 +196,8 @@ async function load() {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) { loading.value = false; return; }
   loading.value = true;
+  hasMore.value = false;
+  loadingMore.value = false;
   page = 0;
   try {
     const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
@@ -216,12 +210,15 @@ async function load() {
     console.error("git log load failed:", e);
   } finally {
     loading.value = false;
+    nextTick(() => onListScroll());
   }
 }
 
 async function loadMore() {
+  if (loading.value || loadingMore.value || !hasMore.value) return;
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
+  loadingMore.value = true;
   page++;
   const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
   try {
@@ -233,6 +230,19 @@ async function loadMore() {
     hasMore.value = newEntries.length >= perPage;
   } catch (e) {
     console.error("git log loadMore failed:", e);
+  } finally {
+    loadingMore.value = false;
+    nextTick(() => onListScroll());
+  }
+}
+
+function onListScroll() {
+  if (!hasMore.value || loading.value || loadingMore.value) return;
+  const el = listEl.value;
+  if (!el) return;
+  const threshold = 80;
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - threshold) {
+    loadMore();
   }
 }
 
@@ -332,6 +342,7 @@ async function execReset(entry, mode) {
 async function selectDirty() {
   if (!isDirty.value) return;
   expandedEntry.value = { message: "未コミットの変更", author: "", time: "", hash: "__dirty__", fullHash: "__dirty__" };
+  vueEmit("commit:expanded", { message: expandedEntry.value.message });
   expandedFiles.value = [];
   expandedLoading.value = true;
   try {
@@ -360,6 +371,7 @@ async function selectCommit(entry) {
     return;
   }
   expandedEntry.value = entry;
+  vueEmit("commit:expanded", { message: entry.message });
   expandedFiles.value = [];
   expandedLoading.value = true;
   try {
@@ -385,6 +397,7 @@ async function selectCommit(entry) {
 function closeExpanded() {
   expandedEntry.value = null;
   expandedFiles.value = [];
+  vueEmit("commit:collapsed");
 }
 
 function selectExpandedFile(file) {
@@ -401,5 +414,9 @@ function setActivePane(key) {
   activePane.value = key;
 }
 
-defineExpose({ reload, load, setActivePane });
+function hasExpanded() {
+  return !!expandedEntry.value;
+}
+
+defineExpose({ reload, load, setActivePane, closeExpanded, hasExpanded });
 </script>

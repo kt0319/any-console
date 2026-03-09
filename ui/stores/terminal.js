@@ -56,6 +56,8 @@ export const useTerminalStore = defineStore("terminal", () => {
   const closedSessionUrls = ref(new Set());
   const isPageUnloading = ref(false);
   const hasRestoredTabsFromStorage = ref(false);
+  const restoreSessionsLoading = ref(false);
+  const restoreSessionsError = ref("");
   const terminalSettings = ref(loadTerminalSettingsFromStorage());
 
   function saveTerminalSettings() {
@@ -163,6 +165,8 @@ export const useTerminalStore = defineStore("terminal", () => {
     closedSessionUrls,
     isPageUnloading,
     hasRestoredTabsFromStorage,
+    restoreSessionsLoading,
+    restoreSessionsError,
     terminalSettings,
     TERMINAL_SETTINGS_KEY,
     TERMINAL_SETTINGS_SCHEMA,

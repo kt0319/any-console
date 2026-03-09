@@ -1,6 +1,6 @@
 <template>
   <div class="git-graph-pane-wrapper">
-    <div class="modal-scroll-body" ref="scrollEl">
+    <div class="modal-scroll-body" ref="scrollEl" @scroll.passive="onScroll">
       <div v-if="loading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
       <div v-else-if="rows.length === 0" style="color:var(--text-muted);padding:16px;text-align:center">コミットログがありません</div>
       <div v-else class="git-graph-list">
@@ -30,14 +30,13 @@
             </span>
           </div>
         </div>
-        <div v-if="hasMore" class="git-log-load-more" @click="loadMore">さらに読み込む</div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, nextTick } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore } from "../stores/git.js";
@@ -54,6 +53,7 @@ const COLORS = ["#7aa2f7", "#9ece6a", "#f7768e", "#e0af68", "#bb9af7", "#7dcfff"
 const rows = ref([]);
 const loading = ref(false);
 const hasMore = ref(false);
+const loadingMore = ref(false);
 const scrollEl = ref(null);
 let page = 0;
 
@@ -178,6 +178,8 @@ async function load() {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) { loading.value = false; return; }
   loading.value = true;
+  hasMore.value = false;
+  loadingMore.value = false;
   page = 0;
   try {
     const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
@@ -193,12 +195,15 @@ async function load() {
     console.error("git graph load failed:", e);
   } finally {
     loading.value = false;
+    nextTick(() => onScroll());
   }
 }
 
 async function loadMore() {
+  if (loading.value || loadingMore.value || !hasMore.value) return;
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
+  loadingMore.value = true;
   page++;
   const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
   try {
@@ -213,6 +218,19 @@ async function loadMore() {
     hasMore.value = parsed.filter((p) => p.entry).length >= perPage;
   } catch (e) {
     console.error("git graph loadMore failed:", e);
+  } finally {
+    loadingMore.value = false;
+    nextTick(() => onScroll());
+  }
+}
+
+function onScroll() {
+  if (!hasMore.value || loading.value || loadingMore.value) return;
+  const el = scrollEl.value;
+  if (!el) return;
+  const threshold = 80;
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - threshold) {
+    loadMore();
   }
 }
 

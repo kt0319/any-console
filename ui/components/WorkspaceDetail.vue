@@ -2,7 +2,12 @@
   <div class="workspace-detail">
     <div class="workspace-detail-top">
       <div v-show="activePane !== 'branch' && activePane !== 'stash'" class="file-modal-pane">
-        <GitHistory ref="gitHistory" @pane:select="switchPane" />
+        <GitHistory
+          ref="gitHistory"
+          @pane:select="switchPane"
+          @commit:expanded="onCommitExpanded"
+          @commit:collapsed="onCommitCollapsed"
+        />
       </div>
       <div v-if="activePane === 'branch'" class="file-modal-pane">
         <GitChangeBranch ref="gitBranch" />
@@ -52,6 +57,13 @@ function updateViewTitle() {
 }
 
 function goBack() {
+  if (gitHistory.value?.hasExpanded?.()) {
+    gitHistory.value?.closeExpanded?.();
+    selectedDiffFile.value = "";
+    diffMessage.value = "";
+    updateViewTitle();
+    return;
+  }
   if (activePane.value === "branch" || activePane.value === "stash") {
     switchPane("browser");
   } else if (selectedDiffFile.value) {
@@ -110,6 +122,14 @@ function switchPane(key) {
   } else if (key === "github") {
     bridgeEmit("git:openGitHub");
   }
+}
+
+function onCommitExpanded({ message }) {
+  modalTitle.value = message || workspaceStore.selectedWorkspace || "Git";
+}
+
+function onCommitCollapsed() {
+  updateViewTitle();
 }
 
 on("git:selectDirty", () => {

@@ -28,7 +28,7 @@
 </template>
 
 <script setup>
-import { ref, shallowRef, onMounted, onBeforeUnmount, watch, computed } from "vue";
+import { ref, shallowRef, onMounted, onBeforeUnmount, watch, computed, nextTick } from "vue";
 import { useTerminal } from "../composables/useTerminal.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
@@ -55,8 +55,9 @@ const frameEl = ref(null);
 const pillEl = ref(null);
 const pillDragging = ref(false);
 let touchStartY = 0;
+let activeFitTimer = null;
 
-const canDrag = computed(() => terminalStore.openTabs.length >= 2);
+const canDrag = computed(() => terminalStore.openTabs.length >= 1);
 
 const isActive = computed(() => {
   if (layoutStore.isSplitMode && props.paneIndex >= 0) {
@@ -64,6 +65,35 @@ const isActive = computed(() => {
   }
   return terminalStore.activeTabId === props.tab.id;
 });
+
+function clearActiveFitTimer() {
+  if (activeFitTimer) {
+    clearTimeout(activeFitTimer);
+    activeFitTimer = null;
+  }
+}
+
+function scheduleActiveFit(retry = 0) {
+  if (!isActive.value) return;
+  const frame = frameEl.value;
+  if (!frame) return;
+  const rect = frame.getBoundingClientRect();
+  if (rect.width >= 2 && rect.height >= 2) {
+    fitTerminal(props.tab, { force: true });
+    if (props.tab.term) {
+      try {
+        props.tab.term.refresh(0, props.tab.term.rows - 1);
+      } catch {}
+    }
+    return;
+  }
+  if (retry >= 8) return;
+  clearActiveFitTimer();
+  activeFitTimer = setTimeout(() => {
+    activeFitTimer = null;
+    scheduleActiveFit(retry + 1);
+  }, 60);
+}
 
 function onPointerDown(e) {
   if (layoutStore.isTouchDevice) return;
@@ -84,6 +114,9 @@ function onTouchEnd(e) {
   }
   const endY = e.changedTouches?.[0]?.clientY || 0;
   if (Math.abs(endY - touchStartY) > 10) return;
+  if (layoutStore.isPanelBottom) {
+    emit("keyboard:activate");
+  }
   if (layoutStore.isSplitMode) {
     emits("select-pane", props.paneIndex);
     return;
@@ -222,10 +255,10 @@ function onPillTouchMove(e) {
     pillDragging.value = true;
     layoutStore.dragTabId = props.tab.id;
     layoutStore.isShowDropZones = true;
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
   }
   if (pillTouchDragging) {
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     updateDropZoneHover(e.touches[0].clientX, e.touches[0].clientY);
   }
 }
@@ -237,7 +270,7 @@ function onPillTouchEnd(e) {
     return;
   }
   if (!pillTouchDragging) return;
-  e.preventDefault();
+  if (e.cancelable) e.preventDefault();
   pillDidDrag = true;
   pillDragging.value = false;
   const touch = e.changedTouches[0];
@@ -313,8 +346,17 @@ onMounted(() => {
   document.addEventListener("paste", onPaste, true);
 });
 
+watch(isActive, async (active) => {
+  if (!active) return;
+  await nextTick();
+  requestAnimationFrame(() => {
+    scheduleActiveFit(0);
+  });
+});
+
 onBeforeUnmount(() => {
   removePillMouseListeners();
+  clearActiveFitTimer();
   if (pillEl.value) {
     pillEl.value.removeEventListener("touchmove", onPillTouchMove);
     pillEl.value.removeEventListener("touchend", onPillTouchEnd);

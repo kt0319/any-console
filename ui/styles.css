@@ -821,6 +821,14 @@ button.git-badge:disabled {
   touch-action: none;
 }
 
+.tab-btn.drag-over-left {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.tab-btn.drag-over-right {
+  box-shadow: inset -2px 0 0 var(--accent);
+}
+
 .tab-drag-placeholder {
   flex-shrink: 0;
   border: 1px dashed var(--text-muted);
@@ -828,19 +836,27 @@ button.git-badge:disabled {
   background: transparent;
 }
 
-.long-pressing {
-  animation: long-press-feedback 0.8s ease-out forwards;
+.long-press-surface {
+  position: relative;
 }
 
-@keyframes long-press-feedback {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(0.92);
-    opacity: 0.6;
-  }
+.long-press-surface::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--accent-bg-20);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.long-press-surface.long-pressing::after {
+  opacity: 1;
+  transition: opacity 0.15s ease-out;
+}
+
+.long-press-surface.long-pressed::after {
+  opacity: 1;
+  transition: none;
 }
 
 .tab-add-btn {
@@ -868,6 +884,32 @@ button.git-badge:disabled {
   background: var(--overlay-bg);
   z-index: 5;
   touch-action: none;
+}
+
+.app-boot-loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--bg-primary);
+  z-index: 120;
+}
+
+.app-boot-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--accent);
+  animation: terminal-restore-spin 0.8s linear infinite;
+}
+
+.app-boot-text {
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 .empty-tab-placeholder {
@@ -901,6 +943,39 @@ button.git-badge:disabled {
 .empty-tab-restore-btn {
   color: var(--accent);
   border-color: rgba(130, 170, 255, 0.45);
+}
+
+.terminal-restore-overlay {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+}
+
+.terminal-restore-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--accent);
+  animation: terminal-restore-spin 0.8s linear infinite;
+}
+
+.terminal-restore-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  max-width: min(90vw, 520px);
+  word-break: break-word;
+}
+
+@keyframes terminal-restore-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* Split pane */
@@ -1655,26 +1730,6 @@ button.git-badge:disabled {
   position: relative;
 }
 
-.file-browser-item::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--accent-bg-20);
-  transform: scaleX(0);
-  transform-origin: left;
-  pointer-events: none;
-}
-
-.file-browser-item.long-pressing::after {
-  transform: scaleX(1);
-  transition: transform 0.5s ease-out;
-}
-
-.file-browser-item.long-pressed::after {
-  transform: scaleX(1);
-  transition: none;
-}
-
 .file-browser-item[data-type="dir"] {
   cursor: pointer;
 }
@@ -1720,6 +1775,14 @@ button.git-badge:disabled {
   font-size: 13px;
 }
 
+.file-viewer {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .viewer-surface,
 .text-viewer-box,
 .file-content-viewer {
@@ -1739,10 +1802,17 @@ button.git-badge:disabled {
 }
 
 .file-content-viewer {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
+  overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .line-table {
   border-collapse: collapse;
@@ -2301,17 +2371,54 @@ button:disabled {
   padding: 0 8px;
   flex-shrink: 0;
 }
-.modal-header h3 {
+.modal-title-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  justify-content: flex-start;
+}
+
+.modal-title-wrap .modal-title {
   flex: 1;
   min-width: 0;
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: inherit;
+  text-align: left;
 }
 
-.modal-title-clickable {
+.modal-title-back-slot {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.modal-title-wrap.no-back .modal-title-back-slot {
+  width: 0;
+  min-width: 0;
+  height: 0;
+}
+
+.modal-title-wrap.is-clickable {
   cursor: pointer;
+}
+
+.modal-title-back-icon {
+  font-size: 18px;
+  line-height: 1;
+  color: inherit;
 }
 .modal-body {
   display: flex;
@@ -2626,7 +2733,7 @@ button:disabled {
 }
 
 .workspace-detail-top {
-  flex: 1;
+  flex: 1 1 33.333%;
   min-height: 0;
   overflow: hidden;
   display: flex;
@@ -2634,7 +2741,7 @@ button:disabled {
 }
 
 .workspace-detail-bottom {
-  flex: 1;
+  flex: 2 1 66.667%;
   min-height: 0;
   overflow: hidden;
   display: flex;
@@ -2868,30 +2975,6 @@ button:disabled {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-muted) !important;
-}
-
-.git-log-commit {
-  position: relative;
-}
-
-.git-log-commit::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--accent-bg-20);
-  transform: scaleX(0);
-  transform-origin: left;
-  pointer-events: none;
-}
-
-.git-log-commit.long-pressing::after {
-  transform: scaleX(1);
-  transition: transform 0.5s ease-out;
-}
-
-.git-log-commit.long-pressed::after {
-  transform: scaleX(1);
-  transition: none;
 }
 
 .git-log-entry-msg {
@@ -3341,10 +3424,19 @@ button:disabled {
   padding: 4px;
 }
 
+.quick-input-panel.minimal-mode {
+  gap: 2px;
+}
+
 .quick-input-panel.minimal-mode .quick-key {
-  min-width: 44px;
-  width: 44px;
   flex: none;
+  min-width: calc((100vw - 16px) / 5.5);
+  width: calc((100vw - 16px) / 5.5);
+}
+
+.quick-input-panel.minimal-mode .quick-flick-enter {
+  min-width: calc((100vw - 16px) / 5.5);
+  width: calc((100vw - 16px) / 5.5);
 }
 
 .quick-extra-panel {
@@ -3657,6 +3749,20 @@ button:disabled {
   align-items: stretch;
 }
 
+.keyboard-input-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  z-index: 9998;
+}
+
+.keyboard-qwerty-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  z-index: 5;
+}
+
 .keyboard-input-row {
   display: flex;
   gap: 6px;
@@ -3740,6 +3846,13 @@ button:disabled {
 
 /* Responsive */
 @media (max-width: 768px) {
+  .split-drop-zone.drop-top-left,
+  .split-drop-zone.drop-top-right,
+  .split-drop-zone.drop-bottom-left,
+  .split-drop-zone.drop-bottom-right {
+    display: none;
+  }
+
   .split-drop-zone.drop-top,
   .split-drop-zone.drop-bottom {
     left: 0;

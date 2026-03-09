@@ -19,7 +19,7 @@
           :class="{ selected: selectedFile === file.path }"
           @click="selectFile(file)"
         >
-          <span class="file-browser-item-icon" v-html="fileIconHtml(file)"></span>
+          <span class="file-browser-item-icon nf-icon" v-html="fileIconHtml(file)"></span>
           <span class="file-browser-item-name">{{ file.path }}</span>
           <span v-if="file.numstat" class="diff-file-row-numstat" v-html="file.numstat"></span>
           <span :class="['diff-file-row-status', statusClass(file.status)]">{{ file.status }}</span>

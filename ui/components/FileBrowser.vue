@@ -1,16 +1,25 @@
 <template>
-  <div class="file-browser">
+  <div
+    class="file-browser"
+    :class="{ 'file-browser-drop-active': isDropActive }"
+    @dragenter="onDragEnter"
+    @dragover="onDragOver"
+    @dragleave="onDragLeave"
+    @drop="onDropFiles"
+  >
     <div class="file-browser-header">
       <button class="file-browser-crumb" @click="onCrumbClick('')">{{ workspaceStore.selectedWorkspace || 'root' }}</button>
       <template v-for="(seg, i) in displayPathSegments" :key="i">
         <span class="file-browser-crumb-sep">/</span>
         <button
-          v-if="i < displayPathSegments.length - 1"
+          v-if="props.diffFile || i < displayPathSegments.length - 1"
           class="file-browser-crumb"
+          :class="{ 'file-browser-crumb-current-action': props.diffFile && i === displayPathSegments.length - 1 }"
           @click="onCrumbClick(displayPathSegments.slice(0, i + 1).join('/'))"
         >{{ seg }}</button>
         <span v-else class="file-browser-crumb-current">{{ seg }}</span>
       </template>
+      <span v-if="props.diffFile" class="file-browser-crumb-badge">(差分)</span>
     </div>
 
     <template v-if="diffFile">
@@ -27,7 +36,7 @@
         <ul class="file-browser-list">
           <template v-for="entry in entries" :key="entry.name">
             <li
-              class="file-browser-item"
+              class="file-browser-item long-press-surface"
               :class="{ 'action-open': contextEntry?.name === entry.name, 'gitignored': entry.gitignored }"
               :data-type="entry.type"
               @click="onEntryClick(entry)"
@@ -62,7 +71,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import FileTextViewer from "./FileTextViewer.vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
@@ -86,6 +95,13 @@ const loading = ref(false);
 const error = ref("");
 const contextEntry = ref(null);
 const diffHtml = ref("");
+const isDropActive = ref(false);
+let dragDepth = 0;
+
+function resetDropState() {
+  dragDepth = 0;
+  isDropActive.value = false;
+}
 
 const pathSegments = computed(() => {
   if (!currentPath.value) return [];
@@ -365,11 +381,105 @@ async function openEntryInEditor() {
   }
 }
 
+function hasFileDrag(e) {
+  const types = e?.dataTransfer?.types;
+  return !!types && Array.from(types).includes("Files");
+}
+
+function onDragEnter(e) {
+  if (props.diffFile || !hasFileDrag(e)) return;
+  dragDepth += 1;
+  isDropActive.value = true;
+}
+
+function onDragOver(e) {
+  if (props.diffFile || !hasFileDrag(e)) return;
+  e.preventDefault();
+  isDropActive.value = true;
+}
+
+function onDragLeave(e) {
+  if (props.diffFile || !hasFileDrag(e)) return;
+  if (e.currentTarget?.contains(e.relatedTarget)) return;
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) {
+    isDropActive.value = false;
+  }
+}
+
+function getUploadDirPath() {
+  if (!fileContent.value) {
+    return currentPath.value || "";
+  }
+  const idx = currentPath.value.lastIndexOf("/");
+  if (idx <= 0) return "";
+  return currentPath.value.slice(0, idx);
+}
+
+async function uploadDroppedFiles(files) {
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace || files.length === 0) return;
+  const uploadPath = getUploadDirPath();
+  let successCount = 0;
+  let failCount = 0;
+  for (const file of files) {
+    const formData = new FormData();
+    formData.append("path", uploadPath);
+    formData.append("file", file);
+    try {
+      const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      if (res && res.ok) {
+        successCount += 1;
+      } else {
+        failCount += 1;
+      }
+    } catch {
+      failCount += 1;
+    }
+  }
+
+  if (successCount > 0) {
+    emit("toast:show", { message: `${successCount}件アップロードしました`, type: "success" });
+  }
+  if (failCount > 0) {
+    emit("toast:show", { message: `${failCount}件アップロードに失敗しました`, type: "error" });
+  }
+  await navigate(uploadPath);
+}
+
+async function onDropFiles(e) {
+  if (props.diffFile || !hasFileDrag(e)) return;
+  e.preventDefault();
+  resetDropState();
+  const droppedFiles = Array.from(e?.dataTransfer?.files || []).filter((f) => f && f.name);
+  if (droppedFiles.length === 0) return;
+  await uploadDroppedFiles(droppedFiles);
+}
+
+function onWindowDrop() {
+  resetDropState();
+}
+
+function onWindowDragLeave(e) {
+  if (!isDropActive.value) return;
+  // Pointer left the viewport while dragging.
+  if (e.clientX <= 0 || e.clientY <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
+    resetDropState();
+  }
+}
+
 function onCrumbClick(path) {
   if (props.diffFile) {
     emit("git:selectDirty");
     fileContent.value = null;
     currentPath.value = path || "";
+    if (path && path === props.diffFile) {
+      openFile(path);
+      return;
+    }
     navigate(currentPath.value);
     return;
   }
@@ -389,6 +499,16 @@ function onEntryClick(entry) {
     openFile(childPath);
   }
 }
+
+onMounted(() => {
+  window.addEventListener("drop", onWindowDrop);
+  window.addEventListener("dragleave", onWindowDragLeave);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("drop", onWindowDrop);
+  window.removeEventListener("dragleave", onWindowDragLeave);
+});
 
 defineExpose({ load });
 </script>

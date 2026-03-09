@@ -1,5 +1,12 @@
 <template>
   <div v-show="active" class="quick-extra-panel quick-qwerty-panel">
+    <input
+      ref="cameraInputEl"
+      type="file"
+      accept="image/*"
+      style="display:none"
+      @change="onCameraFileChange"
+    />
     <KeyboardSnippet ref="qwertyKeyboardSnippet" />
     <div v-for="(row, ri) in qwertyRows" :key="ri" class="quick-extra-row">
       <div
@@ -43,7 +50,7 @@
       >
         <span class="flick-hint-top">Esc</span>
         <span class="flick-hint-left">^U</span>
-        <span class="flick-main">&uArr;</span>
+        <span class="flick-main"><span class="mdi mdi-arrow-up-bold"></span></span>
         <span class="flick-hint-right">^K</span>
       </div>
       <div
@@ -96,6 +103,7 @@ import { ref, computed, watch, nextTick, onMounted } from "vue";
 import KeyboardSnippet from "./KeyboardSnippet.vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useInputStore } from "../stores/input.js";
+import { useAuthStore } from "../stores/auth.js";
 import { emit } from "../app-bridge.js";
 import { FLICK_THRESHOLD } from "../utils/constants.js";
 
@@ -106,11 +114,14 @@ const props = defineProps({
 const emitLocal = defineEmits(["cycleMode"]);
 
 const inputStore = useInputStore();
-const { sendKeyToTerminal, modifierState, setupFlickRepeat } = useKeyboard();
+const auth = useAuthStore();
+const { sendKeyToTerminal, modifierState, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
 
 const qwertyKeyboardSnippet = ref(null);
 const topArrowFlickEl = ref(null);
 const topEnterFlickEl = ref(null);
+const cameraInputEl = ref(null);
+const encoder = new TextEncoder();
 
 const qwertyRows = computed(() => inputStore.QWERTY_ROWS || []);
 const numberKeys = computed(() => inputStore.NUMBER_KEYS || []);
@@ -184,7 +195,38 @@ function onCameraTouchEnd(e) {
   }
 }
 function openCamera() {
-  emit("camera:open");
+  const el = cameraInputEl.value;
+  if (!el) return;
+  el.value = "";
+  el.click();
+}
+
+async function uploadImageAndSendPath(file) {
+  if (!file) return;
+  const tab = getActiveTerminalTab();
+  if (!tab || !tab.ws || tab.ws.readyState !== WebSocket.OPEN) {
+    emit("toast:show", { message: "アクティブなターミナルがありません", type: "error" });
+    return;
+  }
+  emit("toast:show", { message: "画像アップロード中...", type: "success" });
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await auth.apiFetch("/upload-image", { method: "POST", body: formData });
+    if (!res || !res.ok) throw new Error("アップロード失敗");
+    const data = await res.json();
+    tab.ws.send(encoder.encode(data.path));
+    emit("toast:show", { message: "画像アップロード完了", type: "success" });
+  } catch (err) {
+    emit("toast:show", { message: `画像アップロード失敗: ${err.message}`, type: "error" });
+  }
+}
+
+async function onCameraFileChange(e) {
+  const file = e.target?.files?.[0];
+  if (!file) return;
+  emitLocal("cycleMode");
+  await uploadImageAndSendPath(file);
 }
 
 let shiftStartX = 0;

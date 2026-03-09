@@ -1,5 +1,9 @@
 <template>
   <LoginScreen v-if="showLogin" ref="loginScreen" @authenticated="onAuthenticated" />
+  <div v-else-if="booting" class="app-boot-loading">
+    <div class="app-boot-spinner" aria-hidden="true"></div>
+    <div class="app-boot-text">{{ bootMessage }}</div>
+  </div>
   <template v-if="authenticated">
     <AppShell ref="appShell" />
     <Modal />
@@ -30,6 +34,8 @@ const appToast = ref(null);
 
 const showLogin = ref(false);
 const authenticated = ref(false);
+const booting = ref(false);
+const bootMessage = ref("読み込み中...");
 
 async function execNonTerminalJob(jobName, workspace) {
   try {
@@ -53,12 +59,20 @@ async function execNonTerminalJob(jobName, workspace) {
 
 async function onAuthenticated() {
   showLogin.value = false;
-  authenticated.value = true;
-  await initApp();
+  booting.value = true;
+  bootMessage.value = "初期化中...";
+  try {
+    await initApp();
+    authenticated.value = true;
+  } finally {
+    booting.value = false;
+    bootMessage.value = "読み込み中...";
+  }
 }
 
 async function initApp() {
   try {
+    bootMessage.value = "ワークスペース一覧を読み込み中...";
     const res = await auth.apiFetch("/workspaces");
     if (res && res.ok) {
       const data = await res.json();
@@ -68,24 +82,40 @@ async function initApp() {
         if (first) workspaceStore.selectedWorkspace = first.name;
       }
     }
+    bootMessage.value = "ワークスペース状態を読み込み中...";
     await workspaceStore.fetchStatuses(auth);
   } catch (e) {
     console.error("initApp failed:", e);
   }
 
+  bootMessage.value = "セッションを読み込み中...";
   await restoreExistingSessions();
 }
 
 async function restoreExistingSessions() {
   if (terminalStore.hasRestoredTabsFromStorage) return;
   terminalStore.hasRestoredTabsFromStorage = true;
+  terminalStore.restoreSessionsLoading = true;
+  terminalStore.restoreSessionsError = "";
+  const startAt = Date.now();
+  const MIN_LOADING_MS = 400;
   try {
     const res = await auth.apiFetch("/terminal/sessions");
-    if (!res || !res.ok) return;
+    if (!res || !res.ok) {
+      let detail = "既存セッションの取得に失敗しました";
+      try {
+        const text = await res?.text?.();
+        if (text) detail = text;
+      } catch {}
+      terminalStore.restoreSessionsError = detail;
+      return;
+    }
     const sessions = await res.json();
     if (!Array.isArray(sessions) || sessions.length === 0) return;
 
-    for (const s of sessions) {
+    for (let i = 0; i < sessions.length; i++) {
+      const s = sessions[i];
+      bootMessage.value = `セッションを復元中... (${i + 1}/${sessions.length})`;
       const ws = workspaceStore.allWorkspaces.find((w) => w.name === s.workspace);
       terminalStore.addTerminalTab({
         wsUrl: s.ws_url,
@@ -103,6 +133,13 @@ async function restoreExistingSessions() {
     setTimeout(() => emit("layout:fitAll", { force: true }), 500);
   } catch (e) {
     console.error("restoreExistingSessions failed:", e);
+    terminalStore.restoreSessionsError = e?.message || "既存セッションの復元でエラーが発生しました";
+  } finally {
+    const elapsed = Date.now() - startAt;
+    if (elapsed < MIN_LOADING_MS) {
+      await new Promise((resolve) => setTimeout(resolve, MIN_LOADING_MS - elapsed));
+    }
+    terminalStore.restoreSessionsLoading = false;
   }
 }
 
@@ -135,16 +172,30 @@ onMounted(async () => {
     const result = await auth.checkToken();
     if (result.ok) {
       auth.setServerInfo(result.hostname, result.version, result.clientName);
-      authenticated.value = true;
-      await initApp();
+      booting.value = true;
+      bootMessage.value = "初期化中...";
+      try {
+        await initApp();
+        authenticated.value = true;
+      } finally {
+        booting.value = false;
+        bootMessage.value = "読み込み中...";
+      }
     } else if (!result.auth) {
       auth.token = "";
       auth.clearToken();
       showLogin.value = true;
     } else {
       emit("toast:show", { message: result.error, type: "error" });
-      authenticated.value = true;
-      await initApp();
+      booting.value = true;
+      bootMessage.value = "初期化中...";
+      try {
+        await initApp();
+        authenticated.value = true;
+      } finally {
+        booting.value = false;
+        bootMessage.value = "読み込み中...";
+      }
     }
   } else {
     showLogin.value = true;

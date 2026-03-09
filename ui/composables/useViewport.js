@@ -66,7 +66,7 @@ export function useViewport() {
 
     document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
     document.addEventListener("touchmove", (e) => {
-      if (e.touches.length > 1) e.preventDefault();
+      if (e.touches.length > 1 && e.cancelable) e.preventDefault();
     }, { passive: false });
     let lastTouchEnd = 0;
     document.addEventListener("touchend", (e) => {
