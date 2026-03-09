@@ -150,6 +150,16 @@ function showCommitDiff(hash, message) {
   emitTitleAndBack();
 }
 
+on("git:selectDirty", () => {
+  activePane.value = "files";
+  commitViewMessage.value = "";
+  diffPaneTitle.value = "未コミットの変更";
+  gitFiles.value?.loadWorkingTreeDiff();
+  selectedDiffFile.value = "";
+  diffMessage.value = "";
+  emitTitleAndBack();
+});
+
 on("git:selectCommit", ({ hash, message }) => {
   showCommitDiff(hash, message);
 });

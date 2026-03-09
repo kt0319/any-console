@@ -112,6 +112,7 @@ export function useModal() {
       releaseKeydown = null;
     }
     document.activeElement?.blur();
+    nextTick(() => document.activeElement?.blur());
   }
 
   onUnmounted(() => {

@@ -3,6 +3,16 @@
     <div class="modal-scroll-body" ref="listEl">
       <div v-if="loading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
       <div v-else-if="entries.length === 0" style="color:var(--text-muted);padding:16px;text-align:center">コミットログがありません</div>
+      <div v-if="!loading && entries.length > 0" class="git-log-entry git-log-dirty" @click="selectDirty">
+        <span class="git-log-entry-body git-log-dirty-body">
+          <span class="git-log-dirty-main">
+            <span class="git-log-entry-msg git-log-dirty-msg">{{ isDirty ? '未コミットの変更' : '変更なし' }}</span>
+            <span class="git-log-entry-refs" :class="{ 'git-dirty-spacer': !isDirty }">
+              <span class="git-ref git-ref-dirty" v-html="dirtyStat"></span>
+            </span>
+          </span>
+        </span>
+      </div>
       <template v-for="entry in entries" :key="entry.hash">
         <div
           class="git-log-entry git-log-commit"
@@ -47,7 +57,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore } from "../stores/git.js";
@@ -56,6 +66,20 @@ import { emit } from "../app-bridge.js";
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
 const gitStore = useGitStore();
+
+const currentWs = computed(() =>
+  workspaceStore.allWorkspaces.find((w) => w.name === workspaceStore.selectedWorkspace),
+);
+const isDirty = computed(() => currentWs.value && currentWs.value.clean === false);
+const dirtyStat = computed(() => {
+  const ws = currentWs.value;
+  if (!ws || ws.clean !== false) return "0F +0 -0";
+  const parts = [];
+  if (ws.changed_files > 0) parts.push(`<span class="stat-files">${ws.changed_files}F</span>`);
+  if (ws.insertions > 0) parts.push(`<span class="stat-add">+${ws.insertions}</span>`);
+  if (ws.deletions > 0) parts.push(`<span class="stat-del">-${ws.deletions}</span>`);
+  return parts.length > 0 ? parts.join(" ") : "\u25cf";
+});
 
 const entries = ref([]);
 const loading = ref(true);
@@ -240,6 +264,10 @@ async function execReset(entry, mode) {
   } catch (e) {
     emit("toast:show", { message: e.message, type: "error" });
   }
+}
+
+function selectDirty() {
+  emit("git:selectDirty");
 }
 
 function selectCommit(entry) {
