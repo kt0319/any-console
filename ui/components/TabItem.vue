@@ -4,6 +4,7 @@
     class="tab-btn"
     :class="{ active: isActive, 'tab-activity': tab._activity, orphan: isOrphan, dragging: isDragging }"
     :draggable="canDrag"
+    tabindex="-1"
     @click="onClick"
     @dragstart="onDragStart"
     @dragend="onDragEnd"
@@ -44,8 +45,7 @@ const isActive = computed(() => props.activeTabId === props.tab.id);
 const canDrag = computed(() => terminalStore.openTabs.length >= 2);
 
 const label = computed(() => {
-  if (props.isOrphan) return props.tab.workspace || "terminal";
-  return props.tab.workspace || props.tab.label || "";
+  return props.tab.workspace || props.tab.label || "terminal";
 });
 
 const wsIconHtml = computed(() => {

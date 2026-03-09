@@ -31,7 +31,7 @@ const terminalStore = useTerminalStore();
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
 const inputStore = useInputStore();
-const { disconnectTerminal, deleteSession } = useTerminal();
+const { disconnectTerminal, deleteSession, connectDeferredTabs } = useTerminal();
 const { sendTextToTerminal } = useKeyboard();
 const { initViewport } = useViewport();
 
@@ -124,6 +124,7 @@ async function closeTab(tab) {
 
 onMounted(() => {
   on("layout:fitAll", (detail) => {
+    connectDeferredTabs();
     terminalSplit.value?.fitAllTerminals(detail);
   });
 

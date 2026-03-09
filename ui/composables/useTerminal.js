@@ -23,11 +23,11 @@ export function useTerminal() {
 
     ws.onopen = () => {
       tab._reconnectAttempts = 0;
-      fitTerminal(tab);
+      fitTerminal(tab, { force: true });
       if (tab._pendingRedraw) {
         tab._pendingRedraw = false;
         tab.term?.write("\x1bc");
-        setTimeout(() => fitTerminal(tab), 50);
+        setTimeout(() => fitTerminal(tab, { force: true }), 50);
       }
       if (tab._initialCommand && tab._waitingInitialCommand) {
         tab._waitingInitialCommand = false;
@@ -109,9 +109,23 @@ export function useTerminal() {
     if (!tab || !tab._pendingOpen || !frameEl) return false;
     tab._pendingOpen = false;
     tab.term.open(frameEl);
-    connectTerminalWs(tab);
+    if (tab._pendingRedraw) {
+      setTimeout(() => connectTerminalWs(tab), 100);
+    } else {
+      connectTerminalWs(tab);
+    }
     observeFrameResize(tab, frameEl);
     return true;
+  }
+
+  function connectDeferredTabs() {
+    const terminalStore = useTerminalStore();
+    for (const tab of terminalStore.openTabs) {
+      if (tab._deferredConnect) {
+        tab._deferredConnect = false;
+        connectTerminalWs(tab);
+      }
+    }
   }
 
   function observeFrameResize(tab, frameEl) {
@@ -156,6 +170,7 @@ export function useTerminal() {
 
   return {
     connectTerminalWs,
+    connectDeferredTabs,
     disconnectTerminal,
     ensureTerminalOpened,
     fitTerminal,
