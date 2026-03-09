@@ -174,6 +174,8 @@ onMounted(() => {
 
   on("git:openFileModal", (detail) => {
     currentView.value = "file";
+    modalTitle.value = "Git";
+    modalBack.value = true;
     nextTick(() => {
       openModal();
       fileContent.value?.open(detail);
