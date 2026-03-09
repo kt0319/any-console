@@ -1,19 +1,20 @@
 <template>
   <div class="workspace-detail">
     <div class="workspace-detail-top">
-      <GitHistory ref="gitHistory" />
-    </div>
-    <div class="workspace-detail-bottom">
-      <TabPills :panes="PANES" :active-key="activePane" @select="switchPane" />
-      <div v-show="activePane === 'files'" class="file-modal-pane file-modal-pane-split">
-        <GitFiles ref="gitFiles" />
-        <DiffViewer :file="selectedDiffFile" :message="diffMessage" />
-      </div>
-      <div v-show="activePane === 'browser'" class="file-modal-pane">
-        <FileBrowser ref="fileBrowser" />
-      </div>
+      <GitHistory ref="gitHistory" @pane:select="switchPane" />
       <div v-show="activePane === 'branch'" class="file-modal-pane">
         <GitBranch ref="gitBranch" />
+      </div>
+      <div v-show="activePane === 'stash'" class="file-modal-pane">
+        <GitStash ref="gitStash" />
+      </div>
+    </div>
+    <div class="workspace-detail-bottom">
+      <div v-show="selectedDiffFile" class="file-modal-pane">
+        <DiffViewer :file="selectedDiffFile" :message="diffMessage" />
+      </div>
+      <div v-show="!selectedDiffFile" class="file-modal-pane">
+        <FileBrowser ref="fileBrowser" />
       </div>
       <GitCommitForm ref="commitForm" />
     </div>
@@ -22,11 +23,10 @@
 
 <script setup>
 import { ref } from "vue";
-import TabPills from "./TabPills.vue";
 import FileBrowser from "./FileBrowser.vue";
 import GitHistory from "./GitHistory.vue";
-import GitFiles from "./GitFiles.vue";
 import GitBranch from "./GitBranch.vue";
+import GitStash from "./GitStash.vue";
 import DiffViewer from "./DiffViewer.vue";
 import GitCommitForm from "./GitCommitForm.vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
@@ -39,26 +39,18 @@ const emit = defineEmits(["update:title", "update:back", "close"]);
 
 const fileBrowser = ref(null);
 const gitHistory = ref(null);
-const gitFiles = ref(null);
 const gitBranch = ref(null);
+const gitStash = ref(null);
 const commitForm = ref(null);
 
 const activePane = ref("browser");
 const selectedDiffFile = ref("");
 const diffMessage = ref("");
-const diffPaneTitle = ref("未コミットの変更");
-const commitViewMessage = ref("");
 let loadedWorkspace = null;
 
-const PANES = [
-  { key: "browser", label: "ファイル" },
-  { key: "files", label: "変更" },
-  { key: "branch", label: "ブランチ" },
-];
 
 
 function currentTitle() {
-  if (commitViewMessage.value) return commitViewMessage.value;
   return workspaceStore.selectedWorkspace || "Git";
 }
 
@@ -68,13 +60,9 @@ function emitTitleAndBack() {
 }
 
 function goBack() {
-  if (commitViewMessage.value) {
-    commitViewMessage.value = "";
-    activePane.value = "browser";
-    diffPaneTitle.value = "未コミットの変更";
+  if (selectedDiffFile.value) {
     selectedDiffFile.value = "";
     diffMessage.value = "";
-    emitTitleAndBack();
   } else {
     close();
     bridgeEmit("workspace:openModal");
@@ -84,6 +72,7 @@ function goBack() {
 async function open(options) {
   options = options || {};
   activePane.value = options.pane || "browser";
+  gitHistory.value?.setActivePane(activePane.value);
   selectedDiffFile.value = "";
   diffMessage.value = "";
   diffPaneTitle.value = "未コミットの変更";
@@ -100,9 +89,6 @@ async function open(options) {
 
   fileBrowser.value?.load();
 
-  if (activePane.value === "files") {
-    await gitFiles.value?.loadWorkingTreeDiff();
-  }
 }
 
 function close() {
@@ -113,40 +99,24 @@ function close() {
 
 function switchPane(key) {
   activePane.value = key;
-  commitViewMessage.value = "";
+  gitHistory.value?.setActivePane(key);
+  selectedDiffFile.value = "";
   emitTitleAndBack();
   if (key === "browser") {
     fileBrowser.value?.load();
-  } else if (key === "files") {
-    gitFiles.value?.loadWorkingTreeDiff();
   } else if (key === "branch") {
     gitBranch.value?.load();
     gitBranch.value?.backgroundFetch();
+  } else if (key === "stash") {
+    gitStash.value?.load();
+  } else if (key === "github") {
+    bridgeEmit("git:openGitHub");
   }
 }
 
-function showCommitDiff(hash, message) {
-  activePane.value = "files";
-  commitViewMessage.value = message || `コミット ${hash.slice(0, 8)}`;
-  diffPaneTitle.value = `コミット ${hash.slice(0, 8)}`;
-  gitFiles.value?.loadCommitDiff(hash);
-  selectedDiffFile.value = "";
-  diffMessage.value = "";
-  emitTitleAndBack();
-}
-
 on("git:selectDirty", () => {
-  activePane.value = "files";
-  commitViewMessage.value = "";
-  diffPaneTitle.value = "未コミットの変更";
-  gitFiles.value?.loadWorkingTreeDiff();
   selectedDiffFile.value = "";
   diffMessage.value = "";
-  emitTitleAndBack();
-});
-
-on("git:selectCommit", ({ hash, message }) => {
-  showCommitDiff(hash, message);
 });
 
 on("git:selectDiffFile", ({ path }) => {
@@ -161,7 +131,6 @@ on("git:openCommitForm", () => {
 on("git:commitDone", () => {
   commitForm.value?.close();
   gitHistory.value?.reload();
-  gitFiles.value?.loadWorkingTreeDiff();
 });
 
 on("git:stashSave", async () => {
@@ -174,8 +143,7 @@ on("git:stashSave", async () => {
   });
   if (!res || !res.ok) return;
   gitHistory.value?.reload();
-  gitFiles.value?.loadWorkingTreeDiff();
 });
 
-defineExpose({ open, close, goBack, showCommitDiff });
+defineExpose({ open, close, goBack });
 </script>

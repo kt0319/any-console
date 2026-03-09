@@ -2393,9 +2393,38 @@ button:disabled {
 
 .git-log-commit,
 .git-log-dirty {
+  display: flex;
+  align-items: center;
   padding: 10px 8px;
   border-bottom: 1px solid var(--border);
+  gap: 8px;
+}
+
+.git-log-pane-tabs {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.git-log-pane-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 16px;
   cursor: pointer;
+}
+
+.git-log-pane-tab.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--bg-tertiary);
 }
 
 .git-log-commit:last-child {
@@ -2457,6 +2486,7 @@ button:disabled {
   flex-direction: row;
   align-items: stretch;
   gap: 8px;
+  cursor: pointer;
 }
 
 .git-log-dirty-main {

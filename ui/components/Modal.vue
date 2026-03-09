@@ -27,7 +27,6 @@
         <SettingsTerminal v-if="currentView === 'terminal'" />
         <SettingsEditor v-if="currentView === 'editor'" />
         <ServerInfo v-if="currentView === 'server'" />
-        <GitStash v-if="currentView === 'stash'" ref="gitStashView" />
         <GitGitHub v-if="currentView === 'github'" ref="gitGitHubView" />
         <SettingsConfigFile v-if="currentView === 'config'" />
 
@@ -138,7 +137,13 @@ function onWsConfigTitle(title) {
 }
 
 function onBack() {
-  if (currentView.value === "file") {
+  if (currentView.value === "github") {
+    currentView.value = "file";
+    modalBack.value = true;
+    nextTick(() => {
+      fileContent.value?.open();
+    });
+  } else if (currentView.value === "file") {
     fileContent.value?.goBack();
   } else {
     settingsGoBack();
@@ -153,7 +158,9 @@ function openSettings(view) {
     modalBack.value = true;
     nextTick(() => {
       openModal();
-      if (view === "workspace") workspaceView.value?.load();
+      nextTick(() => {
+        if (view === "workspace") workspaceView.value?.load();
+      });
     });
   } else {
     currentView.value = "settings";
@@ -173,7 +180,9 @@ onMounted(() => {
     modalBack.value = false;
     nextTick(() => {
       openModal();
-      iconPickerContent.value?.open(callback, currentIcon, currentColor);
+      nextTick(() => {
+        iconPickerContent.value?.open(callback, currentIcon, currentColor);
+      });
     });
   });
   on("iconPicker:close", () => closeModal());
@@ -184,7 +193,9 @@ onMounted(() => {
     modalBack.value = true;
     nextTick(() => {
       openModal();
-      fileContent.value?.open(detail);
+      nextTick(() => {
+        fileContent.value?.open(detail);
+      });
     });
   });
   on("git:closeFileModal", () => closeModal());
@@ -197,17 +208,17 @@ onMounted(() => {
     modalBack.value = false;
     nextTick(() => {
       openModal();
-      gitStashView.value?.load();
+      nextTick(() => gitStashView.value?.load());
     });
   });
 
   on("git:openGitHub", () => {
     currentView.value = "github";
     modalTitle.value = "GitHub";
-    modalBack.value = false;
+    modalBack.value = true;
     nextTick(() => {
       openModal();
-      gitGitHubView.value?.load();
+      nextTick(() => gitGitHubView.value?.load());
     });
   });
 

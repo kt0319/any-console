@@ -33,27 +33,12 @@
 import { ref } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { useGitStore } from "../stores/git.js";
+import { useGitStore, parseDiffChunks } from "../stores/git.js";
 import { emit } from "../app-bridge.js";
 
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
 const gitStore = useGitStore();
-
-function parseDiffChunks(diffText) {
-  const chunks = {};
-  if (!diffText) return chunks;
-  const parts = diffText.split(/^diff --git /m);
-  for (const part of parts) {
-    if (!part.trim()) continue;
-    const match = part.match(/^a\/(.+?)\s+b\/(.+)/);
-    const path = match ? match[2] : null;
-    if (path) {
-      chunks[path] = "diff --git " + part;
-    }
-  }
-  return chunks;
-}
 
 const files = ref([]);
 const loading = ref(false);

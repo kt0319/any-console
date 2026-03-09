@@ -25,6 +25,9 @@
             :data-type="entry.type"
             @click="onEntryClick(entry)"
             @contextmenu.prevent="toggleContextMenu(entry)"
+            @touchstart.passive="onLongPressStart($event, entry)"
+            @touchend="onLongPressEnd"
+            @touchcancel="onLongPressEnd"
           >
             <span
               class="file-browser-item-icon"
@@ -49,19 +52,13 @@
       <div v-if="entries.length === 0" class="file-content-message">ファイルがありません</div>
     </template>
 
-    <template v-else>
-      <div v-if="fileContent.image && fileContent.data_url" class="file-content-image-wrap">
-        <img :src="fileContent.data_url" class="file-content-image" />
-      </div>
-      <div v-else-if="fileContent.binary" class="file-content-message">バイナリファイル ({{ formatSize(fileContent.size) }})</div>
-      <div v-else-if="fileContent.too_large" class="file-content-message">ファイルが大きすぎます ({{ formatSize(fileContent.size) }})</div>
-      <pre v-else class="file-content-viewer">{{ fileContent.content }}</pre>
-    </template>
+    <FileViewer v-else :fileContent="fileContent" :fileName="currentPath" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from "vue";
+import FileViewer from "./FileViewer.vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { emit } from "../app-bridge.js";
@@ -146,6 +143,24 @@ async function openFile(path) {
     console.error("FileBrowser openFile failed:", e);
   } finally {
     loading.value = false;
+  }
+}
+
+let longPressTimer = null;
+let longPressTriggered = false;
+
+function onLongPressStart(e, entry) {
+  longPressTriggered = false;
+  longPressTimer = setTimeout(() => {
+    longPressTriggered = true;
+    contextEntry.value = entry;
+  }, 500);
+}
+
+function onLongPressEnd() {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
   }
 }
 
@@ -255,6 +270,7 @@ async function downloadEntry() {
 }
 
 function onEntryClick(entry) {
+  if (longPressTriggered) { longPressTriggered = false; return; }
   if (contextEntry.value) return;
   const childPath = currentPath.value ? `${currentPath.value}/${entry.name}` : entry.name;
   if (entry.type === "dir") {

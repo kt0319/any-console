@@ -120,6 +120,9 @@ function escapeHtml(str) {
 }
 
 function openFileModal() {
+  if (workspace.value) {
+    workspaceStore.selectedWorkspace = workspace.value;
+  }
   emit("git:openFileModal");
 }
 

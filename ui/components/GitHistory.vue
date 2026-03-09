@@ -1,5 +1,27 @@
 <template>
   <div class="git-history-pane-wrapper">
+    <!-- ステータス行 + ペインタブ（常に表示） -->
+    <div v-if="!loading && entries.length > 0" class="git-log-entry git-log-dirty">
+      <span class="git-log-entry-body git-log-dirty-body" @click="selectDirty">
+        <span class="git-log-dirty-main">
+          <span class="git-log-entry-msg git-log-dirty-msg">{{ isDirty ? '未コミットの変更' : '変更なし' }}</span>
+          <span class="git-log-entry-refs" :class="{ 'git-dirty-spacer': !isDirty }">
+            <span class="git-ref git-ref-dirty" v-html="dirtyStat"></span>
+          </span>
+        </span>
+      </span>
+      <div class="git-log-pane-tabs">
+        <button
+          v-for="tab in PANE_TABS"
+          :key="tab.key"
+          type="button"
+          class="git-log-pane-tab"
+          :class="{ active: activePane === tab.key }"
+          :title="tab.label"
+          @click="selectPane(tab.key)"
+        ><span :class="'mdi ' + tab.icon"></span></button>
+      </div>
+    </div>
     <!-- ファイル一覧モード -->
     <template v-if="expandedEntry">
       <div class="git-log-commit-files-header" @click="closeExpanded">
@@ -28,16 +50,6 @@
     <div v-else class="modal-scroll-body" ref="listEl">
       <div v-if="loading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
       <div v-else-if="entries.length === 0" style="color:var(--text-muted);padding:16px;text-align:center">コミットログがありません</div>
-      <div v-if="!loading && entries.length > 0" class="git-log-entry git-log-dirty" @click="selectDirty">
-        <span class="git-log-entry-body git-log-dirty-body">
-          <span class="git-log-dirty-main">
-            <span class="git-log-entry-msg git-log-dirty-msg">{{ isDirty ? '未コミットの変更' : '変更なし' }}</span>
-            <span class="git-log-entry-refs" :class="{ 'git-dirty-spacer': !isDirty }">
-              <span class="git-ref git-ref-dirty" v-html="dirtyStat"></span>
-            </span>
-          </span>
-        </span>
-      </div>
       <template v-for="entry in entries" :key="entry.hash">
         <div
           class="git-log-entry git-log-commit"
@@ -85,12 +97,27 @@
 import { ref, computed, nextTick, onMounted } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { useGitStore } from "../stores/git.js";
-import { emit } from "../app-bridge.js";
+import { useGitStore, parseDiffChunks } from "../stores/git.js";
+import { emit as bridgeEmit } from "../app-bridge.js";
+
+const vueEmit = defineEmits(["pane:select"]);
 
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
 const gitStore = useGitStore();
+
+const PANE_TABS = [
+  { key: "branch", label: "ブランチ", icon: "mdi-source-branch" },
+  { key: "stash", label: "Stash", icon: "mdi-package-down" },
+  { key: "github", label: "GitHub", icon: "mdi-github" },
+];
+
+const activePane = ref("browser");
+
+function selectPane(key) {
+  activePane.value = key;
+  vueEmit("pane:select", key);
+}
 
 const currentWs = computed(() =>
   workspaceStore.allWorkspaces.find((w) => w.name === workspaceStore.selectedWorkspace),
@@ -271,13 +298,13 @@ async function execAction(action, entry) {
     });
     if (!res || !res.ok) {
       const data = await res?.json().catch(() => null);
-      emit("toast:show", { message: data?.detail || `${action}に失敗しました`, type: "error" });
+      bridgeEmit("toast:show", { message: data?.detail || `${action}に失敗しました`, type: "error" });
       return;
     }
-    emit("toast:show", { message: `${action} ${shortHash} 完了`, type: "success" });
-    emit("git:refresh");
+    bridgeEmit("toast:show", { message: `${action} ${shortHash} 完了`, type: "success" });
+    bridgeEmit("git:refresh");
   } catch (e) {
-    emit("toast:show", { message: e.message, type: "error" });
+    bridgeEmit("toast:show", { message: e.message, type: "error" });
   }
 }
 
@@ -298,18 +325,18 @@ async function execReset(entry, mode) {
     });
     if (!res || !res.ok) {
       const data = await res?.json().catch(() => null);
-      emit("toast:show", { message: data?.detail || `reset --${mode}に失敗しました`, type: "error" });
+      bridgeEmit("toast:show", { message: data?.detail || `reset --${mode}に失敗しました`, type: "error" });
       return;
     }
-    emit("toast:show", { message: `reset --${mode} ${shortHash} 完了`, type: "success" });
-    emit("git:refresh");
+    bridgeEmit("toast:show", { message: `reset --${mode} ${shortHash} 完了`, type: "success" });
+    bridgeEmit("git:refresh");
   } catch (e) {
-    emit("toast:show", { message: e.message, type: "error" });
+    bridgeEmit("toast:show", { message: e.message, type: "error" });
   }
 }
 
 function selectDirty() {
-  emit("git:selectDirty");
+  bridgeEmit("git:selectDirty");
 }
 
 async function selectCommit(entry) {
@@ -331,6 +358,8 @@ async function selectCommit(entry) {
       status: f.status || "M",
       numstat: f.added != null ? `<span class="numstat-added">+${f.added}</span> <span class="numstat-deleted">-${f.deleted}</span>` : "",
     }));
+    gitStore.diffChunks = parseDiffChunks(data.diff);
+    gitStore.diffFullText = data.diff || "";
   } catch (e) {
     console.error("commit files load failed:", e);
   } finally {
@@ -344,11 +373,7 @@ function closeExpanded() {
 }
 
 function selectExpandedFile(file) {
-  const entry = expandedEntry.value;
-  emit("git:selectCommit", { hash: entry.fullHash, message: entry.message, refs: entry.refs });
-  nextTick(() => {
-    emit("git:selectDiffFile", { path: file.path });
-  });
+  bridgeEmit("git:selectDiffFile", { path: file.path });
 }
 
 async function reload() {
@@ -357,5 +382,9 @@ async function reload() {
 
 onMounted(load);
 
-defineExpose({ reload, load });
+function setActivePane(key) {
+  activePane.value = key;
+}
+
+defineExpose({ reload, load, setActivePane });
 </script>
