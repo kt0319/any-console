@@ -16,10 +16,11 @@
               </span>
             </button>
             <div class="picker-ws-top-meta">
-              <button v-if="ws.is_git_repo && ws.behind > 0" type="button" class="git-badge behind" :disabled="runningWs === ws.name" @click.stop="gitAction(ws, 'pull')">↓{{ ws.behind }}</button>
-              <button v-if="ws.is_git_repo && ws.ahead > 0 && ws.has_upstream !== false" type="button" class="git-badge ahead" :disabled="runningWs === ws.name" @click.stop="gitAction(ws, 'push')">↑{{ ws.ahead }}</button>
-              <button v-if="ws.is_git_repo && ws.ahead > 0 && ws.has_upstream === false" type="button" class="git-badge ahead" :disabled="runningWs === ws.name" @click.stop="gitAction(ws, 'push-upstream')">↑{{ ws.ahead }}</button>
-              <span v-if="ws.is_git_repo && !ws.clean" class="git-badge dirty" v-html="dirtyBadgeHtml(ws)"></span>
+              <GitActionBtn v-if="ws.is_git_repo && ws.behind > 0" icon="pull" title="Pull" :count="ws.behind" :running="isRunning(ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action.stop="doAction(ws, 'pull')" />
+              <GitActionBtn v-if="ws.is_git_repo && ws.ahead > 0 && ws.has_upstream !== false" icon="push" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action.stop="doAction(ws, 'push')" />
+              <GitActionBtn v-if="ws.is_git_repo && ws.ahead > 0 && ws.has_upstream === false" icon="push-upstream" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action.stop="doAction(ws, 'push-upstream')" />
+              <button v-if="ws.is_git_repo && !ws.clean" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(ws)" @click="openDetail(ws)"></button>
+              <button v-if="ws.is_git_repo && ws.clean" type="button" class="git-badge clean" @click="openDetail(ws)">✓</button>
             </div>
           </div>
           <div class="picker-ws-row picker-ws-row-bottom">
@@ -50,53 +51,25 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, reactive } from "vue";
+import { computed, inject, reactive } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useAuthStore } from "../stores/auth.js";
+import { useGitAction } from "../composables/useGitAction.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
+import GitActionBtn from "./GitActionBtn.vue";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "ワークスペース";
 
 const workspaceStore = useWorkspaceStore();
 const auth = useAuthStore();
+const { gitAction, isRunning } = useGitAction();
 
 const wsJobs = reactive({});
-const runningWs = ref(null);
 
-const ACTION_LABELS = {
-  pull: "Pull",
-  push: "Push",
-  "push-upstream": "Push (upstream設定)",
-};
-
-async function gitAction(ws, action) {
-  if (runningWs.value) return;
-  const label = ACTION_LABELS[action] || action;
-  if (!confirm(`${ws.name}: ${label} を実行しますか？`)) return;
-  runningWs.value = ws.name;
-  try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(ws.name)}/${action}`, {
-      method: "POST",
-    });
-    if (!res || !res.ok) {
-      const data = await res?.json().catch(() => null);
-      emit("toast:show", { message: data?.stderr || `${label}に失敗しました`, type: "error" });
-      return;
-    }
-    const data = await res.json();
-    if (data.exit_code !== 0) {
-      emit("toast:show", { message: data.stderr || `${label}に失敗しました`, type: "error" });
-      return;
-    }
-    emit("toast:show", { message: `${ws.name}: ${label}完了`, type: "success" });
-    await workspaceStore.fetchStatuses(auth);
-  } catch (e) {
-    emit("toast:show", { message: e.message, type: "error" });
-  } finally {
-    runningWs.value = null;
-  }
+function doAction(ws, action) {
+  gitAction(ws.name, action);
 }
 
 const visibleWorkspaces = computed(() => workspaceStore.visibleWorkspaces);

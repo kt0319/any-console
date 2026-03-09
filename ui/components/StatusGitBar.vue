@@ -14,63 +14,34 @@
       class="non-git-hint commit-msg-btn"
       @click="openFileModal"
     >Gitリポジトリではありません</button>
-    <div v-if="isGitRepo && hasGitActions" class="git-actions" style="display:flex">
-      <button
-        v-if="behind > 0"
-        type="button"
-        class="git-action-btn pull-btn has-count"
-        :class="{ running: runningAction === 'pull' }"
-        title="Pull"
-        @click="gitAction('pull')"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
-        <span class="git-action-count">{{ behind }}</span>
+    <div v-if="isGitRepo" class="git-actions">
+      <GitActionBtn v-if="behind > 0" icon="pull" title="Pull" :count="behind" :running="isRunning(workspace, 'pull')" btn-class="pull-btn has-count" @action="doAction('pull')" />
+      <GitActionBtn v-if="!hasUpstream && hasRemoteBranch" icon="set-upstream" title="追跡設定" :running="isRunning(workspace, 'set-upstream')" btn-class="icon-only upstream-set-btn" @action="doAction('set-upstream')" />
+      <GitActionBtn v-if="!hasUpstream && !hasRemoteBranch" icon="push-upstream" title="Push" :count="ahead" :running="isRunning(workspace, 'push-upstream')" btn-class="upstream-btn" @action="doAction('push-upstream')" />
+      <GitActionBtn v-if="hasUpstream && ahead > 0" icon="push" title="Push" :count="ahead" :running="isRunning(workspace, 'push')" btn-class="push-btn has-count" @action="doAction('push')" />
+      <button type="button" class="git-action-btn icon-only" title="ブランチ" @click="openPane('branch')">
+        <span class="mdi mdi-source-branch"></span>
       </button>
-      <button
-        v-if="!hasUpstream && hasRemoteBranch"
-        type="button"
-        class="git-action-btn icon-only upstream-set-btn"
-        :class="{ running: runningAction === 'set-upstream' }"
-        title="追跡設定"
-        @click="gitAction('set-upstream')"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+      <button type="button" class="git-action-btn icon-only" title="Stash" @click="openPane('stash')">
+        <span class="mdi mdi-package-down"></span>
       </button>
-      <button
-        v-if="!hasUpstream && !hasRemoteBranch"
-        type="button"
-        class="git-action-btn upstream-btn"
-        :class="{ running: runningAction === 'push-upstream' }"
-        title="Push"
-        @click="gitAction('push-upstream')"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 16 12 10 18 16"/><polyline points="6 10 12 4 18 10"/></svg>
-        <span class="git-action-count">{{ ahead }}</span>
-      </button>
-      <button
-        v-if="hasUpstream && ahead > 0"
-        type="button"
-        class="git-action-btn push-btn has-count"
-        :class="{ running: runningAction === 'push' }"
-        title="Push"
-        @click="gitAction('push')"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-        <span class="git-action-count">{{ ahead }}</span>
+      <button v-if="githubUrl" type="button" class="git-action-btn icon-only" title="GitHub" @click="openPane('github')">
+        <span class="mdi mdi-github"></span>
       </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { computed } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { useAuthStore } from "../stores/auth.js";
+import { useGitAction } from "../composables/useGitAction.js";
 import { emit } from "../app-bridge.js";
+import GitActionBtn from "./GitActionBtn.vue";
 
-const auth = useAuthStore();
+const { gitAction, isRunning } = useGitAction();
 
 const workspaceStore = useWorkspaceStore();
 const terminalStore = useTerminalStore();
@@ -96,6 +67,7 @@ const hasGitActions = computed(() =>
   behind.value > 0 || ahead.value > 0 || !hasUpstream.value,
 );
 
+const githubUrl = computed(() => ws.value?.github_url || "");
 const isDirty = computed(() => ws.value && ws.value.clean === false);
 
 const commitMsgHtml = computed(() => {
@@ -133,43 +105,21 @@ function openFileModal() {
   emit("git:openFileModal");
 }
 
-const ACTION_LABELS = {
-  pull: "Pull",
-  push: "Push",
-  "push-upstream": "Push (upstream設定)",
-  "set-upstream": "追跡設定",
-};
+function openPane(key) {
+  if (workspace.value) {
+    workspaceStore.selectedWorkspace = workspace.value;
+  }
+  if (key === "github") {
+    emit("git:openGitHub");
+  } else {
+    emit("git:openFileModal", { pane: key });
+  }
+}
 
-const runningAction = ref(null);
-
-async function gitAction(action) {
+function doAction(action) {
   const wsName = workspace.value;
   if (!wsName) return;
-  if (runningAction.value) return;
-  const label = ACTION_LABELS[action] || action;
   const branch = ws.value?.branch || "";
-  if (!confirm(`${label}\n${wsName}  ${branch}`)) return;
-  runningAction.value = action;
-  try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(wsName)}/${action}`, {
-      method: "POST",
-    });
-    if (!res || !res.ok) {
-      const data = await res?.json().catch(() => null);
-      emit("toast:show", { message: data?.stderr || `${label}に失敗しました`, type: "error" });
-      return;
-    }
-    const data = await res.json();
-    if (data.exit_code !== 0) {
-      emit("toast:show", { message: data.stderr || `${label}に失敗しました`, type: "error" });
-      return;
-    }
-    emit("toast:show", { message: `${label}完了`, type: "success" });
-    workspaceStore.fetchStatuses(auth);
-  } catch (e) {
-    emit("toast:show", { message: e.message, type: "error" });
-  } finally {
-    runningAction.value = null;
-  }
+  gitAction(wsName, action, `${wsName}  ${branch}`);
 }
 </script>

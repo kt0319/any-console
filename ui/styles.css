@@ -327,7 +327,8 @@ header {
 }
 
 .picker-ws-top-meta .git-badge,
-.picker-ws-top-meta .picker-ws-mini-btn {
+.picker-ws-top-meta .picker-ws-mini-btn,
+.picker-ws-top-meta .git-action-btn {
   height: 22px;
   min-height: 22px;
   max-height: 22px;
