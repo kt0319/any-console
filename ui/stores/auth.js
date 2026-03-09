@@ -12,7 +12,7 @@ export const useAuthStore = defineStore("auth", () => {
     const headers = { Authorization: `Bearer ${token.value}` };
     const deviceName = localStorage.getItem("deviceName");
     if (deviceName) headers["X-Device-Name"] = deviceName;
-    if (body !== null && typeof body === "object") {
+    if (body !== null && typeof body === "object" && !(body instanceof FormData)) {
       headers["Content-Type"] = "application/json";
       body = JSON.stringify(body);
     }

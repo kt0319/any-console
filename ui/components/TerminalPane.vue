@@ -12,7 +12,10 @@
         class="tab-name-pill"
         :class="{ 'tab-activity': tab._activity, dragging: pillDragging }"
         ref="pillEl"
+        tabindex="-1"
         :draggable="canDrag && !layoutStore.isTouchDevice"
+        @mousedown="onPillMouseDown"
+        @mouseup="onPillMouseUp"
         @dragstart="onPillDragStart"
         @dragend="onPillDragEnd"
         @touchstart.passive="onPillTouchStart"
@@ -20,7 +23,7 @@
         <span class="tab-name-pill-info">
           <span v-if="tab.wsIcon" v-html="renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
           <span v-if="tab.icon" v-html="renderIcon(tab.icon.name, tab.icon.color, 14)"></span>
-          {{ tab.label || '' }}
+          {{ tab.workspace || tab.label || '' }}
         </span>
       </div>
     </div>
@@ -103,6 +106,7 @@ function onPillDragStart(e) {
   e.dataTransfer.setData("text/plain", String(props.tab.id));
   e.dataTransfer.effectAllowed = "move";
   pillDragging.value = true;
+  pillDidDrag = true;
   layoutStore.dragTabId = props.tab.id;
   layoutStore.showDropZones = true;
 }
@@ -125,6 +129,20 @@ function clearPillLongPress() {
     clearTimeout(pillLongPressTimer);
     pillLongPressTimer = null;
   }
+}
+
+let pillMouseDownTime = 0;
+let pillDidDrag = false;
+
+function onPillMouseDown() {
+  pillMouseDownTime = Date.now();
+  pillDidDrag = false;
+}
+
+function onPillMouseUp() {
+  if (pillDidDrag) return;
+  if (Date.now() - pillMouseDownTime > 300) return;
+  emit("workspace:openModal");
 }
 
 function toggleViewMode() {
@@ -208,6 +226,31 @@ function onPillTouchEnd(e) {
   setTimeout(() => { pillTouchDragging = false; }, 100);
 }
 
+const encoder = new TextEncoder();
+
+async function onPaste(e) {
+  if (!isActive.value) return;
+  const files = e.clipboardData?.files;
+  if (!files || files.length === 0) return;
+  const imageFile = Array.from(files).find((f) => f.type.startsWith("image/"));
+  if (!imageFile) return;
+  e.preventDefault();
+  emit("toast:show", { message: "画像アップロード中...", type: "success" });
+  try {
+    const formData = new FormData();
+    formData.append("file", imageFile);
+    const res = await auth.apiFetch("/upload-image", { method: "POST", body: formData });
+    if (!res || !res.ok) throw new Error("アップロード失敗");
+    const data = await res.json();
+    if (props.tab.ws && props.tab.ws.readyState === WebSocket.OPEN) {
+      props.tab.ws.send(encoder.encode(data.path));
+    }
+    emit("toast:show", { message: "画像アップロード完了", type: "success" });
+  } catch (err) {
+    emit("toast:show", { message: `画像アップロード失敗: ${err.message}`, type: "error" });
+  }
+}
+
 onMounted(() => {
   if (props.tab._pendingOpen && frameEl.value) {
     ensureTerminalOpened(props.tab, frameEl.value);
@@ -216,6 +259,7 @@ onMounted(() => {
     pillEl.value.addEventListener("touchmove", onPillTouchMove, { passive: false });
     pillEl.value.addEventListener("touchend", onPillTouchEnd, { passive: false });
   }
+  document.addEventListener("paste", onPaste, true);
 });
 
 onBeforeUnmount(() => {
@@ -223,6 +267,7 @@ onBeforeUnmount(() => {
     pillEl.value.removeEventListener("touchmove", onPillTouchMove);
     pillEl.value.removeEventListener("touchend", onPillTouchEnd);
   }
+  document.removeEventListener("paste", onPaste, true);
 });
 
 defineExpose({
