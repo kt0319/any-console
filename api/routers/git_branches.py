@@ -11,8 +11,8 @@ from ..common import (
 )
 from ..git_utils import (
     git_branches,
-    git_remote_branches,
     git_info_to_status_dict,
+    git_remote_branches,
     invalidate_git_info,
     run_git_command,
     ssh_env,

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from . import git_diff, git_files, git_history, git_branches
+from . import git_branches, git_diff, git_files, git_history
 
 router = APIRouter()
 router.include_router(git_branches.router)

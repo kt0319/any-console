@@ -26,9 +26,9 @@ from .terminal import (
     TERMINAL_SESSIONS,
     TMUX_SESSION_PREFIX,
     TerminalSession,
-    sessions_lock,
     create_tmux_session,
     save_tmux_metadata,
+    sessions_lock,
 )
 
 logger = logging.getLogger(__name__)
