@@ -20,9 +20,18 @@
           v-for="(tab, idx) in openTabs"
           :key="tab.id"
           class="split-tab-row"
-          :class="{ active: !splitMode && tab.id === activeTabId }"
+          :class="{
+            active: !splitMode && tab.id === activeTabId,
+            'drag-source': dragFromIdx === idx,
+            'drag-over-above': dragOverIdx === idx && dragFromIdx > idx,
+            'drag-over-below': dragOverIdx === idx && dragFromIdx < idx,
+          }"
         >
-          <span class="split-tab-drag-handle">
+          <span
+            class="split-tab-drag-handle"
+            @touchstart.passive="onDragStart($event, idx)"
+            @mousedown="onDragStart($event, idx)"
+          >
             <span class="mdi mdi-drag"></span>
           </span>
           <span class="split-tab-input-wrap">
@@ -53,7 +62,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { ref, computed, onBeforeUnmount } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { renderIconStr } from "../utils/render-icon.js";
@@ -151,4 +160,50 @@ function onClose(tab) {
     }
   }
 }
+
+const dragFromIdx = ref(null);
+const dragOverIdx = ref(null);
+
+function onDragStart(e, idx) {
+  dragFromIdx.value = idx;
+  dragOverIdx.value = idx;
+  const isTouch = e.type === "touchstart";
+  const moveEvent = isTouch ? "touchmove" : "mousemove";
+  const endEvent = isTouch ? "touchend" : "mouseup";
+
+  function getY(ev) {
+    return isTouch ? ev.touches[0].clientY : ev.clientY;
+  }
+
+  function onMove(ev) {
+    const y = isTouch ? ev.touches[0].clientY : ev.clientY;
+    const rows = document.querySelectorAll(".split-tab-row");
+    for (let i = 0; i < rows.length; i++) {
+      const rect = rows[i].getBoundingClientRect();
+      if (y >= rect.top && y <= rect.bottom) {
+        dragOverIdx.value = i;
+        break;
+      }
+    }
+    if (isTouch) ev.preventDefault();
+  }
+
+  function onEnd() {
+    document.removeEventListener(moveEvent, onMove, { passive: false });
+    document.removeEventListener(endEvent, onEnd);
+    if (dragFromIdx.value !== null && dragOverIdx.value !== null && dragFromIdx.value !== dragOverIdx.value) {
+      terminalStore.moveTab(dragFromIdx.value, dragOverIdx.value);
+    }
+    dragFromIdx.value = null;
+    dragOverIdx.value = null;
+  }
+
+  document.addEventListener(moveEvent, onMove, { passive: false });
+  document.addEventListener(endEvent, onEnd);
+}
+
+onBeforeUnmount(() => {
+  dragFromIdx.value = null;
+  dragOverIdx.value = null;
+});
 </script>

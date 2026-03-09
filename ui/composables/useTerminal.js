@@ -135,7 +135,10 @@ export function useTerminal() {
     const frame = document.getElementById(`frame-${tab.id}`);
     if (frame) {
       const rect = frame.getBoundingClientRect();
-      if (rect.width < 2 || rect.height < 2) return;
+      if (rect.width < 2 || rect.height < 2) {
+        scheduleRetryFit(tab);
+        return;
+      }
     }
     try {
       const dims = tab.fitAddon.proposeDimensions();

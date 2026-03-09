@@ -136,6 +136,14 @@ export const useTerminalStore = defineStore("terminal", () => {
     activeTabId.value = tabId;
   }
 
+  function moveTab(fromIndex, toIndex) {
+    if (fromIndex === toIndex) return;
+    if (fromIndex < 0 || fromIndex >= openTabs.value.length) return;
+    if (toIndex < 0 || toIndex >= openTabs.value.length) return;
+    const [tab] = openTabs.value.splice(fromIndex, 1);
+    openTabs.value.splice(toIndex, 0, tab);
+  }
+
   function getTerminalRuntimeOptions() {
     return {
       cursorBlink: terminalSettings.value.cursorBlink,
@@ -164,6 +172,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     addTerminalTab,
     removeTab,
     switchTab,
+    moveTab,
     resetTerminalSettings,
     getTerminalRuntimeOptions,
     sanitizeTerminalSetting,

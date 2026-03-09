@@ -1751,6 +1751,18 @@ button:disabled {
   background: var(--bg-tertiary);
 }
 
+.split-tab-row.drag-source {
+  opacity: 0.4;
+}
+
+.split-tab-row.drag-over-above {
+  border-top: 2px solid var(--accent);
+}
+
+.split-tab-row.drag-over-below {
+  border-bottom: 2px solid var(--accent);
+}
+
 .split-tab-row-info {
   display: flex;
   align-items: center;
