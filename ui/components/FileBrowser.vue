@@ -21,7 +21,7 @@
         <template v-for="entry in entries" :key="entry.name">
           <li
             class="file-browser-item"
-            :class="{ 'action-open': contextEntry?.name === entry.name }"
+            :class="{ 'action-open': contextEntry?.name === entry.name, 'gitignored': entry.gitignored }"
             :data-type="entry.type"
             @click="onEntryClick(entry)"
             @contextmenu.prevent="toggleContextMenu(entry)"
@@ -29,15 +29,8 @@
             @touchend="onLongPressEnd"
             @touchcancel="onLongPressEnd"
           >
-            <span
-              class="file-browser-item-icon"
-              :class="{
-                'dir-icon': entry.type === 'dir',
-                'file-icon': entry.type === 'file',
-                'symlink-icon': entry.type === 'symlink',
-              }"
-            >{{ entryIcon(entry) }}</span>
-            <span class="file-browser-item-name" :class="{ dimmed: entry.gitignored }">{{ entry.name }}</span>
+            <span class="file-browser-item-icon nf-icon" v-html="entryIcon(entry)"></span>
+            <span class="file-browser-item-name">{{ entry.name }}</span>
             <span v-if="entry.type === 'file' && entry.size != null" class="file-browser-item-size">{{ formatSize(entry.size) }}</span>
           </li>
           <li v-if="contextEntry?.name === entry.name" class="file-browser-action-menu">
@@ -78,10 +71,90 @@ const pathSegments = computed(() => {
   return currentPath.value.split("/").filter(Boolean);
 });
 
+const NF_EXT_MAP = {
+  js: ["\uE781", "#f1e05a"],
+  mjs: ["\uE781", "#f1e05a"],
+  ts: ["\uE628", "#3178c6"],
+  tsx: ["\uE7ba", "#3178c6"],
+  jsx: ["\uE7ba", "#61dafb"],
+  vue: ["\uDB82\uDE20", "#42b883"],
+  json: ["\uE60b", "#cbcb41"],
+  html: ["\uE736", "#e44d26"],
+  css: ["\uE749", "#563d7c"],
+  scss: ["\uE749", "#c6538c"],
+  py: ["\uE73C", "#3572a5"],
+  rb: ["\uE739", "#cc342d"],
+  rs: ["\uE7a8", "#dea584"],
+  go: ["\uE627", "#00add8"],
+  java: ["\uE738", "#b07219"],
+  c: ["\uE61E", "#555555"],
+  cpp: ["\uE61D", "#f34b7d"],
+  h: ["\uE61E", "#555555"],
+  sh: ["\uE795", "#89e051"],
+  bash: ["\uE795", "#89e051"],
+  zsh: ["\uE795", "#89e051"],
+  md: ["\uE73E", "#083fa1"],
+  yml: ["\uE6A8", "#cb171e"],
+  yaml: ["\uE6A8", "#cb171e"],
+  toml: ["\uE6b2", "#9c4221"],
+  xml: ["\uE619", "#e44d26"],
+  svg: ["\uDB80\uDDA5", "#ffb13b"],
+  png: ["\uDB80\uDDA5", "#a074c4"],
+  jpg: ["\uDB80\uDDA5", "#a074c4"],
+  jpeg: ["\uDB80\uDDA5", "#a074c4"],
+  gif: ["\uDB80\uDDA5", "#a074c4"],
+  webp: ["\uDB80\uDDA5", "#a074c4"],
+  ico: ["\uDB80\uDDA5", "#a074c4"],
+  pdf: ["\uEAEB", "#e44d26"],
+  zip: ["\uF410", "#e8a835"],
+  gz: ["\uF410", "#e8a835"],
+  tar: ["\uF410", "#e8a835"],
+  lock: ["\uE21A", "#555555"],
+  env: ["\uE615", "#faf743"],
+  sql: ["\uE706", "#e38c00"],
+  docker: ["\uE7b0", "#2496ed"],
+  dockerfile: ["\uE7b0", "#2496ed"],
+  gitignore: ["\uE702", "#f54d27"],
+  txt: ["\uF0219", "#89e051"],
+  log: ["\uF0219", "#555555"],
+  conf: ["\uE615", "#6d8086"],
+  cfg: ["\uE615", "#6d8086"],
+  ini: ["\uE615", "#6d8086"],
+  csv: ["\uF0219", "#89e051"],
+  woff: ["\uE659", "#aaaaaa"],
+  woff2: ["\uE659", "#aaaaaa"],
+  ttf: ["\uE659", "#aaaaaa"],
+  eot: ["\uE659", "#aaaaaa"],
+};
+
+const NF_NAME_MAP = {
+  Dockerfile: ["\uE7b0", "#2496ed"],
+  Makefile: ["\uE615", "#6d8086"],
+  LICENSE: ["\uF0219", "#d4aa00"],
+  README: ["\uE73E", "#083fa1"],
+  "README.md": ["\uE73E", "#083fa1"],
+  ".gitignore": ["\uE702", "#f54d27"],
+  ".env": ["\uE615", "#faf743"],
+  ".env.local": ["\uE615", "#faf743"],
+};
+
 function entryIcon(entry) {
-  if (entry.type === "dir") return "\u{1F4C1}";
-  if (entry.type === "symlink") return "\u{1F517}";
-  return "\u{1F4C4}";
+  if (entry.type === "dir") {
+    return `<span style="color:#e8a735">\uF0751</span>`;
+  }
+  if (entry.type === "symlink") {
+    return `<span style="color:#7aa2f7">\uEB15</span>`;
+  }
+  const nameMatch = NF_NAME_MAP[entry.name];
+  if (nameMatch) {
+    return `<span style="color:${nameMatch[1]}">${nameMatch[0]}</span>`;
+  }
+  const ext = entry.name.includes(".") ? entry.name.split(".").pop().toLowerCase() : "";
+  const extMatch = NF_EXT_MAP[ext];
+  if (extMatch) {
+    return `<span style="color:${extMatch[1]}">${extMatch[0]}</span>`;
+  }
+  return `<span style="color:#6d8086">\uF0219</span>`;
 }
 
 function formatSize(bytes) {

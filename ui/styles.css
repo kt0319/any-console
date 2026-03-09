@@ -1400,16 +1400,10 @@ header {
   text-align: center;
 }
 
-.file-browser-item-icon.dir-icon {
-  color: var(--accent);
-}
-
-.file-browser-item-icon.file-icon {
-  color: var(--text-muted);
-}
-
-.file-browser-item-icon.symlink-icon {
-  color: #6ec6ff;
+.file-browser-item-icon.nf-icon {
+  font-family: "Hack Nerd Font", monospace;
+  font-size: 16px;
+  line-height: 1;
 }
 
 .file-browser-item-name {
@@ -1420,8 +1414,8 @@ header {
   white-space: nowrap;
 }
 
-.file-browser-item-name.dimmed {
-  color: var(--text-muted);
+.file-browser-item.gitignored {
+  opacity: 0.4;
 }
 
 .file-browser-item[data-type="file"] {
