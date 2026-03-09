@@ -254,6 +254,7 @@ async function onPaste(e) {
 onMounted(() => {
   if (props.tab._pendingOpen && frameEl.value) {
     ensureTerminalOpened(props.tab, frameEl.value);
+    requestAnimationFrame(() => fitTerminal(props.tab));
   } else if (props.tab.term && frameEl.value && props.tab.term.element) {
     frameEl.value.appendChild(props.tab.term.element);
     observeFrameResize(props.tab, frameEl.value);

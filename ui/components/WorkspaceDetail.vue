@@ -39,7 +39,9 @@ import GitGitHub from "./GitGitHub.vue";
 import DiffViewer from "./DiffViewer.vue";
 import CommitForm from "./CommitForm.vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
+import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
+const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
 
 const emit = defineEmits(["update:title", "update:back", "close"]);
@@ -183,7 +185,17 @@ on("git:commitDone", () => {
 });
 
 on("git:stashSave", async () => {
-  bridgeEmit("git:execStashSave");
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
+  const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/stash`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ include_untracked: true }),
+  });
+  if (!res || !res.ok) return;
+  gitHistory.value?.reload();
+  gitFiles.value?.loadWorkingTreeDiff();
+  gitStash.value?.load();
 });
 
 defineExpose({ open, close, goBack, showCommitDiff });

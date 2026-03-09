@@ -54,16 +54,42 @@ async function load() {
   }
 }
 
-function stashSave() {
-  emit("git:stashSave");
+async function stashSave() {
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
+  const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/stash`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ include_untracked: true }),
+  });
+  if (!res || !res.ok) return;
+  await load();
+  emit("git:commitDone");
 }
 
-function stashPop(entry) {
-  emit("git:stashAction", { action: "pop", ref: entry.ref });
+async function stashPop(entry) {
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
+  const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/stash-pop-ref`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ stash_ref: entry.ref }),
+  });
+  if (!res || !res.ok) return;
+  await load();
+  emit("git:commitDone");
 }
 
-function stashDrop(entry) {
-  emit("git:stashAction", { action: "drop", ref: entry.ref });
+async function stashDrop(entry) {
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
+  const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/stash-drop`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ stash_ref: entry.ref }),
+  });
+  if (!res || !res.ok) return;
+  await load();
 }
 
 defineExpose({ load });

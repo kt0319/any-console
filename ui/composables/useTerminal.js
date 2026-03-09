@@ -27,6 +27,7 @@ export function useTerminal() {
       if (tab._pendingRedraw) {
         tab._pendingRedraw = false;
         tab.term?.write("\x1bc");
+        setTimeout(() => fitTerminal(tab), 50);
       }
       if (tab._initialCommand && tab._waitingInitialCommand) {
         tab._waitingInitialCommand = false;
