@@ -29,8 +29,8 @@
     </template>
 
     <template v-else>
-      <div v-if="loading" class="file-content-message">読み込み中...</div>
-      <div v-else-if="error" class="file-content-message">{{ error }}</div>
+      <div v-if="isFileBrowserLoading" class="file-content-message">読み込み中...</div>
+      <div v-else-if="fileBrowserError" class="file-content-message">{{ fileBrowserError }}</div>
 
       <template v-else-if="!fileContent">
         <ul class="file-browser-list">
@@ -93,8 +93,8 @@ const props = defineProps({
 const currentPath = ref("");
 const entries = ref([]);
 const fileContent = ref(null);
-const loading = ref(false);
-const error = ref("");
+const isFileBrowserLoading = ref(false);
+const fileBrowserError = ref("");
 const contextEntry = ref(null);
 const diffHtml = ref("");
 const isDropActive = ref(false);
@@ -156,34 +156,34 @@ watch(() => props.diffMessage, (msg) => {
   }
 }, { immediate: true });
 
-async function load() {
-  await navigate("");
+async function loadFileBrowserRoot() {
+  await navigateToPath("");
 }
 
-async function navigate(path) {
+async function navigateToPath(path) {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
 
   currentPath.value = path;
   fileContent.value = null;
-  loading.value = true;
-  error.value = "";
+  isFileBrowserLoading.value = true;
+  fileBrowserError.value = "";
 
   try {
     const res = await auth.apiFetch(
       `/workspaces/${encodeURIComponent(workspace)}/files?path=${encodeURIComponent(path)}`
     );
     if (!res || !res.ok) {
-      error.value = "読み込みに失敗しました";
+      fileBrowserError.value = "読み込みに失敗しました";
       return;
     }
     const data = await res.json();
     entries.value = data.entries || [];
   } catch (e) {
-    error.value = "読み込みに失敗しました";
+    fileBrowserError.value = "読み込みに失敗しました";
     console.error("FileBrowser navigate failed:", e);
   } finally {
-    loading.value = false;
+    isFileBrowserLoading.value = false;
   }
 }
 
@@ -191,23 +191,23 @@ async function openFile(path) {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
 
-  loading.value = true;
-  error.value = "";
+  isFileBrowserLoading.value = true;
+  fileBrowserError.value = "";
 
   try {
     const res = await auth.apiFetch(
       `/workspaces/${encodeURIComponent(workspace)}/file-content?path=${encodeURIComponent(path)}`
     );
     if (!res || !res.ok) {
-      error.value = "ファイルを開けませんでした";
+      fileBrowserError.value = "ファイルを開けませんでした";
       return;
     }
     fileContent.value = await res.json();
   } catch (e) {
-    error.value = "ファイルを開けませんでした";
+    fileBrowserError.value = "ファイルを開けませんでした";
     console.error("FileBrowser openFile failed:", e);
   } finally {
-    loading.value = false;
+    isFileBrowserLoading.value = false;
   }
 }
 
@@ -289,7 +289,7 @@ async function renameFile(src, dest) {
       return;
     }
     emit("toast:show", { message: "リネームしました", type: "success" });
-    await navigate(currentPath.value);
+    await navigateToPath(currentPath.value);
   } catch (e) {
     emit("toast:show", { message: e.message, type: "error" });
   }
@@ -313,7 +313,7 @@ async function deleteEntry() {
       return;
     }
     emit("toast:show", { message: "削除しました", type: "success" });
-    await navigate(currentPath.value);
+    await navigateToPath(currentPath.value);
   } catch (e) {
     emit("toast:show", { message: e.message, type: "error" });
   }
@@ -442,7 +442,7 @@ async function uploadDroppedFiles(files) {
   if (failCount > 0) {
     emit("toast:show", { message: `${failCount}件アップロードに失敗しました`, type: "error" });
   }
-  await navigate(uploadPath);
+  await navigateToPath(uploadPath);
 }
 
 async function onDropFiles(e) {
@@ -475,10 +475,10 @@ function onCrumbClick(path) {
       openFile(path);
       return;
     }
-    navigate(currentPath.value);
+    navigateToPath(currentPath.value);
     return;
   }
-  navigate(path);
+  navigateToPath(path);
 }
 
 function onEntryClick(entry) {
@@ -488,7 +488,7 @@ function onEntryClick(entry) {
   }
   const childPath = currentPath.value ? `${currentPath.value}/${entry.name}` : entry.name;
   if (entry.type === "dir") {
-    navigate(childPath);
+    navigateToPath(childPath);
   } else if (entry.type === "file") {
     currentPath.value = childPath;
     openFile(childPath);
@@ -505,5 +505,156 @@ onBeforeUnmount(() => {
   window.removeEventListener("dragleave", onWindowDragLeave);
 });
 
-defineExpose({ load });
+defineExpose({
+  load: loadFileBrowserRoot,
+  loadFileBrowserRoot,
+});
 </script>
+
+<style scoped>
+.file-browser {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background: transparent;
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.file-browser-header {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.file-browser.file-browser-drop-active::after {
+  content: "ここにドロップでアップロード";
+  position: absolute;
+  inset: 12px;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius);
+  background: rgba(76, 175, 80, 0.08);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.file-browser-crumb {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 12px;
+  padding: 1px 3px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.file-browser-crumb-sep {
+  color: var(--text-muted);
+}
+
+.file-browser-crumb-current {
+  color: var(--text-primary);
+  padding: 1px 3px;
+}
+
+.file-browser-crumb-current-action {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 3px;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.file-browser-crumb-badge {
+  margin-left: 4px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 16px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.file-browser-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.file-content-message {
+  padding: 24px 16px;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 13px;
+}
+
+.file-browser-action-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.file-browser-action-menu button {
+  padding: 6px 14px;
+  font-size: 13px;
+  min-height: 36px;
+}
+
+.file-browser-action-delete {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.diff-viewer-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.diff-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: auto;
+  min-width: 0;
+  background: transparent;
+  padding: 12px;
+  min-height: 100px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+</style>

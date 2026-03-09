@@ -1,7 +1,7 @@
 <template>
   <div class="git-branch-pane-wrapper">
-    <div class="modal-scroll-body" ref="listEl">
-      <div v-if="loading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
+    <div class="modal-scroll-body" ref="branchListEl">
+      <div v-if="isBranchListLoading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
       <template v-else>
         <div
           v-for="branch in branches"
@@ -22,10 +22,10 @@
           </div>
         </div>
         <div
-          v-if="!remoteExpanded && !loading"
+          v-if="!isRemoteBranchListExpanded && !isBranchListLoading"
           class="branch-item branch-item-action"
           @click="showRemoteBranches"
-        >{{ remoteLoading ? '読み込み中...' : 'リモートブランチを表示...' }}</div>
+        >{{ isRemoteBranchListLoading ? '読み込み中...' : 'リモートブランチを表示...' }}</div>
       </template>
     </div>
   </div>
@@ -41,19 +41,19 @@ const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
 
 const branches = ref([]);
-const loading = ref(false);
-const remoteExpanded = ref(false);
-const remoteLoading = ref(false);
-const listEl = ref(null);
+const isBranchListLoading = ref(false);
+const isRemoteBranchListExpanded = ref(false);
+const isRemoteBranchListLoading = ref(false);
+const branchListEl = ref(null);
 
-async function load() {
+async function loadBranchList() {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  loading.value = true;
-  remoteExpanded.value = false;
+  isBranchListLoading.value = true;
+  isRemoteBranchListExpanded.value = false;
   try {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/branches`);
-    if (!res || !res.ok) { loading.value = false; return; }
+    if (!res || !res.ok) { isBranchListLoading.value = false; return; }
     const data = await res.json();
     branches.value = (data || []).map((b) => ({
       name: b.name || b,
@@ -63,14 +63,14 @@ async function load() {
   } catch (e) {
     console.error("branch load failed:", e);
   } finally {
-    loading.value = false;
+    isBranchListLoading.value = false;
   }
 }
 
 async function showRemoteBranches() {
   const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace || remoteLoading.value) return;
-  remoteLoading.value = true;
+  if (!workspace || isRemoteBranchListLoading.value) return;
+  isRemoteBranchListLoading.value = true;
   try {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/branches/remote`);
     if (!res || !res.ok) return;
@@ -80,11 +80,11 @@ async function showRemoteBranches() {
       .filter((b) => !localNames.has(b.name || b))
       .map((b) => ({ name: b.name || b, current: false, remote: true }));
     branches.value = [...branches.value, ...remoteBranches];
-    remoteExpanded.value = true;
+    isRemoteBranchListExpanded.value = true;
   } catch (e) {
     console.error("remote branch load failed:", e);
   } finally {
-    remoteLoading.value = false;
+    isRemoteBranchListLoading.value = false;
   }
 }
 
@@ -103,7 +103,7 @@ async function deleteBranch(branch) {
     body: { branch: branch.name, remote: branch.remote },
   });
   if (!res || !res.ok) return;
-  await load();
+  await loadBranchList();
   emit("git:commitDone");
 }
 
@@ -117,5 +117,85 @@ async function backgroundFetch() {
   }
 }
 
-defineExpose({ load, backgroundFetch });
+defineExpose({
+  load: loadBranchList,
+  loadBranchList,
+  backgroundFetch,
+});
 </script>
+
+<style scoped>
+.git-branch-pane-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.branch-item {
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: background 0.15s;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.branch-item:last-child {
+  border-bottom: none;
+}
+
+.branch-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.branch-item.current {
+  color: var(--accent);
+  cursor: default;
+}
+
+.branch-item.remote-only {
+  color: var(--text-muted);
+}
+
+.branch-item-action {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.commit-action-item {
+  padding: 4px 10px;
+  font-size: 12px;
+  min-height: 32px;
+  min-width: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.commit-action-danger {
+  color: var(--error);
+  border-color: var(--error);
+}
+</style>

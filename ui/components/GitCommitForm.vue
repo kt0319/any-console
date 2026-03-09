@@ -1,5 +1,5 @@
 <template>
-  <div v-if="visible" class="diff-commit-form-wrapper" style="display:flex">
+  <div v-if="visible" class="diff-commit-form-wrapper">
     <div class="git-create-branch-row diff-commit-row">
       <input
         ref="messageInput"
@@ -84,3 +84,38 @@ async function submit() {
 
 defineExpose({ open, close, visible });
 </script>
+
+<style scoped>
+.diff-commit-form-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 10px 10px;
+  flex-shrink: 0;
+}
+
+.diff-commit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.diff-commit-row .form-input {
+  min-width: 0;
+}
+
+.diff-commit-row button {
+  width: auto;
+  min-width: 64px;
+  min-height: 36px;
+  height: 36px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.form-error {
+  color: var(--error);
+  font-size: 12px;
+}
+</style>

@@ -26,3 +26,103 @@ defineProps({
 
 defineEmits(["action"]);
 </script>
+
+<style scoped>
+.git-action-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  max-height: 36px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  line-height: 1;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.git-action-btn.icon-only {
+  width: 36px;
+  padding: 0;
+}
+
+.git-action-btn.stash-btn {
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+}
+
+.git-action-btn.pull-btn {
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.git-action-btn.pull-btn.has-count {
+  color: var(--error);
+  background: rgba(255, 85, 114, 0.15);
+  border: 1px solid rgba(255, 85, 114, 0.3);
+}
+
+.git-action-btn.push-btn {
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.git-action-btn.push-btn.has-count {
+  color: var(--accent);
+  background: rgba(130, 170, 255, 0.15);
+  border: 1px solid rgba(130, 170, 255, 0.3);
+}
+
+.git-action-btn.upstream-set-btn {
+  color: var(--warning);
+  background: var(--warning-bg-20);
+  border: 1px solid rgba(238, 166, 68, 0.3);
+}
+
+.git-action-btn.upstream-btn {
+  color: var(--success);
+  background: var(--success-bg-20);
+  border: 1px solid rgba(120, 200, 140, 0.3);
+}
+
+.git-action-btn.running {
+  pointer-events: none;
+  color: transparent;
+  background: rgba(130, 170, 255, 0.15);
+  border-color: var(--accent);
+}
+
+.git-action-btn.running > * {
+  visibility: hidden;
+}
+
+.git-action-btn.running::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(130, 170, 255, 0.3);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: git-action-spin 0.6s linear infinite;
+}
+
+@keyframes git-action-spin {
+  to { transform: rotate(360deg); }
+}
+
+.git-action-count:empty {
+  display: none;
+}
+</style>

@@ -1,12 +1,12 @@
 <template>
-  <div class="empty-tab-placeholder">
+  <div class="screen-empty-container">
     <div class="screen-empty-content">
       <div class="screen-empty-booting" :class="{ 'is-hidden': !booting }" aria-live="polite">
         <div class="app-boot-spinner" aria-hidden="true"></div>
         <div class="app-boot-text">{{ bootMessage }}</div>
       </div>
-      <div class="empty-tab-actions">
-        <button type="button" class="empty-tab-open-btn" @click="$emit('openWorkspace')">
+      <div class="screen-empty-actions">
+        <button type="button" class="screen-empty-open-btn" @click="$emit('openWorkspace')">
           <span class="mdi mdi-plus"></span> ワークスペースを開く
         </button>
       </div>
@@ -23,6 +23,15 @@ defineEmits(["openWorkspace"]);
 </script>
 
 <style scoped>
+.screen-empty-container {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 12px;
+}
+
 .screen-empty-content {
   display: flex;
   flex-direction: column;
@@ -42,5 +51,43 @@ defineEmits(["openWorkspace"]);
 
 .screen-empty-booting.is-hidden {
   visibility: hidden;
+}
+
+.app-boot-spinner {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--accent);
+  animation: screen-empty-spin 0.8s linear infinite;
+}
+
+@keyframes screen-empty-spin {
+  to { transform: rotate(360deg); }
+}
+
+.app-boot-text {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.screen-empty-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.screen-empty-open-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 24px;
+  font-size: 15px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
 }
 </style>

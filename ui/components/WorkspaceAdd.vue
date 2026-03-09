@@ -45,7 +45,7 @@
         </button>
       </div>
       <div v-if="cloneError" class="clone-repo-error">{{ cloneError }}</div>
-      <div v-if="cloneSuccess" class="clone-repo-success" style="color:var(--success);padding:8px;text-align:center">{{ cloneSuccess }}</div>
+      <div v-if="cloneSuccess" class="clone-repo-success">{{ cloneSuccess }}</div>
     </div>
 
   </div>
@@ -124,3 +124,73 @@ async function loadRepos() {
 
 onMounted(loadRepos);
 </script>
+
+<style scoped>
+.settings-section-label {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.clone-tab-content {
+  margin-bottom: 12px;
+}
+
+.clone-repo-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+}
+
+.clone-repo-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.clone-repo-item:last-child {
+  border-bottom: none;
+}
+
+.clone-repo-item.selected {
+  background: var(--accent-bg-20);
+  border-left: 3px solid var(--accent);
+}
+
+.clone-repo-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.clone-repo-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clone-repo-loading,
+.clone-repo-empty,
+.clone-repo-error {
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.clone-repo-error {
+  color: var(--error);
+}
+
+.clone-repo-success {
+  color: var(--success);
+  padding: 8px;
+  text-align: center;
+}
+</style>

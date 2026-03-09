@@ -1,15 +1,15 @@
 <template>
-  <div v-if="booting || showEmptyState" class="output-container screen-main-empty">
-    <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceModal" />
+  <div v-if="booting || isEmptyScreenVisible" class="output-container screen-main-empty">
+    <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
   </div>
   <div v-else class="main-panel" :class="{ 'panel-bottom': isPanelBottom }">
-    <TabBar v-show="!isTextInputVisible" ref="tabBar" :tabs="openTabs" :orphans="orphanSessions" />
+    <TabBar v-show="!isTextInputVisible" ref="tabBarView" :tabs="openTabs" :orphans="orphanSessions" />
     <WorkspaceStatusBar v-show="!isTextInputVisible" />
-    <TerminalBase ref="terminalSplit" />
+    <TerminalBase ref="terminalBaseView" />
     <KeyboardBase
       ref="keyboardBase"
       :is-panel-bottom="isPanelBottom"
-      @visibility="onKeyboardInputVisibility"
+      @visibility="updateKeyboardInputVisibility"
     />
   </div>
   <Modal />
@@ -45,7 +45,7 @@ const { initViewport } = useViewport();
 const booting = ref(true);
 const bootMessage = ref("読み込み中...");
 
-async function initApp() {
+async function initializeApp() {
   try {
     bootMessage.value = "ワークスペース一覧を読み込み中...";
     const res = await auth.apiFetch("/workspaces");
@@ -60,7 +60,7 @@ async function initApp() {
     bootMessage.value = "ワークスペース状態を読み込み中...";
     await workspaceStore.fetchStatuses(auth);
   } catch (e) {
-    console.error("initApp failed:", e);
+    console.error("initializeApp failed:", e);
   }
 
   bootMessage.value = "セッションを読み込み中...";
@@ -118,7 +118,7 @@ async function restoreExistingSessions() {
   }
 }
 
-async function loadSnippets() {
+async function loadSnippetCache() {
   if (inputStore.isSnippetsLoaded) return;
   try {
     const res = await auth.apiFetch("/snippets");
@@ -129,7 +129,7 @@ async function loadSnippets() {
   } catch {}
 }
 
-async function saveSnippets() {
+async function persistSnippets() {
   try {
     await auth.apiFetch("/snippets", {
       method: "PUT",
@@ -140,19 +140,19 @@ async function saveSnippets() {
 
 const openTabs = computed(() => terminalStore.openTabs);
 const orphanSessions = computed(() => terminalStore.orphanSessions);
-const showEmptyState = computed(() => openTabs.value.length === 0 && !layoutStore.isSplitMode);
+const isEmptyScreenVisible = computed(() => openTabs.value.length === 0 && !layoutStore.isSplitMode);
 
-const tabBar = ref(null);
-const terminalSplit = ref(null);
+const tabBarView = ref(null);
+const terminalBaseView = ref(null);
 const keyboardBase = ref(null);
 const isTextInputVisible = ref(false);
 
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 
-let resizeObserver = null;
-let resizeDebounceTimer = null;
+let mainPanelResizeObserver = null;
+let resizeFitTimerId = null;
 
-function openWorkspaceModal() {
+function openWorkspaceSelection() {
   emit("workspace:openModal");
 }
 
@@ -220,7 +220,7 @@ async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, j
     terminalStore.switchTab(tab.id);
     if (workspace) workspaceStore.selectedWorkspace = workspace;
     await nextTick();
-    terminalSplit.value?.fitAllTerminals();
+    terminalBaseView.value?.fitAllTerminals();
   } catch (e) {
     emit("toast:show", { message: `ターミナル起動エラー: ${e.message}`, type: "error" });
   }
@@ -243,7 +243,7 @@ async function closeTab(tab) {
 onMounted(() => {
   on("layout:fitAll", (detail) => {
     connectDeferredTabs();
-    terminalSplit.value?.fitAllTerminals(detail);
+    terminalBaseView.value?.fitAllTerminals(detail);
   });
 
   on("tab:select", ({ tab }) => {
@@ -271,17 +271,17 @@ onMounted(() => {
   on("snippet:add", async ({ command }) => {
     const label = command.length > 40 ? command.slice(0, 40) : command;
     inputStore.snippetsCache.push({ label, command });
-    await saveSnippets();
+    await persistSnippets();
   });
 
   on("snippet:delete", async ({ index }) => {
     if (index >= 0 && index < inputStore.snippetsCache.length) {
       inputStore.snippetsCache.splice(index, 1);
-      await saveSnippets();
+      await persistSnippets();
     }
   });
 
-  loadSnippets();
+  loadSnippetCache();
 
   on("keyboard:activate", () => {
     ensureKeyboardTargetTab();
@@ -293,19 +293,19 @@ onMounted(() => {
   });
 
   initViewport(() => {
-    terminalSplit.value?.fitAllTerminals();
+    terminalBaseView.value?.fitAllTerminals();
   });
 
   if (typeof ResizeObserver !== "undefined") {
-    resizeObserver = new ResizeObserver(() => {
-      if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
-      resizeDebounceTimer = setTimeout(() => {
-        resizeDebounceTimer = null;
-        terminalSplit.value?.fitAllTerminals();
+    mainPanelResizeObserver = new ResizeObserver(() => {
+      if (resizeFitTimerId) clearTimeout(resizeFitTimerId);
+      resizeFitTimerId = setTimeout(() => {
+        resizeFitTimerId = null;
+        terminalBaseView.value?.fitAllTerminals();
       }, 50);
     });
     const main = document.querySelector(".main-panel");
-    if (main) resizeObserver.observe(main);
+    if (main) mainPanelResizeObserver.observe(main);
   }
 });
 
@@ -313,7 +313,7 @@ onMounted(async () => {
   booting.value = true;
   bootMessage.value = "初期化中...";
   try {
-    await initApp();
+    await initializeApp();
   } finally {
     booting.value = false;
     bootMessage.value = "読み込み中...";
@@ -321,16 +321,16 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  resizeObserver?.disconnect();
+  mainPanelResizeObserver?.disconnect();
 });
 
-function onKeyboardInputVisibility(visible) {
+function updateKeyboardInputVisibility(visible) {
   isTextInputVisible.value = !!visible;
 }
 
 defineExpose({
-  tabBar,
-  terminalSplit,
+  tabBar: tabBarView,
+  terminalSplit: terminalBaseView,
   keyboardBase,
 });
 </script>

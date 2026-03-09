@@ -316,3 +316,144 @@ defineExpose({
   getFrameEl() { return frameEl.value; },
 });
 </script>
+
+<style scoped>
+.terminal-pane {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.terminal-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+}
+
+.terminal-frame.view-mode {
+  border-color: #ff9800;
+}
+
+.terminal-frame.view-mode .tab-name-pill {
+  border-color: #ff9800;
+}
+
+.terminal-frame :deep(.xterm) {
+  width: 100%;
+  height: 100%;
+}
+
+.terminal-frame :deep(.xterm-viewport) {
+  scrollbar-width: none;
+}
+
+.terminal-frame :deep(.xterm-viewport::-webkit-scrollbar) {
+  display: none;
+}
+
+.tab-name-pill {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  max-width: min(80vw, 420px);
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(26, 27, 38, 0.93);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.2;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+  gap: 6px;
+}
+
+.tab-name-pill.dragging {
+  opacity: 0.5;
+}
+
+.tab-name-pill-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tab-name-pill :deep(.favicon-icon) {
+  width: 14px;
+  height: 14px;
+}
+
+.tab-name-pill:active {
+  transform: scale(0.93);
+  transition: transform 0.1s ease, background 0.1s ease;
+}
+
+.tab-name-pill.tab-activity {
+  animation: pill-activity-glow 3s ease-in-out 1;
+}
+
+@keyframes pill-activity-glow {
+  0%, 100% { border-color: var(--border); }
+  50% { border-color: rgba(130, 170, 255, 0.7); }
+}
+
+:deep(.view-mode-textarea) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: #1a1b26;
+  color: #e0e4fc;
+  font-family: "JetBrainsMono Nerd Font", "Hack Nerd Font", "FiraCode Nerd Font", "MesloLGS NF", monospace;
+  font-size: 12px;
+  line-height: 1.0;
+  box-sizing: border-box;
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+@media (pointer: coarse) {
+  .terminal-frame :deep(.xterm textarea) {
+    pointer-events: none !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .tab-name-pill {
+    cursor: grab;
+    top: 20px;
+    right: 20px;
+  }
+
+  .tab-name-pill.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+  }
+}
+</style>

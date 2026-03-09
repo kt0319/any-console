@@ -206,3 +206,246 @@ onBeforeUnmount(() => {
   dragOverIdx.value = null;
 });
 </script>
+
+<style scoped>
+.split-tab-mode-row {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-bottom: 8px;
+}
+
+.split-tab-mode-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.split-tab-mode-option.active {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+.split-tab-mode-option:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+[class^="split-icon-"] {
+  display: inline-block;
+  width: 16px;
+  height: 14px;
+  vertical-align: middle;
+  border: 1.5px solid currentColor;
+  border-radius: 1px;
+  position: relative;
+}
+
+.split-icon-h::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1.5px;
+  background: currentColor;
+  transform: translateX(-50%);
+}
+
+.split-icon-v::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  background: currentColor;
+  transform: translateY(-50%);
+}
+
+.split-icon-grid::before,
+.split-icon-grid::after {
+  content: "";
+  position: absolute;
+  background: currentColor;
+}
+
+.split-icon-grid::before {
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1.5px;
+  transform: translateX(-50%);
+}
+
+.split-icon-grid::after {
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  transform: translateY(-50%);
+}
+
+.split-tab-content {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+.split-tab-scroll {
+  padding-top: 4px;
+}
+
+.split-tab-list {
+  overflow: visible;
+  flex: 0 0 auto;
+}
+
+.split-tab-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+  cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.split-tab-row.active {
+  background: var(--bg-tertiary);
+}
+
+.split-tab-row.drag-source {
+  opacity: 0.4;
+}
+
+.split-tab-row.drag-over-above {
+  border-top: 2px solid var(--accent);
+}
+
+.split-tab-row.drag-over-below {
+  border-bottom: 2px solid var(--accent);
+}
+
+.split-tab-row.dragging {
+  opacity: 0.7;
+  background: var(--bg-tertiary);
+}
+
+.split-tab-row-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.split-tab-drag-handle {
+  flex-shrink: 0;
+  width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.split-tab-input-wrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  width: 76px;
+  cursor: pointer;
+}
+
+.split-tab-input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--text-muted);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  margin: 0;
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.split-tab-input:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.split-tab-input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid var(--bg-primary);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.split-tab-input[type="radio"] {
+  border-radius: 50%;
+}
+
+.split-tab-input:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.split-tab-input[type="radio"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+}
+
+.split-tab-close-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.clone-repo-empty {
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+</style>

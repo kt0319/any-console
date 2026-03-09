@@ -44,3 +44,86 @@ function highlight() {
 
 watch(() => props.fileContent, () => highlight(), { immediate: true });
 </script>
+
+<style scoped>
+.file-viewer {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.file-content-viewer {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  margin: 0;
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  background: transparent;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.line-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.line-num {
+  user-select: none;
+  text-align: right;
+  padding-right: 10px;
+  color: var(--text-muted);
+  opacity: 0.5;
+  vertical-align: top;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.line-content {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.file-content-image-wrap {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 0;
+  padding: 12px 0 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.file-content-image {
+  max-width: 100%;
+  max-height: calc(var(--app-dvh) - 200px);
+  object-fit: contain;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+}
+
+.file-content-message {
+  padding: 24px 16px;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 13px;
+}
+
+.file-content-viewer :deep(code.hljs) {
+  background: transparent;
+  padding: 0;
+}
+</style>

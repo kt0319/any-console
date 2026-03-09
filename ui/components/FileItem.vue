@@ -47,3 +47,58 @@ defineEmits([
   "touchcancel",
 ]);
 </script>
+
+<style scoped>
+.file-browser-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  position: relative;
+}
+
+.file-browser-item[data-type="dir"] {
+  cursor: pointer;
+}
+
+.file-browser-item[data-type="file"] {
+  cursor: pointer;
+}
+
+.file-browser-item-icon {
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+}
+
+.file-browser-item-icon.nf-icon {
+  font-family: "Hack Nerd Font", monospace;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.file-browser-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-browser-item.gitignored {
+  opacity: 0.4;
+}
+
+.file-browser-item-size {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.file-browser-item.action-open {
+  background: rgba(130, 170, 255, 0.08);
+}
+</style>

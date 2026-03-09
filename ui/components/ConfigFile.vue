@@ -32,7 +32,7 @@ function highlight() {
   });
 }
 
-async function load() {
+async function loadConfigFile() {
   try {
     const res = await auth.apiFetch("/settings/export");
     if (!res || !res.ok) {
@@ -88,5 +88,43 @@ async function upload() {
   }
 }
 
-onMounted(load);
+onMounted(loadConfigFile);
 </script>
+
+<style scoped>
+.config-file-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.config-file-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.config-file-code {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 12px;
+  font-family: "Hack Nerd Font", monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.config-file-code code {
+  background: transparent;
+  padding: 0;
+}
+</style>

@@ -1,17 +1,17 @@
 <template>
   <div class="git-history-pane-wrapper">
     <!-- ファイル一覧モード -->
-    <template v-if="expandedEntry">
+    <template v-if="selectedCommitForFiles">
       <div class="modal-scroll-body">
-        <div v-if="expandedLoading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
+        <div v-if="isSelectedCommitFilesLoading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
         <ul v-else class="file-browser-list diff-file-browser-list">
           <FileItem
-            v-for="file in expandedFiles"
+            v-for="file in selectedCommitFiles"
             :key="file.path"
             class="diff-file-row"
             :label="file.path"
             :icon-html="fileIconHtml(file)"
-            @click="selectExpandedFile(file)"
+            @click="selectCommitDiffFile(file)"
           >
             <template #right>
               <span v-if="file.numstat" class="diff-file-row-numstat" v-html="file.numstat"></span>
@@ -22,16 +22,16 @@
       </div>
     </template>
     <!-- コミット履歴モード -->
-    <div v-else class="modal-scroll-body" ref="listEl" @scroll.passive="onListScroll">
-      <div v-if="loading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
-      <div v-else-if="entries.length === 0" style="color:var(--text-muted);padding:16px;text-align:center">コミットログがありません</div>
+    <div v-else class="modal-scroll-body" ref="historyListEl" @scroll.passive="onHistoryListScroll">
+      <div v-if="isHistoryLoading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
+      <div v-else-if="commitEntries.length === 0" style="color:var(--text-muted);padding:16px;text-align:center">コミットログがありません</div>
       <!-- 未コミットの変更 / 変更なし -->
-      <div v-if="!loading && entries.length > 0" class="git-log-entry git-log-dirty" @click="selectDirty">
+      <div v-if="!isHistoryLoading && commitEntries.length > 0" class="git-log-entry git-log-dirty" @click="openWorkingTreeDiffFiles">
         <span class="git-log-entry-body git-log-dirty-body">
           <span class="git-log-dirty-main">
             <span class="git-log-entry-msg git-log-dirty-msg">{{ isDirty ? '未コミットの変更' : '変更なし' }}</span>
             <span class="git-log-entry-refs" :class="{ 'git-dirty-spacer': !isDirty }">
-              <span class="git-ref git-ref-dirty" v-html="dirtyStat"></span>
+              <span class="git-ref git-ref-dirty" v-html="dirtySummaryHtml"></span>
             </span>
           </span>
         </span>
@@ -50,11 +50,11 @@
           </button>
         </div>
       </div>
-      <template v-for="entry in entries" :key="entry.hash">
+      <template v-for="entry in commitEntries" :key="entry.hash">
         <div
           class="git-log-entry git-log-commit long-press-surface"
           :class="{ 'action-open': longPressEntry?.hash === entry.hash }"
-          @click="selectCommit(entry)"
+          @click="openCommitDiffFiles(entry)"
           @mousedown="onLongPressStart($event, entry)"
           @mouseup="onLongPressEnd"
           @mouseleave="onLongPressEnd"
@@ -108,7 +108,7 @@ import {
 } from "../utils/git.js";
 import { GIT_DIFF_STATUS_CLASSES, INFINITE_SCROLL_THRESHOLD_PX } from "../utils/constants.js";
 
-const vueEmit = defineEmits(["pane:select", "commit:expanded", "commit:collapsed"]);
+const emitToParent = defineEmits(["pane:select", "commit:expanded", "commit:collapsed"]);
 
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
@@ -118,16 +118,16 @@ const activePane = ref("browser");
 
 function selectPane(key) {
   activePane.value = key;
-  vueEmit("pane:select", key);
+  emitToParent("pane:select", key);
 }
 
-const currentWs = computed(() =>
+const currentWorkspaceState = computed(() =>
   workspaceStore.allWorkspaces.find((w) => w.name === workspaceStore.selectedWorkspace),
 );
-const isDirty = computed(() => currentWs.value && currentWs.value.clean === false);
-const githubUrl = computed(() => currentWs.value?.github_url || "");
-const dirtyStat = computed(() => {
-  const ws = currentWs.value;
+const isDirty = computed(() => currentWorkspaceState.value && currentWorkspaceState.value.clean === false);
+const githubUrl = computed(() => currentWorkspaceState.value?.github_url || "");
+const dirtySummaryHtml = computed(() => {
+  const ws = currentWorkspaceState.value;
   if (!ws || ws.clean !== false) return "0F +0 -0";
   const parts = [];
   if (ws.changed_files > 0) parts.push(`<span class="stat-files">${ws.changed_files}F</span>`);
@@ -136,16 +136,16 @@ const dirtyStat = computed(() => {
   return parts.length > 0 ? parts.join(" ") : "\u25cf";
 });
 
-const entries = ref([]);
-const loading = ref(true);
-const hasMore = ref(false);
-const loadingMore = ref(false);
-const listEl = ref(null);
-let page = 0;
+const commitEntries = ref([]);
+const isHistoryLoading = ref(true);
+const hasMoreHistory = ref(false);
+const isLoadingMoreHistory = ref(false);
+const historyListEl = ref(null);
+let historyPage = 0;
 
-const expandedEntry = ref(null);
-const expandedFiles = ref([]);
-const expandedLoading = ref(false);
+const selectedCommitForFiles = ref(null);
+const selectedCommitFiles = ref([]);
+const isSelectedCommitFilesLoading = ref(false);
 
 function statusClass(status) {
   return GIT_DIFF_STATUS_CLASSES[status] || "";
@@ -166,57 +166,57 @@ function buildFileNumstatHtml(file, diffChunk = "", opts = {}) {
   return buildNumstatHtml(parsed?.insertions, parsed?.deletions, { omitZeroDeletions, neutralText });
 }
 
-async function load() {
+async function loadHistory() {
   const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) { loading.value = false; return; }
-  loading.value = true;
-  hasMore.value = false;
-  loadingMore.value = false;
-  page = 0;
+  if (!workspace) { isHistoryLoading.value = false; return; }
+  isHistoryLoading.value = true;
+  hasMoreHistory.value = false;
+  isLoadingMoreHistory.value = false;
+  historyPage = 0;
   try {
     const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/git-log?limit=${perPage}&skip=0`);
-    if (!res || !res.ok) { loading.value = false; return; }
+    if (!res || !res.ok) { isHistoryLoading.value = false; return; }
     const data = await res.json();
-    entries.value = parseGitLogEntries(data.stdout);
-    hasMore.value = entries.value.length >= perPage;
+    commitEntries.value = parseGitLogEntries(data.stdout);
+    hasMoreHistory.value = commitEntries.value.length >= perPage;
   } catch (e) {
     console.error("git log load failed:", e);
   } finally {
-    loading.value = false;
-    nextTick(() => onListScroll());
+    isHistoryLoading.value = false;
+    nextTick(() => onHistoryListScroll());
   }
 }
 
-async function loadMore() {
-  if (loading.value || loadingMore.value || !hasMore.value) return;
+async function loadMoreHistory() {
+  if (isHistoryLoading.value || isLoadingMoreHistory.value || !hasMoreHistory.value) return;
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  loadingMore.value = true;
-  page++;
+  isLoadingMoreHistory.value = true;
+  historyPage++;
   const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/git-log?limit=${perPage}&skip=${page * perPage}`);
+    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/git-log?limit=${perPage}&skip=${historyPage * perPage}`);
     if (!res || !res.ok) return;
     const data = await res.json();
     const newEntries = parseGitLogEntries(data.stdout);
-    entries.value = [...entries.value, ...newEntries];
-    hasMore.value = newEntries.length >= perPage;
+    commitEntries.value = [...commitEntries.value, ...newEntries];
+    hasMoreHistory.value = newEntries.length >= perPage;
   } catch (e) {
     console.error("git log loadMore failed:", e);
   } finally {
-    loadingMore.value = false;
-    nextTick(() => onListScroll());
+    isLoadingMoreHistory.value = false;
+    nextTick(() => onHistoryListScroll());
   }
 }
 
-function onListScroll() {
-  if (!hasMore.value || loading.value || loadingMore.value) return;
-  const el = listEl.value;
+function onHistoryListScroll() {
+  if (!hasMoreHistory.value || isHistoryLoading.value || isLoadingMoreHistory.value) return;
+  const el = historyListEl.value;
   if (!el) return;
   const threshold = INFINITE_SCROLL_THRESHOLD_PX;
   if (el.scrollTop + el.clientHeight >= el.scrollHeight - threshold) {
-    loadMore();
+    loadMoreHistory();
   }
 }
 
@@ -313,12 +313,12 @@ async function execReset(entry, mode) {
   }
 }
 
-async function selectDirty() {
+async function openWorkingTreeDiffFiles() {
   if (!isDirty.value) return;
-  expandedEntry.value = { message: "未コミットの変更", author: "", time: "", hash: "__dirty__", fullHash: "__dirty__" };
-  vueEmit("commit:expanded", { message: expandedEntry.value.message });
-  expandedFiles.value = [];
-  expandedLoading.value = true;
+  selectedCommitForFiles.value = { message: "未コミットの変更", author: "", time: "", hash: "__dirty__", fullHash: "__dirty__" };
+  emitToParent("commit:expanded", { message: selectedCommitForFiles.value.message });
+  selectedCommitFiles.value = [];
+  isSelectedCommitFilesLoading.value = true;
   try {
     const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return;
@@ -339,7 +339,7 @@ async function selectDirty() {
     const diffChunks = parseDiffChunks(data.diff);
     gitStore.diffChunks = diffChunks;
     gitStore.diffFullText = data.diff || "";
-    expandedFiles.value = fileList.map((f) => ({
+    selectedCommitFiles.value = fileList.map((f) => ({
       path: f.path,
       status: f.status,
       numstat: buildFileNumstatHtml(
@@ -351,19 +351,19 @@ async function selectDirty() {
   } catch (e) {
     console.error("dirty files load failed:", e);
   } finally {
-    expandedLoading.value = false;
+    isSelectedCommitFilesLoading.value = false;
   }
 }
 
-async function selectCommit(entry) {
+async function openCommitDiffFiles(entry) {
   if (longPressEl || longPressEntry.value || longPressTriggered) {
     longPressTriggered = false;
     return;
   }
-  expandedEntry.value = entry;
-  vueEmit("commit:expanded", { message: entry.message });
-  expandedFiles.value = [];
-  expandedLoading.value = true;
+  selectedCommitForFiles.value = entry;
+  emitToParent("commit:expanded", { message: entry.message });
+  selectedCommitFiles.value = [];
+  isSelectedCommitFilesLoading.value = true;
   try {
     const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return;
@@ -373,7 +373,7 @@ async function selectCommit(entry) {
     const diffChunks = parseDiffChunks(data.diff);
     gitStore.diffChunks = diffChunks;
     gitStore.diffFullText = data.diff || "";
-    expandedFiles.value = (data.files || []).map((f) => ({
+    selectedCommitFiles.value = (data.files || []).map((f) => ({
       path: f.path || f.name,
       status: f.status || "M",
       numstat: buildFileNumstatHtml(f, diffChunks[f.path || f.name]),
@@ -381,33 +381,333 @@ async function selectCommit(entry) {
   } catch (e) {
     console.error("commit files load failed:", e);
   } finally {
-    expandedLoading.value = false;
+    isSelectedCommitFilesLoading.value = false;
   }
 }
 
-function closeExpanded() {
-  expandedEntry.value = null;
-  expandedFiles.value = [];
-  vueEmit("commit:collapsed");
+function closeSelectedCommitFiles() {
+  selectedCommitForFiles.value = null;
+  selectedCommitFiles.value = [];
+  emitToParent("commit:collapsed");
 }
 
-function selectExpandedFile(file) {
+function selectCommitDiffFile(file) {
   bridgeEmit("git:selectDiffFile", { path: file.path });
 }
 
-async function reload() {
-  await load();
+async function reloadHistory() {
+  await loadHistory();
 }
 
-onMounted(load);
+onMounted(loadHistory);
 
 function setActivePane(key) {
   activePane.value = key;
 }
 
-function hasExpanded() {
-  return !!expandedEntry.value;
+function hasSelectedCommitFiles() {
+  return !!selectedCommitForFiles.value;
 }
 
-defineExpose({ reload, load, setActivePane, closeExpanded, hasExpanded });
+defineExpose({
+  reload: reloadHistory,
+  load: loadHistory,
+  setActivePane,
+  closeExpanded: closeSelectedCommitFiles,
+  hasExpanded: hasSelectedCommitFiles,
+});
 </script>
+
+<style scoped>
+.git-history-pane-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.git-history-pane-wrapper > .modal-scroll-body {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.git-log-entry {
+  display: flex;
+  align-items: flex-start;
+  font-size: 13px;
+}
+
+.git-log-commit,
+.git-log-dirty {
+  display: flex;
+  align-items: center;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+}
+
+.git-log-commit:last-child {
+  border-bottom: none;
+}
+
+.git-log-entry-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.git-log-dirty-body {
+  flex-direction: row;
+  align-items: stretch;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.git-log-dirty-main {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  flex: 1;
+  gap: 4px;
+  min-height: 42px;
+}
+
+.git-dirty-spacer {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.git-log-dirty-actions {
+  display: flex;
+  align-self: stretch;
+  flex-shrink: 0;
+  gap: 6px;
+  min-height: 42px;
+}
+
+.git-log-dirty-actions :deep(.git-action-btn) {
+  flex-shrink: 0;
+}
+
+.git-log-dirty-actions .git-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 6px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.git-log-dirty-actions .git-action-btn.icon-only {
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+}
+
+.git-log-entry-msg {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #fff;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.git-log-dirty-msg {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted) !important;
+}
+
+.git-log-entry-row1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.git-log-entry-row1-left {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.git-log-entry-refs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.git-log-entry-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.git-log-entry-author {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.git-log-entry-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.git-ref {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  user-select: none;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.git-ref .mdi {
+  font-size: 12px;
+}
+
+.git-ref-branch {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+.git-ref-head {
+  background: var(--success);
+  color: var(--bg-primary);
+}
+
+.git-ref-remote {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.git-ref-tag {
+  background: var(--warning);
+  color: var(--bg-primary);
+}
+
+.git-ref-dirty {
+  display: inline-flex;
+  align-items: center;
+  min-height: 0;
+  padding: 4px 10px;
+  color: var(--warning);
+  background: var(--warning-bg-20);
+}
+
+.git-ref-dirty :deep(.header-git-numstat) {
+  font-size: 10px;
+  gap: 8px;
+}
+
+.git-ref-dirty :deep(.header-git-files) {
+  font-size: 10px;
+}
+
+.commit-action-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.commit-action-danger {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.git-log-commit.action-open,
+.diff-file-row.action-open {
+  background: rgba(130, 170, 255, 0.08);
+}
+
+.diff-file-browser-list {
+  flex: 1;
+}
+
+.diff-file-row {
+  cursor: pointer;
+}
+
+.diff-file-row :deep(.file-browser-item-name) {
+  font-size: 12px;
+}
+
+.diff-file-row-status {
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  min-width: 28px;
+  text-align: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.diff-file-row-status.diff-status-mod {
+  color: #8cb6ff;
+  border-color: rgba(140, 182, 255, 0.45);
+  background: rgba(140, 182, 255, 0.12);
+}
+
+.diff-file-row-status.diff-status-add {
+  color: #7edb9a;
+  border-color: rgba(126, 219, 154, 0.45);
+  background: rgba(126, 219, 154, 0.12);
+}
+
+.diff-file-row-status.diff-status-del {
+  color: #ff8e9a;
+  border-color: rgba(255, 142, 154, 0.45);
+  background: rgba(255, 142, 154, 0.12);
+}
+
+.diff-file-row-status.diff-status-ren {
+  color: #ffd27a;
+  border-color: rgba(255, 210, 122, 0.45);
+  background: rgba(255, 210, 122, 0.12);
+}
+
+.diff-file-row-numstat {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+  margin-left: auto;
+  margin-right: 8px;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
+  white-space: nowrap;
+}
+</style>

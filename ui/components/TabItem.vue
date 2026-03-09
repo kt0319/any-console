@@ -234,3 +234,75 @@ onBeforeUnmount(() => {
   el.removeEventListener("touchend", onTouchEnd);
 });
 </script>
+
+<style scoped>
+.tab-btn {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px 6px 0 0;
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.tab-btn.active {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.tab-btn.tab-activity {
+  animation: tab-activity-glow 3s ease-in-out 1;
+}
+
+.tab-btn.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+  touch-action: none;
+}
+
+.tab-btn.drag-over-left {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.tab-btn.drag-over-right {
+  box-shadow: inset -2px 0 0 var(--accent);
+}
+
+.tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tab-btn :deep(.favicon-icon) {
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  -webkit-touch-callout: none;
+}
+
+@keyframes tab-activity-glow {
+  0%, 100% { background: var(--bg-primary); }
+  50% { background: rgba(130, 170, 255, 0.25); }
+}
+</style>

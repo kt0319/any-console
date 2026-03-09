@@ -145,3 +145,99 @@ function selectFile(file) {
 
 defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
 </script>
+
+<style scoped>
+.git-files-pane-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.diff-actions {
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px;
+  flex-shrink: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.diff-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.diff-file-browser-list {
+  flex: 1;
+}
+
+.diff-file-row {
+  cursor: pointer;
+}
+
+.diff-file-row :deep(.file-browser-item-name) {
+  font-size: 12px;
+}
+
+.diff-file-row-status {
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  min-width: 28px;
+  text-align: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.diff-file-row-status.diff-status-mod {
+  color: #8cb6ff;
+  border-color: rgba(140, 182, 255, 0.45);
+  background: rgba(140, 182, 255, 0.12);
+}
+
+.diff-file-row-status.diff-status-add {
+  color: #7edb9a;
+  border-color: rgba(126, 219, 154, 0.45);
+  background: rgba(126, 219, 154, 0.12);
+}
+
+.diff-file-row-status.diff-status-del {
+  color: #ff8e9a;
+  border-color: rgba(255, 142, 154, 0.45);
+  background: rgba(255, 142, 154, 0.12);
+}
+
+.diff-file-row-status.diff-status-ren {
+  color: #ffd27a;
+  border-color: rgba(255, 210, 122, 0.45);
+  background: rgba(255, 210, 122, 0.12);
+}
+
+.diff-file-row-numstat {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+  margin-left: auto;
+  margin-right: 8px;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
+  white-space: nowrap;
+}
+</style>

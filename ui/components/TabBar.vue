@@ -66,3 +66,31 @@ function onBarDblClick() {
   emit("workspace:openModal");
 }
 </script>
+
+<style scoped>
+.tab-bar-row {
+  display: none;
+  align-items: center;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  min-height: 37px;
+  touch-action: pan-x;
+}
+
+.tab-bar {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 30px;
+  gap: 2px;
+  padding: 4px 8px 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.tab-bar::-webkit-scrollbar {
+  display: none;
+}
+</style>

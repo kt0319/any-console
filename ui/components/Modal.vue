@@ -11,13 +11,13 @@
         <button
           type="button"
           class="modal-title-wrap"
-          :class="{ 'is-clickable': modalBack, 'no-back': !modalBack }"
-          :tabindex="modalBack ? 0 : -1"
-          :aria-disabled="!modalBack ? 'true' : 'false'"
-          @click="modalBack ? onBack() : null"
+          :class="{ 'is-clickable': canNavigateBack, 'no-back': !canNavigateBack }"
+          :tabindex="canNavigateBack ? 0 : -1"
+          :aria-disabled="!canNavigateBack ? 'true' : 'false'"
+          @click="canNavigateBack ? onBack() : null"
         >
           <span class="modal-title-back-slot" aria-hidden="true">
-            <span v-if="modalBack" class="mdi mdi-arrow-left modal-title-back-icon"></span>
+            <span v-if="canNavigateBack" class="mdi mdi-arrow-left modal-title-back-icon"></span>
           </span>
           <h3 class="modal-title">{{ modalTitle }}</h3>
         </button>
@@ -25,25 +25,25 @@
       </div>
       <div class="modal-body">
         <ModalMenu v-if="currentView === 'ModalMenu'" @select="onViewSelect" />
-        <WorkspaceOpen v-if="currentView === 'WorkspaceOpen'" ref="workspaceView" />
+        <WorkspaceOpen v-if="currentView === 'WorkspaceOpen'" ref="workspaceOpenView" />
         <WorkspaceAdd v-if="currentView === 'WorkspaceAdd'" />
-        <WorkspaceConfig v-if="currentView === 'WorkspaceConfig'" ref="wsConfigView" />
+        <WorkspaceConfig v-if="currentView === 'WorkspaceConfig'" ref="workspaceConfigView" />
         <TabConfig v-if="currentView === 'TabConfig'" />
         <TerminalConfig v-if="currentView === 'TerminalConfig'" />
         <EditorConfig v-if="currentView === 'EditorConfig'" />
         <ServerInfo v-if="currentView === 'ServerInfo'" />
-        <GitHubPane v-if="currentView === 'GitHubPane'" ref="gitGitHubView" />
-        <GitLogGraph v-if="currentView === 'GitLogGraph'" ref="gitGraphView" />
+        <GitHubPane v-if="currentView === 'GitHubPane'" ref="gitHubPaneView" />
+        <GitLogGraph v-if="currentView === 'GitLogGraph'" ref="gitLogGraphView" />
         <ConfigFile v-if="currentView === 'ConfigFile'" />
 
         <IconPicker
           v-if="currentView === 'IconPicker'"
-          ref="iconPickerContent"
+          ref="iconPickerView"
           @close="closeModal"
         />
         <WorkspaceDetail
           v-if="currentView === 'WorkspaceDetail'"
-          ref="fileContent"
+          ref="workspaceDetailView"
           @close="closeModal"
         />
       </div>
@@ -84,16 +84,16 @@ const workspaceStore = useWorkspaceStore();
 
 const modal = useModal();
 const modalEl = ref(null);
-const iconPickerContent = ref(null);
-const fileContent = ref(null);
-const workspaceView = ref(null);
-const wsConfigView = ref(null);
-const gitGitHubView = ref(null);
-const gitGraphView = ref(null);
+const iconPickerView = ref(null);
+const workspaceDetailView = ref(null);
+const workspaceOpenView = ref(null);
+const workspaceConfigView = ref(null);
+const gitHubPaneView = ref(null);
+const gitLogGraphView = ref(null);
 
 const currentView = ref(null);
 const modalTitle = ref("");
-const modalBack = ref(false);
+const canNavigateBack = ref(false);
 
 provide("modalTitle", modalTitle);
 const {
@@ -113,41 +113,41 @@ function closeModal() {
   modal.close();
   currentView.value = null;
   modalTitle.value = "";
-  modalBack.value = false;
+  canNavigateBack.value = false;
 }
 
 function onViewSelect({ view }) {
   currentView.value = view;
-  modalBack.value = true;
+  canNavigateBack.value = true;
   if (view === "WorkspaceOpen") {
-    nextTick(() => workspaceView.value?.load());
+    nextTick(() => workspaceOpenView.value?.load());
   }
 }
 
 function settingsGoBack() {
-  if (currentView.value === "WorkspaceConfig" && wsConfigView.value?.editWs) {
-    wsConfigView.value?.goBackToList();
+  if (currentView.value === "WorkspaceConfig" && workspaceConfigView.value?.editWs) {
+    workspaceConfigView.value?.goBackToList();
     return;
   }
   currentView.value = "ModalMenu";
-  modalBack.value = false;
+  canNavigateBack.value = false;
 }
 
 function onBack() {
   if (currentView.value === "GitHubPane") {
     currentView.value = "WorkspaceDetail";
-    modalBack.value = true;
+    canNavigateBack.value = true;
     nextTick(() => {
-      fileContent.value?.open();
+      workspaceDetailView.value?.open();
     });
   } else if (currentView.value === "GitLogGraph") {
     currentView.value = "WorkspaceDetail";
-    modalBack.value = true;
+    canNavigateBack.value = true;
     nextTick(() => {
-      fileContent.value?.open();
+      workspaceDetailView.value?.open();
     });
   } else if (currentView.value === "WorkspaceDetail") {
-    fileContent.value?.goBack();
+    workspaceDetailView.value?.goBack();
   } else {
     settingsGoBack();
   }
@@ -156,16 +156,16 @@ function onBack() {
 function openSettings(view) {
   if (view) {
     currentView.value = view;
-    modalBack.value = true;
+    canNavigateBack.value = true;
     nextTick(() => {
       openModal();
       nextTick(() => {
-        if (view === "WorkspaceOpen") workspaceView.value?.load();
+        if (view === "WorkspaceOpen") workspaceOpenView.value?.load();
       });
     });
   } else {
     currentView.value = "ModalMenu";
-    modalBack.value = false;
+    canNavigateBack.value = false;
     nextTick(() => openModal());
   }
 }
@@ -176,11 +176,11 @@ onMounted(() => {
 
   on("iconPicker:open", ({ callback, currentIcon, currentColor }) => {
     currentView.value = "IconPicker";
-    modalBack.value = false;
+    canNavigateBack.value = false;
     nextTick(() => {
       openModal();
       nextTick(() => {
-        iconPickerContent.value?.open(callback, currentIcon, currentColor);
+        iconPickerView.value?.open(callback, currentIcon, currentColor);
       });
     });
   });
@@ -188,11 +188,11 @@ onMounted(() => {
 
   on("git:openFileModal", (detail) => {
     currentView.value = "WorkspaceDetail";
-    modalBack.value = true;
+    canNavigateBack.value = true;
     nextTick(() => {
       openModal();
       nextTick(() => {
-        fileContent.value?.open(detail);
+        workspaceDetailView.value?.open(detail);
       });
     });
   });
@@ -202,22 +202,198 @@ onMounted(() => {
 
   on("git:openGitHub", () => {
     currentView.value = "GitHubPane";
-    modalBack.value = true;
+    canNavigateBack.value = true;
     nextTick(() => {
       openModal();
-      nextTick(() => gitGitHubView.value?.load());
+      nextTick(() => gitHubPaneView.value?.load());
     });
   });
 
   on("git:openLogGraph", () => {
     currentView.value = "GitLogGraph";
-    modalBack.value = true;
+    canNavigateBack.value = true;
     nextTick(() => {
       openModal();
-      nextTick(() => gitGraphView.value?.load());
+      nextTick(() => gitLogGraphView.value?.load());
     });
   });
 
   on("modal:close", () => closeModal());
 });
 </script>
+
+<style scoped>
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.modal {
+  background: color-mix(in srgb, var(--bg-secondary) 70%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 8px 0;
+  width: 100%;
+  max-width: min(600px, 92vw);
+  height: calc(var(--app-dvh) * 0.8);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+.modal-title-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  justify-content: flex-start;
+}
+
+.modal-title-wrap .modal-title {
+  font-size: 15px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+  text-align: left;
+}
+
+.modal-title-back-slot {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.modal-title-wrap.no-back .modal-title-back-slot {
+  width: 0;
+  min-width: 0;
+  height: 0;
+}
+
+.modal-title-wrap.is-clickable {
+  cursor: pointer;
+}
+
+.modal-title-back-icon {
+  font-size: 18px;
+  line-height: 1;
+  color: inherit;
+}
+
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+:deep(.modal-scroll-body) {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  padding: 0 8px;
+}
+
+.modal-flick-handle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  touch-action: none;
+}
+
+.modal-flick-bar {
+  width: 48px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--text-muted);
+  opacity: 0.5;
+}
+
+.modal-close-btn {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+  padding: 0;
+  font-size: 22px;
+  line-height: 1;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+}
+
+@media (min-width: 900px) {
+  .modal-overlay {
+    padding: 28px;
+  }
+
+  .modal {
+    max-width: min(900px, 90vw);
+    height: calc(var(--app-dvh) * 0.84);
+  }
+}
+
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding: 0;
+    align-items: flex-start;
+  }
+
+  .modal {
+    max-width: 100%;
+    height: calc(var(--app-dvh) - 28px);
+    border: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+
+  .modal-close-btn {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .modal-flick-handle {
+    display: flex;
+    padding: 10px 0 max(10px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border);
+    background: rgba(0, 0, 0, 0.18);
+  }
+}
+</style>

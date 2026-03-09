@@ -1,6 +1,6 @@
 <template>
   <div class="modal-scroll-body">
-    <template v-for="section in sections" :key="section.label">
+    <template v-for="section in serverInfoSections" :key="section.label">
       <div v-if="section.error" class="status-message error">{{ section.error }}</div>
       <template v-else>
         <div
@@ -17,7 +17,7 @@
         </div>
       </template>
     </template>
-    <div v-if="loading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
+    <div v-if="isServerInfoLoading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
   </div>
 </template>
 
@@ -29,8 +29,8 @@ const modalTitle = inject("modalTitle");
 modalTitle.value = "サーバー情報";
 
 const auth = useAuthStore();
-const loading = ref(true);
-const sections = ref([]);
+const isServerInfoLoading = ref(true);
+const serverInfoSections = ref([]);
 
 const SECTION_DEFS = [
   {
@@ -60,8 +60,8 @@ const SECTION_DEFS = [
   },
 ];
 
-async function load() {
-  loading.value = true;
+async function loadServerInfoSections() {
+  isServerInfoLoading.value = true;
   const results = await Promise.all(
     SECTION_DEFS.map(async (def) => {
       try {
@@ -74,11 +74,67 @@ async function load() {
       }
     }),
   );
-  sections.value = results;
-  loading.value = false;
+  serverInfoSections.value = results;
+  isServerInfoLoading.value = false;
 }
 
-onMounted(load);
+onMounted(loadServerInfoSections);
 
-defineExpose({ load });
+defineExpose({
+  load: loadServerInfoSections,
+  loadServerInfoSections,
+});
 </script>
+
+<style scoped>
+.server-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  min-height: 32px;
+}
+
+.server-info-row:last-child {
+  border-bottom: none;
+}
+
+.server-info-label {
+  color: var(--text-secondary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.server-info-values {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.server-info-value {
+  color: var(--text-primary);
+  text-align: right;
+  min-width: 44px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.server-info-header {
+  min-height: 0;
+  padding: 2px 4px;
+  margin-top: 30px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.server-info-header .server-info-value {
+  color: var(--text-muted);
+}
+</style>

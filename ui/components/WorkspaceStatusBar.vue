@@ -97,3 +97,91 @@ function doAction(action) {
   gitAction(wsName, action, { branch });
 }
 </script>
+
+<style scoped>
+.workspace-status-bar {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 8px 6px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+}
+
+.commit-msg-btn {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  min-height: 36px;
+  max-height: 36px;
+  box-sizing: border-box;
+  line-height: 1;
+  padding: 0 10px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  overflow: hidden;
+  gap: 6px;
+  text-align: left;
+}
+
+.non-git-hint {
+  color: var(--text-muted);
+}
+
+.git-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.commit-msg-btn :deep(.commit-btn-branch) {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.commit-msg-btn :deep(.commit-btn-msg-wrap) {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.commit-msg-btn :deep(.commit-btn-msg) {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+  user-select: none;
+  -webkit-user-select: none;
+  white-space: nowrap;
+}
+
+.commit-msg-btn :deep(.commit-btn-msg-muted) {
+  color: var(--text-muted);
+}
+
+.commit-msg-btn :deep(.header-git-numstat) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.commit-msg-btn :deep(.header-git-files) {
+  color: var(--warning);
+}
+</style>

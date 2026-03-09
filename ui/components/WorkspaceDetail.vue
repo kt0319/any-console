@@ -164,3 +164,41 @@ on("git:stashSave", async () => {
 
 defineExpose({ open, close, goBack });
 </script>
+
+<style scoped>
+.workspace-detail {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.workspace-detail-top {
+  flex: 1 1 33.333%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-detail-bottom {
+  flex: 2 1 66.667%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-detail-bottom.workspace-detail-full {
+  flex: unset;
+  height: 100%;
+}
+
+.file-modal-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+</style>

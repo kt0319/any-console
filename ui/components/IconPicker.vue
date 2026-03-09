@@ -314,3 +314,141 @@ function close() {
 
 defineExpose({ open, close });
 </script>
+
+<style scoped>
+.icon-picker-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.icon-picker-input-row .icon-picker-search {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.icon-picker-favicon-confirm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.icon-picker-favicon-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  width: 32px;
+  height: 32px;
+}
+
+.icon-picker-clear-btn {
+  min-width: auto;
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.icon-picker-url-ok-btn {
+  min-width: auto;
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.icon-picker-upload-btn {
+  min-width: auto;
+  min-height: 32px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 4px;
+  white-space: nowrap;
+  line-height: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.color-palette {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0 0;
+  flex-wrap: wrap;
+}
+
+.color-palette-item {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+  line-height: 0;
+  font-size: 0;
+}
+
+.color-palette-item.selected {
+  border-color: var(--text-primary);
+}
+
+.icon-picker-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  overflow-y: auto;
+  flex: 1;
+  padding: 4px 0;
+  align-content: flex-start;
+}
+
+.icon-picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.icon-picker-item.selected {
+  border-color: var(--accent);
+  background: var(--accent-muted, rgba(33, 150, 243, 0.15));
+}
+
+.icon-picker-loading,
+.icon-picker-more {
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 12px 0;
+}
+</style>

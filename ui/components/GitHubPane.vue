@@ -1,6 +1,6 @@
 <template>
   <div class="git-github-pane-wrapper">
-    <div class="modal-scroll-body" ref="contentEl">
+    <div class="modal-scroll-body">
       <div v-if="!githubUrl" style="color:var(--text-muted);padding:16px;text-align:center">GitHubリポジトリが設定されていません</div>
       <template v-else>
         <div class="github-section-title github-section-link" @click="openUrl(githubUrl)">
@@ -9,15 +9,15 @@
 
         <div class="github-section-title github-section-link" @click="openUrl(githubUrl + '/issues')">
           Issues
-          <span :class="['github-section-badge', { 'github-badge-loading': issuesLoading }]">
-            {{ issuesLoading ? "…" : issues.length }}
+          <span :class="['github-section-badge', { 'github-badge-loading': isIssuesLoading }]">
+            {{ isIssuesLoading ? "…" : issueItems.length }}
           </span>
         </div>
         <div class="github-section-body">
-          <div v-if="issuesLoading" style="color:var(--text-muted);padding:8px">読み込み中...</div>
-          <div v-else-if="issuesError" style="color:var(--diff-del);padding:8px">{{ issuesError }}</div>
+          <div v-if="isIssuesLoading" style="color:var(--text-muted);padding:8px">読み込み中...</div>
+          <div v-else-if="issuesLoadError" style="color:var(--diff-del);padding:8px">{{ issuesLoadError }}</div>
           <div
-            v-for="item in issues"
+            v-for="item in issueItems"
             :key="'issue-' + item.number"
             class="github-item"
             @click="openUrl(githubUrl + '/issues/' + item.number)"
@@ -38,15 +38,15 @@
 
         <div class="github-section-title github-section-link" @click="openUrl(githubUrl + '/pulls')">
           Pull Requests
-          <span :class="['github-section-badge', { 'github-badge-loading': pullsLoading }]">
-            {{ pullsLoading ? "…" : pulls.length }}
+          <span :class="['github-section-badge', { 'github-badge-loading': isPullRequestsLoading }]">
+            {{ isPullRequestsLoading ? "…" : pullRequestItems.length }}
           </span>
         </div>
         <div class="github-section-body">
-          <div v-if="pullsLoading" style="color:var(--text-muted);padding:8px">読み込み中...</div>
-          <div v-else-if="pullsError" style="color:var(--diff-del);padding:8px">{{ pullsError }}</div>
+          <div v-if="isPullRequestsLoading" style="color:var(--text-muted);padding:8px">読み込み中...</div>
+          <div v-else-if="pullRequestsLoadError" style="color:var(--diff-del);padding:8px">{{ pullRequestsLoadError }}</div>
           <div
-            v-for="item in pulls"
+            v-for="item in pullRequestItems"
             :key="'pr-' + item.number"
             class="github-item"
             @click="openUrl(githubUrl + '/pull/' + item.number)"
@@ -69,15 +69,15 @@
 
         <div class="github-section-title github-section-link" @click="openUrl(githubUrl + '/actions')">
           Actions
-          <span :class="['github-section-badge', { 'github-badge-loading': runsLoading }]">
-            {{ runsLoading ? "…" : runs.length }}
+          <span :class="['github-section-badge', { 'github-badge-loading': isWorkflowRunsLoading }]">
+            {{ isWorkflowRunsLoading ? "…" : workflowRuns.length }}
           </span>
         </div>
         <div class="github-section-body">
-          <div v-if="runsLoading" style="color:var(--text-muted);padding:8px">読み込み中...</div>
-          <div v-else-if="runsError" style="color:var(--diff-del);padding:8px">{{ runsError }}</div>
+          <div v-if="isWorkflowRunsLoading" style="color:var(--text-muted);padding:8px">読み込み中...</div>
+          <div v-else-if="workflowRunsLoadError" style="color:var(--diff-del);padding:8px">{{ workflowRunsLoadError }}</div>
           <div
-            v-for="run in runs"
+            v-for="run in workflowRuns"
             :key="'run-' + run.id"
             class="github-item"
             @click="openUrl(run.url)"
@@ -106,16 +106,15 @@ const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
 
 const githubUrl = ref("");
-const issues = ref([]);
-const pulls = ref([]);
-const runs = ref([]);
-const issuesLoading = ref(false);
-const pullsLoading = ref(false);
-const runsLoading = ref(false);
-const issuesError = ref("");
-const pullsError = ref("");
-const runsError = ref("");
-const contentEl = ref(null);
+const issueItems = ref([]);
+const pullRequestItems = ref([]);
+const workflowRuns = ref([]);
+const isIssuesLoading = ref(false);
+const isPullRequestsLoading = ref(false);
+const isWorkflowRunsLoading = ref(false);
+const issuesLoadError = ref("");
+const pullRequestsLoadError = ref("");
+const workflowRunsLoadError = ref("");
 
 const RUN_STATUS = {
   success: { icon: "✓", cls: "github-run-success" },
@@ -154,7 +153,7 @@ function openUrl(url) {
   if (url) window.open(url, "_blank");
 }
 
-async function load() {
+async function loadGitHubPaneData() {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
 
@@ -162,12 +161,12 @@ async function load() {
   githubUrl.value = ws?.github_url || "";
   if (!githubUrl.value) return;
 
-  loadSection("issues", issues, issuesLoading, issuesError, workspace);
-  loadSection("pulls", pulls, pullsLoading, pullsError, workspace);
-  loadRuns(workspace);
+  loadGitHubSection("issues", issueItems, isIssuesLoading, issuesLoadError, workspace);
+  loadGitHubSection("pulls", pullRequestItems, isPullRequestsLoading, pullRequestsLoadError, workspace);
+  loadWorkflowRuns(workspace);
 }
 
-async function loadSection(type, listRef, loadingRef, errorRef, workspace) {
+async function loadGitHubSection(type, listRef, loadingRef, errorRef, workspace) {
   loadingRef.value = true;
   errorRef.value = "";
   try {
@@ -190,15 +189,15 @@ async function loadSection(type, listRef, loadingRef, errorRef, workspace) {
   }
 }
 
-async function loadRuns(workspace) {
-  runsLoading.value = true;
-  runsError.value = "";
+async function loadWorkflowRuns(workspace) {
+  isWorkflowRunsLoading.value = true;
+  workflowRunsLoadError.value = "";
   try {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/github/runs`);
-    if (!res || !res.ok) { runsError.value = "取得に失敗しました"; return; }
+    if (!res || !res.ok) { workflowRunsLoadError.value = "取得に失敗しました"; return; }
     const data = await res.json();
-    if (data.status !== "ok") { runsError.value = data.message || "取得に失敗しました"; return; }
-    runs.value = (data.data || []).map((r) => ({
+    if (data.status !== "ok") { workflowRunsLoadError.value = data.message || "取得に失敗しました"; return; }
+    workflowRuns.value = (data.data || []).map((r) => ({
       id: r.databaseId || r.id,
       name: r.name || r.workflowName || "",
       status: r.status || "",
@@ -207,11 +206,164 @@ async function loadRuns(workspace) {
       url: r.url || "",
     }));
   } catch (e) {
-    runsError.value = e.message;
+    workflowRunsLoadError.value = e.message;
   } finally {
-    runsLoading.value = false;
+    isWorkflowRunsLoading.value = false;
   }
 }
 
-defineExpose({ load });
+defineExpose({
+  load: loadGitHubPaneData,
+  loadGitHubPaneData,
+});
 </script>
+
+<style scoped>
+.git-github-pane-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.github-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.github-section-title.github-section-link {
+  cursor: pointer;
+  color: var(--accent);
+  background: transparent;
+  border-radius: 6px;
+  margin: 6px 8px;
+  border-bottom: none;
+  justify-content: space-between;
+}
+
+.github-section-badge {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.github-badge-loading {
+  animation: github-badge-pulse 1s ease-in-out infinite;
+}
+
+@keyframes github-badge-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+.github-section-title.github-repo-name {
+  font-size: 15px;
+  background: none;
+  border-radius: 0;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+  justify-content: flex-start;
+}
+
+.github-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.github-item-number {
+  color: var(--text-muted);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.github-item-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.github-item-author {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.github-draft {
+  font-size: 11px;
+  color: var(--warning);
+  background: var(--warning-bg-20);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.github-branch {
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--accent-bg-20);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.github-labels {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.github-label {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.github-run-icon {
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.github-run-success {
+  color: var(--success);
+}
+
+.github-run-failure {
+  color: var(--error);
+}
+
+.github-run-cancelled {
+  color: var(--text-muted);
+}
+
+.github-run-progress {
+  color: var(--warning);
+}
+
+.github-run-workflow {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.github-error,
+.github-loading {
+  padding: 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+</style>

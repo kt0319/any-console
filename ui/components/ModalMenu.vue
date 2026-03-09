@@ -36,3 +36,23 @@ const emit = defineEmits(["select"]);
 const modalTitle = inject("modalTitle");
 modalTitle.value = "設定";
 </script>
+
+<style scoped>
+.settings-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-menu-item {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-primary);
+}
+</style>

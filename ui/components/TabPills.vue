@@ -17,3 +17,26 @@ defineProps({
 });
 const emit = defineEmits(["select"]);
 </script>
+
+<style scoped>
+.tab-pills {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 8px 8px;
+  flex-shrink: 0;
+}
+
+.tab-pill {
+  font-size: 12px;
+  padding: 4px 12px;
+  min-height: 28px;
+  min-width: unset;
+}
+
+.tab-pill.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-primary);
+  font-weight: 600;
+}
+</style>

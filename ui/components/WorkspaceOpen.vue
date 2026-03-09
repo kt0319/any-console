@@ -73,19 +73,19 @@ function doAction(ws, action) {
 
 const visibleWorkspaces = computed(() => workspaceStore.visibleWorkspaces);
 
-async function load() {
+async function loadWorkspaceOverview() {
   await workspaceStore.fetchStatuses(auth);
-  fetchAllJobs();
+  await fetchAllWorkspaceJobs();
 }
 
-async function fetchAllJobs() {
+async function fetchAllWorkspaceJobs() {
   for (const ws of visibleWorkspaces.value) {
     if (wsJobs[ws.name]) continue;
-    loadJobs(ws.name);
+    loadWorkspaceJobs(ws.name);
   }
 }
 
-async function loadJobs(wsName) {
+async function loadWorkspaceJobs(wsName) {
   try {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(wsName)}/jobs`);
     if (!res || !res.ok) return;
@@ -143,5 +143,248 @@ function runJob(ws, job) {
   });
 }
 
-defineExpose({ load });
+defineExpose({
+  load: loadWorkspaceOverview,
+  loadWorkspaceOverview,
+});
 </script>
+
+<style scoped>
+.split-tab-content {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+.split-tab-scroll {
+  padding-top: 4px;
+}
+
+.terminal-ws-list {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.picker-ws-group {
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.picker-ws-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.picker-ws-row-top {
+  padding-bottom: 4px;
+}
+
+.picker-ws-row-bottom {
+  padding: 4px 12px 14px;
+}
+
+.picker-ws-header-label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+}
+
+.picker-ws-header-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  flex: 1;
+}
+
+.picker-ws-name {
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.picker-ws-branch {
+  max-width: 100%;
+  color: var(--text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.picker-ws-top-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+.picker-ws-top-meta :deep(.git-badge),
+.picker-ws-top-meta :deep(.picker-ws-mini-btn),
+.picker-ws-top-meta :deep(.git-action-btn) {
+  height: 22px;
+  min-height: 22px;
+  max-height: 22px;
+  min-width: auto;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.picker-ws-icons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.picker-ws-icons-bottom {
+  flex: 1;
+  min-width: 0;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.picker-ws-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.picker-ws-icon-btn.picker-ws-job-direct {
+  border-style: dashed;
+}
+
+.picker-ws-icon-btn .mdi {
+  font-size: 18px;
+}
+
+.picker-ws-mini-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.picker-ws-mini-btn .mdi {
+  font-size: 12px;
+}
+
+.picker-ws-mini-btn.pull-btn.has-count {
+  color: var(--error);
+  background: rgba(255, 85, 114, 0.15);
+  border-color: rgba(255, 85, 114, 0.3);
+}
+
+.picker-ws-mini-btn.push-btn.has-count {
+  color: var(--accent);
+  background: rgba(130, 170, 255, 0.15);
+  border-color: rgba(130, 170, 255, 0.3);
+}
+
+.picker-ws-mini-btn.upstream-set-btn {
+  color: var(--warning);
+  background: rgba(238, 166, 68, 0.15);
+  border-color: rgba(238, 166, 68, 0.3);
+}
+
+.picker-ws-mini-btn.upstream-btn {
+  color: var(--success);
+  background: rgba(120, 200, 140, 0.15);
+  border-color: rgba(120, 200, 140, 0.3);
+}
+
+.picker-ws-mini-btn.running {
+  pointer-events: none;
+  color: transparent;
+}
+
+.picker-ws-mini-btn.running > * {
+  visibility: hidden;
+}
+
+.git-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button.git-badge:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.git-badge.clean {
+  color: var(--success);
+  background: var(--success-bg-20);
+}
+
+.git-badge.dirty {
+  color: var(--warning);
+  background: var(--warning-bg-20);
+  gap: 4px;
+  font-size: 12px;
+}
+
+.clone-repo-empty {
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+</style>

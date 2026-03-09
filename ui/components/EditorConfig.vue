@@ -96,7 +96,7 @@ watch(urlTemplate, (val) => {
   }, 500);
 });
 
-async function load() {
+async function loadEditorConfig() {
   try {
     const res = await auth.apiFetch("/system/info");
     if (res && res.ok) {
@@ -115,5 +115,76 @@ async function load() {
   } catch {}
 }
 
-onMounted(load);
+onMounted(loadEditorConfig);
 </script>
+
+<style scoped>
+.settings-section-label {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.editor-preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.editor-preset-btn {
+  padding: 6px 14px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.editor-preset-btn.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.editor-url-template-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  font-size: 14px;
+  font-family: monospace;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  resize: vertical;
+  margin-bottom: 8px;
+}
+
+.editor-template-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.editor-template-chip {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: monospace;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.editor-url-preview {
+  padding: 8px;
+  font-size: 13px;
+  font-family: monospace;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+</style>
