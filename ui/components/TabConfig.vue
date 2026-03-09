@@ -21,7 +21,7 @@
           :key="tab.id"
           class="split-tab-row"
           :class="{
-            active: !splitMode && tab.id === activeTabId,
+            active: !isSplitMode && tab.id === activeTabId,
             'drag-source': dragFromIdx === idx,
             'drag-over-above': dragOverIdx === idx && dragFromIdx > idx,
             'drag-over-below': dragOverIdx === idx && dragFromIdx < idx,
@@ -76,7 +76,7 @@ const layoutStore = useLayoutStore();
 
 const openTabs = computed(() => terminalStore.openTabs);
 const activeTabId = computed(() => terminalStore.activeTabId);
-const splitMode = computed(() => layoutStore.splitMode);
+const isSplitMode = computed(() => layoutStore.isSplitMode);
 const splitPaneTabIds = computed(() => layoutStore.splitPaneTabIds);
 
 const modes = [
@@ -87,7 +87,7 @@ const modes = [
 ];
 
 const currentMode = computed(() => {
-  if (!splitMode.value) return "normal";
+  if (!isSplitMode.value) return "normal";
   return layoutStore.splitLayout || "vertical";
 });
 
@@ -101,10 +101,10 @@ function tabDisplayName(tab) {
 
 function setMode(mode) {
   if (mode === "normal") {
-    if (splitMode.value) layoutStore.exitSplitMode();
+    if (isSplitMode.value) layoutStore.exitSplitMode();
   } else {
     layoutStore.splitLayout = mode;
-    if (!splitMode.value) {
+    if (!isSplitMode.value) {
       enterSplitWithAllTabs();
     }
   }
@@ -114,18 +114,18 @@ function enterSplitWithAllTabs() {
   if (openTabs.value.length < 2) return;
   layoutStore.splitPaneTabIds = openTabs.value.map((t) => t.id);
   layoutStore.activePaneIndex = 0;
-  layoutStore.splitMode = true;
+  layoutStore.isSplitMode = true;
 }
 
 function onRadioClick(tab) {
-  if (splitMode.value) {
+  if (isSplitMode.value) {
     layoutStore.exitSplitMode();
   }
   emit("tab:select", { tab });
 }
 
 function onCheckboxClick(tab) {
-  if (splitMode.value) {
+  if (isSplitMode.value) {
     const included = layoutStore.splitPaneTabIds.includes(tab.id);
     if (included) {
       layoutStore.splitPaneTabIds = layoutStore.splitPaneTabIds.filter((id) => id !== tab.id);
@@ -143,12 +143,12 @@ function onCheckboxClick(tab) {
     layoutStore.splitLayout = "vertical";
     layoutStore.splitPaneTabIds = [activeTabId.value, tab.id];
     layoutStore.activePaneIndex = 0;
-    layoutStore.splitMode = true;
+    layoutStore.isSplitMode = true;
   }
 }
 
 function onInfoClick(tab) {
-  if (splitMode.value) {
+  if (isSplitMode.value) {
     layoutStore.exitSplitMode();
   }
   emit("tab:select", { tab });
@@ -156,7 +156,7 @@ function onInfoClick(tab) {
 
 function onClose(tab) {
   terminalStore.removeTab(tab.id);
-  if (splitMode.value) {
+  if (isSplitMode.value) {
     layoutStore.splitPaneTabIds = layoutStore.splitPaneTabIds.filter((id) => id !== tab.id);
     if (layoutStore.splitPaneTabIds.length < 2) {
       layoutStore.exitSplitMode();

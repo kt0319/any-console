@@ -18,15 +18,15 @@ from ..common import (
     sanitize_log_value,
 )
 from ..config import load_workspace_config_section, save_workspace_config_section
-from ..git_utils import command_result_dict, get_git_branches
+from ..git_utils import command_result_dict, git_branches
 from ..icons import normalize_icon
-from ..jobs import TERMINAL_JOB, JobDefinition
+from ..job_models import TERMINAL_JOB, JobDefinition
 from ..runner import run_job
 from .terminal import (
     TERMINAL_SESSIONS,
     TMUX_SESSION_PREFIX,
     TerminalSession,
-    _sessions_lock,
+    sessions_lock,
     create_tmux_session,
     save_tmux_metadata,
 )
@@ -287,7 +287,7 @@ def execute_job(body: RunRequest):
         if arg_option.dynamic == "branches":
             if not ws_path:
                 raise HTTPException(status_code=400, detail="Workspace is required for this job")
-            allowed = get_git_branches(ws_path)
+            allowed = git_branches(ws_path)
             if value not in allowed:
                 raise HTTPException(
                     status_code=400,
@@ -307,7 +307,7 @@ def execute_job(body: RunRequest):
         ordered_args.append(value)
 
     if body.job == "terminal":
-        with _sessions_lock:
+        with sessions_lock:
             if len(TERMINAL_SESSIONS) >= MAX_TERMINAL_SESSIONS:
                 raise HTTPException(
                     status_code=429,
@@ -321,7 +321,7 @@ def execute_job(body: RunRequest):
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
             logger.error("tmux session creation failed: %s", e)
             raise HTTPException(status_code=500, detail=f"Failed to create terminal: {e}") from None
-        with _sessions_lock:
+        with sessions_lock:
             TERMINAL_SESSIONS[session_id] = TerminalSession(
                 workspace=body.workspace,
                 expires_at=time.time() + TERMINAL_TIMEOUT_SEC,

@@ -11,6 +11,7 @@
 
 <script setup>
 import { ref, watch } from "vue";
+import { escapeHtml } from "../utils/escape-html.js";
 
 const props = defineProps({
   fileContent: { type: Object, required: true },
@@ -25,10 +26,6 @@ function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function escapeHtml(str) {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function highlight() {

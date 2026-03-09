@@ -3,33 +3,33 @@ import { ref } from "vue";
 
 export const useLayoutStore = defineStore("layout", () => {
   const panelBottomMediaQuery = window.matchMedia("(max-width: 768px) and (orientation: portrait)");
-  const panelBottom = ref(panelBottomMediaQuery.matches);
+  const isPanelBottom = ref(panelBottomMediaQuery.matches);
   panelBottomMediaQuery.addEventListener("change", (e) => {
-    panelBottom.value = e.matches;
+    isPanelBottom.value = e.matches;
   });
   const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
   const isPwa = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 
-  const splitMode = ref(false);
+  const isSplitMode = ref(false);
   const splitPaneTabIds = ref([]);
   const activePaneIndex = ref(0);
   const splitLayout = ref("grid");
   const isPaneSelectedByTap = ref(false);
 
-  const showDropZones = ref(false);
+  const isShowDropZones = ref(false);
   const dragTabId = ref(null);
 
   function splitWithDrop(tabId, direction, openTabs, activeTabId) {
     if (!tabId) return;
 
     if (direction === "center") {
-      if (splitMode.value) exitSplitMode(tabId);
+      if (isSplitMode.value) exitSplitMode(tabId);
       return;
     }
 
     const newLayout = (direction === "left" || direction === "right") ? "horizontal" : "vertical";
 
-    if (splitMode.value) {
+    if (isSplitMode.value) {
       const wantFirst = direction === "left" || direction === "top";
       const currentIdx = splitPaneTabIds.value.indexOf(tabId);
       if ((wantFirst && currentIdx === 0) || (!wantFirst && currentIdx === splitPaneTabIds.value.length - 1)) return;
@@ -50,26 +50,26 @@ export const useLayoutStore = defineStore("layout", () => {
       ? [tabId, otherId]
       : [otherId, tabId];
     activePaneIndex.value = splitPaneTabIds.value.indexOf(tabId);
-    splitMode.value = true;
+    isSplitMode.value = true;
   }
 
   function exitSplitMode(targetTabId) {
-    splitMode.value = false;
+    isSplitMode.value = false;
     splitPaneTabIds.value = [];
     activePaneIndex.value = 0;
   }
 
   return {
     panelBottomMediaQuery,
-    panelBottom,
+    isPanelBottom,
     isTouchDevice,
     isPwa,
-    splitMode,
+    isSplitMode,
     splitPaneTabIds,
     activePaneIndex,
     splitLayout,
     isPaneSelectedByTap,
-    showDropZones,
+    isShowDropZones,
     dragTabId,
     splitWithDrop,
     exitSplitMode,

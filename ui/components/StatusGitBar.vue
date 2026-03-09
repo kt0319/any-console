@@ -3,6 +3,7 @@
     <button
       v-if="isGitRepo"
       type="button"
+      tabindex="-1"
       class="commit-msg-btn"
       :title="commitTooltip"
       @click="openFileModal"
@@ -11,6 +12,7 @@
     <button
       v-if="!isGitRepo && workspace"
       type="button"
+      tabindex="-1"
       class="non-git-hint commit-msg-btn"
       @click="openFileModal"
     >Gitリポジトリではありません</button>
@@ -31,6 +33,7 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useGitAction } from "../composables/useGitAction.js";
 import { emit } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
+import { escapeHtml } from "../utils/escape-html.js";
 
 const { gitAction, isRunning } = useGitAction();
 
@@ -42,7 +45,7 @@ const activeTab = computed(() =>
   terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId),
 );
 const workspace = computed(() => activeTab.value?.workspace || null);
-const showHeader = computed(() => !layoutStore.splitMode && !!workspace.value);
+const showHeader = computed(() => !layoutStore.isSplitMode && !!workspace.value);
 
 const ws = computed(() =>
   workspaceStore.allWorkspaces.find((w) => w.name === workspace.value),
@@ -79,13 +82,6 @@ const numstatHtml = computed(() => {
   const fileCountHtml = changedFiles > 0 ? `<span class="header-git-files">${changedFiles}F</span>` : "";
   return `<span class="header-git-numstat">${fileCountHtml}<span class="diff-num-plus">+${insertions}</span><span class="diff-num-del">-${deletions}</span></span>`;
 });
-
-function escapeHtml(str) {
-  if (!str) return "";
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
-}
 
 function openFileModal() {
   if (workspace.value) {

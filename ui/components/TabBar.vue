@@ -1,12 +1,12 @@
 <template>
   <div class="tab-bar-row" :style="{ display: showBarRow ? 'flex' : 'none' }">
-    <div class="tab-bar" :style="{ display: splitMode ? 'none' : '' }" @dblclick.self="onBarDblClick">
+    <div class="tab-bar" :style="{ display: isSplitMode ? 'none' : '' }" @dblclick.self="onBarDblClick">
       <TabItem
         v-for="item in sortedItems"
         :key="item.tab.id || item.tab.wsUrl"
         :tab="item.tab"
         :active-tab-id="activeTabId"
-        :panel-bottom="panelBottom"
+        :is-panel-bottom="isPanelBottom"
         :is-orphan="item.type === 'orphan'"
         @select="onSelect"
         @close="onClose"
@@ -32,8 +32,8 @@ const props = defineProps({
 });
 
 const activeTabId = computed(() => terminalStore.activeTabId);
-const panelBottom = computed(() => layoutStore.panelBottom);
-const splitMode = computed(() => layoutStore.splitMode);
+const isPanelBottom = computed(() => layoutStore.isPanelBottom);
+const isSplitMode = computed(() => layoutStore.isSplitMode);
 
 const sortedItems = computed(() => {
   const items = props.tabs.map((tab, i) => ({ type: "tab", tab, index: i }));
@@ -45,9 +45,9 @@ const sortedItems = computed(() => {
 });
 
 const showBarRow = computed(() => {
-  if (splitMode.value) return false;
+  if (isSplitMode.value) return false;
   const hasAnyTabs = props.tabs.length > 0 || props.orphans.length > 0;
-  return hasAnyTabs || layoutStore.isTouchDevice || panelBottom.value;
+  return hasAnyTabs || layoutStore.isTouchDevice || isPanelBottom.value;
 });
 
 function onSelect(tab) {

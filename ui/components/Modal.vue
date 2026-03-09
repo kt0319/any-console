@@ -23,7 +23,7 @@
         <TerminalConfig v-if="currentView === 'TerminalConfig'" />
         <EditorConfig v-if="currentView === 'EditorConfig'" />
         <ServerInfo v-if="currentView === 'ServerInfo'" />
-        <GitGitHub v-if="currentView === 'GitGitHub'" ref="gitGitHubView" />
+        <GitHubPane v-if="currentView === 'GitHubPane'" ref="gitGitHubView" />
         <ConfigFile v-if="currentView === 'ConfigFile'" />
 
         <IconPicker
@@ -53,7 +53,7 @@ import TerminalConfig from "./TerminalConfig.vue";
 import EditorConfig from "./EditorConfig.vue";
 import ServerInfo from "./ServerInfo.vue";
 import ConfigFile from "./ConfigFile.vue";
-import GitGitHub from "./GitGitHub.vue";
+import GitHubPane from "./GitHubPane.vue";
 import IconPicker from "./IconPicker.vue";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
 import { on } from "../app-bridge.js";
@@ -112,7 +112,7 @@ function settingsGoBack() {
 }
 
 function onBack() {
-  if (currentView.value === "GitGitHub") {
+  if (currentView.value === "GitHubPane") {
     currentView.value = "WorkspaceDetail";
     modalBack.value = true;
     nextTick(() => {
@@ -173,7 +173,7 @@ onMounted(() => {
   on("workspace:openModal", () => openSettings("WorkspaceOpen"));
 
   on("git:openGitHub", () => {
-    currentView.value = "GitGitHub";
+    currentView.value = "GitHubPane";
     modalBack.value = true;
     nextTick(() => {
       openModal();

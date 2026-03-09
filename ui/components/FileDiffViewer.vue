@@ -7,6 +7,7 @@
 <script setup>
 import { ref, watch } from "vue";
 import { useGitStore } from "../stores/git.js";
+import { escapeHtml } from "../utils/escape-html.js";
 
 const gitStore = useGitStore();
 
@@ -22,13 +23,6 @@ const DIFF_COLORS = {
   "-": "var(--diff-del, #f7768e)",
   "@": "var(--diff-hunk, #7aa2f7)",
 };
-
-function escapeHtml(str) {
-  if (!str) return "";
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
-}
 
 function colorDiff(text) {
   if (!text) return "";

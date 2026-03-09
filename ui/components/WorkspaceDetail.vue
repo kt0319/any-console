@@ -1,7 +1,7 @@
 <template>
   <div class="workspace-detail">
     <div class="workspace-detail-top">
-      <div v-show="activePane !== 'branch' && activePane !== 'stash'" class="file-modal-pane">
+      <div v-show="activePane !== 'branch' && activePane !== 'stash' && activePane !== 'graph'" class="file-modal-pane">
         <GitHistory ref="gitHistory" @pane:select="switchPane" />
       </div>
       <div v-if="activePane === 'branch'" class="file-modal-pane">
@@ -9,6 +9,9 @@
       </div>
       <div v-if="activePane === 'stash'" class="file-modal-pane">
         <GitStash ref="gitStash" />
+      </div>
+      <div v-if="activePane === 'graph'" class="file-modal-pane">
+        <GitCommitGraph ref="gitGraph" />
       </div>
     </div>
     <div class="workspace-detail-bottom">
@@ -26,6 +29,7 @@ import FileBrowser from "./FileBrowser.vue";
 import GitHistory from "./GitHistory.vue";
 import GitChangeBranch from "./GitChangeBranch.vue";
 import GitStash from "./GitStash.vue";
+import GitCommitGraph from "./GitCommitGraph.vue";
 import GitCommitForm from "./GitCommitForm.vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
 import { useAuthStore } from "../stores/auth.js";
@@ -40,6 +44,7 @@ const fileBrowser = ref(null);
 const gitHistory = ref(null);
 const gitBranch = ref(null);
 const gitStash = ref(null);
+const gitGraph = ref(null);
 const commitForm = ref(null);
 
 const activePane = ref("browser");
@@ -52,7 +57,7 @@ function updateViewTitle() {
 }
 
 function goBack() {
-  if (activePane.value === "branch" || activePane.value === "stash") {
+  if (activePane.value === "branch" || activePane.value === "stash" || activePane.value === "graph") {
     switchPane("browser");
   } else if (selectedDiffFile.value) {
     selectedDiffFile.value = "";
@@ -103,6 +108,8 @@ function switchPane(key) {
     });
   } else if (key === "stash") {
     nextTick(() => gitStash.value?.load());
+  } else if (key === "graph") {
+    nextTick(() => gitGraph.value?.load());
   } else if (key === "github") {
     bridgeEmit("git:openGitHub");
   }
@@ -132,8 +139,7 @@ on("git:stashSave", async () => {
   if (!workspace) return;
   const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/stash`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ include_untracked: true }),
+    body: { include_untracked: true },
   });
   if (!res || !res.ok) return;
   gitHistory.value?.reload();

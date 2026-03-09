@@ -5,13 +5,11 @@ import subprocess
 from fastapi import APIRouter, Depends
 
 from ..auth import verify_token
-from ..common import resolve_workspace_path
+from ..common import GITHUB_CLI_TIMEOUT_SEC, resolve_workspace_path
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(verify_token)])
-
-GH_TIMEOUT_SEC = 15
 
 
 def _run_gh(args: list[str], cwd: str) -> dict | list | None:
@@ -19,7 +17,7 @@ def _run_gh(args: list[str], cwd: str) -> dict | list | None:
         result = subprocess.run(
             ["gh", *args],
             capture_output=True, text=True,
-            timeout=GH_TIMEOUT_SEC, cwd=cwd,
+            timeout=GITHUB_CLI_TIMEOUT_SEC, cwd=cwd,
         )
         if result.returncode != 0:
             logger.warning("gh command failed: %s stderr=%s", args, result.stderr.strip())

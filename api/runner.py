@@ -4,7 +4,7 @@ import shlex
 import subprocess
 
 from .common import EXEC_TIMEOUT_SEC, PROJECT_ROOT, sanitize_log_value
-from .jobs import JobDefinition
+from .job_models import JobDefinition
 
 logger = logging.getLogger(__name__)
 

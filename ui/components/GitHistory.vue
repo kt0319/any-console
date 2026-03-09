@@ -45,6 +45,9 @@
           <button type="button" class="git-action-btn icon-only" title="Stash" @click="selectPane('stash')">
             <span class="mdi mdi-package-down"></span>
           </button>
+          <button type="button" class="git-action-btn icon-only" title="コミットグラフ" @click="selectPane('graph')">
+            <span class="mdi mdi-source-branch-sync"></span>
+          </button>
           <button v-if="githubUrl" type="button" class="git-action-btn icon-only" title="GitHub" @click="selectPane('github')">
             <span class="mdi mdi-github"></span>
           </button>
@@ -288,8 +291,7 @@ async function execAction(action, entry) {
   try {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/${action}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ commit_hash: entry.fullHash }),
+      body: { commit_hash: entry.fullHash },
     });
     if (!res || !res.ok) {
       const data = await res?.json().catch(() => null);
@@ -315,8 +317,7 @@ async function execReset(entry, mode) {
   try {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/reset`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ commit_hash: entry.fullHash, mode }),
+      body: { commit_hash: entry.fullHash, mode },
     });
     if (!res || !res.ok) {
       const data = await res?.json().catch(() => null);

@@ -258,7 +258,7 @@ def git_info_to_status_dict(directory: Path, name: str) -> dict:
     return result
 
 
-def get_git_branches(directory: Path) -> list[str]:
+def git_branches(directory: Path) -> list[str]:
     try:
         result = subprocess.run(
             ["git", "branch", "--format=%(refname:short)"],
@@ -268,11 +268,11 @@ def get_git_branches(directory: Path) -> list[str]:
         if result.returncode == 0:
             return [b for b in result.stdout.strip().splitlines() if b]
     except (subprocess.TimeoutExpired, OSError) as e:
-        logger.warning("get_git_branches failed dir=%s: %s", directory, e)
+        logger.warning("git_branches failed dir=%s: %s", directory, e)
     return []
 
 
-def get_git_remote_branches(directory: Path) -> list[str]:
+def git_remote_branches(directory: Path) -> list[str]:
     try:
         subprocess.run(
             ["git", "fetch", "--prune"],
@@ -296,5 +296,5 @@ def get_git_remote_branches(directory: Path) -> list[str]:
                     branches.append(b)
             return branches
     except (subprocess.TimeoutExpired, OSError) as e:
-        logger.warning("get_git_remote_branches failed dir=%s: %s", directory, e)
+        logger.warning("git_remote_branches failed dir=%s: %s", directory, e)
     return []

@@ -9,25 +9,25 @@ export function useTerminal() {
   const auth = useAuthStore();
   const terminalStore = useTerminalStore();
 
-  function buildWsUrl(sessionId) {
+  function buildWebSocketUrl(sessionId) {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     return `${proto}//${location.host}/terminal/ws/${sessionId}?token=${encodeURIComponent(auth.token)}`;
   }
 
   function connectTerminalWs(tab) {
     if (!tab || tab._wsDisposed) return;
-    const wsUrl = buildWsUrl(tab.sessionId);
+    const wsUrl = buildWebSocketUrl(tab.sessionId);
     const ws = new WebSocket(wsUrl);
     ws.binaryType = "arraybuffer";
     tab.ws = ws;
 
     ws.onopen = () => {
       tab._reconnectAttempts = 0;
+      console.log(`[ws.onopen] tab=${tab.id} pendingRedraw=${tab._pendingRedraw}`);
       fitTerminal(tab, { force: true });
       if (tab._pendingRedraw) {
         tab._pendingRedraw = false;
         tab.term?.write("\x1bc");
-        setTimeout(() => fitTerminal(tab, { force: true }), 50);
       }
       if (tab._initialCommand && tab._waitingInitialCommand) {
         tab._waitingInitialCommand = false;
@@ -109,9 +109,7 @@ export function useTerminal() {
     if (!tab || !tab._pendingOpen || !frameEl) return false;
     tab._pendingOpen = false;
     tab.term.open(frameEl);
-    if (tab._pendingRedraw) {
-      setTimeout(() => connectTerminalWs(tab), 100);
-    } else {
+    if (!tab._pendingRedraw) {
       connectTerminalWs(tab);
     }
     observeFrameResize(tab, frameEl);
@@ -121,8 +119,7 @@ export function useTerminal() {
   function connectDeferredTabs() {
     const terminalStore = useTerminalStore();
     for (const tab of terminalStore.openTabs) {
-      if (tab._deferredConnect) {
-        tab._deferredConnect = false;
+      if (tab._pendingRedraw && !tab.ws && !tab._wsDisposed) {
         connectTerminalWs(tab);
       }
     }
@@ -149,7 +146,12 @@ export function useTerminal() {
     const frame = document.getElementById(`frame-${tab.id}`);
     if (frame) {
       const rect = frame.getBoundingClientRect();
-      if (rect.width < 2 || rect.height < 2) return;
+      if (rect.width < 2 || rect.height < 2) {
+        console.log(`[fitTerminal] tab=${tab.id} SKIP: frame too small (${rect.width}x${rect.height})`);
+        return;
+      }
+      const dims = tab.fitAddon.proposeDimensions();
+      console.log(`[fitTerminal] tab=${tab.id} force=${force} frame=${Math.round(rect.width)}x${Math.round(rect.height)} dims=${dims?.cols}x${dims?.rows} cached=${tab._lastFitCols}x${tab._lastFitRows} ws=${tab.ws?.readyState}`);
     }
     try {
       const dims = tab.fitAddon.proposeDimensions();
@@ -176,6 +178,6 @@ export function useTerminal() {
     fitTerminal,
     observeFrameResize,
     deleteSession,
-    buildWsUrl,
+    buildWebSocketUrl,
   };
 }

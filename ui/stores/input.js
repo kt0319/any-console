@@ -45,7 +45,7 @@ const INPUT_HISTORY_MAX = 20;
 export const useInputStore = defineStore("input", () => {
   const inputHistory = ref(JSON.parse(localStorage.getItem(INPUT_HISTORY_KEY) || "[]"));
   const snippetsCache = ref([]);
-  const snippetsLoaded = ref(false);
+  const isSnippetsLoaded = ref(false);
 
   function addInputHistory(text) {
     if (!text) return;
@@ -64,7 +64,7 @@ export const useInputStore = defineStore("input", () => {
     INPUT_HISTORY_MAX,
     inputHistory,
     snippetsCache,
-    snippetsLoaded,
+    isSnippetsLoaded,
     addInputHistory,
   };
 });

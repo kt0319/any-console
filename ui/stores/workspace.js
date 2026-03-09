@@ -8,7 +8,7 @@ export const useWorkspaceStore = defineStore("workspace", () => {
   const workspaceJobsCache = ref({});
   const workspaceJobsLoadedFor = ref(null);
   const pendingJob = ref(null);
-  const cachedBranches = ref([]);
+  const branchesCache = ref([]);
   const isLaunchingTerminal = ref(false);
   const appInitializing = ref(false);
 
@@ -39,7 +39,7 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     workspaceJobsCache,
     workspaceJobsLoadedFor,
     pendingJob,
-    cachedBranches,
+    branchesCache,
     isLaunchingTerminal,
     appInitializing,
     visibleWorkspaces,

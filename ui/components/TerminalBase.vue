@@ -4,8 +4,8 @@
     :class="[splitContainerClasses, { 'input-overlay-active': keyboardOverlay }]"
     ref="containerEl"
   >
-    <div v-if="showDropZones" class="split-drop-overlay">
-      <template v-if="!panelBottom">
+    <div v-if="isShowDropZones" class="split-drop-overlay">
+      <template v-if="!isPanelBottom">
         <div class="split-drop-zone drop-left" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'left')">
           <span class="mdi mdi-arrow-left drop-zone-icon"></span>
         </div>
@@ -24,9 +24,9 @@
       </div>
     </div>
 
-    <EmptyPane v-if="openTabs.length === 0 && !splitMode" @openWorkspace="openWorkspaceModal" />
+    <EmptyPane v-if="openTabs.length === 0 && !isSplitMode" @openWorkspace="openWorkspaceModal" />
 
-    <template v-if="!splitMode">
+    <template v-if="!isSplitMode">
       <TerminalPane
         v-for="tab in openTabs"
         v-show="tab.id === activeTabId"
@@ -87,12 +87,12 @@ const paneRefs = ref([]);
 
 const openTabs = computed(() => terminalStore.openTabs);
 const activeTabId = computed(() => terminalStore.activeTabId);
-const splitMode = computed(() => layoutStore.splitMode);
+const isSplitMode = computed(() => layoutStore.isSplitMode);
 const splitLayout = computed(() => layoutStore.splitLayout || "horizontal");
 const splitPaneTabIds = computed(() => layoutStore.splitPaneTabIds);
 const activePaneIndex = computed(() => layoutStore.activePaneIndex);
-const showDropZones = computed(() => layoutStore.showDropZones);
-const panelBottom = computed(() => layoutStore.panelBottom);
+const isShowDropZones = computed(() => layoutStore.isShowDropZones);
+const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 
 function onDragEnter(e) {
   e.currentTarget.classList.add("drag-over");
@@ -105,7 +105,7 @@ function onDragLeave(e) {
 function onDrop(e, direction) {
   e.preventDefault();
   e.currentTarget.classList.remove("drag-over");
-  layoutStore.showDropZones = false;
+  layoutStore.isShowDropZones = false;
   const raw = layoutStore.dragTabId || e.dataTransfer.getData("text/plain");
   const tabId = typeof raw === "string" ? parseInt(raw, 10) : raw;
   if (tabId) {
@@ -115,11 +115,11 @@ function onDrop(e, direction) {
 }
 
 const splitContainerClasses = computed(() => {
-  if (!splitMode.value) return {};
+  if (!isSplitMode.value) return {};
   return {
     "split-active": true,
     [`split-${splitLayout.value}`]: true,
-    "split-mobile": layoutStore.panelBottom,
+    "split-mobile": layoutStore.isPanelBottom,
   };
 });
 
@@ -132,7 +132,7 @@ function calcGridLayout(count) {
 }
 
 const gridRows = computed(() => {
-  if (!splitMode.value || splitLayout.value !== "grid") return [];
+  if (!isSplitMode.value || splitLayout.value !== "grid") return [];
   const ids = splitPaneTabIds.value;
   const layout = calcGridLayout(ids.length);
   const rows = [];
@@ -167,13 +167,13 @@ function fitAllTerminals(opts) {
   }
 }
 
-watch(splitMode, async () => {
+watch(isSplitMode, async () => {
   await nextTick();
   requestAnimationFrame(() => fitAllTerminals());
 });
 
 watch(activeTabId, async (id) => {
-  if (splitMode.value) return;
+  if (isSplitMode.value) return;
   await nextTick();
   requestAnimationFrame(() => {
     if (!paneRefs.value) return;

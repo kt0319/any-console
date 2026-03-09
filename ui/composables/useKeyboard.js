@@ -1,13 +1,11 @@
 import { ref, reactive } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useInputStore } from "../stores/input.js";
-
-export const REPEAT_DELAY = 400;
-export const REPEAT_INTERVAL = 80;
-export const MIN_REPEAT_INTERVAL = 30;
-export const REPEAT_ACCELERATION = 8;
-export const LONG_PRESS_MS = 400;
-const FLICK_THRESHOLD = 40;
+import {
+  LONG_PRESS_MS, FLICK_THRESHOLD,
+  REPEAT_DELAY, REPEAT_INTERVAL, MIN_REPEAT_INTERVAL, REPEAT_ACCELERATION,
+} from "../utils/constants.js";
+export { LONG_PRESS_MS, REPEAT_DELAY, REPEAT_INTERVAL, MIN_REPEAT_INTERVAL, REPEAT_ACCELERATION };
 
 export function useKeyboard() {
   const terminalStore = useTerminalStore();

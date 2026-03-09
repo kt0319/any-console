@@ -138,8 +138,7 @@ import KeyboardSnippet from "./KeyboardSnippet.vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useInputStore } from "../stores/input.js";
 import { emit } from "../app-bridge.js";
-
-const FLICK_THRESHOLD = 40;
+import { FLICK_THRESHOLD } from "../utils/constants.js";
 
 const inputStore = useInputStore();
 const { sendKeyToTerminal, modifierState, clearModifiers, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();

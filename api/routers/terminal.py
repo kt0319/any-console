@@ -65,7 +65,7 @@ class TerminalSession:
 
 
 TERMINAL_SESSIONS: dict[str, TerminalSession] = {}
-_sessions_lock = threading.Lock()
+sessions_lock = threading.Lock()
 
 
 def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
@@ -247,7 +247,7 @@ def _get_tmux_created(tmux_name: str) -> int | None:
 
 def cleanup_terminal_sessions() -> None:
     now = time.time()
-    with _sessions_lock:
+    with sessions_lock:
         expired = [sid for sid, s in TERMINAL_SESSIONS.items() if s.expires_at <= now]
         removed_sessions = []
         for sid in expired:
@@ -271,14 +271,14 @@ def _register_tmux_session(session_id: str, tmux_name: str) -> TerminalSession:
         job_name=meta.get("PI_JOB_NAME"),
         job_label=meta.get("PI_JOB_LABEL"),
     )
-    with _sessions_lock:
+    with sessions_lock:
         TERMINAL_SESSIONS[session_id] = session
     logger.info("on-demand registered tmux session=%s workspace=%s", session_id, workspace or "(none)")
     return session
 
 
 def get_terminal_session(session_id: str) -> TerminalSession:
-    with _sessions_lock:
+    with sessions_lock:
         session = TERMINAL_SESSIONS.get(session_id)
         if session:
             if session.expires_at <= time.time():
@@ -320,7 +320,7 @@ async def list_terminal_sessions():
         if not session_id:
             continue
 
-        with _sessions_lock:
+        with sessions_lock:
             cached = TERMINAL_SESSIONS.get(session_id)
 
         if cached:
@@ -372,7 +372,7 @@ async def get_terminal_buffer(session_id: str):
 
 @router.delete("/terminal/sessions/{session_id}")
 async def delete_terminal_session(session_id: str):
-    with _sessions_lock:
+    with sessions_lock:
         session = TERMINAL_SESSIONS.pop(session_id, None)
     if not session:
         raise HTTPException(status_code=404, detail="Terminal session not found")
@@ -391,7 +391,7 @@ ws_router = APIRouter()
 
 @ws_router.websocket("/terminal/ws/{session_id}")
 async def terminal_ws(websocket: WebSocket, session_id: str):
-    with _sessions_lock:
+    with sessions_lock:
         session = TERMINAL_SESSIONS.get(session_id)
 
     if not session:
@@ -406,7 +406,7 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
         return
 
     if session.expires_at <= time.time():
-        with _sessions_lock:
+        with sessions_lock:
             TERMINAL_SESSIONS.pop(session_id, None)
         await websocket.close(code=1008, reason="セッションがタイムアウトしました")
         return
@@ -423,7 +423,7 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
             logger.info("recreated tmux session=%s workspace=%s", session_id, session.workspace or "(none)")
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
             logger.error("failed to recreate tmux session=%s: %s", session_id, e)
-            with _sessions_lock:
+            with sessions_lock:
                 TERMINAL_SESSIONS.pop(session_id, None)
             await websocket.close(code=1008, reason="シェルプロセスが終了しました")
             return

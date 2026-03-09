@@ -13,7 +13,7 @@ from ..git_utils import run_git_command
 STASH_REF_PATTERN = re.compile(r"^stash@\{\d+\}$")
 
 
-def run_git_subprocess(args, cwd, text=True):
+def run_raw_git(args, cwd, text=True):
     try:
         return subprocess.run(
             args,

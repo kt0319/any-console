@@ -356,8 +356,7 @@ async function renameFile(src, dest) {
   try {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/rename`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ src, dest }),
+      body: { src, dest },
     });
     if (!res || !res.ok) {
       emit("toast:show", { message: "リネームに失敗しました", type: "error" });
@@ -381,8 +380,7 @@ async function deleteEntry() {
   try {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/delete-file`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: filePath }),
+      body: { path: filePath },
     });
     if (!res || !res.ok) {
       emit("toast:show", { message: "削除に失敗しました", type: "error" });
@@ -421,12 +419,35 @@ async function downloadEntry() {
   }
 }
 
-function openEntryInEditor() {
+async function openEntryInEditor() {
   const filePath = entryPath();
   if (!filePath) return;
   contextEntry.value = null;
-  currentPath.value = filePath;
-  openFile(filePath);
+  try {
+    const [settingsRes, infoRes] = await Promise.all([
+      auth.apiFetch("/settings/editor"),
+      auth.apiFetch("/system/info"),
+    ]);
+    const settings = settingsRes?.ok ? await settingsRes.json() : {};
+    const info = infoRes?.ok ? await infoRes.json() : {};
+    const tmpl = (settings.url_template || "").trim();
+    if (!tmpl) {
+      currentPath.value = filePath;
+      openFile(filePath);
+      return;
+    }
+    const workspace = workspaceStore.selectedWorkspace || "";
+    const url = tmpl
+      .replace(/\{user\}/g, info.user || "")
+      .replace(/\{host\}/g, info.hostname || "")
+      .replace(/\{work_dir\}/g, info.work_dir || "")
+      .replace(/\{workspace\}/g, workspace)
+      + "/" + filePath;
+    window.open(url, "_blank");
+  } catch {
+    currentPath.value = filePath;
+    openFile(filePath);
+  }
 }
 
 function onCrumbClick(path) {

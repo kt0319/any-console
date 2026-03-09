@@ -1,3 +1,5 @@
+import { escapeHtml } from "./escape-html.js";
+
 const XTERM_PALETTE = (() => {
   const base = [
     "#000000","#cc0000","#4e9a06","#c4a000","#3465a4","#75507b","#06989a","#d3d7cf",
@@ -14,10 +16,6 @@ const XTERM_PALETTE = (() => {
   }
   return base;
 })();
-
-function escapeHtml(str) {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
 
 function xtermCellColor(cell, isFg) {
   const isPalette = isFg ? cell.isFgPalette() : cell.isBgPalette();

@@ -59,8 +59,7 @@ async function stashSave() {
   if (!workspace) return;
   const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/stash`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ include_untracked: true }),
+    body: { include_untracked: true },
   });
   if (!res || !res.ok) return;
   await load();
@@ -72,8 +71,7 @@ async function stashPop(entry) {
   if (!workspace) return;
   const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/stash-pop-ref`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ stash_ref: entry.ref }),
+    body: { stash_ref: entry.ref },
   });
   if (!res || !res.ok) return;
   await load();
@@ -85,8 +83,7 @@ async function stashDrop(entry) {
   if (!workspace) return;
   const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/stash-drop`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ stash_ref: entry.ref }),
+    body: { stash_ref: entry.ref },
   });
   if (!res || !res.ok) return;
   await load();

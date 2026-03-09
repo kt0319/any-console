@@ -220,8 +220,7 @@ async function toggleVisibility(ws, checked) {
   try {
     await auth.apiFetch(`/workspaces/${encodeURIComponent(ws.name)}/config`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ icon: ws.icon || "", icon_color: ws.icon_color || "", hidden: !checked }),
+      body: { icon: ws.icon || "", icon_color: ws.icon_color || "", hidden: !checked },
     });
     ws.hidden = !checked;
   } catch { /* ignore */ }
@@ -293,15 +292,14 @@ async function saveJob() {
       : `/workspaces/${encodeURIComponent(editWs.value.name)}/jobs/${encodeURIComponent(f.name)}`;
     const res = await auth.apiFetch(url, {
       method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      body: {
         label: f.label.trim(),
         command: f.command.trim(),
         icon: f.icon.trim(),
         icon_color: f.icon_color.trim(),
         confirm: f.confirm,
         terminal: f.terminal,
-      }),
+      },
     });
     if (!res.ok) {
       const data = await res.json();
@@ -335,12 +333,11 @@ async function saveWsConfig() {
   try {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(editWs.value.name)}/config`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      body: {
         icon: editIcon.value.trim(),
         icon_color: editIconColor.value.trim(),
         hidden: !!editWs.value.hidden,
-      }),
+      },
     });
     if (!res.ok) {
       const data = await res.json();
@@ -459,8 +456,7 @@ async function saveWorkspaceOrder() {
   try {
     await auth.apiFetch("/workspace-order", {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ order }),
+      body: { order },
     });
   } catch { /* ignore */ }
 }

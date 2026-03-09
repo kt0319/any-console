@@ -25,7 +25,7 @@
           v-if="!remoteExpanded && !loading"
           class="branch-item branch-item-action"
           @click="showRemoteBranches"
-        >リモートブランチを表示...</div>
+        >{{ remoteLoading ? '読み込み中...' : 'リモートブランチを表示...' }}</div>
       </template>
     </div>
   </div>
@@ -43,6 +43,7 @@ const workspaceStore = useWorkspaceStore();
 const branches = ref([]);
 const loading = ref(false);
 const remoteExpanded = ref(false);
+const remoteLoading = ref(false);
 const listEl = ref(null);
 
 async function load() {
@@ -68,8 +69,8 @@ async function load() {
 
 async function showRemoteBranches() {
   const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  remoteExpanded.value = true;
+  if (!workspace || remoteLoading.value) return;
+  remoteLoading.value = true;
   try {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/branches/remote`);
     if (!res || !res.ok) return;
@@ -79,8 +80,11 @@ async function showRemoteBranches() {
       .filter((b) => !localNames.has(b.name || b))
       .map((b) => ({ name: b.name || b, current: false, remote: true }));
     branches.value = [...branches.value, ...remoteBranches];
+    remoteExpanded.value = true;
   } catch (e) {
     console.error("remote branch load failed:", e);
+  } finally {
+    remoteLoading.value = false;
   }
 }
 
@@ -90,7 +94,17 @@ function selectBranch(branch) {
 }
 
 async function deleteBranch(branch) {
-  emit("git:deleteBranch", { branch: branch.name, remote: branch.remote });
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
+  const label = branch.remote ? `リモートブランチ ${branch.name}` : `ブランチ ${branch.name}`;
+  if (!confirm(`${label} を削除しますか？`)) return;
+  const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/delete-branch`, {
+    method: "POST",
+    body: { branch: branch.name, remote: branch.remote },
+  });
+  if (!res || !res.ok) return;
+  await load();
+  emit("git:commitDone");
 }
 
 async function backgroundFetch() {

@@ -78,8 +78,7 @@ async function doClone() {
   try {
     const res = await auth.apiFetch("/workspaces", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: cloneUrl.value.trim(), name: cloneName.value.trim() || null }),
+      body: { url: cloneUrl.value.trim(), name: cloneName.value.trim() || null },
     });
     const data = await res.json();
     if (!res.ok) {

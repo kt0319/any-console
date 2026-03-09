@@ -39,6 +39,7 @@ import { useAuthStore } from "../stores/auth.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { enterViewMode, exitViewMode, isViewMode } from "../utils/view-mode.js";
 import { emit } from "../app-bridge.js";
+import { DRAG_THRESHOLD, LONG_PRESS_MS } from "../utils/constants.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -51,9 +52,6 @@ const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const auth = useAuthStore();
 const { ensureTerminalOpened, fitTerminal, observeFrameResize, disconnectTerminal } = useTerminal();
-
-const DRAG_THRESHOLD = 15;
-const LONG_PRESS_MS = 500;
 
 const paneEl = ref(null);
 const frameEl = ref(null);
@@ -68,7 +66,7 @@ function renderIcon(icon, color, size) {
 }
 
 const isActive = computed(() => {
-  if (layoutStore.splitMode && props.paneIndex >= 0) {
+  if (layoutStore.isSplitMode && props.paneIndex >= 0) {
     return layoutStore.activePaneIndex === props.paneIndex;
   }
   return terminalStore.activeTabId === props.tab.id;
@@ -76,7 +74,7 @@ const isActive = computed(() => {
 
 function onPointerDown(e) {
   if (layoutStore.isTouchDevice) return;
-  if (!layoutStore.splitMode) return;
+  if (!layoutStore.isSplitMode) return;
   if (isActive.value) return;
   emits("select-pane", props.paneIndex);
 }
@@ -93,7 +91,7 @@ function onTouchEnd(e) {
   }
   const endY = e.changedTouches?.[0]?.clientY || 0;
   if (Math.abs(endY - touchStartY) > 10) return;
-  if (layoutStore.splitMode) {
+  if (layoutStore.isSplitMode) {
     emits("select-pane", props.paneIndex);
     return;
   }
@@ -111,13 +109,13 @@ function onPillDragStart(e) {
   pillDragging.value = true;
   pillDidDrag = true;
   layoutStore.dragTabId = props.tab.id;
-  layoutStore.showDropZones = true;
+  layoutStore.isShowDropZones = true;
 }
 
 function onPillDragEnd() {
   pillDragging.value = false;
-  const droppedOnZone = !layoutStore.showDropZones;
-  layoutStore.showDropZones = false;
+  const droppedOnZone = !layoutStore.isShowDropZones;
+  layoutStore.isShowDropZones = false;
   layoutStore.dragTabId = null;
   if (!droppedOnZone && Date.now() - pillMouseDownTime < 300) {
     emit("workspace:openModal");
@@ -194,7 +192,7 @@ function onPillTouchMove(e) {
     pillTouchDragging = true;
     pillDragging.value = true;
     layoutStore.dragTabId = props.tab.id;
-    layoutStore.showDropZones = true;
+    layoutStore.isShowDropZones = true;
     e.preventDefault();
   }
   if (pillTouchDragging) {
@@ -234,7 +232,7 @@ function onPillTouchEnd(e) {
       }
     }
   }
-  layoutStore.showDropZones = false;
+  layoutStore.isShowDropZones = false;
   if (dropDir) {
     layoutStore.splitWithDrop(props.tab.id, dropDir, terminalStore.openTabs, terminalStore.activeTabId);
   }

@@ -10,8 +10,8 @@ from ..common import (
     resolve_workspace_path,
 )
 from ..git_utils import (
-    get_git_branches,
-    get_git_remote_branches,
+    git_branches,
+    git_remote_branches,
     git_info_to_status_dict,
     invalidate_git_info,
     run_git_command,
@@ -42,13 +42,13 @@ def get_workspace_status(name: str):
 @router.get("/workspaces/{name}/branches")
 def list_branches(name: str):
     ws_path = resolve_workspace_path(name)
-    return get_git_branches(ws_path)
+    return git_branches(ws_path)
 
 
 @router.get("/workspaces/{name}/branches/remote")
 def list_remote_branches(name: str):
     ws_path = resolve_workspace_path(name)
-    return get_git_remote_branches(ws_path)
+    return git_remote_branches(ws_path)
 
 
 @router.post("/workspaces/{name}/delete-branch")
@@ -89,7 +89,7 @@ def checkout_branch(name: str, body: CheckoutRequest):
     ws_path = resolve_workspace_path(name)
     branch = validate_branch_name(body.branch)
 
-    local_branches = get_git_branches(ws_path)
+    local_branches = git_branches(ws_path)
     args = ["checkout", branch] if branch in local_branches else ["checkout", "-b", branch, f"origin/{branch}"]
     result = run_git_command(args, cwd=ws_path, operation="checkout")
     logger.info("checkout workspace=%s branch=%s rc=%d", name, branch, result["exit_code"])

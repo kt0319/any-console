@@ -2422,7 +2422,8 @@ button:disabled {
 .git-branch-pane-wrapper,
 .git-files-pane-wrapper,
 .git-stash-pane-wrapper,
-.git-github-pane-wrapper {
+.git-github-pane-wrapper,
+.git-graph-pane-wrapper {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -4340,4 +4341,51 @@ button:disabled {
   margin-bottom: 6px;
 }
 
+.git-graph-pane-wrapper > .modal-scroll-body {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
 
+.git-graph-row {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+}
+
+.git-graph-row-commit {
+  cursor: pointer;
+}
+
+.git-graph-svg {
+  flex-shrink: 0;
+}
+
+.git-graph-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 2px 8px 2px 0;
+  overflow: hidden;
+}
+
+.git-graph-msg {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.git-graph-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.git-graph-author,
+.git-graph-time {
+  white-space: nowrap;
+}

@@ -1,6 +1,7 @@
 <template>
   <button
     type="button"
+    tabindex="-1"
     class="git-action-btn"
     :class="[btnClass, { running }]"
     :title="title"

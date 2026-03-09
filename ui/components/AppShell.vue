@@ -1,11 +1,11 @@
 <template>
-  <div class="main-panel" :class="{ 'panel-bottom': panelBottom }">
+  <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom }">
     <TabBar ref="tabBar" :tabs="openTabs" :orphans="orphanSessions" />
     <StatusGitBar />
     <TerminalBase ref="terminalSplit">
-      <KeyboardInput v-if="panelBottom" ref="keyboardBar" />
+      <KeyboardInput v-if="isPanelBottom" ref="keyboardBar" />
     </TerminalBase>
-    <KeyboardSnippet v-if="panelBottom" ref="snippetBar" />
+    <KeyboardSnippet v-if="isPanelBottom" ref="snippetBar" />
   </div>
 </template>
 
@@ -36,13 +36,13 @@ const { sendTextToTerminal } = useKeyboard();
 const { initViewport } = useViewport();
 
 async function loadSnippets() {
-  if (inputStore.snippetsLoaded) return;
+  if (inputStore.isSnippetsLoaded) return;
   try {
     const res = await auth.apiFetch("/snippets");
     if (!res || !res.ok) return;
     const data = await res.json();
     inputStore.snippetsCache = data.snippets || [];
-    inputStore.snippetsLoaded = true;
+    inputStore.isSnippetsLoaded = true;
   } catch {}
 }
 
@@ -50,8 +50,7 @@ async function saveSnippets() {
   try {
     await auth.apiFetch("/snippets", {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ snippets: inputStore.snippetsCache }),
+      body: { snippets: inputStore.snippetsCache },
     });
   } catch {}
 }
@@ -64,7 +63,7 @@ const terminalSplit = ref(null);
 const snippetBar = ref(null);
 const keyboardBar = ref(null);
 
-const panelBottom = computed(() => layoutStore.panelBottom);
+const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 
 let resizeObserver = null;
 let resizeDebounceTimer = null;
