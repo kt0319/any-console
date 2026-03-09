@@ -63,10 +63,6 @@ const hasRemoteBranch = computed(() => ws.value?.has_remote_branch !== false);
 const ahead = computed(() => ws.value?.ahead || 0);
 const behind = computed(() => ws.value?.behind || 0);
 
-const hasGitActions = computed(() =>
-  behind.value > 0 || ahead.value > 0 || !hasUpstream.value,
-);
-
 const githubUrl = computed(() => ws.value?.github_url || "");
 const isDirty = computed(() => ws.value && ws.value.clean === false);
 
