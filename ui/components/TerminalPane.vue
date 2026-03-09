@@ -254,6 +254,9 @@ async function onPaste(e) {
 onMounted(() => {
   if (props.tab._pendingOpen && frameEl.value) {
     ensureTerminalOpened(props.tab, frameEl.value);
+  } else if (props.tab.term && frameEl.value && props.tab.term.element) {
+    frameEl.value.appendChild(props.tab.term.element);
+    fitTerminal(props.tab);
   }
   if (pillEl.value) {
     pillEl.value.addEventListener("touchmove", onPillTouchMove, { passive: false });

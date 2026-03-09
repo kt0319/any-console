@@ -8,6 +8,9 @@
           class="git-log-entry git-log-commit"
           :class="{ 'action-open': longPressEntry?.hash === entry.hash }"
           @click="selectCommit(entry)"
+          @mousedown="onLongPressStart($event, entry)"
+          @mouseup="onLongPressEnd"
+          @mouseleave="onLongPressEnd"
           @touchstart.passive="onLongPressStart($event, entry)"
           @touchend="onLongPressEnd"
           @touchcancel="onLongPressEnd"
@@ -146,6 +149,7 @@ async function loadMore() {
 
 let longPressTimer = null;
 let longPressEl = null;
+let longPressTriggered = false;
 const longPressEntry = ref(null);
 
 function toggleActionMenu(entry) {
@@ -157,10 +161,12 @@ function toggleActionMenu(entry) {
 }
 
 function onLongPressStart(e, entry) {
+  longPressTriggered = false;
   const el = e.currentTarget;
   longPressEl = el;
   el.classList.add("long-pressing");
   longPressTimer = setTimeout(() => {
+    longPressTriggered = true;
     el.classList.remove("long-pressing");
     el.classList.add("long-pressed");
     longPressEntry.value = entry;
@@ -173,7 +179,10 @@ function onLongPressEnd() {
     longPressTimer = null;
   }
   if (longPressEl) {
-    longPressEl.classList.remove("long-pressing", "long-pressed");
+    longPressEl.classList.remove("long-pressing");
+    if (!longPressTriggered) {
+      longPressEl.classList.remove("long-pressed");
+    }
     longPressEl = null;
   }
 }
@@ -234,7 +243,10 @@ async function execReset(entry, mode) {
 }
 
 function selectCommit(entry) {
-  if (longPressEl || longPressEntry.value) return;
+  if (longPressEl || longPressEntry.value || longPressTriggered) {
+    longPressTriggered = false;
+    return;
+  }
   emit("git:selectCommit", { hash: entry.fullHash, message: entry.message, refs: entry.refs });
 }
 

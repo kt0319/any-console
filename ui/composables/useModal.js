@@ -111,6 +111,7 @@ export function useModal() {
       releaseKeydown();
       releaseKeydown = null;
     }
+    document.activeElement?.blur();
   }
 
   onUnmounted(() => {

@@ -1,5 +1,5 @@
 <template>
-  <ModalBase ref="baseModal" title="アイコン選択">
+  <div>
     <div class="icon-picker-input-row">
       <input
         ref="searchRef"
@@ -46,13 +46,12 @@
     <div ref="gridRef" class="icon-picker-grid">
       <div v-if="loadingIcons" class="icon-picker-loading">読み込み中...</div>
     </div>
-  </ModalBase>
+  </div>
 </template>
 
 <script setup>
 import { ref, nextTick } from "vue";
-import ModalBase from "./ModalBase.vue";
-import { emit } from "../app-bridge.js";
+import { emit as bridgeEmit } from "../app-bridge.js";
 
 const URL_PATTERN = /^(https?:\/\/|[a-zA-Z0-9-]+\.[a-zA-Z]{2,})/;
 const ICON_UPLOAD_MAX_SIZE = 512 * 1024;
@@ -83,7 +82,8 @@ const ICON_PRESET_COLORS = [
   { label: "白", value: "#ffffff" },
 ];
 
-const baseModal = ref(null);
+const emit = defineEmits(["close"]);
+
 const searchRef = ref(null);
 const uploadRef = ref(null);
 const gridRef = ref(null);
@@ -218,12 +218,12 @@ async function handleUpload() {
   const file = uploadRef.value?.files?.[0];
   if (!file) return;
   if (!ICON_UPLOAD_ALLOWED_TYPES.has(file.type)) {
-    emit("toast:show", { message: "PNG/JPG/GIF/WEBP/SVG の画像を選択してください", type: "error" });
+    bridgeEmit("toast:show", { message: "PNG/JPG/GIF/WEBP/SVG の画像を選択してください", type: "error" });
     uploadRef.value.value = "";
     return;
   }
   if (file.size > ICON_UPLOAD_MAX_SIZE) {
-    emit("toast:show", { message: "画像サイズは500KB以下にしてください", type: "error" });
+    bridgeEmit("toast:show", { message: "画像サイズは500KB以下にしてください", type: "error" });
     uploadRef.value.value = "";
     return;
   }
@@ -245,7 +245,7 @@ async function handleUpload() {
     const el = gridRef.value;
     if (el) el.querySelectorAll(".icon-picker-item").forEach((item) => item.classList.remove("selected"));
   } catch (e) {
-    emit("toast:show", { message: e.message || "画像の読み込みに失敗しました", type: "error" });
+    bridgeEmit("toast:show", { message: e.message || "画像の読み込みに失敗しました", type: "error" });
   } finally {
     if (uploadRef.value) uploadRef.value.value = "";
   }
@@ -266,7 +266,7 @@ function submit() {
   } else {
     return;
   }
-  baseModal.value?.close();
+  emit("close");
   if (callback) {
     callback(icon, color);
     callback = null;
@@ -300,8 +300,6 @@ async function open(cb, currentIcon, currentColor) {
     canSubmit.value = false;
   }
 
-  baseModal.value?.open();
-
   try {
     const icons = await fetchIcons();
     loadingIcons.value = false;
@@ -321,7 +319,7 @@ async function open(cb, currentIcon, currentColor) {
 }
 
 function close() {
-  baseModal.value?.close();
+  emit("close");
   callback = null;
 }
 

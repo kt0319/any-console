@@ -2295,6 +2295,29 @@ button:disabled {
 }
 
 
+.workspace-detail {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.workspace-detail-top {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-detail-bottom {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .file-modal-content {
   display: flex;
   flex-direction: column;
@@ -2907,6 +2930,12 @@ button:disabled {
   flex-shrink: 0;
   width: auto;
   padding: 2px 4px;
+}
+
+.tab-bar-row > .quick-input-panel.minimal-mode .quick-key {
+  min-width: 44px;
+  width: 44px;
+  flex: none;
 }
 
 .tab-bar-row > .quick-extra-panel {

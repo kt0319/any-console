@@ -96,8 +96,13 @@ export function useTerminal() {
       tab.ws.close(1000);
       tab.ws = null;
     }
+    if (tab._frameResizeObserver) {
+      tab._frameResizeObserver.disconnect();
+      tab._frameResizeObserver = null;
+    }
     clearTimeout(tab._reconnectTimer);
     clearTimeout(tab._activityTimer);
+    clearTimeout(tab._fitRetryTimer);
   }
 
   function ensureTerminalOpened(tab, frameEl) {
@@ -105,10 +110,21 @@ export function useTerminal() {
     tab._pendingOpen = false;
     tab.term.open(frameEl);
     connectTerminalWs(tab);
-    requestAnimationFrame(() => {
-      fitTerminal(tab);
-    });
+    observeFrameResize(tab, frameEl);
     return true;
+  }
+
+  function observeFrameResize(tab, frameEl) {
+    if (tab._frameResizeObserver) return;
+    let debounceTimer = null;
+    tab._frameResizeObserver = new ResizeObserver(() => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        fitTerminal(tab);
+      }, 50);
+    });
+    tab._frameResizeObserver.observe(frameEl);
   }
 
   function fitTerminal(tab) {
@@ -118,7 +134,32 @@ export function useTerminal() {
       const rect = frame.getBoundingClientRect();
       if (rect.width < 2 || rect.height < 2) return;
     }
-    try { tab.fitAddon.fit(); } catch {}
+    try {
+      const dims = tab.fitAddon.proposeDimensions();
+      if (!dims || isNaN(dims.cols) || isNaN(dims.rows)) {
+        scheduleRetryFit(tab);
+        return;
+      }
+      tab.fitAddon.fit();
+    } catch {}
+  }
+
+  function scheduleRetryFit(tab) {
+    if (tab._fitRetryTimer) return;
+    let retries = 0;
+    const retry = () => {
+      tab._fitRetryTimer = null;
+      if (retries++ >= 10) return;
+      try {
+        const dims = tab.fitAddon?.proposeDimensions();
+        if (dims && !isNaN(dims.cols) && !isNaN(dims.rows)) {
+          tab.fitAddon.fit();
+          return;
+        }
+      } catch {}
+      tab._fitRetryTimer = setTimeout(retry, 100);
+    };
+    tab._fitRetryTimer = setTimeout(retry, 100);
   }
 
   async function deleteSession(sessionId) {

@@ -2,9 +2,7 @@
   <LoginScreen v-if="showLogin" ref="loginScreen" @authenticated="onAuthenticated" />
   <template v-if="authenticated">
     <AppShell ref="appShell" />
-    <Settings ref="settingsModal" />
-    <IconPicker ref="iconPicker" />
-    <File ref="fileModal" />
+    <Modal />
   </template>
   <AppToast ref="appToast" />
 </template>
@@ -13,9 +11,7 @@
 import { ref, onMounted } from "vue";
 import LoginScreen from "./LoginScreen.vue";
 import AppShell from "./AppShell.vue";
-import Settings from "./Settings.vue";
-import IconPicker from "./IconPicker.vue";
-import File from "./File.vue";
+import Modal from "./Modal.vue";
 import AppToast from "./AppToast.vue";
 import { on, emit } from "../app-bridge.js";
 import { useAuthStore } from "../stores/auth.js";
@@ -30,9 +26,6 @@ const terminalStore = useTerminalStore();
 
 const loginScreen = ref(null);
 const appShell = ref(null);
-const settingsModal = ref(null);
-const iconPicker = ref(null);
-const fileModal = ref(null);
 const appToast = ref(null);
 
 const showLogin = ref(false);
@@ -106,7 +99,8 @@ async function restoreExistingSessions() {
 
     const first = terminalStore.openTabs[0];
     if (first) terminalStore.switchTab(first.id);
-    setTimeout(() => emit("layout:fitAll"), 300);
+    setTimeout(() => emit("layout:fitAll"), 100);
+    setTimeout(() => emit("layout:fitAll"), 500);
   } catch (e) {
     console.error("restoreExistingSessions failed:", e);
   }
@@ -116,8 +110,6 @@ onMounted(async () => {
   if (layoutStore.isPwa) document.documentElement.classList.add("pwa");
 
   on("toast:show", ({ message, type }) => appToast.value?.show(message, type));
-  on("settings:open", (detail) => settingsModal.value?.open(detail?.view));
-  on("settings:close", () => settingsModal.value?.close());
   on("job:run", ({ jobName, job, workspace }) => {
     if (job?.terminal === false) {
       execNonTerminalJob(jobName, workspace);
@@ -137,13 +129,6 @@ onMounted(async () => {
   on("job:exec", ({ jobName, job, workspace }) => {
     execNonTerminalJob(jobName, workspace);
   });
-  on("iconPicker:open", ({ callback, currentIcon, currentColor }) => iconPicker.value?.open(callback, currentIcon, currentColor));
-  on("iconPicker:close", () => iconPicker.value?.close());
-  on("git:openFileModal", (detail) => fileModal.value?.open(detail));
-  on("git:closeFileModal", () => fileModal.value?.close());
-  on("workspace:openModal", () => settingsModal.value?.open("workspace"));
-  on("modal:close", () => settingsModal.value?.close());
-
   const savedToken = auth.loadToken();
   if (savedToken) {
     auth.token = savedToken;
