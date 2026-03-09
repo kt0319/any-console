@@ -77,6 +77,7 @@ async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, j
       initialCommand,
     });
     terminalStore.switchTab(tab.id);
+    if (workspace) workspaceStore.selectedWorkspace = workspace;
     await nextTick();
     terminalSplit.value?.fitAllTerminals();
   } catch (e) {

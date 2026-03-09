@@ -88,7 +88,7 @@ const hasGitActions = computed(() =>
   behind.value > 0 || ahead.value > 0 || !hasUpstream.value,
 );
 
-const isDirty = computed(() => ws.value && !ws.value.clean);
+const isDirty = computed(() => ws.value && ws.value.clean === false);
 
 const commitMsgHtml = computed(() => {
   if (!ws.value) return "";
