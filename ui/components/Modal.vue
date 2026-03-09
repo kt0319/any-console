@@ -11,7 +11,7 @@
         <button v-if="modalBack" type="button" class="modal-back-btn" @click="onBack">
           <span class="mdi mdi-arrow-left"></span>
         </button>
-        <h3 class="modal-title">{{ modalTitle }}</h3>
+        <h3 class="modal-title" :class="{ 'modal-title-clickable': modalBack }" @click="modalBack ? onBack() : null">{{ modalTitle }}</h3>
         <button type="button" class="modal-close-btn" @click="closeModal">&times;</button>
       </div>
       <div class="modal-body">

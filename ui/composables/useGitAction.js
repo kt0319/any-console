@@ -10,15 +10,26 @@ const ACTION_LABELS = {
   "set-upstream": "追跡設定",
 };
 
+const ACTION_CONFIRM = {
+  pull: "pullします",
+  push: "pushします",
+  "push-upstream": "upstream設定してpushします",
+  "set-upstream": "追跡設定します",
+};
+
 export function useGitAction() {
   const auth = useAuthStore();
   const workspaceStore = useWorkspaceStore();
   const runningAction = ref(null);
 
-  async function gitAction(wsName, action, confirmMsg) {
+  async function gitAction(wsName, action, { branch } = {}) {
     if (runningAction.value) return;
     const label = ACTION_LABELS[action] || action;
-    const msg = confirmMsg || `${wsName}: ${label} を実行しますか？`;
+    const confirmText = ACTION_CONFIRM[action] || `${label}を実行します`;
+    const lines = [`リポジトリ：${wsName}`];
+    if (branch) lines.push(`ブランチ：${branch}`);
+    lines.push("", confirmText);
+    const msg = lines.join("\n");
     if (!confirm(msg)) return;
     runningAction.value = `${wsName}:${action}`;
     try {

@@ -3,7 +3,7 @@
     ref="pillEl"
     class="tab-btn"
     :class="{ active: isActive, 'tab-activity': tab._activity, orphan: isOrphan, dragging: isDragging }"
-    :draggable="canDrag && !isTouchDevice"
+    :draggable="canDrag"
     @click="onClick"
     @dragstart="onDragStart"
     @dragend="onDragEnd"

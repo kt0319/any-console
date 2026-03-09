@@ -14,20 +14,11 @@
       class="non-git-hint commit-msg-btn"
       @click="openFileModal"
     >Gitリポジトリではありません</button>
-    <div v-if="isGitRepo" class="git-actions">
+    <div v-if="isGitRepo && hasGitActions" class="git-actions">
       <GitActionBtn v-if="behind > 0" icon="pull" title="Pull" :count="behind" :running="isRunning(workspace, 'pull')" btn-class="pull-btn has-count" @action="doAction('pull')" />
       <GitActionBtn v-if="!hasUpstream && hasRemoteBranch" icon="set-upstream" title="追跡設定" :running="isRunning(workspace, 'set-upstream')" btn-class="icon-only upstream-set-btn" @action="doAction('set-upstream')" />
       <GitActionBtn v-if="!hasUpstream && !hasRemoteBranch" icon="push-upstream" title="Push" :count="ahead" :running="isRunning(workspace, 'push-upstream')" btn-class="upstream-btn" @action="doAction('push-upstream')" />
       <GitActionBtn v-if="hasUpstream && ahead > 0" icon="push" title="Push" :count="ahead" :running="isRunning(workspace, 'push')" btn-class="push-btn has-count" @action="doAction('push')" />
-      <button type="button" class="git-action-btn icon-only" title="ブランチ" @click="openPane('branch')">
-        <span class="mdi mdi-source-branch"></span>
-      </button>
-      <button type="button" class="git-action-btn icon-only" title="Stash" @click="openPane('stash')">
-        <span class="mdi mdi-package-down"></span>
-      </button>
-      <button v-if="githubUrl" type="button" class="git-action-btn icon-only" title="GitHub" @click="openPane('github')">
-        <span class="mdi mdi-github"></span>
-      </button>
     </div>
   </div>
 </template>
@@ -63,7 +54,9 @@ const hasRemoteBranch = computed(() => ws.value?.has_remote_branch !== false);
 const ahead = computed(() => ws.value?.ahead || 0);
 const behind = computed(() => ws.value?.behind || 0);
 
-const githubUrl = computed(() => ws.value?.github_url || "");
+const hasGitActions = computed(() =>
+  behind.value > 0 || ahead.value > 0 || !hasUpstream.value,
+);
 const isDirty = computed(() => ws.value && ws.value.clean === false);
 
 const commitMsgHtml = computed(() => {
@@ -101,21 +94,10 @@ function openFileModal() {
   emit("git:openFileModal");
 }
 
-function openPane(key) {
-  if (workspace.value) {
-    workspaceStore.selectedWorkspace = workspace.value;
-  }
-  if (key === "github") {
-    emit("git:openGitHub");
-  } else {
-    emit("git:openFileModal", { pane: key });
-  }
-}
-
 function doAction(action) {
   const wsName = workspace.value;
   if (!wsName) return;
   const branch = ws.value?.branch || "";
-  gitAction(wsName, action, `${wsName}  ${branch}`);
+  gitAction(wsName, action, { branch });
 }
 </script>

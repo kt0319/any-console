@@ -152,12 +152,11 @@ function onPillMouseDown() {
   }, LONG_PRESS_MS);
 }
 
-function onPillMouseUp() {
+function onPillClick() {
   if (pillMouseLongPressTimer) {
     clearTimeout(pillMouseLongPressTimer);
     pillMouseLongPressTimer = null;
   }
-  if (pillDidDrag) return;
   if (Date.now() - pillMouseDownTime > 300) return;
   emit("workspace:openModal");
 }

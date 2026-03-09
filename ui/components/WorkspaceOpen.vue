@@ -16,11 +16,10 @@
               </span>
             </button>
             <div class="picker-ws-top-meta">
-              <GitActionBtn v-if="ws.is_git_repo && ws.behind > 0" icon="pull" title="Pull" :count="ws.behind" :running="isRunning(ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action.stop="doAction(ws, 'pull')" />
-              <GitActionBtn v-if="ws.is_git_repo && ws.ahead > 0 && ws.has_upstream !== false" icon="push" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action.stop="doAction(ws, 'push')" />
-              <GitActionBtn v-if="ws.is_git_repo && ws.ahead > 0 && ws.has_upstream === false" icon="push-upstream" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action.stop="doAction(ws, 'push-upstream')" />
+              <GitActionBtn v-if="ws.is_git_repo && ws.behind > 0" icon="pull" title="Pull" :count="ws.behind" :running="isRunning(ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="doAction(ws, 'pull')" />
+              <GitActionBtn v-if="ws.is_git_repo && ws.ahead > 0 && ws.has_upstream !== false" icon="push" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(ws, 'push')" />
+              <GitActionBtn v-if="ws.is_git_repo && ws.ahead > 0 && ws.has_upstream === false" icon="push-upstream" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action="doAction(ws, 'push-upstream')" />
               <button v-if="ws.is_git_repo && !ws.clean" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(ws)" @click="openDetail(ws)"></button>
-              <button v-if="ws.is_git_repo && ws.clean" type="button" class="git-badge clean" @click="openDetail(ws)">✓</button>
             </div>
           </div>
           <div class="picker-ws-row picker-ws-row-bottom">
@@ -69,7 +68,7 @@ const { gitAction, isRunning } = useGitAction();
 const wsJobs = reactive({});
 
 function doAction(ws, action) {
-  gitAction(ws.name, action);
+  gitAction(ws.name, action, { branch: ws.branch });
 }
 
 const visibleWorkspaces = computed(() => workspaceStore.visibleWorkspaces);
@@ -105,9 +104,11 @@ async function loadJobs(wsName) {
 }
 
 function dirtyBadgeHtml(ws) {
+  const files = ws.changed_files || 0;
   const ins = ws.insertions || 0;
   const del = ws.deletions || 0;
-  return `M <span class="diff-num-plus">+${ins}</span> <span class="diff-num-del">-${del}</span>`;
+  const filePart = files > 0 ? `<span class="header-git-files">${files}F</span> ` : "";
+  return `${filePart}<span class="diff-num-plus">+${ins}</span> <span class="diff-num-del">-${del}</span>`;
 }
 
 function openDetail(ws) {

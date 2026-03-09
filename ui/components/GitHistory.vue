@@ -1,19 +1,5 @@
 <template>
   <div class="git-history-pane-wrapper">
-    <!-- ペインタブ（常に表示） -->
-    <div v-if="!loading && entries.length > 0" class="git-log-pane-tabs-bar">
-      <div class="git-log-pane-tabs">
-        <button
-          v-for="tab in PANE_TABS"
-          :key="tab.key"
-          type="button"
-          class="git-log-pane-tab"
-          :class="{ active: activePane === tab.key }"
-          :title="tab.label"
-          @click="selectPane(tab.key)"
-        ><span :class="'mdi ' + tab.icon"></span></button>
-      </div>
-    </div>
     <!-- ファイル一覧モード -->
     <template v-if="expandedEntry">
       <div class="git-log-commit-files-header" @click="closeExpanded">
@@ -52,6 +38,17 @@
             </span>
           </span>
         </span>
+        <div class="git-log-dirty-actions" @click.stop>
+          <button type="button" class="git-action-btn icon-only" title="ブランチ" @click="selectPane('branch')">
+            <span class="mdi mdi-source-branch"></span>
+          </button>
+          <button type="button" class="git-action-btn icon-only" title="Stash" @click="selectPane('stash')">
+            <span class="mdi mdi-package-down"></span>
+          </button>
+          <button v-if="githubUrl" type="button" class="git-action-btn icon-only" title="GitHub" @click="selectPane('github')">
+            <span class="mdi mdi-github"></span>
+          </button>
+        </div>
       </div>
       <template v-for="entry in entries" :key="entry.hash">
         <div
@@ -109,12 +106,6 @@ const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
 const gitStore = useGitStore();
 
-const PANE_TABS = [
-  { key: "branch", label: "ブランチ", icon: "mdi-source-branch" },
-  { key: "stash", label: "Stash", icon: "mdi-package-down" },
-  { key: "github", label: "GitHub", icon: "mdi-github" },
-];
-
 const activePane = ref("browser");
 
 function selectPane(key) {
@@ -126,6 +117,7 @@ const currentWs = computed(() =>
   workspaceStore.allWorkspaces.find((w) => w.name === workspaceStore.selectedWorkspace),
 );
 const isDirty = computed(() => currentWs.value && currentWs.value.clean === false);
+const githubUrl = computed(() => currentWs.value?.github_url || "");
 const dirtyStat = computed(() => {
   const ws = currentWs.value;
   if (!ws || ws.clean !== false) return "0F +0 -0";
@@ -338,8 +330,29 @@ async function execReset(entry, mode) {
   }
 }
 
-function selectDirty() {
-  bridgeEmit("git:selectDirty");
+async function selectDirty() {
+  if (!isDirty.value) return;
+  expandedEntry.value = { message: "未コミットの変更", author: "", time: "", hash: "__dirty__", fullHash: "__dirty__" };
+  expandedFiles.value = [];
+  expandedLoading.value = true;
+  try {
+    const workspace = workspaceStore.selectedWorkspace;
+    if (!workspace) return;
+    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/diff`);
+    if (!res || !res.ok) return;
+    const data = await res.json();
+    expandedFiles.value = (data.files || []).map((f) => ({
+      path: f.path || f.name,
+      status: f.status || "M",
+      numstat: f.insertions != null ? `<span class="numstat-added">+${f.insertions}</span> <span class="numstat-deleted">-${f.deletions}</span>` : "",
+    }));
+    gitStore.diffChunks = parseDiffChunks(data.diff);
+    gitStore.diffFullText = data.diff || "";
+  } catch (e) {
+    console.error("dirty files load failed:", e);
+  } finally {
+    expandedLoading.value = false;
+  }
 }
 
 async function selectCommit(entry) {
@@ -359,7 +372,7 @@ async function selectCommit(entry) {
     expandedFiles.value = (data.files || []).map((f) => ({
       path: f.path || f.name,
       status: f.status || "M",
-      numstat: f.added != null ? `<span class="numstat-added">+${f.added}</span> <span class="numstat-deleted">-${f.deleted}</span>` : "",
+      numstat: f.insertions != null ? `<span class="numstat-added">+${f.insertions}</span> <span class="numstat-deleted">-${f.deletions}</span>` : "",
     }));
     gitStore.diffChunks = parseDiffChunks(data.diff);
     gitStore.diffFullText = data.diff || "";

@@ -1487,6 +1487,25 @@ button.git-badge:disabled {
   overflow-wrap: anywhere;
   word-break: break-word;
 }
+.line-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.line-num {
+  user-select: none;
+  text-align: right;
+  padding-right: 10px;
+  color: var(--text-muted);
+  opacity: 0.5;
+  vertical-align: top;
+  white-space: nowrap;
+  width: 1px;
+}
+.line-content {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 
 .file-content-image-wrap {
   display: flex;
@@ -2032,6 +2051,10 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.modal-title-clickable {
+  cursor: pointer;
 }
 .modal-body {
   display: flex;
