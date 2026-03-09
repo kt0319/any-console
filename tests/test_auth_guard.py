@@ -55,6 +55,7 @@ ENDPOINTS = [
     ("POST", "/workspaces/test-ws/delete-file"),
     ("GET", "/workspaces/test-ws/download"),
     # jobs
+    ("GET", "/jobs/workspaces"),
     ("GET", "/workspaces/test-ws/jobs"),
     ("GET", "/workspaces/test-ws/jobs/job_test"),
     ("POST", "/workspaces/test-ws/jobs"),

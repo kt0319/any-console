@@ -79,21 +79,16 @@ async function loadWorkspaceOverview() {
 }
 
 async function fetchAllWorkspaceJobs() {
-  for (const ws of visibleWorkspaces.value) {
-    if (wsJobs[ws.name]) continue;
-    loadWorkspaceJobs(ws.name);
-  }
-}
-
-async function loadWorkspaceJobs(wsName) {
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(wsName)}/jobs`);
+    const res = await auth.apiFetch("/jobs/workspaces");
     if (!res || !res.ok) return;
     const data = await res.json();
-    const entries = Object.entries(data)
-      .filter(([name]) => name !== "terminal")
-      .map(([name, job]) => ({ name, ...job }));
-    wsJobs[wsName] = entries;
+    for (const ws of visibleWorkspaces.value) {
+      const jobs = data[ws.name] || {};
+      wsJobs[ws.name] = Object.entries(jobs)
+        .filter(([name]) => name !== "terminal")
+        .map(([name, job]) => ({ name, ...job }));
+    }
   } catch {
     // ignore
   }

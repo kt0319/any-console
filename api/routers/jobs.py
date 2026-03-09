@@ -8,6 +8,7 @@ import time
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from .. import common
 from ..auth import verify_token
 from ..common import (
     MAX_TERMINAL_SESSIONS,
@@ -86,11 +87,27 @@ def job_definition_to_dict(job_def):
     }
 
 
+def serialize_workspace_jobs(workspace_name: str) -> dict:
+    jobs = get_workspace_jobs(workspace_name)
+    return {jname: job_definition_to_dict(job_def) for jname, job_def in jobs.items()}
+
+
+@router.get("/jobs/workspaces")
+def list_all_workspace_jobs():
+    if not common.WORK_DIR.is_dir():
+        return {}
+    result = {}
+    for workspace_dir in sorted(common.WORK_DIR.iterdir(), key=lambda path: path.name):
+        if not workspace_dir.is_dir() or workspace_dir.name.startswith("."):
+            continue
+        result[workspace_dir.name] = serialize_workspace_jobs(workspace_dir.name)
+    return result
+
+
 @router.get("/workspaces/{name}/jobs")
 def list_workspace_jobs(name: str):
     resolve_workspace_path(name)
-    jobs = get_workspace_jobs(name)
-    return {jname: job_definition_to_dict(job_def) for jname, job_def in jobs.items()}
+    return serialize_workspace_jobs(name)
 
 
 @router.get("/workspaces/{name}/jobs/{job_name}")
