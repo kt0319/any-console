@@ -5,7 +5,7 @@
     :class="{ active: isActive, 'tab-activity': tab._activity, orphan: isOrphan, dragging: isDragging }"
     :draggable="canDrag"
     tabindex="-1"
-    @mousedown="onMouseDown"
+    @mousedown.prevent="onMouseDown"
     @click="onClick"
     @dragstart="onDragStart"
     @dragend="onDragEnd"

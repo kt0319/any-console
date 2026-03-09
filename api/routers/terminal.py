@@ -390,7 +390,7 @@ ws_router = APIRouter()
 
 
 @ws_router.websocket("/terminal/ws/{session_id}")
-async def terminal_ws(websocket: WebSocket, session_id: str):
+async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows: int = 0):
     with sessions_lock:
         session = TERMINAL_SESSIONS.get(session_id)
 
@@ -448,6 +448,19 @@ async def terminal_ws(websocket: WebSocket, session_id: str):
     session.pid = pid
     session.active_ws = websocket
     session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
+
+    if cols > 0 and rows > 0:
+        try:
+            winsize = struct.pack("HHHH", rows, cols, 0, 0)
+            fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
+            subprocess.run(
+                ["tmux", "resize-window", "-t", session.tmux_session_name, "-x", str(cols), "-y", str(rows)],
+                timeout=TMUX_CMD_TIMEOUT_SEC,
+                capture_output=True,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
     stop_event = threading.Event()
     loop = asyncio.get_event_loop()
 

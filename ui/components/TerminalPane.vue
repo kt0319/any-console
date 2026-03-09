@@ -14,7 +14,7 @@
         ref="pillEl"
         tabindex="-1"
         :draggable="canDrag"
-        @mousedown="onPillMouseDown"
+        @mousedown.prevent="onPillMouseDown"
         @click="onPillClick"
         @dragstart="onPillDragStart"
         @dragend="onPillDragEnd"

@@ -3,27 +3,30 @@ import { useAuthStore } from "../stores/auth.js";
 import { useTerminalStore } from "../stores/terminal.js";
 
 const RECONNECT_BACKOFF_MAX = 30000;
-const SESSION_KEEPALIVE_INTERVAL = 5 * 60 * 1000;
 
 export function useTerminal() {
   const auth = useAuthStore();
   const terminalStore = useTerminalStore();
 
-  function buildWebSocketUrl(sessionId) {
+  function buildWebSocketUrl(sessionId, cols, rows) {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
-    return `${proto}//${location.host}/terminal/ws/${sessionId}?token=${encodeURIComponent(auth.token)}`;
+    let url = `${proto}//${location.host}/terminal/ws/${sessionId}?token=${encodeURIComponent(auth.token)}`;
+    if (cols && rows) {
+      url += `&cols=${cols}&rows=${rows}`;
+    }
+    return url;
   }
 
   function connectTerminalWs(tab) {
     if (!tab || tab._wsDisposed) return;
-    const wsUrl = buildWebSocketUrl(tab.sessionId);
+    const dims = tab.fitAddon?.proposeDimensions?.();
+    const wsUrl = buildWebSocketUrl(tab.sessionId, dims?.cols, dims?.rows);
     const ws = new WebSocket(wsUrl);
     ws.binaryType = "arraybuffer";
     tab.ws = ws;
 
     ws.onopen = () => {
       tab._reconnectAttempts = 0;
-      console.log(`[ws.onopen] tab=${tab.id} pendingRedraw=${tab._pendingRedraw}`);
       fitTerminal(tab, { force: true });
       if (tab._pendingRedraw) {
         tab._pendingRedraw = false;
@@ -73,6 +76,18 @@ export function useTerminal() {
     tab._inputBound = true;
 
     const encoder = new TextEncoder();
+
+    tab.term?.attachCustomKeyEventHandler((e) => {
+      if (e.type === "keydown" && e.key === "Enter" && e.shiftKey) {
+        e.preventDefault();
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(encoder.encode("\n"));
+        }
+        return false;
+      }
+      return true;
+    });
+
     tab.term?.onData((data) => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(encoder.encode(data));
@@ -146,12 +161,7 @@ export function useTerminal() {
     const frame = document.getElementById(`frame-${tab.id}`);
     if (frame) {
       const rect = frame.getBoundingClientRect();
-      if (rect.width < 2 || rect.height < 2) {
-        console.log(`[fitTerminal] tab=${tab.id} SKIP: frame too small (${rect.width}x${rect.height})`);
-        return;
-      }
-      const dims = tab.fitAddon.proposeDimensions();
-      console.log(`[fitTerminal] tab=${tab.id} force=${force} frame=${Math.round(rect.width)}x${Math.round(rect.height)} dims=${dims?.cols}x${dims?.rows} cached=${tab._lastFitCols}x${tab._lastFitRows} ws=${tab.ws?.readyState}`);
+      if (rect.width < 2 || rect.height < 2) return;
     }
     try {
       const dims = tab.fitAddon.proposeDimensions();
@@ -178,6 +188,5 @@ export function useTerminal() {
     fitTerminal,
     observeFrameResize,
     deleteSession,
-    buildWebSocketUrl,
   };
 }

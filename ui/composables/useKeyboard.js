@@ -5,7 +5,6 @@ import {
   LONG_PRESS_MS, FLICK_THRESHOLD,
   REPEAT_DELAY, REPEAT_INTERVAL, MIN_REPEAT_INTERVAL, REPEAT_ACCELERATION,
 } from "../utils/constants.js";
-export { LONG_PRESS_MS, REPEAT_DELAY, REPEAT_INTERVAL, MIN_REPEAT_INTERVAL, REPEAT_ACCELERATION };
 
 export function useKeyboard() {
   const terminalStore = useTerminalStore();
@@ -138,6 +137,28 @@ export function useKeyboard() {
     el.addEventListener("touchcancel", () => {
       el.classList.remove("pressed");
       stopRepeat();
+      cancelLongPress();
+    });
+
+    el.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      longPressFired = false;
+      if (opts.onLongPress && (!opts.longPressGuard || opts.longPressGuard())) {
+        longPressTimer = setTimeout(() => {
+          longPressTimer = null;
+          longPressFired = true;
+          opts.onLongPress();
+        }, LONG_PRESS_MS);
+      }
+    });
+
+    el.addEventListener("mouseup", () => {
+      cancelLongPress();
+      if (longPressFired) return;
+      if (onTap) onTap();
+    });
+
+    el.addEventListener("mouseleave", () => {
       cancelLongPress();
     });
   }
