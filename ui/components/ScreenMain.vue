@@ -337,6 +337,58 @@ defineExpose({
 
 <style scoped>
 .screen-main-empty {
-  min-height: 100dvh;
+  height: var(--app-dvh);
+  min-height: var(--app-dvh);
+  align-items: stretch;
+}
+
+.main-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.main-panel.panel-bottom :deep(.output-container) {
+  order: -1;
+}
+
+.main-panel.panel-bottom :deep(.tab-bar-row) {
+  order: 2;
+  position: relative;
+  border-bottom: none;
+  border-top: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+
+.main-panel.panel-bottom :deep(.tab-bar) {
+  padding: 0 8px 4px;
+}
+
+.main-panel.panel-bottom :deep(.tab-btn) {
+  border-radius: 0 0 6px 6px;
+  padding: 6px 12px;
+  gap: 2px;
+  min-width: 80px;
+  justify-content: center;
+}
+
+.main-panel.panel-bottom :deep(.workspace-status-bar) {
+  order: 1;
+  border-bottom: none;
+  border-top: 1px solid var(--border);
+}
+
+.main-panel.keyboard-open :deep(.tab-bar-row),
+.main-panel.keyboard-open :deep(.workspace-status-bar) {
+  display: none !important;
+}
+
+:global(.pwa .main-panel.panel-bottom .tab-bar) {
+  padding-bottom: 0;
+}
+
+:global(.pwa .main-panel.panel-bottom .tab-bar-row) {
+  padding-bottom: 28px;
 }
 </style>

@@ -26,9 +26,11 @@ defineEmits(["openWorkspace"]);
 .screen-empty-container {
   display: flex;
   flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
   align-items: center;
   justify-content: center;
-  min-height: 0;
   padding: 12px;
 }
 
