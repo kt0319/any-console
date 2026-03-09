@@ -21,7 +21,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from "vue";
+import { ref, inject, nextTick } from "vue";
 import FileBrowser from "./FileBrowser.vue";
 import GitHistory from "./GitHistory.vue";
 import GitChangeBranch from "./GitChangeBranch.vue";
@@ -33,7 +33,8 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
 
-const emit = defineEmits(["update:title", "update:back", "close"]);
+const modalTitle = inject("modalTitle");
+const emit = defineEmits(["close"]);
 
 const fileBrowser = ref(null);
 const gitHistory = ref(null);
@@ -46,15 +47,8 @@ const selectedDiffFile = ref("");
 const diffMessage = ref("");
 let loadedWorkspace = null;
 
-
-
-function currentTitle() {
-  return workspaceStore.selectedWorkspace || "Git";
-}
-
-function emitTitleAndBack() {
-  emit("update:title", currentTitle());
-  emit("update:back", true);
+function updateViewTitle() {
+  modalTitle.value = workspaceStore.selectedWorkspace || "Git";
 }
 
 function goBack() {
@@ -75,7 +69,7 @@ async function open(options) {
   gitHistory.value?.setActivePane(activePane.value);
   selectedDiffFile.value = "";
   diffMessage.value = "";
-  emitTitleAndBack();
+  updateViewTitle();
 
   const workspace = workspaceStore.selectedWorkspace;
   if (workspace !== loadedWorkspace) {
@@ -99,7 +93,7 @@ function switchPane(key) {
   activePane.value = key;
   gitHistory.value?.setActivePane(key);
   selectedDiffFile.value = "";
-  emitTitleAndBack();
+  updateViewTitle();
   if (key === "browser") {
     fileBrowser.value?.load();
   } else if (key === "branch") {

@@ -112,8 +112,12 @@ function onPillDragStart(e) {
 
 function onPillDragEnd() {
   pillDragging.value = false;
+  const droppedOnZone = !layoutStore.showDropZones;
   layoutStore.showDropZones = false;
   layoutStore.dragTabId = null;
+  if (!droppedOnZone && Date.now() - pillMouseDownTime < 300) {
+    emit("workspace:openModal");
+  }
 }
 
 // Mobile: Touch drag + long press for pill

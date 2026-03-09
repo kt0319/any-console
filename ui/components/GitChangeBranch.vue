@@ -54,7 +54,7 @@ async function load() {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/branches`);
     if (!res || !res.ok) { loading.value = false; return; }
     const data = await res.json();
-    branches.value = (data.branches || []).map((b) => ({
+    branches.value = (data || []).map((b) => ({
       name: b.name || b,
       current: !!b.current,
       remote: false,
@@ -75,7 +75,7 @@ async function showRemoteBranches() {
     if (!res || !res.ok) return;
     const data = await res.json();
     const localNames = new Set(branches.value.map((b) => b.name));
-    const remoteBranches = (data.branches || [])
+    const remoteBranches = (data || [])
       .filter((b) => !localNames.has(b.name || b))
       .map((b) => ({ name: b.name || b, current: false, remote: true }));
     branches.value = [...branches.value, ...remoteBranches];
