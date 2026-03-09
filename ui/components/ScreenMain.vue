@@ -232,6 +232,12 @@ async function closeTab(tab) {
     if (tabObj.term) tabObj.term.dispose();
   }
   terminalStore.removeTab(tabId);
+  if (layoutStore.isSplitMode) {
+    layoutStore.splitPaneTabIds = layoutStore.splitPaneTabIds.filter((id) => id !== tabId);
+    if (layoutStore.splitPaneTabIds.length < 2) {
+      layoutStore.exitSplitMode();
+    }
+  }
   if (sessionId) {
     await deleteSession(sessionId);
   }

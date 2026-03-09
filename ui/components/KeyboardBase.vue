@@ -234,7 +234,7 @@ defineExpose({
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 8px;
-  background: rgba(20, 22, 35, 0.4);
+  background: rgba(40, 44, 65, 0.55);
   color: rgba(255, 255, 255, 0.7);
   font-size: 16px;
   cursor: pointer;
@@ -382,7 +382,7 @@ defineExpose({
   padding: 0 10px;
   border: 1px solid var(--white-30);
   border-radius: 6px;
-  background: transparent;
+  background: rgba(40, 44, 65, 0.55);
   color: var(--text-primary);
   font-size: 9px;
   line-height: 28px;
@@ -464,7 +464,7 @@ defineExpose({
   padding: 10px 12px;
   border: 1px solid var(--white-30);
   border-radius: 8px;
-  background: rgba(25, 28, 40, 0.95);
+  background: rgba(25, 28, 40, 0.68);
   color: var(--text-primary);
   font-size: 16px;
   font-family: inherit;

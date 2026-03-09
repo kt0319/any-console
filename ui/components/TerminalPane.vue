@@ -34,7 +34,7 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useAuthStore } from "../stores/auth.js";
 import { renderIconStr } from "../utils/render-icon.js";
-import { exitViewMode, isViewMode } from "../utils/view-mode.js";
+import { enterViewMode, exitViewMode, isViewMode } from "../utils/view-mode.js";
 import { emit } from "../app-bridge.js";
 import { DRAG_THRESHOLD, LONG_PRESS_MS } from "../utils/constants.js";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
@@ -115,13 +115,9 @@ function onTouchStart(e) {
 
 function onTouchEnd(e) {
   if (pillEl.value && pillEl.value.contains(e.target)) return;
-  if (frameEl.value && isViewMode(frameEl.value)) {
-    exitViewMode(frameEl.value);
-    return;
-  }
   const endY = e.changedTouches?.[0]?.clientY || 0;
   if (Math.abs(endY - touchStartY) > 10) return;
-  if (layoutStore.isPanelBottom) {
+  if (layoutStore.isPanelBottom && !(frameEl.value && isViewMode(frameEl.value))) {
     emit("keyboard:activate");
   }
   if (layoutStore.isSplitMode) {
@@ -162,7 +158,16 @@ function onPillMouseDown(e) {
   });
 }
 
-function onPillClick() {
+function onPillClick(e) {
+  if (pillTouchLongPress.consumeFired()) {
+    if (e?.preventDefault) e.preventDefault();
+    return;
+  }
+  if (frameEl.value && isViewMode(frameEl.value)) {
+    if (e?.preventDefault) e.preventDefault();
+    exitViewMode(frameEl.value);
+    return;
+  }
   if (pillDidDrag) {
     pillDidDrag = false;
     return;
@@ -214,9 +219,15 @@ function onPillTouchStart(e) {
   pillTouchStartX = e.touches[0].clientX;
   pillTouchStartY = e.touches[0].clientY;
   pillTouchLongPress.reset();
-  pillTouchLongPress.start(() => {
+  pillTouchLongPress.start(async () => {
     pillLongPressed = true;
-    emit("settings:open", { view: "TabConfig" });
+    const frame = frameEl.value;
+    if (!frame) return;
+    if (isViewMode(frame)) {
+      exitViewMode(frame);
+      return;
+    }
+    await enterViewMode(props.tab, frame, auth.apiFetch.bind(auth));
   });
 }
 
@@ -243,6 +254,8 @@ function onPillTouchEnd(e) {
   pillTouchLongPress.cancel();
   if (pillLongPressed) {
     pillLongPressed = false;
+    if (e.cancelable) e.preventDefault();
+    e.stopPropagation();
     return;
   }
   if (!pillTouchDragging) return;
@@ -340,10 +353,16 @@ defineExpose({
 
 .terminal-frame.view-mode {
   border-color: #ff9800;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .terminal-frame.view-mode .tab-name-pill {
   border-color: #ff9800;
+}
+
+.terminal-frame.view-mode :deep(.xterm textarea) {
+  display: none !important;
 }
 
 .terminal-frame :deep(.xterm) {

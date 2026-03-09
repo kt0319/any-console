@@ -151,13 +151,7 @@ function onInfoClick(tab) {
 }
 
 function onClose(tab) {
-  terminalStore.removeTab(tab.id);
-  if (isSplitMode.value) {
-    layoutStore.splitPaneTabIds = layoutStore.splitPaneTabIds.filter((id) => id !== tab.id);
-    if (layoutStore.splitPaneTabIds.length < 2) {
-      layoutStore.exitSplitMode();
-    }
-  }
+  emit("tab:close", { tab });
 }
 
 const dragFromIdx = ref(null);

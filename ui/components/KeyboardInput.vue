@@ -1,7 +1,7 @@
 <template>
   <div v-if="visible">
     <div class="keyboard-input-overlay" @click="hide"></div>
-    <div class="keyboard-input-wrapper quick-input">
+    <div class="keyboard-input-wrapper quick-input" @pointerdown="markInternalInteraction">
       <div class="keyboard-input-snippets">
         <div class="quick-snippet-scroll-row">
           <button
@@ -67,6 +67,7 @@ const { sendTextToTerminal } = useKeyboard();
 const visible = ref(false);
 const draft = ref("");
 const inputEl = ref(null);
+let suppressBlurHide = false;
 
 const { snippets, history, truncateQuickText } = useQuickInputData();
 
@@ -82,8 +83,17 @@ function hide() {
 }
 
 function onInputBlur() {
+  if (suppressBlurHide) {
+    suppressBlurHide = false;
+    nextTick(() => inputEl.value?.focus());
+    return;
+  }
   // iOSでソフトキーボードを閉じた時はinputがblurするため、入力モードも閉じる
   if (visible.value) hide();
+}
+
+function markInternalInteraction() {
+  suppressBlurHide = true;
 }
 
 function insertText(text) {
@@ -93,6 +103,7 @@ function insertText(text) {
 }
 
 function submit() {
+  suppressBlurHide = false;
   const text = draft.value.trim();
   if (!text) return;
   sendTextToTerminal(text);
