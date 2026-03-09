@@ -2980,21 +2980,13 @@ button:disabled {
   padding: 4px;
 }
 
-.tab-bar-row > .quick-input-panel.minimal-mode {
-  position: static;
-  justify-content: flex-end;
-  flex-shrink: 0;
-  width: auto;
-  padding: 2px 4px;
-}
-
-.tab-bar-row > .quick-input-panel.minimal-mode .quick-key {
+.quick-input-panel.minimal-mode .quick-key {
   min-width: 44px;
   width: 44px;
   flex: none;
 }
 
-.tab-bar-row > .quick-extra-panel {
+.quick-extra-panel {
   bottom: 100%;
 }
 

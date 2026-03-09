@@ -13,7 +13,6 @@
         @active-click="onActiveClick"
       />
     </div>
-    <slot name="quick-input" />
   </div>
 </template>
 

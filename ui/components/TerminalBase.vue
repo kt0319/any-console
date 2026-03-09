@@ -68,6 +68,7 @@
         />
       </template>
     </template>
+    <slot />
   </div>
 </template>
 

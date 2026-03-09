@@ -1,11 +1,9 @@
 <template>
   <div class="main-panel" :class="{ 'panel-bottom': panelBottom }">
-    <StatusTabBar ref="tabBar" :tabs="openTabs" :orphans="orphanSessions">
-      <template v-if="panelBottom" #quick-input>
-        <KeyboardInput ref="keyboardBar" />
-      </template>
-    </StatusTabBar>
-    <TerminalBase ref="terminalSplit" />
+    <StatusTabBar ref="tabBar" :tabs="openTabs" :orphans="orphanSessions" />
+    <TerminalBase ref="terminalSplit">
+      <KeyboardInput v-if="panelBottom" ref="keyboardBar" />
+    </TerminalBase>
     <KeyboardSnippet v-if="panelBottom" ref="snippetBar" />
   </div>
 </template>
