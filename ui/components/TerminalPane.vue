@@ -13,7 +13,7 @@
         :class="{ 'tab-activity': tab._activity, dragging: pillDragging }"
         ref="pillEl"
         tabindex="-1"
-        :draggable="canDrag && !layoutStore.isTouchDevice"
+        :draggable="canDrag"
         @mousedown="onPillMouseDown"
         @mouseup="onPillMouseUp"
         @dragstart="onPillDragStart"
@@ -102,6 +102,10 @@ function onTouchEnd(e) {
 // PC: HTML5 Drag & Drop for pill
 function onPillDragStart(e) {
   if (!canDrag.value) { e.preventDefault(); return; }
+  if (pillMouseLongPressTimer) {
+    clearTimeout(pillMouseLongPressTimer);
+    pillMouseLongPressTimer = null;
+  }
   e.dataTransfer.setData("text/plain", String(props.tab.id));
   e.dataTransfer.effectAllowed = "move";
   pillDragging.value = true;
@@ -136,13 +140,23 @@ function clearPillLongPress() {
 
 let pillMouseDownTime = 0;
 let pillDidDrag = false;
+let pillMouseLongPressTimer = null;
 
 function onPillMouseDown() {
   pillMouseDownTime = Date.now();
   pillDidDrag = false;
+  if (pillMouseLongPressTimer) clearTimeout(pillMouseLongPressTimer);
+  pillMouseLongPressTimer = setTimeout(() => {
+    pillMouseLongPressTimer = null;
+    emit("settings:open", { view: "TabConfig" });
+  }, LONG_PRESS_MS);
 }
 
 function onPillMouseUp() {
+  if (pillMouseLongPressTimer) {
+    clearTimeout(pillMouseLongPressTimer);
+    pillMouseLongPressTimer = null;
+  }
   if (pillDidDrag) return;
   if (Date.now() - pillMouseDownTime > 300) return;
   emit("workspace:openModal");
@@ -166,7 +180,7 @@ function onPillTouchStart(e) {
   clearPillLongPress();
   pillLongPressTimer = setTimeout(() => {
     pillLongPressed = true;
-    toggleViewMode();
+    emit("settings:open", { view: "TabConfig" });
   }, LONG_PRESS_MS);
 }
 
