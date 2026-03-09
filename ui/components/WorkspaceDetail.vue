@@ -1,9 +1,9 @@
 <template>
   <div class="workspace-detail">
-    <div v-show="!isFullPane" class="workspace-detail-top">
+    <div class="workspace-detail-top">
       <GitHistory ref="gitHistory" />
     </div>
-    <div class="workspace-detail-bottom" :class="{ 'workspace-detail-full': isFullPane }">
+    <div class="workspace-detail-bottom">
       <TabPills :panes="PANES" :active-key="activePane" @select="switchPane" />
       <div v-show="activePane === 'files'" class="file-modal-pane file-modal-pane-split">
         <GitFiles ref="gitFiles" />
@@ -15,29 +15,20 @@
       <div v-show="activePane === 'branch'" class="file-modal-pane">
         <GitBranch ref="gitBranch" />
       </div>
-      <div v-show="activePane === 'stash'" class="file-modal-pane">
-        <GitStash ref="gitStash" />
-      </div>
-      <div v-show="activePane === 'github'" class="file-modal-pane">
-        <GitGitHub ref="gitGitHub" />
-      </div>
-
-      <CommitForm ref="commitForm" />
+      <GitCommitForm ref="commitForm" />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref } from "vue";
 import TabPills from "./TabPills.vue";
 import FileBrowser from "./FileBrowser.vue";
 import GitHistory from "./GitHistory.vue";
 import GitFiles from "./GitFiles.vue";
 import GitBranch from "./GitBranch.vue";
-import GitStash from "./GitStash.vue";
-import GitGitHub from "./GitGitHub.vue";
 import DiffViewer from "./DiffViewer.vue";
-import CommitForm from "./CommitForm.vue";
+import GitCommitForm from "./GitCommitForm.vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
@@ -50,8 +41,6 @@ const fileBrowser = ref(null);
 const gitHistory = ref(null);
 const gitFiles = ref(null);
 const gitBranch = ref(null);
-const gitStash = ref(null);
-const gitGitHub = ref(null);
 const commitForm = ref(null);
 
 const activePane = ref("browser");
@@ -65,12 +54,7 @@ const PANES = [
   { key: "browser", label: "ファイル" },
   { key: "files", label: "変更" },
   { key: "branch", label: "ブランチ" },
-  { key: "stash", label: "Stash" },
-  { key: "github", label: "GitHub" },
 ];
-
-const FULL_PANES = new Set(["stash", "github"]);
-const isFullPane = computed(() => FULL_PANES.has(activePane.value));
 
 
 function currentTitle() {
@@ -138,10 +122,6 @@ function switchPane(key) {
   } else if (key === "branch") {
     gitBranch.value?.load();
     gitBranch.value?.backgroundFetch();
-  } else if (key === "stash") {
-    gitStash.value?.load();
-  } else if (key === "github") {
-    gitGitHub.value?.load();
   }
 }
 
@@ -195,7 +175,6 @@ on("git:stashSave", async () => {
   if (!res || !res.ok) return;
   gitHistory.value?.reload();
   gitFiles.value?.loadWorkingTreeDiff();
-  gitStash.value?.load();
 });
 
 defineExpose({ open, close, goBack, showCommitDiff });

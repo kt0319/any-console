@@ -27,6 +27,8 @@
         <SettingsTerminal v-if="currentView === 'terminal'" />
         <SettingsEditor v-if="currentView === 'editor'" />
         <ServerInfo v-if="currentView === 'server'" />
+        <GitStash v-if="currentView === 'stash'" ref="gitStashView" />
+        <GitGitHub v-if="currentView === 'github'" ref="gitGitHubView" />
         <SettingsConfigFile v-if="currentView === 'config'" />
 
         <IconPicker
@@ -58,6 +60,8 @@ import SettingsTerminal from "./SettingsTerminal.vue";
 import SettingsEditor from "./SettingsEditor.vue";
 import ServerInfo from "./ServerInfo.vue";
 import SettingsConfigFile from "./SettingsConfigFile.vue";
+import GitStash from "./GitStash.vue";
+import GitGitHub from "./GitGitHub.vue";
 import IconPicker from "./IconPicker.vue";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
 import { on } from "../app-bridge.js";
@@ -79,6 +83,8 @@ const iconPickerContent = ref(null);
 const fileContent = ref(null);
 const workspaceView = ref(null);
 const wsConfigView = ref(null);
+const gitStashView = ref(null);
+const gitGitHubView = ref(null);
 
 const currentView = ref(null);
 const modalTitle = ref("");
@@ -184,6 +190,27 @@ onMounted(() => {
   on("git:closeFileModal", () => closeModal());
 
   on("workspace:openModal", () => openSettings("workspace"));
+
+  on("git:openStash", () => {
+    currentView.value = "stash";
+    modalTitle.value = "Stash";
+    modalBack.value = false;
+    nextTick(() => {
+      openModal();
+      gitStashView.value?.load();
+    });
+  });
+
+  on("git:openGitHub", () => {
+    currentView.value = "github";
+    modalTitle.value = "GitHub";
+    modalBack.value = false;
+    nextTick(() => {
+      openModal();
+      gitGitHubView.value?.load();
+    });
+  });
+
   on("modal:close", () => closeModal());
 });
 </script>

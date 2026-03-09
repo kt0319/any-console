@@ -97,7 +97,6 @@ function onTouchEnd(e) {
     emits("select-pane", props.paneIndex);
     return;
   }
-  emit("keyboard:activate");
 }
 
 // PC: HTML5 Drag & Drop for pill
