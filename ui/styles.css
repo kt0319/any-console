@@ -859,7 +859,7 @@ header {
   position: absolute;
   inset: 0;
   background: var(--overlay-bg);
-  z-index: 10;
+  z-index: 5;
   touch-action: none;
 }
 

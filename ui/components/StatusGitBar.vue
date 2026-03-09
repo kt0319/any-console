@@ -62,17 +62,18 @@
 import { computed } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
+import { useLayoutStore } from "../stores/layout.js";
 import { emit } from "../app-bridge.js";
 
 const workspaceStore = useWorkspaceStore();
-
 const terminalStore = useTerminalStore();
+const layoutStore = useLayoutStore();
 
 const activeTab = computed(() =>
   terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId),
 );
 const workspace = computed(() => activeTab.value?.workspace || null);
-const showHeader = computed(() => !!workspace.value);
+const showHeader = computed(() => !layoutStore.splitMode && !!workspace.value);
 
 const ws = computed(() =>
   workspaceStore.allWorkspaces.find((w) => w.name === workspace.value),

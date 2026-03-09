@@ -33,10 +33,27 @@
 import { ref } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { useGitStore } from "../stores/git.js";
 import { emit } from "../app-bridge.js";
 
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
+const gitStore = useGitStore();
+
+function parseDiffChunks(diffText) {
+  const chunks = {};
+  if (!diffText) return chunks;
+  const parts = diffText.split(/^diff --git /m);
+  for (const part of parts) {
+    if (!part.trim()) continue;
+    const match = part.match(/^a\/(.+?)\s+b\/(.+)/);
+    const path = match ? match[2] : null;
+    if (path) {
+      chunks[path] = "diff --git " + part;
+    }
+  }
+  return chunks;
+}
 
 const files = ref([]);
 const loading = ref(false);
@@ -69,6 +86,8 @@ async function loadWorkingTreeDiff() {
       status: f.status || "M",
       numstat: f.added != null ? `<span class="numstat-added">+${f.added}</span> <span class="numstat-deleted">-${f.deleted}</span>` : "",
     }));
+    gitStore.diffChunks = parseDiffChunks(data.diff);
+    gitStore.diffFullText = data.diff || "";
     actionButtons.value = [
       { label: "コミット", class: "primary", handler: () => emit("git:openCommitForm") },
       { label: "Stash", handler: () => emit("git:stashSave") },
@@ -93,6 +112,8 @@ async function loadCommitDiff(hash) {
       status: f.status || "M",
       numstat: f.added != null ? `<span class="numstat-added">+${f.added}</span> <span class="numstat-deleted">-${f.deleted}</span>` : "",
     }));
+    gitStore.diffChunks = parseDiffChunks(data.diff);
+    gitStore.diffFullText = data.diff || "";
     actionButtons.value = [];
   } catch (e) {
     console.error("commit diff load failed:", e);

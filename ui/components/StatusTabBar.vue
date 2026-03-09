@@ -45,6 +45,7 @@ const sortedItems = computed(() => {
 });
 
 const showBarRow = computed(() => {
+  if (splitMode.value) return false;
   const hasAnyTabs = props.tabs.length > 0 || props.orphans.length > 0;
   return hasAnyTabs || layoutStore.isTouchDevice || panelBottom.value;
 });
