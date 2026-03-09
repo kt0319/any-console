@@ -11,7 +11,7 @@
     </div>
     <div class="workspace-detail-bottom">
       <div v-show="selectedDiffFile" class="file-modal-pane">
-        <DiffViewer :file="selectedDiffFile" :message="diffMessage" />
+        <FileDiffViewer :file="selectedDiffFile" :message="diffMessage" />
       </div>
       <div v-show="!selectedDiffFile" class="file-modal-pane">
         <FileBrowser ref="fileBrowser" />
@@ -27,7 +27,7 @@ import FileBrowser from "./FileBrowser.vue";
 import GitHistory from "./GitHistory.vue";
 import GitBranch from "./GitBranch.vue";
 import GitStash from "./GitStash.vue";
-import DiffViewer from "./DiffViewer.vue";
+import FileDiffViewer from "./FileDiffViewer.vue";
 import GitCommitForm from "./GitCommitForm.vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
 import { useAuthStore } from "../stores/auth.js";

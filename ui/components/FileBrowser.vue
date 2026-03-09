@@ -45,13 +45,13 @@
       <div v-if="entries.length === 0" class="file-content-message">ファイルがありません</div>
     </template>
 
-    <FileViewer v-else :fileContent="fileContent" :fileName="currentPath" />
+    <FileTextViewer v-else :fileContent="fileContent" :fileName="currentPath" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from "vue";
-import FileViewer from "./FileViewer.vue";
+import FileTextViewer from "./FileTextViewer.vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { emit } from "../app-bridge.js";
