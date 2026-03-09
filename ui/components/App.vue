@@ -129,15 +129,6 @@ body {
   overflow: hidden;
 }
 
-header {
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  padding: 10px 0 10px 4px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .picker-ws-mini-btn.running::after,
 .commit-action-danger.running::after {
   content: "";
@@ -169,66 +160,13 @@ header {
   color: var(--error);
 }
 
-.git-badge.ahead {
-  color: var(--accent);
-  background: var(--accent-bg-20);
-}
-
-.git-badge.behind {
-  color: var(--error);
-  background: var(--error-bg-20);
-}
-
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
-#app-screen,
 #app {
   position: fixed;
   inset: 0;
-}
-
-.main-panel {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-
-.main-panel.panel-bottom .output-container {
-  order: -1;
-}
-
-.main-panel.panel-bottom .tab-bar-row {
-  order: 2;
-  position: relative;
-  border-bottom: none;
-  border-top: 1px solid var(--border);
-  padding-bottom: 4px;
-}
-
-.main-panel.panel-bottom .tab-bar {
-  padding: 0 8px 4px;
-}
-
-.main-panel.panel-bottom .tab-btn {
-  border-radius: 0 0 6px 6px;
-  padding: 6px 12px;
-  gap: 2px;
-  min-width: 80px;
-  justify-content: center;
-}
-
-.main-panel.panel-bottom .workspace-status-bar {
-  order: 1;
-  border-bottom: none;
-  border-top: 1px solid var(--border);
-}
-
-.main-panel.keyboard-open .tab-bar-row,
-.main-panel.keyboard-open .workspace-status-bar {
-  display: none !important;
 }
 
 .numstat-added {
@@ -266,24 +204,6 @@ header {
   transition: none;
 }
 
-.output-container {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  overflow: hidden;
-}
-
-.output-container.input-overlay-active::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--overlay-bg);
-  z-index: 5;
-  touch-action: none;
-}
-
 button {
   font-family: inherit;
   font-size: 13px;
@@ -311,12 +231,6 @@ button:disabled {
   cursor: not-allowed;
 }
 
-#settings-menu-view {
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-}
-
 .form-input {
   width: 100%;
   padding: 8px 10px;
@@ -341,39 +255,14 @@ button:disabled {
   color: var(--error);
 }
 
-@media (max-width: 768px) {
-  header {
-    padding: 8px 12px 8px;
-    flex-wrap: wrap;
-    align-items: flex-start;
-  }
-}
-
 .favicon-icon {
   display: inline-block;
   vertical-align: middle;
   border-radius: 2px;
 }
 
-.picker-ws-icon-btn .favicon-icon {
-  width: 18px;
-  height: 18px;
-}
-
 .pwa, .pwa body {
   background: var(--bg-secondary);
-}
-
-.pwa .main-panel.panel-bottom .tab-bar-row {
-  padding-bottom: 0;
-}
-
-.pwa .main-panel.panel-bottom .tab-bar {
-  padding-bottom: 0;
-}
-
-.pwa .main-panel.panel-bottom .tab-bar-row {
-  padding-bottom: 28px;
 }
 
 #config-file-body,
