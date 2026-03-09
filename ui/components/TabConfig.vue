@@ -49,8 +49,8 @@
             />
           </span>
           <span class="split-tab-row-info" @click.stop="onInfoClick(tab)">
-            <span v-if="tab.wsIcon" v-html="renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
-            <span v-if="tab.icon" v-html="renderIcon(tab.icon.name, tab.icon.color, 14)"></span>
+            <span v-if="tab.wsIcon" v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
+            <span v-if="tab.icon" v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
             {{ tabDisplayName(tab) }}
           </span>
           <button type="button" class="split-tab-close-btn" @click.stop="onClose(tab)">&times;</button>
@@ -90,10 +90,6 @@ const currentMode = computed(() => {
   if (!isSplitMode.value) return "normal";
   return layoutStore.splitLayout || "vertical";
 });
-
-function renderIcon(icon, color, size) {
-  return renderIconStr(icon, color, size);
-}
 
 function tabDisplayName(tab) {
   return tab.workspace || tab.label || "";

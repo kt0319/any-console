@@ -39,7 +39,7 @@
               @touchend="onLongPressEnd"
               @touchcancel="onLongPressEnd"
             >
-              <span class="file-browser-item-icon nf-icon" v-html="entryIcon(entry)"></span>
+              <span class="file-browser-item-icon nf-icon" v-html="renderFileIcon(entry)"></span>
               <span class="file-browser-item-name">{{ entry.name }}</span>
               <span v-if="entry.type === 'file' && entry.size != null" class="file-browser-item-size">{{ formatSize(entry.size) }}</span>
             </li>
@@ -68,6 +68,7 @@ import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore } from "../stores/git.js";
 import { emit } from "../app-bridge.js";
+import { renderFileIcon } from "../utils/file-icon.js";
 
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
@@ -136,92 +137,6 @@ watch(() => props.diffMessage, (msg) => {
     diffHtml.value = `<div style="color:var(--text-muted);padding:16px;text-align:center">${escapeDiffHtml(msg)}</div>`;
   }
 }, { immediate: true });
-
-const NF_EXT_MAP = {
-  js: ["\u{E781}", "#f1e05a"],
-  mjs: ["\u{E781}", "#f1e05a"],
-  ts: ["\u{E628}", "#3178c6"],
-  tsx: ["\u{E7BA}", "#3178c6"],
-  jsx: ["\u{E7BA}", "#61dafb"],
-  vue: ["\u{F0A20}", "#42b883"],
-  json: ["\u{E60B}", "#cbcb41"],
-  html: ["\u{E736}", "#e44d26"],
-  css: ["\u{E749}", "#563d7c"],
-  scss: ["\u{E749}", "#c6538c"],
-  py: ["\u{E73C}", "#3572a5"],
-  rb: ["\u{E739}", "#cc342d"],
-  rs: ["\u{E7A8}", "#dea584"],
-  go: ["\u{E627}", "#00add8"],
-  java: ["\u{E738}", "#b07219"],
-  c: ["\u{E61E}", "#555555"],
-  cpp: ["\u{E61D}", "#f34b7d"],
-  h: ["\u{E61E}", "#555555"],
-  sh: ["\u{E795}", "#89e051"],
-  bash: ["\u{E795}", "#89e051"],
-  zsh: ["\u{E795}", "#89e051"],
-  md: ["\u{E73E}", "#083fa1"],
-  yml: ["\u{E6A8}", "#cb171e"],
-  yaml: ["\u{E6A8}", "#cb171e"],
-  toml: ["\u{E6B2}", "#9c4221"],
-  xml: ["\u{E619}", "#e44d26"],
-  svg: ["\u{F01A5}", "#ffb13b"],
-  png: ["\u{F01A5}", "#a074c4"],
-  jpg: ["\u{F01A5}", "#a074c4"],
-  jpeg: ["\u{F01A5}", "#a074c4"],
-  gif: ["\u{F01A5}", "#a074c4"],
-  webp: ["\u{F01A5}", "#a074c4"],
-  ico: ["\u{F01A5}", "#a074c4"],
-  pdf: ["\u{EAEB}", "#e44d26"],
-  zip: ["\u{F410}", "#e8a835"],
-  gz: ["\u{F410}", "#e8a835"],
-  tar: ["\u{F410}", "#e8a835"],
-  lock: ["\u{E21A}", "#555555"],
-  env: ["\u{E615}", "#faf743"],
-  sql: ["\u{E706}", "#e38c00"],
-  docker: ["\u{E7B0}", "#2496ed"],
-  dockerfile: ["\u{E7B0}", "#2496ed"],
-  gitignore: ["\u{E702}", "#f54d27"],
-  txt: ["\u{F0219}", "#89e051"],
-  log: ["\u{F0219}", "#555555"],
-  conf: ["\u{E615}", "#6d8086"],
-  cfg: ["\u{E615}", "#6d8086"],
-  ini: ["\u{E615}", "#6d8086"],
-  csv: ["\u{F0219}", "#89e051"],
-  woff: ["\u{E659}", "#aaaaaa"],
-  woff2: ["\u{E659}", "#aaaaaa"],
-  ttf: ["\u{E659}", "#aaaaaa"],
-  eot: ["\u{E659}", "#aaaaaa"],
-};
-
-const NF_NAME_MAP = {
-  Dockerfile: ["\u{E7B0}", "#2496ed"],
-  Makefile: ["\u{E615}", "#6d8086"],
-  LICENSE: ["\u{F0219}", "#d4aa00"],
-  README: ["\u{E73E}", "#083fa1"],
-  "README.md": ["\u{E73E}", "#083fa1"],
-  ".gitignore": ["\u{E702}", "#f54d27"],
-  ".env": ["\u{E615}", "#faf743"],
-  ".env.local": ["\u{E615}", "#faf743"],
-};
-
-function entryIcon(entry) {
-  if (entry.type === "dir") {
-    return `<span style="color:#e8a735">\u{F024B}</span>`;
-  }
-  if (entry.type === "symlink") {
-    return `<span style="color:#7aa2f7">\u{EB15}</span>`;
-  }
-  const nameMatch = NF_NAME_MAP[entry.name];
-  if (nameMatch) {
-    return `<span style="color:${nameMatch[1]}">${nameMatch[0]}</span>`;
-  }
-  const ext = entry.name.includes(".") ? entry.name.split(".").pop().toLowerCase() : "";
-  const extMatch = NF_EXT_MAP[ext];
-  if (extMatch) {
-    return `<span style="color:${extMatch[1]}">${extMatch[0]}</span>`;
-  }
-  return `<span style="color:#6d8086">\u{F0219}</span>`;
-}
 
 function formatSize(bytes) {
   if (bytes == null) return "";
@@ -453,6 +368,9 @@ async function openEntryInEditor() {
 function onCrumbClick(path) {
   if (props.diffFile) {
     emit("git:selectDirty");
+    fileContent.value = null;
+    currentPath.value = path || "";
+    navigate(currentPath.value);
     return;
   }
   navigate(path);

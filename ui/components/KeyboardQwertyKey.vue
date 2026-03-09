@@ -1,37 +1,5 @@
 <template>
-  <div
-    v-show="mode === 0"
-    id="quick-input-panel"
-    ref="panelEl"
-    class="quick-input-panel minimal-mode"
-    :class="{ 'snippet-open': snippetOpen }"
-  >
-    <div
-      class="quick-key quick-flick-arrow quick-key-toggle"
-      ref="arrowFlickEl"
-    >
-      <span class="flick-hint-top">&uarr;</span>
-      <span class="flick-hint-left">&larr;</span>
-      <span class="flick-main">
-        <span class="mdi mdi-keyboard"></span>
-      </span>
-      <span class="flick-hint-right">&rarr;</span>
-      <span class="flick-hint-bottom">&darr;</span>
-    </div>
-
-    <div
-      class="quick-key quick-flick-enter quick-flick-arrow quick-key-toggle"
-      ref="enterFlickEl"
-    >
-      <span class="flick-hint-top">Tab</span>
-      <span class="flick-hint-left">BS</span>
-      <span class="flick-main">&crarr;</span>
-      <span class="flick-hint-bottom">Space</span>
-      <span class="flick-hint-right">Del</span>
-    </div>
-  </div>
-
-  <div v-show="mode === 1" class="quick-extra-panel quick-qwerty-panel" ref="qwertyPanelEl">
+  <div v-show="active" class="quick-extra-panel quick-qwerty-panel">
     <KeyboardSnippet ref="qwertyKeyboardSnippet" />
     <div v-for="(row, ri) in qwertyRows" :key="ri" class="quick-extra-row">
       <div
@@ -39,10 +7,10 @@
         :key="ci"
         class="quick-key"
         :class="{ 'quick-flick-arrow': hasFlick(ri, ci, keyDef) }"
-        @touchstart.prevent="onQwertyTouchStart($event, keyDef, ri, ci)"
+        @touchstart.prevent="onQwertyTouchStart($event, keyDef)"
         @touchend.prevent="onQwertyTouchEnd($event, keyDef, ri, ci)"
         @touchcancel="onQuickKeyCancel($event)"
-        @mouseup="onQwertyMouseUp($event, keyDef, ri, ci)"
+        @mouseup="onQwertyMouseUp($event, keyDef)"
       >
         <template v-if="hasFlick(ri, ci, keyDef)">
           <span v-if="flickUpLabel(ri, ci, keyDef)" class="flick-hint-top">{{ flickUpLabel(ri, ci, keyDef) }}</span>
@@ -68,7 +36,6 @@
       <div
         class="quick-key quick-flick-arrow quick-modifier"
         :class="{ active: modifierState.shift }"
-        ref="shiftFlickEl"
         @touchstart.prevent="onShiftTouchStart"
         @touchend.prevent="onShiftTouchEnd"
         @touchcancel="onQuickKeyCancel($event)"
@@ -82,7 +49,6 @@
       <div
         class="quick-key quick-flick-arrow quick-modifier"
         :class="{ active: modifierState.ctrl }"
-        ref="ctrlFlickEl"
         @touchstart.prevent="onCtrlTouchStart"
         @touchend.prevent="onCtrlTouchEnd"
         @touchcancel="onQuickKeyCancel($event)"
@@ -96,7 +62,6 @@
       </div>
       <div
         class="quick-key quick-flick-arrow"
-        ref="spaceFlickEl"
         @touchstart.prevent="onSpaceTouchStart"
         @touchend.prevent="onSpaceTouchEnd"
         @touchcancel="onQuickKeyCancel($event)"
@@ -108,20 +73,14 @@
         <span class="flick-hint-right">End</span>
         <span class="flick-hint-bottom">PgD</span>
       </div>
-      <div
-        class="quick-key quick-flick-arrow quick-key-toggle active"
-        ref="topArrowFlickEl"
-      >
+      <div class="quick-key quick-flick-arrow quick-key-toggle active" ref="topArrowFlickEl">
         <span class="flick-hint-top">&uarr;</span>
         <span class="flick-hint-left">&larr;</span>
         <span class="flick-main"><span class="mdi mdi-close"></span></span>
         <span class="flick-hint-right">&rarr;</span>
         <span class="flick-hint-bottom">&darr;</span>
       </div>
-      <div
-        class="quick-key quick-flick-enter quick-flick-arrow quick-key-toggle"
-        ref="topEnterFlickEl"
-      >
+      <div class="quick-key quick-flick-enter quick-flick-arrow quick-key-toggle" ref="topEnterFlickEl">
         <span class="flick-hint-top">Tab</span>
         <span class="flick-hint-left">BS</span>
         <span class="flick-main">&crarr;</span>
@@ -133,25 +92,26 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, nextTick } from "vue";
+import { ref, computed, watch, nextTick, onMounted } from "vue";
 import KeyboardSnippet from "./KeyboardSnippet.vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useInputStore } from "../stores/input.js";
 import { emit } from "../app-bridge.js";
 import { FLICK_THRESHOLD } from "../utils/constants.js";
 
-const inputStore = useInputStore();
-const { sendKeyToTerminal, modifierState, clearModifiers, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
+const props = defineProps({
+  active: { type: Boolean, default: false },
+});
 
-const panelEl = ref(null);
-const arrowFlickEl = ref(null);
-const enterFlickEl = ref(null);
-const qwertyPanelEl = ref(null);
+const emitLocal = defineEmits(["cycleMode"]);
+
+const inputStore = useInputStore();
+const { sendKeyToTerminal, modifierState, setupFlickRepeat } = useKeyboard();
+
+const qwertyKeyboardSnippet = ref(null);
 const topArrowFlickEl = ref(null);
 const topEnterFlickEl = ref(null);
 
-const mode = ref(0);
-const snippetOpen = ref(false);
 const qwertyRows = computed(() => inputStore.QWERTY_ROWS || []);
 const numberKeys = computed(() => inputStore.NUMBER_KEYS || []);
 
@@ -169,21 +129,11 @@ function flickUpLabel(ri, ci, keyDef) {
   return keyDef.flickUp || "";
 }
 
-function cycleMode() {
-  mode.value = (mode.value + 1) % 2;
-  clearModifiers();
-}
-
-function toggleSnippet() {
-  snippetOpen.value = !snippetOpen.value;
-  emit("layout:toggleSnippet");
-}
-
 function onQuickKeyCancel(e) {
   e.currentTarget.classList.remove("pressed");
 }
 
-function onQwertyTouchStart(e, keyDef, ri, ci) {
+function onQwertyTouchStart(e) {
   e.currentTarget.classList.add("pressed");
   e.currentTarget._touchStartY = e.touches[0].clientY;
 }
@@ -208,7 +158,7 @@ function onQwertyTouchEnd(e, keyDef, ri, ci) {
   sendKeyToTerminal(merged);
 }
 
-function onQwertyMouseUp(e, keyDef, ri, ci) {
+function onQwertyMouseUp(e, keyDef) {
   if (e.button !== 0) return;
   const merged = { ...keyDef };
   if (modifierState.ctrl) merged.ctrl = true;
@@ -216,7 +166,6 @@ function onQwertyMouseUp(e, keyDef, ri, ci) {
   sendKeyToTerminal(merged);
 }
 
-// Camera key
 let cameraStartY = 0;
 function onCameraTouchStart(e) {
   e.currentTarget.classList.add("pressed");
@@ -238,7 +187,6 @@ function openCamera() {
   emit("camera:open");
 }
 
-// Shift modifier flick
 let shiftStartX = 0;
 let shiftStartY = 0;
 function onShiftTouchStart(e) {
@@ -264,7 +212,6 @@ function toggleShift() {
   modifierState.shift = !modifierState.shift;
 }
 
-// Ctrl modifier flick
 let ctrlStartX = 0;
 let ctrlStartY = 0;
 function onCtrlTouchStart(e) {
@@ -292,7 +239,6 @@ function toggleCtrl() {
   modifierState.ctrl = !modifierState.ctrl;
 }
 
-// Space flick
 let spaceStartX = 0;
 let spaceStartY = 0;
 function onSpaceTouchStart(e) {
@@ -317,8 +263,9 @@ function sendSpace() {
 }
 
 const arrowResolver = (dx, dy, threshold) => {
-  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > threshold)
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > threshold) {
     return dx < 0 ? { key: "ArrowLeft" } : { key: "ArrowRight" };
+  }
   if (Math.abs(dy) > threshold && dy < 0) return { key: "ArrowUp" };
   if (Math.abs(dy) > threshold && dy > 0) return { key: "ArrowDown" };
   return null;
@@ -332,51 +279,22 @@ const enterResolver = (dx, dy, threshold) => {
   return null;
 };
 
-const qwertyKeyboardSnippet = ref(null);
-
-watch(mode, (val) => {
-  nextTick(() => {
-    emit("layout:fitAll");
-    emit("keyboard:modeChange", { mode: val });
-    if (val === 1 && qwertyKeyboardSnippet.value) {
-      qwertyKeyboardSnippet.value.show();
-    }
-  });
-});
-
 onMounted(() => {
-  setupFlickRepeat(arrowFlickEl.value, arrowResolver, () => {
-    const tab = getActiveTerminalTab();
-    if (tab?.term) tab.term.scrollToBottom();
-  }, {
-    accelerateRepeat: true,
-    onLongPress: () => cycleMode(),
-    longPressGuard: () => mode.value === 0,
-  });
-
-  setupFlickRepeat(enterFlickEl.value, enterResolver, () => {
-    sendKeyToTerminal({ key: "Enter" });
-  }, { accelerateRepeat: true });
-});
-
-// qwertyモード展開時に下段フリックキーを初期化
-let bottomFlicksInitialized = false;
-watch(mode, async (val) => {
-  if (val === 1 && !bottomFlicksInitialized) {
-    await nextTick();
-    if (topArrowFlickEl.value) {
-      setupFlickRepeat(topArrowFlickEl.value, arrowResolver, () => {
-        cycleMode();
-      }, { accelerateRepeat: true });
-    }
-    if (topEnterFlickEl.value) {
-      setupFlickRepeat(topEnterFlickEl.value, enterResolver, () => {
-        sendKeyToTerminal({ key: "Enter" });
-      }, { accelerateRepeat: true });
-    }
-    bottomFlicksInitialized = true;
+  if (topArrowFlickEl.value) {
+    setupFlickRepeat(topArrowFlickEl.value, arrowResolver, () => {
+      emitLocal("cycleMode");
+    }, { accelerateRepeat: true });
+  }
+  if (topEnterFlickEl.value) {
+    setupFlickRepeat(topEnterFlickEl.value, enterResolver, () => {
+      sendKeyToTerminal({ key: "Enter" });
+    }, { accelerateRepeat: true });
   }
 });
 
-defineExpose({ mode, cycleMode, snippetOpen });
+watch(() => props.active, (val) => {
+  if (val) {
+    nextTick(() => qwertyKeyboardSnippet.value?.show());
+  }
+});
 </script>

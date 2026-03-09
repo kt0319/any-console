@@ -1032,6 +1032,34 @@ button.git-badge:disabled {
   width: 25%;
 }
 
+.split-drop-zone.drop-top-left,
+.split-drop-zone.drop-top-right,
+.split-drop-zone.drop-bottom-left,
+.split-drop-zone.drop-bottom-right {
+  width: 18%;
+  height: 18%;
+}
+
+.split-drop-zone.drop-top-left {
+  top: 0;
+  left: 0;
+}
+
+.split-drop-zone.drop-top-right {
+  top: 0;
+  right: 0;
+}
+
+.split-drop-zone.drop-bottom-left {
+  bottom: 0;
+  left: 0;
+}
+
+.split-drop-zone.drop-bottom-right {
+  right: 0;
+  bottom: 0;
+}
+
 .split-drop-zone.drop-left {
   left: 0;
   border-right-style: dashed;
@@ -1092,6 +1120,235 @@ button.git-badge:disabled {
 
 .split-drop-zone.drag-over .drop-zone-icon {
   color: var(--accent);
+}
+
+.drop-zone-grid-icon {
+  display: grid;
+  grid-template-columns: repeat(2, 9px);
+  grid-template-rows: repeat(2, 9px);
+  gap: 3px;
+}
+
+.drop-zone-grid-icon .cell {
+  width: 9px;
+  height: 9px;
+  border: 1px solid rgba(130, 170, 255, 0.6);
+  background: transparent;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.split-drop-zone.drop-top-left .drop-zone-grid-icon .cell.tl,
+.split-drop-zone.drop-top-right .drop-zone-grid-icon .cell.tr,
+.split-drop-zone.drop-bottom-left .drop-zone-grid-icon .cell.bl,
+.split-drop-zone.drop-bottom-right .drop-zone-grid-icon .cell.br {
+  background: rgba(130, 170, 255, 0.45);
+}
+
+.drop-zone-grid-icon-center .cell {
+  background: rgba(130, 170, 255, 0.2);
+}
+
+.split-drop-zone.drag-over .drop-zone-grid-icon .cell {
+  border-color: var(--accent);
+}
+
+.split-drop-zone.drag-over.drop-top-left .drop-zone-grid-icon .cell.tl,
+.split-drop-zone.drag-over.drop-top-right .drop-zone-grid-icon .cell.tr,
+.split-drop-zone.drag-over.drop-bottom-left .drop-zone-grid-icon .cell.bl,
+.split-drop-zone.drag-over.drop-bottom-right .drop-zone-grid-icon .cell.br,
+.split-drop-zone.drag-over .drop-zone-grid-icon-center .cell {
+  background: var(--accent);
+}
+
+.drop-zone-rect-icon {
+  position: relative;
+  display: block;
+  width: 26px;
+  height: 20px;
+}
+
+.drop-zone-rect-icon .rect {
+  position: absolute;
+  border: 1px solid rgba(130, 170, 255, 0.6);
+  border-radius: 2px;
+  background: transparent;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.split-drop-zone.drag-over .drop-zone-rect-icon .rect {
+  border-color: var(--accent);
+}
+
+.rect-left .r1,
+.rect-right .r1 {
+  top: 2px;
+  width: 10px;
+  height: 16px;
+  background: rgba(130, 170, 255, 0.45);
+}
+
+.rect-left .r1 {
+  left: 2px;
+}
+
+.rect-right .r1 {
+  right: 2px;
+}
+
+.rect-left .r2,
+.rect-right .r2 {
+  top: 2px;
+  width: 10px;
+  height: 16px;
+}
+
+.rect-left .r2 {
+  right: 2px;
+}
+
+.rect-right .r2 {
+  left: 2px;
+}
+
+.rect-top .r1,
+.rect-bottom .r1 {
+  left: 2px;
+  width: 22px;
+  height: 7px;
+  background: rgba(130, 170, 255, 0.45);
+}
+
+.rect-top .r1 {
+  top: 2px;
+}
+
+.rect-bottom .r1 {
+  bottom: 2px;
+}
+
+.rect-top .r2,
+.rect-bottom .r2 {
+  left: 2px;
+  width: 22px;
+  height: 7px;
+}
+
+.rect-top .r2 {
+  bottom: 2px;
+}
+
+.rect-bottom .r2 {
+  top: 2px;
+}
+
+.rect-center .r1 {
+  left: 4px;
+  top: 5px;
+  width: 18px;
+  height: 10px;
+  background: rgba(130, 170, 255, 0.3);
+}
+
+.rect-corner-tl .r1,
+.rect-corner-tr .r1,
+.rect-corner-bl .r1,
+.rect-corner-br .r1 {
+  width: 14px;
+  height: 5px;
+  background: rgba(130, 170, 255, 0.45);
+}
+
+.rect-corner-tl .r2,
+.rect-corner-tr .r2,
+.rect-corner-bl .r2,
+.rect-corner-br .r2 {
+  width: 5px;
+  height: 14px;
+  background: rgba(130, 170, 255, 0.45);
+}
+
+.rect-corner-tl .r3,
+.rect-corner-tr .r3,
+.rect-corner-bl .r3,
+.rect-corner-br .r3 {
+  width: 10px;
+  height: 8px;
+}
+
+.rect-corner-tl .r1 {
+  left: 2px;
+  top: 2px;
+}
+
+.rect-corner-tl .r2 {
+  left: 2px;
+  top: 2px;
+}
+
+.rect-corner-tl .r3 {
+  right: 2px;
+  bottom: 2px;
+}
+
+.rect-corner-tr .r1 {
+  right: 2px;
+  top: 2px;
+}
+
+.rect-corner-tr .r2 {
+  right: 2px;
+  top: 2px;
+}
+
+.rect-corner-tr .r3 {
+  left: 2px;
+  bottom: 2px;
+}
+
+.rect-corner-bl .r1 {
+  left: 2px;
+  bottom: 2px;
+}
+
+.rect-corner-bl .r2 {
+  left: 2px;
+  bottom: 2px;
+}
+
+.rect-corner-bl .r3 {
+  right: 2px;
+  top: 2px;
+}
+
+.rect-corner-br .r1 {
+  right: 2px;
+  bottom: 2px;
+}
+
+.rect-corner-br .r2 {
+  right: 2px;
+  bottom: 2px;
+}
+
+.rect-corner-br .r3 {
+  left: 2px;
+  top: 2px;
+}
+
+.split-drop-zone.drag-over .rect-left .r1,
+.split-drop-zone.drag-over .rect-right .r1,
+.split-drop-zone.drag-over .rect-top .r1,
+.split-drop-zone.drag-over .rect-bottom .r1,
+.split-drop-zone.drag-over .rect-center .r1,
+.split-drop-zone.drag-over .rect-corner-tl .r1,
+.split-drop-zone.drag-over .rect-corner-tl .r2,
+.split-drop-zone.drag-over .rect-corner-tr .r1,
+.split-drop-zone.drag-over .rect-corner-tr .r2,
+.split-drop-zone.drag-over .rect-corner-bl .r1,
+.split-drop-zone.drag-over .rect-corner-bl .r2,
+.split-drop-zone.drag-over .rect-corner-br .r1,
+.split-drop-zone.drag-over .rect-corner-br .r2 {
+  background: var(--accent);
 }
 
 .pill-close-drop-zone {
@@ -2040,7 +2297,7 @@ button:disabled {
 .modal-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
   padding: 0 8px;
   flex-shrink: 0;
 }
@@ -2062,6 +2319,22 @@ button:disabled {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+.modal-flick-handle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  touch-action: none;
+}
+
+.modal-flick-bar {
+  width: 48px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--text-muted);
+  opacity: 0.5;
 }
 
 .modal-swipe-handle {
@@ -2892,6 +3165,10 @@ button:disabled {
   cursor: pointer;
 }
 
+.diff-file-row .file-browser-item-name {
+  font-size: 12px;
+}
+
 .diff-file-row-status {
   font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
   font-size: 11px;
@@ -3487,6 +3764,11 @@ button:disabled {
     border-radius: 0 0 var(--radius) var(--radius);
   }
 
+  .modal-close-btn {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
   .modal-swipe-handle {
     display: flex;
     justify-content: center;
@@ -3502,6 +3784,13 @@ button:disabled {
     border-radius: 3px;
     background: var(--text-muted);
     opacity: 0.5;
+  }
+
+  .modal-flick-handle {
+    display: flex;
+    padding: 10px 0 max(10px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border);
+    background: rgba(0, 0, 0, 0.18);
   }
 
   header {
@@ -3880,6 +4169,11 @@ button:disabled {
   align-items: center;
   justify-content: center;
   outline: none;
+}
+
+.modal-back-btn.is-placeholder {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 

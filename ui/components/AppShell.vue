@@ -1,9 +1,9 @@
 <template>
   <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom }">
     <TabBar ref="tabBar" :tabs="openTabs" :orphans="orphanSessions" />
-    <StatusGitBar />
+    <WorkspaceStatusBar />
     <TerminalBase ref="terminalSplit">
-      <KeyboardInput v-if="isPanelBottom" ref="keyboardBar" />
+      <KeyboardBase v-if="isPanelBottom" ref="keyboardBar" />
     </TerminalBase>
     <KeyboardSnippet v-if="isPanelBottom" ref="snippetBar" />
   </div>
@@ -11,11 +11,11 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
-import StatusGitBar from "./StatusGitBar.vue";
+import WorkspaceStatusBar from "./WorkspaceStatusBar.vue";
 import TabBar from "./TabBar.vue";
 import TerminalBase from "./TerminalBase.vue";
 import KeyboardSnippet from "./KeyboardSnippet.vue";
-import KeyboardInput from "./KeyboardInput.vue";
+import KeyboardBase from "./KeyboardBase.vue";
 import { useLayoutStore } from "../stores/layout.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useAuthStore } from "../stores/auth.js";

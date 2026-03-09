@@ -5,7 +5,7 @@
     :class="{ active: isActive, 'tab-activity': tab._activity, orphan: isOrphan, dragging: isDragging }"
     :draggable="canDrag"
     tabindex="-1"
-    @mousedown.prevent="onMouseDown"
+    @mousedown="onMouseDown"
     @click="onClick"
     @dragstart="onDragStart"
     @dragend="onDragEnd"
@@ -59,9 +59,10 @@ const iconHtml = computed(() => {
   return "";
 });
 
-function onClick() {
+function onClick(e) {
   clearLongPress();
   if (isDragging.value) return;
+  e.currentTarget?.blur();
   if (isActive.value) {
     emits("active-click", props.tab);
     return;
@@ -102,10 +103,11 @@ function onDragStart(e) {
   layoutStore.isShowDropZones = true;
 }
 
-function onDragEnd() {
+function onDragEnd(e) {
   isDragging.value = false;
   layoutStore.isShowDropZones = false;
   layoutStore.dragTabId = null;
+  e.currentTarget?.blur();
 }
 
 // Mobile: Touch drag + long press
@@ -199,7 +201,7 @@ function detectDropZone(touch) {
     const r = z.getBoundingClientRect();
     if (touch.clientX >= r.left && touch.clientX <= r.right &&
         touch.clientY >= r.top && touch.clientY <= r.bottom) {
-      const match = z.className.match(/\bdrop-(left|right|top|bottom|center)\b/);
+      const match = z.className.match(/\bdrop-(top-left|top-right|bottom-left|bottom-right|left|right|top|bottom|center)\b/);
       return match ? match[1] : null;
     }
   }

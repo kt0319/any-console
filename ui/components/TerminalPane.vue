@@ -13,16 +13,13 @@
         :class="{ 'tab-activity': tab._activity, dragging: pillDragging }"
         ref="pillEl"
         tabindex="-1"
-        :draggable="canDrag"
-        @mousedown.prevent="onPillMouseDown"
+        @mousedown="onPillMouseDown"
         @click="onPillClick"
-        @dragstart="onPillDragStart"
-        @dragend="onPillDragEnd"
         @touchstart.passive="onPillTouchStart"
       >
         <span class="tab-name-pill-info">
-          <span v-if="tab.wsIcon" v-html="renderIcon(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
-          <span v-if="tab.icon" v-html="renderIcon(tab.icon.name, tab.icon.color, 14)"></span>
+          <span v-if="tab.wsIcon" v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
+          <span v-if="tab.icon" v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
           {{ tab.workspace || tab.label || '' }}
         </span>
       </div>
@@ -61,10 +58,6 @@ let touchStartY = 0;
 
 const canDrag = computed(() => terminalStore.openTabs.length >= 2);
 
-function renderIcon(icon, color, size) {
-  return renderIconStr(icon, color, size);
-}
-
 const isActive = computed(() => {
   if (layoutStore.isSplitMode && props.paneIndex >= 0) {
     return layoutStore.activePaneIndex === props.paneIndex;
@@ -97,31 +90,6 @@ function onTouchEnd(e) {
   }
 }
 
-// PC: HTML5 Drag & Drop for pill
-function onPillDragStart(e) {
-  if (!canDrag.value) { e.preventDefault(); return; }
-  if (pillMouseLongPressTimer) {
-    clearTimeout(pillMouseLongPressTimer);
-    pillMouseLongPressTimer = null;
-  }
-  e.dataTransfer.setData("text/plain", String(props.tab.id));
-  e.dataTransfer.effectAllowed = "move";
-  pillDragging.value = true;
-  pillDidDrag = true;
-  layoutStore.dragTabId = props.tab.id;
-  layoutStore.isShowDropZones = true;
-}
-
-function onPillDragEnd() {
-  pillDragging.value = false;
-  const droppedOnZone = !layoutStore.isShowDropZones;
-  layoutStore.isShowDropZones = false;
-  layoutStore.dragTabId = null;
-  if (!droppedOnZone && Date.now() - pillMouseDownTime < 300) {
-    emit("workspace:openModal");
-  }
-}
-
 // Mobile: Touch drag + long press for pill
 let pillTouchStartX = 0;
 let pillTouchStartY = 0;
@@ -139,10 +107,25 @@ function clearPillLongPress() {
 let pillMouseDownTime = 0;
 let pillDidDrag = false;
 let pillMouseLongPressTimer = null;
+let pillMouseStartX = 0;
+let pillMouseStartY = 0;
+let pillMouseDragging = false;
 
-function onPillMouseDown() {
+function removePillMouseListeners() {
+  document.removeEventListener("mousemove", onPillMouseMove);
+  document.removeEventListener("mouseup", onPillMouseUp);
+}
+
+function onPillMouseDown(e) {
+  if (e.button !== 0) return;
   pillMouseDownTime = Date.now();
   pillDidDrag = false;
+  pillMouseDragging = false;
+  pillMouseStartX = e.clientX;
+  pillMouseStartY = e.clientY;
+  removePillMouseListeners();
+  document.addEventListener("mousemove", onPillMouseMove);
+  document.addEventListener("mouseup", onPillMouseUp);
   if (pillMouseLongPressTimer) clearTimeout(pillMouseLongPressTimer);
   pillMouseLongPressTimer = setTimeout(() => {
     pillMouseLongPressTimer = null;
@@ -151,12 +134,58 @@ function onPillMouseDown() {
 }
 
 function onPillClick() {
+  if (pillDidDrag) {
+    pillDidDrag = false;
+    return;
+  }
   if (pillMouseLongPressTimer) {
     clearTimeout(pillMouseLongPressTimer);
     pillMouseLongPressTimer = null;
   }
   if (Date.now() - pillMouseDownTime > 300) return;
   emit("workspace:openModal");
+}
+
+function onPillMouseMove(e) {
+  const dx = e.clientX - pillMouseStartX;
+  const dy = e.clientY - pillMouseStartY;
+  if (dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
+    if (pillMouseLongPressTimer) {
+      clearTimeout(pillMouseLongPressTimer);
+      pillMouseLongPressTimer = null;
+    }
+  }
+  if (!canDrag.value) return;
+  if (!pillMouseDragging && dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
+    pillMouseDragging = true;
+    pillDidDrag = true;
+    pillDragging.value = true;
+    layoutStore.dragTabId = props.tab.id;
+    layoutStore.isShowDropZones = true;
+    e.preventDefault();
+  }
+  if (pillMouseDragging) {
+    e.preventDefault();
+    updateDropZoneHover(e.clientX, e.clientY);
+  }
+}
+
+function onPillMouseUp(e) {
+  removePillMouseListeners();
+  if (pillMouseLongPressTimer) {
+    clearTimeout(pillMouseLongPressTimer);
+    pillMouseLongPressTimer = null;
+  }
+  if (!pillMouseDragging) return;
+  e.preventDefault();
+  pillDragging.value = false;
+  const dropDir = detectDropZone(e.clientX, e.clientY);
+  layoutStore.isShowDropZones = false;
+  if (dropDir) {
+    layoutStore.splitWithDrop(props.tab.id, dropDir, terminalStore.openTabs, terminalStore.activeTabId);
+  }
+  layoutStore.dragTabId = null;
+  setTimeout(() => { pillMouseDragging = false; }, 100);
 }
 
 function toggleViewMode() {
@@ -197,15 +226,7 @@ function onPillTouchMove(e) {
   }
   if (pillTouchDragging) {
     e.preventDefault();
-    const overlay = document.querySelector(".split-drop-overlay");
-    if (overlay) {
-      overlay.querySelectorAll(".split-drop-zone").forEach((z) => {
-        const r = z.getBoundingClientRect();
-        z.classList.toggle("drag-over",
-          e.touches[0].clientX >= r.left && e.touches[0].clientX <= r.right &&
-          e.touches[0].clientY >= r.top && e.touches[0].clientY <= r.bottom);
-      });
-    }
+    updateDropZoneHover(e.touches[0].clientX, e.touches[0].clientY);
   }
 }
 
@@ -217,27 +238,38 @@ function onPillTouchEnd(e) {
   }
   if (!pillTouchDragging) return;
   e.preventDefault();
+  pillDidDrag = true;
   pillDragging.value = false;
   const touch = e.changedTouches[0];
-  const overlay = document.querySelector(".split-drop-overlay");
-  let dropDir = null;
-  if (overlay) {
-    for (const z of overlay.querySelectorAll(".split-drop-zone")) {
-      const r = z.getBoundingClientRect();
-      if (touch.clientX >= r.left && touch.clientX <= r.right &&
-          touch.clientY >= r.top && touch.clientY <= r.bottom) {
-        const match = z.className.match(/\bdrop-(left|right|top|bottom|center)\b/);
-        dropDir = match ? match[1] : null;
-        break;
-      }
-    }
-  }
+  const dropDir = detectDropZone(touch.clientX, touch.clientY);
   layoutStore.isShowDropZones = false;
   if (dropDir) {
     layoutStore.splitWithDrop(props.tab.id, dropDir, terminalStore.openTabs, terminalStore.activeTabId);
   }
   layoutStore.dragTabId = null;
   setTimeout(() => { pillTouchDragging = false; }, 100);
+}
+
+function updateDropZoneHover(clientX, clientY) {
+  const overlay = document.querySelector(".split-drop-overlay");
+  if (!overlay) return;
+  overlay.querySelectorAll(".split-drop-zone").forEach((z) => {
+    const r = z.getBoundingClientRect();
+    z.classList.toggle("drag-over", clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom);
+  });
+}
+
+function detectDropZone(clientX, clientY) {
+  const overlay = document.querySelector(".split-drop-overlay");
+  if (!overlay) return null;
+  for (const z of overlay.querySelectorAll(".split-drop-zone")) {
+    const r = z.getBoundingClientRect();
+    if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) {
+      const match = z.className.match(/\bdrop-(top-left|top-right|bottom-left|bottom-right|left|right|top|bottom|center)\b/);
+      return match ? match[1] : null;
+    }
+  }
+  return null;
 }
 
 const encoder = new TextEncoder();
@@ -282,6 +314,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  removePillMouseListeners();
   if (pillEl.value) {
     pillEl.value.removeEventListener("touchmove", onPillTouchMove);
     pillEl.value.removeEventListener("touchend", onPillTouchEnd);

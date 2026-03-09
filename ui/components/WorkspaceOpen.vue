@@ -9,7 +9,7 @@
         >
           <div class="picker-ws-row picker-ws-row-top">
             <button type="button" class="picker-ws-header-label" @click="selectWorkspace(ws)">
-              <span v-html="renderIcon(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
+              <span v-html="renderIconStr(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
               <span class="picker-ws-header-text">
                 <span class="picker-ws-name">{{ ws.name }}</span>
                 <span class="picker-ws-branch">{{ ws.branch || '-' }}</span>
@@ -33,7 +33,7 @@
                 :title="job.label || job.name"
                 @click="runJob(ws, job)"
               >
-                <span v-html="renderIcon(job.icon || 'mdi-play', job.icon_color, 18)"></span>
+                <span v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
               </button>
             </div>
             <button type="button" class="picker-ws-icon-btn" title="ファイル" @click="openDetail(ws)">
@@ -72,10 +72,6 @@ function doAction(ws, action) {
 }
 
 const visibleWorkspaces = computed(() => workspaceStore.visibleWorkspaces);
-
-function renderIcon(icon, color, size) {
-  return renderIconStr(icon, color, size);
-}
 
 async function load() {
   await workspaceStore.fetchStatuses(auth);

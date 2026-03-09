@@ -5,19 +5,63 @@
     ref="containerEl"
   >
     <div v-if="isShowDropZones" class="split-drop-overlay">
+      <div class="split-drop-zone drop-top-left" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'top-left')">
+        <span class="drop-zone-grid-icon" aria-hidden="true">
+          <span class="cell tl"></span>
+          <span class="cell tr"></span>
+          <span class="cell bl"></span>
+          <span class="cell br"></span>
+        </span>
+      </div>
+      <div class="split-drop-zone drop-top-right" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'top-right')">
+        <span class="drop-zone-grid-icon" aria-hidden="true">
+          <span class="cell tl"></span>
+          <span class="cell tr"></span>
+          <span class="cell bl"></span>
+          <span class="cell br"></span>
+        </span>
+      </div>
+      <div class="split-drop-zone drop-bottom-left" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'bottom-left')">
+        <span class="drop-zone-grid-icon" aria-hidden="true">
+          <span class="cell tl"></span>
+          <span class="cell tr"></span>
+          <span class="cell bl"></span>
+          <span class="cell br"></span>
+        </span>
+      </div>
+      <div class="split-drop-zone drop-bottom-right" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'bottom-right')">
+        <span class="drop-zone-grid-icon" aria-hidden="true">
+          <span class="cell tl"></span>
+          <span class="cell tr"></span>
+          <span class="cell bl"></span>
+          <span class="cell br"></span>
+        </span>
+      </div>
       <template v-if="!isPanelBottom">
         <div class="split-drop-zone drop-left" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'left')">
-          <span class="mdi mdi-arrow-left drop-zone-icon"></span>
+          <span class="drop-zone-rect-icon rect-left" aria-hidden="true">
+            <span class="rect r1"></span>
+            <span class="rect r2"></span>
+          </span>
         </div>
         <div class="split-drop-zone drop-right" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'right')">
-          <span class="mdi mdi-arrow-right drop-zone-icon"></span>
+          <span class="drop-zone-rect-icon rect-right" aria-hidden="true">
+            <span class="rect r1"></span>
+            <span class="rect r2"></span>
+          </span>
         </div>
       </template>
       <div class="split-drop-zone drop-top" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'top')">
-        <span class="mdi mdi-arrow-up drop-zone-icon"></span>
+        <span class="drop-zone-rect-icon rect-top" aria-hidden="true">
+          <span class="rect r1"></span>
+          <span class="rect r2"></span>
+        </span>
       </div>
       <div class="split-drop-zone drop-bottom" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'bottom')">
-        <span class="mdi mdi-arrow-down drop-zone-icon"></span>
+        <span class="drop-zone-rect-icon rect-bottom" aria-hidden="true">
+          <span class="rect r1"></span>
+          <span class="rect r2"></span>
+        </span>
       </div>
       <div class="split-drop-zone drop-center" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'center')">
         <span class="mdi mdi-fullscreen drop-zone-icon"></span>

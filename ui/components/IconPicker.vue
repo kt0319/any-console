@@ -52,6 +52,7 @@
 <script setup>
 import { ref, inject, nextTick } from "vue";
 import { emit as bridgeEmit } from "../app-bridge.js";
+import { renderIconStr } from "../utils/render-icon.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "アイコン選択";
@@ -99,21 +100,6 @@ const canSubmit = ref(false);
 let pendingClear = false;
 let iconCache = null;
 let callback = null;
-
-function renderIconHtml(icon, color, size = 24) {
-  if (!icon) return "";
-  if (icon.startsWith("data:image/") || icon.startsWith("icon:")) {
-    const src = icon.startsWith("icon:") ? `/icons/${icon.slice(5)}` : icon;
-    return `<img src="${src}" width="${size}" height="${size}" class="favicon-icon" alt="" />`;
-  }
-  if (icon.startsWith("favicon:")) {
-    const domain = icon.slice("favicon:".length);
-    return `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32" width="${size}" height="${size}" class="favicon-icon" alt="" />`;
-  }
-  const styles = [`font-size:${size}px`];
-  if (color && VALID_ICON_COLOR.test(color)) styles.push(`color:${color}`);
-  return `<span class="mdi ${icon}" style="${styles.join(";")}"></span>`;
-}
 
 function looksLikeUrl(text) {
   return URL_PATTERN.test(text);
@@ -167,7 +153,7 @@ function renderGrid(icons, query) {
 function selectMdiIcon(iconName) {
   selectedIcon.value = iconName;
   pendingClear = false;
-  previewHtml.value = renderIconHtml(iconName, selectedColor.value);
+  previewHtml.value = renderIconStr(iconName, selectedColor.value);
   canSubmit.value = true;
   const el = gridRef.value;
   if (el) {
@@ -180,7 +166,7 @@ function selectMdiIcon(iconName) {
 function selectColor(color) {
   selectedColor.value = color;
   if (selectedIcon.value) {
-    previewHtml.value = renderIconHtml(selectedIcon.value, color);
+    previewHtml.value = renderIconStr(selectedIcon.value, color);
   }
 }
 
@@ -190,7 +176,7 @@ function onSearchInput() {
   pendingClear = false;
   if (looksLikeUrl(raw)) {
     const domain = extractDomain(raw);
-    previewHtml.value = renderIconHtml(`favicon:${domain}`, "", 24);
+    previewHtml.value = renderIconStr(`favicon:${domain}`, "", 24);
     canSubmit.value = true;
     if (iconCache) renderGrid(iconCache, "");
   } else {
@@ -243,7 +229,7 @@ async function handleUpload() {
     selectedIcon.value = dataUrl;
     pendingClear = false;
     searchQuery.value = "";
-    previewHtml.value = renderIconHtml(dataUrl, "", 24);
+    previewHtml.value = renderIconStr(dataUrl, "", 24);
     canSubmit.value = true;
     const el = gridRef.value;
     if (el) el.querySelectorAll(".icon-picker-item").forEach((item) => item.classList.remove("selected"));
@@ -296,7 +282,7 @@ async function open(cb, currentIcon, currentColor) {
   loadingIcons.value = true;
 
   if (currentIcon) {
-    previewHtml.value = renderIconHtml(currentIcon, currentColor || "", 24);
+    previewHtml.value = renderIconStr(currentIcon, currentColor || "", 24);
     canSubmit.value = true;
   } else {
     previewHtml.value = "";

@@ -35,6 +35,7 @@ import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore, parseDiffChunks } from "../stores/git.js";
 import { emit } from "../app-bridge.js";
+import { renderFileIconFromPath } from "../utils/file-icon.js";
 
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
@@ -52,10 +53,7 @@ function statusClass(status) {
 }
 
 function fileIconHtml(file) {
-  const status = file.status;
-  if (status === "D") return '<span class="mdi mdi-file-remove" style="color:var(--diff-del)"></span>';
-  if (status === "A" || status === "?") return '<span class="mdi mdi-file-plus" style="color:var(--diff-add)"></span>';
-  return '<span class="mdi mdi-file-edit" style="color:var(--diff-hunk)"></span>';
+  return renderFileIconFromPath(file.path);
 }
 
 async function loadWorkingTreeDiff() {

@@ -8,7 +8,15 @@
   >
     <div ref="modalEl" class="modal">
       <div class="modal-header">
-        <button v-if="modalBack" type="button" class="modal-back-btn" @click="onBack">
+        <button
+          type="button"
+          class="modal-back-btn"
+          :class="{ 'is-placeholder': !modalBack }"
+          :disabled="!modalBack"
+          :tabindex="modalBack ? 0 : -1"
+          :aria-hidden="!modalBack ? 'true' : 'false'"
+          @click="modalBack ? onBack() : null"
+        >
           <span class="mdi mdi-arrow-left"></span>
         </button>
         <h3 class="modal-title" :class="{ 'modal-title-clickable': modalBack }" @click="modalBack ? onBack() : null">{{ modalTitle }}</h3>
@@ -24,6 +32,7 @@
         <EditorConfig v-if="currentView === 'EditorConfig'" />
         <ServerInfo v-if="currentView === 'ServerInfo'" />
         <GitHubPane v-if="currentView === 'GitHubPane'" ref="gitGitHubView" />
+        <GitCommitGraph v-if="currentView === 'GitCommitGraph'" ref="gitGraphView" />
         <ConfigFile v-if="currentView === 'ConfigFile'" />
 
         <IconPicker
@@ -36,6 +45,15 @@
           ref="fileContent"
           @close="closeModal"
         />
+      </div>
+      <div
+        class="modal-flick-handle"
+        @touchstart.passive="onFlickStart"
+        @touchmove.prevent="onFlickMove"
+        @touchend="onFlickEnd"
+        @touchcancel="onFlickCancel"
+      >
+        <span class="modal-flick-bar"></span>
       </div>
     </div>
   </div>
@@ -54,6 +72,7 @@ import EditorConfig from "./EditorConfig.vue";
 import ServerInfo from "./ServerInfo.vue";
 import ConfigFile from "./ConfigFile.vue";
 import GitHubPane from "./GitHubPane.vue";
+import GitCommitGraph from "./GitCommitGraph.vue";
 import IconPicker from "./IconPicker.vue";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
 import { on } from "../app-bridge.js";
@@ -68,30 +87,81 @@ const fileContent = ref(null);
 const workspaceView = ref(null);
 const wsConfigView = ref(null);
 const gitGitHubView = ref(null);
+const gitGraphView = ref(null);
 
 const currentView = ref(null);
 const modalTitle = ref("");
 const modalBack = ref(false);
 
 provide("modalTitle", modalTitle);
-let swipeSetup = false;
+let flickStartY = 0;
+let flickCurrentY = 0;
+let flickDragging = false;
+const FLICK_THRESHOLD = 80;
 
 function openModal() {
   modal.open(modalEl.value, closeModal);
-  nextTick(() => {
-    if (currentView.value !== "IconPicker" && currentView.value !== "WorkspaceDetail" && modalEl.value && !swipeSetup) {
-      modal.setupSwipeClose(modalEl.value, closeModal);
-      swipeSetup = true;
-    }
-  });
 }
 
 function closeModal() {
+  resetFlickStyle();
   modal.close();
   currentView.value = null;
   modalTitle.value = "";
   modalBack.value = false;
-  swipeSetup = false;
+}
+
+function resetFlickStyle() {
+  if (!modalEl.value) return;
+  modalEl.value.style.transform = "";
+  modalEl.value.style.opacity = "";
+  modalEl.value.style.transition = "";
+}
+
+function onFlickStart(e) {
+  if (!modalEl.value) return;
+  flickStartY = e.touches[0].clientY;
+  flickCurrentY = flickStartY;
+  flickDragging = true;
+  modalEl.value.style.transition = "none";
+}
+
+function onFlickMove(e) {
+  if (!flickDragging || !modalEl.value) return;
+  flickCurrentY = e.touches[0].clientY;
+  const dy = flickCurrentY - flickStartY;
+  modalEl.value.style.transform = `translateY(${dy}px)`;
+  modalEl.value.style.opacity = String(Math.max(0.2, 1 - Math.abs(dy) / 400));
+}
+
+function onFlickEnd() {
+  if (!flickDragging || !modalEl.value) return;
+  flickDragging = false;
+  const dy = flickCurrentY - flickStartY;
+  if (Math.abs(dy) > FLICK_THRESHOLD) {
+    const endY = dy >= 0 ? "100%" : "-100%";
+    modalEl.value.style.transition = "transform 0.2s ease-out, opacity 0.2s ease-out";
+    modalEl.value.style.transform = `translateY(${endY})`;
+    modalEl.value.style.opacity = "0";
+    modalEl.value.addEventListener("transitionend", () => {
+      resetFlickStyle();
+      closeModal();
+    }, { once: true });
+    return;
+  }
+  modalEl.value.style.transition = "transform 0.2s ease-out, opacity 0.2s ease-out";
+  modalEl.value.style.transform = "";
+  modalEl.value.style.opacity = "";
+  modalEl.value.addEventListener("transitionend", () => {
+    if (!modalEl.value) return;
+    modalEl.value.style.transition = "";
+  }, { once: true });
+}
+
+function onFlickCancel() {
+  if (!flickDragging) return;
+  flickDragging = false;
+  resetFlickStyle();
 }
 
 function onViewSelect({ view }) {
@@ -113,6 +183,12 @@ function settingsGoBack() {
 
 function onBack() {
   if (currentView.value === "GitHubPane") {
+    currentView.value = "WorkspaceDetail";
+    modalBack.value = true;
+    nextTick(() => {
+      fileContent.value?.open();
+    });
+  } else if (currentView.value === "GitCommitGraph") {
     currentView.value = "WorkspaceDetail";
     modalBack.value = true;
     nextTick(() => {
@@ -178,6 +254,15 @@ onMounted(() => {
     nextTick(() => {
       openModal();
       nextTick(() => gitGitHubView.value?.load());
+    });
+  });
+
+  on("git:openCommitGraph", () => {
+    currentView.value = "GitCommitGraph";
+    modalBack.value = true;
+    nextTick(() => {
+      openModal();
+      nextTick(() => gitGraphView.value?.load());
     });
   });
 

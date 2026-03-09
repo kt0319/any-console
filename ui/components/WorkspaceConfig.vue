@@ -16,7 +16,7 @@
         ><span class="mdi mdi-drag"></span></span>
         <label class="ws-check-row">
           <input type="checkbox" :checked="!ws.hidden" @change="toggleVisibility(ws, $event.target.checked)" />
-          <span class="ws-icon-display" v-html="renderIcon(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
+          <span class="ws-icon-display" v-html="renderIconStr(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
           <span class="ws-check-label">{{ ws.name }}</span>
         </label>
         <button type="button" class="picker-ws-icon-btn ws-gear-btn" @click="openWsSettings(ws)">
@@ -32,7 +32,7 @@
         <span class="ws-settings-label">アイコン</span>
         <button type="button" class="icon-select-btn" @click="showIconPicker = !showIconPicker">
           <span class="icon-select-preview">
-            <span v-html="renderIcon(editIcon || 'mdi-console', editIconColor, 18)"></span>
+            <span v-html="renderIconStr(editIcon || 'mdi-console', editIconColor, 18)"></span>
             <span class="icon-select-label">{{ editIcon || 'デフォルト' }}</span>
           </span>
         </button>
@@ -99,7 +99,7 @@
             class="ws-settings-item"
             @click="startEditJob(entry)"
           >
-            <span class="ws-settings-item-icon" v-html="renderIcon(entry.job.icon || 'mdi-play', entry.job.icon_color, 16)"></span>
+            <span class="ws-settings-item-icon" v-html="renderIconStr(entry.job.icon || 'mdi-play', entry.job.icon_color, 16)"></span>
             <span class="ws-settings-item-name">{{ entry.job.label || entry.name }}</span>
             <div class="ws-settings-item-actions">
               <button type="button" class="ws-settings-item-action-btn" title="削除" @click.stop="deleteJob(entry)">
@@ -206,10 +206,6 @@ const PRESET_COLORS = [
   { label: "グレー", value: "#757575" },
   { label: "白", value: "#ffffff" },
 ];
-
-function renderIcon(icon, color, size) {
-  return renderIconStr(icon, color, size);
-}
 
 async function load() {
   await workspaceStore.fetchStatuses(auth);

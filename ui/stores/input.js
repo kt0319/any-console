@@ -20,8 +20,6 @@ const NUMBER_KEYS = [
   { label: "0", key: "0", code: "Digit0", keyCode: 48 },
 ];
 
-const EXTRA_MAIN_KEYS = [];
-
 const QWERTY_ROWS = [
   "qwertyuiop".split("").map((c, i) => {
     const flickDown = ["!", '"', "#", "$", "%", "&", "@", "+", "-", "="][i];
@@ -58,7 +56,6 @@ export const useInputStore = defineStore("input", () => {
   return {
     QUICK_KEYS,
     NUMBER_KEYS,
-    EXTRA_MAIN_KEYS,
     QWERTY_ROWS,
     INPUT_HISTORY_KEY,
     INPUT_HISTORY_MAX,
