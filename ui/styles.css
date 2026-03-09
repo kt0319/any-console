@@ -44,7 +44,7 @@ header {
   gap: 10px;
 }
 
-.header-row2 {
+.workspace-status-bar {
   display: none;
   align-items: center;
   gap: 6px;
@@ -614,14 +614,14 @@ button.git-badge:disabled {
   min-width: unset;
 }
 
-.main-panel.panel-bottom .header-row2 {
+.main-panel.panel-bottom .workspace-status-bar {
   order: 1;
   border-bottom: none;
   border-top: 1px solid var(--border);
 }
 
 .main-panel.keyboard-open .tab-bar-row,
-.main-panel.keyboard-open .header-row2 {
+.main-panel.keyboard-open .workspace-status-bar {
   display: none !important;
 }
 
@@ -649,6 +649,10 @@ button.git-badge:disabled {
 
 .numstat-untracked {
   color: #9e9e9e;
+}
+
+.numstat-neutral {
+  color: #ffffff;
 }
 
 .commit-issue-link {
@@ -2864,31 +2868,6 @@ button:disabled {
   border-bottom: none;
 }
 
-.git-log-commit-files-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 8px;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  font-size: 13px;
-  flex-shrink: 0;
-}
-
-.git-log-commit-files-header .mdi-arrow-left {
-  flex-shrink: 0;
-  font-size: 16px;
-  color: var(--text-muted);
-}
-
-.git-log-commit-files-header-msg {
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .git-ref-dirty {
   display: inline-flex;
   align-items: center;
@@ -3334,7 +3313,7 @@ button:disabled {
   flex: 1;
   overflow: auto;
   min-width: 0;
-  background: #07090f;
+  background: transparent;
   padding: 12px;
   min-height: 100px;
   box-sizing: border-box;
@@ -3912,7 +3891,7 @@ button:disabled {
     align-items: flex-start;
   }
 
-  .header-row2 .git-summary-panel {
+  .workspace-status-bar .git-summary-panel {
     max-width: 45vw;
   }
 
@@ -4267,28 +4246,6 @@ button:disabled {
   font-size: 12px;
   color: var(--text-muted);
 }
-
-.modal-back-btn {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  flex-shrink: 0;
-  padding: 0;
-  font-size: 18px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  outline: none;
-}
-
-.modal-back-btn.is-placeholder {
-  visibility: hidden;
-  pointer-events: none;
-}
-
 
 /* Settings device name */
 .settings-device-name {

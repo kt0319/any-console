@@ -12,6 +12,7 @@
 <script setup>
 import { ref, watch } from "vue";
 import { escapeHtml } from "../utils/escape-html.js";
+import { formatSize } from "../utils/format.js";
 
 const props = defineProps({
   fileContent: { type: Object, required: true },
@@ -20,13 +21,6 @@ const props = defineProps({
 
 const codeEl = ref(null);
 const highlightedLines = ref([]);
-
-function formatSize(bytes) {
-  if (bytes == null) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 function highlight() {
   const content = props.fileContent?.content;

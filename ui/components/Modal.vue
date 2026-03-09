@@ -33,7 +33,7 @@
         <EditorConfig v-if="currentView === 'EditorConfig'" />
         <ServerInfo v-if="currentView === 'ServerInfo'" />
         <GitHubPane v-if="currentView === 'GitHubPane'" ref="gitGitHubView" />
-        <GitCommitGraph v-if="currentView === 'GitCommitGraph'" ref="gitGraphView" />
+        <GitLogGraph v-if="currentView === 'GitLogGraph'" ref="gitGraphView" />
         <ConfigFile v-if="currentView === 'ConfigFile'" />
 
         <IconPicker
@@ -63,6 +63,7 @@
 <script setup>
 import { ref, provide, nextTick, onMounted } from "vue";
 import { useModal } from "../composables/useModal.js";
+import { useSwipeDismiss } from "../composables/useSwipeDismiss.js";
 import ModalMenu from "./ModalMenu.vue";
 import WorkspaceOpen from "./WorkspaceOpen.vue";
 import WorkspaceAdd from "./WorkspaceAdd.vue";
@@ -73,7 +74,7 @@ import EditorConfig from "./EditorConfig.vue";
 import ServerInfo from "./ServerInfo.vue";
 import ConfigFile from "./ConfigFile.vue";
 import GitHubPane from "./GitHubPane.vue";
-import GitCommitGraph from "./GitCommitGraph.vue";
+import GitLogGraph from "./GitLogGraph.vue";
 import IconPicker from "./IconPicker.vue";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
 import { on } from "../app-bridge.js";
@@ -95,10 +96,13 @@ const modalTitle = ref("");
 const modalBack = ref(false);
 
 provide("modalTitle", modalTitle);
-let flickStartY = 0;
-let flickCurrentY = 0;
-let flickDragging = false;
-const FLICK_THRESHOLD = 80;
+const {
+  resetStyle: resetFlickStyle,
+  onStart: onFlickStart,
+  onMove: onFlickMove,
+  onEnd: onFlickEnd,
+  onCancel: onFlickCancel,
+} = useSwipeDismiss(modalEl, () => closeModal(), { threshold: 80 });
 
 function openModal() {
   modal.open(modalEl.value, closeModal);
@@ -110,60 +114,6 @@ function closeModal() {
   currentView.value = null;
   modalTitle.value = "";
   modalBack.value = false;
-}
-
-function resetFlickStyle() {
-  if (!modalEl.value) return;
-  modalEl.value.style.transform = "";
-  modalEl.value.style.opacity = "";
-  modalEl.value.style.transition = "";
-}
-
-function onFlickStart(e) {
-  if (!modalEl.value) return;
-  flickStartY = e.touches[0].clientY;
-  flickCurrentY = flickStartY;
-  flickDragging = true;
-  modalEl.value.style.transition = "none";
-}
-
-function onFlickMove(e) {
-  if (!flickDragging || !modalEl.value) return;
-  if (e.cancelable) e.preventDefault();
-  flickCurrentY = e.touches[0].clientY;
-  const dy = flickCurrentY - flickStartY;
-  modalEl.value.style.transform = `translateY(${dy}px)`;
-  modalEl.value.style.opacity = String(Math.max(0.2, 1 - Math.abs(dy) / 400));
-}
-
-function onFlickEnd() {
-  if (!flickDragging || !modalEl.value) return;
-  flickDragging = false;
-  const dy = flickCurrentY - flickStartY;
-  if (Math.abs(dy) > FLICK_THRESHOLD) {
-    const endY = dy >= 0 ? "100%" : "-100%";
-    modalEl.value.style.transition = "transform 0.2s ease-out, opacity 0.2s ease-out";
-    modalEl.value.style.transform = `translateY(${endY})`;
-    modalEl.value.style.opacity = "0";
-    modalEl.value.addEventListener("transitionend", () => {
-      resetFlickStyle();
-      closeModal();
-    }, { once: true });
-    return;
-  }
-  modalEl.value.style.transition = "transform 0.2s ease-out, opacity 0.2s ease-out";
-  modalEl.value.style.transform = "";
-  modalEl.value.style.opacity = "";
-  modalEl.value.addEventListener("transitionend", () => {
-    if (!modalEl.value) return;
-    modalEl.value.style.transition = "";
-  }, { once: true });
-}
-
-function onFlickCancel() {
-  if (!flickDragging) return;
-  flickDragging = false;
-  resetFlickStyle();
 }
 
 function onViewSelect({ view }) {
@@ -190,7 +140,7 @@ function onBack() {
     nextTick(() => {
       fileContent.value?.open();
     });
-  } else if (currentView.value === "GitCommitGraph") {
+  } else if (currentView.value === "GitLogGraph") {
     currentView.value = "WorkspaceDetail";
     modalBack.value = true;
     nextTick(() => {
@@ -259,8 +209,8 @@ onMounted(() => {
     });
   });
 
-  on("git:openCommitGraph", () => {
-    currentView.value = "GitCommitGraph";
+  on("git:openLogGraph", () => {
+    currentView.value = "GitLogGraph";
     modalBack.value = true;
     nextTick(() => {
       openModal();

@@ -1,5 +1,5 @@
 <template>
-  <div class="header-row2" :style="{ display: showHeader ? 'flex' : 'none' }">
+  <div class="workspace-status-bar" :style="{ display: showHeader ? 'flex' : 'none' }">
     <button
       v-if="isGitRepo"
       type="button"

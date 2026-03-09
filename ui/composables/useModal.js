@@ -43,59 +43,6 @@ export function useModal() {
     return () => modalEl.removeEventListener("keydown", onKeydown);
   }
 
-  function setupSwipeClose(modalEl, closeFn) {
-    const handle = document.createElement("div");
-    handle.className = "modal-swipe-handle";
-    handle.innerHTML = '<span class="modal-swipe-bar"></span>';
-    modalEl.appendChild(handle);
-
-    const THRESHOLD = 80;
-    let startY = 0;
-    let currentY = 0;
-    let dragging = false;
-
-    handle.addEventListener("touchstart", (e) => {
-      startY = e.touches[0].clientY;
-      currentY = startY;
-      dragging = true;
-      modalEl.style.transition = "none";
-    }, { passive: true });
-
-    handle.addEventListener("touchmove", (e) => {
-      if (!dragging) return;
-      currentY = e.touches[0].clientY;
-      const dy = startY - currentY;
-      if (dy > 0) {
-        modalEl.style.transform = `translateY(-${dy}px)`;
-        modalEl.style.opacity = Math.max(0.2, 1 - dy / 400);
-      }
-    }, { passive: true });
-
-    handle.addEventListener("touchend", () => {
-      if (!dragging) return;
-      dragging = false;
-      const dy = startY - currentY;
-      if (dy > THRESHOLD) {
-        modalEl.style.transition = "transform 0.2s ease-out, opacity 0.2s ease-out";
-        modalEl.style.transform = "translateY(-100%)";
-        modalEl.style.opacity = "0";
-        modalEl.addEventListener("transitionend", () => {
-          modalEl.style.transform = "";
-          modalEl.style.opacity = "";
-          modalEl.style.transition = "";
-          closeFn();
-        }, { once: true });
-      } else {
-        modalEl.style.transition = "transform 0.2s ease-out, opacity 0.2s ease-out";
-        modalEl.style.transform = "";
-        modalEl.style.opacity = "";
-        modalEl.addEventListener("transitionend", () => {
-          modalEl.style.transition = "";
-        }, { once: true });
-      }
-    });
-  }
-
   function open(modalEl, closeFn) {
     visible.value = true;
     nextTick(() => {
@@ -122,5 +69,5 @@ export function useModal() {
     }
   });
 
-  return { visible, open, close, trapFocus, setupSwipeClose };
+  return { visible, open, close, trapFocus };
 }

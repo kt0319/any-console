@@ -103,7 +103,7 @@ function close() {
 
 function switchPane(key) {
   if (key === "graph") {
-    bridgeEmit("git:openCommitGraph");
+    bridgeEmit("git:openLogGraph");
     return;
   }
   activePane.value = key;

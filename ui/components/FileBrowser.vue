@@ -35,23 +35,23 @@
       <template v-else-if="!fileContent">
         <ul class="file-browser-list">
           <template v-for="entry in entries" :key="entry.name">
-            <li
-              class="file-browser-item long-press-surface"
-              :class="{ 'action-open': contextEntry?.name === entry.name, 'gitignored': entry.gitignored }"
+            <FileItem
+              long-press-surface
+              :action-open="contextEntry?.name === entry.name"
+              :gitignored="entry.gitignored"
               :data-type="entry.type"
+              :label="entry.name"
+              :icon-html="renderFileIcon(entry)"
+              :size-text="entry.type === 'file' && entry.size != null ? formatSize(entry.size) : ''"
               @click="onEntryClick(entry)"
-              @contextmenu.prevent="toggleContextMenu(entry)"
+              @contextmenu="toggleContextMenu(entry)"
               @mousedown="onLongPressStart($event, entry)"
               @mouseup="onLongPressEnd"
               @mouseleave="onLongPressEnd"
-              @touchstart.passive="onLongPressStart($event, entry)"
+              @touchstart="onLongPressStart($event, entry)"
               @touchend="onLongPressEnd"
               @touchcancel="onLongPressEnd"
-            >
-              <span class="file-browser-item-icon nf-icon" v-html="renderFileIcon(entry)"></span>
-              <span class="file-browser-item-name">{{ entry.name }}</span>
-              <span v-if="entry.type === 'file' && entry.size != null" class="file-browser-item-size">{{ formatSize(entry.size) }}</span>
-            </li>
+            />
             <li v-if="contextEntry?.name === entry.name" class="file-browser-action-menu">
               <button v-if="entry.type === 'file'" type="button" @click="openEntryInEditor"><span class="mdi mdi-file-edit-outline"></span> エディタ</button>
               <button v-if="entry.type === 'file'" type="button" @click="downloadEntry"><span class="mdi mdi-download"></span> ダウンロード</button>
@@ -73,11 +73,13 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import FileTextViewer from "./FileTextViewer.vue";
+import FileItem from "./FileItem.vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore } from "../stores/git.js";
 import { emit } from "../app-bridge.js";
 import { renderFileIcon } from "../utils/file-icon.js";
+import { formatSize } from "../utils/format.js";
 
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
@@ -153,13 +155,6 @@ watch(() => props.diffMessage, (msg) => {
     diffHtml.value = `<div style="color:var(--text-muted);padding:16px;text-align:center">${escapeDiffHtml(msg)}</div>`;
   }
 }, { immediate: true });
-
-function formatSize(bytes) {
-  if (bytes == null) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 async function load() {
   await navigate("");

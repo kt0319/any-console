@@ -106,6 +106,7 @@ import { useInputStore } from "../stores/input.js";
 import { useAuthStore } from "../stores/auth.js";
 import { emit } from "../app-bridge.js";
 import { FLICK_THRESHOLD } from "../utils/constants.js";
+import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
 
 const props = defineProps({
   active: { type: Boolean, default: false },
@@ -121,7 +122,6 @@ const qwertyKeyboardSnippet = ref(null);
 const topArrowFlickEl = ref(null);
 const topEnterFlickEl = ref(null);
 const cameraInputEl = ref(null);
-const encoder = new TextEncoder();
 
 const qwertyRows = computed(() => inputStore.QWERTY_ROWS || []);
 const numberKeys = computed(() => inputStore.NUMBER_KEYS || []);
@@ -204,22 +204,12 @@ function openCamera() {
 async function uploadImageAndSendPath(file) {
   if (!file) return;
   const tab = getActiveTerminalTab();
-  if (!tab || !tab.ws || tab.ws.readyState !== WebSocket.OPEN) {
-    emit("toast:show", { message: "アクティブなターミナルがありません", type: "error" });
-    return;
-  }
-  emit("toast:show", { message: "画像アップロード中...", type: "success" });
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-    const res = await auth.apiFetch("/upload-image", { method: "POST", body: formData });
-    if (!res || !res.ok) throw new Error("アップロード失敗");
-    const data = await res.json();
-    tab.ws.send(encoder.encode(data.path));
-    emit("toast:show", { message: "画像アップロード完了", type: "success" });
-  } catch (err) {
-    emit("toast:show", { message: `画像アップロード失敗: ${err.message}`, type: "error" });
-  }
+  await uploadImageToTerminal({
+    file,
+    apiFetch: auth.apiFetch.bind(auth),
+    ws: tab?.ws,
+    notify: (message, type) => emit("toast:show", { message, type }),
+  });
 }
 
 async function onCameraFileChange(e) {

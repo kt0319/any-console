@@ -35,6 +35,9 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { emit } from "../app-bridge.js";
 import { DRAG_THRESHOLD, LONG_PRESS_MS } from "../utils/constants.js";
+import { useSplitDropDrag } from "../composables/useSplitDropDrag.js";
+import { useLongPress } from "../composables/useLongPress.js";
+import { isPastDragThreshold } from "../utils/gesture.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -46,11 +49,13 @@ const props = defineProps({
 const emits = defineEmits(["select", "close", "active-click"]);
 const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
+const { beginDrag, updateHover, finishSplitDrop, cancelDrag } = useSplitDropDrag();
+const mouseLongPress = useLongPress(LONG_PRESS_MS);
+const touchLongPress = useLongPress(LONG_PRESS_MS);
 const pillEl = ref(null);
 const isDragging = ref(false);
 const dropSide = ref("");
 
-const isTouchDevice = layoutStore.isTouchDevice;
 const isActive = computed(() => props.activeTabId === props.tab.id);
 const canDrag = computed(() => terminalStore.openTabs.length >= 1);
 
@@ -69,7 +74,7 @@ const iconHtml = computed(() => {
 });
 
 function onClick(e) {
-  clearLongPress();
+  mouseLongPress.cancel();
   if (isDragging.value) return;
   e.currentTarget?.blur();
   if (isActive.value) {
@@ -84,44 +89,30 @@ function onClose() {
 }
 
 function onClosePress() {
-  clearLongPress();
-  clearTouchLongPress();
-}
-
-// PC: long press
-let longPressTimer = null;
-
-function clearLongPress() {
-  if (longPressTimer) {
-    clearTimeout(longPressTimer);
-    longPressTimer = null;
-  }
+  mouseLongPress.cancel();
+  touchLongPress.cancel();
 }
 
 function onMouseDown() {
-  clearLongPress();
-  longPressTimer = setTimeout(() => {
-    longPressTimer = null;
+  mouseLongPress.start(() => {
     emit("settings:open", { view: "TabConfig" });
-  }, LONG_PRESS_MS);
+  });
 }
 
 // PC: HTML5 Drag & Drop
 function onDragStart(e) {
-  clearLongPress();
+  mouseLongPress.cancel();
   if (!canDrag.value) { e.preventDefault(); return; }
   e.dataTransfer.setData("text/plain", props.tab.id);
   e.dataTransfer.effectAllowed = "move";
   isDragging.value = true;
-  layoutStore.dragTabId = props.tab.id;
-  layoutStore.isShowDropZones = true;
+  beginDrag(props.tab.id);
 }
 
 function onDragEnd(e) {
   isDragging.value = false;
   dropSide.value = "";
-  layoutStore.isShowDropZones = false;
-  layoutStore.dragTabId = null;
+  cancelDrag();
   e.currentTarget?.blur();
 }
 
@@ -173,106 +164,60 @@ function onDropOnTab(e) {
   toIndex = Math.max(0, Math.min(toIndex, terminalStore.openTabs.length - 1));
   terminalStore.moveTab(fromIndex, toIndex);
 
-  layoutStore.isShowDropZones = false;
-  layoutStore.dragTabId = null;
+  cancelDrag();
 }
 
 // Mobile: Touch drag + long press
 let touchStartX = 0;
 let touchStartY = 0;
 let touchDragging = false;
-let touchLongPressTimer = null;
-let touchLongPressed = false;
-
-function clearTouchLongPress() {
-  if (touchLongPressTimer) {
-    clearTimeout(touchLongPressTimer);
-    touchLongPressTimer = null;
-  }
-}
 
 function onTouchStart(e) {
   touchDragging = false;
-  touchLongPressed = false;
+  touchLongPress.reset();
   touchStartX = e.touches[0].clientX;
   touchStartY = e.touches[0].clientY;
-  clearTouchLongPress();
-  touchLongPressTimer = setTimeout(() => {
-    touchLongPressed = true;
+  touchLongPress.start(() => {
     emit("settings:open", { view: "TabConfig" });
-  }, LONG_PRESS_MS);
+  });
 }
 
 function onTouchMove(e) {
   const dx = e.touches[0].clientX - touchStartX;
   const dy = e.touches[0].clientY - touchStartY;
-  if (dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
-    clearTouchLongPress();
+  if (isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
+    touchLongPress.cancel();
   }
   if (!canDrag.value) return;
 
-  if (!touchDragging && dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
+  if (!touchDragging && isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
     touchDragging = true;
     isDragging.value = true;
-    layoutStore.dragTabId = props.tab.id;
-    layoutStore.isShowDropZones = true;
+    beginDrag(props.tab.id);
     if (e.cancelable) e.preventDefault();
   }
 
   if (touchDragging) {
     if (e.cancelable) e.preventDefault();
-    updateTouchDropZoneHover(e.touches[0]);
+    updateHover(e.touches[0].clientX, e.touches[0].clientY);
   }
 }
 
 function onTouchEnd(e) {
-  clearTouchLongPress();
-  if (touchLongPressed) { touchLongPressed = false; return; }
+  touchLongPress.cancel();
+  if (touchLongPress.consumeFired()) return;
   if (!touchDragging) return;
   if (e.cancelable) e.preventDefault();
   isDragging.value = false;
-
   const touch = e.changedTouches[0];
-  const dropDir = detectDropZone(touch);
-
-  layoutStore.isShowDropZones = false;
-
-  if (dropDir) {
-    layoutStore.splitWithDrop(
-      props.tab.id,
-      dropDir,
-      terminalStore.openTabs,
-      terminalStore.activeTabId,
-    );
-  }
-
-  layoutStore.dragTabId = null;
-  setTimeout(() => { touchDragging = false; }, 100);
-}
-
-function updateTouchDropZoneHover(touch) {
-  const overlay = document.querySelector(".split-drop-overlay");
-  if (!overlay) return;
-  overlay.querySelectorAll(".split-drop-zone").forEach((z) => {
-    const r = z.getBoundingClientRect();
-    z.classList.toggle("drag-over",
-      touch.clientX >= r.left && touch.clientX <= r.right &&
-      touch.clientY >= r.top && touch.clientY <= r.bottom);
+  finishSplitDrop({
+    tabId: props.tab.id,
+    clientX: touch.clientX,
+    clientY: touch.clientY,
+    openTabs: terminalStore.openTabs,
+    activeTabId: terminalStore.activeTabId,
   });
-}
-
-function detectDropZone(touch) {
-  const overlay = document.querySelector(".split-drop-overlay");
-  if (!overlay) return null;
-  for (const z of overlay.querySelectorAll(".split-drop-zone")) {
-    const r = z.getBoundingClientRect();
-    if (touch.clientX >= r.left && touch.clientX <= r.right &&
-        touch.clientY >= r.top && touch.clientY <= r.bottom) {
-      const match = z.className.match(/\bdrop-(top-left|top-right|bottom-left|bottom-right|left|right|top|bottom|center)\b/);
-      return match ? match[1] : null;
-    }
-  }
-  return null;
+  setTimeout(() => { touchDragging = false; }, 100);
 }
 
 onMounted(() => {

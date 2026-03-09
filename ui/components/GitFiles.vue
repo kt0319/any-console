@@ -12,18 +12,20 @@
     <div class="diff-file-list">
       <div v-if="loading" style="color:var(--text-muted);padding:16px">読み込み中...</div>
       <ul v-else class="file-browser-list diff-file-browser-list">
-        <li
+        <FileItem
           v-for="file in files"
           :key="file.path"
-          class="file-browser-item diff-file-row"
-          :class="{ selected: selectedFile === file.path }"
+          class="diff-file-row"
+          :selected="selectedFile === file.path"
+          :label="file.path"
+          :icon-html="fileIconHtml(file)"
           @click="selectFile(file)"
         >
-          <span class="file-browser-item-icon nf-icon" v-html="fileIconHtml(file)"></span>
-          <span class="file-browser-item-name">{{ file.path }}</span>
-          <span v-if="file.numstat" class="diff-file-row-numstat" v-html="file.numstat"></span>
-          <span :class="['diff-file-row-status', statusClass(file.status)]">{{ file.status }}</span>
-        </li>
+          <template #right>
+            <span v-if="file.numstat" class="diff-file-row-numstat" v-html="file.numstat"></span>
+            <span :class="['diff-file-row-status', statusClass(file.status)]">{{ file.status }}</span>
+          </template>
+        </FileItem>
       </ul>
     </div>
   </div>
@@ -31,11 +33,14 @@
 
 <script setup>
 import { ref } from "vue";
+import FileItem from "./FileItem.vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore, parseDiffChunks } from "../stores/git.js";
 import { emit } from "../app-bridge.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
+import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
+import { buildNumstatHtml, parseDiffNumstatFromChunk, resolveUntrackedNumstat } from "../utils/git.js";
 
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
@@ -46,14 +51,25 @@ const loading = ref(false);
 const selectedFile = ref("");
 const actionButtons = ref([]);
 
-const STATUS_CLASSES = { M: "diff-status-mod", A: "diff-status-add", D: "diff-status-del", "?": "diff-status-untracked" };
-
 function statusClass(status) {
-  return STATUS_CLASSES[status] || "";
+  return GIT_DIFF_STATUS_CLASSES[status] || "";
 }
 
 function fileIconHtml(file) {
   return renderFileIconFromPath(file.path);
+}
+
+function buildNumstatHtmlWithFallback(file, diffChunk = "", opts = {}) {
+  const status = String(file.status || "").trim();
+  const omitZeroDeletions = status === "??" || status === "A";
+  const { neutralText = false } = opts;
+  const insertions = file.insertions ?? file.added;
+  const deletions = file.deletions ?? file.deleted;
+  if (insertions != null || deletions != null) {
+    return buildNumstatHtml(insertions, deletions, { omitZeroDeletions, neutralText });
+  }
+  const parsed = parseDiffNumstatFromChunk(diffChunk);
+  return buildNumstatHtml(parsed?.insertions, parsed?.deletions, { omitZeroDeletions, neutralText });
 }
 
 async function loadWorkingTreeDiff() {
@@ -64,13 +80,29 @@ async function loadWorkingTreeDiff() {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/diff`);
     if (!res || !res.ok) { loading.value = false; return; }
     const data = await res.json();
-    files.value = (data.files || []).map((f) => ({
+    const fileList = (data.files || []).map((f) => ({
       path: f.path || f.name,
       status: f.status || "M",
-      numstat: f.added != null ? `<span class="numstat-added">+${f.added}</span> <span class="numstat-deleted">-${f.deleted}</span>` : "",
+      insertions: f.insertions,
+      deletions: f.deletions,
     }));
-    gitStore.diffChunks = parseDiffChunks(data.diff);
+    const untrackedNumstat = await resolveUntrackedNumstat({
+      workspace,
+      files: fileList,
+      apiFetch: auth.apiFetch.bind(auth),
+    });
+    const diffChunks = parseDiffChunks(data.diff);
+    gitStore.diffChunks = diffChunks;
     gitStore.diffFullText = data.diff || "";
+    files.value = fileList.map((f) => ({
+      path: f.path,
+      status: f.status,
+      numstat: buildNumstatHtmlWithFallback(
+        { ...f, insertions: f.insertions ?? untrackedNumstat[f.path], deletions: f.deletions ?? (untrackedNumstat[f.path] != null ? 0 : f.deletions) },
+        diffChunks[f.path],
+        { neutralText: untrackedNumstat[f.path] != null && f.insertions == null && f.deletions == null },
+      ),
+    }));
     actionButtons.value = [
       { label: "コミット", class: "primary", handler: () => emit("git:openCommitForm") },
       { label: "Stash", handler: () => emit("git:stashSave") },
@@ -90,13 +122,14 @@ async function loadCommitDiff(hash) {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/diff/${encodeURIComponent(hash)}`);
     if (!res || !res.ok) { loading.value = false; return; }
     const data = await res.json();
+    const diffChunks = parseDiffChunks(data.diff);
+    gitStore.diffChunks = diffChunks;
+    gitStore.diffFullText = data.diff || "";
     files.value = (data.files || []).map((f) => ({
       path: f.path || f.name,
       status: f.status || "M",
-      numstat: f.added != null ? `<span class="numstat-added">+${f.added}</span> <span class="numstat-deleted">-${f.deleted}</span>` : "",
+      numstat: buildNumstatHtmlWithFallback(f, diffChunks[f.path || f.name]),
     }));
-    gitStore.diffChunks = parseDiffChunks(data.diff);
-    gitStore.diffFullText = data.diff || "";
     actionButtons.value = [];
   } catch (e) {
     console.error("commit diff load failed:", e);

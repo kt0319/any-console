@@ -12,7 +12,7 @@
             @click="insertText(snippet.command)"
           >
             <span class="mdi mdi-pin snippet-chip-icon"></span>
-            {{ truncate(snippet.label) }}
+            {{ truncateQuickText(snippet.label) }}
           </button>
           <div v-if="snippets.length === 0" class="quick-snippet-item quick-snippet-item-empty">スニペットなし</div>
         </div>
@@ -25,7 +25,7 @@
             @click="insertText(text)"
           >
             <span class="mdi mdi-history snippet-chip-icon"></span>
-            {{ truncate(text) }}
+            {{ truncateQuickText(text) }}
           </button>
           <div v-if="history.length === 0" class="quick-snippet-item quick-snippet-item-empty">履歴なし</div>
         </div>
@@ -53,9 +53,10 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from "vue";
+import { ref, nextTick } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
+import { useQuickInputData } from "../composables/useQuickInputData.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 
 const emitLocal = defineEmits(["visibility"]);
@@ -67,12 +68,7 @@ const visible = ref(false);
 const draft = ref("");
 const inputEl = ref(null);
 
-const snippets = computed(() => inputStore.snippetsCache ? [...inputStore.snippetsCache].reverse() : []);
-const history = computed(() => inputStore.inputHistory ? [...inputStore.inputHistory] : []);
-
-function truncate(text) {
-  return text && text.length > 20 ? text.slice(0, 20) + "\u2026" : text || "";
-}
+const { snippets, history, truncateQuickText } = useQuickInputData();
 
 function show() {
   visible.value = true;

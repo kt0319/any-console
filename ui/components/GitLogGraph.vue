@@ -40,6 +40,8 @@ import { ref, computed, nextTick } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore } from "../stores/git.js";
+import { formatGitTime, parseGitRefs } from "../utils/git.js";
+import { INFINITE_SCROLL_THRESHOLD_PX } from "../utils/constants.js";
 
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
@@ -91,9 +93,9 @@ function parseGraphOutput(stdout) {
             hash: hash.slice(0, 8),
             fullHash: hash,
             author,
-            time: formatTime(time),
+            time: formatGitTime(time),
             message: msgParts.join("\t"),
-            refs: parseRefs(refs),
+            refs: parseGitRefs(refs),
           },
         });
       } else {
@@ -143,31 +145,6 @@ function buildGraphRows(parsed) {
   }
 
   return result;
-}
-
-function parseRefs(refsStr) {
-  if (!refsStr) return [];
-  return refsStr.split(", ")
-    .filter((r) => r !== "HEAD" && r !== "origin/HEAD")
-    .map((r) => {
-      if (r.startsWith("HEAD -> ")) return { label: r.replace("HEAD -> ", ""), type: "head", icon: "mdi-source-branch" };
-      if (r.startsWith("tag: ")) return { label: r.replace("tag: ", ""), type: "tag", icon: "mdi-tag-outline" };
-      if (r.startsWith("origin/")) return { label: r, type: "remote", icon: "mdi-github" };
-      if (r.startsWith("upstream/")) return { label: r, type: "remote", icon: "mdi-server" };
-      return { label: r, type: "branch", icon: "mdi-source-branch" };
-    });
-}
-
-function formatTime(timeText) {
-  if (!timeText) return "-";
-  const d = new Date(timeText);
-  if (Number.isNaN(d.getTime())) return timeText;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const h = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${y}-${m}-${day} ${h}:${min}`;
 }
 
 function selectCommit(entry) {
@@ -228,7 +205,7 @@ function onScroll() {
   if (!hasMore.value || loading.value || loadingMore.value) return;
   const el = scrollEl.value;
   if (!el) return;
-  const threshold = 80;
+  const threshold = INFINITE_SCROLL_THRESHOLD_PX;
   if (el.scrollTop + el.clientHeight >= el.scrollHeight - threshold) {
     loadMore();
   }

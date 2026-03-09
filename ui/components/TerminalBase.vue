@@ -2,7 +2,6 @@
   <div
     class="output-container"
     :class="[splitContainerClasses, { 'input-overlay-active': keyboardOverlay }]"
-    ref="containerEl"
   >
     <div v-if="isShowDropZones" class="split-drop-overlay">
       <div class="split-drop-zone drop-top-left" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'top-left')">
@@ -68,15 +67,6 @@
       </div>
     </div>
 
-    <div v-if="openTabs.length === 0 && !isSplitMode && (restoreSessionsLoading || !!restoreSessionsError)" class="terminal-restore-overlay">
-      <div v-if="restoreSessionsLoading" class="terminal-restore-spinner" aria-hidden="true"></div>
-      <div class="terminal-restore-text">
-        {{ restoreSessionsLoading ? "tmuxセッションを読み込み中..." : restoreSessionsError }}
-      </div>
-    </div>
-
-    <EmptyPane v-if="openTabs.length === 0 && !isSplitMode && !restoreSessionsLoading && !restoreSessionsError" @openWorkspace="openWorkspaceModal" />
-
     <template v-if="!isSplitMode">
       <TerminalPane
         v-for="tab in openTabs"
@@ -119,26 +109,18 @@
 <script setup>
 import { ref, computed, watch, nextTick } from "vue";
 import TerminalPane from "./TerminalPane.vue";
-import EmptyPane from "./EmptyPane.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { emit, on } from "../app-bridge.js";
+import { on } from "../app-bridge.js";
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const keyboardOverlay = ref(false);
 on("keyboard:modeChange", ({ mode }) => { keyboardOverlay.value = mode === 1; });
 
-function openWorkspaceModal() {
-  emit("workspace:openModal");
-}
-
-const containerEl = ref(null);
 const paneRefs = ref([]);
 
 const openTabs = computed(() => terminalStore.openTabs);
-const restoreSessionsLoading = computed(() => terminalStore.restoreSessionsLoading);
-const restoreSessionsError = computed(() => terminalStore.restoreSessionsError);
 const activeTabId = computed(() => terminalStore.activeTabId);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
 const splitLayout = computed(() => layoutStore.splitLayout || "horizontal");

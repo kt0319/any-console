@@ -5,14 +5,19 @@
       <div class="modal-scroll-body">
         <div v-if="expandedLoading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
         <ul v-else class="file-browser-list diff-file-browser-list">
-          <li v-for="file in expandedFiles" :key="file.path"
-              class="file-browser-item diff-file-row"
-              @click="selectExpandedFile(file)">
-            <span class="file-browser-item-icon nf-icon" v-html="fileIconHtml(file)"></span>
-            <span class="file-browser-item-name">{{ file.path }}</span>
-            <span v-if="file.numstat" class="diff-file-row-numstat" v-html="file.numstat"></span>
-            <span :class="['diff-file-row-status', statusClass(file.status)]">{{ file.status }}</span>
-          </li>
+          <FileItem
+            v-for="file in expandedFiles"
+            :key="file.path"
+            class="diff-file-row"
+            :label="file.path"
+            :icon-html="fileIconHtml(file)"
+            @click="selectExpandedFile(file)"
+          >
+            <template #right>
+              <span v-if="file.numstat" class="diff-file-row-numstat" v-html="file.numstat"></span>
+              <span :class="['diff-file-row-status', statusClass(file.status)]">{{ file.status }}</span>
+            </template>
+          </FileItem>
         </ul>
       </div>
     </template>
@@ -89,11 +94,19 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted } from "vue";
+import FileItem from "./FileItem.vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore, parseDiffChunks } from "../stores/git.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
+import {
+  buildNumstatHtml,
+  parseDiffNumstatFromChunk,
+  parseGitLogEntries,
+  resolveUntrackedNumstat,
+} from "../utils/git.js";
+import { GIT_DIFF_STATUS_CLASSES, INFINITE_SCROLL_THRESHOLD_PX } from "../utils/constants.js";
 
 const vueEmit = defineEmits(["pane:select", "commit:expanded", "commit:collapsed"]);
 
@@ -134,62 +147,23 @@ const expandedEntry = ref(null);
 const expandedFiles = ref([]);
 const expandedLoading = ref(false);
 
-const STATUS_CLASSES = { M: "diff-status-mod", A: "diff-status-add", D: "diff-status-del", "?": "diff-status-untracked" };
-
 function statusClass(status) {
-  return STATUS_CLASSES[status] || "";
+  return GIT_DIFF_STATUS_CLASSES[status] || "";
 }
 
 function fileIconHtml(file) {
   return renderFileIconFromPath(file.path);
 }
 
-function parseRefs(refsStr) {
-  if (!refsStr) return [];
-  return refsStr.split(", ")
-    .filter((r) => r !== "HEAD" && r !== "origin/HEAD")
-    .map((r) => {
-      if (r.startsWith("HEAD -> ")) {
-        return { label: r.replace("HEAD -> ", ""), type: "head", icon: "mdi-source-branch" };
-      }
-      if (r.startsWith("tag: ")) {
-        return { label: r.replace("tag: ", ""), type: "tag", icon: "mdi-tag-outline" };
-      }
-      if (r.startsWith("origin/")) {
-        return { label: r, type: "remote", icon: "mdi-github" };
-      }
-      if (r.startsWith("upstream/")) {
-        return { label: r, type: "remote", icon: "mdi-server" };
-      }
-      return { label: r, type: "branch", icon: "mdi-source-branch" };
-    });
-}
-
-function parseLogEntries(stdout) {
-  if (!stdout) return [];
-  const lines = stdout.trim().split("\n");
-  const result = [];
-  for (const line of lines) {
-    const parts = line.split("\t");
-    if (parts.length < 5) continue;
-    const [hash, time, author, refs, ...msgParts] = parts;
-    const message = msgParts.join("\t");
-    const refList = refs ? parseRefs(refs) : [];
-    result.push({ hash: hash.slice(0, 8), fullHash: hash, refs: refList, author, time: formatTime(time), message });
+function buildFileNumstatHtml(file, diffChunk = "", opts = {}) {
+  const status = String(file.status || "").trim();
+  const omitZeroDeletions = status === "??" || status === "A";
+  const { neutralText = false } = opts;
+  if (file.insertions != null || file.deletions != null) {
+    return buildNumstatHtml(file.insertions, file.deletions, { omitZeroDeletions, neutralText });
   }
-  return result;
-}
-
-function formatTime(timeText) {
-  if (!timeText) return "-";
-  const d = new Date(timeText);
-  if (Number.isNaN(d.getTime())) return timeText;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const h = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${y}-${m}-${day} ${h}:${min}`;
+  const parsed = parseDiffNumstatFromChunk(diffChunk);
+  return buildNumstatHtml(parsed?.insertions, parsed?.deletions, { omitZeroDeletions, neutralText });
 }
 
 async function load() {
@@ -204,7 +178,7 @@ async function load() {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/git-log?limit=${perPage}&skip=0`);
     if (!res || !res.ok) { loading.value = false; return; }
     const data = await res.json();
-    entries.value = parseLogEntries(data.stdout);
+    entries.value = parseGitLogEntries(data.stdout);
     hasMore.value = entries.value.length >= perPage;
   } catch (e) {
     console.error("git log load failed:", e);
@@ -225,7 +199,7 @@ async function loadMore() {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/git-log?limit=${perPage}&skip=${page * perPage}`);
     if (!res || !res.ok) return;
     const data = await res.json();
-    const newEntries = parseLogEntries(data.stdout);
+    const newEntries = parseGitLogEntries(data.stdout);
     entries.value = [...entries.value, ...newEntries];
     hasMore.value = newEntries.length >= perPage;
   } catch (e) {
@@ -240,7 +214,7 @@ function onListScroll() {
   if (!hasMore.value || loading.value || loadingMore.value) return;
   const el = listEl.value;
   if (!el) return;
-  const threshold = 80;
+  const threshold = INFINITE_SCROLL_THRESHOLD_PX;
   if (el.scrollTop + el.clientHeight >= el.scrollHeight - threshold) {
     loadMore();
   }
@@ -351,13 +325,29 @@ async function selectDirty() {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/diff`);
     if (!res || !res.ok) return;
     const data = await res.json();
-    expandedFiles.value = (data.files || []).map((f) => ({
+    const fileList = (data.files || []).map((f) => ({
       path: f.path || f.name,
       status: f.status || "M",
-      numstat: f.insertions != null ? `<span class="numstat-added">+${f.insertions}</span> <span class="numstat-deleted">-${f.deletions}</span>` : "",
+      insertions: f.insertions,
+      deletions: f.deletions,
     }));
-    gitStore.diffChunks = parseDiffChunks(data.diff);
+    const untrackedNumstat = await resolveUntrackedNumstat({
+      workspace,
+      files: fileList,
+      apiFetch: auth.apiFetch.bind(auth),
+    });
+    const diffChunks = parseDiffChunks(data.diff);
+    gitStore.diffChunks = diffChunks;
     gitStore.diffFullText = data.diff || "";
+    expandedFiles.value = fileList.map((f) => ({
+      path: f.path,
+      status: f.status,
+      numstat: buildFileNumstatHtml(
+        { ...f, insertions: f.insertions ?? untrackedNumstat[f.path], deletions: f.deletions ?? (untrackedNumstat[f.path] != null ? 0 : f.deletions) },
+        diffChunks[f.path],
+        { neutralText: untrackedNumstat[f.path] != null && f.insertions == null && f.deletions == null },
+      ),
+    }));
   } catch (e) {
     console.error("dirty files load failed:", e);
   } finally {
@@ -380,13 +370,14 @@ async function selectCommit(entry) {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/diff/${encodeURIComponent(entry.fullHash)}`);
     if (!res || !res.ok) return;
     const data = await res.json();
+    const diffChunks = parseDiffChunks(data.diff);
+    gitStore.diffChunks = diffChunks;
+    gitStore.diffFullText = data.diff || "";
     expandedFiles.value = (data.files || []).map((f) => ({
       path: f.path || f.name,
       status: f.status || "M",
-      numstat: f.insertions != null ? `<span class="numstat-added">+${f.insertions}</span> <span class="numstat-deleted">-${f.deletions}</span>` : "",
+      numstat: buildFileNumstatHtml(f, diffChunks[f.path || f.name]),
     }));
-    gitStore.diffChunks = parseDiffChunks(data.diff);
-    gitStore.diffFullText = data.diff || "";
   } catch (e) {
     console.error("commit files load failed:", e);
   } finally {

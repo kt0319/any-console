@@ -1,6 +1,6 @@
 <template>
   <div class="quick-minimal-snippet-wrap" v-show="visible">
-    <div class="quick-snippet-row" ref="snippetRowEl">
+    <div class="quick-snippet-row">
       <div class="quick-snippet-scroll-row">
         <div
           v-for="(snippet, idx) in snippets"
@@ -15,7 +15,7 @@
           @mouseleave="onSnippetMouseLeave"
         >
           <span class="mdi mdi-pin snippet-chip-icon"></span>
-          {{ truncate(snippet.label) }}
+          {{ truncateQuickText(snippet.label) }}
         </div>
         <div v-if="snippets.length === 0" class="quick-snippet-item quick-snippet-item-empty">スニペットなし</div>
       </div>
@@ -30,7 +30,7 @@
           @mouseup="onHistoryClick(text)"
         >
           <span class="mdi mdi-history snippet-chip-icon"></span>
-          {{ truncate(text) }}
+          {{ truncateQuickText(text) }}
         </div>
         <div v-if="history.length === 0" class="quick-snippet-item quick-snippet-item-empty">履歴なし</div>
       </div>
@@ -39,76 +39,63 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
-import { useInputStore } from "../stores/input.js";
-import { useAuthStore } from "../stores/auth.js";
+import { ref } from "vue";
+import { useQuickInputData } from "../composables/useQuickInputData.js";
+import { useLongPress } from "../composables/useLongPress.js";
 import { emit } from "../app-bridge.js";
 
-const inputStore = useInputStore();
-const auth = useAuthStore();
-
 const visible = ref(false);
-const snippetRowEl = ref(null);
-let longPressTimer = null;
-let longPressFired = false;
+const snippetLongPress = useLongPress(600);
 let scrolled = false;
 let startX = 0;
 
-const snippets = computed(() => inputStore.snippetsCache ? [...inputStore.snippetsCache].reverse() : []);
-const history = computed(() => inputStore.inputHistory ? [...inputStore.inputHistory] : []);
-
-function truncate(text) {
-  return text && text.length > 20 ? text.slice(0, 20) + "\u2026" : text || "";
-}
+const { snippets, history, truncateQuickText } = useQuickInputData();
 
 function onSnippetTouchStart(e, snippet, idx) {
   scrolled = false;
-  longPressFired = false;
+  snippetLongPress.reset();
   startX = e.touches[0].clientX;
-  longPressTimer = setTimeout(() => {
-    longPressTimer = null;
-    longPressFired = true;
+  snippetLongPress.start(() => {
     emit("snippet:delete", { index: snippets.value.length - 1 - idx });
-  }, 600);
+  });
 }
 
 function onSnippetTouchMove(e) {
   if (!scrolled && Math.abs(e.touches[0].clientX - startX) > 10) {
     scrolled = true;
-    if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+    snippetLongPress.cancel();
   }
 }
 
 function onSnippetTouchEnd(e, snippet, idx) {
-  if (scrolled || longPressFired) return;
-  if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+  if (scrolled) return;
+  snippetLongPress.cancel();
+  if (snippetLongPress.consumeFired()) return;
   if (e.cancelable) e.preventDefault();
   emit("snippet:tap", { command: snippet.command });
 }
 
 function onSnippetTouchCancel() {
-  if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+  snippetLongPress.cancel();
 }
 
 function onSnippetMouseDown(e, idx) {
   if (e.button !== 0) return;
-  longPressFired = false;
-  longPressTimer = setTimeout(() => {
-    longPressTimer = null;
-    longPressFired = true;
+  snippetLongPress.reset();
+  snippetLongPress.start(() => {
     emit("snippet:delete", { index: snippets.value.length - 1 - idx });
-  }, 600);
+  });
 }
 
 function onSnippetMouseUp(e, snippet, idx) {
   if (e.button !== 0) return;
-  if (longPressFired) return;
-  if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+  snippetLongPress.cancel();
+  if (snippetLongPress.consumeFired()) return;
   emit("snippet:tap", { command: snippet.command });
 }
 
 function onSnippetMouseLeave() {
-  if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+  snippetLongPress.cancel();
 }
 
 function onHistoryTouchStart(e, text) {

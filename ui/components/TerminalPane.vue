@@ -28,15 +28,19 @@
 </template>
 
 <script setup>
-import { ref, shallowRef, onMounted, onBeforeUnmount, watch, computed, nextTick } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from "vue";
 import { useTerminal } from "../composables/useTerminal.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useAuthStore } from "../stores/auth.js";
 import { renderIconStr } from "../utils/render-icon.js";
-import { enterViewMode, exitViewMode, isViewMode } from "../utils/view-mode.js";
+import { exitViewMode, isViewMode } from "../utils/view-mode.js";
 import { emit } from "../app-bridge.js";
 import { DRAG_THRESHOLD, LONG_PRESS_MS } from "../utils/constants.js";
+import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
+import { useSplitDropDrag } from "../composables/useSplitDropDrag.js";
+import { useLongPress } from "../composables/useLongPress.js";
+import { isPastDragThreshold } from "../utils/gesture.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -48,7 +52,10 @@ const emits = defineEmits(["select-pane"]);
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const auth = useAuthStore();
-const { ensureTerminalOpened, fitTerminal, observeFrameResize, disconnectTerminal } = useTerminal();
+const { beginDrag, updateHover, finishSplitDrop, cancelDrag } = useSplitDropDrag();
+const pillMouseLongPress = useLongPress(LONG_PRESS_MS);
+const pillTouchLongPress = useLongPress(LONG_PRESS_MS);
+const { ensureTerminalOpened, fitTerminal, observeFrameResize } = useTerminal();
 
 const paneEl = ref(null);
 const frameEl = ref(null);
@@ -127,19 +134,10 @@ function onTouchEnd(e) {
 let pillTouchStartX = 0;
 let pillTouchStartY = 0;
 let pillTouchDragging = false;
-let pillLongPressTimer = null;
 let pillLongPressed = false;
-
-function clearPillLongPress() {
-  if (pillLongPressTimer) {
-    clearTimeout(pillLongPressTimer);
-    pillLongPressTimer = null;
-  }
-}
 
 let pillMouseDownTime = 0;
 let pillDidDrag = false;
-let pillMouseLongPressTimer = null;
 let pillMouseStartX = 0;
 let pillMouseStartY = 0;
 let pillMouseDragging = false;
@@ -159,11 +157,9 @@ function onPillMouseDown(e) {
   removePillMouseListeners();
   document.addEventListener("mousemove", onPillMouseMove);
   document.addEventListener("mouseup", onPillMouseUp);
-  if (pillMouseLongPressTimer) clearTimeout(pillMouseLongPressTimer);
-  pillMouseLongPressTimer = setTimeout(() => {
-    pillMouseLongPressTimer = null;
+  pillMouseLongPress.start(() => {
     emit("settings:open", { view: "TabConfig" });
-  }, LONG_PRESS_MS);
+  });
 }
 
 function onPillClick() {
@@ -171,10 +167,7 @@ function onPillClick() {
     pillDidDrag = false;
     return;
   }
-  if (pillMouseLongPressTimer) {
-    clearTimeout(pillMouseLongPressTimer);
-    pillMouseLongPressTimer = null;
-  }
+  pillMouseLongPress.cancel();
   if (Date.now() - pillMouseDownTime > 300) return;
   emit("workspace:openModal");
 }
@@ -182,53 +175,37 @@ function onPillClick() {
 function onPillMouseMove(e) {
   const dx = e.clientX - pillMouseStartX;
   const dy = e.clientY - pillMouseStartY;
-  if (dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
-    if (pillMouseLongPressTimer) {
-      clearTimeout(pillMouseLongPressTimer);
-      pillMouseLongPressTimer = null;
-    }
+  if (isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
+    pillMouseLongPress.cancel();
   }
   if (!canDrag.value) return;
-  if (!pillMouseDragging && dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
+  if (!pillMouseDragging && isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
     pillMouseDragging = true;
     pillDidDrag = true;
     pillDragging.value = true;
-    layoutStore.dragTabId = props.tab.id;
-    layoutStore.isShowDropZones = true;
+    beginDrag(props.tab.id);
     e.preventDefault();
   }
   if (pillMouseDragging) {
     e.preventDefault();
-    updateDropZoneHover(e.clientX, e.clientY);
+    updateHover(e.clientX, e.clientY);
   }
 }
 
 function onPillMouseUp(e) {
   removePillMouseListeners();
-  if (pillMouseLongPressTimer) {
-    clearTimeout(pillMouseLongPressTimer);
-    pillMouseLongPressTimer = null;
-  }
+  pillMouseLongPress.cancel();
   if (!pillMouseDragging) return;
   e.preventDefault();
   pillDragging.value = false;
-  const dropDir = detectDropZone(e.clientX, e.clientY);
-  layoutStore.isShowDropZones = false;
-  if (dropDir) {
-    layoutStore.splitWithDrop(props.tab.id, dropDir, terminalStore.openTabs, terminalStore.activeTabId);
-  }
-  layoutStore.dragTabId = null;
+  finishSplitDrop({
+    tabId: props.tab.id,
+    clientX: e.clientX,
+    clientY: e.clientY,
+    openTabs: terminalStore.openTabs,
+    activeTabId: terminalStore.activeTabId,
+  });
   setTimeout(() => { pillMouseDragging = false; }, 100);
-}
-
-function toggleViewMode() {
-  if (!frameEl.value) return;
-  if (isViewMode(frameEl.value)) {
-    exitViewMode(frameEl.value);
-  } else {
-    props.tab.term?.scrollToBottom();
-    enterViewMode(props.tab, frameEl.value, auth.apiFetch.bind(auth));
-  }
 }
 
 function onPillTouchStart(e) {
@@ -236,35 +213,34 @@ function onPillTouchStart(e) {
   pillLongPressed = false;
   pillTouchStartX = e.touches[0].clientX;
   pillTouchStartY = e.touches[0].clientY;
-  clearPillLongPress();
-  pillLongPressTimer = setTimeout(() => {
+  pillTouchLongPress.reset();
+  pillTouchLongPress.start(() => {
     pillLongPressed = true;
     emit("settings:open", { view: "TabConfig" });
-  }, LONG_PRESS_MS);
+  });
 }
 
 function onPillTouchMove(e) {
   const dx = e.touches[0].clientX - pillTouchStartX;
   const dy = e.touches[0].clientY - pillTouchStartY;
-  if (dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
-    clearPillLongPress();
+  if (isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
+    pillTouchLongPress.cancel();
   }
   if (!canDrag.value) return;
-  if (!pillTouchDragging && dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
+  if (!pillTouchDragging && isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
     pillTouchDragging = true;
     pillDragging.value = true;
-    layoutStore.dragTabId = props.tab.id;
-    layoutStore.isShowDropZones = true;
+    beginDrag(props.tab.id);
     if (e.cancelable) e.preventDefault();
   }
   if (pillTouchDragging) {
     if (e.cancelable) e.preventDefault();
-    updateDropZoneHover(e.touches[0].clientX, e.touches[0].clientY);
+    updateHover(e.touches[0].clientX, e.touches[0].clientY);
   }
 }
 
 function onPillTouchEnd(e) {
-  clearPillLongPress();
+  pillTouchLongPress.cancel();
   if (pillLongPressed) {
     pillLongPressed = false;
     return;
@@ -274,38 +250,15 @@ function onPillTouchEnd(e) {
   pillDidDrag = true;
   pillDragging.value = false;
   const touch = e.changedTouches[0];
-  const dropDir = detectDropZone(touch.clientX, touch.clientY);
-  layoutStore.isShowDropZones = false;
-  if (dropDir) {
-    layoutStore.splitWithDrop(props.tab.id, dropDir, terminalStore.openTabs, terminalStore.activeTabId);
-  }
-  layoutStore.dragTabId = null;
+  finishSplitDrop({
+    tabId: props.tab.id,
+    clientX: touch.clientX,
+    clientY: touch.clientY,
+    openTabs: terminalStore.openTabs,
+    activeTabId: terminalStore.activeTabId,
+  });
   setTimeout(() => { pillTouchDragging = false; }, 100);
 }
-
-function updateDropZoneHover(clientX, clientY) {
-  const overlay = document.querySelector(".split-drop-overlay");
-  if (!overlay) return;
-  overlay.querySelectorAll(".split-drop-zone").forEach((z) => {
-    const r = z.getBoundingClientRect();
-    z.classList.toggle("drag-over", clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom);
-  });
-}
-
-function detectDropZone(clientX, clientY) {
-  const overlay = document.querySelector(".split-drop-overlay");
-  if (!overlay) return null;
-  for (const z of overlay.querySelectorAll(".split-drop-zone")) {
-    const r = z.getBoundingClientRect();
-    if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) {
-      const match = z.className.match(/\bdrop-(top-left|top-right|bottom-left|bottom-right|left|right|top|bottom|center)\b/);
-      return match ? match[1] : null;
-    }
-  }
-  return null;
-}
-
-const encoder = new TextEncoder();
 
 async function onPaste(e) {
   if (!isActive.value) return;
@@ -314,20 +267,12 @@ async function onPaste(e) {
   const imageFile = Array.from(files).find((f) => f.type.startsWith("image/"));
   if (!imageFile) return;
   e.preventDefault();
-  emit("toast:show", { message: "画像アップロード中...", type: "success" });
-  try {
-    const formData = new FormData();
-    formData.append("file", imageFile);
-    const res = await auth.apiFetch("/upload-image", { method: "POST", body: formData });
-    if (!res || !res.ok) throw new Error("アップロード失敗");
-    const data = await res.json();
-    if (props.tab.ws && props.tab.ws.readyState === WebSocket.OPEN) {
-      props.tab.ws.send(encoder.encode(data.path));
-    }
-    emit("toast:show", { message: "画像アップロード完了", type: "success" });
-  } catch (err) {
-    emit("toast:show", { message: `画像アップロード失敗: ${err.message}`, type: "error" });
-  }
+  await uploadImageToTerminal({
+    file: imageFile,
+    apiFetch: auth.apiFetch.bind(auth),
+    ws: props.tab.ws,
+    notify: (message, type) => emit("toast:show", { message, type }),
+  });
 }
 
 onMounted(() => {
@@ -357,6 +302,7 @@ watch(isActive, async (active) => {
 onBeforeUnmount(() => {
   removePillMouseListeners();
   clearActiveFitTimer();
+  cancelDrag();
   if (pillEl.value) {
     pillEl.value.removeEventListener("touchmove", onPillTouchMove);
     pillEl.value.removeEventListener("touchend", onPillTouchEnd);
