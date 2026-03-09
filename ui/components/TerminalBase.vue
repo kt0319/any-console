@@ -171,9 +171,15 @@ function fitAllTerminals() {
   }
 }
 
-watch(splitMode, async (val) => {
+watch(splitMode, async () => {
   await nextTick();
-  fitAllTerminals();
+  requestAnimationFrame(() => fitAllTerminals());
+});
+
+watch(activeTabId, async () => {
+  if (splitMode.value) return;
+  await nextTick();
+  requestAnimationFrame(() => fitAllTerminals());
 });
 
 defineExpose({ fitAllTerminals, selectPane });

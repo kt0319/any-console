@@ -23,9 +23,7 @@ export function useTerminal() {
 
     ws.onopen = () => {
       tab._reconnectAttempts = 0;
-      if (tab.term && tab.fitAddon) {
-        try { tab.fitAddon.fit(); } catch {}
-      }
+      fitTerminal(tab);
       if (tab._pendingRedraw) {
         tab._pendingRedraw = false;
         tab.term?.write("\x1bc");
@@ -106,13 +104,20 @@ export function useTerminal() {
     if (!tab || !tab._pendingOpen || !frameEl) return false;
     tab._pendingOpen = false;
     tab.term.open(frameEl);
-    try { tab.fitAddon.fit(); } catch {}
     connectTerminalWs(tab);
+    requestAnimationFrame(() => {
+      fitTerminal(tab);
+    });
     return true;
   }
 
   function fitTerminal(tab) {
     if (!tab?.term || !tab?.fitAddon) return;
+    const frame = document.getElementById(`frame-${tab.id}`);
+    if (frame) {
+      const rect = frame.getBoundingClientRect();
+      if (rect.width < 2 || rect.height < 2) return;
+    }
     try { tab.fitAddon.fit(); } catch {}
   }
 

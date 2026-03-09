@@ -22,6 +22,7 @@ import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminal } from "../composables/useTerminal.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
+import { useViewport } from "../composables/useViewport.js";
 import { on, emit } from "../app-bridge.js";
 
 const layoutStore = useLayoutStore();
@@ -30,6 +31,7 @@ const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
 const { disconnectTerminal, deleteSession } = useTerminal();
 const { sendTextToTerminal } = useKeyboard();
+const { initViewport } = useViewport();
 
 const openTabs = computed(() => terminalStore.openTabs);
 const orphanSessions = computed(() => terminalStore.orphanSessions);
@@ -42,6 +44,7 @@ const keyboardBar = ref(null);
 const panelBottom = computed(() => layoutStore.panelBottom);
 
 let resizeObserver = null;
+let resizeDebounceTimer = null;
 
 async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, jobIcon, jobIconColor, initialCommand }) {
   try {
@@ -125,9 +128,29 @@ onMounted(() => {
     sendTextToTerminal(command + "\n");
   });
 
+  on("keyboard:activate", () => {
+    if (keyboardBar.value && keyboardBar.value.mode === 0) {
+      keyboardBar.value.cycleMode();
+    }
+  });
+
+  on("keyboard:deactivate", () => {
+    if (keyboardBar.value && keyboardBar.value.mode !== 0) {
+      keyboardBar.value.cycleMode();
+    }
+  });
+
+  initViewport(() => {
+    terminalSplit.value?.fitAllTerminals();
+  });
+
   if (typeof ResizeObserver !== "undefined") {
     resizeObserver = new ResizeObserver(() => {
-      terminalSplit.value?.fitAllTerminals();
+      if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
+      resizeDebounceTimer = setTimeout(() => {
+        resizeDebounceTimer = null;
+        terminalSplit.value?.fitAllTerminals();
+      }, 50);
     });
     const main = document.querySelector(".main-panel");
     if (main) resizeObserver.observe(main);

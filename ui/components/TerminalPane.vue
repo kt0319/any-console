@@ -32,7 +32,10 @@ import { ref, shallowRef, onMounted, onBeforeUnmount, watch, computed } from "vu
 import { useTerminal } from "../composables/useTerminal.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
+import { useAuthStore } from "../stores/auth.js";
 import { renderIconStr } from "../utils/render-icon.js";
+import { enterViewMode, exitViewMode, isViewMode } from "../utils/view-mode.js";
+import { emit } from "../app-bridge.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -43,9 +46,11 @@ const emits = defineEmits(["select-pane"]);
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
+const auth = useAuthStore();
 const { ensureTerminalOpened, fitTerminal, disconnectTerminal } = useTerminal();
 
 const DRAG_THRESHOLD = 15;
+const LONG_PRESS_MS = 500;
 
 const paneEl = ref(null);
 const frameEl = ref(null);
@@ -78,10 +83,18 @@ function onTouchStart(e) {
 }
 
 function onTouchEnd(e) {
+  if (pillEl.value && pillEl.value.contains(e.target)) return;
+  if (frameEl.value && isViewMode(frameEl.value)) {
+    exitViewMode(frameEl.value);
+    return;
+  }
   const endY = e.changedTouches?.[0]?.clientY || 0;
   if (Math.abs(endY - touchStartY) > 10) return;
-  if (!layoutStore.splitMode) return;
-  emits("select-pane", props.paneIndex);
+  if (layoutStore.splitMode) {
+    emits("select-pane", props.paneIndex);
+    return;
+  }
+  emit("keyboard:activate");
 }
 
 // PC: HTML5 Drag & Drop for pill
@@ -100,21 +113,49 @@ function onPillDragEnd() {
   layoutStore.dragTabId = null;
 }
 
-// Mobile: Touch drag for pill
+// Mobile: Touch drag + long press for pill
 let pillTouchStartX = 0;
 let pillTouchStartY = 0;
 let pillTouchDragging = false;
+let pillLongPressTimer = null;
+let pillLongPressed = false;
+
+function clearPillLongPress() {
+  if (pillLongPressTimer) {
+    clearTimeout(pillLongPressTimer);
+    pillLongPressTimer = null;
+  }
+}
+
+function toggleViewMode() {
+  if (!frameEl.value) return;
+  if (isViewMode(frameEl.value)) {
+    exitViewMode(frameEl.value);
+  } else {
+    props.tab.term?.scrollToBottom();
+    enterViewMode(props.tab, frameEl.value, auth.apiFetch.bind(auth));
+  }
+}
 
 function onPillTouchStart(e) {
   pillTouchDragging = false;
+  pillLongPressed = false;
   pillTouchStartX = e.touches[0].clientX;
   pillTouchStartY = e.touches[0].clientY;
+  clearPillLongPress();
+  pillLongPressTimer = setTimeout(() => {
+    pillLongPressed = true;
+    toggleViewMode();
+  }, LONG_PRESS_MS);
 }
 
 function onPillTouchMove(e) {
-  if (!canDrag.value) return;
   const dx = e.touches[0].clientX - pillTouchStartX;
   const dy = e.touches[0].clientY - pillTouchStartY;
+  if (dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
+    clearPillLongPress();
+  }
+  if (!canDrag.value) return;
   if (!pillTouchDragging && dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
     pillTouchDragging = true;
     pillDragging.value = true;
@@ -137,6 +178,11 @@ function onPillTouchMove(e) {
 }
 
 function onPillTouchEnd(e) {
+  clearPillLongPress();
+  if (pillLongPressed) {
+    pillLongPressed = false;
+    return;
+  }
   if (!pillTouchDragging) return;
   e.preventDefault();
   pillDragging.value = false;

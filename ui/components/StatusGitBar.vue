@@ -18,7 +18,7 @@
       <button
         v-if="behind > 0"
         type="button"
-        class="git-action-btn pull-btn"
+        class="git-action-btn pull-btn has-count"
         title="Pull"
         @click="gitAction('pull')"
       >
@@ -47,7 +47,7 @@
       <button
         v-if="hasUpstream && ahead > 0"
         type="button"
-        class="git-action-btn push-btn"
+        class="git-action-btn push-btn has-count"
         title="Push"
         @click="gitAction('push')"
       >

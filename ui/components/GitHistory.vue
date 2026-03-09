@@ -3,30 +3,41 @@
     <div class="modal-scroll-body" ref="listEl">
       <div v-if="loading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
       <div v-else-if="entries.length === 0" style="color:var(--text-muted);padding:16px;text-align:center">コミットログがありません</div>
-      <div
-        v-for="entry in entries"
-        :key="entry.hash"
-        class="git-log-entry git-log-commit"
-        @click="selectCommit(entry)"
-        @touchstart.passive="onLongPressStart($event, entry)"
-        @touchend="onLongPressEnd"
-        @touchcancel="onLongPressEnd"
-      >
-        <span class="git-log-entry-body">
-          <span class="git-log-entry-msg">{{ entry.message }}</span>
-          <span class="git-log-entry-row1">
-            <span class="git-log-entry-row1-left">
-              <span v-if="entry.refs.length" class="git-log-entry-refs">
-                <span v-for="r in entry.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type"><span :class="'mdi ' + r.icon"></span>{{ r.label }}</span>
+      <template v-for="entry in entries" :key="entry.hash">
+        <div
+          class="git-log-entry git-log-commit"
+          :class="{ 'action-open': longPressEntry?.hash === entry.hash }"
+          @click="selectCommit(entry)"
+          @touchstart.passive="onLongPressStart($event, entry)"
+          @touchend="onLongPressEnd"
+          @touchcancel="onLongPressEnd"
+          @contextmenu.prevent="toggleActionMenu(entry)"
+        >
+          <span class="git-log-entry-body">
+            <span class="git-log-entry-msg">{{ entry.message }}</span>
+            <span class="git-log-entry-row1">
+              <span class="git-log-entry-row1-left">
+                <span v-if="entry.refs.length" class="git-log-entry-refs">
+                  <span v-for="r in entry.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type"><span :class="'mdi ' + r.icon"></span>{{ r.label }}</span>
+                </span>
+              </span>
+              <span class="git-log-entry-meta">
+                <span class="git-log-entry-author">{{ entry.author }}</span>
+                <span class="git-log-entry-time">{{ entry.time }}</span>
               </span>
             </span>
-            <span class="git-log-entry-meta">
-              <span class="git-log-entry-author">{{ entry.author }}</span>
-              <span class="git-log-entry-time">{{ entry.time }}</span>
-            </span>
           </span>
-        </span>
-      </div>
+        </div>
+        <div v-if="longPressEntry?.hash === entry.hash" class="commit-action-menu">
+          <button type="button" class="modal-action-btn" @click="execAction('cherry-pick', entry)">cherry-pick</button>
+          <button type="button" class="modal-action-btn" @click="execAction('revert', entry)">revert</button>
+          <button type="button" class="modal-action-btn" @click="execReset(entry, 'soft')">reset --soft</button>
+          <button type="button" class="modal-action-btn commit-action-danger" @click="execReset(entry, 'hard')">reset --hard</button>
+          <button type="button" class="modal-action-btn" @click="closeLongPressMenu">
+            <span class="mdi mdi-close"></span>
+          </button>
+        </div>
+      </template>
       <div v-if="hasMore" class="git-log-load-more" @click="loadMore">さらに読み込む</div>
     </div>
   </div>
@@ -135,6 +146,15 @@ async function loadMore() {
 
 let longPressTimer = null;
 let longPressEl = null;
+const longPressEntry = ref(null);
+
+function toggleActionMenu(entry) {
+  if (longPressEntry.value?.hash === entry.hash) {
+    longPressEntry.value = null;
+  } else {
+    longPressEntry.value = entry;
+  }
+}
 
 function onLongPressStart(e, entry) {
   const el = e.currentTarget;
@@ -143,7 +163,7 @@ function onLongPressStart(e, entry) {
   longPressTimer = setTimeout(() => {
     el.classList.remove("long-pressing");
     el.classList.add("long-pressed");
-    emit("git:commitLongPress", { hash: entry.fullHash, message: entry.message, el });
+    longPressEntry.value = entry;
   }, 500);
 }
 
@@ -158,8 +178,63 @@ function onLongPressEnd() {
   }
 }
 
+function closeLongPressMenu() {
+  longPressEntry.value = null;
+}
+
+async function execAction(action, entry) {
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
+  const shortHash = entry.hash;
+  if (!confirm(`${action} ${shortHash} を実行しますか？`)) return;
+  closeLongPressMenu();
+  try {
+    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/${action}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ commit_hash: entry.fullHash }),
+    });
+    if (!res || !res.ok) {
+      const data = await res?.json().catch(() => null);
+      emit("toast:show", { message: data?.detail || `${action}に失敗しました`, type: "error" });
+      return;
+    }
+    emit("toast:show", { message: `${action} ${shortHash} 完了`, type: "success" });
+    emit("git:refresh");
+  } catch (e) {
+    emit("toast:show", { message: e.message, type: "error" });
+  }
+}
+
+async function execReset(entry, mode) {
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
+  const shortHash = entry.hash;
+  const msg = mode === "hard"
+    ? `reset --hard ${shortHash} を実行します。作業ツリーの変更はすべて失われます。実行しますか？`
+    : `reset --soft ${shortHash} を実行しますか？`;
+  if (!confirm(msg)) return;
+  closeLongPressMenu();
+  try {
+    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ commit_hash: entry.fullHash, mode }),
+    });
+    if (!res || !res.ok) {
+      const data = await res?.json().catch(() => null);
+      emit("toast:show", { message: data?.detail || `reset --${mode}に失敗しました`, type: "error" });
+      return;
+    }
+    emit("toast:show", { message: `reset --${mode} ${shortHash} 完了`, type: "success" });
+    emit("git:refresh");
+  } catch (e) {
+    emit("toast:show", { message: e.message, type: "error" });
+  }
+}
+
 function selectCommit(entry) {
-  if (longPressEl) return;
+  if (longPressEl || longPressEntry.value) return;
   emit("git:selectCommit", { hash: entry.fullHash, message: entry.message, refs: entry.refs });
 }
 

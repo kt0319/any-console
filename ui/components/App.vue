@@ -106,6 +106,7 @@ async function restoreExistingSessions() {
 
     const first = terminalStore.openTabs[0];
     if (first) terminalStore.switchTab(first.id);
+    setTimeout(() => emit("layout:fitAll"), 300);
   } catch (e) {
     console.error("restoreExistingSessions failed:", e);
   }

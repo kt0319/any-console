@@ -26,7 +26,7 @@
                 :key="job.name"
                 type="button"
                 class="picker-ws-icon-btn"
-                :class="{ 'picker-ws-job-direct': !job.confirm }"
+                :class="{ 'picker-ws-job-direct': job.terminal === false }"
                 :title="job.label || job.name"
                 @click="runJob(ws, job)"
               >

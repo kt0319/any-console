@@ -85,9 +85,7 @@ const showBack = ref(true);
 
 const modalTitle = computed(() => {
   if (commitViewMessage.value) return commitViewMessage.value;
-  const pane = PANES.find((p) => p.key === activePane.value);
-  if (activePane.value === "files") return diffPaneTitle.value;
-  return pane ? pane.label : "Git";
+  return workspaceStore.selectedWorkspace || "Git";
 });
 
 function goBack() {

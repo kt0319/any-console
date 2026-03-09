@@ -591,7 +591,6 @@ header {
 
 .main-panel.panel-bottom .tab-bar {
   padding: 0 8px 4px;
-  padding-right: max(35%, 120px);
 }
 
 .main-panel.panel-bottom .tab-btn {
@@ -1874,13 +1873,16 @@ button:disabled {
 
 .server-info-label {
   color: var(--text-secondary);
-  flex-shrink: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .server-info-values {
   display: flex;
   gap: 12px;
-  min-width: 0;
+  flex-shrink: 0;
 }
 
 .server-info-value {
@@ -2682,7 +2684,9 @@ button:disabled {
   padding: 0 6px;
 }
 
-.git-log-commit.action-open {
+.git-log-commit.action-open,
+.file-browser-item.action-open,
+.diff-file-row.action-open {
   background: rgba(130, 170, 255, 0.08);
 }
 
@@ -2897,13 +2901,21 @@ button:disabled {
   padding: 4px;
 }
 
-.quick-input-panel.minimal-mode {
+.tab-bar-row > .quick-input-panel.minimal-mode {
+  position: static;
   justify-content: flex-end;
-  width: 40%;
+  flex-shrink: 0;
+  width: auto;
+  padding: 2px 4px;
+}
+
+.tab-bar-row > .quick-extra-panel {
+  bottom: 100%;
 }
 
 .quick-input-panel.minimal-mode.snippet-open {
-  width: 100%;
+  flex: 1;
+  width: auto;
   margin-left: 0;
 }
 
@@ -3350,43 +3362,6 @@ button:disabled {
   }
 }
 
-.toast {
-  position: fixed;
-  top: 24px;
-  left: 50%;
-  transform: translateX(-50%) translateY(calc(-100% - 24px));
-  padding: 10px 20px;
-  font-size: 13px;
-  text-align: center;
-  z-index: 10000;
-  border-radius: var(--radius);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  max-width: calc(100% - 32px);
-  min-width: 200px;
-  width: auto;
-  opacity: 0;
-  transition: transform 0.3s, opacity 0.3s;
-}
-
-.toast.show {
-  transform: translateX(-50%) translateY(0);
-  opacity: 1;
-}
-
-.toast-error {
-  background: var(--error);
-  color: #fff;
-}
-
-.toast-success {
-  background: var(--accent);
-  color: var(--bg-primary);
-}
-
-.toast-info {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
 
 /* Icon Picker */
 .icon-picker-clear-btn {
