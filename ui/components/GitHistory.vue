@@ -1,6 +1,31 @@
 <template>
   <div class="git-history-pane-wrapper">
-    <div class="modal-scroll-body" ref="listEl">
+    <!-- ファイル一覧モード -->
+    <template v-if="expandedEntry">
+      <div class="git-log-commit-files-header" @click="closeExpanded">
+        <span class="mdi mdi-arrow-left"></span>
+        <span class="git-log-commit-files-header-msg">{{ expandedEntry.message }}</span>
+        <span class="git-log-entry-meta">
+          <span class="git-log-entry-author">{{ expandedEntry.author }}</span>
+          <span class="git-log-entry-time">{{ expandedEntry.time }}</span>
+        </span>
+      </div>
+      <div class="modal-scroll-body">
+        <div v-if="expandedLoading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
+        <ul v-else class="file-browser-list diff-file-browser-list">
+          <li v-for="file in expandedFiles" :key="file.path"
+              class="file-browser-item diff-file-row"
+              @click="selectExpandedFile(file)">
+            <span class="file-browser-item-icon" v-html="fileIconHtml(file)"></span>
+            <span class="file-browser-item-name">{{ file.path }}</span>
+            <span v-if="file.numstat" class="diff-file-row-numstat" v-html="file.numstat"></span>
+            <span :class="['diff-file-row-status', statusClass(file.status)]">{{ file.status }}</span>
+          </li>
+        </ul>
+      </div>
+    </template>
+    <!-- コミット履歴モード -->
+    <div v-else class="modal-scroll-body" ref="listEl">
       <div v-if="loading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
       <div v-else-if="entries.length === 0" style="color:var(--text-muted);padding:16px;text-align:center">コミットログがありません</div>
       <div v-if="!loading && entries.length > 0" class="git-log-entry git-log-dirty" @click="selectDirty">
@@ -57,7 +82,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, nextTick, onMounted } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore } from "../stores/git.js";
@@ -86,6 +111,23 @@ const loading = ref(true);
 const hasMore = ref(false);
 const listEl = ref(null);
 let page = 0;
+
+const expandedEntry = ref(null);
+const expandedFiles = ref([]);
+const expandedLoading = ref(false);
+
+const STATUS_CLASSES = { M: "diff-status-mod", A: "diff-status-add", D: "diff-status-del", "?": "diff-status-untracked" };
+
+function statusClass(status) {
+  return STATUS_CLASSES[status] || "";
+}
+
+function fileIconHtml(file) {
+  const status = file.status;
+  if (status === "D") return '<span class="mdi mdi-file-remove" style="color:var(--diff-del)"></span>';
+  if (status === "A" || status === "?") return '<span class="mdi mdi-file-plus" style="color:var(--diff-add)"></span>';
+  return '<span class="mdi mdi-file-edit" style="color:var(--diff-hunk)"></span>';
+}
 
 function parseRefs(refsStr) {
   if (!refsStr) return [];
@@ -270,12 +312,43 @@ function selectDirty() {
   emit("git:selectDirty");
 }
 
-function selectCommit(entry) {
+async function selectCommit(entry) {
   if (longPressEl || longPressEntry.value || longPressTriggered) {
     longPressTriggered = false;
     return;
   }
+  expandedEntry.value = entry;
+  expandedFiles.value = [];
+  expandedLoading.value = true;
+  try {
+    const workspace = workspaceStore.selectedWorkspace;
+    if (!workspace) return;
+    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/diff/${encodeURIComponent(entry.fullHash)}`);
+    if (!res || !res.ok) return;
+    const data = await res.json();
+    expandedFiles.value = (data.files || []).map((f) => ({
+      path: f.path || f.name,
+      status: f.status || "M",
+      numstat: f.added != null ? `<span class="numstat-added">+${f.added}</span> <span class="numstat-deleted">-${f.deleted}</span>` : "",
+    }));
+  } catch (e) {
+    console.error("commit files load failed:", e);
+  } finally {
+    expandedLoading.value = false;
+  }
+}
+
+function closeExpanded() {
+  expandedEntry.value = null;
+  expandedFiles.value = [];
+}
+
+function selectExpandedFile(file) {
+  const entry = expandedEntry.value;
   emit("git:selectCommit", { hash: entry.fullHash, message: entry.message, refs: entry.refs });
+  nextTick(() => {
+    emit("git:selectDiffFile", { path: file.path });
+  });
 }
 
 async function reload() {

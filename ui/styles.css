@@ -2311,6 +2311,11 @@ button:disabled {
   flex-direction: column;
 }
 
+.workspace-detail-bottom.workspace-detail-full {
+  flex: unset;
+  height: 100%;
+}
+
 .tab-pills {
   display: flex;
   justify-content: flex-end;
@@ -2382,6 +2387,31 @@ button:disabled {
 
 .git-log-commit:last-child {
   border-bottom: none;
+}
+
+.git-log-commit-files-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.git-log-commit-files-header .mdi-arrow-left {
+  flex-shrink: 0;
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+.git-log-commit-files-header-msg {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .git-ref-dirty {

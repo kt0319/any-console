@@ -68,6 +68,7 @@ async function initApp() {
         if (first) workspaceStore.selectedWorkspace = first.name;
       }
     }
+    await workspaceStore.fetchStatuses(auth);
   } catch (e) {
     console.error("initApp failed:", e);
   }

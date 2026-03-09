@@ -1,9 +1,9 @@
 <template>
   <div class="workspace-detail">
-    <div class="workspace-detail-top">
+    <div v-show="!isFullPane" class="workspace-detail-top">
       <GitHistory ref="gitHistory" />
     </div>
-    <div class="workspace-detail-bottom">
+    <div class="workspace-detail-bottom" :class="{ 'workspace-detail-full': isFullPane }">
       <TabPills :panes="PANES" :active-key="activePane" @select="switchPane" />
       <div v-show="activePane === 'files'" class="file-modal-pane file-modal-pane-split">
         <GitFiles ref="gitFiles" />
@@ -28,7 +28,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import TabPills from "./TabPills.vue";
 import FileBrowser from "./FileBrowser.vue";
 import GitHistory from "./GitHistory.vue";
@@ -66,6 +66,9 @@ const PANES = [
   { key: "stash", label: "Stash" },
   { key: "github", label: "GitHub" },
 ];
+
+const FULL_PANES = new Set(["stash", "github"]);
+const isFullPane = computed(() => FULL_PANES.has(activePane.value));
 
 
 function currentTitle() {
