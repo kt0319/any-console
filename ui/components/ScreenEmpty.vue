@@ -1,14 +1,14 @@
 <template>
   <div class="screen-empty-container">
     <div class="screen-empty-content">
-      <div class="screen-empty-booting" :class="{ 'is-hidden': !booting }" aria-live="polite">
-        <div class="app-boot-spinner" aria-hidden="true"></div>
-        <div class="app-boot-text">{{ bootMessage }}</div>
-      </div>
       <div class="screen-empty-actions">
         <button type="button" class="screen-empty-open-btn" @click="$emit('openWorkspace')">
           <span class="mdi mdi-plus"></span> ワークスペースを開く
         </button>
+      </div>
+      <div class="screen-empty-booting" :class="{ 'is-hidden': !booting }" aria-live="polite">
+        <div class="app-boot-spinner" aria-hidden="true"></div>
+        <div class="app-boot-text">{{ bootMessage }}</div>
       </div>
     </div>
   </div>
