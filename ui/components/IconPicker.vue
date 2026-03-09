@@ -50,8 +50,11 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from "vue";
+import { ref, inject, nextTick } from "vue";
 import { emit as bridgeEmit } from "../app-bridge.js";
+
+const modalTitle = inject("modalTitle");
+modalTitle.value = "アイコン選択";
 
 const URL_PATTERN = /^(https?:\/\/|[a-zA-Z0-9-]+\.[a-zA-Z]{2,})/;
 const ICON_UPLOAD_MAX_SIZE = 512 * 1024;

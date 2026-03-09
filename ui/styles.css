@@ -373,10 +373,16 @@ header {
   min-width: 36px;
   height: 36px;
   padding: 0 10px;
+  border: none;
   border-radius: 6px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+}
+
+button.git-badge:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .git-badge.clean {
@@ -1388,6 +1394,27 @@ header {
   padding: 0 8px;
   border-bottom: 1px solid var(--border);
   color: var(--text-primary);
+  position: relative;
+}
+
+.file-browser-item::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--accent-bg-20);
+  transform: scaleX(0);
+  transform-origin: left;
+  pointer-events: none;
+}
+
+.file-browser-item.long-pressing::after {
+  transform: scaleX(1);
+  transition: transform 0.5s ease-out;
+}
+
+.file-browser-item.long-pressed::after {
+  transform: scaleX(1);
+  transition: none;
 }
 
 .file-browser-item[data-type="dir"] {
@@ -1994,10 +2021,16 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
   padding: 0 8px;
-  overflow: hidden;
   flex-shrink: 0;
+}
+.modal-header h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .modal-body {
   display: flex;
@@ -2005,14 +2038,6 @@ button:disabled {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-}
-
-.modal-header h3 {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .modal-swipe-handle {
@@ -2393,6 +2418,14 @@ button:disabled {
   padding: 10px 8px;
   border-bottom: 1px solid var(--border);
   gap: 8px;
+}
+
+.git-log-pane-tabs-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
 }
 
 .git-log-pane-tabs {
@@ -3808,12 +3841,22 @@ button:disabled {
   color: var(--text-muted);
 }
 
-.modal-title-back {
-  cursor: pointer;
+.modal-back-btn {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  flex-shrink: 0;
+  padding: 0;
+  font-size: 18px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  outline: none;
 }
+
 
 /* Settings device name */
 .settings-device-name {

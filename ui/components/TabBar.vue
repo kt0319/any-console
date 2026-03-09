@@ -1,7 +1,7 @@
 <template>
   <div class="tab-bar-row" :style="{ display: showBarRow ? 'flex' : 'none' }">
     <div class="tab-bar" :style="{ display: splitMode ? 'none' : '' }" @dblclick.self="onBarDblClick">
-      <StatusTabItem
+      <TabItem
         v-for="item in sortedItems"
         :key="item.tab.id || item.tab.wsUrl"
         :tab="item.tab"
@@ -18,7 +18,7 @@
 
 <script setup>
 import { computed } from "vue";
-import StatusTabItem from "./StatusTabItem.vue";
+import TabItem from "./TabItem.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { emit } from "../app-bridge.js";

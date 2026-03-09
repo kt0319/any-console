@@ -95,9 +95,12 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, inject, computed } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
+
+const modalTitle = inject("modalTitle");
+modalTitle.value = "GitHub";
 
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();

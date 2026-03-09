@@ -158,12 +158,13 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount } from "vue";
+import { ref, inject, watch, watchEffect, onMounted, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useAuthStore } from "../stores/auth.js";
 import { renderIconStr } from "../utils/render-icon.js";
 
-const emit = defineEmits(["update:title"]);
+const modalTitle = inject("modalTitle");
+modalTitle.value = "ワークスペース設定";
 
 const workspaceStore = useWorkspaceStore();
 const auth = useAuthStore();
@@ -171,6 +172,9 @@ const auth = useAuthStore();
 const wsListEl = ref(null);
 const allWorkspaces = ref([]);
 const editWs = ref(null);
+watchEffect(() => {
+  modalTitle.value = editWs.value ? editWs.value.name : "ワークスペース設定";
+});
 const editIcon = ref("");
 const editIconColor = ref("");
 const saving = ref(false);
@@ -231,7 +235,6 @@ function openWsSettings(ws) {
   saveSuccess.value = "";
   showIconPicker.value = false;
   jobForm.value = null;
-  emit("update:title", ws.name);
   loadJobs();
 }
 
@@ -240,7 +243,6 @@ function goBackToList() {
   jobEntries.value = [];
   jobForm.value = null;
   showIconPicker.value = false;
-  emit("update:title", "ワークスペース設定");
 }
 
 async function loadJobs() {
@@ -471,7 +473,7 @@ onBeforeUnmount(() => {
   document.removeEventListener("touchcancel", onDragEnd);
 });
 
-defineExpose({ load, goBackToList });
+defineExpose({ load, goBackToList, editWs });
 
 onMounted(load);
 </script>

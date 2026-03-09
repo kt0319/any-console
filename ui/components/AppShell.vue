@@ -1,6 +1,6 @@
 <template>
   <div class="main-panel" :class="{ 'panel-bottom': panelBottom }">
-    <StatusTabBar ref="tabBar" :tabs="openTabs" :orphans="orphanSessions" />
+    <TabBar ref="tabBar" :tabs="openTabs" :orphans="orphanSessions" />
     <StatusGitBar />
     <TerminalBase ref="terminalSplit">
       <KeyboardInput v-if="panelBottom" ref="keyboardBar" />
@@ -12,7 +12,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
 import StatusGitBar from "./StatusGitBar.vue";
-import StatusTabBar from "./StatusTabBar.vue";
+import TabBar from "./TabBar.vue";
 import TerminalBase from "./TerminalBase.vue";
 import KeyboardSnippet from "./KeyboardSnippet.vue";
 import KeyboardInput from "./KeyboardInput.vue";

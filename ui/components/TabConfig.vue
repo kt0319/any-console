@@ -62,11 +62,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onBeforeUnmount } from "vue";
+import { ref, inject, computed, onBeforeUnmount } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
+
+const modalTitle = inject("modalTitle");
+modalTitle.value = "タブ";
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();

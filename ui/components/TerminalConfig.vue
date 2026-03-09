@@ -37,9 +37,12 @@
 </template>
 
 <script setup>
-import { reactive } from "vue";
+import { reactive, inject } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { emit } from "../app-bridge.js";
+
+const modalTitle = inject("modalTitle");
+modalTitle.value = "ターミナル";
 
 const terminalStore = useTerminalStore();
 const TERMINAL_SETTINGS_SCHEMA = terminalStore.TERMINAL_SETTINGS_SCHEMA;

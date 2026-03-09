@@ -14,9 +14,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from "vue";
+import { ref, inject, onMounted, nextTick } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { emit } from "../app-bridge.js";
+
+const modalTitle = inject("modalTitle");
+modalTitle.value = "設定ファイル";
 
 const auth = useAuthStore();
 const jsonText = ref("");

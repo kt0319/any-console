@@ -22,8 +22,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, inject, onMounted } from "vue";
 import { useAuthStore } from "../stores/auth.js";
+
+const modalTitle = inject("modalTitle");
+modalTitle.value = "サーバー情報";
 
 const auth = useAuthStore();
 const loading = ref(true);

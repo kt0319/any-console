@@ -52,8 +52,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, inject, onMounted } from "vue";
 import { useAuthStore } from "../stores/auth.js";
+
+const modalTitle = inject("modalTitle");
+modalTitle.value = "ワークスペース追加";
 
 const auth = useAuthStore();
 

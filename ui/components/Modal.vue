@@ -8,38 +8,32 @@
   >
     <div ref="modalEl" class="modal">
       <div class="modal-header">
-        <h3
-          class="modal-title"
-          :class="{ 'modal-title-back': modalBack }"
-          @click="modalBack ? onBack() : null"
-        >
-          <span v-if="modalBack" class="mdi mdi-arrow-left"></span>
-          {{ modalTitle }}
-        </h3>
+        <button v-if="modalBack" type="button" class="modal-back-btn" @click="onBack">
+          <span class="mdi mdi-arrow-left"></span>
+        </button>
+        <h3 class="modal-title">{{ modalTitle }}</h3>
         <button type="button" class="modal-close-btn" @click="closeModal">&times;</button>
       </div>
       <div class="modal-body">
-        <SettingsMenu v-if="currentView === 'settings'" @select="onViewSelect" />
-        <WorkspaceOpen v-if="currentView === 'workspace'" ref="workspaceView" />
-        <WorkspaceAdd v-if="currentView === 'wsAdd'" />
-        <WorkspaceConfig v-if="currentView === 'wsConfig'" ref="wsConfigView" @update:title="onWsConfigTitle" />
-        <SettingsTab v-if="currentView === 'tab'" />
-        <SettingsTerminal v-if="currentView === 'terminal'" />
-        <SettingsEditor v-if="currentView === 'editor'" />
-        <ServerInfo v-if="currentView === 'server'" />
-        <GitGitHub v-if="currentView === 'github'" ref="gitGitHubView" />
-        <SettingsConfigFile v-if="currentView === 'config'" />
+        <ModalMenu v-if="currentView === 'ModalMenu'" @select="onViewSelect" />
+        <WorkspaceOpen v-if="currentView === 'WorkspaceOpen'" ref="workspaceView" />
+        <WorkspaceAdd v-if="currentView === 'WorkspaceAdd'" />
+        <WorkspaceConfig v-if="currentView === 'WorkspaceConfig'" ref="wsConfigView" />
+        <TabConfig v-if="currentView === 'TabConfig'" />
+        <TerminalConfig v-if="currentView === 'TerminalConfig'" />
+        <EditorConfig v-if="currentView === 'EditorConfig'" />
+        <ServerInfo v-if="currentView === 'ServerInfo'" />
+        <GitGitHub v-if="currentView === 'GitGitHub'" ref="gitGitHubView" />
+        <ConfigFile v-if="currentView === 'ConfigFile'" />
 
         <IconPicker
-          v-if="currentView === 'iconPicker'"
+          v-if="currentView === 'IconPicker'"
           ref="iconPickerContent"
           @close="closeModal"
         />
         <WorkspaceDetail
-          v-if="currentView === 'file'"
+          v-if="currentView === 'WorkspaceDetail'"
           ref="fileContent"
-          @update:title="t => modalTitle = t"
-          @update:back="b => modalBack = b"
           @close="closeModal"
         />
       </div>
@@ -48,17 +42,17 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from "vue";
+import { ref, provide, nextTick, onMounted } from "vue";
 import { useModal } from "../composables/useModal.js";
-import SettingsMenu from "./SettingsMenu.vue";
+import ModalMenu from "./ModalMenu.vue";
 import WorkspaceOpen from "./WorkspaceOpen.vue";
 import WorkspaceAdd from "./WorkspaceAdd.vue";
 import WorkspaceConfig from "./WorkspaceConfig.vue";
-import SettingsTab from "./SettingsTab.vue";
-import SettingsTerminal from "./SettingsTerminal.vue";
-import SettingsEditor from "./SettingsEditor.vue";
+import TabConfig from "./TabConfig.vue";
+import TerminalConfig from "./TerminalConfig.vue";
+import EditorConfig from "./EditorConfig.vue";
 import ServerInfo from "./ServerInfo.vue";
-import SettingsConfigFile from "./SettingsConfigFile.vue";
+import ConfigFile from "./ConfigFile.vue";
 import GitGitHub from "./GitGitHub.vue";
 import IconPicker from "./IconPicker.vue";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
@@ -66,17 +60,6 @@ import { on } from "../app-bridge.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 
 const workspaceStore = useWorkspaceStore();
-
-const SETTINGS_VIEW_TITLES = {
-  workspace: "ワークスペース",
-  wsAdd: "ワークスペース追加",
-  wsConfig: "ワークスペース設定",
-  tab: "タブ",
-  terminal: "ターミナル",
-  editor: "エディタ",
-  config: "設定ファイル",
-  server: "サーバー情報",
-};
 
 const modal = useModal();
 const modalEl = ref(null);
@@ -89,13 +72,14 @@ const gitGitHubView = ref(null);
 const currentView = ref(null);
 const modalTitle = ref("");
 const modalBack = ref(false);
-const wsConfigInDetail = ref(false);
+
+provide("modalTitle", modalTitle);
 let swipeSetup = false;
 
 function openModal() {
   modal.open(modalEl.value, closeModal);
   nextTick(() => {
-    if (currentView.value !== "iconPicker" && currentView.value !== "file" && modalEl.value && !swipeSetup) {
+    if (currentView.value !== "IconPicker" && currentView.value !== "WorkspaceDetail" && modalEl.value && !swipeSetup) {
       modal.setupSwipeClose(modalEl.value, closeModal);
       swipeSetup = true;
     }
@@ -107,44 +91,34 @@ function closeModal() {
   currentView.value = null;
   modalTitle.value = "";
   modalBack.value = false;
-  wsConfigInDetail.value = false;
   swipeSetup = false;
 }
 
-function onViewSelect({ view, title }) {
+function onViewSelect({ view }) {
   currentView.value = view;
-  modalTitle.value = title;
   modalBack.value = true;
-  if (view === "workspace") {
+  if (view === "WorkspaceOpen") {
     nextTick(() => workspaceView.value?.load());
   }
 }
 
 function settingsGoBack() {
-  if (currentView.value === "wsConfig" && wsConfigInDetail.value) {
+  if (currentView.value === "WorkspaceConfig" && wsConfigView.value?.editWs) {
     wsConfigView.value?.goBackToList();
-    wsConfigInDetail.value = false;
-    modalTitle.value = "ワークスペース設定";
     return;
   }
-  currentView.value = "settings";
-  modalTitle.value = "設定";
+  currentView.value = "ModalMenu";
   modalBack.value = false;
 }
 
-function onWsConfigTitle(title) {
-  modalTitle.value = title;
-  wsConfigInDetail.value = title !== "ワークスペース設定";
-}
-
 function onBack() {
-  if (currentView.value === "github") {
-    currentView.value = "file";
+  if (currentView.value === "GitGitHub") {
+    currentView.value = "WorkspaceDetail";
     modalBack.value = true;
     nextTick(() => {
       fileContent.value?.open();
     });
-  } else if (currentView.value === "file") {
+  } else if (currentView.value === "WorkspaceDetail") {
     fileContent.value?.goBack();
   } else {
     settingsGoBack();
@@ -152,20 +126,17 @@ function onBack() {
 }
 
 function openSettings(view) {
-  wsConfigInDetail.value = false;
   if (view) {
     currentView.value = view;
-    modalTitle.value = SETTINGS_VIEW_TITLES[view] || "設定";
     modalBack.value = true;
     nextTick(() => {
       openModal();
       nextTick(() => {
-        if (view === "workspace") workspaceView.value?.load();
+        if (view === "WorkspaceOpen") workspaceView.value?.load();
       });
     });
   } else {
-    currentView.value = "settings";
-    modalTitle.value = "設定";
+    currentView.value = "ModalMenu";
     modalBack.value = false;
     nextTick(() => openModal());
   }
@@ -176,8 +147,7 @@ onMounted(() => {
   on("settings:close", () => closeModal());
 
   on("iconPicker:open", ({ callback, currentIcon, currentColor }) => {
-    currentView.value = "iconPicker";
-    modalTitle.value = "アイコン選択";
+    currentView.value = "IconPicker";
     modalBack.value = false;
     nextTick(() => {
       openModal();
@@ -189,8 +159,7 @@ onMounted(() => {
   on("iconPicker:close", () => closeModal());
 
   on("git:openFileModal", (detail) => {
-    currentView.value = "file";
-    modalTitle.value = workspaceStore.selectedWorkspace || "Git";
+    currentView.value = "WorkspaceDetail";
     modalBack.value = true;
     nextTick(() => {
       openModal();
@@ -201,11 +170,10 @@ onMounted(() => {
   });
   on("git:closeFileModal", () => closeModal());
 
-  on("workspace:openModal", () => openSettings("workspace"));
+  on("workspace:openModal", () => openSettings("WorkspaceOpen"));
 
   on("git:openGitHub", () => {
-    currentView.value = "github";
-    modalTitle.value = "GitHub";
+    currentView.value = "GitGitHub";
     modalBack.value = true;
     nextTick(() => {
       openModal();

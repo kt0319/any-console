@@ -43,8 +43,11 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, inject, computed, watch, onMounted } from "vue";
 import { useAuthStore } from "../stores/auth.js";
+
+const modalTitle = inject("modalTitle");
+modalTitle.value = "エディタ";
 
 const auth = useAuthStore();
 

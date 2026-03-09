@@ -16,7 +16,10 @@
               </span>
             </button>
             <div class="picker-ws-top-meta">
-              <span v-if="ws.is_git_repo && !ws.clean" class="git-badge dirty">M</span>
+              <button v-if="ws.is_git_repo && ws.behind > 0" type="button" class="git-badge behind" :disabled="runningWs === ws.name" @click.stop="gitAction(ws, 'pull')">↓{{ ws.behind }}</button>
+              <button v-if="ws.is_git_repo && ws.ahead > 0 && ws.has_upstream !== false" type="button" class="git-badge ahead" :disabled="runningWs === ws.name" @click.stop="gitAction(ws, 'push')">↑{{ ws.ahead }}</button>
+              <button v-if="ws.is_git_repo && ws.ahead > 0 && ws.has_upstream === false" type="button" class="git-badge ahead" :disabled="runningWs === ws.name" @click.stop="gitAction(ws, 'push-upstream')">↑{{ ws.ahead }}</button>
+              <span v-if="ws.is_git_repo && !ws.clean" class="git-badge dirty" v-html="dirtyBadgeHtml(ws)"></span>
             </div>
           </div>
           <div class="picker-ws-row picker-ws-row-bottom">
@@ -47,16 +50,54 @@
 </template>
 
 <script setup>
-import { computed, reactive } from "vue";
+import { ref, computed, inject, reactive } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useAuthStore } from "../stores/auth.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
 
+const modalTitle = inject("modalTitle");
+modalTitle.value = "ワークスペース";
+
 const workspaceStore = useWorkspaceStore();
 const auth = useAuthStore();
 
 const wsJobs = reactive({});
+const runningWs = ref(null);
+
+const ACTION_LABELS = {
+  pull: "Pull",
+  push: "Push",
+  "push-upstream": "Push (upstream設定)",
+};
+
+async function gitAction(ws, action) {
+  if (runningWs.value) return;
+  const label = ACTION_LABELS[action] || action;
+  if (!confirm(`${ws.name}: ${label} を実行しますか？`)) return;
+  runningWs.value = ws.name;
+  try {
+    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(ws.name)}/${action}`, {
+      method: "POST",
+    });
+    if (!res || !res.ok) {
+      const data = await res?.json().catch(() => null);
+      emit("toast:show", { message: data?.stderr || `${label}に失敗しました`, type: "error" });
+      return;
+    }
+    const data = await res.json();
+    if (data.exit_code !== 0) {
+      emit("toast:show", { message: data.stderr || `${label}に失敗しました`, type: "error" });
+      return;
+    }
+    emit("toast:show", { message: `${ws.name}: ${label}完了`, type: "success" });
+    await workspaceStore.fetchStatuses(auth);
+  } catch (e) {
+    emit("toast:show", { message: e.message, type: "error" });
+  } finally {
+    runningWs.value = null;
+  }
+}
 
 const visibleWorkspaces = computed(() => workspaceStore.visibleWorkspaces);
 
@@ -88,6 +129,12 @@ async function loadJobs(wsName) {
   } catch {
     // ignore
   }
+}
+
+function dirtyBadgeHtml(ws) {
+  const ins = ws.insertions || 0;
+  const del = ws.deletions || 0;
+  return `M <span class="diff-num-plus">+${ins}</span> <span class="diff-num-del">-${del}</span>`;
 }
 
 function openDetail(ws) {
