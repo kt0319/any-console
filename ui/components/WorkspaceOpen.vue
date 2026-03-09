@@ -19,10 +19,10 @@
               <span v-if="ws.is_git_repo && !ws.clean" class="git-badge dirty">M</span>
             </div>
           </div>
-          <div v-if="wsJobs[ws.name]?.length" class="picker-ws-row picker-ws-row-bottom">
+          <div class="picker-ws-row picker-ws-row-bottom">
             <div class="picker-ws-icons picker-ws-icons-bottom">
               <button
-                v-for="job in wsJobs[ws.name]"
+                v-for="job in wsJobs[ws.name] || []"
                 :key="job.name"
                 type="button"
                 class="picker-ws-icon-btn"
@@ -33,6 +33,9 @@
                 <span v-html="renderIcon(job.icon || 'mdi-play', job.icon_color, 18)"></span>
               </button>
             </div>
+            <button type="button" class="picker-ws-icon-btn" title="ファイル" @click="openDetail(ws)">
+              <span class="mdi mdi-folder-outline"></span>
+            </button>
           </div>
         </div>
         <div v-if="visibleWorkspaces.length === 0" class="clone-repo-empty">
@@ -85,6 +88,11 @@ async function loadJobs(wsName) {
   } catch {
     // ignore
   }
+}
+
+function openDetail(ws) {
+  workspaceStore.selectedWorkspace = ws.name;
+  emit("git:openFileModal");
 }
 
 function selectWorkspace(ws) {
