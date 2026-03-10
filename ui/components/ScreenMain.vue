@@ -280,9 +280,9 @@ onMounted(() => {
     sendTextToTerminal(command + "\n");
   });
 
-  on("snippet:add", async ({ command }) => {
-    const label = command.length > 40 ? command.slice(0, 40) : command;
-    inputStore.snippetsCache.push({ label, command });
+  on("snippet:add", async ({ label, command }) => {
+    const lbl = label || (command.length > 40 ? command.slice(0, 40) : command);
+    inputStore.snippetsCache.push({ label: lbl, command });
     await persistSnippets();
   });
 

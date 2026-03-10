@@ -22,7 +22,13 @@
             :key="'h-' + idx"
             type="button"
             class="quick-snippet-item"
-            @click="insertText(text)"
+            @touchstart="onHistoryTouchStart($event, text)"
+            @touchmove="onHistoryTouchMove($event)"
+            @touchend="onHistoryTouchEnd($event, text)"
+            @touchcancel="historyLongPress.cancel()"
+            @mousedown="onHistoryMouseDown($event, text)"
+            @mouseup="onHistoryMouseUp($event, text)"
+            @mouseleave="historyLongPress.cancel()"
           >
             <span class="mdi mdi-history snippet-chip-icon"></span>
             {{ truncateQuickText(text) }}
@@ -39,11 +45,14 @@
           autocomplete="off"
           autocapitalize="off"
           autocorrect="off"
-        spellcheck="false"
-        placeholder="テキスト入力..."
-        @keydown.enter.prevent="submit"
-        @blur="onInputBlur"
-      />
+          spellcheck="false"
+          placeholder="テキスト入力..."
+          @keydown.enter.prevent="submit"
+          @blur="onInputBlur"
+        />
+        <button type="button" class="keyboard-input-add" @click="addSnippetFromDraft">
+          <span class="mdi mdi-plus"></span>
+        </button>
         <button type="button" class="keyboard-input-send" :disabled="!draft.trim()" @click="submit">
           <span class="mdi mdi-send"></span>
         </button>
@@ -57,6 +66,7 @@ import { ref, nextTick } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useQuickInputData } from "../composables/useQuickInputData.js";
+import { useLongPress } from "../composables/useLongPress.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 
 const emitLocal = defineEmits(["visibility"]);
@@ -70,6 +80,10 @@ const inputEl = ref(null);
 let suppressBlurHide = false;
 
 const { snippets, history, truncateQuickText } = useQuickInputData();
+
+const historyLongPress = useLongPress(600);
+let historyScrolled = false;
+let historyStartX = 0;
 
 function show() {
   visible.value = true;
@@ -88,7 +102,6 @@ function onInputBlur() {
     nextTick(() => inputEl.value?.focus());
     return;
   }
-  // iOSでソフトキーボードを閉じた時はinputがblurするため、入力モードも閉じる
   if (visible.value) hide();
 }
 
@@ -111,6 +124,60 @@ function submit() {
   bridgeEmit("layout:fitAll");
   draft.value = "";
   hide();
+}
+
+function addSnippetByPrompt(initialCommand) {
+  markInternalInteraction();
+  const command = prompt("スニペットに登録するコマンド:", initialCommand);
+  if (!command) {
+    nextTick(() => inputEl.value?.focus());
+    return;
+  }
+  bridgeEmit("snippet:add", { command });
+  nextTick(() => inputEl.value?.focus());
+}
+
+function addSnippetFromDraft() {
+  addSnippetByPrompt(draft.value.trim());
+}
+
+function onHistoryTouchStart(e, text) {
+  historyScrolled = false;
+  historyStartX = e.touches[0].clientX;
+  historyLongPress.reset();
+  historyLongPress.start(() => {
+    addSnippetByPrompt(text);
+  });
+}
+
+function onHistoryTouchMove(e) {
+  if (!historyScrolled && Math.abs(e.touches[0].clientX - historyStartX) > 10) {
+    historyScrolled = true;
+    historyLongPress.cancel();
+  }
+}
+
+function onHistoryTouchEnd(e, text) {
+  if (historyScrolled) return;
+  historyLongPress.cancel();
+  if (historyLongPress.consumeFired()) return;
+  if (e.cancelable) e.preventDefault();
+  insertText(text);
+}
+
+function onHistoryMouseDown(e, text) {
+  if (e.button !== 0) return;
+  historyLongPress.reset();
+  historyLongPress.start(() => {
+    addSnippetByPrompt(text);
+  });
+}
+
+function onHistoryMouseUp(e, text) {
+  if (e.button !== 0) return;
+  historyLongPress.cancel();
+  if (historyLongPress.consumeFired()) return;
+  insertText(text);
 }
 
 defineExpose({ show, hide, visible, draft });
