@@ -186,6 +186,7 @@ function onCameraTouchEnd(e) {
   e.currentTarget.classList.remove("pressed");
   const dy = e.changedTouches[0].clientY - cameraStartY;
   if (dy < -FLICK_THRESHOLD) {
+    emitLocal("cycleMode");
     window.location.href = window.location.pathname + "?_=" + Date.now();
   } else if (dy > FLICK_THRESHOLD) {
     const cmd = prompt("スニペットを追加:");
