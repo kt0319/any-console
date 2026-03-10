@@ -30,7 +30,6 @@ HIDDEN_DIRS = {".git"}
 
 MAX_FILE_SIZE = 512 * 1024
 BINARY_EXTENSIONS = {
-    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".svg",
     ".zip", ".gz", ".tar", ".bz2", ".7z", ".rar",
     ".exe", ".dll", ".so", ".dylib", ".bin",
     ".pdf", ".doc", ".docx", ".xls", ".xlsx",
