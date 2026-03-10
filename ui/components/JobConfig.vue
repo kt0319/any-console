@@ -2,10 +2,6 @@
   <div class="modal-scroll-body">
     <div class="ws-settings-section">
       <div class="ws-settings-row">
-        <span class="ws-settings-label">名前</span>
-        <input type="text" class="form-input" v-model="form.name" :disabled="!isNew" placeholder="ジョブ名" autocomplete="off" />
-      </div>
-      <div class="ws-settings-row">
         <span class="ws-settings-label">ラベル</span>
         <input type="text" class="form-input" v-model="form.label" placeholder="表示名" autocomplete="off" />
       </div>
@@ -58,7 +54,6 @@ const form = ref(
     ? { ...initialForm }
     : jobEntry
       ? {
-          name: jobEntry.name,
           label: jobEntry.job.label || "",
           command: jobEntry.job.command || "",
           icon: jobEntry.job.icon || "",
@@ -67,7 +62,6 @@ const form = ref(
           terminal: jobEntry.job.terminal !== false,
         }
       : {
-          name: "",
           label: "",
           command: "",
           icon: "",
@@ -98,7 +92,6 @@ onMounted(() => {
 
 async function saveJob() {
   const f = form.value;
-  if (!f.name.trim()) { formError.value = "名前を入力してください"; return; }
   if (!f.command.trim()) { formError.value = "コマンドを入力してください"; return; }
   saving.value = true;
   formError.value = "";
@@ -106,7 +99,7 @@ async function saveJob() {
     const method = isNew ? "POST" : "PUT";
     const url = isNew
       ? `/workspaces/${encodeURIComponent(workspaceName)}/jobs`
-      : `/workspaces/${encodeURIComponent(workspaceName)}/jobs/${encodeURIComponent(f.name)}`;
+      : `/workspaces/${encodeURIComponent(workspaceName)}/jobs/${encodeURIComponent(jobEntry.name)}`;
     const res = await auth.apiFetch(url, {
       method,
       body: {
