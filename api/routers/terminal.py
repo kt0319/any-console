@@ -43,7 +43,7 @@ class TerminalSession:
     __slots__ = (
         "workspace", "fd", "pid", "expires_at", "_read_lock",
         "icon", "icon_color", "job_name", "job_label", "active_ws",
-        "tmux_session_name",
+        "observer_ws", "tmux_session_name",
     )
 
     def __init__(self, workspace: str | None, expires_at: float,
@@ -61,6 +61,7 @@ class TerminalSession:
         self.job_name = job_name
         self.job_label = job_label
         self.active_ws: WebSocket | None = None
+        self.observer_ws: set[WebSocket] = set()
         self.tmux_session_name = tmux_session_name
 
 
@@ -429,23 +430,26 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
             return
 
     prev_ws = session.active_ws
+    need_pty_bridge = session.fd is None or session.pid is None
+
     if prev_ws is not None:
+        session.observer_ws.add(prev_ws)
         try:
-            await prev_ws.close(code=WS_CLOSE_REPLACED)
+            await prev_ws.send_text("readonly")
         except Exception:
-            pass
+            session.observer_ws.discard(prev_ws)
 
-    _detach_pty_bridge(session)
+    if need_pty_bridge:
+        _detach_pty_bridge(session)
+        try:
+            fd, pid = attach_tmux_session(session.tmux_session_name)
+        except OSError as e:
+            logger.error("tmux attach failed session=%s: %s", session_id, e)
+            await websocket.close(code=1011, reason="tmux attach失敗")
+            return
+        session.fd = fd
+        session.pid = pid
 
-    try:
-        fd, pid = attach_tmux_session(session.tmux_session_name)
-    except OSError as e:
-        logger.error("tmux attach failed session=%s: %s", session_id, e)
-        await websocket.close(code=1011, reason="tmux attach失敗")
-        return
-
-    session.fd = fd
-    session.pid = pid
     session.active_ws = websocket
     session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
 
@@ -467,6 +471,9 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
     async def pty_to_ws():
         try:
             while not stop_event.is_set():
+                if session.active_ws is not websocket:
+                    await asyncio.sleep(0.1)
+                    continue
                 data = await loop.run_in_executor(
                     PTY_EXECUTOR, _read_pty, session.fd, session._read_lock, stop_event
                 )
@@ -475,6 +482,14 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
                 if data == PTY_NO_DATA:
                     continue
                 await websocket.send_bytes(data)
+                stale = []
+                for obs in list(session.observer_ws):
+                    try:
+                        await obs.send_bytes(data)
+                    except Exception:
+                        stale.append(obs)
+                for obs in stale:
+                    session.observer_ws.discard(obs)
         except (WebSocketDisconnect, OSError, asyncio.CancelledError):
             pass
 
@@ -485,6 +500,8 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
                 msg_type = msg.get("type")
                 if msg_type == "websocket.disconnect":
                     break
+                if session.active_ws is not websocket:
+                    continue
                 data = msg.get("bytes")
                 if data is None and msg.get("text") is not None:
                     data = msg["text"].encode("utf-8")
@@ -524,9 +541,25 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
     stop_event.set()
     for task in pending:
         task.cancel()
+
+    session.observer_ws.discard(websocket)
+
     if session.active_ws is websocket:
         session.active_ws = None
-    _detach_pty_bridge(session)
+        promoted = False
+        while session.observer_ws:
+            candidate = next(iter(session.observer_ws))
+            session.observer_ws.discard(candidate)
+            try:
+                await candidate.send_text("active")
+                session.active_ws = candidate
+                promoted = True
+                break
+            except Exception:
+                pass
+        if not promoted:
+            _detach_pty_bridge(session)
+
     try:
         await websocket.close()
     except Exception:

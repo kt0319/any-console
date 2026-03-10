@@ -43,6 +43,10 @@ export function useTerminal() {
       if (!tab.term) return;
       if (e.data instanceof ArrayBuffer) {
         tab.term.write(new Uint8Array(e.data));
+      } else if (e.data === "readonly") {
+        tab._replacedByOtherDevice = true;
+      } else if (e.data === "active") {
+        tab._replacedByOtherDevice = false;
       } else {
         tab.term.write(e.data);
       }
@@ -89,12 +93,14 @@ export function useTerminal() {
     });
 
     tab.term?.onData((data) => {
+      if (tab._replacedByOtherDevice) return;
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(encoder.encode(data));
       }
     });
 
     tab.term?.onResize(({ cols, rows }) => {
+      if (tab._replacedByOtherDevice) return;
       if (ws.readyState === WebSocket.OPEN) {
         const payload = encoder.encode(JSON.stringify({ type: "resize", cols, rows }));
         const msg = new Uint8Array(1 + payload.length);

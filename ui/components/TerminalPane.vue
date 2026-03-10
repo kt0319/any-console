@@ -18,6 +18,7 @@
         @touchstart.passive="onPillTouchStart"
       >
         <span class="tab-name-pill-info">
+          <span v-if="tab._replacedByOtherDevice" class="mdi mdi-lock readonly-lock"></span>
           <span v-if="tab.wsIcon" v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
           <span v-if="tab.icon" v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
           {{ tab.workspace || tab.label || '' }}
@@ -409,6 +410,11 @@ defineExpose({
   align-items: center;
   gap: 6px;
   min-width: 0;
+}
+
+.readonly-lock {
+  font-size: 13px;
+  color: #ff9800;
 }
 
 .tab-name-pill :deep(.favicon-icon) {
