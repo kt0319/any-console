@@ -51,7 +51,6 @@ const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
 const { beginDrag, updateHover, finishSplitDrop, cancelDrag } = useSplitDropDrag();
 const mouseLongPress = useLongPress(LONG_PRESS_MS);
-const touchLongPress = useLongPress(LONG_PRESS_MS);
 const pillEl = ref(null);
 const isDragging = ref(false);
 const dropSide = ref("");
@@ -90,7 +89,6 @@ function onClose() {
 
 function onClosePress() {
   mouseLongPress.cancel();
-  touchLongPress.cancel();
 }
 
 function onMouseDown() {
@@ -174,20 +172,13 @@ let touchDragging = false;
 
 function onTouchStart(e) {
   touchDragging = false;
-  touchLongPress.reset();
   touchStartX = e.touches[0].clientX;
   touchStartY = e.touches[0].clientY;
-  touchLongPress.start(() => {
-    emit("settings:open", { view: "TabConfig" });
-  });
 }
 
 function onTouchMove(e) {
   const dx = e.touches[0].clientX - touchStartX;
   const dy = e.touches[0].clientY - touchStartY;
-  if (isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
-    touchLongPress.cancel();
-  }
   if (!canDrag.value) return;
 
   if (!touchDragging && isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
@@ -204,8 +195,6 @@ function onTouchMove(e) {
 }
 
 function onTouchEnd(e) {
-  touchLongPress.cancel();
-  if (touchLongPress.consumeFired()) return;
   if (!touchDragging) return;
   if (e.cancelable) e.preventDefault();
   isDragging.value = false;
