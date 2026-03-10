@@ -16,10 +16,10 @@
           :aria-disabled="!canNavigateBack ? 'true' : 'false'"
           @click="canNavigateBack ? onBack() : null"
         >
-          <span class="modal-title-back-slot" aria-hidden="true">
-            <span v-if="canNavigateBack" class="mdi mdi-arrow-left modal-title-back-icon"></span>
-          </span>
-          <h3 class="modal-title">{{ modalTitle }}</h3>
+          <h3 class="modal-title">
+            <span v-if="canNavigateBack" class="mdi mdi-arrow-left modal-title-back-icon" aria-hidden="true"></span>
+            {{ modalTitle }}
+          </h3>
         </button>
         <button type="button" class="modal-close-btn" @click="closeModal">&times;</button>
       </div>
@@ -351,9 +351,9 @@ onMounted(() => {
 .modal-title-wrap {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
   flex: 1;
   min-width: 0;
+  min-height: 44px;
   padding: 0;
   border: none;
   background: transparent;
@@ -366,27 +366,14 @@ onMounted(() => {
   flex: 1;
   min-width: 0;
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: inherit;
   text-align: left;
-}
-
-.modal-title-back-slot {
-  width: 44px;
-  min-width: 44px;
-  height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.modal-title-wrap.no-back .modal-title-back-slot {
-  width: 0;
-  min-width: 0;
-  height: 0;
 }
 
 .modal-title-wrap.is-clickable {
@@ -396,6 +383,7 @@ onMounted(() => {
 .modal-title-back-icon {
   font-size: 18px;
   line-height: 1;
+  flex-shrink: 0;
   color: inherit;
 }
 
