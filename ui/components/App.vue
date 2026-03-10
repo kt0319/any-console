@@ -183,6 +183,9 @@ body {
 
 .long-press-surface {
   position: relative;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .long-press-surface::after {
