@@ -68,7 +68,7 @@
             <span class="git-log-entry-row1">
               <span class="git-log-entry-row1-left">
                 <span v-if="entry.refs.length" class="git-log-entry-refs">
-                  <span v-for="r in entry.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type"><span :class="'mdi ' + r.icon"></span>{{ r.label }}</span>
+                  <span v-for="r in entry.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type"><span v-if="r.synced" class="mdi mdi-link-variant"></span><span :class="'mdi ' + r.icon"></span>{{ r.label }}</span>
                 </span>
               </span>
               <span class="git-log-entry-meta">
@@ -684,6 +684,7 @@ defineExpose({
   background: var(--warning);
   color: var(--bg-primary);
 }
+
 
 .git-ref-dirty {
   display: inline-flex;

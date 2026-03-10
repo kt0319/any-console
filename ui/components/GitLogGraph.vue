@@ -28,7 +28,7 @@
               <span class="git-graph-meta">
                 <span v-if="row.entry.refs.length" class="git-log-entry-refs">
                   <span v-for="r in row.entry.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type">
-                    <span :class="'mdi ' + r.icon"></span>{{ r.label }}
+                    <span v-if="r.synced" class="mdi mdi-link-variant"></span><span :class="'mdi ' + r.icon"></span>{{ r.label }}
                   </span>
                 </span>
                 <span class="git-graph-author">{{ row.entry.author }}</span>
@@ -301,16 +301,16 @@ async function loadMoreGraphHistory() {
   isLoadingMoreGraphHistory.value = true;
   graphHistoryPage++;
   const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
+  const totalLimit = (graphHistoryPage + 1) * perPage;
   try {
     const res = await auth.apiFetch(
-      `/workspaces/${encodeURIComponent(workspace)}/git-log?limit=${perPage}&skip=${graphHistoryPage * perPage}&graph=true`
+      `/workspaces/${encodeURIComponent(workspace)}/git-log?limit=${totalLimit}&skip=0&graph=true`
     );
     if (!res || !res.ok) return;
     const data = await res.json();
     const parsed = parseGitGraphOutput(data.stdout);
-    const newRows = buildGitGraphRows(parsed);
-    graphRows.value = [...graphRows.value, ...newRows];
-    hasMoreGraphHistory.value = parsed.filter((p) => p.entry).length >= perPage;
+    graphRows.value = buildGitGraphRows(parsed);
+    hasMoreGraphHistory.value = parsed.filter((p) => p.entry).length >= totalLimit;
   } catch (e) {
     console.error("git graph loadMore failed:", e);
   } finally {
@@ -392,6 +392,7 @@ onMounted(() => {
   background: var(--warning);
   color: var(--bg-primary);
 }
+
 
 .commit-action-menu {
   display: flex;

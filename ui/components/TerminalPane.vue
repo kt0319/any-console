@@ -118,12 +118,14 @@ function onTouchEnd(e) {
   if (pillEl.value && pillEl.value.contains(e.target)) return;
   const endY = e.changedTouches?.[0]?.clientY || 0;
   if (Math.abs(endY - touchStartY) > 10) return;
+  if (layoutStore.isSplitMode) {
+    if (!isActive.value) {
+      emits("select-pane", props.paneIndex);
+      return;
+    }
+  }
   if (layoutStore.isPanelBottom && !(frameEl.value && isViewMode(frameEl.value))) {
     emit("keyboard:activate");
-  }
-  if (layoutStore.isSplitMode) {
-    emits("select-pane", props.paneIndex);
-    return;
   }
 }
 

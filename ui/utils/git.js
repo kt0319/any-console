@@ -23,7 +23,7 @@ export function parseGitRefs(refsStr) {
       r => r.type === "remote" && r.label === "origin/" + local.label
     );
     if (remoteIdx !== -1) {
-      local.icon = "mdi-link-variant";
+      local.synced = true;
       parsed.splice(remoteIdx, 1);
     }
   }
