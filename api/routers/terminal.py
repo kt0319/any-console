@@ -37,13 +37,12 @@ WS_PING_INTERVAL_SEC = 25
 router = APIRouter(dependencies=[Depends(verify_token)])
 
 
-WS_CLOSE_REPLACED = 4001
-
 class TerminalSession:
     __slots__ = (
-        "workspace", "fd", "pid", "expires_at", "_read_lock",
-        "icon", "icon_color", "job_name", "job_label", "active_ws",
-        "observer_ws", "tmux_session_name",
+        "workspace", "fd", "pid", "expires_at",
+        "icon", "icon_color", "job_name", "job_label",
+        "clients", "writer_ws", "_reader_task",
+        "tmux_session_name",
     )
 
     def __init__(self, workspace: str | None, expires_at: float,
@@ -55,13 +54,13 @@ class TerminalSession:
         self.fd = fd
         self.pid = pid
         self.expires_at = expires_at
-        self._read_lock = threading.Lock()
         self.icon = icon
         self.icon_color = icon_color
         self.job_name = job_name
         self.job_label = job_label
-        self.active_ws: WebSocket | None = None
-        self.observer_ws: set[WebSocket] = set()
+        self.clients: set[WebSocket] = set()
+        self.writer_ws: WebSocket | None = None
+        self._reader_task: asyncio.Task | None = None
         self.tmux_session_name = tmux_session_name
 
 
@@ -85,7 +84,7 @@ def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
         check=True,
         capture_output=True,
     )
-    for opt_args in (["status", "off"], ["mouse", "off"]):
+    for opt_args in (["status", "off"], ["mouse", "off"], ["mode-style", "bg=colour237,fg=colour248"]):
         subprocess.run(
             ["tmux", "set-option", "-t", session_name, *opt_args],
             timeout=TMUX_CMD_TIMEOUT_SEC,
@@ -390,6 +389,51 @@ PTY_EXECUTOR = ThreadPoolExecutor(max_workers=PTY_READER_WORKERS, thread_name_pr
 ws_router = APIRouter()
 
 
+def _read_pty(fd: int) -> bytes:
+    try:
+        r, _, _ = select.select([fd], [], [], 1.0)
+        if not r:
+            return PTY_NO_DATA
+        return os.read(fd, PTY_READ_BUFFER_SIZE)
+    except (OSError, ValueError):
+        return PTY_EOF
+
+
+async def _session_reader(session: TerminalSession, session_id: str) -> None:
+    loop = asyncio.get_event_loop()
+    try:
+        while session.clients:
+            if session.fd is None:
+                break
+            data = await loop.run_in_executor(PTY_EXECUTOR, _read_pty, session.fd)
+            if data == PTY_EOF:
+                break
+            if data == PTY_NO_DATA:
+                continue
+            stale = []
+            for ws in list(session.clients):
+                try:
+                    await ws.send_bytes(data)
+                except Exception:
+                    stale.append(ws)
+            for ws in stale:
+                session.clients.discard(ws)
+    except asyncio.CancelledError:
+        pass
+    except Exception as e:
+        logger.debug("session reader ended session=%s: %s", session_id, e)
+    finally:
+        session._reader_task = None
+        if not session.clients:
+            _detach_pty_bridge(session)
+
+
+def _ensure_reader_task(session: TerminalSession, session_id: str) -> None:
+    if session._reader_task is not None and not session._reader_task.done():
+        return
+    session._reader_task = asyncio.create_task(_session_reader(session, session_id))
+
+
 @ws_router.websocket("/terminal/ws/{session_id}")
 async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows: int = 0):
     with sessions_lock:
@@ -429,15 +473,14 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
             await websocket.close(code=1008, reason="シェルプロセスが終了しました")
             return
 
-    prev_ws = session.active_ws
+    prev_writer = session.writer_ws
     need_pty_bridge = session.fd is None or session.pid is None
 
-    if prev_ws is not None:
-        session.observer_ws.add(prev_ws)
+    if prev_writer is not None and prev_writer in session.clients:
         try:
-            await prev_ws.send_text("readonly")
+            await prev_writer.send_text("readonly")
         except Exception:
-            session.observer_ws.discard(prev_ws)
+            session.clients.discard(prev_writer)
 
     if need_pty_bridge:
         _detach_pty_bridge(session)
@@ -450,13 +493,14 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
         session.fd = fd
         session.pid = pid
 
-    session.active_ws = websocket
+    session.clients.add(websocket)
+    session.writer_ws = websocket
     session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
 
     if cols > 0 and rows > 0:
         try:
             winsize = struct.pack("HHHH", rows, cols, 0, 0)
-            fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
+            fcntl.ioctl(session.fd, termios.TIOCSWINSZ, winsize)
             subprocess.run(
                 ["tmux", "resize-window", "-t", session.tmux_session_name, "-x", str(cols), "-y", str(rows)],
                 timeout=TMUX_CMD_TIMEOUT_SEC,
@@ -465,123 +509,68 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
         except (OSError, subprocess.TimeoutExpired):
             pass
 
-    stop_event = threading.Event()
+    _ensure_reader_task(session, session_id)
+
     loop = asyncio.get_event_loop()
 
-    async def pty_to_ws():
-        try:
-            while not stop_event.is_set():
-                if session.active_ws is not websocket:
-                    await asyncio.sleep(0.1)
-                    continue
-                data = await loop.run_in_executor(
-                    PTY_EXECUTOR, _read_pty, session.fd, session._read_lock, stop_event
-                )
-                if data == PTY_EOF:
-                    break
-                if data == PTY_NO_DATA:
-                    continue
-                await websocket.send_bytes(data)
-                stale = []
-                for obs in list(session.observer_ws):
-                    try:
-                        await obs.send_bytes(data)
-                    except Exception:
-                        stale.append(obs)
-                for obs in stale:
-                    session.observer_ws.discard(obs)
-        except (WebSocketDisconnect, OSError, asyncio.CancelledError):
-            pass
-
-    async def ws_to_pty():
-        try:
-            while True:
-                msg = await websocket.receive()
-                msg_type = msg.get("type")
-                if msg_type == "websocket.disconnect":
-                    break
-                if session.active_ws is not websocket:
-                    continue
-                data = msg.get("bytes")
-                if data is None and msg.get("text") is not None:
-                    data = msg["text"].encode("utf-8")
-                if not data:
-                    continue
-                if data[0:1] == b"\x00":
-                    _handle_resize(session, data[1:])
-                elif data[0:1] == b"\x01":
-                    _handle_scroll(session, data[1:])
-                elif data[0:1] == b"\x02":
-                    _cancel_copy_mode(session)
-                else:
-                    if session.fd is not None:
-                        await loop.run_in_executor(PTY_EXECUTOR, os.write, session.fd, data)
-        except (WebSocketDisconnect, OSError, asyncio.CancelledError):
-            pass
-
-    async def ping_loop():
-        try:
-            while True:
-                await asyncio.sleep(WS_PING_INTERVAL_SEC)
+    try:
+        while True:
+            try:
+                msg = await asyncio.wait_for(websocket.receive(), timeout=WS_PING_INTERVAL_SEC)
+            except asyncio.TimeoutError:
                 await websocket.send_bytes(b"")
-                s = TERMINAL_SESSIONS.get(session_id)
-                if s:
-                    s.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
-        except (WebSocketDisconnect, OSError, asyncio.CancelledError):
-            pass
+                session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
+                continue
 
-    done, pending = await asyncio.wait(
-        [
-            asyncio.create_task(pty_to_ws()),
-            asyncio.create_task(ws_to_pty()),
-            asyncio.create_task(ping_loop()),
-        ],
-        return_when=asyncio.FIRST_COMPLETED,
-    )
-    stop_event.set()
-    for task in pending:
-        task.cancel()
+            msg_type = msg.get("type")
+            if msg_type == "websocket.disconnect":
+                break
 
-    session.observer_ws.discard(websocket)
+            session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
 
-    if session.active_ws is websocket:
-        session.active_ws = None
-        promoted = False
-        while session.observer_ws:
-            candidate = next(iter(session.observer_ws))
-            session.observer_ws.discard(candidate)
+            if session.writer_ws is not websocket:
+                continue
+
+            data = msg.get("bytes")
+            if data is None and msg.get("text") is not None:
+                data = msg["text"].encode("utf-8")
+            if not data:
+                continue
+
+            if data[0:1] == b"\x00":
+                _handle_resize(session, data[1:])
+            elif data[0:1] == b"\x01":
+                _handle_scroll(session, data[1:])
+            elif data[0:1] == b"\x02":
+                _cancel_copy_mode(session)
+            else:
+                if session.fd is not None:
+                    await loop.run_in_executor(PTY_EXECUTOR, os.write, session.fd, data)
+    except (WebSocketDisconnect, OSError, asyncio.CancelledError):
+        pass
+
+    # cleanup
+    session.clients.discard(websocket)
+
+    if session.writer_ws is websocket:
+        session.writer_ws = None
+        for candidate in list(session.clients):
             try:
                 await candidate.send_text("active")
-                session.active_ws = candidate
-                promoted = True
+                session.writer_ws = candidate
                 break
             except Exception:
-                pass
-        if not promoted:
-            _detach_pty_bridge(session)
+                session.clients.discard(candidate)
+
+    if not session.clients:
+        if session._reader_task and not session._reader_task.done():
+            session._reader_task.cancel()
+        _detach_pty_bridge(session)
 
     try:
         await websocket.close()
     except Exception:
         pass
-
-
-def _read_pty(fd: int, lock: threading.Lock, stop: threading.Event) -> bytes:
-    if not lock.acquire(timeout=2.0):
-        return PTY_NO_DATA
-    try:
-        if stop.is_set():
-            return PTY_EOF
-        r, _, _ = select.select([fd], [], [], 1.0)
-        if not r:
-            return PTY_NO_DATA
-        if stop.is_set():
-            return PTY_EOF
-        return os.read(fd, PTY_READ_BUFFER_SIZE)
-    except (OSError, ValueError):
-        return PTY_EOF
-    finally:
-        lock.release()
 
 
 def _handle_resize(session: TerminalSession, payload: bytes) -> None:

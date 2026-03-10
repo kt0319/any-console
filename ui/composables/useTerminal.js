@@ -72,10 +72,10 @@ export function useTerminal() {
       tab._reconnectTimer = setTimeout(() => connectTerminalWs(tab), delay);
     };
 
-    bindTerminalInput(tab, ws);
+    bindTerminalInput(tab);
   }
 
-  function bindTerminalInput(tab, ws) {
+  function bindTerminalInput(tab) {
     if (tab._inputBound) return;
     tab._inputBound = true;
 
@@ -84,8 +84,8 @@ export function useTerminal() {
     tab.term?.attachCustomKeyEventHandler((e) => {
       if (e.type === "keydown" && e.key === "Enter" && e.shiftKey) {
         e.preventDefault();
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(encoder.encode("\n"));
+        if (tab.ws?.readyState === WebSocket.OPEN) {
+          tab.ws.send(encoder.encode("\n"));
         }
         return false;
       }
@@ -94,21 +94,43 @@ export function useTerminal() {
 
     tab.term?.onData((data) => {
       if (tab._replacedByOtherDevice) return;
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(encoder.encode(data));
+      if (tab.ws?.readyState === WebSocket.OPEN) {
+        tab.ws.send(encoder.encode(data));
       }
     });
 
     tab.term?.onResize(({ cols, rows }) => {
       if (tab._replacedByOtherDevice) return;
-      if (ws.readyState === WebSocket.OPEN) {
+      if (tab.ws?.readyState === WebSocket.OPEN) {
         const payload = encoder.encode(JSON.stringify({ type: "resize", cols, rows }));
         const msg = new Uint8Array(1 + payload.length);
         msg[0] = 0x00;
         msg.set(payload, 1);
-        ws.send(msg);
+        tab.ws.send(msg);
       }
     });
+
+    const termEl = tab.term?.element;
+    if (termEl) {
+      termEl.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        if (tab._replacedByOtherDevice) return;
+        if (tab.ws?.readyState !== WebSocket.OPEN) return;
+        const direction = e.deltaY < 0 ? "up" : "down";
+        const lines = Math.max(1, Math.min(Math.ceil(Math.abs(e.deltaY) / 20), 15));
+        const payload = encoder.encode(JSON.stringify({ d: direction, n: lines }));
+        const msg = new Uint8Array(1 + payload.length);
+        msg[0] = 0x01;
+        msg.set(payload, 1);
+        tab.ws.send(msg);
+      }, { passive: false });
+
+      termEl.addEventListener("click", () => {
+        if (tab.ws?.readyState === WebSocket.OPEN) {
+          tab.ws.send(new Uint8Array([0x02]));
+        }
+      });
+    }
   }
 
   function disconnectTerminal(tab) {
