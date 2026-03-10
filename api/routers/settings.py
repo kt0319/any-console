@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from ..auth import verify_token
-from ..common import GLOBAL_CONFIG_KEY, WORK_DIR
+from ..common import GLOBAL_CONFIG_KEY, MAX_COMMAND_LENGTH, MAX_LABEL_LENGTH, WORK_DIR
 from ..config import (
     load_all_config,
     load_global_config_section,
@@ -83,8 +83,8 @@ def put_editor_settings(body: EditorSettings):
 
 
 class SnippetItem(BaseModel):
-    label: str = Field("", max_length=200)
-    command: str = Field(..., max_length=10000)
+    label: str = Field("", max_length=MAX_LABEL_LENGTH)
+    command: str = Field(..., max_length=MAX_COMMAND_LENGTH)
 
 
 class UpdateSnippetsRequest(BaseModel):
@@ -106,7 +106,7 @@ def get_snippets():
         label = str(item.get("label", "")).strip()
         if not label:
             label = command[:20] + ("..." if len(command) > 20 else "")
-        sanitized.append({"label": label[:200], "command": command[:10000]})
+        sanitized.append({"label": label[:MAX_LABEL_LENGTH], "command": command[:MAX_COMMAND_LENGTH]})
     return {"snippets": sanitized}
 
 
@@ -118,6 +118,6 @@ def put_snippets(body: UpdateSnippetsRequest):
         if not command:
             continue
         label = item.label.strip() or (command[:20] + ("..." if len(command) > 20 else ""))
-        snippets.append({"label": label[:200], "command": command[:10000]})
+        snippets.append({"label": label[:MAX_LABEL_LENGTH], "command": command[:MAX_COMMAND_LENGTH]})
     save_global_config_section("snippets", snippets)
     return {"status": "ok", "snippets": snippets}

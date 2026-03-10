@@ -11,6 +11,11 @@ from pydantic import BaseModel, Field
 from .. import common
 from ..auth import verify_token
 from ..common import (
+    ICON_COLOR_PATTERN,
+    ICON_PATTERN,
+    MAX_COMMAND_LENGTH,
+    MAX_ICON_VALUE_LENGTH,
+    MAX_LABEL_LENGTH,
     MAX_TERMINAL_SESSIONS,
     TERMINAL_TIMEOUT_SEC,
     WORKSPACE_JOBS_CACHE_TTL_SEC,
@@ -120,18 +125,11 @@ def get_workspace_job(name: str, job_name: str):
     return job_definition_to_dict(job_def)
 
 
-ICON_PATTERN = re.compile(
-    r"^(mdi-[a-zA-Z0-9-]+|favicon:[a-zA-Z0-9._-]+|data:image/.+|icon:[a-f0-9]{16}\.(png|jpg|gif|webp|svg))$",
-)
-ICON_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{3,6}$")
-MAX_ICON_VALUE_LEN = 200_000
-
-
 def validate_icon(icon: str) -> str:
     icon = icon.strip()
     if not icon:
         return ""
-    if len(icon) > MAX_ICON_VALUE_LEN:
+    if len(icon) > MAX_ICON_VALUE_LENGTH:
         raise HTTPException(status_code=400, detail="Icon value too long")
     icon = normalize_icon(icon)
     if not ICON_PATTERN.match(icon):
@@ -178,9 +176,9 @@ def build_job_entry(
 
 
 class CreateJobRequest(BaseModel):
-    label: str = Field(..., max_length=200)
-    command: str = Field(..., max_length=10000)
-    icon: str = Field("", max_length=MAX_ICON_VALUE_LEN)
+    label: str = Field(..., max_length=MAX_LABEL_LENGTH)
+    command: str = Field(..., max_length=MAX_COMMAND_LENGTH)
+    icon: str = Field("", max_length=MAX_ICON_VALUE_LENGTH)
     icon_color: str = Field("", max_length=20)
     confirm: bool = True
     terminal: bool = True
@@ -217,9 +215,9 @@ def create_workspace_job(name: str, body: CreateJobRequest):
 
 
 class UpdateJobRequest(BaseModel):
-    label: str = Field(..., max_length=200)
-    command: str = Field(..., max_length=10000)
-    icon: str = Field("", max_length=MAX_ICON_VALUE_LEN)
+    label: str = Field(..., max_length=MAX_LABEL_LENGTH)
+    command: str = Field(..., max_length=MAX_COMMAND_LENGTH)
+    icon: str = Field("", max_length=MAX_ICON_VALUE_LENGTH)
     icon_color: str = Field("", max_length=20)
     confirm: bool = True
     terminal: bool = True

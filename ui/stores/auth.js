@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import { LS_KEY_TOKEN, LS_KEY_DEVICE_NAME, LS_PREFIX_API_CACHE, LS_PREFIX_WS_META, COOKIE_NAME_TOKEN } from "../utils/constants.js";
 
 export const useAuthStore = defineStore("auth", () => {
   const token = ref("");
@@ -10,7 +11,7 @@ export const useAuthStore = defineStore("auth", () => {
 
   async function apiFetch(endpoint, { method = "GET", body = null } = {}) {
     const headers = { Authorization: `Bearer ${token.value}` };
-    const deviceName = localStorage.getItem("deviceName");
+    const deviceName = localStorage.getItem(LS_KEY_DEVICE_NAME);
     if (deviceName) headers["X-Device-Name"] = deviceName;
     if (body !== null && typeof body === "object" && !(body instanceof FormData)) {
       headers["Content-Type"] = "application/json";
@@ -25,27 +26,27 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   function saveToken(val) {
-    const prev = localStorage.getItem("pi_console_token") || "";
+    const prev = localStorage.getItem(LS_KEY_TOKEN) || "";
     if (prev && prev !== val) clearPersistedApiCaches();
-    localStorage.setItem("pi_console_token", val);
-    document.cookie = `pi_console_token=${encodeURIComponent(val)};path=/;max-age=31536000;SameSite=Strict`;
+    localStorage.setItem(LS_KEY_TOKEN, val);
+    document.cookie = `${COOKIE_NAME_TOKEN}=${encodeURIComponent(val)};path=/;max-age=31536000;SameSite=Strict`;
   }
 
   function clearToken() {
     clearPersistedApiCaches();
-    localStorage.removeItem("pi_console_token");
-    document.cookie = "pi_console_token=;path=/;max-age=0;SameSite=Strict";
+    localStorage.removeItem(LS_KEY_TOKEN);
+    document.cookie = `${COOKIE_NAME_TOKEN}=;path=/;max-age=0;SameSite=Strict`;
   }
 
   function loadToken() {
-    const ls = localStorage.getItem("pi_console_token");
+    const ls = localStorage.getItem(LS_KEY_TOKEN);
     if (ls) return ls;
-    const match = document.cookie.match(/(?:^|;\s*)pi_console_token=([^;]*)/);
+    const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${COOKIE_NAME_TOKEN}=([^;]*)`));
     if (match) {
       try {
         const val = decodeURIComponent(match[1]);
         if (val) {
-          localStorage.setItem("pi_console_token", val);
+          localStorage.setItem(LS_KEY_TOKEN, val);
           return val;
         }
       } catch {}
@@ -95,7 +96,7 @@ export const useAuthStore = defineStore("auth", () => {
     const keysToDelete = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && (key.startsWith("api_cache_") || key.startsWith("ws_meta_"))) {
+      if (key && (key.startsWith(LS_PREFIX_API_CACHE) || key.startsWith(LS_PREFIX_WS_META))) {
         keysToDelete.push(key);
       }
     }

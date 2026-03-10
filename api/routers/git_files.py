@@ -4,10 +4,9 @@ from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, 
 from fastapi.responses import FileResponse
 
 from ..auth import verify_token
-from ..common import MAX_UPLOAD_SIZE, resolve_workspace_path
+from ..common import MAX_UPLOAD_SIZE, STASH_REF_PATTERN, resolve_workspace_path
 from ..git_utils import validate_commit_hash
 from .git_shared import (
-    STASH_REF_PATTERN,
     list_directory_entries,
     read_blob_content_response,
     read_file_content_response,

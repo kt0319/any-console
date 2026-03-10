@@ -42,6 +42,24 @@ TMUX_CMD_TIMEOUT_SEC = 5
 BRANCH_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_./-]+$")
 COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{4,40}$|^stash@\{\d+\}$")
 
+MAX_LABEL_LENGTH = 200
+MAX_COMMAND_LENGTH = 10000
+MAX_ICON_VALUE_LENGTH = 200_000
+
+TERMINAL_DEFAULT_COLS = 80
+TERMINAL_DEFAULT_ROWS = 24
+TERMINAL_TERM_TYPE = "xterm-256color"
+
+WS_MSG_RESIZE = b"\x00"
+WS_MSG_SCROLL = b"\x01"
+WS_MSG_CANCEL_COPY_MODE = b"\x02"
+
+STASH_REF_PATTERN = re.compile(r"^stash@\{\d+\}$")
+ICON_PATTERN = re.compile(
+    r"^(mdi-[a-zA-Z0-9-]+|favicon:[a-zA-Z0-9._-]+|data:image/.+|icon:[a-f0-9]{16}\.(png|jpg|gif|webp|svg))$",
+)
+ICON_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{3,6}$")
+
 BACKGROUND_EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
 class TTLCache:

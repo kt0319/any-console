@@ -1,7 +1,8 @@
 import { defineStore } from "pinia";
 import { ref, markRaw } from "vue";
+import { LS_KEY_TERMINAL_SETTINGS } from "../utils/constants.js";
 
-const TERMINAL_SETTINGS_KEY = "pi_console_terminal_settings";
+const TERMINAL_SETTINGS_KEY = LS_KEY_TERMINAL_SETTINGS;
 
 const TERMINAL_SETTINGS_SCHEMA = Object.freeze({
   fontSize: { type: "number", label: "フォントサイズ", min: 10, max: 24, step: 1, unit: "px", note: "文字サイズ。10〜24px、レイアウトへ即時反映されます。", requiresRefit: true },

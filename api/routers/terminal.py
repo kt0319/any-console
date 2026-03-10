@@ -20,11 +20,17 @@ from ..auth import verify_token
 from ..common import (
     PTY_READ_BUFFER_SIZE,
     PTY_READER_WORKERS,
+    TERMINAL_DEFAULT_COLS,
+    TERMINAL_DEFAULT_ROWS,
+    TERMINAL_TERM_TYPE,
     TERMINAL_TIMEOUT_SEC,
     TMUX_CMD_TIMEOUT_SEC,
     TMUX_SESSION_PREFIX,
     TMUX_SOCKET_DIR,
     WORK_DIR,
+    WS_MSG_CANCEL_COPY_MODE,
+    WS_MSG_RESIZE,
+    WS_MSG_SCROLL,
 )
 
 logger = logging.getLogger(__name__)
@@ -72,12 +78,15 @@ def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
     user_shell = os.environ.get("SHELL", "/bin/zsh")
     cwd = workspace_path if workspace_path and os.path.isdir(workspace_path) else os.environ.get("HOME", "/")
     env = os.environ.copy()
-    env["TERM"] = "xterm-256color"
+    env["TERM"] = TERMINAL_TERM_TYPE
     if workspace_path:
         env["WORKSPACE"] = workspace_path
 
     subprocess.run(
-        ["tmux", "new-session", "-d", "-s", session_name, "-x", "80", "-y", "24", user_shell],
+        [
+            "tmux", "new-session", "-d", "-s", session_name,
+            "-x", str(TERMINAL_DEFAULT_COLS), "-y", str(TERMINAL_DEFAULT_ROWS), user_shell,
+        ],
         cwd=cwd,
         env=env,
         timeout=TMUX_CMD_TIMEOUT_SEC,
@@ -94,7 +103,7 @@ def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
 
 def attach_tmux_session(session_name: str) -> tuple[int, int]:
     env = {
-        "TERM": "xterm-256color",
+        "TERM": TERMINAL_TERM_TYPE,
         "HOME": os.environ.get("HOME", "/"),
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "LANG": os.environ.get("LANG", "en_US.UTF-8"),
@@ -537,11 +546,11 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
             if not data:
                 continue
 
-            if data[0:1] == b"\x00":
+            if data[0:1] == WS_MSG_RESIZE:
                 _handle_resize(session, data[1:])
-            elif data[0:1] == b"\x01":
+            elif data[0:1] == WS_MSG_SCROLL:
                 _handle_scroll(session, data[1:])
-            elif data[0:1] == b"\x02":
+            elif data[0:1] == WS_MSG_CANCEL_COPY_MODE:
                 _cancel_copy_mode(session)
             else:
                 if session.fd is not None:
@@ -576,8 +585,8 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
 def _handle_resize(session: TerminalSession, payload: bytes) -> None:
     try:
         size = json.loads(payload)
-        cols = size.get("cols", 80)
-        rows = size.get("rows", 24)
+        cols = size.get("cols", TERMINAL_DEFAULT_COLS)
+        rows = size.get("rows", TERMINAL_DEFAULT_ROWS)
         if session.fd is not None:
             winsize = struct.pack("HHHH", rows, cols, 0, 0)
             fcntl.ioctl(session.fd, termios.TIOCSWINSZ, winsize)

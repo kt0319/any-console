@@ -7,10 +7,8 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
-from ..common import BRANCH_NAME_PATTERN, GIT_SHORT_TIMEOUT_SEC
+from ..common import BRANCH_NAME_PATTERN, GIT_SHORT_TIMEOUT_SEC, STASH_REF_PATTERN
 from ..git_utils import run_git_command
-
-STASH_REF_PATTERN = re.compile(r"^stash@\{\d+\}$")
 
 
 def run_raw_git(args, cwd, text=True):
