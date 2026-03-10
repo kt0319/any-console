@@ -20,6 +20,11 @@
         <span v-else class="file-browser-crumb-current">{{ seg }}</span>
       </template>
       <span v-if="props.diffFile" class="file-browser-crumb-badge">(差分)</span>
+      <span v-if="!props.diffFile" class="file-browser-header-actions">
+        <input ref="uploadInputEl" type="file" multiple class="file-browser-upload-input" @change="onUploadInputChange">
+        <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" @click="openDirInEditor"><span class="mdi mdi-file-edit-outline"></span></button>
+        <button type="button" class="file-browser-header-btn" @click="uploadInputEl?.click()"><span class="mdi mdi-upload"></span></button>
+      </span>
     </div>
 
     <template v-if="diffFile">
@@ -98,6 +103,9 @@ const fileBrowserError = ref("");
 const contextEntry = ref(null);
 const diffHtml = ref("");
 const isDropActive = ref(false);
+const uploadInputEl = ref(null);
+const editorUrlTemplate = ref("");
+const systemInfo = ref({});
 let dragDepth = 0;
 
 function resetDropState() {
@@ -345,10 +353,7 @@ async function downloadEntry() {
   }
 }
 
-async function openEntryInEditor() {
-  const filePath = entryPath();
-  if (!filePath) return;
-  contextEntry.value = null;
+async function fetchEditorSettings() {
   try {
     const [settingsRes, infoRes] = await Promise.all([
       auth.apiFetch("/settings/editor"),
@@ -356,24 +361,41 @@ async function openEntryInEditor() {
     ]);
     const settings = settingsRes?.ok ? await settingsRes.json() : {};
     const info = infoRes?.ok ? await infoRes.json() : {};
-    const tmpl = (settings.url_template || "").trim();
-    if (!tmpl) {
-      currentPath.value = filePath;
-      openFile(filePath);
-      return;
-    }
-    const workspace = workspaceStore.selectedWorkspace || "";
-    const url = tmpl
-      .replace(/\{user\}/g, info.user || "")
-      .replace(/\{host\}/g, info.hostname || "")
-      .replace(/\{work_dir\}/g, info.work_dir || "")
-      .replace(/\{workspace\}/g, workspace)
-      + "/" + filePath;
-    window.open(url, "_blank");
+    editorUrlTemplate.value = (settings.url_template || "").trim();
+    systemInfo.value = info;
   } catch {
+    editorUrlTemplate.value = "";
+  }
+}
+
+function buildEditorUrl(path) {
+  const tmpl = editorUrlTemplate.value;
+  if (!tmpl) return "";
+  const workspace = workspaceStore.selectedWorkspace || "";
+  let url = tmpl
+    .replace(/\{user\}/g, systemInfo.value.user || "")
+    .replace(/\{host\}/g, systemInfo.value.hostname || "")
+    .replace(/\{work_dir\}/g, systemInfo.value.work_dir || "")
+    .replace(/\{workspace\}/g, workspace);
+  if (path) url += "/" + path;
+  return url;
+}
+
+async function openEntryInEditor() {
+  const filePath = entryPath();
+  if (!filePath) return;
+  contextEntry.value = null;
+  if (!editorUrlTemplate.value) {
     currentPath.value = filePath;
     openFile(filePath);
+    return;
   }
+  window.open(buildEditorUrl(filePath), "_blank");
+}
+
+function openDirInEditor() {
+  const url = buildEditorUrl(currentPath.value);
+  if (url) window.open(url, "_blank");
 }
 
 function hasFileDrag(e) {
@@ -445,6 +467,14 @@ async function uploadDroppedFiles(files) {
   await navigateToPath(uploadPath);
 }
 
+async function onUploadInputChange(e) {
+  const files = Array.from(e.target.files || []);
+  if (files.length > 0) {
+    await uploadDroppedFiles(files);
+  }
+  e.target.value = "";
+}
+
 async function onDropFiles(e) {
   if (props.diffFile || !hasFileDrag(e)) return;
   e.preventDefault();
@@ -498,6 +528,7 @@ function onEntryClick(entry) {
 onMounted(() => {
   window.addEventListener("drop", onWindowDrop);
   window.addEventListener("dragleave", onWindowDragLeave);
+  fetchEditorSettings();
 });
 
 onBeforeUnmount(() => {
@@ -582,6 +613,29 @@ defineExpose({
   color: var(--accent);
   font: inherit;
   cursor: pointer;
+}
+
+.file-browser-upload-input {
+  display: none;
+}
+
+.file-browser-header-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 16px;
+  padding: 4px 8px;
+  cursor: pointer;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.file-browser-header-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .file-browser-crumb-badge {
