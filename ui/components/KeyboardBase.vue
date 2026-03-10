@@ -398,6 +398,16 @@ defineExpose({
   box-sizing: border-box;
 }
 
+.quick-snippet-add-btn {
+  width: 30px;
+  min-width: 30px;
+  padding: 0;
+  justify-content: center;
+  font-size: 16px;
+  color: var(--text-primary);
+  border-style: dashed;
+}
+
 .quick-snippet-item-empty {
   display: flex;
   align-items: center;
@@ -493,25 +503,6 @@ defineExpose({
   flex-shrink: 0;
 }
 
-.keyboard-input-add {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  align-self: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 1px solid var(--white-30);
-  border-radius: 50%;
-  background: rgba(25, 28, 40, 0.95);
-  color: var(--text-primary);
-  font-size: 20px;
-  font-family: inherit;
-  line-height: 1;
-  cursor: pointer;
-  touch-action: manipulation;
-  flex-shrink: 0;
-}
 
 .keyboard-input-send:disabled {
   border-color: rgba(255, 255, 255, 0.2);

@@ -4,6 +4,9 @@
     <div class="keyboard-input-wrapper quick-input" @pointerdown="markInternalInteraction">
       <div class="keyboard-input-snippets">
         <div class="quick-snippet-scroll-row">
+          <button type="button" class="quick-snippet-item quick-snippet-add-btn" @click="addSnippetFromDraft">
+            <span class="mdi mdi-plus"></span>
+          </button>
           <button
             v-for="(snippet, idx) in snippets"
             :key="'s-' + idx"
@@ -50,9 +53,6 @@
           @keydown.enter.prevent="submit"
           @blur="onInputBlur"
         />
-        <button type="button" class="keyboard-input-add" @click="addSnippetFromDraft">
-          <span class="mdi mdi-plus"></span>
-        </button>
         <button type="button" class="keyboard-input-send" :disabled="!draft.trim()" @click="submit">
           <span class="mdi mdi-send"></span>
         </button>
