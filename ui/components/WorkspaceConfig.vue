@@ -84,11 +84,9 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useAuthStore } from "../stores/auth.js";
 import { renderIconStr } from "../utils/render-icon.js";
 
-const props = defineProps({
-  initialWsName: { type: String, default: "" },
-});
-
 const modalTitle = inject("modalTitle");
+const pushView = inject("pushView");
+const viewState = inject("viewState");
 modalTitle.value = "ワークスペース設定";
 
 const workspaceStore = useWorkspaceStore();
@@ -105,8 +103,6 @@ const editIconColor = ref("");
 const saving = ref(false);
 const saveError = ref("");
 const saveSuccess = ref("");
-
-const emit = defineEmits(["openJobConfig", "openIconPicker"]);
 
 const jobEntries = ref([]);
 const loadingJobs = ref(false);
@@ -155,6 +151,14 @@ function goBackToList() {
   jobEntries.value = [];
 }
 
+function handleBack() {
+  if (editWs.value) {
+    goBackToList();
+    return true;
+  }
+  return false;
+}
+
 async function loadWorkspaceJobs() {
   if (!editWs.value) return;
   loadingJobs.value = true;
@@ -171,11 +175,19 @@ async function loadWorkspaceJobs() {
 }
 
 function startAddJob() {
-  emit("openJobConfig", { workspaceName: editWs.value.name, jobEntry: null });
+  pushView("JobConfig", {
+    workspaceName: editWs.value.name,
+    jobEntry: null,
+    onReturn: () => { loadWorkspaceJobs(); },
+  });
 }
 
 function startEditJob(entry) {
-  emit("openJobConfig", { workspaceName: editWs.value.name, jobEntry: entry });
+  pushView("JobConfig", {
+    workspaceName: editWs.value.name,
+    jobEntry: entry,
+    onReturn: () => { loadWorkspaceJobs(); },
+  });
 }
 
 async function deleteJob(entry) {
@@ -218,12 +230,14 @@ async function saveWsConfig() {
 }
 
 function openIconPicker() {
-  emit("openIconPicker", { currentIcon: editIcon.value, currentColor: editIconColor.value });
-}
-
-function applyIcon(icon, color) {
-  editIcon.value = icon;
-  editIconColor.value = color;
+  pushView("IconPicker", {
+    currentIcon: editIcon.value,
+    currentColor: editIconColor.value,
+    onReturn: (result) => {
+      editIcon.value = result.icon;
+      editIconColor.value = result.color;
+    },
+  });
 }
 
 // ドラッグ並び替え
@@ -303,20 +317,13 @@ onBeforeUnmount(() => {
   document.removeEventListener("touchcancel", onDragEnd);
 });
 
-defineExpose({
-  load: loadWorkspaceConfig,
-  loadWorkspaceConfig,
-  goBackToList,
-  loadWorkspaceJobs,
-  openWsSettings,
-  applyIcon,
-  editWs,
-});
+defineExpose({ handleBack });
 
 onMounted(async () => {
   await loadWorkspaceConfig();
-  if (props.initialWsName) {
-    const ws = allWorkspaces.value.find((w) => w.name === props.initialWsName);
+  const initialWsName = viewState.value?.initialWsName;
+  if (initialWsName) {
+    const ws = allWorkspaces.value.find((w) => w.name === initialWsName);
     if (ws) openWsSettings(ws);
   }
 });
@@ -613,5 +620,4 @@ onMounted(async () => {
   height: 18px;
   flex-shrink: 0;
 }
-
 </style>

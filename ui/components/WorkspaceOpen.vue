@@ -50,7 +50,7 @@
 </template>
 
 <script setup>
-import { computed, inject, reactive } from "vue";
+import { computed, inject, reactive, onMounted } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useGitAction } from "../composables/useGitAction.js";
@@ -59,6 +59,7 @@ import { emit } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
 
 const modalTitle = inject("modalTitle");
+const pushView = inject("pushView");
 modalTitle.value = "ワークスペース";
 
 const workspaceStore = useWorkspaceStore();
@@ -104,7 +105,7 @@ function dirtyBadgeHtml(ws) {
 
 function openDetail(ws) {
   workspaceStore.selectedWorkspace = ws.name;
-  emit("git:openFileModal");
+  pushView("WorkspaceDetail", { detail: {} });
 }
 
 function selectWorkspace(ws) {
@@ -138,9 +139,8 @@ function runJob(ws, job) {
   });
 }
 
-defineExpose({
-  load: loadWorkspaceOverview,
-  loadWorkspaceOverview,
+onMounted(() => {
+  loadWorkspaceOverview();
 });
 </script>
 

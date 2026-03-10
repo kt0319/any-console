@@ -95,7 +95,7 @@
 </template>
 
 <script setup>
-import { ref, inject, computed } from "vue";
+import { ref, inject, computed, onMounted } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 
@@ -212,9 +212,8 @@ async function loadWorkflowRuns(workspace) {
   }
 }
 
-defineExpose({
-  load: loadGitHubPaneData,
-  loadGitHubPaneData,
+onMounted(() => {
+  loadGitHubPaneData();
 });
 </script>
 

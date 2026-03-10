@@ -26,7 +26,7 @@
 </template>
 
 <script setup>
-import { ref, inject, nextTick } from "vue";
+import { ref, inject, nextTick, onMounted } from "vue";
 import FileBrowser from "./FileBrowser.vue";
 import GitHistory from "./GitHistory.vue";
 import GitChangeBranch from "./GitChangeBranch.vue";
@@ -39,7 +39,9 @@ const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
 
 const modalTitle = inject("modalTitle");
-const emit = defineEmits(["close"]);
+const viewState = inject("viewState");
+const pushView = inject("pushView");
+const popView = inject("popView");
 
 const fileBrowser = ref(null);
 const gitHistory = ref(null);
@@ -56,23 +58,24 @@ function updateViewTitle() {
   modalTitle.value = workspaceStore.selectedWorkspace || "Git";
 }
 
-function goBack() {
+function handleBack() {
   if (gitHistory.value?.hasExpanded?.()) {
     gitHistory.value?.closeExpanded?.();
     selectedDiffFile.value = "";
     diffMessage.value = "";
     updateViewTitle();
-    return;
+    return true;
   }
   if (activePane.value === "branch" || activePane.value === "stash") {
     switchPane("browser");
-  } else if (selectedDiffFile.value) {
+    return true;
+  }
+  if (selectedDiffFile.value) {
     selectedDiffFile.value = "";
     diffMessage.value = "";
-  } else {
-    close();
-    bridgeEmit("workspace:openModal");
+    return true;
   }
+  return false;
 }
 
 async function open(options) {
@@ -92,18 +95,11 @@ async function open(options) {
   }
 
   fileBrowser.value?.load();
-
-}
-
-function close() {
-  emit("close");
-  loadedWorkspace = null;
-  bridgeEmit("git:modalClosed");
 }
 
 function switchPane(key) {
   if (key === "graph") {
-    bridgeEmit("git:openLogGraph");
+    pushView("GitLogGraph");
     return;
   }
   activePane.value = key;
@@ -120,7 +116,7 @@ function switchPane(key) {
   } else if (key === "stash") {
     nextTick(() => gitStash.value?.load());
   } else if (key === "github") {
-    bridgeEmit("git:openGitHub");
+    pushView("GitHubPane");
   }
 }
 
@@ -162,7 +158,12 @@ on("git:stashSave", async () => {
   gitHistory.value?.reload();
 });
 
-defineExpose({ open, close, goBack });
+defineExpose({ handleBack });
+
+onMounted(() => {
+  const detail = viewState.value?.detail;
+  open(detail);
+});
 </script>
 
 <style scoped>

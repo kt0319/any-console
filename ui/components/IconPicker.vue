@@ -50,11 +50,13 @@
 </template>
 
 <script setup>
-import { ref, inject, nextTick } from "vue";
+import { ref, inject, nextTick, onMounted } from "vue";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { renderIconStr } from "../utils/render-icon.js";
 
 const modalTitle = inject("modalTitle");
+const viewState = inject("viewState");
+const popView = inject("popView");
 modalTitle.value = "アイコン選択";
 
 const URL_PATTERN = /^(https?:\/\/|[a-zA-Z0-9-]+\.[a-zA-Z]{2,})/;
@@ -86,8 +88,6 @@ const ICON_PRESET_COLORS = [
   { label: "白", value: "#ffffff" },
 ];
 
-const emit = defineEmits(["close"]);
-
 const searchRef = ref(null);
 const uploadRef = ref(null);
 const gridRef = ref(null);
@@ -99,7 +99,6 @@ const loadingIcons = ref(true);
 const canSubmit = ref(false);
 let pendingClear = false;
 let iconCache = null;
-let callback = null;
 
 function looksLikeUrl(text) {
   return URL_PATTERN.test(text);
@@ -255,11 +254,7 @@ function submit() {
   } else {
     return;
   }
-  emit("close");
-  if (callback) {
-    callback(icon, color);
-    callback = null;
-  }
+  popView({ icon, color });
 }
 
 async function fetchIcons() {
@@ -273,16 +268,16 @@ async function fetchIcons() {
   return iconCache;
 }
 
-async function open(cb, currentIcon, currentColor) {
-  callback = cb;
-  selectedIcon.value = currentIcon || null;
-  selectedColor.value = currentColor || "";
+onMounted(async () => {
+  const currentIcon = viewState.value?.currentIcon || null;
+  const currentColor = viewState.value?.currentColor || "";
+  selectedIcon.value = currentIcon;
+  selectedColor.value = currentColor;
   pendingClear = false;
   searchQuery.value = "";
-  loadingIcons.value = true;
 
   if (currentIcon) {
-    previewHtml.value = renderIconStr(currentIcon, currentColor || "", 24);
+    previewHtml.value = renderIconStr(currentIcon, currentColor, 24);
     canSubmit.value = true;
   } else {
     previewHtml.value = "";
@@ -305,14 +300,7 @@ async function open(cb, currentIcon, currentColor) {
   } catch {
     loadingIcons.value = false;
   }
-}
-
-function close() {
-  emit("close");
-  callback = null;
-}
-
-defineExpose({ open, close });
+});
 </script>
 
 <style scoped>

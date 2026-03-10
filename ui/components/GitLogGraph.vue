@@ -52,13 +52,16 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from "vue";
+import { ref, computed, nextTick, onMounted, inject } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore } from "../stores/git.js";
 import { formatGitTime, parseGitRefs } from "../utils/git.js";
 import { INFINITE_SCROLL_THRESHOLD_PX } from "../utils/constants.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
+
+const modalTitle = inject("modalTitle");
+modalTitle.value = "コミットグラフ";
 
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
@@ -326,9 +329,8 @@ function onGraphListScroll() {
   }
 }
 
-defineExpose({
-  load: loadGraphHistory,
-  loadGraphHistory,
+onMounted(() => {
+  loadGraphHistory();
 });
 </script>
 

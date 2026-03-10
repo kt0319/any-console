@@ -24,37 +24,20 @@
         <button type="button" class="modal-close-btn" @click="closeModal">&times;</button>
       </div>
       <div class="modal-body">
-        <ModalMenu v-if="currentView === 'ModalMenu'" @select="onViewSelect" />
-        <WorkspaceOpen v-if="currentView === 'WorkspaceOpen'" ref="workspaceOpenView" />
+        <ModalMenu v-if="currentView === 'ModalMenu'" />
+        <WorkspaceOpen v-if="currentView === 'WorkspaceOpen'" />
         <WorkspaceAdd v-if="currentView === 'WorkspaceAdd'" />
-        <WorkspaceConfig v-if="currentView === 'WorkspaceConfig'" ref="workspaceConfigView" :initialWsName="wsConfigInitialWs" @openJobConfig="onOpenJobConfig" @openIconPicker="onWsIconPicker" />
-        <JobConfig
-          v-if="currentView === 'JobConfig'"
-          :workspaceName="jobConfigState.workspaceName"
-          :jobEntry="jobConfigState.jobEntry"
-          :initialForm="jobConfigState.initialForm"
-          @saved="onJobConfigSaved"
-          @cancelled="onJobConfigCancelled"
-          @openIconPicker="onJobIconPicker"
-        />
+        <WorkspaceConfig v-if="currentView === 'WorkspaceConfig'" :ref="setPaneRef" />
+        <JobConfig v-if="currentView === 'JobConfig'" />
         <TabConfig v-if="currentView === 'TabConfig'" />
         <TerminalConfig v-if="currentView === 'TerminalConfig'" />
         <EditorConfig v-if="currentView === 'EditorConfig'" />
         <ServerInfo v-if="currentView === 'ServerInfo'" />
-        <GitHubPane v-if="currentView === 'GitHubPane'" ref="gitHubPaneView" />
-        <GitLogGraph v-if="currentView === 'GitLogGraph'" ref="gitLogGraphView" />
+        <GitHubPane v-if="currentView === 'GitHubPane'" />
+        <GitLogGraph v-if="currentView === 'GitLogGraph'" />
         <ConfigFile v-if="currentView === 'ConfigFile'" />
-
-        <IconPicker
-          v-if="currentView === 'IconPicker'"
-          ref="iconPickerView"
-          @close="onIconPickerClose"
-        />
-        <WorkspaceDetail
-          v-if="currentView === 'WorkspaceDetail'"
-          ref="workspaceDetailView"
-          @close="closeModal"
-        />
+        <IconPicker v-if="currentView === 'IconPicker'" />
+        <WorkspaceDetail v-if="currentView === 'WorkspaceDetail'" :ref="setPaneRef" />
       </div>
       <div
         class="modal-flick-handle"
@@ -70,7 +53,7 @@
 </template>
 
 <script setup>
-import { ref, provide, nextTick, onMounted } from "vue";
+import { ref, computed, provide, nextTick, onMounted } from "vue";
 import { useModal } from "../composables/useModal.js";
 import { useSwipeDismiss } from "../composables/useSwipeDismiss.js";
 import ModalMenu from "./ModalMenu.vue";
@@ -88,28 +71,24 @@ import GitLogGraph from "./GitLogGraph.vue";
 import IconPicker from "./IconPicker.vue";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
 import { on } from "../app-bridge.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
-
-const workspaceStore = useWorkspaceStore();
 
 const modal = useModal();
 const modalEl = ref(null);
-const iconPickerView = ref(null);
-const workspaceDetailView = ref(null);
-const workspaceOpenView = ref(null);
-const workspaceConfigView = ref(null);
-const gitHubPaneView = ref(null);
-const gitLogGraphView = ref(null);
-let iconPickerReturnView = null;
-let wsIconPickerResult = null;
+const currentPaneRef = ref(null);
 
-const currentView = ref(null);
+const viewStack = ref([]);
+const currentView = computed(() => viewStack.value.at(-1)?.view ?? null);
+const currentState = computed(() => viewStack.value.at(-1)?.state ?? {});
+const canNavigateBack = computed(() =>
+  currentView.value != null && currentView.value !== "ModalMenu"
+);
+
 const modalTitle = ref("");
-const canNavigateBack = ref(false);
-const jobConfigState = ref({ workspaceName: "", jobEntry: null });
-const wsConfigInitialWs = ref("");
-
 provide("modalTitle", modalTitle);
+provide("viewState", currentState);
+provide("pushView", pushView);
+provide("popView", popView);
+
 const {
   resetStyle: resetFlickStyle,
   onStart: onFlickStart,
@@ -118,6 +97,30 @@ const {
   onCancel: onFlickCancel,
 } = useSwipeDismiss(modalEl, () => closeModal(), { threshold: 80 });
 
+function setPaneRef(el) {
+  currentPaneRef.value = el;
+}
+
+function pushView(view, state = {}) {
+  viewStack.value = [...viewStack.value, { view, state }];
+}
+
+function popView(result) {
+  const popped = viewStack.value.at(-1);
+  viewStack.value = viewStack.value.slice(0, -1);
+  if (viewStack.value.length === 0) { closeModal(); return; }
+  if (result != null && popped?.state?.onReturn) {
+    popped.state.onReturn(result, viewStack.value.at(-1));
+    viewStack.value = [...viewStack.value];
+  }
+}
+
+function openView(views) {
+  viewStack.value = Array.isArray(views)
+    ? views : [{ view: views, state: {} }];
+  nextTick(() => openModal());
+}
+
 function openModal() {
   modal.open(modalEl.value, closeModal);
 }
@@ -125,189 +128,54 @@ function openModal() {
 function closeModal() {
   resetFlickStyle();
   modal.close();
-  currentView.value = null;
+  viewStack.value = [];
   modalTitle.value = "";
-  canNavigateBack.value = false;
-}
-
-function onViewSelect({ view }) {
-  if (view === "WorkspaceConfig") wsConfigInitialWs.value = "";
-  currentView.value = view;
-  canNavigateBack.value = true;
-  if (view === "WorkspaceOpen") {
-    nextTick(() => workspaceOpenView.value?.load());
-  }
-}
-
-function settingsGoBack() {
-  if (currentView.value === "WorkspaceConfig" && workspaceConfigView.value?.editWs) {
-    workspaceConfigView.value?.goBackToList();
-    return;
-  }
-  currentView.value = "ModalMenu";
-  canNavigateBack.value = false;
+  currentPaneRef.value = null;
 }
 
 function onBack() {
-  if (currentView.value === "IconPicker" && iconPickerReturnView === "JobConfig") {
-    iconPickerReturnView = null;
-    currentView.value = "JobConfig";
-    canNavigateBack.value = true;
-    return;
-  }
-  if (currentView.value === "IconPicker" && iconPickerReturnView === "WorkspaceConfig") {
-    iconPickerReturnView = null;
-    wsIconPickerResult = null;
-    backToWorkspaceConfig();
-    return;
-  }
-  if (currentView.value === "JobConfig") {
-    backToWorkspaceConfig();
-  } else if (currentView.value === "GitHubPane") {
-    currentView.value = "WorkspaceDetail";
-    canNavigateBack.value = true;
-    nextTick(() => {
-      workspaceDetailView.value?.open();
-    });
-  } else if (currentView.value === "GitLogGraph") {
-    currentView.value = "WorkspaceDetail";
-    canNavigateBack.value = true;
-    nextTick(() => {
-      workspaceDetailView.value?.open();
-    });
-  } else if (currentView.value === "WorkspaceDetail") {
-    workspaceDetailView.value?.goBack();
-  } else {
-    settingsGoBack();
-  }
-}
-
-function backToWorkspaceConfig() {
-  wsConfigInitialWs.value = jobConfigState.value.workspaceName || "";
-  currentView.value = "WorkspaceConfig";
-  canNavigateBack.value = true;
-}
-
-function onOpenJobConfig({ workspaceName, jobEntry }) {
-  jobConfigState.value = { workspaceName, jobEntry, initialForm: null };
-  currentView.value = "JobConfig";
-  canNavigateBack.value = true;
-}
-
-function onJobConfigSaved() {
-  backToWorkspaceConfig();
-}
-
-function onJobConfigCancelled() {
-  backToWorkspaceConfig();
-}
-
-function onJobIconPicker({ currentIcon, currentColor, formSnapshot }) {
-  iconPickerReturnView = "JobConfig";
-  jobConfigState.value.initialForm = formSnapshot;
-  currentView.value = "IconPicker";
-  canNavigateBack.value = true;
-  nextTick(() => {
-    iconPickerView.value?.open((icon, color) => {
-      jobConfigState.value.initialForm = { ...jobConfigState.value.initialForm, icon, icon_color: color };
-    }, currentIcon, currentColor);
-  });
-}
-
-function onWsIconPicker({ currentIcon, currentColor }) {
-  iconPickerReturnView = "WorkspaceConfig";
-  currentView.value = "IconPicker";
-  canNavigateBack.value = true;
-  nextTick(() => {
-    iconPickerView.value?.open((icon, color) => {
-      wsIconPickerResult = { icon, color };
-    }, currentIcon, currentColor);
-  });
-}
-
-function onIconPickerClose() {
-  if (iconPickerReturnView === "JobConfig") {
-    iconPickerReturnView = null;
-    currentView.value = "JobConfig";
-    canNavigateBack.value = true;
-  } else if (iconPickerReturnView === "WorkspaceConfig") {
-    iconPickerReturnView = null;
-    backToWorkspaceConfig();
-    nextTick(() => {
-      if (wsIconPickerResult) {
-        workspaceConfigView.value?.applyIcon(wsIconPickerResult.icon, wsIconPickerResult.color);
-        wsIconPickerResult = null;
-      }
-    });
-  } else {
-    closeModal();
-  }
-}
-
-function openSettings(view) {
-  if (view) {
-    currentView.value = view;
-    canNavigateBack.value = true;
-    nextTick(() => {
-      openModal();
-      nextTick(() => {
-        if (view === "WorkspaceOpen") workspaceOpenView.value?.load();
-      });
-    });
-  } else {
-    currentView.value = "ModalMenu";
-    canNavigateBack.value = false;
-    nextTick(() => openModal());
-  }
+  if (currentPaneRef.value?.handleBack?.()) return;
+  popView();
 }
 
 onMounted(() => {
-  on("settings:open", (detail) => openSettings(detail?.view));
+  on("settings:open", (detail) => {
+    if (detail?.view) {
+      openView([
+        { view: "ModalMenu", state: {} },
+        { view: detail.view, state: {} },
+      ]);
+    } else {
+      openView("ModalMenu");
+    }
+  });
   on("settings:close", () => closeModal());
 
-  on("iconPicker:open", ({ callback, currentIcon, currentColor }) => {
-    currentView.value = "IconPicker";
-    canNavigateBack.value = false;
-    nextTick(() => {
-      openModal();
-      nextTick(() => {
-        iconPickerView.value?.open(callback, currentIcon, currentColor);
-      });
-    });
-  });
-  on("iconPicker:close", () => closeModal());
+  on("workspace:openModal", () => openView([
+    { view: "ModalMenu", state: {} },
+    { view: "WorkspaceOpen", state: {} },
+  ]));
 
-  on("git:openFileModal", (detail) => {
-    currentView.value = "WorkspaceDetail";
-    canNavigateBack.value = true;
-    nextTick(() => {
-      openModal();
-      nextTick(() => {
-        workspaceDetailView.value?.open(detail);
-      });
-    });
-  });
+  on("git:openFileModal", (detail) => openView([
+    { view: "ModalMenu", state: {} },
+    { view: "WorkspaceOpen", state: {} },
+    { view: "WorkspaceDetail", state: { detail } },
+  ]));
   on("git:closeFileModal", () => closeModal());
 
-  on("workspace:openModal", () => openSettings("WorkspaceOpen"));
+  on("git:openGitHub", () => openView([
+    { view: "ModalMenu", state: {} },
+    { view: "WorkspaceOpen", state: {} },
+    { view: "WorkspaceDetail", state: {} },
+    { view: "GitHubPane", state: {} },
+  ]));
 
-  on("git:openGitHub", () => {
-    currentView.value = "GitHubPane";
-    canNavigateBack.value = true;
-    nextTick(() => {
-      openModal();
-      nextTick(() => gitHubPaneView.value?.load());
-    });
-  });
-
-  on("git:openLogGraph", () => {
-    currentView.value = "GitLogGraph";
-    canNavigateBack.value = true;
-    nextTick(() => {
-      openModal();
-      nextTick(() => gitLogGraphView.value?.load());
-    });
-  });
+  on("git:openLogGraph", () => openView([
+    { view: "ModalMenu", state: {} },
+    { view: "WorkspaceOpen", state: {} },
+    { view: "WorkspaceDetail", state: {} },
+    { view: "GitLogGraph", state: {} },
+  ]));
 
   on("modal:close", () => closeModal());
 });

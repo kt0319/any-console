@@ -27,7 +27,7 @@
         <label class="form-check-label"><input type="checkbox" v-model="form.terminal" /> ターミナルで実行</label>
       </div>
       <div class="ws-settings-row" style="gap:8px">
-        <button type="button" @click="emit('cancelled')">キャンセル</button>
+        <button type="button" @click="popView()">キャンセル</button>
         <button type="button" class="primary" :disabled="saving" @click="saveJob">
           {{ saving ? '保存中...' : '保存' }}
         </button>
@@ -42,30 +42,29 @@ import { ref, inject, onMounted } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { renderIconStr } from "../utils/render-icon.js";
 
-const props = defineProps({
-  workspaceName: { type: String, required: true },
-  jobEntry: { type: Object, default: null },
-  initialForm: { type: Object, default: null },
-});
-
-const emit = defineEmits(["saved", "cancelled", "openIconPicker"]);
-
 const modalTitle = inject("modalTitle");
+const viewState = inject("viewState");
+const pushView = inject("pushView");
+const popView = inject("popView");
 const auth = useAuthStore();
 
-const isNew = !props.jobEntry;
+const workspaceName = viewState.value.workspaceName;
+const jobEntry = viewState.value.jobEntry;
+const initialForm = viewState.value.initialForm;
+
+const isNew = !jobEntry;
 const form = ref(
-  props.initialForm
-    ? { ...props.initialForm }
-    : props.jobEntry
+  initialForm
+    ? { ...initialForm }
+    : jobEntry
       ? {
-          name: props.jobEntry.name,
-          label: props.jobEntry.job.label || "",
-          command: props.jobEntry.job.command || "",
-          icon: props.jobEntry.job.icon || "",
-          icon_color: props.jobEntry.job.icon_color || "",
-          confirm: props.jobEntry.job.confirm !== false,
-          terminal: props.jobEntry.job.terminal !== false,
+          name: jobEntry.name,
+          label: jobEntry.job.label || "",
+          command: jobEntry.job.command || "",
+          icon: jobEntry.job.icon || "",
+          icon_color: jobEntry.job.icon_color || "",
+          confirm: jobEntry.job.confirm !== false,
+          terminal: jobEntry.job.terminal !== false,
         }
       : {
           name: "",
@@ -82,7 +81,15 @@ const saving = ref(false);
 const formError = ref("");
 
 function openIconPicker() {
-  emit("openIconPicker", { currentIcon: form.value.icon, currentColor: form.value.icon_color, formSnapshot: { ...form.value } });
+  pushView("IconPicker", {
+    currentIcon: form.value.icon,
+    currentColor: form.value.icon_color,
+    onReturn: (result, parentEntry) => {
+      if (parentEntry) {
+        parentEntry.state.initialForm = { ...form.value, icon: result.icon, icon_color: result.color };
+      }
+    },
+  });
 }
 
 onMounted(() => {
@@ -98,8 +105,8 @@ async function saveJob() {
   try {
     const method = isNew ? "POST" : "PUT";
     const url = isNew
-      ? `/workspaces/${encodeURIComponent(props.workspaceName)}/jobs`
-      : `/workspaces/${encodeURIComponent(props.workspaceName)}/jobs/${encodeURIComponent(f.name)}`;
+      ? `/workspaces/${encodeURIComponent(workspaceName)}/jobs`
+      : `/workspaces/${encodeURIComponent(workspaceName)}/jobs/${encodeURIComponent(f.name)}`;
     const res = await auth.apiFetch(url, {
       method,
       body: {
@@ -115,7 +122,7 @@ async function saveJob() {
       const data = await res.json();
       formError.value = data.detail || "保存に失敗しました";
     } else {
-      emit("saved");
+      popView();
     }
   } catch (e) {
     formError.value = e.message || "エラーが発生しました";
