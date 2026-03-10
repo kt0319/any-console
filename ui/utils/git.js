@@ -1,6 +1,6 @@
 export function parseGitRefs(refsStr) {
   if (!refsStr) return [];
-  return refsStr.split(", ")
+  const parsed = refsStr.split(", ")
     .filter((r) => r !== "HEAD" && r !== "origin/HEAD")
     .map((r) => {
       if (r.startsWith("HEAD -> ")) {
@@ -17,6 +17,17 @@ export function parseGitRefs(refsStr) {
       }
       return { label: r, type: "branch", icon: "mdi-source-branch" };
     });
+  const localBranches = parsed.filter(r => r.type === "head" || r.type === "branch");
+  for (const local of localBranches) {
+    const remoteIdx = parsed.findIndex(
+      r => r.type === "remote" && r.label === "origin/" + local.label
+    );
+    if (remoteIdx !== -1) {
+      local.icon = "mdi-link-variant";
+      parsed.splice(remoteIdx, 1);
+    }
+  }
+  return parsed;
 }
 
 export function formatGitTime(timeText) {
