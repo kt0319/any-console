@@ -86,15 +86,24 @@ async function restoreExistingSessions() {
     const sessions = await res.json();
     if (!Array.isArray(sessions) || sessions.length === 0) return;
 
+    let allJobs = {};
+    try {
+      const jobsRes = await auth.apiFetch("/jobs/workspaces");
+      if (jobsRes && jobsRes.ok) allJobs = await jobsRes.json();
+    } catch {}
+
     for (let i = 0; i < sessions.length; i++) {
       const s = sessions[i];
       bootMessage.value = `セッションを復元中... (${i + 1}/${sessions.length})`;
       const ws = workspaceStore.allWorkspaces.find((w) => w.name === s.workspace);
+      const jobDef = s.job_name && s.workspace ? allJobs[s.workspace]?.[s.job_name] : null;
       terminalStore.addTerminalTab({
         wsUrl: s.ws_url,
         workspace: s.workspace,
         wsIcon: ws?.icon || s.icon || "mdi-console",
         wsIconColor: ws?.icon_color || s.icon_color,
+        icon: jobDef?.icon,
+        iconColor: jobDef?.icon_color,
         jobName: s.job_name,
         jobLabel: s.job_label,
         restored: true,
