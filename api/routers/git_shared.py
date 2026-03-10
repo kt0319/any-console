@@ -5,9 +5,8 @@ import re
 import subprocess
 from pathlib import Path
 
-from fastapi import HTTPException
-
 from ..common import GIT_SHORT_TIMEOUT_SEC
+from ..errors import bad_request, forbidden, server_error, timeout_error
 from ..git_utils import run_git_command
 
 
@@ -21,7 +20,7 @@ def run_raw_git(args, cwd, text=True):
             cwd=str(cwd),
         )
     except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="Git operation timed out") from None
+        raise timeout_error("Git operation timed out") from None
 
 
 MAX_DIFF_SIZE = 10 * 1024 * 1024
@@ -121,7 +120,7 @@ def get_current_branch(ws_path):
     )
     branch = result["stdout"].strip()
     if result["exit_code"] != 0 or not branch:
-        raise HTTPException(status_code=400, detail="現在のブランチを取得できません")
+        raise bad_request("現在のブランチを取得できません")
     return branch
 
 
@@ -130,14 +129,14 @@ def resolve_workspace_target_path(ws_path, path: str):
     try:
         target.relative_to(ws_path.resolve())
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid path") from None
+        raise bad_request("Invalid path") from None
     return target
 
 
 def validate_workspace_relative_target(ws_path, target):
     rel = target.relative_to(ws_path.resolve())
     if any(part in HIDDEN_DIRS for part in rel.parts):
-        raise HTTPException(status_code=400, detail="Invalid path")
+        raise bad_request("Invalid path")
     return rel
 
 
@@ -170,7 +169,7 @@ def read_file_content_response(path: str, target: Path):
     try:
         size = target.stat().st_size
     except OSError:
-        raise HTTPException(status_code=500, detail="Cannot stat file") from None
+        raise server_error("Cannot stat file") from None
 
     ext = target.suffix.lower()
     needs_read = not (
@@ -182,9 +181,9 @@ def read_file_content_response(path: str, target: Path):
         try:
             raw = target.read_bytes()
         except PermissionError:
-            raise HTTPException(status_code=403, detail="Permission denied") from None
+            raise forbidden("Permission denied") from None
         except OSError:
-            raise HTTPException(status_code=500, detail="Cannot read file") from None
+            raise server_error("Cannot read file") from None
     else:
         raw = b""
     return _build_content_response(path, ext, raw, size)
@@ -262,7 +261,7 @@ def list_directory_entries(ws_path, target):
                         pass
                 entries.append(item)
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied") from None
+        raise forbidden("Permission denied") from None
 
     type_order = {"dir": 0, "symlink": 1, "file": 2}
     entries.sort(key=lambda e: (type_order.get(e["type"], 3), e["name"].lower()))

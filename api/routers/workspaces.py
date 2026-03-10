@@ -3,7 +3,7 @@ import logging
 import re
 import subprocess
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from ..auth import verify_token
@@ -25,6 +25,7 @@ from ..config import (
     save_global_config_section,
     save_workspace_config,
 )
+from ..errors import bad_request, conflict, server_error, timeout_error
 from ..git_utils import command_result_dict, git_branch, git_github_url, git_info_to_status_dict, git_is_repo
 from ..icons import normalize_icon
 
@@ -157,14 +158,14 @@ def clone_workspace(body: CloneRequest):
     elif url:
         dir_name = url.rstrip("/").split("/")[-1].removesuffix(".git")
     else:
-        raise HTTPException(status_code=400, detail="URLまたはディレクトリ名を入力してください")
+        raise bad_request("URLまたはディレクトリ名を入力してください")
 
     if not dir_name or not re.match(r"^[a-zA-Z0-9_.-]+$", dir_name):
-        raise HTTPException(status_code=400, detail="無効なディレクトリ名です")
+        raise bad_request("無効なディレクトリ名です")
 
     target_path = WORK_DIR / dir_name
     if target_path.exists():
-        raise HTTPException(status_code=409, detail=f"'{dir_name}' は既に存在します")
+        raise conflict(f"'{dir_name}' は既に存在します")
 
     WORK_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -190,7 +191,7 @@ def clone_workspace(body: CloneRequest):
             resp["name"] = dir_name
         return resp
     except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="Clone timed out") from None
+        raise timeout_error("Clone timed out") from None
 
 
 @router.get("/github/repos")
@@ -239,8 +240,8 @@ def list_github_repos():
         _github_repos_cache.set("repos", unique_repos)
         return unique_repos
     except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="gh command not found") from None
+        raise server_error("gh command not found") from None
     except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="gh command timed out") from None
+        raise timeout_error("gh command timed out") from None
     except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="Failed to parse gh output") from None
+        raise server_error("Failed to parse gh output") from None

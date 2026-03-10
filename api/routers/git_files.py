@@ -1,10 +1,11 @@
 import shutil
 
-from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse
 
 from ..auth import verify_token
 from ..common import MAX_UPLOAD_SIZE, resolve_workspace_path
+from ..errors import bad_request, conflict, forbidden, not_found, server_error, too_large
 from ..validators import validate_git_ref
 from .git_shared import (
     list_directory_entries,
@@ -26,7 +27,7 @@ def list_directory_entries_at_ref(ws_path, rel_path: str, ref: str):
     tree_spec = _git_tree_spec(ref, rel_path)
     result = run_raw_git(["git", "ls-tree", "-z", tree_spec], cwd=ws_path)
     if result.returncode != 0:
-        raise HTTPException(status_code=404, detail="Directory not found")
+        raise not_found("Directory not found")
 
     entries = []
     for record in result.stdout.split("\0"):
@@ -49,11 +50,11 @@ def read_file_content_at_ref(ws_path, path: str, ref: str):
     blob_spec = _git_tree_spec(ref, path)
     type_result = run_raw_git(["git", "cat-file", "-t", blob_spec], cwd=ws_path)
     if type_result.returncode != 0 or type_result.stdout.strip() != "blob":
-        raise HTTPException(status_code=404, detail="File not found")
+        raise not_found("File not found")
 
     result = run_raw_git(["git", "show", blob_spec], cwd=ws_path, text=False)
     if result.returncode != 0:
-        raise HTTPException(status_code=404, detail="File not found")
+        raise not_found("File not found")
     return read_blob_content_response(path, result.stdout)
 
 
@@ -72,7 +73,7 @@ def list_files(name: str, path: str = Query(""), ref: str | None = Query(None)):
         return {"status": "ok", "path": rel_path, "entries": entries}
 
     if not target.is_dir():
-        raise HTTPException(status_code=404, detail="Directory not found")
+        raise not_found("Directory not found")
 
     entries = list_directory_entries(ws_path, target)
     return {"status": "ok", "path": rel_path, "entries": entries}
@@ -84,16 +85,16 @@ def get_file_content(name: str, path: str = Query(...), ref: str | None = Query(
     target, rel = resolve_and_validate_workspace_path(ws_path, path)
     rel_path = str(rel)
     if rel_path == ".":
-        raise HTTPException(status_code=404, detail="File not found")
+        raise not_found("File not found")
 
     ref_value = validate_git_ref(ref)
     if ref_value:
         return read_file_content_at_ref(ws_path, rel_path, ref_value)
 
     if target.is_symlink():
-        raise HTTPException(status_code=400, detail="Symlinks not supported")
+        raise bad_request("Symlinks not supported")
     if not target.is_file():
-        raise HTTPException(status_code=404, detail="File not found")
+        raise not_found("File not found")
     return read_file_content_response(path, target)
 
 
@@ -106,27 +107,27 @@ async def upload_file_to_workspace(
     ws_path = resolve_workspace_path(name)
     target_dir, rel_dir = resolve_and_validate_workspace_path(ws_path, path)
     if not target_dir.is_dir():
-        raise HTTPException(status_code=404, detail="Directory not found")
+        raise not_found("Directory not found")
 
     filename = (file.filename or "").strip()
     if not filename or filename in {".", ".."} or "/" in filename or "\\" in filename:
-        raise HTTPException(status_code=400, detail="Invalid file name")
+        raise bad_request("Invalid file name")
 
     target_file = (target_dir / filename).resolve()
     validate_workspace_relative_target(ws_path, target_file)
     if target_file.exists():
-        raise HTTPException(status_code=409, detail=f"File already exists: {filename}")
+        raise conflict(f"File already exists: {filename}")
 
     data = await file.read(MAX_UPLOAD_SIZE + 1)
     if len(data) > MAX_UPLOAD_SIZE:
-        raise HTTPException(status_code=413, detail="File too large (max 10MB)")
+        raise too_large("File too large (max 10MB)")
 
     try:
         target_file.write_bytes(data)
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied") from None
+        raise forbidden("Permission denied") from None
     except OSError:
-        raise HTTPException(status_code=500, detail="Cannot write file") from None
+        raise server_error("Cannot write file") from None
 
     rel_path = str(rel_dir / filename)
     return {"status": "ok", "path": rel_path, "size": len(data)}
@@ -139,18 +140,18 @@ def rename_file(name: str, src: str = Body(...), dest: str = Body(...)):
     dest_target, _ = resolve_and_validate_workspace_path(ws_path, dest)
 
     if not src_target.exists():
-        raise HTTPException(status_code=404, detail="Source not found")
+        raise not_found("Source not found")
     if not dest_target.parent.exists():
-        raise HTTPException(status_code=400, detail="Destination directory not found")
+        raise bad_request("Destination directory not found")
     if dest_target.exists():
-        raise HTTPException(status_code=409, detail="Destination already exists")
+        raise conflict("Destination already exists")
 
     try:
         src_target.rename(dest_target)
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied") from None
+        raise forbidden("Permission denied") from None
     except OSError as e:
-        raise HTTPException(status_code=500, detail=f"Rename failed: {e}") from None
+        raise server_error(f"Rename failed: {e}") from None
 
     return {"status": "ok"}
 
@@ -161,7 +162,7 @@ def delete_file(name: str, path: str = Body(..., embed=True)):
     target, _ = resolve_and_validate_workspace_path(ws_path, path)
 
     if not target.exists():
-        raise HTTPException(status_code=404, detail="File not found")
+        raise not_found("File not found")
 
     try:
         if target.is_dir():
@@ -169,9 +170,9 @@ def delete_file(name: str, path: str = Body(..., embed=True)):
         else:
             target.unlink()
     except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied") from None
+        raise forbidden("Permission denied") from None
     except OSError as e:
-        raise HTTPException(status_code=500, detail=f"Delete failed: {e}") from None
+        raise server_error(f"Delete failed: {e}") from None
 
     return {"status": "ok"}
 
@@ -182,7 +183,7 @@ def download_file(name: str, path: str = Query(...)):
     target, _ = resolve_and_validate_workspace_path(ws_path, path)
 
     if not target.is_file():
-        raise HTTPException(status_code=404, detail="File not found")
+        raise not_found("File not found")
 
     return FileResponse(
         path=str(target),

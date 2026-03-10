@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
-from fastapi import HTTPException
+from .errors import bad_request
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 WORK_DIR = Path(os.environ.get("PI_CONSOLE_WORKSPACE_ROOT", str(Path.home() / "work")))
@@ -102,7 +102,7 @@ def resolve_workspace_path(workspace: str | None) -> Path | None:
         return None
     ws_path = (WORK_DIR / workspace).resolve()
     if ws_path.parent != WORK_DIR.resolve():
-        raise HTTPException(status_code=400, detail=f"Invalid workspace: {workspace}")
+        raise bad_request(f"Invalid workspace: {workspace}")
     if not ws_path.is_dir():
-        raise HTTPException(status_code=400, detail=f"Workspace not found: {workspace}")
+        raise bad_request(f"Workspace not found: {workspace}")
     return ws_path

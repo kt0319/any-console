@@ -13,7 +13,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket
+from fastapi import APIRouter, Depends, WebSocket
 from fastapi.websockets import WebSocketDisconnect
 
 from ..auth import verify_token
@@ -32,6 +32,7 @@ from ..common import (
     WS_MSG_RESIZE,
     WS_MSG_SCROLL,
 )
+from ..errors import gone, not_found, server_error, timeout_error
 
 logger = logging.getLogger(__name__)
 
@@ -293,13 +294,13 @@ def get_terminal_session(session_id: str) -> TerminalSession:
             if session.expires_at <= time.time():
                 TERMINAL_SESSIONS.pop(session_id, None)
                 _kill_tmux_session(session)
-                raise HTTPException(status_code=410, detail="Terminal session expired")
+                raise gone("Terminal session expired")
             session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
             return session
 
     tmux_name = TMUX_SESSION_PREFIX + session_id
     if not _tmux_session_exists(tmux_name):
-        raise HTTPException(status_code=404, detail="Terminal session not found")
+        raise not_found("Terminal session not found")
 
     session = _register_tmux_session(session_id, tmux_name)
     return session
@@ -373,10 +374,10 @@ async def get_terminal_buffer(session_id: str):
             text=True,
         )
         if result.returncode != 0:
-            raise HTTPException(status_code=500, detail="バッファ取得に失敗しました")
+            raise server_error("バッファ取得に失敗しました")
         return {"content": result.stdout}
     except subprocess.TimeoutExpired as e:
-        raise HTTPException(status_code=504, detail="タイムアウト") from e
+        raise timeout_error("タイムアウト") from e
 
 
 @router.delete("/terminal/sessions/{session_id}")
@@ -384,7 +385,7 @@ async def delete_terminal_session(session_id: str):
     with sessions_lock:
         session = TERMINAL_SESSIONS.pop(session_id, None)
     if not session:
-        raise HTTPException(status_code=404, detail="Terminal session not found")
+        raise not_found("Terminal session not found")
     _kill_tmux_session(session)
     logger.info("terminal session deleted session=%s", session_id)
     return {"status": "ok"}

@@ -8,10 +8,11 @@ import subprocess
 import time
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from ..auth import verify_token
 from ..common import SYSTEM_CMD_TIMEOUT_SEC, WORK_DIR
+from ..errors import server_error
 
 logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(verify_token)])
@@ -162,11 +163,11 @@ def get_system_processes():
         cmd = ["ps", "aux", "-r"] if IS_DARWIN else ["ps", "aux", "--sort=-%cpu"]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC)
         if result.returncode != 0:
-            raise HTTPException(status_code=500, detail="ps command failed")
+            raise server_error("ps command failed")
     except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=500, detail="ps command timed out") from None
+        raise server_error("ps command timed out") from None
     except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="ps command not found") from None
+        raise server_error("ps command not found") from None
 
     lines = result.stdout.strip().splitlines()
     processes = []

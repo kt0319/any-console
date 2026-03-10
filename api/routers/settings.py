@@ -1,6 +1,6 @@
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from ..auth import verify_token
@@ -11,6 +11,7 @@ from ..config import (
     save_all_config,
     save_global_config_section,
 )
+from ..errors import bad_request, too_large
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
@@ -37,16 +38,16 @@ def export_settings():
 async def import_settings(request: Request):
     content_length = request.headers.get("content-length")
     if content_length and int(content_length) > MAX_IMPORT_SIZE:
-        raise HTTPException(status_code=413, detail="Import data too large (max 1MB)")
+        raise too_large("Import data too large (max 1MB)")
     body = await request.body()
     if len(body) > MAX_IMPORT_SIZE:
-        raise HTTPException(status_code=413, detail="Import data too large (max 1MB)")
+        raise too_large("Import data too large (max 1MB)")
     try:
         data = json.loads(body)
     except (json.JSONDecodeError, ValueError):
-        raise HTTPException(status_code=400, detail="Invalid JSON") from None
+        raise bad_request("Invalid JSON") from None
     if not isinstance(data, dict):
-        raise HTTPException(status_code=400, detail="Expected JSON object")
+        raise bad_request("Expected JSON object")
     existing = _existing_workspace_names()
     current = load_all_config()
     for name, ws_config in data.items():
@@ -58,7 +59,7 @@ async def import_settings(request: Request):
     try:
         save_all_config(current)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from None
+        raise bad_request(str(e)) from None
     return {"status": "ok"}
 
 

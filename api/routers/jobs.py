@@ -5,7 +5,7 @@ import secrets
 import subprocess
 import time
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from .. import common
@@ -22,6 +22,7 @@ from ..common import (
     sanitize_log_value,
 )
 from ..config import load_workspace_config_section, save_workspace_config_section
+from ..errors import bad_request, not_found, server_error, timeout_error, too_many_requests
 from ..git_utils import command_result_dict, git_branches
 from ..job_models import TERMINAL_JOB, JobDefinition
 from ..runner import run_job
@@ -118,7 +119,7 @@ def get_workspace_job(name: str, job_name: str):
     jobs = get_workspace_jobs(name)
     job_def = jobs.get(job_name)
     if not job_def:
-        raise HTTPException(status_code=404, detail=f"ジョブ '{job_name}' が見つかりません")
+        raise not_found(f"ジョブ '{job_name}' が見つかりません")
     return job_definition_to_dict(job_def)
 
 
@@ -181,10 +182,10 @@ def generate_job_key(existing: dict) -> str:
 def _validate_job_fields(body):
     label = body.label.strip()
     if not label:
-        raise HTTPException(status_code=400, detail="表示名を入力してください")
+        raise bad_request("表示名を入力してください")
     command = body.command.strip()
     if not command:
-        raise HTTPException(status_code=400, detail="コマンドが空です")
+        raise bad_request("コマンドが空です")
     return label, command
 
 
@@ -219,7 +220,7 @@ def reorder_workspace_jobs(name: str, body: ReorderJobsRequest):
     data = load_workspace_jobs_data(name)
     existing_names = list(data.keys())
     if sorted(body.order) != sorted(existing_names):
-        raise HTTPException(status_code=400, detail="ジョブ一覧が一致しません")
+        raise bad_request("ジョブ一覧が一致しません")
 
     reordered = {job_name: data[job_name] for job_name in body.order}
     save_workspace_jobs_data(name, reordered)
@@ -232,7 +233,7 @@ def update_workspace_job(name: str, job_name: str, body: UpdateJobRequest):
     resolve_workspace_path(name)
     data = load_workspace_jobs_data(name)
     if job_name not in data:
-        raise HTTPException(status_code=404, detail=f"ジョブ '{job_name}' が見つかりません")
+        raise not_found(f"ジョブ '{job_name}' が見つかりません")
     label, command = _validate_job_fields(body)
     data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.terminal)
     save_workspace_jobs_data(name, data)
@@ -245,7 +246,7 @@ def delete_workspace_job(name: str, job_name: str):
     resolve_workspace_path(name)
     data = load_workspace_jobs_data(name)
     if job_name not in data:
-        raise HTTPException(status_code=404, detail=f"ジョブ '{job_name}' が見つかりません")
+        raise not_found(f"ジョブ '{job_name}' が見つかりません")
     del data[job_name]
     save_workspace_jobs_data(name, data)
     logger.info("job deleted workspace=%s job=%s", name, job_name)
@@ -272,47 +273,36 @@ def execute_job(body: RunRequest):
         available_jobs = get_workspace_jobs(body.workspace)
         job_def = available_jobs.get(body.job)
         if not job_def:
-            raise HTTPException(status_code=400, detail=f"Unknown job: {body.job}")
+            raise bad_request(f"Unknown job: {body.job}")
 
     ordered_args: list[str] = []
     for arg_option in job_def.args:
         value = body.args.get(arg_option.name)
         if value is None:
             if arg_option.required:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Missing required argument: {arg_option.name}",
-                )
+                raise bad_request(f"Missing required argument: {arg_option.name}")
             continue
 
         if arg_option.dynamic == "branches":
             if not ws_path:
-                raise HTTPException(status_code=400, detail="Workspace is required for this job")
+                raise bad_request("Workspace is required for this job")
             allowed = git_branches(ws_path)
             if value not in allowed:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid branch: {value}",
-                )
+                raise bad_request(f"Invalid branch: {value}")
         elif arg_option.values and value not in arg_option.values:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid value for {arg_option.name}: {value} (allowed: {arg_option.values})",
+            raise bad_request(
+                f"Invalid value for {arg_option.name}: {value} (allowed: {arg_option.values})",
             )
         else:
             if re.search(r"[\x00-\x1f\x7f]", value):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid characters in argument: {arg_option.name}",
-                )
+                raise bad_request(f"Invalid characters in argument: {arg_option.name}")
         ordered_args.append(value)
 
     if body.job == "terminal":
         with sessions_lock:
             if len(TERMINAL_SESSIONS) >= MAX_TERMINAL_SESSIONS:
-                raise HTTPException(
-                    status_code=429,
-                    detail=f"セッション数が上限({MAX_TERMINAL_SESSIONS})に達しています",
+                raise too_many_requests(
+                    f"セッション数が上限({MAX_TERMINAL_SESSIONS})に達しています",
                 )
         cwd_path = str(ws_path) if ws_path else None
         session_id = secrets.token_urlsafe(24)
@@ -321,7 +311,7 @@ def execute_job(body: RunRequest):
             create_tmux_session(cwd_path, tmux_name)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
             logger.error("tmux session creation failed: %s", e)
-            raise HTTPException(status_code=500, detail=f"Failed to create terminal: {e}") from None
+            raise server_error(f"Failed to create terminal: {e}") from None
         with sessions_lock:
             TERMINAL_SESSIONS[session_id] = TerminalSession(
                 workspace=body.workspace,
@@ -348,7 +338,7 @@ def execute_job(body: RunRequest):
         result = run_job(job_def, ordered_args, workspace=cwd_path)
     except subprocess.TimeoutExpired:
         logger.warning("job timeout job=%s workspace=%s", body.job, body.workspace or "(none)")
-        raise HTTPException(status_code=504, detail="Job timed out") from None
+        raise timeout_error("Job timed out") from None
 
     payload = command_result_dict(result)
 

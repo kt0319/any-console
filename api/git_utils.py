@@ -5,14 +5,13 @@ import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from fastapi import HTTPException
-
 from .common import (
     GIT_QUICK_TIMEOUT_SEC,
     GIT_STANDARD_TIMEOUT_SEC,
     WORK_DIR,
     TTLCache,
 )
+from .errors import timeout_error
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +56,7 @@ def run_git_command(
         return command_result_dict(result)
     except subprocess.TimeoutExpired:
         label = operation or " ".join(args[:2])
-        raise HTTPException(status_code=504, detail=f"git {label} timed out") from None
+        raise timeout_error(f"git {label} timed out") from None
 
 
 def validate_commit_hash(commit_hash: str) -> str:

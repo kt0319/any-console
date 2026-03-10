@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from ..auth import verify_token
@@ -9,6 +9,7 @@ from ..common import (
     GIT_SHORT_TIMEOUT_SEC,
     resolve_workspace_path,
 )
+from ..errors import bad_request
 from ..git_utils import (
     git_branches,
     git_info_to_status_dict,
@@ -67,7 +68,7 @@ def delete_branch(name: str, body: DeleteBranchRequest):
             ["rev-parse", "--abbrev-ref", "HEAD"], cwd=ws_path, operation="current branch",
         )["stdout"].strip()
         if branch == current_branch:
-            raise HTTPException(status_code=400, detail="現在のブランチは削除できません")
+            raise bad_request("現在のブランチは削除できません")
         result = run_git_command(["branch", "-D", branch], cwd=ws_path, operation="delete branch")
 
     logger.info("delete-branch workspace=%s branch=%s remote=%s rc=%d", name, branch, body.remote, result["exit_code"])

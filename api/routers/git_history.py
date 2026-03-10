@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from ..auth import verify_token
@@ -9,6 +9,7 @@ from ..common import (
     GIT_LONG_TIMEOUT_SEC,
     resolve_workspace_path,
 )
+from ..errors import bad_request
 from ..git_utils import invalidate_git_info, run_git_command, validate_commit_hash
 from .git_shared import GIT_LOG_MAX_SKIP, validate_branch_name, validate_stash_ref
 
@@ -114,7 +115,7 @@ def git_reset(name: str, body: ResetRequest):
     ws_path = resolve_workspace_path(name)
     commit_hash = validate_commit_hash(body.commit_hash)
     if body.mode not in ("soft", "hard"):
-        raise HTTPException(status_code=400, detail=f"Invalid reset mode: {body.mode}")
+        raise bad_request(f"Invalid reset mode: {body.mode}")
     result = run_git_command(
         ["reset", f"--{body.mode}", commit_hash], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="reset",
     )
@@ -128,7 +129,7 @@ def git_commit(name: str, body: CommitRequest):
     ws_path = resolve_workspace_path(name)
     message = body.message.strip()
     if not message:
-        raise HTTPException(status_code=400, detail="コミットメッセージを入力してください")
+        raise bad_request("コミットメッセージを入力してください")
     add_result = run_git_command(["add", "-A"], cwd=ws_path, operation="add")
     if add_result["exit_code"] != 0:
         return add_result
