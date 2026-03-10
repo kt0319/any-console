@@ -131,34 +131,36 @@ function parseGitGraphOutput(stdout) {
 
 function buildGitGraphRows(parsed) {
   const result = [];
-  const lanes = [];
 
   for (const item of parsed) {
     const graph = item.graph;
     const segments = [];
-    let nodeCol = -1;
 
     for (let i = 0; i < graph.length; i++) {
       const ch = graph[i];
-      const col = i;
-      const x = col * COL_WIDTH + COL_WIDTH / 2;
 
-      if (ch === "*") {
-        nodeCol = col;
-        segments.push({ type: "node", x, y: HALF, color: colColor(col) });
-        segments.push({ type: "line", x, y1: 0, y2: HALF, color: colColor(col) });
-        segments.push({ type: "line", x, y1: HALF, y2: ROW_HEIGHT, color: colColor(col) });
-        if (!lanes.includes(col)) lanes.push(col);
-      } else if (ch === "|") {
-        segments.push({ type: "line", x, y1: 0, y2: ROW_HEIGHT, color: colColor(col) });
-      } else if (ch === "/" && col > 0) {
-        const fromX = col * COL_WIDTH + COL_WIDTH / 2;
-        const toX = (col - 1) * COL_WIDTH + COL_WIDTH / 2;
-        segments.push({ type: "line", x: fromX, y1: ROW_HEIGHT, x2: toX, y2: 0, color: colColor(col - 1) });
-      } else if (ch === "\\" && col > 0) {
-        const fromX = (col - 1) * COL_WIDTH + COL_WIDTH / 2;
-        const toX = col * COL_WIDTH + COL_WIDTH / 2;
-        segments.push({ type: "line", x: fromX, y1: 0, x2: toX, y2: ROW_HEIGHT, color: colColor(col) });
+      if (ch === "*" || ch === "|") {
+        const col = Math.floor(i / 2);
+        const x = col * COL_WIDTH + COL_WIDTH / 2;
+        if (ch === "*") {
+          segments.push({ type: "node", x, y: HALF, color: colColor(col) });
+          segments.push({ type: "line", x, y1: 0, y2: HALF, color: colColor(col) });
+          segments.push({ type: "line", x, y1: HALF, y2: ROW_HEIGHT, color: colColor(col) });
+        } else {
+          segments.push({ type: "line", x, y1: 0, y2: ROW_HEIGHT, color: colColor(col) });
+        }
+      } else if (ch === "/") {
+        const fromCol = Math.ceil(i / 2);
+        const toCol = Math.floor(i / 2);
+        const fromX = fromCol * COL_WIDTH + COL_WIDTH / 2;
+        const toX = toCol * COL_WIDTH + COL_WIDTH / 2;
+        segments.push({ type: "line", x: fromX, y1: 0, x2: toX, y2: ROW_HEIGHT, color: colColor(fromCol) });
+      } else if (ch === "\\") {
+        const fromCol = Math.floor(i / 2);
+        const toCol = Math.ceil(i / 2);
+        const fromX = fromCol * COL_WIDTH + COL_WIDTH / 2;
+        const toX = toCol * COL_WIDTH + COL_WIDTH / 2;
+        segments.push({ type: "line", x: fromX, y1: 0, x2: toX, y2: ROW_HEIGHT, color: colColor(toCol) });
       }
     }
 

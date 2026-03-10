@@ -81,6 +81,9 @@
         <div v-if="longPressEntry?.hash === entry.hash" class="commit-action-menu">
           <button type="button" class="modal-action-btn" @click="execAction('cherry-pick', entry)">cherry-pick</button>
           <button type="button" class="modal-action-btn" @click="execAction('revert', entry)">revert</button>
+          <button type="button" class="modal-action-btn" @click="execCreateBranch(entry)">branch</button>
+          <button v-for="b in entryBranches(entry)" :key="'merge-'+b" type="button" class="modal-action-btn" @click="execMerge(b)">merge {{ b }}</button>
+          <button v-for="b in entryBranches(entry)" :key="'rebase-'+b" type="button" class="modal-action-btn" @click="execRebase(b)">rebase {{ b }}</button>
           <button type="button" class="modal-action-btn" @click="execReset(entry, 'soft')">reset --soft</button>
           <button type="button" class="modal-action-btn commit-action-danger" @click="execReset(entry, 'hard')">reset --hard</button>
           <button type="button" class="modal-action-btn" @click="closeLongPressMenu">
@@ -307,6 +310,79 @@ async function execReset(entry, mode) {
       return;
     }
     bridgeEmit("toast:show", { message: `reset --${mode} ${shortHash} 完了`, type: "success" });
+    bridgeEmit("git:refresh");
+  } catch (e) {
+    bridgeEmit("toast:show", { message: e.message, type: "error" });
+  }
+}
+
+function entryBranches(entry) {
+  return entry.refs
+    .filter((r) => r.type === "branch" || r.type === "remote")
+    .map((r) => r.label);
+}
+
+async function execCreateBranch(entry) {
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
+  const branchName = prompt("新しいブランチ名を入力してください:");
+  if (!branchName) return;
+  closeLongPressMenu();
+  try {
+    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/create-branch`, {
+      method: "POST",
+      body: { branch: branchName, start_point: entry.fullHash },
+    });
+    if (!res || !res.ok) {
+      const data = await res?.json().catch(() => null);
+      bridgeEmit("toast:show", { message: data?.detail || "ブランチ作成に失敗しました", type: "error" });
+      return;
+    }
+    bridgeEmit("toast:show", { message: `ブランチ ${branchName} を作成しました`, type: "success" });
+    bridgeEmit("git:refresh");
+  } catch (e) {
+    bridgeEmit("toast:show", { message: e.message, type: "error" });
+  }
+}
+
+async function execMerge(branch) {
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
+  if (!confirm(`${branch} を現在のブランチにマージしますか？`)) return;
+  closeLongPressMenu();
+  try {
+    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/merge`, {
+      method: "POST",
+      body: { branch },
+    });
+    if (!res || !res.ok) {
+      const data = await res?.json().catch(() => null);
+      bridgeEmit("toast:show", { message: data?.detail || "マージに失敗しました", type: "error" });
+      return;
+    }
+    bridgeEmit("toast:show", { message: `${branch} をマージしました`, type: "success" });
+    bridgeEmit("git:refresh");
+  } catch (e) {
+    bridgeEmit("toast:show", { message: e.message, type: "error" });
+  }
+}
+
+async function execRebase(branch) {
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
+  if (!confirm(`${branch} にリベースしますか？`)) return;
+  closeLongPressMenu();
+  try {
+    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/rebase`, {
+      method: "POST",
+      body: { branch },
+    });
+    if (!res || !res.ok) {
+      const data = await res?.json().catch(() => null);
+      bridgeEmit("toast:show", { message: data?.detail || "リベースに失敗しました", type: "error" });
+      return;
+    }
+    bridgeEmit("toast:show", { message: `${branch} にリベースしました`, type: "success" });
     bridgeEmit("git:refresh");
   } catch (e) {
     bridgeEmit("toast:show", { message: e.message, type: "error" });

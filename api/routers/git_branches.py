@@ -31,6 +31,7 @@ class DeleteBranchRequest(BaseModel):
 
 class CheckoutRequest(BaseModel):
     branch: str
+    start_point: str = None
 
 
 @router.get("/workspaces/{name}/status")
@@ -78,7 +79,11 @@ def delete_branch(name: str, body: DeleteBranchRequest):
 def create_branch(name: str, body: CheckoutRequest):
     ws_path = resolve_workspace_path(name)
     branch = validate_branch_name(body.branch)
-    result = run_git_command(["checkout", "-b", branch], cwd=ws_path, operation="create-branch")
+    args = ["checkout", "-b", branch]
+    if body.start_point:
+        from ..git_utils import validate_commit_hash
+        args.append(validate_commit_hash(body.start_point))
+    result = run_git_command(args, cwd=ws_path, operation="create-branch")
     logger.info("create-branch workspace=%s branch=%s rc=%d", name, branch, result["exit_code"])
     invalidate_git_info(name)
     return result

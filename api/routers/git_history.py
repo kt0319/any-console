@@ -97,6 +97,18 @@ def git_merge(name: str, body: MergeRequest):
     return result
 
 
+@router.post("/workspaces/{name}/rebase")
+def git_rebase(name: str, body: MergeRequest):
+    ws_path = resolve_workspace_path(name)
+    branch = validate_branch_name(body.branch)
+    result = run_git_command(
+        ["rebase", branch], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="rebase",
+    )
+    logger.info("rebase workspace=%s branch=%s rc=%d", name, branch, result["exit_code"])
+    invalidate_git_info(name)
+    return result
+
+
 @router.post("/workspaces/{name}/reset")
 def git_reset(name: str, body: ResetRequest):
     ws_path = resolve_workspace_path(name)
