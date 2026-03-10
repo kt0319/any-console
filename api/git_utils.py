@@ -8,7 +8,6 @@ from pathlib import Path
 from fastapi import HTTPException
 
 from .common import (
-    COMMIT_HASH_PATTERN,
     GIT_QUICK_TIMEOUT_SEC,
     GIT_STANDARD_TIMEOUT_SEC,
     WORK_DIR,
@@ -62,9 +61,8 @@ def run_git_command(
 
 
 def validate_commit_hash(commit_hash: str) -> str:
-    if not COMMIT_HASH_PATTERN.match(commit_hash):
-        raise HTTPException(status_code=400, detail=f"Invalid commit hash: {commit_hash}")
-    return commit_hash
+    from .validators import validate_commit_hash as _validate
+    return _validate(commit_hash)
 
 
 _git_info_cache = TTLCache(5)

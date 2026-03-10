@@ -4,8 +4,8 @@ from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, 
 from fastapi.responses import FileResponse
 
 from ..auth import verify_token
-from ..common import MAX_UPLOAD_SIZE, STASH_REF_PATTERN, resolve_workspace_path
-from ..git_utils import validate_commit_hash
+from ..common import MAX_UPLOAD_SIZE, resolve_workspace_path
+from ..validators import validate_git_ref
 from .git_shared import (
     list_directory_entries,
     read_blob_content_response,
@@ -16,15 +16,6 @@ from .git_shared import (
 )
 
 router = APIRouter(dependencies=[Depends(verify_token)])
-
-
-def validate_git_ref(ref: str | None) -> str | None:
-    value = (ref or "").strip()
-    if not value:
-        return None
-    if STASH_REF_PATTERN.match(value):
-        return value
-    return validate_commit_hash(value)
 
 
 def _git_tree_spec(ref: str, rel_path: str) -> str:

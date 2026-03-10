@@ -11,8 +11,6 @@ from pydantic import BaseModel, Field
 from .. import common
 from ..auth import verify_token
 from ..common import (
-    ICON_COLOR_PATTERN,
-    ICON_PATTERN,
     MAX_COMMAND_LENGTH,
     MAX_ICON_VALUE_LENGTH,
     MAX_LABEL_LENGTH,
@@ -25,7 +23,6 @@ from ..common import (
 )
 from ..config import load_workspace_config_section, save_workspace_config_section
 from ..git_utils import command_result_dict, git_branches
-from ..icons import normalize_icon
 from ..job_models import TERMINAL_JOB, JobDefinition
 from ..runner import run_job
 from .terminal import (
@@ -126,24 +123,13 @@ def get_workspace_job(name: str, job_name: str):
 
 
 def validate_icon(icon: str) -> str:
-    icon = icon.strip()
-    if not icon:
-        return ""
-    if len(icon) > MAX_ICON_VALUE_LENGTH:
-        raise HTTPException(status_code=400, detail="Icon value too long")
-    icon = normalize_icon(icon)
-    if not ICON_PATTERN.match(icon):
-        raise HTTPException(status_code=400, detail=f"Invalid icon format: {icon}")
-    return icon
+    from ..validators import validate_icon as _validate
+    return _validate(icon)
 
 
 def validate_icon_color(color: str) -> str:
-    color = color.strip()
-    if not color:
-        return ""
-    if not ICON_COLOR_PATTERN.match(color):
-        raise HTTPException(status_code=400, detail=f"Invalid icon color: {color}")
-    return color
+    from ..validators import validate_icon_color as _validate
+    return _validate(color)
 
 
 def _apply_icon_fields(entry: dict, icon: str, icon_color: str) -> None:

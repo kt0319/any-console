@@ -7,7 +7,7 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
-from ..common import BRANCH_NAME_PATTERN, GIT_SHORT_TIMEOUT_SEC, STASH_REF_PATTERN
+from ..common import GIT_SHORT_TIMEOUT_SEC
 from ..git_utils import run_git_command
 
 
@@ -106,19 +106,13 @@ def build_file_list(files_result, numstat):
 
 
 def validate_stash_ref(stash_ref: str) -> str:
-    ref = stash_ref.strip()
-    if not STASH_REF_PATTERN.match(ref):
-        raise HTTPException(status_code=400, detail=f"Invalid stash ref: {ref}")
-    return ref
+    from ..validators import validate_stash_ref as _validate
+    return _validate(stash_ref)
 
 
 def validate_branch_name(branch: str) -> str:
-    branch = branch.strip()
-    if not branch:
-        raise HTTPException(status_code=400, detail="Branch is required")
-    if not BRANCH_NAME_PATTERN.match(branch):
-        raise HTTPException(status_code=400, detail=f"Invalid branch name: {branch}")
-    return branch
+    from ..validators import validate_branch_name as _validate
+    return _validate(branch)
 
 
 def get_current_branch(ws_path):

@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends
 
 from ..auth import verify_token
 from ..common import GIT_SHORT_TIMEOUT_SEC, resolve_workspace_path
+from ..common import STASH_REF_PATTERN
 from ..git_utils import run_git_command, validate_commit_hash
-from .git_shared import MAX_DIFF_SIZE, STASH_REF_PATTERN, build_file_entry, build_file_list, parse_numstat_result
+from .git_shared import MAX_DIFF_SIZE, build_file_entry, build_file_list, parse_numstat_result
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
