@@ -397,8 +397,14 @@ defineExpose({
   line-height: 1.2;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
   cursor: pointer;
   gap: 6px;
+}
+
+.tab-name-pill img {
+  pointer-events: none;
+  -webkit-user-drag: none;
 }
 
 .tab-name-pill.dragging {

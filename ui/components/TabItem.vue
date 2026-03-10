@@ -51,6 +51,7 @@ const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
 const { beginDrag, updateHover, finishSplitDrop, cancelDrag } = useSplitDropDrag();
 const mouseLongPress = useLongPress(LONG_PRESS_MS);
+const touchLongPress = useLongPress(LONG_PRESS_MS);
 const pillEl = ref(null);
 const isDragging = ref(false);
 const dropSide = ref("");
@@ -89,6 +90,7 @@ function onClose() {
 
 function onClosePress() {
   mouseLongPress.cancel();
+  touchLongPress.cancel();
 }
 
 function onMouseDown() {
@@ -174,11 +176,18 @@ function onTouchStart(e) {
   touchDragging = false;
   touchStartX = e.touches[0].clientX;
   touchStartY = e.touches[0].clientY;
+  touchLongPress.reset();
+  touchLongPress.start(() => {
+    emit("settings:open", { view: "TabConfig" });
+  });
 }
 
 function onTouchMove(e) {
   const dx = e.touches[0].clientX - touchStartX;
   const dy = e.touches[0].clientY - touchStartY;
+  if (isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
+    touchLongPress.cancel();
+  }
   if (!canDrag.value) return;
 
   if (!touchDragging && isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
@@ -195,6 +204,8 @@ function onTouchMove(e) {
 }
 
 function onTouchEnd(e) {
+  touchLongPress.cancel();
+  if (touchLongPress.consumeFired()) return;
   if (!touchDragging) return;
   if (e.cancelable) e.preventDefault();
   isDragging.value = false;
@@ -241,7 +252,13 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
   touch-action: none;
+}
+
+.tab-btn img {
+  pointer-events: none;
+  -webkit-user-drag: none;
 }
 
 .tab-btn.active {
