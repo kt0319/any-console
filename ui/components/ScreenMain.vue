@@ -55,14 +55,15 @@ async function initializeApp() {
         if (first) workspaceStore.selectedWorkspace = first.name;
       }
     }
-    bootMessage.value = "ワークスペース状態を読み込み中...";
-    await workspaceStore.fetchStatuses(auth);
   } catch (e) {
     console.error("initializeApp failed:", e);
   }
 
   bootMessage.value = "セッションを読み込み中...";
-  await restoreExistingSessions();
+  await Promise.all([
+    workspaceStore.fetchStatuses(auth),
+    restoreExistingSessions(),
+  ]);
 }
 
 async function restoreExistingSessions() {
