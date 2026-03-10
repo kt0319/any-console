@@ -48,7 +48,7 @@ class TerminalSession:
     __slots__ = (
         "workspace", "fd", "pid", "expires_at",
         "icon", "icon_color", "job_name", "job_label",
-        "clients", "writer_ws", "_reader_task",
+        "clients", "_reader_task",
         "tmux_session_name",
     )
 
@@ -66,7 +66,6 @@ class TerminalSession:
         self.job_name = job_name
         self.job_label = job_label
         self.clients: set[WebSocket] = set()
-        self.writer_ws: WebSocket | None = None
         self._reader_task: asyncio.Task | None = None
         self.tmux_session_name = tmux_session_name
 
@@ -94,7 +93,7 @@ def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
         check=True,
         capture_output=True,
     )
-    for opt_args in (["status", "off"], ["mouse", "off"], ["mode-style", "bg=colour237,fg=colour248"]):
+    for opt_args in (["status", "off"], ["mouse", "off"]):
         subprocess.run(
             ["tmux", "set-option", "-t", session_name, *opt_args],
             timeout=TMUX_CMD_TIMEOUT_SEC,
@@ -102,7 +101,7 @@ def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
         )
 
 
-def attach_tmux_session(session_name: str) -> tuple[int, int]:
+def attach_tmux_session(session_name: str, cols: int = 0, rows: int = 0) -> tuple[int, int]:
     env = {
         "TERM": TERMINAL_TERM_TYPE,
         "HOME": os.environ.get("HOME", "/"),
@@ -118,6 +117,9 @@ def attach_tmux_session(session_name: str) -> tuple[int, int]:
         except Exception:
             pass
         os._exit(1)
+    if cols > 0 and rows > 0:
+        winsize = struct.pack("HHHH", rows, cols, 0, 0)
+        fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
     return fd, pid
 
 
@@ -483,34 +485,10 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
             await websocket.close(code=1008, reason="シェルプロセスが終了しました")
             return
 
-    prev_writer = session.writer_ws
     need_pty_bridge = session.fd is None or session.pid is None
-
-    if prev_writer is not None and prev_writer in session.clients:
-        try:
-            await prev_writer.send_text("readonly")
-        except Exception:
-            session.clients.discard(prev_writer)
-
-    if need_pty_bridge:
-        _detach_pty_bridge(session)
-        try:
-            fd, pid = attach_tmux_session(session.tmux_session_name)
-        except OSError as e:
-            logger.error("tmux attach failed session=%s: %s", session_id, e)
-            await websocket.close(code=1011, reason="tmux attach失敗")
-            return
-        session.fd = fd
-        session.pid = pid
-
-    session.clients.add(websocket)
-    session.writer_ws = websocket
-    session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
 
     if cols > 0 and rows > 0:
         try:
-            winsize = struct.pack("HHHH", rows, cols, 0, 0)
-            fcntl.ioctl(session.fd, termios.TIOCSWINSZ, winsize)
             subprocess.run(
                 ["tmux", "resize-window", "-t", session.tmux_session_name, "-x", str(cols), "-y", str(rows)],
                 timeout=TMUX_CMD_TIMEOUT_SEC,
@@ -518,6 +496,26 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
             )
         except (OSError, subprocess.TimeoutExpired):
             pass
+
+    if need_pty_bridge:
+        _detach_pty_bridge(session)
+        try:
+            fd, pid = attach_tmux_session(session.tmux_session_name, cols, rows)
+        except OSError as e:
+            logger.error("tmux attach failed session=%s: %s", session_id, e)
+            await websocket.close(code=1011, reason="tmux attach失敗")
+            return
+        session.fd = fd
+        session.pid = pid
+    elif cols > 0 and rows > 0 and session.fd is not None:
+        try:
+            winsize = struct.pack("HHHH", rows, cols, 0, 0)
+            fcntl.ioctl(session.fd, termios.TIOCSWINSZ, winsize)
+        except OSError:
+            pass
+
+    session.clients.add(websocket)
+    session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
 
     _ensure_reader_task(session, session_id)
 
@@ -537,9 +535,6 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
                 break
 
             session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
-
-            if session.writer_ws is not websocket:
-                continue
 
             data = msg.get("bytes")
             if data is None and msg.get("text") is not None:
@@ -561,16 +556,6 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
 
     # cleanup
     session.clients.discard(websocket)
-
-    if session.writer_ws is websocket:
-        session.writer_ws = None
-        for candidate in list(session.clients):
-            try:
-                await candidate.send_text("active")
-                session.writer_ws = candidate
-                break
-            except Exception:
-                session.clients.discard(candidate)
 
     if not session.clients:
         if session._reader_task and not session._reader_task.done():

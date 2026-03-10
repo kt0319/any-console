@@ -118,7 +118,7 @@ export const useTerminalStore = defineStore("terminal", () => {
       _reconnectTimer: null,
       _activityTimer: null,
       _inputBound: false,
-      _replacedByOtherDevice: false,
+      _elementBound: false,
     });
 
     openTabs.value.push(tab);

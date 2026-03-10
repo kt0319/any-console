@@ -44,10 +44,6 @@ export function useTerminal() {
       if (!tab.term) return;
       if (e.data instanceof ArrayBuffer) {
         tab.term.write(new Uint8Array(e.data));
-      } else if (e.data === "readonly") {
-        tab._replacedByOtherDevice = true;
-      } else if (e.data === "active") {
-        tab._replacedByOtherDevice = false;
       } else {
         tab.term.write(e.data);
       }
@@ -58,11 +54,6 @@ export function useTerminal() {
     ws.onclose = (e) => {
       tab.ws = null;
       if (tab._wsDisposed) return;
-
-      if (e.code === 4001) {
-        tab._replacedByOtherDevice = true;
-        return;
-      }
 
       const delay = Math.min(
         Math.pow(2, tab._reconnectAttempts || 0) * 1000,
@@ -94,14 +85,12 @@ export function useTerminal() {
     });
 
     tab.term?.onData((data) => {
-      if (tab._replacedByOtherDevice) return;
       if (tab.ws?.readyState === WebSocket.OPEN) {
         tab.ws.send(encoder.encode(data));
       }
     });
 
     tab.term?.onResize(({ cols, rows }) => {
-      if (tab._replacedByOtherDevice) return;
       if (tab.ws?.readyState === WebSocket.OPEN) {
         const payload = encoder.encode(JSON.stringify({ type: "resize", cols, rows }));
         const msg = new Uint8Array(1 + payload.length);
@@ -111,27 +100,6 @@ export function useTerminal() {
       }
     });
 
-    const termEl = tab.term?.element;
-    if (termEl) {
-      termEl.addEventListener("wheel", (e) => {
-        e.preventDefault();
-        if (tab._replacedByOtherDevice) return;
-        if (tab.ws?.readyState !== WebSocket.OPEN) return;
-        const direction = e.deltaY < 0 ? "up" : "down";
-        const lines = Math.max(1, Math.min(Math.ceil(Math.abs(e.deltaY) / 20), 15));
-        const payload = encoder.encode(JSON.stringify({ d: direction, n: lines }));
-        const msg = new Uint8Array(1 + payload.length);
-        msg[0] = WS_MSG_SCROLL;
-        msg.set(payload, 1);
-        tab.ws.send(msg);
-      }, { passive: false });
-
-      termEl.addEventListener("click", () => {
-        if (tab.ws?.readyState === WebSocket.OPEN) {
-          tab.ws.send(new Uint8Array([WS_MSG_CANCEL_COPY_MODE]));
-        }
-      });
-    }
   }
 
   function disconnectTerminal(tab) {
@@ -149,10 +117,37 @@ export function useTerminal() {
     clearTimeout(tab._activityTimer);
   }
 
+  function bindTerminalElement(tab) {
+    const termEl = tab.term?.element;
+    if (!termEl || tab._elementBound) return;
+    tab._elementBound = true;
+
+    const encoder = new TextEncoder();
+
+    termEl.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      if (tab.ws?.readyState !== WebSocket.OPEN) return;
+      const direction = e.deltaY < 0 ? "up" : "down";
+      const lines = Math.max(1, Math.min(Math.ceil(Math.abs(e.deltaY) / 20), 15));
+      const payload = encoder.encode(JSON.stringify({ d: direction, n: lines }));
+      const msg = new Uint8Array(1 + payload.length);
+      msg[0] = WS_MSG_SCROLL;
+      msg.set(payload, 1);
+      tab.ws.send(msg);
+    }, { passive: false });
+
+    termEl.addEventListener("click", () => {
+      if (tab.ws?.readyState === WebSocket.OPEN) {
+        tab.ws.send(new Uint8Array([WS_MSG_CANCEL_COPY_MODE]));
+      }
+    });
+  }
+
   function ensureTerminalOpened(tab, frameEl) {
     if (!tab || !tab._pendingOpen || !frameEl) return false;
     tab._pendingOpen = false;
     tab.term.open(frameEl);
+    bindTerminalElement(tab);
     if (!tab._pendingRedraw) {
       connectTerminalWs(tab);
     }

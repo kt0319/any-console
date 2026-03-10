@@ -59,11 +59,10 @@ async function initializeApp() {
     console.error("initializeApp failed:", e);
   }
 
+  bootMessage.value = "ワークスペース状態を読み込み中...";
+  await workspaceStore.fetchStatuses(auth);
   bootMessage.value = "セッションを読み込み中...";
-  await Promise.all([
-    workspaceStore.fetchStatuses(auth),
-    restoreExistingSessions(),
-  ]);
+  await restoreExistingSessions();
 }
 
 async function restoreExistingSessions() {
