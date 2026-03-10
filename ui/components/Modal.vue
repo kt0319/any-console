@@ -27,7 +27,16 @@
         <ModalMenu v-if="currentView === 'ModalMenu'" @select="onViewSelect" />
         <WorkspaceOpen v-if="currentView === 'WorkspaceOpen'" ref="workspaceOpenView" />
         <WorkspaceAdd v-if="currentView === 'WorkspaceAdd'" />
-        <WorkspaceConfig v-if="currentView === 'WorkspaceConfig'" ref="workspaceConfigView" />
+        <WorkspaceConfig v-if="currentView === 'WorkspaceConfig'" ref="workspaceConfigView" :initialWsName="wsConfigInitialWs" @openJobConfig="onOpenJobConfig" @openIconPicker="onWsIconPicker" />
+        <JobConfig
+          v-if="currentView === 'JobConfig'"
+          :workspaceName="jobConfigState.workspaceName"
+          :jobEntry="jobConfigState.jobEntry"
+          :initialForm="jobConfigState.initialForm"
+          @saved="onJobConfigSaved"
+          @cancelled="onJobConfigCancelled"
+          @openIconPicker="onJobIconPicker"
+        />
         <TabConfig v-if="currentView === 'TabConfig'" />
         <TerminalConfig v-if="currentView === 'TerminalConfig'" />
         <EditorConfig v-if="currentView === 'EditorConfig'" />
@@ -39,7 +48,7 @@
         <IconPicker
           v-if="currentView === 'IconPicker'"
           ref="iconPickerView"
-          @close="closeModal"
+          @close="onIconPickerClose"
         />
         <WorkspaceDetail
           v-if="currentView === 'WorkspaceDetail'"
@@ -68,6 +77,7 @@ import ModalMenu from "./ModalMenu.vue";
 import WorkspaceOpen from "./WorkspaceOpen.vue";
 import WorkspaceAdd from "./WorkspaceAdd.vue";
 import WorkspaceConfig from "./WorkspaceConfig.vue";
+import JobConfig from "./JobConfig.vue";
 import TabConfig from "./TabConfig.vue";
 import TerminalConfig from "./TerminalConfig.vue";
 import EditorConfig from "./EditorConfig.vue";
@@ -90,10 +100,14 @@ const workspaceOpenView = ref(null);
 const workspaceConfigView = ref(null);
 const gitHubPaneView = ref(null);
 const gitLogGraphView = ref(null);
+let iconPickerReturnView = null;
+let wsIconPickerResult = null;
 
 const currentView = ref(null);
 const modalTitle = ref("");
 const canNavigateBack = ref(false);
+const jobConfigState = ref({ workspaceName: "", jobEntry: null });
+const wsConfigInitialWs = ref("");
 
 provide("modalTitle", modalTitle);
 const {
@@ -117,6 +131,7 @@ function closeModal() {
 }
 
 function onViewSelect({ view }) {
+  if (view === "WorkspaceConfig") wsConfigInitialWs.value = "";
   currentView.value = view;
   canNavigateBack.value = true;
   if (view === "WorkspaceOpen") {
@@ -134,7 +149,21 @@ function settingsGoBack() {
 }
 
 function onBack() {
-  if (currentView.value === "GitHubPane") {
+  if (currentView.value === "IconPicker" && iconPickerReturnView === "JobConfig") {
+    iconPickerReturnView = null;
+    currentView.value = "JobConfig";
+    canNavigateBack.value = true;
+    return;
+  }
+  if (currentView.value === "IconPicker" && iconPickerReturnView === "WorkspaceConfig") {
+    iconPickerReturnView = null;
+    wsIconPickerResult = null;
+    backToWorkspaceConfig();
+    return;
+  }
+  if (currentView.value === "JobConfig") {
+    backToWorkspaceConfig();
+  } else if (currentView.value === "GitHubPane") {
     currentView.value = "WorkspaceDetail";
     canNavigateBack.value = true;
     nextTick(() => {
@@ -150,6 +179,68 @@ function onBack() {
     workspaceDetailView.value?.goBack();
   } else {
     settingsGoBack();
+  }
+}
+
+function backToWorkspaceConfig() {
+  wsConfigInitialWs.value = jobConfigState.value.workspaceName || "";
+  currentView.value = "WorkspaceConfig";
+  canNavigateBack.value = true;
+}
+
+function onOpenJobConfig({ workspaceName, jobEntry }) {
+  jobConfigState.value = { workspaceName, jobEntry, initialForm: null };
+  currentView.value = "JobConfig";
+  canNavigateBack.value = true;
+}
+
+function onJobConfigSaved() {
+  backToWorkspaceConfig();
+}
+
+function onJobConfigCancelled() {
+  backToWorkspaceConfig();
+}
+
+function onJobIconPicker({ currentIcon, currentColor, formSnapshot }) {
+  iconPickerReturnView = "JobConfig";
+  jobConfigState.value.initialForm = formSnapshot;
+  currentView.value = "IconPicker";
+  canNavigateBack.value = true;
+  nextTick(() => {
+    iconPickerView.value?.open((icon, color) => {
+      jobConfigState.value.initialForm = { ...jobConfigState.value.initialForm, icon, icon_color: color };
+    }, currentIcon, currentColor);
+  });
+}
+
+function onWsIconPicker({ currentIcon, currentColor }) {
+  iconPickerReturnView = "WorkspaceConfig";
+  currentView.value = "IconPicker";
+  canNavigateBack.value = true;
+  nextTick(() => {
+    iconPickerView.value?.open((icon, color) => {
+      wsIconPickerResult = { icon, color };
+    }, currentIcon, currentColor);
+  });
+}
+
+function onIconPickerClose() {
+  if (iconPickerReturnView === "JobConfig") {
+    iconPickerReturnView = null;
+    currentView.value = "JobConfig";
+    canNavigateBack.value = true;
+  } else if (iconPickerReturnView === "WorkspaceConfig") {
+    iconPickerReturnView = null;
+    backToWorkspaceConfig();
+    nextTick(() => {
+      if (wsIconPickerResult) {
+        workspaceConfigView.value?.applyIcon(wsIconPickerResult.icon, wsIconPickerResult.color);
+        wsIconPickerResult = null;
+      }
+    });
+  } else {
+    closeModal();
   }
 }
 

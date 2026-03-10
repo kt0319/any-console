@@ -19,6 +19,7 @@
           <span class="ws-icon-display" v-html="renderIconStr(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
           <span class="ws-check-label">{{ ws.name }}</span>
         </label>
+        <span v-if="wsJobCounts[ws.name]" class="ws-job-count">{{ wsJobCounts[ws.name] }}</span>
         <button type="button" class="picker-ws-icon-btn ws-gear-btn" @click="openWsSettings(ws)">
           <span class="mdi mdi-cog"></span>
         </button>
@@ -30,56 +31,12 @@
     <div v-if="editWs" class="ws-settings-detail">
       <div class="ws-settings-row">
         <span class="ws-settings-label">アイコン</span>
-        <button type="button" class="icon-select-btn" @click="showIconPicker = !showIconPicker">
+        <button type="button" class="icon-select-btn" @click="openIconPicker">
           <span class="icon-select-preview">
             <span v-html="renderIconStr(editIcon || 'mdi-console', editIconColor, 18)"></span>
             <span class="icon-select-label">{{ editIcon || 'デフォルト' }}</span>
           </span>
         </button>
-      </div>
-
-      <!-- インラインアイコンピッカー -->
-      <div v-if="showIconPicker" class="icon-picker-inline">
-        <div class="icon-picker-input-row">
-          <input
-            type="text"
-            class="form-input icon-picker-search"
-            v-model="iconSearch"
-            placeholder="アイコン検索"
-            autocomplete="off"
-            @input="filterIcons"
-          />
-        </div>
-        <div class="color-palette">
-          <button
-            v-for="c in PRESET_COLORS"
-            :key="c.value"
-            type="button"
-            class="color-palette-item"
-            :class="{ selected: editIconColor === c.value }"
-            :title="c.label"
-            :style="{ background: c.value || 'var(--text-primary)' }"
-            @click="editIconColor = c.value"
-          ></button>
-        </div>
-        <div class="icon-picker-grid">
-          <div v-if="loadingIcons" class="icon-picker-loading">読み込み中...</div>
-          <button
-            v-for="icon in filteredIcons"
-            :key="icon.name"
-            type="button"
-            class="icon-picker-item"
-            :class="{ selected: editIcon === 'mdi-' + icon.name }"
-            :title="icon.name"
-            @click="selectIcon(icon.name)"
-          >
-            <span :class="'mdi mdi-' + icon.name"></span>
-          </button>
-        </div>
-        <div class="icon-picker-actions">
-          <button type="button" @click="clearIcon">クリア</button>
-          <button type="button" class="primary" @click="confirmIcon">決定</button>
-        </div>
       </div>
 
       <!-- ジョブ一覧 -->
@@ -110,42 +67,6 @@
         </div>
       </div>
 
-      <!-- ジョブ追加/編集フォーム -->
-      <div v-if="jobForm" class="ws-settings-section">
-        <div class="settings-section-label">{{ jobForm.isNew ? 'ジョブ追加' : 'ジョブ編集' }}</div>
-        <div class="ws-settings-row">
-          <span class="ws-settings-label">名前</span>
-          <input type="text" class="form-input" v-model="jobForm.name" :disabled="!jobForm.isNew" placeholder="ジョブ名" autocomplete="off" />
-        </div>
-        <div class="ws-settings-row">
-          <span class="ws-settings-label">ラベル</span>
-          <input type="text" class="form-input" v-model="jobForm.label" placeholder="表示名" autocomplete="off" />
-        </div>
-        <div class="ws-settings-row">
-          <span class="ws-settings-label">コマンド</span>
-          <input type="text" class="form-input" v-model="jobForm.command" placeholder="実行コマンド" autocomplete="off" />
-        </div>
-        <div class="ws-settings-row">
-          <span class="ws-settings-label">アイコン</span>
-          <input type="text" class="form-input" v-model="jobForm.icon" placeholder="mdi-play" autocomplete="off" />
-        </div>
-        <div class="ws-settings-row">
-          <span class="ws-settings-label">アイコン色</span>
-          <input type="text" class="form-input" v-model="jobForm.icon_color" placeholder="#ffffff" autocomplete="off" />
-        </div>
-        <div class="ws-settings-row" style="gap:8px">
-          <label class="form-check-label"><input type="checkbox" v-model="jobForm.confirm" /> 確認ダイアログ</label>
-          <label class="form-check-label"><input type="checkbox" v-model="jobForm.terminal" /> ターミナルで実行</label>
-        </div>
-        <div class="ws-settings-row" style="gap:8px">
-          <button type="button" @click="jobForm = null">キャンセル</button>
-          <button type="button" class="primary" :disabled="savingJob" @click="saveJob">
-            {{ savingJob ? '保存中...' : '保存' }}
-          </button>
-        </div>
-        <div v-if="jobFormError" class="clone-repo-error">{{ jobFormError }}</div>
-      </div>
-
       <div class="ws-settings-row" style="margin-top:12px">
         <button type="button" class="primary" :disabled="saving" @click="saveWsConfig">
           {{ saving ? '保存中...' : 'アイコン保存' }}
@@ -158,10 +79,14 @@
 </template>
 
 <script setup>
-import { ref, inject, watch, watchEffect, onMounted, onBeforeUnmount } from "vue";
+import { ref, inject, watchEffect, onMounted, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useAuthStore } from "../stores/auth.js";
 import { renderIconStr } from "../utils/render-icon.js";
+
+const props = defineProps({
+  initialWsName: { type: String, default: "" },
+});
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "ワークスペース設定";
@@ -180,36 +105,30 @@ const editIconColor = ref("");
 const saving = ref(false);
 const saveError = ref("");
 const saveSuccess = ref("");
-const showIconPicker = ref(false);
+
+const emit = defineEmits(["openJobConfig", "openIconPicker"]);
 
 const jobEntries = ref([]);
 const loadingJobs = ref(false);
-const jobForm = ref(null);
-const savingJob = ref(false);
-const jobFormError = ref("");
-
-const iconSearch = ref("");
-const iconMeta = ref([]);
-const filteredIcons = ref([]);
-const loadingIcons = ref(false);
-
-const PRESET_COLORS = [
-  { label: "デフォルト", value: "" },
-  { label: "赤", value: "#e53935" },
-  { label: "ピンク", value: "#d81b60" },
-  { label: "紫", value: "#8e24aa" },
-  { label: "青", value: "#1e88e5" },
-  { label: "水色", value: "#00acc1" },
-  { label: "緑", value: "#43a047" },
-  { label: "黄", value: "#fdd835" },
-  { label: "オレンジ", value: "#fb8c00" },
-  { label: "グレー", value: "#757575" },
-  { label: "白", value: "#ffffff" },
-];
+const wsJobCounts = ref({});
 
 async function loadWorkspaceConfig() {
   await workspaceStore.fetchStatuses(auth);
   allWorkspaces.value = workspaceStore.allWorkspaces || [];
+  fetchAllJobCounts();
+}
+
+async function fetchAllJobCounts() {
+  try {
+    const res = await auth.apiFetch("/jobs/workspaces");
+    if (!res || !res.ok) return;
+    const data = await res.json();
+    const counts = {};
+    for (const [name, jobs] of Object.entries(data)) {
+      counts[name] = Object.keys(jobs).filter((k) => k !== "terminal").length;
+    }
+    wsJobCounts.value = counts;
+  } catch { /* ignore */ }
 }
 
 async function toggleVisibility(ws, checked) {
@@ -228,16 +147,12 @@ function openWsSettings(ws) {
   editIconColor.value = ws.icon_color || "";
   saveError.value = "";
   saveSuccess.value = "";
-  showIconPicker.value = false;
-  jobForm.value = null;
   loadWorkspaceJobs();
 }
 
 function goBackToList() {
   editWs.value = null;
   jobEntries.value = [];
-  jobForm.value = null;
-  showIconPicker.value = false;
 }
 
 async function loadWorkspaceJobs() {
@@ -256,59 +171,11 @@ async function loadWorkspaceJobs() {
 }
 
 function startAddJob() {
-  jobForm.value = { isNew: true, name: "", label: "", command: "", icon: "", icon_color: "", confirm: true, terminal: true };
-  jobFormError.value = "";
+  emit("openJobConfig", { workspaceName: editWs.value.name, jobEntry: null });
 }
 
 function startEditJob(entry) {
-  jobForm.value = {
-    isNew: false,
-    name: entry.name,
-    label: entry.job.label || "",
-    command: entry.job.command || "",
-    icon: entry.job.icon || "",
-    icon_color: entry.job.icon_color || "",
-    confirm: entry.job.confirm !== false,
-    terminal: entry.job.terminal !== false,
-  };
-  jobFormError.value = "";
-}
-
-async function saveJob() {
-  if (!editWs.value || !jobForm.value) return;
-  const f = jobForm.value;
-  if (!f.name.trim()) { jobFormError.value = "名前を入力してください"; return; }
-  if (!f.command.trim()) { jobFormError.value = "コマンドを入力してください"; return; }
-  savingJob.value = true;
-  jobFormError.value = "";
-  try {
-    const method = f.isNew ? "POST" : "PUT";
-    const url = f.isNew
-      ? `/workspaces/${encodeURIComponent(editWs.value.name)}/jobs`
-      : `/workspaces/${encodeURIComponent(editWs.value.name)}/jobs/${encodeURIComponent(f.name)}`;
-    const res = await auth.apiFetch(url, {
-      method,
-      body: {
-        label: f.label.trim(),
-        command: f.command.trim(),
-        icon: f.icon.trim(),
-        icon_color: f.icon_color.trim(),
-        confirm: f.confirm,
-        terminal: f.terminal,
-      },
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      jobFormError.value = data.detail || "保存に失敗しました";
-    } else {
-      jobForm.value = null;
-      await loadWorkspaceJobs();
-    }
-  } catch (e) {
-    jobFormError.value = e.message || "エラーが発生しました";
-  } finally {
-    savingJob.value = false;
-  }
+  emit("openJobConfig", { workspaceName: editWs.value.name, jobEntry: entry });
 }
 
 async function deleteJob(entry) {
@@ -350,43 +217,14 @@ async function saveWsConfig() {
   }
 }
 
-// アイコンピッカー
-async function loadIconMeta() {
-  if (iconMeta.value.length > 0) return;
-  loadingIcons.value = true;
-  try {
-    const res = await fetch("https://cdn.jsdelivr.net/npm/@mdi/svg@7/meta.json");
-    iconMeta.value = await res.json();
-    filterIcons();
-  } catch { /* ignore */ }
-  finally { loadingIcons.value = false; }
+function openIconPicker() {
+  emit("openIconPicker", { currentIcon: editIcon.value, currentColor: editIconColor.value });
 }
 
-function filterIcons() {
-  const q = iconSearch.value.toLowerCase().trim();
-  if (!q) {
-    filteredIcons.value = iconMeta.value.slice(0, 200);
-    return;
-  }
-  filteredIcons.value = iconMeta.value
-    .filter((i) => i.name.includes(q) || (i.aliases && i.aliases.some((a) => a.includes(q))) || (i.tags && i.tags.some((t) => t.includes(q))))
-    .slice(0, 200);
+function applyIcon(icon, color) {
+  editIcon.value = icon;
+  editIconColor.value = color;
 }
-
-function selectIcon(name) {
-  editIcon.value = "mdi-" + name;
-}
-
-function clearIcon() {
-  editIcon.value = "";
-  editIconColor.value = "";
-}
-
-function confirmIcon() {
-  showIconPicker.value = false;
-}
-
-watch(showIconPicker, (v) => { if (v) loadIconMeta(); });
 
 // ドラッグ並び替え
 const dragIdx = ref(-1);
@@ -469,10 +307,19 @@ defineExpose({
   load: loadWorkspaceConfig,
   loadWorkspaceConfig,
   goBackToList,
+  loadWorkspaceJobs,
+  openWsSettings,
+  applyIcon,
   editWs,
 });
 
-onMounted(loadWorkspaceConfig);
+onMounted(async () => {
+  await loadWorkspaceConfig();
+  if (props.initialWsName) {
+    const ws = allWorkspaces.value.find((w) => w.name === props.initialWsName);
+    if (ws) openWsSettings(ws);
+  }
+});
 </script>
 
 <style scoped>
@@ -571,6 +418,12 @@ onMounted(loadWorkspaceConfig);
 
 .picker-ws-icon-btn .mdi {
   font-size: 18px;
+}
+
+.ws-job-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .ws-gear-btn {
@@ -718,51 +571,6 @@ onMounted(loadWorkspaceConfig);
   touch-action: none;
 }
 
-.settings-section-label {
-  font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-
-.form-check-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.form-check-label input[type="checkbox"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--text-muted);
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-  flex-shrink: 0;
-  position: relative;
-}
-
-.form-check-label input[type="checkbox"]:checked {
-  border-color: var(--accent);
-  background: var(--accent);
-}
-
-.form-check-label input[type="checkbox"]:checked::after {
-  content: "";
-  position: absolute;
-  left: 5px;
-  top: 2px;
-  width: 5px;
-  height: 10px;
-  border: solid var(--bg-primary);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-
 .icon-select-btn {
   display: flex;
   align-items: center;
@@ -806,84 +614,4 @@ onMounted(loadWorkspaceConfig);
   flex-shrink: 0;
 }
 
-.icon-picker-input-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
-  flex-wrap: wrap;
-}
-
-.icon-picker-input-row .icon-picker-search {
-  flex: 1;
-  min-width: 0;
-  margin-bottom: 0;
-}
-
-.icon-picker-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  overflow-y: auto;
-  flex: 1;
-  padding: 4px 0;
-  align-content: flex-start;
-}
-
-.icon-picker-item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 22px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.icon-picker-item.selected {
-  border-color: var(--accent);
-  background: var(--accent-muted, rgba(33, 150, 243, 0.15));
-}
-
-.icon-picker-loading {
-  width: 100%;
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-muted);
-  padding: 12px 0;
-}
-
-.color-palette {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 0 0;
-  flex-wrap: wrap;
-}
-
-.color-palette-item {
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  min-height: 24px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-  padding: 0;
-  margin: 0;
-  box-sizing: border-box;
-  line-height: 0;
-  font-size: 0;
-}
-
-.color-palette-item.selected {
-  border-color: var(--text-primary);
-}
 </style>
