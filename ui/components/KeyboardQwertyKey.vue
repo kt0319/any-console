@@ -99,12 +99,12 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted } from "vue";
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import KeyboardSnippet from "./KeyboardSnippet.vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useInputStore } from "../stores/input.js";
 import { useAuthStore } from "../stores/auth.js";
-import { emit } from "../app-bridge.js";
+import { emit, on } from "../app-bridge.js";
 import { FLICK_THRESHOLD } from "../utils/constants.js";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
 
@@ -324,6 +324,14 @@ onMounted(() => {
     }, { accelerateRepeat: true });
   }
 });
+
+let offSnippetTap = null;
+onMounted(() => {
+  offSnippetTap = on("snippet:tap", () => {
+    if (props.active) emitLocal("cycleMode");
+  });
+});
+onUnmounted(() => { offSnippetTap?.(); });
 
 watch(() => props.active, (val) => {
   if (val) {
