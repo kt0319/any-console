@@ -305,7 +305,8 @@ def execute_job(body: RunRequest):
                     f"セッション数が上限({MAX_TERMINAL_SESSIONS})に達しています",
                 )
         cwd_path = str(ws_path) if ws_path else None
-        session_id = secrets.token_urlsafe(24)
+        short_id = secrets.token_urlsafe(6)
+        session_id = f"{body.workspace}-{short_id}" if body.workspace else short_id
         tmux_name = f"{TMUX_SESSION_PREFIX}{session_id}"
         try:
             create_tmux_session(cwd_path, tmux_name)
