@@ -415,6 +415,7 @@ async function openWorkingTreeDiffFiles() {
     const diffChunks = parseDiffChunks(data.diff);
     gitStore.diffChunks = diffChunks;
     gitStore.diffFullText = data.diff || "";
+    gitStore.diffFileStatuses = Object.fromEntries(fileList.map((f) => [f.path, f.status]));
     selectedCommitFiles.value = fileList.map((f) => ({
       path: f.path,
       status: f.status,
@@ -449,10 +450,14 @@ async function openCommitDiffFiles(entry) {
     const diffChunks = parseDiffChunks(data.diff);
     gitStore.diffChunks = diffChunks;
     gitStore.diffFullText = data.diff || "";
-    selectedCommitFiles.value = (data.files || []).map((f) => ({
+    const fileList = (data.files || []).map((f) => ({
       path: f.path || f.name,
       status: f.status || "M",
-      numstat: buildFileNumstatHtml(f, diffChunks[f.path || f.name]),
+    }));
+    gitStore.diffFileStatuses = Object.fromEntries(fileList.map((f) => [f.path, f.status]));
+    selectedCommitFiles.value = fileList.map((f) => ({
+      ...f,
+      numstat: buildFileNumstatHtml(f, diffChunks[f.path]),
     }));
   } catch (e) {
     console.error("commit files load failed:", e);

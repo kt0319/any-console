@@ -28,7 +28,10 @@
     </div>
 
     <template v-if="diffFile">
-      <div class="diff-viewer-pane">
+      <div v-if="diffNewFileContent" class="diff-viewer-pane">
+        <FileTextViewer :fileContent="diffNewFileContent" :fileName="diffFile" />
+      </div>
+      <div v-else class="diff-viewer-pane">
         <div class="diff-content" v-html="diffHtml"></div>
       </div>
     </template>
@@ -102,6 +105,7 @@ const isFileBrowserLoading = ref(false);
 const fileBrowserError = ref("");
 const contextEntry = ref(null);
 const diffHtml = ref("");
+const diffNewFileContent = ref(null);
 const isDropActive = ref(false);
 const uploadInputEl = ref(null);
 const editorUrlTemplate = ref("");
@@ -146,16 +150,32 @@ function colorDiff(text) {
   }).join("\n");
 }
 
-watch(() => props.diffFile, (file) => {
+watch(() => props.diffFile, async (file) => {
+  diffNewFileContent.value = null;
   if (!file) { diffHtml.value = ""; return; }
   const chunk = gitStore.diffChunks[file];
   if (chunk) {
     diffHtml.value = `<pre>${colorDiff(chunk)}</pre>`;
-  } else if (gitStore.diffFullText) {
-    diffHtml.value = `<pre>${colorDiff(gitStore.diffFullText)}</pre>`;
-  } else {
-    diffHtml.value = "";
+    return;
   }
+  const status = (gitStore.diffFileStatuses[file] || "").trim();
+  if (status === "??" || status === "A") {
+    const workspace = workspaceStore.selectedWorkspace;
+    try {
+      const res = await auth.apiFetch(
+        `/workspaces/${encodeURIComponent(workspace)}/file-content?path=${encodeURIComponent(file)}`
+      );
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data) {
+          diffNewFileContent.value = data;
+          diffHtml.value = "";
+          return;
+        }
+      }
+    } catch {}
+  }
+  diffHtml.value = "";
 }, { immediate: true });
 
 watch(() => props.diffMessage, (msg) => {

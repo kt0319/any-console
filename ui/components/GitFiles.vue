@@ -94,6 +94,7 @@ async function loadWorkingTreeDiff() {
     const diffChunks = parseDiffChunks(data.diff);
     gitStore.diffChunks = diffChunks;
     gitStore.diffFullText = data.diff || "";
+    gitStore.diffFileStatuses = Object.fromEntries(fileList.map((f) => [f.path, f.status]));
     files.value = fileList.map((f) => ({
       path: f.path,
       status: f.status,
