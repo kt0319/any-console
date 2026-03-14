@@ -40,12 +40,41 @@
         />
       </div>
       <div class="clone-form-row">
+        <input
+          type="text"
+          class="form-input"
+          v-model="cloneBaseDir"
+          placeholder="クローン先ディレクトリ"
+          autocomplete="off"
+        />
+      </div>
+      <div class="clone-form-row">
         <button type="button" class="primary" :disabled="cloning" @click="doClone">
           {{ cloning ? 'クローン中...' : 'クローン' }}
         </button>
       </div>
       <div v-if="cloneError" class="clone-repo-error">{{ cloneError }}</div>
       <div v-if="cloneSuccess" class="clone-repo-success">{{ cloneSuccess }}</div>
+    </div>
+
+    <div class="clone-tab-content">
+      <div class="settings-section-label">既存ディレクトリを追加</div>
+      <div class="clone-form-row">
+        <input
+          type="text"
+          class="form-input"
+          v-model="addPath"
+          placeholder="フルパス（例: /home/user/projects/myapp）"
+          autocomplete="off"
+        />
+      </div>
+      <div class="clone-form-row">
+        <button type="button" class="primary" :disabled="adding" @click="doAddExisting">
+          {{ adding ? '追加中...' : '追加' }}
+        </button>
+      </div>
+      <div v-if="addError" class="clone-repo-error">{{ addError }}</div>
+      <div v-if="addSuccess" class="clone-repo-success">{{ addSuccess }}</div>
     </div>
 
   </div>
@@ -60,15 +89,46 @@ modalTitle.value = "ワークスペース追加";
 
 const auth = useAuthStore();
 
+let defaultWorkDir = "";
 const cloneUrl = ref("");
 const cloneName = ref("");
+const cloneBaseDir = ref("");
 const cloning = ref(false);
 const cloneError = ref("");
 const cloneSuccess = ref("");
 
+const addPath = ref("");
+const adding = ref(false);
+const addError = ref("");
+const addSuccess = ref("");
+
 const repos = ref([]);
 const loadingRepos = ref(false);
 const reposError = ref("");
+
+async function doAddExisting() {
+  if (!addPath.value.trim()) { addError.value = "パスを入力してください"; return; }
+  adding.value = true;
+  addError.value = "";
+  addSuccess.value = "";
+  try {
+    const res = await auth.apiFetch("/workspaces", {
+      method: "POST",
+      body: { path: addPath.value.trim() },
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      addError.value = data.detail || "追加に失敗しました";
+    } else {
+      addSuccess.value = `${data.name || "ディレクトリ"} を追加しました`;
+      addPath.value = "";
+    }
+  } catch (e) {
+    addError.value = e.message || "エラーが発生しました";
+  } finally {
+    adding.value = false;
+  }
+}
 
 async function doClone() {
   if (!cloneUrl.value.trim()) { cloneError.value = "URLを入力してください"; return; }
@@ -78,7 +138,11 @@ async function doClone() {
   try {
     const res = await auth.apiFetch("/workspaces", {
       method: "POST",
-      body: { url: cloneUrl.value.trim(), name: cloneName.value.trim() || null },
+      body: {
+        url: cloneUrl.value.trim(),
+        name: cloneName.value.trim() || null,
+        base_dir: cloneBaseDir.value.trim() || null,
+      },
     });
     const data = await res.json();
     if (!res.ok) {
@@ -102,7 +166,11 @@ function repoCloneUrl(repo) {
 
 function selectRepo(repo) {
   cloneUrl.value = repoCloneUrl(repo);
-  cloneName.value = "";
+  const name = (repo.nameWithOwner || "").split("/").pop();
+  cloneName.value = name;
+  if (!cloneBaseDir.value && defaultWorkDir) {
+    cloneBaseDir.value = defaultWorkDir;
+  }
 }
 
 async function loadRepos() {
@@ -122,7 +190,18 @@ async function loadRepos() {
   }
 }
 
-onMounted(loadRepos);
+async function loadWorkDir() {
+  try {
+    const res = await auth.apiFetch("/system/info");
+    if (res.ok) {
+      const data = await res.json();
+      defaultWorkDir = data.work_dir || "";
+      cloneBaseDir.value = defaultWorkDir;
+    }
+  } catch { /* ignore */ }
+}
+
+onMounted(() => { loadRepos(); loadWorkDir(); });
 </script>
 
 <style scoped>

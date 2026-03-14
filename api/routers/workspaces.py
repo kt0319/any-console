@@ -151,6 +151,7 @@ class AddWorkspaceRequest(BaseModel):
     url: str | None = None
     name: str | None = None
     path: str | None = None
+    base_dir: str | None = None
 
 
 @router.post("/workspaces")
@@ -190,11 +191,12 @@ def add_workspace(body: AddWorkspaceRequest):
     if dir_name in entries:
         raise conflict(f"'{dir_name}' は既に登録されています")
 
-    target_path = default_workspace_dir() / dir_name
+    base_dir = Path(body.base_dir) if body.base_dir and body.base_dir.strip() else default_workspace_dir()
+    target_path = base_dir / dir_name
     if target_path.exists():
         raise conflict(f"'{dir_name}' は既に存在します")
 
-    default_workspace_dir().mkdir(parents=True, exist_ok=True)
+    base_dir.mkdir(parents=True, exist_ok=True)
 
     if not url:
         target_path.mkdir(parents=False, exist_ok=False)
@@ -206,7 +208,7 @@ def add_workspace(body: AddWorkspaceRequest):
         result = subprocess.run(
             ["git", "clone", "--", url, str(target_path)],
             capture_output=True, text=True,
-            timeout=GIT_CLONE_TIMEOUT_SEC, cwd=str(default_workspace_dir()),
+            timeout=GIT_CLONE_TIMEOUT_SEC, cwd=str(base_dir),
         )
         resp = command_result_dict(result)
         if result.returncode != 0:
