@@ -52,7 +52,7 @@ function download() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "pi-console-config.json";
+  a.download = "any-console-config.json";
   a.style.display = "none";
   document.body.appendChild(a);
   a.click();

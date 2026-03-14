@@ -1,6 +1,6 @@
 # デプロイ時に ${USER}, ${INSTALL_DIR} を sed 等で置換すること
 [Unit]
-Description=pi-console API
+Description=any-console API
 After=network.target
 
 [Service]

@@ -9,8 +9,8 @@ from typing import Any
 from .errors import bad_request
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-WORK_DIR = Path(os.environ.get("PI_CONSOLE_WORKSPACE_ROOT", str(Path.home() / "work")))
-UPLOAD_DIR = Path("/tmp/pi-console-uploads")
+WORK_DIR = Path(os.environ.get("ANY_CONSOLE_WORKSPACE_ROOT", str(Path.home() / "work")))
+UPLOAD_DIR = Path("/tmp/any-console-uploads")
 
 TERMINAL_TIMEOUT_SEC = 7200
 CONFIG_FILE = PROJECT_ROOT / "config.json"
@@ -35,7 +35,7 @@ PTY_READ_BUFFER_SIZE = 16384
 PTY_READER_WORKERS = 8
 MAX_TERMINAL_SESSIONS = 20
 
-TMUX_SESSION_PREFIX = "pi-"
+TMUX_SESSION_PREFIX = "ac-"
 TMUX_CMD_TIMEOUT_SEC = 5
 
 BRANCH_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_./-]+$")

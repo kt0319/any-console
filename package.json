@@ -1,5 +1,5 @@
 {
-  "name": "pi-console",
+  "name": "any-console",
   "private": true,
   "scripts": {
     "dev": "vite",

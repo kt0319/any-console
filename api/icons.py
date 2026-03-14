@@ -58,7 +58,7 @@ def normalize_icon(icon: str) -> str:
 def _download_favicon(domain: str, fallback: str) -> str:
     url = GOOGLE_FAVICON_URL.format(domain=urllib.request.quote(domain))
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "pi-console/1.0"})  # noqa: S310
+        req = urllib.request.Request(url, headers={"User-Agent": "any-console/1.0"})  # noqa: S310
         with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
             content_type = resp.headers.get("Content-Type", "")
             raw = resp.read()

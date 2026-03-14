@@ -4,9 +4,9 @@ import subprocess
 import pytest
 from fastapi.testclient import TestClient
 
-os.environ.setdefault("PI_CONSOLE_TOKEN", "test-token")
+os.environ.setdefault("ANY_CONSOLE_TOKEN", "test-token")
 
-TOKEN = os.environ["PI_CONSOLE_TOKEN"]
+TOKEN = os.environ["ANY_CONSOLE_TOKEN"]
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
 
 

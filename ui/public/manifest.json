@@ -1,6 +1,6 @@
 {
-  "name": "pi-console",
-  "short_name": "pi-console",
+  "name": "any-console",
+  "short_name": "any-console",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1a1b26",

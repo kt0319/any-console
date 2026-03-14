@@ -1,7 +1,7 @@
 <template>
   <div v-if="visible" class="login-screen">
     <form class="login-box" @submit.prevent="handleLogin">
-      <h2>pi-console</h2>
+      <h2>any-console</h2>
       <input
         ref="tokenInput"
         v-model="tokenValue"

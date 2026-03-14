@@ -27,7 +27,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="pi-console")
+app = FastAPI(title="any-console")
 
 BOOT_VERSION = str(int(time.time()))
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
@@ -139,5 +139,5 @@ if __name__ == "__main__":
     if ssl_keyfile and ssl_certfile:
         ssl_kwargs["ssl_keyfile"] = ssl_keyfile
         ssl_kwargs["ssl_certfile"] = ssl_certfile
-    port = int(os.environ.get("PI_CONSOLE_PORT", "8888"))
+    port = int(os.environ.get("ANY_CONSOLE_PORT", "8888"))
     uvicorn.run(app, host="0.0.0.0", port=port, proxy_headers=True, forwarded_allow_ips="127.0.0.1", **ssl_kwargs)

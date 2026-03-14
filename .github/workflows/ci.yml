@@ -27,5 +27,5 @@ jobs:
       - name: Test
         run: pytest tests/ -v
         env:
-          PI_CONSOLE_TOKEN: test-token
+          ANY_CONSOLE_TOKEN: test-token
           PYTHONPATH: .

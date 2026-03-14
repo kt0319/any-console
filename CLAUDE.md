@@ -5,7 +5,7 @@
 
 ## プロジェクト概要
 
-Raspberry Pi用Web操作コンソール。スマホからTailscale経由でシェルスクリプトのジョブ実行、Git操作、Webターミナルを提供する。UIはモバイルファースト、PCにも対応。
+Web操作コンソール。スマホからTailscale経由でシェルスクリプトのジョブ実行、Git操作、Webターミナルを提供する。UIはモバイルファースト、PCにも対応。
 
 ## 動作環境
 
@@ -44,7 +44,7 @@ npm run dev
 
 - UI編集が即座にブラウザに反映される（HMR）
 - APIリクエスト・WebSocketは `vite.config.js` のプロキシ設定で FastAPI に転送
-- `.env` がない場合は `PI_CONSOLE_TOKEN=dev-token` を付けて FastAPI を起動
+- `.env` がない場合は `ANY_CONSOLE_TOKEN=dev-token` を付けて FastAPI を起動
 
 ### 本番（pi:8888）
 
@@ -53,7 +53,7 @@ npm run dev
 npm run build
 
 # FastAPI起動（dist/ があればそこから配信、なければ ui/ から直接配信）
-sudo systemctl restart pi-console
+sudo systemctl restart any-console
 ```
 
 - `dist/` を削除すれば従来通り `ui/` から直接配信に戻る
@@ -61,7 +61,7 @@ sudo systemctl restart pi-console
 
 ### 認証
 
-- 環境変数 `PI_CONSOLE_TOKEN` によるBearerトークン認証
+- 環境変数 `ANY_CONSOLE_TOKEN` によるBearerトークン認証
 - `.env` は `python-dotenv` で `api/main.py` 起動時に自動読み込み
 
 ## テスト・Lint
@@ -114,4 +114,4 @@ sudo systemctl restart pi-console
 - 認証は単一トークン（ユーザー区別なし）
 - フロントエンドはビルド不要。`ui/` 配下を直接StaticFilesとしてマウント
 - `main.py` で起動時にCSS/JSにキャッシュバスト用クエリパラメータを付与
-- systemdサービス定義は `systemd/pi-console.service`（パスはインストール環境に合わせて編集）
+- systemdサービス定義は `systemd/any-console.service`（パスはインストール環境に合わせて編集）

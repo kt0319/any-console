@@ -1,6 +1,6 @@
-# pi-console
+# any-console
 
-Raspberry Pi用Web操作コンソール。スマホやPCのブラウザからシェルスクリプトのジョブ実行、Git操作、Webターミナルを提供する。
+Web操作コンソール。スマホやPCのブラウザからシェルスクリプトのジョブ実行、Git操作、Webターミナルを提供する。
 
 ## 特徴
 
@@ -21,8 +21,8 @@ Raspberry Pi用Web操作コンソール。スマホやPCのブラウザからシ
 ### インストール
 
 ```bash
-git clone https://github.com/kt0319/pi-console.git
-cd pi-console
+git clone https://github.com/kt0319/any-console.git
+cd any-console
 pip install -r requirements.txt
 ```
 
@@ -53,11 +53,11 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8888 --reload --reload-incl
 
 ```bash
 # サービスファイルを編集（%USER% と %INSTALL_DIR% を置換）
-sudo cp systemd/pi-console.service /etc/systemd/system/
-sudo vim /etc/systemd/system/pi-console.service
+sudo cp systemd/any-console.service /etc/systemd/system/
+sudo vim /etc/systemd/system/any-console.service
 
 sudo systemctl daemon-reload
-sudo systemctl enable --now pi-console
+sudo systemctl enable --now any-console
 ```
 
 ## ディレクトリ構成

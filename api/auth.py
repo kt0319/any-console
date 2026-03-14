@@ -6,18 +6,18 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 security = HTTPBearer()
 
-PI_CONSOLE_TOKEN = os.environ.get("PI_CONSOLE_TOKEN", "")
+ANY_CONSOLE_TOKEN = os.environ.get("ANY_CONSOLE_TOKEN", "")
 
 
 def verify_token(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> str:
-    if not PI_CONSOLE_TOKEN:
+    if not ANY_CONSOLE_TOKEN:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="PI_CONSOLE_TOKEN is not configured",
+            detail="ANY_CONSOLE_TOKEN is not configured",
         )
-    if not hmac.compare_digest(credentials.credentials, PI_CONSOLE_TOKEN):
+    if not hmac.compare_digest(credentials.credentials, ANY_CONSOLE_TOKEN):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
