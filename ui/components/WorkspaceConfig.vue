@@ -67,6 +67,13 @@
         </div>
       </div>
 
+      <div class="ws-settings-section ws-delete-section">
+        <button type="button" class="ws-delete-config-btn" @click="deleteWsConfig">
+          <span class="mdi mdi-delete-outline"></span>
+          ワークスペースを削除
+        </button>
+      </div>
+
       <div v-if="saveError" class="clone-repo-error">{{ saveError }}</div>
     </div>
   </div>
@@ -188,6 +195,19 @@ async function deleteJob(entry) {
       method: "DELETE",
     });
     await loadWorkspaceJobs();
+  } catch { /* ignore */ }
+}
+
+async function deleteWsConfig() {
+  if (!editWs.value) return;
+  try {
+    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(editWs.value.name)}/config`, {
+      method: "DELETE",
+    });
+    if (res.ok) {
+      goBackToList();
+      await loadWorkspaceConfig();
+    }
   } catch { /* ignore */ }
 }
 
@@ -615,5 +635,25 @@ onMounted(async () => {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
+}
+
+.ws-delete-section {
+  margin-top: 8px;
+  padding: 8px 0;
+}
+
+.ws-delete-config-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px;
+  font-size: 13px;
+  color: var(--error);
+  background: transparent;
+  border: 1px solid var(--error);
+  border-radius: var(--radius);
+  cursor: pointer;
 }
 </style>

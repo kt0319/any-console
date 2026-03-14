@@ -20,6 +20,7 @@ from ..common import (
     sanitize_log_value,
 )
 from ..config import (
+    delete_workspace_config,
     load_global_config_section,
     load_workspace_config,
     save_global_config_section,
@@ -138,6 +139,14 @@ def update_workspace_config_endpoint(name: str, body: UpdateConfigRequest):
     config["hidden"] = body.hidden
     save_workspace_config(name, config)
     logger.info("workspace config updated workspace=%s", name)
+    return {"status": "ok"}
+
+
+@router.delete("/workspaces/{name}/config")
+def delete_workspace_config_endpoint(name: str):
+    resolve_workspace_path(name)
+    delete_workspace_config(name)
+    logger.info("workspace config deleted workspace=%s", name)
     return {"status": "ok"}
 
 

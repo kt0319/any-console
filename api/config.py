@@ -74,6 +74,18 @@ def save_workspace_config_section(workspace_name: str, key: str, data) -> None:
         _write_config_unlocked(all_config)
 
 
+def delete_workspace_config(workspace_name: str) -> None:
+    with _config_lock:
+        all_config = _read_config_unlocked()
+        all_config.pop(workspace_name, None)
+        global_config = all_config.get(GLOBAL_CONFIG_KEY, {})
+        order = global_config.get("workspace_order", [])
+        if workspace_name in order:
+            global_config["workspace_order"] = [n for n in order if n != workspace_name]
+            all_config[GLOBAL_CONFIG_KEY] = validate_config_entry(GLOBAL_CONFIG_KEY, global_config, GLOBAL_CONFIG_KEY)
+        _write_config_unlocked(all_config)
+
+
 def load_global_config_section(key: str, default=None):
     with _config_lock:
         global_config = _read_config_unlocked().get(GLOBAL_CONFIG_KEY, {})
