@@ -23,7 +23,6 @@
         <label class="form-check-label"><input type="checkbox" v-model="form.terminal" /> ターミナルで実行</label>
       </div>
       <div class="ws-settings-row" style="gap:8px">
-        <button type="button" @click="popView()">キャンセル</button>
         <button type="button" class="primary" :disabled="saving" @click="saveJob">
           {{ saving ? '保存中...' : '保存' }}
         </button>
@@ -66,7 +65,7 @@ const form = ref(
           command: "",
           icon: "",
           icon_color: "",
-          confirm: true,
+          confirm: false,
           terminal: true,
         }
 );

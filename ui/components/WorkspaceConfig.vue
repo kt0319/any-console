@@ -67,13 +67,7 @@
         </div>
       </div>
 
-      <div class="ws-settings-row" style="margin-top:12px">
-        <button type="button" class="primary" :disabled="saving" @click="saveWsConfig">
-          {{ saving ? '保存中...' : 'アイコン保存' }}
-        </button>
-      </div>
       <div v-if="saveError" class="clone-repo-error">{{ saveError }}</div>
-      <div v-if="saveSuccess" style="color:var(--success);padding:8px;text-align:center">{{ saveSuccess }}</div>
     </div>
   </div>
 </template>
@@ -100,9 +94,7 @@ watchEffect(() => {
 });
 const editIcon = ref("");
 const editIconColor = ref("");
-const saving = ref(false);
 const saveError = ref("");
-const saveSuccess = ref("");
 
 const jobEntries = ref([]);
 const loadingJobs = ref(false);
@@ -142,7 +134,6 @@ function openWsSettings(ws) {
   editIcon.value = ws.icon || "";
   editIconColor.value = ws.icon_color || "";
   saveError.value = "";
-  saveSuccess.value = "";
   loadWorkspaceJobs();
 }
 
@@ -202,9 +193,7 @@ async function deleteJob(entry) {
 
 async function saveWsConfig() {
   if (!editWs.value) return;
-  saving.value = true;
   saveError.value = "";
-  saveSuccess.value = "";
   try {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(editWs.value.name)}/config`, {
       method: "PUT",
@@ -220,12 +209,9 @@ async function saveWsConfig() {
     } else {
       editWs.value.icon = editIcon.value.trim();
       editWs.value.icon_color = editIconColor.value.trim();
-      saveSuccess.value = "保存しました";
     }
   } catch (e) {
     saveError.value = e.message || "エラーが発生しました";
-  } finally {
-    saving.value = false;
   }
 }
 
@@ -233,9 +219,12 @@ function openIconPicker() {
   pushView("IconPicker", {
     currentIcon: editIcon.value,
     currentColor: editIconColor.value,
-    onReturn: (result) => {
-      editIcon.value = result.icon;
-      editIconColor.value = result.color;
+    onReturn: (result, parentEntry) => {
+      if (parentEntry) {
+        parentEntry.state.initialWsName = editWs.value?.name;
+        parentEntry.state.pendingIcon = result.icon;
+        parentEntry.state.pendingColor = result.color;
+      }
     },
   });
 }
@@ -325,6 +314,13 @@ onMounted(async () => {
   if (initialWsName) {
     const ws = allWorkspaces.value.find((w) => w.name === initialWsName);
     if (ws) openWsSettings(ws);
+  }
+  if ("pendingIcon" in (viewState.value || {})) {
+    editIcon.value = viewState.value.pendingIcon;
+    editIconColor.value = viewState.value.pendingColor ?? "";
+    delete viewState.value.pendingIcon;
+    delete viewState.value.pendingColor;
+    saveWsConfig();
   }
 });
 </script>
