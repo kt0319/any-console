@@ -8,8 +8,8 @@ from pathlib import Path
 from .common import (
     GIT_QUICK_TIMEOUT_SEC,
     GIT_STANDARD_TIMEOUT_SEC,
-    WORK_DIR,
     TTLCache,
+    resolve_workspace_path,
 )
 from .errors import timeout_error
 
@@ -68,8 +68,11 @@ _git_info_cache = TTLCache(5)
 
 
 def invalidate_git_info(workspace_name: str):
-    cache_key = str(WORK_DIR / workspace_name)
-    _git_info_cache.invalidate(cache_key)
+    ws_path = resolve_workspace_path(workspace_name)
+    if ws_path:
+        _git_info_cache.invalidate(str(ws_path))
+    else:
+        _git_info_cache.invalidate(workspace_name)
 
 
 def git_branch(directory: Path) -> str | None:

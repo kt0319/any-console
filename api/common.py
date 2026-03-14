@@ -9,8 +9,11 @@ from typing import Any
 from .errors import bad_request
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-WORK_DIR = Path(os.environ.get("ANY_CONSOLE_WORKSPACE_ROOT", str(Path.home() / "work")))
 UPLOAD_DIR = Path("/tmp/any-console-uploads")
+
+
+def default_workspace_dir() -> Path:
+    return Path(os.environ.get("ANY_CONSOLE_WORKSPACE_ROOT", str(Path.home() / "work")))
 
 TERMINAL_TIMEOUT_SEC = 7200
 CONFIG_FILE = PROJECT_ROOT / "config.json"
@@ -99,9 +102,12 @@ def sanitize_log_value(value: str) -> str:
 def resolve_workspace_path(workspace: str | None) -> Path | None:
     if not workspace:
         return None
-    ws_path = (WORK_DIR / workspace).resolve()
-    if ws_path.parent != WORK_DIR.resolve():
-        raise bad_request(f"Invalid workspace: {workspace}")
+    from .config import load_workspace_config
+    config = load_workspace_config(workspace)
+    ws_path_str = config.get("path", "")
+    if not ws_path_str:
+        raise bad_request(f"Workspace not configured: {workspace}")
+    ws_path = Path(ws_path_str)
     if not ws_path.is_dir():
         raise bad_request(f"Workspace not found: {workspace}")
     return ws_path

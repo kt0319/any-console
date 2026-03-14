@@ -84,6 +84,9 @@ class TestJobsCRUD:
     def test_list_all_workspace_jobs(self, client, workspace, isolate_fs):
         second = isolate_fs["work"] / "second-ws"
         second.mkdir()
+        config = json.loads(isolate_fs["config_file"].read_text(encoding="utf-8"))
+        config["second-ws"] = {"path": str(second)}
+        isolate_fs["config_file"].write_text(json.dumps(config), encoding="utf-8")
 
         first_job = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "label": "hello",

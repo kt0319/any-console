@@ -1,11 +1,13 @@
 import json
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from ..auth import verify_token
-from ..common import GLOBAL_CONFIG_KEY, MAX_COMMAND_LENGTH, MAX_LABEL_LENGTH, WORK_DIR
+from ..common import GLOBAL_CONFIG_KEY, MAX_COMMAND_LENGTH, MAX_LABEL_LENGTH
 from ..config import (
+    list_workspace_entries,
     load_all_config,
     load_global_config_section,
     save_all_config,
@@ -19,9 +21,8 @@ MAX_IMPORT_SIZE = 1024 * 1024
 
 
 def _existing_workspace_names() -> set[str]:
-    if not WORK_DIR.is_dir():
-        return set()
-    return {d.name for d in WORK_DIR.iterdir() if d.is_dir() and not d.name.startswith(".")}
+    entries = list_workspace_entries()
+    return {name for name, cfg in entries.items() if Path(cfg.get("path", "")).is_dir()}
 
 
 @router.get("/settings/export")

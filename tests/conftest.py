@@ -20,14 +20,14 @@ def isolate_fs(tmp_path, monkeypatch):
 
     import api.common as common_mod
     import api.config as config_mod
-    import api.routers.settings as settings_mod
     import api.routers.workspaces as workspaces_mod
 
-    monkeypatch.setattr(common_mod, "WORK_DIR", work)
+    _work_dir = lambda: work
+    monkeypatch.setattr(common_mod, "default_workspace_dir", _work_dir)
     monkeypatch.setattr(common_mod, "CONFIG_FILE", config_file)
     monkeypatch.setattr(config_mod, "CONFIG_FILE", config_file)
-    monkeypatch.setattr(settings_mod, "WORK_DIR", work)
-    monkeypatch.setattr(workspaces_mod, "WORK_DIR", work)
+    monkeypatch.setattr(config_mod, "default_workspace_dir", _work_dir)
+    monkeypatch.setattr(workspaces_mod, "default_workspace_dir", _work_dir)
 
     return {"work": work, "data": data, "config_file": config_file}
 
@@ -42,6 +42,11 @@ def client():
 def workspace(isolate_fs):
     ws = isolate_fs["work"] / "test-ws"
     ws.mkdir()
+    import json
+    config_file = isolate_fs["config_file"]
+    config = json.loads(config_file.read_text(encoding="utf-8")) if config_file.is_file() else {}
+    config.setdefault("test-ws", {})["path"] = str(ws)
+    config_file.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
     return ws
 
 
@@ -62,6 +67,13 @@ def _reset_rate_limiter():
     """各テスト前にレートリミッターのカウンターをリセット"""
     from api.rate_limiter import _counter
     _counter._counts.clear()
+
+
+@pytest.fixture(autouse=True)
+def _reset_jobs_cache():
+    """各テスト前にジョブキャッシュをクリア"""
+    from api.routers.jobs import _workspace_jobs_cache
+    _workspace_jobs_cache.invalidate_all()
 
 
 @pytest.fixture()

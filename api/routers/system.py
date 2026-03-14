@@ -11,7 +11,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends
 
 from ..auth import verify_token
-from ..common import SYSTEM_CMD_TIMEOUT_SEC, WORK_DIR
+from ..common import SYSTEM_CMD_TIMEOUT_SEC, default_workspace_dir
 from ..errors import server_error
 
 logger = logging.getLogger(__name__)
@@ -189,7 +189,7 @@ def get_system_processes():
 
 @router.get("/system/info")
 def get_system_info():
-    info = {"hostname": socket.gethostname(), "user": getpass.getuser(), "work_dir": str(WORK_DIR)}
+    info = {"hostname": socket.gethostname(), "user": getpass.getuser(), "work_dir": str(default_workspace_dir())}
     for key, getter in [
         ("ip", _get_ip),
         ("os", _get_os_name),
