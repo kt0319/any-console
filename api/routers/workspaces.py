@@ -15,9 +15,8 @@ from ..common import (
     GITHUB_CLI_REPO_LIMIT,
     GITHUB_CLI_TIMEOUT_SEC,
     GITHUB_REPOS_CACHE_TTL_SEC,
-    default_workspace_dir,
     TTLCache,
-    resolve_workspace_path,
+    default_workspace_dir,
     sanitize_log_value,
 )
 from ..config import (

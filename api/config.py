@@ -33,7 +33,6 @@ def _read_config_unlocked() -> dict:
             logger.warning("config read failed path=%s: %s", CONFIG_FILE, e)
             return {}
         normalized, errors = normalize_loaded_config(raw, GLOBAL_CONFIG_KEY)
-        error_names = {name for name, _ in errors}
         for name, error in errors:
             logger.warning("config validation failed key=%s: %s", name, error)
         if _migrate_workspace_paths(normalized):
