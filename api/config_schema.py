@@ -33,6 +33,7 @@ class JobConfig(_ConfigModel):
 
 
 class WorkspaceConfig(_ConfigModel):
+    path: str = ""
     icon: str = ""
     icon_color: str = ""
     hidden: bool = False

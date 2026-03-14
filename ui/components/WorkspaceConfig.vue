@@ -67,6 +67,13 @@
         </div>
       </div>
 
+      <div class="ws-settings-section ws-delete-section">
+        <button type="button" class="ws-delete-btn" @click="deleteWorkspace">
+          <span class="mdi mdi-delete-outline"></span>
+          ワークスペースを削除
+        </button>
+      </div>
+
       <div v-if="saveError" class="clone-repo-error">{{ saveError }}</div>
     </div>
   </div>
@@ -101,7 +108,13 @@ const loadingJobs = ref(false);
 const wsJobCounts = ref({});
 
 async function loadWorkspaceConfig() {
-  await workspaceStore.fetchStatuses(auth);
+  try {
+    const res = await auth.apiFetch("/workspaces");
+    if (res && res.ok) {
+      const data = await res.json();
+      workspaceStore.allWorkspaces = Array.isArray(data) ? data : [];
+    }
+  } catch { /* ignore */ }
   allWorkspaces.value = workspaceStore.allWorkspaces || [];
   fetchAllJobCounts();
 }
@@ -179,6 +192,25 @@ function startEditJob(entry) {
     jobEntry: entry,
     onReturn: () => { loadWorkspaceJobs(); },
   });
+}
+
+async function deleteWorkspace() {
+  if (!editWs.value) return;
+  if (!confirm(`「${editWs.value.name}」を削除しますか？\nディレクトリは残ります。`)) return;
+  try {
+    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(editWs.value.name)}`, {
+      method: "DELETE",
+    });
+    if (res.ok) {
+      goBackToList();
+      await loadWorkspaceConfig();
+    } else {
+      const data = await res.json();
+      saveError.value = data.detail || "削除に失敗しました";
+    }
+  } catch (e) {
+    saveError.value = e.message || "エラーが発生しました";
+  }
 }
 
 async function deleteJob(entry) {
@@ -604,6 +636,27 @@ onMounted(async () => {
   white-space: nowrap;
   text-overflow: ellipsis;
   min-width: 0;
+}
+
+.ws-delete-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.ws-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  font-size: 13px;
+  color: var(--error);
+  background: transparent;
+  border: 1px solid var(--error);
+  border-radius: var(--radius);
+  cursor: pointer;
+  justify-content: center;
 }
 
 .icon-select-preview .mdi {

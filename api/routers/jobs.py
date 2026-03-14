@@ -1,5 +1,4 @@
 import logging
-import os
 import re
 import secrets
 import subprocess
@@ -8,7 +7,6 @@ import time
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from .. import common
 from ..auth import verify_token
 from ..common import (
     MAX_COMMAND_LENGTH,
@@ -21,7 +19,7 @@ from ..common import (
     resolve_workspace_path,
     sanitize_log_value,
 )
-from ..config import load_workspace_config_section, save_workspace_config_section
+from ..config import list_workspace_entries, load_workspace_config_section, save_workspace_config_section
 from ..errors import bad_request, not_found, server_error, timeout_error, too_many_requests
 from ..git_utils import command_result_dict, git_branches
 from ..job_models import TERMINAL_JOB, JobDefinition
@@ -42,7 +40,7 @@ _workspace_jobs_cache = TTLCache(WORKSPACE_JOBS_CACHE_TTL_SEC)
 
 
 def workspace_jobs_cache_key(workspace_name):
-    return (str(os.fspath(resolve_workspace_path(workspace_name))), workspace_name)
+    return workspace_name
 
 
 def load_workspace_jobs_data(workspace_name):
@@ -97,13 +95,10 @@ def serialize_workspace_jobs(workspace_name: str) -> dict:
 
 @router.get("/jobs/workspaces")
 def list_all_workspace_jobs():
-    if not common.WORK_DIR.is_dir():
-        return {}
+    entries = list_workspace_entries()
     result = {}
-    for workspace_dir in sorted(common.WORK_DIR.iterdir(), key=lambda path: path.name):
-        if not workspace_dir.is_dir() or workspace_dir.name.startswith("."):
-            continue
-        result[workspace_dir.name] = serialize_workspace_jobs(workspace_dir.name)
+    for name in sorted(entries.keys()):
+        result[name] = serialize_workspace_jobs(name)
     return result
 
 

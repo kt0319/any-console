@@ -26,10 +26,10 @@ from ..common import (
     TERMINAL_TIMEOUT_SEC,
     TMUX_CMD_TIMEOUT_SEC,
     TMUX_SESSION_PREFIX,
-    WORK_DIR,
     WS_MSG_CANCEL_COPY_MODE,
     WS_MSG_RESIZE,
     WS_MSG_SCROLL,
+    resolve_workspace_path,
 )
 from ..errors import gone, not_found, server_error, timeout_error
 
@@ -177,12 +177,12 @@ def _detect_workspace_from_tmux(tmux_name: str) -> str | None:
         )
         if result.returncode == 0:
             pane_path = result.stdout.strip()
-            work_dir = str(WORK_DIR)
-            if pane_path.startswith(work_dir + "/"):
-                relative = pane_path[len(work_dir) + 1:]
-                workspace = relative.split("/")[0]
-                if workspace:
-                    return workspace
+            from ..config import list_workspace_entries
+            entries = list_workspace_entries()
+            for name, config in entries.items():
+                ws_path = config.get("path", "")
+                if ws_path and (pane_path == ws_path or pane_path.startswith(ws_path + "/")):
+                    return name
     except (subprocess.TimeoutExpired, OSError):
         pass
     return None
@@ -464,7 +464,11 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
         return
 
     if not _tmux_session_exists(session.tmux_session_name):
-        workspace_path = str(WORK_DIR / session.workspace) if session.workspace else None
+        try:
+            ws_resolved = resolve_workspace_path(session.workspace)
+            workspace_path = str(ws_resolved) if ws_resolved else None
+        except Exception:
+            workspace_path = None
         try:
             create_tmux_session(workspace_path, session.tmux_session_name)
             save_tmux_metadata(
