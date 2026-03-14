@@ -203,21 +203,37 @@ function onTouchMove(e) {
   }
 }
 
-function onTouchEnd(e) {
-  touchLongPress.cancel();
-  if (touchLongPress.consumeFired()) return;
-  if (!touchDragging) return;
+function cleanupTouchDrag(e) {
+  if (!touchDragging) return false;
   if (e.cancelable) e.preventDefault();
   isDragging.value = false;
-  const touch = e.changedTouches[0];
-  finishSplitDrop({
-    tabId: props.tab.id,
-    clientX: touch.clientX,
-    clientY: touch.clientY,
-    openTabs: terminalStore.openTabs,
-    activeTabId: terminalStore.activeTabId,
-  });
+  const touch = e.changedTouches?.[0];
+  if (touch) {
+    finishSplitDrop({
+      tabId: props.tab.id,
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      openTabs: terminalStore.openTabs,
+      activeTabId: terminalStore.activeTabId,
+    });
+  } else {
+    cancelDrag();
+  }
   setTimeout(() => { touchDragging = false; }, 100);
+  return true;
+}
+
+function onTouchEnd(e) {
+  touchLongPress.cancel();
+  const wasDragging = cleanupTouchDrag(e);
+  if (wasDragging) return;
+  if (touchLongPress.consumeFired()) return;
+}
+
+function onTouchCancel(e) {
+  touchLongPress.cancel();
+  touchLongPress.consumeFired();
+  cleanupTouchDrag(e);
 }
 
 onMounted(() => {
@@ -225,6 +241,7 @@ onMounted(() => {
   if (!el) return;
   el.addEventListener("touchmove", onTouchMove, { passive: false });
   el.addEventListener("touchend", onTouchEnd, { passive: false });
+  el.addEventListener("touchcancel", onTouchCancel);
 });
 
 onBeforeUnmount(() => {
@@ -232,6 +249,7 @@ onBeforeUnmount(() => {
   if (!el) return;
   el.removeEventListener("touchmove", onTouchMove);
   el.removeEventListener("touchend", onTouchEnd);
+  el.removeEventListener("touchcancel", onTouchCancel);
 });
 </script>
 
