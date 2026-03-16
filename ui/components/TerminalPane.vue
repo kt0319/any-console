@@ -116,7 +116,12 @@ function onTouchStart(e) {
 function onTouchEnd(e) {
   if (pillEl.value && pillEl.value.contains(e.target)) return;
   const endY = e.changedTouches?.[0]?.clientY || 0;
-  if (Math.abs(endY - touchStartY) > 10) return;
+  const deltaY = endY - touchStartY;
+  if (deltaY > 80 && frameEl.value && !isViewMode(frameEl.value)) {
+    enterViewMode(props.tab, frameEl.value, auth.apiFetch.bind(auth));
+    return;
+  }
+  if (Math.abs(deltaY) > 10) return;
   if (layoutStore.isSplitMode) {
     if (!isActive.value) {
       emits("select-pane", props.paneIndex);
