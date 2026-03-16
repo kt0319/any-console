@@ -147,6 +147,16 @@ on("git:commitDone", () => {
   gitHistory.value?.reload();
 });
 
+on("git:checkoutBranch", async ({ branch, remote }) => {
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
+  const { ok } = await apiCommand(wsEndpoint(workspace, "checkout"), { branch, remote });
+  if (!ok) return;
+  switchPane("browser");
+  gitHistory.value?.reload();
+  fileBrowser.value?.load();
+});
+
 on("git:stashSave", async () => {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
