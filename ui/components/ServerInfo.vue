@@ -17,7 +17,7 @@
         </div>
       </template>
     </template>
-    <div v-if="isServerInfoLoading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
+    <div v-if="isServerInfoLoading" class="text-muted-center">読み込み中...</div>
   </div>
 </template>
 

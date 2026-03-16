@@ -1,8 +1,8 @@
 <template>
   <div class="git-graph-pane-wrapper">
     <div class="modal-scroll-body" ref="graphListEl" @scroll.passive="onGraphListScroll">
-      <div v-if="isGraphLoading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
-      <div v-else-if="graphRows.length === 0" style="color:var(--text-muted);padding:16px;text-align:center">コミットログがありません</div>
+      <div v-if="isGraphLoading" class="text-muted-center">読み込み中...</div>
+      <div v-else-if="graphRows.length === 0" class="text-muted-center">コミットログがありません</div>
       <div v-else class="git-graph-list">
         <template v-for="(row, idx) in graphRows" :key="idx">
           <div

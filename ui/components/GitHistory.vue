@@ -3,7 +3,7 @@
     <!-- ファイル一覧モード -->
     <template v-if="selectedCommitForFiles">
       <div class="modal-scroll-body">
-        <div v-if="isSelectedCommitFilesLoading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
+        <div v-if="isSelectedCommitFilesLoading" class="text-muted-center">読み込み中...</div>
         <ul v-else class="file-browser-list diff-file-browser-list">
           <FileItem
             v-for="file in selectedCommitFiles"
@@ -23,8 +23,8 @@
     </template>
     <!-- コミット履歴モード -->
     <div v-else class="modal-scroll-body" ref="historyListEl" @scroll.passive="onHistoryListScroll">
-      <div v-if="isHistoryLoading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
-      <div v-else-if="commitEntries.length === 0" style="color:var(--text-muted);padding:16px;text-align:center">コミットログがありません</div>
+      <div v-if="isHistoryLoading" class="text-muted-center">読み込み中...</div>
+      <div v-else-if="commitEntries.length === 0" class="text-muted-center">コミットログがありません</div>
       <!-- 未コミットの変更 / 変更なし -->
       <div v-if="!isHistoryLoading && commitEntries.length > 0" class="git-log-entry git-log-dirty" @click="openWorkingTreeDiffFiles">
         <span class="git-log-entry-body git-log-dirty-body">
@@ -243,40 +243,31 @@ function execRebase(branch) {
   execCommitRebase(branch, closeLongPressMenu);
 }
 
-async function openWorkingTreeDiffFiles() {
-  if (!isDirty.value) return;
-  selectedCommitForFiles.value = { message: "未コミットの変更", author: "", time: "", hash: "__dirty__", fullHash: "__dirty__" };
-  emitToParent("commit:expanded", { message: selectedCommitForFiles.value.message });
-  selectedCommitFiles.value = [];
-  isSelectedCommitFilesLoading.value = true;
-  try {
-    const result = await fetchWorkingTreeDiff();
-    if (!result) return;
-    selectedCommitFiles.value = result.fileList;
-  } catch (e) {
-    console.error("dirty files load failed:", e);
-  } finally {
-    isSelectedCommitFilesLoading.value = false;
-  }
-}
-
-async function openCommitDiffFiles(entry) {
-  if (isMenuEl() || longPressEntry.value || isLongPressFired()) {
-    return;
-  }
+async function openDiffFiles(entry, fetchFn) {
   selectedCommitForFiles.value = entry;
   emitToParent("commit:expanded", { message: entry.message });
   selectedCommitFiles.value = [];
   isSelectedCommitFilesLoading.value = true;
   try {
-    const result = await fetchCommitDiff(entry.fullHash);
+    const result = await fetchFn();
     if (!result) return;
     selectedCommitFiles.value = result.fileList;
   } catch (e) {
-    console.error("commit files load failed:", e);
+    console.error("diff files load failed:", e);
   } finally {
     isSelectedCommitFilesLoading.value = false;
   }
+}
+
+function openWorkingTreeDiffFiles() {
+  if (!isDirty.value) return;
+  const dirtyEntry = { message: "未コミットの変更", author: "", time: "", hash: "__dirty__", fullHash: "__dirty__" };
+  openDiffFiles(dirtyEntry, fetchWorkingTreeDiff);
+}
+
+function openCommitDiffFiles(entry) {
+  if (isMenuEl() || longPressEntry.value || isLongPressFired()) return;
+  openDiffFiles(entry, () => fetchCommitDiff(entry.fullHash));
 }
 
 function closeSelectedCommitFiles() {

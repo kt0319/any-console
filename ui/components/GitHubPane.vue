@@ -1,7 +1,7 @@
 <template>
   <div class="git-github-pane-wrapper">
     <div class="modal-scroll-body">
-      <div v-if="!githubUrl" style="color:var(--text-muted);padding:16px;text-align:center">GitHubリポジトリが設定されていません</div>
+      <div v-if="!githubUrl" class="text-muted-center">GitHubリポジトリが設定されていません</div>
       <template v-else>
         <div class="github-section-title github-section-link" @click="openUrl(githubUrl)">
           {{ repoName }}

@@ -516,6 +516,12 @@ button:disabled {
   color: var(--error);
 }
 
+.text-muted-center {
+  color: var(--text-muted);
+  padding: 16px;
+  text-align: center;
+}
+
 .drag-handle {
   flex-shrink: 0;
   width: 28px;

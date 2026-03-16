@@ -10,7 +10,7 @@
       >{{ action.label }}</button>
     </div>
     <div class="diff-file-list">
-      <div v-if="isLoading" style="color:var(--text-muted);padding:16px">読み込み中...</div>
+      <div v-if="isLoading" class="text-muted-center">読み込み中...</div>
       <ul v-else class="file-browser-list diff-file-browser-list">
         <FileItem
           v-for="file in files"

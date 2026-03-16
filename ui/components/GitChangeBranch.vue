@@ -1,7 +1,7 @@
 <template>
   <div class="git-branch-pane-wrapper">
     <div class="modal-scroll-body" ref="branchListEl">
-      <div v-if="isBranchListLoading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
+      <div v-if="isBranchListLoading" class="text-muted-center">読み込み中...</div>
       <template v-else>
         <div
           v-for="branch in branches"

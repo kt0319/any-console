@@ -191,7 +191,7 @@ watch(() => props.diffFile, async (file) => {
 
 watch(() => props.diffMessage, (msg) => {
   if (msg) {
-    diffHtml.value = `<div style="color:var(--text-muted);padding:16px;text-align:center">${escapeDiffHtml(msg)}</div>`;
+    diffHtml.value = `<div class="text-muted-center">${escapeDiffHtml(msg)}</div>`;
   }
 }, { immediate: true });
 

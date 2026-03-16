@@ -4,8 +4,8 @@
       <button type="button" class="stash-save-btn" @click="stashSave">stash save</button>
     </div>
     <div class="modal-scroll-body" ref="stashListEl">
-      <div v-if="isStashListLoading" style="color:var(--text-muted);padding:16px;text-align:center">読み込み中...</div>
-      <div v-else-if="stashEntries.length === 0" style="color:var(--text-muted);padding:16px;text-align:center">stashはありません</div>
+      <div v-if="isStashListLoading" class="text-muted-center">読み込み中...</div>
+      <div v-else-if="stashEntries.length === 0" class="text-muted-center">stashはありません</div>
       <div v-for="entry in stashEntries" :key="entry.ref" class="stash-entry">
         <div class="stash-entry-info">
           <span class="stash-entry-ref">{{ entry.ref }}</span>

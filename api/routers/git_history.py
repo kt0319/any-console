@@ -27,7 +27,7 @@ class ResetRequest(BaseModel):
     mode: str = "soft"
 
 
-class StashDropRequest(BaseModel):
+class StashRefRequest(BaseModel):
     stash_ref: str
 
 
@@ -119,13 +119,13 @@ def git_stash_list(name: str):
 
 
 @router.post("/workspaces/{name}/stash-drop")
-def git_stash_drop(name: str, body: StashDropRequest):
+def git_stash_drop(name: str, body: StashRefRequest):
     ref = validate_stash_ref(body.stash_ref)
     return execute_git_action(name, ["stash", "drop", ref], operation="stash drop", log_extra=f"ref={ref}")
 
 
 @router.post("/workspaces/{name}/stash-pop-ref")
-def git_stash_pop_ref(name: str, body: StashDropRequest):
+def git_stash_pop_ref(name: str, body: StashRefRequest):
     ref = validate_stash_ref(body.stash_ref)
     return execute_git_action(name, ["stash", "pop", ref], operation="stash pop", log_extra=f"ref={ref}")
 
