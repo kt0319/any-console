@@ -22,6 +22,7 @@ import { ref, nextTick } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
+import { extractApiError } from "../utils/constants.js";
 
 const { apiCommand, wsEndpoint } = useApi();
 const workspaceStore = useWorkspaceStore();
@@ -64,7 +65,7 @@ async function submit() {
       close();
       emit("git:commitDone");
     } else {
-      error.value = data?.message || data?.stderr || data?.detail || "コミットに失敗しました";
+      error.value = extractApiError(data, "コミットに失敗しました");
     }
   } catch (e) {
     error.value = e.message;

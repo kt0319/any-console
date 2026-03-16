@@ -2,6 +2,7 @@ import { ref } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
 import { emit } from "../app-bridge.js";
+import { extractApiError } from "../utils/constants.js";
 
 const ACTION_LABELS = {
   pull: "Pull",
@@ -35,7 +36,7 @@ export function useGitAction() {
     try {
       const { ok, data } = await apiCommand(wsEndpoint(wsName, action));
       if (!ok) {
-        emit("toast:show", { message: data?.message || data?.stderr || `${label}に失敗しました`, type: "error" });
+        emit("toast:show", { message: extractApiError(data, `${label}に失敗しました`), type: "error" });
         return;
       }
       emit("toast:show", { message: `${wsName}: ${label}完了`, type: "success" });

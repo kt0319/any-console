@@ -10,7 +10,7 @@
       >{{ action.label }}</button>
     </div>
     <div class="diff-file-list">
-      <div v-if="loading" style="color:var(--text-muted);padding:16px">読み込み中...</div>
+      <div v-if="isLoading" style="color:var(--text-muted);padding:16px">読み込み中...</div>
       <ul v-else class="file-browser-list diff-file-browser-list">
         <FileItem
           v-for="file in files"
@@ -44,7 +44,7 @@ const workspaceStore = useWorkspaceStore();
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
 
 const files = ref([]);
-const loading = ref(false);
+const isLoading = ref(false);
 const selectedFile = ref("");
 const actionButtons = ref([]);
 
@@ -59,10 +59,10 @@ function fileIconHtml(file) {
 async function loadWorkingTreeDiff() {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  loading.value = true;
+  isLoading.value = true;
   try {
     const result = await fetchWorkingTreeDiff();
-    if (!result) { loading.value = false; return; }
+    if (!result) { isLoading.value = false; return; }
     files.value = result.fileList;
     actionButtons.value = [
       { label: "コミット", class: "primary", handler: () => emit("git:openCommitForm") },
@@ -71,21 +71,21 @@ async function loadWorkingTreeDiff() {
   } catch (e) {
     console.error("diff load failed:", e);
   } finally {
-    loading.value = false;
+    isLoading.value = false;
   }
 }
 
 async function loadCommitDiff(hash) {
-  loading.value = true;
+  isLoading.value = true;
   try {
     const result = await fetchCommitDiff(hash);
-    if (!result) { loading.value = false; return; }
+    if (!result) { isLoading.value = false; return; }
     files.value = result.fileList;
     actionButtons.value = [];
   } catch (e) {
     console.error("commit diff load failed:", e);
   } finally {
-    loading.value = false;
+    isLoading.value = false;
   }
 }
 

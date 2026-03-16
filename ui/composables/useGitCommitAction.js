@@ -1,16 +1,21 @@
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
+import { extractApiError } from "../utils/constants.js";
 
 export function useGitCommitAction() {
   const workspaceStore = useWorkspaceStore();
   const { apiCommand, wsEndpoint } = useApi();
 
+  function currentWorkspace() {
+    return workspaceStore.selectedWorkspace || null;
+  }
+
   async function runAndToast(endpoint, body, { successMessage, errorMessage }) {
     try {
       const { ok, data } = await apiCommand(endpoint, body);
       if (!ok) {
-        bridgeEmit("toast:show", { message: data?.detail || data?.message || errorMessage, type: "error" });
+        bridgeEmit("toast:show", { message: extractApiError(data, errorMessage), type: "error" });
         return;
       }
       bridgeEmit("toast:show", { message: successMessage, type: "success" });
@@ -21,7 +26,7 @@ export function useGitCommitAction() {
   }
 
   async function execAction(action, entry, closeFn) {
-    const workspace = workspaceStore.selectedWorkspace;
+    const workspace = currentWorkspace();
     if (!workspace) return;
     const shortHash = entry.hash;
     if (!confirm(`${action} ${shortHash} を実行しますか？`)) return;
@@ -33,7 +38,7 @@ export function useGitCommitAction() {
   }
 
   async function execReset(entry, mode, closeFn) {
-    const workspace = workspaceStore.selectedWorkspace;
+    const workspace = currentWorkspace();
     if (!workspace) return;
     const shortHash = entry.hash;
     const msg = mode === "hard"
@@ -48,7 +53,7 @@ export function useGitCommitAction() {
   }
 
   async function execCreateBranch(entry, closeFn) {
-    const workspace = workspaceStore.selectedWorkspace;
+    const workspace = currentWorkspace();
     if (!workspace) return;
     const branchName = prompt("新しいブランチ名を入力してください:");
     if (!branchName) return;
@@ -60,7 +65,7 @@ export function useGitCommitAction() {
   }
 
   async function execMerge(branch, closeFn) {
-    const workspace = workspaceStore.selectedWorkspace;
+    const workspace = currentWorkspace();
     if (!workspace) return;
     if (!confirm(`${branch} を現在のブランチにマージしますか？`)) return;
     closeFn?.();
@@ -71,7 +76,7 @@ export function useGitCommitAction() {
   }
 
   async function execRebase(branch, closeFn) {
-    const workspace = workspaceStore.selectedWorkspace;
+    const workspace = currentWorkspace();
     if (!workspace) return;
     if (!confirm(`${branch} にリベースしますか？`)) return;
     closeFn?.();
