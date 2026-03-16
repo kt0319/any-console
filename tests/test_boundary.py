@@ -298,3 +298,91 @@ class TestGitLogBoundary:
     def test_excessive_skip_clamped(self, client, git_workspace_with_commit):
         res = client.get("/workspaces/test-ws/git-log", headers=AUTH, params={"skip": 99999})
         assert res.status_code == 200
+
+
+class TestRaiseFileOperationError:
+    """raise_file_operation_error() のユニットテスト"""
+
+    def test_permission_error_returns_403(self):
+        from api.routers.git_shared import raise_file_operation_error
+        with pytest.raises(HTTPException) as exc_info:
+            raise_file_operation_error("write", PermissionError("denied"))
+        assert exc_info.value.status_code == 403
+
+    def test_os_error_returns_500_with_operation(self):
+        from api.routers.git_shared import raise_file_operation_error
+        with pytest.raises(HTTPException) as exc_info:
+            raise_file_operation_error("read file", OSError("disk failure"))
+        assert exc_info.value.status_code == 500
+        assert "read file" in exc_info.value.detail
+
+
+class TestTTLCache:
+    """TTLCache のユニットテスト"""
+
+    def test_set_and_get(self):
+        from api.common import TTLCache
+        cache = TTLCache(ttl_sec=60)
+        cache.set("k", "v")
+        assert cache.get("k") == "v"
+
+    def test_expired_returns_none(self):
+        from api.common import TTLCache
+        cache = TTLCache(ttl_sec=60)
+        cache.set("k", "v")
+        ts, val = cache._store["k"]
+        cache._store["k"] = (ts - 120, val)
+        assert cache.get("k") is None
+
+    def test_invalidate(self):
+        from api.common import TTLCache
+        cache = TTLCache(ttl_sec=60)
+        cache.set("k", "v")
+        cache.invalidate("k")
+        assert cache.get("k") is None
+
+    def test_invalidate_all(self):
+        from api.common import TTLCache
+        cache = TTLCache(ttl_sec=60)
+        cache.set("a", 1)
+        cache.set("b", 2)
+        cache.invalidate_all()
+        assert cache.get("a") is None
+        assert cache.get("b") is None
+
+    def test_get_nonexistent_returns_none(self):
+        from api.common import TTLCache
+        cache = TTLCache(ttl_sec=60)
+        assert cache.get("missing") is None
+
+    def test_invalidate_nonexistent_no_error(self):
+        from api.common import TTLCache
+        cache = TTLCache(ttl_sec=60)
+        cache.invalidate("missing")
+
+
+class TestSanitizeLogValue:
+    """sanitize_log_value() のユニットテスト"""
+
+    def test_no_control_chars(self):
+        from api.common import sanitize_log_value
+        assert sanitize_log_value("hello world") == "hello world"
+
+    @pytest.mark.parametrize("char,expected", [
+        ("\x00", "\\x00"),
+        ("\n", "\\x0a"),
+        ("\t", "\\x09"),
+        ("\x7f", "\\x7f"),
+    ])
+    def test_control_chars_escaped(self, char, expected):
+        from api.common import sanitize_log_value
+        assert sanitize_log_value(f"a{char}b") == f"a{expected}b"
+
+    def test_normal_ascii_unchanged(self):
+        from api.common import sanitize_log_value
+        text = "ABCabc123!@#$%^&*()"
+        assert sanitize_log_value(text) == text
+
+    def test_multibyte_unchanged(self):
+        from api.common import sanitize_log_value
+        assert sanitize_log_value("日本語テスト") == "日本語テスト"

@@ -65,6 +65,30 @@ class TestCreateBranch:
         res = client.post("/workspaces/test-ws/create-branch", headers=AUTH, json={"branch": "bad name!"})
         assert res.status_code == 400
 
+    def test_create_branch_from_start_point(self, client, git_workspace):
+        first_hash = _git_commit(git_workspace, "a.txt", "a", "first")
+        _git_commit(git_workspace, "b.txt", "b", "second")
+
+        res = client.post("/workspaces/test-ws/create-branch", headers=AUTH, json={
+            "branch": "from-past",
+            "start_point": first_hash,
+        })
+        assert res.status_code == 200
+        assert _current_branch(git_workspace) == "from-past"
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=git_workspace, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        assert head == first_hash
+
+    def test_create_branch_invalid_start_point(self, client, git_workspace):
+        _git_commit(git_workspace, "a.txt", "a", "init")
+
+        res = client.post("/workspaces/test-ws/create-branch", headers=AUTH, json={
+            "branch": "new-branch",
+            "start_point": "invalid_hash!",
+        })
+        assert res.status_code == 400
+
 
 class TestCommit:
     def test_commit_with_changes(self, client, git_workspace):

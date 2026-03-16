@@ -429,6 +429,141 @@ class TestFileOperations:
         assert res.status_code == 200
         assert not d.exists()
 
+    def test_rename_permission_denied_returns_403(self, client, workspace):
+        readonly = workspace / "locked"
+        readonly.mkdir()
+        (readonly / "a.txt").write_text("a", encoding="utf-8")
+        readonly.chmod(0o555)
+        try:
+            res = client.post(
+                "/workspaces/test-ws/rename",
+                headers=AUTH,
+                json={"src": "locked/a.txt", "dest": "locked/b.txt"},
+            )
+            assert res.status_code == 403
+        finally:
+            readonly.chmod(0o755)
+
+    def test_delete_permission_denied_returns_403(self, client, workspace):
+        readonly = workspace / "locked2"
+        readonly.mkdir()
+        (readonly / "a.txt").write_text("a", encoding="utf-8")
+        readonly.chmod(0o555)
+        try:
+            res = client.post(
+                "/workspaces/test-ws/delete-file",
+                headers=AUTH,
+                json={"path": "locked2/a.txt"},
+            )
+            assert res.status_code == 403
+        finally:
+            readonly.chmod(0o755)
+
+
+class TestFileUpload:
+    def test_upload_success(self, client, workspace):
+        res = client.post(
+            "/workspaces/test-ws/upload",
+            headers=AUTH,
+            data={"path": ""},
+            files={"file": ("hello.txt", b"hello world", "text/plain")},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "ok"
+        assert data["path"] == "hello.txt"
+        assert data["size"] == 11
+        assert (workspace / "hello.txt").read_bytes() == b"hello world"
+
+    def test_upload_to_subdir(self, client, workspace):
+        sub = workspace / "docs"
+        sub.mkdir()
+        res = client.post(
+            "/workspaces/test-ws/upload",
+            headers=AUTH,
+            data={"path": "docs"},
+            files={"file": ("note.txt", b"data", "text/plain")},
+        )
+        assert res.status_code == 200
+        assert res.json()["path"] == "docs/note.txt"
+        assert (sub / "note.txt").read_bytes() == b"data"
+
+    def test_upload_existing_file_returns_409(self, client, workspace):
+        (workspace / "exists.txt").write_text("old", encoding="utf-8")
+        res = client.post(
+            "/workspaces/test-ws/upload",
+            headers=AUTH,
+            data={"path": ""},
+            files={"file": ("exists.txt", b"new", "text/plain")},
+        )
+        assert res.status_code == 409
+
+    @pytest.mark.parametrize("filename", [".", "..", "a/b", "a\\b"])
+    def test_upload_invalid_filename_returns_400(self, client, workspace, filename):
+        res = client.post(
+            "/workspaces/test-ws/upload",
+            headers=AUTH,
+            data={"path": ""},
+            files={"file": (filename, b"data", "text/plain")},
+        )
+        assert res.status_code == 400
+
+    def test_upload_too_large_returns_413(self, client, workspace, monkeypatch):
+        import api.routers.git_files as git_files_mod
+        monkeypatch.setattr(git_files_mod, "MAX_UPLOAD_SIZE", 10)
+        res = client.post(
+            "/workspaces/test-ws/upload",
+            headers=AUTH,
+            data={"path": ""},
+            files={"file": ("big.txt", b"x" * 20, "text/plain")},
+        )
+        assert res.status_code == 413
+
+    def test_upload_permission_denied_returns_403(self, client, workspace):
+        readonly = workspace / "locked"
+        readonly.mkdir()
+        readonly.chmod(0o555)
+        try:
+            res = client.post(
+                "/workspaces/test-ws/upload",
+                headers=AUTH,
+                data={"path": "locked"},
+                files={"file": ("new.txt", b"data", "text/plain")},
+            )
+            assert res.status_code == 403
+        finally:
+            readonly.chmod(0o755)
+
+
+class TestFileDownload:
+    def test_download_success(self, client, workspace):
+        (workspace / "dl.txt").write_text("content", encoding="utf-8")
+        res = client.get(
+            "/workspaces/test-ws/download",
+            headers=AUTH,
+            params={"path": "dl.txt"},
+        )
+        assert res.status_code == 200
+        assert res.content == b"content"
+        assert "dl.txt" in res.headers.get("content-disposition", "")
+
+    def test_download_nonexistent_returns_404(self, client, workspace):
+        res = client.get(
+            "/workspaces/test-ws/download",
+            headers=AUTH,
+            params={"path": "missing.txt"},
+        )
+        assert res.status_code == 404
+
+    def test_download_directory_returns_404(self, client, workspace):
+        (workspace / "subdir").mkdir()
+        res = client.get(
+            "/workspaces/test-ws/download",
+            headers=AUTH,
+            params={"path": "subdir"},
+        )
+        assert res.status_code == 404
+
 
 # --- ユーティリティ ---
 
