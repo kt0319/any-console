@@ -79,7 +79,7 @@ sudo systemctl restart any-console
 ### 概要
 
 - バックエンド: `api/`（FastAPI + subprocess）
-- フロントエンド: `ui/`（バニラJS、フレームワークなし）
+- フロントエンド: `ui/`（Vue 3 + Pinia、Viteでビルド）
 - ルーター: `api/routers/`
 
 ## ジョブシステム
@@ -91,13 +91,14 @@ sudo systemctl restart any-console
 
 ## ワークスペースと設定
 
-- ワークスペースルートは `~/work/` 固定（`WORK_DIR = Path.home() / "work"`）
+- ワークスペースルートはデフォルト `~/work/`（`default_workspace_dir()` で取得、環境変数 `ANY_CONSOLE_WORKSPACE_ROOT` で変更可能）
 - 追加設定は `config.json`（ワークスペース単位）
   - `icon`, `icon_color`, `hidden`, `jobs`
 
 ## ターミナル
 
-- `pty.fork()` でシェルプロセス生成し、FastAPIがWebSocketでブリッジ
+- tmuxセッションを前段で管理し、`pty.fork()` でattachしてWebSocketでブリッジ
+- セッション管理ロジックは `api/terminal_session.py`、ルーターは `api/routers/terminal.py`
 - セッションはインメモリ管理（`TERMINAL_SESSIONS` dict）
 - セッションタイムアウトは2時間（`TERMINAL_TIMEOUT_SEC = 7200`）
 
@@ -112,6 +113,6 @@ sudo systemctl restart any-console
 
 - Git操作はすべてsubprocess呼び出し（ライブラリ不使用）
 - 認証は単一トークン（ユーザー区別なし）
-- フロントエンドはビルド不要。`ui/` 配下を直接StaticFilesとしてマウント
+- フロントエンドはViteでビルド。`dist/` があればそこから、なければ `ui/` から直接StaticFilesとしてマウント
 - `main.py` で起動時にCSS/JSにキャッシュバスト用クエリパラメータを付与
 - systemdサービス定義は `systemd/any-console.service`（パスはインストール環境に合わせて編集）
