@@ -47,10 +47,11 @@ app.include_router(settings.router)
 
 @app.on_event("shutdown")
 def shutdown_cleanup():
-    with terminal.sessions_lock:
-        sessions = list(terminal.TERMINAL_SESSIONS.values())
+    from .terminal_session import TERMINAL_SESSIONS, _detach_pty_bridge, sessions_lock
+    with sessions_lock:
+        sessions = list(TERMINAL_SESSIONS.values())
     for session in sessions:
-        terminal._detach_pty_bridge(session)
+        _detach_pty_bridge(session)
     BACKGROUND_EXECUTOR.shutdown(wait=False)
 
 

@@ -9,7 +9,6 @@ from .common import PROJECT_ROOT
 logger = logging.getLogger(__name__)
 
 ICONS_DIR = PROJECT_ROOT / "data" / "icons"
-ICON_FILE_PATTERN = re.compile(r"^icon:[a-f0-9]{16}\.(png|jpg|gif|webp|svg)$")
 
 MIME_TO_EXT = {
     "image/png": "png",

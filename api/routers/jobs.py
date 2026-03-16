@@ -14,6 +14,7 @@ from ..common import (
     MAX_LABEL_LENGTH,
     MAX_TERMINAL_SESSIONS,
     TERMINAL_TIMEOUT_SEC,
+    TMUX_SESSION_PREFIX,
     WORKSPACE_JOBS_CACHE_TTL_SEC,
     TTLCache,
     resolve_workspace_path,
@@ -24,15 +25,14 @@ from ..errors import bad_request, not_found, server_error, timeout_error, too_ma
 from ..git_utils import command_result_dict, git_branches
 from ..job_models import TERMINAL_JOB, JobDefinition
 from ..runner import run_job
-from ..validators import validate_icon, validate_icon_color
-from .terminal import (
+from ..terminal_session import (
     TERMINAL_SESSIONS,
-    TMUX_SESSION_PREFIX,
     TerminalSession,
     create_tmux_session,
     save_tmux_metadata,
     sessions_lock,
 )
+from ..validators import validate_icon, validate_icon_color
 
 logger = logging.getLogger(__name__)
 
