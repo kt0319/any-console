@@ -279,4 +279,108 @@ button:disabled {
 .split-tab-content:has(.config-file-code) {
   flex: 1;
 }
+
+.git-ref {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  user-select: none;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.git-ref .mdi {
+  font-size: 12px;
+}
+
+.git-ref-branch {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+.git-ref-head {
+  background: var(--success);
+  color: var(--bg-primary);
+}
+
+.git-ref-remote {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.git-ref-tag {
+  background: var(--warning);
+  color: var(--bg-primary);
+}
+
+.commit-action-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.commit-action-item {
+  padding: 4px 10px;
+  font-size: 12px;
+  min-height: 32px;
+  min-width: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.commit-action-danger {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.diff-file-row-status {
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  min-width: 28px;
+  text-align: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.diff-file-row-status.diff-status-mod {
+  color: #8cb6ff;
+  border-color: rgba(140, 182, 255, 0.45);
+  background: rgba(140, 182, 255, 0.12);
+}
+
+.diff-file-row-status.diff-status-add {
+  color: #7edb9a;
+  border-color: rgba(126, 219, 154, 0.45);
+  background: rgba(126, 219, 154, 0.12);
+}
+
+.diff-file-row-status.diff-status-del {
+  color: #ff8e9a;
+  border-color: rgba(255, 142, 154, 0.45);
+  background: rgba(255, 142, 154, 0.12);
+}
+
+.diff-file-row-status.diff-status-ren {
+  color: #ffd27a;
+  border-color: rgba(255, 210, 122, 0.45);
+  background: rgba(255, 210, 122, 0.12);
+}
 </style>

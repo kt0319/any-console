@@ -175,22 +175,4 @@ defineExpose({
   font-style: italic;
 }
 
-.commit-action-item {
-  padding: 4px 10px;
-  font-size: 12px;
-  min-height: 32px;
-  min-width: auto;
-  flex-shrink: 0;
-  white-space: nowrap;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
-.commit-action-danger {
-  color: var(--error);
-  border-color: var(--error);
-}
 </style>

@@ -102,6 +102,19 @@ function countContentLines(content) {
   return lines;
 }
 
+export function buildFileNumstatHtml(file, diffChunk = "", opts = {}) {
+  const status = String(file.status || "").trim();
+  const omitZeroDeletions = status === "??" || status === "A";
+  const { neutralText = false } = opts;
+  const insertions = file.insertions ?? file.added;
+  const deletions = file.deletions ?? file.deleted;
+  if (insertions != null || deletions != null) {
+    return buildNumstatHtml(insertions, deletions, { omitZeroDeletions, neutralText });
+  }
+  const parsed = parseDiffNumstatFromChunk(diffChunk);
+  return buildNumstatHtml(parsed?.insertions, parsed?.deletions, { omitZeroDeletions, neutralText });
+}
+
 export async function resolveUntrackedNumstat({ workspace, files, apiFetch }) {
   const pathToLines = {};
   if (!workspace || !Array.isArray(files) || files.length === 0) return pathToLines;

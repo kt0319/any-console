@@ -3,37 +3,20 @@ import { useAuthStore } from "../stores/auth.js";
 export function useApi() {
   const auth = useAuthStore();
 
-  async function apiCommand(endpoint, body = {}) {
-    const res = await auth.apiFetch(endpoint, { method: "POST", body });
+  async function apiRequest(endpoint, { method = "GET", body = null, checkStatus = false } = {}) {
+    const opts = method === "GET" ? undefined : { method, ...(body != null && { body }) };
+    const res = await auth.apiFetch(endpoint, opts);
     if (!res || !res.ok) return { ok: false, data: null };
-    const data = await res.json();
-    return { ok: data.status === "ok", data };
+    const data = await res.json().catch(() => null);
+    const ok = checkStatus ? data?.status === "ok" : data != null;
+    return { ok, data };
   }
 
-  async function apiGet(endpoint) {
-    const res = await auth.apiFetch(endpoint);
-    if (!res || !res.ok) return { ok: false, data: null };
-    const data = await res.json();
-    return { ok: true, data };
-  }
-
-  async function apiPost(endpoint, body = {}) {
-    const res = await auth.apiFetch(endpoint, { method: "POST", body });
-    const data = await res?.json().catch(() => null);
-    return { ok: !!(res?.ok), data };
-  }
-
-  async function apiPut(endpoint, body = {}) {
-    const res = await auth.apiFetch(endpoint, { method: "PUT", body });
-    const data = await res?.json().catch(() => null);
-    return { ok: !!(res?.ok), data };
-  }
-
-  async function apiDelete(endpoint) {
-    const res = await auth.apiFetch(endpoint, { method: "DELETE" });
-    const data = await res?.json().catch(() => null);
-    return { ok: !!(res?.ok), data };
-  }
+  const apiGet = (endpoint) => apiRequest(endpoint);
+  const apiPost = (endpoint, body = {}) => apiRequest(endpoint, { method: "POST", body });
+  const apiPut = (endpoint, body = {}) => apiRequest(endpoint, { method: "PUT", body });
+  const apiDelete = (endpoint) => apiRequest(endpoint, { method: "DELETE" });
+  const apiCommand = (endpoint, body = {}) => apiRequest(endpoint, { method: "POST", body, checkStatus: true });
 
   function wsEndpoint(workspace, path) {
     return `/workspaces/${encodeURIComponent(workspace)}/${path}`;

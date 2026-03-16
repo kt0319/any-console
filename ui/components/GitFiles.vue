@@ -34,19 +34,14 @@
 <script setup>
 import { ref } from "vue";
 import FileItem from "./FileItem.vue";
-import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { useGitStore, parseDiffChunks } from "../stores/git.js";
-import { useApi } from "../composables/useApi.js";
+import { useGitDiff } from "../composables/useGitDiff.js";
 import { emit } from "../app-bridge.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
 import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
-import { buildNumstatHtml, parseDiffNumstatFromChunk, resolveUntrackedNumstat } from "../utils/git.js";
 
-const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
-const { apiGet, wsEndpoint } = useApi();
-const gitStore = useGitStore();
+const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
 
 const files = ref([]);
 const loading = ref(false);
@@ -61,50 +56,14 @@ function fileIconHtml(file) {
   return renderFileIconFromPath(file.path);
 }
 
-function buildNumstatHtmlWithFallback(file, diffChunk = "", opts = {}) {
-  const status = String(file.status || "").trim();
-  const omitZeroDeletions = status === "??" || status === "A";
-  const { neutralText = false } = opts;
-  const insertions = file.insertions ?? file.added;
-  const deletions = file.deletions ?? file.deleted;
-  if (insertions != null || deletions != null) {
-    return buildNumstatHtml(insertions, deletions, { omitZeroDeletions, neutralText });
-  }
-  const parsed = parseDiffNumstatFromChunk(diffChunk);
-  return buildNumstatHtml(parsed?.insertions, parsed?.deletions, { omitZeroDeletions, neutralText });
-}
-
 async function loadWorkingTreeDiff() {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
   loading.value = true;
   try {
-    const { ok, data } = await apiGet(wsEndpoint(workspace, "diff"));
-    if (!ok) { loading.value = false; return; }
-    const fileList = (data.files || []).map((f) => ({
-      path: f.path || f.name,
-      status: f.status || "M",
-      insertions: f.insertions,
-      deletions: f.deletions,
-    }));
-    const untrackedNumstat = await resolveUntrackedNumstat({
-      workspace,
-      files: fileList,
-      apiFetch: auth.apiFetch.bind(auth),
-    });
-    const diffChunks = parseDiffChunks(data.diff);
-    gitStore.diffChunks = diffChunks;
-    gitStore.diffFullText = data.diff || "";
-    gitStore.diffFileStatuses = Object.fromEntries(fileList.map((f) => [f.path, f.status]));
-    files.value = fileList.map((f) => ({
-      path: f.path,
-      status: f.status,
-      numstat: buildNumstatHtmlWithFallback(
-        { ...f, insertions: f.insertions ?? untrackedNumstat[f.path], deletions: f.deletions ?? (untrackedNumstat[f.path] != null ? 0 : f.deletions) },
-        diffChunks[f.path],
-        { neutralText: untrackedNumstat[f.path] != null && f.insertions == null && f.deletions == null },
-      ),
-    }));
+    const result = await fetchWorkingTreeDiff();
+    if (!result) { loading.value = false; return; }
+    files.value = result.fileList;
     actionButtons.value = [
       { label: "コミット", class: "primary", handler: () => emit("git:openCommitForm") },
       { label: "Stash", handler: () => emit("git:stashSave") },
@@ -117,20 +76,11 @@ async function loadWorkingTreeDiff() {
 }
 
 async function loadCommitDiff(hash) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
   loading.value = true;
   try {
-    const { ok, data } = await apiGet(wsEndpoint(workspace, `diff/${encodeURIComponent(hash)}`));
-    if (!ok) { loading.value = false; return; }
-    const diffChunks = parseDiffChunks(data.diff);
-    gitStore.diffChunks = diffChunks;
-    gitStore.diffFullText = data.diff || "";
-    files.value = (data.files || []).map((f) => ({
-      path: f.path || f.name,
-      status: f.status || "M",
-      numstat: buildNumstatHtmlWithFallback(f, diffChunks[f.path || f.name]),
-    }));
+    const result = await fetchCommitDiff(hash);
+    if (!result) { loading.value = false; return; }
+    files.value = result.fileList;
     actionButtons.value = [];
   } catch (e) {
     console.error("commit diff load failed:", e);
@@ -187,44 +137,6 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
 
 .diff-file-row :deep(.file-browser-item-name) {
   font-size: 12px;
-}
-
-.diff-file-row-status {
-  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  min-width: 28px;
-  text-align: center;
-  padding: 2px 6px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-}
-
-.diff-file-row-status.diff-status-mod {
-  color: #8cb6ff;
-  border-color: rgba(140, 182, 255, 0.45);
-  background: rgba(140, 182, 255, 0.12);
-}
-
-.diff-file-row-status.diff-status-add {
-  color: #7edb9a;
-  border-color: rgba(126, 219, 154, 0.45);
-  background: rgba(126, 219, 154, 0.12);
-}
-
-.diff-file-row-status.diff-status-del {
-  color: #ff8e9a;
-  border-color: rgba(255, 142, 154, 0.45);
-  background: rgba(255, 142, 154, 0.12);
-}
-
-.diff-file-row-status.diff-status-ren {
-  color: #ffd27a;
-  border-color: rgba(255, 210, 122, 0.45);
-  background: rgba(255, 210, 122, 0.12);
 }
 
 .diff-file-row-numstat {

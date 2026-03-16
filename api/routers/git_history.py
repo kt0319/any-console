@@ -1,20 +1,15 @@
-import logging
-
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from ..auth import verify_token
 from ..common import (
     GIT_LOG_MAX_ENTRIES,
-    GIT_LONG_TIMEOUT_SEC,
     resolve_workspace_path,
 )
 from ..errors import bad_request
-from ..git_utils import invalidate_git_info, run_git_command
+from ..git_utils import run_git_command
 from ..validators import validate_branch_name, validate_commit_hash, validate_stash_ref
-from .git_shared import GIT_LOG_MAX_SKIP
-
-logger = logging.getLogger(__name__)
+from .git_shared import GIT_LOG_MAX_SKIP, execute_git_action
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
@@ -65,64 +60,34 @@ def get_git_log(name: str, limit: int = 50, skip: int = 0, graph: bool = False):
 
 @router.post("/workspaces/{name}/cherry-pick")
 def git_cherry_pick(name: str, body: CommitActionRequest):
-    ws_path = resolve_workspace_path(name)
     commit_hash = validate_commit_hash(body.commit_hash)
-    result = run_git_command(
-        ["cherry-pick", commit_hash], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="cherry-pick",
-    )
-    logger.info("cherry-pick workspace=%s commit=%s rc=%d", name, commit_hash[:8], result["exit_code"])
-    invalidate_git_info(name)
-    return result
+    return execute_git_action(name, ["cherry-pick", commit_hash], operation="cherry-pick", log_extra=f"commit={commit_hash[:8]}")
 
 
 @router.post("/workspaces/{name}/revert")
 def git_revert(name: str, body: CommitActionRequest):
-    ws_path = resolve_workspace_path(name)
     commit_hash = validate_commit_hash(body.commit_hash)
-    result = run_git_command(
-        ["revert", "--no-edit", commit_hash], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="revert",
-    )
-    logger.info("revert workspace=%s commit=%s rc=%d", name, commit_hash[:8], result["exit_code"])
-    invalidate_git_info(name)
-    return result
+    return execute_git_action(name, ["revert", "--no-edit", commit_hash], operation="revert", log_extra=f"commit={commit_hash[:8]}")
 
 
 @router.post("/workspaces/{name}/merge")
 def git_merge(name: str, body: MergeRequest):
-    ws_path = resolve_workspace_path(name)
     branch = validate_branch_name(body.branch)
-    result = run_git_command(
-        ["merge", branch], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="merge",
-    )
-    logger.info("merge workspace=%s branch=%s rc=%d", name, branch, result["exit_code"])
-    invalidate_git_info(name)
-    return result
+    return execute_git_action(name, ["merge", branch], operation="merge", log_extra=f"branch={branch}")
 
 
 @router.post("/workspaces/{name}/rebase")
 def git_rebase(name: str, body: MergeRequest):
-    ws_path = resolve_workspace_path(name)
     branch = validate_branch_name(body.branch)
-    result = run_git_command(
-        ["rebase", branch], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="rebase",
-    )
-    logger.info("rebase workspace=%s branch=%s rc=%d", name, branch, result["exit_code"])
-    invalidate_git_info(name)
-    return result
+    return execute_git_action(name, ["rebase", branch], operation="rebase", log_extra=f"branch={branch}")
 
 
 @router.post("/workspaces/{name}/reset")
 def git_reset(name: str, body: ResetRequest):
-    ws_path = resolve_workspace_path(name)
     commit_hash = validate_commit_hash(body.commit_hash)
     if body.mode not in ("soft", "hard"):
         raise bad_request(f"Invalid reset mode: {body.mode}")
-    result = run_git_command(
-        ["reset", f"--{body.mode}", commit_hash], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="reset",
-    )
-    logger.info("reset workspace=%s mode=%s commit=%s rc=%d", name, body.mode, commit_hash[:8], result["exit_code"])
-    invalidate_git_info(name)
-    return result
+    return execute_git_action(name, ["reset", f"--{body.mode}", commit_hash], operation="reset", log_extra=f"mode={body.mode} commit={commit_hash[:8]}")
 
 
 @router.post("/workspaces/{name}/commit")
@@ -134,10 +99,7 @@ def git_commit(name: str, body: CommitRequest):
     add_result = run_git_command(["add", "-A"], cwd=ws_path, operation="add")
     if add_result["exit_code"] != 0:
         return add_result
-    result = run_git_command(["commit", "-m", message], cwd=ws_path, operation="commit")
-    logger.info("commit workspace=%s rc=%d", name, result["exit_code"])
-    invalidate_git_info(name)
-    return result
+    return execute_git_action(name, ["commit", "-m", message], operation="commit")
 
 
 @router.get("/workspaces/{name}/stash-list")
@@ -158,40 +120,24 @@ def git_stash_list(name: str):
 
 @router.post("/workspaces/{name}/stash-drop")
 def git_stash_drop(name: str, body: StashDropRequest):
-    ws_path = resolve_workspace_path(name)
     ref = validate_stash_ref(body.stash_ref)
-    result = run_git_command(["stash", "drop", ref], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="stash drop")
-    logger.info("stash-drop workspace=%s ref=%s rc=%d", name, ref, result["exit_code"])
-    invalidate_git_info(name)
-    return result
+    return execute_git_action(name, ["stash", "drop", ref], operation="stash drop", log_extra=f"ref={ref}")
 
 
 @router.post("/workspaces/{name}/stash-pop-ref")
 def git_stash_pop_ref(name: str, body: StashDropRequest):
-    ws_path = resolve_workspace_path(name)
     ref = validate_stash_ref(body.stash_ref)
-    result = run_git_command(["stash", "pop", ref], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="stash pop")
-    logger.info("stash-pop workspace=%s ref=%s rc=%d", name, ref, result["exit_code"])
-    invalidate_git_info(name)
-    return result
+    return execute_git_action(name, ["stash", "pop", ref], operation="stash pop", log_extra=f"ref={ref}")
 
 
 @router.post("/workspaces/{name}/stash")
 def git_stash(name: str, body: StashRequest = None):
-    ws_path = resolve_workspace_path(name)
     args = ["stash"]
     if body and body.include_untracked:
         args.append("-u")
-    result = run_git_command(args, cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="stash")
-    logger.info("stash workspace=%s rc=%d", name, result["exit_code"])
-    invalidate_git_info(name)
-    return result
+    return execute_git_action(name, args, operation="stash")
 
 
 @router.post("/workspaces/{name}/stash-pop")
 def git_stash_pop(name: str):
-    ws_path = resolve_workspace_path(name)
-    result = run_git_command(["stash", "pop"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, operation="stash pop")
-    logger.info("stash-pop workspace=%s rc=%d", name, result["exit_code"])
-    invalidate_git_info(name)
-    return result
+    return execute_git_action(name, ["stash", "pop"], operation="stash pop")

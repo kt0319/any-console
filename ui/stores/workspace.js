@@ -15,6 +15,10 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     allWorkspaces.value.filter((ws) => !ws.hidden),
   );
 
+  const currentWorkspace = computed(() =>
+    allWorkspaces.value.find((w) => w.name === selectedWorkspace.value),
+  );
+
   async function fetchStatuses() {
     try {
       const { apiGet } = useApi();
@@ -40,6 +44,7 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     isLaunchingTerminal,
     appInitializing,
     visibleWorkspaces,
+    currentWorkspace,
     fetchStatuses,
   };
 });

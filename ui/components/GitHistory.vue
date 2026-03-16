@@ -98,25 +98,23 @@
 <script setup>
 import { ref, computed, nextTick, onMounted } from "vue";
 import FileItem from "./FileItem.vue";
-import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { useGitStore, parseDiffChunks } from "../stores/git.js";
+import { useGitStore } from "../stores/git.js";
 import { useApi } from "../composables/useApi.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
+import { useLongPress } from "../composables/useLongPress.js";
+import { useGitCommitAction } from "../composables/useGitCommitAction.js";
+import { useGitDiff } from "../composables/useGitDiff.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
-import {
-  buildNumstatHtml,
-  parseDiffNumstatFromChunk,
-  parseGitLogEntries,
-  resolveUntrackedNumstat,
-} from "../utils/git.js";
+import { parseGitLogEntries } from "../utils/git.js";
 import { GIT_DIFF_STATUS_CLASSES, INFINITE_SCROLL_THRESHOLD_PX } from "../utils/constants.js";
 
 const emitToParent = defineEmits(["pane:select", "commit:expanded", "commit:collapsed"]);
 
-const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
-const { apiGet, apiCommand, wsEndpoint } = useApi();
+const { apiGet, wsEndpoint } = useApi();
+const { execAction: execCommitAction, execReset: execCommitReset, execCreateBranch: execCommitCreateBranch, execMerge: execCommitMerge, execRebase: execCommitRebase } = useGitCommitAction();
+const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
 const gitStore = useGitStore();
 
 const activePane = ref("browser");
@@ -126,13 +124,10 @@ function selectPane(key) {
   emitToParent("pane:select", key);
 }
 
-const currentWorkspaceState = computed(() =>
-  workspaceStore.allWorkspaces.find((w) => w.name === workspaceStore.selectedWorkspace),
-);
-const isDirty = computed(() => currentWorkspaceState.value && currentWorkspaceState.value.clean === false);
-const githubUrl = computed(() => currentWorkspaceState.value?.github_url || "");
+const isDirty = computed(() => workspaceStore.currentWorkspace && workspaceStore.currentWorkspace.clean === false);
+const githubUrl = computed(() => workspaceStore.currentWorkspace?.github_url || "");
 const dirtySummaryHtml = computed(() => {
-  const ws = currentWorkspaceState.value;
+  const ws = workspaceStore.currentWorkspace;
   if (!ws || ws.clean !== false) return "0F +0 -0";
   const parts = [];
   if (ws.changed_files > 0) parts.push(`<span class="stat-files">${ws.changed_files}F</span>`);
@@ -158,17 +153,6 @@ function statusClass(status) {
 
 function fileIconHtml(file) {
   return renderFileIconFromPath(file.path);
-}
-
-function buildFileNumstatHtml(file, diffChunk = "", opts = {}) {
-  const status = String(file.status || "").trim();
-  const omitZeroDeletions = status === "??" || status === "A";
-  const { neutralText = false } = opts;
-  if (file.insertions != null || file.deletions != null) {
-    return buildNumstatHtml(file.insertions, file.deletions, { omitZeroDeletions, neutralText });
-  }
-  const parsed = parseDiffNumstatFromChunk(diffChunk);
-  return buildNumstatHtml(parsed?.insertions, parsed?.deletions, { omitZeroDeletions, neutralText });
 }
 
 async function loadHistory() {
@@ -223,10 +207,7 @@ function onHistoryListScroll() {
   }
 }
 
-let longPressTimer = null;
-let longPressEl = null;
-let longPressTriggered = false;
-const longPressEntry = ref(null);
+const { activeEntry: longPressEntry, startMenu: onLongPressStart, endMenu: onLongPressEnd, closeMenu: closeLongPressMenu, isFired: isLongPressFired, isMenuEl } = useLongPress();
 
 function toggleActionMenu(entry) {
   if (longPressEntry.value?.hash === entry.hash) {
@@ -236,76 +217,12 @@ function toggleActionMenu(entry) {
   }
 }
 
-function onLongPressStart(e, entry) {
-  longPressTriggered = false;
-  const el = e.currentTarget;
-  longPressEl = el;
-  el.classList.add("long-pressing");
-  longPressTimer = setTimeout(() => {
-    longPressTriggered = true;
-    el.classList.remove("long-pressing");
-    el.classList.add("long-pressed");
-    longPressEntry.value = entry;
-  }, 500);
+function execAction(action, entry) {
+  execCommitAction(action, entry, closeLongPressMenu);
 }
 
-function onLongPressEnd() {
-  if (longPressTimer) {
-    clearTimeout(longPressTimer);
-    longPressTimer = null;
-  }
-  if (longPressEl) {
-    longPressEl.classList.remove("long-pressing");
-    if (!longPressTriggered) {
-      longPressEl.classList.remove("long-pressed");
-    }
-    longPressEl = null;
-  }
-}
-
-function closeLongPressMenu() {
-  longPressEntry.value = null;
-}
-
-async function execAction(action, entry) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  const shortHash = entry.hash;
-  if (!confirm(`${action} ${shortHash} を実行しますか？`)) return;
-  closeLongPressMenu();
-  try {
-    const { ok, data } = await apiCommand(wsEndpoint(workspace, action), { commit_hash: entry.fullHash });
-    if (!ok) {
-      bridgeEmit("toast:show", { message: data?.detail || data?.message || `${action}に失敗しました`, type: "error" });
-      return;
-    }
-    bridgeEmit("toast:show", { message: `${action} ${shortHash} 完了`, type: "success" });
-    bridgeEmit("git:refresh");
-  } catch (e) {
-    bridgeEmit("toast:show", { message: e.message, type: "error" });
-  }
-}
-
-async function execReset(entry, mode) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  const shortHash = entry.hash;
-  const msg = mode === "hard"
-    ? `reset --hard ${shortHash} を実行します。作業ツリーの変更はすべて失われます。実行しますか？`
-    : `reset --soft ${shortHash} を実行しますか？`;
-  if (!confirm(msg)) return;
-  closeLongPressMenu();
-  try {
-    const { ok, data } = await apiCommand(wsEndpoint(workspace, "reset"), { commit_hash: entry.fullHash, mode });
-    if (!ok) {
-      bridgeEmit("toast:show", { message: data?.detail || data?.message || `reset --${mode}に失敗しました`, type: "error" });
-      return;
-    }
-    bridgeEmit("toast:show", { message: `reset --${mode} ${shortHash} 完了`, type: "success" });
-    bridgeEmit("git:refresh");
-  } catch (e) {
-    bridgeEmit("toast:show", { message: e.message, type: "error" });
-  }
+function execReset(entry, mode) {
+  execCommitReset(entry, mode, closeLongPressMenu);
 }
 
 function entryBranches(entry) {
@@ -314,59 +231,16 @@ function entryBranches(entry) {
     .map((r) => r.label);
 }
 
-async function execCreateBranch(entry) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  const branchName = prompt("新しいブランチ名を入力してください:");
-  if (!branchName) return;
-  closeLongPressMenu();
-  try {
-    const { ok, data } = await apiCommand(wsEndpoint(workspace, "create-branch"), { branch: branchName, start_point: entry.fullHash });
-    if (!ok) {
-      bridgeEmit("toast:show", { message: data?.detail || data?.message || "ブランチ作成に失敗しました", type: "error" });
-      return;
-    }
-    bridgeEmit("toast:show", { message: `ブランチ ${branchName} を作成しました`, type: "success" });
-    bridgeEmit("git:refresh");
-  } catch (e) {
-    bridgeEmit("toast:show", { message: e.message, type: "error" });
-  }
+function execCreateBranch(entry) {
+  execCommitCreateBranch(entry, closeLongPressMenu);
 }
 
-async function execMerge(branch) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  if (!confirm(`${branch} を現在のブランチにマージしますか？`)) return;
-  closeLongPressMenu();
-  try {
-    const { ok, data } = await apiCommand(wsEndpoint(workspace, "merge"), { branch });
-    if (!ok) {
-      bridgeEmit("toast:show", { message: data?.detail || data?.message || "マージに失敗しました", type: "error" });
-      return;
-    }
-    bridgeEmit("toast:show", { message: `${branch} をマージしました`, type: "success" });
-    bridgeEmit("git:refresh");
-  } catch (e) {
-    bridgeEmit("toast:show", { message: e.message, type: "error" });
-  }
+function execMerge(branch) {
+  execCommitMerge(branch, closeLongPressMenu);
 }
 
-async function execRebase(branch) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  if (!confirm(`${branch} にリベースしますか？`)) return;
-  closeLongPressMenu();
-  try {
-    const { ok, data } = await apiCommand(wsEndpoint(workspace, "rebase"), { branch });
-    if (!ok) {
-      bridgeEmit("toast:show", { message: data?.detail || data?.message || "リベースに失敗しました", type: "error" });
-      return;
-    }
-    bridgeEmit("toast:show", { message: `${branch} にリベースしました`, type: "success" });
-    bridgeEmit("git:refresh");
-  } catch (e) {
-    bridgeEmit("toast:show", { message: e.message, type: "error" });
-  }
+function execRebase(branch) {
+  execCommitRebase(branch, closeLongPressMenu);
 }
 
 async function openWorkingTreeDiffFiles() {
@@ -376,34 +250,9 @@ async function openWorkingTreeDiffFiles() {
   selectedCommitFiles.value = [];
   isSelectedCommitFilesLoading.value = true;
   try {
-    const workspace = workspaceStore.selectedWorkspace;
-    if (!workspace) return;
-    const { ok: diffOk, data } = await apiGet(wsEndpoint(workspace, "diff"));
-    if (!diffOk) return;
-    const fileList = (data.files || []).map((f) => ({
-      path: f.path || f.name,
-      status: f.status || "M",
-      insertions: f.insertions,
-      deletions: f.deletions,
-    }));
-    const untrackedNumstat = await resolveUntrackedNumstat({
-      workspace,
-      files: fileList,
-      apiFetch: auth.apiFetch.bind(auth),
-    });
-    const diffChunks = parseDiffChunks(data.diff);
-    gitStore.diffChunks = diffChunks;
-    gitStore.diffFullText = data.diff || "";
-    gitStore.diffFileStatuses = Object.fromEntries(fileList.map((f) => [f.path, f.status]));
-    selectedCommitFiles.value = fileList.map((f) => ({
-      path: f.path,
-      status: f.status,
-      numstat: buildFileNumstatHtml(
-        { ...f, insertions: f.insertions ?? untrackedNumstat[f.path], deletions: f.deletions ?? (untrackedNumstat[f.path] != null ? 0 : f.deletions) },
-        diffChunks[f.path],
-        { neutralText: untrackedNumstat[f.path] != null && f.insertions == null && f.deletions == null },
-      ),
-    }));
+    const result = await fetchWorkingTreeDiff();
+    if (!result) return;
+    selectedCommitFiles.value = result.fileList;
   } catch (e) {
     console.error("dirty files load failed:", e);
   } finally {
@@ -412,8 +261,7 @@ async function openWorkingTreeDiffFiles() {
 }
 
 async function openCommitDiffFiles(entry) {
-  if (longPressEl || longPressEntry.value || longPressTriggered) {
-    longPressTriggered = false;
+  if (isMenuEl() || longPressEntry.value || isLongPressFired()) {
     return;
   }
   selectedCommitForFiles.value = entry;
@@ -421,22 +269,9 @@ async function openCommitDiffFiles(entry) {
   selectedCommitFiles.value = [];
   isSelectedCommitFilesLoading.value = true;
   try {
-    const workspace = workspaceStore.selectedWorkspace;
-    if (!workspace) return;
-    const { ok: diffOk, data } = await apiGet(wsEndpoint(workspace, `diff/${encodeURIComponent(entry.fullHash)}`));
-    if (!diffOk) return;
-    const diffChunks = parseDiffChunks(data.diff);
-    gitStore.diffChunks = diffChunks;
-    gitStore.diffFullText = data.diff || "";
-    const fileList = (data.files || []).map((f) => ({
-      path: f.path || f.name,
-      status: f.status || "M",
-    }));
-    gitStore.diffFileStatuses = Object.fromEntries(fileList.map((f) => [f.path, f.status]));
-    selectedCommitFiles.value = fileList.map((f) => ({
-      ...f,
-      numstat: buildFileNumstatHtml(f, diffChunks[f.path]),
-    }));
+    const result = await fetchCommitDiff(entry.fullHash);
+    if (!result) return;
+    selectedCommitFiles.value = result.fileList;
   } catch (e) {
     console.error("commit files load failed:", e);
   } finally {
@@ -630,45 +465,6 @@ defineExpose({
   white-space: nowrap;
 }
 
-.git-ref {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 10px;
-  user-select: none;
-  padding: 2px 6px;
-  border-radius: 3px;
-  white-space: nowrap;
-  line-height: 1;
-}
-
-.git-ref .mdi {
-  font-size: 12px;
-}
-
-.git-ref-branch {
-  background: var(--accent);
-  color: var(--bg-primary);
-}
-
-.git-ref-head {
-  background: var(--success);
-  color: var(--bg-primary);
-}
-
-.git-ref-remote {
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  border: 1px solid var(--border);
-}
-
-.git-ref-tag {
-  background: var(--warning);
-  color: var(--bg-primary);
-}
-
-
 .git-ref-dirty {
   display: inline-flex;
   align-items: center;
@@ -687,20 +483,6 @@ defineExpose({
   font-size: 10px;
 }
 
-.commit-action-menu {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.commit-action-danger {
-  color: var(--error);
-  border-color: var(--error);
-}
-
 .git-log-commit.action-open,
 .diff-file-row.action-open {
   background: rgba(130, 170, 255, 0.08);
@@ -716,44 +498,6 @@ defineExpose({
 
 .diff-file-row :deep(.file-browser-item-name) {
   font-size: 12px;
-}
-
-.diff-file-row-status {
-  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  min-width: 28px;
-  text-align: center;
-  padding: 2px 6px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-}
-
-.diff-file-row-status.diff-status-mod {
-  color: #8cb6ff;
-  border-color: rgba(140, 182, 255, 0.45);
-  background: rgba(140, 182, 255, 0.12);
-}
-
-.diff-file-row-status.diff-status-add {
-  color: #7edb9a;
-  border-color: rgba(126, 219, 154, 0.45);
-  background: rgba(126, 219, 154, 0.12);
-}
-
-.diff-file-row-status.diff-status-del {
-  color: #ff8e9a;
-  border-color: rgba(255, 142, 154, 0.45);
-  background: rgba(255, 142, 154, 0.12);
-}
-
-.diff-file-row-status.diff-status-ren {
-  color: #ffd27a;
-  border-color: rgba(255, 210, 122, 0.45);
-  background: rgba(255, 210, 122, 0.12);
 }
 
 .diff-file-row-numstat {

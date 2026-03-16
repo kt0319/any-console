@@ -157,7 +157,7 @@ async function loadGitHubPaneData() {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
 
-  const ws = workspaceStore.allWorkspaces.find((w) => w.name === workspace);
+  const ws = workspaceStore.currentWorkspace;
   githubUrl.value = ws?.github_url || "";
   if (!githubUrl.value) return;
 

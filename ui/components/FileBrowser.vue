@@ -88,6 +88,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore } from "../stores/git.js";
 import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
+import { useLongPress } from "../composables/useLongPress.js";
 import { renderFileIcon } from "../utils/file-icon.js";
 import { formatSize } from "../utils/format.js";
 
@@ -130,12 +131,8 @@ const displayPathSegments = computed(() => {
   return pathSegments.value;
 });
 
-const currentWorkspaceState = computed(() =>
-  workspaceStore.allWorkspaces.find((w) => w.name === workspaceStore.selectedWorkspace),
-);
-
 const githubEntryUrl = computed(() => {
-  const ws = currentWorkspaceState.value;
+  const ws = workspaceStore.currentWorkspace;
   if (!ws?.github_url || !contextEntry.value) return "";
   const branch = ws.branch || "main";
   const entryPath = currentPath.value
@@ -247,34 +244,17 @@ async function openFile(path) {
   }
 }
 
-let longPressTimer = null;
-let longPressEl = null;
-let longPressTriggered = false;
+const longPress = useLongPress();
 
 function onLongPressStart(e, entry) {
-  longPressTriggered = false;
-  const el = e.currentTarget;
-  longPressEl = el;
-  el.classList.add("long-pressing");
-  longPressTimer = setTimeout(() => {
-    longPressTriggered = true;
-    el.classList.remove("long-pressing");
-    el.classList.add("long-pressed");
-    contextEntry.value = entry;
-  }, 500);
+  longPress.startMenu(e, entry);
 }
 
 function onLongPressEnd() {
-  if (longPressTimer) {
-    clearTimeout(longPressTimer);
-    longPressTimer = null;
-  }
-  if (longPressEl) {
-    longPressEl.classList.remove("long-pressing");
-    if (!longPressTriggered) {
-      longPressEl.classList.remove("long-pressed");
-    }
-    longPressEl = null;
+  longPress.endMenu();
+  if (longPress.activeEntry.value && longPress.activeEntry.value !== contextEntry.value) {
+    contextEntry.value = longPress.activeEntry.value;
+    longPress.activeEntry.value = null;
   }
 }
 
@@ -541,8 +521,7 @@ function onCrumbClick(path) {
 }
 
 function onEntryClick(entry) {
-  if (longPressEl || contextEntry.value || longPressTriggered) {
-    longPressTriggered = false;
+  if (longPress.isMenuEl() || contextEntry.value || longPress.isFired()) {
     return;
   }
   const childPath = currentPath.value ? `${currentPath.value}/${entry.name}` : entry.name;

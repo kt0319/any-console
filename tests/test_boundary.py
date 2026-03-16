@@ -300,19 +300,21 @@ class TestGitLogBoundary:
         assert res.status_code == 200
 
 
-class TestRaiseFileOperationError:
-    """raise_file_operation_error() のユニットテスト"""
+class TestFileOperationGuard:
+    """file_operation_guard() のユニットテスト"""
 
     def test_permission_error_returns_403(self):
-        from api.routers.git_shared import raise_file_operation_error
+        from api.routers.git_shared import file_operation_guard
         with pytest.raises(HTTPException) as exc_info:
-            raise_file_operation_error("write", PermissionError("denied"))
+            with file_operation_guard("write"):
+                raise PermissionError("denied")
         assert exc_info.value.status_code == 403
 
     def test_os_error_returns_500_with_operation(self):
-        from api.routers.git_shared import raise_file_operation_error
+        from api.routers.git_shared import file_operation_guard
         with pytest.raises(HTTPException) as exc_info:
-            raise_file_operation_error("read file", OSError("disk failure"))
+            with file_operation_guard("read file"):
+                raise OSError("disk failure")
         assert exc_info.value.status_code == 500
         assert "read file" in exc_info.value.detail
 

@@ -58,13 +58,16 @@ import { useApi } from "../composables/useApi.js";
 import { formatGitTime, parseGitRefs } from "../utils/git.js";
 import { INFINITE_SCROLL_THRESHOLD_PX } from "../utils/constants.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
+import { useLongPress } from "../composables/useLongPress.js";
+import { useGitCommitAction } from "../composables/useGitCommitAction.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "コミットグラフ";
 
 const workspaceStore = useWorkspaceStore();
 const gitStore = useGitStore();
-const { apiGet, apiCommand, wsEndpoint } = useApi();
+const { apiGet, wsEndpoint } = useApi();
+const { execAction: execCommitAction, execReset: execCommitReset } = useGitCommitAction();
 
 const ROW_HEIGHT = 28;
 const COL_WIDTH = 12;
@@ -76,10 +79,7 @@ const isGraphLoading = ref(false);
 const hasMoreGraphHistory = ref(false);
 const isLoadingMoreGraphHistory = ref(false);
 const graphListEl = ref(null);
-const longPressEntry = ref(null);
-let longPressTimer = null;
-let longPressEl = null;
-let longPressTriggered = false;
+const { activeEntry: longPressEntry, startMenu: onLongPressStart, endMenu: onLongPressEnd, closeMenu: closeLongPressMenu, isFired: isLongPressFired, isMenuEl } = useLongPress();
 let graphHistoryPage = 0;
 
 const graphWidth = computed(() => {
@@ -173,8 +173,7 @@ function buildGitGraphRows(parsed) {
 }
 
 function onCommitRowClick(entry) {
-  if (longPressEl || longPressEntry.value || longPressTriggered) {
-    longPressTriggered = false;
+  if (isMenuEl() || longPressEntry.value || isLongPressFired()) {
     return;
   }
 }
@@ -187,77 +186,12 @@ function toggleActionMenu(entry) {
   }
 }
 
-function onLongPressStart(e, entry) {
-  longPressTriggered = false;
-  const el = e.currentTarget;
-  longPressEl = el;
-  el.classList.add("long-pressing");
-  longPressTimer = setTimeout(() => {
-    longPressTriggered = true;
-    el.classList.remove("long-pressing");
-    el.classList.add("long-pressed");
-    longPressEntry.value = entry;
-  }, 500);
+function execAction(action, entry) {
+  execCommitAction(action, entry, closeLongPressMenu);
 }
 
-function onLongPressEnd() {
-  if (longPressTimer) {
-    clearTimeout(longPressTimer);
-    longPressTimer = null;
-  }
-  if (longPressEl) {
-    longPressEl.classList.remove("long-pressing");
-    if (!longPressTriggered) {
-      longPressEl.classList.remove("long-pressed");
-    }
-    longPressEl = null;
-  }
-}
-
-function closeLongPressMenu() {
-  longPressEntry.value = null;
-  onLongPressEnd();
-}
-
-async function execAction(action, entry) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  const shortHash = entry.hash;
-  if (!confirm(`${action} ${shortHash} を実行しますか？`)) return;
-  closeLongPressMenu();
-  try {
-    const { ok, data } = await apiCommand(wsEndpoint(workspace, action), { commit_hash: entry.fullHash });
-    if (!ok) {
-      bridgeEmit("toast:show", { message: data?.detail || data?.message || `${action}に失敗しました`, type: "error" });
-      return;
-    }
-    bridgeEmit("toast:show", { message: `${action} ${shortHash} 完了`, type: "success" });
-    bridgeEmit("git:refresh");
-  } catch (e) {
-    bridgeEmit("toast:show", { message: e.message, type: "error" });
-  }
-}
-
-async function execReset(entry, mode) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  const shortHash = entry.hash;
-  const msg = mode === "hard"
-    ? `reset --hard ${shortHash} を実行します。作業ツリーの変更はすべて失われます。実行しますか？`
-    : `reset --soft ${shortHash} を実行しますか？`;
-  if (!confirm(msg)) return;
-  closeLongPressMenu();
-  try {
-    const { ok, data } = await apiCommand(wsEndpoint(workspace, "reset"), { commit_hash: entry.fullHash, mode });
-    if (!ok) {
-      bridgeEmit("toast:show", { message: data?.detail || data?.message || `reset --${mode}に失敗しました`, type: "error" });
-      return;
-    }
-    bridgeEmit("toast:show", { message: `reset --${mode} ${shortHash} 完了`, type: "success" });
-    bridgeEmit("git:refresh");
-  } catch (e) {
-    bridgeEmit("toast:show", { message: e.message, type: "error" });
-  }
+function execReset(entry, mode) {
+  execCommitReset(entry, mode, closeLongPressMenu);
 }
 
 async function loadGraphHistory() {
@@ -338,59 +272,6 @@ onMounted(() => {
   gap: 4px;
   flex-wrap: nowrap;
   overflow: hidden;
-}
-
-.git-ref {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 10px;
-  user-select: none;
-  padding: 2px 6px;
-  border-radius: 3px;
-  white-space: nowrap;
-  line-height: 1;
-}
-
-.git-ref .mdi {
-  font-size: 12px;
-}
-
-.git-ref-branch {
-  background: var(--accent);
-  color: var(--bg-primary);
-}
-
-.git-ref-head {
-  background: var(--success);
-  color: var(--bg-primary);
-}
-
-.git-ref-remote {
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  border: 1px solid var(--border);
-}
-
-.git-ref-tag {
-  background: var(--warning);
-  color: var(--bg-primary);
-}
-
-
-.commit-action-menu {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.commit-action-danger {
-  color: var(--error);
-  border-color: var(--error);
 }
 
 .git-graph-row.action-open {

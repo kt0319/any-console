@@ -8,8 +8,8 @@ from ..common import MAX_UPLOAD_SIZE, resolve_workspace_path
 from ..errors import bad_request, conflict, not_found, too_large
 from ..validators import validate_git_ref
 from .git_shared import (
+    file_operation_guard,
     list_directory_entries,
-    raise_file_operation_error,
     read_blob_content_response,
     read_file_content_response,
     resolve_and_validate_workspace_path,
@@ -123,10 +123,8 @@ async def upload_file_to_workspace(
     if len(data) > MAX_UPLOAD_SIZE:
         raise too_large("File too large (max 10MB)")
 
-    try:
+    with file_operation_guard("Cannot write file"):
         target_file.write_bytes(data)
-    except (PermissionError, OSError) as e:
-        raise_file_operation_error("Cannot write file", e)
 
     rel_path = str(rel_dir / filename)
     return {"status": "ok", "path": rel_path, "size": len(data)}
@@ -145,10 +143,8 @@ def rename_file(name: str, src: str = Body(...), dest: str = Body(...)):
     if dest_target.exists():
         raise conflict("Destination already exists")
 
-    try:
+    with file_operation_guard("Rename failed"):
         src_target.rename(dest_target)
-    except (PermissionError, OSError) as e:
-        raise_file_operation_error("Rename failed", e)
 
     return {"status": "ok"}
 
@@ -161,13 +157,11 @@ def delete_file(name: str, path: str = Body(..., embed=True)):
     if not target.exists():
         raise not_found("File not found")
 
-    try:
+    with file_operation_guard("Delete failed"):
         if target.is_dir():
             shutil.rmtree(target)
         else:
             target.unlink()
-    except (PermissionError, OSError) as e:
-        raise_file_operation_error("Delete failed", e)
 
     return {"status": "ok"}
 
