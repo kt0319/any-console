@@ -730,5 +730,7 @@ defineExpose({
   box-sizing: border-box;
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  font-size: 11px;
+  line-height: 1.5;
 }
 </style>
