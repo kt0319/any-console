@@ -28,7 +28,7 @@
           }"
         >
           <span
-            class="split-tab-drag-handle"
+            class="drag-handle"
             @touchstart.passive="onDragStart($event, idx)"
             @mousedown="onDragStart($event, idx)"
           >
@@ -348,18 +348,6 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.split-tab-drag-handle {
-  flex-shrink: 0;
-  width: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  font-size: 20px;
-  cursor: grab;
-  touch-action: none;
-}
-
 .split-tab-input-wrap {
   flex-shrink: 0;
   display: flex;
@@ -436,10 +424,4 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-.clone-repo-empty {
-  padding: 16px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--text-muted);
-}
 </style>

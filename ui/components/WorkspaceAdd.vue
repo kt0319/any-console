@@ -246,19 +246,6 @@ onMounted(() => { loadRepos(); loadWorkDir(); });
   text-overflow: ellipsis;
 }
 
-.clone-repo-loading,
-.clone-repo-empty,
-.clone-repo-error {
-  padding: 16px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.clone-repo-error {
-  color: var(--error);
-}
-
 .clone-repo-success {
   color: var(--success);
   padding: 8px;

@@ -19,8 +19,8 @@
         </button>
       </div>
       <div class="ws-settings-row" style="gap:8px">
-        <label class="form-check-label"><input type="checkbox" v-model="form.confirm" /> 確認ダイアログ</label>
-        <label class="form-check-label"><input type="checkbox" v-model="form.terminal" /> ターミナルで実行</label>
+        <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.confirm" /> 確認ダイアログ</label>
+        <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.terminal" /> ターミナルで実行</label>
       </div>
       <div class="ws-settings-row" style="gap:8px">
         <button type="button" class="primary" :disabled="saving" @click="saveJob">
@@ -120,100 +120,4 @@ async function saveJob() {
 </script>
 
 <style scoped>
-.ws-settings-section {
-  padding: 8px 0;
-}
-
-.ws-settings-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 4px;
-  border-bottom: 1px solid var(--border);
-}
-
-.ws-settings-label {
-  font-size: 13px;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-  min-width: 48px;
-}
-
-.form-check-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.form-check-label input[type="checkbox"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--text-muted);
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-  flex-shrink: 0;
-  position: relative;
-}
-
-.form-check-label input[type="checkbox"]:checked {
-  border-color: var(--accent);
-  background: var(--accent);
-}
-
-.form-check-label input[type="checkbox"]:checked::after {
-  content: "";
-  position: absolute;
-  left: 5px;
-  top: 2px;
-  width: 5px;
-  height: 10px;
-  border: solid var(--bg-primary);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-
-.icon-select-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  min-height: 40px;
-  font-size: 13px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-secondary);
-  cursor: pointer;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.icon-select-preview {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.icon-select-label {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-.job-config-error {
-  padding: 16px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--error);
-}
 </style>

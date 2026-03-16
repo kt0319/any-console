@@ -10,12 +10,12 @@
         :style="dragIdx === idx ? { transform: `translateY(${dragOffsetY}px)` } : {}"
       >
         <span
-          class="ws-check-drag-handle"
+          class="drag-handle"
           @mousedown.prevent="onDragStart($event, idx)"
           @touchstart.prevent="onDragStart($event, idx)"
         ><span class="mdi mdi-drag"></span></span>
         <label class="ws-check-row">
-          <input type="checkbox" :checked="!ws.hidden" @change="toggleVisibility(ws, $event.target.checked)" />
+          <input type="checkbox" class="form-checkbox" :checked="!ws.hidden" @change="toggleVisibility(ws, $event.target.checked)" />
           <span class="ws-icon-display" v-html="renderIconStr(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
           <span class="ws-check-label">{{ ws.name }}</span>
         </label>
@@ -377,36 +377,6 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
-.ws-check-item input[type="checkbox"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--text-muted);
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-  flex-shrink: 0;
-  position: relative;
-}
-
-.ws-check-item input[type="checkbox"]:checked {
-  border-color: var(--accent);
-  background: var(--accent);
-}
-
-.ws-check-item input[type="checkbox"]:checked::after {
-  content: "";
-  position: absolute;
-  left: 5px;
-  top: 2px;
-  width: 5px;
-  height: 10px;
-  border: solid var(--bg-primary);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-
 .ws-icon-display {
   display: flex;
   align-items: center;
@@ -470,25 +440,6 @@ onMounted(async () => {
   cursor: pointer;
   flex-shrink: 0;
   white-space: nowrap;
-}
-
-.ws-settings-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 4px;
-  border-bottom: 1px solid var(--border);
-}
-
-.ws-settings-label {
-  font-size: 13px;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-  min-width: 48px;
-}
-
-.ws-settings-section {
-  padding: 8px 0;
 }
 
 .ws-settings-section-header {
@@ -562,62 +513,6 @@ onMounted(async () => {
   padding: 12px 8px;
   font-size: 12px;
   color: var(--text-muted);
-}
-
-.clone-repo-empty,
-.clone-repo-error {
-  padding: 16px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.clone-repo-error {
-  color: var(--error);
-}
-
-.ws-check-drag-handle {
-  flex-shrink: 0;
-  width: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  font-size: 20px;
-  cursor: grab;
-  touch-action: none;
-}
-
-.icon-select-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  min-height: 40px;
-  font-size: 13px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-secondary);
-  cursor: pointer;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.icon-select-preview {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.icon-select-label {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  min-width: 0;
 }
 
 .ws-delete-section {
