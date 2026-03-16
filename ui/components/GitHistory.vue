@@ -36,11 +36,11 @@
           </span>
         </span>
         <div class="git-log-dirty-actions" @click.stop>
-          <button type="button" class="git-action-btn icon-only" title="ブランチ" @click="selectPane('branch')">
-            <span class="mdi mdi-source-branch"></span>
-          </button>
           <button type="button" class="git-action-btn icon-only" title="Stash" @click="selectPane('stash')">
             <span class="mdi mdi-package-down"></span>
+          </button>
+          <button type="button" class="git-action-btn icon-only" title="ブランチ" @click="selectPane('branch')">
+            <span class="mdi mdi-source-branch"></span>
           </button>
           <button type="button" class="git-action-btn icon-only" title="コミットグラフ" @click="selectPane('graph')">
             <span class="mdi mdi-source-branch-sync"></span>

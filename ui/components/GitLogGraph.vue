@@ -31,8 +31,7 @@
                     <span v-if="r.synced" class="mdi mdi-link-variant"></span><span :class="'mdi ' + r.icon"></span>{{ r.label }}
                   </span>
                 </span>
-                <span class="git-graph-author">{{ row.entry.author }}</span>
-                <span class="git-graph-time">{{ row.entry.time }}</span>
+                <span class="git-graph-right"><span class="git-graph-author">{{ row.entry.author }}</span> <span class="git-graph-time">{{ row.entry.time }}</span></span>
               </span>
             </div>
           </div>
@@ -68,7 +67,7 @@ const workspaceStore = useWorkspaceStore();
 const gitStore = useGitStore();
 
 const ROW_HEIGHT = 28;
-const COL_WIDTH = 16;
+const COL_WIDTH = 12;
 const HALF = ROW_HEIGHT / 2;
 const COLORS = ["#7aa2f7", "#9ece6a", "#f7768e", "#e0af68", "#bb9af7", "#7dcfff", "#ff9e64", "#c0caf5"];
 
@@ -91,7 +90,7 @@ const graphWidth = computed(() => {
       if (col > maxCol) maxCol = col;
     }
   }
-  return (maxCol + 2) * COL_WIDTH;
+  return (maxCol + 1) * COL_WIDTH;
 });
 
 function colColor(col) {
@@ -449,6 +448,10 @@ onMounted(() => {
   font-size: 11px;
   color: var(--text-muted);
   flex-wrap: wrap;
+}
+
+.git-graph-right {
+  margin-left: auto;
 }
 
 .git-graph-author,
