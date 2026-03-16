@@ -85,15 +85,22 @@ const historyLongPress = useLongPress(600);
 let historyScrolled = false;
 let historyStartX = 0;
 
+function preventScroll(e) {
+  if (e.target.closest(".quick-snippet-scroll-row")) return;
+  e.preventDefault();
+}
+
 function show() {
   visible.value = true;
   emitLocal("visibility", true);
+  document.addEventListener("touchmove", preventScroll, { passive: false });
   nextTick(() => inputEl.value?.focus());
 }
 
 function hide() {
   visible.value = false;
   emitLocal("visibility", false);
+  document.removeEventListener("touchmove", preventScroll);
 }
 
 function onInputBlur() {
