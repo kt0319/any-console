@@ -44,9 +44,9 @@ const booting = ref(true);
 const bootMessage = ref("読み込み中...");
 
 async function initializeApp() {
-  try {
-    bootMessage.value = "ワークスペース一覧を読み込み中...";
-    const res = await auth.apiFetch("/workspaces");
+  bootMessage.value = "読み込み中...";
+
+  const workspacesPromise = auth.apiFetch("/workspaces").then(async (res) => {
     if (res && res.ok) {
       const data = await res.json();
       workspaceStore.allWorkspaces = Array.isArray(data) ? data : (data.workspaces || []);
@@ -55,46 +55,45 @@ async function initializeApp() {
         if (first) workspaceStore.selectedWorkspace = first.name;
       }
     }
-  } catch (e) {
-    console.error("initializeApp failed:", e);
-  }
+  }).catch((e) => console.error("workspaces fetch failed:", e));
 
-  bootMessage.value = "ワークスペース状態を読み込み中...";
-  await workspaceStore.fetchStatuses(auth);
-  bootMessage.value = "セッションを読み込み中...";
-  await restoreExistingSessions();
+  const sessionsPromise = auth.apiFetch("/terminal/sessions").catch(() => null);
+  const jobsPromise = auth.apiFetch("/jobs/workspaces").catch(() => null);
+
+  const [, sessionsRes, jobsRes] = await Promise.all([workspacesPromise, sessionsPromise, jobsPromise]);
+
+  bootMessage.value = "セッションを復元中...";
+  await restoreExistingSessions(sessionsRes, jobsRes);
+
+  workspaceStore.fetchStatuses(auth);
 }
 
-async function restoreExistingSessions() {
+async function restoreExistingSessions(sessionsRes, jobsRes) {
   if (terminalStore.hasRestoredTabsFromStorage) return;
   terminalStore.hasRestoredTabsFromStorage = true;
   terminalStore.restoreSessionsLoading = true;
   terminalStore.restoreSessionsError = "";
-  const startAt = Date.now();
-  const MIN_LOADING_MS = 400;
   try {
-    const res = await auth.apiFetch("/terminal/sessions");
-    if (!res || !res.ok) {
-      let detail = "既存セッションの取得に失敗しました";
-      try {
-        const text = await res?.text?.();
-        if (text) detail = text;
-      } catch {}
-      terminalStore.restoreSessionsError = detail;
+    if (!sessionsRes || !sessionsRes.ok) {
+      if (sessionsRes) {
+        let detail = "既存セッションの取得に失敗しました";
+        try {
+          const text = await sessionsRes.text?.();
+          if (text) detail = text;
+        } catch {}
+        terminalStore.restoreSessionsError = detail;
+      }
       return;
     }
-    const sessions = await res.json();
+    const sessions = await sessionsRes.json();
     if (!Array.isArray(sessions) || sessions.length === 0) return;
 
     let allJobs = {};
     try {
-      const jobsRes = await auth.apiFetch("/jobs/workspaces");
       if (jobsRes && jobsRes.ok) allJobs = await jobsRes.json();
     } catch {}
 
-    for (let i = 0; i < sessions.length; i++) {
-      const s = sessions[i];
-      bootMessage.value = `セッションを復元中... (${i + 1}/${sessions.length})`;
+    for (const s of sessions) {
       const ws = workspaceStore.allWorkspaces.find((w) => w.name === s.workspace);
       const jobDef = s.job_name && s.workspace ? allJobs[s.workspace]?.[s.job_name] : null;
       terminalStore.addTerminalTab({
@@ -117,10 +116,6 @@ async function restoreExistingSessions() {
     console.error("restoreExistingSessions failed:", e);
     terminalStore.restoreSessionsError = e?.message || "既存セッションの復元でエラーが発生しました";
   } finally {
-    const elapsed = Date.now() - startAt;
-    if (elapsed < MIN_LOADING_MS) {
-      await new Promise((resolve) => setTimeout(resolve, MIN_LOADING_MS - elapsed));
-    }
     terminalStore.restoreSessionsLoading = false;
   }
 }
