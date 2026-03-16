@@ -63,6 +63,7 @@
             <li v-if="contextEntry?.name === entry.name" class="file-browser-action-menu">
               <button v-if="entry.type === 'file'" type="button" @click="openEntryInEditor"><span class="mdi mdi-file-edit-outline"></span> エディタ</button>
               <button v-if="entry.type === 'file'" type="button" @click="downloadEntry"><span class="mdi mdi-download"></span> ダウンロード</button>
+              <button v-if="githubEntryUrl" type="button" @click="openGitHub"><span class="mdi mdi-github"></span> GitHub</button>
               <button type="button" @click="renameEntry"><span class="mdi mdi-rename-box"></span> リネーム</button>
               <button type="button" @click="moveEntry"><span class="mdi mdi-file-move-outline"></span> 移動</button>
               <button type="button" class="file-browser-action-delete" @click="deleteEntry"><span class="mdi mdi-delete-outline"></span> 削除</button>
@@ -125,6 +126,21 @@ const pathSegments = computed(() => {
 const displayPathSegments = computed(() => {
   if (props.diffFile) return props.diffFile.split("/").filter(Boolean);
   return pathSegments.value;
+});
+
+const currentWorkspaceState = computed(() =>
+  workspaceStore.allWorkspaces.find((w) => w.name === workspaceStore.selectedWorkspace),
+);
+
+const githubEntryUrl = computed(() => {
+  const ws = currentWorkspaceState.value;
+  if (!ws?.github_url || !contextEntry.value) return "";
+  const branch = ws.branch || "main";
+  const entryPath = currentPath.value
+    ? `${currentPath.value}/${contextEntry.value.name}`
+    : contextEntry.value.name;
+  const type = contextEntry.value.type === "dir" ? "tree" : "blob";
+  return `${ws.github_url}/${type}/${branch}/${entryPath}`;
 });
 
 const DIFF_COLORS = {
@@ -281,6 +297,13 @@ function toggleContextMenu(entry) {
 function entryPath() {
   if (!contextEntry.value) return "";
   return currentPath.value ? `${currentPath.value}/${contextEntry.value.name}` : contextEntry.value.name;
+}
+
+function openGitHub() {
+  if (githubEntryUrl.value) {
+    window.open(githubEntryUrl.value, "_blank");
+  }
+  contextEntry.value = null;
 }
 
 async function renameEntry() {
