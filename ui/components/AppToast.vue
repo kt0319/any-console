@@ -78,15 +78,15 @@ defineExpose({ show });
   transition: top 0.3s, opacity 0.3s;
 }
 .toast-error {
-  background: var(--error);
+  background: color-mix(in srgb, var(--error) 85%, transparent);
   color: #fff;
 }
 .toast-success {
-  background: var(--accent);
+  background: color-mix(in srgb, var(--accent) 85%, transparent);
   color: var(--bg-primary);
 }
 .toast-info {
-  background: var(--bg-tertiary);
+  background: color-mix(in srgb, var(--bg-tertiary) 85%, transparent);
   color: var(--text-primary);
 }
 .toast-enter-from {
