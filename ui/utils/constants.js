@@ -19,6 +19,10 @@ export const LS_PREFIX_API_CACHE = "api_cache_";
 export const LS_PREFIX_WS_META = "ws_meta_";
 export const COOKIE_NAME_TOKEN = "any_console_token";
 
+export const MSG_SAVE_FAILED = "保存に失敗しました";
+export const MSG_DELETE_FAILED = "削除に失敗しました";
+export const MSG_ERROR_OCCURRED = "エラーが発生しました";
+
 export const GIT_DIFF_STATUS_CLASSES = Object.freeze({
   M: "diff-status-mod",
   A: "diff-status-add",

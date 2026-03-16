@@ -83,6 +83,7 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
+import { MSG_ERROR_OCCURRED } from "../utils/constants.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "ワークスペース追加";
@@ -120,7 +121,7 @@ async function doAddExisting() {
       addPath.value = "";
     }
   } catch (e) {
-    addError.value = e.message || "エラーが発生しました";
+    addError.value = e.message || MSG_ERROR_OCCURRED;
   } finally {
     adding.value = false;
   }
@@ -145,7 +146,7 @@ async function doClone() {
       cloneName.value = "";
     }
   } catch (e) {
-    cloneError.value = e.message || "エラーが発生しました";
+    cloneError.value = e.message || MSG_ERROR_OCCURRED;
   } finally {
     cloning.value = false;
   }

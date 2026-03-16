@@ -85,6 +85,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { useModalView } from "../composables/useModalView.js";
 import { renderIconStr } from "../utils/render-icon.js";
+import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
 
 const { modalTitle, pushView, viewState } = useModalView();
 modalTitle.value = "ワークスペース設定";
@@ -196,10 +197,10 @@ async function deleteWorkspace() {
       goBackToList();
       await loadWorkspaceConfig();
     } else {
-      saveError.value = data?.detail || "削除に失敗しました";
+      saveError.value = data?.detail || MSG_DELETE_FAILED;
     }
   } catch (e) {
-    saveError.value = e.message || "エラーが発生しました";
+    saveError.value = e.message || MSG_ERROR_OCCURRED;
   }
 }
 
@@ -221,13 +222,13 @@ async function saveWsConfig() {
       hidden: !!editWs.value.hidden,
     });
     if (!ok) {
-      saveError.value = data?.detail || "保存に失敗しました";
+      saveError.value = data?.detail || MSG_SAVE_FAILED;
     } else {
       editWs.value.icon = editIcon.value.trim();
       editWs.value.icon_color = editIconColor.value.trim();
     }
   } catch (e) {
-    saveError.value = e.message || "エラーが発生しました";
+    saveError.value = e.message || MSG_ERROR_OCCURRED;
   }
 }
 

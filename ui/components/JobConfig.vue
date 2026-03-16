@@ -37,6 +37,7 @@ import { ref, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useModalView } from "../composables/useModalView.js";
 import { renderIconStr } from "../utils/render-icon.js";
+import { MSG_SAVE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
 
 const { modalTitle, viewState, pushView, popView } = useModalView();
 const { apiPost, apiPut } = useApi();
@@ -106,12 +107,12 @@ async function saveJob() {
     };
     const { ok, data } = isNew ? await apiPost(url, body) : await apiPut(url, body);
     if (!ok) {
-      formError.value = data?.detail || "保存に失敗しました";
+      formError.value = data?.detail || MSG_SAVE_FAILED;
     } else {
       popView();
     }
   } catch (e) {
-    formError.value = e.message || "エラーが発生しました";
+    formError.value = e.message || MSG_ERROR_OCCURRED;
   } finally {
     saving.value = false;
   }

@@ -488,30 +488,4 @@ defineExpose({
   background: rgba(130, 170, 255, 0.08);
 }
 
-.diff-file-browser-list {
-  flex: 1;
-}
-
-.diff-file-row {
-  cursor: pointer;
-}
-
-.diff-file-row :deep(.file-browser-item-name) {
-  font-size: 12px;
-}
-
-.diff-file-row-numstat {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 6px;
-  margin-left: auto;
-  margin-right: 8px;
-  font-family: inherit;
-  font-size: 11px;
-  line-height: 1;
-  font-weight: 700;
-  white-space: nowrap;
-}
 </style>

@@ -89,6 +89,7 @@ import { useGitStore } from "../stores/git.js";
 import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 import { useLongPress } from "../composables/useLongPress.js";
+import { MSG_DELETE_FAILED } from "../utils/constants.js";
 import { renderFileIcon } from "../utils/file-icon.js";
 import { formatSize } from "../utils/format.js";
 
@@ -326,7 +327,7 @@ async function deleteEntry() {
   try {
     const { ok } = await apiPost(wsEndpoint(workspace, "delete-file"), { path: filePath });
     if (!ok) {
-      emit("toast:show", { message: "削除に失敗しました", type: "error" });
+      emit("toast:show", { message: MSG_DELETE_FAILED, type: "error" });
       return;
     }
     emit("toast:show", { message: "削除しました", type: "success" });
@@ -544,10 +545,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("dragleave", onWindowDragLeave);
 });
 
-defineExpose({
-  load: loadFileBrowserRoot,
-  loadFileBrowserRoot,
-});
+defineExpose({ load: loadFileBrowserRoot });
 </script>
 
 <style scoped>

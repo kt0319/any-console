@@ -383,4 +383,31 @@ button:disabled {
   border-color: rgba(255, 210, 122, 0.45);
   background: rgba(255, 210, 122, 0.12);
 }
+
+.diff-file-browser-list {
+  flex: 1;
+}
+
+.diff-file-row {
+  cursor: pointer;
+}
+
+.diff-file-row :deep(.file-browser-item-name) {
+  font-size: 12px;
+}
+
+.diff-file-row-numstat {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+  margin-left: auto;
+  margin-right: 8px;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
+  white-space: nowrap;
+}
 </style>
