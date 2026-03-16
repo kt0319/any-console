@@ -53,7 +53,7 @@ defineEmits([
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 44px;
+  min-height: 36px;
   padding: 0 8px;
   border-bottom: 1px solid var(--border);
   color: var(--text-primary);
