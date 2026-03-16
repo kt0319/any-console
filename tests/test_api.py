@@ -435,13 +435,13 @@ class TestFileOperations:
 
 class TestUtils:
     def test_validate_commit_hash_valid(self):
-        from api.git_utils import validate_commit_hash
+        from api.validators import validate_commit_hash
 
         assert validate_commit_hash("abcd") == "abcd"
         assert validate_commit_hash("a" * 40) == "a" * 40
 
     def test_validate_commit_hash_invalid(self):
-        from api.git_utils import validate_commit_hash
+        from api.validators import validate_commit_hash
         from fastapi import HTTPException
 
         with pytest.raises(HTTPException) as exc_info:

@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .common import (
+    GIT_INFO_CACHE_TTL_SEC,
     GIT_QUICK_TIMEOUT_SEC,
     GIT_STANDARD_TIMEOUT_SEC,
     TTLCache,
@@ -59,12 +60,7 @@ def run_git_command(
         raise timeout_error(f"git {label} timed out") from None
 
 
-def validate_commit_hash(commit_hash: str) -> str:
-    from .validators import validate_commit_hash as _validate
-    return _validate(commit_hash)
-
-
-_git_info_cache = TTLCache(5)
+_git_info_cache = TTLCache(GIT_INFO_CACHE_TTL_SEC)
 
 
 def invalidate_git_info(workspace_name: str):

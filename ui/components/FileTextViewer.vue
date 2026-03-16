@@ -111,7 +111,7 @@ watch(() => props.fileContent, () => highlight(), { immediate: true });
   max-height: calc(var(--app-dvh) - 200px);
   object-fit: contain;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--bg-secondary);
 }
 

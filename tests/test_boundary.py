@@ -82,7 +82,7 @@ class TestBranchNameValidation:
         "fix/issue-123",
     ])
     def test_valid_branch_names(self, branch):
-        from api.routers.git_shared import validate_branch_name
+        from api.validators import validate_branch_name
         assert validate_branch_name(branch) == branch
 
     @pytest.mark.parametrize("branch", [
@@ -95,13 +95,13 @@ class TestBranchNameValidation:
         "a b",
     ])
     def test_invalid_branch_names(self, branch):
-        from api.routers.git_shared import validate_branch_name
+        from api.validators import validate_branch_name
         with pytest.raises(HTTPException) as exc_info:
             validate_branch_name(branch)
         assert exc_info.value.status_code == 400
 
     def test_branch_name_stripped(self):
-        from api.routers.git_shared import validate_branch_name
+        from api.validators import validate_branch_name
         assert validate_branch_name("  main  ") == "main"
 
 
@@ -116,7 +116,7 @@ class TestCommitHashValidation:
         "stash@{99}",
     ])
     def test_valid_commit_hashes(self, hash_val):
-        from api.git_utils import validate_commit_hash
+        from api.validators import validate_commit_hash
         assert validate_commit_hash(hash_val) == hash_val
 
     @pytest.mark.parametrize("hash_val", [
@@ -131,7 +131,7 @@ class TestCommitHashValidation:
         "",
     ])
     def test_invalid_commit_hashes(self, hash_val):
-        from api.git_utils import validate_commit_hash
+        from api.validators import validate_commit_hash
         with pytest.raises(HTTPException) as exc_info:
             validate_commit_hash(hash_val)
         assert exc_info.value.status_code == 400
@@ -146,7 +146,7 @@ class TestStashRefValidation:
         "stash@{99}",
     ])
     def test_valid_stash_refs(self, ref):
-        from api.routers.git_shared import validate_stash_ref
+        from api.validators import validate_stash_ref
         assert validate_stash_ref(ref) == ref
 
     @pytest.mark.parametrize("ref", [
@@ -159,7 +159,7 @@ class TestStashRefValidation:
         "main",
     ])
     def test_invalid_stash_refs(self, ref):
-        from api.routers.git_shared import validate_stash_ref
+        from api.validators import validate_stash_ref
         with pytest.raises(HTTPException) as exc_info:
             validate_stash_ref(ref)
         assert exc_info.value.status_code == 400

@@ -89,7 +89,7 @@ defineEmits(["openWorkspace"]);
   color: var(--text-secondary);
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   cursor: pointer;
 }
 </style>

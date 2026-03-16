@@ -279,7 +279,7 @@ onMounted(() => {
   min-height: 34px;
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--bg-secondary);
   color: var(--text-secondary);
   font-size: 18px;
@@ -302,7 +302,7 @@ onMounted(() => {
   gap: 2px;
   min-width: auto;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--bg-secondary);
   color: var(--text-muted);
   cursor: pointer;
@@ -353,7 +353,7 @@ onMounted(() => {
   height: 36px;
   padding: 0 10px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;

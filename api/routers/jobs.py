@@ -24,6 +24,7 @@ from ..errors import bad_request, not_found, server_error, timeout_error, too_ma
 from ..git_utils import command_result_dict, git_branches
 from ..job_models import TERMINAL_JOB, JobDefinition
 from ..runner import run_job
+from ..validators import validate_icon, validate_icon_color
 from .terminal import (
     TERMINAL_SESSIONS,
     TMUX_SESSION_PREFIX,
@@ -116,16 +117,6 @@ def get_workspace_job(name: str, job_name: str):
     if not job_def:
         raise not_found(f"ジョブ '{job_name}' が見つかりません")
     return job_definition_to_dict(job_def)
-
-
-def validate_icon(icon: str) -> str:
-    from ..validators import validate_icon as _validate
-    return _validate(icon)
-
-
-def validate_icon_color(color: str) -> str:
-    from ..validators import validate_icon_color as _validate
-    return _validate(color)
 
 
 def _apply_icon_fields(entry: dict, icon: str, icon_color: str) -> None:

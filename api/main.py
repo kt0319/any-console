@@ -12,11 +12,12 @@ from datetime import datetime
 from pathlib import Path
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Request, Response, UploadFile
+from fastapi import Depends, FastAPI, Request, Response, UploadFile
 from fastapi.staticfiles import StaticFiles
 
 from .auth import verify_token
-from .common import BACKGROUND_EXECUTOR, MAX_UPLOAD_SIZE, UPLOAD_DIR
+from .common import BACKGROUND_EXECUTOR, MAX_UPLOAD_SIZE, SYSTEM_CMD_TIMEOUT_SEC, UPLOAD_DIR
+from .errors import bad_request, too_large
 from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
 from .routers import git, github, jobs, settings, system, terminal, workspaces
@@ -57,7 +58,7 @@ def _resolve_tailscale_name(ip: str) -> str:
     try:
         result = subprocess.run(
             ["tailscale", "status", "--json"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
         )
         if result.returncode == 0:
             import json
@@ -95,11 +96,11 @@ ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 @app.post("/upload-image", dependencies=[Depends(verify_token)])
 async def upload_image(file: UploadFile):
     if file.content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(status_code=400, detail=f"Unsupported type: {file.content_type}")
+        raise bad_request(f"Unsupported type: {file.content_type}")
 
     data = await file.read()
     if len(data) > MAX_UPLOAD_SIZE:
-        raise HTTPException(status_code=413, detail="File too large (max 10MB)")
+        raise too_large("File too large (max 10MB)")
 
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     ext = file.content_type.split("/")[-1].replace("jpeg", "jpg")

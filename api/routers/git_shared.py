@@ -103,16 +103,6 @@ def build_file_list(files_result, numstat):
     return files
 
 
-def validate_stash_ref(stash_ref: str) -> str:
-    from ..validators import validate_stash_ref as _validate
-    return _validate(stash_ref)
-
-
-def validate_branch_name(branch: str) -> str:
-    from ..validators import validate_branch_name as _validate
-    return _validate(branch)
-
-
 def get_current_branch(ws_path):
     result = run_git_command(
         ["rev-parse", "--abbrev-ref", "HEAD"], cwd=ws_path, operation="current branch",

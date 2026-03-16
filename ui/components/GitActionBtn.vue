@@ -41,7 +41,7 @@ defineEmits(["action"]);
   padding: 0 8px;
   box-sizing: border-box;
   line-height: 1;
-  border-radius: 6px;
+  border-radius: var(--radius);
   font-size: 12px;
   font-weight: 600;
   border: 1px solid transparent;

@@ -10,8 +10,9 @@ from ..common import (
     resolve_workspace_path,
 )
 from ..errors import bad_request
-from ..git_utils import invalidate_git_info, run_git_command, validate_commit_hash
-from .git_shared import GIT_LOG_MAX_SKIP, validate_branch_name, validate_stash_ref
+from ..git_utils import invalidate_git_info, run_git_command
+from ..validators import validate_branch_name, validate_commit_hash, validate_stash_ref
+from .git_shared import GIT_LOG_MAX_SKIP
 
 logger = logging.getLogger(__name__)
 

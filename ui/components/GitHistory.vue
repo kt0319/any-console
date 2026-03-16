@@ -582,7 +582,7 @@ defineExpose({
   height: 36px;
   min-height: 36px;
   padding: 0;
-  border-radius: 6px;
+  border-radius: var(--radius);
   font-size: 14px;
   border: 1px solid var(--border);
   cursor: pointer;

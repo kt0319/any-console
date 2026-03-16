@@ -241,7 +241,7 @@ onMounted(() => {
   cursor: pointer;
   color: var(--accent);
   background: transparent;
-  border-radius: 6px;
+  border-radius: var(--radius);
   margin: 6px 8px;
   border-bottom: none;
   justify-content: space-between;

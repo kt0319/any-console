@@ -444,7 +444,7 @@ onMounted(async () => {
   min-height: 34px;
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--bg-secondary);
   color: var(--text-secondary);
   font-size: 18px;
@@ -473,7 +473,7 @@ onMounted(async () => {
   color: var(--text-secondary);
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius);
 }
 
 .ws-add-item-btn {
@@ -571,7 +571,7 @@ onMounted(async () => {
   min-width: 32px;
   min-height: 32px;
   padding: 0;
-  border-radius: 8px;
+  border-radius: var(--radius);
   font-size: 16px;
   line-height: 1;
 }
