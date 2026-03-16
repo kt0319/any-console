@@ -5,10 +5,11 @@ from fastapi.responses import FileResponse
 
 from ..auth import verify_token
 from ..common import MAX_UPLOAD_SIZE, resolve_workspace_path
-from ..errors import bad_request, conflict, forbidden, not_found, server_error, too_large
+from ..errors import bad_request, conflict, not_found, too_large
 from ..validators import validate_git_ref
 from .git_shared import (
     list_directory_entries,
+    raise_file_operation_error,
     read_blob_content_response,
     read_file_content_response,
     resolve_and_validate_workspace_path,
@@ -124,10 +125,8 @@ async def upload_file_to_workspace(
 
     try:
         target_file.write_bytes(data)
-    except PermissionError:
-        raise forbidden("Permission denied") from None
-    except OSError:
-        raise server_error("Cannot write file") from None
+    except (PermissionError, OSError) as e:
+        raise_file_operation_error("Cannot write file", e)
 
     rel_path = str(rel_dir / filename)
     return {"status": "ok", "path": rel_path, "size": len(data)}
@@ -148,10 +147,8 @@ def rename_file(name: str, src: str = Body(...), dest: str = Body(...)):
 
     try:
         src_target.rename(dest_target)
-    except PermissionError:
-        raise forbidden("Permission denied") from None
-    except OSError as e:
-        raise server_error(f"Rename failed: {e}") from None
+    except (PermissionError, OSError) as e:
+        raise_file_operation_error("Rename failed", e)
 
     return {"status": "ok"}
 
@@ -169,10 +166,8 @@ def delete_file(name: str, path: str = Body(..., embed=True)):
             shutil.rmtree(target)
         else:
             target.unlink()
-    except PermissionError:
-        raise forbidden("Permission denied") from None
-    except OSError as e:
-        raise server_error(f"Delete failed: {e}") from None
+    except (PermissionError, OSError) as e:
+        raise_file_operation_error("Delete failed", e)
 
     return {"status": "ok"}
 

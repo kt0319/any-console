@@ -40,23 +40,18 @@ router = APIRouter(dependencies=[Depends(verify_token)])
 _workspace_jobs_cache = TTLCache(WORKSPACE_JOBS_CACHE_TTL_SEC)
 
 
-def workspace_jobs_cache_key(workspace_name):
-    return workspace_name
-
-
 def load_workspace_jobs_data(workspace_name):
-    cache_key = workspace_jobs_cache_key(workspace_name)
-    cached = _workspace_jobs_cache.get(cache_key)
+    cached = _workspace_jobs_cache.get(workspace_name)
     if cached is not None:
         return cached
     data = load_workspace_config_section(workspace_name, "jobs", {})
-    _workspace_jobs_cache.set(cache_key, data)
+    _workspace_jobs_cache.set(workspace_name, data)
     return data
 
 
 def save_workspace_jobs_data(workspace_name, data):
     save_workspace_config_section(workspace_name, "jobs", data)
-    _workspace_jobs_cache.invalidate(workspace_jobs_cache_key(workspace_name))
+    _workspace_jobs_cache.invalidate(workspace_name)
 
 
 def get_workspace_jobs(workspace_name):

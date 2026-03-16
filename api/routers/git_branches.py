@@ -18,7 +18,7 @@ from ..git_utils import (
     run_git_command,
     ssh_env,
 )
-from ..validators import validate_branch_name
+from ..validators import validate_branch_name, validate_commit_hash
 from .git_shared import get_current_branch
 
 logger = logging.getLogger(__name__)
@@ -83,7 +83,6 @@ def create_branch(name: str, body: CheckoutRequest):
     branch = validate_branch_name(body.branch)
     args = ["checkout", "-b", branch]
     if body.start_point:
-        from ..validators import validate_commit_hash
         args.append(validate_commit_hash(body.start_point))
     result = run_git_command(args, cwd=ws_path, operation="create-branch")
     logger.info("create-branch workspace=%s branch=%s rc=%d", name, branch, result["exit_code"])

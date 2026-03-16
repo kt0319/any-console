@@ -5,8 +5,6 @@ export const useWorkspaceStore = defineStore("workspace", () => {
   const allWorkspaces = ref([]);
   const selectedWorkspace = ref(null);
   const workspaceJobs = ref({});
-  const workspaceJobsCache = ref({});
-  const workspaceJobsLoadedFor = ref(null);
   const pendingJob = ref(null);
   const branchesCache = ref([]);
   const isLaunchingTerminal = ref(false);
@@ -36,8 +34,6 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     allWorkspaces,
     selectedWorkspace,
     workspaceJobs,
-    workspaceJobsCache,
-    workspaceJobsLoadedFor,
     pendingJob,
     branchesCache,
     isLaunchingTerminal,

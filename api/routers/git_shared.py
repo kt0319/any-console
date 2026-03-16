@@ -10,6 +10,12 @@ from ..errors import bad_request, forbidden, server_error, timeout_error
 from ..git_utils import run_git_command
 
 
+def raise_file_operation_error(operation: str, error: Exception):
+    if isinstance(error, PermissionError):
+        raise forbidden("Permission denied") from None
+    raise server_error(f"{operation}: {error}") from None
+
+
 def run_raw_git(args, cwd, text=True):
     try:
         return subprocess.run(
