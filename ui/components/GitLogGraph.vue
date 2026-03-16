@@ -52,9 +52,9 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted, inject } from "vue";
-import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore } from "../stores/git.js";
+import { useApi } from "../composables/useApi.js";
 import { formatGitTime, parseGitRefs } from "../utils/git.js";
 import { INFINITE_SCROLL_THRESHOLD_PX } from "../utils/constants.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
@@ -62,9 +62,9 @@ import { emit as bridgeEmit } from "../app-bridge.js";
 const modalTitle = inject("modalTitle");
 modalTitle.value = "コミットグラフ";
 
-const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
 const gitStore = useGitStore();
+const { apiGet, apiCommand, wsEndpoint } = useApi();
 
 const ROW_HEIGHT = 28;
 const COL_WIDTH = 12;
@@ -226,13 +226,9 @@ async function execAction(action, entry) {
   if (!confirm(`${action} ${shortHash} を実行しますか？`)) return;
   closeLongPressMenu();
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/${action}`, {
-      method: "POST",
-      body: { commit_hash: entry.fullHash },
-    });
-    if (!res || !res.ok) {
-      const data = await res?.json().catch(() => null);
-      bridgeEmit("toast:show", { message: data?.detail || `${action}に失敗しました`, type: "error" });
+    const { ok, data } = await apiCommand(wsEndpoint(workspace, action), { commit_hash: entry.fullHash });
+    if (!ok) {
+      bridgeEmit("toast:show", { message: data?.detail || data?.message || `${action}に失敗しました`, type: "error" });
       return;
     }
     bridgeEmit("toast:show", { message: `${action} ${shortHash} 完了`, type: "success" });
@@ -252,13 +248,9 @@ async function execReset(entry, mode) {
   if (!confirm(msg)) return;
   closeLongPressMenu();
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/reset`, {
-      method: "POST",
-      body: { commit_hash: entry.fullHash, mode },
-    });
-    if (!res || !res.ok) {
-      const data = await res?.json().catch(() => null);
-      bridgeEmit("toast:show", { message: data?.detail || `reset --${mode}に失敗しました`, type: "error" });
+    const { ok, data } = await apiCommand(wsEndpoint(workspace, "reset"), { commit_hash: entry.fullHash, mode });
+    if (!ok) {
+      bridgeEmit("toast:show", { message: data?.detail || data?.message || `reset --${mode}に失敗しました`, type: "error" });
       return;
     }
     bridgeEmit("toast:show", { message: `reset --${mode} ${shortHash} 完了`, type: "success" });
@@ -277,11 +269,8 @@ async function loadGraphHistory() {
   graphHistoryPage = 0;
   try {
     const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
-    const res = await auth.apiFetch(
-      `/workspaces/${encodeURIComponent(workspace)}/git-log?limit=${perPage}&skip=0&graph=true`
-    );
-    if (!res || !res.ok) { isGraphLoading.value = false; return; }
-    const data = await res.json();
+    const { ok, data } = await apiGet(wsEndpoint(workspace, `git-log?limit=${perPage}&skip=0&graph=true`));
+    if (!ok) { isGraphLoading.value = false; return; }
     const parsed = parseGitGraphOutput(data.stdout);
     graphRows.value = buildGitGraphRows(parsed);
     hasMoreGraphHistory.value = parsed.filter((p) => p.entry).length >= perPage;
@@ -302,11 +291,8 @@ async function loadMoreGraphHistory() {
   const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
   const totalLimit = (graphHistoryPage + 1) * perPage;
   try {
-    const res = await auth.apiFetch(
-      `/workspaces/${encodeURIComponent(workspace)}/git-log?limit=${totalLimit}&skip=0&graph=true`
-    );
-    if (!res || !res.ok) return;
-    const data = await res.json();
+    const { ok, data } = await apiGet(wsEndpoint(workspace, `git-log?limit=${totalLimit}&skip=0&graph=true`));
+    if (!ok) return;
     const parsed = parseGitGraphOutput(data.stdout);
     graphRows.value = buildGitGraphRows(parsed);
     hasMoreGraphHistory.value = parsed.filter((p) => p.entry).length >= totalLimit;

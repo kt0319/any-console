@@ -44,12 +44,12 @@
 
 <script setup>
 import { ref, inject, computed, watch, onMounted } from "vue";
-import { useAuthStore } from "../stores/auth.js";
+import { useApi } from "../composables/useApi.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "エディタ";
 
-const auth = useAuthStore();
+const { apiGet, apiPut } = useApi();
 
 const EDITOR_PRESETS = [
   { label: "Zed", template: "zed://ssh/{user}@{host}{work_dir}/{workspace}" },
@@ -92,24 +92,22 @@ watch(urlTemplate, (val) => {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     const url_template = val.trim();
-    await auth.apiFetch("/settings/editor", { method: "PUT", body: { url_template } });
+    await apiPut("/settings/editor", { url_template });
   }, 500);
 });
 
 async function loadEditorConfig() {
   try {
-    const res = await auth.apiFetch("/system/info");
-    if (res && res.ok) {
-      const data = await res.json();
+    const { ok, data } = await apiGet("/system/info");
+    if (ok) {
       if (data.user) editorUser.value = data.user;
       if (data.hostname) editorHost.value = data.hostname;
       if (data.work_dir) workDir.value = data.work_dir;
     }
   } catch {}
   try {
-    const res = await auth.apiFetch("/settings/editor");
-    if (res && res.ok) {
-      const data = await res.json();
+    const { ok, data } = await apiGet("/settings/editor");
+    if (ok) {
       urlTemplate.value = data.url_template || "";
     }
   } catch {}

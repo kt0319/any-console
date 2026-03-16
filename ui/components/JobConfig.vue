@@ -34,14 +34,14 @@
 
 <script setup>
 import { ref, inject, onMounted } from "vue";
-import { useAuthStore } from "../stores/auth.js";
+import { useApi } from "../composables/useApi.js";
 import { renderIconStr } from "../utils/render-icon.js";
 
 const modalTitle = inject("modalTitle");
 const viewState = inject("viewState");
 const pushView = inject("pushView");
 const popView = inject("popView");
-const auth = useAuthStore();
+const { apiPost, apiPut } = useApi();
 
 const workspaceName = viewState.value.workspaceName;
 const jobEntry = viewState.value.jobEntry;
@@ -95,24 +95,20 @@ async function saveJob() {
   saving.value = true;
   formError.value = "";
   try {
-    const method = isNew ? "POST" : "PUT";
     const url = isNew
       ? `/workspaces/${encodeURIComponent(workspaceName)}/jobs`
       : `/workspaces/${encodeURIComponent(workspaceName)}/jobs/${encodeURIComponent(jobEntry.name)}`;
-    const res = await auth.apiFetch(url, {
-      method,
-      body: {
-        label: f.label.trim(),
-        command: f.command.trim(),
-        icon: f.icon.trim(),
-        icon_color: f.icon_color.trim(),
-        confirm: f.confirm,
-        terminal: f.terminal,
-      },
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      formError.value = data.detail || "保存に失敗しました";
+    const body = {
+      label: f.label.trim(),
+      command: f.command.trim(),
+      icon: f.icon.trim(),
+      icon_color: f.icon_color.trim(),
+      confirm: f.confirm,
+      terminal: f.terminal,
+    };
+    const { ok, data } = isNew ? await apiPost(url, body) : await apiPut(url, body);
+    if (!ok) {
+      formError.value = data?.detail || "保存に失敗しました";
     } else {
       popView();
     }

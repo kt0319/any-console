@@ -86,12 +86,14 @@ import FileItem from "./FileItem.vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore } from "../stores/git.js";
+import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 import { renderFileIcon } from "../utils/file-icon.js";
 import { formatSize } from "../utils/format.js";
 
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
+const { apiGet, apiPost, wsEndpoint } = useApi();
 const gitStore = useGitStore();
 
 const props = defineProps({
@@ -178,16 +180,11 @@ watch(() => props.diffFile, async (file) => {
   if (status === "??" || status === "A") {
     const workspace = workspaceStore.selectedWorkspace;
     try {
-      const res = await auth.apiFetch(
-        `/workspaces/${encodeURIComponent(workspace)}/file-content?path=${encodeURIComponent(file)}`
-      );
-      if (res && res.ok) {
-        const data = await res.json();
-        if (data) {
-          diffNewFileContent.value = data;
-          diffHtml.value = "";
-          return;
-        }
+      const { ok, data } = await apiGet(wsEndpoint(workspace, `file-content?path=${encodeURIComponent(file)}`));
+      if (ok && data) {
+        diffNewFileContent.value = data;
+        diffHtml.value = "";
+        return;
       }
     } catch {}
   }
@@ -214,14 +211,11 @@ async function navigateToPath(path) {
   fileBrowserError.value = "";
 
   try {
-    const res = await auth.apiFetch(
-      `/workspaces/${encodeURIComponent(workspace)}/files?path=${encodeURIComponent(path)}`
-    );
-    if (!res || !res.ok) {
+    const { ok, data } = await apiGet(wsEndpoint(workspace, `files?path=${encodeURIComponent(path)}`));
+    if (!ok) {
       fileBrowserError.value = "読み込みに失敗しました";
       return;
     }
-    const data = await res.json();
     entries.value = data.entries || [];
   } catch (e) {
     fileBrowserError.value = "読み込みに失敗しました";
@@ -239,14 +233,12 @@ async function openFile(path) {
   fileBrowserError.value = "";
 
   try {
-    const res = await auth.apiFetch(
-      `/workspaces/${encodeURIComponent(workspace)}/file-content?path=${encodeURIComponent(path)}`
-    );
-    if (!res || !res.ok) {
+    const { ok, data } = await apiGet(wsEndpoint(workspace, `file-content?path=${encodeURIComponent(path)}`));
+    if (!ok) {
       fileBrowserError.value = "ファイルを開けませんでした";
       return;
     }
-    fileContent.value = await res.json();
+    fileContent.value = data;
   } catch (e) {
     fileBrowserError.value = "ファイルを開けませんでした";
     console.error("FileBrowser openFile failed:", e);
@@ -331,11 +323,8 @@ async function renameFile(src, dest) {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/rename`, {
-      method: "POST",
-      body: { src, dest },
-    });
-    if (!res || !res.ok) {
+    const { ok } = await apiPost(wsEndpoint(workspace, "rename"), { src, dest });
+    if (!ok) {
       emit("toast:show", { message: "リネームに失敗しました", type: "error" });
       return;
     }
@@ -355,11 +344,8 @@ async function deleteEntry() {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/delete-file`, {
-      method: "POST",
-      body: { path: filePath },
-    });
-    if (!res || !res.ok) {
+    const { ok } = await apiPost(wsEndpoint(workspace, "delete-file"), { path: filePath });
+    if (!ok) {
       emit("toast:show", { message: "削除に失敗しました", type: "error" });
       return;
     }
@@ -398,12 +384,12 @@ async function downloadEntry() {
 
 async function fetchEditorSettings() {
   try {
-    const [settingsRes, infoRes] = await Promise.all([
-      auth.apiFetch("/settings/editor"),
-      auth.apiFetch("/system/info"),
+    const [settingsResult, infoResult] = await Promise.all([
+      apiGet("/settings/editor"),
+      apiGet("/system/info"),
     ]);
-    const settings = settingsRes?.ok ? await settingsRes.json() : {};
-    const info = infoRes?.ok ? await infoRes.json() : {};
+    const settings = settingsResult.ok ? settingsResult.data : {};
+    const info = infoResult.ok ? infoResult.data : {};
     editorUrlTemplate.value = (settings.url_template || "").trim();
     systemInfo.value = info;
   } catch {

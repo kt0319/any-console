@@ -52,8 +52,8 @@
 <script setup>
 import { computed, inject, reactive, onMounted } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { useAuthStore } from "../stores/auth.js";
 import { useGitAction } from "../composables/useGitAction.js";
+import { useApi } from "../composables/useApi.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
@@ -63,7 +63,7 @@ const pushView = inject("pushView");
 modalTitle.value = "ワークスペース";
 
 const workspaceStore = useWorkspaceStore();
-const auth = useAuthStore();
+const { apiGet } = useApi();
 const { gitAction, isRunning } = useGitAction();
 
 const wsJobs = reactive({});
@@ -75,15 +75,14 @@ function doAction(ws, action) {
 const visibleWorkspaces = computed(() => workspaceStore.visibleWorkspaces);
 
 async function loadWorkspaceOverview() {
-  await workspaceStore.fetchStatuses(auth);
+  await workspaceStore.fetchStatuses();
   await fetchAllWorkspaceJobs();
 }
 
 async function fetchAllWorkspaceJobs() {
   try {
-    const res = await auth.apiFetch("/jobs/workspaces");
-    if (!res || !res.ok) return;
-    const data = await res.json();
+    const { ok, data } = await apiGet("/jobs/workspaces");
+    if (!ok) return;
     for (const ws of visibleWorkspaces.value) {
       const jobs = data[ws.name] || {};
       wsJobs[ws.name] = Object.entries(jobs)

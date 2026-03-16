@@ -33,10 +33,10 @@ import GitChangeBranch from "./GitChangeBranch.vue";
 import GitStash from "./GitStash.vue";
 import GitCommitForm from "./GitCommitForm.vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
-import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-const auth = useAuthStore();
+import { useApi } from "../composables/useApi.js";
 const workspaceStore = useWorkspaceStore();
+const { apiCommand, wsEndpoint } = useApi();
 
 const modalTitle = inject("modalTitle");
 const viewState = inject("viewState");
@@ -150,11 +150,8 @@ on("git:commitDone", () => {
 on("git:stashSave", async () => {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/stash`, {
-    method: "POST",
-    body: { include_untracked: true },
-  });
-  if (!res || !res.ok) return;
+  const { ok } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true });
+  if (!ok) return;
   gitHistory.value?.reload();
 });
 

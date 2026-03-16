@@ -23,12 +23,12 @@
 
 <script setup>
 import { ref, inject, onMounted } from "vue";
-import { useAuthStore } from "../stores/auth.js";
+import { useApi } from "../composables/useApi.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "サーバー情報";
 
-const auth = useAuthStore();
+const { apiGet } = useApi();
 const isServerInfoLoading = ref(true);
 const serverInfoSections = ref([]);
 
@@ -65,9 +65,8 @@ async function loadServerInfoSections() {
   const results = await Promise.all(
     SECTION_DEFS.map(async (def) => {
       try {
-        const res = await auth.apiFetch(def.endpoint);
-        if (!res || !res.ok) return { label: def.label, error: `${def.label}の取得に失敗しました`, rows: [] };
-        const data = await res.json();
+        const { ok, data } = await apiGet(def.endpoint);
+        if (!ok) return { label: def.label, error: `${def.label}の取得に失敗しました`, rows: [] };
         return { label: def.label, rows: def.toRows(data), error: null };
       } catch (e) {
         return { label: def.label, error: e.message, rows: [] };

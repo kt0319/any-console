@@ -15,13 +15,13 @@
 
 <script setup>
 import { ref, inject, onMounted, nextTick } from "vue";
-import { useAuthStore } from "../stores/auth.js";
+import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "設定ファイル";
 
-const auth = useAuthStore();
+const { apiGet, apiPost } = useApi();
 const jsonText = ref("");
 const fileInput = ref(null);
 const codeEl = ref(null);
@@ -34,12 +34,11 @@ function highlight() {
 
 async function loadConfigFile() {
   try {
-    const res = await auth.apiFetch("/settings/export");
-    if (!res || !res.ok) {
+    const { ok, data } = await apiGet("/settings/export");
+    if (!ok) {
       jsonText.value = "設定の取得に失敗しました";
       return;
     }
-    const data = await res.json();
     jsonText.value = JSON.stringify(data, null, 2);
     highlight();
   } catch (e) {
@@ -74,8 +73,8 @@ async function upload() {
   try {
     const text = await file.text();
     const data = JSON.parse(text);
-    const res = await auth.apiFetch("/settings/import", { method: "POST", body: data });
-    if (!res || !res.ok) {
+    const { ok } = await apiPost("/settings/import", data);
+    if (!ok) {
       emit("toast:show", { message: "インポートに失敗しました", type: "error" });
       return;
     }

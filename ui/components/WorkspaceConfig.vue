@@ -82,7 +82,6 @@
 <script setup>
 import { ref, inject, watchEffect, onMounted, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { useAuthStore } from "../stores/auth.js";
 import { useApi } from "../composables/useApi.js";
 import { renderIconStr } from "../utils/render-icon.js";
 
@@ -92,8 +91,7 @@ const viewState = inject("viewState");
 modalTitle.value = "ワークスペース設定";
 
 const workspaceStore = useWorkspaceStore();
-const auth = useAuthStore();
-const { apiGet, wsEndpoint } = useApi();
+const { apiGet, apiPut, apiDelete, wsEndpoint } = useApi();
 
 const wsListEl = ref(null);
 const allWorkspaces = ref([]);
@@ -134,10 +132,7 @@ async function fetchAllJobCounts() {
 
 async function toggleVisibility(ws, checked) {
   try {
-    await auth.apiFetch(`/workspaces/${encodeURIComponent(ws.name)}/config`, {
-      method: "PUT",
-      body: { icon: ws.icon || "", icon_color: ws.icon_color || "", hidden: !checked },
-    });
+    await apiPut(wsEndpoint(ws.name, "config"), { icon: ws.icon || "", icon_color: ws.icon_color || "", hidden: !checked });
     ws.hidden = !checked;
   } catch { /* ignore */ }
 }
@@ -197,15 +192,12 @@ async function deleteWorkspace() {
   if (!editWs.value) return;
   if (!confirm(`「${editWs.value.name}」を削除しますか？\nディレクトリは残ります。`)) return;
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(editWs.value.name)}`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
+    const { ok, data } = await apiDelete(`/workspaces/${encodeURIComponent(editWs.value.name)}`);
+    if (ok) {
       goBackToList();
       await loadWorkspaceConfig();
     } else {
-      const data = await res.json();
-      saveError.value = data.detail || "削除に失敗しました";
+      saveError.value = data?.detail || "削除に失敗しました";
     }
   } catch (e) {
     saveError.value = e.message || "エラーが発生しました";
@@ -215,9 +207,7 @@ async function deleteWorkspace() {
 async function deleteJob(entry) {
   if (!editWs.value) return;
   try {
-    await auth.apiFetch(`/workspaces/${encodeURIComponent(editWs.value.name)}/jobs/${encodeURIComponent(entry.name)}`, {
-      method: "DELETE",
-    });
+    await apiDelete(wsEndpoint(editWs.value.name, `jobs/${encodeURIComponent(entry.name)}`));
     await loadWorkspaceJobs();
   } catch { /* ignore */ }
 }
@@ -226,17 +216,13 @@ async function saveWsConfig() {
   if (!editWs.value) return;
   saveError.value = "";
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(editWs.value.name)}/config`, {
-      method: "PUT",
-      body: {
-        icon: editIcon.value.trim(),
-        icon_color: editIconColor.value.trim(),
-        hidden: !!editWs.value.hidden,
-      },
+    const { ok, data } = await apiPut(wsEndpoint(editWs.value.name, "config"), {
+      icon: editIcon.value.trim(),
+      icon_color: editIconColor.value.trim(),
+      hidden: !!editWs.value.hidden,
     });
-    if (!res.ok) {
-      const data = await res.json();
-      saveError.value = data.detail || "保存に失敗しました";
+    if (!ok) {
+      saveError.value = data?.detail || "保存に失敗しました";
     } else {
       editWs.value.icon = editIcon.value.trim();
       editWs.value.icon_color = editIconColor.value.trim();
@@ -322,10 +308,7 @@ function onDragEnd() {
 async function saveWorkspaceOrder() {
   const order = allWorkspaces.value.map((ws) => ws.name);
   try {
-    await auth.apiFetch("/workspace-order", {
-      method: "PUT",
-      body: { order },
-    });
+    await apiPut("/workspace-order", { order });
   } catch { /* ignore */ }
 }
 

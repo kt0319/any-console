@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
+import { useApi } from "../composables/useApi.js";
 
 export const useWorkspaceStore = defineStore("workspace", () => {
   const allWorkspaces = ref([]);
@@ -14,11 +15,11 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     allWorkspaces.value.filter((ws) => !ws.hidden),
   );
 
-  async function fetchStatuses(auth) {
+  async function fetchStatuses() {
     try {
-      const res = await auth.apiFetch("/workspaces/statuses");
-      if (!res || !res.ok) return;
-      const data = await res.json();
+      const { apiGet } = useApi();
+      const { ok, data } = await apiGet("/workspaces/statuses");
+      if (!ok) return;
       if (data.statuses) {
         for (const status of data.statuses) {
           const ws = allWorkspaces.value.find((w) => w.name === status.name);

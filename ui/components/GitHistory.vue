@@ -101,6 +101,7 @@ import FileItem from "./FileItem.vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore, parseDiffChunks } from "../stores/git.js";
+import { useApi } from "../composables/useApi.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
 import {
@@ -115,6 +116,7 @@ const emitToParent = defineEmits(["pane:select", "commit:expanded", "commit:coll
 
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
+const { apiGet, apiCommand, wsEndpoint } = useApi();
 const gitStore = useGitStore();
 
 const activePane = ref("browser");
@@ -178,9 +180,8 @@ async function loadHistory() {
   historyPage = 0;
   try {
     const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/git-log?limit=${perPage}&skip=0`);
-    if (!res || !res.ok) { isHistoryLoading.value = false; return; }
-    const data = await res.json();
+    const { ok, data } = await apiGet(wsEndpoint(workspace, `git-log?limit=${perPage}&skip=0`));
+    if (!ok) { isHistoryLoading.value = false; return; }
     commitEntries.value = parseGitLogEntries(data.stdout);
     hasMoreHistory.value = commitEntries.value.length >= perPage;
   } catch (e) {
@@ -199,9 +200,8 @@ async function loadMoreHistory() {
   historyPage++;
   const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/git-log?limit=${perPage}&skip=${historyPage * perPage}`);
-    if (!res || !res.ok) return;
-    const data = await res.json();
+    const { ok, data } = await apiGet(wsEndpoint(workspace, `git-log?limit=${perPage}&skip=${historyPage * perPage}`));
+    if (!ok) return;
     const newEntries = parseGitLogEntries(data.stdout);
     commitEntries.value = [...commitEntries.value, ...newEntries];
     hasMoreHistory.value = newEntries.length >= perPage;
@@ -274,13 +274,9 @@ async function execAction(action, entry) {
   if (!confirm(`${action} ${shortHash} を実行しますか？`)) return;
   closeLongPressMenu();
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/${action}`, {
-      method: "POST",
-      body: { commit_hash: entry.fullHash },
-    });
-    if (!res || !res.ok) {
-      const data = await res?.json().catch(() => null);
-      bridgeEmit("toast:show", { message: data?.detail || `${action}に失敗しました`, type: "error" });
+    const { ok, data } = await apiCommand(wsEndpoint(workspace, action), { commit_hash: entry.fullHash });
+    if (!ok) {
+      bridgeEmit("toast:show", { message: data?.detail || data?.message || `${action}に失敗しました`, type: "error" });
       return;
     }
     bridgeEmit("toast:show", { message: `${action} ${shortHash} 完了`, type: "success" });
@@ -300,13 +296,9 @@ async function execReset(entry, mode) {
   if (!confirm(msg)) return;
   closeLongPressMenu();
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/reset`, {
-      method: "POST",
-      body: { commit_hash: entry.fullHash, mode },
-    });
-    if (!res || !res.ok) {
-      const data = await res?.json().catch(() => null);
-      bridgeEmit("toast:show", { message: data?.detail || `reset --${mode}に失敗しました`, type: "error" });
+    const { ok, data } = await apiCommand(wsEndpoint(workspace, "reset"), { commit_hash: entry.fullHash, mode });
+    if (!ok) {
+      bridgeEmit("toast:show", { message: data?.detail || data?.message || `reset --${mode}に失敗しました`, type: "error" });
       return;
     }
     bridgeEmit("toast:show", { message: `reset --${mode} ${shortHash} 完了`, type: "success" });
@@ -329,13 +321,9 @@ async function execCreateBranch(entry) {
   if (!branchName) return;
   closeLongPressMenu();
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/create-branch`, {
-      method: "POST",
-      body: { branch: branchName, start_point: entry.fullHash },
-    });
-    if (!res || !res.ok) {
-      const data = await res?.json().catch(() => null);
-      bridgeEmit("toast:show", { message: data?.detail || "ブランチ作成に失敗しました", type: "error" });
+    const { ok, data } = await apiCommand(wsEndpoint(workspace, "create-branch"), { branch: branchName, start_point: entry.fullHash });
+    if (!ok) {
+      bridgeEmit("toast:show", { message: data?.detail || data?.message || "ブランチ作成に失敗しました", type: "error" });
       return;
     }
     bridgeEmit("toast:show", { message: `ブランチ ${branchName} を作成しました`, type: "success" });
@@ -351,13 +339,9 @@ async function execMerge(branch) {
   if (!confirm(`${branch} を現在のブランチにマージしますか？`)) return;
   closeLongPressMenu();
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/merge`, {
-      method: "POST",
-      body: { branch },
-    });
-    if (!res || !res.ok) {
-      const data = await res?.json().catch(() => null);
-      bridgeEmit("toast:show", { message: data?.detail || "マージに失敗しました", type: "error" });
+    const { ok, data } = await apiCommand(wsEndpoint(workspace, "merge"), { branch });
+    if (!ok) {
+      bridgeEmit("toast:show", { message: data?.detail || data?.message || "マージに失敗しました", type: "error" });
       return;
     }
     bridgeEmit("toast:show", { message: `${branch} をマージしました`, type: "success" });
@@ -373,13 +357,9 @@ async function execRebase(branch) {
   if (!confirm(`${branch} にリベースしますか？`)) return;
   closeLongPressMenu();
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/rebase`, {
-      method: "POST",
-      body: { branch },
-    });
-    if (!res || !res.ok) {
-      const data = await res?.json().catch(() => null);
-      bridgeEmit("toast:show", { message: data?.detail || "リベースに失敗しました", type: "error" });
+    const { ok, data } = await apiCommand(wsEndpoint(workspace, "rebase"), { branch });
+    if (!ok) {
+      bridgeEmit("toast:show", { message: data?.detail || data?.message || "リベースに失敗しました", type: "error" });
       return;
     }
     bridgeEmit("toast:show", { message: `${branch} にリベースしました`, type: "success" });
@@ -398,9 +378,8 @@ async function openWorkingTreeDiffFiles() {
   try {
     const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return;
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/diff`);
-    if (!res || !res.ok) return;
-    const data = await res.json();
+    const { ok: diffOk, data } = await apiGet(wsEndpoint(workspace, "diff"));
+    if (!diffOk) return;
     const fileList = (data.files || []).map((f) => ({
       path: f.path || f.name,
       status: f.status || "M",
@@ -444,9 +423,8 @@ async function openCommitDiffFiles(entry) {
   try {
     const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return;
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/diff/${encodeURIComponent(entry.fullHash)}`);
-    if (!res || !res.ok) return;
-    const data = await res.json();
+    const { ok: diffOk, data } = await apiGet(wsEndpoint(workspace, `diff/${encodeURIComponent(entry.fullHash)}`));
+    if (!diffOk) return;
     const diffChunks = parseDiffChunks(data.diff);
     gitStore.diffChunks = diffChunks;
     gitStore.diffFullText = data.diff || "";

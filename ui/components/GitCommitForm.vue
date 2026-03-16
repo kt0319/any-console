@@ -23,7 +23,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 
-const { apiPost, wsEndpoint } = useApi();
+const { apiCommand, wsEndpoint } = useApi();
 const workspaceStore = useWorkspaceStore();
 
 const visible = ref(false);
@@ -58,7 +58,7 @@ async function submit() {
   }
 
   try {
-    const { ok, data } = await apiPost(wsEndpoint(workspace, "commit"), { message: msg });
+    const { ok, data } = await apiCommand(wsEndpoint(workspace, "commit"), { message: msg });
     if (ok) {
       emit("toast:show", { message: "コミットしました", type: "success" });
       close();

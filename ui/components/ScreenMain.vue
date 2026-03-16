@@ -26,6 +26,7 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useInputStore } from "../stores/input.js";
+import { useApi } from "../composables/useApi.js";
 import { useTerminal } from "../composables/useTerminal.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useViewport } from "../composables/useViewport.js";
@@ -39,6 +40,7 @@ const inputStore = useInputStore();
 const { disconnectTerminal, deleteSession, connectDeferredTabs } = useTerminal();
 const { sendTextToTerminal } = useKeyboard();
 const { initViewport } = useViewport();
+const { apiGet, apiPut } = useApi();
 
 const booting = ref(true);
 const bootMessage = ref("読み込み中...");
@@ -46,9 +48,8 @@ const bootMessage = ref("読み込み中...");
 async function initializeApp() {
   bootMessage.value = "読み込み中...";
 
-  const workspacesPromise = auth.apiFetch("/workspaces").then(async (res) => {
-    if (res && res.ok) {
-      const data = await res.json();
+  const workspacesPromise = apiGet("/workspaces").then(({ ok, data }) => {
+    if (ok) {
       workspaceStore.allWorkspaces = Array.isArray(data) ? data : (data.workspaces || []);
       if (!workspaceStore.selectedWorkspace) {
         const first = workspaceStore.visibleWorkspaces[0];
@@ -65,7 +66,7 @@ async function initializeApp() {
   bootMessage.value = "セッションを復元中...";
   await restoreExistingSessions(sessionsRes, jobsRes);
 
-  workspaceStore.fetchStatuses(auth);
+  workspaceStore.fetchStatuses();
 }
 
 async function restoreExistingSessions(sessionsRes, jobsRes) {
@@ -123,9 +124,8 @@ async function restoreExistingSessions(sessionsRes, jobsRes) {
 async function loadSnippetCache() {
   if (inputStore.isSnippetsLoaded) return;
   try {
-    const res = await auth.apiFetch("/snippets");
-    if (!res || !res.ok) return;
-    const data = await res.json();
+    const { ok, data } = await apiGet("/snippets");
+    if (!ok) return;
     inputStore.snippetsCache = data.snippets || [];
     inputStore.isSnippetsLoaded = true;
   } catch {}
@@ -133,10 +133,7 @@ async function loadSnippetCache() {
 
 async function persistSnippets() {
   try {
-    await auth.apiFetch("/snippets", {
-      method: "PUT",
-      body: { snippets: inputStore.snippetsCache },
-    });
+    await apiPut("/snippets", { snippets: inputStore.snippetsCache });
   } catch {}
 }
 

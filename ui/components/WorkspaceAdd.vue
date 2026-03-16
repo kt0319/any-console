@@ -82,12 +82,12 @@
 
 <script setup>
 import { ref, inject, onMounted } from "vue";
-import { useAuthStore } from "../stores/auth.js";
+import { useApi } from "../composables/useApi.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "ワークスペース追加";
 
-const auth = useAuthStore();
+const { apiGet, apiPost } = useApi();
 
 let defaultWorkDir = "";
 const cloneUrl = ref("");
@@ -112,15 +112,11 @@ async function doAddExisting() {
   addError.value = "";
   addSuccess.value = "";
   try {
-    const res = await auth.apiFetch("/workspaces", {
-      method: "POST",
-      body: { path: addPath.value.trim() },
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      addError.value = data.detail || "追加に失敗しました";
+    const { ok, data } = await apiPost("/workspaces", { path: addPath.value.trim() });
+    if (!ok) {
+      addError.value = data?.detail || "追加に失敗しました";
     } else {
-      addSuccess.value = `${data.name || "ディレクトリ"} を追加しました`;
+      addSuccess.value = `${data?.name || "ディレクトリ"} を追加しました`;
       addPath.value = "";
     }
   } catch (e) {
@@ -136,19 +132,15 @@ async function doClone() {
   cloneError.value = "";
   cloneSuccess.value = "";
   try {
-    const res = await auth.apiFetch("/workspaces", {
-      method: "POST",
-      body: {
-        url: cloneUrl.value.trim(),
-        name: cloneName.value.trim() || null,
-        base_dir: cloneBaseDir.value.trim() || null,
-      },
+    const { ok, data } = await apiPost("/workspaces", {
+      url: cloneUrl.value.trim(),
+      name: cloneName.value.trim() || null,
+      base_dir: cloneBaseDir.value.trim() || null,
     });
-    const data = await res.json();
-    if (!res.ok) {
-      cloneError.value = data.detail || "クローンに失敗しました";
+    if (!ok) {
+      cloneError.value = data?.detail || "クローンに失敗しました";
     } else {
-      cloneSuccess.value = `${data.name || "リポジトリ"} をクローンしました`;
+      cloneSuccess.value = `${data?.name || "リポジトリ"} をクローンしました`;
       cloneUrl.value = "";
       cloneName.value = "";
     }
@@ -177,12 +169,12 @@ async function loadRepos() {
   loadingRepos.value = true;
   reposError.value = "";
   try {
-    const res = await auth.apiFetch("/github/repos");
-    if (!res || !res.ok) {
+    const { ok, data } = await apiGet("/github/repos");
+    if (!ok) {
       reposError.value = "リポジトリ一覧を取得できませんでした";
       return;
     }
-    repos.value = await res.json();
+    repos.value = data;
   } catch (e) {
     reposError.value = e.message || "取得に失敗しました";
   } finally {
@@ -192,9 +184,8 @@ async function loadRepos() {
 
 async function loadWorkDir() {
   try {
-    const res = await auth.apiFetch("/system/info");
-    if (res.ok) {
-      const data = await res.json();
+    const { ok, data } = await apiGet("/system/info");
+    if (ok) {
       defaultWorkDir = data.work_dir || "";
       cloneBaseDir.value = defaultWorkDir;
     }

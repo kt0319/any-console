@@ -27,7 +27,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 
-const { apiGet, apiPost, wsEndpoint } = useApi();
+const { apiGet, apiCommand, wsEndpoint } = useApi();
 const workspaceStore = useWorkspaceStore();
 
 const stashEntries = ref([]);
@@ -56,7 +56,7 @@ async function loadStashList() {
 async function stashSave() {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  const { ok } = await apiPost(wsEndpoint(workspace, "stash"), { include_untracked: true });
+  const { ok } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true });
   if (!ok) return;
   await loadStashList();
   emit("git:commitDone");
@@ -65,7 +65,7 @@ async function stashSave() {
 async function stashPop(entry) {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  const { ok } = await apiPost(wsEndpoint(workspace, "stash-pop-ref"), { stash_ref: entry.ref });
+  const { ok } = await apiCommand(wsEndpoint(workspace, "stash-pop-ref"), { stash_ref: entry.ref });
   if (!ok) return;
   await loadStashList();
   emit("git:commitDone");
@@ -74,7 +74,7 @@ async function stashPop(entry) {
 async function stashDrop(entry) {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  const { ok } = await apiPost(wsEndpoint(workspace, "stash-drop"), { stash_ref: entry.ref });
+  const { ok } = await apiCommand(wsEndpoint(workspace, "stash-drop"), { stash_ref: entry.ref });
   if (!ok) return;
   await loadStashList();
 }

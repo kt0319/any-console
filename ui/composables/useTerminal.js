@@ -1,6 +1,7 @@
 import { shallowRef } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useTerminalStore } from "../stores/terminal.js";
+import { useApi } from "./useApi.js";
 import { WS_MSG_RESIZE, WS_MSG_SCROLL, WS_MSG_CANCEL_COPY_MODE } from "../utils/constants.js";
 
 const RECONNECT_BACKOFF_MAX = 30000;
@@ -202,7 +203,8 @@ export function useTerminal() {
 
   async function deleteSession(sessionId) {
     try {
-      await auth.apiFetch(`/terminal/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
+      const { apiDelete } = useApi();
+      await apiDelete(`/terminal/sessions/${encodeURIComponent(sessionId)}`);
     } catch {}
   }
 

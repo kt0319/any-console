@@ -33,13 +33,11 @@
 
 <script setup>
 import { ref } from "vue";
-import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 
-const auth = useAuthStore();
-const { apiGet, apiPost, wsEndpoint } = useApi();
+const { apiGet, apiCommand, wsEndpoint } = useApi();
 const workspaceStore = useWorkspaceStore();
 
 const branches = ref([]);
@@ -98,7 +96,7 @@ async function deleteBranch(branch) {
   if (!workspace) return;
   const label = branch.remote ? `リモートブランチ ${branch.name}` : `ブランチ ${branch.name}`;
   if (!confirm(`${label} を削除しますか？`)) return;
-  const { ok } = await apiPost(wsEndpoint(workspace, "delete-branch"), { branch: branch.name, remote: branch.remote });
+  const { ok } = await apiCommand(wsEndpoint(workspace, "delete-branch"), { branch: branch.name, remote: branch.remote });
   if (!ok) return;
   await loadBranchList();
   emit("git:commitDone");
@@ -108,7 +106,7 @@ async function backgroundFetch() {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
   try {
-    await apiPost(wsEndpoint(workspace, "fetch"));
+    await apiCommand(wsEndpoint(workspace, "fetch"));
   } catch (e) {
     console.error("background fetch failed:", e);
   }

@@ -1,5 +1,4 @@
 import { ref } from "vue";
-import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
 import { emit } from "../app-bridge.js";
@@ -19,9 +18,8 @@ const ACTION_CONFIRM = {
 };
 
 export function useGitAction() {
-  const auth = useAuthStore();
   const workspaceStore = useWorkspaceStore();
-  const { apiPost, wsEndpoint } = useApi();
+  const { apiCommand, wsEndpoint } = useApi();
   const runningAction = ref(null);
 
   async function gitAction(wsName, action, { branch } = {}) {
@@ -35,13 +33,13 @@ export function useGitAction() {
     if (!confirm(msg)) return;
     runningAction.value = `${wsName}:${action}`;
     try {
-      const { ok, data } = await apiPost(wsEndpoint(wsName, action));
+      const { ok, data } = await apiCommand(wsEndpoint(wsName, action));
       if (!ok) {
         emit("toast:show", { message: data?.message || data?.stderr || `${label}に失敗しました`, type: "error" });
         return;
       }
       emit("toast:show", { message: `${wsName}: ${label}完了`, type: "success" });
-      workspaceStore.fetchStatuses(auth);
+      workspaceStore.fetchStatuses();
     } catch (e) {
       emit("toast:show", { message: e.message, type: "error" });
     } finally {

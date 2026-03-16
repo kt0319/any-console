@@ -37,6 +37,7 @@ import FileItem from "./FileItem.vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore, parseDiffChunks } from "../stores/git.js";
+import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
 import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
@@ -44,6 +45,7 @@ import { buildNumstatHtml, parseDiffNumstatFromChunk, resolveUntrackedNumstat } 
 
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
+const { apiGet, wsEndpoint } = useApi();
 const gitStore = useGitStore();
 
 const files = ref([]);
@@ -77,9 +79,8 @@ async function loadWorkingTreeDiff() {
   if (!workspace) return;
   loading.value = true;
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/diff`);
-    if (!res || !res.ok) { loading.value = false; return; }
-    const data = await res.json();
+    const { ok, data } = await apiGet(wsEndpoint(workspace, "diff"));
+    if (!ok) { loading.value = false; return; }
     const fileList = (data.files || []).map((f) => ({
       path: f.path || f.name,
       status: f.status || "M",
@@ -120,9 +121,8 @@ async function loadCommitDiff(hash) {
   if (!workspace) return;
   loading.value = true;
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/diff/${encodeURIComponent(hash)}`);
-    if (!res || !res.ok) { loading.value = false; return; }
-    const data = await res.json();
+    const { ok, data } = await apiGet(wsEndpoint(workspace, `diff/${encodeURIComponent(hash)}`));
+    if (!ok) { loading.value = false; return; }
     const diffChunks = parseDiffChunks(data.diff);
     gitStore.diffChunks = diffChunks;
     gitStore.diffFullText = data.diff || "";
