@@ -61,13 +61,19 @@ def get_git_log(name: str, limit: int = 50, skip: int = 0, graph: bool = False):
 @router.post("/workspaces/{name}/cherry-pick")
 def git_cherry_pick(name: str, body: CommitActionRequest):
     commit_hash = validate_commit_hash(body.commit_hash)
-    return execute_git_action(name, ["cherry-pick", commit_hash], operation="cherry-pick", log_extra=f"commit={commit_hash[:8]}")
+    return execute_git_action(
+        name, ["cherry-pick", commit_hash],
+        operation="cherry-pick", log_extra=f"commit={commit_hash[:8]}",
+    )
 
 
 @router.post("/workspaces/{name}/revert")
 def git_revert(name: str, body: CommitActionRequest):
     commit_hash = validate_commit_hash(body.commit_hash)
-    return execute_git_action(name, ["revert", "--no-edit", commit_hash], operation="revert", log_extra=f"commit={commit_hash[:8]}")
+    return execute_git_action(
+        name, ["revert", "--no-edit", commit_hash],
+        operation="revert", log_extra=f"commit={commit_hash[:8]}",
+    )
 
 
 @router.post("/workspaces/{name}/merge")
@@ -87,7 +93,10 @@ def git_reset(name: str, body: ResetRequest):
     commit_hash = validate_commit_hash(body.commit_hash)
     if body.mode not in ("soft", "hard"):
         raise bad_request(f"Invalid reset mode: {body.mode}")
-    return execute_git_action(name, ["reset", f"--{body.mode}", commit_hash], operation="reset", log_extra=f"mode={body.mode} commit={commit_hash[:8]}")
+    return execute_git_action(
+        name, ["reset", f"--{body.mode}", commit_hash],
+        operation="reset", log_extra=f"mode={body.mode} commit={commit_hash[:8]}",
+    )
 
 
 @router.post("/workspaces/{name}/commit")

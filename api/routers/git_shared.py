@@ -1,27 +1,22 @@
 import base64
+import logging
 import mimetypes
 import os
 import re
 import subprocess
+from contextlib import contextmanager
 from pathlib import Path
 
-from ..common import GIT_SHORT_TIMEOUT_SEC
+from ..common import GIT_LONG_TIMEOUT_SEC, GIT_SHORT_TIMEOUT_SEC, resolve_workspace_path
 from ..errors import bad_request, forbidden, server_error, timeout_error
-from ..git_utils import git_branch, run_git_command
-
-
-import logging
-from contextlib import contextmanager
-
-from ..common import GIT_LONG_TIMEOUT_SEC, resolve_workspace_path
-from ..git_utils import invalidate_git_info, run_git_command as _run_git_cmd, ssh_env
+from ..git_utils import git_branch, invalidate_git_info, run_git_command
 
 _action_logger = logging.getLogger(__name__)
 
 
 def execute_git_action(name, args, *, timeout=GIT_LONG_TIMEOUT_SEC, operation="", env=None, log_extra=""):
     ws_path = resolve_workspace_path(name)
-    result = _run_git_cmd(args, cwd=ws_path, timeout=timeout, operation=operation, env=env)
+    result = run_git_command(args, cwd=ws_path, timeout=timeout, operation=operation, env=env)
     extra = f" {log_extra}" if log_extra else ""
     _action_logger.info("git %s workspace=%s%s rc=%d", operation, name, extra, result["exit_code"])
     invalidate_git_info(name)

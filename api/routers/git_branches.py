@@ -52,9 +52,14 @@ def list_remote_branches(name: str):
 def delete_branch(name: str, body: DeleteBranchRequest):
     branch = validate_branch_name(body.branch)
     if body.remote:
-        return execute_git_action(name, ["push", "origin", "--delete", branch], operation="delete remote branch", env=ssh_env(), log_extra=f"branch={branch}")
+        return execute_git_action(
+            name, ["push", "origin", "--delete", branch],
+            operation="delete remote branch", env=ssh_env(), log_extra=f"branch={branch}",
+        )
     ws_path = resolve_workspace_path(name)
-    current_branch = run_git_command(["rev-parse", "--abbrev-ref", "HEAD"], cwd=ws_path, operation="current branch")["stdout"].strip()
+    current_branch = run_git_command(
+        ["rev-parse", "--abbrev-ref", "HEAD"], cwd=ws_path, operation="current branch",
+    )["stdout"].strip()
     if branch == current_branch:
         raise bad_request("現在のブランチは削除できません")
     return execute_git_action(name, ["branch", "-D", branch], operation="delete branch", log_extra=f"branch={branch}")
@@ -90,7 +95,10 @@ def git_pull(name: str):
         stashed = stash_result["exit_code"] == 0
     result = execute_git_action(name, ["pull", "--rebase"], operation="pull", env=env)
     if stashed:
-        pop = run_git_command(["stash", "pop"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, env=env, operation="stash pop")
+        pop = run_git_command(
+            ["stash", "pop"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC,
+            env=env, operation="stash pop",
+        )
         if pop["exit_code"] != 0:
             result["stderr"] += f"\n⚠️ stash pop failed:\n{pop['stderr']}"
     return result
@@ -105,7 +113,10 @@ def git_push(name: str):
 def git_set_upstream(name: str):
     ws_path = resolve_workspace_path(name)
     branch = get_current_branch(ws_path)
-    return execute_git_action(name, ["branch", "--set-upstream-to", f"origin/{branch}"], operation="set upstream", env=ssh_env(), log_extra=f"branch={branch}")
+    return execute_git_action(
+        name, ["branch", "--set-upstream-to", f"origin/{branch}"],
+        operation="set upstream", env=ssh_env(), log_extra=f"branch={branch}",
+    )
 
 
 @router.post("/workspaces/{name}/push-upstream")

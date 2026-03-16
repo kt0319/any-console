@@ -10,9 +10,15 @@ router = APIRouter(dependencies=[Depends(verify_token)])
 
 
 def _build_diff_response(ws_path, diff_args, numstat_args, name_only_args, operation_prefix):
-    result = run_git_command(diff_args, cwd=ws_path, operation=f"{operation_prefix}")
-    numstat_result = run_git_command(numstat_args, cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, operation=f"{operation_prefix} --numstat")
-    files_result = run_git_command(name_only_args, cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, operation=f"{operation_prefix} --name-only")
+    result = run_git_command(diff_args, cwd=ws_path, operation=operation_prefix)
+    numstat_result = run_git_command(
+        numstat_args, cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC,
+        operation=f"{operation_prefix} --numstat",
+    )
+    files_result = run_git_command(
+        name_only_args, cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC,
+        operation=f"{operation_prefix} --name-only",
+    )
     numstat = parse_numstat_result(numstat_result)
     files = build_file_list(files_result, numstat)
     diff_text = result["stdout"]
