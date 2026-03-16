@@ -33,14 +33,12 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted } from "vue";
+import { ref, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
+import { useModalView } from "../composables/useModalView.js";
 import { renderIconStr } from "../utils/render-icon.js";
 
-const modalTitle = inject("modalTitle");
-const viewState = inject("viewState");
-const pushView = inject("pushView");
-const popView = inject("popView");
+const { modalTitle, viewState, pushView, popView } = useModalView();
 const { apiPost, apiPut } = useApi();
 
 const workspaceName = viewState.value.workspaceName;

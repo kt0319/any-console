@@ -8,55 +8,40 @@ from .git_shared import MAX_DIFF_SIZE, build_file_entry, build_file_list, parse_
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
-@router.get("/workspaces/{name}/diff/{commit_hash}")
-def get_commit_diff(name: str, commit_hash: str):
-    ws_path = resolve_workspace_path(name)
 
-    if STASH_REF_PATTERN.match(commit_hash):
-        result = run_git_command(["stash", "show", "-p", commit_hash], cwd=ws_path, operation="stash show")
-        diff_text = result["stdout"]
-
-        numstat_result = run_git_command(
-            ["stash", "show", "--numstat", commit_hash],
-            cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, operation="stash show --numstat",
-        )
-        numstat = parse_numstat_result(numstat_result)
-
-        files_result = run_git_command(
-            ["stash", "show", "--name-only", commit_hash],
-            cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, operation="stash show --name-only",
-        )
-
-        files = build_file_list(files_result, numstat)
-
-        if len(diff_text) > MAX_DIFF_SIZE:
-            diff_text = diff_text[:MAX_DIFF_SIZE] + "\n... (truncated)"
-
-        return {
-            "status": result["status"],
-            "files": files,
-            "diff": diff_text,
-            "stderr": result["stderr"],
-        }
-
-    validate_commit_hash(commit_hash)
-    result = run_git_command(
-        ["--no-pager", "diff", f"{commit_hash}~1", commit_hash], cwd=ws_path, operation="diff",
-    )
-    files_result = run_git_command(
-        ["diff", "--name-only", f"{commit_hash}~1", commit_hash],
-        cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, operation="diff --name-only",
-    )
-    numstat_result = run_git_command(
-        ["diff", "--numstat", f"{commit_hash}~1", commit_hash],
-        cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, operation="diff --numstat",
-    )
+def _build_diff_response(ws_path, diff_args, numstat_args, name_only_args, operation_prefix):
+    result = run_git_command(diff_args, cwd=ws_path, operation=f"{operation_prefix}")
+    numstat_result = run_git_command(numstat_args, cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, operation=f"{operation_prefix} --numstat")
+    files_result = run_git_command(name_only_args, cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC, operation=f"{operation_prefix} --name-only")
     numstat = parse_numstat_result(numstat_result)
     files = build_file_list(files_result, numstat)
     diff_text = result["stdout"]
     if len(diff_text) > MAX_DIFF_SIZE:
         diff_text = diff_text[:MAX_DIFF_SIZE] + "\n... (truncated)"
     return {"status": result["status"], "files": files, "diff": diff_text, "stderr": result["stderr"]}
+
+
+@router.get("/workspaces/{name}/diff/{commit_hash}")
+def get_commit_diff(name: str, commit_hash: str):
+    ws_path = resolve_workspace_path(name)
+
+    if STASH_REF_PATTERN.match(commit_hash):
+        return _build_diff_response(
+            ws_path,
+            diff_args=["stash", "show", "-p", commit_hash],
+            numstat_args=["stash", "show", "--numstat", commit_hash],
+            name_only_args=["stash", "show", "--name-only", commit_hash],
+            operation_prefix="stash show",
+        )
+
+    validate_commit_hash(commit_hash)
+    return _build_diff_response(
+        ws_path,
+        diff_args=["--no-pager", "diff", f"{commit_hash}~1", commit_hash],
+        numstat_args=["diff", "--numstat", f"{commit_hash}~1", commit_hash],
+        name_only_args=["diff", "--name-only", f"{commit_hash}~1", commit_hash],
+        operation_prefix="diff",
+    )
 
 
 @router.get("/workspaces/{name}/diff")

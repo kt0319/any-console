@@ -50,13 +50,12 @@
 </template>
 
 <script setup>
-import { ref, inject, nextTick, onMounted } from "vue";
+import { ref, nextTick, onMounted } from "vue";
 import { emit as bridgeEmit } from "../app-bridge.js";
+import { useModalView } from "../composables/useModalView.js";
 import { renderIconStr } from "../utils/render-icon.js";
 
-const modalTitle = inject("modalTitle");
-const viewState = inject("viewState");
-const popView = inject("popView");
+const { modalTitle, viewState, popView } = useModalView();
 modalTitle.value = "アイコン選択";
 
 const URL_PATTERN = /^(https?:\/\/|[a-zA-Z0-9-]+\.[a-zA-Z]{2,})/;

@@ -112,11 +112,7 @@ async function backgroundFetch() {
   }
 }
 
-defineExpose({
-  load: loadBranchList,
-  loadBranchList,
-  backgroundFetch,
-});
+defineExpose({ load: loadBranchList, backgroundFetch });
 </script>
 
 <style scoped>

@@ -2,7 +2,7 @@
   <div class="modal-scroll-body">
     <div class="clone-tab-content">
       <div class="settings-section-label">GitHub リポジトリ</div>
-      <div v-if="loadingRepos" class="clone-repo-loading">読み込み中...</div>
+      <div v-if="isLoadingRepos" class="clone-repo-loading">読み込み中...</div>
       <div v-else-if="reposError" class="clone-repo-error">{{ reposError }}</div>
       <div v-else class="clone-repo-list">
         <div
@@ -103,7 +103,7 @@ const addError = ref("");
 const addSuccess = ref("");
 
 const repos = ref([]);
-const loadingRepos = ref(false);
+const isLoadingRepos = ref(false);
 const reposError = ref("");
 
 async function doAddExisting() {
@@ -166,7 +166,7 @@ function selectRepo(repo) {
 }
 
 async function loadRepos() {
-  loadingRepos.value = true;
+  isLoadingRepos.value = true;
   reposError.value = "";
   try {
     const { ok, data } = await apiGet("/github/repos");
@@ -178,7 +178,7 @@ async function loadRepos() {
   } catch (e) {
     reposError.value = e.message || "取得に失敗しました";
   } finally {
-    loadingRepos.value = false;
+    isLoadingRepos.value = false;
   }
 }
 

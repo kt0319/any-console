@@ -26,7 +26,7 @@
 </template>
 
 <script setup>
-import { ref, inject, nextTick, onMounted } from "vue";
+import { ref, nextTick, onMounted } from "vue";
 import FileBrowser from "./FileBrowser.vue";
 import GitHistory from "./GitHistory.vue";
 import GitChangeBranch from "./GitChangeBranch.vue";
@@ -35,13 +35,10 @@ import GitCommitForm from "./GitCommitForm.vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
+import { useModalView } from "../composables/useModalView.js";
 const workspaceStore = useWorkspaceStore();
 const { apiCommand, wsEndpoint } = useApi();
-
-const modalTitle = inject("modalTitle");
-const viewState = inject("viewState");
-const pushView = inject("pushView");
-const popView = inject("popView");
+const { modalTitle, viewState, pushView, popView } = useModalView();
 
 const fileBrowser = ref(null);
 const gitHistory = ref(null);

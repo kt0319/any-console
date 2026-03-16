@@ -48,7 +48,7 @@
           </button>
         </div>
         <div class="ws-settings-item-list">
-          <div v-if="loadingJobs" class="ws-settings-empty">読み込み中...</div>
+          <div v-if="isLoadingJobs" class="ws-settings-empty">読み込み中...</div>
           <div v-else-if="jobEntries.length === 0" class="ws-settings-empty">ジョブなし</div>
           <div
             v-for="entry in jobEntries"
@@ -80,14 +80,13 @@
 </template>
 
 <script setup>
-import { ref, inject, watchEffect, onMounted, onBeforeUnmount } from "vue";
+import { ref, watchEffect, onMounted, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
+import { useModalView } from "../composables/useModalView.js";
 import { renderIconStr } from "../utils/render-icon.js";
 
-const modalTitle = inject("modalTitle");
-const pushView = inject("pushView");
-const viewState = inject("viewState");
+const { modalTitle, pushView, viewState } = useModalView();
 modalTitle.value = "ワークスペース設定";
 
 const workspaceStore = useWorkspaceStore();
@@ -104,7 +103,7 @@ const editIconColor = ref("");
 const saveError = ref("");
 
 const jobEntries = ref([]);
-const loadingJobs = ref(false);
+const isLoadingJobs = ref(false);
 const wsJobCounts = ref({});
 
 async function loadWorkspaceConfig() {
@@ -160,7 +159,7 @@ function handleBack() {
 
 async function loadWorkspaceJobs() {
   if (!editWs.value) return;
-  loadingJobs.value = true;
+  isLoadingJobs.value = true;
   try {
     const { ok, data } = await apiGet(wsEndpoint(editWs.value.name, "jobs"));
     if (ok) {
@@ -169,7 +168,7 @@ async function loadWorkspaceJobs() {
         .map(([name, job]) => ({ name, job }));
     }
   } catch { /* ignore */ }
-  finally { loadingJobs.value = false; }
+  finally { isLoadingJobs.value = false; }
 }
 
 function startAddJob() {

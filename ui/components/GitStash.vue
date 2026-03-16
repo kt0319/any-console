@@ -79,10 +79,7 @@ async function stashDrop(entry) {
   await loadStashList();
 }
 
-defineExpose({
-  load: loadStashList,
-  loadStashList,
-});
+defineExpose({ load: loadStashList });
 </script>
 
 <style scoped>
