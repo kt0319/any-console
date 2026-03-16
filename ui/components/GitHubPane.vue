@@ -96,13 +96,13 @@
 
 <script setup>
 import { ref, inject, computed, onMounted } from "vue";
-import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { useApi } from "../composables/useApi.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "GitHub";
 
-const auth = useAuthStore();
+const { apiGet, wsEndpoint } = useApi();
 const workspaceStore = useWorkspaceStore();
 
 const githubUrl = ref("");
@@ -170,9 +170,8 @@ async function loadGitHubSection(type, listRef, loadingRef, errorRef, workspace)
   loadingRef.value = true;
   errorRef.value = "";
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/github/${type}`);
-    if (!res || !res.ok) { errorRef.value = "取得に失敗しました"; return; }
-    const data = await res.json();
+    const { ok, data } = await apiGet(wsEndpoint(workspace, `github/${type}`));
+    if (!ok) { errorRef.value = "取得に失敗しました"; return; }
     if (data.status !== "ok") { errorRef.value = data.message || "取得に失敗しました"; return; }
     listRef.value = (data.data || []).map((item) => ({
       number: item.number,
@@ -193,9 +192,8 @@ async function loadWorkflowRuns(workspace) {
   isWorkflowRunsLoading.value = true;
   workflowRunsLoadError.value = "";
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/github/runs`);
-    if (!res || !res.ok) { workflowRunsLoadError.value = "取得に失敗しました"; return; }
-    const data = await res.json();
+    const { ok, data } = await apiGet(wsEndpoint(workspace, "github/runs"));
+    if (!ok) { workflowRunsLoadError.value = "取得に失敗しました"; return; }
     if (data.status !== "ok") { workflowRunsLoadError.value = data.message || "取得に失敗しました"; return; }
     workflowRuns.value = (data.data || []).map((r) => ({
       id: r.databaseId || r.id,

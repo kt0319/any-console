@@ -38,6 +38,7 @@ def command_result_dict(result: subprocess.CompletedProcess) -> dict:
         "exit_code": result.returncode,
         "stdout": result.stdout,
         "stderr": result.stderr,
+        "message": result.stderr,
     }
 
 
@@ -47,11 +48,12 @@ def run_git_command(
     timeout: int = GIT_STANDARD_TIMEOUT_SEC,
     env: dict | None = None,
     operation: str = "",
+    text: bool = True,
 ) -> dict:
     try:
         result = subprocess.run(
             ["git", *args],
-            capture_output=True, text=True, timeout=timeout, cwd=str(cwd),
+            capture_output=True, text=text, timeout=timeout, cwd=str(cwd),
             env=env,
         )
         return command_result_dict(result)
@@ -85,6 +87,15 @@ def git_branch(directory: Path) -> str | None:
     return None
 
 
+def _parse_github_url(remote_url: str) -> str | None:
+    if "github.com" not in remote_url:
+        return None
+    url = remote_url.removesuffix(".git")
+    if url.startswith("git@github.com:"):
+        url = "https://github.com/" + url[len("git@github.com:"):]
+    return url
+
+
 def git_github_url(directory: Path) -> str | None:
     try:
         result = subprocess.run(
@@ -93,12 +104,7 @@ def git_github_url(directory: Path) -> str | None:
             cwd=str(directory),
         )
         if result.returncode == 0:
-            url = result.stdout.strip()
-            if "github.com" in url:
-                url = url.removesuffix(".git")
-                if url.startswith("git@github.com:"):
-                    url = "https://github.com/" + url[len("git@github.com:"):]
-                return url
+            return _parse_github_url(result.stdout.strip())
     except (subprocess.TimeoutExpired, OSError):
         pass
     return None
@@ -191,12 +197,9 @@ def git_info(directory: Path) -> dict:
 
         result = f_remote.result()
         if result.returncode == 0:
-            url = result.stdout.strip()
-            if "github.com" in url:
-                url = url.removesuffix(".git")
-                if url.startswith("git@github.com:"):
-                    url = "https://github.com/" + url[len("git@github.com:"):]
-                info["github_url"] = url
+            github_url = _parse_github_url(result.stdout.strip())
+            if github_url:
+                info["github_url"] = github_url
 
         result = f_status.result()
         if result.returncode == 0:

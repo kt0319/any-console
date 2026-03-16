@@ -19,11 +19,11 @@
 
 <script setup>
 import { ref, nextTick } from "vue";
-import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 
-const auth = useAuthStore();
+const { apiPost, wsEndpoint } = useApi();
 const workspaceStore = useWorkspaceStore();
 
 const visible = ref(false);
@@ -58,22 +58,13 @@ async function submit() {
   }
 
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/commit`, {
-      method: "POST",
-      body: { message: msg },
-    });
-    if (!res) {
-      error.value = "コミットに失敗しました";
-      submitting.value = false;
-      return;
-    }
-    const data = await res.json();
-    if (data.status === "ok") {
+    const { ok, data } = await apiPost(wsEndpoint(workspace, "commit"), { message: msg });
+    if (ok) {
       emit("toast:show", { message: "コミットしました", type: "success" });
       close();
       emit("git:commitDone");
     } else {
-      error.value = data.stderr || data.detail || "コミットに失敗しました";
+      error.value = data?.message || data?.stderr || data?.detail || "コミットに失敗しました";
     }
   } catch (e) {
     error.value = e.message;

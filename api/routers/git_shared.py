@@ -7,7 +7,7 @@ from pathlib import Path
 
 from ..common import GIT_SHORT_TIMEOUT_SEC
 from ..errors import bad_request, forbidden, server_error, timeout_error
-from ..git_utils import run_git_command
+from ..git_utils import git_branch, run_git_command
 
 
 def raise_file_operation_error(operation: str, error: Exception):
@@ -110,11 +110,8 @@ def build_file_list(files_result, numstat):
 
 
 def get_current_branch(ws_path):
-    result = run_git_command(
-        ["rev-parse", "--abbrev-ref", "HEAD"], cwd=ws_path, operation="current branch",
-    )
-    branch = result["stdout"].strip()
-    if result["exit_code"] != 0 or not branch:
+    branch = git_branch(ws_path)
+    if not branch:
         raise bad_request("現在のブランチを取得できません")
     return branch
 
@@ -192,17 +189,14 @@ def read_blob_content_response(path: str, raw: bytes):
 
 def _get_gitignored_names(ws_path, target):
     try:
-        result = subprocess.run(
-            ["git", "ls-files", "--others", "--ignored", "--exclude-standard", "--directory"],
-            capture_output=True,
-            text=True,
-            cwd=str(target),
-            timeout=GIT_SHORT_TIMEOUT_SEC,
+        result = run_git_command(
+            ["ls-files", "--others", "--ignored", "--exclude-standard", "--directory"],
+            cwd=target, timeout=GIT_SHORT_TIMEOUT_SEC, operation="ls-files",
         )
-        if result.returncode != 0:
+        if result["exit_code"] != 0:
             return set()
         names = set()
-        for line in result.stdout.splitlines():
+        for line in result["stdout"].splitlines():
             name = line.rstrip("/")
             if name and "/" not in name:
                 names.add(name)

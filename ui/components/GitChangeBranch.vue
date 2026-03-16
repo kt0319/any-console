@@ -35,9 +35,11 @@
 import { ref } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 
 const auth = useAuthStore();
+const { apiGet, apiPost, wsEndpoint } = useApi();
 const workspaceStore = useWorkspaceStore();
 
 const branches = ref([]);
@@ -52,9 +54,8 @@ async function loadBranchList() {
   isBranchListLoading.value = true;
   isRemoteBranchListExpanded.value = false;
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/branches`);
-    if (!res || !res.ok) { isBranchListLoading.value = false; return; }
-    const data = await res.json();
+    const { ok, data } = await apiGet(wsEndpoint(workspace, "branches"));
+    if (!ok) { isBranchListLoading.value = false; return; }
     branches.value = (data || []).map((b) => ({
       name: b.name || b,
       current: !!b.current,
@@ -72,9 +73,8 @@ async function showRemoteBranches() {
   if (!workspace || isRemoteBranchListLoading.value) return;
   isRemoteBranchListLoading.value = true;
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/branches/remote`);
-    if (!res || !res.ok) return;
-    const data = await res.json();
+    const { ok, data } = await apiGet(wsEndpoint(workspace, "branches/remote"));
+    if (!ok) return;
     const localNames = new Set(branches.value.map((b) => b.name));
     const remoteBranches = (data || [])
       .filter((b) => !localNames.has(b.name || b))
@@ -98,11 +98,8 @@ async function deleteBranch(branch) {
   if (!workspace) return;
   const label = branch.remote ? `リモートブランチ ${branch.name}` : `ブランチ ${branch.name}`;
   if (!confirm(`${label} を削除しますか？`)) return;
-  const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/delete-branch`, {
-    method: "POST",
-    body: { branch: branch.name, remote: branch.remote },
-  });
-  if (!res || !res.ok) return;
+  const { ok } = await apiPost(wsEndpoint(workspace, "delete-branch"), { branch: branch.name, remote: branch.remote });
+  if (!ok) return;
   await loadBranchList();
   emit("git:commitDone");
 }
@@ -111,7 +108,7 @@ async function backgroundFetch() {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
   try {
-    await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/fetch`, { method: "POST" });
+    await apiPost(wsEndpoint(workspace, "fetch"));
   } catch (e) {
     console.error("background fetch failed:", e);
   }

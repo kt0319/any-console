@@ -23,11 +23,11 @@
 
 <script setup>
 import { ref } from "vue";
-import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 
-const auth = useAuthStore();
+const { apiGet, apiPost, wsEndpoint } = useApi();
 const workspaceStore = useWorkspaceStore();
 
 const stashEntries = ref([]);
@@ -39,9 +39,8 @@ async function loadStashList() {
   if (!workspace) return;
   isStashListLoading.value = true;
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/stash-list`);
-    if (!res || !res.ok) { isStashListLoading.value = false; return; }
-    const data = await res.json();
+    const { ok, data } = await apiGet(wsEndpoint(workspace, "stash-list"));
+    if (!ok) { isStashListLoading.value = false; return; }
     stashEntries.value = (data.entries || []).map((e) => ({
       ref: e.ref || e.stash_ref,
       message: e.message || "",
@@ -57,11 +56,8 @@ async function loadStashList() {
 async function stashSave() {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/stash`, {
-    method: "POST",
-    body: { include_untracked: true },
-  });
-  if (!res || !res.ok) return;
+  const { ok } = await apiPost(wsEndpoint(workspace, "stash"), { include_untracked: true });
+  if (!ok) return;
   await loadStashList();
   emit("git:commitDone");
 }
@@ -69,11 +65,8 @@ async function stashSave() {
 async function stashPop(entry) {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/stash-pop-ref`, {
-    method: "POST",
-    body: { stash_ref: entry.ref },
-  });
-  if (!res || !res.ok) return;
+  const { ok } = await apiPost(wsEndpoint(workspace, "stash-pop-ref"), { stash_ref: entry.ref });
+  if (!ok) return;
   await loadStashList();
   emit("git:commitDone");
 }
@@ -81,11 +74,8 @@ async function stashPop(entry) {
 async function stashDrop(entry) {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/stash-drop`, {
-    method: "POST",
-    body: { stash_ref: entry.ref },
-  });
-  if (!res || !res.ok) return;
+  const { ok } = await apiPost(wsEndpoint(workspace, "stash-drop"), { stash_ref: entry.ref });
+  if (!ok) return;
   await loadStashList();
 }
 

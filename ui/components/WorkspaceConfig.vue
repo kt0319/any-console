@@ -83,6 +83,7 @@
 import { ref, inject, watchEffect, onMounted, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useAuthStore } from "../stores/auth.js";
+import { useApi } from "../composables/useApi.js";
 import { renderIconStr } from "../utils/render-icon.js";
 
 const modalTitle = inject("modalTitle");
@@ -92,6 +93,7 @@ modalTitle.value = "ワークスペース設定";
 
 const workspaceStore = useWorkspaceStore();
 const auth = useAuthStore();
+const { apiGet, wsEndpoint } = useApi();
 
 const wsListEl = ref(null);
 const allWorkspaces = ref([]);
@@ -109,9 +111,8 @@ const wsJobCounts = ref({});
 
 async function loadWorkspaceConfig() {
   try {
-    const res = await auth.apiFetch("/workspaces");
-    if (res && res.ok) {
-      const data = await res.json();
+    const { ok, data } = await apiGet("/workspaces");
+    if (ok) {
       workspaceStore.allWorkspaces = Array.isArray(data) ? data : [];
     }
   } catch { /* ignore */ }
@@ -121,9 +122,8 @@ async function loadWorkspaceConfig() {
 
 async function fetchAllJobCounts() {
   try {
-    const res = await auth.apiFetch("/jobs/workspaces");
-    if (!res || !res.ok) return;
-    const data = await res.json();
+    const { ok, data } = await apiGet("/jobs/workspaces");
+    if (!ok) return;
     const counts = {};
     for (const [name, jobs] of Object.entries(data)) {
       counts[name] = Object.keys(jobs).filter((k) => k !== "terminal").length;
@@ -167,9 +167,8 @@ async function loadWorkspaceJobs() {
   if (!editWs.value) return;
   loadingJobs.value = true;
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(editWs.value.name)}/jobs`);
-    if (res && res.ok) {
-      const data = await res.json();
+    const { ok, data } = await apiGet(wsEndpoint(editWs.value.name, "jobs"));
+    if (ok) {
       jobEntries.value = Object.entries(data)
         .filter(([name]) => name !== "terminal")
         .map(([name, job]) => ({ name, job }));
