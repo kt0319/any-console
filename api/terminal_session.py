@@ -317,14 +317,28 @@ async def _broadcast_to_clients(session: TerminalSession, data: bytes) -> None:
         session.clients.discard(ws)
 
 
+WS_CLOSE_SESSION_EXITED = 4001
+
+
+async def _close_all_clients(session: TerminalSession, code: int, reason: str) -> None:
+    for ws in list(session.clients):
+        try:
+            await ws.close(code=code, reason=reason)
+        except Exception as e:
+            logger.debug("close client failed: %s", e)
+    session.clients.clear()
+
+
 async def _session_reader(session: TerminalSession, session_id: str) -> None:
     loop = asyncio.get_event_loop()
+    pty_eof = False
     try:
         while session.clients:
             if session.fd is None:
                 break
             data = await loop.run_in_executor(PTY_EXECUTOR, _read_pty, session.fd)
             if data == PTY_EOF:
+                pty_eof = True
                 break
             if data == PTY_NO_DATA:
                 continue
@@ -335,6 +349,9 @@ async def _session_reader(session: TerminalSession, session_id: str) -> None:
         logger.debug("session reader ended session=%s: %s", session_id, e)
     finally:
         session._reader_task = None
+        if pty_eof:
+            logger.info("PTY EOF detected, closing clients session=%s", session_id)
+            await _close_all_clients(session, WS_CLOSE_SESSION_EXITED, "session exited")
         if not session.clients:
             _detach_pty_bridge(session)
 

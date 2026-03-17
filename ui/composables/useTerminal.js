@@ -3,6 +3,9 @@ import { useAuthStore } from "../stores/auth.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "./useApi.js";
 import { WS_MSG_RESIZE, WS_MSG_SCROLL, WS_MSG_CANCEL_COPY_MODE } from "../utils/constants.js";
+import { emit } from "../app-bridge.js";
+
+const WS_CLOSE_SESSION_EXITED = 4001;
 
 const RECONNECT_BACKOFF_MAX = 30000;
 
@@ -55,6 +58,11 @@ export function useTerminal() {
     ws.onclose = (e) => {
       tab.ws = null;
       if (tab._wsDisposed) return;
+
+      if (e.code === WS_CLOSE_SESSION_EXITED) {
+        emit("tab:close", { tab });
+        return;
+      }
 
       const delay = Math.min(
         Math.pow(2, tab._reconnectAttempts || 0) * 1000,
