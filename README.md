@@ -25,18 +25,27 @@ Web操作コンソール。スマホやPCのブラウザからシェルスクリ
 ```bash
 git clone https://github.com/kt0319/any-console.git
 cd any-console
+./setup.sh
+```
+
+依存インストール、フロントエンドビルド、`.env` の生成（トークン自動設定）をまとめて実行する。
+
+<details>
+<summary>手動セットアップ</summary>
+
+```bash
 pip install -r requirements.txt
 npm install
 npm run build
 ```
-
-### 認証トークンの設定
 
 ```bash
 cp .env.example .env
 # .env を編集してトークンを設定
 # ランダム生成: python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
 ```
+
+</details>
 
 ### 起動
 
