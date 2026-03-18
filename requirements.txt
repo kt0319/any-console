@@ -4,3 +4,9 @@ websockets>=12,<17
 python-dotenv>=1,<2
 pydantic>=2,<3
 python-multipart>=0.0.5
+
+# dev
+pytest>=7,<9
+ruff>=0.4,<1
+mypy>=1.10
+httpx>=0.24,<1
