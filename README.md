@@ -9,14 +9,16 @@ Web操作コンソール。スマホやPCのブラウザからシェルスクリ
 - **ジョブ実行** - シェルスクリプトをワンタップで実行（UIから定義・編集可能）
 - **ワークスペース管理** - `~/work/` 配下のディレクトリを一覧・切替
 - **モバイルファースト** - スマホ操作に最適化されたUI（PC対応）
-- **ビルド不要** - バニラJS + FastAPI、依存最小限
+- **軽量構成** - Vue 3 + Pinia + FastAPI、Viteでビルド
 
 ## セットアップ
 
 ### 必要環境
 
 - Python 3.11+
+- Node.js 18+
 - Git
+- tmux
 
 ### インストール
 
@@ -24,6 +26,8 @@ Web操作コンソール。スマホやPCのブラウザからシェルスクリ
 git clone https://github.com/kt0319/any-console.git
 cd any-console
 pip install -r requirements.txt
+npm install
+npm run build
 ```
 
 ### 認証トークンの設定
@@ -45,8 +49,12 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8888
 #### 開発モード
 
 ```bash
-# Python変更時のみリロード（UI編集でターミナルセッションが飛ばない）
+# 1. FastAPI（API側）
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8888 --reload --reload-include "*.py"
+
+# 2. Vite dev server（別ターミナル）
+npm run dev
+# → localhost:5173 にアクセス（APIはプロキシで8888に転送）
 ```
 
 ### systemd（常時起動）
@@ -69,7 +77,7 @@ api/              バックエンド (FastAPI)
   auth.py         Bearerトークン認証
   runner.py       ジョブ実行 (subprocess)
   config.py       config.json 読み書き
-ui/               フロントエンド (バニラJS、ビルド不要)
+ui/               フロントエンド (Vue 3 + Pinia、Viteでビルド)
 systemd/          systemdサービス定義
 config.json       設定ファイル（自動生成、.gitignore対象）
 ```
