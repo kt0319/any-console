@@ -16,10 +16,10 @@
               </span>
             </button>
             <div class="picker-ws-top-meta">
+              <button v-if="ws.is_git_repo && ws.clean === false" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(ws)" @click="openDetail(ws)"></button>
               <GitActionBtn v-if="ws.is_git_repo && ws.behind > 0" icon="pull" title="Pull" :count="ws.behind" :running="isRunning(ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="doAction(ws, 'pull')" />
               <GitActionBtn v-if="ws.is_git_repo && ws.ahead > 0 && ws.has_upstream !== false" icon="push" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(ws, 'push')" />
               <GitActionBtn v-if="ws.is_git_repo && ws.ahead > 0 && ws.has_upstream === false" icon="push-upstream" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action="doAction(ws, 'push-upstream')" />
-              <button v-if="ws.is_git_repo && !ws.clean" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(ws)" @click="openDetail(ws)"></button>
             </div>
           </div>
           <div class="picker-ws-row picker-ws-row-bottom">
