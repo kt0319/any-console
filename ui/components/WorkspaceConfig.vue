@@ -19,7 +19,7 @@
           <span class="ws-icon-display" v-html="renderIconStr(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
           <span class="ws-check-label">{{ ws.name }}</span>
         </label>
-        <span v-if="wsJobCounts[ws.name]" class="ws-job-count">{{ wsJobCounts[ws.name] }}</span>
+        <span v-if="wsJobCounts[ws.name]" class="ws-job-count-badge">{{ wsJobCounts[ws.name] }}</span>
         <button type="button" class="picker-ws-icon-btn ws-gear-btn" @click="openWsSettings(ws)">
           <span class="mdi mdi-cog"></span>
         </button>
@@ -54,11 +54,13 @@
             v-for="entry in jobEntries"
             :key="entry.name"
             class="ws-settings-item"
-            @click="startEditJob(entry)"
+            :class="{ 'ws-settings-item-global': entry.job.global }"
+            @click="entry.job.global ? null : startEditJob(entry)"
           >
             <span class="ws-settings-item-icon" v-html="renderIconStr(entry.job.icon || 'mdi-play', entry.job.icon_color, 16)"></span>
             <span class="ws-settings-item-name">{{ entry.job.label || entry.name }}</span>
-            <div class="ws-settings-item-actions">
+            <span v-if="entry.job.global" class="ws-settings-item-badge">共通</span>
+            <div v-if="!entry.job.global" class="ws-settings-item-actions">
               <button type="button" class="ws-settings-item-action-btn" title="削除" @click.stop="deleteJob(entry)">
                 <span class="mdi mdi-delete-outline"></span>
               </button>
@@ -124,7 +126,7 @@ async function fetchAllJobCounts() {
     if (!ok) return;
     const counts = {};
     for (const [name, jobs] of Object.entries(data)) {
-      counts[name] = Object.keys(jobs).filter((k) => k !== "terminal").length;
+      counts[name] = Object.entries(jobs).filter(([k, j]) => k !== "terminal" && !j.global).length;
     }
     wsJobCounts.value = counts;
   } catch { /* ignore */ }
@@ -171,6 +173,8 @@ async function loadWorkspaceJobs() {
   } catch { /* ignore */ }
   finally { isLoadingJobs.value = false; }
 }
+
+
 
 function startAddJob() {
   pushView("JobConfig", {
@@ -407,9 +411,18 @@ onMounted(async () => {
   font-size: 18px;
 }
 
-.ws-job-count {
+.ws-job-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
   font-size: 11px;
+  font-weight: 600;
   color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border-radius: 10px;
   flex-shrink: 0;
 }
 
@@ -546,4 +559,19 @@ onMounted(async () => {
   height: 18px;
   flex-shrink: 0;
 }
+
+.ws-settings-item-global {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ws-settings-item-badge {
+  font-size: 10px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
 </style>

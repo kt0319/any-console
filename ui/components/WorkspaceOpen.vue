@@ -29,7 +29,7 @@
                 :key="job.name"
                 type="button"
                 class="picker-ws-icon-btn"
-                :class="{ 'picker-ws-job-direct': job.terminal === false }"
+                :class="{ 'picker-ws-job-direct': job.terminal === false, 'picker-ws-job-global': job.global }"
                 :title="job.label || job.name"
                 @click="runJob(ws, job)"
               >
@@ -287,6 +287,10 @@ onMounted(() => {
 
 .picker-ws-icon-btn.picker-ws-job-direct {
   border-style: dashed;
+}
+
+.picker-ws-icon-btn.picker-ws-job-global {
+  border-style: dotted;
 }
 
 .picker-ws-icon-btn .mdi {

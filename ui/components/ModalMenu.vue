@@ -10,6 +10,9 @@
       <button type="button" class="settings-menu-item" @click="pushView('WorkspaceConfig')">
         <span class="mdi mdi-cog-outline"></span> ワークスペース設定
       </button>
+      <button type="button" class="settings-menu-item" @click="pushView('GlobalJobConfig')">
+        <span class="mdi mdi-briefcase-outline"></span> 共通ジョブ
+      </button>
       <button type="button" class="settings-menu-item" @click="pushView('TabConfig')">
         <span class="mdi mdi-tab"></span> タブ
       </button>

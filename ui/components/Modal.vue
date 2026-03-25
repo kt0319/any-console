@@ -29,6 +29,7 @@
         <WorkspaceAdd v-if="currentView === 'WorkspaceAdd'" />
         <WorkspaceConfig v-if="currentView === 'WorkspaceConfig'" :ref="setPaneRef" />
         <JobConfig v-if="currentView === 'JobConfig'" />
+        <GlobalJobConfig v-if="currentView === 'GlobalJobConfig'" :ref="setPaneRef" />
         <TabConfig v-if="currentView === 'TabConfig'" />
         <TerminalConfig v-if="currentView === 'TerminalConfig'" />
         <EditorConfig v-if="currentView === 'EditorConfig'" />
@@ -61,6 +62,7 @@ import WorkspaceOpen from "./WorkspaceOpen.vue";
 import WorkspaceAdd from "./WorkspaceAdd.vue";
 import WorkspaceConfig from "./WorkspaceConfig.vue";
 import JobConfig from "./JobConfig.vue";
+import GlobalJobConfig from "./GlobalJobConfig.vue";
 import TabConfig from "./TabConfig.vue";
 import TerminalConfig from "./TerminalConfig.vue";
 import EditorConfig from "./EditorConfig.vue";

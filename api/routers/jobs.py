@@ -20,7 +20,13 @@ from ..common import (
     resolve_workspace_path,
     sanitize_log_value,
 )
-from ..config import list_workspace_entries, load_workspace_config_section, save_workspace_config_section
+from ..config import (
+    list_workspace_entries,
+    load_global_config_section,
+    load_workspace_config_section,
+    save_global_config_section,
+    save_workspace_config_section,
+)
 from ..errors import bad_request, not_found, server_error, timeout_error, too_many_requests
 from ..git_utils import command_result_dict, git_branches
 from ..job_models import TERMINAL_JOB, JobDefinition
@@ -38,6 +44,24 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 _workspace_jobs_cache = TTLCache(WORKSPACE_JOBS_CACHE_TTL_SEC)
+_global_jobs_cache = TTLCache(WORKSPACE_JOBS_CACHE_TTL_SEC)
+
+GLOBAL_JOBS_CACHE_KEY = "__global_jobs__"
+
+
+def load_global_jobs_data():
+    cached = _global_jobs_cache.get(GLOBAL_JOBS_CACHE_KEY)
+    if cached is not None:
+        return cached
+    data = load_global_config_section("jobs", {})
+    _global_jobs_cache.set(GLOBAL_JOBS_CACHE_KEY, data)
+    return data
+
+
+def save_global_jobs_data(data):
+    save_global_config_section("jobs", data)
+    _global_jobs_cache.invalidate(GLOBAL_JOBS_CACHE_KEY)
+    _workspace_jobs_cache.invalidate_all()
 
 
 def load_workspace_jobs_data(workspace_name):
@@ -54,10 +78,7 @@ def save_workspace_jobs_data(workspace_name, data):
     _workspace_jobs_cache.invalidate(workspace_name)
 
 
-def get_workspace_jobs(workspace_name):
-    if not workspace_name:
-        return {}
-    data = load_workspace_jobs_data(workspace_name)
+def _parse_jobs_data(data):
     jobs = {}
     for name, entry in data.items():
         jobs[name] = JobDefinition(
@@ -72,8 +93,37 @@ def get_workspace_jobs(workspace_name):
     return jobs
 
 
-def job_definition_to_dict(job_def):
-    return {
+def get_global_jobs():
+    return _parse_jobs_data(load_global_jobs_data())
+
+
+def get_workspace_jobs(workspace_name):
+    if not workspace_name:
+        return {}
+    global_data = load_global_jobs_data()
+    ws_data = load_workspace_jobs_data(workspace_name)
+    merged = {}
+    for name, entry in global_data.items():
+        merged[name] = (entry, True)
+    for name, entry in ws_data.items():
+        merged[name] = (entry, False)
+    jobs = {}
+    for name, (entry, is_global) in merged.items():
+        jobs[name] = JobDefinition(
+            command=entry.get("command", ""),
+            label=entry.get("label", name),
+            description=entry.get("description", ""),
+            icon=entry.get("icon", ""),
+            icon_color=entry.get("icon_color", ""),
+            confirm=entry.get("confirm", True),
+            terminal=entry.get("terminal", True),
+        )
+        jobs[name]._is_global = is_global
+    return jobs
+
+
+def job_definition_to_dict(job_def, include_global=False):
+    d = {
         "label": job_def.label,
         "description": job_def.description,
         "command": job_def.command,
@@ -82,11 +132,14 @@ def job_definition_to_dict(job_def):
         "confirm": job_def.confirm,
         "terminal": job_def.terminal,
     }
+    if include_global:
+        d["global"] = getattr(job_def, "_is_global", False)
+    return d
 
 
 def serialize_workspace_jobs(workspace_name: str) -> dict:
     jobs = get_workspace_jobs(workspace_name)
-    return {jname: job_definition_to_dict(job_def) for jname, job_def in jobs.items()}
+    return {jname: job_definition_to_dict(job_def, include_global=True) for jname, job_def in jobs.items()}
 
 
 @router.get("/jobs/workspaces")
@@ -232,6 +285,59 @@ def delete_workspace_job(name: str, job_name: str):
     save_workspace_jobs_data(name, data)
     logger.info("job deleted workspace=%s job=%s", name, job_name)
     return {"status": "ok", "name": job_name}
+
+
+@router.get("/global/jobs")
+def list_global_jobs():
+    data = load_global_jobs_data()
+    jobs = _parse_jobs_data(data)
+    return {jname: job_definition_to_dict(jdef) for jname, jdef in jobs.items()}
+
+
+@router.post("/global/jobs")
+def create_global_job(body: CreateJobRequest):
+    label, command = _validate_job_fields(body)
+    data = load_global_jobs_data()
+    job_name = generate_job_key(data)
+    data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.terminal)
+    save_global_jobs_data(data)
+    logger.info("global job created job=%s", job_name)
+    return {"status": "ok", "name": job_name}
+
+
+@router.put("/global/jobs/{job_name}")
+def update_global_job(job_name: str, body: UpdateJobRequest):
+    data = load_global_jobs_data()
+    if job_name not in data:
+        raise not_found(f"共通ジョブ '{job_name}' が見つかりません")
+    label, command = _validate_job_fields(body)
+    data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.terminal)
+    save_global_jobs_data(data)
+    logger.info("global job updated job=%s", job_name)
+    return {"status": "ok", "name": job_name}
+
+
+@router.delete("/global/jobs/{job_name}")
+def delete_global_job(job_name: str):
+    data = load_global_jobs_data()
+    if job_name not in data:
+        raise not_found(f"共通ジョブ '{job_name}' が見つかりません")
+    del data[job_name]
+    save_global_jobs_data(data)
+    logger.info("global job deleted job=%s", job_name)
+    return {"status": "ok", "name": job_name}
+
+
+@router.put("/global/job-order")
+def reorder_global_jobs(body: ReorderJobsRequest):
+    data = load_global_jobs_data()
+    existing_names = list(data.keys())
+    if sorted(body.order) != sorted(existing_names):
+        raise bad_request("ジョブ一覧が一致しません")
+    reordered = {job_name: data[job_name] for job_name in body.order}
+    save_global_jobs_data(reordered)
+    logger.info("global jobs reordered count=%d", len(body.order))
+    return {"status": "ok"}
 
 
 class RunRequest(BaseModel):

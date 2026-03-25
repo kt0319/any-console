@@ -43,6 +43,7 @@ const { modalTitle, viewState, pushView, popView } = useModalView();
 const { apiPost, apiPut } = useApi();
 
 const workspaceName = viewState.value.workspaceName;
+const isGlobal = viewState.value.isGlobal || false;
 const jobEntry = viewState.value.jobEntry;
 const initialForm = viewState.value.initialForm;
 
@@ -94,9 +95,8 @@ async function saveJob() {
   saving.value = true;
   formError.value = "";
   try {
-    const url = isNew
-      ? `/workspaces/${encodeURIComponent(workspaceName)}/jobs`
-      : `/workspaces/${encodeURIComponent(workspaceName)}/jobs/${encodeURIComponent(jobEntry.name)}`;
+    const baseUrl = isGlobal ? "/global/jobs" : `/workspaces/${encodeURIComponent(workspaceName)}/jobs`;
+    const url = isNew ? baseUrl : `${baseUrl}/${encodeURIComponent(jobEntry.name)}`;
     const body = {
       label: f.label.trim(),
       command: f.command.trim(),

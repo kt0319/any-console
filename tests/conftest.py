@@ -72,8 +72,9 @@ def _reset_rate_limiter():
 @pytest.fixture(autouse=True)
 def _reset_jobs_cache():
     """各テスト前にジョブキャッシュをクリア"""
-    from api.routers.jobs import _workspace_jobs_cache
+    from api.routers.jobs import _global_jobs_cache, _workspace_jobs_cache
     _workspace_jobs_cache.invalidate_all()
+    _global_jobs_cache.invalidate_all()
 
 
 @pytest.fixture()
