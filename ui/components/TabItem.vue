@@ -64,12 +64,12 @@ const label = computed(() => {
 });
 
 const wsIconHtml = computed(() => {
-  if (props.tab.wsIcon) return renderIconStr(props.tab.wsIcon.name, props.tab.wsIcon.color, 14);
+  if (props.tab.wsIcon) return renderIconStr(props.tab.wsIcon.name, props.tab.wsIcon.color, 18);
   return "";
 });
 
 const iconHtml = computed(() => {
-  if (props.tab.icon) return renderIconStr(props.tab.icon.name, props.tab.icon.color, 14);
+  if (props.tab.icon) return renderIconStr(props.tab.icon.name, props.tab.icon.color, 18);
   return "";
 });
 
@@ -319,8 +319,8 @@ onBeforeUnmount(() => {
 }
 
 .tab-btn :deep(.favicon-icon) {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   pointer-events: none;
   -webkit-touch-callout: none;
 }
