@@ -6,7 +6,10 @@ export function useApi() {
   async function apiRequest(endpoint, { method = "GET", body = null, checkStatus = false } = {}) {
     const opts = method === "GET" ? undefined : { method, ...(body != null && { body }) };
     const res = await auth.apiFetch(endpoint, opts);
-    if (!res || !res.ok) return { ok: false, data: null };
+    if (!res || !res.ok) {
+      const data = res ? await res.json().catch(() => null) : null;
+      return { ok: false, data };
+    }
     const data = await res.json().catch(() => null);
     const ok = checkStatus ? data?.status === "ok" : data != null;
     return { ok, data };

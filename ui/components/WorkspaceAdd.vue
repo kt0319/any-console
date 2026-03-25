@@ -88,7 +88,7 @@ import { MSG_ERROR_OCCURRED } from "../utils/constants.js";
 const modalTitle = inject("modalTitle");
 modalTitle.value = "ワークスペース追加";
 
-const { apiGet, apiPost } = useApi();
+const { apiGet, apiPost, apiCommand } = useApi();
 
 let defaultWorkDir = "";
 const cloneUrl = ref("");
@@ -133,13 +133,13 @@ async function doClone() {
   cloneError.value = "";
   cloneSuccess.value = "";
   try {
-    const { ok, data } = await apiPost("/workspaces", {
+    const { ok, data } = await apiCommand("/workspaces", {
       url: cloneUrl.value.trim(),
       name: cloneName.value.trim() || null,
       base_dir: cloneBaseDir.value.trim() || null,
     });
     if (!ok) {
-      cloneError.value = data?.detail || "クローンに失敗しました";
+      cloneError.value = data?.detail || data?.message || "クローンに失敗しました";
     } else {
       cloneSuccess.value = `${data?.name || "リポジトリ"} をクローンしました`;
       cloneUrl.value = "";
