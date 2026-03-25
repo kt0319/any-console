@@ -6,7 +6,6 @@ import logging
 import re
 import secrets
 import socket
-import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
@@ -15,8 +14,9 @@ import uvicorn
 from fastapi import Depends, FastAPI, Request, Response, UploadFile
 from fastapi.staticfiles import StaticFiles
 
-from .auth import verify_token
-from .common import BACKGROUND_EXECUTOR, MAX_UPLOAD_SIZE, SYSTEM_CMD_TIMEOUT_SEC, UPLOAD_DIR
+from .auth import get_client_name, verify_token
+from .client_log import ClientLogMiddleware
+from .common import BACKGROUND_EXECUTOR, MAX_UPLOAD_SIZE, UPLOAD_DIR
 from .errors import bad_request, too_large
 from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
@@ -55,39 +55,13 @@ def shutdown_cleanup():
     BACKGROUND_EXECUTOR.shutdown(wait=False)
 
 
-def _resolve_tailscale_name(ip: str) -> str:
-    try:
-        result = subprocess.run(
-            ["tailscale", "status", "--json"],
-            capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
-        )
-        if result.returncode == 0:
-            import json
-            data = json.loads(result.stdout)
-            for peer in (data.get("Peer") or {}).values():
-                for addr in peer.get("TailscaleIPs", []):
-                    if addr == ip:
-                        return peer.get("HostName", "")
-            self_ips = (data.get("Self") or {}).get("TailscaleIPs", [])
-            if ip in self_ips:
-                return data.get("Self", {}).get("HostName", "")
-    except Exception:
-        logger.debug("tailscale name resolve failed for %s", ip, exc_info=True)
-    return ""
-
-
 @app.get("/auth/check", dependencies=[Depends(verify_token)])
-def auth_check(request: Request):
-    client_ip = request.client.host if request.client else ""
-    forwarded_for = request.headers.get("x-forwarded-for", "")
-    if forwarded_for:
-        client_ip = forwarded_for.split(",")[0].strip()
-    client_name = _resolve_tailscale_name(client_ip)
+def auth_check(client_name: str = Depends(get_client_name)):
     return {
         "status": "ok",
         "hostname": socket.gethostname(),
         "version": system.get_app_version(),
-        "client_name": client_name or client_ip,
+        "client_name": client_name,
     }
 
 
@@ -130,6 +104,7 @@ ICONS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/icons", StaticFiles(directory=str(ICONS_DIR)), name="icons")
 app.mount("/", StaticFiles(directory=str(FRONTEND_DIR)), name="ui")
 
+app.add_middleware(ClientLogMiddleware)
 app.add_middleware(RateLimitMiddleware)
 
 if __name__ == "__main__":
