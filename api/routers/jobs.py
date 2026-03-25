@@ -287,7 +287,8 @@ def execute_job(body: RunRequest):
                 )
         cwd_path = str(ws_path) if ws_path else None
         short_id = secrets.token_urlsafe(6)
-        session_id = f"{body.workspace}-{short_id}" if body.workspace else short_id
+        safe_name = body.workspace.replace(".", "_") if body.workspace else None
+        session_id = f"{safe_name}-{short_id}" if safe_name else short_id
         tmux_name = f"{TMUX_SESSION_PREFIX}{session_id}"
         try:
             create_tmux_session(cwd_path, tmux_name)
