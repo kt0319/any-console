@@ -3,22 +3,33 @@ set -euo pipefail
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
 NC='\033[0m'
 
 error() { echo -e "${RED}エラー: $1${NC}" >&2; exit 1; }
 info()  { echo -e "${GREEN}$1${NC}"; }
-
-# 依存チェック
-check_command() {
-  command -v "$1" >/dev/null 2>&1 || error "$1 が見つかりません。インストールしてください。"
-}
+warn()  { echo -e "${YELLOW}$1${NC}"; }
 
 info "=== any-console セットアップ ==="
 
-check_command python3
-check_command node
-check_command git
-check_command tmux
+# 依存チェック（まとめて報告）
+missing=()
+for cmd in python3 node git tmux; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    missing+=("$cmd")
+  fi
+done
+
+if [ ${#missing[@]} -gt 0 ]; then
+  echo ""
+  error_msg="以下のコマンドが見つかりません: ${missing[*]}"
+  echo -e "${RED}${error_msg}${NC}" >&2
+  echo ""
+  echo "インストール例:"
+  echo "  Debian/Ubuntu: sudo apt install ${missing[*]}"
+  echo "  macOS:         brew install ${missing[*]}"
+  exit 1
+fi
 
 # Python バージョンチェック (3.11+)
 python_version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
@@ -27,7 +38,7 @@ python_minor=$(echo "$python_version" | cut -d. -f2)
 if [ "$python_major" -lt 3 ] || { [ "$python_major" -eq 3 ] && [ "$python_minor" -lt 11 ]; }; then
   error "Python 3.11+ が必要です（現在: $python_version）"
 fi
-info "✓ Python $python_version"
+info "✓ 依存OK: Python $python_version, node $(node -v), git $(git --version | cut -d' ' -f3), tmux $(tmux -V | cut -d' ' -f2)"
 
 # pip install
 info "Python依存パッケージをインストール中..."
@@ -53,7 +64,8 @@ fi
 echo ""
 info "=== セットアップ完了 ==="
 echo ""
-echo "起動コマンド:"
-echo "  python -m uvicorn api.main:app --host 0.0.0.0 --port 8888"
+echo "起動:"
+echo "  python -m api.main"
 echo ""
 echo "ブラウザで http://localhost:8888 を開いてください。"
+echo "認証トークンは .env の ANY_CONSOLE_TOKEN を確認してください。"
