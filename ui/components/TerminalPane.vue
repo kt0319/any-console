@@ -296,6 +296,10 @@ async function onPaste(e) {
 }
 
 onMounted(() => {
+  if (frameEl.value) {
+    const fs = terminalStore.terminalSettings?.fontSize || 12;
+    frameEl.value.style.setProperty("--terminal-font-size", `${fs}px`);
+  }
   if (props.tab._pendingOpen && frameEl.value) {
     ensureTerminalOpened(props.tab, frameEl.value);
     requestAnimationFrame(() => fitTerminal(props.tab));
@@ -459,9 +463,10 @@ defineExpose({
   overflow-y: auto;
   background: #1a1b26;
   color: #e0e4fc;
-  font-family: "JetBrainsMono Nerd Font", "Hack Nerd Font", "FiraCode Nerd Font", "MesloLGS NF", monospace;
-  font-size: 12px;
-  line-height: 1.0;
+  font-family: "Hack Nerd Font", "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace;
+  font-size: var(--terminal-font-size, 12px);
+  line-height: 1.25;
+  letter-spacing: 0.5px;
   box-sizing: border-box;
   outline: none;
   white-space: pre-wrap;

@@ -138,6 +138,11 @@ export async function enterViewMode(tab, frameEl, apiFetch) {
 
   const pre = document.createElement("pre");
   pre.className = "view-mode-textarea";
+  const xtermEl = frameEl.querySelector(".xterm-viewport");
+  if (xtermEl) {
+    const bg = getComputedStyle(xtermEl).backgroundColor;
+    if (bg) pre.style.background = bg;
+  }
   frameEl.appendChild(pre);
 
   const match = tab.wsUrl && tab.wsUrl.match(/\/terminal\/ws\/([^/]+)/);
