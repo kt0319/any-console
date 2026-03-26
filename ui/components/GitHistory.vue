@@ -2,9 +2,12 @@
   <div class="git-history-pane-wrapper">
     <!-- ファイル一覧モード -->
     <template v-if="selectedCommitForFiles">
+      <div v-if="isDirtyDiff" class="stash-pane-toolbar">
+        <button type="button" class="stash-save-btn" @click="stashSave">stash save</button>
+      </div>
       <div class="modal-scroll-body">
         <div v-if="isSelectedCommitFilesLoading" class="text-muted-center">読み込み中...</div>
-        <ul v-else class="file-browser-list diff-file-browser-list">
+        <ul v-if="!isSelectedCommitFilesLoading" class="file-browser-list diff-file-browser-list">
           <FileItem
             v-for="file in selectedCommitFiles"
             :key="file.path"
@@ -25,8 +28,8 @@
     <div v-else class="modal-scroll-body" ref="historyListEl" @scroll.passive="onHistoryListScroll">
       <div v-if="isHistoryLoading" class="text-muted-center">読み込み中...</div>
       <div v-else-if="commitEntries.length === 0" class="text-muted-center">コミットログがありません</div>
-      <!-- 未コミットの変更 / 変更なし -->
-      <div v-if="!isHistoryLoading && commitEntries.length > 0" class="git-log-entry git-log-dirty" @click="openWorkingTreeDiffFiles">
+      <!-- 未コミットの変更 -->
+      <div v-if="!isHistoryLoading && commitEntries.length > 0" class="git-log-entry git-log-dirty" @click="isDirty ? openWorkingTreeDiffFiles() : selectPane('stash')">
         <span class="git-log-entry-body git-log-dirty-body">
           <span class="git-log-dirty-main">
             <span class="git-log-entry-msg git-log-dirty-msg">{{ isDirty ? '未コミットの変更' : '変更なし' }}</span>
@@ -36,9 +39,6 @@
           </span>
         </span>
         <div class="git-log-dirty-actions" @click.stop>
-          <button type="button" class="git-action-btn icon-only" title="Stash" @click="selectPane('stash')">
-            <span class="mdi mdi-package-down"></span>
-          </button>
           <button type="button" class="git-action-btn icon-only" title="ブランチ" @click="selectPane('branch')">
             <span class="mdi mdi-source-branch"></span>
           </button>
@@ -112,7 +112,7 @@ import { GIT_DIFF_STATUS_CLASSES, INFINITE_SCROLL_THRESHOLD_PX } from "../utils/
 const emitToParent = defineEmits(["pane:select", "commit:expanded", "commit:collapsed"]);
 
 const workspaceStore = useWorkspaceStore();
-const { apiGet, wsEndpoint } = useApi();
+const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { execAction: execCommitAction, execReset: execCommitReset, execCreateBranch: execCommitCreateBranch, execMerge: execCommitMerge, execRebase: execCommitRebase } = useGitCommitAction();
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
 const gitStore = useGitStore();
@@ -125,6 +125,7 @@ function selectPane(key) {
 }
 
 const isDirty = computed(() => workspaceStore.currentWorkspace && workspaceStore.currentWorkspace.clean === false);
+const isDirtyDiff = computed(() => selectedCommitForFiles.value?.hash === "__dirty__");
 const githubUrl = computed(() => workspaceStore.currentWorkspace?.github_url || "");
 const dirtySummaryHtml = computed(() => {
   const ws = workspaceStore.currentWorkspace;
@@ -265,6 +266,15 @@ function openWorkingTreeDiffFiles() {
   openDiffFiles(dirtyEntry, fetchWorkingTreeDiff);
 }
 
+async function stashSave() {
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
+  const { ok } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true });
+  if (!ok) return;
+  closeSelectedCommitFiles();
+  bridgeEmit("git:commitDone");
+}
+
 function openCommitDiffFiles(entry) {
   if (isMenuEl() || longPressEntry.value || isLongPressFired()) return;
   openDiffFiles(entry, () => fetchCommitDiff(entry.fullHash));
@@ -344,6 +354,49 @@ defineExpose({
   flex: 1;
 }
 
+.git-log-pane-actions {
+  display: flex;
+  padding: 8px;
+  gap: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.git-log-pane-actions .git-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: var(--radius);
+  font-size: 14px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.git-log-pane-actions .git-action-btn.icon-only {
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+}
+
+.stash-pane-toolbar {
+  padding: 0 0 8px;
+  flex-shrink: 0;
+}
+
+.stash-save-btn {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
 .git-log-dirty-body {
   flex-direction: row;
   align-items: stretch;
@@ -397,6 +450,32 @@ defineExpose({
   background: var(--bg-tertiary);
 }
 
+.git-log-dirty-msg {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted) !important;
+}
+
+.git-ref-dirty {
+  display: inline-flex;
+  align-items: center;
+  min-height: 0;
+  padding: 4px 10px;
+  color: var(--warning);
+  background: var(--warning-bg-20);
+}
+
+.git-ref-dirty :deep(.header-git-numstat) {
+  font-size: 10px;
+  gap: 8px;
+}
+
+.git-ref-dirty :deep(.header-git-files) {
+  font-size: 10px;
+}
+
 .git-log-entry-msg {
   white-space: nowrap;
   overflow: hidden;
@@ -406,13 +485,6 @@ defineExpose({
   -webkit-user-select: none;
 }
 
-.git-log-dirty-msg {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-muted) !important;
-}
 
 .git-log-entry-row1 {
   display: flex;
@@ -456,23 +528,6 @@ defineExpose({
   white-space: nowrap;
 }
 
-.git-ref-dirty {
-  display: inline-flex;
-  align-items: center;
-  min-height: 0;
-  padding: 4px 10px;
-  color: var(--warning);
-  background: var(--warning-bg-20);
-}
-
-.git-ref-dirty :deep(.header-git-numstat) {
-  font-size: 10px;
-  gap: 8px;
-}
-
-.git-ref-dirty :deep(.header-git-files) {
-  font-size: 10px;
-}
 
 .git-log-commit.action-open,
 .diff-file-row.action-open {

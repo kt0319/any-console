@@ -54,12 +54,6 @@ defineEmits(["action"]);
   padding: 0;
 }
 
-.git-action-btn.stash-btn {
-  color: var(--text-muted);
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-}
-
 .git-action-btn.pull-btn {
   color: var(--text-muted);
   background: transparent;
