@@ -161,7 +161,9 @@ function onPillMouseDown(e) {
   document.addEventListener("mousemove", onPillMouseMove);
   document.addEventListener("mouseup", onPillMouseUp);
   pillMouseLongPress.start(() => {
-    emit("settings:open", { view: "TabConfig" });
+    if (frameEl.value && !isViewMode(frameEl.value)) {
+      enterViewMode(props.tab, frameEl.value, auth.apiFetch.bind(auth));
+    }
   });
 }
 
