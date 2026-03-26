@@ -20,10 +20,15 @@
         <span v-else class="file-browser-crumb-current">{{ seg }}</span>
       </template>
       <span v-if="props.diffFile" class="file-browser-crumb-badge">(差分)</span>
-      <span v-if="!props.diffFile" class="file-browser-header-actions">
-        <input ref="uploadInputEl" type="file" multiple class="file-browser-upload-input" @change="onUploadInputChange">
-        <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" @click="openDirInEditor"><span class="mdi mdi-file-edit-outline"></span></button>
-        <button type="button" class="file-browser-header-btn" @click="uploadInputEl?.click()"><span class="mdi mdi-upload"></span></button>
+      <span class="file-browser-header-actions">
+        <template v-if="props.diffFile || fileContent">
+          <button type="button" class="file-browser-header-btn" @click="downloadCurrentFile"><span class="mdi mdi-download"></span></button>
+        </template>
+        <template v-else>
+          <input ref="uploadInputEl" type="file" multiple class="file-browser-upload-input" @change="onUploadInputChange">
+          <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" @click="openDirInEditor"><span class="mdi mdi-file-edit-outline"></span></button>
+          <button type="button" class="file-browser-header-btn" @click="uploadInputEl?.click()"><span class="mdi mdi-upload"></span></button>
+        </template>
       </span>
     </div>
 
@@ -337,12 +342,9 @@ async function deleteEntry() {
   }
 }
 
-async function downloadEntry() {
-  const filePath = entryPath();
-  if (!filePath) return;
-  contextEntry.value = null;
+async function downloadFile(filePath) {
   const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
+  if (!workspace || !filePath) return;
   try {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/download?path=${encodeURIComponent(filePath)}`);
     if (!res || !res.ok) {
@@ -361,6 +363,18 @@ async function downloadEntry() {
   } catch {
     emit("toast:show", { message: "ダウンロードに失敗しました", type: "error" });
   }
+}
+
+async function downloadEntry() {
+  const filePath = entryPath();
+  if (!filePath) return;
+  contextEntry.value = null;
+  await downloadFile(filePath);
+}
+
+function downloadCurrentFile() {
+  const filePath = props.diffFile || currentPath.value;
+  downloadFile(filePath);
 }
 
 async function fetchEditorSettings() {
