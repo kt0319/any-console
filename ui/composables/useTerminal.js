@@ -7,7 +7,8 @@ import { emit } from "../app-bridge.js";
 
 const WS_CLOSE_SESSION_EXITED = 4001;
 
-const RECONNECT_BACKOFF_MAX = 30000;
+const RECONNECT_INITIAL_DELAY = 200;
+const RECONNECT_BACKOFF_MAX = 5000;
 
 export function useTerminal() {
   const auth = useAuthStore();
@@ -64,11 +65,11 @@ export function useTerminal() {
         return;
       }
 
-      const delay = Math.min(
-        Math.pow(2, tab._reconnectAttempts || 0) * 1000,
-        RECONNECT_BACKOFF_MAX,
-      );
-      tab._reconnectAttempts = (tab._reconnectAttempts || 0) + 1;
+      const attempts = tab._reconnectAttempts || 0;
+      const delay = attempts === 0
+        ? RECONNECT_INITIAL_DELAY
+        : Math.min(Math.pow(2, attempts - 1) * 1000, RECONNECT_BACKOFF_MAX);
+      tab._reconnectAttempts = attempts + 1;
       tab._pendingRedraw = true;
       tab._reconnectTimer = setTimeout(() => connectTerminalWs(tab), delay);
     };
