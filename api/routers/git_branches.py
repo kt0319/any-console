@@ -15,7 +15,7 @@ from ..git_utils import (
     ssh_env,
 )
 from ..validators import validate_branch_name, validate_commit_hash
-from .git_shared import execute_git_action, get_current_branch
+from .git_helpers import execute_git_action, get_current_branch
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 

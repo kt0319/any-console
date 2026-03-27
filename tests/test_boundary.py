@@ -304,14 +304,14 @@ class TestFileOperationGuard:
     """file_operation_guard() のユニットテスト"""
 
     def test_permission_error_returns_403(self):
-        from api.routers.git_shared import file_operation_guard
+        from api.routers.git_helpers import file_operation_guard
         with pytest.raises(HTTPException) as exc_info:
             with file_operation_guard("write"):
                 raise PermissionError("denied")
         assert exc_info.value.status_code == 403
 
     def test_os_error_returns_500_with_operation(self):
-        from api.routers.git_shared import file_operation_guard
+        from api.routers.git_helpers import file_operation_guard
         with pytest.raises(HTTPException) as exc_info:
             with file_operation_guard("read file"):
                 raise OSError("disk failure")

@@ -10,7 +10,7 @@ from ..common import (
 from ..errors import bad_request
 from ..git_utils import run_git_command
 from ..validators import validate_branch_name, validate_commit_hash, validate_stash_ref
-from .git_shared import execute_git_action
+from .git_helpers import execute_git_action
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 

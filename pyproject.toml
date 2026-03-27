@@ -17,7 +17,7 @@ ignore = [
 "api/git_utils.py" = ["C901"]
 "api/routers/terminal.py" = ["S606", "S110", "C901"]
 "api/routers/workspaces.py" = ["C901"]
-"api/routers/git_shared.py" = ["C901"]
+"api/routers/git_file_utils.py" = ["C901"]
 "api/routers/jobs.py" = ["C901"]
 "api/routers/system.py" = ["C901"]
 

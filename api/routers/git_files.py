@@ -7,11 +7,13 @@ from ..auth import verify_token
 from ..common import MAX_UPLOAD_SIZE, resolve_workspace_path
 from ..errors import bad_request, conflict, not_found, too_large
 from ..validators import validate_git_ref
-from .git_shared import (
-    file_operation_guard,
+from .git_file_utils import (
     list_directory_entries,
     read_blob_content_response,
     read_file_content_response,
+)
+from .git_helpers import (
+    file_operation_guard,
     resolve_and_validate_workspace_path,
     run_raw_git,
     validate_workspace_relative_target,
