@@ -35,9 +35,9 @@ from ..runner import run_job
 from ..terminal_session import (
     TERMINAL_SESSIONS,
     TerminalSession,
-    create_tmux_session,
     sessions_lock,
 )
+from ..tmux import create_tmux_session
 from ..validators import validate_icon, validate_icon_color
 
 logger = logging.getLogger(__name__)

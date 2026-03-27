@@ -26,15 +26,17 @@ from ..terminal_session import (
     TerminalSession,
     _detach_pty_bridge,
     _ensure_reader_task,
-    _get_tmux_created,
     _handle_resize,
     _kill_tmux_session,
     _register_tmux_session,
-    _tmux_session_exists,
-    attach_tmux_session,
-    create_tmux_session,
     get_terminal_session,
     sessions_lock,
+)
+from ..tmux import (
+    attach_tmux_session,
+    create_tmux_session,
+    get_tmux_created,
+    tmux_session_exists,
 )
 
 logger = logging.getLogger(__name__)
@@ -75,7 +77,7 @@ async def list_terminal_sessions():
             meta_src = TerminalSession.from_tmux(name)
         md = meta_src.metadata_dict()
 
-        created_at = _get_tmux_created(name)
+        created_at = get_tmux_created(name)
         sessions.append({
             "session_id": session_id,
             "workspace": md["workspace"],
@@ -129,7 +131,7 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
 
     if not session:
         tmux_name = TMUX_SESSION_PREFIX + session_id
-        if _tmux_session_exists(tmux_name):
+        if tmux_session_exists(tmux_name):
             session = _register_tmux_session(session_id, tmux_name)
 
     await websocket.accept()
@@ -144,7 +146,7 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
         await websocket.close(code=1008, reason="セッションがタイムアウトしました")
         return
 
-    if not _tmux_session_exists(session.tmux_session_name):
+    if not tmux_session_exists(session.tmux_session_name):
         try:
             ws_resolved = resolve_workspace_path(session.workspace)
             workspace_path = str(ws_resolved) if ws_resolved else None

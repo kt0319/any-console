@@ -3,7 +3,6 @@ import fcntl
 import json
 import logging
 import os
-import pty
 import select
 import signal
 import struct
@@ -20,13 +19,20 @@ from .common import (
     PTY_READER_WORKERS,
     TERMINAL_DEFAULT_COLS,
     TERMINAL_DEFAULT_ROWS,
-    TERMINAL_TERM_TYPE,
     TERMINAL_TIMEOUT_SEC,
     TMUX_CMD_TIMEOUT_SEC,
-    TMUX_META_ENV_NAMES,
     TMUX_SESSION_PREFIX,
 )
 from .errors import gone, not_found
+from .tmux import (
+    attach_tmux_session,
+    create_tmux_session,
+    detect_workspace_from_tmux,
+    get_tmux_created,
+    kill_tmux_by_name,
+    load_tmux_metadata,
+    tmux_session_exists,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,8 +83,8 @@ class TerminalSession:
 
     @classmethod
     def from_tmux(cls, tmux_name: str) -> "TerminalSession":
-        meta = _load_tmux_metadata(tmux_name)
-        workspace = meta.get("TMUX_WORKSPACE") or _detect_workspace_from_tmux(tmux_name)
+        meta = load_tmux_metadata(tmux_name)
+        workspace = meta.get("TMUX_WORKSPACE") or detect_workspace_from_tmux(tmux_name)
         return cls(
             workspace=workspace,
             expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
@@ -101,69 +107,6 @@ class TerminalSession:
 
 TERMINAL_SESSIONS: dict[str, TerminalSession] = {}
 sessions_lock = threading.Lock()
-
-
-def _run_outside_cgroup(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
-    uid = os.getuid()
-    env = kwargs.get("env") or os.environ.copy()
-    env.setdefault("XDG_RUNTIME_DIR", f"/run/user/{uid}")
-    env.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path=/run/user/{uid}/bus")
-    kwargs_with_env = {**kwargs, "env": env}
-    try:
-        return subprocess.run(
-            ["systemd-run", "--user", "--scope", "--quiet", *cmd],
-            **kwargs_with_env,
-        )
-    except (subprocess.CalledProcessError, OSError):
-        return subprocess.run(cmd, **kwargs)
-
-
-def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
-    user_shell = os.environ.get("SHELL", "/bin/zsh")
-    cwd = workspace_path if workspace_path and os.path.isdir(workspace_path) else os.environ.get("HOME", "/")
-    env = os.environ.copy()
-    env["TERM"] = TERMINAL_TERM_TYPE
-    if workspace_path:
-        env["WORKSPACE"] = workspace_path
-
-    _run_outside_cgroup(
-        [
-            "tmux", "new-session", "-d", "-s", session_name,
-            "-x", str(TERMINAL_DEFAULT_COLS), "-y", str(TERMINAL_DEFAULT_ROWS), user_shell,
-        ],
-        cwd=cwd,
-        env=env,
-        timeout=TMUX_CMD_TIMEOUT_SEC,
-        check=True,
-        capture_output=True,
-    )
-    for opt_args in (["status", "off"], ["mouse", "off"]):
-        subprocess.run(
-            ["tmux", "set-option", "-t", session_name, *opt_args],
-            timeout=TMUX_CMD_TIMEOUT_SEC,
-            capture_output=True,
-        )
-
-
-def attach_tmux_session(session_name: str, cols: int = 0, rows: int = 0) -> tuple[int, int]:
-    env = {
-        "TERM": TERMINAL_TERM_TYPE,
-        "HOME": os.environ.get("HOME", "/"),
-        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
-        "LANG": os.environ.get("LANG", "en_US.UTF-8"),
-        "SHELL": os.environ.get("SHELL", "/bin/zsh"),
-    }
-    pid, fd = pty.fork()
-    if pid == 0:
-        try:
-            os.execvpe("tmux", ["tmux", "attach-session", "-t", session_name], env)  # noqa: S606
-        except Exception:  # noqa: S110
-            pass
-        os._exit(1)
-    if cols > 0 and rows > 0:
-        winsize = struct.pack("HHHH", rows, cols, 0, 0)
-        fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
-    return fd, pid
 
 
 def _detach_pty_bridge(session: TerminalSession) -> None:
@@ -192,85 +135,7 @@ def _detach_pty_bridge(session: TerminalSession) -> None:
 
 def _kill_tmux_session(session: TerminalSession) -> None:
     _detach_pty_bridge(session)
-    try:
-        subprocess.run(
-            ["tmux", "kill-session", "-t", session.tmux_session_name],
-            timeout=TMUX_CMD_TIMEOUT_SEC,
-            capture_output=True,
-        )
-    except (subprocess.TimeoutExpired, OSError) as e:
-        logger.debug("kill tmux session %s failed: %s", session.tmux_session_name, e)
-
-
-def _tmux_session_exists(name: str) -> bool:
-    try:
-        result = subprocess.run(
-            ["tmux", "has-session", "-t", name],
-            timeout=TMUX_CMD_TIMEOUT_SEC,
-            capture_output=True,
-        )
-        return result.returncode == 0
-    except (subprocess.TimeoutExpired, OSError):
-        return False
-
-
-def _detect_workspace_from_tmux(tmux_name: str) -> str | None:
-    try:
-        result = subprocess.run(
-            ["tmux", "display-message", "-t", tmux_name, "-p", "#{pane_current_path}"],
-            timeout=TMUX_CMD_TIMEOUT_SEC,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
-            pane_path = result.stdout.strip()
-            from .config import list_workspace_entries
-            entries = list_workspace_entries()
-            for name, config in entries.items():
-                ws_path = config.get("path", "")
-                if ws_path and (pane_path == ws_path or pane_path.startswith(ws_path + "/")):
-                    return name
-    except (subprocess.TimeoutExpired, OSError):
-        pass
-    return None
-
-
-
-def _load_tmux_metadata(tmux_name: str) -> dict:
-    try:
-        result = subprocess.run(
-            ["tmux", "show-environment", "-t", tmux_name],
-            timeout=TMUX_CMD_TIMEOUT_SEC,
-            capture_output=True,
-            text=True,
-        )
-    except (subprocess.TimeoutExpired, OSError):
-        return {}
-    if result.returncode != 0:
-        return {}
-    meta = {}
-    for line in result.stdout.strip().splitlines():
-        if "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        if key in TMUX_META_ENV_NAMES:
-            meta[key] = value
-    return meta
-
-
-def _get_tmux_created(tmux_name: str) -> int | None:
-    try:
-        result = subprocess.run(
-            ["tmux", "display-message", "-t", tmux_name, "-p", "#{session_created}"],
-            timeout=TMUX_CMD_TIMEOUT_SEC,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
-            return int(result.stdout.strip())
-    except (subprocess.TimeoutExpired, OSError, ValueError):
-        pass
-    return None
+    kill_tmux_by_name(session.tmux_session_name)
 
 
 def cleanup_terminal_sessions() -> None:
@@ -307,7 +172,7 @@ def get_terminal_session(session_id: str) -> TerminalSession:
             return session
 
     tmux_name = TMUX_SESSION_PREFIX + session_id
-    if not _tmux_session_exists(tmux_name):
+    if not tmux_session_exists(tmux_name):
         raise not_found("Terminal session not found")
 
     session = _register_tmux_session(session_id, tmux_name)
@@ -401,5 +266,3 @@ def _handle_resize(session: TerminalSession, payload: bytes) -> None:
         )
     except (json.JSONDecodeError, OSError, KeyError, subprocess.TimeoutExpired):
         pass
-
-
