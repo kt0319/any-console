@@ -86,7 +86,7 @@ const isDirty = computed(() => ws.value && ws.value.clean === false);
 const commitMsgHtml = computed(() => {
   if (!ws.value) return "";
   const branch = ws.value.branch || "";
-  const msg = isDirty.value ? "未コミットの変更" : (ws.value.last_commit_message || "");
+  const msg = isDirty.value ? "変更あり" : (ws.value.last_commit_message || "");
   const msgClass = isDirty.value ? "commit-btn-msg commit-btn-msg-muted" : "commit-btn-msg";
   const escaped = escapeHtml(msg);
   return `<span class="commit-btn-branch">${escapeHtml(branch)}</span>` +
