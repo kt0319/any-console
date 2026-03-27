@@ -253,6 +253,10 @@ onMounted(() => {
   on("tab:select", ({ tab }) => {
     terminalStore.switchTab(tab.id);
     focusTabTerminal(tab.id);
+    if (layoutStore.isSplitMode) {
+      const paneIndex = layoutStore.splitPaneTabIds.indexOf(tab.id);
+      if (paneIndex >= 0) layoutStore.activePaneIndex = paneIndex;
+    }
     if (tab.workspace) {
       workspaceStore.selectedWorkspace = tab.workspace;
     }

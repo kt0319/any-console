@@ -99,9 +99,11 @@ export const useLayoutStore = defineStore("layout", () => {
   }
 
   function exitSplitMode(targetTabId) {
+    const restoreTabId = targetTabId || null;
     isSplitMode.value = false;
     splitPaneTabIds.value = [];
     activePaneIndex.value = 0;
+    return restoreTabId;
   }
 
   return {

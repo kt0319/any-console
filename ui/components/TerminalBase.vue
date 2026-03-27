@@ -159,6 +159,9 @@ function onDrop(e, direction) {
   const tabId = typeof raw === "string" ? parseInt(raw, 10) : raw;
   if (tabId) {
     layoutStore.splitWithDrop(tabId, direction, terminalStore.openTabs, terminalStore.activeTabId);
+    if (direction === "center" && !layoutStore.isSplitMode) {
+      terminalStore.switchTab(tabId);
+    }
   }
   layoutStore.dragTabId = null;
 }

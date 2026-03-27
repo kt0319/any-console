@@ -1,9 +1,11 @@
 import { useLayoutStore } from "../stores/layout.js";
+import { useTerminalStore } from "../stores/terminal.js";
 
 const DROP_ZONE_CLASS_RE = /\bdrop-(top-left|top-right|bottom-left|bottom-right|left|right|top|bottom|center)\b/;
 
 export function useSplitDropDrag() {
   const layoutStore = useLayoutStore();
+  const terminalStore = useTerminalStore();
 
   function getDropZones() {
     return document.querySelectorAll(".split-drop-zone");
@@ -52,6 +54,9 @@ export function useSplitDropDrag() {
     clearHover();
     if (dropDir) {
       layoutStore.splitWithDrop(tabId, dropDir, openTabs, activeTabId);
+      if (dropDir === "center" && !layoutStore.isSplitMode) {
+        terminalStore.switchTab(tabId);
+      }
     }
     return dropDir;
   }
