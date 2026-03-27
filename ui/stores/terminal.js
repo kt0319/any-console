@@ -1,5 +1,8 @@
 import { defineStore } from "pinia";
 import { ref, markRaw } from "vue";
+import { Terminal } from "@xterm/xterm";
+import { FitAddon } from "@xterm/addon-fit";
+import { WebLinksAddon } from "@xterm/addon-web-links";
 import { LS_KEY_TERMINAL_SETTINGS } from "../utils/constants.js";
 
 const TERMINAL_SETTINGS_KEY = LS_KEY_TERMINAL_SETTINGS;
@@ -80,17 +83,11 @@ export const useTerminalStore = defineStore("terminal", () => {
   }
 
   function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, initialCommand, restored }) {
-    const Terminal = window.Terminal;
-    const FitAddon = window.FitAddon?.FitAddon;
-    const WebLinksAddon = window.WebLinksAddon?.WebLinksAddon;
-
     const opts = getTerminalRuntimeOptions();
     const term = new Terminal(opts);
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
-    if (WebLinksAddon) {
-      term.loadAddon(new WebLinksAddon());
-    }
+    term.loadAddon(new WebLinksAddon());
 
     const sessionId = wsUrl.replace(/.*\/terminal\/ws\//, "").replace(/\?.*/, "");
     const id = ++terminalIdCounter.value;

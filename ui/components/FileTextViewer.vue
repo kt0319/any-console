@@ -11,6 +11,32 @@
 
 <script setup>
 import { ref, watch } from "vue";
+import hljs from "highlight.js/lib/core";
+import javascript from "highlight.js/lib/languages/javascript";
+import typescript from "highlight.js/lib/languages/typescript";
+import python from "highlight.js/lib/languages/python";
+import json from "highlight.js/lib/languages/json";
+import yaml from "highlight.js/lib/languages/yaml";
+import bash from "highlight.js/lib/languages/bash";
+import css from "highlight.js/lib/languages/css";
+import xml from "highlight.js/lib/languages/xml";
+import markdown from "highlight.js/lib/languages/markdown";
+import sql from "highlight.js/lib/languages/sql";
+import ini from "highlight.js/lib/languages/ini";
+import dockerfile from "highlight.js/lib/languages/dockerfile";
+
+hljs.registerLanguage("javascript", javascript);
+hljs.registerLanguage("typescript", typescript);
+hljs.registerLanguage("python", python);
+hljs.registerLanguage("json", json);
+hljs.registerLanguage("yaml", yaml);
+hljs.registerLanguage("bash", bash);
+hljs.registerLanguage("css", css);
+hljs.registerLanguage("xml", xml);
+hljs.registerLanguage("markdown", markdown);
+hljs.registerLanguage("sql", sql);
+hljs.registerLanguage("ini", ini);
+hljs.registerLanguage("dockerfile", dockerfile);
 import { escapeHtml } from "../utils/escape-html.js";
 import { formatSize } from "../utils/format.js";
 
@@ -26,7 +52,6 @@ function highlight() {
   const content = props.fileContent?.content;
   if (content == null) { highlightedLines.value = []; return; }
   const raw = String(content);
-  const hljs = globalThis.hljs;
   if (!hljs) {
     highlightedLines.value = raw.split("\n").map(escapeHtml);
     return;

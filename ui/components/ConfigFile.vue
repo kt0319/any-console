@@ -15,6 +15,9 @@
 
 <script setup>
 import { ref, inject, onMounted, nextTick } from "vue";
+import hljs from "highlight.js/lib/core";
+import json from "highlight.js/lib/languages/json";
+hljs.registerLanguage("json", json);
 import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 
@@ -28,7 +31,7 @@ const codeEl = ref(null);
 
 function highlight() {
   nextTick(() => {
-    if (globalThis.hljs && codeEl.value) globalThis.hljs.highlightElement(codeEl.value);
+    if (hljs && codeEl.value) hljs.highlightElement(codeEl.value);
   });
 }
 

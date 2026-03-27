@@ -1,5 +1,7 @@
 import { createApp } from "vue";
 import { createPinia } from "pinia";
+import "@xterm/xterm/css/xterm.css";
+import "highlight.js/styles/tokyo-night-dark.css";
 import App from "./components/App.vue";
 
 const container = document.getElementById("app");

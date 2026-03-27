@@ -3,15 +3,9 @@ import { execSync } from "node:child_process";
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 
-const VENDOR_SCRIPTS = [
-  "vendor/js/highlight.min.js",
-  "vendor/js/xterm.js",
-  "vendor/js/addon-fit.js",
-  "vendor/js/addon-web-links.js",
-];
-
 const STATIC_COPY_TARGETS = [
-  { src: "ui/vendor", dest: "dist/vendor" },
+  { src: "ui/vendor/css", dest: "dist/vendor/css" },
+  { src: "ui/vendor/fonts", dest: "dist/vendor/fonts" },
   { src: "ui/sw.js", dest: "dist/sw.js" },
 ];
 
@@ -20,22 +14,16 @@ export default defineConfig({
   build: {
     outDir: "../dist",
     emptyOutDir: true,
-  },
-  plugins: [
-    vue(),
-    {
-      name: "vendor-scripts",
-      transformIndexHtml: {
-        order: "post",
-        handler(html) {
-          if (html.includes("vendor/js/xterm.js")) return html;
-          const tags = VENDOR_SCRIPTS
-            .map((s) => `  <script src="${s}"></script>`)
-            .join("\n");
-          return html.replace("</body>", `${tags}\n</body>`);
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          xterm: ["@xterm/xterm", "@xterm/addon-fit", "@xterm/addon-web-links"],
         },
       },
     },
+  },
+  plugins: [
+    vue(),
     {
       name: "copy-static",
       closeBundle() {
