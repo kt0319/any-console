@@ -47,6 +47,14 @@ export function useTerminal() {
       } else {
         tab.term.write(e.data);
       }
+      tab._writeCount = (tab._writeCount || 0) + 1;
+      clearTimeout(tab._postWriteRefresh);
+      tab._postWriteRefresh = setTimeout(() => {
+        if (tab._writeCount >= 50 && tab.term) {
+          try { tab.term.refresh(0, tab.term.rows - 1); } catch {}
+        }
+        tab._writeCount = 0;
+      }, 300);
     };
 
     ws.onerror = () => {};
@@ -120,6 +128,7 @@ export function useTerminal() {
     }
     clearTimeout(tab._reconnectTimer);
     clearTimeout(tab._activityTimer);
+    clearTimeout(tab._postWriteRefresh);
   }
 
   function bindTerminalElement(tab) {
