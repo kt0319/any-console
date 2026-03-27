@@ -72,7 +72,6 @@
               <button type="button" @click="renameEntry"><span class="mdi mdi-rename-box"></span> リネーム</button>
               <button type="button" @click="moveEntry"><span class="mdi mdi-file-move-outline"></span> 移動</button>
               <button type="button" class="file-browser-action-delete" @click="deleteEntry"><span class="mdi mdi-delete-outline"></span> 削除</button>
-              <button type="button" @click="contextEntry = null"><span class="mdi mdi-close"></span></button>
             </li>
           </template>
         </ul>
