@@ -19,9 +19,9 @@
         >{{ seg }}</button>
         <span v-else class="file-browser-crumb-current">{{ seg }}</span>
       </template>
-      <span v-if="props.diffFile" class="file-browser-crumb-badge">(差分)</span>
-      <span class="file-browser-header-actions">
-        <template v-if="props.diffFile || fileContent">
+      <span v-if="props.diffFile" class="file-browser-crumb-badge">差分</span>
+      <span v-if="!props.diffFile" class="file-browser-header-actions">
+        <template v-if="fileContent">
           <button type="button" class="file-browser-header-btn" @click="downloadCurrentFile"><span class="mdi mdi-download"></span></button>
         </template>
         <template v-else>
