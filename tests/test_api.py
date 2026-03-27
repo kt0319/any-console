@@ -428,6 +428,103 @@ class TestGlobalJobsCRUD:
         assert data["test-ws"][job_name]["global"] is True
 
 
+class TestEditorSettings:
+    def test_get_default(self, client):
+        res = client.get("/settings/editor", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json() == {"url_template": ""}
+
+    def test_put_and_get(self, client):
+        res = client.put("/settings/editor", headers=AUTH, json={
+            "url_template": "vscode://file/{path}:{line}",
+        })
+        assert res.status_code == 200
+        assert res.json()["url_template"] == "vscode://file/{path}:{line}"
+
+        res = client.get("/settings/editor", headers=AUTH)
+        assert res.json()["url_template"] == "vscode://file/{path}:{line}"
+
+    def test_put_trims_whitespace(self, client):
+        res = client.put("/settings/editor", headers=AUTH, json={
+            "url_template": "  vscode://file/{path}  ",
+        })
+        assert res.json()["url_template"] == "vscode://file/{path}"
+
+    def test_put_empty_string(self, client):
+        client.put("/settings/editor", headers=AUTH, json={
+            "url_template": "vscode://file/{path}",
+        })
+        res = client.put("/settings/editor", headers=AUTH, json={
+            "url_template": "",
+        })
+        assert res.status_code == 200
+        assert res.json()["url_template"] == ""
+
+        res = client.get("/settings/editor", headers=AUTH)
+        assert res.json()["url_template"] == ""
+
+
+class TestSnippets:
+    def test_get_empty(self, client):
+        res = client.get("/snippets", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json() == {"snippets": []}
+
+    def test_put_and_get(self, client):
+        res = client.put("/snippets", headers=AUTH, json={
+            "snippets": [
+                {"label": "Hello", "command": "echo hello"},
+                {"label": "World", "command": "echo world"},
+            ],
+        })
+        assert res.status_code == 200
+        snippets = res.json()["snippets"]
+        assert len(snippets) == 2
+        assert snippets[0]["label"] == "Hello"
+        assert snippets[0]["command"] == "echo hello"
+
+        res = client.get("/snippets", headers=AUTH)
+        assert len(res.json()["snippets"]) == 2
+
+    def test_auto_label_from_command(self, client):
+        res = client.put("/snippets", headers=AUTH, json={
+            "snippets": [{"label": "", "command": "echo hello world"}],
+        })
+        snippets = res.json()["snippets"]
+        assert snippets[0]["label"] == "echo hello world"
+
+    def test_auto_label_truncates_long_command(self, client):
+        long_cmd = "echo " + "x" * 30
+        res = client.put("/snippets", headers=AUTH, json={
+            "snippets": [{"label": "", "command": long_cmd}],
+        })
+        snippets = res.json()["snippets"]
+        assert snippets[0]["label"].endswith("...")
+        assert len(snippets[0]["label"]) <= 23
+
+    def test_empty_command_is_skipped(self, client):
+        res = client.put("/snippets", headers=AUTH, json={
+            "snippets": [
+                {"label": "keep", "command": "echo ok"},
+                {"label": "skip", "command": "  "},
+            ],
+        })
+        assert len(res.json()["snippets"]) == 1
+
+    def test_put_then_get_roundtrip(self, client):
+        client.put("/snippets", headers=AUTH, json={
+            "snippets": [
+                {"label": "A", "command": "echo a"},
+                {"label": "B", "command": "echo b"},
+            ],
+        })
+        res = client.get("/snippets", headers=AUTH)
+        snippets = res.json()["snippets"]
+        assert len(snippets) == 2
+        assert snippets[0]["label"] == "A"
+        assert snippets[1]["label"] == "B"
+
+
 class TestFileContent:
     def test_image_file_returns_data_url(self, client, workspace):
         img = workspace / "icon.png"

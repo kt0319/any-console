@@ -143,6 +143,43 @@ class TestMerge:
         assert res.status_code == 400
 
 
+class TestRebase:
+    def test_rebase(self, client, git_workspace):
+        _git_commit(git_workspace, "a.txt", "a", "init")
+        subprocess.run(
+            ["git", "checkout", "-b", "feature"], cwd=git_workspace, check=True, capture_output=True,
+        )
+        _git_commit(git_workspace, "b.txt", "rebase-content", "feature commit")
+        subprocess.run(
+            ["git", "checkout", "master"],
+            cwd=git_workspace, capture_output=True,
+        )
+        result = subprocess.run(
+            ["git", "checkout", "main"],
+            cwd=git_workspace, capture_output=True,
+        )
+        if result.returncode != 0:
+            subprocess.run(
+                ["git", "checkout", "master"], cwd=git_workspace, check=True, capture_output=True,
+            )
+        _git_commit(git_workspace, "c.txt", "c", "main commit")
+
+        res = client.post("/workspaces/test-ws/rebase", headers=AUTH, json={
+            "branch": "feature",
+        })
+        assert res.status_code == 200
+        assert (git_workspace / "b.txt").exists()
+        assert (git_workspace / "b.txt").read_text() == "rebase-content"
+
+    def test_rebase_invalid_branch(self, client, git_workspace):
+        _git_commit(git_workspace, "a.txt", "a", "init")
+
+        res = client.post("/workspaces/test-ws/rebase", headers=AUTH, json={
+            "branch": "invalid branch!",
+        })
+        assert res.status_code == 400
+
+
 class TestRevert:
     def test_revert(self, client, git_workspace):
         _git_commit(git_workspace, "a.txt", "a", "init")

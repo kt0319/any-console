@@ -79,19 +79,26 @@ def save_workspace_jobs_data(workspace_name, data):
     _workspace_jobs_cache.invalidate(workspace_name)
 
 
+def _ws_save_fn(workspace_name):
+    def save(data):
+        save_workspace_jobs_data(workspace_name, data)
+    return save
+
+
+def _entry_to_job_definition(name, entry):
+    return JobDefinition(
+        command=entry.get("command", ""),
+        label=entry.get("label", name),
+        description=entry.get("description", ""),
+        icon=entry.get("icon", ""),
+        icon_color=entry.get("icon_color", ""),
+        confirm=entry.get("confirm", True),
+        terminal=entry.get("terminal", True),
+    )
+
+
 def _parse_jobs_data(data):
-    jobs = {}
-    for name, entry in data.items():
-        jobs[name] = JobDefinition(
-            command=entry.get("command", ""),
-            label=entry.get("label", name),
-            description=entry.get("description", ""),
-            icon=entry.get("icon", ""),
-            icon_color=entry.get("icon_color", ""),
-            confirm=entry.get("confirm", True),
-            terminal=entry.get("terminal", True),
-        )
-    return jobs
+    return {name: _entry_to_job_definition(name, entry) for name, entry in data.items()}
 
 
 def get_global_jobs():
@@ -110,15 +117,7 @@ def get_workspace_jobs(workspace_name):
         merged[name] = (entry, False)
     jobs = {}
     for name, (entry, is_global) in merged.items():
-        jobs[name] = JobDefinition(
-            command=entry.get("command", ""),
-            label=entry.get("label", name),
-            description=entry.get("description", ""),
-            icon=entry.get("icon", ""),
-            icon_color=entry.get("icon_color", ""),
-            confirm=entry.get("confirm", True),
-            terminal=entry.get("terminal", True),
-        )
+        jobs[name] = _entry_to_job_definition(name, entry)
         jobs[name]._is_global = is_global
     return jobs
 
@@ -155,15 +154,7 @@ def list_all_workspace_jobs():
         merged = {}
         for is_global, jobs_data in [(True, global_jobs_data), (False, ws_jobs_data)]:
             for jname, entry in jobs_data.items():
-                job = JobDefinition(
-                    command=entry.get("command", ""),
-                    label=entry.get("label", jname),
-                    description=entry.get("description", ""),
-                    icon=entry.get("icon", ""),
-                    icon_color=entry.get("icon_color", ""),
-                    confirm=entry.get("confirm", True),
-                    terminal=entry.get("terminal", True),
-                )
+                job = _entry_to_job_definition(jname, entry)
                 job._is_global = is_global
                 merged[jname] = job
         result[name] = {
@@ -218,13 +209,17 @@ def build_job_entry(
     return entry
 
 
-class CreateJobRequest(BaseModel):
+class JobRequest(BaseModel):
     label: str = Field(..., max_length=MAX_LABEL_LENGTH)
     command: str = Field(..., max_length=MAX_COMMAND_LENGTH)
     icon: str = Field("", max_length=MAX_ICON_VALUE_LENGTH)
     icon_color: str = Field("", max_length=20)
     confirm: bool = True
     terminal: bool = True
+
+
+class ReorderJobsRequest(BaseModel):
+    order: list[str] = Field(default_factory=list)
 
 
 def generate_job_key(existing: dict) -> str:
@@ -245,68 +240,77 @@ def _validate_job_fields(body):
     return label, command
 
 
-@router.post("/workspaces/{name}/jobs")
-def create_workspace_job(name: str, body: CreateJobRequest):
-    resolve_workspace_path(name)
+def _create_job(data, save_fn, body, log_msg):
     label, command = _validate_job_fields(body)
-    data = load_workspace_jobs_data(name)
     job_name = generate_job_key(data)
     data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.terminal)
-    save_workspace_jobs_data(name, data)
-    logger.info("job created workspace=%s job=%s", name, job_name)
+    save_fn(data)
+    logger.info(log_msg, job_name)
     return {"status": "ok", "name": job_name}
 
 
-class UpdateJobRequest(BaseModel):
-    label: str = Field(..., max_length=MAX_LABEL_LENGTH)
-    command: str = Field(..., max_length=MAX_COMMAND_LENGTH)
-    icon: str = Field("", max_length=MAX_ICON_VALUE_LENGTH)
-    icon_color: str = Field("", max_length=20)
-    confirm: bool = True
-    terminal: bool = True
+def _update_job(data, save_fn, job_name, body, not_found_msg, log_msg):
+    if job_name not in data:
+        raise not_found(not_found_msg)
+    label, command = _validate_job_fields(body)
+    data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.terminal)
+    save_fn(data)
+    logger.info(log_msg, job_name)
+    return {"status": "ok", "name": job_name}
 
 
-class ReorderJobsRequest(BaseModel):
-    order: list[str] = Field(default_factory=list)
+def _delete_job(data, save_fn, job_name, not_found_msg, log_msg):
+    if job_name not in data:
+        raise not_found(not_found_msg)
+    del data[job_name]
+    save_fn(data)
+    logger.info(log_msg, job_name)
+    return {"status": "ok", "name": job_name}
+
+
+def _reorder_jobs(data, save_fn, order, log_msg):
+    if sorted(order) != sorted(data.keys()):
+        raise bad_request("ジョブ一覧が一致しません")
+    reordered = {name: data[name] for name in order}
+    save_fn(reordered)
+    logger.info(log_msg, len(order))
+    return {"status": "ok"}
+
+
+@router.post("/workspaces/{name}/jobs")
+def create_workspace_job(name: str, body: JobRequest):
+    resolve_workspace_path(name)
+    data = load_workspace_jobs_data(name)
+    save_fn = _ws_save_fn(name)
+    return _create_job(data, save_fn, body, "job created workspace=%s job=%%s" % name)
 
 
 @router.put("/workspaces/{name}/job-order")
 def reorder_workspace_jobs(name: str, body: ReorderJobsRequest):
     resolve_workspace_path(name)
     data = load_workspace_jobs_data(name)
-    existing_names = list(data.keys())
-    if sorted(body.order) != sorted(existing_names):
-        raise bad_request("ジョブ一覧が一致しません")
-
-    reordered = {job_name: data[job_name] for job_name in body.order}
-    save_workspace_jobs_data(name, reordered)
-    logger.info("jobs reordered workspace=%s count=%d", name, len(body.order))
-    return {"status": "ok"}
+    save_fn = _ws_save_fn(name)
+    return _reorder_jobs(data, save_fn, body.order, "jobs reordered workspace=%s count=%%d" % name)
 
 
 @router.put("/workspaces/{name}/jobs/{job_name}")
-def update_workspace_job(name: str, job_name: str, body: UpdateJobRequest):
+def update_workspace_job(name: str, job_name: str, body: JobRequest):
     resolve_workspace_path(name)
     data = load_workspace_jobs_data(name)
-    if job_name not in data:
-        raise not_found(f"ジョブ '{job_name}' が見つかりません")
-    label, command = _validate_job_fields(body)
-    data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.terminal)
-    save_workspace_jobs_data(name, data)
-    logger.info("job updated workspace=%s job=%s", name, job_name)
-    return {"status": "ok", "name": job_name}
+    save_fn = _ws_save_fn(name)
+    return _update_job(data, save_fn, job_name, body,
+                       f"ジョブ '{job_name}' が見つかりません",
+                       "job updated workspace=%s job=%%s" % name)
 
 
 @router.delete("/workspaces/{name}/jobs/{job_name}")
 def delete_workspace_job(name: str, job_name: str):
     resolve_workspace_path(name)
     data = load_workspace_jobs_data(name)
-    if job_name not in data:
-        raise not_found(f"ジョブ '{job_name}' が見つかりません")
-    del data[job_name]
-    save_workspace_jobs_data(name, data)
-    logger.info("job deleted workspace=%s job=%s", name, job_name)
-    return {"status": "ok", "name": job_name}
+    save_fn = _ws_save_fn(name)
+    return _delete_job(data, save_fn, job_name,
+                       f"ジョブ '{job_name}' が見つかりません",
+                       "job deleted workspace=%s job=%%s" % name)
 
 
 @router.get("/global/jobs")
@@ -317,49 +321,31 @@ def list_global_jobs():
 
 
 @router.post("/global/jobs")
-def create_global_job(body: CreateJobRequest):
-    label, command = _validate_job_fields(body)
+def create_global_job(body: JobRequest):
     data = load_global_jobs_data()
-    job_name = generate_job_key(data)
-    data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.terminal)
-    save_global_jobs_data(data)
-    logger.info("global job created job=%s", job_name)
-    return {"status": "ok", "name": job_name}
+    return _create_job(data, save_global_jobs_data, body, "global job created job=%s")
 
 
 @router.put("/global/jobs/{job_name}")
-def update_global_job(job_name: str, body: UpdateJobRequest):
+def update_global_job(job_name: str, body: JobRequest):
     data = load_global_jobs_data()
-    if job_name not in data:
-        raise not_found(f"共通ジョブ '{job_name}' が見つかりません")
-    label, command = _validate_job_fields(body)
-    data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.terminal)
-    save_global_jobs_data(data)
-    logger.info("global job updated job=%s", job_name)
-    return {"status": "ok", "name": job_name}
+    return _update_job(data, save_global_jobs_data, job_name, body,
+                       f"共通ジョブ '{job_name}' が見つかりません",
+                       "global job updated job=%s")
 
 
 @router.delete("/global/jobs/{job_name}")
 def delete_global_job(job_name: str):
     data = load_global_jobs_data()
-    if job_name not in data:
-        raise not_found(f"共通ジョブ '{job_name}' が見つかりません")
-    del data[job_name]
-    save_global_jobs_data(data)
-    logger.info("global job deleted job=%s", job_name)
-    return {"status": "ok", "name": job_name}
+    return _delete_job(data, save_global_jobs_data, job_name,
+                       f"共通ジョブ '{job_name}' が見つかりません",
+                       "global job deleted job=%s")
 
 
 @router.put("/global/job-order")
 def reorder_global_jobs(body: ReorderJobsRequest):
     data = load_global_jobs_data()
-    existing_names = list(data.keys())
-    if sorted(body.order) != sorted(existing_names):
-        raise bad_request("ジョブ一覧が一致しません")
-    reordered = {job_name: data[job_name] for job_name in body.order}
-    save_global_jobs_data(reordered)
-    logger.info("global jobs reordered count=%d", len(body.order))
-    return {"status": "ok"}
+    return _reorder_jobs(data, save_global_jobs_data, body.order, "global jobs reordered count=%d")
 
 
 class RunRequest(BaseModel):
