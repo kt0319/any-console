@@ -321,10 +321,16 @@ button:disabled {
 .commit-action-menu {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 6px 10px;
+  gap: 4px;
+  padding: 4px 8px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+}
+
+.commit-action-menu button {
+  padding: 5px 10px;
+  font-size: 11px;
+  min-height: 0;
 }
 
 .commit-action-item {

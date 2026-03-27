@@ -653,15 +653,15 @@ defineExpose({ load: loadFileBrowserRoot });
 .file-browser-action-menu {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 6px 10px;
+  gap: 4px;
+  padding: 4px 8px;
   border-bottom: 1px solid var(--border);
 }
 
 .file-browser-action-menu button {
-  padding: 6px 14px;
-  font-size: 13px;
-  min-height: 36px;
+  padding: 5px 10px;
+  font-size: 11px;
+  min-height: 0;
 }
 
 .file-browser-action-delete {
