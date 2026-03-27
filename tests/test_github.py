@@ -155,3 +155,96 @@ class TestGithubRepos:
         res = client.get("/github/repos", headers=AUTH)
         assert res.status_code == 500
         assert "not found" in res.json()["detail"]
+
+
+class TestRunGh:
+    """_run_gh の単体テスト"""
+
+    def test_timeout(self, monkeypatch):
+        import subprocess as sp
+        import api.routers.github as github_mod
+
+        def raise_timeout(cmd, **kwargs):
+            raise sp.TimeoutExpired(cmd, 30)
+
+        monkeypatch.setattr(sp, "run", raise_timeout)
+        result = github_mod._run_gh(["repo", "view"], cwd="/tmp")
+        assert result is None
+
+    def test_json_decode_error(self, monkeypatch):
+        import subprocess as sp
+        import api.routers.github as github_mod
+
+        def return_bad_json(cmd, **kwargs):
+            return sp.CompletedProcess(cmd, 0, stdout="not json{{{", stderr="")
+
+        monkeypatch.setattr(sp, "run", return_bad_json)
+        result = github_mod._run_gh(["repo", "view"], cwd="/tmp")
+        assert result is None
+
+    def test_nonzero_exit_stderr(self, monkeypatch):
+        import subprocess as sp
+        import api.routers.github as github_mod
+
+        def return_error(cmd, **kwargs):
+            return sp.CompletedProcess(cmd, 1, stdout="", stderr="auth required")
+
+        monkeypatch.setattr(sp, "run", return_error)
+        result = github_mod._run_gh(["repo", "view"], cwd="/tmp")
+        assert result is None
+
+    def test_file_not_found(self, monkeypatch):
+        import subprocess as sp
+        import api.routers.github as github_mod
+
+        def raise_fnf(cmd, **kwargs):
+            raise FileNotFoundError("gh not found")
+
+        monkeypatch.setattr(sp, "run", raise_fnf)
+        result = github_mod._run_gh(["repo", "view"], cwd="/tmp")
+        assert result is None
+
+
+class TestParseGithubUrl:
+    """_parse_github_url の単体テスト"""
+
+    def test_https_url(self):
+        from api.git_utils import _parse_github_url
+        result = _parse_github_url("https://github.com/user/repo.git")
+        assert result == "https://github.com/user/repo"
+
+    def test_ssh_url(self):
+        from api.git_utils import _parse_github_url
+        result = _parse_github_url("git@github.com:user/repo.git")
+        assert result == "https://github.com/user/repo"
+
+    def test_non_github(self):
+        from api.git_utils import _parse_github_url
+        result = _parse_github_url("https://gitlab.com/user/repo.git")
+        assert result is None
+
+    def test_without_dot_git(self):
+        from api.git_utils import _parse_github_url
+        result = _parse_github_url("https://github.com/user/repo")
+        assert result == "https://github.com/user/repo"
+
+    def test_empty_string(self):
+        from api.git_utils import _parse_github_url
+        result = _parse_github_url("")
+        assert result is None
+
+
+class TestGithubReposTimeout:
+
+    def test_timeout(self, client, monkeypatch):
+        import subprocess as sp
+        import api.routers.workspaces as ws_mod
+
+        def raise_timeout(cmd, **kwargs):
+            raise sp.TimeoutExpired(cmd, 30)
+
+        monkeypatch.setattr(ws_mod.subprocess, "run", raise_timeout)
+        ws_mod._github_repos_cache.invalidate("repos")
+
+        res = client.get("/github/repos", headers=AUTH)
+        assert res.status_code == 504

@@ -31,6 +31,15 @@ from .errors import gone, not_found
 logger = logging.getLogger(__name__)
 
 
+_TMUX_ATTR_MAP = {
+    "TMUX_WORKSPACE": "workspace",
+    "TMUX_ICON": "icon",
+    "TMUX_ICON_COLOR": "icon_color",
+    "TMUX_JOB_NAME": "job_name",
+    "TMUX_JOB_LABEL": "job_label",
+}
+
+
 class TerminalSession:
     __slots__ = (
         "workspace", "fd", "pid", "expires_at",
@@ -55,6 +64,39 @@ class TerminalSession:
         self.clients: set[WebSocket] = set()
         self._reader_task: asyncio.Task | None = None
         self.tmux_session_name = tmux_session_name
+
+    def save_metadata(self) -> None:
+        for env_key, attr in _TMUX_ATTR_MAP.items():
+            value = getattr(self, attr, None)
+            if value:
+                subprocess.run(
+                    ["tmux", "set-environment", "-t", self.tmux_session_name, env_key, value],
+                    timeout=TMUX_CMD_TIMEOUT_SEC,
+                    capture_output=True,
+                )
+
+    @classmethod
+    def from_tmux(cls, tmux_name: str) -> "TerminalSession":
+        meta = _load_tmux_metadata(tmux_name)
+        workspace = meta.get("TMUX_WORKSPACE") or _detect_workspace_from_tmux(tmux_name)
+        return cls(
+            workspace=workspace,
+            expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
+            tmux_session_name=tmux_name,
+            icon=meta.get("TMUX_ICON"),
+            icon_color=meta.get("TMUX_ICON_COLOR"),
+            job_name=meta.get("TMUX_JOB_NAME"),
+            job_label=meta.get("TMUX_JOB_LABEL"),
+        )
+
+    def metadata_dict(self) -> dict:
+        return {
+            "workspace": self.workspace,
+            "icon": self.icon,
+            "icon_color": self.icon_color,
+            "job_name": self.job_name,
+            "job_label": self.job_label,
+        }
 
 
 TERMINAL_SESSIONS: dict[str, TerminalSession] = {}
@@ -269,20 +311,10 @@ def cleanup_terminal_sessions() -> None:
 
 
 def _register_tmux_session(session_id: str, tmux_name: str) -> TerminalSession:
-    meta = _load_tmux_metadata(tmux_name)
-    workspace = meta.get("TMUX_WORKSPACE") or _detect_workspace_from_tmux(tmux_name)
-    session = TerminalSession(
-        workspace=workspace,
-        expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
-        tmux_session_name=tmux_name,
-        icon=meta.get("TMUX_ICON"),
-        icon_color=meta.get("TMUX_ICON_COLOR"),
-        job_name=meta.get("TMUX_JOB_NAME"),
-        job_label=meta.get("TMUX_JOB_LABEL"),
-    )
+    session = TerminalSession.from_tmux(tmux_name)
     with sessions_lock:
         TERMINAL_SESSIONS[session_id] = session
-    logger.info("on-demand registered tmux session=%s workspace=%s", session_id, workspace or "(none)")
+    logger.info("on-demand registered tmux session=%s workspace=%s", session_id, session.workspace or "(none)")
     return session
 
 

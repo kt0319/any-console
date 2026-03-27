@@ -91,6 +91,7 @@ import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore } from "../stores/git.js";
 import { useApi } from "../composables/useApi.js";
+import { useFileDragDrop } from "../composables/useFileDragDrop.js";
 import { emit } from "../app-bridge.js";
 import { useLongPress } from "../composables/useLongPress.js";
 import { MSG_DELETE_FAILED } from "../utils/constants.js";
@@ -115,16 +116,20 @@ const fileBrowserError = ref("");
 const contextEntry = ref(null);
 const diffHtml = ref("");
 const diffNewFileContent = ref(null);
-const isDropActive = ref(false);
 const uploadInputEl = ref(null);
 const editorUrlTemplate = ref("");
 const systemInfo = ref({});
-let dragDepth = 0;
 
-function resetDropState() {
-  dragDepth = 0;
-  isDropActive.value = false;
-}
+const {
+  isDropActive,
+  onDragEnter, onDragOver, onDragLeave, onDropFiles,
+  onWindowDrop, onWindowDragLeave,
+  onUploadInputChange,
+  setupWindowListeners, cleanupWindowListeners,
+} = useFileDragDrop({
+  uploadFn: (files) => uploadDroppedFiles(files),
+  isDiffMode: () => !!props.diffFile,
+});
 
 const pathSegments = computed(() => {
   if (!currentPath.value) return [];
@@ -421,32 +426,6 @@ function openDirInEditor() {
   if (url) window.open(url, "_blank");
 }
 
-function hasFileDrag(e) {
-  const types = e?.dataTransfer?.types;
-  return !!types && Array.from(types).includes("Files");
-}
-
-function onDragEnter(e) {
-  if (props.diffFile || !hasFileDrag(e)) return;
-  dragDepth += 1;
-  isDropActive.value = true;
-}
-
-function onDragOver(e) {
-  if (props.diffFile || !hasFileDrag(e)) return;
-  e.preventDefault();
-  isDropActive.value = true;
-}
-
-function onDragLeave(e) {
-  if (props.diffFile || !hasFileDrag(e)) return;
-  if (e.currentTarget?.contains(e.relatedTarget)) return;
-  dragDepth = Math.max(0, dragDepth - 1);
-  if (dragDepth === 0) {
-    isDropActive.value = false;
-  }
-}
-
 function getUploadDirPath() {
   if (!fileContent.value) {
     return currentPath.value || "";
@@ -490,35 +469,6 @@ async function uploadDroppedFiles(files) {
   await navigateToPath(uploadPath);
 }
 
-async function onUploadInputChange(e) {
-  const files = Array.from(e.target.files || []);
-  if (files.length > 0) {
-    await uploadDroppedFiles(files);
-  }
-  e.target.value = "";
-}
-
-async function onDropFiles(e) {
-  if (props.diffFile || !hasFileDrag(e)) return;
-  e.preventDefault();
-  resetDropState();
-  const droppedFiles = Array.from(e?.dataTransfer?.files || []).filter((f) => f && f.name);
-  if (droppedFiles.length === 0) return;
-  await uploadDroppedFiles(droppedFiles);
-}
-
-function onWindowDrop() {
-  resetDropState();
-}
-
-function onWindowDragLeave(e) {
-  if (!isDropActive.value) return;
-  // Pointer left the viewport while dragging.
-  if (e.clientX <= 0 || e.clientY <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
-    resetDropState();
-  }
-}
-
 function onCrumbClick(path) {
   if (props.diffFile) {
     emit("git:selectDirty");
@@ -553,14 +503,12 @@ function onEntryClick(entry) {
 }
 
 onMounted(() => {
-  window.addEventListener("drop", onWindowDrop);
-  window.addEventListener("dragleave", onWindowDragLeave);
+  setupWindowListeners();
   fetchEditorSettings();
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener("drop", onWindowDrop);
-  window.removeEventListener("dragleave", onWindowDragLeave);
+  cleanupWindowListeners();
 });
 
 defineExpose({ load: loadFileBrowserRoot });

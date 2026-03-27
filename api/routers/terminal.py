@@ -23,19 +23,17 @@ from ..errors import not_found, server_error, timeout_error
 from ..terminal_session import (
     PTY_EXECUTOR,
     TERMINAL_SESSIONS,
+    TerminalSession,
     _detach_pty_bridge,
-    _detect_workspace_from_tmux,
     _ensure_reader_task,
     _get_tmux_created,
     _handle_resize,
     _kill_tmux_session,
-    _load_tmux_metadata,
     _register_tmux_session,
     _tmux_session_exists,
     attach_tmux_session,
     create_tmux_session,
     get_terminal_session,
-    save_tmux_metadata,
     sessions_lock,
 )
 
@@ -72,28 +70,20 @@ async def list_terminal_sessions():
             cached = TERMINAL_SESSIONS.get(session_id)
 
         if cached:
-            workspace = cached.workspace
-            icon = cached.icon
-            icon_color = cached.icon_color
-            job_name = cached.job_name
-            job_label = cached.job_label
+            meta_src = cached
         else:
-            meta = _load_tmux_metadata(name)
-            workspace = meta.get("TMUX_WORKSPACE") or _detect_workspace_from_tmux(name)
-            icon = meta.get("TMUX_ICON")
-            icon_color = meta.get("TMUX_ICON_COLOR")
-            job_name = meta.get("TMUX_JOB_NAME")
-            job_label = meta.get("TMUX_JOB_LABEL")
+            meta_src = TerminalSession.from_tmux(name)
+        md = meta_src.metadata_dict()
 
         created_at = _get_tmux_created(name)
         sessions.append({
             "session_id": session_id,
-            "workspace": workspace,
+            "workspace": md["workspace"],
             "ws_url": f"/terminal/ws/{session_id}",
-            "icon": icon,
-            "icon_color": icon_color,
-            "job_name": job_name,
-            "job_label": job_label,
+            "icon": md["icon"],
+            "icon_color": md["icon_color"],
+            "job_name": md["job_name"],
+            "job_label": md["job_label"],
             "created_at": created_at,
         })
 
@@ -162,11 +152,7 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
             workspace_path = None
         try:
             create_tmux_session(workspace_path, session.tmux_session_name)
-            save_tmux_metadata(
-                session.tmux_session_name,
-                session.workspace, session.icon, session.icon_color,
-                session.job_name, session.job_label,
-            )
+            session.save_metadata()
             logger.info("recreated tmux session=%s workspace=%s", session_id, session.workspace or "(none)")
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
             logger.error("failed to recreate tmux session=%s: %s", session_id, e)
