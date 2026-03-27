@@ -25,10 +25,7 @@ from .common import (
 )
 from .errors import gone, not_found
 from .tmux import (
-    attach_tmux_session,
-    create_tmux_session,
     detect_workspace_from_tmux,
-    get_tmux_created,
     kill_tmux_by_name,
     load_tmux_metadata,
     tmux_session_exists,

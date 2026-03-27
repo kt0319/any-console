@@ -13,13 +13,12 @@ from ..common import (
     GIT_SHORT_TIMEOUT_SEC,
     HIDDEN_DIRS,
     IMAGE_EXTENSIONS,
-    MAX_DIFF_SIZE,
     MAX_FILE_SIZE,
     MAX_IMAGE_PREVIEW_SIZE,
     resolve_workspace_path,
 )
 from ..errors import bad_request, forbidden, server_error, timeout_error
-from ..git_utils import run_git_raw, git_branch, invalidate_git_info, run_git_command
+from ..git_utils import git_branch, invalidate_git_info, run_git_command, run_git_raw
 
 _action_logger = logging.getLogger(__name__)
 
