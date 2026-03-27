@@ -92,6 +92,13 @@ function scheduleActiveFit(retry = 0) {
         props.tab.term.refresh(0, props.tab.term.rows - 1);
       } catch {}
     }
+    if (retry === 0) {
+      clearActiveFitTimer();
+      activeFitTimer = setTimeout(() => {
+        activeFitTimer = null;
+        if (isActive.value) fitTerminal(props.tab, { force: true });
+      }, 300);
+    }
     return;
   }
   if (retry >= 8) return;

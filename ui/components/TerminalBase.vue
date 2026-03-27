@@ -233,18 +233,7 @@ watch(isSplitMode, async () => {
   requestAnimationFrame(() => fitAllTerminals());
 });
 
-watch(activeTabId, async (id) => {
-  if (isSplitMode.value) return;
-  await nextTick();
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      if (!paneRefs.value) return;
-      const refs = Array.isArray(paneRefs.value) ? paneRefs.value : [paneRefs.value];
-      const active = refs.find((p) => p?.tabId === id);
-      active?.fit?.({ force: true });
-    });
-  });
-});
+
 
 defineExpose({ fitAllTerminals, selectPane, showKeyboardInput, hideKeyboardInput });
 </script>

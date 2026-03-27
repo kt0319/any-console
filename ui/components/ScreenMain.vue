@@ -300,6 +300,8 @@ onMounted(() => {
     terminalBaseView.value?.fitAllTerminals();
   });
 
+  document.addEventListener("visibilitychange", onVisibilityChange);
+
   if (typeof ResizeObserver !== "undefined") {
     mainPanelResizeObserver = new ResizeObserver(() => {
       if (resizeFitTimerId) clearTimeout(resizeFitTimerId);
@@ -324,8 +326,28 @@ onMounted(async () => {
   }
 });
 
+function onVisibilityChange() {
+  if (document.hidden) return;
+  for (const tab of terminalStore.openTabs) {
+    tab._lastFitCols = 0;
+    tab._lastFitRows = 0;
+    if (tab.ws) {
+      clearTimeout(tab._reconnectTimer);
+      try { tab.ws.onclose = null; tab.ws.close(); } catch {}
+      tab.ws = null;
+    }
+    tab._pendingRedraw = true;
+    tab._reconnectAttempts = 0;
+  }
+  setTimeout(() => {
+    connectDeferredTabs();
+    terminalBaseView.value?.fitAllTerminals({ force: true });
+  }, 100);
+}
+
 onBeforeUnmount(() => {
   mainPanelResizeObserver?.disconnect();
+  document.removeEventListener("visibilitychange", onVisibilityChange);
 });
 
 function updateKeyboardInputVisibility(visible) {
