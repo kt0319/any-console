@@ -184,7 +184,6 @@ export function useTerminal() {
       tab._lastFitCols = dims.cols;
       tab._lastFitRows = dims.rows;
       tab.fitAddon.fit();
-      tab.term.scrollToBottom();
     } catch {}
   }
 
