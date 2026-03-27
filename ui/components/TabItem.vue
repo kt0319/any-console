@@ -275,7 +275,8 @@ onBeforeUnmount(() => {
   touch-action: none;
 }
 
-.tab-btn img {
+.tab-btn img,
+.tab-btn :deep(.mdi) {
   pointer-events: none;
   -webkit-user-drag: none;
 }
