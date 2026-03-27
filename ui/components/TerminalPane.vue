@@ -28,7 +28,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch, computed } from "vue";
 import { useTerminal } from "../composables/useTerminal.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
@@ -62,8 +62,6 @@ const frameEl = ref(null);
 const pillEl = ref(null);
 const pillDragging = ref(false);
 let touchStartY = 0;
-let activeFitTimer = null;
-
 const canDrag = computed(() => terminalStore.openTabs.length >= 1);
 
 const isActive = computed(() => {
@@ -72,42 +70,6 @@ const isActive = computed(() => {
   }
   return terminalStore.activeTabId === props.tab.id;
 });
-
-function clearActiveFitTimer() {
-  if (activeFitTimer) {
-    clearTimeout(activeFitTimer);
-    activeFitTimer = null;
-  }
-}
-
-function scheduleActiveFit(retry = 0) {
-  if (!isActive.value) return;
-  const frame = frameEl.value;
-  if (!frame) return;
-  const rect = frame.getBoundingClientRect();
-  if (rect.width >= 2 && rect.height >= 2) {
-    fitTerminal(props.tab, { force: true });
-    if (props.tab.term) {
-      try {
-        props.tab.term.refresh(0, props.tab.term.rows - 1);
-      } catch {}
-    }
-    if (retry === 0) {
-      clearActiveFitTimer();
-      activeFitTimer = setTimeout(() => {
-        activeFitTimer = null;
-        if (isActive.value) fitTerminal(props.tab, { force: true });
-      }, 300);
-    }
-    return;
-  }
-  if (retry >= 8) return;
-  clearActiveFitTimer();
-  activeFitTimer = setTimeout(() => {
-    activeFitTimer = null;
-    scheduleActiveFit(retry + 1);
-  }, 60);
-}
 
 async function doEnterViewMode() {
   const frame = frameEl.value;
@@ -377,20 +339,15 @@ onMounted(() => {
   document.addEventListener("paste", onPaste, true);
 });
 
-watch(isActive, async (active) => {
+watch(isActive, (active) => {
   if (!active) return;
   if (props.tab._pendingRedraw && !props.tab.ws && !props.tab._wsDisposed) {
     connectTerminalWs(props.tab);
   }
-  await nextTick();
-  requestAnimationFrame(() => {
-    scheduleActiveFit(0);
-  });
 });
 
 onBeforeUnmount(() => {
   removePillMouseListeners();
-  clearActiveFitTimer();
   cancelDrag();
   if (pillEl.value) {
     pillEl.value.removeEventListener("touchmove", onPillTouchMove);
