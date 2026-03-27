@@ -329,6 +329,8 @@ onMounted(async () => {
 function onVisibilityChange() {
   if (document.hidden) return;
   for (const tab of terminalStore.openTabs) {
+    tab._lastFitCols = 0;
+    tab._lastFitRows = 0;
     if (tab.ws) {
       clearTimeout(tab._reconnectTimer);
       try { tab.ws.onclose = null; tab.ws.close(); } catch {}
@@ -342,6 +344,7 @@ function onVisibilityChange() {
     if (activeTab && activeTab._pendingRedraw && !activeTab.ws && !activeTab._wsDisposed) {
       connectTerminalWs(activeTab);
     }
+    terminalBaseView.value?.fitAllTerminals({ force: true });
   }, 100);
 }
 
