@@ -116,21 +116,36 @@ cmd_setup() {
   echo "認証トークンは .env の ANY_CONSOLE_TOKEN を確認してください。"
 }
 
+generate_service_unit() {
+  cat <<UNIT
+[Unit]
+Description=any-console API
+After=network.target
+
+[Service]
+User=$USER
+WorkingDirectory=$SCRIPT_DIR
+EnvironmentFile=$SCRIPT_DIR/.env
+ExecStart=/usr/bin/python3 -m api.main
+KillMode=process
+Restart=always
+RestartSec=3
+NoNewPrivileges=no
+ProtectSystem=no
+ProtectHome=no
+MemoryMax=8G
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+}
+
 install_systemd() {
-  local service_src="systemd/any-console.service"
   local service_dest="/etc/systemd/system/$SERVICE_NAME.service"
 
-  if [ ! -f "$service_src" ]; then
-    error "サービスファイルが見つかりません: $service_src"
-  fi
-
   info "systemdサービスを登録中..."
-  local tmp_service
-  tmp_service=$(mktemp)
-  sed -e "s|\${USER}|$USER|g" -e "s|\${INSTALL_DIR}|$SCRIPT_DIR|g" "$service_src" > "$tmp_service"
-
-  sudo cp "$tmp_service" "$service_dest"
-  rm "$tmp_service"
+  generate_service_unit | sudo tee "$service_dest" > /dev/null
   sudo systemctl daemon-reload
   sudo systemctl enable "$SERVICE_NAME"
   info "systemdサービスを登録しました"

@@ -87,15 +87,8 @@ FastAPIとVite dev serverを並列起動する。Ctrl+Cで両方終了。
 
 ### systemd（常時起動）
 
-`./any-console setup` で登録するか、手動で登録する:
-
 ```bash
-# サービスファイルを編集（%USER% と %INSTALL_DIR% を置換）
-sudo cp systemd/any-console.service /etc/systemd/system/
-sudo vim /etc/systemd/system/any-console.service
-
-sudo systemctl daemon-reload
-sudo systemctl enable --now any-console
+./any-console setup   # セットアップ時にsystemd登録を選択可
 ```
 
 ## ディレクトリ構成
@@ -108,7 +101,6 @@ api/              バックエンド (FastAPI)
   runner.py       ジョブ実行 (subprocess)
   config.py       config.json 読み書き
 ui/               フロントエンド (Vue 3 + Pinia、Viteでビルド)
-systemd/          systemdサービス定義
 config.json       設定ファイル（自動生成、.gitignore対象）
 ```
 

@@ -115,4 +115,4 @@ sudo systemctl restart any-console
 - 認証は単一トークン（ユーザー区別なし）
 - フロントエンドはViteでビルド。`dist/` があればそこから、なければ `ui/` から直接StaticFilesとしてマウント
 - `main.py` で起動時にCSS/JSにキャッシュバスト用クエリパラメータを付与
-- systemdサービス定義は `systemd/any-console.service`（パスはインストール環境に合わせて編集）
+- systemdサービス定義は `any-console` スクリプト内の `generate_service_unit()` で生成（`./any-console setup` で登録）
