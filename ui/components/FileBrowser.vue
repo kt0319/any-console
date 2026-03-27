@@ -540,7 +540,7 @@ defineExpose({ load: loadFileBrowserRoot });
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 4px 8px 6px;
+  padding: 2px 8px 4px;
   font-size: 12px;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);

@@ -331,8 +331,6 @@ defineExpose({
 }
 
 .git-history-pane-wrapper > .modal-scroll-body {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
 }
 
 .git-log-entry {
