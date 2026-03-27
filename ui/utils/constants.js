@@ -8,6 +8,12 @@ export const REPEAT_ACCELERATION = 8;
 export const INFINITE_SCROLL_THRESHOLD_PX = 80;
 
 export const WS_MSG_RESIZE = 0x00;
+export const WS_CLOSE_SESSION_EXITED = 4001;
+export const RECONNECT_INITIAL_DELAY = 200;
+export const RECONNECT_BACKOFF_MAX = 5000;
+export const POLL_INTERVAL_MS = 10000;
+export const INPUT_HISTORY_MAX = 20;
+export const GIT_LOG_ENTRIES_PER_PAGE = 30;
 
 export const LS_KEY_TOKEN = "any_console_token";
 export const LS_KEY_INPUT_HISTORY = "any_console_input_history";

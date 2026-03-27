@@ -34,8 +34,7 @@ import { useGitAction } from "../composables/useGitAction.js";
 import { emit } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import { escapeHtml } from "../utils/escape-html.js";
-
-const POLL_INTERVAL_MS = 15000;
+import { POLL_INTERVAL_MS } from "../utils/constants.js";
 
 const { gitAction, isRunning } = useGitAction();
 

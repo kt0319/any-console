@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import { GIT_LOG_ENTRIES_PER_PAGE } from "../utils/constants.js";
 
 export function parseDiffChunks(diffText) {
   const chunks = {};
@@ -17,7 +18,6 @@ export function parseDiffChunks(diffText) {
 }
 
 export const useGitStore = defineStore("git", () => {
-  const GIT_LOG_ENTRIES_PER_PAGE = 30;
   const diffChunks = ref({});
   const diffFullText = ref("");
   const diffFileStatuses = ref({});

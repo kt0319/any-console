@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { LS_KEY_INPUT_HISTORY } from "../utils/constants.js";
+import { LS_KEY_INPUT_HISTORY, INPUT_HISTORY_MAX } from "../utils/constants.js";
 
 const QUICK_KEYS = [
   { label: "Tab", key: "Tab", code: "Tab", keyCode: 9 },
@@ -39,7 +39,6 @@ const QWERTY_ROWS = [
 ];
 
 const INPUT_HISTORY_KEY = LS_KEY_INPUT_HISTORY;
-const INPUT_HISTORY_MAX = 20;
 
 export const useInputStore = defineStore("input", () => {
   const inputHistory = ref(JSON.parse(localStorage.getItem(INPUT_HISTORY_KEY) || "[]"));

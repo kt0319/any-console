@@ -2,13 +2,8 @@ import { shallowRef } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "./useApi.js";
-import { WS_MSG_RESIZE } from "../utils/constants.js";
+import { WS_MSG_RESIZE, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, RECONNECT_BACKOFF_MAX } from "../utils/constants.js";
 import { emit } from "../app-bridge.js";
-
-const WS_CLOSE_SESSION_EXITED = 4001;
-
-const RECONNECT_INITIAL_DELAY = 200;
-const RECONNECT_BACKOFF_MAX = 5000;
 
 export function useTerminal() {
   const auth = useAuthStore();
