@@ -536,8 +536,13 @@ function onCrumbClick(path) {
 }
 
 function onEntryClick(entry) {
-  if (longPress.isMenuEl() || contextEntry.value || longPress.isFired()) {
+  if (longPress.isMenuEl() || longPress.isFired()) {
     return;
+  }
+  if (contextEntry.value) {
+    const wasContext = contextEntry.value.name === entry.name;
+    contextEntry.value = null;
+    if (wasContext) return;
   }
   const childPath = currentPath.value ? `${currentPath.value}/${entry.name}` : entry.name;
   if (entry.type === "dir") {
