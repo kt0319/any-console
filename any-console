@@ -1,0 +1,275 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+SERVICE_NAME="any-console"
+
+error() { echo -e "${RED}エラー: $1${NC}" >&2; exit 1; }
+info()  { echo -e "${GREEN}$1${NC}"; }
+warn()  { echo -e "${YELLOW}$1${NC}"; }
+
+check_deps() {
+  local missing=()
+  for cmd in python3 node git tmux; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+      missing+=("$cmd")
+    fi
+  done
+
+  if [ ${#missing[@]} -gt 0 ]; then
+    echo ""
+    echo -e "${RED}以下のコマンドが見つかりません: ${missing[*]}${NC}" >&2
+    echo ""
+    echo "インストール例:"
+    echo "  Debian/Ubuntu: sudo apt install ${missing[*]}"
+    echo "  macOS:         brew install ${missing[*]}"
+    exit 1
+  fi
+}
+
+check_python_version() {
+  local python_version
+  python_version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+  local python_major python_minor
+  python_major=$(echo "$python_version" | cut -d. -f1)
+  python_minor=$(echo "$python_version" | cut -d. -f2)
+  if [ "$python_major" -lt 3 ] || { [ "$python_major" -eq 3 ] && [ "$python_minor" -lt 11 ]; }; then
+    error "Python 3.11+ が必要です（現在: $python_version）"
+  fi
+  echo "$python_version"
+}
+
+get_version() {
+  git log -1 --format='%h %cd' --date=format:'%Y-%m-%d %H:%M' 2>/dev/null || echo "不明"
+}
+
+get_port() {
+  if [ -f .env ]; then
+    local port
+    port=$(grep -E '^ANY_CONSOLE_PORT=' .env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
+    echo "${port:-8888}"
+  else
+    echo "8888"
+  fi
+}
+
+is_service_active() {
+  systemctl is-active "$SERVICE_NAME" >/dev/null 2>&1
+}
+
+is_service_installed() {
+  systemctl list-unit-files "$SERVICE_NAME.service" >/dev/null 2>&1 && \
+    [ -f "/etc/systemd/system/$SERVICE_NAME.service" ]
+}
+
+cmd_setup() {
+  info "=== any-console セットアップ ==="
+
+  check_deps
+
+  local python_version
+  python_version=$(check_python_version)
+  info "依存OK: Python $python_version, node $(node -v), git $(git --version | cut -d' ' -f3), tmux $(tmux -V | cut -d' ' -f2)"
+
+  info "Python依存パッケージをインストール中..."
+  pip install -r requirements.txt
+
+  info "Node.js依存パッケージをインストール中..."
+  npm install
+
+  info "フロントエンドをビルド中..."
+  npm run build
+
+  if [ -f .env ]; then
+    info ".env は既に存在します（スキップ）"
+  else
+    local token
+    token=$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')
+    cp .env.example .env
+    sed -i"" -e "s/ANY_CONSOLE_TOKEN=your-secret-token/ANY_CONSOLE_TOKEN=${token}/" .env
+    info ".env を生成しました（トークン自動設定済み）"
+  fi
+
+  echo ""
+  read -rp "systemdサービスを登録しますか? [y/N] " answer
+  if [[ "$answer" =~ ^[Yy]$ ]]; then
+    install_systemd
+  fi
+
+  echo ""
+  info "=== セットアップ完了 ==="
+  echo ""
+  echo "起動:"
+  echo "  ./any-console start    (systemd経由)"
+  echo "  ./any-console dev      (開発モード)"
+  echo ""
+  echo "ブラウザで http://localhost:$(get_port) を開いてください。"
+  echo "認証トークンは .env の ANY_CONSOLE_TOKEN を確認してください。"
+}
+
+install_systemd() {
+  local service_src="systemd/any-console.service"
+  local service_dest="/etc/systemd/system/$SERVICE_NAME.service"
+
+  if [ ! -f "$service_src" ]; then
+    error "サービスファイルが見つかりません: $service_src"
+  fi
+
+  info "systemdサービスを登録中..."
+  local tmp_service
+  tmp_service=$(mktemp)
+  sed -e "s|\${USER}|$USER|g" -e "s|\${INSTALL_DIR}|$SCRIPT_DIR|g" "$service_src" > "$tmp_service"
+
+  sudo cp "$tmp_service" "$service_dest"
+  rm "$tmp_service"
+  sudo systemctl daemon-reload
+  sudo systemctl enable "$SERVICE_NAME"
+  info "systemdサービスを登録しました"
+}
+
+cmd_update() {
+  info "=== any-console 更新 ==="
+
+  if [ -n "$(git status --porcelain)" ]; then
+    error "未コミットの変更があります。先にコミットまたはスタッシュしてください。"
+  fi
+
+  local before_hash
+  before_hash=$(git rev-parse HEAD)
+
+  info "最新版を取得中..."
+  git pull --ff-only
+
+  local after_hash
+  after_hash=$(git rev-parse HEAD)
+
+  if [ "$before_hash" = "$after_hash" ]; then
+    info "既に最新です ($(get_version))"
+    return
+  fi
+
+  info "依存パッケージを更新中..."
+  pip install -r requirements.txt
+  npm install
+
+  info "フロントエンドをビルド中..."
+  npm run build
+
+  if is_service_active; then
+    info "サービスを再起動中..."
+    sudo systemctl restart "$SERVICE_NAME"
+    info "サービスを再起動しました"
+  fi
+
+  info "=== 更新完了 ($(get_version)) ==="
+}
+
+cmd_start() {
+  sudo systemctl start "$SERVICE_NAME"
+  info "サービスを起動しました"
+}
+
+cmd_stop() {
+  sudo systemctl stop "$SERVICE_NAME"
+  info "サービスを停止しました"
+}
+
+cmd_restart() {
+  sudo systemctl restart "$SERVICE_NAME"
+  info "サービスを再起動しました"
+}
+
+cmd_status() {
+  echo -e "${BOLD}any-console${NC}"
+  echo ""
+
+  echo -n "  サービス: "
+  if is_service_installed; then
+    if is_service_active; then
+      echo -e "${GREEN}稼働中${NC}"
+    else
+      echo -e "${RED}停止${NC}"
+    fi
+  else
+    echo -e "${YELLOW}未登録${NC}"
+  fi
+
+  echo "  バージョン: $(get_version)"
+  echo "  URL: http://localhost:$(get_port)"
+  echo "  ディレクトリ: $SCRIPT_DIR"
+}
+
+cmd_logs() {
+  journalctl -u "$SERVICE_NAME" -f --no-pager -n 50
+}
+
+cmd_version() {
+  echo "any-console $(get_version)"
+}
+
+cmd_dev() {
+  check_deps
+
+  local port
+  port=$(get_port)
+
+  local env_opt=""
+  if [ ! -f .env ]; then
+    env_opt="ANY_CONSOLE_TOKEN=dev-token"
+    warn ".env がありません。開発用トークン 'dev-token' で起動します"
+  fi
+
+  info "開発モードで起動中... (Ctrl+C で終了)"
+  echo ""
+
+  trap 'kill 0; exit 0' INT TERM
+
+  if [ -n "$env_opt" ]; then
+    env $env_opt python3 -m uvicorn api.main:app --host 0.0.0.0 --port "$port" --reload --reload-include "*.py" &
+  else
+    python3 -m uvicorn api.main:app --host 0.0.0.0 --port "$port" --reload --reload-include "*.py" &
+  fi
+
+  npm run dev &
+
+  wait
+}
+
+usage() {
+  echo -e "${BOLD}Usage:${NC} ./any-console <command>"
+  echo ""
+  echo "Commands:"
+  echo "  setup      初回セットアップ（依存インストール + ビルド + .env生成 + systemd登録）"
+  echo "  update     最新版に更新（git pull + 依存更新 + ビルド + サービス再起動）"
+  echo "  start      サービス起動"
+  echo "  stop       サービス停止"
+  echo "  restart    サービス再起動"
+  echo "  status     状態表示（サービス状態、URL、バージョン）"
+  echo "  logs       サービスログ表示（journalctl）"
+  echo "  version    バージョン表示"
+  echo "  dev        開発モード起動（FastAPI + Vite HMR）"
+}
+
+command="${1:-}"
+
+case "$command" in
+  setup)   cmd_setup ;;
+  update)  cmd_update ;;
+  start)   cmd_start ;;
+  stop)    cmd_stop ;;
+  restart) cmd_restart ;;
+  status)  cmd_status ;;
+  logs)    cmd_logs ;;
+  version) cmd_version ;;
+  dev)     cmd_dev ;;
+  *)       usage ;;
+esac

@@ -31,10 +31,10 @@ Web操作コンソール。スマホやPCのブラウザからシェルスクリ
 ```bash
 git clone https://github.com/kt0319/any-console.git
 cd any-console
-./setup.sh
+./any-console setup
 ```
 
-依存インストール、フロントエンドビルド、`.env` の生成（トークン自動設定）をまとめて実行する。
+依存インストール、フロントエンドビルド、`.env` の生成（トークン自動設定）をまとめて実行する。systemdサービスの登録もオプションで行える。
 
 <details>
 <summary>手動セットアップ</summary>
@@ -53,26 +53,41 @@ cp .env.example .env
 
 </details>
 
-### 起動
+## コマンド一覧
 
-```bash
-python -m uvicorn api.main:app --host 0.0.0.0 --port 8888
+すべての操作は `./any-console` コマンドで行う。
+
+```
+./any-console setup      初回セットアップ（依存インストール + ビルド + .env生成 + systemd登録）
+./any-console update     最新版に更新（git pull + 依存更新 + ビルド + サービス再起動）
+./any-console start      サービス起動
+./any-console stop       サービス停止
+./any-console restart    サービス再起動
+./any-console status     状態表示（サービス状態、URL、バージョン）
+./any-console logs       サービスログ表示（journalctl）
+./any-console version    バージョン表示
+./any-console dev        開発モード起動（FastAPI + Vite HMR）
 ```
 
-ブラウザで `http://localhost:8888` を開く。
-
-#### 開発モード
+### アップデート
 
 ```bash
-# 1. FastAPI（API側）
-python -m uvicorn api.main:app --host 0.0.0.0 --port 8888 --reload --reload-include "*.py"
-
-# 2. Vite dev server（別ターミナル）
-npm run dev
-# → localhost:5173 にアクセス（APIはプロキシで8888に転送）
+./any-console update
 ```
+
+`git pull` → 依存更新 → ビルド → サービス再起動を一括で行う。変更がなければスキップする。
+
+### 開発モード
+
+```bash
+./any-console dev
+```
+
+FastAPIとVite dev serverを並列起動する。Ctrl+Cで両方終了。
 
 ### systemd（常時起動）
+
+`./any-console setup` で登録するか、手動で登録する:
 
 ```bash
 # サービスファイルを編集（%USER% と %INSTALL_DIR% を置換）
