@@ -16,8 +16,8 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          xterm: ["@xterm/xterm", "@xterm/addon-fit", "@xterm/addon-web-links"],
+        manualChunks(id) {
+          if (id.includes("@xterm/")) return "xterm";
         },
       },
     },

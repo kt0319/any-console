@@ -8,15 +8,15 @@
     "test": "node --test 'tests/ui/test_*.js'"
   },
   "devDependencies": {
-    "vite": "^6"
+    "vite": "^8.0.3"
   },
   "dependencies": {
-    "@vitejs/plugin-vue": "^6.0.4",
+    "@vitejs/plugin-vue": "^6.0.5",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/xterm": "^6.0.0",
     "highlight.js": "^11.11.1",
     "pinia": "^3.0.4",
-    "vue": "^3.5.29"
+    "vue": "^3.5.31"
   }
 }
