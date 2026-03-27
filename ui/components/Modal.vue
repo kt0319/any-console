@@ -328,7 +328,7 @@ onMounted(() => {
 
   .modal {
     max-width: 100%;
-    height: calc(var(--app-dvh) - 28px);
+    height: 100%;
     border: none;
     border-radius: 0 0 var(--radius) var(--radius);
   }
