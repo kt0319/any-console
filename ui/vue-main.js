@@ -1,5 +1,6 @@
 import { createApp } from "vue";
 import { createPinia } from "pinia";
+import "@mdi/font/css/materialdesignicons.min.css";
 import "@xterm/xterm/css/xterm.css";
 import "highlight.js/styles/tokyo-night-dark.css";
 import App from "./components/App.vue";

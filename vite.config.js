@@ -4,8 +4,6 @@ import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 
 const STATIC_COPY_TARGETS = [
-  { src: "ui/vendor/css", dest: "dist/vendor/css" },
-  { src: "ui/vendor/fonts", dest: "dist/vendor/fonts" },
   { src: "ui/sw.js", dest: "dist/sw.js" },
 ];
 
