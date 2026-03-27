@@ -26,6 +26,7 @@
         </template>
         <template v-else>
           <input ref="uploadInputEl" type="file" multiple class="file-browser-upload-input" @change="onUploadInputChange">
+          <button type="button" class="file-browser-header-btn" @click="showIgnored = !showIgnored"><span class="mdi" :class="showIgnored ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"></span></button>
           <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" @click="openDirInEditor"><span class="mdi mdi-file-edit-outline"></span></button>
           <button type="button" class="file-browser-header-btn" @click="uploadInputEl?.click()"><span class="mdi mdi-upload"></span></button>
         </template>
@@ -47,7 +48,7 @@
 
       <template v-else-if="!fileContent">
         <ul class="file-browser-list">
-          <template v-for="entry in entries" :key="entry.name">
+          <template v-for="entry in visibleEntries" :key="entry.name">
             <FileItem
               long-press-surface
               :action-open="contextEntry?.name === entry.name"
@@ -119,6 +120,7 @@ const diffNewFileContent = ref(null);
 const uploadInputEl = ref(null);
 const editorUrlTemplate = ref("");
 const systemInfo = ref({});
+const showIgnored = ref(false);
 
 const {
   isDropActive,
@@ -134,6 +136,11 @@ const {
 const pathSegments = computed(() => {
   if (!currentPath.value) return [];
   return currentPath.value.split("/").filter(Boolean);
+});
+
+const visibleEntries = computed(() => {
+  if (showIgnored.value) return entries.value;
+  return entries.value.filter((e) => !e.gitignored);
 });
 
 const displayPathSegments = computed(() => {
