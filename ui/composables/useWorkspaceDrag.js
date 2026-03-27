@@ -47,13 +47,7 @@ export function useWorkspaceDrag({ items, listEl, onReorder }) {
   }
 
   function onDragEnd() {
-    document.removeEventListener("mousemove", onDragMove);
-    document.removeEventListener("mouseup", onDragEnd);
-    document.removeEventListener("touchmove", onDragMove);
-    document.removeEventListener("touchend", onDragEnd);
-    document.removeEventListener("touchcancel", onDragEnd);
-    dragIdx.value = -1;
-    dragOffsetY.value = 0;
+    cleanup();
     if (dragDidMove) {
       onReorder();
     }
@@ -65,6 +59,8 @@ export function useWorkspaceDrag({ items, listEl, onReorder }) {
     document.removeEventListener("touchmove", onDragMove);
     document.removeEventListener("touchend", onDragEnd);
     document.removeEventListener("touchcancel", onDragEnd);
+    dragIdx.value = -1;
+    dragOffsetY.value = 0;
   }
 
   return {

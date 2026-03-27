@@ -51,7 +51,7 @@ async def list_terminal_sessions():
             capture_output=True,
             text=True,
         )
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+    except (subprocess.TimeoutExpired, OSError):
         return []
 
     if result.returncode != 0:

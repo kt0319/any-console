@@ -1,28 +1,21 @@
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
-import { emit as bridgeEmit } from "../app-bridge.js";
-import { extractApiError } from "../utils/constants.js";
+import { emit } from "../app-bridge.js";
 
 export function useGitCommitAction() {
   const workspaceStore = useWorkspaceStore();
-  const { apiCommand, wsEndpoint } = useApi();
+  const { apiWithToast, wsEndpoint } = useApi();
 
   function currentWorkspace() {
     return workspaceStore.selectedWorkspace || null;
   }
 
   async function runAndToast(endpoint, body, { successMessage, errorMessage }) {
-    try {
-      const { ok, data } = await apiCommand(endpoint, body);
-      if (!ok) {
-        bridgeEmit("toast:show", { message: extractApiError(data, errorMessage), type: "error" });
-        return;
-      }
-      bridgeEmit("toast:show", { message: successMessage, type: "success" });
-      bridgeEmit("git:refresh");
-    } catch (e) {
-      bridgeEmit("toast:show", { message: e.message, type: "error" });
-    }
+    await apiWithToast(endpoint, body, {
+      successMessage,
+      errorMessage,
+      onSuccess: () => emit("git:refresh"),
+    });
   }
 
   async function execAction(action, entry, closeFn) {

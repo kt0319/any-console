@@ -1,4 +1,6 @@
 import { useAuthStore } from "../stores/auth.js";
+import { emit } from "../app-bridge.js";
+import { extractApiError } from "../utils/constants.js";
 
 export function useApi() {
   const auth = useAuthStore();
@@ -21,9 +23,25 @@ export function useApi() {
   const apiDelete = (endpoint) => apiRequest(endpoint, { method: "DELETE" });
   const apiCommand = (endpoint, body = {}) => apiRequest(endpoint, { method: "POST", body, checkStatus: true });
 
+  async function apiWithToast(endpoint, body, { successMessage, errorMessage, onSuccess }) {
+    try {
+      const { ok, data } = await apiCommand(endpoint, body);
+      if (!ok) {
+        emit("toast:show", { message: extractApiError(data, errorMessage), type: "error" });
+        return false;
+      }
+      emit("toast:show", { message: successMessage, type: "success" });
+      onSuccess?.();
+      return true;
+    } catch (e) {
+      emit("toast:show", { message: e.message, type: "error" });
+      return false;
+    }
+  }
+
   function wsEndpoint(workspace, path) {
     return `/workspaces/${encodeURIComponent(workspace)}/${path}`;
   }
 
-  return { apiCommand, apiGet, apiPost, apiPut, apiDelete, wsEndpoint };
+  return { apiCommand, apiWithToast, apiGet, apiPost, apiPut, apiDelete, wsEndpoint };
 }

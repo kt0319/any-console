@@ -114,7 +114,7 @@ def _run_outside_cgroup(cmd: list[str], **kwargs) -> subprocess.CompletedProcess
             ["systemd-run", "--user", "--scope", "--quiet", *cmd],
             **kwargs_with_env,
         )
-    except (FileNotFoundError, subprocess.CalledProcessError, OSError):
+    except (subprocess.CalledProcessError, OSError):
         return subprocess.run(cmd, **kwargs)
 
 
