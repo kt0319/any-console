@@ -50,13 +50,18 @@ _global_jobs_cache = TTLCache(WORKSPACE_JOBS_CACHE_TTL_SEC)
 GLOBAL_JOBS_CACHE_KEY = "__global_jobs__"
 
 
-def load_global_jobs_data():
-    cached = _global_jobs_cache.get(GLOBAL_JOBS_CACHE_KEY)
+def _cached_load(cache, key, loader):
+    cached = cache.get(key)
     if cached is not None:
         return cached
-    data = load_global_config_section("jobs", {})
-    _global_jobs_cache.set(GLOBAL_JOBS_CACHE_KEY, data)
+    data = loader()
+    cache.set(key, data)
     return data
+
+
+def load_global_jobs_data():
+    return _cached_load(_global_jobs_cache, GLOBAL_JOBS_CACHE_KEY,
+                        lambda: load_global_config_section("jobs", {}))
 
 
 def save_global_jobs_data(data):
@@ -66,12 +71,8 @@ def save_global_jobs_data(data):
 
 
 def load_workspace_jobs_data(workspace_name):
-    cached = _workspace_jobs_cache.get(workspace_name)
-    if cached is not None:
-        return cached
-    data = load_workspace_config_section(workspace_name, "jobs", {})
-    _workspace_jobs_cache.set(workspace_name, data)
-    return data
+    return _cached_load(_workspace_jobs_cache, workspace_name,
+                        lambda: load_workspace_config_section(workspace_name, "jobs", {}))
 
 
 def save_workspace_jobs_data(workspace_name, data):
@@ -79,10 +80,9 @@ def save_workspace_jobs_data(workspace_name, data):
     _workspace_jobs_cache.invalidate(workspace_name)
 
 
-def _ws_save_fn(workspace_name):
-    def save(data):
-        save_workspace_jobs_data(workspace_name, data)
-    return save
+def _ws_jobs_context(name):
+    resolve_workspace_path(name)
+    return load_workspace_jobs_data(name), lambda data: save_workspace_jobs_data(name, data)
 
 
 def _entry_to_job_definition(name, entry):
@@ -279,25 +279,19 @@ def _reorder_jobs(data, save_fn, order, log_msg):
 
 @router.post("/workspaces/{name}/jobs")
 def create_workspace_job(name: str, body: JobRequest):
-    resolve_workspace_path(name)
-    data = load_workspace_jobs_data(name)
-    save_fn = _ws_save_fn(name)
+    data, save_fn = _ws_jobs_context(name)
     return _create_job(data, save_fn, body, "job created workspace=%s job=%%s" % name)
 
 
 @router.put("/workspaces/{name}/job-order")
 def reorder_workspace_jobs(name: str, body: ReorderJobsRequest):
-    resolve_workspace_path(name)
-    data = load_workspace_jobs_data(name)
-    save_fn = _ws_save_fn(name)
+    data, save_fn = _ws_jobs_context(name)
     return _reorder_jobs(data, save_fn, body.order, "jobs reordered workspace=%s count=%%d" % name)
 
 
 @router.put("/workspaces/{name}/jobs/{job_name}")
 def update_workspace_job(name: str, job_name: str, body: JobRequest):
-    resolve_workspace_path(name)
-    data = load_workspace_jobs_data(name)
-    save_fn = _ws_save_fn(name)
+    data, save_fn = _ws_jobs_context(name)
     return _update_job(data, save_fn, job_name, body,
                        f"ジョブ '{job_name}' が見つかりません",
                        "job updated workspace=%s job=%%s" % name)
@@ -305,9 +299,7 @@ def update_workspace_job(name: str, job_name: str, body: JobRequest):
 
 @router.delete("/workspaces/{name}/jobs/{job_name}")
 def delete_workspace_job(name: str, job_name: str):
-    resolve_workspace_path(name)
-    data = load_workspace_jobs_data(name)
-    save_fn = _ws_save_fn(name)
+    data, save_fn = _ws_jobs_context(name)
     return _delete_job(data, save_fn, job_name,
                        f"ジョブ '{job_name}' が見つかりません",
                        "job deleted workspace=%s job=%%s" % name)

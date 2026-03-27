@@ -31,53 +31,48 @@ def _run_gh(args: list[str], cwd: str) -> dict | list | None:
         return None
 
 
+def _run_gh_endpoint(args, cwd, error_message):
+    data = _run_gh(args, cwd=cwd)
+    if data is None:
+        return {"status": "error", "message": error_message}
+    return {"status": "ok", "data": data}
+
+
 @router.get("/workspaces/{name}/github/info")
 def github_info(name: str):
     ws_path = resolve_workspace_path(name)
-    data = _run_gh(
+    return _run_gh_endpoint(
         ["repo", "view", "--json",
          "name,owner,description,url,stargazerCount,forkCount,isPrivate,defaultBranchRef,primaryLanguage"],
-        cwd=str(ws_path),
+        cwd=str(ws_path), error_message="GitHub情報を取得できませんでした",
     )
-    if data is None:
-        return {"status": "error", "message": "GitHub情報を取得できませんでした"}
-    return {"status": "ok", "data": data}
 
 
 @router.get("/workspaces/{name}/github/issues")
 def github_issues(name: str):
     ws_path = resolve_workspace_path(name)
-    data = _run_gh(
+    return _run_gh_endpoint(
         ["issue", "list", "--limit", "30", "--json",
          "number,title,state,author,labels,createdAt,updatedAt"],
-        cwd=str(ws_path),
+        cwd=str(ws_path), error_message="Issues を取得できませんでした",
     )
-    if data is None:
-        return {"status": "error", "message": "Issues を取得できませんでした"}
-    return {"status": "ok", "data": data}
 
 
 @router.get("/workspaces/{name}/github/pulls")
 def github_pulls(name: str):
     ws_path = resolve_workspace_path(name)
-    data = _run_gh(
+    return _run_gh_endpoint(
         ["pr", "list", "--limit", "30", "--json",
          "number,title,state,author,labels,createdAt,updatedAt,headRefName,isDraft"],
-        cwd=str(ws_path),
+        cwd=str(ws_path), error_message="Pull Requests を取得できませんでした",
     )
-    if data is None:
-        return {"status": "error", "message": "Pull Requests を取得できませんでした"}
-    return {"status": "ok", "data": data}
 
 
 @router.get("/workspaces/{name}/github/runs")
 def github_runs(name: str):
     ws_path = resolve_workspace_path(name)
-    data = _run_gh(
+    return _run_gh_endpoint(
         ["run", "list", "--limit", "15", "--json",
          "databaseId,displayTitle,status,conclusion,event,headBranch,createdAt,updatedAt,url,workflowName"],
-        cwd=str(ws_path),
+        cwd=str(ws_path), error_message="Actions を取得できませんでした",
     )
-    if data is None:
-        return {"status": "error", "message": "Actions を取得できませんでした"}
-    return {"status": "ok", "data": data}

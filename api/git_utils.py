@@ -42,6 +42,24 @@ def command_result_dict(result: subprocess.CompletedProcess) -> dict:
     }
 
 
+def _run_git_raw(args, cwd, timeout=GIT_QUICK_TIMEOUT_SEC):
+    return subprocess.run(
+        ["git", *args],
+        capture_output=True, text=True, timeout=timeout,
+        cwd=str(cwd),
+    )
+
+
+def _run_git_query(args, cwd, timeout=GIT_QUICK_TIMEOUT_SEC):
+    try:
+        result = _run_git_raw(args, cwd, timeout)
+        if result.returncode == 0:
+            return result.stdout
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    return None
+
+
 def run_git_command(
     args: list[str],
     cwd: Path,
@@ -74,17 +92,8 @@ def invalidate_git_info(workspace_name: str):
 
 
 def git_branch(directory: Path) -> str | None:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True, text=True, timeout=GIT_QUICK_TIMEOUT_SEC,
-            cwd=str(directory),
-        )
-        if result.returncode == 0:
-            return result.stdout.strip() or None
-    except (subprocess.TimeoutExpired, OSError):
-        pass
-    return None
+    out = _run_git_query(["rev-parse", "--abbrev-ref", "HEAD"], directory)
+    return out.strip() or None if out is not None else None
 
 
 def _parse_github_url(remote_url: str) -> str | None:
@@ -97,29 +106,12 @@ def _parse_github_url(remote_url: str) -> str | None:
 
 
 def git_github_url(directory: Path) -> str | None:
-    try:
-        result = subprocess.run(
-            ["git", "remote", "get-url", "origin"],
-            capture_output=True, text=True, timeout=GIT_QUICK_TIMEOUT_SEC,
-            cwd=str(directory),
-        )
-        if result.returncode == 0:
-            return _parse_github_url(result.stdout.strip())
-    except (subprocess.TimeoutExpired, OSError):
-        pass
-    return None
+    out = _run_git_query(["remote", "get-url", "origin"], directory)
+    return _parse_github_url(out.strip()) if out is not None else None
 
 
 def git_is_repo(directory: Path) -> bool:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--is-inside-work-tree"],
-            capture_output=True, text=True, timeout=GIT_QUICK_TIMEOUT_SEC,
-            cwd=str(directory),
-        )
-        return result.returncode == 0
-    except (subprocess.TimeoutExpired, OSError):
-        return False
+    return _run_git_query(["rev-parse", "--is-inside-work-tree"], directory) is not None
 
 
 def git_info(directory: Path) -> dict:
@@ -145,11 +137,7 @@ def git_info(directory: Path) -> dict:
     }
 
     def run_git(*args):
-        return subprocess.run(
-            ["git", *args],
-            capture_output=True, text=True, timeout=GIT_QUICK_TIMEOUT_SEC,
-            cwd=str(directory),
-        )
+        return _run_git_raw(list(args), directory)
 
     try:
         check = run_git("rev-parse", "--is-inside-work-tree")
@@ -258,31 +246,17 @@ def git_info_to_status_dict(directory: Path, name: str) -> dict:
 
 
 def git_branches(directory: Path) -> list[str]:
-    try:
-        result = subprocess.run(
-            ["git", "branch", "--format=%(refname:short)"],
-            capture_output=True, text=True, timeout=GIT_QUICK_TIMEOUT_SEC,
-            cwd=str(directory),
-        )
-        if result.returncode == 0:
-            return [b for b in result.stdout.strip().splitlines() if b]
-    except (subprocess.TimeoutExpired, OSError) as e:
-        logger.warning("git_branches failed dir=%s: %s", directory, e)
+    out = _run_git_query(["branch", "--format=%(refname:short)"], directory)
+    if out is not None:
+        return [b for b in out.strip().splitlines() if b]
+    logger.warning("git_branches failed dir=%s", directory)
     return []
 
 
 def git_remote_branches(directory: Path) -> list[str]:
     try:
-        subprocess.run(
-            ["git", "fetch", "--prune"],
-            capture_output=True, text=True, timeout=GIT_STANDARD_TIMEOUT_SEC,
-            cwd=str(directory),
-        )
-        result = subprocess.run(
-            ["git", "branch", "-r", "--format=%(refname:short)"],
-            capture_output=True, text=True, timeout=GIT_QUICK_TIMEOUT_SEC,
-            cwd=str(directory),
-        )
+        _run_git_raw(["fetch", "--prune"], directory, timeout=GIT_STANDARD_TIMEOUT_SEC)
+        result = _run_git_raw(["branch", "-r", "--format=%(refname:short)"], directory)
         if result.returncode == 0:
             branches = []
             for b in result.stdout.strip().splitlines():
