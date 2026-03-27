@@ -35,7 +35,6 @@
         <EditorConfig v-if="currentView === 'EditorConfig'" />
         <ServerInfo v-if="currentView === 'ServerInfo'" />
         <GitHubPane v-if="currentView === 'GitHubPane'" />
-        <GitLogGraph v-if="currentView === 'GitLogGraph'" />
         <ConfigFile v-if="currentView === 'ConfigFile'" />
         <IconPicker v-if="currentView === 'IconPicker'" />
         <WorkspaceDetail v-if="currentView === 'WorkspaceDetail'" :ref="setPaneRef" />
@@ -69,7 +68,6 @@ import EditorConfig from "./EditorConfig.vue";
 import ServerInfo from "./ServerInfo.vue";
 import ConfigFile from "./ConfigFile.vue";
 import GitHubPane from "./GitHubPane.vue";
-import GitLogGraph from "./GitLogGraph.vue";
 import IconPicker from "./IconPicker.vue";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
 import { on } from "../app-bridge.js";
@@ -176,7 +174,6 @@ onMounted(() => {
     { view: "ModalMenu", state: {} },
     { view: "WorkspaceOpen", state: {} },
     { view: "WorkspaceDetail", state: {} },
-    { view: "GitLogGraph", state: {} },
   ]));
 
   on("modal:close", () => closeModal());

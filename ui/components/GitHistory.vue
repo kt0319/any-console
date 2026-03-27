@@ -42,50 +42,53 @@
           <button type="button" class="git-action-btn icon-only" title="ブランチ" @click="selectPane('branch')">
             <span class="mdi mdi-source-branch"></span>
           </button>
-          <button type="button" class="git-action-btn icon-only" title="コミットグラフ" @click="selectPane('graph')">
-            <span class="mdi mdi-source-branch-sync"></span>
-          </button>
           <button v-if="githubUrl" type="button" class="git-action-btn icon-only" title="GitHub" @click="selectPane('github')">
             <span class="mdi mdi-github"></span>
           </button>
         </div>
       </div>
-      <template v-for="entry in commitEntries" :key="entry.hash">
+      <template v-for="(row, idx) in graphRows" :key="idx">
         <div
           class="git-log-entry git-log-commit long-press-surface"
-          :class="{ 'action-open': longPressEntry?.hash === entry.hash }"
-          @click="openCommitDiffFiles(entry)"
-          @mousedown="onLongPressStart($event, entry)"
+          :class="{ 'action-open': row.entry && longPressEntry?.hash === row.entry.hash, 'git-log-graph-only': !row.entry }"
+          @click="row.entry && openCommitDiffFiles(row.entry)"
+          @mousedown="row.entry && onLongPressStart($event, row.entry)"
           @mouseup="onLongPressEnd"
           @mouseleave="onLongPressEnd"
-          @touchstart.passive="onLongPressStart($event, entry)"
+          @touchstart.passive="row.entry && onLongPressStart($event, row.entry)"
           @touchend="onLongPressEnd"
           @touchcancel="onLongPressEnd"
-          @contextmenu.prevent="toggleActionMenu(entry)"
+          @contextmenu.prevent="row.entry && toggleActionMenu(row.entry)"
         >
-          <span class="git-log-entry-body">
-            <span class="git-log-entry-msg">{{ entry.message }}</span>
+          <svg class="git-graph-svg" :width="graphWidth" :height="GRAPH_ROW_HEIGHT" :viewBox="'0 0 ' + graphWidth + ' ' + GRAPH_ROW_HEIGHT">
+            <template v-for="(seg, si) in row.segments" :key="si">
+              <line v-if="seg.type === 'line'" :x1="seg.x" :y1="seg.y1" :x2="seg.x2 ?? seg.x" :y2="seg.y2" :stroke="seg.color" stroke-width="2" />
+              <circle v-if="seg.type === 'node'" :cx="seg.x" :cy="seg.y" r="4" :fill="seg.color" />
+            </template>
+          </svg>
+          <span v-if="row.entry" class="git-log-entry-body">
+            <span class="git-log-entry-msg">{{ row.entry.message }}</span>
             <span class="git-log-entry-row1">
               <span class="git-log-entry-row1-left">
-                <span v-if="entry.refs.length" class="git-log-entry-refs">
-                  <span v-for="r in entry.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type"><span v-if="r.synced" class="mdi mdi-link-variant"></span><span :class="'mdi ' + r.icon"></span>{{ r.label }}</span>
+                <span v-if="row.entry.refs.length" class="git-log-entry-refs">
+                  <span v-for="r in row.entry.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type"><span v-if="r.synced" class="mdi mdi-link-variant"></span><span :class="'mdi ' + r.icon"></span>{{ r.label }}</span>
                 </span>
               </span>
               <span class="git-log-entry-meta">
-                <span class="git-log-entry-author">{{ entry.author }}</span>
-                <span class="git-log-entry-time">{{ entry.time }}</span>
+                <span class="git-log-entry-author">{{ row.entry.author }}</span>
+                <span class="git-log-entry-time">{{ row.entry.time }}</span>
               </span>
             </span>
           </span>
         </div>
-        <div v-if="longPressEntry?.hash === entry.hash" class="commit-action-menu">
-          <button type="button" class="modal-action-btn" @click="execAction('cherry-pick', entry)">cherry-pick</button>
-          <button type="button" class="modal-action-btn" @click="execAction('revert', entry)">revert</button>
-          <button type="button" class="modal-action-btn" @click="execCreateBranch(entry)">branch</button>
-          <button v-for="b in entryBranches(entry)" :key="'merge-'+b" type="button" class="modal-action-btn" @click="execMerge(b)">merge {{ b }}</button>
-          <button v-for="b in entryBranches(entry)" :key="'rebase-'+b" type="button" class="modal-action-btn" @click="execRebase(b)">rebase {{ b }}</button>
-          <button type="button" class="modal-action-btn" @click="execReset(entry, 'soft')">reset --soft</button>
-          <button type="button" class="modal-action-btn commit-action-danger" @click="execReset(entry, 'hard')">reset --hard</button>
+        <div v-if="row.entry && longPressEntry?.hash === row.entry.hash" class="commit-action-menu">
+          <button type="button" class="modal-action-btn" @click="execAction('cherry-pick', row.entry)">cherry-pick</button>
+          <button type="button" class="modal-action-btn" @click="execAction('revert', row.entry)">revert</button>
+          <button type="button" class="modal-action-btn" @click="execCreateBranch(row.entry)">branch</button>
+          <button v-for="b in entryBranches(row.entry)" :key="'merge-'+b" type="button" class="modal-action-btn" @click="execMerge(b)">merge {{ b }}</button>
+          <button v-for="b in entryBranches(row.entry)" :key="'rebase-'+b" type="button" class="modal-action-btn" @click="execRebase(b)">rebase {{ b }}</button>
+          <button type="button" class="modal-action-btn" @click="execReset(row.entry, 'soft')">reset --soft</button>
+          <button type="button" class="modal-action-btn commit-action-danger" @click="execReset(row.entry, 'hard')">reset --hard</button>
           <button type="button" class="modal-action-btn" @click="closeLongPressMenu">
             <span class="mdi mdi-close"></span>
           </button>
@@ -97,6 +100,7 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted } from "vue";
+
 import FileItem from "./FileItem.vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore } from "../stores/git.js";
@@ -106,8 +110,8 @@ import { useLongPress } from "../composables/useLongPress.js";
 import { useGitCommitAction } from "../composables/useGitCommitAction.js";
 import { useGitDiff } from "../composables/useGitDiff.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
-import { parseGitLogEntries } from "../utils/git.js";
 import { GIT_DIFF_STATUS_CLASSES, INFINITE_SCROLL_THRESHOLD_PX } from "../utils/constants.js";
+import { GRAPH_ROW_HEIGHT, parseGitGraphOutput, buildGitGraphRows, computeGraphWidth } from "../utils/git-graph.js";
 
 const emitToParent = defineEmits(["pane:select", "commit:expanded", "commit:collapsed"]);
 
@@ -137,7 +141,9 @@ const dirtySummaryHtml = computed(() => {
   return parts.length > 0 ? parts.join(" ") : "\u25cf";
 });
 
-const commitEntries = ref([]);
+const graphRows = ref([]);
+const commitEntries = computed(() => graphRows.value.filter((r) => r.entry).map((r) => r.entry));
+const graphWidth = computed(() => computeGraphWidth(graphRows.value));
 const isHistoryLoading = ref(true);
 const hasMoreHistory = ref(false);
 const isLoadingMoreHistory = ref(false);
@@ -165,10 +171,11 @@ async function loadHistory() {
   historyPage = 0;
   try {
     const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
-    const { ok, data } = await apiGet(wsEndpoint(workspace, `git-log?limit=${perPage}&skip=0`));
+    const { ok, data } = await apiGet(wsEndpoint(workspace, `git-log?limit=${perPage}&skip=0&graph=true`));
     if (!ok) { isHistoryLoading.value = false; return; }
-    commitEntries.value = parseGitLogEntries(data.stdout);
-    hasMoreHistory.value = commitEntries.value.length >= perPage;
+    const parsed = parseGitGraphOutput(data.stdout);
+    graphRows.value = buildGitGraphRows(parsed);
+    hasMoreHistory.value = parsed.filter((p) => p.entry).length >= perPage;
   } catch (e) {
     console.error("git log load failed:", e);
   } finally {
@@ -184,12 +191,13 @@ async function loadMoreHistory() {
   isLoadingMoreHistory.value = true;
   historyPage++;
   const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
+  const totalLimit = (historyPage + 1) * perPage;
   try {
-    const { ok, data } = await apiGet(wsEndpoint(workspace, `git-log?limit=${perPage}&skip=${historyPage * perPage}`));
+    const { ok, data } = await apiGet(wsEndpoint(workspace, `git-log?limit=${totalLimit}&skip=0&graph=true`));
     if (!ok) return;
-    const newEntries = parseGitLogEntries(data.stdout);
-    commitEntries.value = [...commitEntries.value, ...newEntries];
-    hasMoreHistory.value = newEntries.length >= perPage;
+    const parsed = parseGitGraphOutput(data.stdout);
+    graphRows.value = buildGitGraphRows(parsed);
+    hasMoreHistory.value = parsed.filter((p) => p.entry).length >= totalLimit;
   } catch (e) {
     console.error("git log loadMore failed:", e);
   } finally {
@@ -333,7 +341,6 @@ defineExpose({
   font-size: 13px;
 }
 
-.git-log-commit,
 .git-log-dirty {
   display: flex;
   align-items: center;
@@ -342,8 +349,11 @@ defineExpose({
   gap: 8px;
 }
 
-.git-log-commit:last-child {
-  border-bottom: none;
+.git-log-commit {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  gap: 2px;
 }
 
 .git-log-entry-body {
@@ -528,6 +538,17 @@ defineExpose({
   white-space: nowrap;
 }
 
+
+.git-graph-svg {
+  flex-shrink: 0;
+}
+
+.git-log-graph-only {
+  min-height: 28px;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
 
 .git-log-commit.action-open,
 .diff-file-row.action-open {

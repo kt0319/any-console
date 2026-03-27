@@ -95,10 +95,6 @@ async function open(options) {
 }
 
 function switchPane(key) {
-  if (key === "graph") {
-    pushView("GitLogGraph");
-    return;
-  }
   activePane.value = key;
   gitHistory.value?.setActivePane(key);
   selectedDiffFile.value = "";
