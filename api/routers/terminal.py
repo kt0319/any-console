@@ -15,9 +15,7 @@ from ..common import (
     TERMINAL_TIMEOUT_SEC,
     TMUX_CMD_TIMEOUT_SEC,
     TMUX_SESSION_PREFIX,
-    WS_MSG_CANCEL_COPY_MODE,
     WS_MSG_RESIZE,
-    WS_MSG_SCROLL,
     WS_PING_INTERVAL_SEC,
     resolve_workspace_path,
 )
@@ -25,13 +23,11 @@ from ..errors import not_found, server_error, timeout_error
 from ..terminal_session import (
     PTY_EXECUTOR,
     TERMINAL_SESSIONS,
-    _cancel_copy_mode,
     _detach_pty_bridge,
     _detect_workspace_from_tmux,
     _ensure_reader_task,
     _get_tmux_created,
     _handle_resize,
-    _handle_scroll,
     _kill_tmux_session,
     _load_tmux_metadata,
     _register_tmux_session,
@@ -238,10 +234,6 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
 
             if data[0:1] == WS_MSG_RESIZE:
                 _handle_resize(session, data[1:])
-            elif data[0:1] == WS_MSG_SCROLL:
-                _handle_scroll(session, data[1:])
-            elif data[0:1] == WS_MSG_CANCEL_COPY_MODE:
-                _cancel_copy_mode(session)
             else:
                 if session.fd is not None:
                     await loop.run_in_executor(PTY_EXECUTOR, os.write, session.fd, data)

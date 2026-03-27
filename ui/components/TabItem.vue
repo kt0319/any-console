@@ -76,6 +76,7 @@ const iconHtml = computed(() => {
 function onClick(e) {
   mouseLongPress.cancel();
   if (isDragging.value) return;
+  if (mouseLongPress.consumeFired()) return;
   e.currentTarget?.blur();
   if (isActive.value) {
     emits("active-click", props.tab);

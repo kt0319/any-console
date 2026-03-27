@@ -102,12 +102,37 @@ function scheduleActiveFit(retry = 0) {
   }, 60);
 }
 
+async function doEnterViewMode() {
+  const frame = frameEl.value;
+  if (!frame || isViewMode(frame)) return;
+  await enterViewMode(props.tab, frame, auth.apiFetch.bind(auth));
+  const pre = frame.querySelector(".view-mode-textarea");
+  if (pre) {
+    let startX = 0;
+    let startY = 0;
+    pre.addEventListener("pointerdown", (e) => {
+      startX = e.clientX;
+      startY = e.clientY;
+    });
+    pre.addEventListener("click", (e) => {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) return;
+      const sel = window.getSelection();
+      if (sel && sel.toString().length > 0) return;
+      exitViewMode(frame);
+      emit("keyboard:deactivate");
+    });
+  }
+}
+
 function onPointerDown(e) {
   if (layoutStore.isTouchDevice) return;
   if (!layoutStore.isSplitMode) return;
   if (isActive.value) return;
   emits("select-pane", props.paneIndex);
 }
+
 
 function onTouchStart(e) {
   touchStartY = e.touches?.[0]?.clientY || 0;
@@ -117,8 +142,9 @@ function onTouchEnd(e) {
   if (pillEl.value && pillEl.value.contains(e.target)) return;
   const endY = e.changedTouches?.[0]?.clientY || 0;
   const deltaY = endY - touchStartY;
-  if (deltaY > 80 && frameEl.value && !isViewMode(frameEl.value)) {
-    enterViewMode(props.tab, frameEl.value, auth.apiFetch.bind(auth));
+  if (frameEl.value && isViewMode(frameEl.value)) return;
+  if (deltaY > 80 && frameEl.value) {
+    doEnterViewMode();
     return;
   }
   if (Math.abs(deltaY) > 10) return;
@@ -130,6 +156,28 @@ function onTouchEnd(e) {
   }
   if (layoutStore.isPanelBottom && !(frameEl.value && isViewMode(frameEl.value))) {
     emit("keyboard:activate");
+  }
+}
+
+let wheelAccum = 0;
+let wheelTimer = null;
+const WHEEL_THRESHOLD = -120;
+
+function onWheel(e) {
+  if (layoutStore.isTouchDevice) return;
+  if (frameEl.value && isViewMode(frameEl.value)) return;
+  if (e.deltaY >= 0) {
+    wheelAccum = 0;
+    return;
+  }
+  e.preventDefault();
+  e.stopPropagation();
+  wheelAccum += e.deltaY;
+  if (wheelTimer) clearTimeout(wheelTimer);
+  wheelTimer = setTimeout(() => { wheelAccum = 0; }, 300);
+  if (wheelAccum <= WHEEL_THRESHOLD) {
+    wheelAccum = 0;
+    doEnterViewMode();
   }
 }
 
@@ -162,19 +210,20 @@ function onPillMouseDown(e) {
   document.addEventListener("mouseup", onPillMouseUp);
   pillMouseLongPress.start(() => {
     if (frameEl.value && !isViewMode(frameEl.value)) {
-      enterViewMode(props.tab, frameEl.value, auth.apiFetch.bind(auth));
+      doEnterViewMode();
     }
   });
 }
 
 function onPillClick(e) {
-  if (pillTouchLongPress.consumeFired()) {
+  if (pillTouchLongPress.consumeFired() || pillMouseLongPress.consumeFired()) {
     if (e?.preventDefault) e.preventDefault();
     return;
   }
   if (frameEl.value && isViewMode(frameEl.value)) {
     if (e?.preventDefault) e.preventDefault();
     exitViewMode(frameEl.value);
+    emit("keyboard:deactivate");
     return;
   }
   if (pillDidDrag) {
@@ -234,9 +283,10 @@ function onPillTouchStart(e) {
     if (!frame) return;
     if (isViewMode(frame)) {
       exitViewMode(frame);
+      emit("keyboard:deactivate");
       return;
     }
-    await enterViewMode(props.tab, frame, auth.apiFetch.bind(auth));
+    await doEnterViewMode();
   });
 }
 
@@ -314,6 +364,9 @@ onMounted(() => {
     pillEl.value.addEventListener("touchmove", onPillTouchMove, { passive: false });
     pillEl.value.addEventListener("touchend", onPillTouchEnd, { passive: false });
   }
+  if (frameEl.value) {
+    frameEl.value.addEventListener("wheel", onWheel, { passive: false, capture: true });
+  }
   document.addEventListener("paste", onPaste, true);
 });
 
@@ -332,6 +385,9 @@ onBeforeUnmount(() => {
   if (pillEl.value) {
     pillEl.value.removeEventListener("touchmove", onPillTouchMove);
     pillEl.value.removeEventListener("touchend", onPillTouchEnd);
+  }
+  if (frameEl.value) {
+    frameEl.value.removeEventListener("wheel", onWheel);
   }
   document.removeEventListener("paste", onPaste, true);
 });

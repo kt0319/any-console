@@ -60,8 +60,6 @@ TERMINAL_DEFAULT_ROWS = 24
 TERMINAL_TERM_TYPE = "xterm-256color"
 
 WS_MSG_RESIZE = b"\x00"
-WS_MSG_SCROLL = b"\x01"
-WS_MSG_CANCEL_COPY_MODE = b"\x02"
 
 STASH_REF_PATTERN = re.compile(r"^stash@\{\d+\}$")
 ICON_PATTERN = re.compile(

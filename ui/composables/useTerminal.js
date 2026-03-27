@@ -2,7 +2,7 @@ import { shallowRef } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "./useApi.js";
-import { WS_MSG_RESIZE, WS_MSG_SCROLL, WS_MSG_CANCEL_COPY_MODE } from "../utils/constants.js";
+import { WS_MSG_RESIZE } from "../utils/constants.js";
 import { emit } from "../app-bridge.js";
 
 const WS_CLOSE_SESSION_EXITED = 4001;
@@ -132,25 +132,9 @@ export function useTerminal() {
     if (!termEl || tab._elementBound) return;
     tab._elementBound = true;
 
-    const encoder = new TextEncoder();
-
     termEl.addEventListener("wheel", (e) => {
       e.preventDefault();
-      if (tab.ws?.readyState !== WebSocket.OPEN) return;
-      const direction = e.deltaY < 0 ? "up" : "down";
-      const lines = Math.max(1, Math.min(Math.ceil(Math.abs(e.deltaY) / 20), 15));
-      const payload = encoder.encode(JSON.stringify({ d: direction, n: lines }));
-      const msg = new Uint8Array(1 + payload.length);
-      msg[0] = WS_MSG_SCROLL;
-      msg.set(payload, 1);
-      tab.ws.send(msg);
     }, { passive: false });
-
-    termEl.addEventListener("click", () => {
-      if (tab.ws?.readyState === WebSocket.OPEN) {
-        tab.ws.send(new Uint8Array([WS_MSG_CANCEL_COPY_MODE]));
-      }
-    });
   }
 
   function ensureTerminalOpened(tab, frameEl) {

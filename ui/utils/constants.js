@@ -8,8 +8,6 @@ export const REPEAT_ACCELERATION = 8;
 export const INFINITE_SCROLL_THRESHOLD_PX = 80;
 
 export const WS_MSG_RESIZE = 0x00;
-export const WS_MSG_SCROLL = 0x01;
-export const WS_MSG_CANCEL_COPY_MODE = 0x02;
 
 export const LS_KEY_TOKEN = "any_console_token";
 export const LS_KEY_INPUT_HISTORY = "any_console_input_history";

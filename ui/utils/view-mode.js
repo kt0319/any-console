@@ -169,9 +169,6 @@ export function exitViewMode(frameEl) {
   frameEl.classList.remove("view-mode");
   const pre = frameEl.querySelector(".view-mode-textarea");
   if (pre) pre.remove();
-
-  const kbWrapper = document.querySelector(".keyboard-input-wrapper");
-  if (kbWrapper) kbWrapper.style.display = "";
 }
 
 export function isViewMode(frameEl) {
