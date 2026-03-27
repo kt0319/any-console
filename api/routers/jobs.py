@@ -22,7 +22,6 @@ from ..common import (
     sanitize_log_value,
 )
 from ..config import (
-    list_workspace_entries,
     load_all_config,
     load_global_config_section,
     load_workspace_config_section,

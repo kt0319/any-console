@@ -59,6 +59,7 @@ export function useViewport() {
     updateViewportHeight();
     if (window.visualViewport) {
       window.visualViewport.addEventListener("resize", updateViewportHeight);
+      window.visualViewport.addEventListener("scroll", updateViewportHeight);
     }
     window.addEventListener("resize", updateViewportHeight);
     window.addEventListener("orientationchange", () => setTimeout(updateViewportHeight, 120));
