@@ -37,7 +37,7 @@ const terminalStore = useTerminalStore();
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
 const inputStore = useInputStore();
-const { disconnectTerminal, deleteSession, connectDeferredTabs } = useTerminal();
+const { disconnectTerminal, deleteSession, connectDeferredTabs, connectTerminalWs } = useTerminal();
 const { sendTextToTerminal } = useKeyboard();
 const { initViewport } = useViewport();
 const { apiGet, apiPut } = useApi();
@@ -340,7 +340,10 @@ function onVisibilityChange() {
     tab._reconnectAttempts = 0;
   }
   setTimeout(() => {
-    connectDeferredTabs();
+    const activeTab = terminalStore.openTabs.find(t => t.id === terminalStore.activeTabId);
+    if (activeTab && activeTab._pendingRedraw && !activeTab.ws && !activeTab._wsDisposed) {
+      connectTerminalWs(activeTab);
+    }
     terminalBaseView.value?.fitAllTerminals({ force: true });
   }, 100);
 }

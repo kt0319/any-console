@@ -55,7 +55,7 @@ const auth = useAuthStore();
 const { beginDrag, updateHover, finishSplitDrop, cancelDrag } = useSplitDropDrag();
 const pillMouseLongPress = useLongPress(LONG_PRESS_MS);
 const pillTouchLongPress = useLongPress(LONG_PRESS_MS);
-const { ensureTerminalOpened, fitTerminal, observeFrameResize } = useTerminal();
+const { ensureTerminalOpened, fitTerminal, observeFrameResize, connectTerminalWs } = useTerminal();
 
 const paneEl = ref(null);
 const frameEl = ref(null);
@@ -379,6 +379,9 @@ onMounted(() => {
 
 watch(isActive, async (active) => {
   if (!active) return;
+  if (props.tab._pendingRedraw && !props.tab.ws && !props.tab._wsDisposed) {
+    connectTerminalWs(props.tab);
+  }
   await nextTick();
   requestAnimationFrame(() => {
     scheduleActiveFit(0);
