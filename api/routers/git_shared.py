@@ -9,7 +9,7 @@ from pathlib import Path
 
 from ..common import GIT_LONG_TIMEOUT_SEC, GIT_SHORT_TIMEOUT_SEC, resolve_workspace_path
 from ..errors import bad_request, forbidden, server_error, timeout_error
-from ..git_utils import git_branch, invalidate_git_info, run_git_command
+from ..git_utils import _run_git_raw, git_branch, invalidate_git_info, run_git_command
 
 _action_logger = logging.getLogger(__name__)
 
@@ -35,13 +35,7 @@ def file_operation_guard(operation_name):
 
 def run_raw_git(args, cwd, text=True):
     try:
-        return subprocess.run(
-            args,
-            capture_output=True,
-            text=text,
-            timeout=GIT_SHORT_TIMEOUT_SEC,
-            cwd=str(cwd),
-        )
+        return _run_git_raw(args, cwd, timeout=GIT_SHORT_TIMEOUT_SEC, text=text)
     except subprocess.TimeoutExpired:
         raise timeout_error("Git operation timed out") from None
 

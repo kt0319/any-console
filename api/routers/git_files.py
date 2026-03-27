@@ -26,7 +26,7 @@ def _git_tree_spec(ref: str, rel_path: str) -> str:
 
 def list_directory_entries_at_ref(ws_path, rel_path: str, ref: str):
     tree_spec = _git_tree_spec(ref, rel_path)
-    result = run_raw_git(["git", "ls-tree", "-z", tree_spec], cwd=ws_path)
+    result = run_raw_git(["ls-tree", "-z", tree_spec], cwd=ws_path)
     if result.returncode != 0:
         raise not_found("Directory not found")
 
@@ -49,11 +49,11 @@ def list_directory_entries_at_ref(ws_path, rel_path: str, ref: str):
 
 def read_file_content_at_ref(ws_path, path: str, ref: str):
     blob_spec = _git_tree_spec(ref, path)
-    type_result = run_raw_git(["git", "cat-file", "-t", blob_spec], cwd=ws_path)
+    type_result = run_raw_git(["cat-file", "-t", blob_spec], cwd=ws_path)
     if type_result.returncode != 0 or type_result.stdout.strip() != "blob":
         raise not_found("File not found")
 
-    result = run_raw_git(["git", "show", blob_spec], cwd=ws_path, text=False)
+    result = run_raw_git(["show", blob_spec], cwd=ws_path, text=False)
     if result.returncode != 0:
         raise not_found("File not found")
     return read_blob_content_response(path, result.stdout)

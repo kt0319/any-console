@@ -36,7 +36,6 @@ from ..terminal_session import (
     TERMINAL_SESSIONS,
     TerminalSession,
     create_tmux_session,
-    save_tmux_metadata,
     sessions_lock,
 )
 from ..validators import validate_icon, validate_icon_color
@@ -401,17 +400,18 @@ def execute_job(body: RunRequest):
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
             logger.error("tmux session creation failed: %s", e)
             raise server_error(f"Failed to create terminal: {e}") from None
+        session = TerminalSession(
+            workspace=body.workspace,
+            expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
+            tmux_session_name=tmux_name,
+            icon=body.icon,
+            icon_color=body.icon_color,
+            job_name=body.job_name,
+            job_label=body.job_label,
+        )
         with sessions_lock:
-            TERMINAL_SESSIONS[session_id] = TerminalSession(
-                workspace=body.workspace,
-                expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
-                tmux_session_name=tmux_name,
-                icon=body.icon,
-                icon_color=body.icon_color,
-                job_name=body.job_name,
-                job_label=body.job_label,
-            )
-        save_tmux_metadata(tmux_name, body.workspace, body.icon, body.icon_color, body.job_name, body.job_label)
+            TERMINAL_SESSIONS[session_id] = session
+        session.save_metadata()
         logger.info("terminal session created session=%s tmux=%s workspace=%s",
                      session_id, tmux_name, body.workspace or "(none)")
         return {

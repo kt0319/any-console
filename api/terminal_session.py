@@ -235,29 +235,6 @@ def _detect_workspace_from_tmux(tmux_name: str) -> str | None:
     return None
 
 
-def save_tmux_metadata(
-    tmux_name: str,
-    workspace: str | None,
-    icon: str | None,
-    icon_color: str | None,
-    job_name: str | None,
-    job_label: str | None,
-) -> None:
-    env_vars = {
-        "TMUX_WORKSPACE": workspace,
-        "TMUX_ICON": icon,
-        "TMUX_ICON_COLOR": icon_color,
-        "TMUX_JOB_NAME": job_name,
-        "TMUX_JOB_LABEL": job_label,
-    }
-    for key, value in env_vars.items():
-        if value:
-            subprocess.run(
-                ["tmux", "set-environment", "-t", tmux_name, key, value],
-                timeout=TMUX_CMD_TIMEOUT_SEC,
-                capture_output=True,
-            )
-
 
 def _load_tmux_metadata(tmux_name: str) -> dict:
     try:
