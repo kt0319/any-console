@@ -61,6 +61,20 @@ TERMINAL_TERM_TYPE = "xterm-256color"
 
 WS_MSG_RESIZE = b"\x00"
 
+MAX_DIFF_SIZE = 10 * 1024 * 1024
+MAX_FILE_SIZE = 512 * 1024
+MAX_IMAGE_PREVIEW_SIZE = 5 * 1024 * 1024
+GIT_LOG_MAX_SKIP = 10000
+HIDDEN_DIRS = {".git"}
+BINARY_EXTENSIONS = {
+    ".zip", ".gz", ".tar", ".bz2", ".7z", ".rar",
+    ".exe", ".dll", ".so", ".dylib", ".bin",
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx",
+    ".mp3", ".mp4", ".wav", ".avi", ".mov", ".mkv",
+    ".woff", ".woff2", ".ttf", ".otf", ".eot",
+}
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".svg"}
+
 STASH_REF_PATTERN = re.compile(r"^stash@\{\d+\}$")
 ICON_PATTERN = re.compile(
     r"^(mdi-[a-zA-Z0-9-]+|favicon:[a-zA-Z0-9._-]+|data:image/.+|icon:[a-f0-9]{16}\.(png|jpg|gif|webp|svg))$",

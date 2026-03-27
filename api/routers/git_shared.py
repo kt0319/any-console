@@ -7,9 +7,19 @@ import subprocess
 from contextlib import contextmanager
 from pathlib import Path
 
-from ..common import GIT_LONG_TIMEOUT_SEC, GIT_SHORT_TIMEOUT_SEC, resolve_workspace_path
+from ..common import (
+    BINARY_EXTENSIONS,
+    GIT_LONG_TIMEOUT_SEC,
+    GIT_SHORT_TIMEOUT_SEC,
+    HIDDEN_DIRS,
+    IMAGE_EXTENSIONS,
+    MAX_DIFF_SIZE,
+    MAX_FILE_SIZE,
+    MAX_IMAGE_PREVIEW_SIZE,
+    resolve_workspace_path,
+)
 from ..errors import bad_request, forbidden, server_error, timeout_error
-from ..git_utils import _run_git_raw, git_branch, invalidate_git_info, run_git_command
+from ..git_utils import run_git_raw, git_branch, invalidate_git_info, run_git_command
 
 _action_logger = logging.getLogger(__name__)
 
@@ -35,26 +45,10 @@ def file_operation_guard(operation_name):
 
 def run_raw_git(args, cwd, text=True):
     try:
-        return _run_git_raw(args, cwd, timeout=GIT_SHORT_TIMEOUT_SEC, text=text)
+        return run_git_raw(args, cwd, timeout=GIT_SHORT_TIMEOUT_SEC, text=text)
     except subprocess.TimeoutExpired:
         raise timeout_error("Git operation timed out") from None
 
-
-MAX_DIFF_SIZE = 10 * 1024 * 1024
-GIT_LOG_MAX_SKIP = 10000
-
-HIDDEN_DIRS = {".git"}
-
-MAX_FILE_SIZE = 512 * 1024
-BINARY_EXTENSIONS = {
-    ".zip", ".gz", ".tar", ".bz2", ".7z", ".rar",
-    ".exe", ".dll", ".so", ".dylib", ".bin",
-    ".pdf", ".doc", ".docx", ".xls", ".xlsx",
-    ".mp3", ".mp4", ".wav", ".avi", ".mov", ".mkv",
-    ".woff", ".woff2", ".ttf", ".otf", ".eot",
-}
-IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".svg"}
-MAX_IMAGE_PREVIEW_SIZE = 5 * 1024 * 1024
 
 
 def _resolve_rename_path(path: str) -> str:

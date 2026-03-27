@@ -349,21 +349,10 @@ class RunRequest(BaseModel):
     job_label: str | None = None
 
 
-@router.post("/run")
-def execute_job(body: RunRequest):
-    ws_path = resolve_workspace_path(body.workspace)
-
-    if body.job == "terminal":
-        job_def = TERMINAL_JOB
-    else:
-        available_jobs = get_workspace_jobs(body.workspace)
-        job_def = available_jobs.get(body.job)
-        if not job_def:
-            raise bad_request(f"Unknown job: {body.job}")
-
+def _validate_job_args(job_def, body_args, ws_path):
     ordered_args: list[str] = []
     for arg_option in job_def.args:
-        value = body.args.get(arg_option.name)
+        value = body_args.get(arg_option.name)
         if value is None:
             if arg_option.required:
                 raise bad_request(f"Missing required argument: {arg_option.name}")
@@ -383,44 +372,48 @@ def execute_job(body: RunRequest):
             if re.search(r"[\x00-\x1f\x7f]", value):
                 raise bad_request(f"Invalid characters in argument: {arg_option.name}")
         ordered_args.append(value)
+    return ordered_args
 
-    if body.job == "terminal":
-        with sessions_lock:
-            if len(TERMINAL_SESSIONS) >= MAX_TERMINAL_SESSIONS:
-                raise too_many_requests(
-                    f"セッション数が上限({MAX_TERMINAL_SESSIONS})に達しています",
-                )
-        cwd_path = str(ws_path) if ws_path else None
-        short_id = secrets.token_urlsafe(6)
-        safe_name = body.workspace.replace(".", "_") if body.workspace else None
-        session_id = f"{safe_name}-{short_id}" if safe_name else short_id
-        tmux_name = f"{TMUX_SESSION_PREFIX}{session_id}"
-        try:
-            create_tmux_session(cwd_path, tmux_name)
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
-            logger.error("tmux session creation failed: %s", e)
-            raise server_error(f"Failed to create terminal: {e}") from None
-        session = TerminalSession(
-            workspace=body.workspace,
-            expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
-            tmux_session_name=tmux_name,
-            icon=body.icon,
-            icon_color=body.icon_color,
-            job_name=body.job_name,
-            job_label=body.job_label,
-        )
-        with sessions_lock:
-            TERMINAL_SESSIONS[session_id] = session
-        session.save_metadata()
-        logger.info("terminal session created session=%s tmux=%s workspace=%s",
-                     session_id, tmux_name, body.workspace or "(none)")
-        return {
-            "status": "ok",
-            "session_id": session_id,
-            "ws_url": f"/terminal/ws/{session_id}",
-            "expires_in": TERMINAL_TIMEOUT_SEC,
-        }
 
+def _create_terminal_session(body, ws_path):
+    with sessions_lock:
+        if len(TERMINAL_SESSIONS) >= MAX_TERMINAL_SESSIONS:
+            raise too_many_requests(
+                f"セッション数が上限({MAX_TERMINAL_SESSIONS})に達しています",
+            )
+    cwd_path = str(ws_path) if ws_path else None
+    short_id = secrets.token_urlsafe(6)
+    safe_name = body.workspace.replace(".", "_") if body.workspace else None
+    session_id = f"{safe_name}-{short_id}" if safe_name else short_id
+    tmux_name = f"{TMUX_SESSION_PREFIX}{session_id}"
+    try:
+        create_tmux_session(cwd_path, tmux_name)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
+        logger.error("tmux session creation failed: %s", e)
+        raise server_error(f"Failed to create terminal: {e}") from None
+    session = TerminalSession(
+        workspace=body.workspace,
+        expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
+        tmux_session_name=tmux_name,
+        icon=body.icon,
+        icon_color=body.icon_color,
+        job_name=body.job_name,
+        job_label=body.job_label,
+    )
+    with sessions_lock:
+        TERMINAL_SESSIONS[session_id] = session
+    session.save_metadata()
+    logger.info("terminal session created session=%s tmux=%s workspace=%s",
+                 session_id, tmux_name, body.workspace or "(none)")
+    return {
+        "status": "ok",
+        "session_id": session_id,
+        "ws_url": f"/terminal/ws/{session_id}",
+        "expires_in": TERMINAL_TIMEOUT_SEC,
+    }
+
+
+def _run_regular_job(body, job_def, ordered_args, ws_path):
     cwd_path = str(ws_path) if ws_path else ""
     logger.info("job start job=%s workspace=%s", body.job, body.workspace or "(none)")
     try:
@@ -440,3 +433,23 @@ def execute_job(body: RunRequest):
             result.returncode, sanitize_log_value(result.stderr[:200]),
         )
     return payload
+
+
+@router.post("/run")
+def execute_job(body: RunRequest):
+    ws_path = resolve_workspace_path(body.workspace)
+
+    if body.job == "terminal":
+        job_def = TERMINAL_JOB
+    else:
+        available_jobs = get_workspace_jobs(body.workspace)
+        job_def = available_jobs.get(body.job)
+        if not job_def:
+            raise bad_request(f"Unknown job: {body.job}")
+
+    ordered_args = _validate_job_args(job_def, body.args, ws_path)
+
+    if body.job == "terminal":
+        return _create_terminal_session(body, ws_path)
+
+    return _run_regular_job(body, job_def, ordered_args, ws_path)

@@ -4,12 +4,13 @@ from pydantic import BaseModel
 from ..auth import verify_token
 from ..common import (
     GIT_LOG_MAX_ENTRIES,
+    GIT_LOG_MAX_SKIP,
     resolve_workspace_path,
 )
 from ..errors import bad_request
 from ..git_utils import run_git_command
 from ..validators import validate_branch_name, validate_commit_hash, validate_stash_ref
-from .git_shared import GIT_LOG_MAX_SKIP, execute_git_action
+from .git_shared import execute_git_action
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
