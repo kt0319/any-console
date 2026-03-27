@@ -14,7 +14,7 @@ RestartSec=3
 NoNewPrivileges=no
 ProtectSystem=no
 ProtectHome=no
-MemoryMax=2G
+MemoryMax=8G
 LimitNOFILE=4096
 
 [Install]

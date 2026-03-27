@@ -61,6 +61,21 @@ TERMINAL_SESSIONS: dict[str, TerminalSession] = {}
 sessions_lock = threading.Lock()
 
 
+def _run_outside_cgroup(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
+    uid = os.getuid()
+    env = kwargs.get("env") or os.environ.copy()
+    env.setdefault("XDG_RUNTIME_DIR", f"/run/user/{uid}")
+    env.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path=/run/user/{uid}/bus")
+    kwargs_with_env = {**kwargs, "env": env}
+    try:
+        return subprocess.run(
+            ["systemd-run", "--user", "--scope", "--quiet", *cmd],
+            **kwargs_with_env,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError, OSError):
+        return subprocess.run(cmd, **kwargs)
+
+
 def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
     user_shell = os.environ.get("SHELL", "/bin/zsh")
     cwd = workspace_path if workspace_path and os.path.isdir(workspace_path) else os.environ.get("HOME", "/")
@@ -69,7 +84,7 @@ def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
     if workspace_path:
         env["WORKSPACE"] = workspace_path
 
-    subprocess.run(
+    _run_outside_cgroup(
         [
             "tmux", "new-session", "-d", "-s", session_name,
             "-x", str(TERMINAL_DEFAULT_COLS), "-y", str(TERMINAL_DEFAULT_ROWS), user_shell,
