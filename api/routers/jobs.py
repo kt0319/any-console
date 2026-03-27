@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from ..auth import verify_token
 from ..common import (
+    GLOBAL_CONFIG_KEY,
     MAX_COMMAND_LENGTH,
     MAX_ICON_VALUE_LENGTH,
     MAX_LABEL_LENGTH,
@@ -22,6 +23,7 @@ from ..common import (
 )
 from ..config import (
     list_workspace_entries,
+    load_all_config,
     load_global_config_section,
     load_workspace_config_section,
     save_global_config_section,
@@ -144,10 +146,31 @@ def serialize_workspace_jobs(workspace_name: str) -> dict:
 
 @router.get("/jobs/workspaces")
 def list_all_workspace_jobs():
-    entries = list_workspace_entries()
+    all_config = load_all_config()
+    global_jobs_data = all_config.get(GLOBAL_CONFIG_KEY, {}).get("jobs", {})
     result = {}
-    for name in sorted(entries.keys()):
-        result[name] = serialize_workspace_jobs(name)
+    for name in sorted(all_config.keys()):
+        if name == GLOBAL_CONFIG_KEY or not isinstance(all_config[name], dict):
+            continue
+        ws_jobs_data = all_config[name].get("jobs", {})
+        merged = {}
+        for is_global, jobs_data in [(True, global_jobs_data), (False, ws_jobs_data)]:
+            for jname, entry in jobs_data.items():
+                job = JobDefinition(
+                    command=entry.get("command", ""),
+                    label=entry.get("label", jname),
+                    description=entry.get("description", ""),
+                    icon=entry.get("icon", ""),
+                    icon_color=entry.get("icon_color", ""),
+                    confirm=entry.get("confirm", True),
+                    terminal=entry.get("terminal", True),
+                )
+                job._is_global = is_global
+                merged[jname] = job
+        result[name] = {
+            jname: job_definition_to_dict(jdef, include_global=True)
+            for jname, jdef in merged.items()
+        }
     return result
 
 
