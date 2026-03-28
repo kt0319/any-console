@@ -64,6 +64,8 @@ export function useTerminal() {
       if (tab._wsDisposed) return;
 
       if (e.code === WS_CLOSE_SESSION_EXITED) {
+        const label = tab.jobLabel || tab.label || tab.sessionId;
+        emit("toast:show", { message: `${label}: セッションが予期せず終了しました`, type: "error" });
         emit("tab:close", { tab });
         return;
       }
