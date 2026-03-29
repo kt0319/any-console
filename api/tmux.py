@@ -40,6 +40,8 @@ def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
         [
             "tmux", "new-session", "-d", "-s", session_name,
             "-x", str(TERMINAL_DEFAULT_COLS), "-y", str(TERMINAL_DEFAULT_ROWS), user_shell,
+            ";", "set-option", "-t", session_name, "status", "off",
+            ";", "set-option", "-t", session_name, "mouse", "off",
         ],
         cwd=cwd,
         env=env,
@@ -47,12 +49,6 @@ def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
         check=True,
         capture_output=True,
     )
-    for opt_args in (["status", "off"], ["mouse", "off"]):
-        subprocess.run(
-            ["tmux", "set-option", "-t", session_name, *opt_args],
-            timeout=TMUX_CMD_TIMEOUT_SEC,
-            capture_output=True,
-        )
 
 
 def attach_tmux_session(session_name: str, cols: int = 0, rows: int = 0) -> tuple[int, int]:
