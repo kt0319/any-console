@@ -68,7 +68,12 @@ export function useTerminal() {
       tab.ws = null;
       if (tab._wsDisposed) return;
 
-      if (e.code === WS_CLOSE_SESSION_NOT_FOUND || e.code === WS_CLOSE_SESSION_EXITED) {
+      if (e.code === WS_CLOSE_SESSION_EXITED) {
+        emit("tab:close", { tab });
+        return;
+      }
+
+      if (e.code === WS_CLOSE_SESSION_NOT_FOUND) {
         const label = tab.jobLabel || tab.label || tab.sessionId;
         emit("toast:show", { message: `${label}: Session terminated unexpectedly`, type: "error" });
         emit("tab:close", { tab });
