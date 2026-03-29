@@ -8,6 +8,7 @@ export const REPEAT_ACCELERATION = 8;
 export const INFINITE_SCROLL_THRESHOLD_PX = 80;
 
 export const WS_MSG_RESIZE = 0x00;
+export const WS_CLOSE_SESSION_NOT_FOUND = 1008;
 export const WS_CLOSE_SESSION_EXITED = 4001;
 export const RECONNECT_INITIAL_DELAY = 200;
 export const RECONNECT_BACKOFF_MAX = 5000;

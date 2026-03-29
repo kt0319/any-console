@@ -2,7 +2,7 @@ import { shallowRef } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "./useApi.js";
-import { WS_MSG_RESIZE, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, RECONNECT_BACKOFF_MAX } from "../utils/constants.js";
+import { WS_MSG_RESIZE, WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, RECONNECT_BACKOFF_MAX } from "../utils/constants.js";
 import { emit } from "../app-bridge.js";
 
 export function useTerminal() {
@@ -68,7 +68,7 @@ export function useTerminal() {
       tab.ws = null;
       if (tab._wsDisposed) return;
 
-      if (e.code === WS_CLOSE_SESSION_EXITED) {
+      if (e.code === WS_CLOSE_SESSION_NOT_FOUND || e.code === WS_CLOSE_SESSION_EXITED) {
         const label = tab.jobLabel || tab.label || tab.sessionId;
         emit("toast:show", { message: `${label}: Session terminated unexpectedly`, type: "error" });
         emit("tab:close", { tab });
