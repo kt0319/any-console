@@ -105,7 +105,7 @@ def git_commit(name: str, body: CommitRequest):
     ws_path = resolve_workspace_path(name)
     message = body.message.strip()
     if not message:
-        raise bad_request("コミットメッセージを入力してください")
+        raise bad_request("Please enter a commit message")
     add_result = run_git_command(["add", "-A"], cwd=ws_path, operation="add")
     if add_result["exit_code"] != 0:
         return add_result

@@ -31,7 +31,7 @@
       </label>
     </template>
     <div class="terminal-settings-actions">
-      <button type="button" class="terminal-settings-reset-btn" @click="resetAll">初期値に戻す</button>
+      <button type="button" class="terminal-settings-reset-btn" @click="resetAll">Reset to Default</button>
     </div>
   </div>
 </template>
@@ -42,7 +42,7 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { emit } from "../app-bridge.js";
 
 const modalTitle = inject("modalTitle");
-modalTitle.value = "ターミナル";
+modalTitle.value = "Terminal";
 
 const terminalStore = useTerminalStore();
 const TERMINAL_SETTINGS_SCHEMA = terminalStore.TERMINAL_SETTINGS_SCHEMA;

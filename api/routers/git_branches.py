@@ -61,7 +61,7 @@ def delete_branch(name: str, body: DeleteBranchRequest):
         ["rev-parse", "--abbrev-ref", "HEAD"], cwd=ws_path, operation="current branch",
     )["stdout"].strip()
     if branch == current_branch:
-        raise bad_request("現在のブランチは削除できません")
+        raise bad_request("Cannot delete the current branch")
     return execute_git_action(name, ["branch", "-D", branch], operation="delete branch", log_extra=f"branch={branch}")
 
 

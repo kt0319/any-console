@@ -55,7 +55,7 @@
           </span>
           <button type="button" class="split-tab-close-btn" @click.stop="onClose(tab)">&times;</button>
         </div>
-        <div v-if="openTabs.length === 0" class="clone-repo-empty">開いているタブはありません</div>
+        <div v-if="openTabs.length === 0" class="clone-repo-empty">No open tabs</div>
       </div>
     </div>
   </div>
@@ -69,7 +69,7 @@ import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
 
 const modalTitle = inject("modalTitle");
-modalTitle.value = "タブ";
+modalTitle.value = "Tabs";
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();

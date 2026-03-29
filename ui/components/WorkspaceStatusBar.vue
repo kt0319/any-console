@@ -15,10 +15,10 @@
       tabindex="-1"
       class="non-git-hint commit-msg-btn"
       @click="openFileModal"
-    >Gitリポジトリではありません</button>
+    >Not a Git repository</button>
     <div v-if="isGitRepo && hasGitActions" class="git-actions">
       <GitActionBtn v-if="behind > 0" icon="pull" title="Pull" :count="behind" :running="isRunning(workspace, 'pull')" btn-class="pull-btn has-count" @action="doAction('pull')" />
-      <GitActionBtn v-if="!hasUpstream && hasRemoteBranch" icon="set-upstream" title="追跡設定" :running="isRunning(workspace, 'set-upstream')" btn-class="icon-only upstream-set-btn" @action="doAction('set-upstream')" />
+      <GitActionBtn v-if="!hasUpstream && hasRemoteBranch" icon="set-upstream" title="Set Upstream" :running="isRunning(workspace, 'set-upstream')" btn-class="icon-only upstream-set-btn" @action="doAction('set-upstream')" />
       <GitActionBtn v-if="!hasUpstream && !hasRemoteBranch" icon="push-upstream" title="Push" :count="ahead" :running="isRunning(workspace, 'push-upstream')" btn-class="upstream-btn" @action="doAction('push-upstream')" />
       <GitActionBtn v-if="hasUpstream && ahead > 0" icon="push" title="Push" :count="ahead" :running="isRunning(workspace, 'push')" btn-class="push-btn has-count" @action="doAction('push')" />
     </div>
@@ -86,14 +86,14 @@ const isDirty = computed(() => ws.value && ws.value.clean === false);
 const commitMsgHtml = computed(() => {
   if (!ws.value) return "";
   const branch = ws.value.branch || "";
-  const msg = isDirty.value ? "変更あり" : (ws.value.last_commit_message || "");
+  const msg = isDirty.value ? "Changes" : (ws.value.last_commit_message || "");
   const msgClass = isDirty.value ? "commit-btn-msg commit-btn-msg-muted" : "commit-btn-msg";
   const escaped = escapeHtml(msg);
   return `<span class="commit-btn-branch">${escapeHtml(branch)}</span>` +
     `<span class="commit-btn-msg-wrap"><span class="${msgClass}">${escaped}</span></span>`;
 });
 
-const commitTooltip = computed(() => "コミット履歴");
+const commitTooltip = computed(() => "History");
 
 const numstatHtml = computed(() => {
   if (!ws.value || !isDirty.value) return "";

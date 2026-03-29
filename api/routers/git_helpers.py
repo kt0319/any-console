@@ -43,7 +43,7 @@ def run_raw_git(args, cwd, text=True):
 def get_current_branch(ws_path):
     branch = git_branch(ws_path)
     if not branch:
-        raise bad_request("現在のブランチを取得できません")
+        raise bad_request("Cannot get current branch")
     return branch
 
 

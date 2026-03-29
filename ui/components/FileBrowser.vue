@@ -19,7 +19,7 @@
         >{{ seg }}</button>
         <span v-else class="file-browser-crumb-current">{{ seg }}</span>
       </template>
-      <span v-if="props.diffFile" class="file-browser-crumb-badge">差分</span>
+      <span v-if="props.diffFile" class="file-browser-crumb-badge">Diff</span>
       <span v-if="!props.diffFile" class="file-browser-header-actions">
         <template v-if="fileContent">
           <button type="button" class="file-browser-header-btn" @click="downloadCurrentFile"><span class="mdi mdi-download"></span></button>
@@ -43,7 +43,7 @@
     </template>
 
     <template v-else>
-      <div v-if="isFileBrowserLoading" class="file-content-message">読み込み中...</div>
+      <div v-if="isFileBrowserLoading" class="file-content-message">Loading...</div>
       <div v-else-if="fileBrowserError" class="file-content-message">{{ fileBrowserError }}</div>
 
       <template v-else-if="!fileContent">
@@ -67,16 +67,16 @@
               @touchcancel="onLongPressEnd"
             />
             <li v-if="contextEntry?.name === entry.name" class="file-browser-action-menu">
-              <button v-if="entry.type === 'file'" type="button" @click="openEntryInEditor"><span class="mdi mdi-file-edit-outline"></span> エディタ</button>
-              <button v-if="entry.type === 'file'" type="button" @click="downloadEntry"><span class="mdi mdi-download"></span> ダウンロード</button>
+              <button v-if="entry.type === 'file'" type="button" @click="openEntryInEditor"><span class="mdi mdi-file-edit-outline"></span> Editor</button>
+              <button v-if="entry.type === 'file'" type="button" @click="downloadEntry"><span class="mdi mdi-download"></span> Download</button>
               <button v-if="githubEntryUrl" type="button" @click="openGitHub"><span class="mdi mdi-github"></span> GitHub</button>
-              <button type="button" @click="renameEntry"><span class="mdi mdi-rename-box"></span> リネーム</button>
-              <button type="button" @click="moveEntry"><span class="mdi mdi-file-move-outline"></span> 移動</button>
-              <button type="button" class="file-browser-action-delete" @click="deleteEntry"><span class="mdi mdi-delete-outline"></span> 削除</button>
+              <button type="button" @click="renameEntry"><span class="mdi mdi-rename-box"></span> Rename</button>
+              <button type="button" @click="moveEntry"><span class="mdi mdi-file-move-outline"></span> Move</button>
+              <button type="button" class="file-browser-action-delete" @click="deleteEntry"><span class="mdi mdi-delete-outline"></span> Delete</button>
             </li>
           </template>
         </ul>
-        <div v-if="entries.length === 0" class="file-content-message">ファイルがありません</div>
+        <div v-if="entries.length === 0" class="file-content-message">No files</div>
       </template>
 
       <FileTextViewer v-else :fileContent="fileContent" :fileName="currentPath" />
@@ -227,12 +227,12 @@ async function navigateToPath(path) {
   try {
     const { ok, data } = await apiGet(wsEndpoint(workspace, `files?path=${encodeURIComponent(path)}`));
     if (!ok) {
-      fileBrowserError.value = "読み込みに失敗しました";
+      fileBrowserError.value = "Failed to load";
       return;
     }
     entries.value = data.entries || [];
   } catch (e) {
-    fileBrowserError.value = "読み込みに失敗しました";
+    fileBrowserError.value = "Failed to load";
     console.error("FileBrowser navigate failed:", e);
   } finally {
     isFileBrowserLoading.value = false;
@@ -249,12 +249,12 @@ async function openFile(path) {
   try {
     const { ok, data } = await apiGet(wsEndpoint(workspace, `file-content?path=${encodeURIComponent(path)}`));
     if (!ok) {
-      fileBrowserError.value = "ファイルを開けませんでした";
+      fileBrowserError.value = "Could not open file";
       return;
     }
     fileContent.value = data;
   } catch (e) {
-    fileBrowserError.value = "ファイルを開けませんでした";
+    fileBrowserError.value = "Could not open file";
     console.error("FileBrowser openFile failed:", e);
   } finally {
     isFileBrowserLoading.value = false;
@@ -299,7 +299,7 @@ async function renameEntry() {
   const filePath = entryPath();
   const fileName = contextEntry.value?.name;
   if (!filePath || !fileName) return;
-  const newName = prompt("新しい名前:", fileName);
+  const newName = prompt("New name:", fileName);
   if (!newName || newName === fileName) { contextEntry.value = null; return; }
   const parentPath = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
   const destPath = parentPath ? `${parentPath}/${newName}` : newName;
@@ -310,7 +310,7 @@ async function renameEntry() {
 async function moveEntry() {
   const filePath = entryPath();
   if (!filePath) return;
-  const destPath = prompt("移動先パス:", filePath);
+  const destPath = prompt("Destination path:", filePath);
   if (!destPath || destPath === filePath) { contextEntry.value = null; return; }
   contextEntry.value = null;
   await renameFile(filePath, destPath);
@@ -322,10 +322,10 @@ async function renameFile(src, dest) {
   try {
     const { ok } = await apiPost(wsEndpoint(workspace, "rename"), { src, dest });
     if (!ok) {
-      emit("toast:show", { message: "リネームに失敗しました", type: "error" });
+      emit("toast:show", { message: "Rename failed", type: "error" });
       return;
     }
-    emit("toast:show", { message: "リネームしました", type: "success" });
+    emit("toast:show", { message: "Renamed", type: "success" });
     await navigateToPath(currentPath.value);
   } catch (e) {
     emit("toast:show", { message: e.message, type: "error" });
@@ -336,7 +336,7 @@ async function deleteEntry() {
   const filePath = entryPath();
   const fileName = contextEntry.value?.name;
   if (!filePath || !fileName) return;
-  if (!confirm(`「${fileName}」を削除しますか？`)) { contextEntry.value = null; return; }
+  if (!confirm(`Delete "${fileName}"?`)) { contextEntry.value = null; return; }
   contextEntry.value = null;
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
@@ -346,7 +346,7 @@ async function deleteEntry() {
       emit("toast:show", { message: MSG_DELETE_FAILED, type: "error" });
       return;
     }
-    emit("toast:show", { message: "削除しました", type: "success" });
+    emit("toast:show", { message: "Deleted", type: "success" });
     await navigateToPath(currentPath.value);
   } catch (e) {
     emit("toast:show", { message: e.message, type: "error" });
@@ -359,7 +359,7 @@ async function downloadFile(filePath) {
   try {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/download?path=${encodeURIComponent(filePath)}`);
     if (!res || !res.ok) {
-      emit("toast:show", { message: "ダウンロードに失敗しました", type: "error" });
+      emit("toast:show", { message: "Download failed", type: "error" });
       return;
     }
     const blob = await res.blob();
@@ -372,7 +372,7 @@ async function downloadFile(filePath) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   } catch {
-    emit("toast:show", { message: "ダウンロードに失敗しました", type: "error" });
+    emit("toast:show", { message: "Download failed", type: "error" });
   }
 }
 
@@ -468,10 +468,10 @@ async function uploadDroppedFiles(files) {
   }
 
   if (successCount > 0) {
-    emit("toast:show", { message: `${successCount}件アップロードしました`, type: "success" });
+    emit("toast:show", { message: `${successCount} file(s) uploaded`, type: "success" });
   }
   if (failCount > 0) {
-    emit("toast:show", { message: `${failCount}件アップロードに失敗しました`, type: "error" });
+    emit("toast:show", { message: `${failCount} file(s) failed to upload`, type: "error" });
   }
   await navigateToPath(uploadPath);
 }
@@ -548,7 +548,7 @@ defineExpose({ load: loadFileBrowserRoot });
 }
 
 .file-browser.file-browser-drop-active::after {
-  content: "ここにドロップでアップロード";
+  content: "Drop files to upload";
   position: absolute;
   inset: 12px;
   border: 2px dashed var(--accent);

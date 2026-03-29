@@ -2,31 +2,31 @@
   <div class="settings-menu-content">
     <div class="settings-menu">
       <button type="button" class="settings-menu-item" @click="pushView('WorkspaceOpen')">
-        <span class="mdi mdi-folder-multiple"></span> ワークスペース
+        <span class="mdi mdi-folder-multiple"></span> Workspaces
       </button>
       <button type="button" class="settings-menu-item" @click="pushView('WorkspaceAdd')">
-        <span class="mdi mdi-plus-circle-outline"></span> ワークスペース追加
+        <span class="mdi mdi-plus-circle-outline"></span> Add Workspace
       </button>
       <button type="button" class="settings-menu-item" @click="pushView('WorkspaceConfig')">
-        <span class="mdi mdi-cog-outline"></span> ワークスペース設定
+        <span class="mdi mdi-cog-outline"></span> Workspace Settings
       </button>
       <button type="button" class="settings-menu-item" @click="pushView('GlobalJobConfig')">
-        <span class="mdi mdi-briefcase-outline"></span> 共通ジョブ
+        <span class="mdi mdi-briefcase-outline"></span> Global Jobs
       </button>
       <button type="button" class="settings-menu-item" @click="pushView('TabConfig')">
-        <span class="mdi mdi-tab"></span> タブ
+        <span class="mdi mdi-tab"></span> Tabs
       </button>
       <button type="button" class="settings-menu-item" @click="pushView('TerminalConfig')">
-        <span class="mdi mdi-format-font-size-increase"></span> ターミナル
+        <span class="mdi mdi-format-font-size-increase"></span> Terminal
       </button>
       <button type="button" class="settings-menu-item" @click="pushView('EditorConfig')">
-        <span class="mdi mdi-application-edit-outline"></span> エディタ
+        <span class="mdi mdi-application-edit-outline"></span> Editor
       </button>
       <button type="button" class="settings-menu-item" @click="pushView('ConfigFile')">
-        <span class="mdi mdi-file-cog"></span> 設定ファイル
+        <span class="mdi mdi-file-cog"></span> Config File
       </button>
       <button type="button" class="settings-menu-item" @click="pushView('ServerInfo')">
-        <span class="mdi mdi-information-outline"></span> サーバー情報
+        <span class="mdi mdi-information-outline"></span> Server Info
       </button>
     </div>
   </div>
@@ -37,7 +37,7 @@ import { inject } from "vue";
 
 const modalTitle = inject("modalTitle");
 const pushView = inject("pushView");
-modalTitle.value = "設定";
+modalTitle.value = "Settings";
 </script>
 
 <style scoped>

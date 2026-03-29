@@ -31,14 +31,14 @@ async function execNonTerminalJob(jobName, workspace) {
     if (!res) return;
     if (res.ok) {
       const data = await res.json();
-      const msg = data.stdout || data.stderr || "完了";
+      const msg = data.stdout || data.stderr || "Done";
       emit("toast:show", { message: msg, type: data.returncode === 0 ? "success" : "error" });
     } else {
       const detail = await res.text();
-      emit("toast:show", { message: `ジョブ失敗: ${detail}`, type: "error" });
+      emit("toast:show", { message: `Job failed: ${detail}`, type: "error" });
     }
   } catch (e) {
-    emit("toast:show", { message: `ジョブエラー: ${e.message}`, type: "error" });
+    emit("toast:show", { message: `Job error: ${e.message}`, type: "error" });
   }
 }
 

@@ -24,17 +24,17 @@
           <span class="mdi mdi-cog"></span>
         </button>
       </div>
-      <div v-if="allWorkspaces.length === 0" class="clone-repo-empty">ワークスペースがありません</div>
+      <div v-if="allWorkspaces.length === 0" class="clone-repo-empty">No workspaces</div>
     </div>
 
     <!-- ワークスペース個別設定 -->
     <div v-if="editWs" class="ws-settings-detail">
       <div class="ws-settings-row">
-        <span class="ws-settings-label">アイコン</span>
+        <span class="ws-settings-label">Icon</span>
         <button type="button" class="icon-select-btn" @click="openIconPicker">
           <span class="icon-select-preview">
             <span v-html="renderIconStr(editIcon || 'mdi-console', editIconColor, 18)"></span>
-            <span class="icon-select-label">{{ editIcon || 'デフォルト' }}</span>
+            <span class="icon-select-label">{{ editIcon || 'Default' }}</span>
           </span>
         </button>
       </div>
@@ -42,14 +42,14 @@
       <!-- ジョブ一覧 -->
       <div class="ws-settings-section">
         <div class="ws-settings-section-header">
-          <span>ジョブ</span>
+          <span>Jobs</span>
           <button type="button" class="ws-add-item-btn" @click="startAddJob">
             <span class="mdi mdi-plus"></span>
           </button>
         </div>
         <div class="ws-settings-item-list">
-          <div v-if="isLoadingJobs" class="ws-settings-empty">読み込み中...</div>
-          <div v-else-if="jobEntries.length === 0" class="ws-settings-empty">ジョブなし</div>
+          <div v-if="isLoadingJobs" class="ws-settings-empty">Loading...</div>
+          <div v-else-if="jobEntries.length === 0" class="ws-settings-empty">No jobs</div>
           <div
             v-for="entry in jobEntries"
             :key="entry.name"
@@ -59,9 +59,9 @@
           >
             <span class="ws-settings-item-icon" v-html="renderIconStr(entry.job.icon || 'mdi-play', entry.job.icon_color, 16)"></span>
             <span class="ws-settings-item-name">{{ entry.job.label || entry.name }}</span>
-            <span v-if="entry.job.global" class="ws-settings-item-badge">共通</span>
+            <span v-if="entry.job.global" class="ws-settings-item-badge">Global</span>
             <div v-if="!entry.job.global" class="ws-settings-item-actions">
-              <button type="button" class="ws-settings-item-action-btn" title="削除" @click.stop="deleteJob(entry)">
+              <button type="button" class="ws-settings-item-action-btn" title="Delete" @click.stop="deleteJob(entry)">
                 <span class="mdi mdi-delete-outline"></span>
               </button>
             </div>
@@ -72,7 +72,7 @@
       <div class="ws-settings-section ws-delete-section">
         <button type="button" class="ws-delete-btn" @click="deleteWorkspace">
           <span class="mdi mdi-delete-outline"></span>
-          ワークスペースを削除
+          Delete Workspace
         </button>
       </div>
 
@@ -91,7 +91,7 @@ import { renderIconStr } from "../utils/render-icon.js";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
 
 const { modalTitle, pushView, viewState } = useModalView();
-modalTitle.value = "ワークスペース設定";
+modalTitle.value = "Workspace Settings";
 
 const workspaceStore = useWorkspaceStore();
 const { apiGet, apiPut, apiDelete, wsEndpoint } = useApi();
@@ -100,7 +100,7 @@ const wsListEl = ref(null);
 const allWorkspaces = ref([]);
 const editWs = ref(null);
 watchEffect(() => {
-  modalTitle.value = editWs.value ? editWs.value.name : "ワークスペース設定";
+  modalTitle.value = editWs.value ? editWs.value.name : "Workspace Settings";
 });
 const editIcon = ref("");
 const editIconColor = ref("");
@@ -201,7 +201,7 @@ function startEditJob(entry) {
 
 async function deleteWorkspace() {
   if (!editWs.value) return;
-  if (!confirm(`「${editWs.value.name}」を削除しますか？\nディレクトリは残ります。`)) return;
+  if (!confirm(`Delete "${editWs.value.name}"?\nThe directory will remain.`)) return;
   try {
     const { ok, data } = await apiDelete(`/workspaces/${encodeURIComponent(editWs.value.name)}`);
     if (ok) {

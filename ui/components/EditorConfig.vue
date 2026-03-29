@@ -1,6 +1,6 @@
 <template>
   <div class="modal-scroll-body">
-    <div class="settings-section-label">プリセット</div>
+    <div class="settings-section-label">Preset</div>
     <div class="editor-preset-row">
       <button
         v-for="preset in EDITOR_PRESETS"
@@ -15,10 +15,10 @@
         class="editor-preset-btn editor-preset-clear"
         :class="{ active: urlTemplate === '' }"
         @click="urlTemplate = ''"
-      >なし</button>
+      >None</button>
     </div>
 
-    <div class="settings-section-label">URLテンプレート</div>
+    <div class="settings-section-label">URL Template</div>
     <textarea
       ref="textareaRef"
       v-model="urlTemplate"
@@ -37,7 +37,7 @@
       >{{ v }}</button>
     </div>
 
-    <div class="settings-section-label">プレビュー</div>
+    <div class="settings-section-label">Preview</div>
     <div class="editor-url-preview">{{ previewUrl }}</div>
   </div>
 </template>
@@ -47,7 +47,7 @@ import { ref, inject, computed, watch, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 
 const modalTitle = inject("modalTitle");
-modalTitle.value = "エディタ";
+modalTitle.value = "Editor";
 
 const { apiGet, apiPut } = useApi();
 
@@ -66,7 +66,7 @@ const workDir = ref("");
 
 const previewUrl = computed(() => {
   const tmpl = urlTemplate.value.trim();
-  if (!tmpl) return "(エディタボタン非表示)";
+  if (!tmpl) return "(Editor button hidden)";
   return tmpl
     .replace(/\{user\}/g, editorUser.value || "user")
     .replace(/\{host\}/g, editorHost.value || "host")

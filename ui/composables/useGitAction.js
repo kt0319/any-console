@@ -5,15 +5,15 @@ import { useApi } from "./useApi.js";
 const ACTION_LABELS = {
   pull: "Pull",
   push: "Push",
-  "push-upstream": "Push (upstream設定)",
-  "set-upstream": "追跡設定",
+  "push-upstream": "Push (set upstream)",
+  "set-upstream": "Set Upstream",
 };
 
 const ACTION_CONFIRM = {
-  pull: "pullします",
-  push: "pushします",
-  "push-upstream": "upstream設定してpushします",
-  "set-upstream": "追跡設定します",
+  pull: "pull",
+  push: "push",
+  "push-upstream": "set upstream and push",
+  "set-upstream": "set upstream tracking",
 };
 
 export function useGitAction() {
@@ -24,17 +24,17 @@ export function useGitAction() {
   async function gitAction(wsName, action, { branch } = {}) {
     if (runningAction.value) return;
     const label = ACTION_LABELS[action] || action;
-    const confirmText = ACTION_CONFIRM[action] || `${label}を実行します`;
-    const lines = [`リポジトリ：${wsName}`];
-    if (branch) lines.push(`ブランチ：${branch}`);
+    const confirmText = ACTION_CONFIRM[action] || `execute ${label}`;
+    const lines = [`Repository: ${wsName}`];
+    if (branch) lines.push(`Branch: ${branch}`);
     lines.push("", confirmText);
     const msg = lines.join("\n");
     if (!confirm(msg)) return;
     runningAction.value = `${wsName}:${action}`;
     try {
       await apiWithToast(wsEndpoint(wsName, action), {}, {
-        successMessage: `${wsName}: ${label}完了`,
-        errorMessage: `${label}に失敗しました`,
+        successMessage: `${wsName}: ${label} done`,
+        errorMessage: `${label} failed`,
         onSuccess: () => workspaceStore.fetchStatuses(),
       });
     } finally {

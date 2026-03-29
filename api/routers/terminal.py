@@ -104,10 +104,10 @@ async def get_terminal_buffer(session_id: str):
             text=True,
         )
         if result.returncode != 0:
-            raise server_error("バッファ取得に失敗しました")
+            raise server_error("Failed to get buffer")
         return {"content": result.stdout}
     except subprocess.TimeoutExpired as e:
-        raise timeout_error("タイムアウト") from e
+        raise timeout_error("Timeout") from e
 
 
 @router.delete("/terminal/sessions/{session_id}")
@@ -137,13 +137,13 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
     await websocket.accept()
 
     if not session:
-        await websocket.close(code=1008, reason="セッションが存在しません")
+        await websocket.close(code=1008, reason="Session not found")
         return
 
     if session.expires_at <= time.time():
         with sessions_lock:
             TERMINAL_SESSIONS.pop(session_id, None)
-        await websocket.close(code=1008, reason="セッションがタイムアウトしました")
+        await websocket.close(code=1008, reason="Session timed out")
         return
 
     if not tmux_session_exists(session.tmux_session_name):
@@ -160,7 +160,7 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
             logger.error("failed to recreate tmux session=%s: %s", session_id, e)
             with sessions_lock:
                 TERMINAL_SESSIONS.pop(session_id, None)
-            await websocket.close(code=1008, reason="シェルプロセスが終了しました")
+            await websocket.close(code=1008, reason="Shell process has exited")
             return
 
     need_pty_bridge = session.fd is None or session.pid is None
@@ -181,7 +181,7 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
             fd, pid = attach_tmux_session(session.tmux_session_name, cols, rows)
         except OSError as e:
             logger.error("tmux attach failed session=%s: %s", session_id, e)
-            await websocket.close(code=1011, reason="tmux attach失敗")
+            await websocket.close(code=1011, reason="tmux attach failed")
             return
         session.fd = fd
         session.pid = pid

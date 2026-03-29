@@ -2,14 +2,14 @@
   <div class="modal-scroll-body">
     <div class="ws-settings-section">
       <div class="ws-settings-section-header">
-        <span>共通ジョブ</span>
+        <span>Global Jobs</span>
         <button type="button" class="ws-add-item-btn" @click="startAddJob">
           <span class="mdi mdi-plus"></span>
         </button>
       </div>
       <div class="ws-settings-item-list">
-        <div v-if="isLoading" class="ws-settings-empty">読み込み中...</div>
-        <div v-else-if="jobEntries.length === 0" class="ws-settings-empty">共通ジョブなし</div>
+        <div v-if="isLoading" class="ws-settings-empty">Loading...</div>
+        <div v-else-if="jobEntries.length === 0" class="ws-settings-empty">No global jobs</div>
         <div
           v-for="entry in jobEntries"
           :key="entry.name"
@@ -19,7 +19,7 @@
           <span class="ws-settings-item-icon" v-html="renderIconStr(entry.job.icon || 'mdi-play', entry.job.icon_color, 16)"></span>
           <span class="ws-settings-item-name">{{ entry.job.label || entry.name }}</span>
           <div class="ws-settings-item-actions">
-            <button type="button" class="ws-settings-item-action-btn" title="削除" @click.stop="deleteJob(entry)">
+            <button type="button" class="ws-settings-item-action-btn" title="Delete" @click.stop="deleteJob(entry)">
               <span class="mdi mdi-delete-outline"></span>
             </button>
           </div>
@@ -36,7 +36,7 @@ import { useModalView } from "../composables/useModalView.js";
 import { renderIconStr } from "../utils/render-icon.js";
 
 const { modalTitle, pushView } = useModalView();
-modalTitle.value = "共通ジョブ設定";
+modalTitle.value = "Global Jobs";
 
 const { apiGet, apiDelete } = useApi();
 

@@ -37,7 +37,7 @@ function dismiss(toast) {
 }
 
 function show(message, type = "error") {
-  const text = typeof message === "string" ? message : String(message?.message || message || "不明なエラー");
+  const text = typeof message === "string" ? message : String(message?.message || message || "Unknown error");
   const id = ++idCounter;
   const toast = { id, message: text, type, top: 24 };
   toasts.value.push(toast);

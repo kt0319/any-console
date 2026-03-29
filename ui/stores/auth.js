@@ -59,11 +59,11 @@ export const useAuthStore = defineStore("auth", () => {
       const res = await fetch("/auth/check", {
         headers: { Authorization: `Bearer ${token.value}` },
       });
-      if (res.status === 401) return { ok: false, auth: false, error: "認証に失敗しました" };
+      if (res.status === 401) return { ok: false, auth: false, error: "Authentication failed" };
       const data = await res.json();
       return { ok: true, hostname: data.hostname, version: data.version, clientName: data.client_name };
     } catch (e) {
-      return { ok: false, auth: true, error: `サーバーに接続できません: ${e.message}` };
+      return { ok: false, auth: true, error: `Cannot connect to server: ${e.message}` };
     }
   }
 

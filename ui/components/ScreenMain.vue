@@ -43,10 +43,10 @@ const { initViewport } = useViewport();
 const { apiGet, apiPut } = useApi();
 
 const booting = ref(true);
-const bootMessage = ref("読み込み中...");
+const bootMessage = ref("Loading...");
 
 async function initializeApp() {
-  bootMessage.value = "読み込み中...";
+  bootMessage.value = "Loading...";
 
   const workspacesPromise = apiGet("/workspaces").then(({ ok, data }) => {
     if (ok) {
@@ -63,7 +63,7 @@ async function initializeApp() {
 
   const [, sessionsRes, jobsRes] = await Promise.all([workspacesPromise, sessionsPromise, jobsPromise]);
 
-  bootMessage.value = "セッションを復元中...";
+  bootMessage.value = "Restoring sessions...";
   await restoreExistingSessions(sessionsRes, jobsRes);
 
   workspaceStore.fetchStatuses();
@@ -77,7 +77,7 @@ async function restoreExistingSessions(sessionsRes, jobsRes) {
   try {
     if (!sessionsRes || !sessionsRes.ok) {
       if (sessionsRes) {
-        let detail = "既存セッションの取得に失敗しました";
+        let detail = "Failed to fetch existing sessions";
         try {
           const text = await sessionsRes.text?.();
           if (text) detail = text;
@@ -115,7 +115,7 @@ async function restoreExistingSessions(sessionsRes, jobsRes) {
     setTimeout(() => emit("layout:fitAll", { force: true }), 500);
   } catch (e) {
     console.error("restoreExistingSessions failed:", e);
-    terminalStore.restoreSessionsError = e?.message || "既存セッションの復元でエラーが発生しました";
+    terminalStore.restoreSessionsError = e?.message || "Error restoring existing sessions";
   } finally {
     terminalStore.restoreSessionsLoading = false;
   }
@@ -200,7 +200,7 @@ async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, j
     });
     if (!res || !res.ok) {
       const detail = res ? await res.text() : "no response";
-      emit("toast:show", { message: `ターミナル起動失敗: ${detail}`, type: "error" });
+      emit("toast:show", { message: `Terminal launch failed: ${detail}`, type: "error" });
       return;
     }
     const data = await res.json();
@@ -220,7 +220,7 @@ async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, j
     await nextTick();
     terminalBaseView.value?.fitAllTerminals();
   } catch (e) {
-    emit("toast:show", { message: `ターミナル起動エラー: ${e.message}`, type: "error" });
+    emit("toast:show", { message: `Terminal launch error: ${e.message}`, type: "error" });
   }
 }
 
@@ -321,12 +321,12 @@ onMounted(() => {
 
 onMounted(async () => {
   booting.value = true;
-  bootMessage.value = "初期化中...";
+  bootMessage.value = "Initializing...";
   try {
     await initializeApp();
   } finally {
     booting.value = false;
-    bootMessage.value = "読み込み中...";
+    bootMessage.value = "Loading...";
   }
 });
 

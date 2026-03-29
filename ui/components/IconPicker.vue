@@ -6,15 +6,15 @@
         v-model="searchQuery"
         type="text"
         class="form-input icon-picker-search"
-        placeholder="アイコン検索 / URLでfavicon"
+        placeholder="Search icons / Favicon URL"
         autocomplete="off"
         @input="onSearchInput"
       />
       <div class="icon-picker-favicon-confirm">
         <span class="icon-picker-favicon-preview" v-html="previewHtml"></span>
-        <button type="button" class="icon-picker-clear-btn" @click="clearSelection">クリア</button>
+        <button type="button" class="icon-picker-clear-btn" @click="clearSelection">Clear</button>
         <button type="button" class="icon-picker-upload-btn" @click="triggerUpload">
-          <span class="mdi mdi-image-plus"></span> 画像
+          <span class="mdi mdi-image-plus"></span> Image
         </button>
         <input
           ref="uploadRef"
@@ -28,7 +28,7 @@
           class="primary icon-picker-url-ok-btn"
           :disabled="!canSubmit"
           @click="submit"
-        >決定</button>
+        >Select</button>
       </div>
     </div>
     <div class="color-palette">
@@ -44,7 +44,7 @@
       />
     </div>
     <div ref="gridRef" class="icon-picker-grid">
-      <div v-if="loadingIcons" class="icon-picker-loading">読み込み中...</div>
+      <div v-if="loadingIcons" class="icon-picker-loading">Loading...</div>
     </div>
   </div>
 </template>
@@ -56,7 +56,7 @@ import { useModalView } from "../composables/useModalView.js";
 import { renderIconStr } from "../utils/render-icon.js";
 
 const { modalTitle, viewState, popView } = useModalView();
-modalTitle.value = "アイコン選択";
+modalTitle.value = "Icon Picker";
 
 const URL_PATTERN = /^(https?:\/\/|[a-zA-Z0-9-]+\.[a-zA-Z]{2,})/;
 const ICON_UPLOAD_MAX_SIZE = 512 * 1024;
@@ -67,24 +67,24 @@ const VALID_ICON_COLOR = /^#[0-9a-fA-F]{3,6}$/;
 const MAX_DISPLAY = 200;
 
 const ICON_PRESET_COLORS = [
-  { label: "デフォルト", value: "" },
-  { label: "赤", value: "#e53935" },
-  { label: "ピンク", value: "#d81b60" },
-  { label: "ローズ", value: "#ec407a" },
-  { label: "紫", value: "#8e24aa" },
-  { label: "深紫", value: "#5e35b1" },
-  { label: "インディゴ", value: "#3949ab" },
-  { label: "青", value: "#1e88e5" },
-  { label: "水色", value: "#00acc1" },
-  { label: "ティール", value: "#00897b" },
-  { label: "緑", value: "#43a047" },
-  { label: "ライム", value: "#7cb342" },
-  { label: "黄", value: "#fdd835" },
-  { label: "アンバー", value: "#ffb300" },
-  { label: "オレンジ", value: "#fb8c00" },
-  { label: "ブラウン", value: "#6d4c41" },
-  { label: "グレー", value: "#757575" },
-  { label: "白", value: "#ffffff" },
+  { label: "Default", value: "" },
+  { label: "Red", value: "#e53935" },
+  { label: "Pink", value: "#d81b60" },
+  { label: "Rose", value: "#ec407a" },
+  { label: "Purple", value: "#8e24aa" },
+  { label: "Deep Purple", value: "#5e35b1" },
+  { label: "Indigo", value: "#3949ab" },
+  { label: "Blue", value: "#1e88e5" },
+  { label: "Cyan", value: "#00acc1" },
+  { label: "Teal", value: "#00897b" },
+  { label: "Green", value: "#43a047" },
+  { label: "Lime", value: "#7cb342" },
+  { label: "Yellow", value: "#fdd835" },
+  { label: "Amber", value: "#ffb300" },
+  { label: "Orange", value: "#fb8c00" },
+  { label: "Brown", value: "#6d4c41" },
+  { label: "Gray", value: "#757575" },
+  { label: "White", value: "#ffffff" },
 ];
 
 const searchRef = ref(null);
@@ -137,13 +137,13 @@ function renderGrid(icons, query) {
   if (filtered.length > MAX_DISPLAY) {
     const more = document.createElement("div");
     more.className = "icon-picker-more";
-    more.textContent = `他 ${filtered.length - MAX_DISPLAY} 件...検索で絞り込んでください`;
+    more.textContent = `and ${filtered.length - MAX_DISPLAY} more... use search to filter`;
     el.appendChild(more);
   }
   if (slice.length === 0) {
     const empty = document.createElement("div");
     empty.className = "icon-picker-more";
-    empty.textContent = "該当するアイコンがありません";
+    empty.textContent = "No matching icons";
     el.appendChild(empty);
   }
 }
@@ -205,12 +205,12 @@ async function handleUpload() {
   const file = uploadRef.value?.files?.[0];
   if (!file) return;
   if (!ICON_UPLOAD_ALLOWED_TYPES.has(file.type)) {
-    bridgeEmit("toast:show", { message: "PNG/JPG/GIF/WEBP/SVG の画像を選択してください", type: "error" });
+    bridgeEmit("toast:show", { message: "Please select a PNG/JPG/GIF/WEBP/SVG image", type: "error" });
     uploadRef.value.value = "";
     return;
   }
   if (file.size > ICON_UPLOAD_MAX_SIZE) {
-    bridgeEmit("toast:show", { message: "画像サイズは500KB以下にしてください", type: "error" });
+    bridgeEmit("toast:show", { message: "Image must be 500KB or less", type: "error" });
     uploadRef.value.value = "";
     return;
   }
@@ -222,7 +222,7 @@ async function handleUpload() {
       reader.readAsDataURL(file);
     });
     if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
-      throw new Error("画像の読み込みに失敗しました");
+      throw new Error("Failed to load image");
     }
     selectedIcon.value = dataUrl;
     pendingClear = false;
@@ -232,7 +232,7 @@ async function handleUpload() {
     const el = gridRef.value;
     if (el) el.querySelectorAll(".icon-picker-item").forEach((item) => item.classList.remove("selected"));
   } catch (e) {
-    bridgeEmit("toast:show", { message: e.message || "画像の読み込みに失敗しました", type: "error" });
+    bridgeEmit("toast:show", { message: e.message || "Failed to load image", type: "error" });
   } finally {
     if (uploadRef.value) uploadRef.value.value = "";
   }

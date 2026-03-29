@@ -12,11 +12,11 @@
         @close="onClose"
 
       />
-      <button class="tab-add-btn" @click="onAddClick" title="ワークスペースを開く">
+      <button class="tab-add-btn" @click="onAddClick" title="Open Workspace">
         <span class="mdi mdi-plus"></span>
       </button>
     </div>
-    <button v-if="!isSplitMode" class="tab-settings-btn" @click="onSettingsClick" title="設定">
+    <button v-if="!isSplitMode" class="tab-settings-btn" @click="onSettingsClick" title="Settings">
       <span class="mdi mdi-cog"></span>
     </button>
   </div>

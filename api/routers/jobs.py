@@ -175,7 +175,7 @@ def get_workspace_job(name: str, job_name: str):
     jobs = get_workspace_jobs(name)
     job_def = jobs.get(job_name)
     if not job_def:
-        raise not_found(f"ジョブ '{job_name}' が見つかりません")
+        raise not_found(f"Job '{job_name}' not found")
     return job_definition_to_dict(job_def)
 
 
@@ -232,10 +232,10 @@ def generate_job_key(existing: dict) -> str:
 def _validate_job_fields(body):
     label = body.label.strip()
     if not label:
-        raise bad_request("表示名を入力してください")
+        raise bad_request("Please enter a display name")
     command = body.command.strip()
     if not command:
-        raise bad_request("コマンドが空です")
+        raise bad_request("Command is empty")
     return label, command
 
 
@@ -269,7 +269,7 @@ def _delete_job(data, save_fn, job_name, not_found_msg, log_msg):
 
 def _reorder_jobs(data, save_fn, order, log_msg):
     if sorted(order) != sorted(data.keys()):
-        raise bad_request("ジョブ一覧が一致しません")
+        raise bad_request("Job list mismatch")
     reordered = {name: data[name] for name in order}
     save_fn(reordered)
     logger.info(log_msg, len(order))
@@ -292,7 +292,7 @@ def reorder_workspace_jobs(name: str, body: ReorderJobsRequest):
 def update_workspace_job(name: str, job_name: str, body: JobRequest):
     data, save_fn = _ws_jobs_context(name)
     return _update_job(data, save_fn, job_name, body,
-                       f"ジョブ '{job_name}' が見つかりません",
+                       f"Job '{job_name}' not found",
                        "job updated workspace=%s job=%%s" % name)
 
 
@@ -300,7 +300,7 @@ def update_workspace_job(name: str, job_name: str, body: JobRequest):
 def delete_workspace_job(name: str, job_name: str):
     data, save_fn = _ws_jobs_context(name)
     return _delete_job(data, save_fn, job_name,
-                       f"ジョブ '{job_name}' が見つかりません",
+                       f"Job '{job_name}' not found",
                        "job deleted workspace=%s job=%%s" % name)
 
 
@@ -321,7 +321,7 @@ def create_global_job(body: JobRequest):
 def update_global_job(job_name: str, body: JobRequest):
     data = load_global_jobs_data()
     return _update_job(data, save_global_jobs_data, job_name, body,
-                       f"共通ジョブ '{job_name}' が見つかりません",
+                       f"Global job '{job_name}' not found",
                        "global job updated job=%s")
 
 
@@ -329,7 +329,7 @@ def update_global_job(job_name: str, body: JobRequest):
 def delete_global_job(job_name: str):
     data = load_global_jobs_data()
     return _delete_job(data, save_global_jobs_data, job_name,
-                       f"共通ジョブ '{job_name}' が見つかりません",
+                       f"Global job '{job_name}' not found",
                        "global job deleted job=%s")
 
 
@@ -379,7 +379,7 @@ def _create_terminal_session(body, ws_path):
     with sessions_lock:
         if len(TERMINAL_SESSIONS) >= MAX_TERMINAL_SESSIONS:
             raise too_many_requests(
-                f"セッション数が上限({MAX_TERMINAL_SESSIONS})に達しています",
+                f"Maximum number of terminal sessions reached ({MAX_TERMINAL_SESSIONS})",
             )
     cwd_path = str(ws_path) if ws_path else None
     short_id = secrets.token_urlsafe(6)

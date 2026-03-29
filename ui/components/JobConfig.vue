@@ -2,29 +2,29 @@
   <div class="modal-scroll-body">
     <div class="ws-settings-section">
       <div class="ws-settings-row">
-        <span class="ws-settings-label">ラベル</span>
-        <input type="text" class="form-input" v-model="form.label" placeholder="表示名" autocomplete="off" />
+        <span class="ws-settings-label">Label</span>
+        <input type="text" class="form-input" v-model="form.label" placeholder="Display name" autocomplete="off" />
       </div>
       <div class="ws-settings-row">
-        <span class="ws-settings-label">コマンド</span>
-        <input type="text" class="form-input" v-model="form.command" placeholder="実行コマンド" autocomplete="off" />
+        <span class="ws-settings-label">Command</span>
+        <input type="text" class="form-input" v-model="form.command" placeholder="Command to execute" autocomplete="off" />
       </div>
       <div class="ws-settings-row">
-        <span class="ws-settings-label">アイコン</span>
+        <span class="ws-settings-label">Icon</span>
         <button type="button" class="icon-select-btn" @click="openIconPicker">
           <span class="icon-select-preview">
             <span v-html="renderIconStr(form.icon || 'mdi-play', form.icon_color, 18)"></span>
-            <span class="icon-select-label">{{ form.icon || 'デフォルト' }}</span>
+            <span class="icon-select-label">{{ form.icon || 'Default' }}</span>
           </span>
         </button>
       </div>
       <div class="ws-settings-row" style="gap:8px">
-        <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.confirm" /> 確認ダイアログ</label>
-        <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.terminal" /> ターミナルで実行</label>
+        <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.confirm" /> Confirm dialog</label>
+        <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.terminal" /> Run in terminal</label>
       </div>
       <div class="ws-settings-row" style="gap:8px">
         <button type="button" class="primary" :disabled="saving" @click="saveJob">
-          {{ saving ? '保存中...' : '保存' }}
+          {{ saving ? 'Saving...' : 'Save' }}
         </button>
       </div>
       <div v-if="formError" class="job-config-error">{{ formError }}</div>
@@ -86,12 +86,12 @@ function openIconPicker() {
 }
 
 onMounted(() => {
-  modalTitle.value = isNew ? "ジョブ追加" : "ジョブ編集";
+  modalTitle.value = isNew ? "Add Job" : "Edit Job";
 });
 
 async function saveJob() {
   const f = form.value;
-  if (!f.command.trim()) { formError.value = "コマンドを入力してください"; return; }
+  if (!f.command.trim()) { formError.value = "Please enter a command"; return; }
   saving.value = true;
   formError.value = "";
   try {

@@ -68,7 +68,7 @@ export function useTerminal() {
 
       if (e.code === WS_CLOSE_SESSION_EXITED) {
         const label = tab.jobLabel || tab.label || tab.sessionId;
-        emit("toast:show", { message: `${label}: セッションが予期せず終了しました`, type: "error" });
+        emit("toast:show", { message: `${label}: Session terminated unexpectedly`, type: "error" });
         emit("tab:close", { tab });
         return;
       }

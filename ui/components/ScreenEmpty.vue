@@ -3,7 +3,7 @@
     <div class="screen-empty-content">
       <div class="screen-empty-actions">
         <button type="button" class="screen-empty-open-btn" @click="$emit('openWorkspace')">
-          <span class="mdi mdi-plus"></span> ワークスペースを開く
+          <span class="mdi mdi-plus"></span> Open Workspace
         </button>
       </div>
       <div class="screen-empty-booting" :class="{ 'is-hidden': !booting }" aria-live="polite">
@@ -17,7 +17,7 @@
 <script setup>
 defineProps({
   booting: { type: Boolean, default: false },
-  bootMessage: { type: String, default: "読み込み中..." },
+  bootMessage: { type: String, default: "Loading..." },
 });
 defineEmits(["openWorkspace"]);
 </script>

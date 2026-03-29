@@ -3,8 +3,8 @@
     <div v-if="fileContent.image && fileContent.data_url" class="file-content-image-wrap">
       <img :src="fileContent.data_url" class="file-content-image" />
     </div>
-    <div v-else-if="fileContent.binary" class="file-content-message">バイナリファイル ({{ formatSize(fileContent.size) }})</div>
-    <div v-else-if="fileContent.too_large" class="file-content-message">ファイルが大きすぎます ({{ formatSize(fileContent.size) }})</div>
+    <div v-else-if="fileContent.binary" class="file-content-message">Binary file ({{ formatSize(fileContent.size) }})</div>
+    <div v-else-if="fileContent.too_large" class="file-content-message">File too large ({{ formatSize(fileContent.size) }})</div>
     <pre v-else ref="codeEl" class="file-content-viewer"><table class="line-table"><tr v-for="(line, i) in highlightedLines" :key="i"><td class="line-num">{{ i + 1 }}</td><td class="line-content" v-html="line"></td></tr></table></pre>
   </div>
 </template>

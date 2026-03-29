@@ -10,7 +10,7 @@
       >{{ action.label }}</button>
     </div>
     <div class="diff-file-list">
-      <div v-if="isLoading" class="text-muted-center">読み込み中...</div>
+      <div v-if="isLoading" class="text-muted-center">Loading...</div>
       <ul v-else class="file-browser-list diff-file-browser-list">
         <FileItem
           v-for="file in files"
@@ -65,7 +65,7 @@ async function loadWorkingTreeDiff() {
     if (!result) { isLoading.value = false; return; }
     files.value = result.fileList;
     actionButtons.value = [
-      { label: "コミット", class: "primary", handler: () => emit("git:openCommitForm") },
+      { label: "Commit", class: "primary", handler: () => emit("git:openCommitForm") },
       { label: "Stash", handler: () => emit("git:stashSave") },
     ];
   } catch (e) {

@@ -3,7 +3,7 @@ const encoder = new TextEncoder();
 export async function uploadImageToTerminal({ file, apiFetch, ws, notify }) {
   if (!file) return false;
   if (!ws || ws.readyState !== WebSocket.OPEN) {
-    notify?.("アクティブなターミナルがありません", "error");
+    notify?.("No active terminal", "error");
     return false;
   }
 
@@ -11,12 +11,12 @@ export async function uploadImageToTerminal({ file, apiFetch, ws, notify }) {
     const formData = new FormData();
     formData.append("file", file);
     const res = await apiFetch("/upload-image", { method: "POST", body: formData });
-    if (!res || !res.ok) throw new Error("アップロード失敗");
+    if (!res || !res.ok) throw new Error("Upload failed");
     const data = await res.json();
     ws.send(encoder.encode(data.path));
     return true;
   } catch (err) {
-    notify?.(`画像アップロード失敗: ${err.message}`, "error");
+    notify?.(`Image upload failed: ${err.message}`, "error");
     return false;
   }
 }

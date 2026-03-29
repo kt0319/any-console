@@ -6,7 +6,7 @@
         <button type="button" class="stash-save-btn" @click="stashSave">stash save</button>
       </div>
       <div class="modal-scroll-body">
-        <div v-if="isSelectedCommitFilesLoading" class="text-muted-center">読み込み中...</div>
+        <div v-if="isSelectedCommitFilesLoading" class="text-muted-center">Loading...</div>
         <ul v-if="!isSelectedCommitFilesLoading" class="file-browser-list diff-file-browser-list">
           <FileItem
             v-for="file in selectedCommitFiles"
@@ -26,15 +26,15 @@
     </template>
     <!-- コミット履歴モード -->
     <div v-else class="modal-scroll-body" ref="historyListEl" @scroll.passive="onHistoryListScroll">
-      <div v-if="isHistoryLoading" class="text-muted-center">読み込み中...</div>
-      <div v-else-if="commitEntries.length === 0" class="text-muted-center">コミットログがありません</div>
-      <!-- 変更あり -->
+      <div v-if="isHistoryLoading" class="text-muted-center">Loading...</div>
+      <div v-else-if="commitEntries.length === 0" class="text-muted-center">No commit history</div>
+      <!-- Changes -->
       <div v-if="!isHistoryLoading && commitEntries.length > 0" class="git-log-dirty" @click="isDirty ? openWorkingTreeDiffFiles() : selectPane('stash')">
         <button type="button" class="git-log-branch-btn" @click.stop="selectPane('branch')">
           <span class="mdi mdi-source-branch"></span>{{ currentBranch }}
         </button>
         <span class="git-log-dirty-status">
-          <span class="git-log-dirty-label">{{ isDirty ? '変更あり' : '変更なし' }}</span>
+          <span class="git-log-dirty-label">{{ isDirty ? 'Changes' : 'No changes' }}</span>
           <span v-if="isDirty" class="git-log-dirty-numstat" v-html="dirtySummaryHtml"></span>
         </span>
         <button v-if="githubUrl" type="button" class="git-action-btn icon-only git-log-dirty-github" title="GitHub" @click.stop="selectPane('github')">
@@ -262,7 +262,7 @@ async function openDiffFiles(entry, fetchFn) {
 
 function openWorkingTreeDiffFiles() {
   if (!isDirty.value) return;
-  const dirtyEntry = { message: "変更あり", author: "", time: "", hash: "__dirty__", fullHash: "__dirty__" };
+  const dirtyEntry = { message: "Changes", author: "", time: "", hash: "__dirty__", fullHash: "__dirty__" };
   openDiffFiles(dirtyEntry, fetchWorkingTreeDiff);
 }
 

@@ -8,10 +8,10 @@ import { LS_KEY_TERMINAL_SETTINGS } from "../utils/constants.js";
 const TERMINAL_SETTINGS_KEY = LS_KEY_TERMINAL_SETTINGS;
 
 const TERMINAL_SETTINGS_SCHEMA = Object.freeze({
-  fontSize: { type: "number", label: "フォントサイズ", min: 10, max: 24, step: 1, unit: "px", note: "文字サイズ。10〜24px、レイアウトへ即時反映されます。", requiresRefit: true },
-  cursorBlink: { type: "boolean", label: "カーソル点滅", note: "入力位置のカーソルを点滅表示します。" },
-  scrollback: { type: "number", label: "スクロールバック", min: 1000, max: 20000, step: 500, unit: "行", note: "保持する過去出力の行数です。" },
-  scrollOnOutput: { type: "boolean", label: "出力時スクロール", note: "新しい出力が来たとき末尾へ追従します。" },
+  fontSize: { type: "number", label: "Font Size", min: 10, max: 24, step: 1, unit: "px", note: "Font size in px (10-24). Applied immediately.", requiresRefit: true },
+  cursorBlink: { type: "boolean", label: "Cursor Blink", note: "Blink the cursor at the input position." },
+  scrollback: { type: "number", label: "Scrollback", min: 1000, max: 20000, step: 500, unit: "lines", note: "Number of lines to keep in scroll history." },
+  scrollOnOutput: { type: "boolean", label: "Scroll on Output", note: "Automatically scroll to bottom on new output." },
 });
 
 const DEFAULT_TERMINAL_SETTINGS = Object.freeze({

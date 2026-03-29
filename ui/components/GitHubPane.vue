@@ -1,7 +1,7 @@
 <template>
   <div class="git-github-pane-wrapper">
     <div class="modal-scroll-body">
-      <div v-if="!githubUrl" class="text-muted-center">GitHubリポジトリが設定されていません</div>
+      <div v-if="!githubUrl" class="text-muted-center">No GitHub repository configured</div>
       <template v-else>
         <div class="github-section-title github-section-link" @click="openUrl(githubUrl)">
           {{ repoName }}
@@ -14,7 +14,7 @@
           </span>
         </div>
         <div class="github-section-body">
-          <div v-if="isIssuesLoading" style="color:var(--text-muted);padding:8px">読み込み中...</div>
+          <div v-if="isIssuesLoading" style="color:var(--text-muted);padding:8px">Loading...</div>
           <div v-else-if="issuesLoadError" style="color:var(--diff-del);padding:8px">{{ issuesLoadError }}</div>
           <div
             v-for="item in issueItems"
@@ -43,7 +43,7 @@
           </span>
         </div>
         <div class="github-section-body">
-          <div v-if="isPullRequestsLoading" style="color:var(--text-muted);padding:8px">読み込み中...</div>
+          <div v-if="isPullRequestsLoading" style="color:var(--text-muted);padding:8px">Loading...</div>
           <div v-else-if="pullRequestsLoadError" style="color:var(--diff-del);padding:8px">{{ pullRequestsLoadError }}</div>
           <div
             v-for="item in pullRequestItems"
@@ -74,7 +74,7 @@
           </span>
         </div>
         <div class="github-section-body">
-          <div v-if="isWorkflowRunsLoading" style="color:var(--text-muted);padding:8px">読み込み中...</div>
+          <div v-if="isWorkflowRunsLoading" style="color:var(--text-muted);padding:8px">Loading...</div>
           <div v-else-if="workflowRunsLoadError" style="color:var(--diff-del);padding:8px">{{ workflowRunsLoadError }}</div>
           <div
             v-for="run in workflowRuns"
@@ -171,8 +171,8 @@ async function loadGitHubSection(type, listRef, loadingRef, errorRef, workspace)
   errorRef.value = "";
   try {
     const { ok, data } = await apiGet(wsEndpoint(workspace, `github/${type}`));
-    if (!ok) { errorRef.value = "取得に失敗しました"; return; }
-    if (data.status !== "ok") { errorRef.value = data.message || "取得に失敗しました"; return; }
+    if (!ok) { errorRef.value = "Failed to fetch"; return; }
+    if (data.status !== "ok") { errorRef.value = data.message || "Failed to fetch"; return; }
     listRef.value = (data.data || []).map((item) => ({
       number: item.number,
       title: item.title,
@@ -193,8 +193,8 @@ async function loadWorkflowRuns(workspace) {
   workflowRunsLoadError.value = "";
   try {
     const { ok, data } = await apiGet(wsEndpoint(workspace, "github/runs"));
-    if (!ok) { workflowRunsLoadError.value = "取得に失敗しました"; return; }
-    if (data.status !== "ok") { workflowRunsLoadError.value = data.message || "取得に失敗しました"; return; }
+    if (!ok) { workflowRunsLoadError.value = "Failed to fetch"; return; }
+    if (data.status !== "ok") { workflowRunsLoadError.value = data.message || "Failed to fetch"; return; }
     workflowRuns.value = (data.data || []).map((r) => ({
       id: r.databaseId || r.id,
       name: r.name || r.workflowName || "",

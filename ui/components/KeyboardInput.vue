@@ -17,7 +17,7 @@
             <span class="mdi mdi-pin snippet-chip-icon"></span>
             {{ truncateQuickText(snippet.label) }}
           </button>
-          <div v-if="snippets.length === 0" class="quick-snippet-item quick-snippet-item-empty">スニペットなし</div>
+          <div v-if="snippets.length === 0" class="quick-snippet-item quick-snippet-item-empty">No snippets</div>
         </div>
         <div class="quick-snippet-scroll-row">
           <button
@@ -36,7 +36,7 @@
             <span class="mdi mdi-history snippet-chip-icon"></span>
             {{ truncateQuickText(text) }}
           </button>
-          <div v-if="history.length === 0" class="quick-snippet-item quick-snippet-item-empty">履歴なし</div>
+          <div v-if="history.length === 0" class="quick-snippet-item quick-snippet-item-empty">No history</div>
         </div>
       </div>
       <div class="keyboard-input-row">
@@ -49,7 +49,7 @@
           autocapitalize="off"
           autocorrect="off"
           spellcheck="false"
-          placeholder="テキスト入力..."
+          placeholder="Text input..."
           @keydown.enter.prevent="submit"
           @blur="onInputBlur"
         />
@@ -135,7 +135,7 @@ function submit() {
 
 function addSnippetByPrompt(initialCommand) {
   markInternalInteraction();
-  const command = prompt("スニペットに登録するコマンド:", initialCommand);
+  const command = prompt("Command to save as snippet:", initialCommand);
   if (!command) {
     nextTick(() => inputEl.value?.focus());
     return;

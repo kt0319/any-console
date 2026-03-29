@@ -1,7 +1,7 @@
 <template>
   <div class="git-branch-pane-wrapper">
     <div class="modal-scroll-body" ref="branchListEl">
-      <div v-if="isBranchListLoading" class="text-muted-center">読み込み中...</div>
+      <div v-if="isBranchListLoading" class="text-muted-center">Loading...</div>
       <template v-else>
         <div
           v-for="branch in branches"
@@ -18,14 +18,14 @@
               type="button"
               class="commit-action-item commit-action-danger"
               @click="deleteBranch(branch)"
-            >削除</button>
+            >Delete</button>
           </div>
         </div>
         <div
           v-if="!isRemoteBranchListExpanded && !isBranchListLoading"
           class="branch-item branch-item-action"
           @click="showRemoteBranches"
-        >{{ isRemoteBranchListLoading ? '読み込み中...' : 'リモートブランチを表示...' }}</div>
+        >{{ isRemoteBranchListLoading ? 'Loading...' : 'Show remote branches...' }}</div>
       </template>
     </div>
   </div>
@@ -94,8 +94,8 @@ function selectBranch(branch) {
 async function deleteBranch(branch) {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  const label = branch.remote ? `リモートブランチ ${branch.name}` : `ブランチ ${branch.name}`;
-  if (!confirm(`${label} を削除しますか？`)) return;
+  const label = branch.remote ? `Remote branch ${branch.name}` : `Branch ${branch.name}`;
+  if (!confirm(`Delete ${label}?`)) return;
   const { ok } = await apiCommand(wsEndpoint(workspace, "delete-branch"), { branch: branch.name, remote: branch.remote });
   if (!ok) return;
   await loadBranchList();

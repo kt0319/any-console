@@ -44,7 +44,7 @@ def github_info(name: str):
     return _run_gh_endpoint(
         ["repo", "view", "--json",
          "name,owner,description,url,stargazerCount,forkCount,isPrivate,defaultBranchRef,primaryLanguage"],
-        cwd=str(ws_path), error_message="GitHub情報を取得できませんでした",
+        cwd=str(ws_path), error_message="Failed to fetch GitHub info",
     )
 
 
@@ -54,7 +54,7 @@ def github_issues(name: str):
     return _run_gh_endpoint(
         ["issue", "list", "--limit", "30", "--json",
          "number,title,state,author,labels,createdAt,updatedAt"],
-        cwd=str(ws_path), error_message="Issues を取得できませんでした",
+        cwd=str(ws_path), error_message="Failed to fetch issues",
     )
 
 
@@ -64,7 +64,7 @@ def github_pulls(name: str):
     return _run_gh_endpoint(
         ["pr", "list", "--limit", "30", "--json",
          "number,title,state,author,labels,createdAt,updatedAt,headRefName,isDraft"],
-        cwd=str(ws_path), error_message="Pull Requests を取得できませんでした",
+        cwd=str(ws_path), error_message="Failed to fetch pull requests",
     )
 
 
@@ -74,5 +74,5 @@ def github_runs(name: str):
     return _run_gh_endpoint(
         ["run", "list", "--limit", "15", "--json",
          "databaseId,displayTitle,status,conclusion,event,headBranch,createdAt,updatedAt,url,workflowName"],
-        cwd=str(ws_path), error_message="Actions を取得できませんでした",
+        cwd=str(ws_path), error_message="Failed to fetch actions",
     )

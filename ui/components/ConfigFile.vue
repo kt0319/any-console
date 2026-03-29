@@ -2,10 +2,10 @@
   <div class="modal-scroll-body">
     <div class="config-file-toolbar">
       <button type="button" class="config-file-btn" @click="download">
-        <span class="mdi mdi-download"></span> ダウンロード
+        <span class="mdi mdi-download"></span> Download
       </button>
       <button type="button" class="config-file-btn" @click="triggerUpload">
-        <span class="mdi mdi-upload"></span> アップロード
+        <span class="mdi mdi-upload"></span> Upload
       </button>
       <input ref="fileInput" type="file" accept=".json" style="display:none" @change="upload" />
     </div>
@@ -22,7 +22,7 @@ import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 
 const modalTitle = inject("modalTitle");
-modalTitle.value = "設定ファイル";
+modalTitle.value = "Config File";
 
 const { apiGet, apiPost } = useApi();
 const jsonText = ref("");
@@ -39,7 +39,7 @@ async function loadConfigFile() {
   try {
     const { ok, data } = await apiGet("/settings/export");
     if (!ok) {
-      jsonText.value = "設定の取得に失敗しました";
+      jsonText.value = "Failed to load config";
       return;
     }
     jsonText.value = JSON.stringify(data, null, 2);
@@ -60,7 +60,7 @@ function download() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  emit("toast:show", { message: "設定をダウンロードしました", type: "success" });
+  emit("toast:show", { message: "Config downloaded", type: "success" });
 }
 
 function triggerUpload() {
@@ -78,10 +78,10 @@ async function upload() {
     const data = JSON.parse(text);
     const { ok } = await apiPost("/settings/import", data);
     if (!ok) {
-      emit("toast:show", { message: "インポートに失敗しました", type: "error" });
+      emit("toast:show", { message: "Import failed", type: "error" });
       return;
     }
-    emit("toast:show", { message: "設定をインポートしました", type: "success" });
+    emit("toast:show", { message: "Config imported", type: "success" });
     jsonText.value = JSON.stringify(data, null, 2);
     highlight();
     emit("settings:imported");

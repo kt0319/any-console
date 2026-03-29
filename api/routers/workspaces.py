@@ -136,7 +136,7 @@ class UpdateConfigRequest(BaseModel):
 def update_workspace_config_endpoint(name: str, body: UpdateConfigRequest):
     entries = list_workspace_entries()
     if name not in entries:
-        raise bad_request(f"ワークスペース '{name}' が見つかりません")
+        raise bad_request(f"Workspace '{name}' not found")
     config = load_workspace_config(name)
     config["icon"] = normalize_icon(body.icon.strip())
     config["icon_color"] = body.icon_color.strip()
@@ -165,13 +165,13 @@ def add_workspace(body: AddWorkspaceRequest):
     if existing_path:
         abs_path = Path(existing_path).expanduser().resolve()
         if not abs_path.is_dir():
-            raise bad_request(f"ディレクトリが存在しません: {existing_path}")
+            raise bad_request(f"Directory does not exist: {existing_path}")
         dir_name = body.name.strip() if body.name else abs_path.name
         if not dir_name:
-            raise bad_request("ワークスペース名を指定してください")
+            raise bad_request("Please specify a workspace name")
         entries = list_workspace_entries()
         if dir_name in entries:
-            raise conflict(f"'{dir_name}' は既に登録されています")
+            raise conflict(f"'{dir_name}' is already registered")
         save_workspace_config(dir_name, {"path": str(abs_path)})
         logger.info("workspace registered name=%s path=%s", dir_name, abs_path)
         return {"status": "ok", "name": dir_name, "mode": "existing"}
@@ -181,19 +181,19 @@ def add_workspace(body: AddWorkspaceRequest):
     elif url:
         dir_name = url.rstrip("/").split("/")[-1].removesuffix(".git")
     else:
-        raise bad_request("URLまたはディレクトリ名を入力してください")
+        raise bad_request("Please enter a URL or directory name")
 
     if not dir_name or not re.match(r"^[a-zA-Z0-9_.-]+$", dir_name):
-        raise bad_request("無効なディレクトリ名です")
+        raise bad_request("Invalid directory name")
 
     entries = list_workspace_entries()
     if dir_name in entries:
-        raise conflict(f"'{dir_name}' は既に登録されています")
+        raise conflict(f"'{dir_name}' is already registered")
 
     base_dir = Path(body.base_dir) if body.base_dir and body.base_dir.strip() else default_workspace_dir()
     target_path = base_dir / dir_name
     if target_path.exists():
-        raise conflict(f"'{dir_name}' は既に存在します")
+        raise conflict(f"'{dir_name}' already exists")
 
     base_dir.mkdir(parents=True, exist_ok=True)
 
@@ -228,7 +228,7 @@ def add_workspace(body: AddWorkspaceRequest):
 def delete_workspace(name: str):
     entries = list_workspace_entries()
     if name not in entries:
-        raise bad_request(f"ワークスペース '{name}' が見つかりません")
+        raise bad_request(f"Workspace '{name}' not found")
     delete_workspace_config(name)
     logger.info("workspace deleted name=%s", name)
     return {"status": "ok"}

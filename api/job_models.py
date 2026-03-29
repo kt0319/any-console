@@ -23,6 +23,6 @@ class JobDefinition:
 
 TERMINAL_JOB = JobDefinition(
     command="",
-    label="ターミナル",
-    description="Webターミナル起動",
+    label="Terminal",
+    description="Open Web Terminal",
 )

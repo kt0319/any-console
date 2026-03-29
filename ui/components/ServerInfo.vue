@@ -17,7 +17,7 @@
         </div>
       </template>
     </template>
-    <div v-if="isServerInfoLoading" class="text-muted-center">読み込み中...</div>
+    <div v-if="isServerInfoLoading" class="text-muted-center">Loading...</div>
   </div>
 </template>
 
@@ -26,7 +26,7 @@ import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 
 const modalTitle = inject("modalTitle");
-modalTitle.value = "サーバー情報";
+modalTitle.value = "Server Info";
 
 const { apiGet } = useApi();
 const isServerInfoLoading = ref(true);
@@ -34,23 +34,23 @@ const serverInfoSections = ref([]);
 
 const SECTION_DEFS = [
   {
-    label: "サーバー情報",
+    label: "Server Info",
     endpoint: "/system/info",
     toRows: (data) => [
-      { label: "ホスト名", values: [data.hostname] },
+      { label: "Hostname", values: [data.hostname] },
       { label: "OS", values: [data.os] },
       { label: "IP", values: [data.ip] },
-      { label: "稼働時間", values: [data.uptime] },
-      { label: "メモリ", values: [data.memory] },
-      { label: "CPU温度", values: [data.cpu_temp] },
-      { label: "ディスク", values: [data.disk] },
+      { label: "Uptime", values: [data.uptime] },
+      { label: "Memory", values: [data.memory] },
+      { label: "CPU Temp", values: [data.cpu_temp] },
+      { label: "Disk", values: [data.disk] },
     ].filter((r) => r.values[0]),
   },
   {
-    label: "プロセス一覧",
+    label: "Process List",
     endpoint: "/system/processes",
     toRows: (processes) => [
-      { label: "プロセス", values: ["CPU", "MEM"], header: true },
+      { label: "Processes", values: ["CPU", "MEM"], header: true },
       ...processes.map((p) => ({
         label: p.name,
         values: [`${p.cpu.toFixed(1)}%`, `${p.mem.toFixed(1)}%`],
@@ -66,7 +66,7 @@ async function loadServerInfoSections() {
     SECTION_DEFS.map(async (def) => {
       try {
         const { ok, data } = await apiGet(def.endpoint);
-        if (!ok) return { label: def.label, error: `${def.label}の取得に失敗しました`, rows: [] };
+        if (!ok) return { label: def.label, error: `Failed to get ${def.label}`, rows: [] };
         return { label: def.label, rows: def.toRows(data), error: null };
       } catch (e) {
         return { label: def.label, error: e.message, rows: [] };

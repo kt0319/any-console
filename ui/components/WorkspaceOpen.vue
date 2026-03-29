@@ -36,13 +36,13 @@
                 <span v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
               </button>
             </div>
-            <button type="button" class="picker-ws-icon-btn" title="ファイル" @click="openDetail(ws)">
+            <button type="button" class="picker-ws-icon-btn" title="Files" @click="openDetail(ws)">
               <span class="mdi mdi-folder-outline"></span>
             </button>
           </div>
         </div>
         <div v-if="visibleWorkspaces.length === 0" class="clone-repo-empty">
-          表示中のワークスペースがありません
+          No workspaces to display
         </div>
       </div>
     </div>
@@ -60,7 +60,7 @@ import GitActionBtn from "./GitActionBtn.vue";
 
 const modalTitle = inject("modalTitle");
 const pushView = inject("pushView");
-modalTitle.value = "ワークスペース";
+modalTitle.value = "Workspaces";
 
 const workspaceStore = useWorkspaceStore();
 const { apiGet } = useApi();

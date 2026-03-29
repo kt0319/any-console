@@ -6,12 +6,12 @@
         v-model="commitMessage"
         type="text"
         class="form-input"
-        placeholder="コミットメッセージ"
+        placeholder="Commit message"
         autocomplete="off"
         @keydown.enter="submit"
       />
-      <button type="button" class="primary" :disabled="!commitMessage.trim() || submitting" @click="submit">コミット</button>
-      <button type="button" @click="close">閉じる</button>
+      <button type="button" class="primary" :disabled="!commitMessage.trim() || submitting" @click="submit">Commit</button>
+      <button type="button" @click="close">Close</button>
     </div>
     <div v-if="error" class="form-error">{{ error }}</div>
   </div>
@@ -53,7 +53,7 @@ async function submit() {
 
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) {
-    error.value = "ワークスペースが選択されていません";
+    error.value = "No workspace selected";
     submitting.value = false;
     return;
   }
@@ -61,11 +61,11 @@ async function submit() {
   try {
     const { ok, data } = await apiCommand(wsEndpoint(workspace, "commit"), { message: msg });
     if (ok) {
-      emit("toast:show", { message: "コミットしました", type: "success" });
+      emit("toast:show", { message: "Committed", type: "success" });
       close();
       emit("git:commitDone");
     } else {
-      error.value = extractApiError(data, "コミットに失敗しました");
+      error.value = extractApiError(data, "Commit failed");
     }
   } catch (e) {
     error.value = e.message;

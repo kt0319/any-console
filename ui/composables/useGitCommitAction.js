@@ -22,11 +22,11 @@ export function useGitCommitAction() {
     const workspace = currentWorkspace();
     if (!workspace) return;
     const shortHash = entry.hash;
-    if (!confirm(`${action} ${shortHash} を実行しますか？`)) return;
+    if (!confirm(`Execute ${action} ${shortHash}?`)) return;
     closeFn?.();
     await runAndToast(wsEndpoint(workspace, action), { commit_hash: entry.fullHash }, {
-      successMessage: `${action} ${shortHash} 完了`,
-      errorMessage: `${action}に失敗しました`,
+      successMessage: `${action} ${shortHash} done`,
+      errorMessage: `${action} failed`,
     });
   }
 
@@ -35,47 +35,47 @@ export function useGitCommitAction() {
     if (!workspace) return;
     const shortHash = entry.hash;
     const msg = mode === "hard"
-      ? `reset --hard ${shortHash} を実行します。作業ツリーの変更はすべて失われます。実行しますか？`
-      : `reset --soft ${shortHash} を実行しますか？`;
+      ? `reset --hard ${shortHash} will be executed. All working tree changes will be lost. Continue?`
+      : `Execute reset --soft ${shortHash}?`;
     if (!confirm(msg)) return;
     closeFn?.();
     await runAndToast(wsEndpoint(workspace, "reset"), { commit_hash: entry.fullHash, mode }, {
-      successMessage: `reset --${mode} ${shortHash} 完了`,
-      errorMessage: `reset --${mode}に失敗しました`,
+      successMessage: `reset --${mode} ${shortHash} done`,
+      errorMessage: `reset --${mode} failed`,
     });
   }
 
   async function execCreateBranch(entry, closeFn) {
     const workspace = currentWorkspace();
     if (!workspace) return;
-    const branchName = prompt("新しいブランチ名を入力してください:");
+    const branchName = prompt("Enter new branch name:");
     if (!branchName) return;
     closeFn?.();
     await runAndToast(wsEndpoint(workspace, "create-branch"), { branch: branchName, start_point: entry.fullHash }, {
-      successMessage: `ブランチ ${branchName} を作成しました`,
-      errorMessage: "ブランチ作成に失敗しました",
+      successMessage: `Branch ${branchName} created`,
+      errorMessage: "Failed to create branch",
     });
   }
 
   async function execMerge(branch, closeFn) {
     const workspace = currentWorkspace();
     if (!workspace) return;
-    if (!confirm(`${branch} を現在のブランチにマージしますか？`)) return;
+    if (!confirm(`Merge ${branch} into current branch?`)) return;
     closeFn?.();
     await runAndToast(wsEndpoint(workspace, "merge"), { branch }, {
-      successMessage: `${branch} をマージしました`,
-      errorMessage: "マージに失敗しました",
+      successMessage: `${branch} merged`,
+      errorMessage: "Merge failed",
     });
   }
 
   async function execRebase(branch, closeFn) {
     const workspace = currentWorkspace();
     if (!workspace) return;
-    if (!confirm(`${branch} にリベースしますか？`)) return;
+    if (!confirm(`Rebase onto ${branch}?`)) return;
     closeFn?.();
     await runAndToast(wsEndpoint(workspace, "rebase"), { branch }, {
-      successMessage: `${branch} にリベースしました`,
-      errorMessage: "リベースに失敗しました",
+      successMessage: `Rebased onto ${branch}`,
+      errorMessage: "Rebase failed",
     });
   }
 

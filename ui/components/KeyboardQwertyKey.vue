@@ -189,7 +189,7 @@ function onCameraTouchEnd(e) {
     emitLocal("cycleMode");
     window.location.href = window.location.pathname + "?_=" + Date.now();
   } else if (dy > FLICK_THRESHOLD) {
-    const cmd = prompt("スニペットを追加:");
+    const cmd = prompt("Save as snippet:");
     if (cmd) emit("snippet:add", { command: cmd });
   } else {
     openCamera();

@@ -1,8 +1,8 @@
 <template>
   <div class="modal-scroll-body">
     <div class="clone-tab-content">
-      <div class="settings-section-label">GitHub リポジトリ</div>
-      <div v-if="isLoadingRepos" class="clone-repo-loading">読み込み中...</div>
+      <div class="settings-section-label">GitHub Repositories</div>
+      <div v-if="isLoadingRepos" class="clone-repo-loading">Loading...</div>
       <div v-else-if="reposError" class="clone-repo-error">{{ reposError }}</div>
       <div v-else class="clone-repo-list">
         <div
@@ -15,7 +15,7 @@
           <div class="clone-repo-name">{{ repo.nameWithOwner }}</div>
           <div v-if="repo.description" class="clone-repo-desc">{{ repo.description }}</div>
         </div>
-        <div v-if="repos.length === 0" class="clone-repo-empty">リポジトリが見つかりません</div>
+        <div v-if="repos.length === 0" class="clone-repo-empty">No repositories found</div>
       </div>
     </div>
 
@@ -26,7 +26,7 @@
           type="text"
           class="form-input"
           v-model="cloneUrl"
-          placeholder="リポジトリURL（GitHub / SSH）"
+          placeholder="Repository URL (GitHub / SSH)"
           autocomplete="off"
         />
       </div>
@@ -35,7 +35,7 @@
           type="text"
           class="form-input"
           v-model="cloneName"
-          placeholder="ディレクトリ名（空欄で自動）"
+          placeholder="Directory name (auto if empty)"
           autocomplete="off"
         />
       </div>
@@ -44,13 +44,13 @@
           type="text"
           class="form-input"
           v-model="cloneBaseDir"
-          placeholder="クローン先ディレクトリ"
+          placeholder="Clone directory"
           autocomplete="off"
         />
       </div>
       <div class="clone-form-row">
         <button type="button" class="primary" :disabled="cloning" @click="doClone">
-          {{ cloning ? 'クローン中...' : 'クローン' }}
+          {{ cloning ? 'Cloning...' : 'Clone' }}
         </button>
       </div>
       <div v-if="cloneError" class="clone-repo-error">{{ cloneError }}</div>
@@ -58,19 +58,19 @@
     </div>
 
     <div class="clone-tab-content">
-      <div class="settings-section-label">既存ディレクトリを追加</div>
+      <div class="settings-section-label">Add Existing Directory</div>
       <div class="clone-form-row">
         <input
           type="text"
           class="form-input"
           v-model="addPath"
-          placeholder="フルパス（例: /home/user/projects/myapp）"
+          placeholder="Full path (e.g. /home/user/projects/myapp)"
           autocomplete="off"
         />
       </div>
       <div class="clone-form-row">
         <button type="button" class="primary" :disabled="adding" @click="doAddExisting">
-          {{ adding ? '追加中...' : '追加' }}
+          {{ adding ? 'Adding...' : 'Add' }}
         </button>
       </div>
       <div v-if="addError" class="clone-repo-error">{{ addError }}</div>
@@ -86,7 +86,7 @@ import { useApi } from "../composables/useApi.js";
 import { MSG_ERROR_OCCURRED } from "../utils/constants.js";
 
 const modalTitle = inject("modalTitle");
-modalTitle.value = "ワークスペース追加";
+modalTitle.value = "Add Workspace";
 
 const { apiGet, apiPost, apiCommand } = useApi();
 
@@ -108,16 +108,16 @@ const isLoadingRepos = ref(false);
 const reposError = ref("");
 
 async function doAddExisting() {
-  if (!addPath.value.trim()) { addError.value = "パスを入力してください"; return; }
+  if (!addPath.value.trim()) { addError.value = "Please enter a path"; return; }
   adding.value = true;
   addError.value = "";
   addSuccess.value = "";
   try {
     const { ok, data } = await apiPost("/workspaces", { path: addPath.value.trim() });
     if (!ok) {
-      addError.value = data?.detail || "追加に失敗しました";
+      addError.value = data?.detail || "Failed to add";
     } else {
-      addSuccess.value = `${data?.name || "ディレクトリ"} を追加しました`;
+      addSuccess.value = `${data?.name || "directory"} added`;
       addPath.value = "";
     }
   } catch (e) {
@@ -128,7 +128,7 @@ async function doAddExisting() {
 }
 
 async function doClone() {
-  if (!cloneUrl.value.trim()) { cloneError.value = "URLを入力してください"; return; }
+  if (!cloneUrl.value.trim()) { cloneError.value = "Please enter a URL"; return; }
   cloning.value = true;
   cloneError.value = "";
   cloneSuccess.value = "";
@@ -139,9 +139,9 @@ async function doClone() {
       base_dir: cloneBaseDir.value.trim() || null,
     });
     if (!ok) {
-      cloneError.value = data?.detail || data?.message || "クローンに失敗しました";
+      cloneError.value = data?.detail || data?.message || "Clone failed";
     } else {
-      cloneSuccess.value = `${data?.name || "リポジトリ"} をクローンしました`;
+      cloneSuccess.value = `${data?.name || "repository"} cloned`;
       cloneUrl.value = "";
       cloneName.value = "";
     }
@@ -172,12 +172,12 @@ async function loadRepos() {
   try {
     const { ok, data } = await apiGet("/github/repos");
     if (!ok) {
-      reposError.value = "リポジトリ一覧を取得できませんでした";
+      reposError.value = "Failed to fetch repository list";
       return;
     }
     repos.value = data;
   } catch (e) {
-    reposError.value = e.message || "取得に失敗しました";
+    reposError.value = e.message || "Failed to fetch";
   } finally {
     isLoadingRepos.value = false;
   }

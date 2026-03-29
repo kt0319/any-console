@@ -17,7 +17,7 @@
           <span class="mdi mdi-pin snippet-chip-icon"></span>
           {{ truncateQuickText(snippet.label) }}
         </div>
-        <div v-if="snippets.length === 0" class="quick-snippet-item quick-snippet-item-empty">スニペットなし</div>
+        <div v-if="snippets.length === 0" class="quick-snippet-item quick-snippet-item-empty">No snippets</div>
       </div>
       <div class="quick-snippet-scroll-row">
         <div
@@ -32,7 +32,7 @@
           <span class="mdi mdi-history snippet-chip-icon"></span>
           {{ truncateQuickText(text) }}
         </div>
-        <div v-if="history.length === 0" class="quick-snippet-item quick-snippet-item-empty">履歴なし</div>
+        <div v-if="history.length === 0" class="quick-snippet-item quick-snippet-item-empty">No history</div>
       </div>
     </div>
   </div>
