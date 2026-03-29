@@ -240,6 +240,13 @@ def list_github_repos():
     if cached is not None:
         return cached
     try:
+        auth_check = subprocess.run(
+            ["gh", "auth", "status"],
+            capture_output=True, text=True, timeout=GITHUB_CLI_TIMEOUT_SEC,
+        )
+        if auth_check.returncode != 0:
+            raise server_error("gh CLI is not authenticated. Run 'gh auth login' on the server.")
+
         all_repos = []
 
         result = subprocess.run(

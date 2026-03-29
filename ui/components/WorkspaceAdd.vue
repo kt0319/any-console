@@ -172,7 +172,7 @@ async function loadRepos() {
   try {
     const { ok, data } = await apiGet("/github/repos");
     if (!ok) {
-      reposError.value = "Failed to fetch repository list";
+      reposError.value = data?.detail || "Failed to fetch repository list";
       return;
     }
     repos.value = data;
