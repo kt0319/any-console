@@ -12,6 +12,8 @@ from fastapi.websockets import WebSocketDisconnect
 
 from ..auth import verify_token
 from ..common import (
+    TERMINAL_DEFAULT_COLS,
+    TERMINAL_DEFAULT_ROWS,
     TERMINAL_TIMEOUT_SEC,
     TMUX_CMD_TIMEOUT_SEC,
     TMUX_SESSION_PREFIX,
@@ -164,6 +166,8 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
             return
 
     need_pty_bridge = session.fd is None or session.pid is None
+    effective_cols = cols if cols > 0 else TERMINAL_DEFAULT_COLS
+    effective_rows = rows if rows > 0 else TERMINAL_DEFAULT_ROWS
 
     if cols > 0 and rows > 0:
         try:
@@ -178,7 +182,7 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
     if need_pty_bridge:
         _detach_pty_bridge(session)
         try:
-            fd, pid = attach_tmux_session(session.tmux_session_name, cols, rows)
+            fd, pid = attach_tmux_session(session.tmux_session_name, effective_cols, effective_rows)
         except OSError as e:
             logger.error("tmux attach failed session=%s: %s", session_id, e)
             await websocket.close(code=1011, reason="tmux attach failed")
