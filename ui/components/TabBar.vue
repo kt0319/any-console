@@ -10,9 +10,15 @@
         :is-orphan="item.type === 'orphan'"
         @select="onSelect"
         @close="onClose"
-        @active-click="onActiveClick"
+
       />
+      <button class="tab-add-btn" @click="onAddClick" title="ワークスペースを開く">
+        <span class="mdi mdi-plus"></span>
+      </button>
     </div>
+    <button v-if="!isSplitMode" class="tab-settings-btn" @click="onSettingsClick" title="設定">
+      <span class="mdi mdi-cog"></span>
+    </button>
   </div>
 </template>
 
@@ -58,12 +64,16 @@ function onClose(tab) {
   emit("tab:close", { tab });
 }
 
-function onActiveClick() {
+function onBarDblClick() {
   emit("workspace:openModal");
 }
 
-function onBarDblClick() {
+function onAddClick() {
   emit("workspace:openModal");
+}
+
+function onSettingsClick() {
+  emit("settings:open");
 }
 </script>
 
@@ -92,5 +102,49 @@ function onBarDblClick() {
 
 .tab-bar::-webkit-scrollbar {
   display: none;
+}
+
+.tab-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tab-add-btn:active {
+  background: var(--bg-tertiary);
+}
+
+.tab-settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  margin: 0 4px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tab-settings-btn:active {
+  background: var(--bg-tertiary);
 }
 </style>
