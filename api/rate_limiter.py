@@ -9,6 +9,7 @@ RATE_WINDOW_SEC = 60
 
 SKIP_PREFIXES = (
     "/ui/",
+    "/assets/",
     "/icons/",
     "/styles",
     "/vendor/",

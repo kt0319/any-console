@@ -344,9 +344,10 @@ function onVisibilityChange() {
     tab._reconnectAttempts = 0;
   }
   setTimeout(() => {
-    const activeTab = terminalStore.openTabs.find(t => t.id === terminalStore.activeTabId);
-    if (activeTab && activeTab._pendingRedraw && !activeTab.ws && !activeTab._wsDisposed) {
-      connectTerminalWs(activeTab);
+    for (const tab of terminalStore.openTabs) {
+      if (tab._pendingRedraw && !tab.ws && !tab._wsDisposed) {
+        connectTerminalWs(tab);
+      }
     }
     terminalBaseView.value?.fitAllTerminals({ force: true });
   }, 100);
