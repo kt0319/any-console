@@ -20,7 +20,10 @@ export function useTerminal() {
 
   function connectTerminalWs(tab) {
     if (!tab || tab._wsDisposed) return;
-    const dims = tab.fitAddon?.proposeDimensions?.();
+    const frame = document.getElementById(`frame-${tab.id}`);
+    const frameRect = frame?.getBoundingClientRect();
+    const frameVisible = frameRect && frameRect.width >= 2 && frameRect.height >= 2;
+    const dims = frameVisible ? tab.fitAddon?.proposeDimensions?.() : null;
     const wsUrl = buildWebSocketUrl(tab.sessionId, dims?.cols, dims?.rows);
     const ws = new WebSocket(wsUrl);
     ws.binaryType = "arraybuffer";
