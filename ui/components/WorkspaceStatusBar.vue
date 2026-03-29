@@ -10,13 +10,13 @@
       v-html="commitMsgHtml + numstatHtml"
     />
     <button
-      v-if="!isGitRepo && workspace"
+      v-else-if="workspace"
       type="button"
       tabindex="-1"
       class="non-git-hint commit-msg-btn"
       @click="openFileModal"
     >Not a Git repository</button>
-    <div v-if="isGitRepo && hasGitActions" class="git-actions">
+    <div v-if="isGitRepo && !statusLoading && hasGitActions" class="git-actions">
       <GitActionBtn v-if="behind > 0" icon="pull" title="Pull" :count="behind" :running="isRunning(workspace, 'pull')" btn-class="pull-btn has-count" @action="doAction('pull')" />
       <GitActionBtn v-if="!hasUpstream && hasRemoteBranch" icon="set-upstream" title="Set Upstream" :running="isRunning(workspace, 'set-upstream')" btn-class="icon-only upstream-set-btn" @action="doAction('set-upstream')" />
       <GitActionBtn v-if="!hasUpstream && !hasRemoteBranch" icon="push-upstream" title="Push" :count="ahead" :running="isRunning(workspace, 'push-upstream')" btn-class="upstream-btn" @action="doAction('push-upstream')" />
@@ -83,8 +83,15 @@ const hasGitActions = computed(() =>
 );
 const isDirty = computed(() => ws.value && ws.value.clean === false);
 
+const statusLoading = computed(() => ws.value && ws.value.last_commit_message === undefined);
+
 const commitMsgHtml = computed(() => {
   if (!ws.value) return "";
+  if (statusLoading.value) {
+    const branch = ws.value.branch || "";
+    return `<span class="commit-btn-branch">${escapeHtml(branch)}</span>` +
+      `<span class="commit-btn-msg-wrap"><span class="commit-btn-msg commit-btn-loading">Loading</span></span>`;
+  }
   const branch = ws.value.branch || "";
   const msg = isDirty.value ? "Changes" : (ws.value.last_commit_message || "");
   const msgClass = isDirty.value ? "commit-btn-msg commit-btn-msg-muted" : "commit-btn-msg";
@@ -188,6 +195,22 @@ function doAction(action) {
 
 .commit-msg-btn :deep(.commit-btn-msg-muted) {
   color: var(--text-muted);
+}
+
+.commit-msg-btn :deep(.commit-btn-loading) {
+  color: var(--text-muted);
+}
+
+.commit-msg-btn :deep(.commit-btn-loading)::after {
+  content: "";
+  animation: loading-dots 1.2s steps(4) infinite;
+}
+
+@keyframes loading-dots {
+  0% { content: ""; }
+  25% { content: "."; }
+  50% { content: ".."; }
+  75% { content: "..."; }
 }
 
 .commit-msg-btn :deep(.header-git-numstat) {
