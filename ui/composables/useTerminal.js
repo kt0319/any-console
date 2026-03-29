@@ -18,7 +18,7 @@ export function useTerminal() {
     return url;
   }
 
-  function connectTerminalWs(tab) {
+  function connectTerminalWs(tab, opts = {}) {
     if (!tab || tab._wsDisposed) return;
     const frame = document.getElementById(`frame-${tab.id}`);
     const frameRect = frame?.getBoundingClientRect();
@@ -32,6 +32,7 @@ export function useTerminal() {
     ws.onopen = () => {
       tab._reconnectAttempts = 0;
       fitTerminal(tab, { force: true });
+      sendResize(tab);
       if (tab._pendingRedraw) {
         tab._pendingRedraw = false;
         tab.term?.write("\x1bc");
@@ -41,6 +42,7 @@ export function useTerminal() {
         ws.send(new TextEncoder().encode(tab._initialCommand + "\n"));
         tab._initialCommand = null;
       }
+      if (opts.onOpen) opts.onOpen();
     };
 
     ws.onmessage = (e) => {
@@ -181,6 +183,19 @@ export function useTerminal() {
       }, 50);
     });
     tab._frameResizeObserver.observe(frameEl);
+  }
+
+  function sendResize(tab) {
+    if (!tab?.term || !tab?.ws || tab.ws.readyState !== WebSocket.OPEN) return;
+    const cols = tab.term.cols;
+    const rows = tab.term.rows;
+    if (!cols || !rows) return;
+    const encoder = new TextEncoder();
+    const payload = encoder.encode(JSON.stringify({ type: "resize", cols, rows }));
+    const msg = new Uint8Array(1 + payload.length);
+    msg[0] = WS_MSG_RESIZE;
+    msg.set(payload, 1);
+    tab.ws.send(msg);
   }
 
   function fitTerminal(tab, opts = {}) {

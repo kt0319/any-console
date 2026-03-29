@@ -70,6 +70,12 @@ def attach_tmux_session(session_name: str, cols: int = 0, rows: int = 0) -> tupl
     }
     pid, fd = pty.fork()
     if pid == 0:
+        if cols > 0 and rows > 0:
+            try:
+                winsize = struct.pack("HHHH", rows, cols, 0, 0)
+                fcntl.ioctl(0, termios.TIOCSWINSZ, winsize)
+            except OSError:
+                pass
         try:
             os.execvpe("tmux", ["tmux", "attach-session", "-t", session_name], env)  # noqa: S606
         except Exception:  # noqa: S110

@@ -80,33 +80,17 @@ function clearActiveFitTimer() {
   }
 }
 
-function scheduleActiveFit(retry = 0) {
+function scheduleActiveFit() {
   if (!isActive.value) return;
-  const frame = frameEl.value;
-  if (!frame) return;
-  const rect = frame.getBoundingClientRect();
-  if (rect.width >= 2 && rect.height >= 2) {
-    fitTerminal(props.tab, { force: true });
-    if (props.tab.term) {
-      try {
-        props.tab.term.refresh(0, props.tab.term.rows - 1);
-      } catch {}
-    }
-    if (retry === 0) {
-      clearActiveFitTimer();
-      activeFitTimer = setTimeout(() => {
-        activeFitTimer = null;
-        if (isActive.value) fitTerminal(props.tab, { force: true });
-      }, 300);
-    }
-    return;
-  }
-  if (retry >= 8) return;
   clearActiveFitTimer();
   activeFitTimer = setTimeout(() => {
     activeFitTimer = null;
-    scheduleActiveFit(retry + 1);
-  }, 60);
+    if (!isActive.value) return;
+    fitTerminal(props.tab, { force: true });
+    if (props.tab.term) {
+      try { props.tab.term.refresh(0, props.tab.term.rows - 1); } catch {}
+    }
+  }, 50);
 }
 
 async function doEnterViewMode() {
@@ -380,12 +364,13 @@ onMounted(() => {
 watch(isActive, async (active) => {
   if (!active) return;
   if (props.tab._pendingRedraw && !props.tab.ws && !props.tab._wsDisposed) {
-    connectTerminalWs(props.tab);
+    connectTerminalWs(props.tab, {
+      onOpen: () => scheduleActiveFit(),
+    });
+    return;
   }
   await nextTick();
-  requestAnimationFrame(() => {
-    scheduleActiveFit(0);
-  });
+  scheduleActiveFit();
 });
 
 onBeforeUnmount(() => {

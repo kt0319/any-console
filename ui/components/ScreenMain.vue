@@ -343,8 +343,17 @@ function onVisibilityChange() {
     tab._pendingRedraw = true;
     tab._reconnectAttempts = 0;
   }
+  const visibleTabIds = new Set();
+  if (layoutStore.isSplitMode) {
+    for (const id of layoutStore.splitPaneTabIds || []) {
+      if (id != null) visibleTabIds.add(id);
+    }
+  } else if (terminalStore.activeTabId != null) {
+    visibleTabIds.add(terminalStore.activeTabId);
+  }
   setTimeout(() => {
     for (const tab of terminalStore.openTabs) {
+      if (!visibleTabIds.has(tab.id)) continue;
       if (tab._pendingRedraw && !tab.ws && !tab._wsDisposed) {
         connectTerminalWs(tab);
       }
