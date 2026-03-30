@@ -75,8 +75,10 @@ function doAction(ws, action) {
 const visibleWorkspaces = computed(() => workspaceStore.visibleWorkspaces);
 
 async function loadWorkspaceOverview() {
-  await workspaceStore.fetchStatuses();
-  await fetchAllWorkspaceJobs();
+  await Promise.all([
+    workspaceStore.fetchStatuses(),
+    fetchAllWorkspaceJobs(),
+  ]);
 }
 
 async function fetchAllWorkspaceJobs() {
