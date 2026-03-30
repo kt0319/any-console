@@ -85,24 +85,22 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import FileTextViewer from "./FileTextViewer.vue";
 import FileItem from "./FileItem.vue";
-import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { useGitStore } from "../stores/git.js";
 import { useApi } from "../composables/useApi.js";
 import { useFileDragDrop } from "../composables/useFileDragDrop.js";
+import { useFileActions } from "../composables/useFileActions.js";
+import { useEditorIntegration } from "../composables/useEditorIntegration.js";
+import { useFileDiff } from "../composables/useFileDiff.js";
 import { emit } from "../app-bridge.js";
 import { useLongPress } from "../composables/useLongPress.js";
-import { MSG_DELETE_FAILED } from "../utils/constants.js";
 import { renderFileIcon } from "../utils/file-icon.js";
 import { formatSize } from "../utils/format.js";
 
-const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
-const { apiGet, apiPost, wsEndpoint } = useApi();
-const gitStore = useGitStore();
+const { apiGet, wsEndpoint } = useApi();
 
 const props = defineProps({
   diffFile: { type: String, default: "" },
@@ -115,12 +113,32 @@ const fileContent = ref(null);
 const isFileBrowserLoading = ref(false);
 const fileBrowserError = ref("");
 const contextEntry = ref(null);
-const diffHtml = ref("");
-const diffNewFileContent = ref(null);
 const uploadInputEl = ref(null);
-const editorUrlTemplate = ref("");
-const systemInfo = ref({});
 const showIgnored = ref(false);
+
+const {
+  renameEntry, moveEntry, deleteEntry,
+  downloadFile, downloadEntry,
+  uploadDroppedFiles,
+} = useFileActions({
+  getContextEntry: () => contextEntry.value,
+  clearContextEntry: () => { contextEntry.value = null; },
+  getCurrentPath: () => currentPath.value,
+  getFileContent: () => fileContent.value,
+  navigateToPath: (path) => navigateToPath(path),
+});
+
+const {
+  editorUrlTemplate, fetchEditorSettings,
+  buildEditorUrl, openInEditor,
+} = useEditorIntegration();
+
+const {
+  diffHtml, diffNewFileContent,
+} = useFileDiff({
+  getDiffFile: () => props.diffFile,
+  getDiffMessage: () => props.diffMessage,
+});
 
 const {
   isDropActive,
@@ -158,58 +176,6 @@ const githubEntryUrl = computed(() => {
   const type = contextEntry.value.type === "dir" ? "tree" : "blob";
   return `${ws.github_url}/${type}/${branch}/${entryPath}`;
 });
-
-const DIFF_COLORS = {
-  "+": "var(--diff-add, #9ece6a)",
-  "-": "var(--diff-del, #f7768e)",
-  "@": "var(--diff-hunk, #7aa2f7)",
-};
-
-function escapeDiffHtml(str) {
-  if (!str) return "";
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-function colorDiff(text) {
-  if (!text) return "";
-  return text.split("\n").map((line) => {
-    const prefix = line[0];
-    const color = DIFF_COLORS[prefix];
-    if (color) return `<span style="color:${color}">${escapeDiffHtml(line)}</span>`;
-    return escapeDiffHtml(line);
-  }).join("\n");
-}
-
-watch(() => props.diffFile, async (file) => {
-  diffNewFileContent.value = null;
-  if (!file) { diffHtml.value = ""; return; }
-  const chunk = gitStore.diffChunks[file];
-  if (chunk) {
-    diffHtml.value = `<pre>${colorDiff(chunk)}</pre>`;
-    return;
-  }
-  const status = (gitStore.diffFileStatuses[file] || "").trim();
-  if (status === "??" || status === "A") {
-    const workspace = workspaceStore.selectedWorkspace;
-    try {
-      const { ok, data } = await apiGet(wsEndpoint(workspace, `file-content?path=${encodeURIComponent(file)}`));
-      if (ok && data) {
-        diffNewFileContent.value = data;
-        diffHtml.value = "";
-        return;
-      }
-    } catch {}
-  }
-  diffHtml.value = "";
-}, { immediate: true });
-
-watch(() => props.diffMessage, (msg) => {
-  if (msg) {
-    diffHtml.value = `<div class="text-muted-center">${escapeDiffHtml(msg)}</div>`;
-  }
-}, { immediate: true });
 
 async function loadFileBrowserRoot() {
   await navigateToPath("");
@@ -283,11 +249,6 @@ function toggleContextMenu(entry) {
   }
 }
 
-function entryPath() {
-  if (!contextEntry.value) return "";
-  return currentPath.value ? `${currentPath.value}/${contextEntry.value.name}` : contextEntry.value.name;
-}
-
 function openGitHub() {
   if (githubEntryUrl.value) {
     window.open(githubEntryUrl.value, "_blank");
@@ -295,185 +256,26 @@ function openGitHub() {
   contextEntry.value = null;
 }
 
-async function renameEntry() {
-  const filePath = entryPath();
-  const fileName = contextEntry.value?.name;
-  if (!filePath || !fileName) return;
-  const newName = prompt("New name:", fileName);
-  if (!newName || newName === fileName) { contextEntry.value = null; return; }
-  const parentPath = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
-  const destPath = parentPath ? `${parentPath}/${newName}` : newName;
-  contextEntry.value = null;
-  await renameFile(filePath, destPath);
-}
-
-async function moveEntry() {
-  const filePath = entryPath();
-  if (!filePath) return;
-  const destPath = prompt("Destination path:", filePath);
-  if (!destPath || destPath === filePath) { contextEntry.value = null; return; }
-  contextEntry.value = null;
-  await renameFile(filePath, destPath);
-}
-
-async function renameFile(src, dest) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  try {
-    const { ok } = await apiPost(wsEndpoint(workspace, "rename"), { src, dest });
-    if (!ok) {
-      emit("toast:show", { message: "Rename failed", type: "error" });
-      return;
-    }
-    emit("toast:show", { message: "Renamed", type: "success" });
-    await navigateToPath(currentPath.value);
-  } catch (e) {
-    emit("toast:show", { message: e.message, type: "error" });
-  }
-}
-
-async function deleteEntry() {
-  const filePath = entryPath();
-  const fileName = contextEntry.value?.name;
-  if (!filePath || !fileName) return;
-  if (!confirm(`Delete "${fileName}"?`)) { contextEntry.value = null; return; }
-  contextEntry.value = null;
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  try {
-    const { ok } = await apiPost(wsEndpoint(workspace, "delete-file"), { path: filePath });
-    if (!ok) {
-      emit("toast:show", { message: MSG_DELETE_FAILED, type: "error" });
-      return;
-    }
-    emit("toast:show", { message: "Deleted", type: "success" });
-    await navigateToPath(currentPath.value);
-  } catch (e) {
-    emit("toast:show", { message: e.message, type: "error" });
-  }
-}
-
-async function downloadFile(filePath) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace || !filePath) return;
-  try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/download?path=${encodeURIComponent(filePath)}`);
-    if (!res || !res.ok) {
-      emit("toast:show", { message: "Download failed", type: "error" });
-      return;
-    }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filePath.split("/").pop() || "download";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  } catch {
-    emit("toast:show", { message: "Download failed", type: "error" });
-  }
-}
-
-async function downloadEntry() {
-  const filePath = entryPath();
-  if (!filePath) return;
-  contextEntry.value = null;
-  await downloadFile(filePath);
-}
-
-function downloadCurrentFile() {
-  const filePath = props.diffFile || currentPath.value;
-  downloadFile(filePath);
-}
-
-async function fetchEditorSettings() {
-  try {
-    const [settingsResult, infoResult] = await Promise.all([
-      apiGet("/settings/editor"),
-      apiGet("/system/info"),
-    ]);
-    const settings = settingsResult.ok ? settingsResult.data : {};
-    const info = infoResult.ok ? infoResult.data : {};
-    editorUrlTemplate.value = (settings.url_template || "").trim();
-    systemInfo.value = info;
-  } catch {
-    editorUrlTemplate.value = "";
-  }
-}
-
-function buildEditorUrl(path) {
-  const tmpl = editorUrlTemplate.value;
-  if (!tmpl) return "";
-  const workspace = workspaceStore.selectedWorkspace || "";
-  let url = tmpl
-    .replace(/\{user\}/g, systemInfo.value.user || "")
-    .replace(/\{host\}/g, systemInfo.value.hostname || "")
-    .replace(/\{work_dir\}/g, systemInfo.value.work_dir || "")
-    .replace(/\{workspace\}/g, workspace);
-  if (path) url += "/" + path;
-  return url;
-}
-
-async function openEntryInEditor() {
-  const filePath = entryPath();
-  if (!filePath) return;
+function openEntryInEditor() {
+  const entry = contextEntry.value;
+  if (!entry) return;
+  const filePath = currentPath.value ? `${currentPath.value}/${entry.name}` : entry.name;
   contextEntry.value = null;
   if (!editorUrlTemplate.value) {
     currentPath.value = filePath;
     openFile(filePath);
     return;
   }
-  window.open(buildEditorUrl(filePath), "_blank");
+  openInEditor(filePath);
 }
 
 function openDirInEditor() {
-  const url = buildEditorUrl(currentPath.value);
-  if (url) window.open(url, "_blank");
+  openInEditor(currentPath.value);
 }
 
-function getUploadDirPath() {
-  if (!fileContent.value) {
-    return currentPath.value || "";
-  }
-  const idx = currentPath.value.lastIndexOf("/");
-  if (idx <= 0) return "";
-  return currentPath.value.slice(0, idx);
-}
-
-async function uploadDroppedFiles(files) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace || files.length === 0) return;
-  const uploadPath = getUploadDirPath();
-  let successCount = 0;
-  let failCount = 0;
-  for (const file of files) {
-    const formData = new FormData();
-    formData.append("path", uploadPath);
-    formData.append("file", file);
-    try {
-      const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/upload`, {
-        method: "POST",
-        body: formData,
-      });
-      if (res && res.ok) {
-        successCount += 1;
-      } else {
-        failCount += 1;
-      }
-    } catch {
-      failCount += 1;
-    }
-  }
-
-  if (successCount > 0) {
-    emit("toast:show", { message: `${successCount} file(s) uploaded`, type: "success" });
-  }
-  if (failCount > 0) {
-    emit("toast:show", { message: `${failCount} file(s) failed to upload`, type: "error" });
-  }
-  await navigateToPath(uploadPath);
+function downloadCurrentFile() {
+  const filePath = props.diffFile || currentPath.value;
+  downloadFile(filePath);
 }
 
 function onCrumbClick(path) {
