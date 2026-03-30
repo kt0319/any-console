@@ -116,7 +116,7 @@ class TestTerminalSessionMetadata:
         assert matched[0]["job_label"] == "My Job"
 
     def test_expired_session_buffer(self, client):
-        """expires_at を過去に設定 → GET buffer → 410"""
+        """expires_at を過去に設定 → tmux不在なら 404"""
         from api.terminal_session import TERMINAL_SESSIONS, TerminalSession, sessions_lock
         import time
         session = TerminalSession(
@@ -128,7 +128,7 @@ class TestTerminalSessionMetadata:
             TERMINAL_SESSIONS["expired-test"] = session
 
         res = client.get("/terminal/sessions/expired-test/buffer", headers=AUTH)
-        assert res.status_code == 410
+        assert res.status_code == 404
 
     def test_buffer_nonexistent(self, client):
         """存在しないセッション → 404"""
@@ -160,16 +160,16 @@ class TestTerminalSessionMetadata:
 
 class TestSessionCleanup:
     def test_cleanup_expired(self, monkeypatch):
-        """cleanup_terminal_sessions() で期限切れだけ削除"""
+        """cleanup_terminal_sessions() で期限切れをメモリから削除（tmuxは残す）"""
         from api.terminal_session import (
             TERMINAL_SESSIONS, TerminalSession, cleanup_terminal_sessions,
             sessions_lock,
         )
         import time
 
-        killed = []
-        monkeypatch.setattr("api.terminal_session._kill_tmux_session",
-                            lambda s: killed.append(s.tmux_session_name))
+        detached = []
+        monkeypatch.setattr("api.terminal_session._detach_pty_bridge",
+                            lambda s: detached.append(s.tmux_session_name))
 
         expired = TerminalSession(
             workspace="ws1", expires_at=time.time() - 100, tmux_session_name="ac-test-cleanup-old",
@@ -186,7 +186,7 @@ class TestSessionCleanup:
         with sessions_lock:
             assert "old" not in TERMINAL_SESSIONS
             assert "new" in TERMINAL_SESSIONS
-        assert "ac-test-cleanup-old" in killed
+        assert "ac-test-cleanup-old" in detached
 
     def test_cleanup_preserves_active(self, monkeypatch):
         """有効セッションは残る"""

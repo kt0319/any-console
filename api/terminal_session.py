@@ -23,7 +23,7 @@ from .common import (
     TMUX_CMD_TIMEOUT_SEC,
     TMUX_SESSION_PREFIX,
 )
-from .errors import gone, not_found
+from .errors import not_found
 from .tmux import (
     detect_workspace_from_tmux,
     kill_tmux_by_name,
@@ -145,8 +145,8 @@ def cleanup_terminal_sessions() -> None:
             if session:
                 removed_sessions.append((sid, session))
     for sid, session in removed_sessions:
-        logger.info("terminal session removed session=%s reason=expired", sid)
-        _kill_tmux_session(session)
+        logger.info("terminal session expired session=%s (tmux kept alive)", sid)
+        _detach_pty_bridge(session)
 
 
 def _register_tmux_session(session_id: str, tmux_name: str) -> TerminalSession:
@@ -163,10 +163,11 @@ def get_terminal_session(session_id: str) -> TerminalSession:
         if session:
             if session.expires_at <= time.time():
                 TERMINAL_SESSIONS.pop(session_id, None)
-                _kill_tmux_session(session)
-                raise gone("Terminal session expired")
-            session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
-            return session
+                _detach_pty_bridge(session)
+                logger.info("terminal session expired session=%s (tmux kept alive)", session_id)
+            else:
+                session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
+                return session
 
     tmux_name = TMUX_SESSION_PREFIX + session_id
     if not tmux_session_exists(tmux_name):

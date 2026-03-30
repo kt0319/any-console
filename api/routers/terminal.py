@@ -143,10 +143,15 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
         return
 
     if session.expires_at <= time.time():
+        _detach_pty_bridge(session)
         with sessions_lock:
             TERMINAL_SESSIONS.pop(session_id, None)
-        await websocket.close(code=1008, reason="Session timed out")
-        return
+        if tmux_session_exists(session.tmux_session_name):
+            session = _register_tmux_session(session_id, session.tmux_session_name)
+            logger.info("terminal session re-registered after timeout session=%s", session_id)
+        else:
+            await websocket.close(code=1008, reason="Session timed out")
+            return
 
     if not tmux_session_exists(session.tmux_session_name):
         try:
