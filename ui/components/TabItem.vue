@@ -94,10 +94,14 @@ function onClosePress() {
   touchLongPress.cancel();
 }
 
+function confirmClose() {
+  if (confirm(`Close "${label.value}" tab?`)) {
+    emits("close", props.tab);
+  }
+}
+
 function onMouseDown() {
-  mouseLongPress.start(() => {
-    emit("settings:open", { view: "TabConfig" });
-  });
+  mouseLongPress.start(confirmClose);
 }
 
 // PC: HTML5 Drag & Drop
@@ -178,9 +182,7 @@ function onTouchStart(e) {
   touchStartX = e.touches[0].clientX;
   touchStartY = e.touches[0].clientY;
   touchLongPress.reset();
-  touchLongPress.start(() => {
-    emit("settings:open", { view: "TabConfig" });
-  });
+  touchLongPress.start(confirmClose);
 }
 
 function onTouchMove(e) {
