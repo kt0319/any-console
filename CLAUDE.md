@@ -100,7 +100,7 @@ sudo systemctl restart any-console
 - tmuxセッションを前段で管理し、`pty.fork()` でattachしてWebSocketでブリッジ
 - セッション管理ロジックは `api/terminal_session.py`、ルーターは `api/routers/terminal.py`
 - セッションはインメモリ管理（`TERMINAL_SESSIONS` dict）
-- セッションタイムアウトは2時間（`TERMINAL_TIMEOUT_SEC = 7200`）
+- セッションタイムアウトなし（tmuxセッションが生きている限り再接続可能）
 
 ## CSSルール
 

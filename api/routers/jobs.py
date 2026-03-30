@@ -14,7 +14,6 @@ from ..common import (
     MAX_ICON_VALUE_LENGTH,
     MAX_LABEL_LENGTH,
     MAX_TERMINAL_SESSIONS,
-    TERMINAL_TIMEOUT_SEC,
     TMUX_SESSION_PREFIX,
     WORKSPACE_JOBS_CACHE_TTL_SEC,
     TTLCache,
@@ -393,7 +392,6 @@ def _create_terminal_session(body, ws_path):
         raise server_error(f"Failed to create terminal: {e}") from None
     session = TerminalSession(
         workspace=body.workspace,
-        expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
         tmux_session_name=tmux_name,
         icon=body.icon,
         icon_color=body.icon_color,
@@ -409,7 +407,6 @@ def _create_terminal_session(body, ws_path):
         "status": "ok",
         "session_id": session_id,
         "ws_url": f"/terminal/ws/{session_id}",
-        "expires_in": TERMINAL_TIMEOUT_SEC,
     }
 
 

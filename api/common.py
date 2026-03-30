@@ -15,7 +15,6 @@ UPLOAD_DIR = Path("/tmp/any-console-uploads")
 def default_workspace_dir() -> Path:
     return Path(os.environ.get("ANY_CONSOLE_WORKSPACE_ROOT", str(Path.home() / "work")))
 
-TERMINAL_TIMEOUT_SEC = 7200
 CONFIG_FILE = PROJECT_ROOT / "config.json"
 GLOBAL_CONFIG_KEY = "__global__"
 

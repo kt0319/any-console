@@ -5,7 +5,6 @@ import os
 import struct
 import subprocess
 import termios
-import time
 
 from fastapi import APIRouter, Depends, WebSocket
 from fastapi.websockets import WebSocketDisconnect
@@ -14,7 +13,6 @@ from ..auth import verify_token
 from ..common import (
     TERMINAL_DEFAULT_COLS,
     TERMINAL_DEFAULT_ROWS,
-    TERMINAL_TIMEOUT_SEC,
     TMUX_CMD_TIMEOUT_SEC,
     TMUX_SESSION_PREFIX,
     WS_MSG_RESIZE,
@@ -142,17 +140,6 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
         await websocket.close(code=1008, reason="Session not found")
         return
 
-    if session.expires_at <= time.time():
-        _detach_pty_bridge(session)
-        with sessions_lock:
-            TERMINAL_SESSIONS.pop(session_id, None)
-        if tmux_session_exists(session.tmux_session_name):
-            session = _register_tmux_session(session_id, session.tmux_session_name)
-            logger.info("terminal session re-registered after timeout session=%s", session_id)
-        else:
-            await websocket.close(code=1008, reason="Session timed out")
-            return
-
     if not tmux_session_exists(session.tmux_session_name):
         try:
             ws_resolved = resolve_workspace_path(session.workspace)
@@ -202,7 +189,6 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
             pass
 
     session.clients.add(websocket)
-    session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
 
     _ensure_reader_task(session, session_id)
 
@@ -214,14 +200,11 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
                 msg = await asyncio.wait_for(websocket.receive(), timeout=WS_PING_INTERVAL_SEC)
             except asyncio.TimeoutError:
                 await websocket.send_bytes(b"")
-                session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
                 continue
 
             msg_type = msg.get("type")
             if msg_type == "websocket.disconnect":
                 break
-
-            session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
 
             data = msg.get("bytes")
             if data is None and msg.get("text") is not None:
@@ -243,7 +226,6 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
     if not session.clients:
         if session._reader_task and not session._reader_task.done():
             session._reader_task.cancel()
-        _detach_pty_bridge(session)
 
     try:
         await websocket.close()

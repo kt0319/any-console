@@ -19,7 +19,6 @@ from .common import (
     PTY_READER_WORKERS,
     TERMINAL_DEFAULT_COLS,
     TERMINAL_DEFAULT_ROWS,
-    TERMINAL_TIMEOUT_SEC,
     TMUX_CMD_TIMEOUT_SEC,
     TMUX_SESSION_PREFIX,
 )
@@ -45,13 +44,13 @@ _TMUX_ATTR_MAP = {
 
 class TerminalSession:
     __slots__ = (
-        "workspace", "fd", "pid", "expires_at",
+        "workspace", "fd", "pid",
         "icon", "icon_color", "job_name", "job_label",
         "clients", "_reader_task",
         "tmux_session_name",
     )
 
-    def __init__(self, workspace: str | None, expires_at: float,
+    def __init__(self, workspace: str | None,
                  tmux_session_name: str,
                  fd: int | None = None, pid: int | None = None,
                  icon: str | None = None, icon_color: str | None = None,
@@ -59,7 +58,6 @@ class TerminalSession:
         self.workspace = workspace
         self.fd = fd
         self.pid = pid
-        self.expires_at = expires_at
         self.icon = icon
         self.icon_color = icon_color
         self.job_name = job_name
@@ -84,7 +82,6 @@ class TerminalSession:
         workspace = meta.get("TMUX_WORKSPACE") or detect_workspace_from_tmux(tmux_name)
         return cls(
             workspace=workspace,
-            expires_at=time.time() + TERMINAL_TIMEOUT_SEC,
             tmux_session_name=tmux_name,
             icon=meta.get("TMUX_ICON"),
             icon_color=meta.get("TMUX_ICON_COLOR"),
@@ -135,20 +132,6 @@ def _kill_tmux_session(session: TerminalSession) -> None:
     kill_tmux_by_name(session.tmux_session_name)
 
 
-def cleanup_terminal_sessions() -> None:
-    now = time.time()
-    with sessions_lock:
-        expired = [sid for sid, s in TERMINAL_SESSIONS.items() if s.expires_at <= now]
-        removed_sessions = []
-        for sid in expired:
-            session = TERMINAL_SESSIONS.pop(sid, None)
-            if session:
-                removed_sessions.append((sid, session))
-    for sid, session in removed_sessions:
-        logger.info("terminal session expired session=%s (tmux kept alive)", sid)
-        _detach_pty_bridge(session)
-
-
 def _register_tmux_session(session_id: str, tmux_name: str) -> TerminalSession:
     session = TerminalSession.from_tmux(tmux_name)
     with sessions_lock:
@@ -161,20 +144,13 @@ def get_terminal_session(session_id: str) -> TerminalSession:
     with sessions_lock:
         session = TERMINAL_SESSIONS.get(session_id)
         if session:
-            if session.expires_at <= time.time():
-                TERMINAL_SESSIONS.pop(session_id, None)
-                _detach_pty_bridge(session)
-                logger.info("terminal session expired session=%s (tmux kept alive)", session_id)
-            else:
-                session.expires_at = time.time() + TERMINAL_TIMEOUT_SEC
-                return session
+            return session
 
     tmux_name = TMUX_SESSION_PREFIX + session_id
     if not tmux_session_exists(tmux_name):
         raise not_found("Terminal session not found")
 
-    session = _register_tmux_session(session_id, tmux_name)
-    return session
+    return _register_tmux_session(session_id, tmux_name)
 
 
 PTY_NO_DATA = b"\x00"
@@ -239,8 +215,6 @@ async def _session_reader(session: TerminalSession, session_id: str) -> None:
         if pty_eof:
             logger.info("PTY EOF detected, closing clients session=%s", session_id)
             await _close_all_clients(session, WS_CLOSE_SESSION_EXITED, "session exited")
-        if not session.clients:
-            _detach_pty_bridge(session)
 
 
 def _ensure_reader_task(session: TerminalSession, session_id: str) -> None:
