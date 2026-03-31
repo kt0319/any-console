@@ -352,7 +352,7 @@ defineExpose({
   display: inline-flex;
   align-items: center;
   align-self: stretch;
-  gap: 2px;
+  gap: 4px;
   padding: 0 10px;
   font-size: 12px;
   background: var(--bg-tertiary);
@@ -363,8 +363,9 @@ defineExpose({
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 120px;
-  flex-shrink: 0;
+  max-width: 160px;
+  flex-shrink: 1;
+  min-width: 60px;
 }
 
 .git-log-entry-body {

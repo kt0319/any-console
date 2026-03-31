@@ -330,6 +330,52 @@ onMounted(async () => {
   }
 });
 
+async function syncSessionsFromServer() {
+  try {
+    const [sessionsRes, jobsRes] = await Promise.all([
+      auth.apiFetch("/terminal/sessions").catch(() => null),
+      auth.apiFetch("/jobs/workspaces").catch(() => null),
+    ]);
+    if (!sessionsRes || !sessionsRes.ok) return;
+    const sessions = await sessionsRes.json();
+    if (!Array.isArray(sessions)) return;
+
+    let allJobs = {};
+    try {
+      if (jobsRes && jobsRes.ok) allJobs = await jobsRes.json();
+    } catch {}
+
+    const serverSessionIds = new Set(sessions.map((s) => s.session_id));
+    const localSessionIds = new Set(terminalStore.openTabs.map((t) => t.sessionId));
+
+    for (const s of sessions) {
+      if (localSessionIds.has(s.session_id)) continue;
+      const ws = workspaceStore.allWorkspaces.find((w) => w.name === s.workspace);
+      const jobDef = s.job_name && s.workspace ? allJobs[s.workspace]?.[s.job_name] : null;
+      terminalStore.addTerminalTab({
+        wsUrl: s.ws_url,
+        workspace: s.workspace,
+        wsIcon: ws?.icon || s.icon || "mdi-console",
+        wsIconColor: ws?.icon_color || s.icon_color,
+        icon: jobDef?.icon,
+        iconColor: jobDef?.icon_color,
+        jobName: s.job_name,
+        jobLabel: s.job_label,
+        restored: true,
+      });
+    }
+
+    for (const tab of [...terminalStore.openTabs]) {
+      if (!serverSessionIds.has(tab.sessionId)) {
+        disconnectTerminal(tab);
+        terminalStore.removeTab(tab.id);
+      }
+    }
+  } catch (e) {
+    console.error("syncSessionsFromServer failed:", e);
+  }
+}
+
 function onVisibilityChange() {
   if (document.hidden) return;
   for (const tab of terminalStore.openTabs) {
@@ -343,15 +389,16 @@ function onVisibilityChange() {
     tab._pendingRedraw = true;
     tab._reconnectAttempts = 0;
   }
-  const visibleTabIds = new Set();
-  if (layoutStore.isSplitMode) {
-    for (const id of layoutStore.splitPaneTabIds || []) {
-      if (id != null) visibleTabIds.add(id);
+
+  syncSessionsFromServer().then(() => {
+    const visibleTabIds = new Set();
+    if (layoutStore.isSplitMode) {
+      for (const id of layoutStore.splitPaneTabIds || []) {
+        if (id != null) visibleTabIds.add(id);
+      }
+    } else if (terminalStore.activeTabId != null) {
+      visibleTabIds.add(terminalStore.activeTabId);
     }
-  } else if (terminalStore.activeTabId != null) {
-    visibleTabIds.add(terminalStore.activeTabId);
-  }
-  setTimeout(() => {
     for (const tab of terminalStore.openTabs) {
       if (!visibleTabIds.has(tab.id)) continue;
       if (tab._pendingRedraw && !tab.ws && !tab._wsDisposed) {
@@ -359,7 +406,7 @@ function onVisibilityChange() {
       }
     }
     terminalBaseView.value?.fitAllTerminals({ force: true });
-  }, 100);
+  });
 }
 
 onBeforeUnmount(() => {
