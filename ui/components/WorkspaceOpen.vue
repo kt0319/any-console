@@ -8,7 +8,7 @@
           class="picker-ws-group"
         >
           <div class="picker-ws-row picker-ws-row-top">
-            <button type="button" class="picker-ws-header-label" @click="selectWorkspace(ws)">
+            <button type="button" class="picker-ws-header-label" @click="openDetail(ws)">
               <span v-html="renderIconStr(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
               <span class="picker-ws-header-text">
                 <span class="picker-ws-name">{{ ws.name }}</span>
@@ -36,8 +36,8 @@
                 <span v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
               </button>
             </div>
-            <button type="button" class="picker-ws-icon-btn" title="Files" @click="openDetail(ws)">
-              <span class="mdi mdi-folder-outline"></span>
+            <button type="button" class="picker-ws-icon-btn" title="Terminal" @click="selectWorkspace(ws)">
+              <span class="mdi mdi-console"></span>
             </button>
           </div>
         </div>
