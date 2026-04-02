@@ -7,6 +7,7 @@ export const useAuthStore = defineStore("auth", () => {
   const serverHostname = ref("");
   const serverVersion = ref("");
   const clientName = ref("");
+  const vpn = ref(false);
   const isHandlingUnauthorized = ref(false);
 
   async function apiFetch(endpoint, { method = "GET", body = null } = {}) {
@@ -61,7 +62,7 @@ export const useAuthStore = defineStore("auth", () => {
       });
       if (res.status === 401) return { ok: false, auth: false, error: "Authentication failed" };
       const data = await res.json();
-      return { ok: true, hostname: data.hostname, version: data.version, clientName: data.client_name };
+      return { ok: true, hostname: data.hostname, version: data.version, clientName: data.client_name, vpn: !!data.vpn };
     } catch (e) {
       return { ok: false, auth: true, error: `Cannot connect to server: ${e.message}` };
     }
@@ -86,10 +87,11 @@ export const useAuthStore = defineStore("auth", () => {
     return false;
   }
 
-  function setServerInfo(hostname, version, client) {
+  function setServerInfo(hostname, version, client, isVpn) {
     if (hostname) serverHostname.value = hostname;
     if (version) serverVersion.value = version;
     if (client) clientName.value = client;
+    vpn.value = !!isVpn;
   }
 
   function clearPersistedApiCaches() {
@@ -108,6 +110,7 @@ export const useAuthStore = defineStore("auth", () => {
     serverHostname,
     serverVersion,
     clientName,
+    vpn,
     isHandlingUnauthorized,
     apiFetch,
     saveToken,

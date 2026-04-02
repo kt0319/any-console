@@ -28,6 +28,9 @@
       <button type="button" class="settings-menu-item" @click="pushView('ServerInfo')">
         <span class="mdi mdi-information-outline"></span> Server Info
       </button>
+      <button type="button" class="settings-menu-item" @click="pushView('ClientInfo')">
+        <span class="mdi mdi-cellphone-information"></span> Client Info
+      </button>
     </div>
   </div>
 </template>

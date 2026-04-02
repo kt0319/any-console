@@ -34,6 +34,7 @@
         <TerminalConfig v-if="currentView === 'TerminalConfig'" />
         <EditorConfig v-if="currentView === 'EditorConfig'" />
         <ServerInfo v-if="currentView === 'ServerInfo'" />
+        <ClientInfo v-if="currentView === 'ClientInfo'" />
         <GitHubPane v-if="currentView === 'GitHubPane'" />
         <ConfigFile v-if="currentView === 'ConfigFile'" />
         <IconPicker v-if="currentView === 'IconPicker'" />
@@ -66,6 +67,7 @@ import TabConfig from "./TabConfig.vue";
 import TerminalConfig from "./TerminalConfig.vue";
 import EditorConfig from "./EditorConfig.vue";
 import ServerInfo from "./ServerInfo.vue";
+import ClientInfo from "./ClientInfo.vue";
 import ConfigFile from "./ConfigFile.vue";
 import GitHubPane from "./GitHubPane.vue";
 import IconPicker from "./IconPicker.vue";

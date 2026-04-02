@@ -1,4 +1,5 @@
 import hmac
+import ipaddress
 import logging
 import os
 import subprocess
@@ -72,6 +73,17 @@ def _extract_client_ip(request: Request) -> str:
     if forwarded_for:
         client_ip = forwarded_for.split(",")[0].strip()
     return client_ip
+
+
+def is_tailscale_ip(ip: str) -> bool:
+    try:
+        return ipaddress.ip_address(ip) in ipaddress.ip_network("100.64.0.0/10")
+    except ValueError:
+        return False
+
+
+def get_client_ip(request: Request) -> str:
+    return _extract_client_ip(request)
 
 
 def get_client_name(request: Request) -> str:

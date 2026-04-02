@@ -75,7 +75,7 @@ onMounted(async () => {
     auth.token = savedToken;
     const result = await auth.checkToken();
     if (result.ok) {
-      auth.setServerInfo(result.hostname, result.version, result.clientName);
+      auth.setServerInfo(result.hostname, result.version, result.clientName, result.vpn);
       authenticated.value = true;
     } else if (!result.auth) {
       auth.token = "";

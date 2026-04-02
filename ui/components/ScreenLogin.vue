@@ -39,7 +39,7 @@ async function handleLogin() {
   const result = await auth.checkToken();
 
   if (result.ok) {
-    auth.setServerInfo(result.hostname, result.version, result.clientName);
+    auth.setServerInfo(result.hostname, result.version, result.clientName, result.vpn);
     auth.saveToken(auth.token);
     visible.value = false;
     emits("authenticated");
