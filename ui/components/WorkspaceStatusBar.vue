@@ -1,42 +1,77 @@
 <template>
   <div class="workspace-status-bar" :style="{ display: showHeader ? 'flex' : 'none' }">
-    <button
-      v-if="isGitRepo"
-      type="button"
-      tabindex="-1"
-      class="commit-msg-btn"
-      :title="commitTooltip"
-      @click="openFileModal"
-      v-html="commitMsgHtml + numstatHtml"
-    />
-    <button
-      v-else-if="workspace"
-      type="button"
-      tabindex="-1"
-      class="non-git-hint commit-msg-btn"
-      @click="openFileModal"
-    >Not a Git repository</button>
-    <div v-if="isGitRepo && !statusLoading && hasGitActions" class="git-actions">
-      <GitActionBtn v-if="behind > 0" icon="pull" title="Pull" :count="behind" :running="isRunning(workspace, 'pull')" btn-class="pull-btn has-count" @action="doAction('pull')" />
-      <GitActionBtn v-if="!hasUpstream && hasRemoteBranch" icon="set-upstream" title="Set Upstream" :running="isRunning(workspace, 'set-upstream')" btn-class="icon-only upstream-set-btn" @action="doAction('set-upstream')" />
-      <GitActionBtn v-if="!hasUpstream && !hasRemoteBranch" icon="push-upstream" title="Push" :count="ahead" :running="isRunning(workspace, 'push-upstream')" btn-class="upstream-btn" @action="doAction('push-upstream')" />
-      <GitActionBtn v-if="hasUpstream && ahead > 0" icon="push" title="Push" :count="ahead" :running="isRunning(workspace, 'push')" btn-class="push-btn has-count" @action="doAction('push')" />
-    </div>
+    <button type="button" class="status-mode-toggle" @click="toggleMode">
+      <span :class="mode === 'git' ? 'mdi mdi-play-circle-outline' : 'mdi mdi-source-branch'"></span>
+    </button>
+    <template v-if="mode === 'git'">
+      <button
+        v-if="isGitRepo"
+        type="button"
+        tabindex="-1"
+        class="commit-msg-btn"
+        :title="commitTooltip"
+        @click="openFileModal"
+        v-html="commitMsgHtml + numstatHtml"
+      />
+      <button
+        v-else-if="workspace"
+        type="button"
+        tabindex="-1"
+        class="non-git-hint commit-msg-btn"
+        @click="openFileModal"
+      >Not a Git repository</button>
+      <div v-if="isGitRepo && !statusLoading && hasGitActions" class="git-actions">
+        <GitActionBtn v-if="behind > 0" icon="pull" title="Pull" :count="behind" :running="isRunning(workspace, 'pull')" btn-class="pull-btn has-count" @action="doAction('pull')" />
+        <GitActionBtn v-if="!hasUpstream && hasRemoteBranch" icon="set-upstream" title="Set Upstream" :running="isRunning(workspace, 'set-upstream')" btn-class="icon-only upstream-set-btn" @action="doAction('set-upstream')" />
+        <GitActionBtn v-if="!hasUpstream && !hasRemoteBranch" icon="push-upstream" title="Push" :count="ahead" :running="isRunning(workspace, 'push-upstream')" btn-class="upstream-btn" @action="doAction('push-upstream')" />
+        <GitActionBtn v-if="hasUpstream && ahead > 0" icon="push" title="Push" :count="ahead" :running="isRunning(workspace, 'push')" btn-class="push-btn has-count" @action="doAction('push')" />
+      </div>
+    </template>
+    <template v-else>
+      <div class="status-jobs">
+        <button
+          v-for="job in currentJobs"
+          :key="job.name"
+          type="button"
+          class="status-job-btn"
+          :class="{ 'status-job-direct': job.terminal === false }"
+          :title="job.label || job.name"
+          @click="runJob(job)"
+        >
+          <span v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
+        </button>
+        <span v-if="currentJobs.length === 0" class="status-jobs-empty">No jobs</span>
+      </div>
+      <button type="button" class="status-job-btn status-terminal-btn" title="Terminal" @click="openTerminal">
+        <span class="mdi mdi-console"></span>
+      </button>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onBeforeUnmount } from "vue";
+import { computed, ref, watch, onMounted, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useGitAction } from "../composables/useGitAction.js";
+import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
+import { renderIconStr } from "../utils/render-icon.js";
 import { escapeHtml } from "../utils/escape-html.js";
 import { POLL_INTERVAL_MS } from "../utils/constants.js";
 
 const { gitAction, isRunning } = useGitAction();
+const { apiGet } = useApi();
+
+const mode = ref("git");
+const jobsCache = {};
+const currentJobs = ref([]);
+
+function toggleMode() {
+  mode.value = mode.value === "git" ? "jobs" : "git";
+}
 
 let pollTimer = null;
 
@@ -123,6 +158,60 @@ function doAction(action) {
   if (!wsName) return;
   const branch = ws.value?.branch || "";
   gitAction(wsName, action, { branch });
+}
+
+async function fetchJobs(wsName) {
+  if (!wsName) { currentJobs.value = []; return; }
+  if (jobsCache[wsName]) { currentJobs.value = jobsCache[wsName]; return; }
+  try {
+    const { ok, data } = await apiGet("/jobs/workspaces");
+    if (!ok) return;
+    for (const [name, jobs] of Object.entries(data)) {
+      jobsCache[name] = Object.entries(jobs)
+        .filter(([n]) => n !== "terminal")
+        .map(([n, job]) => ({ name: n, ...job }));
+    }
+    currentJobs.value = jobsCache[wsName] || [];
+  } catch { /* ignore */ }
+}
+
+watch(workspace, (wsName) => fetchJobs(wsName), { immediate: true });
+
+function openTerminal() {
+  const wsName = workspace.value;
+  if (!wsName) return;
+  const wsData = ws.value;
+  emit("terminal:launch", {
+    workspace: wsName,
+    icon: wsData?.icon,
+    iconColor: wsData?.icon_color,
+  });
+}
+
+function runJob(job) {
+  const wsName = workspace.value;
+  if (!wsName) return;
+  const wsData = ws.value;
+  if (job.terminal === false) {
+    emit("job:exec", { jobName: job.name, job, workspace: wsName });
+    mode.value = "git";
+    return;
+  }
+  if (job.confirm !== false) {
+    const preview = job.command ? (job.command.length > 300 ? job.command.slice(0, 300) + "..." : job.command) : job.name;
+    if (!confirm(`${job.label || job.name}\n\n${preview}`)) return;
+  }
+  emit("terminal:launch", {
+    workspace: wsName,
+    icon: wsData?.icon,
+    iconColor: wsData?.icon_color,
+    jobName: job.name,
+    jobLabel: job.label,
+    jobIcon: job.icon,
+    jobIconColor: job.icon_color,
+    initialCommand: job.command,
+  });
+  mode.value = "git";
 }
 </script>
 
@@ -227,5 +316,57 @@ function doAction(action) {
 
 .commit-msg-btn :deep(.header-git-files) {
   color: var(--warning);
+}
+
+.status-mode-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.status-jobs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.status-jobs::-webkit-scrollbar {
+  display: none;
+}
+
+.status-job-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.status-job-direct {
+  border-style: dashed;
+}
+
+.status-jobs-empty {
+  color: var(--text-muted);
+  font-size: 12px;
 }
 </style>
