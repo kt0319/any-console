@@ -20,9 +20,11 @@
       {{ label }}
       <span
         class="tab-close"
+        draggable="false"
         @mousedown.stop.prevent="onClosePress"
         @touchstart.stop.prevent="onClosePress"
-        @click.stop="onClose"
+        @mouseup.stop="onCloseUp"
+        @click.stop.prevent
       >&times;</span>
     </template>
   </button>
@@ -54,6 +56,7 @@ const touchLongPress = useLongPress(LONG_PRESS_MS);
 const pillEl = ref(null);
 const isDragging = ref(false);
 const dropSide = ref("");
+let closePending = false;
 
 const isActive = computed(() => props.activeTabId === props.tab.id);
 const canDrag = computed(() => terminalStore.openTabs.length >= 1);
@@ -85,28 +88,31 @@ function onClick(e) {
 }
 
 function onClose() {
-  emits("close", props.tab);
-}
-
-function onClosePress() {
-  mouseLongPress.cancel();
-  touchLongPress.cancel();
-}
-
-function confirmClose() {
+  closePending = false;
   if (confirm(`Close "${label.value}" tab?`)) {
     emits("close", props.tab);
   }
 }
 
+function onCloseUp() {
+  if (!closePending) return;
+  onClose();
+}
+
+function onClosePress() {
+  mouseLongPress.cancel();
+  touchLongPress.cancel();
+  closePending = true;
+}
+
 function onMouseDown() {
-  mouseLongPress.start(confirmClose);
+  mouseLongPress.start(onClose);
 }
 
 // PC: HTML5 Drag & Drop
 function onDragStart(e) {
   mouseLongPress.cancel();
-  if (!canDrag.value) { e.preventDefault(); return; }
+  if (!canDrag.value || closePending) { e.preventDefault(); return; }
   e.dataTransfer.setData("text/plain", props.tab.id);
   e.dataTransfer.effectAllowed = "move";
   isDragging.value = true;
@@ -181,7 +187,7 @@ function onTouchStart(e) {
   touchStartX = e.touches[0].clientX;
   touchStartY = e.touches[0].clientY;
   touchLongPress.reset();
-  touchLongPress.start(confirmClose);
+  touchLongPress.start(onClose);
 }
 
 function onTouchMove(e) {

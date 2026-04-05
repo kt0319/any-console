@@ -56,7 +56,6 @@ export const useTerminalStore = defineStore("terminal", () => {
   const openTabs = ref([]);
   const activeTabId = ref(null);
   const terminalIdCounter = ref(0);
-  const isPageUnloading = ref(false);
   const hasRestoredTabsFromStorage = ref(false);
   const restoreSessionsLoading = ref(false);
   const restoreSessionsError = ref("");
@@ -157,7 +156,6 @@ export const useTerminalStore = defineStore("terminal", () => {
     openTabs,
     activeTabId,
     terminalIdCounter,
-    isPageUnloading,
     hasRestoredTabsFromStorage,
     restoreSessionsLoading,
     restoreSessionsError,

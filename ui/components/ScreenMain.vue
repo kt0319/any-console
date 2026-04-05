@@ -30,6 +30,7 @@ import { useApi } from "../composables/useApi.js";
 import { useTerminal } from "../composables/useTerminal.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useViewport } from "../composables/useViewport.js";
+import { handleBeforeUnload } from "../utils/page-unload.js";
 import { on, emit } from "../app-bridge.js";
 
 const layoutStore = useLayoutStore();
@@ -304,6 +305,7 @@ onMounted(() => {
   });
 
   document.addEventListener("visibilitychange", onVisibilityChange);
+  window.addEventListener("beforeunload", onBeforeUnload);
 
   if (typeof ResizeObserver !== "undefined") {
     mainPanelResizeObserver = new ResizeObserver(() => {
@@ -428,10 +430,15 @@ function onVisibilityChange() {
   });
 }
 
+function onBeforeUnload(event) {
+  handleBeforeUnload(event, terminalStore.openTabs);
+}
+
 onBeforeUnmount(() => {
   stopSyncPolling();
   mainPanelResizeObserver?.disconnect();
   document.removeEventListener("visibilitychange", onVisibilityChange);
+  window.removeEventListener("beforeunload", onBeforeUnload);
 });
 
 function updateKeyboardInputVisibility(visible) {

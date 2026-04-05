@@ -151,7 +151,10 @@ function onInfoClick(tab) {
 }
 
 function onClose(tab) {
-  emit("tab:close", { tab });
+  const label = tab.workspace || tab.label || "terminal";
+  if (confirm(`Close "${label}" tab?`)) {
+    emit("tab:close", { tab });
+  }
 }
 
 const dragFromIdx = ref(null);
