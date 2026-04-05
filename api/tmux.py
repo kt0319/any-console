@@ -42,6 +42,7 @@ def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
             "-x", str(TERMINAL_DEFAULT_COLS), "-y", str(TERMINAL_DEFAULT_ROWS), user_shell,
             ";", "set-option", "-t", session_name, "status", "off",
             ";", "set-option", "-t", session_name, "mouse", "off",
+            ";", "set-option", "-t", session_name, "history-limit", "0",
         ],
         cwd=cwd,
         env=env,
