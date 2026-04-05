@@ -22,9 +22,10 @@ data/
 # Environment
 .env
 
-# IDE
+# IDE / AI tools
 .vscode/
 .idea/
+.codex/
 *.swp
 *.swo
 *~
