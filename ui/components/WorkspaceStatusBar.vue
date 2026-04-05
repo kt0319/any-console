@@ -29,22 +29,40 @@
     </template>
     <template v-else>
       <div class="status-jobs">
-        <button
-          v-for="job in currentJobs"
-          :key="job.name"
-          type="button"
-          class="status-job-btn"
-          :class="{ 'status-job-direct': job.terminal === false }"
-          :title="job.label || job.name"
-          @click="runJob(job)"
-        >
-          <span v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
+        <div class="status-job-spacer"></div>
+        <button type="button" class="status-job-btn status-terminal-btn" title="Terminal" @click="openTerminal">
+          <span class="mdi mdi-console"></span>
         </button>
-        <span v-if="currentJobs.length === 0" class="status-jobs-empty">No jobs</span>
+        <template v-if="currentGlobalJobs.length">
+          <div class="status-job-spacer"></div>
+          <button
+            v-for="job in currentGlobalJobs"
+            :key="job.name"
+            type="button"
+            class="status-job-btn"
+            :class="{ 'status-job-direct': job.terminal === false }"
+            :title="job.label || job.name"
+            @click="runJob(job)"
+          >
+            <span v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
+          </button>
+        </template>
+        <template v-if="currentLocalJobs.length">
+          <div class="status-job-spacer"></div>
+          <button
+            v-for="job in currentLocalJobs"
+            :key="job.name"
+            type="button"
+            class="status-job-btn"
+            :class="{ 'status-job-direct': job.terminal === false }"
+            :title="job.label || job.name"
+            @click="runJob(job)"
+          >
+            <span v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
+          </button>
+        </template>
+        <span v-if="currentGlobalJobs.length === 0 && currentLocalJobs.length === 0" class="status-jobs-empty">No jobs</span>
       </div>
-      <button type="button" class="status-job-btn status-terminal-btn" title="Terminal" @click="openTerminal">
-        <span class="mdi mdi-console"></span>
-      </button>
     </template>
   </div>
 </template>
@@ -67,7 +85,8 @@ const { apiGet } = useApi();
 
 const mode = ref("git");
 const jobsCache = {};
-const currentJobs = ref([]);
+const currentGlobalJobs = ref([]);
+const currentLocalJobs = ref([]);
 
 function toggleMode() {
   mode.value = mode.value === "git" ? "jobs" : "git";
@@ -160,9 +179,20 @@ function doAction(action) {
   gitAction(wsName, action, { branch });
 }
 
+function applyJobs(wsName) {
+  const cached = jobsCache[wsName];
+  if (!cached) {
+    currentGlobalJobs.value = [];
+    currentLocalJobs.value = [];
+    return;
+  }
+  currentGlobalJobs.value = cached.filter((j) => j.global);
+  currentLocalJobs.value = cached.filter((j) => !j.global);
+}
+
 async function fetchJobs(wsName) {
-  if (!wsName) { currentJobs.value = []; return; }
-  if (jobsCache[wsName]) { currentJobs.value = jobsCache[wsName]; return; }
+  if (!wsName) { applyJobs(null); return; }
+  if (jobsCache[wsName]) { applyJobs(wsName); return; }
   try {
     const { ok, data } = await apiGet("/jobs/workspaces");
     if (!ok) return;
@@ -171,7 +201,7 @@ async function fetchJobs(wsName) {
         .filter(([n]) => n !== "terminal")
         .map(([n, job]) => ({ name: n, ...job }));
     }
-    currentJobs.value = jobsCache[wsName] || [];
+    applyJobs(wsName);
   } catch { /* ignore */ }
 }
 
@@ -363,6 +393,14 @@ function runJob(job) {
 
 .status-job-direct {
   border-style: dashed;
+}
+
+.status-job-spacer {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 2px;
+  background: var(--border);
+  flex-shrink: 0;
 }
 
 .status-jobs-empty {

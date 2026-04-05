@@ -24,21 +24,38 @@
           </div>
           <div class="picker-ws-row picker-ws-row-bottom">
             <div class="picker-ws-icons picker-ws-icons-bottom">
-              <button
-                v-for="job in wsJobs[ws.name] || []"
-                :key="job.name"
-                type="button"
-                class="picker-ws-icon-btn"
-                :class="{ 'picker-ws-job-direct': job.terminal === false, 'picker-ws-job-global': job.global }"
-                :title="job.label || job.name"
-                @click="runJob(ws, job)"
-              >
-                <span v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
+              <button type="button" class="picker-ws-icon-btn" title="Terminal" @click="selectWorkspace(ws)">
+                <span class="mdi mdi-console"></span>
               </button>
+              <template v-if="wsGlobalJobs[ws.name]?.length">
+                <div class="picker-ws-job-spacer"></div>
+                <button
+                  v-for="job in wsGlobalJobs[ws.name]"
+                  :key="job.name"
+                  type="button"
+                  class="picker-ws-icon-btn"
+                  :class="{ 'picker-ws-job-direct': job.terminal === false, 'picker-ws-job-global': true }"
+                  :title="job.label || job.name"
+                  @click="runJob(ws, job)"
+                >
+                  <span v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
+                </button>
+              </template>
+              <template v-if="wsLocalJobs[ws.name]?.length">
+                <div class="picker-ws-job-spacer"></div>
+                <button
+                  v-for="job in wsLocalJobs[ws.name]"
+                  :key="job.name"
+                  type="button"
+                  class="picker-ws-icon-btn"
+                  :class="{ 'picker-ws-job-direct': job.terminal === false }"
+                  :title="job.label || job.name"
+                  @click="runJob(ws, job)"
+                >
+                  <span v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
+                </button>
+              </template>
             </div>
-            <button type="button" class="picker-ws-icon-btn" title="Terminal" @click="selectWorkspace(ws)">
-              <span class="mdi mdi-console"></span>
-            </button>
           </div>
         </div>
         <div v-if="visibleWorkspaces.length === 0" class="clone-repo-empty">
@@ -66,7 +83,8 @@ const workspaceStore = useWorkspaceStore();
 const { apiGet } = useApi();
 const { gitAction, isRunning } = useGitAction();
 
-const wsJobs = reactive({});
+const wsGlobalJobs = reactive({});
+const wsLocalJobs = reactive({});
 
 function doAction(ws, action) {
   gitAction(ws.name, action, { branch: ws.branch });
@@ -87,9 +105,11 @@ async function fetchAllWorkspaceJobs() {
     if (!ok) return;
     for (const ws of visibleWorkspaces.value) {
       const jobs = data[ws.name] || {};
-      wsJobs[ws.name] = Object.entries(jobs)
+      const all = Object.entries(jobs)
         .filter(([name]) => name !== "terminal")
         .map(([name, job]) => ({ name, ...job }));
+      wsGlobalJobs[ws.name] = all.filter((j) => j.global);
+      wsLocalJobs[ws.name] = all.filter((j) => !j.global);
     }
   } catch {
     // ignore
@@ -293,6 +313,14 @@ onMounted(() => {
 
 .picker-ws-icon-btn.picker-ws-job-global {
   border-style: dotted;
+}
+
+.picker-ws-job-spacer {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 2px;
+  background: var(--border);
+  flex-shrink: 0;
 }
 
 .picker-ws-icon-btn .mdi {
