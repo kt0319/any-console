@@ -3,7 +3,7 @@
     <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
   </div>
   <div v-else class="main-panel" :class="{ 'panel-bottom': isPanelBottom }">
-    <TabBar v-show="!isTextInputVisible" ref="tabBarView" :tabs="openTabs" :orphans="orphanSessions" />
+    <TabBar v-show="!isTextInputVisible" ref="tabBarView" :tabs="openTabs" />
     <WorkspaceStatusBar v-show="!isTextInputVisible" />
     <TerminalBase
       ref="terminalBaseView"
@@ -138,7 +138,6 @@ async function persistSnippets() {
 }
 
 const openTabs = computed(() => terminalStore.openTabs);
-const orphanSessions = computed(() => terminalStore.orphanSessions);
 const isEmptyScreenVisible = computed(() => openTabs.value.length === 0 && !layoutStore.isSplitMode);
 
 const tabBarView = ref(null);
@@ -324,11 +323,27 @@ onMounted(async () => {
   bootMessage.value = "Initializing...";
   try {
     await initializeApp();
+    startSyncPolling();
   } finally {
     booting.value = false;
     bootMessage.value = "Loading...";
   }
 });
+
+const SYNC_INTERVAL_MS = 5000;
+let syncIntervalId = null;
+
+function startSyncPolling() {
+  stopSyncPolling();
+  syncIntervalId = setInterval(() => syncSessionsFromServer(), SYNC_INTERVAL_MS);
+}
+
+function stopSyncPolling() {
+  if (syncIntervalId != null) {
+    clearInterval(syncIntervalId);
+    syncIntervalId = null;
+  }
+}
 
 async function syncSessionsFromServer() {
   try {
@@ -377,7 +392,10 @@ async function syncSessionsFromServer() {
 }
 
 function onVisibilityChange() {
-  if (document.hidden) return;
+  if (document.hidden) {
+    stopSyncPolling();
+    return;
+  }
   for (const tab of terminalStore.openTabs) {
     tab._lastFitCols = 0;
     tab._lastFitRows = 0;
@@ -406,10 +424,12 @@ function onVisibilityChange() {
       }
     }
     terminalBaseView.value?.fitAllTerminals({ force: true });
+    startSyncPolling();
   });
 }
 
 onBeforeUnmount(() => {
+  stopSyncPolling();
   mainPanelResizeObserver?.disconnect();
   document.removeEventListener("visibilitychange", onVisibilityChange);
 });

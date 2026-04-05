@@ -2,7 +2,7 @@
   <button
     ref="pillEl"
     class="tab-btn"
-    :class="{ active: isActive, 'tab-activity': tab._activity, orphan: isOrphan, dragging: isDragging, 'drag-over-left': dropSide === 'left', 'drag-over-right': dropSide === 'right' }"
+    :class="{ active: isActive, 'tab-activity': tab._activity, dragging: isDragging, 'drag-over-left': dropSide === 'left', 'drag-over-right': dropSide === 'right' }"
     :draggable="canDrag"
     tabindex="-1"
     @mousedown="onMouseDown"
@@ -43,7 +43,6 @@ const props = defineProps({
   tab: { type: Object, required: true },
   activeTabId: { type: String, default: null },
   isPanelBottom: { type: Boolean, default: false },
-  isOrphan: { type: Boolean, default: false },
 });
 
 const emits = defineEmits(["select", "close", "active-click"]);

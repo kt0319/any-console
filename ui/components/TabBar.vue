@@ -7,7 +7,6 @@
         :tab="item.tab"
         :active-tab-id="activeTabId"
         :is-panel-bottom="isPanelBottom"
-        :is-orphan="item.type === 'orphan'"
         @select="onSelect"
         @close="onClose"
 
@@ -34,7 +33,6 @@ const layoutStore = useLayoutStore();
 
 const props = defineProps({
   tabs: { type: Array, default: () => [] },
-  orphans: { type: Array, default: () => [] },
 });
 
 const activeTabId = computed(() => terminalStore.activeTabId);
@@ -42,17 +40,12 @@ const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
 
 const sortedItems = computed(() => {
-  const items = props.tabs.map((tab, i) => ({ type: "tab", tab, index: i }));
-  for (const s of props.orphans) {
-    items.push({ type: "orphan", tab: s, index: s.tabIndex != null ? s.tabIndex : items.length });
-  }
-  items.sort((a, b) => a.index - b.index);
-  return items;
+  return props.tabs.map((tab, i) => ({ type: "tab", tab, index: i }));
 });
 
 const showBarRow = computed(() => {
   if (isSplitMode.value) return false;
-  const hasAnyTabs = props.tabs.length > 0 || props.orphans.length > 0;
+  const hasAnyTabs = props.tabs.length > 0;
   return hasAnyTabs || layoutStore.isTouchDevice || isPanelBottom.value;
 });
 
