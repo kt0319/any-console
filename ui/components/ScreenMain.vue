@@ -164,6 +164,31 @@ function focusTabTerminal(tabId) {
   });
 }
 
+function activateTerminalTab(tabId, { focus = true } = {}) {
+  terminalStore.switchTab(tabId);
+
+  if (layoutStore.isSplitMode) {
+    const existingPaneIndex = layoutStore.splitPaneTabIds.indexOf(tabId);
+    if (existingPaneIndex >= 0) {
+      layoutStore.activePaneIndex = existingPaneIndex;
+    } else {
+      const nextPaneTabIds = [...layoutStore.splitPaneTabIds];
+      const targetPaneIndex = Math.max(0, Math.min(layoutStore.activePaneIndex || 0, nextPaneTabIds.length));
+      if (nextPaneTabIds.length === 0) {
+        nextPaneTabIds.push(tabId);
+      } else if (targetPaneIndex < nextPaneTabIds.length) {
+        nextPaneTabIds[targetPaneIndex] = tabId;
+      } else {
+        nextPaneTabIds.push(tabId);
+      }
+      layoutStore.splitPaneTabIds = nextPaneTabIds;
+      layoutStore.activePaneIndex = nextPaneTabIds.indexOf(tabId);
+    }
+  }
+
+  if (focus) focusTabTerminal(tabId);
+}
+
 function ensureKeyboardTargetTab() {
   if (terminalStore.openTabs.length === 0) return;
   const hasActive = terminalStore.openTabs.some((t) => t.id === terminalStore.activeTabId);
@@ -215,10 +240,11 @@ async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, j
       jobLabel,
       initialCommand,
     });
-    terminalStore.switchTab(tab.id);
+    activateTerminalTab(tab.id, { focus: false });
     if (workspace) workspaceStore.selectedWorkspace = workspace;
     await nextTick();
     terminalBaseView.value?.fitAllTerminals();
+    activateTerminalTab(tab.id);
   } catch (e) {
     emit("toast:show", { message: `Terminal launch error: ${e.message}`, type: "error" });
   }
@@ -251,12 +277,7 @@ onMounted(() => {
   });
 
   on("tab:select", ({ tab }) => {
-    terminalStore.switchTab(tab.id);
-    focusTabTerminal(tab.id);
-    if (layoutStore.isSplitMode) {
-      const paneIndex = layoutStore.splitPaneTabIds.indexOf(tab.id);
-      if (paneIndex >= 0) layoutStore.activePaneIndex = paneIndex;
-    }
+    activateTerminalTab(tab.id);
     if (tab.workspace) {
       workspaceStore.selectedWorkspace = tab.workspace;
     }

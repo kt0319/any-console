@@ -42,6 +42,10 @@ export function useTerminal() {
         ws.send(new TextEncoder().encode(tab._initialCommand + "\n"));
         tab._initialCommand = null;
       }
+      const terminalStore = useTerminalStore();
+      if (tab.term && terminalStore.activeTabId === tab.id) {
+        tab.term.focus();
+      }
       if (opts.onOpen) opts.onOpen();
     };
 
