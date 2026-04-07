@@ -102,6 +102,10 @@ sudo systemctl restart any-console
 - セッションはインメモリ管理（`TERMINAL_SESSIONS` dict）
 - セッションタイムアウトなし（tmuxセッションが生きている限り再接続可能）
 
+## UIルール
+
+- UIのテキスト（confirm、alert、ラベル等）は英語で記述する
+
 ## CSSルール
 
 - `:hover` スタイルは使わない（モバイルファーストのため）
