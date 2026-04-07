@@ -2,9 +2,6 @@
   <div class="git-history-pane-wrapper">
     <!-- ファイル一覧モード -->
     <template v-if="selectedCommitForFiles">
-      <div v-if="isDirtyDiff" class="stash-pane-toolbar">
-        <button type="button" class="stash-save-btn" @click="stashSave">stash save</button>
-      </div>
       <div class="modal-scroll-body">
         <div v-if="isSelectedCommitFilesLoading" class="text-muted-center">Loading...</div>
         <ul v-if="!isSelectedCommitFilesLoading" class="file-browser-list diff-file-browser-list">
@@ -37,6 +34,9 @@
           <span class="git-log-dirty-label">{{ isDirty ? 'Changes' : 'No changes' }}</span>
           <span v-if="isDirty" class="git-log-dirty-numstat" v-html="dirtySummaryHtml"></span>
         </span>
+        <button v-if="isDirty" type="button" class="git-action-btn icon-only git-log-dirty-stash" title="Stash save" @click.stop="stashSave">
+          <span class="mdi mdi-archive-arrow-down-outline"></span>
+        </button>
         <button v-if="githubUrl" type="button" class="git-action-btn icon-only git-log-dirty-github" title="GitHub" @click.stop="selectPane('github')">
           <span class="mdi mdi-github"></span>
         </button>
@@ -121,7 +121,6 @@ function selectPane(key) {
 
 const isDirty = computed(() => workspaceStore.currentWorkspace && workspaceStore.currentWorkspace.clean === false);
 const currentBranch = computed(() => workspaceStore.currentWorkspace?.branch || "");
-const isDirtyDiff = computed(() => selectedCommitForFiles.value?.hash === "__dirty__");
 const githubUrl = computed(() => workspaceStore.currentWorkspace?.github_url || "");
 const dirtySummaryHtml = computed(() => {
   const ws = workspaceStore.currentWorkspace;
@@ -267,6 +266,7 @@ function openWorkingTreeDiffFiles() {
 }
 
 async function stashSave() {
+  if (!confirm("Stash save?")) return;
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
   const { ok } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true });
@@ -402,23 +402,6 @@ defineExpose({
   background: var(--bg-tertiary);
 }
 
-.stash-pane-toolbar {
-  padding: 0 0 8px;
-  flex-shrink: 0;
-}
-
-.stash-save-btn {
-  width: 100%;
-  min-height: 36px;
-  padding: 0 12px;
-  font-size: 13px;
-  background: transparent;
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-
 .git-log-dirty-status {
   display: flex;
   align-items: center;
@@ -455,6 +438,7 @@ defineExpose({
   color: var(--warning);
 }
 
+.git-log-dirty-stash,
 .git-log-dirty-github {
   display: inline-flex;
   align-items: center;

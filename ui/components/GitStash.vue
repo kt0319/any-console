@@ -1,8 +1,5 @@
 <template>
   <div class="git-stash-pane-wrapper">
-    <div class="stash-pane-toolbar">
-      <button type="button" class="stash-save-btn" @click="stashSave">stash save</button>
-    </div>
     <div class="modal-scroll-body" ref="stashListEl">
       <div v-if="isStashListLoading" class="text-muted-center">Loading...</div>
       <div v-else-if="stashEntries.length === 0" class="text-muted-center">No stash entries</div>
@@ -53,15 +50,6 @@ async function loadStashList() {
   }
 }
 
-async function stashSave() {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  const { ok } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true });
-  if (!ok) return;
-  await loadStashList();
-  emit("git:commitDone");
-}
-
 async function stashPop(entry) {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
@@ -89,23 +77,6 @@ defineExpose({ load: loadStashList });
   flex: 1;
   min-height: 0;
   overflow: hidden;
-}
-
-.stash-pane-toolbar {
-  padding: 0 0 8px;
-  flex-shrink: 0;
-}
-
-.stash-save-btn {
-  width: 100%;
-  min-height: 36px;
-  padding: 0 12px;
-  font-size: 13px;
-  background: transparent;
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
 }
 
 .stash-entry {
