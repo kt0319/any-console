@@ -31,6 +31,7 @@ from ..terminal_session import (
     _register_tmux_session,
     get_terminal_session,
     sessions_lock,
+    switch_active_client,
 )
 from ..tmux import (
     attach_tmux_session,
@@ -189,6 +190,8 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
             pass
 
     session.clients.add(websocket)
+    if cols > 0 and rows > 0:
+        session.client_sizes[websocket] = (cols, rows)
 
     _ensure_reader_task(session, session_id)
 
@@ -213,8 +216,9 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
                 continue
 
             if data[0:1] == WS_MSG_RESIZE:
-                _handle_resize(session, data[1:])
+                _handle_resize(session, data[1:], ws=websocket)
             else:
+                switch_active_client(session, websocket)
                 if session.fd is not None:
                     await loop.run_in_executor(PTY_EXECUTOR, os.write, session.fd, data)
     except (WebSocketDisconnect, OSError, asyncio.CancelledError):
@@ -222,6 +226,9 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
 
     # cleanup
     session.clients.discard(websocket)
+    session.client_sizes.pop(websocket, None)
+    if session._last_active_client is websocket:
+        session._last_active_client = None
 
     if not session.clients:
         if session._reader_task and not session._reader_task.done():

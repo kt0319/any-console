@@ -48,6 +48,7 @@ class TerminalSession:
         "icon", "icon_color", "job_name", "job_label",
         "clients", "_reader_task",
         "tmux_session_name",
+        "client_sizes", "_last_active_client",
     )
 
     def __init__(self, workspace: str | None,
@@ -65,6 +66,8 @@ class TerminalSession:
         self.clients: set[WebSocket] = set()
         self._reader_task: asyncio.Task | None = None
         self.tmux_session_name = tmux_session_name
+        self.client_sizes: dict[WebSocket, tuple[int, int]] = {}
+        self._last_active_client: WebSocket | None = None
 
     def save_metadata(self) -> None:
         for env_key, attr in _TMUX_ATTR_MAP.items():
@@ -223,18 +226,39 @@ def _ensure_reader_task(session: TerminalSession, session_id: str) -> None:
     session._reader_task = asyncio.create_task(_session_reader(session, session_id))
 
 
-def _handle_resize(session: TerminalSession, payload: bytes) -> None:
+def _apply_pty_size(session: TerminalSession, cols: int, rows: int) -> None:
+    if session.fd is not None:
+        winsize = struct.pack("HHHH", rows, cols, 0, 0)
+        fcntl.ioctl(session.fd, termios.TIOCSWINSZ, winsize)
+    subprocess.run(
+        ["tmux", "resize-window", "-t", session.tmux_session_name, "-x", str(cols), "-y", str(rows)],
+        timeout=TMUX_CMD_TIMEOUT_SEC,
+        capture_output=True,
+    )
+
+
+def _handle_resize(session: TerminalSession, payload: bytes, ws: WebSocket | None = None) -> None:
     try:
         size = json.loads(payload)
         cols = size.get("cols", TERMINAL_DEFAULT_COLS)
         rows = size.get("rows", TERMINAL_DEFAULT_ROWS)
-        if session.fd is not None:
-            winsize = struct.pack("HHHH", rows, cols, 0, 0)
-            fcntl.ioctl(session.fd, termios.TIOCSWINSZ, winsize)
-        subprocess.run(
-            ["tmux", "resize-window", "-t", session.tmux_session_name, "-x", str(cols), "-y", str(rows)],
-            timeout=TMUX_CMD_TIMEOUT_SEC,
-            capture_output=True,
-        )
+        if ws is not None:
+            session.client_sizes[ws] = (cols, rows)
+        _apply_pty_size(session, cols, rows)
     except (json.JSONDecodeError, OSError, KeyError, subprocess.TimeoutExpired):
         pass
+
+
+def switch_active_client(session: TerminalSession, ws: WebSocket) -> bool:
+    if session._last_active_client is ws:
+        return False
+    session._last_active_client = ws
+    size = session.client_sizes.get(ws)
+    if not size:
+        return False
+    cols, rows = size
+    try:
+        _apply_pty_size(session, cols, rows)
+        return True
+    except (OSError, subprocess.TimeoutExpired):
+        return False
