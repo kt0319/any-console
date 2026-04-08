@@ -4,10 +4,19 @@
     <ScreenMain />
   </template>
   <AppToast ref="appToast" />
+  <Transition name="offline-fade">
+    <div v-if="isOffline" class="offline-overlay">
+      <div class="offline-content">
+        <div class="offline-spinner" aria-hidden="true"></div>
+        <div class="offline-text">Connection lost</div>
+        <div class="offline-sub">Waiting for network...</div>
+      </div>
+    </div>
+  </Transition>
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, onBeforeUnmount } from "vue";
 import ScreenLogin from "./ScreenLogin.vue";
 import ScreenMain from "./ScreenMain.vue";
 import AppToast from "./AppToast.vue";
@@ -21,6 +30,37 @@ const appToast = ref(null);
 
 const showLogin = ref(false);
 const authenticated = ref(false);
+const isOffline = ref(false);
+
+const PING_INTERVAL_MS = 3000;
+const PING_TIMEOUT_MS = 2000;
+let pingTimerId = null;
+
+async function checkConnectivity() {
+  if (!navigator.onLine) { isOffline.value = true; return; }
+  try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), PING_TIMEOUT_MS);
+    await fetch("/auth/check", {
+      method: "HEAD",
+      headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
+      signal: ctrl.signal,
+    });
+    clearTimeout(tid);
+    isOffline.value = false;
+  } catch {
+    isOffline.value = true;
+  }
+}
+
+function startPing() {
+  stopPing();
+  pingTimerId = setInterval(checkConnectivity, PING_INTERVAL_MS);
+}
+
+function stopPing() {
+  if (pingTimerId != null) { clearInterval(pingTimerId); pingTimerId = null; }
+}
 
 async function execNonTerminalJob(jobName, workspace) {
   try {
@@ -47,7 +87,14 @@ async function onAuthenticated() {
   authenticated.value = true;
 }
 
+function onOnline() { checkConnectivity(); }
+function onOffline() { isOffline.value = true; }
+
 onMounted(async () => {
+  window.addEventListener("online", onOnline);
+  window.addEventListener("offline", onOffline);
+  startPing();
+
   if (layoutStore.isPwa) document.documentElement.classList.add("pwa");
 
   on("toast:show", ({ message, type }) => appToast.value?.show(message, type));
@@ -88,6 +135,12 @@ onMounted(async () => {
   } else {
     showLogin.value = true;
   }
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("online", onOnline);
+  window.removeEventListener("offline", onOffline);
+  stopPing();
 });
 </script>
 
@@ -538,5 +591,55 @@ button:disabled {
   font-size: 20px;
   cursor: grab;
   touch-action: none;
+}
+
+.offline-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(26, 27, 38, 0.92);
+}
+
+.offline-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.offline-spinner {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+
+.offline-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.offline-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.offline-fade-enter-active {
+  transition: opacity 0.2s ease;
+}
+
+.offline-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.offline-fade-enter-from,
+.offline-fade-leave-to {
+  opacity: 0;
 }
 </style>
