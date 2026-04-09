@@ -34,10 +34,12 @@ const isOffline = ref(false);
 
 const PING_INTERVAL_MS = 3000;
 const PING_TIMEOUT_MS = 2000;
+const OFFLINE_THRESHOLD = 2;
 let pingTimerId = null;
+let consecutiveFailures = 0;
 
 async function checkConnectivity() {
-  if (!navigator.onLine) { isOffline.value = true; return; }
+  if (!navigator.onLine) { consecutiveFailures = OFFLINE_THRESHOLD; isOffline.value = true; return; }
   try {
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), PING_TIMEOUT_MS);
@@ -47,9 +49,13 @@ async function checkConnectivity() {
       signal: ctrl.signal,
     });
     clearTimeout(tid);
+    consecutiveFailures = 0;
     isOffline.value = false;
   } catch {
-    isOffline.value = true;
+    consecutiveFailures++;
+    if (consecutiveFailures >= OFFLINE_THRESHOLD) {
+      isOffline.value = true;
+    }
   }
 }
 

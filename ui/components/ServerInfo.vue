@@ -10,7 +10,18 @@
           :class="{ 'server-info-header': row.header }"
           :title="row.title || ''"
         >
-          <span class="server-info-label">{{ row.label }}</span>
+          <span class="server-info-label">
+            {{ row.label }}
+            <button
+              v-if="row.refresh"
+              type="button"
+              class="process-refresh-btn"
+              :disabled="isProcessRefreshing"
+              @click="refreshProcesses"
+            >
+              <span class="mdi mdi-refresh" :class="{ spinning: isProcessRefreshing }"></span>
+            </button>
+          </span>
           <span class="server-info-values">
             <span v-for="(v, j) in row.values" :key="j" class="server-info-value">{{ v }}</span>
           </span>
@@ -30,6 +41,7 @@ modalTitle.value = "Server Info";
 
 const { apiGet } = useApi();
 const isServerInfoLoading = ref(true);
+const isProcessRefreshing = ref(false);
 const serverInfoSections = ref([]);
 
 const SECTION_DEFS = [
@@ -50,7 +62,7 @@ const SECTION_DEFS = [
     label: "Process List",
     endpoint: "/system/processes",
     toRows: (processes) => [
-      { label: "Processes", values: ["CPU", "MEM"], header: true },
+      { label: "Processes", values: ["CPU", "MEM"], header: true, refresh: true },
       ...processes.map((p) => ({
         label: p.name,
         values: [`${p.cpu.toFixed(1)}%`, `${p.mem.toFixed(1)}%`],
@@ -75,6 +87,22 @@ async function loadServerInfoSections() {
   );
   serverInfoSections.value = results;
   isServerInfoLoading.value = false;
+}
+
+async function refreshProcesses() {
+  if (isProcessRefreshing.value) return;
+  isProcessRefreshing.value = true;
+  try {
+    const def = SECTION_DEFS[1];
+    const { ok, data } = await apiGet(def.endpoint);
+    if (ok) {
+      const sections = [...serverInfoSections.value];
+      sections[1] = { label: def.label, rows: def.toRows(data), error: null };
+      serverInfoSections.value = sections;
+    }
+  } finally {
+    isProcessRefreshing.value = false;
+  }
 }
 
 onMounted(loadServerInfoSections);
@@ -135,5 +163,32 @@ defineExpose({
 
 .server-info-header .server-info-value {
   color: var(--text-muted);
+}
+
+.process-refresh-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 2px 4px;
+  margin-left: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+.process-refresh-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.process-refresh-btn .spinning {
+  display: inline-block;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>
