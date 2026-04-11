@@ -330,6 +330,7 @@ async function onPaste(e) {
   const imageFile = Array.from(files).find((f) => f.type.startsWith("image/"));
   if (!imageFile) return;
   e.preventDefault();
+  emit("keyboard:deactivate");
   await uploadImageToTerminal({
     file: imageFile,
     apiFetch: auth.apiFetch.bind(auth),
