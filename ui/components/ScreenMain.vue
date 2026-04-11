@@ -270,56 +270,58 @@ async function closeTab(tab) {
   }
 }
 
+const bridgeCleanups = [];
+
 onMounted(() => {
-  on("layout:fitAll", (detail) => {
+  bridgeCleanups.push(on("layout:fitAll", (detail) => {
     connectDeferredTabs();
     terminalBaseView.value?.fitAllTerminals(detail);
-  });
+  }));
 
-  on("tab:select", ({ tab }) => {
+  bridgeCleanups.push(on("tab:select", ({ tab }) => {
     activateTerminalTab(tab.id);
     if (tab.workspace) {
       workspaceStore.selectedWorkspace = tab.workspace;
     }
-  });
+  }));
 
-  on("tab:close", ({ tab }) => {
+  bridgeCleanups.push(on("tab:close", ({ tab }) => {
     closeTab(tab);
     const activeTab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
     workspaceStore.selectedWorkspace = activeTab?.workspace || null;
-  });
+  }));
 
-  on("terminal:launch", (detail) => {
+  bridgeCleanups.push(on("terminal:launch", (detail) => {
     launchTerminal(detail);
-  });
+  }));
 
-  on("snippet:tap", ({ command }) => {
+  bridgeCleanups.push(on("snippet:tap", ({ command }) => {
     sendTextToTerminal(command + "\n");
-  });
+  }));
 
-  on("snippet:add", async ({ label, command }) => {
+  bridgeCleanups.push(on("snippet:add", async ({ label, command }) => {
     const lbl = label || (command.length > 40 ? command.slice(0, 40) : command);
     inputStore.snippetsCache.push({ label: lbl, command });
     await persistSnippets();
-  });
+  }));
 
-  on("snippet:delete", async ({ index }) => {
+  bridgeCleanups.push(on("snippet:delete", async ({ index }) => {
     if (index >= 0 && index < inputStore.snippetsCache.length) {
       inputStore.snippetsCache.splice(index, 1);
       await persistSnippets();
     }
-  });
+  }));
 
   loadSnippetCache();
 
-  on("keyboard:activate", () => {
+  bridgeCleanups.push(on("keyboard:activate", () => {
     ensureKeyboardTargetTab();
     terminalBaseView.value?.showKeyboardInput?.();
-  });
+  }));
 
-  on("keyboard:deactivate", () => {
+  bridgeCleanups.push(on("keyboard:deactivate", () => {
     terminalBaseView.value?.hideKeyboardInput?.();
-  });
+  }));
 
   initViewport(() => {
     terminalBaseView.value?.fitAllTerminals();
@@ -456,6 +458,7 @@ function onBeforeUnload(event) {
 }
 
 onBeforeUnmount(() => {
+  bridgeCleanups.forEach((cleanup) => cleanup());
   stopSyncPolling();
   mainPanelResizeObserver?.disconnect();
   document.removeEventListener("visibilitychange", onVisibilityChange);

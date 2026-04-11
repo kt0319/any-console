@@ -122,6 +122,11 @@ export const useTerminalStore = defineStore("terminal", () => {
   function removeTab(tabId) {
     const idx = openTabs.value.findIndex((t) => t.id === tabId);
     if (idx === -1) return;
+    const tab = openTabs.value[idx];
+    if (tab.term) {
+      try { tab.term.dispose(); } catch {}
+      tab.term = null;
+    }
     openTabs.value.splice(idx, 1);
     if (activeTabId.value === tabId) {
       const next = openTabs.value[Math.min(idx, openTabs.value.length - 1)];

@@ -90,6 +90,7 @@ export function useTerminal() {
         : Math.min(Math.pow(2, attempts - 1) * 1000, RECONNECT_BACKOFF_MAX);
       tab._reconnectAttempts = attempts + 1;
       tab._pendingRedraw = true;
+      clearTimeout(tab._reconnectTimer);
       tab._reconnectTimer = setTimeout(() => connectTerminalWs(tab), delay);
     };
 
