@@ -30,6 +30,9 @@
         <button type="button" class="git-log-branch-btn" @click.stop="selectPane('branch')">
           <span class="mdi mdi-source-branch"></span>{{ currentBranch }}
         </button>
+        <button type="button" class="git-action-btn icon-only git-log-fetch-btn" title="Fetch" :disabled="isFetching" @click.stop="fetchRemote">
+          <span class="mdi" :class="isFetching ? 'mdi-loading mdi-spin' : 'mdi-cloud-download-outline'"></span>
+        </button>
         <span class="git-log-dirty-status">
           <span class="git-log-dirty-label">{{ isDirty ? 'Changes' : 'No changes' }}</span>
           <span v-if="isDirty" class="git-log-dirty-numstat" v-html="dirtySummaryHtml"></span>
@@ -131,6 +134,22 @@ const dirtySummaryHtml = computed(() => {
   const fileCountHtml = changedFiles > 0 ? `<span class="header-git-files">${changedFiles}F</span>` : "";
   return `${fileCountHtml}<span class="diff-num-plus">+${insertions}</span><span class="diff-num-del">-${deletions}</span>`;
 });
+
+const isFetching = ref(false);
+
+async function fetchRemote() {
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace || isFetching.value) return;
+  isFetching.value = true;
+  try {
+    await apiCommand(wsEndpoint(workspace, "fetch"));
+    await workspaceStore.fetchStatuses();
+  } catch (e) {
+    console.error("fetch failed:", e);
+  } finally {
+    isFetching.value = false;
+  }
+}
 
 const graphRows = ref([]);
 const commitEntries = computed(() => graphRows.value.filter((r) => r.entry).map((r) => r.entry));
@@ -368,6 +387,7 @@ defineExpose({
   min-width: 60px;
 }
 
+
 .git-log-entry-body {
   display: flex;
   flex-direction: column;
@@ -438,6 +458,7 @@ defineExpose({
   color: var(--warning);
 }
 
+.git-log-fetch-btn,
 .git-log-dirty-stash,
 .git-log-dirty-github {
   display: inline-flex;
