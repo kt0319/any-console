@@ -5,14 +5,10 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
 export function useModal() {
   const visible = ref(false);
   let releaseKeydown = null;
+  let releaseEscape = null;
 
   function trapFocus(modalEl, closeFn) {
     function onKeydown(e) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        closeFn();
-        return;
-      }
       if (e.key !== "Tab") return;
       const focusable = Array.from(modalEl.querySelectorAll(FOCUSABLE)).filter(
         (el) => el.offsetParent !== null,
@@ -45,6 +41,14 @@ export function useModal() {
 
   function open(modalEl, closeFn) {
     visible.value = true;
+    const onEscape = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeFn();
+      }
+    };
+    document.addEventListener("keydown", onEscape);
+    releaseEscape = () => document.removeEventListener("keydown", onEscape);
     nextTick(() => {
       if (modalEl) {
         releaseKeydown = trapFocus(modalEl, closeFn);
@@ -54,6 +58,10 @@ export function useModal() {
 
   function close() {
     visible.value = false;
+    if (releaseEscape) {
+      releaseEscape();
+      releaseEscape = null;
+    }
     if (releaseKeydown) {
       releaseKeydown();
       releaseKeydown = null;
@@ -63,6 +71,10 @@ export function useModal() {
   }
 
   onUnmounted(() => {
+    if (releaseEscape) {
+      releaseEscape();
+      releaseEscape = null;
+    }
     if (releaseKeydown) {
       releaseKeydown();
       releaseKeydown = null;
