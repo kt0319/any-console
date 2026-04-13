@@ -216,6 +216,7 @@ function openTerminal() {
     icon: wsData?.icon,
     iconColor: wsData?.icon_color,
   });
+  mode.value = "git";
 }
 
 function runJob(job) {
