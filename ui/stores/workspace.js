@@ -19,6 +19,18 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     allWorkspaces.value.find((w) => w.name === selectedWorkspace.value),
   );
 
+  async function fetchWorkspaces() {
+    try {
+      const { apiGet } = useApi();
+      const { ok, data } = await apiGet("/workspaces");
+      if (ok) {
+        allWorkspaces.value = Array.isArray(data) ? data : [];
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   async function fetchStatuses() {
     try {
       const { apiGet } = useApi();
@@ -45,6 +57,7 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     appInitializing,
     visibleWorkspaces,
     currentWorkspace,
+    fetchWorkspaces,
     fetchStatuses,
   };
 });

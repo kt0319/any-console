@@ -49,13 +49,10 @@ const bootMessage = ref("Loading...");
 async function initializeApp() {
   bootMessage.value = "Loading...";
 
-  const workspacesPromise = apiGet("/workspaces").then(({ ok, data }) => {
-    if (ok) {
-      workspaceStore.allWorkspaces = Array.isArray(data) ? data : (data.workspaces || []);
-      if (!workspaceStore.selectedWorkspace) {
-        const first = workspaceStore.visibleWorkspaces[0];
-        if (first) workspaceStore.selectedWorkspace = first.name;
-      }
+  const workspacesPromise = workspaceStore.fetchWorkspaces().then(() => {
+    if (!workspaceStore.selectedWorkspace) {
+      const first = workspaceStore.visibleWorkspaces[0];
+      if (first) workspaceStore.selectedWorkspace = first.name;
     }
   }).catch((e) => console.error("workspaces fetch failed:", e));
 

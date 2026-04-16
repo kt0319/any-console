@@ -117,12 +117,7 @@ const { dragIdx, dragOffsetY, onDragStart, cleanup: cleanupDrag } = useWorkspace
 });
 
 async function loadWorkspaceConfig() {
-  try {
-    const { ok, data } = await apiGet("/workspaces");
-    if (ok) {
-      workspaceStore.allWorkspaces = Array.isArray(data) ? data : [];
-    }
-  } catch { /* ignore */ }
+  await workspaceStore.fetchWorkspaces();
   allWorkspaces.value = workspaceStore.allWorkspaces || [];
   fetchAllJobCounts();
 }
@@ -237,6 +232,7 @@ async function saveWsConfig() {
     } else {
       editWs.value.icon = editIcon.value.trim();
       editWs.value.icon_color = editIconColor.value.trim();
+      workspaceStore.fetchWorkspaces();
     }
   } catch (e) {
     saveError.value = e.message || MSG_ERROR_OCCURRED;

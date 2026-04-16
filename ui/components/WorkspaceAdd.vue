@@ -83,11 +83,13 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
+import { useWorkspaceStore } from "../stores/workspace.js";
 import { MSG_ERROR_OCCURRED } from "../utils/constants.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Add Workspace";
 
+const workspaceStore = useWorkspaceStore();
 const { apiGet, apiPost, apiCommand } = useApi();
 
 let defaultWorkDir = "";
@@ -119,6 +121,7 @@ async function doAddExisting() {
     } else {
       addSuccess.value = `${data?.name || "directory"} added`;
       addPath.value = "";
+      workspaceStore.fetchWorkspaces();
     }
   } catch (e) {
     addError.value = e.message || MSG_ERROR_OCCURRED;
@@ -144,6 +147,7 @@ async function doClone() {
       cloneSuccess.value = `${data?.name || "repository"} cloned`;
       cloneUrl.value = "";
       cloneName.value = "";
+      workspaceStore.fetchWorkspaces();
     }
   } catch (e) {
     cloneError.value = e.message || MSG_ERROR_OCCURRED;
