@@ -50,7 +50,7 @@ const props = defineProps({
 const emits = defineEmits(["select", "close", "active-click"]);
 const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
-const { beginDrag, updateHover, finishSplitDrop, cancelDrag } = useSplitDropDrag();
+const { beginDrag, cancelDrag } = useSplitDropDrag();
 const mouseLongPress = useLongPress(LONG_PRESS_MS);
 const touchLongPress = useLongPress(LONG_PRESS_MS);
 const pillEl = ref(null);
@@ -59,7 +59,7 @@ const dropSide = ref("");
 let closePending = false;
 
 const isActive = computed(() => props.activeTabId === props.tab.id);
-const canDrag = computed(() => terminalStore.openTabs.length >= 1);
+const canDrag = computed(() => !layoutStore.isTouchDevice && terminalStore.openTabs.length >= 1);
 
 const label = computed(() => {
   return props.tab.workspace || props.tab.label || "terminal";
@@ -177,13 +177,11 @@ function onDropOnTab(e) {
   cancelDrag();
 }
 
-// Mobile: Touch drag + long press
+// Mobile: long press to close, horizontal scroll handled natively
 let touchStartX = 0;
 let touchStartY = 0;
-let touchDragging = false;
 
 function onTouchStart(e) {
-  touchDragging = false;
   touchStartX = e.touches[0].clientX;
   touchStartY = e.touches[0].clientY;
   touchLongPress.reset();
@@ -196,59 +194,23 @@ function onTouchMove(e) {
   if (isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
     touchLongPress.cancel();
   }
-  if (!canDrag.value) return;
-
-  if (!touchDragging && isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
-    touchDragging = true;
-    isDragging.value = true;
-    beginDrag(props.tab.id);
-    if (e.cancelable) e.preventDefault();
-  }
-
-  if (touchDragging) {
-    if (e.cancelable) e.preventDefault();
-    updateHover(e.touches[0].clientX, e.touches[0].clientY);
-  }
 }
 
-function cleanupTouchDrag(e) {
-  if (!touchDragging) return false;
-  if (e.cancelable) e.preventDefault();
-  isDragging.value = false;
-  const touch = e.changedTouches?.[0];
-  if (touch) {
-    finishSplitDrop({
-      tabId: props.tab.id,
-      clientX: touch.clientX,
-      clientY: touch.clientY,
-      openTabs: terminalStore.openTabs,
-      activeTabId: terminalStore.activeTabId,
-    });
-  } else {
-    cancelDrag();
-  }
-  setTimeout(() => { touchDragging = false; }, 100);
-  return true;
-}
-
-function onTouchEnd(e) {
-  touchLongPress.cancel();
-  const wasDragging = cleanupTouchDrag(e);
-  if (wasDragging) return;
-  if (touchLongPress.consumeFired()) return;
-}
-
-function onTouchCancel(e) {
+function onTouchEnd() {
   touchLongPress.cancel();
   touchLongPress.consumeFired();
-  cleanupTouchDrag(e);
+}
+
+function onTouchCancel() {
+  touchLongPress.cancel();
+  touchLongPress.consumeFired();
 }
 
 onMounted(() => {
   const el = pillEl.value;
   if (!el) return;
-  el.addEventListener("touchmove", onTouchMove, { passive: false });
-  el.addEventListener("touchend", onTouchEnd, { passive: false });
+  el.addEventListener("touchmove", onTouchMove, { passive: true });
+  el.addEventListener("touchend", onTouchEnd);
   el.addEventListener("touchcancel", onTouchCancel);
 });
 
@@ -279,7 +241,7 @@ onBeforeUnmount(() => {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-  touch-action: none;
+  touch-action: pan-x;
 }
 
 .tab-btn img,
