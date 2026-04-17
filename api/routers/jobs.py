@@ -83,6 +83,10 @@ def _ws_jobs_context(name):
     return load_workspace_jobs_data(name), lambda data: save_workspace_jobs_data(name, data)
 
 
+def _global_jobs_context():
+    return load_global_jobs_data(), save_global_jobs_data
+
+
 def _entry_to_job_definition(name, entry):
     return JobDefinition(
         command=entry.get("command", ""),
@@ -113,14 +117,11 @@ def get_workspace_jobs(workspace_name):
         merged[name] = (entry, True)
     for name, entry in ws_data.items():
         merged[name] = (entry, False)
-    jobs = {}
-    for name, (entry, is_global) in merged.items():
-        jobs[name] = _entry_to_job_definition(name, entry)
-        jobs[name]._is_global = is_global
-    return jobs
+    return {name: (_entry_to_job_definition(name, entry), is_global)
+            for name, (entry, is_global) in merged.items()}
 
 
-def job_definition_to_dict(job_def, include_global=False):
+def job_definition_to_dict(job_def, is_global=None):
     d = {
         "label": job_def.label,
         "description": job_def.description,
@@ -130,14 +131,15 @@ def job_definition_to_dict(job_def, include_global=False):
         "confirm": job_def.confirm,
         "terminal": job_def.terminal,
     }
-    if include_global:
-        d["global"] = getattr(job_def, "_is_global", False)
+    if is_global is not None:
+        d["global"] = is_global
     return d
 
 
 def serialize_workspace_jobs(workspace_name: str) -> dict:
     jobs = get_workspace_jobs(workspace_name)
-    return {jname: job_definition_to_dict(job_def, include_global=True) for jname, job_def in jobs.items()}
+    return {jname: job_definition_to_dict(job_def, is_global=is_global)
+            for jname, (job_def, is_global) in jobs.items()}
 
 
 @router.get("/jobs/workspaces")
@@ -152,12 +154,10 @@ def list_all_workspace_jobs():
         merged = {}
         for is_global, jobs_data in [(True, global_jobs_data), (False, ws_jobs_data)]:
             for jname, entry in jobs_data.items():
-                job = _entry_to_job_definition(jname, entry)
-                job._is_global = is_global
-                merged[jname] = job
+                merged[jname] = (_entry_to_job_definition(jname, entry), is_global)
         result[name] = {
-            jname: job_definition_to_dict(jdef, include_global=True)
-            for jname, jdef in merged.items()
+            jname: job_definition_to_dict(jdef, is_global=is_global)
+            for jname, (jdef, is_global) in merged.items()
         }
     return result
 
@@ -172,9 +172,10 @@ def list_workspace_jobs(name: str):
 def get_workspace_job(name: str, job_name: str):
     resolve_workspace_path(name)
     jobs = get_workspace_jobs(name)
-    job_def = jobs.get(job_name)
-    if not job_def:
+    entry = jobs.get(job_name)
+    if not entry:
         raise not_found(f"Job '{job_name}' not found")
+    job_def, _ = entry
     return job_definition_to_dict(job_def)
 
 
@@ -312,30 +313,30 @@ def list_global_jobs():
 
 @router.post("/global/jobs")
 def create_global_job(body: JobRequest):
-    data = load_global_jobs_data()
-    return _create_job(data, save_global_jobs_data, body, "global job created job=%s")
+    data, save_fn = _global_jobs_context()
+    return _create_job(data, save_fn, body, "global job created job=%s")
 
 
 @router.put("/global/jobs/{job_name}")
 def update_global_job(job_name: str, body: JobRequest):
-    data = load_global_jobs_data()
-    return _update_job(data, save_global_jobs_data, job_name, body,
+    data, save_fn = _global_jobs_context()
+    return _update_job(data, save_fn, job_name, body,
                        f"Global job '{job_name}' not found",
                        "global job updated job=%s")
 
 
 @router.delete("/global/jobs/{job_name}")
 def delete_global_job(job_name: str):
-    data = load_global_jobs_data()
-    return _delete_job(data, save_global_jobs_data, job_name,
+    data, save_fn = _global_jobs_context()
+    return _delete_job(data, save_fn, job_name,
                        f"Global job '{job_name}' not found",
                        "global job deleted job=%s")
 
 
 @router.put("/global/job-order")
 def reorder_global_jobs(body: ReorderJobsRequest):
-    data = load_global_jobs_data()
-    return _reorder_jobs(data, save_global_jobs_data, body.order, "global jobs reordered count=%d")
+    data, save_fn = _global_jobs_context()
+    return _reorder_jobs(data, save_fn, body.order, "global jobs reordered count=%d")
 
 
 class RunRequest(BaseModel):
@@ -418,6 +419,9 @@ def _run_regular_job(body, job_def, ordered_args, ws_path):
     except subprocess.TimeoutExpired:
         logger.warning("job timeout job=%s workspace=%s", body.job, body.workspace or "(none)")
         raise timeout_error("Job timed out") from None
+    except OSError as e:
+        logger.error("job exec failed job=%s workspace=%s: %s", body.job, body.workspace or "(none)", e)
+        raise server_error(f"Job execution failed: {e}") from None
 
     payload = command_result_dict(result)
 
@@ -440,9 +444,10 @@ def execute_job(body: RunRequest):
         job_def = TERMINAL_JOB
     else:
         available_jobs = get_workspace_jobs(body.workspace)
-        job_def = available_jobs.get(body.job)
-        if not job_def:
+        entry = available_jobs.get(body.job)
+        if not entry:
             raise bad_request(f"Unknown job: {body.job}")
+        job_def, _ = entry
 
     ordered_args = _validate_job_args(job_def, body.args, ws_path)
 

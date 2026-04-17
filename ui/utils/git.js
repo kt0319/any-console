@@ -119,13 +119,14 @@ export async function resolveUntrackedNumstat({ workspace, files, apiFetch }) {
   const pathToLines = {};
   if (!workspace || !Array.isArray(files) || files.length === 0) return pathToLines;
 
-  await Promise.all(files.map(async (file) => {
-    const status = String(file.status || "").trim();
-    const path = file.path || file.name;
-    const hasNumstat = file.insertions != null || file.deletions != null;
-    if ((status !== "??" && status !== "A") || hasNumstat || !path) return;
-
-    try {
+  const tasks = files
+    .filter((file) => {
+      const status = String(file.status || "").trim();
+      const hasNumstat = file.insertions != null || file.deletions != null;
+      return (status === "??" || status === "A") && !hasNumstat && (file.path || file.name);
+    })
+    .map(async (file) => {
+      const path = file.path || file.name;
       const res = await apiFetch(
         `/workspaces/${encodeURIComponent(workspace)}/file-content?path=${encodeURIComponent(path)}`
       );
@@ -133,8 +134,8 @@ export async function resolveUntrackedNumstat({ workspace, files, apiFetch }) {
       const data = await res.json();
       if (typeof data?.content !== "string") return;
       pathToLines[path] = countContentLines(data.content);
-    } catch {}
-  }));
+    });
+  await Promise.allSettled(tasks);
 
   return pathToLines;
 }

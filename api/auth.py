@@ -62,7 +62,7 @@ def resolve_tailscale_name(ip: str) -> str:
             with _tailscale_cache_lock:
                 _tailscale_cache[ip] = (time.monotonic(), resolved)
             return resolved
-    except Exception:
+    except (subprocess.TimeoutExpired, OSError, ValueError, KeyError):
         logger.debug("tailscale name resolve failed for %s", ip, exc_info=True)
     return ""
 

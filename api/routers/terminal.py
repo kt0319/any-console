@@ -6,7 +6,7 @@ import struct
 import subprocess
 import termios
 
-from fastapi import APIRouter, Depends, WebSocket
+from fastapi import APIRouter, Depends, HTTPException, WebSocket
 from fastapi.websockets import WebSocketDisconnect
 
 from ..auth import verify_token
@@ -145,7 +145,7 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
         try:
             ws_resolved = resolve_workspace_path(session.workspace)
             workspace_path = str(ws_resolved) if ws_resolved else None
-        except Exception:
+        except (HTTPException, ValueError, OSError):
             workspace_path = None
         try:
             create_tmux_session(workspace_path, session.tmux_session_name)
@@ -236,5 +236,5 @@ async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows
 
     try:
         await websocket.close()
-    except Exception:
+    except (WebSocketDisconnect, RuntimeError, OSError):
         pass

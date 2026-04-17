@@ -1,7 +1,7 @@
 import { useAuthStore } from "../stores/auth.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "./useApi.js";
-import { WS_MSG_RESIZE, WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, RECONNECT_BACKOFF_MAX, POST_WRITE_REFRESH_MS } from "../utils/constants.js";
+import { WS_MSG_RESIZE, WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, RECONNECT_BACKOFF_MULTIPLIER, RECONNECT_BACKOFF_BASE_MS, RECONNECT_BACKOFF_MAX, POST_WRITE_REFRESH_MS } from "../utils/constants.js";
 import { emit } from "../app-bridge.js";
 import { fitTerminal, sendResize, observeFrameResize } from "./useTerminalResize.js";
 
@@ -87,7 +87,7 @@ export function useTerminal() {
       const attempts = tab._reconnectAttempts || 0;
       const delay = attempts === 0
         ? RECONNECT_INITIAL_DELAY
-        : Math.min(Math.pow(2, attempts - 1) * 1000, RECONNECT_BACKOFF_MAX);
+        : Math.min(Math.pow(RECONNECT_BACKOFF_MULTIPLIER, attempts - 1) * RECONNECT_BACKOFF_BASE_MS, RECONNECT_BACKOFF_MAX);
       tab._reconnectAttempts = attempts + 1;
       tab._pendingRedraw = true;
       clearTimeout(tab._reconnectTimer);

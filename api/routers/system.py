@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(verify_token)])
 
 IS_DARWIN = platform.system() == "Darwin"
+PROCESS_LIST_LIMIT = 15
+PS_FIELD_COUNT = 11
 
 
 def get_app_version() -> str:
@@ -65,6 +67,20 @@ def _get_os_name() -> str | None:
     return None
 
 
+def _format_uptime_seconds(elapsed: int) -> str:
+    days, rem = divmod(elapsed, 86400)
+    hours, rem = divmod(rem, 3600)
+    minutes = rem // 60
+    parts = []
+    if days:
+        parts.append(f"{days} day{'s' if days != 1 else ''}")
+    if hours:
+        parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
+    if minutes:
+        parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
+    return "up " + ", ".join(parts) if parts else "up 0 minutes"
+
+
 def _get_uptime() -> str | None:
     if IS_DARWIN:
         try:
@@ -74,19 +90,7 @@ def _get_uptime() -> str | None:
             if result.returncode == 0:
                 m = re.search(r"sec\s*=\s*(\d+)", result.stdout)
                 if m:
-                    boot_sec = int(m.group(1))
-                    elapsed = int(time.time()) - boot_sec
-                    days, rem = divmod(elapsed, 86400)
-                    hours, rem = divmod(rem, 3600)
-                    minutes = rem // 60
-                    parts = []
-                    if days:
-                        parts.append(f"{days} day{'s' if days != 1 else ''}")
-                    if hours:
-                        parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
-                    if minutes:
-                        parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
-                    return "up " + ", ".join(parts) if parts else "up 0 minutes"
+                    return _format_uptime_seconds(int(time.time()) - int(m.group(1)))
         except (subprocess.TimeoutExpired, FileNotFoundError) as e:
             logger.debug("macOS uptime failed: %s", e)
         return None
@@ -158,7 +162,7 @@ def _get_memory() -> str | None:
 
 @router.get("/system/processes")
 def get_system_processes():
-    process_limit = 15
+    process_limit = PROCESS_LIST_LIMIT
     try:
         cmd = ["ps", "aux", "-r"] if IS_DARWIN else ["ps", "aux", "--sort=-%cpu"]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC)
@@ -172,8 +176,8 @@ def get_system_processes():
     lines = result.stdout.strip().splitlines()
     processes = []
     for line in lines[1:process_limit + 1]:
-        parts = line.split(None, 10)
-        if len(parts) < 11:
+        parts = line.split(None, PS_FIELD_COUNT - 1)
+        if len(parts) < PS_FIELD_COUNT:
             continue
         processes.append(
             {

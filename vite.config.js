@@ -7,6 +7,8 @@ const STATIC_COPY_TARGETS = [
   { src: "ui/sw.js", dest: "dist/sw.js" },
 ];
 
+const API_TARGET = process.env.VITE_API_TARGET || "http://localhost:8888";
+
 export default defineConfig({
   root: "ui",
   build: {
@@ -42,17 +44,17 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     proxy: {
-      "/auth": "http://localhost:8888",
-      "/run": "http://localhost:8888",
-      "/workspaces": "http://localhost:8888",
-      "/github": "http://localhost:8888",
-      "/terminal": { target: "http://localhost:8888", ws: true },
-      "/upload-image": "http://localhost:8888",
-      "/system": "http://localhost:8888",
-      "/settings": "http://localhost:8888",
-      "/logs": "http://localhost:8888",
-      "/op-logs": "http://localhost:8888",
-      "/icons": "http://localhost:8888",
+      "/auth": API_TARGET,
+      "/run": API_TARGET,
+      "/workspaces": API_TARGET,
+      "/github": API_TARGET,
+      "/terminal": { target: API_TARGET, ws: true },
+      "/upload-image": API_TARGET,
+      "/system": API_TARGET,
+      "/settings": API_TARGET,
+      "/logs": API_TARGET,
+      "/op-logs": API_TARGET,
+      "/icons": API_TARGET,
     },
   },
 });
