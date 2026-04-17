@@ -79,7 +79,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     return terminalSettings.value;
   }
 
-  function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, initialCommand, restored }) {
+  function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, initialCommand, restored, hidden }) {
     const opts = getTerminalRuntimeOptions();
     const term = new Terminal(opts);
     const fitAddon = new FitAddon();
@@ -113,6 +113,7 @@ export const useTerminalStore = defineStore("terminal", () => {
       _activityTimer: null,
       _inputBound: false,
       _elementBound: false,
+      hidden: !!hidden,
     });
 
     openTabs.value.push(tab);

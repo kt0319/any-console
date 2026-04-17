@@ -14,6 +14,7 @@
     @drop="onDropOnTab"
     @touchstart.passive="onTouchStart"
   >
+    <span v-if="tab.hidden" class="mdi mdi-eye-off-outline tab-hidden-icon"></span>
     <span v-if="wsIconHtml" v-html="wsIconHtml"></span>
     <span v-if="iconHtml" v-html="iconHtml"></span>
     <template v-if="!isPanelBottom">
@@ -287,6 +288,12 @@ onBeforeUnmount(() => {
   line-height: 1;
   cursor: pointer;
   padding: 0;
+}
+
+.tab-hidden-icon {
+  font-size: 13px;
+  color: var(--text-muted);
+  opacity: 0.6;
 }
 
 .tab-btn :deep(.favicon-icon) {

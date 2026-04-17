@@ -18,7 +18,7 @@ class JobDefinition:
     icon: str = ""
     icon_color: str = ""
     confirm: bool = True
-    terminal: bool = True
+    terminal: bool = False
 
 
 TERMINAL_JOB = JobDefinition(

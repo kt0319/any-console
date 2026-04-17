@@ -40,7 +40,7 @@
             :key="job.name"
             type="button"
             class="status-job-btn"
-            :class="{ 'status-job-direct': job.terminal === false }"
+            :class="{ 'status-job-hidden': job.terminal }"
             :title="job.label || job.name"
             @click="runJob(job)"
           >
@@ -54,7 +54,7 @@
             :key="job.name"
             type="button"
             class="status-job-btn"
-            :class="{ 'status-job-direct': job.terminal === false }"
+            :class="{ 'status-job-hidden': job.terminal }"
             :title="job.label || job.name"
             @click="runJob(job)"
           >
@@ -229,11 +229,6 @@ function runJob(job) {
   const wsName = workspace.value;
   if (!wsName) return;
   const wsData = ws.value;
-  if (job.terminal === false) {
-    emit("job:exec", { jobName: job.name, job, workspace: wsName });
-    mode.value = "git";
-    return;
-  }
   if (job.confirm !== false) {
     const preview = job.command ? (job.command.length > 300 ? job.command.slice(0, 300) + "..." : job.command) : job.name;
     if (!confirm(`${job.label || job.name}\n\n${preview}`)) return;
@@ -247,6 +242,7 @@ function runJob(job) {
     jobIcon: job.icon,
     jobIconColor: job.icon_color,
     initialCommand: job.command,
+    hidden: !!job.terminal,
   });
   mode.value = "git";
 }
@@ -398,7 +394,7 @@ function runJob(job) {
   color: var(--text-primary);
 }
 
-.status-job-direct {
+.status-job-hidden {
   border-style: dashed;
 }
 

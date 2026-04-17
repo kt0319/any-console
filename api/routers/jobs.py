@@ -91,7 +91,7 @@ def _entry_to_job_definition(name, entry):
         icon=entry.get("icon", ""),
         icon_color=entry.get("icon_color", ""),
         confirm=entry.get("confirm", True),
-        terminal=entry.get("terminal", True),
+        terminal=entry.get("terminal", False),
     )
 
 
@@ -193,7 +193,7 @@ def build_job_entry(
     icon: str,
     icon_color: str,
     confirm: bool,
-    terminal: bool = True,
+    terminal: bool = False,
 ) -> dict:
     entry = {"command": command}
     label = label.strip()
@@ -202,8 +202,8 @@ def build_job_entry(
     _apply_icon_fields(entry, icon, icon_color)
     if not confirm:
         entry["confirm"] = False
-    if not terminal:
-        entry["terminal"] = False
+    if terminal:
+        entry["terminal"] = True
     return entry
 
 
@@ -213,7 +213,7 @@ class JobRequest(BaseModel):
     icon: str = Field("", max_length=MAX_ICON_VALUE_LENGTH)
     icon_color: str = Field("", max_length=20)
     confirm: bool = True
-    terminal: bool = True
+    terminal: bool = False
 
 
 class ReorderJobsRequest(BaseModel):

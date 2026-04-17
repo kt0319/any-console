@@ -34,7 +34,7 @@
                   :key="job.name"
                   type="button"
                   class="picker-ws-icon-btn"
-                  :class="{ 'picker-ws-job-direct': job.terminal === false, 'picker-ws-job-global': true }"
+                  :class="{ 'picker-ws-job-hidden': job.terminal, 'picker-ws-job-global': true }"
                   :title="job.label || job.name"
                   @click="runJob(ws, job)"
                 >
@@ -48,7 +48,7 @@
                   :key="job.name"
                   type="button"
                   class="picker-ws-icon-btn"
-                  :class="{ 'picker-ws-job-direct': job.terminal === false }"
+                  :class="{ 'picker-ws-job-hidden': job.terminal }"
                   :title="job.label || job.name"
                   @click="runJob(ws, job)"
                 >
@@ -140,10 +140,6 @@ function selectWorkspace(ws) {
 
 function runJob(ws, job) {
   emit("modal:close");
-  if (job.terminal === false) {
-    emit("job:exec", { jobName: job.name, job, workspace: ws.name });
-    return;
-  }
   if (job.confirm !== false) {
     const preview = job.command ? (job.command.length > 300 ? job.command.slice(0, 300) + "..." : job.command) : job.name;
     if (!confirm(`${job.label || job.name}\n\n${preview}`)) return;
@@ -157,6 +153,7 @@ function runJob(ws, job) {
     jobIcon: job.icon,
     jobIconColor: job.icon_color,
     initialCommand: job.command,
+    hidden: !!job.terminal,
   });
 }
 
@@ -307,12 +304,12 @@ onMounted(() => {
   cursor: pointer;
 }
 
-.picker-ws-icon-btn.picker-ws-job-direct {
-  border-style: dashed;
-}
-
 .picker-ws-icon-btn.picker-ws-job-global {
   border-style: dotted;
+}
+
+.picker-ws-icon-btn.picker-ws-job-hidden {
+  border-style: dashed;
 }
 
 .picker-ws-job-spacer {

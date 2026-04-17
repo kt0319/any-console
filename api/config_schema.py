@@ -29,7 +29,7 @@ class JobConfig(_ConfigModel):
     icon: str = ""
     icon_color: str = ""
     confirm: bool = True
-    terminal: bool = True
+    terminal: bool = False
 
 
 class WorkspaceConfig(_ConfigModel):

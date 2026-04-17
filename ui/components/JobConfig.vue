@@ -20,7 +20,7 @@
       </div>
       <div class="ws-settings-row" style="gap:8px">
         <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.confirm" /> Confirm dialog</label>
-        <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.terminal" /> Run in terminal</label>
+        <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.terminal" /> Run in hidden terminal</label>
       </div>
       <div class="ws-settings-row" style="gap:8px">
         <button type="button" class="primary" :disabled="saving" @click="saveJob">
@@ -58,7 +58,7 @@ const form = ref(
           icon: jobEntry.job.icon || "",
           icon_color: jobEntry.job.icon_color || "",
           confirm: jobEntry.job.confirm !== false,
-          terminal: jobEntry.job.terminal !== false,
+          terminal: !!jobEntry.job.terminal,
         }
       : {
           label: "",

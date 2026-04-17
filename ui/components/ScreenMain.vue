@@ -98,13 +98,14 @@ async function restoreExistingSessions(sessionsRes, jobsRes) {
       terminalStore.addTerminalTab({
         wsUrl: s.ws_url,
         workspace: s.workspace,
-        wsIcon: ws?.icon || s.icon || "mdi-console",
+        wsIcon: ws?.icon || s.icon || null,
         wsIconColor: ws?.icon_color || s.icon_color,
-        icon: jobDef?.icon,
+        icon: s.job_name ? (jobDef?.icon || "mdi-play") : "mdi-console",
         iconColor: jobDef?.icon_color,
         jobName: s.job_name,
         jobLabel: s.job_label,
         restored: true,
+        hidden: !!jobDef?.terminal,
       });
     }
 
@@ -207,7 +208,7 @@ function ensureKeyboardTargetTab() {
   focusTabTerminal(firstId);
 }
 
-async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, jobIcon, jobIconColor, initialCommand }) {
+async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, jobIcon, jobIconColor, initialCommand, hidden }) {
   try {
     const res = await auth.apiFetch("/run", {
       method: "POST",
@@ -229,14 +230,19 @@ async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, j
     const tab = terminalStore.addTerminalTab({
       wsUrl: data.ws_url,
       workspace,
-      wsIcon: icon || "mdi-console",
+      wsIcon: icon,
       wsIconColor: iconColor,
-      icon: jobIcon,
+      icon: jobName ? (jobIcon || "mdi-play") : "mdi-console",
       iconColor: jobIconColor,
       jobName,
       jobLabel,
       initialCommand,
+      hidden,
     });
+    if (hidden) {
+      connectTerminalWs(tab);
+      return;
+    }
     activateTerminalTab(tab.id, { focus: false });
     if (workspace) workspaceStore.selectedWorkspace = workspace;
     await nextTick();
@@ -392,13 +398,14 @@ async function syncSessionsFromServer() {
       terminalStore.addTerminalTab({
         wsUrl: s.ws_url,
         workspace: s.workspace,
-        wsIcon: ws?.icon || s.icon || "mdi-console",
+        wsIcon: ws?.icon || s.icon || null,
         wsIconColor: ws?.icon_color || s.icon_color,
-        icon: jobDef?.icon,
+        icon: s.job_name ? (jobDef?.icon || "mdi-play") : "mdi-console",
         iconColor: jobDef?.icon_color,
         jobName: s.job_name,
         jobLabel: s.job_label,
         restored: true,
+        hidden: !!jobDef?.terminal,
       });
     }
 

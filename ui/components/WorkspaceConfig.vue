@@ -180,18 +180,26 @@ async function loadWorkspaceJobs() {
 
 
 function startAddJob() {
+  const wsName = editWs.value.name;
   pushView("JobConfig", {
-    workspaceName: editWs.value.name,
+    workspaceName: wsName,
     jobEntry: null,
-    onReturn: () => { loadWorkspaceJobs(); emit("jobs:refresh"); },
+    onReturn: (_result, parentEntry) => {
+      if (parentEntry) parentEntry.state.initialWsName = wsName;
+      emit("jobs:refresh");
+    },
   });
 }
 
 function startEditJob(entry) {
+  const wsName = editWs.value.name;
   pushView("JobConfig", {
-    workspaceName: editWs.value.name,
+    workspaceName: wsName,
     jobEntry: entry,
-    onReturn: () => { loadWorkspaceJobs(); emit("jobs:refresh"); },
+    onReturn: (_result, parentEntry) => {
+      if (parentEntry) parentEntry.state.initialWsName = wsName;
+      emit("jobs:refresh");
+    },
   });
 }
 
