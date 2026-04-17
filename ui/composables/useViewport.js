@@ -1,5 +1,6 @@
 import { ref } from "vue";
 import { useLayoutStore } from "../stores/layout.js";
+import { KEYBOARD_CLOSE_DELAY_MS, DEBOUNCE_FIT_MS, ORIENTATION_CHANGE_DELAY_MS } from "../utils/constants.js";
 
 let initialized = false;
 const keyboardOpen = ref(false);
@@ -35,7 +36,7 @@ function updateViewportHeight() {
     keyboardCloseTimer = setTimeout(() => {
       keyboardCloseTimer = null;
       if (onFitCallback) onFitCallback();
-    }, 500);
+    }, KEYBOARD_CLOSE_DELAY_MS);
   } else if (!isKbOpen) {
     debouncedFit();
   }
@@ -47,7 +48,7 @@ function debouncedFit() {
   fitDebounceTimer = setTimeout(() => {
     fitDebounceTimer = null;
     if (onFitCallback) onFitCallback();
-  }, 100);
+  }, DEBOUNCE_FIT_MS);
 }
 
 export function useViewport() {
@@ -62,7 +63,7 @@ export function useViewport() {
       window.visualViewport.addEventListener("scroll", updateViewportHeight);
     }
     window.addEventListener("resize", updateViewportHeight);
-    window.addEventListener("orientationchange", () => setTimeout(updateViewportHeight, 120));
+    window.addEventListener("orientationchange", () => setTimeout(updateViewportHeight, ORIENTATION_CHANGE_DELAY_MS));
 
     document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
     document.addEventListener("touchmove", (e) => {

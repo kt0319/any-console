@@ -45,6 +45,7 @@
 <script setup>
 import { ref, inject, computed, watch, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
+import { EP_SETTINGS_EDITOR, EP_SYSTEM_INFO } from "../utils/endpoints.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Editor";
@@ -92,13 +93,13 @@ watch(urlTemplate, (val) => {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     const url_template = val.trim();
-    await apiPut("/settings/editor", { url_template });
+    await apiPut(EP_SETTINGS_EDITOR, { url_template });
   }, 500);
 });
 
 async function loadEditorConfig() {
   try {
-    const { ok, data } = await apiGet("/system/info");
+    const { ok, data } = await apiGet(EP_SYSTEM_INFO);
     if (ok) {
       if (data.user) editorUser.value = data.user;
       if (data.hostname) editorHost.value = data.hostname;
@@ -106,7 +107,7 @@ async function loadEditorConfig() {
     }
   } catch {}
   try {
-    const { ok, data } = await apiGet("/settings/editor");
+    const { ok, data } = await apiGet(EP_SETTINGS_EDITOR);
     if (ok) {
       urlTemplate.value = data.url_template || "";
     }

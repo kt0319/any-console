@@ -1,16 +1,13 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { useApi } from "../composables/useApi.js";
+import { EP_WORKSPACES, EP_WORKSPACES_STATUSES } from "../utils/endpoints.js";
 
 export const useWorkspaceStore = defineStore("workspace", () => {
   const allWorkspaces = ref([]);
   const selectedWorkspace = ref(null);
   const workspaceJobs = ref({});
   const pendingJob = ref(null);
-  const branchesCache = ref([]);
-  const isLaunchingTerminal = ref(false);
-  const appInitializing = ref(false);
-
   const visibleWorkspaces = computed(() =>
     allWorkspaces.value.filter((ws) => !ws.hidden),
   );
@@ -22,7 +19,7 @@ export const useWorkspaceStore = defineStore("workspace", () => {
   async function fetchWorkspaces() {
     try {
       const { apiGet } = useApi();
-      const { ok, data } = await apiGet("/workspaces");
+      const { ok, data } = await apiGet(EP_WORKSPACES);
       if (ok) {
         allWorkspaces.value = Array.isArray(data) ? data : [];
       }
@@ -34,7 +31,7 @@ export const useWorkspaceStore = defineStore("workspace", () => {
   async function fetchStatuses() {
     try {
       const { apiGet } = useApi();
-      const { ok, data } = await apiGet("/workspaces/statuses");
+      const { ok, data } = await apiGet(EP_WORKSPACES_STATUSES);
       if (!ok) return;
       if (data.statuses) {
         for (const status of data.statuses) {
@@ -52,9 +49,6 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     selectedWorkspace,
     workspaceJobs,
     pendingJob,
-    branchesCache,
-    isLaunchingTerminal,
-    appInitializing,
     visibleWorkspaces,
     currentWorkspace,
     fetchWorkspaces,

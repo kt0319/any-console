@@ -38,6 +38,7 @@ import { useApi } from "../composables/useApi.js";
 import { useModalView } from "../composables/useModalView.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { MSG_SAVE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
+import { EP_GLOBAL_JOBS } from "../utils/endpoints.js";
 
 const { modalTitle, viewState, pushView, popView } = useModalView();
 const { apiPost, apiPut } = useApi();
@@ -95,7 +96,7 @@ async function saveJob() {
   saving.value = true;
   formError.value = "";
   try {
-    const baseUrl = isGlobal ? "/global/jobs" : `/workspaces/${encodeURIComponent(workspaceName)}/jobs`;
+    const baseUrl = isGlobal ? EP_GLOBAL_JOBS : `/workspaces/${encodeURIComponent(workspaceName)}/jobs`;
     const url = isNew ? baseUrl : `${baseUrl}/${encodeURIComponent(jobEntry.name)}`;
     const body = {
       label: f.label.trim(),

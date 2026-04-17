@@ -19,17 +19,10 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
   async function renameFile(src, dest) {
     const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return;
-    try {
-      const { ok } = await apiPost(wsEndpoint(workspace, "rename"), { src, dest });
-      if (!ok) {
-        emit("toast:show", { message: "Rename failed", type: "error" });
-        return;
-      }
-      emit("toast:show", { message: "Renamed", type: "success" });
-      await navigateToPath(getCurrentPath());
-    } catch (e) {
-      emit("toast:show", { message: e.message, type: "error" });
-    }
+    const { ok } = await apiPost(wsEndpoint(workspace, "rename"), { src, dest }, { errorMessage: "Rename failed" });
+    if (!ok) return;
+    emit("toast:show", { message: "Renamed", type: "success" });
+    await navigateToPath(getCurrentPath());
   }
 
   async function renameEntry() {
@@ -61,17 +54,10 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
     clearContextEntry();
     const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return;
-    try {
-      const { ok } = await apiPost(wsEndpoint(workspace, "delete-file"), { path: filePath });
-      if (!ok) {
-        emit("toast:show", { message: MSG_DELETE_FAILED, type: "error" });
-        return;
-      }
-      emit("toast:show", { message: "Deleted", type: "success" });
-      await navigateToPath(getCurrentPath());
-    } catch (e) {
-      emit("toast:show", { message: e.message, type: "error" });
-    }
+    const { ok } = await apiPost(wsEndpoint(workspace, "delete-file"), { path: filePath }, { errorMessage: MSG_DELETE_FAILED });
+    if (!ok) return;
+    emit("toast:show", { message: "Deleted", type: "success" });
+    await navigateToPath(getCurrentPath());
   }
 
   async function downloadFile(filePath) {

@@ -6,10 +6,6 @@ export function useGitCommitAction() {
   const workspaceStore = useWorkspaceStore();
   const { apiWithToast, wsEndpoint } = useApi();
 
-  function currentWorkspace() {
-    return workspaceStore.selectedWorkspace || null;
-  }
-
   async function runAndToast(endpoint, body, { successMessage, errorMessage }) {
     await apiWithToast(endpoint, body, {
       successMessage,
@@ -19,7 +15,7 @@ export function useGitCommitAction() {
   }
 
   async function execAction(action, entry, closeFn) {
-    const workspace = currentWorkspace();
+    const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return;
     const shortHash = entry.hash;
     if (!confirm(`Execute ${action} ${shortHash}?`)) return;
@@ -31,7 +27,7 @@ export function useGitCommitAction() {
   }
 
   async function execReset(entry, mode, closeFn) {
-    const workspace = currentWorkspace();
+    const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return;
     const shortHash = entry.hash;
     const msg = mode === "hard"
@@ -46,7 +42,7 @@ export function useGitCommitAction() {
   }
 
   async function execCreateBranch(entry, closeFn) {
-    const workspace = currentWorkspace();
+    const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return;
     const branchName = prompt("Enter new branch name:");
     if (!branchName) return;
@@ -58,7 +54,7 @@ export function useGitCommitAction() {
   }
 
   async function execMerge(branch, closeFn) {
-    const workspace = currentWorkspace();
+    const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return;
     if (!confirm(`Merge ${branch} into current branch?`)) return;
     closeFn?.();
@@ -69,7 +65,7 @@ export function useGitCommitAction() {
   }
 
   async function execRebase(branch, closeFn) {
-    const workspace = currentWorkspace();
+    const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return;
     if (!confirm(`Rebase onto ${branch}?`)) return;
     closeFn?.();

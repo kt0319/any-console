@@ -20,6 +20,7 @@ import json from "highlight.js/lib/languages/json";
 hljs.registerLanguage("json", json);
 import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
+import { EP_SETTINGS_EXPORT, EP_SETTINGS_IMPORT } from "../utils/endpoints.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Config File";
@@ -37,7 +38,7 @@ function highlight() {
 
 async function loadConfigFile() {
   try {
-    const { ok, data } = await apiGet("/settings/export");
+    const { ok, data } = await apiGet(EP_SETTINGS_EXPORT);
     if (!ok) {
       jsonText.value = "Failed to load config";
       return;
@@ -76,11 +77,8 @@ async function upload() {
   try {
     const text = await file.text();
     const data = JSON.parse(text);
-    const { ok } = await apiPost("/settings/import", data);
-    if (!ok) {
-      emit("toast:show", { message: "Import failed", type: "error" });
-      return;
-    }
+    const { ok } = await apiPost(EP_SETTINGS_IMPORT, data, { errorMessage: "Import failed" });
+    if (!ok) return;
     emit("toast:show", { message: "Config imported", type: "success" });
     jsonText.value = JSON.stringify(data, null, 2);
     highlight();

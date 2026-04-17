@@ -1,6 +1,7 @@
 import { ref } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
+import { EP_SETTINGS_EDITOR, EP_SYSTEM_INFO } from "../utils/endpoints.js";
 
 export function useEditorIntegration() {
   const workspaceStore = useWorkspaceStore();
@@ -12,8 +13,8 @@ export function useEditorIntegration() {
   async function fetchEditorSettings() {
     try {
       const [settingsResult, infoResult] = await Promise.all([
-        apiGet("/settings/editor"),
-        apiGet("/system/info"),
+        apiGet(EP_SETTINGS_EDITOR),
+        apiGet(EP_SYSTEM_INFO),
       ]);
       const settings = settingsResult.ok ? settingsResult.data : {};
       const info = infoResult.ok ? infoResult.data : {};

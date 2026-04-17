@@ -54,6 +54,7 @@ import { ref, nextTick, onMounted } from "vue";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useModalView } from "../composables/useModalView.js";
 import { renderIconStr } from "../utils/render-icon.js";
+import { ICON_FETCH_TIMEOUT_MS } from "../utils/constants.js";
 
 const { modalTitle, viewState, popView } = useModalView();
 modalTitle.value = "Icon Picker";
@@ -256,10 +257,10 @@ function submit() {
   popView({ icon, color });
 }
 
-async function fetchIcons() {
+async function loadIcons() {
   if (iconCache) return iconCache;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+  const timeout = setTimeout(() => controller.abort(), ICON_FETCH_TIMEOUT_MS);
   const res = await fetch("https://cdn.jsdelivr.net/npm/@mdi/svg@7/meta.json", { signal: controller.signal });
   clearTimeout(timeout);
   const data = await res.json();
@@ -284,7 +285,7 @@ onMounted(async () => {
   }
 
   try {
-    const icons = await fetchIcons();
+    const icons = await loadIcons();
     loadingIcons.value = false;
     await nextTick();
     renderGrid(icons, "");

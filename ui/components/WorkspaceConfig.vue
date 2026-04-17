@@ -87,9 +87,10 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { useModalView } from "../composables/useModalView.js";
 import { useWorkspaceDrag } from "../composables/useWorkspaceDrag.js";
+import { useWorkspaceJobManager } from "../composables/useWorkspaceJobManager.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
-import { emit } from "../app-bridge.js";
+import { EP_JOBS_WORKSPACES, EP_WORKSPACES } from "../utils/endpoints.js";
 
 const { modalTitle, pushView, viewState } = useModalView();
 modalTitle.value = "Workspace Settings";
@@ -107,9 +108,8 @@ const editIcon = ref("");
 const editIconColor = ref("");
 const saveError = ref("");
 
-const jobEntries = ref([]);
-const isLoadingJobs = ref(false);
 const wsJobCounts = ref({});
+const { jobEntries, isLoadingJobs, loadWorkspaceJobs, startAddJob, startEditJob, deleteJob } = useWorkspaceJobManager({ editWs, pushView });
 
 const { dragIdx, dragOffsetY, onDragStart, cleanup: cleanupDrag } = useWorkspaceDrag({
   items: allWorkspaces,
@@ -120,12 +120,12 @@ const { dragIdx, dragOffsetY, onDragStart, cleanup: cleanupDrag } = useWorkspace
 async function loadWorkspaceConfig() {
   await workspaceStore.fetchWorkspaces();
   allWorkspaces.value = workspaceStore.allWorkspaces || [];
-  fetchAllJobCounts();
+  loadAllJobCounts();
 }
 
-async function fetchAllJobCounts() {
+async function loadAllJobCounts() {
   try {
-    const { ok, data } = await apiGet("/jobs/workspaces");
+    const { ok, data } = await apiGet(EP_JOBS_WORKSPACES);
     if (!ok) return;
     const counts = {};
     for (const [name, jobs] of Object.entries(data)) {
@@ -163,69 +163,16 @@ function handleBack() {
   return false;
 }
 
-async function loadWorkspaceJobs() {
-  if (!editWs.value) return;
-  isLoadingJobs.value = true;
-  try {
-    const { ok, data } = await apiGet(wsEndpoint(editWs.value.name, "jobs"));
-    if (ok) {
-      jobEntries.value = Object.entries(data)
-        .filter(([name]) => name !== "terminal")
-        .map(([name, job]) => ({ name, job }));
-    }
-  } catch { /* ignore */ }
-  finally { isLoadingJobs.value = false; }
-}
-
-
-
-function startAddJob() {
-  const wsName = editWs.value.name;
-  pushView("JobConfig", {
-    workspaceName: wsName,
-    jobEntry: null,
-    onReturn: (_result, parentEntry) => {
-      if (parentEntry) parentEntry.state.initialWsName = wsName;
-      emit("jobs:refresh");
-    },
-  });
-}
-
-function startEditJob(entry) {
-  const wsName = editWs.value.name;
-  pushView("JobConfig", {
-    workspaceName: wsName,
-    jobEntry: entry,
-    onReturn: (_result, parentEntry) => {
-      if (parentEntry) parentEntry.state.initialWsName = wsName;
-      emit("jobs:refresh");
-    },
-  });
-}
-
 async function deleteWorkspace() {
   if (!editWs.value) return;
   if (!confirm(`Delete "${editWs.value.name}"?\nThe directory will remain.`)) return;
-  try {
-    const { ok, data } = await apiDelete(`/workspaces/${encodeURIComponent(editWs.value.name)}`);
-    if (ok) {
-      goBackToList();
-      await loadWorkspaceConfig();
-    } else {
-      saveError.value = data?.detail || MSG_DELETE_FAILED;
-    }
-  } catch (e) {
-    saveError.value = e.message || MSG_ERROR_OCCURRED;
+  const { ok, data } = await apiDelete(`${EP_WORKSPACES}/${encodeURIComponent(editWs.value.name)}`, { errorMessage: MSG_DELETE_FAILED });
+  if (ok) {
+    goBackToList();
+    await loadWorkspaceConfig();
+  } else if (data?.detail) {
+    saveError.value = data.detail;
   }
-}
-
-async function deleteJob(entry) {
-  if (!editWs.value) return;
-  try {
-    await apiDelete(wsEndpoint(editWs.value.name, `jobs/${encodeURIComponent(entry.name)}`));
-    await loadWorkspaceJobs();
-    emit("jobs:refresh");
-  } catch { /* ignore */ }
 }
 
 async function saveWsConfig() {
@@ -292,6 +239,10 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style>
+@import "../styles/settings-list.css";
+</style>
 
 <style scoped>
 .ws-check-item {
@@ -391,91 +342,9 @@ onMounted(async () => {
   border-radius: var(--radius);
 }
 
-.ws-add-item-btn {
-  min-width: auto;
-  min-height: auto;
-  padding: 4px 10px;
-  font-size: 12px;
-  color: var(--text-muted);
-  background: transparent;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-.ws-settings-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 4px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  border-bottom: 1px solid var(--border);
-}
-
-.ws-settings-item-list {
-  padding: 0;
-}
-
-.ws-settings-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 8px;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  font-size: 13px;
-  min-height: 40px;
-}
-
 .ws-settings-item.dragging {
   opacity: 0.72;
   background: var(--bg-tertiary);
-}
-
-.ws-settings-item:last-child {
-  border-bottom: none;
-}
-
-.ws-settings-item-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.ws-settings-item-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ws-settings-item-actions {
-  display: flex;
-  gap: 6px;
-  margin-left: auto;
-}
-
-.ws-settings-item-action-btn {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 32px;
-  padding: 0;
-  border-radius: var(--radius);
-  font-size: 16px;
-  line-height: 1;
-}
-
-.ws-settings-empty {
-  padding: 12px 8px;
-  font-size: 12px;
-  color: var(--text-muted);
 }
 
 .ws-delete-section {

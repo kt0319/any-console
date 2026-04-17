@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { LS_KEY_TOKEN, LS_KEY_DEVICE_NAME, LS_PREFIX_API_CACHE, LS_PREFIX_WS_META, COOKIE_NAME_TOKEN } from "../utils/constants.js";
+import { EP_AUTH_CHECK } from "../utils/endpoints.js";
 
 export const useAuthStore = defineStore("auth", () => {
   const token = ref("");
@@ -57,7 +58,7 @@ export const useAuthStore = defineStore("auth", () => {
 
   async function checkToken() {
     try {
-      const res = await fetch("/auth/check", {
+      const res = await fetch(EP_AUTH_CHECK, {
         headers: { Authorization: `Bearer ${token.value}` },
       });
       if (res.status === 401) return { ok: false, auth: false, error: "Authentication failed" };
@@ -72,7 +73,7 @@ export const useAuthStore = defineStore("auth", () => {
     if (isHandlingUnauthorized.value || !token.value) return false;
     isHandlingUnauthorized.value = true;
     try {
-      const res = await fetch("/auth/check", {
+      const res = await fetch(EP_AUTH_CHECK, {
         headers: { Authorization: `Bearer ${token.value}` },
       });
       if (res.status === 401) {

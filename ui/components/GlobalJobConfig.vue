@@ -35,6 +35,7 @@ import { useApi } from "../composables/useApi.js";
 import { useModalView } from "../composables/useModalView.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
+import { EP_GLOBAL_JOBS } from "../utils/endpoints.js";
 
 const { modalTitle, pushView } = useModalView();
 modalTitle.value = "Global Jobs";
@@ -47,7 +48,7 @@ const isLoading = ref(false);
 async function loadGlobalJobs() {
   isLoading.value = true;
   try {
-    const { ok, data } = await apiGet("/global/jobs");
+    const { ok, data } = await apiGet(EP_GLOBAL_JOBS);
     if (ok) {
       jobEntries.value = Object.entries(data)
         .map(([name, job]) => ({ name, job }));
@@ -76,7 +77,7 @@ function startEditJob(entry) {
 
 async function deleteJob(entry) {
   try {
-    await apiDelete(`/global/jobs/${encodeURIComponent(entry.name)}`);
+    await apiDelete(`${EP_GLOBAL_JOBS}/${encodeURIComponent(entry.name)}`);
     await loadGlobalJobs();
     emit("jobs:refresh");
   } catch { /* ignore */ }
@@ -87,81 +88,6 @@ onMounted(() => {
 });
 </script>
 
-<style scoped>
-.ws-settings-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 4px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  border-bottom: 1px solid var(--border);
-}
-
-.ws-add-item-btn {
-  min-width: auto;
-  min-height: auto;
-  padding: 4px 10px;
-  font-size: 12px;
-  color: var(--text-muted);
-  background: transparent;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.ws-settings-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 8px;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  font-size: 13px;
-  min-height: 40px;
-}
-
-.ws-settings-item:last-child {
-  border-bottom: none;
-}
-
-.ws-settings-item-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.ws-settings-item-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ws-settings-item-actions {
-  display: flex;
-  gap: 6px;
-  margin-left: auto;
-}
-
-.ws-settings-item-action-btn {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 32px;
-  padding: 0;
-  border-radius: var(--radius);
-  font-size: 16px;
-  line-height: 1;
-}
-
-.ws-settings-empty {
-  padding: 12px 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
+<style>
+@import "../styles/settings-list.css";
 </style>

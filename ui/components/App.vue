@@ -23,6 +23,7 @@ import AppToast from "./AppToast.vue";
 import { on, emit } from "../app-bridge.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useLayoutStore } from "../stores/layout.js";
+import { EP_AUTH_CHECK, EP_RUN } from "../utils/endpoints.js";
 
 const auth = useAuthStore();
 const layoutStore = useLayoutStore();
@@ -43,7 +44,7 @@ async function checkConnectivity() {
   try {
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), PING_TIMEOUT_MS);
-    await fetch("/auth/check", {
+    await fetch(EP_AUTH_CHECK, {
       method: "HEAD",
       headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
       signal: ctrl.signal,
@@ -70,7 +71,7 @@ function stopPing() {
 
 async function execNonTerminalJob(jobName, workspace) {
   try {
-    const res = await auth.apiFetch("/run", {
+    const res = await auth.apiFetch(EP_RUN, {
       method: "POST",
       body: { job: jobName, workspace },
     });

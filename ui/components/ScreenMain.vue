@@ -32,6 +32,8 @@ import { useKeyboard } from "../composables/useKeyboard.js";
 import { useViewport } from "../composables/useViewport.js";
 import { handleBeforeUnload } from "../utils/page-unload.js";
 import { on, emit } from "../app-bridge.js";
+import { LAYOUT_FIT_DELAY_MS } from "../utils/constants.js";
+import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_RUN } from "../utils/endpoints.js";
 
 const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
@@ -56,8 +58,8 @@ async function initializeApp() {
     }
   }).catch((e) => console.error("workspaces fetch failed:", e));
 
-  const sessionsPromise = auth.apiFetch("/terminal/sessions").catch(() => null);
-  const jobsPromise = auth.apiFetch("/jobs/workspaces").catch(() => null);
+  const sessionsPromise = auth.apiFetch(EP_TERMINAL_SESSIONS).catch(() => null);
+  const jobsPromise = auth.apiFetch(EP_JOBS_WORKSPACES).catch(() => null);
 
   const [, sessionsRes, jobsRes] = await Promise.all([workspacesPromise, sessionsPromise, jobsPromise]);
 
@@ -111,7 +113,7 @@ async function restoreExistingSessions(sessionsRes, jobsRes) {
 
     const first = terminalStore.openTabs[0];
     if (first) terminalStore.switchTab(first.id);
-    setTimeout(() => emit("layout:fitAll", { force: true }), 500);
+    setTimeout(() => emit("layout:fitAll", { force: true }), LAYOUT_FIT_DELAY_MS);
   } catch (e) {
     console.error("restoreExistingSessions failed:", e);
     terminalStore.restoreSessionsError = e?.message || "Error restoring existing sessions";
@@ -210,7 +212,7 @@ function ensureKeyboardTargetTab() {
 
 async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, jobIcon, jobIconColor, initialCommand, hidden }) {
   try {
-    const res = await auth.apiFetch("/run", {
+    const res = await auth.apiFetch(EP_RUN, {
       method: "POST",
       body: {
         job: "terminal",
@@ -376,8 +378,8 @@ function stopSyncPolling() {
 async function syncSessionsFromServer() {
   try {
     const [sessionsRes, jobsRes] = await Promise.all([
-      auth.apiFetch("/terminal/sessions").catch(() => null),
-      auth.apiFetch("/jobs/workspaces").catch(() => null),
+      auth.apiFetch(EP_TERMINAL_SESSIONS).catch(() => null),
+      auth.apiFetch(EP_JOBS_WORKSPACES).catch(() => null),
     ]);
     if (!sessionsRes || !sessionsRes.ok) return;
     const sessions = await sessionsRes.json();

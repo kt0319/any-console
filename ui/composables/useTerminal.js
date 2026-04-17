@@ -1,9 +1,9 @@
-import { shallowRef } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "./useApi.js";
-import { WS_MSG_RESIZE, WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, RECONNECT_BACKOFF_MAX } from "../utils/constants.js";
+import { WS_MSG_RESIZE, WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, RECONNECT_BACKOFF_MAX, POST_WRITE_REFRESH_MS } from "../utils/constants.js";
 import { emit } from "../app-bridge.js";
+import { fitTerminal, sendResize, observeFrameResize } from "./useTerminalResize.js";
 
 export function useTerminal() {
   const auth = useAuthStore();
@@ -63,7 +63,7 @@ export function useTerminal() {
           try { tab.term.refresh(0, tab.term.rows - 1); } catch {}
         }
         tab._writeCount = 0;
-      }, 300);
+      }, POST_WRITE_REFRESH_MS);
     };
 
     ws.onerror = () => {};
@@ -178,54 +178,6 @@ export function useTerminal() {
       }
     }
   }
-
-  function observeFrameResize(tab, frameEl) {
-    if (tab._frameResizeObserver) {
-      tab._frameResizeObserver.disconnect();
-      tab._frameResizeObserver = null;
-    }
-    let debounceTimer = null;
-    tab._frameResizeObserver = new ResizeObserver(() => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        debounceTimer = null;
-        fitTerminal(tab);
-      }, 50);
-    });
-    tab._frameResizeObserver.observe(frameEl);
-  }
-
-  function sendResize(tab) {
-    if (!tab?.term || !tab?.ws || tab.ws.readyState !== WebSocket.OPEN) return;
-    const cols = tab.term.cols;
-    const rows = tab.term.rows;
-    if (!cols || !rows) return;
-    const encoder = new TextEncoder();
-    const payload = encoder.encode(JSON.stringify({ type: "resize", cols, rows }));
-    const msg = new Uint8Array(1 + payload.length);
-    msg[0] = WS_MSG_RESIZE;
-    msg.set(payload, 1);
-    tab.ws.send(msg);
-  }
-
-  function fitTerminal(tab, opts = {}) {
-    const force = !!opts?.force;
-    if (!tab?.term || !tab?.fitAddon) return;
-    const frame = document.getElementById(`frame-${tab.id}`);
-    if (frame) {
-      const rect = frame.getBoundingClientRect();
-      if (rect.width < 2 || rect.height < 2) return;
-    }
-    try {
-      const dims = tab.fitAddon.proposeDimensions();
-      if (!dims || isNaN(dims.cols) || isNaN(dims.rows)) return;
-      if (!force && tab._lastFitCols === dims.cols && tab._lastFitRows === dims.rows) return;
-      tab._lastFitCols = dims.cols;
-      tab._lastFitRows = dims.rows;
-      tab.fitAddon.fit();
-    } catch {}
-  }
-
 
   async function deleteSession(sessionId) {
     try {

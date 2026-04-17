@@ -10,6 +10,15 @@ export function useGitDiff() {
   const gitStore = useGitStore();
   const { apiGet, wsEndpoint } = useApi();
 
+  function buildFileList(files) {
+    return (files || []).map((f) => ({
+      path: f.path || f.name,
+      status: f.status || "M",
+      insertions: f.insertions,
+      deletions: f.deletions,
+    }));
+  }
+
   function storeDiffResult(diffChunks, diffText, fileList) {
     gitStore.diffChunks = diffChunks;
     gitStore.diffFullText = diffText;
@@ -21,12 +30,7 @@ export function useGitDiff() {
     if (!workspace) return null;
     const { ok, data } = await apiGet(wsEndpoint(workspace, "diff"));
     if (!ok) return null;
-    const fileList = (data.files || []).map((f) => ({
-      path: f.path || f.name,
-      status: f.status || "M",
-      insertions: f.insertions,
-      deletions: f.deletions,
-    }));
+    const fileList = buildFileList(data.files);
     const untrackedNumstat = await resolveUntrackedNumstat({
       workspace,
       files: fileList,
@@ -52,10 +56,7 @@ export function useGitDiff() {
     const { ok, data } = await apiGet(wsEndpoint(workspace, `diff/${encodeURIComponent(hash)}`));
     if (!ok) return null;
     const diffChunks = parseDiffChunks(data.diff);
-    const fileList = (data.files || []).map((f) => ({
-      path: f.path || f.name,
-      status: f.status || "M",
-    }));
+    const fileList = buildFileList(data.files);
     storeDiffResult(diffChunks, data.diff || "", fileList);
     const filesWithNumstat = fileList.map((f) => ({
       ...f,

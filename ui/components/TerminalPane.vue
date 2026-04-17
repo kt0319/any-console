@@ -36,7 +36,7 @@ import { useAuthStore } from "../stores/auth.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { enterViewMode, exitViewMode, isViewMode } from "../utils/view-mode.js";
 import { emit } from "../app-bridge.js";
-import { DRAG_THRESHOLD, LONG_PRESS_MS } from "../utils/constants.js";
+import { DRAG_THRESHOLD, LONG_PRESS_MS, DRAG_STATE_RESET_MS, WHEEL_DEBOUNCE_MS } from "../utils/constants.js";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
 import { useSplitDropDrag } from "../composables/useSplitDropDrag.js";
 import { useLongPress } from "../composables/useLongPress.js";
@@ -165,7 +165,7 @@ function onWheel(e) {
   e.stopPropagation();
   wheelAccum += e.deltaY;
   if (wheelTimer) clearTimeout(wheelTimer);
-  wheelTimer = setTimeout(() => { wheelAccum = 0; }, 300);
+  wheelTimer = setTimeout(() => { wheelAccum = 0; }, WHEEL_DEBOUNCE_MS);
   if (wheelAccum <= WHEEL_THRESHOLD) {
     wheelAccum = 0;
     doEnterViewMode();
@@ -259,7 +259,7 @@ function onPillMouseUp(e) {
     openTabs: terminalStore.openTabs,
     activeTabId: terminalStore.activeTabId,
   });
-  setTimeout(() => { pillMouseDragging = false; }, 100);
+  setTimeout(() => { pillMouseDragging = false; }, DRAG_STATE_RESET_MS);
 }
 
 function onPillTouchStart(e) {
@@ -320,7 +320,7 @@ function onPillTouchEnd(e) {
     openTabs: terminalStore.openTabs,
     activeTabId: terminalStore.activeTabId,
   });
-  setTimeout(() => { pillTouchDragging = false; }, 100);
+  setTimeout(() => { pillTouchDragging = false; }, DRAG_STATE_RESET_MS);
 }
 
 async function onPaste(e) {

@@ -79,6 +79,7 @@ import GitActionBtn from "./GitActionBtn.vue";
 import { renderIconStr } from "../utils/render-icon.js";
 import { escapeHtml } from "../utils/escape-html.js";
 import { POLL_INTERVAL_MS } from "../utils/constants.js";
+import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 
 const { gitAction, isRunning } = useGitAction();
 const { apiGet } = useApi();
@@ -114,7 +115,7 @@ onBeforeUnmount(() => stopPolling());
 
 const offJobsRefresh = on("jobs:refresh", () => {
   for (const key of Object.keys(jobsCache)) delete jobsCache[key];
-  fetchJobs(workspace.value);
+  loadJobs(workspace.value);
 });
 onBeforeUnmount(() => offJobsRefresh());
 
@@ -196,11 +197,11 @@ function applyJobs(wsName) {
   currentLocalJobs.value = cached.filter((j) => !j.global);
 }
 
-async function fetchJobs(wsName) {
+async function loadJobs(wsName) {
   if (!wsName) { applyJobs(null); return; }
   if (jobsCache[wsName]) { applyJobs(wsName); return; }
   try {
-    const { ok, data } = await apiGet("/jobs/workspaces");
+    const { ok, data } = await apiGet(EP_JOBS_WORKSPACES);
     if (!ok) return;
     for (const [name, jobs] of Object.entries(data)) {
       jobsCache[name] = Object.entries(jobs)
@@ -211,7 +212,7 @@ async function fetchJobs(wsName) {
   } catch { /* ignore */ }
 }
 
-watch(workspace, (wsName) => fetchJobs(wsName), { immediate: true });
+watch(workspace, (wsName) => loadJobs(wsName), { immediate: true });
 
 function openTerminal() {
   const wsName = workspace.value;

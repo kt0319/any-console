@@ -85,6 +85,7 @@ import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { MSG_ERROR_OCCURRED } from "../utils/constants.js";
+import { EP_WORKSPACES, EP_GITHUB_REPOS, EP_SYSTEM_INFO } from "../utils/endpoints.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Add Workspace";
@@ -115,7 +116,7 @@ async function doAddExisting() {
   addError.value = "";
   addSuccess.value = "";
   try {
-    const { ok, data } = await apiPost("/workspaces", { path: addPath.value.trim() });
+    const { ok, data } = await apiPost(EP_WORKSPACES, { path: addPath.value.trim() });
     if (!ok) {
       addError.value = data?.detail || "Failed to add";
     } else {
@@ -136,7 +137,7 @@ async function doClone() {
   cloneError.value = "";
   cloneSuccess.value = "";
   try {
-    const { ok, data } = await apiCommand("/workspaces", {
+    const { ok, data } = await apiCommand(EP_WORKSPACES, {
       url: cloneUrl.value.trim(),
       name: cloneName.value.trim() || null,
       base_dir: cloneBaseDir.value.trim() || null,
@@ -174,7 +175,7 @@ async function loadRepos() {
   isLoadingRepos.value = true;
   reposError.value = "";
   try {
-    const { ok, data } = await apiGet("/github/repos");
+    const { ok, data } = await apiGet(EP_GITHUB_REPOS);
     if (!ok) {
       reposError.value = data?.detail || "Failed to fetch repository list";
       return;
@@ -189,7 +190,7 @@ async function loadRepos() {
 
 async function loadWorkDir() {
   try {
-    const { ok, data } = await apiGet("/system/info");
+    const { ok, data } = await apiGet(EP_SYSTEM_INFO);
     if (ok) {
       defaultWorkDir = data.work_dir || "";
       cloneBaseDir.value = defaultWorkDir;

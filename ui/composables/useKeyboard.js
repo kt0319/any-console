@@ -1,4 +1,4 @@
-import { ref, reactive } from "vue";
+import { reactive } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useInputStore } from "../stores/input.js";
 import {

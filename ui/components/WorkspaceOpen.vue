@@ -73,6 +73,7 @@ import { useGitAction } from "../composables/useGitAction.js";
 import { useApi } from "../composables/useApi.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
+import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 import GitActionBtn from "./GitActionBtn.vue";
 
 const modalTitle = inject("modalTitle");
@@ -95,13 +96,13 @@ const visibleWorkspaces = computed(() => workspaceStore.visibleWorkspaces);
 async function loadWorkspaceOverview() {
   await Promise.all([
     workspaceStore.fetchStatuses(),
-    fetchAllWorkspaceJobs(),
+    loadAllWorkspaceJobs(),
   ]);
 }
 
-async function fetchAllWorkspaceJobs() {
+async function loadAllWorkspaceJobs() {
   try {
-    const { ok, data } = await apiGet("/jobs/workspaces");
+    const { ok, data } = await apiGet(EP_JOBS_WORKSPACES);
     if (!ok) return;
     for (const ws of visibleWorkspaces.value) {
       const jobs = data[ws.name] || {};

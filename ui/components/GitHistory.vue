@@ -93,19 +93,19 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 
 import FileItem from "./FileItem.vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { useGitStore } from "../stores/git.js";
 import { useApi } from "../composables/useApi.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useLongPress } from "../composables/useLongPress.js";
 import { useGitCommitAction } from "../composables/useGitCommitAction.js";
 import { useGitDiff } from "../composables/useGitDiff.js";
+import { useGitLogPagination } from "../composables/useGitLogPagination.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
-import { GIT_DIFF_STATUS_CLASSES, INFINITE_SCROLL_THRESHOLD_PX } from "../utils/constants.js";
-import { GRAPH_ROW_HEIGHT, parseGitGraphOutput, buildGitGraphRows, computeGraphWidth } from "../utils/git-graph.js";
+import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
+import { GRAPH_ROW_HEIGHT } from "../utils/git-graph.js";
 
 const emitToParent = defineEmits(["pane:select", "commit:expanded", "commit:collapsed"]);
 
@@ -113,8 +113,6 @@ const workspaceStore = useWorkspaceStore();
 const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { execAction: execCommitAction, execReset: execCommitReset, execCreateBranch: execCommitCreateBranch, execMerge: execCommitMerge, execRebase: execCommitRebase } = useGitCommitAction();
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
-const gitStore = useGitStore();
-
 const activePane = ref("browser");
 
 function selectPane(key) {
@@ -151,14 +149,11 @@ async function fetchRemote() {
   }
 }
 
-const graphRows = ref([]);
-const commitEntries = computed(() => graphRows.value.filter((r) => r.entry).map((r) => r.entry));
-const graphWidth = computed(() => computeGraphWidth(graphRows.value));
-const isHistoryLoading = ref(true);
-const hasMoreHistory = ref(false);
-const isLoadingMoreHistory = ref(false);
-const historyListEl = ref(null);
-let historyPage = 0;
+const {
+  graphRows, commitEntries, graphWidth,
+  isHistoryLoading, hasMoreHistory, isLoadingMoreHistory,
+  historyListEl, loadHistory, loadMoreHistory, onHistoryListScroll,
+} = useGitLogPagination();
 
 const selectedCommitForFiles = ref(null);
 const selectedCommitFiles = ref([]);
@@ -170,60 +165,6 @@ function statusClass(status) {
 
 function fileIconHtml(file) {
   return renderFileIconFromPath(file.path);
-}
-
-async function loadHistory() {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) { isHistoryLoading.value = false; return; }
-  isHistoryLoading.value = true;
-  hasMoreHistory.value = false;
-  isLoadingMoreHistory.value = false;
-  historyPage = 0;
-  try {
-    const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
-    const { ok, data } = await apiGet(wsEndpoint(workspace, `git-log?limit=${perPage}&skip=0&graph=true`));
-    if (!ok) { isHistoryLoading.value = false; return; }
-    const parsed = parseGitGraphOutput(data.stdout);
-    graphRows.value = buildGitGraphRows(parsed);
-    hasMoreHistory.value = parsed.filter((p) => p.entry).length >= perPage;
-  } catch (e) {
-    console.error("git log load failed:", e);
-  } finally {
-    isHistoryLoading.value = false;
-    nextTick(() => onHistoryListScroll());
-  }
-}
-
-async function loadMoreHistory() {
-  if (isHistoryLoading.value || isLoadingMoreHistory.value || !hasMoreHistory.value) return;
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  isLoadingMoreHistory.value = true;
-  historyPage++;
-  const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
-  const totalLimit = (historyPage + 1) * perPage;
-  try {
-    const { ok, data } = await apiGet(wsEndpoint(workspace, `git-log?limit=${totalLimit}&skip=0&graph=true`));
-    if (!ok) return;
-    const parsed = parseGitGraphOutput(data.stdout);
-    graphRows.value = buildGitGraphRows(parsed);
-    hasMoreHistory.value = parsed.filter((p) => p.entry).length >= totalLimit;
-  } catch (e) {
-    console.error("git log loadMore failed:", e);
-  } finally {
-    isLoadingMoreHistory.value = false;
-    nextTick(() => onHistoryListScroll());
-  }
-}
-
-function onHistoryListScroll() {
-  if (!hasMoreHistory.value || isHistoryLoading.value || isLoadingMoreHistory.value) return;
-  const el = historyListEl.value;
-  if (!el) return;
-  const threshold = INFINITE_SCROLL_THRESHOLD_PX;
-  if (el.scrollTop + el.clientHeight >= el.scrollHeight - threshold) {
-    loadMoreHistory();
-  }
 }
 
 const { activeEntry: longPressEntry, startMenu: onLongPressStart, endMenu: onLongPressEnd, closeMenu: closeLongPressMenu, isFired: isLongPressFired, isMenuEl } = useLongPress();

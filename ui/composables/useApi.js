@@ -5,31 +5,34 @@ import { extractApiError } from "../utils/constants.js";
 export function useApi() {
   const auth = useAuthStore();
 
-  async function apiRequest(endpoint, { method = "GET", body = null, checkStatus = false } = {}) {
+  async function apiRequest(endpoint, { method = "GET", body = null, checkStatus = false, errorMessage } = {}) {
     const opts = method === "GET" ? undefined : { method, ...(body != null && { body }) };
     const res = await auth.apiFetch(endpoint, opts);
     if (!res || !res.ok) {
       const data = res ? await res.json().catch(() => null) : null;
+      if (errorMessage) {
+        emit("toast:show", { message: extractApiError(data, errorMessage), type: "error" });
+      }
       return { ok: false, data };
     }
     const data = await res.json().catch(() => null);
     const ok = checkStatus ? data?.status === "ok" : data != null;
+    if (!ok && errorMessage) {
+      emit("toast:show", { message: extractApiError(data, errorMessage), type: "error" });
+    }
     return { ok, data };
   }
 
-  const apiGet = (endpoint) => apiRequest(endpoint);
-  const apiPost = (endpoint, body = {}) => apiRequest(endpoint, { method: "POST", body });
-  const apiPut = (endpoint, body = {}) => apiRequest(endpoint, { method: "PUT", body });
-  const apiDelete = (endpoint) => apiRequest(endpoint, { method: "DELETE" });
-  const apiCommand = (endpoint, body = {}) => apiRequest(endpoint, { method: "POST", body, checkStatus: true });
+  const apiGet = (endpoint, opts) => apiRequest(endpoint, opts);
+  const apiPost = (endpoint, body = {}, opts) => apiRequest(endpoint, { method: "POST", body, ...opts });
+  const apiPut = (endpoint, body = {}, opts) => apiRequest(endpoint, { method: "PUT", body, ...opts });
+  const apiDelete = (endpoint, opts) => apiRequest(endpoint, { method: "DELETE", ...opts });
+  const apiCommand = (endpoint, body = {}, opts) => apiRequest(endpoint, { method: "POST", body, checkStatus: true, ...opts });
 
   async function apiWithToast(endpoint, body, { successMessage, errorMessage, onSuccess }) {
     try {
-      const { ok, data } = await apiCommand(endpoint, body);
-      if (!ok) {
-        emit("toast:show", { message: extractApiError(data, errorMessage), type: "error" });
-        return false;
-      }
+      const { ok, data } = await apiCommand(endpoint, body, { errorMessage });
+      if (!ok) return false;
       emit("toast:show", { message: successMessage, type: "success" });
       onSuccess?.();
       return true;
