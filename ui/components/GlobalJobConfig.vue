@@ -34,6 +34,7 @@ import { ref, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useModalView } from "../composables/useModalView.js";
 import { renderIconStr } from "../utils/render-icon.js";
+import { emit } from "../app-bridge.js";
 
 const { modalTitle, pushView } = useModalView();
 modalTitle.value = "Global Jobs";
@@ -60,7 +61,7 @@ function startAddJob() {
     isGlobal: true,
     workspaceName: null,
     jobEntry: null,
-    onReturn: () => { loadGlobalJobs(); },
+    onReturn: () => { loadGlobalJobs(); emit("jobs:refresh"); },
   });
 }
 
@@ -69,7 +70,7 @@ function startEditJob(entry) {
     isGlobal: true,
     workspaceName: null,
     jobEntry: entry,
-    onReturn: () => { loadGlobalJobs(); },
+    onReturn: () => { loadGlobalJobs(); emit("jobs:refresh"); },
   });
 }
 
@@ -77,6 +78,7 @@ async function deleteJob(entry) {
   try {
     await apiDelete(`/global/jobs/${encodeURIComponent(entry.name)}`);
     await loadGlobalJobs();
+    emit("jobs:refresh");
   } catch { /* ignore */ }
 }
 

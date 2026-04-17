@@ -109,7 +109,7 @@ async function saveJob() {
     if (!ok) {
       formError.value = data?.detail || MSG_SAVE_FAILED;
     } else {
-      popView();
+      popView(true);
     }
   } catch (e) {
     formError.value = e.message || MSG_ERROR_OCCURRED;

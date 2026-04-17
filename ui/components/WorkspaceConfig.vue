@@ -89,6 +89,7 @@ import { useModalView } from "../composables/useModalView.js";
 import { useWorkspaceDrag } from "../composables/useWorkspaceDrag.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
+import { emit } from "../app-bridge.js";
 
 const { modalTitle, pushView, viewState } = useModalView();
 modalTitle.value = "Workspace Settings";
@@ -182,7 +183,7 @@ function startAddJob() {
   pushView("JobConfig", {
     workspaceName: editWs.value.name,
     jobEntry: null,
-    onReturn: () => { loadWorkspaceJobs(); },
+    onReturn: () => { loadWorkspaceJobs(); emit("jobs:refresh"); },
   });
 }
 
@@ -190,7 +191,7 @@ function startEditJob(entry) {
   pushView("JobConfig", {
     workspaceName: editWs.value.name,
     jobEntry: entry,
-    onReturn: () => { loadWorkspaceJobs(); },
+    onReturn: () => { loadWorkspaceJobs(); emit("jobs:refresh"); },
   });
 }
 
@@ -215,6 +216,7 @@ async function deleteJob(entry) {
   try {
     await apiDelete(wsEndpoint(editWs.value.name, `jobs/${encodeURIComponent(entry.name)}`));
     await loadWorkspaceJobs();
+    emit("jobs:refresh");
   } catch { /* ignore */ }
 }
 

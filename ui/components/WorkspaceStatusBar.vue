@@ -74,7 +74,7 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useGitAction } from "../composables/useGitAction.js";
 import { useApi } from "../composables/useApi.js";
-import { emit } from "../app-bridge.js";
+import { emit, on } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import { renderIconStr } from "../utils/render-icon.js";
 import { escapeHtml } from "../utils/escape-html.js";
@@ -111,6 +111,12 @@ function stopPolling() {
 
 onMounted(() => startPolling());
 onBeforeUnmount(() => stopPolling());
+
+const offJobsRefresh = on("jobs:refresh", () => {
+  for (const key of Object.keys(jobsCache)) delete jobsCache[key];
+  fetchJobs(workspace.value);
+});
+onBeforeUnmount(() => offJobsRefresh());
 
 const workspaceStore = useWorkspaceStore();
 const terminalStore = useTerminalStore();
