@@ -5,21 +5,23 @@ import { extractApiError } from "../utils/constants.js";
 export function useApi() {
   const auth = useAuthStore();
 
+  function showErrorToast(data, errorMessage) {
+    if (errorMessage) {
+      emit("toast:show", { message: extractApiError(data, errorMessage), type: "error" });
+    }
+  }
+
   async function apiRequest(endpoint, { method = "GET", body = null, checkStatus = false, errorMessage } = {}) {
     const opts = method === "GET" ? undefined : { method, ...(body != null && { body }) };
     const res = await auth.apiFetch(endpoint, opts);
     if (!res || !res.ok) {
       const data = res ? await res.json().catch(() => null) : null;
-      if (errorMessage) {
-        emit("toast:show", { message: extractApiError(data, errorMessage), type: "error" });
-      }
+      showErrorToast(data, errorMessage);
       return { ok: false, data };
     }
     const data = await res.json().catch(() => null);
     const ok = checkStatus ? data?.status === "ok" : data != null;
-    if (!ok && errorMessage) {
-      emit("toast:show", { message: extractApiError(data, errorMessage), type: "error" });
-    }
+    if (!ok) showErrorToast(data, errorMessage);
     return { ok, data };
   }
 

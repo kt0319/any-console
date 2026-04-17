@@ -112,6 +112,20 @@ sudo systemctl restart any-console
 - クリック可能な要素はボタン風スタイル（背景色・ボーダーなど）で視覚的に区別する。下線でのクリック表現は使わない
 - 状態変化はJSによるクラス付替え（`.active`, `.selected` など）で表現する
 - `backdrop-filter`（blur等）は使わない
+- 複数コンポーネントで共有するCSSクラスは `ui/styles/` に配置し、scopedでない `<style>` で `@import` する
+
+## フロントエンド設計ルール
+
+- APIエンドポイント文字列は `ui/utils/endpoints.js` の定数を使用する（ハードコードしない）
+- `setTimeout` 等のタイマー値は `ui/utils/constants.js` に定数定義する
+- APIエラー通知は `apiGet/apiPost` の `{ errorMessage: "..." }` オプションを使用する（手動 `emit("toast:show")` より優先）
+- 300行超のコンポーネントは責務分離を検討する（ロジックを `ui/composables/` に抽出）
+
+## バックエンドAPIルール
+
+- APIエラーレスポンスのエラーメッセージフィールドは `detail` を使用する（`message` ではない）
+- `except Exception` の裸キャッチは避け、具体的な例外型を指定する
+- subprocess実行失敗時は `OSError` も捕捉する
 
 ## 設計上の注意点
 

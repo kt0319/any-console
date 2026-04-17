@@ -27,12 +27,7 @@ def _existing_workspace_names() -> set[str]:
 
 @router.get("/settings/export")
 def export_settings():
-    config = load_all_config()
-    existing = _existing_workspace_names()
-    exported = {k: v for k, v in config.items() if k in existing}
-    if isinstance(config.get(GLOBAL_CONFIG_KEY), dict):
-        exported[GLOBAL_CONFIG_KEY] = config[GLOBAL_CONFIG_KEY]
-    return exported
+    return load_all_config()
 
 
 @router.post("/settings/import")

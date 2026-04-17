@@ -73,11 +73,18 @@ class TerminalSession:
         for env_key, attr in _TMUX_ATTR_MAP.items():
             value = getattr(self, attr, None)
             if value:
-                subprocess.run(
-                    ["tmux", "set-environment", "-t", self.tmux_session_name, env_key, value],
-                    timeout=TMUX_CMD_TIMEOUT_SEC,
-                    capture_output=True,
-                )
+                try:
+                    result = subprocess.run(
+                        ["tmux", "set-environment", "-t", self.tmux_session_name, env_key, value],
+                        timeout=TMUX_CMD_TIMEOUT_SEC,
+                        capture_output=True,
+                    )
+                    if result.returncode != 0:
+                        logger.warning("save metadata failed env=%s session=%s: %s",
+                                       env_key, self.tmux_session_name, result.stderr)
+                except (subprocess.TimeoutExpired, OSError) as e:
+                    logger.error("save metadata error env=%s session=%s: %s",
+                                 env_key, self.tmux_session_name, e)
 
     @classmethod
     def from_tmux(cls, tmux_name: str) -> "TerminalSession":

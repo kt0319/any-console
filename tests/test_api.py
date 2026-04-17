@@ -33,13 +33,13 @@ class TestSettings:
         assert res.status_code == 200
         assert res.json() == {}
 
-    def test_export_filters_existing_workspaces(self, client, workspace, isolate_fs):
+    def test_export_includes_all_workspaces(self, client, workspace, isolate_fs):
         config = {"test-ws": {"icon": "star"}, "nonexistent": {"icon": "x"}}
         isolate_fs["config_file"].write_text(json.dumps(config))
         res = client.get("/settings/export", headers=AUTH)
         data = res.json()
         assert "test-ws" in data
-        assert "nonexistent" not in data
+        assert "nonexistent" in data
 
     def test_import_settings(self, client, workspace, isolate_fs):
         res = client.post("/settings/import", headers=AUTH, json={"test-ws": {"icon": "rocket"}})

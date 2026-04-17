@@ -34,7 +34,7 @@ def _run_gh(args: list[str], cwd: str) -> dict | list | None:
 def _run_gh_endpoint(args, cwd, error_message):
     data = _run_gh(args, cwd=cwd)
     if data is None:
-        return {"status": "error", "message": error_message}
+        return {"status": "error", "detail": error_message}
     return {"status": "ok", "data": data}
 
 
