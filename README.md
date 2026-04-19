@@ -95,7 +95,7 @@ FastAPIとVite dev serverを並列起動する。Ctrl+Cで両方終了。
 
 ```
 api/              バックエンド (FastAPI)
-  routers/        ルーター (workspaces, git, jobs, terminal, settings, system, logs)
+  routers/        ルーター (workspaces, git, jobs, terminal, settings, system, github)
   main.py         アプリ初期化、静的ファイル配信
   auth.py         Bearerトークン認証
   runner.py       ジョブ実行 (subprocess)
