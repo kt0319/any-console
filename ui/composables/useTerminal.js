@@ -4,6 +4,7 @@ import { useApi } from "./useApi.js";
 import { WS_MSG_RESIZE, WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, RECONNECT_BACKOFF_MULTIPLIER, RECONNECT_BACKOFF_BASE_MS, RECONNECT_BACKOFF_MAX, POST_WRITE_REFRESH_MS } from "../utils/constants.js";
 import { emit } from "../app-bridge.js";
 import { fitTerminal, sendResize, observeFrameResize } from "./useTerminalResize.js";
+import { buildWebSocketUrl as _buildWebSocketUrl } from "../utils/terminal-ws.js";
 
 export function useTerminal() {
   const auth = useAuthStore();
@@ -11,11 +12,7 @@ export function useTerminal() {
 
   function buildWebSocketUrl(sessionId, cols, rows) {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
-    let url = `${proto}//${location.host}/terminal/ws/${sessionId}?token=${encodeURIComponent(auth.token)}`;
-    if (cols && rows) {
-      url += `&cols=${cols}&rows=${rows}`;
-    }
-    return url;
+    return _buildWebSocketUrl(proto, location.host, sessionId, auth.token, cols, rows);
   }
 
   function connectTerminalWs(tab, opts = {}) {

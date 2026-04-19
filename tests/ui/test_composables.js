@@ -1,32 +1,9 @@
 // @ts-check
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-
-// ── Inline copies of pure functions from composables ──
-
-// From useGitDiff.js
-function buildFileList(files) {
-  return (files || []).map((f) => ({
-    path: f.path || f.name,
-    status: f.status || "M",
-    insertions: f.insertions,
-    deletions: f.deletions,
-  }));
-}
-
-// From useTerminalResize.js (buildWebSocketUrl logic extracted for testing)
-function buildWebSocketUrl(proto, host, sessionId, token, cols, rows) {
-  let url = `${proto}//${host}/terminal/ws/${sessionId}?token=${encodeURIComponent(token)}`;
-  if (cols && rows) {
-    url += `&cols=${cols}&rows=${rows}`;
-  }
-  return url;
-}
-
-// From useApi.js
-function extractApiError(data, fallback = "An error occurred") {
-  return data?.detail || data?.message || fallback;
-}
+import { buildFileList } from "../../ui/composables/useGitDiff.js";
+import { buildWebSocketUrl } from "../../ui/utils/terminal-ws.js";
+import { extractApiError } from "../../ui/utils/constants.js";
 
 // ── Tests ──
 

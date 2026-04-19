@@ -7,6 +7,7 @@ import re
 import secrets
 import socket
 import time
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -28,7 +29,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="any-console")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    from .terminal_session import TERMINAL_SESSIONS, _detach_pty_bridge, sessions_lock
+    with sessions_lock:
+        sessions = list(TERMINAL_SESSIONS.values())
+    for session in sessions:
+        _detach_pty_bridge(session)
+    BACKGROUND_EXECUTOR.shutdown(wait=False)
+
+
+app = FastAPI(title="any-console", lifespan=lifespan)
 
 BOOT_VERSION = str(int(time.time()))
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
@@ -44,15 +57,6 @@ app.include_router(terminal.ws_router)
 app.include_router(system.router)
 app.include_router(settings.router)
 
-
-@app.on_event("shutdown")
-def shutdown_cleanup():
-    from .terminal_session import TERMINAL_SESSIONS, _detach_pty_bridge, sessions_lock
-    with sessions_lock:
-        sessions = list(TERMINAL_SESSIONS.values())
-    for session in sessions:
-        _detach_pty_bridge(session)
-    BACKGROUND_EXECUTOR.shutdown(wait=False)
 
 
 @app.get("/auth/check", dependencies=[Depends(verify_token)])

@@ -1,72 +1,7 @@
 // @ts-check
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-
-// ── Inline copies of pure functions from utils.js ──
-
-function toDisplayMessage(value, fallback = "") {
-  if (value == null) return fallback;
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  if (value instanceof Error) return toDisplayMessage(value.message, fallback);
-  if (Array.isArray(value)) {
-    const parts = value
-      .map((item) => {
-        if (item && typeof item === "object" && typeof item.msg === "string") {
-          return item.msg;
-        }
-        return toDisplayMessage(item, "");
-      })
-      .filter(Boolean);
-    return parts.length > 0 ? parts.join(" / ") : fallback;
-  }
-  if (typeof value === "object") {
-    if ("detail" in value) return toDisplayMessage(value.detail, fallback);
-    if ("message" in value) return toDisplayMessage(value.message, fallback);
-    if ("msg" in value) return toDisplayMessage(value.msg, fallback);
-    if ("error" in value) return toDisplayMessage(value.error, fallback);
-    if ("stderr" in value) return toDisplayMessage(value.stderr, fallback);
-    if ("stdout" in value) return toDisplayMessage(value.stdout, fallback);
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return fallback;
-    }
-  }
-  return fallback;
-}
-
-function formatCommitTime(timeText) {
-  if (!timeText) return "-";
-  const d = new Date(timeText);
-  if (Number.isNaN(d.getTime())) return timeText;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const h = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${y}-${m}-${day} ${h}:${min}`;
-}
-
-function buildWorkspaceChangeSummaryHtml(ws) {
-  if (!ws || ws.clean !== false) return "";
-  const parts = [];
-  if (ws.changed_files > 0) parts.push(`<span class="stat-files">${ws.changed_files}F</span>`);
-  if (ws.insertions > 0) parts.push(`<span class="stat-add">+${ws.insertions}</span>`);
-  if (ws.deletions > 0) parts.push(`<span class="stat-del">-${ws.deletions}</span>`);
-  return parts.length > 0 ? parts.join(" ") : "\u25cf";
-}
-
-const VALID_ICON_COLOR = /^#[0-9a-fA-F]{3,6}$/;
-
-function isImageDataIcon(icon) {
-  return typeof icon === "string" && icon.startsWith("data:image/");
-}
-
-function faviconUrl(domain) {
-  if (!domain) return "";
-  return `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(domain)}`;
-}
+import { toDisplayMessage, formatCommitTime, buildWorkspaceChangeSummaryHtml, VALID_ICON_COLOR, isImageDataIcon, faviconUrl } from "../../ui/utils/display.js";
 
 // ── Tests ──
 

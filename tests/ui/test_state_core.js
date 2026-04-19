@@ -1,47 +1,7 @@
 // @ts-check
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-
-// ── Inline copies of pure functions from state-core.js ──
-// These are copied here because the source module depends on browser globals
-// (window, localStorage, matchMedia) that aren't available in Node.
-
-const TERMINAL_SETTINGS_SCHEMA = Object.freeze({
-  fontSize: { type: "number", min: 10, max: 24, step: 1 },
-  cursorBlink: { type: "boolean" },
-  scrollback: { type: "number", min: 1000, max: 20000, step: 500 },
-  scrollOnOutput: { type: "boolean" },
-});
-
-const DEFAULT_TERMINAL_SETTINGS = Object.freeze({
-  fontSize: 12,
-  cursorBlink: true,
-  scrollback: 5000,
-  scrollOnOutput: true,
-});
-
-function sanitizeTerminalSetting(key, value) {
-  const schema = TERMINAL_SETTINGS_SCHEMA[key];
-  const fallback = DEFAULT_TERMINAL_SETTINGS[key];
-  if (!schema) return fallback;
-  if (schema.type === "boolean") return value === true || value === "true";
-  if (schema.type === "number") {
-    const num = Number(value);
-    if (!Number.isFinite(num)) return fallback;
-    const rounded = schema.step && schema.step >= 1 ? Math.round(num) : num;
-    return Math.min(schema.max, Math.max(schema.min, rounded));
-  }
-  return fallback;
-}
-
-function sanitizeTerminalSettings(raw) {
-  const source = raw && typeof raw === "object" ? raw : {};
-  const next = {};
-  for (const key of Object.keys(DEFAULT_TERMINAL_SETTINGS)) {
-    next[key] = sanitizeTerminalSetting(key, source[key]);
-  }
-  return next;
-}
+import { TERMINAL_SETTINGS_SCHEMA, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../../ui/utils/terminal-settings.js";
 
 // ── Tests ──
 

@@ -94,7 +94,7 @@ export function buildNumstatHtml(insertions, deletions, opts = {}) {
   return `<span class="${addClass}">+${addValue}</span> <span class="${delClass}">-${delValue}</span>`;
 }
 
-function countContentLines(content) {
+export function countContentLines(content) {
   const text = String(content || "");
   if (!text) return 0;
   const lines = text.split("\n").length;

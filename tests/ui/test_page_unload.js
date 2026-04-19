@@ -1,18 +1,7 @@
 // @ts-check
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-
-// Inline copies of pure functions from ui/utils/page-unload.js
-function shouldConfirmBeforeUnload(openTabs) {
-  return Array.isArray(openTabs) && openTabs.length > 0;
-}
-
-function handleBeforeUnload(event, openTabs) {
-  if (!shouldConfirmBeforeUnload(openTabs)) return false;
-  event?.preventDefault?.();
-  if (event) event.returnValue = "";
-  return true;
-}
+import { shouldConfirmBeforeUnload, handleBeforeUnload } from "../../ui/utils/page-unload.js";
 
 describe("shouldConfirmBeforeUnload", () => {
   it("returns false when no tabs are open", () => {

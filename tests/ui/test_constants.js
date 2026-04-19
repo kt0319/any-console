@@ -1,14 +1,7 @@
 // @ts-check
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-
-// ── Inline copy of extractApiError from constants.js ──
-
-const MSG_ERROR_OCCURRED = "エラーが発生しました";
-
-function extractApiError(data, fallback = MSG_ERROR_OCCURRED) {
-  return data?.detail || data?.message || fallback;
-}
+import { extractApiError, MSG_ERROR_OCCURRED } from "../../ui/utils/constants.js";
 
 // ── Tests ──
 

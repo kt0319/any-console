@@ -1,3 +1,15 @@
+export function workspaceApiPath(workspace, path = "") {
+  return `/workspaces/${encodeURIComponent(workspace)}${path}`;
+}
+
+export function getActionFailureMessage(data, fallback = "unknown error") {
+  if (!data || typeof data !== "object") return fallback;
+  if (data.stderr) return typeof data.stderr === "string" ? data.stderr : fallback;
+  if (data.stdout) return typeof data.stdout === "string" ? data.stdout : fallback;
+  if (data.detail) return typeof data.detail === "string" ? data.detail : fallback;
+  return fallback;
+}
+
 export const EP_AUTH_CHECK = "/auth/check";
 export const EP_RUN = "/run";
 export const EP_WORKSPACES = "/workspaces";

@@ -1,14 +1,7 @@
 // @ts-check
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-
-// ── Inline copy of toSshUrl from settings.js ──
-function toSshUrl(url) {
-  const m = url.match(/^https?:\/\/github\.com\/(.+)/);
-  if (!m) return url;
-  const path = m[1].replace(/\/$/, "");
-  return `git@github.com:${path}.git`;
-}
+import { toSshUrl } from "../../ui/utils/settings-utils.js";
 
 // ── Tests ──
 

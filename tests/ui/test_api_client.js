@@ -1,21 +1,7 @@
 // @ts-check
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-
-// ── Inline copies of pure functions from api-client.js ──
-
-function workspaceApiPath(workspace, path = "") {
-  return `/workspaces/${encodeURIComponent(workspace)}${path}`;
-}
-
-function getActionFailureMessage(data, fallback = "unknown error") {
-  if (!data || typeof data !== "object") return fallback;
-  // simplified: inline toDisplayMessage logic for stderr/stdout/detail
-  if (data.stderr) return typeof data.stderr === "string" ? data.stderr : fallback;
-  if (data.stdout) return typeof data.stdout === "string" ? data.stdout : fallback;
-  if (data.detail) return typeof data.detail === "string" ? data.detail : fallback;
-  return fallback;
-}
+import { workspaceApiPath, getActionFailureMessage } from "../../ui/utils/endpoints.js";
 
 // ── Tests ──
 

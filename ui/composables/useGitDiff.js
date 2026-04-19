@@ -4,20 +4,20 @@ import { useGitStore, parseDiffChunks } from "../stores/git.js";
 import { useApi } from "./useApi.js";
 import { buildFileNumstatHtml, resolveUntrackedNumstat } from "../utils/git.js";
 
+export function buildFileList(files) {
+  return (files || []).map((f) => ({
+    path: f.path || f.name,
+    status: f.status || "M",
+    insertions: f.insertions,
+    deletions: f.deletions,
+  }));
+}
+
 export function useGitDiff() {
   const auth = useAuthStore();
   const workspaceStore = useWorkspaceStore();
   const gitStore = useGitStore();
   const { apiGet, wsEndpoint } = useApi();
-
-  function buildFileList(files) {
-    return (files || []).map((f) => ({
-      path: f.path || f.name,
-      status: f.status || "M",
-      insertions: f.insertions,
-      deletions: f.deletions,
-    }));
-  }
 
   function storeDiffResult(diffChunks, diffText, fileList) {
     gitStore.diffChunks = diffChunks;
