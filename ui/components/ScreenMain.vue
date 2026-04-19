@@ -241,10 +241,6 @@ async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, j
       initialCommand,
       hidden,
     });
-    if (hidden) {
-      connectTerminalWs(tab);
-      return;
-    }
     activateTerminalTab(tab.id, { focus: false });
     if (workspace) workspaceStore.selectedWorkspace = workspace;
     await nextTick();
