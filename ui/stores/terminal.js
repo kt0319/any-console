@@ -94,7 +94,9 @@ export const useTerminalStore = defineStore("terminal", () => {
     }
     openTabs.value.splice(idx, 1);
     if (activeTabId.value === tabId) {
-      const next = openTabs.value[Math.min(idx, openTabs.value.length - 1)];
+      const visibleTabs = openTabs.value.filter((t) => !t.hidden);
+      const next = visibleTabs.find((t) => openTabs.value.indexOf(t) >= idx)
+        || visibleTabs[visibleTabs.length - 1];
       activeTabId.value = next ? next.id : null;
     }
   }
