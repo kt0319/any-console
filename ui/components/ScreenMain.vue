@@ -330,6 +330,7 @@ onMounted(() => {
 
   document.addEventListener("visibilitychange", onVisibilityChange);
   window.addEventListener("beforeunload", onBeforeUnload);
+  document.addEventListener("keydown", onGlobalKeydown);
 
   if (typeof ResizeObserver !== "undefined") {
     mainPanelResizeObserver = new ResizeObserver(() => {
@@ -459,12 +460,40 @@ function onBeforeUnload(event) {
   handleBeforeUnload(event, terminalStore.openTabs);
 }
 
+function onGlobalKeydown(e) {
+  if (!e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "r") {
+    e.preventDefault();
+    window.location.reload();
+  } else if (e.key === "w") {
+    const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
+    if (!tab) return;
+    e.preventDefault();
+    const label = tab.workspace || tab.label || "terminal";
+    if (confirm(`Close "${label}" tab?`)) {
+      closeTab(tab);
+      const activeTab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
+      workspaceStore.selectedWorkspace = activeTab?.workspace || null;
+    }
+  } else if (e.key === "n") {
+    e.preventDefault();
+    emit("workspace:openModal");
+  } else if (e.key === "t") {
+    e.preventDefault();
+    emit("settings:open", { view: "TabConfig" });
+  } else if (e.key === ".") {
+    e.preventDefault();
+    emit("settings:open");
+  }
+}
+
 onBeforeUnmount(() => {
   bridgeCleanups.forEach((cleanup) => cleanup());
   stopSyncPolling();
   mainPanelResizeObserver?.disconnect();
   document.removeEventListener("visibilitychange", onVisibilityChange);
   window.removeEventListener("beforeunload", onBeforeUnload);
+  document.removeEventListener("keydown", onGlobalKeydown);
 });
 
 function updateKeyboardInputVisibility(visible) {
