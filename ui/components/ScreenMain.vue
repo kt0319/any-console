@@ -30,7 +30,6 @@ import { useApi } from "../composables/useApi.js";
 import { useTerminal } from "../composables/useTerminal.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useViewport } from "../composables/useViewport.js";
-import { handleBeforeUnload } from "../utils/page-unload.js";
 import { on, emit } from "../app-bridge.js";
 import { LAYOUT_FIT_DELAY_MS } from "../utils/constants.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_RUN } from "../utils/endpoints.js";
@@ -329,8 +328,7 @@ onMounted(() => {
   });
 
   document.addEventListener("visibilitychange", onVisibilityChange);
-  window.addEventListener("beforeunload", onBeforeUnload);
-  document.addEventListener("keydown", onGlobalKeydown);
+  document.addEventListener("keydown", onGlobalKeydown, true);
 
   if (typeof ResizeObserver !== "undefined") {
     mainPanelResizeObserver = new ResizeObserver(() => {
@@ -456,16 +454,9 @@ function onVisibilityChange() {
   });
 }
 
-function onBeforeUnload(event) {
-  handleBeforeUnload(event, terminalStore.openTabs);
-}
-
 function onGlobalKeydown(e) {
-  if (!e.metaKey || e.ctrlKey || e.altKey) return;
-  if (e.key === "r") {
-    e.preventDefault();
-    window.location.reload();
-  } else if (e.key === "w") {
+  if (!e.metaKey || !e.shiftKey || e.ctrlKey || e.altKey) return;
+  if (e.code === "KeyW") {
     const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
     if (!tab) return;
     e.preventDefault();
@@ -475,13 +466,13 @@ function onGlobalKeydown(e) {
       const activeTab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
       workspaceStore.selectedWorkspace = activeTab?.workspace || null;
     }
-  } else if (e.key === "n") {
+  } else if (e.code === "KeyN") {
     e.preventDefault();
     emit("workspace:openModal");
-  } else if (e.key === "t") {
+  } else if (e.code === "KeyT") {
     e.preventDefault();
     emit("settings:open", { view: "TabConfig" });
-  } else if (e.key === ".") {
+  } else if (e.code === "Period") {
     e.preventDefault();
     emit("settings:open");
   }
@@ -492,8 +483,7 @@ onBeforeUnmount(() => {
   stopSyncPolling();
   mainPanelResizeObserver?.disconnect();
   document.removeEventListener("visibilitychange", onVisibilityChange);
-  window.removeEventListener("beforeunload", onBeforeUnload);
-  document.removeEventListener("keydown", onGlobalKeydown);
+  document.removeEventListener("keydown", onGlobalKeydown, true);
 });
 
 function updateKeyboardInputVisibility(visible) {

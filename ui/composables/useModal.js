@@ -47,8 +47,8 @@ export function useModal() {
         closeFn();
       }
     };
-    document.addEventListener("keydown", onEscape);
-    releaseEscape = () => document.removeEventListener("keydown", onEscape);
+    document.addEventListener("keydown", onEscape, true);
+    releaseEscape = () => document.removeEventListener("keydown", onEscape, true);
     nextTick(() => {
       if (modalEl) {
         releaseKeydown = trapFocus(modalEl, closeFn);
