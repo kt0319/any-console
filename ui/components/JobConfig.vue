@@ -67,7 +67,7 @@ const form = ref(
           icon: "",
           icon_color: "",
           confirm: false,
-          terminal: true,
+          terminal: false,
         }
 );
 
