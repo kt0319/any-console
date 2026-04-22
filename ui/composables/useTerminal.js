@@ -127,6 +127,11 @@ export function useTerminal() {
       }
     });
 
+    tab.term?.onKey(() => {
+      fitTerminal(tab, { force: true });
+      sendResize(tab);
+    });
+
   }
 
   function disconnectTerminal(tab) {

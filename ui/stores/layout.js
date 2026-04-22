@@ -7,7 +7,7 @@ export const useLayoutStore = defineStore("layout", () => {
   panelBottomMediaQuery.addEventListener("change", (e) => {
     isPanelBottom.value = e.matches;
   });
-  const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+  const isTouchDevice = !window.matchMedia("(pointer: fine)").matches && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
   const isPwa = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 
   const isSplitMode = ref(false);
