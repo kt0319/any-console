@@ -31,7 +31,7 @@ import { useTerminal } from "../composables/useTerminal.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useViewport } from "../composables/useViewport.js";
 import { on, emit } from "../app-bridge.js";
-import { LAYOUT_FIT_DELAY_MS } from "../utils/constants.js";
+import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION } from "../utils/constants.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_RUN } from "../utils/endpoints.js";
 
 const layoutStore = useLayoutStore();
@@ -110,8 +110,12 @@ async function restoreExistingSessions(sessionsRes, jobsRes) {
       });
     }
 
-    const first = terminalStore.openTabs[0];
-    if (first) terminalStore.switchTab(first.id);
+    const savedSessionId = localStorage.getItem(LS_KEY_ACTIVE_SESSION);
+    const visibleTabs = terminalStore.openTabs.filter((t) => !t.hidden);
+    const target = (savedSessionId && visibleTabs.find((t) => t.sessionId === savedSessionId))
+      || visibleTabs[0]
+      || terminalStore.openTabs[0];
+    if (target) terminalStore.switchTab(target.id);
     setTimeout(() => emit("layout:fitAll", { force: true }), LAYOUT_FIT_DELAY_MS);
   } catch (e) {
     console.error("restoreExistingSessions failed:", e);

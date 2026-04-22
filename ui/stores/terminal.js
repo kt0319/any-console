@@ -3,7 +3,7 @@ import { ref, markRaw } from "vue";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
-import { LS_KEY_TERMINAL_SETTINGS } from "../utils/constants.js";
+import { LS_KEY_TERMINAL_SETTINGS, LS_KEY_ACTIVE_SESSION } from "../utils/constants.js";
 import { TERMINAL_SETTINGS_SCHEMA, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../utils/terminal-settings.js";
 
 const TERMINAL_SETTINGS_KEY = LS_KEY_TERMINAL_SETTINGS;
@@ -103,6 +103,10 @@ export const useTerminalStore = defineStore("terminal", () => {
 
   function switchTab(tabId) {
     activeTabId.value = tabId;
+    const tab = openTabs.value.find((t) => t.id === tabId);
+    if (tab) {
+      localStorage.setItem(LS_KEY_ACTIVE_SESSION, tab.sessionId);
+    }
   }
 
   function moveTab(fromIndex, toIndex) {
