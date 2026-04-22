@@ -6,9 +6,11 @@
           v-for="ws in visibleWorkspaces"
           :key="ws.name"
           class="picker-ws-group"
+          @mouseenter="onMouseEnter(ws)"
+          @mouseleave="onMouseLeave(ws)"
         >
           <div class="picker-ws-row picker-ws-row-top">
-            <button type="button" class="picker-ws-header-label" @click="openDetail(ws)">
+            <button type="button" class="picker-ws-header-label" @click="toggleExpand(ws)">
               <span v-html="renderIconStr(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
               <span class="picker-ws-header-text">
                 <span class="picker-ws-name">{{ ws.name }}</span>
@@ -16,13 +18,14 @@
               </span>
             </button>
             <div class="picker-ws-top-meta">
-              <button v-if="ws.is_git_repo && ws.clean === false" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(ws)" @click="openDetail(ws)"></button>
+              <button v-if="ws.is_git_repo && ws.clean === false" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(ws)" @click="toggleExpand(ws)"></button>
               <GitActionBtn v-if="ws.is_git_repo && ws.behind > 0" icon="pull" title="Pull" :count="ws.behind" :running="isRunning(ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="doAction(ws, 'pull')" />
               <GitActionBtn v-if="ws.is_git_repo && ws.ahead > 0 && ws.has_upstream !== false" icon="push" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(ws, 'push')" />
               <GitActionBtn v-if="ws.is_git_repo && ws.ahead > 0 && ws.has_upstream === false" icon="push-upstream" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action="doAction(ws, 'push-upstream')" />
+              <span class="picker-ws-chevron mdi" :class="isExpanded(ws.name) ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
             </div>
           </div>
-          <div class="picker-ws-row picker-ws-row-bottom">
+          <div v-show="isExpanded(ws.name)" class="picker-ws-row picker-ws-row-bottom">
             <div class="picker-ws-icons picker-ws-icons-bottom">
               <button type="button" class="picker-ws-icon-btn" title="Terminal" @click="selectWorkspace(ws)">
                 <span class="mdi mdi-console"></span>
@@ -55,6 +58,9 @@
                   <span v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
                 </button>
               </template>
+              <button type="button" class="picker-ws-icon-btn picker-ws-info-btn" title="Detail" @click.stop="openDetail(ws)">
+                <span class="mdi mdi-information-outline"></span>
+              </button>
             </div>
           </div>
         </div>
@@ -67,8 +73,9 @@
 </template>
 
 <script setup>
-import { computed, inject, reactive, onMounted } from "vue";
+import { computed, inject, reactive, ref, onMounted } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { useLayoutStore } from "../stores/layout.js";
 import { useGitAction } from "../composables/useGitAction.js";
 import { useApi } from "../composables/useApi.js";
 import { renderIconStr } from "../utils/render-icon.js";
@@ -81,11 +88,33 @@ const pushView = inject("pushView");
 modalTitle.value = "Workspaces";
 
 const workspaceStore = useWorkspaceStore();
+const layoutStore = useLayoutStore();
 const { apiGet } = useApi();
 const { gitAction, isRunning } = useGitAction();
 
 const wsGlobalJobs = reactive({});
 const wsLocalJobs = reactive({});
+const expandedName = ref(null);
+
+function isExpanded(name) {
+  return expandedName.value === name;
+}
+
+function toggleExpand(ws) {
+  expandedName.value = expandedName.value === ws.name ? null : ws.name;
+}
+
+function onMouseEnter(ws) {
+  if (!layoutStore.isTouchDevice) {
+    expandedName.value = ws.name;
+  }
+}
+
+function onMouseLeave(ws) {
+  if (!layoutStore.isTouchDevice && expandedName.value === ws.name) {
+    expandedName.value = null;
+  }
+}
 
 function doAction(ws, action) {
   gitAction(ws.name, action, { branch: ws.branch });
@@ -288,6 +317,14 @@ onMounted(() => {
   justify-content: flex-start;
 }
 
+.picker-ws-chevron {
+  font-size: 16px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+
 .picker-ws-icon-btn {
   display: flex;
   align-items: center;
@@ -303,6 +340,10 @@ onMounted(() => {
   color: var(--text-secondary);
   font-size: 18px;
   cursor: pointer;
+}
+
+.picker-ws-info-btn {
+  margin-left: auto;
 }
 
 .picker-ws-icon-btn.picker-ws-job-global {
