@@ -86,7 +86,7 @@ sudo systemctl restart any-console
 
 - ジョブ定義は `config.json` に統合管理（ワークスペースごとの `jobs` セクション）
 - UIからジョブの作成・編集・削除が可能（API経由で `config.json` を更新）
-- 各ジョブは `command`, `label`, `icon`, `icon_color`, `confirm`, `terminal` を保持
+- 各ジョブは `command`, `label`, `description`, `icon`, `icon_color`, `confirm`, `hidden_tab` を保持
 - 実行は `subprocess` で行い、タイムアウトは120秒
 
 ## ワークスペースと設定
@@ -97,10 +97,13 @@ sudo systemctl restart any-console
 
 ## ターミナル
 
-- tmuxセッションを前段で管理し、`pty.fork()` でattachしてWebSocketでブリッジ
+- セッション管理は **tmux** が担う。各ターミナルタブは1つのtmuxセッションに対応する
+- ブラウザ接続時は `pty.fork()` でtmuxにattachし、WebSocketでブリッジする
+- ブラウザを閉じてもtmuxセッションは生き続け、再接続時に同じセッションに戻れる
 - セッション管理ロジックは `api/terminal_session.py`、ルーターは `api/routers/terminal.py`
-- セッションはインメモリ管理（`TERMINAL_SESSIONS` dict）
-- セッションタイムアウトなし（tmuxセッションが生きている限り再接続可能）
+- セッションのメタ情報（ワークスペース・ジョブ名等）はtmuxセッション名とsuffixで管理
+- セッションはインメモリ管理（`TERMINAL_SESSIONS` dict）でサーバー再起動時に揮発するが、tmuxセッション自体は残るため再起動後も復元可能
+- セッションタイムアウトなし
 
 ## UIルール
 
