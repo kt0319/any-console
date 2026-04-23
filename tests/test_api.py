@@ -95,7 +95,7 @@ class TestJobsCRUD:
         second_job = client.post("/workspaces/second-ws/jobs", headers=AUTH, json={
             "label": "bye",
             "command": "echo bye",
-            "terminal": False,
+            "hidden_tab": False,
         }).json()["name"]
 
         res = client.get("/jobs/workspaces", headers=AUTH)
@@ -104,7 +104,7 @@ class TestJobsCRUD:
         data = res.json()
         assert data["test-ws"][first_job]["command"] == "echo hello"
         assert data["second-ws"][second_job]["command"] == "echo bye"
-        assert data["second-ws"][second_job]["terminal"] is False
+        assert data["second-ws"][second_job]["hidden_tab"] is False
 
     def test_list_empty(self, client, workspace):
         res = client.get("/workspaces/test-ws/jobs", headers=AUTH)
