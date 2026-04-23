@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { LS_KEY_TOKEN, LS_KEY_DEVICE_NAME, LS_PREFIX_API_CACHE, LS_PREFIX_WS_META, COOKIE_NAME_TOKEN } from "../utils/constants.js";
+import { LS_KEY_TOKEN, LS_PREFIX_API_CACHE, LS_PREFIX_WS_META, COOKIE_NAME_TOKEN } from "../utils/constants.js";
 import { EP_AUTH_CHECK } from "../utils/endpoints.js";
 
 export const useAuthStore = defineStore("auth", () => {
@@ -13,9 +13,7 @@ export const useAuthStore = defineStore("auth", () => {
 
   async function apiFetch(endpoint, { method = "GET", body = null } = {}) {
     const headers = { Authorization: `Bearer ${token.value}` };
-    const deviceName = localStorage.getItem(LS_KEY_DEVICE_NAME);
-    if (deviceName) headers["X-Device-Name"] = deviceName;
-    if (body !== null && typeof body === "object" && !(body instanceof FormData)) {
+if (body !== null && typeof body === "object" && !(body instanceof FormData)) {
       headers["Content-Type"] = "application/json";
       body = JSON.stringify(body);
     }

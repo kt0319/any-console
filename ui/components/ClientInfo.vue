@@ -17,7 +17,6 @@
 import { inject, computed } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { LS_KEY_DEVICE_NAME } from "../utils/constants.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Client Info";
@@ -44,9 +43,7 @@ function parseBrowser(ua) {
 }
 
 const rows = computed(() => {
-  const deviceName = localStorage.getItem(LS_KEY_DEVICE_NAME);
   const items = [];
-  if (deviceName) items.push({ label: "Device Name", value: deviceName });
   if (authStore.clientName) items.push({ label: "Client Name", value: authStore.clientName });
   items.push(
     { label: "VPN (Tailscale)", value: authStore.vpn ? "Yes" : "No" },
