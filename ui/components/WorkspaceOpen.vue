@@ -37,7 +37,7 @@
                   :key="job.name"
                   type="button"
                   class="picker-ws-icon-btn"
-                  :class="{ 'picker-ws-job-hidden': job.terminal, 'picker-ws-job-global': true }"
+                  :class="{ 'picker-ws-job-hidden': job.hidden_tab, 'picker-ws-job-global': true }"
                   :title="job.label || job.name"
                   @click="runJob(ws, job)"
                 >
@@ -51,7 +51,7 @@
                   :key="job.name"
                   type="button"
                   class="picker-ws-icon-btn"
-                  :class="{ 'picker-ws-job-hidden': job.terminal }"
+                  :class="{ 'picker-ws-job-hidden': job.hidden_tab }"
                   :title="job.label || job.name"
                   @click="runJob(ws, job)"
                 >
@@ -183,7 +183,7 @@ function runJob(ws, job) {
     jobIcon: job.icon,
     jobIconColor: job.icon_color,
     initialCommand: job.command,
-    hidden: !!job.terminal,
+    hidden: !!job.hidden_tab,
   });
 }
 

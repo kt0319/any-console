@@ -106,7 +106,7 @@ onMounted(async () => {
 
   on("toast:show", ({ message, type }) => appToast.value?.show(message, type));
   on("job:run", ({ jobName, job, workspace }) => {
-    if (job?.terminal === false) {
+    if (job?.hidden_tab === false) {
       execNonTerminalJob(jobName, workspace);
       return;
     }

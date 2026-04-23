@@ -40,7 +40,7 @@
             :key="job.name"
             type="button"
             class="status-job-btn"
-            :class="{ 'status-job-hidden': job.terminal }"
+            :class="{ 'status-job-hidden': job.hidden_tab }"
             :title="job.label || job.name"
             @click="runJob(job)"
           >
@@ -54,7 +54,7 @@
             :key="job.name"
             type="button"
             class="status-job-btn"
-            :class="{ 'status-job-hidden': job.terminal }"
+            :class="{ 'status-job-hidden': job.hidden_tab }"
             :title="job.label || job.name"
             @click="runJob(job)"
           >
@@ -243,7 +243,7 @@ function runJob(job) {
     jobIcon: job.icon,
     jobIconColor: job.icon_color,
     initialCommand: job.command,
-    hidden: !!job.terminal,
+    hidden: !!job.hidden_tab,
   });
   mode.value = "git";
 }

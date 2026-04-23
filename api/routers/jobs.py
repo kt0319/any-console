@@ -95,7 +95,7 @@ def _entry_to_job_definition(name, entry):
         icon=entry.get("icon", ""),
         icon_color=entry.get("icon_color", ""),
         confirm=entry.get("confirm", True),
-        terminal=entry.get("terminal", False),
+        hidden_tab=entry.get("hidden_tab", False),
     )
 
 
@@ -129,7 +129,7 @@ def job_definition_to_dict(job_def, is_global=None):
         "icon": job_def.icon,
         "icon_color": job_def.icon_color,
         "confirm": job_def.confirm,
-        "terminal": job_def.terminal,
+        "hidden_tab": job_def.hidden_tab,
     }
     if is_global is not None:
         d["global"] = is_global
@@ -194,7 +194,7 @@ def build_job_entry(
     icon: str,
     icon_color: str,
     confirm: bool,
-    terminal: bool = False,
+    hidden_tab: bool = False,
 ) -> dict:
     entry = {"command": command}
     label = label.strip()
@@ -203,8 +203,8 @@ def build_job_entry(
     _apply_icon_fields(entry, icon, icon_color)
     if not confirm:
         entry["confirm"] = False
-    if terminal:
-        entry["terminal"] = True
+    if hidden_tab:
+        entry["hidden_tab"] = True
     return entry
 
 
@@ -214,7 +214,7 @@ class JobRequest(BaseModel):
     icon: str = Field("", max_length=MAX_ICON_VALUE_LENGTH)
     icon_color: str = Field("", max_length=20)
     confirm: bool = True
-    terminal: bool = False
+    hidden_tab: bool = False
 
 
 class ReorderJobsRequest(BaseModel):
@@ -242,7 +242,7 @@ def _validate_job_fields(body):
 def _create_job(data, save_fn, body, log_msg):
     label, command = _validate_job_fields(body)
     job_name = generate_job_key(data)
-    data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.terminal)
+    data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.hidden_tab)
     save_fn(data)
     logger.info(log_msg, job_name)
     return {"status": "ok", "name": job_name}
@@ -252,7 +252,7 @@ def _update_job(data, save_fn, job_name, body, not_found_msg, log_msg):
     if job_name not in data:
         raise not_found(not_found_msg)
     label, command = _validate_job_fields(body)
-    data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.terminal)
+    data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.hidden_tab)
     save_fn(data)
     logger.info(log_msg, job_name)
     return {"status": "ok", "name": job_name}

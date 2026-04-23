@@ -106,7 +106,7 @@ async function restoreExistingSessions(sessionsRes, jobsRes) {
         jobName: s.job_name,
         jobLabel: s.job_label,
         restored: true,
-        hidden: !!jobDef?.terminal,
+        hidden: !!jobDef?.hidden_tab,
       });
     }
 
@@ -406,7 +406,7 @@ async function syncSessionsFromServer() {
         jobName: s.job_name,
         jobLabel: s.job_label,
         restored: true,
-        hidden: !!jobDef?.terminal,
+        hidden: !!jobDef?.hidden_tab,
       });
     }
 

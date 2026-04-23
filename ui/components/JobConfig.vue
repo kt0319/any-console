@@ -20,7 +20,7 @@
       </div>
       <div class="ws-settings-row" style="gap:8px">
         <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.confirm" /> Confirm dialog</label>
-        <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.terminal" /> Run in hidden terminal</label>
+        <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.hidden_tab" /> Run in hidden tab</label>
       </div>
       <div class="ws-settings-row" style="gap:8px">
         <button type="button" class="primary" :disabled="saving" @click="saveJob">
@@ -59,7 +59,7 @@ const form = ref(
           icon: jobEntry.job.icon || "",
           icon_color: jobEntry.job.icon_color || "",
           confirm: jobEntry.job.confirm !== false,
-          terminal: !!jobEntry.job.terminal,
+          hidden_tab: !!jobEntry.job.hidden_tab,
         }
       : {
           label: "",
@@ -67,7 +67,7 @@ const form = ref(
           icon: "",
           icon_color: "",
           confirm: false,
-          terminal: false,
+          hidden_tab: false,
         }
 );
 
@@ -104,7 +104,7 @@ async function saveJob() {
       icon: f.icon.trim(),
       icon_color: f.icon_color.trim(),
       confirm: f.confirm,
-      terminal: f.terminal,
+      hidden_tab: f.hidden_tab,
     };
     const { ok, data } = isNew ? await apiPost(url, body) : await apiPut(url, body);
     if (!ok) {
