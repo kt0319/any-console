@@ -107,6 +107,7 @@ function onClosePress() {
 }
 
 function onMouseDown() {
+  if (layoutStore.isTouchDevice) return;
   mouseLongPress.start(onClose);
 }
 
