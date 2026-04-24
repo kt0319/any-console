@@ -76,8 +76,11 @@ function onSelect(tab) {
   emit("tab:select", { tab });
 }
 
+let suppressAddUntil = 0;
+
 function onClose(tab) {
   emit("tab:close", { tab });
+  suppressAddUntil = Date.now() + 600;
 }
 
 function onBarDblClick() {
@@ -85,6 +88,7 @@ function onBarDblClick() {
 }
 
 function onAddClick() {
+  if (Date.now() < suppressAddUntil) return;
   emit("workspace:openModal");
 }
 
