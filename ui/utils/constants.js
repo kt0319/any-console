@@ -22,7 +22,7 @@ export const RECONNECT_INITIAL_DELAY = 200;
 export const RECONNECT_BACKOFF_MULTIPLIER = 2;
 export const RECONNECT_BACKOFF_BASE_MS = 1000;
 export const RECONNECT_BACKOFF_MAX = 5000;
-export const POLL_INTERVAL_MS = 10000;
+export const POLL_INTERVAL_MS = 5000;
 export const INPUT_HISTORY_MAX = 20;
 export const GIT_LOG_ENTRIES_PER_PAGE = 30;
 
