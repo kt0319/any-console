@@ -208,7 +208,8 @@ function ensureKeyboardTargetTab() {
     }
   }
 
-  const firstId = terminalStore.openTabs[0].id;
+  const visibleTabs = terminalStore.openTabs.filter((t) => !t.hidden);
+  const firstId = (visibleTabs[0] || terminalStore.openTabs[0]).id;
   terminalStore.switchTab(firstId);
   focusTabTerminal(firstId);
 }
