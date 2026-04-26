@@ -125,20 +125,24 @@ function onPointerDown(e) {
 }
 
 
+let touchStartX = 0;
 function onTouchStart(e) {
+  touchStartX = e.touches?.[0]?.clientX || 0;
   touchStartY = e.touches?.[0]?.clientY || 0;
 }
 
 function onTouchEnd(e) {
   if (pillEl.value && pillEl.value.contains(e.target)) return;
+  const endX = e.changedTouches?.[0]?.clientX || 0;
   const endY = e.changedTouches?.[0]?.clientY || 0;
+  const deltaX = endX - touchStartX;
   const deltaY = endY - touchStartY;
   if (frameEl.value && isViewMode(frameEl.value)) return;
   if (deltaY > 80 && frameEl.value) {
     doEnterViewMode();
     return;
   }
-  if (Math.abs(deltaY) > 10) return;
+  if (Math.abs(deltaX) > 20 || Math.abs(deltaY) > 20) return;
   if (layoutStore.isSplitMode) {
     if (!isActive.value) {
       emits("select-pane", props.paneIndex);
