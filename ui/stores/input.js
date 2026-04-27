@@ -47,6 +47,7 @@ export const useInputStore = defineStore("input", () => {
 
   function addInputHistory(text) {
     if (!text) return;
+    if (snippetsCache.value.some((s) => s.command === text)) return;
     inputHistory.value = inputHistory.value.filter((h) => h !== text);
     inputHistory.value.unshift(text);
     if (inputHistory.value.length > INPUT_HISTORY_MAX) inputHistory.value.length = INPUT_HISTORY_MAX;

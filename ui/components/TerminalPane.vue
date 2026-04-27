@@ -30,7 +30,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from "vue";
 import { useTerminal } from "../composables/useTerminal.js";
-import { useTerminalStore } from "../stores/terminal.js";
+import { useTerminalStore, isLinkTapped } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useAuthStore } from "../stores/auth.js";
 import { renderIconStr } from "../utils/render-icon.js";
@@ -137,6 +137,7 @@ function onTouchStart(e) {
 }
 
 function onTouchEnd(e) {
+  if (isLinkTapped()) return;
   if (pillEl.value && pillEl.value.contains(e.target)) return;
   const { dx: deltaX, dy: deltaY } = paneTouch.delta(e);
   if (frameEl.value && isViewMode(frameEl.value)) return;
@@ -533,6 +534,7 @@ defineExpose({
   word-break: break-all;
   user-select: text;
   -webkit-user-select: text;
+  touch-action: auto;
 }
 
 @media (pointer: coarse) {
