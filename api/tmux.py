@@ -33,12 +33,15 @@ def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
     cwd = workspace_path if workspace_path and os.path.isdir(workspace_path) else os.environ.get("HOME", "/")
     env = os.environ.copy()
     env["TERM"] = TERMINAL_TERM_TYPE
+    env.setdefault("DISPLAY", ":0")
     if workspace_path:
         env["WORKSPACE"] = workspace_path
 
+    display = env.get("DISPLAY", ":0")
     run_outside_cgroup(
         [
             "tmux", "new-session", "-d", "-s", session_name,
+            "-e", f"DISPLAY={display}",
             "-x", str(TERMINAL_DEFAULT_COLS), "-y", str(TERMINAL_DEFAULT_ROWS), user_shell,
             ";", "set-option", "-t", session_name, "status", "off",
             ";", "set-option", "-t", session_name, "mouse", "off",

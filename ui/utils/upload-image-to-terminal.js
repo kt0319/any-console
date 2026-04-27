@@ -13,7 +13,11 @@ export async function uploadImageToTerminal({ file, apiFetch, ws, notify }) {
     const res = await apiFetch("/upload-image", { method: "POST", body: formData });
     if (!res || !res.ok) throw new Error("Upload failed");
     const data = await res.json();
-    ws.send(encoder.encode(data.path));
+    if (data.clipboard) {
+      ws.send(encoder.encode("\x16"));
+    } else {
+      ws.send(encoder.encode(data.path));
+    }
     return true;
   } catch (err) {
     notify?.(`Image upload failed: ${err.message}`, "error");

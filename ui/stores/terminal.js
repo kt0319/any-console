@@ -45,7 +45,7 @@ export const useTerminalStore = defineStore("terminal", () => {
 
   function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, initialCommand, restored, hidden }) {
     const opts = getTerminalRuntimeOptions();
-    const term = new Terminal(opts);
+    const term = new Terminal({ ...opts, allowProposedApi: true });
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.loadAddon(new WebLinksAddon());
