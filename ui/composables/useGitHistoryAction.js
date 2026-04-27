@@ -2,7 +2,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
 import { emit } from "../app-bridge.js";
 
-export function useGitCommitAction() {
+export function useGitHistoryAction() {
   const workspaceStore = useWorkspaceStore();
   const { apiWithToast, wsEndpoint } = useApi();
 

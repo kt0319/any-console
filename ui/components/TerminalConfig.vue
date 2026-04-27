@@ -1,6 +1,6 @@
 <template>
   <div class="terminal-settings-view">
-    <template v-for="(schema, key) in TERMINAL_SETTINGS_SCHEMA" :key="key">
+    <template v-for="(schema, key) in TERMINAL_SETTINGS_META" :key="key">
       <div v-if="schema.type === 'number'" class="terminal-settings-item">
         <div class="terminal-settings-item-header">
           <span class="terminal-settings-item-label">{{ schema.label }}</span>
@@ -45,7 +45,7 @@ const modalTitle = inject("modalTitle");
 modalTitle.value = "Terminal";
 
 const terminalStore = useTerminalStore();
-const TERMINAL_SETTINGS_SCHEMA = terminalStore.TERMINAL_SETTINGS_SCHEMA;
+const TERMINAL_SETTINGS_META = terminalStore.TERMINAL_SETTINGS_META;
 const currentValues = reactive({ ...terminalStore.terminalSettings });
 
 function syncFromStore() {
@@ -61,7 +61,7 @@ function commitValue(key, rawValue) {
 }
 
 function stepValue(key, direction) {
-  const schema = TERMINAL_SETTINGS_SCHEMA[key];
+  const schema = TERMINAL_SETTINGS_META[key];
   const step = schema.step || 1;
   commitValue(key, currentValues[key] + step * direction);
 }

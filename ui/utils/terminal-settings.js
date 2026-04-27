@@ -1,4 +1,4 @@
-export const TERMINAL_SETTINGS_SCHEMA = Object.freeze({
+export const TERMINAL_SETTINGS_META = Object.freeze({
   fontSize: { type: "number", label: "Font Size", min: 10, max: 24, step: 1, unit: "px", note: "Font size in px (10-24). Applied immediately.", requiresRefit: true },
   cursorBlink: { type: "boolean", label: "Cursor Blink", note: "Blink the cursor at the input position." },
   scrollback: { type: "number", label: "Scrollback", min: 1000, max: 20000, step: 500, unit: "lines", note: "Number of lines to keep in scroll history." },
@@ -13,7 +13,7 @@ export const DEFAULT_TERMINAL_SETTINGS = Object.freeze({
 });
 
 export function sanitizeTerminalSetting(key, value) {
-  const schema = TERMINAL_SETTINGS_SCHEMA[key];
+  const schema = TERMINAL_SETTINGS_META[key];
   const fallback = DEFAULT_TERMINAL_SETTINGS[key];
   if (!schema) return fallback;
   if (schema.type === "boolean") return value === true || value === "true";

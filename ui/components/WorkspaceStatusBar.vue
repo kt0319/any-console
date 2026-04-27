@@ -72,7 +72,7 @@ import { computed, ref, watch, onMounted, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { useGitAction } from "../composables/useGitAction.js";
+import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useApi } from "../composables/useApi.js";
 import { emit, on } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
@@ -81,7 +81,7 @@ import { escapeHtml } from "../utils/escape-html.js";
 import { POLL_INTERVAL_MS } from "../utils/constants.js";
 import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 
-const { gitAction, isRunning } = useGitAction();
+const { gitAction, isRunning } = useGitRemoteAction();
 const { apiGet } = useApi();
 
 const mode = ref("git");

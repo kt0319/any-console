@@ -304,7 +304,7 @@ defineExpose({ fitAllTerminals, selectPane, showKeyboardInput, hideKeyboardInput
   inset: 0;
 }
 
-.split-pane.active-pane :deep(.tab-name-pill) {
+.split-pane.active-pane :deep(.terminal-info-pill) {
   border-color: var(--accent);
 }
 

@@ -16,7 +16,7 @@ const ACTION_CONFIRM = {
   "set-upstream": "set upstream tracking",
 };
 
-export function useGitAction() {
+export function useGitRemoteAction() {
   const workspaceStore = useWorkspaceStore();
   const { apiWithToast, wsEndpoint } = useApi();
   const runningAction = ref(null);

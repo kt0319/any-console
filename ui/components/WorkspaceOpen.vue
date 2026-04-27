@@ -76,7 +76,7 @@
 import { computed, inject, reactive, ref, onMounted } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { useGitAction } from "../composables/useGitAction.js";
+import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useApi } from "../composables/useApi.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
@@ -90,7 +90,7 @@ modalTitle.value = "Workspaces";
 const workspaceStore = useWorkspaceStore();
 const layoutStore = useLayoutStore();
 const { apiGet } = useApi();
-const { gitAction, isRunning } = useGitAction();
+const { gitAction, isRunning } = useGitRemoteAction();
 
 const wsGlobalJobs = reactive({});
 const wsLocalJobs = reactive({});

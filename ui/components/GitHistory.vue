@@ -100,7 +100,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useLongPress } from "../composables/useLongPress.js";
-import { useGitCommitAction } from "../composables/useGitCommitAction.js";
+import { useGitHistoryAction } from "../composables/useGitHistoryAction.js";
 import { useGitDiff } from "../composables/useGitDiff.js";
 import { useGitLogPagination } from "../composables/useGitLogPagination.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
@@ -111,7 +111,7 @@ const emitToParent = defineEmits(["pane:select", "commit:expanded", "commit:coll
 
 const workspaceStore = useWorkspaceStore();
 const { apiGet, apiCommand, wsEndpoint } = useApi();
-const { execAction: execCommitAction, execReset: execCommitReset, execCreateBranch: execCommitCreateBranch, execMerge: execCommitMerge, execRebase: execCommitRebase } = useGitCommitAction();
+const { execAction: execCommitAction, execReset: execCommitReset, execCreateBranch: execCommitCreateBranch, execMerge: execCommitMerge, execRebase: execCommitRebase } = useGitHistoryAction();
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
 const activePane = ref("browser");
 

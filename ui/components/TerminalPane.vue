@@ -9,7 +9,7 @@
   >
     <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
       <div
-        class="tab-name-pill"
+        class="terminal-info-pill"
         :class="{ 'tab-activity': tab._activity, dragging: pillDragging }"
         ref="pillEl"
         tabindex="-1"
@@ -17,7 +17,7 @@
         @click="onPillClick"
         @touchstart.passive="onPillTouchStart"
       >
-        <span class="tab-name-pill-info">
+        <span class="terminal-info-pill-info">
           <span v-if="tab.wsIcon" v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
           <span v-if="tab.icon" v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
           {{ tab.workspace || tab.label || '' }}
@@ -433,7 +433,7 @@ defineExpose({
   -webkit-user-select: text;
 }
 
-.terminal-frame.view-mode .tab-name-pill {
+.terminal-frame.view-mode .terminal-info-pill {
   border-color: #ff9800;
 }
 
@@ -454,7 +454,7 @@ defineExpose({
   display: none;
 }
 
-.tab-name-pill {
+.terminal-info-pill {
   position: absolute;
   top: 10px;
   right: 10px;
@@ -477,33 +477,33 @@ defineExpose({
   gap: 6px;
 }
 
-.tab-name-pill img {
+.terminal-info-pill img {
   pointer-events: none;
   -webkit-user-drag: none;
 }
 
-.tab-name-pill.dragging {
+.terminal-info-pill.dragging {
   opacity: 0.5;
 }
 
-.tab-name-pill-info {
+.terminal-info-pill-info {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
 }
 
-.tab-name-pill :deep(.favicon-icon) {
+.terminal-info-pill :deep(.favicon-icon) {
   width: 14px;
   height: 14px;
 }
 
-.tab-name-pill:active {
+.terminal-info-pill:active {
   transform: scale(0.93);
   transition: transform 0.1s ease, background 0.1s ease;
 }
 
-.tab-name-pill.tab-activity {
+.terminal-info-pill.tab-activity {
   animation: pill-activity-glow 3s ease-in-out 1;
 }
 
@@ -547,13 +547,13 @@ defineExpose({
 }
 
 @media (min-width: 769px) {
-  .tab-name-pill {
+  .terminal-info-pill {
     cursor: grab;
     top: 20px;
     right: 20px;
   }
 
-  .tab-name-pill.dragging {
+  .terminal-info-pill.dragging {
     opacity: 0.5;
     cursor: grabbing;
   }
