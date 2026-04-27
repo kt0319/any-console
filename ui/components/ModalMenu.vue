@@ -31,6 +31,9 @@
       <button type="button" class="settings-menu-item" @click="pushView('ClientInfo')">
         <span class="mdi mdi-cellphone-information"></span> Client Info
       </button>
+      <button type="button" class="settings-menu-item" @click="pushView('SecurityConfig')">
+        <span class="mdi mdi-shield-lock-outline"></span> Other Options
+      </button>
     </div>
   </div>
 </template>

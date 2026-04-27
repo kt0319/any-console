@@ -1,0 +1,11 @@
+services:
+  any-console:
+    build: .
+    init: true
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./work:/work
+    environment:
+      # ANY_CONSOLE_TOKEN: ""  # 未設定 = 認証なし。設定する場合はコメントを外す
+      ANY_CONSOLE_WORKSPACE_ROOT: /work

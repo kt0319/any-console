@@ -1,18 +1,38 @@
 import hmac
 import ipaddress
+import json
 import logging
-import os
 import subprocess
 import threading
 import time
+from pathlib import Path
+from typing import Optional
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 logger = logging.getLogger(__name__)
 
-ANY_CONSOLE_TOKEN = os.environ.get("ANY_CONSOLE_TOKEN", "")
+_AUTH_FILE = Path(__file__).resolve().parent.parent / "data" / "auth.json"
+
+
+def _load_token_from_file() -> str:
+    try:
+        return json.loads(_AUTH_FILE.read_text()).get("token", "")
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return ""
+
+
+ANY_CONSOLE_TOKEN: str = _load_token_from_file()
+
+
+def update_token(new_token: str) -> None:
+    global ANY_CONSOLE_TOKEN
+    _AUTH_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _AUTH_FILE.write_text(json.dumps({"token": new_token}))
+    ANY_CONSOLE_TOKEN = new_token
+
 
 _TAILSCALE_CACHE_TTL = 300
 _tailscale_cache: dict[str, tuple[float, str]] = {}
@@ -21,14 +41,11 @@ _TAILSCALE_TIMEOUT_SEC = 5
 
 
 def verify_token(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> str:
     if not ANY_CONSOLE_TOKEN:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="ANY_CONSOLE_TOKEN is not configured",
-        )
-    if not hmac.compare_digest(credentials.credentials, ANY_CONSOLE_TOKEN):
+        return ""
+    if credentials is None or not hmac.compare_digest(credentials.credentials, ANY_CONSOLE_TOKEN):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",

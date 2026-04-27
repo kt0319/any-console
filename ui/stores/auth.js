@@ -56,9 +56,8 @@ if (body !== null && typeof body === "object" && !(body instanceof FormData)) {
 
   async function checkToken() {
     try {
-      const res = await fetch(EP_AUTH_CHECK, {
-        headers: { Authorization: `Bearer ${token.value}` },
-      });
+      const headers = token.value ? { Authorization: `Bearer ${token.value}` } : {};
+      const res = await fetch(EP_AUTH_CHECK, { headers });
       if (res.status === 401) return { ok: false, auth: false, error: "Authentication failed" };
       const data = await res.json();
       return { ok: true, hostname: data.hostname, version: data.version, clientName: data.client_name, vpn: !!data.vpn };

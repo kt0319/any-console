@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .auth import get_client_ip, get_client_name, is_tailscale_ip, verify_token
 from .client_log import ClientLogMiddleware
-from .common import BACKGROUND_EXECUTOR, MAX_UPLOAD_SIZE, UPLOAD_DIR
+from .common import BACKGROUND_EXECUTOR, MAX_UPLOAD_SIZE, UPLOAD_DIR, set_workspace_root
 from .errors import bad_request, too_large
 from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
@@ -33,6 +33,10 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from .config import load_global_config_section
+    ws_root = load_global_config_section("workspace_root", "")
+    if ws_root and isinstance(ws_root, str):
+        set_workspace_root(ws_root)
     yield
     from .terminal_session import TERMINAL_SESSIONS, _detach_pty_bridge, sessions_lock
     with sessions_lock:

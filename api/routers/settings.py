@@ -4,8 +4,9 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
+from .. import auth as auth_module
 from ..auth import verify_token
-from ..common import GLOBAL_CONFIG_KEY, MAX_COMMAND_LENGTH, MAX_LABEL_LENGTH
+from ..common import GLOBAL_CONFIG_KEY, MAX_COMMAND_LENGTH, MAX_LABEL_LENGTH, set_workspace_root
 from ..config import (
     list_workspace_entries,
     load_all_config,
@@ -18,6 +19,48 @@ from ..errors import bad_request, too_large
 router = APIRouter(dependencies=[Depends(verify_token)])
 
 MAX_IMPORT_SIZE = 1024 * 1024
+MAX_TOKEN_LENGTH = 256
+
+
+@router.get("/settings/auth")
+def get_auth_settings():
+    return {"auth_required": bool(auth_module.ANY_CONSOLE_TOKEN)}
+
+
+class AuthSettings(BaseModel):
+    enabled: bool
+    token: str = Field("", max_length=MAX_TOKEN_LENGTH)
+
+
+@router.put("/settings/auth")
+def put_auth_settings(body: AuthSettings):
+    if body.enabled and not body.token.strip():
+        raise bad_request("Token is required when authentication is enabled")
+    new_token = body.token.strip() if body.enabled else ""
+    auth_module.update_token(new_token)
+    return {"auth_required": bool(new_token)}
+
+
+class WorkspaceRootSettings(BaseModel):
+    workspace_root: str = Field("", max_length=1000)
+
+
+@router.get("/settings/workspace-root")
+def get_workspace_root_settings():
+    from ..common import default_workspace_dir
+    saved = load_global_config_section("workspace_root", "")
+    return {"workspace_root": saved or "", "effective": str(default_workspace_dir())}
+
+
+@router.put("/settings/workspace-root")
+def put_workspace_root_settings(body: WorkspaceRootSettings):
+    path = body.workspace_root.strip()
+    if path and not Path(path).is_dir():
+        raise bad_request(f"Directory not found: {path}")
+    save_global_config_section("workspace_root", path)
+    set_workspace_root(path)
+    from ..common import default_workspace_dir
+    return {"workspace_root": path, "effective": str(default_workspace_dir())}
 
 
 def _existing_workspace_names() -> set[str]:

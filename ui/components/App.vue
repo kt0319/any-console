@@ -126,23 +126,18 @@ onMounted(async () => {
   on("job:exec", ({ jobName, job, workspace }) => {
     execNonTerminalJob(jobName, workspace);
   });
-  const savedToken = auth.loadToken();
-  if (savedToken) {
-    auth.token = savedToken;
-    const result = await auth.checkToken();
-    if (result.ok) {
-      auth.setServerInfo(result.hostname, result.version, result.clientName, result.vpn);
-      authenticated.value = true;
-    } else if (!result.auth) {
-      auth.token = "";
-      auth.clearToken();
-      showLogin.value = true;
-    } else {
-      emit("toast:show", { message: result.error, type: "error" });
-      authenticated.value = true;
-    }
-  } else {
+  auth.token = auth.loadToken();
+  const result = await auth.checkToken();
+  if (result.ok) {
+    auth.setServerInfo(result.hostname, result.version, result.clientName, result.vpn);
+    authenticated.value = true;
+  } else if (!result.auth) {
+    auth.token = "";
+    auth.clearToken();
     showLogin.value = true;
+  } else {
+    emit("toast:show", { message: result.error, type: "error" });
+    authenticated.value = true;
   }
 });
 
