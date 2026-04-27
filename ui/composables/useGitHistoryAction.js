@@ -14,16 +14,23 @@ export function useGitHistoryAction() {
     });
   }
 
+  async function confirmAndRun(msg, endpoint, body, toastOpts, closeFn) {
+    if (!confirm(msg)) return;
+    closeFn?.();
+    await runAndToast(endpoint, body, toastOpts);
+  }
+
   async function execAction(action, entry, closeFn) {
     const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return;
     const shortHash = entry.hash;
-    if (!confirm(`Execute ${action} ${shortHash}?`)) return;
-    closeFn?.();
-    await runAndToast(wsEndpoint(workspace, action), { commit_hash: entry.fullHash }, {
-      successMessage: `${action} ${shortHash} done`,
-      errorMessage: `${action} failed`,
-    });
+    await confirmAndRun(
+      `Execute ${action} ${shortHash}?`,
+      wsEndpoint(workspace, action),
+      { commit_hash: entry.fullHash },
+      { successMessage: `${action} ${shortHash} done`, errorMessage: `${action} failed` },
+      closeFn,
+    );
   }
 
   async function execReset(entry, mode, closeFn) {
@@ -33,12 +40,13 @@ export function useGitHistoryAction() {
     const msg = mode === "hard"
       ? `reset --hard ${shortHash} will be executed. All working tree changes will be lost. Continue?`
       : `Execute reset --soft ${shortHash}?`;
-    if (!confirm(msg)) return;
-    closeFn?.();
-    await runAndToast(wsEndpoint(workspace, "reset"), { commit_hash: entry.fullHash, mode }, {
-      successMessage: `reset --${mode} ${shortHash} done`,
-      errorMessage: `reset --${mode} failed`,
-    });
+    await confirmAndRun(
+      msg,
+      wsEndpoint(workspace, "reset"),
+      { commit_hash: entry.fullHash, mode },
+      { successMessage: `reset --${mode} ${shortHash} done`, errorMessage: `reset --${mode} failed` },
+      closeFn,
+    );
   }
 
   async function execCreateBranch(entry, closeFn) {
@@ -56,23 +64,25 @@ export function useGitHistoryAction() {
   async function execMerge(branch, closeFn) {
     const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return;
-    if (!confirm(`Merge ${branch} into current branch?`)) return;
-    closeFn?.();
-    await runAndToast(wsEndpoint(workspace, "merge"), { branch }, {
-      successMessage: `${branch} merged`,
-      errorMessage: "Merge failed",
-    });
+    await confirmAndRun(
+      `Merge ${branch} into current branch?`,
+      wsEndpoint(workspace, "merge"),
+      { branch },
+      { successMessage: `${branch} merged`, errorMessage: "Merge failed" },
+      closeFn,
+    );
   }
 
   async function execRebase(branch, closeFn) {
     const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return;
-    if (!confirm(`Rebase onto ${branch}?`)) return;
-    closeFn?.();
-    await runAndToast(wsEndpoint(workspace, "rebase"), { branch }, {
-      successMessage: `Rebased onto ${branch}`,
-      errorMessage: "Rebase failed",
-    });
+    await confirmAndRun(
+      `Rebase onto ${branch}?`,
+      wsEndpoint(workspace, "rebase"),
+      { branch },
+      { successMessage: `Rebased onto ${branch}`, errorMessage: "Rebase failed" },
+      closeFn,
+    );
   }
 
   return { execAction, execReset, execCreateBranch, execMerge, execRebase };

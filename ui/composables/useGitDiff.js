@@ -25,6 +25,17 @@ export function useGitDiff() {
     gitStore.diffFileStatuses = Object.fromEntries(fileList.map((f) => [f.path, f.status]));
   }
 
+  function attachNumstat(fileList, diffChunks, untrackedNumstat = {}) {
+    return fileList.map((f) => ({
+      ...f,
+      numstat: buildFileNumstatHtml(
+        { ...f, insertions: f.insertions ?? untrackedNumstat[f.path], deletions: f.deletions ?? (untrackedNumstat[f.path] != null ? 0 : f.deletions) },
+        diffChunks[f.path],
+        { neutralText: untrackedNumstat[f.path] != null && f.insertions == null && f.deletions == null },
+      ),
+    }));
+  }
+
   async function fetchWorkingTreeDiff() {
     const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return null;
@@ -38,16 +49,7 @@ export function useGitDiff() {
     });
     const diffChunks = parseDiffChunks(data.diff);
     storeDiffResult(diffChunks, data.diff || "", fileList);
-    const filesWithNumstat = fileList.map((f) => ({
-      path: f.path,
-      status: f.status,
-      numstat: buildFileNumstatHtml(
-        { ...f, insertions: f.insertions ?? untrackedNumstat[f.path], deletions: f.deletions ?? (untrackedNumstat[f.path] != null ? 0 : f.deletions) },
-        diffChunks[f.path],
-        { neutralText: untrackedNumstat[f.path] != null && f.insertions == null && f.deletions == null },
-      ),
-    }));
-    return { fileList: filesWithNumstat, diffChunks, untrackedNumstat };
+    return { fileList: attachNumstat(fileList, diffChunks, untrackedNumstat), diffChunks, untrackedNumstat };
   }
 
   async function fetchCommitDiff(hash) {
@@ -58,11 +60,7 @@ export function useGitDiff() {
     const diffChunks = parseDiffChunks(data.diff);
     const fileList = buildFileList(data.files);
     storeDiffResult(diffChunks, data.diff || "", fileList);
-    const filesWithNumstat = fileList.map((f) => ({
-      ...f,
-      numstat: buildFileNumstatHtml(f, diffChunks[f.path]),
-    }));
-    return { fileList: filesWithNumstat, diffChunks };
+    return { fileList: attachNumstat(fileList, diffChunks), diffChunks };
   }
 
   return { fetchWorkingTreeDiff, fetchCommitDiff };

@@ -40,7 +40,7 @@ import { DRAG_THRESHOLD, LONG_PRESS_MS, DRAG_STATE_RESET_MS, WHEEL_DEBOUNCE_MS }
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
 import { useSplitDropDrag } from "../composables/useSplitDropDrag.js";
 import { useLongPress } from "../composables/useLongPress.js";
-import { isPastDragThreshold } from "../utils/gesture.js";
+import { isPastDragThreshold, createTouchTracker } from "../utils/gesture.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -61,7 +61,7 @@ const paneEl = ref(null);
 const frameEl = ref(null);
 const pillEl = ref(null);
 const pillDragging = ref(false);
-let touchStartY = 0;
+const paneTouch = createTouchTracker();
 let activeFitTimer = null;
 
 const canDrag = computed(() => terminalStore.openTabs.length >= 1);
@@ -132,18 +132,13 @@ function onPointerDown(e) {
 }
 
 
-let touchStartX = 0;
 function onTouchStart(e) {
-  touchStartX = e.touches?.[0]?.clientX || 0;
-  touchStartY = e.touches?.[0]?.clientY || 0;
+  paneTouch.start(e);
 }
 
 function onTouchEnd(e) {
   if (pillEl.value && pillEl.value.contains(e.target)) return;
-  const endX = e.changedTouches?.[0]?.clientX || 0;
-  const endY = e.changedTouches?.[0]?.clientY || 0;
-  const deltaX = endX - touchStartX;
-  const deltaY = endY - touchStartY;
+  const { dx: deltaX, dy: deltaY } = paneTouch.delta(e);
   if (frameEl.value && isViewMode(frameEl.value)) return;
   if (deltaY > 80 && frameEl.value) {
     doEnterViewMode();

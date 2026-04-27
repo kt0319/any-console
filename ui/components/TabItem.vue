@@ -40,7 +40,7 @@ import { emit } from "../app-bridge.js";
 import { DRAG_THRESHOLD, LONG_PRESS_MS } from "../utils/constants.js";
 import { useSplitDropDrag } from "../composables/useSplitDropDrag.js";
 import { useLongPress } from "../composables/useLongPress.js";
-import { isPastDragThreshold } from "../utils/gesture.js";
+import { isPastDragThreshold, createTouchTracker } from "../utils/gesture.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -180,19 +180,16 @@ function onDropOnTab(e) {
 }
 
 // Mobile: long press to close, horizontal scroll handled natively
-let touchStartX = 0;
-let touchStartY = 0;
+const touchTracker = createTouchTracker();
 
 function onTouchStart(e) {
-  touchStartX = e.touches[0].clientX;
-  touchStartY = e.touches[0].clientY;
+  touchTracker.start(e);
   touchLongPress.reset();
   touchLongPress.start(onClose);
 }
 
 function onTouchMove(e) {
-  const dx = e.touches[0].clientX - touchStartX;
-  const dy = e.touches[0].clientY - touchStartY;
+  const { dx, dy } = touchTracker.delta(e);
   if (isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
     touchLongPress.cancel();
   }
