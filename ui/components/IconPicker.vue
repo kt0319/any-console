@@ -54,7 +54,7 @@ import { ref, nextTick, onMounted } from "vue";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useModalView } from "../composables/useModalView.js";
 import { renderIconStr } from "../utils/render-icon.js";
-import { ICON_FETCH_TIMEOUT_MS } from "../utils/constants.js";
+import MDI_ICONS from "../utils/mdi-icons.js";
 
 const { modalTitle, viewState, popView } = useModalView();
 modalTitle.value = "Icon Picker";
@@ -95,11 +95,9 @@ const searchQuery = ref("");
 const selectedIcon = ref(null);
 const selectedColor = ref("");
 const previewHtml = ref("");
-const loadingIcons = ref(true);
+const loadingIcons = ref(false);
 const canSubmit = ref(false);
 let pendingClear = false;
-let iconCache = null;
-
 function looksLikeUrl(text) {
   return URL_PATTERN.test(text);
 }
@@ -115,9 +113,7 @@ function extractDomain(text) {
 
 function filterIcons(icons, query) {
   if (!query) return icons;
-  return icons.filter((icon) =>
-    icon.name.includes(query) || icon.aliases.some((a) => a.includes(query)) || icon.tags.some((t) => t.includes(query)),
-  );
+  return icons.filter((name) => name.includes(query));
 }
 
 function renderGrid(icons, query) {
@@ -126,13 +122,13 @@ function renderGrid(icons, query) {
   el.innerHTML = "";
   const filtered = filterIcons(icons, query);
   const slice = filtered.slice(0, MAX_DISPLAY);
-  for (const icon of slice) {
+  for (const name of slice) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "icon-picker-item";
-    btn.innerHTML = `<span class="mdi mdi-${icon.name}"></span>`;
-    btn.title = icon.name;
-    btn.addEventListener("click", () => selectMdiIcon(`mdi-${icon.name}`));
+    btn.innerHTML = `<span class="mdi mdi-${name}"></span>`;
+    btn.title = name;
+    btn.addEventListener("click", () => selectMdiIcon(`mdi-${name}`));
     el.appendChild(btn);
   }
   if (filtered.length > MAX_DISPLAY) {
@@ -177,11 +173,11 @@ function onSearchInput() {
     const domain = extractDomain(raw);
     previewHtml.value = renderIconStr(`favicon:${domain}`, "", 24);
     canSubmit.value = true;
-    if (iconCache) renderGrid(iconCache, "");
+    renderGrid(MDI_ICONS, "");
   } else {
     previewHtml.value = "";
     canSubmit.value = false;
-    if (iconCache) renderGrid(iconCache, raw.toLowerCase());
+    renderGrid(MDI_ICONS, raw.toLowerCase());
   }
 }
 
@@ -257,17 +253,6 @@ function submit() {
   popView({ icon, color });
 }
 
-async function loadIcons() {
-  if (iconCache) return iconCache;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), ICON_FETCH_TIMEOUT_MS);
-  const res = await fetch("https://cdn.jsdelivr.net/npm/@mdi/svg@7/meta.json", { signal: controller.signal });
-  clearTimeout(timeout);
-  const data = await res.json();
-  iconCache = data.map((item) => ({ name: item.name, aliases: item.aliases || [], tags: item.tags || [] }));
-  return iconCache;
-}
-
 onMounted(async () => {
   const currentIcon = viewState.value?.currentIcon || null;
   const currentColor = viewState.value?.currentColor || "";
@@ -284,21 +269,15 @@ onMounted(async () => {
     canSubmit.value = false;
   }
 
-  try {
-    const icons = await loadIcons();
-    loadingIcons.value = false;
-    await nextTick();
-    renderGrid(icons, "");
-    if (currentIcon && currentIcon.startsWith("mdi-")) {
-      const el = gridRef.value;
-      if (el) {
-        el.querySelectorAll(".icon-picker-item").forEach((item) => {
-          item.classList.toggle("selected", item.title === currentIcon.replace("mdi-", ""));
-        });
-      }
+  await nextTick();
+  renderGrid(MDI_ICONS, "");
+  if (currentIcon && currentIcon.startsWith("mdi-")) {
+    const el = gridRef.value;
+    if (el) {
+      el.querySelectorAll(".icon-picker-item").forEach((item) => {
+        item.classList.toggle("selected", item.title === currentIcon.replace("mdi-", ""));
+      });
     }
-  } catch {
-    loadingIcons.value = false;
   }
 });
 </script>

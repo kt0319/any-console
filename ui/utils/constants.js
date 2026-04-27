@@ -13,7 +13,6 @@ export const ORIENTATION_CHANGE_DELAY_MS = 120;
 export const DEBOUNCE_FIT_MS = 100;
 export const DRAG_STATE_RESET_MS = 100;
 export const WHEEL_DEBOUNCE_MS = 300;
-export const ICON_FETCH_TIMEOUT_MS = 10000;
 
 export const WS_MSG_RESIZE = 0x00;
 export const WS_CLOSE_SESSION_NOT_FOUND = 1008;
