@@ -74,7 +74,7 @@ sudo systemctl restart any-console
 
 ## アーキテクチャ
 
-ファイル構成・API一覧・モジュール依存マップの詳細は **[ARCHITECTURE.md](./ARCHITECTURE.md)** を参照。
+ファイル構成・API一覧・モジュール依存マップの詳細は **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** を参照。
 
 ### 概要
 
