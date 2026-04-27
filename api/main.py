@@ -80,7 +80,8 @@ ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 async def _write_image_to_clipboard(filepath: Path, content_type: str) -> bool:
     import os
     mime = content_type if content_type.startswith("image/") else "image/png"
-    user = os.environ.get("SUDO_USER") or os.environ.get("USER") or "kentaro"
+    import getpass
+    user = os.environ.get("SUDO_USER") or os.environ.get("USER") or getpass.getuser()
     try:
         image_data = filepath.read_bytes()
         proc = await asyncio.create_subprocess_exec(
