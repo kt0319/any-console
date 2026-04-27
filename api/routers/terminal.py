@@ -9,7 +9,7 @@ import termios
 from fastapi import APIRouter, Depends, HTTPException, WebSocket
 from fastapi.websockets import WebSocketDisconnect
 
-from ..auth import verify_token
+from ..auth import verify_token, verify_ws_token
 from ..common import (
     TERMINAL_DEFAULT_COLS,
     TERMINAL_DEFAULT_ROWS,
@@ -126,7 +126,11 @@ ws_router = APIRouter()
 
 
 @ws_router.websocket("/terminal/ws/{session_id}")
-async def terminal_ws(websocket: WebSocket, session_id: str, cols: int = 0, rows: int = 0):
+async def terminal_ws(websocket: WebSocket, session_id: str, token: str = "", cols: int = 0, rows: int = 0):
+    if not verify_ws_token(token):
+        await websocket.close(code=1008, reason="Unauthorized")
+        return
+
     with sessions_lock:
         session = TERMINAL_SESSIONS.get(session_id)
 

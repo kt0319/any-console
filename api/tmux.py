@@ -78,7 +78,7 @@ def attach_tmux_session(session_name: str, cols: int = 0, rows: int = 0) -> tupl
                 pass
         try:
             os.execvpe("tmux", ["tmux", "attach-session", "-t", session_name], env)  # noqa: S606
-        except Exception:  # noqa: S110
+        except OSError:  # noqa: S110
             pass
         os._exit(1)
     if cols > 0 and rows > 0:

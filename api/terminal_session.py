@@ -184,7 +184,7 @@ async def _broadcast_to_clients(session: TerminalSession, data: bytes) -> None:
     for ws in list(session.clients):
         try:
             await ws.send_bytes(data)
-        except Exception:
+        except (RuntimeError, OSError):
             stale.append(ws)
     for ws in stale:
         session.clients.discard(ws)
@@ -197,7 +197,7 @@ async def _close_all_clients(session: TerminalSession, code: int, reason: str) -
     for ws in list(session.clients):
         try:
             await ws.close(code=code, reason=reason)
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             logger.debug("close client failed: %s", e)
     session.clients.clear()
 
@@ -218,7 +218,7 @@ async def _session_reader(session: TerminalSession, session_id: str) -> None:
             await _broadcast_to_clients(session, data)
     except asyncio.CancelledError:
         pass
-    except Exception as e:
+    except (OSError, RuntimeError) as e:
         logger.debug("session reader ended session=%s: %s", session_id, e)
     finally:
         session._reader_task = None

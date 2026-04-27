@@ -50,6 +50,9 @@ def _write_config_unlocked(config: dict) -> None:
         name, error = errors[0]
         raise ValueError(f"Invalid config entry '{name}': {error}")
     CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    bak_path = CONFIG_FILE.with_suffix(".bak")
+    if CONFIG_FILE.exists():
+        CONFIG_FILE.replace(bak_path)
     tmp_path = CONFIG_FILE.with_suffix(".tmp")
     tmp_path.write_text(json.dumps(normalized, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tmp_path.replace(CONFIG_FILE)

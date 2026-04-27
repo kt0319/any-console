@@ -1,6 +1,7 @@
 import base64
 import mimetypes
 import os
+import subprocess
 from pathlib import Path
 
 from ..common import (
@@ -78,7 +79,7 @@ def _get_gitignored_names(ws_path, target):
             if name and "/" not in name:
                 names.add(name)
         return names
-    except Exception:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
         return set()
 
 

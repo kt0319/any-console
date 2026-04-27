@@ -28,6 +28,12 @@ def _load_token_from_file() -> str:
 ANY_CONSOLE_TOKEN: str = _load_token_from_file() or os.environ.get("ANY_CONSOLE_TOKEN", "")
 
 
+def verify_ws_token(token: str) -> bool:
+    if not ANY_CONSOLE_TOKEN:
+        return True
+    return hmac.compare_digest(token, ANY_CONSOLE_TOKEN)
+
+
 def update_token(new_token: str) -> None:
     global ANY_CONSOLE_TOKEN
     _AUTH_FILE.parent.mkdir(parents=True, exist_ok=True)

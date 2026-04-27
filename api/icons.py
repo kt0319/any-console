@@ -2,6 +2,7 @@ import base64
 import hashlib
 import logging
 import re
+import urllib.error
 import urllib.request
 
 from .common import PROJECT_ROOT
@@ -64,6 +65,6 @@ def _download_favicon(domain: str, fallback: str) -> str:
         ext = MIME_TO_EXT.get(content_type.split(";")[0].strip(), "png")
         logger.info("favicon downloaded domain=%s size=%d", domain, len(raw))
         return _save_icon_bytes(raw, ext)
-    except Exception:
+    except (OSError, urllib.error.URLError):
         logger.warning("favicon download failed domain=%s", domain, exc_info=True)
         return fallback
