@@ -15,11 +15,11 @@
             :key="recent.key"
             type="button"
             class="screen-empty-ws-btn"
+            :class="{ 'is-hidden-tab': recent.jobHiddenTab }"
             @click="runRecentJob(recent)"
           >
             <span v-if="recent.wsIcon" class="ws-btn-icon" v-html="renderIconStr(recent.wsIcon, recent.wsIconColor, 18)"></span>
             <span v-if="recent.jobIcon" class="ws-btn-icon" v-html="renderIconStr(recent.jobIcon, recent.jobIconColor, 18)"></span>
-            <span class="ws-btn-name">{{ recent.workspace }}</span>
           </button>
         </div>
       </div>
@@ -121,6 +121,10 @@ function runRecentJob(recent) {
   border-radius: var(--radius);
   cursor: pointer;
   font-family: inherit;
+}
+
+.screen-empty-ws-btn.is-hidden-tab {
+  border-style: dashed;
 }
 
 .ws-btn-icon {

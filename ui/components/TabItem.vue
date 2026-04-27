@@ -2,7 +2,7 @@
   <button
     ref="pillEl"
     class="tab-btn"
-    :class="{ active: isActive, 'tab-activity': tab._activity, dragging: isDragging, 'drag-over-left': dropSide === 'left', 'drag-over-right': dropSide === 'right' }"
+    :class="{ active: isActive, 'tab-activity': tab._activity, dragging: isDragging, 'drag-over-left': dropSide === 'left', 'drag-over-right': dropSide === 'right', 'tab-hidden': tab.hidden }"
     :draggable="canDrag"
     tabindex="-1"
     @mousedown="onMouseDown"
@@ -14,7 +14,6 @@
     @drop="onDropOnTab"
     @touchstart.passive="onTouchStart"
   >
-    <span v-if="tab.hidden" class="mdi mdi-eye-off-outline tab-hidden-icon"></span>
     <span v-if="wsIconHtml" v-html="wsIconHtml"></span>
     <span v-if="iconHtml" v-html="iconHtml"></span>
     <template v-if="!isPanelBottom">
@@ -288,10 +287,9 @@ onBeforeUnmount(() => {
   padding: 0;
 }
 
-.tab-hidden-icon {
-  font-size: 13px;
-  color: var(--text-muted);
-  opacity: 0.6;
+.tab-btn.tab-hidden {
+  border: 1px dashed var(--text-muted);
+  opacity: 0.7;
 }
 
 .tab-btn :deep(.favicon-icon) {

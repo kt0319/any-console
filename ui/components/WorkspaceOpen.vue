@@ -9,11 +9,11 @@
             :key="recent.key"
             type="button"
             class="picker-recent-btn"
+            :class="{ 'is-hidden-tab': recent.jobHiddenTab }"
             @click="runRecentJob(recent)"
           >
             <span v-if="recent.wsIcon" v-html="renderIconStr(recent.wsIcon, recent.wsIconColor, 18)"></span>
             <span v-if="recent.jobIcon" v-html="renderIconStr(recent.jobIcon, recent.jobIconColor, 18)"></span>
-            <span class="picker-recent-btn-name">{{ recent.workspace }}</span>
           </button>
         </div>
       </div>
@@ -528,9 +528,7 @@ button.git-badge:disabled {
   font-family: inherit;
 }
 
-.picker-recent-btn-name {
-  font-size: 13px;
-  color: var(--text-primary);
-  white-space: nowrap;
+.picker-recent-btn.is-hidden-tab {
+  border-style: dashed;
 }
 </style>
