@@ -73,6 +73,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
+import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { useApi } from "../composables/useApi.js";
 import { emit, on } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
@@ -82,6 +83,7 @@ import { POLL_INTERVAL_MS } from "../utils/constants.js";
 import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 
 const { gitAction, isRunning } = useGitRemoteAction();
+const { recordJob } = useRecentJobs();
 const { apiGet } = useApi();
 
 const mode = ref("git");
@@ -234,6 +236,7 @@ function runJob(job) {
     const preview = job.command ? (job.command.length > 300 ? job.command.slice(0, 300) + "..." : job.command) : job.name;
     if (!confirm(`${job.label || job.name}\n\n${preview}`)) return;
   }
+  if (wsData) recordJob(wsData, job);
   emit("terminal:launch", {
     workspace: wsName,
     icon: wsData?.icon,

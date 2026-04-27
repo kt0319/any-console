@@ -23,3 +23,4 @@ export const EP_SETTINGS_EDITOR = "/settings/editor";
 export const EP_SETTINGS_EXPORT = "/settings/export";
 export const EP_SETTINGS_IMPORT = "/settings/import";
 export const EP_GITHUB_REPOS = "/github/repos";
+export const EP_RECENT_JOBS = "/recent-jobs";

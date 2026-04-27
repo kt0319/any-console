@@ -79,6 +79,44 @@ def put_editor_settings(body: EditorSettings):
     return {"status": "ok", "url_template": url_template}
 
 
+MAX_RECENT_JOBS = 5
+MAX_RECENT_JOB_COMMAND_LENGTH = 10000
+
+
+class RecentJobItem(BaseModel):
+    key: str = Field(..., max_length=400)
+    workspace: str = Field(..., max_length=200)
+    wsIcon: str = Field("", max_length=MAX_LABEL_LENGTH)
+    wsIconColor: str = Field("", max_length=50)
+    jobName: str = Field(..., max_length=200)
+    jobLabel: str = Field("", max_length=MAX_LABEL_LENGTH)
+    jobIcon: str = Field("", max_length=MAX_LABEL_LENGTH)
+    jobIconColor: str = Field("", max_length=50)
+    jobCommand: str = Field("", max_length=MAX_RECENT_JOB_COMMAND_LENGTH)
+    jobConfirm: bool | None = None
+    jobHiddenTab: bool = False
+
+
+@router.get("/recent-jobs")
+def get_recent_jobs():
+    jobs = load_global_config_section("recent_jobs", [])
+    if not isinstance(jobs, list):
+        jobs = []
+    return {"jobs": jobs[:MAX_RECENT_JOBS]}
+
+
+@router.post("/recent-jobs")
+def record_recent_job(item: RecentJobItem):
+    jobs = load_global_config_section("recent_jobs", [])
+    if not isinstance(jobs, list):
+        jobs = []
+    jobs = [j for j in jobs if isinstance(j, dict) and j.get("key") != item.key]
+    jobs.insert(0, item.model_dump())
+    jobs = jobs[:MAX_RECENT_JOBS]
+    save_global_config_section("recent_jobs", jobs)
+    return {"jobs": jobs}
+
+
 class SnippetItem(BaseModel):
     label: str = Field("", max_length=MAX_LABEL_LENGTH)
     command: str = Field(..., max_length=MAX_COMMAND_LENGTH)

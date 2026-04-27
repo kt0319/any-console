@@ -1,6 +1,22 @@
 <template>
   <div class="modal-scroll-body split-tab-scroll">
     <div class="split-tab-content">
+      <div v-if="recentJobs.length" class="picker-recent-section">
+        <div class="picker-section-label">Recent</div>
+        <div class="picker-recent-list">
+          <button
+            v-for="recent in recentJobs"
+            :key="recent.key"
+            type="button"
+            class="picker-recent-btn"
+            @click="runRecentJob(recent)"
+          >
+            <span v-if="recent.wsIcon" v-html="renderIconStr(recent.wsIcon, recent.wsIconColor, 18)"></span>
+            <span v-if="recent.jobIcon" v-html="renderIconStr(recent.jobIcon, recent.jobIconColor, 18)"></span>
+            <span class="picker-recent-btn-name">{{ recent.workspace }}</span>
+          </button>
+        </div>
+      </div>
       <div class="terminal-ws-list">
         <div
           v-for="ws in visibleWorkspaces"
@@ -72,11 +88,13 @@
   </div>
 </template>
 
+
 <script setup>
 import { computed, inject, reactive, ref, onMounted } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
+import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { useApi } from "../composables/useApi.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
@@ -91,6 +109,7 @@ const workspaceStore = useWorkspaceStore();
 const layoutStore = useLayoutStore();
 const { apiGet } = useApi();
 const { gitAction, isRunning } = useGitRemoteAction();
+const { recentJobs, loadRecentJobs, recordJob } = useRecentJobs();
 
 const wsGlobalJobs = reactive({});
 const wsLocalJobs = reactive({});
@@ -174,6 +193,7 @@ function runJob(ws, job) {
     const preview = job.command ? (job.command.length > 300 ? job.command.slice(0, 300) + "..." : job.command) : job.name;
     if (!confirm(`${job.label || job.name}\n\n${preview}`)) return;
   }
+  recordJob(ws, job);
   emit("terminal:launch", {
     workspace: ws.name,
     icon: ws.icon,
@@ -187,8 +207,28 @@ function runJob(ws, job) {
   });
 }
 
+function runRecentJob(recent) {
+  emit("modal:close");
+  if (recent.jobConfirm !== false) {
+    const preview = recent.jobCommand ? (recent.jobCommand.length > 300 ? recent.jobCommand.slice(0, 300) + "..." : recent.jobCommand) : recent.jobName;
+    if (!confirm(`${recent.jobLabel || recent.jobName}\n\n${preview}`)) return;
+  }
+  emit("terminal:launch", {
+    workspace: recent.workspace,
+    icon: recent.wsIcon,
+    iconColor: recent.wsIconColor,
+    jobName: recent.jobName,
+    jobLabel: recent.jobLabel,
+    jobIcon: recent.jobIcon,
+    jobIconColor: recent.jobIconColor,
+    initialCommand: recent.jobCommand,
+    hidden: !!recent.jobHiddenTab,
+  });
+}
+
 onMounted(() => {
   loadWorkspaceOverview();
+  loadRecentJobs();
 });
 </script>
 
@@ -450,5 +490,47 @@ button.git-badge:disabled {
   text-align: center;
   font-size: 13px;
   color: var(--text-muted);
+}
+
+.picker-recent-section {
+  padding: 8px 12px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.picker-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+
+.picker-recent-list {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+
+.picker-recent-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.picker-recent-btn-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
 }
 </style>
