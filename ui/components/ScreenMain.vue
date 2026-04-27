@@ -25,26 +25,25 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { useInputStore } from "../stores/input.js";
-import { useApi } from "../composables/useApi.js";
 import { useTerminal } from "../composables/useTerminal.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useViewport } from "../composables/useViewport.js";
+import { useSessionSync } from "../composables/useSessionSync.js";
+import { useSnippetPersist } from "../composables/useSnippetPersist.js";
 import { on, emit } from "../app-bridge.js";
-import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION } from "../utils/constants.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_RUN } from "../utils/endpoints.js";
 
 const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
-const inputStore = useInputStore();
 const { disconnectTerminal, deleteSession, connectDeferredTabs, connectTerminalWs } = useTerminal();
 const { sendTextToTerminal } = useKeyboard();
 const { initViewport } = useViewport();
-const { apiGet, apiPut } = useApi();
 const { confirm } = useConfirm();
+const { restoreExistingSessions, syncSessionsFromServer, startSyncPolling, stopSyncPolling } = useSessionSync();
+const { loadSnippetCache, moveSnippetToFront, addSnippet, deleteSnippet } = useSnippetPersist();
 
 const booting = ref(true);
 const bootMessage = ref("Loading...");
@@ -70,88 +69,6 @@ async function initializeApp() {
   workspaceStore.fetchStatuses();
 }
 
-async function restoreExistingSessions(sessionsRes, jobsRes) {
-  if (terminalStore.hasRestoredTabsFromStorage) return;
-  terminalStore.hasRestoredTabsFromStorage = true;
-  terminalStore.restoreSessionsLoading = true;
-  terminalStore.restoreSessionsError = "";
-  try {
-    if (!sessionsRes || !sessionsRes.ok) {
-      if (sessionsRes) {
-        let detail = "Failed to fetch existing sessions";
-        try {
-          const text = await sessionsRes.text?.();
-          if (text) detail = text;
-        } catch {}
-        terminalStore.restoreSessionsError = detail;
-      }
-      return;
-    }
-    const sessions = await sessionsRes.json();
-    if (!Array.isArray(sessions) || sessions.length === 0) return;
-
-    let allJobs = {};
-    try {
-      if (jobsRes && jobsRes.ok) allJobs = await jobsRes.json();
-    } catch {}
-
-    for (const s of sessions) {
-      const ws = workspaceStore.allWorkspaces.find((w) => w.name === s.workspace);
-      const jobDef = s.job_name && s.workspace ? allJobs[s.workspace]?.[s.job_name] : null;
-      terminalStore.addTerminalTab({
-        wsUrl: s.ws_url,
-        workspace: s.workspace,
-        wsIcon: ws?.icon || s.icon || null,
-        wsIconColor: ws?.icon_color || s.icon_color,
-        icon: s.job_name ? (jobDef?.icon || "mdi-play") : "mdi-console",
-        iconColor: jobDef?.icon_color,
-        jobName: s.job_name,
-        jobLabel: s.job_label,
-        restored: true,
-        hidden: !!jobDef?.hidden_tab,
-      });
-    }
-
-    const savedSessionId = localStorage.getItem(LS_KEY_ACTIVE_SESSION);
-    const visibleTabs = terminalStore.openTabs.filter((t) => !t.hidden);
-    const target = (savedSessionId && visibleTabs.find((t) => t.sessionId === savedSessionId))
-      || visibleTabs[0]
-      || terminalStore.openTabs[0];
-    if (target) terminalStore.switchTab(target.id);
-    setTimeout(() => emit("layout:fitAll", { force: true }), LAYOUT_FIT_DELAY_MS);
-  } catch (e) {
-    console.error("restoreExistingSessions failed:", e);
-    terminalStore.restoreSessionsError = e?.message || "Error restoring existing sessions";
-  } finally {
-    terminalStore.restoreSessionsLoading = false;
-  }
-}
-
-async function loadSnippetCache() {
-  if (inputStore.isSnippetsLoaded) return;
-  try {
-    const { ok, data } = await apiGet("/snippets");
-    if (!ok) return;
-    inputStore.snippetsCache = data.snippets || [];
-    inputStore.isSnippetsLoaded = true;
-  } catch {}
-}
-
-async function persistSnippets() {
-  try {
-    await apiPut("/snippets", { snippets: inputStore.snippetsCache });
-  } catch {}
-}
-
-function moveSnippetToFront(command) {
-  const idx = inputStore.snippetsCache.findIndex((s) => s.command === command);
-  if (idx === -1) return;
-  const next = [...inputStore.snippetsCache];
-  const [snippet] = next.splice(idx, 1);
-  next.push(snippet);
-  inputStore.snippetsCache = next;
-  persistSnippets();
-}
 
 const openTabs = computed(() => terminalStore.openTabs);
 const isEmptyScreenVisible = computed(() => openTabs.value.length === 0 && !layoutStore.isSplitMode);
@@ -321,18 +238,8 @@ onMounted(() => {
     moveSnippetToFront(command);
   }));
 
-  bridgeCleanups.push(on("snippet:add", async ({ label, command }) => {
-    const lbl = label || (command.length > 40 ? command.slice(0, 40) : command);
-    inputStore.snippetsCache.push({ label: lbl, command });
-    await persistSnippets();
-  }));
-
-  bridgeCleanups.push(on("snippet:delete", async ({ index }) => {
-    if (index >= 0 && index < inputStore.snippetsCache.length) {
-      inputStore.snippetsCache.splice(index, 1);
-      await persistSnippets();
-    }
-  }));
+  bridgeCleanups.push(on("snippet:add", ({ label, command }) => addSnippet(label, command)));
+  bridgeCleanups.push(on("snippet:delete", ({ index }) => deleteSnippet(index)));
 
   loadSnippetCache();
 
@@ -377,67 +284,6 @@ onMounted(async () => {
   }
 });
 
-const SYNC_INTERVAL_MS = 5000;
-let syncIntervalId = null;
-
-function startSyncPolling() {
-  stopSyncPolling();
-  syncIntervalId = setInterval(() => syncSessionsFromServer(), SYNC_INTERVAL_MS);
-}
-
-function stopSyncPolling() {
-  if (syncIntervalId != null) {
-    clearInterval(syncIntervalId);
-    syncIntervalId = null;
-  }
-}
-
-async function syncSessionsFromServer() {
-  try {
-    const [sessionsRes, jobsRes] = await Promise.all([
-      auth.apiFetch(EP_TERMINAL_SESSIONS).catch(() => null),
-      auth.apiFetch(EP_JOBS_WORKSPACES).catch(() => null),
-    ]);
-    if (!sessionsRes || !sessionsRes.ok) return;
-    const sessions = await sessionsRes.json();
-    if (!Array.isArray(sessions)) return;
-
-    let allJobs = {};
-    try {
-      if (jobsRes && jobsRes.ok) allJobs = await jobsRes.json();
-    } catch {}
-
-    const serverSessionIds = new Set(sessions.map((s) => s.session_id));
-    const localSessionIds = new Set(terminalStore.openTabs.map((t) => t.sessionId));
-
-    for (const s of sessions) {
-      if (localSessionIds.has(s.session_id)) continue;
-      const ws = workspaceStore.allWorkspaces.find((w) => w.name === s.workspace);
-      const jobDef = s.job_name && s.workspace ? allJobs[s.workspace]?.[s.job_name] : null;
-      terminalStore.addTerminalTab({
-        wsUrl: s.ws_url,
-        workspace: s.workspace,
-        wsIcon: ws?.icon || s.icon || null,
-        wsIconColor: ws?.icon_color || s.icon_color,
-        icon: s.job_name ? (jobDef?.icon || "mdi-play") : "mdi-console",
-        iconColor: jobDef?.icon_color,
-        jobName: s.job_name,
-        jobLabel: s.job_label,
-        restored: true,
-        hidden: !!jobDef?.hidden_tab,
-      });
-    }
-
-    for (const tab of [...terminalStore.openTabs]) {
-      if (!serverSessionIds.has(tab.sessionId)) {
-        disconnectTerminal(tab);
-        terminalStore.removeTab(tab.id);
-      }
-    }
-  } catch (e) {
-    console.error("syncSessionsFromServer failed:", e);
-  }
-}
 
 function onVisibilityChange() {
   if (document.hidden) {

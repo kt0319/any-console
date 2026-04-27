@@ -25,51 +25,16 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 import { on, emit } from "../app-bridge.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { EP_AUTH_CHECK, EP_RUN } from "../utils/endpoints.js";
+import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
+import { EP_RUN } from "../utils/endpoints.js";
 
 const auth = useAuthStore();
 const layoutStore = useLayoutStore();
 const appToast = ref(null);
+const { isOffline, startPing, stopPing, onOnline, onOffline } = useConnectivityMonitor();
 
 const showLogin = ref(false);
 const authenticated = ref(false);
-const isOffline = ref(false);
-
-const PING_INTERVAL_MS = 3000;
-const PING_TIMEOUT_MS = 2000;
-const OFFLINE_THRESHOLD = 2;
-let pingTimerId = null;
-let consecutiveFailures = 0;
-
-async function checkConnectivity() {
-  if (!navigator.onLine) { consecutiveFailures = OFFLINE_THRESHOLD; isOffline.value = true; return; }
-  try {
-    const ctrl = new AbortController();
-    const tid = setTimeout(() => ctrl.abort(), PING_TIMEOUT_MS);
-    await fetch(EP_AUTH_CHECK, {
-      method: "HEAD",
-      headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
-      signal: ctrl.signal,
-    });
-    clearTimeout(tid);
-    consecutiveFailures = 0;
-    isOffline.value = false;
-  } catch {
-    consecutiveFailures++;
-    if (consecutiveFailures >= OFFLINE_THRESHOLD) {
-      isOffline.value = true;
-    }
-  }
-}
-
-function startPing() {
-  stopPing();
-  pingTimerId = setInterval(checkConnectivity, PING_INTERVAL_MS);
-}
-
-function stopPing() {
-  if (pingTimerId != null) { clearInterval(pingTimerId); pingTimerId = null; }
-}
 
 async function execNonTerminalJob(jobName, workspace) {
   try {
@@ -95,9 +60,6 @@ async function onAuthenticated() {
   showLogin.value = false;
   authenticated.value = true;
 }
-
-function onOnline() { checkConnectivity(); }
-function onOffline() { isOffline.value = true; }
 
 onMounted(async () => {
   window.addEventListener("online", onOnline);
@@ -146,6 +108,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("offline", onOffline);
   stopPing();
 });
+
 </script>
 
 <style>
