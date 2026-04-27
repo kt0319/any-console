@@ -141,6 +141,16 @@ async function persistSnippets() {
   } catch {}
 }
 
+function moveSnippetToFront(command) {
+  const idx = inputStore.snippetsCache.findIndex((s) => s.command === command);
+  if (idx === -1) return;
+  const next = [...inputStore.snippetsCache];
+  const [snippet] = next.splice(idx, 1);
+  next.push(snippet);
+  inputStore.snippetsCache = next;
+  persistSnippets();
+}
+
 const openTabs = computed(() => terminalStore.openTabs);
 const isEmptyScreenVisible = computed(() => openTabs.value.length === 0 && !layoutStore.isSplitMode);
 
@@ -302,6 +312,11 @@ onMounted(() => {
 
   bridgeCleanups.push(on("snippet:tap", ({ command }) => {
     sendTextToTerminal(command + "\n");
+    moveSnippetToFront(command);
+  }));
+
+  bridgeCleanups.push(on("snippet:reorder", ({ command }) => {
+    moveSnippetToFront(command);
   }));
 
   bridgeCleanups.push(on("snippet:add", async ({ label, command }) => {

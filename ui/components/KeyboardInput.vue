@@ -12,7 +12,7 @@
             :key="'s-' + idx"
             type="button"
             class="quick-snippet-item"
-            @click="insertText(snippet.command)"
+            @click="onSnippetClick(snippet)"
           >
             <span class="mdi mdi-pin snippet-chip-icon"></span>
             {{ truncateQuickText(snippet.label) }}
@@ -114,6 +114,11 @@ function onInputBlur() {
 
 function markInternalInteraction() {
   suppressBlurHide = true;
+}
+
+function onSnippetClick(snippet) {
+  bridgeEmit("snippet:reorder", { command: snippet.command });
+  insertText(snippet.command);
 }
 
 function insertText(text) {
