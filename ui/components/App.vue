@@ -319,8 +319,7 @@ button:disabled {
 }
 
 .favicon-icon {
-  display: inline-block;
-  vertical-align: middle;
+  display: block;
   border-radius: 2px;
 }
 

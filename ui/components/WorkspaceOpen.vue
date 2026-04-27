@@ -346,9 +346,6 @@ onMounted(() => {
   margin-left: auto;
 }
 
-.picker-ws-icon-btn.picker-ws-job-global {
-  border-style: dotted;
-}
 
 .picker-ws-icon-btn.picker-ws-job-hidden {
   border-style: dashed;
