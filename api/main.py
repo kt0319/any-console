@@ -143,6 +143,15 @@ def serve_index(request: Request):
     return Response(content=html, media_type="text/html", headers={"Cache-Control": "no-cache"})
 
 
+@app.get("/sw.js")
+def serve_sw():
+    sw_file = FRONTEND_DIR / "sw.js"
+    content = sw_file.read_text()
+    if FRONTEND_DIR == UI_DIR:
+        content = content.replace("__BUILD_HASH__", BOOT_VERSION)
+    return Response(content=content, media_type="application/javascript", headers={"Cache-Control": "no-cache"})
+
+
 ICONS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/icons", StaticFiles(directory=str(ICONS_DIR)), name="icons")
 app.mount("/", StaticFiles(directory=str(FRONTEND_DIR)), name="ui")
