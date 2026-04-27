@@ -2,6 +2,7 @@ import hmac
 import ipaddress
 import json
 import logging
+import os
 import subprocess
 import threading
 import time
@@ -24,7 +25,7 @@ def _load_token_from_file() -> str:
         return ""
 
 
-ANY_CONSOLE_TOKEN: str = _load_token_from_file()
+ANY_CONSOLE_TOKEN: str = _load_token_from_file() or os.environ.get("ANY_CONSOLE_TOKEN", "")
 
 
 def update_token(new_token: str) -> None:
