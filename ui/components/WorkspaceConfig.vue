@@ -91,12 +91,14 @@ import { useWorkspaceJobManager } from "../composables/useWorkspaceJobManager.js
 import { renderIconStr } from "../utils/render-icon.js";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
 import { EP_JOBS_WORKSPACES, EP_WORKSPACES } from "../utils/endpoints.js";
+import { useConfirm } from "../composables/useConfirm.js";
 
 const { modalTitle, pushView, viewState } = useModalView();
 modalTitle.value = "Workspace Settings";
 
 const workspaceStore = useWorkspaceStore();
 const { apiGet, apiPut, apiDelete, wsEndpoint } = useApi();
+const { confirm } = useConfirm();
 
 const wsListEl = ref(null);
 const allWorkspaces = ref([]);
@@ -165,7 +167,7 @@ function handleBack() {
 
 async function deleteWorkspace() {
   if (!editWs.value) return;
-  if (!confirm(`Delete "${editWs.value.name}"?\nThe directory will remain.`)) return;
+  if (!await confirm(`Delete "${editWs.value.name}"?\nThe directory will remain.`)) return;
   const { ok, data } = await apiDelete(`${EP_WORKSPACES}/${encodeURIComponent(editWs.value.name)}`, { errorMessage: MSG_DELETE_FAILED });
   if (ok) {
     goBackToList();

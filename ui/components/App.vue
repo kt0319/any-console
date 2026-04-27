@@ -4,6 +4,7 @@
     <ScreenMain />
   </template>
   <AppToast ref="appToast" />
+  <ConfirmDialog />
   <Transition name="offline-fade">
     <div v-if="isOffline" class="offline-overlay">
       <div class="offline-content">
@@ -20,6 +21,7 @@ import { ref, onMounted, onBeforeUnmount } from "vue";
 import ScreenLogin from "./ScreenLogin.vue";
 import ScreenMain from "./ScreenMain.vue";
 import AppToast from "./AppToast.vue";
+import ConfirmDialog from "./ConfirmDialog.vue";
 import { on, emit } from "../app-bridge.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useLayoutStore } from "../stores/layout.js";

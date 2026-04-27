@@ -33,6 +33,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { renderIconStr } from "../utils/render-icon.js";
+import { useConfirm } from "../composables/useConfirm.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { emit } from "../app-bridge.js";
@@ -49,6 +50,7 @@ const props = defineProps({
 
 const emits = defineEmits(["select", "close", "active-click"]);
 const layoutStore = useLayoutStore();
+const { confirm } = useConfirm();
 const terminalStore = useTerminalStore();
 const { beginDrag, cancelDrag } = useSplitDropDrag();
 const mouseLongPress = useLongPress(LONG_PRESS_MS);
@@ -87,9 +89,9 @@ function onClick(e) {
   emits("select", props.tab);
 }
 
-function onClose() {
+async function onClose() {
   closePending = false;
-  if (confirm(`Close "${label.value}" tab?`)) {
+  if (await confirm(`Close "${label.value}" tab?`)) {
     emits("close", props.tab);
   }
 }

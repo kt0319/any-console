@@ -67,12 +67,14 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
+import { useConfirm } from "../composables/useConfirm.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Tabs";
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
+const { confirm } = useConfirm();
 
 const openTabs = computed(() => terminalStore.openTabs);
 const activeTabId = computed(() => terminalStore.activeTabId);
@@ -150,9 +152,9 @@ function onInfoClick(tab) {
   emit("tab:select", { tab });
 }
 
-function onClose(tab) {
+async function onClose(tab) {
   const label = tab.workspace || tab.label || "terminal";
-  if (confirm(`Close "${label}" tab?`)) {
+  if (await confirm(`Close "${label}" tab?`)) {
     emit("tab:close", { tab });
   }
 }

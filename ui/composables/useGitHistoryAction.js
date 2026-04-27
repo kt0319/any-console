@@ -1,10 +1,12 @@
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
 import { emit } from "../app-bridge.js";
+import { useConfirm } from "./useConfirm.js";
 
 export function useGitHistoryAction() {
   const workspaceStore = useWorkspaceStore();
   const { apiWithToast, wsEndpoint } = useApi();
+  const { confirm } = useConfirm();
 
   async function runAndToast(endpoint, body, { successMessage, errorMessage }) {
     await apiWithToast(endpoint, body, {
@@ -15,7 +17,7 @@ export function useGitHistoryAction() {
   }
 
   async function confirmAndRun(msg, endpoint, body, toastOpts, closeFn) {
-    if (!confirm(msg)) return;
+    if (!await confirm(msg)) return;
     closeFn?.();
     await runAndToast(endpoint, body, toastOpts);
   }

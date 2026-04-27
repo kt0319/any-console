@@ -36,6 +36,7 @@
 import { onMounted } from "vue";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { emit } from "../app-bridge.js";
+import { useConfirm } from "../composables/useConfirm.js";
 import { renderIconStr } from "../utils/render-icon.js";
 
 defineProps({
@@ -45,6 +46,7 @@ defineProps({
 defineEmits(["openWorkspace"]);
 
 const { recentJobs, loadRecentJobs } = useRecentJobs();
+const { confirm } = useConfirm();
 onMounted(() => loadRecentJobs());
 
 function openWorkspace(ws) {
@@ -55,10 +57,10 @@ function openWorkspace(ws) {
   });
 }
 
-function runRecentJob(recent) {
+async function runRecentJob(recent) {
   if (recent.jobConfirm !== false) {
     const preview = recent.jobCommand ? (recent.jobCommand.length > 300 ? recent.jobCommand.slice(0, 300) + "..." : recent.jobCommand) : recent.jobName;
-    if (!confirm(`${recent.jobLabel || recent.jobName}\n\n${preview}`)) return;
+    if (!await confirm(`${recent.jobLabel || recent.jobName}\n\n${preview}`)) return;
   }
   emit("terminal:launch", {
     workspace: recent.workspace,

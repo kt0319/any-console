@@ -3,11 +3,13 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
 import { emit } from "../app-bridge.js";
 import { MSG_DELETE_FAILED } from "../utils/constants.js";
+import { useConfirm } from "./useConfirm.js";
 
 export function useFileActions({ getContextEntry, clearContextEntry, getCurrentPath, getFileContent, navigateToPath }) {
   const auth = useAuthStore();
   const workspaceStore = useWorkspaceStore();
   const { apiGet, apiPost, wsEndpoint } = useApi();
+  const { confirm } = useConfirm();
 
   function entryPath() {
     const entry = getContextEntry();
@@ -50,7 +52,7 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
     const filePath = entryPath();
     const fileName = getContextEntry()?.name;
     if (!filePath || !fileName) return;
-    if (!confirm(`Delete "${fileName}"?`)) { clearContextEntry(); return; }
+    if (!await confirm(`Delete "${fileName}"?`)) { clearContextEntry(); return; }
     clearContextEntry();
     const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return;

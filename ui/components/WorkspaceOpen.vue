@@ -98,6 +98,7 @@ import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { useApi } from "../composables/useApi.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
+import { useConfirm } from "../composables/useConfirm.js";
 import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 import GitActionBtn from "./GitActionBtn.vue";
 
@@ -110,6 +111,7 @@ const layoutStore = useLayoutStore();
 const { apiGet } = useApi();
 const { gitAction, isRunning } = useGitRemoteAction();
 const { recentJobs, loadRecentJobs, recordJob } = useRecentJobs();
+const { confirm } = useConfirm();
 
 const wsGlobalJobs = reactive({});
 const wsLocalJobs = reactive({});
@@ -187,11 +189,11 @@ function selectWorkspace(ws) {
   });
 }
 
-function runJob(ws, job) {
+async function runJob(ws, job) {
   emit("modal:close");
   if (job.confirm !== false) {
     const preview = job.command ? (job.command.length > 300 ? job.command.slice(0, 300) + "..." : job.command) : job.name;
-    if (!confirm(`${job.label || job.name}\n\n${preview}`)) return;
+    if (!await confirm(`${job.label || job.name}\n\n${preview}`)) return;
   }
   recordJob(ws, job);
   emit("terminal:launch", {
@@ -207,11 +209,11 @@ function runJob(ws, job) {
   });
 }
 
-function runRecentJob(recent) {
+async function runRecentJob(recent) {
   emit("modal:close");
   if (recent.jobConfirm !== false) {
     const preview = recent.jobCommand ? (recent.jobCommand.length > 300 ? recent.jobCommand.slice(0, 300) + "..." : recent.jobCommand) : recent.jobName;
-    if (!confirm(`${recent.jobLabel || recent.jobName}\n\n${preview}`)) return;
+    if (!await confirm(`${recent.jobLabel || recent.jobName}\n\n${preview}`)) return;
   }
   emit("terminal:launch", {
     workspace: recent.workspace,

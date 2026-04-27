@@ -76,6 +76,7 @@ import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { useApi } from "../composables/useApi.js";
 import { emit, on } from "../app-bridge.js";
+import { useConfirm } from "../composables/useConfirm.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import { renderIconStr } from "../utils/render-icon.js";
 import { escapeHtml } from "../utils/escape-html.js";
@@ -85,6 +86,7 @@ import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 const { gitAction, isRunning } = useGitRemoteAction();
 const { recordJob } = useRecentJobs();
 const { apiGet } = useApi();
+const { confirm } = useConfirm();
 
 const mode = ref("git");
 const jobsCache = {};
@@ -228,13 +230,13 @@ function openTerminal() {
   mode.value = "git";
 }
 
-function runJob(job) {
+async function runJob(job) {
   const wsName = workspace.value;
   if (!wsName) return;
   const wsData = ws.value;
   if (job.confirm !== false) {
     const preview = job.command ? (job.command.length > 300 ? job.command.slice(0, 300) + "..." : job.command) : job.name;
-    if (!confirm(`${job.label || job.name}\n\n${preview}`)) return;
+    if (!await confirm(`${job.label || job.name}\n\n${preview}`)) return;
   }
   if (wsData) recordJob(wsData, job);
   emit("terminal:launch", {

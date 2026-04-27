@@ -1,6 +1,7 @@
 import { ref } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
+import { useConfirm } from "./useConfirm.js";
 
 const ACTION_LABELS = {
   pull: "Pull",
@@ -19,6 +20,7 @@ const ACTION_CONFIRM = {
 export function useGitRemoteAction() {
   const workspaceStore = useWorkspaceStore();
   const { apiWithToast, wsEndpoint } = useApi();
+  const { confirm } = useConfirm();
   const runningAction = ref(null);
 
   async function gitAction(wsName, action, { branch } = {}) {
@@ -29,7 +31,7 @@ export function useGitRemoteAction() {
     if (branch) lines.push(`Branch: ${branch}`);
     lines.push("", confirmText);
     const msg = lines.join("\n");
-    if (!confirm(msg)) return;
+    if (!await confirm(msg)) return;
     runningAction.value = `${wsName}:${action}`;
     try {
       await apiWithToast(wsEndpoint(wsName, action), {}, {

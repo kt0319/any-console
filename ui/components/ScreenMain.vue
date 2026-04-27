@@ -29,6 +29,7 @@ import { useInputStore } from "../stores/input.js";
 import { useApi } from "../composables/useApi.js";
 import { useTerminal } from "../composables/useTerminal.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
+import { useConfirm } from "../composables/useConfirm.js";
 import { useViewport } from "../composables/useViewport.js";
 import { on, emit } from "../app-bridge.js";
 import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION } from "../utils/constants.js";
@@ -43,6 +44,7 @@ const { disconnectTerminal, deleteSession, connectDeferredTabs, connectTerminalW
 const { sendTextToTerminal } = useKeyboard();
 const { initViewport } = useViewport();
 const { apiGet, apiPut } = useApi();
+const { confirm } = useConfirm();
 
 const booting = ref(true);
 const bootMessage = ref("Loading...");
@@ -474,14 +476,14 @@ function onVisibilityChange() {
   });
 }
 
-function onGlobalKeydown(e) {
+async function onGlobalKeydown(e) {
   if (!e.metaKey || !e.shiftKey || e.ctrlKey || e.altKey) return;
   if (e.code === "KeyW") {
     const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
     if (!tab) return;
     e.preventDefault();
     const label = tab.workspace || tab.label || "terminal";
-    if (confirm(`Close "${label}" tab?`)) {
+    if (await confirm(`Close "${label}" tab?`)) {
       closeTab(tab);
       const activeTab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
       workspaceStore.selectedWorkspace = activeTab?.workspace || null;

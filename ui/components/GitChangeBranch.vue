@@ -35,10 +35,12 @@
 import { ref } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
+import { useConfirm } from "../composables/useConfirm.js";
 import { emit } from "../app-bridge.js";
 
 const { apiGet, apiCommand, wsEndpoint } = useApi();
 const workspaceStore = useWorkspaceStore();
+const { confirm } = useConfirm();
 
 const branches = ref([]);
 const isBranchListLoading = ref(false);
@@ -95,7 +97,7 @@ async function deleteBranch(branch) {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
   const label = branch.remote ? `Remote branch ${branch.name}` : `Branch ${branch.name}`;
-  if (!confirm(`Delete ${label}?`)) return;
+  if (!await confirm(`Delete ${label}?`)) return;
   const { ok } = await apiCommand(wsEndpoint(workspace, "delete-branch"), { branch: branch.name, remote: branch.remote });
   if (!ok) return;
   await loadBranchList();

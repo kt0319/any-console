@@ -101,6 +101,7 @@ import { useApi } from "../composables/useApi.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useLongPress } from "../composables/useLongPress.js";
 import { useGitHistoryAction } from "../composables/useGitHistoryAction.js";
+import { useConfirm } from "../composables/useConfirm.js";
 import { useGitDiff } from "../composables/useGitDiff.js";
 import { useGitLogPagination } from "../composables/useGitLogPagination.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
@@ -112,6 +113,7 @@ const emitToParent = defineEmits(["pane:select", "commit:expanded", "commit:coll
 const workspaceStore = useWorkspaceStore();
 const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { execAction: execCommitAction, execReset: execCommitReset, execCreateBranch: execCommitCreateBranch, execMerge: execCommitMerge, execRebase: execCommitRebase } = useGitHistoryAction();
+const { confirm } = useConfirm();
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
 const activePane = ref("browser");
 
@@ -226,7 +228,7 @@ function openWorkingTreeDiffFiles() {
 }
 
 async function stashSave() {
-  if (!confirm("Stash save?")) return;
+  if (!await confirm("Stash save?")) return;
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
   const { ok } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true });
