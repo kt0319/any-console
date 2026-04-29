@@ -137,12 +137,6 @@ async function runRecentJob(recent) {
   color: var(--text-secondary);
 }
 
-.ws-btn-name {
-  font-size: 13px;
-  color: var(--text-primary);
-  white-space: nowrap;
-}
-
 
 .screen-empty-section-label {
   font-size: 10px;
