@@ -39,7 +39,6 @@
 <script setup>
 import { reactive, inject } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
-import { emit } from "../app-bridge.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Terminal";
@@ -54,10 +53,7 @@ function syncFromStore() {
 
 function commitValue(key, rawValue) {
   const next = terminalStore.setTerminalSetting(key, rawValue);
-  if (next != null) {
-    currentValues[key] = next;
-    emit("terminal:settingChanged", { key, value: next });
-  }
+  if (next != null) currentValues[key] = next;
 }
 
 function stepValue(key, direction) {
@@ -69,7 +65,6 @@ function stepValue(key, direction) {
 function resetAll() {
   terminalStore.resetTerminalSettings();
   syncFromStore();
-  emit("terminal:settingsReset");
 }
 </script>
 
