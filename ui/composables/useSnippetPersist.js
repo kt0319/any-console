@@ -1,5 +1,6 @@
 import { useInputStore } from "../stores/input.js";
 import { useApi } from "./useApi.js";
+import { emit } from "../app-bridge.js";
 
 export function useSnippetPersist() {
   const inputStore = useInputStore();
@@ -17,8 +18,11 @@ export function useSnippetPersist() {
 
   async function persistSnippets() {
     try {
-      await apiPut("/snippets", { snippets: inputStore.snippetsCache });
-    } catch {}
+      const { ok } = await apiPut("/snippets", { snippets: inputStore.snippetsCache });
+      if (!ok) emit("toast:show", { message: "Failed to save snippets", type: "error" });
+    } catch {
+      emit("toast:show", { message: "Failed to save snippets", type: "error" });
+    }
   }
 
   function moveSnippetToFront(command) {

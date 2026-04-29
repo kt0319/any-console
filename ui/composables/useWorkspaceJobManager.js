@@ -48,10 +48,13 @@ export function useWorkspaceJobManager({ editWs, pushView }) {
   async function deleteJob(entry) {
     if (!editWs.value) return;
     try {
-      await apiDelete(wsEndpoint(editWs.value.name, `jobs/${encodeURIComponent(entry.name)}`));
+      const { ok } = await apiDelete(wsEndpoint(editWs.value.name, `jobs/${encodeURIComponent(entry.name)}`), { errorMessage: "Delete job failed" });
+      if (!ok) return;
       await loadWorkspaceJobs();
       emit("jobs:refresh");
-    } catch { /* ignore */ }
+    } catch {
+      emit("toast:show", { message: "Delete job failed", type: "error" });
+    }
   }
 
   return { jobEntries, isLoadingJobs, loadWorkspaceJobs, startAddJob, startEditJob, deleteJob };

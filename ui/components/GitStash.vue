@@ -53,7 +53,7 @@ async function loadStashList() {
 async function stashPop(entry) {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  const { ok } = await apiCommand(wsEndpoint(workspace, "stash-pop-ref"), { stash_ref: entry.ref });
+  const { ok } = await apiCommand(wsEndpoint(workspace, "stash-pop-ref"), { stash_ref: entry.ref }, { errorMessage: "Stash apply failed" });
   if (!ok) return;
   await loadStashList();
   emit("git:commitDone");
@@ -62,7 +62,7 @@ async function stashPop(entry) {
 async function stashDrop(entry) {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  const { ok } = await apiCommand(wsEndpoint(workspace, "stash-drop"), { stash_ref: entry.ref });
+  const { ok } = await apiCommand(wsEndpoint(workspace, "stash-drop"), { stash_ref: entry.ref }, { errorMessage: "Stash drop failed" });
   if (!ok) return;
   await loadStashList();
 }

@@ -219,7 +219,7 @@ on("git:commitDone", () => {
 on("git:checkoutBranch", async ({ branch, remote }) => {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  const { ok } = await apiCommand(wsEndpoint(workspace, "checkout"), { branch, remote });
+  const { ok } = await apiCommand(wsEndpoint(workspace, "checkout"), { branch, remote }, { errorMessage: "Checkout failed" });
   if (!ok) return;
   switchPane("browser");
   gitHistory.value?.reload();
@@ -229,7 +229,7 @@ on("git:checkoutBranch", async ({ branch, remote }) => {
 on("git:stashSave", async () => {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  const { ok } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true });
+  const { ok } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true }, { errorMessage: "Stash save failed" });
   if (!ok) return;
   gitHistory.value?.reload();
 });

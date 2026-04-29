@@ -141,8 +141,8 @@ async function loadAllJobCounts() {
 
 async function toggleVisibility(ws, checked) {
   try {
-    await apiPut(wsEndpoint(ws.name, "config"), { icon: ws.icon || "", icon_color: ws.icon_color || "", hidden: !checked });
-    ws.hidden = !checked;
+    const { ok } = await apiPut(wsEndpoint(ws.name, "config"), { icon: ws.icon || "", icon_color: ws.icon_color || "", hidden: !checked }, { errorMessage: "Failed to update workspace" });
+    if (ok) ws.hidden = !checked;
   } catch { /* ignore */ }
 }
 
@@ -217,7 +217,7 @@ function openIconPicker() {
 async function saveWorkspaceOrder() {
   const order = allWorkspaces.value.map((ws) => ws.name);
   try {
-    await apiPut("/workspace-order", { order });
+    await apiPut("/workspace-order", { order }, { errorMessage: "Failed to save workspace order" });
   } catch { /* ignore */ }
 }
 

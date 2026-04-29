@@ -231,7 +231,7 @@ async function stashSave() {
   if (!await confirm("Stash save?")) return;
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  const { ok } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true });
+  const { ok } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true }, { errorMessage: "Stash save failed" });
   if (!ok) return;
   closeSelectedCommitFiles();
   bridgeEmit("git:commitDone");
