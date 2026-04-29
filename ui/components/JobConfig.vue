@@ -48,6 +48,8 @@ const isGlobal = viewState.value.isGlobal || false;
 const jobEntry = viewState.value.jobEntry;
 const initialForm = viewState.value.initialForm;
 
+const DEFAULT_JOB_ICON = "mdi-play-circle-outline";
+
 const isNew = !jobEntry;
 const form = ref(
   initialForm
@@ -56,7 +58,7 @@ const form = ref(
       ? {
           label: jobEntry.job.label || "",
           command: jobEntry.job.command || "",
-          icon: jobEntry.job.icon || "",
+          icon: jobEntry.job.icon || DEFAULT_JOB_ICON,
           icon_color: jobEntry.job.icon_color || "",
           confirm: jobEntry.job.confirm !== false,
           hidden_tab: !!jobEntry.job.hidden_tab,
@@ -64,7 +66,7 @@ const form = ref(
       : {
           label: "",
           command: "",
-          icon: "",
+          icon: DEFAULT_JOB_ICON,
           icon_color: "",
           confirm: false,
           hidden_tab: false,
@@ -101,7 +103,7 @@ async function saveJob() {
     const body = {
       label: f.label.trim(),
       command: f.command.trim(),
-      icon: f.icon.trim(),
+      icon: f.icon.trim() || DEFAULT_JOB_ICON,
       icon_color: f.icon_color.trim(),
       confirm: f.confirm,
       hidden_tab: f.hidden_tab,
