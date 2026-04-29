@@ -106,6 +106,8 @@ const editWs = ref(null);
 watchEffect(() => {
   modalTitle.value = editWs.value ? editWs.value.name : "Workspace Settings";
 });
+const DEFAULT_WS_ICON = "mdi-console";
+
 const editIcon = ref("");
 const editIconColor = ref("");
 const saveError = ref("");
@@ -182,14 +184,14 @@ async function saveWsConfig() {
   saveError.value = "";
   try {
     const { ok, data } = await apiPut(wsEndpoint(editWs.value.name, "config"), {
-      icon: editIcon.value.trim(),
+      icon: editIcon.value.trim() || DEFAULT_WS_ICON,
       icon_color: editIconColor.value.trim(),
       hidden: !!editWs.value.hidden,
     });
     if (!ok) {
       saveError.value = data?.detail || MSG_SAVE_FAILED;
     } else {
-      editWs.value.icon = editIcon.value.trim();
+      editWs.value.icon = editIcon.value.trim() || DEFAULT_WS_ICON;
       editWs.value.icon_color = editIconColor.value.trim();
       workspaceStore.fetchWorkspaces();
     }
