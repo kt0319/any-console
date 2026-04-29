@@ -9,7 +9,7 @@
         placeholder="Default: ~/work"
       />
       <div class="security-token-hint">Effective: {{ effectiveWorkspaceRoot }}</div>
-      <button type="button" class="security-save-btn" :disabled="savingWs" @click="saveWorkspaceRoot">
+      <button type="button" class="primary" :disabled="savingWs" @click="saveWorkspaceRoot">
         {{ savingWs ? "Saving..." : "Save" }}
       </button>
       <div v-if="wsSaveMessage" class="security-save-message" :class="wsSaveMessageType">{{ wsSaveMessage }}</div>
@@ -44,7 +44,7 @@
         <div class="security-token-hint">Leave blank to keep the current token.</div>
       </template>
 
-      <button type="button" class="security-save-btn" :disabled="savingAuth" @click="saveAuth">
+      <button type="button" class="primary" :disabled="savingAuth" @click="saveAuth">
         {{ savingAuth ? "Saving..." : "Save" }}
       </button>
       <div v-if="authSaveMessage" class="security-save-message" :class="authSaveMessageType">{{ authSaveMessage }}</div>
@@ -231,23 +231,6 @@ onMounted(async () => {
   color: var(--text-muted);
   margin: 4px 0 12px;
   word-break: break-all;
-}
-
-.security-save-btn {
-  margin-top: 8px;
-  padding: 8px 24px;
-  font-size: 14px;
-  font-weight: 500;
-  border: none;
-  border-radius: var(--radius);
-  background: var(--accent);
-  color: #fff;
-  cursor: pointer;
-}
-
-.security-save-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .security-save-message {
