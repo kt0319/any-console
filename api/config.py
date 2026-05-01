@@ -148,11 +148,8 @@ def _check_config_health_unlocked() -> dict[str, Any]:
                 raw = json.loads(bak_path.read_text(encoding="utf-8"))
                 source = "config.bak"
             except (json.JSONDecodeError, OSError):
-                return {
-                    "ok": False,
-                    "errors": [{"key": "__root__", "message": f"config.json is invalid JSON and backup is also broken: {json_err}"}],
-                    "source": "broken",
-                }
+                msg = f"config.json is invalid JSON and backup is also broken: {json_err}"
+                return {"ok": False, "errors": [{"key": "__root__", "message": msg}], "source": "broken"}
         else:
             return {
                 "ok": False,
