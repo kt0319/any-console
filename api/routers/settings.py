@@ -8,6 +8,7 @@ from .. import auth as auth_module
 from ..auth import verify_token
 from ..common import GLOBAL_CONFIG_KEY, MAX_COMMAND_LENGTH, MAX_LABEL_LENGTH, set_workspace_root
 from ..config import (
+    check_config_health,
     list_workspace_entries,
     load_all_config,
     load_global_config_section,
@@ -66,6 +67,11 @@ def put_workspace_root_settings(body: WorkspaceRootSettings):
 def _existing_workspace_names() -> set[str]:
     entries = list_workspace_entries()
     return {name for name, cfg in entries.items() if Path(cfg.get("path", "")).is_dir()}
+
+
+@router.get("/settings/config-health")
+def get_config_health():
+    return check_config_health()
 
 
 @router.get("/settings/export")

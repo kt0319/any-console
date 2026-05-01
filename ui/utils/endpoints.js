@@ -24,5 +24,6 @@ export const EP_SETTINGS_AUTH = "/settings/auth";
 export const EP_SETTINGS_WORKSPACE_ROOT = "/settings/workspace-root";
 export const EP_SETTINGS_EXPORT = "/settings/export";
 export const EP_SETTINGS_IMPORT = "/settings/import";
+export const EP_SETTINGS_CONFIG_HEALTH = "/settings/config-health";
 export const EP_GITHUB_REPOS = "/github/repos";
 export const EP_RECENT_JOBS = "/recent-jobs";

@@ -37,14 +37,27 @@ class TestConfigLoadSave:
         with pytest.raises(ValueError):
             save_all_config({"ws": {"jobs": {"bad": {"missing_command": True}}}})
 
-    def test_load_corrupted_json_raises(self, isolate_fs):
+    def test_load_corrupted_json_falls_back_to_empty(self, isolate_fs):
         config_file = isolate_fs["config_file"]
         config_file.parent.mkdir(parents=True, exist_ok=True)
         config_file.write_text("{invalid json", encoding="utf-8")
 
         from api.config import load_all_config
-        with pytest.raises(json.JSONDecodeError):
-            load_all_config()
+        result = load_all_config()
+        assert result == {}
+
+    def test_load_corrupted_json_restores_from_bak(self, isolate_fs):
+        config_file = isolate_fs["config_file"]
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        bak_file = config_file.with_suffix(".bak")
+        bak_file.write_text(json.dumps({"ws": {"icon": "mdi-star", "icon_color": "", "hidden": False, "jobs": {}}}), encoding="utf-8")
+        config_file.write_text("{invalid json", encoding="utf-8")
+
+        from api.config import load_all_config
+        result = load_all_config()
+        assert result.get("ws", {}).get("icon") == "mdi-star"
+        # config.json should now be repaired
+        assert json.loads(config_file.read_text()) is not None
 
     def test_load_filters_invalid_entries(self, isolate_fs):
         config_file = isolate_fs["config_file"]
@@ -135,3 +148,69 @@ class TestConfigSection:
 
         assert len(load_global_config_section("snippets")) == 1
         assert load_global_config_section("workspace_order") == ["ws1", "ws2"]
+
+
+class TestConfigHealth:
+    def test_health_no_config_file(self, isolate_fs):
+        from api.config import check_config_health
+        result = check_config_health()
+        assert result["ok"] is True
+        assert result["source"] == "empty"
+        assert result["errors"] == []
+
+    def test_health_valid_config(self, isolate_fs):
+        from api.config import save_all_config, check_config_health
+        save_all_config({"ws": {"icon": "", "icon_color": "", "hidden": False, "jobs": {}}})
+        result = check_config_health()
+        assert result["ok"] is True
+        assert result["source"] == "config.json"
+        assert result["errors"] == []
+
+    def test_health_invalid_json(self, isolate_fs):
+        config_file = isolate_fs["config_file"]
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text("{invalid json", encoding="utf-8")
+
+        from api.config import check_config_health
+        result = check_config_health()
+        assert result["ok"] is False
+        assert result["source"] == "broken"
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["key"] == "__root__"
+
+    def test_health_invalid_json_with_bak(self, isolate_fs):
+        config_file = isolate_fs["config_file"]
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        bak_file = config_file.with_suffix(".bak")
+        bak_file.write_text(json.dumps({"ws": {"icon": "", "icon_color": "", "hidden": False, "jobs": {}}}), encoding="utf-8")
+        config_file.write_text("{invalid json", encoding="utf-8")
+
+        from api.config import check_config_health
+        result = check_config_health()
+        assert result["ok"] is False
+        assert result["source"] == "config.bak"
+        assert result["errors"] == []
+
+    def test_health_validation_errors(self, isolate_fs):
+        config_file = isolate_fs["config_file"]
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        raw = {
+            "valid-ws": {"icon": "", "icon_color": "", "hidden": False, "jobs": {}},
+            "bad-ws": {"jobs": {"j": {"no_command": True}}},
+        }
+        config_file.write_text(json.dumps(raw), encoding="utf-8")
+
+        from api.config import check_config_health
+        result = check_config_health()
+        assert result["ok"] is False
+        assert result["source"] == "config.json"
+        assert any(e["key"] == "bad-ws" for e in result["errors"])
+
+    def test_health_endpoint(self, client, isolate_fs):
+        from conftest import AUTH
+        res = client.get("/settings/config-health", headers=AUTH)
+        assert res.status_code == 200
+        data = res.json()
+        assert "ok" in data
+        assert "errors" in data
+        assert "source" in data

@@ -32,7 +32,7 @@ import { useViewport } from "../composables/useViewport.js";
 import { useSessionSync } from "../composables/useSessionSync.js";
 import { useSnippetPersist } from "../composables/useSnippetPersist.js";
 import { on, emit } from "../app-bridge.js";
-import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_RUN } from "../utils/endpoints.js";
+import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_RUN, EP_SETTINGS_CONFIG_HEALTH } from "../utils/endpoints.js";
 
 const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
@@ -60,8 +60,19 @@ async function initializeApp() {
 
   const sessionsPromise = auth.apiFetch(EP_TERMINAL_SESSIONS).catch(() => null);
   const jobsPromise = auth.apiFetch(EP_JOBS_WORKSPACES).catch(() => null);
+  const healthPromise = auth.apiFetch(EP_SETTINGS_CONFIG_HEALTH).catch(() => null);
 
-  const [, sessionsRes, jobsRes] = await Promise.all([workspacesPromise, sessionsPromise, jobsPromise]);
+  const [, sessionsRes, jobsRes, healthRes] = await Promise.all([workspacesPromise, sessionsPromise, jobsPromise, healthPromise]);
+
+  if (healthRes?.ok) {
+    const health = await healthRes.json();
+    if (!health.ok) {
+      const msg = health.source === "config.bak"
+        ? "Config was restored from backup. Some settings may be missing."
+        : `Config has validation errors: ${health.errors.map((e) => e.key).join(", ")}`;
+      emit("toast:show", { message: msg, type: "warning" });
+    }
+  }
 
   bootMessage.value = "Restoring sessions...";
   await restoreExistingSessions(sessionsRes, jobsRes);
