@@ -1,7 +1,7 @@
 // @ts-check
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { TERMINAL_SETTINGS_SCHEMA, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../../ui/utils/terminal-settings.js";
+import { TERMINAL_SETTINGS_META, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../../ui/utils/terminal-settings.js";
 
 // ── Tests ──
 

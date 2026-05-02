@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test 'tests/ui/test_*.js'"
+    "test": "node --test tests/ui/test_*.js"
   },
   "devDependencies": {
     "vite": "^8.0.3"
