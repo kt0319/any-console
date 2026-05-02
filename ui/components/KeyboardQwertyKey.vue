@@ -188,7 +188,7 @@ function onCameraTouchEnd(e) {
   const dy = e.changedTouches[0].clientY - cameraStartY;
   if (dy < -FLICK_THRESHOLD) {
     emitLocal("cycleMode");
-    window.location.href = window.location.pathname + "?_=" + Date.now();
+    window.location.replace(window.location.pathname + "?_=" + Date.now());
   } else if (dy > FLICK_THRESHOLD) {
     const cmd = prompt("Save as snippet:");
     if (cmd) emit("snippet:add", { command: cmd });
