@@ -29,3 +29,14 @@ jobs:
         env:
           ANY_CONSOLE_TOKEN: test-token
           PYTHONPATH: .
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Frontend test
+        run: npm test

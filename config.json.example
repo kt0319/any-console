@@ -1,0 +1,48 @@
+{
+  "my-project": {
+    "path": "/home/user/work/my-project",
+    "icon": "mdi-folder",
+    "icon_color": "#1e88e5",
+    "jobs": {
+      "job_000000000001": {
+        "command": "npm test",
+        "label": "Test",
+        "icon": "mdi-flask",
+        "icon_color": "#43a047",
+        "confirm": false
+      },
+      "job_000000000002": {
+        "command": "npm run build",
+        "label": "Build",
+        "icon": "mdi-package-variant",
+        "icon_color": "#fb8c00",
+        "confirm": true
+      }
+    }
+  },
+  "dotfiles": {
+    "path": "/home/user/dotfiles",
+    "icon": "mdi-cog",
+    "icon_color": "#8e24aa"
+  },
+  "__global__": {
+    "snippets": [
+      {
+        "label": "git status",
+        "command": "git status"
+      },
+      {
+        "label": "git log",
+        "command": "git log --oneline -10"
+      }
+    ],
+    "workspace_order": [
+      "my-project",
+      "dotfiles"
+    ],
+    "editor": {
+      "url_template": "vscode://vscode-remote/ssh-remote+{user}@{host}{work_dir}/{workspace}"
+    },
+    "recent_jobs": []
+  }
+}
