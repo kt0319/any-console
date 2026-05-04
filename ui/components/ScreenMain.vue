@@ -1,11 +1,12 @@
 <template>
-  <div v-if="booting || isEmptyScreenVisible" class="output-container screen-main-empty">
-    <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
-  </div>
-  <div v-else class="main-panel" :class="{ 'panel-bottom': isPanelBottom }">
-    <TabBar v-show="!isTextInputVisible" ref="tabBarView" :tabs="openTabs" />
-    <WorkspaceStatusBar v-show="!isTextInputVisible" />
+  <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom }">
+    <TabBar v-show="!booting && !isTextInputVisible && !isEmptyScreenVisible" ref="tabBarView" :tabs="openTabs" />
+    <WorkspaceStatusBar v-show="!isTextInputVisible && !isEmptyScreenVisible" />
+    <div v-if="booting || isEmptyScreenVisible" class="screen-main-empty">
+      <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
+    </div>
     <TerminalBase
+      v-else
       ref="terminalBaseView"
       :is-panel-bottom="isPanelBottom"
       @keyboard-input-visibility="updateKeyboardInputVisibility"
@@ -377,9 +378,9 @@ defineExpose({
 
 <style scoped>
 .screen-main-empty {
-  height: var(--app-dvh);
-  min-height: var(--app-dvh);
-  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+  display: flex;
 }
 
 .main-panel {

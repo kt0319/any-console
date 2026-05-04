@@ -1,27 +1,40 @@
 <template>
   <div class="screen-empty-container">
     <div class="screen-empty-content">
-      <div class="screen-empty-actions">
-        <button type="button" class="screen-empty-open-btn" @click="$emit('openWorkspace')">
-          <span class="mdi mdi-plus"></span> Open Workspace
+      <div class="screen-empty-section">
+        <div class="screen-empty-section-label">Get Started</div>
+        <button type="button" class="screen-empty-menu-item" @click="$emit('openWorkspace')">
+          <span class="mdi mdi-plus screen-empty-menu-icon"></span>
+          <span class="screen-empty-menu-label">Open Workspace</span>
+          <span class="screen-empty-menu-shortcut">⌘⇧N</span>
+        </button>
+        <button type="button" class="screen-empty-menu-item" @click="openSettings">
+          <span class="mdi mdi-cog screen-empty-menu-icon"></span>
+          <span class="screen-empty-menu-label">Settings</span>
+          <span class="screen-empty-menu-shortcut">⌘⇧.</span>
         </button>
       </div>
 
-      <div v-if="recentJobs.length" class="screen-empty-ws-list">
-        <div class="screen-empty-section-label">Recent</div>
-        <div class="screen-empty-ws-buttons">
-          <button
-            v-for="recent in recentJobs"
-            :key="recent.key"
-            type="button"
-            class="screen-empty-ws-btn"
-            :class="{ 'is-hidden-tab': recent.jobHiddenTab }"
-            @click="runRecentJob(recent)"
-          >
-            <span v-if="recent.wsIcon" class="ws-btn-icon" v-html="renderIconStr(recent.wsIcon, recent.wsIconColor, 18)"></span>
-            <span v-if="recent.jobIcon" class="ws-btn-icon" v-html="renderIconStr(recent.jobIcon, recent.jobIconColor, 18)"></span>
-          </button>
-        </div>
+      <div v-if="recentJobs.length" class="screen-empty-section">
+        <div class="screen-empty-section-label">Recent Jobs</div>
+        <button
+          v-for="recent in recentJobs"
+          :key="recent.key"
+          type="button"
+          class="screen-empty-menu-item"
+          :class="{ 'is-hidden-tab': recent.jobHiddenTab }"
+          @click="runRecentJob(recent)"
+        >
+          <span class="screen-empty-recent-icons">
+            <span v-if="recent.wsIcon" v-html="renderIconStr(recent.wsIcon, recent.wsIconColor, 16)"></span>
+            <span v-if="recent.jobIcon" v-html="renderIconStr(recent.jobIcon, recent.jobIconColor, 16)"></span>
+          </span>
+          <span class="screen-empty-menu-label">
+            <span class="screen-empty-recent-ws">{{ recent.workspace }}</span>
+            <span v-if="recent.jobLabel || recent.jobName" class="screen-empty-recent-sep">/</span>
+            <span class="screen-empty-recent-job">{{ recent.jobLabel || recent.jobName }}</span>
+          </span>
+        </button>
       </div>
 
       <div class="screen-empty-booting" :class="{ 'is-hidden': !booting }" aria-live="polite">
@@ -49,12 +62,8 @@ const { recentJobs, loadRecentJobs } = useRecentJobs();
 const { confirm } = useConfirm();
 onMounted(() => loadRecentJobs());
 
-function openWorkspace(ws) {
-  emit("terminal:launch", {
-    workspace: ws.name,
-    icon: ws.icon,
-    iconColor: ws.icon_color,
-  });
+function openSettings() {
+  emit("settings:open");
 }
 
 async function runRecentJob(recent) {
@@ -82,61 +91,24 @@ async function runRecentJob(recent) {
   flex: 1;
   width: 100%;
   height: 100%;
-  min-height: 100%;
   align-items: center;
   justify-content: center;
-  padding: 12px;
+  padding: 24px 16px;
 }
 
 .screen-empty-content {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 12px;
+  gap: 20px;
   width: 100%;
   max-width: 360px;
 }
 
-.screen-empty-ws-list {
+.screen-empty-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 10px 12px;
+  gap: 2px;
 }
-
-.screen-empty-ws-buttons {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.screen-empty-ws-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.screen-empty-ws-btn.is-hidden-tab {
-  border-style: dashed;
-}
-
-.ws-btn-icon {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  font-size: 18px;
-  color: var(--text-secondary);
-}
-
 
 .screen-empty-section-label {
   font-size: 10px;
@@ -144,26 +116,78 @@ async function runRecentJob(recent) {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  padding: 0 8px;
   margin-bottom: 4px;
 }
 
-.screen-empty-actions {
+.screen-empty-menu-item {
   display: flex;
-  flex-direction: column;
   align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  min-height: 0;
 }
 
-.screen-empty-open-btn {
+.screen-empty-menu-item.is-hidden-tab {
+  opacity: 0.6;
+}
+
+.screen-empty-menu-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.screen-empty-menu-label {
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 24px;
-  font-size: 14px;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.screen-empty-menu-shortcut {
+  flex-shrink: 0;
+  font-size: 11px;
   color: var(--text-muted);
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
+  margin-left: auto;
+  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.screen-empty-recent-icons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  width: 20px;
+  justify-content: center;
+}
+
+.screen-empty-recent-ws {
+  color: var(--text-muted);
+}
+
+.screen-empty-recent-sep {
+  color: var(--border);
+  flex-shrink: 0;
+}
+
+.screen-empty-recent-job {
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .screen-empty-booting {
@@ -173,6 +197,7 @@ async function runRecentJob(recent) {
   justify-content: center;
   gap: 10px;
   min-height: 56px;
+  padding: 8px 0;
 }
 
 .screen-empty-booting.is-hidden {
