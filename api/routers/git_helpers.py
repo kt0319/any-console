@@ -9,18 +9,20 @@ from ..common import (
     resolve_workspace_path,
 )
 from ..errors import bad_request, forbidden, server_error, timeout_error
+from ..git_lock import workspace_write_lock
 from ..git_utils import git_branch, invalidate_git_info, run_git_command, run_git_raw
 
 _action_logger = logging.getLogger(__name__)
 
 
 def execute_git_action(name, args, *, timeout=GIT_LONG_TIMEOUT_SEC, operation="", env=None, log_extra=""):
-    ws_path = resolve_workspace_path(name)
-    result = run_git_command(args, cwd=ws_path, timeout=timeout, operation=operation, env=env)
-    extra = f" {log_extra}" if log_extra else ""
-    _action_logger.info("git %s workspace=%s%s rc=%d", operation, name, extra, result["exit_code"])
-    invalidate_git_info(name)
-    return result
+    with workspace_write_lock(name):
+        ws_path = resolve_workspace_path(name)
+        result = run_git_command(args, cwd=ws_path, timeout=timeout, operation=operation, env=env)
+        extra = f" {log_extra}" if log_extra else ""
+        _action_logger.info("git %s workspace=%s%s rc=%d", operation, name, extra, result["exit_code"])
+        invalidate_git_info(name)
+        return result
 
 
 @contextmanager

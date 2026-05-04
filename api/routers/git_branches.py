@@ -8,6 +8,7 @@ from ..common import (
     resolve_workspace_path,
 )
 from ..errors import bad_request
+from ..git_lock import workspace_write_lock
 from ..git_utils import (
     git_branches,
     git_info_to_status_dict,
@@ -86,27 +87,30 @@ def checkout_branch(name: str, body: CheckoutRequest):
 
 @router.post("/workspaces/{name}/pull")
 def git_pull(name: str):
-    ws_path = resolve_workspace_path(name)
-    env = ssh_env()
-    dirty_result = run_git_command(["status", "--porcelain"], cwd=ws_path, operation="status")
-    dirty = dirty_result["stdout"].strip()
-    stashed = False
-    if dirty:
-        stash_result = run_git_command(["stash"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, env=env, operation="stash")
-        stashed = stash_result["exit_code"] == 0
-    result = execute_git_action(name, ["pull", "--rebase"], operation="pull", env=env)
-    if stashed:
-        pop = run_git_command(
-            ["stash", "pop"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC,
-            env=env, operation="stash pop",
-        )
-        if pop["exit_code"] != 0:
-            result["stderr"] += f"\n⚠️ stash pop failed:\n{pop['stderr']}"
-    if result["status"] == "ok":
-        summary = summarize_pull(result["stdout"])
-        if summary:
-            result["summary"] = summary
-    return result
+    with workspace_write_lock(name):
+        ws_path = resolve_workspace_path(name)
+        env = ssh_env()
+        dirty_result = run_git_command(["status", "--porcelain"], cwd=ws_path, operation="status")
+        dirty = dirty_result["stdout"].strip()
+        stashed = False
+        if dirty:
+            stash_result = run_git_command(
+                ["stash"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, env=env, operation="stash",
+            )
+            stashed = stash_result["exit_code"] == 0
+        result = execute_git_action(name, ["pull", "--rebase"], operation="pull", env=env)
+        if stashed:
+            pop = run_git_command(
+                ["stash", "pop"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC,
+                env=env, operation="stash pop",
+            )
+            if pop["exit_code"] != 0:
+                result["stderr"] += f"\n⚠️ stash pop failed:\n{pop['stderr']}"
+        if result["status"] == "ok":
+            summary = summarize_pull(result["stdout"])
+            if summary:
+                result["summary"] = summary
+        return result
 
 
 @router.post("/workspaces/{name}/push")
