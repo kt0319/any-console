@@ -26,12 +26,14 @@ import { on, emit } from "../app-bridge.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
+import { useGitHubActionsMonitor } from "../composables/useGitHubActionsMonitor.js";
 import { EP_RUN } from "../utils/endpoints.js";
 
 const auth = useAuthStore();
 const layoutStore = useLayoutStore();
 const appToast = ref(null);
 const { isOffline, startPing, stopPing, onOnline, onOffline } = useConnectivityMonitor();
+const { start: startActionsMonitor, stop: stopActionsMonitor } = useGitHubActionsMonitor();
 
 const showLogin = ref(false);
 const authenticated = ref(false);
@@ -59,6 +61,7 @@ async function execNonTerminalJob(jobName, workspace) {
 async function onAuthenticated() {
   showLogin.value = false;
   authenticated.value = true;
+  startActionsMonitor();
 }
 
 onMounted(async () => {
@@ -93,6 +96,7 @@ onMounted(async () => {
   if (result.ok) {
     auth.setServerInfo(result.hostname, result.version, result.clientName, result.vpn);
     authenticated.value = true;
+    startActionsMonitor();
   } else if (!result.auth) {
     auth.token = "";
     auth.clearToken();
@@ -107,6 +111,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("online", onOnline);
   window.removeEventListener("offline", onOffline);
   stopPing();
+  stopActionsMonitor();
 });
 
 </script>
