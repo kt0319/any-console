@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from ..ai_summary import summarize_pull
 from ..auth import verify_token
 from ..common import (
     GIT_LONG_TIMEOUT_SEC,
@@ -101,6 +102,10 @@ def git_pull(name: str):
         )
         if pop["exit_code"] != 0:
             result["stderr"] += f"\n⚠️ stash pop failed:\n{pop['stderr']}"
+    if result["status"] == "ok":
+        summary = summarize_pull(result["stdout"])
+        if summary:
+            result["summary"] = summary
     return result
 
 

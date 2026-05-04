@@ -36,7 +36,7 @@ function dismiss(toast) {
   nextTick(restack);
 }
 
-function show(message, type = "error") {
+function show(message, type = "error", duration = 3000) {
   const text = typeof message === "string" ? message : String(message?.message || message || "Unknown error");
   const id = ++idCounter;
   const toast = { id, message: text, type, top: 24 };
@@ -45,7 +45,7 @@ function show(message, type = "error") {
   setTimeout(() => {
     toasts.value = toasts.value.filter((t) => t.id !== id);
     nextTick(restack);
-  }, 3000);
+  }, duration);
 }
 
 defineExpose({ show });
@@ -67,6 +67,7 @@ defineExpose({ show });
   padding: 10px 20px;
   font-size: 13px;
   text-align: center;
+  white-space: pre-line;
   z-index: 10000;
   border-radius: var(--radius);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);

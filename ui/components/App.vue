@@ -68,7 +68,7 @@ onMounted(async () => {
 
   if (layoutStore.isPwa) document.documentElement.classList.add("pwa");
 
-  on("toast:show", ({ message, type }) => appToast.value?.show(message, type));
+  on("toast:show", ({ message, type, duration }) => appToast.value?.show(message, type, duration));
   on("job:run", ({ jobName, job, workspace }) => {
     if (job?.hidden_tab === false) {
       execNonTerminalJob(jobName, workspace);

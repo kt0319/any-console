@@ -4,6 +4,7 @@ websockets>=12,<17
 python-dotenv>=1,<2
 pydantic>=2,<3
 python-multipart>=0.0.5
+anthropic>=0.25,<1
 
 # dev
 pytest>=7,<9

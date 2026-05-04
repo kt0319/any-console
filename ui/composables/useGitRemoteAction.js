@@ -2,6 +2,7 @@ import { ref } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
 import { useConfirm } from "./useConfirm.js";
+import { emit } from "../app-bridge.js";
 
 const ACTION_LABELS = {
   pull: "Pull",
@@ -19,7 +20,7 @@ const ACTION_CONFIRM = {
 
 export function useGitRemoteAction() {
   const workspaceStore = useWorkspaceStore();
-  const { apiWithToast, wsEndpoint } = useApi();
+  const { apiWithToast, apiCommand, wsEndpoint } = useApi();
   const { confirm } = useConfirm();
   const runningAction = ref(null);
 
@@ -34,11 +35,21 @@ export function useGitRemoteAction() {
     if (!await confirm(msg)) return;
     runningAction.value = `${wsName}:${action}`;
     try {
-      await apiWithToast(wsEndpoint(wsName, action), {}, {
-        successMessage: `${wsName}: ${label} done`,
-        errorMessage: `${label} failed`,
-        onSuccess: () => workspaceStore.fetchStatuses(),
-      });
+      if (action === "pull") {
+        const { ok, data } = await apiCommand(wsEndpoint(wsName, action), {}, { errorMessage: `${label} failed` });
+        if (ok) {
+          const summary = data?.summary;
+          const message = summary ? `${wsName}: ${label} done\n${summary}` : `${wsName}: ${label} done`;
+          emit("toast:show", { message, type: "success", duration: summary ? 5000 : 3000 });
+          workspaceStore.fetchStatuses();
+        }
+      } else {
+        await apiWithToast(wsEndpoint(wsName, action), {}, {
+          successMessage: `${wsName}: ${label} done`,
+          errorMessage: `${label} failed`,
+          onSuccess: () => workspaceStore.fetchStatuses(),
+        });
+      }
     } finally {
       runningAction.value = null;
     }
