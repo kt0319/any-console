@@ -222,6 +222,7 @@ on("git:checkoutBranch", async ({ branch, remote }) => {
   const { ok } = await apiCommand(wsEndpoint(workspace, "checkout"), { branch, remote }, { errorMessage: "Checkout failed" });
   if (!ok) return;
   switchPane("browser");
+  workspaceStore.fetchStatuses();
   gitHistory.value?.reload();
   fileBrowser.value?.load();
 });
