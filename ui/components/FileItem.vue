@@ -10,6 +10,7 @@
     :data-type="dataType || null"
     @click="$emit('click', $event)"
     @contextmenu.prevent="$emit('contextmenu', $event)"
+    @mouseenter="$emit('mouseenter', $event)"
     @mousedown="$emit('mousedown', $event)"
     @mouseup="$emit('mouseup', $event)"
     @mouseleave="$emit('mouseleave', $event)"
@@ -39,6 +40,7 @@ defineProps({
 defineEmits([
   "click",
   "contextmenu",
+  "mouseenter",
   "mousedown",
   "mouseup",
   "mouseleave",

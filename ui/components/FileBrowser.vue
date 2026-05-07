@@ -59,14 +59,19 @@
               :size-text="entry.type === 'file' && entry.size != null ? formatSize(entry.size) : ''"
               @click="onEntryClick(entry)"
               @contextmenu="toggleContextMenu(entry)"
+              @mouseenter="onItemMouseEnter(entry)"
+              @mouseleave="onItemMouseLeave"
               @mousedown="onLongPressStart($event, entry)"
               @mouseup="onLongPressEnd"
-              @mouseleave="onLongPressEnd"
               @touchstart="onLongPressStart($event, entry)"
               @touchend="onLongPressEnd"
               @touchcancel="onLongPressEnd"
             />
-            <li v-if="contextEntry?.name === entry.name" class="file-browser-action-menu">
+            <li v-if="contextEntry?.name === entry.name" class="file-browser-action-menu"
+              @mouseenter="onMenuMouseEnter"
+              @mouseleave="onMenuMouseLeave"
+            >
+              <button v-if="!isHoverDevice" type="button" @click="openEntry(entry)"><span class="mdi mdi-open-in-app"></span> Open</button>
               <button v-if="entry.type === 'file'" type="button" @click="openEntryInEditor"><span class="mdi mdi-file-edit-outline"></span> Editor</button>
               <button v-if="entry.type === 'file'" type="button" @click="downloadEntry"><span class="mdi mdi-download"></span> Download</button>
               <button v-if="githubEntryUrl" type="button" @click="openGitHub"><span class="mdi mdi-github"></span> GitHub</button>
@@ -228,17 +233,40 @@ async function openFile(path) {
 }
 
 const longPress = useLongPress();
+const isHoverDevice = window.matchMedia("(hover: hover)").matches;
+let hoverCloseTimer = null;
 
 function onLongPressStart(e, entry) {
+  if (isHoverDevice) return;
   longPress.startMenu(e, entry);
 }
 
 function onLongPressEnd() {
+  if (isHoverDevice) return;
   longPress.endMenu();
   if (longPress.activeEntry.value && longPress.activeEntry.value !== contextEntry.value) {
     contextEntry.value = longPress.activeEntry.value;
     longPress.activeEntry.value = null;
   }
+}
+
+function onItemMouseEnter(entry) {
+  if (!isHoverDevice) return;
+  clearTimeout(hoverCloseTimer);
+  contextEntry.value = entry;
+}
+
+function onItemMouseLeave() {
+  if (!isHoverDevice) return;
+  hoverCloseTimer = setTimeout(() => { contextEntry.value = null; }, 150);
+}
+
+function onMenuMouseEnter() {
+  clearTimeout(hoverCloseTimer);
+}
+
+function onMenuMouseLeave() {
+  hoverCloseTimer = setTimeout(() => { contextEntry.value = null; }, 150);
 }
 
 function toggleContextMenu(entry) {
@@ -254,6 +282,17 @@ function openGitHub() {
     window.open(githubEntryUrl.value, "_blank");
   }
   contextEntry.value = null;
+}
+
+function openEntry(entry) {
+  contextEntry.value = null;
+  const childPath = currentPath.value ? `${currentPath.value}/${entry.name}` : entry.name;
+  if (entry.type === "dir") {
+    navigateToPath(childPath);
+  } else if (entry.type === "file") {
+    currentPath.value = childPath;
+    openFile(childPath);
+  }
 }
 
 function openEntryInEditor() {
@@ -297,10 +336,16 @@ function onEntryClick(entry) {
   if (longPress.isMenuEl() || longPress.isFired()) {
     return;
   }
-  if (contextEntry.value) {
-    const wasContext = contextEntry.value.name === entry.name;
-    contextEntry.value = null;
-    if (wasContext) return;
+  if (!isHoverDevice) {
+    if (contextEntry.value?.name === entry.name) {
+      contextEntry.value = null;
+      const childPath = currentPath.value ? `${currentPath.value}/${entry.name}` : entry.name;
+      if (entry.type === "dir") navigateToPath(childPath);
+      else if (entry.type === "file") { currentPath.value = childPath; openFile(childPath); }
+    } else {
+      toggleContextMenu(entry);
+    }
+    return;
   }
   const childPath = currentPath.value ? `${currentPath.value}/${entry.name}` : entry.name;
   if (entry.type === "dir") {
