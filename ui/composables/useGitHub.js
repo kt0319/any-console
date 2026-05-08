@@ -81,36 +81,34 @@ export function useGitHub() {
     }
   }
 
-  function loadIssues(listRef, loadingRef, errorRef) {
-    return _loadList("github/issues", "issues", (item) => ({
-      number: item.number,
-      title: item.title,
-      author: item.author?.login || "",
-      labels: item.labels || [],
-    }), listRef, loadingRef, errorRef);
+  function _makeLoader(endpoint, countKey, mapper) {
+    return (listRef, loadingRef, errorRef) => _loadList(endpoint, countKey, mapper, listRef, loadingRef, errorRef);
   }
 
-  function loadPRs(listRef, loadingRef, errorRef) {
-    return _loadList("github/pulls", "prs", (item) => ({
-      number: item.number,
-      title: item.title,
-      author: item.author?.login || "",
-      isDraft: !!item.isDraft,
-      headRefName: item.headRefName || "",
-      labels: item.labels || [],
-    }), listRef, loadingRef, errorRef);
-  }
+  const loadIssues = _makeLoader("github/issues", "issues", (item) => ({
+    number: item.number,
+    title: item.title,
+    author: item.author?.login || "",
+    labels: item.labels || [],
+  }));
 
-  function loadActions(listRef, loadingRef, errorRef) {
-    return _loadList("github/runs", "actions", (r) => ({
-      id: r.databaseId || r.id,
-      name: r.name || r.workflowName || "",
-      status: r.status || "",
-      conclusion: r.conclusion || "",
-      headBranch: r.headBranch || "",
-      url: r.url || "",
-    }), listRef, loadingRef, errorRef);
-  }
+  const loadPRs = _makeLoader("github/pulls", "prs", (item) => ({
+    number: item.number,
+    title: item.title,
+    author: item.author?.login || "",
+    isDraft: !!item.isDraft,
+    headRefName: item.headRefName || "",
+    labels: item.labels || [],
+  }));
+
+  const loadActions = _makeLoader("github/runs", "actions", (r) => ({
+    id: r.databaseId || r.id,
+    name: r.name || r.workflowName || "",
+    status: r.status || "",
+    conclusion: r.conclusion || "",
+    headBranch: r.headBranch || "",
+    url: r.url || "",
+  }));
 
   return { githubUrl, repoName, loadWorkspaceGithubUrl, loadIssues, loadPRs, loadActions };
 }

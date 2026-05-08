@@ -22,6 +22,20 @@ from .git_helpers import execute_git_action, get_current_branch
 router = APIRouter(dependencies=[Depends(verify_token)])
 
 
+def _stash_if_dirty(ws_path, env) -> bool:
+    dirty = run_git_command(["status", "--porcelain"], cwd=ws_path, operation="status")["stdout"].strip()
+    if not dirty:
+        return False
+    result = run_git_command(["stash"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, env=env, operation="stash")
+    return result["exit_code"] == 0
+
+
+def _unstash(ws_path, env, result: dict) -> None:
+    pop = run_git_command(["stash", "pop"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, env=env, operation="stash pop")
+    if pop["exit_code"] != 0:
+        result["stderr"] += f"\n⚠️ stash pop failed:\n{pop['stderr']}"
+
+
 class DeleteBranchRequest(BaseModel):
     branch: str
     remote: bool = False
@@ -90,22 +104,10 @@ def git_pull(name: str):
     with workspace_write_lock(name):
         ws_path = resolve_workspace_path(name)
         env = ssh_env()
-        dirty_result = run_git_command(["status", "--porcelain"], cwd=ws_path, operation="status")
-        dirty = dirty_result["stdout"].strip()
-        stashed = False
-        if dirty:
-            stash_result = run_git_command(
-                ["stash"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, env=env, operation="stash",
-            )
-            stashed = stash_result["exit_code"] == 0
+        stashed = _stash_if_dirty(ws_path, env)
         result = execute_git_action(name, ["pull", "--rebase"], operation="pull", env=env)
         if stashed:
-            pop = run_git_command(
-                ["stash", "pop"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC,
-                env=env, operation="stash pop",
-            )
-            if pop["exit_code"] != 0:
-                result["stderr"] += f"\n⚠️ stash pop failed:\n{pop['stderr']}"
+            _unstash(ws_path, env, result)
         if result["status"] == "ok":
             summary = summarize_pull(result["stdout"])
             if summary:

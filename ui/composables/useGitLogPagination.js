@@ -19,6 +19,13 @@ export function useGitLogPagination() {
   const historyListEl = ref(null);
   let historyPage = 0;
 
+  async function _fetchPage(workspace, limit) {
+    const { ok, data } = await apiGet(wsEndpoint(workspace, `git-log?limit=${limit}&skip=0&graph=true`));
+    if (!ok) return null;
+    const parsed = parseGitGraphOutput(data.stdout);
+    return { rows: buildGitGraphRows(parsed), count: parsed.filter((p) => p.entry).length };
+  }
+
   async function loadHistory() {
     const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) { isHistoryLoading.value = false; return; }
@@ -28,11 +35,11 @@ export function useGitLogPagination() {
     historyPage = 0;
     try {
       const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
-      const { ok, data } = await apiGet(wsEndpoint(workspace, `git-log?limit=${perPage}&skip=0&graph=true`));
-      if (!ok) { isHistoryLoading.value = false; return; }
-      const parsed = parseGitGraphOutput(data.stdout);
-      graphRows.value = buildGitGraphRows(parsed);
-      hasMoreHistory.value = parsed.filter((p) => p.entry).length >= perPage;
+      const result = await _fetchPage(workspace, perPage);
+      if (result) {
+        graphRows.value = result.rows;
+        hasMoreHistory.value = result.count >= perPage;
+      }
     } catch (e) {
       console.error("git log load failed:", e);
     } finally {
@@ -50,11 +57,11 @@ export function useGitLogPagination() {
     const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
     const totalLimit = (historyPage + 1) * perPage;
     try {
-      const { ok, data } = await apiGet(wsEndpoint(workspace, `git-log?limit=${totalLimit}&skip=0&graph=true`));
-      if (!ok) return;
-      const parsed = parseGitGraphOutput(data.stdout);
-      graphRows.value = buildGitGraphRows(parsed);
-      hasMoreHistory.value = parsed.filter((p) => p.entry).length >= totalLimit;
+      const result = await _fetchPage(workspace, totalLimit);
+      if (result) {
+        graphRows.value = result.rows;
+        hasMoreHistory.value = result.count >= totalLimit;
+      }
     } catch (e) {
       console.error("git log loadMore failed:", e);
     } finally {
