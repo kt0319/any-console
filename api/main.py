@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import asyncio
+import hmac
 import logging
 import re
 import secrets
@@ -17,11 +18,13 @@ from pathlib import Path
 import uvicorn
 from fastapi import Depends, FastAPI, Request, Response, UploadFile
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
-from .auth import get_client_ip, get_client_name, is_tailscale_ip, verify_token
+from . import auth as auth_module
+from .auth import COOKIE_NAME_TOKEN, get_client_ip, get_client_name, is_tailscale_ip, verify_token
 from .client_log import ClientLogMiddleware
 from .common import BACKGROUND_EXECUTOR, MAX_UPLOAD_SIZE, UPLOAD_DIR, set_workspace_root
-from .errors import bad_request, too_large
+from .errors import bad_request, too_large, unauthorized
 from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
 from .routers import git, github, jobs, settings, system, terminal, workspaces
@@ -78,6 +81,41 @@ def auth_check(
         "client_name": client_name,
         "vpn": is_tailscale_ip(client_ip),
     }
+
+
+COOKIE_MAX_AGE_SEC = 365 * 24 * 60 * 60
+
+
+class LoginBody(BaseModel):
+    token: str = ""
+
+
+def _set_session_cookie(response: Response, request: Request, value: str) -> None:
+    response.set_cookie(
+        key=COOKIE_NAME_TOKEN,
+        value=value,
+        max_age=COOKIE_MAX_AGE_SEC,
+        httponly=True,
+        samesite="strict",
+        secure=request.url.scheme == "https",
+        path="/",
+    )
+
+
+@app.post("/auth/login")
+def auth_login(body: LoginBody, request: Request, response: Response):
+    if not auth_module.ANY_CONSOLE_TOKEN:
+        return {"ok": True, "auth_required": False}
+    if not body.token or not hmac.compare_digest(body.token, auth_module.ANY_CONSOLE_TOKEN):
+        raise unauthorized("Invalid token")
+    _set_session_cookie(response, request, body.token)
+    return {"ok": True, "auth_required": True}
+
+
+@app.post("/auth/logout")
+def auth_logout(response: Response):
+    response.delete_cookie(COOKIE_NAME_TOKEN, path="/")
+    return {"ok": True}
 
 
 ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}

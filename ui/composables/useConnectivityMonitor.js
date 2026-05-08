@@ -1,5 +1,4 @@
 import { ref } from "vue";
-import { useAuthStore } from "../stores/auth.js";
 import { EP_AUTH_CHECK } from "../utils/endpoints.js";
 import {
   CONNECTIVITY_PING_INTERVAL_MS as PING_INTERVAL_MS,
@@ -8,7 +7,6 @@ import {
 } from "../utils/constants.js";
 
 export function useConnectivityMonitor() {
-  const auth = useAuthStore();
   const isOffline = ref(false);
   let pingTimerId = null;
   let consecutiveFailures = 0;
@@ -24,7 +22,7 @@ export function useConnectivityMonitor() {
       const tid = setTimeout(() => ctrl.abort(), PING_TIMEOUT_MS);
       await fetch(EP_AUTH_CHECK, {
         method: "HEAD",
-        headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
+        credentials: "same-origin",
         signal: ctrl.signal,
       });
       clearTimeout(tid);

@@ -26,6 +26,49 @@ class TestAuthSecurity:
         res = client.get("/auth/check", headers={"Authorization": "Bearer wrong-token"})
         assert res.status_code == 401
 
+    def test_login_rejects_wrong_token(self, client):
+        res = client.post("/auth/login", json={"token": "wrong-token"})
+        assert res.status_code == 401
+
+    def test_login_rejects_empty_token(self, client):
+        res = client.post("/auth/login", json={"token": ""})
+        assert res.status_code == 401
+
+    def test_login_sets_httponly_cookie(self, client):
+        from conftest import TOKEN
+        res = client.post("/auth/login", json={"token": TOKEN})
+        assert res.status_code == 200
+        cookie_header = res.headers.get("set-cookie", "")
+        assert "any_console_session=" in cookie_header
+        assert "HttpOnly" in cookie_header
+        assert "SameSite=strict" in cookie_header.lower() or "samesite=strict" in cookie_header.lower()
+
+    def test_cookie_auth_grants_access(self, client):
+        from conftest import TOKEN
+        login_res = client.post("/auth/login", json={"token": TOKEN})
+        assert login_res.status_code == 200
+        # TestClient persists cookies on the client instance
+        check_res = client.get("/auth/check")
+        assert check_res.status_code == 200
+
+    def test_logout_clears_cookie(self, client):
+        from conftest import TOKEN
+        client.post("/auth/login", json={"token": TOKEN})
+        logout_res = client.post("/auth/logout")
+        assert logout_res.status_code == 200
+        client.cookies.clear()
+        check_res = client.get("/auth/check")
+        assert check_res.status_code == 401
+
+    def test_websocket_token_not_in_logs_via_url(self):
+        """WebSocket URL builder must not embed the token (cookies are used instead)."""
+        ws_path = "ui/utils/terminal-ws.js"
+        with open(ws_path, encoding="utf-8") as f:
+            source = f.read()
+        assert "token=" not in source, (
+            "buildWebSocketUrl must not include the auth token in the URL"
+        )
+
 
 class TestGitCloneInjection:
     """git clone引数インジェクション対策"""

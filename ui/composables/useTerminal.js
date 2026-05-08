@@ -1,4 +1,3 @@
-import { useAuthStore } from "../stores/auth.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "./useApi.js";
 import { WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, RECONNECT_BACKOFF_MULTIPLIER, RECONNECT_BACKOFF_BASE_MS, RECONNECT_BACKOFF_MAX, POST_WRITE_REFRESH_MS } from "../utils/constants.js";
@@ -9,12 +8,11 @@ import { bindTerminalInput, bindTerminalElement } from "./useTerminalInput.js";
 import { terminalSessionPath } from "../utils/endpoints.js";
 
 export function useTerminal() {
-  const auth = useAuthStore();
   const terminalStore = useTerminalStore();
 
   function buildWebSocketUrl(sessionId, cols, rows) {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
-    return _buildWebSocketUrl(proto, location.host, sessionId, auth.token, cols, rows);
+    return _buildWebSocketUrl(proto, location.host, sessionId, cols, rows);
   }
 
   function connectTerminalWs(tab, opts = {}) {

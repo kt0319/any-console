@@ -1,7 +1,9 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { LS_KEY_TOKEN, LS_PREFIX_API_CACHE, LS_PREFIX_WS_META, COOKIE_NAME_TOKEN } from "../utils/constants.js";
-import { EP_AUTH_CHECK } from "../utils/endpoints.js";
+import { EP_AUTH_CHECK, EP_AUTH_LOGIN, EP_AUTH_LOGOUT } from "../utils/endpoints.js";
+
+const AUTHED_SENTINEL = "1";
 
 export const useAuthStore = defineStore("auth", () => {
   const token = ref("");
@@ -12,12 +14,12 @@ export const useAuthStore = defineStore("auth", () => {
   const isHandlingUnauthorized = ref(false);
 
   async function apiFetch(endpoint, { method = "GET", body = null } = {}) {
-    const headers = { Authorization: `Bearer ${token.value}` };
-if (body !== null && typeof body === "object" && !(body instanceof FormData)) {
+    const headers = {};
+    if (body !== null && typeof body === "object" && !(body instanceof FormData)) {
       headers["Content-Type"] = "application/json";
       body = JSON.stringify(body);
     }
-    const res = await fetch(endpoint, { method, headers, body });
+    const res = await fetch(endpoint, { method, headers, body, credentials: "same-origin" });
     if (res.status === 401) {
       await handleUnauthorized();
       return null;
@@ -25,43 +27,61 @@ if (body !== null && typeof body === "object" && !(body instanceof FormData)) {
     return res;
   }
 
-  function saveToken(val) {
-    const prev = localStorage.getItem(LS_KEY_TOKEN) || "";
-    if (prev && prev !== val) clearPersistedApiCaches();
-    localStorage.setItem(LS_KEY_TOKEN, val);
-    document.cookie = `${COOKIE_NAME_TOKEN}=${encodeURIComponent(val)};path=/;max-age=31536000;SameSite=Strict`;
+  async function login(rawToken) {
+    const res = await fetch(EP_AUTH_LOGIN, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: rawToken }),
+      credentials: "same-origin",
+    });
+    if (res.status === 401) return { ok: false, error: "Invalid token" };
+    if (!res.ok) return { ok: false, error: `Login failed: ${res.status}` };
+    token.value = AUTHED_SENTINEL;
+    return { ok: true };
   }
 
-  function clearToken() {
-    clearPersistedApiCaches();
-    localStorage.removeItem(LS_KEY_TOKEN);
-    document.cookie = `${COOKIE_NAME_TOKEN}=;path=/;max-age=0;SameSite=Strict`;
-  }
-
-  function loadToken() {
-    const ls = localStorage.getItem(LS_KEY_TOKEN);
-    if (ls) return ls;
-    const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${COOKIE_NAME_TOKEN}=([^;]*)`));
-    if (match) {
-      try {
-        const val = decodeURIComponent(match[1]);
-        if (val) {
-          localStorage.setItem(LS_KEY_TOKEN, val);
-          return val;
-        }
-      } catch {}
+  async function logout() {
+    try {
+      await fetch(EP_AUTH_LOGOUT, { method: "POST", credentials: "same-origin" });
+    } catch {
+      /* ignore */
     }
-    return "";
+    clearLocalState();
   }
 
-  function _authCheckFetch() {
-    const headers = token.value ? { Authorization: `Bearer ${token.value}` } : {};
-    return fetch(EP_AUTH_CHECK, { headers });
+  function clearLocalState() {
+    clearPersistedApiCaches();
+    token.value = "";
+  }
+
+  async function migrateLegacyToken() {
+    const legacy = localStorage.getItem(LS_KEY_TOKEN);
+    const legacyCookie = readLegacyCookie();
+    const candidate = legacy || legacyCookie;
+    if (legacy) localStorage.removeItem(LS_KEY_TOKEN);
+    if (legacyCookie) deleteLegacyCookie();
+    if (!candidate) return false;
+    const result = await login(candidate);
+    return result.ok;
+  }
+
+  function readLegacyCookie() {
+    const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${COOKIE_NAME_TOKEN}=([^;]*)`));
+    if (!match) return "";
+    try {
+      return decodeURIComponent(match[1]);
+    } catch {
+      return "";
+    }
+  }
+
+  function deleteLegacyCookie() {
+    document.cookie = `${COOKIE_NAME_TOKEN}=;path=/;max-age=0;SameSite=Strict`;
   }
 
   async function checkToken() {
     try {
-      const res = await _authCheckFetch();
+      const res = await fetch(EP_AUTH_CHECK, { credentials: "same-origin" });
       if (res.status === 401) return { ok: false, auth: false, error: "Authentication failed" };
       const data = await res.json();
       return { ok: true, hostname: data.hostname, version: data.version, clientName: data.client_name, vpn: !!data.vpn };
@@ -70,14 +90,13 @@ if (body !== null && typeof body === "object" && !(body instanceof FormData)) {
     }
   }
 
-  async function handleUnauthorized(caller) {
+  async function handleUnauthorized() {
     if (isHandlingUnauthorized.value || !token.value) return false;
     isHandlingUnauthorized.value = true;
     try {
-      const res = await _authCheckFetch();
+      const res = await fetch(EP_AUTH_CHECK, { credentials: "same-origin" });
       if (res.status === 401) {
-        clearToken();
-        token.value = "";
+        clearLocalState();
         return true;
       }
     } catch {
@@ -92,6 +111,10 @@ if (body !== null && typeof body === "object" && !(body instanceof FormData)) {
     if (version) serverVersion.value = version;
     if (client) clientName.value = client;
     vpn.value = !!isVpn;
+  }
+
+  function markAuthenticated() {
+    token.value = AUTHED_SENTINEL;
   }
 
   function clearPersistedApiCaches() {
@@ -113,11 +136,12 @@ if (body !== null && typeof body === "object" && !(body instanceof FormData)) {
     vpn,
     isHandlingUnauthorized,
     apiFetch,
-    saveToken,
-    clearToken,
-    loadToken,
+    login,
+    logout,
+    migrateLegacyToken,
     checkToken,
     handleUnauthorized,
     setServerInfo,
+    markAuthenticated,
   };
 });

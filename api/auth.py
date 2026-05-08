@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 _AUTH_FILE = Path(__file__).resolve().parent.parent / "data" / "auth.json"
 
+COOKIE_NAME_TOKEN = "any_console_session"  # noqa: S105 (cookie name, not a secret)
+
 
 def _load_token_from_file() -> str:
     try:
@@ -74,16 +76,20 @@ def _is_trusted_proxy(ip: str) -> bool:
 
 
 def verify_token(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> str:
     if not ANY_CONSOLE_TOKEN:
         return ""
-    if credentials is None or not hmac.compare_digest(credentials.credentials, ANY_CONSOLE_TOKEN):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-        )
-    return credentials.credentials
+    if credentials is not None and hmac.compare_digest(credentials.credentials, ANY_CONSOLE_TOKEN):
+        return credentials.credentials
+    cookie_token = request.cookies.get(COOKIE_NAME_TOKEN, "")
+    if cookie_token and hmac.compare_digest(cookie_token, ANY_CONSOLE_TOKEN):
+        return cookie_token
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid token",
+    )
 
 
 def resolve_tailscale_name(ip: str) -> str:
