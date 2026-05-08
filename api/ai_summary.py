@@ -18,6 +18,10 @@ def summarize_pull(stdout: str) -> str | None:
         return None
     try:
         import anthropic
+    except ImportError as e:
+        _logger.warning("anthropic SDK not available: %s", e)
+        return None
+    try:
         client = anthropic.Anthropic(api_key=api_key, timeout=8)
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001",
@@ -25,6 +29,6 @@ def summarize_pull(stdout: str) -> str | None:
             messages=[{"role": "user", "content": _PULL_PROMPT + stdout[:800]}],
         )
         return msg.content[0].text.strip()
-    except Exception as e:
+    except (anthropic.AnthropicError, OSError, ValueError, IndexError) as e:
         _logger.warning("ai_summary failed: %s", e)
         return None

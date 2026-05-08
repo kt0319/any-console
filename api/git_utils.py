@@ -121,7 +121,8 @@ _FUTURE_TIMEOUT_SEC = GIT_QUICK_TIMEOUT_SEC + 2
 def _safe_result(future):
     try:
         return future.result(timeout=_FUTURE_TIMEOUT_SEC)
-    except (FutureTimeoutError, Exception):
+    except (FutureTimeoutError, subprocess.TimeoutExpired, OSError) as e:
+        logger.debug("git future failed: %s", e)
         return None
 
 
