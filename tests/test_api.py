@@ -525,6 +525,34 @@ class TestSnippets:
         assert snippets[1]["label"] == "B"
 
 
+class TestDefaultLabel:
+    """settings._default_label のユニットテスト"""
+
+    def setup_method(self):
+        from api.routers.settings import _default_label
+        self._fn = _default_label
+
+    def test_short_command_no_ellipsis(self):
+        assert self._fn("echo hi") == "echo hi"
+
+    def test_exactly_20_chars_no_ellipsis(self):
+        cmd = "a" * 20
+        assert self._fn(cmd) == cmd
+
+    def test_21_chars_truncated_with_ellipsis(self):
+        cmd = "a" * 21
+        assert self._fn(cmd) == "a" * 20 + "..."
+
+    def test_long_command_truncated(self):
+        cmd = "x" * 100
+        result = self._fn(cmd)
+        assert result == "x" * 20 + "..."
+        assert len(result) == 23
+
+    def test_empty_string(self):
+        assert self._fn("") == ""
+
+
 class TestFileContent:
     def test_image_file_returns_data_url(self, client, workspace):
         img = workspace / "icon.png"

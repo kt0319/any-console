@@ -2,6 +2,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { toDisplayMessage, formatCommitTime, buildWorkspaceChangeSummaryHtml, VALID_ICON_COLOR, isImageDataIcon, faviconUrl } from "../../ui/utils/display.js";
+import { workspaceDownloadPath } from "../../ui/utils/endpoints.js";
+import { safeJsonLoad } from "../../ui/utils/storage.js";
 
 // ── Tests ──
 
@@ -169,5 +171,56 @@ describe("faviconUrl", () => {
   it("encodes special characters", () => {
     const result = faviconUrl("example.com/path?q=1");
     assert.ok(result.includes(encodeURIComponent("example.com/path?q=1")));
+  });
+});
+
+describe("workspaceDownloadPath", () => {
+  it("builds correct download URL", () => {
+    assert.equal(
+      workspaceDownloadPath("myws", "dir/file.txt"),
+      "/workspaces/myws/download?path=dir%2Ffile.txt",
+    );
+  });
+
+  it("encodes workspace name with spaces", () => {
+    const result = workspaceDownloadPath("my ws", "file.txt");
+    assert.ok(result.startsWith("/workspaces/my%20ws/download"));
+  });
+
+  it("encodes path with spaces", () => {
+    const result = workspaceDownloadPath("ws", "path with spaces/file.txt");
+    assert.ok(result.includes(encodeURIComponent("path with spaces/file.txt")));
+  });
+
+  it("encodes special characters in path", () => {
+    const result = workspaceDownloadPath("ws", "dir/file name & more.txt");
+    assert.ok(result.includes("file%20name%20%26%20more.txt"));
+  });
+});
+
+describe("safeJsonLoad", () => {
+  it("returns parsed value from localStorage", () => {
+    globalThis.localStorage = { getItem: () => JSON.stringify({ a: 1 }) };
+    assert.deepEqual(safeJsonLoad("key", {}), { a: 1 });
+  });
+
+  it("returns fallback when key is absent", () => {
+    globalThis.localStorage = { getItem: () => null };
+    assert.deepEqual(safeJsonLoad("key", []), []);
+  });
+
+  it("returns fallback when value is empty string", () => {
+    globalThis.localStorage = { getItem: () => "" };
+    assert.deepEqual(safeJsonLoad("key", 42), 42);
+  });
+
+  it("returns fallback on invalid JSON", () => {
+    globalThis.localStorage = { getItem: () => "{bad json" };
+    assert.deepEqual(safeJsonLoad("key", null), null);
+  });
+
+  it("returns fallback when localStorage.getItem throws", () => {
+    globalThis.localStorage = { getItem: () => { throw new Error("SecurityError"); } };
+    assert.deepEqual(safeJsonLoad("key", "default"), "default");
   });
 });
