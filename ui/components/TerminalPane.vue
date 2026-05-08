@@ -37,7 +37,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { enterViewMode, exitViewMode, isViewMode } from "../utils/view-mode.js";
 import { emit } from "../app-bridge.js";
-import { WHEEL_DEBOUNCE_MS } from "../utils/constants.js";
+import { WHEEL_DEBOUNCE_MS, ACTIVE_FIT_DELAY_MS, WHEEL_FOCUS_THRESHOLD } from "../utils/constants.js";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
 import { usePillDrag } from "../composables/usePillDrag.js";
 import { createTouchTracker } from "../utils/gesture.js";
@@ -106,7 +106,7 @@ function scheduleActiveFit() {
     if (props.tab.term) {
       try { props.tab.term.refresh(0, props.tab.term.rows - 1); } catch {}
     }
-  }, 50);
+  }, ACTIVE_FIT_DELAY_MS);
 }
 
 async function doEnterViewMode() {
@@ -168,7 +168,6 @@ function onTouchEnd(e) {
 
 let wheelAccum = 0;
 let wheelTimer = null;
-const WHEEL_THRESHOLD = -120;
 
 function onWheel(e) {
   if (layoutStore.isTouchDevice) return;
@@ -182,7 +181,7 @@ function onWheel(e) {
   wheelAccum += e.deltaY;
   if (wheelTimer) clearTimeout(wheelTimer);
   wheelTimer = setTimeout(() => { wheelAccum = 0; }, WHEEL_DEBOUNCE_MS);
-  if (wheelAccum <= WHEEL_THRESHOLD) {
+  if (wheelAccum <= WHEEL_FOCUS_THRESHOLD) {
     wheelAccum = 0;
     doEnterViewMode();
   }
