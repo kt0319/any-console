@@ -29,9 +29,6 @@
             @touchmove="onHistoryTouchMove($event)"
             @touchend="onHistoryTouchEnd($event, text)"
             @touchcancel="historyLongPress.cancel()"
-            @mousedown="onHistoryMouseDown($event, text)"
-            @mouseup="onHistoryMouseUp($event, text)"
-            @mouseleave="historyLongPress.cancel()"
           >
             <span class="mdi mdi-history snippet-chip-icon"></span>
             {{ truncateQuickText(text) }}
@@ -174,21 +171,6 @@ function onHistoryTouchEnd(e, text) {
   historyLongPress.cancel();
   if (historyLongPress.consumeFired()) return;
   if (e.cancelable) e.preventDefault();
-  insertText(text);
-}
-
-function onHistoryMouseDown(e, text) {
-  if (e.button !== 0) return;
-  historyLongPress.reset();
-  historyLongPress.start(() => {
-    addSnippetByPrompt(text);
-  });
-}
-
-function onHistoryMouseUp(e, text) {
-  if (e.button !== 0) return;
-  historyLongPress.cancel();
-  if (historyLongPress.consumeFired()) return;
   insertText(text);
 }
 

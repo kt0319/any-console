@@ -10,9 +10,6 @@
           @touchmove="onSnippetTouchMove($event)"
           @touchend="onSnippetTouchEnd($event, snippet, idx)"
           @touchcancel="onSnippetTouchCancel"
-          @mousedown="onSnippetMouseDown($event, idx)"
-          @mouseup="onSnippetMouseUp($event, snippet, idx)"
-          @mouseleave="onSnippetMouseLeave"
         >
           <span class="mdi mdi-pin snippet-chip-icon"></span>
           {{ truncateQuickText(snippet.label) }}
@@ -27,7 +24,6 @@
           @touchstart="onHistoryTouchStart($event, text)"
           @touchend="onHistoryTouchEnd($event, text)"
           @touchcancel="onSnippetTouchCancel"
-          @mouseup="onHistoryClick(text)"
         >
           <span class="mdi mdi-history snippet-chip-icon"></span>
           {{ truncateQuickText(text) }}
@@ -79,25 +75,6 @@ function onSnippetTouchCancel() {
   snippetLongPress.cancel();
 }
 
-function onSnippetMouseDown(e, idx) {
-  if (e.button !== 0) return;
-  snippetLongPress.reset();
-  snippetLongPress.start(() => {
-    emit("snippet:delete", { index: snippets.value.length - 1 - idx });
-  });
-}
-
-function onSnippetMouseUp(e, snippet, idx) {
-  if (e.button !== 0) return;
-  snippetLongPress.cancel();
-  if (snippetLongPress.consumeFired()) return;
-  emit("snippet:tap", { command: snippet.command });
-}
-
-function onSnippetMouseLeave() {
-  snippetLongPress.cancel();
-}
-
 function onHistoryTouchStart(e, text) {
   scrolled = false;
   startX = e.touches[0].clientX;
@@ -106,10 +83,6 @@ function onHistoryTouchStart(e, text) {
 function onHistoryTouchEnd(e, text) {
   if (scrolled) return;
   if (e.cancelable) e.preventDefault();
-  emit("snippet:tap", { command: text });
-}
-
-function onHistoryClick(text) {
   emit("snippet:tap", { command: text });
 }
 

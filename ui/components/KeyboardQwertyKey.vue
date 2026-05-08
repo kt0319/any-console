@@ -17,7 +17,6 @@
         @touchstart.prevent="onQwertyTouchStart($event, keyDef)"
         @touchend.prevent="onQwertyTouchEnd($event, keyDef, ri, ci)"
         @touchcancel="onQuickKeyCancel($event)"
-        @mouseup="onQwertyMouseUp($event, keyDef)"
       >
         <template v-if="hasFlick(ri, ci, keyDef)">
           <span v-if="flickUpLabel(ri, ci, keyDef)" class="flick-hint-top">{{ flickUpLabel(ri, ci, keyDef) }}</span>
@@ -170,13 +169,6 @@ function onQwertyTouchEnd(e, keyDef, ri, ci) {
   sendKeyToTerminal(merged);
 }
 
-function onQwertyMouseUp(e, keyDef) {
-  if (e.button !== 0) return;
-  const merged = { ...keyDef };
-  if (modifierState.ctrl) merged.ctrl = true;
-  if (modifierState.shift) merged.shift = true;
-  sendKeyToTerminal(merged);
-}
 
 let cameraStartY = 0;
 function onCameraTouchStart(e) {

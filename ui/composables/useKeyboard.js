@@ -139,28 +139,6 @@ export function useKeyboard() {
       stopRepeat();
       cancelLongPress();
     });
-
-    el.addEventListener("mousedown", (e) => {
-      if (e.button !== 0) return;
-      longPressFired = false;
-      if (opts.onLongPress && (!opts.longPressGuard || opts.longPressGuard())) {
-        longPressTimer = setTimeout(() => {
-          longPressTimer = null;
-          longPressFired = true;
-          opts.onLongPress();
-        }, LONG_PRESS_MS);
-      }
-    });
-
-    el.addEventListener("mouseup", () => {
-      cancelLongPress();
-      if (longPressFired) return;
-      if (onTap) onTap();
-    });
-
-    el.addEventListener("mouseleave", () => {
-      cancelLongPress();
-    });
   }
 
   return {
