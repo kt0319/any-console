@@ -1,30 +1,17 @@
 import json
 import logging
 import subprocess
-import time
 
 from fastapi import APIRouter, Depends
 
 from ..auth import verify_token
-from ..common import GITHUB_CLI_TIMEOUT_SEC, resolve_workspace_path
+from ..common import GITHUB_CLI_TIMEOUT_SEC, TTLCache, resolve_workspace_path
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
-_cache: dict[str, tuple[float, dict]] = {}
-_CACHE_TTL = 5 * 60  # 5分
-
-
-def _cache_get(key: str):
-    entry = _cache.get(key)
-    if entry and time.time() - entry[0] < _CACHE_TTL:
-        return entry[1]
-    return None
-
-
-def _cache_set(key: str, value: dict):
-    _cache[key] = (time.time(), value)
+_cache = TTLCache(5 * 60)
 
 
 def _run_gh(args: list[str], cwd: str) -> dict | list | None:
@@ -47,14 +34,14 @@ def _run_gh(args: list[str], cwd: str) -> dict | list | None:
 
 
 def _run_gh_cached(cache_key: str, args: list[str], cwd: str, error_message: str):
-    cached = _cache_get(cache_key)
+    cached = _cache.get(cache_key)
     if cached is not None:
         return cached
     data = _run_gh(args, cwd=cwd)
     if data is None:
         return {"status": "error", "detail": error_message}
     result = {"status": "ok", "data": data}
-    _cache_set(cache_key, result)
+    _cache.set(cache_key, result)
     return result
 
 

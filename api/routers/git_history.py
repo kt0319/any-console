@@ -19,24 +19,11 @@ class CommitRequest(BaseModel):
     message: str
 
 
-class CommitActionRequest(BaseModel):
-    commit_hash: str
-
-
-class ResetRequest(BaseModel):
-    commit_hash: str
+class GitActionRequest(BaseModel):
+    commit_hash: str = ""
+    branch: str = ""
+    stash_ref: str = ""
     mode: str = "soft"
-
-
-class StashRefRequest(BaseModel):
-    stash_ref: str
-
-
-class MergeRequest(BaseModel):
-    branch: str
-
-
-class StashRequest(BaseModel):
     include_untracked: bool = False
 
 
@@ -60,7 +47,7 @@ def get_git_log(name: str, limit: int = 50, skip: int = 0, graph: bool = False):
 
 
 @router.post("/workspaces/{name}/cherry-pick")
-def git_cherry_pick(name: str, body: CommitActionRequest):
+def git_cherry_pick(name: str, body: GitActionRequest):
     commit_hash = validate_commit_hash(body.commit_hash)
     return execute_git_action(
         name, ["cherry-pick", commit_hash],
@@ -69,7 +56,7 @@ def git_cherry_pick(name: str, body: CommitActionRequest):
 
 
 @router.post("/workspaces/{name}/revert")
-def git_revert(name: str, body: CommitActionRequest):
+def git_revert(name: str, body: GitActionRequest):
     commit_hash = validate_commit_hash(body.commit_hash)
     return execute_git_action(
         name, ["revert", "--no-edit", commit_hash],
@@ -78,19 +65,19 @@ def git_revert(name: str, body: CommitActionRequest):
 
 
 @router.post("/workspaces/{name}/merge")
-def git_merge(name: str, body: MergeRequest):
+def git_merge(name: str, body: GitActionRequest):
     branch = validate_branch_name(body.branch)
     return execute_git_action(name, ["merge", branch], operation="merge", log_extra=f"branch={branch}")
 
 
 @router.post("/workspaces/{name}/rebase")
-def git_rebase(name: str, body: MergeRequest):
+def git_rebase(name: str, body: GitActionRequest):
     branch = validate_branch_name(body.branch)
     return execute_git_action(name, ["rebase", branch], operation="rebase", log_extra=f"branch={branch}")
 
 
 @router.post("/workspaces/{name}/reset")
-def git_reset(name: str, body: ResetRequest):
+def git_reset(name: str, body: GitActionRequest):
     commit_hash = validate_commit_hash(body.commit_hash)
     if body.mode not in ("soft", "hard"):
         raise bad_request(f"Invalid reset mode: {body.mode}")
@@ -129,19 +116,19 @@ def git_stash_list(name: str):
 
 
 @router.post("/workspaces/{name}/stash-drop")
-def git_stash_drop(name: str, body: StashRefRequest):
+def git_stash_drop(name: str, body: GitActionRequest):
     ref = validate_stash_ref(body.stash_ref)
     return execute_git_action(name, ["stash", "drop", ref], operation="stash drop", log_extra=f"ref={ref}")
 
 
 @router.post("/workspaces/{name}/stash-pop-ref")
-def git_stash_pop_ref(name: str, body: StashRefRequest):
+def git_stash_pop_ref(name: str, body: GitActionRequest):
     ref = validate_stash_ref(body.stash_ref)
     return execute_git_action(name, ["stash", "pop", ref], operation="stash pop", log_extra=f"ref={ref}")
 
 
 @router.post("/workspaces/{name}/stash")
-def git_stash(name: str, body: StashRequest = None):
+def git_stash(name: str, body: GitActionRequest = None):
     args = ["stash"]
     if body and body.include_untracked:
         args.append("-u")

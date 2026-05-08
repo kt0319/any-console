@@ -230,19 +230,10 @@ def _validate_job_fields(body):
     return label, command
 
 
-def _create_job(data, save_fn, body, log_msg):
+def _save_job(data, save_fn, job_name, body, log_msg):
     label, command = _validate_job_fields(body)
-    job_name = generate_job_key(data)
-    data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.hidden_tab)
-    save_fn(data)
-    logger.info(log_msg, job_name)
-    return {"status": "ok", "name": job_name}
-
-
-def _update_job(data, save_fn, job_name, body, not_found_msg, log_msg):
-    if job_name not in data:
-        raise not_found(not_found_msg)
-    label, command = _validate_job_fields(body)
+    if job_name is None:
+        job_name = generate_job_key(data)
     data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.hidden_tab)
     save_fn(data)
     logger.info(log_msg, job_name)
@@ -270,7 +261,7 @@ def _reorder_jobs(data, save_fn, order, log_msg):
 @router.post("/workspaces/{name}/jobs")
 def create_workspace_job(name: str, body: JobRequest):
     data, save_fn, _ = _ws_jobs_context(name)
-    return _create_job(data, save_fn, body, "job created workspace=%s job=%%s" % name)
+    return _save_job(data, save_fn, None, body, "job created workspace=%s job=%%s" % name)
 
 
 @router.put("/workspaces/{name}/job-order")
@@ -282,9 +273,9 @@ def reorder_workspace_jobs(name: str, body: ReorderJobsRequest):
 @router.put("/workspaces/{name}/jobs/{job_name}")
 def update_workspace_job(name: str, job_name: str, body: JobRequest):
     data, save_fn, label = _ws_jobs_context(name)
-    return _update_job(data, save_fn, job_name, body,
-                       f"{label} '{job_name}' not found",
-                       "job updated workspace=%s job=%%s" % name)
+    if job_name not in data:
+        raise not_found(f"{label} '{job_name}' not found")
+    return _save_job(data, save_fn, job_name, body, "job updated workspace=%s job=%%s" % name)
 
 
 @router.delete("/workspaces/{name}/jobs/{job_name}")
@@ -305,15 +296,15 @@ def list_global_jobs():
 @router.post("/global/jobs")
 def create_global_job(body: JobRequest):
     data, save_fn, _ = _global_jobs_context()
-    return _create_job(data, save_fn, body, "global job created job=%s")
+    return _save_job(data, save_fn, None, body, "global job created job=%s")
 
 
 @router.put("/global/jobs/{job_name}")
 def update_global_job(job_name: str, body: JobRequest):
     data, save_fn, label = _global_jobs_context()
-    return _update_job(data, save_fn, job_name, body,
-                       f"{label} '{job_name}' not found",
-                       "global job updated job=%s")
+    if job_name not in data:
+        raise not_found(f"{label} '{job_name}' not found")
+    return _save_job(data, save_fn, job_name, body, "global job updated job=%s")
 
 
 @router.delete("/global/jobs/{job_name}")
