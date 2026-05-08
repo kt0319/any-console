@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body, Depends, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse
 
 from ..auth import verify_token
-from ..common import MAX_UPLOAD_SIZE, resolve_workspace_path
+from ..common import MAX_UPLOAD_SIZE
 from ..errors import bad_request, conflict, not_found, too_large
 from ..validators import validate_git_ref
 from .git_file_utils import (
@@ -14,7 +14,7 @@ from .git_file_utils import (
 )
 from .git_helpers import (
     file_operation_guard,
-    resolve_and_validate_workspace_path,
+    resolve_workspace_file,
     run_raw_git,
     validate_workspace_relative_target,
 )
@@ -63,8 +63,7 @@ def read_file_content_at_ref(ws_path, path: str, ref: str):
 
 @router.get("/workspaces/{name}/files")
 def list_files(name: str, path: str = Query(""), ref: str | None = Query(None)):
-    ws_path = resolve_workspace_path(name)
-    target, rel = resolve_and_validate_workspace_path(ws_path, path)
+    ws_path, target, rel = resolve_workspace_file(name, path)
 
     rel_path = str(rel)
     if rel_path == ".":
@@ -84,8 +83,7 @@ def list_files(name: str, path: str = Query(""), ref: str | None = Query(None)):
 
 @router.get("/workspaces/{name}/file-content")
 def get_file_content(name: str, path: str = Query(...), ref: str | None = Query(None)):
-    ws_path = resolve_workspace_path(name)
-    target, rel = resolve_and_validate_workspace_path(ws_path, path)
+    ws_path, target, rel = resolve_workspace_file(name, path)
     rel_path = str(rel)
     if rel_path == ".":
         raise not_found("File not found")
@@ -107,8 +105,7 @@ async def upload_file_to_workspace(
     path: str = Form(""),
     file: UploadFile = File(...),
 ):
-    ws_path = resolve_workspace_path(name)
-    target_dir, rel_dir = resolve_and_validate_workspace_path(ws_path, path)
+    ws_path, target_dir, rel_dir = resolve_workspace_file(name, path)
     if not target_dir.is_dir():
         raise not_found("Directory not found")
 
@@ -134,9 +131,8 @@ async def upload_file_to_workspace(
 
 @router.post("/workspaces/{name}/rename")
 def rename_file(name: str, src: str = Body(...), dest: str = Body(...)):
-    ws_path = resolve_workspace_path(name)
-    src_target, _ = resolve_and_validate_workspace_path(ws_path, src)
-    dest_target, _ = resolve_and_validate_workspace_path(ws_path, dest)
+    ws_path, src_target, _ = resolve_workspace_file(name, src)
+    _, dest_target, _ = resolve_workspace_file(name, dest)
 
     if not src_target.exists():
         raise not_found("Source not found")
@@ -153,8 +149,7 @@ def rename_file(name: str, src: str = Body(...), dest: str = Body(...)):
 
 @router.post("/workspaces/{name}/delete-file")
 def delete_file(name: str, path: str = Body(..., embed=True)):
-    ws_path = resolve_workspace_path(name)
-    target, _ = resolve_and_validate_workspace_path(ws_path, path)
+    _, target, _ = resolve_workspace_file(name, path)
 
     if not target.exists():
         raise not_found("File not found")
@@ -170,8 +165,7 @@ def delete_file(name: str, path: str = Body(..., embed=True)):
 
 @router.get("/workspaces/{name}/download")
 def download_file(name: str, path: str = Query(...)):
-    ws_path = resolve_workspace_path(name)
-    target, _ = resolve_and_validate_workspace_path(ws_path, path)
+    _, target, _ = resolve_workspace_file(name, path)
 
     if not target.is_file():
         raise not_found("File not found")

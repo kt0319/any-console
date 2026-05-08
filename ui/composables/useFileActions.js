@@ -4,6 +4,7 @@ import { useApi } from "./useApi.js";
 import { emit } from "../app-bridge.js";
 import { MSG_DELETE_FAILED } from "../utils/constants.js";
 import { useConfirm } from "./useConfirm.js";
+import { triggerBlobDownload } from "../utils/download.js";
 
 export function useFileActions({ getContextEntry, clearContextEntry, getCurrentPath, getFileContent, navigateToPath }) {
   const auth = useAuthStore();
@@ -72,14 +73,7 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
         return;
       }
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filePath.split("/").pop() || "download";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      triggerBlobDownload(blob, filePath.split("/").pop() || "download");
     } catch {
       emit("toast:show", { message: "Download failed", type: "error" });
     }

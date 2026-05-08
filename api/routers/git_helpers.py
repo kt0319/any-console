@@ -69,3 +69,9 @@ def resolve_and_validate_workspace_path(ws_path, path: str):
     target = resolve_workspace_target_path(ws_path, path)
     rel = validate_workspace_relative_target(ws_path, target)
     return target, rel
+
+
+def resolve_workspace_file(name: str, path: str):
+    ws_path = resolve_workspace_path(name)
+    target, rel = resolve_and_validate_workspace_path(ws_path, path)
+    return ws_path, target, rel

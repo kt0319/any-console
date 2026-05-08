@@ -64,6 +64,7 @@ import { useApi } from "../composables/useApi.js";
 import { useAuthStore } from "../stores/auth.js";
 import { emit } from "../app-bridge.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
+import { triggerBlobDownload } from "../utils/download.js";
 import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
 import { workspaceGitDiscardPath } from "../utils/endpoints.js";
 
@@ -179,14 +180,7 @@ async function downloadFile(file) {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/download?path=${encodeURIComponent(file.path)}`);
     if (!res?.ok) { emit("toast:show", { message: "Download failed", type: "error" }); return; }
     const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = file.path.split("/").pop() || "download";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    triggerBlobDownload(blob, file.path.split("/").pop() || "download");
   } catch {
     emit("toast:show", { message: "Download failed", type: "error" });
   }

@@ -62,23 +62,18 @@ export function useGitHub() {
     return githubUrl.value;
   }
 
-  async function loadIssues(listRef, loadingRef, errorRef) {
+  async function _loadList(endpoint, countKey, mapper, listRef, loadingRef, errorRef) {
     const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return;
     loadingRef.value = true;
     errorRef.value = "";
     try {
-      const { ok, data } = await apiGet(wsEndpoint(workspace, "github/issues"));
+      const { ok, data } = await apiGet(wsEndpoint(workspace, endpoint));
       if (!ok) { errorRef.value = "Failed to fetch"; return; }
       if (data.status !== "ok") { errorRef.value = data.message || "Failed to fetch"; return; }
-      const result = (data.data || []).map((item) => ({
-        number: item.number,
-        title: item.title,
-        author: item.author?.login || "",
-        labels: item.labels || [],
-      }));
+      const result = (data.data || []).map(mapper);
       listRef.value = result;
-      setCountCache(workspace, "issues", result.length);
+      setCountCache(workspace, countKey, result.length);
     } catch (e) {
       errorRef.value = e.message;
     } finally {
@@ -86,56 +81,35 @@ export function useGitHub() {
     }
   }
 
-  async function loadPRs(listRef, loadingRef, errorRef) {
-    const workspace = workspaceStore.selectedWorkspace;
-    if (!workspace) return;
-    loadingRef.value = true;
-    errorRef.value = "";
-    try {
-      const { ok, data } = await apiGet(wsEndpoint(workspace, "github/pulls"));
-      if (!ok) { errorRef.value = "Failed to fetch"; return; }
-      if (data.status !== "ok") { errorRef.value = data.message || "Failed to fetch"; return; }
-      const result = (data.data || []).map((item) => ({
-        number: item.number,
-        title: item.title,
-        author: item.author?.login || "",
-        isDraft: !!item.isDraft,
-        headRefName: item.headRefName || "",
-        labels: item.labels || [],
-      }));
-      listRef.value = result;
-      setCountCache(workspace, "prs", result.length);
-    } catch (e) {
-      errorRef.value = e.message;
-    } finally {
-      loadingRef.value = false;
-    }
+  function loadIssues(listRef, loadingRef, errorRef) {
+    return _loadList("github/issues", "issues", (item) => ({
+      number: item.number,
+      title: item.title,
+      author: item.author?.login || "",
+      labels: item.labels || [],
+    }), listRef, loadingRef, errorRef);
   }
 
-  async function loadActions(listRef, loadingRef, errorRef) {
-    const workspace = workspaceStore.selectedWorkspace;
-    if (!workspace) return;
-    loadingRef.value = true;
-    errorRef.value = "";
-    try {
-      const { ok, data } = await apiGet(wsEndpoint(workspace, "github/runs"));
-      if (!ok) { errorRef.value = "Failed to fetch"; return; }
-      if (data.status !== "ok") { errorRef.value = data.message || "Failed to fetch"; return; }
-      const result = (data.data || []).map((r) => ({
-        id: r.databaseId || r.id,
-        name: r.name || r.workflowName || "",
-        status: r.status || "",
-        conclusion: r.conclusion || "",
-        headBranch: r.headBranch || "",
-        url: r.url || "",
-      }));
-      listRef.value = result;
-      setCountCache(workspace, "actions", result.length);
-    } catch (e) {
-      errorRef.value = e.message;
-    } finally {
-      loadingRef.value = false;
-    }
+  function loadPRs(listRef, loadingRef, errorRef) {
+    return _loadList("github/pulls", "prs", (item) => ({
+      number: item.number,
+      title: item.title,
+      author: item.author?.login || "",
+      isDraft: !!item.isDraft,
+      headRefName: item.headRefName || "",
+      labels: item.labels || [],
+    }), listRef, loadingRef, errorRef);
+  }
+
+  function loadActions(listRef, loadingRef, errorRef) {
+    return _loadList("github/runs", "actions", (r) => ({
+      id: r.databaseId || r.id,
+      name: r.name || r.workflowName || "",
+      status: r.status || "",
+      conclusion: r.conclusion || "",
+      headBranch: r.headBranch || "",
+      url: r.url || "",
+    }), listRef, loadingRef, errorRef);
   }
 
   return { githubUrl, repoName, loadWorkspaceGithubUrl, loadIssues, loadPRs, loadActions };

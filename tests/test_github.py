@@ -6,6 +6,8 @@ _run_gh をモックし、各エンドポイントの正常系・エラー系を
 import json
 import subprocess
 
+import api.routers.github as github_mod
+
 from conftest import AUTH
 
 
@@ -13,12 +15,7 @@ class TestGithubInfo:
 
     def test_success(self, client, workspace, monkeypatch):
         mock_data = {"name": "test-repo", "owner": {"login": "user"}, "url": "https://github.com/user/test-repo"}
-
-        def fake_run_gh(args, cwd):
-            return mock_data
-
-        import api.routers.github as github_mod
-        monkeypatch.setattr(github_mod, "_run_gh", fake_run_gh)
+        monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: mock_data)
 
         res = client.get("/workspaces/test-ws/github/info", headers=AUTH)
         assert res.status_code == 200
@@ -27,7 +24,6 @@ class TestGithubInfo:
         assert data["data"]["name"] == "test-repo"
 
     def test_gh_failure(self, client, workspace, monkeypatch):
-        import api.routers.github as github_mod
         monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: None)
         monkeypatch.setattr(github_mod, "_cache", {})
 
@@ -41,8 +37,6 @@ class TestGithubIssues:
 
     def test_success(self, client, workspace, monkeypatch):
         mock_data = [{"number": 1, "title": "Bug", "state": "OPEN"}]
-
-        import api.routers.github as github_mod
         monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: mock_data)
 
         res = client.get("/workspaces/test-ws/github/issues", headers=AUTH)
@@ -53,7 +47,6 @@ class TestGithubIssues:
         assert data["data"][0]["number"] == 1
 
     def test_gh_failure(self, client, workspace, monkeypatch):
-        import api.routers.github as github_mod
         monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: None)
         monkeypatch.setattr(github_mod, "_cache", {})
 
@@ -66,8 +59,6 @@ class TestGithubPulls:
 
     def test_success(self, client, workspace, monkeypatch):
         mock_data = [{"number": 10, "title": "Feature", "state": "OPEN", "isDraft": False}]
-
-        import api.routers.github as github_mod
         monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: mock_data)
 
         res = client.get("/workspaces/test-ws/github/pulls", headers=AUTH)
@@ -77,7 +68,6 @@ class TestGithubPulls:
         assert data["data"][0]["title"] == "Feature"
 
     def test_gh_failure(self, client, workspace, monkeypatch):
-        import api.routers.github as github_mod
         monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: None)
         monkeypatch.setattr(github_mod, "_cache", {})
 
@@ -90,8 +80,6 @@ class TestGithubRuns:
 
     def test_success(self, client, workspace, monkeypatch):
         mock_data = [{"databaseId": 1, "displayTitle": "CI", "status": "completed", "conclusion": "success"}]
-
-        import api.routers.github as github_mod
         monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: mock_data)
 
         res = client.get("/workspaces/test-ws/github/runs", headers=AUTH)
@@ -101,7 +89,6 @@ class TestGithubRuns:
         assert data["data"][0]["status"] == "completed"
 
     def test_gh_failure(self, client, workspace, monkeypatch):
-        import api.routers.github as github_mod
         monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: None)
         monkeypatch.setattr(github_mod, "_cache", {})
 

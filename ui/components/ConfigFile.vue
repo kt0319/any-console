@@ -21,6 +21,7 @@ hljs.registerLanguage("json", json);
 import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 import { EP_SETTINGS_EXPORT, EP_SETTINGS_IMPORT } from "../utils/endpoints.js";
+import { triggerBlobDownload } from "../utils/download.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Config File";
@@ -52,15 +53,7 @@ async function loadConfigFile() {
 
 function download() {
   const blob = new Blob([jsonText.value], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "any-console-config.json";
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  triggerBlobDownload(blob, "any-console-config.json");
   emit("toast:show", { message: "Config downloaded", type: "success" });
 }
 
