@@ -27,7 +27,7 @@ from ..config import (
     save_global_config_section,
     save_workspace_config_section,
 )
-from ..errors import bad_request, not_found, server_error, timeout_error, too_many_requests
+from ..errors import bad_request, not_found, server_error, too_many_requests
 from ..git_utils import command_result_dict, git_branches
 from ..job_models import TERMINAL_JOB, TERMINAL_JOB_KEY, JobDefinition
 from ..runner import run_job
@@ -398,9 +398,6 @@ def _run_regular_job(body, job_def, ordered_args, ws_path):
     logger.info("job start job=%s workspace=%s", body.job, body.workspace or "(none)")
     try:
         result = run_job(job_def, ordered_args, workspace=cwd_path)
-    except subprocess.TimeoutExpired:
-        logger.warning("job timeout job=%s workspace=%s", body.job, body.workspace or "(none)")
-        raise timeout_error("Job timed out") from None
     except OSError as e:
         logger.error("job exec failed job=%s workspace=%s: %s", body.job, body.workspace or "(none)", e)
         raise server_error(f"Job execution failed: {e}") from None
