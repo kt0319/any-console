@@ -2,7 +2,14 @@ import { EP_UPLOAD_IMAGE } from "./endpoints.js";
 
 const encoder = new TextEncoder();
 
-export async function uploadImageToTerminal({ file, apiFetch, ws, notify }) {
+function toBase64(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+export async function uploadImageToTerminal({ file, apiFetch, ws, term, notify }) {
   if (!file) return false;
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     notify?.("No active terminal", "error");
@@ -15,11 +22,10 @@ export async function uploadImageToTerminal({ file, apiFetch, ws, notify }) {
     const res = await apiFetch(EP_UPLOAD_IMAGE, { method: "POST", body: formData });
     if (!res || !res.ok) throw new Error("Upload failed");
     const data = await res.json();
-    if (data.clipboard) {
-      ws.send(encoder.encode("\x16"));
-    } else {
-      ws.send(encoder.encode(data.path));
+    if (term) {
+      term.write(`\x1b]52;c;${toBase64(data.path)}\x07`);
     }
+    ws.send(encoder.encode(data.path));
     return true;
   } catch (err) {
     notify?.(`Image upload failed: ${err.message}`, "error");

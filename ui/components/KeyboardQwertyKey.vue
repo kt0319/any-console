@@ -202,6 +202,7 @@ async function uploadImageAndSendPath(file) {
     file,
     apiFetch: auth.apiFetch.bind(auth),
     ws: tab?.ws,
+    term: tab?.term,
     notify: (message, type) => emit("toast:show", { message, type }),
   });
 }

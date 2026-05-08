@@ -2,14 +2,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-import asyncio
 import hmac
 import logging
 import re
 import secrets
-import shutil
 import socket
-import sys
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -121,37 +118,6 @@ def auth_logout(response: Response):
 ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 
 
-async def _write_image_to_clipboard(filepath: Path, content_type: str) -> bool:
-    import os
-    if not sys.platform.startswith("linux") or not shutil.which("xclip"):
-        return False
-    mime = content_type if content_type.startswith("image/") else "image/png"
-    import getpass
-    user = os.environ.get("SUDO_USER") or os.environ.get("USER") or getpass.getuser()
-    try:
-        image_data = filepath.read_bytes()
-        proc = await asyncio.create_subprocess_exec(
-            "sudo", "-u", user, "env", "DISPLAY=:0",
-            "xclip", "-selection", "clipboard", "-t", mime,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        proc.stdin.write(image_data)
-        await proc.stdin.drain()
-        proc.stdin.close()
-        await asyncio.wait_for(proc.wait(), timeout=3.0)
-        if proc.returncode == 0:
-            logger.info("xclip ok pid=%d user=%s", proc.pid, user)
-            return True
-        stderr = (await proc.stderr.read()).decode()
-        logger.warning("xclip failed returncode=%d stderr=%s", proc.returncode, stderr)
-        return False
-    except OSError as e:
-        logger.warning("xclip failed: %s", e)
-        return False
-
-
 @app.post("/upload-image", dependencies=[Depends(verify_token)])
 async def upload_image(file: UploadFile):
     if file.content_type not in ALLOWED_IMAGE_TYPES:
@@ -168,8 +134,7 @@ async def upload_image(file: UploadFile):
     filepath = UPLOAD_DIR / filename
     filepath.write_bytes(data)
 
-    clipboard_ok = await _write_image_to_clipboard(filepath, file.content_type)
-    return {"status": "ok", "path": str(filepath), "clipboard": clipboard_ok}
+    return {"status": "ok", "path": str(filepath)}
 
 
 @app.get("/")

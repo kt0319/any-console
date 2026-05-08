@@ -200,6 +200,7 @@ async function onPaste(e) {
     file: imageFile,
     apiFetch: auth.apiFetch.bind(auth),
     ws: props.tab.ws,
+    term: props.tab.term,
     notify: (message, type) => emit("toast:show", { message, type }),
   });
 }
