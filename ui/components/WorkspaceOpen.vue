@@ -26,7 +26,7 @@
           @mouseleave="onMouseLeave(ws)"
         >
           <div class="picker-ws-row picker-ws-row-top">
-            <button type="button" class="picker-ws-header-label" @click="toggleExpand(ws)">
+            <button type="button" class="picker-ws-header-label" @click="openDetail(ws)">
               <span v-html="renderIconStr(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
               <span class="picker-ws-header-text">
                 <span class="picker-ws-name">{{ ws.name }}</span>
@@ -34,11 +34,13 @@
               </span>
             </button>
             <div class="picker-ws-top-meta">
-              <button v-if="ws.is_git_repo && ws.clean === false" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(ws)" @click="toggleExpand(ws)"></button>
+              <button v-if="ws.is_git_repo && ws.clean === false" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(ws)" @click="openDetail(ws)"></button>
               <GitActionBtn v-if="ws.is_git_repo && ws.behind > 0" icon="pull" title="Pull" :count="ws.behind" :running="isRunning(ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="doAction(ws, 'pull')" />
               <GitActionBtn v-if="ws.is_git_repo && ws.ahead > 0 && ws.has_upstream !== false" icon="push" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(ws, 'push')" />
               <GitActionBtn v-if="ws.is_git_repo && ws.ahead > 0 && ws.has_upstream === false" icon="push-upstream" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action="doAction(ws, 'push-upstream')" />
-              <span class="picker-ws-chevron mdi" :class="isExpanded(ws.name) ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
+              <button type="button" class="picker-ws-chevron-btn" @click.stop="toggleExpand(ws)">
+                <span class="mdi" :class="isExpanded(ws.name) ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
+              </button>
             </div>
           </div>
           <div v-show="isExpanded(ws.name)" class="picker-ws-row picker-ws-row-bottom">
@@ -359,11 +361,19 @@ onMounted(() => {
   justify-content: flex-start;
 }
 
-.picker-ws-chevron {
-  font-size: 16px;
+.picker-ws-chevron-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: none;
   color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
   flex-shrink: 0;
-  margin-left: 4px;
 }
 
 
