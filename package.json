@@ -7,7 +7,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "node --test tests/ui/test_*.js",
-    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include='ui/**/*.js' tests/ui/test_*.js"
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include='ui/**/*.js' --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info tests/ui/test_*.js"
   },
   "devDependencies": {
     "vite": "^8.0.3"

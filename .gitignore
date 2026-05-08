@@ -15,6 +15,7 @@ env/
 .coverage
 .coverage.*
 coverage.xml
+coverage/
 htmlcov/
 
 # Logs
