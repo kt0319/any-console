@@ -1,28 +1,26 @@
 import asyncio
-import fcntl
 import json
 import logging
-import os
-import select
-import signal
-import struct
 import subprocess
-import termios
 import threading
-import time
-from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import WebSocket
 
 from .common import (
-    PTY_READ_BUFFER_SIZE,
-    PTY_READER_WORKERS,
     TERMINAL_DEFAULT_COLS,
     TERMINAL_DEFAULT_ROWS,
     TMUX_CMD_TIMEOUT_SEC,
     TMUX_SESSION_PREFIX,
 )
 from .errors import not_found
+from .terminal_pty import (
+    PTY_EOF,
+    PTY_EXECUTOR,
+    PTY_NO_DATA,
+    close_pty,
+    read_pty,
+    resize_pty,
+)
 from .tmux import (
     detect_workspace_from_tmux,
     kill_tmux_by_name,
@@ -32,6 +30,10 @@ from .tmux import (
 
 logger = logging.getLogger(__name__)
 
+WS_CLOSE_SESSION_EXITED = 4001
+
+
+# ─── Session model ───────────────────────────────────────────────────────────
 
 _TMUX_ATTR_MAP = {
     "TMUX_WORKSPACE": "workspace",
@@ -70,20 +72,20 @@ class TerminalSession:
         self._last_active_client: WebSocket | None = None
 
     def save_metadata(self) -> None:
+        pairs = [
+            (env_key, getattr(self, attr))
+            for env_key, attr in _TMUX_ATTR_MAP.items()
+            if getattr(self, attr)
+        ]
+        if not pairs:
+            return
         argv: list[str] = ["tmux"]
-        for env_key, attr in _TMUX_ATTR_MAP.items():
-            value = getattr(self, attr, None)
-            if not value:
-                continue
-            if len(argv) > 1:
+        for i, (env_key, value) in enumerate(pairs):
+            if i > 0:
                 argv.append(";")
             argv.extend(["set-environment", "-t", self.tmux_session_name, env_key, value])
-        if len(argv) == 1:
-            return
         try:
-            result = subprocess.run(
-                argv, timeout=TMUX_CMD_TIMEOUT_SEC, capture_output=True,
-            )
+            result = subprocess.run(argv, timeout=TMUX_CMD_TIMEOUT_SEC, capture_output=True)
             if result.returncode != 0:
                 logger.warning("save metadata failed session=%s: %s",
                                self.tmux_session_name, result.stderr)
@@ -114,44 +116,18 @@ class TerminalSession:
         }
 
 
+# ─── Session registry ────────────────────────────────────────────────────────
+
 TERMINAL_SESSIONS: dict[str, TerminalSession] = {}
 sessions_lock = threading.Lock()
-
-
-def _detach_pty_bridge(session: TerminalSession) -> None:
-    if session.fd is not None:
-        try:
-            os.close(session.fd)
-        except OSError as e:
-            logger.debug("close fd=%d failed: %s", session.fd, e)
-    if session.pid is not None:
-        try:
-            os.kill(session.pid, signal.SIGTERM)
-        except (ProcessLookupError, PermissionError, OSError) as e:
-            logger.debug("SIGTERM pid=%d failed: %s", session.pid, e)
-            return
-        try:
-            pid, _ = os.waitpid(session.pid, os.WNOHANG)
-            if pid == 0:
-                time.sleep(0.1)
-                os.kill(session.pid, signal.SIGKILL)
-                os.waitpid(session.pid, os.WNOHANG)
-        except (ChildProcessError, ProcessLookupError, PermissionError, OSError) as e:
-            logger.debug("cleanup pid=%d failed: %s", session.pid, e)
-    session.fd = None
-    session.pid = None
-
-
-def _kill_tmux_session(session: TerminalSession) -> None:
-    _detach_pty_bridge(session)
-    kill_tmux_by_name(session.tmux_session_name)
 
 
 def _register_tmux_session(session_id: str, tmux_name: str) -> TerminalSession:
     session = TerminalSession.from_tmux(tmux_name)
     with sessions_lock:
         TERMINAL_SESSIONS[session_id] = session
-    logger.info("on-demand registered tmux session=%s workspace=%s", session_id, session.workspace or "(none)")
+    logger.info("on-demand registered tmux session=%s workspace=%s",
+                session_id, session.workspace or "(none)")
     return session
 
 
@@ -168,21 +144,24 @@ def get_terminal_session(session_id: str) -> TerminalSession:
     return _register_tmux_session(session_id, tmux_name)
 
 
-PTY_NO_DATA = b"\x00"
-PTY_EOF = b""
+# ─── PTY bridge lifecycle ────────────────────────────────────────────────────
 
-PTY_EXECUTOR = ThreadPoolExecutor(max_workers=PTY_READER_WORKERS, thread_name_prefix="pty-reader")
+def _detach_pty_bridge(session: TerminalSession) -> None:
+    close_pty(session.fd, session.pid)
+    session.fd = None
+    session.pid = None
 
 
-def _read_pty(fd: int) -> bytes:
-    try:
-        r, _, _ = select.select([fd], [], [], 1.0)
-        if not r:
-            return PTY_NO_DATA
-        return os.read(fd, PTY_READ_BUFFER_SIZE)
-    except (OSError, ValueError):
-        return PTY_EOF
+def _kill_tmux_session(session: TerminalSession) -> None:
+    _detach_pty_bridge(session)
+    kill_tmux_by_name(session.tmux_session_name)
 
+
+def _apply_pty_size(session: TerminalSession, cols: int, rows: int) -> None:
+    resize_pty(session.fd, session.tmux_session_name, cols, rows)
+
+
+# ─── WebSocket fan-out & reader loop ─────────────────────────────────────────
 
 async def _broadcast_to_clients(session: TerminalSession, data: bytes) -> None:
     stale = []
@@ -193,9 +172,6 @@ async def _broadcast_to_clients(session: TerminalSession, data: bytes) -> None:
             stale.append(ws)
     for ws in stale:
         session.clients.discard(ws)
-
-
-WS_CLOSE_SESSION_EXITED = 4001
 
 
 async def _close_all_clients(session: TerminalSession, code: int, reason: str) -> None:
@@ -214,7 +190,7 @@ async def _session_reader(session: TerminalSession, session_id: str) -> None:
         while session.clients:
             if session.fd is None:
                 break
-            data = await loop.run_in_executor(PTY_EXECUTOR, _read_pty, session.fd)
+            data = await loop.run_in_executor(PTY_EXECUTOR, read_pty, session.fd)
             if data == PTY_EOF:
                 pty_eof = True
                 break
@@ -238,16 +214,7 @@ def _ensure_reader_task(session: TerminalSession, session_id: str) -> None:
     session._reader_task = asyncio.create_task(_session_reader(session, session_id))
 
 
-def _apply_pty_size(session: TerminalSession, cols: int, rows: int) -> None:
-    if session.fd is not None:
-        winsize = struct.pack("HHHH", rows, cols, 0, 0)
-        fcntl.ioctl(session.fd, termios.TIOCSWINSZ, winsize)
-    subprocess.run(
-        ["tmux", "resize-window", "-t", session.tmux_session_name, "-x", str(cols), "-y", str(rows)],
-        timeout=TMUX_CMD_TIMEOUT_SEC,
-        capture_output=True,
-    )
-
+# ─── Resize & active-client switching ────────────────────────────────────────
 
 def _handle_resize(session: TerminalSession, payload: bytes, ws: WebSocket | None = None) -> None:
     try:
