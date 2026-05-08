@@ -27,3 +27,7 @@ export const EP_SETTINGS_IMPORT = "/settings/import";
 export const EP_SETTINGS_CONFIG_HEALTH = "/settings/config-health";
 export const EP_GITHUB_REPOS = "/github/repos";
 export const EP_RECENT_JOBS = "/recent-jobs";
+
+export function workspaceGitDiscardPath(workspace) {
+  return `/workspaces/${encodeURIComponent(workspace)}/git/discard`;
+}

@@ -5,19 +5,40 @@
       <div class="modal-scroll-body">
         <div v-if="isSelectedCommitFilesLoading" class="text-muted-center">Loading...</div>
         <ul v-if="!isSelectedCommitFilesLoading" class="file-browser-list diff-file-browser-list">
-          <FileItem
-            v-for="file in selectedCommitFiles"
-            :key="file.path"
-            class="diff-file-row"
-            :label="file.path"
-            :icon-html="fileIconHtml(file)"
-            @click="selectCommitDiffFile(file)"
-          >
-            <template #right>
-              <span v-if="file.numstat" class="diff-file-row-numstat" v-html="file.numstat"></span>
-              <span :class="['diff-file-row-status', statusClass(file.status)]">{{ file.status }}</span>
-            </template>
-          </FileItem>
+          <template v-for="file in selectedCommitFiles" :key="file.path">
+            <FileItem
+              class="diff-file-row"
+              :label="file.path"
+              :icon-html="fileIconHtml(file)"
+              @click="onDiffFileClick(file)"
+              @contextmenu="diffContextEntry = file"
+              @mouseenter="onDiffFileMouseEnter(file)"
+              @mouseleave="onDiffFileMouseLeave"
+              @mousedown="diffLongPress.startMenu($event, file)"
+              @mouseup="diffLongPress.endMenu()"
+              @touchstart="diffLongPress.startMenu($event, file)"
+              @touchend="diffLongPress.endMenu()"
+              @touchcancel="diffLongPress.endMenu()"
+            >
+              <template #right>
+                <span v-if="file.numstat" class="diff-file-row-numstat" v-html="file.numstat"></span>
+                <span :class="['diff-file-row-status', statusClass(file.status)]">{{ file.status }}</span>
+              </template>
+            </FileItem>
+            <li
+              v-if="diffContextEntry?.path === file.path"
+              class="file-browser-action-menu"
+              @mouseenter="onDiffMenuMouseEnter"
+              @mouseleave="onDiffMenuMouseLeave"
+            >
+              <button type="button" @click="viewDiffFile(file)"><span class="mdi mdi-file-document-outline"></span> View diff</button>
+              <button v-if="editorUrlTemplate" type="button" @click="openInEditor(file.path); diffContextEntry = null"><span class="mdi mdi-file-edit-outline"></span> Editor</button>
+              <button type="button" @click="downloadDiffFile(file)"><span class="mdi mdi-download"></span> Download</button>
+              <button v-if="diffFileGithubUrl(file)" type="button" @click="openDiffFileGithub(file)"><span class="mdi mdi-github"></span> GitHub</button>
+              <button v-if="isWorkingTreeDiff" type="button" class="file-browser-action-delete" @click="discardDiffFile(file)"><span class="mdi mdi-undo"></span> Discard</button>
+              <button v-if="isWorkingTreeDiff" type="button" class="file-browser-action-delete" @click="deleteDiffFile(file)"><span class="mdi mdi-delete-outline"></span> Delete</button>
+            </li>
+          </template>
         </ul>
       </div>
     </template>
@@ -104,14 +125,19 @@ import { useGitHistoryAction } from "../composables/useGitHistoryAction.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useGitDiff } from "../composables/useGitDiff.js";
 import { useGitLogPagination } from "../composables/useGitLogPagination.js";
+import { useEditorIntegration } from "../composables/useEditorIntegration.js";
+import { useAuthStore } from "../stores/auth.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
 import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
 import { GRAPH_ROW_HEIGHT } from "../utils/git-graph.js";
+import { workspaceGitDiscardPath } from "../utils/endpoints.js";
 
 const emitToParent = defineEmits(["pane:select", "commit:expanded", "commit:collapsed"]);
 
 const workspaceStore = useWorkspaceStore();
 const { apiGet, apiCommand, wsEndpoint } = useApi();
+const { editorUrlTemplate, fetchEditorSettings, openInEditor } = useEditorIntegration();
+const auth = useAuthStore();
 const { execAction: execCommitAction, execReset: execCommitReset, execCreateBranch: execCommitCreateBranch, execMerge: execCommitMerge, execRebase: execCommitRebase } = useGitHistoryAction();
 const { confirm } = useConfirm();
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
@@ -249,6 +275,119 @@ function closeSelectedCommitFiles() {
   emitToParent("commit:collapsed");
 }
 
+const diffLongPress = useLongPress();
+const diffContextEntry = ref(null);
+const isHoverDevice = window.matchMedia("(hover: hover)").matches;
+let diffHoverCloseTimer = null;
+
+const isWorkingTreeDiff = computed(() => selectedCommitForFiles.value?.hash === "__dirty__");
+
+function onDiffFileMouseEnter(file) {
+  if (!isHoverDevice) return;
+  clearTimeout(diffHoverCloseTimer);
+  diffContextEntry.value = file;
+}
+
+function onDiffFileMouseLeave() {
+  if (!isHoverDevice) return;
+  diffHoverCloseTimer = setTimeout(() => { diffContextEntry.value = null; }, 150);
+}
+
+function onDiffMenuMouseEnter() {
+  clearTimeout(diffHoverCloseTimer);
+}
+
+function onDiffMenuMouseLeave() {
+  diffHoverCloseTimer = setTimeout(() => { diffContextEntry.value = null; }, 150);
+}
+
+function onDiffFileClick(file) {
+  if (!isHoverDevice) {
+    if (diffLongPress.consumeFired()) return;
+    if (diffContextEntry.value?.path === file.path) {
+      diffContextEntry.value = null;
+      selectCommitDiffFile(file);
+      return;
+    }
+    diffContextEntry.value = file;
+    return;
+  }
+  selectCommitDiffFile(file);
+}
+
+function viewDiffFile(file) {
+  diffContextEntry.value = null;
+  selectCommitDiffFile(file);
+}
+
+async function discardDiffFile(file) {
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
+  diffContextEntry.value = null;
+  const { ok } = await apiCommand(
+    workspaceGitDiscardPath(workspace),
+    { path: file.path },
+    { errorMessage: `Failed to discard ${file.path}` },
+  );
+  if (ok) {
+    bridgeEmit("git:refreshStatus");
+    openWorkingTreeDiffFiles();
+  }
+}
+
+function openDiffFileGithub(file) {
+  const url = diffFileGithubUrl(file);
+  if (url) window.open(url, "_blank");
+  diffContextEntry.value = null;
+}
+
+function diffFileGithubUrl(file) {
+  const ws = workspaceStore.currentWorkspace;
+  if (!ws?.github_url) return "";
+  const ref = isWorkingTreeDiff.value
+    ? (ws.branch || "main")
+    : (selectedCommitForFiles.value?.fullHash || "");
+  if (!ref) return "";
+  return `${ws.github_url}/blob/${ref}/${file.path}`;
+}
+
+async function downloadDiffFile(file) {
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
+  diffContextEntry.value = null;
+  try {
+    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/download?path=${encodeURIComponent(file.path)}`);
+    if (!res?.ok) { bridgeEmit("toast:show", { message: "Download failed", type: "error" }); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file.path.split("/").pop() || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch {
+    bridgeEmit("toast:show", { message: "Download failed", type: "error" });
+  }
+}
+
+async function deleteDiffFile(file) {
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
+  diffContextEntry.value = null;
+  const { ok } = await apiCommand(
+    wsEndpoint(workspace, "delete-file"),
+    { path: file.path },
+    { errorMessage: "Delete failed" },
+  );
+  if (ok) {
+    bridgeEmit("toast:show", { message: "Deleted", type: "success" });
+    bridgeEmit("git:refreshStatus");
+    openWorkingTreeDiffFiles();
+  }
+}
+
 function selectCommitDiffFile(file) {
   bridgeEmit("git:selectDiffFile", { path: file.path });
 }
@@ -257,7 +396,10 @@ async function reloadHistory() {
   await loadHistory();
 }
 
-onMounted(loadHistory);
+onMounted(() => {
+  loadHistory();
+  fetchEditorSettings();
+});
 
 function setActivePane(key) {
   activePane.value = key;
@@ -485,6 +627,25 @@ defineExpose({
 .git-log-commit.action-open,
 .diff-file-row.action-open {
   background: rgba(130, 170, 255, 0.08);
+}
+
+.file-browser-action-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.file-browser-action-menu button {
+  padding: 5px 10px;
+  font-size: 11px;
+  min-height: 0;
+}
+
+.file-browser-action-delete {
+  color: var(--error);
+  border-color: var(--error);
 }
 
 </style>

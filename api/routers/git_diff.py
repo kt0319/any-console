@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Body, Depends
 
 from ..auth import verify_token
 from ..common import GIT_SHORT_TIMEOUT_SEC, MAX_DIFF_SIZE, STASH_REF_PATTERN, resolve_workspace_path
 from ..git_utils import run_git_command
 from ..validators import validate_commit_hash
 from .git_diff_utils import build_file_entry, build_file_list, parse_numstat_result
+from .git_helpers import execute_git_action, resolve_workspace_target_path
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
@@ -81,3 +82,10 @@ def get_workspace_diff(name: str):
     if len(diff_text) > MAX_DIFF_SIZE:
         diff_text = diff_text[:MAX_DIFF_SIZE] + "\n... (truncated)"
     return {"status": "ok", "files": files, "diff": diff_text}
+
+
+@router.post("/workspaces/{name}/git/discard")
+def discard_file_changes(name: str, path: str = Body(..., embed=True)):
+    ws_path = resolve_workspace_path(name)
+    resolve_workspace_target_path(ws_path, path)
+    return execute_git_action(name, ["restore", path], operation="restore", log_extra=f"path={path}")
