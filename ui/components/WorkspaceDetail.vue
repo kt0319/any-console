@@ -16,6 +16,13 @@
         </button>
       </div>
 
+      <!-- ブランチ情報バー -->
+      <div v-if="currentBranch" class="workspace-branch-bar">
+        <span class="mdi mdi-source-branch workspace-branch-icon"></span>
+        <span class="workspace-branch-name">{{ currentBranch }}</span>
+        <span v-if="isDirty" class="workspace-branch-dirty" v-html="dirtySummaryHtml"></span>
+      </div>
+
       <!-- タブコンテンツ -->
       <div class="workspace-tab-content">
         <div v-show="activePane === 'history'" class="file-modal-pane">
@@ -107,10 +114,21 @@ let lastRatioBeforeCollapse = 0.33;
 let lastTapTime = 0;
 const DOUBLE_TAP_MS = 300;
 
+const currentBranch = computed(() => workspaceStore.currentWorkspace?.branch || "");
+const isDirty = computed(() => workspaceStore.currentWorkspace?.clean === false);
 const changesCount = computed(() => {
   const ws = workspaceStore.currentWorkspace;
   if (!ws || ws.clean !== false) return 0;
   return ws.changed_files || 0;
+});
+const dirtySummaryHtml = computed(() => {
+  const ws = workspaceStore.currentWorkspace;
+  if (!ws || ws.clean !== false) return "";
+  const files = ws.changed_files || 0;
+  const ins = ws.insertions || 0;
+  const del = ws.deletions || 0;
+  const filePart = files > 0 ? `<span class="branch-bar-files">${files}F</span>` : "";
+  return `${filePart}<span class="branch-bar-ins">+${ins}</span><span class="branch-bar-del">-${del}</span>`;
 });
 
 const issuesCount = ref(null);
@@ -133,9 +151,7 @@ const tabs = computed(() => {
 });
 
 function updateViewTitle() {
-  const ws = workspaceStore.selectedWorkspace || "Git";
-  const branch = workspaceStore.currentWorkspace?.branch;
-  modalTitle.value = branch ? `${ws} (${branch})` : ws;
+  modalTitle.value = workspaceStore.selectedWorkspace || "Git";
 }
 
 function onHandleDoubleTap() {
@@ -478,5 +494,56 @@ onMounted(() => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+/* ブランチ情報バー */
+.workspace-branch-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.workspace-branch-icon {
+  font-size: 13px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.workspace-branch-name {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.workspace-branch-dirty {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.workspace-branch-dirty :deep(.branch-bar-files) {
+  color: var(--warning);
+}
+
+.workspace-branch-dirty :deep(.branch-bar-ins) {
+  color: var(--success);
+}
+
+.workspace-branch-dirty :deep(.branch-bar-del) {
+  color: var(--error);
 }
 </style>

@@ -18,7 +18,7 @@
         >
           <h3 class="modal-title">
             <span v-if="canNavigateBack" class="mdi mdi-arrow-left modal-title-back-icon" aria-hidden="true"></span>
-            {{ modalTitle }}
+            {{ modalTitle }}<template v-if="modalBranch"><span class="modal-title-sep"> / </span><span class="modal-title-branch">{{ modalBranch }}</span></template>
           </h3>
         </button>
         <button type="button" class="modal-close-btn" @click="closeModal">&times;</button>
@@ -88,7 +88,9 @@ const canNavigateBack = computed(() =>
 );
 
 const modalTitle = ref("");
+const modalBranch = ref("");
 provide("modalTitle", modalTitle);
+provide("modalBranch", modalBranch);
 provide("viewState", currentState);
 provide("pushView", pushView);
 provide("popView", popView);
@@ -106,10 +108,12 @@ function setPaneRef(el) {
 }
 
 function pushView(view, state = {}) {
+  modalBranch.value = "";
   viewStack.value = [...viewStack.value, { view, state }];
 }
 
 function popView(result) {
+  modalBranch.value = "";
   const popped = viewStack.value.at(-1);
   viewStack.value = viewStack.value.slice(0, -1);
   if (viewStack.value.length === 0) { closeModal(); return; }
@@ -134,6 +138,7 @@ function closeModal() {
   modal.close();
   viewStack.value = [];
   modalTitle.value = "";
+  modalBranch.value = "";
   currentPaneRef.value = null;
 }
 
@@ -256,6 +261,16 @@ onMounted(() => {
   line-height: 1;
   flex-shrink: 0;
   color: inherit;
+}
+
+.modal-title-sep {
+  color: var(--text-muted);
+}
+
+.modal-title-branch {
+  font-size: 11px;
+  color: var(--text-primary);
+  font-weight: 400;
 }
 
 .modal-body {
