@@ -19,6 +19,12 @@ from ..errors import bad_request, too_large
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
+_LABEL_PREVIEW_LEN = 20
+
+
+def _default_label(command: str) -> str:
+    return command[:_LABEL_PREVIEW_LEN] + ("..." if len(command) > _LABEL_PREVIEW_LEN else "")
+
 MAX_IMPORT_SIZE = 1024 * 1024
 MAX_TOKEN_LENGTH = 256
 
@@ -189,7 +195,7 @@ def get_snippets():
             continue
         label = str(item.get("label", "")).strip()
         if not label:
-            label = command[:20] + ("..." if len(command) > 20 else "")
+            label = _default_label(command)
         sanitized.append({"label": label[:MAX_LABEL_LENGTH], "command": command[:MAX_COMMAND_LENGTH]})
     return {"snippets": sanitized}
 
@@ -201,7 +207,7 @@ def put_snippets(body: UpdateSnippetsRequest):
         command = item.command.strip()
         if not command:
             continue
-        label = item.label.strip() or (command[:20] + ("..." if len(command) > 20 else ""))
+        label = item.label.strip() or _default_label(command)
         snippets.append({"label": label[:MAX_LABEL_LENGTH], "command": command[:MAX_COMMAND_LENGTH]})
     save_global_config_section("snippets", snippets)
     return {"status": "ok", "snippets": snippets}

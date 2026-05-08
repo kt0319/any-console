@@ -95,7 +95,7 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
       formData.append("path", uploadPath);
       formData.append("file", file);
       try {
-        const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/upload`, {
+        const res = await auth.apiFetch(wsEndpoint(workspace, "upload"), {
           method: "POST",
           body: formData,
         });
