@@ -15,62 +15,88 @@ Web操作コンソール。スマホからTailscale経由でシェルスクリ�
 
 ## 依存関係
 
-- Python 3.11+
-- 主要ライブラリ: `fastapi`, `uvicorn`, `websockets`, `python-dotenv`（`requirements.txt`）
-- フロントエンド: `vite`（`package.json`）
+- Python 3.11+、Node.js 18+
+- 主要ライブラリ: `fastapi`, `uvicorn`, `websockets`, `python-dotenv`, `pydantic`, `python-multipart`, `anthropic`（`requirements.txt`）
+- フロントエンド: `vite`、`vue`、`pinia`、`@xterm/xterm`、`highlight.js`、`@mdi/font`（`package.json`）
+- 開発依存: `pytest`, `pytest-cov`, `ruff`, `mypy`, `httpx`
 - 追加ツール（任意）
-  - `gh` CLI: GitHubリポジトリ一覧取得に使用
-  - `pytest`: テスト実行に使用
-  - `ruff`: lint（`pyproject.toml`）
+  - `gh` CLI: GitHubリポジトリ一覧・Issue/PR/Actions取得に使用
+  - `tmux`: ターミナルセッション管理に必須（本番・開発とも）
+  - `tailscale`: クライアント名解決（VPN判定）。なくても動作する
 
 ## 起動・開発
 
-```bash
-# 依存インストール
-pip install -r requirements.txt
-npm install
+すべての運用操作は `./any-console <subcommand>` から行うのが標準。
+
+```
+./any-console setup      初回セットアップ（依存インストール + ビルド + .env生成 + systemd登録）
+./any-console update     最新版に更新（git pull + 依存更新 + ビルド + サービス再起動）
+./any-console start|stop|restart   サービス制御
+./any-console status     状態表示（サービス状態、URL、バージョン）
+./any-console logs       journalctl のサービスログ表示
+./any-console version    バージョン表示
+./any-console dev        開発モード起動（FastAPI + Vite HMR を並列起動、Ctrl+C で両方終了）
 ```
 
 ### 開発（Vite HMR）
 
+`./any-console dev` を推奨。手動で並列起動する場合:
+
 ```bash
-# 1. FastAPI（API側）を起動
+# 1. 依存インストール（初回のみ）
+pip install -r requirements.txt
+npm install
+
+# 2. FastAPI（API側）を起動
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8888 --reload --reload-include "*.py"
 
-# 2. Vite dev server を別ターミナルで起動
+# 3. Vite dev server を別ターミナルで起動
 npm run dev
 # → localhost:5173 にアクセス（APIはプロキシで8888に転送）
 ```
 
 - UI編集が即座にブラウザに反映される（HMR）
 - APIリクエスト・WebSocketは `vite.config.js` のプロキシ設定で FastAPI に転送
-- `.env` がない場合は `ANY_CONSOLE_TOKEN=dev-token` を付けて FastAPI を起動
 
-### 本番（pi:8888）
+### 本番（systemd / Docker）
+
+systemd:
 
 ```bash
-# ビルド → dist/ を生成
-npm run build
-
-# FastAPI起動（dist/ があればそこから配信、なければ ui/ から直接配信）
-sudo systemctl restart any-console
+npm run build                       # dist/ を生成
+sudo systemctl restart any-console  # ./any-console restart でも可
 ```
 
+Docker:
+
+```bash
+docker compose -f docker/compose.yml up -d
+```
+
+- `dist/` があればそこから配信、なければ `ui/` から直接配信
 - `dist/` を削除すれば従来通り `ui/` から直接配信に戻る
 - `vite.config.js` のプラグインでvendor JS・静的ファイルを `dist/` にコピー
 
 ### 認証
 
-- 環境変数 `ANY_CONSOLE_TOKEN` によるBearerトークン認証
+- 認証は **オプション**。デフォルトでは無効（Tailscale等で網が閉じている前提）
+- 有効化は2通り:
+  - UIの「Security」設定からトークンを発行・更新（`data/auth.json` に保存）
+  - 環境変数 `ANY_CONSOLE_TOKEN` を設定
+- `data/auth.json` のトークンが優先され、なければ環境変数を使用（`api/auth.py`）
 - `.env` は `python-dotenv` で `api/main.py` 起動時に自動読み込み
+- Bearerトークン方式。WebSocketは `verify_ws_token()` で検証
 
 ## テスト・Lint
 
-- バックエンド: `pytest`（`tests/`）
+- バックエンド: `pytest`（`tests/`、`pytest-cov` でカバレッジ可）
 - フロントエンド: `npm test`（`tests/ui/test_*.js`、`node:test` + `node:assert/strict`）
+- フロントエンドカバレッジ: `npm run test:coverage`（`coverage/lcov.info` 生成）
 - フロントエンドテストは純粋関数のインラインコピーパターン（DOM依存を排除）
 - テスト対象関数を変更した場合、対応するテストファイルのインラインコピーも更新すること
-- `ruff` 設定は `pyproject.toml`
+- Lint: `ruff check api/`（設定は `pyproject.toml`、`select = E,F,W,I,B,S,C90`）
+- 型: `mypy`（設定は `pyproject.toml`）
+- CI: `.github/workflows/ci.yml`、カバレッジは codecov に送信（`codecov.yml`）
 
 ## アーキテクチャ
 
@@ -79,8 +105,26 @@ sudo systemctl restart any-console
 ### 概要
 
 - バックエンド: `api/`（FastAPI + subprocess）
-- フロントエンド: `ui/`（Vue 3 + Pinia、Viteでビルド）
+  - `main.py`: アプリ初期化、`/auth/check`、画像アップロード、静的ファイル配信
+  - `auth.py`: トークン認証（環境変数 or `data/auth.json`）、Tailscale名前解決、IPバンド判定
+  - `runner.py`: ジョブ実行（subprocess、120秒タイムアウト）
+  - `terminal_session.py` / `tmux.py`: tmux × pty.fork × WebSocket ブリッジ
+  - `git_utils.py` / `git_lock.py`: Gitコマンド実行とワークスペース単位のロック
+  - `config.py` / `config_schema.py`: `config.json` の読み書きと Pydantic 検証
+  - `rate_limiter.py`: APIレートリミッタ（ミドルウェア）
+  - `client_log.py`: クライアントログ受信ミドルウェア
+  - `validators.py` / `errors.py`: 入力検証と共通エラーレスポンス
+  - `ai_summary.py`: git pull 結果の AI 要約（Anthropic SDK）
+  - `icons.py`: アイコン関連処理
+  - `common.py`: 共通定数・`TTLCache`・`BACKGROUND_EXECUTOR`
 - ルーター: `api/routers/`
+  - `workspaces`, `jobs`, `terminal`, `system`, `settings`
+  - `git`（サブルーター集約）+ `git_branches`, `git_history`, `git_diff`, `git_files`
+  - `git_helpers`, `git_diff_utils`, `git_file_utils`（共通ユーティリティ）
+  - `github`（gh CLI 経由）
+- フロントエンド: `ui/`（Vue 3 + Pinia、Viteでビルド）
+  - `components/`, `stores/`, `composables/`, `utils/`, `styles/`
+  - PWA対応（`ui/sw.js`, `ui/public/manifest.json`）
 
 ## ジョブシステム
 
@@ -133,7 +177,10 @@ sudo systemctl restart any-console
 ## 設計上の注意点
 
 - Git操作はすべてsubprocess呼び出し（ライブラリ不使用）
-- 認証は単一トークン（ユーザー区別なし）
+- 認証は単一トークン（ユーザー区別なし）。デフォルトは認証オフ
 - フロントエンドはViteでビルド。`dist/` があればそこから、なければ `ui/` から直接StaticFilesとしてマウント
 - `main.py` で起動時にCSS/JSにキャッシュバスト用クエリパラメータを付与
-- systemdサービス定義は `any-console` スクリプト内の `generate_service_unit()` で生成（`./any-console setup` で登録）
+- systemdサービス定義は `any-console` スクリプト内で生成（`./any-console setup` で登録）
+- Docker構成は `docker/Dockerfile` および `docker/compose.yml`
+- `AGENTS.md` は `CLAUDE.md` へのシンボリックリンク（同内容を共有）
+- `data/auth.json` と `config.json` は `.gitignore` 対象。実環境で自動生成される
