@@ -11,7 +11,7 @@
               :label="file.path"
               :icon-html="fileIconHtml(file)"
               @click="onDiffFileClick(file)"
-              @contextmenu="diffContextEntry = file"
+              @contextmenu="openDiffMenu(file)"
               @mouseenter="onDiffFileMouseEnter(file)"
               @mouseleave="onDiffFileMouseLeave"
               @mousedown="diffLongPress.startMenu($event, file)"
@@ -25,19 +25,12 @@
                 <span :class="['diff-file-row-status', statusClass(file.status)]">{{ file.status }}</span>
               </template>
             </FileItem>
-            <li
+            <FileActionMenu
               v-if="diffContextEntry?.path === file.path"
-              class="file-browser-action-menu"
-              @mouseenter="onDiffMenuMouseEnter"
-              @mouseleave="onDiffMenuMouseLeave"
-            >
-              <button type="button" @click="viewDiffFile(file)"><span class="mdi mdi-file-document-outline"></span> View diff</button>
-              <button v-if="editorUrlTemplate" type="button" @click="openInEditor(file.path); diffContextEntry = null"><span class="mdi mdi-file-edit-outline"></span> Editor</button>
-              <button type="button" @click="downloadDiffFile(file)"><span class="mdi mdi-download"></span> Download</button>
-              <button v-if="diffFileGithubUrl(file)" type="button" @click="openDiffFileGithub(file)"><span class="mdi mdi-github"></span> GitHub</button>
-              <button v-if="isWorkingTreeDiff" type="button" class="file-browser-action-delete" @click="discardDiffFile(file)"><span class="mdi mdi-undo"></span> Discard</button>
-              <button v-if="isWorkingTreeDiff" type="button" class="file-browser-action-delete" @click="deleteDiffFile(file)"><span class="mdi mdi-delete-outline"></span> Delete</button>
-            </li>
+              :actions="diffMenuActions"
+              @menu-enter="onDiffMenuMouseEnter"
+              @menu-leave="onDiffMenuMouseLeave"
+            />
           </template>
         </ul>
       </div>
@@ -99,10 +92,12 @@
 import { ref, computed, onMounted } from "vue";
 
 import FileItem from "./FileItem.vue";
+import FileActionMenu from "./FileActionMenu.vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useLongPress } from "../composables/useLongPress.js";
+import { useHoverMenu, isHoverDevice } from "../composables/useHoverMenu.js";
 import { useGitHistoryAction } from "../composables/useGitHistoryAction.js";
 import { useGitDiff } from "../composables/useGitDiff.js";
 import { useGitLogPagination } from "../composables/useGitLogPagination.js";
@@ -112,6 +107,7 @@ import { renderFileIconFromPath } from "../utils/file-icon.js";
 import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
 import { GRAPH_ROW_HEIGHT } from "../utils/git-graph.js";
 import { workspaceGitDiscardPath } from "../utils/endpoints.js";
+import { triggerBlobDownload } from "../utils/download.js";
 
 const emitToParent = defineEmits(["commit:expanded", "commit:collapsed"]);
 
@@ -213,54 +209,54 @@ function closeSelectedCommitFiles() {
 }
 
 const diffLongPress = useLongPress();
-const diffContextEntry = ref(null);
-const isHoverDevice = window.matchMedia("(hover: hover)").matches;
-let diffHoverCloseTimer = null;
+const {
+  contextEntry: diffContextEntry,
+  openMenu: openDiffMenu,
+  closeMenu: closeDiffMenu,
+  onItemMouseEnter: onDiffFileMouseEnter,
+  onItemMouseLeave: onDiffFileMouseLeave,
+  onMenuMouseEnter: onDiffMenuMouseEnter,
+  onMenuMouseLeave: onDiffMenuMouseLeave,
+} = useHoverMenu();
 
 const isWorkingTreeDiff = computed(() => selectedCommitForFiles.value?.hash === "__dirty__");
 
-function onDiffFileMouseEnter(file) {
-  if (!isHoverDevice) return;
-  clearTimeout(diffHoverCloseTimer);
-  diffContextEntry.value = file;
-}
-
-function onDiffFileMouseLeave() {
-  if (!isHoverDevice) return;
-  diffHoverCloseTimer = setTimeout(() => { diffContextEntry.value = null; }, 150);
-}
-
-function onDiffMenuMouseEnter() {
-  clearTimeout(diffHoverCloseTimer);
-}
-
-function onDiffMenuMouseLeave() {
-  diffHoverCloseTimer = setTimeout(() => { diffContextEntry.value = null; }, 150);
-}
+const diffMenuActions = computed(() => {
+  const file = diffContextEntry.value;
+  if (!file) return [];
+  return [
+    { icon: "mdi-file-document-outline", label: "View diff", handler: () => viewDiffFile(file) },
+    { icon: "mdi-file-edit-outline", label: "Editor", show: !!editorUrlTemplate.value, handler: () => { openInEditor(file.path); closeDiffMenu(); } },
+    { icon: "mdi-download", label: "Download", handler: () => downloadDiffFile(file) },
+    { icon: "mdi-github", label: "GitHub", show: !!diffFileGithubUrl(file), handler: () => openDiffFileGithub(file) },
+    { icon: "mdi-undo", label: "Discard", show: isWorkingTreeDiff.value, danger: true, handler: () => discardDiffFile(file) },
+    { icon: "mdi-delete-outline", label: "Delete", show: isWorkingTreeDiff.value, danger: true, handler: () => deleteDiffFile(file) },
+  ];
+});
 
 function onDiffFileClick(file) {
   if (!isHoverDevice) {
     if (diffLongPress.consumeFired()) return;
     if (diffContextEntry.value?.path === file.path) {
-      diffContextEntry.value = null;
+      closeDiffMenu();
       selectCommitDiffFile(file);
       return;
     }
-    diffContextEntry.value = file;
+    openDiffMenu(file);
     return;
   }
   selectCommitDiffFile(file);
 }
 
 function viewDiffFile(file) {
-  diffContextEntry.value = null;
+  closeDiffMenu();
   selectCommitDiffFile(file);
 }
 
 async function discardDiffFile(file) {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  diffContextEntry.value = null;
+  closeDiffMenu();
   const { ok } = await apiCommand(
     workspaceGitDiscardPath(workspace),
     { path: file.path },
@@ -275,7 +271,7 @@ async function discardDiffFile(file) {
 function openDiffFileGithub(file) {
   const url = diffFileGithubUrl(file);
   if (url) window.open(url, "_blank");
-  diffContextEntry.value = null;
+  closeDiffMenu();
 }
 
 function diffFileGithubUrl(file) {
@@ -291,19 +287,12 @@ function diffFileGithubUrl(file) {
 async function downloadDiffFile(file) {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  diffContextEntry.value = null;
+  closeDiffMenu();
   try {
     const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/download?path=${encodeURIComponent(file.path)}`);
     if (!res?.ok) { bridgeEmit("toast:show", { message: "Download failed", type: "error" }); return; }
     const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = file.path.split("/").pop() || "download";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    triggerBlobDownload(blob, file.path.split("/").pop() || "download");
   } catch {
     bridgeEmit("toast:show", { message: "Download failed", type: "error" });
   }
@@ -312,7 +301,7 @@ async function downloadDiffFile(file) {
 async function deleteDiffFile(file) {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  diffContextEntry.value = null;
+  closeDiffMenu();
   const { ok } = await apiCommand(
     wsEndpoint(workspace, "delete-file"),
     { path: file.path },

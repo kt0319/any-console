@@ -34,10 +34,12 @@
               </span>
             </button>
             <div class="picker-ws-top-meta" @click.stop="onMetaClick(ws)">
-              <button v-if="ws.is_git_repo && ws.clean === false" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(ws)" @click.stop="openDetail(ws)"></button>
-              <GitActionBtn v-if="ws.is_git_repo && ws.behind > 0" icon="pull" title="Pull" :count="ws.behind" :running="isRunning(ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="doAction(ws, 'pull')" />
-              <GitActionBtn v-if="ws.is_git_repo && ws.ahead > 0 && ws.has_upstream !== false" icon="push" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(ws, 'push')" />
-              <GitActionBtn v-if="ws.is_git_repo && ws.ahead > 0 && ws.has_upstream === false" icon="push-upstream" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action="doAction(ws, 'push-upstream')" />
+              <template v-if="ws.is_git_repo">
+                <button v-if="ws.clean === false" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(ws)" @click.stop="openDetail(ws)"></button>
+                <GitActionBtn v-if="ws.behind > 0" icon="pull" title="Pull" :count="ws.behind" :running="isRunning(ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="doAction(ws, 'pull')" />
+                <GitActionBtn v-if="ws.ahead > 0 && ws.has_upstream !== false" icon="push" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(ws, 'push')" />
+                <GitActionBtn v-if="ws.ahead > 0 && ws.has_upstream === false" icon="push-upstream" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action="doAction(ws, 'push-upstream')" />
+              </template>
               <span class="picker-ws-chevron mdi" :class="isExpanded(ws.name) ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
             </div>
           </div>

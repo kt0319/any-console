@@ -34,19 +34,12 @@
               <span :class="['diff-file-row-status', statusClass(file.status)]">{{ file.status }}</span>
             </template>
           </FileItem>
-          <li
+          <FileActionMenu
             v-if="contextEntry?.path === file.path"
-            class="file-browser-action-menu"
-            @mouseenter="onMenuMouseEnter"
-            @mouseleave="onMenuMouseLeave"
-          >
-            <button type="button" @click="viewDiff(file)"><span class="mdi mdi-file-document-outline"></span> View diff</button>
-            <button v-if="editorUrlTemplate" type="button" @click="openInEditor(file.path); closeMenu()"><span class="mdi mdi-file-edit-outline"></span> Editor</button>
-            <button type="button" @click="downloadFile(file)"><span class="mdi mdi-download"></span> Download</button>
-            <button v-if="githubFileUrl(file)" type="button" @click="openFileGithub(file)"><span class="mdi mdi-github"></span> GitHub</button>
-            <button v-if="isWorkingTree" type="button" class="file-browser-action-delete" @click="discardFile(file)"><span class="mdi mdi-undo"></span> Discard</button>
-            <button v-if="isWorkingTree" type="button" class="file-browser-action-delete" @click="deleteFile(file)"><span class="mdi mdi-delete-outline"></span> Delete</button>
-          </li>
+            :actions="contextMenuActions"
+            @menu-enter="onMenuMouseEnter"
+            @menu-leave="onMenuMouseLeave"
+          />
         </template>
       </ul>
     </div>
@@ -54,8 +47,9 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import FileItem from "./FileItem.vue";
+import FileActionMenu from "./FileActionMenu.vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitDiff } from "../composables/useGitDiff.js";
 import { useEditorIntegration } from "../composables/useEditorIntegration.js";
@@ -103,6 +97,19 @@ function githubFileUrl(file) {
   if (!ws?.github_url) return "";
   return `${ws.github_url}/blob/${ws.branch || "main"}/${file.path}`;
 }
+
+const contextMenuActions = computed(() => {
+  const file = contextEntry.value;
+  if (!file) return [];
+  return [
+    { icon: "mdi-file-document-outline", label: "View diff", handler: () => viewDiff(file) },
+    { icon: "mdi-file-edit-outline", label: "Editor", show: !!editorUrlTemplate.value, handler: () => { openInEditor(file.path); closeMenu(); } },
+    { icon: "mdi-download", label: "Download", handler: () => downloadFile(file) },
+    { icon: "mdi-github", label: "GitHub", show: !!githubFileUrl(file), handler: () => openFileGithub(file) },
+    { icon: "mdi-undo", label: "Discard", show: isWorkingTree.value, danger: true, handler: () => discardFile(file) },
+    { icon: "mdi-delete-outline", label: "Delete", show: isWorkingTree.value, danger: true, handler: () => deleteFile(file) },
+  ];
+});
 
 function closeMenu() {
   closeHoverMenu();

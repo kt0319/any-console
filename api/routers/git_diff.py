@@ -10,6 +10,25 @@ from .git_helpers import execute_git_action, resolve_workspace_target_path
 router = APIRouter(dependencies=[Depends(verify_token)])
 
 
+def _stash_diff_args(stash_ref: str) -> dict:
+    return {
+        "diff_args": ["stash", "show", "-p", stash_ref],
+        "numstat_args": ["stash", "show", "--numstat", stash_ref],
+        "name_only_args": ["stash", "show", "--name-only", stash_ref],
+        "operation_prefix": "stash show",
+    }
+
+
+def _commit_diff_args(commit_hash: str) -> dict:
+    ref = f"{commit_hash}~1"
+    return {
+        "diff_args": ["--no-pager", "diff", ref, commit_hash],
+        "numstat_args": ["diff", "--numstat", ref, commit_hash],
+        "name_only_args": ["diff", "--name-only", ref, commit_hash],
+        "operation_prefix": "diff",
+    }
+
+
 def _build_diff_response(ws_path, diff_args, numstat_args, name_only_args, operation_prefix):
     result = run_git_command(diff_args, cwd=ws_path, operation=operation_prefix)
     numstat_result = run_git_command(
@@ -33,22 +52,10 @@ def get_commit_diff(name: str, commit_hash: str):
     ws_path = resolve_workspace_path(name)
 
     if STASH_REF_PATTERN.match(commit_hash):
-        return _build_diff_response(
-            ws_path,
-            diff_args=["stash", "show", "-p", commit_hash],
-            numstat_args=["stash", "show", "--numstat", commit_hash],
-            name_only_args=["stash", "show", "--name-only", commit_hash],
-            operation_prefix="stash show",
-        )
+        return _build_diff_response(ws_path, **_stash_diff_args(commit_hash))
 
     validate_commit_hash(commit_hash)
-    return _build_diff_response(
-        ws_path,
-        diff_args=["--no-pager", "diff", f"{commit_hash}~1", commit_hash],
-        numstat_args=["diff", "--numstat", f"{commit_hash}~1", commit_hash],
-        name_only_args=["diff", "--name-only", f"{commit_hash}~1", commit_hash],
-        operation_prefix="diff",
-    )
+    return _build_diff_response(ws_path, **_commit_diff_args(commit_hash))
 
 
 @router.get("/workspaces/{name}/diff")

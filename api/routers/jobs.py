@@ -71,11 +71,11 @@ def save_workspace_jobs_data(workspace_name, data):
 
 def _ws_jobs_context(name):
     resolve_workspace_path(name)
-    return load_workspace_jobs_data(name), lambda data: save_workspace_jobs_data(name, data)
+    return load_workspace_jobs_data(name), lambda data: save_workspace_jobs_data(name, data), "Job"
 
 
 def _global_jobs_context():
-    return load_global_jobs_data(), save_global_jobs_data
+    return load_global_jobs_data(), save_global_jobs_data, "Global job"
 
 
 def _entry_to_job_definition(name, entry):
@@ -269,29 +269,29 @@ def _reorder_jobs(data, save_fn, order, log_msg):
 
 @router.post("/workspaces/{name}/jobs")
 def create_workspace_job(name: str, body: JobRequest):
-    data, save_fn = _ws_jobs_context(name)
+    data, save_fn, _ = _ws_jobs_context(name)
     return _create_job(data, save_fn, body, "job created workspace=%s job=%%s" % name)
 
 
 @router.put("/workspaces/{name}/job-order")
 def reorder_workspace_jobs(name: str, body: ReorderJobsRequest):
-    data, save_fn = _ws_jobs_context(name)
+    data, save_fn, _ = _ws_jobs_context(name)
     return _reorder_jobs(data, save_fn, body.order, "jobs reordered workspace=%s count=%%d" % name)
 
 
 @router.put("/workspaces/{name}/jobs/{job_name}")
 def update_workspace_job(name: str, job_name: str, body: JobRequest):
-    data, save_fn = _ws_jobs_context(name)
+    data, save_fn, label = _ws_jobs_context(name)
     return _update_job(data, save_fn, job_name, body,
-                       f"Job '{job_name}' not found",
+                       f"{label} '{job_name}' not found",
                        "job updated workspace=%s job=%%s" % name)
 
 
 @router.delete("/workspaces/{name}/jobs/{job_name}")
 def delete_workspace_job(name: str, job_name: str):
-    data, save_fn = _ws_jobs_context(name)
+    data, save_fn, label = _ws_jobs_context(name)
     return _delete_job(data, save_fn, job_name,
-                       f"Job '{job_name}' not found",
+                       f"{label} '{job_name}' not found",
                        "job deleted workspace=%s job=%%s" % name)
 
 
@@ -304,29 +304,29 @@ def list_global_jobs():
 
 @router.post("/global/jobs")
 def create_global_job(body: JobRequest):
-    data, save_fn = _global_jobs_context()
+    data, save_fn, _ = _global_jobs_context()
     return _create_job(data, save_fn, body, "global job created job=%s")
 
 
 @router.put("/global/jobs/{job_name}")
 def update_global_job(job_name: str, body: JobRequest):
-    data, save_fn = _global_jobs_context()
+    data, save_fn, label = _global_jobs_context()
     return _update_job(data, save_fn, job_name, body,
-                       f"Global job '{job_name}' not found",
+                       f"{label} '{job_name}' not found",
                        "global job updated job=%s")
 
 
 @router.delete("/global/jobs/{job_name}")
 def delete_global_job(job_name: str):
-    data, save_fn = _global_jobs_context()
+    data, save_fn, label = _global_jobs_context()
     return _delete_job(data, save_fn, job_name,
-                       f"Global job '{job_name}' not found",
+                       f"{label} '{job_name}' not found",
                        "global job deleted job=%s")
 
 
 @router.put("/global/job-order")
 def reorder_global_jobs(body: ReorderJobsRequest):
-    data, save_fn = _global_jobs_context()
+    data, save_fn, _ = _global_jobs_context()
     return _reorder_jobs(data, save_fn, body.order, "global jobs reordered count=%d")
 
 
