@@ -1,10 +1,11 @@
 import { ref } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { EP_AUTH_CHECK } from "../utils/endpoints.js";
-
-const PING_INTERVAL_MS = 3000;
-const PING_TIMEOUT_MS = 2000;
-const OFFLINE_THRESHOLD = 2;
+import {
+  CONNECTIVITY_PING_INTERVAL_MS as PING_INTERVAL_MS,
+  CONNECTIVITY_PING_TIMEOUT_MS as PING_TIMEOUT_MS,
+  CONNECTIVITY_OFFLINE_THRESHOLD as OFFLINE_THRESHOLD,
+} from "../utils/constants.js";
 
 export function useConnectivityMonitor() {
   const auth = useAuthStore();

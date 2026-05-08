@@ -26,6 +26,19 @@ export const GITHUB_ACTIONS_POLL_MS = 60000;
 export const INPUT_HISTORY_MAX = 20;
 export const GIT_LOG_ENTRIES_PER_PAGE = 30;
 
+export const HIDDEN_TAB_FLASH_DURATION_MS = 2000;
+export const LINK_TAP_RESET_MS = 300;
+export const EDITOR_CONFIG_DEBOUNCE_MS = 500;
+export const RESIZE_FIT_DEBOUNCE_MS = 50;
+export const ACTIVE_FIT_DELAY_MS = 50;
+export const WHEEL_FOCUS_THRESHOLD = -120;
+export const DOUBLE_TAP_ZOOM_PREVENT_MS = 300;
+export const HOVER_MENU_CLOSE_DELAY_MS = 150;
+export const SESSION_SYNC_INTERVAL_MS = 5000;
+export const CONNECTIVITY_PING_INTERVAL_MS = 3000;
+export const CONNECTIVITY_PING_TIMEOUT_MS = 2000;
+export const CONNECTIVITY_OFFLINE_THRESHOLD = 2;
+
 export const LS_KEY_TOKEN = "any_console_token";
 export const LS_KEY_INPUT_HISTORY = "any_console_input_history";
 export const LS_KEY_TERMINAL_SETTINGS = "any_console_terminal_settings";

@@ -34,6 +34,7 @@ import { useSessionSync } from "../composables/useSessionSync.js";
 import { useSnippetPersist } from "../composables/useSnippetPersist.js";
 import { on, emit } from "../app-bridge.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_RUN, EP_SETTINGS_CONFIG_HEALTH } from "../utils/endpoints.js";
+import { RESIZE_FIT_DEBOUNCE_MS } from "../utils/constants.js";
 
 const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
@@ -277,7 +278,7 @@ onMounted(() => {
       resizeFitTimerId = setTimeout(() => {
         resizeFitTimerId = null;
         terminalBaseView.value?.fitAllTerminals();
-      }, 50);
+      }, RESIZE_FIT_DEBOUNCE_MS);
     });
     const main = document.querySelector(".main-panel");
     if (main) mainPanelResizeObserver.observe(main);

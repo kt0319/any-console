@@ -46,6 +46,7 @@
 import { ref, inject, computed, watch, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { EP_SETTINGS_EDITOR, EP_SYSTEM_INFO } from "../utils/endpoints.js";
+import { EDITOR_CONFIG_DEBOUNCE_MS } from "../utils/constants.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Editor";
@@ -94,7 +95,7 @@ watch(urlTemplate, (val) => {
   saveTimer = setTimeout(async () => {
     const url_template = val.trim();
     await apiPut(EP_SETTINGS_EDITOR, { url_template });
-  }, 500);
+  }, EDITOR_CONFIG_DEBOUNCE_MS);
 });
 
 async function loadEditorConfig() {
