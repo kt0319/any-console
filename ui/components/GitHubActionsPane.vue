@@ -25,21 +25,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { useGitHubPane } from "../composables/useGitHubPane.js";
 import { useGitHub, runStatusIcon, runStatusClass, openUrl } from "../composables/useGitHub.js";
 
-const { githubUrl, loadWorkspaceGithubUrl, loadActions } = useGitHub();
-const items = ref([]);
-const isLoading = ref(false);
-const error = ref("");
+const { loadActions } = useGitHub();
+const { githubUrl, items, isLoading, error, reload } = useGitHubPane(loadActions);
 
-async function reload() {
-  loadWorkspaceGithubUrl();
-  if (!githubUrl.value) return;
-  await loadActions(items, isLoading, error);
-}
-
-onMounted(reload);
 defineExpose({ reload });
 </script>
 

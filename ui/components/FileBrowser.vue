@@ -101,6 +101,7 @@ import { useEditorIntegration } from "../composables/useEditorIntegration.js";
 import { useFileDiff } from "../composables/useFileDiff.js";
 import { emit } from "../app-bridge.js";
 import { useLongPress } from "../composables/useLongPress.js";
+import { useHoverMenu, isHoverDevice } from "../composables/useHoverMenu.js";
 import { renderFileIcon } from "../utils/file-icon.js";
 import { formatSize } from "../utils/format.js";
 
@@ -117,7 +118,12 @@ const entries = ref([]);
 const fileContent = ref(null);
 const isFileBrowserLoading = ref(false);
 const fileBrowserError = ref("");
-const contextEntry = ref(null);
+const {
+  contextEntry,
+  openMenu: openContextMenu, closeMenu: closeContextMenu,
+  onItemMouseEnter, onItemMouseLeave,
+  onMenuMouseEnter, onMenuMouseLeave,
+} = useHoverMenu();
 const uploadInputEl = ref(null);
 const showIgnored = ref(false);
 
@@ -127,7 +133,7 @@ const {
   uploadDroppedFiles,
 } = useFileActions({
   getContextEntry: () => contextEntry.value,
-  clearContextEntry: () => { contextEntry.value = null; },
+  clearContextEntry: () => { closeContextMenu(); },
   getCurrentPath: () => currentPath.value,
   getFileContent: () => fileContent.value,
   navigateToPath: (path) => navigateToPath(path),
@@ -233,8 +239,6 @@ async function openFile(path) {
 }
 
 const longPress = useLongPress();
-const isHoverDevice = window.matchMedia("(hover: hover)").matches;
-let hoverCloseTimer = null;
 
 function onLongPressStart(e, entry) {
   if (isHoverDevice) return;
@@ -250,42 +254,20 @@ function onLongPressEnd() {
   }
 }
 
-function onItemMouseEnter(entry) {
-  if (!isHoverDevice) return;
-  clearTimeout(hoverCloseTimer);
-  contextEntry.value = entry;
-}
-
-function onItemMouseLeave() {
-  if (!isHoverDevice) return;
-  hoverCloseTimer = setTimeout(() => { contextEntry.value = null; }, 150);
-}
-
-function onMenuMouseEnter() {
-  clearTimeout(hoverCloseTimer);
-}
-
-function onMenuMouseLeave() {
-  hoverCloseTimer = setTimeout(() => { contextEntry.value = null; }, 150);
-}
-
 function toggleContextMenu(entry) {
-  if (contextEntry.value?.name === entry.name) {
-    contextEntry.value = null;
-  } else {
-    contextEntry.value = entry;
-  }
+  if (contextEntry.value?.name === entry.name) closeContextMenu();
+  else openContextMenu(entry);
 }
 
 function openGitHub() {
   if (githubEntryUrl.value) {
     window.open(githubEntryUrl.value, "_blank");
   }
-  contextEntry.value = null;
+  closeContextMenu();
 }
 
 function openEntry(entry) {
-  contextEntry.value = null;
+  closeContextMenu();
   const childPath = currentPath.value ? `${currentPath.value}/${entry.name}` : entry.name;
   if (entry.type === "dir") {
     navigateToPath(childPath);
@@ -299,7 +281,7 @@ function openEntryInEditor() {
   const entry = contextEntry.value;
   if (!entry) return;
   const filePath = currentPath.value ? `${currentPath.value}/${entry.name}` : entry.name;
-  contextEntry.value = null;
+  closeContextMenu();
   if (!editorUrlTemplate.value) {
     currentPath.value = filePath;
     openFile(filePath);
@@ -338,7 +320,7 @@ function onEntryClick(entry) {
   }
   if (!isHoverDevice) {
     if (contextEntry.value?.name === entry.name) {
-      contextEntry.value = null;
+      closeContextMenu();
       const childPath = currentPath.value ? `${currentPath.value}/${entry.name}` : entry.name;
       if (entry.type === "dir") navigateToPath(childPath);
       else if (entry.type === "file") { currentPath.value = childPath; openFile(childPath); }

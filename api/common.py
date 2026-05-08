@@ -118,6 +118,14 @@ class TTLCache:
         with self._lock:
             self._store.clear()
 
+    def get_or_set(self, key: str, loader):
+        val = self.get(key)
+        if val is not None:
+            return val
+        data = loader()
+        self.set(key, data)
+        return data
+
 
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
 

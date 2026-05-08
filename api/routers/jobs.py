@@ -48,18 +48,9 @@ _global_jobs_cache = TTLCache(WORKSPACE_JOBS_CACHE_TTL_SEC)
 GLOBAL_JOBS_CACHE_KEY = "__global_jobs__"
 
 
-def _cached_load(cache, key, loader):
-    cached = cache.get(key)
-    if cached is not None:
-        return cached
-    data = loader()
-    cache.set(key, data)
-    return data
-
-
 def load_global_jobs_data():
-    return _cached_load(_global_jobs_cache, GLOBAL_JOBS_CACHE_KEY,
-                        lambda: load_global_config_section("jobs", {}))
+    return _global_jobs_cache.get_or_set(GLOBAL_JOBS_CACHE_KEY,
+                                         lambda: load_global_config_section("jobs", {}))
 
 
 def save_global_jobs_data(data):
@@ -69,8 +60,8 @@ def save_global_jobs_data(data):
 
 
 def load_workspace_jobs_data(workspace_name):
-    return _cached_load(_workspace_jobs_cache, workspace_name,
-                        lambda: load_workspace_config_section(workspace_name, "jobs", {}))
+    return _workspace_jobs_cache.get_or_set(workspace_name,
+                                            lambda: load_workspace_config_section(workspace_name, "jobs", {}))
 
 
 def save_workspace_jobs_data(workspace_name, data):

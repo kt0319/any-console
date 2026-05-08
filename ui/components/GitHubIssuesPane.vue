@@ -31,23 +31,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { useGitHubPane } from "../composables/useGitHubPane.js";
 import { useGitHub, labelStyle, openUrl } from "../composables/useGitHub.js";
 
 const emit = defineEmits(["count"]);
-const { githubUrl, loadWorkspaceGithubUrl, loadIssues } = useGitHub();
-const items = ref([]);
-const isLoading = ref(false);
-const error = ref("");
+const { loadIssues } = useGitHub();
+const { githubUrl, items, isLoading, error, reload } = useGitHubPane(loadIssues, {
+  onLoaded: (v) => emit("count", v.length),
+});
 
-async function reload() {
-  loadWorkspaceGithubUrl();
-  if (!githubUrl.value) return;
-  await loadIssues(items, isLoading, error);
-  emit("count", items.value.length);
-}
-
-onMounted(reload);
 defineExpose({ reload });
 </script>
 

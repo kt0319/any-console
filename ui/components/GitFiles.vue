@@ -60,6 +60,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitDiff } from "../composables/useGitDiff.js";
 import { useEditorIntegration } from "../composables/useEditorIntegration.js";
 import { useLongPress } from "../composables/useLongPress.js";
+import { useHoverMenu, isHoverDevice } from "../composables/useHoverMenu.js";
 import { useApi } from "../composables/useApi.js";
 import { useAuthStore } from "../stores/auth.js";
 import { emit } from "../app-bridge.js";
@@ -80,10 +81,14 @@ const isLoading = ref(false);
 const selectedFile = ref("");
 const actionButtons = ref([]);
 const isWorkingTree = ref(false);
-const contextEntry = ref(null);
-
-const isHoverDevice = window.matchMedia("(hover: hover)").matches;
-let hoverCloseTimer = null;
+const {
+  contextEntry,
+  openMenu,
+  closeMenu: closeHoverMenu,
+  onItemMouseEnter: onFileMouseEnter,
+  onItemMouseLeave: onFileMouseLeave,
+  onMenuMouseEnter, onMenuMouseLeave,
+} = useHoverMenu();
 
 function statusClass(status) {
   return GIT_DIFF_STATUS_CLASSES[status] || "";
@@ -100,31 +105,12 @@ function githubFileUrl(file) {
 }
 
 function closeMenu() {
-  contextEntry.value = null;
+  closeHoverMenu();
   longPress.closeMenu();
 }
 
-function onFileMouseEnter(file) {
-  if (!isHoverDevice) return;
-  clearTimeout(hoverCloseTimer);
-  contextEntry.value = file;
-}
-
-function onFileMouseLeave() {
-  if (!isHoverDevice) return;
-  hoverCloseTimer = setTimeout(() => { contextEntry.value = null; }, 150);
-}
-
-function onMenuMouseEnter() {
-  clearTimeout(hoverCloseTimer);
-}
-
-function onMenuMouseLeave() {
-  hoverCloseTimer = setTimeout(() => { contextEntry.value = null; }, 150);
-}
-
 function onFileContextMenu(file) {
-  contextEntry.value = file;
+  openMenu(file);
 }
 
 function onFileClick(file, _event) {
@@ -135,7 +121,7 @@ function onFileClick(file, _event) {
       selectFile(file);
       return;
     }
-    contextEntry.value = file;
+    openMenu(file);
     return;
   }
   selectFile(file);
