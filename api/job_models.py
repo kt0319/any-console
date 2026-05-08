@@ -21,6 +21,8 @@ class JobDefinition:
     hidden_tab: bool = False
 
 
+TERMINAL_JOB_KEY = "terminal"
+
 TERMINAL_JOB = JobDefinition(
     command="",
     label="Terminal",

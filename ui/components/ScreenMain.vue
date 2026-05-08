@@ -34,7 +34,7 @@ import { useSessionSync } from "../composables/useSessionSync.js";
 import { useSnippetPersist } from "../composables/useSnippetPersist.js";
 import { on, emit } from "../app-bridge.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_RUN, EP_SETTINGS_CONFIG_HEALTH } from "../utils/endpoints.js";
-import { RESIZE_FIT_DEBOUNCE_MS } from "../utils/constants.js";
+import { TERMINAL_JOB_KEY, RESIZE_FIT_DEBOUNCE_MS } from "../utils/constants.js";
 
 const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
@@ -161,7 +161,7 @@ async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, j
     const res = await auth.apiFetch(EP_RUN, {
       method: "POST",
       body: {
-        job: "terminal",
+        job: TERMINAL_JOB_KEY,
         workspace: workspace || null,
         icon: icon || null,
         icon_color: iconColor || null,

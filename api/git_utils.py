@@ -82,6 +82,7 @@ def run_git_command(
 
 
 _git_info_cache = TTLCache(GIT_INFO_CACHE_TTL_SEC)
+_GIT_INFO_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="git-info")
 
 
 def invalidate_git_info(workspace_name: str):
@@ -161,17 +162,17 @@ def git_info(directory: Path) -> dict:
         if check.returncode != 0:
             return info
         info["is_git_repo"] = True
-        with ThreadPoolExecutor(max_workers=4) as pool:
-            f_branch = pool.submit(run_git, "rev-parse", "--abbrev-ref", "HEAD")
-            f_commit = pool.submit(run_git, "log", "-1", "--format=%cI")
-            f_message = pool.submit(run_git, "log", "-1", "--format=%s")
-            f_remote = pool.submit(run_git, "remote", "get-url", "origin")
-            f_status = pool.submit(run_git, "--no-optional-locks", "status", "--porcelain")
-            f_diff = pool.submit(run_git, "--no-optional-locks", "diff", "--shortstat")
-            f_staged = pool.submit(run_git, "--no-optional-locks", "diff", "--staged", "--shortstat")
-            f_upstream = pool.submit(run_git, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
-            f_remote_branches = pool.submit(run_git, "branch", "-r", "--format=%(refname:short)")
-            f_revlist = pool.submit(run_git, "rev-list", "--left-right", "--count", "HEAD...@{upstream}")
+        pool = _GIT_INFO_EXECUTOR
+        f_branch = pool.submit(run_git, "rev-parse", "--abbrev-ref", "HEAD")
+        f_commit = pool.submit(run_git, "log", "-1", "--format=%cI")
+        f_message = pool.submit(run_git, "log", "-1", "--format=%s")
+        f_remote = pool.submit(run_git, "remote", "get-url", "origin")
+        f_status = pool.submit(run_git, "--no-optional-locks", "status", "--porcelain")
+        f_diff = pool.submit(run_git, "--no-optional-locks", "diff", "--shortstat")
+        f_staged = pool.submit(run_git, "--no-optional-locks", "diff", "--staged", "--shortstat")
+        f_upstream = pool.submit(run_git, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
+        f_remote_branches = pool.submit(run_git, "branch", "-r", "--format=%(refname:short)")
+        f_revlist = pool.submit(run_git, "rev-list", "--left-right", "--count", "HEAD...@{upstream}")
 
         if out := _stdout_if_ok(f_branch):
             info["branch"] = out.strip()

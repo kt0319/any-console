@@ -24,6 +24,7 @@ logs/
 
 # Data
 config.json
+config.lock
 data/
 
 # Environment

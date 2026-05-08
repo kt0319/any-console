@@ -27,11 +27,13 @@ import { useAuthStore } from "../stores/auth.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useGitHubActionsMonitor } from "../composables/useGitHubActionsMonitor.js";
+import { useApi } from "../composables/useApi.js";
 import { EP_RUN } from "../utils/endpoints.js";
 
 const auth = useAuthStore();
 const layoutStore = useLayoutStore();
 const appToast = ref(null);
+const { apiPost } = useApi();
 const { isOffline, startPing, stopPing, onOnline, onOffline } = useConnectivityMonitor();
 const { start: startActionsMonitor, stop: stopActionsMonitor } = useGitHubActionsMonitor();
 
@@ -39,23 +41,10 @@ const showLogin = ref(false);
 const authenticated = ref(false);
 
 async function execNonTerminalJob(jobName, workspace) {
-  try {
-    const res = await auth.apiFetch(EP_RUN, {
-      method: "POST",
-      body: { job: jobName, workspace },
-    });
-    if (!res) return;
-    if (res.ok) {
-      const data = await res.json();
-      const msg = data.stdout || data.stderr || "Done";
-      emit("toast:show", { message: msg, type: data.returncode === 0 ? "success" : "error" });
-    } else {
-      const detail = await res.text();
-      emit("toast:show", { message: `Job failed: ${detail}`, type: "error" });
-    }
-  } catch (e) {
-    emit("toast:show", { message: `Job error: ${e.message}`, type: "error" });
-  }
+  const { ok, data } = await apiPost(EP_RUN, { job: jobName, workspace }, { errorMessage: "Job failed" });
+  if (!ok) return;
+  const msg = data?.stdout || data?.stderr || "Done";
+  emit("toast:show", { message: msg, type: data?.exit_code === 0 ? "success" : "error" });
 }
 
 async function onAuthenticated() {
