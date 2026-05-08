@@ -1,0 +1,25 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: auto
+
+flag_management:
+  default_rules:
+    carryforward: true
+  individual_flags:
+    - name: backend
+      paths:
+        - api/
+    - name: frontend
+      paths:
+        - ui/
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false

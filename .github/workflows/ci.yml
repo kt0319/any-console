@@ -25,18 +25,36 @@ jobs:
         run: ruff check api/
 
       - name: Test
-        run: pytest tests/ -v
+        run: pytest tests/ -v --cov --cov-report=term-missing --cov-report=xml
         env:
           ANY_CONSOLE_TOKEN: test-token
           PYTHONPATH: .
 
+      - name: Upload backend coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          flags: backend
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
 
       - name: Install frontend dependencies
         run: npm ci
 
       - name: Frontend test
-        run: npm test
+        run: npm run test:coverage
+
+      - name: Upload frontend coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/lcov.info
+          flags: frontend
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false

@@ -11,6 +11,13 @@ build/
 venv/
 env/
 
+# Coverage
+.coverage
+.coverage.*
+coverage.xml
+coverage/
+htmlcov/
+
 # Logs
 logs/
 *.log
