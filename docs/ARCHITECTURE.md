@@ -15,6 +15,8 @@ CLAUDE.md から分離した参照用ドキュメント。変更時の影響範�
 - `config.py`: `config.json` の読み書き・ロック管理
 - `config_schema.py`: Pydanticによるconfig.jsonのスキーマ定義・検証
 - `git_utils.py`: Gitコマンド実行ユーティリティ（`run_git_raw`/`run_git_query`/`run_git_command`）、ブランチ取得、git info キャッシュ
+- `git_lock.py`: ワークスペース単位の書き込みロック（index.lock競合防止）
+- `ai_summary.py`: git pull結果のAI要約（LLM呼び出し）
 - `client_log.py`: クライアントログ受信
 - `errors.py`: 共通エラーハンドリング
 - `icons.py`: アイコン関連処理
@@ -56,8 +58,8 @@ CLAUDE.md から分離した参照用ドキュメント。変更時の影響範�
 - `WorkspaceDetail.vue` / `WorkspaceOpen.vue` / `WorkspaceAdd.vue` / `WorkspaceConfig.vue` / `WorkspaceStatusBar.vue`: ワークスペース
 - `GitFiles.vue` / `GitHistory.vue` / `GitStash.vue`: Git操作
 - `GitChangeBranch.vue` / `GitCommitForm.vue` / `GitActionBtn.vue`: Gitアクション
-- `GitHubPane.vue`: GitHubリポジトリ一覧
-- `FileBrowser.vue` / `FileItem.vue` / `FileTextViewer.vue`: ファイルブラウザ
+- `GitHubPane.vue` / `GitHubIssuesPane.vue` / `GitHubPRsPane.vue` / `GitHubActionsPane.vue`: GitHubタブ（リポジトリ・Issue・PR・Actions）
+- `FileBrowser.vue` / `FileItem.vue` / `FileActionMenu.vue` / `FileTextViewer.vue`: ファイルブラウザ
 - `JobConfig.vue` / `GlobalJobConfig.vue`: ジョブ設定
 - `KeyboardBase.vue` / `KeyboardInput.vue` / `KeyboardQwertyKey.vue` / `KeyboardMinimumKey.vue` / `KeyboardSnippet.vue`: キーボード入力
 - `IconPicker.vue`: アイコン選択
@@ -82,18 +84,27 @@ CLAUDE.md から分離した参照用ドキュメント。変更時の影響範�
 
 - `useApi.js`: API通信（Bearerトークン付与・`apiWithToast`による共通toast通知）
 - `useTerminal.js`: xterm.js統合のWebターミナル
+- `useTerminalInput.js`: ターミナルへのキーボード入力バインド・リサイズ送信
+- `useTerminalResize.js`: ターミナルリサイズ処理（fitTerminal）
 - `useGitHistoryAction.js`: Git履歴操作（cherry-pick・revert・merge・rebase・reset・stash）
 - `useGitRemoteAction.js`: Gitリモート操作（push・pull・fetch）
 - `useGitDiff.js`: Git差分状態管理
+- `useGitHub.js`: GitHubリポジトリURL・カウントキャッシュ管理
+- `useGitHubPane.js`: GitHubペイン共通ローダー
+- `useGitHubActionsMonitor.js`: GitHub Actionsポーリング監視
 - `useConfirm.js`: カスタム確認ダイアログ制御（ネイティブconfirmの代替）
 - `useConnectivityMonitor.js`: サーバー接続監視（定期ping）
 - `useRecentJobs.js`: 最近使ったジョブ履歴管理
 - `useSessionSync.js`: アクティブセッションのLocalStorage同期
 - `useSnippetPersist.js`: スニペット永続化（APIと同期）
+- `useStashCache.js`: stash一覧のTTLキャッシュ
 - `useKeyboard.js`: キーボード制御
 - `useModal.js` / `useModalView.js`: モーダル制御
 - `useViewport.js`: ビューポート高さ監視・キーボード表示判定
 - `useLongPress.js` / `useSwipeDismiss.js` / `useSplitDropDrag.js`: ジェスチャー
+- `usePillDrag.js`: ターミナルピル（タブ情報バッジ）のドラッグ操作
+- `useResizeHandle.js`: 分割ペインのリサイズハンドル
+- `useHoverMenu.js`: ホバーメニュー開閉制御
 - `useFileDragDrop.js`: ファイルドラッグ&ドロップアップロード
 - `useWorkspaceDrag.js`: ワークスペース並び替えドラッグ
 - `useQuickInputData.js`: 入力候補データ
@@ -101,7 +112,6 @@ CLAUDE.md から分離した参照用ドキュメント。変更時の影響範�
 - `useFileActions.js`: ファイル削除等のアクション
 - `useFileDiff.js`: ファイルdiff状態管理
 - `useGitLogPagination.js`: Gitログのページネーション・グラフ行構築
-- `useTerminalResize.js`: ターミナルリサイズ処理（fitTerminal）
 - `useWorkspaceJobManager.js`: ワークスペースのジョブ管理
 
 ### ユーティリティ: `ui/utils/`
@@ -111,6 +121,8 @@ CLAUDE.md から分離した参照用ドキュメント。変更時の影響範�
 - `escape-html.js`: HTMLエスケープ
 - `format.js`: フォーマット処理
 - `display.js`: 表示用フォーマット（`toDisplayMessage` 等）
+- `download.js`: Blobダウンロードトリガー
+- `storage.js`: LocalStorage安全読み書きユーティリティ
 - `git.js`: Gitユーティリティ
 - `git-diff.js`: diffテキストのパース・ファイル分割
 - `git-graph.js`: Gitグラフ描画データ生成（ログパース・行構築）
@@ -120,7 +132,7 @@ CLAUDE.md から分離した参照用ドキュメント。変更時の影響範�
 - `mdi-icons.js`: MDIアイコン静的リスト（CDN依存なし）
 - `flick-resolvers.js`: フリック入力の方向判定リゾルバー
 - `gesture.js`: ジェスチャー処理
-- `view-mode.js`: ビューモード
+- `view-mode.js`: 閲覧モード（ターミナル下フリックで表示するテキストオーバーレイ、ANSI→HTML変換）
 - `page-unload.js`: ページアンロード前の確認制御
 - `settings-utils.js`: SSH URL変換等の設定ユーティリティ
 - `terminal-settings.js`: ターミナル設定スキーマ定義
@@ -151,6 +163,7 @@ CLAUDE.md から分離した参照用ドキュメント。変更時の影響範�
 | `POST /workspaces/{name}/push-upstream` | アップストリーム設定+push |
 | `POST /workspaces/{name}/fetch` | git fetch --prune |
 | `GET /workspaces/{name}/git-log` | コミット履歴 |
+| `GET /workspaces/{name}/commit-message` | コミットメッセージ全文取得 |
 | `POST /workspaces/{name}/commit` | git commit |
 | `POST /workspaces/{name}/cherry-pick` | cherry-pick |
 | `POST /workspaces/{name}/revert` | revert |
@@ -194,10 +207,17 @@ CLAUDE.md から分離した参照用ドキュメント。変更時の影響範�
 | `POST /upload-image` | 画像アップロード（最大10MB） |
 | `GET /system/processes` | プロセス一覧 |
 | `GET /system/info` | システム情報 |
+| `GET /settings/auth` | 認証設定取得 |
+| `PUT /settings/auth` | 認証設定更新 |
+| `GET /settings/workspace-root` | ワークスペースルート取得 |
+| `PUT /settings/workspace-root` | ワークスペースルート更新 |
+| `GET /settings/config-health` | config.json整合性チェック |
 | `GET /settings/export` | 設定エクスポート |
 | `POST /settings/import` | 設定インポート |
 | `GET /settings/editor` | エディタ設定取得 |
 | `PUT /settings/editor` | エディタ設定更新 |
+| `GET /recent-jobs` | 最近実行したジョブ履歴 |
+| `POST /recent-jobs` | ジョブ履歴追加 |
 | `GET /snippets` | コマンドスニペット一覧 |
 | `PUT /snippets` | スニペット更新 |
 
