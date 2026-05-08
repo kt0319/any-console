@@ -253,6 +253,12 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
   -webkit-overflow-scrolling: touch;
 }
 
+.diff-actions button {
+  font-size: 11px;
+  padding: 4px 10px;
+  min-height: 0;
+}
+
 .diff-file-list {
   display: flex;
   flex-direction: column;
