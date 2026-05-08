@@ -118,13 +118,12 @@ defineExpose({
 
 .quick-input-panel.minimal-mode .quick-key {
   flex: none;
-  min-width: calc((100vw - 16px) / 5.5);
-  width: calc((100vw - 16px) / 5.5);
+  min-width: calc((100vw - 16px) / 5);
+  width: calc((100vw - 16px) / 5);
 }
 
-.quick-input-panel.minimal-mode .quick-flick-enter {
-  min-width: calc(1.5 * (100vw - 16px) / 5.5);
-  width: calc(1.5 * (100vw - 16px) / 5.5);
+.quick-qwerty-panel .quick-extra-bottom-keys .quick-flick-enter {
+  flex: 1;
 }
 
 .quick-extra-panel {
