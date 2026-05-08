@@ -30,6 +30,7 @@ from ..config import (
 from ..errors import bad_request, conflict, server_error, timeout_error
 from ..git_utils import command_result_dict, git_branch, git_github_url, git_info_to_status_dict, git_is_repo
 from ..icons import normalize_icon
+from ..validators import validate_workspace_name
 
 logger = logging.getLogger(__name__)
 
@@ -170,9 +171,7 @@ def add_workspace(body: AddWorkspaceRequest):
         abs_path = Path(existing_path).expanduser().resolve()
         if not abs_path.is_dir():
             raise bad_request(f"Directory does not exist: {existing_path}")
-        dir_name = body.name.strip() if body.name else abs_path.name
-        if not dir_name:
-            raise bad_request("Please specify a workspace name")
+        dir_name = validate_workspace_name(body.name or abs_path.name)
         entries = list_workspace_entries()
         if dir_name in entries:
             raise conflict(f"'{dir_name}' is already registered")
@@ -187,8 +186,7 @@ def add_workspace(body: AddWorkspaceRequest):
     else:
         raise bad_request("Please enter a URL or directory name")
 
-    if not dir_name or not re.match(r"^[a-zA-Z0-9_.-]+$", dir_name):
-        raise bad_request("Invalid directory name")
+    dir_name = validate_workspace_name(dir_name)
 
     entries = list_workspace_entries()
     if dir_name in entries:

@@ -47,6 +47,32 @@ _tailscale_cache_lock = threading.Lock()
 _TAILSCALE_TIMEOUT_SEC = 5
 
 
+def _parse_trusted_proxies(raw: str) -> list:
+    networks = []
+    for token in raw.split(","):
+        token = token.strip()
+        if not token:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(token, strict=False))
+        except ValueError:
+            logger.warning("invalid entry in ANY_CONSOLE_TRUSTED_PROXIES: %s", token)
+    return networks
+
+
+_TRUSTED_PROXY_NETWORKS = _parse_trusted_proxies(os.environ.get("ANY_CONSOLE_TRUSTED_PROXIES", ""))
+
+
+def _is_trusted_proxy(ip: str) -> bool:
+    if not _TRUSTED_PROXY_NETWORKS or not ip:
+        return False
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return any(addr in net for net in _TRUSTED_PROXY_NETWORKS)
+
+
 def verify_token(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> str:
@@ -93,9 +119,10 @@ def resolve_tailscale_name(ip: str) -> str:
 
 def _extract_client_ip(request: Request) -> str:
     client_ip = request.client.host if request.client else ""
-    forwarded_for = request.headers.get("x-forwarded-for", "")
-    if forwarded_for:
-        client_ip = forwarded_for.split(",")[0].strip()
+    if _is_trusted_proxy(client_ip):
+        forwarded_for = request.headers.get("x-forwarded-for", "")
+        if forwarded_for:
+            return forwarded_for.split(",")[0].strip()
     return client_ip
 
 

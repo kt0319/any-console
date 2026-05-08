@@ -26,6 +26,8 @@ export const GITHUB_ACTIONS_POLL_MS = 60000;
 export const INPUT_HISTORY_MAX = 20;
 export const GIT_LOG_ENTRIES_PER_PAGE = 30;
 
+export const TOAST_DEFAULT_DURATION_MS = 3000;
+export const TOAST_LONG_DURATION_MS = 8000;
 export const HIDDEN_TAB_FLASH_DURATION_MS = 2000;
 export const LINK_TAP_RESET_MS = 300;
 export const EDITOR_CONFIG_DEBOUNCE_MS = 500;

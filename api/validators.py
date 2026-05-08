@@ -5,9 +5,19 @@ from .common import (
     ICON_PATTERN,
     MAX_ICON_VALUE_LENGTH,
     STASH_REF_PATTERN,
+    WORKSPACE_NAME_PATTERN,
 )
 from .errors import bad_request
 from .icons import normalize_icon
+
+
+def validate_workspace_name(name: str) -> str:
+    name = (name or "").strip()
+    if not name:
+        raise bad_request("Workspace name is required")
+    if not WORKSPACE_NAME_PATTERN.match(name):
+        raise bad_request(f"Invalid workspace name: {name}")
+    return name
 
 
 def validate_branch_name(branch: str) -> str:

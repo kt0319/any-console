@@ -58,6 +58,7 @@ WS_PING_INTERVAL_SEC = 25
 
 BRANCH_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_./-]+$")
 COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{4,40}$|^stash@\{\d+\}$")
+WORKSPACE_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_.-]+$")
 
 MAX_LABEL_LENGTH = 200
 MAX_COMMAND_LENGTH = 10000

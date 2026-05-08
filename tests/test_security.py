@@ -150,3 +150,35 @@ class TestWorkspaceNameSecurity:
             json={"url": "https://github.com/test/repo", "name": "../evil"},
         )
         assert res.status_code == 400
+
+    @pytest.mark.parametrize("name", [
+        "ws;rm -rf /",
+        "ws|cat",
+        "ws&&id",
+        "ws$(id)",
+        "ws`id`",
+        "ws name",
+        "ws/sub",
+    ])
+    def test_existing_path_rejects_shell_metachars_in_name(self, client, tmp_path, name):
+        target = tmp_path / "real-dir"
+        target.mkdir()
+        res = client.post(
+            "/workspaces",
+            headers=AUTH,
+            json={"path": str(target), "name": name},
+        )
+        assert res.status_code == 400
+
+
+class TestTerminalSessionNameInjection:
+    """ターミナルセッション作成時のワークスペース名サニタイズ"""
+
+    def test_terminal_create_rejects_unregistered_unsafe_workspace(self, client):
+        # 未登録かつ不正な文字を含む workspace は 400 で弾かれる
+        res = client.post(
+            "/run",
+            headers=AUTH,
+            json={"job": "terminal", "workspace": "ws;rm -rf /"},
+        )
+        assert res.status_code == 400

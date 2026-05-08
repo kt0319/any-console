@@ -16,6 +16,7 @@
 
 <script setup>
 import { ref, nextTick } from "vue";
+import { TOAST_DEFAULT_DURATION_MS } from "../utils/constants.js";
 
 let idCounter = 0;
 const toasts = ref([]);
@@ -36,7 +37,7 @@ function dismiss(toast) {
   nextTick(restack);
 }
 
-function show(message, type = "error", duration = 3000) {
+function show(message, type = "error", duration = TOAST_DEFAULT_DURATION_MS) {
   const text = typeof message === "string" ? message : String(message?.message || message || "Unknown error");
   const id = ++idCounter;
   const toast = { id, message: text, type, top: 24 };
