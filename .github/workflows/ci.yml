@@ -25,10 +25,17 @@ jobs:
         run: ruff check api/
 
       - name: Test
-        run: pytest tests/ -v
+        run: pytest tests/ -v --cov --cov-report=term-missing --cov-report=xml
         env:
           ANY_CONSOLE_TOKEN: test-token
           PYTHONPATH: .
+
+      - name: Upload backend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: coverage.xml
 
       - uses: actions/setup-node@v4
         with:
@@ -39,4 +46,4 @@ jobs:
         run: npm ci
 
       - name: Frontend test
-        run: npm test
+        run: npm run test:coverage

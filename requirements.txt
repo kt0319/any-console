@@ -8,6 +8,7 @@ anthropic>=0.25,<1
 
 # dev
 pytest>=7,<9
+pytest-cov>=5,<7
 ruff>=0.4,<1
 mypy>=1.10
 httpx>=0.24,<1
