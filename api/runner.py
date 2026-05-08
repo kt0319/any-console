@@ -3,7 +3,7 @@ import os
 import shlex
 import subprocess
 
-from .common import EXEC_TIMEOUT_SEC, PROJECT_ROOT, sanitize_log_value
+from .common import PROJECT_ROOT, sanitize_log_value
 from .job_models import JobDefinition
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,6 @@ def run_job(
         cmd_parts,
         capture_output=True,
         text=True,
-        timeout=EXEC_TIMEOUT_SEC,
         cwd=cwd,
         env=env,
     )
