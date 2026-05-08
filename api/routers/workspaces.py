@@ -249,7 +249,8 @@ def list_github_repos():
 
         all_repos = []
 
-        result = _run_gh_cmd("repo", "list", "--limit", str(GITHUB_CLI_REPO_LIMIT), "--json", "nameWithOwner,url,description")
+        _gh_json_fields = "nameWithOwner,url,description"
+        result = _run_gh_cmd("repo", "list", "--limit", str(GITHUB_CLI_REPO_LIMIT), "--json", _gh_json_fields)
         if result.returncode == 0:
             all_repos.extend(json.loads(result.stdout))
 
@@ -257,7 +258,9 @@ def list_github_repos():
         if org_result.returncode == 0:
             orgs = [o.strip() for o in org_result.stdout.strip().splitlines() if o.strip()]
             for org in orgs:
-                org_repos = _run_gh_cmd("repo", "list", org, "--limit", str(GITHUB_CLI_REPO_LIMIT), "--json", "nameWithOwner,url,description")
+                org_repos = _run_gh_cmd(
+                    "repo", "list", org, "--limit", str(GITHUB_CLI_REPO_LIMIT), "--json", _gh_json_fields,
+                )
                 if org_repos.returncode == 0:
                     all_repos.extend(json.loads(org_repos.stdout))
 
