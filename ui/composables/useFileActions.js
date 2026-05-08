@@ -1,6 +1,6 @@
 import { useAuthStore } from "../stores/auth.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
+import { useWorkspace } from "./useWorkspace.js";
 import { emit } from "../app-bridge.js";
 import { MSG_DELETE_FAILED } from "../utils/constants.js";
 import { useConfirm } from "./useConfirm.js";
@@ -9,8 +9,8 @@ import { workspaceDownloadPath } from "../utils/endpoints.js";
 
 export function useFileActions({ getContextEntry, clearContextEntry, getCurrentPath, getFileContent, navigateToPath }) {
   const auth = useAuthStore();
-  const workspaceStore = useWorkspaceStore();
-  const { apiGet, apiPost, wsEndpoint } = useApi();
+  const { withWorkspace } = useWorkspace();
+  const { apiPost, wsEndpoint } = useApi();
   const { confirm } = useConfirm();
 
   function entryPath() {
@@ -21,12 +21,12 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
   }
 
   async function renameFile(src, dest) {
-    const workspace = workspaceStore.selectedWorkspace;
-    if (!workspace) return;
-    const { ok } = await apiPost(wsEndpoint(workspace, "rename"), { src, dest }, { errorMessage: "Rename failed" });
-    if (!ok) return;
-    emit("toast:show", { message: "Renamed", type: "success" });
-    await navigateToPath(getCurrentPath());
+    await withWorkspace(async (workspace) => {
+      const { ok } = await apiPost(wsEndpoint(workspace, "rename"), { src, dest }, { errorMessage: "Rename failed" });
+      if (!ok) return;
+      emit("toast:show", { message: "Renamed", type: "success" });
+      await navigateToPath(getCurrentPath());
+    });
   }
 
   async function renameEntry() {
@@ -56,25 +56,26 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
     if (!filePath || !fileName) return;
     if (!await confirm(`Delete "${fileName}"?`)) { clearContextEntry(); return; }
     clearContextEntry();
-    const workspace = workspaceStore.selectedWorkspace;
-    if (!workspace) return;
-    const { ok } = await apiPost(wsEndpoint(workspace, "delete-file"), { path: filePath }, { errorMessage: MSG_DELETE_FAILED });
-    if (!ok) return;
-    emit("toast:show", { message: "Deleted", type: "success" });
-    await navigateToPath(getCurrentPath());
+    await withWorkspace(async (workspace) => {
+      const { ok } = await apiPost(wsEndpoint(workspace, "delete-file"), { path: filePath }, { errorMessage: MSG_DELETE_FAILED });
+      if (!ok) return;
+      emit("toast:show", { message: "Deleted", type: "success" });
+      await navigateToPath(getCurrentPath());
+    });
   }
 
   async function downloadFile(filePath) {
-    const workspace = workspaceStore.selectedWorkspace;
-    if (!workspace || !filePath) return;
-    try {
-      const res = await auth.apiFetch(workspaceDownloadPath(workspace, filePath));
-      if (!res?.ok) throw new Error();
-      const blob = await res.blob();
-      triggerBlobDownload(blob, filePath.split("/").pop() || "download");
-    } catch {
-      emit("toast:show", { message: "Download failed", type: "error" });
-    }
+    if (!filePath) return;
+    await withWorkspace(async (workspace) => {
+      try {
+        const res = await auth.apiFetch(workspaceDownloadPath(workspace, filePath));
+        if (!res?.ok) throw new Error();
+        const blob = await res.blob();
+        triggerBlobDownload(blob, filePath.split("/").pop() || "download");
+      } catch {
+        emit("toast:show", { message: "Download failed", type: "error" });
+      }
+    });
   }
 
   async function downloadEntry() {
@@ -85,37 +86,38 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
   }
 
   async function uploadDroppedFiles(files) {
-    const workspace = workspaceStore.selectedWorkspace;
-    if (!workspace || files.length === 0) return;
-    const uploadPath = getUploadDirPath();
-    let successCount = 0;
-    let failCount = 0;
-    for (const file of files) {
-      const formData = new FormData();
-      formData.append("path", uploadPath);
-      formData.append("file", file);
-      try {
-        const res = await auth.apiFetch(wsEndpoint(workspace, "upload"), {
-          method: "POST",
-          body: formData,
-        });
-        if (res && res.ok) {
-          successCount += 1;
-        } else {
+    if (files.length === 0) return;
+    await withWorkspace(async (workspace) => {
+      const uploadPath = getUploadDirPath();
+      let successCount = 0;
+      let failCount = 0;
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("path", uploadPath);
+        formData.append("file", file);
+        try {
+          const res = await auth.apiFetch(wsEndpoint(workspace, "upload"), {
+            method: "POST",
+            body: formData,
+          });
+          if (res && res.ok) {
+            successCount += 1;
+          } else {
+            failCount += 1;
+          }
+        } catch {
           failCount += 1;
         }
-      } catch {
-        failCount += 1;
       }
-    }
 
-    if (successCount > 0) {
-      emit("toast:show", { message: `${successCount} file(s) uploaded`, type: "success" });
-    }
-    if (failCount > 0) {
-      emit("toast:show", { message: `${failCount} file(s) failed to upload`, type: "error" });
-    }
-    await navigateToPath(uploadPath);
+      if (successCount > 0) {
+        emit("toast:show", { message: `${successCount} file(s) uploaded`, type: "success" });
+      }
+      if (failCount > 0) {
+        emit("toast:show", { message: `${failCount} file(s) failed to upload`, type: "error" });
+      }
+      await navigateToPath(uploadPath);
+    });
   }
 
   function getUploadDirPath() {

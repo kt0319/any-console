@@ -6,6 +6,7 @@ from typing import Any
 
 from .common import CONFIG_FILE, GLOBAL_CONFIG_KEY, default_workspace_dir
 from .config_schema import normalize_loaded_config, validate_config_entry
+from .errors import bad_request
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,18 @@ def _file_lock(exclusive: bool):
             _fcntl.flock(fp.fileno(), _fcntl.LOCK_UN)
         finally:
             fp.close()
+
+
+@contextmanager
+def _config_read():
+    with _config_lock, _file_lock(exclusive=False):
+        yield _read_config_unlocked()
+
+
+@contextmanager
+def _config_write():
+    with _config_lock, _file_lock(exclusive=True):
+        yield _read_config_unlocked()
 
 
 def _migrate_workspace_paths(config: dict) -> bool:
@@ -104,8 +117,8 @@ def _write_config_unlocked(config: dict) -> None:
 
 
 def load_all_config() -> dict:
-    with _config_lock, _file_lock(exclusive=False):
-        return _read_config_unlocked()
+    with _config_read() as cfg:
+        return cfg
 
 
 def save_all_config(config: dict) -> None:
@@ -114,25 +127,23 @@ def save_all_config(config: dict) -> None:
 
 
 def load_workspace_config(workspace_name: str) -> dict:
-    with _config_lock, _file_lock(exclusive=False):
-        return _read_config_unlocked().get(workspace_name, {})
+    with _config_read() as cfg:
+        return cfg.get(workspace_name, {})
 
 
 def save_workspace_config(workspace_name: str, config: dict) -> None:
-    with _config_lock, _file_lock(exclusive=True):
-        all_config = _read_config_unlocked()
+    with _config_write() as all_config:
         all_config[workspace_name] = validate_config_entry(workspace_name, config, GLOBAL_CONFIG_KEY)
         _write_config_unlocked(all_config)
 
 
 def load_workspace_config_section(workspace_name: str, key: str, default=None):
-    with _config_lock, _file_lock(exclusive=False):
-        ws_config = _read_config_unlocked().get(workspace_name, {})
+    with _config_read() as cfg:
+        ws_config = cfg.get(workspace_name, {})
         return ws_config.get(key, default if default is not None else {})
 
 
-def _update_config_section(config_key: str, section_key: str, data) -> None:
-    all_config = _read_config_unlocked()
+def _update_config_section(all_config: dict, config_key: str, section_key: str, data) -> None:
     section = all_config.get(config_key, {})
     section[section_key] = data
     all_config[config_key] = validate_config_entry(config_key, section, GLOBAL_CONFIG_KEY)
@@ -140,13 +151,12 @@ def _update_config_section(config_key: str, section_key: str, data) -> None:
 
 
 def save_workspace_config_section(workspace_name: str, key: str, data) -> None:
-    with _config_lock, _file_lock(exclusive=True):
-        _update_config_section(workspace_name, key, data)
+    with _config_write() as all_config:
+        _update_config_section(all_config, workspace_name, key, data)
 
 
 def delete_workspace_config(workspace_name: str) -> None:
-    with _config_lock, _file_lock(exclusive=True):
-        all_config = _read_config_unlocked()
+    with _config_write() as all_config:
         all_config.pop(workspace_name, None)
         global_config = all_config.get(GLOBAL_CONFIG_KEY, {})
         order = global_config.get("workspace_order", [])
@@ -198,20 +208,30 @@ def _check_config_health_unlocked() -> dict[str, Any]:
 
 
 def list_workspace_entries() -> dict[str, dict]:
-    with _config_lock, _file_lock(exclusive=False):
-        all_config = _read_config_unlocked()
+    with _config_read() as cfg:
         return {
-            name: entry for name, entry in all_config.items()
+            name: entry for name, entry in cfg.items()
             if name != GLOBAL_CONFIG_KEY and isinstance(entry, dict)
         }
 
 
 def load_global_config_section(key: str, default=None):
-    with _config_lock, _file_lock(exclusive=False):
-        global_config = _read_config_unlocked().get(GLOBAL_CONFIG_KEY, {})
+    with _config_read() as cfg:
+        global_config = cfg.get(GLOBAL_CONFIG_KEY, {})
         return global_config.get(key, default if default is not None else {})
 
 
 def save_global_config_section(key: str, data) -> None:
-    with _config_lock, _file_lock(exclusive=True):
-        _update_config_section(GLOBAL_CONFIG_KEY, key, data)
+    with _config_write() as all_config:
+        _update_config_section(all_config, GLOBAL_CONFIG_KEY, key, data)
+
+
+def ensure_workspace_exists(workspace_name: str) -> dict:
+    """Validate workspace exists and return its config. Raise 400 otherwise."""
+    with _config_read() as cfg:
+        if workspace_name == GLOBAL_CONFIG_KEY or workspace_name not in cfg:
+            raise bad_request(f"Workspace '{workspace_name}' not found")
+        entry = cfg.get(workspace_name)
+        if not isinstance(entry, dict):
+            raise bad_request(f"Workspace '{workspace_name}' not found")
+        return entry

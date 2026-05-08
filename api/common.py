@@ -1,4 +1,6 @@
+import logging
 import re
+import subprocess
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -90,6 +92,35 @@ ICON_PATTERN = re.compile(
 ICON_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{3,6}$")
 
 BACKGROUND_EXECUTOR = ThreadPoolExecutor(max_workers=4)
+
+_subprocess_logger = logging.getLogger(__name__)
+
+
+def run_subprocess_safe(
+    cmd: list[str],
+    *,
+    timeout: float,
+    cwd: str | None = None,
+    env: dict | None = None,
+    text: bool = True,
+    log_label: str | None = None,
+) -> subprocess.CompletedProcess | None:
+    """Run subprocess with standard error suppression.
+
+    Returns None on TimeoutExpired / FileNotFoundError / OSError;
+    callers handle the None case themselves. The completed process is
+    returned regardless of returncode so callers can inspect stderr.
+    """
+    label = log_label or (cmd[0] if cmd else "cmd")
+    try:
+        return subprocess.run(
+            cmd,
+            capture_output=True, text=text, timeout=timeout,
+            cwd=cwd, env=env,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        _subprocess_logger.debug("subprocess failed %s: %s", label, e)
+        return None
 
 class TTLCache:
     def __init__(self, ttl_sec: float):

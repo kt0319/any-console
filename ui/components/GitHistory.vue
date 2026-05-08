@@ -120,6 +120,7 @@ import FileItem from "./FileItem.vue";
 import FileActionMenu from "./FileActionMenu.vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
+import { useWorkspace } from "../composables/useWorkspace.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useLongPress } from "../composables/useLongPress.js";
 import { useHoverMenu, isHoverDevice } from "../composables/useHoverMenu.js";
@@ -139,6 +140,7 @@ const emitToParent = defineEmits(["commit:expanded", "commit:collapsed"]);
 
 const workspaceStore = useWorkspaceStore();
 const { apiCommand, wsEndpoint, apiGet } = useApi();
+const { withWorkspace, getWorkspace } = useWorkspace();
 const { confirm } = useConfirm();
 const { editorUrlTemplate, fetchEditorSettings, openInEditor } = useEditorIntegration();
 const auth = useAuthStore();
@@ -236,7 +238,7 @@ function openCommitDiffFiles(entry) {
 async function showSelectedCommitMessage() {
   const entry = selectedCommitForFiles.value;
   if (!entry) return;
-  const workspace = workspaceStore.selectedWorkspace;
+  const workspace = getWorkspace();
   const { ok, data } = await apiGet(workspaceCommitMessagePath(workspace, entry.fullHash));
   const msg = ok && data?.message ? data.message : entry.message;
   confirm(msg);
@@ -294,21 +296,21 @@ function viewDiffFile(file) {
 }
 
 async function _execDiffFileAction(file, endpoint, errorMessage, successMessage = null) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  closeDiffMenu();
-  const { ok } = await apiCommand(endpoint, { path: file.path }, { errorMessage });
-  if (ok) {
-    if (successMessage) bridgeEmit("toast:show", { message: successMessage, type: "success" });
-    bridgeEmit("git:refreshStatus");
-    openWorkingTreeDiffFiles();
-  }
+  await withWorkspace(async () => {
+    closeDiffMenu();
+    const { ok } = await apiCommand(endpoint, { path: file.path }, { errorMessage });
+    if (ok) {
+      if (successMessage) bridgeEmit("toast:show", { message: successMessage, type: "success" });
+      bridgeEmit("git:refreshStatus");
+      openWorkingTreeDiffFiles();
+    }
+  });
 }
 
 async function discardDiffFile(file) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  await _execDiffFileAction(file, workspaceGitDiscardPath(workspace), `Failed to discard ${file.path}`);
+  await withWorkspace(async (workspace) => {
+    await _execDiffFileAction(file, workspaceGitDiscardPath(workspace), `Failed to discard ${file.path}`);
+  });
 }
 
 function openDiffFileGithub(file) {
@@ -328,23 +330,23 @@ function diffFileGithubUrl(file) {
 }
 
 async function downloadDiffFile(file) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  closeDiffMenu();
-  try {
-    const res = await auth.apiFetch(workspaceDownloadPath(workspace, file.path));
-    if (!res?.ok) { bridgeEmit("toast:show", { message: "Download failed", type: "error" }); return; }
-    const blob = await res.blob();
-    triggerBlobDownload(blob, file.path.split("/").pop() || "download");
-  } catch {
-    bridgeEmit("toast:show", { message: "Download failed", type: "error" });
-  }
+  await withWorkspace(async (workspace) => {
+    closeDiffMenu();
+    try {
+      const res = await auth.apiFetch(workspaceDownloadPath(workspace, file.path));
+      if (!res?.ok) { bridgeEmit("toast:show", { message: "Download failed", type: "error" }); return; }
+      const blob = await res.blob();
+      triggerBlobDownload(blob, file.path.split("/").pop() || "download");
+    } catch {
+      bridgeEmit("toast:show", { message: "Download failed", type: "error" });
+    }
+  });
 }
 
 async function deleteDiffFile(file) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  await _execDiffFileAction(file, wsEndpoint(workspace, "delete-file"), "Delete failed", "Deleted");
+  await withWorkspace(async (workspace) => {
+    await _execDiffFileAction(file, wsEndpoint(workspace, "delete-file"), "Delete failed", "Deleted");
+  });
 }
 
 function selectCommitDiffFile(file) {

@@ -1,4 +1,3 @@
-import json
 import logging
 import re
 import subprocess
@@ -13,21 +12,20 @@ from ..common import (
     BACKGROUND_FETCH_TIMEOUT_SEC,
     GIT_CLONE_TIMEOUT_SEC,
     GITHUB_CLI_REPO_LIMIT,
-    GITHUB_CLI_TIMEOUT_SEC,
-    GITHUB_REPOS_CACHE_TTL_SEC,
-    TTLCache,
     default_workspace_dir,
+    run_subprocess_safe,
     sanitize_log_value,
 )
 from ..config import (
     delete_workspace_config,
+    ensure_workspace_exists,
     list_workspace_entries,
     load_global_config_section,
-    load_workspace_config,
     save_global_config_section,
     save_workspace_config,
 )
 from ..errors import bad_request, conflict, server_error, timeout_error
+from ..gh_utils import repos_cache, run_gh, run_gh_json
 from ..git_utils import command_result_dict, git_branch, git_github_url, git_info_to_status_dict, git_is_repo
 from ..icons import normalize_icon
 from ..validators import validate_workspace_name
@@ -36,23 +34,15 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
-_github_repos_cache = TTLCache(GITHUB_REPOS_CACHE_TTL_SEC)
-
-
-def _run_gh_cmd(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["gh", *args], capture_output=True, text=True, timeout=GITHUB_CLI_TIMEOUT_SEC)
-
 
 def _background_fetch(dirs):
     def fetch(workspace_dir):
-        try:
-            subprocess.run(
-                ["git", "fetch", "--quiet"],
-                capture_output=True, text=True,
-                timeout=BACKGROUND_FETCH_TIMEOUT_SEC, cwd=str(workspace_dir),
-            )
-        except (subprocess.TimeoutExpired, OSError) as e:
-            logger.warning("background fetch failed dir=%s: %s", workspace_dir.name, e)
+        if run_subprocess_safe(
+            ["git", "fetch", "--quiet"],
+            timeout=BACKGROUND_FETCH_TIMEOUT_SEC, cwd=str(workspace_dir),
+            log_label=f"background fetch {workspace_dir.name}",
+        ) is None:
+            logger.warning("background fetch failed dir=%s", workspace_dir.name)
 
     list(BACKGROUND_EXECUTOR.map(fetch, dirs))
 
@@ -139,10 +129,7 @@ class UpdateConfigRequest(BaseModel):
 
 @router.put("/workspaces/{name}/config")
 def update_workspace_config_endpoint(name: str, body: UpdateConfigRequest):
-    entries = list_workspace_entries()
-    if name not in entries:
-        raise bad_request(f"Workspace '{name}' not found")
-    config = load_workspace_config(name)
+    config = dict(ensure_workspace_exists(name))
     config["icon"] = normalize_icon(body.icon.strip())
     config["icon_color"] = body.icon_color.strip()
     config["hidden"] = body.hidden
@@ -231,9 +218,7 @@ def add_workspace(body: AddWorkspaceRequest):
 
 @router.delete("/workspaces/{name}")
 def delete_workspace(name: str):
-    entries = list_workspace_entries()
-    if name not in entries:
-        raise bad_request(f"Workspace '{name}' not found")
+    ensure_workspace_exists(name)
     delete_workspace_config(name)
     logger.info("workspace deleted name=%s", name)
     return {"status": "ok"}
@@ -241,47 +226,42 @@ def delete_workspace(name: str):
 
 @router.get("/github/repos")
 def list_github_repos():
-    cached = _github_repos_cache.get("repos")
+    cache = repos_cache()
+    cached = cache.get("repos")
     if cached is not None:
         return cached
-    try:
-        if _run_gh_cmd("auth", "status").returncode != 0:
-            raise server_error("gh CLI is not authenticated. Run 'gh auth login' on the server.")
 
-        all_repos = []
+    auth_result = run_gh(["auth", "status"])
+    if auth_result is None:
+        raise server_error("gh command not found or failed")
+    if auth_result.returncode != 0:
+        raise server_error("gh CLI is not authenticated. Run 'gh auth login' on the server.")
 
-        _gh_json_fields = "nameWithOwner,url,description"
-        result = _run_gh_cmd("repo", "list", "--limit", str(GITHUB_CLI_REPO_LIMIT), "--json", _gh_json_fields)
-        if result.returncode == 0:
-            all_repos.extend(json.loads(result.stdout))
+    json_fields = "nameWithOwner,url,description"
+    all_repos = []
 
-        org_result = _run_gh_cmd("org", "list")
-        if org_result.returncode == 0:
-            orgs = [o.strip() for o in org_result.stdout.strip().splitlines() if o.strip()]
-            for org in orgs:
-                org_repos = _run_gh_cmd(
-                    "repo", "list", org, "--limit", str(GITHUB_CLI_REPO_LIMIT), "--json", _gh_json_fields,
-                )
-                if org_repos.returncode == 0:
-                    all_repos.extend(json.loads(org_repos.stdout))
+    own_repos = run_gh_json(["repo", "list", "--limit", str(GITHUB_CLI_REPO_LIMIT), "--json", json_fields])
+    if own_repos:
+        all_repos.extend(own_repos)
 
-        seen = set()
-        unique_repos = []
-        for repo in all_repos:
-            key = repo.get("nameWithOwner")
-            if key and key not in seen:
-                seen.add(key)
-                unique_repos.append(repo)
-        unique_repos.sort(key=lambda r: r.get("nameWithOwner", "").lower())
+    org_result = run_gh(["org", "list"])
+    if org_result is not None and org_result.returncode == 0:
+        orgs = [o.strip() for o in org_result.stdout.strip().splitlines() if o.strip()]
+        for org in orgs:
+            org_repos = run_gh_json(
+                ["repo", "list", org, "--limit", str(GITHUB_CLI_REPO_LIMIT), "--json", json_fields],
+            )
+            if org_repos:
+                all_repos.extend(org_repos)
 
-        _github_repos_cache.set("repos", unique_repos)
-        return unique_repos
-    except FileNotFoundError:
-        raise server_error("gh command not found") from None
-    except subprocess.TimeoutExpired:
-        raise timeout_error("gh command timed out") from None
-    except json.JSONDecodeError:
-        raise server_error("Failed to parse gh output") from None
-    except OSError as e:
-        logger.error("gh command failed: %s", e)
-        raise server_error(f"gh command failed: {e}") from None
+    seen = set()
+    unique_repos = []
+    for repo in all_repos:
+        key = repo.get("nameWithOwner")
+        if key and key not in seen:
+            seen.add(key)
+            unique_repos.append(repo)
+    unique_repos.sort(key=lambda r: r.get("nameWithOwner", "").lower())
+
+    cache.set("repos", unique_repos)
+    return unique_repos
