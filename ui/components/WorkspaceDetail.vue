@@ -1,21 +1,53 @@
 <template>
   <div class="workspace-detail">
     <div v-show="topRatio > 0" class="workspace-detail-top" :style="{ flex: topRatio + ' 1 0%' }">
-      <div v-show="activePane !== 'branch' && activePane !== 'stash'" class="file-modal-pane">
-        <GitHistory
-          ref="gitHistory"
-          @pane:select="switchPane"
-          @commit:expanded="onCommitExpanded"
-          @commit:collapsed="onCommitCollapsed"
-        />
+      <!-- タブバー -->
+      <div class="workspace-tabs">
+        <button
+          v-for="tab in tabs"
+          :key="tab.key"
+          class="workspace-tab"
+          :class="{ active: activePane === tab.key }"
+          @click="switchPane(tab.key)"
+        >
+          <span :class="['mdi', tab.icon]"></span>
+          <span class="workspace-tab-label">{{ tab.label }}</span>
+          <span v-if="tab.badge" class="workspace-tab-badge">{{ tab.badge }}</span>
+        </button>
       </div>
-      <div v-if="activePane === 'branch'" class="file-modal-pane">
-        <GitChangeBranch ref="gitBranch" />
+
+      <!-- タブコンテンツ -->
+      <div class="workspace-tab-content">
+        <div v-show="activePane === 'history'" class="file-modal-pane">
+          <GitHistory
+            ref="gitHistory"
+            @pane:select="switchPane"
+            @commit:expanded="onCommitExpanded"
+            @commit:collapsed="onCommitCollapsed"
+          />
+        </div>
+        <div v-if="activePane === 'changes'" class="file-modal-pane">
+          <GitFiles ref="gitFiles" />
+        </div>
+        <div v-if="activePane === 'branch'" class="file-modal-pane">
+          <GitChangeBranch ref="gitBranch" />
+        </div>
+        <div v-if="activePane === 'stash'" class="file-modal-pane">
+          <GitStash ref="gitStash" @count="onStashCount" />
+        </div>
+        <div v-if="activePane === 'issues'" class="file-modal-pane">
+          <GitHubIssuesPane ref="githubIssues" @count="issuesCount = $event" />
+        </div>
+        <div v-if="activePane === 'actions'" class="file-modal-pane">
+          <GitHubActionsPane ref="githubActions" />
+        </div>
+        <div v-if="activePane === 'prs'" class="file-modal-pane">
+          <GitHubPRsPane ref="githubPrs" @count="prsCount = $event" />
+        </div>
       </div>
-      <div v-if="activePane === 'stash'" class="file-modal-pane">
-        <GitStash ref="gitStash" />
-      </div>
+      <GitCommitForm ref="commitForm" />
     </div>
+
     <div
       class="workspace-detail-handle"
       @mousedown="onHandlePointerDown"
@@ -25,37 +57,49 @@
       <span class="handle-grip mdi mdi-drag-horizontal"></span>
       <span class="handle-line"></span>
     </div>
+
     <div v-show="topRatio < 1" class="workspace-detail-bottom" :style="{ flex: (1 - topRatio) + ' 1 0%' }">
       <div class="file-modal-pane">
         <FileBrowser ref="fileBrowser" :diffFile="selectedDiffFile" :diffMessage="diffMessage" />
       </div>
-      <GitCommitForm ref="commitForm" />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from "vue";
+import { ref, computed, nextTick, onMounted, watch } from "vue";
 import FileBrowser from "./FileBrowser.vue";
 import GitHistory from "./GitHistory.vue";
+import GitFiles from "./GitFiles.vue";
 import GitChangeBranch from "./GitChangeBranch.vue";
 import GitStash from "./GitStash.vue";
 import GitCommitForm from "./GitCommitForm.vue";
+import GitHubIssuesPane from "./GitHubIssuesPane.vue";
+import GitHubActionsPane from "./GitHubActionsPane.vue";
+import GitHubPRsPane from "./GitHubPRsPane.vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { useModalView } from "../composables/useModalView.js";
+import { getCachedCount, useGitHub } from "../composables/useGitHub.js";
+import { getStashCachedCount } from "../composables/useStashCache.js";
+
 const workspaceStore = useWorkspaceStore();
-const { apiCommand, wsEndpoint } = useApi();
-const { modalTitle, viewState, pushView, popView } = useModalView();
+const { apiCommand, apiGet, wsEndpoint } = useApi();
+const { loadWorkspaceGithubUrl, loadIssues, loadPRs } = useGitHub();
+const { modalTitle, viewState } = useModalView();
 
 const fileBrowser = ref(null);
 const gitHistory = ref(null);
+const gitFiles = ref(null);
 const gitBranch = ref(null);
 const gitStash = ref(null);
 const commitForm = ref(null);
+const githubIssues = ref(null);
+const githubActions = ref(null);
+const githubPrs = ref(null);
 
-const activePane = ref("browser");
+const activePane = ref("history");
 const topRatio = ref(0.33);
 const selectedDiffFile = ref("");
 const diffMessage = ref("");
@@ -63,6 +107,37 @@ const diffMessage = ref("");
 let lastRatioBeforeCollapse = 0.33;
 let lastTapTime = 0;
 const DOUBLE_TAP_MS = 300;
+
+const changesCount = computed(() => {
+  const ws = workspaceStore.currentWorkspace;
+  if (!ws || ws.clean !== false) return 0;
+  return ws.changed_files || 0;
+});
+
+const issuesCount = ref(null);
+const prsCount = ref(null);
+const stashCount = ref(null);
+
+const hasGithub = computed(() => !!workspaceStore.currentWorkspace?.github_url);
+
+const tabs = computed(() => {
+  const list = [
+    { key: "history", icon: "mdi-history", label: "History" },
+    { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", badge: changesCount.value || "" },
+    { key: "branch", icon: "mdi-source-branch", label: "Branch" },
+    { key: "stash", icon: "mdi-package-variant", label: "Stash", badge: stashCount.value || "", hidden: !stashCount.value },
+    { key: "issues", icon: "mdi-github", label: "Issues", badge: issuesCount.value || "", hidden: !hasGithub.value || !issuesCount.value },
+    { key: "actions", icon: "mdi-github", label: "Actions", hidden: !hasGithub.value },
+    { key: "prs", icon: "mdi-github", label: "PR", badge: prsCount.value || "", hidden: !hasGithub.value || !prsCount.value },
+  ];
+  return list.filter((t) => !t.hidden);
+});
+
+function updateViewTitle() {
+  const ws = workspaceStore.selectedWorkspace || "Git";
+  const branch = workspaceStore.currentWorkspace?.branch;
+  modalTitle.value = branch ? `${ws} (${branch})` : ws;
+}
 
 function onHandleDoubleTap() {
   if (topRatio.value >= 1.0) {
@@ -92,7 +167,6 @@ function onHandleDragStart(e) {
   if (!container) return;
   const containerRect = container.getBoundingClientRect();
   const startRatio = topRatio.value;
-
   let didMove = false;
 
   function onMove(ev) {
@@ -124,22 +198,15 @@ function onHandleDragStart(e) {
   document.addEventListener("touchend", onEnd);
   document.addEventListener("touchcancel", onEnd);
 }
+
 let loadedWorkspace = null;
 
-function updateViewTitle() {
-  modalTitle.value = workspaceStore.selectedWorkspace || "Git";
-}
-
 function handleBack() {
-  if (gitHistory.value?.hasExpanded?.()) {
+  if (activePane.value === "history" && gitHistory.value?.hasExpanded?.()) {
     gitHistory.value?.closeExpanded?.();
     selectedDiffFile.value = "";
     diffMessage.value = "";
     updateViewTitle();
-    return true;
-  }
-  if (activePane.value === "branch" || activePane.value === "stash") {
-    switchPane("browser");
     return true;
   }
   if (selectedDiffFile.value) {
@@ -150,15 +217,39 @@ function handleBack() {
   return false;
 }
 
+async function backgroundLoadCounts(workspace) {
+  try {
+    const { ok, data } = await apiGet(wsEndpoint(workspace, "stash-list"));
+    if (ok) stashCount.value = (data.entries || []).length;
+  } catch {}
+
+  if (!hasGithub.value) return;
+  loadWorkspaceGithubUrl();
+  const issueItems = ref([]), issueLoading = ref(false), issueError = ref("");
+  const prItems = ref([]), prLoading = ref(false), prError = ref("");
+  await Promise.all([
+    loadIssues(issueItems, issueLoading, issueError),
+    loadPRs(prItems, prLoading, prError),
+  ]);
+  if (!issueError.value) issuesCount.value = issueItems.value.length;
+  if (!prError.value) prsCount.value = prItems.value.length;
+}
+
 async function open(options) {
   options = options || {};
-  activePane.value = options.pane || "browser";
-  gitHistory.value?.setActivePane(activePane.value);
+  const paneKey = options.pane || "history";
+  activePane.value = paneKey === "browser" ? "history" : paneKey;
   selectedDiffFile.value = "";
   diffMessage.value = "";
   updateViewTitle();
 
   const workspace = workspaceStore.selectedWorkspace;
+  issuesCount.value = getCachedCount(workspace, "issues");
+  prsCount.value = getCachedCount(workspace, "prs");
+  stashCount.value = getStashCachedCount(workspace);
+
+  backgroundLoadCounts(workspace);
+
   if (workspace !== loadedWorkspace) {
     loadedWorkspace = workspace;
     await gitHistory.value?.load();
@@ -169,13 +260,19 @@ async function open(options) {
   fileBrowser.value?.load();
 }
 
-function switchPane(key) {
+async function switchPane(key) {
+  // 後方互換: "github" → "issues"、"browser" → "history"
+  if (key === "github") key = "issues";
+  if (key === "browser") key = "history";
+
   activePane.value = key;
-  gitHistory.value?.setActivePane(key);
   selectedDiffFile.value = "";
   updateViewTitle();
-  if (key === "browser") {
-    fileBrowser.value?.load();
+
+  if (key === "history") {
+    // GitHistory は v-show で常時マウント済み
+  } else if (key === "changes") {
+    nextTick(() => gitFiles.value?.loadWorkingTreeDiff());
   } else if (key === "branch") {
     nextTick(() => {
       gitBranch.value?.load();
@@ -183,9 +280,12 @@ function switchPane(key) {
     });
   } else if (key === "stash") {
     nextTick(() => gitStash.value?.load());
-  } else if (key === "github") {
-    pushView("GitHubPane");
   }
+  // issues/actions/prs は v-if + onMounted で自動ロード
+}
+
+function onStashCount(n) {
+  stashCount.value = n;
 }
 
 function onCommitExpanded({ message }) {
@@ -221,7 +321,7 @@ on("git:checkoutBranch", async ({ branch, remote }) => {
   if (!workspace) return;
   const { ok } = await apiCommand(wsEndpoint(workspace, "checkout"), { branch, remote }, { errorMessage: "Checkout failed" });
   if (!ok) return;
-  switchPane("browser");
+  switchPane("history");
   workspaceStore.fetchStatuses();
   gitHistory.value?.reload();
   fileBrowser.value?.load();
@@ -236,6 +336,10 @@ on("git:stashSave", async () => {
 });
 
 defineExpose({ handleBack });
+
+watch(() => workspaceStore.currentWorkspace?.branch, () => {
+  updateViewTitle();
+});
 
 onMounted(() => {
   const detail = viewState.value?.detail;
@@ -299,5 +403,81 @@ onMounted(() => {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+/* タブバー */
+.workspace-tabs {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-primary);
+  scrollbar-width: none;
+}
+
+.workspace-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.workspace-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  min-width: 52px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  color: var(--text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.workspace-tab.active {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border-bottom-color: var(--accent);
+}
+
+
+.workspace-tab .mdi {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.workspace-tab-label {
+  line-height: 1;
+}
+
+.workspace-tab-badge {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-size: 9px;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 0 4px;
+  min-width: 14px;
+  text-align: center;
+  line-height: 14px;
+}
+
+/* タブコンテンツ */
+.workspace-tab-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 </style>

@@ -33,6 +33,7 @@ import { useTerminal } from "../composables/useTerminal.js";
 import { useTerminalStore, isLinkTapped } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useAuthStore } from "../stores/auth.js";
+import { useWorkspaceStore } from "../stores/workspace.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { enterViewMode, exitViewMode, isViewMode } from "../utils/view-mode.js";
 import { emit } from "../app-bridge.js";
@@ -52,6 +53,7 @@ const emits = defineEmits(["select-pane"]);
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const auth = useAuthStore();
+const workspaceStore = useWorkspaceStore();
 const { beginDrag, updateHover, finishSplitDrop, cancelDrag } = useSplitDropDrag();
 const pillMouseLongPress = useLongPress(LONG_PRESS_MS);
 const pillTouchLongPress = useLongPress(LONG_PRESS_MS);
@@ -230,7 +232,12 @@ function onPillClick(e) {
   }
   pillMouseLongPress.cancel();
   if (Date.now() - pillMouseDownTime > 300) return;
-  emit("workspace:openModal");
+  if (props.tab.workspace) {
+    workspaceStore.selectedWorkspace = props.tab.workspace;
+    emit("git:openFileModal");
+  } else {
+    emit("workspace:openModal");
+  }
 }
 
 function onPillMouseMove(e) {

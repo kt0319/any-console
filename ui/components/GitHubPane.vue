@@ -3,17 +3,17 @@
     <div class="modal-scroll-body">
       <div v-if="!githubUrl" class="text-muted-center">No GitHub repository configured</div>
       <template v-else>
-        <div class="github-section-title github-section-link" @click="openUrl(githubUrl)">
+        <div v-if="section === 'all'" class="github-section-title github-section-link" @click="openUrl(githubUrl)">
           {{ repoName }}
         </div>
 
-        <div class="github-section-title github-section-link" @click="openUrl(githubUrl + '/issues')">
+        <div v-if="section === 'all' || section === 'issues'" class="github-section-title github-section-link" @click="openUrl(githubUrl + '/issues')">
           Issues
           <span :class="['github-section-badge', { 'github-badge-loading': isIssuesLoading }]">
             {{ isIssuesLoading ? "…" : issueItems.length }}
           </span>
         </div>
-        <div class="github-section-body">
+        <div v-if="section === 'all' || section === 'issues'" class="github-section-body">
           <div v-if="isIssuesLoading" style="color:var(--text-muted);padding:8px">Loading...</div>
           <div v-else-if="issuesLoadError" style="color:var(--diff-del);padding:8px">{{ issuesLoadError }}</div>
           <div
@@ -36,13 +36,13 @@
           </div>
         </div>
 
-        <div class="github-section-title github-section-link" @click="openUrl(githubUrl + '/pulls')">
+        <div v-if="section === 'all' || section === 'prs'" class="github-section-title github-section-link" @click="openUrl(githubUrl + '/pulls')">
           Pull Requests
           <span :class="['github-section-badge', { 'github-badge-loading': isPullRequestsLoading }]">
             {{ isPullRequestsLoading ? "…" : pullRequestItems.length }}
           </span>
         </div>
-        <div class="github-section-body">
+        <div v-if="section === 'all' || section === 'prs'" class="github-section-body">
           <div v-if="isPullRequestsLoading" style="color:var(--text-muted);padding:8px">Loading...</div>
           <div v-else-if="pullRequestsLoadError" style="color:var(--diff-del);padding:8px">{{ pullRequestsLoadError }}</div>
           <div
@@ -67,13 +67,13 @@
           </div>
         </div>
 
-        <div class="github-section-title github-section-link" @click="openUrl(githubUrl + '/actions')">
+        <div v-if="section === 'all' || section === 'actions'" class="github-section-title github-section-link" @click="openUrl(githubUrl + '/actions')">
           Actions
           <span :class="['github-section-badge', { 'github-badge-loading': isWorkflowRunsLoading }]">
             {{ isWorkflowRunsLoading ? "…" : workflowRuns.length }}
           </span>
         </div>
-        <div class="github-section-body">
+        <div v-if="section === 'all' || section === 'actions'" class="github-section-body">
           <div v-if="isWorkflowRunsLoading" style="color:var(--text-muted);padding:8px">Loading...</div>
           <div v-else-if="workflowRunsLoadError" style="color:var(--diff-del);padding:8px">{{ workflowRunsLoadError }}</div>
           <div
@@ -99,8 +99,11 @@ import { ref, inject, computed, onMounted } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 
-const modalTitle = inject("modalTitle");
-modalTitle.value = "GitHub";
+const props = defineProps({
+  section: { type: String, default: "all" }, // 'issues' | 'actions' | 'prs' | 'all'
+});
+
+const modalTitle = inject("modalTitle", null);
 
 const { apiGet, wsEndpoint } = useApi();
 const workspaceStore = useWorkspaceStore();
@@ -161,9 +164,10 @@ async function loadGitHubPaneData() {
   githubUrl.value = ws?.github_url || "";
   if (!githubUrl.value) return;
 
-  loadGitHubSection("issues", issueItems, isIssuesLoading, issuesLoadError, workspace);
-  loadGitHubSection("pulls", pullRequestItems, isPullRequestsLoading, pullRequestsLoadError, workspace);
-  loadWorkflowRuns(workspace);
+  const s = props.section;
+  if (s === "all" || s === "issues") loadGitHubSection("issues", issueItems, isIssuesLoading, issuesLoadError, workspace);
+  if (s === "all" || s === "prs") loadGitHubSection("pulls", pullRequestItems, isPullRequestsLoading, pullRequestsLoadError, workspace);
+  if (s === "all" || s === "actions") loadWorkflowRuns(workspace);
 }
 
 async function loadGitHubSection(type, listRef, loadingRef, errorRef, workspace) {
@@ -213,6 +217,8 @@ async function loadWorkflowRuns(workspace) {
 onMounted(() => {
   loadGitHubPaneData();
 });
+
+defineExpose({ reload: loadGitHubPaneData });
 </script>
 
 <style scoped>

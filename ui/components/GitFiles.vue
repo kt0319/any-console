@@ -36,13 +36,16 @@
           </FileItem>
           <li
             v-if="contextEntry?.path === file.path"
-            class="diff-file-context-menu"
+            class="file-browser-action-menu"
             @mouseenter="onMenuMouseEnter"
             @mouseleave="onMenuMouseLeave"
           >
-            <button type="button" @click="viewDiff(file)">View diff</button>
-            <button v-if="editorUrlTemplate" type="button" @click="openInEditor(file.path); closeMenu()">Editor</button>
-            <button v-if="isWorkingTree" type="button" class="danger" @click="discardFile(file)">Discard</button>
+            <button type="button" @click="viewDiff(file)"><span class="mdi mdi-file-document-outline"></span> View diff</button>
+            <button v-if="editorUrlTemplate" type="button" @click="openInEditor(file.path); closeMenu()"><span class="mdi mdi-file-edit-outline"></span> Editor</button>
+            <button type="button" @click="downloadFile(file)"><span class="mdi mdi-download"></span> Download</button>
+            <button v-if="githubFileUrl(file)" type="button" @click="openFileGithub(file)"><span class="mdi mdi-github"></span> GitHub</button>
+            <button v-if="isWorkingTree" type="button" class="file-browser-action-delete" @click="discardFile(file)"><span class="mdi mdi-undo"></span> Discard</button>
+            <button v-if="isWorkingTree" type="button" class="file-browser-action-delete" @click="deleteFile(file)"><span class="mdi mdi-delete-outline"></span> Delete</button>
           </li>
         </template>
       </ul>
@@ -51,13 +54,14 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref } from "vue";
 import FileItem from "./FileItem.vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitDiff } from "../composables/useGitDiff.js";
 import { useEditorIntegration } from "../composables/useEditorIntegration.js";
 import { useLongPress } from "../composables/useLongPress.js";
 import { useApi } from "../composables/useApi.js";
+import { useAuthStore } from "../stores/auth.js";
 import { emit } from "../app-bridge.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
 import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
@@ -66,7 +70,8 @@ import { workspaceGitDiscardPath } from "../utils/endpoints.js";
 const workspaceStore = useWorkspaceStore();
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
 const { editorUrlTemplate, fetchEditorSettings, openInEditor } = useEditorIntegration();
-const { apiPost } = useApi();
+const { apiPost, apiCommand, wsEndpoint } = useApi();
+const auth = useAuthStore();
 const longPress = useLongPress();
 
 const files = ref([]);
@@ -85,6 +90,12 @@ function statusClass(status) {
 
 function fileIconHtml(file) {
   return renderFileIconFromPath(file.path);
+}
+
+function githubFileUrl(file) {
+  const ws = workspaceStore.currentWorkspace;
+  if (!ws?.github_url) return "";
+  return `${ws.github_url}/blob/${ws.branch || "main"}/${file.path}`;
 }
 
 function closeMenu() {
@@ -134,6 +145,12 @@ function viewDiff(file) {
   selectFile(file);
 }
 
+function openFileGithub(file) {
+  const url = githubFileUrl(file);
+  if (url) window.open(url, "_blank");
+  closeMenu();
+}
+
 function selectFile(file) {
   selectedFile.value = file.path;
   emit("git:selectDiffFile", { path: file.path });
@@ -149,6 +166,43 @@ async function discardFile(file) {
     { errorMessage: `Failed to discard ${file.path}` },
   );
   if (result.ok) {
+    emit("git:refreshStatus");
+    await loadWorkingTreeDiff();
+  }
+}
+
+async function downloadFile(file) {
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
+  closeMenu();
+  try {
+    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/download?path=${encodeURIComponent(file.path)}`);
+    if (!res?.ok) { emit("toast:show", { message: "Download failed", type: "error" }); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file.path.split("/").pop() || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch {
+    emit("toast:show", { message: "Download failed", type: "error" });
+  }
+}
+
+async function deleteFile(file) {
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
+  closeMenu();
+  const { ok } = await apiCommand(
+    wsEndpoint(workspace, "delete-file"),
+    { path: file.path },
+    { errorMessage: "Delete failed" },
+  );
+  if (ok) {
+    emit("toast:show", { message: "Deleted", type: "success" });
     emit("git:refreshStatus");
     await loadWorkingTreeDiff();
   }
@@ -225,7 +279,7 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
   border-radius: var(--radius);
 }
 
-.diff-file-context-menu {
+.file-browser-action-menu {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
@@ -233,13 +287,13 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
   border-bottom: 1px solid var(--border);
 }
 
-.diff-file-context-menu button {
+.file-browser-action-menu button {
   padding: 5px 10px;
   font-size: 11px;
   min-height: 0;
 }
 
-.diff-file-context-menu button.danger {
+.file-browser-action-delete {
   color: var(--error);
   border-color: var(--error);
 }

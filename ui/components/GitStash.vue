@@ -23,7 +23,9 @@ import { ref } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
+import { getStashCache, setStashCache, invalidateStashCache } from "../composables/useStashCache.js";
 
+const emitCount = defineEmits(["count"]);
 const { apiGet, apiCommand, wsEndpoint } = useApi();
 const workspaceStore = useWorkspaceStore();
 
@@ -34,15 +36,24 @@ const stashListEl = ref(null);
 async function loadStashList() {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
+  const cached = getStashCache(workspace);
+  if (cached) {
+    stashEntries.value = cached;
+    emitCount("count", cached.length);
+    return;
+  }
   isStashListLoading.value = true;
   try {
     const { ok, data } = await apiGet(wsEndpoint(workspace, "stash-list"));
     if (!ok) { isStashListLoading.value = false; return; }
-    stashEntries.value = (data.entries || []).map((e) => ({
+    const result = (data.entries || []).map((e) => ({
       ref: e.ref || e.stash_ref,
       message: e.message || "",
       time: e.time || "",
     }));
+    stashEntries.value = result;
+    setStashCache(workspace, result);
+    emitCount("count", result.length);
   } catch (e) {
     console.error("stash list load failed:", e);
   } finally {
@@ -55,6 +66,7 @@ async function stashPop(entry) {
   if (!workspace) return;
   const { ok } = await apiCommand(wsEndpoint(workspace, "stash-pop-ref"), { stash_ref: entry.ref }, { errorMessage: "Stash apply failed" });
   if (!ok) return;
+  invalidateStashCache(workspace);
   await loadStashList();
   emit("git:commitDone");
 }
@@ -64,6 +76,7 @@ async function stashDrop(entry) {
   if (!workspace) return;
   const { ok } = await apiCommand(wsEndpoint(workspace, "stash-drop"), { stash_ref: entry.ref }, { errorMessage: "Stash drop failed" });
   if (!ok) return;
+  invalidateStashCache(workspace);
   await loadStashList();
 }
 

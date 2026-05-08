@@ -47,24 +47,6 @@
       <div v-if="isHistoryLoading" class="text-muted-center">Loading...</div>
       <div v-else-if="commitEntries.length === 0" class="text-muted-center">No commit history</div>
       <!-- Changes -->
-      <div v-if="!isHistoryLoading && commitEntries.length > 0" class="git-log-dirty" @click="isDirty ? openWorkingTreeDiffFiles() : selectPane('stash')">
-        <button type="button" class="git-log-branch-btn" @click.stop="selectPane('branch')">
-          <span class="mdi mdi-source-branch"></span>{{ currentBranch }}
-        </button>
-        <button type="button" class="git-action-btn icon-only git-log-fetch-btn" title="Fetch" :disabled="isFetching" @click.stop="fetchRemote">
-          <span class="mdi" :class="isFetching ? 'mdi-loading mdi-spin' : 'mdi-cloud-download-outline'"></span>
-        </button>
-        <span class="git-log-dirty-status">
-          <span class="git-log-dirty-label">{{ isDirty ? 'Changes' : 'No changes' }}</span>
-          <span v-if="isDirty" class="git-log-dirty-numstat" v-html="dirtySummaryHtml"></span>
-        </span>
-        <button v-if="isDirty" type="button" class="git-action-btn icon-only git-log-dirty-stash" title="Stash save" @click.stop="stashSave">
-          <span class="mdi mdi-archive-arrow-down-outline"></span>
-        </button>
-        <button v-if="githubUrl" type="button" class="git-action-btn icon-only git-log-dirty-github" title="GitHub" @click.stop="selectPane('github')">
-          <span class="mdi mdi-github"></span>
-        </button>
-      </div>
       <template v-for="(row, idx) in graphRows" :key="idx">
         <div
           class="git-log-entry git-log-commit long-press-surface"
@@ -122,7 +104,6 @@ import { useApi } from "../composables/useApi.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useLongPress } from "../composables/useLongPress.js";
 import { useGitHistoryAction } from "../composables/useGitHistoryAction.js";
-import { useConfirm } from "../composables/useConfirm.js";
 import { useGitDiff } from "../composables/useGitDiff.js";
 import { useGitLogPagination } from "../composables/useGitLogPagination.js";
 import { useEditorIntegration } from "../composables/useEditorIntegration.js";
@@ -132,50 +113,15 @@ import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
 import { GRAPH_ROW_HEIGHT } from "../utils/git-graph.js";
 import { workspaceGitDiscardPath } from "../utils/endpoints.js";
 
-const emitToParent = defineEmits(["pane:select", "commit:expanded", "commit:collapsed"]);
+const emitToParent = defineEmits(["commit:expanded", "commit:collapsed"]);
 
 const workspaceStore = useWorkspaceStore();
-const { apiGet, apiCommand, wsEndpoint } = useApi();
+const { apiCommand, wsEndpoint } = useApi();
 const { editorUrlTemplate, fetchEditorSettings, openInEditor } = useEditorIntegration();
 const auth = useAuthStore();
 const { execAction: execCommitAction, execReset: execCommitReset, execCreateBranch: execCommitCreateBranch, execMerge: execCommitMerge, execRebase: execCommitRebase } = useGitHistoryAction();
-const { confirm } = useConfirm();
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
-const activePane = ref("browser");
-
-function selectPane(key) {
-  activePane.value = key;
-  emitToParent("pane:select", key);
-}
-
 const isDirty = computed(() => workspaceStore.currentWorkspace && workspaceStore.currentWorkspace.clean === false);
-const currentBranch = computed(() => workspaceStore.currentWorkspace?.branch || "");
-const githubUrl = computed(() => workspaceStore.currentWorkspace?.github_url || "");
-const dirtySummaryHtml = computed(() => {
-  const ws = workspaceStore.currentWorkspace;
-  if (!ws || ws.clean !== false) return "";
-  const changedFiles = ws.changed_files || 0;
-  const insertions = ws.insertions || 0;
-  const deletions = ws.deletions || 0;
-  const fileCountHtml = changedFiles > 0 ? `<span class="header-git-files">${changedFiles}F</span>` : "";
-  return `${fileCountHtml}<span class="diff-num-plus">+${insertions}</span><span class="diff-num-del">-${deletions}</span>`;
-});
-
-const isFetching = ref(false);
-
-async function fetchRemote() {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace || isFetching.value) return;
-  isFetching.value = true;
-  try {
-    await apiCommand(wsEndpoint(workspace, "fetch"));
-    await workspaceStore.fetchStatuses();
-  } catch (e) {
-    console.error("fetch failed:", e);
-  } finally {
-    isFetching.value = false;
-  }
-}
 
 const {
   graphRows, commitEntries, graphWidth,
@@ -253,15 +199,6 @@ function openWorkingTreeDiffFiles() {
   openDiffFiles(dirtyEntry, fetchWorkingTreeDiff);
 }
 
-async function stashSave() {
-  if (!await confirm("Stash save?")) return;
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  const { ok } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true }, { errorMessage: "Stash save failed" });
-  if (!ok) return;
-  closeSelectedCommitFiles();
-  bridgeEmit("git:commitDone");
-}
 
 function openCommitDiffFiles(entry) {
   if (isMenuEl() || isLongPressFired()) return;
@@ -436,15 +373,6 @@ defineExpose({
   font-size: 13px;
 }
 
-.git-log-dirty {
-  display: flex;
-  align-items: center;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
-  gap: 8px;
-  cursor: pointer;
-}
-
 .git-log-commit {
   display: flex;
   align-items: center;
@@ -452,112 +380,12 @@ defineExpose({
   gap: 2px;
 }
 
-.git-log-branch-btn {
-  display: inline-flex;
-  align-items: center;
-  align-self: stretch;
-  gap: 4px;
-  padding: 0 10px;
-  font-size: 12px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-primary);
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 160px;
-  flex-shrink: 1;
-  min-width: 60px;
-}
-
-
 .git-log-entry-body {
   display: flex;
   flex-direction: column;
   gap: 3px;
   min-width: 0;
   flex: 1;
-}
-
-.git-log-pane-actions {
-  display: flex;
-  padding: 8px;
-  gap: 6px;
-  border-bottom: 1px solid var(--border);
-}
-
-.git-log-pane-actions .git-action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  min-height: 36px;
-  padding: 0;
-  border-radius: var(--radius);
-  font-size: 14px;
-  border: 1px solid var(--border);
-  cursor: pointer;
-}
-
-.git-log-pane-actions .git-action-btn.icon-only {
-  color: var(--text-muted);
-  background: var(--bg-tertiary);
-}
-
-.git-log-dirty-status {
-  display: flex;
-  align-items: center;
-  align-self: stretch;
-  flex: 1;
-  min-width: 0;
-  padding: 0 10px;
-  font-size: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-tertiary);
-  cursor: pointer;
-  gap: 8px;
-}
-
-.git-log-dirty-label {
-  font-size: 12px;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.git-log-dirty-numstat {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.git-log-dirty-numstat :deep(.header-git-files) {
-  color: var(--warning);
-}
-
-.git-log-fetch-btn,
-.git-log-dirty-stash,
-.git-log-dirty-github {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  align-self: stretch;
-  padding: 0 8px;
-  border-radius: var(--radius);
-  font-size: 14px;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  background: var(--bg-tertiary);
-  cursor: pointer;
-  flex-shrink: 0;
 }
 
 .git-log-entry-msg {
