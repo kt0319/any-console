@@ -125,6 +125,11 @@ def _safe_result(future):
         return None
 
 
+def _stdout_if_ok(future) -> str | None:
+    r = _safe_result(future)
+    return r.stdout if (r and r.returncode == 0) else None
+
+
 def git_info(directory: Path) -> dict:
     cache_key = str(directory)
     cached = _git_info_cache.get(cache_key)
@@ -167,47 +172,37 @@ def git_info(directory: Path) -> dict:
             f_remote_branches = pool.submit(run_git, "branch", "-r", "--format=%(refname:short)")
             f_revlist = pool.submit(run_git, "rev-list", "--left-right", "--count", "HEAD...@{upstream}")
 
-        result = _safe_result(f_branch)
-        if result and result.returncode == 0:
-            info["branch"] = result.stdout.strip()
+        if out := _stdout_if_ok(f_branch):
+            info["branch"] = out.strip()
 
-        result = _safe_result(f_remote_branches)
-        if result and result.returncode == 0 and info["branch"]:
-            branch = info["branch"]
-            candidates = {b.strip() for b in result.stdout.splitlines() if b.strip()}
-            info["has_remote_branch"] = f"origin/{branch}" in candidates
+        if (out := _stdout_if_ok(f_remote_branches)) and info["branch"]:
+            candidates = {b.strip() for b in out.splitlines() if b.strip()}
+            info["has_remote_branch"] = f"origin/{info['branch']}" in candidates
         elif info["branch"]:
             info["has_remote_branch"] = False
 
-        result = _safe_result(f_commit)
-        if result and result.returncode == 0 and result.stdout.strip():
-            info["last_commit"] = result.stdout.strip()
+        if (out := _stdout_if_ok(f_commit)) and out.strip():
+            info["last_commit"] = out.strip()
 
-        result = _safe_result(f_message)
-        if result and result.returncode == 0 and result.stdout.strip():
-            info["last_commit_message"] = result.stdout.strip()
+        if (out := _stdout_if_ok(f_message)) and out.strip():
+            info["last_commit_message"] = out.strip()
 
-        result = _safe_result(f_upstream)
-        if result and result.returncode == 0 and result.stdout.strip():
-            info["upstream"] = result.stdout.strip()
+        if (out := _stdout_if_ok(f_upstream)) and out.strip():
+            info["upstream"] = out.strip()
             info["has_upstream"] = True
         else:
             info["has_upstream"] = False
 
-        result = _safe_result(f_remote)
-        if result and result.returncode == 0:
-            github_url = _parse_github_url(result.stdout.strip())
-            if github_url:
+        if out := _stdout_if_ok(f_remote):
+            if github_url := _parse_github_url(out.strip()):
                 info["github_url"] = github_url
 
-        result = _safe_result(f_status)
-        if result and result.returncode == 0:
-            info["clean"] = len(result.stdout.strip()) == 0
+        status_out = _stdout_if_ok(f_status)
+        if status_out is not None:
+            info["clean"] = len(status_out.strip()) == 0
 
         if not info["clean"]:
-            diff_r = _safe_result(f_diff)
-            staged_r = _safe_result(f_staged)
-            for diff_stat_output in (diff_r.stdout if diff_r else "", staged_r.stdout if staged_r else ""):
+            for diff_stat_output in (_stdout_if_ok(f_diff) or "", _stdout_if_ok(f_staged) or ""):
                 if not diff_stat_output:
                     continue
                 files_match = re.search(r"(\d+) file", diff_stat_output)
@@ -220,15 +215,12 @@ def git_info(directory: Path) -> dict:
                 if deletions_match:
                     info["deletions"] += int(deletions_match.group(1))
 
-            status_r = _safe_result(f_status) if f_status else None
-            status_output = status_r.stdout if status_r else ""
-            if status_output:
-                untracked = sum(1 for line in status_output.splitlines() if line.startswith("?? "))
+            if status_out:
+                untracked = sum(1 for line in status_out.splitlines() if line.startswith("?? "))
                 info["changed_files"] += untracked
 
-        result = _safe_result(f_revlist)
-        if result and result.returncode == 0 and info["has_upstream"]:
-            parts = result.stdout.strip().split()
+        if (out := _stdout_if_ok(f_revlist)) and info["has_upstream"]:
+            parts = out.strip().split()
             if len(parts) == 2:
                 info["ahead"] = int(parts[0])
                 info["behind"] = int(parts[1])

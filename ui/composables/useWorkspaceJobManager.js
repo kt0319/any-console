@@ -17,8 +17,9 @@ export function useWorkspaceJobManager({ editWs, pushView }) {
           .filter(([name]) => name !== "terminal")
           .map(([name, job]) => ({ name, job }));
       }
-    } catch { /* ignore */ }
-    finally { isLoadingJobs.value = false; }
+    } finally {
+      isLoadingJobs.value = false;
+    }
   }
 
   function startAddJob() {

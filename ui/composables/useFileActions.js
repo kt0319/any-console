@@ -68,10 +68,7 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
     if (!workspace || !filePath) return;
     try {
       const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/download?path=${encodeURIComponent(filePath)}`);
-      if (!res || !res.ok) {
-        emit("toast:show", { message: "Download failed", type: "error" });
-        return;
-      }
+      if (!res?.ok) throw new Error();
       const blob = await res.blob();
       triggerBlobDownload(blob, filePath.split("/").pop() || "download");
     } catch {

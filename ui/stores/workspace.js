@@ -4,6 +4,7 @@ import { useApi } from "../composables/useApi.js";
 import { EP_WORKSPACES, EP_WORKSPACES_STATUSES } from "../utils/endpoints.js";
 
 export const useWorkspaceStore = defineStore("workspace", () => {
+  const { apiGet } = useApi();
   const allWorkspaces = ref([]);
   const selectedWorkspace = ref(null);
   const workspaceJobs = ref({});
@@ -16,31 +17,27 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     allWorkspaces.value.find((w) => w.name === selectedWorkspace.value),
   );
 
-  async function fetchWorkspaces() {
+  async function _safeFetch(endpoint) {
     try {
-      const { apiGet } = useApi();
-      const { ok, data } = await apiGet(EP_WORKSPACES);
-      if (ok) {
-        allWorkspaces.value = Array.isArray(data) ? data : [];
-      }
+      return await apiGet(endpoint);
     } catch {
-      // ignore
+      return { ok: false, data: null };
     }
   }
 
+  async function fetchWorkspaces() {
+    const { ok, data } = await _safeFetch(EP_WORKSPACES);
+    if (ok) allWorkspaces.value = Array.isArray(data) ? data : [];
+  }
+
   async function fetchStatuses() {
-    try {
-      const { apiGet } = useApi();
-      const { ok, data } = await apiGet(EP_WORKSPACES_STATUSES);
-      if (!ok) return;
-      if (data.statuses) {
-        for (const status of data.statuses) {
-          const ws = allWorkspaces.value.find((w) => w.name === status.name);
-          if (ws) Object.assign(ws, status);
-        }
+    const { ok, data } = await _safeFetch(EP_WORKSPACES_STATUSES);
+    if (!ok) return;
+    if (data?.statuses) {
+      for (const status of data.statuses) {
+        const ws = allWorkspaces.value.find((w) => w.name === status.name);
+        if (ws) Object.assign(ws, status);
       }
-    } catch {
-      // ignore
     }
   }
 

@@ -38,6 +38,10 @@ router = APIRouter(dependencies=[Depends(verify_token)])
 _github_repos_cache = TTLCache(GITHUB_REPOS_CACHE_TTL_SEC)
 
 
+def _run_gh_cmd(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["gh", *args], capture_output=True, text=True, timeout=GITHUB_CLI_TIMEOUT_SEC)
+
+
 def _background_fetch(dirs):
     def fetch(workspace_dir):
         try:
@@ -240,38 +244,20 @@ def list_github_repos():
     if cached is not None:
         return cached
     try:
-        auth_check = subprocess.run(
-            ["gh", "auth", "status"],
-            capture_output=True, text=True, timeout=GITHUB_CLI_TIMEOUT_SEC,
-        )
-        if auth_check.returncode != 0:
+        if _run_gh_cmd("auth", "status").returncode != 0:
             raise server_error("gh CLI is not authenticated. Run 'gh auth login' on the server.")
 
         all_repos = []
 
-        result = subprocess.run(
-            ["gh", "repo", "list", "--limit", str(GITHUB_CLI_REPO_LIMIT), "--json", "nameWithOwner,url,description"],
-            capture_output=True, text=True, timeout=GITHUB_CLI_TIMEOUT_SEC,
-        )
+        result = _run_gh_cmd("repo", "list", "--limit", str(GITHUB_CLI_REPO_LIMIT), "--json", "nameWithOwner,url,description")
         if result.returncode == 0:
             all_repos.extend(json.loads(result.stdout))
 
-        org_result = subprocess.run(
-            ["gh", "org", "list"],
-            capture_output=True, text=True, timeout=GITHUB_CLI_TIMEOUT_SEC,
-        )
+        org_result = _run_gh_cmd("org", "list")
         if org_result.returncode == 0:
             orgs = [o.strip() for o in org_result.stdout.strip().splitlines() if o.strip()]
             for org in orgs:
-                gh_cmd = [
-                    "gh", "repo", "list", org,
-                    "--limit", str(GITHUB_CLI_REPO_LIMIT),
-                    "--json", "nameWithOwner,url,description",
-                ]
-                org_repos = subprocess.run(
-                    gh_cmd,
-                    capture_output=True, text=True, timeout=GITHUB_CLI_TIMEOUT_SEC,
-                )
+                org_repos = _run_gh_cmd("repo", "list", org, "--limit", str(GITHUB_CLI_REPO_LIMIT), "--json", "nameWithOwner,url,description")
                 if org_repos.returncode == 0:
                     all_repos.extend(json.loads(org_repos.stdout))
 
