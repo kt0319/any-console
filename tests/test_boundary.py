@@ -388,3 +388,92 @@ class TestSanitizeLogValue:
     def test_multibyte_unchanged(self):
         from api.common import sanitize_log_value
         assert sanitize_log_value("日本語テスト") == "日本語テスト"
+
+
+class TestIconValidation:
+    """validate_icon() の有効/無効パターン"""
+
+    def test_empty_returns_empty(self):
+        from api.validators import validate_icon
+        assert validate_icon("") == ""
+
+    def test_whitespace_returns_empty(self):
+        from api.validators import validate_icon
+        assert validate_icon("   ") == ""
+
+    @pytest.mark.parametrize("icon", [
+        "mdi-home",
+        "mdi-account-circle",
+        "mdi-git",
+        "icon:1a2b3c4d5e6f7a8b.png",
+        "icon:abcdef1234567890.jpg",
+    ])
+    def test_valid_icons(self, icon):
+        from api.validators import validate_icon
+        assert validate_icon(icon) == icon
+
+    @pytest.mark.parametrize("icon", [
+        "invalid-icon",
+        "mdi-",
+        "home",
+        "favicon:",
+        "random-string",
+    ])
+    def test_invalid_icons(self, icon):
+        from api.validators import validate_icon
+        with pytest.raises(HTTPException) as exc_info:
+            validate_icon(icon)
+        assert exc_info.value.status_code == 400
+
+    def test_too_long_raises(self):
+        from api.validators import validate_icon
+        from api.common import MAX_ICON_VALUE_LENGTH
+        with pytest.raises(HTTPException) as exc_info:
+            validate_icon("x" * (MAX_ICON_VALUE_LENGTH + 1))
+        assert exc_info.value.status_code == 400
+
+    def test_strips_whitespace(self):
+        from api.validators import validate_icon
+        assert validate_icon("  mdi-home  ") == "mdi-home"
+
+
+class TestIconColorValidation:
+    """validate_icon_color() の有効/無効パターン"""
+
+    def test_empty_returns_empty(self):
+        from api.validators import validate_icon_color
+        assert validate_icon_color("") == ""
+
+    def test_whitespace_returns_empty(self):
+        from api.validators import validate_icon_color
+        assert validate_icon_color("   ") == ""
+
+    @pytest.mark.parametrize("color", [
+        "#abc",
+        "#ABC",
+        "#aabbcc",
+        "#AABBCC",
+        "#a1b",
+        "#a1b2c3",
+    ])
+    def test_valid_colors(self, color):
+        from api.validators import validate_icon_color
+        assert validate_icon_color(color) == color
+
+    @pytest.mark.parametrize("color", [
+        "abc",
+        "#ab",
+        "#abcdefg",
+        "#xyz",
+        "red",
+        "rgb(0,0,0)",
+    ])
+    def test_invalid_colors(self, color):
+        from api.validators import validate_icon_color
+        with pytest.raises(HTTPException) as exc_info:
+            validate_icon_color(color)
+        assert exc_info.value.status_code == 400
+
+    def test_strips_whitespace(self):
+        from api.validators import validate_icon_color
+        assert validate_icon_color("  #abc  ") == "#abc"

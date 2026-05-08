@@ -2,7 +2,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { toDisplayMessage, formatCommitTime, buildWorkspaceChangeSummaryHtml, VALID_ICON_COLOR, isImageDataIcon, faviconUrl } from "../../ui/utils/display.js";
-import { workspaceDownloadPath } from "../../ui/utils/endpoints.js";
+import { workspaceDownloadPath, workspaceGitDiscardPath } from "../../ui/utils/endpoints.js";
 import { safeJsonLoad } from "../../ui/utils/storage.js";
 
 // ── Tests ──
@@ -195,6 +195,29 @@ describe("workspaceDownloadPath", () => {
   it("encodes special characters in path", () => {
     const result = workspaceDownloadPath("ws", "dir/file name & more.txt");
     assert.ok(result.includes("file%20name%20%26%20more.txt"));
+  });
+});
+
+describe("workspaceGitDiscardPath", () => {
+  it("builds correct discard URL", () => {
+    assert.equal(
+      workspaceGitDiscardPath("myws"),
+      "/workspaces/myws/git/discard",
+    );
+  });
+
+  it("encodes workspace name with spaces", () => {
+    assert.equal(
+      workspaceGitDiscardPath("my ws"),
+      "/workspaces/my%20ws/git/discard",
+    );
+  });
+
+  it("encodes special characters in workspace name", () => {
+    assert.equal(
+      workspaceGitDiscardPath("ws/sub"),
+      "/workspaces/ws%2Fsub/git/discard",
+    );
   });
 });
 
