@@ -45,45 +45,46 @@ def _run_gh_cached(cache_key: str, args: list[str], cwd: str, error_message: str
     return result
 
 
+def _github_fetch(name: str, suffix: str, gh_args: list[str], error_message: str):
+    ws_path = resolve_workspace_path(name)
+    return _run_gh_cached(f"{name}:{suffix}", gh_args, cwd=str(ws_path), error_message=error_message)
+
+
 @router.get("/workspaces/{name}/github/info")
 def github_info(name: str):
-    ws_path = resolve_workspace_path(name)
-    return _run_gh_cached(
-        f"{name}:info",
+    return _github_fetch(
+        name, "info",
         ["repo", "view", "--json",
          "name,owner,description,url,stargazerCount,forkCount,isPrivate,defaultBranchRef,primaryLanguage"],
-        cwd=str(ws_path), error_message="Failed to fetch GitHub info",
+        "Failed to fetch GitHub info",
     )
 
 
 @router.get("/workspaces/{name}/github/issues")
 def github_issues(name: str):
-    ws_path = resolve_workspace_path(name)
-    return _run_gh_cached(
-        f"{name}:issues",
+    return _github_fetch(
+        name, "issues",
         ["issue", "list", "--limit", "30", "--json",
          "number,title,state,author,labels,createdAt,updatedAt"],
-        cwd=str(ws_path), error_message="Failed to fetch issues",
+        "Failed to fetch issues",
     )
 
 
 @router.get("/workspaces/{name}/github/pulls")
 def github_pulls(name: str):
-    ws_path = resolve_workspace_path(name)
-    return _run_gh_cached(
-        f"{name}:pulls",
+    return _github_fetch(
+        name, "pulls",
         ["pr", "list", "--limit", "30", "--json",
          "number,title,state,author,labels,createdAt,updatedAt,headRefName,isDraft"],
-        cwd=str(ws_path), error_message="Failed to fetch pull requests",
+        "Failed to fetch pull requests",
     )
 
 
 @router.get("/workspaces/{name}/github/runs")
 def github_runs(name: str):
-    ws_path = resolve_workspace_path(name)
-    return _run_gh_cached(
-        f"{name}:runs",
+    return _github_fetch(
+        name, "runs",
         ["run", "list", "--limit", "15", "--json",
          "databaseId,displayTitle,status,conclusion,event,headBranch,createdAt,updatedAt,url,workflowName"],
-        cwd=str(ws_path), error_message="Failed to fetch actions",
+        "Failed to fetch actions",
     )

@@ -46,22 +46,19 @@ def get_git_log(name: str, limit: int = 50, skip: int = 0, graph: bool = False):
     return run_git_command(args, cwd=ws_path, operation="log")
 
 
+def _execute_commit_action(name: str, commit_hash: str, git_args: list[str], operation: str):
+    h = validate_commit_hash(commit_hash)
+    return execute_git_action(name, [*git_args, h], operation=operation, log_extra=f"commit={h[:8]}")
+
+
 @router.post("/workspaces/{name}/cherry-pick")
 def git_cherry_pick(name: str, body: GitActionRequest):
-    commit_hash = validate_commit_hash(body.commit_hash)
-    return execute_git_action(
-        name, ["cherry-pick", commit_hash],
-        operation="cherry-pick", log_extra=f"commit={commit_hash[:8]}",
-    )
+    return _execute_commit_action(name, body.commit_hash, ["cherry-pick"], "cherry-pick")
 
 
 @router.post("/workspaces/{name}/revert")
 def git_revert(name: str, body: GitActionRequest):
-    commit_hash = validate_commit_hash(body.commit_hash)
-    return execute_git_action(
-        name, ["revert", "--no-edit", commit_hash],
-        operation="revert", log_extra=f"commit={commit_hash[:8]}",
-    )
+    return _execute_commit_action(name, body.commit_hash, ["revert", "--no-edit"], "revert")
 
 
 @router.post("/workspaces/{name}/merge")

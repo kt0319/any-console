@@ -54,10 +54,14 @@ if (body !== null && typeof body === "object" && !(body instanceof FormData)) {
     return "";
   }
 
+  function _authCheckFetch() {
+    const headers = token.value ? { Authorization: `Bearer ${token.value}` } : {};
+    return fetch(EP_AUTH_CHECK, { headers });
+  }
+
   async function checkToken() {
     try {
-      const headers = token.value ? { Authorization: `Bearer ${token.value}` } : {};
-      const res = await fetch(EP_AUTH_CHECK, { headers });
+      const res = await _authCheckFetch();
       if (res.status === 401) return { ok: false, auth: false, error: "Authentication failed" };
       const data = await res.json();
       return { ok: true, hostname: data.hostname, version: data.version, clientName: data.client_name, vpn: !!data.vpn };
@@ -70,9 +74,7 @@ if (body !== null && typeof body === "object" && !(body instanceof FormData)) {
     if (isHandlingUnauthorized.value || !token.value) return false;
     isHandlingUnauthorized.value = true;
     try {
-      const res = await fetch(EP_AUTH_CHECK, {
-        headers: { Authorization: `Bearer ${token.value}` },
-      });
+      const res = await _authCheckFetch();
       if (res.status === 401) {
         clearToken();
         token.value = "";
