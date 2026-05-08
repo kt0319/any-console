@@ -6,6 +6,7 @@ def _http_error(status_code: int, detail: str) -> HTTPException:
 
 
 def bad_request(detail: str) -> HTTPException: return _http_error(400, detail)
+def unauthorized(detail: str) -> HTTPException: return _http_error(401, detail)
 def forbidden(detail: str) -> HTTPException: return _http_error(403, detail)
 def not_found(detail: str) -> HTTPException: return _http_error(404, detail)
 def conflict(detail: str) -> HTTPException: return _http_error(409, detail)

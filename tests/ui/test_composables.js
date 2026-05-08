@@ -51,23 +51,23 @@ describe("buildFileList", () => {
 
 describe("buildWebSocketUrl", () => {
   it("builds basic url without dimensions", () => {
-    const url = buildWebSocketUrl("wss:", "localhost:8888", "abc123", "tok", null, null);
-    assert.equal(url, "wss://localhost:8888/terminal/ws/abc123?token=tok");
+    const url = buildWebSocketUrl("wss:", "localhost:8888", "abc123", null, null);
+    assert.equal(url, "wss://localhost:8888/terminal/ws/abc123");
   });
 
   it("appends cols and rows when provided", () => {
-    const url = buildWebSocketUrl("ws:", "pi:8888", "sess1", "t", 80, 24);
-    assert.equal(url, "ws://pi:8888/terminal/ws/sess1?token=t&cols=80&rows=24");
-  });
-
-  it("encodes token with special characters", () => {
-    const url = buildWebSocketUrl("wss:", "host", "s", "a&b=c", null, null);
-    assert.ok(url.includes("token=a%26b%3Dc"));
+    const url = buildWebSocketUrl("ws:", "pi:8888", "sess1", 80, 24);
+    assert.equal(url, "ws://pi:8888/terminal/ws/sess1?cols=80&rows=24");
   });
 
   it("does not append cols/rows when only cols is provided", () => {
-    const url = buildWebSocketUrl("ws:", "host", "s", "t", 80, null);
+    const url = buildWebSocketUrl("ws:", "host", "s", 80, null);
     assert.ok(!url.includes("cols="));
+  });
+
+  it("does not include token in url", () => {
+    const url = buildWebSocketUrl("wss:", "host", "s", 80, 24);
+    assert.ok(!url.includes("token="));
   });
 });
 

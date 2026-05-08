@@ -35,17 +35,20 @@ async function handleLogin() {
   submitting.value = true;
   errorMessage.value = "";
 
-  auth.token = val;
-  const result = await auth.checkToken();
+  const loginResult = await auth.login(val);
+  if (!loginResult.ok) {
+    errorMessage.value = loginResult.error;
+    submitting.value = false;
+    return;
+  }
 
+  const result = await auth.checkToken();
   if (result.ok) {
     auth.setServerInfo(result.hostname, result.version, result.clientName, result.vpn);
-    auth.saveToken(auth.token);
     visible.value = false;
     emits("authenticated");
   } else {
-    errorMessage.value = result.error;
-    auth.token = "";
+    errorMessage.value = result.error || "Login check failed";
   }
   submitting.value = false;
 }

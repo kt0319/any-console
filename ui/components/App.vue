@@ -91,15 +91,17 @@ onMounted(async () => {
   on("job:exec", ({ jobName, job, workspace }) => {
     execNonTerminalJob(jobName, workspace);
   });
-  auth.token = auth.loadToken();
-  const result = await auth.checkToken();
+  let result = await auth.checkToken();
+  if (!result.ok && !result.auth) {
+    const migrated = await auth.migrateLegacyToken();
+    if (migrated) result = await auth.checkToken();
+  }
   if (result.ok) {
+    auth.markAuthenticated();
     auth.setServerInfo(result.hostname, result.version, result.clientName, result.vpn);
     authenticated.value = true;
     startActionsMonitor();
   } else if (!result.auth) {
-    auth.token = "";
-    auth.clearToken();
     showLogin.value = true;
   } else {
     emit("toast:show", { message: result.error, type: "error" });
