@@ -2,6 +2,12 @@
   <div class="git-history-pane-wrapper">
     <!-- ファイル一覧モード -->
     <template v-if="selectedCommitForFiles">
+      <div class="diff-files-header">
+        <button class="diff-files-back-btn" @click="closeSelectedCommitFiles">
+          <span class="mdi mdi-arrow-left"></span>
+        </button>
+        <span class="diff-files-commit-msg">{{ selectedCommitForFiles.message }}</span>
+      </div>
       <div class="modal-scroll-body">
         <div v-if="isSelectedCommitFilesLoading" class="text-muted-center">Loading...</div>
         <ul v-if="!isSelectedCommitFilesLoading" class="file-browser-list diff-file-browser-list">
@@ -344,6 +350,40 @@ defineExpose({
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+.diff-files-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.diff-files-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--white-30);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.diff-files-commit-msg {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .git-history-pane-wrapper > .modal-scroll-body {

@@ -351,10 +351,16 @@ button:disabled {
   flex-shrink: 0;
 }
 
-.commit-action-menu button {
+.commit-action-menu button,
+.file-browser-action-menu button {
   padding: 5px 10px;
   font-size: 11px;
   min-height: 0;
+}
+
+.file-browser-action-delete {
+  color: var(--error);
+  border-color: var(--error);
 }
 
 .commit-action-item {
@@ -422,8 +428,8 @@ button:disabled {
   cursor: pointer;
 }
 
-.diff-file-row :deep(.file-browser-item-name) {
-  font-size: 12px;
+.diff-file-row .file-browser-item-name {
+  font-size: 13px;
 }
 
 .diff-file-row-numstat {
