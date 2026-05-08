@@ -1,3 +1,5 @@
+import { EP_UPLOAD_IMAGE } from "./endpoints.js";
+
 const encoder = new TextEncoder();
 
 export async function uploadImageToTerminal({ file, apiFetch, ws, notify }) {
@@ -10,7 +12,7 @@ export async function uploadImageToTerminal({ file, apiFetch, ws, notify }) {
   try {
     const formData = new FormData();
     formData.append("file", file);
-    const res = await apiFetch("/upload-image", { method: "POST", body: formData });
+    const res = await apiFetch(EP_UPLOAD_IMAGE, { method: "POST", body: formData });
     if (!res || !res.ok) throw new Error("Upload failed");
     const data = await res.json();
     if (data.clipboard) {

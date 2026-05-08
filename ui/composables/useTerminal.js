@@ -6,6 +6,7 @@ import { emit } from "../app-bridge.js";
 import { fitTerminal, sendResize, observeFrameResize } from "./useTerminalResize.js";
 import { buildWebSocketUrl as _buildWebSocketUrl } from "../utils/terminal-ws.js";
 import { bindTerminalInput, bindTerminalElement } from "./useTerminalInput.js";
+import { terminalSessionPath } from "../utils/endpoints.js";
 
 export function useTerminal() {
   const auth = useAuthStore();
@@ -135,7 +136,7 @@ export function useTerminal() {
   async function deleteSession(sessionId) {
     try {
       const { apiDelete } = useApi();
-      await apiDelete(`/terminal/sessions/${encodeURIComponent(sessionId)}`);
+      await apiDelete(terminalSessionPath(sessionId));
     } catch {}
   }
 

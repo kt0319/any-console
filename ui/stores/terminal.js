@@ -3,6 +3,7 @@ import { ref, markRaw } from "vue";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
+import { LINK_TAP_RESET_MS } from "../utils/constants.js";
 import { LS_KEY_TERMINAL_SETTINGS, LS_KEY_ACTIVE_SESSION } from "../utils/constants.js";
 import { TERMINAL_SETTINGS_META, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../utils/terminal-settings.js";
 import { safeJsonLoad } from "../utils/storage.js";
@@ -51,7 +52,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     term.loadAddon(new WebLinksAddon((e, uri) => {
       _linkTapped = true;
       window.open(uri, "_blank");
-      setTimeout(() => { _linkTapped = false; }, 300);
+      setTimeout(() => { _linkTapped = false; }, LINK_TAP_RESET_MS);
     }));
 
     const sessionId = wsUrl.replace(/.*\/terminal\/ws\//, "").replace(/\?.*/, "");

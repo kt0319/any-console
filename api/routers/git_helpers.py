@@ -40,6 +40,8 @@ def run_raw_git(args, cwd, text=True):
         return run_git_raw(args, cwd, timeout=GIT_SHORT_TIMEOUT_SEC, text=text)
     except subprocess.TimeoutExpired:
         raise timeout_error("Git operation timed out") from None
+    except OSError as e:
+        raise server_error(f"Git operation failed: {e}") from None
 
 
 def get_current_branch(ws_path):

@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import { useLayoutStore } from "../stores/layout.js";
-import { KEYBOARD_CLOSE_DELAY_MS, DEBOUNCE_FIT_MS, ORIENTATION_CHANGE_DELAY_MS } from "../utils/constants.js";
+import { KEYBOARD_CLOSE_DELAY_MS, DEBOUNCE_FIT_MS, ORIENTATION_CHANGE_DELAY_MS, DOUBLE_TAP_ZOOM_PREVENT_MS } from "../utils/constants.js";
 
 let initialized = false;
 const keyboardOpen = ref(false);
@@ -73,7 +73,7 @@ export function useViewport() {
     document.addEventListener("touchend", (e) => {
       if (e.target.closest(".modal-overlay")) return;
       const now = Date.now();
-      if (now - lastTouchEnd <= 300) e.preventDefault();
+      if (now - lastTouchEnd <= DOUBLE_TAP_ZOOM_PREVENT_MS) e.preventDefault();
       lastTouchEnd = now;
     }, { passive: false });
   }

@@ -31,6 +31,7 @@ import TabItem from "./TabItem.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { emit } from "../app-bridge.js";
+import { HIDDEN_TAB_FLASH_DURATION_MS } from "../utils/constants.js";
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
@@ -54,7 +55,7 @@ watch(hiddenTabCount, (next, prev) => {
   isFlashing.value = false;
   requestAnimationFrame(() => {
     isFlashing.value = true;
-    flashTimer = setTimeout(() => { isFlashing.value = false; }, 2000);
+    flashTimer = setTimeout(() => { isFlashing.value = false; }, HIDDEN_TAB_FLASH_DURATION_MS);
   });
 });
 

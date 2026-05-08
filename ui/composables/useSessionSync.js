@@ -2,7 +2,7 @@ import { useAuthStore } from "../stores/auth.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminal } from "./useTerminal.js";
-import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION } from "../utils/constants.js";
+import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION, SESSION_SYNC_INTERVAL_MS } from "../utils/constants.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 import { emit } from "../app-bridge.js";
 
@@ -102,12 +102,11 @@ export function useSessionSync() {
     }
   }
 
-  const SYNC_INTERVAL_MS = 5000;
   let syncIntervalId = null;
 
   function startSyncPolling() {
     stopSyncPolling();
-    syncIntervalId = setInterval(() => syncSessionsFromServer(), SYNC_INTERVAL_MS);
+    syncIntervalId = setInterval(() => syncSessionsFromServer(), SESSION_SYNC_INTERVAL_MS);
   }
 
   function stopSyncPolling() {

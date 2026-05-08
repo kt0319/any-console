@@ -1,6 +1,6 @@
 import { ref } from "vue";
+import { HOVER_MENU_CLOSE_DELAY_MS } from "../utils/constants.js";
 
-const MENU_CLOSE_DELAY_MS = 150;
 export const isHoverDevice = window.matchMedia("(hover: hover)").matches;
 
 export function useHoverMenu() {
@@ -18,7 +18,7 @@ export function useHoverMenu() {
 
   function onItemMouseLeave() {
     if (!isHoverDevice) return;
-    hoverCloseTimer = setTimeout(closeMenu, MENU_CLOSE_DELAY_MS);
+    hoverCloseTimer = setTimeout(closeMenu, HOVER_MENU_CLOSE_DELAY_MS);
   }
 
   function onMenuMouseEnter() {
@@ -26,7 +26,7 @@ export function useHoverMenu() {
   }
 
   function onMenuMouseLeave() {
-    hoverCloseTimer = setTimeout(closeMenu, MENU_CLOSE_DELAY_MS);
+    hoverCloseTimer = setTimeout(closeMenu, HOVER_MENU_CLOSE_DELAY_MS);
   }
 
   return {

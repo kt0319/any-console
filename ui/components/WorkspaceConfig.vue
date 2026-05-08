@@ -90,7 +90,7 @@ import { useWorkspaceDrag } from "../composables/useWorkspaceDrag.js";
 import { useWorkspaceJobManager } from "../composables/useWorkspaceJobManager.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
-import { EP_JOBS_WORKSPACES, EP_WORKSPACES } from "../utils/endpoints.js";
+import { EP_JOBS_WORKSPACES, EP_WORKSPACES, EP_WORKSPACE_ORDER } from "../utils/endpoints.js";
 import { useConfirm } from "../composables/useConfirm.js";
 
 const { modalTitle, pushView, viewState } = useModalView();
@@ -217,7 +217,7 @@ function openIconPicker() {
 async function saveWorkspaceOrder() {
   const order = allWorkspaces.value.map((ws) => ws.name);
   try {
-    await apiPut("/workspace-order", { order }, { errorMessage: "Failed to save workspace order" });
+    await apiPut(EP_WORKSPACE_ORDER, { order }, { errorMessage: "Failed to save workspace order" });
   } catch { /* ignore */ }
 }
 

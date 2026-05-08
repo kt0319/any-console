@@ -101,6 +101,8 @@ async def get_terminal_buffer(session_id: str):
         return {"content": result.stdout}
     except subprocess.TimeoutExpired as e:
         raise timeout_error("Timeout") from e
+    except OSError as e:
+        raise server_error(f"Failed to capture buffer: {e}") from None
 
 
 @router.delete("/terminal/sessions/{session_id}")
