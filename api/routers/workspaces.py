@@ -145,46 +145,80 @@ class AddWorkspaceRequest(BaseModel):
     base_dir: str | None = None
 
 
-@router.post("/workspaces")
-def add_workspace(body: AddWorkspaceRequest):
-    url = (body.url or "").strip()
-    existing_path = (body.path or "").strip()
-
+def _normalize_clone_url(url: str) -> str:
     github_url_match = re.match(r"https?://github\.com/(.+?)/?$", url)
     if url and github_url_match:
-        url = f"git@github.com:{github_url_match.group(1)}.git"
+        return f"git@github.com:{github_url_match.group(1)}.git"
+    return url
 
-    if existing_path:
-        abs_path = Path(existing_path).expanduser().resolve()
-        if not abs_path.is_dir():
-            raise bad_request(f"Directory does not exist: {existing_path}")
-        dir_name = validate_workspace_name(body.name or abs_path.name)
-        entries = list_workspace_entries()
-        if dir_name in entries:
-            raise conflict(f"'{dir_name}' is already registered")
-        save_workspace_config(dir_name, {"path": str(abs_path)})
-        logger.info("workspace registered name=%s path=%s", dir_name, abs_path)
-        return {"status": "ok", "name": dir_name, "mode": "existing"}
 
-    if body.name:
-        dir_name = body.name.strip()
+def _register_existing_path(existing_path: str, name: str | None) -> dict:
+    abs_path = Path(existing_path).expanduser().resolve()
+    if not abs_path.is_dir():
+        raise bad_request(f"Directory does not exist: {existing_path}")
+    dir_name = validate_workspace_name(name or abs_path.name)
+    if dir_name in list_workspace_entries():
+        raise conflict(f"'{dir_name}' is already registered")
+    save_workspace_config(dir_name, {"path": str(abs_path)})
+    logger.info("workspace registered name=%s path=%s", dir_name, abs_path)
+    return {"status": "ok", "name": dir_name, "mode": "existing"}
+
+
+def _resolve_new_workspace_target(name: str | None, url: str, base_dir_str: str | None) -> tuple[str, Path, Path]:
+    if name:
+        dir_name = name.strip()
     elif url:
         dir_name = url.rstrip("/").split("/")[-1].removesuffix(".git")
     else:
         raise bad_request("Please enter a URL or directory name")
 
     dir_name = validate_workspace_name(dir_name)
-
-    entries = list_workspace_entries()
-    if dir_name in entries:
+    if dir_name in list_workspace_entries():
         raise conflict(f"'{dir_name}' is already registered")
 
-    base_dir = Path(body.base_dir) if body.base_dir and body.base_dir.strip() else default_workspace_dir()
+    base_dir = Path(base_dir_str) if base_dir_str and base_dir_str.strip() else default_workspace_dir()
     target_path = base_dir / dir_name
     if target_path.exists():
         raise conflict(f"'{dir_name}' already exists")
-
     base_dir.mkdir(parents=True, exist_ok=True)
+    return dir_name, base_dir, target_path
+
+
+def _clone_into_workspace(url: str, dir_name: str, base_dir: Path, target_path: Path) -> dict:
+    try:
+        result = subprocess.run(
+            ["git", "clone", "--", url, str(target_path)],
+            capture_output=True, text=True,
+            timeout=GIT_CLONE_TIMEOUT_SEC, cwd=str(base_dir),
+        )
+    except subprocess.TimeoutExpired:
+        raise timeout_error("Clone timed out") from None
+    except OSError as e:
+        logger.error("clone exec failed url=%s: %s", sanitize_log_value(url), e)
+        raise server_error(f"Clone execution failed: {e}") from None
+
+    resp = command_result_dict(result)
+    if result.returncode != 0:
+        logger.warning(
+            "clone failed url=%s rc=%d stderr=%s",
+            url, result.returncode, sanitize_log_value(result.stderr),
+        )
+    else:
+        save_workspace_config(dir_name, {"path": str(target_path)})
+        logger.info("clone ok dir=%s", dir_name)
+        resp["name"] = dir_name
+    return resp
+
+
+@router.post("/workspaces")
+def add_workspace(body: AddWorkspaceRequest):
+    url = _normalize_clone_url((body.url or "").strip())
+    existing_path = (body.path or "").strip()
+
+    if existing_path:
+        return _register_existing_path(existing_path, body.name)
+
+    dir_name, base_dir, target_path = _resolve_new_workspace_target(body.name, url, body.base_dir)
 
     if not url:
         target_path.mkdir(parents=False, exist_ok=False)
@@ -192,28 +226,7 @@ def add_workspace(body: AddWorkspaceRequest):
         logger.info("workspace dir created dir=%s", dir_name)
         return {"status": "ok", "name": dir_name, "mode": "directory"}
 
-    try:
-        result = subprocess.run(
-            ["git", "clone", "--", url, str(target_path)],
-            capture_output=True, text=True,
-            timeout=GIT_CLONE_TIMEOUT_SEC, cwd=str(base_dir),
-        )
-        resp = command_result_dict(result)
-        if result.returncode != 0:
-            logger.warning(
-                "clone failed url=%s rc=%d stderr=%s",
-                url, result.returncode, sanitize_log_value(result.stderr),
-            )
-        else:
-            save_workspace_config(dir_name, {"path": str(target_path)})
-            logger.info("clone ok dir=%s", dir_name)
-            resp["name"] = dir_name
-        return resp
-    except subprocess.TimeoutExpired:
-        raise timeout_error("Clone timed out") from None
-    except OSError as e:
-        logger.error("clone exec failed url=%s: %s", sanitize_log_value(url), e)
-        raise server_error(f"Clone execution failed: {e}") from None
+    return _clone_into_workspace(url, dir_name, base_dir, target_path)
 
 
 @router.delete("/workspaces/{name}")

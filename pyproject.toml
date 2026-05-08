@@ -14,12 +14,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "api/main.py" = ["E402", "S104"]
 "api/common.py" = ["S108"]
-"api/git_utils.py" = ["C901"]
-"api/routers/terminal.py" = ["S606", "S110", "C901"]
-"api/routers/workspaces.py" = ["C901"]
-"api/routers/git_file_utils.py" = ["C901"]
-"api/routers/jobs.py" = ["C901"]
-"api/routers/system.py" = ["C901"]
+"api/routers/terminal.py" = ["S606", "S110"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

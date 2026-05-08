@@ -119,44 +119,38 @@ async def delete_terminal_session(session_id: str):
 ws_router = APIRouter()
 
 
-@ws_router.websocket("/terminal/ws/{session_id}")
-async def terminal_ws(websocket: WebSocket, session_id: str, token: str = "", cols: int = 0, rows: int = 0):
-    auth_token = token or websocket.cookies.get(COOKIE_NAME_TOKEN, "")
-    if not verify_ws_token(auth_token):
-        await websocket.close(code=1008, reason="Unauthorized")
-        return
-
+async def _resolve_session_for_ws(session_id: str):
     with sessions_lock:
         session = TERMINAL_SESSIONS.get(session_id)
-
     if not session:
         tmux_name = TMUX_SESSION_PREFIX + session_id
         if tmux_session_exists(tmux_name):
             session = _register_tmux_session(session_id, tmux_name)
+    return session
 
-    await websocket.accept()
 
-    if not session:
-        await websocket.close(code=1008, reason="Session not found")
-        return
+async def _ensure_tmux_session(websocket: WebSocket, session, session_id: str) -> bool:
+    if tmux_session_exists(session.tmux_session_name):
+        return True
+    try:
+        ws_resolved = resolve_workspace_path(session.workspace)
+        workspace_path = str(ws_resolved) if ws_resolved else None
+    except (HTTPException, ValueError, OSError):
+        workspace_path = None
+    try:
+        create_tmux_session(workspace_path, session.tmux_session_name)
+        session.save_metadata()
+        logger.info("recreated tmux session=%s workspace=%s", session_id, session.workspace or "(none)")
+        return True
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
+        logger.error("failed to recreate tmux session=%s: %s", session_id, e)
+        with sessions_lock:
+            TERMINAL_SESSIONS.pop(session_id, None)
+        await websocket.close(code=1008, reason="Shell process has exited")
+        return False
 
-    if not tmux_session_exists(session.tmux_session_name):
-        try:
-            ws_resolved = resolve_workspace_path(session.workspace)
-            workspace_path = str(ws_resolved) if ws_resolved else None
-        except (HTTPException, ValueError, OSError):
-            workspace_path = None
-        try:
-            create_tmux_session(workspace_path, session.tmux_session_name)
-            session.save_metadata()
-            logger.info("recreated tmux session=%s workspace=%s", session_id, session.workspace or "(none)")
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
-            logger.error("failed to recreate tmux session=%s: %s", session_id, e)
-            with sessions_lock:
-                TERMINAL_SESSIONS.pop(session_id, None)
-            await websocket.close(code=1008, reason="Shell process has exited")
-            return
 
+async def _attach_or_resize_pty(websocket: WebSocket, session, session_id: str, cols: int, rows: int) -> bool:
     need_pty_bridge = session.fd is None or session.pid is None
     effective_cols = cols if cols > 0 else TERMINAL_DEFAULT_COLS
     effective_rows = rows if rows > 0 else TERMINAL_DEFAULT_ROWS
@@ -171,7 +165,7 @@ async def terminal_ws(websocket: WebSocket, session_id: str, token: str = "", co
         except OSError as e:
             logger.error("tmux attach failed session=%s: %s", session_id, e)
             await websocket.close(code=1011, reason="tmux attach failed")
-            return
+            return False
         session.fd = fd
         session.pid = pid
     elif cols > 0 and rows > 0 and session.fd is not None:
@@ -180,6 +174,75 @@ async def terminal_ws(websocket: WebSocket, session_id: str, token: str = "", co
             fcntl.ioctl(session.fd, termios.TIOCSWINSZ, winsize)
         except OSError:
             pass
+    return True
+
+
+def _extract_ws_message_data(msg) -> bytes | None:
+    data = msg.get("bytes")
+    if data is None and msg.get("text") is not None:
+        data = msg["text"].encode("utf-8")
+    return data or None
+
+
+async def _ws_message_loop(websocket: WebSocket, session) -> None:
+    loop = asyncio.get_event_loop()
+    while True:
+        try:
+            msg = await asyncio.wait_for(websocket.receive(), timeout=WS_PING_INTERVAL_SEC)
+        except asyncio.TimeoutError:
+            await websocket.send_bytes(b"")
+            continue
+
+        if msg.get("type") == "websocket.disconnect":
+            break
+
+        data = _extract_ws_message_data(msg)
+        if not data:
+            continue
+
+        if data[0:1] == WS_MSG_RESIZE:
+            _handle_resize(session, data[1:], ws=websocket)
+        else:
+            switch_active_client(session, websocket)
+            if session.fd is not None:
+                await loop.run_in_executor(PTY_EXECUTOR, os.write, session.fd, data)
+
+
+async def _cleanup_ws_client(websocket: WebSocket, session) -> None:
+    session.clients.discard(websocket)
+    session.client_sizes.pop(websocket, None)
+    if session._last_active_client is websocket:
+        session._last_active_client = None
+
+    if not session.clients and session._reader_task and not session._reader_task.done():
+        session._reader_task.cancel()
+
+    try:
+        await websocket.close()
+    except (WebSocketDisconnect, RuntimeError, OSError):
+        pass
+
+
+@ws_router.websocket("/terminal/ws/{session_id}")
+async def terminal_ws(websocket: WebSocket, session_id: str, token: str = "", cols: int = 0, rows: int = 0):
+    auth_token = token or websocket.cookies.get(COOKIE_NAME_TOKEN, "")
+    if not verify_ws_token(auth_token):
+        await websocket.close(code=1008, reason="Unauthorized")
+        return
+
+    session = await _resolve_session_for_ws(session_id)
+
+    await websocket.accept()
+
+    if not session:
+        await websocket.close(code=1008, reason="Session not found")
+        return
+
+    if not await _ensure_tmux_session(websocket, session, session_id):
+        return
+
+    if not await _attach_or_resize_pty(websocket, session, session_id, cols, rows):
+        return
 
     session.clients.add(websocket)
     if cols > 0 and rows > 0:
@@ -187,46 +250,9 @@ async def terminal_ws(websocket: WebSocket, session_id: str, token: str = "", co
 
     _ensure_reader_task(session, session_id)
 
-    loop = asyncio.get_event_loop()
-
     try:
-        while True:
-            try:
-                msg = await asyncio.wait_for(websocket.receive(), timeout=WS_PING_INTERVAL_SEC)
-            except asyncio.TimeoutError:
-                await websocket.send_bytes(b"")
-                continue
-
-            msg_type = msg.get("type")
-            if msg_type == "websocket.disconnect":
-                break
-
-            data = msg.get("bytes")
-            if data is None and msg.get("text") is not None:
-                data = msg["text"].encode("utf-8")
-            if not data:
-                continue
-
-            if data[0:1] == WS_MSG_RESIZE:
-                _handle_resize(session, data[1:], ws=websocket)
-            else:
-                switch_active_client(session, websocket)
-                if session.fd is not None:
-                    await loop.run_in_executor(PTY_EXECUTOR, os.write, session.fd, data)
+        await _ws_message_loop(websocket, session)
     except (WebSocketDisconnect, OSError, asyncio.CancelledError):
         pass
 
-    # cleanup
-    session.clients.discard(websocket)
-    session.client_sizes.pop(websocket, None)
-    if session._last_active_client is websocket:
-        session._last_active_client = None
-
-    if not session.clients:
-        if session._reader_task and not session._reader_task.done():
-            session._reader_task.cancel()
-
-    try:
-        await websocket.close()
-    except (WebSocketDisconnect, RuntimeError, OSError):
-        pass
+    await _cleanup_ws_client(websocket, session)

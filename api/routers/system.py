@@ -101,47 +101,55 @@ def _get_cpu_temp() -> str | None:
         return None
 
 
-def _get_memory() -> str | None:
-    if IS_DARWIN:
-        try:
-            memsize_out = _run_cmd_safe(["sysctl", "-n", "hw.memsize"])
-            if not memsize_out:
-                return None
-            total_bytes = int(memsize_out.strip())
-            vmstat_out = _run_cmd_safe(["vm_stat"])
-            if not vmstat_out:
-                return None
-            page_size = 16384
-            ps_match = re.search(r"page size of (\d+) bytes", vmstat_out)
-            if ps_match:
-                page_size = int(ps_match.group(1))
-            free_pages = 0
-            for key in ("Pages free", "Pages inactive", "Pages speculative"):
-                m = re.search(rf"{key}:\s+(\d+)", vmstat_out)
-                if m:
-                    free_pages += int(m.group(1))
-            available_bytes = free_pages * page_size
-            total_gb = total_bytes / (1024 ** 3)
-            used_gb = (total_bytes - available_bytes) / (1024 ** 3)
-            return f"{used_gb:.1f} / {total_gb:.1f} GB"
-        except ValueError as e:
-            logger.debug("macOS memory info failed: %s", e)
+def _get_memory_darwin() -> str | None:
+    try:
+        memsize_out = _run_cmd_safe(["sysctl", "-n", "hw.memsize"])
+        if not memsize_out:
             return None
+        total_bytes = int(memsize_out.strip())
+        vmstat_out = _run_cmd_safe(["vm_stat"])
+        if not vmstat_out:
+            return None
+        ps_match = re.search(r"page size of (\d+) bytes", vmstat_out)
+        page_size = int(ps_match.group(1)) if ps_match else 16384
+        free_pages = 0
+        for key in ("Pages free", "Pages inactive", "Pages speculative"):
+            m = re.search(rf"{key}:\s+(\d+)", vmstat_out)
+            if m:
+                free_pages += int(m.group(1))
+        available_bytes = free_pages * page_size
+        total_gb = total_bytes / (1024 ** 3)
+        used_gb = (total_bytes - available_bytes) / (1024 ** 3)
+        return f"{used_gb:.1f} / {total_gb:.1f} GB"
+    except ValueError as e:
+        logger.debug("macOS memory info failed: %s", e)
+        return None
+
+
+def _get_memory_linux() -> str | None:
     try:
         meminfo = Path("/proc/meminfo").read_text(encoding="utf-8")
-        mem = {}
-        for line in meminfo.splitlines():
-            parts = line.split()
-            if len(parts) >= 2 and parts[0] in ("MemTotal:", "MemAvailable:"):
-                mem[parts[0].rstrip(":")] = int(parts[1])
-        if "MemTotal" in mem:
-            total_gb = mem["MemTotal"] / 1024 / 1024
-            available_gb = mem.get("MemAvailable", 0) / 1024 / 1024
-            used_gb = total_gb - available_gb
-            return f"{used_gb:.1f} / {total_gb:.1f} GB"
     except (OSError, ValueError) as e:
         logger.debug("memory info read failed: %s", e)
-    return None
+        return None
+    mem = {}
+    for line in meminfo.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[0] in ("MemTotal:", "MemAvailable:"):
+            try:
+                mem[parts[0].rstrip(":")] = int(parts[1])
+            except ValueError:
+                return None
+    if "MemTotal" not in mem:
+        return None
+    total_gb = mem["MemTotal"] / 1024 / 1024
+    available_gb = mem.get("MemAvailable", 0) / 1024 / 1024
+    used_gb = total_gb - available_gb
+    return f"{used_gb:.1f} / {total_gb:.1f} GB"
+
+
+def _get_memory() -> str | None:
+    return _get_memory_darwin() if IS_DARWIN else _get_memory_linux()
 
 
 @router.get("/system/processes")
