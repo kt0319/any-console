@@ -2,11 +2,30 @@
   <div class="git-history-pane-wrapper">
     <!-- ファイル一覧モード -->
     <template v-if="selectedCommitForFiles">
-      <div class="diff-files-header">
-        <button class="diff-files-back-btn" @click="closeSelectedCommitFiles">
-          <span class="mdi mdi-arrow-left"></span>
+      <div class="git-log-entry git-log-commit diff-files-selected-commit">
+        <svg v-if="selectedCommitRow" class="git-graph-svg" :width="graphWidth" :height="GRAPH_ROW_HEIGHT" :viewBox="'0 0 ' + graphWidth + ' ' + GRAPH_ROW_HEIGHT">
+          <template v-for="(seg, si) in selectedCommitRow.segments" :key="si">
+            <line v-if="seg.type === 'line'" :x1="seg.x" :y1="seg.y1" :x2="seg.x2 ?? seg.x" :y2="seg.y2" :stroke="seg.color" stroke-width="2" />
+            <circle v-if="seg.type === 'node'" :cx="seg.x" :cy="seg.y" r="4" :fill="seg.color" />
+          </template>
+        </svg>
+        <span class="git-log-entry-body">
+          <span class="git-log-entry-msg">{{ selectedCommitForFiles.message }}</span>
+          <span class="git-log-entry-row1">
+            <span class="git-log-entry-row1-left">
+              <span v-if="selectedCommitForFiles.refs?.length" class="git-log-entry-refs">
+                <span v-for="r in selectedCommitForFiles.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type"><span v-if="r.synced" class="mdi mdi-link-variant"></span><span :class="'mdi ' + r.icon"></span>{{ r.label }}</span>
+              </span>
+            </span>
+            <span class="git-log-entry-meta">
+              <span class="git-log-entry-author">{{ selectedCommitForFiles.author }}</span>
+              <span class="git-log-entry-time">{{ selectedCommitForFiles.time }}</span>
+            </span>
+          </span>
+        </span>
+        <button class="diff-files-close-btn" @click="closeSelectedCommitFiles">
+          <span class="mdi mdi-close"></span>
         </button>
-        <span class="diff-files-commit-msg">{{ selectedCommitForFiles.message }}</span>
       </div>
       <div class="modal-scroll-body">
         <div v-if="isSelectedCommitFilesLoading" class="text-muted-center">Loading...</div>
@@ -134,6 +153,10 @@ const {
 const selectedCommitForFiles = ref(null);
 const selectedCommitFiles = ref([]);
 const isSelectedCommitFilesLoading = ref(false);
+
+const selectedCommitRow = computed(() =>
+  graphRows.value.find((r) => r.entry?.hash === selectedCommitForFiles.value?.hash) ?? null
+);
 
 function statusClass(status) {
   return GIT_DIFF_STATUS_CLASSES[status] || "";
@@ -352,16 +375,13 @@ defineExpose({
   overflow: hidden;
 }
 
-.diff-files-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--border-color);
+.diff-files-selected-commit {
   flex-shrink: 0;
+  background: rgba(130, 170, 255, 0.06);
+  border-bottom: 1px solid var(--border);
 }
 
-.diff-files-back-btn {
+.diff-files-close-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -371,18 +391,11 @@ defineExpose({
   border: 1px solid var(--white-30);
   border-radius: var(--radius);
   background: transparent;
-  color: var(--text-primary);
+  color: var(--text-muted);
   font-size: 16px;
   cursor: pointer;
   flex-shrink: 0;
-}
-
-.diff-files-commit-msg {
-  font-size: 12px;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-height: 0;
   min-width: 0;
 }
 
