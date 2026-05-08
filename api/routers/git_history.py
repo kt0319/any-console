@@ -133,7 +133,7 @@ def git_stash_pop_ref(name: str, body: GitActionRequest):
 
 
 @router.post("/workspaces/{name}/stash")
-def git_stash(name: str, body: GitActionRequest = None):
+def git_stash(name: str, body: GitActionRequest | None = None):
     args = ["stash"]
     if body and body.include_untracked:
         args.append("-u")

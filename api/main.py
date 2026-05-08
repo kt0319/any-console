@@ -220,6 +220,8 @@ async def _write_image_to_clipboard(filepath: Path, content_type: str) -> bool:
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.PIPE,
         )
+        if proc.stdin is None or proc.stderr is None:
+            return False
         proc.stdin.write(image_data)
         await proc.stdin.drain()
         proc.stdin.close()

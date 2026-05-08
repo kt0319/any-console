@@ -11,9 +11,14 @@ export function useApi() {
     }
   }
 
-  async function apiRequest(endpoint, { method = "GET", body = null, checkStatus = false, errorMessage } = {}) {
-    const opts = method === "GET" ? undefined : { method, ...(body != null && { body }) };
-    const res = await auth.apiFetch(endpoint, opts);
+  /**
+   * @param {string} endpoint
+   * @param {{ method?: string, body?: any, checkStatus?: boolean, errorMessage?: string }} [opts]
+   */
+  async function apiRequest(endpoint, opts = {}) {
+    const { method = "GET", body = null, checkStatus = false, errorMessage } = opts;
+    const fetchOpts = method === "GET" ? undefined : { method, ...(body != null && { body }) };
+    const res = await auth.apiFetch(endpoint, fetchOpts);
     if (!res || !res.ok) {
       const data = res ? await res.json().catch(() => null) : null;
       showErrorToast(data, errorMessage);
@@ -39,7 +44,8 @@ export function useApi() {
       onSuccess?.();
       return true;
     } catch (e) {
-      emit("toast:show", { message: e.message, type: "error" });
+      const message = e instanceof Error ? e.message : String(e);
+      emit("toast:show", { message, type: "error" });
       return false;
     }
   }

@@ -24,7 +24,7 @@ PS_FIELD_COUNT = 11
 def _run_cmd_safe(cmd: list[str], timeout: float = SYSTEM_CMD_TIMEOUT_SEC, cwd: str | None = None) -> str | None:
     result = run_subprocess_safe(cmd, timeout=timeout, cwd=cwd)
     if result is not None and result.returncode == 0:
-        return result.stdout
+        return str(result.stdout)
     return None
 
 

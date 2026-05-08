@@ -8,6 +8,7 @@ export function useEditorIntegration() {
   const { apiGet } = useApi();
 
   const editorUrlTemplate = ref("");
+  /** @type {import("vue").Ref<{ user?: string, hostname?: string, work_dir?: string }>} */
   const systemInfo = ref({});
 
   async function fetchEditorSettings() {

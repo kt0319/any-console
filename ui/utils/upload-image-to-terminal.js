@@ -22,7 +22,8 @@ export async function uploadImageToTerminal({ file, apiFetch, ws, notify }) {
     }
     return true;
   } catch (err) {
-    notify?.(`Image upload failed: ${err.message}`, "error");
+    const message = err instanceof Error ? err.message : String(err);
+    notify?.(`Image upload failed: ${message}`, "error");
     return false;
   }
 }

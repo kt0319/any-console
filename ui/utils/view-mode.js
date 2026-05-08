@@ -134,7 +134,7 @@ export async function enterViewMode(tab, frameEl, apiFetch) {
   if (!frameEl || frameEl.classList.contains("view-mode")) return;
   frameEl.classList.add("view-mode");
 
-  const kbWrapper = document.querySelector(".keyboard-input-wrapper");
+  const kbWrapper = /** @type {HTMLElement | null} */ (document.querySelector(".keyboard-input-wrapper"));
   if (kbWrapper) kbWrapper.style.display = "none";
 
   const pre = document.createElement("pre");

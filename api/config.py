@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 _config_lock = threading.Lock()
 
+_fcntl: Any
 try:
     import fcntl as _fcntl
 except ImportError:
@@ -62,15 +63,15 @@ def _migrate_workspace_paths(config: dict) -> bool:
     return changed
 
 
-def _try_restore_from_bak() -> dict | None:
+def _try_restore_from_bak() -> dict[str, Any] | None:
     bak_path = CONFIG_FILE.with_suffix(".bak")
     if not bak_path.is_file():
         logger.error("config.json is broken and no .bak exists; starting empty")
         return None
     try:
-        raw = json.loads(bak_path.read_text(encoding="utf-8"))
+        raw: Any = json.loads(bak_path.read_text(encoding="utf-8"))
         logger.warning("Restored config from %s", bak_path)
-        return raw
+        return raw if isinstance(raw, dict) else None
     except (json.JSONDecodeError, OSError) as e:
         logger.error("config.bak is also unreadable: %s; starting empty", e)
         return None
@@ -116,9 +117,9 @@ def _write_config_unlocked(config: dict) -> None:
     tmp_path.replace(CONFIG_FILE)
 
 
-def load_all_config() -> dict:
+def load_all_config() -> dict[str, Any]:
     with _config_read() as cfg:
-        return cfg
+        return dict(cfg)
 
 
 def save_all_config(config: dict) -> None:
@@ -126,9 +127,10 @@ def save_all_config(config: dict) -> None:
         _write_config_unlocked(config)
 
 
-def load_workspace_config(workspace_name: str) -> dict:
+def load_workspace_config(workspace_name: str) -> dict[str, Any]:
     with _config_read() as cfg:
-        return cfg.get(workspace_name, {})
+        entry = cfg.get(workspace_name, {})
+        return dict(entry) if isinstance(entry, dict) else {}
 
 
 def save_workspace_config(workspace_name: str, config: dict) -> None:

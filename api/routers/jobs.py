@@ -3,6 +3,7 @@ import re
 import secrets
 import subprocess
 import time
+from typing import Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -187,7 +188,7 @@ def build_job_entry(
     confirm: bool,
     hidden_tab: bool = False,
 ) -> dict:
-    entry = {"command": command}
+    entry: dict[str, Any] = {"command": command}
     label = label.strip()
     if label:
         entry["label"] = label

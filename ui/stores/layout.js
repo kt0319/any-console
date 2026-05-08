@@ -8,7 +8,8 @@ export const useLayoutStore = defineStore("layout", () => {
     isPanelBottom.value = e.matches;
   });
   const isTouchDevice = !window.matchMedia("(pointer: fine)").matches && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
-  const isPwa = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const isPwa = window.matchMedia("(display-mode: standalone)").matches
+    || /** @type {any} */ (navigator).standalone === true;
 
   const isSplitMode = ref(false);
   const splitPaneTabIds = ref([]);
