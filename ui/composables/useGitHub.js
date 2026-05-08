@@ -75,7 +75,7 @@ export function useGitHub() {
       listRef.value = result;
       setCountCache(workspace, countKey, result.length);
     } catch (e) {
-      errorRef.value = e.message;
+      errorRef.value = e instanceof Error ? e.message : String(e);
     } finally {
       loadingRef.value = false;
     }

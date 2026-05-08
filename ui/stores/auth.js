@@ -14,6 +14,7 @@ export const useAuthStore = defineStore("auth", () => {
   const isHandlingUnauthorized = ref(false);
 
   async function apiFetch(endpoint, { method = "GET", body = null } = {}) {
+    /** @type {Record<string, string>} */
     const headers = {};
     if (body !== null && typeof body === "object" && !(body instanceof FormData)) {
       headers["Content-Type"] = "application/json";
@@ -86,7 +87,7 @@ export const useAuthStore = defineStore("auth", () => {
       const data = await res.json();
       return { ok: true, hostname: data.hostname, version: data.version, clientName: data.client_name, vpn: !!data.vpn };
     } catch (e) {
-      return { ok: false, auth: true, error: `Cannot connect to server: ${e.message}` };
+      return { ok: false, auth: true, error: `Cannot connect to server: ${e instanceof Error ? e.message : String(e)}` };
     }
   }
 

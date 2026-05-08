@@ -5,7 +5,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any
+from typing import Any, overload
 
 from .errors import bad_request
 
@@ -128,7 +128,7 @@ class TTLCache:
         self._store: dict[str, tuple[float, Any]] = {}
         self._lock = threading.Lock()
 
-    def get(self, key: str):
+    def get(self, key: str) -> Any:
         with self._lock:
             if key in self._store:
                 ts, val = self._store[key]
@@ -137,19 +137,19 @@ class TTLCache:
                 del self._store[key]
         return None
 
-    def set(self, key: str, value):
+    def set(self, key: str, value: Any) -> None:
         with self._lock:
             self._store[key] = (time.monotonic(), value)
 
-    def invalidate(self, key: str):
+    def invalidate(self, key: str) -> None:
         with self._lock:
             self._store.pop(key, None)
 
-    def invalidate_all(self):
+    def invalidate_all(self) -> None:
         with self._lock:
             self._store.clear()
 
-    def get_or_set(self, key: str, loader):
+    def get_or_set(self, key: str, loader: Any) -> Any:
         val = self.get(key)
         if val is not None:
             return val
@@ -165,6 +165,12 @@ def sanitize_log_value(value: str) -> str:
     return _CONTROL_CHAR_RE.sub(lambda m: f"\\x{ord(m.group()):02x}", value)
 
 
+@overload
+def resolve_workspace_path(workspace: str) -> Path: ...
+@overload
+def resolve_workspace_path(workspace: None) -> None: ...
+@overload
+def resolve_workspace_path(workspace: str | None) -> Path | None: ...
 def resolve_workspace_path(workspace: str | None) -> Path | None:
     if not workspace:
         return None

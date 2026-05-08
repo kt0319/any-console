@@ -22,7 +22,8 @@ COOKIE_NAME_TOKEN = "any_console_session"  # noqa: S105 (cookie name, not a secr
 
 def _load_token_from_file() -> str:
     try:
-        return json.loads(_AUTH_FILE.read_text()).get("token", "")
+        token = json.loads(_AUTH_FILE.read_text()).get("token", "")
+        return str(token) if token else ""
     except (OSError, json.JSONDecodeError, AttributeError):
         return ""
 
@@ -82,8 +83,8 @@ def verify_token(
     if not ANY_CONSOLE_TOKEN:
         return ""
     if credentials is not None and hmac.compare_digest(credentials.credentials, ANY_CONSOLE_TOKEN):
-        return credentials.credentials
-    cookie_token = request.cookies.get(COOKIE_NAME_TOKEN, "")
+        return str(credentials.credentials)
+    cookie_token = str(request.cookies.get(COOKIE_NAME_TOKEN, "") or "")
     if cookie_token and hmac.compare_digest(cookie_token, ANY_CONSOLE_TOKEN):
         return cookie_token
     raise HTTPException(
@@ -124,11 +125,11 @@ def resolve_tailscale_name(ip: str) -> str:
 
 
 def _extract_client_ip(request: Request) -> str:
-    client_ip = request.client.host if request.client else ""
+    client_ip: str = request.client.host if request.client else ""
     if _is_trusted_proxy(client_ip):
         forwarded_for = request.headers.get("x-forwarded-for", "")
         if forwarded_for:
-            return forwarded_for.split(",")[0].strip()
+            return str(forwarded_for).split(",")[0].strip()
     return client_ip
 
 

@@ -71,7 +71,7 @@ export function useViewport() {
     }, { passive: false });
     let lastTouchEnd = 0;
     document.addEventListener("touchend", (e) => {
-      if (e.target.closest(".modal-overlay")) return;
+      if (/** @type {Element} */ (e.target)?.closest?.(".modal-overlay")) return;
       const now = Date.now();
       if (now - lastTouchEnd <= DOUBLE_TAP_ZOOM_PREVENT_MS) e.preventDefault();
       lastTouchEnd = now;

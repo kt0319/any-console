@@ -24,6 +24,7 @@ export function useSessionSync() {
       iconColor: jobDef?.icon_color,
       jobName: s.job_name,
       jobLabel: s.job_label,
+      initialCommand: null,
       restored: true,
       hidden: !!jobDef?.hidden_tab,
     };
@@ -65,7 +66,7 @@ export function useSessionSync() {
       setTimeout(() => emit("layout:fitAll", { force: true }), LAYOUT_FIT_DELAY_MS);
     } catch (e) {
       console.error("restoreExistingSessions failed:", e);
-      terminalStore.restoreSessionsError = e?.message || "Error restoring existing sessions";
+      terminalStore.restoreSessionsError = (e instanceof Error ? e.message : "") || "Error restoring existing sessions";
     } finally {
       terminalStore.restoreSessionsLoading = false;
     }

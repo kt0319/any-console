@@ -1,12 +1,23 @@
+/**
+ * @param {string} workspace
+ * @param {string} [path]
+ * @returns {string}
+ */
 export function workspaceApiPath(workspace, path = "") {
   return `/workspaces/${encodeURIComponent(workspace)}${path}`;
 }
 
+/**
+ * @param {unknown} data
+ * @param {string} [fallback]
+ * @returns {string}
+ */
 export function getActionFailureMessage(data, fallback = "unknown error") {
   if (!data || typeof data !== "object") return fallback;
-  if (data.stderr) return typeof data.stderr === "string" ? data.stderr : fallback;
-  if (data.stdout) return typeof data.stdout === "string" ? data.stdout : fallback;
-  if (data.detail) return typeof data.detail === "string" ? data.detail : fallback;
+  const d = /** @type {Record<string, unknown>} */ (data);
+  if (d.stderr) return typeof d.stderr === "string" ? d.stderr : fallback;
+  if (d.stdout) return typeof d.stdout === "string" ? d.stdout : fallback;
+  if (d.detail) return typeof d.detail === "string" ? d.detail : fallback;
   return fallback;
 }
 
@@ -33,26 +44,32 @@ export const EP_RECENT_JOBS = "/recent-jobs";
 export const EP_SNIPPETS = "/snippets";
 export const EP_UPLOAD_IMAGE = "/upload-image";
 
+/** @param {string} sessionId @returns {string} */
 export function terminalSessionPath(sessionId) {
   return `/terminal/sessions/${encodeURIComponent(sessionId)}`;
 }
 
+/** @param {string} sessionId @returns {string} */
 export function terminalSessionBufferPath(sessionId) {
   return `/terminal/sessions/${encodeURIComponent(sessionId)}/buffer`;
 }
 
+/** @param {string} workspace @returns {string} */
 export function workspaceGitDiscardPath(workspace) {
   return `/workspaces/${encodeURIComponent(workspace)}/git/discard`;
 }
 
+/** @param {string} workspace @param {string} filePath @returns {string} */
 export function workspaceDownloadPath(workspace, filePath) {
   return `/workspaces/${encodeURIComponent(workspace)}/download?path=${encodeURIComponent(filePath)}`;
 }
 
+/** @param {string} workspace @param {string} filePath @returns {string} */
 export function workspaceFileContentPath(workspace, filePath) {
   return `/workspaces/${encodeURIComponent(workspace)}/file-content?path=${encodeURIComponent(filePath)}`;
 }
 
+/** @param {string} workspace @param {string} hash @returns {string} */
 export function workspaceCommitMessagePath(workspace, hash) {
   return `/workspaces/${encodeURIComponent(workspace)}/commit-message?hash=${encodeURIComponent(hash)}`;
 }

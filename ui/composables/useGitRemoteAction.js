@@ -24,7 +24,13 @@ export function useGitRemoteAction() {
   const { confirm } = useConfirm();
   const runningAction = ref(null);
 
-  async function gitAction(wsName, action, { branch } = {}) {
+  /**
+   * @param {string} wsName
+   * @param {string} action
+   * @param {{ branch?: string }} [opts]
+   */
+  async function gitAction(wsName, action, opts = {}) {
+    const { branch } = opts;
     if (runningAction.value) return;
     const label = ACTION_LABELS[action] || action;
     const confirmText = ACTION_CONFIRM[action] || `execute ${label}`;

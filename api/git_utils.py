@@ -5,6 +5,7 @@ import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from pathlib import Path
+from typing import Any
 
 from .common import (
     GIT_INFO_CACHE_TTL_SEC,
@@ -132,7 +133,7 @@ def _stdout_if_ok(future) -> str | None:
     return r.stdout if (r and r.returncode == 0) else None
 
 
-def _empty_git_info() -> dict:
+def _empty_git_info() -> dict[str, Any]:
     return {
         "is_git_repo": False,
         "branch": None,
@@ -255,12 +256,12 @@ def _populate_git_info(info: dict, directory: Path, run_git) -> None:
     _apply_ahead_behind(info, _stdout_if_ok(f_revlist), run_git)
 
 
-def git_info(directory: Path) -> dict:
+def git_info(directory: Path) -> dict[str, Any]:
     cache_key = str(directory)
-    cached = _git_info_cache.get(cache_key)
+    cached: dict[str, Any] | None = _git_info_cache.get(cache_key)
     if cached is not None:
         return cached
-    info = _empty_git_info()
+    info: dict[str, Any] = _empty_git_info()
 
     def run_git(*args):
         return run_git_raw(list(args), directory)

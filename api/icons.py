@@ -3,6 +3,7 @@ import hashlib
 import logging
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from .common import PROJECT_ROOT
@@ -56,7 +57,7 @@ def normalize_icon(icon: str) -> str:
 
 
 def _download_favicon(domain: str, fallback: str) -> str:
-    url = GOOGLE_FAVICON_URL.format(domain=urllib.request.quote(domain))
+    url = GOOGLE_FAVICON_URL.format(domain=urllib.parse.quote(domain))
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "any-console/1.0"})  # noqa: S310
         with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310

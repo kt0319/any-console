@@ -4,15 +4,15 @@ from pydantic import BaseModel, Field, ValidationError
 
 try:
     from pydantic import ConfigDict
+    _HAS_CONFIG_DICT = True
 except ImportError:  # pragma: no cover - Pydantic v1 fallback
-    ConfigDict = None
+    _HAS_CONFIG_DICT = False
 
 
-if ConfigDict is not None:
-    class _ConfigModel(BaseModel):
+class _ConfigModel(BaseModel):
+    if _HAS_CONFIG_DICT:
         model_config = ConfigDict(extra="allow")
-else:
-    class _ConfigModel(BaseModel):
+    else:  # pragma: no cover - Pydantic v1 fallback
         class Config:
             extra = "allow"
 
@@ -54,8 +54,10 @@ def _model_validate(model_cls: type[BaseModel], data: Any) -> BaseModel:
 
 def _model_dump(model: BaseModel) -> dict[str, Any]:
     if hasattr(model, "model_dump"):
-        return model.model_dump(exclude_defaults=True, exclude_none=True)
-    return model.dict(exclude_defaults=True, exclude_none=True)
+        result = model.model_dump(exclude_defaults=True, exclude_none=True)
+    else:
+        result = model.dict(exclude_defaults=True, exclude_none=True)
+    return dict(result)
 
 
 def validate_workspace_config(data: Any) -> dict[str, Any]:
