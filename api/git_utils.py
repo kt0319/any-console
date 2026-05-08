@@ -5,6 +5,7 @@ import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from pathlib import Path
+from typing import Any
 
 from .common import (
     GIT_INFO_CACHE_TTL_SEC,
@@ -132,12 +133,12 @@ def _stdout_if_ok(future) -> str | None:
     return r.stdout if (r and r.returncode == 0) else None
 
 
-def git_info(directory: Path) -> dict:
+def git_info(directory: Path) -> dict[str, Any]:
     cache_key = str(directory)
-    cached = _git_info_cache.get(cache_key)
+    cached: dict[str, Any] | None = _git_info_cache.get(cache_key)
     if cached is not None:
         return cached
-    info = {
+    info: dict[str, Any] = {
         "is_git_repo": False,
         "branch": None,
         "upstream": None,

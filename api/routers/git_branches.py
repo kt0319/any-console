@@ -27,7 +27,7 @@ def _stash_if_dirty(ws_path, env) -> bool:
     if not dirty:
         return False
     result = run_git_command(["stash"], cwd=ws_path, timeout=GIT_LONG_TIMEOUT_SEC, env=env, operation="stash")
-    return result["exit_code"] == 0
+    return bool(result["exit_code"] == 0)
 
 
 def _unstash(ws_path, env, result: dict) -> None:
@@ -43,7 +43,7 @@ class DeleteBranchRequest(BaseModel):
 
 class CheckoutRequest(BaseModel):
     branch: str
-    start_point: str = None
+    start_point: str | None = None
 
 
 @router.get("/workspaces/{name}/status")

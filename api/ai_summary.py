@@ -28,7 +28,7 @@ def summarize_pull(stdout: str) -> str | None:
             max_tokens=60,
             messages=[{"role": "user", "content": _PULL_PROMPT + stdout[:800]}],
         )
-        return msg.content[0].text.strip()
+        return str(msg.content[0].text).strip()
     except (anthropic.AnthropicError, OSError, ValueError, IndexError) as e:
         _logger.warning("ai_summary failed: %s", e)
         return None

@@ -66,8 +66,8 @@ export function useModal() {
       releaseKeydown();
       releaseKeydown = null;
     }
-    document.activeElement?.blur();
-    nextTick(() => document.activeElement?.blur());
+    /** @type {HTMLElement | null} */ (document.activeElement)?.blur();
+    nextTick(() => /** @type {HTMLElement | null} */ (document.activeElement)?.blur());
   }
 
   onUnmounted(() => {

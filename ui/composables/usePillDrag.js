@@ -155,6 +155,8 @@ export function usePillDrag({ tabId, canDrag, frameEl, isViewMode, doEnterViewMo
       tabId: tabId.value,
       clientX: touch.clientX,
       clientY: touch.clientY,
+      openTabs: terminalStore.openTabs,
+      activeTabId: terminalStore.activeTabId,
     });
     setTimeout(() => { pillTouchDragging = false; }, DRAG_STATE_RESET_MS);
   }
