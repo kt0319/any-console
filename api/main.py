@@ -3,13 +3,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import asyncio
+import fcntl
 import hmac
+import ipaddress
 import logging
+import os
 import re
 import secrets
 import shutil
 import socket
 import sys
+import tempfile
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -36,8 +40,87 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _is_loopback_host(host: str) -> bool:
+    if not host:
+        return False
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _emit_insecure_bind_warning(host: str) -> None:
+    if auth_module.ANY_CONSOLE_TOKEN or _is_loopback_host(host):
+        return
+    border = "!" * 72
+    logger.warning(
+        "\n%s\n"
+        "any-console is bound to %s with NO authentication token set.\n"
+        "Anyone who can reach this port can run commands and modify Git state.\n"
+        "  - Set a token: UI > Security, or env ANY_CONSOLE_TOKEN\n"
+        "  - Or restrict the bind: env ANY_CONSOLE_HOST=127.0.0.1\n"
+        "%s",
+        border, host, border,
+    )
+
+
+_singleton_lock_fd: int | None = None
+
+
+def _acquire_singleton_lock() -> bool:
+    """Reject extra workers (uvicorn --workers N).
+
+    any-console relies on in-process state (terminal sessions, rate-limit
+    counters, TTL caches), so multiple workers would corrupt state silently.
+    """
+    global _singleton_lock_fd
+    if os.environ.get("ANY_CONSOLE_SKIP_SINGLETON_LOCK"):
+        return True
+    port = os.environ.get("ANY_CONSOLE_PORT", "8888")
+    lock_path = Path(tempfile.gettempdir()) / f"any-console-{port}.lock"
+    try:
+        fd = os.open(str(lock_path), os.O_WRONLY | os.O_CREAT, 0o600)
+    except OSError as e:
+        logger.warning("singleton lock open failed (%s); continuing", e)
+        return True
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        os.close(fd)
+        logger.error(
+            "another any-console worker is already running on port %s. "
+            "any-console requires a single uvicorn worker (do not pass --workers > 1).",
+            port,
+        )
+        return False
+    try:
+        os.ftruncate(fd, 0)
+        os.write(fd, f"{os.getpid()}\n".encode())
+    except OSError:
+        pass
+    _singleton_lock_fd = fd
+    return True
+
+
+def _release_singleton_lock() -> None:
+    global _singleton_lock_fd
+    if _singleton_lock_fd is None:
+        return
+    try:
+        fcntl.flock(_singleton_lock_fd, fcntl.LOCK_UN)
+        os.close(_singleton_lock_fd)
+    except OSError:
+        pass
+    _singleton_lock_fd = None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if not _acquire_singleton_lock():
+        raise SystemExit(1)
+    _emit_insecure_bind_warning(os.environ.get("ANY_CONSOLE_HOST", "0.0.0.0"))
     from .config import load_global_config_section
     ws_root = load_global_config_section("workspace_root", "")
     if ws_root and isinstance(ws_root, str):
@@ -49,6 +132,7 @@ async def lifespan(app: FastAPI):
     for session in sessions:
         _detach_pty_bridge(session)
     BACKGROUND_EXECUTOR.shutdown(wait=False)
+    _release_singleton_lock()
 
 
 app = FastAPI(title="any-console", lifespan=lifespan)
@@ -122,7 +206,6 @@ ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 
 
 async def _write_image_to_clipboard(filepath: Path, content_type: str) -> bool:
-    import os
     if not sys.platform.startswith("linux") or not shutil.which("xclip"):
         return False
     mime = content_type if content_type.startswith("image/") else "image/png"
@@ -202,8 +285,6 @@ app.add_middleware(ClientLogMiddleware)
 app.add_middleware(RateLimitMiddleware)
 
 if __name__ == "__main__":
-    import os
-
     ssl_kwargs = {}
     ssl_keyfile = os.environ.get("SSL_KEYFILE")
     ssl_certfile = os.environ.get("SSL_CERTFILE")
@@ -211,4 +292,5 @@ if __name__ == "__main__":
         ssl_kwargs["ssl_keyfile"] = ssl_keyfile
         ssl_kwargs["ssl_certfile"] = ssl_certfile
     port = int(os.environ.get("ANY_CONSOLE_PORT", "8888"))
-    uvicorn.run(app, host="0.0.0.0", port=port, proxy_headers=True, forwarded_allow_ips="127.0.0.1", **ssl_kwargs)
+    host = os.environ.get("ANY_CONSOLE_HOST", "0.0.0.0")
+    uvicorn.run(app, host=host, port=port, proxy_headers=True, forwarded_allow_ips="127.0.0.1", **ssl_kwargs)

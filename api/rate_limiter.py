@@ -7,30 +7,51 @@ from starlette.responses import JSONResponse
 RATE_LIMIT_GENERAL = 200
 RATE_WINDOW_SEC = 60
 
-SKIP_PREFIXES = (
-    "/ui/",
+# Static asset directories. Matched as path prefix.
+_STATIC_DIRS = (
     "/assets/",
     "/icons/",
-    "/styles",
+    "/styles/",
+    "/utils/",
+    "/components/",
+    "/composables/",
+    "/stores/",
     "/vendor/",
-    "/favicon",
-    "/sw.js",
-    "/manifest",
-    "/icon-",
-    "/app.",
-    "/state.",
-    "/auth.",
-    "/workspace.",
-    "/git.",
-    "/jobs.",
-    "/terminal.",
-    "/settings.",
-    "/quick-input.",
-    "/icon-picker.",
-    "/utils.",
-    "/auth/check",
-    "/terminal/ws/",
+    "/public/",
 )
+
+# Static file extensions. Matched as path suffix.
+_STATIC_SUFFIXES = (
+    ".js", ".mjs", ".css", ".map",
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico",
+    ".woff", ".woff2", ".ttf", ".otf",
+)
+
+# Endpoints intentionally excluded from rate limiting. Polled by the UI
+# (connectivity monitor) so a flat allow-list is clearer than prefix matching.
+_SKIP_EXACT = frozenset({
+    "/",
+    "/sw.js",
+    "/manifest.json",
+    "/favicon.png",
+    "/apple-touch-icon.png",
+    "/auth/check",
+})
+
+# WebSocket paths bypass the HTTP rate limiter; the WS handshake itself is rare.
+_SKIP_WS_PREFIXES = ("/terminal/ws/",)
+
+
+def _should_skip(path: str) -> bool:
+    if path in _SKIP_EXACT:
+        return True
+    if any(path.startswith(p) for p in _STATIC_DIRS):
+        return True
+    if any(path.startswith(p) for p in _SKIP_WS_PREFIXES):
+        return True
+    if any(path.endswith(s) for s in _STATIC_SUFFIXES):
+        return True
+    return False
 
 
 class _FixedWindowCounter:
@@ -56,18 +77,13 @@ _counter = _FixedWindowCounter()
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
-        path = request.url.path
-
-        if any(path.startswith(p) for p in SKIP_PREFIXES):
-            return await call_next(request)
-        if path == "/" and request.method == "GET":
+        if _should_skip(request.url.path):
             return await call_next(request)
 
         client_ip = request.client.host if request.client else "unknown"
-        limit = RATE_LIMIT_GENERAL
         key = f"api:{client_ip}"
 
-        if not _counter.is_allowed(key, limit, RATE_WINDOW_SEC):
+        if not _counter.is_allowed(key, RATE_LIMIT_GENERAL, RATE_WINDOW_SEC):
             return JSONResponse(
                 status_code=429,
                 content={"detail": "Too many requests"},

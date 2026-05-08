@@ -51,10 +51,58 @@ class TestRateLimitMiddleware:
         res = client.get("/workspaces/test-ws/status", headers=AUTH)
         assert res.status_code == 429
 
-    def test_静的ファイルパスはレート制限対象外(self, client):
+    def test_authcheckはレート制限対象外(self, client):
         from conftest import AUTH
         from api.rate_limiter import _counter
 
         _counter._counts.clear()
         res = client.get("/auth/check", headers=AUTH)
         assert res.status_code != 429
+
+
+class TestSkipMatcher:
+    """_should_skip の判定パターン"""
+
+    def test_API系パスはスキップしない(self):
+        from api.rate_limiter import _should_skip
+
+        for path in [
+            "/workspaces",
+            "/workspaces/test-ws/status",
+            "/auth/login",
+            "/auth/logout",
+            "/jobs/foo/run",
+            "/git/foo/branches",
+            "/upload-image",
+        ]:
+            assert _should_skip(path) is False, path
+
+    def test_静的アセットはスキップする(self):
+        from api.rate_limiter import _should_skip
+
+        for path in [
+            "/assets/index-abc123.js",
+            "/assets/style-abc123.css",
+            "/icons/foo.png",
+            "/styles/github-pane.css",
+            "/utils/format.js",
+            "/components/App.vue.js",
+            "/sw.js",
+            "/manifest.json",
+            "/favicon.png",
+            "/apple-touch-icon.png",
+            "/",
+            "/auth/check",
+            "/terminal/ws/abc",
+        ]:
+            assert _should_skip(path) is True, path
+
+    def test_紛らわしいAPIパスは誤判定しない(self):
+        """以前の prefix ベース実装は /auth.<chunk>.js を狙って `/auth.` を
+        SKIP_PREFIXES に入れていた結果、API パスとの混同が起きやすかった。
+        新実装では拡張子ベースで判定するため、API はスキップされない。"""
+        from api.rate_limiter import _should_skip
+
+        assert _should_skip("/auth/check") is True
+        assert _should_skip("/auth/login") is False
+        assert _should_skip("/auth/logout") is False
