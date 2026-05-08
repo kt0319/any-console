@@ -241,8 +241,7 @@ function onStashCount(n) {
   stashCount.value = n;
 }
 
-function onCommitExpanded({ message }) {
-  modalTitle.value = message || workspaceStore.selectedWorkspace || "Git";
+function onCommitExpanded() {
 }
 
 function onCommitCollapsed() {

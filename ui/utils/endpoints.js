@@ -35,3 +35,7 @@ export function workspaceGitDiscardPath(workspace) {
 export function workspaceDownloadPath(workspace, filePath) {
   return `/workspaces/${encodeURIComponent(workspace)}/download?path=${encodeURIComponent(filePath)}`;
 }
+
+export function workspaceCommitMessagePath(workspace, hash) {
+  return `/workspaces/${encodeURIComponent(workspace)}/commit-message?hash=${encodeURIComponent(hash)}`;
+}

@@ -51,6 +51,14 @@ def _execute_commit_action(name: str, commit_hash: str, git_args: list[str], ope
     return execute_git_action(name, [*git_args, h], operation=operation, log_extra=f"commit={h[:8]}")
 
 
+@router.get("/workspaces/{name}/commit-message")
+def get_commit_message(name: str, hash: str):
+    h = validate_commit_hash(hash)
+    ws_path = resolve_workspace_path(name)
+    result = run_git_command(["--no-pager", "log", "-1", "--format=%B", h], cwd=ws_path, operation="commit-message")
+    return {"message": result.get("stdout", "").strip() if result.get("status") == "ok" else ""}
+
+
 @router.post("/workspaces/{name}/cherry-pick")
 def git_cherry_pick(name: str, body: GitActionRequest):
     return _execute_commit_action(name, body.commit_hash, ["cherry-pick"], "cherry-pick")

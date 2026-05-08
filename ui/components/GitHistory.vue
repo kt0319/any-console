@@ -2,7 +2,7 @@
   <div class="git-history-pane-wrapper">
     <!-- ファイル一覧モード -->
     <template v-if="selectedCommitForFiles">
-      <div class="git-log-entry git-log-commit diff-files-selected-commit">
+      <div class="git-log-entry git-log-commit diff-files-selected-commit" @click="showSelectedCommitMessage">
         <svg v-if="selectedCommitRow" class="git-graph-svg" :width="graphWidth" :height="GRAPH_ROW_HEIGHT" :viewBox="'0 0 ' + graphWidth + ' ' + GRAPH_ROW_HEIGHT">
           <template v-for="(seg, si) in selectedCommitRow.segments" :key="si">
             <line v-if="seg.type === 'line'" :x1="seg.x" :y1="seg.y1" :x2="seg.x2 ?? seg.x" :y2="seg.y2" :stroke="seg.color" stroke-width="2" />
@@ -23,7 +23,7 @@
             </span>
           </span>
         </span>
-        <button class="diff-files-close-btn" @click="closeSelectedCommitFiles">
+        <button class="diff-files-close-btn" @click.stop="closeSelectedCommitFiles">
           <span class="mdi mdi-close"></span>
         </button>
       </div>
@@ -131,13 +131,15 @@ import { useAuthStore } from "../stores/auth.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
 import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
 import { GRAPH_ROW_HEIGHT } from "../utils/git-graph.js";
-import { workspaceGitDiscardPath, workspaceDownloadPath } from "../utils/endpoints.js";
+import { workspaceGitDiscardPath, workspaceDownloadPath, workspaceCommitMessagePath } from "../utils/endpoints.js";
 import { triggerBlobDownload } from "../utils/download.js";
+import { useConfirm } from "../composables/useConfirm.js";
 
 const emitToParent = defineEmits(["commit:expanded", "commit:collapsed"]);
 
 const workspaceStore = useWorkspaceStore();
-const { apiCommand, wsEndpoint } = useApi();
+const { apiCommand, wsEndpoint, apiGet } = useApi();
+const { confirm } = useConfirm();
 const { editorUrlTemplate, fetchEditorSettings, openInEditor } = useEditorIntegration();
 const auth = useAuthStore();
 const { execAction: execCommitAction, execReset: execCommitReset, execCreateBranch: execCommitCreateBranch, execMerge: execCommitMerge, execRebase: execCommitRebase } = useGitHistoryAction();
@@ -229,6 +231,15 @@ function openCommitDiffFiles(entry) {
   if (isMenuEl() || isLongPressFired()) return;
   if (longPressEntry.value) closeLongPressMenu();
   openDiffFiles(entry, () => fetchCommitDiff(entry.fullHash));
+}
+
+async function showSelectedCommitMessage() {
+  const entry = selectedCommitForFiles.value;
+  if (!entry) return;
+  const workspace = workspaceStore.selectedWorkspace;
+  const { ok, data } = await apiGet(workspaceCommitMessagePath(workspace, entry.fullHash));
+  const msg = ok && data?.message ? data.message : entry.message;
+  confirm(msg);
 }
 
 function closeSelectedCommitFiles() {

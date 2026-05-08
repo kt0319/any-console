@@ -130,13 +130,6 @@ async function doEnterViewMode() {
       exitViewMode(frame);
       emit("keyboard:deactivate");
     });
-    pre.addEventListener("copy", (e) => {
-      const sel = window.getSelection();
-      if (!sel) return;
-      const trimmed = sel.toString().split("\n").map(l => l.trimEnd()).join("\n");
-      e.clipboardData.setData("text/plain", trimmed);
-      e.preventDefault();
-    });
   }
 }
 
