@@ -36,7 +36,7 @@ const props = defineProps({
 
 const emit = defineEmits(["cycleMode"]);
 
-const { sendKeyToTerminal, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
+const { sendKeyToTerminal, setupFlickRepeat } = useKeyboard();
 
 const panelEl = ref(null);
 const arrowFlickEl = ref(null);
@@ -45,13 +45,8 @@ const enterFlickEl = ref(null);
 
 onMounted(() => {
   setupFlickRepeat(arrowFlickEl.value, arrowResolver, () => {
-    const tab = getActiveTerminalTab();
-    if (tab?.term) tab.term.scrollToBottom();
-  }, {
-    accelerateRepeat: true,
-    onLongPress: () => emit("cycleMode"),
-    longPressGuard: () => props.active,
-  });
+    emit("cycleMode");
+  }, { accelerateRepeat: true });
 
   setupFlickRepeat(enterFlickEl.value, enterResolver, () => {
     sendKeyToTerminal({ key: "Enter" });
