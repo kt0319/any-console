@@ -17,12 +17,7 @@ export function useSnippetPersist() {
   }
 
   async function persistSnippets() {
-    try {
-      const { ok } = await apiPut("/snippets", { snippets: inputStore.snippetsCache });
-      if (!ok) emit("toast:show", { message: "Failed to save snippets", type: "error" });
-    } catch {
-      emit("toast:show", { message: "Failed to save snippets", type: "error" });
-    }
+    await apiPut("/snippets", { snippets: inputStore.snippetsCache }, { errorMessage: "Failed to save snippets" });
   }
 
   function moveSnippetToFront(command) {

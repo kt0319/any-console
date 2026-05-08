@@ -106,7 +106,7 @@ import { useAuthStore } from "../stores/auth.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
 import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
 import { GRAPH_ROW_HEIGHT } from "../utils/git-graph.js";
-import { workspaceGitDiscardPath } from "../utils/endpoints.js";
+import { workspaceGitDiscardPath, workspaceDownloadPath } from "../utils/endpoints.js";
 import { triggerBlobDownload } from "../utils/download.js";
 
 const emitToParent = defineEmits(["commit:expanded", "commit:collapsed"]);
@@ -253,19 +253,22 @@ function viewDiffFile(file) {
   selectCommitDiffFile(file);
 }
 
-async function discardDiffFile(file) {
+async function _execDiffFileAction(file, endpoint, errorMessage, successMessage = null) {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
   closeDiffMenu();
-  const { ok } = await apiCommand(
-    workspaceGitDiscardPath(workspace),
-    { path: file.path },
-    { errorMessage: `Failed to discard ${file.path}` },
-  );
+  const { ok } = await apiCommand(endpoint, { path: file.path }, { errorMessage });
   if (ok) {
+    if (successMessage) bridgeEmit("toast:show", { message: successMessage, type: "success" });
     bridgeEmit("git:refreshStatus");
     openWorkingTreeDiffFiles();
   }
+}
+
+async function discardDiffFile(file) {
+  const workspace = workspaceStore.selectedWorkspace;
+  if (!workspace) return;
+  await _execDiffFileAction(file, workspaceGitDiscardPath(workspace), `Failed to discard ${file.path}`);
 }
 
 function openDiffFileGithub(file) {
@@ -289,7 +292,7 @@ async function downloadDiffFile(file) {
   if (!workspace) return;
   closeDiffMenu();
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/download?path=${encodeURIComponent(file.path)}`);
+    const res = await auth.apiFetch(workspaceDownloadPath(workspace, file.path));
     if (!res?.ok) { bridgeEmit("toast:show", { message: "Download failed", type: "error" }); return; }
     const blob = await res.blob();
     triggerBlobDownload(blob, file.path.split("/").pop() || "download");
@@ -301,17 +304,7 @@ async function downloadDiffFile(file) {
 async function deleteDiffFile(file) {
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) return;
-  closeDiffMenu();
-  const { ok } = await apiCommand(
-    wsEndpoint(workspace, "delete-file"),
-    { path: file.path },
-    { errorMessage: "Delete failed" },
-  );
-  if (ok) {
-    bridgeEmit("toast:show", { message: "Deleted", type: "success" });
-    bridgeEmit("git:refreshStatus");
-    openWorkingTreeDiffFiles();
-  }
+  await _execDiffFileAction(file, wsEndpoint(workspace, "delete-file"), "Delete failed", "Deleted");
 }
 
 function selectCommitDiffFile(file) {

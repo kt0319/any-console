@@ -5,6 +5,7 @@ import { emit } from "../app-bridge.js";
 import { MSG_DELETE_FAILED } from "../utils/constants.js";
 import { useConfirm } from "./useConfirm.js";
 import { triggerBlobDownload } from "../utils/download.js";
+import { workspaceDownloadPath } from "../utils/endpoints.js";
 
 export function useFileActions({ getContextEntry, clearContextEntry, getCurrentPath, getFileContent, navigateToPath }) {
   const auth = useAuthStore();
@@ -67,7 +68,7 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
     const workspace = workspaceStore.selectedWorkspace;
     if (!workspace || !filePath) return;
     try {
-      const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/download?path=${encodeURIComponent(filePath)}`);
+      const res = await auth.apiFetch(workspaceDownloadPath(workspace, filePath));
       if (!res?.ok) throw new Error();
       const blob = await res.blob();
       triggerBlobDownload(blob, filePath.split("/").pop() || "download");

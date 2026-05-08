@@ -31,3 +31,7 @@ export const EP_RECENT_JOBS = "/recent-jobs";
 export function workspaceGitDiscardPath(workspace) {
   return `/workspaces/${encodeURIComponent(workspace)}/git/discard`;
 }
+
+export function workspaceDownloadPath(workspace, filePath) {
+  return `/workspaces/${encodeURIComponent(workspace)}/download?path=${encodeURIComponent(filePath)}`;
+}
