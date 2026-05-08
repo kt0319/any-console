@@ -22,10 +22,10 @@
 import { ref } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
-import { emit } from "../app-bridge.js";
+import { emit as bridgeEmit } from "../app-bridge.js";
 import { getStashCache, setStashCache, invalidateStashCache } from "../composables/useStashCache.js";
 
-const emitCount = defineEmits(["count"]);
+const emit = defineEmits(["count"]);
 const { apiGet, apiCommand, wsEndpoint } = useApi();
 const workspaceStore = useWorkspaceStore();
 
@@ -39,7 +39,7 @@ async function loadStashList() {
   const cached = getStashCache(workspace);
   if (cached) {
     stashEntries.value = cached;
-    emitCount("count", cached.length);
+    emit("count", cached.length);
     return;
   }
   isStashListLoading.value = true;
@@ -53,7 +53,7 @@ async function loadStashList() {
     }));
     stashEntries.value = result;
     setStashCache(workspace, result);
-    emitCount("count", result.length);
+    emit("count", result.length);
   } catch (e) {
     console.error("stash list load failed:", e);
   } finally {
@@ -68,7 +68,7 @@ async function stashPop(entry) {
   if (!ok) return;
   invalidateStashCache(workspace);
   await loadStashList();
-  emit("git:commitDone");
+  bridgeEmit("git:commitDone");
 }
 
 async function stashDrop(entry) {

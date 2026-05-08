@@ -21,7 +21,6 @@
         <div v-show="activePane === 'history'" class="file-modal-pane">
           <GitHistory
             ref="gitHistory"
-            @pane:select="switchPane"
             @commit:expanded="onCommitExpanded"
             @commit:collapsed="onCommitCollapsed"
           />

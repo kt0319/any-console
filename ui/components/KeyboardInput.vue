@@ -69,7 +69,7 @@ import { useQuickInputData } from "../composables/useQuickInputData.js";
 import { useLongPress } from "../composables/useLongPress.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 
-const emitLocal = defineEmits(["visibility"]);
+const emit = defineEmits(["visibility"]);
 
 const inputStore = useInputStore();
 const { sendTextToTerminal } = useKeyboard();
@@ -92,14 +92,14 @@ function preventScroll(e) {
 
 function show() {
   visible.value = true;
-  emitLocal("visibility", true);
+  emit("visibility", true);
   document.addEventListener("touchmove", preventScroll, { passive: false });
   nextTick(() => inputEl.value?.focus());
 }
 
 function hide() {
   visible.value = false;
-  emitLocal("visibility", false);
+  emit("visibility", false);
   document.removeEventListener("touchmove", preventScroll);
 }
 

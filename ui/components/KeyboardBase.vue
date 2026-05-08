@@ -22,7 +22,7 @@
 <script setup>
 import { ref, watch, nextTick } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
-import { emit } from "../app-bridge.js";
+import { emit as bridgeEmit } from "../app-bridge.js";
 import KeyboardMinimumKey from "./KeyboardMinimumKey.vue";
 import KeyboardQwertyKey from "./KeyboardQwertyKey.vue";
 import KeyboardInput from "./KeyboardInput.vue";
@@ -30,7 +30,7 @@ import KeyboardInput from "./KeyboardInput.vue";
 defineProps({
   isPanelBottom: { type: Boolean, default: false },
 });
-const emitLocal = defineEmits(["visibility"]);
+const emit = defineEmits(["visibility"]);
 
 const { clearModifiers } = useKeyboard();
 
@@ -51,7 +51,7 @@ function switchToMinimum() {
 
 function onKeyboardInputVisibility(visible) {
   isTextInputVisible.value = !!visible;
-  emitLocal("visibility", isTextInputVisible.value);
+  emit("visibility", isTextInputVisible.value);
 }
 
 function showInput() {
@@ -64,8 +64,8 @@ function hideInput() {
 
 watch(mode, (val) => {
   nextTick(() => {
-    emit("layout:fitAll");
-    emit("keyboard:modeChange", { mode: val });
+    bridgeEmit("layout:fitAll");
+    bridgeEmit("keyboard:modeChange", { mode: val });
   });
 });
 
