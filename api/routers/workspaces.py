@@ -226,6 +226,9 @@ def add_workspace(body: AddWorkspaceRequest):
         return resp
     except subprocess.TimeoutExpired:
         raise timeout_error("Clone timed out") from None
+    except OSError as e:
+        logger.error("clone exec failed url=%s: %s", sanitize_log_value(url), e)
+        raise server_error(f"Clone execution failed: {e}") from None
 
 
 @router.delete("/workspaces/{name}")
@@ -281,3 +284,6 @@ def list_github_repos():
         raise timeout_error("gh command timed out") from None
     except json.JSONDecodeError:
         raise server_error("Failed to parse gh output") from None
+    except OSError as e:
+        logger.error("gh command failed: %s", e)
+        raise server_error(f"gh command failed: {e}") from None

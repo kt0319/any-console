@@ -161,6 +161,8 @@ def get_system_processes():
         raise server_error("ps command timed out") from None
     except FileNotFoundError:
         raise server_error("ps command not found") from None
+    except OSError as e:
+        raise server_error(f"ps command failed: {e}") from None
 
     lines = result.stdout.strip().splitlines()
     processes = []
