@@ -29,9 +29,9 @@ export function useSessionSync() {
     };
   }
 
-  async function _fetchAllJobs(jobsRes) {
+  async function _safeResJson(res) {
     try {
-      if (jobsRes && jobsRes.ok) return await jobsRes.json();
+      if (res && res.ok) return await res.json();
     } catch {}
     return {};
   }
@@ -44,19 +44,14 @@ export function useSessionSync() {
     try {
       if (!sessionsRes || !sessionsRes.ok) {
         if (sessionsRes) {
-          let detail = "Failed to fetch existing sessions";
-          try {
-            const text = await sessionsRes.text?.();
-            if (text) detail = text;
-          } catch {}
-          terminalStore.restoreSessionsError = detail;
+          terminalStore.restoreSessionsError = await sessionsRes.text?.().catch(() => "") || "Failed to fetch existing sessions";
         }
         return;
       }
       const sessions = await sessionsRes.json();
       if (!Array.isArray(sessions) || sessions.length === 0) return;
 
-      const allJobs = await _fetchAllJobs(jobsRes);
+      const allJobs = await _safeResJson(jobsRes);
       for (const s of sessions) {
         terminalStore.addTerminalTab(_buildTabParams(s, allJobs));
       }
@@ -86,7 +81,7 @@ export function useSessionSync() {
       const sessions = await sessionsRes.json();
       if (!Array.isArray(sessions)) return;
 
-      const allJobs = await _fetchAllJobs(jobsRes);
+      const allJobs = await _safeResJson(jobsRes);
       const serverSessionIds = new Set(sessions.map((s) => s.session_id));
       const localSessionIds = new Set(terminalStore.openTabs.map((t) => t.sessionId));
 

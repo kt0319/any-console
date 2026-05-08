@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { LS_KEY_INPUT_HISTORY, INPUT_HISTORY_MAX } from "../utils/constants.js";
+import { safeJsonLoad } from "../utils/storage.js";
 
 const QUICK_KEYS = [
   { label: "Tab", key: "Tab", code: "Tab", keyCode: 9 },
@@ -41,7 +42,7 @@ const QWERTY_ROWS = [
 const INPUT_HISTORY_KEY = LS_KEY_INPUT_HISTORY;
 
 export const useInputStore = defineStore("input", () => {
-  const inputHistory = ref(JSON.parse(localStorage.getItem(INPUT_HISTORY_KEY) || "[]"));
+  const inputHistory = ref(safeJsonLoad(INPUT_HISTORY_KEY, []));
   const snippetsCache = ref([]);
   const isSnippetsLoaded = ref(false);
 

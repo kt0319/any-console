@@ -5,6 +5,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { LS_KEY_TERMINAL_SETTINGS, LS_KEY_ACTIVE_SESSION } from "../utils/constants.js";
 import { TERMINAL_SETTINGS_META, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../utils/terminal-settings.js";
+import { safeJsonLoad } from "../utils/storage.js";
 
 const TERMINAL_SETTINGS_KEY = LS_KEY_TERMINAL_SETTINGS;
 
@@ -12,11 +13,7 @@ let _linkTapped = false;
 export function isLinkTapped() { return _linkTapped; }
 
 function loadTerminalSettingsFromStorage() {
-  try {
-    return sanitizeTerminalSettings(JSON.parse(localStorage.getItem(TERMINAL_SETTINGS_KEY) || "{}"));
-  } catch {
-    return sanitizeTerminalSettings({});
-  }
+  return sanitizeTerminalSettings(safeJsonLoad(TERMINAL_SETTINGS_KEY, {}));
 }
 
 export const useTerminalStore = defineStore("terminal", () => {

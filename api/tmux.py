@@ -13,6 +13,18 @@ from .common import (
 logger = logging.getLogger(__name__)
 
 
+def _run_tmux_cmd(*args: str) -> subprocess.CompletedProcess | None:
+    try:
+        return subprocess.run(
+            ["tmux", *args],
+            timeout=TMUX_CMD_TIMEOUT_SEC,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+
+
 def run_outside_cgroup(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
     uid = os.getuid()
     env = kwargs.get("env") or os.environ.copy()
@@ -88,39 +100,17 @@ def attach_tmux_session(session_name: str, cols: int = 0, rows: int = 0) -> tupl
 
 
 def tmux_session_exists(name: str) -> bool:
-    try:
-        result = subprocess.run(
-            ["tmux", "has-session", "-t", name],
-            timeout=TMUX_CMD_TIMEOUT_SEC,
-            capture_output=True,
-        )
-        return result.returncode == 0
-    except (subprocess.TimeoutExpired, OSError):
-        return False
+    result = _run_tmux_cmd("has-session", "-t", name)
+    return result is not None and result.returncode == 0
 
 
 def kill_tmux_by_name(name: str) -> None:
-    try:
-        subprocess.run(
-            ["tmux", "kill-session", "-t", name],
-            timeout=TMUX_CMD_TIMEOUT_SEC,
-            capture_output=True,
-        )
-    except (subprocess.TimeoutExpired, OSError) as e:
-        logger.debug("kill tmux session %s failed: %s", name, e)
+    _run_tmux_cmd("kill-session", "-t", name)
 
 
 def load_tmux_metadata(tmux_name: str) -> dict:
-    try:
-        result = subprocess.run(
-            ["tmux", "show-environment", "-t", tmux_name],
-            timeout=TMUX_CMD_TIMEOUT_SEC,
-            capture_output=True,
-            text=True,
-        )
-    except (subprocess.TimeoutExpired, OSError):
-        return {}
-    if result.returncode != 0:
+    result = _run_tmux_cmd("show-environment", "-t", tmux_name)
+    if not result or result.returncode != 0:
         return {}
     meta = {}
     for line in result.stdout.strip().splitlines():
@@ -133,36 +123,23 @@ def load_tmux_metadata(tmux_name: str) -> dict:
 
 
 def detect_workspace_from_tmux(tmux_name: str) -> str | None:
-    try:
-        result = subprocess.run(
-            ["tmux", "display-message", "-t", tmux_name, "-p", "#{pane_current_path}"],
-            timeout=TMUX_CMD_TIMEOUT_SEC,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
-            pane_path = result.stdout.strip()
-            from .config import list_workspace_entries
-            entries = list_workspace_entries()
-            for name, config in entries.items():
-                ws_path = config.get("path", "")
-                if ws_path and (pane_path == ws_path or pane_path.startswith(ws_path + "/")):
-                    return name
-    except (subprocess.TimeoutExpired, OSError):
-        pass
+    result = _run_tmux_cmd("display-message", "-t", tmux_name, "-p", "#{pane_current_path}")
+    if result and result.returncode == 0:
+        pane_path = result.stdout.strip()
+        from .config import list_workspace_entries
+        entries = list_workspace_entries()
+        for name, config in entries.items():
+            ws_path = config.get("path", "")
+            if ws_path and (pane_path == ws_path or pane_path.startswith(ws_path + "/")):
+                return name
     return None
 
 
 def get_tmux_created(tmux_name: str) -> int | None:
-    try:
-        result = subprocess.run(
-            ["tmux", "display-message", "-t", tmux_name, "-p", "#{session_created}"],
-            timeout=TMUX_CMD_TIMEOUT_SEC,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
+    result = _run_tmux_cmd("display-message", "-t", tmux_name, "-p", "#{session_created}")
+    if result and result.returncode == 0:
+        try:
             return int(result.stdout.strip())
-    except (subprocess.TimeoutExpired, OSError, ValueError):
-        pass
+        except ValueError:
+            pass
     return None

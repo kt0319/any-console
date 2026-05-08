@@ -34,6 +34,7 @@ from ..terminal_session import (
     switch_active_client,
 )
 from ..tmux import (
+    _run_tmux_cmd,
     attach_tmux_session,
     create_tmux_session,
     get_tmux_created,
@@ -47,17 +48,8 @@ router = APIRouter(dependencies=[Depends(verify_token)])
 
 @router.get("/terminal/sessions")
 async def list_terminal_sessions():
-    try:
-        result = subprocess.run(
-            ["tmux", "list-sessions", "-F", "#{session_name}"],
-            timeout=TMUX_CMD_TIMEOUT_SEC,
-            capture_output=True,
-            text=True,
-        )
-    except (subprocess.TimeoutExpired, OSError):
-        return []
-
-    if result.returncode != 0:
+    result = _run_tmux_cmd("list-sessions", "-F", "#{session_name}")
+    if not result or result.returncode != 0:
         return []
 
     sessions = []
@@ -167,14 +159,7 @@ async def terminal_ws(websocket: WebSocket, session_id: str, token: str = "", co
     effective_rows = rows if rows > 0 else TERMINAL_DEFAULT_ROWS
 
     if cols > 0 and rows > 0:
-        try:
-            subprocess.run(
-                ["tmux", "resize-window", "-t", session.tmux_session_name, "-x", str(cols), "-y", str(rows)],
-                timeout=TMUX_CMD_TIMEOUT_SEC,
-                capture_output=True,
-            )
-        except (OSError, subprocess.TimeoutExpired):
-            pass
+        _run_tmux_cmd("resize-window", "-t", session.tmux_session_name, "-x", str(cols), "-y", str(rows))
 
     if need_pty_bridge:
         _detach_pty_bridge(session)

@@ -22,30 +22,32 @@ PROCESS_LIST_LIMIT = 15
 PS_FIELD_COUNT = 11
 
 
-def get_app_version() -> str:
+def _run_cmd_safe(cmd: list[str], timeout: float = SYSTEM_CMD_TIMEOUT_SEC, cwd: str | None = None) -> str | None:
     try:
-        result = subprocess.run(
-            ["git", "log", "-1", "--format=%cd", "--date=format:%Y-%m-%d %H:%M"],
-            capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
-            cwd=str(Path(__file__).resolve().parent.parent.parent),
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
-    except (subprocess.TimeoutExpired, OSError) as e:
-        logger.debug("app version fetch failed: %s", e)
-    return ""
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd)
+        if result.returncode == 0:
+            return result.stdout
+        return None
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        logger.debug("cmd failed %s: %s", cmd[0], e)
+        return None
+
+
+def get_app_version() -> str:
+    out = _run_cmd_safe(
+        ["git", "log", "-1", "--format=%cd", "--date=format:%Y-%m-%d %H:%M"],
+        cwd=str(Path(__file__).resolve().parent.parent.parent),
+    )
+    return out.strip() if out and out.strip() else ""
 
 
 def _get_ip() -> str | None:
     if not IS_DARWIN:
-        try:
-            result = subprocess.run(["hostname", "-I"], capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC)
-            if result.returncode == 0:
-                addrs = result.stdout.strip().split()
-                if addrs:
-                    return addrs[0]
-        except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-            logger.debug("hostname -I failed: %s", e)
+        out = _run_cmd_safe(["hostname", "-I"])
+        if out:
+            addrs = out.strip().split()
+            if addrs:
+                return addrs[0]
     try:
         return socket.gethostbyname(socket.gethostname())
     except socket.gaierror as e:
@@ -83,24 +85,14 @@ def _format_uptime_seconds(elapsed: int) -> str:
 
 def _get_uptime() -> str | None:
     if IS_DARWIN:
-        try:
-            result = subprocess.run(
-                ["sysctl", "-n", "kern.boottime"], capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
-            )
-            if result.returncode == 0:
-                m = re.search(r"sec\s*=\s*(\d+)", result.stdout)
-                if m:
-                    return _format_uptime_seconds(int(time.time()) - int(m.group(1)))
-        except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-            logger.debug("macOS uptime failed: %s", e)
+        out = _run_cmd_safe(["sysctl", "-n", "kern.boottime"])
+        if out:
+            m = re.search(r"sec\s*=\s*(\d+)", out)
+            if m:
+                return _format_uptime_seconds(int(time.time()) - int(m.group(1)))
         return None
-    try:
-        result = subprocess.run(["uptime", "-p"], capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC)
-        if result.returncode == 0:
-            return result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-        logger.debug("uptime -p failed: %s", e)
-    return None
+    out = _run_cmd_safe(["uptime", "-p"])
+    return out.strip() if out else None
 
 
 def _get_cpu_temp() -> str | None:
@@ -117,30 +109,27 @@ def _get_cpu_temp() -> str | None:
 def _get_memory() -> str | None:
     if IS_DARWIN:
         try:
-            result = subprocess.run(
-                ["sysctl", "-n", "hw.memsize"], capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC,
-            )
-            if result.returncode != 0:
+            memsize_out = _run_cmd_safe(["sysctl", "-n", "hw.memsize"])
+            if not memsize_out:
                 return None
-            total_bytes = int(result.stdout.strip())
-
-            result = subprocess.run(["vm_stat"], capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC)
-            if result.returncode != 0:
+            total_bytes = int(memsize_out.strip())
+            vmstat_out = _run_cmd_safe(["vm_stat"])
+            if not vmstat_out:
                 return None
             page_size = 16384
-            ps_match = re.search(r"page size of (\d+) bytes", result.stdout)
+            ps_match = re.search(r"page size of (\d+) bytes", vmstat_out)
             if ps_match:
                 page_size = int(ps_match.group(1))
             free_pages = 0
             for key in ("Pages free", "Pages inactive", "Pages speculative"):
-                m = re.search(rf"{key}:\s+(\d+)", result.stdout)
+                m = re.search(rf"{key}:\s+(\d+)", vmstat_out)
                 if m:
                     free_pages += int(m.group(1))
             available_bytes = free_pages * page_size
             total_gb = total_bytes / (1024 ** 3)
             used_gb = (total_bytes - available_bytes) / (1024 ** 3)
             return f"{used_gb:.1f} / {total_gb:.1f} GB"
-        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as e:
+        except ValueError as e:
             logger.debug("macOS memory info failed: %s", e)
             return None
     try:

@@ -106,13 +106,17 @@ def load_workspace_config_section(workspace_name: str, key: str, default=None):
         return ws_config.get(key, default if default is not None else {})
 
 
+def _update_config_section(config_key: str, section_key: str, data) -> None:
+    all_config = _read_config_unlocked()
+    section = all_config.get(config_key, {})
+    section[section_key] = data
+    all_config[config_key] = validate_config_entry(config_key, section, GLOBAL_CONFIG_KEY)
+    _write_config_unlocked(all_config)
+
+
 def save_workspace_config_section(workspace_name: str, key: str, data) -> None:
     with _config_lock:
-        all_config = _read_config_unlocked()
-        ws_config = all_config.get(workspace_name, {})
-        ws_config[key] = data
-        all_config[workspace_name] = validate_config_entry(workspace_name, ws_config, GLOBAL_CONFIG_KEY)
-        _write_config_unlocked(all_config)
+        _update_config_section(workspace_name, key, data)
 
 
 def delete_workspace_config(workspace_name: str) -> None:
@@ -185,8 +189,4 @@ def load_global_config_section(key: str, default=None):
 
 def save_global_config_section(key: str, data) -> None:
     with _config_lock:
-        all_config = _read_config_unlocked()
-        global_config = all_config.get(GLOBAL_CONFIG_KEY, {})
-        global_config[key] = data
-        all_config[GLOBAL_CONFIG_KEY] = validate_config_entry(GLOBAL_CONFIG_KEY, global_config, GLOBAL_CONFIG_KEY)
-        _write_config_unlocked(all_config)
+        _update_config_section(GLOBAL_CONFIG_KEY, key, data)
