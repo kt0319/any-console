@@ -4,14 +4,13 @@ import platform
 import re
 import shutil
 import socket
-import subprocess
 import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends
 
 from ..auth import verify_token
-from ..common import SYSTEM_CMD_TIMEOUT_SEC, default_workspace_dir
+from ..common import SYSTEM_CMD_TIMEOUT_SEC, default_workspace_dir, run_subprocess_safe
 from ..errors import server_error
 
 logger = logging.getLogger(__name__)
@@ -23,14 +22,10 @@ PS_FIELD_COUNT = 11
 
 
 def _run_cmd_safe(cmd: list[str], timeout: float = SYSTEM_CMD_TIMEOUT_SEC, cwd: str | None = None) -> str | None:
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd)
-        if result.returncode == 0:
-            return result.stdout
-        return None
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
-        logger.debug("cmd failed %s: %s", cmd[0], e)
-        return None
+    result = run_subprocess_safe(cmd, timeout=timeout, cwd=cwd)
+    if result is not None and result.returncode == 0:
+        return result.stdout
+    return None
 
 
 def get_app_version() -> str:
@@ -152,17 +147,10 @@ def _get_memory() -> str | None:
 @router.get("/system/processes")
 def get_system_processes():
     process_limit = PROCESS_LIST_LIMIT
-    try:
-        cmd = ["ps", "aux", "-r"] if IS_DARWIN else ["ps", "aux", "--sort=-%cpu"]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=SYSTEM_CMD_TIMEOUT_SEC)
-        if result.returncode != 0:
-            raise server_error("ps command failed")
-    except subprocess.TimeoutExpired:
-        raise server_error("ps command timed out") from None
-    except FileNotFoundError:
-        raise server_error("ps command not found") from None
-    except OSError as e:
-        raise server_error(f"ps command failed: {e}") from None
+    cmd = ["ps", "aux", "-r"] if IS_DARWIN else ["ps", "aux", "--sort=-%cpu"]
+    result = run_subprocess_safe(cmd, timeout=SYSTEM_CMD_TIMEOUT_SEC)
+    if result is None or result.returncode != 0:
+        raise server_error("ps command failed")
 
     lines = result.stdout.strip().splitlines()
     processes = []

@@ -5,46 +5,41 @@ from ..common import GIT_SHORT_TIMEOUT_SEC, MAX_DIFF_SIZE, STASH_REF_PATTERN, re
 from ..git_utils import run_git_command
 from ..validators import validate_commit_hash
 from .git_diff_utils import build_file_entry, build_file_list, parse_numstat_result
-from .git_helpers import execute_git_action, resolve_workspace_target_path
+from .git_helpers import execute_git_action, resolve_workspace_file
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
 
-def _stash_diff_args(stash_ref: str) -> dict:
-    return {
-        "diff_args": ["stash", "show", "-p", stash_ref],
-        "numstat_args": ["stash", "show", "--numstat", stash_ref],
-        "name_only_args": ["stash", "show", "--name-only", stash_ref],
-        "operation_prefix": "stash show",
-    }
+def _truncate_diff(diff_text: str) -> str:
+    if len(diff_text) > MAX_DIFF_SIZE:
+        return diff_text[:MAX_DIFF_SIZE] + "\n... (truncated)"
+    return diff_text
 
 
-def _commit_diff_args(commit_hash: str) -> dict:
-    ref = f"{commit_hash}~1"
-    return {
-        "diff_args": ["--no-pager", "diff", ref, commit_hash],
-        "numstat_args": ["diff", "--numstat", ref, commit_hash],
-        "name_only_args": ["diff", "--name-only", ref, commit_hash],
-        "operation_prefix": "diff",
-    }
+def _build_diff_response(
+    ws_path, full_args: list[str], stat_args: list[str], operation_prefix: str,
+):
+    """Run full diff + --numstat + --name-only and return the combined response.
 
-
-def _build_diff_response(ws_path, diff_args, numstat_args, name_only_args, operation_prefix):
-    result = run_git_command(diff_args, cwd=ws_path, operation=operation_prefix)
+    `full_args`: command for the full patch output.
+    `stat_args`: command suffix for stat queries (--numstat / --name-only flags will be appended).
+    """
+    diff_result = run_git_command(full_args, cwd=ws_path, operation=operation_prefix)
     numstat_result = run_git_command(
-        numstat_args, cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC,
+        [*stat_args, "--numstat"], cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC,
         operation=f"{operation_prefix} --numstat",
     )
-    files_result = run_git_command(
-        name_only_args, cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC,
+    name_only_result = run_git_command(
+        [*stat_args, "--name-only"], cwd=ws_path, timeout=GIT_SHORT_TIMEOUT_SEC,
         operation=f"{operation_prefix} --name-only",
     )
-    numstat = parse_numstat_result(numstat_result)
-    files = build_file_list(files_result, numstat)
-    diff_text = result["stdout"]
-    if len(diff_text) > MAX_DIFF_SIZE:
-        diff_text = diff_text[:MAX_DIFF_SIZE] + "\n... (truncated)"
-    return {"status": result["status"], "files": files, "diff": diff_text, "stderr": result["stderr"]}
+    files = build_file_list(name_only_result, parse_numstat_result(numstat_result))
+    return {
+        "status": diff_result["status"],
+        "files": files,
+        "diff": _truncate_diff(diff_result["stdout"]),
+        "stderr": diff_result["stderr"],
+    }
 
 
 @router.get("/workspaces/{name}/diff/{commit_hash}")
@@ -52,10 +47,21 @@ def get_commit_diff(name: str, commit_hash: str):
     ws_path = resolve_workspace_path(name)
 
     if STASH_REF_PATTERN.match(commit_hash):
-        return _build_diff_response(ws_path, **_stash_diff_args(commit_hash))
+        return _build_diff_response(
+            ws_path,
+            full_args=["stash", "show", "-p", commit_hash],
+            stat_args=["stash", "show", commit_hash],
+            operation_prefix="stash show",
+        )
 
     validate_commit_hash(commit_hash)
-    return _build_diff_response(ws_path, **_commit_diff_args(commit_hash))
+    ref = f"{commit_hash}~1"
+    return _build_diff_response(
+        ws_path,
+        full_args=["--no-pager", "diff", ref, commit_hash],
+        stat_args=["diff", ref, commit_hash],
+        operation_prefix="diff",
+    )
 
 
 @router.get("/workspaces/{name}/diff")
@@ -79,20 +85,15 @@ def get_workspace_diff(name: str):
                 file_name = line[3:]
                 entry = build_file_entry(file_name, numstat, status=status_code)
                 files.append(entry)
-    diff_text = ""
-    if diff_staged_result["exit_code"] == 0 and diff_staged_result["stdout"]:
-        diff_text += diff_staged_result["stdout"]
-    if diff_result["exit_code"] == 0 and diff_result["stdout"]:
-        if diff_text:
-            diff_text += "\n"
-        diff_text += diff_result["stdout"]
-    if len(diff_text) > MAX_DIFF_SIZE:
-        diff_text = diff_text[:MAX_DIFF_SIZE] + "\n... (truncated)"
-    return {"status": "ok", "files": files, "diff": diff_text}
+    parts = []
+    for r in (diff_staged_result, diff_result):
+        if r["exit_code"] == 0 and r["stdout"]:
+            parts.append(r["stdout"])
+    diff_text = "\n".join(parts)
+    return {"status": "ok", "files": files, "diff": _truncate_diff(diff_text)}
 
 
 @router.post("/workspaces/{name}/git/discard")
 def discard_file_changes(name: str, path: str = Body(..., embed=True)):
-    ws_path = resolve_workspace_path(name)
-    resolve_workspace_target_path(ws_path, path)
+    resolve_workspace_file(name, path)
     return execute_git_action(name, ["restore", path], operation="restore", log_extra=f"path={path}")

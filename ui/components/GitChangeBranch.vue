@@ -33,13 +33,13 @@
 
 <script setup>
 import { ref } from "vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
+import { useWorkspace } from "../composables/useWorkspace.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { emit } from "../app-bridge.js";
 
 const { apiGet, apiCommand, wsEndpoint } = useApi();
-const workspaceStore = useWorkspaceStore();
+const { withWorkspace } = useWorkspace();
 const { confirm } = useConfirm();
 
 const branches = ref([]);
@@ -49,43 +49,44 @@ const isRemoteBranchListLoading = ref(false);
 const branchListEl = ref(null);
 
 async function loadBranchList() {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  isBranchListLoading.value = true;
-  isRemoteBranchListExpanded.value = false;
-  try {
-    const { ok, data } = await apiGet(wsEndpoint(workspace, "branches"));
-    if (!ok) { isBranchListLoading.value = false; return; }
-    branches.value = (data || []).map((b) => ({
-      name: b.name || b,
-      current: !!b.current,
-      remote: false,
-    }));
-  } catch (e) {
-    console.error("branch load failed:", e);
-  } finally {
-    isBranchListLoading.value = false;
-  }
+  await withWorkspace(async (workspace) => {
+    isBranchListLoading.value = true;
+    isRemoteBranchListExpanded.value = false;
+    try {
+      const { ok, data } = await apiGet(wsEndpoint(workspace, "branches"));
+      if (!ok) return;
+      branches.value = (data || []).map((b) => ({
+        name: b.name || b,
+        current: !!b.current,
+        remote: false,
+      }));
+    } catch (e) {
+      console.error("branch load failed:", e);
+    } finally {
+      isBranchListLoading.value = false;
+    }
+  });
 }
 
 async function showRemoteBranches() {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace || isRemoteBranchListLoading.value) return;
-  isRemoteBranchListLoading.value = true;
-  try {
-    const { ok, data } = await apiGet(wsEndpoint(workspace, "branches/remote"));
-    if (!ok) return;
-    const localNames = new Set(branches.value.map((b) => b.name));
-    const remoteBranches = (data || [])
-      .filter((b) => !localNames.has(b.name || b))
-      .map((b) => ({ name: b.name || b, current: false, remote: true }));
-    branches.value = [...branches.value, ...remoteBranches];
-    isRemoteBranchListExpanded.value = true;
-  } catch (e) {
-    console.error("remote branch load failed:", e);
-  } finally {
-    isRemoteBranchListLoading.value = false;
-  }
+  if (isRemoteBranchListLoading.value) return;
+  await withWorkspace(async (workspace) => {
+    isRemoteBranchListLoading.value = true;
+    try {
+      const { ok, data } = await apiGet(wsEndpoint(workspace, "branches/remote"));
+      if (!ok) return;
+      const localNames = new Set(branches.value.map((b) => b.name));
+      const remoteBranches = (data || [])
+        .filter((b) => !localNames.has(b.name || b))
+        .map((b) => ({ name: b.name || b, current: false, remote: true }));
+      branches.value = [...branches.value, ...remoteBranches];
+      isRemoteBranchListExpanded.value = true;
+    } catch (e) {
+      console.error("remote branch load failed:", e);
+    } finally {
+      isRemoteBranchListLoading.value = false;
+    }
+  });
 }
 
 function selectBranch(branch) {
@@ -94,24 +95,24 @@ function selectBranch(branch) {
 }
 
 async function deleteBranch(branch) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  const label = branch.remote ? `Remote branch ${branch.name}` : `Branch ${branch.name}`;
-  if (!await confirm(`Delete ${label}?`)) return;
-  const { ok } = await apiCommand(wsEndpoint(workspace, "delete-branch"), { branch: branch.name, remote: branch.remote });
-  if (!ok) return;
-  await loadBranchList();
-  emit("git:commitDone");
+  await withWorkspace(async (workspace) => {
+    const label = branch.remote ? `Remote branch ${branch.name}` : `Branch ${branch.name}`;
+    if (!await confirm(`Delete ${label}?`)) return;
+    const { ok } = await apiCommand(wsEndpoint(workspace, "delete-branch"), { branch: branch.name, remote: branch.remote });
+    if (!ok) return;
+    await loadBranchList();
+    emit("git:commitDone");
+  });
 }
 
 async function backgroundFetch() {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  try {
-    await apiCommand(wsEndpoint(workspace, "fetch"));
-  } catch (e) {
-    console.error("background fetch failed:", e);
-  }
+  await withWorkspace(async (workspace) => {
+    try {
+      await apiCommand(wsEndpoint(workspace, "fetch"));
+    } catch (e) {
+      console.error("background fetch failed:", e);
+    }
+  });
 }
 
 defineExpose({ load: loadBranchList, backgroundFetch });

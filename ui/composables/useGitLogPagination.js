@@ -1,12 +1,12 @@
 import { ref, computed, nextTick } from "vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore } from "../stores/git.js";
 import { useApi } from "./useApi.js";
+import { useWorkspace } from "./useWorkspace.js";
 import { parseGitGraphOutput, buildGitGraphRows, computeGraphWidth } from "../utils/git-graph.js";
 import { INFINITE_SCROLL_THRESHOLD_PX } from "../utils/constants.js";
 
 export function useGitLogPagination() {
-  const workspaceStore = useWorkspaceStore();
+  const { withWorkspace } = useWorkspace();
   const gitStore = useGitStore();
   const { apiGet, wsEndpoint } = useApi();
 
@@ -27,47 +27,49 @@ export function useGitLogPagination() {
   }
 
   async function loadHistory() {
-    const workspace = workspaceStore.selectedWorkspace;
-    if (!workspace) { isHistoryLoading.value = false; return; }
-    isHistoryLoading.value = true;
-    hasMoreHistory.value = false;
-    isLoadingMoreHistory.value = false;
-    historyPage = 0;
-    try {
-      const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
-      const result = await _fetchPage(workspace, perPage);
-      if (result) {
-        graphRows.value = result.rows;
-        hasMoreHistory.value = result.count >= perPage;
+    const handled = await withWorkspace(async (workspace) => {
+      isHistoryLoading.value = true;
+      hasMoreHistory.value = false;
+      isLoadingMoreHistory.value = false;
+      historyPage = 0;
+      try {
+        const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
+        const result = await _fetchPage(workspace, perPage);
+        if (result) {
+          graphRows.value = result.rows;
+          hasMoreHistory.value = result.count >= perPage;
+        }
+      } catch (e) {
+        console.error("git log load failed:", e);
+      } finally {
+        isHistoryLoading.value = false;
+        nextTick(() => onHistoryListScroll());
       }
-    } catch (e) {
-      console.error("git log load failed:", e);
-    } finally {
-      isHistoryLoading.value = false;
-      nextTick(() => onHistoryListScroll());
-    }
+      return true;
+    });
+    if (!handled) isHistoryLoading.value = false;
   }
 
   async function loadMoreHistory() {
     if (isHistoryLoading.value || isLoadingMoreHistory.value || !hasMoreHistory.value) return;
-    const workspace = workspaceStore.selectedWorkspace;
-    if (!workspace) return;
-    isLoadingMoreHistory.value = true;
-    historyPage++;
-    const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
-    const totalLimit = (historyPage + 1) * perPage;
-    try {
-      const result = await _fetchPage(workspace, totalLimit);
-      if (result) {
-        graphRows.value = result.rows;
-        hasMoreHistory.value = result.count >= totalLimit;
+    await withWorkspace(async (workspace) => {
+      isLoadingMoreHistory.value = true;
+      historyPage++;
+      const perPage = gitStore.GIT_LOG_ENTRIES_PER_PAGE;
+      const totalLimit = (historyPage + 1) * perPage;
+      try {
+        const result = await _fetchPage(workspace, totalLimit);
+        if (result) {
+          graphRows.value = result.rows;
+          hasMoreHistory.value = result.count >= totalLimit;
+        }
+      } catch (e) {
+        console.error("git log loadMore failed:", e);
+      } finally {
+        isLoadingMoreHistory.value = false;
+        nextTick(() => onHistoryListScroll());
       }
-    } catch (e) {
-      console.error("git log loadMore failed:", e);
-    } finally {
-      isLoadingMoreHistory.value = false;
-      nextTick(() => onHistoryListScroll());
-    }
+    });
   }
 
   function onHistoryListScroll() {

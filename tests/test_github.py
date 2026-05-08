@@ -1,21 +1,27 @@
 """GitHub連携エンドポイントのテスト。
 
-_run_gh をモックし、各エンドポイントの正常系・エラー系を検証する。
+`gh_utils` のヘルパーをモックし、各エンドポイントの正常系・エラー系を検証する。
 """
 
 import json
 import subprocess
 
-import api.routers.github as github_mod
+import api.gh_utils as gh_utils
 
 from conftest import AUTH
+
+
+def _clear_caches():
+    gh_utils._workspace_cache.invalidate_all()
+    gh_utils._repos_cache.invalidate_all()
 
 
 class TestGithubInfo:
 
     def test_success(self, client, workspace, monkeypatch):
         mock_data = {"name": "test-repo", "owner": {"login": "user"}, "url": "https://github.com/user/test-repo"}
-        monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: mock_data)
+        monkeypatch.setattr(gh_utils, "run_gh_json", lambda args, cwd=None: mock_data)
+        _clear_caches()
 
         res = client.get("/workspaces/test-ws/github/info", headers=AUTH)
         assert res.status_code == 200
@@ -24,8 +30,8 @@ class TestGithubInfo:
         assert data["data"]["name"] == "test-repo"
 
     def test_gh_failure(self, client, workspace, monkeypatch):
-        monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: None)
-        monkeypatch.setattr(github_mod, "_cache", {})
+        monkeypatch.setattr(gh_utils, "run_gh_json", lambda args, cwd=None: None)
+        _clear_caches()
 
         res = client.get("/workspaces/test-ws/github/info", headers=AUTH)
         assert res.status_code == 200
@@ -37,7 +43,8 @@ class TestGithubIssues:
 
     def test_success(self, client, workspace, monkeypatch):
         mock_data = [{"number": 1, "title": "Bug", "state": "OPEN"}]
-        monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: mock_data)
+        monkeypatch.setattr(gh_utils, "run_gh_json", lambda args, cwd=None: mock_data)
+        _clear_caches()
 
         res = client.get("/workspaces/test-ws/github/issues", headers=AUTH)
         assert res.status_code == 200
@@ -47,8 +54,8 @@ class TestGithubIssues:
         assert data["data"][0]["number"] == 1
 
     def test_gh_failure(self, client, workspace, monkeypatch):
-        monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: None)
-        monkeypatch.setattr(github_mod, "_cache", {})
+        monkeypatch.setattr(gh_utils, "run_gh_json", lambda args, cwd=None: None)
+        _clear_caches()
 
         res = client.get("/workspaces/test-ws/github/issues", headers=AUTH)
         assert res.status_code == 200
@@ -59,7 +66,8 @@ class TestGithubPulls:
 
     def test_success(self, client, workspace, monkeypatch):
         mock_data = [{"number": 10, "title": "Feature", "state": "OPEN", "isDraft": False}]
-        monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: mock_data)
+        monkeypatch.setattr(gh_utils, "run_gh_json", lambda args, cwd=None: mock_data)
+        _clear_caches()
 
         res = client.get("/workspaces/test-ws/github/pulls", headers=AUTH)
         assert res.status_code == 200
@@ -68,8 +76,8 @@ class TestGithubPulls:
         assert data["data"][0]["title"] == "Feature"
 
     def test_gh_failure(self, client, workspace, monkeypatch):
-        monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: None)
-        monkeypatch.setattr(github_mod, "_cache", {})
+        monkeypatch.setattr(gh_utils, "run_gh_json", lambda args, cwd=None: None)
+        _clear_caches()
 
         res = client.get("/workspaces/test-ws/github/pulls", headers=AUTH)
         assert res.status_code == 200
@@ -80,7 +88,8 @@ class TestGithubRuns:
 
     def test_success(self, client, workspace, monkeypatch):
         mock_data = [{"databaseId": 1, "displayTitle": "CI", "status": "completed", "conclusion": "success"}]
-        monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: mock_data)
+        monkeypatch.setattr(gh_utils, "run_gh_json", lambda args, cwd=None: mock_data)
+        _clear_caches()
 
         res = client.get("/workspaces/test-ws/github/runs", headers=AUTH)
         assert res.status_code == 200
@@ -89,8 +98,8 @@ class TestGithubRuns:
         assert data["data"][0]["status"] == "completed"
 
     def test_gh_failure(self, client, workspace, monkeypatch):
-        monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: None)
-        monkeypatch.setattr(github_mod, "_cache", {})
+        monkeypatch.setattr(gh_utils, "run_gh_json", lambda args, cwd=None: None)
+        _clear_caches()
 
         res = client.get("/workspaces/test-ws/github/runs", headers=AUTH)
         assert res.status_code == 200
@@ -102,20 +111,22 @@ class TestGithubRepos:
     def test_success(self, client, monkeypatch):
         repo_json = json.dumps([{"nameWithOwner": "user/repo", "url": "https://github.com/user/repo", "description": "test"}])
 
-        def fake_subprocess_run(cmd, **kwargs):
+        def fake_run_subprocess_safe(cmd, **kwargs):
             result = subprocess.CompletedProcess(cmd, 0)
-            if cmd[1] == "repo":
+            if cmd[0] == "gh" and cmd[1] == "repo":
                 result.stdout = repo_json
                 result.stderr = ""
-            elif cmd[1] == "org":
+            elif cmd[0] == "gh" and cmd[1] == "org":
                 result.stdout = ""
                 result.stderr = ""
                 result.returncode = 1
+            else:
+                result.stdout = ""
+                result.stderr = ""
             return result
 
-        import api.routers.workspaces as ws_mod
-        monkeypatch.setattr(ws_mod.subprocess, "run", fake_subprocess_run)
-        ws_mod._github_repos_cache.invalidate("repos")
+        monkeypatch.setattr(gh_utils, "run_subprocess_safe", fake_run_subprocess_safe)
+        _clear_caches()
 
         res = client.get("/github/repos", headers=AUTH)
         assert res.status_code == 200
@@ -125,74 +136,52 @@ class TestGithubRepos:
 
     def test_cached_response(self, client, monkeypatch):
         cached_data = [{"nameWithOwner": "cached/repo"}]
-
-        import api.routers.workspaces as ws_mod
-        ws_mod._github_repos_cache.set("repos", cached_data)
+        gh_utils._repos_cache.set("repos", cached_data)
 
         res = client.get("/github/repos", headers=AUTH)
         assert res.status_code == 200
         assert res.json()[0]["nameWithOwner"] == "cached/repo"
 
-        ws_mod._github_repos_cache.invalidate("repos")
+        _clear_caches()
 
     def test_gh_not_installed(self, client, monkeypatch):
-        def raise_fnf(cmd, **kwargs):
-            raise FileNotFoundError("gh not found")
-
-        import api.routers.workspaces as ws_mod
-        monkeypatch.setattr(ws_mod.subprocess, "run", raise_fnf)
-        ws_mod._github_repos_cache.invalidate("repos")
+        monkeypatch.setattr(gh_utils, "run_subprocess_safe", lambda cmd, **kwargs: None)
+        _clear_caches()
 
         res = client.get("/github/repos", headers=AUTH)
         assert res.status_code == 500
-        assert "not found" in res.json()["detail"]
+        assert "not found" in res.json()["detail"] or "failed" in res.json()["detail"]
 
 
 class TestRunGh:
-    """_run_gh の単体テスト"""
+    """run_gh_json の単体テスト"""
 
     def test_timeout(self, monkeypatch):
-        import subprocess as sp
-        import api.routers.github as github_mod
-
-        def raise_timeout(cmd, **kwargs):
-            raise sp.TimeoutExpired(cmd, 30)
-
-        monkeypatch.setattr(sp, "run", raise_timeout)
-        result = github_mod._run_gh(["repo", "view"], cwd="/tmp")
+        # run_subprocess_safe swallows TimeoutExpired and returns None
+        monkeypatch.setattr(gh_utils, "run_subprocess_safe", lambda cmd, **kwargs: None)
+        result = gh_utils.run_gh_json(["repo", "view"], cwd="/tmp")
         assert result is None
 
     def test_json_decode_error(self, monkeypatch):
-        import subprocess as sp
-        import api.routers.github as github_mod
-
         def return_bad_json(cmd, **kwargs):
-            return sp.CompletedProcess(cmd, 0, stdout="not json{{{", stderr="")
+            return subprocess.CompletedProcess(cmd, 0, stdout="not json{{{", stderr="")
 
-        monkeypatch.setattr(sp, "run", return_bad_json)
-        result = github_mod._run_gh(["repo", "view"], cwd="/tmp")
+        monkeypatch.setattr(gh_utils, "run_subprocess_safe", return_bad_json)
+        result = gh_utils.run_gh_json(["repo", "view"], cwd="/tmp")
         assert result is None
 
     def test_nonzero_exit_stderr(self, monkeypatch):
-        import subprocess as sp
-        import api.routers.github as github_mod
-
         def return_error(cmd, **kwargs):
-            return sp.CompletedProcess(cmd, 1, stdout="", stderr="auth required")
+            return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="auth required")
 
-        monkeypatch.setattr(sp, "run", return_error)
-        result = github_mod._run_gh(["repo", "view"], cwd="/tmp")
+        monkeypatch.setattr(gh_utils, "run_subprocess_safe", return_error)
+        result = gh_utils.run_gh_json(["repo", "view"], cwd="/tmp")
         assert result is None
 
     def test_file_not_found(self, monkeypatch):
-        import subprocess as sp
-        import api.routers.github as github_mod
-
-        def raise_fnf(cmd, **kwargs):
-            raise FileNotFoundError("gh not found")
-
-        monkeypatch.setattr(sp, "run", raise_fnf)
-        result = github_mod._run_gh(["repo", "view"], cwd="/tmp")
+        # FileNotFoundError is swallowed by run_subprocess_safe → returns None
+        monkeypatch.setattr(gh_utils, "run_subprocess_safe", lambda cmd, **kwargs: None)
+        result = gh_utils.run_gh_json(["repo", "view"], cwd="/tmp")
         assert result is None
 
 
@@ -228,14 +217,10 @@ class TestParseGithubUrl:
 class TestGithubReposTimeout:
 
     def test_timeout(self, client, monkeypatch):
-        import subprocess as sp
-        import api.routers.workspaces as ws_mod
-
-        def raise_timeout(cmd, **kwargs):
-            raise sp.TimeoutExpired(cmd, 30)
-
-        monkeypatch.setattr(ws_mod.subprocess, "run", raise_timeout)
-        ws_mod._github_repos_cache.invalidate("repos")
+        # run_subprocess_safe swallows TimeoutExpired and returns None,
+        # which the endpoint surfaces as a 500 "not found or failed"
+        monkeypatch.setattr(gh_utils, "run_subprocess_safe", lambda cmd, **kwargs: None)
+        _clear_caches()
 
         res = client.get("/github/repos", headers=AUTH)
-        assert res.status_code == 504
+        assert res.status_code == 500

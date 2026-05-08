@@ -20,64 +20,60 @@
 
 <script setup>
 import { ref } from "vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
+import { useWorkspace } from "../composables/useWorkspace.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { getStashCache, setStashCache, invalidateStashCache } from "../composables/useStashCache.js";
 
 const emit = defineEmits(["count"]);
 const { apiGet, apiCommand, wsEndpoint } = useApi();
-const workspaceStore = useWorkspaceStore();
+const { withWorkspace } = useWorkspace();
 
 const stashEntries = ref([]);
 const isStashListLoading = ref(false);
 const stashListEl = ref(null);
 
 async function loadStashList() {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  const cached = getStashCache(workspace);
-  if (cached) {
-    stashEntries.value = cached;
-    emit("count", cached.length);
-    return;
-  }
-  isStashListLoading.value = true;
-  try {
-    const { ok, data } = await apiGet(wsEndpoint(workspace, "stash-list"));
-    if (!ok) { isStashListLoading.value = false; return; }
-    const result = (data.entries || []).map((e) => ({
-      ref: e.ref || e.stash_ref,
-      message: e.message || "",
-      time: e.time || "",
-    }));
-    stashEntries.value = result;
-    setStashCache(workspace, result);
-    emit("count", result.length);
-  } catch (e) {
-    console.error("stash list load failed:", e);
-  } finally {
-    isStashListLoading.value = false;
-  }
+  await withWorkspace(async (workspace) => {
+    const cached = getStashCache(workspace);
+    if (cached) {
+      stashEntries.value = cached;
+      emit("count", cached.length);
+      return;
+    }
+    isStashListLoading.value = true;
+    try {
+      const { ok, data } = await apiGet(wsEndpoint(workspace, "stash-list"));
+      if (!ok) return;
+      const result = data.entries || [];
+      stashEntries.value = result;
+      setStashCache(workspace, result);
+      emit("count", result.length);
+    } catch (e) {
+      console.error("stash list load failed:", e);
+    } finally {
+      isStashListLoading.value = false;
+    }
+  });
 }
 
 async function stashPop(entry) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  const { ok } = await apiCommand(wsEndpoint(workspace, "stash-pop-ref"), { stash_ref: entry.ref }, { errorMessage: "Stash apply failed" });
-  if (!ok) return;
-  invalidateStashCache(workspace);
-  await loadStashList();
-  bridgeEmit("git:commitDone");
+  await withWorkspace(async (workspace) => {
+    const { ok } = await apiCommand(wsEndpoint(workspace, "stash-pop-ref"), { stash_ref: entry.ref }, { errorMessage: "Stash apply failed" });
+    if (!ok) return;
+    invalidateStashCache(workspace);
+    await loadStashList();
+    bridgeEmit("git:commitDone");
+  });
 }
 
 async function stashDrop(entry) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  const { ok } = await apiCommand(wsEndpoint(workspace, "stash-drop"), { stash_ref: entry.ref }, { errorMessage: "Stash drop failed" });
-  if (!ok) return;
-  invalidateStashCache(workspace);
-  await loadStashList();
+  await withWorkspace(async (workspace) => {
+    const { ok } = await apiCommand(wsEndpoint(workspace, "stash-drop"), { stash_ref: entry.ref }, { errorMessage: "Stash drop failed" });
+    if (!ok) return;
+    invalidateStashCache(workspace);
+    await loadStashList();
+  });
 }
 
 defineExpose({ load: loadStashList });

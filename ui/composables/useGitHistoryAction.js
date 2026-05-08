@@ -1,10 +1,10 @@
-import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
+import { useWorkspace } from "./useWorkspace.js";
 import { emit } from "../app-bridge.js";
 import { useConfirm } from "./useConfirm.js";
 
 export function useGitHistoryAction() {
-  const workspaceStore = useWorkspaceStore();
+  const { withWorkspace } = useWorkspace();
   const { apiWithToast, wsEndpoint } = useApi();
   const { confirm } = useConfirm();
 
@@ -17,10 +17,11 @@ export function useGitHistoryAction() {
   }
 
   async function confirmAndRun(msg, fn, closeFn) {
-    const workspace = workspaceStore.selectedWorkspace;
-    if (!workspace || !await confirm(msg)) return;
-    closeFn?.();
-    await fn(workspace);
+    await withWorkspace(async (workspace) => {
+      if (!await confirm(msg)) return;
+      closeFn?.();
+      await fn(workspace);
+    });
   }
 
   async function execAction(action, entry, closeFn) {
@@ -51,14 +52,14 @@ export function useGitHistoryAction() {
   }
 
   async function execCreateBranch(entry, closeFn) {
-    const workspace = workspaceStore.selectedWorkspace;
-    if (!workspace) return;
-    const branchName = prompt("Enter new branch name:");
-    if (!branchName) return;
-    closeFn?.();
-    await runAndToast(wsEndpoint(workspace, "create-branch"), { branch: branchName, start_point: entry.fullHash }, {
-      successMessage: `Branch ${branchName} created`,
-      errorMessage: "Failed to create branch",
+    await withWorkspace(async (workspace) => {
+      const branchName = prompt("Enter new branch name:");
+      if (!branchName) return;
+      closeFn?.();
+      await runAndToast(wsEndpoint(workspace, "create-branch"), { branch: branchName, start_point: entry.fullHash }, {
+        successMessage: `Branch ${branchName} created`,
+        errorMessage: "Failed to create branch",
+      });
     });
   }
 

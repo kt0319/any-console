@@ -1,7 +1,7 @@
 import { useAuthStore } from "../stores/auth.js";
-import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore, parseDiffChunks } from "../stores/git.js";
 import { useApi } from "./useApi.js";
+import { useWorkspace } from "./useWorkspace.js";
 import { buildFileNumstatHtml, resolveUntrackedNumstat } from "../utils/git.js";
 
 export function buildFileList(files) {
@@ -15,7 +15,7 @@ export function buildFileList(files) {
 
 export function useGitDiff() {
   const auth = useAuthStore();
-  const workspaceStore = useWorkspaceStore();
+  const { withWorkspace } = useWorkspace();
   const gitStore = useGitStore();
   const { apiGet, wsEndpoint } = useApi();
 
@@ -37,30 +37,30 @@ export function useGitDiff() {
   }
 
   async function fetchWorkingTreeDiff() {
-    const workspace = workspaceStore.selectedWorkspace;
-    if (!workspace) return null;
-    const { ok, data } = await apiGet(wsEndpoint(workspace, "diff"));
-    if (!ok) return null;
-    const fileList = buildFileList(data.files);
-    const untrackedNumstat = await resolveUntrackedNumstat({
-      workspace,
-      files: fileList,
-      apiFetch: auth.apiFetch.bind(auth),
-    });
-    const diffChunks = parseDiffChunks(data.diff);
-    storeDiffResult(diffChunks, data.diff || "", fileList);
-    return { fileList: attachNumstat(fileList, diffChunks, untrackedNumstat), diffChunks, untrackedNumstat };
+    return await withWorkspace(async (workspace) => {
+      const { ok, data } = await apiGet(wsEndpoint(workspace, "diff"));
+      if (!ok) return null;
+      const fileList = buildFileList(data.files);
+      const untrackedNumstat = await resolveUntrackedNumstat({
+        workspace,
+        files: fileList,
+        apiFetch: auth.apiFetch.bind(auth),
+      });
+      const diffChunks = parseDiffChunks(data.diff);
+      storeDiffResult(diffChunks, data.diff || "", fileList);
+      return { fileList: attachNumstat(fileList, diffChunks, untrackedNumstat), diffChunks, untrackedNumstat };
+    }) ?? null;
   }
 
   async function fetchCommitDiff(hash) {
-    const workspace = workspaceStore.selectedWorkspace;
-    if (!workspace) return null;
-    const { ok, data } = await apiGet(wsEndpoint(workspace, `diff/${encodeURIComponent(hash)}`));
-    if (!ok) return null;
-    const diffChunks = parseDiffChunks(data.diff);
-    const fileList = buildFileList(data.files);
-    storeDiffResult(diffChunks, data.diff || "", fileList);
-    return { fileList: attachNumstat(fileList, diffChunks), diffChunks };
+    return await withWorkspace(async (workspace) => {
+      const { ok, data } = await apiGet(wsEndpoint(workspace, `diff/${encodeURIComponent(hash)}`));
+      if (!ok) return null;
+      const diffChunks = parseDiffChunks(data.diff);
+      const fileList = buildFileList(data.files);
+      storeDiffResult(diffChunks, data.diff || "", fileList);
+      return { fileList: attachNumstat(fileList, diffChunks), diffChunks };
+    }) ?? null;
   }
 
   return { fetchWorkingTreeDiff, fetchCommitDiff };

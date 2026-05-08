@@ -56,6 +56,7 @@ import { useEditorIntegration } from "../composables/useEditorIntegration.js";
 import { useLongPress } from "../composables/useLongPress.js";
 import { useHoverMenu, isHoverDevice } from "../composables/useHoverMenu.js";
 import { useApi } from "../composables/useApi.js";
+import { useWorkspace } from "../composables/useWorkspace.js";
 import { useAuthStore } from "../stores/auth.js";
 import { emit } from "../app-bridge.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
@@ -67,6 +68,7 @@ const workspaceStore = useWorkspaceStore();
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
 const { editorUrlTemplate, fetchEditorSettings, openInEditor } = useEditorIntegration();
 const { apiPost, apiCommand, wsEndpoint } = useApi();
+const { withWorkspace } = useWorkspace();
 const auth = useAuthStore();
 const longPress = useLongPress();
 
@@ -151,68 +153,68 @@ function selectFile(file) {
 }
 
 async function discardFile(file) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  closeMenu();
-  const result = await apiPost(
-    workspaceGitDiscardPath(workspace),
-    { path: file.path },
-    { errorMessage: `Failed to discard ${file.path}` },
-  );
-  if (result.ok) {
-    emit("git:refreshStatus");
-    await loadWorkingTreeDiff();
-  }
+  await withWorkspace(async (workspace) => {
+    closeMenu();
+    const result = await apiPost(
+      workspaceGitDiscardPath(workspace),
+      { path: file.path },
+      { errorMessage: `Failed to discard ${file.path}` },
+    );
+    if (result.ok) {
+      emit("git:refreshStatus");
+      await loadWorkingTreeDiff();
+    }
+  });
 }
 
 async function downloadFile(file) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  closeMenu();
-  try {
-    const res = await auth.apiFetch(workspaceDownloadPath(workspace, file.path));
-    if (!res?.ok) { emit("toast:show", { message: "Download failed", type: "error" }); return; }
-    const blob = await res.blob();
-    triggerBlobDownload(blob, file.path.split("/").pop() || "download");
-  } catch {
-    emit("toast:show", { message: "Download failed", type: "error" });
-  }
+  await withWorkspace(async (workspace) => {
+    closeMenu();
+    try {
+      const res = await auth.apiFetch(workspaceDownloadPath(workspace, file.path));
+      if (!res?.ok) { emit("toast:show", { message: "Download failed", type: "error" }); return; }
+      const blob = await res.blob();
+      triggerBlobDownload(blob, file.path.split("/").pop() || "download");
+    } catch {
+      emit("toast:show", { message: "Download failed", type: "error" });
+    }
+  });
 }
 
 async function deleteFile(file) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  closeMenu();
-  const { ok } = await apiCommand(
-    wsEndpoint(workspace, "delete-file"),
-    { path: file.path },
-    { errorMessage: "Delete failed" },
-  );
-  if (ok) {
-    emit("toast:show", { message: "Deleted", type: "success" });
-    emit("git:refreshStatus");
-    await loadWorkingTreeDiff();
-  }
+  await withWorkspace(async (workspace) => {
+    closeMenu();
+    const { ok } = await apiCommand(
+      wsEndpoint(workspace, "delete-file"),
+      { path: file.path },
+      { errorMessage: "Delete failed" },
+    );
+    if (ok) {
+      emit("toast:show", { message: "Deleted", type: "success" });
+      emit("git:refreshStatus");
+      await loadWorkingTreeDiff();
+    }
+  });
 }
 
 async function loadWorkingTreeDiff() {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  isLoading.value = true;
-  isWorkingTree.value = true;
-  try {
-    const result = await fetchWorkingTreeDiff();
-    if (!result) { isLoading.value = false; return; }
-    files.value = result.fileList;
-    actionButtons.value = [
-      { label: "Commit", class: "primary", handler: () => emit("git:openCommitForm") },
-      { label: "Stash", handler: () => emit("git:stashSave") },
-    ];
-  } catch (e) {
-    console.error("diff load failed:", e);
-  } finally {
-    isLoading.value = false;
-  }
+  await withWorkspace(async () => {
+    isLoading.value = true;
+    isWorkingTree.value = true;
+    try {
+      const result = await fetchWorkingTreeDiff();
+      if (!result) return;
+      files.value = result.fileList;
+      actionButtons.value = [
+        { label: "Commit", class: "primary", handler: () => emit("git:openCommitForm") },
+        { label: "Stash", handler: () => emit("git:stashSave") },
+      ];
+    } catch (e) {
+      console.error("diff load failed:", e);
+    } finally {
+      isLoading.value = false;
+    }
+  });
 }
 
 async function loadCommitDiff(hash) {
