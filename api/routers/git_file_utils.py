@@ -83,6 +83,49 @@ def _get_gitignored_names(ws_path, target):
         return set()
 
 
+def _resolve_symlink_target(ws_path: Path, target: Path, item: dict, target_raw: str) -> None:
+    item["link_target"] = target_raw
+    resolved = (target / target_raw).resolve()
+    try:
+        rel_target = resolved.relative_to(ws_path.resolve())
+    except ValueError:
+        item["target_type"] = "outside"
+        return
+    rel_target_path = str(rel_target)
+    item["target_path"] = "" if rel_target_path == "." else rel_target_path
+    if resolved.is_dir():
+        item["target_type"] = "dir"
+    elif resolved.is_file():
+        item["target_type"] = "file"
+    else:
+        item["target_type"] = "missing"
+
+
+def _build_symlink_entry(ws_path: Path, target: Path, entry, is_ignored: bool) -> dict:
+    item = {"name": entry.name, "type": "symlink"}
+    if is_ignored:
+        item["gitignored"] = True
+    try:
+        target_raw = os.readlink(entry.path)
+        _resolve_symlink_target(ws_path, target, item, target_raw)
+    except OSError:
+        item["target_type"] = "missing"
+    return item
+
+
+def _build_file_or_dir_entry(entry, is_ignored: bool) -> dict:
+    entry_type = "dir" if entry.is_dir(follow_symlinks=False) else "file"
+    item = {"name": entry.name, "type": entry_type}
+    if is_ignored:
+        item["gitignored"] = True
+    if entry_type == "file":
+        try:
+            item["size"] = entry.stat(follow_symlinks=False).st_size
+        except OSError:
+            pass
+    return item
+
+
 def list_directory_entries(ws_path, target):
     ignored_names = _get_gitignored_names(ws_path, target)
     entries = []
@@ -93,40 +136,9 @@ def list_directory_entries(ws_path, target):
                     continue
                 is_ignored = entry.name in ignored_names
                 if entry.is_symlink():
-                    item = {"name": entry.name, "type": "symlink"}
-                    if is_ignored:
-                        item["gitignored"] = True
-                    try:
-                        target_raw = os.readlink(entry.path)
-                        item["link_target"] = target_raw
-                        resolved = (target / target_raw).resolve()
-                        try:
-                            rel_target = resolved.relative_to(ws_path.resolve())
-                            rel_target_path = str(rel_target)
-                            item["target_path"] = "" if rel_target_path == "." else rel_target_path
-                            if resolved.is_dir():
-                                item["target_type"] = "dir"
-                            elif resolved.is_file():
-                                item["target_type"] = "file"
-                            else:
-                                item["target_type"] = "missing"
-                        except ValueError:
-                            item["target_type"] = "outside"
-                    except OSError:
-                        item["target_type"] = "missing"
-                    entries.append(item)
-                    continue
-
-                entry_type = "dir" if entry.is_dir(follow_symlinks=False) else "file"
-                item = {"name": entry.name, "type": entry_type}
-                if is_ignored:
-                    item["gitignored"] = True
-                if entry_type == "file":
-                    try:
-                        item["size"] = entry.stat(follow_symlinks=False).st_size
-                    except OSError:
-                        pass
-                entries.append(item)
+                    entries.append(_build_symlink_entry(ws_path, target, entry, is_ignored))
+                else:
+                    entries.append(_build_file_or_dir_entry(entry, is_ignored))
     except PermissionError:
         raise forbidden("Permission denied") from None
 

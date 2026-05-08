@@ -133,12 +133,8 @@ def _stdout_if_ok(future) -> str | None:
     return r.stdout if (r and r.returncode == 0) else None
 
 
-def git_info(directory: Path) -> dict[str, Any]:
-    cache_key = str(directory)
-    cached: dict[str, Any] | None = _git_info_cache.get(cache_key)
-    if cached is not None:
-        return cached
-    info: dict[str, Any] = {
+def _empty_git_info() -> dict[str, Any]:
+    return {
         "is_git_repo": False,
         "branch": None,
         "upstream": None,
@@ -155,6 +151,118 @@ def git_info(directory: Path) -> dict[str, Any]:
         "changed_files": 0,
     }
 
+
+def _apply_branch_and_remote(info: dict, branch_out: str | None, remote_branches_out: str | None) -> None:
+    if branch_out:
+        info["branch"] = branch_out.strip()
+    if not info["branch"]:
+        return
+    if remote_branches_out:
+        candidates = {b.strip() for b in remote_branches_out.splitlines() if b.strip()}
+        info["has_remote_branch"] = f"origin/{info['branch']}" in candidates
+    else:
+        info["has_remote_branch"] = False
+
+
+def _apply_upstream(info: dict, upstream_out: str | None) -> None:
+    if upstream_out and upstream_out.strip():
+        info["upstream"] = upstream_out.strip()
+        info["has_upstream"] = True
+    else:
+        info["has_upstream"] = False
+
+
+def _apply_diff_stats(info: dict, diff_outputs: tuple[str, ...], status_out: str | None) -> None:
+    for diff_stat_output in diff_outputs:
+        if not diff_stat_output:
+            continue
+        files_match = re.search(r"(\d+) file", diff_stat_output)
+        insertions_match = re.search(r"(\d+) insertion", diff_stat_output)
+        deletions_match = re.search(r"(\d+) deletion", diff_stat_output)
+        if files_match:
+            info["changed_files"] += int(files_match.group(1))
+        if insertions_match:
+            info["insertions"] += int(insertions_match.group(1))
+        if deletions_match:
+            info["deletions"] += int(deletions_match.group(1))
+    if status_out:
+        info["changed_files"] += sum(1 for line in status_out.splitlines() if line.startswith("?? "))
+
+
+def _parse_revlist_pair(out: str) -> tuple[int, int] | None:
+    parts = out.strip().split()
+    if len(parts) == 2:
+        try:
+            return int(parts[0]), int(parts[1])
+        except ValueError:
+            return None
+    return None
+
+
+def _apply_ahead_behind(info: dict, revlist_out: str | None, run_git) -> None:
+    if revlist_out and info["has_upstream"]:
+        pair = _parse_revlist_pair(revlist_out)
+        if pair:
+            info["ahead"], info["behind"] = pair
+        return
+    if info["branch"] and info["has_remote_branch"] is True:
+        remote_diff = run_git("rev-list", "--left-right", "--count", f"HEAD...origin/{info['branch']}")
+        if remote_diff.returncode == 0:
+            pair = _parse_revlist_pair(remote_diff.stdout)
+            if pair:
+                info["ahead"], info["behind"] = pair
+        return
+    if info["has_remote_branch"] is False:
+        unpublished = run_git("rev-list", "--count", "HEAD", "--not", "--remotes=origin")
+        if unpublished.returncode == 0:
+            try:
+                info["ahead"] = int(unpublished.stdout.strip() or "0")
+            except ValueError:
+                pass
+
+
+def _populate_git_info(info: dict, directory: Path, run_git) -> None:
+    pool = _GIT_INFO_EXECUTOR
+    f_branch = pool.submit(run_git, "rev-parse", "--abbrev-ref", "HEAD")
+    f_commit = pool.submit(run_git, "log", "-1", "--format=%cI")
+    f_message = pool.submit(run_git, "log", "-1", "--format=%s")
+    f_remote = pool.submit(run_git, "remote", "get-url", "origin")
+    f_status = pool.submit(run_git, "--no-optional-locks", "status", "--porcelain")
+    f_diff = pool.submit(run_git, "--no-optional-locks", "diff", "--shortstat")
+    f_staged = pool.submit(run_git, "--no-optional-locks", "diff", "--staged", "--shortstat")
+    f_upstream = pool.submit(run_git, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
+    f_remote_branches = pool.submit(run_git, "branch", "-r", "--format=%(refname:short)")
+    f_revlist = pool.submit(run_git, "rev-list", "--left-right", "--count", "HEAD...@{upstream}")
+
+    _apply_branch_and_remote(info, _stdout_if_ok(f_branch), _stdout_if_ok(f_remote_branches))
+
+    if (out := _stdout_if_ok(f_commit)) and out.strip():
+        info["last_commit"] = out.strip()
+    if (out := _stdout_if_ok(f_message)) and out.strip():
+        info["last_commit_message"] = out.strip()
+
+    _apply_upstream(info, _stdout_if_ok(f_upstream))
+
+    if (out := _stdout_if_ok(f_remote)) and (github_url := _parse_github_url(out.strip())):
+        info["github_url"] = github_url
+
+    status_out = _stdout_if_ok(f_status)
+    if status_out is not None:
+        info["clean"] = len(status_out.strip()) == 0
+
+    if not info["clean"]:
+        _apply_diff_stats(info, (_stdout_if_ok(f_diff) or "", _stdout_if_ok(f_staged) or ""), status_out)
+
+    _apply_ahead_behind(info, _stdout_if_ok(f_revlist), run_git)
+
+
+def git_info(directory: Path) -> dict[str, Any]:
+    cache_key = str(directory)
+    cached: dict[str, Any] | None = _git_info_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    info: dict[str, Any] = _empty_git_info()
+
     def run_git(*args):
         return run_git_raw(list(args), directory)
 
@@ -163,85 +271,7 @@ def git_info(directory: Path) -> dict[str, Any]:
         if check.returncode != 0:
             return info
         info["is_git_repo"] = True
-        pool = _GIT_INFO_EXECUTOR
-        f_branch = pool.submit(run_git, "rev-parse", "--abbrev-ref", "HEAD")
-        f_commit = pool.submit(run_git, "log", "-1", "--format=%cI")
-        f_message = pool.submit(run_git, "log", "-1", "--format=%s")
-        f_remote = pool.submit(run_git, "remote", "get-url", "origin")
-        f_status = pool.submit(run_git, "--no-optional-locks", "status", "--porcelain")
-        f_diff = pool.submit(run_git, "--no-optional-locks", "diff", "--shortstat")
-        f_staged = pool.submit(run_git, "--no-optional-locks", "diff", "--staged", "--shortstat")
-        f_upstream = pool.submit(run_git, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
-        f_remote_branches = pool.submit(run_git, "branch", "-r", "--format=%(refname:short)")
-        f_revlist = pool.submit(run_git, "rev-list", "--left-right", "--count", "HEAD...@{upstream}")
-
-        if out := _stdout_if_ok(f_branch):
-            info["branch"] = out.strip()
-
-        if (out := _stdout_if_ok(f_remote_branches)) and info["branch"]:
-            candidates = {b.strip() for b in out.splitlines() if b.strip()}
-            info["has_remote_branch"] = f"origin/{info['branch']}" in candidates
-        elif info["branch"]:
-            info["has_remote_branch"] = False
-
-        if (out := _stdout_if_ok(f_commit)) and out.strip():
-            info["last_commit"] = out.strip()
-
-        if (out := _stdout_if_ok(f_message)) and out.strip():
-            info["last_commit_message"] = out.strip()
-
-        if (out := _stdout_if_ok(f_upstream)) and out.strip():
-            info["upstream"] = out.strip()
-            info["has_upstream"] = True
-        else:
-            info["has_upstream"] = False
-
-        if out := _stdout_if_ok(f_remote):
-            if github_url := _parse_github_url(out.strip()):
-                info["github_url"] = github_url
-
-        status_out = _stdout_if_ok(f_status)
-        if status_out is not None:
-            info["clean"] = len(status_out.strip()) == 0
-
-        if not info["clean"]:
-            for diff_stat_output in (_stdout_if_ok(f_diff) or "", _stdout_if_ok(f_staged) or ""):
-                if not diff_stat_output:
-                    continue
-                files_match = re.search(r"(\d+) file", diff_stat_output)
-                insertions_match = re.search(r"(\d+) insertion", diff_stat_output)
-                deletions_match = re.search(r"(\d+) deletion", diff_stat_output)
-                if files_match:
-                    info["changed_files"] += int(files_match.group(1))
-                if insertions_match:
-                    info["insertions"] += int(insertions_match.group(1))
-                if deletions_match:
-                    info["deletions"] += int(deletions_match.group(1))
-
-            if status_out:
-                untracked = sum(1 for line in status_out.splitlines() if line.startswith("?? "))
-                info["changed_files"] += untracked
-
-        if (out := _stdout_if_ok(f_revlist)) and info["has_upstream"]:
-            parts = out.strip().split()
-            if len(parts) == 2:
-                info["ahead"] = int(parts[0])
-                info["behind"] = int(parts[1])
-        elif info["branch"] and info["has_remote_branch"] is True:
-            remote_ref = f"origin/{info['branch']}"
-            remote_diff = run_git("rev-list", "--left-right", "--count", f"HEAD...{remote_ref}")
-            if remote_diff.returncode == 0:
-                parts = remote_diff.stdout.strip().split()
-                if len(parts) == 2:
-                    info["ahead"] = int(parts[0])
-                    info["behind"] = int(parts[1])
-        elif info["has_remote_branch"] is False:
-            unpublished = run_git("rev-list", "--count", "HEAD", "--not", "--remotes=origin")
-            if unpublished.returncode == 0:
-                try:
-                    info["ahead"] = int(unpublished.stdout.strip() or "0")
-                except ValueError:
-                    pass
+        _populate_git_info(info, directory, run_git)
     except (subprocess.TimeoutExpired, OSError) as e:
         logger.warning("git_info failed dir=%s: %s", directory, e)
     _git_info_cache.set(cache_key, info)
