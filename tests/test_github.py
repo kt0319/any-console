@@ -29,6 +29,7 @@ class TestGithubInfo:
     def test_gh_failure(self, client, workspace, monkeypatch):
         import api.routers.github as github_mod
         monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: None)
+        monkeypatch.setattr(github_mod, "_cache", {})
 
         res = client.get("/workspaces/test-ws/github/info", headers=AUTH)
         assert res.status_code == 200
@@ -54,6 +55,7 @@ class TestGithubIssues:
     def test_gh_failure(self, client, workspace, monkeypatch):
         import api.routers.github as github_mod
         monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: None)
+        monkeypatch.setattr(github_mod, "_cache", {})
 
         res = client.get("/workspaces/test-ws/github/issues", headers=AUTH)
         assert res.status_code == 200
@@ -77,6 +79,7 @@ class TestGithubPulls:
     def test_gh_failure(self, client, workspace, monkeypatch):
         import api.routers.github as github_mod
         monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: None)
+        monkeypatch.setattr(github_mod, "_cache", {})
 
         res = client.get("/workspaces/test-ws/github/pulls", headers=AUTH)
         assert res.status_code == 200
@@ -100,6 +103,7 @@ class TestGithubRuns:
     def test_gh_failure(self, client, workspace, monkeypatch):
         import api.routers.github as github_mod
         monkeypatch.setattr(github_mod, "_run_gh", lambda args, cwd: None)
+        monkeypatch.setattr(github_mod, "_cache", {})
 
         res = client.get("/workspaces/test-ws/github/runs", headers=AUTH)
         assert res.status_code == 200
