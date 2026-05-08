@@ -6,7 +6,9 @@ import asyncio
 import logging
 import re
 import secrets
+import shutil
 import socket
+import sys
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -83,6 +85,8 @@ ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 
 async def _write_image_to_clipboard(filepath: Path, content_type: str) -> bool:
     import os
+    if not sys.platform.startswith("linux") or not shutil.which("xclip"):
+        return False
     mime = content_type if content_type.startswith("image/") else "image/png"
     import getpass
     user = os.environ.get("SUDO_USER") or os.environ.get("USER") or getpass.getuser()

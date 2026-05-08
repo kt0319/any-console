@@ -38,6 +38,8 @@ export const MSG_SAVE_FAILED = "Save failed";
 export const MSG_DELETE_FAILED = "Delete failed";
 export const MSG_ERROR_OCCURRED = "An error occurred";
 
+export const TERMINAL_JOB_KEY = "terminal";
+
 export function extractApiError(data, fallback = MSG_ERROR_OCCURRED) {
   return data?.detail || data?.message || fallback;
 }

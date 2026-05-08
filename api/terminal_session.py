@@ -70,21 +70,26 @@ class TerminalSession:
         self._last_active_client: WebSocket | None = None
 
     def save_metadata(self) -> None:
+        argv: list[str] = ["tmux"]
         for env_key, attr in _TMUX_ATTR_MAP.items():
             value = getattr(self, attr, None)
-            if value:
-                try:
-                    result = subprocess.run(
-                        ["tmux", "set-environment", "-t", self.tmux_session_name, env_key, value],
-                        timeout=TMUX_CMD_TIMEOUT_SEC,
-                        capture_output=True,
-                    )
-                    if result.returncode != 0:
-                        logger.warning("save metadata failed env=%s session=%s: %s",
-                                       env_key, self.tmux_session_name, result.stderr)
-                except (subprocess.TimeoutExpired, OSError) as e:
-                    logger.error("save metadata error env=%s session=%s: %s",
-                                 env_key, self.tmux_session_name, e)
+            if not value:
+                continue
+            if len(argv) > 1:
+                argv.append(";")
+            argv.extend(["set-environment", "-t", self.tmux_session_name, env_key, value])
+        if len(argv) == 1:
+            return
+        try:
+            result = subprocess.run(
+                argv, timeout=TMUX_CMD_TIMEOUT_SEC, capture_output=True,
+            )
+            if result.returncode != 0:
+                logger.warning("save metadata failed session=%s: %s",
+                               self.tmux_session_name, result.stderr)
+        except (subprocess.TimeoutExpired, OSError) as e:
+            logger.error("save metadata error session=%s: %s",
+                         self.tmux_session_name, e)
 
     @classmethod
     def from_tmux(cls, tmux_name: str) -> "TerminalSession":

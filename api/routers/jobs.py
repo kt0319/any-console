@@ -29,7 +29,7 @@ from ..config import (
 )
 from ..errors import bad_request, not_found, server_error, timeout_error, too_many_requests
 from ..git_utils import command_result_dict, git_branches
-from ..job_models import TERMINAL_JOB, JobDefinition
+from ..job_models import TERMINAL_JOB, TERMINAL_JOB_KEY, JobDefinition
 from ..runner import run_job
 from ..terminal_session import (
     TERMINAL_SESSIONS,
@@ -422,7 +422,7 @@ def _run_regular_job(body, job_def, ordered_args, ws_path):
 def execute_job(body: RunRequest):
     ws_path = resolve_workspace_path(body.workspace)
 
-    if body.job == "terminal":
+    if body.job == TERMINAL_JOB_KEY:
         job_def = TERMINAL_JOB
     else:
         available_jobs = get_workspace_jobs(body.workspace)
@@ -433,7 +433,7 @@ def execute_job(body: RunRequest):
 
     ordered_args = _validate_job_args(job_def, body.args, ws_path)
 
-    if body.job == "terminal":
+    if body.job == TERMINAL_JOB_KEY:
         return _create_terminal_session(body, ws_path)
 
     return _run_regular_job(body, job_def, ordered_args, ws_path)

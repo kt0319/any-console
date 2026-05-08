@@ -1,6 +1,7 @@
 import json
 import logging
 import threading
+from contextlib import contextmanager
 from typing import Any
 
 from .common import CONFIG_FILE, GLOBAL_CONFIG_KEY, default_workspace_dir
@@ -9,6 +10,30 @@ from .config_schema import normalize_loaded_config, validate_config_entry
 logger = logging.getLogger(__name__)
 
 _config_lock = threading.Lock()
+
+try:
+    import fcntl as _fcntl
+except ImportError:
+    _fcntl = None
+
+
+@contextmanager
+def _file_lock(exclusive: bool):
+    if _fcntl is None:
+        yield
+        return
+    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = CONFIG_FILE.with_suffix(".lock")
+    flag = _fcntl.LOCK_EX if exclusive else _fcntl.LOCK_SH
+    fp = open(lock_path, "a+")
+    try:
+        _fcntl.flock(fp.fileno(), flag)
+        yield
+    finally:
+        try:
+            _fcntl.flock(fp.fileno(), _fcntl.LOCK_UN)
+        finally:
+            fp.close()
 
 
 def _migrate_workspace_paths(config: dict) -> bool:
@@ -79,29 +104,29 @@ def _write_config_unlocked(config: dict) -> None:
 
 
 def load_all_config() -> dict:
-    with _config_lock:
+    with _config_lock, _file_lock(exclusive=False):
         return _read_config_unlocked()
 
 
 def save_all_config(config: dict) -> None:
-    with _config_lock:
+    with _config_lock, _file_lock(exclusive=True):
         _write_config_unlocked(config)
 
 
 def load_workspace_config(workspace_name: str) -> dict:
-    with _config_lock:
+    with _config_lock, _file_lock(exclusive=False):
         return _read_config_unlocked().get(workspace_name, {})
 
 
 def save_workspace_config(workspace_name: str, config: dict) -> None:
-    with _config_lock:
+    with _config_lock, _file_lock(exclusive=True):
         all_config = _read_config_unlocked()
         all_config[workspace_name] = validate_config_entry(workspace_name, config, GLOBAL_CONFIG_KEY)
         _write_config_unlocked(all_config)
 
 
 def load_workspace_config_section(workspace_name: str, key: str, default=None):
-    with _config_lock:
+    with _config_lock, _file_lock(exclusive=False):
         ws_config = _read_config_unlocked().get(workspace_name, {})
         return ws_config.get(key, default if default is not None else {})
 
@@ -115,12 +140,12 @@ def _update_config_section(config_key: str, section_key: str, data) -> None:
 
 
 def save_workspace_config_section(workspace_name: str, key: str, data) -> None:
-    with _config_lock:
+    with _config_lock, _file_lock(exclusive=True):
         _update_config_section(workspace_name, key, data)
 
 
 def delete_workspace_config(workspace_name: str) -> None:
-    with _config_lock:
+    with _config_lock, _file_lock(exclusive=True):
         all_config = _read_config_unlocked()
         all_config.pop(workspace_name, None)
         global_config = all_config.get(GLOBAL_CONFIG_KEY, {})
@@ -133,7 +158,7 @@ def delete_workspace_config(workspace_name: str) -> None:
 
 
 def check_config_health() -> dict[str, Any]:
-    with _config_lock:
+    with _config_lock, _file_lock(exclusive=False):
         return _check_config_health_unlocked()
 
 
@@ -173,7 +198,7 @@ def _check_config_health_unlocked() -> dict[str, Any]:
 
 
 def list_workspace_entries() -> dict[str, dict]:
-    with _config_lock:
+    with _config_lock, _file_lock(exclusive=False):
         all_config = _read_config_unlocked()
         return {
             name: entry for name, entry in all_config.items()
@@ -182,11 +207,11 @@ def list_workspace_entries() -> dict[str, dict]:
 
 
 def load_global_config_section(key: str, default=None):
-    with _config_lock:
+    with _config_lock, _file_lock(exclusive=False):
         global_config = _read_config_unlocked().get(GLOBAL_CONFIG_KEY, {})
         return global_config.get(key, default if default is not None else {})
 
 
 def save_global_config_section(key: str, data) -> None:
-    with _config_lock:
+    with _config_lock, _file_lock(exclusive=True):
         _update_config_section(GLOBAL_CONFIG_KEY, key, data)
