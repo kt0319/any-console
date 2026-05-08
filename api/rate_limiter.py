@@ -1,7 +1,7 @@
 import time
 
 from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse
 
 RATE_LIMIT_GENERAL = 200
@@ -76,7 +76,7 @@ _counter = _FixedWindowCounter()
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         if _should_skip(request.url.path):
             return await call_next(request)
 

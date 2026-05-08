@@ -287,12 +287,12 @@ app.add_middleware(ClientLogMiddleware)
 app.add_middleware(RateLimitMiddleware)
 
 if __name__ == "__main__":
-    ssl_kwargs = {}
     ssl_keyfile = os.environ.get("SSL_KEYFILE")
     ssl_certfile = os.environ.get("SSL_CERTFILE")
-    if ssl_keyfile and ssl_certfile:
-        ssl_kwargs["ssl_keyfile"] = ssl_keyfile
-        ssl_kwargs["ssl_certfile"] = ssl_certfile
     port = int(os.environ.get("ANY_CONSOLE_PORT", "8888"))
     host = os.environ.get("ANY_CONSOLE_HOST", "0.0.0.0")
-    uvicorn.run(app, host=host, port=port, proxy_headers=True, forwarded_allow_ips="127.0.0.1", **ssl_kwargs)
+    if ssl_keyfile and ssl_certfile:
+        uvicorn.run(app, host=host, port=port, proxy_headers=True, forwarded_allow_ips="127.0.0.1",
+                    ssl_keyfile=ssl_keyfile, ssl_certfile=ssl_certfile)
+    else:
+        uvicorn.run(app, host=host, port=port, proxy_headers=True, forwarded_allow_ips="127.0.0.1")

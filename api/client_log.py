@@ -1,7 +1,7 @@
 import logging
 
 from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 from .auth import _extract_client_ip, resolve_tailscale_name
 
@@ -13,7 +13,7 @@ _SKIP_PATHS = {"/auth/check"}
 
 
 class ClientLogMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         response = await call_next(request)
 
         if request.method not in _MUTATION_METHODS:
