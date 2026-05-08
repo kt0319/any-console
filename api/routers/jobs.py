@@ -37,7 +37,7 @@ from ..terminal_session import (
     sessions_lock,
 )
 from ..tmux import create_tmux_session
-from ..validators import validate_icon, validate_icon_color
+from ..validators import validate_icon, validate_icon_color, validate_workspace_name
 
 logger = logging.getLogger(__name__)
 
@@ -365,7 +365,7 @@ def _create_terminal_session(body, ws_path):
             )
     cwd_path = str(ws_path) if ws_path else None
     short_id = secrets.token_urlsafe(6)
-    safe_name = body.workspace.replace(".", "_") if body.workspace else None
+    safe_name = validate_workspace_name(body.workspace).replace(".", "_") if body.workspace else None
     session_id = f"{safe_name}-{short_id}" if safe_name else short_id
     tmux_name = f"{TMUX_SESSION_PREFIX}{session_id}"
     try:

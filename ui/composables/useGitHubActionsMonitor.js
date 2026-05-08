@@ -1,7 +1,7 @@
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
 import { emit } from "../app-bridge.js";
-import { GITHUB_ACTIONS_POLL_MS } from "../utils/constants.js";
+import { GITHUB_ACTIONS_POLL_MS, TOAST_LONG_DURATION_MS } from "../utils/constants.js";
 
 export function useGitHubActionsMonitor() {
   const wsStore = useWorkspaceStore();
@@ -33,7 +33,7 @@ export function useGitHubActionsMonitor() {
         emit("toast:show", {
           message: `[${wsName}] "${label}" ${status}`,
           type: "error",
-          duration: 8000,
+          duration: TOAST_LONG_DURATION_MS,
         });
       }
       state.set(run.databaseId, run.conclusion);

@@ -7,9 +7,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "node --test tests/ui/test_*.js",
-    "test:coverage": "mkdir -p coverage && node --test --experimental-test-coverage --test-coverage-include='ui/**/*.js' --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info tests/ui/test_*.js"
+    "test:coverage": "c8 --reporter=text --reporter=lcov --include='ui/**/*.js' --report-dir=coverage node --test tests/ui/test_*.js"
   },
   "devDependencies": {
+    "c8": "^10.1.3",
     "vite": "^8.0.3"
   },
   "dependencies": {
