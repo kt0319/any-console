@@ -1,4 +1,5 @@
 import { escapeHtml } from "./escape-html.js";
+import { terminalSessionBufferPath } from "./endpoints.js";
 
 const XTERM_PALETTE = (() => {
   const base = [
@@ -149,7 +150,7 @@ export async function enterViewMode(tab, frameEl, apiFetch) {
   if (match) {
     const sessionId = match[1];
     try {
-      const res = await apiFetch(`/terminal/sessions/${sessionId}/buffer`);
+      const res = await apiFetch(terminalSessionBufferPath(sessionId));
       if (res && res.ok) {
         const data = await res.json();
         pre.innerHTML = ansiToHtml(data.content || "");

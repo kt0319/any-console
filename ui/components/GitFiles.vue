@@ -61,7 +61,7 @@ import { emit } from "../app-bridge.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
 import { triggerBlobDownload } from "../utils/download.js";
 import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
-import { workspaceGitDiscardPath } from "../utils/endpoints.js";
+import { workspaceGitDiscardPath, workspaceDownloadPath } from "../utils/endpoints.js";
 
 const workspaceStore = useWorkspaceStore();
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
@@ -170,7 +170,7 @@ async function downloadFile(file) {
   if (!workspace) return;
   closeMenu();
   try {
-    const res = await auth.apiFetch(`/workspaces/${encodeURIComponent(workspace)}/download?path=${encodeURIComponent(file.path)}`);
+    const res = await auth.apiFetch(workspaceDownloadPath(workspace, file.path));
     if (!res?.ok) { emit("toast:show", { message: "Download failed", type: "error" }); return; }
     const blob = await res.blob();
     triggerBlobDownload(blob, file.path.split("/").pop() || "download");

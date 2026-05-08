@@ -35,6 +35,7 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
+import { EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES } from "../utils/endpoints.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Server Info";
@@ -47,7 +48,7 @@ const serverInfoSections = ref([]);
 const SECTION_DEFS = [
   {
     label: "Server Info",
-    endpoint: "/system/info",
+    endpoint: EP_SYSTEM_INFO,
     toRows: (data) => [
       { label: "Hostname", values: [data.hostname] },
       { label: "OS", values: [data.os] },
@@ -60,7 +61,7 @@ const SECTION_DEFS = [
   },
   {
     label: "Process List",
-    endpoint: "/system/processes",
+    endpoint: EP_SYSTEM_PROCESSES,
     toRows: (processes) => [
       { label: "Processes", values: ["CPU", "MEM"], header: true, refresh: true },
       ...processes.map((p) => ({

@@ -1,3 +1,5 @@
+import { workspaceFileContentPath } from "./endpoints.js";
+
 export function parseGitRefs(refsStr) {
   if (!refsStr) return [];
   const parsed = refsStr.split(", ")
@@ -127,9 +129,7 @@ export async function resolveUntrackedNumstat({ workspace, files, apiFetch }) {
     })
     .map(async (file) => {
       const path = file.path || file.name;
-      const res = await apiFetch(
-        `/workspaces/${encodeURIComponent(workspace)}/file-content?path=${encodeURIComponent(path)}`
-      );
+      const res = await apiFetch(workspaceFileContentPath(workspace, path));
       if (!res || !res.ok) return;
       const data = await res.json();
       if (typeof data?.content !== "string") return;
