@@ -155,7 +155,7 @@ docker compose -f docker/compose.yml up -d
 
 ## CSSルール
 
-- `:hover` スタイルは使わない（モバイルファーストのため）
+- `:hover` はPC（ポインタデバイス）でのみ有効化する。モバイル（タッチ）では効かせない（`@media (hover: hover) and (pointer: fine)` でガードする）。タッチ環境でhoverが必要な機能（ホバー前提のメニュー等）に依存しないこと
 - クリック可能な要素はボタン風スタイル（背景色・ボーダーなど）で視覚的に区別する。下線でのクリック表現は使わない
 - 状態変化はJSによるクラス付替え（`.active`, `.selected` など）で表現する
 - `backdrop-filter`（blur等）は使わない
