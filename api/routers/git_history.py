@@ -10,7 +10,7 @@ from ..common import (
 from ..errors import bad_request
 from ..git_utils import run_git_command
 from ..validators import validate_branch_name, validate_commit_hash, validate_stash_ref
-from .git_helpers import execute_git_action
+from .git_helpers import execute_git_action, resolve_workspace_file
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
@@ -44,6 +44,20 @@ def get_git_log(name: str, limit: int = 50, skip: int = 0, graph: bool = False):
     if safe_skip > 0:
         args.insert(4 + (2 if graph else 0), f"--skip={safe_skip}")
     return run_git_command(args, cwd=ws_path, operation="log")
+
+
+@router.get("/workspaces/{name}/file-history")
+def get_file_history(name: str, path: str, limit: int = 50):
+    ws_path, _, rel = resolve_workspace_file(name, path)
+    safe_limit = max(1, min(limit, GIT_LOG_MAX_ENTRIES))
+    args = [
+        "--no-pager", "log", "--follow",
+        f"--max-count={safe_limit}",
+        "--date=format-local:%Y-%m-%d %H:%M",
+        "--pretty=format:%H\t%ad\t%an\t%s",
+        "--", rel,
+    ]
+    return run_git_command(args, cwd=ws_path, operation="log --follow")
 
 
 def _execute_commit_action(name: str, commit_hash: str, git_args: list[str], operation: str):

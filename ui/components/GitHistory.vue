@@ -3,12 +3,9 @@
     <!-- ファイル一覧モード -->
     <template v-if="selectedCommitForFiles">
       <div class="git-log-entry git-log-commit diff-files-selected-commit" @click="showSelectedCommitMessage">
-        <svg v-if="selectedCommitRow" class="git-graph-svg" :width="graphWidth" :height="GRAPH_ROW_HEIGHT" :viewBox="'0 0 ' + graphWidth + ' ' + GRAPH_ROW_HEIGHT">
-          <template v-for="(seg, si) in selectedCommitRow.segments" :key="si">
-            <line v-if="seg.type === 'line'" :x1="seg.x" :y1="seg.y1" :x2="seg.x2 ?? seg.x" :y2="seg.y2" :stroke="seg.color" stroke-width="2" />
-            <circle v-if="seg.type === 'node'" :cx="seg.x" :cy="seg.y" r="4" :fill="seg.color" />
-          </template>
-        </svg>
+        <button class="diff-files-close-btn" @click.stop="closeSelectedCommitFiles">
+          <span class="mdi mdi-arrow-left"></span>
+        </button>
         <span class="git-log-entry-body">
           <span class="git-log-entry-msg">{{ selectedCommitForFiles.message }}</span>
           <span class="git-log-entry-row1">
@@ -23,9 +20,6 @@
             </span>
           </span>
         </span>
-        <button class="diff-files-close-btn" @click.stop="closeSelectedCommitFiles">
-          <span class="mdi mdi-close"></span>
-        </button>
       </div>
       <div class="modal-scroll-body">
         <div v-if="isSelectedCommitFilesLoading" class="text-muted-center">Loading...</div>
@@ -395,21 +389,25 @@ defineExpose({
 }
 
 .diff-files-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 18px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  min-width: 32px;
+  min-height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 1px solid var(--white-30);
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 16px;
-  cursor: pointer;
   flex-shrink: 0;
-  min-height: 0;
-  min-width: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .diff-files-close-btn:hover {
+    background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+  }
 }
 
 .git-history-pane-wrapper > .modal-scroll-body {

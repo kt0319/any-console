@@ -20,9 +20,10 @@
         <span v-else class="file-browser-crumb-current">{{ seg }}</span>
       </template>
       <span v-if="props.diffFile" class="file-browser-crumb-badge">Diff</span>
+      <span v-if="showHistory" class="file-browser-crumb-badge">History</span>
       <span v-if="!props.diffFile" class="file-browser-header-actions">
-        <template v-if="fileContent">
-          <button type="button" class="file-browser-header-btn" @click="downloadCurrentFile"><span class="mdi mdi-download"></span></button>
+        <template v-if="fileContent || showHistory">
+          <button type="button" class="file-browser-header-btn" @click="toggleHistory"><span class="mdi" :class="showHistory ? 'mdi-file-document-outline' : 'mdi-history'"></span></button>
         </template>
         <template v-else>
           <input ref="uploadInputEl" type="file" multiple class="file-browser-upload-input" @change="onUploadInputChange">
@@ -45,6 +46,8 @@
     <template v-else>
       <div v-if="isFileBrowserLoading" class="file-content-message">Loading...</div>
       <div v-else-if="fileBrowserError" class="file-content-message">{{ fileBrowserError }}</div>
+
+      <FileHistoryPane v-else-if="showHistory" :filePath="currentPath" />
 
       <template v-else-if="!fileContent">
         <ul class="file-browser-list">
@@ -74,6 +77,7 @@
             >
               <button v-if="!isHoverDevice" type="button" @click="openEntry(entry)"><span class="mdi mdi-open-in-app"></span> Open</button>
               <button v-if="entry.type === 'file'" type="button" @click="openEntryInEditor"><span class="mdi mdi-file-edit-outline"></span> Editor</button>
+              <button v-if="entry.type === 'file'" type="button" @click="openEntryHistory"><span class="mdi mdi-history"></span> History</button>
               <button v-if="entry.type === 'file'" type="button" @click="downloadEntry"><span class="mdi mdi-download"></span> Download</button>
               <button v-if="githubEntryUrl" type="button" @click="openGitHub"><span class="mdi mdi-github"></span> GitHub</button>
               <button type="button" @click="renameEntry"><span class="mdi mdi-rename-box"></span> Rename</button>
@@ -93,6 +97,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import FileTextViewer from "./FileTextViewer.vue";
+import FileHistoryPane from "./FileHistoryPane.vue";
 import FileItem from "./FileItem.vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
@@ -127,10 +132,15 @@ const {
 } = useHoverMenu();
 const uploadInputEl = ref(null);
 const showIgnored = ref(false);
+const showHistory = ref(false);
+
+function toggleHistory() {
+  showHistory.value = !showHistory.value;
+}
 
 const {
   renameEntry, moveEntry, deleteEntry,
-  downloadFile, downloadEntry,
+  downloadEntry,
   uploadDroppedFiles,
 } = useFileActions({
   getContextEntry: () => contextEntry.value,
@@ -199,6 +209,7 @@ async function navigateToPath(path) {
 
   currentPath.value = path;
   fileContent.value = null;
+  showHistory.value = false;
   isFileBrowserLoading.value = true;
   fileBrowserError.value = "";
 
@@ -278,6 +289,16 @@ function openEntry(entry) {
   }
 }
 
+function openEntryHistory() {
+  const entry = contextEntry.value;
+  if (!entry || entry.type !== "file") return;
+  const filePath = currentPath.value ? `${currentPath.value}/${entry.name}` : entry.name;
+  closeContextMenu();
+  currentPath.value = filePath;
+  fileContent.value = null;
+  showHistory.value = true;
+}
+
 function openEntryInEditor() {
   const entry = contextEntry.value;
   if (!entry) return;
@@ -293,11 +314,6 @@ function openEntryInEditor() {
 
 function openDirInEditor() {
   openInEditor(currentPath.value);
-}
-
-function downloadCurrentFile() {
-  const filePath = props.diffFile || currentPath.value;
-  downloadFile(filePath);
 }
 
 function onCrumbClick(path) {

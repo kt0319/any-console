@@ -73,3 +73,13 @@ export function workspaceFileContentPath(workspace, filePath) {
 export function workspaceCommitMessagePath(workspace, hash) {
   return `/workspaces/${encodeURIComponent(workspace)}/commit-message?hash=${encodeURIComponent(hash)}`;
 }
+
+/** @param {string} workspace @param {string} filePath @returns {string} */
+export function workspaceFileHistoryPath(workspace, filePath) {
+  return `/workspaces/${encodeURIComponent(workspace)}/file-history?path=${encodeURIComponent(filePath)}`;
+}
+
+/** @param {string} workspace @param {string} hash @param {string} filePath @returns {string} */
+export function workspaceFileDiffPath(workspace, hash, filePath) {
+  return `/workspaces/${encodeURIComponent(workspace)}/file-diff/${encodeURIComponent(hash)}?path=${encodeURIComponent(filePath)}`;
+}

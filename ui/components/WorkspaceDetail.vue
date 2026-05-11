@@ -106,7 +106,7 @@ const githubIssues = ref(null);
 const githubActions = ref(null);
 const githubPrs = ref(null);
 
-const activePane = ref("history");
+const activePane = ref("changes");
 const { topRatio, onHandlePointerDown } = useResizeHandle(0.33);
 const selectedDiffFile = ref("");
 const diffMessage = ref("");
@@ -136,8 +136,8 @@ const hasGithub = computed(() => !!workspaceStore.currentWorkspace?.github_url);
 
 const tabs = computed(() => {
   const list = [
-    { key: "history", icon: "mdi-history", label: "History" },
     { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", badge: changesCount.value || "" },
+    { key: "history", icon: "mdi-history", label: "History" },
     { key: "branch", icon: "mdi-source-branch", label: "Branch" },
     { key: "stash", icon: "mdi-package-variant", label: "Stash", badge: stashCount.value || "", hidden: !stashCount.value },
     { key: "issues", icon: "mdi-github", label: "Issues", badge: issuesCount.value || "", hidden: !hasGithub.value || !issuesCount.value },
@@ -194,7 +194,7 @@ async function backgroundLoadCounts(workspace) {
 
 async function open(options) {
   options = options || {};
-  const paneKey = options.pane || "history";
+  const paneKey = options.pane || "changes";
   activePane.value = paneKey === "browser" ? "history" : paneKey;
   selectedDiffFile.value = "";
   diffMessage.value = "";

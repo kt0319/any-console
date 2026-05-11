@@ -64,6 +64,23 @@ def get_commit_diff(name: str, commit_hash: str):
     )
 
 
+@router.get("/workspaces/{name}/file-diff/{commit_hash}")
+def get_file_commit_diff(name: str, commit_hash: str, path: str):
+    validate_commit_hash(commit_hash)
+    ws_path, _, rel = resolve_workspace_file(name, path)
+    diff_result = run_git_command(
+        ["--no-pager", "show", "--format=", commit_hash, "--", rel],
+        cwd=ws_path,
+        operation="show",
+    )
+    return {
+        "status": diff_result["status"],
+        "diff": _truncate_diff(diff_result["stdout"]),
+        "stderr": diff_result["stderr"],
+        "exit_code": diff_result["exit_code"],
+    }
+
+
 @router.get("/workspaces/{name}/diff")
 def get_workspace_diff(name: str):
     ws_path = resolve_workspace_path(name)
