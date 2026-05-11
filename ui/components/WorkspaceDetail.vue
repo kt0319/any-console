@@ -195,7 +195,7 @@ async function backgroundLoadCounts(workspace) {
 async function open(options) {
   options = options || {};
   const paneKey = options.pane || "changes";
-  activePane.value = paneKey === "browser" ? "history" : paneKey;
+  const resolvedPane = paneKey === "browser" ? "history" : paneKey;
   selectedDiffFile.value = "";
   diffMessage.value = "";
   updateViewTitle();
@@ -215,6 +215,7 @@ async function open(options) {
   }
 
   fileBrowser.value?.load();
+  switchPane(resolvedPane);
 }
 
 async function switchPane(key) {
