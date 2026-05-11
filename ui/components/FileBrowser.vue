@@ -57,6 +57,7 @@
               :label="entry.name"
               :icon-html="renderFileIcon(entry)"
               :size-text="entry.type === 'file' && entry.size != null ? formatSize(entry.size) : ''"
+              :mtime-text="formatRelativeTime(entry.mtime)"
               @click="onEntryClick(entry)"
               @contextmenu="toggleContextMenu(entry)"
               @mouseenter="onItemMouseEnter(entry)"
@@ -103,7 +104,7 @@ import { emit } from "../app-bridge.js";
 import { useLongPress } from "../composables/useLongPress.js";
 import { useHoverMenu, isHoverDevice } from "../composables/useHoverMenu.js";
 import { renderFileIcon } from "../utils/file-icon.js";
-import { formatSize } from "../utils/format.js";
+import { formatSize, formatRelativeTime } from "../utils/format.js";
 
 const workspaceStore = useWorkspaceStore();
 const { apiGet, wsEndpoint } = useApi();

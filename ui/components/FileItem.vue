@@ -20,6 +20,7 @@
   >
     <span class="file-browser-item-icon nf-icon" v-html="iconHtml"></span>
     <span class="file-browser-item-name">{{ label }}</span>
+    <span v-if="mtimeText" class="file-browser-item-mtime">{{ mtimeText }}</span>
     <span v-if="sizeText" class="file-browser-item-size">{{ sizeText }}</span>
     <slot name="right"></slot>
   </li>
@@ -31,6 +32,7 @@ defineProps({
   iconHtml: { type: String, default: "" },
   dataType: { type: String, default: "" },
   sizeText: { type: String, default: "" },
+  mtimeText: { type: String, default: "" },
   selected: { type: Boolean, default: false },
   gitignored: { type: Boolean, default: false },
   actionOpen: { type: Boolean, default: false },
@@ -95,6 +97,12 @@ defineEmits([
 }
 
 .file-browser-item-size {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.file-browser-item-mtime {
   flex-shrink: 0;
   font-size: 11px;
   color: var(--text-muted);

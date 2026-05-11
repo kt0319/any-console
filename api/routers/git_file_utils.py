@@ -118,11 +118,13 @@ def _build_file_or_dir_entry(entry, is_ignored: bool) -> dict:
     item = {"name": entry.name, "type": entry_type}
     if is_ignored:
         item["gitignored"] = True
-    if entry_type == "file":
-        try:
-            item["size"] = entry.stat(follow_symlinks=False).st_size
-        except OSError:
-            pass
+    try:
+        stat = entry.stat(follow_symlinks=False)
+        item["mtime"] = stat.st_mtime
+        if entry_type == "file":
+            item["size"] = stat.st_size
+    except OSError:
+        pass
     return item
 
 
