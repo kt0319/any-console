@@ -1,54 +1,53 @@
 // @ts-check
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { workspaceApiPath, getActionFailureMessage } from "../../ui/utils/endpoints.js";
 
 // ── Tests ──
 
 describe("workspaceApiPath", () => {
   it("builds basic path", () => {
-    assert.equal(workspaceApiPath("myrepo"), "/workspaces/myrepo");
+    expect(workspaceApiPath("myrepo")).toBe("/workspaces/myrepo");
   });
 
   it("appends subpath", () => {
-    assert.equal(workspaceApiPath("myrepo", "/branches"), "/workspaces/myrepo/branches");
+    expect(workspaceApiPath("myrepo", "/branches")).toBe("/workspaces/myrepo/branches");
   });
 
   it("encodes special characters", () => {
-    assert.equal(workspaceApiPath("my repo"), "/workspaces/my%20repo");
+    expect(workspaceApiPath("my repo")).toBe("/workspaces/my%20repo");
   });
 
   it("encodes slashes in workspace name", () => {
-    assert.equal(workspaceApiPath("a/b"), "/workspaces/a%2Fb");
+    expect(workspaceApiPath("a/b")).toBe("/workspaces/a%2Fb");
   });
 
   it("handles empty workspace name", () => {
-    assert.equal(workspaceApiPath(""), "/workspaces/");
+    expect(workspaceApiPath("")).toBe("/workspaces/");
   });
 });
 
 describe("getActionFailureMessage", () => {
   it("returns fallback for null", () => {
-    assert.equal(getActionFailureMessage(null), "unknown error");
+    expect(getActionFailureMessage(null)).toBe("unknown error");
   });
 
   it("returns fallback for string", () => {
-    assert.equal(getActionFailureMessage("not an object"), "unknown error");
+    expect(getActionFailureMessage("not an object")).toBe("unknown error");
   });
 
   it("returns stderr if present", () => {
-    assert.equal(getActionFailureMessage({ stderr: "error output" }), "error output");
+    expect(getActionFailureMessage({ stderr: "error output" })).toBe("error output");
   });
 
   it("returns stdout if no stderr", () => {
-    assert.equal(getActionFailureMessage({ stdout: "standard output" }), "standard output");
+    expect(getActionFailureMessage({ stdout: "standard output" })).toBe("standard output");
   });
 
   it("returns detail if no stderr/stdout", () => {
-    assert.equal(getActionFailureMessage({ detail: "detail msg" }), "detail msg");
+    expect(getActionFailureMessage({ detail: "detail msg" })).toBe("detail msg");
   });
 
   it("uses custom fallback", () => {
-    assert.equal(getActionFailureMessage({}, "custom fallback"), "custom fallback");
+    expect(getActionFailureMessage({}, "custom fallback")).toBe("custom fallback");
   });
 });

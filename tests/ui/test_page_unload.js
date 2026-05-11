@@ -1,20 +1,19 @@
 // @ts-check
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { shouldConfirmBeforeUnload, handleBeforeUnload } from "../../ui/utils/page-unload.js";
 
 describe("shouldConfirmBeforeUnload", () => {
   it("returns false when no tabs are open", () => {
-    assert.equal(shouldConfirmBeforeUnload([]), false);
+    expect(shouldConfirmBeforeUnload([])).toBe(false);
   });
 
   it("returns true when at least one tab is open", () => {
-    assert.equal(shouldConfirmBeforeUnload([{ id: 1 }]), true);
+    expect(shouldConfirmBeforeUnload([{ id: 1 }])).toBe(true);
   });
 
   it("returns false for non-array values", () => {
-    assert.equal(shouldConfirmBeforeUnload(null), false);
-    assert.equal(shouldConfirmBeforeUnload(undefined), false);
+    expect(shouldConfirmBeforeUnload(null)).toBe(false);
+    expect(shouldConfirmBeforeUnload(undefined)).toBe(false);
   });
 });
 
@@ -27,9 +26,9 @@ describe("handleBeforeUnload", () => {
         prevented = true;
       },
     };
-    assert.equal(handleBeforeUnload(event, []), false);
-    assert.equal(prevented, false);
-    assert.equal(event.returnValue, undefined);
+    expect(handleBeforeUnload(event, [])).toBe(false);
+    expect(prevented).toBe(false);
+    expect(event.returnValue).toBe(undefined);
   });
 
   it("prevents unload when tabs are open", () => {
@@ -40,8 +39,8 @@ describe("handleBeforeUnload", () => {
         prevented = true;
       },
     };
-    assert.equal(handleBeforeUnload(event, [{ id: 1 }]), true);
-    assert.equal(prevented, true);
-    assert.equal(event.returnValue, "");
+    expect(handleBeforeUnload(event, [{ id: 1 }])).toBe(true);
+    expect(prevented).toBe(true);
+    expect(event.returnValue).toBe("");
   });
 });

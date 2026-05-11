@@ -1,123 +1,122 @@
 // @ts-check
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { parseGitRefs, formatGitTime, parseGitLogEntries, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, countContentLines } from "../../ui/utils/git.js";
 
 // ── Tests ──
 
 describe("parseGitRefs", () => {
   it("空文字列で空配列", () => {
-    assert.deepEqual(parseGitRefs(""), []);
+    expect(parseGitRefs("")).toEqual([]);
   });
 
   it("nullで空配列", () => {
-    assert.deepEqual(parseGitRefs(null), []);
+    expect(parseGitRefs(null)).toEqual([]);
   });
 
   it("HEAD -> mainをheadタイプでパース", () => {
     const refs = parseGitRefs("HEAD -> main");
-    assert.equal(refs.length, 1);
-    assert.equal(refs[0].label, "main");
-    assert.equal(refs[0].type, "head");
+    expect(refs.length).toBe(1);
+    expect(refs[0].label).toBe("main");
+    expect(refs[0].type).toBe("head");
   });
 
   it("tag: v1.0をtagタイプでパース", () => {
     const refs = parseGitRefs("tag: v1.0");
-    assert.equal(refs.length, 1);
-    assert.equal(refs[0].label, "v1.0");
-    assert.equal(refs[0].type, "tag");
+    expect(refs.length).toBe(1);
+    expect(refs[0].label).toBe("v1.0");
+    expect(refs[0].type).toBe("tag");
   });
 
   it("origin/mainをremoteタイプでパース", () => {
     const refs = parseGitRefs("origin/main");
-    assert.equal(refs.length, 1);
-    assert.equal(refs[0].label, "origin/main");
-    assert.equal(refs[0].type, "remote");
-    assert.equal(refs[0].icon, "mdi-github");
+    expect(refs.length).toBe(1);
+    expect(refs[0].label).toBe("origin/main");
+    expect(refs[0].type).toBe("remote");
+    expect(refs[0].icon).toBe("mdi-github");
   });
 
   it("upstream/mainをremoteタイプ(mdi-server)でパース", () => {
     const refs = parseGitRefs("upstream/main");
-    assert.equal(refs.length, 1);
-    assert.equal(refs[0].icon, "mdi-server");
+    expect(refs.length).toBe(1);
+    expect(refs[0].icon).toBe("mdi-server");
   });
 
   it("通常のブランチ名をbranchタイプでパース", () => {
     const refs = parseGitRefs("develop");
-    assert.equal(refs.length, 1);
-    assert.equal(refs[0].label, "develop");
-    assert.equal(refs[0].type, "branch");
+    expect(refs.length).toBe(1);
+    expect(refs[0].label).toBe("develop");
+    expect(refs[0].type).toBe("branch");
   });
 
   it("HEADとorigin/HEADはフィルタされる", () => {
     const refs = parseGitRefs("HEAD, HEAD -> main, origin/HEAD");
-    assert.equal(refs.length, 1);
-    assert.equal(refs[0].label, "main");
+    expect(refs.length).toBe(1);
+    expect(refs[0].label).toBe("main");
   });
 
   it("ローカルとorigin同名でsynced=trueになりremoteが除去される", () => {
     const refs = parseGitRefs("HEAD -> main, origin/main");
-    assert.equal(refs.length, 1);
-    assert.equal(refs[0].label, "main");
-    assert.equal(refs[0].synced, true);
+    expect(refs.length).toBe(1);
+    expect(refs[0].label).toBe("main");
+    expect(refs[0].synced).toBe(true);
   });
 
   it("複数refs（head + tag + remote）の複合パース", () => {
     const refs = parseGitRefs("HEAD -> main, tag: v1.0, origin/develop");
-    assert.equal(refs.length, 3);
-    assert.equal(refs[0].type, "head");
-    assert.equal(refs[1].type, "tag");
-    assert.equal(refs[2].type, "remote");
+    expect(refs.length).toBe(3);
+    expect(refs[0].type).toBe("head");
+    expect(refs[1].type).toBe("tag");
+    expect(refs[2].type).toBe("remote");
   });
 
   it("syncedでないremoteブランチは残る", () => {
     const refs = parseGitRefs("HEAD -> main, origin/feature");
-    assert.equal(refs.length, 2);
-    assert.equal(refs[1].label, "origin/feature");
+    expect(refs.length).toBe(2);
+    expect(refs[1].label).toBe("origin/feature");
   });
 });
 
 describe("formatGitTime", () => {
   it("空文字列で'-'を返す", () => {
-    assert.equal(formatGitTime(""), "-");
+    expect(formatGitTime("")).toBe("-");
   });
 
   it("nullで'-'を返す", () => {
-    assert.equal(formatGitTime(null), "-");
+    expect(formatGitTime(null)).toBe("-");
   });
 
   it("不正な日付文字列をそのまま返す", () => {
-    assert.equal(formatGitTime("invalid"), "invalid");
+    expect(formatGitTime("invalid")).toBe("invalid");
   });
 
   it("ISO日付をフォーマットする", () => {
     const result = formatGitTime("2025-03-15T10:30:00");
-    assert.equal(result, "2025-03-15 10:30");
+    expect(result).toBe("2025-03-15 10:30");
   });
 });
 
 describe("parseGitLogEntries", () => {
   it("空文字列で空配列", () => {
-    assert.deepEqual(parseGitLogEntries(""), []);
+    expect(parseGitLogEntries("")).toEqual([]);
   });
 
   it("nullで空配列", () => {
-    assert.deepEqual(parseGitLogEntries(null), []);
+    expect(parseGitLogEntries(null)).toEqual([]);
   });
 
   it("タブ区切りログ行をパースする", () => {
     const line = "abc1234567890def\t2025-03-15T10:30:00\tauthor\t\tcommit message";
     const entries = parseGitLogEntries(line);
-    assert.equal(entries.length, 1);
-    assert.equal(entries[0].hash, "abc12345");
-    assert.equal(entries[0].fullHash, "abc1234567890def");
-    assert.equal(entries[0].author, "author");
-    assert.equal(entries[0].message, "commit message");
+    expect(entries.length).toBe(1);
+    expect(entries[0].hash).toBe("abc12345");
+    expect(entries[0].fullHash).toBe("abc1234567890def");
+    expect(entries[0].author).toBe("author");
+    expect(entries[0].message).toBe("commit message");
   });
 
   it("5フィールド未満の行はスキップ", () => {
     const entries = parseGitLogEntries("abc\t123\tauthor");
-    assert.equal(entries.length, 0);
+    expect(entries.length).toBe(0);
   });
 
   it("複数行をパースする", () => {
@@ -126,158 +125,158 @@ describe("parseGitLogEntries", () => {
       "bbb4444455555666\t2025-01-02T00:00:00\tBob\t\tsecond",
     ].join("\n");
     const entries = parseGitLogEntries(lines);
-    assert.equal(entries.length, 2);
-    assert.equal(entries[0].message, "first");
-    assert.equal(entries[1].message, "second");
+    expect(entries.length).toBe(2);
+    expect(entries[0].message).toBe("first");
+    expect(entries[1].message).toBe("second");
   });
 
   it("refsありの行をパースする", () => {
     const line = "abc1234567890def\t2025-03-15T10:30:00\tauthor\tHEAD -> main\tcommit";
     const entries = parseGitLogEntries(line);
-    assert.equal(entries[0].refs.length, 1);
-    assert.equal(entries[0].refs[0].label, "main");
+    expect(entries[0].refs.length).toBe(1);
+    expect(entries[0].refs[0].label).toBe("main");
   });
 
   it("メッセージにタブが含まれる場合も結合される", () => {
     const line = "abc1234567890def\t2025-03-15T10:30:00\tauthor\t\tpart1\tpart2";
     const entries = parseGitLogEntries(line);
-    assert.equal(entries[0].message, "part1\tpart2");
+    expect(entries[0].message).toBe("part1\tpart2");
   });
 });
 
 describe("parseDiffNumstatFromChunk", () => {
   it("nullでnullを返す", () => {
-    assert.equal(parseDiffNumstatFromChunk(null), null);
+    expect(parseDiffNumstatFromChunk(null)).toBe(null);
   });
 
   it("空文字列でnullを返す", () => {
-    assert.equal(parseDiffNumstatFromChunk(""), null);
+    expect(parseDiffNumstatFromChunk("")).toBe(null);
   });
 
   it("変更なしのdiffでnullを返す", () => {
-    assert.equal(parseDiffNumstatFromChunk("context line\nanother line"), null);
+    expect(parseDiffNumstatFromChunk("context line\nanother line")).toBe(null);
   });
 
   it("追加行をカウントする", () => {
     const chunk = "+added line1\n+added line2\ncontext";
     const result = parseDiffNumstatFromChunk(chunk);
-    assert.deepEqual(result, { insertions: 2, deletions: 0 });
+    expect(result).toEqual({ insertions: 2, deletions: 0 });
   });
 
   it("削除行をカウントする", () => {
     const chunk = "-removed line\ncontext";
     const result = parseDiffNumstatFromChunk(chunk);
-    assert.deepEqual(result, { insertions: 0, deletions: 1 });
+    expect(result).toEqual({ insertions: 0, deletions: 1 });
   });
 
   it("+++/---ヘッダーは除外される", () => {
     const chunk = "--- a/file.txt\n+++ b/file.txt\n+added\n-removed";
     const result = parseDiffNumstatFromChunk(chunk);
-    assert.deepEqual(result, { insertions: 1, deletions: 1 });
+    expect(result).toEqual({ insertions: 1, deletions: 1 });
   });
 
   it("追加・削除混在をカウントする", () => {
     const chunk = "+add1\n+add2\n-del1\ncontext\n+add3";
     const result = parseDiffNumstatFromChunk(chunk);
-    assert.deepEqual(result, { insertions: 3, deletions: 1 });
+    expect(result).toEqual({ insertions: 3, deletions: 1 });
   });
 });
 
 describe("buildNumstatHtml", () => {
   it("両方nullで空文字列", () => {
-    assert.equal(buildNumstatHtml(null, null), "");
+    expect(buildNumstatHtml(null, null)).toBe("");
   });
 
   it("追加・削除のHTMLを生成する", () => {
     const html = buildNumstatHtml(3, 2);
-    assert.ok(html.includes("+3"));
-    assert.ok(html.includes("-2"));
-    assert.ok(html.includes("numstat-added"));
-    assert.ok(html.includes("numstat-deleted"));
+    expect(html.includes("+3")).toBeTruthy();
+    expect(html.includes("-2")).toBeTruthy();
+    expect(html.includes("numstat-added")).toBeTruthy();
+    expect(html.includes("numstat-deleted")).toBeTruthy();
   });
 
   it("omitZeroDeletions=trueで削除0の場合、削除部分を省略", () => {
     const html = buildNumstatHtml(5, 0, { omitZeroDeletions: true });
-    assert.ok(html.includes("+5"));
-    assert.ok(!html.includes("-0"));
+    expect(html.includes("+5")).toBeTruthy();
+    expect(!html.includes("-0")).toBeTruthy();
   });
 
   it("omitZeroDeletions=trueでも削除があれば表示", () => {
     const html = buildNumstatHtml(5, 3, { omitZeroDeletions: true });
-    assert.ok(html.includes("-3"));
+    expect(html.includes("-3")).toBeTruthy();
   });
 
   it("neutralText=trueでnumstat-neutralクラスを使用", () => {
     const html = buildNumstatHtml(1, 1, { neutralText: true });
-    assert.ok(html.includes("numstat-neutral"));
-    assert.ok(!html.includes("numstat-added"));
+    expect(html.includes("numstat-neutral")).toBeTruthy();
+    expect(!html.includes("numstat-added")).toBeTruthy();
   });
 
   it("insertionsのみnullで0として扱う", () => {
     const html = buildNumstatHtml(null, 3);
-    assert.ok(html.includes("+0"));
-    assert.ok(html.includes("-3"));
+    expect(html.includes("+0")).toBeTruthy();
+    expect(html.includes("-3")).toBeTruthy();
   });
 });
 
 describe("countContentLines", () => {
   it("空文字列で0", () => {
-    assert.equal(countContentLines(""), 0);
+    expect(countContentLines("")).toBe(0);
   });
 
   it("nullで0", () => {
-    assert.equal(countContentLines(null), 0);
+    expect(countContentLines(null)).toBe(0);
   });
 
   it("1行（改行なし）で1", () => {
-    assert.equal(countContentLines("hello"), 1);
+    expect(countContentLines("hello")).toBe(1);
   });
 
   it("1行（改行あり）で1", () => {
-    assert.equal(countContentLines("hello\n"), 1);
+    expect(countContentLines("hello\n")).toBe(1);
   });
 
   it("複数行をカウント", () => {
-    assert.equal(countContentLines("a\nb\nc\n"), 3);
+    expect(countContentLines("a\nb\nc\n")).toBe(3);
   });
 
   it("末尾改行なしの複数行", () => {
-    assert.equal(countContentLines("a\nb\nc"), 3);
+    expect(countContentLines("a\nb\nc")).toBe(3);
   });
 });
 
 describe("buildFileNumstatHtml", () => {
   it("insertions/deletionsフィールドを優先する", () => {
     const html = buildFileNumstatHtml({ status: "M", insertions: 5, deletions: 2 });
-    assert.ok(html.includes("+5"));
-    assert.ok(html.includes("-2"));
+    expect(html.includes("+5")).toBeTruthy();
+    expect(html.includes("-2")).toBeTruthy();
   });
 
   it("added/deletedエイリアスにも対応する", () => {
     const html = buildFileNumstatHtml({ status: "M", added: 3, deleted: 1 });
-    assert.ok(html.includes("+3"));
-    assert.ok(html.includes("-1"));
+    expect(html.includes("+3")).toBeTruthy();
+    expect(html.includes("-1")).toBeTruthy();
   });
 
   it("numstat情報がなければdiffChunkからカウント", () => {
     const chunk = "+line1\n+line2\n-old";
     const html = buildFileNumstatHtml({ status: "M" }, chunk);
-    assert.ok(html.includes("+2"));
-    assert.ok(html.includes("-1"));
+    expect(html.includes("+2")).toBeTruthy();
+    expect(html.includes("-1")).toBeTruthy();
   });
 
   it("status=??で削除0の場合omitされる", () => {
     const html = buildFileNumstatHtml({ status: "??", insertions: 10 });
-    assert.ok(html.includes("+10"));
-    assert.ok(!html.includes("-0"));
+    expect(html.includes("+10")).toBeTruthy();
+    expect(!html.includes("-0")).toBeTruthy();
   });
 
   it("status=Aで削除0の場合omitされる", () => {
     const html = buildFileNumstatHtml({ status: "A", insertions: 7 });
-    assert.ok(!html.includes("-0"));
+    expect(!html.includes("-0")).toBeTruthy();
   });
 
   it("numstatもchunkもない場合は空文字列", () => {
-    assert.equal(buildFileNumstatHtml({ status: "M" }), "");
+    expect(buildFileNumstatHtml({ status: "M" })).toBe("");
   });
 });

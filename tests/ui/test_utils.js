@@ -1,6 +1,5 @@
 // @ts-check
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "vitest";
 import { toDisplayMessage, formatCommitTime, buildWorkspaceChangeSummaryHtml, VALID_ICON_COLOR, isImageDataIcon, faviconUrl } from "../../ui/utils/display.js";
 import { workspaceDownloadPath, workspaceGitDiscardPath } from "../../ui/utils/endpoints.js";
 import { safeJsonLoad } from "../../ui/utils/storage.js";
@@ -9,241 +8,228 @@ import { safeJsonLoad } from "../../ui/utils/storage.js";
 
 describe("toDisplayMessage", () => {
   it("returns string as-is", () => {
-    assert.equal(toDisplayMessage("hello"), "hello");
+    expect(toDisplayMessage("hello")).toBe("hello");
   });
 
   it("returns fallback for null", () => {
-    assert.equal(toDisplayMessage(null, "fallback"), "fallback");
+    expect(toDisplayMessage(null, "fallback")).toBe("fallback");
   });
 
   it("returns fallback for undefined", () => {
-    assert.equal(toDisplayMessage(undefined, "fallback"), "fallback");
+    expect(toDisplayMessage(undefined, "fallback")).toBe("fallback");
   });
 
   it("converts number to string", () => {
-    assert.equal(toDisplayMessage(42), "42");
+    expect(toDisplayMessage(42)).toBe("42");
   });
 
   it("converts boolean to string", () => {
-    assert.equal(toDisplayMessage(true), "true");
+    expect(toDisplayMessage(true)).toBe("true");
   });
 
   it("extracts message from Error", () => {
-    assert.equal(toDisplayMessage(new Error("oops")), "oops");
+    expect(toDisplayMessage(new Error("oops"))).toBe("oops");
   });
 
   it("extracts detail from object", () => {
-    assert.equal(toDisplayMessage({ detail: "some detail" }), "some detail");
+    expect(toDisplayMessage({ detail: "some detail" })).toBe("some detail");
   });
 
   it("extracts message from object", () => {
-    assert.equal(toDisplayMessage({ message: "msg here" }), "msg here");
+    expect(toDisplayMessage({ message: "msg here" })).toBe("msg here");
   });
 
   it("extracts error from object", () => {
-    assert.equal(toDisplayMessage({ error: "err" }), "err");
+    expect(toDisplayMessage({ error: "err" })).toBe("err");
   });
 
   it("extracts stderr from object", () => {
-    assert.equal(toDisplayMessage({ stderr: "stderr output" }), "stderr output");
+    expect(toDisplayMessage({ stderr: "stderr output" })).toBe("stderr output");
   });
 
   it("joins array items with /", () => {
-    assert.equal(toDisplayMessage(["a", "b"]), "a / b");
+    expect(toDisplayMessage(["a", "b"])).toBe("a / b");
   });
 
   it("extracts msg from array items", () => {
-    assert.equal(toDisplayMessage([{ msg: "x" }, { msg: "y" }]), "x / y");
+    expect(toDisplayMessage([{ msg: "x" }, { msg: "y" }])).toBe("x / y");
   });
 
   it("returns fallback for empty array", () => {
-    assert.equal(toDisplayMessage([], "nothing"), "nothing");
+    expect(toDisplayMessage([], "nothing")).toBe("nothing");
   });
 
   it("returns JSON for unknown object", () => {
-    assert.equal(toDisplayMessage({ foo: "bar" }), '{"foo":"bar"}');
+    expect(toDisplayMessage({ foo: "bar" })).toBe('{"foo":"bar"}');
   });
 
   it("detail takes priority over message", () => {
-    assert.equal(toDisplayMessage({ detail: "d", message: "m" }), "d");
+    expect(toDisplayMessage({ detail: "d", message: "m" })).toBe("d");
   });
 
   it("handles nested detail as array", () => {
-    assert.equal(toDisplayMessage({ detail: [{ msg: "a" }] }), "a");
+    expect(toDisplayMessage({ detail: [{ msg: "a" }] })).toBe("a");
   });
 });
 
 describe("formatCommitTime", () => {
   it("returns '-' for empty string", () => {
-    assert.equal(formatCommitTime(""), "-");
+    expect(formatCommitTime("")).toBe("-");
   });
 
   it("returns '-' for null", () => {
-    assert.equal(formatCommitTime(null), "-");
+    expect(formatCommitTime(null)).toBe("-");
   });
 
   it("formats valid ISO date", () => {
     // Use UTC to make test timezone-independent
     const d = new Date(2024, 0, 15, 9, 30);
     const result = formatCommitTime(d.toISOString());
-    assert.match(result, /^2024-01-15/);
+    expect(result).toMatch(/^2024-01-15/);
   });
 
   it("returns raw text for invalid date", () => {
-    assert.equal(formatCommitTime("not-a-date"), "not-a-date");
+    expect(formatCommitTime("not-a-date")).toBe("not-a-date");
   });
 });
 
 describe("buildWorkspaceChangeSummaryHtml", () => {
   it("returns empty for null", () => {
-    assert.equal(buildWorkspaceChangeSummaryHtml(null), "");
+    expect(buildWorkspaceChangeSummaryHtml(null)).toBe("");
   });
 
   it("returns empty for clean workspace", () => {
-    assert.equal(buildWorkspaceChangeSummaryHtml({ clean: true }), "");
+    expect(buildWorkspaceChangeSummaryHtml({ clean: true })).toBe("");
   });
 
   it("returns bullet for dirty with no stats", () => {
-    assert.equal(
-      buildWorkspaceChangeSummaryHtml({ clean: false, changed_files: 0, insertions: 0, deletions: 0 }),
-      "\u25cf"
-    );
+    expect(buildWorkspaceChangeSummaryHtml({ clean: false, changed_files: 0, insertions: 0, deletions: 0 })).toBe("\u25cf");
   });
 
   it("includes files and insertions", () => {
     const result = buildWorkspaceChangeSummaryHtml({ clean: false, changed_files: 3, insertions: 10, deletions: 0 });
-    assert.ok(result.includes("3F"));
-    assert.ok(result.includes("+10"));
-    assert.ok(!result.includes("-0"));
+    expect(result.includes("3F")).toBeTruthy();
+    expect(result.includes("+10")).toBeTruthy();
+    expect(!result.includes("-0")).toBeTruthy();
   });
 
   it("includes all parts", () => {
     const result = buildWorkspaceChangeSummaryHtml({ clean: false, changed_files: 2, insertions: 5, deletions: 3 });
-    assert.ok(result.includes("2F"));
-    assert.ok(result.includes("+5"));
-    assert.ok(result.includes("-3"));
+    expect(result.includes("2F")).toBeTruthy();
+    expect(result.includes("+5")).toBeTruthy();
+    expect(result.includes("-3")).toBeTruthy();
   });
 });
 
 describe("VALID_ICON_COLOR", () => {
   it("matches 3-digit hex", () => {
-    assert.ok(VALID_ICON_COLOR.test("#abc"));
+    expect(VALID_ICON_COLOR.test("#abc")).toBeTruthy();
   });
 
   it("matches 6-digit hex", () => {
-    assert.ok(VALID_ICON_COLOR.test("#aabbcc"));
+    expect(VALID_ICON_COLOR.test("#aabbcc")).toBeTruthy();
   });
 
   it("rejects no hash", () => {
-    assert.ok(!VALID_ICON_COLOR.test("aabbcc"));
+    expect(!VALID_ICON_COLOR.test("aabbcc")).toBeTruthy();
   });
 
   it("rejects invalid chars", () => {
-    assert.ok(!VALID_ICON_COLOR.test("#gggggg"));
+    expect(!VALID_ICON_COLOR.test("#gggggg")).toBeTruthy();
   });
 });
 
 describe("isImageDataIcon", () => {
   it("returns true for data:image/ prefix", () => {
-    assert.ok(isImageDataIcon("data:image/png;base64,abc"));
+    expect(isImageDataIcon("data:image/png;base64,abc")).toBeTruthy();
   });
 
   it("returns false for regular string", () => {
-    assert.ok(!isImageDataIcon("mdi-home"));
+    expect(!isImageDataIcon("mdi-home")).toBeTruthy();
   });
 
   it("returns false for null", () => {
-    assert.ok(!isImageDataIcon(null));
+    expect(!isImageDataIcon(null)).toBeTruthy();
   });
 });
 
 describe("faviconUrl", () => {
   it("returns empty for empty domain", () => {
-    assert.equal(faviconUrl(""), "");
+    expect(faviconUrl("")).toBe("");
   });
 
   it("constructs Google favicon URL", () => {
     const result = faviconUrl("example.com");
-    assert.ok(result.includes("example.com"));
-    assert.ok(result.includes("favicons"));
+    expect(result.includes("example.com")).toBeTruthy();
+    expect(result.includes("favicons")).toBeTruthy();
   });
 
   it("encodes special characters", () => {
     const result = faviconUrl("example.com/path?q=1");
-    assert.ok(result.includes(encodeURIComponent("example.com/path?q=1")));
+    expect(result.includes(encodeURIComponent("example.com/path?q=1"))).toBeTruthy();
   });
 });
 
 describe("workspaceDownloadPath", () => {
   it("builds correct download URL", () => {
-    assert.equal(
-      workspaceDownloadPath("myws", "dir/file.txt"),
+    expect(workspaceDownloadPath("myws", "dir/file.txt")).toBe(
       "/workspaces/myws/download?path=dir%2Ffile.txt",
     );
   });
 
   it("encodes workspace name with spaces", () => {
     const result = workspaceDownloadPath("my ws", "file.txt");
-    assert.ok(result.startsWith("/workspaces/my%20ws/download"));
+    expect(result.startsWith("/workspaces/my%20ws/download")).toBeTruthy();
   });
 
   it("encodes path with spaces", () => {
     const result = workspaceDownloadPath("ws", "path with spaces/file.txt");
-    assert.ok(result.includes(encodeURIComponent("path with spaces/file.txt")));
+    expect(result.includes(encodeURIComponent("path with spaces/file.txt"))).toBeTruthy();
   });
 
   it("encodes special characters in path", () => {
     const result = workspaceDownloadPath("ws", "dir/file name & more.txt");
-    assert.ok(result.includes("file%20name%20%26%20more.txt"));
+    expect(result.includes("file%20name%20%26%20more.txt")).toBeTruthy();
   });
 });
 
 describe("workspaceGitDiscardPath", () => {
   it("builds correct discard URL", () => {
-    assert.equal(
-      workspaceGitDiscardPath("myws"),
-      "/workspaces/myws/git/discard",
-    );
+    expect(workspaceGitDiscardPath("myws")).toBe("/workspaces/myws/git/discard");
   });
 
   it("encodes workspace name with spaces", () => {
-    assert.equal(
-      workspaceGitDiscardPath("my ws"),
-      "/workspaces/my%20ws/git/discard",
-    );
+    expect(workspaceGitDiscardPath("my ws")).toBe("/workspaces/my%20ws/git/discard");
   });
 
   it("encodes special characters in workspace name", () => {
-    assert.equal(
-      workspaceGitDiscardPath("ws/sub"),
-      "/workspaces/ws%2Fsub/git/discard",
-    );
+    expect(workspaceGitDiscardPath("ws/sub")).toBe("/workspaces/ws%2Fsub/git/discard");
   });
 });
 
 describe("safeJsonLoad", () => {
   it("returns parsed value from localStorage", () => {
     globalThis.localStorage = { getItem: () => JSON.stringify({ a: 1 }) };
-    assert.deepEqual(safeJsonLoad("key", {}), { a: 1 });
+    expect(safeJsonLoad("key", {})).toEqual({ a: 1 });
   });
 
   it("returns fallback when key is absent", () => {
     globalThis.localStorage = { getItem: () => null };
-    assert.deepEqual(safeJsonLoad("key", []), []);
+    expect(safeJsonLoad("key", [])).toEqual([]);
   });
 
   it("returns fallback when value is empty string", () => {
     globalThis.localStorage = { getItem: () => "" };
-    assert.deepEqual(safeJsonLoad("key", 42), 42);
+    expect(safeJsonLoad("key", 42)).toEqual(42);
   });
 
   it("returns fallback on invalid JSON", () => {
     globalThis.localStorage = { getItem: () => "{bad json" };
-    assert.deepEqual(safeJsonLoad("key", null), null);
+    expect(safeJsonLoad("key", null)).toEqual(null);
   });
 
   it("returns fallback when localStorage.getItem throws", () => {
     globalThis.localStorage = { getItem: () => { throw new Error("SecurityError"); } };
-    assert.deepEqual(safeJsonLoad("key", "default"), "default");
+    expect(safeJsonLoad("key", "default")).toEqual("default");
   });
 });
