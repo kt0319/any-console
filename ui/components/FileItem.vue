@@ -20,8 +20,8 @@
   >
     <span class="file-browser-item-icon nf-icon" v-html="iconHtml"></span>
     <span class="file-browser-item-name">{{ label }}</span>
-    <span v-if="mtimeText" class="file-browser-item-mtime">{{ mtimeText }}</span>
-    <span v-if="sizeText" class="file-browser-item-size">{{ sizeText }}</span>
+    <span v-if="mtimeText || sizeText" class="file-browser-item-size">{{ sizeText }}</span>
+    <span v-if="mtimeText || sizeText" class="file-browser-item-mtime">{{ mtimeText }}</span>
     <slot name="right"></slot>
   </li>
 </template>
@@ -96,16 +96,21 @@ defineEmits([
   opacity: 0.4;
 }
 
+.file-browser-item-mtime,
 .file-browser-item-size {
   flex-shrink: 0;
   font-size: 11px;
   color: var(--text-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .file-browser-item-mtime {
-  flex-shrink: 0;
-  font-size: 11px;
-  color: var(--text-muted);
+  min-width: 5.5em;
+}
+
+.file-browser-item-size {
+  min-width: 5em;
 }
 
 .file-browser-item.action-open {
