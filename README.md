@@ -37,7 +37,7 @@ docker compose -f docker/compose.yml up -d
 
 `http://<host>:8888` にアクセス。
 
-### Raspberry Pi (systemd)
+### systemd (Linux)
 
 ```bash
 git clone https://github.com/kt0319/any-console.git

@@ -9,7 +9,7 @@ Web操作コンソール。スマホからTailscale経由でシェルスクリ�
 
 ## 動作環境
 
-- **本番**: Raspberry Pi (Raspberry Pi OS / Debian系)
+- **本番**: Linux (systemd 系 Debian 系ディストリビューションを想定)
 - **開発・検証**: macOS、Linux でも動作する
 - OS固有の機能には依存しない設計とする（Linux専用コマンド等を前提にしない）
 
