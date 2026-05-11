@@ -23,7 +23,7 @@ import { ref } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useWorkspace } from "../composables/useWorkspace.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
-import { getStashCache, setStashCache, invalidateStashCache } from "../composables/useStashCache.js";
+import { setStashCache, invalidateStashCache } from "../composables/useStashCache.js";
 
 const emit = defineEmits(["count"]);
 const { apiGet, apiCommand, wsEndpoint } = useApi();
@@ -35,12 +35,6 @@ const stashListEl = ref(null);
 
 async function loadStashList() {
   await withWorkspace(async (workspace) => {
-    const cached = getStashCache(workspace);
-    if (cached) {
-      stashEntries.value = cached;
-      emit("count", cached.length);
-      return;
-    }
     isStashListLoading.value = true;
     try {
       const { ok, data } = await apiGet(wsEndpoint(workspace, "stash-list"));

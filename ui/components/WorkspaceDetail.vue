@@ -88,7 +88,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { useModalView } from "../composables/useModalView.js";
 import { getCachedCount, useGitHub } from "../composables/useGitHub.js";
-import { getStashCachedCount } from "../composables/useStashCache.js";
+import { getStashCachedCount, setStashCache } from "../composables/useStashCache.js";
 import { useResizeHandle } from "../composables/useResizeHandle.js";
 
 const workspaceStore = useWorkspaceStore();
@@ -173,7 +173,11 @@ function handleBack() {
 async function backgroundLoadCounts(workspace) {
   try {
     const { ok, data } = await apiGet(wsEndpoint(workspace, "stash-list"));
-    if (ok) stashCount.value = (data.entries || []).length;
+    if (ok) {
+      const entries = data.entries || [];
+      stashCount.value = entries.length;
+      setStashCache(workspace, entries);
+    }
   } catch {}
 
   if (!hasGithub.value) return;
