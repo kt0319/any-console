@@ -333,14 +333,17 @@ class TestGitWorkspaceScenario:
         assert any(b == "main" or b == "master" for b in branches)
 
         # ファイル変更
-        (git_workspace_with_commit / "new.txt").write_text("new content\n", encoding="utf-8")
+        (git_workspace_with_commit / "new.txt").write_text("line1\nline2\nline3\n", encoding="utf-8")
 
         # diff 取得
         res = client.get("/workspaces/test-ws/diff", headers=AUTH)
         assert res.status_code == 200
         data = res.json()
         assert len(data["files"]) > 0
-        assert any(f["name"] == "new.txt" for f in data["files"])
+        new_file = next(f for f in data["files"] if f["name"] == "new.txt")
+        assert new_file["status"] == "??"
+        assert new_file["insertions"] == 3
+        assert new_file["deletions"] == 0
 
     def test_commit_and_log(self, client, git_workspace_with_commit):
         # ファイル変更 + コミット

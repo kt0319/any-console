@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import APIRouter, Body, Depends
 
 from ..auth import verify_token
@@ -6,6 +8,14 @@ from ..git_utils import run_git_command
 from ..validators import validate_commit_hash
 from .git_diff_utils import build_file_entry, build_file_list, parse_numstat_result
 from .git_helpers import execute_git_action, resolve_workspace_file
+
+
+def _count_file_lines(file_path: Path) -> int:
+    try:
+        with open(file_path, "rb") as f:
+            return sum(1 for _ in f)
+    except OSError:
+        return 0
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
@@ -100,6 +110,11 @@ def get_workspace_diff(name: str):
             if len(line) > 3:
                 status_code = line[:2].strip()
                 file_name = line[3:]
+                if status_code == "??" and file_name not in numstat:
+                    numstat[file_name] = {
+                        "insertions": _count_file_lines(ws_path / file_name),
+                        "deletions": 0,
+                    }
                 entry = build_file_entry(file_name, numstat, status=status_code)
                 files.append(entry)
     parts = []
