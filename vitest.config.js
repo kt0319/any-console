@@ -8,7 +8,6 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["ui/utils/**/*.js"],
-      exclude: ["ui/utils/mdi-icons.js"],
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage",
       thresholds: {

@@ -54,7 +54,7 @@ import { ref, nextTick, onMounted } from "vue";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useModalView } from "../composables/useModalView.js";
 import { renderIconStr } from "../utils/render-icon.js";
-import MDI_ICONS from "../utils/mdi-icons.js";
+import MDI_ICONS from "../data/mdi-icons.js";
 
 const { modalTitle, viewState, popView } = useModalView();
 modalTitle.value = "Icon Picker";
