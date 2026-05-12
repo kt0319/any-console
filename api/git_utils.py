@@ -12,6 +12,7 @@ from .common import (
     GIT_QUICK_TIMEOUT_SEC,
     GIT_STANDARD_TIMEOUT_SEC,
     TTLCache,
+    count_file_lines,
     resolve_workspace_path,
 )
 from .errors import timeout_error
@@ -172,7 +173,12 @@ def _apply_upstream(info: dict, upstream_out: str | None) -> None:
         info["has_upstream"] = False
 
 
-def _apply_diff_stats(info: dict, diff_outputs: tuple[str, ...], status_out: str | None) -> None:
+def _apply_diff_stats(
+    info: dict,
+    diff_outputs: tuple[str, ...],
+    status_out: str | None,
+    directory: Path,
+) -> None:
     for diff_stat_output in diff_outputs:
         if not diff_stat_output:
             continue
@@ -186,7 +192,10 @@ def _apply_diff_stats(info: dict, diff_outputs: tuple[str, ...], status_out: str
         if deletions_match:
             info["deletions"] += int(deletions_match.group(1))
     if status_out:
-        info["changed_files"] += sum(1 for line in status_out.splitlines() if line.startswith("?? "))
+        for line in status_out.splitlines():
+            if line.startswith("?? "):
+                info["changed_files"] += 1
+                info["insertions"] += count_file_lines(directory / line[3:])
 
 
 def _parse_revlist_pair(out: str) -> tuple[int, int] | None:
@@ -251,7 +260,12 @@ def _populate_git_info(info: dict, directory: Path, run_git) -> None:
         info["clean"] = len(status_out.strip()) == 0
 
     if not info["clean"]:
-        _apply_diff_stats(info, (_stdout_if_ok(f_diff) or "", _stdout_if_ok(f_staged) or ""), status_out)
+        _apply_diff_stats(
+            info,
+            (_stdout_if_ok(f_diff) or "", _stdout_if_ok(f_staged) or ""),
+            status_out,
+            directory,
+        )
 
     _apply_ahead_behind(info, _stdout_if_ok(f_revlist), run_git)
 

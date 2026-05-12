@@ -165,6 +165,14 @@ def sanitize_log_value(value: str) -> str:
     return _CONTROL_CHAR_RE.sub(lambda m: f"\\x{ord(m.group()):02x}", value)
 
 
+def count_file_lines(file_path: Path) -> int:
+    try:
+        with open(file_path, "rb") as f:
+            return sum(1 for _ in f)
+    except OSError:
+        return 0
+
+
 @overload
 def resolve_workspace_path(workspace: str) -> Path: ...
 @overload
