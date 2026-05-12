@@ -236,7 +236,7 @@ def _populate_git_info(info: dict, directory: Path, run_git) -> None:
     f_commit = pool.submit(run_git, "log", "-1", "--format=%cI")
     f_message = pool.submit(run_git, "log", "-1", "--format=%s")
     f_remote = pool.submit(run_git, "remote", "get-url", "origin")
-    f_status = pool.submit(run_git, "--no-optional-locks", "status", "--porcelain")
+    f_status = pool.submit(run_git, "--no-optional-locks", "status", "--porcelain", "--untracked-files=all")
     f_diff = pool.submit(run_git, "--no-optional-locks", "diff", "--shortstat")
     f_staged = pool.submit(run_git, "--no-optional-locks", "diff", "--staged", "--shortstat")
     f_upstream = pool.submit(run_git, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
