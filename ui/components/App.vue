@@ -5,15 +5,7 @@
   </template>
   <AppToast ref="appToast" />
   <ConfirmDialog />
-  <Transition name="offline-fade">
-    <div v-if="isOffline" class="offline-overlay">
-      <div class="offline-content">
-        <div class="offline-spinner" aria-hidden="true"></div>
-        <div class="offline-text">Connection lost</div>
-        <div class="offline-sub">Waiting for network...</div>
-      </div>
-    </div>
-  </Transition>
+  <OfflineOverlay :visible="isOffline" />
 </template>
 
 <script setup>
@@ -22,30 +14,23 @@ import ScreenLogin from "./ScreenLogin.vue";
 import ScreenMain from "./ScreenMain.vue";
 import AppToast from "./AppToast.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import OfflineOverlay from "./OfflineOverlay.vue";
 import { on, emit } from "../app-bridge.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useGitHubActionsMonitor } from "../composables/useGitHubActionsMonitor.js";
-import { useApi } from "../composables/useApi.js";
-import { EP_RUN } from "../utils/endpoints.js";
+import { useAppJobBridge } from "../composables/useAppJobBridge.js";
 
 const auth = useAuthStore();
 const layoutStore = useLayoutStore();
 const appToast = ref(null);
-const { apiPost } = useApi();
 const { isOffline, startPing, stopPing, onOnline, onOffline } = useConnectivityMonitor();
 const { start: startActionsMonitor, stop: stopActionsMonitor } = useGitHubActionsMonitor();
+const { bind: bindJobBridge } = useAppJobBridge();
 
 const showLogin = ref(false);
 const authenticated = ref(false);
-
-async function execNonTerminalJob(jobName, workspace) {
-  const { ok, data } = await apiPost(EP_RUN, { job: jobName, workspace }, { errorMessage: "Job failed" });
-  if (!ok) return;
-  const msg = data?.stdout || data?.stderr || "Done";
-  emit("toast:show", { message: msg, type: data?.exit_code === 0 ? "success" : "error" });
-}
 
 async function onAuthenticated() {
   showLogin.value = false;
@@ -61,25 +46,8 @@ onMounted(async () => {
   if (layoutStore.isPwa) document.documentElement.classList.add("pwa");
 
   on("toast:show", ({ message, type, duration }) => appToast.value?.show(message, type, duration));
-  on("job:run", ({ jobName, job, workspace }) => {
-    if (job?.hidden_tab === false) {
-      execNonTerminalJob(jobName, workspace);
-      return;
-    }
-    emit("terminal:launch", {
-      workspace,
-      icon: job?.wsIcon,
-      iconColor: job?.wsIconColor,
-      jobName,
-      jobLabel: job?.label,
-      jobIcon: job?.icon,
-      jobIconColor: job?.icon_color,
-      initialCommand: job?.command,
-    });
-  });
-  on("job:exec", ({ jobName, job, workspace }) => {
-    execNonTerminalJob(jobName, workspace);
-  });
+  bindJobBridge();
+
   let result = await auth.checkToken();
   if (!result.ok && !result.auth) {
     const migrated = await auth.migrateLegacyToken();
