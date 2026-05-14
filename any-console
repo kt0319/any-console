@@ -229,7 +229,7 @@ usage() {
   echo -e "${BOLD}Usage:${NC} ./any-console <command>"
   echo ""
   echo "Commands:"
-  echo "  setup      初回セットアップ（依存インストール + ビルド + .env生成 + systemd登録）"
+  echo "  setup      初回セットアップ（依存インストール + ビルド + systemd登録）"
   echo "  update     最新版に更新（git pull + 依存更新 + ビルド + サービス再起動）"
   echo "  start      サービス起動"
   echo "  stop       サービス停止"

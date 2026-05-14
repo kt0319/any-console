@@ -49,10 +49,28 @@ cd any-console
 
 ### 必要環境
 
+必須:
+
 - Python 3.11+
 - Node.js 18+
-- Git
-- tmux
+- `git` — Git操作機能で使用
+- `tmux` — ターミナルセッション管理に必須
+
+任意:
+
+- `gh` (GitHub CLI) — GitHubのリポジトリ・Issue・PR・Actionsの取得に使用
+- `tailscale` — クライアント名解決とVPN判定に使用
+
+インストール例:
+
+```bash
+# Debian/Ubuntu
+sudo apt install python3 nodejs git tmux
+# 任意: gh / tailscale は公式手順に従う
+
+# macOS
+brew install python node git tmux gh
+```
 
 <details>
 <summary>手動セットアップ</summary>
@@ -76,7 +94,7 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8888
 すべての操作は `./any-console` コマンドで行う。
 
 ```
-./any-console setup      初回セットアップ（依存インストール + ビルド + .env生成 + systemd登録）
+./any-console setup      初回セットアップ（依存インストール + ビルド + systemd登録）
 ./any-console update     最新版に更新（git pull + 依存更新 + ビルド + サービス再起動）
 ./any-console start      サービス起動
 ./any-console stop       サービス停止
@@ -117,10 +135,6 @@ data/auth.json        トークン保存（.gitignore対象）
 - ワークスペースの設定（アイコン、ジョブ定義、リンク等）は `config.json` に保存される
 - 初回起動時に自動生成される。手動で用意する場合は `config.json.example` をコピーして編集する
 - 設定モーダルからエクスポート/インポートが可能
-
-## オプション依存
-
-- `gh` CLI - GitHubリポジトリ一覧の取得に使用（なくても動作する）
 
 ## ライセンス
 

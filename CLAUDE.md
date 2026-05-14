@@ -29,7 +29,7 @@ Web操作コンソール。スマホからTailscale経由でシェルスクリ�
 すべての運用操作は `./any-console <subcommand>` から行うのが標準。
 
 ```
-./any-console setup      初回セットアップ（依存インストール + ビルド + .env生成 + systemd登録）
+./any-console setup      初回セットアップ（依存インストール + ビルド + systemd登録）
 ./any-console update     最新版に更新（git pull + 依存更新 + ビルド + サービス再起動）
 ./any-console start|stop|restart   サービス制御
 ./any-console status     状態表示（サービス状態、URL、バージョン）
