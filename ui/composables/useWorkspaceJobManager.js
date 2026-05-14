@@ -1,10 +1,12 @@
 import { ref } from "vue";
 import { useApi } from "./useApi.js";
+import { useConfirm } from "./useConfirm.js";
 import { emit } from "../app-bridge.js";
 import { EP_COMMON_JOBS } from "../utils/endpoints.js";
 
 export function useWorkspaceJobManager({ editWs, pushView }) {
   const { apiGet, apiDelete, wsEndpoint } = useApi();
+  const { confirm } = useConfirm();
   const jobEntries = ref([]);
   const isLoadingJobs = ref(false);
 
@@ -24,33 +26,28 @@ export function useWorkspaceJobManager({ editWs, pushView }) {
   }
 
   function startAddJob(isCommon = false) {
-    const wsName = editWs.value.name;
     pushView("JobConfig", {
-      workspaceName: wsName,
+      workspaceName: editWs.value.name,
       isCommon,
       jobEntry: null,
-      onReturn: (_result, parentEntry) => {
-        if (parentEntry) parentEntry.state.initialWsName = wsName;
-        emit("jobs:refresh");
-      },
+      onReturn: () => emit("jobs:refresh"),
     });
   }
 
   function startEditJob(entry) {
-    const wsName = editWs.value.name;
     pushView("JobConfig", {
-      workspaceName: wsName,
+      workspaceName: editWs.value.name,
       isCommon: !!entry.job.common,
       jobEntry: entry,
-      onReturn: (_result, parentEntry) => {
-        if (parentEntry) parentEntry.state.initialWsName = wsName;
-        emit("jobs:refresh");
-      },
+      onReturn: () => emit("jobs:refresh"),
     });
   }
 
   async function deleteJob(entry) {
     if (!editWs.value) return;
+    const label = entry.job.label || entry.name;
+    const kind = entry.job.common ? "common job" : "job";
+    if (!await confirm(`Delete ${kind} "${label}"? This cannot be undone.`)) return;
     try {
       const url = entry.job.common
         ? `${EP_COMMON_JOBS}/${encodeURIComponent(entry.name)}`

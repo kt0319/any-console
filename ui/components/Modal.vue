@@ -111,12 +111,16 @@ function pushView(view, state = {}) {
 function popView(result) {
   modalBranch.value = "";
   const popped = viewStack.value.at(-1);
-  viewStack.value = viewStack.value.slice(0, -1);
-  if (viewStack.value.length === 0) { closeModal(); return; }
-  if (result != null && popped?.state?.onReturn) {
-    popped.state.onReturn(result, viewStack.value.at(-1));
-    viewStack.value = [...viewStack.value];
+  const newStack = viewStack.value.slice(0, -1);
+  if (newStack.length === 0) {
+    viewStack.value = newStack;
+    closeModal();
+    return;
   }
+  if (result != null && popped?.state?.onReturn) {
+    popped.state.onReturn(result, newStack.at(-1));
+  }
+  viewStack.value = newStack;
 }
 
 function openView(views) {

@@ -99,10 +99,12 @@ async function toggleVisibility(ws, checked) {
 
 function openWsSettings(ws) {
   editWs.value = ws;
+  if (viewState?.value) viewState.value.initialWsName = ws.name;
 }
 
 function goBackToList() {
   editWs.value = null;
+  if (viewState?.value) viewState.value.initialWsName = null;
 }
 
 function handleBack() {
