@@ -27,7 +27,7 @@ from .common import BACKGROUND_EXECUTOR, MAX_UPLOAD_SIZE, UPLOAD_DIR
 from .errors import bad_request, too_large, unauthorized
 from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
-from .routers import git, github, jobs, settings, system, terminal, workspaces
+from .routers import git, github, job_runner, jobs, settings, system, terminal, workspaces
 
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 (intentional: local network bind for personal console)
 DEFAULT_PORT = 8888
@@ -150,6 +150,7 @@ app.include_router(workspaces.router)
 app.include_router(git.router)
 app.include_router(github.router)
 app.include_router(jobs.router)
+app.include_router(job_runner.router)
 app.include_router(terminal.router)
 app.include_router(terminal.ws_router)
 app.include_router(system.router)
