@@ -4,7 +4,7 @@ import threading
 from contextlib import contextmanager
 from typing import Any
 
-from .common import CONFIG_FILE, GLOBAL_CONFIG_KEY, default_workspace_dir
+from .common import CONFIG_FILE, GLOBAL_CONFIG_KEY
 from .config_schema import normalize_loaded_config, validate_config_entry
 from .errors import bad_request
 
@@ -50,19 +50,6 @@ def _config_write():
         yield _read_config_unlocked()
 
 
-def _migrate_workspace_paths(config: dict) -> bool:
-    changed = False
-    for name, entry in list(config.items()):
-        if name == GLOBAL_CONFIG_KEY:
-            continue
-        if not isinstance(entry, dict):
-            continue
-        if not entry.get("path"):
-            entry["path"] = str(default_workspace_dir() / name)
-            changed = True
-    return changed
-
-
 def _try_restore_from_bak() -> dict[str, Any] | None:
     bak_path = CONFIG_FILE.with_suffix(".bak")
     if not bak_path.is_file():
@@ -98,7 +85,7 @@ def _read_config_unlocked() -> dict:
     normalized, errors = normalize_loaded_config(raw, GLOBAL_CONFIG_KEY)
     for name, error in errors:
         logger.warning("config validation failed key=%s: %s", name, error)
-    if _migrate_workspace_paths(normalized) or restore_needed:
+    if restore_needed:
         _write_config_unlocked(normalized)
     return normalized
 

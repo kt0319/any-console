@@ -8,7 +8,6 @@ from ..auth import verify_token
 from ..common import (
     BACKGROUND_EXECUTOR,
     BACKGROUND_FETCH_TIMEOUT_SEC,
-    default_workspace_dir,
     run_subprocess_safe,
 )
 from ..config import (
@@ -173,7 +172,7 @@ def _resolve_suggest_base(input_path: str) -> tuple[Path, str]:
     """
     raw = (input_path or "").strip()
     if not raw:
-        return default_workspace_dir(), ""
+        return Path.home(), ""
     trimmed = raw.rstrip("/") or "/"
     p = Path(trimmed).expanduser()
     if p.is_dir():
