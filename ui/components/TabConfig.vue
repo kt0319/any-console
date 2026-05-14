@@ -22,6 +22,7 @@
           class="split-tab-row"
           :class="{
             active: !isSplitMode && tab.id === activeTabId,
+            hidden: tab.hidden,
             'drag-source': dragFromIdx === idx,
             'drag-over-above': dragOverIdx === idx && dragFromIdx > idx,
             'drag-over-below': dragOverIdx === idx && dragFromIdx < idx,
@@ -51,7 +52,8 @@
           <span class="split-tab-row-info" @click.stop="onInfoClick(tab)">
             <span v-if="tab.wsIcon" v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
             <span v-if="tab.icon" v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
-            {{ tabDisplayName(tab) }}
+            <span class="split-tab-row-name">{{ tabDisplayName(tab) }}</span>
+            <span v-if="tab.hidden" class="split-tab-row-badge">Hidden</span>
           </span>
           <button type="button" class="split-tab-close-btn" @click.stop="onClose(tab)">&times;</button>
         </div>
@@ -339,6 +341,29 @@ onBeforeUnmount(() => {
 .split-tab-row.dragging {
   opacity: 0.7;
   background: var(--bg-tertiary);
+}
+
+.split-tab-row.hidden .split-tab-row-name {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.split-tab-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.split-tab-row-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1px 6px;
+  margin-left: 4px;
 }
 
 .split-tab-row-info {
