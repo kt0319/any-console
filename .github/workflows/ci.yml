@@ -33,6 +33,17 @@ jobs:
           ANY_CONSOLE_TOKEN: test-token
           PYTHONPATH: .
 
+      - name: Backend coverage summary
+        if: always()
+        run: |
+          {
+            echo "## Backend coverage"
+            echo ""
+            echo '```'
+            python -m coverage report || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload backend coverage to Codecov
         if: always()
         uses: codecov/codecov-action@v5
@@ -55,6 +66,32 @@ jobs:
 
       - name: Frontend test
         run: npm run test:coverage
+
+      - name: Frontend coverage summary
+        if: always()
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            {
+              echo "## Frontend coverage"
+              echo ""
+              node -e "
+                const s = require('./coverage/coverage-summary.json').total;
+                console.log('| Metric | Coverage |');
+                console.log('| --- | --- |');
+                for (const k of ['lines','statements','functions','branches']) {
+                  console.log(\`| \${k} | \${s[k].pct}% (\${s[k].covered}/\${s[k].total}) |\`);
+                }
+              "
+            } >> "$GITHUB_STEP_SUMMARY"
+          elif [ -f coverage/lcov.info ]; then
+            {
+              echo "## Frontend coverage"
+              echo ""
+              echo '```'
+              awk -F: '/^LF:/ {lf+=$2} /^LH:/ {lh+=$2} END { if (lf>0) printf "lines: %.1f%% (%d/%d)\n", lh/lf*100, lh, lf }' coverage/lcov.info
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload frontend coverage to Codecov
         if: always()
