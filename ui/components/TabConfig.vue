@@ -1,19 +1,11 @@
 <template>
   <div class="modal-scroll-body split-tab-scroll">
     <div class="split-tab-content">
-      <div class="split-tab-mode-row">
-        <button
-          v-for="m in modes"
-          :key="m.value"
-          type="button"
-          class="split-tab-mode-option"
-          :class="{ active: currentMode === m.value }"
-          :disabled="m.minTabs > openTabs.length"
-          @click="setMode(m.value)"
-        >
-          <span :class="m.icon"></span>
-        </button>
-      </div>
+      <SplitModeSelector
+        :current-mode="currentMode"
+        :tab-count="openTabs.length"
+        @select="setMode"
+      />
 
       <div class="split-tab-list">
         <div
@@ -64,12 +56,14 @@
 </template>
 
 <script setup>
-import { ref, inject, computed, onBeforeUnmount } from "vue";
+import { inject, computed } from "vue";
+import SplitModeSelector from "./SplitModeSelector.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
 import { useConfirm } from "../composables/useConfirm.js";
+import { useListDragSort } from "../composables/useListDragSort.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Tabs";
@@ -82,13 +76,6 @@ const openTabs = computed(() => terminalStore.openTabs);
 const activeTabId = computed(() => terminalStore.activeTabId);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
 const splitPaneTabIds = computed(() => layoutStore.splitPaneTabIds);
-
-const modes = [
-  { value: "normal", icon: "split-icon-normal", minTabs: 0 },
-  { value: "vertical", icon: "split-icon-v", minTabs: 2 },
-  { value: "horizontal", icon: "split-icon-h", minTabs: 2 },
-  { value: "grid", icon: "split-icon-grid", minTabs: 3 },
-];
 
 const currentMode = computed(() => {
   if (!isSplitMode.value) return "normal";
@@ -161,139 +148,13 @@ async function onClose(tab) {
   }
 }
 
-const dragFromIdx = ref(null);
-const dragOverIdx = ref(null);
-
-function onDragStart(e, idx) {
-  dragFromIdx.value = idx;
-  dragOverIdx.value = idx;
-  const isTouch = e.type === "touchstart";
-  const moveEvent = isTouch ? "touchmove" : "mousemove";
-  const endEvent = isTouch ? "touchend" : "mouseup";
-
-  function getY(ev) {
-    return isTouch ? ev.touches[0].clientY : ev.clientY;
-  }
-
-  function onMove(ev) {
-    const y = isTouch ? ev.touches[0].clientY : ev.clientY;
-    const rows = document.querySelectorAll(".split-tab-row");
-    for (let i = 0; i < rows.length; i++) {
-      const rect = rows[i].getBoundingClientRect();
-      if (y >= rect.top && y <= rect.bottom) {
-        dragOverIdx.value = i;
-        break;
-      }
-    }
-    if (isTouch) ev.preventDefault();
-  }
-
-  function onEnd() {
-    document.removeEventListener(moveEvent, onMove, { passive: false });
-    document.removeEventListener(endEvent, onEnd);
-    if (dragFromIdx.value !== null && dragOverIdx.value !== null && dragFromIdx.value !== dragOverIdx.value) {
-      terminalStore.moveTab(dragFromIdx.value, dragOverIdx.value);
-    }
-    dragFromIdx.value = null;
-    dragOverIdx.value = null;
-  }
-
-  document.addEventListener(moveEvent, onMove, { passive: false });
-  document.addEventListener(endEvent, onEnd);
-}
-
-onBeforeUnmount(() => {
-  dragFromIdx.value = null;
-  dragOverIdx.value = null;
+const { dragFromIdx, dragOverIdx, onDragStart } = useListDragSort({
+  rowSelector: ".split-tab-row",
+  onReorder: (fromIdx, toIdx) => terminalStore.moveTab(fromIdx, toIdx),
 });
 </script>
 
 <style scoped>
-.split-tab-mode-row {
-  display: flex;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  flex-shrink: 0;
-  margin-bottom: 8px;
-}
-
-.split-tab-mode-option {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 0;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-}
-
-.split-tab-mode-option.active {
-  background: var(--accent);
-  color: var(--bg-primary);
-}
-
-.split-tab-mode-option:disabled {
-  opacity: 0.25;
-  cursor: not-allowed;
-}
-
-[class^="split-icon-"] {
-  display: inline-block;
-  width: 16px;
-  height: 14px;
-  vertical-align: middle;
-  border: 1.5px solid currentColor;
-  border-radius: 1px;
-  position: relative;
-}
-
-.split-icon-h::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 1.5px;
-  background: currentColor;
-  transform: translateX(-50%);
-}
-
-.split-icon-v::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 1.5px;
-  background: currentColor;
-  transform: translateY(-50%);
-}
-
-.split-icon-grid::before,
-.split-icon-grid::after {
-  content: "";
-  position: absolute;
-  background: currentColor;
-}
-
-.split-icon-grid::before {
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 1.5px;
-  transform: translateX(-50%);
-}
-
-.split-icon-grid::after {
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 1.5px;
-  transform: translateY(-50%);
-}
-
 .split-tab-content {
   display: flex;
   flex-direction: column;
@@ -453,5 +314,4 @@ onBeforeUnmount(() => {
   justify-content: center;
   flex-shrink: 0;
 }
-
 </style>
