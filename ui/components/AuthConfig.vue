@@ -50,12 +50,14 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
+import { useConfirm } from "../composables/useConfirm.js";
 import { EP_SETTINGS_AUTH } from "../utils/endpoints.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Auth";
 
 const { apiGet, apiPut } = useApi();
+const { confirm } = useConfirm();
 
 const loading = ref(true);
 
@@ -84,9 +86,14 @@ async function saveAuth() {
     authSaveMessageType.value = "error";
     return;
   }
+  const trimmed = tokenValue.value.trim();
+  if (!enabled.value && tokenConfigured.value) {
+    if (!await confirm("Disable authentication and revoke the current token? Anyone with network access can use this console.")) return;
+  } else if (enabled.value && trimmed && tokenConfigured.value) {
+    if (!await confirm("Replace the current token? Existing clients will need the new token.")) return;
+  }
   savingAuth.value = true;
   authSaveMessage.value = "";
-  const trimmed = tokenValue.value.trim();
   const { ok } = await apiPut(EP_SETTINGS_AUTH, { enabled: enabled.value, token: trimmed }, { errorMessage: "Failed to save" });
   savingAuth.value = false;
   if (ok) {
