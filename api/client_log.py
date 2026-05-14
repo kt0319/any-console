@@ -3,7 +3,7 @@ import logging
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
-from .auth import _extract_client_ip, resolve_tailscale_name
+from .auth import _extract_client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +24,8 @@ class ClientLogMiddleware(BaseHTTPMiddleware):
             return response
 
         client_ip = _extract_client_ip(request)
-        client_name = resolve_tailscale_name(client_ip) or client_ip
         logger.info(
             "client=%s method=%s path=%s status=%d",
-            client_name, request.method, path, response.status_code,
+            client_ip, request.method, path, response.status_code,
         )
         return response

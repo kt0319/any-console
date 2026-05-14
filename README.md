@@ -59,14 +59,13 @@ cd any-console
 任意:
 
 - `gh` (GitHub CLI) — GitHubのリポジトリ・Issue・PR・Actionsの取得に使用
-- `tailscale` — クライアント名解決とVPN判定に使用
 
 インストール例:
 
 ```bash
 # Debian/Ubuntu
 sudo apt install python3 nodejs git tmux
-# 任意: gh / tailscale は公式手順に従う
+# 任意: gh は公式手順に従う
 
 # macOS
 brew install python node git tmux gh

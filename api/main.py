@@ -25,7 +25,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import auth as auth_module
-from .auth import COOKIE_NAME_TOKEN, get_client_ip, get_client_name, is_tailscale_ip, verify_token
+from .auth import COOKIE_NAME_TOKEN, verify_token
 from .client_log import ClientLogMiddleware
 from .common import BACKGROUND_EXECUTOR, MAX_UPLOAD_SIZE, UPLOAD_DIR, set_workspace_root
 from .errors import bad_request, too_large, unauthorized
@@ -154,16 +154,11 @@ app.include_router(settings.router)
 
 
 @app.get("/auth/check", dependencies=[Depends(verify_token)])
-def auth_check(
-    client_ip: str = Depends(get_client_ip),
-    client_name: str = Depends(get_client_name),
-):
+def auth_check():
     return {
         "status": "ok",
         "hostname": socket.gethostname(),
         "version": system.get_app_version(),
-        "client_name": client_name,
-        "vpn": is_tailscale_ip(client_ip),
     }
 
 

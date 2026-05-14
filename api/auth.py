@@ -3,9 +3,6 @@ import ipaddress
 import json
 import logging
 import os
-import subprocess
-import threading
-import time
 from pathlib import Path
 from typing import Optional
 
@@ -42,12 +39,6 @@ def update_token(new_token: str) -> None:
     _AUTH_FILE.parent.mkdir(parents=True, exist_ok=True)
     _AUTH_FILE.write_text(json.dumps({"token": new_token}))
     ANY_CONSOLE_TOKEN = new_token
-
-
-_TAILSCALE_CACHE_TTL = 300
-_tailscale_cache: dict[str, tuple[float, str]] = {}
-_tailscale_cache_lock = threading.Lock()
-_TAILSCALE_TIMEOUT_SEC = 5
 
 
 def _parse_trusted_proxies(raw: str) -> list:
@@ -93,37 +84,6 @@ def verify_token(
     )
 
 
-def resolve_tailscale_name(ip: str) -> str:
-    with _tailscale_cache_lock:
-        if ip in _tailscale_cache:
-            ts, name = _tailscale_cache[ip]
-            if time.monotonic() - ts < _TAILSCALE_CACHE_TTL:
-                return name
-    try:
-        result = subprocess.run(
-            ["tailscale", "status", "--json"],
-            capture_output=True, text=True, timeout=_TAILSCALE_TIMEOUT_SEC,
-        )
-        if result.returncode == 0:
-            import json
-            data = json.loads(result.stdout)
-            resolved = ""
-            for peer in (data.get("Peer") or {}).values():
-                for addr in peer.get("TailscaleIPs", []):
-                    if addr == ip:
-                        resolved = peer.get("HostName", "")
-            if not resolved:
-                self_ips = (data.get("Self") or {}).get("TailscaleIPs", [])
-                if ip in self_ips:
-                    resolved = data.get("Self", {}).get("HostName", "")
-            with _tailscale_cache_lock:
-                _tailscale_cache[ip] = (time.monotonic(), resolved)
-            return resolved
-    except (subprocess.TimeoutExpired, OSError, ValueError, KeyError):
-        logger.debug("tailscale name resolve failed for %s", ip, exc_info=True)
-    return ""
-
-
 def _extract_client_ip(request: Request) -> str:
     client_ip: str = request.client.host if request.client else ""
     if _is_trusted_proxy(client_ip):
@@ -131,20 +91,3 @@ def _extract_client_ip(request: Request) -> str:
         if forwarded_for:
             return str(forwarded_for).split(",")[0].strip()
     return client_ip
-
-
-def is_tailscale_ip(ip: str) -> bool:
-    try:
-        return ipaddress.ip_address(ip) in ipaddress.ip_network("100.64.0.0/10")
-    except ValueError:
-        return False
-
-
-def get_client_ip(request: Request) -> str:
-    return _extract_client_ip(request)
-
-
-def get_client_name(request: Request) -> str:
-    client_ip = _extract_client_ip(request)
-    name = resolve_tailscale_name(client_ip)
-    return name or client_ip

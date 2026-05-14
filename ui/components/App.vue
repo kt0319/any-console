@@ -87,7 +87,7 @@ onMounted(async () => {
   }
   if (result.ok) {
     auth.markAuthenticated();
-    auth.setServerInfo(result.hostname, result.version, result.clientName, result.vpn);
+    auth.setServerInfo(result.hostname, result.version);
     await onAuthenticated();
   } else if (!result.auth) {
     showLogin.value = true;

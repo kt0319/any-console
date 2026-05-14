@@ -19,10 +19,9 @@ Web操作コンソール。スマホからTailscale経由でシェルスクリ�
 - 主要ライブラリ: `fastapi`, `uvicorn`, `websockets`, `python-dotenv`, `pydantic`, `python-multipart`, `anthropic`（`requirements.txt`）
 - フロントエンド: `vite`、`vue`、`pinia`、`@xterm/xterm`、`highlight.js`、`@mdi/font`（`package.json`）
 - 開発依存: `pytest`, `pytest-cov`, `ruff`, `mypy`, `httpx`
-- 追加ツール（任意）
-  - `gh` CLI: GitHubリポジトリ一覧・Issue/PR/Actions取得に使用
+- 追加ツール
   - `tmux`: ターミナルセッション管理に必須（本番・開発とも）
-  - `tailscale`: クライアント名解決（VPN判定）。なくても動作する
+  - `gh` CLI（任意）: GitHubリポジトリ一覧・Issue/PR/Actions取得に使用
 
 ## 起動・開発
 
@@ -82,7 +81,7 @@ docker compose -f docker/compose.yml up -d
 
 - バックエンド: `api/`（FastAPI + subprocess）
   - `main.py`: アプリ初期化、`/auth/check`、画像アップロード、静的ファイル配信
-  - `auth.py`: トークン認証（環境変数 or `data/auth.json`）、Tailscale名前解決、IPバンド判定
+  - `auth.py`: トークン認証（`data/auth.json`）、信頼Proxy判定（X-Forwarded-For）
   - `runner.py`: ジョブ実行（subprocess、120秒タイムアウト）
   - `terminal_session.py` / `tmux.py`: tmux × pty.fork × WebSocket ブリッジ
   - `git_utils.py` / `git_lock.py`: Gitコマンド実行とワークスペース単位のロック

@@ -15,13 +15,11 @@
 
 <script setup>
 import { inject, computed } from "vue";
-import { useAuthStore } from "../stores/auth.js";
 import { useLayoutStore } from "../stores/layout.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Client Info";
 
-const authStore = useAuthStore();
 const layoutStore = useLayoutStore();
 
 function parseBrowser(ua) {
@@ -42,22 +40,16 @@ function parseBrowser(ua) {
   return ua.slice(0, 50);
 }
 
-const rows = computed(() => {
-  const items = [];
-  if (authStore.clientName) items.push({ label: "Client Name", value: authStore.clientName });
-  items.push(
-    { label: "VPN (Tailscale)", value: authStore.vpn ? "Yes" : "No" },
-    { label: "Browser", value: parseBrowser(navigator.userAgent) },
-    { label: "Platform", value: navigator.userAgentData?.platform || navigator.platform || "-" },
-    { label: "Screen", value: `${screen.width} x ${screen.height}` },
-    { label: "Viewport", value: `${window.innerWidth} x ${window.innerHeight}` },
-    { label: "Touch", value: layoutStore.isTouchDevice ? "Yes" : "No" },
-    { label: "PWA", value: layoutStore.isPwa ? "Yes" : "No" },
-    { label: "Online", value: navigator.onLine ? "Yes" : "No" },
-    { label: "Language", value: navigator.language },
-  );
-  return items;
-});
+const rows = computed(() => [
+  { label: "Browser", value: parseBrowser(navigator.userAgent) },
+  { label: "Platform", value: navigator.userAgentData?.platform || navigator.platform || "-" },
+  { label: "Screen", value: `${screen.width} x ${screen.height}` },
+  { label: "Viewport", value: `${window.innerWidth} x ${window.innerHeight}` },
+  { label: "Touch", value: layoutStore.isTouchDevice ? "Yes" : "No" },
+  { label: "PWA", value: layoutStore.isPwa ? "Yes" : "No" },
+  { label: "Online", value: navigator.onLine ? "Yes" : "No" },
+  { label: "Language", value: navigator.language },
+]);
 </script>
 
 <style scoped>
