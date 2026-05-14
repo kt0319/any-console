@@ -2,27 +2,6 @@
   <div class="modal-scroll-body">
     <div v-if="loading" class="text-muted-center">Loading...</div>
     <template v-else>
-      <div class="settings-section-label">Workspace Root</div>
-      <div v-if="workspaceRootSet" class="security-token-status configured">
-        <span class="mdi mdi-check-circle"></span>
-        Set to <code>{{ effectiveWorkspaceRoot }}</code>
-      </div>
-      <div v-else class="security-token-status default">
-        <span class="mdi mdi-information-outline"></span>
-        Using default: <code>{{ effectiveWorkspaceRoot }}</code>
-      </div>
-      <input
-        v-model="workspaceRoot"
-        class="security-token-input"
-        placeholder="Leave blank to use the default"
-      />
-      <button type="button" class="primary" :disabled="savingWs" @click="saveWorkspaceRoot">
-        {{ savingWs ? "Saving..." : "Save" }}
-      </button>
-      <div v-if="wsSaveMessage" class="security-save-message" :class="wsSaveMessageType">{{ wsSaveMessage }}</div>
-
-      <div class="settings-divider"></div>
-
       <label class="terminal-settings-item terminal-settings-toggle">
         <div class="terminal-settings-toggle-copy">
           <span class="settings-item-label">Require token authentication</span>
@@ -71,21 +50,14 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
-import { EP_SETTINGS_AUTH, EP_SETTINGS_WORKSPACE_ROOT } from "../utils/endpoints.js";
+import { EP_SETTINGS_AUTH } from "../utils/endpoints.js";
 
 const modalTitle = inject("modalTitle");
-modalTitle.value = "Other Options";
+modalTitle.value = "Auth";
 
 const { apiGet, apiPut } = useApi();
 
 const loading = ref(true);
-
-const workspaceRoot = ref("");
-const effectiveWorkspaceRoot = ref("");
-const workspaceRootSet = ref(false);
-const savingWs = ref(false);
-const wsSaveMessage = ref("");
-const wsSaveMessageType = ref("success");
 
 const enabled = ref(false);
 const tokenConfigured = ref(false);
@@ -104,24 +76,6 @@ function generateToken() {
 
 function onToggle() {
   if (!enabled.value) tokenValue.value = "";
-}
-
-async function saveWorkspaceRoot() {
-  savingWs.value = true;
-  wsSaveMessage.value = "";
-  const trimmed = workspaceRoot.value.trim();
-  const { ok, data } = await apiPut(EP_SETTINGS_WORKSPACE_ROOT, { workspace_root: trimmed }, { errorMessage: "Failed to save" });
-  savingWs.value = false;
-  if (ok) {
-    effectiveWorkspaceRoot.value = data.effective;
-    workspaceRoot.value = trimmed;
-    workspaceRootSet.value = !!trimmed;
-    wsSaveMessage.value = "Saved.";
-    wsSaveMessageType.value = "success";
-  } else {
-    wsSaveMessage.value = "Failed to save.";
-    wsSaveMessageType.value = "error";
-  }
 }
 
 async function saveAuth() {
@@ -151,15 +105,7 @@ async function saveAuth() {
 }
 
 onMounted(async () => {
-  const [wsRes, authRes] = await Promise.all([
-    apiGet(EP_SETTINGS_WORKSPACE_ROOT),
-    apiGet(EP_SETTINGS_AUTH),
-  ]);
-  if (wsRes.ok) {
-    workspaceRoot.value = wsRes.data.workspace_root || "";
-    effectiveWorkspaceRoot.value = wsRes.data.effective || "";
-    workspaceRootSet.value = !!wsRes.data.workspace_root;
-  }
+  const authRes = await apiGet(EP_SETTINGS_AUTH);
   if (authRes.ok) {
     enabled.value = !!authRes.data.auth_required;
     tokenConfigured.value = !!authRes.data.auth_required;
@@ -184,11 +130,6 @@ onMounted(async () => {
 .settings-item-desc {
   font-size: 12px;
   color: var(--text-muted);
-}
-
-.settings-divider {
-  border-top: 1px solid var(--border);
-  margin: 20px 0 4px;
 }
 
 .terminal-settings-item {
@@ -281,14 +222,6 @@ onMounted(async () => {
   word-break: break-all;
 }
 
-.security-token-status code {
-  font-family: monospace;
-  background: var(--bg-secondary);
-  padding: 1px 6px;
-  border-radius: 4px;
-  color: var(--text-primary);
-}
-
 .security-token-status .mdi {
   font-size: 18px;
   flex-shrink: 0;
@@ -296,5 +229,4 @@ onMounted(async () => {
 
 .security-token-status.configured { color: #4caf50; }
 .security-token-status.missing { color: #ff9800; }
-.security-token-status.default { color: var(--text-muted); }
 </style>

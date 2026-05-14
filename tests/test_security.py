@@ -3,7 +3,6 @@
 既知の脆弱性対策が維持されていることを確認する。
 """
 
-import ast
 import inspect
 import re
 
@@ -67,34 +66,6 @@ class TestAuthSecurity:
             source = f.read()
         assert "token=" not in source, (
             "buildWebSocketUrl must not include the auth token in the URL"
-        )
-
-
-class TestGitCloneInjection:
-    """git clone引数インジェクション対策"""
-
-    def test_clone_uses_double_dash(self):
-        """workspaces.pyのclone処理で -- オプション終端が使用されていることを確認"""
-        source_path = "api/routers/workspaces.py"
-        with open(source_path, encoding="utf-8") as f:
-            source = f.read()
-
-        tree = ast.parse(source)
-        found_clone_with_dash_dash = False
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.List, ast.Tuple)):
-                elements = []
-                for elt in node.elts:
-                    if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
-                        elements.append(elt.value)
-                if "clone" in elements and "--" in elements:
-                    clone_idx = elements.index("clone")
-                    dash_idx = elements.index("--")
-                    if dash_idx > clone_idx:
-                        found_clone_with_dash_dash = True
-
-        assert found_clone_with_dash_dash, (
-            "git clone command must include '--' to prevent argument injection"
         )
 
 
@@ -185,14 +156,6 @@ class TestWorkspaceNameSecurity:
     def test_workspace_name_traversal(self, client, name):
         res = client.get(f"/workspaces/{name}/status", headers=AUTH)
         assert res.status_code in (400, 404, 422)
-
-    def test_clone_rejects_traversal_in_dirname(self, client):
-        res = client.post(
-            "/workspaces",
-            headers=AUTH,
-            json={"url": "https://github.com/test/repo", "name": "../evil"},
-        )
-        assert res.status_code == 400
 
     @pytest.mark.parametrize("name", [
         "ws;rm -rf /",

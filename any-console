@@ -105,6 +105,30 @@ p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + '\n', encoding='utf
   info "config.json に保存しました（host=${new_host}, port=${new_port}）"
 }
 
+prompt_initial_workspace() {
+  local ws_path
+  read -rp "初期ワークスペースのパス（空でスキップ）: " ws_path
+  if [ -z "$ws_path" ]; then
+    return 0
+  fi
+  WS_PATH="$ws_path" python3 -c "
+import json, os, pathlib, sys
+p = pathlib.Path('config.json')
+cfg = json.loads(p.read_text()) if p.is_file() else {}
+abs_path = pathlib.Path(os.path.expanduser(os.environ['WS_PATH'])).resolve()
+if not abs_path.is_dir():
+    print(f'ディレクトリが存在しません: {abs_path}', file=sys.stderr)
+    sys.exit(1)
+name = abs_path.name
+if name in cfg and name != '__global__':
+    print(f'既に登録済み: {name}', file=sys.stderr)
+    sys.exit(1)
+cfg[name] = {'path': str(abs_path)}
+p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+print(f'登録: {name} ({abs_path})')
+" || warn "ワークスペース登録をスキップしました"
+}
+
 is_service_active() {
   systemctl is-active "$SERVICE_NAME" >/dev/null 2>&1
 }
@@ -135,6 +159,10 @@ cmd_setup() {
   echo ""
   info "バインド設定（config.json の __global__ に保存）"
   prompt_bind_config
+
+  echo ""
+  info "初期ワークスペース登録"
+  prompt_initial_workspace
 
   echo ""
   read -rp "systemdサービスを登録しますか? [y/N] " answer

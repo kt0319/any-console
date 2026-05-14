@@ -23,7 +23,7 @@ from pydantic import BaseModel
 from . import auth as auth_module
 from .auth import COOKIE_NAME_TOKEN, verify_token
 from .client_log import ClientLogMiddleware
-from .common import BACKGROUND_EXECUTOR, MAX_UPLOAD_SIZE, UPLOAD_DIR, set_workspace_root
+from .common import BACKGROUND_EXECUTOR, MAX_UPLOAD_SIZE, UPLOAD_DIR
 from .errors import bad_request, too_large, unauthorized
 from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
@@ -129,10 +129,6 @@ async def lifespan(app: FastAPI):
     if not _acquire_singleton_lock(port):
         raise SystemExit(1)
     _emit_insecure_bind_warning(host)
-    from .config import load_global_config_section
-    ws_root = load_global_config_section("workspace_root", "")
-    if ws_root and isinstance(ws_root, str):
-        set_workspace_root(ws_root)
     yield
     from .terminal_session import TERMINAL_SESSIONS, _detach_pty_bridge, sessions_lock
     with sessions_lock:

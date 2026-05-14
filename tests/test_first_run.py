@@ -45,17 +45,6 @@ class TestFreshStart:
 class TestSettingsDefaults:
     """設定エンドポイントが初期値を正しく返す"""
 
-    def test_workspace_root_returns_default(self, client, isolate_fs):
-        res = client.get("/settings/workspace-root", headers=AUTH)
-        assert res.status_code == 200
-        data = res.json()
-        assert "workspace_root" in data
-        assert "effective" in data
-        # 未設定なら workspace_root は空文字
-        assert data["workspace_root"] == ""
-        # effective は空でない（デフォルトパスが返る）
-        assert data["effective"] != ""
-
     def test_editor_settings_returns_default(self, client):
         res = client.get("/settings/editor", headers=AUTH)
         assert res.status_code == 200
@@ -183,24 +172,3 @@ class TestFirstJob:
         assert jobs[0]["jobIcon"] == "mdi-play-circle-outline"
 
 
-class TestWorkspaceRoot:
-    """ワークスペースルートの変更が反映される"""
-
-    def test_set_workspace_root(self, client, isolate_fs):
-        custom = isolate_fs["work"] / "custom-root"
-        custom.mkdir()
-
-        res = client.put("/settings/workspace-root", headers=AUTH, json={
-            "workspace_root": str(custom),
-        })
-        assert res.status_code == 200
-
-        # 読み返しても保存された値が一致する
-        res = client.get("/settings/workspace-root", headers=AUTH)
-        assert res.json()["workspace_root"] == str(custom)
-
-    def test_invalid_workspace_root_is_rejected(self, client):
-        res = client.put("/settings/workspace-root", headers=AUTH, json={
-            "workspace_root": "/path/that/does/not/exist",
-        })
-        assert res.status_code == 400

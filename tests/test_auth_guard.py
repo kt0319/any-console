@@ -17,7 +17,6 @@ ENDPOINTS = [
     ("PUT", "/workspaces/test-ws/config"),
     ("POST", "/workspaces"),
     # github
-    ("GET", "/github/repos"),
     ("GET", "/workspaces/test-ws/github/info"),
     ("GET", "/workspaces/test-ws/github/issues"),
     ("GET", "/workspaces/test-ws/github/pulls"),

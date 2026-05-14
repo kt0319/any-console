@@ -1,6 +1,4 @@
 import logging
-import re
-import subprocess
 from pathlib import Path
 
 from fastapi import APIRouter, Depends
@@ -10,11 +8,7 @@ from ..auth import verify_token
 from ..common import (
     BACKGROUND_EXECUTOR,
     BACKGROUND_FETCH_TIMEOUT_SEC,
-    GIT_CLONE_TIMEOUT_SEC,
-    GITHUB_CLI_REPO_LIMIT,
-    default_workspace_dir,
     run_subprocess_safe,
-    sanitize_log_value,
 )
 from ..config import (
     delete_workspace_config,
@@ -24,9 +18,8 @@ from ..config import (
     save_global_config_section,
     save_workspace_config,
 )
-from ..errors import bad_request, conflict, server_error, timeout_error
-from ..gh_utils import repos_cache, run_gh, run_gh_json
-from ..git_utils import command_result_dict, git_branch, git_github_url, git_info_to_status_dict, git_is_repo
+from ..errors import bad_request, conflict
+from ..git_utils import git_branch, git_github_url, git_info_to_status_dict, git_is_repo
 from ..icons import normalize_icon
 from ..validators import validate_workspace_name
 
@@ -139,94 +132,24 @@ def update_workspace_config_endpoint(name: str, body: UpdateConfigRequest):
 
 
 class AddWorkspaceRequest(BaseModel):
-    url: str | None = None
+    path: str
     name: str | None = None
-    path: str | None = None
-    base_dir: str | None = None
-
-
-def _normalize_clone_url(url: str) -> str:
-    github_url_match = re.match(r"https?://github\.com/(.+?)/?$", url)
-    if url and github_url_match:
-        return f"git@github.com:{github_url_match.group(1)}.git"
-    return url
-
-
-def _register_existing_path(existing_path: str, name: str | None) -> dict:
-    abs_path = Path(existing_path).expanduser().resolve()
-    if not abs_path.is_dir():
-        raise bad_request(f"Directory does not exist: {existing_path}")
-    dir_name = validate_workspace_name(name or abs_path.name)
-    if dir_name in list_workspace_entries():
-        raise conflict(f"'{dir_name}' is already registered")
-    save_workspace_config(dir_name, {"path": str(abs_path)})
-    logger.info("workspace registered name=%s path=%s", dir_name, abs_path)
-    return {"status": "ok", "name": dir_name, "mode": "existing"}
-
-
-def _resolve_new_workspace_target(name: str | None, url: str, base_dir_str: str | None) -> tuple[str, Path, Path]:
-    if name:
-        dir_name = name.strip()
-    elif url:
-        dir_name = url.rstrip("/").split("/")[-1].removesuffix(".git")
-    else:
-        raise bad_request("Please enter a URL or directory name")
-
-    dir_name = validate_workspace_name(dir_name)
-    if dir_name in list_workspace_entries():
-        raise conflict(f"'{dir_name}' is already registered")
-
-    base_dir = Path(base_dir_str) if base_dir_str and base_dir_str.strip() else default_workspace_dir()
-    target_path = base_dir / dir_name
-    if target_path.exists():
-        raise conflict(f"'{dir_name}' already exists")
-    base_dir.mkdir(parents=True, exist_ok=True)
-    return dir_name, base_dir, target_path
-
-
-def _clone_into_workspace(url: str, dir_name: str, base_dir: Path, target_path: Path) -> dict:
-    try:
-        result = subprocess.run(
-            ["git", "clone", "--", url, str(target_path)],
-            capture_output=True, text=True,
-            timeout=GIT_CLONE_TIMEOUT_SEC, cwd=str(base_dir),
-        )
-    except subprocess.TimeoutExpired:
-        raise timeout_error("Clone timed out") from None
-    except OSError as e:
-        logger.error("clone exec failed url=%s: %s", sanitize_log_value(url), e)
-        raise server_error(f"Clone execution failed: {e}") from None
-
-    resp = command_result_dict(result)
-    if result.returncode != 0:
-        logger.warning(
-            "clone failed url=%s rc=%d stderr=%s",
-            url, result.returncode, sanitize_log_value(result.stderr),
-        )
-    else:
-        save_workspace_config(dir_name, {"path": str(target_path)})
-        logger.info("clone ok dir=%s", dir_name)
-        resp["name"] = dir_name
-    return resp
 
 
 @router.post("/workspaces")
 def add_workspace(body: AddWorkspaceRequest):
-    url = _normalize_clone_url((body.url or "").strip())
     existing_path = (body.path or "").strip()
-
-    if existing_path:
-        return _register_existing_path(existing_path, body.name)
-
-    dir_name, base_dir, target_path = _resolve_new_workspace_target(body.name, url, body.base_dir)
-
-    if not url:
-        target_path.mkdir(parents=False, exist_ok=False)
-        save_workspace_config(dir_name, {"path": str(target_path)})
-        logger.info("workspace dir created dir=%s", dir_name)
-        return {"status": "ok", "name": dir_name, "mode": "directory"}
-
-    return _clone_into_workspace(url, dir_name, base_dir, target_path)
+    if not existing_path:
+        raise bad_request("Please enter a path")
+    abs_path = Path(existing_path).expanduser().resolve()
+    if not abs_path.is_dir():
+        raise bad_request(f"Directory does not exist: {existing_path}")
+    dir_name = validate_workspace_name(body.name or abs_path.name)
+    if dir_name in list_workspace_entries():
+        raise conflict(f"'{dir_name}' is already registered")
+    save_workspace_config(dir_name, {"path": str(abs_path)})
+    logger.info("workspace registered name=%s path=%s", dir_name, abs_path)
+    return {"status": "ok", "name": dir_name}
 
 
 @router.delete("/workspaces/{name}")
@@ -235,46 +158,3 @@ def delete_workspace(name: str):
     delete_workspace_config(name)
     logger.info("workspace deleted name=%s", name)
     return {"status": "ok"}
-
-
-@router.get("/github/repos")
-def list_github_repos():
-    cache = repos_cache()
-    cached = cache.get("repos")
-    if cached is not None:
-        return cached
-
-    auth_result = run_gh(["auth", "status"])
-    if auth_result is None:
-        raise server_error("gh command not found or failed")
-    if auth_result.returncode != 0:
-        raise server_error("gh CLI is not authenticated. Run 'gh auth login' on the server.")
-
-    json_fields = "nameWithOwner,url,description"
-    all_repos = []
-
-    own_repos = run_gh_json(["repo", "list", "--limit", str(GITHUB_CLI_REPO_LIMIT), "--json", json_fields])
-    if own_repos:
-        all_repos.extend(own_repos)
-
-    org_result = run_gh(["org", "list"])
-    if org_result is not None and org_result.returncode == 0:
-        orgs = [o.strip() for o in org_result.stdout.strip().splitlines() if o.strip()]
-        for org in orgs:
-            org_repos = run_gh_json(
-                ["repo", "list", org, "--limit", str(GITHUB_CLI_REPO_LIMIT), "--json", json_fields],
-            )
-            if org_repos:
-                all_repos.extend(org_repos)
-
-    seen = set()
-    unique_repos = []
-    for repo in all_repos:
-        key = repo.get("nameWithOwner")
-        if key and key not in seen:
-            seen.add(key)
-            unique_repos.append(repo)
-    unique_repos.sort(key=lambda r: r.get("nameWithOwner", "").lower())
-
-    cache.set("repos", unique_repos)
-    return unique_repos

@@ -13,17 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 UPLOAD_DIR = Path("/tmp/any-console-uploads")
 
 
-_workspace_root: str = ""
-
-
-def set_workspace_root(path: str) -> None:
-    global _workspace_root
-    _workspace_root = path
-
-
 def default_workspace_dir() -> Path:
-    if _workspace_root:
-        return Path(_workspace_root)
     return Path.home() / "work"
 
 CONFIG_FILE = PROJECT_ROOT / "config.json"
@@ -33,17 +23,14 @@ GIT_QUICK_TIMEOUT_SEC = 5
 GIT_SHORT_TIMEOUT_SEC = 10
 GIT_STANDARD_TIMEOUT_SEC = 30
 GIT_LONG_TIMEOUT_SEC = 60
-GIT_CLONE_TIMEOUT_SEC = 300
 GITHUB_CLI_TIMEOUT_SEC = 30
 SYSTEM_CMD_TIMEOUT_SEC = 5
 BACKGROUND_FETCH_TIMEOUT_SEC = 15
 GIT_LOG_MAX_ENTRIES = 10000
 
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024
-GITHUB_REPOS_CACHE_TTL_SEC = 300
 WORKSPACE_JOBS_CACHE_TTL_SEC = 60
 GIT_INFO_CACHE_TTL_SEC = 5
-GITHUB_CLI_REPO_LIMIT = 100
 PTY_READ_BUFFER_SIZE = 16384
 PTY_READER_WORKERS = 8
 MAX_TERMINAL_SESSIONS = 20
