@@ -84,7 +84,7 @@ async function loadAllJobCounts() {
     if (!ok) return;
     const counts = {};
     for (const [name, jobs] of Object.entries(data)) {
-      counts[name] = Object.entries(jobs).filter(([k, j]) => k !== "terminal" && !j.global).length;
+      counts[name] = Object.entries(jobs).filter(([k, j]) => k !== "terminal" && !j.common).length;
     }
     wsJobCounts.value = counts;
   } catch { /* ignore */ }

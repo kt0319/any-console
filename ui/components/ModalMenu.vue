@@ -7,9 +7,6 @@
       <button type="button" class="settings-menu-item" @click="pushView('WorkspaceConfig')">
         <span class="mdi mdi-cog-outline"></span> Workspace Settings
       </button>
-      <button type="button" class="settings-menu-item" @click="pushView('GlobalJobConfig')">
-        <span class="mdi mdi-briefcase-outline"></span> Global Jobs
-      </button>
       <button type="button" class="settings-menu-item" @click="pushView('TabConfig')">
         <span class="mdi mdi-tab"></span> Tabs
       </button>

@@ -59,7 +59,7 @@ CLAUDE.md から分離した参照用ドキュメント。変更時の影響範�
 - `GitChangeBranch.vue` / `GitCommitForm.vue` / `GitActionBtn.vue`: Gitアクション
 - `GitHubPane.vue` / `GitHubIssuesPane.vue` / `GitHubPRsPane.vue` / `GitHubActionsPane.vue`: GitHubタブ（リポジトリ・Issue・PR・Actions）
 - `FileBrowser.vue` / `FileItem.vue` / `FileActionMenu.vue` / `FileTextViewer.vue`: ファイルブラウザ
-- `JobConfig.vue` / `GlobalJobConfig.vue`: ジョブ設定
+- `JobConfig.vue`: ジョブ設定
 - `KeyboardBase.vue` / `KeyboardInput.vue` / `KeyboardQwertyKey.vue` / `KeyboardMinimumKey.vue` / `KeyboardSnippet.vue`: キーボード入力
 - `IconPicker.vue`: アイコン選択
 - `Modal.vue` / `ModalMenu.vue`: モーダル
@@ -189,11 +189,11 @@ CLAUDE.md から分離した参照用ドキュメント。変更時の影響範�
 | `DELETE /workspaces/{name}/jobs/{job_name}` | ジョブ削除 |
 | `PUT /workspaces/{name}/job-order` | ジョブ順序更新 |
 | `GET /jobs/workspaces` | 全ワークスペースのジョブ一覧 |
-| `GET /global/jobs` | グローバルジョブ一覧 |
-| `POST /global/jobs` | グローバルジョブ作成 |
-| `PUT /global/jobs/{job_name}` | グローバルジョブ更新 |
-| `DELETE /global/jobs/{job_name}` | グローバルジョブ削除 |
-| `PUT /global/job-order` | グローバルジョブ順序更新 |
+| `GET /common/jobs` | 共通ジョブ一覧 |
+| `POST /common/jobs` | 共通ジョブ作成 |
+| `PUT /common/jobs/{job_name}` | 共通ジョブ更新 |
+| `DELETE /common/jobs/{job_name}` | 共通ジョブ削除 |
+| `PUT /common/job-order` | 共通ジョブ順序更新 |
 | `GET /workspaces/{name}/github/info` | GitHubリポジトリ情報 |
 | `GET /workspaces/{name}/github/issues` | GitHub Issue一覧 |
 | `GET /workspaces/{name}/github/pulls` | GitHub PR一覧 |

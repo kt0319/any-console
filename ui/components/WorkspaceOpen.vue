@@ -33,14 +33,14 @@
               <button type="button" class="picker-ws-icon-btn" title="Terminal" @click="selectWorkspace(ws)">
                 <span class="mdi mdi-console"></span>
               </button>
-              <template v-if="wsGlobalJobs[ws.name]?.length">
+              <template v-if="wsCommonJobs[ws.name]?.length">
                 <div class="picker-ws-job-spacer"></div>
                 <button
-                  v-for="job in wsGlobalJobs[ws.name]"
+                  v-for="job in wsCommonJobs[ws.name]"
                   :key="job.name"
                   type="button"
                   class="picker-ws-icon-btn"
-                  :class="{ 'picker-ws-job-hidden': job.hidden_tab, 'picker-ws-job-global': true }"
+                  :class="{ 'picker-ws-job-hidden': job.hidden_tab, 'picker-ws-job-common': true }"
                   :title="job.label || job.name"
                   @click="runJob(ws, job)"
                 >
@@ -101,7 +101,7 @@ const { gitAction, isRunning } = useGitRemoteAction();
 const { recentJobs, loadRecentJobs } = useRecentJobs();
 const { runJob, runRecentJob } = useJobLauncher();
 
-const wsGlobalJobs = reactive({});
+const wsCommonJobs = reactive({});
 const wsLocalJobs = reactive({});
 const expandedName = ref(null);
 
@@ -153,8 +153,8 @@ async function loadAllWorkspaceJobs() {
       const all = Object.entries(jobs)
         .filter(([name]) => name !== "terminal")
         .map(([name, job]) => ({ name, ...job }));
-      wsGlobalJobs[ws.name] = all.filter((j) => j.global);
-      wsLocalJobs[ws.name] = all.filter((j) => !j.global);
+      wsCommonJobs[ws.name] = all.filter((j) => j.common);
+      wsLocalJobs[ws.name] = all.filter((j) => !j.common);
     }
   } catch {
     // ignore

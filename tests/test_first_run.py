@@ -18,8 +18,8 @@ class TestFreshStart:
         assert res.status_code == 200
         assert res.json() == []
 
-    def test_global_jobs_is_empty(self, client):
-        res = client.get("/global/jobs", headers=AUTH)
+    def test_common_jobs_is_empty(self, client):
+        res = client.get("/common/jobs", headers=AUTH)
         assert res.status_code == 200
         assert res.json() == {}
 

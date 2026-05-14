@@ -31,21 +31,21 @@ from ..validators import validate_icon, validate_icon_color
 logger = logging.getLogger(__name__)
 
 _workspace_jobs_cache = TTLCache(WORKSPACE_JOBS_CACHE_TTL_SEC)
-_global_jobs_cache = TTLCache(WORKSPACE_JOBS_CACHE_TTL_SEC)
+_common_jobs_cache = TTLCache(WORKSPACE_JOBS_CACHE_TTL_SEC)
 
-GLOBAL_JOBS_CACHE_KEY = "__global_jobs__"
+COMMON_JOBS_CACHE_KEY = "__common_jobs__"
 
 
-def load_global_jobs_data():
-    return _global_jobs_cache.get_or_set(
-        GLOBAL_JOBS_CACHE_KEY,
+def load_common_jobs_data():
+    return _common_jobs_cache.get_or_set(
+        COMMON_JOBS_CACHE_KEY,
         lambda: load_global_config_section("jobs", {}),
     )
 
 
-def save_global_jobs_data(data):
+def save_common_jobs_data(data):
     save_global_config_section("jobs", data)
-    _global_jobs_cache.invalidate(GLOBAL_JOBS_CACHE_KEY)
+    _common_jobs_cache.invalidate(COMMON_JOBS_CACHE_KEY)
     _workspace_jobs_cache.invalidate_all()
 
 
@@ -66,8 +66,8 @@ def ws_jobs_context(name):
     return load_workspace_jobs_data(name), lambda data: save_workspace_jobs_data(name, data), "Job"
 
 
-def global_jobs_context():
-    return load_global_jobs_data(), save_global_jobs_data, "Global job"
+def common_jobs_context():
+    return load_common_jobs_data(), save_common_jobs_data, "Common job"
 
 
 def entry_to_job_definition(name, entry):
@@ -86,25 +86,25 @@ def parse_jobs_data(data):
     return {name: entry_to_job_definition(name, entry) for name, entry in data.items()}
 
 
-def get_global_jobs():
-    return parse_jobs_data(load_global_jobs_data())
+def get_common_jobs():
+    return parse_jobs_data(load_common_jobs_data())
 
 
 def get_workspace_jobs(workspace_name):
     if not workspace_name:
         return {}
-    global_data = load_global_jobs_data()
+    common_data = load_common_jobs_data()
     ws_data = load_workspace_jobs_data(workspace_name)
     merged = {}
-    for name, entry in global_data.items():
+    for name, entry in common_data.items():
         merged[name] = (entry, True)
     for name, entry in ws_data.items():
         merged[name] = (entry, False)
-    return {name: (entry_to_job_definition(name, entry), is_global)
-            for name, (entry, is_global) in merged.items()}
+    return {name: (entry_to_job_definition(name, entry), is_common)
+            for name, (entry, is_common) in merged.items()}
 
 
-def job_definition_to_dict(job_def, is_global=None):
+def job_definition_to_dict(job_def, is_common=None):
     d = {
         "label": job_def.label,
         "description": job_def.description,
@@ -114,15 +114,15 @@ def job_definition_to_dict(job_def, is_global=None):
         "confirm": job_def.confirm,
         "hidden_tab": job_def.hidden_tab,
     }
-    if is_global is not None:
-        d["global"] = is_global
+    if is_common is not None:
+        d["common"] = is_common
     return d
 
 
 def serialize_workspace_jobs(workspace_name: str) -> dict:
     jobs = get_workspace_jobs(workspace_name)
-    return {jname: job_definition_to_dict(job_def, is_global=is_global)
-            for jname, (job_def, is_global) in jobs.items()}
+    return {jname: job_definition_to_dict(job_def, is_common=is_common)
+            for jname, (job_def, is_common) in jobs.items()}
 
 
 def _apply_icon_fields(entry: dict, icon: str, icon_color: str) -> None:

@@ -85,14 +85,14 @@ class TestWorkspaceJobScenario:
         assert "v2" in res.json()["stdout"]
 
 
-class TestGlobalJobScenario:
+class TestCommonJobScenario:
     """グローバルジョブの作成 → ワークスペースから参照 → 実行"""
 
-    def test_global_job_visible_in_workspace(self, client, workspace):
+    def test_common_job_visible_in_workspace(self, client, workspace):
         # グローバルジョブ作成
-        res = client.post("/global/jobs", headers=AUTH, json={
-            "label": "Global Echo",
-            "command": "echo global-test",
+        res = client.post("/common/jobs", headers=AUTH, json={
+            "label": "Common Echo",
+            "command": "echo common-test",
             "confirm": False,
         })
         assert res.status_code == 200
@@ -102,7 +102,7 @@ class TestGlobalJobScenario:
         res = client.get("/workspaces/test-ws/jobs", headers=AUTH)
         jobs = res.json()
         assert job_name in jobs
-        assert jobs[job_name]["global"] is True
+        assert jobs[job_name]["common"] is True
 
         # ワークスペースから実行可能
         res = client.post("/run", headers=AUTH, json={
@@ -110,29 +110,29 @@ class TestGlobalJobScenario:
             "workspace": "test-ws",
         })
         assert res.status_code == 200
-        assert "global-test" in res.json()["stdout"]
+        assert "common-test" in res.json()["stdout"]
 
         # グローバルジョブ削除
-        res = client.delete(f"/global/jobs/{job_name}", headers=AUTH)
+        res = client.delete(f"/common/jobs/{job_name}", headers=AUTH)
         assert res.status_code == 200
 
         # ワークスペースから消える
         res = client.get("/workspaces/test-ws/jobs", headers=AUTH)
         assert job_name not in res.json()
 
-    def test_workspace_job_overrides_global(self, client, workspace):
+    def test_workspace_job_overrides_common(self, client, workspace):
         # グローバルジョブ作成
-        res = client.post("/global/jobs", headers=AUTH, json={
+        res = client.post("/common/jobs", headers=AUTH, json={
             "label": "Override Me",
-            "command": "echo from-global",
+            "command": "echo from-common",
         })
-        global_job_name = res.json()["name"]
+        common_job_name = res.json()["name"]
 
         # 同名ジョブをワークスペースに作成（config.jsonで直接設定）
         config = json.loads(
             (workspace.parent / ".." / "data" / "config.json").resolve().read_text(encoding="utf-8")
         )
-        config.setdefault("test-ws", {}).setdefault("jobs", {})[global_job_name] = {
+        config.setdefault("test-ws", {}).setdefault("jobs", {})[common_job_name] = {
             "command": "echo from-workspace",
             "label": "Overridden",
         }
@@ -142,15 +142,15 @@ class TestGlobalJobScenario:
 
         # 実行するとワークスペース版が優先
         res = client.post("/run", headers=AUTH, json={
-            "job": global_job_name,
+            "job": common_job_name,
             "workspace": "test-ws",
         })
         assert res.status_code == 200
         assert "from-workspace" in res.json()["stdout"]
 
-    def test_global_job_full_crud(self, client):
+    def test_common_job_full_crud(self, client):
         # 作成
-        res = client.post("/global/jobs", headers=AUTH, json={
+        res = client.post("/common/jobs", headers=AUTH, json={
             "label": "CRUD Test",
             "command": "echo crud",
             "icon": "mdi-cog",
@@ -159,25 +159,25 @@ class TestGlobalJobScenario:
         job_name = res.json()["name"]
 
         # 読み取り
-        res = client.get("/global/jobs", headers=AUTH)
+        res = client.get("/common/jobs", headers=AUTH)
         assert job_name in res.json()
         assert res.json()[job_name]["icon"] == "mdi-cog"
 
         # 更新
-        res = client.put(f"/global/jobs/{job_name}", headers=AUTH, json={
+        res = client.put(f"/common/jobs/{job_name}", headers=AUTH, json={
             "label": "CRUD Updated",
             "command": "echo updated",
             "icon": "mdi-star",
         })
         assert res.status_code == 200
-        res = client.get("/global/jobs", headers=AUTH)
+        res = client.get("/common/jobs", headers=AUTH)
         assert res.json()[job_name]["command"] == "echo updated"
         assert res.json()[job_name]["icon"] == "mdi-star"
 
         # 削除
-        res = client.delete(f"/global/jobs/{job_name}", headers=AUTH)
+        res = client.delete(f"/common/jobs/{job_name}", headers=AUTH)
         assert res.status_code == 200
-        res = client.get("/global/jobs", headers=AUTH)
+        res = client.get("/common/jobs", headers=AUTH)
         assert job_name not in res.json()
 
 
@@ -268,13 +268,13 @@ class TestMultiWorkspaceScenario:
         assert job_alpha in all_jobs["ws-alpha"]
         assert job_beta in all_jobs["ws-beta"]
 
-    def test_global_job_appears_in_all_workspaces(self, client, isolate_fs):
+    def test_common_job_appears_in_all_workspaces(self, client, isolate_fs):
         work = isolate_fs["work"]
         for name in ("ws-one", "ws-two"):
             (work / name).mkdir()
             client.post("/workspaces", headers=AUTH, json={"path": str(work / name)})
 
-        res = client.post("/global/jobs", headers=AUTH, json={
+        res = client.post("/common/jobs", headers=AUTH, json={
             "label": "Shared Job",
             "command": "echo shared",
         })
@@ -283,7 +283,7 @@ class TestMultiWorkspaceScenario:
         for ws_name in ("ws-one", "ws-two"):
             jobs = client.get(f"/workspaces/{ws_name}/jobs", headers=AUTH).json()
             assert job_name in jobs
-            assert jobs[job_name]["global"] is True
+            assert jobs[job_name]["common"] is True
 
 
 class TestConfigImportExportScenario:
@@ -318,7 +318,7 @@ class TestConfigImportExportScenario:
 
         restored = client.get("/workspaces/test-ws/jobs", headers=AUTH).json()
         # グローバルジョブを除いたワークスペース固有ジョブの数で比較
-        ws_only = {k: v for k, v in restored.items() if not v.get("global")}
+        ws_only = {k: v for k, v in restored.items() if not v.get("common")}
         assert len(ws_only) == 1
 
 

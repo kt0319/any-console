@@ -33,10 +33,10 @@
         <button type="button" class="status-job-btn status-terminal-btn" title="Terminal" @click="openTerminal">
           <span class="mdi mdi-console"></span>
         </button>
-        <template v-if="currentGlobalJobs.length">
+        <template v-if="currentCommonJobs.length">
           <div class="status-job-spacer"></div>
           <button
-            v-for="job in currentGlobalJobs"
+            v-for="job in currentCommonJobs"
             :key="job.name"
             type="button"
             class="status-job-btn"
@@ -61,7 +61,7 @@
             <span v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
           </button>
         </template>
-        <span v-if="currentGlobalJobs.length === 0 && currentLocalJobs.length === 0" class="status-jobs-empty">No jobs</span>
+        <span v-if="currentCommonJobs.length === 0 && currentLocalJobs.length === 0" class="status-jobs-empty">No jobs</span>
       </div>
     </template>
   </div>
@@ -90,7 +90,7 @@ const { confirm } = useConfirm();
 
 const mode = ref("git");
 const jobsCache = {};
-const currentGlobalJobs = ref([]);
+const currentCommonJobs = ref([]);
 const currentLocalJobs = ref([]);
 
 function toggleMode() {
@@ -193,12 +193,12 @@ function doAction(action) {
 function applyJobs(wsName) {
   const cached = jobsCache[wsName];
   if (!cached) {
-    currentGlobalJobs.value = [];
+    currentCommonJobs.value = [];
     currentLocalJobs.value = [];
     return;
   }
-  currentGlobalJobs.value = cached.filter((j) => j.global);
-  currentLocalJobs.value = cached.filter((j) => !j.global);
+  currentCommonJobs.value = cached.filter((j) => j.common);
+  currentLocalJobs.value = cached.filter((j) => !j.common);
 }
 
 async function loadJobs(wsName) {
