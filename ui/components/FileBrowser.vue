@@ -71,19 +71,21 @@
               @touchend="onLongPressEnd"
               @touchcancel="onLongPressEnd"
             />
-            <li v-if="contextEntry?.name === entry.name" class="file-browser-action-menu"
-              @mouseenter="onMenuMouseEnter"
-              @mouseleave="onMenuMouseLeave"
-            >
-              <button v-if="!isHoverDevice" type="button" @click="openEntry(entry)"><span class="mdi mdi-open-in-app"></span> Open</button>
-              <button v-if="entry.type === 'file'" type="button" @click="openEntryInEditor"><span class="mdi mdi-file-edit-outline"></span> Editor</button>
-              <button v-if="entry.type === 'file'" type="button" @click="openEntryHistory"><span class="mdi mdi-history"></span> History</button>
-              <button v-if="entry.type === 'file'" type="button" @click="downloadEntry"><span class="mdi mdi-download"></span> Download</button>
-              <button v-if="githubEntryUrl" type="button" @click="openGitHub"><span class="mdi mdi-github"></span> GitHub</button>
-              <button type="button" @click="renameEntry"><span class="mdi mdi-rename-box"></span> Rename</button>
-              <button type="button" @click="moveEntry"><span class="mdi mdi-file-move-outline"></span> Move</button>
-              <button type="button" class="file-browser-action-delete" @click="deleteEntry"><span class="mdi mdi-delete-outline"></span> Delete</button>
-            </li>
+            <FileContextMenu
+              v-if="contextEntry?.name === entry.name"
+              :is-file="entry.type === 'file'"
+              :github-url="githubEntryUrl"
+              @open="openEntry(entry)"
+              @editor="openEntryInEditor"
+              @history="openEntryHistory"
+              @download="downloadEntry"
+              @github="openGitHub"
+              @rename="renameEntry"
+              @move="moveEntry"
+              @delete="deleteEntry"
+              @menu-enter="onMenuMouseEnter"
+              @menu-leave="onMenuMouseLeave"
+            />
           </template>
         </ul>
         <div v-if="entries.length === 0" class="file-content-message">No files</div>
@@ -99,6 +101,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import FileTextViewer from "./FileTextViewer.vue";
 import FileHistoryPane from "./FileHistoryPane.vue";
 import FileItem from "./FileItem.vue";
+import FileContextMenu from "./FileContextMenu.vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { useFileDragDrop } from "../composables/useFileDragDrop.js";
