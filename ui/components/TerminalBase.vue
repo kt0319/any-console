@@ -120,6 +120,8 @@ import KeyboardBase from "./KeyboardBase.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { on } from "../app-bridge.js";
+import { buildGridRows } from "../utils/terminal-layout.js";
+import { useTerminalDrop } from "../composables/useTerminalDrop.js";
 
 defineProps({
   isPanelBottom: { type: Boolean, default: false },
@@ -143,28 +145,7 @@ const activePaneIndex = computed(() => layoutStore.activePaneIndex);
 const isShowDropZones = computed(() => layoutStore.isShowDropZones);
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 
-function onDragEnter(e) {
-  e.currentTarget.classList.add("drag-over");
-}
-
-function onDragLeave(e) {
-  e.currentTarget.classList.remove("drag-over");
-}
-
-function onDrop(e, direction) {
-  e.preventDefault();
-  e.currentTarget.classList.remove("drag-over");
-  layoutStore.isShowDropZones = false;
-  const raw = layoutStore.dragTabId || e.dataTransfer.getData("text/plain");
-  const tabId = typeof raw === "string" ? parseInt(raw, 10) : raw;
-  if (tabId) {
-    layoutStore.splitWithDrop(tabId, direction, terminalStore.openTabs, terminalStore.activeTabId);
-    if (direction === "center" && !layoutStore.isSplitMode) {
-      terminalStore.switchTab(tabId);
-    }
-  }
-  layoutStore.dragTabId = null;
-}
+const { onDragEnter, onDragLeave, onDrop } = useTerminalDrop();
 
 const splitContainerClasses = computed(() => {
   if (!isSplitMode.value) return {};
@@ -175,32 +156,9 @@ const splitContainerClasses = computed(() => {
   };
 });
 
-function calcGridLayout(count) {
-  if (count <= 1) return [1];
-  if (count === 2) return [1, 1];
-  if (count === 3) return [2, 1];
-  if (count === 4) return [2, 2];
-  return [3, Math.max(1, count - 3)];
-}
-
 const gridRows = computed(() => {
   if (!isSplitMode.value || splitLayout.value !== "grid") return [];
-  const ids = splitPaneTabIds.value;
-  const layout = calcGridLayout(ids.length);
-  const rows = [];
-  let offset = 0;
-  for (const cols of layout) {
-    const row = [];
-    for (let c = 0; c < cols; c++) {
-      const globalIndex = offset + c;
-      if (globalIndex < ids.length) {
-        row.push({ tabId: ids[globalIndex], globalIndex });
-      }
-    }
-    rows.push(row);
-    offset += cols;
-  }
-  return rows;
+  return buildGridRows(splitPaneTabIds.value);
 });
 
 function getTabById(tabId) {
