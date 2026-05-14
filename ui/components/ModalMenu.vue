@@ -32,7 +32,7 @@
         <span class="mdi mdi-cellphone-information"></span> Client Info
       </button>
       <button type="button" class="settings-menu-item" @click="pushView('SecurityConfig')">
-        <span class="mdi mdi-shield-lock-outline"></span> Other Options
+        <span class="mdi mdi-shield-lock-outline"></span> Auth
       </button>
     </div>
   </div>
