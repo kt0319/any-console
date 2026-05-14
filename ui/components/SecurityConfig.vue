@@ -3,12 +3,19 @@
     <div v-if="loading" class="text-muted-center">Loading...</div>
     <template v-else>
       <div class="settings-section-label">Workspace Root</div>
+      <div v-if="workspaceRootSet" class="security-token-status configured">
+        <span class="mdi mdi-check-circle"></span>
+        Set to <code>{{ effectiveWorkspaceRoot }}</code>
+      </div>
+      <div v-else class="security-token-status default">
+        <span class="mdi mdi-information-outline"></span>
+        Using default: <code>{{ effectiveWorkspaceRoot }}</code>
+      </div>
       <input
         v-model="workspaceRoot"
         class="security-token-input"
-        placeholder="Default: ~/work"
+        placeholder="Leave blank to use the default"
       />
-      <div class="security-token-hint">Effective: {{ effectiveWorkspaceRoot }}</div>
       <button type="button" class="primary" :disabled="savingWs" @click="saveWorkspaceRoot">
         {{ savingWs ? "Saving..." : "Save" }}
       </button>
@@ -25,13 +32,22 @@
       </label>
 
       <template v-if="enabled">
-        <div class="settings-section-label">Token</div>
+        <div v-if="tokenConfigured" class="security-token-status configured">
+          <span class="mdi mdi-check-circle"></span>
+          Token is configured
+        </div>
+        <div v-else class="security-token-status missing">
+          <span class="mdi mdi-alert-circle-outline"></span>
+          No token set yet
+        </div>
+
+        <div class="settings-section-label">{{ tokenConfigured ? "Replace token" : "Token" }}</div>
         <div class="security-token-row">
           <input
             :type="showToken ? 'text' : 'password'"
             v-model="tokenValue"
             class="security-token-input"
-            placeholder="Enter new token"
+            :placeholder="tokenConfigured ? 'Enter a new token to replace' : 'Enter a token'"
             autocomplete="new-password"
           />
           <button type="button" class="security-icon-btn" :title="showToken ? 'Hide' : 'Show'" @click="showToken = !showToken">
@@ -41,7 +57,7 @@
             <span class="mdi mdi-refresh"></span>
           </button>
         </div>
-        <div class="security-token-hint">Leave blank to keep the current token.</div>
+        <div v-if="tokenConfigured" class="security-token-hint">Leave blank to keep the current token.</div>
       </template>
 
       <button type="button" class="primary" :disabled="savingAuth" @click="saveAuth">
@@ -66,11 +82,13 @@ const loading = ref(true);
 
 const workspaceRoot = ref("");
 const effectiveWorkspaceRoot = ref("");
+const workspaceRootSet = ref(false);
 const savingWs = ref(false);
 const wsSaveMessage = ref("");
 const wsSaveMessageType = ref("success");
 
 const enabled = ref(false);
+const tokenConfigured = ref(false);
 const tokenValue = ref("");
 const showToken = ref(false);
 const savingAuth = ref(false);
@@ -91,10 +109,13 @@ function onToggle() {
 async function saveWorkspaceRoot() {
   savingWs.value = true;
   wsSaveMessage.value = "";
-  const { ok, data } = await apiPut(EP_SETTINGS_WORKSPACE_ROOT, { workspace_root: workspaceRoot.value.trim() }, { errorMessage: "Failed to save" });
+  const trimmed = workspaceRoot.value.trim();
+  const { ok, data } = await apiPut(EP_SETTINGS_WORKSPACE_ROOT, { workspace_root: trimmed }, { errorMessage: "Failed to save" });
   savingWs.value = false;
   if (ok) {
     effectiveWorkspaceRoot.value = data.effective;
+    workspaceRoot.value = trimmed;
+    workspaceRootSet.value = !!trimmed;
     wsSaveMessage.value = "Saved.";
     wsSaveMessageType.value = "success";
   } else {
@@ -111,10 +132,16 @@ async function saveAuth() {
   }
   savingAuth.value = true;
   authSaveMessage.value = "";
-  const { ok } = await apiPut(EP_SETTINGS_AUTH, { enabled: enabled.value, token: tokenValue.value.trim() }, { errorMessage: "Failed to save" });
+  const trimmed = tokenValue.value.trim();
+  const { ok } = await apiPut(EP_SETTINGS_AUTH, { enabled: enabled.value, token: trimmed }, { errorMessage: "Failed to save" });
   savingAuth.value = false;
   if (ok) {
     tokenValue.value = "";
+    if (enabled.value) {
+      if (trimmed || tokenConfigured.value) tokenConfigured.value = true;
+    } else {
+      tokenConfigured.value = false;
+    }
     authSaveMessage.value = enabled.value ? "Saved. Reload the page if your token changed." : "Authentication disabled.";
     authSaveMessageType.value = "success";
   } else {
@@ -131,8 +158,12 @@ onMounted(async () => {
   if (wsRes.ok) {
     workspaceRoot.value = wsRes.data.workspace_root || "";
     effectiveWorkspaceRoot.value = wsRes.data.effective || "";
+    workspaceRootSet.value = !!wsRes.data.workspace_root;
   }
-  if (authRes.ok) enabled.value = !!authRes.data.auth_required;
+  if (authRes.ok) {
+    enabled.value = !!authRes.data.auth_required;
+    tokenConfigured.value = !!authRes.data.auth_required;
+  }
   loading.value = false;
 });
 </script>
@@ -240,4 +271,30 @@ onMounted(async () => {
 
 .security-save-message.success { color: #4caf50; }
 .security-save-message.error { color: #f44336; }
+
+.security-token-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 10px;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.security-token-status code {
+  font-family: monospace;
+  background: var(--bg-secondary);
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: var(--text-primary);
+}
+
+.security-token-status .mdi {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.security-token-status.configured { color: #4caf50; }
+.security-token-status.missing { color: #ff9800; }
+.security-token-status.default { color: var(--text-muted); }
 </style>
