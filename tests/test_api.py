@@ -3,7 +3,7 @@ import subprocess
 
 import pytest
 
-from conftest import AUTH
+from conftest import AUTH, find_ws_entry, find_ws_id
 
 
 # --- 認証 ---
@@ -38,14 +38,17 @@ class TestSettings:
         isolate_fs["config_file"].write_text(json.dumps(config))
         res = client.get("/settings/export", headers=AUTH)
         data = res.json()
-        assert "test-ws" in data
-        assert "nonexistent" in data
+        names = {v.get("name") for v in data.values() if isinstance(v, dict)}
+        assert "test-ws" in names
+        assert "nonexistent" in names
 
     def test_import_settings(self, client, workspace, isolate_fs):
         res = client.post("/settings/import", headers=AUTH, json={"test-ws": {"icon": "rocket"}})
         assert res.status_code == 200
         config = json.loads(isolate_fs["config_file"].read_text())
-        assert config["test-ws"]["icon"] == "rocket"
+        entry = find_ws_entry(config, "test-ws")
+        assert entry is not None
+        assert entry["icon"] == "rocket"
 
     def test_import_invalid_json(self, client):
         res = client.post(
@@ -402,7 +405,8 @@ class TestCommonJobsCRUD:
         common_job_name = common_res.json()["name"]
 
         config = json.loads(isolate_fs["config_file"].read_text(encoding="utf-8"))
-        config["test-ws"].setdefault("jobs", {})[common_job_name] = {
+        ws_id = find_ws_id(config, "test-ws") or "test-ws"
+        config.setdefault(ws_id, {}).setdefault("jobs", {})[common_job_name] = {
             "label": "shared",
             "command": "echo workspace",
         }

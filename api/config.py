@@ -4,7 +4,12 @@ import threading
 from contextlib import contextmanager
 from typing import Any
 
-from .common import CONFIG_FILE, GLOBAL_CONFIG_KEY
+from .common import (
+    CONFIG_FILE,
+    GLOBAL_CONFIG_KEY,
+    generate_workspace_id,
+    is_workspace_id,
+)
 from .config_schema import normalize_loaded_config, validate_config_entry
 from .errors import bad_request
 
@@ -64,6 +69,56 @@ def _try_restore_from_bak() -> dict[str, Any] | None:
         return None
 
 
+def _rebuild_workspace_keys(config: dict) -> tuple[dict, dict[str, str]]:
+    """workspace entry のキーを ID 化し、旧名→新ID の対応表を返す。"""
+    name_to_id: dict[str, str] = {}
+    new_config: dict[str, Any] = {}
+    for key, entry in config.items():
+        if key == GLOBAL_CONFIG_KEY or not isinstance(entry, dict) or is_workspace_id(key):
+            new_config[key] = entry
+            continue
+        new_id = generate_workspace_id()
+        while new_id in config or new_id in new_config:
+            new_id = generate_workspace_id()
+        name_to_id[key] = new_id
+        new_entry = dict(entry)
+        new_entry.setdefault("name", key)
+        new_config[new_id] = new_entry
+    return new_config, name_to_id
+
+
+def _remap_global_references(global_section: dict, name_to_id: dict[str, str]) -> dict:
+    """__global__ 配下の workspace_order / recent_jobs を旧名→新IDに置き換える。"""
+    global_section = dict(global_section)
+    order = global_section.get("workspace_order")
+    if isinstance(order, list):
+        global_section["workspace_order"] = [name_to_id.get(n, n) for n in order]
+    recent = global_section.get("recent_jobs")
+    if isinstance(recent, list):
+        new_recent = []
+        for r in recent:
+            if isinstance(r, dict):
+                r = dict(r)
+                old_ws = r.get("workspace")
+                if isinstance(old_ws, str) and old_ws in name_to_id:
+                    r["workspace"] = name_to_id[old_ws]
+            new_recent.append(r)
+        global_section["recent_jobs"] = new_recent
+    return global_section
+
+
+def _migrate_workspace_keys_to_ids(config: dict) -> tuple[dict, bool]:
+    """旧形式（キー=表示名）を新形式（キー=ID）に変換し、参照箇所も更新。"""
+    new_config, name_to_id = _rebuild_workspace_keys(config)
+    if not name_to_id:
+        return new_config, False
+    global_section = new_config.get(GLOBAL_CONFIG_KEY)
+    if isinstance(global_section, dict):
+        new_config[GLOBAL_CONFIG_KEY] = _remap_global_references(global_section, name_to_id)
+    logger.info("migrated %d workspace key(s) to id", len(name_to_id))
+    return new_config, True
+
+
 def _read_config_unlocked() -> dict:
     restore_needed = False
 
@@ -85,9 +140,10 @@ def _read_config_unlocked() -> dict:
     normalized, errors = normalize_loaded_config(raw, GLOBAL_CONFIG_KEY)
     for name, error in errors:
         logger.warning("config validation failed key=%s: %s", name, error)
-    if restore_needed:
-        _write_config_unlocked(normalized)
-    return normalized
+    migrated, did_migrate = _migrate_workspace_keys_to_ids(normalized)
+    if restore_needed or did_migrate:
+        _write_config_unlocked(migrated)
+    return migrated
 
 
 def _write_config_unlocked(config: dict) -> None:
@@ -114,21 +170,58 @@ def save_all_config(config: dict) -> None:
         _write_config_unlocked(config)
 
 
+def _find_workspace_key(cfg: dict, identifier: str) -> str | None:
+    """ID または表示名（name フィールド）から workspace のキー（ID）を解決する。"""
+    if identifier == GLOBAL_CONFIG_KEY:
+        return None
+    entry = cfg.get(identifier)
+    if isinstance(entry, dict):
+        return identifier
+    for key, value in cfg.items():
+        if key == GLOBAL_CONFIG_KEY or not isinstance(value, dict):
+            continue
+        if value.get("name") == identifier:
+            return str(key)
+    return None
+
+
+def resolve_workspace_id(identifier: str) -> str | None:
+    """API パラメータで渡される workspace 識別子（ID または 表示名）を ID に解決する。"""
+    if not identifier:
+        return None
+    with _config_read() as cfg:
+        return _find_workspace_key(cfg, identifier)
+
+
+def find_workspace_key(config: dict, identifier: str) -> str | None:
+    """ロード済み config に対して同じ解決を行う公開ヘルパー。"""
+    return _find_workspace_key(config, identifier)
+
+
 def load_workspace_config(workspace_name: str) -> dict[str, Any]:
     with _config_read() as cfg:
-        entry = cfg.get(workspace_name, {})
+        key = _find_workspace_key(cfg, workspace_name)
+        if key is None:
+            return {}
+        entry = cfg.get(key, {})
         return dict(entry) if isinstance(entry, dict) else {}
 
 
 def save_workspace_config(workspace_name: str, config: dict) -> None:
     with _config_write() as all_config:
-        all_config[workspace_name] = validate_config_entry(workspace_name, config, GLOBAL_CONFIG_KEY)
+        key = _find_workspace_key(all_config, workspace_name) or workspace_name
+        existing = all_config.get(key, {}) if isinstance(all_config.get(key), dict) else {}
+        merged = dict(config)
+        if "name" not in merged and existing.get("name"):
+            merged["name"] = existing["name"]
+        all_config[key] = validate_config_entry(key, merged, GLOBAL_CONFIG_KEY)
         _write_config_unlocked(all_config)
 
 
 def load_workspace_config_section(workspace_name: str, key: str, default=None):
     with _config_read() as cfg:
-        ws_config = cfg.get(workspace_name, {})
+        ws_key = _find_workspace_key(cfg, workspace_name)
+        ws_config = cfg.get(ws_key, {}) if ws_key else {}
         return ws_config.get(key, default if default is not None else {})
 
 
@@ -141,16 +234,20 @@ def _update_config_section(all_config: dict, config_key: str, section_key: str, 
 
 def save_workspace_config_section(workspace_name: str, key: str, data) -> None:
     with _config_write() as all_config:
-        _update_config_section(all_config, workspace_name, key, data)
+        ws_key = _find_workspace_key(all_config, workspace_name) or workspace_name
+        _update_config_section(all_config, ws_key, key, data)
 
 
 def delete_workspace_config(workspace_name: str) -> None:
     with _config_write() as all_config:
-        all_config.pop(workspace_name, None)
+        ws_key = _find_workspace_key(all_config, workspace_name)
+        if ws_key is None:
+            return
+        all_config.pop(ws_key, None)
         global_config = all_config.get(GLOBAL_CONFIG_KEY, {})
         order = global_config.get("workspace_order", [])
-        if workspace_name in order:
-            order = [n for n in order if n != workspace_name]
+        if ws_key in order:
+            order = [n for n in order if n != ws_key]
             global_config["workspace_order"] = order
             all_config[GLOBAL_CONFIG_KEY] = global_config
         _write_config_unlocked(all_config)
@@ -218,9 +315,10 @@ def save_global_config_section(key: str, data) -> None:
 def ensure_workspace_exists(workspace_name: str) -> dict:
     """Validate workspace exists and return its config. Raise 400 otherwise."""
     with _config_read() as cfg:
-        if workspace_name == GLOBAL_CONFIG_KEY or workspace_name not in cfg:
+        key = _find_workspace_key(cfg, workspace_name)
+        if key is None:
             raise bad_request(f"Workspace '{workspace_name}' not found")
-        entry = cfg.get(workspace_name)
+        entry = cfg.get(key)
         if not isinstance(entry, dict):
             raise bad_request(f"Workspace '{workspace_name}' not found")
         return entry

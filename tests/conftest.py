@@ -10,6 +10,21 @@ auth_module.ANY_CONSOLE_TOKEN = TOKEN
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
 
 
+def find_ws_id(config: dict, display_name: str) -> str | None:
+    """config.json から表示名で workspace ID を引く。"""
+    for key, value in config.items():
+        if key == "__global__":
+            continue
+        if isinstance(value, dict) and value.get("name") == display_name:
+            return key
+    return None
+
+
+def find_ws_entry(config: dict, display_name: str) -> dict | None:
+    ws_id = find_ws_id(config, display_name)
+    return config.get(ws_id) if ws_id else None
+
+
 @pytest.fixture(autouse=True)
 def isolate_fs(tmp_path, monkeypatch):
     work = tmp_path / "work"
@@ -40,6 +55,7 @@ def workspace(isolate_fs):
     import json
     config_file = isolate_fs["config_file"]
     config = json.loads(config_file.read_text(encoding="utf-8")) if config_file.is_file() else {}
+    # 互換目的でキーは表示名で書く（読み込み時に自動マイグレートされる）
     config.setdefault("test-ws", {})["path"] = str(ws)
     config_file.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
     return ws

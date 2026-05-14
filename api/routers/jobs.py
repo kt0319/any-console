@@ -49,15 +49,17 @@ def list_all_workspace_jobs():
     all_config = load_all_config()
     common_jobs_data = all_config.get(GLOBAL_CONFIG_KEY, {}).get("jobs", {})
     result = {}
-    for name in sorted(all_config.keys()):
-        if name == GLOBAL_CONFIG_KEY or not isinstance(all_config[name], dict):
+    for ws_id in sorted(all_config.keys()):
+        entry = all_config[ws_id]
+        if ws_id == GLOBAL_CONFIG_KEY or not isinstance(entry, dict):
             continue
-        ws_jobs_data = all_config[name].get("jobs", {})
+        ws_jobs_data = entry.get("jobs", {})
         merged = {}
         for is_common, jobs_data in [(True, common_jobs_data), (False, ws_jobs_data)]:
-            for jname, entry in jobs_data.items():
-                merged[jname] = (entry_to_job_definition(jname, entry), is_common)
-        result[name] = {
+            for jname, jentry in jobs_data.items():
+                merged[jname] = (entry_to_job_definition(jname, jentry), is_common)
+        display_name = entry.get("name") or ws_id
+        result[display_name] = {
             jname: job_definition_to_dict(jdef, is_common=is_common)
             for jname, (jdef, is_common) in merged.items()
         }

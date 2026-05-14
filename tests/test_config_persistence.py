@@ -1,6 +1,7 @@
 import json
 
 import pytest
+from conftest import find_ws_entry, find_ws_id
 
 
 class TestConfigLoadSave:
@@ -20,8 +21,9 @@ class TestConfigLoadSave:
         }
         save_all_config(config)
         loaded = load_all_config()
-        assert loaded["my-ws"]["icon"] == "mdi-star"
-        assert loaded["my-ws"]["icon_color"] == "#ff0000"
+        entry = find_ws_entry(loaded, "my-ws")
+        assert entry["icon"] == "mdi-star"
+        assert entry["icon_color"] == "#ff0000"
 
     def test_save_creates_parent_directory(self, isolate_fs):
         import shutil
@@ -55,7 +57,9 @@ class TestConfigLoadSave:
 
         from api.config import load_all_config
         result = load_all_config()
-        assert result.get("ws", {}).get("icon") == "mdi-star"
+        entry = find_ws_entry(result, "ws")
+        assert entry is not None
+        assert entry.get("icon") == "mdi-star"
         # config.json should now be repaired
         assert json.loads(config_file.read_text()) is not None
 
@@ -70,8 +74,8 @@ class TestConfigLoadSave:
 
         from api.config import load_all_config
         loaded = load_all_config()
-        assert "valid-ws" in loaded
-        assert "bad-ws" not in loaded
+        assert find_ws_id(loaded, "valid-ws") is not None
+        assert find_ws_id(loaded, "bad-ws") is None
 
     def test_atomic_write(self, isolate_fs):
         from api.config import save_all_config, load_all_config
@@ -111,8 +115,8 @@ class TestWorkspaceConfig:
 
         save_workspace_config("ws1", {"icon": "updated", "icon_color": "", "hidden": False, "jobs": {}})
         loaded = load_all_config()
-        assert loaded["ws1"]["icon"] == "updated"
-        assert loaded["ws2"]["icon"] == "b"
+        assert find_ws_entry(loaded, "ws1")["icon"] == "updated"
+        assert find_ws_entry(loaded, "ws2")["icon"] == "b"
 
 
 class TestConfigSection:

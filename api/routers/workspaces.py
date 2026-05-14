@@ -8,6 +8,7 @@ from ..auth import verify_token
 from ..common import (
     BACKGROUND_EXECUTOR,
     BACKGROUND_FETCH_TIMEOUT_SEC,
+    generate_workspace_id,
     run_subprocess_safe,
 )
 from ..config import (
@@ -15,6 +16,7 @@ from ..config import (
     ensure_workspace_exists,
     list_workspace_entries,
     load_global_config_section,
+    resolve_workspace_id,
     save_global_config_section,
     save_workspace_config,
 )
@@ -53,14 +55,15 @@ def _sort_key_by_workspace_order(order_list):
 
 
 def _workspace_summary(item):
-    name, config = item
+    ws_id, config = item
     ws_path = Path(config.get("path", ""))
     is_dir = ws_path.is_dir()
     is_git = git_is_repo(ws_path) if is_dir else False
     branch = git_branch(ws_path) if is_git else None
     github_url = git_github_url(ws_path) if is_git else None
     info = {
-        "name": name,
+        "id": ws_id,
+        "name": config.get("name") or ws_id,
         "path": str(ws_path),
         "is_git_repo": is_git,
         "branch": branch,
@@ -91,10 +94,11 @@ def list_workspaces():
 def list_workspace_statuses():
     entries = list_workspace_entries()
     items = []
-    for name, config in entries.items():
+    for ws_id, config in entries.items():
         ws_path = Path(config.get("path", ""))
         if ws_path.is_dir() and git_is_repo(ws_path):
-            items.append((ws_path, name))
+            display_name = config.get("name") or ws_id
+            items.append((ws_path, display_name))
 
     def _get_status(item):
         return git_info_to_status_dict(item[0], item[1])
@@ -118,6 +122,33 @@ class UpdateConfigRequest(BaseModel):
     icon: str = ""
     icon_color: str = ""
     hidden: bool = False
+    name: str | None = None
+    path: str | None = None
+
+
+def _apply_name_update(config: dict, ws_id: str | None, new_name_raw: str) -> None:
+    new_name = validate_workspace_name(new_name_raw)
+    for other_id, other_entry in list_workspace_entries().items():
+        if other_id == ws_id:
+            continue
+        if other_entry.get("name") == new_name:
+            raise conflict(f"'{new_name}' is already registered")
+    config["name"] = new_name
+
+
+def _apply_path_update(config: dict, ws_id: str | None, new_path_raw: str) -> None:
+    new_path = new_path_raw.strip()
+    if not new_path:
+        raise bad_request("Path is required")
+    abs_path = Path(new_path).expanduser().resolve()
+    if not abs_path.is_dir():
+        raise bad_request(f"Directory does not exist: {new_path}")
+    for other_id, other_entry in list_workspace_entries().items():
+        if other_id == ws_id:
+            continue
+        if Path(other_entry.get("path", "")).resolve() == abs_path:
+            raise conflict(f"Path already used: {abs_path}")
+    config["path"] = str(abs_path)
 
 
 @router.put("/workspaces/{name}/config")
@@ -126,6 +157,11 @@ def update_workspace_config_endpoint(name: str, body: UpdateConfigRequest):
     config["icon"] = normalize_icon(body.icon.strip())
     config["icon_color"] = body.icon_color.strip()
     config["hidden"] = body.hidden
+    ws_id = resolve_workspace_id(name)
+    if body.name is not None:
+        _apply_name_update(config, ws_id, body.name)
+    if body.path is not None:
+        _apply_path_update(config, ws_id, body.path)
     save_workspace_config(name, config)
     logger.info("workspace config updated workspace=%s", name)
     return {"status": "ok"}
@@ -144,12 +180,17 @@ def add_workspace(body: AddWorkspaceRequest):
     abs_path = Path(existing_path).expanduser().resolve()
     if not abs_path.is_dir():
         raise bad_request(f"Directory does not exist: {existing_path}")
-    dir_name = validate_workspace_name(body.name or abs_path.name)
-    if dir_name in list_workspace_entries():
-        raise conflict(f"'{dir_name}' is already registered")
-    save_workspace_config(dir_name, {"path": str(abs_path)})
-    logger.info("workspace registered name=%s path=%s", dir_name, abs_path)
-    return {"status": "ok", "name": dir_name}
+    display_name = validate_workspace_name(body.name or abs_path.name)
+    entries = list_workspace_entries()
+    for entry in entries.values():
+        if entry.get("name") == display_name:
+            raise conflict(f"'{display_name}' is already registered")
+    new_id = generate_workspace_id()
+    while new_id in entries:
+        new_id = generate_workspace_id()
+    save_workspace_config(new_id, {"name": display_name, "path": str(abs_path)})
+    logger.info("workspace registered id=%s name=%s path=%s", new_id, display_name, abs_path)
+    return {"status": "ok", "id": new_id, "name": display_name}
 
 
 @router.delete("/workspaces/{name}")

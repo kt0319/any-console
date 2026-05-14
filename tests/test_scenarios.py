@@ -5,7 +5,7 @@ import subprocess
 
 import pytest
 
-from conftest import AUTH
+from conftest import AUTH, find_ws_id
 
 
 class TestWorkspaceJobScenario:
@@ -129,14 +129,14 @@ class TestCommonJobScenario:
         common_job_name = res.json()["name"]
 
         # 同名ジョブをワークスペースに作成（config.jsonで直接設定）
-        config = json.loads(
-            (workspace.parent / ".." / "data" / "config.json").resolve().read_text(encoding="utf-8")
-        )
-        config.setdefault("test-ws", {}).setdefault("jobs", {})[common_job_name] = {
+        config_path = (workspace.parent / ".." / "data" / "config.json").resolve()
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        ws_id = find_ws_id(config, "test-ws") or "test-ws"
+        config.setdefault(ws_id, {}).setdefault("jobs", {})[common_job_name] = {
             "command": "echo from-workspace",
             "label": "Overridden",
         }
-        (workspace.parent / ".." / "data" / "config.json").resolve().write_text(
+        config_path.write_text(
             json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8"
         )
 
@@ -300,7 +300,7 @@ class TestConfigImportExportScenario:
         res = client.get("/settings/export", headers=AUTH)
         assert res.status_code == 200
         exported = res.json()
-        assert "test-ws" in exported
+        assert find_ws_id(exported, "test-ws") is not None
 
         # ジョブ追加
         client.post("/workspaces/test-ws/jobs", headers=AUTH, json={

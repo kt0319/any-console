@@ -9,7 +9,7 @@ from ..auth import verify_token
 from ..common import GLOBAL_CONFIG_KEY, MAX_COMMAND_LENGTH, MAX_LABEL_LENGTH
 from ..config import (
     check_config_health,
-    list_workspace_entries,
+    find_workspace_key,
     load_all_config,
     load_global_config_section,
     save_all_config,
@@ -48,11 +48,6 @@ def put_auth_settings(body: AuthSettings):
     return {"auth_required": bool(new_token)}
 
 
-def _existing_workspace_names() -> set[str]:
-    entries = list_workspace_entries()
-    return {name for name, cfg in entries.items() if Path(cfg.get("path", "")).is_dir()}
-
-
 @router.get("/settings/config-health")
 def get_config_health():
     return check_config_health()
@@ -63,8 +58,7 @@ def export_settings():
     return load_all_config()
 
 
-@router.post("/settings/import")
-async def import_settings(request: Request):
+async def _parse_import_body(request: Request) -> dict:
     content_length = request.headers.get("content-length")
     if content_length and int(content_length) > MAX_IMPORT_SIZE:
         raise too_large("Import data too large (max 1MB)")
@@ -77,14 +71,31 @@ async def import_settings(request: Request):
         raise bad_request("Invalid JSON") from None
     if not isinstance(data, dict):
         raise bad_request("Expected JSON object")
-    existing = _existing_workspace_names()
+    return data
+
+
+def _apply_import_entry(current: dict, identifier: str, ws_config) -> None:
+    if identifier == GLOBAL_CONFIG_KEY and isinstance(ws_config, dict):
+        current[identifier] = ws_config
+        return
+    if not isinstance(ws_config, dict):
+        return
+    target_id = find_workspace_key(current, identifier)
+    if target_id is None:
+        return
+    if not Path(current[target_id].get("path", "")).is_dir():
+        return
+    merged = {**current[target_id], **ws_config}
+    merged["name"] = current[target_id].get("name") or target_id
+    current[target_id] = merged
+
+
+@router.post("/settings/import")
+async def import_settings(request: Request):
+    data = await _parse_import_body(request)
     current = load_all_config()
-    for name, ws_config in data.items():
-        if name == GLOBAL_CONFIG_KEY and isinstance(ws_config, dict):
-            current[name] = ws_config
-            continue
-        if name in existing and isinstance(ws_config, dict):
-            current[name] = ws_config
+    for identifier, ws_config in data.items():
+        _apply_import_entry(current, identifier, ws_config)
     try:
         save_all_config(current)
     except ValueError as e:
