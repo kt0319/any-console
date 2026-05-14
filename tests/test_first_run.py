@@ -99,6 +99,74 @@ class TestFirstWorkspace:
         assert ws["icon"] == "mdi-console"
 
 
+class TestWorkspaceSuggest:
+    """/workspaces/suggest のサジェストAPI"""
+
+    def test_empty_path_returns_home(self, client, isolate_fs):
+        res = client.get("/workspaces/suggest?path=", headers=AUTH)
+        assert res.status_code == 200
+        data = res.json()
+        assert "base" in data
+        assert isinstance(data.get("entries"), list)
+
+    def test_existing_dir_lists_children(self, client, isolate_fs):
+        (isolate_fs["work"] / "alpha").mkdir()
+        (isolate_fs["work"] / "beta").mkdir()
+        (isolate_fs["work"] / ".hidden").mkdir()
+
+        res = client.get(
+            f"/workspaces/suggest?path={isolate_fs['work']}",
+            headers=AUTH,
+        )
+        assert res.status_code == 200
+        names = [e["name"] for e in res.json()["entries"]]
+        assert "alpha" in names
+        assert "beta" in names
+        # ドット始まりは除外
+        assert ".hidden" not in names
+
+    def test_trailing_slash_lists_contents(self, client, isolate_fs):
+        (isolate_fs["work"] / "proj").mkdir()
+        res = client.get(
+            f"/workspaces/suggest?path={isolate_fs['work']}/",
+            headers=AUTH,
+        )
+        assert res.status_code == 200
+        names = [e["name"] for e in res.json()["entries"]]
+        assert "proj" in names
+
+    def test_partial_name_filters_by_prefix(self, client, isolate_fs):
+        (isolate_fs["work"] / "alpha").mkdir()
+        (isolate_fs["work"] / "beta").mkdir()
+        res = client.get(
+            f"/workspaces/suggest?path={isolate_fs['work']}/al",
+            headers=AUTH,
+        )
+        assert res.status_code == 200
+        names = [e["name"] for e in res.json()["entries"]]
+        assert "alpha" in names
+        assert "beta" not in names
+
+    def test_registered_flag_for_existing_workspace(self, client, workspace, isolate_fs):
+        (isolate_fs["work"] / "other").mkdir()
+        res = client.get(
+            f"/workspaces/suggest?path={isolate_fs['work']}",
+            headers=AUTH,
+        )
+        assert res.status_code == 200
+        entries = {e["name"]: e for e in res.json()["entries"]}
+        assert entries["test-ws"]["registered"] is True
+        assert entries["other"]["registered"] is False
+
+    def test_nonexistent_path_returns_empty(self, client, isolate_fs):
+        res = client.get(
+            f"/workspaces/suggest?path={isolate_fs['work']}/nope/deeper",
+            headers=AUTH,
+        )
+        assert res.status_code == 200
+        assert res.json()["entries"] == []
+
+
 class TestFirstJob:
     """ジョブを初めて作成・実行する操作"""
 
