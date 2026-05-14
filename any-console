@@ -110,7 +110,6 @@ cmd_setup() {
   echo ""
   echo "起動:"
   echo "  ./any-console start    (systemd経由)"
-  echo "  ./any-console dev      (開発モード)"
   echo ""
   echo "ブラウザで http://localhost:$(get_port) を開いてください。"
   echo "認証トークンは .env の ANY_CONSOLE_TOKEN を確認してください。"
@@ -231,34 +230,6 @@ cmd_version() {
   echo "any-console $(get_version)"
 }
 
-cmd_dev() {
-  check_deps
-
-  local port
-  port=$(get_port)
-
-  local env_opt=""
-  if [ ! -f .env ]; then
-    env_opt="ANY_CONSOLE_TOKEN=dev-token"
-    warn ".env がありません。開発用トークン 'dev-token' で起動します"
-  fi
-
-  info "開発モードで起動中... (Ctrl+C で終了)"
-  echo ""
-
-  trap 'kill 0; exit 0' INT TERM
-
-  if [ -n "$env_opt" ]; then
-    env $env_opt python3 -m uvicorn api.main:app --host 0.0.0.0 --port "$port" --reload --reload-include "*.py" &
-  else
-    python3 -m uvicorn api.main:app --host 0.0.0.0 --port "$port" --reload --reload-include "*.py" &
-  fi
-
-  npm run dev &
-
-  wait
-}
-
 usage() {
   echo -e "${BOLD}Usage:${NC} ./any-console <command>"
   echo ""
@@ -271,7 +242,6 @@ usage() {
   echo "  status     状態表示（サービス状態、URL、バージョン）"
   echo "  logs       サービスログ表示（journalctl）"
   echo "  version    バージョン表示"
-  echo "  dev        開発モード起動（FastAPI + Vite HMR）"
 }
 
 command="${1:-}"
@@ -285,6 +255,5 @@ case "$command" in
   status)  cmd_status ;;
   logs)    cmd_logs ;;
   version) cmd_version ;;
-  dev)     cmd_dev ;;
   *)       usage ;;
 esac

@@ -35,28 +35,7 @@ Web操作コンソール。スマホからTailscale経由でシェルスクリ�
 ./any-console status     状態表示（サービス状態、URL、バージョン）
 ./any-console logs       journalctl のサービスログ表示
 ./any-console version    バージョン表示
-./any-console dev        開発モード起動（FastAPI + Vite HMR を並列起動、Ctrl+C で両方終了）
 ```
-
-### 開発（Vite HMR）
-
-`./any-console dev` を推奨。手動で並列起動する場合:
-
-```bash
-# 1. 依存インストール（初回のみ）
-pip install -r requirements.txt
-npm install
-
-# 2. FastAPI（API側）を起動
-python -m uvicorn api.main:app --host 0.0.0.0 --port 8888 --reload --reload-include "*.py"
-
-# 3. Vite dev server を別ターミナルで起動
-npm run dev
-# → localhost:5173 にアクセス（APIはプロキシで8888に転送）
-```
-
-- UI編集が即座にブラウザに反映される（HMR）
-- APIリクエスト・WebSocketは `vite.config.js` のプロキシ設定で FastAPI に転送
 
 ### 本番（systemd / Docker）
 

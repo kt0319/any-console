@@ -85,7 +85,6 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8888
 ./any-console status     状態表示（サービス状態、URL、バージョン）
 ./any-console logs       サービスログ表示（journalctl）
 ./any-console version    バージョン表示
-./any-console dev        開発モード起動（FastAPI + Vite HMR）
 ```
 
 ### アップデート
@@ -95,14 +94,6 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8888
 ```
 
 `git pull` → 依存更新 → ビルド → サービス再起動を一括で行う。変更がなければスキップする。
-
-### 開発モード
-
-```bash
-./any-console dev
-```
-
-FastAPI と Vite dev server を並列起動する。Ctrl+C で両方終了。
 
 ## ディレクトリ構成
 
