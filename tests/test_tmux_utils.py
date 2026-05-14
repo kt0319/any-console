@@ -78,3 +78,69 @@ class TestGetTmuxCreated:
         result.stdout = "not_a_number\n"
         with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
             assert get_tmux_created("test-session") is None
+
+
+class TestRunTmuxCmd:
+    def test_timeout_returns_none(self):
+        from api.tmux import _run_tmux_cmd
+        with mock.patch("subprocess.run", side_effect=subprocess.TimeoutExpired("tmux", 5)):
+            assert _run_tmux_cmd("has-session", "-t", "x") is None
+
+    def test_oserror_returns_none(self):
+        from api.tmux import _run_tmux_cmd
+        with mock.patch("subprocess.run", side_effect=OSError("no tmux")):
+            assert _run_tmux_cmd("has-session", "-t", "x") is None
+
+    def test_success_returns_completed_process(self):
+        from api.tmux import _run_tmux_cmd
+        cp = subprocess.CompletedProcess(["tmux"], 0, stdout="ok\n", stderr="")
+        with mock.patch("subprocess.run", return_value=cp):
+            assert _run_tmux_cmd("foo") is cp
+
+
+class TestTmuxSessionExists:
+    def test_true_when_returncode_zero(self):
+        from api.tmux import tmux_session_exists
+        result = mock.MagicMock()
+        result.returncode = 0
+        with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
+            assert tmux_session_exists("x") is True
+
+    def test_false_when_nonzero(self):
+        from api.tmux import tmux_session_exists
+        result = mock.MagicMock()
+        result.returncode = 1
+        with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
+            assert tmux_session_exists("x") is False
+
+    def test_false_when_none(self):
+        from api.tmux import tmux_session_exists
+        with mock.patch("api.tmux._run_tmux_cmd", return_value=None):
+            assert tmux_session_exists("x") is False
+
+
+class TestKillTmuxByName:
+    def test_invokes_kill_session(self):
+        from api.tmux import kill_tmux_by_name
+        with mock.patch("api.tmux._run_tmux_cmd") as run:
+            kill_tmux_by_name("foo")
+            run.assert_called_once_with("kill-session", "-t", "foo")
+
+
+class TestRunOutsideCgroup:
+    def test_fallback_to_plain_run_on_oserror(self):
+        from api import tmux as tmux_mod
+        fallback_cp = subprocess.CompletedProcess(["echo"], 0, stdout="", stderr="")
+        calls = []
+
+        def fake_run(cmd, **kwargs):
+            calls.append(cmd[0])
+            if cmd[0] == "systemd-run":
+                raise OSError("not available")
+            return fallback_cp
+
+        with mock.patch.object(tmux_mod.subprocess, "run", side_effect=fake_run):
+            result = tmux_mod.run_outside_cgroup(["echo", "hi"])
+        assert result is fallback_cp
+        assert "systemd-run" in calls
+        assert "echo" in calls
