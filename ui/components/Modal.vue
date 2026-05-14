@@ -26,7 +26,6 @@
       <div class="modal-body">
         <ModalMenu v-if="currentView === 'ModalMenu'" />
         <WorkspaceOpen v-if="currentView === 'WorkspaceOpen'" />
-        <WorkspaceAdd v-if="currentView === 'WorkspaceAdd'" />
         <WorkspaceConfig v-if="currentView === 'WorkspaceConfig'" :ref="setPaneRef" />
         <JobConfig v-if="currentView === 'JobConfig'" />
         <GlobalJobConfig v-if="currentView === 'GlobalJobConfig'" :ref="setPaneRef" />
@@ -60,7 +59,6 @@ import { useModal } from "../composables/useModal.js";
 import { useSwipeDismiss } from "../composables/useSwipeDismiss.js";
 import ModalMenu from "./ModalMenu.vue";
 import WorkspaceOpen from "./WorkspaceOpen.vue";
-import WorkspaceAdd from "./WorkspaceAdd.vue";
 import WorkspaceConfig from "./WorkspaceConfig.vue";
 import JobConfig from "./JobConfig.vue";
 import GlobalJobConfig from "./GlobalJobConfig.vue";

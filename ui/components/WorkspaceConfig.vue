@@ -1,6 +1,23 @@
 <template>
   <div class="modal-scroll-body">
     <!-- ワークスペース一覧 -->
+    <div v-if="!editWs">
+      <div class="ws-add-row">
+        <input
+          type="text"
+          class="form-input ws-add-input"
+          v-model="addPath"
+          placeholder="Add existing directory (full path)"
+          autocomplete="off"
+          @keydown.enter="doAddExisting"
+        />
+        <button type="button" class="ws-add-btn" :disabled="adding" @click="doAddExisting" title="Add workspace">
+          <span class="mdi mdi-plus"></span>
+        </button>
+      </div>
+      <div v-if="addError" class="ws-add-message error">{{ addError }}</div>
+      <div v-if="addSuccess" class="ws-add-message success">{{ addSuccess }}</div>
+    </div>
     <div v-if="!editWs" ref="wsListEl" class="ws-config-list">
       <div
         v-for="(ws, idx) in allWorkspaces"
@@ -97,8 +114,34 @@ const { modalTitle, pushView, viewState } = useModalView();
 modalTitle.value = "Workspace Settings";
 
 const workspaceStore = useWorkspaceStore();
-const { apiGet, apiPut, apiDelete, wsEndpoint } = useApi();
+const { apiGet, apiPost, apiPut, apiDelete, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
+
+const addPath = ref("");
+const adding = ref(false);
+const addError = ref("");
+const addSuccess = ref("");
+
+async function doAddExisting() {
+  if (!addPath.value.trim()) { addError.value = "Please enter a path"; return; }
+  adding.value = true;
+  addError.value = "";
+  addSuccess.value = "";
+  try {
+    const { ok, data } = await apiPost(EP_WORKSPACES, { path: addPath.value.trim() });
+    if (!ok) {
+      addError.value = data?.detail || "Failed to add";
+    } else {
+      addSuccess.value = `${data?.name || "directory"} added`;
+      addPath.value = "";
+      await loadWorkspaceConfig();
+    }
+  } catch (e) {
+    addError.value = e.message || MSG_ERROR_OCCURRED;
+  } finally {
+    adding.value = false;
+  }
+}
 
 const wsListEl = ref(null);
 const allWorkspaces = ref([]);
@@ -396,5 +439,47 @@ onMounted(async () => {
   padding: 1px 6px;
   flex-shrink: 0;
 }
+
+.ws-add-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 4px 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+
+.ws-add-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.ws-add-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.ws-add-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ws-add-message {
+  font-size: 12px;
+  padding: 4px 4px 8px;
+}
+
+.ws-add-message.error { color: #f44336; }
+.ws-add-message.success { color: #4caf50; }
 
 </style>
