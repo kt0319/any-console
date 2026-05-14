@@ -24,6 +24,7 @@ logs/
 
 # Data
 config.json
+config.bak
 config.lock
 data/
 
