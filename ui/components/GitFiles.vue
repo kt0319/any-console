@@ -56,6 +56,7 @@ import { useEditorIntegration } from "../composables/useEditorIntegration.js";
 import { useLongPress } from "../composables/useLongPress.js";
 import { useHoverMenu, isHoverDevice } from "../composables/useHoverMenu.js";
 import { useApi } from "../composables/useApi.js";
+import { useConfirm } from "../composables/useConfirm.js";
 import { useWorkspace } from "../composables/useWorkspace.js";
 import { useAuthStore } from "../stores/auth.js";
 import { emit } from "../app-bridge.js";
@@ -68,6 +69,7 @@ const workspaceStore = useWorkspaceStore();
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
 const { editorUrlTemplate, fetchEditorSettings, openInEditor } = useEditorIntegration();
 const { apiPost, apiCommand, wsEndpoint } = useApi();
+const { confirm } = useConfirm();
 const { withWorkspace } = useWorkspace();
 const auth = useAuthStore();
 const longPress = useLongPress();
@@ -153,8 +155,9 @@ function selectFile(file) {
 }
 
 async function discardFile(file) {
+  closeMenu();
+  if (!await confirm(`Discard changes to "${file.path}"? This cannot be undone.`)) return;
   await withWorkspace(async (workspace) => {
-    closeMenu();
     const result = await apiPost(
       workspaceGitDiscardPath(workspace),
       { path: file.path },
@@ -182,8 +185,9 @@ async function downloadFile(file) {
 }
 
 async function deleteFile(file) {
+  closeMenu();
+  if (!await confirm(`Delete file "${file.path}"? This cannot be undone.`)) return;
   await withWorkspace(async (workspace) => {
-    closeMenu();
     const { ok } = await apiCommand(
       wsEndpoint(workspace, "delete-file"),
       { path: file.path },
