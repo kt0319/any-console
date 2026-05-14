@@ -32,7 +32,7 @@
         <TabConfig v-if="currentView === 'TabConfig'" />
         <TerminalConfig v-if="currentView === 'TerminalConfig'" />
         <EditorConfig v-if="currentView === 'EditorConfig'" />
-        <SecurityConfig v-if="currentView === 'SecurityConfig'" />
+        <AuthConfig v-if="currentView === 'AuthConfig'" />
         <ServerInfo v-if="currentView === 'ServerInfo'" />
         <ClientInfo v-if="currentView === 'ClientInfo'" />
         <GitHubPane v-if="currentView === 'GitHubPane'" />
@@ -65,7 +65,7 @@ import GlobalJobConfig from "./GlobalJobConfig.vue";
 import TabConfig from "./TabConfig.vue";
 import TerminalConfig from "./TerminalConfig.vue";
 import EditorConfig from "./EditorConfig.vue";
-import SecurityConfig from "./SecurityConfig.vue";
+import AuthConfig from "./AuthConfig.vue";
 import ServerInfo from "./ServerInfo.vue";
 import ClientInfo from "./ClientInfo.vue";
 import ConfigFile from "./ConfigFile.vue";

@@ -28,7 +28,7 @@
       <button type="button" class="settings-menu-item" @click="pushView('ClientInfo')">
         <span class="mdi mdi-cellphone-information"></span> Client Info
       </button>
-      <button type="button" class="settings-menu-item" @click="pushView('SecurityConfig')">
+      <button type="button" class="settings-menu-item" @click="pushView('AuthConfig')">
         <span class="mdi mdi-shield-lock-outline"></span> Auth
       </button>
     </div>
