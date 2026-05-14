@@ -71,18 +71,6 @@ sudo apt install python3 nodejs git tmux
 brew install python node git tmux gh
 ```
 
-<details>
-<summary>手動セットアップ</summary>
-
-```bash
-pip install -r requirements.txt
-npm install
-npm run build
-python -m uvicorn api.main:app --host 0.0.0.0 --port 8888
-```
-
-</details>
-
 ## 認証
 
 - 起動時はトークン未設定（認証オフ）。Tailscale 等で網が閉じている前提の運用が想定

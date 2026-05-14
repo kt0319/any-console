@@ -148,17 +148,6 @@ data/auth.json
 - Bearer Token
 - WebSocket は `verify_ws_token()` で検証
 
-## Host / Port
-
-現在はコード内固定。
-
-```python
-DEFAULT_HOST = "0.0.0.0"
-DEFAULT_PORT = 8888
-```
-
-変更が必要になった場合は、環境変数対応を検討する。
-
 ---
 
 # テスト・Lint
