@@ -330,7 +330,7 @@ class TestGitWorkspaceScenario:
         res = client.get("/workspaces/test-ws/branches", headers=AUTH)
         assert res.status_code == 200
         branches = res.json()
-        assert any(b == "main" or b == "master" for b in branches)
+        assert any(b["name"] == "main" or b["name"] == "master" for b in branches)
 
         # ファイル変更
         (git_workspace_with_commit / "new.txt").write_text("line1\nline2\nline3\n", encoding="utf-8")

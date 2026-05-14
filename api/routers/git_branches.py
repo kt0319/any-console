@@ -9,6 +9,7 @@ from ..common import (
 from ..errors import bad_request
 from ..git_lock import workspace_write_lock
 from ..git_utils import (
+    git_branch,
     git_branches,
     git_info_to_status_dict,
     git_remote_branches,
@@ -75,7 +76,9 @@ def get_workspace_status(name: str):
 @router.get("/workspaces/{name}/branches")
 def list_branches(name: str):
     ws_path = resolve_workspace_path(name)
-    return git_branches(ws_path)
+    branches = git_branches(ws_path)
+    current = git_branch(ws_path)
+    return [{"name": b, "current": b == current} for b in branches]
 
 
 @router.get("/workspaces/{name}/branches/remote")
@@ -93,10 +96,7 @@ def delete_branch(name: str, body: DeleteBranchRequest):
             operation="delete remote branch", env=ssh_env(), log_extra=f"branch={branch}",
         )
     ws_path = resolve_workspace_path(name)
-    current_branch = run_git_command(
-        ["rev-parse", "--abbrev-ref", "HEAD"], cwd=ws_path, operation="current branch",
-    )["stdout"].strip()
-    if branch == current_branch:
+    if branch == get_current_branch(ws_path):
         raise bad_request("Cannot delete the current branch")
     return execute_git_action(name, ["branch", "-D", branch], operation="delete branch", log_extra=f"branch={branch}")
 
