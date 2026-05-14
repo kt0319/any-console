@@ -89,14 +89,9 @@ cmd_setup() {
   info "フロントエンドをビルド中..."
   npm run build
 
-  if [ -f .env ]; then
-    info ".env は既に存在します（スキップ）"
-  else
-    local token
-    token=$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')
+  if [ ! -f .env ] && [ -f .env.example ]; then
     cp .env.example .env
-    sed -i"" -e "s/ANY_CONSOLE_TOKEN=your-secret-token/ANY_CONSOLE_TOKEN=${token}/" .env
-    info ".env を生成しました（トークン自動設定済み）"
+    info ".env を生成しました"
   fi
 
   echo ""
@@ -112,7 +107,7 @@ cmd_setup() {
   echo "  ./any-console start    (systemd経由)"
   echo ""
   echo "ブラウザで http://localhost:$(get_port) を開いてください。"
-  echo "認証トークンは .env の ANY_CONSOLE_TOKEN を確認してください。"
+  echo "認証トークンが必要な場合は UI > Security から発行してください。"
 }
 
 generate_service_unit() {

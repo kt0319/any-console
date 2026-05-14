@@ -40,4 +40,6 @@ def teardown_module(module):
     import os
     os.environ.pop("ANY_CONSOLE_TRUSTED_PROXIES", None)
     import api.auth as auth_mod
+    from conftest import TOKEN
     importlib.reload(auth_mod)
+    auth_mod.ANY_CONSOLE_TOKEN = TOKEN

@@ -59,11 +59,8 @@ docker compose -f docker/compose.yml up -d
 ### 認証
 
 - 認証は **オプション**。デフォルトでは無効（Tailscale等で網が閉じている前提）
-- 有効化は2通り:
-  - UIの「Security」設定からトークンを発行・更新（`data/auth.json` に保存）
-  - 環境変数 `ANY_CONSOLE_TOKEN` を設定
-- `data/auth.json` のトークンが優先され、なければ環境変数を使用（`api/auth.py`）
-- `.env` は `python-dotenv` で `api/main.py` 起動時に自動読み込み
+- 有効化: UIの「Security」設定からトークンを発行・更新（`data/auth.json` に保存）
+- `.env` は `python-dotenv` で `api/main.py` 起動時に自動読み込み（`ANY_CONSOLE_PORT`/`ANY_CONSOLE_HOST` 等）
 - Bearerトークン方式。WebSocketは `verify_ws_token()` で検証
 
 ## テスト・Lint

@@ -1,12 +1,12 @@
-import os
 import subprocess
 
 import pytest
 from fastapi.testclient import TestClient
 
-os.environ.setdefault("ANY_CONSOLE_TOKEN", "test-token")
+from api import auth as auth_module
 
-TOKEN = os.environ["ANY_CONSOLE_TOKEN"]
+TOKEN = "test-token"  # noqa: S105
+auth_module.ANY_CONSOLE_TOKEN = TOKEN
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
 
 

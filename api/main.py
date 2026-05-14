@@ -59,7 +59,7 @@ def _emit_insecure_bind_warning(host: str) -> None:
         "\n%s\n"
         "any-console is bound to %s with NO authentication token set.\n"
         "Anyone who can reach this port can run commands and modify Git state.\n"
-        "  - Set a token: UI > Security, or env ANY_CONSOLE_TOKEN\n"
+        "  - Set a token from UI > Security\n"
         "  - Or restrict the bind: env ANY_CONSOLE_HOST=127.0.0.1\n"
         "%s",
         border, host, border,

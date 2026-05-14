@@ -6,7 +6,7 @@ CLAUDE.md から分離した参照用ドキュメント。変更時の影響範�
 
 - **FastAPI** (Python 3.11+)
 - `main.py`: アプリ初期化、ルーターマウント、画像アップロード、静的ファイル配信
-- `auth.py`: 環境変数 `ANY_CONSOLE_TOKEN` によるBearerトークン認証
+- `auth.py`: `data/auth.json` に保存されたトークンによるBearerトークン認証
 - `runner.py`: subprocessでジョブ実行（タイムアウト120秒）
 - `job_models.py`: ジョブ定義（`JobDefinition` / `ArgOption` dataclass）
 - `common.py`: 共通定数（パス・タイムアウト・パターン・ファイルサイズ制限）、`TTLCache`、`BACKGROUND_EXECUTOR`

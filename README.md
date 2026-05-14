@@ -70,7 +70,6 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port 8888
 
 - 起動時はトークン未設定（認証オフ）。Tailscale 等で網が閉じている前提の運用が想定
 - UI の「Security」設定からトークンを発行・更新できる（`data/auth.json` に保存）
-- 環境変数 `ANY_CONSOLE_TOKEN` でも設定可能
 
 ## コマンド一覧
 

@@ -28,7 +28,7 @@ def _load_token_from_file() -> str:
         return ""
 
 
-ANY_CONSOLE_TOKEN: str = _load_token_from_file() or os.environ.get("ANY_CONSOLE_TOKEN", "")
+ANY_CONSOLE_TOKEN: str = _load_token_from_file()
 
 
 def verify_ws_token(token: str) -> bool:
