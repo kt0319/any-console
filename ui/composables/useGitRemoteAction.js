@@ -69,7 +69,12 @@ export function useGitRemoteAction() {
       : `${wsName}: ${label} done`;
     const messages = Array.isArray(commits?.messages) ? commits.messages : [];
     if (!messages.length) return header;
-    return [header, ...messages.map((m) => `• ${m}`)].join("\n");
+    const lines = [header, ...messages.map((m) => `• ${m}`)];
+    const remaining = count - messages.length;
+    if (remaining > 0) {
+      lines.push(`… and ${remaining} more`);
+    }
+    return lines.join("\n");
   }
 
   function isRunning(wsName, action) {
