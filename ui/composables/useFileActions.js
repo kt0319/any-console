@@ -4,6 +4,7 @@ import { useWorkspace } from "./useWorkspace.js";
 import { emit } from "../app-bridge.js";
 import { MSG_DELETE_FAILED } from "../utils/constants.js";
 import { useConfirm } from "./useConfirm.js";
+import { usePrompt } from "./usePrompt.js";
 import { triggerBlobDownload } from "../utils/download.js";
 import { workspaceDownloadPath } from "../utils/endpoints.js";
 
@@ -12,6 +13,7 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
   const { withWorkspace } = useWorkspace();
   const { apiPost, wsEndpoint } = useApi();
   const { confirm } = useConfirm();
+  const { prompt } = usePrompt();
 
   function entryPath() {
     const entry = getContextEntry();
@@ -33,7 +35,12 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
     const filePath = entryPath();
     const fileName = getContextEntry()?.name;
     if (!filePath || !fileName) return;
-    const newName = prompt("New name:", fileName);
+    const newName = await prompt({
+      title: "Rename",
+      message: `Enter a new name for "${fileName}".`,
+      initialValue: fileName,
+      placeholder: fileName,
+    });
     if (!newName || newName === fileName) { clearContextEntry(); return; }
     const parentPath = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
     const destPath = parentPath ? `${parentPath}/${newName}` : newName;
@@ -44,7 +51,12 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
   async function moveEntry() {
     const filePath = entryPath();
     if (!filePath) return;
-    const destPath = prompt("Destination path:", filePath);
+    const destPath = await prompt({
+      title: "Move",
+      message: "Enter destination path.",
+      initialValue: filePath,
+      placeholder: filePath,
+    });
     if (!destPath || destPath === filePath) { clearContextEntry(); return; }
     clearContextEntry();
     await renameFile(filePath, destPath);

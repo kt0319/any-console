@@ -5,6 +5,7 @@
   </template>
   <AppToast ref="appToast" />
   <ConfirmDialog />
+  <PromptDialog />
   <OfflineOverlay :visible="isOffline" />
 </template>
 
@@ -14,6 +15,7 @@ import ScreenLogin from "./ScreenLogin.vue";
 import ScreenMain from "./ScreenMain.vue";
 import AppToast from "./AppToast.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import PromptDialog from "./PromptDialog.vue";
 import OfflineOverlay from "./OfflineOverlay.vue";
 import { on, emit } from "../app-bridge.js";
 import { useAuthStore } from "../stores/auth.js";

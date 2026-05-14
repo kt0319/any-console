@@ -2,11 +2,13 @@ import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
 import { emit } from "../app-bridge.js";
 import { useConfirm } from "./useConfirm.js";
+import { usePrompt } from "./usePrompt.js";
 
 export function useGitHistoryAction() {
   const { withWorkspace } = useWorkspace();
   const { apiWithToast, wsEndpoint } = useApi();
   const { confirm } = useConfirm();
+  const { prompt } = usePrompt();
 
   async function runAndToast(endpoint, body, { successMessage, errorMessage }) {
     await apiWithToast(endpoint, body, {
@@ -53,7 +55,12 @@ export function useGitHistoryAction() {
 
   async function execCreateBranch(entry, closeFn) {
     await withWorkspace(async (workspace) => {
-      const branchName = prompt("Enter new branch name:");
+      const branchName = await prompt({
+        title: "Create Branch",
+        message: "Enter new branch name.",
+        initialValue: "",
+        placeholder: "feature/example",
+      });
       if (!branchName) return;
       closeFn?.();
       await runAndToast(wsEndpoint(workspace, "create-branch"), { branch: branchName, start_point: entry.fullHash }, {

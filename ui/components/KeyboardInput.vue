@@ -64,12 +64,14 @@ import { useInputStore } from "../stores/input.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useQuickInputData } from "../composables/useQuickInputData.js";
 import { useLongPress } from "../composables/useLongPress.js";
+import { usePrompt } from "../composables/usePrompt.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 
 const emit = defineEmits(["visibility"]);
 
 const inputStore = useInputStore();
 const { sendTextToTerminal } = useKeyboard();
+const { prompt } = usePrompt();
 
 const visible = ref(false);
 const draft = ref("");
@@ -135,9 +137,14 @@ function submit() {
   hide();
 }
 
-function addSnippetByPrompt(initialCommand) {
+async function addSnippetByPrompt(initialCommand) {
   markInternalInteraction();
-  const command = prompt("Command to save as snippet:", initialCommand);
+  const command = await prompt({
+    title: "Save Snippet",
+    message: "Enter command to save as snippet.",
+    initialValue: initialCommand,
+    placeholder: "echo hello",
+  });
   if (!command) {
     nextTick(() => inputEl.value?.focus());
     return;

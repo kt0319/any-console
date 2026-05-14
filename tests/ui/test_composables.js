@@ -1,6 +1,7 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
 import { buildFileList } from "../../ui/composables/useGitDiff.js";
+import { usePrompt } from "../../ui/composables/usePrompt.js";
 import { buildWebSocketUrl } from "../../ui/utils/terminal-ws.js";
 import { extractApiError } from "../../ui/utils/constants.js";
 
@@ -93,5 +94,44 @@ describe("extractApiError", () => {
 
   it("returns fallback for empty object", () => {
     expect(extractApiError({}, "oops")).toBe("oops");
+  });
+});
+
+describe("usePrompt", () => {
+  it("opens with provided options and resolves submitted value", async () => {
+    const promptState = usePrompt();
+    const pending = promptState.prompt({
+      title: "Rename",
+      message: "Enter a new name.",
+      initialValue: "old.txt",
+      placeholder: "new.txt",
+      confirmLabel: "Save",
+    });
+
+    expect(promptState.visible.value).toBe(true);
+    expect(promptState.title.value).toBe("Rename");
+    expect(promptState.message.value).toBe("Enter a new name.");
+    expect(promptState.value.value).toBe("old.txt");
+    expect(promptState.placeholder.value).toBe("new.txt");
+    expect(promptState.confirmLabel.value).toBe("Save");
+
+    promptState.value.value = "new.txt";
+    promptState.onSubmit();
+
+    await expect(pending).resolves.toBe("new.txt");
+    expect(promptState.visible.value).toBe(false);
+    expect(promptState.title.value).toBe("");
+    expect(promptState.value.value).toBe("");
+  });
+
+  it("resolves null on cancel", async () => {
+    const promptState = usePrompt();
+    const pending = promptState.prompt({ message: "Enter command." });
+
+    promptState.onCancel();
+
+    await expect(pending).resolves.toBe(null);
+    expect(promptState.visible.value).toBe(false);
+    expect(promptState.message.value).toBe("");
   });
 });

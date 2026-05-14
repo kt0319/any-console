@@ -101,6 +101,7 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import KeyboardSnippet from "./KeyboardSnippet.vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
+import { usePrompt } from "../composables/usePrompt.js";
 import { useInputStore } from "../stores/input.js";
 import { useAuthStore } from "../stores/auth.js";
 import { emit, on } from "../app-bridge.js";
@@ -117,6 +118,7 @@ const emitLocal = defineEmits(["cycleMode"]);
 const inputStore = useInputStore();
 const auth = useAuthStore();
 const { sendKeyToTerminal, modifierState, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
+const { prompt } = usePrompt();
 
 const qwertyKeyboardSnippet = ref(null);
 const topArrowFlickEl = ref(null);
@@ -175,14 +177,19 @@ function onCameraTouchStart(e) {
   e.currentTarget.classList.add("pressed");
   cameraStartY = e.touches[0].clientY;
 }
-function onCameraTouchEnd(e) {
+async function onCameraTouchEnd(e) {
   e.currentTarget.classList.remove("pressed");
   const dy = e.changedTouches[0].clientY - cameraStartY;
   if (dy < -FLICK_THRESHOLD) {
     emitLocal("cycleMode");
     window.location.replace(window.location.pathname + "?_=" + Date.now());
   } else if (dy > FLICK_THRESHOLD) {
-    const cmd = prompt("Save as snippet:");
+    const cmd = await prompt({
+      title: "Save Snippet",
+      message: "Enter command to save as snippet.",
+      initialValue: "",
+      placeholder: "echo hello",
+    });
     if (cmd) emit("snippet:add", { command: cmd });
   } else {
     openCamera();
