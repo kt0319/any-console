@@ -32,7 +32,7 @@ export function useListDragSort({ rowSelector, onReorder }) {
     }
 
     function onEnd() {
-      document.removeEventListener(moveEvent, onMove, { passive: false });
+      document.removeEventListener(moveEvent, onMove);
       document.removeEventListener(endEvent, onEnd);
       if (
         dragFromIdx.value !== null
