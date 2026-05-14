@@ -280,13 +280,13 @@ defineExpose({
 }
 
 .terminal-frame.view-mode {
-  border-color: #ff9800;
+  border-color: var(--warning);
   user-select: text;
   -webkit-user-select: text;
 }
 
 .terminal-frame.view-mode .terminal-info-pill {
-  border-color: #ff9800;
+  border-color: var(--warning);
 }
 
 .terminal-frame.view-mode :deep(.xterm textarea) {

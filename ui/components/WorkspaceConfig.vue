@@ -21,8 +21,8 @@
           <span class="mdi mdi-plus"></span>
         </button>
       </div>
-      <div v-if="addError" class="ws-add-message error">{{ addError }}</div>
-      <div v-if="addSuccess" class="ws-add-message success">{{ addSuccess }}</div>
+      <div v-if="addError" class="form-message error">{{ addError }}</div>
+      <div v-if="addSuccess" class="form-message success">{{ addSuccess }}</div>
       <div v-if="suggestVisible && suggestEntries.length" class="ws-suggest-list">
         <div class="ws-suggest-base">{{ suggestBase }}</div>
         <div
@@ -353,6 +353,7 @@ onMounted(async () => {
 
 <style>
 @import "../styles/settings-list.css";
+@import "../styles/form-message.css";
 </style>
 
 <style scoped>
@@ -553,13 +554,6 @@ onMounted(async () => {
   cursor: not-allowed;
 }
 
-.ws-add-message {
-  font-size: 12px;
-  padding: 4px 4px 8px;
-}
-
-.ws-add-message.error { color: #f44336; }
-.ws-add-message.success { color: #4caf50; }
 
 .ws-suggest-list {
   margin: 4px 0 12px;

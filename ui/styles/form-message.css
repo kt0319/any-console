@@ -1,0 +1,7 @@
+.form-message {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.form-message.success { color: var(--success); }
+.form-message.error { color: var(--error); }

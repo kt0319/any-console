@@ -42,7 +42,7 @@
       <button type="button" class="primary" :disabled="savingAuth" @click="saveAuth">
         {{ savingAuth ? "Saving..." : "Save" }}
       </button>
-      <div v-if="authSaveMessage" class="security-save-message" :class="authSaveMessageType">{{ authSaveMessage }}</div>
+      <div v-if="authSaveMessage" class="form-message" :class="authSaveMessageType">{{ authSaveMessage }}</div>
     </template>
   </div>
 </template>
@@ -113,6 +113,10 @@ onMounted(async () => {
   loading.value = false;
 });
 </script>
+
+<style>
+@import "../styles/form-message.css";
+</style>
 
 <style scoped>
 .settings-section-label {
@@ -205,14 +209,6 @@ onMounted(async () => {
   word-break: break-all;
 }
 
-.security-save-message {
-  margin-top: 8px;
-  font-size: 13px;
-}
-
-.security-save-message.success { color: #4caf50; }
-.security-save-message.error { color: #f44336; }
-
 .security-token-status {
   display: flex;
   align-items: center;
@@ -227,6 +223,6 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
-.security-token-status.configured { color: #4caf50; }
-.security-token-status.missing { color: #ff9800; }
+.security-token-status.configured { color: var(--success); }
+.security-token-status.missing { color: var(--warning); }
 </style>

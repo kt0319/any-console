@@ -185,11 +185,11 @@ body {
 }
 
 .numstat-added {
-  color: #4caf50;
+  color: var(--success);
 }
 
 .numstat-deleted {
-  color: #f44336;
+  color: var(--error);
 }
 
 .numstat-neutral {
