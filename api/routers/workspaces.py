@@ -8,6 +8,7 @@ from ..auth import verify_token
 from ..common import (
     BACKGROUND_EXECUTOR,
     BACKGROUND_FETCH_TIMEOUT_SEC,
+    default_workspace_dir,
     run_subprocess_safe,
 )
 from ..config import (
@@ -158,3 +159,62 @@ def delete_workspace(name: str):
     delete_workspace_config(name)
     logger.info("workspace deleted name=%s", name)
     return {"status": "ok"}
+
+
+_SUGGEST_LIMIT = 50
+
+
+def _resolve_suggest_base(input_path: str) -> tuple[Path, str]:
+    """入力パスから「列挙するディレクトリ」と「フィルタ文字列」を決める。
+
+    - 空: デフォルト(ホーム)を列挙、フィルタなし
+    - 既存ディレクトリ(末尾 / 有無問わず): そこを列挙、フィルタなし
+    - 中途半端なパス: 親を列挙、最後の要素でフィルタ
+    """
+    raw = (input_path or "").strip()
+    if not raw:
+        return default_workspace_dir(), ""
+    trimmed = raw.rstrip("/") or "/"
+    p = Path(trimmed).expanduser()
+    if p.is_dir():
+        return p, ""
+    parent = p.parent if p.parent != p else p
+    return parent, p.name
+
+
+@router.get("/workspaces/suggest")
+def suggest_workspace_dirs(path: str = ""):
+    base, filter_str = _resolve_suggest_base(path)
+    try:
+        base = base.resolve()
+    except (OSError, RuntimeError):
+        return {"base": str(base), "entries": []}
+    if not base.is_dir():
+        return {"base": str(base), "entries": []}
+
+    existing = set()
+    for cfg in list_workspace_entries().values():
+        p = Path(cfg.get("path", ""))
+        try:
+            existing.add(str(p.resolve()))
+        except OSError:
+            existing.add(str(p))
+
+    entries = []
+    try:
+        for child in sorted(base.iterdir(), key=lambda c: c.name.lower()):
+            if not child.is_dir() or child.name.startswith("."):
+                continue
+            if filter_str and not child.name.lower().startswith(filter_str.lower()):
+                continue
+            entries.append({
+                "path": str(child),
+                "name": child.name,
+                "is_git": (child / ".git").is_dir(),
+                "registered": str(child) in existing,
+            })
+            if len(entries) >= _SUGGEST_LIMIT:
+                break
+    except (OSError, PermissionError):
+        return {"base": str(base), "entries": []}
+    return {"base": str(base), "entries": entries}

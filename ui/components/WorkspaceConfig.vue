@@ -2,21 +2,40 @@
   <div class="modal-scroll-body">
     <!-- ワークスペース一覧 -->
     <div v-if="!editWs">
+      <div class="ws-add-section-label">
+        Add Workspace
+        <span class="ws-add-hint">— pick from suggestions or type a path</span>
+      </div>
       <div class="ws-add-row">
         <input
           type="text"
           class="form-input ws-add-input"
           v-model="addPath"
-          placeholder="Add existing directory (full path)"
           autocomplete="off"
+          @focus="onInputFocus"
+          @blur="onInputBlur"
+          @input="loadSuggest"
           @keydown.enter="doAddExisting"
         />
-        <button type="button" class="ws-add-btn" :disabled="adding" @click="doAddExisting" title="Add workspace">
+        <button type="button" class="ws-add-btn" :disabled="adding" @click="doAddExisting" :title="adding ? 'Adding...' : 'Add workspace'">
           <span class="mdi mdi-plus"></span>
         </button>
       </div>
       <div v-if="addError" class="ws-add-message error">{{ addError }}</div>
       <div v-if="addSuccess" class="ws-add-message success">{{ addSuccess }}</div>
+      <div v-if="suggestVisible && suggestEntries.length" class="ws-suggest-list">
+        <div class="ws-suggest-base">{{ suggestBase }}</div>
+        <div
+          v-for="entry in suggestEntries"
+          :key="entry.path"
+          class="ws-suggest-item"
+          :class="{ registered: entry.registered }"
+          @mousedown.prevent="onSuggestClick(entry)"
+        >
+          <span class="ws-suggest-name">{{ entry.name }}</span>
+          <span v-if="entry.registered" class="ws-suggest-badge">Registered</span>
+        </div>
+      </div>
     </div>
     <div v-if="!editWs" ref="wsListEl" class="ws-config-list">
       <div
@@ -107,7 +126,7 @@ import { useWorkspaceDrag } from "../composables/useWorkspaceDrag.js";
 import { useWorkspaceJobManager } from "../composables/useWorkspaceJobManager.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
-import { EP_JOBS_WORKSPACES, EP_WORKSPACES, EP_WORKSPACE_ORDER } from "../utils/endpoints.js";
+import { EP_JOBS_WORKSPACES, EP_WORKSPACES, EP_WORKSPACES_SUGGEST, EP_WORKSPACE_ORDER } from "../utils/endpoints.js";
 import { useConfirm } from "../composables/useConfirm.js";
 
 const { modalTitle, pushView, viewState } = useModalView();
@@ -121,6 +140,19 @@ const addPath = ref("");
 const adding = ref(false);
 const addError = ref("");
 const addSuccess = ref("");
+const suggestBase = ref("");
+const suggestEntries = ref([]);
+const suggestVisible = ref(false);
+let suggestTimer = null;
+
+function onInputFocus() {
+  suggestVisible.value = true;
+  loadSuggest();
+}
+
+function onInputBlur() {
+  suggestVisible.value = false;
+}
 
 async function doAddExisting() {
   if (!addPath.value.trim()) { addError.value = "Please enter a path"; return; }
@@ -135,12 +167,43 @@ async function doAddExisting() {
       addSuccess.value = `${data?.name || "directory"} added`;
       addPath.value = "";
       await loadWorkspaceConfig();
+      loadSuggest();
     }
   } catch (e) {
     addError.value = e.message || MSG_ERROR_OCCURRED;
   } finally {
     adding.value = false;
   }
+}
+
+const SUGGEST_DEBOUNCE_MS = 150;
+
+function loadSuggest() {
+  if (suggestTimer) clearTimeout(suggestTimer);
+  suggestTimer = setTimeout(async () => {
+    try {
+      const url = `${EP_WORKSPACES_SUGGEST}?path=${encodeURIComponent(addPath.value)}`;
+      const { ok, data } = await apiGet(url);
+      if (ok && data) {
+        suggestBase.value = data.base || "";
+        suggestEntries.value = data.entries || [];
+        if (!addPath.value && suggestBase.value) {
+          addPath.value = suggestBase.value.endsWith("/") ? suggestBase.value : `${suggestBase.value}/`;
+        }
+      } else {
+        suggestEntries.value = [];
+      }
+    } catch {
+      suggestEntries.value = [];
+    }
+  }, SUGGEST_DEBOUNCE_MS);
+}
+
+function onSuggestClick(entry) {
+  if (entry.registered) return;
+  addPath.value = entry.path;
+  suggestVisible.value = true;
+  loadSuggest();
 }
 
 const wsListEl = ref(null);
@@ -272,6 +335,7 @@ defineExpose({ handleBack });
 
 onMounted(async () => {
   await loadWorkspaceConfig();
+  loadSuggest();
   const initialWsName = viewState.value?.initialWsName;
   if (initialWsName) {
     const ws = allWorkspaces.value.find((w) => w.name === initialWsName);
@@ -440,11 +504,25 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
+.ws-add-section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 4px 0 8px;
+}
+
+.ws-add-hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
 .ws-add-row {
   display: flex;
   gap: 6px;
   align-items: center;
-  padding: 6px 4px 10px;
+  padding: 0 4px 10px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 6px;
 }
@@ -452,6 +530,7 @@ onMounted(async () => {
 .ws-add-input {
   flex: 1;
   min-width: 0;
+  box-sizing: border-box;
 }
 
 .ws-add-btn {
@@ -481,5 +560,58 @@ onMounted(async () => {
 
 .ws-add-message.error { color: #f44336; }
 .ws-add-message.success { color: #4caf50; }
+
+.ws-suggest-list {
+  margin: 4px 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.ws-suggest-base {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: monospace;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  word-break: break-all;
+}
+
+.ws-suggest-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.ws-suggest-item:last-child { border-bottom: none; }
+
+.ws-suggest-item.registered {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ws-suggest-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-suggest-badge {
+  font-size: 10px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
 
 </style>

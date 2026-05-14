@@ -109,7 +109,7 @@ docker compose -f docker/compose.yml up -d
 
 ## ワークスペースと設定
 
-- ワークスペースルートはデフォルト `~/work/`（`default_workspace_dir()` で取得）。UI の Settings から変更すると `config.json` の `__global__.workspace_root` に保存される
+- ワークスペースの追加は既存ディレクトリのフルパスを指定する形（UIの Workspace Settings 上部から登録）。サジェスト用のデフォルト表示先は `Path.home()`
 - 追加設定は `config.json`（ワークスペース単位）
   - `icon`, `icon_color`, `hidden`, `jobs`
 

@@ -14,7 +14,7 @@ UPLOAD_DIR = Path("/tmp/any-console-uploads")
 
 
 def default_workspace_dir() -> Path:
-    return Path.home() / "work"
+    return Path.home()
 
 CONFIG_FILE = PROJECT_ROOT / "config.json"
 GLOBAL_CONFIG_KEY = "__global__"

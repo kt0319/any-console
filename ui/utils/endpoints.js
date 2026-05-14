@@ -26,6 +26,7 @@ export const EP_AUTH_LOGIN = "/auth/login";
 export const EP_AUTH_LOGOUT = "/auth/logout";
 export const EP_RUN = "/run";
 export const EP_WORKSPACES = "/workspaces";
+export const EP_WORKSPACES_SUGGEST = "/workspaces/suggest";
 export const EP_WORKSPACES_STATUSES = "/workspaces/statuses";
 export const EP_WORKSPACE_ORDER = "/workspace-order";
 export const EP_TERMINAL_SESSIONS = "/terminal/sessions";
