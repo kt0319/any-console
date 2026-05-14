@@ -1,13 +1,31 @@
 <template>
   <div class="ws-settings-detail">
-    <div class="ws-settings-row">
-      <span class="ws-settings-label">Icon</span>
-      <button type="button" class="icon-select-btn" @click="openIconPicker">
-        <span class="icon-select-preview">
-          <span v-html="renderIconStr(editIcon || 'mdi-console', editIconColor, 18)"></span>
-          <span class="icon-select-label">{{ editIcon || 'Default' }}</span>
-        </span>
-      </button>
+    <div class="ws-settings-section">
+      <div class="ws-settings-section-header">
+        <span>Details</span>
+      </div>
+      <div class="ws-settings-row">
+        <span class="ws-settings-label">Icon</span>
+        <button type="button" class="icon-select-btn" @click="openIconPicker">
+          <span class="icon-select-preview">
+            <span v-html="renderIconStr(editIcon || 'mdi-console', editIconColor, 18)"></span>
+            <span class="icon-select-label">{{ editIcon || 'Default' }}</span>
+          </span>
+        </button>
+      </div>
+      <div class="ws-settings-row">
+        <span class="ws-settings-label">Name</span>
+        <input type="text" class="form-input" v-model="editName" autocomplete="off" />
+      </div>
+      <div class="ws-settings-row">
+        <span class="ws-settings-label">Path</span>
+        <input type="text" class="form-input" v-model="editPath" autocomplete="off" />
+      </div>
+      <div class="ws-settings-row" style="gap:8px">
+        <button type="button" class="primary" :disabled="savingDetails || !isDetailsDirty" @click="saveDetails">
+          {{ savingDetails ? 'Saving...' : 'Save' }}
+        </button>
+      </div>
     </div>
 
     <div class="ws-settings-section">
@@ -94,11 +112,25 @@ const emit = defineEmits(["deleted", "updated"]);
 const DEFAULT_WS_ICON = "mdi-console";
 
 const editWs = ref(props.workspace);
-watch(() => props.workspace, (next) => { editWs.value = next; });
-
 const editIcon = ref(editWs.value?.icon || "");
 const editIconColor = ref(editWs.value?.icon_color || "");
+const editName = ref(editWs.value?.name || "");
+const editPath = ref(editWs.value?.path || "");
+const savingDetails = ref(false);
 const saveError = ref("");
+
+watch(() => props.workspace, (next) => {
+  editWs.value = next;
+  editIcon.value = next?.icon || "";
+  editIconColor.value = next?.icon_color || "";
+  editName.value = next?.name || "";
+  editPath.value = next?.path || "";
+});
+
+const isDetailsDirty = computed(() =>
+  editName.value.trim() !== (editWs.value?.name || "")
+  || editPath.value.trim() !== (editWs.value?.path || ""),
+);
 
 const { apiPut, apiDelete, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
@@ -120,24 +152,41 @@ async function onDelete() {
   }
 }
 
-async function saveWsConfig() {
-  if (!editWs.value) return;
+async function saveWsConfig(extra = {}) {
+  if (!editWs.value) return false;
   saveError.value = "";
   try {
-    const { ok, data } = await apiPut(wsEndpoint(editWs.value.name, "config"), {
+    const identifier = editWs.value.id || editWs.value.name;
+    const { ok, data } = await apiPut(wsEndpoint(identifier, "config"), {
       icon: editIcon.value.trim() || DEFAULT_WS_ICON,
       icon_color: editIconColor.value.trim(),
       hidden: !!editWs.value.hidden,
+      ...extra,
     });
     if (!ok) {
       saveError.value = data?.detail || MSG_SAVE_FAILED;
-    } else {
-      editWs.value.icon = editIcon.value.trim() || DEFAULT_WS_ICON;
-      editWs.value.icon_color = editIconColor.value.trim();
-      emit("updated");
+      return false;
     }
+    editWs.value.icon = editIcon.value.trim() || DEFAULT_WS_ICON;
+    editWs.value.icon_color = editIconColor.value.trim();
+    emit("updated");
+    return true;
   } catch (e) {
     saveError.value = e.message || MSG_ERROR_OCCURRED;
+    return false;
+  }
+}
+
+async function saveDetails() {
+  if (!editWs.value || savingDetails.value) return;
+  savingDetails.value = true;
+  try {
+    await saveWsConfig({
+      name: editName.value.trim(),
+      path: editPath.value.trim(),
+    });
+  } finally {
+    savingDetails.value = false;
   }
 }
 
@@ -173,7 +222,7 @@ onMounted(() => {
 
 <style scoped>
 .ws-delete-section {
-  margin-top: 16px;
+  margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid var(--border);
 }

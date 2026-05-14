@@ -99,12 +99,12 @@ async function toggleVisibility(ws, checked) {
 
 function openWsSettings(ws) {
   editWs.value = ws;
-  if (viewState?.value) viewState.value.initialWsName = ws.name;
+  if (viewState?.value) viewState.value.initialWsId = ws.id || ws.name;
 }
 
 function goBackToList() {
   editWs.value = null;
-  if (viewState?.value) viewState.value.initialWsName = null;
+  if (viewState?.value) viewState.value.initialWsId = null;
 }
 
 function handleBack() {
@@ -120,8 +120,12 @@ async function onWorkspaceDeleted() {
   await loadWorkspaceConfig();
 }
 
-function onWorkspaceUpdated() {
-  workspaceStore.fetchWorkspaces();
+async function onWorkspaceUpdated() {
+  await loadWorkspaceConfig();
+  if (editWs.value?.id) {
+    const updated = allWorkspaces.value.find((w) => w.id === editWs.value.id);
+    if (updated) editWs.value = updated;
+  }
 }
 
 async function saveWorkspaceOrder() {
@@ -139,9 +143,9 @@ defineExpose({ handleBack });
 
 onMounted(async () => {
   await loadWorkspaceConfig();
-  const initialWsName = viewState.value?.initialWsName;
-  if (initialWsName) {
-    const ws = allWorkspaces.value.find((w) => w.name === initialWsName);
+  const initialWsId = viewState.value?.initialWsId;
+  if (initialWsId) {
+    const ws = allWorkspaces.value.find((w) => w.id === initialWsId || w.name === initialWsId);
     if (ws) openWsSettings(ws);
   }
 });

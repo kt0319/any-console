@@ -1,12 +1,19 @@
+.ws-settings-section + .ws-settings-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
 .ws-settings-section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 4px;
+  padding: 4px 4px 8px;
   font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
 }
 
 .ws-add-item-btn {
@@ -32,14 +39,9 @@
   align-items: center;
   gap: 8px;
   padding: 10px 8px;
-  border-bottom: 1px solid var(--border);
   cursor: pointer;
   font-size: 13px;
   min-height: 40px;
-}
-
-.ws-settings-item:last-child {
-  border-bottom: none;
 }
 
 .ws-settings-item-icon {

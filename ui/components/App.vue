@@ -485,7 +485,6 @@ button:disabled {
   align-items: center;
   gap: 12px;
   padding: 10px 4px;
-  border-bottom: 1px solid var(--border);
 }
 
 .ws-settings-label {
