@@ -1,22 +1,7 @@
 <template>
   <div class="modal-scroll-body split-tab-scroll">
     <div class="split-tab-content">
-      <div v-if="recentJobs.length" class="picker-recent-section">
-        <div class="picker-section-label">Recent</div>
-        <div class="picker-recent-list">
-          <button
-            v-for="recent in recentJobs"
-            :key="recent.key"
-            type="button"
-            class="picker-recent-btn"
-            :class="{ 'is-hidden-tab': recent.jobHiddenTab }"
-            @click="runRecentJob(recent)"
-          >
-            <span v-if="recent.wsIcon" v-html="renderIconStr(recent.wsIcon, recent.wsIconColor, 18)"></span>
-            <span v-if="recent.jobIcon" v-html="renderIconStr(recent.jobIcon, recent.jobIconColor, 18)"></span>
-          </button>
-        </div>
-      </div>
+      <RecentJobsBar :recent-jobs="recentJobs" @run="runRecentJob" />
       <div class="terminal-ws-list">
         <div
           v-for="ws in visibleWorkspaces"
@@ -98,11 +83,12 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { useApi } from "../composables/useApi.js";
+import { useJobLauncher } from "../composables/useJobLauncher.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
-import { useConfirm } from "../composables/useConfirm.js";
 import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 import GitActionBtn from "./GitActionBtn.vue";
+import RecentJobsBar from "./RecentJobsBar.vue";
 
 const modalTitle = inject("modalTitle");
 const pushView = inject("pushView");
@@ -112,8 +98,8 @@ const workspaceStore = useWorkspaceStore();
 const layoutStore = useLayoutStore();
 const { apiGet } = useApi();
 const { gitAction, isRunning } = useGitRemoteAction();
-const { recentJobs, loadRecentJobs, recordJob } = useRecentJobs();
-const { confirm } = useConfirm();
+const { recentJobs, loadRecentJobs } = useRecentJobs();
+const { runJob, runRecentJob } = useJobLauncher();
 
 const wsGlobalJobs = reactive({});
 const wsLocalJobs = reactive({});
@@ -194,45 +180,6 @@ function selectWorkspace(ws) {
     workspace: ws.name,
     icon: ws.icon,
     iconColor: ws.icon_color,
-  });
-}
-
-async function runJob(ws, job) {
-  emit("modal:close");
-  if (job.confirm !== false) {
-    const preview = job.command ? (job.command.length > 300 ? job.command.slice(0, 300) + "..." : job.command) : job.name;
-    if (!await confirm(`${job.label || job.name}\n\n${preview}`)) return;
-  }
-  recordJob(ws, job);
-  emit("terminal:launch", {
-    workspace: ws.name,
-    icon: ws.icon,
-    iconColor: ws.icon_color,
-    jobName: job.name,
-    jobLabel: job.label,
-    jobIcon: job.icon,
-    jobIconColor: job.icon_color,
-    initialCommand: job.command,
-    hidden: !!job.hidden_tab,
-  });
-}
-
-async function runRecentJob(recent) {
-  emit("modal:close");
-  if (recent.jobConfirm !== false) {
-    const preview = recent.jobCommand ? (recent.jobCommand.length > 300 ? recent.jobCommand.slice(0, 300) + "..." : recent.jobCommand) : recent.jobName;
-    if (!await confirm(`${recent.jobLabel || recent.jobName}\n\n${preview}`)) return;
-  }
-  emit("terminal:launch", {
-    workspace: recent.workspace,
-    icon: recent.wsIcon,
-    iconColor: recent.wsIconColor,
-    jobName: recent.jobName,
-    jobLabel: recent.jobLabel,
-    jobIcon: recent.jobIcon,
-    jobIconColor: recent.jobIconColor,
-    initialCommand: recent.jobCommand,
-    hidden: !!recent.jobHiddenTab,
   });
 }
 
@@ -502,43 +449,4 @@ button.git-badge:disabled {
   color: var(--text-muted);
 }
 
-.picker-recent-section {
-  padding: 8px 12px 4px;
-  border-bottom: 1px solid var(--border);
-}
-
-.picker-section-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 6px;
-}
-
-.picker-recent-list {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding-bottom: 4px;
-}
-
-.picker-recent-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-size: 18px;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.picker-recent-btn.is-hidden-tab {
-  border-style: dashed;
-}
 </style>
