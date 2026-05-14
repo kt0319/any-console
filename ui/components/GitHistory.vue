@@ -93,15 +93,11 @@
             </span>
           </span>
         </div>
-        <div v-if="row.entry && longPressEntry?.hash === row.entry.hash" class="commit-action-menu">
-          <button type="button" class="modal-action-btn" @click="execAction('cherry-pick', row.entry)">cherry-pick</button>
-          <button type="button" class="modal-action-btn" @click="execAction('revert', row.entry)">revert</button>
-          <button type="button" class="modal-action-btn" @click="execCreateBranch(row.entry)">branch</button>
-          <button v-for="b in entryBranches(row.entry)" :key="'merge-'+b" type="button" class="modal-action-btn" @click="execMerge(b)">merge {{ b }}</button>
-          <button v-for="b in entryBranches(row.entry)" :key="'rebase-'+b" type="button" class="modal-action-btn" @click="execRebase(b)">rebase {{ b }}</button>
-          <button type="button" class="modal-action-btn" @click="execReset(row.entry, 'soft')">reset --soft</button>
-          <button type="button" class="modal-action-btn commit-action-danger" @click="execReset(row.entry, 'hard')">reset --hard</button>
-        </div>
+        <CommitActionMenu
+          v-if="row.entry && longPressEntry?.hash === row.entry.hash"
+          :branches="entryBranches(row.entry)"
+          @exec="onCommitAction(row.entry, $event)"
+        />
       </template>
     </div>
   </div>
@@ -112,6 +108,7 @@ import { ref, computed, onMounted } from "vue";
 
 import FileItem from "./FileItem.vue";
 import FileActionMenu from "./FileActionMenu.vue";
+import CommitActionMenu from "./CommitActionMenu.vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { useWorkspace } from "../composables/useWorkspace.js";
@@ -174,30 +171,24 @@ function toggleActionMenu(entry) {
   }
 }
 
-function execAction(action, entry) {
-  execCommitAction(action, entry, closeLongPressMenu);
-}
-
-function execReset(entry, mode) {
-  execCommitReset(entry, mode, closeLongPressMenu);
-}
-
 function entryBranches(entry) {
   return entry.refs
     .filter((r) => r.type === "branch" || r.type === "remote")
     .map((r) => r.label);
 }
 
-function execCreateBranch(entry) {
-  execCommitCreateBranch(entry, closeLongPressMenu);
-}
-
-function execMerge(branch) {
-  execCommitMerge(branch, closeLongPressMenu);
-}
-
-function execRebase(branch) {
-  execCommitRebase(branch, closeLongPressMenu);
+function onCommitAction(entry, { action, branch, mode }) {
+  if (action === "branch") {
+    execCommitCreateBranch(entry, closeLongPressMenu);
+  } else if (action === "merge") {
+    execCommitMerge(branch, closeLongPressMenu);
+  } else if (action === "rebase") {
+    execCommitRebase(branch, closeLongPressMenu);
+  } else if (action === "reset") {
+    execCommitReset(entry, mode, closeLongPressMenu);
+  } else {
+    execCommitAction(action, entry, closeLongPressMenu);
+  }
 }
 
 async function openDiffFiles(entry, fetchFn) {
