@@ -7,7 +7,7 @@ CLAUDE.md から分離した参照用ドキュメント。変更時の影響範�
 - **FastAPI** (Python 3.11+)
 - `main.py`: アプリ初期化、ルーターマウント、画像アップロード、静的ファイル配信
 - `auth.py`: `data/auth.json` に保存されたトークンによるBearerトークン認証、信頼Proxy（X-Forwarded-For）の検証
-- `runner.py`: subprocessでジョブ実行（タイムアウト120秒）
+- `runner.py`: subprocessでジョブ実行（タイムアウト300秒）
 - `job_models.py`: ジョブ定義（`JobDefinition` / `ArgOption` dataclass）
 - `common.py`: 共通定数（パス・タイムアウト・パターン・ファイルサイズ制限）、`TTLCache`、`BACKGROUND_EXECUTOR`
 - `tmux.py`: tmux subprocess操作（セッション作成・接続・削除・存在確認・メタデータ読み書き）

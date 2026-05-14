@@ -14,12 +14,13 @@ from pydantic import BaseModel
 
 from ..auth import verify_token
 from ..common import (
+    JOB_TIMEOUT_SEC,
     MAX_TERMINAL_SESSIONS,
     TMUX_SESSION_PREFIX,
     resolve_workspace_path,
     sanitize_log_value,
 )
-from ..errors import bad_request, server_error, too_many_requests
+from ..errors import bad_request, server_error, timeout_error, too_many_requests
 from ..git_utils import command_result_dict, git_branches
 from ..job_models import TERMINAL_JOB, TERMINAL_JOB_KEY
 from ..runner import run_job
@@ -114,6 +115,10 @@ def _run_regular_job(body, job_def, ordered_args, ws_path):
     logger.info("job start job=%s workspace=%s", body.job, body.workspace or "(none)")
     try:
         result = run_job(job_def, ordered_args, workspace=cwd_path)
+    except subprocess.TimeoutExpired:
+        logger.warning("job timeout job=%s workspace=%s sec=%d",
+                       body.job, body.workspace or "(none)", JOB_TIMEOUT_SEC)
+        raise timeout_error(f"Job execution timed out after {JOB_TIMEOUT_SEC}s") from None
     except OSError as e:
         logger.error("job exec failed job=%s workspace=%s: %s", body.job, body.workspace or "(none)", e)
         raise server_error(f"Job execution failed: {e}") from None

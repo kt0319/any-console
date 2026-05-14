@@ -3,7 +3,7 @@ import os
 import shlex
 import subprocess
 
-from .common import PROJECT_ROOT, sanitize_log_value
+from .common import JOB_TIMEOUT_SEC, PROJECT_ROOT, sanitize_log_value
 from .job_models import JobDefinition
 
 logger = logging.getLogger(__name__)
@@ -29,6 +29,7 @@ def run_job(
         text=True,
         cwd=cwd,
         env=env,
+        timeout=JOB_TIMEOUT_SEC,
     )
     logger.info("done command=%s rc=%d stdout_len=%d stderr_len=%d",
                 sanitize_log_value(job.command), result.returncode, len(result.stdout), len(result.stderr))

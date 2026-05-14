@@ -247,7 +247,7 @@ api/
 
 ### runner.py
 
-- ジョブ実行（subprocess、120秒タイムアウト）
+- ジョブ実行（subprocess、300秒タイムアウト）
 
 ### terminal_session.py / tmux.py
 
@@ -322,7 +322,7 @@ PWA対応あり。
 ## 実行
 
 - subprocess
-- timeout 120秒
+- timeout 300秒
 
 ---
 
