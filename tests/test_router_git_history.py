@@ -122,3 +122,32 @@ class TestGitLogBoundaries:
     def test_git_log_unknown_workspace(self, client, isolate_fs):
         res = client.get("/workspaces/no-such/git-log", headers=AUTH)
         assert res.status_code == 400
+
+
+class TestGitLogCurrentBranchOnly:
+    """git-log は現在のブランチに到達可能なコミットのみを返す（他ブランチを含まない）。"""
+
+    def test_other_branch_commit_not_included(self, client, git_workspace_with_commit):
+        import subprocess
+        base_branch = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=git_workspace_with_commit, capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        subprocess.run(
+            ["git", "checkout", "-b", "feature"],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+        (git_workspace_with_commit / "feature.txt").write_text("x\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=git_workspace_with_commit, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "feature-only commit"],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+        subprocess.run(
+            ["git", "checkout", base_branch],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+
+        res = client.get("/workspaces/test-ws/git-log?graph=true", headers=AUTH)
+        assert res.status_code == 200
+        assert "feature-only commit" not in res.json()["stdout"]
