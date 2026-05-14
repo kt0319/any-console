@@ -1,8 +1,6 @@
 import hmac
-import ipaddress
 import json
 import logging
-import os
 from pathlib import Path
 from typing import Optional
 
@@ -41,32 +39,6 @@ def update_token(new_token: str) -> None:
     ANY_CONSOLE_TOKEN = new_token
 
 
-def _parse_trusted_proxies(raw: str) -> list:
-    networks = []
-    for token in raw.split(","):
-        token = token.strip()
-        if not token:
-            continue
-        try:
-            networks.append(ipaddress.ip_network(token, strict=False))
-        except ValueError:
-            logger.warning("invalid entry in ANY_CONSOLE_TRUSTED_PROXIES: %s", token)
-    return networks
-
-
-_TRUSTED_PROXY_NETWORKS = _parse_trusted_proxies(os.environ.get("ANY_CONSOLE_TRUSTED_PROXIES", ""))
-
-
-def _is_trusted_proxy(ip: str) -> bool:
-    if not _TRUSTED_PROXY_NETWORKS or not ip:
-        return False
-    try:
-        addr = ipaddress.ip_address(ip)
-    except ValueError:
-        return False
-    return any(addr in net for net in _TRUSTED_PROXY_NETWORKS)
-
-
 def verify_token(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
@@ -85,9 +57,4 @@ def verify_token(
 
 
 def _extract_client_ip(request: Request) -> str:
-    client_ip: str = request.client.host if request.client else ""
-    if _is_trusted_proxy(client_ip):
-        forwarded_for = request.headers.get("x-forwarded-for", "")
-        if forwarded_for:
-            return str(forwarded_for).split(",")[0].strip()
-    return client_ip
+    return request.client.host if request.client else ""

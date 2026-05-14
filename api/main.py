@@ -1,7 +1,3 @@
-from dotenv import load_dotenv
-
-load_dotenv()
-
 import asyncio
 import fcntl
 import hmac
@@ -33,11 +29,26 @@ from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
 from .routers import git, github, jobs, settings, system, terminal, workspaces
 
+DEFAULT_HOST = "0.0.0.0"  # noqa: S104 (intentional: local network bind for personal console)
+DEFAULT_PORT = 8888
+
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+
+
+def _resolve_bind() -> tuple[str, int]:
+    """config.json の __global__.host / __global__.port を読む。未設定はデフォルト。"""
+    from .config import load_global_config_section
+    host = load_global_config_section("host", "") or DEFAULT_HOST
+    port_raw = load_global_config_section("port", 0)
+    try:
+        port = int(port_raw) if port_raw else DEFAULT_PORT
+    except (TypeError, ValueError):
+        port = DEFAULT_PORT
+    return str(host), port
 
 
 def _is_loopback_host(host: str) -> bool:
@@ -60,7 +71,6 @@ def _emit_insecure_bind_warning(host: str) -> None:
         "any-console is bound to %s with NO authentication token set.\n"
         "Anyone who can reach this port can run commands and modify Git state.\n"
         "  - Set a token from UI > Security\n"
-        "  - Or restrict the bind: env ANY_CONSOLE_HOST=127.0.0.1\n"
         "%s",
         border, host, border,
     )
@@ -69,16 +79,13 @@ def _emit_insecure_bind_warning(host: str) -> None:
 _singleton_lock_fd: int | None = None
 
 
-def _acquire_singleton_lock() -> bool:
+def _acquire_singleton_lock(port: int) -> bool:
     """Reject extra workers (uvicorn --workers N).
 
     any-console relies on in-process state (terminal sessions, rate-limit
     counters, TTL caches), so multiple workers would corrupt state silently.
     """
     global _singleton_lock_fd
-    if os.environ.get("ANY_CONSOLE_SKIP_SINGLETON_LOCK"):
-        return True
-    port = os.environ.get("ANY_CONSOLE_PORT", "8888")
     lock_path = Path(tempfile.gettempdir()) / f"any-console-{port}.lock"
     try:
         fd = os.open(str(lock_path), os.O_WRONLY | os.O_CREAT, 0o600)
@@ -118,9 +125,10 @@ def _release_singleton_lock() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if not _acquire_singleton_lock():
+    host, port = _resolve_bind()
+    if not _acquire_singleton_lock(port):
         raise SystemExit(1)
-    _emit_insecure_bind_warning(os.environ.get("ANY_CONSOLE_HOST", "0.0.0.0"))
+    _emit_insecure_bind_warning(host)
     from .config import load_global_config_section
     ws_root = load_global_config_section("workspace_root", "")
     if ws_root and isinstance(ws_root, str):
@@ -284,8 +292,7 @@ app.add_middleware(RateLimitMiddleware)
 if __name__ == "__main__":
     ssl_keyfile = os.environ.get("SSL_KEYFILE")
     ssl_certfile = os.environ.get("SSL_CERTFILE")
-    port = int(os.environ.get("ANY_CONSOLE_PORT", "8888"))
-    host = os.environ.get("ANY_CONSOLE_HOST", "0.0.0.0")
+    host, port = _resolve_bind()
     if ssl_keyfile and ssl_certfile:
         uvicorn.run(app, host=host, port=port, proxy_headers=True, forwarded_allow_ips="127.0.0.1",
                     ssl_keyfile=ssl_keyfile, ssl_certfile=ssl_certfile)

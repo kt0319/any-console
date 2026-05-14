@@ -16,7 +16,7 @@ Web操作コンソール。スマホからTailscale経由でシェルスクリ�
 ## 依存関係
 
 - Python 3.11+、Node.js 18+
-- 主要ライブラリ: `fastapi`, `uvicorn`, `websockets`, `python-dotenv`, `pydantic`, `python-multipart`（`requirements.txt`）
+- 主要ライブラリ: `fastapi`, `uvicorn`, `websockets`, `pydantic`, `python-multipart`（`requirements.txt`）
 - フロントエンド: `vite`、`vue`、`pinia`、`@xterm/xterm`、`highlight.js`、`@mdi/font`（`package.json`）
 - 開発依存: `pytest`, `pytest-cov`, `ruff`, `mypy`, `httpx`
 - 追加ツール
@@ -59,8 +59,8 @@ docker compose -f docker/compose.yml up -d
 
 - 認証は **オプション**。デフォルトでは無効（Tailscale等で網が閉じている前提）
 - 有効化: UIの「Security」設定からトークンを発行・更新（`data/auth.json` に保存）
-- `.env` は `python-dotenv` で `api/main.py` 起動時に自動読み込み（`ANY_CONSOLE_PORT`/`ANY_CONSOLE_HOST` 等）
 - Bearerトークン方式。WebSocketは `verify_ws_token()` で検証
+- ポート・ホストはコード内固定（`api/main.py` の `DEFAULT_PORT=8888` / `DEFAULT_HOST=0.0.0.0`）。変更したい場合はコードを直接編集する
 
 ## テスト・Lint
 
@@ -109,7 +109,7 @@ docker compose -f docker/compose.yml up -d
 
 ## ワークスペースと設定
 
-- ワークスペースルートはデフォルト `~/work/`（`default_workspace_dir()` で取得、環境変数 `ANY_CONSOLE_WORKSPACE_ROOT` で変更可能）
+- ワークスペースルートはデフォルト `~/work/`（`default_workspace_dir()` で取得）。UI の Settings から変更すると `config.json` の `__global__.workspace_root` に保存される
 - 追加設定は `config.json`（ワークスペース単位）
   - `icon`, `icon_color`, `hidden`, `jobs`
 

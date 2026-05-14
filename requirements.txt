@@ -1,7 +1,6 @@
 fastapi>=0.100,<1
 uvicorn>=0.20,<1
 websockets>=12,<17
-python-dotenv>=1,<2
 pydantic>=2,<3
 python-multipart>=0.0.5
 

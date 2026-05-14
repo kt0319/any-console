@@ -53,13 +53,56 @@ get_version() {
 }
 
 get_port() {
-  if [ -f .env ]; then
-    local port
-    port=$(grep -E '^ANY_CONSOLE_PORT=' .env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
-    echo "${port:-8888}"
-  else
-    echo "8888"
-  fi
+  python3 -c "
+import json, pathlib
+p = pathlib.Path('config.json')
+if not p.is_file():
+    print(8888); exit()
+try:
+    cfg = json.loads(p.read_text())
+    print(cfg.get('__global__', {}).get('port') or 8888)
+except Exception:
+    print(8888)
+" 2>/dev/null
+}
+
+get_host() {
+  python3 -c "
+import json, pathlib
+p = pathlib.Path('config.json')
+if not p.is_file():
+    print('0.0.0.0'); exit()
+try:
+    cfg = json.loads(p.read_text())
+    print(cfg.get('__global__', {}).get('host') or '0.0.0.0')
+except Exception:
+    print('0.0.0.0')
+" 2>/dev/null
+}
+
+prompt_bind_config() {
+  local current_host current_port new_host new_port
+  current_host=$(get_host)
+  current_port=$(get_port)
+
+  read -rp "バインドホスト [${current_host}]: " new_host
+  new_host=${new_host:-$current_host}
+  read -rp "ポート番号 [${current_port}]: " new_port
+  new_port=${new_port:-$current_port}
+
+  HOST="$new_host" PORT="$new_port" python3 -c "
+import json, os, pathlib
+p = pathlib.Path('config.json')
+cfg = json.loads(p.read_text()) if p.is_file() else {}
+g = cfg.get('__global__', {})
+if not isinstance(g, dict):
+    g = {}
+g['host'] = os.environ['HOST']
+g['port'] = int(os.environ['PORT'])
+cfg['__global__'] = g
+p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+"
+  info "config.json に保存しました（host=${new_host}, port=${new_port}）"
 }
 
 is_service_active() {
@@ -89,10 +132,9 @@ cmd_setup() {
   info "フロントエンドをビルド中..."
   npm run build
 
-  if [ ! -f .env ] && [ -f .env.example ]; then
-    cp .env.example .env
-    info ".env を生成しました"
-  fi
+  echo ""
+  info "バインド設定（config.json の __global__ に保存）"
+  prompt_bind_config
 
   echo ""
   read -rp "systemdサービスを登録しますか? [y/N] " answer
@@ -119,7 +161,6 @@ After=network.target
 [Service]
 User=$USER
 WorkingDirectory=$SCRIPT_DIR
-EnvironmentFile=$SCRIPT_DIR/.env
 ExecStart=/usr/bin/python3 -m api.main
 KillMode=process
 Restart=always
