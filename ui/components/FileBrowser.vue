@@ -27,7 +27,7 @@
         </template>
         <template v-else>
           <input ref="uploadInputEl" type="file" multiple class="file-browser-upload-input" @change="onUploadInputChange">
-          <button type="button" class="file-browser-header-btn" @click="showIgnored = !showIgnored"><span class="mdi" :class="showIgnored ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"></span></button>
+          <button type="button" class="file-browser-header-btn" @click="showHidden = !showHidden"><span class="mdi" :class="showHidden ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"></span></button>
           <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" @click="openDirInEditor"><span class="mdi mdi-file-edit-outline"></span></button>
           <button type="button" class="file-browser-header-btn" @click="uploadInputEl?.click()"><span class="mdi mdi-upload"></span></button>
         </template>
@@ -131,7 +131,7 @@ const {
   onMenuMouseEnter, onMenuMouseLeave,
 } = useHoverMenu();
 const uploadInputEl = ref(null);
-const showIgnored = ref(false);
+const showHidden = ref(false);
 const showHistory = ref(false);
 
 function toggleHistory() {
@@ -179,8 +179,8 @@ const pathSegments = computed(() => {
 });
 
 const visibleEntries = computed(() => {
-  if (showIgnored.value) return entries.value;
-  return entries.value.filter((e) => !e.gitignored);
+  if (showHidden.value) return entries.value;
+  return entries.value.filter((e) => !e.name.startsWith("."));
 });
 
 const displayPathSegments = computed(() => {
