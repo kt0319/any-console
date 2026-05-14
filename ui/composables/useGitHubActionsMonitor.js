@@ -31,7 +31,7 @@ export function useGitHubActionsMonitor() {
         const label = run.workflowName || run.displayTitle || "Workflow";
         const status = run.conclusion === "failure" ? "failed" : "cancelled";
         emit("toast:show", {
-          message: `[${wsName}] "${label}" ${status}`,
+          message: `GitHub Actions · ${wsName}\n"${label}" ${status}`,
           type: "error",
           duration: TOAST_LONG_DURATION_MS,
         });
