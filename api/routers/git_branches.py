@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from ..ai_summary import summarize_pull
 from ..auth import verify_token
 from ..common import (
     GIT_LONG_TIMEOUT_SEC,
@@ -18,6 +17,27 @@ from ..git_utils import (
 )
 from ..validators import validate_branch_name, validate_commit_hash
 from .git_helpers import execute_git_action, get_current_branch
+
+_COMMIT_PREVIEW_LIMIT = 3
+
+
+def _commits_between(ws_path, range_expr: str) -> dict:
+    """range_expr (例: "abcd..HEAD" または "@{u}..HEAD") のコミット件数と直近メッセージを返す。"""
+    log = run_git_command(
+        ["log", range_expr, "--pretty=format:%s", "-n", str(_COMMIT_PREVIEW_LIMIT)],
+        cwd=ws_path, operation="log range",
+    )
+    count_res = run_git_command(
+        ["rev-list", "--count", range_expr], cwd=ws_path, operation="rev-list count",
+    )
+    if log["exit_code"] != 0 or count_res["exit_code"] != 0:
+        return {"count": 0, "messages": []}
+    try:
+        count = int(count_res["stdout"].strip() or "0")
+    except ValueError:
+        count = 0
+    messages = [line for line in log["stdout"].splitlines() if line]
+    return {"count": count, "messages": messages}
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
@@ -104,20 +124,26 @@ def git_pull(name: str):
     with workspace_write_lock(name):
         ws_path = resolve_workspace_path(name)
         env = ssh_env()
+        before_hash = run_git_command(
+            ["rev-parse", "HEAD"], cwd=ws_path, operation="rev-parse before pull",
+        )["stdout"].strip()
         stashed = _stash_if_dirty(ws_path, env)
         result = execute_git_action(name, ["pull", "--rebase"], operation="pull", env=env)
         if stashed:
             _unstash(ws_path, env, result)
-        if result["status"] == "ok":
-            summary = summarize_pull(result["stdout"])
-            if summary:
-                result["summary"] = summary
+        if result["status"] == "ok" and before_hash:
+            result["commits"] = _commits_between(ws_path, f"{before_hash}..HEAD")
         return result
 
 
 @router.post("/workspaces/{name}/push")
 def git_push(name: str):
-    return execute_git_action(name, ["push"], operation="push", env=ssh_env())
+    ws_path = resolve_workspace_path(name)
+    pending = _commits_between(ws_path, "@{u}..HEAD")
+    result = execute_git_action(name, ["push"], operation="push", env=ssh_env())
+    if result["status"] == "ok":
+        result["commits"] = pending
+    return result
 
 
 @router.post("/workspaces/{name}/set-upstream")

@@ -16,7 +16,6 @@ CLAUDE.md から分離した参照用ドキュメント。変更時の影響範�
 - `config_schema.py`: Pydanticによるconfig.jsonのスキーマ定義・検証
 - `git_utils.py`: Gitコマンド実行ユーティリティ（`run_git_raw`/`run_git_query`/`run_git_command`）、ブランチ取得、git info キャッシュ
 - `git_lock.py`: ワークスペース単位の書き込みロック（index.lock競合防止）
-- `ai_summary.py`: git pull結果のAI要約（LLM呼び出し）
 - `client_log.py`: クライアントログ受信
 - `errors.py`: 共通エラーハンドリング
 - `icons.py`: アイコン関連処理

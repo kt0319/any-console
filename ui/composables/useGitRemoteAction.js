@@ -41,12 +41,12 @@ export function useGitRemoteAction() {
     if (!await confirm(msg)) return;
     runningAction.value = `${wsName}:${action}`;
     try {
-      if (action === "pull") {
+      if (action === "pull" || action === "push") {
         const { ok, data } = await apiCommand(wsEndpoint(wsName, action), {}, { errorMessage: `${label} failed` });
         if (ok) {
-          const summary = data?.summary;
-          const message = summary ? `${wsName}: ${label} done\n${summary}` : `${wsName}: ${label} done`;
-          emit("toast:show", { message, type: "success", duration: summary ? 5000 : 3000 });
+          const message = formatRemoteToast(wsName, label, data);
+          const hasDetail = message.includes("\n");
+          emit("toast:show", { message, type: "success", duration: hasDetail ? 5000 : 3000 });
           workspaceStore.fetchStatuses();
         }
       } else {
@@ -59,6 +59,17 @@ export function useGitRemoteAction() {
     } finally {
       runningAction.value = null;
     }
+  }
+
+  function formatRemoteToast(wsName, label, data) {
+    const commits = data?.commits;
+    const count = commits?.count || 0;
+    const header = count > 0
+      ? `${wsName}: ${label} done (${count} commit${count === 1 ? "" : "s"})`
+      : `${wsName}: ${label} done`;
+    const messages = Array.isArray(commits?.messages) ? commits.messages : [];
+    if (!messages.length) return header;
+    return [header, ...messages.map((m) => `• ${m}`)].join("\n");
   }
 
   function isRunning(wsName, action) {

@@ -16,7 +16,7 @@ Web操作コンソール。スマホからTailscale経由でシェルスクリ�
 ## 依存関係
 
 - Python 3.11+、Node.js 18+
-- 主要ライブラリ: `fastapi`, `uvicorn`, `websockets`, `python-dotenv`, `pydantic`, `python-multipart`, `anthropic`（`requirements.txt`）
+- 主要ライブラリ: `fastapi`, `uvicorn`, `websockets`, `python-dotenv`, `pydantic`, `python-multipart`（`requirements.txt`）
 - フロントエンド: `vite`、`vue`、`pinia`、`@xterm/xterm`、`highlight.js`、`@mdi/font`（`package.json`）
 - 開発依存: `pytest`, `pytest-cov`, `ruff`, `mypy`, `httpx`
 - 追加ツール
@@ -89,7 +89,6 @@ docker compose -f docker/compose.yml up -d
   - `rate_limiter.py`: APIレートリミッタ（ミドルウェア）
   - `client_log.py`: クライアントログ受信ミドルウェア
   - `validators.py` / `errors.py`: 入力検証と共通エラーレスポンス
-  - `ai_summary.py`: git pull 結果の AI 要約（Anthropic SDK）
   - `icons.py`: アイコン関連処理
   - `common.py`: 共通定数・`TTLCache`・`BACKGROUND_EXECUTOR`
 - ルーター: `api/routers/`

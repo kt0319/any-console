@@ -84,3 +84,39 @@ class TestFetchNoRemote:
         assert res.status_code == 200
         body = res.json()
         assert "exit_code" in body
+
+
+class TestCommitsBetween:
+    """pull/push 後のトースト表示に使う _commits_between ヘルパーの挙動。"""
+
+    def test_returns_empty_for_no_diff(self, git_workspace_with_commit):
+        from api.routers.git_branches import _commits_between
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=git_workspace_with_commit,
+            check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        result = _commits_between(git_workspace_with_commit, f"{head}..HEAD")
+        assert result == {"count": 0, "messages": []}
+
+    def test_returns_count_and_recent_messages(self, git_workspace_with_commit):
+        from api.routers.git_branches import _commits_between
+        base = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=git_workspace_with_commit,
+            check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        for i in range(4):
+            (git_workspace_with_commit / f"f{i}.txt").write_text(f"x{i}\n", encoding="utf-8")
+            subprocess.run(["git", "add", f"f{i}.txt"], cwd=git_workspace_with_commit, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "commit", "-m", f"add f{i}"],
+                cwd=git_workspace_with_commit, check=True, capture_output=True,
+            )
+        result = _commits_between(git_workspace_with_commit, f"{base}..HEAD")
+        assert result["count"] == 4
+        # 直近3件（新しい順）のみ返る
+        assert result["messages"] == ["add f3", "add f2", "add f1"]
+
+    def test_returns_empty_on_invalid_range(self, git_workspace_with_commit):
+        from api.routers.git_branches import _commits_between
+        result = _commits_between(git_workspace_with_commit, "deadbeef..HEAD")
+        assert result == {"count": 0, "messages": []}
