@@ -24,7 +24,7 @@
       v-model="urlTemplate"
       class="editor-url-template-input"
       rows="2"
-      placeholder="zed://ssh/{user}@{host}{work_dir}/{workspace}"
+      placeholder="zed://ssh/{user}@{host}{workspace_path}"
     />
 
     <div class="editor-template-chips">
@@ -54,11 +54,11 @@ modalTitle.value = "Editor";
 const { apiGet, apiPut } = useApi();
 
 const EDITOR_PRESETS = [
-  { label: "Zed", template: "zed://ssh/{user}@{host}{work_dir}/{workspace}" },
-  { label: "VS Code", template: "vscode://vscode-remote/ssh-remote+{host}{work_dir}/{workspace}" },
-  { label: "Cursor", template: "cursor://vscode-remote/ssh-remote+{host}{work_dir}/{workspace}" },
+  { label: "Zed", template: "zed://ssh/{user}@{host}{workspace_path}" },
+  { label: "VS Code", template: "vscode://vscode-remote/ssh-remote+{host}{workspace_path}" },
+  { label: "Cursor", template: "cursor://vscode-remote/ssh-remote+{host}{workspace_path}" },
 ];
-const TEMPLATE_VARS = ["{user}", "{host}", "{work_dir}", "{workspace}"];
+const TEMPLATE_VARS = ["{user}", "{host}", "{work_dir}", "{workspace}", "{workspace_path}"];
 
 const textareaRef = ref(null);
 const urlTemplate = ref("");
@@ -69,11 +69,13 @@ const workDir = ref("");
 const previewUrl = computed(() => {
   const tmpl = urlTemplate.value.trim();
   if (!tmpl) return "(Editor button hidden)";
+  const exampleWorkDir = workDir.value || "/home/user";
   return tmpl
     .replace(/\{user\}/g, editorUser.value || "user")
     .replace(/\{host\}/g, editorHost.value || "host")
-    .replace(/\{work_dir\}/g, workDir.value || "/home/user/work")
-    .replace(/\{workspace\}/g, "example-workspace");
+    .replace(/\{work_dir\}/g, exampleWorkDir)
+    .replace(/\{workspace\}/g, "example-workspace")
+    .replace(/\{workspace_path\}/g, exampleWorkDir + "/work/example-workspace");
 });
 
 function insertVar(v) {

@@ -30,11 +30,13 @@ export function useEditorIntegration() {
     const tmpl = editorUrlTemplate.value;
     if (!tmpl) return "";
     const workspace = workspaceStore.selectedWorkspace || "";
+    const workspacePath = workspaceStore.currentWorkspace?.path || "";
     let url = tmpl
       .replace(/\{user\}/g, systemInfo.value.user || "")
       .replace(/\{host\}/g, systemInfo.value.hostname || "")
       .replace(/\{work_dir\}/g, systemInfo.value.work_dir || "")
-      .replace(/\{workspace\}/g, workspace);
+      .replace(/\{workspace\}/g, workspace)
+      .replace(/\{workspace_path\}/g, workspacePath);
     if (path) url += "/" + path;
     return url;
   }
