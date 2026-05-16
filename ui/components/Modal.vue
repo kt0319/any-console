@@ -312,6 +312,7 @@ onMounted(() => {
   min-width: 44px;
   min-height: 44px;
   flex-shrink: 0;
+  margin-left: auto;
   padding: 0;
   font-size: 22px;
   line-height: 1;
