@@ -227,7 +227,7 @@ onMounted(() => {
 .modal-title-wrap {
   display: inline-flex;
   align-items: center;
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   min-height: 44px;
   padding: 0;
