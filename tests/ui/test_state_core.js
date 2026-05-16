@@ -71,7 +71,7 @@ describe("sanitizeTerminalSetting", () => {
     });
 
     it("clamps below min", () => {
-      expect(sanitizeTerminalSetting("scrollback", 500)).toBe(1000);
+      expect(sanitizeTerminalSetting("scrollback", -100)).toBe(0);
     });
 
     it("clamps above max", () => {
@@ -125,6 +125,6 @@ describe("sanitizeTerminalSettings", () => {
   it("clamps out-of-range values", () => {
     const result = sanitizeTerminalSettings({ fontSize: 100, scrollback: -5 });
     expect(result.fontSize).toBe(24);
-    expect(result.scrollback).toBe(1000);
+    expect(result.scrollback).toBe(0);
   });
 });
