@@ -4,21 +4,23 @@
       <span :class="mode === 'git' ? 'mdi mdi-play-circle-outline' : 'mdi mdi-source-branch'"></span>
     </button>
     <template v-if="mode === 'git'">
-      <button
-        v-if="isGitRepo"
-        type="button"
-        tabindex="-1"
-        class="commit-msg-btn"
-        :title="commitTooltip"
-        @click="openFileModal"
-        v-html="commitMsgHtml + numstatHtml"
-      />
+      <template v-if="isGitRepo">
+        <button type="button" class="status-branch-btn" tabindex="-1" @click="openFileModal('branch')">{{ branchText }}</button>
+        <button type="button" class="status-msg-btn" tabindex="-1" @click="openFileModal('history')">
+          <span class="status-msg-text" :class="{ 'status-msg-loading': statusLoading, 'status-msg-muted': isDirty && !statusLoading }">{{ msgText }}</span>
+        </button>
+        <button v-if="isDirty && !statusLoading" type="button" class="status-numstat-btn" tabindex="-1" @click="openFileModal('changes')">
+          <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
+          <span class="diff-num-plus">+{{ insertions }}</span>
+          <span class="diff-num-del">-{{ deletions }}</span>
+        </button>
+      </template>
       <button
         v-else-if="workspace"
         type="button"
         tabindex="-1"
-        class="non-git-hint commit-msg-btn"
-        @click="openFileModal"
+        class="non-git-hint status-msg-standalone"
+        @click="openFileModal('changes')"
       >Not a Git repository</button>
       <div v-if="isGitRepo && !statusLoading && hasGitActions" class="git-actions">
         <GitActionBtn v-if="behind > 0" icon="pull" title="Pull" :count="behind" :running="isRunning(workspace, 'pull')" btn-class="pull-btn has-count" @action="doAction('pull')" />
@@ -79,7 +81,6 @@ import { emit, on } from "../app-bridge.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import { renderIconStr } from "../utils/render-icon.js";
-import { escapeHtml } from "../utils/escape-html.js";
 import { POLL_INTERVAL_MS } from "../utils/constants.js";
 import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 
@@ -150,37 +151,21 @@ const isDirty = computed(() => ws.value && ws.value.clean === false);
 
 const statusLoading = computed(() => ws.value && ws.value.last_commit_message === undefined);
 
-const commitMsgHtml = computed(() => {
+const branchText = computed(() => ws.value?.branch || "");
+const msgText = computed(() => {
   if (!ws.value) return "";
-  if (statusLoading.value) {
-    const branch = ws.value.branch || "";
-    return `<span class="commit-btn-branch">${escapeHtml(branch)}</span>` +
-      `<span class="commit-btn-msg-wrap"><span class="commit-btn-msg commit-btn-loading">Loading</span></span>`;
-  }
-  const branch = ws.value.branch || "";
-  const msg = isDirty.value ? "Changes" : (ws.value.last_commit_message || "");
-  const msgClass = isDirty.value ? "commit-btn-msg commit-btn-msg-muted" : "commit-btn-msg";
-  const escaped = escapeHtml(msg);
-  return `<span class="commit-btn-branch">${escapeHtml(branch)}</span>` +
-    `<span class="commit-btn-msg-wrap"><span class="${msgClass}">${escaped}</span></span>`;
+  if (statusLoading.value) return "Loading";
+  return isDirty.value ? "Changes" : (ws.value.last_commit_message || "");
 });
+const changedFiles = computed(() => ws.value?.changed_files || 0);
+const insertions = computed(() => ws.value?.insertions || 0);
+const deletions = computed(() => ws.value?.deletions || 0);
 
-const commitTooltip = computed(() => "History");
-
-const numstatHtml = computed(() => {
-  if (!ws.value || !isDirty.value) return "";
-  const changedFiles = ws.value.changed_files || 0;
-  const insertions = ws.value.insertions || 0;
-  const deletions = ws.value.deletions || 0;
-  const fileCountHtml = changedFiles > 0 ? `<span class="header-git-files">${changedFiles}F</span>` : "";
-  return `<span class="header-git-numstat">${fileCountHtml}<span class="diff-num-plus">+${insertions}</span><span class="diff-num-del">-${deletions}</span></span>`;
-});
-
-function openFileModal() {
+function openFileModal(pane = "changes") {
   if (workspace.value) {
     workspaceStore.selectedWorkspace = workspace.value;
   }
-  emit("git:openFileModal");
+  emit("git:openFileModal", { pane });
 }
 
 function doAction(action) {
@@ -265,71 +250,53 @@ async function runJob(job) {
   border-bottom: 1px solid var(--border);
 }
 
-.commit-msg-btn {
+.status-branch-btn,
+.status-msg-btn,
+.status-numstat-btn {
   display: flex;
   align-items: center;
-  flex: 1;
-  min-width: 0;
   height: 36px;
-  min-height: 36px;
-  max-height: 36px;
-  box-sizing: border-box;
-  line-height: 1;
-  padding: 0 10px;
-  font-size: 12px;
-  font-family: inherit;
-  color: var(--text-muted);
+  padding: 0 8px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   cursor: pointer;
-  overflow: hidden;
-  gap: 6px;
-  text-align: left;
+  font-size: 12px;
+  font-family: inherit;
+  white-space: nowrap;
 }
 
-.non-git-hint {
-  color: var(--text-muted);
-}
-
-.git-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.commit-msg-btn :deep(.commit-btn-branch) {
+.status-branch-btn {
   flex-shrink: 0;
   color: var(--accent);
   font-weight: 600;
 }
 
-.commit-msg-btn :deep(.commit-btn-msg-wrap) {
+.status-msg-btn {
   flex: 1;
   min-width: 0;
   overflow: hidden;
 }
 
-.commit-msg-btn :deep(.commit-btn-msg) {
+.status-msg-text {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--text-primary);
   user-select: none;
   -webkit-user-select: none;
-  white-space: nowrap;
 }
 
-.commit-msg-btn :deep(.commit-btn-msg-muted) {
+.status-msg-muted {
   color: var(--text-muted);
 }
 
-.commit-msg-btn :deep(.commit-btn-loading) {
+.status-msg-loading {
   color: var(--text-muted);
 }
 
-.commit-msg-btn :deep(.commit-btn-loading)::after {
+.status-msg-loading::after {
   content: "";
   animation: loading-dots 1.2s steps(4) infinite;
 }
@@ -341,20 +308,50 @@ async function runJob(job) {
   75% { content: "..."; }
 }
 
-.commit-msg-btn :deep(.header-git-numstat) {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.status-numstat-btn {
   flex-shrink: 0;
-  margin-left: auto;
+  gap: 6px;
   font-size: 13px;
-  line-height: 1;
   font-weight: 700;
-  white-space: nowrap;
 }
 
-.commit-msg-btn :deep(.header-git-files) {
+.numstat-files {
   color: var(--warning);
+}
+
+.non-git-hint {
+  color: var(--text-muted);
+}
+
+.status-msg-standalone {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: left;
+}
+
+.git-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .status-branch-btn:hover,
+  .status-msg-btn:hover,
+  .status-numstat-btn:hover {
+    background: var(--bg-secondary);
+  }
 }
 
 .status-mode-toggle {
