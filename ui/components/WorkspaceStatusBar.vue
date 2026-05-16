@@ -115,8 +115,11 @@ function stopPolling() {
   }
 }
 
-onMounted(() => startPolling());
-onBeforeUnmount(() => stopPolling());
+const isMobile = ref(window.innerWidth < 768);
+function onResize() { isMobile.value = window.innerWidth < 768; }
+
+onMounted(() => { startPolling(); window.addEventListener("resize", onResize); });
+onBeforeUnmount(() => { stopPolling(); window.removeEventListener("resize", onResize); });
 
 const offJobsRefresh = on("jobs:refresh", () => {
   for (const key of Object.keys(jobsCache)) delete jobsCache[key];
@@ -151,7 +154,16 @@ const isDirty = computed(() => ws.value && ws.value.clean === false);
 
 const statusLoading = computed(() => ws.value && ws.value.last_commit_message === undefined);
 
-const branchText = computed(() => ws.value?.branch || "");
+function abbreviateBranch(branch) {
+  const slash = branch.indexOf("/");
+  if (slash === -1) return branch;
+  return branch[0] + "~/" + branch.slice(slash + 1);
+}
+
+const branchText = computed(() => {
+  const branch = ws.value?.branch || "";
+  return isMobile.value ? abbreviateBranch(branch) : branch;
+});
 const msgText = computed(() => {
   if (!ws.value) return "";
   if (statusLoading.value) return "Loading";
