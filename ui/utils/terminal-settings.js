@@ -1,7 +1,7 @@
 export const TERMINAL_SETTINGS_META = Object.freeze({
   fontSize: { type: "number", label: "Font Size", min: 10, max: 24, step: 1, unit: "px", note: "Applied to new terminals." },
   cursorBlink: { type: "boolean", label: "Cursor Blink", note: "Applied to new terminals." },
-  scrollback: { type: "number", label: "Scrollback", min: 1000, max: 20000, step: 500, unit: "lines", note: "Applied to new terminals." },
+  scrollback: { type: "number", label: "Scrollback", min: 0, max: 20000, step: 500, unit: "lines", note: "0 to disable. Applied to new terminals." },
   scrollOnOutput: { type: "boolean", label: "Scroll on Output", note: "Applied to new terminals." },
 });
 
