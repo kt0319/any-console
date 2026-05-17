@@ -17,7 +17,8 @@
         <span class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
       </button>
       <button type="button" class="status-branch-btn" tabindex="-1" @click="openFileModal('branch')">
-        <span class="mdi mdi-source-branch status-btn-icon" aria-hidden="true"></span>{{ branchText }}
+        <span class="mdi mdi-source-branch status-btn-icon" aria-hidden="true"></span>
+        <span class="status-branch-text">{{ branchText }}</span>
       </button>
     </template>
     <button
@@ -165,8 +166,16 @@ function doAction(action) {
 .status-branch-btn {
   flex-shrink: 0;
   gap: 4px;
+  max-width: 140px;
   color: var(--text-primary);
   font-weight: 600;
+}
+
+.status-branch-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .status-msg-btn {
