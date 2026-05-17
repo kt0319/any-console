@@ -25,13 +25,6 @@
           {{ tab.workspace || tab.label || '' }}
         </span>
       </div>
-      <div v-if="terminalStore.tabFlags[tab.id]?.needsReload" class="terminal-reload-banner" @click.stop>
-        <span class="mdi mdi-wifi-off" aria-hidden="true"></span>
-        <span class="terminal-reload-text">Disconnected</span>
-        <button type="button" class="terminal-reload-btn" @click="onReload">
-          <span class="mdi mdi-refresh"></span>Reload
-        </button>
-      </div>
     </div>
   </div>
 </template>
@@ -66,11 +59,7 @@ const { confirm } = useConfirm();
 setTouchEnv(layoutStore.isTouchDevice);
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
-const { ensureTerminalOpened, fitTerminal, sendResize, observeFrameResize, connectTerminalWs, reconnectTerminal } = useTerminal();
-
-function onReload() {
-  reconnectTerminal(props.tab);
-}
+const { ensureTerminalOpened, fitTerminal, sendResize, observeFrameResize, connectTerminalWs } = useTerminal();
 
 const paneEl = ref(null);
 const frameEl = ref(null);
@@ -555,48 +544,4 @@ defineExpose({
   }
 }
 
-.terminal-reload-banner {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  z-index: 10;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.terminal-reload-banner .mdi {
-  font-size: 16px;
-  color: var(--text-muted);
-}
-
-.terminal-reload-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: 6px;
-  padding: 4px 10px;
-  background: var(--accent);
-  color: var(--bg-primary);
-  border: none;
-  border-radius: var(--radius);
-  font-size: 12px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.terminal-reload-btn .mdi {
-  font-size: 14px;
-  color: inherit;
-}
 </style>

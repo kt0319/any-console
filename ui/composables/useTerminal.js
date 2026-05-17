@@ -28,8 +28,6 @@ export function useTerminal() {
 
     ws.onopen = () => {
       tab._reconnectAttempts = 0;
-      tab._needsReload = false;
-      useTerminalStore().setTabFlag(tab.id, "needsReload", false);
       fitTerminal(tab, { force: true });
       sendResize(tab);
       if (tab._pendingRedraw) {
@@ -84,12 +82,6 @@ export function useTerminal() {
       }
 
       const attempts = tab._reconnectAttempts || 0;
-      if (attempts >= 3) {
-        tab._needsReload = true;
-        useTerminalStore().setTabFlag(tab.id, "needsReload", true);
-        tab._pendingRedraw = true;
-        return;
-      }
       const delay = attempts === 0
         ? RECONNECT_INITIAL_DELAY
         : Math.min(Math.pow(RECONNECT_BACKOFF_MULTIPLIER, attempts - 1) * RECONNECT_BACKOFF_BASE_MS, RECONNECT_BACKOFF_MAX);
@@ -146,15 +138,6 @@ export function useTerminal() {
     } catch {}
   }
 
-  function reconnectTerminal(tab) {
-    if (!tab) return;
-    tab._reconnectAttempts = 0;
-    tab._needsReload = false;
-    useTerminalStore().setTabFlag(tab.id, "needsReload", false);
-    clearTimeout(tab._reconnectTimer);
-    connectTerminalWs(tab);
-  }
-
   return {
     connectTerminalWs,
     connectDeferredTabs,
@@ -164,6 +147,5 @@ export function useTerminal() {
     sendResize,
     observeFrameResize,
     deleteSession,
-    reconnectTerminal,
   };
 }
