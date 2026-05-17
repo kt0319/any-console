@@ -141,10 +141,10 @@ const hasGithub = computed(() => !!workspaceStore.currentWorkspace?.github_url);
 
 const tabs = computed(() => {
   const list = [
+    { key: "jobs", icon: "mdi-play-circle-outline", label: "Jobs" },
     { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", badge: changesCount.value || "" },
     { key: "history", icon: "mdi-history", label: "History" },
     { key: "branch", icon: "mdi-source-branch", label: "Branch" },
-    { key: "jobs", icon: "mdi-play-circle-outline", label: "Jobs" },
     { key: "stash", icon: "mdi-package-variant", label: "Stash", badge: stashCount.value || "", hidden: !stashCount.value },
     { key: "issues", icon: "mdi-github", label: "Issues", badge: issuesCount.value || "", hidden: !hasGithub.value || !issuesCount.value },
     { key: "actions", icon: "mdi-github", label: "Actions", hidden: !hasGithub.value },

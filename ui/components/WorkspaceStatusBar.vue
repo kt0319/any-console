@@ -4,11 +4,14 @@
       <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
     </button>
     <template v-if="isGitRepo">
-      <button v-if="isDirty && !statusLoading" type="button" class="status-numstat-btn" tabindex="-1" @click="openFileModal('changes')">
+      <button type="button" class="status-numstat-btn" tabindex="-1" @click="openFileModal('changes')">
         <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
-        <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
-        <span class="diff-num-plus">+{{ insertions }}</span>
-        <span class="diff-num-del">-{{ deletions }}</span>
+        <template v-if="isDirty && !statusLoading">
+          <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
+          <span class="diff-num-plus">+{{ insertions }}</span>
+          <span class="diff-num-del">-{{ deletions }}</span>
+        </template>
+        <span v-else class="numstat-empty">-</span>
       </button>
       <button type="button" class="status-msg-btn" tabindex="-1" @click="openFileModal('history')">
         <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
@@ -163,7 +166,7 @@ function doAction(action) {
 .status-branch-btn {
   flex-shrink: 0;
   gap: 4px;
-  color: var(--accent);
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -209,6 +212,10 @@ function doAction(action) {
 
 .numstat-files {
   color: var(--warning);
+}
+
+.numstat-empty {
+  color: var(--text-muted);
 }
 
 .non-git-hint {
