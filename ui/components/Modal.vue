@@ -323,7 +323,7 @@ onMounted(() => {
     border-top: 1px solid var(--border);
     margin-bottom: 0;
     margin-top: 8px;
-    padding-bottom: calc(env(safe-area-inset-bottom) + 20px);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 22px);
   }
 }
 </style>
