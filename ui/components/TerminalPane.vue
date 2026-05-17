@@ -23,6 +23,15 @@
           {{ tab.workspace || tab.label || '' }}
         </span>
       </div>
+      <div v-if="terminalStore.tabFlags[tab.id]?.needsReload" class="terminal-reload-overlay" @click.stop>
+        <div class="terminal-reload-card">
+          <span class="mdi mdi-wifi-off terminal-reload-icon" aria-hidden="true"></span>
+          <div class="terminal-reload-text">Disconnected</div>
+          <button type="button" class="terminal-reload-btn" @click="onReload">
+            <span class="mdi mdi-refresh"></span>Reload
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -53,7 +62,11 @@ const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
-const { ensureTerminalOpened, fitTerminal, observeFrameResize, connectTerminalWs } = useTerminal();
+const { ensureTerminalOpened, fitTerminal, observeFrameResize, connectTerminalWs, reconnectTerminal } = useTerminal();
+
+function onReload() {
+  reconnectTerminal(props.tab);
+}
 
 const paneEl = ref(null);
 const frameEl = ref(null);
@@ -410,5 +423,57 @@ defineExpose({
     opacity: 0.5;
     cursor: grabbing;
   }
+}
+
+.terminal-reload-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(26, 27, 38, 0.85);
+  z-index: 10;
+}
+
+.terminal-reload-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 24px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.terminal-reload-icon {
+  font-size: 32px;
+  color: var(--text-muted);
+}
+
+.terminal-reload-text {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.terminal-reload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.terminal-reload-btn .mdi {
+  font-size: 16px;
 }
 </style>

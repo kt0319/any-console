@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref, markRaw } from "vue";
+import { ref, reactive, markRaw } from "vue";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -25,6 +25,16 @@ export const useTerminalStore = defineStore("terminal", () => {
   const restoreSessionsLoading = ref(false);
   const restoreSessionsError = ref("");
   const terminalSettings = ref(loadTerminalSettingsFromStorage());
+  const tabFlags = reactive({});
+
+  function setTabFlag(tabId, key, value) {
+    if (!tabFlags[tabId]) tabFlags[tabId] = {};
+    tabFlags[tabId][key] = value;
+  }
+
+  function clearTabFlags(tabId) {
+    delete tabFlags[tabId];
+  }
 
   function saveTerminalSettings() {
     localStorage.setItem(TERMINAL_SETTINGS_KEY, JSON.stringify(terminalSettings.value));
@@ -141,6 +151,9 @@ export const useTerminalStore = defineStore("terminal", () => {
     restoreSessionsLoading,
     restoreSessionsError,
     terminalSettings,
+    tabFlags,
+    setTabFlag,
+    clearTabFlags,
     TERMINAL_SETTINGS_KEY,
     TERMINAL_SETTINGS_META,
     DEFAULT_TERMINAL_SETTINGS,
