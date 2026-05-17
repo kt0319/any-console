@@ -337,7 +337,7 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: var(--bg-primary);
+  background: color-mix(in srgb, var(--bg-primary) 70%, transparent);
   border: 1px solid var(--border);
   border-radius: var(--radius) var(--radius) 0 0;
   color: var(--text-muted);
@@ -350,7 +350,7 @@ onMounted(() => {
 
 .workspace-tab.active {
   color: var(--text-primary);
-  background: var(--bg-secondary);
+  background: color-mix(in srgb, var(--bg-secondary) 70%, transparent);
 }
 
 .workspace-tab .mdi {
@@ -392,7 +392,7 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  background: var(--bg-secondary);
+  background: color-mix(in srgb, var(--bg-secondary) 70%, transparent);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   min-width: 0;
