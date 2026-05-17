@@ -1,77 +1,62 @@
 <template>
   <div class="workspace-detail">
-    <div v-show="topRatio > 0" class="workspace-detail-top" :style="{ flex: topRatio + ' 1 0%' }">
-      <!-- タブバー -->
-      <div class="workspace-tabs">
-        <button
-          v-for="tab in tabs"
-          :key="tab.key"
-          class="workspace-tab"
-          :class="{ active: activePane === tab.key }"
-          @click="switchPane(tab.key)"
-        >
-          <span :class="['mdi', tab.icon]"></span>
-          <span class="workspace-tab-label">{{ tab.label }}</span>
-          <span v-if="tab.badge" class="workspace-tab-badge">{{ tab.badge }}</span>
-        </button>
-      </div>
-
-      <!-- ブランチ情報バー -->
-      <div v-if="currentBranch" class="workspace-branch-bar">
-        <span class="mdi mdi-source-branch workspace-branch-icon"></span>
-        <span class="workspace-branch-name">{{ currentBranch }}</span>
-        <span v-if="isDirty" class="workspace-branch-dirty" v-html="dirtySummaryHtml"></span>
-      </div>
-
-      <!-- タブコンテンツ -->
-      <div class="workspace-tab-content">
-        <div v-show="activePane === 'history'" class="file-modal-pane">
-          <GitHistory
-            ref="gitHistory"
-            @commit:expanded="onCommitExpanded"
-            @commit:collapsed="onCommitCollapsed"
-          />
-        </div>
-        <div v-if="activePane === 'changes'" class="file-modal-pane">
-          <GitFiles ref="gitFiles" />
-        </div>
-        <div v-if="activePane === 'branch'" class="file-modal-pane">
-          <GitChangeBranch ref="gitBranch" />
-        </div>
-        <div v-if="activePane === 'jobs'" class="file-modal-pane">
-          <WorkspaceJobsPane ref="jobsPane" />
-        </div>
-        <div v-if="activePane === 'stash'" class="file-modal-pane">
-          <GitStash ref="gitStash" @count="onStashCount" />
-        </div>
-        <div v-if="activePane === 'issues'" class="file-modal-pane">
-          <GitHubIssuesPane ref="githubIssues" @count="issuesCount = $event" />
-        </div>
-        <div v-if="activePane === 'actions'" class="file-modal-pane">
-          <GitHubActionsPane ref="githubActions" />
-        </div>
-        <div v-if="activePane === 'prs'" class="file-modal-pane">
-          <GitHubPRsPane ref="githubPrs" @count="prsCount = $event" />
-        </div>
-      </div>
-      <GitCommitForm ref="commitForm" />
+    <!-- タブバー -->
+    <div class="workspace-tabs">
+      <button
+        v-for="tab in tabs"
+        :key="tab.key"
+        class="workspace-tab"
+        :class="{ active: activePane === tab.key }"
+        @click="switchPane(tab.key)"
+      >
+        <span :class="['mdi', tab.icon]"></span>
+        <span class="workspace-tab-label">{{ tab.label }}</span>
+        <span v-if="tab.badge" class="workspace-tab-badge">{{ tab.badge }}</span>
+      </button>
     </div>
 
-    <div
-      class="workspace-detail-handle"
-      @mousedown="onHandlePointerDown"
-      @touchstart.prevent="onHandlePointerDown"
-    >
-      <span class="handle-line"></span>
-      <span class="handle-grip mdi mdi-drag-horizontal"></span>
-      <span class="handle-line"></span>
+    <!-- ブランチ情報バー -->
+    <div v-if="currentBranch" class="workspace-branch-bar">
+      <span class="mdi mdi-source-branch workspace-branch-icon"></span>
+      <span class="workspace-branch-name">{{ currentBranch }}</span>
+      <span v-if="isDirty" class="workspace-branch-dirty" v-html="dirtySummaryHtml"></span>
     </div>
 
-    <div v-show="topRatio < 1" class="workspace-detail-bottom" :style="{ flex: (1 - topRatio) + ' 1 0%' }">
-      <div class="file-modal-pane">
+    <!-- タブコンテンツ -->
+    <div class="workspace-tab-content">
+      <div v-show="activePane === 'history'" class="file-modal-pane">
+        <GitHistory
+          ref="gitHistory"
+          @commit:expanded="onCommitExpanded"
+          @commit:collapsed="onCommitCollapsed"
+        />
+      </div>
+      <div v-show="activePane === 'files'" class="file-modal-pane">
         <FileBrowser ref="fileBrowser" :diffFile="selectedDiffFile" :diffMessage="diffMessage" />
       </div>
+      <div v-if="activePane === 'changes'" class="file-modal-pane">
+        <GitFiles ref="gitFiles" />
+      </div>
+      <div v-if="activePane === 'branch'" class="file-modal-pane">
+        <GitChangeBranch ref="gitBranch" />
+      </div>
+      <div v-if="activePane === 'jobs'" class="file-modal-pane">
+        <WorkspaceJobsPane ref="jobsPane" />
+      </div>
+      <div v-if="activePane === 'stash'" class="file-modal-pane">
+        <GitStash ref="gitStash" @count="onStashCount" />
+      </div>
+      <div v-if="activePane === 'issues'" class="file-modal-pane">
+        <GitHubIssuesPane ref="githubIssues" @count="issuesCount = $event" />
+      </div>
+      <div v-if="activePane === 'actions'" class="file-modal-pane">
+        <GitHubActionsPane ref="githubActions" />
+      </div>
+      <div v-if="activePane === 'prs'" class="file-modal-pane">
+        <GitHubPRsPane ref="githubPrs" @count="prsCount = $event" />
+      </div>
     </div>
+    <GitCommitForm ref="commitForm" />
   </div>
 </template>
 
@@ -93,7 +78,6 @@ import { useApi } from "../composables/useApi.js";
 import { useModalView } from "../composables/useModalView.js";
 import { getCachedCount, useGitHub } from "../composables/useGitHub.js";
 import { getStashCachedCount, setStashCache } from "../composables/useStashCache.js";
-import { useResizeHandle } from "../composables/useResizeHandle.js";
 
 const workspaceStore = useWorkspaceStore();
 const { apiCommand, apiGet, wsEndpoint } = useApi();
@@ -112,7 +96,6 @@ const githubPrs = ref(null);
 const jobsPane = ref(null);
 
 const activePane = ref("changes");
-const { topRatio, onHandlePointerDown } = useResizeHandle(0.33);
 const selectedDiffFile = ref("");
 const diffMessage = ref("");
 
@@ -142,6 +125,7 @@ const hasGithub = computed(() => !!workspaceStore.currentWorkspace?.github_url);
 const tabs = computed(() => {
   const list = [
     { key: "jobs", icon: "mdi-play-circle-outline", label: "Jobs" },
+    { key: "files", icon: "mdi-folder-outline", label: "Files" },
     { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", badge: changesCount.value || "" },
     { key: "history", icon: "mdi-history", label: "History" },
     { key: "branch", icon: "mdi-source-branch", label: "Branch" },
@@ -246,6 +230,8 @@ async function switchPane(key) {
     nextTick(() => gitStash.value?.load());
   } else if (key === "jobs") {
     nextTick(() => jobsPane.value?.load());
+  } else if (key === "files") {
+    nextTick(() => fileBrowser.value?.load());
   }
   // issues/actions/prs は v-if + onMounted で自動ロード
 }
@@ -268,8 +254,8 @@ on("git:selectDirty", () => {
 
 on("git:selectDiffFile", ({ path }) => {
   selectedDiffFile.value = path;
-  topRatio.value = 0.33;
   diffMessage.value = "";
+  switchPane("files");
 });
 
 on("git:openCommitForm", () => {
@@ -318,48 +304,6 @@ onMounted(() => {
   flex-direction: column;
   flex: 1;
   min-height: 0;
-}
-
-.workspace-detail-top {
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.workspace-detail-bottom {
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.workspace-detail-handle {
-  display: flex;
-  align-items: center;
-  padding: 6px 0;
-  flex-shrink: 0;
-  cursor: row-resize;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.handle-line {
-  flex: 1;
-  height: 1px;
-  background: var(--border);
-}
-
-.handle-grip {
-  flex-shrink: 0;
-  padding: 0 24px;
-  font-size: 20px;
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  line-height: 1;
 }
 
 .file-modal-pane {
