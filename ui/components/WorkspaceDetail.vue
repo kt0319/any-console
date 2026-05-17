@@ -253,9 +253,9 @@ on("git:selectDirty", () => {
 });
 
 on("git:selectDiffFile", ({ path }) => {
+  switchPane("files");
   selectedDiffFile.value = path;
   diffMessage.value = "";
-  switchPane("files");
 });
 
 on("git:openCommitForm", () => {
