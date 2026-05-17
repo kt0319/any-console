@@ -101,6 +101,7 @@ function openTerminal() {
     icon: ws.value?.icon,
     iconColor: ws.value?.icon_color,
   });
+  emit("modal:close");
 }
 
 async function runJob(job) {
@@ -122,6 +123,7 @@ async function runJob(job) {
     initialCommand: job.command,
     hidden: !!job.hidden_tab,
   });
+  emit("modal:close");
 }
 
 const offJobsRefresh = on("jobs:refresh", () => {
