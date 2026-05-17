@@ -5,6 +5,7 @@
     ref="paneEl"
     @pointerdown="onPointerDown"
     @touchstart="onTouchStart"
+    @touchmove.passive="onTouchMove"
     @touchend="onTouchEnd"
   >
     <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
@@ -37,7 +38,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from "vue";
 import { useTerminal } from "../composables/useTerminal.js";
-import { useTerminalStore, isLinkTapped } from "../stores/terminal.js";
+import { useTerminalStore, isLinkTapped, setLongPressActive, setTouchEnv } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
@@ -58,6 +59,7 @@ const emits = defineEmits(["select-pane"]);
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
+setTouchEnv(layoutStore.isTouchDevice);
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
 const { ensureTerminalOpened, fitTerminal, observeFrameResize, connectTerminalWs, reconnectTerminal } = useTerminal();
@@ -152,11 +154,39 @@ function onPointerDown(e) {
 }
 
 
+let longPressTimer = null;
+const LONG_PRESS_URL_MS = 400;
+
+function startLongPress() {
+  cancelLongPress();
+  longPressTimer = setTimeout(() => {
+    longPressTimer = null;
+    setLongPressActive(true);
+    if (navigator.vibrate) navigator.vibrate(40);
+  }, LONG_PRESS_URL_MS);
+}
+
+function cancelLongPress() {
+  if (longPressTimer !== null) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+}
+
 function onTouchStart(e) {
   paneTouch.start(e);
+  setLongPressActive(false);
+  startLongPress();
+}
+
+function onTouchMove(e) {
+  const { dx, dy } = paneTouch.delta(e);
+  if (Math.abs(dx) > 8 || Math.abs(dy) > 8) cancelLongPress();
 }
 
 function onTouchEnd(e) {
+  cancelLongPress();
+  setTimeout(() => setLongPressActive(false), 300);
   if (isLinkTapped()) return;
   if (pillEl.value && pillEl.value.contains(e.target)) return;
   const { dx: deltaX, dy: deltaY } = paneTouch.delta(e);
@@ -173,10 +203,7 @@ function onTouchEnd(e) {
     return;
   }
   if (layoutStore.isPanelBottom && !(frameEl.value && isViewMode(frameEl.value))) {
-    setTimeout(() => {
-      if (isLinkTapped()) return;
-      emit("keyboard:activate");
-    }, 120);
+    emit("keyboard:activate");
   }
 }
 

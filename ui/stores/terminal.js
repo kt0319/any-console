@@ -13,6 +13,13 @@ const TERMINAL_SETTINGS_KEY = LS_KEY_TERMINAL_SETTINGS;
 let _linkTapped = false;
 export function isLinkTapped() { return _linkTapped; }
 
+let _longPressActive = false;
+export function setLongPressActive(v) { _longPressActive = !!v; }
+export function isLongPressActive() { return _longPressActive; }
+
+let _isTouchEnv = false;
+export function setTouchEnv(v) { _isTouchEnv = !!v; }
+
 function loadTerminalSettingsFromStorage() {
   return sanitizeTerminalSettings(safeJsonLoad(TERMINAL_SETTINGS_KEY, {}));
 }
@@ -60,6 +67,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.loadAddon(new WebLinksAddon((e, uri) => {
+      if (_isTouchEnv && !_longPressActive) return;
       _linkTapped = true;
       window.open(uri, "_blank");
       setTimeout(() => { _linkTapped = false; }, LINK_TAP_RESET_MS);
