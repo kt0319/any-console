@@ -7,6 +7,7 @@
     @touchstart="onTouchStart"
     @touchmove.passive="onTouchMove"
     @touchend="onTouchEnd"
+    @touchcancel="onTouchEnd"
   >
     <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
       <div
@@ -47,6 +48,8 @@ import { enterViewMode, exitViewMode, isViewMode } from "../utils/view-mode.js";
 import { emit } from "../app-bridge.js";
 import { WHEEL_DEBOUNCE_MS, ACTIVE_FIT_DELAY_MS, WHEEL_FOCUS_THRESHOLD } from "../utils/constants.js";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
+import { openExternalUrl } from "../utils/open-external.js";
+import { useConfirm } from "../composables/useConfirm.js";
 import { usePillDrag } from "../composables/usePillDrag.js";
 import { createTouchTracker } from "../utils/gesture.js";
 
@@ -59,6 +62,7 @@ const emits = defineEmits(["select-pane"]);
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
+const { confirm } = useConfirm();
 setTouchEnv(layoutStore.isTouchDevice);
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
@@ -154,39 +158,124 @@ function onPointerDown(e) {
 }
 
 
+let touchStartTime = 0;
+let touchMoved = false;
+let lastTouchPos = { x: 0, y: 0 };
 let longPressTimer = null;
+let pendingUrl = null;
 const LONG_PRESS_URL_MS = 400;
+const URL_REGEX = /(https?:\/\/[^\s)\]>'"]+|www\.[^\s)\]>'"]+)/g;
 
-function startLongPress() {
-  cancelLongPress();
-  longPressTimer = setTimeout(() => {
-    longPressTimer = null;
-    setLongPressActive(true);
-    if (navigator.vibrate) navigator.vibrate(40);
-  }, LONG_PRESS_URL_MS);
-}
-
-function cancelLongPress() {
+function cancelLongPressTimer() {
   if (longPressTimer !== null) {
     clearTimeout(longPressTimer);
     longPressTimer = null;
   }
 }
 
+function findUrlAtPosition(clientX, clientY) {
+  const term = props.tab?.term;
+  if (!term || !term.element) return null;
+  const screen = term.element.querySelector(".xterm-screen") || term.element;
+  const rect = screen.getBoundingClientRect();
+  const relX = clientX - rect.left;
+  const relY = clientY - rect.top;
+  if (relX < 0 || relY < 0 || relX > rect.width || relY > rect.height) return null;
+  const cols = term.cols;
+  const rows = term.rows;
+  if (!cols || !rows) return null;
+  const cellW = rect.width / cols;
+  const cellH = rect.height / rows;
+  const col = Math.floor(relX / cellW);
+  const rowOffset = Math.floor(relY / cellH);
+  const buf = term.buffer.active;
+  const lineIdx = buf.viewportY + rowOffset;
+  if (!buf.getLine(lineIdx)) return null;
+
+  function lastCharOf(line) {
+    if (!line) return " ";
+    return line.getCell(line.length - 1)?.getChars() || " ";
+  }
+
+  let startIdx = lineIdx;
+  while (startIdx > 0) {
+    const prev = buf.getLine(startIdx - 1);
+    if (!prev) break;
+    const last = lastCharOf(prev);
+    if (last === "" || last === " ") break;
+    startIdx--;
+  }
+
+  let endIdx = lineIdx;
+  while (endIdx < buf.length - 1) {
+    const cur = buf.getLine(endIdx);
+    if (!cur) break;
+    const last = lastCharOf(cur);
+    if (last === "" || last === " ") break;
+    endIdx++;
+  }
+
+  let text = "";
+  const lineOffsets = {};
+  for (let i = startIdx; i <= endIdx; i++) {
+    const cur = buf.getLine(i);
+    if (!cur) break;
+    lineOffsets[i] = text.length;
+    for (let j = 0; j < cur.length; j++) {
+      text += cur.getCell(j)?.getChars() || "";
+    }
+  }
+
+  const absPos = (lineOffsets[lineIdx] || 0) + col;
+  URL_REGEX.lastIndex = 0;
+  let m;
+  while ((m = URL_REGEX.exec(text)) !== null) {
+    if (absPos >= m.index && absPos < m.index + m[0].length) {
+      let url = m[0];
+      if (url.startsWith("www.")) url = "https://" + url;
+      return url;
+    }
+  }
+  return null;
+}
+
 function onTouchStart(e) {
   paneTouch.start(e);
   setLongPressActive(false);
-  startLongPress();
+  const t = e.touches?.[0];
+  lastTouchPos = { x: t?.clientX || 0, y: t?.clientY || 0 };
+  touchStartTime = Date.now();
+  touchMoved = false;
+  pendingUrl = null;
+  cancelLongPressTimer();
+  longPressTimer = setTimeout(async () => {
+    longPressTimer = null;
+    if (touchMoved) return;
+    const url = findUrlAtPosition(lastTouchPos.x, lastTouchPos.y);
+    if (!url) return;
+    pendingUrl = url;
+    if (navigator.vibrate) navigator.vibrate(40);
+    if (await confirm(`Open URL?\n\n${url}`)) {
+      openExternalUrl(url);
+    }
+    pendingUrl = null;
+  }, LONG_PRESS_URL_MS);
 }
 
 function onTouchMove(e) {
   const { dx, dy } = paneTouch.delta(e);
-  if (Math.abs(dx) > 8 || Math.abs(dy) > 8) cancelLongPress();
+  if (Math.abs(dx) > 20 || Math.abs(dy) > 20) {
+    touchMoved = true;
+    pendingUrl = null;
+    cancelLongPressTimer();
+  }
 }
 
 function onTouchEnd(e) {
-  cancelLongPress();
-  setTimeout(() => setLongPressActive(false), 300);
+  cancelLongPressTimer();
+  if (pendingUrl) {
+    return;
+  }
   if (isLinkTapped()) return;
   if (pillEl.value && pillEl.value.contains(e.target)) return;
   const { dx: deltaX, dy: deltaY } = paneTouch.delta(e);
@@ -316,6 +405,7 @@ defineExpose({
   height: 100%;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
   border: 1px solid transparent;
   box-sizing: border-box;
 }
