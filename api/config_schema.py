@@ -23,7 +23,9 @@ class SnippetConfig(_ConfigModel):
 
 
 class JobConfig(_ConfigModel):
-    command: str
+    command: str = ""
+    url: str = ""
+    type: str = "command"
     label: str = ""
     description: str = ""
     icon: str = ""
