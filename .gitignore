@@ -26,7 +26,7 @@ logs/
 config.json
 config.bak
 config.lock
-data/
+/data/
 
 # Environment
 .env

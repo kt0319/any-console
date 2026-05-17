@@ -2,42 +2,29 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import { LS_KEY_INPUT_HISTORY, INPUT_HISTORY_MAX } from "../utils/constants.js";
 import { safeJsonLoad } from "../utils/storage.js";
+import { EP_SETTINGS_KEYBOARD_LAYOUT } from "../utils/endpoints.js";
+import { useAuthStore } from "./auth.js";
+import defaultLayout from "../data/keyboard-layout-default.json";
 
-const QUICK_KEYS = [
-  { label: "Tab", key: "Tab", code: "Tab", keyCode: 9 },
-  { label: "Ctrl", key: "Control", code: "ControlLeft", keyCode: 17, modifier: "ctrl" },
-  { label: "Esc", key: "Escape", code: "Escape", keyCode: 27 },
-];
+function normalizeFlick(key) {
+  const out = { ...key };
+  const flick = key.flick;
+  if (flick) {
+    if (flick.up !== undefined) out.flickUp = flick.up;
+    if (flick.down !== undefined) out.flickDown = flick.down;
+    if (flick.left !== undefined) out.flickLeft = flick.left;
+    if (flick.right !== undefined) out.flickRight = flick.right;
+  }
+  delete out.flick;
+  return out;
+}
 
-const NUMBER_KEYS = [
-  { label: "1", key: "1", code: "Digit1", keyCode: 49 },
-  { label: "2", key: "2", code: "Digit2", keyCode: 50 },
-  { label: "3", key: "3", code: "Digit3", keyCode: 51 },
-  { label: "4", key: "4", code: "Digit4", keyCode: 52 },
-  { label: "5", key: "5", code: "Digit5", keyCode: 53 },
-  { label: "6", key: "6", code: "Digit6", keyCode: 54 },
-  { label: "7", key: "7", code: "Digit7", keyCode: 55 },
-  { label: "8", key: "8", code: "Digit8", keyCode: 56 },
-  { label: "9", key: "9", code: "Digit9", keyCode: 57 },
-  { label: "0", key: "0", code: "Digit0", keyCode: 48 },
-];
-
-const QWERTY_ROWS = [
-  "qwertyuiop".split("").map((c, i) => {
-    const flickDown = ["!", '"', "#", "$", "%", "&", "@", "+", "-", "="][i];
-    return { label: c, key: c, flickDown };
-  }),
-  "asdfghjkl".split("").map((c, i) => {
-    const flickUp = ["`", "'", "*", "^", "[", "]", "(", ")", ":"][i];
-    const flickDownMap = { g: "{", h: "}", j: "<", k: ">", l: ";" };
-    return { label: c, key: c, flickUp, ...(flickDownMap[c] ? { flickDown: flickDownMap[c] } : {}) };
-  }),
-  "zxcvbnm".split("").map((c, i) => {
-    const flickUp = ["~", "|", "/", ",", ".", "?", "_"][i];
-    const flickDownMap = { c: "\\" };
-    return { label: c, key: c, flickUp, ...(flickDownMap[c] ? { flickDown: flickDownMap[c] } : {}) };
-  }),
-];
+function normalizeLayout(layout) {
+  const modifiers = (layout?.modifiers || []).map(normalizeFlick);
+  const numberRow = (layout?.numberRow || []).map(normalizeFlick);
+  const rows = (layout?.rows || []).map((row) => row.map(normalizeFlick));
+  return { modifiers, numberRow, rows };
+}
 
 const INPUT_HISTORY_KEY = LS_KEY_INPUT_HISTORY;
 
@@ -45,6 +32,28 @@ export const useInputStore = defineStore("input", () => {
   const inputHistory = ref(safeJsonLoad(INPUT_HISTORY_KEY, []));
   const snippetsCache = ref([]);
   const isSnippetsLoaded = ref(false);
+
+  const initial = normalizeLayout(defaultLayout);
+  const QUICK_KEYS = ref(initial.modifiers);
+  const NUMBER_KEYS = ref(initial.numberRow);
+  const QWERTY_ROWS = ref(initial.rows);
+  const isLayoutLoaded = ref(false);
+
+  async function loadKeyboardLayout() {
+    if (isLayoutLoaded.value) return;
+    try {
+      const auth = useAuthStore();
+      const res = await auth.apiFetch(EP_SETTINGS_KEYBOARD_LAYOUT);
+      if (!res || !res.ok) return;
+      const layout = normalizeLayout(await res.json());
+      QUICK_KEYS.value = layout.modifiers;
+      NUMBER_KEYS.value = layout.numberRow;
+      QWERTY_ROWS.value = layout.rows;
+      isLayoutLoaded.value = true;
+    } catch {
+      /* keep fallback */
+    }
+  }
 
   function addInputHistory(text) {
     if (!text) return;
@@ -64,6 +73,8 @@ export const useInputStore = defineStore("input", () => {
     inputHistory,
     snippetsCache,
     isSnippetsLoaded,
+    isLayoutLoaded,
+    loadKeyboardLayout,
     addInputHistory,
   };
 });
