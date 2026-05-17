@@ -120,11 +120,12 @@ function stopPolling() {
   }
 }
 
-const isMobile = ref(window.innerWidth < MOBILE_BREAKPOINT_PX);
-function onResize() { isMobile.value = window.innerWidth < MOBILE_BREAKPOINT_PX; }
+const mobileQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX - 1}px)`);
+const isMobile = ref(mobileQuery.matches);
+function onMobileChange(e) { isMobile.value = e.matches; }
 
-onMounted(() => { startPolling(); window.addEventListener("resize", onResize); });
-onBeforeUnmount(() => { stopPolling(); window.removeEventListener("resize", onResize); });
+onMounted(() => { startPolling(); mobileQuery.addEventListener("change", onMobileChange); });
+onBeforeUnmount(() => { stopPolling(); mobileQuery.removeEventListener("change", onMobileChange); });
 
 const offJobsRefresh = on("jobs:refresh", () => {
   for (const key of Object.keys(jobsCache)) delete jobsCache[key];
@@ -304,10 +305,6 @@ async function runJob(job) {
   color: var(--text-primary);
   user-select: none;
   -webkit-user-select: none;
-}
-
-.status-msg-muted {
-  color: var(--text-muted);
 }
 
 .status-msg-loading {

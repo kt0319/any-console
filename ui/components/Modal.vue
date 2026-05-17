@@ -14,7 +14,7 @@
           :class="{ 'is-clickable': canNavigateBack, 'no-back': !canNavigateBack }"
           :tabindex="canNavigateBack ? 0 : -1"
           :aria-disabled="!canNavigateBack ? 'true' : 'false'"
-          @click="canNavigateBack ? onBack() : null"
+          @click="canNavigateBack && onBack()"
         >
           <h3 class="modal-title">
             <span v-if="canNavigateBack" class="mdi mdi-arrow-left modal-title-back-icon" aria-hidden="true"></span>

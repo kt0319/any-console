@@ -1,8 +1,9 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import { MOBILE_BREAKPOINT_PX } from "../utils/constants.js";
 
 export const useLayoutStore = defineStore("layout", () => {
-  const panelBottomMediaQuery = window.matchMedia("(max-width: 768px) and (orientation: portrait)");
+  const panelBottomMediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px) and (orientation: portrait)`);
   const isPanelBottom = ref(panelBottomMediaQuery.matches);
   panelBottomMediaQuery.addEventListener("change", (e) => {
     isPanelBottom.value = e.matches;
