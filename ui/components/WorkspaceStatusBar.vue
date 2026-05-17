@@ -10,7 +10,7 @@
       </button>
       <template v-if="isGitRepo">
         <div class="status-divider"></div>
-        <button type="button" class="status-nav-btn status-numstat-btn" :class="{ 'is-empty': !isDirty || statusLoading }" tabindex="-1" @click="openFileModal('changes')">
+        <button type="button" class="status-nav-btn status-numstat-btn" tabindex="-1" @click="openFileModal('changes')">
           <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
           <template v-if="isDirty && !statusLoading">
             <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
@@ -254,11 +254,7 @@ function doAction(action) {
   padding-left: 8px;
   padding-right: 8px;
   font-weight: 600;
-}
-
-.status-numstat-btn.is-empty {
-  padding-left: 2px;
-  padding-right: 2px;
+  justify-content: flex-start;
 }
 
 .numstat-files {
