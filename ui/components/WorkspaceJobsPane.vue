@@ -233,8 +233,8 @@ defineExpose({ load });
 }
 
 .job-item-link-icon {
-  margin-left: auto;
-  font-size: 16px;
+  margin-left: 4px;
+  font-size: 14px;
   color: var(--accent);
   flex-shrink: 0;
 }
