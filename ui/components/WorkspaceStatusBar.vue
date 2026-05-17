@@ -5,11 +5,15 @@
     </button>
     <template v-if="mode === 'git'">
       <template v-if="isGitRepo">
-        <button type="button" class="status-branch-btn" tabindex="-1" @click="openFileModal('branch')">{{ branchText }}</button>
+        <button type="button" class="status-branch-btn" tabindex="-1" @click="openFileModal('branch')">
+          <span class="mdi mdi-source-branch status-btn-icon" aria-hidden="true"></span>{{ branchText }}
+        </button>
         <button type="button" class="status-msg-btn" tabindex="-1" @click="openFileModal('history')">
-          <span class="status-msg-text" :class="{ 'status-msg-loading': statusLoading, 'status-msg-muted': isDirty && !statusLoading }">{{ msgText }}</span>
+          <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
+          <span class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
         </button>
         <button v-if="isDirty && !statusLoading" type="button" class="status-numstat-btn" tabindex="-1" @click="openFileModal('changes')">
+          <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
           <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
           <span class="diff-num-plus">+{{ insertions }}</span>
           <span class="diff-num-del">-{{ deletions }}</span>
@@ -167,7 +171,7 @@ const branchText = computed(() => {
 const msgText = computed(() => {
   if (!ws.value) return "";
   if (statusLoading.value) return "Loading";
-  return isDirty.value ? "Changes" : (ws.value.last_commit_message || "");
+  return ws.value.last_commit_message || "";
 });
 const changedFiles = computed(() => ws.value?.changed_files || 0);
 const insertions = computed(() => ws.value?.insertions || 0);
@@ -278,8 +282,14 @@ async function runJob(job) {
   white-space: nowrap;
 }
 
+.status-btn-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
 .status-branch-btn {
   flex-shrink: 0;
+  gap: 4px;
   color: var(--accent);
   font-weight: 600;
 }
@@ -288,6 +298,7 @@ async function runJob(job) {
   flex: 1;
   min-width: 0;
   overflow: hidden;
+  gap: 4px;
 }
 
 .status-msg-text {
