@@ -323,7 +323,7 @@ onMounted(() => {
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-primary);
+  background: transparent;
   scrollbar-width: none;
 }
 
@@ -351,9 +351,8 @@ onMounted(() => {
 }
 
 .workspace-tab.active {
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
-  border-bottom-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-tertiary));
 }
 
 
@@ -439,5 +438,31 @@ onMounted(() => {
 
 .workspace-branch-dirty :deep(.branch-bar-del) {
   color: var(--error);
+}
+
+@media (max-width: 767px) {
+  .workspace-detail {
+    flex-direction: column-reverse;
+  }
+
+  .workspace-tabs {
+    border-bottom: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .workspace-tab {
+    border-bottom: none;
+    border-top: 3px solid transparent;
+  }
+
+  .workspace-tab.active {
+    border-bottom-color: transparent;
+    border-top-color: transparent;
+  }
+
+  .workspace-branch-bar {
+    border-bottom: none;
+    border-top: 1px solid var(--border);
+  }
 }
 </style>

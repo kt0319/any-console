@@ -39,15 +39,6 @@
         <IconPicker v-if="currentView === 'IconPicker'" />
         <WorkspaceDetail v-if="currentView === 'WorkspaceDetail'" :ref="setPaneRef" />
       </div>
-      <div
-        class="modal-flick-handle"
-        @touchstart.passive="onFlickStart"
-        @touchmove="onFlickMove"
-        @touchend="onFlickEnd"
-        @touchcancel="onFlickCancel"
-      >
-        <span class="modal-flick-bar"></span>
-      </div>
     </div>
   </div>
 </template>
@@ -55,7 +46,6 @@
 <script setup>
 import { ref, computed, provide, nextTick, onMounted } from "vue";
 import { useModal } from "../composables/useModal.js";
-import { useSwipeDismiss } from "../composables/useSwipeDismiss.js";
 import ModalMenu from "./ModalMenu.vue";
 import WorkspaceOpen from "./WorkspaceOpen.vue";
 import WorkspaceConfig from "./WorkspaceConfig.vue";
@@ -90,14 +80,6 @@ provide("modalBranch", modalBranch);
 provide("viewState", currentState);
 provide("pushView", pushView);
 provide("popView", popView);
-
-const {
-  resetStyle: resetFlickStyle,
-  onStart: onFlickStart,
-  onMove: onFlickMove,
-  onEnd: onFlickEnd,
-  onCancel: onFlickCancel,
-} = useSwipeDismiss(modalEl, () => closeModal(), { threshold: 80 });
 
 function setPaneRef(el) {
   currentPaneRef.value = el;
@@ -134,7 +116,6 @@ function openModal() {
 }
 
 function closeModal() {
-  resetFlickStyle();
   modal.close();
   viewStack.value = [];
   modalTitle.value = "";
@@ -292,22 +273,6 @@ onMounted(() => {
   padding: 0 8px;
 }
 
-.modal-flick-handle {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  touch-action: none;
-}
-
-.modal-flick-bar {
-  width: 48px;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--text-muted);
-  opacity: 0.5;
-}
-
 .modal-close-btn {
   width: 44px;
   height: 44px;
@@ -349,14 +314,16 @@ onMounted(() => {
     max-width: 100%;
     height: 100%;
     border: none;
-    border-radius: 0 0 var(--radius) var(--radius);
+    border-radius: 0;
+    flex-direction: column-reverse;
   }
 
-  .modal-flick-handle {
-    display: flex;
-    padding: 10px 0 calc(env(safe-area-inset-bottom) + 40px);
+  .modal-header {
+    border-bottom: none;
     border-top: 1px solid var(--border);
-    background: color-mix(in srgb, var(--bg-secondary) 70%, transparent);
+    margin-bottom: 0;
+    margin-top: 8px;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 20px);
   }
 }
 </style>
