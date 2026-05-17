@@ -6,45 +6,55 @@
         <span class="job-item-label">Terminal</span>
       </div>
 
-      <template v-if="commonJobs.length">
-        <div class="job-section-header">Common</div>
-        <div
-          v-for="job in commonJobs"
-          :key="job.name"
-          class="job-item"
-          :class="{ 'job-item-hidden': job.hidden_tab }"
-          @click="runJob(job)"
-        >
-          <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
-          <span class="job-item-label">{{ job.label || job.name }}</span>
-          <span v-if="job.description" class="job-item-desc">{{ job.description }}</span>
-          <span v-if="job.type === 'browser'" class="mdi mdi-open-in-new job-item-link-icon" aria-hidden="true"></span>
-        </div>
-      </template>
+      <div class="job-section-header">
+        <span>Common</span>
+        <button type="button" class="job-section-add-btn" title="Add Common Job" @click="startAddJob(true)">
+          <span class="mdi mdi-plus"></span>
+        </button>
+      </div>
+      <div
+        v-for="job in commonJobs"
+        :key="'c-' + job.name"
+        class="job-item"
+        :class="{ 'job-item-hidden': job.hidden_tab }"
+        @click="runJob(job)"
+      >
+        <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
+        <span class="job-item-label">{{ job.label || job.name }}</span>
+        <span v-if="job.description" class="job-item-desc">{{ job.description }}</span>
+        <span v-if="job.type === 'browser'" class="mdi mdi-open-in-new job-item-link-icon" aria-hidden="true"></span>
+        <button type="button" class="job-item-edit-btn" title="Edit" @click.stop="startEditJob(job, true)">
+          <span class="mdi mdi-pencil-outline"></span>
+        </button>
+      </div>
 
-      <template v-if="localJobs.length">
-        <div class="job-section-header">Local</div>
-        <div
-          v-for="job in localJobs"
-          :key="job.name"
-          class="job-item"
-          :class="{ 'job-item-hidden': job.hidden_tab }"
-          @click="runJob(job)"
-        >
-          <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
-          <span class="job-item-label">{{ job.label || job.name }}</span>
-          <span v-if="job.description" class="job-item-desc">{{ job.description }}</span>
-          <span v-if="job.type === 'browser'" class="mdi mdi-open-in-new job-item-link-icon" aria-hidden="true"></span>
-        </div>
-      </template>
-
-      <div v-if="!commonJobs.length && !localJobs.length" class="text-muted-center">No jobs configured</div>
+      <div class="job-section-header">
+        <span>Local</span>
+        <button type="button" class="job-section-add-btn" title="Add Job" @click="startAddJob(false)">
+          <span class="mdi mdi-plus"></span>
+        </button>
+      </div>
+      <div
+        v-for="job in localJobs"
+        :key="'l-' + job.name"
+        class="job-item"
+        :class="{ 'job-item-hidden': job.hidden_tab }"
+        @click="runJob(job)"
+      >
+        <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
+        <span class="job-item-label">{{ job.label || job.name }}</span>
+        <span v-if="job.description" class="job-item-desc">{{ job.description }}</span>
+        <span v-if="job.type === 'browser'" class="mdi mdi-open-in-new job-item-link-icon" aria-hidden="true"></span>
+        <button type="button" class="job-item-edit-btn" title="Edit" @click.stop="startEditJob(job, false)">
+          <span class="mdi mdi-pencil-outline"></span>
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, onBeforeUnmount } from "vue";
+import { ref, computed, inject, onMounted, watch, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { useApi } from "../composables/useApi.js";
@@ -52,6 +62,9 @@ import { useConfirm } from "../composables/useConfirm.js";
 import { emit, on } from "../app-bridge.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
+import { openExternalUrl } from "../utils/open-external.js";
+
+const pushView = inject("pushView");
 
 const jobsCache = {};
 
@@ -111,7 +124,7 @@ async function runJob(job) {
   if (!wsName) return;
   if (job.type === "browser") {
     if (ws.value) recordJob(ws.value, job);
-    window.open(job.url, "_blank", "noopener");
+    openExternalUrl(job.url);
     emit("modal:close");
     return;
   }
@@ -132,6 +145,28 @@ async function runJob(job) {
     hidden: !!job.hidden_tab,
   });
   emit("modal:close");
+}
+
+function startAddJob(isCommon) {
+  const wsName = workspace.value;
+  if (!wsName) return;
+  pushView("JobConfig", {
+    workspaceName: wsName,
+    isCommon,
+    jobEntry: null,
+    onReturn: () => emit("jobs:refresh"),
+  });
+}
+
+function startEditJob(job, isCommon) {
+  const wsName = workspace.value;
+  if (!wsName) return;
+  pushView("JobConfig", {
+    workspaceName: wsName,
+    isCommon,
+    jobEntry: { name: job.name, job: { ...job, common: isCommon } },
+    onReturn: () => emit("jobs:refresh"),
+  });
 }
 
 const offJobsRefresh = on("jobs:refresh", () => {
@@ -209,12 +244,47 @@ defineExpose({ load });
 }
 
 .job-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 12px 12px 4px;
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.job-section-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.job-item-edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 @media (hover: hover) and (pointer: fine) {

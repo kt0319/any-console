@@ -1,6 +1,7 @@
 import { useConfirm } from "./useConfirm.js";
 import { useRecentJobs } from "./useRecentJobs.js";
 import { emit } from "../app-bridge.js";
+import { openExternalUrl } from "../utils/open-external.js";
 
 const COMMAND_PREVIEW_LIMIT = 300;
 
@@ -23,7 +24,7 @@ export function useJobLauncher() {
     emit("modal:close");
     if (job.type === "browser") {
       recordJob(ws, job);
-      window.open(job.url, "_blank", "noopener");
+      openExternalUrl(job.url);
       return;
     }
     if (job.confirm !== false) {
@@ -47,7 +48,7 @@ export function useJobLauncher() {
   async function runRecentJob(recent) {
     emit("modal:close");
     if (recent.jobType === "browser") {
-      window.open(recent.jobUrl, "_blank", "noopener");
+      openExternalUrl(recent.jobUrl);
       return;
     }
     if (recent.jobConfirm !== false) {

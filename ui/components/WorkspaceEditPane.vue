@@ -28,60 +28,6 @@
       </div>
     </div>
 
-    <div class="ws-settings-section">
-      <div class="ws-settings-section-header">
-        <span>Common Jobs</span>
-        <button type="button" class="ws-add-item-btn" @click="startAddJob(true)">
-          <span class="mdi mdi-plus"></span>
-        </button>
-      </div>
-      <div class="ws-settings-item-list">
-        <div v-if="isLoadingJobs" class="ws-settings-empty">Loading...</div>
-        <div v-else-if="commonJobEntries.length === 0" class="ws-settings-empty">No common jobs</div>
-        <div
-          v-for="entry in commonJobEntries"
-          :key="entry.name"
-          class="ws-settings-item"
-          @click="startEditJob(entry)"
-        >
-          <span class="ws-settings-item-icon" v-html="renderIconStr(entry.job.icon || 'mdi-play', entry.job.icon_color, 16)"></span>
-          <span class="ws-settings-item-name">{{ entry.job.label || entry.name }}</span>
-          <div class="ws-settings-item-actions">
-            <button type="button" class="ws-settings-item-action-btn" title="Delete" @click.stop="deleteJob(entry)">
-              <span class="mdi mdi-delete-outline"></span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="ws-settings-section">
-      <div class="ws-settings-section-header">
-        <span>Jobs</span>
-        <button type="button" class="ws-add-item-btn" @click="startAddJob(false)">
-          <span class="mdi mdi-plus"></span>
-        </button>
-      </div>
-      <div class="ws-settings-item-list">
-        <div v-if="isLoadingJobs" class="ws-settings-empty">Loading...</div>
-        <div v-else-if="localJobEntries.length === 0" class="ws-settings-empty">No jobs</div>
-        <div
-          v-for="entry in localJobEntries"
-          :key="entry.name"
-          class="ws-settings-item"
-          @click="startEditJob(entry)"
-        >
-          <span class="ws-settings-item-icon" v-html="renderIconStr(entry.job.icon || 'mdi-play', entry.job.icon_color, 16)"></span>
-          <span class="ws-settings-item-name">{{ entry.job.label || entry.name }}</span>
-          <div class="ws-settings-item-actions">
-            <button type="button" class="ws-settings-item-action-btn" title="Delete" @click.stop="deleteJob(entry)">
-              <span class="mdi mdi-delete-outline"></span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <div class="ws-settings-section ws-delete-section">
       <button type="button" class="ws-delete-btn" @click="onDelete">
         <span class="mdi mdi-delete-outline"></span>
@@ -97,7 +43,6 @@
 import { ref, computed, watch, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
-import { useWorkspaceJobManager } from "../composables/useWorkspaceJobManager.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
 import { EP_WORKSPACES } from "../utils/endpoints.js";
@@ -134,12 +79,6 @@ const isDetailsDirty = computed(() =>
 
 const { apiPut, apiDelete, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
-
-const { jobEntries, isLoadingJobs, loadWorkspaceJobs, startAddJob, startEditJob, deleteJob } =
-  useWorkspaceJobManager({ editWs, pushView: props.pushView });
-
-const commonJobEntries = computed(() => jobEntries.value.filter((e) => e.job.common));
-const localJobEntries = computed(() => jobEntries.value.filter((e) => !e.job.common));
 
 async function onDelete() {
   if (!editWs.value) return;
@@ -205,7 +144,6 @@ function openIconPicker() {
 }
 
 onMounted(() => {
-  loadWorkspaceJobs();
   if ("pendingIcon" in (props.viewState || {})) {
     editIcon.value = props.viewState.pendingIcon;
     editIconColor.value = props.viewState.pendingColor ?? "";

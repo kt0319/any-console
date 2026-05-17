@@ -4,9 +4,6 @@
       <button type="button" class="settings-menu-item" @click="pushView('WorkspaceOpen')">
         <span class="mdi mdi-folder-multiple"></span> Workspaces
       </button>
-      <button type="button" class="settings-menu-item" @click="pushView('WorkspaceConfig')">
-        <span class="mdi mdi-cog-outline"></span> Workspace Settings
-      </button>
       <button type="button" class="settings-menu-item" @click="pushView('TabConfig')">
         <span class="mdi mdi-tab"></span> Tabs
       </button>

@@ -545,9 +545,9 @@ button:disabled {
 
 .offline-overlay {
   position: fixed;
-  top: calc(env(safe-area-inset-top) + 12px);
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   z-index: 9999;
   pointer-events: none;
 }

@@ -2,7 +2,7 @@ import { ref } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { EP_RECENT_JOBS } from "../utils/endpoints.js";
 
-const MAX_RECENT = 5;
+const MAX_RECENT = 4;
 
 const recentJobs = ref([]);
 let loaded = false;

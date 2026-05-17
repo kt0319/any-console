@@ -1,24 +1,55 @@
 <template>
   <div class="modal-scroll-body split-tab-scroll">
     <div class="split-tab-content">
-      <RecentJobsBar :recent-jobs="recentJobs" @run="runRecentJob" />
-      <div class="terminal-ws-list">
+      <RecentJobsBar
+        :recent-jobs="recentJobs"
+        :settings-active="settingsMode"
+        @run="runRecentJob"
+        @settings="toggleSettingsMode"
+      />
+      <WorkspaceEditPane
+        v-if="editWs"
+        :workspace="editWs"
+        :pushView="pushView"
+        :viewState="viewState"
+        @deleted="onWorkspaceDeleted"
+        @updated="onWorkspaceUpdated"
+      />
+      <div v-else ref="wsListEl" class="terminal-ws-list" :class="{ 'is-settings-mode': settingsMode }">
         <div
-          v-for="ws in visibleWorkspaces"
+          v-for="(ws, idx) in displayWorkspaces"
           :key="ws.name"
           class="picker-ws-group"
-          @mouseenter="onMouseEnter(ws)"
-          @mouseleave="onMouseLeave(ws)"
+          :class="{ dragging: dragIdx === idx }"
+          :style="dragIdx === idx ? { transform: `translateY(${dragOffsetY}px)` } : {}"
+          @mouseenter="!settingsMode && onMouseEnter(ws)"
+          @mouseleave="!settingsMode && onMouseLeave(ws)"
         >
           <div class="picker-ws-row picker-ws-row-top">
-            <button type="button" class="picker-ws-header-label" @click="isExpanded(ws.name) ? openDetail(ws) : toggleExpand(ws)">
+            <span
+              v-if="settingsMode"
+              class="picker-ws-drag-handle"
+              @mousedown.prevent="onDragStart($event, idx)"
+              @touchstart.prevent="onDragStart($event, idx)"
+            ><span class="mdi mdi-drag"></span></span>
+            <input
+              v-if="settingsMode"
+              type="checkbox"
+              class="form-checkbox picker-ws-checkbox"
+              :checked="!ws.hidden"
+              @change="toggleVisibility(ws, $event.target.checked)"
+            />
+            <button type="button" class="picker-ws-header-label" @click="!settingsMode && (isExpanded(ws.name) ? openDetail(ws) : toggleExpand(ws))">
               <span v-html="renderIconStr(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
               <span class="picker-ws-header-text">
                 <span class="picker-ws-name">{{ ws.name }}</span>
-                <span class="picker-ws-branch">{{ ws.branch || '-' }}</span>
+                <span v-if="!settingsMode" class="picker-ws-branch">{{ ws.branch || '-' }}</span>
               </span>
             </button>
-            <div class="picker-ws-top-meta" @click.stop="onMetaClick(ws)">
+            <button v-if="settingsMode" type="button" class="picker-ws-edit-btn" title="Edit" @click.stop="openEditWs(ws)">
+              <span class="mdi mdi-pencil-outline"></span>
+            </button>
+            <div v-else class="picker-ws-top-meta" @click.stop="onMetaClick(ws)">
               <template v-if="ws.is_git_repo">
                 <button v-if="ws.clean === false" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(ws)" @click.stop="openDetail(ws)"></button>
                 <GitActionBtn v-if="ws.behind > 0" icon="pull" title="Pull" :count="ws.behind" :running="isRunning(ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="doAction(ws, 'pull')" />
@@ -28,7 +59,7 @@
               <span class="picker-ws-chevron mdi" :class="isExpanded(ws.name) ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
             </div>
           </div>
-          <div v-show="isExpanded(ws.name)" class="picker-ws-row picker-ws-row-bottom">
+          <div v-show="!settingsMode && isExpanded(ws.name)" class="picker-ws-row picker-ws-row-bottom">
             <div class="picker-ws-icons picker-ws-icons-bottom">
               <button type="button" class="picker-ws-icon-btn" title="Terminal" @click="selectWorkspace(ws)">
                 <span class="mdi mdi-console"></span>
@@ -70,6 +101,7 @@
         <div v-if="visibleWorkspaces.length === 0" class="clone-repo-empty">
           No workspaces to display
         </div>
+        <WorkspaceAddInline v-if="settingsMode" @added="onWorkspaceAdded" />
       </div>
     </div>
   </div>
@@ -77,7 +109,7 @@
 
 
 <script setup>
-import { computed, inject, reactive, ref, onMounted } from "vue";
+import { computed, inject, reactive, ref, onMounted, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
@@ -89,14 +121,19 @@ import { emit } from "../app-bridge.js";
 import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import RecentJobsBar from "./RecentJobsBar.vue";
+import WorkspaceAddInline from "./WorkspaceAddInline.vue";
+import WorkspaceEditPane from "./WorkspaceEditPane.vue";
+import { useModalView } from "../composables/useModalView.js";
+import { useWorkspaceDrag } from "../composables/useWorkspaceDrag.js";
+import { EP_WORKSPACE_ORDER } from "../utils/endpoints.js";
 
-const modalTitle = inject("modalTitle");
+const { modalTitle, viewState } = useModalView();
 const pushView = inject("pushView");
 modalTitle.value = "Workspaces";
 
 const workspaceStore = useWorkspaceStore();
 const layoutStore = useLayoutStore();
-const { apiGet } = useApi();
+const { apiGet, apiPut, wsEndpoint } = useApi();
 const { gitAction, isRunning } = useGitRemoteAction();
 const { recentJobs, loadRecentJobs } = useRecentJobs();
 const { runJob, runRecentJob } = useJobLauncher();
@@ -104,6 +141,65 @@ const { runJob, runRecentJob } = useJobLauncher();
 const wsCommonJobs = reactive({});
 const wsLocalJobs = reactive({});
 const expandedName = ref(null);
+const settingsMode = ref(false);
+const wsListEl = ref(null);
+const editWs = ref(null);
+
+const displayWorkspaces = computed(() => settingsMode.value
+  ? (workspaceStore.allWorkspaces || [])
+  : workspaceStore.visibleWorkspaces);
+
+const { dragIdx, dragOffsetY, onDragStart, cleanup: cleanupDrag } = useWorkspaceDrag({
+  items: displayWorkspaces,
+  listEl: wsListEl,
+  onReorder: () => saveWorkspaceOrder(),
+});
+
+function toggleSettingsMode() {
+  settingsMode.value = !settingsMode.value;
+  if (!settingsMode.value) {
+    editWs.value = null;
+  }
+}
+
+function openEditWs(ws) {
+  editWs.value = ws;
+}
+
+async function onWorkspaceAdded() {
+  await workspaceStore.fetchWorkspaces();
+}
+
+async function onWorkspaceUpdated() {
+  await workspaceStore.fetchWorkspaces();
+  if (editWs.value?.name) {
+    const updated = workspaceStore.allWorkspaces.find((w) => w.name === editWs.value.name);
+    if (updated) editWs.value = updated;
+  }
+}
+
+async function onWorkspaceDeleted() {
+  editWs.value = null;
+  await workspaceStore.fetchWorkspaces();
+}
+
+async function toggleVisibility(ws, checked) {
+  try {
+    const { ok } = await apiPut(wsEndpoint(ws.name, "config"), {
+      icon: ws.icon || "",
+      icon_color: ws.icon_color || "",
+      hidden: !checked,
+    }, { errorMessage: "Failed to update workspace" });
+    if (ok) ws.hidden = !checked;
+  } catch { /* ignore */ }
+}
+
+async function saveWorkspaceOrder() {
+  const order = displayWorkspaces.value.map((ws) => ws.name);
+  try {
+    await apiPut(EP_WORKSPACE_ORDER, { order }, { errorMessage: "Failed to save workspace order" });
+  } catch { /* ignore */ }
+}
 
 function isExpanded(name) {
   return expandedName.value === name;
@@ -187,6 +283,10 @@ onMounted(() => {
   loadWorkspaceOverview();
   loadRecentJobs();
 });
+
+onBeforeUnmount(() => {
+  cleanupDrag();
+});
 </script>
 
 <style scoped>
@@ -216,6 +316,48 @@ onMounted(() => {
   overflow: hidden;
   border-bottom: 1px solid var(--border);
   position: relative;
+}
+
+.picker-ws-group.dragging {
+  opacity: 0.72;
+  background: var(--bg-tertiary);
+}
+
+.picker-ws-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  cursor: grab;
+  touch-action: none;
+}
+
+.picker-ws-drag-handle .mdi {
+  font-size: 18px;
+}
+
+.picker-ws-checkbox {
+  flex-shrink: 0;
+}
+
+.picker-ws-edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
 }
 
 .picker-ws-row {

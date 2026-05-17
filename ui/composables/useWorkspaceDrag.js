@@ -1,6 +1,6 @@
 import { ref } from "vue";
 
-export function useWorkspaceDrag({ items, listEl, onReorder }) {
+export function useWorkspaceDrag({ items, listEl, onReorder, rowSelector = ".ws-check-item, .picker-ws-group" }) {
   const dragIdx = ref(-1);
   const dragOffsetY = ref(0);
   let dragStartY = 0;
@@ -12,8 +12,8 @@ export function useWorkspaceDrag({ items, listEl, onReorder }) {
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     const list = listEl.value;
     if (!list) return;
-    const rows = list.querySelectorAll(".ws-check-item");
-    dragRowHeight = rows[0]?.getBoundingClientRect().height || 40;
+    const rows = list.querySelectorAll(rowSelector);
+    dragRowHeight = rows[idx]?.getBoundingClientRect().height || rows[0]?.getBoundingClientRect().height || 40;
     dragStartY = clientY;
     dragIdx.value = idx;
     dragOffsetY.value = 0;
@@ -32,7 +32,7 @@ export function useWorkspaceDrag({ items, listEl, onReorder }) {
     const dy = clientY - dragStartY;
     dragOffsetY.value = dy;
 
-    const steps = Math.round(dy / dragRowHeight);
+    const steps = Math.trunc(dy / dragRowHeight);
     if (steps === 0) return;
     const newIdx = Math.max(0, Math.min(dragIdx.value + steps, items.value.length - 1));
     if (newIdx === dragIdx.value) return;
