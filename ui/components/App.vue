@@ -545,39 +545,43 @@ button:disabled {
 
 .offline-overlay {
   position: fixed;
-  inset: 0;
+  top: calc(env(safe-area-inset-top) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(26, 27, 38, 0.92);
+  pointer-events: none;
 }
 
 .offline-content {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
 }
 
 .offline-spinner {
-  width: 24px;
-  height: 24px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.15);
   border-top-color: var(--accent);
   animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
 }
 
 .offline-text {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .offline-sub {
-  font-size: 13px;
-  color: var(--text-muted);
+  display: none;
 }
 
 .offline-fade-enter-active {
