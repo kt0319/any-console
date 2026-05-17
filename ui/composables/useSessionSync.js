@@ -52,8 +52,17 @@ export function useSessionSync() {
       const sessions = await sessionsRes.json();
       if (!Array.isArray(sessions) || sessions.length === 0) return;
 
+      const savedOrder = terminalStore.loadTabOrder() || [];
+      const orderMap = new Map(savedOrder.map((id, i) => [id, i]));
+      const sortedSessions = [...sessions].sort((a, b) => {
+        const ai = orderMap.has(a.session_id) ? orderMap.get(a.session_id) : Number.MAX_SAFE_INTEGER;
+        const bi = orderMap.has(b.session_id) ? orderMap.get(b.session_id) : Number.MAX_SAFE_INTEGER;
+        if (ai !== bi) return ai - bi;
+        return (a.created_at || 0) - (b.created_at || 0);
+      });
+
       const allJobs = await _safeResJson(jobsRes);
-      for (const s of sessions) {
+      for (const s of sortedSessions) {
         terminalStore.addTerminalTab(_buildTabParams(s, allJobs));
       }
 

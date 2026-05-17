@@ -1,6 +1,6 @@
 <template>
   <div class="tab-bar-row" :style="{ display: showBarRow ? 'flex' : 'none' }">
-    <div class="tab-bar" :style="{ display: isSplitMode ? 'none' : '' }" @dblclick.self="onBarDblClick">
+    <div class="tab-bar" :style="{ display: isSplitMode ? 'none' : '' }">
       <TabItem
         v-for="item in sortedItems"
         :key="item.tab.id || item.tab.wsUrl"
@@ -84,10 +84,6 @@ function onClose(tab) {
   suppressAddUntil = Date.now() + 600;
 }
 
-function onBarDblClick() {
-  emit("workspace:openModal");
-}
-
 function onAddClick() {
   if (Date.now() < suppressAddUntil) return;
   emit("workspace:openModal");
@@ -149,6 +145,12 @@ function onSettingsClick() {
 
 .tab-add-btn:active {
   background: var(--bg-tertiary);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tab-add-btn:hover {
+    background: var(--bg-tertiary);
+  }
 }
 
 .tab-hidden-btn {

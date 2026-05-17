@@ -46,6 +46,7 @@ export const LS_KEY_TOKEN = "any_console_token";
 export const LS_KEY_INPUT_HISTORY = "any_console_input_history";
 export const LS_KEY_TERMINAL_SETTINGS = "any_console_terminal_settings";
 export const LS_KEY_ACTIVE_SESSION = "any_console_active_session";
+export const LS_KEY_TAB_ORDER = "any_console_tab_order";
 export const LS_PREFIX_API_CACHE = "api_cache_";
 export const LS_PREFIX_WS_META = "ws_meta_";
 export const COOKIE_NAME_TOKEN = "any_console_token";

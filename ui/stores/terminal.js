@@ -4,7 +4,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { LINK_TAP_RESET_MS } from "../utils/constants.js";
-import { LS_KEY_TERMINAL_SETTINGS, LS_KEY_ACTIVE_SESSION } from "../utils/constants.js";
+import { LS_KEY_TERMINAL_SETTINGS, LS_KEY_ACTIVE_SESSION, LS_KEY_TAB_ORDER } from "../utils/constants.js";
 import { TERMINAL_SETTINGS_META, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../utils/terminal-settings.js";
 import { safeJsonLoad } from "../utils/storage.js";
 
@@ -138,6 +138,16 @@ export const useTerminalStore = defineStore("terminal", () => {
     if (toIndex < 0 || toIndex >= openTabs.value.length) return;
     const [tab] = openTabs.value.splice(fromIndex, 1);
     openTabs.value.splice(toIndex, 0, tab);
+    saveTabOrder();
+  }
+
+  function saveTabOrder() {
+    const order = openTabs.value.map((t) => t.sessionId);
+    localStorage.setItem(LS_KEY_TAB_ORDER, JSON.stringify(order));
+  }
+
+  function loadTabOrder() {
+    return safeJsonLoad(LS_KEY_TAB_ORDER, []);
   }
 
   function getTerminalRuntimeOptions() {
@@ -171,6 +181,8 @@ export const useTerminalStore = defineStore("terminal", () => {
     removeTab,
     switchTab,
     moveTab,
+    saveTabOrder,
+    loadTabOrder,
     resetTerminalSettings,
     getTerminalRuntimeOptions,
     sanitizeTerminalSetting,

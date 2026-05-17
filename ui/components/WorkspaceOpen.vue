@@ -166,7 +166,7 @@ async function toggleVisibility(ws, checked) {
 }
 
 async function saveWorkspaceOrder() {
-  const order = displayWorkspaces.value.map((ws) => ws.name);
+  const order = displayWorkspaces.value.map((ws) => ws.id || ws.name);
   try {
     await apiPut(EP_WORKSPACE_ORDER, { order }, { errorMessage: "Failed to save workspace order" });
   } catch { /* ignore */ }

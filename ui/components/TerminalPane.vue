@@ -152,6 +152,7 @@ async function doEnterViewMode() {
 
 function onPointerDown(e) {
   if (layoutStore.isTouchDevice) return;
+  emit("layout:fitAll");
   if (!layoutStore.isSplitMode) return;
   if (isActive.value) return;
   emits("select-pane", props.paneIndex);
