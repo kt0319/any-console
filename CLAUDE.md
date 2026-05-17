@@ -58,13 +58,20 @@ OS固有機能の追加は最小限にする（クロスプラットフォーム
 - `highlight.js`
 - `@mdi/font`
 
-## 開発依存
+## 開発依存（Backend）
 
 - `pytest`
 - `pytest-cov`
 - `ruff`
 - `mypy`
 - `httpx`
+
+## 開発依存（Frontend）
+
+- `vitest`
+- `@vitest/coverage-v8`
+- `@vitejs/plugin-vue`
+- `happy-dom`（未導入、コンポーネントテストが必要になった場合に追加）
 
 ## 追加ツール
 
@@ -178,10 +185,11 @@ npm run test:coverage
 
 ## フロントエンドテスト方針
 
-- DOM依存を避ける
-- 純粋関数をインラインコピーしてテストする
-
-テスト対象関数変更時は、対応するテスト側コピーも必ず同期すること。
+- テスト対象の純粋関数は `ui/utils/` に切り出して実装する
+- テストは実ファイルを `import` して検証する（インラインコピー禁止）
+- コンポーネント自体（DOM依存）のテストは行わない
+- 新たに追加する純粋関数は最初から `ui/utils/` に置く
+- 既存のインラインコピーは機会があれば順次 `import` 方式に移行する
 
 ## Lint
 
@@ -506,13 +514,13 @@ ui/utils/endpoints.js
 
 ## timer
 
-`setTimeout` 等の値は:
+`setTimeout` / `setInterval` 等の時間値、ブレークポイント等の数値定数は:
 
 ```js
 ui/utils/constants.js
 ```
 
-へ定義。
+へ定義。直書き禁止。
 
 ## API error
 
