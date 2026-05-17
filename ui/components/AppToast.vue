@@ -8,7 +8,7 @@
         :style="{ top: toast.top + 'px' }"
         @click="dismiss(toast)"
       >
-        {{ toast.message }}
+        <div v-for="(line, i) in toast.lines" :key="i" class="toast-line">{{ line }}</div>
       </div>
     </TransitionGroup>
   </Teleport>
@@ -40,7 +40,7 @@ function dismiss(toast) {
 function show(message, type = "error", duration = TOAST_DEFAULT_DURATION_MS) {
   const text = typeof message === "string" ? message : String(message?.message || message || "Unknown error");
   const id = ++idCounter;
-  const toast = { id, message: text, type, top: 24 };
+  const toast = { id, message: text, lines: text.split("\n"), type, top: 24 };
   toasts.value.push(toast);
   nextTick(restack);
   setTimeout(() => {
@@ -68,7 +68,6 @@ defineExpose({ show });
   padding: 10px 20px;
   font-size: 13px;
   text-align: center;
-  white-space: pre-line;
   z-index: 10000;
   border-radius: var(--radius);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -78,6 +77,11 @@ defineExpose({ show });
   cursor: pointer;
   pointer-events: auto;
   transition: top 0.3s, opacity 0.3s;
+}
+.toast-line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .toast-error {
   background: color-mix(in srgb, var(--error) 85%, transparent);
