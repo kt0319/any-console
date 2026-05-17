@@ -319,10 +319,11 @@ onMounted(() => {
   display: flex;
   flex-direction: row;
   flex-shrink: 0;
+  gap: 2px;
+  padding: 4px 8px 0;
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-  border-bottom: 1px solid var(--border);
   background: transparent;
   scrollbar-width: none;
 }
@@ -333,17 +334,14 @@ onMounted(() => {
 
 .workspace-tab {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 6px 10px;
-  min-width: 52px;
-  background: none;
-  border: none;
-  border-bottom: 3px solid transparent;
-  border-radius: 0;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 12px;
   white-space: nowrap;
   cursor: pointer;
   flex-shrink: 0;
@@ -351,13 +349,12 @@ onMounted(() => {
 }
 
 .workspace-tab.active {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg-tertiary));
+  color: var(--text-primary);
+  background: var(--bg-secondary);
 }
 
-
 .workspace-tab .mdi {
-  font-size: 17px;
+  font-size: 16px;
   line-height: 1;
 }
 
@@ -446,18 +443,11 @@ onMounted(() => {
   }
 
   .workspace-tabs {
-    border-bottom: none;
-    border-top: 1px solid var(--border);
+    padding: 0 8px 4px;
   }
 
   .workspace-tab {
-    border-bottom: none;
-    border-top: 3px solid transparent;
-  }
-
-  .workspace-tab.active {
-    border-bottom-color: transparent;
-    border-top-color: transparent;
+    border-radius: 0 0 var(--radius) var(--radius);
   }
 
   .workspace-branch-bar {
