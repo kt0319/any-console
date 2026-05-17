@@ -1,12 +1,12 @@
 <template>
   <div class="workspace-status-bar" :style="{ display: showHeader ? 'flex' : 'none' }">
     <div class="status-nav-group">
-      <button type="button" class="status-nav-btn" title="Jobs" @click="openFileModal('jobs')">
-        <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
-      </button>
-      <div class="status-divider"></div>
       <button type="button" class="status-nav-btn" title="Files" @click="openFileModal('files')">
         <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
+      </button>
+      <div class="status-divider"></div>
+      <button type="button" class="status-nav-btn" title="Jobs" @click="openFileModal('jobs')">
+        <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
       </button>
       <template v-if="isGitRepo">
         <div class="status-divider"></div>
@@ -124,7 +124,7 @@ const changedFiles = computed(() => ws.value?.changed_files || 0);
 const insertions = computed(() => ws.value?.insertions || 0);
 const deletions = computed(() => ws.value?.deletions || 0);
 
-function openFileModal(pane = "changes") {
+function openFileModal(pane = "files") {
   if (workspace.value) {
     workspaceStore.selectedWorkspace = workspace.value;
   }

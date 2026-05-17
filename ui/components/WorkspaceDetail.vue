@@ -95,7 +95,7 @@ const githubActions = ref(null);
 const githubPrs = ref(null);
 const jobsPane = ref(null);
 
-const activePane = ref("changes");
+const activePane = ref("files");
 const selectedDiffFile = ref("");
 const diffMessage = ref("");
 
@@ -124,8 +124,8 @@ const hasGithub = computed(() => !!workspaceStore.currentWorkspace?.github_url);
 
 const tabs = computed(() => {
   const list = [
-    { key: "jobs", icon: "mdi-play-circle-outline", label: "Jobs" },
     { key: "files", icon: "mdi-folder-outline", label: "Files" },
+    { key: "jobs", icon: "mdi-play-circle-outline", label: "Jobs" },
     { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", badge: changesCount.value || "" },
     { key: "history", icon: "mdi-history", label: "History" },
     { key: "branch", icon: "mdi-source-branch", label: "Branch" },
@@ -184,7 +184,7 @@ async function backgroundLoadCounts(workspace) {
 
 async function open(options) {
   options = options || {};
-  const paneKey = options.pane || "changes";
+  const paneKey = options.pane || "files";
   const resolvedPane = paneKey === "browser" ? "history" : paneKey;
   selectedDiffFile.value = "";
   diffMessage.value = "";
