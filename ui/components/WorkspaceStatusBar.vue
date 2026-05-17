@@ -85,7 +85,8 @@ import { emit, on } from "../app-bridge.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import { renderIconStr } from "../utils/render-icon.js";
-import { POLL_INTERVAL_MS } from "../utils/constants.js";
+import { POLL_INTERVAL_MS, MOBILE_BREAKPOINT_PX } from "../utils/constants.js";
+import { abbreviateBranch } from "../utils/git.js";
 import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 
 const { gitAction, isRunning } = useGitRemoteAction();
@@ -119,8 +120,8 @@ function stopPolling() {
   }
 }
 
-const isMobile = ref(window.innerWidth < 768);
-function onResize() { isMobile.value = window.innerWidth < 768; }
+const isMobile = ref(window.innerWidth < MOBILE_BREAKPOINT_PX);
+function onResize() { isMobile.value = window.innerWidth < MOBILE_BREAKPOINT_PX; }
 
 onMounted(() => { startPolling(); window.addEventListener("resize", onResize); });
 onBeforeUnmount(() => { stopPolling(); window.removeEventListener("resize", onResize); });
@@ -157,12 +158,6 @@ const hasGitActions = computed(() =>
 const isDirty = computed(() => ws.value && ws.value.clean === false);
 
 const statusLoading = computed(() => ws.value && ws.value.last_commit_message === undefined);
-
-function abbreviateBranch(branch) {
-  const slash = branch.indexOf("/");
-  if (slash === -1) return branch;
-  return branch[0] + "~/" + branch.slice(slash + 1);
-}
 
 const branchText = computed(() => {
   const branch = ws.value?.branch || "";

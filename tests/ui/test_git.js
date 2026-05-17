@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { parseGitRefs, formatGitTime, parseGitLogEntries, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, countContentLines } from "../../ui/utils/git.js";
+import { parseGitRefs, formatGitTime, parseGitLogEntries, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, countContentLines, abbreviateBranch } from "../../ui/utils/git.js";
 
 // ── Tests ──
 
@@ -278,5 +278,23 @@ describe("buildFileNumstatHtml", () => {
 
   it("numstatもchunkもない場合は空文字列", () => {
     expect(buildFileNumstatHtml({ status: "M" })).toBe("");
+  });
+});
+
+describe("abbreviateBranch", () => {
+  it("スラッシュなしはそのまま返す", () => {
+    expect(abbreviateBranch("main")).toBe("main");
+  });
+  it("feature/hoge → f~/hoge", () => {
+    expect(abbreviateBranch("feature/hoge")).toBe("f~/hoge");
+  });
+  it("fix/login-bug → f~/login-bug", () => {
+    expect(abbreviateBranch("fix/login-bug")).toBe("f~/login-bug");
+  });
+  it("複数スラッシュは最初のみ省略", () => {
+    expect(abbreviateBranch("feature/v2/auth")).toBe("f~/v2/auth");
+  });
+  it("空文字列はそのまま返す", () => {
+    expect(abbreviateBranch("")).toBe("");
   });
 });

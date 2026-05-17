@@ -2,6 +2,7 @@
 // @ts-check
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { enterViewMode, exitViewMode, isViewMode } from "../../ui/utils/view-mode.js";
+import { plainCell, makeTerm } from "./xterm-mock.js";
 
 function makeFrame() {
   const frame = document.createElement("div");
@@ -87,23 +88,7 @@ describe("enterViewMode", () => {
   it("falls back to terminalBufferToHtml when fetch fails", async () => {
     const f = makeFrame();
     const apiFetch = vi.fn().mockRejectedValue(new Error("boom"));
-    const fakeCell = {
-      getChars: () => "x",
-      getWidth: () => 1,
-      isFgPalette: () => false,
-      isBgPalette: () => false,
-      isFgRGB: () => false,
-      isBgRGB: () => false,
-      getFgColor: () => 0,
-      getBgColor: () => 0,
-      isBold: () => false,
-      isDim: () => false,
-      isItalic: () => false,
-      isUnderline: () => false,
-      isStrikethrough: () => false,
-    };
-    const fakeLine = { length: 1, getCell: () => fakeCell };
-    const fakeTerm = { buffer: { active: { length: 1, getLine: () => fakeLine } } };
+    const fakeTerm = makeTerm([[plainCell("x")]]);
 
     await enterViewMode({ wsUrl: "wss://h/terminal/ws/abc", term: fakeTerm }, f, apiFetch);
 
