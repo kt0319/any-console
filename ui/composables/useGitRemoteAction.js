@@ -68,9 +68,10 @@ export function useGitRemoteAction() {
       ? `${wsName}: ${label} done (${count} commit${count === 1 ? "" : "s"})`
       : `${wsName}: ${label} done`;
     const messages = Array.isArray(commits?.messages) ? commits.messages : [];
-    if (!messages.length) return header;
-    const lines = [header, ...messages.map((m) => `• ${m}`)];
-    const remaining = count - messages.length;
+    const subjects = messages.map((m) => String(m).split("\n")[0]);
+    if (!subjects.length) return header;
+    const lines = [header, ...subjects.map((s) => `• ${s}`)];
+    const remaining = count - subjects.length;
     if (remaining > 0) {
       lines.push(`… and ${remaining} more`);
     }
