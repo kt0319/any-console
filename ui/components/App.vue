@@ -10,7 +10,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import ScreenLogin from "./ScreenLogin.vue";
 import ScreenMain from "./ScreenMain.vue";
 import AppToast from "./AppToast.vue";
@@ -20,12 +20,23 @@ import OfflineOverlay from "./OfflineOverlay.vue";
 import { on, emit } from "../app-bridge.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useLayoutStore } from "../stores/layout.js";
+import { useTerminalStore } from "../stores/terminal.js";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useGitHubActionsMonitor } from "../composables/useGitHubActionsMonitor.js";
 import { useAppJobBridge } from "../composables/useAppJobBridge.js";
 
 const auth = useAuthStore();
 const layoutStore = useLayoutStore();
+const terminalStore = useTerminalStore();
+
+const APP_NAME = "any-console";
+const activeWorkspace = computed(() => {
+  const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
+  return tab?.workspace || "";
+});
+watch(activeWorkspace, (ws) => {
+  document.title = ws ? `${APP_NAME} - ${ws}` : APP_NAME;
+}, { immediate: true });
 const appToast = ref(null);
 const { isOffline, startPing, stopPing, onOnline, onOffline } = useConnectivityMonitor();
 const { start: startActionsMonitor, stop: stopActionsMonitor } = useGitHubActionsMonitor();
