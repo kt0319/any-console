@@ -29,6 +29,22 @@
         </div>
         <input type="checkbox" :checked="currentValues[key]" @change="commitValue(key, $event.target.checked)" />
       </label>
+      <div v-else-if="schema.type === 'select'" class="terminal-settings-item">
+        <div class="terminal-settings-item-header">
+          <span class="terminal-settings-item-label">{{ schema.label }}</span>
+        </div>
+        <div class="terminal-settings-segmented">
+          <button
+            v-for="opt in schema.options"
+            :key="opt.value"
+            type="button"
+            class="terminal-settings-segmented-btn"
+            :class="{ active: currentValues[key] === opt.value }"
+            @click="commitValue(key, opt.value)"
+          >{{ opt.label }}</button>
+        </div>
+        <div v-if="schema.note" class="terminal-settings-note">{{ schema.note }}</div>
+      </div>
     </template>
     <div class="terminal-settings-actions">
       <button type="button" class="terminal-settings-reset-btn" @click="resetAll">Reset to Default</button>
@@ -72,17 +88,19 @@ function resetAll() {
 .terminal-settings-view {
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
 
 .terminal-settings-item {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--border);
   background: transparent;
+}
+
+.terminal-settings-item:last-of-type {
+  border-bottom: none;
 }
 
 .terminal-settings-item-label {
@@ -143,6 +161,32 @@ function resetAll() {
 .terminal-settings-note {
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.terminal-settings-segmented {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.terminal-settings-segmented-btn {
+  flex: 1 1 0;
+  min-width: 80px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.terminal-settings-segmented-btn.active {
+  border-color: var(--accent, #82aaff);
+  background: rgba(130, 170, 255, 0.15);
+  color: var(--accent, #82aaff);
 }
 
 .terminal-settings-actions {

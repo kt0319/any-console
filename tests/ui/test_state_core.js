@@ -79,6 +79,28 @@ describe("sanitizeTerminalSetting", () => {
     });
   });
 
+  describe("cursorStyle (select)", () => {
+    it("accepts 'block'", () => {
+      expect(sanitizeTerminalSetting("cursorStyle", "block")).toBe("block");
+    });
+
+    it("accepts 'underline'", () => {
+      expect(sanitizeTerminalSetting("cursorStyle", "underline")).toBe("underline");
+    });
+
+    it("accepts 'bar'", () => {
+      expect(sanitizeTerminalSetting("cursorStyle", "bar")).toBe("bar");
+    });
+
+    it("returns fallback for unknown value", () => {
+      expect(sanitizeTerminalSetting("cursorStyle", "unknown")).toBe("block");
+    });
+
+    it("returns fallback for undefined", () => {
+      expect(sanitizeTerminalSetting("cursorStyle", undefined)).toBe("block");
+    });
+  });
+
   describe("unknown key", () => {
     it("returns undefined for unknown key", () => {
       expect(sanitizeTerminalSetting("unknownKey", "whatever")).toBe(undefined);
@@ -91,6 +113,7 @@ describe("sanitizeTerminalSettings", () => {
     // Boolean sanitizer treats undefined as false, not as default
     const result = sanitizeTerminalSettings({});
     expect(result.fontSize).toBe(12);
+    expect(result.cursorStyle).toBe("block");
     expect(result.cursorBlink).toBe(false);
     expect(result.scrollback).toBe(5000);
     expect(result.scrollOnOutput).toBe(false);
