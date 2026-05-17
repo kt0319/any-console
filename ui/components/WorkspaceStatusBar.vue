@@ -205,8 +205,7 @@ function doAction(action) {
 .status-numstat-btn {
   flex-shrink: 0;
   gap: 6px;
-  font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .numstat-files {
