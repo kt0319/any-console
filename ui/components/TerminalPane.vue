@@ -23,14 +23,12 @@
           {{ tab.workspace || tab.label || '' }}
         </span>
       </div>
-      <div v-if="terminalStore.tabFlags[tab.id]?.needsReload" class="terminal-reload-overlay" @click.stop>
-        <div class="terminal-reload-card">
-          <span class="mdi mdi-wifi-off terminal-reload-icon" aria-hidden="true"></span>
-          <div class="terminal-reload-text">Disconnected</div>
-          <button type="button" class="terminal-reload-btn" @click="onReload">
-            <span class="mdi mdi-refresh"></span>Reload
-          </button>
-        </div>
+      <div v-if="terminalStore.tabFlags[tab.id]?.needsReload" class="terminal-reload-banner" @click.stop>
+        <span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+        <span class="terminal-reload-text">Disconnected</span>
+        <button type="button" class="terminal-reload-btn" @click="onReload">
+          <span class="mdi mdi-refresh"></span>Reload
+        </button>
       </div>
     </div>
   </div>
@@ -425,55 +423,48 @@ defineExpose({
   }
 }
 
-.terminal-reload-overlay {
+.terminal-reload-banner {
   position: absolute;
-  inset: 0;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: rgba(26, 27, 38, 0.85);
-  z-index: 10;
-}
-
-.terminal-reload-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 20px 24px;
-  background: var(--bg-secondary);
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-}
-
-.terminal-reload-icon {
-  font-size: 32px;
-  color: var(--text-muted);
-}
-
-.terminal-reload-text {
-  font-size: 14px;
-  color: var(--text-primary);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+  font-size: 13px;
   font-weight: 600;
+  color: var(--text-primary);
+}
+
+.terminal-reload-banner .mdi {
+  font-size: 16px;
+  color: var(--text-muted);
 }
 
 .terminal-reload-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 4px 10px;
   background: var(--accent);
   color: var(--bg-primary);
   border: none;
   border-radius: var(--radius);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
 }
 
 .terminal-reload-btn .mdi {
-  font-size: 16px;
+  font-size: 14px;
+  color: inherit;
 }
 </style>
