@@ -161,6 +161,7 @@ export function useTerminal() {
     disconnectTerminal,
     ensureTerminalOpened,
     fitTerminal,
+    sendResize,
     observeFrameResize,
     deleteSession,
     reconnectTerminal,

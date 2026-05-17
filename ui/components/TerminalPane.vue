@@ -3,7 +3,7 @@
     class="terminal-pane"
     :class="{ active: isActive }"
     ref="paneEl"
-    @pointerdown="onPointerDown"
+    @pointerdown.capture="onPointerDown"
     @touchstart="onTouchStart"
     @touchmove.passive="onTouchMove"
     @touchend="onTouchEnd"
@@ -66,7 +66,7 @@ const { confirm } = useConfirm();
 setTouchEnv(layoutStore.isTouchDevice);
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
-const { ensureTerminalOpened, fitTerminal, observeFrameResize, connectTerminalWs, reconnectTerminal } = useTerminal();
+const { ensureTerminalOpened, fitTerminal, sendResize, observeFrameResize, connectTerminalWs, reconnectTerminal } = useTerminal();
 
 function onReload() {
   reconnectTerminal(props.tab);
@@ -152,7 +152,17 @@ async function doEnterViewMode() {
 
 function onPointerDown(e) {
   if (layoutStore.isTouchDevice) return;
-  emit("layout:fitAll");
+  const tab = props.tab;
+  if (tab) {
+    tab._lastFitCols = 0;
+    tab._lastFitRows = 0;
+    fitTerminal(tab, { force: true });
+    if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
+      try { sendResize(tab); } catch {}
+    }
+    try { tab.term?.refresh(0, tab.term.rows - 1); } catch {}
+    tab.term?.scrollToBottom?.();
+  }
   if (!layoutStore.isSplitMode) return;
   if (isActive.value) return;
   emits("select-pane", props.paneIndex);
@@ -294,6 +304,7 @@ function onTouchEnd(e) {
   }
   if (layoutStore.isPanelBottom && !(frameEl.value && isViewMode(frameEl.value))) {
     emit("keyboard:activate");
+    props.tab?.term?.scrollToBottom?.();
   }
 }
 
