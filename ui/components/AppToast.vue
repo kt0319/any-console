@@ -105,4 +105,13 @@ defineExpose({ show });
   opacity: 0;
   transform: translateX(-50%) translateY(-100%);
 }
+
+@media (max-width: 767px) {
+  .toast {
+    padding: 8px 12px;
+    max-width: calc(100% - 16px);
+    min-width: 0;
+    font-size: 12px;
+  }
+}
 </style>
