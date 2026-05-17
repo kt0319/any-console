@@ -18,6 +18,7 @@
           <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
           <span class="job-item-label">{{ job.label || job.name }}</span>
           <span v-if="job.description" class="job-item-desc">{{ job.description }}</span>
+          <span v-if="job.type === 'browser'" class="mdi mdi-open-in-new job-item-link-icon" aria-hidden="true"></span>
         </div>
       </template>
 
@@ -33,6 +34,7 @@
           <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
           <span class="job-item-label">{{ job.label || job.name }}</span>
           <span v-if="job.description" class="job-item-desc">{{ job.description }}</span>
+          <span v-if="job.type === 'browser'" class="mdi mdi-open-in-new job-item-link-icon" aria-hidden="true"></span>
         </div>
       </template>
 
@@ -107,6 +109,12 @@ function openTerminal() {
 async function runJob(job) {
   const wsName = workspace.value;
   if (!wsName) return;
+  if (job.type === "browser") {
+    if (ws.value) recordJob(ws.value, job);
+    window.open(job.url, "_blank", "noopener");
+    emit("modal:close");
+    return;
+  }
   if (job.confirm !== false) {
     const preview = job.command ? (job.command.length > 300 ? job.command.slice(0, 300) + "..." : job.command) : job.name;
     if (!await confirm(`${job.label || job.name}\n\n${preview}`)) return;
@@ -187,6 +195,17 @@ defineExpose({ load });
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: right;
+}
+
+.job-item-link-icon {
+  margin-left: auto;
+  font-size: 16px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.job-item-desc + .job-item-link-icon {
+  margin-left: 6px;
 }
 
 .job-section-header {

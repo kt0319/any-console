@@ -19,6 +19,8 @@ class JobDefinition:
     icon_color: str = ""
     confirm: bool = True
     hidden_tab: bool = False
+    type: str = "command"
+    url: str = ""
 
 
 TERMINAL_JOB_KEY = "terminal"

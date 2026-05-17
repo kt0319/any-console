@@ -6,10 +6,19 @@
         <input type="text" class="form-input" v-model="form.label" placeholder="Display name" autocomplete="off" />
       </div>
       <div class="ws-settings-row">
+        <span class="ws-settings-label">Type</span>
+        <label class="form-check-label"><input type="radio" v-model="form.type" value="command" /> Command</label>
+        <label class="form-check-label"><input type="radio" v-model="form.type" value="browser" /> Browser</label>
+      </div>
+      <div v-if="form.type === 'browser'" class="ws-settings-row">
+        <span class="ws-settings-label">URL</span>
+        <input type="text" class="form-input" v-model="form.url" placeholder="https://example.com" autocomplete="off" />
+      </div>
+      <div v-else class="ws-settings-row">
         <span class="ws-settings-label">Command</span>
         <input type="text" class="form-input" v-model="form.command" placeholder="Command to execute" autocomplete="off" />
       </div>
-      <div class="ws-settings-row">
+      <div v-if="form.type !== 'browser'" class="ws-settings-row">
         <span class="ws-settings-label">Icon</span>
         <button type="button" class="icon-select-btn" @click="openIconPicker">
           <span class="icon-select-preview">
@@ -18,7 +27,7 @@
           </span>
         </button>
       </div>
-      <div class="ws-settings-row" style="gap:8px">
+      <div v-if="form.type !== 'browser'" class="ws-settings-row" style="gap:8px">
         <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.confirm" /> Confirm dialog</label>
         <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.hidden_tab" /> Run in hidden tab</label>
       </div>
@@ -57,7 +66,9 @@ const form = ref(
     : jobEntry
       ? {
           label: jobEntry.job.label || "",
+          type: jobEntry.job.type || "command",
           command: jobEntry.job.command || "",
+          url: jobEntry.job.url || "",
           icon: jobEntry.job.icon || DEFAULT_JOB_ICON,
           icon_color: jobEntry.job.icon_color || "",
           confirm: jobEntry.job.confirm !== false,
@@ -65,7 +76,9 @@ const form = ref(
         }
       : {
           label: "",
+          type: "command",
           command: "",
+          url: "",
           icon: DEFAULT_JOB_ICON,
           icon_color: "",
           confirm: false,
@@ -92,21 +105,40 @@ onMounted(() => {
   modalTitle.value = isNew ? "Add Job" : "Edit Job";
 });
 
+function extractDomain(text) {
+  try {
+    if (text.startsWith("http://") || text.startsWith("https://")) return new URL(text).hostname;
+    return text.split("/")[0];
+  } catch {
+    return text;
+  }
+}
+
 async function saveJob() {
   const f = form.value;
-  if (!f.command.trim()) { formError.value = "Please enter a command"; return; }
+  if (f.type === "browser") {
+    if (!f.url.trim()) { formError.value = "Please enter a URL"; return; }
+  } else {
+    if (!f.command.trim()) { formError.value = "Please enter a command"; return; }
+  }
   saving.value = true;
   formError.value = "";
   try {
     const baseUrl = isCommon ? EP_COMMON_JOBS : `/workspaces/${encodeURIComponent(workspaceName)}/jobs`;
     const url = isNew ? baseUrl : `${baseUrl}/${encodeURIComponent(jobEntry.name)}`;
+    const trimmedUrl = f.url.trim();
+    const icon = f.type === "browser"
+      ? (trimmedUrl ? `favicon:${extractDomain(trimmedUrl)}` : DEFAULT_JOB_ICON)
+      : (f.icon.trim() || DEFAULT_JOB_ICON);
     const body = {
       label: f.label.trim(),
-      command: f.command.trim(),
-      icon: f.icon.trim() || DEFAULT_JOB_ICON,
-      icon_color: f.icon_color.trim(),
-      confirm: f.confirm,
-      hidden_tab: f.hidden_tab,
+      type: f.type,
+      command: f.type === "command" ? f.command.trim() : "",
+      url: f.type === "browser" ? trimmedUrl : "",
+      icon,
+      icon_color: f.type === "browser" ? "" : f.icon_color.trim(),
+      confirm: f.type === "browser" ? false : f.confirm,
+      hidden_tab: f.type === "browser" ? false : f.hidden_tab,
     };
     const { ok, data } = isNew ? await apiPost(url, body) : await apiPut(url, body);
     if (!ok) {

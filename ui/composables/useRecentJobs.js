@@ -33,6 +33,8 @@ export function useRecentJobs() {
       jobIcon: job.icon || "",
       jobIconColor: job.icon_color || "",
       jobCommand: job.command || "",
+      jobUrl: job.url || "",
+      jobType: job.type || "command",
       jobConfirm: job.confirm ?? null,
       jobHiddenTab: !!job.hidden_tab,
     };

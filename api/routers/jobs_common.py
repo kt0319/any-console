@@ -79,6 +79,8 @@ def entry_to_job_definition(name, entry):
         icon_color=entry.get("icon_color", ""),
         confirm=entry.get("confirm", True),
         hidden_tab=entry.get("hidden_tab", False),
+        type=entry.get("type", "command"),
+        url=entry.get("url", ""),
     )
 
 
@@ -113,6 +115,8 @@ def job_definition_to_dict(job_def, is_common=None):
         "icon_color": job_def.icon_color,
         "confirm": job_def.confirm,
         "hidden_tab": job_def.hidden_tab,
+        "type": job_def.type,
+        "url": job_def.url,
     }
     if is_common is not None:
         d["common"] = is_common
@@ -141,8 +145,15 @@ def build_job_entry(
     icon_color: str,
     confirm: bool,
     hidden_tab: bool = False,
+    job_type: str = "command",
+    url: str = "",
 ) -> dict:
-    entry: dict[str, Any] = {"command": command}
+    entry: dict[str, Any] = {}
+    if job_type == "browser":
+        entry["type"] = "browser"
+        entry["url"] = url
+    else:
+        entry["command"] = command
     label = label.strip()
     if label:
         entry["label"] = label
@@ -156,7 +167,9 @@ def build_job_entry(
 
 class JobRequest(BaseModel):
     label: str = Field(..., max_length=MAX_LABEL_LENGTH)
-    command: str = Field(..., max_length=MAX_COMMAND_LENGTH)
+    type: str = Field("command", max_length=20)
+    command: str = Field("", max_length=MAX_COMMAND_LENGTH)
+    url: str = Field("", max_length=2000)
     icon: str = Field("", max_length=MAX_ICON_VALUE_LENGTH)
     icon_color: str = Field("", max_length=20)
     confirm: bool = True
@@ -179,17 +192,26 @@ def _validate_job_fields(body):
     label = body.label.strip()
     if not label:
         raise bad_request("Please enter a display name")
+    job_type = (body.type or "command").strip() or "command"
+    if job_type == "browser":
+        url = body.url.strip()
+        if not url:
+            raise bad_request("URL is empty")
+        return label, "", job_type, url
     command = body.command.strip()
     if not command:
         raise bad_request("Command is empty")
-    return label, command
+    return label, command, "command", ""
 
 
 def save_job(data, save_fn, job_name, body, log_msg):
-    label, command = _validate_job_fields(body)
+    label, command, job_type, url = _validate_job_fields(body)
     if job_name is None:
         job_name = generate_job_key(data)
-    data[job_name] = build_job_entry(command, label, body.icon, body.icon_color, body.confirm, body.hidden_tab)
+    data[job_name] = build_job_entry(
+        command, label, body.icon, body.icon_color, body.confirm, body.hidden_tab,
+        job_type=job_type, url=url,
+    )
     save_fn(data)
     logger.info(log_msg, job_name)
     return {"status": "ok", "name": job_name}
