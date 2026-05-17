@@ -173,7 +173,10 @@ function onTouchEnd(e) {
     return;
   }
   if (layoutStore.isPanelBottom && !(frameEl.value && isViewMode(frameEl.value))) {
-    emit("keyboard:activate");
+    setTimeout(() => {
+      if (isLinkTapped()) return;
+      emit("keyboard:activate");
+    }, 120);
   }
 }
 
