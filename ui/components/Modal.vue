@@ -222,6 +222,8 @@ onMounted(() => {
   gap: 2px;
   padding: 0 8px;
   flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
 }
 
 .modal-title-wrap {
