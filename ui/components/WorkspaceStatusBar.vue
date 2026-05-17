@@ -11,7 +11,6 @@
           <span class="diff-num-plus">+{{ insertions }}</span>
           <span class="diff-num-del">-{{ deletions }}</span>
         </template>
-        <span v-else class="numstat-empty">-</span>
       </button>
       <button type="button" class="status-msg-btn" tabindex="-1" @click="openFileModal('history')">
         <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
@@ -212,10 +211,6 @@ function doAction(action) {
 
 .numstat-files {
   color: var(--warning);
-}
-
-.numstat-empty {
-  color: var(--text-muted);
 }
 
 .non-git-hint {
