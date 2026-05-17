@@ -7,15 +7,7 @@
         @run="runRecentJob"
         @settings="toggleSettingsMode"
       />
-      <WorkspaceEditPane
-        v-if="editWs"
-        :workspace="editWs"
-        :pushView="pushView"
-        :viewState="viewState"
-        @deleted="onWorkspaceDeleted"
-        @updated="onWorkspaceUpdated"
-      />
-      <div v-else ref="wsListEl" class="terminal-ws-list" :class="{ 'is-settings-mode': settingsMode }">
+      <div ref="wsListEl" class="terminal-ws-list" :class="{ 'is-settings-mode': settingsMode }">
         <div
           v-for="(ws, idx) in displayWorkspaces"
           :key="ws.name"
@@ -46,8 +38,8 @@
                 <span v-if="!settingsMode" class="picker-ws-branch">{{ ws.branch || '-' }}</span>
               </span>
             </button>
-            <button v-if="settingsMode" type="button" class="picker-ws-edit-btn" title="Edit" @click.stop="openEditWs(ws)">
-              <span class="mdi mdi-pencil-outline"></span>
+            <button v-if="settingsMode" type="button" class="picker-ws-delete-btn" title="Delete" @click.stop="deleteWs(ws)">
+              <span class="mdi mdi-delete-outline"></span>
             </button>
             <div v-else class="picker-ws-top-meta" @click.stop="onMetaClick(ws)">
               <template v-if="ws.is_git_repo">
@@ -101,7 +93,6 @@
         <div v-if="visibleWorkspaces.length === 0" class="clone-repo-empty">
           No workspaces to display
         </div>
-        <WorkspaceAddInline v-if="settingsMode" @added="onWorkspaceAdded" />
       </div>
     </div>
   </div>
@@ -121,29 +112,27 @@ import { emit } from "../app-bridge.js";
 import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import RecentJobsBar from "./RecentJobsBar.vue";
-import WorkspaceAddInline from "./WorkspaceAddInline.vue";
-import WorkspaceEditPane from "./WorkspaceEditPane.vue";
-import { useModalView } from "../composables/useModalView.js";
+import { useConfirm } from "../composables/useConfirm.js";
 import { useWorkspaceDrag } from "../composables/useWorkspaceDrag.js";
 import { EP_WORKSPACE_ORDER } from "../utils/endpoints.js";
 
-const { modalTitle, viewState } = useModalView();
+const modalTitle = inject("modalTitle");
 const pushView = inject("pushView");
 modalTitle.value = "Workspaces";
 
 const workspaceStore = useWorkspaceStore();
 const layoutStore = useLayoutStore();
-const { apiGet, apiPut, wsEndpoint } = useApi();
+const { apiGet, apiPut, apiDelete, wsEndpoint } = useApi();
 const { gitAction, isRunning } = useGitRemoteAction();
 const { recentJobs, loadRecentJobs } = useRecentJobs();
 const { runJob, runRecentJob } = useJobLauncher();
+const { confirm } = useConfirm();
 
 const wsCommonJobs = reactive({});
 const wsLocalJobs = reactive({});
 const expandedName = ref(null);
 const settingsMode = ref(false);
 const wsListEl = ref(null);
-const editWs = ref(null);
 
 const displayWorkspaces = computed(() => settingsMode.value
   ? (workspaceStore.allWorkspaces || [])
@@ -157,30 +146,12 @@ const { dragIdx, dragOffsetY, onDragStart, cleanup: cleanupDrag } = useWorkspace
 
 function toggleSettingsMode() {
   settingsMode.value = !settingsMode.value;
-  if (!settingsMode.value) {
-    editWs.value = null;
-  }
 }
 
-function openEditWs(ws) {
-  editWs.value = ws;
-}
-
-async function onWorkspaceAdded() {
-  await workspaceStore.fetchWorkspaces();
-}
-
-async function onWorkspaceUpdated() {
-  await workspaceStore.fetchWorkspaces();
-  if (editWs.value?.name) {
-    const updated = workspaceStore.allWorkspaces.find((w) => w.name === editWs.value.name);
-    if (updated) editWs.value = updated;
-  }
-}
-
-async function onWorkspaceDeleted() {
-  editWs.value = null;
-  await workspaceStore.fetchWorkspaces();
+async function deleteWs(ws) {
+  if (!await confirm(`Delete "${ws.name}"?\nThe directory will remain.`)) return;
+  const { ok } = await apiDelete(`/workspaces/${encodeURIComponent(ws.name)}`, { errorMessage: "Failed to delete workspace" });
+  if (ok) await workspaceStore.fetchWorkspaces();
 }
 
 async function toggleVisibility(ws, checked) {
@@ -343,7 +314,7 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-.picker-ws-edit-btn {
+.picker-ws-delete-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -353,9 +324,9 @@ onBeforeUnmount(() => {
   margin-left: auto;
   padding: 0;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 1px solid var(--error);
   border-radius: var(--radius);
-  color: var(--text-secondary);
+  color: var(--error);
   font-size: 16px;
   cursor: pointer;
 }

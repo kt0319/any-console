@@ -26,6 +26,7 @@
       <div class="modal-body">
         <ModalMenu v-if="currentView === 'ModalMenu'" />
         <WorkspaceOpen v-if="currentView === 'WorkspaceOpen'" />
+        <WorkspaceAddView v-if="currentView === 'WorkspaceAdd'" />
         <JobConfig v-if="currentView === 'JobConfig'" />
         <TabConfig v-if="currentView === 'TabConfig'" />
         <TerminalConfig v-if="currentView === 'TerminalConfig'" />
@@ -47,6 +48,7 @@ import { ref, computed, provide, nextTick, onMounted } from "vue";
 import { useModal } from "../composables/useModal.js";
 import ModalMenu from "./ModalMenu.vue";
 import WorkspaceOpen from "./WorkspaceOpen.vue";
+import WorkspaceAddView from "./WorkspaceAddView.vue";
 import JobConfig from "./JobConfig.vue";
 import TabConfig from "./TabConfig.vue";
 import TerminalConfig from "./TerminalConfig.vue";

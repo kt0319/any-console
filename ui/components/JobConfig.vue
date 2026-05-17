@@ -37,6 +37,12 @@
         </button>
       </div>
       <div v-if="formError" class="job-config-error">{{ formError }}</div>
+      <div v-if="!isNew" class="ws-settings-row ws-delete-row">
+        <button type="button" class="ws-delete-btn" @click="deleteJob">
+          <span class="mdi mdi-delete-outline"></span>
+          Delete Job
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -45,12 +51,14 @@
 import { ref, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useModalView } from "../composables/useModalView.js";
+import { useConfirm } from "../composables/useConfirm.js";
 import { renderIconStr } from "../utils/render-icon.js";
-import { MSG_SAVE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
+import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
 import { EP_COMMON_JOBS } from "../utils/endpoints.js";
 
 const { modalTitle, viewState, pushView, popView } = useModalView();
-const { apiPost, apiPut } = useApi();
+const { apiPost, apiPut, apiDelete } = useApi();
+const { confirm } = useConfirm();
 
 const workspaceName = viewState.value.workspaceName;
 const isCommon = viewState.value.isCommon || false;
@@ -152,7 +160,41 @@ async function saveJob() {
     saving.value = false;
   }
 }
+
+async function deleteJob() {
+  if (isNew || !jobEntry) return;
+  const label = jobEntry.job.label || jobEntry.name;
+  if (!await confirm(`Delete job "${label}"? This cannot be undone.`)) return;
+  const baseUrl = isCommon ? EP_COMMON_JOBS : `/workspaces/${encodeURIComponent(workspaceName)}/jobs`;
+  const url = `${baseUrl}/${encodeURIComponent(jobEntry.name)}`;
+  const { ok, data } = await apiDelete(url, { errorMessage: MSG_DELETE_FAILED });
+  if (ok) {
+    popView(true);
+  } else if (data?.detail) {
+    formError.value = data.detail;
+  }
+}
 </script>
 
 <style scoped>
+.ws-delete-row {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.ws-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  font-size: 13px;
+  color: var(--error);
+  background: transparent;
+  border: 1px solid var(--error);
+  border-radius: var(--radius);
+  cursor: pointer;
+  justify-content: center;
+}
 </style>
