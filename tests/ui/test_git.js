@@ -282,19 +282,19 @@ describe("buildFileNumstatHtml", () => {
 });
 
 describe("abbreviateBranch", () => {
-  it("スラッシュなしはそのまま返す", () => {
-    expect(abbreviateBranch("main")).toBe("main");
+  it("スラッシュなしはabbr空、restのみ", () => {
+    expect(abbreviateBranch("main")).toEqual({ abbr: "", rest: "main" });
   });
-  it("feature/hoge → f~/hoge", () => {
-    expect(abbreviateBranch("feature/hoge")).toBe("f~/hoge");
+  it("feature/hoge → abbr=f~/, rest=hoge", () => {
+    expect(abbreviateBranch("feature/hoge")).toEqual({ abbr: "f~/", rest: "hoge" });
   });
-  it("fix/login-bug → f~/login-bug", () => {
-    expect(abbreviateBranch("fix/login-bug")).toBe("f~/login-bug");
+  it("fix/login-bug → abbr=f~/, rest=login-bug", () => {
+    expect(abbreviateBranch("fix/login-bug")).toEqual({ abbr: "f~/", rest: "login-bug" });
   });
   it("複数スラッシュは最初のみ省略", () => {
-    expect(abbreviateBranch("feature/v2/auth")).toBe("f~/v2/auth");
+    expect(abbreviateBranch("feature/v2/auth")).toEqual({ abbr: "f~/", rest: "v2/auth" });
   });
-  it("空文字列はそのまま返す", () => {
-    expect(abbreviateBranch("")).toBe("");
+  it("空文字列はabbr空、rest空", () => {
+    expect(abbreviateBranch("")).toEqual({ abbr: "", rest: "" });
   });
 });

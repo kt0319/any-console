@@ -142,6 +142,6 @@ export async function resolveUntrackedNumstat({ workspace, files, apiFetch }) {
 
 export function abbreviateBranch(branch) {
   const slash = branch.indexOf("/");
-  if (slash === -1) return branch;
-  return branch[0] + "~/" + branch.slice(slash + 1);
+  if (slash === -1) return { abbr: "", rest: branch };
+  return { abbr: branch[0] + "~/", rest: branch.slice(slash + 1) };
 }
