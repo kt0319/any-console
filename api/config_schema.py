@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, model_validator
 
 try:
     from pydantic import ConfigDict
@@ -32,6 +32,16 @@ class JobConfig(_ConfigModel):
     icon_color: str = ""
     confirm: bool = True
     terminal: bool = False
+
+    @model_validator(mode="after")
+    def _check_command_or_url(self):
+        if self.type == "browser":
+            if not self.url:
+                raise ValueError("url is required for browser type")
+        else:
+            if not self.command:
+                raise ValueError("command is required")
+        return self
 
 
 class WorkspaceConfig(_ConfigModel):
