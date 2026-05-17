@@ -38,6 +38,9 @@
         <div v-if="activePane === 'branch'" class="file-modal-pane">
           <GitChangeBranch ref="gitBranch" />
         </div>
+        <div v-if="activePane === 'jobs'" class="file-modal-pane">
+          <WorkspaceJobsPane ref="jobsPane" />
+        </div>
         <div v-if="activePane === 'stash'" class="file-modal-pane">
           <GitStash ref="gitStash" @count="onStashCount" />
         </div>
@@ -80,6 +83,7 @@ import GitFiles from "./GitFiles.vue";
 import GitChangeBranch from "./GitChangeBranch.vue";
 import GitStash from "./GitStash.vue";
 import GitCommitForm from "./GitCommitForm.vue";
+import WorkspaceJobsPane from "./WorkspaceJobsPane.vue";
 import GitHubIssuesPane from "./GitHubIssuesPane.vue";
 import GitHubActionsPane from "./GitHubActionsPane.vue";
 import GitHubPRsPane from "./GitHubPRsPane.vue";
@@ -105,6 +109,7 @@ const commitForm = ref(null);
 const githubIssues = ref(null);
 const githubActions = ref(null);
 const githubPrs = ref(null);
+const jobsPane = ref(null);
 
 const activePane = ref("changes");
 const { topRatio, onHandlePointerDown } = useResizeHandle(0.33);
@@ -139,6 +144,7 @@ const tabs = computed(() => {
     { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", badge: changesCount.value || "" },
     { key: "history", icon: "mdi-history", label: "History" },
     { key: "branch", icon: "mdi-source-branch", label: "Branch" },
+    { key: "jobs", icon: "mdi-play-circle-outline", label: "Jobs" },
     { key: "stash", icon: "mdi-package-variant", label: "Stash", badge: stashCount.value || "", hidden: !stashCount.value },
     { key: "issues", icon: "mdi-github", label: "Issues", badge: issuesCount.value || "", hidden: !hasGithub.value || !issuesCount.value },
     { key: "actions", icon: "mdi-github", label: "Actions", hidden: !hasGithub.value },
@@ -238,6 +244,8 @@ async function switchPane(key) {
     });
   } else if (key === "stash") {
     nextTick(() => gitStash.value?.load());
+  } else if (key === "jobs") {
+    nextTick(() => jobsPane.value?.load());
   }
   // issues/actions/prs は v-if + onMounted で自動ロード
 }
