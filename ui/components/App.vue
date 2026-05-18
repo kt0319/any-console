@@ -559,33 +559,17 @@ button:disabled {
   align-items: center;
   gap: 10px;
   padding: 20px 28px;
-  background: color-mix(in srgb, var(--bg-tertiary) 70%, transparent);
-  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--error) 75%, transparent);
+  border: 1px solid color-mix(in srgb, var(--error) 75%, transparent);
   border-radius: var(--radius);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   pointer-events: auto;
 }
 
-.offline-spinner {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 3px solid rgba(255, 255, 255, 0.15);
-  border-top-color: var(--accent);
-  animation: spin 0.8s linear infinite;
-  flex-shrink: 0;
-  margin-bottom: 4px;
-}
-
 .offline-text {
   font-size: 16px;
   font-weight: 600;
-  color: var(--error);
-}
-
-.offline-sub {
-  font-size: 12px;
-  color: var(--text-muted);
+  color: #fff;
 }
 
 .offline-fade-enter-active {
