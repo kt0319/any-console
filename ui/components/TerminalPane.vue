@@ -171,7 +171,12 @@ let touchMoved = false;
 let lastTouchPos = { x: 0, y: 0 };
 let longPressTimer = null;
 let pendingUrl = null;
+let touchScrollEnabled = false;
+let touchScrollStartViewportY = 0;
+let touchScrollLineHeightPx = 16;
+let touchScrolled = false;
 const LONG_PRESS_URL_MS = 400;
+const TOUCH_SCROLL_THRESHOLD_PX = 6;
 const URL_REGEX = /(https?:\/\/[^\s)\]>'"]+|www\.[^\s)\]>'"]+)/g;
 
 function cancelLongPressTimer() {
@@ -255,6 +260,23 @@ function onTouchStart(e) {
   touchStartTime = Date.now();
   touchMoved = false;
   pendingUrl = null;
+  touchScrolled = false;
+  touchScrollEnabled = false;
+  const term = props.tab?.term;
+  if (term && frameEl.value && !isViewMode(frameEl.value)) {
+    const buf = term.buffer?.active;
+    if (buf) {
+      touchScrollEnabled = true;
+      touchScrollStartViewportY = buf.viewportY;
+      const viewportEl = frameEl.value.querySelector(".xterm-viewport");
+      const totalLines = buf.length || 0;
+      if (viewportEl && totalLines > 0 && viewportEl.scrollHeight > 0) {
+        touchScrollLineHeightPx = viewportEl.scrollHeight / totalLines;
+      } else if (term.rows > 0 && frameEl.value.clientHeight > 0) {
+        touchScrollLineHeightPx = frameEl.value.clientHeight / term.rows;
+      }
+    }
+  }
   cancelLongPressTimer();
   longPressTimer = setTimeout(async () => {
     longPressTimer = null;
@@ -277,6 +299,20 @@ function onTouchMove(e) {
     pendingUrl = null;
     cancelLongPressTimer();
   }
+  if (touchScrollEnabled && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > TOUCH_SCROLL_THRESHOLD_PX) {
+    const term = props.tab?.term;
+    const buf = term?.buffer?.active;
+    if (term && buf && touchScrollLineHeightPx > 0) {
+      const linesDelta = -Math.round(dy / touchScrollLineHeightPx);
+      const maxViewportY = Math.max(0, buf.length - term.rows);
+      const targetViewportY = Math.max(0, Math.min(maxViewportY, touchScrollStartViewportY + linesDelta));
+      const diff = targetViewportY - buf.viewportY;
+      if (diff !== 0) {
+        term.scrollLines(diff);
+        touchScrolled = true;
+      }
+    }
+  }
 }
 
 function onTouchEnd(e) {
@@ -284,14 +320,15 @@ function onTouchEnd(e) {
   if (pendingUrl) {
     return;
   }
+  if (touchScrolled) {
+    touchScrollEnabled = false;
+    return;
+  }
+  touchScrollEnabled = false;
   if (isLinkTapped()) return;
   if (pillEl.value && pillEl.value.contains(e.target)) return;
   const { dx: deltaX, dy: deltaY } = paneTouch.delta(e);
   if (frameEl.value && isViewMode(frameEl.value)) return;
-  if (deltaY > 80 && frameEl.value) {
-    doEnterViewMode();
-    return;
-  }
   if (Math.abs(deltaX) > 20 || Math.abs(deltaY) > 20) return;
   if (layoutStore.isSplitMode) {
     if (!isActive.value) {
