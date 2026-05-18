@@ -1,21 +1,17 @@
 import { ref } from "vue";
-import { useLongPress } from "./useLongPress.js";
 import { useSplitDropDrag } from "./useSplitDropDrag.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { isPastDragThreshold } from "../utils/gesture.js";
-import { DRAG_THRESHOLD, LONG_PRESS_MS, DRAG_STATE_RESET_MS } from "../utils/constants.js";
+import { DRAG_THRESHOLD, DRAG_STATE_RESET_MS } from "../utils/constants.js";
 
-export function usePillDrag({ tabId, canDrag, frameEl, isViewMode, doEnterViewMode, exitViewMode, onTabClick, onLongPress, emit }) {
+export function usePillDrag({ tabId, canDrag, onTabClick }) {
   const pillDragging = ref(false);
-  const pillMouseLongPress = useLongPress(LONG_PRESS_MS);
-  const pillTouchLongPress = useLongPress(LONG_PRESS_MS);
   const terminalStore = useTerminalStore();
   const { beginDrag, updateHover, finishSplitDrop } = useSplitDropDrag();
 
   let pillTouchStartX = 0;
   let pillTouchStartY = 0;
   let pillTouchDragging = false;
-  let pillLongPressed = false;
   let pillMouseDownTime = 0;
   let pillDidDrag = false;
   let pillMouseStartX = 0;
@@ -37,29 +33,13 @@ export function usePillDrag({ tabId, canDrag, frameEl, isViewMode, doEnterViewMo
     removePillMouseListeners();
     document.addEventListener("mousemove", onPillMouseMove);
     document.addEventListener("mouseup", onPillMouseUp);
-    pillMouseLongPress.start(() => {
-      const frame = frameEl.value;
-      if (frame && !isViewMode(frame)) doEnterViewMode();
-    });
   }
 
   function onPillClick(e) {
-    if (pillTouchLongPress.consumeFired() || pillMouseLongPress.consumeFired()) {
-      if (e?.preventDefault) e.preventDefault();
-      return;
-    }
-    const frame = frameEl.value;
-    if (frame && isViewMode(frame)) {
-      if (e?.preventDefault) e.preventDefault();
-      exitViewMode(frame);
-      emit("keyboard:deactivate");
-      return;
-    }
     if (pillDidDrag) {
       pillDidDrag = false;
       return;
     }
-    pillMouseLongPress.cancel();
     if (Date.now() - pillMouseDownTime > 300) return;
     onTabClick();
   }
@@ -67,9 +47,6 @@ export function usePillDrag({ tabId, canDrag, frameEl, isViewMode, doEnterViewMo
   function onPillMouseMove(e) {
     const dx = e.clientX - pillMouseStartX;
     const dy = e.clientY - pillMouseStartY;
-    if (isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
-      pillMouseLongPress.cancel();
-    }
     if (!canDrag.value) return;
     if (!pillMouseDragging && isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
       pillMouseDragging = true;
@@ -86,7 +63,6 @@ export function usePillDrag({ tabId, canDrag, frameEl, isViewMode, doEnterViewMo
 
   function onPillMouseUp(e) {
     removePillMouseListeners();
-    pillMouseLongPress.cancel();
     if (!pillMouseDragging) return;
     e.preventDefault();
     pillDragging.value = false;
@@ -102,29 +78,13 @@ export function usePillDrag({ tabId, canDrag, frameEl, isViewMode, doEnterViewMo
 
   function onPillTouchStart(e) {
     pillTouchDragging = false;
-    pillLongPressed = false;
     pillTouchStartX = e.touches[0].clientX;
     pillTouchStartY = e.touches[0].clientY;
-    pillTouchLongPress.reset();
-    pillTouchLongPress.start(async () => {
-      pillLongPressed = true;
-      const frame = frameEl.value;
-      if (!frame) return;
-      if (isViewMode(frame)) {
-        exitViewMode(frame);
-        emit("keyboard:deactivate");
-        return;
-      }
-      await doEnterViewMode();
-    });
   }
 
   function onPillTouchMove(e) {
     const dx = e.touches[0].clientX - pillTouchStartX;
     const dy = e.touches[0].clientY - pillTouchStartY;
-    if (isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
-      pillTouchLongPress.cancel();
-    }
     if (!canDrag.value) return;
     if (!pillTouchDragging && isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
       pillTouchDragging = true;
@@ -139,13 +99,6 @@ export function usePillDrag({ tabId, canDrag, frameEl, isViewMode, doEnterViewMo
   }
 
   function onPillTouchEnd(e) {
-    pillTouchLongPress.cancel();
-    if (pillLongPressed) {
-      pillLongPressed = false;
-      if (e.cancelable) e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
     if (!pillTouchDragging) return;
     if (e.cancelable) e.preventDefault();
     pillDidDrag = true;

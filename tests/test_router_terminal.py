@@ -24,13 +24,3 @@ class TestDeleteSession:
     def test_delete_session_requires_auth(self, client):
         res = client.delete("/terminal/sessions/whatever")
         assert res.status_code in (401, 403)
-
-
-class TestBuffer:
-    def test_buffer_nonexistent_returns_404(self, client):
-        res = client.get("/terminal/sessions/no-such-id/buffer", headers=AUTH)
-        assert res.status_code == 404
-
-    def test_buffer_requires_auth(self, client):
-        res = client.get("/terminal/sessions/no-such-id/buffer")
-        assert res.status_code in (401, 403)

@@ -38,9 +38,8 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { renderIconStr } from "../utils/render-icon.js";
-import { enterViewMode, exitViewMode, isViewMode } from "../utils/view-mode.js";
 import { emit } from "../app-bridge.js";
-import { WHEEL_DEBOUNCE_MS, ACTIVE_FIT_DELAY_MS, WHEEL_FOCUS_THRESHOLD } from "../utils/constants.js";
+import { ACTIVE_FIT_DELAY_MS } from "../utils/constants.js";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
 import { openExternalUrl } from "../utils/open-external.js";
 import { useConfirm } from "../composables/useConfirm.js";
@@ -76,10 +75,6 @@ const tabId = computed(() => props.tab.id);
 const { pillDragging, onPillMouseDown, onPillClick, onPillTouchStart, onPillTouchMove, onPillTouchEnd } = usePillDrag({
   tabId,
   canDrag,
-  frameEl,
-  isViewMode,
-  doEnterViewMode,
-  exitViewMode: (frame) => { exitViewMode(frame); },
   onTabClick: () => {
     if (props.tab.workspace) {
       workspaceStore.selectedWorkspace = props.tab.workspace;
@@ -121,30 +116,6 @@ function scheduleActiveFit() {
       try { props.tab.term.refresh(0, props.tab.term.rows - 1); } catch {}
     }
   }, ACTIVE_FIT_DELAY_MS);
-}
-
-async function doEnterViewMode() {
-  const frame = frameEl.value;
-  if (!frame || isViewMode(frame)) return;
-  await enterViewMode(props.tab, frame, auth.apiFetch.bind(auth));
-  const pre = frame.querySelector(".view-mode-textarea");
-  if (pre) {
-    let startX = 0;
-    let startY = 0;
-    pre.addEventListener("pointerdown", (e) => {
-      startX = e.clientX;
-      startY = e.clientY;
-    });
-    pre.addEventListener("click", (e) => {
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
-      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) return;
-      const sel = window.getSelection();
-      if (sel && sel.toString().length > 0) return;
-      exitViewMode(frame);
-      emit("keyboard:deactivate");
-    });
-  }
 }
 
 function onPointerDown(e) {
@@ -263,7 +234,7 @@ function onTouchStart(e) {
   touchScrolled = false;
   touchScrollEnabled = false;
   const term = props.tab?.term;
-  if (term && frameEl.value && !isViewMode(frameEl.value)) {
+  if (term && frameEl.value) {
     const buf = term.buffer?.active;
     if (buf) {
       touchScrollEnabled = true;
@@ -328,7 +299,6 @@ function onTouchEnd(e) {
   if (isLinkTapped()) return;
   if (pillEl.value && pillEl.value.contains(e.target)) return;
   const { dx: deltaX, dy: deltaY } = paneTouch.delta(e);
-  if (frameEl.value && isViewMode(frameEl.value)) return;
   if (Math.abs(deltaX) > 20 || Math.abs(deltaY) > 20) return;
   if (layoutStore.isSplitMode) {
     if (!isActive.value) {
@@ -336,33 +306,11 @@ function onTouchEnd(e) {
     }
     return;
   }
-  if (layoutStore.isPanelBottom && !(frameEl.value && isViewMode(frameEl.value))) {
+  if (layoutStore.isPanelBottom) {
     emit("keyboard:activate");
     props.tab?.term?.scrollToBottom?.();
   }
 }
-
-let wheelAccum = 0;
-let wheelTimer = null;
-
-function onWheel(e) {
-  if (layoutStore.isTouchDevice) return;
-  if (frameEl.value && isViewMode(frameEl.value)) return;
-  if (e.deltaY >= 0) {
-    wheelAccum = 0;
-    return;
-  }
-  e.preventDefault();
-  e.stopPropagation();
-  wheelAccum += e.deltaY;
-  if (wheelTimer) clearTimeout(wheelTimer);
-  wheelTimer = setTimeout(() => { wheelAccum = 0; }, WHEEL_DEBOUNCE_MS);
-  if (wheelAccum <= WHEEL_FOCUS_THRESHOLD) {
-    wheelAccum = 0;
-    doEnterViewMode();
-  }
-}
-
 
 async function onPaste(e) {
   if (!isActive.value) return;
@@ -397,9 +345,6 @@ onMounted(() => {
     pillEl.value.addEventListener("touchmove", onPillTouchMove, { passive: false });
     pillEl.value.addEventListener("touchend", onPillTouchEnd, { passive: false });
   }
-  if (frameEl.value) {
-    frameEl.value.addEventListener("wheel", onWheel, { passive: false, capture: true });
-  }
   document.addEventListener("paste", onPaste, true);
 });
 
@@ -420,9 +365,6 @@ onBeforeUnmount(() => {
   if (pillEl.value) {
     pillEl.value.removeEventListener("touchmove", onPillTouchMove);
     pillEl.value.removeEventListener("touchend", onPillTouchEnd);
-  }
-  if (frameEl.value) {
-    frameEl.value.removeEventListener("wheel", onWheel);
   }
   document.removeEventListener("paste", onPaste, true);
 });
@@ -457,20 +399,6 @@ defineExpose({
   -webkit-touch-callout: none;
   border: 1px solid transparent;
   box-sizing: border-box;
-}
-
-.terminal-frame.view-mode {
-  border-color: var(--warning);
-  user-select: text;
-  -webkit-user-select: text;
-}
-
-.terminal-frame.view-mode .terminal-info-pill {
-  border-color: var(--warning);
-}
-
-.terminal-frame.view-mode :deep(.xterm textarea) {
-  display: none !important;
 }
 
 .terminal-frame :deep(.xterm) {
@@ -542,35 +470,6 @@ defineExpose({
 @keyframes pill-activity-glow {
   0%, 100% { border-color: var(--border); }
   50% { border-color: rgba(130, 170, 255, 0.7); }
-}
-
-:deep(.view-mode-textarea) {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 9;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  margin: 0;
-  border: none;
-  overflow-x: hidden;
-  overflow-y: auto;
-  background: #1a1b26;
-  color: #e0e4fc;
-  font-family: "Hack Nerd Font", "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace;
-  font-size: var(--terminal-font-size, 12px);
-  line-height: 1.25;
-  letter-spacing: 0.5px;
-  box-sizing: border-box;
-  outline: none;
-  white-space: pre-wrap;
-  word-break: break-all;
-  user-select: text;
-  -webkit-user-select: text;
-  touch-action: auto;
 }
 
 @media (pointer: coarse) {

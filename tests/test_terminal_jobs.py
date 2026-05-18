@@ -115,33 +115,6 @@ class TestTerminalSessionMetadata:
         assert matched[0]["job_name"] == "my_job"
         assert matched[0]["job_label"] == "My Job"
 
-    def test_buffer_nonexistent(self, client):
-        """存在しないセッション → 404"""
-        res = client.get("/terminal/sessions/nonexistent-xxx/buffer", headers=AUTH)
-        assert res.status_code == 404
-
-    def test_buffer_success(self, client, workspace, monkeypatch):
-        """正常系バッファ取得（tmux capture-pane モック）"""
-        create_res = client.post("/run", headers=AUTH, json={
-            "job": "terminal",
-            "workspace": "test-ws",
-        })
-        session_id = create_res.json()["session_id"]
-
-        import subprocess as sp
-        original_run = sp.run
-
-        def mock_run(cmd, **kwargs):
-            if "capture-pane" in cmd:
-                return sp.CompletedProcess(cmd, 0, stdout="hello terminal\n", stderr="")
-            return original_run(cmd, **kwargs)
-
-        monkeypatch.setattr(sp, "run", mock_run)
-
-        res = client.get(f"/terminal/sessions/{session_id}/buffer", headers=AUTH)
-        assert res.status_code == 200
-        assert "hello terminal" in res.json()["content"]
-
 
 class TestSessionState:
     def test_delete_with_pty_bridge(self, client, workspace, monkeypatch):

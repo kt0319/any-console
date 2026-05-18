@@ -50,11 +50,6 @@ export function terminalSessionPath(sessionId) {
   return `/terminal/sessions/${encodeURIComponent(sessionId)}`;
 }
 
-/** @param {string} sessionId @returns {string} */
-export function terminalSessionBufferPath(sessionId) {
-  return `/terminal/sessions/${encodeURIComponent(sessionId)}/buffer`;
-}
-
 /** @param {string} workspace @returns {string} */
 export function workspaceGitDiscardPath(workspace) {
   return `/workspaces/${encodeURIComponent(workspace)}/git/discard`;
