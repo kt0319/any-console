@@ -1,6 +1,6 @@
 import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "./useApi.js";
-import { WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, RECONNECT_BACKOFF_MULTIPLIER, RECONNECT_BACKOFF_BASE_MS, RECONNECT_BACKOFF_MAX, POST_WRITE_REFRESH_MS } from "../utils/constants.js";
+import { WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, RECONNECT_BACKOFF_MULTIPLIER, RECONNECT_BACKOFF_BASE_MS, RECONNECT_BACKOFF_MAX, POST_WRITE_REFRESH_MS, RECONNECTING_OVERLAY_MIN_ATTEMPTS } from "../utils/constants.js";
 import { emit } from "../app-bridge.js";
 import { fitTerminal, sendResize, observeFrameResize } from "./useTerminalResize.js";
 import { buildWebSocketUrl as _buildWebSocketUrl } from "../utils/terminal-ws.js";
@@ -25,7 +25,9 @@ export function useTerminal() {
     const ws = new WebSocket(wsUrl);
     ws.binaryType = "arraybuffer";
     tab.ws = ws;
-    terminalStore.setTabFlag(tab.id, "reconnecting", true);
+    if ((tab._reconnectAttempts || 0) >= RECONNECTING_OVERLAY_MIN_ATTEMPTS) {
+      terminalStore.setTabFlag(tab.id, "reconnecting", true);
+    }
 
     ws.onopen = () => {
       tab._reconnectAttempts = 0;
@@ -88,7 +90,6 @@ export function useTerminal() {
         : Math.min(Math.pow(RECONNECT_BACKOFF_MULTIPLIER, attempts - 1) * RECONNECT_BACKOFF_BASE_MS, RECONNECT_BACKOFF_MAX);
       tab._reconnectAttempts = attempts + 1;
       tab._pendingRedraw = true;
-      terminalStore.setTabFlag(tab.id, "reconnecting", true);
       clearTimeout(tab._reconnectTimer);
       tab._reconnectTimer = setTimeout(() => connectTerminalWs(tab), delay);
     };
