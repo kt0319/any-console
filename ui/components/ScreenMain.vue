@@ -20,6 +20,7 @@
     </div>
   </div>
   <Modal />
+  <TerminalSelectModal />
 </template>
 
 <script setup>
@@ -30,6 +31,7 @@ import TerminalBase from "./TerminalBase.vue";
 import KeyboardBase from "./KeyboardBase.vue";
 import ScreenEmpty from "./ScreenEmpty.vue";
 import Modal from "./Modal.vue";
+import TerminalSelectModal from "./TerminalSelectModal.vue";
 import StatusOverlay from "./StatusOverlay.vue";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useLayoutStore } from "../stores/layout.js";

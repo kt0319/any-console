@@ -142,6 +142,7 @@ let touchMoved = false;
 let lastTouchPos = { x: 0, y: 0 };
 let longPressTimer = null;
 let pendingUrl = null;
+let longPressHandled = false;
 let touchScrollEnabled = false;
 let touchScrollStartViewportY = 0;
 let touchScrollLineHeightPx = 16;
@@ -231,6 +232,7 @@ function onTouchStart(e) {
   touchStartTime = Date.now();
   touchMoved = false;
   pendingUrl = null;
+  longPressHandled = false;
   touchScrolled = false;
   touchScrollEnabled = false;
   const term = props.tab?.term;
@@ -253,14 +255,38 @@ function onTouchStart(e) {
     longPressTimer = null;
     if (touchMoved) return;
     const url = findUrlAtPosition(lastTouchPos.x, lastTouchPos.y);
-    if (!url) return;
-    pendingUrl = url;
-    if (navigator.vibrate) navigator.vibrate(40);
-    if (await confirm(`Open URL?\n\n${url}`)) {
-      openExternalUrl(url);
+    if (url) {
+      pendingUrl = url;
+      longPressHandled = true;
+      if (navigator.vibrate) navigator.vibrate(40);
+      if (await confirm(`Open URL?\n\n${url}`)) {
+        openExternalUrl(url);
+      }
+      pendingUrl = null;
+      return;
     }
-    pendingUrl = null;
+    const text = getVisibleTerminalText();
+    if (text) {
+      longPressHandled = true;
+      if (navigator.vibrate) navigator.vibrate(40);
+      emit("selection:open", { text });
+    }
   }, LONG_PRESS_URL_MS);
+}
+
+function getVisibleTerminalText() {
+  const term = props.tab?.term;
+  if (!term) return null;
+  const buf = term.buffer.active;
+  const start = buf.viewportY;
+  const end = Math.min(buf.length - 1, buf.viewportY + term.rows - 1);
+  const lines = [];
+  for (let i = start; i <= end; i++) {
+    const line = buf.getLine(i);
+    if (!line) continue;
+    lines.push(line.translateToString(true).replace(/[\s 　]+$/, ""));
+  }
+  return lines.join("\n").replace(/^\n+|\n+$/g, "") || null;
 }
 
 function onTouchMove(e) {
@@ -289,6 +315,11 @@ function onTouchMove(e) {
 function onTouchEnd(e) {
   cancelLongPressTimer();
   if (pendingUrl) {
+    return;
+  }
+  if (longPressHandled) {
+    longPressHandled = false;
+    touchScrollEnabled = false;
     return;
   }
   if (touchScrolled) {
