@@ -4,9 +4,11 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { LINK_TAP_RESET_MS } from "../utils/constants.js";
-import { LS_KEY_TERMINAL_SETTINGS, LS_KEY_ACTIVE_SESSION, LS_KEY_TAB_ORDER } from "../utils/constants.js";
+import { LS_KEY_TERMINAL_SETTINGS, LS_KEY_ACTIVE_SESSION } from "../utils/constants.js";
 import { TERMINAL_SETTINGS_META, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../utils/terminal-settings.js";
 import { safeJsonLoad } from "../utils/storage.js";
+import { EP_TERMINAL_ORDER } from "../utils/endpoints.js";
+import { useAuthStore } from "./auth.js";
 
 const TERMINAL_SETTINGS_KEY = LS_KEY_TERMINAL_SETTINGS;
 
@@ -141,13 +143,25 @@ export const useTerminalStore = defineStore("terminal", () => {
     saveTabOrder();
   }
 
-  function saveTabOrder() {
+  async function saveTabOrder() {
     const order = openTabs.value.map((t) => t.sessionId);
-    localStorage.setItem(LS_KEY_TAB_ORDER, JSON.stringify(order));
+    try {
+      const auth = useAuthStore();
+      await auth.apiFetch(EP_TERMINAL_ORDER, { method: "PUT", body: { order } });
+    } catch { /* ignore */ }
   }
 
-  function loadTabOrder() {
-    return safeJsonLoad(LS_KEY_TAB_ORDER, []);
+  async function loadTabOrder() {
+    try {
+      const auth = useAuthStore();
+      const res = await auth.apiFetch(EP_TERMINAL_ORDER);
+      if (!res || !res.ok) return [];
+      const data = await res.json().catch(() => null);
+      const order = data?.order;
+      return Array.isArray(order) ? order.filter((s) => typeof s === "string") : [];
+    } catch {
+      return [];
+    }
   }
 
   function getTerminalRuntimeOptions() {

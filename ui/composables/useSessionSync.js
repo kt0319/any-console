@@ -52,7 +52,7 @@ export function useSessionSync() {
       const sessions = await sessionsRes.json();
       if (!Array.isArray(sessions) || sessions.length === 0) return;
 
-      const savedOrder = terminalStore.loadTabOrder() || [];
+      const savedOrder = await terminalStore.loadTabOrder();
       const orderMap = new Map(savedOrder.map((id, i) => [id, i]));
       const sortedSessions = [...sessions].sort((a, b) => {
         const ai = orderMap.has(a.session_id) ? orderMap.get(a.session_id) : Number.MAX_SAFE_INTEGER;

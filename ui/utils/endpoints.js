@@ -30,6 +30,7 @@ export const EP_WORKSPACES_SUGGEST = "/workspaces/suggest";
 export const EP_WORKSPACES_STATUSES = "/workspaces/statuses";
 export const EP_WORKSPACE_ORDER = "/workspace-order";
 export const EP_TERMINAL_SESSIONS = "/terminal/sessions";
+export const EP_TERMINAL_ORDER = "/terminal/order";
 export const EP_JOBS_WORKSPACES = "/jobs/workspaces";
 export const EP_COMMON_JOBS = "/common/jobs";
 export const EP_SYSTEM_INFO = "/system/info";

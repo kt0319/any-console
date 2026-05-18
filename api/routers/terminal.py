@@ -1,13 +1,16 @@
 import asyncio
 import fcntl
+import json
 import logging
 import os
 import struct
 import subprocess
 import termios
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket
 from fastapi.websockets import WebSocketDisconnect
+from pydantic import BaseModel
 
 from ..auth import COOKIE_NAME_TOKEN, verify_token, verify_ws_token
 from ..common import (
@@ -114,6 +117,45 @@ async def delete_terminal_session(session_id: str):
     _kill_tmux_session(session)
     logger.info("terminal session deleted session=%s", session_id)
     return {"status": "ok"}
+
+
+_TAB_ORDER_FILE = Path(__file__).resolve().parent.parent.parent / "data" / "sessions.json"
+
+
+def _load_tab_order() -> list[str]:
+    try:
+        if not _TAB_ORDER_FILE.exists():
+            return []
+        data = json.loads(_TAB_ORDER_FILE.read_text())
+    except (OSError, json.JSONDecodeError):
+        return []
+    order = data.get("order") if isinstance(data, dict) else None
+    if not isinstance(order, list):
+        return []
+    return [s for s in order if isinstance(s, str)]
+
+
+def _save_tab_order(order: list[str]) -> None:
+    _TAB_ORDER_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _TAB_ORDER_FILE.write_text(json.dumps({"order": order}))
+
+
+class TabOrderPayload(BaseModel):
+    order: list[str]
+
+
+@router.get("/terminal/order")
+async def get_tab_order():
+    return {"order": _load_tab_order()}
+
+
+@router.put("/terminal/order")
+async def put_tab_order(payload: TabOrderPayload):
+    try:
+        _save_tab_order(payload.order)
+    except OSError as e:
+        raise server_error(f"Failed to save tab order: {e}") from None
+    return {"order": payload.order}
 
 
 ws_router = APIRouter()
