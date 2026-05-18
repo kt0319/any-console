@@ -13,8 +13,18 @@
             {{ branch.name }}
             <span v-if="branch.current"> ✓</span>
           </div>
-          <div v-if="!branch.current" class="branch-item-actions" @click.stop>
+          <div class="branch-item-actions" @click.stop>
+            <GitActionBtn
+              v-if="canPush(branch)"
+              :icon="branch.upstream ? 'push' : 'push-upstream'"
+              title="Push"
+              :count="branch.ahead || null"
+              :running="isPushing(branch)"
+              :btn-class="branch.upstream ? 'push-btn has-count' : 'upstream-btn'"
+              @action="pushBranch(branch)"
+            />
             <button
+              v-if="!branch.current"
               type="button"
               class="commit-action-item commit-action-danger"
               @click="deleteBranch(branch)"
@@ -36,11 +46,16 @@ import { ref } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useWorkspace } from "../composables/useWorkspace.js";
 import { useConfirm } from "../composables/useConfirm.js";
+import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
+import { useWorkspaceStore } from "../stores/workspace.js";
+import GitActionBtn from "./GitActionBtn.vue";
 import { emit } from "../app-bridge.js";
 
 const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { withWorkspace } = useWorkspace();
 const { confirm } = useConfirm();
+const { gitAction, isRunning } = useGitRemoteAction();
+const workspaceStore = useWorkspaceStore();
 
 const branches = ref([]);
 const isBranchListLoading = ref(false);
@@ -59,6 +74,10 @@ async function loadBranchList() {
         name: b.name || b,
         current: !!b.current,
         remote: false,
+        ahead: Number(b.ahead) || 0,
+        behind: Number(b.behind) || 0,
+        upstream: b.upstream || null,
+        gone: !!b.gone,
       }));
     } catch (e) {
       console.error("branch load failed:", e);
@@ -92,6 +111,23 @@ async function showRemoteBranches() {
 function selectBranch(branch) {
   if (branch.current) return;
   emit("git:checkoutBranch", { branch: branch.name, remote: branch.remote });
+}
+
+async function pushBranch(branch) {
+  await withWorkspace(async (workspace) => {
+    await gitAction(workspace, "push-branch", { branch: branch.name });
+    await loadBranchList();
+  });
+}
+
+function isPushing(branch) {
+  return isRunning(workspaceStore.selectedWorkspace, "push-branch", branch.name);
+}
+
+function canPush(branch) {
+  if (branch.remote) return false;
+  if (!branch.upstream) return true;
+  return branch.ahead > 0;
 }
 
 async function deleteBranch(branch) {

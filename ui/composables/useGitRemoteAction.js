@@ -7,6 +7,7 @@ import { emit } from "../app-bridge.js";
 const ACTION_LABELS = {
   pull: "Pull",
   push: "Push",
+  "push-branch": "Push",
   "push-upstream": "Push (set upstream)",
   "set-upstream": "Set Upstream",
 };
@@ -14,6 +15,7 @@ const ACTION_LABELS = {
 const ACTION_CONFIRM = {
   pull: "pull",
   push: "push",
+  "push-branch": "push",
   "push-upstream": "set upstream and push",
   "set-upstream": "set upstream tracking",
 };
@@ -39,10 +41,11 @@ export function useGitRemoteAction() {
     lines.push("", confirmText);
     const msg = lines.join("\n");
     if (!await confirm(msg)) return;
-    runningAction.value = `${wsName}:${action}`;
+    runningAction.value = branch ? `${wsName}:${action}:${branch}` : `${wsName}:${action}`;
     try {
-      if (action === "pull" || action === "push") {
-        const { ok, data } = await apiCommand(wsEndpoint(wsName, action), {}, { errorMessage: `${label} failed` });
+      if (action === "pull" || action === "push" || action === "push-branch") {
+        const body = action === "push-branch" ? { branch } : {};
+        const { ok, data } = await apiCommand(wsEndpoint(wsName, action), body, { errorMessage: `${label} failed` });
         if (ok) {
           const message = formatRemoteToast(wsName, label, data);
           const hasDetail = message.includes("\n");
@@ -78,8 +81,9 @@ export function useGitRemoteAction() {
     return lines.join("\n");
   }
 
-  function isRunning(wsName, action) {
-    return runningAction.value === `${wsName}:${action}`;
+  function isRunning(wsName, action, branch) {
+    const key = branch ? `${wsName}:${action}:${branch}` : `${wsName}:${action}`;
+    return runningAction.value === key;
   }
 
   function isAnyRunning() {

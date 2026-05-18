@@ -73,12 +73,66 @@ def get_workspace_status(name: str):
     return git_info_to_status_dict(ws_path, name)
 
 
+def _parse_upstream_track(track: str) -> dict:
+    body = (track or "").strip()
+    if body.startswith("[") and body.endswith("]"):
+        body = body[1:-1]
+    if not body:
+        return {"ahead": 0, "behind": 0, "gone": False}
+    if body == "gone":
+        return {"ahead": 0, "behind": 0, "gone": True}
+    ahead = 0
+    behind = 0
+    for part in body.split(","):
+        part = part.strip()
+        if part.startswith("ahead "):
+            try:
+                ahead = int(part[6:])
+            except ValueError:
+                pass
+        elif part.startswith("behind "):
+            try:
+                behind = int(part[7:])
+            except ValueError:
+                pass
+    return {"ahead": ahead, "behind": behind, "gone": False}
+
+
+def _branch_tracking_info(ws_path) -> dict[str, dict]:
+    res = run_git_command(
+        ["for-each-ref", "--format=%(refname:short)|%(upstream:short)|%(upstream:track)", "refs/heads"],
+        cwd=ws_path, operation="for-each-ref upstream",
+    )
+    info: dict[str, dict] = {}
+    if res["exit_code"] != 0:
+        return info
+    for line in res["stdout"].splitlines():
+        parts = line.split("|", 2)
+        if len(parts) != 3:
+            continue
+        name, upstream, track = parts
+        info[name] = {"upstream": upstream or None, **_parse_upstream_track(track)}
+    return info
+
+
 @router.get("/workspaces/{name}/branches")
 def list_branches(name: str):
     ws_path = resolve_workspace_path(name)
     branches = git_branches(ws_path)
     current = git_branch(ws_path)
-    return [{"name": b, "current": b == current} for b in branches]
+    tracking = _branch_tracking_info(ws_path)
+    out = []
+    for b in branches:
+        t = tracking.get(b, {})
+        out.append({
+            "name": b,
+            "current": b == current,
+            "upstream": t.get("upstream"),
+            "ahead": t.get("ahead", 0),
+            "behind": t.get("behind", 0),
+            "gone": t.get("gone", False),
+        })
+    return out
 
 
 @router.get("/workspaces/{name}/branches/remote")
@@ -141,6 +195,24 @@ def git_push(name: str):
     ws_path = resolve_workspace_path(name)
     pending = _commits_between(ws_path, "@{u}..HEAD")
     result = execute_git_action(name, ["push"], operation="push", env=ssh_env())
+    if result["status"] == "ok":
+        result["commits"] = pending
+    return result
+
+
+class PushBranchRequest(BaseModel):
+    branch: str
+
+
+@router.post("/workspaces/{name}/push-branch")
+def git_push_branch(name: str, body: PushBranchRequest):
+    branch = validate_branch_name(body.branch)
+    ws_path = resolve_workspace_path(name)
+    pending = _commits_between(ws_path, f"origin/{branch}..{branch}")
+    result = execute_git_action(
+        name, ["push", "-u", "origin", f"{branch}:{branch}"],
+        operation="push branch", env=ssh_env(), log_extra=f"branch={branch}",
+    )
     if result["status"] == "ok":
         result["commits"] = pending
     return result
