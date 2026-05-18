@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { MOBILE_BREAKPOINT_PX } from "../utils/constants.js";
+import { isEmptyPaneId, makeEmptyPaneId, countRealPanes } from "../utils/empty-pane.js";
 
 export const useLayoutStore = defineStore("layout", () => {
   const panelBottomMediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px) and (orientation: portrait)`);
@@ -20,6 +21,12 @@ export const useLayoutStore = defineStore("layout", () => {
 
   const isShowDropZones = ref(false);
   const dragTabId = ref(null);
+
+  let emptyPaneSeq = 0;
+  function nextEmptyId() {
+    emptyPaneSeq += 1;
+    return makeEmptyPaneId(emptyPaneSeq);
+  }
 
   function calcGridLayout(count) {
     if (count <= 1) return [1];
@@ -53,7 +60,7 @@ export const useLayoutStore = defineStore("layout", () => {
     return offset + colIdx;
   }
 
-  function splitWithDrop(tabId, direction, openTabs, activeTabId) {
+  function splitWithDrop(tabId, direction, openTabs, _activeTabId) {
     if (!tabId) return;
 
     if (direction === "center") {
@@ -62,14 +69,23 @@ export const useLayoutStore = defineStore("layout", () => {
     }
 
     if (["top-left", "top-right", "bottom-left", "bottom-right"].includes(direction)) {
-      const ids = openTabs.map((t) => t.id);
-      if (!ids.includes(tabId)) return;
-      const targetIdx = cornerToGridIndex(ids.length, direction);
-      const reordered = ids.filter((id) => id !== tabId);
-      reordered.splice(Math.min(Math.max(0, targetIdx), reordered.length), 0, tabId);
+      if (isSplitMode.value) {
+        const ids = splitPaneTabIds.value.slice();
+        const cur = ids.indexOf(tabId);
+        if (cur === -1) return;
+        const targetIdx = Math.min(cornerToGridIndex(ids.length, direction), ids.length - 1);
+        if (cur === targetIdx) return;
+        [ids[cur], ids[targetIdx]] = [ids[targetIdx], ids[cur]];
+        splitLayout.value = "grid";
+        splitPaneTabIds.value = ids;
+        activePaneIndex.value = ids.indexOf(tabId);
+        return;
+      }
+      const paneCount = Math.max(4, Math.min(4, openTabs.length || 4));
+      const ids = buildPanesWithTabAt(tabId, paneCount, cornerToGridIndex(paneCount, direction));
       splitLayout.value = "grid";
-      splitPaneTabIds.value = reordered;
-      activePaneIndex.value = splitPaneTabIds.value.indexOf(tabId);
+      splitPaneTabIds.value = ids;
+      activePaneIndex.value = ids.indexOf(tabId);
       isSplitMode.value = true;
       return;
     }
@@ -87,17 +103,50 @@ export const useLayoutStore = defineStore("layout", () => {
       return;
     }
 
-    const otherId = activeTabId && activeTabId !== tabId
-      ? activeTabId
-      : openTabs.find((t) => t.id !== tabId)?.id;
-    if (!otherId) return;
-
+    const wantFirst = direction === "left" || direction === "top";
+    const ids = wantFirst ? [tabId, nextEmptyId()] : [nextEmptyId(), tabId];
     splitLayout.value = newLayout;
-    splitPaneTabIds.value = (direction === "left" || direction === "top")
-      ? [tabId, otherId]
-      : [otherId, tabId];
-    activePaneIndex.value = splitPaneTabIds.value.indexOf(tabId);
+    splitPaneTabIds.value = ids;
+    activePaneIndex.value = ids.indexOf(tabId);
     isSplitMode.value = true;
+  }
+
+  function buildPanesWithTabAt(tabId, paneCount, targetIdx) {
+    const arr = new Array(paneCount).fill(null).map(() => nextEmptyId());
+    const idx = Math.min(Math.max(0, targetIdx), paneCount - 1);
+    arr[idx] = tabId;
+    return arr;
+  }
+
+  /**
+   * 指定ペインに既存タブを割り当てる。
+   * そのタブが別ペインで表示中なら、元のペインを空きに置き換える（座席交換）。
+   */
+  function assignTabToPane(paneIndex, tabId) {
+    if (paneIndex < 0 || paneIndex >= splitPaneTabIds.value.length) return;
+    const ids = splitPaneTabIds.value.slice();
+    const existingIdx = ids.indexOf(tabId);
+    if (existingIdx === paneIndex) return;
+    if (existingIdx >= 0) {
+      ids[existingIdx] = nextEmptyId();
+    }
+    ids[paneIndex] = tabId;
+    splitPaneTabIds.value = ids;
+    activePaneIndex.value = paneIndex;
+  }
+
+  /**
+   * 指定タブIDをペイン配列から空きペインに置き換える。
+   * 有効ペインが0個になったら分割を解除する。
+   */
+  function replaceTabWithEmpty(tabId) {
+    if (!isSplitMode.value) return;
+    const ids = splitPaneTabIds.value.map((id) => (id === tabId ? nextEmptyId() : id));
+    if (countRealPanes(ids) === 0) {
+      exitSplitMode();
+      return;
+    }
+    splitPaneTabIds.value = ids;
   }
 
   function exitSplitMode(targetTabId) {
@@ -121,5 +170,9 @@ export const useLayoutStore = defineStore("layout", () => {
     dragTabId,
     splitWithDrop,
     exitSplitMode,
+    assignTabToPane,
+    replaceTabWithEmpty,
+    isEmptyPaneId,
+    countRealPanes,
   };
 });

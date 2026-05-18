@@ -62,8 +62,9 @@
           <span class="rect r2"></span>
         </span>
       </div>
-      <div class="split-drop-zone drop-center" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'center')">
+      <div v-if="isSplitMode" class="split-drop-zone drop-center" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'center')">
         <span class="mdi mdi-fullscreen drop-zone-icon"></span>
+        <span class="drop-zone-label">Exit split mode</span>
       </div>
     </div>
 
@@ -79,27 +80,41 @@
     <template v-else>
       <template v-if="splitLayout === 'grid'">
         <div v-for="(row, ri) in gridRows" :key="'row-' + ri" class="split-row">
-          <TerminalPane
-            v-for="(pane, pi) in row"
-            :key="pane.tabId"
-            :tab="getTabById(pane.tabId)"
-            :pane-index="pane.globalIndex"
-            :class="['split-pane', 'pane-' + pane.globalIndex, { 'active-pane': pane.globalIndex === activePaneIndex }]"
-            @select-pane="selectPane"
-            ref="paneRefs"
-          />
+          <template v-for="pane in row" :key="pane.tabId">
+            <EmptyPane
+              v-if="isEmptyPaneId(pane.tabId)"
+              :pane-index="pane.globalIndex"
+              :class="['split-pane', 'pane-' + pane.globalIndex, { 'active-pane': pane.globalIndex === activePaneIndex }]"
+              @select-pane="selectPane"
+            />
+            <TerminalPane
+              v-else
+              :tab="getTabById(pane.tabId)"
+              :pane-index="pane.globalIndex"
+              :class="['split-pane', 'pane-' + pane.globalIndex, { 'active-pane': pane.globalIndex === activePaneIndex }]"
+              @select-pane="selectPane"
+              ref="paneRefs"
+            />
+          </template>
         </div>
       </template>
       <template v-else>
-        <TerminalPane
-          v-for="(tabId, idx) in splitPaneTabIds"
-          :key="tabId"
-          :tab="getTabById(tabId)"
-          :pane-index="idx"
-          :class="['split-pane', 'pane-' + idx, { 'active-pane': idx === activePaneIndex }]"
-          @select-pane="selectPane"
-          ref="paneRefs"
-        />
+        <template v-for="(tabId, idx) in splitPaneTabIds" :key="tabId">
+          <EmptyPane
+            v-if="isEmptyPaneId(tabId)"
+            :pane-index="idx"
+            :class="['split-pane', 'pane-' + idx, { 'active-pane': idx === activePaneIndex }]"
+            @select-pane="selectPane"
+          />
+          <TerminalPane
+            v-else
+            :tab="getTabById(tabId)"
+            :pane-index="idx"
+            :class="['split-pane', 'pane-' + idx, { 'active-pane': idx === activePaneIndex }]"
+            @select-pane="selectPane"
+            ref="paneRefs"
+          />
+        </template>
       </template>
     </template>
     <div class="terminal-keyboard-overlay">
@@ -115,11 +130,13 @@
 <script setup>
 import { ref, computed, watch, nextTick } from "vue";
 import TerminalPane from "./TerminalPane.vue";
+import EmptyPane from "./EmptyPane.vue";
 import KeyboardBase from "./KeyboardBase.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { on } from "../app-bridge.js";
 import { buildGridRows } from "../utils/terminal-layout.js";
+import { isEmptyPaneId } from "../utils/empty-pane.js";
 import { useTerminalDrop } from "../composables/useTerminalDrop.js";
 
 defineProps({
@@ -173,7 +190,7 @@ function fitAllTerminals(opts) {
   const visibleTabIds = new Set();
   if (isSplitMode.value) {
     for (const id of splitPaneTabIds.value || []) {
-      if (id != null) visibleTabIds.add(id);
+      if (id != null && !isEmptyPaneId(id)) visibleTabIds.add(id);
     }
   } else if (activeTabId.value != null) {
     visibleTabIds.add(activeTabId.value);
@@ -374,11 +391,41 @@ defineExpose({ fitAllTerminals, selectPane, showKeyboardInput, hideKeyboardInput
 }
 
 .split-drop-zone.drop-center {
-  top: 25%;
-  left: 25%;
-  right: 25%;
-  bottom: 25%;
-  border: 2px dashed rgba(130, 170, 255, 0.3);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 140px;
+  height: 64px;
+  right: auto;
+  bottom: auto;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: 8px;
+  background: rgba(255, 85, 114, 0.1);
+  border: 2px dashed rgba(255, 85, 114, 0.45);
+}
+
+.split-drop-zone.drop-center .drop-zone-icon {
+  color: rgba(255, 85, 114, 0.7);
+}
+
+.split-drop-zone.drop-center .drop-zone-label {
+  font-size: 11px;
+  color: rgba(255, 85, 114, 0.85);
+  letter-spacing: 0.3px;
+  text-transform: none;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+
+.split-drop-zone.drag-over.drop-center {
+  background: rgba(255, 85, 114, 0.22);
+  border-color: var(--error);
+}
+
+.split-drop-zone.drag-over.drop-center .drop-zone-icon,
+.split-drop-zone.drag-over.drop-center .drop-zone-label {
+  color: var(--error);
 }
 
 .split-drop-zone.drag-over {
@@ -522,10 +569,13 @@ defineExpose({ fitAllTerminals, selectPane, showKeyboardInput, hideKeyboardInput
   }
 
   .split-drop-zone.drop-center {
-    left: 0;
-    right: 0;
-    top: 30%;
-    bottom: 30%;
+    left: 50%;
+    right: auto;
+    top: 50%;
+    bottom: auto;
+    width: 140px;
+    height: 64px;
+    transform: translate(-50%, -50%);
   }
 }
 </style>

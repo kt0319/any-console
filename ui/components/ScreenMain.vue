@@ -141,7 +141,8 @@ function ensureKeyboardTargetTab() {
   if (layoutStore.isSplitMode) {
     const ids = layoutStore.splitPaneTabIds || [];
     const paneIndex = layoutStore.activePaneIndex || 0;
-    const targetId = ids[paneIndex] || ids[0];
+    const isReal = (id) => id != null && !layoutStore.isEmptyPaneId(id);
+    const targetId = isReal(ids[paneIndex]) ? ids[paneIndex] : ids.find(isReal);
     if (targetId) {
       terminalStore.switchTab(targetId);
       focusTabTerminal(targetId);
@@ -206,10 +207,7 @@ async function closeTab(tab) {
   }
   terminalStore.removeTab(tabId);
   if (layoutStore.isSplitMode) {
-    layoutStore.splitPaneTabIds = layoutStore.splitPaneTabIds.filter((id) => id !== tabId);
-    if (layoutStore.splitPaneTabIds.length < 2) {
-      layoutStore.exitSplitMode();
-    }
+    layoutStore.replaceTabWithEmpty(tabId);
   }
   if (sessionId) {
     await deleteSession(sessionId);
@@ -318,7 +316,7 @@ function onVisibilityChange() {
     const visibleTabIds = new Set();
     if (layoutStore.isSplitMode) {
       for (const id of layoutStore.splitPaneTabIds || []) {
-        if (id != null) visibleTabIds.add(id);
+        if (id != null && !layoutStore.isEmptyPaneId(id)) visibleTabIds.add(id);
       }
     } else if (terminalStore.activeTabId != null) {
       visibleTabIds.add(terminalStore.activeTabId);
