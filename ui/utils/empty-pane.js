@@ -14,17 +14,26 @@ export function makeEmptyPaneId(seq) {
 }
 
 /**
+ * 数値タブID（空きペイン文字列でもnullでもない）かを判定する型ガード。
+ * @param {unknown} id
+ * @returns {id is number}
+ */
+function isRealTabId(id) {
+  return id != null && typeof id === "number";
+}
+
+/**
  * splitPaneTabIds から有効なタブIDだけを取り出す。
- * @param {Array<number|string>} ids
+ * @param {Array<number|string|null|undefined>|null|undefined} ids
  * @returns {number[]}
  */
 export function realTabIds(ids) {
-  return (ids || []).filter((id) => !isEmptyPaneId(id) && id != null);
+  return (ids || []).filter(isRealTabId);
 }
 
 /**
  * ペイン配列のうち、空きペイン以外（つまり有効タブ）の数を返す。
- * @param {Array<number|string>} ids
+ * @param {Array<number|string|null|undefined>|null|undefined} ids
  * @returns {number}
  */
 export function countRealPanes(ids) {
