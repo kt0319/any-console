@@ -11,7 +11,6 @@ export const TERMINAL_SETTINGS_META = Object.freeze({
     note: "Applied to new terminals.",
   },
   cursorBlink: { type: "boolean", label: "Cursor Blink", note: "Applied to new terminals." },
-  scrollback: { type: "number", label: "Scrollback", min: 0, max: 20000, step: 500, unit: "lines", note: "0 to disable. Applied to new terminals." },
   scrollOnOutput: { type: "boolean", label: "Scroll on Output", note: "Applied to new terminals." },
 });
 
@@ -19,7 +18,7 @@ export const DEFAULT_TERMINAL_SETTINGS = Object.freeze({
   fontSize: 12,
   cursorStyle: "block",
   cursorBlink: true,
-  scrollback: 5000,
+  scrollback: 10000,
   scrollOnOutput: true,
 });
 

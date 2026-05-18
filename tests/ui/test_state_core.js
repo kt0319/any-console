@@ -65,20 +65,6 @@ describe("sanitizeTerminalSetting", () => {
     });
   });
 
-  describe("scrollback (number)", () => {
-    it("accepts valid value", () => {
-      expect(sanitizeTerminalSetting("scrollback", 3000)).toBe(3000);
-    });
-
-    it("clamps below min", () => {
-      expect(sanitizeTerminalSetting("scrollback", -100)).toBe(0);
-    });
-
-    it("clamps above max", () => {
-      expect(sanitizeTerminalSetting("scrollback", 25000)).toBe(20000);
-    });
-  });
-
   describe("cursorStyle (select)", () => {
     it("accepts 'block'", () => {
       expect(sanitizeTerminalSetting("cursorStyle", "block")).toBe("block");
@@ -115,7 +101,6 @@ describe("sanitizeTerminalSettings", () => {
     expect(result.fontSize).toBe(12);
     expect(result.cursorStyle).toBe("block");
     expect(result.cursorBlink).toBe(false);
-    expect(result.scrollback).toBe(5000);
     expect(result.scrollOnOutput).toBe(false);
   });
 
@@ -135,7 +120,6 @@ describe("sanitizeTerminalSettings", () => {
     const result = sanitizeTerminalSettings({ fontSize: 18, cursorBlink: false });
     expect(result.fontSize).toBe(18);
     expect(result.cursorBlink).toBe(false);
-    expect(result.scrollback).toBe(5000);  // number fallback
     expect(result.scrollOnOutput).toBe(false);  // boolean: undefined → false
   });
 
@@ -146,8 +130,7 @@ describe("sanitizeTerminalSettings", () => {
   });
 
   it("clamps out-of-range values", () => {
-    const result = sanitizeTerminalSettings({ fontSize: 100, scrollback: -5 });
+    const result = sanitizeTerminalSettings({ fontSize: 100 });
     expect(result.fontSize).toBe(24);
-    expect(result.scrollback).toBe(0);
   });
 });
