@@ -117,12 +117,6 @@
         </template>
       </template>
     </template>
-    <div class="terminal-keyboard-overlay">
-      <KeyboardBase
-        ref="keyboardBase"
-        :is-panel-bottom="isPanelBottom"
-      />
-    </div>
     <slot />
   </div>
 </template>
@@ -131,7 +125,6 @@
 import { ref, computed, watch, nextTick } from "vue";
 import TerminalPane from "./TerminalPane.vue";
 import EmptyPane from "./EmptyPane.vue";
-import KeyboardBase from "./KeyboardBase.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { on } from "../app-bridge.js";
@@ -147,7 +140,6 @@ const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const keyboardOverlay = ref(false);
 on("keyboard:modeChange", ({ mode }) => { keyboardOverlay.value = mode === 1; });
-const keyboardBase = ref(null);
 
 const paneRefs = ref([]);
 
@@ -201,14 +193,6 @@ function fitAllTerminals(opts) {
   }
 }
 
-function showKeyboardInput() {
-  keyboardBase.value?.showInput?.();
-}
-
-function hideKeyboardInput() {
-  keyboardBase.value?.hideInput?.();
-}
-
 watch(isSplitMode, async () => {
   await nextTick();
   requestAnimationFrame(() => fitAllTerminals());
@@ -216,7 +200,7 @@ watch(isSplitMode, async () => {
 
 
 
-defineExpose({ fitAllTerminals, selectPane, showKeyboardInput, hideKeyboardInput });
+defineExpose({ fitAllTerminals, selectPane });
 </script>
 
 <style scoped>
@@ -237,15 +221,6 @@ defineExpose({ fitAllTerminals, selectPane, showKeyboardInput, hideKeyboardInput
   z-index: 5;
   pointer-events: none;
   touch-action: none;
-}
-
-.terminal-keyboard-overlay {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 30;
-  pointer-events: auto;
 }
 
 .output-container.split-active {

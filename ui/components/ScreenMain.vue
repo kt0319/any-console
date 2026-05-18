@@ -12,6 +12,12 @@
     >
       <StatusOverlay :visible="isOffline" label="Connection lost" variant="error" />
     </TerminalBase>
+    <div class="main-panel-keyboard-overlay">
+      <KeyboardBase
+        ref="keyboardBaseView"
+        :is-panel-bottom="isPanelBottom"
+      />
+    </div>
   </div>
   <Modal />
 </template>
@@ -21,6 +27,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
 import WorkspaceStatusBar from "./WorkspaceStatusBar.vue";
 import TabBar from "./TabBar.vue";
 import TerminalBase from "./TerminalBase.vue";
+import KeyboardBase from "./KeyboardBase.vue";
 import ScreenEmpty from "./ScreenEmpty.vue";
 import Modal from "./Modal.vue";
 import StatusOverlay from "./StatusOverlay.vue";
@@ -93,6 +100,7 @@ const hasActiveTab = computed(() => openTabs.value.some((t) => t.id === terminal
 
 const tabBarView = ref(null);
 const terminalBaseView = ref(null);
+const keyboardBaseView = ref(null);
 
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 
@@ -260,11 +268,11 @@ onMounted(() => {
 
   bridgeCleanups.push(on("keyboard:activate", () => {
     ensureKeyboardTargetTab();
-    terminalBaseView.value?.showKeyboardInput?.();
+    keyboardBaseView.value?.showInput?.();
   }));
 
   bridgeCleanups.push(on("keyboard:deactivate", () => {
-    terminalBaseView.value?.hideKeyboardInput?.();
+    keyboardBaseView.value?.hideInput?.();
   }));
 
   initViewport(() => {
@@ -389,6 +397,20 @@ defineExpose({
   height: 100%;
   overflow: hidden;
   position: relative;
+}
+
+.main-panel-keyboard-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  pointer-events: auto;
+}
+
+.main-panel.panel-bottom .main-panel-keyboard-overlay :deep(.quick-input-panel),
+.main-panel.panel-bottom .main-panel-keyboard-overlay :deep(.quick-qwerty-panel) {
+  bottom: 114px;
 }
 
 .main-panel.panel-bottom :deep(.output-container) {
