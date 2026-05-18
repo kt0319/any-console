@@ -38,8 +38,8 @@
                 <span v-if="!settingsMode" class="picker-ws-branch">{{ ws.branch || '-' }}</span>
               </span>
             </button>
-            <button v-if="settingsMode" type="button" class="picker-ws-delete-btn" title="Delete" @click.stop="deleteWs(ws)">
-              <span class="mdi mdi-delete-outline"></span>
+            <button v-if="settingsMode" type="button" class="picker-ws-edit-btn" title="Edit" @click.stop="openEditWs(ws)">
+              <span class="mdi mdi-pencil-outline"></span>
             </button>
             <div v-else class="picker-ws-top-meta" @click.stop="onMetaClick(ws)">
               <template v-if="ws.is_git_repo">
@@ -112,7 +112,6 @@ import { emit } from "../app-bridge.js";
 import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import RecentJobsBar from "./RecentJobsBar.vue";
-import { useConfirm } from "../composables/useConfirm.js";
 import { useWorkspaceDrag } from "../composables/useWorkspaceDrag.js";
 import { EP_WORKSPACE_ORDER } from "../utils/endpoints.js";
 
@@ -122,11 +121,10 @@ modalTitle.value = "Workspaces";
 
 const workspaceStore = useWorkspaceStore();
 const layoutStore = useLayoutStore();
-const { apiGet, apiPut, apiDelete, wsEndpoint } = useApi();
+const { apiGet, apiPut, wsEndpoint } = useApi();
 const { gitAction, isRunning } = useGitRemoteAction();
 const { recentJobs, loadRecentJobs } = useRecentJobs();
 const { runJob, runRecentJob } = useJobLauncher();
-const { confirm } = useConfirm();
 
 const wsCommonJobs = reactive({});
 const wsLocalJobs = reactive({});
@@ -148,10 +146,8 @@ function toggleSettingsMode() {
   settingsMode.value = !settingsMode.value;
 }
 
-async function deleteWs(ws) {
-  if (!await confirm(`Delete "${ws.name}"?\nThe directory will remain.`)) return;
-  const { ok } = await apiDelete(`/workspaces/${encodeURIComponent(ws.name)}`, { errorMessage: "Failed to delete workspace" });
-  if (ok) await workspaceStore.fetchWorkspaces();
+function openEditWs(ws) {
+  pushView("WorkspaceEdit", { workspace: ws });
 }
 
 async function toggleVisibility(ws, checked) {
@@ -314,7 +310,7 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-.picker-ws-delete-btn {
+.picker-ws-edit-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -324,9 +320,9 @@ onBeforeUnmount(() => {
   margin-left: auto;
   padding: 0;
   background: transparent;
-  border: 1px solid var(--error);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
-  color: var(--error);
+  color: var(--text-secondary);
   font-size: 16px;
   cursor: pointer;
 }

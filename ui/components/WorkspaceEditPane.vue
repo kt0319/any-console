@@ -1,5 +1,5 @@
 <template>
-  <div class="ws-settings-detail">
+  <div class="modal-scroll-body ws-settings-detail">
     <div class="ws-settings-section">
       <div class="ws-settings-section-header">
         <span>Details</span>
@@ -40,23 +40,21 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
+import { useModalView } from "../composables/useModalView.js";
+import { useWorkspaceStore } from "../stores/workspace.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
 import { EP_WORKSPACES } from "../utils/endpoints.js";
 
-const props = defineProps({
-  workspace: { type: Object, required: true },
-  pushView: { type: Function, required: true },
-  viewState: { type: Object, default: () => ({}) },
-});
-const emit = defineEmits(["deleted", "updated"]);
-
 const DEFAULT_WS_ICON = "mdi-console";
 
-const editWs = ref(props.workspace);
+const { modalTitle, viewState, pushView, popView } = useModalView();
+const workspaceStore = useWorkspaceStore();
+
+const editWs = ref(viewState.value?.workspace || null);
 const editIcon = ref(editWs.value?.icon || "");
 const editIconColor = ref(editWs.value?.icon_color || "");
 const editName = ref(editWs.value?.name || "");
@@ -64,13 +62,7 @@ const editPath = ref(editWs.value?.path || "");
 const savingDetails = ref(false);
 const saveError = ref("");
 
-watch(() => props.workspace, (next) => {
-  editWs.value = next;
-  editIcon.value = next?.icon || "";
-  editIconColor.value = next?.icon_color || "";
-  editName.value = next?.name || "";
-  editPath.value = next?.path || "";
-});
+modalTitle.value = editWs.value?.name || "Workspace";
 
 const isDetailsDirty = computed(() =>
   editName.value.trim() !== (editWs.value?.name || "")
@@ -85,7 +77,8 @@ async function onDelete() {
   if (!await confirm(`Delete "${editWs.value.name}"?\nThe directory will remain.`)) return;
   const { ok, data } = await apiDelete(`${EP_WORKSPACES}/${encodeURIComponent(editWs.value.name)}`, { errorMessage: MSG_DELETE_FAILED });
   if (ok) {
-    emit("deleted", editWs.value.name);
+    await workspaceStore.fetchWorkspaces();
+    popView();
   } else if (data?.detail) {
     saveError.value = data.detail;
   }
@@ -108,7 +101,16 @@ async function saveWsConfig(extra = {}) {
     }
     editWs.value.icon = editIcon.value.trim() || DEFAULT_WS_ICON;
     editWs.value.icon_color = editIconColor.value.trim();
-    emit("updated");
+    await workspaceStore.fetchWorkspaces();
+    const next = (workspaceStore.allWorkspaces || []).find((w) =>
+      (editWs.value.id && w.id === editWs.value.id) || w.name === (extra.name || editWs.value.name),
+    );
+    if (next) {
+      editWs.value = next;
+      editName.value = next.name || "";
+      editPath.value = next.path || "";
+      modalTitle.value = next.name || modalTitle.value;
+    }
     return true;
   } catch (e) {
     saveError.value = e.message || MSG_ERROR_OCCURRED;
@@ -130,12 +132,11 @@ async function saveDetails() {
 }
 
 function openIconPicker() {
-  props.pushView("IconPicker", {
+  pushView("IconPicker", {
     currentIcon: editIcon.value,
     currentColor: editIconColor.value,
     onReturn: (result, parentEntry) => {
       if (parentEntry) {
-        parentEntry.state.initialWsName = editWs.value?.name;
         parentEntry.state.pendingIcon = result.icon;
         parentEntry.state.pendingColor = result.color;
       }
@@ -144,11 +145,11 @@ function openIconPicker() {
 }
 
 onMounted(() => {
-  if ("pendingIcon" in (props.viewState || {})) {
-    editIcon.value = props.viewState.pendingIcon;
-    editIconColor.value = props.viewState.pendingColor ?? "";
-    delete props.viewState.pendingIcon;
-    delete props.viewState.pendingColor;
+  if (viewState.value && "pendingIcon" in viewState.value) {
+    editIcon.value = viewState.value.pendingIcon;
+    editIconColor.value = viewState.value.pendingColor ?? "";
+    delete viewState.value.pendingIcon;
+    delete viewState.value.pendingColor;
     saveWsConfig();
   }
 });
