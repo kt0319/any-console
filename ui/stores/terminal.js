@@ -106,6 +106,9 @@ export const useTerminalStore = defineStore("terminal", () => {
     });
 
     openTabs.value.push(tab);
+    if (restored) {
+      setTabFlag(id, "reconnecting", true);
+    }
     return tab;
   }
 

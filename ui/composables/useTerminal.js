@@ -25,6 +25,7 @@ export function useTerminal() {
     const ws = new WebSocket(wsUrl);
     ws.binaryType = "arraybuffer";
     tab.ws = ws;
+    terminalStore.setTabFlag(tab.id, "reconnecting", true);
 
     ws.onopen = () => {
       tab._reconnectAttempts = 0;
@@ -32,14 +33,14 @@ export function useTerminal() {
       sendResize(tab);
       if (tab._pendingRedraw) {
         tab._pendingRedraw = false;
-        tab.term?.write("\x1bc");
+        try { tab.term?.refresh(0, tab.term.rows - 1); } catch {}
       }
+      terminalStore.setTabFlag(tab.id, "reconnecting", false);
       if (tab._initialCommand && tab._waitingInitialCommand) {
         tab._waitingInitialCommand = false;
         ws.send(new TextEncoder().encode(tab._initialCommand + "\n"));
         tab._initialCommand = null;
       }
-      const terminalStore = useTerminalStore();
       if (tab.term && terminalStore.activeTabId === tab.id) {
         tab.term.focus();
       }
@@ -87,6 +88,7 @@ export function useTerminal() {
         : Math.min(Math.pow(RECONNECT_BACKOFF_MULTIPLIER, attempts - 1) * RECONNECT_BACKOFF_BASE_MS, RECONNECT_BACKOFF_MAX);
       tab._reconnectAttempts = attempts + 1;
       tab._pendingRedraw = true;
+      terminalStore.setTabFlag(tab.id, "reconnecting", true);
       clearTimeout(tab._reconnectTimer);
       tab._reconnectTimer = setTimeout(() => connectTerminalWs(tab), delay);
     };
@@ -108,6 +110,7 @@ export function useTerminal() {
     clearTimeout(tab._reconnectTimer);
     clearTimeout(tab._activityTimer);
     clearTimeout(tab._postWriteRefresh);
+    terminalStore.clearTabFlags(tab.id);
   }
 
   function ensureTerminalOpened(tab, frameEl) {

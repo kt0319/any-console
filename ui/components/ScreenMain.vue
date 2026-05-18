@@ -310,6 +310,7 @@ function onVisibilityChange() {
     }
     tab._pendingRedraw = true;
     tab._reconnectAttempts = 0;
+    terminalStore.setTabFlag(tab.id, "reconnecting", true);
   }
 
   syncSessionsFromServer().then(() => {
