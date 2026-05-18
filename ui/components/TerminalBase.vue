@@ -172,7 +172,16 @@ function selectPane(index) {
 function fitAllTerminals(opts) {
   if (!paneRefs.value) return;
   const refs = Array.isArray(paneRefs.value) ? paneRefs.value : [paneRefs.value];
+  const visibleTabIds = new Set();
+  if (isSplitMode.value) {
+    for (const id of splitPaneTabIds.value || []) {
+      if (id != null) visibleTabIds.add(id);
+    }
+  } else if (activeTabId.value != null) {
+    visibleTabIds.add(activeTabId.value);
+  }
   for (const pane of refs) {
+    if (!visibleTabIds.has(pane?.tabId)) continue;
     pane?.fit?.(opts);
   }
 }

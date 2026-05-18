@@ -384,7 +384,10 @@ onBeforeUnmount(() => {
 
 defineExpose({
   tabId: props.tab.id,
-  fit(opts) { fitTerminal(props.tab, opts); },
+  fit(opts) {
+    if (!paneEl.value || paneEl.value.offsetParent === null) return;
+    fitTerminal(props.tab, opts);
+  },
   getFrameEl() { return frameEl.value; },
 });
 </script>
