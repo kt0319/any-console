@@ -9,11 +9,8 @@
     @touchend="onTouchEnd"
     @touchcancel="onTouchEnd"
   >
+    <StatusOverlay :visible="isReconnecting" label="Reconnecting" variant="warning" />
     <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
-      <div v-if="isReconnecting" class="terminal-reconnecting" aria-live="polite">
-        <span class="terminal-reconnecting-label">Reconnecting</span>
-        <span class="terminal-reconnecting-dots" aria-hidden="true"></span>
-      </div>
       <div
         class="terminal-info-pill"
         :class="{ 'tab-activity': tab._activity, dragging: pillDragging }"
@@ -49,6 +46,8 @@ import { openExternalUrl } from "../utils/open-external.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { usePillDrag } from "../composables/usePillDrag.js";
 import { createTouchTracker } from "../utils/gesture.js";
+import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
+import StatusOverlay from "./StatusOverlay.vue";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -99,7 +98,10 @@ const isActive = computed(() => {
   return terminalStore.activeTabId === props.tab.id;
 });
 
-const isReconnecting = computed(() => !!terminalStore.tabFlags[props.tab.id]?.reconnecting);
+const { isOffline } = useConnectivityMonitor();
+const isReconnecting = computed(() =>
+  !isOffline.value && !!terminalStore.tabFlags[props.tab.id]?.reconnecting,
+);
 
 function clearActiveFitTimer() {
   if (activeFitTimer) {
@@ -445,44 +447,6 @@ defineExpose({
 
 .terminal-frame :deep(.xterm-viewport::-webkit-scrollbar) {
   display: none;
-}
-
-.terminal-reconnecting {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 25;
-  display: inline-flex;
-  align-items: baseline;
-  justify-content: center;
-  padding: 10px 18px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--warning, #eea644) 75%, transparent);
-  border: 1px solid color-mix(in srgb, var(--warning, #eea644) 75%, transparent);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  pointer-events: none;
-}
-
-.terminal-reconnecting-dots {
-  display: inline-block;
-  width: 1.2em;
-  text-align: left;
-  white-space: pre;
-}
-
-.terminal-reconnecting-dots::after {
-  content: "";
-  animation: terminal-reconnecting-dots 1.2s steps(4) infinite;
-}
-
-@keyframes terminal-reconnecting-dots {
-  0% { content: ""; }
-  25% { content: "."; }
-  50% { content: ".."; }
-  75% { content: "..."; }
 }
 
 .terminal-info-pill {

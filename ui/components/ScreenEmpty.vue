@@ -37,26 +37,26 @@
         </button>
       </div>
 
-      <div class="screen-empty-booting" :class="{ 'is-hidden': !booting }" aria-live="polite">
-        <div class="app-boot-spinner" aria-hidden="true"></div>
-        <div class="app-boot-text">{{ bootMessage }}</div>
-      </div>
     </div>
+    <StatusOverlay :visible="booting" :label="bootLabel" variant="info" />
   </div>
 </template>
 
 <script setup>
-import { onMounted } from "vue";
+import { computed, onMounted } from "vue";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { emit } from "../app-bridge.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { renderIconStr } from "../utils/render-icon.js";
+import StatusOverlay from "./StatusOverlay.vue";
 
-defineProps({
+const props = defineProps({
   booting: { type: Boolean, default: false },
   bootMessage: { type: String, default: "Loading..." },
 });
 defineEmits(["openWorkspace"]);
+
+const bootLabel = computed(() => (props.bootMessage || "Loading").replace(/\.+$/, ""));
 
 const { recentJobs, loadRecentJobs } = useRecentJobs();
 const { confirm } = useConfirm();
@@ -94,6 +94,7 @@ async function runRecentJob(recent) {
   align-items: center;
   justify-content: center;
   padding: 24px 16px;
+  position: relative;
 }
 
 .screen-empty-content {
@@ -190,35 +191,4 @@ async function runRecentJob(recent) {
   text-overflow: ellipsis;
 }
 
-.screen-empty-booting {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  min-height: 56px;
-  padding: 8px 0;
-}
-
-.screen-empty-booting.is-hidden {
-  visibility: hidden;
-}
-
-.app-boot-spinner {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-top-color: var(--accent);
-  animation: screen-empty-spin 0.8s linear infinite;
-}
-
-@keyframes screen-empty-spin {
-  to { transform: rotate(360deg); }
-}
-
-.app-boot-text {
-  color: var(--text-muted);
-  font-size: 13px;
-}
 </style>

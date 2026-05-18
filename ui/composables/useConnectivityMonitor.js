@@ -6,10 +6,11 @@ import {
   CONNECTIVITY_OFFLINE_THRESHOLD as OFFLINE_THRESHOLD,
 } from "../utils/constants.js";
 
+const isOffline = ref(false);
+let pingTimerId = null;
+let consecutiveFailures = 0;
+
 export function useConnectivityMonitor() {
-  const isOffline = ref(false);
-  let pingTimerId = null;
-  let consecutiveFailures = 0;
 
   async function checkConnectivity() {
     if (!navigator.onLine) {

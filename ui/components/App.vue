@@ -6,7 +6,6 @@
   <AppToast ref="appToast" />
   <ConfirmDialog />
   <PromptDialog />
-  <OfflineOverlay :visible="isOffline" />
 </template>
 
 <script setup>
@@ -16,7 +15,6 @@ import ScreenMain from "./ScreenMain.vue";
 import AppToast from "./AppToast.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import PromptDialog from "./PromptDialog.vue";
-import OfflineOverlay from "./OfflineOverlay.vue";
 import { on, emit } from "../app-bridge.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useLayoutStore } from "../stores/layout.js";
@@ -543,45 +541,4 @@ button:disabled {
   touch-action: none;
 }
 
-.offline-overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  pointer-events: none;
-}
-
-.offline-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 20px 28px;
-  background: color-mix(in srgb, var(--error) 75%, transparent);
-  border: 1px solid color-mix(in srgb, var(--error) 75%, transparent);
-  border-radius: var(--radius);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  pointer-events: auto;
-}
-
-.offline-text {
-  font-size: 16px;
-  font-weight: 600;
-  color: #fff;
-}
-
-.offline-fade-enter-active {
-  transition: opacity 0.2s ease;
-}
-
-.offline-fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.offline-fade-enter-from,
-.offline-fade-leave-to {
-  opacity: 0;
-}
 </style>

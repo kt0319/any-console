@@ -1,0 +1,85 @@
+<template>
+  <Transition name="status-overlay-fade">
+    <div v-if="visible" class="status-overlay">
+      <div :class="['status-overlay-pill', `variant-${variant}`]">
+        <span class="status-overlay-label">{{ label }}</span>
+        <span class="status-overlay-dots" aria-hidden="true"></span>
+      </div>
+    </div>
+  </Transition>
+</template>
+
+<script setup>
+defineProps({
+  visible: { type: Boolean, default: false },
+  label: { type: String, required: true },
+  variant: {
+    type: String,
+    default: "error",
+    validator: (v) => ["error", "warning", "info"].includes(v),
+  },
+});
+</script>
+
+<style scoped>
+.status-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.status-overlay-pill {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  padding: 10px 18px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: auto;
+}
+
+.status-overlay-pill.variant-error {
+  background: color-mix(in srgb, var(--error) 75%, transparent);
+  border: 1px solid color-mix(in srgb, var(--error) 75%, transparent);
+}
+
+.status-overlay-pill.variant-warning {
+  background: color-mix(in srgb, var(--warning) 75%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 75%, transparent);
+}
+
+.status-overlay-pill.variant-info {
+  background: color-mix(in srgb, var(--accent) 75%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 75%, transparent);
+}
+
+.status-overlay-dots {
+  display: inline-block;
+  width: 1.2em;
+  text-align: left;
+  white-space: pre;
+}
+
+.status-overlay-dots::after {
+  content: "";
+  animation: status-overlay-dots 1.2s steps(4) infinite;
+}
+
+@keyframes status-overlay-dots {
+  0% { content: ""; }
+  25% { content: "."; }
+  50% { content: ".."; }
+  75% { content: "..."; }
+}
+
+.status-overlay-fade-enter-active { transition: opacity 0.2s ease; }
+.status-overlay-fade-leave-active { transition: opacity 0.3s ease; }
+.status-overlay-fade-enter-from,
+.status-overlay-fade-leave-to { opacity: 0; }
+</style>

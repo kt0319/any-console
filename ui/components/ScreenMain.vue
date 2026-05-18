@@ -9,7 +9,9 @@
       v-else
       ref="terminalBaseView"
       :is-panel-bottom="isPanelBottom"
-    />
+    >
+      <StatusOverlay :visible="isOffline" label="Connection lost" variant="error" />
+    </TerminalBase>
   </div>
   <Modal />
 </template>
@@ -21,6 +23,8 @@ import TabBar from "./TabBar.vue";
 import TerminalBase from "./TerminalBase.vue";
 import ScreenEmpty from "./ScreenEmpty.vue";
 import Modal from "./Modal.vue";
+import StatusOverlay from "./StatusOverlay.vue";
+import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useAuthStore } from "../stores/auth.js";
@@ -37,6 +41,7 @@ import { TERMINAL_JOB_KEY, RESIZE_FIT_DEBOUNCE_MS } from "../utils/constants.js"
 
 const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
+const { isOffline } = useConnectivityMonitor();
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
 const { disconnectTerminal, deleteSession, connectDeferredTabs, connectTerminalWs } = useTerminal();
@@ -383,6 +388,7 @@ defineExpose({
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 .main-panel.panel-bottom :deep(.output-container) {
