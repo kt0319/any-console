@@ -67,11 +67,7 @@ const sortedItems = computed(() => {
   return visibleTabs.value.map((tab, i) => ({ type: "tab", tab, index: i }));
 });
 
-const showBarRow = computed(() => {
-  if (isSplitMode.value) return false;
-  const hasAnyTabs = visibleTabs.value.length > 0 || hiddenTabCount.value > 0;
-  return hasAnyTabs || layoutStore.isTouchDevice || isPanelBottom.value;
-});
+const showBarRow = computed(() => !isSplitMode.value);
 
 function onSelect(tab) {
   emit("tab:select", { tab });

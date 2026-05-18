@@ -1,7 +1,7 @@
 <template>
   <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom }">
-    <TabBar v-show="!booting && !isTextInputVisible && !isEmptyScreenVisible" ref="tabBarView" :tabs="openTabs" />
-    <WorkspaceStatusBar v-show="!isTextInputVisible && !isEmptyScreenVisible" />
+    <TabBar ref="tabBarView" :tabs="openTabs" />
+    <WorkspaceStatusBar v-show="hasActiveTab" />
     <div v-if="booting || isEmptyScreenVisible" class="screen-main-empty">
       <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
     </div>
@@ -9,7 +9,6 @@
       v-else
       ref="terminalBaseView"
       :is-panel-bottom="isPanelBottom"
-      @keyboard-input-visibility="updateKeyboardInputVisibility"
     />
   </div>
   <Modal />
@@ -85,10 +84,10 @@ async function initializeApp() {
 
 const openTabs = computed(() => terminalStore.openTabs);
 const isEmptyScreenVisible = computed(() => openTabs.value.length === 0 && !layoutStore.isSplitMode);
+const hasActiveTab = computed(() => openTabs.value.some((t) => t.id === terminalStore.activeTabId));
 
 const tabBarView = ref(null);
 const terminalBaseView = ref(null);
-const isTextInputVisible = ref(false);
 
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 
@@ -366,10 +365,6 @@ onBeforeUnmount(() => {
   document.removeEventListener("visibilitychange", onVisibilityChange);
   document.removeEventListener("keydown", onGlobalKeydown, true);
 });
-
-function updateKeyboardInputVisibility(visible) {
-  isTextInputVisible.value = !!visible;
-}
 
 defineExpose({
   tabBar: tabBarView,

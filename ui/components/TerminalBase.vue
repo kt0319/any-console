@@ -106,7 +106,6 @@
       <KeyboardBase
         ref="keyboardBase"
         :is-panel-bottom="isPanelBottom"
-        @visibility="onKeyboardInputVisibility"
       />
     </div>
     <slot />
@@ -126,7 +125,6 @@ import { useTerminalDrop } from "../composables/useTerminalDrop.js";
 defineProps({
   isPanelBottom: { type: Boolean, default: false },
 });
-const emit = defineEmits(["keyboardInputVisibility"]);
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
@@ -184,10 +182,6 @@ function fitAllTerminals(opts) {
     if (!visibleTabIds.has(pane?.tabId)) continue;
     pane?.fit?.(opts);
   }
-}
-
-function onKeyboardInputVisibility(visible) {
-  emit("keyboardInputVisibility", !!visible);
 }
 
 function showKeyboardInput() {
