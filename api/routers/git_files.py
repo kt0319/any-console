@@ -104,6 +104,7 @@ def get_file_content(name: str, path: str = Query(...), ref: str | None = Query(
 async def upload_file_to_workspace(
     name: str,
     path: str = Form(""),
+    overwrite: bool = Form(False),
     file: UploadFile = File(...),
 ):
     ws_path, target_dir, rel_dir = resolve_workspace_file(name, path)
@@ -117,7 +118,10 @@ async def upload_file_to_workspace(
     target_file = (target_dir / filename).resolve()
     validate_workspace_relative_target(ws_path, target_file)
     if target_file.exists():
-        raise conflict(f"File already exists: {filename}")
+        if target_file.is_dir():
+            raise conflict(f"Directory exists at: {filename}")
+        if not overwrite:
+            raise conflict(f"File already exists: {filename}")
 
     data = await file.read(MAX_UPLOAD_SIZE + 1)
     if len(data) > MAX_UPLOAD_SIZE:

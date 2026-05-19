@@ -810,6 +810,27 @@ class TestFileUpload:
         )
         assert res.status_code == 409
 
+    def test_upload_overwrite_replaces_existing(self, client, workspace):
+        (workspace / "exists.txt").write_text("old", encoding="utf-8")
+        res = client.post(
+            "/workspaces/test-ws/upload",
+            headers=AUTH,
+            data={"path": "", "overwrite": "true"},
+            files={"file": ("exists.txt", b"new", "text/plain")},
+        )
+        assert res.status_code == 200
+        assert (workspace / "exists.txt").read_text(encoding="utf-8") == "new"
+
+    def test_upload_overwrite_rejects_directory(self, client, workspace):
+        (workspace / "exists").mkdir()
+        res = client.post(
+            "/workspaces/test-ws/upload",
+            headers=AUTH,
+            data={"path": "", "overwrite": "true"},
+            files={"file": ("exists", b"new", "text/plain")},
+        )
+        assert res.status_code == 409
+
     @pytest.mark.parametrize("filename", [".", "..", "a/b", "a\\b"])
     def test_upload_invalid_filename_returns_400(self, client, workspace, filename):
         res = client.post(
