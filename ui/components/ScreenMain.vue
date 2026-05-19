@@ -282,6 +282,8 @@ onMounted(() => {
   });
 
   document.addEventListener("visibilitychange", onVisibilityChange);
+  window.addEventListener("pageshow", onPageShow);
+  window.addEventListener("focus", onWindowFocus);
   document.addEventListener("keydown", onGlobalKeydown, true);
 
   if (typeof ResizeObserver !== "undefined") {
@@ -310,11 +312,19 @@ onMounted(async () => {
 });
 
 
-function onVisibilityChange() {
-  if (document.hidden) {
-    stopSyncPolling();
-    return;
-  }
+let resumeDebounceTimer = null;
+let wasHidden = false;
+
+function scheduleResume() {
+  if (document.hidden) return;
+  if (resumeDebounceTimer) return;
+  resumeDebounceTimer = setTimeout(() => {
+    resumeDebounceTimer = null;
+    handleResume();
+  }, 100);
+}
+
+function handleResume() {
   for (const tab of terminalStore.openTabs) {
     tab._lastFitCols = 0;
     tab._lastFitRows = 0;
@@ -348,6 +358,27 @@ function onVisibilityChange() {
   });
 }
 
+function onVisibilityChange() {
+  if (document.hidden) {
+    wasHidden = true;
+    stopSyncPolling();
+    return;
+  }
+  wasHidden = false;
+  scheduleResume();
+}
+
+function onPageShow(e) {
+  if (e.persisted) wasHidden = true;
+  scheduleResume();
+}
+
+function onWindowFocus() {
+  if (!wasHidden) return;
+  wasHidden = false;
+  scheduleResume();
+}
+
 async function onGlobalKeydown(e) {
   if (!e.metaKey || !e.shiftKey || e.ctrlKey || e.altKey) return;
   if (e.code === "KeyW") {
@@ -377,7 +408,13 @@ onBeforeUnmount(() => {
   stopSyncPolling();
   mainPanelResizeObserver?.disconnect();
   document.removeEventListener("visibilitychange", onVisibilityChange);
+  window.removeEventListener("pageshow", onPageShow);
+  window.removeEventListener("focus", onWindowFocus);
   document.removeEventListener("keydown", onGlobalKeydown, true);
+  if (resumeDebounceTimer) {
+    clearTimeout(resumeDebounceTimer);
+    resumeDebounceTimer = null;
+  }
 });
 
 defineExpose({
