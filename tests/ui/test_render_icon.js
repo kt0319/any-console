@@ -26,6 +26,28 @@ describe("renderIconStr", () => {
     expect(html).toContain("domain=example.com");
   });
 
+  it("falls back to mdi-web for IPv4 hosts", () => {
+    const html = renderIconStr("favicon:100.109.44.17", null);
+    expect(html).toContain("mdi-web");
+    expect(html).not.toContain("s2/favicons");
+  });
+
+  it.each([
+    "localhost",
+    "http://localhost:3000",
+    "http://192.168.1.1",
+    "no-tld",
+  ])("falls back to mdi-web for unsupported host %s", (host) => {
+    const html = renderIconStr(`favicon:${host}`, null);
+    expect(html).toContain("mdi-web");
+    expect(html).not.toContain("s2/favicons");
+  });
+
+  it("extracts hostname from full URL when fetchable", () => {
+    const html = renderIconStr("favicon:https://example.com/path", null);
+    expect(html).toContain("s2/favicons");
+  });
+
   it("renders mdi icons with color when provided", () => {
     const html = renderIconStr("mdi-home", "#abc");
     expect(html).toContain('class="mdi mdi-home"');
