@@ -341,6 +341,15 @@ function onTouchEnd(e) {
   }
 }
 
+function onWheel(e) {
+  const term = props.tab?.term;
+  if (!term) return;
+  if (term.buffer.active.type === "alternate") {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+}
+
 async function onPaste(e) {
   if (!isActive.value) return;
   const files = e.clipboardData?.files;
@@ -374,6 +383,9 @@ onMounted(() => {
     pillEl.value.addEventListener("touchmove", onPillTouchMove, { passive: false });
     pillEl.value.addEventListener("touchend", onPillTouchEnd, { passive: false });
   }
+  if (frameEl.value) {
+    frameEl.value.addEventListener("wheel", onWheel, { passive: false, capture: true });
+  }
   document.addEventListener("paste", onPaste, true);
 });
 
@@ -394,6 +406,9 @@ onBeforeUnmount(() => {
   if (pillEl.value) {
     pillEl.value.removeEventListener("touchmove", onPillTouchMove);
     pillEl.value.removeEventListener("touchend", onPillTouchEnd);
+  }
+  if (frameEl.value) {
+    frameEl.value.removeEventListener("wheel", onWheel, { capture: true });
   }
   document.removeEventListener("paste", onPaste, true);
 });

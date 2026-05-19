@@ -173,7 +173,6 @@ export const useTerminalStore = defineStore("terminal", () => {
       fontFamily: '"Hack Nerd Font", "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace',
       scrollback: terminalSettings.value.scrollback,
       scrollOnOutput: terminalSettings.value.scrollOnOutput,
-      alternateScroll: false,
     };
   }
 
