@@ -22,7 +22,7 @@ export function useConnectivityMonitor() {
       const ctrl = new AbortController();
       const tid = setTimeout(() => ctrl.abort(), PING_TIMEOUT_MS);
       await fetch(EP_AUTH_CHECK, {
-        method: "HEAD",
+        method: "GET",
         credentials: "same-origin",
         signal: ctrl.signal,
       });
