@@ -8,7 +8,7 @@
         class="form-input"
         placeholder="Commit message"
         autocomplete="off"
-        @keydown.enter="submit"
+        @keydown.enter.prevent
       />
       <button type="button" class="primary" :disabled="!commitMessage.trim() || submitting" @click="submit">Commit</button>
       <button type="button" @click="close">Close</button>
@@ -21,10 +21,12 @@
 import { ref, nextTick } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
+import { useConfirm } from "../composables/useConfirm.js";
 import { emit } from "../app-bridge.js";
 import { extractApiError } from "../utils/constants.js";
 
 const { apiCommand, wsEndpoint } = useApi();
+const { confirm } = useConfirm();
 const workspaceStore = useWorkspaceStore();
 
 const visible = ref(false);
@@ -48,15 +50,17 @@ function close() {
 async function submit() {
   const msg = commitMessage.value.trim();
   if (!msg || submitting.value) return;
-  submitting.value = true;
-  error.value = "";
 
   const workspace = workspaceStore.selectedWorkspace;
   if (!workspace) {
     error.value = "No workspace selected";
-    submitting.value = false;
     return;
   }
+
+  if (!(await confirm(`Commit with message:\n\n"${msg}"`))) return;
+
+  submitting.value = true;
+  error.value = "";
 
   try {
     const { ok, data } = await apiCommand(wsEndpoint(workspace, "commit"), { message: msg });
