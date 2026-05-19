@@ -7,6 +7,7 @@ import { LINK_TAP_RESET_MS } from "../utils/constants.js";
 import { LS_KEY_TERMINAL_SETTINGS, LS_KEY_ACTIVE_SESSION } from "../utils/constants.js";
 import { TERMINAL_SETTINGS_META, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../utils/terminal-settings.js";
 import { safeJsonLoad } from "../utils/storage.js";
+import { loadInitialDims } from "../utils/terminal-dims.js";
 import { EP_TERMINAL_ORDER } from "../utils/endpoints.js";
 import { useAuthStore } from "./auth.js";
 
@@ -65,7 +66,8 @@ export const useTerminalStore = defineStore("terminal", () => {
 
   function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, initialCommand, restored, hidden }) {
     const opts = getTerminalRuntimeOptions();
-    const term = new Terminal({ ...opts, allowProposedApi: true });
+    const initialDims = loadInitialDims();
+    const term = new Terminal({ ...opts, ...(initialDims || {}), allowProposedApi: true });
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.loadAddon(new WebLinksAddon((e, uri) => {

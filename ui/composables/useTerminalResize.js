@@ -1,4 +1,5 @@
 import { WS_MSG_RESIZE } from "../utils/constants.js";
+import { saveLastDims } from "../utils/terminal-dims.js";
 
 const encoder = new TextEncoder();
 
@@ -17,6 +18,7 @@ export function fitTerminal(tab, opts = {}) {
     tab._lastFitCols = dims.cols;
     tab._lastFitRows = dims.rows;
     tab.fitAddon.fit();
+    saveLastDims(dims.cols, dims.rows);
   } catch {}
 }
 
