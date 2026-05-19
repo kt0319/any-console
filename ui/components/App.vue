@@ -21,7 +21,6 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useInputStore } from "../stores/input.js";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
-import { useGitHubActionsMonitor } from "../composables/useGitHubActionsMonitor.js";
 import { useAppJobBridge } from "../composables/useAppJobBridge.js";
 
 const auth = useAuthStore();
@@ -39,7 +38,6 @@ watch(activeWorkspace, (ws) => {
 }, { immediate: true });
 const appToast = ref(null);
 const { isOffline, startPing, stopPing, onOnline, onOffline } = useConnectivityMonitor();
-const { start: startActionsMonitor, stop: stopActionsMonitor } = useGitHubActionsMonitor();
 const { bind: bindJobBridge } = useAppJobBridge();
 
 const showLogin = ref(false);
@@ -48,7 +46,6 @@ const authenticated = ref(false);
 async function onAuthenticated() {
   showLogin.value = false;
   authenticated.value = true;
-  startActionsMonitor();
   inputStore.loadKeyboardLayout();
 }
 
@@ -83,7 +80,6 @@ onBeforeUnmount(() => {
   window.removeEventListener("online", onOnline);
   window.removeEventListener("offline", onOffline);
   stopPing();
-  stopActionsMonitor();
 });
 
 </script>
