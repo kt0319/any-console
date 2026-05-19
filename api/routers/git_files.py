@@ -1,4 +1,5 @@
 import shutil
+import unicodedata
 
 from fastapi import APIRouter, Body, Depends, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse
@@ -109,7 +110,7 @@ async def upload_file_to_workspace(
     if not target_dir.is_dir():
         raise not_found("Directory not found")
 
-    filename = (file.filename or "").strip()
+    filename = unicodedata.normalize("NFC", (file.filename or "").strip())
     if not filename or filename in {".", ".."} or "/" in filename or "\\" in filename:
         raise bad_request("Invalid file name")
 
