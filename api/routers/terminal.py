@@ -101,7 +101,8 @@ async def get_terminal_history(session_id: str):
         )
         if result.returncode != 0:
             raise server_error("Failed to capture history")
-        return {"content": result.stdout}
+        content = result.stdout.replace("\r\n", "\n").replace("\n", "\r\n")
+        return {"content": content}
     except subprocess.TimeoutExpired as e:
         raise timeout_error("Timeout") from e
     except OSError as e:
