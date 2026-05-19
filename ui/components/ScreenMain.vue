@@ -283,7 +283,6 @@ onMounted(() => {
 
   document.addEventListener("visibilitychange", onVisibilityChange);
   window.addEventListener("pageshow", onPageShow);
-  window.addEventListener("focus", onWindowFocus);
   document.addEventListener("keydown", onGlobalKeydown, true);
 
   if (typeof ResizeObserver !== "undefined") {
@@ -364,17 +363,13 @@ function onVisibilityChange() {
     stopSyncPolling();
     return;
   }
+  if (!wasHidden) return;
   wasHidden = false;
   scheduleResume();
 }
 
 function onPageShow(e) {
-  if (e.persisted) wasHidden = true;
-  scheduleResume();
-}
-
-function onWindowFocus() {
-  if (!wasHidden) return;
+  if (!e.persisted) return;
   wasHidden = false;
   scheduleResume();
 }
@@ -409,7 +404,6 @@ onBeforeUnmount(() => {
   mainPanelResizeObserver?.disconnect();
   document.removeEventListener("visibilitychange", onVisibilityChange);
   window.removeEventListener("pageshow", onPageShow);
-  window.removeEventListener("focus", onWindowFocus);
   document.removeEventListener("keydown", onGlobalKeydown, true);
   if (resumeDebounceTimer) {
     clearTimeout(resumeDebounceTimer);
