@@ -1,6 +1,7 @@
 <template>
   <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom, 'split-mode': isSplitMode }">
     <TabBar ref="tabBarView" :tabs="openTabs" />
+    <div v-if="!isSplitMode && activeTabLabel" class="active-tab-title">{{ activeTabLabel }}</div>
     <WorkspaceStatusBar />
     <div v-if="booting || isEmptyScreenVisible" class="screen-main-empty">
       <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
@@ -98,6 +99,13 @@ async function initializeApp() {
 
 const openTabs = computed(() => terminalStore.openTabs);
 const isEmptyScreenVisible = computed(() => openTabs.value.length === 0 && !layoutStore.isSplitMode);
+const activeTabLabel = computed(() => {
+  const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
+  if (!tab) return "";
+  const ws = tab.workspace || "";
+  const job = tab.jobLabel || tab.jobName || "";
+  return [ws, job].filter(Boolean).join(" / ");
+});
 
 const tabBarView = ref(null);
 const terminalBaseView = ref(null);
@@ -424,6 +432,27 @@ defineExpose({
   display: flex;
 }
 
+.active-tab-title {
+  display: none;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  padding: 0 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .active-tab-title {
+    display: block;
+  }
+}
+
 .main-panel {
   display: flex;
   flex-direction: column;
@@ -460,11 +489,11 @@ defineExpose({
   position: relative;
   border-bottom: none;
   border-top: 1px solid var(--border);
-  padding-bottom: 4px;
+  padding-bottom: 0;
 }
 
 .main-panel.panel-bottom :deep(.tab-bar) {
-  padding: 0 8px 4px;
+  padding: 0 8px;
 }
 
 .main-panel.panel-bottom :deep(.tab-btn) {
@@ -481,8 +510,16 @@ defineExpose({
   border-top: 1px solid var(--border);
 }
 
+.main-panel.panel-bottom .active-tab-title {
+  order: 3;
+  border: none;
+  padding: 0 12px;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 .main-panel.keyboard-open :deep(.tab-bar-row),
-.main-panel.keyboard-open :deep(.workspace-status-bar) {
+.main-panel.keyboard-open :deep(.workspace-status-bar),
+.main-panel.keyboard-open .active-tab-title {
   display: none !important;
 }
 
@@ -491,6 +528,10 @@ defineExpose({
 }
 
 :global(.pwa .main-panel.panel-bottom .tab-bar-row) {
-  padding-bottom: 28px;
+  padding-bottom: 0;
+}
+
+:global(.pwa .main-panel.panel-bottom .active-tab-title) {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 14px);
 }
 </style>
