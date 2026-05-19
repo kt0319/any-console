@@ -92,7 +92,7 @@ const githubActions = ref(null);
 const githubPrs = ref(null);
 const jobsPane = ref(null);
 
-const activePane = ref("files");
+const activePane = ref("jobs");
 const selectedDiffFile = ref("");
 const diffMessage = ref("");
 
@@ -121,10 +121,10 @@ const hasGithub = computed(() => !!workspaceStore.currentWorkspace?.github_url);
 
 const tabs = computed(() => {
   const list = [
-    { key: "files", icon: "mdi-folder-outline", label: "Files" },
     { key: "jobs", icon: "mdi-play-circle-outline", label: "Jobs" },
-    { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", badge: changesCount.value || "" },
+    { key: "files", icon: "mdi-folder-outline", label: "Files" },
     { key: "history", icon: "mdi-history", label: "History" },
+    { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", badge: changesCount.value || "" },
     { key: "branch", icon: "mdi-source-branch", label: "Branch" },
     { key: "stash", icon: "mdi-package-variant", label: "Stash", badge: stashCount.value || "", hidden: !stashCount.value },
     { key: "issues", icon: "mdi-github", label: "Issues", badge: issuesCount.value || "", hidden: !hasGithub.value || !issuesCount.value },
@@ -181,7 +181,7 @@ async function backgroundLoadCounts(workspace) {
 
 async function open(options) {
   options = options || {};
-  const paneKey = options.pane || "files";
+  const paneKey = options.pane || "jobs";
   const resolvedPane = paneKey === "browser" ? "history" : paneKey;
   selectedDiffFile.value = "";
   diffMessage.value = "";

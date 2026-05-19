@@ -2,14 +2,19 @@
   <div class="workspace-status-bar" :style="{ display: showHeader ? 'flex' : 'none' }">
     <template v-if="workspace">
       <div class="status-nav-group">
-        <button type="button" class="status-nav-btn" title="Files" @click="openFileModal('files')">
-          <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
-        </button>
-        <div class="status-divider"></div>
         <button type="button" class="status-nav-btn" title="Jobs" @click="openFileModal('jobs')">
           <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
         </button>
+        <div class="status-divider"></div>
+        <button type="button" class="status-nav-btn" title="Files" @click="openFileModal('files')">
+          <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
+        </button>
         <template v-if="isGitRepo">
+          <div class="status-divider"></div>
+          <button type="button" class="status-nav-btn status-msg-btn" tabindex="-1" @click="openFileModal('history')">
+            <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
+            <span class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
+          </button>
           <div class="status-divider"></div>
           <button type="button" class="status-nav-btn status-numstat-btn" tabindex="-1" @click="openFileModal('changes')">
             <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
@@ -18,11 +23,6 @@
               <span class="diff-num-plus">+{{ insertions }}</span>
               <span class="diff-num-del">-{{ deletions }}</span>
             </template>
-          </button>
-          <div class="status-divider"></div>
-          <button type="button" class="status-nav-btn status-msg-btn" tabindex="-1" @click="openFileModal('history')">
-            <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
-            <span class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
           </button>
           <div class="status-divider"></div>
           <button type="button" class="status-nav-btn status-branch-btn" tabindex="-1" @click="openFileModal('branch')">
