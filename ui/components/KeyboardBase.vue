@@ -400,10 +400,23 @@ defineExpose({
   box-sizing: border-box;
 }
 
+.quick-snippet-scroll-row > .quick-snippet-add-btn {
+  flex: 0 0 30px;
+  width: 30px;
+  max-width: 30px;
+}
+
 .quick-snippet-add-btn {
   width: 30px;
+  height: 30px;
   min-width: 30px;
+  min-height: 30px;
+  max-height: 30px;
   padding: 0;
+  line-height: 1;
+  aspect-ratio: 1 / 1;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
   font-size: 16px;
   color: var(--text-primary);
