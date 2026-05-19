@@ -224,6 +224,7 @@ function findUrlAtPosition(clientX, clientY) {
 }
 
 function onTouchStart(e) {
+  if (pillEl.value && pillEl.value.contains(e.target)) return;
   paneTouch.start(e);
   setLongPressActive(false);
   const t = e.touches?.[0];
@@ -289,6 +290,7 @@ function getVisibleTerminalText() {
 }
 
 function onTouchMove(e) {
+  if (pillEl.value && pillEl.value.contains(e.target)) return;
   const { dx, dy } = paneTouch.delta(e);
   if (Math.abs(dx) > 20 || Math.abs(dy) > 20) {
     touchMoved = true;
