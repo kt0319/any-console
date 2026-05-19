@@ -1,5 +1,5 @@
 <template>
-  <template v-if="isPanelBottom">
+  <template v-if="isKeyboardVisible">
     <div v-if="mode === 1" class="keyboard-qwerty-overlay" @click="switchToMinimum"></div>
     <div v-show="!isTextInputVisible">
       <KeyboardMinimumKey
@@ -20,16 +20,19 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from "vue";
+import { ref, computed, watch, nextTick } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
+import { useLayoutStore } from "../stores/layout.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import KeyboardMinimumKey from "./KeyboardMinimumKey.vue";
 import KeyboardQwertyKey from "./KeyboardQwertyKey.vue";
 import KeyboardInput from "./KeyboardInput.vue";
 
-defineProps({
+const props = defineProps({
   isPanelBottom: { type: Boolean, default: false },
 });
+const layoutStore = useLayoutStore();
+const isKeyboardVisible = computed(() => props.isPanelBottom || layoutStore.isSplitMode);
 const emit = defineEmits(["visibility"]);
 
 const { clearModifiers } = useKeyboard();

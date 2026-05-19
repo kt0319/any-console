@@ -333,7 +333,9 @@ function onTouchEnd(e) {
   if (layoutStore.isSplitMode) {
     if (!isActive.value) {
       emits("select-pane", props.paneIndex);
+      return;
     }
+    emit("keyboard:activate");
     return;
   }
   if (layoutStore.isPanelBottom) {

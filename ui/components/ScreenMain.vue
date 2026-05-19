@@ -1,5 +1,5 @@
 <template>
-  <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom }">
+  <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom, 'split-mode': isSplitMode }">
     <TabBar ref="tabBarView" :tabs="openTabs" />
     <WorkspaceStatusBar v-show="hasActiveTab" />
     <div v-if="booting || isEmptyScreenVisible" class="screen-main-empty">
@@ -105,6 +105,7 @@ const terminalBaseView = ref(null);
 const keyboardBaseView = ref(null);
 
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
+const isSplitMode = computed(() => layoutStore.isSplitMode);
 
 let mainPanelResizeObserver = null;
 let resizeFitTimerId = null;
@@ -444,6 +445,11 @@ defineExpose({
 .main-panel.panel-bottom .main-panel-keyboard-overlay :deep(.quick-input-panel),
 .main-panel.panel-bottom .main-panel-keyboard-overlay :deep(.quick-qwerty-panel) {
   bottom: 114px;
+}
+
+.main-panel.split-mode .main-panel-keyboard-overlay :deep(.quick-input-panel),
+.main-panel.split-mode .main-panel-keyboard-overlay :deep(.quick-qwerty-panel) {
+  bottom: 24px;
 }
 
 .main-panel.panel-bottom :deep(.output-container) {
