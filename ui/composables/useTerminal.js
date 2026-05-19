@@ -5,7 +5,7 @@ import { emit } from "../app-bridge.js";
 import { fitTerminal, sendResize, observeFrameResize } from "./useTerminalResize.js";
 import { buildWebSocketUrl as _buildWebSocketUrl } from "../utils/terminal-ws.js";
 import { bindTerminalInput, bindTerminalElement } from "./useTerminalInput.js";
-import { terminalSessionPath } from "../utils/endpoints.js";
+import { terminalSessionPath, terminalSessionHistoryPath } from "../utils/endpoints.js";
 
 export function useTerminal() {
   const terminalStore = useTerminalStore();
@@ -15,8 +15,22 @@ export function useTerminal() {
     return _buildWebSocketUrl(proto, location.host, sessionId, cols, rows);
   }
 
-  function connectTerminalWs(tab, opts = {}) {
+  async function restoreHistoryIfNeeded(tab) {
+    if (!tab._needsHistoryRestore || !tab.term) return;
+    tab._needsHistoryRestore = false;
+    try {
+      const { apiGet } = useApi();
+      const { ok, data } = await apiGet(terminalSessionHistoryPath(tab.sessionId));
+      if (ok && data?.content) {
+        tab.term.write(data.content);
+      }
+    } catch {}
+  }
+
+  async function connectTerminalWs(tab, opts = {}) {
     if (!tab || tab._wsDisposed) return;
+    await restoreHistoryIfNeeded(tab);
+    if (tab._wsDisposed) return;
     const frame = document.getElementById(`frame-${tab.id}`);
     const frameRect = frame?.getBoundingClientRect();
     const frameVisible = frameRect && frameRect.width >= 2 && frameRect.height >= 2;

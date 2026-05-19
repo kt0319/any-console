@@ -94,6 +94,7 @@ export const useTerminalStore = defineStore("terminal", () => {
       ws: null,
       _pendingOpen: true,
       _pendingRedraw: !!restored,
+      _needsHistoryRestore: !!restored,
       _initialCommand: initialCommand || null,
       _waitingInitialCommand: !!initialCommand,
       _wsDisposed: false,

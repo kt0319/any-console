@@ -16,12 +16,13 @@ from ..auth import COOKIE_NAME_TOKEN, verify_token, verify_ws_token
 from ..common import (
     TERMINAL_DEFAULT_COLS,
     TERMINAL_DEFAULT_ROWS,
+    TMUX_CMD_TIMEOUT_SEC,
     TMUX_SESSION_PREFIX,
     WS_MSG_RESIZE,
     WS_PING_INTERVAL_SEC,
     resolve_workspace_path,
 )
-from ..errors import not_found, server_error
+from ..errors import not_found, server_error, timeout_error
 from ..terminal_session import (
     PTY_EXECUTOR,
     TERMINAL_SESSIONS,
@@ -31,6 +32,7 @@ from ..terminal_session import (
     _handle_resize,
     _kill_tmux_session,
     _register_tmux_session,
+    get_terminal_session,
     sessions_lock,
     switch_active_client,
 )
@@ -85,6 +87,25 @@ async def list_terminal_sessions():
 
     sessions.sort(key=lambda s: s.get("created_at") or 0)
     return sessions
+
+
+@router.get("/terminal/sessions/{session_id}/history")
+async def get_terminal_history(session_id: str):
+    session = get_terminal_session(session_id)
+    try:
+        result = subprocess.run(
+            ["tmux", "capture-pane", "-t", session.tmux_session_name, "-p", "-e", "-S", "-", "-E", "-"],
+            timeout=TMUX_CMD_TIMEOUT_SEC,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise server_error("Failed to capture history")
+        return {"content": result.stdout}
+    except subprocess.TimeoutExpired as e:
+        raise timeout_error("Timeout") from e
+    except OSError as e:
+        raise server_error(f"Failed to capture history: {e}") from None
 
 
 @router.delete("/terminal/sessions/{session_id}")
