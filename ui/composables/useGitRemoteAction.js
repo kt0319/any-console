@@ -41,7 +41,9 @@ export function useGitRemoteAction() {
     lines.push("", confirmText);
     const msg = lines.join("\n");
     if (!await confirm(msg)) return;
-    runningAction.value = branch ? `${wsName}:${action}:${branch}` : `${wsName}:${action}`;
+    runningAction.value = action === "push-branch" && branch
+      ? `${wsName}:${action}:${branch}`
+      : `${wsName}:${action}`;
     try {
       if (action === "pull" || action === "push" || action === "push-branch") {
         const body = action === "push-branch" ? { branch } : {};
@@ -82,7 +84,9 @@ export function useGitRemoteAction() {
   }
 
   function isRunning(wsName, action, branch) {
-    const key = branch ? `${wsName}:${action}:${branch}` : `${wsName}:${action}`;
+    const key = action === "push-branch" && branch
+      ? `${wsName}:${action}:${branch}`
+      : `${wsName}:${action}`;
     return runningAction.value === key;
   }
 
