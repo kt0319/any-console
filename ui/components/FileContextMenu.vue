@@ -4,7 +4,8 @@
     @mouseenter="$emit('menu-enter')"
     @mouseleave="$emit('menu-leave')"
   >
-    <button v-if="!isHoverDevice" type="button" @click="$emit('open')"><span class="mdi mdi-open-in-app"></span> Open</button>
+    <button v-if="isFile" type="button" @click="$emit('open')"><span class="mdi mdi-eye-outline"></span> View</button>
+    <button v-else type="button" @click="$emit('open')"><span class="mdi mdi-folder-open-outline"></span> Open</button>
     <button v-if="isFile" type="button" @click="$emit('editor')"><span class="mdi mdi-file-edit-outline"></span> Editor</button>
     <button v-if="isFile" type="button" @click="$emit('history')"><span class="mdi mdi-history"></span> History</button>
     <button v-if="isFile" type="button" @click="$emit('download')"><span class="mdi mdi-download"></span> Download</button>
@@ -16,8 +17,6 @@
 </template>
 
 <script setup>
-import { isHoverDevice } from "../composables/useHoverMenu.js";
-
 defineProps({
   isFile: { type: Boolean, required: true },
   githubUrl: { type: String, default: "" },

@@ -255,6 +255,14 @@ on("git:selectDiffFile", ({ path }) => {
   diffMessage.value = "";
 });
 
+on("git:browseToFolder", ({ path }) => {
+  activePane.value = "files";
+  selectedDiffFile.value = "";
+  diffMessage.value = "";
+  updateViewTitle();
+  nextTick(() => fileBrowser.value?.navigateToPath(path));
+});
+
 on("git:commitDone", () => {
   gitHistory.value?.reload();
 });

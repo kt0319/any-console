@@ -109,7 +109,8 @@ const contextMenuActions = computed(() => {
   const file = contextEntry.value;
   if (!file) return [];
   return [
-    { icon: "mdi-file-document-outline", label: "View diff", handler: () => viewDiff(file) },
+    { icon: "mdi-eye-outline", label: "View", handler: () => viewDiff(file) },
+    { icon: "mdi-folder-open-outline", label: "Show in Files", handler: () => browseToFolder(file) },
     { icon: "mdi-file-edit-outline", label: "Editor", show: !!editorUrlTemplate.value, handler: () => { openInEditor(file.path); closeMenu(); } },
     { icon: "mdi-download", label: "Download", handler: () => downloadFile(file) },
     { icon: "mdi-github", label: "GitHub", show: !!githubFileUrl(file), handler: () => openFileGithub(file) },
@@ -150,6 +151,13 @@ function openFileGithub(file) {
   const url = githubFileUrl(file);
   if (url) window.open(url, "_blank");
   closeMenu();
+}
+
+function browseToFolder(file) {
+  closeMenu();
+  const parts = file.path.split("/");
+  parts.pop();
+  emit("git:browseToFolder", { path: parts.join("/") });
 }
 
 function selectFile(file) {

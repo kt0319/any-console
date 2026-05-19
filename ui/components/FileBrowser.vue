@@ -367,7 +367,7 @@ onBeforeUnmount(() => {
   cleanupWindowListeners();
 });
 
-defineExpose({ load: loadFileBrowserRoot });
+defineExpose({ load: loadFileBrowserRoot, navigateToPath });
 </script>
 
 <style scoped>
