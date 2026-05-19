@@ -1,7 +1,7 @@
 <template>
   <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom, 'split-mode': isSplitMode }">
     <TabBar ref="tabBarView" :tabs="openTabs" />
-    <WorkspaceStatusBar v-show="hasActiveTab" />
+    <WorkspaceStatusBar />
     <div v-if="booting || isEmptyScreenVisible" class="screen-main-empty">
       <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
     </div>
@@ -98,7 +98,6 @@ async function initializeApp() {
 
 const openTabs = computed(() => terminalStore.openTabs);
 const isEmptyScreenVisible = computed(() => openTabs.value.length === 0 && !layoutStore.isSplitMode);
-const hasActiveTab = computed(() => openTabs.value.some((t) => t.id === terminalStore.activeTabId));
 
 const tabBarView = ref(null);
 const terminalBaseView = ref(null);

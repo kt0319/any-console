@@ -1,48 +1,50 @@
 <template>
   <div class="workspace-status-bar" :style="{ display: showHeader ? 'flex' : 'none' }">
-    <div class="status-nav-group">
-      <button type="button" class="status-nav-btn" title="Files" @click="openFileModal('files')">
-        <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
-      </button>
-      <div class="status-divider"></div>
-      <button type="button" class="status-nav-btn" title="Jobs" @click="openFileModal('jobs')">
-        <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
-      </button>
-      <template v-if="isGitRepo">
-        <div class="status-divider"></div>
-        <button type="button" class="status-nav-btn status-numstat-btn" tabindex="-1" @click="openFileModal('changes')">
-          <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
-          <template v-if="isDirty && !statusLoading">
-            <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
-            <span class="diff-num-plus">+{{ insertions }}</span>
-            <span class="diff-num-del">-{{ deletions }}</span>
-          </template>
+    <template v-if="workspace">
+      <div class="status-nav-group">
+        <button type="button" class="status-nav-btn" title="Files" @click="openFileModal('files')">
+          <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
         </button>
         <div class="status-divider"></div>
-        <button type="button" class="status-nav-btn status-msg-btn" tabindex="-1" @click="openFileModal('history')">
-          <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
-          <span class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
+        <button type="button" class="status-nav-btn" title="Jobs" @click="openFileModal('jobs')">
+          <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
         </button>
-        <div class="status-divider"></div>
-        <button type="button" class="status-nav-btn status-branch-btn" tabindex="-1" @click="openFileModal('branch')">
-          <span class="mdi mdi-source-branch status-btn-icon" aria-hidden="true"></span>
-          <span class="status-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
-        </button>
-      </template>
-      <button
-        v-else-if="workspace"
-        type="button"
-        tabindex="-1"
-        class="non-git-hint status-msg-standalone"
-        @click="openFileModal('changes')"
-      >Not a Git repository</button>
-    </div>
-    <div v-if="isGitRepo && !statusLoading && hasGitActions" class="git-actions">
-      <GitActionBtn v-if="behind > 0" icon="pull" title="Pull" :count="behind" :running="isRunning(workspace, 'pull')" btn-class="pull-btn has-count" @action="doAction('pull')" />
-      <GitActionBtn v-if="!hasUpstream && hasRemoteBranch" icon="set-upstream" title="Set Upstream" :running="isRunning(workspace, 'set-upstream')" btn-class="icon-only upstream-set-btn" @action="doAction('set-upstream')" />
-      <GitActionBtn v-if="!hasUpstream && !hasRemoteBranch" icon="push-upstream" title="Push" :count="ahead" :running="isRunning(workspace, 'push-upstream')" btn-class="upstream-btn" @action="doAction('push-upstream')" />
-      <GitActionBtn v-if="hasUpstream && ahead > 0" icon="push" title="Push" :count="ahead" :running="isRunning(workspace, 'push')" btn-class="push-btn has-count" @action="doAction('push')" />
-    </div>
+        <template v-if="isGitRepo">
+          <div class="status-divider"></div>
+          <button type="button" class="status-nav-btn status-numstat-btn" tabindex="-1" @click="openFileModal('changes')">
+            <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
+            <template v-if="isDirty && !statusLoading">
+              <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
+              <span class="diff-num-plus">+{{ insertions }}</span>
+              <span class="diff-num-del">-{{ deletions }}</span>
+            </template>
+          </button>
+          <div class="status-divider"></div>
+          <button type="button" class="status-nav-btn status-msg-btn" tabindex="-1" @click="openFileModal('history')">
+            <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
+            <span class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
+          </button>
+          <div class="status-divider"></div>
+          <button type="button" class="status-nav-btn status-branch-btn" tabindex="-1" @click="openFileModal('branch')">
+            <span class="mdi mdi-source-branch status-btn-icon" aria-hidden="true"></span>
+            <span class="status-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
+          </button>
+        </template>
+        <button
+          v-else
+          type="button"
+          tabindex="-1"
+          class="non-git-hint status-msg-standalone"
+          @click="openFileModal('changes')"
+        >Not a Git repository</button>
+      </div>
+      <div v-if="isGitRepo && !statusLoading && hasGitActions" class="git-actions">
+        <GitActionBtn v-if="behind > 0" icon="pull" title="Pull" :count="behind" :running="isRunning(workspace, 'pull')" btn-class="pull-btn has-count" @action="doAction('pull')" />
+        <GitActionBtn v-if="!hasUpstream && hasRemoteBranch" icon="set-upstream" title="Set Upstream" :running="isRunning(workspace, 'set-upstream')" btn-class="icon-only upstream-set-btn" @action="doAction('set-upstream')" />
+        <GitActionBtn v-if="!hasUpstream && !hasRemoteBranch" icon="push-upstream" title="Push" :count="ahead" :running="isRunning(workspace, 'push-upstream')" btn-class="upstream-btn" @action="doAction('push-upstream')" />
+        <GitActionBtn v-if="hasUpstream && ahead > 0" icon="push" title="Push" :count="ahead" :running="isRunning(workspace, 'push')" btn-class="push-btn has-count" @action="doAction('push')" />
+      </div>
+    </template>
   </div>
 </template>
 
