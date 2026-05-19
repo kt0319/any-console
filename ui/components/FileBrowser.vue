@@ -59,7 +59,7 @@
               :data-type="entry.type"
               :label="entry.name"
               :icon-html="renderFileIcon(entry)"
-              :size-text="entry.type === 'file' && entry.size != null ? formatSize(entry.size) : ''"
+              :size-text="entrySizeText(entry)"
               :mtime-text="formatRelativeTime(entry.mtime)"
               @click="onEntryClick(entry)"
               @contextmenu="toggleContextMenu(entry)"
@@ -139,6 +139,14 @@ const showHistory = ref(false);
 
 function toggleHistory() {
   showHistory.value = !showHistory.value;
+}
+
+function entrySizeText(entry) {
+  if (entry.type === "file" && entry.size != null) return formatSize(entry.size);
+  if (entry.type === "dir" && entry.count != null) {
+    return entry.count === 1 ? "1 item" : `${entry.count} items`;
+  }
+  return "";
 }
 
 const {

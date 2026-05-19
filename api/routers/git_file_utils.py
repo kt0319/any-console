@@ -113,6 +113,19 @@ def _build_symlink_entry(ws_path: Path, target: Path, entry, is_ignored: bool) -
     return item
 
 
+def _count_directory_entries(path: str) -> int | None:
+    try:
+        count = 0
+        with os.scandir(path) as it:
+            for entry in it:
+                if entry.name in HIDDEN_DIRS:
+                    continue
+                count += 1
+        return count
+    except OSError:
+        return None
+
+
 def _build_file_or_dir_entry(entry, is_ignored: bool) -> dict:
     entry_type = "dir" if entry.is_dir(follow_symlinks=False) else "file"
     item = {"name": entry.name, "type": entry_type}
@@ -123,6 +136,10 @@ def _build_file_or_dir_entry(entry, is_ignored: bool) -> dict:
         item["mtime"] = stat.st_mtime
         if entry_type == "file":
             item["size"] = stat.st_size
+        else:
+            count = _count_directory_entries(entry.path)
+            if count is not None:
+                item["count"] = count
     except OSError:
         pass
     return item
