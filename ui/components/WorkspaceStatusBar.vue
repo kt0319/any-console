@@ -45,6 +45,16 @@
         <GitActionBtn v-if="hasUpstream && ahead > 0" icon="push" title="Push" :count="ahead" :running="isRunning(workspace, 'push')" btn-class="push-btn has-count" @action="doAction('push')" />
       </div>
     </template>
+    <button
+      v-else
+      type="button"
+      tabindex="-1"
+      class="status-empty-hint"
+      @click="openWorkspaceModal"
+    >
+      <span class="mdi mdi-folder-open-outline status-btn-icon" aria-hidden="true"></span>
+      <span class="status-empty-hint-text">Open a workspace to get started</span>
+    </button>
   </div>
 </template>
 
@@ -138,6 +148,10 @@ function doAction(action) {
   if (!wsName) return;
   const branch = ws.value?.branch || "";
   gitAction(wsName, action, { branch });
+}
+
+function openWorkspaceModal() {
+  emit("workspace:openModal");
 }
 
 </script>
@@ -290,8 +304,33 @@ function doAction(action) {
   flex-shrink: 0;
 }
 
+.status-empty-hint {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 6px;
+  height: 36px;
+  padding: 0 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.status-empty-hint-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
 @media (hover: hover) and (pointer: fine) {
-  .status-nav-btn:hover {
+  .status-nav-btn:hover,
+  .status-empty-hint:hover {
     background: var(--bg-secondary);
   }
 }
