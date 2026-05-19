@@ -129,7 +129,6 @@ function onPointerDown(e) {
       try { sendResize(tab); } catch {}
     }
     try { tab.term?.refresh(0, tab.term.rows - 1); } catch {}
-    tab.term?.scrollToBottom?.();
   }
   if (!layoutStore.isSplitMode) return;
   if (isActive.value) return;
@@ -339,7 +338,6 @@ function onTouchEnd(e) {
   }
   if (layoutStore.isPanelBottom) {
     emit("keyboard:activate");
-    props.tab?.term?.scrollToBottom?.();
   }
 }
 
