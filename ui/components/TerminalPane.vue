@@ -441,8 +441,6 @@ defineExpose({
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-  border: 1px solid transparent;
-  box-sizing: border-box;
 }
 
 .terminal-frame :deep(.xterm) {
