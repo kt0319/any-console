@@ -263,7 +263,7 @@ onMounted(() => {
   }));
 
   bridgeCleanups.push(on("snippet:tap", ({ command }) => {
-    sendTextToTerminal(command + "\n");
+    sendTextToTerminal(command);
     moveSnippetToFront(command);
   }));
 
