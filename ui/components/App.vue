@@ -29,12 +29,15 @@ const terminalStore = useTerminalStore();
 const inputStore = useInputStore();
 
 const APP_NAME = "any-console";
-const activeWorkspace = computed(() => {
+const activeTabLabel = computed(() => {
   const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
-  return tab?.workspace || "";
+  if (!tab) return "";
+  const ws = tab.workspace || "";
+  const job = tab.jobLabel || tab.jobName || "";
+  return [ws, job].filter(Boolean).join(" / ");
 });
-watch(activeWorkspace, (ws) => {
-  document.title = ws ? `${APP_NAME} - ${ws}` : APP_NAME;
+watch(activeTabLabel, (label) => {
+  document.title = label ? `${APP_NAME} - ${label}` : APP_NAME;
 }, { immediate: true });
 const appToast = ref(null);
 const { isOffline, startPing, stopPing, onOnline, onOffline } = useConnectivityMonitor();
