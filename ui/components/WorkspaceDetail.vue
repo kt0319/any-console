@@ -56,7 +56,6 @@
         <GitHubPRsPane ref="githubPrs" @count="prsCount = $event" />
       </div>
     </div>
-    <GitCommitForm ref="commitForm" />
   </div>
 </template>
 
@@ -67,7 +66,6 @@ import GitHistory from "./GitHistory.vue";
 import GitFiles from "./GitFiles.vue";
 import GitChangeBranch from "./GitChangeBranch.vue";
 import GitStash from "./GitStash.vue";
-import GitCommitForm from "./GitCommitForm.vue";
 import WorkspaceJobsPane from "./WorkspaceJobsPane.vue";
 import GitHubIssuesPane from "./GitHubIssuesPane.vue";
 import GitHubActionsPane from "./GitHubActionsPane.vue";
@@ -89,7 +87,6 @@ const gitHistory = ref(null);
 const gitFiles = ref(null);
 const gitBranch = ref(null);
 const gitStash = ref(null);
-const commitForm = ref(null);
 const githubIssues = ref(null);
 const githubActions = ref(null);
 const githubPrs = ref(null);
@@ -258,12 +255,7 @@ on("git:selectDiffFile", ({ path }) => {
   diffMessage.value = "";
 });
 
-on("git:openCommitForm", () => {
-  commitForm.value?.open();
-});
-
 on("git:commitDone", () => {
-  commitForm.value?.close();
   gitHistory.value?.reload();
 });
 

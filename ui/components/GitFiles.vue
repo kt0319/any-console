@@ -9,6 +9,7 @@
         @click="action.handler"
       >{{ action.label }}</button>
     </div>
+    <GitCommitForm ref="commitForm" />
     <div class="diff-file-list">
       <div v-if="isLoading" class="text-muted-center">Loading...</div>
       <ul v-else class="file-browser-list diff-file-browser-list">
@@ -50,6 +51,7 @@
 import { ref, computed } from "vue";
 import FileItem from "./FileItem.vue";
 import FileActionMenu from "./FileActionMenu.vue";
+import GitCommitForm from "./GitCommitForm.vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitDiff } from "../composables/useGitDiff.js";
 import { useEditorIntegration } from "../composables/useEditorIntegration.js";
@@ -79,6 +81,7 @@ const isLoading = ref(false);
 const selectedFile = ref("");
 const actionButtons = ref([]);
 const isWorkingTree = ref(false);
+const commitForm = ref(null);
 const {
   contextEntry,
   openMenu,
@@ -210,7 +213,7 @@ async function loadWorkingTreeDiff() {
       if (!result) return;
       files.value = result.fileList;
       actionButtons.value = [
-        { label: "Commit", class: "primary", handler: () => emit("git:openCommitForm") },
+        { label: "Commit", class: "primary", handler: () => commitForm.value?.open() },
         { label: "Stash", handler: () => emit("git:stashSave") },
       ];
     } catch (e) {
