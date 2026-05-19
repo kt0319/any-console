@@ -1,4 +1,4 @@
-import { WS_MSG_RESIZE } from "../utils/constants.js";
+import { WS_MSG_RESIZE, FRAME_FIT_DEBOUNCE_MS, FIT_WRITE_QUIET_MS, FIT_MAX_WAIT_MS } from "../utils/constants.js";
 import { saveLastDims } from "../utils/terminal-dims.js";
 
 const encoder = new TextEncoder();
@@ -40,12 +40,23 @@ export function observeFrameResize(tab, frameEl) {
     tab._frameResizeObserver = null;
   }
   let debounceTimer = null;
+  let firstRequestAt = 0;
+  const tryFit = () => {
+    const now = performance.now();
+    const sinceWrite = now - (tab._lastWriteAt || 0);
+    const sinceRequest = now - firstRequestAt;
+    if (sinceWrite < FIT_WRITE_QUIET_MS && sinceRequest < FIT_MAX_WAIT_MS) {
+      debounceTimer = setTimeout(tryFit, FIT_WRITE_QUIET_MS - sinceWrite);
+      return;
+    }
+    debounceTimer = null;
+    firstRequestAt = 0;
+    fitTerminal(tab);
+  };
   tab._frameResizeObserver = new ResizeObserver(() => {
     if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      debounceTimer = null;
-      fitTerminal(tab);
-    }, 50);
+    if (!firstRequestAt) firstRequestAt = performance.now();
+    debounceTimer = setTimeout(tryFit, FRAME_FIT_DEBOUNCE_MS);
   });
   tab._frameResizeObserver.observe(frameEl);
 }

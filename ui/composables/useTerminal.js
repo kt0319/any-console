@@ -23,6 +23,7 @@ export function useTerminal() {
       const { ok, data } = await apiGet(terminalSessionHistoryPath(tab.sessionId));
       if (ok && data?.content) {
         tab.term.write(data.content);
+        tab._lastWriteAt = performance.now();
       }
     } catch {}
   }
@@ -70,6 +71,7 @@ export function useTerminal() {
       } else {
         tab.term.write(e.data);
       }
+      tab._lastWriteAt = performance.now();
       tab._writeCount = (tab._writeCount || 0) + 1;
       clearTimeout(tab._postWriteRefresh);
       tab._postWriteRefresh = setTimeout(() => {
