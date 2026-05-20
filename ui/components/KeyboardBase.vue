@@ -67,7 +67,6 @@ function hideInput() {
 
 watch(mode, (val) => {
   nextTick(() => {
-    bridgeEmit("layout:fitAll");
     bridgeEmit("keyboard:modeChange", { mode: val });
   });
 });
