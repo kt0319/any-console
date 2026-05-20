@@ -121,8 +121,14 @@ function scheduleActiveFit() {
 function onPointerDown(e) {
   if (layoutStore.isTouchDevice) return;
   const tab = props.tab;
-  if (tab?.term) {
-    try { tab.term.refresh(0, tab.term.rows - 1); } catch {}
+  if (tab) {
+    fitTerminal(tab);
+    if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
+      try { sendResize(tab); } catch {}
+    }
+    if (tab.term) {
+      try { tab.term.refresh(0, tab.term.rows - 1); } catch {}
+    }
   }
   if (!layoutStore.isSplitMode) return;
   if (isActive.value) return;
