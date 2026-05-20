@@ -15,7 +15,7 @@
         <span class="mdi mdi-plus"></span>
       </button>
     </div>
-    <button v-if="!isSplitMode && hiddenTabCount > 0" class="tab-hidden-btn" :class="{ active: showHiddenTabs, flash: isFlashing }" @click="toggleHidden" title="Show hidden tabs">
+    <button v-if="!isSplitMode && hiddenTabCount > 0" class="tab-hidden-btn" :class="{ active: showHiddenTabs }" @click="toggleHidden" title="Show hidden tabs">
       <span class="mdi" :class="showHiddenTabs ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"></span>
       <span class="tab-hidden-badge">{{ hiddenTabCount }}</span>
     </button>
@@ -26,12 +26,11 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import TabItem from "./TabItem.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { emit } from "../app-bridge.js";
-import { HIDDEN_TAB_FLASH_DURATION_MS } from "../utils/constants.js";
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
@@ -46,18 +45,6 @@ const isSplitMode = computed(() => layoutStore.isSplitMode);
 const showHiddenTabs = ref(false);
 
 const hiddenTabCount = computed(() => props.tabs.filter((t) => t.hidden).length);
-const isFlashing = ref(false);
-let flashTimer = null;
-
-watch(hiddenTabCount, (next, prev) => {
-  if (next <= prev) return;
-  if (flashTimer) clearTimeout(flashTimer);
-  isFlashing.value = false;
-  requestAnimationFrame(() => {
-    isFlashing.value = true;
-    flashTimer = setTimeout(() => { isFlashing.value = false; }, HIDDEN_TAB_FLASH_DURATION_MS);
-  });
-});
 
 const visibleTabs = computed(() =>
   showHiddenTabs.value ? props.tabs : props.tabs.filter((t) => !t.hidden),
@@ -174,15 +161,6 @@ function onSettingsClick() {
   color: #f7c948;
 }
 
-.tab-hidden-btn.flash {
-  animation: hidden-btn-flash 2s ease-in-out 1;
-}
-
-@keyframes hidden-btn-flash {
-  0%, 100% { color: var(--text-muted); }
-  20%, 60% { color: #f7c948; }
-  40%, 80% { color: var(--text-muted); }
-}
 
 .tab-hidden-badge {
   font-size: 13px;
