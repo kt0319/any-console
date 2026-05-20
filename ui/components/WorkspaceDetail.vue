@@ -9,8 +9,8 @@
         :class="{ active: activePane === tab.key }"
         @click="switchPane(tab.key)"
       >
-        <span :class="['mdi', tab.icon]"></span>
-        <span class="workspace-tab-label">{{ tab.label }}</span>
+        <span :class="['mdi', tab.icon]" :style="tab.iconColor ? { color: tab.iconColor } : null"></span>
+        <span class="workspace-tab-label">{{ tab.label }}<span v-if="tab.count"> ({{ tab.count }})</span></span>
         <span v-if="tab.badge" class="workspace-tab-badge">{{ tab.badge }}</span>
       </button>
     </div>
@@ -32,13 +32,13 @@
         />
       </div>
       <div v-show="activePane === 'files'" class="file-modal-pane">
-        <FileBrowser ref="fileBrowser" :diffFile="selectedDiffFile" :diffMessage="diffMessage" />
+        <FileBrowser ref="fileBrowser" :diffFile="selectedDiffFile" :diffMessage="diffMessage" @state="onFileBrowserState" />
       </div>
       <div v-if="activePane === 'changes'" class="file-modal-pane">
         <GitFiles ref="gitFiles" />
       </div>
       <div v-if="activePane === 'branch'" class="file-modal-pane">
-        <GitChangeBranch ref="gitBranch" />
+        <GitChangeBranch ref="gitBranch" @count="branchCount = $event" />
       </div>
       <div v-if="activePane === 'jobs'" class="file-modal-pane">
         <WorkspaceJobsPane ref="jobsPane" />
@@ -116,16 +116,29 @@ const dirtySummaryHtml = computed(() => {
 const issuesCount = ref(null);
 const prsCount = ref(null);
 const stashCount = ref(null);
+const branchCount = ref(null);
+const fileBrowserDeep = ref(false);
+
+function onFileBrowserState({ atRoot, fileOpen }) {
+  fileBrowserDeep.value = !atRoot || fileOpen;
+}
+
+const filesBrowsing = computed(() => fileBrowserDeep.value || !!selectedDiffFile.value);
 
 const hasGithub = computed(() => !!workspaceStore.currentWorkspace?.github_url);
 
 const tabs = computed(() => {
   const list = [
     { key: "jobs", icon: "mdi-play-circle-outline", label: "Jobs" },
-    { key: "files", icon: "mdi-folder-outline", label: "Files" },
+    {
+      key: "files",
+      icon: filesBrowsing.value ? "mdi-folder-open-outline" : "mdi-folder-outline",
+      iconColor: filesBrowsing.value ? "var(--accent)" : "",
+      label: "Files",
+    },
     { key: "history", icon: "mdi-history", label: "History" },
-    { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", badge: changesCount.value || "" },
-    { key: "branch", icon: "mdi-source-branch", label: "Branch" },
+    { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0 },
+    { key: "branch", icon: "mdi-source-branch", label: "Branch", count: branchCount.value || 0 },
     { key: "stash", icon: "mdi-package-variant", label: "Stash", badge: stashCount.value || "", hidden: !stashCount.value },
     { key: "issues", icon: "mdi-github", label: "Issues", badge: issuesCount.value || "", hidden: !hasGithub.value || !issuesCount.value },
     { key: "actions", icon: "mdi-github", label: "Actions", hidden: !hasGithub.value },
@@ -167,6 +180,11 @@ async function backgroundLoadCounts(workspace) {
     }
   } catch {}
 
+  try {
+    const { ok, data } = await apiGet(wsEndpoint(workspace, "branches"));
+    if (ok) branchCount.value = (data || []).filter((b) => !b.remote).length;
+  } catch {}
+
   if (!hasGithub.value) return;
   loadWorkspaceGithubUrl();
   const issueItems = ref([]), issueLoading = ref(false), issueError = ref("");
@@ -194,14 +212,15 @@ async function open(options) {
 
   backgroundLoadCounts(workspace);
 
-  if (workspace !== loadedWorkspace) {
+  const workspaceChanged = workspace !== loadedWorkspace;
+  if (workspaceChanged) {
     loadedWorkspace = workspace;
     await gitHistory.value?.load();
   } else {
     gitHistory.value?.reload();
   }
 
-  fileBrowser.value?.load();
+  if (workspaceChanged) fileBrowser.value?.load();
   switchPane(resolvedPane);
 }
 
@@ -211,7 +230,6 @@ async function switchPane(key) {
   if (key === "browser") key = "history";
 
   activePane.value = key;
-  selectedDiffFile.value = "";
   updateViewTitle();
 
   if (key === "history") {
@@ -228,7 +246,7 @@ async function switchPane(key) {
   } else if (key === "jobs") {
     nextTick(() => jobsPane.value?.load());
   } else if (key === "files") {
-    nextTick(() => fileBrowser.value?.load());
+    // FileBrowser は v-show で常時マウント済み。open() のワークスペース変更時のみロード
   }
   // issues/actions/prs は v-if + onMounted で自動ロード
 }
@@ -361,6 +379,7 @@ onMounted(() => {
 .workspace-tab-label {
   line-height: 1;
 }
+
 
 .workspace-tab-badge {
   position: absolute;

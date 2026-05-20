@@ -97,7 +97,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import FileTextViewer from "./FileTextViewer.vue";
 import FileHistoryPane from "./FileHistoryPane.vue";
 import FileItem from "./FileItem.vue";
@@ -374,6 +374,19 @@ onMounted(() => {
 onBeforeUnmount(() => {
   cleanupWindowListeners();
 });
+
+const fileBrowserEmit = defineEmits(["state"]);
+
+watch(
+  [currentPath, fileContent, showHistory],
+  () => {
+    fileBrowserEmit("state", {
+      atRoot: !currentPath.value,
+      fileOpen: !!(fileContent.value || showHistory.value),
+    });
+  },
+  { immediate: true },
+);
 
 defineExpose({ load: loadFileBrowserRoot, navigateToPath });
 </script>

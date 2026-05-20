@@ -42,7 +42,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useWorkspace } from "../composables/useWorkspace.js";
 import { useConfirm } from "../composables/useConfirm.js";
@@ -50,6 +50,8 @@ import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import { emit } from "../app-bridge.js";
+
+const branchEmit = defineEmits(["count"]);
 
 const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { withWorkspace } = useWorkspace();
@@ -150,6 +152,10 @@ async function backgroundFetch() {
     }
   });
 }
+
+watch(branches, (list) => {
+  branchEmit("count", list.filter((b) => !b.remote).length);
+});
 
 defineExpose({ load: loadBranchList, backgroundFetch });
 </script>
