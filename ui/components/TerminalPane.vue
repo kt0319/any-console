@@ -111,7 +111,7 @@ function scheduleActiveFit() {
   activeFitTimer = setTimeout(() => {
     activeFitTimer = null;
     if (!isActive.value) return;
-    fitTerminal(props.tab, { force: true });
+    fitTerminal(props.tab);
     if (props.tab.term) {
       try { props.tab.term.refresh(0, props.tab.term.rows - 1); } catch {}
     }
@@ -121,14 +121,8 @@ function scheduleActiveFit() {
 function onPointerDown(e) {
   if (layoutStore.isTouchDevice) return;
   const tab = props.tab;
-  if (tab) {
-    tab._lastFitCols = 0;
-    tab._lastFitRows = 0;
-    fitTerminal(tab, { force: true });
-    if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
-      try { sendResize(tab); } catch {}
-    }
-    try { tab.term?.refresh(0, tab.term.rows - 1); } catch {}
+  if (tab?.term) {
+    try { tab.term.refresh(0, tab.term.rows - 1); } catch {}
   }
   if (!layoutStore.isSplitMode) return;
   if (isActive.value) return;

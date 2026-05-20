@@ -333,8 +333,6 @@ function scheduleResume() {
 
 function handleResume() {
   for (const tab of terminalStore.openTabs) {
-    tab._lastFitCols = 0;
-    tab._lastFitRows = 0;
     if (tab.ws) {
       clearTimeout(tab._reconnectTimer);
       try { tab.ws.onclose = null; tab.ws.close(); } catch {}
@@ -360,7 +358,7 @@ function handleResume() {
         connectTerminalWs(tab);
       }
     }
-    terminalBaseView.value?.fitAllTerminals({ force: true });
+    terminalBaseView.value?.fitAllTerminals();
     startSyncPolling();
   });
 }
