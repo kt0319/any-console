@@ -1,7 +1,7 @@
 <template>
   <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom, 'split-mode': isSplitMode }">
     <TabBar ref="tabBarView" :tabs="openTabs" />
-    <div v-if="!isSplitMode && activeTabLabel" class="active-tab-title">{{ activeTabLabel }}</div>
+    <div v-if="!isSplitMode" class="active-tab-title">{{ activeTabLabel || ' ' }}</div>
     <WorkspaceStatusBar />
     <div v-if="booting || isEmptyScreenVisible" class="screen-main-empty">
       <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
