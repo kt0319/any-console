@@ -118,6 +118,7 @@ const prsCount = ref(null);
 const stashCount = ref(null);
 const branchCount = ref(null);
 const fileBrowserDeep = ref(false);
+const historyExpanded = ref(false);
 
 function onFileBrowserState({ atRoot, fileOpen }) {
   fileBrowserDeep.value = !atRoot || fileOpen;
@@ -136,7 +137,7 @@ const tabs = computed(() => {
       iconColor: filesBrowsing.value ? "var(--accent)" : "",
       label: "Files",
     },
-    { key: "history", icon: "mdi-history", label: "History" },
+    { key: "history", icon: "mdi-history", label: "History", iconColor: historyExpanded.value ? "var(--accent)" : "" },
     { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0 },
     { key: "branch", icon: "mdi-source-branch", label: "Branch", count: branchCount.value || 0 },
     { key: "stash", icon: "mdi-package-variant", label: "Stash", badge: stashCount.value || "", hidden: !stashCount.value },
@@ -256,9 +257,11 @@ function onStashCount(n) {
 }
 
 function onCommitExpanded() {
+  historyExpanded.value = true;
 }
 
 function onCommitCollapsed() {
+  historyExpanded.value = false;
   updateViewTitle();
 }
 
