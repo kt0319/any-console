@@ -31,7 +31,6 @@
 import { ref, nextTick } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
-import { emit as bridgeEmit } from "../app-bridge.js";
 import KeyboardChips from "./KeyboardChips.vue";
 
 const emit = defineEmits(["visibility"]);
@@ -82,7 +81,6 @@ function submit() {
   if (!text) return;
   sendTextToTerminal(text);
   inputStore.addInputHistory(text);
-  bridgeEmit("layout:fitAll");
   draft.value = "";
   hide();
 }
