@@ -11,7 +11,6 @@
       >
         <span :class="['mdi', tab.icon]" :style="tab.iconColor ? { color: tab.iconColor } : null"></span>
         <span class="workspace-tab-label">{{ tab.label }}<span v-if="tab.count"> ({{ tab.count }})</span></span>
-        <span v-if="tab.badge" class="workspace-tab-badge">{{ tab.badge }}</span>
       </button>
     </div>
 
@@ -60,7 +59,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, watch } from "vue";
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from "vue";
 import FileBrowser from "./FileBrowser.vue";
 import GitHistory from "./GitHistory.vue";
 import GitFiles from "./GitFiles.vue";
@@ -140,10 +139,10 @@ const tabs = computed(() => {
     { key: "history", icon: "mdi-history", label: "History", iconColor: historyExpanded.value ? "var(--accent)" : "" },
     { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0 },
     { key: "branch", icon: "mdi-source-branch", label: "Branch", count: branchCount.value || 0 },
-    { key: "stash", icon: "mdi-package-variant", label: "Stash", badge: stashCount.value || "", hidden: !stashCount.value },
-    { key: "issues", icon: "mdi-github", label: "Issues", badge: issuesCount.value || "", hidden: !hasGithub.value || !issuesCount.value },
+    { key: "stash", icon: "mdi-package-variant", label: "Stash", count: stashCount.value || 0, hidden: !stashCount.value },
+    { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !hasGithub.value || !issuesCount.value },
     { key: "actions", icon: "mdi-github", label: "Actions", hidden: !hasGithub.value },
-    { key: "prs", icon: "mdi-github", label: "PR", badge: prsCount.value || "", hidden: !hasGithub.value || !prsCount.value },
+    { key: "prs", icon: "mdi-github", label: "PR", count: prsCount.value || 0, hidden: !hasGithub.value || !prsCount.value },
   ];
   return list.filter((t) => !t.hidden);
 });
@@ -265,47 +264,51 @@ function onCommitCollapsed() {
   updateViewTitle();
 }
 
-on("git:selectDirty", () => {
-  selectedDiffFile.value = "";
-  diffMessage.value = "";
-});
+const _offHandlers = [
+  on("git:selectDirty", () => {
+    selectedDiffFile.value = "";
+    diffMessage.value = "";
+  }),
 
-on("git:selectDiffFile", ({ path }) => {
-  switchPane("files");
-  selectedDiffFile.value = path;
-  diffMessage.value = "";
-});
+  on("git:selectDiffFile", ({ path }) => {
+    switchPane("files");
+    selectedDiffFile.value = path;
+    diffMessage.value = "";
+  }),
 
-on("git:browseToFolder", ({ path }) => {
-  activePane.value = "files";
-  selectedDiffFile.value = "";
-  diffMessage.value = "";
-  updateViewTitle();
-  nextTick(() => fileBrowser.value?.navigateToPath(path));
-});
+  on("git:browseToFolder", ({ path }) => {
+    activePane.value = "files";
+    selectedDiffFile.value = "";
+    diffMessage.value = "";
+    updateViewTitle();
+    nextTick(() => fileBrowser.value?.navigateToPath(path));
+  }),
 
-on("git:commitDone", () => {
-  gitHistory.value?.reload();
-});
+  on("git:commitDone", () => {
+    gitHistory.value?.reload();
+  }),
 
-on("git:checkoutBranch", async ({ branch, remote }) => {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  const { ok } = await apiCommand(wsEndpoint(workspace, "checkout"), { branch, remote }, { errorMessage: "Checkout failed" });
-  if (!ok) return;
-  switchPane("history");
-  workspaceStore.fetchStatuses();
-  gitHistory.value?.reload();
-  fileBrowser.value?.load();
-});
+  on("git:checkoutBranch", async ({ branch, remote }) => {
+    const workspace = workspaceStore.selectedWorkspace;
+    if (!workspace) return;
+    const { ok } = await apiCommand(wsEndpoint(workspace, "checkout"), { branch, remote }, { errorMessage: "Checkout failed" });
+    if (!ok) return;
+    switchPane("history");
+    workspaceStore.fetchStatuses();
+    gitHistory.value?.reload();
+    fileBrowser.value?.load();
+  }),
 
-on("git:stashSave", async () => {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-  const { ok } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true }, { errorMessage: "Stash save failed" });
-  if (!ok) return;
-  gitHistory.value?.reload();
-});
+  on("git:stashSave", async () => {
+    const workspace = workspaceStore.selectedWorkspace;
+    if (!workspace) return;
+    const { ok } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true }, { errorMessage: "Stash save failed" });
+    if (!ok) return;
+    gitHistory.value?.reload();
+  }),
+];
+
+onUnmounted(() => _offHandlers.forEach((off) => off()));
 
 defineExpose({ handleBack });
 
@@ -384,20 +387,6 @@ onMounted(() => {
 }
 
 
-.workspace-tab-badge {
-  position: absolute;
-  top: 4px;
-  right: 6px;
-  background: var(--accent);
-  color: var(--bg-primary);
-  font-size: 9px;
-  font-weight: 600;
-  border-radius: 8px;
-  padding: 0 4px;
-  min-width: 14px;
-  text-align: center;
-  line-height: 14px;
-}
 
 /* タブコンテンツ */
 .workspace-tab-content {
