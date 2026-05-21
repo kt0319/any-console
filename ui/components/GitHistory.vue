@@ -11,7 +11,7 @@
           <span class="git-log-entry-row1">
             <span class="git-log-entry-row1-left">
               <span v-if="selectedCommitForFiles.refs?.length" class="git-log-entry-refs">
-                <span v-for="r in selectedCommitForFiles.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type"><span v-if="r.synced" class="mdi mdi-link-variant"></span><span :class="'mdi ' + r.icon"></span>{{ r.label }}</span>
+                <span v-for="r in selectedCommitForFiles.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type"><span v-if="r.synced" class="mdi mdi-link-variant"></span><span :class="'mdi ' + r.icon"></span><span v-if="abbreviateRef(r).abbr" class="branch-abbr">{{ abbreviateRef(r).abbr }}</span>{{ abbreviateRef(r).rest }}</span>
               </span>
             </span>
             <span class="git-log-entry-meta">
@@ -83,7 +83,7 @@
             <span class="git-log-entry-row1">
               <span class="git-log-entry-row1-left">
                 <span v-if="row.entry.refs.length" class="git-log-entry-refs">
-                  <span v-for="r in row.entry.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type"><span v-if="r.synced" class="mdi mdi-link-variant"></span><span :class="'mdi ' + r.icon"></span>{{ r.label }}</span>
+                  <span v-for="r in row.entry.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type"><span v-if="r.synced" class="mdi mdi-link-variant"></span><span :class="'mdi ' + r.icon"></span><span v-if="abbreviateRef(r).abbr" class="branch-abbr">{{ abbreviateRef(r).abbr }}</span>{{ abbreviateRef(r).rest }}</span>
                 </span>
               </span>
               <span class="git-log-entry-meta">
@@ -123,11 +123,17 @@ import { useAuthStore } from "../stores/auth.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
 import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
 import { GRAPH_ROW_HEIGHT } from "../utils/git-graph.js";
+import { abbreviateBranch } from "../utils/git.js";
 import { workspaceGitDiscardPath, workspaceDownloadPath, workspaceCommitMessagePath } from "../utils/endpoints.js";
 import { triggerBlobDownload } from "../utils/download.js";
 import { useConfirm } from "../composables/useConfirm.js";
 
 const emitToParent = defineEmits(["commit:expanded", "commit:collapsed"]);
+
+function abbreviateRef(r) {
+  if (r.type === "tag") return { abbr: "", rest: r.label };
+  return abbreviateBranch(r.label);
+}
 
 const workspaceStore = useWorkspaceStore();
 const { apiCommand, wsEndpoint, apiGet } = useApi();
@@ -453,6 +459,11 @@ defineExpose({
   gap: 4px;
   flex-wrap: nowrap;
   overflow: hidden;
+}
+
+.branch-abbr {
+  color: var(--accent);
+  font-weight: 500;
 }
 
 .git-log-entry-meta {
