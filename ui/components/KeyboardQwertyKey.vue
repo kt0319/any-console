@@ -10,6 +10,17 @@
     <KeyboardSnippet ref="qwertyKeyboardSnippet" />
     <div v-for="(row, ri) in qwertyRows" :key="ri" class="quick-extra-row">
       <div
+        v-if="ri === 2"
+        class="quick-key quick-flick-arrow"
+        @touchstart.prevent="onCameraTouchStart"
+        @touchend.prevent="onCameraTouchEnd"
+        @touchcancel="onQuickKeyCancel($event)"
+        @click="openCamera"
+      >
+        <span class="flick-main"><span class="mdi mdi-camera"></span></span>
+        <span class="flick-hint-bottom"><span class="mdi mdi-pin" style="font-size:10px"></span></span>
+      </div>
+      <div
         v-for="(keyDef, ci) in row"
         :key="ci"
         class="quick-key"
@@ -27,15 +38,13 @@
       </div>
       <div
         v-if="ri === 2"
-        class="quick-key quick-flick-arrow"
-        @touchstart.prevent="onCameraTouchStart"
-        @touchend.prevent="onCameraTouchEnd"
+        class="quick-key"
+        @touchstart.prevent="onReloadTouchStart"
+        @touchend.prevent="onReloadTouchEnd"
         @touchcancel="onQuickKeyCancel($event)"
-        @click="openCamera"
+        @click="doReload"
       >
-        <span class="flick-hint-top"><span class="mdi mdi-refresh" style="font-size:10px"></span></span>
-        <span class="flick-main"><span class="mdi mdi-camera"></span></span>
-        <span class="flick-hint-bottom"><span class="mdi mdi-pin" style="font-size:10px"></span></span>
+        <span class="flick-main"><span class="mdi mdi-refresh"></span></span>
       </div>
     </div>
     <div class="quick-extra-row quick-extra-bottom-keys">
@@ -180,10 +189,7 @@ function onCameraTouchStart(e) {
 async function onCameraTouchEnd(e) {
   e.currentTarget.classList.remove("pressed");
   const dy = e.changedTouches[0].clientY - cameraStartY;
-  if (dy < -FLICK_THRESHOLD) {
-    emitLocal("cycleMode");
-    window.location.replace(window.location.pathname + "?_=" + Date.now());
-  } else if (dy > FLICK_THRESHOLD) {
+  if (dy > FLICK_THRESHOLD) {
     const cmd = await prompt({
       title: "Save Snippet",
       message: "Enter command to save as snippet.",
@@ -194,6 +200,18 @@ async function onCameraTouchEnd(e) {
   } else {
     openCamera();
   }
+}
+
+function onReloadTouchStart(e) {
+  e.currentTarget.classList.add("pressed");
+}
+function onReloadTouchEnd(e) {
+  e.currentTarget.classList.remove("pressed");
+  doReload();
+}
+function doReload() {
+  emitLocal("cycleMode");
+  window.location.replace(window.location.pathname + "?_=" + Date.now());
 }
 function openCamera() {
   const el = cameraInputEl.value;
