@@ -71,7 +71,7 @@ OS固有機能の追加は最小限にする（クロスプラットフォーム
 - `vitest`
 - `@vitest/coverage-v8`
 - `@vitejs/plugin-vue`
-- `happy-dom`（未導入、コンポーネントテストが必要になった場合に追加）
+- `happy-dom`（統合テストで使用。`// @vitest-environment happy-dom` を先頭に記載）
 
 ## 追加ツール
 
@@ -197,7 +197,10 @@ npm run test:coverage
 
 - テスト対象の純粋関数は `ui/utils/` に切り出して実装する
 - テストは実ファイルを `import` して検証する（インラインコピー禁止）
-- コンポーネント自体（DOM依存）のテストは行わない
+- コンポーネント単体テストは原則行わない。ただし統合テストで担保する
+  - DOM 操作を含む統合テストは `tests/ui/test_integration.js` に追記する
+  - ファイル先頭に `// @vitest-environment happy-dom` を記載すること
+  - 環境: Vitest + happy-dom + @vue/test-utils（すべて導入済み）
 - 新たに追加する純粋関数は最初から `ui/utils/` に置く
 - 既存のインラインコピーは機会があれば順次 `import` 方式に移行する
 
