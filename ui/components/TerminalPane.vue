@@ -297,7 +297,7 @@ function onTouchMove(e) {
     const term = props.tab?.term;
     const buf = term?.buffer?.active;
     if (term && buf && touchScrollLineHeightPx > 0) {
-      const linesDelta = -Math.round(dy / touchScrollLineHeightPx * 1.5);
+      const linesDelta = -Math.round(dy / touchScrollLineHeightPx * terminalStore.terminalSettings.touchScrollSensitivity);
       const maxViewportY = Math.max(0, buf.length - term.rows);
       const targetViewportY = Math.max(0, Math.min(maxViewportY, touchScrollStartViewportY + linesDelta));
       const diff = targetViewportY - buf.viewportY;

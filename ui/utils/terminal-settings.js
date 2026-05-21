@@ -12,6 +12,7 @@ export const TERMINAL_SETTINGS_META = Object.freeze({
   },
   cursorBlink: { type: "boolean", label: "Cursor Blink", note: "Applied to new terminals." },
   scrollOnOutput: { type: "boolean", label: "Scroll on Output", note: "Applied to new terminals." },
+  touchScrollSensitivity: { type: "number", label: "Touch Scroll Sensitivity", min: 0.5, max: 5, step: 0.5 },
 });
 
 export const DEFAULT_TERMINAL_SETTINGS = Object.freeze({
@@ -20,6 +21,7 @@ export const DEFAULT_TERMINAL_SETTINGS = Object.freeze({
   cursorBlink: true,
   scrollback: 10000,
   scrollOnOutput: true,
+  touchScrollSensitivity: 1.5,
 });
 
 export function sanitizeTerminalSetting(key, value) {
