@@ -1,37 +1,37 @@
 <template>
   <div class="quick-snippet-row">
     <div class="quick-snippet-scroll-row">
-      <button type="button" class="quick-snippet-item quick-snippet-add-btn" @click="onAddClick">
+      <button type="button" class="quick-chip-item quick-snippet-add-btn" @click="onAddClick">
         <span class="mdi mdi-plus"></span>
       </button>
       <div
         v-for="(snippet, idx) in snippets"
         :key="'s-' + idx"
-        class="quick-snippet-item"
+        class="quick-chip-item"
         @touchstart="onSnippetTouchStart($event, snippet, idx)"
         @touchmove="onTouchMove($event)"
-        @touchend="onSnippetTouchEnd($event, snippet, idx)"
+        @touchend="onChipTouchEnd($event, snippet.command)"
         @touchcancel="onTouchCancel"
       >
         <span class="mdi mdi-pin snippet-chip-icon"></span>
         {{ truncateQuickText(snippet.label) }}
       </div>
-      <div v-if="snippets.length === 0" class="quick-snippet-item quick-snippet-item-empty">No snippets</div>
+      <div v-if="snippets.length === 0" class="quick-chip-item quick-chip-item-empty">No snippets</div>
     </div>
     <div class="quick-snippet-scroll-row">
       <div
         v-for="(text, idx) in history"
         :key="'h-' + idx"
-        class="quick-snippet-item"
+        class="quick-chip-item"
         @touchstart="onHistoryTouchStart($event, text)"
         @touchmove="onTouchMove($event)"
-        @touchend="onHistoryTouchEnd($event, text)"
+        @touchend="onChipTouchEnd($event, text)"
         @touchcancel="onTouchCancel"
       >
         <span class="mdi mdi-history snippet-chip-icon"></span>
         {{ truncateQuickText(text) }}
       </div>
-      <div v-if="history.length === 0" class="quick-snippet-item quick-snippet-item-empty">No history</div>
+      <div v-if="history.length === 0" class="quick-chip-item quick-chip-item-empty">No history</div>
     </div>
   </div>
 </template>
@@ -65,13 +65,13 @@ function onSnippetTouchStart(e, snippet, idx) {
   });
 }
 
-function onSnippetTouchEnd(e, snippet) {
+function onChipTouchEnd(e, command) {
   if (scrolled) return;
   longPress.cancel();
   if (longPress.consumeFired()) return;
   if (e.cancelable) e.preventDefault();
-  if (!props.insertMode) bridgeEmit("snippet:tap", { command: snippet.command });
-  emit("chip:tap", { command: snippet.command });
+  if (!props.insertMode) bridgeEmit("snippet:tap", { command });
+  emit("chip:tap", { command });
 }
 
 function onHistoryTouchStart(e, text) {
@@ -81,15 +81,6 @@ function onHistoryTouchStart(e, text) {
   longPress.start(() => {
     askAddSnippet(text);
   });
-}
-
-function onHistoryTouchEnd(e, text) {
-  if (scrolled) return;
-  longPress.cancel();
-  if (longPress.consumeFired()) return;
-  if (e.cancelable) e.preventDefault();
-  if (!props.insertMode) bridgeEmit("snippet:tap", { command: text });
-  emit("chip:tap", { command: text });
 }
 
 function onTouchMove(e) {
@@ -115,7 +106,7 @@ async function askAddSnippet(initial = "") {
 }
 
 function onAddClick() {
-  askAddSnippet("");
+  askAddSnippet();
 }
 
 defineExpose({ askAddSnippet });

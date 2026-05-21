@@ -370,14 +370,14 @@ defineExpose({
   display: none;
 }
 
-.quick-snippet-scroll-row > .quick-snippet-item {
+.quick-snippet-scroll-row > .quick-chip-item {
   flex: 0 0 auto;
   width: auto;
   max-width: 160px;
   touch-action: pan-x;
 }
 
-.quick-snippet-item {
+.quick-chip-item {
   width: 100%;
   height: 30px;
   padding: 0 10px;
@@ -422,7 +422,7 @@ defineExpose({
   border-style: dashed;
 }
 
-.quick-snippet-item-empty {
+.quick-chip-item-empty {
   display: flex;
   align-items: center;
   border-style: dashed;
@@ -431,14 +431,14 @@ defineExpose({
   pointer-events: none;
 }
 
-.quick-snippet-item.pressed {
+.quick-chip-item.pressed {
   background: rgba(130, 170, 255, 0.3);
   color: var(--text-primary);
   transform: scale(0.92);
   transition: transform 0.06s ease, background 0.06s ease;
 }
 
-.quick-snippet-item.tap-bounce {
+.quick-chip-item.tap-bounce {
   animation: snippet-bounce 0.25s ease-out;
 }
 
