@@ -564,8 +564,8 @@ defineExpose({ load: loadFileBrowserRoot, navigateToPath });
 }
 
 @media (max-width: 767px) {
-  .file-browser {
-    flex-direction: column-reverse;
+  .file-browser-header {
+    order: 1;
   }
 }
 </style>

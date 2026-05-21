@@ -325,8 +325,11 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
 }
 
 @media (max-width: 767px) {
-  .git-files-pane-wrapper {
-    flex-direction: column-reverse;
+  .diff-actions {
+    order: 1;
+  }
+  :deep(.diff-commit-form-wrapper) {
+    order: 1;
   }
 }
 </style>

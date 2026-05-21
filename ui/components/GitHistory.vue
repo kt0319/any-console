@@ -514,8 +514,8 @@ defineExpose({
 }
 
 @media (max-width: 767px) {
-  .git-history-pane-wrapper {
-    flex-direction: column-reverse;
+  .diff-files-selected-commit {
+    order: 1;
   }
 }
 </style>
