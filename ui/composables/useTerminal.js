@@ -58,7 +58,7 @@ export function useTerminal() {
         ws.send(new TextEncoder().encode(tab._initialCommand + "\n"));
         tab._initialCommand = null;
       }
-      if (tab.term && terminalStore.activeTabId === tab.id) {
+      if (tab.term && terminalStore.activeTabId === tab.id && opts.focus !== false) {
         tab.term.focus();
       }
       if (opts.onOpen) opts.onOpen();

@@ -348,7 +348,7 @@ function handleResume() {
     for (const tab of terminalStore.openTabs) {
       if (!visibleTabIds.has(tab.id)) continue;
       if (tab._pendingRedraw && !tab.ws && !tab._wsDisposed) {
-        connectTerminalWs(tab);
+        connectTerminalWs(tab, { focus: false });
       }
     }
     terminalBaseView.value?.fitAllTerminals();
