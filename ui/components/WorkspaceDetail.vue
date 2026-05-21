@@ -14,13 +14,6 @@
       </button>
     </div>
 
-    <!-- ブランチ情報バー -->
-    <div v-if="currentBranch" class="workspace-branch-bar">
-      <span class="mdi mdi-source-branch workspace-branch-icon"></span>
-      <span class="workspace-branch-name">{{ currentBranch }}</span>
-      <span v-if="isDirty" class="workspace-branch-dirty" v-html="dirtySummaryHtml"></span>
-    </div>
-
     <!-- タブコンテンツ -->
     <div class="workspace-tab-content">
       <div v-show="activePane === 'history'" class="file-modal-pane">
@@ -59,7 +52,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, nextTick, onMounted, onUnmounted } from "vue";
 import FileBrowser from "./FileBrowser.vue";
 import GitHistory from "./GitHistory.vue";
 import GitFiles from "./GitFiles.vue";
@@ -95,21 +88,10 @@ const activePane = ref("jobs");
 const selectedDiffFile = ref("");
 const diffMessage = ref("");
 
-const currentBranch = computed(() => workspaceStore.currentWorkspace?.branch || "");
-const isDirty = computed(() => workspaceStore.currentWorkspace?.clean === false);
 const changesCount = computed(() => {
   const ws = workspaceStore.currentWorkspace;
   if (!ws || ws.clean !== false) return 0;
   return ws.changed_files || 0;
-});
-const dirtySummaryHtml = computed(() => {
-  const ws = workspaceStore.currentWorkspace;
-  if (!ws || ws.clean !== false) return "";
-  const files = ws.changed_files || 0;
-  const ins = ws.insertions || 0;
-  const del = ws.deletions || 0;
-  const filePart = files > 0 ? `<span class="branch-bar-files">${files}F</span>` : "";
-  return `${filePart}<span class="branch-bar-ins">+${ins}</span><span class="branch-bar-del">-${del}</span>`;
 });
 
 const issuesCount = ref(null);
@@ -312,9 +294,6 @@ onUnmounted(() => _offHandlers.forEach((off) => off()));
 
 defineExpose({ handleBack });
 
-watch(() => workspaceStore.currentWorkspace?.branch, () => {
-  updateViewTitle();
-});
 
 onMounted(() => {
   const detail = viewState.value?.detail;
@@ -397,57 +376,6 @@ onMounted(() => {
   flex-direction: column;
 }
 
-/* ブランチ情報バー */
-.workspace-branch-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  background: color-mix(in srgb, var(--bg-secondary) 70%, transparent);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.workspace-branch-icon {
-  font-size: 13px;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.workspace-branch-name {
-  font-size: 12px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex-shrink: 1;
-  min-width: 0;
-}
-
-.workspace-branch-dirty {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 600;
-  flex-shrink: 0;
-  margin-left: auto;
-}
-
-.workspace-branch-dirty :deep(.branch-bar-files) {
-  color: var(--warning);
-}
-
-.workspace-branch-dirty :deep(.branch-bar-ins) {
-  color: var(--success);
-}
-
-.workspace-branch-dirty :deep(.branch-bar-del) {
-  color: var(--error);
-}
-
 @media (max-width: 767px) {
   .workspace-detail {
     flex-direction: column-reverse;
@@ -459,11 +387,6 @@ onMounted(() => {
 
   .workspace-tab {
     border-radius: 0 0 var(--radius) var(--radius);
-  }
-
-  .workspace-branch-bar {
-    border-bottom: none;
-    border-top: 1px solid var(--border);
   }
 }
 </style>
