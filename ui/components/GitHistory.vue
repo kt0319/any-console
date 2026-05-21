@@ -104,7 +104,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 
 import FileItem from "./FileItem.vue";
 import FileActionMenu from "./FileActionMenu.vue";
@@ -121,7 +121,7 @@ import { useGitLogPagination } from "../composables/useGitLogPagination.js";
 import { useEditorIntegration } from "../composables/useEditorIntegration.js";
 import { useAuthStore } from "../stores/auth.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
-import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
+import { GIT_DIFF_STATUS_CLASSES, MOBILE_BREAKPOINT_PX } from "../utils/constants.js";
 import { GRAPH_ROW_HEIGHT } from "../utils/git-graph.js";
 import { abbreviateBranch } from "../utils/git.js";
 import { workspaceGitDiscardPath, workspaceDownloadPath, workspaceCommitMessagePath } from "../utils/endpoints.js";
@@ -130,8 +130,14 @@ import { useConfirm } from "../composables/useConfirm.js";
 
 const emitToParent = defineEmits(["commit:expanded", "commit:collapsed"]);
 
+const mobileQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX - 1}px)`);
+const isMobile = ref(mobileQuery.matches);
+function onMobileChange(e) { isMobile.value = e.matches; }
+onMounted(() => mobileQuery.addEventListener("change", onMobileChange));
+onBeforeUnmount(() => mobileQuery.removeEventListener("change", onMobileChange));
+
 function abbreviateRef(r) {
-  if (r.type === "tag") return { abbr: "", rest: r.label };
+  if (r.type === "tag" || !isMobile.value || r.label.length < 24) return { abbr: "", rest: r.label };
   return abbreviateBranch(r.label);
 }
 
