@@ -197,7 +197,7 @@ async function backgroundLoadCounts(workspace) {
   if (!prError.value) prsCount.value = prItems.value.length;
 }
 
-async function open(options) {
+function open(options) {
   options = options || {};
   const paneKey = options.pane || "jobs";
   const resolvedPane = paneKey === "browser" ? "history" : paneKey;
@@ -215,7 +215,7 @@ async function open(options) {
   const workspaceChanged = workspace !== loadedWorkspace;
   if (workspaceChanged) {
     loadedWorkspace = workspace;
-    await gitHistory.value?.load();
+    gitHistory.value?.load();
   } else {
     gitHistory.value?.reload();
   }

@@ -110,11 +110,11 @@ function popView(result) {
 function openView(views) {
   viewStack.value = Array.isArray(views)
     ? views : [{ view: views, state: {} }];
-  nextTick(() => openModal());
+  openModal();
 }
 
 function openModal() {
-  modal.open(modalEl.value, closeModal);
+  modal.open(() => modalEl.value, closeModal);
 }
 
 function closeModal() {

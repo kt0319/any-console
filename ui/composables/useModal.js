@@ -39,7 +39,7 @@ export function useModal() {
     return () => modalEl.removeEventListener("keydown", onKeydown);
   }
 
-  function open(modalEl, closeFn) {
+  function open(modalElOrGetter, closeFn) {
     visible.value = true;
     const onEscape = (e) => {
       if (e.key === "Escape") {
@@ -50,8 +50,9 @@ export function useModal() {
     document.addEventListener("keydown", onEscape, true);
     releaseEscape = () => document.removeEventListener("keydown", onEscape, true);
     nextTick(() => {
-      if (modalEl) {
-        releaseKeydown = trapFocus(modalEl, closeFn);
+      const el = typeof modalElOrGetter === "function" ? modalElOrGetter() : modalElOrGetter;
+      if (el) {
+        releaseKeydown = trapFocus(el, closeFn);
       }
     });
   }
