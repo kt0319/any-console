@@ -225,20 +225,20 @@ async function loadWorkingTreeDiff() {
   await withWorkspace(async () => {
     isLoading.value = true;
     isWorkingTree.value = true;
+    const stashBtn = {
+      label: "Stash",
+      loading: false,
+      disabled: () => isStashDisabled.value,
+      handler: async () => { stashBtn.loading = true; emit("git:stashSave"); },
+    };
+    actionButtons.value = [
+      { label: "Commit", class: "primary", disabled: () => isCommitDisabled.value, handler: () => commitForm.value?.submit() },
+      stashBtn,
+    ];
     try {
       const result = await fetchWorkingTreeDiff();
       if (!result) return;
       files.value = result.fileList;
-      const stashBtn = {
-        label: "Stash",
-        loading: false,
-        disabled: () => isStashDisabled.value,
-        handler: async () => { stashBtn.loading = true; emit("git:stashSave"); },
-      };
-      actionButtons.value = [
-        { label: "Commit", class: "primary", disabled: () => isCommitDisabled.value, handler: () => commitForm.value?.submit() },
-        stashBtn,
-      ];
     } catch (e) {
       console.error("diff load failed:", e);
     } finally {
