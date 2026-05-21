@@ -1,19 +1,5 @@
 <template>
   <div class="git-files-pane-wrapper">
-    <div v-if="actionButtons.length" class="diff-actions">
-      <button
-        v-for="action in actionButtons"
-        :key="action.label"
-        type="button"
-        :class="action.class || ''"
-        :disabled="action.loading"
-        @click="action.handler"
-      >
-        <span v-if="action.loading" class="mdi mdi-loading diff-action-spin"></span>
-        <template v-else>{{ action.label }}</template>
-      </button>
-    </div>
-    <GitCommitForm ref="commitForm" />
     <div class="diff-file-list">
       <div v-if="isLoading" class="text-muted-center">Loading...</div>
       <ul v-else class="file-browser-list diff-file-browser-list">
@@ -47,6 +33,20 @@
           />
         </template>
       </ul>
+    </div>
+    <GitCommitForm ref="commitForm" />
+    <div v-if="actionButtons.length" class="diff-actions">
+      <button
+        v-for="action in actionButtons"
+        :key="action.label"
+        type="button"
+        :class="action.class || ''"
+        :disabled="action.loading || action.disabled?.()"
+        @click="action.handler"
+      >
+        <span v-if="action.loading" class="mdi mdi-loading diff-action-spin"></span>
+        <template v-else>{{ action.label }}</template>
+      </button>
     </div>
   </div>
 </template>
@@ -94,6 +94,11 @@ const {
   onItemMouseLeave: onFileMouseLeave,
   onMenuMouseEnter, onMenuMouseLeave,
 } = useHoverMenu();
+
+const isCommitDisabled = computed(
+  () => !commitForm.value?.commitMessage?.value?.trim() || !!commitForm.value?.submitting?.value,
+);
+const isStashDisabled = computed(() => files.value.length === 0);
 
 function statusClass(status) {
   return GIT_DIFF_STATUS_CLASSES[status] || "";
@@ -224,12 +229,14 @@ async function loadWorkingTreeDiff() {
       const result = await fetchWorkingTreeDiff();
       if (!result) return;
       files.value = result.fileList;
-      const stashBtn = { label: "Stash", loading: false, handler: async () => {
-        stashBtn.loading = true;
-        emit("git:stashSave");
-      }};
+      const stashBtn = {
+        label: "Stash",
+        loading: false,
+        disabled: () => isStashDisabled.value,
+        handler: async () => { stashBtn.loading = true; emit("git:stashSave"); },
+      };
       actionButtons.value = [
-        { label: "Commit", class: "primary", handler: () => commitForm.value?.submit() },
+        { label: "Commit", class: "primary", disabled: () => isCommitDisabled.value, handler: () => commitForm.value?.submit() },
         stashBtn,
       ];
     } catch (e) {
@@ -324,12 +331,4 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
   border-color: var(--error);
 }
 
-@media (max-width: 767px) {
-  .diff-actions {
-    order: 1;
-  }
-  :deep(.diff-commit-form-wrapper) {
-    order: 1;
-  }
-}
 </style>
