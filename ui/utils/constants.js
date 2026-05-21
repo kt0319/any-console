@@ -31,7 +31,6 @@ export const TOAST_DEFAULT_DURATION_MS = 3000;
 export const HIDDEN_TAB_FLASH_DURATION_MS = 2000;
 export const LINK_TAP_RESET_MS = 300;
 export const EDITOR_CONFIG_DEBOUNCE_MS = 500;
-export const RESIZE_FIT_DEBOUNCE_MS = 50;
 export const FRAME_FIT_DEBOUNCE_MS = 250;
 export const FIT_WRITE_QUIET_MS = 120;
 export const FIT_MAX_WAIT_MS = 1000;

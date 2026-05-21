@@ -47,7 +47,7 @@ import { useSessionSync } from "../composables/useSessionSync.js";
 import { useSnippetPersist } from "../composables/useSnippetPersist.js";
 import { on, emit } from "../app-bridge.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_RUN, EP_SETTINGS_CONFIG_HEALTH } from "../utils/endpoints.js";
-import { TERMINAL_JOB_KEY, RESIZE_FIT_DEBOUNCE_MS } from "../utils/constants.js";
+import { TERMINAL_JOB_KEY } from "../utils/constants.js";
 
 const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
@@ -115,7 +115,6 @@ const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
 
 let mainPanelResizeObserver = null;
-let resizeFitTimerId = null;
 
 function openWorkspaceSelection() {
   emit("workspace:openModal");
@@ -294,13 +293,7 @@ onMounted(() => {
   document.addEventListener("keydown", onGlobalKeydown, true);
 
   if (typeof ResizeObserver !== "undefined") {
-    mainPanelResizeObserver = new ResizeObserver(() => {
-      if (resizeFitTimerId) clearTimeout(resizeFitTimerId);
-      resizeFitTimerId = setTimeout(() => {
-        resizeFitTimerId = null;
-        terminalBaseView.value?.fitAllTerminals();
-      }, RESIZE_FIT_DEBOUNCE_MS);
-    });
+    mainPanelResizeObserver = new ResizeObserver(() => {});
     const main = document.querySelector(".main-panel");
     if (main) mainPanelResizeObserver.observe(main);
   }
