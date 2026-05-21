@@ -17,6 +17,13 @@
         "icon": "mdi-package-variant",
         "icon_color": "#fb8c00",
         "confirm": true
+      },
+      "job_000000000003": {
+        "command": "npm run e2e",
+        "label": "E2E Test",
+        "icon": "mdi-test-tube",
+        "confirm": false,
+        "timeout_sec": 1800
       }
     }
   },

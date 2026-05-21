@@ -81,6 +81,7 @@ def entry_to_job_definition(name, entry):
         hidden_tab=entry.get("hidden_tab", False),
         type=entry.get("type", "command"),
         url=entry.get("url", ""),
+        timeout_sec=entry.get("timeout_sec") or None,
     )
 
 
@@ -117,6 +118,7 @@ def job_definition_to_dict(job_def, is_common=None):
         "hidden_tab": job_def.hidden_tab,
         "type": job_def.type,
         "url": job_def.url,
+        "timeout_sec": job_def.timeout_sec,
     }
     if is_common is not None:
         d["common"] = is_common
@@ -147,6 +149,7 @@ def build_job_entry(
     hidden_tab: bool = False,
     job_type: str = "command",
     url: str = "",
+    timeout_sec: int | None = None,
 ) -> dict:
     entry: dict[str, Any] = {}
     if job_type == "browser":
@@ -162,6 +165,8 @@ def build_job_entry(
         entry["confirm"] = False
     if hidden_tab:
         entry["hidden_tab"] = True
+    if timeout_sec is not None:
+        entry["timeout_sec"] = timeout_sec
     return entry
 
 
@@ -174,6 +179,7 @@ class JobRequest(BaseModel):
     icon_color: str = Field("", max_length=20)
     confirm: bool = True
     hidden_tab: bool = False
+    timeout_sec: int | None = Field(None, ge=1, le=86400)
 
 
 class ReorderJobsRequest(BaseModel):
@@ -210,7 +216,7 @@ def save_job(data, save_fn, job_name, body, log_msg):
         job_name = generate_job_key(data)
     data[job_name] = build_job_entry(
         command, label, body.icon, body.icon_color, body.confirm, body.hidden_tab,
-        job_type=job_type, url=url,
+        job_type=job_type, url=url, timeout_sec=body.timeout_sec,
     )
     save_fn(data)
     logger.info(log_msg, job_name)

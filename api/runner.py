@@ -22,14 +22,15 @@ def run_job(
         env.update(extra_env)
     cwd = workspace if workspace else str(PROJECT_ROOT)
 
-    logger.info("run command=%s args=%s cwd=%s", sanitize_log_value(job.command), args, cwd)
+    timeout = job.timeout_sec if job.timeout_sec is not None else JOB_TIMEOUT_SEC
+    logger.info("run command=%s args=%s cwd=%s timeout=%s", sanitize_log_value(job.command), args, cwd, timeout)
     result = subprocess.run(
         cmd_parts,
         capture_output=True,
         text=True,
         cwd=cwd,
         env=env,
-        timeout=JOB_TIMEOUT_SEC,
+        timeout=timeout,
     )
     logger.info("done command=%s rc=%d stdout_len=%d stderr_len=%d",
                 sanitize_log_value(job.command), result.returncode, len(result.stdout), len(result.stderr))

@@ -21,6 +21,7 @@ class JobDefinition:
     hidden_tab: bool = False
     type: str = "command"
     url: str = ""
+    timeout_sec: int | None = None
 
 
 TERMINAL_JOB_KEY = "terminal"

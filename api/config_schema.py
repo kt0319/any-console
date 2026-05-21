@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseModel, Field, ValidationError, model_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
 try:
     from pydantic import ConfigDict
@@ -32,6 +32,18 @@ class JobConfig(_ConfigModel):
     icon_color: str = ""
     confirm: bool = True
     terminal: bool = False
+    timeout_sec: int | None = None
+
+    @field_validator("timeout_sec")
+    @classmethod
+    def _validate_timeout_sec(cls, v):
+        if v is None:
+            return v
+        if not isinstance(v, int) or v < 1:
+            raise ValueError("timeout_sec must be a positive integer")
+        if v > 86400:
+            raise ValueError("timeout_sec must not exceed 86400 (24h)")
+        return v
 
     @model_validator(mode="after")
     def _check_command_or_url(self):

@@ -254,7 +254,7 @@ api/
 
 ### runner.py
 
-- ジョブ実行（subprocess、300秒タイムアウト）
+- ジョブ実行（subprocess、デフォルトタイムアウト 300秒（ジョブごとに timeout_sec で上書き可能））
 
 ### terminal_session.py / tmux.py
 
@@ -329,7 +329,7 @@ PWA対応あり。
 ## 実行
 
 - subprocess
-- timeout 300秒
+- デフォルトタイムアウト 300秒（ジョブごとに `timeout_sec` で上書き可能、上限 86400 秒）
 
 ---
 

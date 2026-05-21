@@ -31,6 +31,11 @@
         <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.confirm" /> Confirm dialog</label>
         <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.hidden_tab" /> Run in hidden tab</label>
       </div>
+      <div v-if="form.type !== 'browser'" class="ws-settings-row">
+        <span class="ws-settings-label">Timeout (sec)</span>
+        <input type="number" class="form-input" style="max-width:120px" v-model.number="form.timeout_sec"
+          placeholder="Default (300)" min="1" max="86400" autocomplete="off" />
+      </div>
       <div class="ws-settings-row" style="gap:8px">
         <button type="button" class="primary" :disabled="saving" @click="saveJob">
           {{ saving ? 'Saving...' : 'Save' }}
@@ -81,6 +86,7 @@ const form = ref(
           icon_color: jobEntry.job.icon_color || "",
           confirm: jobEntry.job.confirm !== false,
           hidden_tab: !!jobEntry.job.hidden_tab,
+          timeout_sec: jobEntry.job.timeout_sec ?? null,
         }
       : {
           label: "",
@@ -91,6 +97,7 @@ const form = ref(
           icon_color: "",
           confirm: false,
           hidden_tab: false,
+          timeout_sec: null,
         }
 );
 
@@ -138,6 +145,7 @@ async function saveJob() {
     const icon = f.type === "browser"
       ? (trimmedUrl ? `favicon:${extractDomain(trimmedUrl)}` : DEFAULT_JOB_ICON)
       : (f.icon.trim() || DEFAULT_JOB_ICON);
+    const timeoutSec = f.type !== "browser" && f.timeout_sec ? Number(f.timeout_sec) : null;
     const body = {
       label: f.label.trim(),
       type: f.type,
@@ -147,6 +155,7 @@ async function saveJob() {
       icon_color: f.type === "browser" ? "" : f.icon_color.trim(),
       confirm: f.type === "browser" ? false : f.confirm,
       hidden_tab: f.type === "browser" ? false : f.hidden_tab,
+      timeout_sec: timeoutSec,
     };
     const { ok, data } = isNew ? await apiPost(url, body) : await apiPut(url, body);
     if (!ok) {
