@@ -133,16 +133,26 @@ docker compose -f docker/compose.yml up -d
 
 # 認証
 
-認証はオプション。
+デフォルトは **自動生成トークンで認証有効**。
 
-デフォルト:
+初回起動時に `data/auth.json` が存在しない場合、32文字のランダムトークンを生成して保存し、
+接続用 URL を標準出力と journalctl に1回だけ表示する:
 
-- 認証無効
-- Tailscale 等で閉域前提
+```
+any-console: Auth token (open this URL on your device):
+  http://<host>:8888/?token=xxxxx
+```
 
-## 有効化
+二回目以降の起動では `data/auth.json` を上書きしない。
 
-UI の `Auth` 設定からトークン発行。
+## 認証無効化
+
+Tailscale 等の閉域ネットワーク前提で意図的に無効化する場合:
+
+- 環境変数: `ANY_CONSOLE_DISABLE_AUTH=1`
+- または `config.json` に `"auth_disabled": true`
+
+いずれかが設定されている場合、トークン自動生成をスキップし認証なしで起動する。
 
 保存先:
 

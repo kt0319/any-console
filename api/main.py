@@ -62,8 +62,32 @@ def _is_loopback_host(host: str) -> bool:
         return False
 
 
+def _is_auth_disabled() -> bool:
+    if os.environ.get("ANY_CONSOLE_DISABLE_AUTH", "").strip() == "1":
+        return True
+    try:
+        from .config import load_global_config_section
+        return bool(load_global_config_section("auth_disabled", False))
+    except Exception:
+        return False
+
+
+def _print_token_url(host: str, port: int, token: str) -> None:
+    display_host = "localhost" if host in ("0.0.0.0", "::", "") else host  # noqa: S104
+    url = f"http://{display_host}:{port}/?token={token}"
+    border = "=" * 64
+    msg = (
+        f"\n{border}\n"
+        f"any-console: Auth token (open this URL on your device):\n"
+        f"  {url}\n"
+        f"{border}"
+    )
+    print(msg, flush=True)  # noqa: T201
+    logger.info("any-console: Auth token URL: %s", url)
+
+
 def _emit_insecure_bind_warning(host: str) -> None:
-    if auth_module.ANY_CONSOLE_TOKEN or _is_loopback_host(host):
+    if auth_module.ANY_CONSOLE_TOKEN or _is_loopback_host(host) or _is_auth_disabled():
         return
     border = "!" * 72
     logger.warning(
@@ -128,6 +152,10 @@ async def lifespan(app: FastAPI):
     host, port = _resolve_bind()
     if not _acquire_singleton_lock(port):
         raise SystemExit(1)
+    if not _is_auth_disabled():
+        auto_token = auth_module.ensure_default_token()
+        if auto_token:
+            _print_token_url(host, port, auto_token)
     _emit_insecure_bind_warning(host)
     yield
     from .terminal_session import TERMINAL_SESSIONS, _detach_pty_bridge, sessions_lock

@@ -1,6 +1,7 @@
 import hmac
 import json
 import logging
+import secrets
 from pathlib import Path
 from typing import Optional
 
@@ -37,6 +38,19 @@ def update_token(new_token: str) -> None:
     _AUTH_FILE.parent.mkdir(parents=True, exist_ok=True)
     _AUTH_FILE.write_text(json.dumps({"token": new_token}))
     ANY_CONSOLE_TOKEN = new_token
+
+
+def ensure_default_token() -> str | None:
+    """data/auth.json がなければ 32 文字のランダムトークンを生成・保存する。
+
+    生成したトークンを返す。既にファイルが存在する場合は None を返す。
+    認証の無効化判定は呼び出し元が行い、無効化時はこの関数を呼ばないこと。
+    """
+    if _AUTH_FILE.exists():
+        return None
+    token = secrets.token_urlsafe(24)  # 24 bytes → 32 base64url chars
+    update_token(token)
+    return token
 
 
 def verify_token(

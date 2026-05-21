@@ -73,8 +73,20 @@ brew install python node git tmux gh
 
 ## 認証
 
-- 起動時はトークン未設定（認証オフ）。Tailscale 等で網が閉じている前提の運用が想定
-- UI の「Security」設定からトークンを発行・更新できる（`data/auth.json` に保存）
+- 初回起動時に `data/auth.json` が存在しない場合、32文字のランダムトークンを自動生成して保存する
+- 接続用 URL を標準出力と journalctl に表示するので、その URL をデバイスで開くと認証済みセッションが始まる
+- 二回目以降の起動では `data/auth.json` を上書きしない
+- UI の「Security」設定からトークンを変更できる
+
+### 認証を無効にする（Tailscale 等の閉域前提）
+
+```bash
+# 環境変数で無効化
+ANY_CONSOLE_DISABLE_AUTH=1 ./any-console start
+
+# または config.json に記載
+# "auth_disabled": true
+```
 
 ## コマンド一覧
 
