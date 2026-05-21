@@ -7,6 +7,8 @@
 - **tmux** as the session persistence layer. Sessions survive browser closes.
 - **Single shared token** — no per-user distinction. Auto-generated on first run, stored in `data/auth.json`.
 
+For the rationale behind each decision, see [DECISIONS.md](DECISIONS.md).
+
 ## Notes for contributors
 
 | Target | Watch out for |

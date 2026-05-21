@@ -135,6 +135,19 @@ data/auth.json        Token storage (.gitignore'd)
 - Generated automatically on first run. To configure manually, copy `config.json.example` and edit it.
 - Export/import is available from the settings modal.
 
+## Project Stance
+
+any-console is built primarily for the author's own daily use.
+
+- **Issues and PRs are welcome**, but responses are best-effort and not guaranteed.
+- **This project has strong opinions** (see `CLAUDE.md`). Pull requests that conflict
+  with the existing design philosophy may be declined regardless of code quality.
+- **Fork freely** if you want a different direction — that is the spirit of MIT.
+- **Release cadence is irregular.** A quiet month does not mean the project is abandoned.
+- **No SLA, no roadmap promises.** Features land when they are useful to the author.
+
+If these terms work for you, welcome aboard.
+
 ## License
 
 [MIT](LICENSE)
