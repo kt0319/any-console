@@ -43,6 +43,7 @@ import { usePrompt } from "../composables/usePrompt.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 
+const props = defineProps({ insertMode: { type: Boolean, default: false } });
 const emit = defineEmits(["chip:tap"]);
 const { snippets, history, truncateQuickText } = useQuickInputData();
 const { prompt } = usePrompt();
@@ -69,8 +70,8 @@ function onSnippetTouchEnd(e, snippet) {
   longPress.cancel();
   if (longPress.consumeFired()) return;
   if (e.cancelable) e.preventDefault();
-  bridgeEmit("snippet:tap", { command: snippet.command });
-  emit("chip:tap");
+  if (!props.insertMode) bridgeEmit("snippet:tap", { command: snippet.command });
+  emit("chip:tap", { command: snippet.command });
 }
 
 function onHistoryTouchStart(e, text) {
@@ -87,8 +88,8 @@ function onHistoryTouchEnd(e, text) {
   longPress.cancel();
   if (longPress.consumeFired()) return;
   if (e.cancelable) e.preventDefault();
-  bridgeEmit("snippet:tap", { command: text });
-  emit("chip:tap");
+  if (!props.insertMode) bridgeEmit("snippet:tap", { command: text });
+  emit("chip:tap", { command: text });
 }
 
 function onTouchMove(e) {

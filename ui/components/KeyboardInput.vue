@@ -3,7 +3,7 @@
     <div class="keyboard-input-overlay" @click="hide"></div>
     <div class="keyboard-input-wrapper quick-input" @pointerdown="markInternalInteraction">
       <div class="keyboard-input-snippets">
-        <KeyboardChips ref="chipsEl" @chip:tap="hide" />
+        <KeyboardChips ref="chipsEl" :insert-mode="true" @chip:tap="onChipTap" />
       </div>
       <div class="keyboard-input-row">
         <input
@@ -73,6 +73,11 @@ function onInputBlur() {
 
 function markInternalInteraction() {
   suppressBlurHide = true;
+}
+
+function onChipTap({ command }) {
+  draft.value = command;
+  nextTick(() => inputEl.value?.focus());
 }
 
 function submit() {
