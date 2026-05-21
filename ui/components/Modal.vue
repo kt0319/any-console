@@ -21,7 +21,7 @@
             {{ modalTitle }}<template v-if="modalBranch"><span class="modal-title-sep"> / </span><span class="modal-title-branch">{{ modalBranch }}</span></template>
           </h3>
         </button>
-        <button type="button" class="modal-close-btn" @click="closeModal">&times;</button>
+        <button type="button" class="modal-close-btn" aria-label="Close" @click="closeModal">&times;</button>
       </div>
       <div class="modal-body">
         <ModalMenu v-if="currentView === 'ModalMenu'" />
@@ -292,7 +292,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  outline: none;
+}
+
+.modal-close-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 @media (min-width: 900px) {

@@ -23,13 +23,13 @@
       <span v-if="showHistory" class="file-browser-crumb-badge">History</span>
       <span v-if="!props.diffFile" class="file-browser-header-actions">
         <template v-if="fileContent || showHistory">
-          <button type="button" class="file-browser-header-btn" @click="toggleHistory"><span class="mdi" :class="showHistory ? 'mdi-file-document-outline' : 'mdi-history'"></span></button>
+          <button type="button" class="file-browser-header-btn" :aria-label="showHistory ? 'Show file' : 'Show history'" @click="toggleHistory"><span class="mdi" :class="showHistory ? 'mdi-file-document-outline' : 'mdi-history'" aria-hidden="true"></span></button>
         </template>
         <template v-else>
           <input ref="uploadInputEl" type="file" multiple class="file-browser-upload-input" @change="onUploadInputChange">
-          <button type="button" class="file-browser-header-btn" @click="showHidden = !showHidden"><span class="mdi" :class="showHidden ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"></span></button>
-          <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" @click="openDirInEditor"><span class="mdi mdi-file-edit-outline"></span></button>
-          <button type="button" class="file-browser-header-btn" @click="uploadInputEl?.click()"><span class="mdi mdi-upload"></span></button>
+          <button type="button" class="file-browser-header-btn" :aria-label="showHidden ? 'Hide hidden files' : 'Show hidden files'" @click="showHidden = !showHidden"><span class="mdi" :class="showHidden ? 'mdi-eye-outline' : 'mdi-eye-off-outline'" aria-hidden="true"></span></button>
+          <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" aria-label="Open in editor" @click="openDirInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span></button>
+          <button type="button" class="file-browser-header-btn" aria-label="Upload files" @click="uploadInputEl?.click()"><span class="mdi mdi-upload" aria-hidden="true"></span></button>
         </template>
       </span>
     </div>

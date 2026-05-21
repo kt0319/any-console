@@ -6,6 +6,8 @@
         :key="toast.id"
         :class="['toast', `toast-${toast.type}`, 'show']"
         :style="{ top: toast.top + 'px' }"
+        :role="toast.type === 'error' ? 'alert' : 'status'"
+        :aria-live="toast.type === 'error' ? 'assertive' : 'polite'"
         @click="dismiss(toast)"
       >
         <div v-for="(line, i) in toast.lines" :key="i" class="toast-line">{{ line }}</div>
