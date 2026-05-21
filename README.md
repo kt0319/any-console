@@ -7,25 +7,25 @@
 [![Vue 3](https://img.shields.io/badge/Vue-3-4fc08d.svg)](https://vuejs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
 
-**スマホとPCで途切れない開発コンソール。** 同じ tmux セッションをブラウザから両方のデバイスで触れる、セルフホスト型の Web 操作環境。
+**A seamless dev console across phone and PC.** A self-hosted web environment where the same tmux session is accessible from any device via a browser.
 
-## なぜ any-console か
+## Why any-console?
 
-- **デバイス間シームレス** — PC で `npm test` を流して、移動中スマホで結果を見て、帰宅後 PC で続きを書く。tmux セッションが永続化され、ブラウザを閉じても同じセッションに再接続できる
-- **モバイルで本気で打てる** — フリック入力対応の独自仮想キーボード。スマホから git commit や端末操作が現実的にできる
-- **ジョブ・Git・ターミナル統合** — 個別ツールを行き来せず、ワンタップでスクリプト実行から git push まで完結
+- **Seamless across devices** — Start `npm test` on your PC, check the output on your phone during commute, and pick up where you left off when you get home. tmux sessions persist — closing the browser doesn't end the session.
+- **Serious mobile input** — A custom virtual keyboard with flick input. Practical enough to run `git commit` from your phone.
+- **Jobs, Git, and terminal in one place** — No tab-switching between tools. Run scripts, commit, and push — all in one tap.
 
-## 特徴
+## Features
 
-- **永続セッション** — tmux × WebSocket で、デバイスを切り替えても同じセッションを続けられる
-- **モバイル最適入力** — フリック入力の独自キーボード、スワイプ操作対応
-- **Webターミナル** — xterm.js ベース、複数タブ・分割表示
-- **Git操作** — ブランチ切替、commit、push/pull、diff、履歴、stash、merge/rebase を UI で完結
-- **ジョブ実行** — シェルスクリプトをワンタップで起動、UI から定義・編集
-- **PWA対応** — スマホ・PC にインストール可能
-- **軽量構成** — Vue 3 + Pinia + FastAPI、Vite でビルド
+- **Persistent sessions** — tmux × WebSocket; switch devices without losing your session
+- **Mobile-optimized input** — Custom flick keyboard with swipe support
+- **Web terminal** — xterm.js based, multi-tab and split-pane
+- **Git UI** — Branch switching, commit, push/pull, diff, history, stash, merge/rebase
+- **Job runner** — One-tap shell script execution; define and edit jobs from the UI
+- **PWA** — Installable on phone and desktop
+- **Lightweight stack** — Vue 3 + Pinia + FastAPI, built with Vite
 
-## セットアップ
+## Setup
 
 ### Docker
 
@@ -35,7 +35,7 @@ cd any-console
 docker compose -f docker/compose.yml up -d
 ```
 
-`http://<host>:8888` にアクセス。
+Open `http://<host>:8888`.
 
 ### systemd (Linux)
 
@@ -45,96 +45,96 @@ cd any-console
 ./any-console setup
 ```
 
-依存インストール、フロントエンドビルド、systemd 登録までまとめて実行する。
+Installs dependencies, builds the frontend, and registers a systemd service in one step.
 
-### 必要環境
+### Requirements
 
-必須:
+Required:
 
 - Python 3.11+
 - Node.js 18+
-- `git` — Git操作機能で使用
-- `tmux` — ターミナルセッション管理に必須
+- `git` — used by the Git UI
+- `tmux` — required for terminal session management
 
-任意:
+Optional:
 
-- `gh` (GitHub CLI) — GitHubのリポジトリ・Issue・PR・Actionsの取得に使用
+- `gh` (GitHub CLI) — for fetching GitHub repos, issues, PRs, and Actions
 
-インストール例:
+Installation examples:
 
 ```bash
 # Debian/Ubuntu
 sudo apt install python3 nodejs git tmux
-# 任意: gh は公式手順に従う
+# optional: follow the official gh install guide
 
 # macOS
 brew install python node git tmux gh
 ```
 
-## 認証
+## Authentication
 
-- 初回起動時に `data/auth.json` が存在しない場合、32文字のランダムトークンを自動生成して保存する
-- 接続用 URL を標準出力と journalctl に表示するので、その URL をデバイスで開くと認証済みセッションが始まる
-- 二回目以降の起動では `data/auth.json` を上書きしない
-- UI の「Security」設定からトークンを変更できる
+- On first start, if `data/auth.json` does not exist, a random 32-character token is generated and saved automatically.
+- The connection URL is printed to stdout and journalctl once. Open it on your device to start an authenticated session.
+- On subsequent starts, `data/auth.json` is never overwritten.
+- The token can be changed from the "Security" settings in the UI.
 
-### 認証を無効にする（Tailscale 等の閉域前提）
+### Disabling authentication (for closed networks like Tailscale)
 
 ```bash
-# 環境変数で無効化
+# via environment variable
 ANY_CONSOLE_DISABLE_AUTH=1 ./any-console start
 
-# または config.json に記載
+# or in config.json
 # "auth_disabled": true
 ```
 
-## コマンド一覧
+## Commands
 
-すべての操作は `./any-console` コマンドで行う。
+All operations go through the `./any-console` command.
 
 ```
-./any-console setup      初回セットアップ（依存インストール + ビルド + systemd登録）
-./any-console update     最新版に更新（git pull + 依存更新 + ビルド + サービス再起動）
-./any-console start      サービス起動
-./any-console stop       サービス停止
-./any-console restart    サービス再起動
-./any-console status     状態表示（サービス状態、URL、バージョン）
-./any-console logs       サービスログ表示（journalctl）
-./any-console version    バージョン表示
+./any-console setup      First-time setup (install deps + build + register systemd)
+./any-console update     Update to latest (git pull + update deps + build + restart)
+./any-console start      Start the service
+./any-console stop       Stop the service
+./any-console restart    Restart the service
+./any-console status     Show status (service state, URL, version)
+./any-console logs       Show service logs (journalctl)
+./any-console version    Show version
 ```
 
-### アップデート
+### Updating
 
 ```bash
 ./any-console update
 ```
 
-`git pull` → 依存更新 → ビルド → サービス再起動を一括で行う。変更がなければスキップする。
+Runs `git pull` → update deps → build → restart in one shot. Skips steps where nothing has changed.
 
-## ディレクトリ構成
+## Directory structure
 
 ```
-api/                  バックエンド (FastAPI)
-  routers/            ルーター (workspaces, git, jobs, terminal, settings, system, github)
-  main.py             アプリ初期化、静的ファイル配信
-  auth.py             Bearerトークン認証（オプション）
-  runner.py           ジョブ実行 (subprocess)
-  terminal_session.py tmux × pty.fork × WebSocket ブリッジ
-  rate_limiter.py     レートリミッタ
-  config.py           config.json 読み書き
-ui/                   フロントエンド (Vue 3 + Pinia、Viteでビルド)
-docker/               Docker 関連 (Dockerfile, compose.yml)
-docs/                 設計ドキュメント (ARCHITECTURE.md)
-config.json           設定ファイル（自動生成、.gitignore対象）
-data/auth.json        トークン保存（.gitignore対象）
+api/                  Backend (FastAPI)
+  routers/            Routers (workspaces, git, jobs, terminal, settings, system, github)
+  main.py             App init, static file serving
+  auth.py             Bearer token auth (optional)
+  runner.py           Job execution (subprocess)
+  terminal_session.py tmux × pty.fork × WebSocket bridge
+  rate_limiter.py     Rate limiter
+  config.py           config.json read/write
+ui/                   Frontend (Vue 3 + Pinia, built with Vite)
+docker/               Docker files (Dockerfile, compose.yml)
+docs/                 Design docs (ARCHITECTURE.md)
+config.json           Config file (auto-generated, .gitignore'd)
+data/auth.json        Token storage (.gitignore'd)
 ```
 
-## 設定
+## Configuration
 
-- ワークスペースの設定（アイコン、ジョブ定義、リンク等）は `config.json` に保存される
-- 初回起動時に自動生成される。手動で用意する場合は `config.json.example` をコピーして編集する
-- 設定モーダルからエクスポート/インポートが可能
+- Workspace settings (icons, job definitions, links, etc.) are stored in `config.json`.
+- Generated automatically on first run. To configure manually, copy `config.json.example` and edit it.
+- Export/import is available from the settings modal.
 
-## ライセンス
+## License
 
 [MIT](LICENSE)
