@@ -6,8 +6,12 @@
         :key="action.label"
         type="button"
         :class="action.class || ''"
+        :disabled="action.loading"
         @click="action.handler"
-      >{{ action.label }}</button>
+      >
+        <span v-if="action.loading" class="mdi mdi-loading diff-action-spin"></span>
+        <template v-else>{{ action.label }}</template>
+      </button>
     </div>
     <GitCommitForm ref="commitForm" />
     <div class="diff-file-list">
@@ -220,9 +224,13 @@ async function loadWorkingTreeDiff() {
       const result = await fetchWorkingTreeDiff();
       if (!result) return;
       files.value = result.fileList;
+      const stashBtn = { label: "Stash", loading: false, handler: async () => {
+        stashBtn.loading = true;
+        emit("git:stashSave");
+      }};
       actionButtons.value = [
-        { label: "Commit", class: "primary", handler: () => commitForm.value?.open() },
-        { label: "Stash", handler: () => emit("git:stashSave") },
+        { label: "Commit", class: "primary", handler: () => commitForm.value?.submit() },
+        stashBtn,
       ];
     } catch (e) {
       console.error("diff load failed:", e);
@@ -271,9 +279,17 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
 }
 
 .diff-actions button {
-  font-size: 11px;
-  padding: 4px 10px;
+  font-size: 13px;
+  padding: 7px 14px;
   min-height: 0;
+}
+
+.diff-action-spin {
+  animation: diff-action-spin 0.6s linear infinite;
+}
+
+@keyframes diff-action-spin {
+  to { transform: rotate(360deg); }
 }
 
 .diff-file-list {
@@ -306,5 +322,11 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
 .file-browser-action-delete {
   color: var(--error);
   border-color: var(--error);
+}
+
+@media (max-width: 767px) {
+  .git-files-pane-wrapper {
+    flex-direction: column-reverse;
+  }
 }
 </style>

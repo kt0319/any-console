@@ -513,4 +513,9 @@ defineExpose({
   border-color: var(--error);
 }
 
+@media (max-width: 767px) {
+  .git-history-pane-wrapper {
+    flex-direction: column-reverse;
+  }
+}
 </style>

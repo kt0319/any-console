@@ -284,8 +284,10 @@ const _offHandlers = [
   on("git:stashSave", async () => {
     const workspace = workspaceStore.selectedWorkspace;
     if (!workspace) return;
-    const { ok } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true }, { errorMessage: "Stash save failed" });
+    const { ok, data } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true }, { errorMessage: "Stash save failed" });
     if (!ok) return;
+    const msg = data?.stdout?.trim() || "Stash saved";
+    bridgeEmit("toast:show", { message: msg, type: "success" });
     gitHistory.value?.reload();
   }),
 ];

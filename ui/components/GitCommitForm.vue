@@ -1,24 +1,18 @@
 <template>
-  <div v-if="visible" class="diff-commit-form-wrapper">
-    <div class="git-create-branch-row diff-commit-row">
-      <input
-        ref="messageInput"
-        v-model="commitMessage"
-        type="text"
-        class="form-input"
-        placeholder="Commit message"
-        autocomplete="off"
-        @keydown.enter.prevent
-      />
-      <button type="button" class="primary" :disabled="!commitMessage.trim() || submitting" @click="submit">Commit</button>
-      <button type="button" @click="close">Close</button>
-    </div>
+  <div class="diff-commit-form-wrapper">
+    <textarea
+      v-model="commitMessage"
+      class="diff-commit-textarea"
+      placeholder="Commit message"
+      autocomplete="off"
+      rows="3"
+    ></textarea>
     <div v-if="error" class="form-error">{{ error }}</div>
   </div>
 </template>
 
 <script setup>
-import { ref, nextTick } from "vue";
+import { ref } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
@@ -29,23 +23,9 @@ const { apiCommand, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
 const workspaceStore = useWorkspaceStore();
 
-const visible = ref(false);
 const commitMessage = ref("");
 const error = ref("");
 const submitting = ref(false);
-const messageInput = ref(null);
-
-function open() {
-  visible.value = true;
-  commitMessage.value = "";
-  error.value = "";
-  nextTick(() => messageInput.value?.focus());
-}
-
-function close() {
-  visible.value = false;
-  error.value = "";
-}
 
 async function submit() {
   const msg = commitMessage.value.trim();
@@ -66,7 +46,7 @@ async function submit() {
     const { ok, data } = await apiCommand(wsEndpoint(workspace, "commit"), { message: msg });
     if (ok) {
       emit("toast:show", { message: "Committed", type: "success" });
-      close();
+      commitMessage.value = "";
       emit("git:commitDone");
     } else {
       error.value = extractApiError(data, "Commit failed");
@@ -78,7 +58,7 @@ async function submit() {
   }
 }
 
-defineExpose({ open, close, visible });
+defineExpose({ open: () => {}, close: () => {}, submit, submitting, commitMessage });
 </script>
 
 <style scoped>
@@ -90,24 +70,23 @@ defineExpose({ open, close, visible });
   flex-shrink: 0;
 }
 
-.diff-commit-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 6px;
-  align-items: center;
+.diff-commit-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  min-height: 64px;
 }
 
-.diff-commit-row .form-input {
-  min-width: 0;
-}
-
-.diff-commit-row button {
-  width: auto;
-  min-width: 64px;
-  min-height: 36px;
-  height: 36px;
-  padding: 0 12px;
-  font-size: 12px;
+.diff-commit-textarea::placeholder {
+  color: var(--text-muted);
 }
 
 .form-error {
