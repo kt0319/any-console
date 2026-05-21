@@ -6,6 +6,7 @@ let initialized = false;
 const keyboardOpen = ref(false);
 let keyboardCloseTimer = null;
 let fitDebounceTimer = null;
+let orientationFitTimer = null;
 let prevViewportHeightPx = 0;
 let onFitCallback = null;
 
@@ -43,6 +44,7 @@ function updateViewportHeight() {
 }
 
 function debouncedFit() {
+  if (orientationFitTimer) return;
   if (keyboardCloseTimer) return;
   if (fitDebounceTimer) clearTimeout(fitDebounceTimer);
   fitDebounceTimer = setTimeout(() => {
@@ -63,7 +65,13 @@ export function useViewport() {
       window.visualViewport.addEventListener("scroll", updateViewportHeight);
     }
     window.addEventListener("resize", updateViewportHeight);
-    window.addEventListener("orientationchange", () => setTimeout(updateViewportHeight, ORIENTATION_CHANGE_DELAY_MS));
+    window.addEventListener("orientationchange", () => {
+      if (orientationFitTimer) clearTimeout(orientationFitTimer);
+      orientationFitTimer = setTimeout(() => {
+        orientationFitTimer = null;
+        updateViewportHeight();
+      }, ORIENTATION_CHANGE_DELAY_MS);
+    });
 
     document.addEventListener("gesturestart", (e) => e.preventDefault(), { passive: false });
     document.addEventListener("touchmove", (e) => {
