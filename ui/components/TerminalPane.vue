@@ -241,11 +241,7 @@ function onTouchStart(e) {
     if (buf) {
       touchScrollEnabled = true;
       touchScrollStartViewportY = buf.viewportY;
-      const viewportEl = frameEl.value.querySelector(".xterm-viewport");
-      const totalLines = buf.length || 0;
-      if (viewportEl && totalLines > 0 && viewportEl.scrollHeight > 0) {
-        touchScrollLineHeightPx = viewportEl.scrollHeight / totalLines;
-      } else if (term.rows > 0 && frameEl.value.clientHeight > 0) {
+      if (term.rows > 0 && frameEl.value.clientHeight > 0) {
         touchScrollLineHeightPx = frameEl.value.clientHeight / term.rows;
       }
     }
@@ -301,7 +297,7 @@ function onTouchMove(e) {
     const term = props.tab?.term;
     const buf = term?.buffer?.active;
     if (term && buf && touchScrollLineHeightPx > 0) {
-      const linesDelta = -Math.round(dy / touchScrollLineHeightPx);
+      const linesDelta = -Math.round(dy / touchScrollLineHeightPx * 1.5);
       const maxViewportY = Math.max(0, buf.length - term.rows);
       const targetViewportY = Math.max(0, Math.min(maxViewportY, touchScrollStartViewportY + linesDelta));
       const diff = targetViewportY - buf.viewportY;
