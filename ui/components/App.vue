@@ -19,14 +19,12 @@ import { on, emit } from "../app-bridge.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useTerminalStore } from "../stores/terminal.js";
-import { useInputStore } from "../stores/input.js";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useAppJobBridge } from "../composables/useAppJobBridge.js";
 
 const auth = useAuthStore();
 const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
-const inputStore = useInputStore();
 
 const APP_NAME = "any-console";
 const activeTabLabel = computed(() => {
@@ -49,7 +47,6 @@ const authenticated = ref(false);
 async function onAuthenticated() {
   showLogin.value = false;
   authenticated.value = true;
-  inputStore.loadKeyboardLayout();
 }
 
 onMounted(async () => {

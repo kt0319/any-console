@@ -201,21 +201,3 @@ def put_snippets(body: UpdateSnippetsRequest):
     save_global_config_section("snippets", snippets)
     return {"status": "ok", "snippets": snippets}
 
-
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-_DEFAULT_KEYBOARD_LAYOUT_FILE = _PROJECT_ROOT / "ui" / "data" / "keyboard-layout-default.json"
-_USER_KEYBOARD_LAYOUT_FILE = _PROJECT_ROOT / "data" / "keyboard-layout.json"
-
-
-@router.get("/settings/keyboard-layout")
-def get_keyboard_layout():
-    if not _USER_KEYBOARD_LAYOUT_FILE.exists():
-        try:
-            _USER_KEYBOARD_LAYOUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-            _USER_KEYBOARD_LAYOUT_FILE.write_text(_DEFAULT_KEYBOARD_LAYOUT_FILE.read_text())
-        except OSError:
-            pass
-    try:
-        return json.loads(_USER_KEYBOARD_LAYOUT_FILE.read_text())
-    except (OSError, json.JSONDecodeError):
-        return json.loads(_DEFAULT_KEYBOARD_LAYOUT_FILE.read_text())

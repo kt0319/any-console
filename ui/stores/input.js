@@ -2,9 +2,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import { LS_KEY_INPUT_HISTORY, INPUT_HISTORY_MAX } from "../utils/constants.js";
 import { safeJsonLoad } from "../utils/storage.js";
-import { EP_SETTINGS_KEYBOARD_LAYOUT } from "../utils/endpoints.js";
-import { useAuthStore } from "./auth.js";
-import defaultLayout from "../data/keyboard-layout-default.json";
+import defaultLayout from "../data/keyboard-layout.json";
 
 function normalizeFlick(key) {
   const out = { ...key };
@@ -37,23 +35,6 @@ export const useInputStore = defineStore("input", () => {
   const QUICK_KEYS = ref(initial.modifiers);
   const NUMBER_KEYS = ref(initial.numberRow);
   const QWERTY_ROWS = ref(initial.rows);
-  const isLayoutLoaded = ref(false);
-
-  async function loadKeyboardLayout() {
-    if (isLayoutLoaded.value) return;
-    try {
-      const auth = useAuthStore();
-      const res = await auth.apiFetch(EP_SETTINGS_KEYBOARD_LAYOUT);
-      if (!res || !res.ok) return;
-      const layout = normalizeLayout(await res.json());
-      QUICK_KEYS.value = layout.modifiers;
-      NUMBER_KEYS.value = layout.numberRow;
-      QWERTY_ROWS.value = layout.rows;
-      isLayoutLoaded.value = true;
-    } catch {
-      /* keep fallback */
-    }
-  }
 
   function addInputHistory(text) {
     if (!text) return;
@@ -73,8 +54,6 @@ export const useInputStore = defineStore("input", () => {
     inputHistory,
     snippetsCache,
     isSnippetsLoaded,
-    isLayoutLoaded,
-    loadKeyboardLayout,
     addInputHistory,
   };
 });
