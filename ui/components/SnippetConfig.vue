@@ -15,6 +15,14 @@
     <div class="snippet-list">
       <div v-for="(snippet, idx) in snippets" :key="idx" class="snippet-row">
         <div class="snippet-command">{{ snippet.command }}</div>
+        <div class="snippet-order-btns">
+          <button type="button" class="snippet-order-btn" :disabled="idx === 0" @click="onMoveUp(idx)" aria-label="Move up">
+            <span class="mdi mdi-chevron-up"></span>
+          </button>
+          <button type="button" class="snippet-order-btn" :disabled="idx === snippets.length - 1" @click="onMoveDown(idx)" aria-label="Move down">
+            <span class="mdi mdi-chevron-down"></span>
+          </button>
+        </div>
         <button type="button" class="snippet-delete" @click="onDelete(idx)" aria-label="Delete snippet">
           <span class="mdi mdi-trash-can-outline"></span>
         </button>
@@ -46,6 +54,18 @@ function onAdd() {
 function onDelete(reversedIdx) {
   const realIdx = inputStore.snippetsCache.length - 1 - reversedIdx;
   bridgeEmit("snippet:delete", { index: realIdx });
+}
+
+function onMoveUp(reversedIdx) {
+  const len = inputStore.snippetsCache.length;
+  const from = len - 1 - reversedIdx;
+  bridgeEmit("snippet:move", { from, to: from + 1 });
+}
+
+function onMoveDown(reversedIdx) {
+  const len = inputStore.snippetsCache.length;
+  const from = len - 1 - reversedIdx;
+  bridgeEmit("snippet:move", { from, to: from - 1 });
 }
 
 onMounted(() => { modalTitle.value = "Snippets"; });
@@ -111,6 +131,34 @@ onMounted(() => { modalTitle.value = "Snippets"; });
   font-size: 14px;
   color: var(--text-primary);
   word-break: break-all;
+}
+
+.snippet-order-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.snippet-order-btn {
+  width: 28px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0;
+}
+
+.snippet-order-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
 }
 
 .snippet-delete {

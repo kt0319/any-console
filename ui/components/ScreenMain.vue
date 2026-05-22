@@ -66,7 +66,7 @@ const { sendTextToTerminal } = useKeyboard();
 const { initViewport } = useViewport();
 const { confirm } = useConfirm();
 const { restoreExistingSessions, syncSessionsFromServer, startSyncPolling, stopSyncPolling } = useSessionSync();
-const { loadSnippetCache, moveSnippetToFront, addSnippet, deleteSnippet } = useSnippetPersist();
+const { loadSnippetCache, moveSnippetToFront, addSnippet, deleteSnippet, moveSnippet } = useSnippetPersist();
 
 const booting = ref(true);
 const bootMessage = ref("Loading...");
@@ -319,6 +319,7 @@ onMounted(() => {
 
   bridgeCleanups.push(on("snippet:add", ({ label, command }) => addSnippet(label, command)));
   bridgeCleanups.push(on("snippet:delete", ({ index }) => deleteSnippet(index)));
+  bridgeCleanups.push(on("snippet:move", ({ from, to }) => moveSnippet(from, to)));
 
   loadSnippetCache();
 

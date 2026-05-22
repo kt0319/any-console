@@ -44,5 +44,15 @@ export function useSnippetPersist() {
     }
   }
 
-  return { loadSnippetCache, persistSnippets, moveSnippetToFront, addSnippet, deleteSnippet };
+  async function moveSnippet(from, to) {
+    const cache = inputStore.snippetsCache;
+    if (from < 0 || from >= cache.length || to < 0 || to >= cache.length) return;
+    const next = [...cache];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    inputStore.snippetsCache = next;
+    await persistSnippets();
+  }
+
+  return { loadSnippetCache, persistSnippets, moveSnippetToFront, addSnippet, deleteSnippet, moveSnippet };
 }
