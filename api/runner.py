@@ -1,6 +1,5 @@
 import logging
 import os
-import shlex
 import subprocess
 
 from .common import JOB_TIMEOUT_SEC, PROJECT_ROOT, sanitize_log_value
@@ -12,9 +11,9 @@ logger = logging.getLogger(__name__)
 def run_job(
     job: JobDefinition, args: list[str], workspace: str = "", extra_env: dict[str, str] | None = None
 ) -> subprocess.CompletedProcess:
-    cmd_parts = shlex.split(job.command)
-    if args:
-        cmd_parts.extend(args)
+    # bash -c で実行して複数行スクリプト・パイプ・制御構文に対応する。
+    # args は bash の $1..$N として渡る（"bash" は $0 用のダミー）。
+    cmd_parts = ["bash", "-c", job.command, "bash", *(args or [])]
     env = {**os.environ}
     if workspace:
         env["WORKSPACE"] = workspace

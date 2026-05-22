@@ -30,11 +30,14 @@ class TestRunJobExtras:
         return r
 
     def test_extends_args_when_provided(self):
-        job = JobDefinition(command="echo", label="t", description="")
+        job = JobDefinition(command="echo $1 $2", label="t", description="")
         with patch("api.runner.subprocess.run", return_value=self._make_completed()) as mock_run:
             run_job(job, ["a", "b"])
             args, _ = mock_run.call_args
-            assert args[0] == ["echo", "a", "b"]
+            # bash -c "<command>" bash arg1 arg2
+            assert args[0][:3] == ["bash", "-c", "echo $1 $2"]
+            assert args[0][3] == "bash"
+            assert args[0][4:] == ["a", "b"]
 
     def test_applies_extra_env(self):
         job = JobDefinition(command="echo hi", label="t", description="")
@@ -42,6 +45,14 @@ class TestRunJobExtras:
             run_job(job, [], extra_env={"FOO": "bar"})
             _, kwargs = mock_run.call_args
             assert kwargs["env"].get("FOO") == "bar"
+
+    def test_multiline_command_passed_to_bash(self):
+        script = "set -e\nls\necho done"
+        job = JobDefinition(command=script, label="t", description="")
+        with patch("api.runner.subprocess.run", return_value=self._make_completed()) as mock_run:
+            run_job(job, [])
+            args, _ = mock_run.call_args
+            assert args[0][:3] == ["bash", "-c", script]
 
 
 class TestWorkspaceWriteLockTimeout:
