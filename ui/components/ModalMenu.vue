@@ -33,6 +33,9 @@
       <button type="button" class="settings-menu-item" @click="pushView('ClientInfo')">
         <span class="mdi mdi-cellphone-information"></span> Client Info
       </button>
+      <button type="button" class="settings-menu-item" @click="pushView('ExtrasConfig')">
+        <span class="mdi mdi-flask-outline"></span> Extras
+      </button>
     </div>
   </div>
 </template>
