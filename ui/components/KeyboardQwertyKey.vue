@@ -32,8 +32,8 @@
       <div
         class="quick-key quick-flick-arrow quick-modifier"
         :class="{ active: modifierState.shift }"
-        @touchstart.prevent="onShiftTouchStart"
-        @touchend.prevent="onShiftTouchEnd"
+        @touchstart.prevent="shiftFlick.onStart"
+        @touchend.prevent="shiftFlick.onEnd"
         @touchcancel="onQuickKeyCancel($event)"
         @click="toggleShift"
       >
@@ -44,8 +44,8 @@
       </div>
       <div
         class="quick-key quick-flick-arrow"
-        @touchstart.prevent="onSpaceTouchStart"
-        @touchend.prevent="onSpaceTouchEnd"
+        @touchstart.prevent="spaceFlick.onStart"
+        @touchend.prevent="spaceFlick.onEnd"
         @touchcancel="onQuickKeyCancel($event)"
         @click="sendSpace"
       >
@@ -58,8 +58,8 @@
       <div
         class="quick-key quick-flick-arrow quick-modifier"
         :class="{ active: modifierState.ctrl }"
-        @touchstart.prevent="onCtrlTouchStart"
-        @touchend.prevent="onCtrlTouchEnd"
+        @touchstart.prevent="ctrlFlick.onStart"
+        @touchend.prevent="ctrlFlick.onEnd"
         @touchcancel="onQuickKeyCancel($event)"
         @click="toggleCtrl"
       >
@@ -71,8 +71,8 @@
       </div>
       <div
         class="quick-key quick-flick-arrow"
-        @touchstart.prevent="onCameraTouchStart"
-        @touchend.prevent="onCameraTouchEnd"
+        @touchstart.prevent="cameraFlick.onStart"
+        @touchend.prevent="cameraFlick.onEnd"
         @touchcancel="onQuickKeyCancel($event)"
         @click="openCamera"
       >
@@ -85,8 +85,8 @@
       <div
         class="quick-key snippet-toggle-btn quick-modifier"
         :class="{ active: showSnippetView }"
-        @touchstart.prevent="onSnippetToggleTouchStart"
-        @touchend.prevent="onSnippetToggleTouchEnd"
+        @touchstart.prevent="snippetFlick.onStart"
+        @touchend.prevent="snippetFlick.onEnd"
         @touchcancel="onQuickKeyCancel($event)"
         @click="toggleSnippetView"
       >
@@ -126,8 +126,9 @@ import { usePrompt } from "../composables/usePrompt.js";
 import { useInputStore } from "../stores/input.js";
 import { useAuthStore } from "../stores/auth.js";
 import { emit, on } from "../app-bridge.js";
-import { FLICK_THRESHOLD, REPEAT_DELAY, REPEAT_INTERVAL, MIN_REPEAT_INTERVAL, REPEAT_ACCELERATION } from "../utils/constants.js";
+import { REPEAT_DELAY, REPEAT_INTERVAL, MIN_REPEAT_INTERVAL, REPEAT_ACCELERATION } from "../utils/constants.js";
 import { arrowResolver, enterResolver } from "../utils/flick-resolvers.js";
+import { createFlickHandlers } from "../utils/flick-handlers.js";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
 import KeyboardInput from "./KeyboardInput.vue";
 import KeyboardChips from "./KeyboardChips.vue";
@@ -144,16 +145,10 @@ const draft = ref("");
 const hasDraft = computed(() => draft.value.trim().length > 0);
 const showSnippetView = ref(false);
 
-function onSnippetToggleTouchStart(e) {
-  e.currentTarget.classList.add("pressed");
-}
-function onSnippetToggleTouchEnd(e) {
-  e.currentTarget.classList.remove("pressed");
-  toggleSnippetView();
-}
 function toggleSnippetView() {
   showSnippetView.value = !showSnippetView.value;
 }
+const snippetFlick = createFlickHandlers({ tap: toggleSnippetView });
 
 let historyIndex = -1;
 let savedDraft = "";
@@ -278,20 +273,7 @@ function onQwertyTouchEnd(e, keyDef, ri, ci) {
 }
 
 
-let cameraStartY = 0;
-function onCameraTouchStart(e) {
-  e.currentTarget.classList.add("pressed");
-  cameraStartY = e.touches[0].clientY;
-}
-function onCameraTouchEnd(e) {
-  e.currentTarget.classList.remove("pressed");
-  const dy = e.changedTouches[0].clientY - cameraStartY;
-  if (dy < -FLICK_THRESHOLD) {
-    doReload();
-    return;
-  }
-  openCamera();
-}
+const cameraFlick = createFlickHandlers({ up: () => doReload(), tap: () => openCamera() });
 
 function doReload() {
   emitLocal("cycleMode");
@@ -322,80 +304,32 @@ async function onCameraFileChange(e) {
   await uploadImageAndSendPath(file);
 }
 
-let shiftStartX = 0;
-let shiftStartY = 0;
-function onShiftTouchStart(e) {
-  e.currentTarget.classList.add("pressed");
-  shiftStartX = e.touches[0].clientX;
-  shiftStartY = e.touches[0].clientY;
-}
-function onShiftTouchEnd(e) {
-  e.currentTarget.classList.remove("pressed");
-  const dx = e.changedTouches[0].clientX - shiftStartX;
-  const dy = e.changedTouches[0].clientY - shiftStartY;
-  if (Math.abs(dy) > Math.abs(dx) && dy < -FLICK_THRESHOLD) {
-    sendKeyToTerminal({ key: "Escape" });
-  } else if (Math.abs(dx) > Math.abs(dy) && dx < -FLICK_THRESHOLD) {
-    sendKeyToTerminal({ key: "u", ctrl: true });
-  } else if (Math.abs(dx) > Math.abs(dy) && dx > FLICK_THRESHOLD) {
-    sendKeyToTerminal({ key: "k", ctrl: true });
-  } else {
-    toggleShift();
-  }
-}
-function toggleShift() {
-  modifierState.shift = !modifierState.shift;
-}
+function toggleShift() { modifierState.shift = !modifierState.shift; }
+function toggleCtrl() { modifierState.ctrl = !modifierState.ctrl; }
+function sendSpace() { sendKeyToTerminal({ key: " " }); }
 
-let ctrlStartX = 0;
-let ctrlStartY = 0;
-function onCtrlTouchStart(e) {
-  e.currentTarget.classList.add("pressed");
-  ctrlStartX = e.touches[0].clientX;
-  ctrlStartY = e.touches[0].clientY;
-}
-function onCtrlTouchEnd(e) {
-  e.currentTarget.classList.remove("pressed");
-  const dx = e.changedTouches[0].clientX - ctrlStartX;
-  const dy = e.changedTouches[0].clientY - ctrlStartY;
-  if (Math.abs(dy) > Math.abs(dx) && dy < -FLICK_THRESHOLD) {
-    sendKeyToTerminal({ key: "c", ctrl: true });
-  } else if (Math.abs(dy) > Math.abs(dx) && dy > FLICK_THRESHOLD) {
-    sendKeyToTerminal({ key: "o", ctrl: true });
-  } else if (Math.abs(dx) > Math.abs(dy) && dx < -FLICK_THRESHOLD) {
-    sendKeyToTerminal({ key: "l", ctrl: true });
-  } else if (Math.abs(dx) > Math.abs(dy) && dx > FLICK_THRESHOLD) {
-    sendKeyToTerminal({ key: "r", ctrl: true });
-  } else {
-    toggleCtrl();
-  }
-}
-function toggleCtrl() {
-  modifierState.ctrl = !modifierState.ctrl;
-}
+const shiftFlick = createFlickHandlers({
+  up: () => sendKeyToTerminal({ key: "Escape" }),
+  left: () => sendKeyToTerminal({ key: "u", ctrl: true }),
+  right: () => sendKeyToTerminal({ key: "k", ctrl: true }),
+  tap: toggleShift,
+});
 
-let spaceStartX = 0;
-let spaceStartY = 0;
-function onSpaceTouchStart(e) {
-  e.currentTarget.classList.add("pressed");
-  spaceStartX = e.touches[0].clientX;
-  spaceStartY = e.touches[0].clientY;
-}
-function onSpaceTouchEnd(e) {
-  e.currentTarget.classList.remove("pressed");
-  const dx = e.changedTouches[0].clientX - spaceStartX;
-  const dy = e.changedTouches[0].clientY - spaceStartY;
-  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > FLICK_THRESHOLD) {
-    sendKeyToTerminal(dx < 0 ? { key: "Home" } : { key: "End" });
-  } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > FLICK_THRESHOLD) {
-    sendKeyToTerminal(dy < 0 ? { key: "PageUp" } : { key: "PageDown" });
-  } else {
-    sendSpace();
-  }
-}
-function sendSpace() {
-  sendKeyToTerminal({ key: " " });
-}
+const ctrlFlick = createFlickHandlers({
+  up: () => sendKeyToTerminal({ key: "c", ctrl: true }),
+  down: () => sendKeyToTerminal({ key: "o", ctrl: true }),
+  left: () => sendKeyToTerminal({ key: "l", ctrl: true }),
+  right: () => sendKeyToTerminal({ key: "r", ctrl: true }),
+  tap: toggleCtrl,
+});
+
+const spaceFlick = createFlickHandlers({
+  up: () => sendKeyToTerminal({ key: "PageUp" }),
+  down: () => sendKeyToTerminal({ key: "PageDown" }),
+  left: () => sendKeyToTerminal({ key: "Home" }),
+  right: () => sendKeyToTerminal({ key: "End" }),
+  tap: sendSpace,
+});
 
 
 onMounted(() => {
