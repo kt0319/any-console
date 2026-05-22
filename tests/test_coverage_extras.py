@@ -602,6 +602,136 @@ class TestWorkspaceConfigUpdateConflicts:
         assert res.status_code == 400
 
 
+class TestRemapGlobalReferences:
+    def test_remaps_workspace_order(self):
+        from api.config import _remap_global_references
+        out = _remap_global_references({"workspace_order": ["old1", "old2", "untouched"]}, {"old1": "ID_1", "old2": "ID_2"})
+        assert out["workspace_order"] == ["ID_1", "ID_2", "untouched"]
+
+    def test_remaps_recent_jobs_workspace(self):
+        from api.config import _remap_global_references
+        recent = [
+            {"key": "k1", "workspace": "old1", "jobName": "j"},
+            {"key": "k2", "workspace": "stays", "jobName": "j"},
+            "not-a-dict",
+        ]
+        out = _remap_global_references({"recent_jobs": recent}, {"old1": "ID_1"})
+        assert out["recent_jobs"][0]["workspace"] == "ID_1"
+        assert out["recent_jobs"][1]["workspace"] == "stays"
+        assert out["recent_jobs"][2] == "not-a-dict"
+
+    def test_ignores_non_list_fields(self):
+        from api.config import _remap_global_references
+        out = _remap_global_references({"workspace_order": "bad", "recent_jobs": "bad"}, {})
+        assert out["workspace_order"] == "bad"
+        assert out["recent_jobs"] == "bad"
+
+
+class TestSettingsImportNonObjectEntry:
+    def test_non_dict_workspace_entry_skipped(self, client):
+        from conftest import AUTH
+        body = b'{"some-ws": "not-a-dict"}'
+        res = client.post(
+            "/settings/import", headers={**AUTH, "Content-Type": "application/json"},
+            content=body,
+        )
+        assert res.status_code == 200
+
+
+class TestJobsCommonEdgeCases:
+    def _write_raw_global(self, isolate_fs, section, value):
+        """pydantic 検証を経ずに __global__ セクションを書く。"""
+        import json
+        cfg = {"__global__": {section: value}}
+        isolate_fs["config_file"].write_text(json.dumps(cfg), encoding="utf-8")
+
+    def test_get_recent_with_non_list_existing(self, client, isolate_fs):
+        from conftest import AUTH
+        self._write_raw_global(isolate_fs, "recent_jobs", "not-a-list")
+        res = client.get("/recent-jobs", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json() == {"jobs": []}
+
+    def test_get_snippets_with_non_list_existing(self, client, isolate_fs):
+        from conftest import AUTH
+        self._write_raw_global(isolate_fs, "snippets", "not-a-list")
+        res = client.get("/snippets", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json()["snippets"] == []
+
+    def test_get_editor_with_non_dict_existing(self, client, isolate_fs):
+        from conftest import AUTH
+        self._write_raw_global(isolate_fs, "editor", "not-a-dict")
+        res = client.get("/settings/editor", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json() == {"url_template": ""}
+
+
+class TestGitFileUtils:
+    def test_build_content_response_text(self):
+        from api.routers.git_file_utils import _build_content_response
+        r = _build_content_response("a.txt", ".txt", b"hello", 5)
+        assert r["content"] == "hello"
+        assert r["size"] == 5
+
+    def test_build_content_response_binary_extension(self):
+        from api.routers.git_file_utils import _build_content_response
+        r = _build_content_response("a.zip", ".zip", b"\x00\x01", 2)
+        assert r["binary"] is True
+
+    def test_build_content_response_too_large(self):
+        from api.routers.git_file_utils import _build_content_response
+        from api.common import MAX_FILE_SIZE
+        r = _build_content_response("a.txt", ".txt", b"", MAX_FILE_SIZE + 1)
+        assert r["too_large"] is True
+
+    def test_build_content_response_image(self):
+        from api.routers.git_file_utils import _build_content_response
+        r = _build_content_response("a.png", ".png", b"PNG_BYTES", 9)
+        assert r["image"] is True
+        assert "data_url" in r
+        assert r["data_url"].startswith("data:image/png;base64,")
+
+    def test_build_content_response_image_too_large(self):
+        from api.routers.git_file_utils import _build_content_response
+        from api.common import MAX_IMAGE_PREVIEW_SIZE
+        r = _build_content_response("a.png", ".png", b"", MAX_IMAGE_PREVIEW_SIZE + 1)
+        assert r["image"] is True
+        assert r["too_large"] is True
+
+    def test_read_blob_content_response(self):
+        from api.routers.git_file_utils import read_blob_content_response
+        r = read_blob_content_response("file.txt", b"abc")
+        assert r["content"] == "abc"
+        assert r["size"] == 3
+
+    def test_count_directory_entries(self, tmp_path):
+        from api.routers.git_file_utils import _count_directory_entries
+        d = tmp_path / "subdir"
+        d.mkdir()
+        (d / "a.txt").write_text("x")
+        (d / "b.txt").write_text("y")
+        assert _count_directory_entries(str(d)) == 2
+
+    def test_count_directory_entries_missing(self):
+        from api.routers.git_file_utils import _count_directory_entries
+        assert _count_directory_entries("/no/such/path") is None
+
+    def test_list_directory_entries_sorts(self, tmp_path):
+        from api.routers.git_file_utils import list_directory_entries
+        (tmp_path / "b_file.txt").write_text("x")
+        (tmp_path / "a_dir").mkdir()
+        with patch(
+            "api.routers.git_file_utils.run_git_command",
+            return_value={"exit_code": 1, "stdout": "", "stderr": ""},
+        ):
+            entries = list_directory_entries(tmp_path, tmp_path)
+        names = [e["name"] for e in entries]
+        # dirs come first
+        assert names[0] == "a_dir"
+        assert "b_file.txt" in names
+
+
 class TestSettingsAuthEndpoint:
     def test_enabled_without_token_rejected(self, client):
         from conftest import AUTH
