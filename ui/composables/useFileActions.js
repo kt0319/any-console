@@ -116,7 +116,7 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
       if (conflicts.length > 0) {
         const names = conflicts.map(normalizedName);
         const list = names.slice(0, 5).join(", ") + (names.length > 5 ? `, … and ${names.length - 5} more` : "");
-        overwrite = await confirm(`Overwrite existing file(s)? ${list}`);
+        overwrite = (await confirm(`Overwrite existing file(s)? ${list}`)) === true;
         if (!overwrite) {
           targets = targets.filter((f) => !existing.has(normalizedName(f)));
           if (targets.length === 0) return;

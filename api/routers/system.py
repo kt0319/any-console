@@ -6,6 +6,7 @@ import shutil
 import socket
 import time
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -211,7 +212,7 @@ def report_client_error(body: ClientErrorReport):
 @router.get("/system/tmux-info")
 def get_tmux_info():
     from ..tmux import _run_tmux_cmd
-    info = {"version": "", "sessions": [], "available": False}
+    info: dict[str, Any] = {"version": "", "sessions": [], "available": False}
     version_res = _run_tmux_cmd("-V")
     if version_res and version_res.returncode == 0:
         info["version"] = version_res.stdout.strip().replace("tmux ", "")
