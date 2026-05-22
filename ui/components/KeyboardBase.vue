@@ -351,7 +351,7 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
 
 .quick-qwerty-panel .quick-key-toggle.active,
 .quick-qwerty-panel .quick-modifier.active {
-  background: rgba(130, 170, 255, 0.12);
+  background: rgba(130, 170, 255, 0.3);
   color: rgba(130, 170, 255, 0.7);
   border-color: rgba(130, 170, 255, 0.6);
 }
@@ -491,8 +491,7 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
   padding: 10px 12px;
   border: 1px solid var(--white-30);
   border-radius: var(--radius);
-  background: rgba(130, 170, 255, 0.12);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+  background: rgba(40, 44, 65, 0.7);
   color: var(--text-primary);
   font-size: 16px;
   font-family: inherit;

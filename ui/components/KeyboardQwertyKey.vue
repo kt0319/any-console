@@ -174,15 +174,20 @@ function onInputFocused(focused) {
 }
 
 function onChipTap({ command }) {
-  draft.value = command;
-  keyboardInput.value?.focus?.();
+  if (inputFocused.value) {
+    draft.value = command;
+    keyboardInput.value?.focus?.();
+  } else {
+    sendTextToTerminal(command);
+    inputStore.addInputHistory(command);
+  }
 }
 
 defineExpose({ focusInput, blurInput });
 
 const inputStore = useInputStore();
 const auth = useAuthStore();
-const { sendKeyToTerminal, modifierState, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
+const { sendKeyToTerminal, sendTextToTerminal, modifierState, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
 const { prompt } = usePrompt();
 
 const topArrowFlickEl = ref(null);
