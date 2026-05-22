@@ -120,11 +120,11 @@ const tabs = computed(() => {
     },
     { key: "history", icon: "mdi-history", label: "History", iconColor: historyExpanded.value ? "var(--accent)" : "" },
     { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0 },
-    { key: "branch", icon: "mdi-source-branch", label: "Branch", count: branchCount.value || 0 },
-    { key: "stash", icon: "mdi-package-variant", label: "Stash", count: stashCount.value || 0, hidden: !stashCount.value },
+    { key: "branch", icon: "mdi-source-branch", label: "Branches", count: branchCount.value || 0 },
+    { key: "stash", icon: "mdi-package-variant", label: "Stashes", count: stashCount.value || 0, hidden: !stashCount.value },
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !hasGithub.value || !issuesCount.value },
     { key: "actions", icon: "mdi-github", label: "Actions", hidden: !hasGithub.value },
-    { key: "prs", icon: "mdi-github", label: "PR", count: prsCount.value || 0, hidden: !hasGithub.value || !prsCount.value },
+    { key: "prs", icon: "mdi-github", label: "PRs", count: prsCount.value || 0, hidden: !hasGithub.value || !prsCount.value },
   ];
   return list.filter((t) => !t.hidden);
 });

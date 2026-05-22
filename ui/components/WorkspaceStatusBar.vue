@@ -25,7 +25,7 @@
             </template>
           </button>
           <div class="status-divider"></div>
-          <button type="button" class="status-nav-btn status-branch-btn" tabindex="-1" aria-label="Branch" data-tooltip="Branch" @click="openFileModal('branch')">
+          <button type="button" class="status-nav-btn status-branch-btn" tabindex="-1" aria-label="Branches" data-tooltip="Branches" @click="openFileModal('branch')">
             <span class="mdi mdi-source-branch status-btn-icon" aria-hidden="true"></span>
             <span class="status-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
           </button>
