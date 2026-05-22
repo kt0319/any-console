@@ -331,6 +331,7 @@ onMounted(() => {
   -webkit-overflow-scrolling: touch;
   background: transparent;
   scrollbar-width: none;
+  border-bottom: 1px solid var(--border);
 }
 
 .workspace-tabs::-webkit-scrollbar {
