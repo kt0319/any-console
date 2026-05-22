@@ -32,10 +32,18 @@ export function useModal() {
       }
     }
     modalEl.addEventListener("keydown", onKeydown);
-    const focusable = Array.from(modalEl.querySelectorAll(FOCUSABLE)).filter(
-      (el) => el.offsetParent !== null,
-    );
-    if (focusable.length > 0) focusable[0].focus();
+    // タッチデバイスでは自動フォーカスを行わない。
+    // モバイルだと最初の要素（モーダルタイトル等）にフォーカスリングが
+    // 出てしまい、ユーザの意図しない見た目になる。Tab キー操作が無いので
+    // 自動フォーカスのメリットも無い。
+    const isTouchOnly = typeof window !== "undefined"
+      && window.matchMedia?.("(hover: none) and (pointer: coarse)").matches;
+    if (!isTouchOnly) {
+      const focusable = Array.from(modalEl.querySelectorAll(FOCUSABLE)).filter(
+        (el) => el.offsetParent !== null,
+      );
+      if (focusable.length > 0) focusable[0].focus();
+    }
     return () => modalEl.removeEventListener("keydown", onKeydown);
   }
 
