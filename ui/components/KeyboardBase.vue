@@ -581,11 +581,13 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
 }
 
 .tap-backdrop-mini {
-  height: 60px;
+  left: auto;
+  width: calc(2 * (100vw - 16px) / 5 + 12px);
+  height: 52px;
 }
 
 .tap-backdrop-full {
-  height: 300px;
+  height: 260px;
 }
 
 .main-panel.panel-bottom .keyboard-tap-backdrop {
