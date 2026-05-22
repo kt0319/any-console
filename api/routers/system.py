@@ -8,9 +8,10 @@ import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
 
 from ..auth import verify_token
-from ..common import SYSTEM_CMD_TIMEOUT_SEC, run_subprocess_safe
+from ..common import SYSTEM_CMD_TIMEOUT_SEC, run_subprocess_safe, sanitize_log_value
 from ..errors import server_error
 
 logger = logging.getLogger(__name__)
@@ -176,6 +177,35 @@ def get_system_processes():
             }
         )
     return processes
+
+
+class ClientErrorReport(BaseModel):
+    type: str = Field(..., max_length=40)
+    message: str = Field("", max_length=2000)
+    stack: str = Field("", max_length=10000)
+    source: str = Field("", max_length=500)
+    lineno: int | None = None
+    colno: int | None = None
+    url: str = Field("", max_length=500)
+    user_agent: str = Field("", max_length=500)
+    info: str = Field("", max_length=1000)
+
+
+@router.post("/client-errors")
+def report_client_error(body: ClientErrorReport):
+    logger.warning(
+        "client-error type=%s url=%s message=%s info=%s source=%s:%s:%s ua=%s\n%s",
+        sanitize_log_value(body.type),
+        sanitize_log_value(body.url),
+        sanitize_log_value(body.message),
+        sanitize_log_value(body.info),
+        sanitize_log_value(body.source),
+        body.lineno if body.lineno is not None else "?",
+        body.colno if body.colno is not None else "?",
+        sanitize_log_value(body.user_agent),
+        sanitize_log_value(body.stack),
+    )
+    return {"status": "ok"}
 
 
 @router.get("/system/info")

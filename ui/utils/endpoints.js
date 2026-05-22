@@ -43,6 +43,7 @@ export const EP_SETTINGS_CONFIG_HEALTH = "/settings/config-health";
 export const EP_RECENT_JOBS = "/recent-jobs";
 export const EP_SNIPPETS = "/snippets";
 export const EP_UPLOAD_IMAGE = "/upload-image";
+export const EP_CLIENT_ERRORS = "/client-errors";
 
 /** @param {string} sessionId @returns {string} */
 export function terminalSessionPath(sessionId) {
