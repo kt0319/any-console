@@ -554,4 +554,20 @@ defineExpose({
 .pwa .main-panel.panel-bottom .quick-input {
   padding-bottom: 28px;
 }
+
+/* ─── Keyboard panel position offsets (per layout mode) ────────────────────
+ * パネル位置は以下の3つに集約:
+ * - デフォルト: .quick-input-panel が bottom: 0
+ * - panel-bottom モード: status bar + tab bar + safe area を避けて 122px
+ * - split mode: 簡略化された下部余白で 24px
+ */
+.main-panel.panel-bottom .main-panel-keyboard-overlay .quick-input-panel,
+.main-panel.panel-bottom .main-panel-keyboard-overlay .quick-qwerty-panel {
+  bottom: 122px;
+}
+
+.main-panel.split-mode .main-panel-keyboard-overlay .quick-input-panel,
+.main-panel.split-mode .main-panel-keyboard-overlay .quick-qwerty-panel {
+  bottom: 24px;
+}
 </style>

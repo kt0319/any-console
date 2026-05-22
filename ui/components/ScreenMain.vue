@@ -505,15 +505,7 @@ defineExpose({
   pointer-events: auto;
 }
 
-.main-panel.panel-bottom .main-panel-keyboard-overlay :deep(.quick-input-panel),
-.main-panel.panel-bottom .main-panel-keyboard-overlay :deep(.quick-qwerty-panel) {
-  bottom: 114px;
-}
-
-.main-panel.split-mode .main-panel-keyboard-overlay :deep(.quick-input-panel),
-.main-panel.split-mode .main-panel-keyboard-overlay :deep(.quick-qwerty-panel) {
-  bottom: 24px;
-}
+/* キーボード位置の調整は KeyboardBase.vue に集約 (.main-panel.* mode 別 override) */
 
 .main-panel.panel-bottom :deep(.output-container) {
   order: -1;
