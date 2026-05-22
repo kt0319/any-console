@@ -103,14 +103,19 @@ onUnmounted(() => releaseEscape?.());
 }
 
 .confirm-btn {
+  flex: 1;
   min-width: 80px;
-  min-height: 40px;
-  padding: 0 16px;
+  min-height: 44px;
+  padding: 8px 12px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
 .confirm-btn-cancel {
@@ -128,18 +133,12 @@ onUnmounted(() => releaseEscape?.());
   background: transparent;
   color: var(--success);
   border-color: var(--success);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .confirm-btn-danger {
   background: var(--error);
   color: #fff;
   border-color: var(--error);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .confirm-extra-desc {
