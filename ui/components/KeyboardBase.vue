@@ -150,7 +150,6 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
 }
 
 .quick-qwerty-panel .enter-send-mode {
-  color: var(--accent);
   border-color: var(--accent);
 }
 
