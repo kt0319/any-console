@@ -1,19 +1,15 @@
 <template>
   <template v-if="isKeyboardVisible">
-    <div v-show="!isTextInputVisible">
-      <KeyboardMinimumKey
-        :active="mode === 0"
-        :snippet-open="snippetOpen"
-        @cycleMode="cycleMode"
-      />
-      <KeyboardQwertyKey
-        :active="mode === 1"
-        @cycleMode="cycleMode"
-      />
-    </div>
-    <KeyboardInput
-      ref="keyboardInputBar"
-      @visibility="onKeyboardInputVisibility"
+    <KeyboardMinimumKey
+      :active="mode === 0"
+      @cycleMode="cycleMode"
+    />
+    <KeyboardQwertyKey
+      ref="qwertyView"
+      :active="mode === 1"
+      @cycleMode="cycleMode"
+      @submitted="hideInput"
+      @inputFocus="onInputFocus"
     />
   </template>
 </template>
@@ -22,58 +18,70 @@
 import { ref, computed, watch, nextTick } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { emit as bridgeEmit } from "../app-bridge.js";
+import { useViewport } from "../composables/useViewport.js";
 import KeyboardMinimumKey from "./KeyboardMinimumKey.vue";
 import KeyboardQwertyKey from "./KeyboardQwertyKey.vue";
-import KeyboardInput from "./KeyboardInput.vue";
 
 const props = defineProps({
   isPanelBottom: { type: Boolean, default: false },
 });
 const layoutStore = useLayoutStore();
 const isKeyboardVisible = computed(() => props.isPanelBottom || layoutStore.isSplitMode);
-const emit = defineEmits(["visibility"]);
 
 const { clearModifiers } = useKeyboard();
 
 const mode = ref(0);
-const snippetOpen = ref(false);
-const keyboardInputBar = ref(null);
-const isTextInputVisible = ref(false);
+const qwertyView = ref(null);
+const { keyboardOpen } = useViewport();
+
+function showInput() {
+  mode.value = 1;
+  nextTick(() => qwertyView.value?.focusInput?.());
+}
+
+function hideInput() {
+  if (mode.value === 1) mode.value = 0;
+  clearModifiers();
+}
 
 function cycleMode() {
   mode.value = (mode.value + 1) % 2;
   clearModifiers();
 }
 
-function onKeyboardInputVisibility(visible) {
-  isTextInputVisible.value = !!visible;
-  emit("visibility", isTextInputVisible.value);
-}
-
-function showInput() {
-  keyboardInputBar.value?.show?.();
-}
-
-function hideInput() {
-  keyboardInputBar.value?.hide?.();
-}
-
+// 「input が一度でもフォーカスされたか」をトラック (= OS キーボードが立ち上がったか)
+let inputWasFocused = false;
+let blurTimer = null;
 watch(mode, (val) => {
-  nextTick(() => {
-    bridgeEmit("keyboard:modeChange", { mode: val });
-  });
+  if (val === 0) {
+    inputWasFocused = false;
+    if (blurTimer) { clearTimeout(blurTimer); blurTimer = null; }
+  }
 });
 
-defineExpose({
-  mode,
-  cycleMode,
-  snippetOpen,
-  keyboardInputBar,
-  isTextInputVisible,
-  showInput,
-  hideInput,
+function onInputFocus(focused) {
+  if (blurTimer) { clearTimeout(blurTimer); blurTimer = null; }
+  if (focused) {
+    inputWasFocused = true;
+    return;
+  }
+  if (!inputWasFocused) return;
+  // 一度フォーカスされたあとの blur → 200ms 遅延で hideInput
+  blurTimer = setTimeout(() => {
+    blurTimer = null;
+    if (mode.value === 1) hideInput();
+  }, 200);
+}
+
+// OS キーボードの開閉が visualViewport で検知できる場合の経路:
+// 開いたら showInput、(input がフォーカスされて閉じたら) onInputFocus 側で処理。
+watch(keyboardOpen, (open) => {
+  if (!open) return;
+  if (document.querySelector(".modal-overlay")) return;
+  showInput();
 });
+
+defineExpose({ mode, cycleMode, showInput, hideInput });
 </script>
 
 <style>
@@ -442,15 +450,11 @@ defineExpose({
 }
 
 .keyboard-input-wrapper {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 8px;
-  z-index: 9999;
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  padding: 4px;
+  gap: 6px;
 }
 
 .keyboard-input-row {
@@ -466,12 +470,11 @@ defineExpose({
   padding: 10px 12px;
   border: 1px solid var(--white-30);
   border-radius: var(--radius);
-  background: rgba(25, 28, 40, 0.68);
+  background: rgba(40, 44, 65, 0.7);
   color: var(--text-primary);
   font-size: 16px;
   font-family: inherit;
   box-sizing: border-box;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   outline: none;
 }
 
@@ -483,9 +486,9 @@ defineExpose({
   width: 44px;
   height: 44px;
   padding: 0;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--white-30);
   border-radius: 50%;
-  background: rgba(25, 28, 40, 0.95);
+  background: rgba(40, 44, 65, 0.7);
   color: var(--accent);
   font-size: 18px;
   font-family: inherit;

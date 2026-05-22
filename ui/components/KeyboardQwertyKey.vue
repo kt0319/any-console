@@ -7,8 +7,8 @@
       style="display:none"
       @change="onCameraFileChange"
     />
-    <KeyboardSnippet ref="qwertyKeyboardSnippet" />
-    <div v-for="(row, ri) in qwertyRows" :key="ri" class="quick-extra-row">
+    <KeyboardInput ref="keyboardInput" @focused="onInputFocused" @submitted="$emit('submitted')" @closeRequested="$emit('submitted')" />
+    <div v-show="!inputFocused" v-for="(row, ri) in qwertyRows" :key="ri" class="quick-extra-row">
       <div
         v-if="ri === 2"
         class="quick-key quick-flick-arrow"
@@ -47,7 +47,7 @@
         <span class="flick-main"><span class="mdi mdi-refresh"></span></span>
       </div>
     </div>
-    <div class="quick-extra-row quick-extra-bottom-keys">
+    <div v-show="!inputFocused" class="quick-extra-row quick-extra-bottom-keys">
       <div
         class="quick-key quick-flick-arrow quick-modifier"
         :class="{ active: modifierState.shift }"
@@ -107,8 +107,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
-import KeyboardSnippet from "./KeyboardSnippet.vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { usePrompt } from "../composables/usePrompt.js";
 import { useInputStore } from "../stores/input.js";
@@ -117,19 +116,33 @@ import { emit, on } from "../app-bridge.js";
 import { FLICK_THRESHOLD } from "../utils/constants.js";
 import { arrowResolver, enterResolver } from "../utils/flick-resolvers.js";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
+import KeyboardInput from "./KeyboardInput.vue";
 
 const props = defineProps({
   active: { type: Boolean, default: false },
 });
 
-const emitLocal = defineEmits(["cycleMode"]);
+const emitLocal = defineEmits(["cycleMode", "submitted", "inputFocus"]);
+
+const keyboardInput = ref(null);
+const inputFocused = ref(false);
+
+function focusInput() {
+  keyboardInput.value?.focus?.();
+}
+
+function onInputFocused(focused) {
+  inputFocused.value = !!focused;
+  emitLocal("inputFocus", !!focused);
+}
+
+defineExpose({ focusInput });
 
 const inputStore = useInputStore();
 const auth = useAuthStore();
 const { sendKeyToTerminal, modifierState, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
 const { prompt } = usePrompt();
 
-const qwertyKeyboardSnippet = ref(null);
 const topArrowFlickEl = ref(null);
 const topEnterFlickEl = ref(null);
 const cameraInputEl = ref(null);
@@ -160,6 +173,22 @@ function onQwertyTouchStart(e) {
   e.currentTarget._touchStartY = e.touches[0].clientY;
 }
 
+function sendOrType(keyObj) {
+  // input にフォーカスがあるときは input の draft へ。それ以外はターミナルへ。
+  if (keyboardInput.value?.isFocused?.()) {
+    const k = keyObj.key;
+    if (k === "Enter") { keyboardInput.value?.submit?.(); return; }
+    if (k === "Backspace") { keyboardInput.value?.backspace?.(); return; }
+    if (typeof k === "string" && k.length === 1 && !keyObj.ctrl) {
+      const ch = (modifierState.shift && /[a-z]/.test(k)) ? k.toUpperCase() : k;
+      keyboardInput.value?.appendChar?.(ch);
+      return;
+    }
+    // 制御キー (Ctrl 修飾やファンクション類) はターミナルへ流す
+  }
+  sendKeyToTerminal(keyObj);
+}
+
 function onQwertyTouchEnd(e, keyDef, ri, ci) {
   e.currentTarget.classList.remove("pressed");
   const dy = e.changedTouches[0].clientY - (e.currentTarget._touchStartY || 0);
@@ -167,17 +196,17 @@ function onQwertyTouchEnd(e, keyDef, ri, ci) {
     const upKey = ri === 0 && ci < numberKeys.value.length
       ? numberKeys.value[ci]
       : { key: keyDef.flickUp, label: keyDef.flickUp };
-    if (upKey) sendKeyToTerminal(upKey);
+    if (upKey) sendOrType(upKey);
     return;
   }
   if (keyDef.flickDown && dy > 30) {
-    sendKeyToTerminal({ key: keyDef.flickDown, label: keyDef.flickDown });
+    sendOrType({ key: keyDef.flickDown, label: keyDef.flickDown });
     return;
   }
   const merged = { ...keyDef };
   if (modifierState.ctrl) merged.ctrl = true;
   if (modifierState.shift) merged.shift = true;
-  sendKeyToTerminal(merged);
+  sendOrType(merged);
 }
 
 
@@ -335,9 +364,4 @@ onMounted(() => {
 });
 onUnmounted(() => { offSnippetTap?.(); });
 
-watch(() => props.active, (val) => {
-  if (val) {
-    nextTick(() => qwertyKeyboardSnippet.value?.show());
-  }
-});
 </script>

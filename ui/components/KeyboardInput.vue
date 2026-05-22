@@ -1,27 +1,26 @@
 <template>
-  <div v-if="visible">
-    <div class="keyboard-input-wrapper quick-input" @pointerdown="markInternalInteraction">
-      <div class="keyboard-input-snippets">
-        <KeyboardChips ref="chipsEl" :insert-mode="true" @chip:tap="onChipTap" />
-      </div>
-      <div class="keyboard-input-row">
-        <input
-          ref="inputEl"
-          v-model="draft"
-          class="keyboard-input"
-          type="text"
-          autocomplete="off"
-          autocapitalize="off"
-          autocorrect="off"
-          spellcheck="false"
-          placeholder="Text input..."
-          @keydown.enter.prevent="submit"
-          @blur="onInputBlur"
-        />
-        <button type="button" class="keyboard-input-send" :disabled="!draft.trim()" @click="submit">
-          <span class="mdi mdi-send"></span>
-        </button>
-      </div>
+  <div class="keyboard-input-wrapper" @pointerdown="markInternalInteraction">
+    <div class="keyboard-input-snippets">
+      <KeyboardChips ref="chipsEl" :insert-mode="true" @chip:tap="onChipTap" />
+    </div>
+    <div class="keyboard-input-row">
+      <input
+        ref="inputEl"
+        v-model="draft"
+        class="keyboard-input"
+        type="text"
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        placeholder="Text input..."
+        @keydown.enter.prevent="submit"
+        @focus="$emit('focused', true)"
+        @blur="onBlur"
+      />
+      <button type="button" class="keyboard-input-send" @click="onSendClick">
+        <span class="mdi" :class="draft.trim() ? 'mdi-send' : 'mdi-close'"></span>
+      </button>
     </div>
   </div>
 </template>
@@ -32,46 +31,27 @@ import { useInputStore } from "../stores/input.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import KeyboardChips from "./KeyboardChips.vue";
 
-const emit = defineEmits(["visibility"]);
+const emit = defineEmits(["focused", "submitted", "closeRequested"]);
 
 const inputStore = useInputStore();
 const { sendTextToTerminal } = useKeyboard();
 
-const visible = ref(false);
 const draft = ref("");
 const inputEl = ref(null);
 const chipsEl = ref(null);
-let suppressBlurHide = false;
+let suppressBlurRefocus = false;
 
-function preventScroll(e) {
-  if (e.target.closest(".quick-snippet-scroll-row")) return;
-  e.preventDefault();
-}
-
-function show() {
-  visible.value = true;
-  emit("visibility", true);
-  document.addEventListener("touchmove", preventScroll, { passive: false });
-  nextTick(() => inputEl.value?.focus());
-}
-
-function hide() {
-  visible.value = false;
-  emit("visibility", false);
-  document.removeEventListener("touchmove", preventScroll);
-}
-
-function onInputBlur() {
-  if (suppressBlurHide) {
-    suppressBlurHide = false;
+function onBlur() {
+  if (suppressBlurRefocus) {
+    suppressBlurRefocus = false;
     nextTick(() => inputEl.value?.focus());
     return;
   }
-  if (visible.value) hide();
+  emit("focused", false);
 }
 
 function markInternalInteraction() {
-  suppressBlurHide = true;
+  suppressBlurRefocus = true;
 }
 
 function onChipTap({ command }) {
@@ -79,15 +59,42 @@ function onChipTap({ command }) {
   nextTick(() => inputEl.value?.focus());
 }
 
+function focus() {
+  nextTick(() => inputEl.value?.focus());
+}
+
+function isFocused() {
+  return document.activeElement === inputEl.value;
+}
+
+function appendChar(text) {
+  draft.value += text;
+}
+
+function backspace() {
+  draft.value = draft.value.slice(0, -1);
+}
+
 function submit() {
-  suppressBlurHide = false;
+  suppressBlurRefocus = false;
   const text = draft.value.trim();
   if (!text) return;
   sendTextToTerminal(text);
   inputStore.addInputHistory(text);
   draft.value = "";
-  hide();
+  inputEl.value?.blur();
+  emit("submitted");
 }
 
-defineExpose({ show, hide, visible, draft });
+function onSendClick() {
+  if (draft.value.trim()) {
+    submit();
+  } else {
+    suppressBlurRefocus = false;
+    inputEl.value?.blur();
+    emit("closeRequested");
+  }
+}
+
+defineExpose({ focus, isFocused, appendChar, backspace, submit });
 </script>
