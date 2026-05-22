@@ -1,12 +1,15 @@
 <template>
   <div class="settings-menu-content">
     <div class="settings-menu">
+      <div class="settings-menu-section-label">Workspaces</div>
       <button type="button" class="settings-menu-item" @click="pushView('WorkspaceOpen')">
         <span class="mdi mdi-folder-multiple"></span> Workspaces
       </button>
       <button type="button" class="settings-menu-item" @click="pushView('WorkspaceAdd')">
         <span class="mdi mdi-folder-plus-outline"></span> Add Workspace
       </button>
+
+      <div class="settings-menu-section-label">Customize</div>
       <button type="button" class="settings-menu-item" @click="pushView('TabConfig')">
         <span class="mdi mdi-tab"></span> Tabs
       </button>
@@ -16,6 +19,11 @@
       <button type="button" class="settings-menu-item" @click="pushView('EditorConfig')">
         <span class="mdi mdi-application-edit-outline"></span> Editor
       </button>
+
+      <div class="settings-menu-section-label">System</div>
+      <button type="button" class="settings-menu-item" @click="pushView('AuthConfig')">
+        <span class="mdi mdi-shield-lock-outline"></span> Auth
+      </button>
       <button type="button" class="settings-menu-item" @click="pushView('ConfigFile')">
         <span class="mdi mdi-file-cog"></span> Config File
       </button>
@@ -24,9 +32,6 @@
       </button>
       <button type="button" class="settings-menu-item" @click="pushView('ClientInfo')">
         <span class="mdi mdi-cellphone-information"></span> Client Info
-      </button>
-      <button type="button" class="settings-menu-item" @click="pushView('AuthConfig')">
-        <span class="mdi mdi-shield-lock-outline"></span> Auth
       </button>
     </div>
   </div>
@@ -45,6 +50,19 @@ modalTitle.value = "Settings";
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.settings-menu-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 4px 4px 0;
+}
+
+.settings-menu-section-label:not(:first-child) {
+  margin-top: 8px;
 }
 
 .settings-menu-item {
