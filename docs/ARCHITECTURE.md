@@ -9,6 +9,30 @@
 
 For the rationale behind each decision, see [DECISIONS.md](DECISIONS.md).
 
+## Module layout
+
+```
+api/                          Backend (FastAPI)
+  main.py                     App init, static file serving, /auth/check, image upload
+  auth.py                     Bearer token auth (optional), trusted-proxy detection
+  runner.py                   Job execution (subprocess, default timeout 300s)
+  terminal_session.py / tmux.py  tmux × pty.fork × WebSocket bridge
+  git_utils.py / git_lock.py  Git subprocess invocation, workspace lock
+  config.py / config_schema.py  config.json read/write, Pydantic validation
+  rate_limiter.py             In-process rate limiter
+  routers/                    workspaces, jobs, terminal, system, settings, git, github
+ui/                           Frontend (Vue 3 + Pinia, built with Vite)
+  components/                 Vue components
+  stores/                     Pinia stores
+  composables/                Reusable logic (useApi, useTerminal, useModal, etc.)
+  utils/                      Pure functions, constants, endpoints
+  styles/                     Global CSS
+docker/                       Dockerfile, compose.yml
+docs/                         ARCHITECTURE.md, DECISIONS.md, A11Y_AUDIT.md
+config.json                   Config file (auto-generated, .gitignore'd)
+data/auth.json                Token storage (.gitignore'd)
+```
+
 ## Notes for contributors
 
 | Target | Watch out for |

@@ -111,23 +111,16 @@ All operations go through the `./any-console` command.
 
 Runs `git pull` → update deps → build → restart in one shot. Skips steps where nothing has changed.
 
-## Directory structure
+## Repository layout
 
 ```
-api/                  Backend (FastAPI)
-  routers/            Routers (workspaces, git, jobs, terminal, settings, system, github)
-  main.py             App init, static file serving
-  auth.py             Bearer token auth (optional)
-  runner.py           Job execution (subprocess)
-  terminal_session.py tmux × pty.fork × WebSocket bridge
-  rate_limiter.py     Rate limiter
-  config.py           config.json read/write
-ui/                   Frontend (Vue 3 + Pinia, built with Vite)
-docker/               Docker files (Dockerfile, compose.yml)
-docs/                 Design docs (ARCHITECTURE.md)
-config.json           Config file (auto-generated, .gitignore'd)
-data/auth.json        Token storage (.gitignore'd)
+api/      Backend (FastAPI)
+ui/       Frontend (Vue 3 + Pinia, built with Vite)
+docker/   Docker files
+docs/     Architecture & design docs
 ```
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the module-level breakdown.
 
 ## Configuration
 
