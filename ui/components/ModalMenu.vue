@@ -19,6 +19,9 @@
       <button type="button" class="settings-menu-item" @click="pushView('EditorConfig')">
         <span class="mdi mdi-application-edit-outline"></span> Editor
       </button>
+      <button type="button" class="settings-menu-item" @click="pushView('DisplayConfig')">
+        <span class="mdi mdi-monitor-eye"></span> Display
+      </button>
 
       <div class="settings-menu-section-label">System</div>
       <button type="button" class="settings-menu-item" @click="pushView('AuthConfig')">
@@ -35,9 +38,6 @@
       </button>
       <button type="button" class="settings-menu-item" @click="pushView('TmuxInfo')">
         <span class="mdi mdi-console-network-outline"></span> Tmux Info
-      </button>
-      <button type="button" class="settings-menu-item" @click="pushView('ExtrasConfig')">
-        <span class="mdi mdi-flask-outline"></span> Extras
       </button>
     </div>
   </div>

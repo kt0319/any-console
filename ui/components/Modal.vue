@@ -36,7 +36,7 @@
         <ServerInfo v-if="currentView === 'ServerInfo'" />
         <ClientInfo v-if="currentView === 'ClientInfo'" />
         <TmuxInfo v-if="currentView === 'TmuxInfo'" />
-        <ExtrasConfig v-if="currentView === 'ExtrasConfig'" />
+        <DisplayConfig v-if="currentView === 'DisplayConfig'" />
         <GitHubPane v-if="currentView === 'GitHubPane'" />
         <ConfigFile v-if="currentView === 'ConfigFile'" />
         <IconPicker v-if="currentView === 'IconPicker'" />
@@ -61,7 +61,7 @@ import AuthConfig from "./AuthConfig.vue";
 import ServerInfo from "./ServerInfo.vue";
 import ClientInfo from "./ClientInfo.vue";
 import TmuxInfo from "./TmuxInfo.vue";
-import ExtrasConfig from "./ExtrasConfig.vue";
+import DisplayConfig from "./DisplayConfig.vue";
 import ConfigFile from "./ConfigFile.vue";
 import GitHubPane from "./GitHubPane.vue";
 import IconPicker from "./IconPicker.vue";
