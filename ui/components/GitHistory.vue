@@ -468,7 +468,7 @@ defineExpose({
 }
 
 .branch-abbr {
-  color: var(--accent);
+  color: #fff;
   font-weight: 500;
 }
 
