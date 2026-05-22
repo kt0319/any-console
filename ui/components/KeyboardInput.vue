@@ -1,8 +1,5 @@
 <template>
   <div class="keyboard-input-wrapper" @pointerdown="markInternalInteraction">
-    <div class="keyboard-input-snippets">
-      <KeyboardChips ref="chipsEl" :insert-mode="true" @chip:tap="onChipTap" />
-    </div>
     <div class="keyboard-input-row">
       <input
         ref="inputEl"
@@ -18,9 +15,6 @@
         @focus="$emit('focused', true)"
         @blur="onBlur"
       />
-      <button type="button" class="keyboard-input-send" @click="onSendClick">
-        <span class="mdi" :class="draft.trim() ? 'mdi-send' : 'mdi-close'"></span>
-      </button>
     </div>
   </div>
 </template>
@@ -29,17 +23,20 @@
 import { ref, nextTick } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
-import KeyboardChips from "./KeyboardChips.vue";
 
-const emit = defineEmits(["focused", "submitted", "closeRequested"]);
+const emit = defineEmits(["focused", "submitted"]);
 
 const inputStore = useInputStore();
 const { sendTextToTerminal } = useKeyboard();
 
-const draft = ref("");
+const draft = defineModel("draft", { default: "" });
 const inputEl = ref(null);
-const chipsEl = ref(null);
 let suppressBlurRefocus = false;
+
+function blur() {
+  suppressBlurRefocus = false;
+  inputEl.value?.blur();
+}
 
 function onBlur() {
   if (suppressBlurRefocus) {
@@ -52,11 +49,6 @@ function onBlur() {
 
 function markInternalInteraction() {
   suppressBlurRefocus = true;
-}
-
-function onChipTap({ command }) {
-  draft.value = command;
-  nextTick(() => inputEl.value?.focus());
 }
 
 function focus() {
@@ -86,15 +78,5 @@ function submit() {
   emit("submitted");
 }
 
-function onSendClick() {
-  if (draft.value.trim()) {
-    submit();
-  } else {
-    suppressBlurRefocus = false;
-    inputEl.value?.blur();
-    emit("closeRequested");
-  }
-}
-
-defineExpose({ focus, isFocused, appendChar, backspace, submit });
+defineExpose({ focus, blur, isFocused, appendChar, backspace, submit });
 </script>

@@ -7,19 +7,10 @@
       style="display:none"
       @change="onCameraFileChange"
     />
-    <KeyboardInput ref="keyboardInput" @focused="onInputFocused" @submitted="$emit('submitted')" @closeRequested="$emit('submitted')" />
+    <div class="keyboard-chips-row">
+      <KeyboardChips :insert-mode="true" @chip:tap="onChipTap" />
+    </div>
     <div v-show="!inputFocused" v-for="(row, ri) in qwertyRows" :key="ri" class="quick-extra-row">
-      <div
-        v-if="ri === 2"
-        class="quick-key quick-flick-arrow"
-        @touchstart.prevent="onCameraTouchStart"
-        @touchend.prevent="onCameraTouchEnd"
-        @touchcancel="onQuickKeyCancel($event)"
-        @click="openCamera"
-      >
-        <span class="flick-main"><span class="mdi mdi-camera"></span></span>
-        <span class="flick-hint-bottom"><span class="mdi mdi-pin" style="font-size:10px"></span></span>
-      </div>
       <div
         v-for="(keyDef, ci) in row"
         :key="ci"
@@ -38,16 +29,18 @@
       </div>
       <div
         v-if="ri === 2"
-        class="quick-key"
-        @touchstart.prevent="onReloadTouchStart"
-        @touchend.prevent="onReloadTouchEnd"
+        class="quick-key quick-flick-arrow"
+        @touchstart.prevent="onCameraTouchStart"
+        @touchend.prevent="onCameraTouchEnd"
         @touchcancel="onQuickKeyCancel($event)"
-        @click="doReload"
+        @click="openCamera"
       >
-        <span class="flick-main"><span class="mdi mdi-refresh"></span></span>
+        <span class="flick-hint-top"><span class="mdi mdi-refresh" style="font-size:10px"></span></span>
+        <span class="flick-main"><span class="mdi mdi-camera"></span></span>
+        <span class="flick-hint-bottom"><span class="mdi mdi-pin" style="font-size:10px"></span></span>
       </div>
     </div>
-    <div v-show="!inputFocused" class="quick-extra-row quick-extra-bottom-keys">
+    <div v-show="!inputFocused" class="quick-extra-row quick-extra-modifier-keys">
       <div
         class="quick-key quick-flick-arrow quick-modifier"
         :class="{ active: modifierState.shift }"
@@ -88,6 +81,9 @@
         <span class="flick-hint-right">End</span>
         <span class="flick-hint-bottom">PgD</span>
       </div>
+    </div>
+    <div class="quick-extra-row quick-extra-bottom-keys">
+      <KeyboardInput ref="keyboardInput" v-model:draft="draft" @focused="onInputFocused" @submitted="$emit('submitted')" />
       <div class="quick-key quick-flick-arrow quick-key-toggle active" ref="topArrowFlickEl">
         <span class="flick-hint-top">&uarr;</span>
         <span class="flick-hint-left">&larr;</span>
@@ -95,10 +91,13 @@
         <span class="flick-hint-right">&rarr;</span>
         <span class="flick-hint-bottom">&darr;</span>
       </div>
-      <div class="quick-key quick-flick-enter quick-flick-arrow quick-key-toggle" ref="topEnterFlickEl">
+      <div class="quick-key quick-flick-enter quick-flick-arrow quick-key-toggle" :class="{ 'enter-send-mode': hasDraft }" ref="topEnterFlickEl">
         <span class="flick-hint-top">Tab</span>
         <span class="flick-hint-left">BS</span>
-        <span class="flick-main">&crarr;</span>
+        <span class="flick-main">
+          <span v-if="hasDraft" class="mdi mdi-send"></span>
+          <template v-else>&crarr;</template>
+        </span>
         <span class="flick-hint-bottom">Space</span>
         <span class="flick-hint-right">Del</span>
       </div>
@@ -117,6 +116,7 @@ import { FLICK_THRESHOLD } from "../utils/constants.js";
 import { arrowResolver, enterResolver } from "../utils/flick-resolvers.js";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
 import KeyboardInput from "./KeyboardInput.vue";
+import KeyboardChips from "./KeyboardChips.vue";
 
 const props = defineProps({
   active: { type: Boolean, default: false },
@@ -126,9 +126,15 @@ const emitLocal = defineEmits(["cycleMode", "submitted", "inputFocus"]);
 
 const keyboardInput = ref(null);
 const inputFocused = ref(false);
+const draft = ref("");
+const hasDraft = computed(() => draft.value.trim().length > 0);
 
 function focusInput() {
   keyboardInput.value?.focus?.();
+}
+
+function blurInput() {
+  keyboardInput.value?.blur?.();
 }
 
 function onInputFocused(focused) {
@@ -136,7 +142,12 @@ function onInputFocused(focused) {
   emitLocal("inputFocus", !!focused);
 }
 
-defineExpose({ focusInput });
+function onChipTap({ command }) {
+  draft.value = command;
+  keyboardInput.value?.focus?.();
+}
+
+defineExpose({ focusInput, blurInput });
 
 const inputStore = useInputStore();
 const auth = useAuthStore();
@@ -218,6 +229,10 @@ function onCameraTouchStart(e) {
 async function onCameraTouchEnd(e) {
   e.currentTarget.classList.remove("pressed");
   const dy = e.changedTouches[0].clientY - cameraStartY;
+  if (dy < -FLICK_THRESHOLD) {
+    doReload();
+    return;
+  }
   if (dy > FLICK_THRESHOLD) {
     const cmd = await prompt({
       title: "Save Snippet",
@@ -226,18 +241,11 @@ async function onCameraTouchEnd(e) {
       placeholder: "echo hello",
     });
     if (cmd) emit("snippet:add", { command: cmd });
-  } else {
-    openCamera();
+    return;
   }
+  openCamera();
 }
 
-function onReloadTouchStart(e) {
-  e.currentTarget.classList.add("pressed");
-}
-function onReloadTouchEnd(e) {
-  e.currentTarget.classList.remove("pressed");
-  doReload();
-}
 function doReload() {
   emitLocal("cycleMode");
   window.location.replace(window.location.pathname + "?_=" + Date.now());
@@ -351,7 +359,11 @@ onMounted(() => {
   }
   if (topEnterFlickEl.value) {
     setupFlickRepeat(topEnterFlickEl.value, enterResolver, () => {
-      sendKeyToTerminal({ key: "Enter" });
+      if (hasDraft.value) {
+        keyboardInput.value?.submit?.();
+      } else {
+        sendKeyToTerminal({ key: "Enter" });
+      }
     }, { accelerateRepeat: true });
   }
 });

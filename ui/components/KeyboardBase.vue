@@ -1,13 +1,13 @@
 <template>
   <template v-if="isKeyboardVisible">
     <KeyboardMinimumKey
-      :active="mode === 0"
-      @cycleMode="cycleMode"
+      :active="!isFullKeyboard"
+      @cycleMode="toggleKeyboard"
     />
     <KeyboardQwertyKey
       ref="qwertyView"
-      :active="mode === 1"
-      @cycleMode="cycleMode"
+      :active="isFullKeyboard"
+      @cycleMode="toggleKeyboard"
       @submitted="hideInput"
       @inputFocus="onInputFocus"
     />
@@ -30,48 +30,31 @@ const isKeyboardVisible = computed(() => props.isPanelBottom || layoutStore.isSp
 
 const { clearModifiers } = useKeyboard();
 
-const mode = ref(0);
+const isFullKeyboard = ref(false);
 const qwertyView = ref(null);
 const { keyboardOpen } = useViewport();
 
 function showInput() {
-  mode.value = 1;
+  isFullKeyboard.value = true;
   nextTick(() => qwertyView.value?.focusInput?.());
 }
 
 function hideInput() {
-  if (mode.value === 1) mode.value = 0;
+  isFullKeyboard.value = false;
   clearModifiers();
 }
 
-function cycleMode() {
-  mode.value = (mode.value + 1) % 2;
+function toggleKeyboard() {
+  // input にフォーカスがあったまま切り替えると inputFocused = true のままで
+  // QWERTY rows が表示されないので、ここで強制的に blur する。
+  qwertyView.value?.blurInput?.();
+  isFullKeyboard.value = !isFullKeyboard.value;
   clearModifiers();
 }
 
-// 「input が一度でもフォーカスされたか」をトラック (= OS キーボードが立ち上がったか)
-let inputWasFocused = false;
-let blurTimer = null;
-watch(mode, (val) => {
-  if (val === 0) {
-    inputWasFocused = false;
-    if (blurTimer) { clearTimeout(blurTimer); blurTimer = null; }
-  }
-});
-
-function onInputFocus(focused) {
-  if (blurTimer) { clearTimeout(blurTimer); blurTimer = null; }
-  if (focused) {
-    inputWasFocused = true;
-    return;
-  }
-  if (!inputWasFocused) return;
-  // 一度フォーカスされたあとの blur → 200ms 遅延で hideInput
-  blurTimer = setTimeout(() => {
-    blurTimer = null;
-    if (mode.value === 1) hideInput();
-  }, 200);
-}
+// inputFocus イベントは子側で QWERTY rows / メタキー段の表示制御に使われる。
+// blur 時にモードを Minimum に戻すことはしない (ユーザーが明示的に切り替えるまで QWERTY のまま)。
+function onInputFocus() {}
 
 // OS キーボードの開閉が visualViewport で検知できる場合の経路:
 // 開いたら showInput、(input がフォーカスされて閉じたら) onInputFocus 側で処理。
@@ -81,7 +64,7 @@ watch(keyboardOpen, (open) => {
   showInput();
 });
 
-defineExpose({ mode, cycleMode, showInput, hideInput });
+defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
 </script>
 
 <style>
@@ -127,6 +110,30 @@ defineExpose({ mode, cycleMode, showInput, hideInput });
 
 .quick-qwerty-panel .quick-extra-bottom-keys .quick-flick-enter {
   flex: 1;
+}
+
+.quick-qwerty-panel .quick-extra-bottom-keys .quick-key {
+  flex: none;
+  min-width: calc((100vw - 16px) / 5);
+  width: calc((100vw - 16px) / 5);
+}
+
+.quick-qwerty-panel .quick-extra-bottom-keys > .keyboard-input-wrapper {
+  flex: none;
+  width: calc((100vw - 16px) * 3 / 5);
+  min-width: 0;
+  padding: 0;
+}
+
+.quick-qwerty-panel .keyboard-chips-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quick-qwerty-panel .enter-send-mode {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .quick-extra-panel {
@@ -329,7 +336,8 @@ defineExpose({ mode, cycleMode, showInput, hideInput });
   font-size: 14px;
 }
 
-.quick-qwerty-panel .quick-key-toggle.active {
+.quick-qwerty-panel .quick-key-toggle.active,
+.quick-qwerty-panel .quick-modifier.active {
   background: rgba(130, 170, 255, 0.12);
   color: rgba(130, 170, 255, 0.7);
   border-color: rgba(130, 170, 255, 0.6);
