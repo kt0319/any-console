@@ -7,22 +7,24 @@ const recent = new Map();
 let posting = false;
 const pending = [];
 
-function pruneRecent(now) {
-  for (const [key, ts] of recent) {
-    if (now - ts > DEDUP_WINDOW_MS) recent.delete(key);
+export function pruneRecent(map, now, windowMs = DEDUP_WINDOW_MS) {
+  for (const [key, ts] of map) {
+    if (now - ts > windowMs) map.delete(key);
   }
 }
 
-function fingerprint(report) {
+export function fingerprint(report) {
   return `${report.type}|${report.message}|${report.source}|${report.lineno ?? ""}`;
 }
 
-function truncate(value, max) {
+export function truncate(value, max) {
   if (typeof value !== "string") return "";
   return value.length > max ? value.slice(0, max) : value;
 }
 
-function buildReport({ type, message, stack, source, lineno, colno, info }) {
+export function buildReport({ type, message, stack, source, lineno, colno, info }, env = {}) {
+  const href = env.href ?? (typeof location !== "undefined" ? location.href : "");
+  const ua = env.userAgent ?? (typeof navigator !== "undefined" ? navigator.userAgent : "");
   return {
     type: truncate(type || "unknown", 40),
     message: truncate(message || "", 2000),
@@ -30,8 +32,8 @@ function buildReport({ type, message, stack, source, lineno, colno, info }) {
     source: truncate(source || "", 500),
     lineno: typeof lineno === "number" ? lineno : null,
     colno: typeof colno === "number" ? colno : null,
-    url: truncate(typeof location !== "undefined" ? location.href : "", 500),
-    user_agent: truncate(typeof navigator !== "undefined" ? navigator.userAgent : "", 500),
+    url: truncate(href, 500),
+    user_agent: truncate(ua, 500),
     info: truncate(info || "", 1000),
   };
 }
@@ -58,27 +60,27 @@ function reportFactory(authFetch) {
     const report = buildReport(raw);
     const fp = fingerprint(report);
     const now = Date.now();
-    pruneRecent(now);
+    pruneRecent(recent, now);
     if (recent.has(fp)) return;
     recent.set(fp, now);
     post(report, authFetch);
   };
 }
 
-function extractStack(err) {
+export function extractStack(err) {
   if (!err) return "";
   if (typeof err === "string") return "";
   return err.stack || "";
 }
 
-function extractMessage(err) {
+export function extractMessage(err) {
   if (!err) return "Unknown error";
   if (typeof err === "string") return err;
   return err.message || String(err);
 }
 
 export function installErrorReporter(app, authFetch) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") return () => {};
   const report = reportFactory(authFetch);
 
   app.config.errorHandler = (err, _instance, info) => {
@@ -91,7 +93,7 @@ export function installErrorReporter(app, authFetch) {
     console.error(err);
   };
 
-  window.addEventListener("error", (e) => {
+  const onError = (e) => {
     report({
       type: "error",
       message: e.message || extractMessage(e.error),
@@ -100,14 +102,22 @@ export function installErrorReporter(app, authFetch) {
       lineno: typeof e.lineno === "number" ? e.lineno : null,
       colno: typeof e.colno === "number" ? e.colno : null,
     });
-  });
-
-  window.addEventListener("unhandledrejection", (e) => {
+  };
+  const onRejection = (e) => {
     const reason = e.reason;
     report({
       type: "unhandledrejection",
       message: extractMessage(reason),
       stack: extractStack(reason),
     });
-  });
+  };
+
+  window.addEventListener("error", onError);
+  window.addEventListener("unhandledrejection", onRejection);
+
+  return () => {
+    window.removeEventListener("error", onError);
+    window.removeEventListener("unhandledrejection", onRejection);
+    app.config.errorHandler = undefined;
+  };
 }
