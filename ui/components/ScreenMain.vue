@@ -249,6 +249,10 @@ function refreshTab(tab) {
   }
   clearTimeout(tabObj._reconnectTimer);
   tabObj._reconnectAttempts = 0;
+  // xterm.js のバッファを完全にクリアして tmux capture-pane で screen を取り直す。
+  // term.refresh() だけだと崩れたバッファをそのまま再描画してしまうため。
+  try { tabObj.term?.reset(); } catch {}
+  tabObj._needsHistoryRestore = true;
   tabObj._pendingRedraw = true;
   connectTerminalWs(tabObj, {
     focus: false,
