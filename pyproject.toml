@@ -25,13 +25,20 @@ source = ["api"]
 branch = true
 omit = [
     "api/__init__.py",
+    # Terminal subsystem: WebSocket fanout, pty.fork, async stream relay.
+    # Behaviour depends on OS pty + tmux running processes; deterministic
+    # unit coverage is impractical. Smoke-tested manually + integration.
+    "api/main.py",
+    "api/routers/terminal.py",
+    "api/terminal_session.py",
+    "api/terminal_pty.py",
 ]
 
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
 precision = 1
-fail_under = 70
+fail_under = 85
 exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",
