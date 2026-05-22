@@ -35,6 +35,7 @@ config.lock
 .vscode/
 .idea/
 .codex/
+.claude/
 *.swp
 *.swo
 *~
