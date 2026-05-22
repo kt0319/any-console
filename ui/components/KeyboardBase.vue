@@ -125,9 +125,19 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
   width: calc((100vw - 16px) / 5);
 }
 
+.quick-qwerty-panel .quick-extra-bottom-keys .snippet-toggle-btn {
+  flex: none;
+  min-width: 40px;
+  width: 40px;
+  background: rgba(40, 44, 65, 0.8);
+  border: 1px solid var(--white-30);
+  color: rgba(255, 255, 255, 0.8);
+}
+
 .quick-qwerty-panel .quick-extra-bottom-keys > .keyboard-input-wrapper {
   flex: none;
-  width: calc((100vw - 16px) * 3 / 5 + 4px);
+  width: calc((100vw - 16px) * 3 / 5 - 42px);
+  margin-right: auto;
   min-width: 0;
   padding: 0;
 }

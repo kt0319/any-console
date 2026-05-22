@@ -7,10 +7,10 @@
       style="display:none"
       @change="onCameraFileChange"
     />
-    <div class="keyboard-chips-row">
+    <div v-show="showSnippetView" class="keyboard-chips-row">
       <KeyboardChips :insert-mode="true" @chip:tap="onChipTap" />
     </div>
-    <div v-show="!inputFocused" v-for="(row, ri) in qwertyRows" :key="ri" class="quick-extra-row">
+    <div v-show="!inputFocused && !showSnippetView" v-for="(row, ri) in qwertyRows" :key="ri" class="quick-extra-row">
       <div
         v-for="(keyDef, ci) in row"
         :key="ci"
@@ -28,7 +28,7 @@
         <template v-else>{{ displayLabel(keyDef) }}</template>
       </div>
     </div>
-    <div v-show="!inputFocused" class="quick-extra-row quick-extra-modifier-keys">
+    <div v-show="!inputFocused && !showSnippetView" class="quick-extra-row quick-extra-modifier-keys">
       <div
         class="quick-key quick-flick-arrow quick-modifier"
         :class="{ active: modifierState.shift }"
@@ -78,11 +78,20 @@
       >
         <span class="flick-hint-top"><span class="mdi mdi-refresh" style="font-size:10px"></span></span>
         <span class="flick-main"><span class="mdi mdi-camera"></span></span>
-        <span class="flick-hint-bottom"><span class="mdi mdi-pin" style="font-size:10px"></span></span>
       </div>
     </div>
     <div class="quick-extra-row quick-extra-bottom-keys">
       <KeyboardInput ref="keyboardInput" v-model:draft="draft" @focused="onInputFocused" @submitted="$emit('submitted')" />
+      <div
+        class="quick-key snippet-toggle-btn quick-modifier"
+        :class="{ active: showSnippetView }"
+        @touchstart.prevent="onSnippetToggleTouchStart"
+        @touchend.prevent="onSnippetToggleTouchEnd"
+        @touchcancel="onQuickKeyCancel($event)"
+        @click="toggleSnippetView"
+      >
+        <span class="flick-main"><span class="mdi mdi-bookmark-multiple"></span></span>
+      </div>
       <div class="quick-key quick-flick-arrow quick-key-toggle active" ref="topArrowFlickEl">
         <span class="flick-hint-top">&uarr;</span>
         <span class="flick-hint-left">&larr;</span>
@@ -133,6 +142,18 @@ const keyboardInput = ref(null);
 const inputFocused = ref(false);
 const draft = ref("");
 const hasDraft = computed(() => draft.value.trim().length > 0);
+const showSnippetView = ref(false);
+
+function onSnippetToggleTouchStart(e) {
+  e.currentTarget.classList.add("pressed");
+}
+function onSnippetToggleTouchEnd(e) {
+  e.currentTarget.classList.remove("pressed");
+  toggleSnippetView();
+}
+function toggleSnippetView() {
+  showSnippetView.value = !showSnippetView.value;
+}
 
 let historyIndex = -1;
 let savedDraft = "";
@@ -180,6 +201,7 @@ function onChipTap({ command }) {
     sendTextToTerminal(command);
     inputStore.addInputHistory(command);
   }
+  showSnippetView.value = false;
 }
 
 defineExpose({ focusInput, blurInput });
@@ -261,21 +283,11 @@ function onCameraTouchStart(e) {
   e.currentTarget.classList.add("pressed");
   cameraStartY = e.touches[0].clientY;
 }
-async function onCameraTouchEnd(e) {
+function onCameraTouchEnd(e) {
   e.currentTarget.classList.remove("pressed");
   const dy = e.changedTouches[0].clientY - cameraStartY;
   if (dy < -FLICK_THRESHOLD) {
     doReload();
-    return;
-  }
-  if (dy > FLICK_THRESHOLD) {
-    const cmd = await prompt({
-      title: "Save Snippet",
-      message: "Enter command to save as snippet.",
-      initialValue: "",
-      placeholder: "echo hello",
-    });
-    if (cmd) emit("snippet:add", { command: cmd });
     return;
   }
   openCamera();

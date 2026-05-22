@@ -13,7 +13,7 @@
         @touchend="onChipTouchEnd($event, snippet.command)"
         @touchcancel="onTouchCancel"
       >
-        <span class="mdi mdi-pin snippet-chip-icon"></span>
+        <span class="mdi mdi-bookmark-multiple snippet-chip-icon"></span>
         {{ truncateQuickText(snippet.label) }}
       </div>
       <div v-if="snippets.length === 0" class="quick-chip-item quick-chip-item-empty">No snippets</div>
