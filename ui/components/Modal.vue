@@ -4,7 +4,7 @@
     class="modal-overlay"
     role="dialog"
     aria-modal="true"
-    @click.self="closeModal"
+    @mousedown.self="closeModal"
   >
     <div ref="modalEl" class="modal">
       <div class="modal-header">

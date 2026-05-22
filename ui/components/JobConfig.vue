@@ -14,7 +14,7 @@
         <span class="ws-settings-label">URL</span>
         <input type="text" class="form-input" v-model="form.url" placeholder="https://example.com" autocomplete="off" />
       </div>
-      <div v-else class="ws-settings-row">
+      <div v-else class="ws-settings-row ws-settings-row-stack">
         <span class="ws-settings-label">Command</span>
         <textarea class="form-input job-command-input" v-model="form.command" placeholder="Command to execute (multi-line shell script supported)" autocomplete="off" rows="3" spellcheck="false"></textarea>
       </div>
@@ -192,7 +192,18 @@ async function deleteJob() {
   border-top: 1px solid var(--border);
 }
 
+.ws-settings-row-stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.ws-settings-row-stack .ws-settings-label {
+  min-width: 0;
+}
+
 .job-command-input {
+  width: 100%;
   font-family: ui-monospace, "Menlo", "Consolas", monospace;
   resize: vertical;
   min-height: 64px;
