@@ -390,13 +390,14 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
 
 .quick-snippet-scroll-row {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 4px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   pointer-events: auto;
   scrollbar-width: none;
+  max-height: 40vh;
 }
 
 .quick-snippet-scroll-row::-webkit-scrollbar {
@@ -405,21 +406,21 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
 
 .quick-snippet-scroll-row > .quick-chip-item {
   flex: 0 0 auto;
-  width: auto;
-  max-width: 160px;
-  touch-action: pan-x;
+  width: 100%;
+  max-width: none;
+  touch-action: pan-y;
 }
 
 .quick-chip-item {
   width: 100%;
-  height: 30px;
+  height: 32px;
   padding: 0 10px;
   border: 1px solid var(--white-30);
   border-radius: var(--radius);
   background: rgba(40, 44, 65, 0.8);
   color: var(--text-primary);
   font-size: 9px;
-  line-height: 28px;
+  line-height: 30px;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
@@ -432,28 +433,6 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
   box-sizing: border-box;
 }
 
-.quick-snippet-scroll-row > .quick-snippet-add-btn {
-  flex: 0 0 30px;
-  width: 30px;
-  max-width: 30px;
-}
-
-.quick-snippet-add-btn {
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
-  min-height: 30px;
-  max-height: 30px;
-  padding: 0;
-  line-height: 1;
-  aspect-ratio: 1 / 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  color: var(--text-primary);
-  border-style: dashed;
-}
 
 .quick-chip-item-empty {
   display: flex;

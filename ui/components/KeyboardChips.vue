@@ -30,11 +30,11 @@ const { confirm } = useConfirm();
 
 const longPress = useLongPress(600);
 let scrolled = false;
-let startX = 0;
+let startY = 0;
 
 function onSnippetTouchStart(e, snippet, idx) {
   scrolled = false;
-  startX = e.touches[0].clientX;
+  startY = e.touches[0].clientY;
   longPress.reset();
   longPress.start(async () => {
     if (await confirm(`Delete snippet "${snippet.command}"? This cannot be undone.`)) {
@@ -53,7 +53,7 @@ function onChipTouchEnd(e, command) {
 }
 
 function onTouchMove(e) {
-  if (!scrolled && Math.abs(e.touches[0].clientX - startX) > 10) {
+  if (!scrolled && Math.abs(e.touches[0].clientY - startY) > 10) {
     scrolled = true;
     longPress.cancel();
   }
