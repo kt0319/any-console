@@ -1,7 +1,12 @@
 <template>
   <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom, 'split-mode': isSplitMode }">
     <TabBar ref="tabBarView" :tabs="openTabs" />
-    <div v-if="!isSplitMode" class="active-tab-title">{{ activeTabLabel || ' ' }}</div>
+    <div v-if="!isSplitMode" class="active-tab-title">
+      <template v-if="debugMode">
+        <span :class="['active-tab-debug', latestLog ? `debug-level-${latestLog.level}` : '']">{{ debugInfo }}</span>
+      </template>
+      <span v-else>{{ activeTabLabel || ' ' }}</span>
+    </div>
     <WorkspaceStatusBar />
     <div v-if="booting || isEmptyScreenVisible" class="screen-main-empty">
       <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
@@ -45,6 +50,8 @@ import { useConfirm } from "../composables/useConfirm.js";
 import { useViewport } from "../composables/useViewport.js";
 import { useSessionSync } from "../composables/useSessionSync.js";
 import { useSnippetPersist } from "../composables/useSnippetPersist.js";
+import { useDebugMode } from "../composables/useDebugMode.js";
+import { useClientLogs } from "../composables/useClientLogs.js";
 import { on, emit } from "../app-bridge.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_RUN, EP_SETTINGS_CONFIG_HEALTH } from "../utils/endpoints.js";
 import { TERMINAL_JOB_KEY } from "../utils/constants.js";
@@ -105,6 +112,17 @@ const activeTabLabel = computed(() => {
   const ws = tab.workspace || "";
   const job = tab.jobLabel || tab.jobName || "";
   return [ws, job].filter(Boolean).join(" / ");
+});
+
+const debugMode = useDebugMode();
+const { logs: clientLogs, levelLabel } = useClientLogs();
+
+const latestLog = computed(() => clientLogs.value[clientLogs.value.length - 1] || null);
+const debugInfo = computed(() => {
+  const log = latestLog.value;
+  if (!log) return "(no logs yet)";
+  const t = new Date(log.time).toTimeString().slice(0, 8);
+  return `${t} [${levelLabel(log.level)}] ${log.msg}`;
 });
 
 const tabBarView = ref(null);
@@ -426,11 +444,13 @@ defineExpose({
 .active-tab-title {
   display: none;
   flex-shrink: 0;
-  text-align: center;
-  font-size: 11px;
-  line-height: 1.4;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: 32px;
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--text-muted);
-  padding: 0 12px;
+  padding: 4px 12px 6px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   overflow: hidden;
@@ -438,9 +458,31 @@ defineExpose({
   white-space: nowrap;
 }
 
+.active-tab-title > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.active-tab-debug {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, "Menlo", "Consolas", monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.debug-level-warn { color: var(--warning); }
+.debug-level-error { color: var(--error); }
+.debug-level-info { color: var(--accent); }
+
 @media (max-width: 768px) {
   .active-tab-title {
-    display: block;
+    display: flex;
   }
 }
 
