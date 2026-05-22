@@ -91,15 +91,21 @@
         <span class="flick-hint-right">&rarr;</span>
         <span class="flick-hint-bottom">&darr;</span>
       </div>
-      <div class="quick-key quick-flick-enter quick-flick-arrow quick-key-toggle" :class="{ 'enter-send-mode': hasDraft }" ref="topEnterFlickEl">
-        <span class="flick-hint-top">Tab</span>
-        <span class="flick-hint-left">BS</span>
-        <span class="flick-main">
-          <span v-if="hasDraft" class="mdi mdi-send"></span>
-          <template v-else>&crarr;</template>
-        </span>
-        <span class="flick-hint-bottom">Space</span>
-        <span class="flick-hint-right">Del</span>
+      <div
+        class="quick-key quick-flick-enter quick-flick-arrow quick-key-toggle"
+        :class="{ 'enter-send-mode': inputFocused && hasDraft, 'enter-disabled': inputFocused && !hasDraft }"
+        ref="topEnterFlickEl"
+      >
+        <template v-if="inputFocused">
+          <span class="flick-main"><span class="mdi mdi-send"></span></span>
+        </template>
+        <template v-else>
+          <span class="flick-hint-top">Tab</span>
+          <span class="flick-hint-left">BS</span>
+          <span class="flick-main">&crarr;</span>
+          <span class="flick-hint-bottom">Space</span>
+          <span class="flick-hint-right">Del</span>
+        </template>
       </div>
     </div>
   </div>
@@ -353,17 +359,27 @@ function sendSpace() {
 
 onMounted(() => {
   if (topArrowFlickEl.value) {
+    const onArrowFlick = (key) => {
+      if (!inputFocused.value) return false;
+      if (key.key === "ArrowLeft") keyboardInput.value?.moveCursor?.(-1);
+      else if (key.key === "ArrowRight") keyboardInput.value?.moveCursor?.(1);
+      return true;
+    };
     setupFlickRepeat(topArrowFlickEl.value, arrowResolver, () => {
       emitLocal("cycleMode");
-    }, { accelerateRepeat: true });
+    }, { accelerateRepeat: true, onFlick: onArrowFlick });
   }
   if (topEnterFlickEl.value) {
-    setupFlickRepeat(topEnterFlickEl.value, enterResolver, () => {
-      if (hasDraft.value) {
-        keyboardInput.value?.submit?.();
-      } else {
-        sendKeyToTerminal({ key: "Enter" });
+    const enterFlickResolver = (dx, dy, threshold) => {
+      if (inputFocused.value) return null;
+      return enterResolver(dx, dy, threshold);
+    };
+    setupFlickRepeat(topEnterFlickEl.value, enterFlickResolver, () => {
+      if (inputFocused.value) {
+        if (hasDraft.value) keyboardInput.value?.submit?.();
+        return;
       }
+      sendKeyToTerminal({ key: "Enter" });
     }, { accelerateRepeat: true });
   }
 });

@@ -38,6 +38,13 @@ function blur() {
   inputEl.value?.blur();
 }
 
+function moveCursor(delta) {
+  const el = inputEl.value;
+  if (!el) return;
+  const pos = Math.max(0, Math.min(el.value.length, (el.selectionStart || 0) + delta));
+  el.setSelectionRange?.(pos, pos);
+}
+
 function onBlur() {
   if (suppressBlurRefocus) {
     suppressBlurRefocus = false;
@@ -78,5 +85,5 @@ function submit() {
   emit("submitted");
 }
 
-defineExpose({ focus, blur, isFocused, appendChar, backspace, submit });
+defineExpose({ focus, blur, isFocused, appendChar, backspace, submit, moveCursor });
 </script>

@@ -57,11 +57,14 @@ function toggleKeyboard() {
 function onInputFocus() {}
 
 // OS キーボードの開閉が visualViewport で検知できる場合の経路:
-// 開いたら showInput、(input がフォーカスされて閉じたら) onInputFocus 側で処理。
+// 開いたら showInput、閉じたら ×ボタンと同じ処理 (toggleKeyboard) でモードを抜ける。
 watch(keyboardOpen, (open) => {
-  if (!open) return;
-  if (document.querySelector(".modal-overlay")) return;
-  showInput();
+  if (open) {
+    if (document.querySelector(".modal-overlay")) return;
+    showInput();
+  } else if (isFullKeyboard.value) {
+    toggleKeyboard();
+  }
 });
 
 defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
@@ -112,6 +115,14 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
   flex: 1;
 }
 
+.quick-qwerty-panel .quick-extra-bottom-keys {
+  justify-content: flex-end;
+}
+
+.quick-qwerty-panel .quick-extra-bottom-keys .flick-main {
+  font-size: 18px;
+}
+
 .quick-qwerty-panel .quick-extra-bottom-keys .quick-key {
   flex: none;
   min-width: calc((100vw - 16px) / 5);
@@ -134,6 +145,12 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
 .quick-qwerty-panel .enter-send-mode {
   color: var(--accent);
   border-color: var(--accent);
+}
+
+.quick-qwerty-panel .enter-disabled {
+  color: var(--white-30);
+  border-color: var(--white-30);
+  opacity: 0.5;
 }
 
 .quick-extra-panel {
