@@ -27,7 +27,7 @@
         </template>
         <template v-else>
           <input ref="uploadInputEl" type="file" multiple class="file-browser-upload-input" @change="onUploadInputChange">
-          <button type="button" class="file-browser-header-btn" :aria-label="showHidden ? 'Hide hidden files' : 'Show hidden files'" @click="showHidden = !showHidden"><span class="mdi" :class="showHidden ? 'mdi-eye-outline' : 'mdi-eye-off-outline'" aria-hidden="true"></span></button>
+          <button type="button" class="file-browser-header-btn" :aria-label="showGitignored ? 'Hide gitignored files' : 'Show gitignored files'" @click="showGitignored = !showGitignored"><span class="mdi" :class="showGitignored ? 'mdi-eye-outline' : 'mdi-eye-off-outline'" aria-hidden="true"></span></button>
           <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" aria-label="Open in editor" @click="openDirInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span></button>
           <button type="button" class="file-browser-header-btn" aria-label="Upload files" @click="uploadInputEl?.click()"><span class="mdi mdi-upload" aria-hidden="true"></span></button>
         </template>
@@ -113,6 +113,28 @@ import { useLongPress } from "../composables/useLongPress.js";
 import { useHoverMenu, isHoverDevice } from "../composables/useHoverMenu.js";
 import { renderFileIcon } from "../utils/file-icon.js";
 import { formatSize, formatRelativeTime } from "../utils/format.js";
+import { LS_PREFIX_WS_META } from "../utils/constants.js";
+
+const SHOW_GITIGNORED_KEY_PREFIX = LS_PREFIX_WS_META + "show_gitignored_";
+
+function loadShowGitignored(wsName) {
+  if (!wsName) return false;
+  try {
+    return localStorage.getItem(SHOW_GITIGNORED_KEY_PREFIX + wsName) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveShowGitignored(wsName, value) {
+  if (!wsName) return;
+  try {
+    if (value) localStorage.setItem(SHOW_GITIGNORED_KEY_PREFIX + wsName, "1");
+    else localStorage.removeItem(SHOW_GITIGNORED_KEY_PREFIX + wsName);
+  } catch {
+    /* quota — ignore */
+  }
+}
 
 const workspaceStore = useWorkspaceStore();
 const { apiGet, wsEndpoint } = useApi();
@@ -134,8 +156,16 @@ const {
   onMenuMouseEnter, onMenuMouseLeave,
 } = useHoverMenu();
 const uploadInputEl = ref(null);
-const showHidden = ref(false);
+const showGitignored = ref(loadShowGitignored(workspaceStore.selectedWorkspace));
 const showHistory = ref(false);
+
+watch(() => workspaceStore.selectedWorkspace, (wsName) => {
+  showGitignored.value = loadShowGitignored(wsName);
+});
+
+watch(showGitignored, (value) => {
+  saveShowGitignored(workspaceStore.selectedWorkspace, value);
+});
 
 function toggleHistory() {
   showHistory.value = !showHistory.value;
@@ -190,8 +220,8 @@ const pathSegments = computed(() => {
 });
 
 const visibleEntries = computed(() => {
-  if (showHidden.value) return entries.value;
-  return entries.value.filter((e) => !e.name.startsWith("."));
+  if (showGitignored.value) return entries.value;
+  return entries.value.filter((e) => !e.gitignored);
 });
 
 const displayPathSegments = computed(() => {
