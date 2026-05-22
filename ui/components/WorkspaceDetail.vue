@@ -275,10 +275,9 @@ const _offHandlers = [
     if (!workspace) return;
     const { ok } = await apiCommand(wsEndpoint(workspace, "checkout"), { branch, remote }, { errorMessage: "Checkout failed" });
     if (!ok) return;
-    switchPane("history");
     workspaceStore.fetchStatuses();
-    gitHistory.value?.reload();
-    fileBrowser.value?.load();
+    bridgeEmit("modal:close");
+    bridgeEmit("toast:show", { message: `Switched branch to "${branch}"`, type: "success" });
   }),
 
   on("git:stashSave", async () => {
