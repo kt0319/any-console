@@ -129,6 +129,7 @@ const branchParts = computed(() => {
 });
 const msgText = computed(() => {
   if (!ws.value) return "";
+  if (statusLoading.value) return "Loading";
   return ws.value.last_commit_message || "";
 });
 const changedFiles = computed(() => ws.value?.changed_files || 0);
