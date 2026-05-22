@@ -2,21 +2,21 @@
   <div class="workspace-status-bar" :style="{ display: showHeader ? 'flex' : 'none' }">
     <template v-if="workspace">
       <div class="status-nav-group">
-        <button type="button" class="status-nav-btn" title="Jobs" @click="openFileModal('jobs')">
+        <button type="button" class="status-nav-btn" aria-label="Jobs" data-tooltip="Jobs" @click="openFileModal('jobs')">
           <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
         </button>
         <div class="status-divider"></div>
-        <button type="button" class="status-nav-btn" title="Files" @click="openFileModal('files')">
+        <button type="button" class="status-nav-btn" aria-label="Files" data-tooltip="Files" @click="openFileModal('files')">
           <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
         </button>
         <template v-if="isGitRepo">
           <div class="status-divider"></div>
-          <button type="button" class="status-nav-btn status-msg-btn" tabindex="-1" @click="openFileModal('history')">
+          <button type="button" class="status-nav-btn status-msg-btn" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
             <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
             <span class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
           </button>
           <div class="status-divider"></div>
-          <button type="button" class="status-nav-btn status-numstat-btn" tabindex="-1" @click="openFileModal('changes')">
+          <button type="button" class="status-nav-btn status-numstat-btn" tabindex="-1" aria-label="Changes" data-tooltip="Changes" @click="openFileModal('changes')">
             <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
             <template v-if="isDirty && !statusLoading">
               <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
@@ -25,7 +25,7 @@
             </template>
           </button>
           <div class="status-divider"></div>
-          <button type="button" class="status-nav-btn status-branch-btn" tabindex="-1" @click="openFileModal('branch')">
+          <button type="button" class="status-nav-btn status-branch-btn" tabindex="-1" aria-label="Branch" data-tooltip="Branch" @click="openFileModal('branch')">
             <span class="mdi mdi-source-branch status-btn-icon" aria-hidden="true"></span>
             <span class="status-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
           </button>
@@ -232,7 +232,6 @@ function openWorkspaceModal() {
 .status-msg-btn {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
   gap: 4px;
   padding-left: 8px;
   justify-content: flex-start;

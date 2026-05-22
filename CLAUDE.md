@@ -185,7 +185,7 @@ JS class 切替で表現。
 - すべての操作にキーボードで到達可能であること (**MUST**)
 - モーダルはフォーカストラップを実装し、Esc で閉じられること (**MUST**)
 - アイコンのみのボタンには `aria-label` を付けること (**SHOULD**)
-- アイコンのみのボタンには `title` も併設し、PC では hover でヒント表示すること（`aria-label` と同じ文言を使う）(**SHOULD**)
+- アイコンのみのボタンには `data-tooltip` 属性で hover ヒントを併設すること（`aria-label` と同じ文言）(**SHOULD** — ネイティブ `title` は表示が小さく遅いため、`ui/styles/a11y.css` 内のカスタムCSSツールチップを使う)
 - 色のみで状態を示さないこと（アイコン・テキストを併用）(**SHOULD**)
 - WCAG AA 相当のコントラストを目安にする (**PREFER**)
 - 詳細は `docs/A11Y_AUDIT.md` を参照

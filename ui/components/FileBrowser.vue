@@ -23,13 +23,13 @@
       <span v-if="showHistory" class="file-browser-crumb-badge">History</span>
       <span v-if="!props.diffFile" class="file-browser-header-actions">
         <template v-if="fileContent || showHistory">
-          <button type="button" class="file-browser-header-btn" :aria-label="showHistory ? 'Show file' : 'Show history'" :title="showHistory ? 'Show file' : 'Show history'" @click="toggleHistory"><span class="mdi" :class="showHistory ? 'mdi-file-document-outline' : 'mdi-history'" aria-hidden="true"></span></button>
+          <button type="button" class="file-browser-header-btn" :aria-label="showHistory ? 'Show file' : 'Show history'" :data-tooltip="showHistory ? 'Show file' : 'Show history'" @click="toggleHistory"><span class="mdi" :class="showHistory ? 'mdi-file-document-outline' : 'mdi-history'" aria-hidden="true"></span></button>
         </template>
         <template v-else>
           <input ref="uploadInputEl" type="file" multiple class="file-browser-upload-input" @change="onUploadInputChange">
-          <button type="button" class="file-browser-header-btn" :aria-label="showGitignored ? 'Hide gitignored files' : 'Show gitignored files'" :title="showGitignored ? 'Hide gitignored files' : 'Show gitignored files'" @click="showGitignored = !showGitignored"><span class="mdi" :class="showGitignored ? 'mdi-eye-outline' : 'mdi-eye-off-outline'" aria-hidden="true"></span></button>
-          <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" aria-label="Open in editor" title="Open in editor" @click="openDirInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span></button>
-          <button type="button" class="file-browser-header-btn" aria-label="Upload files" title="Upload files" @click="uploadInputEl?.click()"><span class="mdi mdi-upload" aria-hidden="true"></span></button>
+          <button type="button" class="file-browser-header-btn" :aria-label="showGitignored ? 'Hide gitignored files' : 'Show gitignored files'" :data-tooltip="showGitignored ? 'Hide gitignored files' : 'Show gitignored files'" @click="showGitignored = !showGitignored"><span class="mdi" :class="showGitignored ? 'mdi-eye-outline' : 'mdi-eye-off-outline'" aria-hidden="true"></span></button>
+          <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openDirInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span></button>
+          <button type="button" class="file-browser-header-btn" aria-label="Upload files" data-tooltip="Upload files" @click="uploadInputEl?.click()"><span class="mdi mdi-upload" aria-hidden="true"></span></button>
         </template>
       </span>
     </div>

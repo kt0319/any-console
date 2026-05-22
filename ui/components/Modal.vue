@@ -21,7 +21,7 @@
             {{ modalTitle }}<template v-if="modalBranch"><span class="modal-title-sep"> / </span><span class="modal-title-branch">{{ modalBranch }}</span></template>
           </h3>
         </button>
-        <button type="button" class="modal-close-btn" aria-label="Close" title="Close" @click="closeModal">&times;</button>
+        <button type="button" class="modal-close-btn" aria-label="Close" data-tooltip="Close" @click="closeModal">&times;</button>
       </div>
       <div class="modal-body">
         <ModalMenu v-if="currentView === 'ModalMenu'" />
