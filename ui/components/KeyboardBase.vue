@@ -1,6 +1,5 @@
 <template>
   <template v-if="isKeyboardVisible">
-    <div v-if="mode === 1" class="keyboard-qwerty-overlay" @click="switchToMinimum"></div>
     <div v-show="!isTextInputVisible">
       <KeyboardMinimumKey
         :active="mode === 0"
@@ -47,11 +46,6 @@ function cycleMode() {
   clearModifiers();
 }
 
-function switchToMinimum() {
-  mode.value = 0;
-  clearModifiers();
-}
-
 function onKeyboardInputVisibility(visible) {
   isTextInputVisible.value = !!visible;
   emit("visibility", isTextInputVisible.value);
@@ -74,7 +68,6 @@ watch(mode, (val) => {
 defineExpose({
   mode,
   cycleMode,
-  switchToMinimum,
   snippetOpen,
   keyboardInputBar,
   isTextInputVisible,
@@ -235,7 +228,7 @@ defineExpose({
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: var(--radius);
-  background: rgba(40, 44, 65, 0.55);
+  background: rgba(40, 44, 65, 0.7);
   color: rgba(255, 255, 255, 0.7);
   font-size: 16px;
   cursor: pointer;
@@ -283,7 +276,7 @@ defineExpose({
 
 .quick-key-toggle.active,
 .quick-modifier.active {
-  background: var(--accent-bg-20);
+  background: rgba(130, 170, 255, 0.7);
   color: var(--accent);
   border-color: var(--accent);
 }
@@ -383,7 +376,7 @@ defineExpose({
   padding: 0 10px;
   border: 1px solid var(--white-30);
   border-radius: var(--radius);
-  background: rgba(40, 44, 65, 0.55);
+  background: rgba(40, 44, 65, 0.7);
   color: var(--text-primary);
   font-size: 9px;
   line-height: 28px;
@@ -458,21 +451,6 @@ defineExpose({
   display: flex;
   flex-direction: column;
   align-items: stretch;
-}
-
-.keyboard-input-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay-bg);
-  z-index: 9998;
-}
-
-.keyboard-qwerty-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay-bg);
-  z-index: 20;
-  pointer-events: auto;
 }
 
 .keyboard-input-row {

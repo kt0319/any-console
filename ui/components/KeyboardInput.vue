@@ -1,6 +1,5 @@
 <template>
   <div v-if="visible">
-    <div class="keyboard-input-overlay" @click="hide"></div>
     <div class="keyboard-input-wrapper quick-input" @pointerdown="markInternalInteraction">
       <div class="keyboard-input-snippets">
         <KeyboardChips ref="chipsEl" :insert-mode="true" @chip:tap="onChipTap" />

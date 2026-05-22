@@ -1,7 +1,7 @@
 <template>
   <div
     class="output-container"
-    :class="[splitContainerClasses, { 'input-overlay-active': keyboardOverlay }]"
+    :class="splitContainerClasses"
   >
     <div v-if="isShowDropZones" class="split-drop-overlay">
       <div class="split-drop-zone drop-top-left" @dragover.prevent @dragenter.prevent="onDragEnter" @dragleave="onDragLeave" @drop="onDrop($event, 'top-left')">
@@ -127,7 +127,6 @@ import TerminalPane from "./TerminalPane.vue";
 import EmptyPane from "./EmptyPane.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { on } from "../app-bridge.js";
 import { buildGridRows } from "../utils/terminal-layout.js";
 import { isEmptyPaneId } from "../utils/empty-pane.js";
 import { useTerminalDrop } from "../composables/useTerminalDrop.js";
@@ -138,8 +137,6 @@ defineProps({
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
-const keyboardOverlay = ref(false);
-on("keyboard:modeChange", ({ mode }) => { keyboardOverlay.value = mode === 1; });
 
 const paneRefs = ref([]);
 
@@ -211,16 +208,6 @@ defineExpose({ fitAllTerminals, selectPane });
   flex-direction: column;
   position: relative;
   overflow: hidden;
-}
-
-.output-container.input-overlay-active::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--overlay-bg);
-  z-index: 5;
-  pointer-events: none;
-  touch-action: none;
 }
 
 .output-container.split-active {
