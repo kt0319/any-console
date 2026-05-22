@@ -1,5 +1,6 @@
 <template>
   <template v-if="isKeyboardVisible">
+    <div :class="['keyboard-tap-backdrop', isFullKeyboard ? 'tap-backdrop-full' : 'tap-backdrop-mini']"></div>
     <KeyboardMinimumKey
       :active="!isFullKeyboard"
       @cycleMode="toggleKeyboard"
@@ -540,6 +541,12 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
   color: var(--white-30);
 }
 
+.keyboard-input::-webkit-search-cancel-button,
+.keyboard-input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 .keyboard-input-snippets {
   display: flex;
   flex-direction: column;
@@ -581,6 +588,33 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
 
 .main-panel.split-mode .main-panel-keyboard-overlay .quick-input-panel,
 .main-panel.split-mode .main-panel-keyboard-overlay .quick-qwerty-panel {
+  bottom: 24px;
+}
+
+/* キーとキーの間のタップを吸収するための透明 backdrop。z-indexはpanel(30)より低くキーの押下は妨げない */
+.keyboard-tap-backdrop {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: auto;
+  background: transparent;
+  z-index: 25;
+}
+
+.tap-backdrop-mini {
+  height: 60px;
+}
+
+.tap-backdrop-full {
+  height: 300px;
+}
+
+.main-panel.panel-bottom .keyboard-tap-backdrop {
+  bottom: 122px;
+}
+
+.main-panel.split-mode .keyboard-tap-backdrop {
   bottom: 24px;
 }
 </style>

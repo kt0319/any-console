@@ -1,9 +1,6 @@
 <template>
   <div class="quick-snippet-row">
     <div class="quick-snippet-scroll-row">
-      <button type="button" class="quick-chip-item quick-snippet-add-btn" @click="onAddClick">
-        <span class="mdi mdi-plus"></span>
-      </button>
       <div
         v-for="(snippet, idx) in snippets"
         :key="'s-' + idx"
@@ -13,7 +10,6 @@
         @touchend="onChipTouchEnd($event, snippet.command)"
         @touchcancel="onTouchCancel"
       >
-        <span class="mdi mdi-bookmark-multiple snippet-chip-icon"></span>
         {{ truncateQuickText(snippet.label) }}
       </div>
       <div v-if="snippets.length === 0" class="quick-chip-item quick-chip-item-empty">No snippets</div>
@@ -24,14 +20,12 @@
 <script setup>
 import { useQuickInputData } from "../composables/useQuickInputData.js";
 import { useLongPress } from "../composables/useLongPress.js";
-import { usePrompt } from "../composables/usePrompt.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 
 const props = defineProps({ insertMode: { type: Boolean, default: false } });
 const emit = defineEmits(["chip:tap"]);
 const { snippets, truncateQuickText } = useQuickInputData();
-const { prompt } = usePrompt();
 const { confirm } = useConfirm();
 
 const longPress = useLongPress(600);
@@ -69,21 +63,4 @@ function onTouchMove(e) {
 function onTouchCancel() {
   longPress.cancel();
 }
-
-async function askAddSnippet(initial = "") {
-  const command = await prompt({
-    title: "Save Snippet",
-    message: "Enter command to save as snippet.",
-    initialValue: initial,
-    placeholder: "echo hello",
-  });
-  if (!command) return;
-  bridgeEmit("snippet:add", { command });
-}
-
-function onAddClick() {
-  askAddSnippet();
-}
-
-defineExpose({ askAddSnippet });
 </script>

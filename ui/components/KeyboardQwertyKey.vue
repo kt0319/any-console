@@ -83,13 +83,14 @@
     <div class="quick-extra-row quick-extra-bottom-keys">
       <KeyboardInput ref="keyboardInput" v-model:draft="draft" @focused="onInputFocused" @submitted="$emit('submitted')" />
       <div
-        class="quick-key snippet-toggle-btn quick-modifier"
+        class="quick-key snippet-toggle-btn quick-modifier quick-flick-arrow"
         :class="{ active: showSnippetView }"
         @touchstart.prevent="snippetFlick.onStart"
         @touchend.prevent="snippetFlick.onEnd"
         @touchcancel="onQuickKeyCancel($event)"
         @click="toggleSnippetView"
       >
+        <span class="flick-hint-top">Add</span>
         <span class="flick-main"><span class="mdi mdi-bookmark-multiple"></span></span>
       </div>
       <div class="quick-key quick-flick-arrow quick-key-toggle active" ref="topArrowFlickEl">
@@ -148,7 +149,17 @@ const showSnippetView = ref(false);
 function toggleSnippetView() {
   showSnippetView.value = !showSnippetView.value;
 }
-const snippetFlick = createFlickHandlers({ tap: toggleSnippetView });
+async function askAddSnippet() {
+  const command = await prompt({
+    title: "Save Snippet",
+    message: "Enter command to save as snippet.",
+    initialValue: "",
+    placeholder: "echo hello",
+  });
+  if (!command) return;
+  emit("snippet:add", { command });
+}
+const snippetFlick = createFlickHandlers({ up: askAddSnippet, tap: toggleSnippetView });
 
 let historyIndex = -1;
 let savedDraft = "";
