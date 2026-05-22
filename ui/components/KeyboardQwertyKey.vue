@@ -55,6 +55,19 @@
         <span class="flick-hint-right">^K</span>
       </div>
       <div
+        class="quick-key quick-flick-arrow"
+        @touchstart.prevent="onSpaceTouchStart"
+        @touchend.prevent="onSpaceTouchEnd"
+        @touchcancel="onQuickKeyCancel($event)"
+        @click="sendSpace"
+      >
+        <span class="flick-hint-top">PgU</span>
+        <span class="flick-hint-left">Home</span>
+        <span class="flick-main">&blank;</span>
+        <span class="flick-hint-right">End</span>
+        <span class="flick-hint-bottom">PgD</span>
+      </div>
+      <div
         class="quick-key quick-flick-arrow quick-modifier"
         :class="{ active: modifierState.ctrl }"
         @touchstart.prevent="onCtrlTouchStart"
@@ -67,19 +80,6 @@
         <span class="flick-main">&Hat;</span>
         <span class="flick-hint-right">^R</span>
         <span class="flick-hint-bottom">^O</span>
-      </div>
-      <div
-        class="quick-key quick-flick-arrow"
-        @touchstart.prevent="onSpaceTouchStart"
-        @touchend.prevent="onSpaceTouchEnd"
-        @touchcancel="onQuickKeyCancel($event)"
-        @click="sendSpace"
-      >
-        <span class="flick-hint-top">PgU</span>
-        <span class="flick-hint-left">Home</span>
-        <span class="flick-main">&blank;</span>
-        <span class="flick-hint-right">End</span>
-        <span class="flick-hint-bottom">PgD</span>
       </div>
     </div>
     <div class="quick-extra-row quick-extra-bottom-keys">

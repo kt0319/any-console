@@ -10,9 +10,9 @@
         autocapitalize="off"
         autocorrect="off"
         spellcheck="false"
-        placeholder="Text input (↑↓ for history)"
+        :placeholder="placeholder"
         @keydown.enter.prevent="submit"
-        @focus="$emit('focused', true)"
+        @focus="onFocus"
         @blur="onBlur"
       />
     </div>
@@ -20,7 +20,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from "vue";
+import { ref, nextTick, computed } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
 
@@ -31,7 +31,14 @@ const { sendTextToTerminal } = useKeyboard();
 
 const draft = defineModel("draft", { default: "" });
 const inputEl = ref(null);
+const focused = ref(false);
+const placeholder = computed(() => focused.value ? "Flick × ↑↓ history / ←→ cursor" : "Tap to text input");
 let suppressBlurRefocus = false;
+
+function onFocus() {
+  focused.value = true;
+  emit("focused", true);
+}
 
 function blur() {
   suppressBlurRefocus = false;
@@ -51,6 +58,7 @@ function onBlur() {
     nextTick(() => inputEl.value?.focus());
     return;
   }
+  focused.value = false;
   emit("focused", false);
 }
 
