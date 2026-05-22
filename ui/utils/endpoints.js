@@ -35,6 +35,7 @@ export const EP_JOBS_WORKSPACES = "/jobs/workspaces";
 export const EP_COMMON_JOBS = "/common/jobs";
 export const EP_SYSTEM_INFO = "/system/info";
 export const EP_SYSTEM_PROCESSES = "/system/processes";
+export const EP_SYSTEM_TMUX_INFO = "/system/tmux-info";
 export const EP_SETTINGS_EDITOR = "/settings/editor";
 export const EP_SETTINGS_AUTH = "/settings/auth";
 export const EP_SETTINGS_EXPORT = "/settings/export";

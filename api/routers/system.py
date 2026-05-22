@@ -208,6 +208,35 @@ def report_client_error(body: ClientErrorReport):
     return {"status": "ok"}
 
 
+@router.get("/system/tmux-info")
+def get_tmux_info():
+    from ..tmux import _run_tmux_cmd
+    info = {"version": "", "sessions": [], "available": False}
+    version_res = _run_tmux_cmd("-V")
+    if version_res and version_res.returncode == 0:
+        info["version"] = version_res.stdout.strip().replace("tmux ", "")
+        info["available"] = True
+    fmt = "#{session_name}\t#{session_created}\t#{session_windows}\t#{session_attached}"
+    sessions_res = _run_tmux_cmd("list-sessions", "-F", fmt)
+    if sessions_res and sessions_res.returncode == 0:
+        for line in sessions_res.stdout.splitlines():
+            parts = line.split("\t")
+            if len(parts) < 4:
+                continue
+            name, created, windows, attached = parts[0], parts[1], parts[2], parts[3]
+            try:
+                created_int = int(created)
+            except ValueError:
+                created_int = 0
+            info["sessions"].append({
+                "name": name,
+                "created": created_int,
+                "windows": int(windows) if windows.isdigit() else 0,
+                "attached": attached == "1",
+            })
+    return info
+
+
 @router.get("/system/info")
 def get_system_info():
     info = {"hostname": socket.gethostname(), "user": getpass.getuser(), "work_dir": str(Path.home())}
