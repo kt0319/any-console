@@ -27,18 +27,6 @@
         </template>
         <template v-else>{{ displayLabel(keyDef) }}</template>
       </div>
-      <div
-        v-if="ri === 2"
-        class="quick-key quick-flick-arrow"
-        @touchstart.prevent="onCameraTouchStart"
-        @touchend.prevent="onCameraTouchEnd"
-        @touchcancel="onQuickKeyCancel($event)"
-        @click="openCamera"
-      >
-        <span class="flick-hint-top"><span class="mdi mdi-refresh" style="font-size:10px"></span></span>
-        <span class="flick-main"><span class="mdi mdi-camera"></span></span>
-        <span class="flick-hint-bottom"><span class="mdi mdi-pin" style="font-size:10px"></span></span>
-      </div>
     </div>
     <div v-show="!inputFocused" class="quick-extra-row quick-extra-modifier-keys">
       <div
@@ -80,6 +68,17 @@
         <span class="flick-main">&Hat;</span>
         <span class="flick-hint-right">^R</span>
         <span class="flick-hint-bottom">^O</span>
+      </div>
+      <div
+        class="quick-key quick-flick-arrow"
+        @touchstart.prevent="onCameraTouchStart"
+        @touchend.prevent="onCameraTouchEnd"
+        @touchcancel="onQuickKeyCancel($event)"
+        @click="openCamera"
+      >
+        <span class="flick-hint-top"><span class="mdi mdi-refresh" style="font-size:10px"></span></span>
+        <span class="flick-main"><span class="mdi mdi-camera"></span></span>
+        <span class="flick-hint-bottom"><span class="mdi mdi-pin" style="font-size:10px"></span></span>
       </div>
     </div>
     <div class="quick-extra-row quick-extra-bottom-keys">
@@ -398,6 +397,7 @@ onMounted(() => {
     };
     const cursorScheduleRepeat = (delta, interval) => {
       cursorRepeatTimer = setTimeout(() => {
+        if (cursorRepeatKey === null) return;
         keyboardInput.value?.moveCursor?.(delta);
         cursorScheduleRepeat(delta, Math.max(MIN_REPEAT_INTERVAL, interval - REPEAT_ACCELERATION));
       }, interval);

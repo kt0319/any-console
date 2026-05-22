@@ -256,8 +256,8 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: var(--radius);
-  background: rgba(40, 44, 65, 0.7);
-  color: rgba(255, 255, 255, 0.7);
+  background: rgba(40, 44, 65, 0.8);
+  color: rgba(255, 255, 255, 0.8);
   font-size: 16px;
   cursor: pointer;
   display: flex;
@@ -304,7 +304,7 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
 
 .quick-key-toggle.active,
 .quick-modifier.active {
-  background: rgba(130, 170, 255, 0.7);
+  background: rgb(33, 40, 60);
   color: var(--accent);
   border-color: var(--accent);
 }
@@ -351,8 +351,8 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
 
 .quick-qwerty-panel .quick-key-toggle.active,
 .quick-qwerty-panel .quick-modifier.active {
-  background: rgba(130, 170, 255, 0.3);
-  color: rgba(130, 170, 255, 0.7);
+  background: rgb(33, 40, 60);
+  color: rgba(130, 170, 255, 0.8);
   border-color: rgba(130, 170, 255, 0.6);
 }
 
@@ -405,7 +405,7 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
   padding: 0 10px;
   border: 1px solid var(--white-30);
   border-radius: var(--radius);
-  background: rgba(40, 44, 65, 0.7);
+  background: rgba(40, 44, 65, 0.8);
   color: var(--text-primary);
   font-size: 9px;
   line-height: 28px;
@@ -491,7 +491,7 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
   padding: 10px 12px;
   border: 1px solid var(--white-30);
   border-radius: var(--radius);
-  background: rgba(40, 44, 65, 0.7);
+  background: rgba(40, 44, 65, 0.8);
   color: var(--text-primary);
   font-size: 16px;
   font-family: inherit;
@@ -510,7 +510,7 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
   padding: 0;
   border: 1px solid var(--white-30);
   border-radius: 50%;
-  background: rgba(40, 44, 65, 0.7);
+  background: rgba(40, 44, 65, 0.8);
   color: var(--accent);
   font-size: 18px;
   font-family: inherit;
