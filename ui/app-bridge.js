@@ -1,6 +1,9 @@
+import { debugLog } from "./composables/useClientLogs.js";
+
 const bus = new EventTarget();
 
 export function emit(event, detail) {
+  debugLog("[Event]", event, detail ?? "");
   bus.dispatchEvent(new CustomEvent(event, { detail }));
 }
 

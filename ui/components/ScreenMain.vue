@@ -122,7 +122,9 @@ const debugInfo = computed(() => {
   const log = latestLog.value;
   if (!log) return "(no logs yet)";
   const t = new Date(log.time).toTimeString().slice(0, 8);
-  return `${t} [${levelLabel(log.level)}] ${log.msg}`;
+  // 既定の "log" レベルは冗長なので非表示。warn/error/info のみラベル表示。
+  const label = log.level === "log" ? "" : `[${levelLabel(log.level)}] `;
+  return `${t} ${label}${log.msg}`;
 });
 
 const tabBarView = ref(null);

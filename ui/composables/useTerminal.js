@@ -6,6 +6,7 @@ import { fitTerminal, sendResize, observeFrameResize } from "./useTerminalResize
 import { buildWebSocketUrl as _buildWebSocketUrl } from "../utils/terminal-ws.js";
 import { bindTerminalInput, bindTerminalElement } from "./useTerminalInput.js";
 import { terminalSessionPath, terminalSessionHistoryPath } from "../utils/endpoints.js";
+import { debugLog } from "./useClientLogs.js";
 
 export function useTerminal() {
   const terminalStore = useTerminalStore();
@@ -43,8 +44,11 @@ export function useTerminal() {
     if ((tab._reconnectAttempts || 0) >= RECONNECTING_OVERLAY_MIN_ATTEMPTS) {
       terminalStore.setTabFlag(tab.id, "reconnecting", true);
     }
+    const wsOpenedAt = performance.now();
+    debugLog("[WS] connect", tab.sessionId?.slice(-8), `cols=${dims?.cols}`, `rows=${dims?.rows}`);
 
     ws.onopen = () => {
+      debugLog("[WS] open", tab.sessionId?.slice(-8), `${Math.round(performance.now() - wsOpenedAt)}ms`);
       tab._reconnectAttempts = 0;
       fitTerminal(tab, { force: true });
       sendResize(tab);
@@ -86,6 +90,7 @@ export function useTerminal() {
 
     ws.onclose = (e) => {
       tab.ws = null;
+      debugLog("[WS] close", tab.sessionId?.slice(-8), `code=${e.code}`, e.reason || "");
       if (tab._wsDisposed) return;
 
       if (e.code === WS_CLOSE_SESSION_EXITED) {
@@ -106,6 +111,7 @@ export function useTerminal() {
         : Math.min(Math.pow(RECONNECT_BACKOFF_MULTIPLIER, attempts - 1) * RECONNECT_BACKOFF_BASE_MS, RECONNECT_BACKOFF_MAX);
       tab._reconnectAttempts = attempts + 1;
       tab._pendingRedraw = true;
+      debugLog("[WS] reconnect", tab.sessionId?.slice(-8), `attempt=${attempts + 1}`, `delay=${delay}ms`);
       clearTimeout(tab._reconnectTimer);
       tab._reconnectTimer = setTimeout(() => connectTerminalWs(tab), delay);
     };

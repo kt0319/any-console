@@ -1,6 +1,7 @@
 import { useAuthStore } from "../stores/auth.js";
 import { emit } from "../app-bridge.js";
 import { extractApiError } from "../utils/constants.js";
+import { debugLog } from "./useClientLogs.js";
 
 export function useApi() {
   const auth = useAuthStore();
@@ -18,14 +19,18 @@ export function useApi() {
   async function apiRequest(endpoint, opts = {}) {
     const { method = "GET", body = null, checkStatus = false, errorMessage } = opts;
     const fetchOpts = method === "GET" ? undefined : { method, ...(body != null && { body }) };
+    const t0 = performance.now();
     const res = await auth.apiFetch(endpoint, fetchOpts);
+    const ms = Math.round(performance.now() - t0);
     if (!res || !res.ok) {
       const data = res ? await res.json().catch(() => null) : null;
+      debugLog("[API]", method, endpoint, `failed status=${res?.status ?? "n/a"}`, `${ms}ms`);
       showErrorToast(data, errorMessage);
       return { ok: false, data };
     }
     const data = await res.json().catch(() => null);
     const ok = checkStatus ? data?.status === "ok" : data != null;
+    debugLog("[API]", method, endpoint, ok ? `ok ${ms}ms` : `bad-status ${ms}ms`);
     if (!ok) showErrorToast(data, errorMessage);
     return { ok, data };
   }

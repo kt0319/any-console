@@ -55,3 +55,9 @@ watch(debugMode, (on) => {
 export function useClientLogs() {
   return { logs, levelLabel };
 }
+
+// デバッグモード ON のときだけ console.log を呼ぶヘルパー。
+// useClientLogs が console.log をフックしているので、UI のデバッグ行にも流れる。
+export function debugLog(...args) {
+  if (debugMode.value) console.log(...args);
+}
