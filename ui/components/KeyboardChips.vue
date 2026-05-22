@@ -10,7 +10,7 @@
         @touchend="onChipTouchEnd($event, snippet.command)"
         @touchcancel="onTouchCancel"
       >
-        {{ truncateQuickText(snippet.label) }}
+        {{ truncateQuickText(snippet.command) }}
       </div>
       <div v-if="snippets.length === 0" class="quick-chip-item quick-chip-item-empty">No snippets</div>
     </div>
@@ -37,8 +37,7 @@ function onSnippetTouchStart(e, snippet, idx) {
   startX = e.touches[0].clientX;
   longPress.reset();
   longPress.start(async () => {
-    const label = snippet.label || snippet.command;
-    if (await confirm(`Delete snippet "${label}"? This cannot be undone.`)) {
+    if (await confirm(`Delete snippet "${snippet.command}"? This cannot be undone.`)) {
       bridgeEmit("snippet:delete", { index: snippets.value.length - 1 - idx });
     }
   });

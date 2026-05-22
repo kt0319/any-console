@@ -22,6 +22,9 @@
       <button type="button" class="settings-menu-item" @click="pushView('DisplayConfig')">
         <span class="mdi mdi-monitor-eye"></span> Display
       </button>
+      <button type="button" class="settings-menu-item" @click="pushView('SnippetConfig')">
+        <span class="mdi mdi-bookmark-multiple"></span> Snippets
+      </button>
 
       <div class="settings-menu-section-label">System</div>
       <button type="button" class="settings-menu-item" @click="pushView('AuthConfig')">
