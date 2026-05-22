@@ -1,12 +1,14 @@
 <template>
   <div class="git-branch-pane-wrapper">
     <div class="modal-scroll-body" ref="branchListEl">
-      <div v-if="isBranchListLoading" class="text-muted-center">Loading...</div>
-      <template v-else>
+      <div class="branch-section-header">
+        <span>LOCAL</span>
+        <span class="branch-section-count">{{ localBranches.length }}</span>
+      </div>
         <div
-          v-for="branch in branches"
-          :key="branch.name"
-          :class="['branch-item', { current: branch.current, 'remote-only': branch.remote }]"
+          v-for="branch in localBranches"
+          :key="'local-' + branch.name"
+          :class="['branch-item', { current: branch.current }]"
           @click="selectBranch(branch)"
         >
           <div class="branch-item-name">
@@ -31,18 +33,40 @@
             >Delete</button>
           </div>
         </div>
-        <div
-          v-if="!isRemoteBranchListExpanded && !isBranchListLoading"
-          class="branch-item branch-item-action"
-          @click="showRemoteBranches"
-        >{{ isRemoteBranchListLoading ? 'Loading...' : 'Show remote branches...' }}</div>
-      </template>
+        <button
+          type="button"
+          class="branch-section-header branch-section-header-toggle"
+          @click="toggleRemoteSection"
+        >
+          <span class="mdi" :class="isRemoteBranchListExpanded ? 'mdi-chevron-down' : 'mdi-chevron-right'"></span>
+          <span>REMOTE</span>
+          <span v-if="isRemoteBranchListLoading" class="mdi mdi-loading branch-section-spinner"></span>
+          <span v-else-if="isRemoteBranchListExpanded" class="branch-section-count">{{ remoteBranches.length }}</span>
+        </button>
+        <template v-if="isRemoteBranchListExpanded && !isRemoteBranchListLoading">
+          <div
+            v-for="branch in remoteBranches"
+            :key="'remote-' + branch.name"
+            class="branch-item remote-only"
+            @click="selectBranch(branch)"
+          >
+            <div class="branch-item-name">{{ branch.name }}</div>
+            <div class="branch-item-actions" @click.stop>
+              <button
+                type="button"
+                class="commit-action-item commit-action-danger"
+                @click="deleteBranch(branch)"
+              >Delete</button>
+            </div>
+          </div>
+          <div v-if="remoteBranches.length === 0" class="branch-item-empty">No additional remote branches</div>
+        </template>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from "vue";
+import { ref, computed, watch } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useWorkspace } from "../composables/useWorkspace.js";
 import { useConfirm } from "../composables/useConfirm.js";
@@ -59,20 +83,23 @@ const { confirm } = useConfirm();
 const { gitAction, isRunning } = useGitRemoteAction();
 const workspaceStore = useWorkspaceStore();
 
-const branches = ref([]);
+const localBranches = ref([]);
+const remoteBranches = ref([]);
+const remoteLoaded = ref(false);
 const isBranchListLoading = ref(false);
 const isRemoteBranchListExpanded = ref(false);
 const isRemoteBranchListLoading = ref(false);
 const branchListEl = ref(null);
 
+const branches = computed(() => [...localBranches.value, ...remoteBranches.value]);
+
 async function loadBranchList() {
   await withWorkspace(async (workspace) => {
     isBranchListLoading.value = true;
-    isRemoteBranchListExpanded.value = false;
     try {
       const { ok, data } = await apiGet(wsEndpoint(workspace, "branches"));
       if (!ok) return;
-      branches.value = (data || []).map((b) => ({
+      localBranches.value = (data || []).map((b) => ({
         name: b.name || b,
         current: !!b.current,
         remote: false,
@@ -81,6 +108,10 @@ async function loadBranchList() {
         upstream: b.upstream || null,
         gone: !!b.gone,
       }));
+      // ローカル更新時にリモート側もキャッシュ無効化
+      remoteBranches.value = [];
+      remoteLoaded.value = false;
+      if (isRemoteBranchListExpanded.value) await loadRemoteBranches();
     } catch (e) {
       console.error("branch load failed:", e);
     } finally {
@@ -89,25 +120,31 @@ async function loadBranchList() {
   });
 }
 
-async function showRemoteBranches() {
+async function loadRemoteBranches() {
   if (isRemoteBranchListLoading.value) return;
   await withWorkspace(async (workspace) => {
     isRemoteBranchListLoading.value = true;
     try {
       const { ok, data } = await apiGet(wsEndpoint(workspace, "branches/remote"));
       if (!ok) return;
-      const localNames = new Set(branches.value.map((b) => b.name));
-      const remoteBranches = (data || [])
+      const localNames = new Set(localBranches.value.map((b) => b.name));
+      remoteBranches.value = (data || [])
         .filter((b) => !localNames.has(b.name || b))
         .map((b) => ({ name: b.name || b, current: false, remote: true }));
-      branches.value = [...branches.value, ...remoteBranches];
-      isRemoteBranchListExpanded.value = true;
+      remoteLoaded.value = true;
     } catch (e) {
       console.error("remote branch load failed:", e);
     } finally {
       isRemoteBranchListLoading.value = false;
     }
   });
+}
+
+async function toggleRemoteSection() {
+  isRemoteBranchListExpanded.value = !isRemoteBranchListExpanded.value;
+  if (isRemoteBranchListExpanded.value && !remoteLoaded.value) {
+    await loadRemoteBranches();
+  }
 }
 
 function selectBranch(branch) {
@@ -214,6 +251,65 @@ defineExpose({ load: loadBranchList, backgroundFetch });
 .branch-item-action {
   color: var(--text-muted);
   font-style: italic;
+}
+
+.branch-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--bg-secondary) 50%, transparent);
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+}
+
+.branch-section-header-toggle {
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--bg-secondary) 50%, transparent);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-align: left;
+  margin: 0;
+  box-shadow: none;
+  min-height: 0;
+}
+
+.branch-section-count {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: normal;
+  color: var(--text-muted);
+}
+
+.branch-section-spinner {
+  font-size: 14px;
+  animation: branch-spinner-spin 0.8s linear infinite;
+}
+
+@keyframes branch-spinner-spin {
+  to { transform: rotate(360deg); }
+}
+
+.branch-item-empty {
+  padding: 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 13px;
 }
 
 </style>
