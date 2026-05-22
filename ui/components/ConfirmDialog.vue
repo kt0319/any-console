@@ -7,9 +7,15 @@
       aria-describedby="confirm-msg"
     >
       <p id="confirm-msg" class="confirm-message">{{ message }}</p>
+      <div v-if="extraButton?.desc" class="confirm-extra-desc">{{ extraButton.desc }}</div>
       <div class="confirm-buttons">
         <button ref="cancelBtn" class="confirm-btn confirm-btn-cancel" @click="onCancel">Cancel</button>
-        <button class="confirm-btn confirm-btn-ok" @click="onOk">OK</button>
+        <button v-if="extraButton" class="confirm-btn confirm-btn-extra" @click="onExtra">
+          <span v-if="extraButton.icon" class="mdi" :class="extraButton.icon"></span>{{ extraButton.label }}
+        </button>
+        <button class="confirm-btn" :class="okButton?.danger ? 'confirm-btn-danger' : 'confirm-btn-ok'" @click="onOk">
+          <span v-if="okButton?.icon" class="mdi" :class="okButton.icon"></span>{{ okButton?.label || "OK" }}
+        </button>
       </div>
     </div>
   </div>
@@ -19,16 +25,24 @@
 import { ref, watch, nextTick, onUnmounted } from "vue";
 import { useConfirm } from "../composables/useConfirm.js";
 
-const { visible, message, onOk, onCancel } = useConfirm();
+const { visible, message, extraButton, okButton, onOk, onCancel, onExtra } = useConfirm();
 const cancelBtn = ref(null);
 
 let prevFocus = null;
 let releaseEscape = null;
 
+function isTouchOnly() {
+  return typeof window !== "undefined"
+    && window.matchMedia?.("(hover: none) and (pointer: coarse)").matches;
+}
+
 watch(visible, (val) => {
   if (val) {
     prevFocus = document.activeElement;
-    nextTick(() => cancelBtn.value?.focus());
+    // タッチデバイスでは自動フォーカスしない（キーボード誤起動を防ぐ）
+    if (!isTouchOnly()) {
+      nextTick(() => cancelBtn.value?.focus());
+    }
     const onKeydown = (e) => {
       if (e.key === "Escape") { e.preventDefault(); onCancel(); }
     };
@@ -37,7 +51,12 @@ watch(visible, (val) => {
   } else {
     releaseEscape?.();
     releaseEscape = null;
-    nextTick(() => /** @type {HTMLElement|null} */ (prevFocus)?.focus());
+    // タッチデバイスでは prevFocus 復元もしない（xterm 等にフォーカス戻すと
+    // ソフトキーボードが起動してしまうため）
+    if (!isTouchOnly()) {
+      nextTick(() => /** @type {HTMLElement|null} */ (prevFocus)?.focus());
+    }
+    prevFocus = null;
   }
 });
 onUnmounted(() => releaseEscape?.());
@@ -103,5 +122,30 @@ onUnmounted(() => releaseEscape?.());
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
+}
+
+.confirm-btn-extra {
+  background: transparent;
+  color: var(--success);
+  border-color: var(--success);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.confirm-btn-danger {
+  background: var(--error);
+  color: #fff;
+  border-color: var(--error);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.confirm-extra-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: -8px 0 0;
 }
 </style>

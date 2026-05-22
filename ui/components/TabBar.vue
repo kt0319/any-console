@@ -9,7 +9,7 @@
         :is-panel-bottom="isPanelBottom"
         @select="onSelect"
         @close="onClose"
-
+        @refresh="onRefresh"
       />
       <button class="tab-add-btn" @click="onAddClick" title="Open Workspace">
         <span class="mdi mdi-plus"></span>
@@ -65,6 +65,10 @@ let suppressAddUntil = 0;
 function onClose(tab) {
   emit("tab:close", { tab });
   suppressAddUntil = Date.now() + 600;
+}
+
+function onRefresh(tab) {
+  emit("tab:refresh", { tab });
 }
 
 function onAddClick() {

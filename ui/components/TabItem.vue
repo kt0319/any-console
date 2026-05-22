@@ -48,7 +48,7 @@ const props = defineProps({
   isPanelBottom: { type: Boolean, default: false },
 });
 
-const emits = defineEmits(["select", "close", "active-click"]);
+const emits = defineEmits(["select", "close", "refresh", "active-click"]);
 const layoutStore = useLayoutStore();
 const { confirm } = useConfirm();
 const terminalStore = useTerminalStore();
@@ -91,9 +91,17 @@ function onClick(e) {
 
 async function onClose() {
   closePending = false;
-  if (await confirm(`Close "${label.value}" tab?`)) {
-    emits("close", props.tab);
-  }
+  const result = await confirm(`Close "${label.value}" tab?`, {
+    extra: {
+      label: "Refresh",
+      value: "refresh",
+      icon: "mdi-refresh",
+      desc: "Refresh: reconnects and redraws the terminal. The running session is preserved. Use this when the display looks broken.",
+    },
+    ok: { label: "Close", icon: "mdi-close", danger: true },
+  });
+  if (result === true) emits("close", props.tab);
+  else if (result === "refresh") emits("refresh", props.tab);
 }
 
 function onCloseUp() {

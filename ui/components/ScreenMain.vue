@@ -239,6 +239,25 @@ async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, j
   }
 }
 
+function refreshTab(tab) {
+  const tabObj = terminalStore.openTabs.find((t) => t.id === tab.id);
+  if (!tabObj) return;
+  // 現在の WebSocket を切ってから再接続。tmux session は維持する。
+  if (tabObj.ws) {
+    try { tabObj.ws.onclose = null; tabObj.ws.close(); } catch {}
+    tabObj.ws = null;
+  }
+  clearTimeout(tabObj._reconnectTimer);
+  tabObj._reconnectAttempts = 0;
+  tabObj._pendingRedraw = true;
+  connectTerminalWs(tabObj, {
+    focus: false,
+    onOpen: () => {
+      terminalBaseView.value?.fitAllTerminals({ force: true });
+    },
+  });
+}
+
 async function closeTab(tab) {
   const tabId = tab.id;
   const sessionId = tab.sessionId;
@@ -275,6 +294,10 @@ onMounted(() => {
     closeTab(tab);
     const activeTab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
     workspaceStore.selectedWorkspace = activeTab?.workspace || null;
+  }));
+
+  bridgeCleanups.push(on("tab:refresh", ({ tab }) => {
+    refreshTab(tab);
   }));
 
   bridgeCleanups.push(on("terminal:launch", (detail) => {
