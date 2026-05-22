@@ -12,7 +12,7 @@
           v-for="(ws, idx) in displayWorkspaces"
           :key="ws.name"
           class="picker-ws-group"
-          :class="{ dragging: dragIdx === idx }"
+          :class="{ dragging: dragIdx === idx, 'is-hidden': settingsMode && ws.hidden }"
           :style="dragIdx === idx ? { transform: `translateY(${dragOffsetY}px)` } : {}"
           @mouseenter="!settingsMode && onMouseEnter(ws)"
           @mouseleave="!settingsMode && onMouseLeave(ws)"
@@ -455,6 +455,10 @@ onBeforeUnmount(() => {
 
 .picker-ws-icon-btn.picker-ws-job-hidden {
   border-style: dashed;
+}
+
+.picker-ws-group.is-hidden .picker-ws-header-label {
+  opacity: 0.5;
 }
 
 .picker-ws-job-spacer {
