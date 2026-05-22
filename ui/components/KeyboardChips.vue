@@ -18,21 +18,6 @@
       </div>
       <div v-if="snippets.length === 0" class="quick-chip-item quick-chip-item-empty">No snippets</div>
     </div>
-    <div class="quick-snippet-scroll-row">
-      <div
-        v-for="(text, idx) in history"
-        :key="'h-' + idx"
-        class="quick-chip-item"
-        @touchstart="onHistoryTouchStart($event, text)"
-        @touchmove="onTouchMove($event)"
-        @touchend="onChipTouchEnd($event, text)"
-        @touchcancel="onTouchCancel"
-      >
-        <span class="mdi mdi-history snippet-chip-icon"></span>
-        {{ truncateQuickText(text) }}
-      </div>
-      <div v-if="history.length === 0" class="quick-chip-item quick-chip-item-empty">No history</div>
-    </div>
   </div>
 </template>
 
@@ -45,7 +30,7 @@ import { emit as bridgeEmit } from "../app-bridge.js";
 
 const props = defineProps({ insertMode: { type: Boolean, default: false } });
 const emit = defineEmits(["chip:tap"]);
-const { snippets, history, truncateQuickText } = useQuickInputData();
+const { snippets, truncateQuickText } = useQuickInputData();
 const { prompt } = usePrompt();
 const { confirm } = useConfirm();
 
@@ -72,15 +57,6 @@ function onChipTouchEnd(e, command) {
   if (e.cancelable) e.preventDefault();
   if (!props.insertMode) bridgeEmit("snippet:tap", { command });
   emit("chip:tap", { command });
-}
-
-function onHistoryTouchStart(e, text) {
-  scrolled = false;
-  startX = e.touches[0].clientX;
-  longPress.reset();
-  longPress.start(() => {
-    askAddSnippet(text);
-  });
 }
 
 function onTouchMove(e) {

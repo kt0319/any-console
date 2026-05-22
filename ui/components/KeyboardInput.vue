@@ -10,7 +10,7 @@
         autocapitalize="off"
         autocorrect="off"
         spellcheck="false"
-        placeholder="Text input..."
+        placeholder="Text input (↑↓ for history)"
         @keydown.enter.prevent="submit"
         @focus="$emit('focused', true)"
         @blur="onBlur"

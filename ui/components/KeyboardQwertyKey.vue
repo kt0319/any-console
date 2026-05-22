@@ -112,13 +112,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { usePrompt } from "../composables/usePrompt.js";
 import { useInputStore } from "../stores/input.js";
 import { useAuthStore } from "../stores/auth.js";
 import { emit, on } from "../app-bridge.js";
-import { FLICK_THRESHOLD } from "../utils/constants.js";
+import { FLICK_THRESHOLD, REPEAT_DELAY, REPEAT_INTERVAL, MIN_REPEAT_INTERVAL, REPEAT_ACCELERATION } from "../utils/constants.js";
 import { arrowResolver, enterResolver } from "../utils/flick-resolvers.js";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
 import KeyboardInput from "./KeyboardInput.vue";
@@ -134,6 +134,31 @@ const keyboardInput = ref(null);
 const inputFocused = ref(false);
 const draft = ref("");
 const hasDraft = computed(() => draft.value.trim().length > 0);
+
+let historyIndex = -1;
+let savedDraft = "";
+function historyPrev() {
+  const list = inputStore.inputHistory;
+  if (!list.length) return;
+  if (historyIndex === -1) savedDraft = draft.value;
+  historyIndex = Math.min(historyIndex + 1, list.length - 1);
+  draft.value = list[historyIndex];
+}
+function historyNext() {
+  if (historyIndex === -1) return;
+  const list = inputStore.inputHistory;
+  historyIndex -= 1;
+  if (historyIndex < 0) {
+    historyIndex = -1;
+    draft.value = savedDraft;
+    return;
+  }
+  draft.value = list[historyIndex];
+}
+
+watch(draft, (val) => {
+  if (val === "") historyIndex = -1;
+});
 
 function focusInput() {
   keyboardInput.value?.focus?.();
@@ -359,10 +384,40 @@ function sendSpace() {
 
 onMounted(() => {
   if (topArrowFlickEl.value) {
+    let arrowFlickHandled = false;
+    let cursorRepeatKey = null;
+    let cursorRepeatTimer = null;
+    const cursorStopRepeat = () => {
+      if (cursorRepeatTimer !== null) { clearTimeout(cursorRepeatTimer); cursorRepeatTimer = null; }
+      cursorRepeatKey = null;
+    };
+    const cursorScheduleRepeat = (delta, interval) => {
+      cursorRepeatTimer = setTimeout(() => {
+        keyboardInput.value?.moveCursor?.(delta);
+        cursorScheduleRepeat(delta, Math.max(MIN_REPEAT_INTERVAL, interval - REPEAT_ACCELERATION));
+      }, interval);
+    };
+    topArrowFlickEl.value.addEventListener("touchstart", () => {
+      arrowFlickHandled = false;
+      cursorStopRepeat();
+    }, { passive: true });
+    topArrowFlickEl.value.addEventListener("touchend", cursorStopRepeat);
+    topArrowFlickEl.value.addEventListener("touchcancel", cursorStopRepeat);
     const onArrowFlick = (key) => {
       if (!inputFocused.value) return false;
-      if (key.key === "ArrowLeft") keyboardInput.value?.moveCursor?.(-1);
-      else if (key.key === "ArrowRight") keyboardInput.value?.moveCursor?.(1);
+      if (key.key === "ArrowLeft" || key.key === "ArrowRight") {
+        if (cursorRepeatKey === key.key) return true;
+        cursorStopRepeat();
+        cursorRepeatKey = key.key;
+        const delta = key.key === "ArrowLeft" ? -1 : 1;
+        keyboardInput.value?.moveCursor?.(delta);
+        cursorRepeatTimer = setTimeout(() => cursorScheduleRepeat(delta, REPEAT_INTERVAL), REPEAT_DELAY);
+        return true;
+      }
+      if (arrowFlickHandled) return true;
+      arrowFlickHandled = true;
+      if (key.key === "ArrowUp") historyPrev();
+      else if (key.key === "ArrowDown") historyNext();
       return true;
     };
     setupFlickRepeat(topArrowFlickEl.value, arrowResolver, () => {

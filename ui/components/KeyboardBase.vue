@@ -115,10 +115,6 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
   flex: 1;
 }
 
-.quick-qwerty-panel .quick-extra-bottom-keys {
-  justify-content: flex-end;
-}
-
 .quick-qwerty-panel .quick-extra-bottom-keys .flick-main {
   font-size: 18px;
 }
@@ -131,7 +127,7 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
 
 .quick-qwerty-panel .quick-extra-bottom-keys > .keyboard-input-wrapper {
   flex: none;
-  width: calc((100vw - 16px) * 3 / 5);
+  width: calc((100vw - 16px) * 3 / 5 + 4px);
   min-width: 0;
   padding: 0;
 }
@@ -495,13 +491,15 @@ defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
   padding: 10px 12px;
   border: 1px solid var(--white-30);
   border-radius: var(--radius);
-  background: rgba(40, 44, 65, 0.7);
+  background: rgba(130, 170, 255, 0.12);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
   color: var(--text-primary);
   font-size: 16px;
   font-family: inherit;
   box-sizing: border-box;
   outline: none;
 }
+
 
 .keyboard-input-send {
   display: flex;
