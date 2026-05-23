@@ -35,21 +35,55 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
-import { EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES } from "../utils/endpoints.js";
+import { useLayoutStore } from "../stores/layout.js";
+import { EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES, EP_SYSTEM_TMUX_INFO } from "../utils/endpoints.js";
+import { formatRelativeTime } from "../utils/format.js";
 
 const modalTitle = inject("modalTitle");
-modalTitle.value = "Server Info";
+modalTitle.value = "System Info";
 
 const { apiGet } = useApi();
+const layoutStore = useLayoutStore();
 const isServerInfoLoading = ref(true);
 const isProcessRefreshing = ref(false);
 const serverInfoSections = ref([]);
 
+function parseBrowser(ua) {
+  const tests = [
+    [/Edg(?:e|A|iOS)?\/(\S+)/, "Edge"],
+    [/OPR\/(\S+)|Opera\/(\S+)/, "Opera"],
+    [/Chrome\/(\S+)/, "Chrome"],
+    [/Version\/(\S+).*Safari/, "Safari"],
+    [/Firefox\/(\S+)/, "Firefox"],
+  ];
+  for (const [re, name] of tests) {
+    const m = ua.match(re);
+    if (m) return `${name} ${(m[1] || m[2] || "").split(".").slice(0, 2).join(".")}`;
+  }
+  return ua.slice(0, 50);
+}
+
 const SECTION_DEFS = [
   {
-    label: "Server Info",
+    label: "Client",
+    static: true,
+    toRows: () => [
+      { label: "Client", values: [], header: true },
+      { label: "Browser", values: [parseBrowser(navigator.userAgent)] },
+      { label: "Platform", values: [navigator.userAgentData?.platform || navigator.platform || "-"] },
+      { label: "Screen", values: [`${screen.width} x ${screen.height}`] },
+      { label: "Viewport", values: [`${window.innerWidth} x ${window.innerHeight}`] },
+      { label: "Touch", values: [layoutStore.isTouchDevice ? "Yes" : "No"] },
+      { label: "PWA", values: [layoutStore.isPwa ? "Yes" : "No"] },
+      { label: "Online", values: [navigator.onLine ? "Yes" : "No"] },
+      { label: "Language", values: [navigator.language] },
+    ],
+  },
+  {
+    label: "Server",
     endpoint: EP_SYSTEM_INFO,
     toRows: (data) => [
+      { label: "Server", values: [], header: true },
       { label: "Hostname", values: [data.hostname] },
       { label: "OS", values: [data.os] },
       { label: "IP", values: [data.ip] },
@@ -57,11 +91,12 @@ const SECTION_DEFS = [
       { label: "Memory", values: [data.memory] },
       { label: "CPU Temp", values: [data.cpu_temp] },
       { label: "Disk", values: [data.disk] },
-    ].filter((r) => r.values[0]),
+    ].filter((r) => r.header || r.values[0]),
   },
   {
-    label: "Process List",
+    label: "Processes",
     endpoint: EP_SYSTEM_PROCESSES,
+    refreshable: true,
     toRows: (processes) => [
       { label: "Processes", values: ["CPU", "MEM"], header: true, refresh: true },
       ...processes.map((p) => ({
@@ -71,12 +106,28 @@ const SECTION_DEFS = [
       })),
     ],
   },
+  {
+    label: "tmux",
+    endpoint: EP_SYSTEM_TMUX_INFO,
+    toRows: (data) => {
+      if (!data.available) return [{ label: "tmux", values: ["not available"], header: true }];
+      const rows = [{ label: "tmux", values: [data.version], header: true }];
+      for (const s of data.sessions) {
+        const tags = [`${s.windows}w`];
+        if (s.attached) tags.push("attached");
+        if (s.created) tags.push(formatRelativeTime(s.created * 1000));
+        rows.push({ label: s.name, values: tags });
+      }
+      return rows;
+    },
+  },
 ];
 
 async function loadServerInfoSections() {
   isServerInfoLoading.value = true;
   const results = await Promise.all(
     SECTION_DEFS.map(async (def) => {
+      if (def.static) return { label: def.label, rows: def.toRows(), error: null };
       try {
         const { ok, data } = await apiGet(def.endpoint);
         if (!ok) return { label: def.label, error: `Failed to get ${def.label}`, rows: [] };
@@ -94,11 +145,12 @@ async function refreshProcesses() {
   if (isProcessRefreshing.value) return;
   isProcessRefreshing.value = true;
   try {
-    const def = SECTION_DEFS[1];
+    const defIdx = SECTION_DEFS.findIndex((d) => d.refreshable);
+    const def = SECTION_DEFS[defIdx];
     const { ok, data } = await apiGet(def.endpoint);
     if (ok) {
       const sections = [...serverInfoSections.value];
-      sections[1] = { label: def.label, rows: def.toRows(data), error: null };
+      sections[defIdx] = { label: def.label, rows: def.toRows(data), error: null };
       serverInfoSections.value = sections;
     }
   } finally {
@@ -160,6 +212,11 @@ defineExpose({
   border-bottom: 1px solid var(--border);
   font-size: 11px;
   color: var(--text-muted);
+}
+
+.server-info-header:first-child {
+  margin-top: 0;
+  padding-top: 8px;
 }
 
 .server-info-header .server-info-value {

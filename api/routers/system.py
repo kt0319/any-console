@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(verify_token)])
 
 IS_DARWIN = platform.system() == "Darwin"
-PROCESS_LIST_LIMIT = 15
+PROCESS_LIST_LIMIT = 10
 PS_FIELD_COUNT = 11
 
 

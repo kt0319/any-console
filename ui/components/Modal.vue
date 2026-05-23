@@ -34,8 +34,6 @@
         <EditorConfig v-if="currentView === 'EditorConfig'" />
         <AuthConfig v-if="currentView === 'AuthConfig'" />
         <ServerInfo v-if="currentView === 'ServerInfo'" />
-        <ClientInfo v-if="currentView === 'ClientInfo'" />
-        <TmuxInfo v-if="currentView === 'TmuxInfo'" />
         <DisplayConfig v-if="currentView === 'DisplayConfig'" />
         <SnippetConfig v-if="currentView === 'SnippetConfig'" />
         <GitHubPane v-if="currentView === 'GitHubPane'" />
@@ -60,8 +58,6 @@ import TerminalConfig from "./TerminalConfig.vue";
 import EditorConfig from "./EditorConfig.vue";
 import AuthConfig from "./AuthConfig.vue";
 import ServerInfo from "./ServerInfo.vue";
-import ClientInfo from "./ClientInfo.vue";
-import TmuxInfo from "./TmuxInfo.vue";
 import DisplayConfig from "./DisplayConfig.vue";
 import SnippetConfig from "./SnippetConfig.vue";
 import ConfigFile from "./ConfigFile.vue";

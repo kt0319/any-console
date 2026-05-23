@@ -34,13 +34,7 @@
         <span class="mdi mdi-file-cog"></span> Config File
       </button>
       <button type="button" class="settings-menu-item" @click="pushView('ServerInfo')">
-        <span class="mdi mdi-information-outline"></span> Server Info
-      </button>
-      <button type="button" class="settings-menu-item" @click="pushView('ClientInfo')">
-        <span class="mdi mdi-cellphone-information"></span> Client Info
-      </button>
-      <button type="button" class="settings-menu-item" @click="pushView('TmuxInfo')">
-        <span class="mdi mdi-console-network-outline"></span> Tmux Info
+        <span class="mdi mdi-information-outline"></span> System Info
       </button>
     </div>
   </div>
