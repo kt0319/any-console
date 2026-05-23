@@ -16,10 +16,9 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onUnmounted } from "vue";
+import { ref, computed, nextTick, onUnmounted } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { useViewport } from "../composables/useViewport.js";
 import { on } from "../app-bridge.js";
 import KeyboardMinimumKey from "./KeyboardMinimumKey.vue";
 import KeyboardQwertyKey from "./KeyboardQwertyKey.vue";
@@ -34,7 +33,6 @@ const { clearModifiers } = useKeyboard();
 
 const isFullKeyboard = ref(false);
 const qwertyView = ref(null);
-const { keyboardOpen } = useViewport();
 
 function showInput() {
   isFullKeyboard.value = true;
@@ -57,17 +55,6 @@ function toggleKeyboard() {
 // inputFocus イベントは子側で QWERTY rows / メタキー段の表示制御に使われる。
 // blur 時にモードを Minimum に戻すことはしない (ユーザーが明示的に切り替えるまで QWERTY のまま)。
 function onInputFocus() {}
-
-// OS キーボードの開閉が visualViewport で検知できる場合の経路:
-// 開いたら showInput、閉じたら ×ボタンと同じ処理 (toggleKeyboard) でモードを抜ける。
-watch(keyboardOpen, (open) => {
-  if (open) {
-    if (document.querySelector(".modal-overlay")) return;
-    showInput();
-  } else if (isFullKeyboard.value) {
-    toggleKeyboard();
-  }
-});
 
 const cleanups = [
   on("keyboard:activate", showInput),

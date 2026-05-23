@@ -72,7 +72,7 @@ function markInternalInteraction() {
 }
 
 function focus() {
-  nextTick(() => inputEl.value?.focus());
+  inputEl.value?.focus();
 }
 
 function isFocused() {

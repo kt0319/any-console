@@ -327,16 +327,18 @@ function onTouchEnd(e) {
   if (isLinkTapped()) return;
   if (pillEl.value && pillEl.value.contains(e.target)) return;
   const { dx: deltaX, dy: deltaY } = paneTouch.delta(e);
-  if (Math.abs(deltaX) > 20 || Math.abs(deltaY) > 20) return;
+  if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) return;
   if (layoutStore.isSplitMode) {
     if (!isActive.value) {
       emits("select-pane", props.paneIndex);
       return;
     }
+    e.preventDefault();
     emit("keyboard:activate");
     return;
   }
   if (layoutStore.isPanelBottom) {
+    e.preventDefault();
     emit("keyboard:activate");
   }
 }
