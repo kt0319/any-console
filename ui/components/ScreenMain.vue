@@ -44,7 +44,7 @@ import { useConfirm } from "../composables/useConfirm.js";
 import { useViewport } from "../composables/useViewport.js";
 import { useSessionSync } from "../composables/useSessionSync.js";
 import { useSnippetPersist } from "../composables/useSnippetPersist.js";
-import { useDebugMode } from "../composables/useDebugMode.js";
+import { useDebugMode, useDebugLevels } from "../composables/useDebugMode.js";
 import { useClientLogs } from "../composables/useClientLogs.js";
 import { on, emit } from "../app-bridge.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_RUN, EP_SETTINGS_CONFIG_HEALTH } from "../utils/endpoints.js";
@@ -111,15 +111,19 @@ const activeTabLabel = computed(() => {
 
 const debugMode = useDebugMode();
 const { logs: clientLogs, levelLabel } = useClientLogs();
+const debugLevels = useDebugLevels();
 
-const latestLog = computed(() => clientLogs.value[clientLogs.value.length - 1] || null);
+const latestLog = computed(() => {
+  for (let i = clientLogs.value.length - 1; i >= 0; i--) {
+    if (debugLevels.value.has(clientLogs.value[i].level)) return clientLogs.value[i];
+  }
+  return null;
+});
 const debugInfo = computed(() => {
   const log = latestLog.value;
   if (!log) return "(no logs yet)";
-  const t = new Date(log.time).toTimeString().slice(0, 8);
-  // 既定の "log" レベルは冗長なので非表示。warn/error/info のみラベル表示。
   const label = log.level === "log" ? "" : `[${levelLabel(log.level)}] `;
-  return `${t} ${label}${log.msg}`;
+  return `${label}${log.msg}`;
 });
 
 const tabBarView = ref(null);
