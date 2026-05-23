@@ -195,6 +195,8 @@ function onChipTap({ command }) {
   } else {
     sendTextToTerminal(command);
     inputStore.addInputHistory(command);
+    emitLocal("cycleMode");
+    return;
   }
   showSnippetView.value = false;
 }
