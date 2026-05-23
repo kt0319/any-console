@@ -36,15 +36,6 @@ defineEmits(["run", "settings"]);
   border-bottom: 1px solid var(--border);
 }
 
-.picker-section-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 6px;
-}
-
 .picker-recent-list {
   display: flex;
   flex-direction: row;
