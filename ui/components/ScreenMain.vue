@@ -1,5 +1,5 @@
 <template>
-  <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom, 'split-mode': isSplitMode }">
+  <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom, 'split-mode': isSplitMode, 'keyboard-open': keyboardOpen }">
     <TabBar ref="tabBarView" :tabs="openTabs" />
     <div v-if="!isSplitMode" class="active-tab-title">
       <template v-if="debugMode">
@@ -58,6 +58,7 @@ const workspaceStore = useWorkspaceStore();
 const { disconnectTerminal, deleteSession, connectDeferredTabs, connectTerminalWs } = useTerminal();
 const { sendTextToTerminal } = useKeyboard();
 const { initViewport } = useViewport();
+const keyboardOpen = ref(false);
 const { confirm } = useConfirm();
 const { restoreExistingSessions, syncSessionsFromServer, startSyncPolling, stopSyncPolling } = useSessionSync();
 const { loadSnippetCache, moveSnippetToFront, addSnippet, deleteSnippet, moveSnippet } = useSnippetPersist();
@@ -319,6 +320,9 @@ onMounted(() => {
   bridgeCleanups.push(on("keyboard:activate", () => {
     ensureKeyboardTargetTab();
   }));
+
+  bridgeCleanups.push(on("oskeyboard:show", () => { keyboardOpen.value = true; }));
+  bridgeCleanups.push(on("oskeyboard:hide", () => { keyboardOpen.value = false; }));
 
   initViewport(() => {
     terminalBaseView.value?.fitAllTerminals();

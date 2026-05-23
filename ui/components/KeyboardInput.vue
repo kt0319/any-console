@@ -25,6 +25,7 @@
 import { ref, nextTick, computed } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
+import { emit as bridgeEmit } from "../app-bridge.js";
 
 const emit = defineEmits(["focused", "submitted"]);
 
@@ -40,6 +41,7 @@ let suppressBlurRefocus = false;
 function onFocus() {
   focused.value = true;
   emit("focused", true);
+  bridgeEmit("oskeyboard:show");
 }
 
 function blur() {
@@ -62,6 +64,7 @@ function onBlur() {
   }
   focused.value = false;
   emit("focused", false);
+  bridgeEmit("oskeyboard:hide");
 }
 
 function markInternalInteraction() {

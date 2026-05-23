@@ -26,9 +26,6 @@ function updateViewportHeight() {
     document.documentElement.style.setProperty("--app-dvh", `${appliedViewportHeightPx}px`);
   }
 
-  const mainPanel = document.querySelector(".main-panel");
-  if (mainPanel) mainPanel.classList.toggle("keyboard-open", isKbOpen);
-
   const prevOpen = keyboardOpen.value;
   keyboardOpen.value = isKbOpen;
 
