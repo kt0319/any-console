@@ -16,10 +16,11 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from "vue";
+import { ref, computed, watch, nextTick, onUnmounted } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useViewport } from "../composables/useViewport.js";
+import { on } from "../app-bridge.js";
 import KeyboardMinimumKey from "./KeyboardMinimumKey.vue";
 import KeyboardQwertyKey from "./KeyboardQwertyKey.vue";
 
@@ -67,6 +68,12 @@ watch(keyboardOpen, (open) => {
     toggleKeyboard();
   }
 });
+
+const cleanups = [
+  on("keyboard:activate", showInput),
+  on("keyboard:deactivate", hideInput),
+];
+onUnmounted(() => cleanups.forEach((fn) => fn()));
 
 defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
 </script>

@@ -18,12 +18,7 @@
     >
       <StatusOverlay :visible="isOffline" label="Connection lost" variant="error" />
     </TerminalBase>
-    <div class="main-panel-keyboard-overlay">
-      <KeyboardBase
-        ref="keyboardBaseView"
-        :is-panel-bottom="isPanelBottom"
-      />
-    </div>
+
   </div>
   <Modal />
   <TerminalSelectModal />
@@ -34,7 +29,6 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
 import WorkspaceStatusBar from "./WorkspaceStatusBar.vue";
 import TabBar from "./TabBar.vue";
 import TerminalBase from "./TerminalBase.vue";
-import KeyboardBase from "./KeyboardBase.vue";
 import ScreenEmpty from "./ScreenEmpty.vue";
 import Modal from "./Modal.vue";
 import TerminalSelectModal from "./TerminalSelectModal.vue";
@@ -129,7 +123,6 @@ const debugInfo = computed(() => {
 
 const tabBarView = ref(null);
 const terminalBaseView = ref(null);
-const keyboardBaseView = ref(null);
 
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
@@ -325,11 +318,6 @@ onMounted(() => {
 
   bridgeCleanups.push(on("keyboard:activate", () => {
     ensureKeyboardTargetTab();
-    keyboardBaseView.value?.showInput?.();
-  }));
-
-  bridgeCleanups.push(on("keyboard:deactivate", () => {
-    keyboardBaseView.value?.hideInput?.();
   }));
 
   initViewport(() => {
@@ -523,17 +511,6 @@ defineExpose({
   overflow: hidden;
   position: relative;
 }
-
-.main-panel-keyboard-overlay {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 30;
-  pointer-events: auto;
-}
-
-/* キーボード位置の調整は KeyboardBase.vue に集約 (.main-panel.* mode 別 override) */
 
 .main-panel.panel-bottom :deep(.output-container) {
   order: -1;
