@@ -10,7 +10,6 @@
       :active="isFullKeyboard"
       @cycleMode="toggleKeyboard"
       @submitted="hideInput"
-      @inputFocus="onInputFocus"
     />
   </template>
 </template>
@@ -52,17 +51,11 @@ function toggleKeyboard() {
   clearModifiers();
 }
 
-// inputFocus イベントは子側で QWERTY rows / メタキー段の表示制御に使われる。
-// blur 時にモードを Minimum に戻すことはしない (ユーザーが明示的に切り替えるまで QWERTY のまま)。
-function onInputFocus() {}
-
 const cleanups = [
   on("keyboard:activate", showInput),
   on("keyboard:deactivate", hideInput),
 ];
 onUnmounted(() => cleanups.forEach((fn) => fn()));
-
-defineExpose({ isFullKeyboard, toggleKeyboard, showInput, hideInput });
 </script>
 
 <style>
