@@ -12,17 +12,25 @@
       </button>
     </form>
 
-    <div class="snippet-list">
-      <div v-for="(snippet, idx) in snippets" :key="idx" class="snippet-row">
-        <div class="snippet-command">{{ snippet.command }}</div>
-        <div class="snippet-order-btns">
-          <button type="button" class="snippet-order-btn" :disabled="idx === 0" @click="onMoveUp(idx)" aria-label="Move up">
-            <span class="mdi mdi-chevron-up"></span>
-          </button>
-          <button type="button" class="snippet-order-btn" :disabled="idx === snippets.length - 1" @click="onMoveDown(idx)" aria-label="Move down">
-            <span class="mdi mdi-chevron-down"></span>
-          </button>
+    <div class="snippet-list" ref="listEl">
+      <div
+        v-for="(snippet, idx) in snippets"
+        :key="idx"
+        class="snippet-row"
+        :class="{
+          'is-dragging': dragState?.fromIdx === idx,
+          'drop-before': dragState?.overIdx === idx && dragState.overIdx < dragState.fromIdx,
+          'drop-after': dragState?.overIdx === idx && dragState.overIdx > dragState.fromIdx,
+        }"
+      >
+        <div
+          class="snippet-drag-handle"
+          @pointerdown="onDragStart($event, idx)"
+          aria-label="Drag to reorder"
+        >
+          <span class="mdi mdi-drag-vertical"></span>
         </div>
+        <div class="snippet-command">{{ snippet.command }}</div>
         <button type="button" class="snippet-delete" @click="onDelete(idx)" aria-label="Delete snippet">
           <span class="mdi mdi-trash-can-outline"></span>
         </button>
@@ -43,6 +51,8 @@ const inputStore = useInputStore();
 const snippets = computed(() => inputStore.snippetsCache ? [...inputStore.snippetsCache].reverse() : []);
 
 const newCommand = ref("");
+const listEl = ref(null);
+const dragState = ref(null);
 
 function onAdd() {
   const command = newCommand.value.trim();
@@ -56,16 +66,44 @@ function onDelete(reversedIdx) {
   bridgeEmit("snippet:delete", { index: realIdx });
 }
 
-function onMoveUp(reversedIdx) {
-  const len = inputStore.snippetsCache.length;
-  const from = len - 1 - reversedIdx;
-  bridgeEmit("snippet:move", { from, to: from + 1 });
-}
+function onDragStart(e, fromIdx) {
+  e.preventDefault();
+  dragState.value = { fromIdx, overIdx: fromIdx };
 
-function onMoveDown(reversedIdx) {
-  const len = inputStore.snippetsCache.length;
-  const from = len - 1 - reversedIdx;
-  bridgeEmit("snippet:move", { from, to: from - 1 });
+  function getOverIdx(clientY) {
+    if (!listEl.value) return fromIdx;
+    const rows = listEl.value.querySelectorAll(".snippet-row");
+    let closest = fromIdx;
+    let minDist = Infinity;
+    rows.forEach((row, i) => {
+      const rect = row.getBoundingClientRect();
+      const dist = Math.abs(clientY - (rect.top + rect.height / 2));
+      if (dist < minDist) { minDist = dist; closest = i; }
+    });
+    return closest;
+  }
+
+  function onMove(ev) {
+    const clientY = ev.clientY ?? ev.touches?.[0]?.clientY;
+    if (clientY == null) return;
+    dragState.value = { ...dragState.value, overIdx: getOverIdx(clientY) };
+  }
+
+  function onEnd(ev) {
+    const { fromIdx: from, overIdx: over } = dragState.value;
+    if (from !== over) {
+      const len = inputStore.snippetsCache.length;
+      bridgeEmit("snippet:move", { from: len - 1 - from, to: len - 1 - over });
+    }
+    dragState.value = null;
+    document.removeEventListener("pointermove", onMove);
+    document.removeEventListener("pointerup", onEnd);
+    document.removeEventListener("pointercancel", onEnd);
+  }
+
+  document.addEventListener("pointermove", onMove);
+  document.addEventListener("pointerup", onEnd);
+  document.addEventListener("pointercancel", onEnd);
 }
 
 onMounted(() => { modalTitle.value = "Snippets"; });
@@ -119,10 +157,40 @@ onMounted(() => { modalTitle.value = "Snippets"; });
 .snippet-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  transition: opacity 0.15s;
+}
+
+.snippet-row.is-dragging {
+  opacity: 0.4;
+}
+
+.snippet-row.drop-before {
+  border-top: 2px solid var(--accent);
+}
+
+.snippet-row.drop-after {
+  border-bottom: 2px solid var(--accent);
+}
+
+.snippet-drag-handle {
+  flex-shrink: 0;
+  width: 28px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: grab;
+  touch-action: none;
+  font-size: 18px;
+}
+
+.snippet-drag-handle:active {
+  cursor: grabbing;
 }
 
 .snippet-command {
@@ -131,34 +199,6 @@ onMounted(() => { modalTitle.value = "Snippets"; });
   font-size: 14px;
   color: var(--text-primary);
   word-break: break-all;
-}
-
-.snippet-order-btns {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-.snippet-order-btn {
-  width: 28px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 12px;
-  line-height: 1;
-  padding: 0;
-}
-
-.snippet-order-btn:disabled {
-  opacity: 0.25;
-  cursor: not-allowed;
 }
 
 .snippet-delete {
