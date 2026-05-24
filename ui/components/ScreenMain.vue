@@ -524,6 +524,16 @@ defineExpose({
   display: flex;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .main-panel.split-mode .active-tab-title {
+    display: none;
+  }
+
+  .main-panel.split-mode :deep(.keyboard-bar) {
+    display: none;
+  }
+}
+
 
 .main-panel {
   display: flex;
