@@ -424,6 +424,10 @@ onUnmounted(() => cleanups.forEach((fn) => fn()));
   font-size: 14px;
 }
 
+.quick-qwerty-panel .flick-main-text {
+  font-size: 11px;
+}
+
 .quick-qwerty-panel .quick-modifier {
   background: rgba(40, 44, 65, 0.8);
   border-color: var(--white-30);

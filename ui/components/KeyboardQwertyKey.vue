@@ -55,7 +55,7 @@
           </template>
           <template v-else-if="hasFlick(ri, ci, keyDef)">
             <span v-if="(!showSymbolView || keyDef.noSymbol) && flickUpLabel(ri, ci, keyDef)" class="flick-hint-top">{{ flickUpLabel(ri, ci, keyDef) }}</span>
-            <span class="flick-main">{{ symbolDisplayLabel(keyDef) }}</span>
+            <span :class="['flick-main', { 'flick-main-text': symbolDisplayLabel(keyDef).length > 1 }]">{{ symbolDisplayLabel(keyDef) }}</span>
             <span v-if="(!showSymbolView || keyDef.noSymbol) && keyDef.flickDown" class="flick-hint-bottom">{{ keyDef.flickDown }}</span>
           </template>
           <template v-else>{{ symbolDisplayLabel(keyDef) }}</template>
