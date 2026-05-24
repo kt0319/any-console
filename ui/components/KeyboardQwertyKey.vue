@@ -7,10 +7,10 @@
       style="display:none"
       @change="onCameraFileChange"
     />
+    <div v-if="showSnippetView && !inputFocused" class="keyboard-chips-row">
+      <KeyboardChips :insert-mode="true" @chip:tap="onChipTap" />
+    </div>
     <template v-if="showFnView && !inputFocused">
-      <div class="keyboard-chips-row">
-        <KeyboardChips :insert-mode="true" @chip:tap="onChipTap" />
-      </div>
       <div class="quick-extra-row">
         <div
           v-for="keyDef in numberKeys" :key="keyDef.key"
@@ -74,13 +74,14 @@
     </div>
     <div v-show="!inputFocused" class="quick-extra-row quick-extra-modifier-keys">
       <div
-        class="quick-key quick-modifier"
+        class="quick-key quick-flick-arrow quick-modifier"
         :class="{ active: modifierState.shift }"
         @touchstart.prevent="shiftFlick.onStart"
         @touchend.prevent="shiftFlick.onEnd"
         @touchcancel="onQuickKeyCancel($event)"
         @click="toggleShift"
       >
+        <span class="flick-hint-top" :class="{ 'flick-hint-active': showSymbolView }">#+=</span>
         <span class="flick-main"><span class="mdi mdi-arrow-up-bold"></span></span>
       </div>
       <div
@@ -111,16 +112,6 @@
         <span class="flick-hint-bottom">PgD</span>
       </div>
       <div
-        class="quick-key quick-modifier"
-        :class="{ active: showSymbolView }"
-        @touchstart.prevent="onModifierKeyStart"
-        @touchend.prevent="(e) => onModifierKeyEnd(e, toggleSymbolView)"
-        @touchcancel="onQuickKeyCancel($event)"
-        @click="toggleSymbolView"
-      >
-        <span class="flick-main" style="font-size:11px">#+=</span>
-      </div>
-      <div
         class="quick-key quick-flick-arrow quick-modifier"
         :class="{ active: showFnView }"
         @touchstart.prevent="fnFlick.onStart"
@@ -131,6 +122,16 @@
         <span class="flick-hint-top">Refresh</span>
         <span class="flick-main" style="font-size:12px">fn</span>
         <span class="flick-hint-bottom">Reload</span>
+      </div>
+      <div
+        class="quick-key quick-modifier"
+        :class="{ active: showSnippetView }"
+        @touchstart.prevent="onModifierKeyStart"
+        @touchend.prevent="(e) => onModifierKeyEnd(e, toggleSnippetView)"
+        @touchcancel="onQuickKeyCancel($event)"
+        @click="toggleSnippetView"
+      >
+        <span class="flick-main"><span class="mdi mdi-text-box-multiple-outline"></span></span>
       </div>
     </div>
     <div v-if="!hideBottomRow" class="quick-extra-row quick-extra-bottom-keys">
@@ -352,8 +353,13 @@ async function onCameraFileChange(e) {
 }
 
 function toggleShift() {
+  if (showSymbolView.value) {
+    showSymbolView.value = false;
+    modifierState.shift = false;
+    return;
+  }
   modifierState.shift = !modifierState.shift;
-  if (modifierState.shift) { showSymbolView.value = false; showFnView.value = false; }
+  if (modifierState.shift) { showFnView.value = false; }
 }
 function toggleCtrl() {
   modifierState.ctrl = !modifierState.ctrl;
@@ -412,7 +418,12 @@ function symbolDisplayLabel(keyDef) {
 }
 
 const shiftFlick = createFlickHandlers({
-  up: () => sendKeyToTerminal({ key: "Escape" }),
+  up: () => {
+    const next = !showSymbolView.value;
+    showSymbolView.value = next;
+    modifierState.shift = false;
+    if (next) showFnView.value = false;
+  },
   left: () => sendKeyToTerminal({ key: "u", ctrl: true }),
   right: () => sendKeyToTerminal({ key: "k", ctrl: true }),
   tap: toggleShift,

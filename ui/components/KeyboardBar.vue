@@ -10,10 +10,6 @@
       @submitted="onSubmitted"
       @snippetToggle="toggleSnippetView"
     />
-    <!-- ミニマムモード時のスニペット表示 -->
-    <div v-if="showSnippetView" class="keyboard-bar-snippets">
-      <KeyboardChips :insert-mode="true" @chip:tap="onChipTap" />
-    </div>
     <!-- バー行 = フルキーボードの最下行と同構成 -->
     <div class="keyboard-bar-row">
       <KeyboardInput
@@ -92,10 +88,7 @@ function onInputFocused(focused) {
 
 function toggleSnippetView() {
   showSnippetView.value = !showSnippetView.value;
-  if (showSnippetView.value) {
-    isFullKeyboard.value = false;
-    clearModifiers();
-  }
+  if (showSnippetView.value) clearModifiers();
 }
 function doRefresh() {
   const tab = getActiveTerminalTab();
@@ -388,6 +381,10 @@ onUnmounted(() => cleanups.forEach((fn) => fn()));
 
 .quick-qwerty-panel .flick-main-text {
   font-size: 11px;
+}
+
+.quick-qwerty-panel .flick-hint-active {
+  color: rgba(130, 170, 255, 0.9);
 }
 
 .quick-qwerty-panel .quick-modifier {
