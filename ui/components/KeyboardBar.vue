@@ -21,10 +21,10 @@
         @focused="onInputFocused"
         @submitted="onSubmitted"
       />
-      <div class="quick-key quick-flick-arrow quick-key-toggle" :class="{ active: isFullKeyboard }" ref="barArrowFlickEl">
+      <div class="quick-key quick-flick-arrow quick-key-toggle" :class="{ active: isFullKeyboard || inputFocused }" ref="barArrowFlickEl">
         <span class="flick-hint-top">&uarr;</span>
         <span class="flick-hint-left">&larr;</span>
-        <span class="flick-main"><span :class="['mdi', isFullKeyboard ? 'mdi-close' : 'mdi-keyboard']"></span></span>
+        <span class="flick-main"><span :class="['mdi', (isFullKeyboard || inputFocused) ? 'mdi-close' : 'mdi-keyboard']"></span></span>
         <span class="flick-hint-right">&rarr;</span>
         <span class="flick-hint-bottom">&darr;</span>
       </div>
@@ -152,6 +152,17 @@ function hideInput() {
 }
 
 function toggleKeyboard() {
+  isFullKeyboard.value = false;
+  clearModifiers();
+}
+
+function dismissKeyboard() {
+  // 入力フォーカス中のみ（フルキーボードなし）は blur だけ。それ以外はトグル
+  if (!isFullKeyboard.value && inputFocused.value) {
+    keyboardInput.value?.blur?.();
+    clearModifiers();
+    return;
+  }
   keyboardInput.value?.blur?.();
   isFullKeyboard.value = !isFullKeyboard.value;
   clearModifiers();
@@ -201,7 +212,7 @@ onMounted(() => {
       else if (key.key === "ArrowDown") historyNext();
       return true;
     };
-    setupFlickRepeat(barArrowFlickEl.value, arrowResolver, toggleKeyboard, {
+    setupFlickRepeat(barArrowFlickEl.value, arrowResolver, dismissKeyboard, {
       accelerateRepeat: true,
       onFlick: onArrowFlick,
     });
@@ -238,19 +249,31 @@ onUnmounted(() => cleanups.forEach((fn) => fn()));
   border-top: 1px solid var(--border);
 }
 
-/* フルキーボードパネルをフロートではなく通常フローで表示 */
+/* フルキーボードはバー行の上にフロート */
+.keyboard-bar {
+  position: relative;
+}
+
 .keyboard-bar .quick-extra-panel {
-  position: static !important;
-  width: auto !important;
-  bottom: auto !important;
-  z-index: auto !important;
-  border-top: 1px solid var(--border);
+  position: absolute !important;
+  bottom: 100% !important;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: transparent;
+  border-top: none;
+  border-bottom: none;
   padding: 4px;
 }
 
 .keyboard-bar-snippets {
-  padding: 4px 4px 0;
-  border-top: 1px solid var(--border);
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  padding: 4px;
+  background: transparent;
 }
 
 .keyboard-bar-row {
@@ -554,9 +577,9 @@ onUnmounted(() => cleanups.forEach((fn) => fn()));
   min-width: 0;
   height: 44px;
   padding: 10px 12px;
-  border: 1px solid var(--white-30);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: var(--radius);
-  background: rgba(40, 44, 65, 0.8);
+  background: rgba(25, 28, 45, 0.95);
   color: var(--text-primary);
   font-size: 16px;
   font-family: inherit;
