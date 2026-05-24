@@ -20,6 +20,7 @@
         @click="onPillClick"
         @touchstart.passive="onPillTouchStart"
       >
+        <span v-if="isDirty" class="pill-dirty-dot" aria-label="uncommitted changes"></span>
         <span class="terminal-info-pill-info">
           <span v-if="tab.wsIcon" v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
           <span v-if="tab.icon" v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
@@ -61,6 +62,12 @@ const { confirm } = useConfirm();
 setTouchEnv(layoutStore.isTouchDevice);
 const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
+
+const isDirty = computed(() => {
+  if (!props.tab.workspace) return false;
+  const ws = workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace);
+  return ws?.clean === false;
+});
 const { ensureTerminalOpened, fitTerminal, sendResize, observeFrameResize, connectTerminalWs } = useTerminal();
 
 const paneEl = ref(null);
@@ -515,6 +522,14 @@ defineExpose({
 .terminal-info-pill img {
   pointer-events: none;
   -webkit-user-drag: none;
+}
+
+.pill-dirty-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f5a623;
+  flex-shrink: 0;
 }
 
 .terminal-info-pill.dragging {
