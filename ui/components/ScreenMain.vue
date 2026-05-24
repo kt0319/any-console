@@ -5,7 +5,7 @@
       <template v-if="debugMode">
         <span :class="['active-tab-debug', latestLog ? `debug-level-${latestLog.level}` : '']">{{ debugInfo }}</span>
       </template>
-      <span v-else>{{ activeTabLabel || ' ' }}</span>
+      <span v-else>{{ activeTabLabel || ' ' }}</span>
     </div>
     <WorkspaceStatusBar />
     <div v-if="booting || isEmptyScreenVisible" class="screen-main-empty">
@@ -26,7 +26,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import WorkspaceStatusBar from "./WorkspaceStatusBar.vue";
 import TabBar from "./TabBar.vue";
 import TerminalBase from "./TerminalBase.vue";
@@ -38,68 +38,45 @@ import StatusOverlay from "./StatusOverlay.vue";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useTerminalStore } from "../stores/terminal.js";
-import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminal } from "../composables/useTerminal.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
-import { useConfirm } from "../composables/useConfirm.js";
 import { useViewport } from "../composables/useViewport.js";
 import { useSessionSync } from "../composables/useSessionSync.js";
 import { useSnippetPersist } from "../composables/useSnippetPersist.js";
 import { useDebugMode, useDebugLevels } from "../composables/useDebugMode.js";
 import { useClientLogs } from "../composables/useClientLogs.js";
+import { useAppBootstrap } from "../composables/useAppBootstrap.js";
+import { useTerminalLifecycle } from "../composables/useTerminalLifecycle.js";
+import { useSessionResume } from "../composables/useSessionResume.js";
+import { useGlobalShortcuts } from "../composables/useGlobalShortcuts.js";
 import { on, emit } from "../app-bridge.js";
-import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_RUN, EP_SETTINGS_CONFIG_HEALTH } from "../utils/endpoints.js";
-import { TERMINAL_JOB_KEY } from "../utils/constants.js";
 
 const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
 const { isOffline } = useConnectivityMonitor();
-const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
-const { disconnectTerminal, deleteSession, connectDeferredTabs, connectTerminalWs } = useTerminal();
+const { connectDeferredTabs } = useTerminal();
 const { sendTextToTerminal } = useKeyboard();
 const { initViewport } = useViewport();
 const keyboardOpen = ref(false);
-const { confirm } = useConfirm();
-const { restoreExistingSessions, syncSessionsFromServer, startSyncPolling, stopSyncPolling } = useSessionSync();
+const { startSyncPolling, stopSyncPolling } = useSessionSync();
 const { loadSnippetCache, moveSnippetToFront, addSnippet, deleteSnippet, moveSnippet } = useSnippetPersist();
 
-const booting = ref(true);
-const bootMessage = ref("Loading...");
+const tabBarView = ref(null);
+const terminalBaseView = ref(null);
 
-async function initializeApp() {
-  bootMessage.value = "Loading...";
+const { booting, bootMessage, initializeApp } = useAppBootstrap();
+const {
+  activateTerminalTab,
+  ensureKeyboardTargetTab,
+  launchTerminal,
+  refreshTab,
+  closeTab,
+} = useTerminalLifecycle({ terminalBaseView });
 
-  const workspacesPromise = workspaceStore.fetchWorkspaces().then(() => {
-    if (!workspaceStore.selectedWorkspace) {
-      const first = workspaceStore.visibleWorkspaces[0];
-      if (first) workspaceStore.selectedWorkspace = first.name;
-    }
-  }).catch((e) => console.error("workspaces fetch failed:", e));
-
-  const sessionsPromise = auth.apiFetch(EP_TERMINAL_SESSIONS).catch(() => null);
-  const jobsPromise = auth.apiFetch(EP_JOBS_WORKSPACES).catch(() => null);
-  const healthPromise = auth.apiFetch(EP_SETTINGS_CONFIG_HEALTH).catch(() => null);
-
-  const [, sessionsRes, jobsRes, healthRes] = await Promise.all([workspacesPromise, sessionsPromise, jobsPromise, healthPromise]);
-
-  if (healthRes?.ok) {
-    const health = await healthRes.json();
-    if (!health.ok) {
-      const msg = health.source === "config.bak"
-        ? "Config was restored from backup. Some settings may be missing."
-        : `Config has validation errors: ${health.errors.map((e) => e.key).join(", ")}`;
-      emit("toast:show", { message: msg, type: "warning" });
-    }
-  }
-
-  bootMessage.value = "Restoring sessions...";
-  await restoreExistingSessions(sessionsRes, jobsRes);
-
-  workspaceStore.fetchStatuses();
-}
-
+useSessionResume({ terminalBaseView });
+useGlobalShortcuts({ closeTab });
 
 const openTabs = computed(() => terminalStore.openTabs);
 const isEmptyScreenVisible = computed(() => openTabs.value.length === 0 && !layoutStore.isSplitMode);
@@ -134,9 +111,6 @@ const debugInfo = computed(() => {
   return `${label}${log.msg}`;
 });
 
-const tabBarView = ref(null);
-const terminalBaseView = ref(null);
-
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
 
@@ -144,145 +118,6 @@ let mainPanelResizeObserver = null;
 
 function openWorkspaceSelection() {
   emit("workspace:openModal");
-}
-
-function focusTabTerminal(tabId) {
-  const tab = terminalStore.openTabs.find((t) => t.id === tabId);
-  if (!tab?.term) return;
-  requestAnimationFrame(() => {
-    try {
-      tab.term.focus();
-    } catch {}
-  });
-}
-
-function activateTerminalTab(tabId, { focus = true } = {}) {
-  terminalStore.switchTab(tabId);
-
-  if (layoutStore.isSplitMode) {
-    const existingPaneIndex = layoutStore.splitPaneTabIds.indexOf(tabId);
-    if (existingPaneIndex >= 0) {
-      layoutStore.activePaneIndex = existingPaneIndex;
-    } else {
-      const nextPaneTabIds = [...layoutStore.splitPaneTabIds];
-      const targetPaneIndex = Math.max(0, Math.min(layoutStore.activePaneIndex || 0, nextPaneTabIds.length));
-      if (nextPaneTabIds.length === 0) {
-        nextPaneTabIds.push(tabId);
-      } else if (targetPaneIndex < nextPaneTabIds.length) {
-        nextPaneTabIds[targetPaneIndex] = tabId;
-      } else {
-        nextPaneTabIds.push(tabId);
-      }
-      layoutStore.splitPaneTabIds = nextPaneTabIds;
-      layoutStore.activePaneIndex = nextPaneTabIds.indexOf(tabId);
-    }
-  }
-
-  if (focus) focusTabTerminal(tabId);
-}
-
-function ensureKeyboardTargetTab() {
-  if (terminalStore.openTabs.length === 0) return;
-  const hasActive = terminalStore.openTabs.some((t) => t.id === terminalStore.activeTabId);
-  if (hasActive) return;
-
-  if (layoutStore.isSplitMode) {
-    const ids = layoutStore.splitPaneTabIds || [];
-    const paneIndex = layoutStore.activePaneIndex || 0;
-    const isReal = (id) => id != null && !layoutStore.isEmptyPaneId(id);
-    const targetId = isReal(ids[paneIndex]) ? ids[paneIndex] : ids.find(isReal);
-    if (targetId) {
-      terminalStore.switchTab(targetId);
-      focusTabTerminal(targetId);
-      return;
-    }
-  }
-
-  const visibleTabs = terminalStore.openTabs.filter((t) => !t.hidden);
-  const firstId = (visibleTabs[0] || terminalStore.openTabs[0]).id;
-  terminalStore.switchTab(firstId);
-  focusTabTerminal(firstId);
-}
-
-async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, jobIcon, jobIconColor, initialCommand, hidden }) {
-  try {
-    const res = await auth.apiFetch(EP_RUN, {
-      method: "POST",
-      body: {
-        job: TERMINAL_JOB_KEY,
-        workspace: workspace || null,
-        icon: icon || null,
-        icon_color: iconColor || null,
-        job_name: jobName || null,
-        job_label: jobLabel || null,
-      },
-    });
-    if (!res || !res.ok) {
-      const detail = res ? await res.text() : "no response";
-      emit("toast:show", { message: `Terminal launch failed: ${detail}`, type: "error" });
-      return;
-    }
-    const data = await res.json();
-    const tab = terminalStore.addTerminalTab({
-      wsUrl: data.ws_url,
-      workspace,
-      wsIcon: icon,
-      wsIconColor: iconColor,
-      icon: jobName ? (jobIcon || "mdi-play") : "mdi-console",
-      iconColor: jobIconColor,
-      jobName,
-      jobLabel,
-      initialCommand,
-      hidden,
-    });
-    activateTerminalTab(tab.id, { focus: false });
-    if (workspace) workspaceStore.selectedWorkspace = workspace;
-    await nextTick();
-    terminalBaseView.value?.fitAllTerminals();
-    activateTerminalTab(tab.id);
-  } catch (e) {
-    emit("toast:show", { message: `Terminal launch error: ${e.message}`, type: "error" });
-  }
-}
-
-function refreshTab(tab) {
-  const tabObj = terminalStore.openTabs.find((t) => t.id === tab.id);
-  if (!tabObj) return;
-  // 現在の WebSocket を切ってから再接続。tmux session は維持する。
-  if (tabObj.ws) {
-    try { tabObj.ws.onclose = null; tabObj.ws.close(); } catch {}
-    tabObj.ws = null;
-  }
-  clearTimeout(tabObj._reconnectTimer);
-  tabObj._reconnectAttempts = 0;
-  // xterm.js のバッファを完全にクリアして tmux capture-pane で screen を取り直す。
-  // term.refresh() だけだと崩れたバッファをそのまま再描画してしまうため。
-  try { tabObj.term?.reset(); } catch {}
-  tabObj._needsHistoryRestore = true;
-  tabObj._pendingRedraw = true;
-  connectTerminalWs(tabObj, {
-    focus: false,
-    onOpen: () => {
-      terminalBaseView.value?.fitAllTerminals({ force: true });
-    },
-  });
-}
-
-async function closeTab(tab) {
-  const tabId = tab.id;
-  const sessionId = tab.sessionId;
-  const tabObj = terminalStore.openTabs.find((t) => t.id === tabId);
-  if (tabObj) {
-    disconnectTerminal(tabObj);
-    if (tabObj.term) tabObj.term.dispose();
-  }
-  terminalStore.removeTab(tabId);
-  if (layoutStore.isSplitMode) {
-    layoutStore.replaceTabWithEmpty(tabId);
-  }
-  if (sessionId) {
-    await deleteSession(sessionId);
-  }
 }
 
 const bridgeCleanups = [];
@@ -340,10 +175,6 @@ onMounted(() => {
     terminalBaseView.value?.fitAllTerminals();
   });
 
-  document.addEventListener("visibilitychange", onVisibilityChange);
-  window.addEventListener("pageshow", onPageShow);
-  document.addEventListener("keydown", onGlobalKeydown, true);
-
   if (typeof ResizeObserver !== "undefined") {
     mainPanelResizeObserver = new ResizeObserver(() => {});
     const main = document.querySelector(".main-panel");
@@ -363,103 +194,10 @@ onMounted(async () => {
   }
 });
 
-
-let resumeDebounceTimer = null;
-let wasHidden = false;
-
-function scheduleResume() {
-  if (document.hidden) return;
-  if (resumeDebounceTimer) return;
-  resumeDebounceTimer = setTimeout(() => {
-    resumeDebounceTimer = null;
-    handleResume();
-  }, 100);
-}
-
-function handleResume() {
-  for (const tab of terminalStore.openTabs) {
-    if (tab.ws) {
-      clearTimeout(tab._reconnectTimer);
-      try { tab.ws.onclose = null; tab.ws.close(); } catch {}
-      tab.ws = null;
-    }
-    tab._pendingRedraw = true;
-    tab._reconnectAttempts = 0;
-    terminalStore.setTabFlag(tab.id, "reconnecting", true);
-  }
-
-  syncSessionsFromServer().then(() => {
-    const visibleTabIds = new Set();
-    if (layoutStore.isSplitMode) {
-      for (const id of layoutStore.splitPaneTabIds || []) {
-        if (id != null && !layoutStore.isEmptyPaneId(id)) visibleTabIds.add(id);
-      }
-    } else if (terminalStore.activeTabId != null) {
-      visibleTabIds.add(terminalStore.activeTabId);
-    }
-    for (const tab of terminalStore.openTabs) {
-      if (!visibleTabIds.has(tab.id)) continue;
-      if (tab._pendingRedraw && !tab.ws && !tab._wsDisposed) {
-        connectTerminalWs(tab, { focus: false });
-      }
-    }
-    terminalBaseView.value?.fitAllTerminals();
-    startSyncPolling();
-  });
-}
-
-function onVisibilityChange() {
-  if (document.hidden) {
-    wasHidden = true;
-    stopSyncPolling();
-    return;
-  }
-  if (!wasHidden) return;
-  wasHidden = false;
-  scheduleResume();
-}
-
-function onPageShow(e) {
-  if (!e.persisted) return;
-  wasHidden = false;
-  scheduleResume();
-}
-
-async function onGlobalKeydown(e) {
-  if (!e.metaKey || !e.shiftKey || e.ctrlKey || e.altKey) return;
-  if (e.code === "KeyW") {
-    const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
-    if (!tab) return;
-    e.preventDefault();
-    const label = tab.workspace || tab.label || "terminal";
-    if (await confirm(`Close "${label}" tab?`)) {
-      closeTab(tab);
-      const activeTab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
-      workspaceStore.selectedWorkspace = activeTab?.workspace || null;
-    }
-  } else if (e.code === "KeyN") {
-    e.preventDefault();
-    emit("workspace:openModal");
-  } else if (e.code === "KeyT") {
-    e.preventDefault();
-    emit("settings:open", { view: "TabConfig" });
-  } else if (e.code === "Period") {
-    e.preventDefault();
-    emit("settings:open");
-  }
-}
-
 onBeforeUnmount(() => {
   bridgeCleanups.forEach((cleanup) => cleanup());
   stopSyncPolling();
   mainPanelResizeObserver?.disconnect();
-  document.removeEventListener("visibilitychange", onVisibilityChange);
-  window.removeEventListener("pageshow", onPageShow);
-  document.removeEventListener("keydown", onGlobalKeydown, true);
-  if (resumeDebounceTimer) {
-    clearTimeout(resumeDebounceTimer);
-    resumeDebounceTimer = null;
-  }
 });
 
 defineExpose({

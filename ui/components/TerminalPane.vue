@@ -32,21 +32,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick, toRef } from "vue";
 import { useTerminal } from "../composables/useTerminal.js";
-import { useTerminalStore, isLinkTapped, setLongPressActive, setTouchEnv } from "../stores/terminal.js";
+import { useTerminalStore, setTouchEnv } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
 import { ACTIVE_FIT_DELAY_MS } from "../utils/constants.js";
-import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
-import { openExternalUrl } from "../utils/open-external.js";
-import { useConfirm } from "../composables/useConfirm.js";
 import { usePillDrag } from "../composables/usePillDrag.js";
-import { createTouchTracker } from "../utils/gesture.js";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
+import { useTerminalPaste } from "../composables/useTerminalPaste.js";
+import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.js";
 import StatusOverlay from "./StatusOverlay.vue";
 
 const props = defineProps({
@@ -58,9 +55,7 @@ const emits = defineEmits(["select-pane"]);
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
-const { confirm } = useConfirm();
 setTouchEnv(layoutStore.isTouchDevice);
-const auth = useAuthStore();
 const workspaceStore = useWorkspaceStore();
 
 const isDirty = computed(() => {
@@ -73,7 +68,6 @@ const { ensureTerminalOpened, fitTerminal, sendResize, observeFrameResize, conne
 const paneEl = ref(null);
 const frameEl = ref(null);
 const pillEl = ref(null);
-const paneTouch = createTouchTracker();
 let activeFitTimer = null;
 
 const canDrag = computed(() => terminalStore.openTabs.length >= 1);
@@ -104,6 +98,18 @@ const { isOffline } = useConnectivityMonitor();
 const isReconnecting = computed(() =>
   !isOffline.value && !!terminalStore.tabFlags[props.tab.id]?.reconnecting,
 );
+
+const tabRef = toRef(props, "tab");
+const paneIndexRef = toRef(props, "paneIndex");
+const { onTouchStart, onTouchMove, onTouchEnd } = useTerminalPaneGestures({
+  tab: tabRef,
+  frameEl,
+  pillEl,
+  isActive,
+  paneIndex: paneIndexRef,
+  onSelectPane: (idx) => emits("select-pane", idx),
+});
+useTerminalPaste({ tab: tabRef, isActive });
 
 function clearActiveFitTimer() {
   if (activeFitTimer) {
@@ -142,252 +148,12 @@ function onPointerDown(e) {
   emits("select-pane", props.paneIndex);
 }
 
-
-let touchStartTime = 0;
-let touchMoved = false;
-let lastTouchPos = { x: 0, y: 0 };
-let longPressTimer = null;
-let pendingUrl = null;
-let longPressHandled = false;
-let touchScrollEnabled = false;
-let touchScrollStartViewportY = 0;
-let touchScrollLineHeightPx = 16;
-let touchScrolled = false;
-const LONG_PRESS_URL_MS = 400;
-const TOUCH_SCROLL_THRESHOLD_PX = 6;
-const URL_REGEX = /(https?:\/\/[^\s)\]>'"]+|www\.[^\s)\]>'"]+)/g;
-
-function cancelLongPressTimer() {
-  if (longPressTimer !== null) {
-    clearTimeout(longPressTimer);
-    longPressTimer = null;
-  }
-}
-
-function findUrlAtPosition(clientX, clientY) {
-  const term = props.tab?.term;
-  if (!term || !term.element) return null;
-  const screen = term.element.querySelector(".xterm-screen") || term.element;
-  const rect = screen.getBoundingClientRect();
-  const relX = clientX - rect.left;
-  const relY = clientY - rect.top;
-  if (relX < 0 || relY < 0 || relX > rect.width || relY > rect.height) return null;
-  const cols = term.cols;
-  const rows = term.rows;
-  if (!cols || !rows) return null;
-  const cellW = rect.width / cols;
-  const cellH = rect.height / rows;
-  const col = Math.floor(relX / cellW);
-  const rowOffset = Math.floor(relY / cellH);
-  const buf = term.buffer.active;
-  const lineIdx = buf.viewportY + rowOffset;
-  if (!buf.getLine(lineIdx)) return null;
-
-  function lastCharOf(line) {
-    if (!line) return " ";
-    return line.getCell(line.length - 1)?.getChars() || " ";
-  }
-
-  let startIdx = lineIdx;
-  while (startIdx > 0) {
-    const prev = buf.getLine(startIdx - 1);
-    if (!prev) break;
-    const last = lastCharOf(prev);
-    if (last === "" || last === " ") break;
-    startIdx--;
-  }
-
-  let endIdx = lineIdx;
-  while (endIdx < buf.length - 1) {
-    const cur = buf.getLine(endIdx);
-    if (!cur) break;
-    const last = lastCharOf(cur);
-    if (last === "" || last === " ") break;
-    endIdx++;
-  }
-
-  let text = "";
-  const lineOffsets = {};
-  for (let i = startIdx; i <= endIdx; i++) {
-    const cur = buf.getLine(i);
-    if (!cur) break;
-    lineOffsets[i] = text.length;
-    for (let j = 0; j < cur.length; j++) {
-      text += cur.getCell(j)?.getChars() || "";
-    }
-  }
-
-  const absPos = (lineOffsets[lineIdx] || 0) + col;
-  URL_REGEX.lastIndex = 0;
-  let m;
-  while ((m = URL_REGEX.exec(text)) !== null) {
-    if (absPos >= m.index && absPos < m.index + m[0].length) {
-      let url = m[0];
-      if (url.startsWith("www.")) url = "https://" + url;
-      return url;
-    }
-  }
-  return null;
-}
-
-function onTouchStart(e) {
-  if (pillEl.value && pillEl.value.contains(e.target)) return;
-  paneTouch.start(e);
-  setLongPressActive(false);
-  const t = e.touches?.[0];
-  lastTouchPos = { x: t?.clientX || 0, y: t?.clientY || 0 };
-  touchStartTime = Date.now();
-  touchMoved = false;
-  pendingUrl = null;
-  longPressHandled = false;
-  touchScrolled = false;
-  touchScrollEnabled = false;
-  const term = props.tab?.term;
-  if (term && frameEl.value) {
-    const buf = term.buffer?.active;
-    if (buf) {
-      touchScrollEnabled = true;
-      touchScrollStartViewportY = buf.viewportY;
-      if (term.rows > 0 && frameEl.value.clientHeight > 0) {
-        touchScrollLineHeightPx = frameEl.value.clientHeight / term.rows;
-      }
-    }
-  }
-  cancelLongPressTimer();
-  longPressTimer = setTimeout(async () => {
-    longPressTimer = null;
-    if (touchMoved) return;
-    const url = findUrlAtPosition(lastTouchPos.x, lastTouchPos.y);
-    if (url) {
-      pendingUrl = url;
-      longPressHandled = true;
-      if (navigator.vibrate) navigator.vibrate(40);
-      if (await confirm(`Open URL?\n\n${url}`)) {
-        openExternalUrl(url);
-      }
-      pendingUrl = null;
-      return;
-    }
-    const text = getVisibleTerminalText();
-    if (text) {
-      longPressHandled = true;
-      if (navigator.vibrate) navigator.vibrate(40);
-      emit("selection:open", { text });
-    }
-  }, LONG_PRESS_URL_MS);
-}
-
-function getVisibleTerminalText() {
-  const term = props.tab?.term;
-  if (!term) return null;
-  const buf = term.buffer.active;
-  const start = buf.viewportY;
-  const end = Math.min(buf.length - 1, buf.viewportY + term.rows - 1);
-  const lines = [];
-  for (let i = start; i <= end; i++) {
-    const line = buf.getLine(i);
-    if (!line) continue;
-    lines.push(line.translateToString(true).replace(/[\s 　]+$/, ""));
-  }
-  return lines.join("\n").replace(/^\n+|\n+$/g, "") || null;
-}
-
-function onTouchMove(e) {
-  if (pillEl.value && pillEl.value.contains(e.target)) return;
-  const { dx, dy } = paneTouch.delta(e);
-  if (Math.abs(dx) > 20 || Math.abs(dy) > 20) {
-    touchMoved = true;
-    pendingUrl = null;
-    cancelLongPressTimer();
-  }
-  if (touchScrollEnabled && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > TOUCH_SCROLL_THRESHOLD_PX) {
-    const term = props.tab?.term;
-    const buf = term?.buffer?.active;
-    if (term && buf && touchScrollLineHeightPx > 0) {
-      const linesDelta = -Math.round(dy / touchScrollLineHeightPx * terminalStore.terminalSettings.touchScrollSensitivity);
-      const maxViewportY = Math.max(0, buf.length - term.rows);
-      const targetViewportY = Math.max(0, Math.min(maxViewportY, touchScrollStartViewportY + linesDelta));
-      const diff = targetViewportY - buf.viewportY;
-      if (diff !== 0) {
-        term.scrollLines(diff);
-        touchScrolled = true;
-      }
-    }
-  }
-}
-
-function onTouchEnd(e) {
-  cancelLongPressTimer();
-  if (pendingUrl) {
-    return;
-  }
-  if (longPressHandled) {
-    longPressHandled = false;
-    touchScrollEnabled = false;
-    return;
-  }
-  if (touchScrolled) {
-    touchScrollEnabled = false;
-    return;
-  }
-  touchScrollEnabled = false;
-  if (isLinkTapped()) return;
-  if (pillEl.value && pillEl.value.contains(e.target)) return;
-  const { dx: deltaX, dy: deltaY } = paneTouch.delta(e);
-  if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) return;
-  if (layoutStore.isSplitMode) {
-    if (!isActive.value) {
-      emits("select-pane", props.paneIndex);
-    }
-    return;
-  }
-}
-
 function onWheel(e) {
   const term = props.tab?.term;
   if (!term) return;
   if (term.buffer.active.type === "alternate") {
     e.preventDefault();
     e.stopPropagation();
-  }
-}
-
-async function onPaste(e) {
-  if (!isActive.value) return;
-
-  const files = e.clipboardData?.files;
-  const imageFile = files && files.length > 0
-    ? Array.from(files).find((f) => f.type.startsWith("image/"))
-    : null;
-
-  if (imageFile) {
-    e.preventDefault();
-    emit("keyboard:deactivate");
-    await uploadImageToTerminal({
-      file: imageFile,
-      apiFetch: auth.apiFetch.bind(auth),
-      ws: props.tab.ws,
-      notify: (message, type) => emit("toast:show", { message, type }),
-    });
-    return;
-  }
-
-  // xterm の textarea にフォーカスがないとき、テキストをターミナルに転送する。
-  // input/textarea/select/contenteditable にフォーカスがある場合は転送しない（ダイアログ等を壊さないため）。
-  const textarea = props.tab.term?.textarea;
-  const activeEl = document.activeElement;
-  const activeIsOtherInput = activeEl && activeEl !== textarea && (
-    activeEl.tagName === "INPUT" ||
-    activeEl.tagName === "TEXTAREA" ||
-    activeEl.tagName === "SELECT" ||
-    activeEl.isContentEditable
-  );
-  if (textarea && !activeIsOtherInput && activeEl !== textarea) {
-    const text = e.clipboardData?.getData("text/plain");
-    if (text) {
-      e.preventDefault();
-      props.tab.term.paste(text);
-    }
   }
 }
 
@@ -427,7 +193,6 @@ onMounted(() => {
   if (frameEl.value) {
     frameEl.value.addEventListener("wheel", onWheel, { passive: false, capture: true });
   }
-  document.addEventListener("paste", onPaste, true);
 });
 
 watch(isActive, async (active) => {
@@ -452,7 +217,6 @@ onBeforeUnmount(() => {
   if (frameEl.value) {
     frameEl.value.removeEventListener("wheel", onWheel, { capture: true });
   }
-  document.removeEventListener("paste", onPaste, true);
 });
 
 defineExpose({
