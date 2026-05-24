@@ -221,10 +221,21 @@ function openCommitDiffFiles(entry) {
 async function showSelectedCommitMessage() {
   const entry = selectedCommitForFiles.value;
   if (!entry) return;
+  if (entry.hash === "__dirty__") return;
   const workspace = getWorkspace();
   const { ok, data } = await apiGet(workspaceCommitMessagePath(workspace, entry.fullHash));
   const msg = ok && data?.message ? data.message : entry.message;
-  confirm(msg);
+  const result = await confirm(`${entry.hash}\n\n${msg}`, {
+    extra: { label: "Copy hash", value: "copy", icon: "mdi-content-copy" },
+  });
+  if (result === "copy") {
+    try {
+      await navigator.clipboard?.writeText(entry.hash);
+      bridgeEmit("toast:show", { message: `Copied ${entry.hash}`, type: "success" });
+    } catch {
+      bridgeEmit("toast:show", { message: "Failed to copy hash", type: "error" });
+    }
+  }
 }
 
 function closeSelectedCommitFiles() {
