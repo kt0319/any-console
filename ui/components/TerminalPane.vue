@@ -347,18 +347,41 @@ function onWheel(e) {
 
 async function onPaste(e) {
   if (!isActive.value) return;
+
   const files = e.clipboardData?.files;
-  if (!files || files.length === 0) return;
-  const imageFile = Array.from(files).find((f) => f.type.startsWith("image/"));
-  if (!imageFile) return;
-  e.preventDefault();
-  emit("keyboard:deactivate");
-  await uploadImageToTerminal({
-    file: imageFile,
-    apiFetch: auth.apiFetch.bind(auth),
-    ws: props.tab.ws,
-    notify: (message, type) => emit("toast:show", { message, type }),
-  });
+  const imageFile = files && files.length > 0
+    ? Array.from(files).find((f) => f.type.startsWith("image/"))
+    : null;
+
+  if (imageFile) {
+    e.preventDefault();
+    emit("keyboard:deactivate");
+    await uploadImageToTerminal({
+      file: imageFile,
+      apiFetch: auth.apiFetch.bind(auth),
+      ws: props.tab.ws,
+      notify: (message, type) => emit("toast:show", { message, type }),
+    });
+    return;
+  }
+
+  // xterm の textarea にフォーカスがないとき、テキストをターミナルに転送する。
+  // input/textarea/select/contenteditable にフォーカスがある場合は転送しない（ダイアログ等を壊さないため）。
+  const textarea = props.tab.term?.textarea;
+  const activeEl = document.activeElement;
+  const activeIsOtherInput = activeEl && activeEl !== textarea && (
+    activeEl.tagName === "INPUT" ||
+    activeEl.tagName === "TEXTAREA" ||
+    activeEl.tagName === "SELECT" ||
+    activeEl.isContentEditable
+  );
+  if (textarea && !activeIsOtherInput && activeEl !== textarea) {
+    const text = e.clipboardData?.getData("text/plain");
+    if (text) {
+      e.preventDefault();
+      props.tab.term.paste(text);
+    }
+  }
 }
 
 // term.open() 後に xterm フォーカスポリシーを注入する。
