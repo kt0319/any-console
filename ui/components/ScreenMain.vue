@@ -514,7 +514,7 @@ defineExpose({
 .debug-level-error { color: var(--error); }
 .debug-level-info { color: var(--accent); }
 
-@media (max-width: 768px) {
+@media (max-width: 768px) and (hover: none) {
   .active-tab-title {
     display: flex;
   }
