@@ -575,8 +575,7 @@ defineExpose({
 }
 
 .main-panel.keyboard-open :deep(.tab-bar-row),
-.main-panel.keyboard-open :deep(.workspace-status-bar),
-.main-panel.keyboard-open .active-tab-title {
+.main-panel.keyboard-open :deep(.workspace-status-bar) {
   display: none !important;
 }
 
