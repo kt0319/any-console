@@ -464,11 +464,21 @@ onUnmounted(() => cleanups.forEach((fn) => fn()));
   font-size: 14px;
 }
 
+.quick-qwerty-panel .quick-modifier {
+  background: rgba(20, 24, 42, 0.95);
+  border-color: rgba(130, 170, 255, 0.25);
+  color: rgba(255, 255, 255, 0.6);
+}
+
 .quick-qwerty-panel .quick-key-toggle.active,
 .quick-qwerty-panel .quick-modifier.active {
   background: rgb(33, 40, 60);
-  color: rgba(130, 170, 255, 0.8);
-  border-color: rgba(130, 170, 255, 0.6);
+  color: rgba(130, 170, 255, 0.9);
+  border-color: rgba(130, 170, 255, 0.7);
+}
+
+.quick-fn-key {
+  font-size: 12px;
 }
 
 .quick-qwerty-panel .keyboard-chips-row {

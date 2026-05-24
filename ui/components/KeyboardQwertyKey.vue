@@ -10,37 +10,81 @@
     <div v-show="showSnippetView" class="keyboard-chips-row">
       <KeyboardChips :insert-mode="true" @chip:tap="onChipTap" />
     </div>
-    <div v-show="!inputFocused && !showSnippetView" v-for="(row, ri) in qwertyRows" :key="ri" class="quick-extra-row">
-      <div
-        v-for="(keyDef, ci) in row"
-        :key="ci"
-        class="quick-key"
-        :class="{ 'quick-flick-arrow': hasFlick(ri, ci, keyDef) }"
-        @touchstart.prevent="onQwertyTouchStart($event, keyDef)"
-        @touchend.prevent="onQwertyTouchEnd($event, keyDef, ri, ci)"
-        @touchcancel="onQuickKeyCancel($event)"
-      >
-        <template v-if="hasFlick(ri, ci, keyDef)">
-          <span v-if="flickUpLabel(ri, ci, keyDef)" class="flick-hint-top">{{ flickUpLabel(ri, ci, keyDef) }}</span>
-          <span class="flick-main">{{ displayLabel(keyDef) }}</span>
-          <span v-if="keyDef.flickDown" class="flick-hint-bottom">{{ keyDef.flickDown }}</span>
-        </template>
-        <template v-else>{{ displayLabel(keyDef) }}</template>
+    <template v-if="showFnView && !inputFocused && !showSnippetView">
+      <div class="quick-extra-row">
+        <div v-for="n in 10" :key="n" class="quick-key quick-fn-key" @touchstart.prevent @touchend.prevent="sendFn(n)" @touchcancel="onQuickKeyCancel($event)" @click="sendFn(n)">
+          F{{ n }}
+        </div>
       </div>
-    </div>
-    <div v-show="!inputFocused && !showSnippetView" class="quick-extra-row quick-extra-modifier-keys">
+      <div class="quick-extra-row">
+        <div v-for="keyDef in numberKeys" :key="keyDef.key" class="quick-key quick-fn-key" @touchstart.prevent @touchend.prevent="sendKeyToTerminal({ key: keyDef.key })" @touchcancel="onQuickKeyCancel($event)" @click="sendKeyToTerminal({ key: keyDef.key })">
+          {{ keyDef.label }}
+        </div>
+      </div>
+    </template>
+    <div v-show="!inputFocused && !showSnippetView && !showFnView" v-for="(row, ri) in qwertyRows" :key="ri" class="quick-extra-row">
       <div
-        class="quick-key quick-flick-arrow quick-modifier"
+        v-if="ri === 2"
+        class="quick-key quick-modifier"
         :class="{ active: modifierState.shift }"
         @touchstart.prevent="shiftFlick.onStart"
         @touchend.prevent="shiftFlick.onEnd"
         @touchcancel="onQuickKeyCancel($event)"
         @click="toggleShift"
       >
-        <span class="flick-hint-top">Esc</span>
-        <span class="flick-hint-left">^U</span>
         <span class="flick-main"><span class="mdi mdi-arrow-up-bold"></span></span>
-        <span class="flick-hint-right">^K</span>
+      </div>
+      <template v-for="(keyDef, ci) in row" :key="ci">
+        <div
+          class="quick-key"
+          :class="{ 'quick-flick-arrow': hasFlick(ri, ci, keyDef) }"
+          @touchstart.prevent="onQwertyTouchStart($event, keyDef)"
+          @touchend.prevent="onQwertyTouchEnd($event, keyDef, ri, ci)"
+          @touchcancel="onQuickKeyCancel($event)"
+        >
+          <template v-if="hasFlick(ri, ci, keyDef)">
+            <span v-if="!showSymbolView && flickUpLabel(ri, ci, keyDef)" class="flick-hint-top">{{ flickUpLabel(ri, ci, keyDef) }}</span>
+            <span class="flick-main">{{ symbolDisplayLabel(keyDef) }}</span>
+            <span v-if="!showSymbolView && keyDef.flickDown" class="flick-hint-bottom">{{ keyDef.flickDown }}</span>
+          </template>
+          <template v-else>{{ symbolDisplayLabel(keyDef) }}</template>
+        </div>
+        <div
+          v-if="ri === 2 && ci === row.length - 1"
+          class="quick-key quick-modifier"
+          :class="{ active: showSymbolView }"
+          @touchstart.prevent="onModifierKeyStart"
+          @touchend.prevent="(e) => onModifierKeyEnd(e, toggleSymbolView)"
+          @touchcancel="onQuickKeyCancel($event)"
+          @click="toggleSymbolView"
+        >
+          <span class="flick-main" style="font-size:11px">#+=</span>
+        </div>
+      </template>
+    </div>
+    <div v-show="!inputFocused && !showSnippetView" class="quick-extra-row quick-extra-modifier-keys">
+      <div
+        class="quick-key"
+        @touchstart.prevent="onModifierKeyStart"
+        @touchend.prevent="(e) => onModifierKeyEnd(e, sendEsc)"
+        @touchcancel="onQuickKeyCancel($event)"
+        @click="sendEsc"
+      >
+        <span class="flick-main" style="font-size:13px">Esc</span>
+      </div>
+      <div
+        class="quick-key quick-flick-arrow quick-modifier"
+        :class="{ active: modifierState.ctrl }"
+        @touchstart.prevent="ctrlFlick.onStart"
+        @touchend.prevent="ctrlFlick.onEnd"
+        @touchcancel="onQuickKeyCancel($event)"
+        @click="toggleCtrl"
+      >
+        <span class="flick-hint-top">^C</span>
+        <span class="flick-hint-left">^L</span>
+        <span class="flick-main">&Hat;</span>
+        <span class="flick-hint-right">^R</span>
+        <span class="flick-hint-bottom">^O</span>
       </div>
       <div
         class="quick-key quick-flick-arrow"
@@ -56,18 +100,14 @@
         <span class="flick-hint-bottom">PgD</span>
       </div>
       <div
-        class="quick-key quick-flick-arrow quick-modifier"
-        :class="{ active: modifierState.ctrl }"
-        @touchstart.prevent="ctrlFlick.onStart"
-        @touchend.prevent="ctrlFlick.onEnd"
+        class="quick-key quick-modifier"
+        :class="{ active: showFnView }"
+        @touchstart.prevent="onModifierKeyStart"
+        @touchend.prevent="(e) => onModifierKeyEnd(e, toggleFnView)"
         @touchcancel="onQuickKeyCancel($event)"
-        @click="toggleCtrl"
+        @click="toggleFnView"
       >
-        <span class="flick-hint-top">^C</span>
-        <span class="flick-hint-left">^L</span>
-        <span class="flick-main">&Hat;</span>
-        <span class="flick-hint-right">^R</span>
-        <span class="flick-hint-bottom">^O</span>
+        <span class="flick-main" style="font-size:12px">fn</span>
       </div>
       <div
         class="quick-key quick-flick-arrow"
@@ -228,16 +268,28 @@ function displayLabel(keyDef) {
 }
 
 function hasFlick(ri, ci, keyDef) {
-  return (ri === 0 && ci < (numberKeys.value?.length || 0)) || !!keyDef.flickUp || !!keyDef.flickDown;
+  return !!keyDef.flickUp || !!keyDef.flickDown;
 }
 
 function flickUpLabel(ri, ci, keyDef) {
-  if (ri === 0 && ci < (numberKeys.value?.length || 0)) return numberKeys.value[ci]?.label;
   return keyDef.flickUp || "";
 }
 
 function onQuickKeyCancel(e) {
   e.currentTarget.classList.remove("pressed");
+}
+
+function onModifierKeyStart(e) {
+  e.currentTarget.classList.add("pressed");
+}
+
+function onModifierKeyEnd(e, fn) {
+  const el = e.currentTarget;
+  el.classList.remove("pressed");
+  el.classList.remove("tap-bounce");
+  void el.offsetWidth;
+  el.classList.add("tap-bounce");
+  fn();
 }
 
 function onQwertyTouchStart(e) {
@@ -265,14 +317,16 @@ function onQwertyTouchEnd(e, keyDef, ri, ci) {
   e.currentTarget.classList.remove("pressed");
   const dy = e.changedTouches[0].clientY - (e.currentTarget._touchStartY || 0);
   if (hasFlick(ri, ci, keyDef) && dy < -30) {
-    const upKey = ri === 0 && ci < numberKeys.value.length
-      ? numberKeys.value[ci]
-      : { key: keyDef.flickUp, label: keyDef.flickUp };
-    if (upKey) sendOrType(upKey);
+    const upKey = { key: keyDef.flickUp, label: keyDef.flickUp };
+    if (upKey.key) sendOrType(upKey);
     return;
   }
   if (keyDef.flickDown && dy > 30) {
     sendOrType({ key: keyDef.flickDown, label: keyDef.flickDown });
+    return;
+  }
+  if (showSymbolView.value && keyDef.flickUp && Math.abs(dy) <= 30) {
+    sendOrType({ key: keyDef.flickUp, label: keyDef.flickUp });
     return;
   }
   const merged = { ...keyDef };
@@ -313,9 +367,28 @@ async function onCameraFileChange(e) {
   await uploadImageAndSendPath(file);
 }
 
-function toggleShift() { modifierState.shift = !modifierState.shift; }
+function toggleShift() {
+  modifierState.shift = !modifierState.shift;
+  if (modifierState.shift) showSymbolView.value = false;
+}
 function toggleCtrl() { modifierState.ctrl = !modifierState.ctrl; }
 function sendSpace() { sendKeyToTerminal({ key: " " }); }
+function sendEsc() { sendKeyToTerminal({ key: "Escape" }); }
+
+const showFnView = ref(false);
+function toggleFnView() { showFnView.value = !showFnView.value; }
+function sendFn(n) { sendKeyToTerminal({ key: `F${n}` }); }
+
+const showSymbolView = ref(false);
+function toggleSymbolView() {
+  showSymbolView.value = !showSymbolView.value;
+  if (showSymbolView.value) modifierState.shift = false;
+}
+
+function symbolDisplayLabel(keyDef) {
+  if (showSymbolView.value && keyDef.flickUp) return keyDef.flickUp;
+  return displayLabel(keyDef);
+}
 
 const shiftFlick = createFlickHandlers({
   up: () => sendKeyToTerminal({ key: "Escape" }),

@@ -2,27 +2,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import { LS_KEY_INPUT_HISTORY, INPUT_HISTORY_MAX } from "../utils/constants.js";
 import { safeJsonLoad } from "../utils/storage.js";
-import defaultLayout from "../data/keyboard-layout.json";
-
-function normalizeFlick(key) {
-  const out = { ...key };
-  const flick = key.flick;
-  if (flick) {
-    if (flick.up !== undefined) out.flickUp = flick.up;
-    if (flick.down !== undefined) out.flickDown = flick.down;
-    if (flick.left !== undefined) out.flickLeft = flick.left;
-    if (flick.right !== undefined) out.flickRight = flick.right;
-  }
-  delete out.flick;
-  return out;
-}
-
-function normalizeLayout(layout) {
-  const modifiers = (layout?.modifiers || []).map(normalizeFlick);
-  const numberRow = (layout?.numberRow || []).map(normalizeFlick);
-  const rows = (layout?.rows || []).map((row) => row.map(normalizeFlick));
-  return { modifiers, numberRow, rows };
-}
+import { MODIFIER_KEYS, NUMBER_KEYS as NUMBER_KEYS_DEF, QWERTY_ROWS as QWERTY_ROWS_DEF } from "../data/keyboard-layout.js";
 
 const INPUT_HISTORY_KEY = LS_KEY_INPUT_HISTORY;
 
@@ -31,10 +11,9 @@ export const useInputStore = defineStore("input", () => {
   const snippetsCache = ref([]);
   const isSnippetsLoaded = ref(false);
 
-  const initial = normalizeLayout(defaultLayout);
-  const QUICK_KEYS = ref(initial.modifiers);
-  const NUMBER_KEYS = ref(initial.numberRow);
-  const QWERTY_ROWS = ref(initial.rows);
+  const QUICK_KEYS = ref(MODIFIER_KEYS);
+  const NUMBER_KEYS = ref(NUMBER_KEYS_DEF);
+  const QWERTY_ROWS = ref(QWERTY_ROWS_DEF);
 
   function addInputHistory(text) {
     if (!text) return;

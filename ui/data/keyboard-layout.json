@@ -20,16 +20,16 @@
   ],
   "rows": [
     [
-      { "label": "q", "key": "q", "flick": { "down": "!" } },
-      { "label": "w", "key": "w", "flick": { "down": "\"" } },
-      { "label": "e", "key": "e", "flick": { "down": "#" } },
-      { "label": "r", "key": "r", "flick": { "down": "$" } },
-      { "label": "t", "key": "t", "flick": { "down": "%" } },
-      { "label": "y", "key": "y", "flick": { "down": "&" } },
-      { "label": "u", "key": "u", "flick": { "down": "@" } },
-      { "label": "i", "key": "i", "flick": { "down": "+" } },
-      { "label": "o", "key": "o", "flick": { "down": "-" } },
-      { "label": "p", "key": "p", "flick": { "down": "=" } }
+      { "label": "q", "key": "q", "flick": { "up": "!" } },
+      { "label": "w", "key": "w", "flick": { "up": "\"" } },
+      { "label": "e", "key": "e", "flick": { "up": "#" } },
+      { "label": "r", "key": "r", "flick": { "up": "$" } },
+      { "label": "t", "key": "t", "flick": { "up": "%" } },
+      { "label": "y", "key": "y", "flick": { "up": "&" } },
+      { "label": "u", "key": "u", "flick": { "up": "@" } },
+      { "label": "i", "key": "i", "flick": { "up": "+" } },
+      { "label": "o", "key": "o", "flick": { "up": "-" } },
+      { "label": "p", "key": "p", "flick": { "up": "=" } }
     ],
     [
       { "label": "a", "key": "a", "flick": { "up": "`" } },
