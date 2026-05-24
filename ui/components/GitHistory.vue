@@ -104,7 +104,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import { computed, onMounted } from "vue";
 
 import FileItem from "./FileItem.vue";
 import FileActionMenu from "./FileActionMenu.vue";
@@ -120,8 +120,10 @@ import { useGitHistoryAction } from "../composables/useGitHistoryAction.js";
 import { useGitDiff } from "../composables/useGitDiff.js";
 import { useGitLogPagination } from "../composables/useGitLogPagination.js";
 import { useEditorIntegration } from "../composables/useEditorIntegration.js";
+import { useIsMobile } from "../composables/useIsMobile.js";
+import { useCommitDiffFiles } from "../composables/useCommitDiffFiles.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
-import { GIT_DIFF_STATUS_CLASSES, MOBILE_BREAKPOINT_PX } from "../utils/constants.js";
+import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
 import { GRAPH_ROW_HEIGHT } from "../utils/git-graph.js";
 import { abbreviateBranch } from "../utils/git.js";
 import { workspaceGitDiscardPath, workspaceCommitMessagePath } from "../utils/endpoints.js";
@@ -129,11 +131,7 @@ import { useConfirm } from "../composables/useConfirm.js";
 
 const emitToParent = defineEmits(["commit:expanded", "commit:collapsed"]);
 
-const mobileQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX - 1}px)`);
-const isMobile = ref(mobileQuery.matches);
-function onMobileChange(e) { isMobile.value = e.matches; }
-onMounted(() => mobileQuery.addEventListener("change", onMobileChange));
-onBeforeUnmount(() => mobileQuery.removeEventListener("change", onMobileChange));
+const { isMobile } = useIsMobile();
 
 function abbreviateRef(r) {
   if (r.type === "tag" || !isMobile.value || r.label.length < 24) return { abbr: "", rest: r.label };
@@ -156,13 +154,13 @@ const {
   historyListEl, loadHistory, loadMoreHistory, onHistoryListScroll,
 } = useGitLogPagination();
 
-const selectedCommitForFiles = ref(null);
-const selectedCommitFiles = ref([]);
-const isSelectedCommitFilesLoading = ref(false);
-
-const selectedCommitRow = computed(() =>
-  graphRows.value.find((r) => r.entry?.hash === selectedCommitForFiles.value?.hash) ?? null
-);
+const {
+  selectedCommit: selectedCommitForFiles,
+  files: selectedCommitFiles,
+  isLoading: isSelectedCommitFilesLoading,
+  openDiffFiles: openDiffFilesBase,
+  close: closeDiffFilesState,
+} = useCommitDiffFiles();
 
 function statusClass(status) {
   return GIT_DIFF_STATUS_CLASSES[status] || "";
@@ -202,20 +200,9 @@ function onCommitAction(entry, { action, branch, mode }) {
   }
 }
 
-async function openDiffFiles(entry, fetchFn) {
-  selectedCommitForFiles.value = entry;
+function openDiffFiles(entry, fetchFn) {
   emitToParent("commit:expanded", { message: entry.message });
-  selectedCommitFiles.value = [];
-  isSelectedCommitFilesLoading.value = true;
-  try {
-    const result = await fetchFn();
-    if (!result) return;
-    selectedCommitFiles.value = result.fileList;
-  } catch (e) {
-    console.error("diff files load failed:", e);
-  } finally {
-    isSelectedCommitFilesLoading.value = false;
-  }
+  return openDiffFilesBase(entry, fetchFn);
 }
 
 function openWorkingTreeDiffFiles() {
@@ -241,8 +228,7 @@ async function showSelectedCommitMessage() {
 }
 
 function closeSelectedCommitFiles() {
-  selectedCommitForFiles.value = null;
-  selectedCommitFiles.value = [];
+  closeDiffFilesState();
   emitToParent("commit:collapsed");
 }
 

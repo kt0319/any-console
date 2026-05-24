@@ -51,14 +51,13 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onUnmounted } from "vue";
+import { ref, computed, nextTick, onUnmounted } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useInputStore } from "../stores/input.js";
 import { useInputDraftHistory } from "../composables/useInputDraftHistory.js";
+import { useKeyboardBarFlicks } from "../composables/useKeyboardBarFlicks.js";
 import { on, emit } from "../app-bridge.js";
-import { arrowResolver, enterResolver } from "../utils/flick-resolvers.js";
-import { createFlickHandlers } from "../utils/flick-handlers.js";
 import KeyboardQwertyKey from "./KeyboardQwertyKey.vue";
 import KeyboardInput from "./KeyboardInput.vue";
 import KeyboardChips from "./KeyboardChips.vue";
@@ -159,48 +158,11 @@ function onSubmitted() {
   hideInput();
 }
 
-// ─── バー行の arrow / enter flick セットアップ ────────────────
-onMounted(() => {
-  if (barArrowFlickEl.value) {
-    let arrowFlickHandled = false;
-    barArrowFlickEl.value.addEventListener("touchstart", () => { arrowFlickHandled = false; }, { passive: true });
-    const onArrowFlick = (key) => {
-      if (!inputFocused.value) return false;
-      if (key.key === "ArrowLeft" || key.key === "ArrowRight") {
-        if (!arrowFlickHandled) { arrowFlickHandled = true; cycleSnippet(key.key === "ArrowLeft" ? 1 : -1); }
-        return true;
-      }
-      if (arrowFlickHandled) return true;
-      arrowFlickHandled = true;
-      if (key.key === "ArrowUp") historyPrev();
-      else if (key.key === "ArrowDown") historyNext();
-      return true;
-    };
-    setupFlickRepeat(barArrowFlickEl.value, arrowResolver, dismissKeyboard, {
-      accelerateRepeat: true,
-      onFlick: onArrowFlick,
-    });
-  }
-
-  if (barEnterFlickEl.value) {
-    const enterFlickResolver = (dx, dy, threshold) => {
-      if (hasDraft.value && Math.abs(dx) > Math.abs(dy) && dx < -threshold) return { _clear: true };
-      if (inputFocused.value) return null;
-      return enterResolver(dx, dy, threshold);
-    };
-    setupFlickRepeat(barEnterFlickEl.value, enterFlickResolver, () => {
-      if (inputFocused.value) {
-        if (hasDraft.value) keyboardInput.value?.submit?.();
-        return;
-      }
-      sendKeyToTerminal({ key: "Enter" });
-    }, {
-      accelerateRepeat: true,
-      onFlick: (resolved) => {
-        if (resolved?._clear) { draft.value = ""; return true; }
-      },
-    });
-  }
+useKeyboardBarFlicks({
+  arrowEl: barArrowFlickEl, enterEl: barEnterFlickEl,
+  inputFocused, hasDraft, draft, keyboardInput,
+  cycleSnippet, historyPrev, historyNext,
+  setupFlickRepeat, sendKeyToTerminal, dismissKeyboard,
 });
 
 const cleanups = [
