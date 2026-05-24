@@ -25,9 +25,30 @@
 - **PWA** — Installable on phone and desktop
 - **Lightweight stack** — Vue 3 + Pinia + FastAPI, built with Vite
 
+## Platform support
+
+The runtime (Python + Node + tmux) is POSIX-portable, but the operational tooling around it is not. Two supported setups:
+
+| Setup | Platforms | `./any-console` CLI | Auto-update | Service mgmt |
+|-------|-----------|---------------------|-------------|--------------|
+| **systemd** (first-class) | Linux | yes | `./any-console update` | systemd |
+| **Docker** | Linux / macOS / Windows | no | manual `git pull` + `docker compose` | docker compose |
+
+macOS / Windows users can run any-console via Docker, but the `./any-console` helper (`start`, `update`, `logs`, etc.) requires systemd and is Linux-only. Daily-use development happens on the systemd path.
+
 ## Setup
 
-### Docker
+### systemd (Linux) — first-class
+
+```bash
+git clone https://github.com/kt0319/any-console.git
+cd any-console
+./any-console setup
+```
+
+Installs dependencies, builds the frontend, and registers a systemd service in one step. After this, manage the service with `./any-console start|stop|update|logs|...` (see [Commands](#commands)).
+
+### Docker (Linux / macOS / Windows)
 
 ```bash
 git clone https://github.com/kt0319/any-console.git
@@ -37,15 +58,7 @@ docker compose -f docker/compose.yml up -d
 
 Open `http://<host>:8888`.
 
-### systemd (Linux)
-
-```bash
-git clone https://github.com/kt0319/any-console.git
-cd any-console
-./any-console setup
-```
-
-Installs dependencies, builds the frontend, and registers a systemd service in one step.
+The `./any-console` CLI does not manage Docker containers. Use `docker compose` directly for start/stop/logs, and `git pull && docker compose ... up -d --build` to update.
 
 ### Requirements
 
@@ -90,16 +103,16 @@ ANY_CONSOLE_DISABLE_AUTH=1 ./any-console start
 
 ## Commands
 
-All operations go through the `./any-console` command.
+For the systemd setup, all operations go through the `./any-console` command. (Docker users: manage with `docker compose` instead — see [Platform support](#platform-support).)
 
 ```
 ./any-console setup      First-time setup (install deps + build + register systemd)
 ./any-console update     Update to latest (git pull + update deps + build + restart)
-./any-console start      Start the service
-./any-console stop       Stop the service
-./any-console restart    Restart the service
+./any-console start      Start the service          (systemctl start)
+./any-console stop       Stop the service           (systemctl stop)
+./any-console restart    Restart the service        (systemctl restart)
 ./any-console status     Show status (service state, URL, version)
-./any-console logs       Show service logs (journalctl)
+./any-console logs       Show service logs          (journalctl)
 ./any-console version    Show version
 ```
 
