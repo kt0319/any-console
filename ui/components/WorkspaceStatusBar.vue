@@ -20,7 +20,7 @@
           <div class="status-divider"></div>
           <button type="button" class="status-nav-btn status-numstat-btn" tabindex="-1" aria-label="Changes" data-tooltip="Changes" @click="openFileModal('changes')">
             <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
-            <span class="status-btn-label">Changes</span>
+            <span v-if="!isDirty || statusLoading" class="status-btn-label">Changes</span>
             <template v-if="isDirty && !statusLoading">
               <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
               <span class="diff-num-plus">+{{ insertions }}</span>
@@ -216,6 +216,10 @@ function openWorkspaceModal() {
 @media (hover: hover) and (pointer: fine) {
   .status-btn-label {
     display: inline;
+  }
+
+  .status-nav-btn {
+    padding: 0 8px;
   }
 }
 
