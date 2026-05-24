@@ -52,8 +52,6 @@ export default defineConfig({
       "/upload-image": API_TARGET,
       "/system": API_TARGET,
       "/settings": API_TARGET,
-      "/logs": API_TARGET,
-      "/op-logs": API_TARGET,
       "/icons": API_TARGET,
     },
   },

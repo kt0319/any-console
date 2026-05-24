@@ -49,7 +49,12 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/auth/') ||
     url.pathname.startsWith('/run') ||
     url.pathname.startsWith('/workspaces') ||
-    url.pathname.startsWith('/github/') ||
+    url.pathname.startsWith('/workspace-order') ||
+    url.pathname.startsWith('/jobs/') ||
+    url.pathname.startsWith('/common/') ||
+    url.pathname.startsWith('/recent-jobs') ||
+    url.pathname.startsWith('/snippets') ||
+    url.pathname.startsWith('/client-errors') ||
     url.pathname.startsWith('/terminal/') ||
     url.pathname.startsWith('/upload-image') ||
     url.pathname.startsWith('/system/') ||
