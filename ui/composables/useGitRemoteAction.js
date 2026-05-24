@@ -21,6 +21,23 @@ const ACTION_CONFIRM = {
   "set-upstream": "set upstream tracking",
 };
 
+const PUSH_ACTIONS = new Set(["pull", "push", "push-branch"]);
+
+function makeActionKey(wsName, action, branch) {
+  return action === "push-branch" && branch
+    ? `${wsName}:${action}:${branch}`
+    : `${wsName}:${action}`;
+}
+
+function buildConfirmMessage(wsName, action, branch) {
+  const label = ACTION_LABELS[action] || action;
+  const confirmText = ACTION_CONFIRM[action] || `execute ${label}`;
+  const lines = [`Repository: ${wsName}`];
+  if (branch) lines.push(`Branch: ${branch}`);
+  lines.push("", confirmText);
+  return lines.join("\n");
+}
+
 export function useGitRemoteAction() {
   const workspaceStore = useWorkspaceStore();
   const { apiWithToast, apiCommand, wsEndpoint } = useApi();
@@ -32,35 +49,35 @@ export function useGitRemoteAction() {
    * @param {string} action
    * @param {{ branch?: string }} [opts]
    */
+  async function runPushPull(wsName, action, branch, label) {
+    const body = action === "push-branch" ? { branch } : {};
+    const { ok, data } = await apiCommand(wsEndpoint(wsName, action), body, { errorMessage: `${label} failed` });
+    if (!ok) return;
+    const message = formatRemoteToast(wsName, label, data);
+    const hasDetail = message.includes("\n");
+    emit("toast:show", { message, type: "success", duration: hasDetail ? 5000 : 3000 });
+    workspaceStore.fetchStatuses();
+  }
+
+  async function runGenericAction(wsName, action, label) {
+    await apiWithToast(wsEndpoint(wsName, action), {}, {
+      successMessage: `${wsName}: ${label} done`,
+      errorMessage: `${label} failed`,
+      onSuccess: () => workspaceStore.fetchStatuses(),
+    });
+  }
+
   async function gitAction(wsName, action, opts = {}) {
     const { branch } = opts;
     if (runningAction.value) return;
-    const label = ACTION_LABELS[action] || action;
-    const confirmText = ACTION_CONFIRM[action] || `execute ${label}`;
-    const lines = [`Repository: ${wsName}`];
-    if (branch) lines.push(`Branch: ${branch}`);
-    lines.push("", confirmText);
-    const msg = lines.join("\n");
-    if (!await confirm(msg)) return;
-    runningAction.value = action === "push-branch" && branch
-      ? `${wsName}:${action}:${branch}`
-      : `${wsName}:${action}`;
+    if (!await confirm(buildConfirmMessage(wsName, action, branch))) return;
+    runningAction.value = makeActionKey(wsName, action, branch);
     try {
-      if (action === "pull" || action === "push" || action === "push-branch") {
-        const body = action === "push-branch" ? { branch } : {};
-        const { ok, data } = await apiCommand(wsEndpoint(wsName, action), body, { errorMessage: `${label} failed` });
-        if (ok) {
-          const message = formatRemoteToast(wsName, label, data);
-          const hasDetail = message.includes("\n");
-          emit("toast:show", { message, type: "success", duration: hasDetail ? 5000 : 3000 });
-          workspaceStore.fetchStatuses();
-        }
+      const label = ACTION_LABELS[action] || action;
+      if (PUSH_ACTIONS.has(action)) {
+        await runPushPull(wsName, action, branch, label);
       } else {
-        await apiWithToast(wsEndpoint(wsName, action), {}, {
-          successMessage: `${wsName}: ${label} done`,
-          errorMessage: `${label} failed`,
-          onSuccess: () => workspaceStore.fetchStatuses(),
-        });
+        await runGenericAction(wsName, action, label);
       }
     } finally {
       runningAction.value = null;
@@ -68,10 +85,7 @@ export function useGitRemoteAction() {
   }
 
   function isRunning(wsName, action, branch) {
-    const key = action === "push-branch" && branch
-      ? `${wsName}:${action}:${branch}`
-      : `${wsName}:${action}`;
-    return runningAction.value === key;
+    return runningAction.value === makeActionKey(wsName, action, branch);
   }
 
   function isAnyRunning() {

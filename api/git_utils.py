@@ -204,6 +204,18 @@ def _parse_revlist_pair(out: str) -> tuple[int, int] | None:
     return None
 
 
+def _apply_head_commit(info: dict, commit_out: str | None, message_out: str | None) -> None:
+    if commit_out and (s := commit_out.strip()):
+        info["last_commit"] = s
+    if message_out and (s := message_out.strip()):
+        info["last_commit_message"] = s
+
+
+def _apply_github_url(info: dict, remote_out: str | None) -> None:
+    if remote_out and (github_url := _parse_github_url(remote_out.strip())):
+        info["github_url"] = github_url
+
+
 def _apply_ahead_behind(info: dict, revlist_out: str | None, run_git) -> None:
     if revlist_out and info["has_upstream"]:
         pair = _parse_revlist_pair(revlist_out)
@@ -226,44 +238,35 @@ def _apply_ahead_behind(info: dict, revlist_out: str | None, run_git) -> None:
                 pass
 
 
+_GIT_INFO_QUERIES: dict[str, tuple[str, ...]] = {
+    "branch": ("rev-parse", "--abbrev-ref", "HEAD"),
+    "commit": ("log", "-1", "--format=%cI"),
+    "message": ("log", "-1", "--format=%s"),
+    "remote": ("remote", "get-url", "origin"),
+    "status": ("--no-optional-locks", "status", "--porcelain", "--untracked-files=all"),
+    "diff": ("--no-optional-locks", "diff", "--shortstat"),
+    "staged": ("--no-optional-locks", "diff", "--staged", "--shortstat"),
+    "upstream": ("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"),
+    "remote_branches": ("branch", "-r", "--format=%(refname:short)"),
+    "revlist": ("rev-list", "--left-right", "--count", "HEAD...@{upstream}"),
+}
+
+
 def _populate_git_info(info: dict, directory: Path, run_git) -> None:
-    pool = _GIT_INFO_EXECUTOR
-    f_branch = pool.submit(run_git, "rev-parse", "--abbrev-ref", "HEAD")
-    f_commit = pool.submit(run_git, "log", "-1", "--format=%cI")
-    f_message = pool.submit(run_git, "log", "-1", "--format=%s")
-    f_remote = pool.submit(run_git, "remote", "get-url", "origin")
-    f_status = pool.submit(run_git, "--no-optional-locks", "status", "--porcelain", "--untracked-files=all")
-    f_diff = pool.submit(run_git, "--no-optional-locks", "diff", "--shortstat")
-    f_staged = pool.submit(run_git, "--no-optional-locks", "diff", "--staged", "--shortstat")
-    f_upstream = pool.submit(run_git, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
-    f_remote_branches = pool.submit(run_git, "branch", "-r", "--format=%(refname:short)")
-    f_revlist = pool.submit(run_git, "rev-list", "--left-right", "--count", "HEAD...@{upstream}")
+    futures = {key: _GIT_INFO_EXECUTOR.submit(run_git, *args) for key, args in _GIT_INFO_QUERIES.items()}
+    out = {key: _stdout_if_ok(f) for key, f in futures.items()}
 
-    _apply_branch_and_remote(info, _stdout_if_ok(f_branch), _stdout_if_ok(f_remote_branches))
+    _apply_branch_and_remote(info, out["branch"], out["remote_branches"])
+    _apply_head_commit(info, out["commit"], out["message"])
+    _apply_upstream(info, out["upstream"])
+    _apply_github_url(info, out["remote"])
 
-    if (out := _stdout_if_ok(f_commit)) and out.strip():
-        info["last_commit"] = out.strip()
-    if (out := _stdout_if_ok(f_message)) and out.strip():
-        info["last_commit_message"] = out.strip()
-
-    _apply_upstream(info, _stdout_if_ok(f_upstream))
-
-    if (out := _stdout_if_ok(f_remote)) and (github_url := _parse_github_url(out.strip())):
-        info["github_url"] = github_url
-
-    status_out = _stdout_if_ok(f_status)
-    if status_out is not None:
-        info["clean"] = len(status_out.strip()) == 0
-
+    if out["status"] is not None:
+        info["clean"] = len(out["status"].strip()) == 0
     if not info["clean"]:
-        _apply_diff_stats(
-            info,
-            (_stdout_if_ok(f_diff) or "", _stdout_if_ok(f_staged) or ""),
-            status_out,
-            directory,
-        )
+        _apply_diff_stats(info, (out["diff"] or "", out["staged"] or ""), out["status"], directory)
 
-    _apply_ahead_behind(info, _stdout_if_ok(f_revlist), run_git)
+    _apply_ahead_behind(info, out["revlist"], run_git)
 
 
 def git_info(directory: Path) -> dict[str, Any]:

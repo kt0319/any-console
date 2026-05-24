@@ -83,60 +83,64 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
     await downloadFile(filePath);
   }
 
+  const normalizedName = (f) => (f.name || "").normalize("NFC");
+
+  async function fetchExistingNames(workspace, uploadPath) {
+    const listing = await apiGet(wsEndpoint(workspace, `files?path=${encodeURIComponent(uploadPath)}`));
+    const names = new Set();
+    if (listing.ok && listing.data?.entries) {
+      for (const e of listing.data.entries) names.add(e.name);
+    }
+    return names;
+  }
+
+  async function resolveUploadTargets(files, existing) {
+    const all = Array.from(files);
+    const conflicts = all.filter((f) => existing.has(normalizedName(f)));
+    if (conflicts.length === 0) return { targets: all, overwrite: false };
+
+    const names = conflicts.map(normalizedName);
+    const list = names.slice(0, 5).join(", ") + (names.length > 5 ? `, … and ${names.length - 5} more` : "");
+    const overwrite = (await confirm(`Overwrite existing file(s)? ${list}`)) === true;
+    if (overwrite) return { targets: all, overwrite: true };
+    return { targets: all.filter((f) => !existing.has(normalizedName(f))), overwrite: false };
+  }
+
+  async function uploadOne(workspace, uploadPath, file, overwrite) {
+    const formData = new FormData();
+    formData.append("path", uploadPath);
+    formData.append("file", file);
+    if (overwrite) formData.append("overwrite", "true");
+    try {
+      const res = await auth.apiFetch(wsEndpoint(workspace, "upload"), { method: "POST", body: formData });
+      return Boolean(res && res.ok);
+    } catch {
+      return false;
+    }
+  }
+
+  function emitUploadToasts(successCount, failCount) {
+    if (successCount > 0) emit("toast:show", { message: `${successCount} file(s) uploaded`, type: "success" });
+    if (failCount > 0) emit("toast:show", { message: `${failCount} file(s) failed to upload`, type: "error" });
+  }
+
   async function uploadDroppedFiles(files) {
     if (files.length === 0) return;
     await withWorkspace(async (workspace) => {
       const uploadPath = getUploadDirPath();
-
-      const existing = new Set();
-      const listing = await apiGet(wsEndpoint(workspace, `files?path=${encodeURIComponent(uploadPath)}`));
-      if (listing.ok && listing.data?.entries) {
-        for (const e of listing.data.entries) existing.add(e.name);
-      }
-
-      const normalizedName = (f) => (f.name || "").normalize("NFC");
-      const conflicts = Array.from(files).filter((f) => existing.has(normalizedName(f)));
-
-      let overwrite = false;
-      let targets = Array.from(files);
-      if (conflicts.length > 0) {
-        const names = conflicts.map(normalizedName);
-        const list = names.slice(0, 5).join(", ") + (names.length > 5 ? `, … and ${names.length - 5} more` : "");
-        overwrite = (await confirm(`Overwrite existing file(s)? ${list}`)) === true;
-        if (!overwrite) {
-          targets = targets.filter((f) => !existing.has(normalizedName(f)));
-          if (targets.length === 0) return;
-        }
-      }
+      const existing = await fetchExistingNames(workspace, uploadPath);
+      const { targets, overwrite } = await resolveUploadTargets(files, existing);
+      if (targets.length === 0) return;
 
       let successCount = 0;
       let failCount = 0;
       for (const file of targets) {
-        const formData = new FormData();
-        formData.append("path", uploadPath);
-        formData.append("file", file);
-        if (overwrite) formData.append("overwrite", "true");
-        try {
-          const res = await auth.apiFetch(wsEndpoint(workspace, "upload"), {
-            method: "POST",
-            body: formData,
-          });
-          if (res && res.ok) {
-            successCount += 1;
-          } else {
-            failCount += 1;
-          }
-        } catch {
-          failCount += 1;
-        }
+        const ok = await uploadOne(workspace, uploadPath, file, overwrite);
+        if (ok) successCount += 1;
+        else failCount += 1;
       }
 
-      if (successCount > 0) {
-        emit("toast:show", { message: `${successCount} file(s) uploaded`, type: "success" });
-      }
-      if (failCount > 0) {
-        emit("toast:show", { message: `${failCount} file(s) failed to upload`, type: "error" });
-      }
+      emitUploadToasts(successCount, failCount);
       await navigateToPath(uploadPath);
     });
   }
