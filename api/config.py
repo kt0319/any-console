@@ -1,6 +1,7 @@
 import json
 import logging
 import threading
+from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 
@@ -22,6 +23,14 @@ try:
     import fcntl as _fcntl
 except ImportError:
     _fcntl = None
+
+
+def iter_workspace_entries_from(cfg: dict) -> Iterator[tuple[str, dict]]:
+    """`__global__` を除外し dict の workspace entry のみを yield する。"""
+    for key, entry in cfg.items():
+        if key == GLOBAL_CONFIG_KEY or not isinstance(entry, dict):
+            continue
+        yield key, entry
 
 
 @contextmanager
@@ -177,9 +186,7 @@ def _find_workspace_key(cfg: dict, identifier: str) -> str | None:
     entry = cfg.get(identifier)
     if isinstance(entry, dict):
         return identifier
-    for key, value in cfg.items():
-        if key == GLOBAL_CONFIG_KEY or not isinstance(value, dict):
-            continue
+    for key, value in iter_workspace_entries_from(cfg):
         if value.get("name") == identifier:
             return str(key)
     return None
@@ -295,10 +302,7 @@ def _check_config_health_unlocked() -> dict[str, Any]:
 
 def list_workspace_entries() -> dict[str, dict]:
     with _config_read() as cfg:
-        return {
-            name: entry for name, entry in cfg.items()
-            if name != GLOBAL_CONFIG_KEY and isinstance(entry, dict)
-        }
+        return dict(iter_workspace_entries_from(cfg))
 
 
 def load_global_config_section(key: str, default=None):

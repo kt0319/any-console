@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 
 from ..auth import verify_token
 from ..common import GLOBAL_CONFIG_KEY, resolve_workspace_path
-from ..config import load_all_config
+from ..config import iter_workspace_entries_from, load_all_config
 from ..errors import not_found
 from .jobs_common import (
     JobRequest,
@@ -49,10 +49,7 @@ def list_all_workspace_jobs():
     all_config = load_all_config()
     common_jobs_data = all_config.get(GLOBAL_CONFIG_KEY, {}).get("jobs", {})
     result = {}
-    for ws_id in sorted(all_config.keys()):
-        entry = all_config[ws_id]
-        if ws_id == GLOBAL_CONFIG_KEY or not isinstance(entry, dict):
-            continue
+    for ws_id, entry in sorted(iter_workspace_entries_from(all_config)):
         ws_jobs_data = entry.get("jobs", {})
         merged = {}
         for is_common, jobs_data in [(True, common_jobs_data), (False, ws_jobs_data)]:
