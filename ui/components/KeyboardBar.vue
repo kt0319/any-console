@@ -51,12 +51,12 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, watch, onMounted, onUnmounted } from "vue";
+import { ref, computed, nextTick, onMounted, onUnmounted } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useInputStore } from "../stores/input.js";
+import { useInputDraftHistory } from "../composables/useInputDraftHistory.js";
 import { on, emit } from "../app-bridge.js";
-import { REPEAT_DELAY, REPEAT_INTERVAL, MIN_REPEAT_INTERVAL, REPEAT_ACCELERATION } from "../utils/constants.js";
 import { arrowResolver, enterResolver } from "../utils/flick-resolvers.js";
 import { createFlickHandlers } from "../utils/flick-handlers.js";
 import KeyboardQwertyKey from "./KeyboardQwertyKey.vue";
@@ -85,54 +85,10 @@ const inputFocused = ref(false);
 const showSnippetView = ref(false);
 const hasDraft = computed(() => draft.value.trim().length > 0);
 
-let historyIndex = -1;
-let savedDraft = "";
-
-watch(draft, (val) => { if (val === "") { historyIndex = -1; snippetIndex = -1; } });
-
-function historyPrev() {
-  const list = inputStore.inputHistory;
-  if (!list.length) return;
-  if (historyIndex === -1) savedDraft = draft.value;
-  historyIndex = Math.min(historyIndex + 1, list.length - 1);
-  draft.value = list[historyIndex];
-}
-function historyNext() {
-  if (historyIndex === -1) return;
-  historyIndex -= 1;
-  if (historyIndex < 0) {
-    historyIndex = -1;
-    draft.value = savedDraft;
-    return;
-  }
-  draft.value = inputStore.inputHistory[historyIndex];
-}
+const { historyPrev, historyNext, cycleSnippet } = useInputDraftHistory(draft, inputFocused, sendTextToTerminal);
 
 function onInputFocused(focused) {
   inputFocused.value = !!focused;
-}
-
-let snippetIndex = -1;
-let savedSnippetDraft = "";
-function cycleSnippet(dir) {
-  const list = inputStore.snippetsCache;
-  if (!list.length) return;
-  if (snippetIndex === -1) savedSnippetDraft = draft.value;
-  const next = snippetIndex + dir;
-  if (next < 0) {
-    snippetIndex = -1;
-    if (inputFocused.value) draft.value = savedSnippetDraft;
-    return;
-  }
-  snippetIndex = Math.min(next, list.length - 1);
-  const command = list[snippetIndex]?.command;
-  if (!command) return;
-  if (inputFocused.value) {
-    draft.value = command;
-  } else {
-    sendTextToTerminal(command);
-    inputStore.addInputHistory(command);
-  }
 }
 
 function toggleSnippetView() {
@@ -203,32 +159,11 @@ function onSubmitted() {
 onMounted(() => {
   if (barArrowFlickEl.value) {
     let arrowFlickHandled = false;
-    let cursorRepeatKey = null;
-    let cursorRepeatTimer = null;
-    const cursorStopRepeat = () => {
-      if (cursorRepeatTimer !== null) { clearTimeout(cursorRepeatTimer); cursorRepeatTimer = null; }
-      cursorRepeatKey = null;
-    };
-    const cursorScheduleRepeat = (delta, interval) => {
-      cursorRepeatTimer = setTimeout(() => {
-        if (cursorRepeatKey === null) return;
-        keyboardInput.value?.moveCursor?.(delta);
-        cursorScheduleRepeat(delta, Math.max(MIN_REPEAT_INTERVAL, interval - REPEAT_ACCELERATION));
-      }, interval);
-    };
-    barArrowFlickEl.value.addEventListener("touchstart", () => {
-      arrowFlickHandled = false;
-      cursorStopRepeat();
-    }, { passive: true });
-    barArrowFlickEl.value.addEventListener("touchend", cursorStopRepeat);
-    barArrowFlickEl.value.addEventListener("touchcancel", cursorStopRepeat);
+    barArrowFlickEl.value.addEventListener("touchstart", () => { arrowFlickHandled = false; }, { passive: true });
     const onArrowFlick = (key) => {
       if (!inputFocused.value) return false;
       if (key.key === "ArrowLeft" || key.key === "ArrowRight") {
-        if (!arrowFlickHandled) {
-          arrowFlickHandled = true;
-          cycleSnippet(key.key === "ArrowLeft" ? 1 : -1);
-        }
+        if (!arrowFlickHandled) { arrowFlickHandled = true; cycleSnippet(key.key === "ArrowLeft" ? 1 : -1); }
         return true;
       }
       if (arrowFlickHandled) return true;
