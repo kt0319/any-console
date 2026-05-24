@@ -145,3 +145,11 @@ export function abbreviateBranch(branch) {
   if (slash === -1) return { abbr: "", rest: branch };
   return { abbr: branch[0] + "~/", rest: branch.slice(slash + 1) };
 }
+
+export function dirtyBadgeHtml(ws) {
+  const files = ws?.changed_files || 0;
+  const ins = ws?.insertions || 0;
+  const del = ws?.deletions || 0;
+  const filePart = files > 0 ? `<span class="header-git-files">${files}F</span> ` : "";
+  return `${filePart}<span class="diff-num-plus">+${ins}</span> <span class="diff-num-del">-${del}</span>`;
+}

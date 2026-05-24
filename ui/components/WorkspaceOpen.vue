@@ -100,16 +100,17 @@
 
 
 <script setup>
-import { computed, inject, reactive, ref, onMounted, onBeforeUnmount } from "vue";
+import { computed, inject, ref, onMounted, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { useApi } from "../composables/useApi.js";
 import { useJobLauncher } from "../composables/useJobLauncher.js";
+import { useWorkspaceJobsList } from "../composables/useWorkspaceJobsList.js";
 import { renderIconStr } from "../utils/render-icon.js";
+import { dirtyBadgeHtml } from "../utils/git.js";
 import { emit } from "../app-bridge.js";
-import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import RecentJobsBar from "./RecentJobsBar.vue";
 import { useWorkspaceDrag } from "../composables/useWorkspaceDrag.js";
@@ -121,13 +122,12 @@ modalTitle.value = "Workspaces";
 
 const workspaceStore = useWorkspaceStore();
 const layoutStore = useLayoutStore();
-const { apiGet, apiPut, wsEndpoint } = useApi();
+const { apiPut, wsEndpoint } = useApi();
 const { gitAction, isRunning } = useGitRemoteAction();
 const { recentJobs, loadRecentJobs } = useRecentJobs();
 const { runJob, runRecentJob } = useJobLauncher();
+const { commonJobs: wsCommonJobs, localJobs: wsLocalJobs, loadJobs: loadAllWorkspaceJobs } = useWorkspaceJobsList();
 
-const wsCommonJobs = reactive({});
-const wsLocalJobs = reactive({});
 const expandedName = ref(null);
 const settingsMode = ref(false);
 const wsListEl = ref(null);
@@ -203,33 +203,8 @@ const visibleWorkspaces = computed(() => workspaceStore.visibleWorkspaces);
 async function loadWorkspaceOverview() {
   await Promise.all([
     workspaceStore.fetchStatuses(),
-    loadAllWorkspaceJobs(),
+    loadAllWorkspaceJobs(visibleWorkspaces.value),
   ]);
-}
-
-async function loadAllWorkspaceJobs() {
-  try {
-    const { ok, data } = await apiGet(EP_JOBS_WORKSPACES);
-    if (!ok) return;
-    for (const ws of visibleWorkspaces.value) {
-      const jobs = data[ws.name] || {};
-      const all = Object.entries(jobs)
-        .filter(([name]) => name !== "terminal")
-        .map(([name, job]) => ({ name, ...job }));
-      wsCommonJobs[ws.name] = all.filter((j) => j.common);
-      wsLocalJobs[ws.name] = all.filter((j) => !j.common);
-    }
-  } catch {
-    // ignore
-  }
-}
-
-function dirtyBadgeHtml(ws) {
-  const files = ws.changed_files || 0;
-  const ins = ws.insertions || 0;
-  const del = ws.deletions || 0;
-  const filePart = files > 0 ? `<span class="header-git-files">${files}F</span> ` : "";
-  return `${filePart}<span class="diff-num-plus">+${ins}</span> <span class="diff-num-del">-${del}</span>`;
 }
 
 function openDetail(ws) {

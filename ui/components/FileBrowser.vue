@@ -97,58 +97,36 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
+import { computed, ref, toRef, watch, onMounted, onBeforeUnmount } from "vue";
 import FileTextViewer from "./FileTextViewer.vue";
 import FileHistoryPane from "./FileHistoryPane.vue";
 import FileItem from "./FileItem.vue";
 import FileContextMenu from "./FileContextMenu.vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { useApi } from "../composables/useApi.js";
 import { useFileDragDrop } from "../composables/useFileDragDrop.js";
 import { useFileActions } from "../composables/useFileActions.js";
 import { useEditorIntegration } from "../composables/useEditorIntegration.js";
 import { useFileDiff } from "../composables/useFileDiff.js";
+import { useFileBrowserNav } from "../composables/useFileBrowserNav.js";
+import { useShowGitignored } from "../composables/useShowGitignored.js";
 import { emit } from "../app-bridge.js";
 import { useLongPress } from "../composables/useLongPress.js";
 import { useHoverMenu, isHoverDevice } from "../composables/useHoverMenu.js";
 import { renderFileIcon } from "../utils/file-icon.js";
 import { formatSize, formatRelativeTime } from "../utils/format.js";
-import { LS_PREFIX_WS_META } from "../utils/constants.js";
-
-const SHOW_GITIGNORED_KEY_PREFIX = LS_PREFIX_WS_META + "show_gitignored_";
-
-function loadShowGitignored(wsName) {
-  if (!wsName) return false;
-  try {
-    return localStorage.getItem(SHOW_GITIGNORED_KEY_PREFIX + wsName) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function saveShowGitignored(wsName, value) {
-  if (!wsName) return;
-  try {
-    if (value) localStorage.setItem(SHOW_GITIGNORED_KEY_PREFIX + wsName, "1");
-    else localStorage.removeItem(SHOW_GITIGNORED_KEY_PREFIX + wsName);
-  } catch {
-    /* quota — ignore */
-  }
-}
 
 const workspaceStore = useWorkspaceStore();
-const { apiGet, wsEndpoint } = useApi();
 
 const props = defineProps({
   diffFile: { type: String, default: "" },
   diffMessage: { type: String, default: "" },
 });
 
-const currentPath = ref("");
-const entries = ref([]);
-const fileContent = ref(null);
-const isFileBrowserLoading = ref(false);
-const fileBrowserError = ref("");
+const {
+  currentPath, entries, fileContent,
+  isLoading: isFileBrowserLoading, errorMessage: fileBrowserError, showHistory,
+  navigateToPath, openFile, toggleHistory,
+} = useFileBrowserNav();
 const {
   contextEntry,
   openMenu: openContextMenu, closeMenu: closeContextMenu,
@@ -156,20 +134,7 @@ const {
   onMenuMouseEnter, onMenuMouseLeave,
 } = useHoverMenu();
 const uploadInputEl = ref(null);
-const showGitignored = ref(loadShowGitignored(workspaceStore.selectedWorkspace));
-const showHistory = ref(false);
-
-watch(() => workspaceStore.selectedWorkspace, (wsName) => {
-  showGitignored.value = loadShowGitignored(wsName);
-});
-
-watch(showGitignored, (value) => {
-  saveShowGitignored(workspaceStore.selectedWorkspace, value);
-});
-
-function toggleHistory() {
-  showHistory.value = !showHistory.value;
-}
+const { showGitignored } = useShowGitignored(toRef(workspaceStore, "selectedWorkspace"));
 
 function entrySizeText(entry) {
   if (entry.type === "file" && entry.size != null) return formatSize(entry.size);
@@ -239,57 +204,6 @@ const githubEntryUrl = computed(() => {
   const type = contextEntry.value.type === "dir" ? "tree" : "blob";
   return `${ws.github_url}/${type}/${branch}/${entryPath}`;
 });
-
-async function loadFileBrowserRoot() {
-  await navigateToPath("");
-}
-
-async function navigateToPath(path) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-
-  currentPath.value = path;
-  fileContent.value = null;
-  showHistory.value = false;
-  isFileBrowserLoading.value = true;
-  fileBrowserError.value = "";
-
-  try {
-    const { ok, data } = await apiGet(wsEndpoint(workspace, `files?path=${encodeURIComponent(path)}`));
-    if (!ok) {
-      fileBrowserError.value = "Failed to load";
-      return;
-    }
-    entries.value = data.entries || [];
-  } catch (e) {
-    fileBrowserError.value = "Failed to load";
-    console.error("FileBrowser navigate failed:", e);
-  } finally {
-    isFileBrowserLoading.value = false;
-  }
-}
-
-async function openFile(path) {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-
-  isFileBrowserLoading.value = true;
-  fileBrowserError.value = "";
-
-  try {
-    const { ok, data } = await apiGet(wsEndpoint(workspace, `file-content?path=${encodeURIComponent(path)}`));
-    if (!ok) {
-      fileBrowserError.value = "Could not open file";
-      return;
-    }
-    fileContent.value = data;
-  } catch (e) {
-    fileBrowserError.value = "Could not open file";
-    console.error("FileBrowser openFile failed:", e);
-  } finally {
-    isFileBrowserLoading.value = false;
-  }
-}
 
 const longPress = useLongPress();
 
@@ -418,7 +332,7 @@ watch(
   { immediate: true },
 );
 
-defineExpose({ load: loadFileBrowserRoot, navigateToPath });
+defineExpose({ load: () => navigateToPath(""), navigateToPath });
 </script>
 
 <style scoped>

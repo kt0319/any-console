@@ -51,20 +51,17 @@
 
 <script setup>
 import { ref, nextTick, onMounted } from "vue";
-import { emit as bridgeEmit } from "../app-bridge.js";
 import { useModalView } from "../composables/useModalView.js";
+import { useIconUpload } from "../composables/useIconUpload.js";
 import { renderIconStr } from "../utils/render-icon.js";
+import { looksLikeUrl, extractDomain } from "../utils/icon-url.js";
 import MDI_ICONS from "../data/mdi-icons.js";
 
 const { modalTitle, viewState, popView } = useModalView();
 modalTitle.value = "Icon Picker";
 
-const URL_PATTERN = /^(https?:\/\/|[a-zA-Z0-9-]+\.[a-zA-Z]{2,})/;
-const ICON_UPLOAD_MAX_SIZE = 512 * 1024;
-const ICON_UPLOAD_ALLOWED_TYPES = new Set([
-  "image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml",
-]);
-const VALID_ICON_COLOR = /^#[0-9a-fA-F]{3,6}$/;
+const { readIconFile } = useIconUpload();
+
 const MAX_DISPLAY = 200;
 
 const ICON_PRESET_COLORS = [
@@ -98,18 +95,6 @@ const previewHtml = ref("");
 const loadingIcons = ref(false);
 const canSubmit = ref(false);
 let pendingClear = false;
-function looksLikeUrl(text) {
-  return URL_PATTERN.test(text);
-}
-
-function extractDomain(text) {
-  try {
-    if (text.startsWith("http://") || text.startsWith("https://")) return new URL(text).hostname;
-    return text.split("/")[0];
-  } catch {
-    return text;
-  }
-}
 
 function filterIcons(icons, query) {
   if (!query) return icons;
@@ -201,26 +186,8 @@ function triggerUpload() {
 async function handleUpload() {
   const file = uploadRef.value?.files?.[0];
   if (!file) return;
-  if (!ICON_UPLOAD_ALLOWED_TYPES.has(file.type)) {
-    bridgeEmit("toast:show", { message: "Please select a PNG/JPG/GIF/WEBP/SVG image", type: "error" });
-    uploadRef.value.value = "";
-    return;
-  }
-  if (file.size > ICON_UPLOAD_MAX_SIZE) {
-    bridgeEmit("toast:show", { message: "Image must be 500KB or less", type: "error" });
-    uploadRef.value.value = "";
-    return;
-  }
-  try {
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-    if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
-      throw new Error("Failed to load image");
-    }
+  const dataUrl = await readIconFile(file);
+  if (dataUrl) {
     selectedIcon.value = dataUrl;
     pendingClear = false;
     searchQuery.value = "";
@@ -228,11 +195,8 @@ async function handleUpload() {
     canSubmit.value = true;
     const el = gridRef.value;
     if (el) el.querySelectorAll(".icon-picker-item").forEach((item) => item.classList.remove("selected"));
-  } catch (e) {
-    bridgeEmit("toast:show", { message: e.message || "Failed to load image", type: "error" });
-  } finally {
-    if (uploadRef.value) uploadRef.value.value = "";
   }
+  if (uploadRef.value) uploadRef.value.value = "";
 }
 
 function submit() {

@@ -95,9 +95,10 @@
 </template>
 
 <script setup>
-import { ref, inject, computed, onMounted } from "vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
-import { useApi } from "../composables/useApi.js";
+import { ref, inject, onMounted } from "vue";
+import {
+  useGitHub, runStatusIcon, runStatusClass, labelStyle, openUrl,
+} from "../composables/useGitHub.js";
 
 const props = defineProps({
   section: { type: String, default: "all" }, // 'issues' | 'actions' | 'prs' | 'all'
@@ -105,10 +106,8 @@ const props = defineProps({
 
 const modalTitle = inject("modalTitle", null);
 
-const { apiGet, wsEndpoint } = useApi();
-const workspaceStore = useWorkspaceStore();
+const { githubUrl, repoName, loadWorkspaceGithubUrl, loadIssues, loadPRs, loadActions } = useGitHub();
 
-const githubUrl = ref("");
 const issueItems = ref([]);
 const pullRequestItems = ref([]);
 const workflowRuns = ref([]);
@@ -119,99 +118,12 @@ const issuesLoadError = ref("");
 const pullRequestsLoadError = ref("");
 const workflowRunsLoadError = ref("");
 
-const RUN_STATUS = {
-  success: { icon: "✓", cls: "github-run-success" },
-  failure: { icon: "✗", cls: "github-run-failure" },
-  cancelled: { icon: "○", cls: "github-run-cancelled" },
-  in_progress: { icon: "◗", cls: "github-run-progress" },
-  queued: { icon: "◗", cls: "github-run-progress" },
-  waiting: { icon: "◗", cls: "github-run-progress" },
-};
-
-const repoName = computed(() => {
-  if (!githubUrl.value) return "";
-  const m = githubUrl.value.match(/github\.com\/(.+?)(?:\.git)?$/);
-  return m ? m[1] : githubUrl.value;
-});
-
-function runStatusIcon(status) {
-  return RUN_STATUS[status]?.icon || "?";
-}
-
-function runStatusClass(status) {
-  return RUN_STATUS[status]?.cls || "";
-}
-
-function labelStyle(color) {
-  if (!color) return {};
-  const c = color.replace(/^#/, "");
-  return {
-    backgroundColor: `#${c}33`,
-    color: `#${c}`,
-    border: `1px solid #${c}66`,
-  };
-}
-
-function openUrl(url) {
-  if (url) window.open(url, "_blank");
-}
-
 async function loadGitHubPaneData() {
-  const workspace = workspaceStore.selectedWorkspace;
-  if (!workspace) return;
-
-  const ws = workspaceStore.currentWorkspace;
-  githubUrl.value = ws?.github_url || "";
-  if (!githubUrl.value) return;
-
+  if (!loadWorkspaceGithubUrl()) return;
   const s = props.section;
-  if (s === "all" || s === "issues") loadGitHubSection("issues", issueItems, isIssuesLoading, issuesLoadError, workspace);
-  if (s === "all" || s === "prs") loadGitHubSection("pulls", pullRequestItems, isPullRequestsLoading, pullRequestsLoadError, workspace);
-  if (s === "all" || s === "actions") loadWorkflowRuns(workspace);
-}
-
-async function loadGitHubSection(type, listRef, loadingRef, errorRef, workspace) {
-  loadingRef.value = true;
-  errorRef.value = "";
-  try {
-    const { ok, data } = await apiGet(wsEndpoint(workspace, `github/${type}`));
-    if (!ok) { errorRef.value = "Failed to fetch"; return; }
-    if (data.status !== "ok") { errorRef.value = data.message || "Failed to fetch"; return; }
-    listRef.value = (data.data || []).map((item) => ({
-      number: item.number,
-      title: item.title,
-      author: item.author?.login || "",
-      isDraft: !!item.isDraft,
-      headRefName: item.headRefName || "",
-      labels: item.labels || [],
-    }));
-  } catch (e) {
-    errorRef.value = e.message;
-  } finally {
-    loadingRef.value = false;
-  }
-}
-
-async function loadWorkflowRuns(workspace) {
-  isWorkflowRunsLoading.value = true;
-  workflowRunsLoadError.value = "";
-  try {
-    const { ok, data } = await apiGet(wsEndpoint(workspace, "github/runs"));
-    if (!ok) { workflowRunsLoadError.value = "Failed to fetch"; return; }
-    if (data.status !== "ok") { workflowRunsLoadError.value = data.message || "Failed to fetch"; return; }
-    workflowRuns.value = (data.data || []).map((r) => ({
-      id: r.databaseId || r.id,
-      name: r.name || r.workflowName || "",
-      status: r.status || "",
-      conclusion: r.conclusion || "",
-      headBranch: r.headBranch || "",
-      url: r.url || "",
-    }));
-  } catch (e) {
-    workflowRunsLoadError.value = e.message;
-  } finally {
-    isWorkflowRunsLoading.value = false;
-  }
+  if (s === "all" || s === "issues") loadIssues(issueItems, isIssuesLoading, issuesLoadError);
+  if (s === "all" || s === "prs") loadPRs(pullRequestItems, isPullRequestsLoading, pullRequestsLoadError);
+  if (s === "all" || s === "actions") loadActions(workflowRuns, isWorkflowRunsLoading, workflowRunsLoadError);
 }
 
 onMounted(() => {

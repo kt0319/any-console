@@ -62,17 +62,19 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onBeforeUnmount } from "vue";
+import { computed, onMounted, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
+import { useIsMobile } from "../composables/useIsMobile.js";
 import { emit } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
-import { POLL_INTERVAL_MS, MOBILE_BREAKPOINT_PX } from "../utils/constants.js";
+import { POLL_INTERVAL_MS } from "../utils/constants.js";
 import { abbreviateBranch } from "../utils/git.js";
 
 const { gitAction, isRunning } = useGitRemoteAction();
+const { isMobile } = useIsMobile();
 
 let pollTimer = null;
 
@@ -91,12 +93,8 @@ function stopPolling() {
   }
 }
 
-const mobileQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX - 1}px)`);
-const isMobile = ref(mobileQuery.matches);
-function onMobileChange(e) { isMobile.value = e.matches; }
-
-onMounted(() => { startPolling(); mobileQuery.addEventListener("change", onMobileChange); });
-onBeforeUnmount(() => { stopPolling(); mobileQuery.removeEventListener("change", onMobileChange); });
+onMounted(() => { startPolling(); });
+onBeforeUnmount(() => { stopPolling(); });
 
 const workspaceStore = useWorkspaceStore();
 const terminalStore = useTerminalStore();
