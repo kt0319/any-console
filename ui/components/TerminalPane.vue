@@ -331,10 +331,7 @@ function onTouchEnd(e) {
   if (layoutStore.isSplitMode) {
     if (!isActive.value) {
       emits("select-pane", props.paneIndex);
-      return;
     }
-    e.preventDefault();
-    emit("keyboard:activate");
     return;
   }
   if (layoutStore.isPanelBottom) {
@@ -401,6 +398,7 @@ watch(isActive, async (active) => {
   }
   await nextTick();
   scheduleActiveFit();
+  try { props.tab.term?.focus(); } catch {}
 });
 
 onBeforeUnmount(() => {

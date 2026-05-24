@@ -1,7 +1,7 @@
 <template>
   <div class="main-panel" :class="{ 'panel-bottom': isPanelBottom, 'split-mode': isSplitMode, 'keyboard-open': keyboardOpen }">
     <TabBar ref="tabBarView" :tabs="openTabs" />
-    <div v-if="!isSplitMode" class="active-tab-title">
+    <div class="active-tab-title">
       <template v-if="debugMode">
         <span :class="['active-tab-debug', latestLog ? `debug-level-${latestLog.level}` : '']">{{ debugInfo }}</span>
       </template>
@@ -104,11 +104,17 @@ async function initializeApp() {
 const openTabs = computed(() => terminalStore.openTabs);
 const isEmptyScreenVisible = computed(() => openTabs.value.length === 0 && !layoutStore.isSplitMode);
 const activeTabLabel = computed(() => {
-  const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
+  let tabId = terminalStore.activeTabId;
+  if (layoutStore.isSplitMode) {
+    const paneId = layoutStore.splitPaneTabIds[layoutStore.activePaneIndex];
+    if (paneId != null && !layoutStore.isEmptyPaneId(paneId)) tabId = paneId;
+  }
+  const tab = terminalStore.openTabs.find((t) => t.id === tabId);
   if (!tab) return "";
   const ws = tab.workspace || "";
   const job = tab.jobLabel || tab.jobName || "";
-  return [ws, job].filter(Boolean).join(" / ");
+  const label = [ws, job].filter(Boolean).join(" / ");
+  return layoutStore.isSplitMode ? `[split] ${label}` : label;
 });
 
 const debugMode = useDebugMode();
@@ -513,6 +519,11 @@ defineExpose({
     display: flex;
   }
 }
+
+.main-panel.split-mode .active-tab-title {
+  display: flex;
+}
+
 
 .main-panel {
   display: flex;

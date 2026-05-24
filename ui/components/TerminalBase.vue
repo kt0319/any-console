@@ -171,6 +171,10 @@ function getTabById(tabId) {
 
 function selectPane(index) {
   layoutStore.activePaneIndex = index;
+  const tabId = layoutStore.splitPaneTabIds[index];
+  if (tabId != null && !isEmptyPaneId(tabId)) {
+    terminalStore.switchTab(tabId);
+  }
 }
 
 function fitAllTerminals(opts) {
