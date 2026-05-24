@@ -1,0 +1,166 @@
+import { nextTick } from "vue";
+import { useAuthStore } from "../stores/auth.js";
+import { useTerminalStore } from "../stores/terminal.js";
+import { useLayoutStore } from "../stores/layout.js";
+import { useWorkspaceStore } from "../stores/workspace.js";
+import { useTerminal } from "./useTerminal.js";
+import { emit } from "../app-bridge.js";
+import { EP_RUN } from "../utils/endpoints.js";
+import { TERMINAL_JOB_KEY } from "../utils/constants.js";
+
+export function useTerminalLifecycle({ terminalBaseView }) {
+  const auth = useAuthStore();
+  const terminalStore = useTerminalStore();
+  const layoutStore = useLayoutStore();
+  const workspaceStore = useWorkspaceStore();
+  const { disconnectTerminal, deleteSession, connectTerminalWs } = useTerminal();
+
+  function focusTabTerminal(tabId) {
+    const tab = terminalStore.openTabs.find((t) => t.id === tabId);
+    if (!tab?.term) return;
+    requestAnimationFrame(() => {
+      try {
+        tab.term.focus();
+      } catch {}
+    });
+  }
+
+  function activateTerminalTab(tabId, { focus = true } = {}) {
+    terminalStore.switchTab(tabId);
+
+    if (layoutStore.isSplitMode) {
+      const existingPaneIndex = layoutStore.splitPaneTabIds.indexOf(tabId);
+      if (existingPaneIndex >= 0) {
+        layoutStore.activePaneIndex = existingPaneIndex;
+      } else {
+        const nextPaneTabIds = [...layoutStore.splitPaneTabIds];
+        const targetPaneIndex = Math.max(0, Math.min(layoutStore.activePaneIndex || 0, nextPaneTabIds.length));
+        if (nextPaneTabIds.length === 0) {
+          nextPaneTabIds.push(tabId);
+        } else if (targetPaneIndex < nextPaneTabIds.length) {
+          nextPaneTabIds[targetPaneIndex] = tabId;
+        } else {
+          nextPaneTabIds.push(tabId);
+        }
+        layoutStore.splitPaneTabIds = nextPaneTabIds;
+        layoutStore.activePaneIndex = nextPaneTabIds.indexOf(tabId);
+      }
+    }
+
+    if (focus) focusTabTerminal(tabId);
+  }
+
+  function ensureKeyboardTargetTab() {
+    if (terminalStore.openTabs.length === 0) return;
+    const hasActive = terminalStore.openTabs.some((t) => t.id === terminalStore.activeTabId);
+    if (hasActive) return;
+
+    if (layoutStore.isSplitMode) {
+      const ids = layoutStore.splitPaneTabIds || [];
+      const paneIndex = layoutStore.activePaneIndex || 0;
+      const isReal = (id) => id != null && !layoutStore.isEmptyPaneId(id);
+      const targetId = isReal(ids[paneIndex]) ? ids[paneIndex] : ids.find(isReal);
+      if (targetId) {
+        terminalStore.switchTab(targetId);
+        focusTabTerminal(targetId);
+        return;
+      }
+    }
+
+    const visibleTabs = terminalStore.openTabs.filter((t) => !t.hidden);
+    const firstId = (visibleTabs[0] || terminalStore.openTabs[0]).id;
+    terminalStore.switchTab(firstId);
+    focusTabTerminal(firstId);
+  }
+
+  async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, jobIcon, jobIconColor, initialCommand, hidden }) {
+    try {
+      const res = await auth.apiFetch(EP_RUN, {
+        method: "POST",
+        body: {
+          job: TERMINAL_JOB_KEY,
+          workspace: workspace || null,
+          icon: icon || null,
+          icon_color: iconColor || null,
+          job_name: jobName || null,
+          job_label: jobLabel || null,
+        },
+      });
+      if (!res || !res.ok) {
+        const detail = res ? await res.text() : "no response";
+        emit("toast:show", { message: `Terminal launch failed: ${detail}`, type: "error" });
+        return;
+      }
+      const data = await res.json();
+      const tab = terminalStore.addTerminalTab({
+        wsUrl: data.ws_url,
+        workspace,
+        wsIcon: icon,
+        wsIconColor: iconColor,
+        icon: jobName ? (jobIcon || "mdi-play") : "mdi-console",
+        iconColor: jobIconColor,
+        jobName,
+        jobLabel,
+        initialCommand,
+        restored: false,
+        hidden,
+      });
+      activateTerminalTab(tab.id, { focus: false });
+      if (workspace) workspaceStore.selectedWorkspace = workspace;
+      await nextTick();
+      terminalBaseView.value?.fitAllTerminals();
+      activateTerminalTab(tab.id);
+    } catch (e) {
+      emit("toast:show", { message: `Terminal launch error: ${e.message}`, type: "error" });
+    }
+  }
+
+  function refreshTab(tab) {
+    const tabObj = terminalStore.openTabs.find((t) => t.id === tab.id);
+    if (!tabObj) return;
+    // 現在の WebSocket を切ってから再接続。tmux session は維持する。
+    if (tabObj.ws) {
+      try { tabObj.ws.onclose = null; tabObj.ws.close(); } catch {}
+      tabObj.ws = null;
+    }
+    clearTimeout(tabObj._reconnectTimer);
+    tabObj._reconnectAttempts = 0;
+    // xterm.js のバッファを完全にクリアして tmux capture-pane で screen を取り直す。
+    // term.refresh() だけだと崩れたバッファをそのまま再描画してしまうため。
+    try { tabObj.term?.reset(); } catch {}
+    tabObj._needsHistoryRestore = true;
+    tabObj._pendingRedraw = true;
+    connectTerminalWs(tabObj, {
+      focus: false,
+      onOpen: () => {
+        terminalBaseView.value?.fitAllTerminals({ force: true });
+      },
+    });
+  }
+
+  async function closeTab(tab) {
+    const tabId = tab.id;
+    const sessionId = tab.sessionId;
+    const tabObj = terminalStore.openTabs.find((t) => t.id === tabId);
+    if (tabObj) {
+      disconnectTerminal(tabObj);
+      if (tabObj.term) tabObj.term.dispose();
+    }
+    terminalStore.removeTab(tabId);
+    if (layoutStore.isSplitMode) {
+      layoutStore.replaceTabWithEmpty(tabId);
+    }
+    if (sessionId) {
+      await deleteSession(sessionId);
+    }
+  }
+
+  return {
+    focusTabTerminal,
+    activateTerminalTab,
+    ensureKeyboardTargetTab,
+    launchTerminal,
+    refreshTab,
+    closeTab,
+  };
+}
