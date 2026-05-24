@@ -25,14 +25,13 @@
     <div v-show="!inputFocused && !showSnippetView && !showFnView" v-for="(row, ri) in qwertyRows" :key="ri" class="quick-extra-row">
       <div
         v-if="ri === 2"
-        class="quick-key quick-modifier"
-        :class="{ active: modifierState.shift }"
-        @touchstart.prevent="shiftFlick.onStart"
-        @touchend.prevent="shiftFlick.onEnd"
+        class="quick-key"
+        @touchstart.prevent="onModifierKeyStart"
+        @touchend.prevent="(e) => onModifierKeyEnd(e, sendEsc)"
         @touchcancel="onQuickKeyCancel($event)"
-        @click="toggleShift"
+        @click="sendEsc"
       >
-        <span class="flick-main"><span class="mdi mdi-arrow-up-bold"></span></span>
+        <span class="flick-main" style="font-size:13px">Esc</span>
       </div>
       <template v-for="(keyDef, ci) in row" :key="ci">
         <div
@@ -51,26 +50,27 @@
         </div>
         <div
           v-if="ri === 2 && ci === row.length - 1"
-          class="quick-key quick-modifier"
-          :class="{ active: showSymbolView }"
-          @touchstart.prevent="onModifierKeyStart"
-          @touchend.prevent="(e) => onModifierKeyEnd(e, toggleSymbolView)"
+          class="quick-key quick-flick-arrow"
+          @touchstart.prevent="cameraFlick.onStart"
+          @touchend.prevent="cameraFlick.onEnd"
           @touchcancel="onQuickKeyCancel($event)"
-          @click="toggleSymbolView"
+          @click="openCamera"
         >
-          <span class="flick-main" style="font-size:11px">#+=</span>
+          <span class="flick-hint-top"><span class="mdi mdi-refresh" style="font-size:10px"></span></span>
+          <span class="flick-main"><span class="mdi mdi-camera"></span></span>
         </div>
       </template>
     </div>
     <div v-show="!inputFocused && !showSnippetView" class="quick-extra-row quick-extra-modifier-keys">
       <div
-        class="quick-key"
-        @touchstart.prevent="onModifierKeyStart"
-        @touchend.prevent="(e) => onModifierKeyEnd(e, sendEsc)"
+        class="quick-key quick-modifier"
+        :class="{ active: modifierState.shift }"
+        @touchstart.prevent="shiftFlick.onStart"
+        @touchend.prevent="shiftFlick.onEnd"
         @touchcancel="onQuickKeyCancel($event)"
-        @click="sendEsc"
+        @click="toggleShift"
       >
-        <span class="flick-main" style="font-size:13px">Esc</span>
+        <span class="flick-main"><span class="mdi mdi-arrow-up-bold"></span></span>
       </div>
       <div
         class="quick-key quick-flick-arrow quick-modifier"
@@ -110,14 +110,14 @@
         <span class="flick-main" style="font-size:12px">fn</span>
       </div>
       <div
-        class="quick-key quick-flick-arrow"
-        @touchstart.prevent="cameraFlick.onStart"
-        @touchend.prevent="cameraFlick.onEnd"
+        class="quick-key quick-modifier"
+        :class="{ active: showSymbolView }"
+        @touchstart.prevent="onModifierKeyStart"
+        @touchend.prevent="(e) => onModifierKeyEnd(e, toggleSymbolView)"
         @touchcancel="onQuickKeyCancel($event)"
-        @click="openCamera"
+        @click="toggleSymbolView"
       >
-        <span class="flick-hint-top"><span class="mdi mdi-refresh" style="font-size:10px"></span></span>
-        <span class="flick-main"><span class="mdi mdi-camera"></span></span>
+        <span class="flick-main" style="font-size:11px">#+=</span>
       </div>
     </div>
     <div v-if="!hideBottomRow" class="quick-extra-row quick-extra-bottom-keys">
@@ -252,7 +252,15 @@ defineExpose({ focusInput, blurInput });
 
 const inputStore = useInputStore();
 const auth = useAuthStore();
-const { sendKeyToTerminal, sendTextToTerminal, modifierState, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
+const { sendKeyToTerminal, sendTextToTerminal, modifierState, clearModifiers, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
+
+watch(() => props.active, (active) => {
+  if (!active) {
+    clearModifiers();
+    showFnView.value = false;
+    showSymbolView.value = false;
+  }
+});
 const { prompt } = usePrompt();
 
 const topArrowFlickEl = ref(null);
