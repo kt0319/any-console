@@ -6,11 +6,11 @@ import {
   REPEAT_DELAY, REPEAT_INTERVAL, MIN_REPEAT_INTERVAL, REPEAT_ACCELERATION,
 } from "../utils/constants.js";
 
+const modifierState = reactive({ ctrl: false, shift: false });
+
 export function useKeyboard() {
   const terminalStore = useTerminalStore();
   const inputStore = useInputStore();
-
-  const modifierState = reactive({ ctrl: false, shift: false });
 
   function getActiveTerminalTab() {
     const tabs = terminalStore.openTabs;

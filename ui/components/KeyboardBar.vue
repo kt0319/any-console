@@ -122,7 +122,10 @@ function onInputFocused(focused) {
 
 function toggleSnippetView() {
   showSnippetView.value = !showSnippetView.value;
-  if (showSnippetView.value) isFullKeyboard.value = false;
+  if (showSnippetView.value) {
+    isFullKeyboard.value = false;
+    clearModifiers();
+  }
 }
 const snippetFlick = createFlickHandlers({ tap: toggleSnippetView });
 
