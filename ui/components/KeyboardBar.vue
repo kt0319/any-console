@@ -34,6 +34,7 @@
         ref="barEnterFlickEl"
       >
         <template v-if="inputFocused">
+          <span v-if="hasDraft" class="flick-hint-top" style="font-size:8px">clear</span>
           <span class="flick-main"><span class="mdi mdi-send"></span></span>
         </template>
         <template v-else>
@@ -45,14 +46,16 @@
         </template>
       </div>
       <div
-        class="quick-key snippet-toggle-btn quick-modifier"
+        class="quick-key quick-flick-arrow snippet-toggle-btn quick-modifier"
         :class="{ active: showSnippetView }"
         @touchstart.prevent="snippetFlick.onStart"
         @touchend.prevent="snippetFlick.onEnd"
         @touchcancel="onQuickKeyCancel"
         @click="toggleSnippetView"
       >
+        <span class="flick-hint-top">Reload</span>
         <span class="flick-main"><span class="mdi mdi-bookmark-multiple"></span></span>
+        <span class="flick-hint-bottom">Refresh</span>
       </div>
     </div>
   </div>
@@ -63,7 +66,7 @@ import { ref, computed, nextTick, watch, onMounted, onUnmounted } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useInputStore } from "../stores/input.js";
-import { on } from "../app-bridge.js";
+import { on, emit } from "../app-bridge.js";
 import { REPEAT_DELAY, REPEAT_INTERVAL, MIN_REPEAT_INTERVAL, REPEAT_ACCELERATION } from "../utils/constants.js";
 import { arrowResolver, enterResolver } from "../utils/flick-resolvers.js";
 import { createFlickHandlers } from "../utils/flick-handlers.js";
@@ -79,7 +82,7 @@ const layoutStore = useLayoutStore();
 const inputStore = useInputStore();
 const isVisible = computed(() => props.isPanelBottom || layoutStore.isSplitMode);
 
-const { clearModifiers, sendKeyToTerminal, sendTextToTerminal, setupFlickRepeat } = useKeyboard();
+const { clearModifiers, sendKeyToTerminal, sendTextToTerminal, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
 
 const isFullKeyboard = ref(false);
 const qwertyView = ref(null);
@@ -127,7 +130,14 @@ function toggleSnippetView() {
     clearModifiers();
   }
 }
-const snippetFlick = createFlickHandlers({ tap: toggleSnippetView });
+function doRefresh() {
+  const tab = getActiveTerminalTab();
+  if (tab) emit("tab:refresh", { tab });
+}
+function doReload() {
+  window.location.replace(window.location.pathname + "?_=" + Date.now());
+}
+const snippetFlick = createFlickHandlers({ up: doReload, down: doRefresh, tap: toggleSnippetView });
 
 function onQuickKeyCancel(e) {
   e.currentTarget.classList.remove("pressed");
@@ -226,7 +236,10 @@ onMounted(() => {
 
   if (barEnterFlickEl.value) {
     const enterFlickResolver = (dx, dy, threshold) => {
-      if (inputFocused.value) return null;
+      if (inputFocused.value) {
+        if (hasDraft.value && Math.abs(dy) > Math.abs(dx) && dy < -threshold) return { _clear: true };
+        return null;
+      }
       return enterResolver(dx, dy, threshold);
     };
     setupFlickRepeat(barEnterFlickEl.value, enterFlickResolver, () => {
@@ -235,7 +248,12 @@ onMounted(() => {
         return;
       }
       sendKeyToTerminal({ key: "Enter" });
-    }, { accelerateRepeat: true });
+    }, {
+      accelerateRepeat: true,
+      onFlick: (resolved) => {
+        if (resolved?._clear) { draft.value = ""; historyIndex = -1; return true; }
+      },
+    });
   }
 });
 
@@ -290,25 +308,22 @@ onUnmounted(() => cleanups.forEach((fn) => fn()));
 }
 
 .keyboard-bar-row .keyboard-input-wrapper {
-  flex: 1;
+  flex: 3;
   min-width: 0;
   padding: 0;
 }
 
-/* ⌨ / ↵ は1/5幅、スニペットは固定44px（最右） */
 .keyboard-bar-row .quick-flick-arrow,
-.keyboard-bar-row .quick-flick-enter {
-  flex: none;
-  min-width: calc((100vw - 16px) / 5);
-  width: calc((100vw - 16px) / 5);
+.keyboard-bar-row .quick-flick-enter,
+.keyboard-bar-row .snippet-toggle-btn {
+  flex: 1;
+  min-width: 0;
+  width: auto;
   border-color: var(--white-30);
 }
 
-.keyboard-bar-row .snippet-toggle-btn {
-  flex: none;
-  min-width: 44px;
-  width: 44px;
-  border-color: var(--white-30);
+.keyboard-bar-row .snippet-toggle-btn .flick-main {
+  font-size: 14px;
 }
 
 .keyboard-bar-row .enter-send-mode {
@@ -458,6 +473,7 @@ onUnmounted(() => cleanups.forEach((fn) => fn()));
 
 .quick-qwerty-panel .quick-key {
   border-color: var(--white-30);
+  font-size: 12px;
 }
 
 .quick-qwerty-panel .flick-main {
@@ -485,6 +501,15 @@ onUnmounted(() => cleanups.forEach((fn) => fn()));
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.quick-extra-bottom-keys .keyboard-input-wrapper {
+  flex: 3;
+  min-width: 0;
+}
+
+.quick-extra-bottom-keys .quick-key {
+  flex: 1;
 }
 
 /* ─── スニペットチップ ─────────────────────────────────────────────────────── */

@@ -21,6 +21,17 @@
           {{ keyDef.label }}
         </div>
       </div>
+      <div class="quick-extra-row">
+        <div class="quick-key quick-fn-key" @touchstart.prevent="onModifierKeyStart" @touchend.prevent="(e) => onModifierKeyEnd(e, doRefresh)" @touchcancel="onQuickKeyCancel($event)" @click="doRefresh">
+          <span class="flick-main" style="font-size:11px">Refresh</span>
+        </div>
+        <div class="quick-key quick-fn-key" @touchstart.prevent="onModifierKeyStart" @touchend.prevent="(e) => onModifierKeyEnd(e, openCamera)" @touchcancel="onQuickKeyCancel($event)" @click="openCamera">
+          <span class="flick-main"><span class="mdi mdi-camera"></span></span>
+        </div>
+        <div class="quick-key quick-fn-key" @touchstart.prevent="onModifierKeyStart" @touchend.prevent="(e) => onModifierKeyEnd(e, doReload)" @touchcancel="onQuickKeyCancel($event)" @click="doReload">
+          <span class="flick-main" style="font-size:11px">Reload</span>
+        </div>
+      </div>
     </template>
     <div v-show="!inputFocused && !showSnippetView && !showFnView" v-for="(row, ri) in qwertyRows" :key="ri" class="quick-extra-row">
       <div
@@ -50,14 +61,13 @@
         </div>
         <div
           v-if="ri === 2 && ci === row.length - 1"
-          class="quick-key quick-flick-arrow"
-          @touchstart.prevent="cameraFlick.onStart"
-          @touchend.prevent="cameraFlick.onEnd"
+          class="quick-key"
+          @touchstart.prevent="onModifierKeyStart"
+          @touchend.prevent="(e) => onModifierKeyEnd(e, () => sendKeyToTerminal({ key: 'Backspace' }))"
           @touchcancel="onQuickKeyCancel($event)"
-          @click="openCamera"
+          @click="() => sendKeyToTerminal({ key: 'Backspace' })"
         >
-          <span class="flick-hint-top"><span class="mdi mdi-refresh" style="font-size:10px"></span></span>
-          <span class="flick-main"><span class="mdi mdi-camera"></span></span>
+          <span class="flick-main" style="font-size:13px">⌫</span>
         </div>
       </template>
     </div>
@@ -123,14 +133,16 @@
     <div v-if="!hideBottomRow" class="quick-extra-row quick-extra-bottom-keys">
       <KeyboardInput ref="keyboardInput" v-model:draft="draft" @focused="onInputFocused" @submitted="$emit('submitted')" />
       <div
-        class="quick-key snippet-toggle-btn quick-modifier"
+        class="quick-key quick-flick-arrow snippet-toggle-btn quick-modifier"
         :class="{ active: showSnippetView }"
         @touchstart.prevent="snippetFlick.onStart"
         @touchend.prevent="snippetFlick.onEnd"
         @touchcancel="onQuickKeyCancel($event)"
         @click="toggleSnippetView"
       >
+        <span class="flick-hint-top">Reload</span>
         <span class="flick-main"><span class="mdi mdi-bookmark-multiple"></span></span>
+        <span class="flick-hint-bottom">Refresh</span>
       </div>
       <div class="quick-key quick-flick-arrow quick-key-toggle active" ref="topArrowFlickEl">
         <span class="flick-hint-top">&uarr;</span>
@@ -165,6 +177,7 @@ import { useKeyboard } from "../composables/useKeyboard.js";
 import { usePrompt } from "../composables/usePrompt.js";
 import { useInputStore } from "../stores/input.js";
 import { useAuthStore } from "../stores/auth.js";
+import { useConfirm } from "../composables/useConfirm.js";
 import { emit, on } from "../app-bridge.js";
 import { REPEAT_DELAY, REPEAT_INTERVAL, MIN_REPEAT_INTERVAL, REPEAT_ACCELERATION } from "../utils/constants.js";
 import { arrowResolver, enterResolver } from "../utils/flick-resolvers.js";
@@ -195,7 +208,7 @@ const showSnippetView = computed(() => props.hideBottomRow ? props.externalSnipp
 function toggleSnippetView() {
   _showSnippetView.value = !_showSnippetView.value;
 }
-const snippetFlick = createFlickHandlers({ tap: toggleSnippetView });
+const snippetFlick = createFlickHandlers({ up: doReload, down: doRefresh, tap: toggleSnippetView });
 
 let historyIndex = -1;
 let savedDraft = "";
@@ -253,6 +266,7 @@ defineExpose({ focusInput, blurInput });
 const inputStore = useInputStore();
 const auth = useAuthStore();
 const { sendKeyToTerminal, sendTextToTerminal, modifierState, clearModifiers, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
+const { confirm } = useConfirm();
 
 watch(() => props.active, (active) => {
   if (!active) {
@@ -346,6 +360,10 @@ function onQwertyTouchEnd(e, keyDef, ri, ci) {
 
 const cameraFlick = createFlickHandlers({ up: () => doReload(), tap: () => openCamera() });
 
+function doRefresh() {
+  const tab = getActiveTerminalTab();
+  if (tab) emit("tab:refresh", { tab });
+}
 function doReload() {
   emitLocal("cycleMode");
   window.location.replace(window.location.pathname + "?_=" + Date.now());

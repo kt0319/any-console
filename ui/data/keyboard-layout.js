@@ -42,7 +42,7 @@ export const QWERTY_ROWS = [
     { label: "j", key: "j", flickUp: "(",  flickDown: "<" },
     { label: "k", key: "k", flickUp: ")",  flickDown: ">" },
     { label: "l", key: "l", flickUp: ":",  flickDown: ";" },
-    { label: "⌫", key: "Backspace" },
+    { label: "Del", key: "Delete" },
   ],
   [
     { label: "z", key: "z", flickUp: "~" },
@@ -52,6 +52,6 @@ export const QWERTY_ROWS = [
     { label: "b", key: "b", flickUp: "." },
     { label: "n", key: "n", flickUp: "?" },
     { label: "m", key: "m", flickUp: "_" },
-    { label: "'", key: "'", flickUp: "\"" },
+    { label: "Tab", key: "Tab" },
   ],
 ];
