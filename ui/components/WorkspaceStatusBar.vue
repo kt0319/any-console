@@ -4,12 +4,12 @@
       <div class="status-nav-group">
         <button type="button" class="status-nav-btn" aria-label="Jobs" data-tooltip="Jobs" @click="openFileModal('jobs')">
           <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
-          <span class="status-btn-label status-btn-label-always">Jobs</span>
+          <span class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Jobs</span>
         </button>
         <div class="status-divider"></div>
         <button type="button" class="status-nav-btn" aria-label="Files" data-tooltip="Files" @click="openFileModal('files')">
           <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
-          <span class="status-btn-label status-btn-label-always">Files</span>
+          <span class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Files</span>
         </button>
         <template v-if="isGitRepo">
           <div class="status-divider"></div>
@@ -21,7 +21,7 @@
           <div class="status-divider"></div>
           <button type="button" class="status-nav-btn status-numstat-btn" tabindex="-1" aria-label="Changes" data-tooltip="Changes" @click="openFileModal('changes')">
             <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
-            <span v-if="!isDirty || statusLoading" class="status-btn-label">Changes</span>
+            <span v-if="!isDirty || statusLoading" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Changes</span>
             <template v-if="isDirty && !statusLoading">
               <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
               <span class="diff-num-plus">+{{ insertions }}</span>
@@ -128,6 +128,10 @@ const branchParts = computed(() => {
   const branch = ws.value?.branch || "";
   if (!isMobile.value) return { abbr: "", rest: branch };
   return abbreviateBranch(branch);
+});
+const isBranchLong = computed(() => {
+  if (!isMobile.value) return false;
+  return (branchParts.value.rest?.length || 0) > 10;
 });
 const msgText = computed(() => {
   if (!ws.value) return "";
@@ -248,11 +252,6 @@ function openWorkspaceModal() {
   font-weight: 600;
 }
 
-@media (max-width: 767px) {
-  .status-branch-btn {
-    max-width: 140px;
-  }
-}
 
 .status-branch-text {
   overflow: hidden;
