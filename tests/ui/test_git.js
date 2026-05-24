@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { parseGitRefs, formatGitTime, parseGitLogEntries, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, countContentLines, abbreviateBranch } from "../../ui/utils/git.js";
+import { parseGitRefs, formatGitTime, parseGitLogEntries, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, countContentLines, abbreviateBranch, dirtyBadgeHtml } from "../../ui/utils/git.js";
 
 // ── Tests ──
 
@@ -296,5 +296,18 @@ describe("abbreviateBranch", () => {
   });
   it("空文字列はabbr空、rest空", () => {
     expect(abbreviateBranch("")).toEqual({ abbr: "", rest: "" });
+  });
+});
+
+describe("dirtyBadgeHtml", () => {
+  it("undefined/null は 0 として扱う", () => {
+    expect(dirtyBadgeHtml(undefined)).toBe('<span class="diff-num-plus">+0</span> <span class="diff-num-del">-0</span>');
+    expect(dirtyBadgeHtml(null)).toBe('<span class="diff-num-plus">+0</span> <span class="diff-num-del">-0</span>');
+  });
+  it("変更ファイルが0件のときはファイル数バッジを含めない", () => {
+    expect(dirtyBadgeHtml({ changed_files: 0, insertions: 2, deletions: 1 })).toBe('<span class="diff-num-plus">+2</span> <span class="diff-num-del">-1</span>');
+  });
+  it("変更ファイル数が1件以上ならFバッジを付与", () => {
+    expect(dirtyBadgeHtml({ changed_files: 3, insertions: 10, deletions: 4 })).toBe('<span class="header-git-files">3F</span> <span class="diff-num-plus">+10</span> <span class="diff-num-del">-4</span>');
   });
 });
