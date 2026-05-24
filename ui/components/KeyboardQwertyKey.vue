@@ -80,7 +80,7 @@
         <span class="flick-main"><span class="mdi mdi-camera"></span></span>
       </div>
     </div>
-    <div class="quick-extra-row quick-extra-bottom-keys">
+    <div v-if="!hideBottomRow" class="quick-extra-row quick-extra-bottom-keys">
       <KeyboardInput ref="keyboardInput" v-model:draft="draft" @focused="onInputFocused" @submitted="$emit('submitted')" />
       <div
         class="quick-key snippet-toggle-btn quick-modifier"
@@ -135,18 +135,25 @@ import KeyboardChips from "./KeyboardChips.vue";
 
 const props = defineProps({
   active: { type: Boolean, default: false },
+  hideBottomRow: { type: Boolean, default: false },
+  externalInputFocused: { type: Boolean, default: false },
+  externalSnippetView: { type: Boolean, default: false },
 });
 
 const emitLocal = defineEmits(["cycleMode", "submitted", "inputFocus"]);
 
 const keyboardInput = ref(null);
-const inputFocused = ref(false);
+const _inputFocused = ref(false);
 const draft = ref("");
 const hasDraft = computed(() => draft.value.trim().length > 0);
-const showSnippetView = ref(false);
+const _showSnippetView = ref(false);
+
+// hideBottomRow=true のとき KeyboardBar が状態を管理する
+const inputFocused = computed(() => props.hideBottomRow ? props.externalInputFocused : _inputFocused.value);
+const showSnippetView = computed(() => props.hideBottomRow ? props.externalSnippetView : _showSnippetView.value);
 
 function toggleSnippetView() {
-  showSnippetView.value = !showSnippetView.value;
+  _showSnippetView.value = !_showSnippetView.value;
 }
 const snippetFlick = createFlickHandlers({ tap: toggleSnippetView });
 
@@ -184,7 +191,7 @@ function blurInput() {
 }
 
 function onInputFocused(focused) {
-  inputFocused.value = !!focused;
+  _inputFocused.value = !!focused;
   emitLocal("inputFocus", !!focused);
 }
 
@@ -198,7 +205,7 @@ function onChipTap({ command }) {
     emitLocal("cycleMode");
     return;
   }
-  showSnippetView.value = false;
+  _showSnippetView.value = false;
 }
 
 defineExpose({ focusInput, blurInput });

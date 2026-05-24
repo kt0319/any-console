@@ -117,9 +117,6 @@
         </template>
       </template>
     </template>
-    <div class="terminal-keyboard-overlay">
-      <KeyboardBase :is-panel-bottom="isPanelBottom" />
-    </div>
     <slot />
   </div>
 </template>
@@ -128,7 +125,6 @@
 import { ref, computed, watch, nextTick } from "vue";
 import TerminalPane from "./TerminalPane.vue";
 import EmptyPane from "./EmptyPane.vue";
-import KeyboardBase from "./KeyboardBase.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { buildGridRows } from "../utils/terminal-layout.js";
@@ -212,15 +208,6 @@ defineExpose({ fitAllTerminals, selectPane });
   flex-direction: column;
   position: relative;
   overflow: hidden;
-}
-
-.terminal-keyboard-overlay {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 30;
-  pointer-events: auto;
 }
 
 .output-container.split-active {

@@ -18,6 +18,7 @@
     >
       <StatusOverlay :visible="isOffline" label="Connection lost" variant="error" />
     </TerminalBase>
+    <KeyboardBar :is-panel-bottom="isPanelBottom" />
 
   </div>
   <Modal />
@@ -29,6 +30,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
 import WorkspaceStatusBar from "./WorkspaceStatusBar.vue";
 import TabBar from "./TabBar.vue";
 import TerminalBase from "./TerminalBase.vue";
+import KeyboardBar from "./KeyboardBar.vue";
 import ScreenEmpty from "./ScreenEmpty.vue";
 import Modal from "./Modal.vue";
 import TerminalSelectModal from "./TerminalSelectModal.vue";
@@ -542,6 +544,10 @@ defineExpose({
   gap: 2px;
   min-width: 80px;
   justify-content: center;
+}
+
+.main-panel.panel-bottom :deep(.keyboard-bar) {
+  order: 0;
 }
 
 .main-panel.panel-bottom :deep(.workspace-status-bar) {
