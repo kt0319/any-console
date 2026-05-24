@@ -252,7 +252,7 @@ defineExpose({
 .debug-level-error { color: var(--error); }
 .debug-level-info { color: var(--accent); }
 
-@media (max-width: 768px) and (hover: none) {
+@media (max-width: 768px) {
   .active-tab-title {
     display: flex;
   }
