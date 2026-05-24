@@ -64,20 +64,19 @@ import { useHoverMenu, isHoverDevice } from "../composables/useHoverMenu.js";
 import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useWorkspace } from "../composables/useWorkspace.js";
-import { useAuthStore } from "../stores/auth.js";
+import { useWorkspaceFile } from "../composables/useWorkspaceFile.js";
 import { emit } from "../app-bridge.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
-import { triggerBlobDownload } from "../utils/download.js";
 import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
-import { workspaceGitDiscardPath, workspaceDownloadPath } from "../utils/endpoints.js";
+import { workspaceGitDiscardPath } from "../utils/endpoints.js";
 
 const workspaceStore = useWorkspaceStore();
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
 const { editorUrlTemplate, fetchEditorSettings, openInEditor } = useEditorIntegration();
-const { apiPost, apiCommand, wsEndpoint } = useApi();
+const { apiPost } = useApi();
 const { confirm } = useConfirm();
 const { withWorkspace } = useWorkspace();
-const auth = useAuthStore();
+const { downloadWorkspaceFile, deleteWorkspaceFile } = useWorkspaceFile();
 const longPress = useLongPress();
 
 const files = ref([]);
@@ -191,34 +190,18 @@ async function discardFile(file) {
 }
 
 async function downloadFile(file) {
-  await withWorkspace(async (workspace) => {
-    closeMenu();
-    try {
-      const res = await auth.apiFetch(workspaceDownloadPath(workspace, file.path));
-      if (!res?.ok) { emit("toast:show", { message: "Download failed", type: "error" }); return; }
-      const blob = await res.blob();
-      triggerBlobDownload(blob, file.path.split("/").pop() || "download");
-    } catch {
-      emit("toast:show", { message: "Download failed", type: "error" });
-    }
-  });
+  closeMenu();
+  await downloadWorkspaceFile(file.path);
 }
 
 async function deleteFile(file) {
   closeMenu();
   if (!await confirm(`Delete file "${file.path}"? This cannot be undone.`)) return;
-  await withWorkspace(async (workspace) => {
-    const { ok } = await apiCommand(
-      wsEndpoint(workspace, "delete-file"),
-      { path: file.path },
-      { errorMessage: "Delete failed" },
-    );
-    if (ok) {
-      emit("toast:show", { message: "Deleted", type: "success" });
-      emit("git:refreshStatus");
-      await loadWorkingTreeDiff();
-    }
-  });
+  const ok = await deleteWorkspaceFile(file.path);
+  if (ok) {
+    emit("git:refreshStatus");
+    await loadWorkingTreeDiff();
+  }
 }
 
 async function loadWorkingTreeDiff() {
