@@ -47,7 +47,8 @@ export function useGitRemoteAction() {
   /**
    * @param {string} wsName
    * @param {string} action
-   * @param {{ branch?: string }} [opts]
+   * @param {string | undefined} branch
+   * @param {string} label
    */
   async function runPushPull(wsName, action, branch, label) {
     const body = action === "push-branch" ? { branch } : {};
