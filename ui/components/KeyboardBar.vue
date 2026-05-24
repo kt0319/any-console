@@ -335,6 +335,12 @@ onUnmounted(() => cleanups.forEach((fn) => fn()));
 }
 
 
+.keyboard-bar-row .quick-key-toggle.active {
+  background: rgb(33, 40, 60);
+  border-color: rgba(130, 170, 255, 0.7);
+  color: rgba(130, 170, 255, 0.9);
+}
+
 .keyboard-bar-row .enter-disabled {
   color: var(--white-30);
   border-color: var(--white-30);
@@ -486,9 +492,9 @@ onUnmounted(() => cleanups.forEach((fn) => fn()));
 }
 
 .quick-qwerty-panel .quick-modifier {
-  background: rgba(20, 24, 42, 0.95);
-  border-color: rgba(130, 170, 255, 0.25);
-  color: rgba(255, 255, 255, 0.6);
+  background: rgba(40, 44, 65, 0.8);
+  border-color: var(--white-30);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .quick-qwerty-panel .quick-key-toggle.active,
