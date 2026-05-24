@@ -4,12 +4,12 @@ import { MOBILE_BREAKPOINT_PX } from "../utils/constants.js";
 import { isEmptyPaneId, makeEmptyPaneId, countRealPanes } from "../utils/empty-pane.js";
 
 export const useLayoutStore = defineStore("layout", () => {
-  const panelBottomMediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px) and (orientation: portrait)`);
-  const isPanelBottom = ref(panelBottomMediaQuery.matches);
-  panelBottomMediaQuery.addEventListener("change", (e) => {
-    isPanelBottom.value = e.matches;
-  });
   const isTouchDevice = !window.matchMedia("(pointer: fine)").matches && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+  const panelBottomMediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px) and (orientation: portrait)`);
+  const isPanelBottom = ref(isTouchDevice && panelBottomMediaQuery.matches);
+  panelBottomMediaQuery.addEventListener("change", (e) => {
+    isPanelBottom.value = isTouchDevice && e.matches;
+  });
   const isPwa = window.matchMedia("(display-mode: standalone)").matches
     || /** @type {any} */ (navigator).standalone === true;
 
