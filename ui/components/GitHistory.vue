@@ -517,9 +517,4 @@ defineExpose({
   border-color: var(--error);
 }
 
-@media (max-width: 767px) {
-  .diff-files-selected-commit {
-    order: 1;
-  }
-}
 </style>

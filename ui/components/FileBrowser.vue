@@ -507,9 +507,4 @@ defineExpose({ load: () => navigateToPath(""), navigateToPath });
   line-height: 1.5;
 }
 
-@media (max-width: 767px) {
-  .file-browser-header {
-    order: 1;
-  }
-}
 </style>
