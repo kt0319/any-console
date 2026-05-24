@@ -12,8 +12,8 @@ from ..common import (
     MAX_FILE_SIZE,
     MAX_IMAGE_PREVIEW_SIZE,
 )
-from ..errors import forbidden, server_error
 from ..git_utils import run_git_command
+from .git_helpers import file_operation_guard
 
 
 def _build_content_response(path: str, ext: str, raw: bytes, size: int):
@@ -36,10 +36,8 @@ def _build_content_response(path: str, ext: str, raw: bytes, size: int):
 
 
 def read_file_content_response(path: str, target: Path):
-    try:
+    with file_operation_guard("Stat failed"):
         size = target.stat().st_size
-    except OSError:
-        raise server_error("Cannot stat file") from None
 
     ext = target.suffix.lower()
     needs_read = not (
@@ -48,12 +46,8 @@ def read_file_content_response(path: str, target: Path):
         or (ext not in IMAGE_EXTENSIONS and size > MAX_FILE_SIZE)
     )
     if needs_read:
-        try:
+        with file_operation_guard("Read failed"):
             raw = target.read_bytes()
-        except PermissionError:
-            raise forbidden("Permission denied") from None
-        except OSError:
-            raise server_error("Cannot read file") from None
     else:
         raw = b""
     return _build_content_response(path, ext, raw, size)
@@ -148,7 +142,7 @@ def _build_file_or_dir_entry(entry, is_ignored: bool) -> dict:
 def list_directory_entries(ws_path, target):
     ignored_names = _get_gitignored_names(ws_path, target)
     entries = []
-    try:
+    with file_operation_guard("List directory failed"):
         with os.scandir(target) as it:
             for entry in it:
                 if entry.name in HIDDEN_DIRS:
@@ -158,8 +152,6 @@ def list_directory_entries(ws_path, target):
                     entries.append(_build_symlink_entry(ws_path, target, entry, is_ignored))
                 else:
                     entries.append(_build_file_or_dir_entry(entry, is_ignored))
-    except PermissionError:
-        raise forbidden("Permission denied") from None
 
     type_order = {"dir": 0, "symlink": 1, "file": 2}
     entries.sort(key=lambda e: (type_order.get(e["type"], 3), e["name"].lower()))
