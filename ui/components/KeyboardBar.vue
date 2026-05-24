@@ -10,7 +10,7 @@
       @submitted="onSubmitted"
     />
     <!-- ミニマムモード時のスニペット表示 -->
-    <div v-if="showSnippetView && !isFullKeyboard" class="keyboard-bar-snippets">
+    <div v-if="showSnippetView" class="keyboard-bar-snippets">
       <KeyboardChips :insert-mode="true" @chip:tap="onChipTap" />
     </div>
     <!-- バー行 = フルキーボードの最下行と同構成 -->
@@ -122,6 +122,7 @@ function onInputFocused(focused) {
 
 function toggleSnippetView() {
   showSnippetView.value = !showSnippetView.value;
+  if (showSnippetView.value) isFullKeyboard.value = false;
 }
 const snippetFlick = createFlickHandlers({ tap: toggleSnippetView });
 
@@ -143,6 +144,7 @@ function onChipTap({ command }) {
 // ─── キーボード開閉 ────────────────────────────────────────────
 function showInput() {
   isFullKeyboard.value = true;
+  showSnippetView.value = false;
   nextTick(() => keyboardInput.value?.focus?.());
 }
 
@@ -165,6 +167,7 @@ function dismissKeyboard() {
   }
   keyboardInput.value?.blur?.();
   isFullKeyboard.value = !isFullKeyboard.value;
+  if (isFullKeyboard.value) showSnippetView.value = false;
   clearModifiers();
 }
 
