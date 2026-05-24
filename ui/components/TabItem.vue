@@ -18,6 +18,7 @@
     <span v-if="iconHtml" v-html="iconHtml"></span>
     <template v-if="!isPanelBottom">
       {{ label }}
+      <span v-if="isDirty" class="tab-dirty-dot" aria-label="uncommitted changes"></span>
       <span
         class="tab-close"
         draggable="false"
@@ -27,6 +28,7 @@
         @click.stop.prevent
       >&times;</span>
     </template>
+    <span v-if="isDirty && isPanelBottom" class="tab-dirty-dot" aria-label="uncommitted changes"></span>
   </button>
 </template>
 
@@ -36,6 +38,7 @@ import { renderIconStr } from "../utils/render-icon.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useTerminalStore } from "../stores/terminal.js";
+import { useWorkspaceStore } from "../stores/workspace.js";
 import { emit } from "../app-bridge.js";
 import { DRAG_THRESHOLD, LONG_PRESS_MS } from "../utils/constants.js";
 import { useSplitDropDrag } from "../composables/useSplitDropDrag.js";
@@ -52,6 +55,7 @@ const emits = defineEmits(["select", "close", "refresh", "active-click"]);
 const layoutStore = useLayoutStore();
 const { confirm } = useConfirm();
 const terminalStore = useTerminalStore();
+const workspaceStore = useWorkspaceStore();
 const { beginDrag, cancelDrag } = useSplitDropDrag();
 const mouseLongPress = useLongPress(LONG_PRESS_MS);
 const touchLongPress = useLongPress(LONG_PRESS_MS);
@@ -65,6 +69,12 @@ const canDrag = computed(() => !layoutStore.isTouchDevice && terminalStore.openT
 
 const label = computed(() => {
   return props.tab.workspace || props.tab.label || "terminal";
+});
+
+const isDirty = computed(() => {
+  if (!props.tab.workspace) return false;
+  const ws = workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace);
+  return ws?.clean === false;
 });
 
 const wsIconHtml = computed(() => {
@@ -279,6 +289,14 @@ onBeforeUnmount(() => {
 
 .tab-btn.drag-over-right {
   box-shadow: inset -2px 0 0 var(--accent);
+}
+
+.tab-dirty-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f5a623;
+  flex-shrink: 0;
 }
 
 .tab-close {

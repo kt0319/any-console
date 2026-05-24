@@ -20,12 +20,12 @@
         @click="onPillClick"
         @touchstart.passive="onPillTouchStart"
       >
-        <span v-if="isDirty" class="pill-dirty-dot" aria-label="uncommitted changes"></span>
         <span class="terminal-info-pill-info">
           <span v-if="tab.wsIcon" v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
           <span v-if="tab.icon" v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
           {{ tab.workspace || tab.label || '' }}
         </span>
+        <span v-if="isDirty" class="pill-dirty-dot" aria-label="uncommitted changes"></span>
       </div>
     </div>
   </div>
@@ -525,8 +525,8 @@ defineExpose({
 }
 
 .pill-dirty-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #f5a623;
   flex-shrink: 0;
