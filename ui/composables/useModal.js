@@ -1,4 +1,5 @@
 import { ref, onUnmounted, nextTick } from "vue";
+import { isTouchOnly, listenForEscape } from "../utils/keyboard.js";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -36,9 +37,7 @@ export function useModal() {
     // モバイルだと最初の要素（モーダルタイトル等）にフォーカスリングが
     // 出てしまい、ユーザの意図しない見た目になる。Tab キー操作が無いので
     // 自動フォーカスのメリットも無い。
-    const isTouchOnly = typeof window !== "undefined"
-      && window.matchMedia?.("(hover: none) and (pointer: coarse)").matches;
-    if (!isTouchOnly) {
+    if (!isTouchOnly()) {
       const focusable = Array.from(modalEl.querySelectorAll(FOCUSABLE)).filter(
         (el) => el.offsetParent !== null,
       );
@@ -49,14 +48,7 @@ export function useModal() {
 
   function open(modalElOrGetter, closeFn) {
     visible.value = true;
-    const onEscape = (e) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        closeFn();
-      }
-    };
-    document.addEventListener("keydown", onEscape, true);
-    releaseEscape = () => document.removeEventListener("keydown", onEscape, true);
+    releaseEscape = listenForEscape(closeFn);
     nextTick(() => {
       const el = typeof modalElOrGetter === "function" ? modalElOrGetter() : modalElOrGetter;
       if (el) {
