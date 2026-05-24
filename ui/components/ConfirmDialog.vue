@@ -24,17 +24,13 @@
 <script setup>
 import { ref, watch, nextTick, onUnmounted } from "vue";
 import { useConfirm } from "../composables/useConfirm.js";
+import { isTouchOnly, listenForEscape } from "../utils/keyboard.js";
 
 const { visible, message, extraButton, okButton, onOk, onCancel, onExtra } = useConfirm();
 const cancelBtn = ref(null);
 
 let prevFocus = null;
 let releaseEscape = null;
-
-function isTouchOnly() {
-  return typeof window !== "undefined"
-    && window.matchMedia?.("(hover: none) and (pointer: coarse)").matches;
-}
 
 watch(visible, (val) => {
   if (val) {
@@ -43,11 +39,7 @@ watch(visible, (val) => {
     if (!isTouchOnly()) {
       nextTick(() => cancelBtn.value?.focus());
     }
-    const onKeydown = (e) => {
-      if (e.key === "Escape") { e.preventDefault(); onCancel(); }
-    };
-    document.addEventListener("keydown", onKeydown, true);
-    releaseEscape = () => document.removeEventListener("keydown", onKeydown, true);
+    releaseEscape = listenForEscape(onCancel);
   } else {
     releaseEscape?.();
     releaseEscape = null;
