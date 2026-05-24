@@ -5,10 +5,10 @@ import { isEmptyPaneId, makeEmptyPaneId, countRealPanes } from "../utils/empty-p
 
 export const useLayoutStore = defineStore("layout", () => {
   const isTouchDevice = !window.matchMedia("(pointer: fine)").matches && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
-  const panelBottomMediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px) and (orientation: portrait)`);
-  const isPanelBottom = ref(isTouchDevice && panelBottomMediaQuery.matches);
+  const panelBottomMediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px)`);
+  const isPanelBottom = ref(panelBottomMediaQuery.matches);
   panelBottomMediaQuery.addEventListener("change", (e) => {
-    isPanelBottom.value = isTouchDevice && e.matches;
+    isPanelBottom.value = e.matches;
   });
   const isPwa = window.matchMedia("(display-mode: standalone)").matches
     || /** @type {any} */ (navigator).standalone === true;

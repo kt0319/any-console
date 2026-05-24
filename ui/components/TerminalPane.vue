@@ -392,9 +392,11 @@ async function onPaste(e) {
 }
 
 // term.open() 後に xterm フォーカスポリシーを注入する。
-// isPanelBottom では textarea へのあらゆるフォーカスを禁止し、キーボードバー経由のみで入力させる。
+// タッチデバイスの isPanelBottom では textarea へのフォーカスを禁止し OSK を抑制する。
+// 非タッチデバイス（狭幅PC）では物理キーボードを使えるよう通常のフォーカスを許可する。
 function applyFocusGuard(term) {
   if (!term?.textarea) return;
+  if (!layoutStore.isTouchDevice) return;
   const origFocus = term.focus.bind(term);
   term.focus = () => { if (!layoutStore.isPanelBottom) origFocus(); };
   term.textarea.tabIndex = -1;
