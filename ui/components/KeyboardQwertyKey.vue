@@ -141,10 +141,10 @@
       </div>
       <div
         class="quick-key quick-flick-enter quick-flick-arrow quick-key-toggle"
-        :class="{ 'enter-send-mode': inputFocused && hasDraft, 'enter-disabled': inputFocused && !hasDraft }"
+        :class="{ 'enter-send-mode': hasDraft, 'enter-disabled': inputFocused && !hasDraft }"
         ref="topEnterFlickEl"
       >
-        <template v-if="inputFocused">
+        <template v-if="hasDraft">
           <span class="flick-main"><span class="mdi mdi-send"></span></span>
         </template>
         <template v-else>
@@ -471,10 +471,11 @@ onMounted(() => {
       return enterResolver(dx, dy, threshold);
     };
     setupFlickRepeat(topEnterFlickEl.value, enterFlickResolver, () => {
-      if (inputFocused.value) {
-        if (hasDraft.value) keyboardInput.value?.submit?.();
+      if (hasDraft.value) {
+        keyboardInput.value?.submit?.();
         return;
       }
+      if (inputFocused.value) return;
       sendKeyToTerminal({ key: "Enter" });
     }, { accelerateRepeat: true });
   }
