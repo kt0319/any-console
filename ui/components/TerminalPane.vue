@@ -334,10 +334,6 @@ function onTouchEnd(e) {
     }
     return;
   }
-  if (layoutStore.isPanelBottom) {
-    e.preventDefault();
-    emit("keyboard:activate");
-  }
 }
 
 function onWheel(e) {
@@ -365,6 +361,18 @@ async function onPaste(e) {
   });
 }
 
+// term.open() 後に xterm フォーカスポリシーを注入する。
+// isPanelBottom では textarea へのあらゆるフォーカスを禁止し、キーボードバー経由のみで入力させる。
+function applyFocusGuard(term) {
+  if (!term?.textarea) return;
+  const origFocus = term.focus.bind(term);
+  term.focus = () => { if (!layoutStore.isPanelBottom) origFocus(); };
+  term.textarea.tabIndex = -1;
+  term.textarea.addEventListener("focus", () => {
+    if (layoutStore.isPanelBottom) term.textarea.blur();
+  });
+}
+
 onMounted(() => {
   if (frameEl.value) {
     const fs = terminalStore.terminalSettings?.fontSize || 12;
@@ -372,9 +380,11 @@ onMounted(() => {
   }
   if (props.tab._pendingOpen && frameEl.value) {
     ensureTerminalOpened(props.tab, frameEl.value);
+    applyFocusGuard(props.tab.term);
     requestAnimationFrame(() => fitTerminal(props.tab));
   } else if (props.tab.term && frameEl.value && props.tab.term.element) {
     frameEl.value.appendChild(props.tab.term.element);
+    applyFocusGuard(props.tab.term);
     observeFrameResize(props.tab, frameEl.value);
     requestAnimationFrame(() => fitTerminal(props.tab));
   }
