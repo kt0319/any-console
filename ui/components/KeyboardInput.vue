@@ -37,6 +37,7 @@ const inputEl = ref(null);
 const focused = ref(false);
 const placeholder = computed(() => focused.value ? "↑↓ history · ←→ snippet" : "Tap to input");
 let suppressBlurRefocus = false;
+let refocusToken = 0;
 
 function onFocus() {
   focused.value = true;
@@ -46,6 +47,7 @@ function onFocus() {
 
 function blur() {
   suppressBlurRefocus = false;
+  refocusToken += 1;
   inputEl.value?.blur();
 }
 
@@ -59,7 +61,8 @@ function moveCursor(delta) {
 function onBlur() {
   if (suppressBlurRefocus) {
     suppressBlurRefocus = false;
-    nextTick(() => inputEl.value?.focus());
+    const token = ++refocusToken;
+    nextTick(() => { if (token === refocusToken) inputEl.value?.focus(); });
     return;
   }
   focused.value = false;
@@ -89,6 +92,7 @@ function backspace() {
 
 function submit() {
   suppressBlurRefocus = false;
+  refocusToken += 1;
   const text = draft.value.trim();
   if (!text) return;
   sendTextToTerminal(text);

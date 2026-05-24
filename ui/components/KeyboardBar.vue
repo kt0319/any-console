@@ -139,13 +139,8 @@ function toggleKeyboard() {
 }
 
 function dismissKeyboard() {
-  // 入力フォーカス中のみ（フルキーボードなし）は blur だけ。それ以外はトグル
-  if (!isFullKeyboard.value && inputFocused.value) {
-    keyboardInput.value?.blur?.();
-    clearModifiers();
-    return;
-  }
   keyboardInput.value?.blur?.();
+  inputFocused.value = false;
   isFullKeyboard.value = !isFullKeyboard.value;
   if (isFullKeyboard.value) showSnippetView.value = false;
   clearModifiers();
@@ -193,7 +188,7 @@ onMounted(() => {
     }, {
       accelerateRepeat: true,
       onFlick: (resolved) => {
-        if (resolved?._clear) { draft.value = ""; historyIndex = -1; return true; }
+        if (resolved?._clear) { draft.value = ""; return true; }
       },
     });
   }
