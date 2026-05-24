@@ -7,29 +7,26 @@
       style="display:none"
       @change="onCameraFileChange"
     />
-    <div v-show="showSnippetView" class="keyboard-chips-row">
-      <KeyboardChips :insert-mode="true" @chip:tap="onChipTap" />
-    </div>
-    <template v-if="showFnView && !inputFocused && !showSnippetView">
+    <template v-if="showFnView && !inputFocused">
+      <div class="keyboard-chips-row">
+        <KeyboardChips :insert-mode="true" @chip:tap="onChipTap" />
+      </div>
       <div class="quick-extra-row">
-        <div v-for="n in 10" :key="n" class="quick-key quick-fn-key" @touchstart.prevent @touchend.prevent="sendFn(n)" @touchcancel="onQuickKeyCancel($event)" @click="sendFn(n)">
-          F{{ n }}
+        <div
+          v-for="keyDef in numberKeys" :key="keyDef.key"
+          class="quick-key quick-fn-key quick-flick-arrow"
+          @touchstart.prevent="onFnNumberTouchStart"
+          @touchend.prevent="(e) => onFnNumberTouchEnd(e, keyDef)"
+          @touchcancel="onQuickKeyCancel($event)"
+          @click="sendKeyToTerminal({ key: keyDef.key })"
+        >
+          <span class="flick-hint-top">{{ keyDef.flickUp }}</span>
+          <span class="flick-main">{{ keyDef.label }}</span>
         </div>
       </div>
       <div class="quick-extra-row">
-        <div v-for="keyDef in numberKeys" :key="keyDef.key" class="quick-key quick-fn-key" @touchstart.prevent @touchend.prevent="sendKeyToTerminal({ key: keyDef.key })" @touchcancel="onQuickKeyCancel($event)" @click="sendKeyToTerminal({ key: keyDef.key })">
-          {{ keyDef.label }}
-        </div>
-      </div>
-      <div class="quick-extra-row">
-        <div class="quick-key quick-fn-key" @touchstart.prevent="onModifierKeyStart" @touchend.prevent="(e) => onModifierKeyEnd(e, doRefresh)" @touchcancel="onQuickKeyCancel($event)" @click="doRefresh">
-          <span class="flick-main" style="font-size:11px">Refresh</span>
-        </div>
-        <div class="quick-key quick-fn-key" @touchstart.prevent="onModifierKeyStart" @touchend.prevent="(e) => onModifierKeyEnd(e, openCamera)" @touchcancel="onQuickKeyCancel($event)" @click="openCamera">
-          <span class="flick-main"><span class="mdi mdi-camera"></span></span>
-        </div>
-        <div class="quick-key quick-fn-key" @touchstart.prevent="onModifierKeyStart" @touchend.prevent="(e) => onModifierKeyEnd(e, doReload)" @touchcancel="onQuickKeyCancel($event)" @click="doReload">
-          <span class="flick-main" style="font-size:11px">Reload</span>
+        <div v-for="navKey in navKeys" :key="navKey.key" class="quick-key quick-fn-key" @touchstart.prevent @touchend.prevent="sendKeyToTerminal({ key: navKey.key })" @touchcancel="onQuickKeyCancel($event)" @click="sendKeyToTerminal({ key: navKey.key })">
+          <span class="flick-main" style="font-size:11px">{{ navKey.label }}</span>
         </div>
       </div>
     </template>
@@ -38,11 +35,11 @@
         v-if="ri === 2"
         class="quick-key"
         @touchstart.prevent="onModifierKeyStart"
-        @touchend.prevent="(e) => onModifierKeyEnd(e, sendEsc)"
+        @touchend.prevent="(e) => onModifierKeyEnd(e, openCamera)"
         @touchcancel="onQuickKeyCancel($event)"
-        @click="sendEsc"
+        @click="openCamera"
       >
-        <span class="flick-main" style="font-size:13px">Esc</span>
+        <span class="flick-main"><span class="mdi mdi-camera"></span></span>
       </div>
       <template v-for="(keyDef, ci) in row" :key="ci">
         <div
@@ -51,11 +48,15 @@
           @touchstart.prevent="onQwertyTouchStart($event, keyDef)"
           @touchend.prevent="onQwertyTouchEnd($event, keyDef, ri, ci)"
           @touchcancel="onQuickKeyCancel($event)"
+          @click="keyDef.key === '_camera' ? openCamera() : undefined"
         >
-          <template v-if="hasFlick(ri, ci, keyDef)">
-            <span v-if="!showSymbolView && flickUpLabel(ri, ci, keyDef)" class="flick-hint-top">{{ flickUpLabel(ri, ci, keyDef) }}</span>
+          <template v-if="keyDef.key === '_camera'">
+            <span class="flick-main"><span class="mdi mdi-camera"></span></span>
+          </template>
+          <template v-else-if="hasFlick(ri, ci, keyDef)">
+            <span v-if="(!showSymbolView || keyDef.noSymbol) && flickUpLabel(ri, ci, keyDef)" class="flick-hint-top">{{ flickUpLabel(ri, ci, keyDef) }}</span>
             <span class="flick-main">{{ symbolDisplayLabel(keyDef) }}</span>
-            <span v-if="!showSymbolView && keyDef.flickDown" class="flick-hint-bottom">{{ keyDef.flickDown }}</span>
+            <span v-if="(!showSymbolView || keyDef.noSymbol) && keyDef.flickDown" class="flick-hint-bottom">{{ keyDef.flickDown }}</span>
           </template>
           <template v-else>{{ symbolDisplayLabel(keyDef) }}</template>
         </div>
@@ -63,15 +64,15 @@
           v-if="ri === 2 && ci === row.length - 1"
           class="quick-key"
           @touchstart.prevent="onModifierKeyStart"
-          @touchend.prevent="(e) => onModifierKeyEnd(e, () => sendKeyToTerminal({ key: 'Backspace' }))"
+          @touchend.prevent="(e) => onModifierKeyEnd(e, () => sendKeyToTerminal({ key: 'Enter' }))"
           @touchcancel="onQuickKeyCancel($event)"
-          @click="() => sendKeyToTerminal({ key: 'Backspace' })"
+          @click="() => sendKeyToTerminal({ key: 'Enter' })"
         >
-          <span class="flick-main" style="font-size:13px">⌫</span>
+          <span class="flick-main" style="font-size:13px">&crarr;</span>
         </div>
       </template>
     </div>
-    <div v-show="!inputFocused && !showSnippetView" class="quick-extra-row quick-extra-modifier-keys">
+    <div v-show="!inputFocused" class="quick-extra-row quick-extra-modifier-keys">
       <div
         class="quick-key quick-modifier"
         :class="{ active: modifierState.shift }"
@@ -111,16 +112,6 @@
       </div>
       <div
         class="quick-key quick-modifier"
-        :class="{ active: showFnView }"
-        @touchstart.prevent="onModifierKeyStart"
-        @touchend.prevent="(e) => onModifierKeyEnd(e, toggleFnView)"
-        @touchcancel="onQuickKeyCancel($event)"
-        @click="toggleFnView"
-      >
-        <span class="flick-main" style="font-size:12px">fn</span>
-      </div>
-      <div
-        class="quick-key quick-modifier"
         :class="{ active: showSymbolView }"
         @touchstart.prevent="onModifierKeyStart"
         @touchend.prevent="(e) => onModifierKeyEnd(e, toggleSymbolView)"
@@ -129,21 +120,21 @@
       >
         <span class="flick-main" style="font-size:11px">#+=</span>
       </div>
+      <div
+        class="quick-key quick-flick-arrow quick-modifier"
+        :class="{ active: showFnView }"
+        @touchstart.prevent="fnFlick.onStart"
+        @touchend.prevent="fnFlick.onEnd"
+        @touchcancel="onQuickKeyCancel($event)"
+        @click="toggleFnView"
+      >
+        <span class="flick-hint-top">Refresh</span>
+        <span class="flick-main" style="font-size:12px">fn</span>
+        <span class="flick-hint-bottom">Reload</span>
+      </div>
     </div>
     <div v-if="!hideBottomRow" class="quick-extra-row quick-extra-bottom-keys">
       <KeyboardInput ref="keyboardInput" v-model:draft="draft" @focused="onInputFocused" @submitted="$emit('submitted')" />
-      <div
-        class="quick-key quick-flick-arrow snippet-toggle-btn quick-modifier"
-        :class="{ active: showSnippetView }"
-        @touchstart.prevent="snippetFlick.onStart"
-        @touchend.prevent="snippetFlick.onEnd"
-        @touchcancel="onQuickKeyCancel($event)"
-        @click="toggleSnippetView"
-      >
-        <span class="flick-hint-top">Reload</span>
-        <span class="flick-main"><span class="mdi mdi-bookmark-multiple"></span></span>
-        <span class="flick-hint-bottom">Refresh</span>
-      </div>
       <div class="quick-key quick-flick-arrow quick-key-toggle active" ref="topArrowFlickEl">
         <span class="flick-hint-top">&uarr;</span>
         <span class="flick-hint-left">&larr;</span>
@@ -193,7 +184,7 @@ const props = defineProps({
   externalSnippetView: { type: Boolean, default: false },
 });
 
-const emitLocal = defineEmits(["cycleMode", "submitted", "inputFocus"]);
+const emitLocal = defineEmits(["cycleMode", "submitted", "inputFocus", "snippetToggle"]);
 
 const keyboardInput = ref(null);
 const _inputFocused = ref(false);
@@ -206,7 +197,11 @@ const inputFocused = computed(() => props.hideBottomRow ? props.externalInputFoc
 const showSnippetView = computed(() => props.hideBottomRow ? props.externalSnippetView : _showSnippetView.value);
 
 function toggleSnippetView() {
-  _showSnippetView.value = !_showSnippetView.value;
+  if (props.hideBottomRow) {
+    emitLocal("snippetToggle");
+  } else {
+    _showSnippetView.value = !_showSnippetView.value;
+  }
 }
 const snippetFlick = createFlickHandlers({ up: doReload, down: doRefresh, tap: toggleSnippetView });
 
@@ -233,7 +228,31 @@ function historyNext() {
 
 watch(draft, (val) => {
   if (val === "") historyIndex = -1;
-});
+})
+
+let snippetIndex = -1;
+let savedSnippetDraft = "";
+function cycleSnippet(dir) {
+  const list = inputStore.snippetsCache;
+  if (!list.length) return;
+  if (snippetIndex === -1) savedSnippetDraft = draft.value;
+  const next = snippetIndex + dir;
+  if (next < 0) {
+    snippetIndex = -1;
+    if (inputFocused.value) draft.value = savedSnippetDraft;
+    return;
+  }
+  snippetIndex = Math.min(next, list.length - 1);
+  const command = list[snippetIndex]?.command;
+  if (!command) return;
+  if (inputFocused.value) {
+    draft.value = command;
+  } else {
+    sendTextToTerminal(command);
+    inputStore.addInputHistory(command);
+    emitLocal("cycleMode");
+  }
+}
 
 function focusInput() {
   keyboardInput.value?.focus?.();
@@ -294,7 +313,7 @@ function hasFlick(ri, ci, keyDef) {
 }
 
 function flickUpLabel(ri, ci, keyDef) {
-  return keyDef.flickUp || "";
+  return keyDef.flickUpLabel || keyDef.flickUp || "";
 }
 
 function onQuickKeyCancel(e) {
@@ -347,7 +366,7 @@ function onQwertyTouchEnd(e, keyDef, ri, ci) {
     sendOrType({ key: keyDef.flickDown, label: keyDef.flickDown });
     return;
   }
-  if (showSymbolView.value && keyDef.flickUp && Math.abs(dy) <= 30) {
+  if (showSymbolView.value && keyDef.flickUp && !keyDef.noSymbol && Math.abs(dy) <= 30) {
     sendOrType({ key: keyDef.flickUp, label: keyDef.flickUp });
     return;
   }
@@ -395,24 +414,65 @@ async function onCameraFileChange(e) {
 
 function toggleShift() {
   modifierState.shift = !modifierState.shift;
-  if (modifierState.shift) showSymbolView.value = false;
+  if (modifierState.shift) { showSymbolView.value = false; showFnView.value = false; }
 }
-function toggleCtrl() { modifierState.ctrl = !modifierState.ctrl; }
+function toggleCtrl() {
+  modifierState.ctrl = !modifierState.ctrl;
+  if (modifierState.ctrl) showFnView.value = false;
+}
 function sendSpace() { sendKeyToTerminal({ key: " " }); }
 function sendEsc() { sendKeyToTerminal({ key: "Escape" }); }
 
 const showFnView = ref(false);
-function toggleFnView() { showFnView.value = !showFnView.value; }
+const fnFlick = createFlickHandlers({ up: doRefresh, down: doReload, tap: toggleFnView });
+function toggleFnView() {
+  showFnView.value = !showFnView.value;
+  if (showFnView.value) {
+    modifierState.shift = false;
+    modifierState.ctrl = false;
+    showSymbolView.value = false;
+    if (props.hideBottomRow) {
+      if (props.externalSnippetView) emitLocal("snippetToggle");
+    } else {
+      _showSnippetView.value = false;
+    }
+  }
+}
 function sendFn(n) { sendKeyToTerminal({ key: `F${n}` }); }
+
+const navKeys = [
+  { label: "Home",  key: "Home" },
+  { label: "End",   key: "End" },
+  { label: "PgUp",  key: "PageUp" },
+  { label: "PgDn",  key: "PageDown" },
+  { label: "Ins",   key: "Insert" },
+  { label: "F11",   key: "F11" },
+  { label: "F12",   key: "F12" },
+];
+
+function onFnNumberTouchStart(e) {
+  e.currentTarget.classList.add("pressed");
+  e.currentTarget._touchStartY = e.touches[0].clientY;
+}
+
+function onFnNumberTouchEnd(e, keyDef) {
+  e.currentTarget.classList.remove("pressed");
+  const dy = e.changedTouches[0].clientY - (e.currentTarget._touchStartY || 0);
+  if (keyDef.flickUp && dy < -30) {
+    sendKeyToTerminal({ key: keyDef.flickUp });
+    return;
+  }
+  sendKeyToTerminal({ key: keyDef.key });
+}
 
 const showSymbolView = ref(false);
 function toggleSymbolView() {
   showSymbolView.value = !showSymbolView.value;
-  if (showSymbolView.value) modifierState.shift = false;
+  if (showSymbolView.value) { modifierState.shift = false; showFnView.value = false; }
 }
 
 function symbolDisplayLabel(keyDef) {
-  if (showSymbolView.value && keyDef.flickUp) return keyDef.flickUp;
+  if (showSymbolView.value && keyDef.flickUp && !keyDef.noSymbol) return keyDef.flickUp;
   return displayLabel(keyDef);
 }
 
@@ -465,12 +525,10 @@ onMounted(() => {
     const onArrowFlick = (key) => {
       if (!inputFocused.value) return false;
       if (key.key === "ArrowLeft" || key.key === "ArrowRight") {
-        if (cursorRepeatKey === key.key) return true;
-        cursorStopRepeat();
-        cursorRepeatKey = key.key;
-        const delta = key.key === "ArrowLeft" ? -1 : 1;
-        keyboardInput.value?.moveCursor?.(delta);
-        cursorRepeatTimer = setTimeout(() => cursorScheduleRepeat(delta, REPEAT_INTERVAL), REPEAT_DELAY);
+        if (!arrowFlickHandled) {
+          arrowFlickHandled = true;
+          cycleSnippet(key.key === "ArrowLeft" ? 1 : -1);
+        }
         return true;
       }
       if (arrowFlickHandled) return true;

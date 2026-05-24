@@ -8,6 +8,7 @@
       :external-snippet-view="showSnippetView"
       @cycleMode="toggleKeyboard"
       @submitted="onSubmitted"
+      @snippetToggle="toggleSnippetView"
     />
     <!-- ミニマムモード時のスニペット表示 -->
     <div v-if="showSnippetView" class="keyboard-bar-snippets">
@@ -30,11 +31,11 @@
       </div>
       <div
         class="quick-key quick-flick-enter quick-flick-arrow quick-key-toggle"
-        :class="{ 'enter-send-mode': inputFocused && hasDraft, 'enter-disabled': inputFocused && !hasDraft }"
+        :class="{ 'enter-send-mode': hasDraft, 'enter-disabled': inputFocused && !hasDraft }"
         ref="barEnterFlickEl"
       >
-        <template v-if="inputFocused">
-          <span v-if="hasDraft" class="flick-hint-top" style="font-size:8px">clear</span>
+        <template v-if="hasDraft">
+          <span class="flick-hint-left" style="font-size:8px">clear</span>
           <span class="flick-main"><span class="mdi mdi-send"></span></span>
         </template>
         <template v-else>
@@ -44,18 +45,6 @@
           <span class="flick-hint-bottom">Space</span>
           <span class="flick-hint-right">Del</span>
         </template>
-      </div>
-      <div
-        class="quick-key quick-flick-arrow snippet-toggle-btn quick-modifier"
-        :class="{ active: showSnippetView }"
-        @touchstart.prevent="snippetFlick.onStart"
-        @touchend.prevent="snippetFlick.onEnd"
-        @touchcancel="onQuickKeyCancel"
-        @click="toggleSnippetView"
-      >
-        <span class="flick-hint-top">Reload</span>
-        <span class="flick-main"><span class="mdi mdi-bookmark-multiple"></span></span>
-        <span class="flick-hint-bottom">Refresh</span>
       </div>
     </div>
   </div>
@@ -99,7 +88,7 @@ const hasDraft = computed(() => draft.value.trim().length > 0);
 let historyIndex = -1;
 let savedDraft = "";
 
-watch(draft, (val) => { if (val === "") historyIndex = -1; });
+watch(draft, (val) => { if (val === "") { historyIndex = -1; snippetIndex = -1; } });
 
 function historyPrev() {
   const list = inputStore.inputHistory;
@@ -121,6 +110,29 @@ function historyNext() {
 
 function onInputFocused(focused) {
   inputFocused.value = !!focused;
+}
+
+let snippetIndex = -1;
+let savedSnippetDraft = "";
+function cycleSnippet(dir) {
+  const list = inputStore.snippetsCache;
+  if (!list.length) return;
+  if (snippetIndex === -1) savedSnippetDraft = draft.value;
+  const next = snippetIndex + dir;
+  if (next < 0) {
+    snippetIndex = -1;
+    if (inputFocused.value) draft.value = savedSnippetDraft;
+    return;
+  }
+  snippetIndex = Math.min(next, list.length - 1);
+  const command = list[snippetIndex]?.command;
+  if (!command) return;
+  if (inputFocused.value) {
+    draft.value = command;
+  } else {
+    sendTextToTerminal(command);
+    inputStore.addInputHistory(command);
+  }
 }
 
 function toggleSnippetView() {
@@ -214,12 +226,10 @@ onMounted(() => {
     const onArrowFlick = (key) => {
       if (!inputFocused.value) return false;
       if (key.key === "ArrowLeft" || key.key === "ArrowRight") {
-        if (cursorRepeatKey === key.key) return true;
-        cursorStopRepeat();
-        cursorRepeatKey = key.key;
-        const delta = key.key === "ArrowLeft" ? -1 : 1;
-        keyboardInput.value?.moveCursor?.(delta);
-        cursorRepeatTimer = setTimeout(() => cursorScheduleRepeat(delta, REPEAT_INTERVAL), REPEAT_DELAY);
+        if (!arrowFlickHandled) {
+          arrowFlickHandled = true;
+          cycleSnippet(key.key === "ArrowLeft" ? 1 : -1);
+        }
         return true;
       }
       if (arrowFlickHandled) return true;
@@ -236,10 +246,8 @@ onMounted(() => {
 
   if (barEnterFlickEl.value) {
     const enterFlickResolver = (dx, dy, threshold) => {
-      if (inputFocused.value) {
-        if (hasDraft.value && Math.abs(dy) > Math.abs(dx) && dy < -threshold) return { _clear: true };
-        return null;
-      }
+      if (hasDraft.value && Math.abs(dx) > Math.abs(dy) && dx < -threshold) return { _clear: true };
+      if (inputFocused.value) return null;
       return enterResolver(dx, dy, threshold);
     };
     setupFlickRepeat(barEnterFlickEl.value, enterFlickResolver, () => {
@@ -326,9 +334,6 @@ onUnmounted(() => cleanups.forEach((fn) => fn()));
   font-size: 14px;
 }
 
-.keyboard-bar-row .enter-send-mode {
-  border-color: var(--accent);
-}
 
 .keyboard-bar-row .enter-disabled {
   color: var(--white-30);

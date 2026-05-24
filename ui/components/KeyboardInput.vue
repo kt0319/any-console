@@ -35,7 +35,7 @@ const { sendTextToTerminal } = useKeyboard();
 const draft = defineModel("draft", { default: "" });
 const inputEl = ref(null);
 const focused = ref(false);
-const placeholder = computed(() => focused.value ? "Flick × ↑↓ history / ←→ cursor" : "Tap to text input");
+const placeholder = computed(() => focused.value ? "↑↓ history · ←→ snippet" : "Tap to input");
 let suppressBlurRefocus = false;
 
 function onFocus() {
