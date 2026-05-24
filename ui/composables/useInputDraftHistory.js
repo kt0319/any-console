@@ -1,7 +1,7 @@
 import { watch } from "vue";
 import { useInputStore } from "../stores/input.js";
 
-export function useInputDraftHistory(draft, inputFocused, sendTextToTerminal, { onSend } = {}) {
+export function useInputDraftHistory(draft, inputFocused, sendTextToTerminal, { onSend = undefined } = {}) {
   const inputStore = useInputStore();
 
   let historyIndex = -1;
