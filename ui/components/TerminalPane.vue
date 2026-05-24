@@ -158,11 +158,10 @@ function onWheel(e) {
 }
 
 // term.open() 後に xterm フォーカスポリシーを注入する。
-// タッチデバイスの isPanelBottom では textarea へのフォーカスを禁止し OSK を抑制する。
-// 非タッチデバイス（狭幅PC）では物理キーボードを使えるよう通常のフォーカスを許可する。
+// isPanelBottom（モバイル / 狭幅PC）では textarea へのフォーカスを禁止し、
+// キーボードバー入力経由でのみターミナルへ送るよう統一する。
 function applyFocusGuard(term) {
   if (!term?.textarea) return;
-  if (!layoutStore.isTouchDevice) return;
   const origFocus = term.focus.bind(term);
   term.focus = () => { if (!layoutStore.isPanelBottom) origFocus(); };
   term.textarea.tabIndex = -1;
