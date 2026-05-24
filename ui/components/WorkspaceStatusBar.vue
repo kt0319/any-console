@@ -4,17 +4,18 @@
       <div class="status-nav-group">
         <button type="button" class="status-nav-btn" aria-label="Jobs" data-tooltip="Jobs" @click="openFileModal('jobs')">
           <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
-          <span class="status-btn-label">Jobs</span>
+          <span class="status-btn-label status-btn-label-always">Jobs</span>
         </button>
         <div class="status-divider"></div>
         <button type="button" class="status-nav-btn" aria-label="Files" data-tooltip="Files" @click="openFileModal('files')">
           <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
-          <span class="status-btn-label">Files</span>
+          <span class="status-btn-label status-btn-label-always">Files</span>
         </button>
         <template v-if="isGitRepo">
           <div class="status-divider"></div>
           <button type="button" class="status-nav-btn status-msg-btn" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
             <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
+            <span class="status-btn-label status-btn-label-always">History</span>
             <span class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
           </button>
           <div class="status-divider"></div>
@@ -211,6 +212,14 @@ function openWorkspaceModal() {
   display: none;
 }
 
+.status-btn-label-always {
+  display: inline;
+}
+
+.status-nav-btn:has(.status-btn-label-always) {
+  padding: 0 8px;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .status-btn-label {
     display: inline;
@@ -218,6 +227,16 @@ function openWorkspaceModal() {
 
   .status-nav-btn {
     padding: 0 8px;
+  }
+
+  .status-msg-btn .status-btn-label {
+    display: none;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .status-msg-text {
+    display: none;
   }
 }
 
@@ -256,7 +275,9 @@ function openWorkspaceModal() {
 }
 
 .status-msg-text {
-  display: block;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
