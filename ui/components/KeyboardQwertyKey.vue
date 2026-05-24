@@ -352,21 +352,30 @@ async function onCameraFileChange(e) {
   await uploadImageAndSendPath(file);
 }
 
+function dismissSnippetView() {
+  if (!showSnippetView.value) return;
+  if (props.hideBottomRow) emitLocal("snippetToggle");
+  else _showSnippetView.value = false;
+}
 function toggleShift() {
   if (showSymbolView.value) {
     showSymbolView.value = false;
     modifierState.shift = false;
+    dismissSnippetView();
     return;
   }
+  dismissSnippetView();
   modifierState.shift = !modifierState.shift;
   if (modifierState.shift) { showFnView.value = false; }
 }
 function toggleCtrl() {
+  dismissSnippetView();
   modifierState.ctrl = !modifierState.ctrl;
   if (modifierState.ctrl) showFnView.value = false;
 }
 function sendSpace() { sendKeyToTerminal({ key: " " }); }
 const showFnView = ref(false);
+watch(showSnippetView, (val) => { if (val) showFnView.value = false; });
 const fnFlick = createFlickHandlers({ up: doRefresh, down: doReload, tap: toggleFnView });
 function toggleFnView() {
   showFnView.value = !showFnView.value;
