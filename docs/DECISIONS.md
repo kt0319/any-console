@@ -115,3 +115,14 @@
 - **Alternatives considered**: React — 個人的な慣れの問題で Vue を選択。Next.js / Nuxt — SSR 不要なため SPA で十分。
 
 ---
+
+### 10. PWA (Service Worker + manifest) の採用
+
+- **Status**: Accepted
+- **Date**: 2025-05
+- **Context**: モバイルファースト (ADR #5) の帰結として、ホーム画面への追加・standalone 表示・Tailscale 経由でのコールドスタート短縮が必要だった。
+- **Decision**: `manifest.json` + `ui/sw.js` を採用。キャッシュ名は `any-console-{git-short-hash}` とし、ビルド時に vite.config.js が置換することでデプロイごとに自動で cache busting される。API リクエストは fetch ハンドラの bypass リストで除外し、network-first の対象外とする。
+- **Consequences**: オフラインで動くのは静的アセットのみ（terminal / git / jobs はバックエンド必須）。API ルートを追加・変更した際は `ui/sw.js` の bypass リストも同時に更新しなければならない保守負担がある。
+- **Alternatives considered**: PWA なし — モバイル UX が一段下がる (ブラウザの UI バーが常に表示される等)。Workbox 導入 — 個人ツールには設定コストが過剰。
+
+---
