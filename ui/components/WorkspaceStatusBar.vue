@@ -4,10 +4,12 @@
       <div class="status-nav-group">
         <button type="button" class="status-nav-btn" aria-label="Jobs" data-tooltip="Jobs" @click="openFileModal('jobs')">
           <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
+          <span class="status-btn-label">Jobs</span>
         </button>
         <div class="status-divider"></div>
         <button type="button" class="status-nav-btn" aria-label="Files" data-tooltip="Files" @click="openFileModal('files')">
           <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
+          <span class="status-btn-label">Files</span>
         </button>
         <template v-if="isGitRepo">
           <div class="status-divider"></div>
@@ -18,6 +20,7 @@
           <div class="status-divider"></div>
           <button type="button" class="status-nav-btn status-numstat-btn" tabindex="-1" aria-label="Changes" data-tooltip="Changes" @click="openFileModal('changes')">
             <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
+            <span class="status-btn-label">Changes</span>
             <template v-if="isDirty && !statusLoading">
               <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
               <span class="diff-num-plus">+{{ insertions }}</span>
@@ -171,6 +174,7 @@ function openWorkspaceModal() {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   height: 36px;
   padding: 0 2px;
   background: transparent;
@@ -201,6 +205,18 @@ function openWorkspaceModal() {
   font-size: 15px;
   flex-shrink: 0;
   color: var(--text-muted);
+}
+
+.status-btn-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .status-btn-label {
+    display: inline;
+  }
 }
 
 .status-branch-btn {
