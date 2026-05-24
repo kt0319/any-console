@@ -367,17 +367,17 @@ defineExpose({ fitAllTerminals, selectPane });
   flex-direction: column;
   gap: 4px;
   border-radius: 8px;
-  background: rgba(255, 85, 114, 0.1);
-  border: 2px dashed rgba(255, 85, 114, 0.45);
+  background: rgba(130, 170, 255, 0.08);
+  border: 2px dashed rgba(130, 170, 255, 0.35);
 }
 
 .split-drop-zone.drop-center .drop-zone-icon {
-  color: rgba(255, 85, 114, 0.7);
+  color: rgba(130, 170, 255, 0.5);
 }
 
 .split-drop-zone.drop-center .drop-zone-label {
   font-size: 11px;
-  color: rgba(255, 85, 114, 0.85);
+  color: rgba(130, 170, 255, 0.7);
   letter-spacing: 0.3px;
   text-transform: none;
   white-space: nowrap;
@@ -385,13 +385,13 @@ defineExpose({ fitAllTerminals, selectPane });
 }
 
 .split-drop-zone.drag-over.drop-center {
-  background: rgba(255, 85, 114, 0.22);
-  border-color: var(--error);
+  background: rgba(130, 170, 255, 0.18);
+  border-color: var(--accent);
 }
 
 .split-drop-zone.drag-over.drop-center .drop-zone-icon,
 .split-drop-zone.drag-over.drop-center .drop-zone-label {
-  color: var(--error);
+  color: var(--accent);
 }
 
 .split-drop-zone.drag-over {
