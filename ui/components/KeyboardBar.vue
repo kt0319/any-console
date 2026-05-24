@@ -139,10 +139,19 @@ function toggleKeyboard() {
 }
 
 function dismissKeyboard() {
-  keyboardInput.value?.blur?.();
-  inputFocused.value = false;
-  isFullKeyboard.value = !isFullKeyboard.value;
-  if (isFullKeyboard.value) showSnippetView.value = false;
+  if (inputFocused.value) {
+    keyboardInput.value?.blur?.();
+    inputFocused.value = false;
+    clearModifiers();
+    return;
+  }
+  if (isFullKeyboard.value) {
+    isFullKeyboard.value = false;
+    clearModifiers();
+    return;
+  }
+  isFullKeyboard.value = true;
+  showSnippetView.value = false;
   clearModifiers();
 }
 
