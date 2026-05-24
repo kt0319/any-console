@@ -1,17 +1,17 @@
 import { useAuthStore } from "../stores/auth.js";
 import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
+import { useWorkspaceFile } from "./useWorkspaceFile.js";
 import { emit } from "../app-bridge.js";
 import { MSG_DELETE_FAILED } from "../utils/constants.js";
 import { useConfirm } from "./useConfirm.js";
 import { usePrompt } from "./usePrompt.js";
-import { triggerBlobDownload } from "../utils/download.js";
-import { workspaceDownloadPath } from "../utils/endpoints.js";
 
 export function useFileActions({ getContextEntry, clearContextEntry, getCurrentPath, getFileContent, navigateToPath }) {
   const auth = useAuthStore();
   const { withWorkspace } = useWorkspace();
   const { apiGet, apiPost, wsEndpoint } = useApi();
+  const { downloadWorkspaceFile, deleteWorkspaceFile } = useWorkspaceFile();
   const { confirm } = useConfirm();
   const { prompt } = usePrompt();
 
@@ -68,26 +68,12 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
     if (!filePath || !fileName) return;
     if (!await confirm(`Delete "${fileName}"?`)) { clearContextEntry(); return; }
     clearContextEntry();
-    await withWorkspace(async (workspace) => {
-      const { ok } = await apiPost(wsEndpoint(workspace, "delete-file"), { path: filePath }, { errorMessage: MSG_DELETE_FAILED });
-      if (!ok) return;
-      emit("toast:show", { message: "Deleted", type: "success" });
-      await navigateToPath(getCurrentPath());
-    });
+    const ok = await deleteWorkspaceFile(filePath, { errorMessage: MSG_DELETE_FAILED });
+    if (ok) await navigateToPath(getCurrentPath());
   }
 
   async function downloadFile(filePath) {
-    if (!filePath) return;
-    await withWorkspace(async (workspace) => {
-      try {
-        const res = await auth.apiFetch(workspaceDownloadPath(workspace, filePath));
-        if (!res?.ok) throw new Error();
-        const blob = await res.blob();
-        triggerBlobDownload(blob, filePath.split("/").pop() || "download");
-      } catch {
-        emit("toast:show", { message: "Download failed", type: "error" });
-      }
-    });
+    await downloadWorkspaceFile(filePath);
   }
 
   async function downloadEntry() {
