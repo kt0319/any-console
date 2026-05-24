@@ -71,6 +71,7 @@ export function useKeyboard() {
     let repeatingKey = null;
     let longPressTimer = null;
     let longPressFired = false;
+    let lastTouchTimestamp = 0;
 
     const stopRepeat = () => {
       if (repeatTimer !== null) { clearTimeout(repeatTimer); repeatTimer = null; }
@@ -124,6 +125,7 @@ export function useKeyboard() {
       if (e.cancelable) e.preventDefault();
       el.classList.remove("pressed");
       cancelLongPress();
+      lastTouchTimestamp = Date.now();
       if (longPressFired) return;
       if (repeatingKey) { stopRepeat(); return; }
       const dx = e.changedTouches[0].clientX - startX;
@@ -141,6 +143,13 @@ export function useKeyboard() {
       el.classList.remove("pressed");
       stopRepeat();
       cancelLongPress();
+      lastTouchTimestamp = Date.now();
+    });
+
+    // マウス（PC）クリック対応。タッチ直後の合成クリックは無視する。
+    el.addEventListener("click", () => {
+      if (Date.now() - lastTouchTimestamp < 500) return;
+      if (onTap) onTap();
     });
   }
 

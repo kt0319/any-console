@@ -48,7 +48,7 @@
           @touchstart.prevent="onQwertyTouchStart($event, keyDef)"
           @touchend.prevent="onQwertyTouchEnd($event, keyDef, ri, ci)"
           @touchcancel="onQuickKeyCancel($event)"
-          @click="keyDef.key === '_camera' ? openCamera() : undefined"
+          @click="onQwertyTap(keyDef)"
         >
           <template v-if="keyDef.key === '_camera'">
             <span class="flick-main"><span class="mdi mdi-camera"></span></span>
@@ -308,7 +308,12 @@ function onQwertyTouchEnd(e, keyDef, ri, ci) {
     sendOrType({ key: keyDef.flickDown, label: keyDef.flickDown });
     return;
   }
-  if (showSymbolView.value && keyDef.flickUp && !keyDef.noSymbol && Math.abs(dy) <= 30) {
+  onQwertyTap(keyDef);
+}
+
+function onQwertyTap(keyDef) {
+  if (keyDef.key === "_camera") { openCamera(); return; }
+  if (showSymbolView.value && keyDef.flickUp && !keyDef.noSymbol) {
     sendOrType({ key: keyDef.flickUp, label: keyDef.flickUp });
     return;
   }
