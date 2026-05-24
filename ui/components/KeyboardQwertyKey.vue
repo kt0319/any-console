@@ -163,7 +163,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useInputStore } from "../stores/input.js";
 import { useAuthStore } from "../stores/auth.js";
@@ -183,6 +183,10 @@ const props = defineProps({
 });
 
 const emitLocal = defineEmits(["cycleMode", "submitted", "inputFocus", "snippetToggle"]);
+
+const inputStore = useInputStore();
+const auth = useAuthStore();
+const { sendKeyToTerminal, sendTextToTerminal, modifierState, clearModifiers, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
 
 const keyboardInput = ref(null);
 const _inputFocused = ref(false);
@@ -225,10 +229,6 @@ function onChipTap({ command }) {
 }
 
 defineExpose({});
-
-const inputStore = useInputStore();
-const auth = useAuthStore();
-const { sendKeyToTerminal, sendTextToTerminal, modifierState, clearModifiers, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
 
 watch(() => props.active, (active) => {
   if (!active) {
