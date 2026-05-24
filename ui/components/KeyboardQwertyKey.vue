@@ -165,10 +165,8 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
-import { usePrompt } from "../composables/usePrompt.js";
 import { useInputStore } from "../stores/input.js";
 import { useAuthStore } from "../stores/auth.js";
-import { useConfirm } from "../composables/useConfirm.js";
 import { emit, on } from "../app-bridge.js";
 import { REPEAT_DELAY, REPEAT_INTERVAL, MIN_REPEAT_INTERVAL, REPEAT_ACCELERATION } from "../utils/constants.js";
 import { arrowResolver, enterResolver } from "../utils/flick-resolvers.js";
@@ -203,7 +201,6 @@ function toggleSnippetView() {
     _showSnippetView.value = !_showSnippetView.value;
   }
 }
-const snippetFlick = createFlickHandlers({ up: doReload, down: doRefresh, tap: toggleSnippetView });
 
 let historyIndex = -1;
 let savedDraft = "";
@@ -254,14 +251,6 @@ function cycleSnippet(dir) {
   }
 }
 
-function focusInput() {
-  keyboardInput.value?.focus?.();
-}
-
-function blurInput() {
-  keyboardInput.value?.blur?.();
-}
-
 function onInputFocused(focused) {
   _inputFocused.value = !!focused;
   emitLocal("inputFocus", !!focused);
@@ -280,12 +269,11 @@ function onChipTap({ command }) {
   _showSnippetView.value = false;
 }
 
-defineExpose({ focusInput, blurInput });
+defineExpose({});
 
 const inputStore = useInputStore();
 const auth = useAuthStore();
 const { sendKeyToTerminal, sendTextToTerminal, modifierState, clearModifiers, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
-const { confirm } = useConfirm();
 
 watch(() => props.active, (active) => {
   if (!active) {
@@ -294,8 +282,6 @@ watch(() => props.active, (active) => {
     showSymbolView.value = false;
   }
 });
-const { prompt } = usePrompt();
-
 const topArrowFlickEl = ref(null);
 const topEnterFlickEl = ref(null);
 const cameraInputEl = ref(null);
@@ -377,8 +363,6 @@ function onQwertyTouchEnd(e, keyDef, ri, ci) {
 }
 
 
-const cameraFlick = createFlickHandlers({ up: () => doReload(), tap: () => openCamera() });
-
 function doRefresh() {
   const tab = getActiveTerminalTab();
   if (tab) emit("tab:refresh", { tab });
@@ -421,8 +405,6 @@ function toggleCtrl() {
   if (modifierState.ctrl) showFnView.value = false;
 }
 function sendSpace() { sendKeyToTerminal({ key: " " }); }
-function sendEsc() { sendKeyToTerminal({ key: "Escape" }); }
-
 const showFnView = ref(false);
 const fnFlick = createFlickHandlers({ up: doRefresh, down: doReload, tap: toggleFnView });
 function toggleFnView() {
@@ -438,8 +420,6 @@ function toggleFnView() {
     }
   }
 }
-function sendFn(n) { sendKeyToTerminal({ key: `F${n}` }); }
-
 const navKeys = [
   { label: "Home",  key: "Home" },
   { label: "End",   key: "End" },

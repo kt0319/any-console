@@ -149,7 +149,6 @@ function doRefresh() {
 function doReload() {
   window.location.replace(window.location.pathname + "?_=" + Date.now());
 }
-const snippetFlick = createFlickHandlers({ up: doReload, down: doRefresh, tap: toggleSnippetView });
 
 function onQuickKeyCancel(e) {
   e.currentTarget.classList.remove("pressed");
@@ -322,16 +321,11 @@ onUnmounted(() => cleanups.forEach((fn) => fn()));
 }
 
 .keyboard-bar-row .quick-flick-arrow,
-.keyboard-bar-row .quick-flick-enter,
-.keyboard-bar-row .snippet-toggle-btn {
+.keyboard-bar-row .quick-flick-enter {
   flex: 1;
   min-width: 0;
   width: auto;
   border-color: var(--white-30);
-}
-
-.keyboard-bar-row .snippet-toggle-btn .flick-main {
-  font-size: 14px;
 }
 
 
