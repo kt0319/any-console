@@ -40,6 +40,8 @@ The runtime (Python + Node + tmux) is POSIX-portable, but the operational toolin
 
 macOS / Windows users can run any-console via Docker, but the `./any-console` helper (`start`, `update`, `logs`, etc.) requires systemd and is Linux-only. Daily-use development happens on the systemd path.
 
+> **Note: Docker is intended as a minimal demo/sandbox.** Workspaces, SSH keys, git config, GitHub credentials, shell environment etc. live on the host, and threading all of them into a container in a portable way is out of scope for this project. Use Docker to evaluate any-console; for real daily use, run it directly on Linux + systemd next to the workspaces you actually edit.
+
 ## Setup
 
 ### systemd (Linux) — first-class
@@ -52,7 +54,7 @@ cd any-console
 
 Installs dependencies, builds the frontend, and registers a systemd service in one step. After this, manage the service with `./any-console start|stop|update|logs|...` (see [Commands](#commands)).
 
-### Docker (Linux / macOS / Windows)
+### Docker (Linux / macOS / Windows) — demo / sandbox
 
 ```bash
 git clone https://github.com/kt0319/any-console.git
@@ -61,6 +63,8 @@ docker compose -f docker/compose.yml up -d
 ```
 
 Open `http://<host>:8888`.
+
+The default compose file mounts only `./work` inside the repository as the workspace root. The container has its own user, no host SSH keys, no host `git`/`gh` config, and no access to the host shell environment. That makes Docker fine for trying any-console out, but ill-suited for daily work on your real projects.
 
 The `./any-console` CLI does not manage Docker containers. Use `docker compose` directly for start/stop/logs, and `git pull && docker compose ... up -d --build` to update.
 
