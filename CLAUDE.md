@@ -19,7 +19,7 @@
 
 # プロジェクト概要
 
-Web操作コンソール。スマホから Tailscale 経由でシェルスクリプトのジョブ実行、Git操作、Webターミナルを提供する。
+Web操作コンソール。スマホを主軸に、PC でも同等の操作ができるブラウザ UI。Tailscale 経由でジョブ実行・Git操作・Webターミナルを提供する。
 
 UIは **モバイルファースト** で設計しつつ、**PCでもシームレスに使える** ことを目指す（同一URL・同一機能・画面サイズや入力デバイスに応じた自然な最適化）。
 
@@ -67,24 +67,9 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
 
 # UIルール
 
-## 基本方針
-
-モバイルファースト。ただし PC でも同等機能を提供する。
-
-## 画面設計
-
-- 広い画面では情報密度を上げる
-- 無意味な余白を増やさない
-
 ## 入力デバイス
 
-### PC
-
-- keyboard shortcut
-- hover
-- right click
-
-を活用可能。
+モバイルを主軸とし、PC ではそれをサポートする形で UI を提供する。
 
 ### Mobile
 
@@ -92,6 +77,20 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
 - swipe
 
 を基本とする。
+
+### PC
+
+モバイル UI を踏襲しつつ、補助的に
+
+- keyboard shortcut
+- hover
+
+を活用する。
+
+## 画面設計
+
+- 広い画面では情報密度を上げる
+- 無意味な余白を増やさない
 
 ## タップターゲット
 
@@ -103,7 +102,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
 
 # Confirm Rules
 
-破壊的操作は必ず確認ダイアログを挟む。
+破壊的操作は必ず確認ダイアログを挟むこと (**MUST**)。
 
 対象例:
 
@@ -118,19 +117,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
 
 ## 実装
 
-必ず:
-
-```js
-useConfirm()
-```
-
-を使う。
-
-禁止:
-
-```js
-window.confirm()
-```
+`useConfirm()` を使う (**MUST**)。`window.confirm()` は使わない (**MUST NOT** — フォーカストラップ等を持つ独自実装に統一するため)。
 
 ## メッセージ
 
@@ -196,11 +183,11 @@ JS class 切替で表現。
 
 ## API endpoint
 
-ハードコード禁止。必ず `ui/utils/endpoints.js` を使用。
+`ui/utils/endpoints.js` を使用 (**MUST** — URL ハードコード禁止)。
 
 ## timer
 
-`setTimeout` / `setInterval` 等の時間値、ブレークポイント等の数値定数は `ui/utils/constants.js` へ定義。直書き禁止。
+`setTimeout` / `setInterval` 等の時間値、ブレークポイント等の数値定数は `ui/utils/constants.js` に定義する (**MUST** — 直書き禁止)。
 
 ## API error
 
@@ -224,15 +211,15 @@ apiGet(..., {
 
 ## Error field
 
-エラーフィールドは `detail` を使用。`message` は使わない。
+エラーフィールドは `detail` を使用 (**MUST** — `message` は使わない)。
 
 ## Exception
 
-裸の `except Exception` は禁止。具体的例外を指定する。
+具体的例外を指定する (**MUST NOT** 裸の `except Exception`)。
 
 ## subprocess
 
-失敗時は `OSError` も捕捉する。
+失敗時は `OSError` も捕捉する (**MUST**)。
 
 ---
 
