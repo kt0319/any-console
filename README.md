@@ -31,16 +31,16 @@ Website: <https://any-console.highedge.net/>
 
 ## Platform support
 
-The runtime (Python + Node + tmux) is POSIX-portable, but the operational tooling around it is not. Two supported setups:
+**Client side: any OS, any device with a modern browser.** This is the whole point of any-console — open `https://<your-host>/` from your phone, laptop, or any browser and you get the full UI.
 
-| Setup | Platforms | `./any-console` CLI | Auto-update | Service mgmt |
-|-------|-----------|---------------------|-------------|--------------|
-| **systemd** (first-class) | Linux | yes | `./any-console update` | systemd |
-| **Docker** | Linux / macOS / Windows | no | manual `git pull` + `docker compose` | docker compose |
+**Host (server) side: Linux only for real use.** The runtime is POSIX-portable, but the operational pieces that make any-console useful (`systemd` for service management, `tmux` for persistent sessions, the `./any-console` helper) all assume Linux.
 
-macOS / Windows users can run any-console via Docker, but the `./any-console` helper (`start`, `update`, `logs`, etc.) requires systemd and is Linux-only. Daily-use development happens on the systemd path.
+| Host setup | Platforms | Status |
+|------------|-----------|--------|
+| **systemd** (first-class) | Linux | Supported. Daily-use target. |
+| **Docker** | Linux / macOS / Windows | Demo / sandbox only — not suitable for real workspaces. |
 
-> **Note: Docker is intended as a minimal demo/sandbox.** Workspaces, SSH keys, git config, GitHub credentials, shell environment etc. live on the host, and threading all of them into a container in a portable way is out of scope for this project. Use Docker to evaluate any-console; for real daily use, run it directly on Linux + systemd next to the workspaces you actually edit.
+The host running any-console needs Linux. Browser access from macOS / Windows / iOS / Android is fully supported and is the intended client experience. Docker exists to let curious users try the UI without provisioning a Linux box; the host's workspaces, SSH keys, git/gh config, and shell environment are intentionally not threaded into the container.
 
 ## Setup
 
