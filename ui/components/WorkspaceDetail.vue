@@ -65,12 +65,14 @@ import GitHubPRsPane from "./GitHubPRsPane.vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
+import { useToast } from "../composables/useToast.js";
 import { useModalView } from "../composables/useModalView.js";
 import { getCachedCount, useGitHub } from "../composables/useGitHub.js";
 import { getStashCachedCount, setStashCache } from "../composables/useStashCache.js";
 
 const workspaceStore = useWorkspaceStore();
 const { apiCommand, apiGet, wsEndpoint } = useApi();
+const toast = useToast();
 const { loadWorkspaceGithubUrl, loadIssues, loadPRs } = useGitHub();
 const { modalTitle, viewState } = useModalView();
 
@@ -277,7 +279,7 @@ const _offHandlers = [
     if (!ok) return;
     workspaceStore.fetchStatuses();
     bridgeEmit("modal:close");
-    bridgeEmit("toast:show", { message: `Switched branch to "${branch}"`, type: "success" });
+    toast.success(`Switched branch to "${branch}"`);
   }),
 
   on("git:stashSave", async () => {
@@ -286,7 +288,7 @@ const _offHandlers = [
     const { ok, data } = await apiCommand(wsEndpoint(workspace, "stash"), { include_untracked: true }, { errorMessage: "Stash save failed" });
     if (!ok) return;
     const msg = data?.stdout?.trim() || "Stash saved";
-    bridgeEmit("toast:show", { message: msg, type: "success" });
+    toast.success(msg);
     gitHistory.value?.reload();
   }),
 ];

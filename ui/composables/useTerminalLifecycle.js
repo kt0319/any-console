@@ -4,7 +4,7 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminal } from "./useTerminal.js";
-import { emit } from "../app-bridge.js";
+import { useToast } from "./useToast.js";
 import { EP_RUN } from "../utils/endpoints.js";
 import { TERMINAL_JOB_KEY } from "../utils/constants.js";
 
@@ -14,6 +14,7 @@ export function useTerminalLifecycle({ terminalBaseView }) {
   const layoutStore = useLayoutStore();
   const workspaceStore = useWorkspaceStore();
   const { disconnectTerminal, deleteSession, connectTerminalWs } = useTerminal();
+  const toast = useToast();
 
   function focusTabTerminal(tabId) {
     const tab = terminalStore.openTabs.find((t) => t.id === tabId);
@@ -88,7 +89,7 @@ export function useTerminalLifecycle({ terminalBaseView }) {
       });
       if (!res || !res.ok) {
         const detail = res ? await res.text() : "no response";
-        emit("toast:show", { message: `Terminal launch failed: ${detail}`, type: "error" });
+        toast.error(`Terminal launch failed: ${detail}`);
         return;
       }
       const data = await res.json();
@@ -111,7 +112,7 @@ export function useTerminalLifecycle({ terminalBaseView }) {
       terminalBaseView.value?.fitAllTerminals();
       activateTerminalTab(tab.id);
     } catch (e) {
-      emit("toast:show", { message: `Terminal launch error: ${e.message}`, type: "error" });
+      toast.error(`Terminal launch error: ${e.message}`);
     }
   }
 

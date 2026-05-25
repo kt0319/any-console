@@ -2,12 +2,14 @@ import { ref } from "vue";
 import { useApi } from "./useApi.js";
 import { useConfirm } from "./useConfirm.js";
 import { confirmIrreversible } from "../utils/confirm-irreversible.js";
+import { useToast } from "./useToast.js";
 import { emit } from "../app-bridge.js";
 import { EP_COMMON_JOBS } from "../utils/endpoints.js";
 
 export function useWorkspaceJobManager({ editWs, pushView }) {
   const { apiGet, apiDelete, wsEndpoint } = useApi();
   const { confirm } = useConfirm();
+  const toast = useToast();
   const jobEntries = ref([]);
   const isLoadingJobs = ref(false);
 
@@ -58,7 +60,7 @@ export function useWorkspaceJobManager({ editWs, pushView }) {
       await loadWorkspaceJobs();
       emit("jobs:refresh");
     } catch {
-      emit("toast:show", { message: "Delete job failed", type: "error" });
+      toast.error("Delete job failed");
     }
   }
 

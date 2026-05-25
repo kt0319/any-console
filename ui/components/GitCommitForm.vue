@@ -16,11 +16,13 @@ import { ref } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
+import { useToast } from "../composables/useToast.js";
 import { emit } from "../app-bridge.js";
 import { extractApiError } from "../utils/constants.js";
 
 const { apiCommand, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
+const toast = useToast();
 const workspaceStore = useWorkspaceStore();
 
 const commitMessage = ref("");
@@ -45,7 +47,7 @@ async function submit() {
   try {
     const { ok, data } = await apiCommand(wsEndpoint(workspace, "commit"), { message: msg });
     if (ok) {
-      emit("toast:show", { message: "Committed", type: "success" });
+      toast.success("Committed");
       commitMessage.value = "";
       emit("git:commitDone");
     } else {

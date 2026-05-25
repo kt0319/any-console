@@ -16,6 +16,6 @@ export function useToast() {
     success: (message, opts) => show(message, "success", opts),
     error: (message, opts) => show(message, "error", opts),
     info: (message, opts) => show(message, "info", opts),
-    warn: (message, opts) => show(message, "warn", opts),
+    warning: (message, opts) => show(message, "warning", opts),
   };
 }

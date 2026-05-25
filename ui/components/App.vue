@@ -21,8 +21,10 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useAppJobBridge } from "../composables/useAppJobBridge.js";
+import { useToast } from "../composables/useToast.js";
 
 const auth = useAuthStore();
+const toast = useToast();
 const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
 
@@ -71,7 +73,7 @@ onMounted(async () => {
   } else if (!result.auth) {
     showLogin.value = true;
   } else {
-    emit("toast:show", { message: result.error, type: "error" });
+    toast.error(result.error);
     authenticated.value = true;
   }
 });

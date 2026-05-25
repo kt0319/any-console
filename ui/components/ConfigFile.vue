@@ -19,6 +19,7 @@ import hljs from "highlight.js/lib/core";
 import json from "highlight.js/lib/languages/json";
 hljs.registerLanguage("json", json);
 import { useApi } from "../composables/useApi.js";
+import { useToast } from "../composables/useToast.js";
 import { emit } from "../app-bridge.js";
 import { EP_SETTINGS_EXPORT, EP_SETTINGS_IMPORT } from "../utils/endpoints.js";
 import { triggerBlobDownload } from "../utils/download.js";
@@ -27,6 +28,7 @@ const modalTitle = inject("modalTitle");
 modalTitle.value = "Config File";
 
 const { apiGet, apiPost } = useApi();
+const toast = useToast();
 const jsonText = ref("");
 const fileInput = ref(null);
 const codeEl = ref(null);
@@ -54,7 +56,7 @@ async function loadConfigFile() {
 function download() {
   const blob = new Blob([jsonText.value], { type: "application/json" });
   triggerBlobDownload(blob, "any-console-config.json");
-  emit("toast:show", { message: "Config downloaded", type: "success" });
+  toast.success("Config downloaded");
 }
 
 function triggerUpload() {
@@ -72,12 +74,12 @@ async function upload() {
     const data = JSON.parse(text);
     const { ok } = await apiPost(EP_SETTINGS_IMPORT, data, { errorMessage: "Import failed" });
     if (!ok) return;
-    emit("toast:show", { message: "Config imported", type: "success" });
+    toast.success("Config imported");
     jsonText.value = JSON.stringify(data, null, 2);
     highlight();
     emit("settings:imported");
   } catch (e) {
-    emit("toast:show", { message: e.message, type: "error" });
+    toast.error(e.message);
   }
 }
 

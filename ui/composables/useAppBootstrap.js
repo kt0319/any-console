@@ -2,13 +2,14 @@ import { ref } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useSessionSync } from "./useSessionSync.js";
-import { emit } from "../app-bridge.js";
+import { useToast } from "./useToast.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_SETTINGS_CONFIG_HEALTH } from "../utils/endpoints.js";
 
 export function useAppBootstrap() {
   const auth = useAuthStore();
   const workspaceStore = useWorkspaceStore();
   const { restoreExistingSessions } = useSessionSync();
+  const toast = useToast();
 
   const booting = ref(true);
   const bootMessage = ref("Loading...");
@@ -35,7 +36,7 @@ export function useAppBootstrap() {
         const msg = health.source === "config.bak"
           ? "Config was restored from backup. Some settings may be missing."
           : `Config has validation errors: ${health.errors.map((e) => e.key).join(", ")}`;
-        emit("toast:show", { message: msg, type: "warning" });
+        toast.warning(msg);
       }
     }
 

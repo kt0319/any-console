@@ -2,6 +2,7 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "./useApi.js";
 import { WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, RECONNECT_BACKOFF_MULTIPLIER, RECONNECT_BACKOFF_BASE_MS, RECONNECT_BACKOFF_MAX, POST_WRITE_REFRESH_MS, RECONNECTING_OVERLAY_MIN_ATTEMPTS } from "../utils/constants.js";
 import { emit } from "../app-bridge.js";
+import { useToast } from "./useToast.js";
 import { fitTerminal, sendResize, observeFrameResize } from "./useTerminalResize.js";
 import { buildWebSocketUrl as _buildWebSocketUrl } from "../utils/terminal-ws.js";
 import { bindTerminalInput, bindTerminalElement } from "./useTerminalInput.js";
@@ -10,6 +11,7 @@ import { debugLog } from "./useClientLogs.js";
 
 export function useTerminal() {
   const terminalStore = useTerminalStore();
+  const toast = useToast();
 
   function buildWebSocketUrl(sessionId, cols, rows) {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
@@ -100,7 +102,7 @@ export function useTerminal() {
 
       if (e.code === WS_CLOSE_SESSION_NOT_FOUND) {
         const label = tab.jobLabel || tab.label || tab.sessionId;
-        emit("toast:show", { message: `${label}: Session terminated unexpectedly`, type: "error" });
+        toast.error(`${label}: Session terminated unexpectedly`);
         emit("tab:close", { tab });
         return;
       }

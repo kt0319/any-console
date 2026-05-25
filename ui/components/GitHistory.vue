@@ -113,6 +113,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { useWorkspace } from "../composables/useWorkspace.js";
 import { useWorkspaceFile } from "../composables/useWorkspaceFile.js";
+import { useToast } from "../composables/useToast.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useLongPress } from "../composables/useLongPress.js";
 import { useHoverMenu, isHoverDevice } from "../composables/useHoverMenu.js";
@@ -143,6 +144,7 @@ const { apiCommand, wsEndpoint, apiGet } = useApi();
 const { withWorkspace, getWorkspace } = useWorkspace();
 const { downloadWorkspaceFile } = useWorkspaceFile();
 const { confirm } = useConfirm();
+const toast = useToast();
 const { editorUrlTemplate, fetchEditorSettings, openInEditor } = useEditorIntegration();
 const { execAction: execCommitAction, execReset: execCommitReset, execCreateBranch: execCommitCreateBranch, execMerge: execCommitMerge, execRebase: execCommitRebase } = useGitHistoryAction();
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
@@ -231,9 +233,9 @@ async function showSelectedCommitMessage() {
   if (result === "copy") {
     try {
       await navigator.clipboard?.writeText(entry.hash);
-      bridgeEmit("toast:show", { message: `Copied ${entry.hash}`, type: "success" });
+      toast.success(`Copied ${entry.hash}`);
     } catch {
-      bridgeEmit("toast:show", { message: "Failed to copy hash", type: "error" });
+      toast.error("Failed to copy hash");
     }
   }
 }
@@ -293,7 +295,7 @@ async function _execDiffFileAction(file, endpoint, errorMessage, successMessage 
     closeDiffMenu();
     const { ok } = await apiCommand(endpoint, { path: file.path }, { errorMessage });
     if (ok) {
-      if (successMessage) bridgeEmit("toast:show", { message: successMessage, type: "success" });
+      if (successMessage) toast.success(successMessage);
       bridgeEmit("git:refreshStatus");
       openWorkingTreeDiffFiles();
     }

@@ -1,5 +1,6 @@
 import { on, emit } from "../app-bridge.js";
 import { useApi } from "./useApi.js";
+import { useToast } from "./useToast.js";
 import { EP_RUN } from "../utils/endpoints.js";
 
 /**
@@ -9,12 +10,13 @@ import { EP_RUN } from "../utils/endpoints.js";
  */
 export function useAppJobBridge() {
   const { apiPost } = useApi();
+  const toast = useToast();
 
   async function execNonTerminalJob(jobName, workspace) {
     const { ok, data } = await apiPost(EP_RUN, { job: jobName, workspace }, { errorMessage: "Job failed" });
     if (!ok) return;
     const msg = data?.stdout || data?.stderr || "Done";
-    emit("toast:show", { message: msg, type: data?.exit_code === 0 ? "success" : "error" });
+    toast.show(msg, data?.exit_code === 0 ? "success" : "error");
   }
 
   function bind() {

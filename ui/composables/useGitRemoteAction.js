@@ -2,7 +2,7 @@ import { ref } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
 import { useConfirm } from "./useConfirm.js";
-import { emit } from "../app-bridge.js";
+import { useToast } from "./useToast.js";
 import { formatRemoteToast } from "../utils/git-remote.js";
 
 const ACTION_LABELS = {
@@ -42,6 +42,7 @@ export function useGitRemoteAction() {
   const workspaceStore = useWorkspaceStore();
   const { apiWithToast, apiCommand, wsEndpoint } = useApi();
   const { confirm } = useConfirm();
+  const toast = useToast();
   const runningAction = ref(null);
 
   /**
@@ -56,7 +57,7 @@ export function useGitRemoteAction() {
     if (!ok) return;
     const message = formatRemoteToast(wsName, label, data);
     const hasDetail = message.includes("\n");
-    emit("toast:show", { message, type: "success", duration: hasDetail ? 5000 : 3000 });
+    toast.success(message, { duration: hasDetail ? 5000 : 3000 });
     workspaceStore.fetchStatuses();
   }
 

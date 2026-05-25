@@ -1,4 +1,4 @@
-import { emit as bridgeEmit } from "../app-bridge.js";
+import { useToast } from "./useToast.js";
 
 const ICON_UPLOAD_MAX_SIZE = 512 * 1024;
 const ICON_UPLOAD_ALLOWED_TYPES = new Set([
@@ -15,13 +15,15 @@ function readAsDataUrl(file) {
 }
 
 export function useIconUpload() {
+  const toast = useToast();
+
   async function readIconFile(file) {
     if (!ICON_UPLOAD_ALLOWED_TYPES.has(file.type)) {
-      bridgeEmit("toast:show", { message: "Please select a PNG/JPG/GIF/WEBP/SVG image", type: "error" });
+      toast.error("Please select a PNG/JPG/GIF/WEBP/SVG image");
       return null;
     }
     if (file.size > ICON_UPLOAD_MAX_SIZE) {
-      bridgeEmit("toast:show", { message: "Image must be 500KB or less", type: "error" });
+      toast.error("Image must be 500KB or less");
       return null;
     }
     try {
@@ -31,7 +33,7 @@ export function useIconUpload() {
       }
       return dataUrl;
     } catch (e) {
-      bridgeEmit("toast:show", { message: e.message || "Failed to load image", type: "error" });
+      toast.error(e.message || "Failed to load image");
       return null;
     }
   }
