@@ -13,7 +13,7 @@ NC='\033[0m'
 
 SERVICE_NAME="any-console"
 
-error() { echo -e "${RED}エラー: $1${NC}" >&2; exit 1; }
+error() { echo -e "${RED}Error: $1${NC}" >&2; exit 1; }
 info()  { echo -e "${GREEN}$1${NC}"; }
 warn()  { echo -e "${YELLOW}$1${NC}"; }
 
@@ -27,9 +27,9 @@ check_deps() {
 
   if [ ${#missing[@]} -gt 0 ]; then
     echo ""
-    echo -e "${RED}以下のコマンドが見つかりません: ${missing[*]}${NC}" >&2
+    echo -e "${RED}Missing commands: ${missing[*]}${NC}" >&2
     echo ""
-    echo "インストール例:"
+    echo "Install examples:"
     echo "  Debian/Ubuntu: sudo apt install ${missing[*]}"
     echo "  macOS:         brew install ${missing[*]}"
     exit 1
@@ -43,13 +43,13 @@ check_python_version() {
   python_major=$(echo "$python_version" | cut -d. -f1)
   python_minor=$(echo "$python_version" | cut -d. -f2)
   if [ "$python_major" -lt 3 ] || { [ "$python_major" -eq 3 ] && [ "$python_minor" -lt 11 ]; }; then
-    error "Python 3.11+ が必要です（現在: $python_version）"
+    error "Python 3.11+ required (current: $python_version)"
   fi
   echo "$python_version"
 }
 
 get_version() {
-  git log -1 --format='%h %cd' --date=format:'%Y-%m-%d %H:%M' 2>/dev/null || echo "不明"
+  git log -1 --format='%h %cd' --date=format:'%Y-%m-%d %H:%M' 2>/dev/null || echo "unknown"
 }
 
 get_port() {
@@ -85,9 +85,9 @@ prompt_bind_config() {
   current_host=$(get_host)
   current_port=$(get_port)
 
-  read -rp "バインドホスト [${current_host}]: " new_host
+  read -rp "Bind host [${current_host}]: " new_host
   new_host=${new_host:-$current_host}
-  read -rp "ポート番号 [${current_port}]: " new_port
+  read -rp "Port [${current_port}]: " new_port
   new_port=${new_port:-$current_port}
 
   HOST="$new_host" PORT="$new_port" python3 -c "
@@ -102,12 +102,12 @@ g['port'] = int(os.environ['PORT'])
 cfg['__global__'] = g
 p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 "
-  info "config.json に保存しました（host=${new_host}, port=${new_port}）"
+  info "Saved to config.json (host=${new_host}, port=${new_port})"
 }
 
 prompt_initial_workspace() {
   local ws_path
-  read -rp "初期ワークスペースのパス（空でスキップ）: " ws_path
+  read -rp "Initial workspace path (leave blank to skip): " ws_path
   if [ -z "$ws_path" ]; then
     return 0
   fi
@@ -117,16 +117,16 @@ p = pathlib.Path('config.json')
 cfg = json.loads(p.read_text()) if p.is_file() else {}
 abs_path = pathlib.Path(os.path.expanduser(os.environ['WS_PATH'])).resolve()
 if not abs_path.is_dir():
-    print(f'ディレクトリが存在しません: {abs_path}', file=sys.stderr)
+    print(f'Directory does not exist: {abs_path}', file=sys.stderr)
     sys.exit(1)
 name = abs_path.name
 if name in cfg and name != '__global__':
-    print(f'既に登録済み: {name}', file=sys.stderr)
+    print(f'Already registered: {name}', file=sys.stderr)
     sys.exit(1)
 cfg[name] = {'path': str(abs_path)}
 p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-print(f'登録: {name} ({abs_path})')
-" || warn "ワークスペース登録をスキップしました"
+print(f'Registered: {name} ({abs_path})')
+" || warn "Skipped workspace registration"
 }
 
 is_service_active() {
@@ -139,45 +139,46 @@ is_service_installed() {
 }
 
 cmd_setup() {
-  info "=== any-console セットアップ ==="
+  info "=== any-console setup ==="
 
   check_deps
 
   local python_version
   python_version=$(check_python_version)
-  info "依存OK: Python $python_version, node $(node -v), git $(git --version | cut -d' ' -f3), tmux $(tmux -V | cut -d' ' -f2)"
+  info "Dependencies OK: Python $python_version, node $(node -v), git $(git --version | cut -d' ' -f3), tmux $(tmux -V | cut -d' ' -f2)"
 
-  info "Python依存パッケージをインストール中..."
+  info "Installing Python dependencies..."
   pip install -r requirements.txt
 
-  info "Node.js依存パッケージをインストール中..."
+  info "Installing Node.js dependencies..."
   npm install
 
-  info "フロントエンドをビルド中..."
+  info "Building frontend..."
   npm run build
 
   echo ""
-  info "バインド設定（config.json の __global__ に保存）"
+  info "Bind config (saved under __global__ in config.json)"
   prompt_bind_config
 
   echo ""
-  info "初期ワークスペース登録"
+  info "Initial workspace registration"
   prompt_initial_workspace
 
   echo ""
-  read -rp "systemdサービスを登録しますか? [y/N] " answer
+  read -rp "Register a systemd service? [y/N] " answer
   if [[ "$answer" =~ ^[Yy]$ ]]; then
     install_systemd
   fi
 
   echo ""
-  info "=== セットアップ完了 ==="
+  info "=== Setup complete ==="
   echo ""
-  echo "起動:"
-  echo "  ./any-console start    (systemd経由)"
+  echo "Start:"
+  echo "  ./any-console start    (if systemd is registered)"
+  echo "  ./any-console run      (foreground, no systemd; macOS/WSL/etc.)"
   echo ""
-  echo "ブラウザで http://localhost:$(get_port) を開いてください。"
-  echo "認証トークンが必要な場合は UI > Security から発行してください。"
+  echo "Open http://localhost:$(get_port) in your browser."
+  echo "If an auth token is required, issue one from UI > Security."
 }
 
 generate_service_unit() {
@@ -207,87 +208,95 @@ UNIT
 install_systemd() {
   local service_dest="/etc/systemd/system/$SERVICE_NAME.service"
 
-  info "systemdサービスを登録中..."
+  info "Registering systemd service..."
   generate_service_unit | sudo tee "$service_dest" > /dev/null
   sudo systemctl daemon-reload
   sudo systemctl enable "$SERVICE_NAME"
-  info "systemdサービスを登録しました"
+  info "systemd service registered"
 }
 
 cmd_update() {
-  info "=== any-console 更新 ==="
+  info "=== any-console update ==="
 
   if [ -n "$(git status --porcelain)" ]; then
-    error "未コミットの変更があります。先にコミットまたはスタッシュしてください。"
+    error "Uncommitted changes present. Commit or stash first."
   fi
 
   local before_hash
   before_hash=$(git rev-parse HEAD)
 
-  info "最新版を取得中..."
+  info "Fetching latest..."
   git pull --ff-only
 
   local after_hash
   after_hash=$(git rev-parse HEAD)
 
   if [ "$before_hash" = "$after_hash" ]; then
-    info "既に最新です ($(get_version))"
+    info "Already up to date ($(get_version))"
     return
   fi
 
-  info "依存パッケージを更新中..."
+  info "Updating dependencies..."
   pip install -r requirements.txt
   npm install
 
-  info "フロントエンドをビルド中..."
+  info "Building frontend..."
   npm run build
 
   if is_service_active; then
-    info "サービスを再起動中..."
+    info "Restarting service..."
     sudo systemctl restart "$SERVICE_NAME"
-    info "サービスを再起動しました"
+    info "Service restarted"
   fi
 
-  info "=== 更新完了 ($(get_version)) ==="
+  info "=== Update complete ($(get_version)) ==="
 }
 
 cmd_start() {
   sudo systemctl start "$SERVICE_NAME"
-  info "サービスを起動しました"
+  info "Service started"
 }
 
 cmd_stop() {
   sudo systemctl stop "$SERVICE_NAME"
-  info "サービスを停止しました"
+  info "Service stopped"
 }
 
 cmd_restart() {
   sudo systemctl restart "$SERVICE_NAME"
-  info "サービスを再起動しました"
+  info "Service restarted"
 }
 
 cmd_status() {
   echo -e "${BOLD}any-console${NC}"
   echo ""
 
-  echo -n "  サービス: "
+  echo -n "  Service: "
   if is_service_installed; then
     if is_service_active; then
-      echo -e "${GREEN}稼働中${NC}"
+      echo -e "${GREEN}running${NC}"
     else
-      echo -e "${RED}停止${NC}"
+      echo -e "${RED}stopped${NC}"
     fi
   else
-    echo -e "${YELLOW}未登録${NC}"
+    echo -e "${YELLOW}not registered${NC}"
   fi
 
-  echo "  バージョン: $(get_version)"
+  echo "  Version: $(get_version)"
   echo "  URL: http://localhost:$(get_port)"
-  echo "  ディレクトリ: $SCRIPT_DIR"
+  echo "  Directory: $SCRIPT_DIR"
 }
 
 cmd_logs() {
   journalctl -u "$SERVICE_NAME" -f --no-pager -n 50
+}
+
+cmd_run() {
+  check_deps
+  check_python_version >/dev/null
+  info "Starting any-console in the foreground (Ctrl+C to stop)"
+  echo "  URL: http://localhost:$(get_port)"
+  exec python3 -m api.main
 }
 
 cmd_version() {
@@ -298,14 +307,15 @@ usage() {
   echo -e "${BOLD}Usage:${NC} ./any-console <command>"
   echo ""
   echo "Commands:"
-  echo "  setup      初回セットアップ（依存インストール + ビルド + systemd登録）"
-  echo "  update     最新版に更新（git pull + 依存更新 + ビルド + サービス再起動）"
-  echo "  start      サービス起動"
-  echo "  stop       サービス停止"
-  echo "  restart    サービス再起動"
-  echo "  status     状態表示（サービス状態、URL、バージョン）"
-  echo "  logs       サービスログ表示（journalctl）"
-  echo "  version    バージョン表示"
+  echo "  setup      Initial setup (install deps + build + optional systemd register)"
+  echo "  update     Update to latest (git pull + deps + build + service restart)"
+  echo "  start      Start service (systemd)"
+  echo "  stop       Stop service (systemd)"
+  echo "  restart    Restart service (systemd)"
+  echo "  status     Show service state, URL, version"
+  echo "  logs       Tail service logs (journalctl)"
+  echo "  run        Run in foreground (no systemd; macOS/WSL/etc.)"
+  echo "  version    Print version"
 }
 
 command="${1:-}"
@@ -318,6 +328,7 @@ case "$command" in
   restart) cmd_restart ;;
   status)  cmd_status ;;
   logs)    cmd_logs ;;
+  run)     cmd_run ;;
   version) cmd_version ;;
   *)       usage ;;
 esac

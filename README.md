@@ -121,8 +121,11 @@ For the systemd setup, all operations go through the `./any-console` command. (D
 ./any-console restart    Restart the service        (systemctl restart)
 ./any-console status     Show status (service state, URL, version)
 ./any-console logs       Show service logs          (journalctl)
+./any-console run        Run in foreground (no systemd; macOS / WSL / etc.)
 ./any-console version    Show version
 ```
+
+`run` skips systemd entirely and starts the API directly via `python3 -m api.main`. Useful for macOS / WSL or for quick test runs on a Linux box without registering a service.
 
 ### Updating
 
