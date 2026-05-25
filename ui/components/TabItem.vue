@@ -36,6 +36,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { renderIconStr } from "../utils/render-icon.js";
 import { useConfirm } from "../composables/useConfirm.js";
+import { confirmCloseTab } from "../utils/tab-close-confirm.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
@@ -101,15 +102,7 @@ function onClick(e) {
 
 async function onClose() {
   closePending = false;
-  const result = await confirm(`Close "${label.value}" tab?`, {
-    extra: {
-      label: "Refresh",
-      value: "refresh",
-      icon: "mdi-refresh",
-      desc: "Refresh: reconnects and redraws the terminal. The running session is preserved. Use this when the display looks broken.",
-    },
-    ok: { label: "Close", icon: "mdi-close", danger: true },
-  });
+  const result = await confirmCloseTab(confirm, props.tab);
   if (result === true) emits("close", props.tab);
   else if (result === "refresh") emits("refresh", props.tab);
 }

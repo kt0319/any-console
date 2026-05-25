@@ -2,6 +2,7 @@ import { onMounted, onBeforeUnmount } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useConfirm } from "./useConfirm.js";
+import { confirmCloseTab } from "../utils/tab-close-confirm.js";
 import { emit } from "../app-bridge.js";
 
 export function useGlobalShortcuts({ closeTab }) {
@@ -32,11 +33,13 @@ export function useGlobalShortcuts({ closeTab }) {
       const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
       if (!tab) return;
       e.preventDefault();
-      const label = tab.workspace || tab.label || "terminal";
-      if (await confirm(`Close "${label}" tab?`)) {
+      const result = await confirmCloseTab(confirm, tab);
+      if (result === true) {
         await closeTab(tab);
         const activeTab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
         workspaceStore.selectedWorkspace = activeTab?.workspace || null;
+      } else if (result === "refresh") {
+        emit("tab:refresh", { tab });
       }
     } else if (e.code === "KeyN") {
       e.preventDefault();
