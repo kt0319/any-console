@@ -11,6 +11,8 @@
 
 **A seamless dev console across phone and PC.** A self-hosted web environment where the same tmux session is accessible from any device via a browser.
 
+Website: <https://any-console.highedge.net/>
+
 ## Why any-console?
 
 - **Seamless across devices** — Start `npm test` on your PC, check the output on your phone during commute, and pick up where you left off when you get home. tmux sessions persist — closing the browser doesn't end the session.
