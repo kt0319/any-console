@@ -13,7 +13,9 @@
         autocorrect="off"
         spellcheck="false"
         :placeholder="placeholder"
-        @keydown.enter.prevent="submit"
+        @keydown.enter="onEnterKey"
+        @compositionstart="composing = true"
+        @compositionend="composing = false"
         @focus="onFocus"
         @blur="onBlur"
       />
@@ -38,6 +40,13 @@ const focused = ref(false);
 const placeholder = computed(() => focused.value ? "↑↓ history · ←→ snippet" : "Tap to input");
 let suppressBlurRefocus = false;
 let refocusToken = 0;
+const composing = ref(false);
+
+function onEnterKey(e) {
+  if (composing.value || e.isComposing || e.keyCode === 229) return;
+  e.preventDefault();
+  submit();
+}
 
 function onFocus() {
   focused.value = true;
@@ -91,6 +100,7 @@ function backspace() {
 }
 
 function submit() {
+  if (composing.value) return;
   suppressBlurRefocus = false;
   refocusToken += 1;
   const text = draft.value.trim();
