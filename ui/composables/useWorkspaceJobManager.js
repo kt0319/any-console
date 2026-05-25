@@ -1,6 +1,7 @@
 import { ref } from "vue";
 import { useApi } from "./useApi.js";
 import { useConfirm } from "./useConfirm.js";
+import { confirmIrreversible } from "../utils/confirm-irreversible.js";
 import { emit } from "../app-bridge.js";
 import { EP_COMMON_JOBS } from "../utils/endpoints.js";
 
@@ -47,7 +48,7 @@ export function useWorkspaceJobManager({ editWs, pushView }) {
     if (!editWs.value) return;
     const label = entry.job.label || entry.name;
     const kind = entry.job.common ? "common job" : "job";
-    if (!await confirm(`Delete ${kind} "${label}"? This cannot be undone.`)) return;
+    if (!await confirmIrreversible(confirm, `Delete ${kind} "${label}"?`)) return;
     try {
       const url = entry.job.common
         ? `${EP_COMMON_JOBS}/${encodeURIComponent(entry.name)}`

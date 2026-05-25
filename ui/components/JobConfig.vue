@@ -57,6 +57,7 @@ import { ref, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useModalView } from "../composables/useModalView.js";
 import { useConfirm } from "../composables/useConfirm.js";
+import { confirmIrreversible } from "../utils/confirm-irreversible.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
 import { EP_COMMON_JOBS } from "../utils/endpoints.js";
@@ -173,7 +174,7 @@ async function saveJob() {
 async function deleteJob() {
   if (isNew || !jobEntry) return;
   const label = jobEntry.job.label || jobEntry.name;
-  if (!await confirm(`Delete job "${label}"? This cannot be undone.`)) return;
+  if (!await confirmIrreversible(confirm, `Delete job "${label}"?`)) return;
   const baseUrl = isCommon ? EP_COMMON_JOBS : `/workspaces/${encodeURIComponent(workspaceName)}/jobs`;
   const url = `${baseUrl}/${encodeURIComponent(jobEntry.name)}`;
   const { ok, data } = await apiDelete(url, { errorMessage: MSG_DELETE_FAILED });

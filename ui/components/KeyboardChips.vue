@@ -21,6 +21,7 @@
 import { useQuickInputData } from "../composables/useQuickInputData.js";
 import { useLongPress } from "../composables/useLongPress.js";
 import { useConfirm } from "../composables/useConfirm.js";
+import { confirmIrreversible } from "../utils/confirm-irreversible.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 
 const props = defineProps({ insertMode: { type: Boolean, default: false } });
@@ -37,7 +38,7 @@ function onSnippetTouchStart(e, snippet, idx) {
   startY = e.touches[0].clientY;
   longPress.reset();
   longPress.start(async () => {
-    if (await confirm(`Delete snippet "${snippet.command}"? This cannot be undone.`)) {
+    if (await confirmIrreversible(confirm, `Delete snippet "${snippet.command}"?`)) {
       bridgeEmit("snippet:delete", { index: snippets.value.length - 1 - idx });
     }
   });

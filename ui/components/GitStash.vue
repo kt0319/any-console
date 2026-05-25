@@ -22,6 +22,7 @@
 import { ref } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
+import { confirmIrreversible } from "../utils/confirm-irreversible.js";
 import { useWorkspace } from "../composables/useWorkspace.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { setStashCache, invalidateStashCache } from "../composables/useStashCache.js";
@@ -64,7 +65,7 @@ async function stashPop(entry) {
 }
 
 async function stashDrop(entry) {
-  if (!await confirm(`Drop stash ${entry.ref}? This cannot be undone.`)) return;
+  if (!await confirmIrreversible(confirm, `Drop stash ${entry.ref}?`)) return;
   await withWorkspace(async (workspace) => {
     const { ok } = await apiCommand(wsEndpoint(workspace, "stash-drop"), { stash_ref: entry.ref }, { errorMessage: "Stash drop failed" });
     if (!ok) return;

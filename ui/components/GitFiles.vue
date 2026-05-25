@@ -63,6 +63,7 @@ import { useLongPress } from "../composables/useLongPress.js";
 import { useHoverMenu, isHoverDevice } from "../composables/useHoverMenu.js";
 import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
+import { confirmIrreversible } from "../utils/confirm-irreversible.js";
 import { useWorkspace } from "../composables/useWorkspace.js";
 import { useWorkspaceFile } from "../composables/useWorkspaceFile.js";
 import { emit } from "../app-bridge.js";
@@ -175,7 +176,7 @@ function selectFile(file) {
 
 async function discardFile(file) {
   closeMenu();
-  if (!await confirm(`Discard changes to "${file.path}"? This cannot be undone.`)) return;
+  if (!await confirmIrreversible(confirm, `Discard changes to "${file.path}"?`)) return;
   await withWorkspace(async (workspace) => {
     const result = await apiPost(
       workspaceGitDiscardPath(workspace),
@@ -196,7 +197,7 @@ async function downloadFile(file) {
 
 async function deleteFile(file) {
   closeMenu();
-  if (!await confirm(`Delete file "${file.path}"? This cannot be undone.`)) return;
+  if (!await confirmIrreversible(confirm, `Delete file "${file.path}"?`)) return;
   const ok = await deleteWorkspaceFile(file.path);
   if (ok) {
     emit("git:refreshStatus");
