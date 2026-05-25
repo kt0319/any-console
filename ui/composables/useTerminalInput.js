@@ -15,6 +15,17 @@ export function bindTerminalInput(tab) {
       }
       return false;
     }
+    // 選択がある状態で Ctrl/Cmd+C はコピーに割り当てる（無選択なら SIGINT を送る）
+    if (e.type === "keydown" && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === "c" || e.key === "C")) {
+      if (tab.term?.hasSelection?.()) {
+        const text = tab.term.getSelection();
+        if (text && navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(text).catch(() => {});
+        }
+        e.preventDefault();
+        return false;
+      }
+    }
     return true;
   });
 
