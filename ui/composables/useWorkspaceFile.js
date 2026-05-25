@@ -1,7 +1,7 @@
 import { useAuthStore } from "../stores/auth.js";
 import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
-import { emit } from "../app-bridge.js";
+import { useToast } from "./useToast.js";
 import { triggerBlobDownload } from "../utils/download.js";
 import { workspaceDownloadPath } from "../utils/endpoints.js";
 
@@ -9,6 +9,7 @@ export function useWorkspaceFile() {
   const auth = useAuthStore();
   const { withWorkspace } = useWorkspace();
   const { apiCommand, wsEndpoint } = useApi();
+  const toast = useToast();
 
   async function downloadWorkspaceFile(filePath) {
     if (!filePath) return false;
@@ -20,7 +21,7 @@ export function useWorkspaceFile() {
         triggerBlobDownload(blob, filePath.split("/").pop() || "download");
         return true;
       } catch {
-        emit("toast:show", { message: "Download failed", type: "error" });
+        toast.error("Download failed");
         return false;
       }
     });
@@ -34,7 +35,7 @@ export function useWorkspaceFile() {
         { path: filePath },
         { errorMessage },
       );
-      if (ok) emit("toast:show", { message: "Deleted", type: "success" });
+      if (ok) toast.success("Deleted");
       return ok;
     });
     return result ?? false;

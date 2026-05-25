@@ -2,7 +2,7 @@ import { useAuthStore } from "../stores/auth.js";
 import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
 import { useWorkspaceFile } from "./useWorkspaceFile.js";
-import { emit } from "../app-bridge.js";
+import { useToast } from "./useToast.js";
 import { MSG_DELETE_FAILED } from "../utils/constants.js";
 import { useConfirm } from "./useConfirm.js";
 import { usePrompt } from "./usePrompt.js";
@@ -14,6 +14,7 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
   const { downloadWorkspaceFile, deleteWorkspaceFile } = useWorkspaceFile();
   const { confirm } = useConfirm();
   const { prompt } = usePrompt();
+  const toast = useToast();
 
   function entryPath() {
     const entry = getContextEntry();
@@ -26,7 +27,7 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
     await withWorkspace(async (workspace) => {
       const { ok } = await apiPost(wsEndpoint(workspace, "rename"), { src, dest }, { errorMessage: "Rename failed" });
       if (!ok) return;
-      emit("toast:show", { message: "Renamed", type: "success" });
+      toast.success("Renamed");
       await navigateToPath(getCurrentPath());
     });
   }
@@ -120,8 +121,8 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
   }
 
   function emitUploadToasts(successCount, failCount) {
-    if (successCount > 0) emit("toast:show", { message: `${successCount} file(s) uploaded`, type: "success" });
-    if (failCount > 0) emit("toast:show", { message: `${failCount} file(s) failed to upload`, type: "error" });
+    if (successCount > 0) toast.success(`${successCount} file(s) uploaded`);
+    if (failCount > 0) toast.error(`${failCount} file(s) failed to upload`);
   }
 
   async function uploadDroppedFiles(files) {
