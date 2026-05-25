@@ -4,7 +4,7 @@
  * @param {(msg: string, opts?: object) => Promise<boolean | string>} confirm
  *   - `useConfirm()` から取得した confirm 関数。
  * @param {{ workspace?: string, label?: string }} tab
- * @returns {Promise<true | "refresh" | false>}
+ * @returns {Promise<boolean | string>}
  *   - true: 閉じる確定 / "refresh": 再接続を選択 / false: キャンセル
  */
 export function confirmCloseTab(confirm, tab) {
