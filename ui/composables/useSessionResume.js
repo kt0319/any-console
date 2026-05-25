@@ -1,12 +1,10 @@
 import { onMounted, onBeforeUnmount } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
-import { useLayoutStore } from "../stores/layout.js";
 import { useTerminal } from "./useTerminal.js";
 import { useSessionSync } from "./useSessionSync.js";
 
 export function useSessionResume({ terminalBaseView }) {
   const terminalStore = useTerminalStore();
-  const layoutStore = useLayoutStore();
   const { connectTerminalWs } = useTerminal();
   const { syncSessionsFromServer, startSyncPolling, stopSyncPolling } = useSessionSync();
 
@@ -35,16 +33,7 @@ export function useSessionResume({ terminalBaseView }) {
     }
 
     syncSessionsFromServer().then(() => {
-      const visibleTabIds = new Set();
-      if (layoutStore.isSplitMode) {
-        for (const id of layoutStore.splitPaneTabIds || []) {
-          if (id != null && !layoutStore.isEmptyPaneId(id)) visibleTabIds.add(id);
-        }
-      } else if (terminalStore.activeTabId != null) {
-        visibleTabIds.add(terminalStore.activeTabId);
-      }
       for (const tab of terminalStore.openTabs) {
-        if (!visibleTabIds.has(tab.id)) continue;
         if (tab._pendingRedraw && !tab.ws && !tab._wsDisposed) {
           connectTerminalWs(tab, { focus: false });
         }
