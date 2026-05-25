@@ -59,4 +59,17 @@ export function bindTerminalElement(tab) {
   termEl.addEventListener("wheel", (e) => {
     e.preventDefault();
   }, { passive: false });
+
+  // bracketed paste の制御文字がシェルに解釈されず素のままターミナルに出る環境を
+  // 救うため、paste は xterm.js の組み込み処理を迂回して plain text のみ送る。
+  const encoder = new TextEncoder();
+  termEl.addEventListener("paste", (e) => {
+    const text = e.clipboardData?.getData("text/plain");
+    if (!text) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (tab.ws?.readyState === WebSocket.OPEN) {
+      tab.ws.send(encoder.encode(text));
+    }
+  }, true);
 }
