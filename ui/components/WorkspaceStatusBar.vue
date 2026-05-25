@@ -2,32 +2,35 @@
   <div class="workspace-status-bar" :style="{ display: showHeader ? 'flex' : 'none' }">
     <template v-if="workspace">
       <div class="status-nav-group">
-        <button type="button" class="status-nav-btn" aria-label="Jobs" data-tooltip="Jobs" @click="openFileModal('jobs')">
-          <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
-          <span class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Jobs</span>
-        </button>
-        <div class="status-divider"></div>
-        <button type="button" class="status-nav-btn" aria-label="Files" data-tooltip="Files" @click="openFileModal('files')">
-          <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
-          <span class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Files</span>
-        </button>
-        <template v-if="isGitRepo">
+        <template v-if="!isMobile">
+          <button type="button" class="status-nav-btn" aria-label="Jobs" data-tooltip="Jobs" @click="openFileModal('jobs')">
+            <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
+            <span class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Jobs</span>
+          </button>
           <div class="status-divider"></div>
+          <button type="button" class="status-nav-btn" aria-label="Files" data-tooltip="Files" @click="openFileModal('files')">
+            <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
+            <span class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Files</span>
+          </button>
+        </template>
+        <template v-if="isGitRepo">
+          <div v-if="!isMobile" class="status-divider"></div>
           <button type="button" class="status-nav-btn status-msg-btn" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
             <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
-            <span class="status-btn-label status-btn-label-always">History</span>
             <span class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
           </button>
-          <div class="status-divider"></div>
-          <button type="button" class="status-nav-btn status-numstat-btn" tabindex="-1" aria-label="Changes" data-tooltip="Changes" @click="openFileModal('changes')">
-            <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
-            <span v-if="!isDirty || statusLoading" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Changes</span>
-            <template v-if="isDirty && !statusLoading">
-              <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
-              <span class="diff-num-plus">+{{ insertions }}</span>
-              <span class="diff-num-del">-{{ deletions }}</span>
-            </template>
-          </button>
+          <template v-if="!isMobile || isDirty">
+            <div class="status-divider"></div>
+            <button type="button" class="status-nav-btn status-numstat-btn" tabindex="-1" aria-label="Changes" data-tooltip="Changes" @click="openFileModal('changes')">
+              <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
+              <span v-if="!isDirty || statusLoading" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Changes</span>
+              <template v-if="isDirty && !statusLoading">
+                <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
+                <span class="diff-num-plus">+{{ insertions }}</span>
+                <span class="diff-num-del">-{{ deletions }}</span>
+              </template>
+            </button>
+          </template>
           <div class="status-divider"></div>
           <button type="button" class="status-nav-btn status-branch-btn" tabindex="-1" aria-label="Branches" data-tooltip="Branches" @click="openFileModal('branch')">
             <span class="mdi mdi-source-branch status-btn-icon" aria-hidden="true"></span>
@@ -238,11 +241,6 @@ function openWorkspaceModal() {
   }
 }
 
-@media (hover: none), (pointer: coarse) {
-  .status-msg-text {
-    display: none;
-  }
-}
 
 .status-branch-btn {
   flex-shrink: 0;
