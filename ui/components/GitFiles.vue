@@ -292,8 +292,6 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
   -webkit-overflow-scrolling: touch;
   flex: 1 1 auto;
   min-height: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
 }
 
 .file-browser-action-menu {
