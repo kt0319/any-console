@@ -3,7 +3,9 @@
     <div class="modal-scroll-body" ref="branchListEl">
       <div class="branch-section-header">
         <span>LOCAL</span>
-        <span class="branch-section-count">{{ localBranches.length }}</span>
+        <button type="button" class="branch-section-add-btn" title="Create branch" @click="createBranch">
+          <span class="mdi mdi-plus"></span>
+        </button>
       </div>
         <div
           v-for="branch in localBranches"
@@ -33,17 +35,19 @@
             >Delete</button>
           </div>
         </div>
-        <button
-          type="button"
-          class="branch-section-header branch-section-header-toggle"
-          @click="toggleRemoteSection"
-        >
-          <span class="mdi" :class="isRemoteBranchListExpanded ? 'mdi-chevron-down' : 'mdi-chevron-right'"></span>
+        <div class="branch-section-header branch-section-header-toggle" @click="fetchRemote">
           <span>REMOTE</span>
-          <span v-if="isRemoteBranchListLoading" class="mdi mdi-loading branch-section-spinner"></span>
-          <span v-else-if="isRemoteBranchListExpanded" class="branch-section-count">{{ remoteBranches.length }}</span>
-        </button>
-        <template v-if="isRemoteBranchListExpanded && !isRemoteBranchListLoading">
+          <button
+            type="button"
+            class="branch-section-add-btn"
+            title="Fetch"
+            :disabled="isFetchingRemote"
+            @click.stop="fetchRemote"
+          >
+            <span class="mdi" :class="isFetchingRemote ? 'mdi-refresh branch-section-spinner' : 'mdi-refresh'"></span>
+          </button>
+        </div>
+        <template v-if="remoteLoaded">
           <div
             v-for="branch in remoteBranches"
             :key="'remote-' + branch.name"
@@ -61,6 +65,7 @@
           </div>
           <div v-if="remoteBranches.length === 0" class="branch-item-empty">No additional remote branches</div>
         </template>
+        <div v-else-if="!isRemoteBranchListLoading" class="branch-item-empty">Tap REMOTE to fetch from origin</div>
     </div>
   </div>
 </template>
@@ -70,6 +75,7 @@ import { ref, computed, watch } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useWorkspace } from "../composables/useWorkspace.js";
 import { useConfirm } from "../composables/useConfirm.js";
+import { usePrompt } from "../composables/usePrompt.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import GitActionBtn from "./GitActionBtn.vue";
@@ -77,9 +83,10 @@ import { emit } from "../app-bridge.js";
 
 const branchEmit = defineEmits(["count"]);
 
-const { apiGet, apiCommand, wsEndpoint } = useApi();
+const { apiGet, apiCommand, apiWithToast, wsEndpoint } = useApi();
 const { withWorkspace } = useWorkspace();
 const { confirm } = useConfirm();
+const { prompt } = usePrompt();
 const { gitAction, isRunning } = useGitRemoteAction();
 const workspaceStore = useWorkspaceStore();
 
@@ -87,8 +94,8 @@ const localBranches = ref([]);
 const remoteBranches = ref([]);
 const remoteLoaded = ref(false);
 const isBranchListLoading = ref(false);
-const isRemoteBranchListExpanded = ref(false);
 const isRemoteBranchListLoading = ref(false);
+const isFetchingRemote = ref(false);
 const branchListEl = ref(null);
 
 const branches = computed(() => [...localBranches.value, ...remoteBranches.value]);
@@ -111,7 +118,6 @@ async function loadBranchList() {
       // ローカル更新時にリモート側もキャッシュ無効化
       remoteBranches.value = [];
       remoteLoaded.value = false;
-      if (isRemoteBranchListExpanded.value) await loadRemoteBranches();
     } catch (e) {
       console.error("branch load failed:", e);
     } finally {
@@ -140,13 +146,6 @@ async function loadRemoteBranches() {
   });
 }
 
-async function toggleRemoteSection() {
-  isRemoteBranchListExpanded.value = !isRemoteBranchListExpanded.value;
-  if (isRemoteBranchListExpanded.value && !remoteLoaded.value) {
-    await loadRemoteBranches();
-  }
-}
-
 function selectBranch(branch) {
   if (branch.current) return;
   emit("git:checkoutBranch", { branch: branch.name, remote: branch.remote });
@@ -156,6 +155,22 @@ async function pushBranch(branch) {
   await withWorkspace(async (workspace) => {
     await gitAction(workspace, "push-branch", { branch: branch.name });
     await loadBranchList();
+  });
+}
+
+async function createBranch() {
+  await withWorkspace(async (workspace) => {
+    const branchName = await prompt({
+      title: "Create Branch",
+      message: "Enter new branch name.",
+      initialValue: "",
+      placeholder: "feature/example",
+    });
+    if (!branchName) return;
+    const { ok } = await apiCommand(wsEndpoint(workspace, "create-branch"), { branch: branchName });
+    if (!ok) return;
+    await loadBranchList();
+    emit("git:commitDone");
   });
 }
 
@@ -186,6 +201,25 @@ async function backgroundFetch() {
       await apiCommand(wsEndpoint(workspace, "fetch"));
     } catch (e) {
       console.error("background fetch failed:", e);
+    }
+  });
+}
+
+async function fetchRemote() {
+  if (isFetchingRemote.value) return;
+  await withWorkspace(async (workspace) => {
+    isFetchingRemote.value = true;
+    try {
+      const ok = await apiWithToast(wsEndpoint(workspace, "fetch"), {}, {
+        successMessage: "Fetched remote",
+        errorMessage: "Fetch failed",
+      });
+      if (!ok) return;
+      remoteLoaded.value = false;
+      await loadBranchList();
+      await loadRemoteBranches();
+    } finally {
+      isFetchingRemote.value = false;
     }
   });
 }
@@ -258,46 +292,47 @@ defineExpose({ load: loadBranchList, backgroundFetch });
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
+  min-height: 36px;
+  box-sizing: border-box;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
-  color: var(--text-muted);
-  background: color-mix(in srgb, var(--bg-secondary) 50%, transparent);
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-tertiary) 60%, transparent);
   border-bottom: 1px solid var(--border);
   text-transform: uppercase;
 }
 
 .branch-section-header-toggle {
   width: 100%;
-  border: none;
   border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
-  background: color-mix(in srgb, var(--bg-secondary) 50%, transparent);
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   cursor: pointer;
-  text-align: left;
-  margin: 0;
-  box-shadow: none;
-  min-height: 0;
-}
-
-.branch-section-count {
-  margin-left: auto;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: normal;
-  color: var(--text-muted);
 }
 
 .branch-section-spinner {
+  width: 14px;
   font-size: 14px;
+  display: inline-flex;
+  justify-content: center;
+  flex-shrink: 0;
   animation: branch-spinner-spin 0.8s linear infinite;
+}
+
+.branch-section-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 @keyframes branch-spinner-spin {
