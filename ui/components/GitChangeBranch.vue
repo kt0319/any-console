@@ -35,7 +35,11 @@
             >Delete</button>
           </div>
         </div>
-        <div class="branch-section-header branch-section-header-toggle" @click="fetchRemote">
+        <div
+          class="branch-section-header branch-section-header-toggle"
+          :class="{ 'is-busy': isFetchingRemote }"
+          @click="fetchRemote"
+        >
           <span>REMOTE</span>
           <button
             type="button"
@@ -207,9 +211,9 @@ async function backgroundFetch() {
 
 async function fetchRemote() {
   if (isFetchingRemote.value) return;
-  await withWorkspace(async (workspace) => {
-    isFetchingRemote.value = true;
-    try {
+  isFetchingRemote.value = true;
+  try {
+    await withWorkspace(async (workspace) => {
       const ok = await apiWithToast(wsEndpoint(workspace, "fetch"), {}, {
         successMessage: "Fetched remote",
         errorMessage: "Fetch failed",
@@ -218,10 +222,10 @@ async function fetchRemote() {
       remoteLoaded.value = false;
       await loadBranchList();
       await loadRemoteBranches();
-    } finally {
-      isFetchingRemote.value = false;
-    }
-  });
+    });
+  } finally {
+    isFetchingRemote.value = false;
+  }
 }
 
 watch(branches, (list) => {
@@ -307,6 +311,15 @@ defineExpose({ load: loadBranchList, backgroundFetch });
   width: 100%;
   border-top: 1px solid var(--border);
   cursor: pointer;
+}
+
+.branch-section-header-toggle.is-busy {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.branch-section-header-toggle.is-busy .branch-section-add-btn {
+  pointer-events: auto;
 }
 
 .branch-section-spinner {
