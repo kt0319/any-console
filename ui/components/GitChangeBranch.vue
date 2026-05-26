@@ -87,7 +87,7 @@ import { emit } from "../app-bridge.js";
 
 const branchEmit = defineEmits(["count"]);
 
-const { apiGet, apiCommand, apiWithToast, wsEndpoint } = useApi();
+const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { withWorkspace } = useWorkspace();
 const { confirm } = useConfirm();
 const { prompt } = usePrompt();
@@ -214,14 +214,14 @@ async function fetchRemote() {
   isFetchingRemote.value = true;
   try {
     await withWorkspace(async (workspace) => {
-      const ok = await apiWithToast(wsEndpoint(workspace, "fetch"), {}, {
-        successMessage: "Fetched remote",
+      const { ok } = await apiCommand(wsEndpoint(workspace, "fetch"), {}, {
         errorMessage: "Fetch failed",
       });
       if (!ok) return;
       remoteLoaded.value = false;
       await loadBranchList();
       await loadRemoteBranches();
+      emit("toast:show", { message: "Fetched remote", type: "success" });
     });
   } finally {
     isFetchingRemote.value = false;
