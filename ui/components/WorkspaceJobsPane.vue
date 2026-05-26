@@ -2,7 +2,7 @@
   <div class="jobs-pane-wrapper">
     <div class="modal-scroll-body">
       <div class="job-section-header">
-        <span>Common</span>
+        <span>Common jobs</span>
         <button type="button" class="job-section-add-btn" title="Add Common Job" @click="startAddJob(true)">
           <span class="mdi mdi-plus"></span>
         </button>
@@ -28,7 +28,7 @@
       </div>
 
       <div class="job-section-header">
-        <span>Local</span>
+        <span>Workspace jobs</span>
         <button type="button" class="job-section-add-btn" title="Add Job" @click="startAddJob(false)">
           <span class="mdi mdi-plus"></span>
         </button>
