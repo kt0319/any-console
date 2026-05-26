@@ -9,6 +9,10 @@
 [![Vue 3](https://img.shields.io/badge/Vue-3-4fc08d.svg)](https://vuejs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
 
+<p align="center">
+  <img src="docs/hero.webp" alt="Same tmux session, seamless across phone and PC" width="100%">
+</p>
+
 **A seamless dev console across phone and PC.** A self-hosted web environment where the same tmux session is accessible from any device via a browser.
 
 Website: <https://any-console.highedge.net/>
