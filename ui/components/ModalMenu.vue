@@ -29,6 +29,10 @@
       <div class="settings-menu-section-label">System</div>
       <button type="button" class="settings-menu-item" @click="pushView('AuthConfig')">
         <span class="mdi mdi-shield-lock-outline"></span> Auth
+        <span v-if="authWarn" class="settings-menu-warn" data-tooltip="No token configured — anyone with network access can use this console">
+          <span class="mdi mdi-alert"></span>
+          <span class="settings-menu-warn-text">No token</span>
+        </span>
       </button>
       <button type="button" class="settings-menu-item" @click="pushView('ConfigFile')">
         <span class="mdi mdi-file-cog"></span> Config File
@@ -41,11 +45,22 @@
 </template>
 
 <script setup>
-import { inject } from "vue";
+import { ref, inject, onMounted } from "vue";
+import { useApi } from "../composables/useApi.js";
+import { EP_SETTINGS_AUTH } from "../utils/endpoints.js";
 
 const modalTitle = inject("modalTitle");
 const pushView = inject("pushView");
 modalTitle.value = "Settings";
+
+const { apiGet } = useApi();
+const authWarn = ref(false);
+
+onMounted(async () => {
+  const { ok, data } = await apiGet(EP_SETTINGS_AUTH);
+  if (!ok) return;
+  authWarn.value = !data?.auth_required;
+});
 </script>
 
 <style scoped>
@@ -69,7 +84,9 @@ modalTitle.value = "Settings";
 }
 
 .settings-menu-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   padding: 10px 14px;
   text-align: left;
@@ -78,5 +95,22 @@ modalTitle.value = "Settings";
   border-radius: var(--radius);
   background: transparent;
   color: var(--text-primary);
+}
+
+.settings-menu-warn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 170, 0, 0.15);
+  color: var(--warning, #ffaa00);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.settings-menu-warn .mdi {
+  font-size: 14px;
 }
 </style>
