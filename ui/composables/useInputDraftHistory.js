@@ -38,23 +38,31 @@ export function useInputDraftHistory(draft, inputFocused, sendTextToTerminal, { 
   function cycleSnippet(dir) {
     const list = inputStore.snippetsCache;
     if (!list.length) return;
+    if (inputFocused.value) {
+      // 入力中は左右で末尾⇄先頭をループする
+      if (snippetIndex === -1) {
+        savedSnippetDraft = draft.value;
+        snippetIndex = dir > 0 ? 0 : list.length - 1;
+      } else {
+        snippetIndex = (snippetIndex + dir + list.length) % list.length;
+      }
+      const command = list[snippetIndex]?.command;
+      if (command) draft.value = command;
+      return;
+    }
+    // 非フォーカス時は順送りで端まで進んだら原稿に戻る既存挙動
     if (snippetIndex === -1) savedSnippetDraft = draft.value;
     const next = snippetIndex + dir;
     if (next < 0) {
       snippetIndex = -1;
-      if (inputFocused.value) draft.value = savedSnippetDraft;
       return;
     }
     snippetIndex = Math.min(next, list.length - 1);
     const command = list[snippetIndex]?.command;
     if (!command) return;
-    if (inputFocused.value) {
-      draft.value = command;
-    } else {
-      sendTextToTerminal(command);
-      inputStore.addInputHistory(command);
-      onSend?.();
-    }
+    sendTextToTerminal(command);
+    inputStore.addInputHistory(command);
+    onSend?.();
   }
 
   return { historyPrev, historyNext, cycleSnippet };
