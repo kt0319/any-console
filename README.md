@@ -165,14 +165,15 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the module-level breakdown.
 
 any-console is built primarily for the author's own daily use.
 
-- **Issues and PRs are welcome**, but responses are best-effort and not guaranteed.
-- **This project has strong opinions** (see `CLAUDE.md`). Pull requests that conflict
-  with the existing design philosophy may be declined regardless of code quality.
+- **Issues and PRs are welcome.** Responses may take a while, but they are read.
+- **This project has its own design philosophy** (see `CLAUDE.md`). PRs that pull the
+  project in a different direction may not be a good fit, even if the code is solid.
 - **Fork freely** if you want a different direction — that is the spirit of MIT.
-- **Release cadence is irregular.** A quiet month does not mean the project is abandoned.
-- **No SLA, no roadmap promises.** Features land when they are useful to the author.
+- **Releases come when they come.** A quiet month does not mean the project is abandoned.
+- **It's a personal project,** so there is no fixed roadmap. Features land when they
+  are useful to the author.
 
-If these terms work for you, welcome aboard.
+If that sounds good to you, welcome aboard.
 
 ## License
 
