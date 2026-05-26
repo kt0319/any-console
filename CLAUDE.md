@@ -223,6 +223,26 @@ apiGet(..., {
 
 ---
 
+# コミットメッセージ
+
+日本語で Conventional Commits 形式で書くこと (**MUST**)。
+
+- 形式: `type: 日本語の説明`
+- type: `feat` / `fix` / `docs` / `refactor` / `perf` / `test` / `build` / `ci` / `deps`
+- スコープは使わない（シンプルに保つ）
+
+例:
+
+```text
+feat: ターミナルの選択中に Ctrl+C をコピーに割り当てる
+fix: ブランチパネルの Fetch 完了トーストの表示順を修正
+docs: README に Tailscale HTTPS 設定の手順を追加
+```
+
+CHANGELOG は release-please が `type:` から自動生成するため、英語タイトルや雑な要約を避けること。
+
+---
+
 # エージェント向け方針
 
 既存設計・命名・UIトーンを優先すること。
