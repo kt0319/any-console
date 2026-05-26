@@ -43,14 +43,16 @@
 }
 
 .github-item {
-  padding: 8px 12px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  min-height: 44px;
   border-bottom: 1px solid var(--border);
   font-size: 13px;
   color: var(--text-primary);
   cursor: pointer;
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: 4px;
 }
 
