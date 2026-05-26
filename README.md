@@ -48,6 +48,11 @@ The host running any-console needs Linux. Browser access from macOS / Windows / 
 
 ## Setup
 
+**Which one should I use?**
+
+- **You have a Linux host and want to actually use any-console** → `./any-console setup` (systemd). Your SSH keys, git/gh config, and shell environment all carry over; tmux sessions persist across reboots.
+- **You just want to try the UI from any OS** → Docker. Runs in seconds on macOS / Windows / Linux, but the container has no access to your real workspaces, keys, or shell — only the bundled `./work` directory.
+
 ### systemd (Linux) — first-class
 
 ```bash
