@@ -1,5 +1,5 @@
 <template>
-  <div v-if="isVisible" class="keyboard-bar">
+  <div v-show="isVisible" class="keyboard-bar">
     <KeyboardQwertyKey
       ref="qwertyView"
       :active="isFullKeyboard"
