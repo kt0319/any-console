@@ -1,16 +1,15 @@
 <template>
   <div class="jobs-pane-wrapper">
     <div class="modal-scroll-body">
-      <div class="job-item" @click="openTerminal">
-        <span class="mdi mdi-console job-item-icon" aria-hidden="true"></span>
-        <span class="job-item-label">Terminal</span>
-      </div>
-
       <div class="job-section-header">
         <span>Common</span>
         <button type="button" class="job-section-add-btn" title="Add Common Job" @click="startAddJob(true)">
           <span class="mdi mdi-plus"></span>
         </button>
+      </div>
+      <div class="job-item" @click="openTerminal">
+        <span class="mdi mdi-console job-item-icon" aria-hidden="true"></span>
+        <span class="job-item-label">Terminal</span>
       </div>
       <div
         v-for="job in commonJobs"
@@ -247,12 +246,15 @@ defineExpose({ load });
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 12px 4px;
+  gap: 6px;
+  padding: 8px 12px;
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-tertiary) 60%, transparent);
+  border-bottom: 1px solid var(--border);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
 }
 
 .job-section-add-btn {
