@@ -80,11 +80,35 @@ except Exception:
 " 2>/dev/null
 }
 
+get_config_value() {
+  KEY="$1" python3 -c "
+import json, os, pathlib
+p = pathlib.Path('config.json')
+if not p.is_file():
+    print(''); exit()
+try:
+    cfg = json.loads(p.read_text())
+    print(cfg.get('__global__', {}).get(os.environ['KEY'], '') or '')
+except Exception:
+    print('')
+" 2>/dev/null
+}
+
+get_ssl_certfile() { get_config_value 'ssl_certfile'; }
+get_ssl_keyfile()  { get_config_value 'ssl_keyfile'; }
+
+has_https() {
+  [ -n "$(get_ssl_certfile)" ] && [ -n "$(get_ssl_keyfile)" ]
+}
+
 prompt_bind_config() {
   local current_host current_port new_host new_port
   current_host=$(get_host)
   current_port=$(get_port)
 
+  echo "  - 0.0.0.0   : listen on all interfaces (LAN / Tailscale reachable)"
+  echo "  - 127.0.0.1 : localhost only"
+  echo ""
   read -rp "Bind host [${current_host}]: " new_host
   new_host=${new_host:-$current_host}
   read -rp "Port [${current_port}]: " new_port
@@ -107,8 +131,12 @@ p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + '\n', encoding='utf
 
 prompt_initial_workspace() {
   local ws_path
+  echo "  A workspace is a directory you want to manage (typically a git repository)."
+  echo "  More can be added later from the UI."
+  echo ""
   read -rp "Initial workspace path (leave blank to skip): " ws_path
   if [ -z "$ws_path" ]; then
+    info "Skipped (you can register workspaces from the UI later)"
     return 0
   fi
   WS_PATH="$ws_path" python3 -c "
@@ -129,6 +157,97 @@ print(f'Registered: {name} ({abs_path})')
 " || warn "Skipped workspace registration"
 }
 
+tailscale_hostname() {
+  tailscale status --json 2>/dev/null | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    print(d.get('Self', {}).get('DNSName', '').rstrip('.'))
+except Exception:
+    print('')
+" 2>/dev/null
+}
+
+do_https_setup() {
+  if ! command -v tailscale >/dev/null 2>&1; then
+    warn "  Tailscale not found. Install from https://tailscale.com/download"
+    return 1
+  fi
+
+  local hostname
+  hostname=$(tailscale_hostname)
+  if [ -z "$hostname" ]; then
+    warn "  Could not determine Tailscale hostname (is the daemon running?)"
+    return 1
+  fi
+
+  info "  Hostname: $hostname"
+  mkdir -p certs
+  local cert_path key_path
+  cert_path="$SCRIPT_DIR/certs/$hostname.crt"
+  key_path="$SCRIPT_DIR/certs/$hostname.key"
+
+  info "  Issuing certificate via Tailscale (sudo required)..."
+  if ! sudo tailscale cert --cert-file "$cert_path" --key-file "$key_path" "$hostname"; then
+    warn "  Failed to obtain certificate"
+    return 1
+  fi
+  sudo chown "$USER:$USER" "$cert_path" "$key_path" 2>/dev/null || true
+
+  CERT="$cert_path" KEY="$key_path" python3 -c "
+import json, os, pathlib
+p = pathlib.Path('config.json')
+cfg = json.loads(p.read_text()) if p.is_file() else {}
+g = cfg.get('__global__', {})
+if not isinstance(g, dict):
+    g = {}
+g['ssl_certfile'] = os.environ['CERT']
+g['ssl_keyfile'] = os.environ['KEY']
+cfg['__global__'] = g
+p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+"
+  info "  HTTPS configured: https://${hostname}:$(get_port)"
+
+  if is_service_installed; then
+    info "  Updating systemd service with SSL env vars..."
+    local service_dest="/etc/systemd/system/$SERVICE_NAME.service"
+    generate_service_unit | sudo tee "$service_dest" > /dev/null
+    sudo systemctl daemon-reload
+    if is_service_active; then
+      sudo systemctl restart "$SERVICE_NAME"
+      info "  Service restarted"
+    fi
+  fi
+
+  echo ""
+  warn "  Note: cert expires in ~90 days. Re-run './any-console https-setup' to renew."
+}
+
+prompt_https_setup() {
+  if ! command -v tailscale >/dev/null 2>&1; then
+    echo "  Tailscale not detected — HTTPS setup will be skipped."
+    echo "  HTTP works fine for trying any-console out from a browser."
+    echo "  Install Tailscale and run './any-console https-setup' later to enable PWA install."
+    return 0
+  fi
+
+  if [ -z "$(tailscale_hostname)" ]; then
+    echo "  Tailscale daemon not reachable — skipping HTTPS setup."
+    echo "  Run 'tailscale up' first, then './any-console https-setup'."
+    return 0
+  fi
+
+  echo "  HTTPS is only required if you want to install any-console as a PWA on phones."
+  echo "  HTTP works fine from any browser including phones — feel free to skip and try first."
+  echo ""
+  read -rp "Set up HTTPS via Tailscale now? [y/N] " answer
+  if [[ ! "$answer" =~ ^[Yy]$ ]]; then
+    info "  Skipped (run './any-console https-setup' anytime to enable)"
+    return 0
+  fi
+  do_https_setup
+}
+
 is_service_active() {
   systemctl is-active "$SERVICE_NAME" >/dev/null 2>&1
 }
@@ -139,49 +258,94 @@ is_service_installed() {
 }
 
 cmd_setup() {
+  echo ""
   info "=== any-console setup ==="
+  echo ""
+  echo "This will: check dependencies, install packages, build the UI,"
+  echo "and ask you a few questions about bind / workspace / systemd."
+  echo ""
 
+  info "[1/6] Checking dependencies"
   check_deps
-
   local python_version
   python_version=$(check_python_version)
-  info "Dependencies OK: Python $python_version, node $(node -v), git $(git --version | cut -d' ' -f3), tmux $(tmux -V | cut -d' ' -f2)"
+  info "  OK: Python $python_version, node $(node -v), git $(git --version | cut -d' ' -f3), tmux $(tmux -V | cut -d' ' -f2)"
 
-  info "Installing Python dependencies..."
+  echo ""
+  info "[2/6] Installing Python dependencies"
   pip install -r requirements.txt
 
-  info "Installing Node.js dependencies..."
+  echo ""
+  info "[3/6] Installing Node.js dependencies"
   npm install
 
-  info "Building frontend..."
+  echo ""
+  info "[4/6] Building frontend"
   npm run build
 
   echo ""
-  info "Bind config (saved under __global__ in config.json)"
+  info "[5/6] Network bind configuration"
   prompt_bind_config
 
   echo ""
-  info "Initial workspace registration"
+  info "[6/6] Initial workspace registration"
   prompt_initial_workspace
 
   echo ""
+  info "Optional: systemd service"
+  echo "  Registers any-console as a background service that starts on boot."
+  echo "  Recommended for Linux hosts (skip for macOS / WSL — use './any-console run' instead)."
+  echo ""
   read -rp "Register a systemd service? [y/N] " answer
+  local systemd_registered=0
   if [[ "$answer" =~ ^[Yy]$ ]]; then
     install_systemd
+    systemd_registered=1
   fi
+
+  echo ""
+  info "Optional: HTTPS via Tailscale"
+  prompt_https_setup
 
   echo ""
   info "=== Setup complete ==="
   echo ""
-  echo "Start:"
-  echo "  ./any-console start    (if systemd is registered)"
-  echo "  ./any-console run      (foreground, no systemd; macOS/WSL/etc.)"
+  echo "Next steps:"
+  if [ "$systemd_registered" -eq 1 ]; then
+    echo "  1. Start the service:  ./any-console start"
+    echo "  2. Check status:       ./any-console status"
+  else
+    echo "  1. Start in foreground: ./any-console run"
+    echo "     (or register systemd later via ./any-console setup)"
+  fi
+  local bind_host bind_port proto ts_host
+  bind_host=$(get_host)
+  bind_port=$(get_port)
+  proto="http"
+  has_https && proto="https"
+  ts_host=$(tailscale_hostname 2>/dev/null || echo "")
   echo ""
-  echo "Open http://localhost:$(get_port) in your browser."
-  echo "If an auth token is required, issue one from UI > Security."
+  echo "Open:"
+  if [ "$proto" = "https" ] && [ -n "$ts_host" ]; then
+    echo "  https://${ts_host}:${bind_port}      (Tailscale, PWA-ready)"
+    echo "  http://localhost:${bind_port}              (this machine, no PWA)"
+  elif [ "$bind_host" = "0.0.0.0" ]; then
+    echo "  http://localhost:${bind_port}              (this machine)"
+    echo "  http://<this-host-ip>:${bind_port}         (LAN / Tailscale)"
+  else
+    echo "  http://${bind_host}:${bind_port}"
+  fi
+  echo ""
+  echo "First time? In the UI, open Settings > Security to issue an auth token"
+  echo "(or browse Settings > Workspaces to add more directories)."
 }
 
 generate_service_unit() {
+  local ssl_cert ssl_key env_lines=""
+  ssl_cert=$(get_ssl_certfile)
+  ssl_key=$(get_ssl_keyfile)
+  if [ -n "$ssl_cert" ]; then env_lines+="Environment=SSL_CERTFILE=$ssl_cert"$'\n'; fi
+  if [ -n "$ssl_key" ];  then env_lines+="Environment=SSL_KEYFILE=$ssl_key"$'\n'; fi
   cat <<UNIT
 [Unit]
 Description=any-console API
@@ -191,7 +355,7 @@ After=network.target
 User=$USER
 WorkingDirectory=$SCRIPT_DIR
 ExecStart=/usr/bin/python3 -m api.main
-KillMode=process
+${env_lines}KillMode=process
 Restart=always
 RestartSec=3
 NoNewPrivileges=no
@@ -282,8 +446,10 @@ cmd_status() {
     echo -e "${YELLOW}not registered${NC}"
   fi
 
+  local proto="http"
+  has_https && proto="https"
   echo "  Version: $(get_version)"
-  echo "  URL: http://localhost:$(get_port)"
+  echo "  URL: ${proto}://localhost:$(get_port)"
   echo "  Directory: $SCRIPT_DIR"
 }
 
@@ -294,9 +460,20 @@ cmd_logs() {
 cmd_run() {
   check_deps
   check_python_version >/dev/null
+  local proto="http"
+  if has_https; then
+    export SSL_CERTFILE="$(get_ssl_certfile)"
+    export SSL_KEYFILE="$(get_ssl_keyfile)"
+    proto="https"
+  fi
   info "Starting any-console in the foreground (Ctrl+C to stop)"
-  echo "  URL: http://localhost:$(get_port)"
+  echo "  URL: ${proto}://localhost:$(get_port)"
   exec python3 -m api.main
+}
+
+cmd_https_setup() {
+  info "=== HTTPS setup ==="
+  do_https_setup
 }
 
 cmd_version() {
@@ -307,15 +484,16 @@ usage() {
   echo -e "${BOLD}Usage:${NC} ./any-console <command>"
   echo ""
   echo "Commands:"
-  echo "  setup      Initial setup (install deps + build + optional systemd register)"
-  echo "  update     Update to latest (git pull + deps + build + service restart)"
-  echo "  start      Start service (systemd)"
-  echo "  stop       Stop service (systemd)"
-  echo "  restart    Restart service (systemd)"
-  echo "  status     Show service state, URL, version"
-  echo "  logs       Tail service logs (journalctl)"
-  echo "  run        Run in foreground (no systemd; macOS/WSL/etc.)"
-  echo "  version    Print version"
+  echo "  setup        Initial setup (install deps + build + optional systemd register)"
+  echo "  update       Update to latest (git pull + deps + build + service restart)"
+  echo "  start        Start service (systemd)"
+  echo "  stop         Stop service (systemd)"
+  echo "  restart      Restart service (systemd)"
+  echo "  status       Show service state, URL, version"
+  echo "  logs         Tail service logs (journalctl)"
+  echo "  run          Run in foreground (no systemd; macOS/WSL/etc.)"
+  echo "  https-setup  Issue / renew a Tailscale HTTPS cert (required for PWA install)"
+  echo "  version      Print version"
 }
 
 command="${1:-}"
@@ -328,7 +506,8 @@ case "$command" in
   restart) cmd_restart ;;
   status)  cmd_status ;;
   logs)    cmd_logs ;;
-  run)     cmd_run ;;
-  version) cmd_version ;;
+  run)         cmd_run ;;
+  https-setup) cmd_https_setup ;;
+  version)     cmd_version ;;
   *)       usage ;;
 esac
