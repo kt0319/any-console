@@ -1,6 +1,6 @@
 <template>
   <div v-if="visible" class="prompt-overlay" @click.self="onCancel">
-    <div class="prompt-dialog" role="dialog" aria-modal="true" :aria-label="title || 'Input dialog'">
+    <div ref="dialogEl" class="prompt-dialog" role="dialog" aria-modal="true" :aria-label="title || 'Input dialog'">
       <div v-if="title" class="prompt-title">{{ title }}</div>
       <p v-if="message" class="prompt-message">{{ message }}</p>
       <input
@@ -25,8 +25,10 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from "vue";
+import { ref, watch, nextTick, onUnmounted } from "vue";
 import { usePrompt } from "../composables/usePrompt.js";
+import { trapFocusWithin } from "../composables/useModal.js";
+import { isTouchOnly, listenForEscape } from "../utils/keyboard.js";
 
 const {
   visible,
@@ -43,12 +45,39 @@ const {
 } = usePrompt();
 
 const inputEl = ref(null);
+const dialogEl = ref(null);
+let prevFocus = null;
+let releaseEscape = null;
+let releaseTrap = null;
 
 watch(visible, async (nextVisible) => {
-  if (!nextVisible) return;
-  await nextTick();
-  inputEl.value?.focus();
-  if (selectOnOpen.value) inputEl.value?.select?.();
+  if (nextVisible) {
+    prevFocus = document.activeElement;
+    releaseEscape = listenForEscape(onCancel);
+    await nextTick();
+    if (dialogEl.value) {
+      releaseTrap?.();
+      releaseTrap = trapFocusWithin(dialogEl.value);
+    }
+    inputEl.value?.focus();
+    if (selectOnOpen.value) inputEl.value?.select?.();
+    return;
+  }
+
+  releaseTrap?.();
+  releaseTrap = null;
+  releaseEscape?.();
+  releaseEscape = null;
+  if (!isTouchOnly()) {
+    await nextTick();
+    /** @type {HTMLElement|null} */ (prevFocus)?.focus();
+  }
+  prevFocus = null;
+});
+
+onUnmounted(() => {
+  releaseTrap?.();
+  releaseEscape?.();
 });
 </script>
 

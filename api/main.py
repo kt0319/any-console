@@ -270,7 +270,7 @@ async def upload_image(file: UploadFile):
     if file.content_type not in ALLOWED_IMAGE_TYPES:
         raise bad_request(f"Unsupported type: {file.content_type}")
 
-    data = await file.read()
+    data = await file.read(MAX_UPLOAD_SIZE + 1)
     if len(data) > MAX_UPLOAD_SIZE:
         raise too_large("File too large (max 10MB)")
 

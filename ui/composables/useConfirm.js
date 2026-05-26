@@ -22,6 +22,10 @@ export function useConfirm() {
    * @returns {Promise<boolean | string>}
    */
   function confirm(msg, opts = {}) {
+    if (_resolve) {
+      _resolve(false);
+      _resolve = null;
+    }
     message.value = msg;
     extraButton.value = opts.extra
       ? {

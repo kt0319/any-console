@@ -1,6 +1,7 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
 import { buildFileList } from "../../ui/composables/useGitDiff.js";
+import { useConfirm } from "../../ui/composables/useConfirm.js";
 import { usePrompt } from "../../ui/composables/usePrompt.js";
 import { buildWebSocketUrl } from "../../ui/utils/terminal-ws.js";
 import { extractApiError } from "../../ui/utils/constants.js";
@@ -133,5 +134,18 @@ describe("usePrompt", () => {
     await expect(pending).resolves.toBe(null);
     expect(promptState.visible.value).toBe(false);
     expect(promptState.message.value).toBe("");
+  });
+});
+
+describe("useConfirm", () => {
+  it("resolves previous confirm as false when reopened", async () => {
+    const confirmState = useConfirm();
+    const first = confirmState.confirm("Delete file?");
+    const second = confirmState.confirm("Delete branch?");
+
+    await expect(first).resolves.toBe(false);
+
+    confirmState.onOk();
+    await expect(second).resolves.toBe(true);
   });
 });

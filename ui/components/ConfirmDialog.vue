@@ -1,6 +1,7 @@
 <template>
   <div v-if="visible" class="confirm-overlay" @click.self="onCancel">
     <div
+      ref="dialogEl"
       class="confirm-dialog"
       role="dialog"
       aria-modal="true"
@@ -24,23 +25,43 @@
 <script setup>
 import { ref, watch, nextTick, onUnmounted } from "vue";
 import { useConfirm } from "../composables/useConfirm.js";
+import { focusFirstFocusable, trapFocusWithin } from "../composables/useModal.js";
 import { isTouchOnly, listenForEscape } from "../utils/keyboard.js";
 
 const { visible, message, extraButton, okButton, onOk, onCancel, onExtra } = useConfirm();
 const cancelBtn = ref(null);
+const dialogEl = ref(null);
 
 let prevFocus = null;
 let releaseEscape = null;
+let releaseTrap = null;
 
 watch(visible, (val) => {
   if (val) {
     prevFocus = document.activeElement;
     // タッチデバイスでは自動フォーカスしない（キーボード誤起動を防ぐ）
     if (!isTouchOnly()) {
-      nextTick(() => cancelBtn.value?.focus());
+      nextTick(() => {
+        if (dialogEl.value) {
+          releaseTrap?.();
+          releaseTrap = trapFocusWithin(dialogEl.value);
+          focusFirstFocusable(dialogEl.value);
+        } else {
+          cancelBtn.value?.focus();
+        }
+      });
+    } else {
+      nextTick(() => {
+        if (dialogEl.value) {
+          releaseTrap?.();
+          releaseTrap = trapFocusWithin(dialogEl.value);
+        }
+      });
     }
     releaseEscape = listenForEscape(onCancel);
   } else {
+    releaseTrap?.();
+    releaseTrap = null;
     releaseEscape?.();
     releaseEscape = null;
     // タッチデバイスでは prevFocus 復元もしない（xterm 等にフォーカス戻すと
@@ -51,7 +72,10 @@ watch(visible, (val) => {
     prevFocus = null;
   }
 });
-onUnmounted(() => releaseEscape?.());
+onUnmounted(() => {
+  releaseTrap?.();
+  releaseEscape?.();
+});
 </script>
 
 <style scoped>
