@@ -1,10 +1,11 @@
 import { ref } from "vue";
 import { useLayoutStore } from "../stores/layout.js";
-import { KEYBOARD_CLOSE_DELAY_MS, DEBOUNCE_FIT_MS, ORIENTATION_CHANGE_DELAY_MS, DOUBLE_TAP_ZOOM_PREVENT_MS } from "../utils/constants.js";
+import { KEYBOARD_CLOSE_DELAY_MS, KEYBOARD_OPEN_DELAY_MS, DEBOUNCE_FIT_MS, ORIENTATION_CHANGE_DELAY_MS, DOUBLE_TAP_ZOOM_PREVENT_MS } from "../utils/constants.js";
 
 let initialized = false;
 const keyboardOpen = ref(false);
 let keyboardCloseTimer = null;
+let keyboardOpenTimer = null;
 let fitDebounceTimer = null;
 let orientationFitTimer = null;
 let prevViewportHeightPx = 0;
@@ -30,11 +31,18 @@ function updateViewportHeight() {
   keyboardOpen.value = isKbOpen;
 
   if (prevOpen && !isKbOpen) {
+    if (keyboardOpenTimer) { clearTimeout(keyboardOpenTimer); keyboardOpenTimer = null; }
     if (keyboardCloseTimer) clearTimeout(keyboardCloseTimer);
     keyboardCloseTimer = setTimeout(() => {
       keyboardCloseTimer = null;
-      if (onFitCallback) onFitCallback();
+      if (onFitCallback) onFitCallback({ scrollToBottom: true });
     }, KEYBOARD_CLOSE_DELAY_MS);
+  } else if (!prevOpen && isKbOpen) {
+    if (keyboardOpenTimer) clearTimeout(keyboardOpenTimer);
+    keyboardOpenTimer = setTimeout(() => {
+      keyboardOpenTimer = null;
+      if (onFitCallback) onFitCallback({ scrollToBottom: true });
+    }, KEYBOARD_OPEN_DELAY_MS);
   } else if (!isKbOpen) {
     debouncedFit();
   }

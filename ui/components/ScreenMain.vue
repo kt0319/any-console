@@ -187,8 +187,8 @@ onMounted(() => {
   bridgeCleanups.push(on("oskeyboard:show", () => { keyboardOpen.value = true; }));
   bridgeCleanups.push(on("oskeyboard:hide", () => { keyboardOpen.value = false; }));
 
-  initViewport(() => {
-    terminalBaseView.value?.fitAllTerminals();
+  initViewport((opts) => {
+    terminalBaseView.value?.fitAllTerminals(opts);
   });
 
   if (typeof ResizeObserver !== "undefined") {

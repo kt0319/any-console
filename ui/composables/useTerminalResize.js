@@ -17,6 +17,9 @@ export function fitTerminal(tab, opts = {}) {
     tab._lastFitCols = dims.cols;
     tab._lastFitRows = dims.rows;
     tab.fitAddon.fit();
+    if (opts.scrollToBottom) {
+      try { tab.term.scrollToBottom(); } catch {}
+    }
   } catch {}
 }
 
