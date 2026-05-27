@@ -69,8 +69,7 @@ export function useSessionSync() {
       const savedSessionId = localStorage.getItem(LS_KEY_ACTIVE_SESSION);
       const visibleTabs = terminalStore.openTabs.filter((t) => !t.hidden);
       const target = (savedSessionId && visibleTabs.find((t) => t.sessionId === savedSessionId))
-        || visibleTabs[0]
-        || terminalStore.openTabs[0];
+        || visibleTabs[0];
       if (target) terminalStore.switchTab(target.id);
       setTimeout(() => emit("layout:fitAll", { force: true }), LAYOUT_FIT_DELAY_MS);
     } catch (e) {
