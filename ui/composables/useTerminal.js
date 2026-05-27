@@ -33,6 +33,9 @@ export function useTerminal() {
 
   async function connectTerminalWs(tab, opts = {}) {
     if (!tab || tab._wsDisposed) return;
+    // history を書き込む前に fit して cols を確定させる。
+    // 後から fit が走ると ANSI のカーソル位置が古い cols 基準のままになり画面が崩れる。
+    fitTerminal(tab, { force: true });
     await restoreHistoryIfNeeded(tab);
     if (tab._wsDisposed) return;
     const frame = document.getElementById(`frame-${tab.id}`);
