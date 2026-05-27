@@ -1,5 +1,4 @@
 import { WS_MSG_RESIZE } from "../utils/constants.js";
-import { fitTerminal, sendResize } from "./useTerminalResize.js";
 
 export function bindTerminalInput(tab) {
   if (tab._inputBound) return;
@@ -45,10 +44,6 @@ export function bindTerminalInput(tab) {
     }
   });
 
-  tab.term?.onKey(() => {
-    fitTerminal(tab, { force: true });
-    sendResize(tab);
-  });
 }
 
 export function bindTerminalElement(tab) {
