@@ -47,7 +47,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onUnmounted } from "vue";
+import { ref, computed, nextTick, onUnmounted, watch } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useInputStore } from "../stores/input.js";
@@ -163,6 +163,13 @@ const cleanups = [
   on("keyboard:deactivate", hideInput),
 ];
 onUnmounted(() => cleanups.forEach((fn) => fn()));
+
+// 入力モード切替で keyboard-bar の高さが変わると terminal 領域も縮む / 広がる。
+// ResizeObserver の debounce を待たず、即座に fit を要求して旧サイズでの描画を最小化する。
+watch([isFullKeyboard, inputFocused, showSnippetView], async () => {
+  await nextTick();
+  emit("layout:fitAll", { force: true });
+});
 </script>
 
 <style>
