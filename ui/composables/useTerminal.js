@@ -23,7 +23,12 @@ export function useTerminal() {
     tab._needsHistoryRestore = false;
     try {
       const { apiGet } = useApi();
-      const { ok, data } = await apiGet(terminalSessionHistoryPath(tab.sessionId));
+      // history を取り出す前に backend で tmux pane を xterm と同じサイズへリサイズさせる。
+      // 古いサイズで wrap された出力が新サイズの xterm に書かれて崩れるのを防ぐ。
+      const dims = tab.fitAddon?.proposeDimensions?.();
+      const cols = Number.isFinite(dims?.cols) ? dims.cols : tab.term.cols;
+      const rows = Number.isFinite(dims?.rows) ? dims.rows : tab.term.rows;
+      const { ok, data } = await apiGet(terminalSessionHistoryPath(tab.sessionId, { cols, rows }));
       if (ok && data?.content) {
         tab.term.write(data.content);
         tab._lastWriteAt = performance.now();

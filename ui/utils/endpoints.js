@@ -51,9 +51,15 @@ export function terminalSessionPath(sessionId) {
   return `/terminal/sessions/${encodeURIComponent(sessionId)}`;
 }
 
-/** @param {string} sessionId @returns {string} */
-export function terminalSessionHistoryPath(sessionId) {
-  return `/terminal/sessions/${encodeURIComponent(sessionId)}/history`;
+/** @param {string} sessionId @param {{cols?: number, rows?: number}} [opts] @returns {string} */
+export function terminalSessionHistoryPath(sessionId, opts) {
+  const base = `/terminal/sessions/${encodeURIComponent(sessionId)}/history`;
+  const cols = Number(opts?.cols);
+  const rows = Number(opts?.rows);
+  if (Number.isFinite(cols) && Number.isFinite(rows) && cols > 0 && rows > 0) {
+    return `${base}?cols=${cols}&rows=${rows}`;
+  }
+  return base;
 }
 
 /** @param {string} workspace @returns {string} */

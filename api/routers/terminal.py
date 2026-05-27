@@ -90,8 +90,19 @@ async def list_terminal_sessions():
 
 
 @router.get("/terminal/sessions/{session_id}/history")
-async def get_terminal_history(session_id: str):
+async def get_terminal_history(session_id: str, cols: int | None = None, rows: int | None = None):
     session = get_terminal_session(session_id)
+    # クライアントから cols/rows を受けたら tmux を先にリサイズしてから capture する。
+    # こうしないと、古いサイズで wrap された pane 内容をクライアントが書き戻して画面が崩れる。
+    if cols and rows and cols > 0 and rows > 0:
+        try:
+            subprocess.run(
+                ["tmux", "resize-window", "-t", session.tmux_session_name, "-x", str(cols), "-y", str(rows)],
+                timeout=TMUX_CMD_TIMEOUT_SEC,
+                capture_output=True,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            pass
     try:
         result = subprocess.run(
             ["tmux", "capture-pane", "-t", session.tmux_session_name, "-p", "-e", "-S", "-", "-E", "-"],
