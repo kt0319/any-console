@@ -108,7 +108,7 @@ const activeTab = computed(() =>
   terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId),
 );
 const workspace = computed(() => activeTab.value?.workspace || null);
-const showHeader = computed(() => !layoutStore.isSplitMode);
+const showHeader = computed(() => !layoutStore.isSplitMode && terminalStore.openTabs.some((t) => !t.hidden));
 
 const ws = computed(() =>
   workspaceStore.allWorkspaces.find((w) => w.name === workspace.value),

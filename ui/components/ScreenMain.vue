@@ -12,7 +12,8 @@
       <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
     </div>
     <TerminalBase
-      v-else
+      v-if="hasAnyTab && !booting"
+      v-show="!isEmptyScreenVisible"
       ref="terminalBaseView"
       :is-panel-bottom="isPanelBottom"
     >
@@ -26,7 +27,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
 import WorkspaceStatusBar from "./WorkspaceStatusBar.vue";
 import TabBar from "./TabBar.vue";
 import TerminalBase from "./TerminalBase.vue";
@@ -79,7 +80,17 @@ useSessionResume({ terminalBaseView });
 useGlobalShortcuts({ closeTab });
 
 const openTabs = computed(() => terminalStore.openTabs);
-const isEmptyScreenVisible = computed(() => openTabs.value.length === 0 && !layoutStore.isSplitMode);
+const hasAnyTab = computed(() => openTabs.value.length > 0);
+const hasVisibleTab = computed(() => openTabs.value.some((t) => !t.hidden));
+const isEmptyScreenVisible = computed(() => !hasVisibleTab.value && !layoutStore.isSplitMode);
+
+watch(isEmptyScreenVisible, async (isEmpty) => {
+  if (!isEmpty) {
+    await nextTick();
+    requestAnimationFrame(() => terminalBaseView.value?.fitAllTerminals());
+  }
+});
+
 const activeTabLabel = computed(() => {
   let tabId = terminalStore.activeTabId;
   if (layoutStore.isSplitMode) {
