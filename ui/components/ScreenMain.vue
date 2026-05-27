@@ -7,7 +7,7 @@
       </template>
       <span v-else>{{ activeTabLabel || ' ' }}</span>
     </div>
-    <WorkspaceStatusBar v-show="!booting" />
+    <WorkspaceStatusBar v-show="!booting" :is-empty="isEmptyScreenVisible" />
     <div v-if="booting || isEmptyScreenVisible" class="screen-main-empty">
       <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
     </div>
@@ -92,6 +92,7 @@ watch(isEmptyScreenVisible, async (isEmpty) => {
 });
 
 const activeTabLabel = computed(() => {
+  if (isEmptyScreenVisible.value) return "";
   let tabId = terminalStore.activeTabId;
   if (layoutStore.isSplitMode) {
     const paneId = layoutStore.splitPaneTabIds[layoutStore.activePaneIndex];

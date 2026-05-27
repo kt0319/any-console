@@ -67,6 +67,8 @@
 
 <script setup>
 import { computed, onMounted, onBeforeUnmount } from "vue";
+
+const props = defineProps({ isEmpty: Boolean });
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
@@ -107,8 +109,8 @@ const layoutStore = useLayoutStore();
 const activeTab = computed(() =>
   terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId),
 );
-const workspace = computed(() => activeTab.value?.workspace || null);
-const showHeader = computed(() => !layoutStore.isSplitMode && terminalStore.openTabs.some((t) => !t.hidden));
+const workspace = computed(() => props.isEmpty ? null : (activeTab.value?.workspace || null));
+const showHeader = computed(() => !layoutStore.isSplitMode);
 
 const ws = computed(() =>
   workspaceStore.allWorkspaces.find((w) => w.name === workspace.value),

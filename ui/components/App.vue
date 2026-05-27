@@ -30,6 +30,7 @@ const terminalStore = useTerminalStore();
 
 const APP_NAME = "any-console";
 const activeTabLabel = computed(() => {
+  if (!terminalStore.openTabs.some((t) => !t.hidden)) return "";
   const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
   if (!tab) return "";
   const ws = tab.workspace || "";
