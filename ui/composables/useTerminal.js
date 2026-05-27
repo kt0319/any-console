@@ -8,7 +8,6 @@ import { buildWebSocketUrl as _buildWebSocketUrl } from "../utils/terminal-ws.js
 import { bindTerminalInput, bindTerminalElement } from "./useTerminalInput.js";
 import { terminalSessionPath, terminalSessionHistoryPath } from "../utils/endpoints.js";
 import { debugLog } from "./useClientLogs.js";
-import { WebglAddon } from "@xterm/addon-webgl";
 
 export function useTerminal() {
   const terminalStore = useTerminalStore();
@@ -146,15 +145,6 @@ export function useTerminal() {
     if (!tab || !tab._pendingOpen || !frameEl) return false;
     tab._pendingOpen = false;
     tab.term.open(frameEl);
-    // WebGL レンダラーは canvas にピクセル精度で描画するため、DOM レンダラーで起きる
-    // サブピクセル誤差の累積（長い出力で文字位置が徐々にずれる症状）を回避できる。
-    try {
-      const webgl = new WebglAddon();
-      webgl.onContextLoss(() => webgl.dispose());
-      tab.term.loadAddon(webgl);
-    } catch (e) {
-      debugLog("[xterm] WebGL renderer unavailable, falling back to DOM:", e?.message);
-    }
     bindTerminalElement(tab);
     if (!tab._pendingRedraw) {
       connectTerminalWs(tab);
