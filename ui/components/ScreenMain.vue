@@ -7,7 +7,7 @@
       </template>
       <span v-else>{{ activeTabLabel || ' ' }}</span>
     </div>
-    <WorkspaceStatusBar />
+    <WorkspaceStatusBar v-show="!booting" />
     <div v-if="booting || isEmptyScreenVisible" class="screen-main-empty">
       <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
     </div>
