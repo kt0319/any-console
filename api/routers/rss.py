@@ -36,7 +36,8 @@ def _fetch_feed_items(feed_id: str, url: str) -> tuple[list[dict], str]:
         if parsed.username:
             creds = f"{urllib.parse.unquote(parsed.username)}:{urllib.parse.unquote(parsed.password or '')}"
             headers["Authorization"] = "Basic " + base64.b64encode(creds.encode()).decode()
-            clean = parsed._replace(netloc=parsed.hostname + (f":{parsed.port}" if parsed.port else ""))
+            hostname = parsed.hostname or ""
+            clean = parsed._replace(netloc=hostname + (f":{parsed.port}" if parsed.port else ""))
             fetch_url = urllib.parse.urlunparse(clean)
         else:
             fetch_url = url
