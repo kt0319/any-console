@@ -118,6 +118,26 @@ ANY_CONSOLE_DISABLE_AUTH=1 ./any-console start
 # "auth_disabled": true
 ```
 
+## HTTPS
+
+PWA installation and service workers require HTTPS.
+
+**Tailscale Serve** is the easiest option — it handles certificates automatically:
+
+```bash
+tailscale serve --bg / proxy http://127.0.0.1:8888
+```
+
+Access the app at `https://<your-device>.ts.net/`.
+
+**Direct TLS** is also supported via environment variables:
+
+```bash
+SSL_KEYFILE=/path/to/key.pem SSL_CERTFILE=/path/to/cert.pem ./any-console start
+```
+
+The default port is 8888. To change it, set `__global__.port` in `config.json`.
+
 ## Commands
 
 For the systemd setup, all operations go through the `./any-console` command. (Docker users: manage with `docker compose` instead — see [Platform support](#platform-support).)
