@@ -109,11 +109,13 @@ import { useModalView } from "../composables/useModalView.js";
 import { getCachedCount, useGitHub } from "../composables/useGitHub.js";
 import { getStashCachedCount, setStashCache } from "../composables/useStashCache.js";
 import { useRSS, isToday } from "../composables/useRSS.js";
+import { useConfirm } from "../composables/useConfirm.js";
 import { RSS_AUTO_REFRESH_MS } from "../utils/constants.js";
 
 const workspaceStore = useWorkspaceStore();
 const { apiCommand, apiGet, wsEndpoint } = useApi();
 const toast = useToast();
+const { confirm } = useConfirm();
 const { loadWorkspaceGithubUrl, loadIssues, loadPRs } = useGitHub();
 const { modalTitle, viewState } = useModalView();
 const { loadFeeds, loadItems, addFeed, removeFeed, updateFeed } = useRSS();
@@ -412,6 +414,9 @@ async function checkRssUpdates() {
 let _rssBgTimer = null;
 
 async function onFeedRemoved(feedId) {
+  const feed = rssFeeds.value.find((f) => f.id === feedId);
+  const label = feed?.title || feed?.url || feedId;
+  if (!await confirm(`Remove feed "${label}"? This cannot be undone.`)) return;
   await removeFeed(feedId);
   if (activePane.value === `rss-${feedId}`) {
     switchPane("jobs");
