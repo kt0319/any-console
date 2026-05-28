@@ -65,8 +65,10 @@ import GitHubPane from "./GitHubPane.vue";
 import IconPicker from "./IconPicker.vue";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
 import { on } from "../app-bridge.js";
+import { useWorkspaceStore } from "../stores/workspace.js";
 
 const modal = useModal();
+const workspaceStore = useWorkspaceStore();
 const modalEl = ref(null);
 const currentPaneRef = ref(null);
 
@@ -170,11 +172,14 @@ onMounted(() => {
     { view: "WorkspaceDetail", state: {} },
   ]));
 
-  on("git:openHistory", () => openView([
-    { view: "ModalMenu", state: {} },
-    { view: "WorkspaceOpen", state: {} },
-    { view: "WorkspaceDetail", state: { detail: { pane: "history" } } },
-  ]));
+  on("git:openHistory", ({ wsName } = {}) => {
+    if (wsName) workspaceStore.selectedWorkspace = wsName;
+    openView([
+      { view: "ModalMenu", state: {} },
+      { view: "WorkspaceOpen", state: {} },
+      { view: "WorkspaceDetail", state: { detail: { pane: "history" } } },
+    ]);
+  });
 
   on("modal:close", () => closeModal());
 });

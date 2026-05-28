@@ -34,8 +34,13 @@ function restack() {
 
 function dismiss(toast) {
   if (toast.action) {
-    console.log("[toast] action:", toast.action);
-    emit(toast.action);
+    const action = toast.action;
+    if (typeof action === "string") {
+      emit(action);
+    } else {
+      const { event, ...payload } = action;
+      emit(event, payload);
+    }
   } else if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(toast.message).catch(() => {});
   }

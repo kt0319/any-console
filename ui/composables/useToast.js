@@ -6,7 +6,7 @@ import { emit } from "../app-bridge.js";
  */
 export function useToast() {
   function show(message, type = "info", opts = {}) {
-    /** @type {{ message: string, type: string, duration?: number, action?: string }} */
+    /** @type {{ message: string, type: string, duration?: number, action?: string | object }} */
     const payload = { message, type };
     if (opts.duration != null) payload.duration = opts.duration;
     if (opts.action != null) payload.action = opts.action;
