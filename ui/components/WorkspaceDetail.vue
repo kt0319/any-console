@@ -51,20 +51,29 @@
         <GitHubPRsPane ref="githubPrs" @count="prsCount = $event" />
       </div>
       <div v-if="activePane.startsWith('rss-')" class="file-modal-pane">
-        <RSSPane :key="activePane" :feed="currentRssFeed" @removed="onFeedRemoved" />
+        <RSSPane :key="activePane" :feed="currentRssFeed" @removed="onFeedRemoved" @edit="onFeedEdit" />
       </div>
     </div>
 
     <!-- RSS追加ダイアログ -->
     <div v-if="rssAddingFeed" class="rss-add-overlay" @click.self="rssAddingFeed = false">
       <div class="rss-add-dialog">
-        <div class="rss-add-title">Add RSS / Atom Feed</div>
+        <div class="rss-add-title">{{ rssEditingFeed ? "Edit Feed" : "Add RSS / Atom Feed" }}</div>
         <input
           ref="rssUrlInput"
           v-model="rssNewFeedUrl"
           class="rss-add-input"
-          type="url"
+          type="text"
           placeholder="https://example.com/feed.xml"
+          @keydown.enter="submitRssAddFeed"
+          @keydown.esc="rssAddingFeed = false"
+        />
+        <input
+          ref="rssTitleInput"
+          v-model="rssNewFeedTitle"
+          class="rss-add-input"
+          type="text"
+          placeholder="Name (optional)"
           @keydown.enter="submitRssAddFeed"
           @keydown.esc="rssAddingFeed = false"
         />
@@ -72,7 +81,7 @@
         <div class="rss-add-actions">
           <button class="rss-btn rss-btn-cancel" @click="rssAddingFeed = false">Cancel</button>
           <button class="rss-btn rss-btn-ok" :disabled="rssAddSubmitting" @click="submitRssAddFeed">
-            {{ rssAddSubmitting ? "Adding..." : "Add" }}
+            {{ rssAddSubmitting ? "Saving..." : (rssEditingFeed ? "Save" : "Add") }}
           </button>
         </div>
       </div>
@@ -106,7 +115,7 @@ const { apiCommand, apiGet, wsEndpoint } = useApi();
 const toast = useToast();
 const { loadWorkspaceGithubUrl, loadIssues, loadPRs } = useGitHub();
 const { modalTitle, viewState } = useModalView();
-const { loadFeeds, addFeed, removeFeed } = useRSS();
+const { loadFeeds, addFeed, removeFeed, updateFeed } = useRSS();
 
 const fileBrowser = ref(null);
 const gitHistory = ref(null);
@@ -138,10 +147,13 @@ const historyExpanded = ref(false);
 // RSS state
 const rssFeeds = ref([]);
 const rssAddingFeed = ref(false);
+const rssEditingFeed = ref(null);
 const rssNewFeedUrl = ref("");
+const rssNewFeedTitle = ref("");
 const rssAddError = ref("");
 const rssAddSubmitting = ref(false);
 const rssUrlInput = ref(null);
+const rssTitleInput = ref(null);
 
 function onFileBrowserState({ atRoot, fileOpen }) {
   fileBrowserDeep.value = !atRoot || fileOpen;
@@ -152,6 +164,7 @@ const filesBrowsing = computed(() => fileBrowserDeep.value || !!selectedDiffFile
 const hasGithub = computed(() => !!workspaceStore.currentWorkspace?.github_url);
 
 function rssLabel(feed) {
+  if (feed.title) return feed.title;
   try { return new URL(feed.url).hostname; } catch { return feed.url; }
 }
 
@@ -311,18 +324,54 @@ function onCommitCollapsed() {
 }
 
 async function onRssAddFeed() {
+  rssEditingFeed.value = null;
   rssNewFeedUrl.value = "";
+  rssNewFeedTitle.value = "";
   rssAddError.value = "";
   rssAddingFeed.value = true;
   await nextTick();
   rssUrlInput.value?.focus();
 }
 
+async function onFeedEdit(feed) {
+  rssEditingFeed.value = feed;
+  rssNewFeedUrl.value = feed.url || "";
+  rssNewFeedTitle.value = feed.title || "";
+  rssAddError.value = "";
+  rssAddingFeed.value = true;
+  await nextTick();
+  rssUrlInput.value?.select();
+}
+
 async function submitRssAddFeed() {
-  if (!rssNewFeedUrl.value.trim() || rssAddSubmitting.value) return;
+  if (rssAddSubmitting.value) return;
   rssAddSubmitting.value = true;
   rssAddError.value = "";
-  const result = await addFeed(rssNewFeedUrl.value.trim());
+
+  if (rssEditingFeed.value) {
+    const url = rssNewFeedUrl.value.trim();
+    if (url && !url.startsWith("http://") && !url.startsWith("https://")) {
+      rssAddError.value = "Invalid URL";
+      rssAddSubmitting.value = false;
+      return;
+    }
+    const ok = await updateFeed(rssEditingFeed.value.id, { url, title: rssNewFeedTitle.value.trim() });
+    rssAddSubmitting.value = false;
+    if (!ok) {
+      rssAddError.value = "Failed to save";
+      return;
+    }
+    rssAddingFeed.value = false;
+    rssEditingFeed.value = null;
+    await loadRssFeeds();
+    return;
+  }
+
+  if (!rssNewFeedUrl.value.trim()) {
+    rssAddSubmitting.value = false;
+    return;
+  }
+  const result = await addFeed(rssNewFeedUrl.value.trim(), rssNewFeedTitle.value.trim());
   rssAddSubmitting.value = false;
   if (!result.ok) {
     rssAddError.value = result.detail;

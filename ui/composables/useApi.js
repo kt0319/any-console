@@ -38,6 +38,7 @@ export function useApi() {
   const apiGet = (endpoint, opts) => apiRequest(endpoint, opts);
   const apiPost = (endpoint, body = {}, opts) => apiRequest(endpoint, { method: "POST", body, ...opts });
   const apiPut = (endpoint, body = {}, opts) => apiRequest(endpoint, { method: "PUT", body, ...opts });
+  const apiPatch = (endpoint, body = {}, opts) => apiRequest(endpoint, { method: "PATCH", body, ...opts });
   const apiDelete = (endpoint, opts) => apiRequest(endpoint, { method: "DELETE", ...opts });
   const apiCommand = (endpoint, body = {}, opts) => apiRequest(endpoint, { method: "POST", body, checkStatus: true, ...opts });
 
@@ -59,5 +60,5 @@ export function useApi() {
     return `/workspaces/${encodeURIComponent(workspace)}/${path}`;
   }
 
-  return { apiCommand, apiWithToast, apiGet, apiPost, apiPut, apiDelete, wsEndpoint };
+  return { apiCommand, apiWithToast, apiGet, apiPost, apiPut, apiPatch, apiDelete, wsEndpoint };
 }

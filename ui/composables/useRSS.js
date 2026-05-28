@@ -3,7 +3,7 @@ import { useApi } from "./useApi.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 
 export function useRSS() {
-  const { apiGet, apiPost, apiDelete, wsEndpoint } = useApi();
+  const { apiGet, apiPost, apiPatch, apiDelete, wsEndpoint } = useApi();
   const workspaceStore = useWorkspaceStore();
 
   function rssEndpoint(path) {
@@ -28,7 +28,7 @@ export function useRSS() {
     }
   }
 
-  async function loadItems(itemsRef, loadingRef, errorRef) {
+  async function loadItems(itemsRef, loadingRef, errorRef, feedErrorsRef) {
     if (!workspaceStore.selectedWorkspace) return;
     loadingRef.value = true;
     errorRef.value = "";
@@ -36,6 +36,7 @@ export function useRSS() {
       const { ok, data } = await apiGet(rssEndpoint("items"));
       if (ok && data?.status === "ok") {
         itemsRef.value = data.data || [];
+        if (feedErrorsRef) feedErrorsRef.value = data.errors || {};
       } else {
         errorRef.value = data?.detail || "Failed to load items";
       }
@@ -46,8 +47,10 @@ export function useRSS() {
     }
   }
 
-  async function addFeed(url) {
-    const { ok, data } = await apiPost(rssEndpoint("feeds"), { url });
+  async function addFeed(url, title = "") {
+    const body = { url };
+    if (title) body.title = title;
+    const { ok, data } = await apiPost(rssEndpoint("feeds"), body);
     if (!ok || data?.status !== "ok") {
       return { ok: false, detail: data?.detail || "Failed to add feed" };
     }
@@ -59,7 +62,15 @@ export function useRSS() {
     return ok;
   }
 
-  return { loadFeeds, loadItems, addFeed, removeFeed };
+  async function updateFeed(feedId, { url = "", title = "" } = {}) {
+    const body = {};
+    if (url) body.url = url;
+    if (title !== undefined) body.title = title;
+    const { ok } = await apiPatch(rssEndpoint(`feeds/${feedId}`), body);
+    return ok;
+  }
+
+  return { loadFeeds, loadItems, addFeed, removeFeed, updateFeed };
 }
 
 export function formatItemDate(dateStr) {

@@ -3,6 +3,9 @@
     <!-- ヘッダー -->
     <div class="rss-pane-header">
       <span class="rss-feed-title">{{ feedTitle }}</span>
+      <button class="rss-header-btn" aria-label="Rename feed" data-tooltip="Rename feed" @click="emit('edit', props.feed)">
+        <span class="mdi mdi-pencil-outline"></span>
+      </button>
       <button
         class="rss-header-btn"
         aria-label="Reload feed"
@@ -20,9 +23,9 @@
     <!-- アイテムリスト -->
     <div class="modal-scroll-body">
       <div v-if="itemsLoading && items.length === 0" class="rss-status">Loading...</div>
-      <div v-else-if="itemsError" class="rss-error-block">
+      <div v-else-if="feedError" class="rss-error-block">
         <span class="mdi mdi-alert-circle-outline rss-error-icon"></span>
-        <span class="rss-error-msg">{{ itemsError }}</span>
+        <span class="rss-error-msg">{{ feedError }}</span>
         <button class="rss-error-reload" @click="reload">Retry</button>
       </div>
       <template v-else>
@@ -51,23 +54,26 @@ import { emit as bridgeEmit } from "../app-bridge.js";
 const props = defineProps({
   feed: { type: Object, required: true },
 });
-const emit = defineEmits(["removed"]);
+const emit = defineEmits(["removed", "edit"]);
 
 const { loadItems } = useRSS();
 const allItems = ref([]);
 const itemsLoading = ref(false);
 const itemsError = ref("");
+const feedErrors = ref({});
 
 const items = computed(() => allItems.value.filter((i) => i.feed_id === props.feed.id));
+const feedError = computed(() => feedErrors.value[props.feed.id] || "");
 
 const feedTitle = computed(() => {
+  if (props.feed.title) return props.feed.title;
   const first = allItems.value.find((i) => i.feed_id === props.feed.id);
   if (first?.feed_title) return first.feed_title;
   try { return new URL(props.feed.url).hostname; } catch { return props.feed.url; }
 });
 
 async function reload() {
-  await loadItems(allItems, itemsLoading, itemsError);
+  await loadItems(allItems, itemsLoading, itemsError, feedErrors);
 }
 
 function onItemClick(item) {
@@ -244,9 +250,4 @@ defineExpose({ reload });
   color: var(--text-muted);
   text-align: center;
 }
-
-.rss-error {
-  color: var(--error);
-}
-
 </style>

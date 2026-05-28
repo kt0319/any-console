@@ -24,11 +24,11 @@ _rss_cache = TTLCache(_RSS_TTL_SEC)
 _ATOM_NS = "http://www.w3.org/2005/Atom"
 
 
-def _fetch_feed_items(feed_id: str, url: str) -> list[dict]:
+def _fetch_feed_items(feed_id: str, url: str) -> tuple[list[dict], str]:
     cache_key = f"rss:{feed_id}"
     cached = _rss_cache.get(cache_key)
     if cached is not None:
-        return list(cached)
+        return list(cached), ""
 
     try:
         parsed = urllib.parse.urlparse(url)
@@ -43,19 +43,22 @@ def _fetch_feed_items(feed_id: str, url: str) -> list[dict]:
         req = urllib.request.Request(fetch_url, headers=headers)  # noqa: S310
         with urllib.request.urlopen(req, timeout=_RSS_FETCH_TIMEOUT_SEC) as resp:  # noqa: S310
             content = resp.read()
+    except urllib.error.HTTPError as e:
+        logger.warning("rss fetch failed url=%s status=%s", url, e.code)
+        return [], f"HTTP {e.code}: {e.reason}"
     except Exception as e:
         logger.warning("rss fetch failed url=%s error=%s", url, e)
-        return []
+        return [], str(e)
 
     try:
         root = ET.fromstring(content)  # noqa: S314
     except ET.ParseError as e:
         logger.warning("rss parse failed url=%s error=%s", url, e)
-        return []
+        return [], f"Parse error: {e}"
 
     items = _parse_feed(root, feed_id, url)
     _rss_cache.set(cache_key, items)
-    return items
+    return items, ""
 
 
 def _norm_date(raw: str) -> str:
@@ -126,6 +129,7 @@ def list_feeds(name: str):
 
 class AddFeedRequest(BaseModel):
     url: str
+    title: str = ""
 
 
 @router.post("/workspaces/{name}/rss/feeds")
@@ -138,10 +142,37 @@ def add_feed(name: str, body: AddFeedRequest):
     if any(f["url"] == url for f in feeds):
         return {"status": "error", "detail": "Feed already exists"}
     feed_id = str(uuid.uuid4())[:8]
-    feeds.append({"id": feed_id, "url": url})
+    entry: dict = {"id": feed_id, "url": url}
+    if body.title.strip():
+        entry["title"] = body.title.strip()
+    feeds.append(entry)
     _save_feeds(name, feeds)
     logger.info("rss feed added workspace=%s url=%s", name, url)
-    return {"status": "ok", "data": {"id": feed_id, "url": url}}
+    return {"status": "ok", "data": entry}
+
+
+class UpdateFeedRequest(BaseModel):
+    url: str = ""
+    title: str = ""
+
+
+@router.patch("/workspaces/{name}/rss/feeds/{feed_id}")
+def update_feed(name: str, feed_id: str, body: UpdateFeedRequest):
+    validate_workspace_name(name)
+    url = body.url.strip()
+    if url and not url.startswith(("http://", "https://")):
+        return {"status": "error", "detail": "Invalid URL"}
+    feeds = _get_feeds(name)
+    for f in feeds:
+        if f["id"] == feed_id:
+            if url:
+                f["url"] = url
+                _rss_cache.invalidate(f"rss:{feed_id}")
+            f["title"] = body.title.strip()
+            break
+    _save_feeds(name, feeds)
+    logger.info("rss feed updated workspace=%s feed_id=%s", name, feed_id)
+    return {"status": "ok"}
 
 
 @router.delete("/workspaces/{name}/rss/feeds/{feed_id}")
@@ -160,7 +191,11 @@ def fetch_items(name: str):
     validate_workspace_name(name)
     feeds = _get_feeds(name)
     all_items: list[dict] = []
+    errors: dict[str, str] = {}
     for feed in feeds:
-        all_items.extend(_fetch_feed_items(feed["id"], feed["url"]))
+        items, error = _fetch_feed_items(feed["id"], feed["url"])
+        all_items.extend(items)
+        if error:
+            errors[feed["id"]] = error
     all_items.sort(key=lambda x: x.get("date", ""), reverse=True)
-    return {"status": "ok", "data": all_items}
+    return {"status": "ok", "data": all_items, "errors": errors}
