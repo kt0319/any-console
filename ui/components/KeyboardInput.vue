@@ -43,7 +43,8 @@ let refocusToken = 0;
 const composing = ref(false);
 
 function onEnterKey(e) {
-  if (composing.value || e.isComposing || e.keyCode === 229) return;
+  const isComposing = composing.value || e.isComposing || e.keyCode === 229;
+  if (isComposing && draft.value.trim()) return;
   e.preventDefault();
   submit();
 }
@@ -100,7 +101,7 @@ function backspace() {
 }
 
 function submit() {
-  if (composing.value) return;
+  if (composing.value && draft.value.trim()) return;
   suppressBlurRefocus = false;
   refocusToken += 1;
   const text = draft.value.trim();
