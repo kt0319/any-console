@@ -27,22 +27,6 @@
       </template>
     </div>
 
-    <!-- アイテムアクションモーダル -->
-    <div v-if="activeItem" class="rss-action-overlay" @click.self="activeItem = null">
-      <div class="rss-action-dialog">
-        <div class="rss-action-title">{{ activeItem.title }}</div>
-        <div class="rss-action-url">{{ activeItem.url }}</div>
-        <div class="rss-action-buttons">
-          <button class="rss-action-btn" @click="doOpen">
-            <span class="mdi mdi-open-in-new"></span>Open
-          </button>
-          <button class="rss-action-btn" @click="doCopy">
-            <span class="mdi" :class="copied ? 'mdi-check' : 'mdi-content-copy'"></span>{{ copied ? "Copied!" : "Copy URL" }}
-          </button>
-          <button class="rss-action-btn rss-action-btn-cancel" @click="activeItem = null">Cancel</button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -50,6 +34,7 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRSS, formatItemDate } from "../composables/useRSS.js";
 import { RSS_AUTO_REFRESH_MS } from "../utils/constants.js";
+import { emit as bridgeEmit } from "../app-bridge.js";
 
 const props = defineProps({
   feed: { type: Object, required: true },
@@ -60,8 +45,6 @@ const { loadItems } = useRSS();
 const allItems = ref([]);
 const itemsLoading = ref(false);
 const itemsError = ref("");
-const activeItem = ref(null);
-const copied = ref(false);
 
 const items = computed(() => allItems.value.filter((i) => i.feed_id === props.feed.id));
 
@@ -76,24 +59,7 @@ async function reload() {
 }
 
 function onItemClick(item) {
-  activeItem.value = item;
-  copied.value = false;
-}
-
-function doOpen() {
-  if (activeItem.value?.url) window.open(activeItem.value.url, "_blank", "noopener,noreferrer");
-  activeItem.value = null;
-}
-
-async function doCopy() {
-  if (!activeItem.value?.url) return;
-  try {
-    await navigator.clipboard.writeText(activeItem.value.url);
-    copied.value = true;
-    setTimeout(() => { copied.value = false; }, 1500);
-  } catch {
-    copied.value = false;
-  }
+  if (item.url) bridgeEmit("terminal:url", { uri: item.url });
 }
 
 function onRemove() {
@@ -121,7 +87,6 @@ defineExpose({ reload });
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  position: relative;
 }
 
 .rss-pane-header {
@@ -217,83 +182,4 @@ defineExpose({ reload });
   color: var(--error);
 }
 
-/* アクションモーダル */
-.rss-action-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: 10;
-  padding: 12px;
-  box-sizing: border-box;
-}
-
-.rss-action-dialog {
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px;
-  width: 100%;
-  max-width: 480px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.rss-action-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.rss-action-url {
-  font-size: 11px;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rss-action-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.rss-action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px;
-  border-radius: var(--radius);
-  font-size: 13px;
-  cursor: pointer;
-  border: 1px solid var(--border);
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-}
-
-.rss-action-btn .mdi {
-  font-size: 16px;
-}
-
-.rss-action-btn-cancel {
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .rss-action-btn:hover {
-    background: var(--bg-tertiary);
-  }
-}
 </style>

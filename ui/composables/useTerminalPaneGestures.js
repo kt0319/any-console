@@ -1,9 +1,7 @@
 import { useTerminalStore, isLinkTapped, setLongPressActive } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { useConfirm } from "./useConfirm.js";
 import { createTouchTracker } from "../utils/gesture.js";
 import { findUrlInBuffer, getVisibleBufferText } from "../utils/terminal-buffer-text.js";
-import { openExternalUrl } from "../utils/open-external.js";
 import { emit } from "../app-bridge.js";
 
 const LONG_PRESS_URL_MS = 400;
@@ -12,7 +10,6 @@ const TOUCH_SCROLL_THRESHOLD_PX = 6;
 export function useTerminalPaneGestures({ tab, frameEl, pillEl, isActive, paneIndex, onSelectPane }) {
   const terminalStore = useTerminalStore();
   const layoutStore = useLayoutStore();
-  const { confirm } = useConfirm();
   const paneTouch = createTouchTracker();
 
   let lastTouchPos = { x: 0, y: 0 };
@@ -59,7 +56,7 @@ export function useTerminalPaneGestures({ tab, frameEl, pillEl, isActive, paneIn
       }
     }
     cancelLongPressTimer();
-    longPressTimer = setTimeout(async () => {
+    longPressTimer = setTimeout(() => {
       longPressTimer = null;
       if (touchMoved) return;
       const url = findUrlInBuffer(tab.value?.term, lastTouchPos.x, lastTouchPos.y);
@@ -67,9 +64,7 @@ export function useTerminalPaneGestures({ tab, frameEl, pillEl, isActive, paneIn
         pendingUrl = url;
         longPressHandled = true;
         if (navigator.vibrate) navigator.vibrate(40);
-        if (await confirm(`Open URL?\n\n${url}`)) {
-          openExternalUrl(url);
-        }
+        emit("terminal:url", { uri: url });
         pendingUrl = null;
         return;
       }

@@ -570,7 +570,7 @@ button:disabled {
   inset: 0;
   background: rgba(0, 0, 0, 0.4);
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: 12px;
