@@ -5,15 +5,17 @@
         ref="inputEl"
         v-model="draft"
         class="keyboard-input"
-        type="search"
+        type="text"
         name="off"
         inputmode="text"
         autocomplete="off"
         autocapitalize="off"
         autocorrect="off"
         spellcheck="false"
+        enterkeyhint="send"
         :placeholder="placeholder"
         @keydown.enter="onEnterKey"
+        @keyup.enter="onEnterKeyUp"
         @compositionstart="composing = true"
         @compositionend="composing = false"
         @focus="onFocus"
@@ -47,6 +49,14 @@ function onEnterKey(e) {
   if (isComposing && draft.value.trim()) return;
   e.preventDefault();
   submit();
+}
+
+function onEnterKeyUp(e) {
+  if (composing.value || e.isComposing) return;
+  if (!draft.value.trim()) {
+    e.preventDefault();
+    sendKeyToTerminal({ key: "Enter" });
+  }
 }
 
 function onFocus() {
