@@ -32,7 +32,7 @@ import { emit as bridgeEmit } from "../app-bridge.js";
 const emit = defineEmits(["focused", "submitted"]);
 
 const inputStore = useInputStore();
-const { sendTextToTerminal } = useKeyboard();
+const { sendTextToTerminal, sendKeyToTerminal } = useKeyboard();
 
 const draft = defineModel("draft", { default: "" });
 const inputEl = ref(null);
@@ -104,7 +104,7 @@ function submit() {
   suppressBlurRefocus = false;
   refocusToken += 1;
   const text = draft.value.trim();
-  if (!text) return;
+  if (!text) { sendKeyToTerminal({ key: "Enter" }); return; }
   sendTextToTerminal(text);
   inputStore.addInputHistory(text);
   draft.value = "";
