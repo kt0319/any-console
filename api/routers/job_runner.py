@@ -12,6 +12,7 @@ import subprocess
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from ..activity import log_activity
 from ..auth import verify_token
 from ..common import (
     JOB_TIMEOUT_SEC,
@@ -127,6 +128,7 @@ def _run_regular_job(body, job_def, ordered_args, ws_path):
 
     if result.returncode == 0:
         logger.info("job ok job=%s workspace=%s", body.job, body.workspace or "(none)")
+        log_activity(body.workspace, "job_run", job=body.job)
     else:
         logger.warning(
             "job failed job=%s workspace=%s rc=%d stderr=%s",

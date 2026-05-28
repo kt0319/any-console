@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from ..activity import log_activity
 from ..auth import verify_token
 from ..common import (
     GIT_LONG_TIMEOUT_SEC,
@@ -187,6 +188,7 @@ def git_pull(name: str):
             _unstash(ws_path, env, result)
         if result["status"] == "ok" and before_hash:
             result["commits"] = _commits_between(ws_path, f"{before_hash}..HEAD")
+            log_activity(name, "git_pull")
         return result
 
 
@@ -197,6 +199,7 @@ def git_push(name: str):
     result = execute_git_action(name, ["push"], operation="push", env=ssh_env())
     if result["status"] == "ok":
         result["commits"] = pending
+        log_activity(name, "git_push")
     return result
 
 
@@ -215,6 +218,7 @@ def git_push_branch(name: str, body: PushBranchRequest):
     )
     if result["status"] == "ok":
         result["commits"] = pending
+        log_activity(name, "git_push", branch=branch)
     return result
 
 

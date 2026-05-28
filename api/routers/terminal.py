@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, WebSocket
 from fastapi.websockets import WebSocketDisconnect
 from pydantic import BaseModel
 
+from ..activity import log_activity
 from ..auth import COOKIE_NAME_TOKEN, verify_token, verify_ws_token
 from ..common import (
     TERMINAL_DEFAULT_COLS,
@@ -238,8 +239,27 @@ def _extract_ws_message_data(msg) -> bytes | None:
     return data or None
 
 
+def _update_cmd_buffer(buf: bytearray, data: bytes) -> str | None:
+    """入力バイト列をバッファに反映し、Enter 時にコマンド文字列を返す。"""
+    for b in data:
+        if b == 0x0D:  # Enter
+            cmd = buf.decode("utf-8", errors="replace").strip()
+            buf.clear()
+            return cmd if cmd else None
+        elif b in (0x7F, 0x08):  # Backspace / BS
+            if buf:
+                buf.pop()
+        elif b == 0x15:  # Ctrl-U (行消去)
+            buf.clear()
+        elif 0x20 <= b < 0x7F or b >= 0x80:  # 表示可能文字 + マルチバイト
+            buf.append(b)
+        # その他の制御文字は無視
+    return None
+
+
 async def _ws_message_loop(websocket: WebSocket, session) -> None:
     loop = asyncio.get_event_loop()
+    cmd_buf: bytearray = bytearray()
     while True:
         try:
             msg = await asyncio.wait_for(websocket.receive(), timeout=WS_PING_INTERVAL_SEC)
@@ -258,6 +278,9 @@ async def _ws_message_loop(websocket: WebSocket, session) -> None:
             _handle_resize(session, data[1:], ws=websocket)
         else:
             switch_active_client(session, websocket)
+            cmd = _update_cmd_buffer(cmd_buf, data)
+            if cmd:
+                log_activity(session.workspace, "terminal", cmd=cmd)
             if session.fd is not None:
                 await loop.run_in_executor(PTY_EXECUTOR, os.write, session.fd, data)
 

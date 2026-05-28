@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from ..activity import log_activity
 from ..auth import verify_token
 from ..common import (
     GIT_LOG_MAX_ENTRIES,
@@ -114,7 +115,10 @@ def git_commit(name: str, body: CommitRequest):
     add_result = run_git_command(["add", "-A"], cwd=ws_path, operation="add")
     if add_result["exit_code"] != 0:
         return add_result
-    return execute_git_action(name, ["commit", "-m", message], operation="commit")
+    result = execute_git_action(name, ["commit", "-m", message], operation="commit")
+    if result.get("status") == "ok":
+        log_activity(name, "git_commit", message=message)
+    return result
 
 
 @router.get("/workspaces/{name}/stash-list")
