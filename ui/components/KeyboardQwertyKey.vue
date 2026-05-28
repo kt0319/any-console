@@ -170,7 +170,8 @@ import { useInputStore } from "../stores/input.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useInputDraftHistory } from "../composables/useInputDraftHistory.js";
 import { emit, on } from "../app-bridge.js";
-import { arrowResolver, enterResolver } from "../utils/flick-resolvers.js";
+import { arrowResolver } from "../utils/flick-resolvers.js";
+import { useEnterAction } from "../composables/useEnterAction.js";
 import { createFlickHandlers } from "../utils/flick-handlers.js";
 import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
 import KeyboardInput from "./KeyboardInput.vue";
@@ -190,6 +191,7 @@ const auth = useAuthStore();
 const { sendKeyToTerminal, sendTextToTerminal, modifierState, clearModifiers, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
 
 const keyboardInput = ref(null);
+const { onEnter, makeFlickResolver } = useEnterAction({ hasDraft, keyboardInput, sendKeyToTerminal });
 const _inputFocused = ref(false);
 const draft = ref("");
 const hasDraft = computed(() => draft.value.trim().length > 0);
@@ -484,17 +486,7 @@ onMounted(() => {
     }, { accelerateRepeat: true, onFlick: onArrowFlick });
   }
   if (topEnterFlickEl.value) {
-    const enterFlickResolver = (dx, dy, threshold) => {
-      if (inputFocused.value && hasDraft.value) return null;
-      return enterResolver(dx, dy, threshold);
-    };
-    setupFlickRepeat(topEnterFlickEl.value, enterFlickResolver, () => {
-      if (hasDraft.value) {
-        keyboardInput.value?.submit?.();
-        return;
-      }
-      sendKeyToTerminal({ key: "Enter" });
-    }, { accelerateRepeat: true });
+    setupFlickRepeat(topEnterFlickEl.value, makeFlickResolver((_, __, ___) => inputFocused.value && hasDraft.value), onEnter, { accelerateRepeat: true });
   }
 });
 

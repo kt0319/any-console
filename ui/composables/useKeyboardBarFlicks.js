@@ -1,5 +1,6 @@
 import { onMounted } from "vue";
-import { arrowResolver, enterResolver } from "../utils/flick-resolvers.js";
+import { arrowResolver } from "../utils/flick-resolvers.js";
+import { useEnterAction } from "./useEnterAction.js";
 
 export function useKeyboardBarFlicks({
   arrowEl, enterEl,
@@ -9,6 +10,7 @@ export function useKeyboardBarFlicks({
   setupFlickRepeat, sendKeyToTerminal,
   dismissKeyboard,
 }) {
+  const { onEnter, makeFlickResolver } = useEnterAction({ hasDraft, keyboardInput, sendKeyToTerminal });
   onMounted(() => {
     if (arrowEl.value) {
       let arrowFlickHandled = false;
@@ -32,17 +34,11 @@ export function useKeyboardBarFlicks({
     }
 
     if (enterEl.value) {
-      const enterFlickResolver = (dx, dy, threshold) => {
+      const enterFlickResolver = makeFlickResolver((dx, dy, threshold) => {
         if (hasDraft.value && Math.abs(dx) > Math.abs(dy) && dx < -threshold) return { _clear: true };
-        if (inputFocused.value && hasDraft.value) return null;
-        return enterResolver(dx, dy, threshold);
-      };
-      setupFlickRepeat(enterEl.value, enterFlickResolver, () => {
-        if (inputFocused.value) {
-          if (hasDraft.value) { keyboardInput.value?.submit?.(); return; }
-        }
-        sendKeyToTerminal({ key: "Enter" });
-      }, {
+        return inputFocused.value && hasDraft.value ? true : false;
+      });
+      setupFlickRepeat(enterEl.value, enterFlickResolver, onEnter, {
         accelerateRepeat: true,
         onFlick: (resolved) => {
           if (resolved?._clear) { draft.value = ""; return true; }
