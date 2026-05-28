@@ -6,6 +6,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { LINK_TAP_RESET_MS } from "../utils/constants.js";
 import { LS_KEY_TERMINAL_SETTINGS, LS_KEY_ACTIVE_SESSION } from "../utils/constants.js";
+import { emit as bridgeEmit } from "../app-bridge.js";
 import { TERMINAL_SETTINGS_META, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../utils/terminal-settings.js";
 import { safeJsonLoad } from "../utils/storage.js";
 import { EP_TERMINAL_ORDER } from "../utils/endpoints.js";
@@ -75,7 +76,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     term.loadAddon(new WebLinksAddon((e, uri) => {
       if (_isTouchEnv && !_longPressActive) return;
       _linkTapped = true;
-      window.open(uri, "_blank");
+      bridgeEmit("terminal:url", { uri });
       setTimeout(() => { _linkTapped = false; }, LINK_TAP_RESET_MS);
     }));
 

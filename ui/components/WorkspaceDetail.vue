@@ -12,6 +12,9 @@
         <span :class="['mdi', tab.icon]" :style="tab.iconColor ? { color: tab.iconColor } : null"></span>
         <span class="workspace-tab-label">{{ tab.label }}<span v-if="tab.count"> ({{ tab.count }})</span></span>
       </button>
+      <button class="workspace-tab-rss-add" aria-label="Add RSS feed" data-tooltip="Add RSS feed" @click="onRssAddFeed">
+        <span class="mdi mdi-plus"></span>
+      </button>
     </div>
 
     <!-- タブコンテンツ -->
@@ -47,6 +50,32 @@
       <div v-if="activePane === 'prs'" class="file-modal-pane">
         <GitHubPRsPane ref="githubPrs" @count="prsCount = $event" />
       </div>
+      <div v-if="activePane.startsWith('rss-')" class="file-modal-pane">
+        <RSSPane :key="activePane" :feed="currentRssFeed" @removed="onFeedRemoved" />
+      </div>
+    </div>
+
+    <!-- RSS追加ダイアログ -->
+    <div v-if="rssAddingFeed" class="rss-add-overlay" @click.self="rssAddingFeed = false">
+      <div class="rss-add-dialog">
+        <div class="rss-add-title">Add RSS / Atom Feed</div>
+        <input
+          ref="rssUrlInput"
+          v-model="rssNewFeedUrl"
+          class="rss-add-input"
+          type="url"
+          placeholder="https://example.com/feed.xml"
+          @keydown.enter="submitRssAddFeed"
+          @keydown.esc="rssAddingFeed = false"
+        />
+        <div v-if="rssAddError" class="rss-add-error">{{ rssAddError }}</div>
+        <div class="rss-add-actions">
+          <button class="rss-btn rss-btn-cancel" @click="rssAddingFeed = false">Cancel</button>
+          <button class="rss-btn rss-btn-ok" :disabled="rssAddSubmitting" @click="submitRssAddFeed">
+            {{ rssAddSubmitting ? "Adding..." : "Add" }}
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -62,6 +91,7 @@ import WorkspaceJobsPane from "./WorkspaceJobsPane.vue";
 import GitHubIssuesPane from "./GitHubIssuesPane.vue";
 import GitHubActionsPane from "./GitHubActionsPane.vue";
 import GitHubPRsPane from "./GitHubPRsPane.vue";
+import RSSPane from "./RSSPane.vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
@@ -69,12 +99,14 @@ import { useToast } from "../composables/useToast.js";
 import { useModalView } from "../composables/useModalView.js";
 import { getCachedCount, useGitHub } from "../composables/useGitHub.js";
 import { getStashCachedCount, setStashCache } from "../composables/useStashCache.js";
+import { useRSS } from "../composables/useRSS.js";
 
 const workspaceStore = useWorkspaceStore();
 const { apiCommand, apiGet, wsEndpoint } = useApi();
 const toast = useToast();
 const { loadWorkspaceGithubUrl, loadIssues, loadPRs } = useGitHub();
 const { modalTitle, viewState } = useModalView();
+const { loadFeeds, addFeed, removeFeed } = useRSS();
 
 const fileBrowser = ref(null);
 const gitHistory = ref(null);
@@ -103,6 +135,14 @@ const branchCount = ref(null);
 const fileBrowserDeep = ref(false);
 const historyExpanded = ref(false);
 
+// RSS state
+const rssFeeds = ref([]);
+const rssAddingFeed = ref(false);
+const rssNewFeedUrl = ref("");
+const rssAddError = ref("");
+const rssAddSubmitting = ref(false);
+const rssUrlInput = ref(null);
+
 function onFileBrowserState({ atRoot, fileOpen }) {
   fileBrowserDeep.value = !atRoot || fileOpen;
 }
@@ -110,6 +150,16 @@ function onFileBrowserState({ atRoot, fileOpen }) {
 const filesBrowsing = computed(() => fileBrowserDeep.value || !!selectedDiffFile.value);
 
 const hasGithub = computed(() => !!workspaceStore.currentWorkspace?.github_url);
+
+function rssLabel(feed) {
+  try { return new URL(feed.url).hostname; } catch { return feed.url; }
+}
+
+const currentRssFeed = computed(() => {
+  if (!activePane.value.startsWith("rss-")) return null;
+  const id = activePane.value.slice(4);
+  return rssFeeds.value.find((f) => f.id === id) || null;
+});
 
 const tabs = computed(() => {
   const list = [
@@ -127,6 +177,11 @@ const tabs = computed(() => {
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !hasGithub.value || !issuesCount.value },
     { key: "actions", icon: "mdi-github", label: "Actions", hidden: !hasGithub.value },
     { key: "prs", icon: "mdi-github", label: "PRs", count: prsCount.value || 0, hidden: !hasGithub.value || !prsCount.value },
+    ...rssFeeds.value.map((f) => ({
+      key: `rss-${f.id}`,
+      icon: "mdi-rss",
+      label: rssLabel(f),
+    })),
   ];
   return list.filter((t) => !t.hidden);
 });
@@ -181,6 +236,12 @@ async function backgroundLoadCounts(workspace) {
   if (!prError.value) prsCount.value = prItems.value.length;
 }
 
+async function loadRssFeeds() {
+  const loading = ref(false);
+  const error = ref("");
+  await loadFeeds(rssFeeds, loading, error);
+}
+
 function open(options) {
   options = options || {};
   const paneKey = options.pane || "jobs";
@@ -195,6 +256,7 @@ function open(options) {
   stashCount.value = getStashCachedCount(workspace);
 
   backgroundLoadCounts(workspace);
+  loadRssFeeds();
 
   const workspaceChanged = workspace !== loadedWorkspace;
   if (workspaceChanged) {
@@ -232,7 +294,7 @@ async function switchPane(key) {
   } else if (key === "files") {
     // FileBrowser は v-show で常時マウント済み。open() のワークスペース変更時のみロード
   }
-  // issues/actions/prs は v-if + onMounted で自動ロード
+  // issues/actions/prs/rss-* は v-if + onMounted で自動ロード
 }
 
 function onStashCount(n) {
@@ -246,6 +308,40 @@ function onCommitExpanded() {
 function onCommitCollapsed() {
   historyExpanded.value = false;
   updateViewTitle();
+}
+
+async function onRssAddFeed() {
+  rssNewFeedUrl.value = "";
+  rssAddError.value = "";
+  rssAddingFeed.value = true;
+  await nextTick();
+  rssUrlInput.value?.focus();
+}
+
+async function submitRssAddFeed() {
+  if (!rssNewFeedUrl.value.trim() || rssAddSubmitting.value) return;
+  rssAddSubmitting.value = true;
+  rssAddError.value = "";
+  const result = await addFeed(rssNewFeedUrl.value.trim());
+  rssAddSubmitting.value = false;
+  if (!result.ok) {
+    rssAddError.value = result.detail;
+    return;
+  }
+  rssAddingFeed.value = false;
+  await loadRssFeeds();
+  if (result.feed) {
+    await nextTick();
+    switchPane(`rss-${result.feed.id}`);
+  }
+}
+
+async function onFeedRemoved(feedId) {
+  await removeFeed(feedId);
+  if (activePane.value === `rss-${feedId}`) {
+    switchPane("jobs");
+  }
+  await loadRssFeeds();
 }
 
 const _offHandlers = [
@@ -310,6 +406,7 @@ onMounted(() => {
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  position: relative;
 }
 
 .file-modal-pane {
@@ -369,7 +466,33 @@ onMounted(() => {
   line-height: 1;
 }
 
+.workspace-tab-rss-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  align-self: center;
+  margin-left: 4px;
+}
 
+.workspace-tab-rss-add .mdi {
+  font-size: 16px;
+  line-height: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .workspace-tab-rss-add:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
 
 /* タブコンテンツ */
 .workspace-tab-content {
@@ -378,6 +501,85 @@ onMounted(() => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+/* RSS追加ダイアログ */
+.rss-add-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.rss-add-dialog {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  width: min(320px, 90%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rss-add-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rss-add-input {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 13px;
+  padding: 8px 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.rss-add-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.rss-add-error {
+  font-size: 12px;
+  color: var(--error);
+}
+
+.rss-add-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.rss-btn {
+  font-size: 13px;
+  padding: 6px 16px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  border: 1px solid var(--border);
+}
+
+.rss-btn-cancel {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.rss-btn-ok {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.rss-btn-ok:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 @media (max-width: 767px) {
@@ -390,6 +592,10 @@ onMounted(() => {
   }
 
   .workspace-tab {
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+
+  .workspace-tab-rss-add {
     border-radius: 0 0 var(--radius) var(--radius);
   }
 }
