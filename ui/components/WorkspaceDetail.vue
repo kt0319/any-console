@@ -109,13 +109,14 @@ import { useModalView } from "../composables/useModalView.js";
 import { getCachedCount, useGitHub } from "../composables/useGitHub.js";
 import { getStashCachedCount, setStashCache } from "../composables/useStashCache.js";
 import { useRSS } from "../composables/useRSS.js";
+import { RSS_AUTO_REFRESH_MS } from "../utils/constants.js";
 
 const workspaceStore = useWorkspaceStore();
 const { apiCommand, apiGet, wsEndpoint } = useApi();
 const toast = useToast();
 const { loadWorkspaceGithubUrl, loadIssues, loadPRs } = useGitHub();
 const { modalTitle, viewState } = useModalView();
-const { loadFeeds, addFeed, removeFeed, updateFeed } = useRSS();
+const { loadFeeds, loadItems, addFeed, removeFeed, updateFeed } = useRSS();
 
 const fileBrowser = ref(null);
 const gitHistory = ref(null);
@@ -146,6 +147,7 @@ const historyExpanded = ref(false);
 
 // RSS state
 const rssFeeds = ref([]);
+const rssNewItemCounts = ref({});
 const rssAddingFeed = ref(false);
 const rssEditingFeed = ref(null);
 const rssNewFeedUrl = ref("");
@@ -194,6 +196,7 @@ const tabs = computed(() => {
       key: `rss-${f.id}`,
       icon: "mdi-rss",
       label: rssLabel(f),
+      count: rssNewItemCounts.value[f.id] || 0,
     })),
   ];
   return list.filter((t) => !t.hidden);
@@ -269,9 +272,13 @@ function open(options) {
   stashCount.value = getStashCachedCount(workspace);
 
   backgroundLoadCounts(workspace);
-  loadRssFeeds();
 
   const workspaceChanged = workspace !== loadedWorkspace;
+  if (workspaceChanged) {
+    rssNewItemCounts.value = {};
+  }
+  loadRssFeeds().then(() => checkRssUpdates());
+
   if (workspaceChanged) {
     loadedWorkspace = workspace;
     gitHistory.value?.load();
@@ -385,6 +392,36 @@ async function submitRssAddFeed() {
   }
 }
 
+function _isToday(dateStr) {
+  if (!dateStr) return false;
+  try {
+    const d = new Date(dateStr);
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate();
+  } catch { return false; }
+}
+
+async function checkRssUpdates() {
+  if (!rssFeeds.value.length) return;
+  const tempItems = ref([]);
+  const tempLoading = ref(false);
+  const tempError = ref("");
+  await loadItems(tempItems, tempLoading, tempError, null);
+  if (tempError.value) return;
+
+  const counts = {};
+  for (const item of tempItems.value) {
+    if (_isToday(item.date)) {
+      counts[item.feed_id] = (counts[item.feed_id] || 0) + 1;
+    }
+  }
+  rssNewItemCounts.value = counts;
+}
+
+let _rssBgTimer = null;
+
 async function onFeedRemoved(feedId) {
   await removeFeed(feedId);
   if (activePane.value === `rss-${feedId}`) {
@@ -438,7 +475,14 @@ const _offHandlers = [
   }),
 ];
 
-onUnmounted(() => _offHandlers.forEach((off) => off()));
+onMounted(() => {
+  _rssBgTimer = setInterval(checkRssUpdates, RSS_AUTO_REFRESH_MS);
+});
+
+onUnmounted(() => {
+  _offHandlers.forEach((off) => off());
+  clearInterval(_rssBgTimer);
+});
 
 defineExpose({ handleBack });
 
