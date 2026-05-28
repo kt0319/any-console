@@ -1,4 +1,6 @@
+import base64
 import logging
+import urllib.parse
 import urllib.request
 import uuid
 import xml.etree.ElementTree as ET
@@ -29,7 +31,16 @@ def _fetch_feed_items(feed_id: str, url: str) -> list[dict]:
         return list(cached)
 
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "any-console/1.0"})  # noqa: S310
+        parsed = urllib.parse.urlparse(url)
+        headers: dict[str, str] = {"User-Agent": "any-console/1.0"}
+        if parsed.username:
+            creds = f"{urllib.parse.unquote(parsed.username)}:{urllib.parse.unquote(parsed.password or '')}"
+            headers["Authorization"] = "Basic " + base64.b64encode(creds.encode()).decode()
+            clean = parsed._replace(netloc=parsed.hostname + (f":{parsed.port}" if parsed.port else ""))
+            fetch_url = urllib.parse.urlunparse(clean)
+        else:
+            fetch_url = url
+        req = urllib.request.Request(fetch_url, headers=headers)  # noqa: S310
         with urllib.request.urlopen(req, timeout=_RSS_FETCH_TIMEOUT_SEC) as resp:  # noqa: S310
             content = resp.read()
     except Exception as e:
