@@ -15,7 +15,10 @@ export function useEnterAction({ hasDraft, keyboardInput, sendKeyToTerminal }) {
 
   function makeFlickResolver(extraGuard = null) {
     return (dx, dy, threshold) => {
-      if (extraGuard?.(dx, dy, threshold)) return null;
+      if (extraGuard) {
+        const result = extraGuard(dx, dy, threshold);
+        if (result) return typeof result === "object" ? result : null;
+      }
       return enterResolver(dx, dy, threshold);
     };
   }
