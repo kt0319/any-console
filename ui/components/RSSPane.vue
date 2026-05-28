@@ -3,16 +3,28 @@
     <!-- ヘッダー -->
     <div class="rss-pane-header">
       <span class="rss-feed-title">{{ feedTitle }}</span>
-      <button class="rss-remove-btn" aria-label="Remove feed" data-tooltip="Remove feed" @click="onRemove">
+      <button
+        class="rss-header-btn"
+        aria-label="Reload feed"
+        data-tooltip="Reload feed"
+        :disabled="itemsLoading"
+        @click="reload"
+      >
+        <span class="mdi mdi-refresh" :class="{ 'rss-spinning': itemsLoading }"></span>
+      </button>
+      <button class="rss-header-btn rss-remove-btn" aria-label="Remove feed" data-tooltip="Remove feed" @click="onRemove">
         <span class="mdi mdi-delete-outline"></span>
-        <span class="rss-remove-label">Remove</span>
       </button>
     </div>
 
     <!-- アイテムリスト -->
     <div class="modal-scroll-body">
-      <div v-if="itemsLoading" class="rss-status">Loading...</div>
-      <div v-else-if="itemsError" class="rss-status rss-error">{{ itemsError }}</div>
+      <div v-if="itemsLoading && items.length === 0" class="rss-status">Loading...</div>
+      <div v-else-if="itemsError" class="rss-error-block">
+        <span class="mdi mdi-alert-circle-outline rss-error-icon"></span>
+        <span class="rss-error-msg">{{ itemsError }}</span>
+        <button class="rss-error-reload" @click="reload">Retry</button>
+      </div>
       <template v-else>
         <div
           v-for="item in items"
@@ -110,10 +122,10 @@ defineExpose({ reload });
   min-width: 0;
 }
 
-.rss-remove-btn {
+.rss-header-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
   background: none;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -122,17 +134,72 @@ defineExpose({ reload });
   padding: 4px 8px;
   font-size: 12px;
   flex-shrink: 0;
+  min-height: 0;
+  min-width: 0;
 }
 
-.rss-remove-btn .mdi {
-  font-size: 14px;
+.rss-header-btn .mdi {
+  font-size: 16px;
+}
+
+.rss-header-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .rss-remove-btn:hover {
+  .rss-header-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .rss-remove-btn:hover:not(:disabled) {
     border-color: var(--error);
     color: var(--error);
   }
+}
+
+@keyframes rss-spin {
+  to { transform: rotate(360deg); }
+}
+
+.rss-spinning {
+  display: inline-block;
+  animation: rss-spin 0.8s linear infinite;
+}
+
+.rss-error-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 16px;
+  color: var(--error);
+  font-size: 13px;
+  text-align: center;
+}
+
+.rss-error-icon {
+  font-size: 28px;
+  opacity: 0.8;
+}
+
+.rss-error-msg {
+  color: var(--error);
+  word-break: break-all;
+}
+
+.rss-error-reload {
+  margin-top: 4px;
+  font-size: 12px;
+  padding: 4px 16px;
+  border: 1px solid var(--error);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--error);
+  cursor: pointer;
+  min-height: 0;
+  min-width: 0;
 }
 
 .rss-item {
