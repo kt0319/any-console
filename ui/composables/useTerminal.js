@@ -1,6 +1,6 @@
 import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "./useApi.js";
-import { WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, RECONNECT_BACKOFF_MULTIPLIER, RECONNECT_BACKOFF_BASE_MS, RECONNECT_BACKOFF_MAX, POST_WRITE_REFRESH_MS, WRITE_COUNT_REFRESH_INTERVAL, RECONNECTING_OVERLAY_MIN_ATTEMPTS } from "../utils/constants.js";
+import { WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, RECONNECT_BACKOFF_MULTIPLIER, RECONNECT_BACKOFF_BASE_MS, RECONNECT_BACKOFF_MAX, POST_WRITE_REFRESH_MS, RECONNECTING_OVERLAY_MIN_ATTEMPTS } from "../utils/constants.js";
 import { emit } from "../app-bridge.js";
 import { useToast } from "./useToast.js";
 import { fitTerminal, sendResize, observeFrameResize } from "./useTerminalResize.js";
@@ -87,9 +87,6 @@ export function useTerminal() {
       }
       tab._lastWriteAt = performance.now();
       tab._writeCount = (tab._writeCount || 0) + 1;
-      if (tab._writeCount % WRITE_COUNT_REFRESH_INTERVAL === 0) {
-        try { tab.term.refresh(0, tab.term.rows - 1); } catch {}
-      }
       clearTimeout(tab._postWriteRefresh);
       tab._postWriteRefresh = setTimeout(() => {
         if (tab._writeCount >= 50 && tab.term) {
