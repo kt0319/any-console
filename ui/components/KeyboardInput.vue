@@ -1,6 +1,6 @@
 <template>
   <div class="keyboard-input-wrapper" @pointerdown="markInternalInteraction">
-    <form class="keyboard-input-row" autocomplete="off" role="presentation" @submit.prevent>
+    <form class="keyboard-input-row" autocomplete="off" role="presentation" @submit.prevent="submit">
       <input
         ref="inputEl"
         v-model="draft"
