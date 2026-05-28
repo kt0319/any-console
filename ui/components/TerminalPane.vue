@@ -124,7 +124,7 @@ function scheduleActiveFit() {
   activeFitTimer = setTimeout(() => {
     activeFitTimer = null;
     if (!isActive.value) return;
-    fitTerminal(props.tab, { force: true });
+    fitTerminal(props.tab);
     if (props.tab.term) {
       try { props.tab.term.refresh(0, props.tab.term.rows - 1); } catch {}
     }
