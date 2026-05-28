@@ -135,7 +135,7 @@ function dismissKeyboard() {
     keyboardInput.value?.blur?.();
     inputFocused.value = false;
     clearModifiers();
-    return;
+    if (isFullKeyboard.value) return;
   }
   if (isFullKeyboard.value) {
     isFullKeyboard.value = false;

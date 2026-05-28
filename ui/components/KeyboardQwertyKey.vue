@@ -191,10 +191,10 @@ const auth = useAuthStore();
 const { sendKeyToTerminal, sendTextToTerminal, modifierState, clearModifiers, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
 
 const keyboardInput = ref(null);
-const { onEnter, makeFlickResolver } = useEnterAction({ hasDraft, keyboardInput, sendKeyToTerminal });
 const _inputFocused = ref(false);
 const draft = ref("");
 const hasDraft = computed(() => draft.value.trim().length > 0);
+const { onEnter, makeFlickResolver } = useEnterAction({ hasDraft, keyboardInput, sendKeyToTerminal });
 const _showSnippetView = ref(false);
 
 // hideBottomRow=true のとき KeyboardBar が状態を管理する
