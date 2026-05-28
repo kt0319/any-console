@@ -33,14 +33,18 @@
           v-for="item in items"
           :key="`${item.url}|${item.title}`"
           class="rss-item"
-          @click="onItemClick(item)"
+          @click="onItemOpen(item)"
         >
-          <span class="rss-item-title">{{ item.title }}</span>
-          <span v-if="item.date" class="rss-item-date">{{ formatItemDate(item.date) }}</span>
+          <div class="rss-item-main">
+            <span class="rss-item-title">{{ item.title }}</span>
+            <span v-if="item.date" class="rss-item-date">{{ formatItemDate(item.date) }}</span>
+          </div>
+          <div v-if="item.summary" class="rss-item-summary">{{ item.summary }}</div>
         </div>
         <div v-if="items.length === 0" class="rss-status">No items</div>
       </template>
     </div>
+
 
   </div>
 </template>
@@ -61,7 +65,6 @@ const allItems = ref([]);
 const itemsLoading = ref(false);
 const itemsError = ref("");
 const feedErrors = ref({});
-
 const items = computed(() => allItems.value.filter((i) => i.feed_id === props.feed.id));
 const feedError = computed(() => feedErrors.value[props.feed.id] || "");
 
@@ -76,7 +79,7 @@ async function reload() {
   await loadItems(allItems, itemsLoading, itemsError, feedErrors);
 }
 
-function onItemClick(item) {
+function onItemOpen(item) {
   if (item.url) bridgeEmit("terminal:url", { uri: item.url });
 }
 
@@ -215,6 +218,12 @@ defineExpose({ reload });
   border-bottom: 1px solid var(--border);
   cursor: pointer;
   display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rss-item-main {
+  display: flex;
   align-items: baseline;
   gap: 8px;
 }
@@ -231,10 +240,16 @@ defineExpose({ reload });
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
   min-width: 0;
+}
+
+.rss-item-summary {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rss-item-date {
@@ -250,4 +265,5 @@ defineExpose({ reload });
   color: var(--text-muted);
   text-align: center;
 }
+
 </style>
