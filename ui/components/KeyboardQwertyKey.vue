@@ -284,7 +284,10 @@ function sendOrType(keyObj) {
   // input にフォーカスがあるときは input の draft へ。それ以外はターミナルへ。
   if (keyboardInput.value?.isFocused?.()) {
     const k = keyObj.key;
-    if (k === "Enter") { keyboardInput.value?.submit?.(); return; }
+    if (k === "Enter") {
+      if (hasDraft.value) { keyboardInput.value?.submit?.(); } else { sendKeyToTerminal(keyObj); }
+      return;
+    }
     if (k === "Backspace") { keyboardInput.value?.backspace?.(); return; }
     if (typeof k === "string" && k.length === 1 && !keyObj.ctrl) {
       const ch = (modifierState.shift && /[a-z]/.test(k)) ? k.toUpperCase() : k;
@@ -490,7 +493,6 @@ onMounted(() => {
         keyboardInput.value?.submit?.();
         return;
       }
-      if (inputFocused.value) return;
       sendKeyToTerminal({ key: "Enter" });
     }, { accelerateRepeat: true });
   }
