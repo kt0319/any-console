@@ -87,7 +87,7 @@ export function formatItemDate(dateStr) {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
     if (isToday(dateStr)) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const diffMs = new Date() - d;
+    const diffMs = new Date().getTime() - d.getTime();
     const diffDays = Math.floor(diffMs / 86400000);
     if (diffDays <= 1) return "1d ago";
     if (diffDays < 7) return `${diffDays}d ago`;
