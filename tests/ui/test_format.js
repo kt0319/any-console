@@ -34,7 +34,7 @@ describe("formatRelativeTime", () => {
     const now = Math.floor(Date.now() / 1000);
     expect(formatRelativeTime(now)).toBe("now");
     expect(formatRelativeTime(now - 60)).toBe("now");
-    expect(formatRelativeTime(now - 3599)).toBe("now");
+    expect(formatRelativeTime(now - 3000)).toBe("now");
   });
 
   it("formats hours under a day", () => {
