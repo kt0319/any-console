@@ -485,7 +485,7 @@ onMounted(() => {
   }
   if (topEnterFlickEl.value) {
     const enterFlickResolver = (dx, dy, threshold) => {
-      if (inputFocused.value) return null;
+      if (inputFocused.value && hasDraft.value) return null;
       return enterResolver(dx, dy, threshold);
     };
     setupFlickRepeat(topEnterFlickEl.value, enterFlickResolver, () => {
