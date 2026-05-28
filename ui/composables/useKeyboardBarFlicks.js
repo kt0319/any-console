@@ -34,13 +34,12 @@ export function useKeyboardBarFlicks({
     if (enterEl.value) {
       const enterFlickResolver = (dx, dy, threshold) => {
         if (hasDraft.value && Math.abs(dx) > Math.abs(dy) && dx < -threshold) return { _clear: true };
-        if (inputFocused.value) return null;
+        if (inputFocused.value && hasDraft.value) return null;
         return enterResolver(dx, dy, threshold);
       };
       setupFlickRepeat(enterEl.value, enterFlickResolver, () => {
         if (inputFocused.value) {
-          if (hasDraft.value) keyboardInput.value?.submit?.();
-          return;
+          if (hasDraft.value) { keyboardInput.value?.submit?.(); return; }
         }
         sendKeyToTerminal({ key: "Enter" });
       }, {
