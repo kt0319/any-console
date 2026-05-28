@@ -44,10 +44,10 @@ def _fetch_feed_items(feed_id: str, url: str) -> tuple[list[dict], str]:
         with urllib.request.urlopen(req, timeout=_RSS_FETCH_TIMEOUT_SEC) as resp:  # noqa: S310
             content = resp.read()
     except urllib.error.HTTPError as e:
-        logger.warning("rss fetch failed url=%s status=%s", url, e.code)
+        logger.warning("rss fetch failed url=%s status=%s", fetch_url, e.code)
         return [], f"HTTP {e.code}: {e.reason}"
     except Exception as e:
-        logger.warning("rss fetch failed url=%s error=%s", url, e)
+        logger.warning("rss fetch failed url=%s error=%s", fetch_url, e)
         return [], str(e)
 
     try:
@@ -173,10 +173,10 @@ def update_feed(name: str, feed_id: str, body: UpdateFeedRequest):
                 f["url"] = url
                 _rss_cache.invalidate(f"rss:{feed_id}")
             f["title"] = body.title.strip()
-            break
-    _save_feeds(name, feeds)
-    logger.info("rss feed updated workspace=%s feed_id=%s", name, feed_id)
-    return {"status": "ok"}
+            _save_feeds(name, feeds)
+            logger.info("rss feed updated workspace=%s feed_id=%s", name, feed_id)
+            return {"status": "ok"}
+    return {"status": "error", "detail": "Feed not found"}
 
 
 @router.delete("/workspaces/{name}/rss/feeds/{feed_id}")

@@ -73,15 +73,21 @@ export function useRSS() {
   return { loadFeeds, loadItems, addFeed, removeFeed, updateFeed };
 }
 
+export function isToday(dateStr) {
+  if (!dateStr) return false;
+  try {
+    const d = new Date(dateStr);
+    return !isNaN(d.getTime()) && d.toDateString() === new Date().toDateString();
+  } catch { return false; }
+}
+
 export function formatItemDate(dateStr) {
   if (!dateStr) return "";
   try {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
-    const now = new Date();
-    const today = now.toDateString();
-    if (d.toDateString() === today) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const diffMs = now - d;
+    if (isToday(dateStr)) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const diffMs = new Date() - d;
     const diffDays = Math.floor(diffMs / 86400000);
     if (diffDays === 1) return "1d ago";
     if (diffDays < 7) return `${diffDays}d ago`;

@@ -108,7 +108,7 @@ import { useToast } from "../composables/useToast.js";
 import { useModalView } from "../composables/useModalView.js";
 import { getCachedCount, useGitHub } from "../composables/useGitHub.js";
 import { getStashCachedCount, setStashCache } from "../composables/useStashCache.js";
-import { useRSS } from "../composables/useRSS.js";
+import { useRSS, isToday } from "../composables/useRSS.js";
 import { RSS_AUTO_REFRESH_MS } from "../utils/constants.js";
 
 const workspaceStore = useWorkspaceStore();
@@ -392,17 +392,6 @@ async function submitRssAddFeed() {
   }
 }
 
-function _isToday(dateStr) {
-  if (!dateStr) return false;
-  try {
-    const d = new Date(dateStr);
-    const now = new Date();
-    return d.getFullYear() === now.getFullYear() &&
-      d.getMonth() === now.getMonth() &&
-      d.getDate() === now.getDate();
-  } catch { return false; }
-}
-
 async function checkRssUpdates() {
   if (!rssFeeds.value.length) return;
   const tempItems = ref([]);
@@ -413,7 +402,7 @@ async function checkRssUpdates() {
 
   const counts = {};
   for (const item of tempItems.value) {
-    if (_isToday(item.date)) {
+    if (isToday(item.date)) {
       counts[item.feed_id] = (counts[item.feed_id] || 0) + 1;
     }
   }

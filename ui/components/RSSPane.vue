@@ -31,7 +31,7 @@
       <template v-else>
         <div
           v-for="item in items"
-          :key="item.url + item.title"
+          :key="`${item.url}|${item.title}`"
           class="rss-item"
           @click="onItemClick(item)"
         >
