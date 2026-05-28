@@ -81,7 +81,7 @@ export function formatItemDate(dateStr) {
     const now = new Date();
     const diffMs = now - d;
     const diffDays = Math.floor(diffMs / 86400000);
-    if (diffDays === 0) return "today";
+    if (diffDays === 0) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     if (diffDays === 1) return "1d ago";
     if (diffDays < 7) return `${diffDays}d ago`;
     if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;

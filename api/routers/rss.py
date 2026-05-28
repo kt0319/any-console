@@ -102,11 +102,15 @@ def _parse_rss(root: ET.Element, feed_id: str, url: str) -> list[dict]:
     feed_title = channel.findtext("title") or url
     items = []
     for item in channel.findall("item"):
+        title = (item.findtext("title") or "").strip()
+        item_url = (item.findtext("link") or "").strip()
+        if not title and not item_url:
+            continue
         items.append({
             "feed_id": feed_id,
             "feed_title": feed_title,
-            "title": (item.findtext("title") or "").strip(),
-            "url": (item.findtext("link") or "").strip(),
+            "title": title,
+            "url": item_url,
             "date": _norm_date(item.findtext("pubDate") or ""),
             "summary": (item.findtext("description") or "").strip(),
         })
