@@ -170,6 +170,12 @@ onMounted(() => {
     { view: "WorkspaceDetail", state: {} },
   ]));
 
+  on("git:openHistory", () => openView([
+    { view: "ModalMenu", state: {} },
+    { view: "WorkspaceOpen", state: {} },
+    { view: "WorkspaceDetail", state: { detail: { pane: "history" } } },
+  ]));
+
   on("modal:close", () => closeModal());
 });
 </script>

@@ -94,7 +94,7 @@ onMounted(async () => {
 
   if (layoutStore.isPwa) document.documentElement.classList.add("pwa");
 
-  on("toast:show", ({ message, type, duration }) => appToast.value?.show(message, type, duration));
+  on("toast:show", ({ message, type, duration, action }) => appToast.value?.show(message, type, duration, action));
   on("terminal:url", ({ uri }) => { terminalUrl.value = uri; urlCopied.value = false; });
   bindJobBridge();
 

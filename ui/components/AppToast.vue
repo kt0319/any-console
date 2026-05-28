@@ -19,6 +19,7 @@
 <script setup>
 import { ref, nextTick } from "vue";
 import { TOAST_DEFAULT_DURATION_MS } from "../utils/constants.js";
+import { emit } from "../app-bridge.js";
 
 let idCounter = 0;
 const toasts = ref([]);
@@ -32,17 +33,19 @@ function restack() {
 }
 
 function dismiss(toast) {
-  if (navigator.clipboard?.writeText) {
+  if (toast.action) {
+    emit(toast.action);
+  } else if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(toast.message).catch(() => {});
   }
   toasts.value = toasts.value.filter((t) => t.id !== toast.id);
   nextTick(restack);
 }
 
-function show(message, type = "error", duration = TOAST_DEFAULT_DURATION_MS) {
+function show(message, type = "error", duration = TOAST_DEFAULT_DURATION_MS, action = null) {
   const text = typeof message === "string" ? message : String(message?.message || message || "Unknown error");
   const id = ++idCounter;
-  const toast = { id, message: text, lines: text.split("\n"), type, top: 24 };
+  const toast = { id, message: text, lines: text.split("\n"), type, top: 24, action };
   toasts.value.push(toast);
   nextTick(restack);
   setTimeout(() => {

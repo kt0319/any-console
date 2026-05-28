@@ -57,7 +57,7 @@ export function useGitRemoteAction() {
     if (!ok) return;
     const message = formatRemoteToast(wsName, label, data);
     const hasDetail = message.includes("\n");
-    toast.success(message, { duration: hasDetail ? 5000 : 3000 });
+    toast.success(message, { duration: hasDetail ? 5000 : 3000, action: "git:openHistory" });
     workspaceStore.fetchStatuses();
   }
 
