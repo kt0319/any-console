@@ -54,13 +54,11 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     allWorkspaces.value = data.map((newWs) => {
       const existing = existingByName.get(newWs.name);
       const cached = cache[newWs.name] || {};
-      // キャッシュ値 → 既存値 → 新値の順で上書き（新値は nullish なら無視）。
-      // これでリロード直後でも last_commit_message が即座に出る。
-      const merged = { ...cached, ...(existing || {}) };
-      for (const [k, v] of Object.entries(newWs)) {
-        if (v != null) merged[k] = v;
-      }
-      return merged;
+      // キャッシュ値・既存値をベースに新値で上書き。
+      // group_id:null のような「明示的なnull」も正規の値なので null ガードは掛けない。
+      // ステータス系フィールド(clean/ahead/behind 等)は /workspaces レスポンスに含まれないため
+      // 既存値が自然に保持される。
+      return { ...cached, ...(existing || {}), ...newWs };
     });
   }
 

@@ -10,104 +10,66 @@
       </div>
 
       <div ref="wsListEl" class="terminal-ws-list">
-        <!-- グループなしのワークスペース -->
-        <div
-          v-for="(ws, idx) in ungrouped"
-          :key="ws.name"
-          class="picker-ws-group"
-          :class="{ dragging: dragIdx === idx }"
-          :style="dragIdx === idx ? { transform: `translateY(${dragOffsetY}px)` } : {}"
-        >
-          <div class="picker-ws-row picker-ws-row-top">
-            <button type="button" class="picker-ws-header-label" @click="openDetail(ws)">
-              <span v-html="renderIconStr(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
-              <span class="picker-ws-header-text">
-                <span class="picker-ws-name">
-                  <span v-if="ws.worktree" class="mdi mdi-file-tree picker-ws-wt-icon" aria-label="worktree" data-tooltip="worktree"></span>
-                  {{ ws.worktree ? workspaceDisplayName(ws) : ws.name }}
-                </span>
-                <span class="picker-ws-branch">{{ ws.branch || '-' }}</span>
-              </span>
+        <template v-for="(item, flatIdx) in (dragFlatList || flatList)" :key="item.type === 'header' ? 'h-' + item.group.id : item.ws.name">
+          <!-- グループヘッダー -->
+          <div v-if="item.type === 'header'" class="picker-group-header">
+            <button type="button" class="picker-group-toggle" @click="toggleGroup(item.group.id)">
+              <span class="mdi" :class="collapsedGroups.has(item.group.id) ? 'mdi-chevron-right' : 'mdi-chevron-down'"></span>
+              {{ item.group.name }}
             </button>
-            <div class="picker-ws-top-meta" @click.stop>
-              <template v-if="ws.is_git_repo">
-                <button v-if="ws.clean === false" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(ws)" @click.stop="openDetail(ws)"></button>
-                <GitActionBtn v-if="ws.behind > 0" icon="pull" title="Pull" :count="ws.behind" :running="isRunning(ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="doAction(ws, 'pull')" />
-                <GitActionBtn v-if="ws.ahead > 0 && ws.has_upstream !== false" icon="push" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(ws, 'push')" />
-                <GitActionBtn v-if="ws.ahead > 0 && ws.has_upstream === false" icon="push-upstream" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action="doAction(ws, 'push-upstream')" />
-              </template>
-              <button type="button" class="picker-ws-edit-btn" aria-label="Edit workspace" data-tooltip="Edit workspace" @click.stop="openEditWs(ws)">
-                <span class="mdi mdi-pencil-outline"></span>
-              </button>
-            </div>
-          </div>
-          <div v-if="worktreesByBase[ws.name]?.length" class="picker-ws-worktrees">
-            <div v-for="wt in worktreesByBase[ws.name]" :key="wt.name" class="picker-ws-worktree-item">
-              <button type="button" class="picker-ws-worktree-open" @click="openDetail(wt)">
-                <span class="mdi mdi-file-tree picker-ws-wt-child-icon"></span>
-                <span class="picker-ws-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
-                <span v-if="wt.clean === false" class="picker-ws-wt-dirty" aria-label="uncommitted changes"></span>
-              </button>
-              <button type="button" class="picker-ws-worktree-del" aria-label="Remove worktree" data-tooltip="Remove worktree" @click.stop="removeWorktree(ws, wt)">
-                <span class="mdi mdi-delete-outline"></span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- グループ -->
-        <div v-for="group in workspaceStore.groups" :key="group.id" class="picker-group">
-          <div class="picker-group-header">
-            <button type="button" class="picker-group-toggle" @click="toggleGroup(group.id)">
-              <span class="mdi" :class="collapsedGroups.has(group.id) ? 'mdi-chevron-right' : 'mdi-chevron-down'"></span>
-              {{ group.name }}
-            </button>
-            <button type="button" class="picker-ws-edit-btn" aria-label="Edit group" data-tooltip="Edit group" @click.stop="startRenameGroup(group)">
+            <button type="button" class="picker-ws-edit-btn" aria-label="Edit group" data-tooltip="Edit group" @click.stop="startRenameGroup(item.group)">
               <span class="mdi mdi-pencil-outline"></span>
             </button>
           </div>
-          <div v-if="!collapsedGroups.has(group.id)" class="picker-group-body">
-            <div
-              v-for="ws in groupedWorkspaces(group.id)"
-              :key="ws.name"
-              class="picker-ws-group picker-ws-group-inset"
-            >
-              <div class="picker-ws-row picker-ws-row-top">
-                <button type="button" class="picker-ws-header-label" @click="openDetail(ws)">
-                  <span v-html="renderIconStr(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
-                  <span class="picker-ws-header-text">
-                    <span class="picker-ws-name">{{ ws.name }}</span>
-                    <span class="picker-ws-branch">{{ ws.branch || '-' }}</span>
+          <!-- ワークスペース行 -->
+          <div
+            v-else
+            class="picker-ws-group"
+            :class="{ dragging: dragIdx === flatIdx, 'picker-ws-group-inset': item.groupId !== null }"
+            :style="dragIdx === flatIdx ? { transform: `translateY(${dragOffsetY}px)` } : {}"
+          >
+            <div class="picker-ws-row picker-ws-row-top">
+              <span
+                class="picker-ws-drag-handle"
+                aria-hidden="true"
+                @pointerdown.prevent="onDragStart($event, flatIdx)"
+              ></span>
+              <button type="button" class="picker-ws-header-label" @click="openDetail(item.ws)">
+                <span v-html="renderIconStr(item.ws.icon || 'mdi-console', item.ws.icon_color, 18)"></span>
+                <span class="picker-ws-header-text">
+                  <span class="picker-ws-name">
+                    <span v-if="item.ws.worktree" class="mdi mdi-file-tree picker-ws-wt-icon" aria-label="worktree" data-tooltip="worktree"></span>
+                    {{ item.ws.worktree ? workspaceDisplayName(item.ws) : item.ws.name }}
                   </span>
+                  <span class="picker-ws-branch">{{ item.ws.branch || '-' }}</span>
+                </span>
+              </button>
+              <div class="picker-ws-top-meta" @click.stop>
+                <template v-if="item.ws.is_git_repo">
+                  <button v-if="item.ws.clean === false" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(item.ws)" @click.stop="openChanges(item.ws)"></button>
+                  <GitActionBtn v-if="item.ws.behind > 0" icon="pull" title="Pull" :count="item.ws.behind" :running="isRunning(item.ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="doAction(item.ws, 'pull')" />
+                  <GitActionBtn v-if="item.ws.ahead > 0 && item.ws.has_upstream !== false" icon="push" title="Push" :count="item.ws.ahead" :running="isRunning(item.ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(item.ws, 'push')" />
+                  <GitActionBtn v-if="item.ws.ahead > 0 && item.ws.has_upstream === false" icon="push-upstream" title="Push" :count="item.ws.ahead" :running="isRunning(item.ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action="doAction(item.ws, 'push-upstream')" />
+                </template>
+                <button type="button" class="picker-ws-edit-btn" aria-label="Edit workspace" data-tooltip="Edit workspace" @click.stop="openEditWs(item.ws)">
+                  <span class="mdi mdi-pencil-outline"></span>
                 </button>
-                <div class="picker-ws-top-meta" @click.stop>
-                  <template v-if="ws.is_git_repo">
-                    <button v-if="ws.clean === false" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(ws)" @click.stop="openDetail(ws)"></button>
-                    <GitActionBtn v-if="ws.behind > 0" icon="pull" title="Pull" :count="ws.behind" :running="isRunning(ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="doAction(ws, 'pull')" />
-                    <GitActionBtn v-if="ws.ahead > 0 && ws.has_upstream !== false" icon="push" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(ws, 'push')" />
-                    <GitActionBtn v-if="ws.ahead > 0 && ws.has_upstream === false" icon="push-upstream" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action="doAction(ws, 'push-upstream')" />
-                  </template>
-                  <button type="button" class="picker-ws-edit-btn" aria-label="Edit workspace" data-tooltip="Edit workspace" @click.stop="openEditWs(ws)">
-                    <span class="mdi mdi-pencil-outline"></span>
-                  </button>
-                </div>
-              </div>
-              <div v-if="worktreesByBase[ws.name]?.length" class="picker-ws-worktrees">
-                <div v-for="wt in worktreesByBase[ws.name]" :key="wt.name" class="picker-ws-worktree-item">
-                  <button type="button" class="picker-ws-worktree-open" @click="openDetail(wt)">
-                    <span class="mdi mdi-file-tree picker-ws-wt-child-icon"></span>
-                    <span class="picker-ws-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
-                    <span v-if="wt.clean === false" class="picker-ws-wt-dirty" aria-label="uncommitted changes"></span>
-                  </button>
-                  <button type="button" class="picker-ws-worktree-del" aria-label="Remove worktree" data-tooltip="Remove worktree" @click.stop="removeWorktree(ws, wt)">
-                    <span class="mdi mdi-delete-outline"></span>
-                  </button>
-                </div>
               </div>
             </div>
-            <div v-if="!groupedWorkspaces(group.id).length" class="picker-group-empty">No workspaces</div>
+            <div v-if="worktreesByBase[item.ws.name]?.length" class="picker-ws-worktrees">
+              <div v-for="wt in worktreesByBase[item.ws.name]" :key="wt.name" class="picker-ws-worktree-item">
+                <button type="button" class="picker-ws-worktree-open" @click="openDetail(wt)">
+                  <span class="mdi mdi-file-tree picker-ws-wt-child-icon"></span>
+                  <span class="picker-ws-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
+                  <span v-if="wt.clean === false" class="picker-ws-wt-dirty" aria-label="uncommitted changes"></span>
+                </button>
+                <button type="button" class="picker-ws-worktree-del" aria-label="Remove worktree" data-tooltip="Remove worktree" @click.stop="removeWorktree(item.ws, wt)">
+                  <span class="mdi mdi-delete-outline"></span>
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        </template>
 
         <div v-if="displayWorkspaces.length === 0" class="clone-repo-empty">
           No workspaces to display
@@ -158,7 +120,6 @@ import { renderIconStr } from "../utils/render-icon.js";
 import { dirtyBadgeHtml } from "../utils/git.js";
 import { worktreeBranchLabel, workspaceDisplayName } from "../utils/worktree.js";
 import GitActionBtn from "./GitActionBtn.vue";
-import { useWorkspaceDrag } from "../composables/useWorkspaceDrag.js";
 import { EP_WORKSPACE_ORDER, EP_GROUPS } from "../utils/endpoints.js";
 
 const modalTitle = inject("modalTitle");
@@ -180,7 +141,7 @@ const groupInputName = ref("");
 const groupInputEl = ref(null);
 const editingGroup = ref(null);
 
-// グループなし（トップレベルに表示）
+// グループなし（トップレベル）
 const ungrouped = computed(() => {
   const list = workspaceStore.visibleWorkspaces;
   const baseNames = new Set(list.filter((w) => !w.worktree).map((w) => w.name));
@@ -202,6 +163,24 @@ function groupedWorkspaces(groupId) {
 
 const displayWorkspaces = computed(() => workspaceStore.visibleWorkspaces);
 
+// グループヘッダーとワークスペースを1本のリストに統合
+// type:'header' はグループ見出し、type:'ws' はワークスペース行
+const flatList = computed(() => {
+  const result = [];
+  for (const ws of ungrouped.value) {
+    result.push({ type: "ws", ws, groupId: null });
+  }
+  for (const group of workspaceStore.groups) {
+    result.push({ type: "header", group });
+    if (!collapsedGroups.has(group.id)) {
+      for (const ws of groupedWorkspaces(group.id)) {
+        result.push({ type: "ws", ws, groupId: group.id });
+      }
+    }
+  }
+  return result;
+});
+
 const worktreesByBase = computed(() => {
   const map = {};
   for (const ws of workspaceStore.visibleWorkspaces) {
@@ -212,11 +191,143 @@ const worktreesByBase = computed(() => {
   return map;
 });
 
-const { dragIdx, dragOffsetY, onDragStart, cleanup: cleanupDrag } = useWorkspaceDrag({
-  items: ungrouped,
-  listEl: wsListEl,
-  onReorder: () => saveWorkspaceOrder(),
-});
+// ---- ドラッグ状態 ----
+const dragIdx = ref(-1);
+const dragOffsetY = ref(0);
+const dragFlatList = ref(null);
+let _dragStartY = 0;
+let _dragRowHeight = 0;
+let _dragDidMove = false;
+
+function onDragStart(e, flatIdx) {
+  const fl = flatList.value;
+  if (fl.filter((item) => item.type === "ws").length < 2) return;
+  const list = wsListEl.value;
+  if (!list) return;
+
+  if (navigator.vibrate) navigator.vibrate(30);
+
+  dragFlatList.value = fl.map((item) => ({ ...item }));
+  const rows = list.querySelectorAll(".picker-ws-group");
+  _dragRowHeight = rows[0]?.getBoundingClientRect().height || 44;
+  _dragStartY = e.clientY ?? e.touches?.[0]?.clientY;
+  dragIdx.value = flatIdx;
+  dragOffsetY.value = 0;
+  _dragDidMove = false;
+
+  if (e.pointerId != null) {
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+  }
+
+  document.addEventListener("pointermove", _onDragMove);
+  document.addEventListener("pointerup", _onDragEnd);
+  document.addEventListener("pointercancel", _onDragEnd);
+  document.addEventListener("touchmove", _onTouchMove, { passive: false });
+  document.addEventListener("touchend", _onDragEnd);
+  document.addEventListener("touchcancel", _onDragEnd);
+}
+
+function _onDragMove(e) {
+  if (dragIdx.value < 0) return;
+  _applyMove(e.clientY);
+}
+
+function _onTouchMove(e) {
+  if (dragIdx.value < 0) return;
+  if (e.cancelable) e.preventDefault();
+  _applyMove(e.touches[0].clientY);
+}
+
+function _applyMove(clientY) {
+  const dy = clientY - _dragStartY;
+  dragOffsetY.value = dy;
+
+  const steps = Math.trunc(dy / _dragRowHeight);
+  if (steps === 0) return;
+
+  const arr = dragFlatList.value;
+  const direction = steps > 0 ? 1 : -1;
+
+  // ヘッダーを飛び越えて次のws項目を探す
+  let target = dragIdx.value + direction;
+  while (target >= 0 && target < arr.length && arr[target]?.type !== "ws") {
+    target += direction;
+  }
+  if (target < 0 || target >= arr.length || arr[target]?.type !== "ws") return;
+
+  const [moved] = arr.splice(dragIdx.value, 1);
+  arr.splice(target, 0, moved);
+  dragIdx.value = target;
+  _dragStartY = clientY;
+  dragOffsetY.value = 0;
+  _dragDidMove = true;
+}
+
+function _onDragEnd() {
+  const moved = _dragDidMove;
+  const finalList = dragFlatList.value ? [...dragFlatList.value] : null;
+  _cleanupDragListeners();
+  if (moved && finalList) {
+    // dragFlatList は fetchWorkspaces 完了後にクリア（先にクリアすると旧順序が一瞬見える）
+    _saveOrderAndGroups(finalList);
+  } else {
+    dragFlatList.value = null;
+  }
+}
+
+function _cleanupDragListeners() {
+  document.removeEventListener("pointermove", _onDragMove);
+  document.removeEventListener("pointerup", _onDragEnd);
+  document.removeEventListener("pointercancel", _onDragEnd);
+  document.removeEventListener("touchmove", _onTouchMove);
+  document.removeEventListener("touchend", _onDragEnd);
+  document.removeEventListener("touchcancel", _onDragEnd);
+  dragIdx.value = -1;
+  dragOffsetY.value = 0;
+  _dragDidMove = false;
+}
+
+function _cleanupDrag() {
+  _cleanupDragListeners();
+  dragFlatList.value = null;
+}
+
+async function _saveOrderAndGroups(finalList) {
+  // 各wsの新しいgroupIdを位置から決定
+  let currentGroupId = null;
+  const groupChanges = [];
+  const visibleOrder = [];
+
+  for (const item of finalList) {
+    if (item.type === "header") {
+      currentGroupId = item.group.id;
+    } else if (item.type === "ws") {
+      visibleOrder.push(item.ws.id || item.ws.name);
+      if (currentGroupId !== item.groupId) {
+        groupChanges.push({ ws: item.ws, newGroupId: currentGroupId });
+      }
+    }
+  }
+
+  // グループ変更を保存
+  for (const { ws, newGroupId } of groupChanges) {
+    await apiPut(wsEndpoint(ws.name, "config"), {
+      icon: ws.icon || "",
+      icon_color: ws.icon_color || "",
+      group_id: newGroupId,
+    }, { errorMessage: "Failed to update group" });
+  }
+
+  // 非表示(折りたたみ)のワークスペースを末尾に温存してフル順序を構築
+  const allWsIds = workspaceStore.allWorkspaces.map((ws) => ws.id || ws.name);
+  const visibleSet = new Set(visibleOrder);
+  const hiddenOrder = allWsIds.filter((id) => !visibleSet.has(id));
+  const fullOrder = [...visibleOrder, ...hiddenOrder];
+
+  await apiPut(EP_WORKSPACE_ORDER, { order: fullOrder }, { errorMessage: "Failed to save workspace order" });
+  await workspaceStore.fetchWorkspaces();
+  dragFlatList.value = null;
+}
 
 function toggleGroup(groupId) {
   if (collapsedGroups.has(groupId)) {
@@ -262,13 +373,6 @@ async function deleteGroup(group) {
   await workspaceStore.fetchWorkspaces();
 }
 
-async function saveWorkspaceOrder() {
-  const order = ungrouped.value.map((ws) => ws.id || ws.name);
-  try {
-    await apiPut(EP_WORKSPACE_ORDER, { order }, { errorMessage: "Failed to save workspace order" });
-  } catch { /* ignore */ }
-}
-
 function doAction(ws, action) {
   gitAction(ws.name, action, { branch: ws.branch });
 }
@@ -282,6 +386,11 @@ async function loadWorkspaceOverview() {
 function openDetail(ws) {
   workspaceStore.selectedWorkspace = ws.name;
   pushView("WorkspaceDetail", { detail: {} });
+}
+
+function openChanges(ws) {
+  workspaceStore.selectedWorkspace = ws.name;
+  pushView("WorkspaceDetail", { detail: { pane: "changes" } });
 }
 
 function openEditWs(ws) {
@@ -306,7 +415,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  cleanupDrag();
+  _cleanupDrag();
 });
 </script>
 
@@ -330,7 +439,6 @@ onBeforeUnmount(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
   padding: 4px 0;
 }
 
@@ -343,6 +451,8 @@ onBeforeUnmount(() => {
 .picker-ws-group.dragging {
   opacity: 0.72;
   background: var(--bg-tertiary);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  z-index: 10;
 }
 
 .picker-ws-group-inset {
@@ -354,6 +464,30 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.picker-ws-drag-handle {
+  flex-shrink: 0;
+  width: 16px;
+  height: 20px;
+  cursor: grab;
+  touch-action: none;
+  opacity: 0.4;
+  background-image:
+    linear-gradient(var(--text-muted), var(--text-muted)),
+    linear-gradient(var(--text-muted), var(--text-muted)),
+    linear-gradient(var(--text-muted), var(--text-muted));
+  background-size: 12px 2px;
+  background-repeat: no-repeat;
+  background-position: center 25%, center 50%, center 75%;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .picker-ws-drag-handle:hover {
+    opacity: 0.8;
+  }
 }
 
 .picker-ws-row-top {
@@ -617,6 +751,10 @@ button.git-badge:disabled {
 }
 
 /* グループ */
+.picker-group-header:not(:first-child) {
+  margin-top: 4px;
+}
+
 .picker-group-header {
   display: flex;
   align-items: center;
@@ -661,17 +799,10 @@ button.git-badge:disabled {
   }
 }
 
-.picker-group-body {
-  padding: 0 0 4px 12px;
+.picker-ws-group-inset {
+  padding-left: 12px;
   border-left: 2px solid var(--border);
   margin-left: 16px;
-}
-
-.picker-group-empty {
-  padding: 8px 12px;
-  font-size: 12px;
-  color: var(--text-muted);
-  font-style: italic;
 }
 
 .ws-toolbar {
