@@ -125,7 +125,14 @@ def _resolve_detected_worktree_bases(result: list[dict]) -> None:
             key = str(Path(main).resolve())
         except OSError:
             key = main
-        r["worktree_base"] = by_path.get(key, "")
+        base = by_path.get(key)
+        if base:
+            r["worktree_base"] = base
+        else:
+            # ベースが登録ワークスペースに無い（=入れ子にできない）孤立 worktree は
+            # 通常ワークスペースとして扱い、worktree マークを付けない。
+            r.pop("worktree", None)
+            r.pop("worktree_branch", None)
 
 
 @router.get("/workspaces/statuses")

@@ -100,6 +100,34 @@ class TestWorktreeEndpoints:
         assert entry["worktree_base"] == "test-ws"
         assert entry["worktree_branch"] == "legacy"
 
+    def test_orphan_worktree_not_marked(self, client, isolate_fs):
+        # ベースが登録されていない worktree は worktree 扱いしない（誤アイコン防止）
+        import json
+        import subprocess
+        from pathlib import Path
+
+        base = isolate_fs["work"] / "lonely"
+        base.mkdir()
+        for cmd in (["git", "init"], ["git", "config", "user.name", "t"], ["git", "config", "user.email", "t@t"]):
+            subprocess.run(cmd, cwd=base, capture_output=True)
+        (base / "f").write_text("x")
+        subprocess.run(["git", "add", "."], cwd=base, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "i"], cwd=base, capture_output=True)
+        wt = isolate_fs["work"] / "lonely.worktrees" / "feat"
+        subprocess.run(
+            ["git", "worktree", "add", str(wt), "-b", "feat"],
+            cwd=base, check=True, capture_output=True,
+        )
+        # worktree のみを登録する（ベースは未登録）
+        cfg = isolate_fs["config_file"]
+        config = json.loads(cfg.read_text(encoding="utf-8")) if cfg.is_file() else {}
+        config["only-wt"] = {"name": "only-wt", "path": str(wt)}
+        cfg.write_text(json.dumps(config), encoding="utf-8")
+
+        res = client.get("/workspaces", headers=AUTH)
+        entry = next(w for w in res.json() if w["name"] == "only-wt")
+        assert entry.get("worktree") is not True
+
     def test_list_shows_worktrees(self, client, git_workspace_with_commit):
         client.post("/workspaces/test-ws/worktrees", headers=AUTH, json={"branch": "agent-2"})
         res = client.get("/workspaces/test-ws/worktrees", headers=AUTH)
