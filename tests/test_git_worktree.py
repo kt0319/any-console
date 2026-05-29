@@ -172,6 +172,32 @@ class TestWorktreeEndpoints:
         )
         assert res.status_code == 400
 
+    def test_worktree_shares_base_jobs(self, client, git_workspace_with_commit):
+        # ベースにジョブを作成
+        client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
+            "label": "Build", "command": "make build",
+        })
+        created = client.post(
+            "/workspaces/test-ws/worktrees", headers=AUTH, json={"branch": "wt-jobs"},
+        ).json()["workspace"]
+        # worktree のワークスペースからもベースのジョブが見える
+        res = client.get(f"/workspaces/{created['name']}/jobs", headers=AUTH)
+        assert res.status_code == 200
+        labels = {j["label"] for j in res.json().values()}
+        assert "Build" in labels
+
+    def test_worktree_job_edit_writes_to_base(self, client, git_workspace_with_commit):
+        created = client.post(
+            "/workspaces/test-ws/worktrees", headers=AUTH, json={"branch": "wt-edit"},
+        ).json()["workspace"]
+        # worktree 側でジョブを作成 → ベースに保存され、ベースからも見える
+        client.post(f"/workspaces/{created['name']}/jobs", headers=AUTH, json={
+            "label": "Shared", "command": "echo hi",
+        })
+        res = client.get("/workspaces/test-ws/jobs", headers=AUTH)
+        labels = {j["label"] for j in res.json().values()}
+        assert "Shared" in labels
+
     def test_list_on_non_git_rejected(self, client, workspace):
         res = client.get("/workspaces/test-ws/worktrees", headers=AUTH)
         assert res.status_code == 400

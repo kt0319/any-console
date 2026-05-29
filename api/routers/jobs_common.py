@@ -6,8 +6,10 @@
 import logging
 import secrets
 import time
+from pathlib import Path
 from typing import Any
 
+from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
 from ..common import (
@@ -19,12 +21,16 @@ from ..common import (
     resolve_workspace_path,
 )
 from ..config import (
+    list_workspace_entries,
     load_global_config_section,
+    load_workspace_config,
     load_workspace_config_section,
+    resolve_workspace_id,
     save_global_config_section,
     save_workspace_config_section,
 )
 from ..errors import bad_request, not_found
+from ..git_utils import linked_worktree_main_path
 from ..job_models import JobDefinition
 from ..validators import validate_icon, validate_icon_color
 
@@ -61,9 +67,56 @@ def save_workspace_jobs_data(workspace_name, data):
     _workspace_jobs_cache.invalidate(workspace_name)
 
 
+def _find_workspace_by_path(target: Path) -> str | None:
+    try:
+        target_resolved = target.resolve()
+    except OSError:
+        target_resolved = target
+    for entry in list_workspace_entries().values():
+        p = entry.get("path", "")
+        if not p:
+            continue
+        try:
+            if Path(p).resolve() == target_resolved:
+                name = entry.get("name")
+                return str(name) if name else None
+        except OSError:
+            continue
+    return None
+
+
+def resolve_jobs_owner(workspace_name: str) -> str:
+    """worktree のワークスペースはベースのワークスペースとジョブを共有する。
+
+    ベースが登録済みワークスペースとして特定できればその名前を、
+    できなければ自分自身を返す。worktree でなければ自分自身。
+    """
+    if not workspace_name:
+        return workspace_name
+    # 作成時に保存したメタデータを優先（git 呼び出し不要）
+    config = load_workspace_config(workspace_name)
+    base = config.get("worktree_base")
+    if base and resolve_workspace_id(base):
+        return str(base)
+    # メタデータが無い worktree は git から検出する
+    try:
+        ws_path = resolve_workspace_path(workspace_name)
+    except HTTPException:
+        return workspace_name
+    if ws_path is None:
+        return workspace_name
+    main = linked_worktree_main_path(ws_path)
+    if main:
+        base_name = _find_workspace_by_path(main)
+        if base_name:
+            return base_name
+    return workspace_name
+
+
 def ws_jobs_context(name):
     resolve_workspace_path(name)
-    return load_workspace_jobs_data(name), lambda data: save_workspace_jobs_data(name, data), "Job"
+    owner = resolve_jobs_owner(name)
+    return load_workspace_jobs_data(owner), lambda data: save_workspace_jobs_data(owner, data), "Job"
 
 
 def common_jobs_context():
@@ -97,7 +150,7 @@ def get_workspace_jobs(workspace_name):
     if not workspace_name:
         return {}
     common_data = load_common_jobs_data()
-    ws_data = load_workspace_jobs_data(workspace_name)
+    ws_data = load_workspace_jobs_data(resolve_jobs_owner(workspace_name))
     merged = {}
     for name, entry in common_data.items():
         merged[name] = (entry, True)
