@@ -184,16 +184,6 @@ onMounted(() => {
   font-size: 13px;
 }
 
-.dash-empty-state {
-  font-size: 13px;
-  color: var(--text-muted);
-  padding: 8px 4px;
-}
-
-.dash-error {
-  color: var(--error);
-}
-
 /* Quick Actions */
 .dash-action-list {
   display: flex;
