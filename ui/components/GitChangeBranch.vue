@@ -129,6 +129,11 @@
   </div>
 </template>
 
+<script>
+// モジュールスコープ: コンポーネント再マウント後もキャッシュを保持する
+const _remoteCache = new Map();
+</script>
+
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useApi } from "../composables/useApi.js";
@@ -142,9 +147,6 @@ import { worktreeBranchLabel } from "../utils/worktree.js";
 import { emit } from "../app-bridge.js";
 
 const branchEmit = defineEmits(["count"]);
-
-// ワークスペースごとのリモートブランチキャッシュ（タブ再表示時に即復元）
-const _remoteCache = new Map();
 
 const { apiGet, apiCommand, apiDelete, wsEndpoint } = useApi();
 const { withWorkspace } = useWorkspace();
