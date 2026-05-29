@@ -1,16 +1,51 @@
 <template>
   <div class="git-branch-pane-wrapper">
+    <div class="branch-toolbar">
+      <span class="branch-toolbar-spacer"></span>
+      <button type="button" class="branch-toolbar-btn" aria-label="Fetch" data-tooltip="Fetch" :disabled="isFetchingRemote" @click="fetchRemote">
+        <span class="mdi" :class="isFetchingRemote ? 'mdi-refresh branch-toolbar-spin' : 'mdi-refresh'"></span>
+      </button>
+      <button type="button" class="branch-toolbar-btn" aria-label="Add" data-tooltip="Add" @click="openAddModal">
+        <span class="mdi mdi-plus"></span>
+      </button>
+    </div>
+
+    <div v-if="addModalOpen" class="branch-add-overlay" @click.self="addModalOpen = false">
+      <div class="branch-add-dialog" role="dialog" aria-modal="true" aria-label="Add Branch or Worktree">
+        <div class="branch-add-dialog-title">Add</div>
+        <div class="branch-add-radio-group">
+          <label class="branch-add-radio-label">
+            <input type="radio" v-model="addType" value="branch" />
+            <span class="mdi mdi-source-branch"></span> Branch
+          </label>
+          <p class="branch-add-dialog-desc">Creates a branch from the current commit.</p>
+          <label class="branch-add-radio-label">
+            <input type="radio" v-model="addType" value="worktree" />
+            <span class="mdi mdi-file-tree"></span> Worktree
+          </label>
+          <p class="branch-add-dialog-desc">Creates a worktree on a new branch. Enables parallel work in a separate directory.</p>
+        </div>
+        <input
+          v-model="addName"
+          class="form-input"
+          type="text"
+          placeholder="feature/example"
+          autocomplete="off"
+          autocapitalize="off"
+          autocorrect="off"
+          spellcheck="false"
+          @keydown.enter.prevent="submitAddModal"
+          @keydown.esc.prevent="addModalOpen = false"
+        />
+        <div class="branch-add-dialog-buttons">
+          <button class="prompt-btn prompt-btn-cancel" @click="addModalOpen = false">Cancel</button>
+          <button class="prompt-btn prompt-btn-ok" :disabled="!addName.trim()" @click="submitAddModal">Create</button>
+        </div>
+      </div>
+    </div>
     <div class="modal-scroll-body" ref="branchListEl">
       <div class="branch-section-header">
         <span>LOCAL</span>
-        <span class="branch-section-actions">
-          <button type="button" class="branch-section-add-btn" title="Create worktree on a new branch" data-tooltip="New worktree" @click="createWorktreeNew">
-            <span class="mdi mdi-file-tree"></span>
-          </button>
-          <button type="button" class="branch-section-add-btn" title="Create branch" data-tooltip="New branch" @click="createBranch">
-            <span class="mdi mdi-plus"></span>
-          </button>
-        </span>
       </div>
         <div
           v-for="branch in localBranches"
@@ -69,15 +104,7 @@
           @click="fetchRemote"
         >
           <span>REMOTE</span>
-          <button
-            type="button"
-            class="branch-section-add-btn"
-            title="Fetch"
-            :disabled="isFetchingRemote"
-            @click.stop="fetchRemote"
-          >
-            <span class="mdi" :class="isFetchingRemote ? 'mdi-refresh branch-section-spinner' : 'mdi-refresh'"></span>
-          </button>
+          <span v-if="isFetchingRemote" class="mdi mdi-refresh branch-section-spinner"></span>
         </div>
         <template v-if="remoteLoaded">
           <div
@@ -103,11 +130,10 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useWorkspace } from "../composables/useWorkspace.js";
 import { useConfirm } from "../composables/useConfirm.js";
-import { usePrompt } from "../composables/usePrompt.js";
 import { useToast } from "../composables/useToast.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
@@ -120,10 +146,35 @@ const branchEmit = defineEmits(["count"]);
 const { apiGet, apiCommand, apiDelete, wsEndpoint } = useApi();
 const { withWorkspace } = useWorkspace();
 const { confirm } = useConfirm();
-const { prompt } = usePrompt();
 const toast = useToast();
 const { gitAction, isRunning } = useGitRemoteAction();
 const workspaceStore = useWorkspaceStore();
+
+const addModalOpen = ref(false);
+const addType = ref("branch");
+const addName = ref("");
+
+function openAddModal() {
+  addName.value = "";
+  addType.value = "branch";
+  addModalOpen.value = true;
+}
+
+async function submitAddModal() {
+  const name = addName.value.trim();
+  if (!name) return;
+  addModalOpen.value = false;
+  if (addType.value === "worktree") {
+    await doCreateWorktree(name);
+  } else {
+    await withWorkspace(async (workspace) => {
+      const { ok } = await apiCommand(wsEndpoint(workspace, "create-branch"), { branch: name });
+      if (!ok) return;
+      await loadBranchList();
+      emit("git:commitDone");
+    });
+  }
+}
 
 const localBranches = ref([]);
 const worktrees = ref([]);
@@ -242,16 +293,6 @@ async function doCreateWorktree(branchName) {
   });
 }
 
-async function createWorktreeNew() {
-  const branch = await prompt({
-    title: "New Worktree",
-    message: "Enter a branch name. A new working tree is created on this branch.",
-    placeholder: "feature/example",
-  });
-  if (!branch) return;
-  await doCreateWorktree(branch);
-}
-
 async function removeWorktree(wt) {
   await withWorkspace(async (workspace) => {
     if (!await confirm(`Remove worktree "${wt.branch || wt.path}"? The working tree directory will be deleted. This cannot be undone.`)) return;
@@ -262,7 +303,7 @@ async function removeWorktree(wt) {
     if (!ok) return;
     await workspaceStore.fetchWorkspaces();
     await loadWorktrees();
-    toast.success("Worktree removed");
+    toast.success(`Worktree removed: ${workspace} [${wt.branch || wt.path}]`);
   });
 }
 
@@ -270,22 +311,6 @@ async function pushBranch(branch) {
   await withWorkspace(async (workspace) => {
     await gitAction(workspace, "push-branch", { branch: branch.name });
     await loadBranchList();
-  });
-}
-
-async function createBranch() {
-  await withWorkspace(async (workspace) => {
-    const branchName = await prompt({
-      title: "Create Branch",
-      message: "Enter new branch name.",
-      initialValue: "",
-      placeholder: "feature/example",
-    });
-    if (!branchName) return;
-    const { ok } = await apiCommand(wsEndpoint(workspace, "create-branch"), { branch: branchName });
-    if (!ok) return;
-    await loadBranchList();
-    emit("git:commitDone");
   });
 }
 
@@ -370,6 +395,109 @@ defineExpose({ load: loadBranchList, backgroundFetch });
   overflow: hidden;
 }
 
+.branch-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.branch-toolbar-spacer {
+  flex: 1;
+}
+
+.branch-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.branch-toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.branch-toolbar-spin {
+  animation: branch-spinner-spin 0.8s linear infinite;
+}
+
+.branch-add-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 210;
+  padding: 20px;
+}
+
+.branch-add-dialog {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  width: min(360px, calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.branch-add-dialog-title {
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.branch-add-dialog-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 2px 0 0 24px;
+}
+
+.branch-add-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.branch-add-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.branch-add-radio-label input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+.branch-add-dialog-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .branch-toolbar-btn:not(:disabled):hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+}
+
 .branch-item {
   box-sizing: border-box;
   padding: 10px 12px;
@@ -422,7 +550,6 @@ defineExpose({ load: loadBranchList, backgroundFetch });
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  min-height: 36px;
   box-sizing: border-box;
   font-size: 11px;
   font-weight: 600;
@@ -444,44 +571,19 @@ defineExpose({ load: loadBranchList, backgroundFetch });
   opacity: 0.7;
 }
 
-.branch-section-header-toggle.is-busy .branch-section-add-btn {
-  pointer-events: auto;
+.branch-section-header-toggle.is-busy {
+  pointer-events: none;
+  opacity: 0.7;
 }
 
 .branch-section-spinner {
   width: 14px;
   font-size: 14px;
+  margin-left: auto;
   display: inline-flex;
   justify-content: center;
   flex-shrink: 0;
   animation: branch-spinner-spin 0.8s linear infinite;
-}
-
-.branch-section-add-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  margin-left: auto;
-  padding: 0;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.branch-section-actions {
-  margin-left: auto;
-  display: inline-flex;
-  gap: 4px;
-}
-
-.branch-section-actions .branch-section-add-btn {
-  margin-left: 0;
 }
 
 .branch-worktree-icon {
