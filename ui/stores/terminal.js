@@ -64,7 +64,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     return terminalSettings.value;
   }
 
-  function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, initialCommand, restored, hidden }) {
+  function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, restored, hidden }) {
     const opts = getTerminalRuntimeOptions();
     const term = new Terminal({ ...opts, allowProposedApi: true });
     const fitAddon = new FitAddon();
@@ -96,8 +96,6 @@ export const useTerminalStore = defineStore("terminal", () => {
       _pendingOpen: true,
       _pendingRedraw: !!restored,
       _needsHistoryRestore: !!restored,
-      _initialCommand: initialCommand || null,
-      _waitingInitialCommand: !!initialCommand,
       _wsDisposed: false,
       _reconnectAttempts: 0,
       _reconnectTimer: null,

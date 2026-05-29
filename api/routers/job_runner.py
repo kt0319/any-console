@@ -7,7 +7,6 @@
 import logging
 import re
 import secrets
-import shlex
 import subprocess
 
 from fastapi import APIRouter, Depends
@@ -16,9 +15,7 @@ from pydantic import BaseModel
 from ..activity import log_activity
 from ..auth import verify_token
 from ..common import (
-    AI_AGENT_DEFAULT_COMMAND,
     JOB_TIMEOUT_SEC,
-    MAX_AI_PROMPT_LENGTH,
     MAX_COMMAND_LENGTH,
     MAX_TERMINAL_SESSIONS,
     TMUX_SESSION_PREFIX,
@@ -27,14 +24,14 @@ from ..common import (
 )
 from ..errors import bad_request, server_error, timeout_error, too_many_requests
 from ..git_utils import _WORKTREE_NAME_RE, command_result_dict, git_branches
-from ..job_models import AI_AGENT_JOB, AI_AGENT_JOB_KEY, TERMINAL_JOB, TERMINAL_JOB_KEY
+from ..job_models import TERMINAL_JOB, TERMINAL_JOB_KEY
 from ..runner import run_job
 from ..terminal_session import (
     TERMINAL_SESSIONS,
     TerminalSession,
     sessions_lock,
 )
-from ..tmux import create_tmux_session, send_keys_to_tmux
+from ..tmux import create_tmux_session, send_keys_to_tmux, wait_pane_ready
 from .jobs_common import get_workspace_jobs
 
 logger = logging.getLogger(__name__)
@@ -50,8 +47,7 @@ class RunRequest(BaseModel):
     icon_color: str | None = None
     job_name: str | None = None
     job_label: str | None = None
-    ai_command: str | None = None
-    ai_prompt: str | None = None
+    command: str | None = None
 
 
 def _validate_job_args(job_def, body_args, ws_path):
@@ -80,7 +76,26 @@ def _validate_job_args(job_def, body_args, ws_path):
     return ordered_args
 
 
+def _validate_terminal_command(command: str | None) -> str | None:
+    """ターミナルへ自動投入するコマンドを検証する。
+
+    複数行シェルスクリプトを許容するため改行は通すが、NUL は send-keys
+    （subprocess 引数）に渡せないので弾く。空文字列は None とみなす。
+    """
+    if not command:
+        return None
+    command = command.strip()
+    if not command:
+        return None
+    if len(command) > MAX_COMMAND_LENGTH:
+        raise bad_request("Command is too long")
+    if "\x00" in command:
+        raise bad_request("Invalid characters in command")
+    return command
+
+
 def _create_terminal_session(body, ws_path):
+    command = _validate_terminal_command(body.command)
     with sessions_lock:
         if len(TERMINAL_SESSIONS) >= MAX_TERMINAL_SESSIONS:
             raise too_many_requests(
@@ -114,54 +129,22 @@ def _create_terminal_session(body, ws_path):
     session.save_metadata()
     logger.info("terminal session created session=%s tmux=%s workspace=%s",
                  session_id, tmux_name, body.workspace or "(none)")
+
+    # コマンドはサーバ側で送り込む。ブラウザ接続を待たずにセッション内で実行が
+    # 始まるため、接続前に閉じても／無接続でも走り続ける（自動実行）。
+    # シェル起動直後の取りこぼしを避けるためペイン準備を短時間待つ。
+    if command:
+        wait_pane_ready(tmux_name)
+        if not send_keys_to_tmux(tmux_name, command):
+            logger.warning("autorun send-keys failed session=%s", session_id)
+        log_activity(body.workspace, "terminal_run",
+                     job=body.job_name or sanitize_log_value(command[:80]))
+
     return {
         "status": "ok",
         "session_id": session_id,
         "ws_url": f"/terminal/ws/{session_id}",
     }
-
-
-def _validate_ai_inputs(body) -> tuple[str, str | None]:
-    command = (body.ai_command or AI_AGENT_DEFAULT_COMMAND).strip()
-    if not command:
-        raise bad_request("AI agent command is required")
-    if len(command) > MAX_COMMAND_LENGTH:
-        raise bad_request("AI agent command is too long")
-    if re.search(r"[\x00-\x1f\x7f]", command):
-        raise bad_request("Invalid characters in ai_command")
-
-    prompt = body.ai_prompt
-    if prompt is not None:
-        if len(prompt) > MAX_AI_PROMPT_LENGTH:
-            raise bad_request("AI agent prompt is too long")
-        if re.search(r"[\x00-\x1f\x7f]", prompt):
-            raise bad_request("Invalid characters in ai_prompt")
-    return command, prompt
-
-
-def _launch_ai_agent(body, ws_path):
-    """tmux セッションを作り、サーバ側から AI エージェントを起動する。
-
-    通常の terminal ジョブはブラウザ接続後にクライアントが initialCommand を
-    送るが、AI エージェントはサーバ側で send-keys 注入するため、ブラウザが
-    繋がっていなくてもセッション内でエージェントが走り始める（自動実行向け）。
-    プロンプトは shlex.quote でコマンドライン引数として安全に渡す。
-    """
-    command, prompt = _validate_ai_inputs(body)
-
-    result = _create_terminal_session(body, ws_path)
-    session_id = result["session_id"]
-    tmux_name = f"{TMUX_SESSION_PREFIX}{session_id}"
-
-    launch_line = command if prompt is None else f"{command} {shlex.quote(prompt)}"
-    if not send_keys_to_tmux(tmux_name, launch_line):
-        logger.warning("ai agent send-keys failed session=%s", session_id)
-
-    logger.info("ai agent launched session=%s command=%s workspace=%s",
-                session_id, sanitize_log_value(command), body.workspace or "(none)")
-    log_activity(body.workspace, "ai_agent_run", job=command)
-    result["command"] = command
-    return result
 
 
 def _run_regular_job(body, job_def, ordered_args, ws_path):
@@ -197,8 +180,6 @@ def execute_job(body: RunRequest):
 
     if body.job == TERMINAL_JOB_KEY:
         job_def = TERMINAL_JOB
-    elif body.job == AI_AGENT_JOB_KEY:
-        job_def = AI_AGENT_JOB
     else:
         available_jobs = get_workspace_jobs(body.workspace)
         entry = available_jobs.get(body.job)
@@ -210,7 +191,5 @@ def execute_job(body: RunRequest):
 
     if body.job == TERMINAL_JOB_KEY:
         return _create_terminal_session(body, ws_path)
-    if body.job == AI_AGENT_JOB_KEY:
-        return _launch_ai_agent(body, ws_path)
 
     return _run_regular_job(body, job_def, ordered_args, ws_path)

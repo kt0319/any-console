@@ -1,6 +1,7 @@
 import logging
 import os
 import subprocess
+import time
 
 from .common import (
     TERMINAL_DEFAULT_COLS,
@@ -8,6 +9,8 @@ from .common import (
     TERMINAL_TERM_TYPE,
     TMUX_CMD_TIMEOUT_SEC,
     TMUX_META_ENV_NAMES,
+    TMUX_PANE_POLL_INTERVAL_SEC,
+    TMUX_PANE_READY_TIMEOUT_SEC,
 )
 
 logger = logging.getLogger(__name__)
@@ -123,6 +126,28 @@ def send_keys_to_tmux(session_name: str, text: str, *, enter: bool = True) -> bo
         if enter_result is None or enter_result.returncode != 0:
             return False
     return True
+
+
+def wait_pane_ready(
+    session_name: str,
+    timeout_sec: float = TMUX_PANE_READY_TIMEOUT_SEC,
+) -> bool:
+    """ペインのシェルが起動するまで短時間ポーリングする（ベストエフォート）。
+
+    `send-keys` 直後の取りこぼし（シェル生成が遅延しているケース）を避けるため、
+    フォアグラウンドプロセスが立ち上がる＝`pane_current_command` が得られる
+    までを待つ。tty のタイプアヘッドにより以後の入力はバッファされる。
+    準備確認できれば True、timeout なら False（呼び出し側は送信を続行してよい）。
+    """
+    deadline = time.monotonic() + timeout_sec
+    while time.monotonic() < deadline:
+        result = _run_tmux_cmd(
+            "display-message", "-t", session_name, "-p", "#{pane_current_command}",
+        )
+        if result is not None and result.returncode == 0 and result.stdout.strip():
+            return True
+        time.sleep(TMUX_PANE_POLL_INTERVAL_SEC)
+    return False
 
 
 def load_tmux_metadata(tmux_name: str) -> dict:

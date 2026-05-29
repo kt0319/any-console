@@ -72,7 +72,6 @@ const {
   activateTerminalTab,
   ensureKeyboardTargetTab,
   launchTerminal,
-  launchAiAgent,
   refreshTab,
   closeTab,
 } = useTerminalLifecycle({ terminalBaseView });
@@ -164,10 +163,6 @@ onMounted(() => {
 
   bridgeCleanups.push(on("terminal:launch", (detail) => {
     launchTerminal(detail);
-  }));
-
-  bridgeCleanups.push(on("aiAgent:launch", (detail) => {
-    launchAiAgent(detail);
   }));
 
   bridgeCleanups.push(on("snippet:tap", ({ command }) => {

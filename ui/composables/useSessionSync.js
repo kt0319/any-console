@@ -24,7 +24,6 @@ export function useSessionSync() {
       iconColor: jobDef?.icon_color,
       jobName: s.job_name,
       jobLabel: s.job_label,
-      initialCommand: null,
       restored: true,
       hidden: !!jobDef?.hidden_tab,
     };
