@@ -467,9 +467,9 @@ onBeforeUnmount(() => {
 }
 
 .picker-ws-mini-btn.pull-btn.has-count {
-  color: var(--error);
-  background: rgba(255, 85, 114, 0.15);
-  border-color: rgba(255, 85, 114, 0.3);
+  color: var(--warning);
+  background: var(--warning-bg-20);
+  border-color: rgba(238, 166, 68, 0.3);
 }
 
 .picker-ws-mini-btn.push-btn.has-count {
