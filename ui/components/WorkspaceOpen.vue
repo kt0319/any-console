@@ -60,7 +60,7 @@
               :key="wt.name"
               class="picker-ws-worktree-item"
             >
-              <button type="button" class="picker-ws-worktree-open" @click="selectWorkspace(wt)">
+              <button type="button" class="picker-ws-worktree-open" @click="openDetail(wt)">
                 <span class="mdi mdi-file-tree picker-ws-wt-child-icon"></span>
                 <span class="picker-ws-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
                 <span v-if="wt.clean === false" class="picker-ws-wt-dirty" aria-label="uncommitted changes"></span>
@@ -458,7 +458,7 @@ onBeforeUnmount(() => {
   padding: 0;
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: var(--error);
   font-size: 16px;
   cursor: pointer;
 }
@@ -490,7 +490,7 @@ onBeforeUnmount(() => {
   }
 
   .picker-ws-worktree-del:hover {
-    color: var(--error);
+    background: var(--error-bg-20, rgba(255, 85, 114, 0.15));
   }
 }
 
