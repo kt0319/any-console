@@ -8,12 +8,18 @@
       <span v-else>{{ activeTabLabel || ' ' }}</span>
     </div>
     <WorkspaceStatusBar v-show="!booting" />
-    <div v-if="booting || isEmptyScreenVisible" class="screen-main-empty">
+    <DashboardPane
+      v-if="isDashboardVisible"
+      ref="dashboardPaneView"
+      :booting="booting"
+      :boot-message="bootMessage"
+    />
+    <div v-else-if="booting || isEmptyScreenVisible" class="screen-main-empty">
       <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
     </div>
     <TerminalBase
       v-if="hasAnyTab && !booting"
-      v-show="!isEmptyScreenVisible"
+      v-show="!isDashboardVisible && !isEmptyScreenVisible"
       ref="terminalBaseView"
       :is-panel-bottom="isPanelBottom"
     >
@@ -33,6 +39,7 @@ import TabBar from "./TabBar.vue";
 import TerminalBase from "./TerminalBase.vue";
 import KeyboardBar from "./KeyboardBar.vue";
 import ScreenEmpty from "./ScreenEmpty.vue";
+import DashboardPane from "./DashboardPane.vue";
 import Modal from "./Modal.vue";
 import TerminalSelectModal from "./TerminalSelectModal.vue";
 import StatusOverlay from "./StatusOverlay.vue";
@@ -66,6 +73,7 @@ const { loadSnippetCache, moveSnippetToFront, addSnippet, deleteSnippet, moveSni
 
 const tabBarView = ref(null);
 const terminalBaseView = ref(null);
+const dashboardPaneView = ref(null);
 
 const { booting, bootMessage, initializeApp } = useAppBootstrap();
 const {
@@ -129,6 +137,14 @@ const debugInfo = computed(() => {
 
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
+const isDashboardVisible = computed(() => layoutStore.dashboardActive && !isSplitMode.value);
+
+watch(isDashboardVisible, async (visible) => {
+  if (!visible) {
+    await nextTick();
+    requestAnimationFrame(() => terminalBaseView.value?.fitAllTerminals());
+  }
+});
 
 let mainPanelResizeObserver = null;
 
@@ -145,6 +161,7 @@ onMounted(() => {
   }));
 
   bridgeCleanups.push(on("tab:select", ({ tab }) => {
+    layoutStore.setDashboardActive(false);
     activateTerminalTab(tab.id);
     if (tab.workspace) {
       workspaceStore.selectedWorkspace = tab.workspace;
@@ -153,6 +170,10 @@ onMounted(() => {
 
   bridgeCleanups.push(on("tab:close", ({ tab }) => {
     closeTab(tab);
+    const remainingTabs = terminalStore.openTabs.filter((t) => !t.hidden);
+    if (remainingTabs.length === 0) {
+      layoutStore.setDashboardActive(true);
+    }
     const activeTab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
     workspaceStore.selectedWorkspace = activeTab?.workspace || null;
   }));
@@ -162,6 +183,7 @@ onMounted(() => {
   }));
 
   bridgeCleanups.push(on("terminal:launch", (detail) => {
+    layoutStore.setDashboardActive(false);
     launchTerminal(detail);
   }));
 

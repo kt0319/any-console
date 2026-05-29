@@ -13,6 +13,12 @@ export const useLayoutStore = defineStore("layout", () => {
   const isPwa = window.matchMedia("(display-mode: standalone)").matches
     || /** @type {any} */ (navigator).standalone === true;
 
+  const dashboardActive = ref(true);
+
+  function setDashboardActive(v) {
+    dashboardActive.value = !!v;
+  }
+
   const isSplitMode = ref(false);
   const splitPaneTabIds = ref([]);
   const activePaneIndex = ref(0);
@@ -161,6 +167,8 @@ export const useLayoutStore = defineStore("layout", () => {
     isPanelBottom,
     isTouchDevice,
     isPwa,
+    dashboardActive,
+    setDashboardActive,
     isSplitMode,
     splitPaneTabIds,
     activePaneIndex,

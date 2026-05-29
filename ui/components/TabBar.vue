@@ -1,6 +1,15 @@
 <template>
   <div class="tab-bar-row" :style="{ display: showBarRow ? 'flex' : 'none' }">
     <div class="tab-bar" :style="{ display: isSplitMode ? 'none' : '' }">
+      <button
+        class="tab-dashboard-btn"
+        :class="{ active: dashboardActive }"
+        aria-label="Dashboard"
+        data-tooltip="Dashboard"
+        @click="onDashboardClick"
+      >
+        <span class="mdi mdi-view-dashboard-outline"></span>
+      </button>
       <TabItem
         v-for="item in sortedItems"
         :key="item.tab.id || item.tab.wsUrl"
@@ -8,6 +17,7 @@
         :active-tab-id="activeTabId"
         :is-panel-bottom="isPanelBottom"
         @select="onSelect"
+        @active-click="onSelect"
         @close="onClose"
         @refresh="onRefresh"
       />
@@ -39,9 +49,14 @@ const props = defineProps({
   tabs: { type: Array, default: () => [] },
 });
 
-const activeTabId = computed(() => terminalStore.activeTabId);
+const activeTabId = computed(() => dashboardActive.value ? null : terminalStore.activeTabId);
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
+const dashboardActive = computed(() => layoutStore.dashboardActive);
+
+function onDashboardClick() {
+  layoutStore.setDashboardActive(true);
+}
 const showHiddenTabs = ref(false);
 
 const hiddenTabCount = computed(() => props.tabs.filter((t) => t.hidden).length);
@@ -57,6 +72,7 @@ const sortedItems = computed(() => {
 const showBarRow = computed(() => !isSplitMode.value);
 
 function onSelect(tab) {
+  layoutStore.setDashboardActive(false);
   emit("tab:select", { tab });
 }
 
@@ -111,6 +127,40 @@ function onSettingsClick() {
 .tab-bar::-webkit-scrollbar {
   display: none;
 }
+
+.tab-dashboard-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  margin: 2px 0 0;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tab-dashboard-btn.active {
+  color: var(--accent);
+}
+
+.tab-dashboard-btn:active {
+  background: var(--bg-tertiary);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tab-dashboard-btn:not(.active):hover {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+  }
+}
+
 
 .tab-add-btn {
   display: flex;
