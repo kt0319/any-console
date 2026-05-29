@@ -36,6 +36,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { renderIconStr } from "../utils/render-icon.js";
+import { workspaceDisplayName } from "../utils/worktree.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { confirmCloseTab } from "../utils/tab-close-confirm.js";
 import { useLayoutStore } from "../stores/layout.js";
@@ -70,7 +71,12 @@ const isActive = computed(() => props.activeTabId === props.tab.id);
 const canDrag = computed(() => !layoutStore.isTouchDevice && terminalStore.openTabs.length >= 1);
 
 const label = computed(() => {
-  return props.tab.workspace || props.tab.label || "terminal";
+  if (props.tab.workspace) {
+    const ws = workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace);
+    if (ws?.worktree) return workspaceDisplayName(ws);
+    return props.tab.workspace;
+  }
+  return props.tab.label || "terminal";
 });
 
 const isDirty = computed(() => {
