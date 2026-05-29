@@ -52,12 +52,6 @@
             <template v-if="linkedWorktree(branch)">
               <button
                 type="button"
-                class="commit-action-item"
-                title="Open worktree"
-                @click="openWorktree(linkedWorktree(branch))"
-              >Open</button>
-              <button
-                type="button"
                 class="commit-action-item commit-action-danger"
                 title="Remove worktree"
                 @click="removeWorktree(linkedWorktree(branch))"
@@ -249,7 +243,7 @@ async function doCreateWorktree(branchName) {
     if (!ok) return;
     const created = data?.workspace;
     await workspaceStore.fetchWorkspaces();
-    await loadWorktrees();
+    await loadBranchList();
     if (created?.name) {
       // 作成時は自動でターミナルを開かず、Branches タブに留まる。
       toast.success(`Worktree ${worktreeBranchLabel(created.branch)} created`);
