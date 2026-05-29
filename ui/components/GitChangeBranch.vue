@@ -43,7 +43,7 @@
         </div>
       </div>
     </div>
-    <div class="modal-scroll-body" ref="branchListEl">
+    <div class="modal-scroll-body" ref="branchListEl" :class="{ 'is-fetching': isFetchingRemote }">
       <div class="branch-section-header">
         <span>LOCAL</span>
       </div>
@@ -104,7 +104,7 @@
           @click="fetchRemote"
         >
           <span>REMOTE</span>
-          <span v-if="isFetchingRemote" class="mdi mdi-refresh branch-section-spinner"></span>
+          <span v-if="isFetchingRemote" class="branch-section-loading">Loading...</span>
         </div>
         <template v-if="remoteLoaded">
           <div
@@ -347,6 +347,7 @@ async function deleteBranch(branch) {
     if (!ok) return;
     await loadBranchList();
     emit("git:commitDone");
+    await fetchRemote();
   });
 }
 
@@ -571,19 +572,18 @@ defineExpose({ load: loadBranchList, backgroundFetch });
   opacity: 0.7;
 }
 
-.branch-section-header-toggle.is-busy {
+.modal-scroll-body.is-fetching {
   pointer-events: none;
-  opacity: 0.7;
+  opacity: 0.6;
 }
 
-.branch-section-spinner {
-  width: 14px;
-  font-size: 14px;
+.branch-section-loading {
   margin-left: auto;
-  display: inline-flex;
-  justify-content: center;
-  flex-shrink: 0;
-  animation: branch-spinner-spin 0.8s linear infinite;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-muted);
 }
 
 .branch-worktree-icon {
