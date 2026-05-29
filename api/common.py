@@ -169,6 +169,14 @@ def sanitize_log_value(value: str) -> str:
     return _CONTROL_CHAR_RE.sub(lambda m: f"\\x{ord(m.group()):02x}", value)
 
 
+def safe_resolve_str(path: str | Path) -> str:
+    """パスを解決した絶対パス文字列を返す。解決に失敗したら元の文字列で代替する。"""
+    try:
+        return str(Path(path).resolve())
+    except OSError:
+        return str(path)
+
+
 def count_file_lines(file_path: Path) -> int:
     try:
         with open(file_path, "rb") as f:

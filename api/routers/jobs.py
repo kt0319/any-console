@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 
 from ..auth import verify_token
 from ..common import GLOBAL_CONFIG_KEY, resolve_workspace_path
-from ..config import iter_workspace_entries_from, list_workspace_entries, load_all_config
+from ..config import iter_workspace_entries_from, load_all_config
 from ..errors import not_found
 from .jobs_common import (
     JobRequest,
@@ -56,19 +56,6 @@ def _merge_jobs_for_ws(display_name, ws_jobs_data, common_jobs_data):
     }
 
 
-def _existing_paths_from_entries():
-    from pathlib import Path
-    paths: set[str] = set()
-    for cfg in list_workspace_entries().values():
-        p = cfg.get("path", "")
-        if p:
-            try:
-                paths.add(str(Path(p).resolve()))
-            except OSError:
-                paths.add(p)
-    return paths
-
-
 @router.get("/jobs/workspaces")
 def list_all_workspace_jobs():
     all_config = load_all_config()
@@ -81,7 +68,7 @@ def list_all_workspace_jobs():
         ws_jobs_data = jobs_by_name[base] if base and base in jobs_by_name else entry.get("jobs", {})
         display_name, serialized = _merge_jobs_for_ws(entry.get("name") or ws_id, ws_jobs_data, common_jobs_data)
         result[display_name] = serialized
-    for wt in _dynamic_worktree_entries(_existing_paths_from_entries()):
+    for wt in _dynamic_worktree_entries():
         if wt["name"] in result:
             continue
         wt_jobs = jobs_by_name.get(wt.get("worktree_base", ""), {})
