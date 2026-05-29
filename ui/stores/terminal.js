@@ -171,7 +171,7 @@ export const useTerminalStore = defineStore("terminal", () => {
       cursorBlink: terminalSettings.value.cursorBlink,
       cursorStyle: terminalSettings.value.cursorStyle,
       fontSize: terminalSettings.value.fontSize,
-      fontFamily: 'ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace',
+      fontFamily: '"Hack Nerd Font", monospace',
       scrollback: terminalSettings.value.scrollback,
       scrollOnOutput: terminalSettings.value.scrollOnOutput,
     };
