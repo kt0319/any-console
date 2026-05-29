@@ -15,8 +15,8 @@
     @touchstart.passive="onTouchStart"
   >
     <span v-if="wsIconHtml" v-html="wsIconHtml"></span>
-    <span v-if="iconHtml" v-html="iconHtml"></span>
     <span v-if="isWorktree" class="mdi mdi-file-tree tab-worktree-icon" aria-label="worktree" data-tooltip="worktree"></span>
+    <span v-if="iconHtml" v-html="iconHtml"></span>
     <template v-if="!isPanelBottom">
       {{ label }}
       <span v-if="isDirty" class="tab-dirty-dot" aria-label="uncommitted changes"></span>
