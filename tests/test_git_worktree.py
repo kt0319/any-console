@@ -186,6 +186,20 @@ class TestWorktreeEndpoints:
         labels = {j["label"] for j in res.json().values()}
         assert "Build" in labels
 
+    def test_bulk_jobs_endpoint_shares_base_jobs(self, client, git_workspace_with_commit):
+        # UI のモーダルが使う /jobs/workspaces でも worktree がベースのジョブを返す
+        client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
+            "label": "Lint", "command": "ruff check",
+        })
+        created = client.post(
+            "/workspaces/test-ws/worktrees", headers=AUTH, json={"branch": "wt-bulk"},
+        ).json()["workspace"]
+        res = client.get("/jobs/workspaces", headers=AUTH)
+        assert res.status_code == 200
+        wt_jobs = res.json().get(created["name"], {})
+        labels = {j["label"] for j in wt_jobs.values()}
+        assert "Lint" in labels
+
     def test_worktree_job_edit_writes_to_base(self, client, git_workspace_with_commit):
         created = client.post(
             "/workspaces/test-ws/worktrees", headers=AUTH, json={"branch": "wt-edit"},

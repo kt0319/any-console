@@ -251,8 +251,8 @@ async function doCreateWorktree(branchName) {
     await workspaceStore.fetchWorkspaces();
     await loadWorktrees();
     if (created?.name) {
+      // 作成時は自動でターミナルを開かず、Branches タブに留まる。
       toast.success(`Worktree ${worktreeBranchLabel(created.branch)} created`);
-      switchToWorkspace(created.name);
     }
   });
 }
