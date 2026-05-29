@@ -6,7 +6,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminal } from "./useTerminal.js";
 import { useToast } from "./useToast.js";
 import { EP_RUN } from "../utils/endpoints.js";
-import { TERMINAL_JOB_KEY } from "../utils/constants.js";
+import { TERMINAL_JOB_KEY, AI_AGENT_JOB_KEY } from "../utils/constants.js";
 
 export function useTerminalLifecycle({ terminalBaseView }) {
   const auth = useAuthStore();
@@ -116,6 +116,51 @@ export function useTerminalLifecycle({ terminalBaseView }) {
     }
   }
 
+  async function launchAiAgent({ workspace, icon, iconColor, command, prompt }) {
+    try {
+      const res = await auth.apiFetch(EP_RUN, {
+        method: "POST",
+        body: {
+          job: AI_AGENT_JOB_KEY,
+          workspace: workspace || null,
+          icon: icon || null,
+          icon_color: iconColor || null,
+          job_label: "AI Agent",
+          ai_command: command || null,
+          ai_prompt: prompt || null,
+        },
+      });
+      if (!res || !res.ok) {
+        const detail = res ? await res.text() : "no response";
+        toast.error(`AI agent launch failed: ${detail}`);
+        return;
+      }
+      const data = await res.json();
+      // initialCommand は渡さない。エージェントはサーバ側で send-keys 注入済みのため、
+      // ブラウザは既に動いている tmux セッションへ接続するだけでよい。
+      const tab = terminalStore.addTerminalTab({
+        wsUrl: data.ws_url,
+        workspace,
+        wsIcon: icon,
+        wsIconColor: iconColor,
+        icon: "mdi-robot",
+        iconColor: null,
+        jobName: AI_AGENT_JOB_KEY,
+        jobLabel: "AI Agent",
+        initialCommand: null,
+        restored: false,
+        hidden: false,
+      });
+      activateTerminalTab(tab.id, { focus: false });
+      if (workspace) workspaceStore.selectedWorkspace = workspace;
+      await nextTick();
+      terminalBaseView.value?.fitAllTerminals();
+      activateTerminalTab(tab.id);
+    } catch (e) {
+      toast.error(`AI agent launch error: ${e.message}`);
+    }
+  }
+
   function refreshTab(tab) {
     const tabObj = terminalStore.openTabs.find((t) => t.id === tab.id);
     if (!tabObj) return;
@@ -161,6 +206,7 @@ export function useTerminalLifecycle({ terminalBaseView }) {
     activateTerminalTab,
     ensureKeyboardTargetTab,
     launchTerminal,
+    launchAiAgent,
     refreshTab,
     closeTab,
   };

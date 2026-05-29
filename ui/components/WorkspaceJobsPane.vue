@@ -11,6 +11,11 @@
         <span class="mdi mdi-console job-item-icon" aria-hidden="true"></span>
         <span class="job-item-label">Terminal</span>
       </div>
+      <div class="job-item" @click="openAiAgent">
+        <span class="mdi mdi-robot job-item-icon" aria-hidden="true"></span>
+        <span class="job-item-label">AI Agent</span>
+        <span class="job-item-desc">tmux + auto-run</span>
+      </div>
       <div
         v-for="job in commonJobs"
         :key="'c-' + job.name"
@@ -58,6 +63,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
+import { usePrompt } from "../composables/usePrompt.js";
 import { emit, on } from "../app-bridge.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
@@ -71,6 +77,7 @@ const workspaceStore = useWorkspaceStore();
 const { recordJob } = useRecentJobs();
 const { apiGet } = useApi();
 const { confirm } = useConfirm();
+const { prompt } = usePrompt();
 
 const commonJobs = ref([]);
 const localJobs = ref([]);
@@ -114,6 +121,25 @@ function openTerminal() {
     workspace: wsName,
     icon: ws.value?.icon,
     iconColor: ws.value?.icon_color,
+  });
+  emit("modal:close");
+}
+
+async function openAiAgent() {
+  const wsName = workspace.value;
+  if (!wsName) return;
+  const task = await prompt({
+    title: "Launch AI Agent",
+    message: "Enter the initial prompt. The agent starts in a tmux session and runs even while disconnected.",
+    placeholder: "e.g. Fix the failing tests",
+    confirmLabel: "Launch",
+  });
+  if (task == null) return;
+  emit("aiAgent:launch", {
+    workspace: wsName,
+    icon: ws.value?.icon,
+    iconColor: ws.value?.icon_color,
+    prompt: task,
   });
   emit("modal:close");
 }
