@@ -10,7 +10,6 @@ from fastapi import APIRouter, Depends
 from ..auth import verify_token
 from ..common import GLOBAL_CONFIG_KEY, resolve_workspace_path
 from ..config import iter_workspace_entries_from, list_workspace_entries, load_all_config
-from .workspaces import _dynamic_worktree_entries
 from ..errors import not_found
 from .jobs_common import (
     JobRequest,
@@ -29,6 +28,7 @@ from .jobs_common import (
     serialize_workspace_jobs,
     ws_jobs_context,
 )
+from .workspaces import _dynamic_worktree_entries
 
 logger = logging.getLogger(__name__)
 
@@ -45,49 +45,48 @@ __all__ = [
 ]
 
 
+def _merge_jobs_for_ws(display_name, ws_jobs_data, common_jobs_data):
+    merged = {}
+    for is_common, jobs_data in [(True, common_jobs_data), (False, ws_jobs_data)]:
+        for jname, jentry in jobs_data.items():
+            merged[jname] = (entry_to_job_definition(jname, jentry), is_common)
+    return display_name, {
+        jname: job_definition_to_dict(jdef, is_common=is_common)
+        for jname, (jdef, is_common) in merged.items()
+    }
+
+
+def _existing_paths_from_entries():
+    from pathlib import Path
+    paths: set[str] = set()
+    for cfg in list_workspace_entries().values():
+        p = cfg.get("path", "")
+        if p:
+            try:
+                paths.add(str(Path(p).resolve()))
+            except OSError:
+                paths.add(p)
+    return paths
+
+
 @router.get("/jobs/workspaces")
 def list_all_workspace_jobs():
     all_config = load_all_config()
     common_jobs_data = all_config.get(GLOBAL_CONFIG_KEY, {}).get("jobs", {})
     entries = list(iter_workspace_entries_from(all_config))
-    # worktree はベースのワークスペースとジョブを共有するため、表示名→jobs を引けるようにする。
     jobs_by_name = {(entry.get("name") or ws_id): entry.get("jobs", {}) for ws_id, entry in entries}
     result = {}
     for ws_id, entry in sorted(entries):
         base = entry.get("worktree_base")
         ws_jobs_data = jobs_by_name[base] if base and base in jobs_by_name else entry.get("jobs", {})
-        merged = {}
-        for is_common, jobs_data in [(True, common_jobs_data), (False, ws_jobs_data)]:
-            for jname, jentry in jobs_data.items():
-                merged[jname] = (entry_to_job_definition(jname, jentry), is_common)
-        display_name = entry.get("name") or ws_id
-        result[display_name] = {
-            jname: job_definition_to_dict(jdef, is_common=is_common)
-            for jname, (jdef, is_common) in merged.items()
-        }
-    # 動的worktree（configに登録されていない）も追加する。ジョブはベースと共有。
-    existing_paths: set[str] = set()
-    for _, cfg in list_workspace_entries().items():
-        from pathlib import Path
-        p = cfg.get("path", "")
-        if p:
-            try:
-                existing_paths.add(str(Path(p).resolve()))
-            except OSError:
-                existing_paths.add(p)
-    for wt in _dynamic_worktree_entries(existing_paths):
+        display_name, serialized = _merge_jobs_for_ws(entry.get("name") or ws_id, ws_jobs_data, common_jobs_data)
+        result[display_name] = serialized
+    for wt in _dynamic_worktree_entries(_existing_paths_from_entries()):
         if wt["name"] in result:
             continue
-        base = wt.get("worktree_base", "")
-        ws_jobs_data = jobs_by_name.get(base, {})
-        merged = {}
-        for is_common, jobs_data in [(True, common_jobs_data), (False, ws_jobs_data)]:
-            for jname, jentry in jobs_data.items():
-                merged[jname] = (entry_to_job_definition(jname, jentry), is_common)
-        result[wt["name"]] = {
-            jname: job_definition_to_dict(jdef, is_common=is_common)
-            for jname, (jdef, is_common) in merged.items()
-        }
+        wt_jobs = jobs_by_name.get(wt.get("worktree_base", ""), {})
+        _, serialized = _merge_jobs_for_ws(wt["name"], wt_jobs, common_jobs_data)
+        result[wt["name"]] = serialized
     return result
 
 

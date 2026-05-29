@@ -22,7 +22,7 @@ from ..common import (
     sanitize_log_value,
 )
 from ..errors import bad_request, server_error, timeout_error, too_many_requests
-from ..git_utils import command_result_dict, git_branches
+from ..git_utils import _WORKTREE_NAME_RE, command_result_dict, git_branches
 from ..job_models import TERMINAL_JOB, TERMINAL_JOB_KEY
 from ..runner import run_job
 from ..terminal_session import (
@@ -31,7 +31,6 @@ from ..terminal_session import (
     sessions_lock,
 )
 from ..tmux import create_tmux_session
-from ..git_utils import _WORKTREE_NAME_RE
 from .jobs_common import get_workspace_jobs
 
 logger = logging.getLogger(__name__)
