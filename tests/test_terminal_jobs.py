@@ -116,6 +116,100 @@ class TestTerminalSessionMetadata:
         assert matched[0]["job_label"] == "My Job"
 
 
+class TestAiAgentJob:
+    @pytest.fixture()
+    def captured_keys(self, monkeypatch):
+        """send-keys 呼び出しを捕捉し、実際の tmux 注入を抑止する。"""
+        calls = []
+
+        def fake_send(session_name, text, *, enter=True):
+            calls.append({"session": session_name, "text": text, "enter": enter})
+            return True
+
+        monkeypatch.setattr(
+            "api.routers.job_runner.send_keys_to_tmux", fake_send,
+        )
+        return calls
+
+    def test_launch_with_default_command(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "ai-agent",
+            "workspace": "test-ws",
+        })
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "ok"
+        assert "session_id" in data
+        assert data["ws_url"].startswith("/terminal/ws/")
+        assert data["command"] == "claude"
+        assert len(captured_keys) == 1
+        assert captured_keys[0]["text"] == "claude"
+
+    def test_launch_with_custom_command(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "ai-agent",
+            "workspace": "test-ws",
+            "ai_command": "aider",
+        })
+        assert res.status_code == 200
+        assert res.json()["command"] == "aider"
+        assert captured_keys[0]["text"] == "aider"
+
+    def test_launch_with_prompt_is_shell_quoted(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "ai-agent",
+            "workspace": "test-ws",
+            "ai_command": "claude",
+            "ai_prompt": "fix the bug; rm -rf /",
+        })
+        assert res.status_code == 200
+        # プロンプトは引数として安全にクオートされ、シェルに解釈されない
+        assert captured_keys[0]["text"] == "claude 'fix the bug; rm -rf /'"
+
+    def test_rejects_control_chars_in_command(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "ai-agent",
+            "workspace": "test-ws",
+            "ai_command": "claude\nrm -rf /",
+        })
+        assert res.status_code == 400
+        assert captured_keys == []
+
+    def test_rejects_control_chars_in_prompt(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "ai-agent",
+            "workspace": "test-ws",
+            "ai_prompt": "do this\nthen that",
+        })
+        assert res.status_code == 400
+        assert captured_keys == []
+
+    def test_rejects_too_long_prompt(self, client, workspace, captured_keys):
+        from api.common import MAX_AI_PROMPT_LENGTH
+        res = client.post("/run", headers=AUTH, json={
+            "job": "ai-agent",
+            "workspace": "test-ws",
+            "ai_prompt": "x" * (MAX_AI_PROMPT_LENGTH + 1),
+        })
+        assert res.status_code == 400
+        assert captured_keys == []
+
+    def test_session_appears_in_list_with_metadata(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "ai-agent",
+            "workspace": "test-ws",
+            "icon": "mdi-robot",
+            "job_label": "Claude",
+        })
+        session_id = res.json()["session_id"]
+
+        sessions = client.get("/terminal/sessions", headers=AUTH).json()
+        matched = [s for s in sessions if s["session_id"] == session_id]
+        assert len(matched) == 1
+        assert matched[0]["icon"] == "mdi-robot"
+        assert matched[0]["job_label"] == "Claude"
+
+
 class TestSessionState:
     def test_delete_with_pty_bridge(self, client, workspace, monkeypatch):
         """fd/pidセット済みセッション削除でdetach呼び出し"""

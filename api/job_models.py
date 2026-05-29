@@ -31,3 +31,11 @@ TERMINAL_JOB = JobDefinition(
     label="Terminal",
     description="Open Web Terminal",
 )
+
+AI_AGENT_JOB_KEY = "ai-agent"
+
+AI_AGENT_JOB = JobDefinition(
+    command="",
+    label="AI Agent",
+    description="Launch an AI agent in a Web Terminal",
+)

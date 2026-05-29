@@ -108,6 +108,23 @@ def kill_tmux_by_name(name: str) -> None:
     _run_tmux_cmd("kill-session", "-t", name)
 
 
+def send_keys_to_tmux(session_name: str, text: str, *, enter: bool = True) -> bool:
+    """tmux セッションへ文字列を送り込む（任意で続けて Enter を送る）。
+
+    WebSocket 接続の有無に関わらずサーバ側からセッションへ入力できる。
+    `--` で text 以降をオプション扱いしないようにし、Enter は別コマンドで送る。
+    送信成功で True、tmux 不在やタイムアウト時は False を返す。
+    """
+    result = _run_tmux_cmd("send-keys", "-t", session_name, "--", text)
+    if result is None or result.returncode != 0:
+        return False
+    if enter:
+        enter_result = _run_tmux_cmd("send-keys", "-t", session_name, "Enter")
+        if enter_result is None or enter_result.returncode != 0:
+            return False
+    return True
+
+
 def load_tmux_metadata(tmux_name: str) -> dict:
     result = _run_tmux_cmd("show-environment", "-t", tmux_name)
     if not result or result.returncode != 0:
