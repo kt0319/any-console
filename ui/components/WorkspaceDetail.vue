@@ -587,7 +587,7 @@ onMounted(() => {
   height: 28px;
   background: none;
   border: 1px solid var(--border);
-  border-radius: 50%;
+  border-radius: var(--radius);
   color: var(--text-muted);
   cursor: pointer;
   flex-shrink: 0;
