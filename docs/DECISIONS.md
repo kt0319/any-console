@@ -127,13 +127,13 @@
 
 ---
 
-### 11. git worktree をワークスペースとして登録する
+### 11. git worktree を動的検出でワークスペースとして扱う
 
 - **Status**: Accepted
 - **Date**: 2026-05
-- **Context**: 同一リポジトリで複数の作業（特に並行して走らせるエージェント）を干渉なく進めたい。clone を増やすとディスク・fetch コストとリポジトリ管理が煩雑になる。
-- **Decision**: ベースリポジトリから `git worktree add` で作業ツリーを作り、そのパスを通常のワークスペースとして config.json に登録する。作業ツリーはメイン作業ツリーの兄弟 `<repo>.worktrees/<safe-branch>` に配置する。worktree 一覧・作成・削除は `/workspaces/{name}/worktrees` で提供し、作成後は既存のワークスペース切り替え（ターミナル起動）でそのまま開ける。削除はメイン作業ツリーを除外し、対象がこのリポジトリの worktree であることを検証してから行う。UI は専用タブを設けず、Branches タブ（`GitChangeBranch.vue`）に統合する（worktree は「別の作業ツリーにチェックアウトされたブランチ」なので、ブランチ一覧の各行で worktree の有無・作成・open・削除を扱う）。worktree であることは config に `worktree`/`worktree_base`/`worktree_branch` を保持し、`/workspaces` 一覧で公開して、ワークスペースピッカーとターミナルタブにマーカー表示する。
-- **Consequences**: 作業ツリー＝ワークスペースなので、既存のステータスポーリング（dirty/branch/ahead）やタブの編集済みマークがそのまま各 worktree の進捗シグナルになる。ブランチは worktree 削除後も残す（成果を失わない）。ワークスペース名は表示名パターンに合わせて `<repo>-<branch>` へサニタイズするため、`/` は `-` に変換される。worktree を持つブランチをタップすると in-place checkout ではなくその worktree のワークスペースへ切り替わる。
-- **Alternatives considered**: clone を都度作る — ディスク・fetch コストと管理が重い。worktree を独自概念として別管理する — 既存のワークスペース機構（一覧・切替・ステータス）を再利用できず実装・UI が二重化する。
+- **Context**: 同一リポジトリで複数の作業（特に並行して走らせるエージェント）を干渉なく進めたい。clone を増やすとディスク・fetch コストとリポジトリ管理が煩雑になる。当初は worktree を config.json に登録する設計にしていたが、登録・削除のたびに config を書き換える運用コストと、config の worktree エントリが実ファイルシステムと乖離するリスクが問題になった。
+- **Decision**: worktree を config.json に登録せず、各ワークスペースのベースリポジトリに対して `git worktree list --porcelain` を実行し実行時に動的検出する。ベースリポジトリから `git worktree add` で作業ツリーを作るだけでよく、config 操作は不要。表示名は `{ベース名} [{ブランチ名}]` 形式とし、バックエンドは `_WORKTREE_NAME_RE` でパースしてパスを解決する。ベースが config に未登録の孤立 worktree は worktree として扱わない（誤ったアイコン・動作を防ぐ）。worktree の作成・削除は Branches タブ（`GitChangeBranch.vue`）に統合し、専用タブは設けない。ジョブは config からではなくベースワークスペースのものを共有する。UI ではワークスペースピッカーとターミナルタブに worktree アイコン（`mdi-file-tree`）を表示する。
+- **Consequences**: config とファイルシステムの乖離が起きない。worktree の追加・削除は git コマンドだけで完結する。作業ツリー＝ワークスペースなので、既存のステータスポーリング（dirty/branch/ahead）やタブの編集済みマークがそのまま各 worktree の進捗シグナルになる。ブランチは worktree 削除後も残す（成果を失わない）。`resolve_workspace_path` の解決ロジックが動的 worktree を考慮する必要がある。
+- **Alternatives considered**: config.json に登録する（旧設計） — config が実ファイルシステムと乖離するリスクがある。clone を都度作る — ディスク・fetch コストと管理が重い。worktree を独自概念として別管理する — 既存のワークスペース機構（一覧・切替・ステータス）を再利用できず実装・UI が二重化する。
 
 ---
