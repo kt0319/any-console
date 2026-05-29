@@ -27,7 +27,7 @@ from .common import BACKGROUND_EXECUTOR, MAX_UPLOAD_SIZE, UPLOAD_DIR
 from .errors import bad_request, too_large, unauthorized
 from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
-from .routers import git, github, job_runner, jobs, rss, settings, system, terminal, workspaces
+from .routers import groups, git, github, job_runner, jobs, rss, settings, system, terminal, workspaces
 
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 (intentional: local network bind for personal console)
 DEFAULT_PORT = 8888
@@ -175,6 +175,7 @@ DIST_DIR = Path(__file__).resolve().parent.parent / "dist"
 FRONTEND_DIR = DIST_DIR if DIST_DIR.is_dir() else UI_DIR
 
 app.include_router(workspaces.router)
+app.include_router(groups.router)
 app.include_router(git.router)
 app.include_router(github.router)
 app.include_router(rss.router)

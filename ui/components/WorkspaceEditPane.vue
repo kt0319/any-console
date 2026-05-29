@@ -21,6 +21,13 @@
         <span class="ws-settings-label">Path</span>
         <input type="text" class="form-input" v-model="editPath" autocomplete="off" />
       </div>
+      <div class="ws-settings-row">
+        <span class="ws-settings-label">Group</span>
+        <select class="form-input" v-model="editGroupId">
+          <option :value="null">— None —</option>
+          <option v-for="g in workspaceStore.groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+        </select>
+      </div>
       <div class="ws-settings-row" style="gap:8px">
         <button type="button" class="primary" :disabled="savingDetails || !isDetailsDirty" @click="saveDetails">
           {{ savingDetails ? 'Saving...' : 'Save' }}
@@ -49,6 +56,7 @@ import { renderIconStr } from "../utils/render-icon.js";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
 import { EP_WORKSPACES } from "../utils/endpoints.js";
 
+
 const DEFAULT_WS_ICON = "mdi-console";
 
 const { modalTitle, viewState, pushView, popView } = useModalView();
@@ -59,6 +67,7 @@ const editIcon = ref(editWs.value?.icon || "");
 const editIconColor = ref(editWs.value?.icon_color || "");
 const editName = ref(editWs.value?.name || "");
 const editPath = ref(editWs.value?.path || "");
+const editGroupId = ref(editWs.value?.group_id ?? null);
 const savingDetails = ref(false);
 const saveError = ref("");
 
@@ -66,7 +75,8 @@ modalTitle.value = editWs.value?.name || "Workspace";
 
 const isDetailsDirty = computed(() =>
   editName.value.trim() !== (editWs.value?.name || "")
-  || editPath.value.trim() !== (editWs.value?.path || ""),
+  || editPath.value.trim() !== (editWs.value?.path || "")
+  || editGroupId.value !== (editWs.value?.group_id ?? null),
 );
 
 const { apiPut, apiDelete, wsEndpoint } = useApi();
@@ -92,7 +102,7 @@ async function saveWsConfig(extra = {}) {
     const { ok, data } = await apiPut(wsEndpoint(identifier, "config"), {
       icon: editIcon.value.trim() || DEFAULT_WS_ICON,
       icon_color: editIconColor.value.trim(),
-      hidden: !!editWs.value.hidden,
+      group_id: editGroupId.value || null,
       ...extra,
     });
     if (!ok) {
@@ -125,6 +135,7 @@ async function saveDetails() {
     await saveWsConfig({
       name: editName.value.trim(),
       path: editPath.value.trim(),
+      group_id: editGroupId.value || null,
     });
   } finally {
     savingDetails.value = false;

@@ -77,7 +77,7 @@ def _workspace_summary(item):
         "branch": branch,
         "icon": config.get("icon", ""),
         "icon_color": config.get("icon_color", ""),
-        "hidden": config.get("hidden", False),
+        "group_id": config.get("group_id") or None,
         "exists": is_dir,
     }
     if github_url:
@@ -121,7 +121,6 @@ def _dynamic_worktree_entries() -> list[dict]:
                 "branch": branch,
                 "icon": config.get("icon", ""),
                 "icon_color": config.get("icon_color", ""),
-                "hidden": False,
                 "exists": True,
                 "worktree": True,
                 "worktree_base": base_name,
@@ -176,7 +175,7 @@ def update_workspace_order(body: WorkspaceOrderRequest):
 class UpdateConfigRequest(BaseModel):
     icon: str = ""
     icon_color: str = ""
-    hidden: bool = False
+    group_id: str | None = None
     name: str | None = None
     path: str | None = None
 
@@ -211,7 +210,8 @@ def update_workspace_config_endpoint(name: str, body: UpdateConfigRequest):
     config = dict(ensure_workspace_exists(name))
     config["icon"] = normalize_icon(body.icon.strip())
     config["icon_color"] = body.icon_color.strip()
-    config["hidden"] = body.hidden
+    config["group_id"] = body.group_id or None
+
     ws_id = resolve_workspace_id(name)
     if body.name is not None:
         _apply_name_update(config, ws_id, body.name)
