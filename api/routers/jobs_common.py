@@ -21,10 +21,12 @@ from ..common import (
 from ..config import (
     load_global_config_section,
     load_workspace_config_section,
+    resolve_workspace_id,
     save_global_config_section,
     save_workspace_config_section,
 )
 from ..errors import bad_request, not_found
+from ..git_utils import _WORKTREE_NAME_RE
 from ..job_models import JobDefinition
 from ..validators import validate_icon, validate_icon_color
 
@@ -61,9 +63,26 @@ def save_workspace_jobs_data(workspace_name, data):
     _workspace_jobs_cache.invalidate(workspace_name)
 
 
+
+def resolve_jobs_owner(workspace_name: str) -> str:
+    """worktree のワークスペースはベースのワークスペースとジョブを共有する。
+
+    '{base} [{branch}]' 形式の名前からベースを取り出し、登録済みであればその名前を返す。
+    """
+    if not workspace_name:
+        return workspace_name
+    m = _WORKTREE_NAME_RE.match(workspace_name)
+    if m:
+        base = m.group(1)
+        if resolve_workspace_id(base):
+            return base
+    return workspace_name
+
+
 def ws_jobs_context(name):
     resolve_workspace_path(name)
-    return load_workspace_jobs_data(name), lambda data: save_workspace_jobs_data(name, data), "Job"
+    owner = resolve_jobs_owner(name)
+    return load_workspace_jobs_data(owner), lambda data: save_workspace_jobs_data(owner, data), "Job"
 
 
 def common_jobs_context():
@@ -97,7 +116,7 @@ def get_workspace_jobs(workspace_name):
     if not workspace_name:
         return {}
     common_data = load_common_jobs_data()
-    ws_data = load_workspace_jobs_data(workspace_name)
+    ws_data = load_workspace_jobs_data(resolve_jobs_owner(workspace_name))
     merged = {}
     for name, entry in common_data.items():
         merged[name] = (entry, True)

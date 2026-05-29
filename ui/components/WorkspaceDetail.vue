@@ -111,6 +111,7 @@ import { getStashCachedCount, setStashCache } from "../composables/useStashCache
 import { useRSS, isToday } from "../composables/useRSS.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { RSS_AUTO_REFRESH_MS } from "../utils/constants.js";
+import { workspaceDisplayName } from "../utils/worktree.js";
 
 const workspaceStore = useWorkspaceStore();
 const { apiCommand, apiGet, wsEndpoint } = useApi();
@@ -205,7 +206,8 @@ const tabs = computed(() => {
 });
 
 function updateViewTitle() {
-  modalTitle.value = workspaceStore.selectedWorkspace || "Git";
+  const ws = workspaceStore.currentWorkspace;
+  modalTitle.value = ws ? workspaceDisplayName(ws) : (workspaceStore.selectedWorkspace || "Git");
 }
 
 
@@ -438,6 +440,11 @@ async function onFeedRemoved(feedId) {
 }
 
 const _offHandlers = [
+  on("worktree:open", ({ name, pane } = {}) => {
+    if (name) workspaceStore.selectedWorkspace = name;
+    open({ pane: pane || "jobs" });
+  }),
+
   on("git:selectDirty", () => {
     selectedDiffFile.value = "";
     diffMessage.value = "";

@@ -63,6 +63,9 @@ class WorkspaceConfig(_ConfigModel):
     icon_color: str = ""
     hidden: bool = False
     jobs: dict[str, JobConfig] = Field(default_factory=dict)
+    worktree: bool = False
+    worktree_base: str = ""
+    worktree_branch: str = ""
 
 
 class GlobalConfig(_ConfigModel):

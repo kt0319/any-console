@@ -126,3 +126,14 @@
 - **Alternatives considered**: PWA なし — モバイル UX が一段下がる (ブラウザの UI バーが常に表示される等)。Workbox 導入 — 個人ツールには設定コストが過剰。
 
 ---
+
+### 11. git worktree を動的検出でワークスペースとして扱う
+
+- **Status**: Accepted
+- **Date**: 2026-05
+- **Context**: 同一リポジトリで複数の作業（特に並行して走らせるエージェント）を干渉なく進めたい。clone を増やすとディスク・fetch コストとリポジトリ管理が煩雑になる。当初は worktree を config.json に登録する設計にしていたが、登録・削除のたびに config を書き換える運用コストと、config の worktree エントリが実ファイルシステムと乖離するリスクが問題になった。
+- **Decision**: worktree を config.json に登録せず、各ワークスペースのベースリポジトリに対して `git worktree list --porcelain` を実行し実行時に動的検出する。ベースリポジトリから `git worktree add` で作業ツリーを作るだけでよく、config 操作は不要。表示名は `{ベース名} [{ブランチ名}]` 形式とし、バックエンドは `_WORKTREE_NAME_RE` でパースしてパスを解決する。ベースが config に未登録の孤立 worktree は worktree として扱わない（誤ったアイコン・動作を防ぐ）。worktree の作成・削除は Branches タブ（`GitChangeBranch.vue`）に統合し、専用タブは設けない。ジョブは config からではなくベースワークスペースのものを共有する。UI ではワークスペースピッカーとターミナルタブに worktree アイコン（`mdi-file-tree`）を表示する。
+- **Consequences**: config とファイルシステムの乖離が起きない。worktree の追加・削除は git コマンドだけで完結する。作業ツリー＝ワークスペースなので、既存のステータスポーリング（dirty/branch/ahead）やタブの編集済みマークがそのまま各 worktree の進捗シグナルになる。ブランチは worktree 削除後も残す（成果を失わない）。`resolve_workspace_path` の解決ロジックが動的 worktree を考慮する必要がある。
+- **Alternatives considered**: config.json に登録する（旧設計） — config が実ファイルシステムと乖離するリスクがある。clone を都度作る — ディスク・fetch コストと管理が重い。worktree を独自概念として別管理する — 既存のワークスペース機構（一覧・切替・ステータス）を再利用できず実装・UI が二重化する。
+
+---

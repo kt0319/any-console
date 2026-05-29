@@ -15,6 +15,7 @@
     @touchstart.passive="onTouchStart"
   >
     <span v-if="wsIconHtml" v-html="wsIconHtml"></span>
+    <span v-if="isWorktree" class="mdi mdi-file-tree tab-worktree-icon" aria-label="worktree" data-tooltip="worktree"></span>
     <span v-if="iconHtml" v-html="iconHtml"></span>
     <template v-if="!isPanelBottom">
       {{ label }}
@@ -35,6 +36,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { renderIconStr } from "../utils/render-icon.js";
+import { workspaceDisplayName } from "../utils/worktree.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { confirmCloseTab } from "../utils/tab-close-confirm.js";
 import { useLayoutStore } from "../stores/layout.js";
@@ -69,13 +71,24 @@ const isActive = computed(() => props.activeTabId === props.tab.id);
 const canDrag = computed(() => !layoutStore.isTouchDevice && terminalStore.openTabs.length >= 1);
 
 const label = computed(() => {
-  return props.tab.workspace || props.tab.label || "terminal";
+  if (props.tab.workspace) {
+    const ws = workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace);
+    if (ws?.worktree) return workspaceDisplayName(ws);
+    return props.tab.workspace;
+  }
+  return props.tab.label || "terminal";
 });
 
 const isDirty = computed(() => {
   if (!props.tab.workspace) return false;
   const ws = workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace);
   return ws?.clean === false;
+});
+
+const isWorktree = computed(() => {
+  if (!props.tab.workspace) return false;
+  const ws = workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace);
+  return !!ws?.worktree;
 });
 
 const wsIconHtml = computed(() => {
@@ -289,6 +302,12 @@ onBeforeUnmount(() => {
   height: 6px;
   border-radius: 50%;
   background: #f5a623;
+  flex-shrink: 0;
+}
+
+.tab-worktree-icon {
+  font-size: 13px;
+  color: var(--accent);
   flex-shrink: 0;
 }
 

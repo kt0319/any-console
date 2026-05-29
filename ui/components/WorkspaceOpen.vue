@@ -14,8 +14,6 @@
           class="picker-ws-group"
           :class="{ dragging: dragIdx === idx, 'is-hidden': settingsMode && ws.hidden }"
           :style="dragIdx === idx ? { transform: `translateY(${dragOffsetY}px)` } : {}"
-          @mouseenter="!settingsMode && onMouseEnter(ws)"
-          @mouseleave="!settingsMode && onMouseLeave(ws)"
         >
           <div class="picker-ws-row picker-ws-row-top">
             <span
@@ -31,61 +29,47 @@
               :checked="!ws.hidden"
               @change="toggleVisibility(ws, $event.target.checked)"
             />
-            <button type="button" class="picker-ws-header-label" @click="!settingsMode && (isExpanded(ws.name) ? openDetail(ws) : toggleExpand(ws))">
+            <button type="button" class="picker-ws-header-label" @click="!settingsMode && openDetail(ws)">
               <span v-html="renderIconStr(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
               <span class="picker-ws-header-text">
-                <span class="picker-ws-name">{{ ws.name }}</span>
+                <span class="picker-ws-name">
+                  <span v-if="ws.worktree" class="mdi mdi-file-tree picker-ws-wt-icon" aria-label="worktree" data-tooltip="worktree"></span>
+                  {{ ws.worktree ? workspaceDisplayName(ws) : ws.name }}
+                </span>
                 <span v-if="!settingsMode" class="picker-ws-branch">{{ ws.branch || '-' }}</span>
               </span>
             </button>
             <button v-if="settingsMode" type="button" class="picker-ws-edit-btn" title="Edit" @click.stop="openEditWs(ws)">
               <span class="mdi mdi-pencil-outline"></span>
             </button>
-            <div v-else class="picker-ws-top-meta" @click.stop="onMetaClick(ws)">
+            <div v-else class="picker-ws-top-meta" @click.stop>
               <template v-if="ws.is_git_repo">
                 <button v-if="ws.clean === false" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(ws)" @click.stop="openDetail(ws)"></button>
                 <GitActionBtn v-if="ws.behind > 0" icon="pull" title="Pull" :count="ws.behind" :running="isRunning(ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="doAction(ws, 'pull')" />
                 <GitActionBtn v-if="ws.ahead > 0 && ws.has_upstream !== false" icon="push" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(ws, 'push')" />
                 <GitActionBtn v-if="ws.ahead > 0 && ws.has_upstream === false" icon="push-upstream" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action="doAction(ws, 'push-upstream')" />
               </template>
-              <span class="picker-ws-chevron mdi" :class="isExpanded(ws.name) ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
             </div>
           </div>
-          <div v-show="!settingsMode && isExpanded(ws.name)" class="picker-ws-row picker-ws-row-bottom">
-            <div class="picker-ws-icons picker-ws-icons-bottom">
-              <button type="button" class="picker-ws-icon-btn" title="Terminal" @click="selectWorkspace(ws)">
-                <span class="mdi mdi-console"></span>
+          <div v-if="!settingsMode && worktreesByBase[ws.name]?.length" class="picker-ws-worktrees">
+            <div
+              v-for="wt in worktreesByBase[ws.name]"
+              :key="wt.name"
+              class="picker-ws-worktree-item"
+            >
+              <button type="button" class="picker-ws-worktree-open" @click="openDetail(wt)">
+                <span class="mdi mdi-file-tree picker-ws-wt-child-icon"></span>
+                <span class="picker-ws-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
+                <span v-if="wt.clean === false" class="picker-ws-wt-dirty" aria-label="uncommitted changes"></span>
               </button>
-              <template v-if="wsCommonJobs[ws.name]?.length">
-                <div class="picker-ws-job-spacer"></div>
-                <button
-                  v-for="job in wsCommonJobs[ws.name]"
-                  :key="job.name"
-                  type="button"
-                  class="picker-ws-icon-btn"
-                  :class="{ 'picker-ws-job-hidden': job.hidden_tab, 'picker-ws-job-common': true }"
-                  :title="job.label || job.name"
-                  @click="runJob(ws, job)"
-                >
-                  <span v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
-                </button>
-              </template>
-              <template v-if="wsLocalJobs[ws.name]?.length">
-                <div class="picker-ws-job-spacer"></div>
-                <button
-                  v-for="job in wsLocalJobs[ws.name]"
-                  :key="job.name"
-                  type="button"
-                  class="picker-ws-icon-btn"
-                  :class="{ 'picker-ws-job-hidden': job.hidden_tab }"
-                  :title="job.label || job.name"
-                  @click="runJob(ws, job)"
-                >
-                  <span v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
-                </button>
-              </template>
-              <button type="button" class="picker-ws-icon-btn picker-ws-info-btn" title="Detail" @click.stop="openDetail(ws)">
-                <span class="mdi mdi-information-outline"></span>
+              <button
+                type="button"
+                class="picker-ws-worktree-del"
+                aria-label="Remove worktree"
+                data-tooltip="Remove worktree"
+                @click.stop="removeWorktree(ws, wt)"
+              >
+                <span class="mdi mdi-delete-outline"></span>
               </button>
             </div>
           </div>
@@ -102,15 +86,15 @@
 <script setup>
 import { computed, inject, ref, onMounted, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { useLayoutStore } from "../stores/layout.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { useApi } from "../composables/useApi.js";
+import { useConfirm } from "../composables/useConfirm.js";
+import { useToast } from "../composables/useToast.js";
 import { useJobLauncher } from "../composables/useJobLauncher.js";
-import { useWorkspaceJobsList } from "../composables/useWorkspaceJobsList.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { dirtyBadgeHtml } from "../utils/git.js";
-import { emit } from "../app-bridge.js";
+import { worktreeBranchLabel, workspaceDisplayName } from "../utils/worktree.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import RecentJobsBar from "./RecentJobsBar.vue";
 import { useWorkspaceDrag } from "../composables/useWorkspaceDrag.js";
@@ -121,20 +105,34 @@ const pushView = inject("pushView");
 modalTitle.value = "Workspaces";
 
 const workspaceStore = useWorkspaceStore();
-const layoutStore = useLayoutStore();
-const { apiPut, wsEndpoint } = useApi();
+const { apiPut, apiDelete, wsEndpoint } = useApi();
+const { confirm } = useConfirm();
+const toast = useToast();
 const { gitAction, isRunning } = useGitRemoteAction();
 const { recentJobs, loadRecentJobs } = useRecentJobs();
-const { runJob, runRecentJob } = useJobLauncher();
-const { commonJobs: wsCommonJobs, localJobs: wsLocalJobs, loadJobs: loadAllWorkspaceJobs } = useWorkspaceJobsList();
+const { runRecentJob } = useJobLauncher();
 
-const expandedName = ref(null);
 const settingsMode = ref(false);
 const wsListEl = ref(null);
 
-const displayWorkspaces = computed(() => settingsMode.value
-  ? (workspaceStore.allWorkspaces || [])
-  : workspaceStore.visibleWorkspaces);
+// 非設定モードでは worktree をトップレベルから除外し、ベースワークスペースの下に入れ子で出す。
+// 設定モードは編集用なので全件をフラットに出す（worktree の表示/並び替え/削除も可能にする）。
+const displayWorkspaces = computed(() => {
+  if (settingsMode.value) return workspaceStore.allWorkspaces || [];
+  const list = workspaceStore.visibleWorkspaces;
+  const baseNames = new Set(list.filter((w) => !w.worktree).map((w) => w.name));
+  return list.filter((w) => !(w.worktree && w.worktree_base && baseNames.has(w.worktree_base)));
+});
+
+const worktreesByBase = computed(() => {
+  const map = {};
+  for (const ws of workspaceStore.visibleWorkspaces) {
+    if (ws.worktree && ws.worktree_base) {
+      (map[ws.worktree_base] ||= []).push(ws);
+    }
+  }
+  return map;
+});
 
 const { dragIdx, dragOffsetY, onDragStart, cleanup: cleanupDrag } = useWorkspaceDrag({
   items: displayWorkspaces,
@@ -168,32 +166,6 @@ async function saveWorkspaceOrder() {
   } catch { /* ignore */ }
 }
 
-function isExpanded(name) {
-  return expandedName.value === name;
-}
-
-function toggleExpand(ws) {
-  expandedName.value = expandedName.value === ws.name ? null : ws.name;
-}
-
-function onMouseEnter(ws) {
-  if (!layoutStore.isTouchDevice) {
-    expandedName.value = ws.name;
-  }
-}
-
-function onMouseLeave(ws) {
-  if (!layoutStore.isTouchDevice && expandedName.value === ws.name) {
-    expandedName.value = null;
-  }
-}
-
-function onMetaClick(ws) {
-  if (layoutStore.isTouchDevice) {
-    toggleExpand(ws);
-  }
-}
-
 function doAction(ws, action) {
   gitAction(ws.name, action, { branch: ws.branch });
 }
@@ -201,10 +173,10 @@ function doAction(ws, action) {
 const visibleWorkspaces = computed(() => workspaceStore.visibleWorkspaces);
 
 async function loadWorkspaceOverview() {
-  await Promise.all([
-    workspaceStore.fetchStatuses(),
-    loadAllWorkspaceJobs(visibleWorkspaces.value),
-  ]);
+  // worktree など、開いている間に追加されたワークスペースも反映するため一覧を再取得する。
+  // ジョブはタップ時に開くモーダル側で取得するため、ここでは取得しない。
+  await workspaceStore.fetchWorkspaces();
+  await workspaceStore.fetchStatuses();
 }
 
 function openDetail(ws) {
@@ -212,13 +184,17 @@ function openDetail(ws) {
   pushView("WorkspaceDetail", { detail: {} });
 }
 
-function selectWorkspace(ws) {
-  emit("modal:close");
-  emit("terminal:launch", {
-    workspace: ws.name,
-    icon: ws.icon,
-    iconColor: ws.icon_color,
+async function removeWorktree(base, wt) {
+  const label = worktreeBranchLabel(wt.worktree_branch || wt.branch) || wt.name;
+  if (!await confirm(`Remove worktree "${label}"? The working tree directory will be deleted. This cannot be undone.`)) return;
+  const { ok } = await apiDelete(wsEndpoint(base.name, "worktrees"), {
+    body: { path: wt.path },
+    checkStatus: true,
+    errorMessage: "Failed to remove worktree",
   });
+  if (!ok) return;
+  await workspaceStore.fetchWorkspaces();
+  toast.success("Worktree removed");
 }
 
 onMounted(() => {
@@ -313,10 +289,6 @@ onBeforeUnmount(() => {
   padding-bottom: 4px;
 }
 
-.picker-ws-row-bottom {
-  padding: 4px 12px 14px;
-}
-
 .picker-ws-header-label {
   flex: 1;
   min-width: 0;
@@ -353,6 +325,91 @@ onBeforeUnmount(() => {
   font-size: 13px;
 }
 
+.picker-ws-wt-icon {
+  font-size: 13px;
+  color: var(--accent);
+  margin-right: 2px;
+}
+
+.picker-ws-worktrees {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 12px 8px 28px;
+}
+
+.picker-ws-worktree-item {
+  display: flex;
+  align-items: center;
+  border-left: 2px solid var(--border);
+}
+
+.picker-ws-worktree-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.picker-ws-worktree-del {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  flex-shrink: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--error);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.picker-ws-wt-child-icon {
+  font-size: 13px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.picker-ws-worktree-branch {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-ws-wt-dirty {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f5a623;
+  flex-shrink: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .picker-ws-row-top:hover {
+    background: var(--bg-tertiary);
+  }
+
+  .picker-ws-worktree-open:hover {
+    background: var(--bg-tertiary);
+  }
+
+  .picker-ws-worktree-del:hover {
+    background: var(--error-bg-20, rgba(255, 85, 114, 0.15));
+  }
+}
+
 .picker-ws-branch {
   max-width: 100%;
   color: var(--text-muted);
@@ -383,69 +440,8 @@ onBeforeUnmount(() => {
   line-height: 1;
 }
 
-.picker-ws-icons {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.picker-ws-icons-bottom {
-  flex: 1;
-  min-width: 0;
-  gap: 8px;
-  justify-content: flex-start;
-}
-
-.picker-ws-chevron {
-  font-size: 16px;
-  color: var(--text-muted);
-  flex-shrink: 0;
-  margin-left: 4px;
-}
-
-
-.picker-ws-icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  min-height: 34px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-size: 18px;
-  cursor: pointer;
-}
-
-.picker-ws-info-btn {
-  margin-left: auto;
-}
-
-
-.picker-ws-icon-btn.picker-ws-job-hidden {
-  border-style: dashed;
-}
-
 .picker-ws-group.is-hidden .picker-ws-header-label {
   opacity: 0.5;
-}
-
-.picker-ws-job-spacer {
-  width: 1px;
-  align-self: stretch;
-  margin: 4px 2px;
-  background: var(--border);
-  flex-shrink: 0;
-}
-
-.picker-ws-icon-btn .mdi {
-  font-size: 18px;
 }
 
 .picker-ws-mini-btn {
