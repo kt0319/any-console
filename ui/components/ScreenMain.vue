@@ -9,11 +9,16 @@
     </div>
     <WorkspaceStatusBar v-show="!booting" />
     <DashboardPane
-      v-if="isDashboardVisible"
+      v-if="isDashboardVisible && !dashboardError"
       ref="dashboardPaneView"
       :booting="booting"
       :boot-message="bootMessage"
     />
+    <div v-else-if="isDashboardVisible && dashboardError" class="screen-main-empty dashboard-error-state">
+      <span class="mdi mdi-alert-circle-outline dashboard-error-icon"></span>
+      <span class="dashboard-error-msg">{{ dashboardError }}</span>
+      <button class="dashboard-error-reload" @click="dashboardError = null">Retry</button>
+    </div>
     <div v-else-if="booting || isEmptyScreenVisible" class="screen-main-empty">
       <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
     </div>
@@ -33,7 +38,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, onErrorCaptured } from "vue";
 import WorkspaceStatusBar from "./WorkspaceStatusBar.vue";
 import TabBar from "./TabBar.vue";
 import TerminalBase from "./TerminalBase.vue";
@@ -74,6 +79,14 @@ const { loadSnippetCache, moveSnippetToFront, addSnippet, deleteSnippet, moveSni
 const tabBarView = ref(null);
 const terminalBaseView = ref(null);
 const dashboardPaneView = ref(null);
+const dashboardError = ref(null);
+
+onErrorCaptured((err) => {
+  if (isDashboardVisible.value) {
+    dashboardError.value = err?.message || String(err);
+    return false;
+  }
+});
 
 const { booting, bootMessage, initializeApp } = useAppBootstrap();
 const {
@@ -249,6 +262,36 @@ defineExpose({
   flex: 1;
   min-height: 0;
   display: flex;
+}
+
+.dashboard-error-state {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+}
+
+.dashboard-error-icon {
+  font-size: 32px;
+  color: var(--error);
+}
+
+.dashboard-error-msg {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  max-width: 360px;
+  word-break: break-word;
+}
+
+.dashboard-error-reload {
+  font-size: 12px;
+  padding: 5px 14px;
+  min-height: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
 }
 
 .active-tab-title {
