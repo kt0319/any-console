@@ -17,6 +17,10 @@
       <div v-else class="ws-settings-row ws-settings-row-stack">
         <span class="ws-settings-label">Command</span>
         <textarea class="form-input job-command-input" v-model="form.command" placeholder="Command to execute (multi-line shell script supported)" autocomplete="off" rows="3" spellcheck="false"></textarea>
+        <div class="job-command-hint">
+          Use <code v-text="'{{name}}'"></code> to prompt for a value at launch
+          (e.g. <code v-text="'claude {{prompt}}'"></code>). Values are quoted automatically.
+        </div>
       </div>
       <div v-if="form.type !== 'browser'" class="ws-settings-row">
         <span class="ws-settings-label">Icon</span>
@@ -211,6 +215,21 @@ async function deleteJob() {
   white-space: pre;
   overflow-wrap: normal;
   overflow-x: auto;
+}
+
+.job-command-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.job-command-hint code {
+  font-family: ui-monospace, "Menlo", "Consolas", monospace;
+  font-size: 11px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
 }
 
 .ws-delete-btn {
