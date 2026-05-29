@@ -305,6 +305,52 @@ def git_branches(directory: Path) -> list[str]:
     return []
 
 
+def _apply_worktree_attr(current: dict[str, Any], line: str) -> None:
+    if line.startswith("HEAD "):
+        current["head"] = line[len("HEAD "):]
+    elif line.startswith("branch "):
+        current["branch"] = line[len("branch "):].removeprefix("refs/heads/")
+    elif line == "detached":
+        current["detached"] = True
+    elif line == "bare":
+        current["bare"] = True
+    elif line.startswith("locked"):
+        current["locked"] = True
+
+
+def parse_worktree_porcelain(output: str) -> list[dict[str, Any]]:
+    """`git worktree list --porcelain` の出力をパースする純粋関数。
+
+    各 worktree はブロック（空行区切り）で、先頭が `worktree <path>`。
+    `branch refs/heads/<name>` / `detached` / `bare` / `locked` を解釈する。
+    """
+    worktrees: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    for line in output.splitlines():
+        if not line.strip():
+            if current is not None:
+                worktrees.append(current)
+                current = None
+        elif line.startswith("worktree "):
+            if current is not None:
+                worktrees.append(current)
+            current = {"path": line[len("worktree "):], "branch": None,
+                       "head": None, "bare": False, "detached": False, "locked": False}
+        elif current is not None:
+            _apply_worktree_attr(current, line)
+    if current is not None:
+        worktrees.append(current)
+    return worktrees
+
+
+def git_worktree_list(directory: Path) -> list[dict[str, Any]]:
+    out = _run_git_query(["worktree", "list", "--porcelain"], directory)
+    if out is None:
+        logger.warning("git_worktree_list failed dir=%s", directory)
+        return []
+    return parse_worktree_porcelain(out)
+
+
 def git_remote_branches(directory: Path) -> list[str]:
     try:
         run_git_raw(["fetch", "--prune"], directory, timeout=GIT_STANDARD_TIMEOUT_SEC)
