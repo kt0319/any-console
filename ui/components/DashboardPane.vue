@@ -8,14 +8,20 @@
           <span class="mdi mdi-lightning-bolt dash-section-icon"></span>
           Quick Actions
         </div>
-        <div class="dash-actions-row">
-          <button class="dash-action-btn" @click="openWorkspace">
-            <span class="mdi mdi-plus dash-action-icon"></span>
-            <span>Open Workspace</span>
+        <div class="dash-action-list">
+          <button class="dash-action-item" @click="openWorkspace">
+            <span class="mdi mdi-plus dash-action-item-icon"></span>
+            <span class="dash-action-item-label">Open Workspace</span>
+            <span class="dash-action-item-keys">
+              <kbd class="dash-kbd">⌘</kbd><kbd class="dash-kbd">⇧</kbd><kbd class="dash-kbd">N</kbd>
+            </span>
           </button>
-          <button class="dash-action-btn" @click="openSettings">
-            <span class="mdi mdi-cog dash-action-icon"></span>
-            <span>Settings</span>
+          <button class="dash-action-item" @click="openSettings">
+            <span class="mdi mdi-cog dash-action-item-icon"></span>
+            <span class="dash-action-item-label">Settings</span>
+            <span class="dash-action-item-keys">
+              <kbd class="dash-kbd">⌘</kbd><kbd class="dash-kbd">⇧</kbd><kbd class="dash-kbd">.</kbd>
+            </span>
           </button>
         </div>
       </section>
@@ -189,29 +195,41 @@ onMounted(() => {
 }
 
 /* Quick Actions */
-.dash-actions-row {
+.dash-action-list {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.dash-action-btn {
+.dash-action-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  font-size: 13px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  gap: 8px;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
   border-radius: var(--radius);
   color: var(--text-secondary);
+  font-size: 13px;
   cursor: pointer;
+  text-align: left;
   min-height: 0;
 }
 
-.dash-action-icon {
+.dash-action-item-icon {
   font-size: 16px;
   color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.dash-action-item-label {
+  flex: 1;
+}
+
+.dash-action-item-keys {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
 /* Recent Jobs */
@@ -304,8 +322,24 @@ onMounted(() => {
 .dash-session-ws { color: var(--text-secondary); }
 .dash-session-job { color: var(--text-muted); }
 
+.dash-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: inherit;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
 @media (hover: hover) and (pointer: fine) {
-  .dash-action-btn:hover,
+  .dash-action-item:hover,
   .dash-recent-item:hover,
   .dash-session-item:hover {
     background: var(--bg-tertiary);
