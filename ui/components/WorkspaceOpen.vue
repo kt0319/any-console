@@ -14,8 +14,6 @@
           class="picker-ws-group"
           :class="{ dragging: dragIdx === idx, 'is-hidden': settingsMode && ws.hidden }"
           :style="dragIdx === idx ? { transform: `translateY(${dragOffsetY}px)` } : {}"
-          @mouseenter="!settingsMode && onMouseEnter(ws)"
-          @mouseleave="!settingsMode && onMouseLeave(ws)"
         >
           <div class="picker-ws-row picker-ws-row-top">
             <span
@@ -31,7 +29,7 @@
               :checked="!ws.hidden"
               @change="toggleVisibility(ws, $event.target.checked)"
             />
-            <button type="button" class="picker-ws-header-label" @click="!settingsMode && (isExpanded(ws.name) ? openDetail(ws) : toggleExpand(ws))">
+            <button type="button" class="picker-ws-header-label" @click="!settingsMode && openDetail(ws)">
               <span v-html="renderIconStr(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
               <span class="picker-ws-header-text">
                 <span class="picker-ws-name">
@@ -44,14 +42,13 @@
             <button v-if="settingsMode" type="button" class="picker-ws-edit-btn" title="Edit" @click.stop="openEditWs(ws)">
               <span class="mdi mdi-pencil-outline"></span>
             </button>
-            <div v-else class="picker-ws-top-meta" @click.stop="onMetaClick(ws)">
+            <div v-else class="picker-ws-top-meta" @click.stop>
               <template v-if="ws.is_git_repo">
                 <button v-if="ws.clean === false" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(ws)" @click.stop="openDetail(ws)"></button>
                 <GitActionBtn v-if="ws.behind > 0" icon="pull" title="Pull" :count="ws.behind" :running="isRunning(ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="doAction(ws, 'pull')" />
                 <GitActionBtn v-if="ws.ahead > 0 && ws.has_upstream !== false" icon="push" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(ws, 'push')" />
                 <GitActionBtn v-if="ws.ahead > 0 && ws.has_upstream === false" icon="push-upstream" title="Push" :count="ws.ahead" :running="isRunning(ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action="doAction(ws, 'push-upstream')" />
               </template>
-              <span class="picker-ws-chevron mdi" :class="isExpanded(ws.name) ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
             </div>
           </div>
           <div v-if="!settingsMode && worktreesByBase[ws.name]?.length" class="picker-ws-worktrees">
@@ -76,44 +73,6 @@
               </button>
             </div>
           </div>
-          <div v-show="!settingsMode && isExpanded(ws.name)" class="picker-ws-row picker-ws-row-bottom">
-            <div class="picker-ws-icons picker-ws-icons-bottom">
-              <button type="button" class="picker-ws-icon-btn" title="Terminal" @click="selectWorkspace(ws)">
-                <span class="mdi mdi-console"></span>
-              </button>
-              <template v-if="wsCommonJobs[ws.name]?.length">
-                <div class="picker-ws-job-spacer"></div>
-                <button
-                  v-for="job in wsCommonJobs[ws.name]"
-                  :key="job.name"
-                  type="button"
-                  class="picker-ws-icon-btn"
-                  :class="{ 'picker-ws-job-hidden': job.hidden_tab, 'picker-ws-job-common': true }"
-                  :title="job.label || job.name"
-                  @click="runJob(ws, job)"
-                >
-                  <span v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
-                </button>
-              </template>
-              <template v-if="wsLocalJobs[ws.name]?.length">
-                <div class="picker-ws-job-spacer"></div>
-                <button
-                  v-for="job in wsLocalJobs[ws.name]"
-                  :key="job.name"
-                  type="button"
-                  class="picker-ws-icon-btn"
-                  :class="{ 'picker-ws-job-hidden': job.hidden_tab }"
-                  :title="job.label || job.name"
-                  @click="runJob(ws, job)"
-                >
-                  <span v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
-                </button>
-              </template>
-              <button type="button" class="picker-ws-icon-btn picker-ws-info-btn" title="Detail" @click.stop="openDetail(ws)">
-                <span class="mdi mdi-information-outline"></span>
-              </button>
-            </div>
-          </div>
         </div>
         <div v-if="visibleWorkspaces.length === 0" class="clone-repo-empty">
           No workspaces to display
@@ -127,18 +86,15 @@
 <script setup>
 import { computed, inject, ref, onMounted, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { useLayoutStore } from "../stores/layout.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useToast } from "../composables/useToast.js";
 import { useJobLauncher } from "../composables/useJobLauncher.js";
-import { useWorkspaceJobsList } from "../composables/useWorkspaceJobsList.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { dirtyBadgeHtml } from "../utils/git.js";
 import { worktreeBranchLabel, workspaceDisplayName } from "../utils/worktree.js";
-import { emit } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import RecentJobsBar from "./RecentJobsBar.vue";
 import { useWorkspaceDrag } from "../composables/useWorkspaceDrag.js";
@@ -149,16 +105,13 @@ const pushView = inject("pushView");
 modalTitle.value = "Workspaces";
 
 const workspaceStore = useWorkspaceStore();
-const layoutStore = useLayoutStore();
 const { apiPut, apiDelete, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
 const toast = useToast();
 const { gitAction, isRunning } = useGitRemoteAction();
 const { recentJobs, loadRecentJobs } = useRecentJobs();
-const { runJob, runRecentJob } = useJobLauncher();
-const { commonJobs: wsCommonJobs, localJobs: wsLocalJobs, loadJobs: loadAllWorkspaceJobs } = useWorkspaceJobsList();
+const { runRecentJob } = useJobLauncher();
 
-const expandedName = ref(null);
 const settingsMode = ref(false);
 const wsListEl = ref(null);
 
@@ -213,32 +166,6 @@ async function saveWorkspaceOrder() {
   } catch { /* ignore */ }
 }
 
-function isExpanded(name) {
-  return expandedName.value === name;
-}
-
-function toggleExpand(ws) {
-  expandedName.value = expandedName.value === ws.name ? null : ws.name;
-}
-
-function onMouseEnter(ws) {
-  if (!layoutStore.isTouchDevice) {
-    expandedName.value = ws.name;
-  }
-}
-
-function onMouseLeave(ws) {
-  if (!layoutStore.isTouchDevice && expandedName.value === ws.name) {
-    expandedName.value = null;
-  }
-}
-
-function onMetaClick(ws) {
-  if (layoutStore.isTouchDevice) {
-    toggleExpand(ws);
-  }
-}
-
 function doAction(ws, action) {
   gitAction(ws.name, action, { branch: ws.branch });
 }
@@ -247,11 +174,9 @@ const visibleWorkspaces = computed(() => workspaceStore.visibleWorkspaces);
 
 async function loadWorkspaceOverview() {
   // worktree など、開いている間に追加されたワークスペースも反映するため一覧を再取得する。
+  // ジョブはタップ時に開くモーダル側で取得するため、ここでは取得しない。
   await workspaceStore.fetchWorkspaces();
-  await Promise.all([
-    workspaceStore.fetchStatuses(),
-    loadAllWorkspaceJobs(visibleWorkspaces.value),
-  ]);
+  await workspaceStore.fetchStatuses();
 }
 
 function openDetail(ws) {
@@ -270,15 +195,6 @@ async function removeWorktree(base, wt) {
   if (!ok) return;
   await workspaceStore.fetchWorkspaces();
   toast.success("Worktree removed");
-}
-
-function selectWorkspace(ws) {
-  emit("modal:close");
-  emit("terminal:launch", {
-    workspace: ws.name,
-    icon: ws.icon,
-    iconColor: ws.icon_color,
-  });
 }
 
 onMounted(() => {
