@@ -373,6 +373,30 @@ def git_worktree_list(directory: Path) -> list[dict[str, Any]]:
     return parse_worktree_porcelain(out)
 
 
+_WORKTREE_NAME_RE = re.compile(r'^(.+?)\s+\[(.+)\]$')
+
+
+def find_dynamic_worktree_path(name: str) -> "Path | None":
+    """'{base} [{branch}]' 形式の動的worktree名からパスを返す。configに登録されていないworktree用。"""
+    m = _WORKTREE_NAME_RE.match(name)
+    if not m:
+        return None
+    base_name, branch = m.group(1), m.group(2)
+    from .config import list_workspace_entries
+    for entry in list_workspace_entries().values():
+        if entry.get("name") != base_name:
+            continue
+        base_path = Path(entry.get("path", ""))
+        if not base_path.is_dir():
+            continue
+        for wt in git_worktree_list(base_path)[1:]:  # インデックス0はmain
+            if wt.get("branch") == branch:
+                p = Path(wt["path"])
+                if p.is_dir():
+                    return p
+    return None
+
+
 def git_remote_branches(directory: Path) -> list[str]:
     try:
         run_git_raw(["fetch", "--prune"], directory, timeout=GIT_STANDARD_TIMEOUT_SEC)

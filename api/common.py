@@ -180,9 +180,14 @@ def resolve_workspace_path(workspace: str | None) -> Path | None:
     from .config import load_workspace_config
     config = load_workspace_config(workspace)
     ws_path_str = config.get("path", "")
-    if not ws_path_str:
-        raise bad_request(f"Workspace not configured: {workspace}")
-    ws_path = Path(ws_path_str)
-    if not ws_path.is_dir():
-        raise bad_request(f"Workspace not found: {workspace}")
-    return ws_path
+    if ws_path_str:
+        ws_path = Path(ws_path_str)
+        if not ws_path.is_dir():
+            raise bad_request(f"Workspace not found: {workspace}")
+        return ws_path
+    # configに無い場合は動的worktree（"{base} [{branch}]" 形式）として検索する
+    from .git_utils import find_dynamic_worktree_path
+    dynamic = find_dynamic_worktree_path(workspace)
+    if dynamic:
+        return dynamic
+    raise bad_request(f"Workspace not configured: {workspace}")

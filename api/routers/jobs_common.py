@@ -21,16 +21,14 @@ from ..common import (
     resolve_workspace_path,
 )
 from ..config import (
-    list_workspace_entries,
     load_global_config_section,
-    load_workspace_config,
     load_workspace_config_section,
     resolve_workspace_id,
     save_global_config_section,
     save_workspace_config_section,
 )
 from ..errors import bad_request, not_found
-from ..git_utils import linked_worktree_main_path
+from ..git_utils import _WORKTREE_NAME_RE
 from ..job_models import JobDefinition
 from ..validators import validate_icon, validate_icon_color
 
@@ -67,49 +65,19 @@ def save_workspace_jobs_data(workspace_name, data):
     _workspace_jobs_cache.invalidate(workspace_name)
 
 
-def _find_workspace_by_path(target: Path) -> str | None:
-    try:
-        target_resolved = target.resolve()
-    except OSError:
-        target_resolved = target
-    for entry in list_workspace_entries().values():
-        p = entry.get("path", "")
-        if not p:
-            continue
-        try:
-            if Path(p).resolve() == target_resolved:
-                name = entry.get("name")
-                return str(name) if name else None
-        except OSError:
-            continue
-    return None
-
 
 def resolve_jobs_owner(workspace_name: str) -> str:
     """worktree のワークスペースはベースのワークスペースとジョブを共有する。
 
-    ベースが登録済みワークスペースとして特定できればその名前を、
-    できなければ自分自身を返す。worktree でなければ自分自身。
+    '{base} [{branch}]' 形式の名前からベースを取り出し、登録済みであればその名前を返す。
     """
     if not workspace_name:
         return workspace_name
-    # 作成時に保存したメタデータを優先（git 呼び出し不要）
-    config = load_workspace_config(workspace_name)
-    base = config.get("worktree_base")
-    if base and resolve_workspace_id(base):
-        return str(base)
-    # メタデータが無い worktree は git から検出する
-    try:
-        ws_path = resolve_workspace_path(workspace_name)
-    except HTTPException:
-        return workspace_name
-    if ws_path is None:
-        return workspace_name
-    main = linked_worktree_main_path(ws_path)
-    if main:
-        base_name = _find_workspace_by_path(main)
-        if base_name:
-            return base_name
+    m = _WORKTREE_NAME_RE.match(workspace_name)
+    if m:
+        base = m.group(1)
+        if resolve_workspace_id(base):
+            return base
     return workspace_name
 
 

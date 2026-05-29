@@ -57,10 +57,14 @@ class TestWorktreeEndpoints:
         wt_path = Path(data["workspace"]["path"])
         assert wt_path.is_dir()
 
-        # ワークスペースとして登録されている
+        # configには登録しない（動的に検出する設計）
         config = json.loads(isolate_fs["config_file"].read_text(encoding="utf-8"))
         names = {v.get("name") for k, v in config.items() if k != "__global__" and isinstance(v, dict)}
-        assert data["workspace"]["name"] in names
+        assert data["workspace"]["name"] not in names
+
+        # /workspaces で動的に検出されて一覧に現れる
+        ws_list = client.get("/workspaces", headers=AUTH).json()
+        assert any(w["name"] == data["workspace"]["name"] for w in ws_list)
 
     def test_worktree_marked_in_workspace_list(self, client, git_workspace_with_commit):
         created = client.post(
@@ -76,8 +80,9 @@ class TestWorktreeEndpoints:
         base = next(w for w in res.json() if w["name"] == "test-ws")
         assert base.get("worktree") is not True
 
-    def test_metadata_less_worktree_detected_at_runtime(self, client, git_workspace_with_commit, isolate_fs):
-        # メタデータ無しで登録された（古い作成を模した）worktree も検出される
+    def test_manually_registered_worktree_path_is_regular_workspace(self, client, git_workspace_with_commit, isolate_fs):
+        # configに手動登録したworktreeパスは通常ワークスペースとして扱う（worktreeフラグなし）
+        # 動的検出は既存パスをスキップするため、二重表示にもならない
         import json
         import subprocess
         from pathlib import Path
@@ -88,17 +93,18 @@ class TestWorktreeEndpoints:
             ["git", "worktree", "add", str(wt_path), "-b", "legacy"],
             cwd=repo, check=True, capture_output=True,
         )
-        # worktree フラグ無しでワークスペース登録する
         cfg_path = isolate_fs["config_file"]
         config = json.loads(cfg_path.read_text(encoding="utf-8"))
         config["legacy-ws"] = {"name": "legacy-ws", "path": str(wt_path)}
         cfg_path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
 
         res = client.get("/workspaces", headers=AUTH)
-        entry = next(w for w in res.json() if w["name"] == "legacy-ws")
-        assert entry["worktree"] is True
-        assert entry["worktree_base"] == "test-ws"
-        assert entry["worktree_branch"] == "legacy"
+        ws_list = res.json()
+        entry = next(w for w in ws_list if w["name"] == "legacy-ws")
+        assert entry.get("worktree") is not True
+        # 同じパスが動的検出で重複して現れないこと
+        paths = [w["path"] for w in ws_list]
+        assert paths.count(str(wt_path)) == 1
 
     def test_orphan_worktree_not_marked(self, client, isolate_fs):
         # ベースが登録されていない worktree は worktree 扱いしない（誤アイコン防止）
@@ -161,9 +167,9 @@ class TestWorktreeEndpoints:
         )
         assert res.status_code == 200, res.text
 
-        config = json.loads(isolate_fs["config_file"].read_text(encoding="utf-8"))
-        names = {v.get("name") for k, v in config.items() if k != "__global__" and isinstance(v, dict)}
-        assert ws_name not in names
+        # 削除後は /workspaces に現れない
+        ws_list = client.get("/workspaces", headers=AUTH).json()
+        assert not any(w["name"] == ws_name for w in ws_list)
 
     def test_delete_main_worktree_rejected(self, client, git_workspace_with_commit):
         main_path = str(git_workspace_with_commit)
