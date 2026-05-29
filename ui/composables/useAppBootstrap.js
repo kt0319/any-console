@@ -33,9 +33,15 @@ export function useAppBootstrap() {
     if (healthRes?.ok) {
       const health = await healthRes.json();
       if (!health.ok) {
-        const msg = health.source === "config.bak"
-          ? "Config was restored from backup. Some settings may be missing."
-          : `Config has validation errors: ${health.errors.map((e) => e.key).join(", ")}`;
+        const versionError = (health.errors || []).find((e) => e.key === "__version__");
+        let msg;
+        if (versionError) {
+          msg = versionError.message;
+        } else if (health.source === "config.bak") {
+          msg = "Config was restored from backup. Some settings may be missing.";
+        } else {
+          msg = `Config has validation errors: ${health.errors.map((e) => e.key).join(", ")}`;
+        }
         toast.warning(msg);
       }
     }

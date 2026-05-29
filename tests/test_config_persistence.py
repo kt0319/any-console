@@ -154,6 +154,102 @@ class TestConfigSection:
         assert load_global_config_section("workspace_order") == ["ws1", "ws2"]
 
 
+class TestConfigVersionMigration:
+    def test_get_version_helpers(self):
+        from api.config import _get_config_version, _set_config_version
+        assert _get_config_version({}) == 0
+        assert _get_config_version({"__global__": {}}) == 0
+        assert _get_config_version({"__global__": {"config_version": 3}}) == 3
+        # 不正値・bool は旧版(0)扱い
+        assert _get_config_version({"__global__": {"config_version": "x"}}) == 0
+        assert _get_config_version({"__global__": {"config_version": True}}) == 0
+        assert _get_config_version({"__global__": "not-a-dict"}) == 0
+        stamped = _set_config_version({"__global__": {"snippets": []}}, 5)
+        assert stamped["__global__"]["config_version"] == 5
+        assert stamped["__global__"]["snippets"] == []
+
+    def test_empty_config_is_not_stamped(self, isolate_fs):
+        from api.config import load_all_config
+        assert load_all_config() == {}
+        # 初回起動でファイルを勝手に作らない
+        assert not isolate_fs["config_file"].exists()
+
+    def test_legacy_config_gets_version_stamped(self, isolate_fs):
+        from api.common import CONFIG_SCHEMA_VERSION
+        from api.config import load_all_config
+        config_file = isolate_fs["config_file"]
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text(
+            json.dumps({"__global__": {"snippets": [{"label": "ls", "command": "ls"}]}}),
+            encoding="utf-8",
+        )
+
+        loaded = load_all_config()
+        assert loaded["__global__"]["config_version"] == CONFIG_SCHEMA_VERSION
+        # ディスク上にも保存される
+        on_disk = json.loads(config_file.read_text(encoding="utf-8"))
+        assert on_disk["__global__"]["config_version"] == CONFIG_SCHEMA_VERSION
+        # 既存データは保持される
+        assert on_disk["__global__"]["snippets"][0]["command"] == "ls"
+
+    def test_current_version_is_not_rewritten(self, isolate_fs):
+        from api.common import CONFIG_SCHEMA_VERSION
+        from api.config import load_all_config
+        config_file = isolate_fs["config_file"]
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text(
+            json.dumps({"__global__": {"config_version": CONFIG_SCHEMA_VERSION}}),
+            encoding="utf-8",
+        )
+        mtime_before = config_file.stat().st_mtime_ns
+        load_all_config()
+        # 同バージョンなら再書き込みしない（.bak も作られない）
+        assert config_file.stat().st_mtime_ns == mtime_before
+        assert not config_file.with_suffix(".bak").exists()
+
+    def test_newer_version_is_preserved_not_downgraded(self, isolate_fs):
+        from api.common import CONFIG_SCHEMA_VERSION
+        from api.config import load_all_config
+        config_file = isolate_fs["config_file"]
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        future = CONFIG_SCHEMA_VERSION + 99
+        config_file.write_text(
+            json.dumps({"__global__": {"config_version": future, "snippets": []}}),
+            encoding="utf-8",
+        )
+        loaded = load_all_config()
+        # 新しいバージョンは勝手に下げない（best-effort 互換）
+        assert loaded["__global__"]["config_version"] == future
+        on_disk = json.loads(config_file.read_text(encoding="utf-8"))
+        assert on_disk["__global__"]["config_version"] == future
+
+    def test_migrate_applies_registered_steps(self):
+        from api import config as config_mod
+        from api.config import _migrate_config_version
+
+        calls = []
+
+        def fake_step(cfg):
+            calls.append(dict(cfg))
+            new = dict(cfg)
+            new["migrated_marker"] = True
+            return new
+
+        original = config_mod._CONFIG_MIGRATIONS
+        original_version = config_mod.CONFIG_SCHEMA_VERSION
+        try:
+            config_mod.CONFIG_SCHEMA_VERSION = 1
+            config_mod._CONFIG_MIGRATIONS = {0: fake_step}
+            out, did = _migrate_config_version({"ws_a": {"name": "a"}})
+            assert did is True
+            assert out["migrated_marker"] is True
+            assert out["__global__"]["config_version"] == 1
+            assert len(calls) == 1
+        finally:
+            config_mod._CONFIG_MIGRATIONS = original
+            config_mod.CONFIG_SCHEMA_VERSION = original_version
+
+
 class TestConfigHealth:
     def test_health_no_config_file(self, isolate_fs):
         from api.config import check_config_health
@@ -218,3 +314,19 @@ class TestConfigHealth:
         assert "ok" in data
         assert "errors" in data
         assert "source" in data
+
+    def test_health_reports_newer_config_version(self, isolate_fs):
+        from api.common import CONFIG_SCHEMA_VERSION
+        from api.config import check_config_health
+        config_file = isolate_fs["config_file"]
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        future = CONFIG_SCHEMA_VERSION + 5
+        config_file.write_text(
+            json.dumps({"__global__": {"config_version": future}}),
+            encoding="utf-8",
+        )
+        result = check_config_health()
+        assert result["ok"] is False
+        assert result["config_version"] == future
+        assert result["supported_config_version"] == CONFIG_SCHEMA_VERSION
+        assert any(e["key"] == "__version__" for e in result["errors"])

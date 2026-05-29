@@ -16,6 +16,13 @@ UPLOAD_DIR = Path("/tmp/any-console-uploads")
 CONFIG_FILE = PROJECT_ROOT / "config.json"
 GLOBAL_CONFIG_KEY = "__global__"
 
+# 現在のコードが理解する config スキーマのバージョン。
+# 破壊的なスキーマ変更を入れる際にインクリメントし、_CONFIG_MIGRATIONS に
+# 旧版 -> 新版の変換を登録する（api/config.py 参照）。
+# config 自体は __global__.config_version に保存され、読み込み時に
+# このバージョンまで自動マイグレーションされる。
+CONFIG_SCHEMA_VERSION = 1
+
 GIT_QUICK_TIMEOUT_SEC = 5
 GIT_SHORT_TIMEOUT_SEC = 10
 GIT_STANDARD_TIMEOUT_SEC = 30
