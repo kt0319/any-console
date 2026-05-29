@@ -33,6 +33,7 @@
     "icon_color": "#8e24aa"
   },
   "__global__": {
+    "config_version": 1,
     "snippets": [
       {
         "label": "git status",

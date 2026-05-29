@@ -18,7 +18,7 @@ api/                          Backend (FastAPI)
   runner.py                   Job execution (subprocess, default timeout 300s)
   terminal_session.py / tmux.py  tmux × pty.fork × WebSocket bridge
   git_utils.py / git_lock.py  Git subprocess invocation, workspace lock
-  config.py / config_schema.py  config.json read/write, Pydantic validation
+  config.py / config_schema.py  config.json read/write, Pydantic validation, schema versioning + auto-migration
   rate_limiter.py             In-process rate limiter
   routers/                    workspaces, jobs, terminal, system, settings, git, github
 ui/                           Frontend (Vue 3 + Pinia, built with Vite)

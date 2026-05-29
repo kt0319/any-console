@@ -137,3 +137,12 @@
 - **Alternatives considered**: config.json に登録する（旧設計） — config が実ファイルシステムと乖離するリスクがある。clone を都度作る — ディスク・fetch コストと管理が重い。worktree を独自概念として別管理する — 既存のワークスペース機構（一覧・切替・ステータス）を再利用できず実装・UI が二重化する。
 
 ---
+
+### 12. config スキーマのバージョニングと自動マイグレーション
+
+- **Status**: Accepted
+- **Date**: 2026-05
+- **Context**: 本ツールは公開しており、利用者が任意のタイミングでコードを更新する。スキーマを変更した際、利用者の既存 `config.json` が新しいコードと噛み合わず壊れる懸念があった。フィールド追加は Pydantic のデフォルト値と `extra="allow"`（前方互換）でカバーできるが、フィールドのリネーム・削除・意味変更といった破壊的変更には、版を識別して変換する仕組みが必要だった。
+- **Decision**: `__global__.config_version` にスキーマ版を保存し、コード側の `CONFIG_SCHEMA_VERSION`（`api/common.py`）を基準に `_read_config_unlocked()` の読み込み時へ自動マイグレーションを挟む。変換は `_CONFIG_MIGRATIONS`（版 N → N+1 の関数レジストリ）に登録し、現行版まで順次適用してから版を刻んで永続化する。空 config（初回起動）は何もしない。コードが対応する版より新しい config は、変換も再書き込みもせず警告のみ出して best-effort で動作する（誤った downgrade でデータを失わせない）。新しい版を検知した場合は `check_config_health()` が `__version__` エラーとして返し、フロントが起動時にトーストで「アプリを更新してください」と通知する。
+- **Consequences**: 破壊的なスキーマ変更を入れても、利用者の古い config を起動時に無停止で移行できる。移行の追加は `_CONFIG_MIGRATIONS` に関数を足し `CONFIG_SCHEMA_VERSION` を上げるだけで済む。既存の workspace 名→ID 移行（`_migrate_workspace_keys_to_ids`）とは独立に動く。新しい版の config を古いコードで開くと一部設定が解釈できない可能性は残るが、破壊せず警告する方針で被害を最小化する。
+- **Alternatives considered**: 版を持たず Pydantic のデフォルト＋`extra="allow"` のみに頼る — 追加方向には強いがリネーム・削除でサイレントにデータが失われる。config を読むたびに全フィールドを総当たりで補正する — 版がないと「いつ何を変換すべきか」を判断できず、冪等性とテスト容易性を損なう。
