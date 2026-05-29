@@ -397,6 +397,10 @@ onBeforeUnmount(() => {
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .picker-ws-row-top:hover {
+    background: var(--bg-tertiary);
+  }
+
   .picker-ws-worktree-open:hover {
     background: var(--bg-tertiary);
   }
