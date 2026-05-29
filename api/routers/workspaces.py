@@ -21,7 +21,13 @@ from ..config import (
     save_workspace_config,
 )
 from ..errors import bad_request, conflict
-from ..git_utils import git_branch, git_github_url, git_info_to_status_dict, git_is_repo
+from ..git_utils import (
+    git_branch,
+    git_github_url,
+    git_info_to_status_dict,
+    git_is_repo,
+    linked_worktree_main_path,
+)
 from ..icons import normalize_icon
 from ..validators import validate_workspace_name
 
@@ -78,6 +84,13 @@ def _workspace_summary(item):
         info["worktree"] = True
         info["worktree_base"] = config.get("worktree_base", "")
         info["worktree_branch"] = config.get("worktree_branch", "")
+    elif is_git:
+        # メタデータが無い（古い作成の）worktree も git から検出して入れ子表示できるようにする。
+        main = linked_worktree_main_path(ws_path)
+        if main:
+            info["worktree"] = True
+            info["worktree_branch"] = branch or ""
+            info["_wt_main"] = str(main)
     return info
 
 
@@ -89,9 +102,30 @@ def list_workspaces():
     workspace_order = load_global_config_section("workspace_order", [])
     sorted_items = sorted(entries.items(), key=_sort_key_by_workspace_order(workspace_order))
     result = list(BACKGROUND_EXECUTOR.map(_workspace_summary, sorted_items))
+    _resolve_detected_worktree_bases(result)
     git_dirs = [Path(e.get("path", "")) for e in entries.values() if Path(e.get("path", "")).is_dir()]
     BACKGROUND_EXECUTOR.submit(_background_fetch, git_dirs)
     return result
+
+
+def _resolve_detected_worktree_bases(result: list[dict]) -> None:
+    """実行時検出した worktree の `_wt_main`（メイン作業ツリーのパス）を、
+    登録済みワークスペース名（worktree_base）へ解決する。"""
+    by_path: dict[str, str] = {}
+    for r in result:
+        try:
+            by_path[str(Path(r["path"]).resolve())] = r["name"]
+        except OSError:
+            pass
+    for r in result:
+        main = r.pop("_wt_main", None)
+        if main is None:
+            continue
+        try:
+            key = str(Path(main).resolve())
+        except OSError:
+            key = main
+        r["worktree_base"] = by_path.get(key, "")
 
 
 @router.get("/workspaces/statuses")

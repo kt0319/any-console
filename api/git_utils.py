@@ -343,6 +343,28 @@ def parse_worktree_porcelain(output: str) -> list[dict[str, Any]]:
     return worktrees
 
 
+def linked_worktree_main_path(directory: Path) -> Path | None:
+    """directory が linked worktree なら、メイン作業ツリーのパスを返す。
+
+    linked worktree では `--git-dir`（<main>/.git/worktrees/<id>）と
+    `--git-common-dir`（<main>/.git）が異なる。メイン作業ツリーは common-dir の親。
+    メイン作業ツリーや非リポジトリでは None。
+    """
+    out = _run_git_query(["rev-parse", "--git-dir", "--git-common-dir"], directory)
+    if not out:
+        return None
+    lines: list[str] = [s.strip() for s in out.strip().splitlines() if s.strip()]
+    if len(lines) < 2:
+        return None
+    git_dir = (directory / lines[0]).resolve()
+    common_dir = (directory / lines[1]).resolve()
+    if git_dir == common_dir:
+        return None
+    if common_dir.name == ".git":
+        return common_dir.parent
+    return None
+
+
 def git_worktree_list(directory: Path) -> list[dict[str, Any]]:
     out = _run_git_query(["worktree", "list", "--porcelain"], directory)
     if out is None:
