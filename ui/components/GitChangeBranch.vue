@@ -2,10 +2,10 @@
   <div class="git-branch-pane-wrapper">
     <div class="branch-toolbar">
       <span class="branch-toolbar-spacer"></span>
-      <button type="button" class="branch-toolbar-btn" aria-label="Fetch" data-tooltip="Fetch" :disabled="isFetchingRemote" @click="fetchRemote">
+      <button type="button" class="branch-toolbar-btn" aria-label="Fetch" data-tooltip="Fetch" :disabled="isBusy" @click="fetchRemote">
         <span class="mdi" :class="isFetchingRemote ? 'mdi-refresh branch-toolbar-spin' : 'mdi-refresh'"></span>
       </button>
-      <button type="button" class="branch-toolbar-btn" aria-label="Add" data-tooltip="Add" @click="openAddModal">
+      <button type="button" class="branch-toolbar-btn" aria-label="Add" data-tooltip="Add" :disabled="isBusy" @click="openAddModal">
         <span class="mdi mdi-plus"></span>
       </button>
     </div>
@@ -43,7 +43,7 @@
         </div>
       </div>
     </div>
-    <div class="modal-scroll-body" ref="branchListEl" :class="{ 'is-fetching': isFetchingRemote }">
+    <div class="modal-scroll-body" ref="branchListEl" :class="{ 'is-fetching': isBusy }">
       <div class="branch-section-header">
         <span>LOCAL</span>
       </div>
@@ -100,7 +100,7 @@
         </div>
         <div
           class="branch-section-header branch-section-header-toggle"
-          :class="{ 'is-busy': isFetchingRemote }"
+          :class="{ 'is-busy': isBusy }"
           @click="fetchRemote"
         >
           <span>REMOTE</span>
@@ -196,11 +196,14 @@ const remoteLoaded = ref(false);
 const isBranchListLoading = ref(false);
 const isRemoteBranchListLoading = ref(false);
 const isFetchingRemote = ref(false);
+const isSwitchingBranch = ref(false);
+const isBusy = computed(() => isFetchingRemote.value || isSwitchingBranch.value);
 const branchListEl = ref(null);
 
 const branches = computed(() => [...localBranches.value, ...remoteBranches.value]);
 
 async function loadBranchList() {
+  isSwitchingBranch.value = false;
   await withWorkspace(async (workspace) => {
     isBranchListLoading.value = true;
     try {
@@ -262,6 +265,7 @@ function selectBranch(branch) {
     openWorktree(wt);
     return;
   }
+  isSwitchingBranch.value = true;
   emit("git:checkoutBranch", { branch: branch.name, remote: branch.remote });
 }
 
