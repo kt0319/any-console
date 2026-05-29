@@ -207,6 +207,8 @@ function doAction(ws, action) {
 const visibleWorkspaces = computed(() => workspaceStore.visibleWorkspaces);
 
 async function loadWorkspaceOverview() {
+  // worktree など、開いている間に追加されたワークスペースも反映するため一覧を再取得する。
+  await workspaceStore.fetchWorkspaces();
   await Promise.all([
     workspaceStore.fetchStatuses(),
     loadAllWorkspaceJobs(visibleWorkspaces.value),
