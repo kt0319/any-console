@@ -19,6 +19,15 @@
           </div>
           <div class="branch-item-actions" @click.stop>
             <GitActionBtn
+              v-if="canPull(branch)"
+              icon="pull"
+              :title="branch.current ? 'Pull' : 'Switch to this branch to pull'"
+              :count="branch.behind || null"
+              :disabled="!branch.current"
+              :btn-class="'pull-btn has-count'"
+              @action="pullBranch(branch)"
+            />
+            <GitActionBtn
               v-if="canPush(branch)"
               :icon="branch.upstream ? 'push' : 'push-upstream'"
               title="Push"
@@ -182,10 +191,25 @@ function isPushing(branch) {
   return isRunning(workspaceStore.selectedWorkspace, "push-branch", branch.name);
 }
 
+function canPull(branch) {
+  return !branch.remote && !!branch.upstream && branch.behind > 0;
+}
+
 function canPush(branch) {
   if (branch.remote) return false;
   if (!branch.upstream) return true;
   return branch.ahead > 0;
+}
+
+async function pullBranch(branch) {
+  if (!branch.current) {
+    emit("toast:show", { message: `Switch to "${branch.name}" to pull`, type: "info" });
+    return;
+  }
+  await withWorkspace(async (workspace) => {
+    await gitAction(workspace, "pull");
+    await loadBranchList();
+  });
 }
 
 async function deleteBranch(branch) {

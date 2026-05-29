@@ -3,7 +3,7 @@
     type="button"
     tabindex="-1"
     class="git-action-btn"
-    :class="[btnClass, { running }]"
+    :class="[btnClass, { running, disabled }]"
     :title="title"
     @click.stop="$emit('action')"
   >
@@ -21,6 +21,7 @@ defineProps({
   title: { type: String, default: "" },
   count: { type: Number, default: null },
   running: { type: Boolean, default: false },
+  disabled: { type: Boolean, default: false },
   btnClass: { type: [String, Object, Array], default: "" },
 });
 
@@ -114,6 +115,11 @@ defineEmits(["action"]);
 
 @keyframes git-action-spin {
   to { transform: rotate(360deg); }
+}
+
+.git-action-btn.disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .git-action-count:empty {
