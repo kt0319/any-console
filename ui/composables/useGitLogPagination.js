@@ -67,7 +67,6 @@ export function useGitLogPagination() {
         console.error("git log loadMore failed:", e);
       } finally {
         isLoadingMoreHistory.value = false;
-        nextTick(() => onHistoryListScroll());
       }
     });
   }
@@ -75,7 +74,9 @@ export function useGitLogPagination() {
   function onHistoryListScroll() {
     if (!hasMoreHistory.value || isHistoryLoading.value || isLoadingMoreHistory.value) return;
     const el = historyListEl.value;
-    if (!el) return;
+    // 非表示・未レイアウト時は scrollHeight/clientHeight が 0 になり、
+    // 常に「最下部」と誤判定して loadMore を連打してしまうため除外する。
+    if (!el || el.clientHeight <= 0) return;
     const threshold = INFINITE_SCROLL_THRESHOLD_PX;
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - threshold) {
       loadMoreHistory();

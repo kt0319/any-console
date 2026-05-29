@@ -24,6 +24,7 @@
               :title="branch.current ? 'Pull' : 'Switch to this branch to pull'"
               :count="branch.behind || null"
               :disabled="!branch.current"
+              :running="isRunning(workspaceStore.selectedWorkspace, 'pull')"
               :btn-class="'pull-btn has-count'"
               @action="pullBranch(branch)"
             />

@@ -210,6 +210,8 @@ function updateViewTitle() {
 
 
 let loadedWorkspace = null;
+let historyLoadedFor = null;
+let filesLoadedFor = null;
 
 function handleBack() {
   if (activePane.value === "history" && gitHistory.value?.hasExpanded?.()) {
@@ -278,17 +280,16 @@ function open(options) {
   const workspaceChanged = workspace !== loadedWorkspace;
   if (workspaceChanged) {
     rssNewItemCounts.value = {};
+    // History(git-log) / Files は表示ペインを開いた時に遅延ロードする。
+    historyLoadedFor = null;
+    filesLoadedFor = null;
   }
   loadRssFeeds().then(() => checkRssUpdates());
 
   if (workspaceChanged) {
     loadedWorkspace = workspace;
-    gitHistory.value?.load();
-  } else {
-    gitHistory.value?.reload();
   }
 
-  if (workspaceChanged) fileBrowser.value?.load();
   switchPane(resolvedPane);
 }
 
@@ -301,7 +302,13 @@ async function switchPane(key) {
   updateViewTitle();
 
   if (key === "history") {
-    // GitHistory は v-show で常時マウント済み
+    // GitHistory は v-show で常時マウント済み。表示時に未ロードならロード（git-log の無駄打ち防止）
+    nextTick(() => {
+      if (historyLoadedFor !== workspaceStore.selectedWorkspace) {
+        historyLoadedFor = workspaceStore.selectedWorkspace;
+        gitHistory.value?.load();
+      }
+    });
   } else if (key === "changes") {
     nextTick(() => gitFiles.value?.loadWorkingTreeDiff());
   } else if (key === "branch") {
@@ -314,7 +321,13 @@ async function switchPane(key) {
   } else if (key === "jobs") {
     nextTick(() => jobsPane.value?.load());
   } else if (key === "files") {
-    // FileBrowser は v-show で常時マウント済み。open() のワークスペース変更時のみロード
+    // FileBrowser は v-show で常時マウント済み。表示時に未ロードならロード
+    nextTick(() => {
+      if (filesLoadedFor !== workspaceStore.selectedWorkspace) {
+        filesLoadedFor = workspaceStore.selectedWorkspace;
+        fileBrowser.value?.load();
+      }
+    });
   }
   // issues/actions/prs/rss-* は v-if + onMounted で自動ロード
 }
@@ -440,12 +453,18 @@ const _offHandlers = [
     activePane.value = "files";
     selectedDiffFile.value = "";
     diffMessage.value = "";
+    filesLoadedFor = workspaceStore.selectedWorkspace;
     updateViewTitle();
     nextTick(() => fileBrowser.value?.navigateToPath(path));
   }),
 
   on("git:commitDone", () => {
-    gitHistory.value?.reload();
+    // History を表示中なら再取得、そうでなければ次に開いた時に再取得させる。
+    if (activePane.value === "history") {
+      gitHistory.value?.reload();
+    } else {
+      historyLoadedFor = null;
+    }
   }),
 
   on("git:checkoutBranch", async ({ branch, remote }) => {
