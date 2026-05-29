@@ -67,11 +67,6 @@ export function useTerminal() {
         try { tab.term?.refresh(0, tab.term.rows - 1); } catch {}
       }
       terminalStore.setTabFlag(tab.id, "reconnecting", false);
-      if (tab._initialCommand && tab._waitingInitialCommand) {
-        tab._waitingInitialCommand = false;
-        ws.send(new TextEncoder().encode(tab._initialCommand + "\n"));
-        tab._initialCommand = null;
-      }
       if (tab.term && terminalStore.activeTabId === tab.id && opts.focus !== false) {
         tab.term.focus();
       }

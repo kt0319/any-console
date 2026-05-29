@@ -116,6 +116,121 @@ class TestTerminalSessionMetadata:
         assert matched[0]["job_label"] == "My Job"
 
 
+class TestTerminalCommandInjection:
+    """terminal ジョブの command をサーバ側 send-keys で投入する挙動。"""
+
+    @pytest.fixture()
+    def captured_keys(self, monkeypatch):
+        """send-keys 呼び出しを捕捉し、実 tmux への注入とペイン待ちを抑止する。"""
+        calls = []
+
+        def fake_send(session_name, text, *, enter=True):
+            calls.append({"session": session_name, "text": text, "enter": enter})
+            return True
+
+        monkeypatch.setattr("api.routers.job_runner.send_keys_to_tmux", fake_send)
+        monkeypatch.setattr("api.routers.job_runner.wait_pane_ready", lambda *a, **k: True)
+        return calls
+
+    def test_no_command_does_not_inject(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "terminal",
+            "workspace": "test-ws",
+        })
+        assert res.status_code == 200
+        assert captured_keys == []
+
+    def test_command_is_sent_server_side(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "terminal",
+            "workspace": "test-ws",
+            "command": "claude",
+        })
+        assert res.status_code == 200
+        assert len(captured_keys) == 1
+        assert captured_keys[0]["text"] == "claude"
+
+    def test_multiline_command_is_preserved(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "terminal",
+            "workspace": "test-ws",
+            "command": "echo a\necho b",
+        })
+        assert res.status_code == 200
+        # 複数行スクリプトはそのまま送る（改行は弾かない）
+        assert captured_keys[0]["text"] == "echo a\necho b"
+
+    def test_blank_command_is_ignored(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "terminal",
+            "workspace": "test-ws",
+            "command": "   ",
+        })
+        assert res.status_code == 200
+        assert captured_keys == []
+
+    def test_rejects_nul_byte(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "terminal",
+            "workspace": "test-ws",
+            "command": "claude\x00rm -rf /",
+        })
+        assert res.status_code == 400
+        assert captured_keys == []
+
+    def test_rejects_too_long_command(self, client, workspace, captured_keys):
+        from api.common import MAX_COMMAND_LENGTH
+        res = client.post("/run", headers=AUTH, json={
+            "job": "terminal",
+            "workspace": "test-ws",
+            "command": "x" * (MAX_COMMAND_LENGTH + 1),
+        })
+        assert res.status_code == 400
+        assert captured_keys == []
+
+    def test_placeholder_is_substituted_and_quoted(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "terminal",
+            "workspace": "test-ws",
+            "command": "claude {{prompt}}",
+            "command_vars": {"prompt": "fix the bug; rm -rf /"},
+        })
+        assert res.status_code == 200
+        # 値は shlex.quote され、シェルに解釈されない単一引数になる
+        assert captured_keys[0]["text"] == "claude 'fix the bug; rm -rf /'"
+
+    def test_multiple_placeholders(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "terminal",
+            "workspace": "test-ws",
+            "command": "run {{a}} --to {{b}}",
+            "command_vars": {"a": "x y", "b": "z"},
+        })
+        assert res.status_code == 200
+        assert captured_keys[0]["text"] == "run 'x y' --to z"
+
+    def test_unfilled_placeholder_is_left_as_is(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "terminal",
+            "workspace": "test-ws",
+            "command": "echo {{missing}}",
+            "command_vars": {},
+        })
+        assert res.status_code == 200
+        assert captured_keys[0]["text"] == "echo {{missing}}"
+
+    def test_substituted_command_length_is_enforced(self, client, workspace, captured_keys):
+        from api.common import MAX_COMMAND_LENGTH
+        res = client.post("/run", headers=AUTH, json={
+            "job": "terminal",
+            "workspace": "test-ws",
+            "command": "claude {{prompt}}",
+            "command_vars": {"prompt": "x" * (MAX_COMMAND_LENGTH + 1)},
+        })
+        assert res.status_code == 400
+        assert captured_keys == []
+
+
 class TestSessionState:
     def test_delete_with_pty_bridge(self, client, workspace, monkeypatch):
         """fd/pidセット済みセッション削除でdetach呼び出し"""

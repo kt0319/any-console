@@ -5,8 +5,10 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminal } from "./useTerminal.js";
 import { useToast } from "./useToast.js";
+import { usePrompt } from "./usePrompt.js";
 import { EP_RUN } from "../utils/endpoints.js";
 import { TERMINAL_JOB_KEY } from "../utils/constants.js";
+import { extractPlaceholders } from "../utils/placeholders.js";
 
 export function useTerminalLifecycle({ terminalBaseView }) {
   const auth = useAuthStore();
@@ -15,6 +17,25 @@ export function useTerminalLifecycle({ terminalBaseView }) {
   const workspaceStore = useWorkspaceStore();
   const { disconnectTerminal, deleteSession, connectTerminalWs } = useTerminal();
   const toast = useToast();
+  const { prompt } = usePrompt();
+
+  // コマンド内の {{name}} を起動時に入力させて値を集める。
+  // キャンセルされたら null を返し、起動を中止する。
+  async function collectCommandVars(command) {
+    const names = extractPlaceholders(command);
+    if (names.length === 0) return {};
+    const vars = {};
+    for (const name of names) {
+      const value = await prompt({
+        title: `Enter ${name}`,
+        placeholder: name,
+        confirmLabel: "Run",
+      });
+      if (value == null) return null;
+      vars[name] = value;
+    }
+    return vars;
+  }
 
   function focusTabTerminal(tabId) {
     const tab = terminalStore.openTabs.find((t) => t.id === tabId);
@@ -76,6 +97,8 @@ export function useTerminalLifecycle({ terminalBaseView }) {
 
   async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, jobIcon, jobIconColor, initialCommand, hidden }) {
     try {
+      const commandVars = await collectCommandVars(initialCommand);
+      if (commandVars === null) return; // プレースホルダー入力がキャンセルされた
       const res = await auth.apiFetch(EP_RUN, {
         method: "POST",
         body: {
@@ -85,6 +108,10 @@ export function useTerminalLifecycle({ terminalBaseView }) {
           icon_color: iconColor || null,
           job_name: jobName || null,
           job_label: jobLabel || null,
+          // コマンドはサーバ側で tmux に送り込む（ブラウザ未接続でも実行が走る）。
+          // {{name}} は command_vars の値で shlex.quote 置換される。
+          command: initialCommand || null,
+          command_vars: commandVars,
         },
       });
       if (!res || !res.ok) {
@@ -102,7 +129,6 @@ export function useTerminalLifecycle({ terminalBaseView }) {
         iconColor: jobIconColor,
         jobName,
         jobLabel,
-        initialCommand,
         restored: false,
         hidden,
       });

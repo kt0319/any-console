@@ -7,6 +7,7 @@
 import logging
 import re
 import secrets
+import shlex
 import subprocess
 
 from fastapi import APIRouter, Depends
@@ -16,6 +17,7 @@ from ..activity import log_activity
 from ..auth import verify_token
 from ..common import (
     JOB_TIMEOUT_SEC,
+    MAX_COMMAND_LENGTH,
     MAX_TERMINAL_SESSIONS,
     TMUX_SESSION_PREFIX,
     resolve_workspace_path,
@@ -30,7 +32,7 @@ from ..terminal_session import (
     TerminalSession,
     sessions_lock,
 )
-from ..tmux import create_tmux_session
+from ..tmux import create_tmux_session, send_keys_to_tmux, wait_pane_ready
 from .jobs_common import get_workspace_jobs
 
 logger = logging.getLogger(__name__)
@@ -46,6 +48,8 @@ class RunRequest(BaseModel):
     icon_color: str | None = None
     job_name: str | None = None
     job_label: str | None = None
+    command: str | None = None
+    command_vars: dict[str, str] = {}
 
 
 def _validate_job_args(job_def, body_args, ws_path):
@@ -74,7 +78,48 @@ def _validate_job_args(job_def, body_args, ws_path):
     return ordered_args
 
 
+_PLACEHOLDER_RE = re.compile(r"\{\{\s*([A-Za-z0-9_]+)\s*\}\}")
+
+
+def _substitute_placeholders(command: str | None, command_vars: dict[str, str]) -> str | None:
+    """コマンド内の {{name}} を command_vars の値で置換する。
+
+    値は shlex.quote で 1 個の安全な引数にする（シェルへ解釈させない）。
+    未指定の {{name}} はそのまま残す（呼び出し側が全て埋める前提）。
+    """
+    if not command or not command_vars:
+        return command
+
+    def repl(m: re.Match) -> str:
+        name = m.group(1)
+        if name in command_vars:
+            return shlex.quote(command_vars[name])
+        return str(m.group(0))
+
+    return _PLACEHOLDER_RE.sub(repl, command)
+
+
+def _validate_terminal_command(command: str | None) -> str | None:
+    """ターミナルへ自動投入するコマンドを検証する。
+
+    複数行シェルスクリプトを許容するため改行は通すが、NUL は send-keys
+    （subprocess 引数）に渡せないので弾く。空文字列は None とみなす。
+    """
+    if not command:
+        return None
+    command = command.strip()
+    if not command:
+        return None
+    if len(command) > MAX_COMMAND_LENGTH:
+        raise bad_request("Command is too long")
+    if "\x00" in command:
+        raise bad_request("Invalid characters in command")
+    return command
+
+
 def _create_terminal_session(body, ws_path):
+    command = _substitute_placeholders(body.command, body.command_vars)
+    command = _validate_terminal_command(command)
     with sessions_lock:
         if len(TERMINAL_SESSIONS) >= MAX_TERMINAL_SESSIONS:
             raise too_many_requests(
@@ -108,6 +153,17 @@ def _create_terminal_session(body, ws_path):
     session.save_metadata()
     logger.info("terminal session created session=%s tmux=%s workspace=%s",
                  session_id, tmux_name, body.workspace or "(none)")
+
+    # コマンドはサーバ側で送り込む。ブラウザ接続を待たずにセッション内で実行が
+    # 始まるため、接続前に閉じても／無接続でも走り続ける（自動実行）。
+    # シェル起動直後の取りこぼしを避けるためペイン準備を短時間待つ。
+    if command:
+        wait_pane_ready(tmux_name)
+        if not send_keys_to_tmux(tmux_name, command):
+            logger.warning("autorun send-keys failed session=%s", session_id)
+        log_activity(body.workspace, "terminal_run",
+                     job=body.job_name or sanitize_log_value(command[:80]))
+
     return {
         "status": "ok",
         "session_id": session_id,
