@@ -49,21 +49,13 @@
               :btn-class="branch.upstream ? 'push-btn has-count' : 'upstream-btn'"
               @action="pushBranch(branch)"
             />
-            <template v-if="linkedWorktree(branch)">
-              <button
-                type="button"
-                class="commit-action-item commit-action-danger"
-                title="Remove worktree"
-                @click="removeWorktree(linkedWorktree(branch))"
-              >Remove WT</button>
-            </template>
             <button
-              v-else-if="!branch.current"
+              v-if="linkedWorktree(branch)"
               type="button"
-              class="commit-action-item"
-              title="Create worktree for this branch"
-              @click="createWorktreeForBranch(branch)"
-            >+WT</button>
+              class="commit-action-item commit-action-danger"
+              title="Remove worktree"
+              @click="removeWorktree(linkedWorktree(branch))"
+            >Remove WT</button>
             <button
               v-if="!branch.current && !worktreeByBranch[branch.name]"
               type="button"
@@ -259,10 +251,6 @@ async function createWorktreeNew() {
   });
   if (!branch) return;
   await doCreateWorktree(branch);
-}
-
-function createWorktreeForBranch(branch) {
-  return doCreateWorktree(branch.name);
 }
 
 async function removeWorktree(wt) {
