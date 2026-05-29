@@ -3,7 +3,6 @@ import { ref, reactive, markRaw } from "vue";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
-import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { LINK_TAP_RESET_MS } from "../utils/constants.js";
 import { LS_KEY_TERMINAL_SETTINGS, LS_KEY_ACTIVE_SESSION } from "../utils/constants.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
@@ -68,9 +67,6 @@ export const useTerminalStore = defineStore("terminal", () => {
   function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, initialCommand, restored, hidden }) {
     const opts = getTerminalRuntimeOptions();
     const term = new Terminal({ ...opts, allowProposedApi: true });
-    const unicode11Addon = new Unicode11Addon();
-    term.loadAddon(unicode11Addon);
-    term.unicode.activeVersion = "11";
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.loadAddon(new WebLinksAddon((e, uri) => {
