@@ -48,9 +48,13 @@ __all__ = [
 def list_all_workspace_jobs():
     all_config = load_all_config()
     common_jobs_data = all_config.get(GLOBAL_CONFIG_KEY, {}).get("jobs", {})
+    entries = list(iter_workspace_entries_from(all_config))
+    # worktree はベースのワークスペースとジョブを共有するため、表示名→jobs を引けるようにする。
+    jobs_by_name = {(entry.get("name") or ws_id): entry.get("jobs", {}) for ws_id, entry in entries}
     result = {}
-    for ws_id, entry in sorted(iter_workspace_entries_from(all_config)):
-        ws_jobs_data = entry.get("jobs", {})
+    for ws_id, entry in sorted(entries):
+        base = entry.get("worktree_base")
+        ws_jobs_data = jobs_by_name[base] if base and base in jobs_by_name else entry.get("jobs", {})
         merged = {}
         for is_common, jobs_data in [(True, common_jobs_data), (False, ws_jobs_data)]:
             for jname, jentry in jobs_data.items():

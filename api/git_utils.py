@@ -305,6 +305,74 @@ def git_branches(directory: Path) -> list[str]:
     return []
 
 
+def _apply_worktree_attr(current: dict[str, Any], line: str) -> None:
+    if line.startswith("HEAD "):
+        current["head"] = line[len("HEAD "):]
+    elif line.startswith("branch "):
+        current["branch"] = line[len("branch "):].removeprefix("refs/heads/")
+    elif line == "detached":
+        current["detached"] = True
+    elif line == "bare":
+        current["bare"] = True
+    elif line.startswith("locked"):
+        current["locked"] = True
+
+
+def parse_worktree_porcelain(output: str) -> list[dict[str, Any]]:
+    """`git worktree list --porcelain` の出力をパースする純粋関数。
+
+    各 worktree はブロック（空行区切り）で、先頭が `worktree <path>`。
+    `branch refs/heads/<name>` / `detached` / `bare` / `locked` を解釈する。
+    """
+    worktrees: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    for line in output.splitlines():
+        if not line.strip():
+            if current is not None:
+                worktrees.append(current)
+                current = None
+        elif line.startswith("worktree "):
+            if current is not None:
+                worktrees.append(current)
+            current = {"path": line[len("worktree "):], "branch": None,
+                       "head": None, "bare": False, "detached": False, "locked": False}
+        elif current is not None:
+            _apply_worktree_attr(current, line)
+    if current is not None:
+        worktrees.append(current)
+    return worktrees
+
+
+def linked_worktree_main_path(directory: Path) -> Path | None:
+    """directory が linked worktree なら、メイン作業ツリーのパスを返す。
+
+    linked worktree では `--git-dir`（<main>/.git/worktrees/<id>）と
+    `--git-common-dir`（<main>/.git）が異なる。メイン作業ツリーは common-dir の親。
+    メイン作業ツリーや非リポジトリでは None。
+    """
+    out = _run_git_query(["rev-parse", "--git-dir", "--git-common-dir"], directory)
+    if not out:
+        return None
+    lines: list[str] = [s.strip() for s in out.strip().splitlines() if s.strip()]
+    if len(lines) < 2:
+        return None
+    git_dir = (directory / lines[0]).resolve()
+    common_dir = (directory / lines[1]).resolve()
+    if git_dir == common_dir:
+        return None
+    if common_dir.name == ".git":
+        return common_dir.parent
+    return None
+
+
+def git_worktree_list(directory: Path) -> list[dict[str, Any]]:
+    out = _run_git_query(["worktree", "list", "--porcelain"], directory)
+    if out is None:
+        logger.warning("git_worktree_list failed dir=%s", directory)
+        return []
+    return parse_worktree_porcelain(out)
+
+
 def git_remote_branches(directory: Path) -> list[str]:
     try:
         run_git_raw(["fetch", "--prune"], directory, timeout=GIT_STANDARD_TIMEOUT_SEC)
