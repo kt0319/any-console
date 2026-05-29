@@ -132,8 +132,8 @@
 - **Status**: Accepted
 - **Date**: 2026-05
 - **Context**: 同一リポジトリで複数の作業（特に並行して走らせるエージェント）を干渉なく進めたい。clone を増やすとディスク・fetch コストとリポジトリ管理が煩雑になる。
-- **Decision**: ベースリポジトリから `git worktree add` で作業ツリーを作り、そのパスを通常のワークスペースとして config.json に登録する。作業ツリーはメイン作業ツリーの兄弟 `<repo>.worktrees/<safe-branch>` に配置する。worktree 一覧・作成・削除は `/workspaces/{name}/worktrees` で提供し、作成後は既存のワークスペース切り替え（ターミナル起動）でそのまま開ける。削除はメイン作業ツリーを除外し、対象がこのリポジトリの worktree であることを検証してから行う。
-- **Consequences**: 作業ツリー＝ワークスペースなので、既存のステータスポーリング（dirty/branch/ahead）やタブの編集済みマークがそのまま各 worktree の進捗シグナルになる。ブランチは worktree 削除後も残す（成果を失わない）。ワークスペース名は表示名パターンに合わせて `<repo>-<branch>` へサニタイズするため、`/` は `-` に変換される。
+- **Decision**: ベースリポジトリから `git worktree add` で作業ツリーを作り、そのパスを通常のワークスペースとして config.json に登録する。作業ツリーはメイン作業ツリーの兄弟 `<repo>.worktrees/<safe-branch>` に配置する。worktree 一覧・作成・削除は `/workspaces/{name}/worktrees` で提供し、作成後は既存のワークスペース切り替え（ターミナル起動）でそのまま開ける。削除はメイン作業ツリーを除外し、対象がこのリポジトリの worktree であることを検証してから行う。UI は専用タブを設けず、Branches タブ（`GitChangeBranch.vue`）に統合する（worktree は「別の作業ツリーにチェックアウトされたブランチ」なので、ブランチ一覧の各行で worktree の有無・作成・open・削除を扱う）。worktree であることは config に `worktree`/`worktree_base`/`worktree_branch` を保持し、`/workspaces` 一覧で公開して、ワークスペースピッカーとターミナルタブにマーカー表示する。
+- **Consequences**: 作業ツリー＝ワークスペースなので、既存のステータスポーリング（dirty/branch/ahead）やタブの編集済みマークがそのまま各 worktree の進捗シグナルになる。ブランチは worktree 削除後も残す（成果を失わない）。ワークスペース名は表示名パターンに合わせて `<repo>-<branch>` へサニタイズするため、`/` は `-` に変換される。worktree を持つブランチをタップすると in-place checkout ではなくその worktree のワークスペースへ切り替わる。
 - **Alternatives considered**: clone を都度作る — ディスク・fetch コストと管理が重い。worktree を独自概念として別管理する — 既存のワークスペース機構（一覧・切替・ステータス）を再利用できず実装・UI が二重化する。
 
 ---

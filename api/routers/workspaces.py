@@ -74,6 +74,10 @@ def _workspace_summary(item):
     }
     if github_url:
         info["github_url"] = github_url
+    if config.get("worktree"):
+        info["worktree"] = True
+        info["worktree_base"] = config.get("worktree_base", "")
+        info["worktree_branch"] = config.get("worktree_branch", "")
     return info
 
 

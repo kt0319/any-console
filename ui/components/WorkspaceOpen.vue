@@ -34,8 +34,14 @@
             <button type="button" class="picker-ws-header-label" @click="!settingsMode && (isExpanded(ws.name) ? openDetail(ws) : toggleExpand(ws))">
               <span v-html="renderIconStr(ws.icon || 'mdi-console', ws.icon_color, 18)"></span>
               <span class="picker-ws-header-text">
-                <span class="picker-ws-name">{{ ws.name }}</span>
-                <span v-if="!settingsMode" class="picker-ws-branch">{{ ws.branch || '-' }}</span>
+                <span class="picker-ws-name">
+                  <span v-if="ws.worktree" class="mdi mdi-file-tree picker-ws-wt-icon" aria-label="worktree" data-tooltip="worktree"></span>
+                  {{ ws.name }}
+                </span>
+                <span v-if="!settingsMode" class="picker-ws-branch">
+                  <template v-if="ws.worktree">worktree · {{ ws.worktree_base }} · {{ ws.branch || ws.worktree_branch || '-' }}</template>
+                  <template v-else>{{ ws.branch || '-' }}</template>
+                </span>
               </span>
             </button>
             <button v-if="settingsMode" type="button" class="picker-ws-edit-btn" title="Edit" @click.stop="openEditWs(ws)">
@@ -351,6 +357,12 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
+}
+
+.picker-ws-wt-icon {
+  font-size: 13px;
+  color: var(--accent);
+  margin-right: 2px;
 }
 
 .picker-ws-branch {
