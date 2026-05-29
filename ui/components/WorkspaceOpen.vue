@@ -289,10 +289,6 @@ onBeforeUnmount(() => {
   padding-bottom: 4px;
 }
 
-.picker-ws-row-bottom {
-  padding: 4px 12px 14px;
-}
-
 .picker-ws-header-label {
   flex: 1;
   min-width: 0;
@@ -440,69 +436,8 @@ onBeforeUnmount(() => {
   line-height: 1;
 }
 
-.picker-ws-icons {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.picker-ws-icons-bottom {
-  flex: 1;
-  min-width: 0;
-  gap: 8px;
-  justify-content: flex-start;
-}
-
-.picker-ws-chevron {
-  font-size: 16px;
-  color: var(--text-muted);
-  flex-shrink: 0;
-  margin-left: 4px;
-}
-
-
-.picker-ws-icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  min-height: 34px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-size: 18px;
-  cursor: pointer;
-}
-
-.picker-ws-info-btn {
-  margin-left: auto;
-}
-
-
-.picker-ws-icon-btn.picker-ws-job-hidden {
-  border-style: dashed;
-}
-
 .picker-ws-group.is-hidden .picker-ws-header-label {
   opacity: 0.5;
-}
-
-.picker-ws-job-spacer {
-  width: 1px;
-  align-self: stretch;
-  margin: 4px 2px;
-  background: var(--border);
-  flex-shrink: 0;
-}
-
-.picker-ws-icon-btn .mdi {
-  font-size: 18px;
 }
 
 .picker-ws-mini-btn {
