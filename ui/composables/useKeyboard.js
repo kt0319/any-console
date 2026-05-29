@@ -1,6 +1,7 @@
 import { reactive } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useInputStore } from "../stores/input.js";
+import { useLayoutStore } from "../stores/layout.js";
 import {
   LONG_PRESS_MS, FLICK_THRESHOLD,
   REPEAT_DELAY, REPEAT_INTERVAL, MIN_REPEAT_INTERVAL, REPEAT_ACCELERATION,
@@ -11,8 +12,10 @@ const modifierState = reactive({ ctrl: false, shift: false });
 export function useKeyboard() {
   const terminalStore = useTerminalStore();
   const inputStore = useInputStore();
+  const layoutStore = useLayoutStore();
 
   function getActiveTerminalTab() {
+    if (layoutStore.dashboardActive) return null;
     const tabs = terminalStore.openTabs;
     const id = terminalStore.activeTabId;
     const tab = tabs.find((t) => t.id === id);
