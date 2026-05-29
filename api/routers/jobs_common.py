@@ -6,10 +6,8 @@
 import logging
 import secrets
 import time
-from pathlib import Path
 from typing import Any
 
-from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
 from ..common import (
