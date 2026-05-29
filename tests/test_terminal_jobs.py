@@ -188,6 +188,48 @@ class TestTerminalCommandInjection:
         assert res.status_code == 400
         assert captured_keys == []
 
+    def test_placeholder_is_substituted_and_quoted(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "terminal",
+            "workspace": "test-ws",
+            "command": "claude {{prompt}}",
+            "command_vars": {"prompt": "fix the bug; rm -rf /"},
+        })
+        assert res.status_code == 200
+        # 値は shlex.quote され、シェルに解釈されない単一引数になる
+        assert captured_keys[0]["text"] == "claude 'fix the bug; rm -rf /'"
+
+    def test_multiple_placeholders(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "terminal",
+            "workspace": "test-ws",
+            "command": "run {{a}} --to {{b}}",
+            "command_vars": {"a": "x y", "b": "z"},
+        })
+        assert res.status_code == 200
+        assert captured_keys[0]["text"] == "run 'x y' --to z"
+
+    def test_unfilled_placeholder_is_left_as_is(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "terminal",
+            "workspace": "test-ws",
+            "command": "echo {{missing}}",
+            "command_vars": {},
+        })
+        assert res.status_code == 200
+        assert captured_keys[0]["text"] == "echo {{missing}}"
+
+    def test_substituted_command_length_is_enforced(self, client, workspace, captured_keys):
+        from api.common import MAX_COMMAND_LENGTH
+        res = client.post("/run", headers=AUTH, json={
+            "job": "terminal",
+            "workspace": "test-ws",
+            "command": "claude {{prompt}}",
+            "command_vars": {"prompt": "x" * (MAX_COMMAND_LENGTH + 1)},
+        })
+        assert res.status_code == 400
+        assert captured_keys == []
+
 
 class TestSessionState:
     def test_delete_with_pty_bridge(self, client, workspace, monkeypatch):
