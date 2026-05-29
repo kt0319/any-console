@@ -36,12 +36,9 @@
               <span class="picker-ws-header-text">
                 <span class="picker-ws-name">
                   <span v-if="ws.worktree" class="mdi mdi-file-tree picker-ws-wt-icon" aria-label="worktree" data-tooltip="worktree"></span>
-                  {{ ws.name }}
+                  {{ ws.worktree ? workspaceDisplayName(ws) : ws.name }}
                 </span>
-                <span v-if="!settingsMode" class="picker-ws-branch">
-                  <template v-if="ws.worktree">worktree · {{ ws.worktree_base }} · {{ ws.branch || ws.worktree_branch || '-' }}</template>
-                  <template v-else>{{ ws.branch || '-' }}</template>
-                </span>
+                <span v-if="!settingsMode" class="picker-ws-branch">{{ ws.branch || '-' }}</span>
               </span>
             </button>
             <button v-if="settingsMode" type="button" class="picker-ws-edit-btn" title="Edit" @click.stop="openEditWs(ws)">
@@ -56,6 +53,19 @@
               </template>
               <span class="picker-ws-chevron mdi" :class="isExpanded(ws.name) ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
             </div>
+          </div>
+          <div v-if="!settingsMode && worktreesByBase[ws.name]?.length" class="picker-ws-worktrees">
+            <button
+              v-for="wt in worktreesByBase[ws.name]"
+              :key="wt.name"
+              type="button"
+              class="picker-ws-worktree-item"
+              @click="selectWorkspace(wt)"
+            >
+              <span class="mdi mdi-file-tree picker-ws-wt-child-icon"></span>
+              <span class="picker-ws-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
+              <span v-if="wt.clean === false" class="picker-ws-wt-dirty" aria-label="uncommitted changes"></span>
+            </button>
           </div>
           <div v-show="!settingsMode && isExpanded(ws.name)" class="picker-ws-row picker-ws-row-bottom">
             <div class="picker-ws-icons picker-ws-icons-bottom">
@@ -116,6 +126,7 @@ import { useJobLauncher } from "../composables/useJobLauncher.js";
 import { useWorkspaceJobsList } from "../composables/useWorkspaceJobsList.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { dirtyBadgeHtml } from "../utils/git.js";
+import { worktreeBranchLabel, workspaceDisplayName } from "../utils/worktree.js";
 import { emit } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import RecentJobsBar from "./RecentJobsBar.vue";
@@ -138,9 +149,24 @@ const expandedName = ref(null);
 const settingsMode = ref(false);
 const wsListEl = ref(null);
 
-const displayWorkspaces = computed(() => settingsMode.value
-  ? (workspaceStore.allWorkspaces || [])
-  : workspaceStore.visibleWorkspaces);
+// 非設定モードでは worktree をトップレベルから除外し、ベースワークスペースの下に入れ子で出す。
+// 設定モードは編集用なので全件をフラットに出す（worktree の表示/並び替え/削除も可能にする）。
+const displayWorkspaces = computed(() => {
+  if (settingsMode.value) return workspaceStore.allWorkspaces || [];
+  const list = workspaceStore.visibleWorkspaces;
+  const baseNames = new Set(list.filter((w) => !w.worktree).map((w) => w.name));
+  return list.filter((w) => !(w.worktree && w.worktree_base && baseNames.has(w.worktree_base)));
+});
+
+const worktreesByBase = computed(() => {
+  const map = {};
+  for (const ws of workspaceStore.visibleWorkspaces) {
+    if (ws.worktree && ws.worktree_base) {
+      (map[ws.worktree_base] ||= []).push(ws);
+    }
+  }
+  return map;
+});
 
 const { dragIdx, dragOffsetY, onDragStart, cleanup: cleanupDrag } = useWorkspaceDrag({
   items: displayWorkspaces,
@@ -365,6 +391,55 @@ onBeforeUnmount(() => {
   font-size: 13px;
   color: var(--accent);
   margin-right: 2px;
+}
+
+.picker-ws-worktrees {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 12px 8px 28px;
+}
+
+.picker-ws-worktree-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  border-left: 2px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  min-height: 0;
+}
+
+.picker-ws-wt-child-icon {
+  font-size: 13px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.picker-ws-worktree-branch {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-ws-wt-dirty {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f5a623;
+  flex-shrink: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .picker-ws-worktree-item:hover {
+    background: var(--bg-tertiary);
+  }
 }
 
 .picker-ws-branch {

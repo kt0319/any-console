@@ -126,6 +126,7 @@ import { useToast } from "../composables/useToast.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import GitActionBtn from "./GitActionBtn.vue";
+import { worktreeBranchLabel } from "../utils/worktree.js";
 import { emit } from "../app-bridge.js";
 
 const branchEmit = defineEmits(["count"]);
@@ -249,7 +250,7 @@ async function doCreateWorktree(branchName) {
     await workspaceStore.fetchWorkspaces();
     await loadWorktrees();
     if (created?.name) {
-      toast.success(`Worktree "${created.branch}" created (${created.name})`);
+      toast.success(`Worktree ${worktreeBranchLabel(created.branch)} created`);
       switchToWorkspace(created.name);
     }
   });
