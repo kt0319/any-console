@@ -440,6 +440,11 @@ async function onFeedRemoved(feedId) {
 }
 
 const _offHandlers = [
+  on("worktree:open", ({ name, pane } = {}) => {
+    if (name) workspaceStore.selectedWorkspace = name;
+    open({ pane: pane || "jobs" });
+  }),
+
   on("git:selectDirty", () => {
     selectedDiffFile.value = "";
     diffMessage.value = "";

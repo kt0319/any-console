@@ -14,14 +14,11 @@ from pydantic import BaseModel
 from ..auth import verify_token
 from ..common import (
     GIT_LONG_TIMEOUT_SEC,
-    generate_workspace_id,
     resolve_workspace_path,
 )
 from ..config import (
-    delete_workspace_config,
     list_workspace_entries,
     load_workspace_config,
-    save_workspace_config,
 )
 from ..errors import bad_request, conflict, not_found
 from ..git_lock import workspace_write_lock
@@ -32,7 +29,7 @@ from ..git_utils import (
     invalidate_git_info,
     run_git_command,
 )
-from ..validators import validate_branch_name, validate_workspace_name
+from ..validators import validate_branch_name
 
 logger = logging.getLogger(__name__)
 
@@ -136,32 +133,14 @@ def create_worktree(name: str, body: CreateWorktreeRequest):
         if result["exit_code"] != 0:
             raise bad_request(result["stderr"].strip() or "Failed to create worktree")
 
-        # 新しい作業ツリーをワークスペースとして登録する。
         base_config = load_workspace_config(name)
-        display_name = validate_workspace_name(_sanitize_segment(f"{repo_name}-{branch}"))
-        entries = list_workspace_entries()
-        for entry in entries.values():
-            if entry.get("name") == display_name:
-                raise conflict(f"'{display_name}' is already registered")
-        new_id = generate_workspace_id()
-        while new_id in entries:
-            new_id = generate_workspace_id()
         base_display = base_config.get("name") or name
-        save_workspace_config(new_id, {
-            "name": display_name,
-            "path": str(target),
-            "icon": base_config.get("icon", ""),
-            "icon_color": base_config.get("icon_color", ""),
-            "worktree": True,
-            "worktree_base": base_display,
-            "worktree_branch": branch,
-        })
-        logger.info("worktree created repo=%s branch=%s path=%s workspace=%s",
-                    name, branch, target, display_name)
+        display_name = f"{base_display} [{branch}]"
+        logger.info("worktree created repo=%s branch=%s path=%s", name, branch, target)
 
     return {
         "status": "ok",
-        "workspace": {"id": new_id, "name": display_name, "path": str(target), "branch": branch},
+        "workspace": {"name": display_name, "path": str(target), "branch": branch},
     }
 
 
@@ -198,17 +177,6 @@ def delete_worktree(name: str, body: DeleteWorktreeRequest):
         invalidate_git_info(name)
         if result["exit_code"] != 0:
             raise bad_request(result["stderr"].strip() or "Failed to remove worktree")
-
-        # 対応するワークスペース登録を解除する。
-        for entry in list_workspace_entries().values():
-            entry_path = entry.get("path", "")
-            try:
-                same = entry_path and Path(entry_path).resolve() == target_resolved
-            except OSError:
-                same = entry_path == str(target)
-            if same and entry.get("name"):
-                delete_workspace_config(entry["name"])
-                break
         logger.info("worktree removed repo=%s path=%s", name, body.path)
 
     return {"status": "ok"}

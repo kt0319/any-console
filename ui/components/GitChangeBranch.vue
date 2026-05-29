@@ -20,9 +20,8 @@
         >
           <div class="branch-item-name">
             <span
-              v-if="worktreeByBranch[branch.name]"
+              v-if="linkedWorktree(branch)"
               class="mdi mdi-file-tree branch-worktree-icon"
-              :class="{ 'is-main': worktreeByBranch[branch.name].is_main }"
               aria-label="Has worktree"
               data-tooltip="Has worktree"
             ></span>
@@ -237,8 +236,8 @@ async function doCreateWorktree(branchName) {
     await workspaceStore.fetchWorkspaces();
     await loadBranchList();
     if (created?.name) {
-      // 作成時は自動でターミナルを開かず、Branches タブに留まる。
       toast.success(`Worktree ${worktreeBranchLabel(created.branch)} created`);
+      emit("worktree:open", { name: created.name, pane: "jobs" });
     }
   });
 }
