@@ -312,7 +312,8 @@ button:disabled {
 }
 
 .git-ref {
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 2px;
@@ -321,6 +322,9 @@ button:disabled {
   padding: 2px 6px;
   border-radius: 3px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
   line-height: 1;
 }
 
