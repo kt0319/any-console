@@ -55,17 +55,26 @@
             </div>
           </div>
           <div v-if="!settingsMode && worktreesByBase[ws.name]?.length" class="picker-ws-worktrees">
-            <button
+            <div
               v-for="wt in worktreesByBase[ws.name]"
               :key="wt.name"
-              type="button"
               class="picker-ws-worktree-item"
-              @click="selectWorkspace(wt)"
             >
-              <span class="mdi mdi-file-tree picker-ws-wt-child-icon"></span>
-              <span class="picker-ws-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
-              <span v-if="wt.clean === false" class="picker-ws-wt-dirty" aria-label="uncommitted changes"></span>
-            </button>
+              <button type="button" class="picker-ws-worktree-open" @click="selectWorkspace(wt)">
+                <span class="mdi mdi-file-tree picker-ws-wt-child-icon"></span>
+                <span class="picker-ws-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
+                <span v-if="wt.clean === false" class="picker-ws-wt-dirty" aria-label="uncommitted changes"></span>
+              </button>
+              <button
+                type="button"
+                class="picker-ws-worktree-del"
+                aria-label="Remove worktree"
+                data-tooltip="Remove worktree"
+                @click.stop="removeWorktree(ws, wt)"
+              >
+                <span class="mdi mdi-delete-outline"></span>
+              </button>
+            </div>
           </div>
           <div v-show="!settingsMode && isExpanded(ws.name)" class="picker-ws-row picker-ws-row-bottom">
             <div class="picker-ws-icons picker-ws-icons-bottom">
@@ -122,6 +131,8 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { useApi } from "../composables/useApi.js";
+import { useConfirm } from "../composables/useConfirm.js";
+import { useToast } from "../composables/useToast.js";
 import { useJobLauncher } from "../composables/useJobLauncher.js";
 import { useWorkspaceJobsList } from "../composables/useWorkspaceJobsList.js";
 import { renderIconStr } from "../utils/render-icon.js";
@@ -139,7 +150,9 @@ modalTitle.value = "Workspaces";
 
 const workspaceStore = useWorkspaceStore();
 const layoutStore = useLayoutStore();
-const { apiPut, wsEndpoint } = useApi();
+const { apiPut, apiDelete, wsEndpoint } = useApi();
+const { confirm } = useConfirm();
+const toast = useToast();
 const { gitAction, isRunning } = useGitRemoteAction();
 const { recentJobs, loadRecentJobs } = useRecentJobs();
 const { runJob, runRecentJob } = useJobLauncher();
@@ -244,6 +257,19 @@ async function loadWorkspaceOverview() {
 function openDetail(ws) {
   workspaceStore.selectedWorkspace = ws.name;
   pushView("WorkspaceDetail", { detail: {} });
+}
+
+async function removeWorktree(base, wt) {
+  const label = worktreeBranchLabel(wt.worktree_branch || wt.branch) || wt.name;
+  if (!await confirm(`Remove worktree "${label}"? The working tree directory will be deleted. This cannot be undone.`)) return;
+  const { ok } = await apiDelete(wsEndpoint(base.name, "worktrees"), {
+    body: { path: wt.path },
+    checkStatus: true,
+    errorMessage: "Failed to remove worktree",
+  });
+  if (!ok) return;
+  await workspaceStore.fetchWorkspaces();
+  toast.success("Worktree removed");
 }
 
 function selectWorkspace(ws) {
@@ -403,16 +429,38 @@ onBeforeUnmount(() => {
 .picker-ws-worktree-item {
   display: flex;
   align-items: center;
+  border-left: 2px solid var(--border);
+}
+
+.picker-ws-worktree-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
   gap: 6px;
   padding: 6px 8px;
   background: transparent;
   border: none;
-  border-left: 2px solid var(--border);
   color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
   text-align: left;
-  min-height: 0;
+}
+
+.picker-ws-worktree-del {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  flex-shrink: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
 }
 
 .picker-ws-wt-child-icon {
@@ -437,8 +485,12 @@ onBeforeUnmount(() => {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .picker-ws-worktree-item:hover {
+  .picker-ws-worktree-open:hover {
     background: var(--bg-tertiary);
+  }
+
+  .picker-ws-worktree-del:hover {
+    color: var(--error);
   }
 }
 

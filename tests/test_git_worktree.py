@@ -76,6 +76,30 @@ class TestWorktreeEndpoints:
         base = next(w for w in res.json() if w["name"] == "test-ws")
         assert base.get("worktree") is not True
 
+    def test_metadata_less_worktree_detected_at_runtime(self, client, git_workspace_with_commit, isolate_fs):
+        # メタデータ無しで登録された（古い作成を模した）worktree も検出される
+        import json
+        import subprocess
+        from pathlib import Path
+
+        repo = git_workspace_with_commit
+        wt_path = Path(str(repo) + ".worktrees") / "legacy"
+        subprocess.run(
+            ["git", "worktree", "add", str(wt_path), "-b", "legacy"],
+            cwd=repo, check=True, capture_output=True,
+        )
+        # worktree フラグ無しでワークスペース登録する
+        cfg_path = isolate_fs["config_file"]
+        config = json.loads(cfg_path.read_text(encoding="utf-8"))
+        config["legacy-ws"] = {"name": "legacy-ws", "path": str(wt_path)}
+        cfg_path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
+
+        res = client.get("/workspaces", headers=AUTH)
+        entry = next(w for w in res.json() if w["name"] == "legacy-ws")
+        assert entry["worktree"] is True
+        assert entry["worktree_base"] == "test-ws"
+        assert entry["worktree_branch"] == "legacy"
+
     def test_list_shows_worktrees(self, client, git_workspace_with_commit):
         client.post("/workspaces/test-ws/worktrees", headers=AUTH, json={"branch": "agent-2"})
         res = client.get("/workspaces/test-ws/worktrees", headers=AUTH)
