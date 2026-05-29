@@ -35,6 +35,9 @@
       <div v-if="activePane === 'branch'" class="file-modal-pane">
         <GitChangeBranch ref="gitBranch" @count="branchCount = $event" />
       </div>
+      <div v-if="activePane === 'worktree'" class="file-modal-pane">
+        <GitWorktree ref="gitWorktree" @count="worktreeCount = $event" />
+      </div>
       <div v-if="activePane === 'jobs'" class="file-modal-pane">
         <WorkspaceJobsPane ref="jobsPane" />
       </div>
@@ -95,6 +98,7 @@ import FileBrowser from "./FileBrowser.vue";
 import GitHistory from "./GitHistory.vue";
 import GitFiles from "./GitFiles.vue";
 import GitChangeBranch from "./GitChangeBranch.vue";
+import GitWorktree from "./GitWorktree.vue";
 import GitStash from "./GitStash.vue";
 import WorkspaceJobsPane from "./WorkspaceJobsPane.vue";
 import GitHubIssuesPane from "./GitHubIssuesPane.vue";
@@ -124,6 +128,7 @@ const fileBrowser = ref(null);
 const gitHistory = ref(null);
 const gitFiles = ref(null);
 const gitBranch = ref(null);
+const gitWorktree = ref(null);
 const gitStash = ref(null);
 const githubIssues = ref(null);
 const githubActions = ref(null);
@@ -144,6 +149,7 @@ const issuesCount = ref(null);
 const prsCount = ref(null);
 const stashCount = ref(null);
 const branchCount = ref(null);
+const worktreeCount = ref(null);
 const fileBrowserDeep = ref(false);
 const historyExpanded = ref(false);
 
@@ -190,6 +196,7 @@ const tabs = computed(() => {
     { key: "history", icon: "mdi-history", label: "History", iconColor: historyExpanded.value ? "var(--accent)" : "" },
     { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0 },
     { key: "branch", icon: "mdi-source-branch", label: "Branches", count: branchCount.value || 0 },
+    { key: "worktree", icon: "mdi-file-tree", label: "Worktrees", count: worktreeCount.value || 0 },
     { key: "stash", icon: "mdi-package-variant", label: "Stashes", count: stashCount.value || 0, hidden: !stashCount.value },
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !hasGithub.value || !issuesCount.value },
     { key: "actions", icon: "mdi-github", label: "Actions", hidden: !hasGithub.value },
@@ -316,6 +323,8 @@ async function switchPane(key) {
       gitBranch.value?.load();
       gitBranch.value?.backgroundFetch();
     });
+  } else if (key === "worktree") {
+    nextTick(() => gitWorktree.value?.load());
   } else if (key === "stash") {
     nextTick(() => gitStash.value?.load());
   } else if (key === "jobs") {
