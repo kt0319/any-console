@@ -143,6 +143,9 @@ import { emit } from "../app-bridge.js";
 
 const branchEmit = defineEmits(["count"]);
 
+// ワークスペースごとのリモートブランチキャッシュ（タブ再表示時に即復元）
+const _remoteCache = new Map();
+
 const { apiGet, apiCommand, apiDelete, wsEndpoint } = useApi();
 const { withWorkspace } = useWorkspace();
 const { confirm } = useConfirm();
@@ -218,9 +221,14 @@ async function loadBranchList() {
         upstream: b.upstream || null,
         gone: !!b.gone,
       }));
-      // ローカル更新時にリモート側もキャッシュ無効化
-      remoteBranches.value = [];
-      remoteLoaded.value = false;
+      const cached = _remoteCache.get(workspace);
+      if (cached) {
+        remoteBranches.value = cached;
+        remoteLoaded.value = true;
+      } else {
+        remoteBranches.value = [];
+        remoteLoaded.value = false;
+      }
     } catch (e) {
       console.error("branch load failed:", e);
     } finally {
@@ -246,10 +254,12 @@ async function loadRemoteBranches() {
       const { ok, data } = await apiGet(wsEndpoint(workspace, "branches/remote"));
       if (!ok) return;
       const localNames = new Set(localBranches.value.map((b) => b.name));
-      remoteBranches.value = (data || [])
+      const filtered = (data || [])
         .filter((b) => !localNames.has(b.name || b))
         .map((b) => ({ name: b.name || b, current: false, remote: true }));
+      remoteBranches.value = filtered;
       remoteLoaded.value = true;
+      _remoteCache.set(workspace, filtered);
     } catch (e) {
       console.error("remote branch load failed:", e);
     } finally {
@@ -349,6 +359,7 @@ async function deleteBranch(branch) {
     if (!await confirm(`Delete ${label}?`)) return;
     const { ok } = await apiCommand(wsEndpoint(workspace, "delete-branch"), { branch: branch.name, remote: branch.remote });
     if (!ok) return;
+    if (branch.remote) _remoteCache.delete(workspace);
     await loadBranchList();
     emit("git:commitDone");
     await fetchRemote();
