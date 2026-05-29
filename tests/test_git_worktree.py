@@ -62,6 +62,20 @@ class TestWorktreeEndpoints:
         names = {v.get("name") for k, v in config.items() if k != "__global__" and isinstance(v, dict)}
         assert data["workspace"]["name"] in names
 
+    def test_worktree_marked_in_workspace_list(self, client, git_workspace_with_commit):
+        created = client.post(
+            "/workspaces/test-ws/worktrees", headers=AUTH, json={"branch": "agent-wt"},
+        ).json()["workspace"]
+        res = client.get("/workspaces", headers=AUTH)
+        assert res.status_code == 200
+        entry = next(w for w in res.json() if w["name"] == created["name"])
+        assert entry["worktree"] is True
+        assert entry["worktree_base"] == "test-ws"
+        assert entry["worktree_branch"] == "agent-wt"
+        # 通常のワークスペース（ベース）は worktree フラグを持たない
+        base = next(w for w in res.json() if w["name"] == "test-ws")
+        assert base.get("worktree") is not True
+
     def test_list_shows_worktrees(self, client, git_workspace_with_commit):
         client.post("/workspaces/test-ws/worktrees", headers=AUTH, json={"branch": "agent-2"})
         res = client.get("/workspaces/test-ws/worktrees", headers=AUTH)

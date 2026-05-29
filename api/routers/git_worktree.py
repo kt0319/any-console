@@ -146,11 +146,15 @@ def create_worktree(name: str, body: CreateWorktreeRequest):
         new_id = generate_workspace_id()
         while new_id in entries:
             new_id = generate_workspace_id()
+        base_display = base_config.get("name") or name
         save_workspace_config(new_id, {
             "name": display_name,
             "path": str(target),
             "icon": base_config.get("icon", ""),
             "icon_color": base_config.get("icon_color", ""),
+            "worktree": True,
+            "worktree_base": base_display,
+            "worktree_branch": branch,
         })
         logger.info("worktree created repo=%s branch=%s path=%s workspace=%s",
                     name, branch, target, display_name)

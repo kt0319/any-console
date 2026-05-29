@@ -3,9 +3,14 @@
     <div class="modal-scroll-body" ref="branchListEl">
       <div class="branch-section-header">
         <span>LOCAL</span>
-        <button type="button" class="branch-section-add-btn" title="Create branch" @click="createBranch">
-          <span class="mdi mdi-plus"></span>
-        </button>
+        <span class="branch-section-actions">
+          <button type="button" class="branch-section-add-btn" title="Create worktree on a new branch" data-tooltip="New worktree" @click="createWorktreeNew">
+            <span class="mdi mdi-file-tree"></span>
+          </button>
+          <button type="button" class="branch-section-add-btn" title="Create branch" data-tooltip="New branch" @click="createBranch">
+            <span class="mdi mdi-plus"></span>
+          </button>
+        </span>
       </div>
         <div
           v-for="branch in localBranches"
@@ -14,6 +19,13 @@
           @click="selectBranch(branch)"
         >
           <div class="branch-item-name">
+            <span
+              v-if="worktreeByBranch[branch.name]"
+              class="mdi mdi-file-tree branch-worktree-icon"
+              :class="{ 'is-main': worktreeByBranch[branch.name].is_main }"
+              aria-label="Has worktree"
+              data-tooltip="Has worktree"
+            ></span>
             {{ branch.name }}
             <span v-if="branch.current"> ✓</span>
           </div>
@@ -36,8 +48,29 @@
               :btn-class="branch.upstream ? 'push-btn has-count' : 'upstream-btn'"
               @action="pushBranch(branch)"
             />
+            <template v-if="linkedWorktree(branch)">
+              <button
+                type="button"
+                class="commit-action-item"
+                title="Open worktree"
+                @click="openWorktree(linkedWorktree(branch))"
+              >Open</button>
+              <button
+                type="button"
+                class="commit-action-item commit-action-danger"
+                title="Remove worktree"
+                @click="removeWorktree(linkedWorktree(branch))"
+              >Remove WT</button>
+            </template>
             <button
-              v-if="!branch.current"
+              v-else-if="!branch.current"
+              type="button"
+              class="commit-action-item"
+              title="Create worktree for this branch"
+              @click="createWorktreeForBranch(branch)"
+            >+WT</button>
+            <button
+              v-if="!branch.current && !worktreeByBranch[branch.name]"
               type="button"
               class="commit-action-item commit-action-danger"
               @click="deleteBranch(branch)"
@@ -89,6 +122,7 @@ import { useApi } from "../composables/useApi.js";
 import { useWorkspace } from "../composables/useWorkspace.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { usePrompt } from "../composables/usePrompt.js";
+import { useToast } from "../composables/useToast.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import GitActionBtn from "./GitActionBtn.vue";
@@ -96,14 +130,29 @@ import { emit } from "../app-bridge.js";
 
 const branchEmit = defineEmits(["count"]);
 
-const { apiGet, apiCommand, wsEndpoint } = useApi();
+const { apiGet, apiCommand, apiDelete, wsEndpoint } = useApi();
 const { withWorkspace } = useWorkspace();
 const { confirm } = useConfirm();
 const { prompt } = usePrompt();
+const toast = useToast();
 const { gitAction, isRunning } = useGitRemoteAction();
 const workspaceStore = useWorkspaceStore();
 
 const localBranches = ref([]);
+const worktrees = ref([]);
+
+const worktreeByBranch = computed(() => {
+  const map = {};
+  for (const wt of worktrees.value) {
+    if (wt.branch) map[wt.branch] = wt;
+  }
+  return map;
+});
+
+function linkedWorktree(branch) {
+  const wt = worktreeByBranch.value[branch.name];
+  return wt && !wt.is_main ? wt : null;
+}
 const remoteBranches = ref([]);
 const remoteLoaded = ref(false);
 const isBranchListLoading = ref(false);
@@ -137,6 +186,15 @@ async function loadBranchList() {
       isBranchListLoading.value = false;
     }
   });
+  await loadWorktrees();
+}
+
+async function loadWorktrees() {
+  await withWorkspace(async (workspace) => {
+    const { ok, data } = await apiGet(wsEndpoint(workspace, "worktrees"));
+    if (!ok) return;
+    worktrees.value = data?.worktrees || [];
+  });
 }
 
 async function loadRemoteBranches() {
@@ -161,7 +219,68 @@ async function loadRemoteBranches() {
 
 function selectBranch(branch) {
   if (branch.current) return;
+  const wt = linkedWorktree(branch);
+  if (wt && wt.workspace) {
+    openWorktree(wt);
+    return;
+  }
   emit("git:checkoutBranch", { branch: branch.name, remote: branch.remote });
+}
+
+function switchToWorkspace(name) {
+  const ws = workspaceStore.allWorkspaces.find((w) => w.name === name);
+  emit("modal:close");
+  emit("terminal:launch", { workspace: name, icon: ws?.icon, iconColor: ws?.icon_color });
+}
+
+function openWorktree(wt) {
+  if (wt?.workspace) switchToWorkspace(wt.workspace);
+}
+
+async function doCreateWorktree(branchName) {
+  await withWorkspace(async (workspace) => {
+    const { ok, data } = await apiCommand(
+      wsEndpoint(workspace, "worktrees"),
+      { branch: branchName },
+      { errorMessage: "Failed to create worktree" },
+    );
+    if (!ok) return;
+    const created = data?.workspace;
+    await workspaceStore.fetchWorkspaces();
+    await loadWorktrees();
+    if (created?.name) {
+      toast.success(`Worktree "${created.branch}" created (${created.name})`);
+      switchToWorkspace(created.name);
+    }
+  });
+}
+
+async function createWorktreeNew() {
+  const branch = await prompt({
+    title: "New Worktree",
+    message: "Enter a branch name. A new working tree is created on this branch.",
+    placeholder: "feature/example",
+  });
+  if (!branch) return;
+  await doCreateWorktree(branch);
+}
+
+function createWorktreeForBranch(branch) {
+  return doCreateWorktree(branch.name);
+}
+
+async function removeWorktree(wt) {
+  await withWorkspace(async (workspace) => {
+    if (!await confirm(`Remove worktree "${wt.branch || wt.path}"? The working tree directory will be deleted. This cannot be undone.`)) return;
+    const { ok } = await apiDelete(
+      wsEndpoint(workspace, "worktrees"),
+      { body: { path: wt.path }, checkStatus: true, errorMessage: "Failed to remove worktree" },
+    );
+    if (!ok) return;
+    await workspaceStore.fetchWorkspaces();
+    await loadWorktrees();
+    toast.success("Worktree removed");
+  });
 }
 
 async function pushBranch(branch) {
@@ -370,6 +489,26 @@ defineExpose({ load: loadBranchList, backgroundFetch });
   font-size: 12px;
   cursor: pointer;
   flex-shrink: 0;
+}
+
+.branch-section-actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 4px;
+}
+
+.branch-section-actions .branch-section-add-btn {
+  margin-left: 0;
+}
+
+.branch-worktree-icon {
+  font-size: 13px;
+  margin-right: 4px;
+  color: var(--accent);
+}
+
+.branch-worktree-icon.is-main {
+  color: var(--text-muted);
 }
 
 @keyframes branch-spinner-spin {

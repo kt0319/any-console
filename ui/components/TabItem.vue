@@ -16,6 +16,7 @@
   >
     <span v-if="wsIconHtml" v-html="wsIconHtml"></span>
     <span v-if="iconHtml" v-html="iconHtml"></span>
+    <span v-if="isWorktree" class="mdi mdi-file-tree tab-worktree-icon" aria-label="worktree" data-tooltip="worktree"></span>
     <template v-if="!isPanelBottom">
       {{ label }}
       <span v-if="isDirty" class="tab-dirty-dot" aria-label="uncommitted changes"></span>
@@ -76,6 +77,12 @@ const isDirty = computed(() => {
   if (!props.tab.workspace) return false;
   const ws = workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace);
   return ws?.clean === false;
+});
+
+const isWorktree = computed(() => {
+  if (!props.tab.workspace) return false;
+  const ws = workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace);
+  return !!ws?.worktree;
 });
 
 const wsIconHtml = computed(() => {
@@ -289,6 +296,12 @@ onBeforeUnmount(() => {
   height: 6px;
   border-radius: 50%;
   background: #f5a623;
+  flex-shrink: 0;
+}
+
+.tab-worktree-icon {
+  font-size: 13px;
+  color: var(--accent);
   flex-shrink: 0;
 }
 
