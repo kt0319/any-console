@@ -10,6 +10,7 @@ from ..common import (
     BACKGROUND_FETCH_TIMEOUT_SEC,
     generate_workspace_id,
     run_subprocess_safe,
+    safe_resolve_str,
 )
 from ..config import (
     delete_workspace_config,
@@ -27,6 +28,7 @@ from ..git_utils import (
     git_info_to_status_dict,
     git_is_repo,
     git_worktree_list,
+    worktree_display_name,
 )
 from ..icons import normalize_icon
 from ..validators import validate_workspace_name
@@ -83,13 +85,22 @@ def _workspace_summary(item):
     return info
 
 
-def _dynamic_worktree_entries(existing_paths: set[str]) -> list[dict]:
+def _registered_workspace_paths() -> set[str]:
+    """登録済みワークスペースの解決済みパス集合。動的worktreeの重複判定に使う。"""
+    return {
+        safe_resolve_str(p)
+        for cfg in list_workspace_entries().values()
+        if (p := cfg.get("path"))
+    }
+
+
+def _dynamic_worktree_entries() -> list[dict]:
     """登録済みgitワークスペースのlinked worktreeをgitから動的に列挙する。
-    configに登録されていないworktreeのみを返す（既存パスはスキップ）。
+    configに登録されていないworktreeのみを返す（登録済みパスはスキップ）。
     """
-    entries = list_workspace_entries()
+    existing_paths = _registered_workspace_paths()
     result = []
-    for ws_id, config in entries.items():
+    for ws_id, config in list_workspace_entries().items():
         ws_path = Path(config.get("path", ""))
         if not ws_path.is_dir() or not git_is_repo(ws_path):
             continue
@@ -99,18 +110,12 @@ def _dynamic_worktree_entries(existing_paths: set[str]) -> list[dict]:
             if not wt_path_str:
                 continue
             wt_path = Path(wt_path_str)
-            if not wt_path.is_dir():
-                continue
-            try:
-                resolved = str(wt_path.resolve())
-            except OSError:
-                resolved = wt_path_str
-            if resolved in existing_paths:
+            if not wt_path.is_dir() or safe_resolve_str(wt_path) in existing_paths:
                 continue
             branch = wt.get("branch") or ""
             result.append({
                 "id": None,
-                "name": f"{base_name} [{branch}]",
+                "name": worktree_display_name(base_name, branch),
                 "path": wt_path_str,
                 "is_git_repo": True,
                 "branch": branch,
@@ -133,34 +138,21 @@ def list_workspaces():
     workspace_order = load_global_config_section("workspace_order", [])
     sorted_items = sorted(entries.items(), key=_sort_key_by_workspace_order(workspace_order))
     result = list(BACKGROUND_EXECUTOR.map(_workspace_summary, sorted_items))
-    existing_paths: set[str] = set()
-    for r in result:
-        try:
-            existing_paths.add(str(Path(r["path"]).resolve()))
-        except OSError:
-            existing_paths.add(r["path"])
-    result.extend(_dynamic_worktree_entries(existing_paths))
+    result.extend(_dynamic_worktree_entries())
     git_dirs = [Path(e.get("path", "")) for e in entries.values() if Path(e.get("path", "")).is_dir()]
     BACKGROUND_EXECUTOR.submit(_background_fetch, git_dirs)
     return result
-
 
 
 @router.get("/workspaces/statuses")
 def list_workspace_statuses():
     entries = list_workspace_entries()
     items = []
-    existing_paths: set[str] = set()
     for ws_id, config in entries.items():
         ws_path = Path(config.get("path", ""))
         if ws_path.is_dir() and git_is_repo(ws_path):
-            display_name = config.get("name") or ws_id
-            items.append((ws_path, display_name))
-            try:
-                existing_paths.add(str(ws_path.resolve()))
-            except OSError:
-                existing_paths.add(str(ws_path))
-    for wt in _dynamic_worktree_entries(existing_paths):
+            items.append((ws_path, config.get("name") or ws_id))
+    for wt in _dynamic_worktree_entries():
         items.append((Path(wt["path"]), wt["name"]))
 
     def _get_status(item):

@@ -15,6 +15,7 @@ from ..auth import verify_token
 from ..common import (
     GIT_LONG_TIMEOUT_SEC,
     resolve_workspace_path,
+    safe_resolve_str,
 )
 from ..config import (
     list_workspace_entries,
@@ -28,6 +29,7 @@ from ..git_utils import (
     git_worktree_list,
     invalidate_git_info,
     run_git_command,
+    worktree_display_name,
 )
 from ..validators import validate_branch_name
 
@@ -51,10 +53,7 @@ def _registered_paths() -> dict[str, str]:
         p = entry.get("path", "")
         if not p:
             continue
-        try:
-            result[str(Path(p).resolve())] = entry.get("name", "")
-        except OSError:
-            result[p] = entry.get("name", "")
+        result[safe_resolve_str(p)] = entry.get("name", "")
     return result
 
 
@@ -80,10 +79,7 @@ def list_worktrees(name: str):
     main_path = _main_worktree_path(worktrees)
     items = []
     for wt in worktrees:
-        try:
-            resolved = str(Path(wt["path"]).resolve())
-        except OSError:
-            resolved = wt["path"]
+        resolved = safe_resolve_str(wt["path"])
         is_main = main_path is not None and Path(wt["path"]) == main_path
         items.append({
             "path": wt["path"],
@@ -135,7 +131,7 @@ def create_worktree(name: str, body: CreateWorktreeRequest):
 
         base_config = load_workspace_config(name)
         base_display = base_config.get("name") or name
-        display_name = f"{base_display} [{branch}]"
+        display_name = worktree_display_name(base_display, branch)
         logger.info("worktree created repo=%s branch=%s path=%s", name, branch, target)
 
     return {

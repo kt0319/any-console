@@ -376,6 +376,11 @@ def git_worktree_list(directory: Path) -> list[dict[str, Any]]:
 _WORKTREE_NAME_RE = re.compile(r'^(.+?)\s+\[(.+)\]$')
 
 
+def worktree_display_name(base: str, branch: str) -> str:
+    """動的worktreeの表示名 '{base} [{branch}]' を組み立てる（_WORKTREE_NAME_RE の逆）。"""
+    return f"{base} [{branch}]"
+
+
 def find_dynamic_worktree_path(name: str) -> "Path | None":
     """'{base} [{branch}]' 形式の動的worktree名からパスを返す。configに登録されていないworktree用。"""
     m = _WORKTREE_NAME_RE.match(name)
