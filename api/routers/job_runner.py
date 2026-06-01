@@ -101,7 +101,7 @@ def _substitute_placeholders(command: str | None, command_vars: dict[str, str]) 
 
 def _strip_comment_lines(command: str) -> str:
     """先頭が # の行（コメント行）を除去する。"""
-    lines = [l for l in command.splitlines() if not re.match(r"^\s*#", l)]
+    lines = [line for line in command.splitlines() if not re.match(r"^\s*#", line)]
     return "\n".join(lines)
 
 
