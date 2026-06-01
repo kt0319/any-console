@@ -819,9 +819,6 @@ button.git-badge:disabled {
 }
 
 .picker-ws-group-inset {
-  padding-left: 12px;
-  border-left: 2px solid var(--border);
-  margin-left: 16px;
 }
 
 .ws-toolbar {
