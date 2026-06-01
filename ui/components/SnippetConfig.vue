@@ -12,7 +12,7 @@
       </button>
     </form>
 
-    <div class="snippet-list" ref="listEl">
+    <div class="snippet-list">
       <div
         v-for="(snippet, idx) in snippets"
         :key="idx"
@@ -119,16 +119,14 @@ onMounted(() => { modalTitle.value = "Snippets"; });
 .snippet-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
 .snippet-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
   transition: opacity 0.15s;
 }
 
@@ -143,16 +141,22 @@ onMounted(() => { modalTitle.value = "Snippets"; });
 
 .snippet-delete {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: none;
   color: var(--text-muted);
+  font-size: 16px;
   cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .snippet-delete:hover {
+    color: var(--error);
+  }
 }
 
 .snippet-empty {
