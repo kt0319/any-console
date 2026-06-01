@@ -284,7 +284,15 @@ function _applyMove(clientY) {
   while (target >= 0 && target < arr.length && arr[target]?.type !== "ws") {
     target += direction;
   }
-  if (target < 0 || target >= arr.length || arr[target]?.type !== "ws") return;
+
+  // 上方向で ws が見つからない場合、ヘッダーより前（ungrouped エリア）への移動を許可
+  if (direction === -1 && target < 0) {
+    const hasHeaderAbove = arr.slice(0, dragIdx.value).some((item) => item.type === "header");
+    if (!hasHeaderAbove) return;
+    target = 0;
+  } else if (target < 0 || target >= arr.length || arr[target]?.type !== "ws") {
+    return;
+  }
 
   const [moved] = arr.splice(dragIdx.value, 1);
   arr.splice(target, 0, moved);
