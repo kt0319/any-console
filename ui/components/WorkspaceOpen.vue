@@ -15,15 +15,20 @@
           <div
             v-if="item.type === 'header'"
             class="picker-group-header"
-            :class="{ 'group-dragging': dragGroupIdx === item.groupIdx }"
-            :style="dragGroupIdx === item.groupIdx ? { transform: `translateY(${dragGroupOffsetY}px)` } : {}"
+            :class="{
+              'drag-source': groupDragFrom === item.groupIdx,
+              'drag-over-above': groupDragOver === item.groupIdx && groupDragFrom > item.groupIdx,
+              'drag-over-below': groupDragOver === item.groupIdx && groupDragFrom < item.groupIdx,
+            }"
           >
             <span
               v-if="workspaceStore.groups.length > 1"
-              class="picker-group-drag-handle"
+              class="drag-handle picker-group-drag-handle"
               aria-hidden="true"
               @pointerdown.prevent="onGroupDragStart($event, item.groupIdx)"
-            ></span>
+            >
+              <span class="mdi mdi-drag-vertical"></span>
+            </span>
             <button type="button" class="picker-group-toggle" @click="toggleGroup(item.group.id)">
               <span class="mdi" :class="collapsedGroups.has(item.group.id) ? 'mdi-chevron-right' : 'mdi-chevron-down'"></span>
               {{ item.group.name }}
@@ -41,10 +46,12 @@
           >
             <div class="picker-ws-row picker-ws-row-top">
               <span
-                class="picker-ws-drag-handle"
+                class="drag-handle picker-ws-drag-handle"
                 aria-hidden="true"
                 @pointerdown.prevent="onDragStart($event, flatIdx)"
-              ></span>
+              >
+                <span class="mdi mdi-drag-vertical"></span>
+              </span>
               <button type="button" class="picker-ws-header-label" @click="openDetail(item.ws)">
                 <span v-html="renderIconStr(item.ws.icon || 'mdi-console', item.ws.icon_color, 18)"></span>
                 <span class="picker-ws-header-text">
@@ -132,6 +139,7 @@ import { dirtyBadgeHtml } from "../utils/git.js";
 import { worktreeBranchLabel, workspaceDisplayName } from "../utils/worktree.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import { EP_WORKSPACE_ORDER, EP_GROUPS, EP_GROUP_ORDER } from "../utils/endpoints.js";
+import { useListDragSort } from "../composables/useListDragSort.js";
 
 const modalTitle = inject("modalTitle");
 const pushView = inject("pushView");
@@ -181,8 +189,7 @@ const flatList = computed(() => {
   for (const ws of ungrouped.value) {
     result.push({ type: "ws", ws, groupId: null });
   }
-  const groups = dragGroupOrder.value || workspaceStore.groups;
-  groups.forEach((group, groupIdx) => {
+  workspaceStore.groups.forEach((group, groupIdx) => {
     result.push({ type: "header", group, groupIdx });
     if (!collapsedGroups.has(group.id)) {
       for (const ws of groupedWorkspaces(group.id)) {
@@ -203,76 +210,17 @@ const worktreesByBase = computed(() => {
   return map;
 });
 
-// ---- グループドラッグ状態 ----
-const dragGroupIdx = ref(-1);
-const dragGroupOffsetY = ref(0);
-const dragGroupOrder = ref(null);
-let _dragGroupStartY = 0;
-let _dragGroupHeaderHeight = 36;
-let _dragGroupDidMove = false;
-
-function onGroupDragStart(e, groupIdx) {
-  const groups = workspaceStore.groups;
-  if (groups.length < 2) return;
-  if (navigator.vibrate) navigator.vibrate(30);
-
-  dragGroupOrder.value = [...groups];
-  _dragGroupHeaderHeight = 36;
-  _dragGroupStartY = e.clientY ?? e.touches?.[0]?.clientY;
-  dragGroupIdx.value = groupIdx;
-  dragGroupOffsetY.value = 0;
-  _dragGroupDidMove = false;
-
-  if (e.pointerId != null) {
-    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ }
-  }
-
-  document.addEventListener("pointermove", _onGroupDragMove);
-  document.addEventListener("pointerup", _onGroupDragEnd);
-  document.addEventListener("pointercancel", _onGroupDragEnd);
-}
-
-function _onGroupDragMove(e) {
-  if (dragGroupIdx.value < 0) return;
-  const dy = e.clientY - _dragGroupStartY;
-  dragGroupOffsetY.value = dy;
-
-  const steps = Math.trunc(dy / _dragGroupHeaderHeight);
-  if (steps === 0) return;
-
-  const arr = dragGroupOrder.value;
-  const direction = steps > 0 ? 1 : -1;
-  const target = dragGroupIdx.value + direction;
-  if (target < 0 || target >= arr.length) return;
-
-  [arr[dragGroupIdx.value], arr[target]] = [arr[target], arr[dragGroupIdx.value]];
-  dragGroupIdx.value = target;
-  _dragGroupStartY = e.clientY;
-  dragGroupOffsetY.value = 0;
-  _dragGroupDidMove = true;
-}
-
-function _onGroupDragEnd() {
-  const moved = _dragGroupDidMove;
-  const finalOrder = dragGroupOrder.value ? [...dragGroupOrder.value] : null;
-
-  document.removeEventListener("pointermove", _onGroupDragMove);
-  document.removeEventListener("pointerup", _onGroupDragEnd);
-  document.removeEventListener("pointercancel", _onGroupDragEnd);
-
-  dragGroupIdx.value = -1;
-  dragGroupOffsetY.value = 0;
-  _dragGroupDidMove = false;
-  dragGroupOrder.value = null;
-
-  if (moved && finalOrder) _saveGroupOrder(finalOrder);
-}
-
-async function _saveGroupOrder(orderedGroups) {
-  const order = orderedGroups.map((g) => g.id);
-  await apiPut(EP_GROUP_ORDER, { order }, { errorMessage: "Failed to save group order" });
-  await workspaceStore.fetchGroups();
-}
+// ---- グループドラッグ ----
+const { dragFromIdx: groupDragFrom, dragOverIdx: groupDragOver, onDragStart: onGroupDragStart } = useListDragSort({
+  rowSelector: ".picker-group-header",
+  onReorder: async (from, to) => {
+    const groups = [...workspaceStore.groups];
+    const [moved] = groups.splice(from, 1);
+    groups.splice(to, 0, moved);
+    await apiPut(EP_GROUP_ORDER, { order: groups.map((g) => g.id) }, { errorMessage: "Failed to save group order" });
+    await workspaceStore.fetchGroups();
+  },
+});
 
 // ---- ワークスペースドラッグ状態 ----
 const dragIdx = ref(-1);
@@ -499,7 +447,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   _cleanupDrag();
-  _onGroupDragEnd();
 });
 </script>
 
@@ -553,25 +500,13 @@ onBeforeUnmount(() => {
 }
 
 .picker-ws-drag-handle {
-  flex-shrink: 0;
-  width: 16px;
-  height: 20px;
-  cursor: grab;
-  touch-action: none;
-  opacity: 0.4;
-  background-image:
-    linear-gradient(var(--text-muted), var(--text-muted)),
-    linear-gradient(var(--text-muted), var(--text-muted)),
-    linear-gradient(var(--text-muted), var(--text-muted));
-  background-size: 12px 2px;
-  background-repeat: no-repeat;
-  background-position: center 25%, center 50%, center 75%;
+  height: 100%;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .picker-ws-drag-handle:hover {
-    opacity: 0.8;
-  }
+.picker-group-drag-handle {
+  width: 20px;
+  height: 28px;
+  font-size: 14px;
 }
 
 .picker-ws-row-top {
@@ -835,35 +770,6 @@ button.git-badge:disabled {
 }
 
 /* グループ */
-.picker-group-drag-handle {
-  flex-shrink: 0;
-  width: 14px;
-  height: 16px;
-  cursor: grab;
-  touch-action: none;
-  opacity: 0.4;
-  background-image:
-    linear-gradient(var(--text-muted), var(--text-muted)),
-    linear-gradient(var(--text-muted), var(--text-muted));
-  background-size: 10px 1.5px;
-  background-repeat: no-repeat;
-  background-position: center 35%, center 65%;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .picker-group-drag-handle:hover {
-    opacity: 0.8;
-  }
-}
-
-.picker-group-header.group-dragging {
-  opacity: 0.72;
-  background: var(--bg-tertiary);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
-  z-index: 10;
-  position: relative;
-}
-
 .picker-group-header:not(:first-child) {
   margin-top: 4px;
 }

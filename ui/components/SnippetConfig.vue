@@ -18,18 +18,18 @@
         :key="idx"
         class="snippet-row"
         :class="{
-          'is-dragging': dragState?.fromIdx === idx,
-          'drop-before': dragState?.overIdx === idx && dragState.overIdx < dragState.fromIdx,
-          'drop-after': dragState?.overIdx === idx && dragState.overIdx > dragState.fromIdx,
+          'drag-source': dragFromIdx === idx,
+          'drag-over-above': dragOverIdx === idx && dragFromIdx > idx,
+          'drag-over-below': dragOverIdx === idx && dragFromIdx < idx,
         }"
       >
-        <div
-          class="snippet-drag-handle"
-          @pointerdown="onDragStart($event, idx)"
-          aria-label="Drag to reorder"
+        <span
+          class="drag-handle"
+          aria-hidden="true"
+          @pointerdown.prevent="onDragStart($event, idx)"
         >
           <span class="mdi mdi-drag-vertical"></span>
-        </div>
+        </span>
         <div class="snippet-command">{{ snippet.command }}</div>
         <button type="button" class="snippet-delete" @click="onDelete(idx)" aria-label="Delete snippet">
           <span class="mdi mdi-trash-can-outline"></span>
@@ -44,6 +44,7 @@
 import { ref, computed, inject, onMounted } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
+import { useListDragSort } from "../composables/useListDragSort.js";
 
 const modalTitle = inject("modalTitle");
 const inputStore = useInputStore();
@@ -51,8 +52,6 @@ const inputStore = useInputStore();
 const snippets = computed(() => inputStore.snippetsCache ? [...inputStore.snippetsCache].reverse() : []);
 
 const newCommand = ref("");
-const listEl = ref(null);
-const dragState = ref(null);
 
 function onAdd() {
   const command = newCommand.value.trim();
@@ -66,45 +65,14 @@ function onDelete(reversedIdx) {
   bridgeEmit("snippet:delete", { index: realIdx });
 }
 
-function onDragStart(e, fromIdx) {
-  e.preventDefault();
-  dragState.value = { fromIdx, overIdx: fromIdx };
-
-  function getOverIdx(clientY) {
-    if (!listEl.value) return fromIdx;
-    const rows = listEl.value.querySelectorAll(".snippet-row");
-    let closest = fromIdx;
-    let minDist = Infinity;
-    rows.forEach((row, i) => {
-      const rect = row.getBoundingClientRect();
-      const dist = Math.abs(clientY - (rect.top + rect.height / 2));
-      if (dist < minDist) { minDist = dist; closest = i; }
-    });
-    return closest;
-  }
-
-  function onMove(ev) {
-    const clientY = ev.clientY ?? ev.touches?.[0]?.clientY;
-    if (clientY == null) return;
-    dragState.value = { ...dragState.value, overIdx: getOverIdx(clientY) };
-  }
-
-  function onEnd(ev) {
-    const { fromIdx: from, overIdx: over } = dragState.value;
-    if (from !== over) {
-      const len = inputStore.snippetsCache.length;
-      bridgeEmit("snippet:move", { from: len - 1 - from, to: len - 1 - over });
-    }
-    dragState.value = null;
-    document.removeEventListener("pointermove", onMove);
-    document.removeEventListener("pointerup", onEnd);
-    document.removeEventListener("pointercancel", onEnd);
-  }
-
-  document.addEventListener("pointermove", onMove);
-  document.addEventListener("pointerup", onEnd);
-  document.addEventListener("pointercancel", onEnd);
-}
+// スニペットは逆順表示のため fromIdx/toIdx を実ストレージ順に変換して送る
+const { dragFromIdx, dragOverIdx, onDragStart } = useListDragSort({
+  rowSelector: ".snippet-row",
+  onReorder: (from, to) => {
+    const len = inputStore.snippetsCache.length;
+    bridgeEmit("snippet:move", { from: len - 1 - from, to: len - 1 - to });
+  },
+});
 
 onMounted(() => { modalTitle.value = "Snippets"; });
 </script>
@@ -164,34 +132,6 @@ onMounted(() => { modalTitle.value = "Snippets"; });
   transition: opacity 0.15s;
 }
 
-.snippet-row.is-dragging {
-  opacity: 0.4;
-}
-
-.snippet-row.drop-before {
-  border-top: 2px solid var(--accent);
-}
-
-.snippet-row.drop-after {
-  border-bottom: 2px solid var(--accent);
-}
-
-.snippet-drag-handle {
-  flex-shrink: 0;
-  width: 28px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  cursor: grab;
-  touch-action: none;
-  font-size: 18px;
-}
-
-.snippet-drag-handle:active {
-  cursor: grabbing;
-}
 
 .snippet-command {
   flex: 1;
