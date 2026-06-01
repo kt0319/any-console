@@ -192,7 +192,7 @@ class TestTerminalCommandInjection:
         res = client.post("/run", headers=AUTH, json={
             "job": "terminal",
             "workspace": "test-ws",
-            "command": "claude {{prompt}}",
+            "command": "claude [[prompt]]",
             "command_vars": {"prompt": "fix the bug; rm -rf /"},
         })
         assert res.status_code == 200
@@ -203,7 +203,7 @@ class TestTerminalCommandInjection:
         res = client.post("/run", headers=AUTH, json={
             "job": "terminal",
             "workspace": "test-ws",
-            "command": "run {{a}} --to {{b}}",
+            "command": "run [[a]] --to [[b]]",
             "command_vars": {"a": "x y", "b": "z"},
         })
         assert res.status_code == 200
@@ -213,18 +213,18 @@ class TestTerminalCommandInjection:
         res = client.post("/run", headers=AUTH, json={
             "job": "terminal",
             "workspace": "test-ws",
-            "command": "echo {{missing}}",
+            "command": "echo [[missing]]",
             "command_vars": {},
         })
         assert res.status_code == 200
-        assert captured_keys[0]["text"] == "echo {{missing}}"
+        assert captured_keys[0]["text"] == "echo [[missing]]"
 
     def test_substituted_command_length_is_enforced(self, client, workspace, captured_keys):
         from api.common import MAX_COMMAND_LENGTH
         res = client.post("/run", headers=AUTH, json={
             "job": "terminal",
             "workspace": "test-ws",
-            "command": "claude {{prompt}}",
+            "command": "claude [[prompt]]",
             "command_vars": {"prompt": "x" * (MAX_COMMAND_LENGTH + 1)},
         })
         assert res.status_code == 400
