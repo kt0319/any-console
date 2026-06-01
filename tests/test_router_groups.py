@@ -106,3 +106,31 @@ class TestDeleteGroup:
     def test_not_found(self, client):
         res = client.delete("/groups/nonexistent", headers=AUTH)
         assert res.status_code == 404
+
+
+class TestGroupOrder:
+    def test_reorder_groups(self, client):
+        res_a = client.post("/groups", headers=AUTH, json={"name": "A"})
+        res_b = client.post("/groups", headers=AUTH, json={"name": "B"})
+        res_c = client.post("/groups", headers=AUTH, json={"name": "C"})
+        id_a = res_a.json()["id"]
+        id_b = res_b.json()["id"]
+        id_c = res_c.json()["id"]
+
+        res = client.put("/group-order", headers=AUTH, json={"order": [id_c, id_a, id_b]})
+        assert res.status_code == 200
+
+        groups = client.get("/groups", headers=AUTH).json()
+        assert [g["id"] for g in groups] == [id_c, id_a, id_b]
+
+    def test_partial_order_puts_unknown_at_end(self, client):
+        res_a = client.post("/groups", headers=AUTH, json={"name": "A"})
+        res_b = client.post("/groups", headers=AUTH, json={"name": "B"})
+        id_a = res_a.json()["id"]
+        id_b = res_b.json()["id"]
+
+        # B だけ指定 → A は末尾に回る
+        client.put("/group-order", headers=AUTH, json={"order": [id_b]})
+        groups = client.get("/groups", headers=AUTH).json()
+        assert groups[0]["id"] == id_b
+        assert groups[1]["id"] == id_a

@@ -35,6 +35,21 @@ class GroupRequest(BaseModel):
     name: str
 
 
+class GroupOrderRequest(BaseModel):
+    order: list[str]
+
+
+@router.put("/group-order")
+def update_group_order(body: GroupOrderRequest):
+    all_config = load_all_config()
+    groups = _load_groups(all_config)
+    order_map = {gid: i for i, gid in enumerate(body.order)}
+    sorted_groups = sorted(groups, key=lambda g: order_map.get(g["id"], len(groups)))
+    _save_groups(sorted_groups)
+    logger.info("group order updated count=%d", len(body.order))
+    return [g["id"] for g in sorted_groups]
+
+
 @router.get("/groups")
 def list_groups():
     all_config = load_all_config()
