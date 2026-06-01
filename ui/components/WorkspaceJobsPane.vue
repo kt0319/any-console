@@ -247,14 +247,17 @@ defineExpose({ load });
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  padding: 8px 12px;
+  padding: 6px 12px;
   font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
   background: color-mix(in srgb, var(--bg-tertiary) 60%, transparent);
+  border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+}
+
+.job-section-header:first-child {
+  border-top: none;
 }
 
 .job-section-add-btn {

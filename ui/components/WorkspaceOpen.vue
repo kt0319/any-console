@@ -790,12 +790,10 @@ button.git-badge:disabled {
   box-sizing: border-box;
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.06em;
   color: var(--text-secondary);
   background: color-mix(in srgb, var(--bg-tertiary) 60%, transparent);
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  text-transform: uppercase;
 }
 
 .picker-group-toggle {
@@ -810,8 +808,6 @@ button.git-badge:disabled {
   font: inherit;
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: inherit;
   cursor: pointer;
   text-align: left;
