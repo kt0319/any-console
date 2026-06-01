@@ -29,6 +29,27 @@ export function bindTerminalInput(tab) {
     return true;
   });
 
+  // マウス選択でテキストが確定したら自動的にブラウザクリップボードへコピーする。
+  tab.term?.onSelectionChange(() => {
+    const text = tab.term?.getSelection();
+    if (text) navigator.clipboard?.writeText(text).catch(() => {});
+  });
+
+  // OSC 52: tmux が set-clipboard on のときに送ってくるクリップボード同期シーケンス。
+  // data = "c;BASE64TEXT" の形式。デコードしてブラウザのクリップボードに書き込む。
+  tab.term?.parser.registerOscHandler(52, (data) => {
+    const semi = data.indexOf(";");
+    if (semi === -1) return false;
+    const b64 = data.slice(semi + 1);
+    if (!b64 || b64 === "?") return false;
+    try {
+      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const text = new TextDecoder().decode(bytes);
+      navigator.clipboard?.writeText(text).catch(() => {});
+    } catch {}
+    return true;
+  });
+
   tab.term?.onData((data) => {
     if (tab.ws?.readyState === WebSocket.OPEN) {
       tab.ws.send(encoder.encode(data));

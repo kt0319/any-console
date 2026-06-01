@@ -78,14 +78,14 @@ def _validate_job_args(job_def, body_args, ws_path):
     return ordered_args
 
 
-_PLACEHOLDER_RE = re.compile(r"\{\{\s*([A-Za-z0-9_]+)\s*\}\}")
+_PLACEHOLDER_RE = re.compile(r"\[\[\s*([A-Za-z0-9_]+)\s*\]\]")
 
 
 def _substitute_placeholders(command: str | None, command_vars: dict[str, str]) -> str | None:
-    """コマンド内の {{name}} を command_vars の値で置換する。
+    """コマンド内の [[name]] を command_vars の値で置換する。
 
     値は shlex.quote で 1 個の安全な引数にする（シェルへ解釈させない）。
-    未指定の {{name}} はそのまま残す（呼び出し側が全て埋める前提）。
+    未指定の [[name]] はそのまま残す（呼び出し側が全て埋める前提）。
     """
     if not command or not command_vars:
         return command
@@ -99,6 +99,12 @@ def _substitute_placeholders(command: str | None, command_vars: dict[str, str]) 
     return _PLACEHOLDER_RE.sub(repl, command)
 
 
+def _strip_comment_lines(command: str) -> str:
+    """先頭が # の行（コメント行）を除去する。"""
+    lines = [line for line in command.splitlines() if not re.match(r"^\s*#", line)]
+    return "\n".join(lines)
+
+
 def _validate_terminal_command(command: str | None) -> str | None:
     """ターミナルへ自動投入するコマンドを検証する。
 
@@ -107,7 +113,7 @@ def _validate_terminal_command(command: str | None) -> str | None:
     """
     if not command:
         return None
-    command = command.strip()
+    command = _strip_comment_lines(command).strip()
     if not command:
         return None
     if len(command) > MAX_COMMAND_LENGTH:

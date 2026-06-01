@@ -18,8 +18,8 @@
         <span class="ws-settings-label">Command</span>
         <textarea class="form-input job-command-input" v-model="form.command" placeholder="Command to execute (multi-line shell script supported)" autocomplete="off" rows="3" spellcheck="false"></textarea>
         <div class="job-command-hint">
-          Use <code v-text="'{{name}}'"></code> to prompt for a value at launch
-          (e.g. <code v-text="'claude {{prompt}}'"></code>). Values are quoted automatically.
+          Use <code v-text="'[[name]]'"></code> to prompt for a value at launch
+          (e.g. <code v-text="'claude [[prompt]]'"></code>). Values are quoted automatically.
         </div>
       </div>
       <div v-if="form.type !== 'browser'" class="ws-settings-row">
