@@ -11,9 +11,10 @@ const PLACEHOLDER_RE = /\[\[\s*([A-Za-z0-9_]+)\s*\]\]/g;
 export function extractPlaceholders(command) {
   if (!command) return [];
   const names = [];
+  const lines = command.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
   PLACEHOLDER_RE.lastIndex = 0;
   let m;
-  while ((m = PLACEHOLDER_RE.exec(command)) !== null) {
+  while ((m = PLACEHOLDER_RE.exec(lines)) !== null) {
     if (!names.includes(m[1])) names.push(m[1]);
   }
   return names;

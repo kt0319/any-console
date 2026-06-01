@@ -11,28 +11,34 @@ describe("extractPlaceholders", () => {
   });
 
   it("extracts a single placeholder name", () => {
-    expect(extractPlaceholders("claude {{prompt}}")).toEqual(["prompt"]);
+    expect(extractPlaceholders("claude [[prompt]]")).toEqual(["prompt"]);
   });
 
   it("extracts multiple names in order", () => {
-    expect(extractPlaceholders("run {{a}} --to {{b}}")).toEqual(["a", "b"]);
+    expect(extractPlaceholders("run [[a]] --to [[b]]")).toEqual(["a", "b"]);
   });
 
   it("dedupes repeated names but keeps first-seen order", () => {
-    expect(extractPlaceholders("{{x}} {{y}} {{x}}")).toEqual(["x", "y"]);
+    expect(extractPlaceholders("[[x]] [[y]] [[x]]")).toEqual(["x", "y"]);
   });
 
   it("tolerates inner whitespace", () => {
-    expect(extractPlaceholders("claude {{  prompt  }}")).toEqual(["prompt"]);
+    expect(extractPlaceholders("claude [[  prompt  ]]")).toEqual(["prompt"]);
   });
 
   it("ignores tokens with invalid characters", () => {
-    expect(extractPlaceholders("echo {{ a-b }} {{c.d}}")).toEqual([]);
+    expect(extractPlaceholders("echo [[ a-b ]] [[c.d]]")).toEqual([]);
   });
 
   it("is repeatable (regex lastIndex reset)", () => {
-    const cmd = "x {{p}}";
+    const cmd = "x [[p]]";
     expect(extractPlaceholders(cmd)).toEqual(["p"]);
     expect(extractPlaceholders(cmd)).toEqual(["p"]);
+  });
+
+  it("ignores placeholders on comment lines", () => {
+    expect(extractPlaceholders("# [[ignored]]")).toEqual([]);
+    expect(extractPlaceholders("  # [[also_ignored]]")).toEqual([]);
+    expect(extractPlaceholders("# [[skip]]\nclaude [[prompt]]")).toEqual(["prompt"]);
   });
 });
