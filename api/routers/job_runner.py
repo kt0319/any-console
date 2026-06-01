@@ -78,14 +78,14 @@ def _validate_job_args(job_def, body_args, ws_path):
     return ordered_args
 
 
-_PLACEHOLDER_RE = re.compile(r"\{\{\s*([A-Za-z0-9_]+)\s*\}\}")
+_PLACEHOLDER_RE = re.compile(r"\[\[\s*([A-Za-z0-9_]+)\s*\]\]")
 
 
 def _substitute_placeholders(command: str | None, command_vars: dict[str, str]) -> str | None:
-    """コマンド内の {{name}} を command_vars の値で置換する。
+    """コマンド内の [[name]] を command_vars の値で置換する。
 
     値は shlex.quote で 1 個の安全な引数にする（シェルへ解釈させない）。
-    未指定の {{name}} はそのまま残す（呼び出し側が全て埋める前提）。
+    未指定の [[name]] はそのまま残す（呼び出し側が全て埋める前提）。
     """
     if not command or not command_vars:
         return command
