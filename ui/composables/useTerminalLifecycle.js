@@ -132,11 +132,11 @@ export function useTerminalLifecycle({ terminalBaseView }) {
         restored: false,
         hidden,
       });
-      if (!hidden) activateTerminalTab(tab.id, { focus: false });
+      activateTerminalTab(tab.id, { focus: false });
       if (workspace) workspaceStore.selectedWorkspace = workspace;
       await nextTick();
       terminalBaseView.value?.fitAllTerminals();
-      if (!hidden) activateTerminalTab(tab.id);
+      activateTerminalTab(tab.id);
     } catch (e) {
       toast.error(`Terminal launch error: ${e.message}`);
     }
