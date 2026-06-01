@@ -230,6 +230,36 @@ class TestTerminalCommandInjection:
         assert res.status_code == 400
         assert captured_keys == []
 
+    def test_comment_lines_are_stripped(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "terminal",
+            "workspace": "test-ws",
+            "command": "# this is a comment\nclaude hello",
+            "command_vars": {},
+        })
+        assert res.status_code == 200
+        assert captured_keys[0]["text"] == "claude hello"
+
+    def test_indented_comment_lines_are_stripped(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "terminal",
+            "workspace": "test-ws",
+            "command": "  # indented comment\nclaude hello",
+            "command_vars": {},
+        })
+        assert res.status_code == 200
+        assert captured_keys[0]["text"] == "claude hello"
+
+    def test_only_comment_lines_results_in_no_command(self, client, workspace, captured_keys):
+        res = client.post("/run", headers=AUTH, json={
+            "job": "terminal",
+            "workspace": "test-ws",
+            "command": "# only a comment",
+            "command_vars": {},
+        })
+        assert res.status_code == 200
+        assert captured_keys == []
+
 
 class TestSessionState:
     def test_delete_with_pty_bridge(self, client, workspace, monkeypatch):
