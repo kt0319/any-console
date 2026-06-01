@@ -99,6 +99,12 @@ def _substitute_placeholders(command: str | None, command_vars: dict[str, str]) 
     return _PLACEHOLDER_RE.sub(repl, command)
 
 
+def _strip_comment_lines(command: str) -> str:
+    """先頭が # の行（コメント行）を除去する。"""
+    lines = [l for l in command.splitlines() if not re.match(r"^\s*#", l)]
+    return "\n".join(lines)
+
+
 def _validate_terminal_command(command: str | None) -> str | None:
     """ターミナルへ自動投入するコマンドを検証する。
 
@@ -107,7 +113,7 @@ def _validate_terminal_command(command: str | None) -> str | None:
     """
     if not command:
         return None
-    command = command.strip()
+    command = _strip_comment_lines(command).strip()
     if not command:
         return None
     if len(command) > MAX_COMMAND_LENGTH:
