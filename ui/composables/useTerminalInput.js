@@ -29,6 +29,12 @@ export function bindTerminalInput(tab) {
     return true;
   });
 
+  // マウス選択でテキストが確定したら自動的にブラウザクリップボードへコピーする。
+  tab.term?.onSelectionChange(() => {
+    const text = tab.term?.getSelection();
+    if (text) navigator.clipboard?.writeText(text).catch(() => {});
+  });
+
   // OSC 52: tmux が set-clipboard on のときに送ってくるクリップボード同期シーケンス。
   // data = "c;BASE64TEXT" の形式。デコードしてブラウザのクリップボードに書き込む。
   tab.term?.parser.registerOscHandler(52, (data) => {
@@ -37,7 +43,8 @@ export function bindTerminalInput(tab) {
     const b64 = data.slice(semi + 1);
     if (!b64 || b64 === "?") return false;
     try {
-      const text = atob(b64);
+      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const text = new TextDecoder().decode(bytes);
       navigator.clipboard?.writeText(text).catch(() => {});
     } catch {}
     return true;
