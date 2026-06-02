@@ -140,6 +140,7 @@ import { worktreeBranchLabel, workspaceDisplayName } from "../utils/worktree.js"
 import GitActionBtn from "./GitActionBtn.vue";
 import { EP_WORKSPACE_ORDER, EP_GROUPS, EP_GROUP_ORDER } from "../utils/endpoints.js";
 import { useListDragSort } from "../composables/useListDragSort.js";
+import { buildFlatList, deriveGroupChanges } from "../utils/workspace-groups.js";
 
 const modalTitle = inject("modalTitle");
 const pushView = inject("pushView");
@@ -184,21 +185,9 @@ const displayWorkspaces = computed(() => workspaceStore.visibleWorkspaces);
 
 // グループヘッダーとワークスペースを1本のリストに統合
 // type:'header' はグループ見出し、type:'ws' はワークスペース行
-const flatList = computed(() => {
-  const result = [];
-  for (const ws of ungrouped.value) {
-    result.push({ type: "ws", ws, groupId: null });
-  }
-  workspaceStore.groups.forEach((group, groupIdx) => {
-    result.push({ type: "header", group, groupIdx });
-    if (!collapsedGroups.has(group.id)) {
-      for (const ws of groupedWorkspaces(group.id)) {
-        result.push({ type: "ws", ws, groupId: group.id });
-      }
-    }
-  });
-  return result;
-});
+const flatList = computed(() =>
+  buildFlatList(ungrouped.value, workspaceStore.groups, groupedWorkspaces, collapsedGroups),
+);
 
 const worktreesByBase = computed(() => {
   const map = {};
@@ -332,21 +321,7 @@ function _cleanupDrag() {
 }
 
 async function _saveOrderAndGroups(finalList) {
-  // 各wsの新しいgroupIdを位置から決定
-  let currentGroupId = null;
-  const groupChanges = [];
-  const visibleOrder = [];
-
-  for (const item of finalList) {
-    if (item.type === "header") {
-      currentGroupId = item.group.id;
-    } else if (item.type === "ws") {
-      visibleOrder.push(item.ws.id || item.ws.name);
-      if (currentGroupId !== item.groupId) {
-        groupChanges.push({ ws: item.ws, newGroupId: currentGroupId });
-      }
-    }
-  }
+  const { changes: groupChanges, visibleOrder } = deriveGroupChanges(finalList);
 
   // グループ変更を保存
   for (const { ws, newGroupId } of groupChanges) {
