@@ -22,10 +22,9 @@
         >
           <span
             class="drag-handle"
-            @touchstart.passive="onDragStart($event, idx)"
-            @mousedown="onDragStart($event, idx)"
+            @pointerdown.prevent="onDragStart($event, idx)"
           >
-            <span class="mdi mdi-drag"></span>
+            <span class="mdi mdi-drag-vertical"></span>
           </span>
           <span class="split-tab-input-wrap">
             <input

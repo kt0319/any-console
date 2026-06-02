@@ -41,3 +41,5 @@ data/auth.json                Token storage (.gitignore'd)
 | `composables/useApi.js` | Shared API layer. Response format changes affect all callers. |
 | `utils/constants.js` | Grep all references before changing a value. |
 | `app-bridge.js` | Event bus. Renaming events requires updating both `emit` and `on` sides. |
+| `composables/useListDragSort.js` | Shared drag-sort for vertical lists (Tabs, Snippets, workspace Groups). Uses pointer events + hit-detection. New sortable lists should use this instead of a custom implementation. |
+| `styles/drag-utils.css` | Global CSS for `.drag-handle`, `.drag-source`, `.drag-over-above/below`. All drag-enabled rows must use these classes. |

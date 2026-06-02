@@ -1,0 +1,36 @@
+/* 共通ドラッグハンドル・ドラッグ状態スタイル */
+
+.drag-handle {
+  flex-shrink: 0;
+  width: 28px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: grab;
+  touch-action: none;
+  font-size: 18px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .drag-handle:hover {
+    color: var(--text-primary);
+  }
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.drag-source {
+  opacity: 0.4;
+}
+
+.drag-over-above {
+  border-top: 2px solid var(--accent) !important;
+}
+
+.drag-over-below {
+  border-bottom: 2px solid var(--accent) !important;
+}

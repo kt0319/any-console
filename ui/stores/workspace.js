@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { useApi } from "../composables/useApi.js";
-import { EP_WORKSPACES, EP_WORKSPACES_STATUSES } from "../utils/endpoints.js";
+import { EP_GROUPS, EP_WORKSPACES, EP_WORKSPACES_STATUSES } from "../utils/endpoints.js";
 import { LS_PREFIX_WS_META } from "../utils/constants.js";
 
 const STATUS_CACHE_KEY = LS_PREFIX_WS_META + "status_cache";
@@ -28,12 +28,11 @@ function saveStatusCache(cache) {
 export const useWorkspaceStore = defineStore("workspace", () => {
   const { apiGet } = useApi();
   const allWorkspaces = ref([]);
+  const groups = ref([]);
   const selectedWorkspace = ref(null);
   const workspaceJobs = ref({});
   const pendingJob = ref(null);
-  const visibleWorkspaces = computed(() =>
-    allWorkspaces.value.filter((ws) => !ws.hidden),
-  );
+  const visibleWorkspaces = computed(() => allWorkspaces.value);
 
   const currentWorkspace = computed(() =>
     allWorkspaces.value.find((w) => w.name === selectedWorkspace.value),
@@ -55,14 +54,18 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     allWorkspaces.value = data.map((newWs) => {
       const existing = existingByName.get(newWs.name);
       const cached = cache[newWs.name] || {};
-      // キャッシュ値 → 既存値 → 新値の順で上書き（新値は nullish なら無視）。
-      // これでリロード直後でも last_commit_message が即座に出る。
-      const merged = { ...cached, ...(existing || {}) };
-      for (const [k, v] of Object.entries(newWs)) {
-        if (v != null) merged[k] = v;
-      }
-      return merged;
+      // キャッシュ値・既存値をベースに新値で上書き。
+      // group_id:null のような「明示的なnull」も正規の値なので null ガードは掛けない。
+      // ステータス系フィールド(clean/ahead/behind 等)は /workspaces レスポンスに含まれないため
+      // 既存値が自然に保持される。
+      return { ...cached, ...(existing || {}), ...newWs };
     });
+  }
+
+  async function fetchGroups() {
+    const { ok, data } = await _safeFetch(EP_GROUPS);
+    if (!ok || !Array.isArray(data)) return;
+    groups.value = data;
   }
 
   async function fetchStatuses() {
@@ -87,12 +90,14 @@ export const useWorkspaceStore = defineStore("workspace", () => {
 
   return {
     allWorkspaces,
+    groups,
     selectedWorkspace,
     workspaceJobs,
     pendingJob,
     visibleWorkspaces,
     currentWorkspace,
     fetchWorkspaces,
+    fetchGroups,
     fetchStatuses,
   };
 });
