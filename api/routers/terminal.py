@@ -210,9 +210,6 @@ async def _attach_or_resize_pty(websocket: WebSocket, session, session_id: str, 
     effective_cols = cols if cols > 0 else TERMINAL_DEFAULT_COLS
     effective_rows = rows if rows > 0 else TERMINAL_DEFAULT_ROWS
 
-    if cols > 0 and rows > 0:
-        _run_tmux_cmd("resize-window", "-t", session.tmux_session_name, "-x", str(cols), "-y", str(rows))
-
     if need_pty_bridge:
         _detach_pty_bridge(session)
         try:
