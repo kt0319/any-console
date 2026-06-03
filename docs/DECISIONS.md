@@ -160,12 +160,12 @@
 
 ---
 
-### 14. ターミナルのリサイズは ioctl(TIOCSWINSZ) に一本化する
+### 14. ターミナルのリサイズはサイズ変化時のみ ioctl + tmux resize-window を適用する
 
 - **Status**: Accepted
 - **Date**: 2026-06
-- **Context**: ターミナルのリサイズ処理が、attach した PTY の `ioctl(TIOCSWINSZ)` と `tmux resize-window` の両方を呼んでいた。tmux はデフォルト（`window-size latest`）では attach 中クライアントの PTY サイズに自動でウィンドウを追従させるため、そこへ明示的に `resize-window` を呼ぶとウィンドウが手動サイズモードに固定され、以後クライアントの実サイズ変更に追従しなくなる。結果として tmux 内部サイズとクライアント実サイズが乖離し、表示が崩れる（行折り返しの乱れ・残骸）原因になっていた。
-- **Decision**: リサイズ経路では PTY の `ioctl(TIOCSWINSZ)` のみを呼び、明示的な `tmux resize-window` は呼ばない。tmux のネイティブなクライアント追従に委ねる。本ツールは「1 セッション = 1 tmux セッションに 1 クライアント attach」（attach 前に既存ブリッジを切る）構成のため、追従先は常に一意に定まる。`resize_pty` の ioctl は stale fd でのクラッシュを避けるため `OSError` を握りつぶす。
-- **Consequences**: 二重リサイズによる手動サイズモード固定が起きず、表示崩れを防げる。リサイズ経路が ioctl 一箇所に集約され単純になる。一方、detached（誰も attach していない）セッションは作成時のデフォルトサイズ（80×24）のままで、サーバ側 `capture-pane` の整形が実クライアントサイズと一致しないケースは残る（attach 時に ioctl で是正される）。**この設計上、リサイズ経路に `tmux resize-window` を再追加してはならない（崩れが再発する）。**
-- **Alternatives considered**: `window-size manual` を明示設定し ioctl + resize-window の両方を維持する — detached での固定サイズ保持や同一 tmux の複数クライアント共有が必要なら有効だが、本ツールの単一クライアント前提では過剰で、二重リサイズの整合管理コストが残る。`tmux resize-window` のみに統一する — クライアントの PTY サイズが追従せず、ウィンドウがクライアント PTY に収まらないと表示が破綻する。
+- **Context**: ターミナルのリサイズ処理が、attach した PTY の `ioctl(TIOCSWINSZ)` と `tmux resize-window` の両方を呼んでいた。フロントは入力のたびに（`onKey`→`sendResize`、差分ガードなし）resize メッセージを送るため、**同一サイズでも毎回 `tmux resize-window`（subprocess）が走り、ウィンドウ再描画を連打して表示が崩れていた**（行折り返しの乱れ・残骸）。当初これを「ioctl 一本化（resize-window を呼ばない）」で解消したが、ioctl(SIGWINCH) だけではウィンドウが追従しない環境があり（tmux の window-size 設定や状態に依存）、モバイル→PC のようにクライアントサイズが変わっても tmux ウィンドウがリサイズされない不具合が出た。崩れの真因は「resize-window を呼ぶこと」自体ではなく「同一サイズで連打すること」だった。
+- **Decision**: リサイズ経路は ioctl + `tmux resize-window` の両方を維持しつつ、**サイズが実際に変化した時だけ適用する**。`TerminalSession.applied_size` に直近適用サイズを保持し、`_apply_pty_size()` が一致時は no-op する（非正値も無視）。新しい PTY ブリッジを張り直した直後は `applied_size=None` にして必ず再適用する。`resize_pty` の ioctl は stale fd でのクラッシュを避けるため `OSError` を握りつぶす。接続時/アクティブクライアント切替時/resize メッセージ受信時はすべてこの `_apply_pty_size()` を通す（ルータ側で raw ioctl を直接叩かない）。
+- **Consequences**: 同一サイズでの resize-window 連打が止まり崩れが解消する。実際のサイズ変化（端末を開く・デバイス移動）では ioctl と tmux ウィンドウの両方が確実にリサイズされる。リサイズ処理の入口が `_apply_pty_size()` に一本化され、冪等性をテストで担保できる（`tests/test_terminal_jobs.py::TestApplyPtySize`）。**フロントの差分ガード欠如（`sendResize` が毎回送る）に依存せず、バックエンド側の冪等化で崩れを防いでいる点に注意。`_apply_pty_size` の冪等ガードを外す/迂回すると崩れが再発する。**
+- **Alternatives considered**: ioctl 一本化（resize-window を呼ばない）— 二重リサイズ連打は止まるが、ioctl(SIGWINCH) だけではウィンドウが追従しない環境があり、リサイズが効かなくなった（本 ADR の旧案で、リグレッションのため却下）。フロント側で `sendResize` に差分ガードを足す — 有効だが、サーバが受け取る経路（接続時クエリ・複数クライアント）すべてを守るにはバックエンド側の冪等化が確実。`window-size manual` を明示設定 — 単一クライアント前提では過剰。
 

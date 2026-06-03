@@ -1,11 +1,8 @@
 import asyncio
-import fcntl
 import json
 import logging
 import os
-import struct
 import subprocess
-import termios
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket
@@ -28,6 +25,7 @@ from ..terminal_session import (
     PTY_EXECUTOR,
     TERMINAL_SESSIONS,
     TerminalSession,
+    _apply_pty_size,
     _detach_pty_bridge,
     _ensure_reader_task,
     _handle_resize,
@@ -220,12 +218,11 @@ async def _attach_or_resize_pty(websocket: WebSocket, session, session_id: str, 
             return False
         session.fd = fd
         session.pid = pid
+        # 新しいブリッジに対しては必ずサイズを反映し直す
+        session.applied_size = None
+        _apply_pty_size(session, effective_cols, effective_rows)
     elif cols > 0 and rows > 0 and session.fd is not None:
-        try:
-            winsize = struct.pack("HHHH", rows, cols, 0, 0)
-            fcntl.ioctl(session.fd, termios.TIOCSWINSZ, winsize)
-        except OSError:
-            pass
+        _apply_pty_size(session, cols, rows)
     return True
 
 
