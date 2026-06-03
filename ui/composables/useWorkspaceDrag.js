@@ -59,6 +59,7 @@ export function useWorkspaceDrag({ items, listEl, onReorder, rowSelector = ".ws-
     const steps = Math.trunc(dy / dragRowHeight);
     if (steps === 0) return;
     const arr = dragItems.value;
+    if (!arr) return;
     const newIdx = Math.max(0, Math.min(dragIdx.value + steps, arr.length - 1));
     if (newIdx === dragIdx.value) return;
 
