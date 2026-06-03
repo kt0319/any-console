@@ -5,6 +5,7 @@ import os
 import select
 import signal
 import struct
+import subprocess
 import termios
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -12,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from .common import (
     PTY_READ_BUFFER_SIZE,
     PTY_READER_WORKERS,
+    TMUX_CMD_TIMEOUT_SEC,
 )
 
 logger = logging.getLogger(__name__)
@@ -59,17 +61,21 @@ def close_pty(fd: int | None, pid: int | None) -> None:
         logger.debug("cleanup pid=%d failed: %s", pid, e)
 
 
-def resize_pty(fd: int | None, cols: int, rows: int) -> None:
-    """PTY のウィンドウサイズのみを更新する。
+def resize_pty(fd: int | None, tmux_name: str, cols: int, rows: int) -> None:
+    """PTY と tmux ウィンドウのサイズを更新する。
 
-    tmux は attach 中クライアントの PTY サイズ（ここで設定する値）にウィンドウを
-    自動追従させるため、明示的な `tmux resize-window` は呼ばない（手動サイズモードに
-    固定されてクライアント追従が壊れ、表示が崩れるのを避けるため）。
+    呼び出し側（`_apply_pty_size`）でサイズが実際に変化した時だけ呼ぶこと。
+    入力のたびに（同一サイズで）呼ぶと `tmux resize-window` がウィンドウ再描画を
+    連打し、表示が崩れる原因になる。
     """
-    if fd is None:
-        return
-    try:
-        winsize = struct.pack("HHHH", rows, cols, 0, 0)
-        fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
-    except OSError:
-        pass
+    if fd is not None:
+        try:
+            winsize = struct.pack("HHHH", rows, cols, 0, 0)
+            fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
+        except OSError:
+            pass
+    subprocess.run(
+        ["tmux", "resize-window", "-t", tmux_name, "-x", str(cols), "-y", str(rows)],
+        timeout=TMUX_CMD_TIMEOUT_SEC,
+        capture_output=True,
+    )

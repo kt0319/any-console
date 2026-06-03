@@ -51,6 +51,7 @@ class TerminalSession:
         "clients", "_reader_task",
         "tmux_session_name",
         "client_sizes", "_last_active_client",
+        "applied_size",
     )
 
     def __init__(self, workspace: str | None,
@@ -70,6 +71,7 @@ class TerminalSession:
         self.tmux_session_name = tmux_session_name
         self.client_sizes: dict[WebSocket, tuple[int, int]] = {}
         self._last_active_client: WebSocket | None = None
+        self.applied_size: tuple[int, int] | None = None
 
     def save_metadata(self) -> None:
         pairs = [
@@ -158,7 +160,17 @@ def _kill_tmux_session(session: TerminalSession) -> None:
 
 
 def _apply_pty_size(session: TerminalSession, cols: int, rows: int) -> None:
-    resize_pty(session.fd, cols, rows)
+    """PTY/tmux のサイズを更新する（サイズが実際に変化した時だけ反映する）。
+
+    フロントは入力のたびに resize を送るため、同一サイズでの `tmux resize-window`
+    連打による表示崩れを避けるべく、適用済みサイズと一致する場合は何もしない。
+    """
+    if cols <= 0 or rows <= 0:
+        return
+    if session.applied_size == (cols, rows):
+        return
+    session.applied_size = (cols, rows)
+    resize_pty(session.fd, session.tmux_session_name, cols, rows)
 
 
 # ─── WebSocket fan-out & reader loop ─────────────────────────────────────────

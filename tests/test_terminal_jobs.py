@@ -290,3 +290,41 @@ class TestSessionState:
         res = client.delete("/terminal/sessions/pty-test", headers=AUTH)
         assert res.status_code == 200
         assert "ac-test-pty-bridge" in detached
+
+
+class TestApplyPtySize:
+    """_apply_pty_size はサイズが実際に変化した時だけ resize_pty を呼ぶ。"""
+
+    def _make_session(self):
+        from api.terminal_session import TerminalSession
+        return TerminalSession(
+            workspace="test-ws", tmux_session_name="ac-test-resize", fd=999, pid=1,
+        )
+
+    def test_applies_only_on_change(self, monkeypatch):
+        from api import terminal_session as ts
+
+        calls = []
+        monkeypatch.setattr(ts, "resize_pty", lambda *a: calls.append(a))
+        session = self._make_session()
+
+        ts._apply_pty_size(session, 120, 40)
+        ts._apply_pty_size(session, 120, 40)  # 同一サイズは無視される
+        assert calls == [(999, "ac-test-resize", 120, 40)]
+        assert session.applied_size == (120, 40)
+
+        ts._apply_pty_size(session, 80, 24)  # 変化したので反映
+        assert calls[-1] == (999, "ac-test-resize", 80, 24)
+        assert len(calls) == 2
+
+    def test_ignores_non_positive_size(self, monkeypatch):
+        from api import terminal_session as ts
+
+        calls = []
+        monkeypatch.setattr(ts, "resize_pty", lambda *a: calls.append(a))
+        session = self._make_session()
+
+        ts._apply_pty_size(session, 0, 24)
+        ts._apply_pty_size(session, 80, 0)
+        assert calls == []
+        assert session.applied_size is None
