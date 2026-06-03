@@ -183,15 +183,16 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the module-level breakdown.
 
 ## Project Stance
 
-any-console is built primarily for the author's own daily use.
+any-console started as a tool built for daily real-world use, and it stays close
+to that origin: pragmatic, opinionated, and focused on what actually gets used.
 
 - **Issues and PRs are welcome.** Responses may take a while, but they are read.
-- **This project has its own design philosophy** (see `CLAUDE.md`). PRs that pull the
-  project in a different direction may not be a good fit, even if the code is solid.
-- **Fork freely** if you want a different direction — that is the spirit of MIT.
-- **Releases come when they come.** A quiet month does not mean the project is abandoned.
-- **It's a personal project,** so there is no fixed roadmap. Features land when they
-  are useful to the author.
+- **The project has a clear design philosophy** (see `CLAUDE.md`). Contributions
+  that fit that direction are the easiest to land; ones that pull elsewhere may
+  work better as a fork — that is the spirit of MIT.
+- **Releases come when they're ready.** A quiet month does not mean the project is
+  abandoned.
+- **The roadmap is lightweight.** Features land as they prove useful in practice.
 
 If that sounds good to you, welcome aboard.
 

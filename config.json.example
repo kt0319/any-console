@@ -1,6 +1,6 @@
 {
   "my-project": {
-    "path": "/home/user/work/my-project",
+    "path": "/path/to/your-project",
     "icon": "mdi-folder",
     "icon_color": "#1e88e5",
     "jobs": {
@@ -28,7 +28,7 @@
     }
   },
   "dotfiles": {
-    "path": "/home/user/dotfiles",
+    "path": "/path/to/your-dotfiles",
     "icon": "mdi-cog",
     "icon_color": "#8e24aa"
   },
