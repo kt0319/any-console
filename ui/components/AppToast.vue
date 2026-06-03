@@ -5,10 +5,19 @@
         v-for="toast in toasts"
         :key="toast.id"
         :class="['toast', `toast-${toast.type}`, 'show']"
-        :style="{ top: toast.top + 'px' }"
+        :style="{
+          top: toast.top + 'px',
+          transform: `translateX(-50%) translateY(${toast.swipeDy || 0}px)`,
+          opacity: toast.swipeDy ? Math.max(0, 1 - Math.abs(toast.swipeDy) / 80) : undefined,
+          transition: toast.swipeDy ? 'none' : undefined,
+        }"
         :role="toast.type === 'error' ? 'alert' : 'status'"
         :aria-live="toast.type === 'error' ? 'assertive' : 'polite'"
         @click="dismiss(toast)"
+        @touchstart.passive="onTouchStart(toast, $event)"
+        @touchmove.passive="onTouchMove(toast, $event)"
+        @touchend="onTouchEnd(toast, $event)"
+        @touchcancel="onTouchCancel(toast)"
       >
         <div v-for="(line, i) in toast.lines" :key="i" class="toast-line">{{ line }}</div>
       </div>
@@ -48,10 +57,39 @@ function dismiss(toast) {
   nextTick(restack);
 }
 
+const SWIPE_DISMISS_PX = 40;
+
+function onTouchStart(toast, e) {
+  toast._ty = e.touches[0].clientY;
+  toast._tx = e.touches[0].clientX;
+}
+
+function onTouchMove(toast, e) {
+  if (toast._ty === undefined) return;
+  const dy = e.touches[0].clientY - toast._ty;
+  const dx = e.touches[0].clientX - toast._tx;
+  if (Math.abs(dy) > Math.abs(dx)) toast.swipeDy = dy;
+}
+
+function onTouchEnd(toast, e) {
+  const dy = toast.swipeDy || 0;
+  toast.swipeDy = 0;
+  toast._ty = undefined;
+  if (Math.abs(dy) > SWIPE_DISMISS_PX) {
+    e.preventDefault();
+    dismiss(toast);
+  }
+}
+
+function onTouchCancel(toast) {
+  toast.swipeDy = 0;
+  toast._ty = undefined;
+}
+
 function show(message, type = "error", duration = TOAST_DEFAULT_DURATION_MS, action = null) {
   const text = typeof message === "string" ? message : String(message?.message || message || "Unknown error");
   const id = ++idCounter;
-  const toast = { id, message: text, lines: text.split("\n"), type, top: 24, action };
+  const toast = { id, message: text, lines: text.split("\n"), type, top: 24, action, swipeDy: 0 };
   toasts.value.push(toast);
   nextTick(restack);
   setTimeout(() => {
