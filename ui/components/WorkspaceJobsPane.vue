@@ -7,23 +7,26 @@
           <span class="mdi mdi-plus"></span>
         </button>
       </div>
-      <div class="job-item" @click="openTerminal">
-        <span class="mdi mdi-console job-item-icon" aria-hidden="true"></span>
-        <span class="job-item-label">Terminal</span>
+      <div class="job-item-row">
+        <button type="button" class="job-item" @click="openTerminal">
+          <span class="mdi mdi-console job-item-icon" aria-hidden="true"></span>
+          <span class="job-item-label">Terminal</span>
+        </button>
       </div>
       <div
         v-for="job in commonJobs"
         :key="'c-' + job.name"
-        class="job-item"
+        class="job-item-row"
         :class="{ 'job-item-hidden': job.hidden_tab }"
-        @click="runJob(job)"
       >
-        <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
-        <span class="job-item-label">{{ job.label || job.name }}</span>
-        <span v-if="job.description" class="job-item-desc">{{ job.description }}</span>
-        <span v-if="job.type === 'browser'" class="mdi mdi-open-in-new job-item-link-icon" aria-hidden="true"></span>
-        <button type="button" class="job-item-edit-btn" title="Edit" @click.stop="startEditJob(job, true)">
-          <span class="mdi mdi-pencil-outline"></span>
+        <button type="button" class="job-item" @click="runJob(job)">
+          <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
+          <span class="job-item-label">{{ job.label || job.name }}</span>
+          <span v-if="job.description" class="job-item-desc">{{ job.description }}</span>
+          <span v-if="job.type === 'browser'" class="mdi mdi-open-in-new job-item-link-icon" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="job-item-edit-btn" title="Edit" aria-label="Edit" @click.stop="startEditJob(job, true)">
+          <span class="mdi mdi-pencil-outline" aria-hidden="true"></span>
         </button>
       </div>
 
@@ -36,16 +39,17 @@
       <div
         v-for="job in localJobs"
         :key="'l-' + job.name"
-        class="job-item"
+        class="job-item-row"
         :class="{ 'job-item-hidden': job.hidden_tab }"
-        @click="runJob(job)"
       >
-        <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
-        <span class="job-item-label">{{ job.label || job.name }}</span>
-        <span v-if="job.description" class="job-item-desc">{{ job.description }}</span>
-        <span v-if="job.type === 'browser'" class="mdi mdi-open-in-new job-item-link-icon" aria-hidden="true"></span>
-        <button type="button" class="job-item-edit-btn" title="Edit" @click.stop="startEditJob(job, false)">
-          <span class="mdi mdi-pencil-outline"></span>
+        <button type="button" class="job-item" @click="runJob(job)">
+          <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
+          <span class="job-item-label">{{ job.label || job.name }}</span>
+          <span v-if="job.description" class="job-item-desc">{{ job.description }}</span>
+          <span v-if="job.type === 'browser'" class="mdi mdi-open-in-new job-item-link-icon" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="job-item-edit-btn" title="Edit" aria-label="Edit" @click.stop="startEditJob(job, false)">
+          <span class="mdi mdi-pencil-outline" aria-hidden="true"></span>
         </button>
       </div>
     </div>
@@ -190,18 +194,31 @@ defineExpose({ load });
   overflow: hidden;
 }
 
+.job-item-row {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
 .job-item {
   box-sizing: border-box;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  height: 44px;
-  border-bottom: 1px solid var(--border);
+  height: 100%;
+  background: transparent;
+  border: none;
   cursor: pointer;
+  font: inherit;
   font-size: 13px;
+  text-align: left;
   color: var(--text-primary);
-  transition: background 0.15s;
 }
 
 .job-item-hidden {
@@ -281,7 +298,7 @@ defineExpose({ load });
   justify-content: center;
   width: 22px;
   height: 22px;
-  margin-left: auto;
+  margin-right: 12px;
   padding: 0;
   background: transparent;
   border: 1px solid var(--border);
@@ -293,7 +310,7 @@ defineExpose({ load });
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .job-item:hover {
+  .job-item-row:hover {
     background: var(--bg-tertiary);
   }
 }

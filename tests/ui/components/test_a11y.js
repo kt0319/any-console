@@ -11,9 +11,13 @@
  */
 import { describe, it, afterEach } from "vitest";
 import { mount } from "@vue/test-utils";
+import { nextTick } from "vue";
 import ConfirmDialog from "../../../ui/components/ConfirmDialog.vue";
 import PromptDialog from "../../../ui/components/PromptDialog.vue";
 import GitActionBtn from "../../../ui/components/GitActionBtn.vue";
+import AppToast from "../../../ui/components/AppToast.vue";
+import FileItem from "../../../ui/components/FileItem.vue";
+import SplitModeSelector from "../../../ui/components/SplitModeSelector.vue";
 import { useConfirm } from "../../../ui/composables/useConfirm.js";
 import { usePrompt } from "../../../ui/composables/usePrompt.js";
 import { expectNoA11yViolations } from "./axe-helper.js";
@@ -49,6 +53,45 @@ describe("a11y: GitActionBtn", () => {
   it("アイコンボタンにアクセシブルネームがある", async () => {
     const wrapper = mount(GitActionBtn, {
       props: { icon: "pull", title: "Pull" },
+      attachTo: document.body,
+    });
+    await expectNoA11yViolations(wrapper.element);
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: AppToast", () => {
+  it("各タイプのトーストに a11y 違反が無い", async () => {
+    const wrapper = mount(AppToast, { attachTo: document.body });
+    wrapper.vm.show("Error message", "error");
+    wrapper.vm.show("Success message", "success");
+    wrapper.vm.show("Info message", "info");
+    await nextTick();
+    // Teleport to="body" のため body 全体を検査する
+    await expectNoA11yViolations(document.body);
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: FileItem", () => {
+  it("ファイル行に a11y 違反が無い", async () => {
+    const wrapper = mount(FileItem, {
+      props: { label: "README.md", sizeText: "12 KB", mtimeText: "2h ago" },
+      attachTo: document.body,
+    });
+    // FileItem のルートは <li>。<ul> への内包は親 (FileBrowser) の責務であり
+    // 単体マウントでは構造が成立しないため list/listitem ルールは除外する。
+    await expectNoA11yViolations(wrapper.element, {
+      rules: { list: { enabled: false }, listitem: { enabled: false } },
+    });
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: SplitModeSelector", () => {
+  it("分割モード選択に a11y 違反が無い", async () => {
+    const wrapper = mount(SplitModeSelector, {
+      props: { currentMode: "normal", tabCount: 2 },
       attachTo: document.body,
     });
     await expectNoA11yViolations(wrapper.element);
