@@ -146,6 +146,13 @@ export function abbreviateBranch(branch) {
   return { abbr: branch[0] + "~/", rest: branch.slice(slash + 1) };
 }
 
+export function truncateMid(str, maxLen = 16) {
+  if (str.length <= maxLen) return str;
+  const tail = Math.floor(maxLen / 2) - 1;
+  const head = maxLen - 1 - tail;
+  return str.slice(0, head) + "…" + str.slice(str.length - tail);
+}
+
 export function dirtyBadgeHtml(ws) {
   const files = ws?.changed_files || 0;
   const ins = ws?.insertions || 0;

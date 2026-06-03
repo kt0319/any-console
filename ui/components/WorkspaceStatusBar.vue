@@ -75,7 +75,7 @@ import { useIsMobile } from "../composables/useIsMobile.js";
 import { emit } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import { POLL_INTERVAL_MS } from "../utils/constants.js";
-import { abbreviateBranch } from "../utils/git.js";
+import { abbreviateBranch, truncateMid } from "../utils/git.js";
 
 const { gitAction, isRunning } = useGitRemoteAction();
 const { isMobile } = useIsMobile();
@@ -131,11 +131,13 @@ const statusLoading = computed(() => ws.value && ws.value.last_commit_message ==
 const branchParts = computed(() => {
   const branch = ws.value?.branch || "";
   if (!isMobile.value) return { abbr: "", rest: branch };
-  return abbreviateBranch(branch);
+  const parts = abbreviateBranch(branch);
+  parts.rest = truncateMid(parts.rest, 16);
+  return parts;
 });
 const isBranchLong = computed(() => {
   if (!isMobile.value) return false;
-  return (branchParts.value.rest?.length || 0) > 10;
+  return (ws.value?.branch?.length || 0) > 10;
 });
 const msgText = computed(() => {
   if (!ws.value) return "";
@@ -244,11 +246,20 @@ function openWorkspaceModal() {
 
 
 .status-branch-btn {
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 50%;
   gap: 4px;
   padding-left: 8px;
   color: var(--text-primary);
   font-weight: 600;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .status-branch-btn {
+    max-width: none;
+    flex-shrink: 0;
+  }
 }
 
 
