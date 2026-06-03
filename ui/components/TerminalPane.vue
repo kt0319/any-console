@@ -176,9 +176,16 @@ onMounted(() => {
     frameEl.value.style.setProperty("--terminal-font-size", `${fs}px`);
   }
   if (props.tab._pendingOpen && frameEl.value) {
-    ensureTerminalOpened(props.tab, frameEl.value);
-    applyFocusGuard(props.tab.term);
-    requestAnimationFrame(() => fitTerminal(props.tab));
+    // 非アクティブな復元タブは hidden 状態で term.open() を呼ぶと
+    // xterm.js のセル寸法計測が 0 になり fit が永久に失敗するため、
+    // isActive になるまで open を遅延させる
+    if (!isActive.value && props.tab._pendingRedraw) {
+      // isActive watcher で開く
+    } else {
+      ensureTerminalOpened(props.tab, frameEl.value);
+      applyFocusGuard(props.tab.term);
+      requestAnimationFrame(() => fitTerminal(props.tab));
+    }
   } else if (props.tab.term && frameEl.value && props.tab.term.element) {
     frameEl.value.appendChild(props.tab.term.element);
     applyFocusGuard(props.tab.term);
@@ -196,6 +203,11 @@ onMounted(() => {
 
 watch(isActive, async (active) => {
   if (!active) return;
+  // 非アクティブ復元タブで遅延していた term.open() をここで実行（表示状態で正しく寸法計測される）
+  if (props.tab._pendingOpen && frameEl.value) {
+    ensureTerminalOpened(props.tab, frameEl.value);
+    applyFocusGuard(props.tab.term);
+  }
   if (props.tab._pendingRedraw && !props.tab.ws && !props.tab._wsDisposed) {
     connectTerminalWs(props.tab, {
       onOpen: () => scheduleActiveFit(),
