@@ -157,3 +157,15 @@
 - **Decision**: `axe-core` を devDependency に追加し、既存の Vitest + happy-dom + @vue/test-utils 環境に統合する。共通ヘルパー `tests/ui/components/axe-helper.js` の `expectNoA11yViolations(element)` で、mount したコンポーネントを WCAG 2.0/2.1 の A・AA ルールで検査する。検査は `tests/ui/components/test_a11y.js` に置き、`npm run test:coverage`（CI）で毎回実行する。happy-dom はレイアウト・描画を持たないため `color-contrast` ルールは無効化する。`@axe-core/vue`（開発ランタイム専用で CI ゲートにならない）と Lighthouse（実ブラウザ・サーバ起動が必要）は採用しない。
 - **Consequences**: 構造的な a11y 違反を CI で機械的に防げる。新規・変更コンポーネントはテストに1行追加するだけで担保対象に入る。導入時に PromptDialog の入力ラベル欠落・GitActionBtn のアクセシブルネーム欠落を検出・修正した。一方、色コントラストと実機スクリーンリーダー検証は自動化の対象外で、引き続き手動 / Lighthouse が担当する。検査対象は現状監査済みコンポーネントに限られ、網羅には `test_a11y.js` の段階的な拡張が必要。
 - **Alternatives considered**: 手動監査のみ継続 — スナップショットで陳腐化し再混入を防げない。`@axe-core/vue` — 開発モードのランタイム警告のみで CI ゲートにならない。Lighthouse / Playwright + axe — 実ブラウザとサーバ起動が必要で、既存の happy-dom テスト基盤より重く CI コストが高い。
+
+---
+
+### 14. ターミナルのリサイズは ioctl(TIOCSWINSZ) に一本化する
+
+- **Status**: Accepted
+- **Date**: 2026-06
+- **Context**: ターミナルのリサイズ処理が、attach した PTY の `ioctl(TIOCSWINSZ)` と `tmux resize-window` の両方を呼んでいた。tmux はデフォルト（`window-size latest`）では attach 中クライアントの PTY サイズに自動でウィンドウを追従させるため、そこへ明示的に `resize-window` を呼ぶとウィンドウが手動サイズモードに固定され、以後クライアントの実サイズ変更に追従しなくなる。結果として tmux 内部サイズとクライアント実サイズが乖離し、表示が崩れる（行折り返しの乱れ・残骸）原因になっていた。
+- **Decision**: リサイズ経路では PTY の `ioctl(TIOCSWINSZ)` のみを呼び、明示的な `tmux resize-window` は呼ばない。tmux のネイティブなクライアント追従に委ねる。本ツールは「1 セッション = 1 tmux セッションに 1 クライアント attach」（attach 前に既存ブリッジを切る）構成のため、追従先は常に一意に定まる。`resize_pty` の ioctl は stale fd でのクラッシュを避けるため `OSError` を握りつぶす。
+- **Consequences**: 二重リサイズによる手動サイズモード固定が起きず、表示崩れを防げる。リサイズ経路が ioctl 一箇所に集約され単純になる。一方、detached（誰も attach していない）セッションは作成時のデフォルトサイズ（80×24）のままで、サーバ側 `capture-pane` の整形が実クライアントサイズと一致しないケースは残る（attach 時に ioctl で是正される）。**この設計上、リサイズ経路に `tmux resize-window` を再追加してはならない（崩れが再発する）。**
+- **Alternatives considered**: `window-size manual` を明示設定し ioctl + resize-window の両方を維持する — detached での固定サイズ保持や同一 tmux の複数クライアント共有が必要なら有効だが、本ツールの単一クライアント前提では過剰で、二重リサイズの整合管理コストが残る。`tmux resize-window` のみに統一する — クライアントの PTY サイズが追従せず、ウィンドウがクライアント PTY に収まらないと表示が破綻する。
+
