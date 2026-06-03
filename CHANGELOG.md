@@ -5,6 +5,97 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0](https://github.com/kt0319/any-console/compare/v0.2.0...v0.3.0) (2026-06-03)
+
+
+### Features
+
+* AIエージェントをtmuxセッションにサーバ側起動するジョブを追加 ([0aa0f69](https://github.com/kt0319/any-console/commit/0aa0f691a7c44ec2a69e40bb9d5bb89d3f38bf15))
+* AIエージェント起動をワークスペースジョブ一覧から実行できるUIを追加 ([e6735c4](https://github.com/kt0319/any-console/commit/e6735c44c6218972ccd8e121bc7c6935b87b2da9))
+* Branchesタブの+WTボタンを削除しworktree作成はヘッダーに集約する ([479587d](https://github.com/kt0319/any-console/commit/479587d1e12ded9bafd484af3ef89cfb49478459))
+* Branchesタブのツールバーとブランチ追加モーダルを刷新する ([3a39c87](https://github.com/kt0319/any-console/commit/3a39c87529307c0358b3d5a33f47a259c43ce7dd))
+* Branchesタブのリモートブランチ一覧をワークスペースごとにキャッシュする ([2f802ce](https://github.com/kt0319/any-console/commit/2f802ce7a799e7fe1a490c85654d90a9e97f6f5e))
+* config スキーマのバージョニングと自動マイグレーションを追加 ([57c13b8](https://github.com/kt0319/any-console/commit/57c13b8964ba433a9f0c4f812a7a31fbf619bbc4))
+* git worktree サポートを追加する ([8b937c0](https://github.com/kt0319/any-console/commit/8b937c0e51c23e0ceb5b842981b853c5aaabeac8))
+* git worktree の作成・切り替え機能を追加 ([491644a](https://github.com/kt0319/any-console/commit/491644ae7d41a442d214ae519c24890bd57c4d1b))
+* URLクエリパラメータでワークスペースとペインに直リンクできるようにする ([5e35d5c](https://github.com/kt0319/any-console/commit/5e35d5c9699cf69922740549a671e4757f3b6bef))
+* worktree を実行時検出して入れ子表示し一覧から削除できるようにする ([63123fb](https://github.com/kt0319/any-console/commit/63123fb74a1cbbf052a8fed450758e2ed23c829c))
+* worktreeのワークスペースはベースのワークスペースとジョブを共有する ([0501990](https://github.com/kt0319/any-console/commit/050199027b8505ddb52f511ac4b58ec930c84a16))
+* worktree作成時にブランチ一覧を更新しOpenボタンを削除する ([e2e4ea2](https://github.com/kt0319/any-console/commit/e2e4ea2e19c497b0cfcf204a36123dca7e98dbb2))
+* worktree子行クリックで詳細モーダルを開き削除ボタンを赤くする ([e5c5821](https://github.com/kt0319/any-console/commit/e5c5821e60ed3e8ad1db14400a87f4a939cef502))
+* アプリ全体のエラー境界を追加し致命的エラー時にフォールバックUIを表示 ([1590c99](https://github.com/kt0319/any-console/commit/1590c9931f50ba5f4df48f3a3c85a873aabec7ba))
+* ターミナル・Git操作・ジョブ実行の操作ログ記録機能を追加 ([cdbf834](https://github.com/kt0319/any-console/commit/cdbf834c37d6589c0b276786bf137c614fdbe597))
+* ターミナルジョブのコマンドに{{name}}プレースホルダーを追加し起動時に入力できるようにする ([9e5cc39](https://github.com/kt0319/any-console/commit/9e5cc39609251f1bbdd44c7ef34380f0ae041416))
+* ターミナルジョブのコマンドをサーバ側send-keysで実行し未接続でも走るようにする ([aa8fda9](https://github.com/kt0319/any-console/commit/aa8fda9f3403dfa919b0afa7de8887f74cef39db))
+* ターミナル機能改善（プレースホルダー・コメント行・クリップボード同期） ([#41](https://github.com/kt0319/any-console/issues/41)) ([3cfb3dd](https://github.com/kt0319/any-console/commit/3cfb3dd29212746c517c6a3f43e5ae77fba2e1b5))
+* ブランチ一覧にpullボタンを追加（非カレントは非活性でブランチ切り替えを促す） ([4097c9e](https://github.com/kt0319/any-console/commit/4097c9e55513a7fc3cc0c3591bef9bc5814929a5))
+* ブランチ切り替え中にリストとツールバーを無効化する ([bdf3c5e](https://github.com/kt0319/any-console/commit/bdf3c5e96b06c447427bc08cd1aca284a7dc5b20))
+* ブランチ削除後にfetchを自動実行しREMOTE fetch中の操作を無効化する ([02c0d1a](https://github.com/kt0319/any-console/commit/02c0d1a625c8caf2dcf1d4c4633eae4723fdf086))
+* ワークスペースグループのドラッグ並び替えを追加 ([a088307](https://github.com/kt0319/any-console/commit/a0883074ebed57982d52465df44ca180597a42c1))
+* ワークスペースのグループ機能追加（フォルダ→グループ名称変更・ドラッグ並び替え） ([d189b26](https://github.com/kt0319/any-console/commit/d189b26807ea9292a8fe5df74ada67dd58fffadf))
+* ワークスペースをドラッグでグループなしエリアに移動できるよう対応 ([b04b768](https://github.com/kt0319/any-console/commit/b04b768dde1a66c6ae7b3227e0c2531fd0152913))
+* ワークスペース一覧で worktree をベースの下に入れ子表示し名前を [] 表記にする ([86aaa9c](https://github.com/kt0319/any-console/commit/86aaa9cf0d2dd3c53fb701019b8d99914b87d2e9))
+* ワークスペース一覧のタップで詳細モーダルを開き一覧ではjobsを取得しない ([48d0a0c](https://github.com/kt0319/any-console/commit/48d0a0ce42739397066e669dce709549f8cde4f7))
+* ワークスペース一覧のドラッグ並び替えとchangesタブ直接遷移を追加 ([9e1a788](https://github.com/kt0319/any-console/commit/9e1a788ce80397be25eba75ca1d239b792abbbde))
+* ワークスペース一覧の行をホバー時にハイライトする（PCのみ） ([ecd5ea6](https://github.com/kt0319/any-console/commit/ecd5ea61b84c980e9a12cc3ba9022220dd343eaa))
+* ワークツリーをconfigに登録せず動的検出に統一する ([f8b71bd](https://github.com/kt0319/any-console/commit/f8b71bd997ea1affd7cb1b9d0321f0fb84c2d165))
+
+
+### Bug Fixes
+
+* ×ボタン押下時にミニモードからフルキーボードが開いてしまう問題を修正 ([8075fce](https://github.com/kt0319/any-console/commit/8075fceebf945c396cf22f4fc0523c636573ee62))
+* api/main.py の import ソートを修正（ruff I001） ([a4e4894](https://github.com/kt0319/any-console/commit/a4e48946ba0a7fb90e9d8bfa4fee50752c354ae5))
+* git-log無限スクロールの暴走ループを修正しtoo many requestsを防ぐ ([4795fff](https://github.com/kt0319/any-console/commit/4795fffdc7bd2243639ff863d17aa63250ca3248))
+* git-refバッジが長いブランチ名で省略されない問題を修正する ([0b1847f](https://github.com/kt0319/any-console/commit/0b1847fbb109a5fb4a58bb27de26d78e23516a9e))
+* jobs_common.py の未使用importを削除する ([baed65f](https://github.com/kt0319/any-console/commit/baed65f6e71b4436c20d399f28be8623ad9a8916))
+* pullボタンを黄色に統一しBranchesタブのpullにローディングスピナーを追加 ([ce6acd0](https://github.com/kt0319/any-console/commit/ce6acd0b1c735af33aa2a5f7676082b460196e7d))
+* RSSフィード追加ボタンの角丸を円形から通常の角丸に修正する ([7d16882](https://github.com/kt0319/any-console/commit/7d16882b785e8ee432c49b39d69996646cce8aec))
+* ruff lint エラーを修正する（import順の整理・関数複雑度の低減） ([bcad88a](https://github.com/kt0319/any-console/commit/bcad88a093321836d436f002156fefd71b5e5556))
+* worktree のモーダルタイトルを「ベース名 [ブランチ]」表記にする ([64ccfe4](https://github.com/kt0319/any-console/commit/64ccfe4fff99623ad0a9a5834a67d2dd11e9dfc8))
+* アクセシビリティ自動検査の対象を拡張し検出した違反を修正 ([f284209](https://github.com/kt0319/any-console/commit/f28420947cbf575039369adb9d3856dc027f483b))
+* スニペット一覧のスタイルを他のリストページと統一（区切り線スタイルに変更） ([9a5f1de](https://github.com/kt0319/any-console/commit/9a5f1de05c4506360c1b7212cb228f84e583a15e))
+* ターミナルフォントを Hack Nerd Font + monospace に変更 ([3e05648](https://github.com/kt0319/any-console/commit/3e056482147a028a55f669daf2ecdc23d66f6d36))
+* タブのワークツリーアイコンをワークスペースアイコンの右・jobアイコンの左に移動する ([485c159](https://github.com/kt0319/any-console/commit/485c159b8426cc785d3be0ba49e25a168cba96c7))
+* ベースが未登録の孤立worktreeはworktree扱いせず誤アイコンを防ぐ ([e9411fb](https://github.com/kt0319/any-console/commit/e9411fba04f32617b3bf264dbe97dd5b26484718))
+* モバイルでブランチ名を最大50%幅・中央省略で表示 ([401e85b](https://github.com/kt0319/any-console/commit/401e85b66236247878fa69c5211d0a431fda78cc))
+* リモートブランチキャッシュをモジュールスコープに移動し再マウント後も保持する ([f696b8c](https://github.com/kt0319/any-console/commit/f696b8c69d81e76727296485f8a8cfae2f2dcfeb))
+* ワークスペースグループ展開時の縦線とインデントを除去 ([0fb81e1](https://github.com/kt0319/any-console/commit/0fb81e19a5989e179029ea81ac71443ad79b0390))
+* ワークスペースピッカーを開いた時に一覧を再取得しworktreeを表示する ([a1856ef](https://github.com/kt0319/any-console/commit/a1856ef4b730827dc3a8416cb15346c49de974b7))
+* 一覧ジョブAPIでworktreeにベースのジョブを表示し作成時の自動ターミナルを止める ([05b8e73](https://github.com/kt0319/any-console/commit/05b8e73e5b85835c0a0c009a7f92595a0b8ff6a1))
+
+
+### Performance Improvements
+
+* 詳細モーダルのHistory/Filesを遅延ロードしgit-logの無駄な取得を減らす ([f280535](https://github.com/kt0319/any-console/commit/f28053509cc26f93748b1d7d17ce1f040ac32bc5))
+
+
+### Refactor
+
+* Service Worker のキャッシュ判定を静的アセットの allowlist 方式に変更 ([93dd3e4](https://github.com/kt0319/any-console/commit/93dd3e496a0650cc33bff3f8dddd462790165486))
+* worktree 管理を Branches タブに統合し可視性を追加 ([65c6ad8](https://github.com/kt0319/any-console/commit/65c6ad8158507888ffbad6f8da71ccb84d91dc36))
+* worktree周りのパス解決と表示名生成を共通ヘルパーに集約する ([dae0d9b](https://github.com/kt0319/any-console/commit/dae0d9b74f6360bf4313dcea0c5c1d9e679676ee))
+* イベントバスのイベント名をカタログ化し未登録名を検知する ([6955055](https://github.com/kt0319/any-console/commit/695505589d7e21afeeb577e91f70d21a980b8c61))
+* カテゴリヘッダーのデザインをグループヘッダー基準に統一（uppercase廃止・スタイル共通化） ([2967609](https://github.com/kt0319/any-console/commit/2967609c8d43aeb1389bf8ea9440171e2a48f15a))
+* グループ関連ロジックをworkspace-groups.jsに切り出し ([1237b3c](https://github.com/kt0319/any-console/commit/1237b3c48f88475fbba2dfa586f92dc0ff5ecb1a))
+* ドラッグ並び替えをuseListDragSortに統一しハンドルCSSを共通化 ([2876858](https://github.com/kt0319/any-console/commit/287685806493610bdd5f0da6a8a0f5e672b0cfa8))
+* ワークスペースのフォルダ機能をグループに名称変更 ([fc277c5](https://github.com/kt0319/any-console/commit/fc277c518b138ed5b6d4ba714bfb70ef05b0d106))
+* ワークスペース一覧の旧ジョブ展開UIの未使用CSSを削除 ([e87c95e](https://github.com/kt0319/any-console/commit/e87c95ebfa7cea30281376105fa6f1e74bb1a15c))
+
+
+### Documentation
+
+* ADR [#11](https://github.com/kt0319/any-console/issues/11) を動的検出方式の現行実装に合わせて更新 ([a86fc59](https://github.com/kt0319/any-console/commit/a86fc596a0be9906b10d3e51c099d2805c57c062))
+* useListDragSort と drag-utils.css の共通ドラッグ処理を ARCHITECTURE.md に記載 ([c91e380](https://github.com/kt0319/any-console/commit/c91e3801bdc6d9daa15ee02586157817ea5cc73c))
+* ジョブ設定のコマンド欄に{{name}}プレースホルダーのヒントを追加 ([528762d](https://github.com/kt0319/any-console/commit/528762da8120cee8f2e851843b32275a1cf29466))
+* 設定例とProject Stanceから個人環境前提を薄める ([5bc4784](https://github.com/kt0319/any-console/commit/5bc47842e325bd3498c0d4ed4ca860134193b696))
+
+
+### Tests
+
+* axe-coreでアクセシビリティを自動検査しCIで担保する ([0076dff](https://github.com/kt0319/any-console/commit/0076dff4dbe1df3d31a3011277cc280e462ba5e1))
+* グループ CRUD エンドポイントのテストを追加（カバレッジ改善） ([42d0a23](https://github.com/kt0319/any-console/commit/42d0a2305858d48fbd64478b6198c13363acd8ec))
+* コンポーネントテストとグループロジックのユニットテストを追加 ([5716290](https://github.com/kt0319/any-console/commit/57162906e0b63ffc246fbba075760ced344d11da))
+
 ## [0.2.0](https://github.com/kt0319/any-console/compare/v0.1.0...v0.2.0) (2026-05-28)
 
 
