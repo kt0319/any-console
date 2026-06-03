@@ -43,7 +43,7 @@ export function useGitRemoteAction() {
   const { apiWithToast, apiCommand, wsEndpoint } = useApi();
   const { confirm } = useConfirm();
   const toast = useToast();
-  const runningAction = ref(null);
+  const runningAction = ref(/** @type {string|null} */ (null));
 
   /**
    * @param {string} wsName

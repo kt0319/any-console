@@ -4,7 +4,7 @@ import { useDebugMode } from "./useDebugMode.js";
 const MAX_LOGS = 100;
 const LEVELS = ["log", "info", "warn", "error"];
 
-const logs = ref([]);
+const logs = ref(/** @type {{ level: string, time: number, msg: string }[]} */ ([]));
 let installed = false;
 let originals = null;
 

@@ -6,7 +6,7 @@
     "module": "ES2022",
     "moduleResolution": "bundler",
     "noImplicitAny": false,
-    "strictNullChecks": false,
+    "strictNullChecks": true,
     "ignoreDeprecations": "5.0",
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],

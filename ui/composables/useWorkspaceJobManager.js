@@ -10,7 +10,7 @@ export function useWorkspaceJobManager({ editWs, pushView }) {
   const { apiGet, apiDelete, wsEndpoint } = useApi();
   const { confirm } = useConfirm();
   const toast = useToast();
-  const jobEntries = ref([]);
+  const jobEntries = ref(/** @type {{ name: string, job: any }[]} */ ([]));
   const isLoadingJobs = ref(false);
 
   async function loadWorkspaceJobs() {

@@ -13,6 +13,7 @@ export function useEnterAction({ hasDraft, keyboardInput, sendKeyToTerminal }) {
     }
   }
 
+  /** @param {((dx: number, dy: number, threshold: number) => any)|null} [extraGuard] */
   function makeFlickResolver(extraGuard = null) {
     return (dx, dy, threshold) => {
       if (extraGuard) {

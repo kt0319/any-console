@@ -100,7 +100,7 @@ export function renderFileIconFromPath(path) {
   const nameMatch = NF_NAME_MAP[name];
   if (nameMatch) return iconSpan(nameMatch[0], nameMatch[1]);
 
-  const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+  const ext = name.includes(".") ? (name.split(".").pop() || "").toLowerCase() : "";
   const extMatch = NF_EXT_MAP[ext];
   if (extMatch) return iconSpan(extMatch[0], extMatch[1]);
 

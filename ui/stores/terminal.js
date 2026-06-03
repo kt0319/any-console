@@ -27,9 +27,35 @@ function loadTerminalSettingsFromStorage() {
   return sanitizeTerminalSettings(safeJsonLoad(TERMINAL_SETTINGS_KEY, {}));
 }
 
+/**
+ * @typedef {Object} TerminalTab
+ * @property {number} id
+ * @property {string} sessionId
+ * @property {string} wsUrl
+ * @property {string|null} workspace
+ * @property {string} label
+ * @property {{name: string, color: string|null}|null} wsIcon
+ * @property {{name: string, color: string|null}|null} icon
+ * @property {string|null} jobName
+ * @property {string|null} jobLabel
+ * @property {import("@xterm/xterm").Terminal|null} term
+ * @property {import("@xterm/addon-fit").FitAddon} fitAddon
+ * @property {WebSocket|null} ws
+ * @property {boolean} _pendingOpen
+ * @property {boolean} _pendingRedraw
+ * @property {boolean} _needsHistoryRestore
+ * @property {boolean} _wsDisposed
+ * @property {number} _reconnectAttempts
+ * @property {ReturnType<typeof setTimeout>|null} _reconnectTimer
+ * @property {ReturnType<typeof setTimeout>|null} _activityTimer
+ * @property {boolean} _inputBound
+ * @property {boolean} _elementBound
+ * @property {boolean} hidden
+ */
+
 export const useTerminalStore = defineStore("terminal", () => {
-  const openTabs = ref([]);
-  const activeTabId = ref(null);
+  const openTabs = ref(/** @type {TerminalTab[]} */ ([]));
+  const activeTabId = ref(/** @type {number|null} */ (null));
   const terminalIdCounter = ref(0);
   const hasRestoredTabsFromStorage = ref(false);
   const restoreSessionsLoading = ref(false);

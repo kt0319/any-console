@@ -2,8 +2,8 @@ import { ref } from "vue";
 
 const visible = ref(false);
 const message = ref("");
-const extraButton = ref(null); // { label, value, icon?, desc? } | null
-const okButton = ref(null);    // { label, icon?, danger?: boolean } | null
+const extraButton = ref(/** @type {{ label: string, value: string, icon: string, desc: string }|null} */ (null));
+const okButton = ref(/** @type {{ label: string, icon: string, danger: boolean }|null} */ (null));
 let _resolve = null;
 
 function clear() {

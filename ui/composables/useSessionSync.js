@@ -54,8 +54,8 @@ export function useSessionSync() {
       const savedOrder = await terminalStore.loadTabOrder();
       const orderMap = new Map(savedOrder.map((id, i) => [id, i]));
       const sortedSessions = [...sessions].sort((a, b) => {
-        const ai = orderMap.has(a.session_id) ? orderMap.get(a.session_id) : Number.MAX_SAFE_INTEGER;
-        const bi = orderMap.has(b.session_id) ? orderMap.get(b.session_id) : Number.MAX_SAFE_INTEGER;
+        const ai = orderMap.get(a.session_id) ?? Number.MAX_SAFE_INTEGER;
+        const bi = orderMap.get(b.session_id) ?? Number.MAX_SAFE_INTEGER;
         if (ai !== bi) return ai - bi;
         return (a.created_at || 0) - (b.created_at || 0);
       });

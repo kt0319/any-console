@@ -16,7 +16,7 @@ function updateViewportHeight() {
   const vv = window.visualViewport;
   const viewportHeight = vv ? vv.height : window.innerHeight;
   const viewportHeightPx = Math.round(viewportHeight);
-  const isKbOpen = vv && (window.innerHeight - vv.height > 100);
+  const isKbOpen = !!(vv && (window.innerHeight - vv.height > 100));
   const useFullHeight = layoutStore.isPwa && !isKbOpen;
   const appliedViewportHeightPx = useFullHeight
     ? Math.round(window.innerHeight)
