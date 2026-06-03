@@ -51,6 +51,7 @@ import { useAppBootstrap } from "../composables/useAppBootstrap.js";
 import { useTerminalLifecycle } from "../composables/useTerminalLifecycle.js";
 import { useSessionResume } from "../composables/useSessionResume.js";
 import { useGlobalShortcuts } from "../composables/useGlobalShortcuts.js";
+import { useDeepLink } from "../composables/useDeepLink.js";
 import { on, emit } from "../app-bridge.js";
 
 const layoutStore = useLayoutStore();
@@ -68,6 +69,7 @@ const tabBarView = ref(null);
 const terminalBaseView = ref(null);
 
 const { booting, bootMessage, initializeApp } = useAppBootstrap();
+const { apply: applyDeepLink } = useDeepLink();
 const {
   activateTerminalTab,
   ensureKeyboardTargetTab,
@@ -203,6 +205,7 @@ onMounted(async () => {
   bootMessage.value = "Initializing...";
   try {
     await initializeApp();
+    applyDeepLink();
     startSyncPolling();
   } finally {
     booting.value = false;
