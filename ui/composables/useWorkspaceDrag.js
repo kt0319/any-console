@@ -4,7 +4,7 @@ export function useWorkspaceDrag({ items, listEl, onReorder, rowSelector = ".ws-
   const dragIdx = ref(-1);
   const dragOffsetY = ref(0);
   const isDragging = ref(false);
-  const dragItems = ref(null);
+  const dragItems = ref(/** @type {any[]|null} */ (null));
 
   let dragStartY = 0;
   let dragRowHeight = 0;

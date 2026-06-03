@@ -11,6 +11,10 @@ export const useAuthStore = defineStore("auth", () => {
   const serverVersion = ref("");
   const isHandlingUnauthorized = ref(false);
 
+  /**
+   * @param {string} endpoint
+   * @param {{ method?: string, body?: any }} [options]
+   */
   async function apiFetch(endpoint, { method = "GET", body = null } = {}) {
     /** @type {Record<string, string>} */
     const headers = {};

@@ -10,13 +10,13 @@ export function useGitLogPagination() {
   const gitStore = useGitStore();
   const { apiGet, wsEndpoint } = useApi();
 
-  const graphRows = ref([]);
+  const graphRows = ref(/** @type {any[]} */ ([]));
   const commitEntries = computed(() => graphRows.value.filter((r) => r.entry).map((r) => r.entry));
   const graphWidth = computed(() => computeGraphWidth(graphRows.value));
   const isHistoryLoading = ref(true);
   const hasMoreHistory = ref(false);
   const isLoadingMoreHistory = ref(false);
-  const historyListEl = ref(null);
+  const historyListEl = ref(/** @type {HTMLElement|null} */ (null));
   let historyPage = 0;
 
   async function _fetchPage(workspace, limit) {

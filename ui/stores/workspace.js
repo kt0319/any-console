@@ -27,9 +27,9 @@ function saveStatusCache(cache) {
 
 export const useWorkspaceStore = defineStore("workspace", () => {
   const { apiGet } = useApi();
-  const allWorkspaces = ref([]);
-  const groups = ref([]);
-  const selectedWorkspace = ref(null);
+  const allWorkspaces = ref(/** @type {Record<string, any>[]} */ ([]));
+  const groups = ref(/** @type {Record<string, any>[]} */ ([]));
+  const selectedWorkspace = ref(/** @type {string|null} */ (null));
   const workspaceJobs = ref({});
   const pendingJob = ref(null);
   const visibleWorkspaces = computed(() => allWorkspaces.value);

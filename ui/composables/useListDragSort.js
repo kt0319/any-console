@@ -9,8 +9,8 @@ import { ref, onBeforeUnmount } from "vue";
  * @param {(fromIdx:number, toIdx:number) => void} opts.onReorder - 並べ替え確定時のコールバック
  */
 export function useListDragSort({ rowSelector, onReorder }) {
-  const dragFromIdx = ref(null);
-  const dragOverIdx = ref(null);
+  const dragFromIdx = ref(/** @type {number|null} */ (null));
+  const dragOverIdx = ref(/** @type {number|null} */ (null));
 
   function onDragStart(e, idx) {
     e.preventDefault();

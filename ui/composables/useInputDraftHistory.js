@@ -1,6 +1,12 @@
 import { watch } from "vue";
 import { useInputStore } from "../stores/input.js";
 
+/**
+ * @param {import('vue').Ref<string>} draft
+ * @param {import('vue').Ref<boolean>} inputFocused
+ * @param {(text: string) => void} sendTextToTerminal
+ * @param {{ onSend?: () => void }} [opts]
+ */
 export function useInputDraftHistory(draft, inputFocused, sendTextToTerminal, { onSend = undefined } = {}) {
   const inputStore = useInputStore();
 

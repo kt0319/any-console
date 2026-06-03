@@ -23,7 +23,7 @@ export function useSessionResume({ terminalBaseView }) {
   function handleResume() {
     for (const tab of terminalStore.openTabs) {
       if (tab.ws) {
-        clearTimeout(tab._reconnectTimer);
+        if (tab._reconnectTimer) clearTimeout(tab._reconnectTimer);
         try { tab.ws.onclose = null; tab.ws.close(); } catch {}
         tab.ws = null;
       }

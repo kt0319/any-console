@@ -14,7 +14,7 @@ export const useLayoutStore = defineStore("layout", () => {
     || /** @type {any} */ (navigator).standalone === true;
 
   const isSplitMode = ref(false);
-  const splitPaneTabIds = ref([]);
+  const splitPaneTabIds = ref(/** @type {(number|string)[]} */ ([]));
   const activePaneIndex = ref(0);
   const splitLayout = ref("grid");
   const isPaneSelectedByTap = ref(false);

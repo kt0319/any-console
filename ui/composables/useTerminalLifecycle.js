@@ -42,7 +42,7 @@ export function useTerminalLifecycle({ terminalBaseView }) {
     if (!tab?.term) return;
     requestAnimationFrame(() => {
       try {
-        tab.term.focus();
+        tab.term?.focus();
       } catch {}
     });
   }
@@ -150,7 +150,7 @@ export function useTerminalLifecycle({ terminalBaseView }) {
       try { tabObj.ws.onclose = null; tabObj.ws.close(); } catch {}
       tabObj.ws = null;
     }
-    clearTimeout(tabObj._reconnectTimer);
+    if (tabObj._reconnectTimer) clearTimeout(tabObj._reconnectTimer);
     tabObj._reconnectAttempts = 0;
     // xterm.js のバッファを完全にクリアして tmux capture-pane で screen を取り直す。
     // term.refresh() だけだと崩れたバッファをそのまま再描画してしまうため。

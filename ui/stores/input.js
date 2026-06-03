@@ -8,7 +8,7 @@ const INPUT_HISTORY_KEY = LS_KEY_INPUT_HISTORY;
 
 export const useInputStore = defineStore("input", () => {
   const inputHistory = ref(safeJsonLoad(INPUT_HISTORY_KEY, []));
-  const snippetsCache = ref([]);
+  const snippetsCache = ref(/** @type {{ label: string, command: string }[]} */ ([]));
   const isSnippetsLoaded = ref(false);
 
   const QUICK_KEYS = ref(MODIFIER_KEYS);
