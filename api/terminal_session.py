@@ -158,7 +158,7 @@ def _kill_tmux_session(session: TerminalSession) -> None:
 
 
 def _apply_pty_size(session: TerminalSession, cols: int, rows: int) -> None:
-    resize_pty(session.fd, session.tmux_session_name, cols, rows)
+    resize_pty(session.fd, cols, rows)
 
 
 # ─── WebSocket fan-out & reader loop ─────────────────────────────────────────
