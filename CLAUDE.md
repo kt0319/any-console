@@ -62,6 +62,7 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
   - 環境: Vitest + happy-dom + @vue/test-utils（すべて導入済み）
 - 新たに追加する純粋関数は最初から `ui/utils/` に置く
 - 既存のインラインコピーは機会があれば順次 `import` 方式に移行する
+- アクセシビリティは axe-core で自動検査する（`tests/ui/components/test_a11y.js` + `axe-helper.js`）。新規・変更コンポーネントは `expectNoA11yViolations()` で担保する（色コントラストは対象外 — `docs/A11Y_AUDIT.md` 参照）
 
 ---
 

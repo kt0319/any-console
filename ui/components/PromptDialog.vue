@@ -8,6 +8,7 @@
         v-model="value"
         class="form-input prompt-input"
         :type="inputType"
+        :aria-label="title || message || 'Input'"
         :placeholder="placeholder"
         autocomplete="off"
         autocapitalize="off"
