@@ -146,3 +146,14 @@
 - **Decision**: `__global__.config_version` にスキーマ版を保存し、コード側の `CONFIG_SCHEMA_VERSION`（`api/common.py`）を基準に `_read_config_unlocked()` の読み込み時へ自動マイグレーションを挟む。変換は `_CONFIG_MIGRATIONS`（版 N → N+1 の関数レジストリ）に登録し、現行版まで順次適用してから版を刻んで永続化する。空 config（初回起動）は何もしない。コードが対応する版より新しい config は、変換も再書き込みもせず警告のみ出して best-effort で動作する（誤った downgrade でデータを失わせない）。新しい版を検知した場合は `check_config_health()` が `__version__` エラーとして返し、フロントが起動時にトーストで「アプリを更新してください」と通知する。
 - **Consequences**: 破壊的なスキーマ変更を入れても、利用者の古い config を起動時に無停止で移行できる。移行の追加は `_CONFIG_MIGRATIONS` に関数を足し `CONFIG_SCHEMA_VERSION` を上げるだけで済む。既存の workspace 名→ID 移行（`_migrate_workspace_keys_to_ids`）とは独立に動く。新しい版の config を古いコードで開くと一部設定が解釈できない可能性は残るが、破壊せず警告する方針で被害を最小化する。
 - **Alternatives considered**: 版を持たず Pydantic のデフォルト＋`extra="allow"` のみに頼る — 追加方向には強いがリネーム・削除でサイレントにデータが失われる。config を読むたびに全フィールドを総当たりで補正する — 版がないと「いつ何を変換すべきか」を判断できず、冪等性とテスト容易性を損なう。
+
+---
+
+### 13. アクセシビリティの自動検査に axe-core を採用
+
+- **Status**: Accepted
+- **Date**: 2026-06
+- **Context**: a11y はこれまで手動コードレビュー（`docs/A11Y_AUDIT.md`）のみで担保しており、ある時点のスナップショットに留まっていた。コンポーネントの追加・変更で ARIA・ロール・アクセシブルネームの欠落がサイレントに再混入するのを CI で継続的に防ぎたかった。
+- **Decision**: `axe-core` を devDependency に追加し、既存の Vitest + happy-dom + @vue/test-utils 環境に統合する。共通ヘルパー `tests/ui/components/axe-helper.js` の `expectNoA11yViolations(element)` で、mount したコンポーネントを WCAG 2.0/2.1 の A・AA ルールで検査する。検査は `tests/ui/components/test_a11y.js` に置き、`npm run test:coverage`（CI）で毎回実行する。happy-dom はレイアウト・描画を持たないため `color-contrast` ルールは無効化する。`@axe-core/vue`（開発ランタイム専用で CI ゲートにならない）と Lighthouse（実ブラウザ・サーバ起動が必要）は採用しない。
+- **Consequences**: 構造的な a11y 違反を CI で機械的に防げる。新規・変更コンポーネントはテストに1行追加するだけで担保対象に入る。導入時に PromptDialog の入力ラベル欠落・GitActionBtn のアクセシブルネーム欠落を検出・修正した。一方、色コントラストと実機スクリーンリーダー検証は自動化の対象外で、引き続き手動 / Lighthouse が担当する。検査対象は現状監査済みコンポーネントに限られ、網羅には `test_a11y.js` の段階的な拡張が必要。
+- **Alternatives considered**: 手動監査のみ継続 — スナップショットで陳腐化し再混入を防げない。`@axe-core/vue` — 開発モードのランタイム警告のみで CI ゲートにならない。Lighthouse / Playwright + axe — 実ブラウザとサーバ起動が必要で、既存の happy-dom テスト基盤より重く CI コストが高い。

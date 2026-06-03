@@ -7,9 +7,12 @@
       class="split-tab-mode-option"
       :class="{ active: currentMode === m.value }"
       :disabled="m.minTabs > tabCount"
+      :aria-label="m.label"
+      :title="m.label"
+      :aria-pressed="currentMode === m.value ? 'true' : 'false'"
       @click="$emit('select', m.value)"
     >
-      <span :class="m.icon"></span>
+      <span :class="m.icon" aria-hidden="true"></span>
     </button>
   </div>
 </template>
@@ -23,10 +26,10 @@ defineProps({
 defineEmits(["select"]);
 
 const modes = [
-  { value: "normal", icon: "split-icon-normal", minTabs: 0 },
-  { value: "vertical", icon: "split-icon-v", minTabs: 2 },
-  { value: "horizontal", icon: "split-icon-h", minTabs: 2 },
-  { value: "grid", icon: "split-icon-grid", minTabs: 3 },
+  { value: "normal", icon: "split-icon-normal", minTabs: 0, label: "Single pane" },
+  { value: "vertical", icon: "split-icon-v", minTabs: 2, label: "Vertical split" },
+  { value: "horizontal", icon: "split-icon-h", minTabs: 2, label: "Horizontal split" },
+  { value: "grid", icon: "split-icon-grid", minTabs: 3, label: "Grid split" },
 ];
 </script>
 

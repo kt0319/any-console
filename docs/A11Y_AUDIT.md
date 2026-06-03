@@ -85,8 +85,8 @@
 | 優先度 | 問題 | 対応方針 |
 |--------|------|---------|
 | Medium | タブバーに `role="tablist"` / `role="tab"` / `aria-selected` が未実装 | ScreenMain.vue のタブ要素に追加 |
-| Medium | WorkspaceJobsPane のジョブ行（`<div>`）に `role="button"` / `tabindex="0"` / キーボードハンドラが未実装 | クリッカブル div を button に変更するか role を付与 |
-| Medium | GitActionBtn の `title` prop を `aria-label` として使用するよう修正 | `title` を `aria-label` に変更、または両方設定 |
+| ~~Medium~~ 完了 | ~~WorkspaceJobsPane のジョブ行（`<div>`）に `role="button"` 等が未実装~~ → ジョブ行を「実行 `<button>` + 編集 `<button>` の兄弟」構造に変更（操作要素のネストを避けつつキーボード操作可能化、`test_WorkspaceJobsPane.js` で担保） | — |
+| ~~Medium~~ 完了 | ~~GitActionBtn の `title` prop を `aria-label` として使用するよう修正~~ → `aria-label` を併設済み（自動検査で担保） | — |
 | Low | FileBrowser の Loading / Error メッセージに `role="status"` / `role="alert"` を追加 | v-if 切り替えの要素に role を付与 |
 | Low | `--text-muted` のコントラスト比を WCAG AA（4.5:1）で検証 | ブラウザの DevTools または axe-core で計測 |
 | Low | PromptDialog のフォーカストラップ実装（useModal の trapFocus を適用） | useConfirm と同様に対応 |
@@ -103,15 +103,34 @@
 
 ---
 
-## ツール導入提案
+## 自動検査（導入済み）
 
-現在の監査は手動コードレビューのみで実施。以下のツール導入を別タスクとして検討：
+手動監査に加え、**axe-core を Vitest + happy-dom に統合した自動検査**を導入済み。
+CI（`npm run test:coverage`）で毎回実行され、構造的な a11y 違反の再混入を継続的に担保する。
 
-- **axe-core** — DOM ベースの自動監査。Vitest + happy-dom 環境に統合可能
-- **@axe-core/vue** — Vue コンポーネント向けのランタイム検査（開発モードのみ）
-- **Lighthouse** — ブラウザでのページ全体コントラスト・セマンティクス検査
+- 共通ヘルパー: `tests/ui/components/axe-helper.js`（`expectNoA11yViolations(element)`）
+- テスト: `tests/ui/components/test_a11y.js` / `test_WorkspaceJobsPane.js`
+- 対象ルール: WCAG 2.0 / 2.1 の A・AA タグ
+- **除外**: `color-contrast`（happy-dom はレイアウト/描画を持たず計測不能）
+- **検査済みコンポーネント**: ConfirmDialog / PromptDialog / GitActionBtn / AppToast / FileItem / SplitModeSelector / WorkspaceJobsPane
 
-ツール導入は実装コストが低く、継続的な監査自動化に有効。
+自動検査で新たに検出・修正した違反:
+
+- **PromptDialog**: 入力 `<input>` にラベルが無い（critical / `label`）→ `aria-label` を追加
+- **GitActionBtn**: アイコンボタンにアクセシブルネームが無い（critical / `button-name`、TODO #8）→ `aria-label` を追加
+- **SplitModeSelector**: アイコンのみの分割モードボタンにアクセシブルネームが無い（critical / `button-name`）→ `aria-label` + `title` + `aria-pressed` を追加
+- **WorkspaceJobsPane**: ジョブ行のクリッカブル `<div>` がキーボード操作不可（TODO #7）→ 実行 `<button>` + 編集 `<button>` の兄弟構造に変更
+
+### 自動検査でカバーできない範囲（引き続き手動 / 別ツール）
+
+- **色コントラスト** — `color-contrast` は happy-dom で計測不能。Lighthouse / DevTools / 手動で検証する
+- **実機スクリーンリーダー** — VoiceOver / TalkBack / NVDA での確認
+- **未カバーのコンポーネント** — `test_a11y.js` の対象を順次拡張する
+
+### 検査対象の追加方法
+
+`tests/ui/components/test_a11y.js` に対象コンポーネントを mount し、
+`expectNoA11yViolations(wrapper.element)` を呼ぶテストを追記する。
 
 ---
 
