@@ -151,10 +151,7 @@ function onPointerDown(e) {
 function onWheel(e) {
   const term = props.tab?.term;
   if (!term) return;
-  if (term.buffer.active.type === "alternate") {
-    e.preventDefault();
-    e.stopPropagation();
-  }
+  e.preventDefault();
 }
 
 // term.open() 後に xterm フォーカスポリシーを注入する。
