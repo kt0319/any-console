@@ -169,14 +169,13 @@ export function useTerminalLifecycle({ terminalBaseView }) {
     const tabId = tab.id;
     const sessionId = tab.sessionId;
     const tabObj = terminalStore.openTabs.find((t) => t.id === tabId);
-    if (tabObj) {
-      disconnectTerminal(tabObj);
-      if (tabObj.term) tabObj.term.dispose();
-    }
+    if (tabObj) disconnectTerminal(tabObj);
     terminalStore.removeTab(tabId);
     if (layoutStore.isSplitMode) {
       layoutStore.replaceTabWithEmpty(tabId);
     }
+    await nextTick();
+    if (tabObj?.term) tabObj.term.dispose();
     if (sessionId) {
       await deleteSession(sessionId);
     }
