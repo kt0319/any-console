@@ -146,7 +146,7 @@ export function useTerminal() {
     tab._pendingOpen = false;
     tab.term.open(frameEl);
     bindTerminalElement(tab);
-    if (!tab._pendingRedraw) {
+    if (!tab._pendingRedraw && !tab.ws) {
       connectTerminalWs(tab);
     }
     observeFrameResize(tab, frameEl);
