@@ -21,12 +21,12 @@ export function useJobLauncher() {
   const { recordJob } = useRecentJobs();
 
   async function runJob(ws, job) {
-    emit("modal:close");
     if (job.type === "browser") {
       recordJob(ws, job);
       openExternalUrl(job.url);
       return;
     }
+    emit("modal:close");
     if (job.confirm !== false) {
       const preview = truncate(job.command, job.name);
       if (!await confirm(`${job.label || job.name}\n\n${preview}`)) return;
@@ -46,11 +46,11 @@ export function useJobLauncher() {
   }
 
   async function runRecentJob(recent) {
-    emit("modal:close");
     if (recent.jobType === "browser") {
       openExternalUrl(recent.jobUrl);
       return;
     }
+    emit("modal:close");
     if (recent.jobConfirm !== false) {
       const preview = truncate(recent.jobCommand, recent.jobName);
       if (!await confirm(`${recent.jobLabel || recent.jobName}\n\n${preview}`)) return;
