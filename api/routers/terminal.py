@@ -12,8 +12,6 @@ from pydantic import BaseModel
 from ..activity import log_activity
 from ..auth import COOKIE_NAME_TOKEN, verify_token, verify_ws_token
 from ..common import (
-    TERMINAL_DEFAULT_COLS,
-    TERMINAL_DEFAULT_ROWS,
     TMUX_CMD_TIMEOUT_SEC,
     TMUX_SESSION_PREFIX,
     WS_MSG_RESIZE,
@@ -25,19 +23,18 @@ from ..terminal_session import (
     PTY_EXECUTOR,
     TERMINAL_SESSIONS,
     TerminalSession,
-    _apply_pty_size,
-    _detach_pty_bridge,
-    _ensure_reader_task,
     _handle_resize,
     _kill_tmux_session,
     _register_tmux_session,
+    attach_client_bridge,
+    detach_client_bridge,
     get_terminal_session,
+    register_bridge,
     sessions_lock,
-    switch_active_client,
+    start_bridge_reader,
 )
 from ..tmux import (
     _run_tmux_cmd,
-    attach_tmux_session,
     create_tmux_session,
     get_tmux_created,
     tmux_session_exists,
@@ -93,7 +90,9 @@ async def get_terminal_history(session_id: str, cols: int | None = None, rows: i
     session = get_terminal_session(session_id)
     # クライアントから cols/rows を受けたら tmux を先にリサイズしてから capture する。
     # こうしないと、古いサイズで wrap された pane 内容をクライアントが書き戻して画面が崩れる。
-    if cols and rows and cols > 0 and rows > 0:
+    # ただし他のクライアントが接続中（bridges あり）の場合はウィンドウを動かすとそちらの
+    # 表示を乱すため、resize はスキップする（その場合でも接続時の tmux 再描画で可視領域は揃う）。
+    if cols and rows and cols > 0 and rows > 0 and not session.bridges:
         try:
             subprocess.run(
                 ["tmux", "resize-window", "-t", session.tmux_session_name, "-x", str(cols), "-y", str(rows)],
@@ -203,29 +202,6 @@ async def _ensure_tmux_session(websocket: WebSocket, session, session_id: str) -
         return False
 
 
-async def _attach_or_resize_pty(websocket: WebSocket, session, session_id: str, cols: int, rows: int) -> bool:
-    need_pty_bridge = session.fd is None or session.pid is None
-    effective_cols = cols if cols > 0 else TERMINAL_DEFAULT_COLS
-    effective_rows = rows if rows > 0 else TERMINAL_DEFAULT_ROWS
-
-    if need_pty_bridge:
-        _detach_pty_bridge(session)
-        try:
-            fd, pid = attach_tmux_session(session.tmux_session_name, effective_cols, effective_rows)
-        except OSError as e:
-            logger.error("tmux attach failed session=%s: %s", session_id, e)
-            await websocket.close(code=1011, reason="tmux attach failed")
-            return False
-        session.fd = fd
-        session.pid = pid
-        # 新しいブリッジに対しては必ずサイズを反映し直す
-        session.applied_size = None
-        _apply_pty_size(session, effective_cols, effective_rows)
-    elif cols > 0 and rows > 0 and session.fd is not None:
-        _apply_pty_size(session, cols, rows)
-    return True
-
-
 def _extract_ws_message_data(msg) -> bytes | None:
     data = msg.get("bytes")
     if data is None and msg.get("text") is not None:
@@ -251,7 +227,7 @@ def _update_cmd_buffer(buf: bytearray, data: bytes) -> str | None:
     return None
 
 
-async def _ws_message_loop(websocket: WebSocket, session) -> None:
+async def _ws_message_loop(websocket: WebSocket, session, bridge) -> None:
     loop = asyncio.get_event_loop()
     cmd_buf: bytearray = bytearray()
     while True:
@@ -269,25 +245,17 @@ async def _ws_message_loop(websocket: WebSocket, session) -> None:
             continue
 
         if data[0:1] == WS_MSG_RESIZE:
-            _handle_resize(session, data[1:], ws=websocket)
+            _handle_resize(bridge, data[1:])
         else:
-            switch_active_client(session, websocket)
             cmd = _update_cmd_buffer(cmd_buf, data)
             if cmd:
                 log_activity(session.workspace, "terminal", cmd=cmd)
-            if session.fd is not None:
-                await loop.run_in_executor(PTY_EXECUTOR, os.write, session.fd, data)
+            if bridge.fd is not None:
+                await loop.run_in_executor(PTY_EXECUTOR, os.write, bridge.fd, data)
 
 
 async def _cleanup_ws_client(websocket: WebSocket, session) -> None:
-    session.clients.discard(websocket)
-    session.client_sizes.pop(websocket, None)
-    if session._last_active_client is websocket:
-        session._last_active_client = None
-
-    if not session.clients and session._reader_task and not session._reader_task.done():
-        session._reader_task.cancel()
-
+    detach_client_bridge(session, websocket)
     try:
         await websocket.close()
     except (WebSocketDisconnect, RuntimeError, OSError):
@@ -312,17 +280,21 @@ async def terminal_ws(websocket: WebSocket, session_id: str, token: str = "", co
     if not await _ensure_tmux_session(websocket, session, session_id):
         return
 
-    if not await _attach_or_resize_pty(websocket, session, session_id, cols, rows):
+    # この接続専用の grouped tmux session を作って独立アタッチする。
+    # クライアントごとに PTY を分けることで、サイズの取り合いや再接続オーバーラップ
+    # による表示崩れを構造的に避ける。
+    try:
+        bridge = attach_client_bridge(session, cols, rows)
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+        logger.error("tmux attach failed session=%s: %s", session_id, e)
+        await websocket.close(code=1011, reason="tmux attach failed")
         return
 
-    session.clients.add(websocket)
-    if cols > 0 and rows > 0:
-        session.client_sizes[websocket] = (cols, rows)
-
-    _ensure_reader_task(session, session_id)
+    register_bridge(session, websocket, bridge)
+    start_bridge_reader(session_id, websocket, bridge)
 
     try:
-        await _ws_message_loop(websocket, session)
+        await _ws_message_loop(websocket, session, bridge)
     except (WebSocketDisconnect, OSError, asyncio.CancelledError):
         pass
 

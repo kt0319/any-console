@@ -262,8 +262,8 @@ class TestTerminalCommandInjection:
 
 
 class TestSessionState:
-    def test_delete_with_pty_bridge(self, client, workspace, monkeypatch):
-        """fd/pidセット済みセッション削除でdetach呼び出し"""
+    def test_delete_detaches_bridges(self, client, workspace, monkeypatch):
+        """セッション削除で全クライアントブリッジが detach される"""
         from api.terminal_session import TERMINAL_SESSIONS, TerminalSession, sessions_lock
 
         detached = []
@@ -281,8 +281,6 @@ class TestSessionState:
         session = TerminalSession(
             workspace="test-ws",
             tmux_session_name="ac-test-pty-bridge",
-            fd=999,
-            pid=12345,
         )
         with sessions_lock:
             TERMINAL_SESSIONS["pty-test"] = session
@@ -292,39 +290,39 @@ class TestSessionState:
         assert "ac-test-pty-bridge" in detached
 
 
-class TestApplyPtySize:
-    """_apply_pty_size はサイズが実際に変化した時だけ resize_pty を呼ぶ。"""
+class TestApplyBridgeSize:
+    """_apply_bridge_size はサイズが実際に変化した時だけ resize_client_pty を呼ぶ。"""
 
-    def _make_session(self):
-        from api.terminal_session import TerminalSession
-        return TerminalSession(
-            workspace="test-ws", tmux_session_name="ac-test-resize", fd=999, pid=1,
-        )
+    def _make_bridge(self):
+        from api.terminal_session import ClientBridge
+        return ClientBridge(fd=999, pid=1, grouped_name="ac-test__c0")
 
     def test_applies_only_on_change(self, monkeypatch):
         from api import terminal_session as ts
 
         calls = []
-        monkeypatch.setattr(ts, "resize_pty", lambda *a: calls.append(a))
-        session = self._make_session()
+        monkeypatch.setattr(ts, "resize_client_pty", lambda *a: calls.append(a))
+        bridge = self._make_bridge()
+        bridge.applied_size = None
 
-        ts._apply_pty_size(session, 120, 40)
-        ts._apply_pty_size(session, 120, 40)  # 同一サイズは無視される
-        assert calls == [(999, "ac-test-resize", 120, 40)]
-        assert session.applied_size == (120, 40)
+        ts._apply_bridge_size(bridge, 120, 40)
+        ts._apply_bridge_size(bridge, 120, 40)  # 同一サイズは無視される
+        assert calls == [(999, 120, 40)]
+        assert bridge.applied_size == (120, 40)
 
-        ts._apply_pty_size(session, 80, 24)  # 変化したので反映
-        assert calls[-1] == (999, "ac-test-resize", 80, 24)
+        ts._apply_bridge_size(bridge, 80, 24)  # 変化したので反映
+        assert calls[-1] == (999, 80, 24)
         assert len(calls) == 2
 
     def test_ignores_non_positive_size(self, monkeypatch):
         from api import terminal_session as ts
 
         calls = []
-        monkeypatch.setattr(ts, "resize_pty", lambda *a: calls.append(a))
-        session = self._make_session()
+        monkeypatch.setattr(ts, "resize_client_pty", lambda *a: calls.append(a))
+        bridge = self._make_bridge()
+        bridge.applied_size = None
 
-        ts._apply_pty_size(session, 0, 24)
-        ts._apply_pty_size(session, 80, 0)
+        ts._apply_bridge_size(bridge, 0, 24)
+        ts._apply_bridge_size(bridge, 80, 0)
         assert calls == []
-        assert session.applied_size is None
+        assert bridge.applied_size is None

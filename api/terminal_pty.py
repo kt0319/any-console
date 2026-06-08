@@ -5,7 +5,6 @@ import os
 import select
 import signal
 import struct
-import subprocess
 import termios
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -13,7 +12,6 @@ from concurrent.futures import ThreadPoolExecutor
 from .common import (
     PTY_READ_BUFFER_SIZE,
     PTY_READER_WORKERS,
-    TMUX_CMD_TIMEOUT_SEC,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,21 +59,19 @@ def close_pty(fd: int | None, pid: int | None) -> None:
         logger.debug("cleanup pid=%d failed: %s", pid, e)
 
 
-def resize_pty(fd: int | None, tmux_name: str, cols: int, rows: int) -> None:
-    """PTY と tmux ウィンドウのサイズを更新する。
+def resize_client_pty(fd: int, cols: int, rows: int) -> None:
+    """アタッチ済みクライアント PTY の winsize を更新する。
 
-    呼び出し側（`_apply_pty_size`）でサイズが実際に変化した時だけ呼ぶこと。
-    入力のたびに（同一サイズで）呼ぶと `tmux resize-window` がウィンドウ再描画を
-    連打し、表示が崩れる原因になる。
+    各 WebSocket クライアントは専用の grouped tmux session に独立した tmux
+    クライアントとしてアタッチしている。PTY の winsize を変えると tmux は
+    SIGWINCH を受け取り、`window-size latest` ポリシーに従ってウィンドウを
+    リサイズする。**アプリ側から `tmux resize-window` を叩かないこと**
+    （複数クライアントが 1 つの window のサイズを奪い合って崩れるのを避けるため、
+    各クライアントの PTY サイズだけを真実とする）。stale fd でのクラッシュを
+    避けるため `OSError` は握りつぶす。
     """
-    if fd is not None:
-        try:
-            winsize = struct.pack("HHHH", rows, cols, 0, 0)
-            fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
-        except OSError:
-            pass
-    subprocess.run(
-        ["tmux", "resize-window", "-t", tmux_name, "-x", str(cols), "-y", str(rows)],
-        timeout=TMUX_CMD_TIMEOUT_SEC,
-        capture_output=True,
-    )
+    try:
+        winsize = struct.pack("HHHH", rows, cols, 0, 0)
+        fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
+    except OSError:
+        pass
