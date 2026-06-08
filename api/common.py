@@ -41,6 +41,10 @@ PTY_READER_WORKERS = 8
 MAX_TERMINAL_SESSIONS = 20
 
 TMUX_SESSION_PREFIX = "ac-"
+# WS クライアントごとの grouped session 用プレフィックス。
+# TMUX_SESSION_PREFIX で始まらない名前にして、/terminal/sessions の一覧
+# （= タブ生成元）に grouped session が混じらないようにする。
+TMUX_GROUPED_PREFIX = "acg-"
 TMUX_CMD_TIMEOUT_SEC = 5
 TMUX_PANE_READY_TIMEOUT_SEC = 2.0
 TMUX_PANE_POLL_INTERVAL_SEC = 0.05
