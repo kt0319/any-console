@@ -62,6 +62,11 @@ def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
             ";", "set-option", "-t", session_name, "mouse", "off",
             ";", "set-option", "-t", session_name, "history-limit", "100000",
             ";", "set-option", "-t", session_name, "set-clipboard", "on",
+            # 各 WS クライアントは grouped session で独立アタッチする。ウィンドウは
+            # 直近にアクティブだったクライアントのサイズに追従させる（端末をまたいだ
+            # 操作の引き継ぎで自然なリサイズになる）。アプリは resize-window を叩かず、
+            # この window-size ポリシー + クライアント PTY の winsize だけに委ねる。
+            ";", "set-option", "-t", session_name, "window-size", "latest",
         ],
         cwd=cwd,
         env=env,
@@ -69,6 +74,29 @@ def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
         check=True,
         capture_output=True,
     )
+
+
+def create_grouped_session(base_name: str, group_name: str) -> None:
+    """base_name とウィンドウを共有する grouped session を作る（この接続専用ビュー）。
+
+    grouped session はベースの window/pane（＝同じシェル）を共有しつつ、独立した
+    tmux クライアントとして自分のサイズを持てる。各 WebSocket クライアントが自分用の
+    grouped session にアタッチすることで、1 つの window のサイズを複数クライアントで
+    奪い合って表示が崩れる問題を構造的に避ける。grouped session 側にも status / mouse /
+    window-size を明示設定する（セッションオプションはグループ間で共有されないため）。
+
+    ベースセッションは状態（シェル・スクロールバック）の保持役として常に残し、
+    grouped session はクライアント切断時に kill する。
+    """
+    result = _run_tmux_cmd(
+        "new-session", "-d", "-s", group_name, "-t", base_name,
+        ";", "set-option", "-t", group_name, "status", "off",
+        ";", "set-option", "-t", group_name, "mouse", "off",
+        ";", "set-option", "-t", group_name, "window-size", "latest",
+    )
+    if result is None or result.returncode != 0:
+        stderr = result.stderr.strip() if result and result.stderr else "tmux new-session failed"
+        raise OSError(f"failed to create grouped session {group_name}: {stderr}")
 
 
 def attach_tmux_session(session_name: str, cols: int = 0, rows: int = 0) -> tuple[int, int]:

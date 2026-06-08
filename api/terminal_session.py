@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import secrets
 import subprocess
 import threading
 
@@ -19,9 +20,11 @@ from .terminal_pty import (
     PTY_NO_DATA,
     close_pty,
     read_pty,
-    resize_pty,
+    resize_client_pty,
 )
 from .tmux import (
+    attach_tmux_session,
+    create_grouped_session,
     detect_workspace_from_tmux,
     kill_tmux_by_name,
     load_tmux_metadata,
@@ -44,34 +47,50 @@ _TMUX_ATTR_MAP = {
 }
 
 
+class ClientBridge:
+    """1 つの WebSocket クライアント専用の tmux アタッチ。
+
+    各クライアントは自分用の grouped tmux session（`grouped_name`）に PTY で
+    アタッチし、自分の (fd, pid) と reader タスクを持つ。サイズは自分の PTY winsize
+    だけで決まり、他クライアントと取り合わない。
+    """
+
+    __slots__ = ("fd", "pid", "grouped_name", "reader_task", "applied_size")
+
+    def __init__(self, fd: int | None, pid: int | None, grouped_name: str | None):
+        self.fd = fd
+        self.pid = pid
+        self.grouped_name = grouped_name
+        self.reader_task: asyncio.Task | None = None
+        self.applied_size: tuple[int, int] | None = None
+
+
 class TerminalSession:
+    """1 つの tmux ベースセッション（＝1 シェル）と、それに紐づくクライアント群。
+
+    ベースセッション（`tmux_session_name`）はシェルとスクロールバックの保持役で、
+    アプリは直接アタッチしない。各 WebSocket クライアントは `bridges` に
+    `ClientBridge` として登録され、grouped session 経由で独立アタッチする。
+    """
+
     __slots__ = (
-        "workspace", "fd", "pid",
+        "workspace",
         "icon", "icon_color", "job_name", "job_label",
-        "clients", "_reader_task",
         "tmux_session_name",
-        "client_sizes", "_last_active_client",
-        "applied_size",
+        "bridges",
     )
 
     def __init__(self, workspace: str | None,
                  tmux_session_name: str,
-                 fd: int | None = None, pid: int | None = None,
                  icon: str | None = None, icon_color: str | None = None,
                  job_name: str | None = None, job_label: str | None = None):
         self.workspace = workspace
-        self.fd = fd
-        self.pid = pid
         self.icon = icon
         self.icon_color = icon_color
         self.job_name = job_name
         self.job_label = job_label
-        self.clients: set[WebSocket] = set()
-        self._reader_task: asyncio.Task | None = None
         self.tmux_session_name = tmux_session_name
-        self.client_sizes: dict[WebSocket, tuple[int, int]] = {}
-        self._last_active_client: WebSocket | None = None
-        self.applied_size: tuple[int, int] | None = None
+        self.bridges: dict[WebSocket, ClientBridge] = {}
 
     def save_metadata(self) -> None:
         pairs = [
@@ -146,12 +165,26 @@ def get_terminal_session(session_id: str) -> TerminalSession:
     return _register_tmux_session(session_id, tmux_name)
 
 
-# ─── PTY bridge lifecycle ────────────────────────────────────────────────────
+# ─── Per-client PTY bridge lifecycle ─────────────────────────────────────────
+
+def _close_bridge(bridge: ClientBridge) -> None:
+    """1 つのブリッジを完全に閉じる（reader 停止・PTY 解放・grouped session kill）。"""
+    if bridge.reader_task is not None and not bridge.reader_task.done():
+        bridge.reader_task.cancel()
+    bridge.reader_task = None
+    close_pty(bridge.fd, bridge.pid)
+    bridge.fd = None
+    bridge.pid = None
+    if bridge.grouped_name:
+        kill_tmux_by_name(bridge.grouped_name)
+        bridge.grouped_name = None
+
 
 def _detach_pty_bridge(session: TerminalSession) -> None:
-    close_pty(session.fd, session.pid)
-    session.fd = None
-    session.pid = None
+    """セッションの全クライアントブリッジを切断する（ベースセッションは残す）。"""
+    for bridge in list(session.bridges.values()):
+        _close_bridge(bridge)
+    session.bridges.clear()
 
 
 def _kill_tmux_session(session: TerminalSession) -> None:
@@ -159,97 +192,100 @@ def _kill_tmux_session(session: TerminalSession) -> None:
     kill_tmux_by_name(session.tmux_session_name)
 
 
-def _apply_pty_size(session: TerminalSession, cols: int, rows: int) -> None:
-    """PTY/tmux のサイズを更新する（サイズが実際に変化した時だけ反映する）。
+def attach_client_bridge(session: TerminalSession, cols: int, rows: int) -> ClientBridge:
+    """この接続専用の grouped tmux session を作り、PTY でアタッチする。
 
-    フロントは入力のたびに resize を送るため、同一サイズでの `tmux resize-window`
-    連打による表示崩れを避けるべく、適用済みサイズと一致する場合は何もしない。
+    tmux / pty.fork の失敗は `OSError`（または subprocess 例外）として送出する。
+    grouped session 作成後にアタッチが失敗したら grouped session を片付けてから再送出する。
+    """
+    effective_cols = cols if cols > 0 else TERMINAL_DEFAULT_COLS
+    effective_rows = rows if rows > 0 else TERMINAL_DEFAULT_ROWS
+    grouped_name = f"{session.tmux_session_name}__c{secrets.token_hex(4)}"
+    create_grouped_session(session.tmux_session_name, grouped_name)
+    try:
+        fd, pid = attach_tmux_session(grouped_name, effective_cols, effective_rows)
+    except OSError:
+        kill_tmux_by_name(grouped_name)
+        raise
+    bridge = ClientBridge(fd=fd, pid=pid, grouped_name=grouped_name)
+    bridge.applied_size = (effective_cols, effective_rows)
+    return bridge
+
+
+def register_bridge(session: TerminalSession, websocket: WebSocket, bridge: ClientBridge) -> None:
+    session.bridges[websocket] = bridge
+
+
+def detach_client_bridge(session: TerminalSession, websocket: WebSocket) -> None:
+    bridge = session.bridges.pop(websocket, None)
+    if bridge is None:
+        return
+    _close_bridge(bridge)
+
+
+# ─── Resize ──────────────────────────────────────────────────────────────────
+
+def _apply_bridge_size(bridge: ClientBridge, cols: int, rows: int) -> None:
+    """ブリッジ（クライアント PTY）のサイズを更新する（実際に変化した時だけ）。
+
+    フロントは入力のたびに resize を送るため、同一サイズでの ioctl 連打を避けて
+    冪等にする。サイズ反映は各クライアントの PTY winsize に閉じており、tmux が
+    `window-size latest` でウィンドウを追従させる。
     """
     if cols <= 0 or rows <= 0:
         return
-    if session.applied_size == (cols, rows):
+    if bridge.fd is None:
         return
-    session.applied_size = (cols, rows)
-    resize_pty(session.fd, session.tmux_session_name, cols, rows)
+    if bridge.applied_size == (cols, rows):
+        return
+    bridge.applied_size = (cols, rows)
+    resize_client_pty(bridge.fd, cols, rows)
 
 
-# ─── WebSocket fan-out & reader loop ─────────────────────────────────────────
-
-async def _broadcast_to_clients(session: TerminalSession, data: bytes) -> None:
-    stale = []
-    for ws in list(session.clients):
-        try:
-            await ws.send_bytes(data)
-        except (RuntimeError, OSError):
-            stale.append(ws)
-    for ws in stale:
-        session.clients.discard(ws)
+def _handle_resize(bridge: ClientBridge, payload: bytes) -> None:
+    try:
+        size = json.loads(payload)
+        cols = size.get("cols", TERMINAL_DEFAULT_COLS)
+        rows = size.get("rows", TERMINAL_DEFAULT_ROWS)
+        _apply_bridge_size(bridge, cols, rows)
+    except (json.JSONDecodeError, OSError, KeyError):
+        pass
 
 
-async def _close_all_clients(session: TerminalSession, code: int, reason: str) -> None:
-    for ws in list(session.clients):
-        try:
-            await ws.close(code=code, reason=reason)
-        except (RuntimeError, OSError) as e:
-            logger.debug("close client failed: %s", e)
-    session.clients.clear()
+# ─── Per-client reader loop ──────────────────────────────────────────────────
 
-
-async def _session_reader(session: TerminalSession, session_id: str) -> None:
+async def _bridge_reader(websocket: WebSocket, bridge: ClientBridge, session_id: str) -> None:
     loop = asyncio.get_event_loop()
     pty_eof = False
     try:
-        while session.clients:
-            if session.fd is None:
+        while True:
+            if bridge.fd is None:
                 break
-            data = await loop.run_in_executor(PTY_EXECUTOR, read_pty, session.fd)
+            data = await loop.run_in_executor(PTY_EXECUTOR, read_pty, bridge.fd)
             if data == PTY_EOF:
                 pty_eof = True
                 break
             if data == PTY_NO_DATA:
                 continue
-            await _broadcast_to_clients(session, data)
+            try:
+                await websocket.send_bytes(data)
+            except (RuntimeError, OSError):
+                break
     except asyncio.CancelledError:
         pass
     except (OSError, RuntimeError) as e:
-        logger.debug("session reader ended session=%s: %s", session_id, e)
+        logger.debug("bridge reader ended session=%s: %s", session_id, e)
     finally:
-        session._reader_task = None
+        bridge.reader_task = None
         if pty_eof:
-            logger.info("PTY EOF detected, closing clients session=%s", session_id)
-            await _close_all_clients(session, WS_CLOSE_SESSION_EXITED, "session exited")
+            # シェル終了でベースセッションが消えると grouped クライアントも EOF になる。
+            # このクライアントを閉じて、フロントにセッション終了を伝える。
+            logger.info("PTY EOF detected, closing client session=%s", session_id)
+            try:
+                await websocket.close(code=WS_CLOSE_SESSION_EXITED, reason="session exited")
+            except (RuntimeError, OSError):
+                pass
 
 
-def _ensure_reader_task(session: TerminalSession, session_id: str) -> None:
-    if session._reader_task is not None and not session._reader_task.done():
-        return
-    session._reader_task = asyncio.create_task(_session_reader(session, session_id))
-
-
-# ─── Resize & active-client switching ────────────────────────────────────────
-
-def _handle_resize(session: TerminalSession, payload: bytes, ws: WebSocket | None = None) -> None:
-    try:
-        size = json.loads(payload)
-        cols = size.get("cols", TERMINAL_DEFAULT_COLS)
-        rows = size.get("rows", TERMINAL_DEFAULT_ROWS)
-        if ws is not None:
-            session.client_sizes[ws] = (cols, rows)
-        _apply_pty_size(session, cols, rows)
-    except (json.JSONDecodeError, OSError, KeyError, subprocess.TimeoutExpired):
-        pass
-
-
-def switch_active_client(session: TerminalSession, ws: WebSocket) -> bool:
-    if session._last_active_client is ws:
-        return False
-    session._last_active_client = ws
-    size = session.client_sizes.get(ws)
-    if not size:
-        return False
-    cols, rows = size
-    try:
-        _apply_pty_size(session, cols, rows)
-        return True
-    except (OSError, subprocess.TimeoutExpired):
-        return False
+def start_bridge_reader(session_id: str, websocket: WebSocket, bridge: ClientBridge) -> None:
+    bridge.reader_task = asyncio.create_task(_bridge_reader(websocket, bridge, session_id))

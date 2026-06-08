@@ -162,10 +162,21 @@
 
 ### 14. ターミナルのリサイズはサイズ変化時のみ ioctl + tmux resize-window を適用する
 
-- **Status**: Accepted
+- **Status**: Superseded by 15
 - **Date**: 2026-06
 - **Context**: ターミナルのリサイズ処理が、attach した PTY の `ioctl(TIOCSWINSZ)` と `tmux resize-window` の両方を呼んでいた。フロントは入力のたびに（`onKey`→`sendResize`、差分ガードなし）resize メッセージを送るため、**同一サイズでも毎回 `tmux resize-window`（subprocess）が走り、ウィンドウ再描画を連打して表示が崩れていた**（行折り返しの乱れ・残骸）。当初これを「ioctl 一本化（resize-window を呼ばない）」で解消したが、ioctl(SIGWINCH) だけではウィンドウが追従しない環境があり（tmux の window-size 設定や状態に依存）、モバイル→PC のようにクライアントサイズが変わっても tmux ウィンドウがリサイズされない不具合が出た。崩れの真因は「resize-window を呼ぶこと」自体ではなく「同一サイズで連打すること」だった。
 - **Decision**: リサイズ経路は ioctl + `tmux resize-window` の両方を維持しつつ、**サイズが実際に変化した時だけ適用する**。`TerminalSession.applied_size` に直近適用サイズを保持し、`_apply_pty_size()` が一致時は no-op する（非正値も無視）。新しい PTY ブリッジを張り直した直後は `applied_size=None` にして必ず再適用する。`resize_pty` の ioctl は stale fd でのクラッシュを避けるため `OSError` を握りつぶす。接続時/アクティブクライアント切替時/resize メッセージ受信時はすべてこの `_apply_pty_size()` を通す（ルータ側で raw ioctl を直接叩かない）。
 - **Consequences**: 同一サイズでの resize-window 連打が止まり崩れが解消する。実際のサイズ変化（端末を開く・デバイス移動）では ioctl と tmux ウィンドウの両方が確実にリサイズされる。リサイズ処理の入口が `_apply_pty_size()` に一本化され、冪等性をテストで担保できる（`tests/test_terminal_jobs.py::TestApplyPtySize`）。**フロントの差分ガード欠如（`sendResize` が毎回送る）に依存せず、バックエンド側の冪等化で崩れを防いでいる点に注意。`_apply_pty_size` の冪等ガードを外す/迂回すると崩れが再発する。**
 - **Alternatives considered**: ioctl 一本化（resize-window を呼ばない）— 二重リサイズ連打は止まるが、ioctl(SIGWINCH) だけではウィンドウが追従しない環境があり、リサイズが効かなくなった（本 ADR の旧案で、リグレッションのため却下）。フロント側で `sendResize` に差分ガードを足す — 有効だが、サーバが受け取る経路（接続時クエリ・複数クライアント）すべてを守るにはバックエンド側の冪等化が確実。`window-size manual` を明示設定 — 単一クライアント前提では過剰。
+
+---
+
+### 15. ターミナルは WS クライアントごとに grouped tmux session で独立アタッチする
+
+- **Status**: Accepted
+- **Date**: 2026-06
+- **Context**: ADR 14 で同一サイズ連打は止めたが、ターミナル崩れが再発し続けた。真因は「**1 つの tmux ウィンドウを、サイズの異なる・競合する・再接続のたびに重複しうる複数 WS クライアントが共有していた**」という構造にあった。旧モデルは 1 セッション = 1 つの PTY ブリッジ（`session.fd`/`pid`）+ 全クライアントへの出力ブロードキャストで、リサイズは `client_sizes` にクライアント別サイズを持ちながら**共有ウィンドウに last-writer-wins で適用**していた（`_apply_pty_size` / `switch_active_client`）。その結果、スマホ(80x24)↔PC(200x50) の同時接続や、再接続オーバーラップ（refreshTab / reconnect backoff で旧 socket と新 socket が一瞬重なる）で applied_size がスラッシングし、xterm の寸法と tmux ウィンドウの寸法が食い違って折り返し崩れが起きた。ADR 14 の冪等ガードは「同一サイズ連打」しか守らず、「交互サイズのスラッシング」と alt-screen 再生崩れはノーガードだった。
+- **Decision**: PTY ブリッジを**クライアント単位**にする。ベースセッション（`session.tmux_session_name`）はシェルとスクロールバックの保持役として常駐し、アプリは直接アタッチしない。各 WS 接続は専用の **grouped tmux session**（`tmux new-session -t <base> -s <base>__c<rand>`）を作り、そこに PTY で独立アタッチする（`ClientBridge` = 自分の fd/pid/reader_task/applied_size）。リサイズは各クライアントの **PTY winsize（ioctl）だけ**で行い、**アプリから `tmux resize-window` は叩かない**。ウィンドウサイズはベース／grouped 双方に設定した `window-size latest` で「直近にアクティブなクライアント」に tmux 自身が追従させる。出力ブロードキャストは廃止し、各ブリッジの reader が自分の ws にだけ送る。切断時は当該 grouped session を kill（ベースは残す）。`history` エンドポイントの capture 前 resize は、他クライアント接続中（`session.bridges` 非空）はウィンドウを乱すためスキップする。
+- **Consequences**: サイズの取り合いと last-writer-wins 崩れが構造的に消える。再接続オーバーラップは「tmux が正規に扱う 2 つ目のクライアント」になり、tmux がリサイズ時に全クライアントへ完全再描画を送るため崩れない（最悪でもレターボックス/リフロー）。スマホ↔PC は触った側のサイズに自然追従する。コストは接続ごとに grouped session 作成（tmux subprocess）が増える点と、grouped session が異常終了時にリークしうる点（ベース kill で連鎖的に片付くため実害は小さい）。`_apply_pty_size`/`switch_active_client`/出力ブロードキャスト/共有 `fd` は廃止。冪等性は `ClientBridge` 単位で担保（`tests/test_terminal_jobs.py::TestApplyBridgeSize`）。
+- **Alternatives considered**: 同一ベースセッションへ複数回 attach（grouped を作らない）— 単一ウィンドウ前提なら機能的に等価だが、grouped にすると「ベースは状態保持専用・接続は使い捨てビュー」という責務分離が明確になり、後片付け（grouped を kill）も単純。`window-size manual` で固定サイズ＋レターボックス — 崩れは消えるが大画面で余白が無駄。読み取り専用のセカンダリクライアント — 同時編集ができず UX が落ちる。
 
