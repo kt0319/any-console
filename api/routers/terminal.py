@@ -13,6 +13,7 @@ from ..activity import log_activity
 from ..auth import COOKIE_NAME_TOKEN, verify_token, verify_ws_token
 from ..common import (
     TMUX_CMD_TIMEOUT_SEC,
+    TMUX_GROUPED_PREFIX,
     TMUX_SESSION_PREFIX,
     WS_MSG_RESIZE,
     WS_PING_INTERVAL_SEC,
@@ -54,6 +55,9 @@ async def list_terminal_sessions():
     sessions = []
     for line in result.stdout.strip().splitlines():
         name = line.strip()
+        # grouped session（クライアント単位の使い捨てビュー）はタブにしない
+        if name.startswith(TMUX_GROUPED_PREFIX):
+            continue
         if not name.startswith(TMUX_SESSION_PREFIX):
             continue
         session_id = name[len(TMUX_SESSION_PREFIX):]

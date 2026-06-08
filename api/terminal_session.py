@@ -11,6 +11,7 @@ from .common import (
     TERMINAL_DEFAULT_COLS,
     TERMINAL_DEFAULT_ROWS,
     TMUX_CMD_TIMEOUT_SEC,
+    TMUX_GROUPED_PREFIX,
     TMUX_SESSION_PREFIX,
 )
 from .errors import not_found
@@ -200,7 +201,11 @@ def attach_client_bridge(session: TerminalSession, cols: int, rows: int) -> Clie
     """
     effective_cols = cols if cols > 0 else TERMINAL_DEFAULT_COLS
     effective_rows = rows if rows > 0 else TERMINAL_DEFAULT_ROWS
-    grouped_name = f"{session.tmux_session_name}__c{secrets.token_hex(4)}"
+    # grouped session は一覧（タブ生成元）に出さないため TMUX_SESSION_PREFIX とは
+    # 別プレフィックスで命名する。デバッグ用にベース名（プレフィックス除去）を埋める。
+    base = session.tmux_session_name
+    base_suffix = base[len(TMUX_SESSION_PREFIX):] if base.startswith(TMUX_SESSION_PREFIX) else base
+    grouped_name = f"{TMUX_GROUPED_PREFIX}{base_suffix}-{secrets.token_hex(4)}"
     create_grouped_session(session.tmux_session_name, grouped_name)
     try:
         fd, pid = attach_tmux_session(grouped_name, effective_cols, effective_rows)
