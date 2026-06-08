@@ -157,6 +157,11 @@ async def lifespan(app: FastAPI):
         if auto_token:
             _print_token_url(host, port, auto_token)
     _emit_insecure_bind_warning(host)
+    try:
+        from .tmux import cleanup_orphan_grouped_sessions
+        cleanup_orphan_grouped_sessions()
+    except OSError as e:
+        logger.warning("grouped session cleanup skipped: %s", e)
     yield
     from .terminal_session import TERMINAL_SESSIONS, _detach_pty_bridge, sessions_lock
     with sessions_lock:

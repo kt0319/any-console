@@ -136,6 +136,38 @@ def tmux_session_exists(name: str) -> bool:
     return result is not None and result.returncode == 0
 
 
+def is_grouped_session_name(name: str) -> bool:
+    """クライアント単位の grouped session（使い捨てビュー）の名前か判定する。
+
+    現行は `TMUX_GROUPED_PREFIX`（`acg-`）で命名する。旧版は
+    `ac-<id>__c<hex>` という名前で leak していたため、`__c` を含む名前も
+    後方互換で grouped 扱いにして一覧・カウントから除外/掃除する。
+    """
+    from .common import TMUX_GROUPED_PREFIX
+    return name.startswith(TMUX_GROUPED_PREFIX) or "__c" in name
+
+
+def cleanup_orphan_grouped_sessions() -> int:
+    """残存している grouped session を全て kill する（起動時の自己修復）。
+
+    grouped session はクライアント接続中だけ意味を持つ使い捨てビューで、
+    プロセス再起動をまたいで生きていても価値がない。旧版が leak させた分も
+    含めて掃除し、セッション上限の枠を食い潰さないようにする。kill した数を返す。
+    """
+    result = _run_tmux_cmd("list-sessions", "-F", "#{session_name}")
+    if not result or result.returncode != 0:
+        return 0
+    killed = 0
+    for line in result.stdout.strip().splitlines():
+        name = line.strip()
+        if name and is_grouped_session_name(name):
+            kill_tmux_by_name(name)
+            killed += 1
+    if killed:
+        logger.info("cleaned up %d orphan grouped tmux session(s)", killed)
+    return killed
+
+
 def kill_tmux_by_name(name: str) -> None:
     _run_tmux_cmd("kill-session", "-t", name)
 

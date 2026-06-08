@@ -98,7 +98,12 @@ class TestSessionListingExcludesGrouped:
 
         def fake_run_tmux_cmd(*args):
             if "list-sessions" in args:
-                stdout = "ac-real-abc123\nacg-real-abc123-deadbeef\nacg-other-0011\n"
+                stdout = (
+                    "ac-real-abc123\n"
+                    "acg-real-abc123-deadbeef\n"   # 現行 grouped
+                    "acg-other-0011\n"             # 現行 grouped
+                    "ac-real-abc123__c0011\n"      # 旧版 leak（後方互換で除外）
+                )
                 return sp.CompletedProcess(["tmux", *args], 0, stdout=stdout, stderr="")
             # メタデータ/作成時刻などの問い合わせは無害な空応答にする
             return sp.CompletedProcess(["tmux", *args], 0, stdout="", stderr="")
@@ -110,6 +115,34 @@ class TestSessionListingExcludesGrouped:
         assert res.status_code == 200
         ids = [s["session_id"] for s in res.json()]
         assert ids == ["real-abc123"]
+
+
+class TestCleanupOrphanGroupedSessions:
+    """起動時に残存 grouped session を掃除する（旧版 leak 含む）。"""
+
+    def test_kills_grouped_and_legacy_only(self, monkeypatch):
+        import subprocess as sp
+
+        from api import tmux as tmux_mod
+
+        killed = []
+
+        def fake_run_tmux_cmd(*args):
+            if "list-sessions" in args:
+                stdout = (
+                    "ac-real-abc123\n"
+                    "acg-real-abc123-deadbeef\n"
+                    "ac-real-abc123__c0011\n"
+                )
+                return sp.CompletedProcess(["tmux", *args], 0, stdout=stdout, stderr="")
+            return sp.CompletedProcess(["tmux", *args], 0, stdout="", stderr="")
+
+        monkeypatch.setattr(tmux_mod, "_run_tmux_cmd", fake_run_tmux_cmd)
+        monkeypatch.setattr(tmux_mod, "kill_tmux_by_name", lambda name: killed.append(name))
+
+        n = tmux_mod.cleanup_orphan_grouped_sessions()
+        assert n == 2
+        assert killed == ["acg-real-abc123-deadbeef", "ac-real-abc123__c0011"]
 
 
 class TestTerminalSessionMetadata:
