@@ -26,6 +26,7 @@ export function useKeyboard() {
       if (code > 0 && code < 27) return String.fromCharCode(code);
     }
     if (keyDef.shift && keyDef.key === "Tab") return "\x1b[Z";
+    if (keyDef.shift && keyDef.key === "Enter") return "\n";
     if (keyDef.shift && keyDef.key.length === 1) return keyDef.key.toUpperCase();
     const mapping = {
       Backspace: "\x7f", Enter: "\r", Tab: "\t", Escape: "\x1b",

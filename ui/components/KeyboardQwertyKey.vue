@@ -64,9 +64,9 @@
           v-if="ri === 2 && ci === row.length - 1"
           class="quick-key"
           @touchstart.prevent="onModifierKeyStart"
-          @touchend.prevent="(e) => onModifierKeyEnd(e, () => sendKeyToTerminal({ key: 'Enter' }))"
+          @touchend.prevent="(e) => onModifierKeyEnd(e, () => sendOrType({ key: 'Enter', shift: modifierState.shift, ctrl: modifierState.ctrl }))"
           @touchcancel="onQuickKeyCancel($event)"
-          @click="() => sendKeyToTerminal({ key: 'Enter' })"
+          @click="() => sendOrType({ key: 'Enter', shift: modifierState.shift, ctrl: modifierState.ctrl })"
         >
           <span class="flick-main" style="font-size:13px">&crarr;</span>
         </div>
