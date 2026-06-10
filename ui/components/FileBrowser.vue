@@ -108,12 +108,13 @@ import { useFileActions } from "../composables/useFileActions.js";
 import { useEditorIntegration } from "../composables/useEditorIntegration.js";
 import { useFileDiff } from "../composables/useFileDiff.js";
 import { useFileBrowserNav } from "../composables/useFileBrowserNav.js";
+import { useFileBrowserCrumbs } from "../composables/useFileBrowserCrumbs.js";
+import { useFileEntryMenu } from "../composables/useFileEntryMenu.js";
 import { useShowGitignored } from "../composables/useShowGitignored.js";
-import { emit } from "../app-bridge.js";
-import { useLongPress } from "../composables/useLongPress.js";
-import { useHoverMenu, isHoverDevice } from "../composables/useHoverMenu.js";
+import { useHoverMenu } from "../composables/useHoverMenu.js";
 import { renderFileIcon } from "../utils/file-icon.js";
-import { formatSize, formatRelativeTime } from "../utils/format.js";
+import { formatRelativeTime } from "../utils/format.js";
+import { entrySizeText } from "../utils/file-browser.js";
 
 const workspaceStore = useWorkspaceStore();
 
@@ -135,14 +136,6 @@ const {
 } = useHoverMenu();
 const uploadInputEl = ref(null);
 const { showGitignored } = useShowGitignored(toRef(workspaceStore, "selectedWorkspace"));
-
-function entrySizeText(entry) {
-  if (entry.type === "file" && entry.size != null) return formatSize(entry.size);
-  if (entry.type === "dir" && entry.count != null) {
-    return entry.count === 1 ? "1 item" : `${entry.count} items`;
-  }
-  return "";
-}
 
 const {
   renameEntry, moveEntry, deleteEntry,
@@ -179,136 +172,32 @@ const {
   isDiffMode: () => !!props.diffFile,
 });
 
-const pathSegments = computed(() => {
-  if (!currentPath.value) return [];
-  return currentPath.value.split("/").filter(Boolean);
-});
-
 const visibleEntries = computed(() => {
   if (showGitignored.value) return entries.value;
   return entries.value.filter((e) => !e.gitignored);
 });
 
-const displayPathSegments = computed(() => {
-  if (props.diffFile) return props.diffFile.split("/").filter(Boolean);
-  return pathSegments.value;
+const {
+  displayPathSegments, onCrumbClick,
+} = useFileBrowserCrumbs({
+  getDiffFile: () => props.diffFile,
+  currentPath, fileContent,
+  navigateToPath, openFile,
 });
 
-const githubEntryUrl = computed(() => {
-  const ws = workspaceStore.currentWorkspace;
-  if (!ws?.github_url || !contextEntry.value) return "";
-  const branch = ws.branch || "main";
-  const entryPath = currentPath.value
-    ? `${currentPath.value}/${contextEntry.value.name}`
-    : contextEntry.value.name;
-  const type = contextEntry.value.type === "dir" ? "tree" : "blob";
-  return `${ws.github_url}/${type}/${branch}/${entryPath}`;
+const {
+  githubEntryUrl,
+  onLongPressStart, onLongPressEnd,
+  toggleContextMenu,
+  openGitHub,
+  openEntry, openEntryHistory, openEntryInEditor, openDirInEditor,
+  onEntryClick,
+} = useFileEntryMenu({
+  currentPath, fileContent, showHistory,
+  navigateToPath, openFile,
+  contextEntry, openContextMenu, closeContextMenu,
+  editorUrlTemplate, openInEditor,
 });
-
-const longPress = useLongPress();
-
-function onLongPressStart(e, entry) {
-  if (isHoverDevice) return;
-  longPress.startMenu(e, entry);
-}
-
-function onLongPressEnd() {
-  if (isHoverDevice) return;
-  longPress.endMenu();
-  if (longPress.activeEntry.value && longPress.activeEntry.value !== contextEntry.value) {
-    contextEntry.value = longPress.activeEntry.value;
-    longPress.activeEntry.value = null;
-  }
-}
-
-function toggleContextMenu(entry) {
-  if (contextEntry.value?.name === entry.name) closeContextMenu();
-  else openContextMenu(entry);
-}
-
-function openGitHub() {
-  if (githubEntryUrl.value) {
-    window.open(githubEntryUrl.value, "_blank");
-  }
-  closeContextMenu();
-}
-
-function openEntry(entry) {
-  closeContextMenu();
-  const childPath = currentPath.value ? `${currentPath.value}/${entry.name}` : entry.name;
-  if (entry.type === "dir") {
-    navigateToPath(childPath);
-  } else if (entry.type === "file") {
-    currentPath.value = childPath;
-    openFile(childPath);
-  }
-}
-
-function openEntryHistory() {
-  const entry = contextEntry.value;
-  if (!entry || entry.type !== "file") return;
-  const filePath = currentPath.value ? `${currentPath.value}/${entry.name}` : entry.name;
-  closeContextMenu();
-  currentPath.value = filePath;
-  fileContent.value = null;
-  showHistory.value = true;
-}
-
-function openEntryInEditor() {
-  const entry = contextEntry.value;
-  if (!entry) return;
-  const filePath = currentPath.value ? `${currentPath.value}/${entry.name}` : entry.name;
-  closeContextMenu();
-  if (!editorUrlTemplate.value) {
-    currentPath.value = filePath;
-    openFile(filePath);
-    return;
-  }
-  openInEditor(filePath);
-}
-
-function openDirInEditor() {
-  openInEditor(currentPath.value);
-}
-
-function onCrumbClick(path) {
-  if (props.diffFile) {
-    emit("git:selectDirty");
-    fileContent.value = null;
-    currentPath.value = path || "";
-    if (path && path === props.diffFile) {
-      openFile(path);
-      return;
-    }
-    navigateToPath(currentPath.value);
-    return;
-  }
-  navigateToPath(path);
-}
-
-function onEntryClick(entry) {
-  if (longPress.isMenuEl() || longPress.isFired()) {
-    return;
-  }
-  if (!isHoverDevice) {
-    if (contextEntry.value?.name === entry.name) {
-      closeContextMenu();
-      const childPath = currentPath.value ? `${currentPath.value}/${entry.name}` : entry.name;
-      if (entry.type === "dir") navigateToPath(childPath);
-      else if (entry.type === "file") { currentPath.value = childPath; openFile(childPath); }
-    } else {
-      toggleContextMenu(entry);
-    }
-    return;
-  }
-  const childPath = currentPath.value ? `${currentPath.value}/${entry.name}` : entry.name;
-  if (entry.type === "dir") {
-    navigateToPath(childPath);
-  } else if (entry.type === "file") {
-    currentPath.value = childPath;
-    openFile(childPath);
-  }
-}
 
 onMounted(() => {
   setupWindowListeners();
