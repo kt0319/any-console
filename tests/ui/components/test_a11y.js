@@ -20,6 +20,7 @@ import FileItem from "../../../ui/components/FileItem.vue";
 import SplitModeSelector from "../../../ui/components/SplitModeSelector.vue";
 import RssFeedDialog from "../../../ui/components/RssFeedDialog.vue";
 import WorkspaceGroupDialog from "../../../ui/components/WorkspaceGroupDialog.vue";
+import TerminalSplitDropZones from "../../../ui/components/TerminalSplitDropZones.vue";
 import { createPinia, setActivePinia } from "pinia";
 import { useConfirm } from "../../../ui/composables/useConfirm.js";
 import { usePrompt } from "../../../ui/composables/usePrompt.js";
@@ -144,6 +145,15 @@ describe("a11y: SplitModeSelector", () => {
       props: { currentMode: "normal", tabCount: 2 },
       attachTo: document.body,
     });
+    await expectNoA11yViolations(wrapper.element);
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: TerminalSplitDropZones", () => {
+  it("分割ドロップゾーンに a11y 違反が無い", async () => {
+    setActivePinia(createPinia());
+    const wrapper = mount(TerminalSplitDropZones, { attachTo: document.body });
     await expectNoA11yViolations(wrapper.element);
     wrapper.unmount();
   });
