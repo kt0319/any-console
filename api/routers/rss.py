@@ -1,4 +1,5 @@
 import base64
+import http.client
 import logging
 import urllib.parse
 import urllib.request
@@ -12,6 +13,7 @@ from pydantic import BaseModel
 from ..auth import verify_token
 from ..common import TTLCache
 from ..config import load_workspace_config_section, save_workspace_config_section
+from ..errors import bad_request, conflict, not_found
 from ..validators import validate_workspace_name
 
 router = APIRouter(dependencies=[Depends(verify_token)])
@@ -47,8 +49,8 @@ def _fetch_feed_items(feed_id: str, url: str) -> tuple[list[dict], str]:
     except urllib.error.HTTPError as e:
         logger.warning("rss fetch failed url=%s status=%s", fetch_url, e.code)
         return [], f"HTTP {e.code}: {e.reason}"
-    except Exception as e:
-        logger.warning("rss fetch failed url=%s error=%s", fetch_url, e)
+    except (OSError, ValueError, http.client.HTTPException) as e:
+        logger.warning("rss fetch failed url=%s error=%s", url, e)
         return [], str(e)
 
     try:
@@ -67,7 +69,7 @@ def _norm_date(raw: str) -> str:
         return ""
     try:
         return parsedate_to_datetime(raw).isoformat()
-    except Exception:
+    except (ValueError, TypeError):
         return raw
 
 
@@ -142,10 +144,10 @@ def add_feed(name: str, body: AddFeedRequest):
     validate_workspace_name(name)
     url = body.url.strip()
     if not url.startswith(("http://", "https://")):
-        return {"status": "error", "detail": "Invalid URL"}
+        raise bad_request("Invalid URL")
     feeds = _get_feeds(name)
     if any(f["url"] == url for f in feeds):
-        return {"status": "error", "detail": "Feed already exists"}
+        raise conflict("Feed already exists")
     feed_id = str(uuid.uuid4())[:8]
     entry: dict = {"id": feed_id, "url": url}
     if body.title.strip():
@@ -166,7 +168,7 @@ def update_feed(name: str, feed_id: str, body: UpdateFeedRequest):
     validate_workspace_name(name)
     url = body.url.strip()
     if url and not url.startswith(("http://", "https://")):
-        return {"status": "error", "detail": "Invalid URL"}
+        raise bad_request("Invalid URL")
     feeds = _get_feeds(name)
     for f in feeds:
         if f["id"] == feed_id:
@@ -177,7 +179,7 @@ def update_feed(name: str, feed_id: str, body: UpdateFeedRequest):
             _save_feeds(name, feeds)
             logger.info("rss feed updated workspace=%s feed_id=%s", name, feed_id)
             return {"status": "ok"}
-    return {"status": "error", "detail": "Feed not found"}
+    raise not_found("Feed not found")
 
 
 @router.delete("/workspaces/{name}/rss/feeds/{feed_id}")

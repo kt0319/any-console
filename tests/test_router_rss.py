@@ -1,7 +1,7 @@
 """api/routers/rss.py のテスト。"""
 import xml.etree.ElementTree as ET
 from unittest.mock import MagicMock, patch
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 import pytest
 
@@ -93,14 +93,14 @@ class TestFeedCrud:
             headers=AUTH,
             json={"url": "ftp://bad.url"},
         )
-        assert res.status_code == 200
-        assert res.json()["status"] == "error"
+        assert res.status_code == 400
+        assert res.json()["detail"] == "Invalid URL"
 
     def test_add_feed_duplicate(self, client, workspace):
         url = "https://example.com/feed"
         client.post("/workspaces/test-ws/rss/feeds", headers=AUTH, json={"url": url})
         res = client.post("/workspaces/test-ws/rss/feeds", headers=AUTH, json={"url": url})
-        assert res.json()["status"] == "error"
+        assert res.status_code == 409
         assert "already" in res.json()["detail"]
 
     def test_list_feeds_after_add(self, client, workspace):
@@ -137,7 +137,8 @@ class TestFeedCrud:
             headers=AUTH,
             json={"url": "ftp://bad"},
         )
-        assert res.json()["status"] == "error"
+        assert res.status_code == 400
+        assert res.json()["detail"] == "Invalid URL"
 
     def test_update_feed_not_found(self, client, workspace):
         res = client.patch(
@@ -145,7 +146,8 @@ class TestFeedCrud:
             headers=AUTH,
             json={"title": "x"},
         )
-        assert res.json()["status"] == "error"
+        assert res.status_code == 404
+        assert res.json()["detail"] == "Feed not found"
 
     def test_remove_feed(self, client, workspace):
         add = client.post("/workspaces/test-ws/rss/feeds", headers=AUTH, json={"url": "https://example.com/f"})
@@ -216,7 +218,7 @@ class TestFetchItems:
         add = client.post("/workspaces/test-ws/rss/feeds", headers=AUTH, json={"url": "https://example.com/feed"})
         feed_id = add.json()["data"]["id"]
 
-        with patch("urllib.request.urlopen", side_effect=Exception("connection refused")):
+        with patch("urllib.request.urlopen", side_effect=URLError("connection refused")):
             res = client.get("/workspaces/test-ws/rss/items", headers=AUTH)
 
         assert feed_id in res.json()["errors"]
