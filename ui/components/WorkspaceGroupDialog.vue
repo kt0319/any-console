@@ -1,13 +1,14 @@
 <template>
   <!-- グループ名入力モーダル -->
   <div v-if="groupDialogOpen" class="picker-group-overlay" @click.self="groupDialogOpen = false">
-    <div class="picker-group-dialog" role="dialog" aria-modal="true">
+    <div class="picker-group-dialog" role="dialog" aria-modal="true" :aria-label="editingGroup ? 'Rename group' : 'Add group'">
       <div class="picker-group-dialog-title">{{ editingGroup ? 'Rename group' : 'Add group' }}</div>
       <input
         ref="groupInputEl"
         v-model="groupInputName"
         class="form-input"
         type="text"
+        aria-label="Group name"
         placeholder="Group name"
         autocomplete="off"
         @keydown.enter.prevent="submitGroupDialog"

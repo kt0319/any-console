@@ -1,12 +1,13 @@
 <template>
   <div class="rss-add-overlay" @click.self="emit('close')">
-    <div class="rss-add-dialog">
+    <div class="rss-add-dialog" role="dialog" aria-modal="true" :aria-label="editingFeed ? 'Edit Feed' : 'Add RSS / Atom Feed'">
       <div class="rss-add-title">{{ editingFeed ? "Edit Feed" : "Add RSS / Atom Feed" }}</div>
       <input
         ref="urlInput"
         v-model="url"
         class="rss-add-input"
         type="text"
+        aria-label="Feed URL"
         placeholder="https://example.com/feed.xml"
         @keydown.enter="emit('submit')"
         @keydown.esc="emit('close')"
@@ -16,6 +17,7 @@
         v-model="title"
         class="rss-add-input"
         type="text"
+        aria-label="Feed name (optional)"
         placeholder="Name (optional)"
         @keydown.enter="emit('submit')"
         @keydown.esc="emit('close')"
