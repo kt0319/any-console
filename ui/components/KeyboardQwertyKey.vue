@@ -169,11 +169,12 @@ import { useKeyboard } from "../composables/useKeyboard.js";
 import { useInputStore } from "../stores/input.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useInputDraftHistory } from "../composables/useInputDraftHistory.js";
-import { emit, on } from "../app-bridge.js";
-import { arrowResolver } from "../utils/flick-resolvers.js";
-import { useEnterAction } from "../composables/useEnterAction.js";
-import { createFlickHandlers } from "../utils/flick-handlers.js";
-import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
+import { useQwertyKeyViews } from "../composables/useQwertyKeyViews.js";
+import { useQwertyKeyPress } from "../composables/useQwertyKeyPress.js";
+import { useQwertyCamera } from "../composables/useQwertyCamera.js";
+import { useQwertyBottomRowFlicks } from "../composables/useQwertyBottomRowFlicks.js";
+import { on } from "../app-bridge.js";
+import { qwertyHasFlick, qwertyFlickUpLabel, qwertySymbolLabel } from "../utils/qwerty-key.js";
 import KeyboardInput from "./KeyboardInput.vue";
 import KeyboardChips from "./KeyboardChips.vue";
 
@@ -194,7 +195,6 @@ const keyboardInput = ref(null);
 const _inputFocused = ref(false);
 const draft = ref("");
 const hasDraft = computed(() => draft.value.trim().length > 0);
-const { onEnter, makeFlickResolver } = useEnterAction({ hasDraft, keyboardInput, sendKeyToTerminal });
 const _showSnippetView = ref(false);
 
 // hideBottomRow=true のとき KeyboardBar が状態を管理する
@@ -206,6 +206,21 @@ function toggleSnippetView() {
     emitLocal("snippetToggle");
   } else {
     _showSnippetView.value = !_showSnippetView.value;
+  }
+}
+
+function dismissSnippetView() {
+  if (!showSnippetView.value) return;
+  if (props.hideBottomRow) emitLocal("snippetToggle");
+  else _showSnippetView.value = false;
+}
+
+// fn ビュー表示時に snippet ビューを閉じる (hideBottomRow 時は KeyboardBar 側の状態を切替)
+function closeSnippetView() {
+  if (props.hideBottomRow) {
+    if (props.externalSnippetView) emitLocal("snippetToggle");
+  } else {
+    _showSnippetView.value = false;
   }
 }
 
@@ -233,6 +248,40 @@ function onChipTap({ command }) {
 
 defineExpose({});
 
+const topArrowFlickEl = ref(null);
+const topEnterFlickEl = ref(null);
+
+const qwertyRows = computed(() => inputStore.QWERTY_ROWS || []);
+const numberKeys = computed(() => inputStore.NUMBER_KEYS || []);
+
+function doReload() {
+  emitLocal("cycleMode");
+  window.location.replace(window.location.pathname + "?_=" + Date.now());
+}
+
+const {
+  showFnView, showSymbolView,
+  toggleShift, toggleCtrl, toggleFnView, sendSpace,
+  shiftFlick, ctrlFlick, spaceFlick, fnFlick,
+} = useQwertyKeyViews({
+  modifierState, showSnippetView, dismissSnippetView, closeSnippetView,
+  sendKeyToTerminal, getActiveTerminalTab, onReload: doReload,
+});
+
+const { cameraInputEl, openCamera, onCameraFileChange } = useQwertyCamera({
+  apiFetch: auth.apiFetch.bind(auth),
+  getActiveTerminalTab,
+  onBeforeUpload: () => emitLocal("cycleMode"),
+});
+
+const {
+  sendOrType,
+  onQwertyTouchStart, onQwertyTouchEnd, onQwertyTap,
+  onFnNumberTouchStart, onFnNumberTouchEnd,
+} = useQwertyKeyPress({
+  keyboardInput, hasDraft, modifierState, showSymbolView, sendKeyToTerminal, openCamera,
+});
+
 watch(() => props.active, (active) => {
   if (!active) {
     clearModifiers();
@@ -240,24 +289,17 @@ watch(() => props.active, (active) => {
     showSymbolView.value = false;
   }
 });
-const topArrowFlickEl = ref(null);
-const topEnterFlickEl = ref(null);
-const cameraInputEl = ref(null);
-
-const qwertyRows = computed(() => inputStore.QWERTY_ROWS || []);
-const numberKeys = computed(() => inputStore.NUMBER_KEYS || []);
-
-function displayLabel(keyDef) {
-  if (modifierState.shift && keyDef.key?.length === 1) return keyDef.key.toUpperCase();
-  return keyDef.label || keyDef.key;
-}
 
 function hasFlick(ri, ci, keyDef) {
-  return !!keyDef.flickUp || !!keyDef.flickDown;
+  return qwertyHasFlick(keyDef);
 }
 
 function flickUpLabel(ri, ci, keyDef) {
-  return keyDef.flickUpLabel || keyDef.flickUp || "";
+  return qwertyFlickUpLabel(keyDef);
+}
+
+function symbolDisplayLabel(keyDef) {
+  return qwertySymbolLabel(keyDef, modifierState.shift, showSymbolView.value);
 }
 
 function onQuickKeyCancel(e) {
@@ -277,129 +319,6 @@ function onModifierKeyEnd(e, fn) {
   fn();
 }
 
-function onQwertyTouchStart(e) {
-  e.currentTarget.classList.add("pressed");
-  e.currentTarget._touchStartY = e.touches[0].clientY;
-}
-
-function sendOrType(keyObj) {
-  // input にフォーカスがあるときは input の draft へ。それ以外はターミナルへ。
-  if (keyboardInput.value?.isFocused?.()) {
-    const k = keyObj.key;
-    if (k === "Enter") {
-      if (hasDraft.value) { keyboardInput.value?.submit?.(); } else { sendKeyToTerminal(keyObj); }
-      return;
-    }
-    if (k === "Backspace") { keyboardInput.value?.backspace?.(); return; }
-    if (typeof k === "string" && k.length === 1 && !keyObj.ctrl) {
-      const ch = (modifierState.shift && /[a-z]/.test(k)) ? k.toUpperCase() : k;
-      keyboardInput.value?.appendChar?.(ch);
-      return;
-    }
-    // 制御キー (Ctrl 修飾やファンクション類) はターミナルへ流す
-  }
-  sendKeyToTerminal(keyObj);
-}
-
-function onQwertyTouchEnd(e, keyDef, ri, ci) {
-  e.currentTarget.classList.remove("pressed");
-  const dy = e.changedTouches[0].clientY - (e.currentTarget._touchStartY || 0);
-  if (hasFlick(ri, ci, keyDef) && dy < -30) {
-    const upKey = { key: keyDef.flickUp, label: keyDef.flickUp };
-    if (upKey.key) sendOrType(upKey);
-    return;
-  }
-  if (keyDef.flickDown && dy > 30) {
-    sendOrType({ key: keyDef.flickDown, label: keyDef.flickDown });
-    return;
-  }
-  onQwertyTap(keyDef);
-}
-
-function onQwertyTap(keyDef) {
-  if (keyDef.key === "_camera") { openCamera(); return; }
-  if (showSymbolView.value && keyDef.flickUp && !keyDef.noSymbol) {
-    sendOrType({ key: keyDef.flickUp, label: keyDef.flickUp });
-    return;
-  }
-  const merged = { ...keyDef };
-  if (modifierState.ctrl) merged.ctrl = true;
-  if (modifierState.shift) merged.shift = true;
-  sendOrType(merged);
-}
-
-
-function doRefresh() {
-  const tab = getActiveTerminalTab();
-  if (tab) emit("tab:refresh", { tab });
-}
-function doReload() {
-  emitLocal("cycleMode");
-  window.location.replace(window.location.pathname + "?_=" + Date.now());
-}
-function openCamera() {
-  const el = cameraInputEl.value;
-  if (!el) return;
-  el.value = "";
-  el.click();
-}
-
-async function uploadImageAndSendPath(file) {
-  if (!file) return;
-  const tab = getActiveTerminalTab();
-  await uploadImageToTerminal({
-    file,
-    apiFetch: auth.apiFetch.bind(auth),
-    ws: tab?.ws,
-    notify: (message, type) => emit("toast:show", { message, type }),
-  });
-}
-
-async function onCameraFileChange(e) {
-  const file = e.target?.files?.[0];
-  if (!file) return;
-  emitLocal("cycleMode");
-  await uploadImageAndSendPath(file);
-}
-
-function dismissSnippetView() {
-  if (!showSnippetView.value) return;
-  if (props.hideBottomRow) emitLocal("snippetToggle");
-  else _showSnippetView.value = false;
-}
-function toggleShift() {
-  if (showSymbolView.value) {
-    showSymbolView.value = false;
-    modifierState.shift = false;
-    dismissSnippetView();
-    return;
-  }
-  dismissSnippetView();
-  modifierState.shift = !modifierState.shift;
-  if (modifierState.shift) { showFnView.value = false; }
-}
-function toggleCtrl() {
-  dismissSnippetView();
-  modifierState.ctrl = !modifierState.ctrl;
-  if (modifierState.ctrl) showFnView.value = false;
-}
-function sendSpace() { sendKeyToTerminal({ key: " " }); }
-const showFnView = ref(false);
-watch(showSnippetView, (val) => { if (val) showFnView.value = false; });
-const fnFlick = createFlickHandlers({ up: doRefresh, down: doReload, tap: toggleFnView });
-function toggleFnView() {
-  showFnView.value = !showFnView.value;
-  if (showFnView.value) {
-    modifierState.shift = false;
-    modifierState.ctrl = false;
-    showSymbolView.value = false;
-    if (props.hideBottomRow) {
-      if (props.externalSnippetView) emitLocal("snippetToggle");
-    } else {
-      _showSnippetView.value = false;
-    }
-  }
-}
 const navKeys = [
   { label: "Home",  key: "Home" },
   { label: "End",   key: "End" },
@@ -410,84 +329,13 @@ const navKeys = [
   { label: "F12",   key: "F12" },
 ];
 
-function onFnNumberTouchStart(e) {
-  e.currentTarget.classList.add("pressed");
-  e.currentTarget._touchStartY = e.touches[0].clientY;
-}
-
-function onFnNumberTouchEnd(e, keyDef) {
-  e.currentTarget.classList.remove("pressed");
-  const dy = e.changedTouches[0].clientY - (e.currentTarget._touchStartY || 0);
-  if (keyDef.flickUp && dy < -30) {
-    sendKeyToTerminal({ key: keyDef.flickUp });
-    return;
-  }
-  sendKeyToTerminal({ key: keyDef.key });
-}
-
-const showSymbolView = ref(false);
-function toggleSymbolView() {
-  showSymbolView.value = !showSymbolView.value;
-  if (showSymbolView.value) { modifierState.shift = false; showFnView.value = false; }
-}
-
-function symbolDisplayLabel(keyDef) {
-  if (showSymbolView.value && keyDef.flickUp && !keyDef.noSymbol) return keyDef.flickUp;
-  return displayLabel(keyDef);
-}
-
-const shiftFlick = createFlickHandlers({
-  up: () => {
-    const next = !showSymbolView.value;
-    showSymbolView.value = next;
-    modifierState.shift = false;
-    if (next) showFnView.value = false;
-  },
-  left: () => sendKeyToTerminal({ key: "u", ctrl: true }),
-  right: () => sendKeyToTerminal({ key: "k", ctrl: true }),
-  tap: toggleShift,
-});
-
-const ctrlFlick = createFlickHandlers({
-  up: () => sendKeyToTerminal({ key: "c", ctrl: true }),
-  down: () => sendKeyToTerminal({ key: "o", ctrl: true }),
-  left: () => sendKeyToTerminal({ key: "l", ctrl: true }),
-  right: () => sendKeyToTerminal({ key: "r", ctrl: true }),
-  tap: toggleCtrl,
-});
-
-const spaceFlick = createFlickHandlers({
-  up: () => sendKeyToTerminal({ key: "PageUp" }),
-  down: () => sendKeyToTerminal({ key: "PageDown" }),
-  left: () => sendKeyToTerminal({ key: "Home" }),
-  right: () => sendKeyToTerminal({ key: "End" }),
-  tap: sendSpace,
-});
-
-
-onMounted(() => {
-  if (topArrowFlickEl.value) {
-    let arrowFlickHandled = false;
-    topArrowFlickEl.value.addEventListener("touchstart", () => { arrowFlickHandled = false; }, { passive: true });
-    const onArrowFlick = (key) => {
-      if (!inputFocused.value) return false;
-      if (key.key === "ArrowLeft" || key.key === "ArrowRight") {
-        if (!arrowFlickHandled) { arrowFlickHandled = true; cycleSnippet(key.key === "ArrowLeft" ? 1 : -1); }
-        return true;
-      }
-      if (arrowFlickHandled) return true;
-      arrowFlickHandled = true;
-      if (key.key === "ArrowUp") historyPrev();
-      else if (key.key === "ArrowDown") historyNext();
-      return true;
-    };
-    setupFlickRepeat(topArrowFlickEl.value, arrowResolver, () => {
-      emitLocal("cycleMode");
-    }, { accelerateRepeat: true, onFlick: onArrowFlick });
-  }
-  if (topEnterFlickEl.value) {
-    setupFlickRepeat(topEnterFlickEl.value, makeFlickResolver((_, __, ___) => inputFocused.value && hasDraft.value), onEnter, { accelerateRepeat: true });
-  }
+useQwertyBottomRowFlicks({
+  arrowEl: topArrowFlickEl,
+  enterEl: topEnterFlickEl,
+  inputFocused, hasDraft, keyboardInput,
+  cycleSnippet, historyPrev, historyNext,
+  setupFlickRepeat, sendKeyToTerminal,
+  dismissKeyboard: () => emitLocal("cycleMode"),
 });
 
 let offSnippetTap = null;
