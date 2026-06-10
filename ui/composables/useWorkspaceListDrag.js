@@ -67,6 +67,7 @@ export function useWorkspaceListDrag({ flatList, listEl, onReorder, rowSelector 
     if (steps === 0) return;
 
     const arr = dragFlatList.value;
+    if (!arr) return;
     const direction = steps > 0 ? 1 : -1;
 
     // ヘッダーを飛び越えて次のws項目を探す

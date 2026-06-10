@@ -6,7 +6,7 @@ import { uploadImageToTerminal } from "../utils/upload-image-to-terminal.js";
  * カメラ起動と撮影画像のターミナルへのアップロードをまとめる。
  */
 export function useQwertyCamera({ apiFetch, getActiveTerminalTab, onBeforeUpload }) {
-  const cameraInputEl = ref(null);
+  const cameraInputEl = ref(/** @type {HTMLInputElement|null} */ (null));
 
   function openCamera() {
     const el = cameraInputEl.value;

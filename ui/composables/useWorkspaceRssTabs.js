@@ -14,10 +14,10 @@ import { RSS_AUTO_REFRESH_MS } from "../utils/constants.js";
 export function useWorkspaceRssTabs({ activePane, switchPane, confirm }) {
   const { loadFeeds, loadItems, addFeed, removeFeed, updateFeed } = useRSS();
 
-  const rssFeeds = ref([]);
+  const rssFeeds = ref(/** @type {any[]} */ ([]));
   const rssNewItemCounts = ref({});
   const rssAddingFeed = ref(false);
-  const rssEditingFeed = ref(null);
+  const rssEditingFeed = ref(/** @type {any} */ (null));
   const rssNewFeedUrl = ref("");
   const rssNewFeedTitle = ref("");
   const rssAddError = ref("");
@@ -100,7 +100,7 @@ export function useWorkspaceRssTabs({ activePane, switchPane, confirm }) {
 
   async function checkRssUpdates() {
     if (!rssFeeds.value.length) return;
-    const tempItems = ref([]);
+    const tempItems = ref(/** @type {any[]} */ ([]));
     const tempLoading = ref(false);
     const tempError = ref("");
     await loadItems(tempItems, tempLoading, tempError, null);

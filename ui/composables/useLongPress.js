@@ -35,7 +35,7 @@ export function useLongPress(durationMs = 500) {
     return value;
   }
 
-  const activeEntry = ref(null);
+  const activeEntry = ref(/** @type {any} */ (null));
   let menuEl = null;
 
   function startMenu(e, entry) {

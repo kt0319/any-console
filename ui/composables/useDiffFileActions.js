@@ -67,7 +67,7 @@ export function useDiffFileActions({ selectedCommit, reopenWorkingTreeDiff }) {
     selectCommitDiffFile(file);
   }
 
-  async function _execDiffFileAction(file, endpoint, errorMessage, successMessage = null) {
+  async function _execDiffFileAction(file, endpoint, errorMessage, successMessage = /** @type {string|null} */ (null)) {
     await withWorkspace(async () => {
       closeDiffMenu();
       const { ok } = await apiCommand(endpoint, { path: file.path }, { errorMessage });
@@ -120,6 +120,7 @@ export function useDiffFileActions({ selectedCommit, reopenWorkingTreeDiff }) {
     if (!entry) return;
     if (entry.hash === "__dirty__") return;
     const workspace = getWorkspace();
+    if (!workspace) return;
     const { ok, data } = await apiGet(workspaceCommitMessagePath(workspace, entry.fullHash));
     const msg = ok && data?.message ? data.message : entry.message;
     const result = await confirm(`${entry.hash}\n\n${msg}`, {
