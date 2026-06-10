@@ -12,6 +12,7 @@ export function useDeepLink() {
     const params = new URLSearchParams(location.search);
     const ws = params.get("ws");
     const pane = params.get("pane");
+    const branch = params.get("branch");
 
     if (!ws) return;
 
@@ -20,8 +21,14 @@ export function useDeepLink() {
 
     workspaceStore.selectedWorkspace = ws;
 
+    if (branch) {
+      emit("git:checkoutBranch", { branch, remote: false });
+    }
+
     const resolvedPane = pane && VALID_PANES.has(pane) ? pane : null;
-    emit("git:openFileModal", resolvedPane ? { pane: resolvedPane } : {});
+    if (resolvedPane) {
+      emit("git:openFileModal", { pane: resolvedPane });
+    }
 
     history.replaceState({}, "", location.pathname);
   }
