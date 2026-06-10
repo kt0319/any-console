@@ -16,8 +16,8 @@ export function calcGridLayout(count) {
 /**
  * splitPaneTabIds から rows × cols のグリッド配列を構築する。
  *
- * @param {number[]} ids - splitPaneTabIds
- * @returns {Array<Array<{tabId:number, globalIndex:number}>>}
+ * @param {(number|string)[]} ids - splitPaneTabIds
+ * @returns {Array<Array<{tabId:number|string, globalIndex:number}>>}
  */
 export function buildGridRows(ids) {
   const layout = calcGridLayout(ids.length);

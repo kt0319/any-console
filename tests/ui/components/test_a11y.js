@@ -18,6 +18,10 @@ import GitActionBtn from "../../../ui/components/GitActionBtn.vue";
 import AppToast from "../../../ui/components/AppToast.vue";
 import FileItem from "../../../ui/components/FileItem.vue";
 import SplitModeSelector from "../../../ui/components/SplitModeSelector.vue";
+import RssFeedDialog from "../../../ui/components/RssFeedDialog.vue";
+import WorkspaceGroupDialog from "../../../ui/components/WorkspaceGroupDialog.vue";
+import TerminalSplitDropZones from "../../../ui/components/TerminalSplitDropZones.vue";
+import { createPinia, setActivePinia } from "pinia";
 import { useConfirm } from "../../../ui/composables/useConfirm.js";
 import { usePrompt } from "../../../ui/composables/usePrompt.js";
 import { expectNoA11yViolations } from "./axe-helper.js";
@@ -88,12 +92,68 @@ describe("a11y: FileItem", () => {
   });
 });
 
+describe("a11y: RssFeedDialog", () => {
+  it("RSS追加ダイアログに a11y 違反が無い", async () => {
+    const wrapper = mount(RssFeedDialog, {
+      props: { url: "", title: "" },
+      attachTo: document.body,
+    });
+    await nextTick();
+    await expectNoA11yViolations(wrapper.find(".rss-add-dialog").element);
+    wrapper.unmount();
+  });
+
+  it("編集モードのダイアログに a11y 違反が無い", async () => {
+    const wrapper = mount(RssFeedDialog, {
+      props: {
+        editingFeed: { id: "f1", url: "https://example.com/feed.xml", title: "Example" },
+        url: "https://example.com/feed.xml",
+        title: "Example",
+        error: "Failed to save",
+      },
+      attachTo: document.body,
+    });
+    await nextTick();
+    await expectNoA11yViolations(wrapper.find(".rss-add-dialog").element);
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: WorkspaceGroupDialog", () => {
+  it("グループ名入力ダイアログに a11y 違反が無い", async () => {
+    setActivePinia(createPinia());
+    const wrapper = mount(WorkspaceGroupDialog, { attachTo: document.body });
+    wrapper.vm.openAdd();
+    await nextTick();
+    await expectNoA11yViolations(wrapper.find(".picker-group-dialog").element);
+    wrapper.unmount();
+  });
+
+  it("リネームモードのダイアログに a11y 違反が無い", async () => {
+    setActivePinia(createPinia());
+    const wrapper = mount(WorkspaceGroupDialog, { attachTo: document.body });
+    wrapper.vm.openRename({ id: "g1", name: "Tools" });
+    await nextTick();
+    await expectNoA11yViolations(wrapper.find(".picker-group-dialog").element);
+    wrapper.unmount();
+  });
+});
+
 describe("a11y: SplitModeSelector", () => {
   it("分割モード選択に a11y 違反が無い", async () => {
     const wrapper = mount(SplitModeSelector, {
       props: { currentMode: "normal", tabCount: 2 },
       attachTo: document.body,
     });
+    await expectNoA11yViolations(wrapper.element);
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: TerminalSplitDropZones", () => {
+  it("分割ドロップゾーンに a11y 違反が無い", async () => {
+    setActivePinia(createPinia());
+    const wrapper = mount(TerminalSplitDropZones, { attachTo: document.body });
     await expectNoA11yViolations(wrapper.element);
     wrapper.unmount();
   });

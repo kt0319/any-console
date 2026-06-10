@@ -56,36 +56,16 @@
     </div>
 
     <!-- RSS追加ダイアログ -->
-    <div v-if="rssAddingFeed" class="rss-add-overlay" @click.self="rssAddingFeed = false">
-      <div class="rss-add-dialog">
-        <div class="rss-add-title">{{ rssEditingFeed ? "Edit Feed" : "Add RSS / Atom Feed" }}</div>
-        <input
-          ref="rssUrlInput"
-          v-model="rssNewFeedUrl"
-          class="rss-add-input"
-          type="text"
-          placeholder="https://example.com/feed.xml"
-          @keydown.enter="submitRssAddFeed"
-          @keydown.esc="rssAddingFeed = false"
-        />
-        <input
-          ref="rssTitleInput"
-          v-model="rssNewFeedTitle"
-          class="rss-add-input"
-          type="text"
-          placeholder="Name (optional)"
-          @keydown.enter="submitRssAddFeed"
-          @keydown.esc="rssAddingFeed = false"
-        />
-        <div v-if="rssAddError" class="rss-add-error">{{ rssAddError }}</div>
-        <div class="rss-add-actions">
-          <button class="rss-btn rss-btn-cancel" @click="rssAddingFeed = false">Cancel</button>
-          <button class="rss-btn rss-btn-ok" :disabled="rssAddSubmitting" @click="submitRssAddFeed">
-            {{ rssAddSubmitting ? "Saving..." : (rssEditingFeed ? "Save" : "Add") }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <RssFeedDialog
+      v-if="rssAddingFeed"
+      v-model:url="rssNewFeedUrl"
+      v-model:title="rssNewFeedTitle"
+      :editing-feed="rssEditingFeed"
+      :error="rssAddError"
+      :submitting="rssAddSubmitting"
+      @submit="submitRssAddFeed"
+      @close="rssAddingFeed = false"
+    />
   </div>
 </template>
 
@@ -101,6 +81,7 @@ import GitHubIssuesPane from "./GitHubIssuesPane.vue";
 import GitHubActionsPane from "./GitHubActionsPane.vue";
 import GitHubPRsPane from "./GitHubPRsPane.vue";
 import RSSPane from "./RSSPane.vue";
+import RssFeedDialog from "./RssFeedDialog.vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
@@ -108,9 +89,8 @@ import { useToast } from "../composables/useToast.js";
 import { useModalView } from "../composables/useModalView.js";
 import { getCachedCount, useGitHub } from "../composables/useGitHub.js";
 import { getStashCachedCount, setStashCache } from "../composables/useStashCache.js";
-import { useRSS, isToday } from "../composables/useRSS.js";
+import { useWorkspaceRssTabs } from "../composables/useWorkspaceRssTabs.js";
 import { useConfirm } from "../composables/useConfirm.js";
-import { RSS_AUTO_REFRESH_MS } from "../utils/constants.js";
 import { workspaceDisplayName } from "../utils/worktree.js";
 
 const workspaceStore = useWorkspaceStore();
@@ -119,7 +99,6 @@ const toast = useToast();
 const { confirm } = useConfirm();
 const { loadWorkspaceGithubUrl, loadIssues, loadPRs } = useGitHub();
 const { modalTitle, viewState } = useModalView();
-const { loadFeeds, loadItems, addFeed, removeFeed, updateFeed } = useRSS();
 
 const fileBrowser = ref(null);
 const gitHistory = ref(null);
@@ -148,17 +127,25 @@ const branchCount = ref(null);
 const fileBrowserDeep = ref(false);
 const historyExpanded = ref(false);
 
-// RSS state
-const rssFeeds = ref([]);
-const rssNewItemCounts = ref({});
-const rssAddingFeed = ref(false);
-const rssEditingFeed = ref(null);
-const rssNewFeedUrl = ref("");
-const rssNewFeedTitle = ref("");
-const rssAddError = ref("");
-const rssAddSubmitting = ref(false);
-const rssUrlInput = ref(null);
-const rssTitleInput = ref(null);
+// RSS タブ（state・ロジックは composable 側に集約）
+const {
+  rssFeeds,
+  rssNewItemCounts,
+  rssAddingFeed,
+  rssEditingFeed,
+  rssNewFeedUrl,
+  rssNewFeedTitle,
+  rssAddError,
+  rssAddSubmitting,
+  rssLabel,
+  currentRssFeed,
+  loadRssFeeds,
+  onRssAddFeed,
+  onFeedEdit,
+  submitRssAddFeed,
+  checkRssUpdates,
+  onFeedRemoved,
+} = useWorkspaceRssTabs({ activePane, switchPane, confirm });
 
 function onFileBrowserState({ atRoot, fileOpen }) {
   fileBrowserDeep.value = !atRoot || fileOpen;
@@ -167,17 +154,6 @@ function onFileBrowserState({ atRoot, fileOpen }) {
 const filesBrowsing = computed(() => fileBrowserDeep.value || !!selectedDiffFile.value);
 
 const hasGithub = computed(() => !!workspaceStore.currentWorkspace?.github_url);
-
-function rssLabel(feed) {
-  if (feed.title) return feed.title;
-  try { return new URL(feed.url).hostname; } catch { return feed.url; }
-}
-
-const currentRssFeed = computed(() => {
-  if (!activePane.value.startsWith("rss-")) return null;
-  const id = activePane.value.slice(4);
-  return rssFeeds.value.find((f) => f.id === id) || null;
-});
 
 const tabs = computed(() => {
   const list = [
@@ -256,12 +232,6 @@ async function backgroundLoadCounts(workspace) {
   ]);
   if (!issueError.value) issuesCount.value = issueItems.value.length;
   if (!prError.value) prsCount.value = prItems.value.length;
-}
-
-async function loadRssFeeds() {
-  const loading = ref(false);
-  const error = ref("");
-  await loadFeeds(rssFeeds, loading, error);
 }
 
 function open(options) {
@@ -347,98 +317,6 @@ function onCommitCollapsed() {
   updateViewTitle();
 }
 
-async function onRssAddFeed() {
-  rssEditingFeed.value = null;
-  rssNewFeedUrl.value = "";
-  rssNewFeedTitle.value = "";
-  rssAddError.value = "";
-  rssAddingFeed.value = true;
-  await nextTick();
-  rssUrlInput.value?.focus();
-}
-
-async function onFeedEdit(feed) {
-  rssEditingFeed.value = feed;
-  rssNewFeedUrl.value = feed.url || "";
-  rssNewFeedTitle.value = feed.title || "";
-  rssAddError.value = "";
-  rssAddingFeed.value = true;
-  await nextTick();
-  rssUrlInput.value?.select();
-}
-
-async function submitRssAddFeed() {
-  if (rssAddSubmitting.value) return;
-  rssAddSubmitting.value = true;
-  rssAddError.value = "";
-
-  if (rssEditingFeed.value) {
-    const url = rssNewFeedUrl.value.trim();
-    if (url && !url.startsWith("http://") && !url.startsWith("https://")) {
-      rssAddError.value = "Invalid URL";
-      rssAddSubmitting.value = false;
-      return;
-    }
-    const ok = await updateFeed(rssEditingFeed.value.id, { url, title: rssNewFeedTitle.value.trim() });
-    rssAddSubmitting.value = false;
-    if (!ok) {
-      rssAddError.value = "Failed to save";
-      return;
-    }
-    rssAddingFeed.value = false;
-    rssEditingFeed.value = null;
-    await loadRssFeeds();
-    return;
-  }
-
-  if (!rssNewFeedUrl.value.trim()) {
-    rssAddSubmitting.value = false;
-    return;
-  }
-  const result = await addFeed(rssNewFeedUrl.value.trim(), rssNewFeedTitle.value.trim());
-  rssAddSubmitting.value = false;
-  if (!result.ok) {
-    rssAddError.value = result.detail;
-    return;
-  }
-  rssAddingFeed.value = false;
-  await loadRssFeeds();
-  if (result.feed) {
-    await nextTick();
-    switchPane(`rss-${result.feed.id}`);
-  }
-}
-
-async function checkRssUpdates() {
-  if (!rssFeeds.value.length) return;
-  const tempItems = ref([]);
-  const tempLoading = ref(false);
-  const tempError = ref("");
-  await loadItems(tempItems, tempLoading, tempError, null);
-  if (tempError.value) return;
-
-  const counts = {};
-  for (const item of tempItems.value) {
-    if (isToday(item.date)) {
-      counts[item.feed_id] = (counts[item.feed_id] || 0) + 1;
-    }
-  }
-  rssNewItemCounts.value = counts;
-}
-
-let _rssBgTimer = null;
-
-async function onFeedRemoved(feedId) {
-  const feed = rssFeeds.value.find((f) => f.id === feedId);
-  const label = feed?.title || feed?.url || feedId;
-  if (!await confirm(`Remove feed "${label}"? This cannot be undone.`)) return;
-  await removeFeed(feedId);
-  if (activePane.value === `rss-${feedId}`) {
-    switchPane("jobs");
-  }
-  await loadRssFeeds();
-}
-
 const _offHandlers = [
   on("worktree:open", ({ name, pane } = {}) => {
     if (name) workspaceStore.selectedWorkspace = name;
@@ -495,13 +373,8 @@ const _offHandlers = [
   }),
 ];
 
-onMounted(() => {
-  _rssBgTimer = setInterval(checkRssUpdates, RSS_AUTO_REFRESH_MS);
-});
-
 onUnmounted(() => {
   _offHandlers.forEach((off) => off());
-  clearInterval(_rssBgTimer);
 });
 
 defineExpose({ handleBack });
@@ -614,85 +487,6 @@ onMounted(() => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-}
-
-/* RSS追加ダイアログ */
-.rss-add-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-}
-
-.rss-add-dialog {
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
-  width: min(320px, 90%);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.rss-add-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.rss-add-input {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-primary);
-  font-size: 13px;
-  padding: 8px 10px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.rss-add-input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.rss-add-error {
-  font-size: 12px;
-  color: var(--error);
-}
-
-.rss-add-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.rss-btn {
-  font-size: 13px;
-  padding: 6px 16px;
-  border-radius: var(--radius);
-  cursor: pointer;
-  border: 1px solid var(--border);
-}
-
-.rss-btn-cancel {
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-}
-
-.rss-btn-ok {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-.rss-btn-ok:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 @media (max-width: 767px) {

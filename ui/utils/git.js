@@ -140,6 +140,17 @@ export async function resolveUntrackedNumstat({ workspace, files, apiFetch }) {
   return pathToLines;
 }
 
+export function entryBranches(entry) {
+  return entry.refs
+    .filter((r) => r.type === "branch" || r.type === "remote")
+    .map((r) => r.label);
+}
+
+export function buildGithubFileUrl(githubUrl, ref, path) {
+  if (!githubUrl || !ref) return "";
+  return `${githubUrl}/blob/${ref}/${path}`;
+}
+
 export function abbreviateBranch(branch) {
   const slash = branch.indexOf("/");
   if (slash === -1) return { abbr: "", rest: branch };
