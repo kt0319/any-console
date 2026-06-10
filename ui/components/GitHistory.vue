@@ -110,25 +110,16 @@ import FileItem from "./FileItem.vue";
 import FileActionMenu from "./FileActionMenu.vue";
 import CommitActionMenu from "./CommitActionMenu.vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { useApi } from "../composables/useApi.js";
-import { useWorkspace } from "../composables/useWorkspace.js";
-import { useWorkspaceFile } from "../composables/useWorkspaceFile.js";
-import { useToast } from "../composables/useToast.js";
-import { emit as bridgeEmit } from "../app-bridge.js";
-import { useLongPress } from "../composables/useLongPress.js";
-import { useHoverMenu, isHoverDevice } from "../composables/useHoverMenu.js";
-import { useGitHistoryAction } from "../composables/useGitHistoryAction.js";
 import { useGitDiff } from "../composables/useGitDiff.js";
 import { useGitLogPagination } from "../composables/useGitLogPagination.js";
-import { useEditorIntegration } from "../composables/useEditorIntegration.js";
 import { useIsMobile } from "../composables/useIsMobile.js";
 import { useCommitDiffFiles } from "../composables/useCommitDiffFiles.js";
+import { useCommitActionMenu } from "../composables/useCommitActionMenu.js";
+import { useDiffFileActions } from "../composables/useDiffFileActions.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
 import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
 import { GRAPH_ROW_HEIGHT } from "../utils/git-graph.js";
-import { abbreviateBranch } from "../utils/git.js";
-import { workspaceGitDiscardPath, workspaceCommitMessagePath } from "../utils/endpoints.js";
-import { useConfirm } from "../composables/useConfirm.js";
+import { abbreviateBranch, entryBranches } from "../utils/git.js";
 
 const emitToParent = defineEmits(["commit:expanded", "commit:collapsed"]);
 
@@ -140,13 +131,6 @@ function abbreviateRef(r) {
 }
 
 const workspaceStore = useWorkspaceStore();
-const { apiCommand, wsEndpoint, apiGet } = useApi();
-const { withWorkspace, getWorkspace } = useWorkspace();
-const { downloadWorkspaceFile } = useWorkspaceFile();
-const { confirm } = useConfirm();
-const toast = useToast();
-const { editorUrlTemplate, fetchEditorSettings, openInEditor } = useEditorIntegration();
-const { execAction: execCommitAction, execReset: execCommitReset, execCreateBranch: execCommitCreateBranch, execMerge: execCommitMerge, execRebase: execCommitRebase } = useGitHistoryAction();
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
 const isDirty = computed(() => workspaceStore.currentWorkspace && workspaceStore.currentWorkspace.clean === false);
 
@@ -172,35 +156,10 @@ function fileIconHtml(file) {
   return renderFileIconFromPath(file.path);
 }
 
-const { activeEntry: longPressEntry, startMenu: onLongPressStart, endMenu: onLongPressEnd, closeMenu: closeLongPressMenu, isFired: isLongPressFired, isMenuEl } = useLongPress();
-
-function toggleActionMenu(entry) {
-  if (longPressEntry.value?.hash === entry.hash) {
-    longPressEntry.value = null;
-  } else {
-    longPressEntry.value = entry;
-  }
-}
-
-function entryBranches(entry) {
-  return entry.refs
-    .filter((r) => r.type === "branch" || r.type === "remote")
-    .map((r) => r.label);
-}
-
-function onCommitAction(entry, { action, branch, mode }) {
-  if (action === "branch") {
-    execCommitCreateBranch(entry, closeLongPressMenu);
-  } else if (action === "merge") {
-    execCommitMerge(branch, closeLongPressMenu);
-  } else if (action === "rebase") {
-    execCommitRebase(branch, closeLongPressMenu);
-  } else if (action === "reset") {
-    execCommitReset(entry, mode, closeLongPressMenu);
-  } else {
-    execCommitAction(action, entry, closeLongPressMenu);
-  }
-}
+const {
+  longPressEntry, onLongPressStart, onLongPressEnd, closeLongPressMenu,
+  isLongPressFired, isMenuEl, toggleActionMenu, onCommitAction,
+} = useCommitActionMenu();
 
 function openDiffFiles(entry, fetchFn) {
   emitToParent("commit:expanded", { message: entry.message });
@@ -220,124 +179,21 @@ function openCommitDiffFiles(entry) {
   openDiffFiles(entry, () => fetchCommitDiff(entry.fullHash));
 }
 
-async function showSelectedCommitMessage() {
-  const entry = selectedCommitForFiles.value;
-  if (!entry) return;
-  if (entry.hash === "__dirty__") return;
-  const workspace = getWorkspace();
-  const { ok, data } = await apiGet(workspaceCommitMessagePath(workspace, entry.fullHash));
-  const msg = ok && data?.message ? data.message : entry.message;
-  const result = await confirm(`${entry.hash}\n\n${msg}`, {
-    extra: { label: "Copy hash", value: "copy", icon: "mdi-content-copy" },
-  });
-  if (result === "copy") {
-    try {
-      await navigator.clipboard?.writeText(entry.hash);
-      toast.success(`Copied ${entry.hash}`);
-    } catch {
-      toast.error("Failed to copy hash");
-    }
-  }
-}
-
 function closeSelectedCommitFiles() {
   closeDiffFilesState();
   emitToParent("commit:collapsed");
 }
 
-const diffLongPress = useLongPress();
 const {
-  contextEntry: diffContextEntry,
-  openMenu: openDiffMenu,
-  closeMenu: closeDiffMenu,
-  onItemMouseEnter: onDiffFileMouseEnter,
-  onItemMouseLeave: onDiffFileMouseLeave,
-  onMenuMouseEnter: onDiffMenuMouseEnter,
-  onMenuMouseLeave: onDiffMenuMouseLeave,
-} = useHoverMenu();
-
-const isWorkingTreeDiff = computed(() => selectedCommitForFiles.value?.hash === "__dirty__");
-
-const diffMenuActions = computed(() => {
-  const file = diffContextEntry.value;
-  if (!file) return [];
-  return [
-    { icon: "mdi-file-document-outline", label: "View diff", handler: () => viewDiffFile(file) },
-    { icon: "mdi-file-edit-outline", label: "Editor", show: !!editorUrlTemplate.value, handler: () => { openInEditor(file.path); closeDiffMenu(); } },
-    { icon: "mdi-download", label: "Download", handler: () => downloadDiffFile(file) },
-    { icon: "mdi-github", label: "GitHub", show: !!diffFileGithubUrl(file), handler: () => openDiffFileGithub(file) },
-    { icon: "mdi-undo", label: "Discard", show: isWorkingTreeDiff.value, danger: true, handler: () => discardDiffFile(file) },
-    { icon: "mdi-delete-outline", label: "Delete", show: isWorkingTreeDiff.value, danger: true, handler: () => deleteDiffFile(file) },
-  ];
+  diffLongPress, diffContextEntry, openDiffMenu,
+  onDiffFileMouseEnter, onDiffFileMouseLeave,
+  onDiffMenuMouseEnter, onDiffMenuMouseLeave,
+  diffMenuActions, onDiffFileClick, showSelectedCommitMessage,
+  fetchEditorSettings,
+} = useDiffFileActions({
+  selectedCommit: selectedCommitForFiles,
+  reopenWorkingTreeDiff: openWorkingTreeDiffFiles,
 });
-
-function onDiffFileClick(file) {
-  if (!isHoverDevice) {
-    if (diffLongPress.consumeFired()) return;
-    if (diffContextEntry.value?.path === file.path) {
-      closeDiffMenu();
-      selectCommitDiffFile(file);
-      return;
-    }
-    openDiffMenu(file);
-    return;
-  }
-  selectCommitDiffFile(file);
-}
-
-function viewDiffFile(file) {
-  closeDiffMenu();
-  selectCommitDiffFile(file);
-}
-
-async function _execDiffFileAction(file, endpoint, errorMessage, successMessage = null) {
-  await withWorkspace(async () => {
-    closeDiffMenu();
-    const { ok } = await apiCommand(endpoint, { path: file.path }, { errorMessage });
-    if (ok) {
-      if (successMessage) toast.success(successMessage);
-      bridgeEmit("git:refreshStatus");
-      openWorkingTreeDiffFiles();
-    }
-  });
-}
-
-async function discardDiffFile(file) {
-  await withWorkspace(async (workspace) => {
-    await _execDiffFileAction(file, workspaceGitDiscardPath(workspace), `Failed to discard ${file.path}`);
-  });
-}
-
-function openDiffFileGithub(file) {
-  const url = diffFileGithubUrl(file);
-  if (url) window.open(url, "_blank");
-  closeDiffMenu();
-}
-
-function diffFileGithubUrl(file) {
-  const ws = workspaceStore.currentWorkspace;
-  if (!ws?.github_url) return "";
-  const ref = isWorkingTreeDiff.value
-    ? (ws.branch || "main")
-    : (selectedCommitForFiles.value?.fullHash || "");
-  if (!ref) return "";
-  return `${ws.github_url}/blob/${ref}/${file.path}`;
-}
-
-async function downloadDiffFile(file) {
-  closeDiffMenu();
-  await downloadWorkspaceFile(file.path);
-}
-
-async function deleteDiffFile(file) {
-  await withWorkspace(async (workspace) => {
-    await _execDiffFileAction(file, wsEndpoint(workspace, "delete-file"), "Delete failed", "Deleted");
-  });
-}
-
-function selectCommitDiffFile(file) {
-  bridgeEmit("git:selectDiffFile", { path: file.path });
-}
 
 async function reloadHistory() {
   await loadHistory();
