@@ -11,43 +11,25 @@
   <AppToast ref="appToast" />
   <ConfirmDialog />
   <PromptDialog />
-
-  <!-- ターミナルURLアクションダイアログ -->
-  <div v-if="terminalUrl" class="url-action-overlay" @click.self="terminalUrl = ''">
-    <div class="url-action-dialog">
-      <div class="url-action-url">{{ terminalUrl }}</div>
-      <div class="url-action-buttons">
-        <button class="url-action-btn" @click="doUrlOpen">
-          <span class="mdi mdi-open-in-new"></span>Open
-        </button>
-        <button class="url-action-btn" @click="doUrlCopy">
-          <span class="mdi" :class="urlCopied ? 'mdi-check' : 'mdi-content-copy'"></span>{{ urlCopied ? "Copied!" : "Copy URL" }}
-        </button>
-        <button class="url-action-btn url-action-btn-cancel" @click="terminalUrl = ''">Cancel</button>
-      </div>
-    </div>
-  </div>
+  <UrlActionDialog />
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount, onErrorCaptured } from "vue";
+import { ref, onMounted, onErrorCaptured } from "vue";
 import ScreenLogin from "./ScreenLogin.vue";
 import ScreenMain from "./ScreenMain.vue";
 import AppToast from "./AppToast.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import PromptDialog from "./PromptDialog.vue";
-import { on, emit } from "../app-bridge.js";
-import { useAuthStore } from "../stores/auth.js";
+import UrlActionDialog from "./UrlActionDialog.vue";
+import { on } from "../app-bridge.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { useTerminalStore } from "../stores/terminal.js";
-import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
+import { useAppConnectivity } from "../composables/useAppConnectivity.js";
+import { useAppDocumentTitle } from "../composables/useAppDocumentTitle.js";
+import { useAppAuthGate } from "../composables/useAppAuthGate.js";
 import { useAppJobBridge } from "../composables/useAppJobBridge.js";
-import { useToast } from "../composables/useToast.js";
 
-const auth = useAuthStore();
-const toast = useToast();
 const layoutStore = useLayoutStore();
-const terminalStore = useTerminalStore();
 
 const fatalError = ref(null);
 
@@ -56,81 +38,19 @@ onErrorCaptured((err) => {
   return false;
 });
 
-const APP_NAME = "any-console";
-const activeTabLabel = computed(() => {
-  if (!terminalStore.openTabs.some((t) => !t.hidden)) return "";
-  const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
-  if (!tab) return "";
-  const ws = tab.workspace || "";
-  const job = tab.jobLabel || tab.jobName || "";
-  return [ws, job].filter(Boolean).join(" / ");
-});
-watch(activeTabLabel, (label) => {
-  document.title = label ? `${APP_NAME} - ${label}` : APP_NAME;
-}, { immediate: true });
+useAppDocumentTitle();
+useAppConnectivity();
+const { showLogin, authenticated, onAuthenticated, checkAuthOnBoot } = useAppAuthGate();
 const appToast = ref(null);
-const { isOffline, startPing, stopPing, onOnline, onOffline } = useConnectivityMonitor();
 const { bind: bindJobBridge } = useAppJobBridge();
 
-const terminalUrl = ref("");
-const urlCopied = ref(false);
-
-function doUrlOpen() {
-  if (terminalUrl.value) window.open(terminalUrl.value, "_blank", "noopener,noreferrer");
-  terminalUrl.value = "";
-}
-
-async function doUrlCopy() {
-  if (!terminalUrl.value) return;
-  try {
-    await navigator.clipboard.writeText(terminalUrl.value);
-    urlCopied.value = true;
-    setTimeout(() => { urlCopied.value = false; }, 1500);
-  } catch {
-    urlCopied.value = false;
-  }
-}
-
-const showLogin = ref(false);
-const authenticated = ref(false);
-
-async function onAuthenticated() {
-  showLogin.value = false;
-  authenticated.value = true;
-}
-
 onMounted(async () => {
-  window.addEventListener("online", onOnline);
-  window.addEventListener("offline", onOffline);
-  startPing();
-
   if (layoutStore.isPwa) document.documentElement.classList.add("pwa");
 
   on("toast:show", ({ message, type, duration, action }) => appToast.value?.show(message, type, duration, action));
-  on("terminal:url", ({ uri }) => { terminalUrl.value = uri; urlCopied.value = false; });
   bindJobBridge();
 
-  let result = await auth.checkToken();
-  if (!result.ok && !result.auth) {
-    const migrated = await auth.migrateLegacyToken();
-    if (migrated) result = await auth.checkToken();
-  }
-  if (result.ok) {
-    auth.markAuthenticated();
-    auth.setServerInfo(result.hostname, result.version);
-    await onAuthenticated();
-  } else if (!result.auth) {
-    showLogin.value = true;
-  } else {
-    toast.error(result.error);
-    authenticated.value = true;
-  }
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener("online", onOnline);
-  window.removeEventListener("offline", onOffline);
-  stopPing();
+  await checkAuthOnBoot();
 });
 
 </script>
@@ -615,78 +535,6 @@ button:disabled {
   color: var(--text-muted);
   padding: 16px;
   text-align: center;
-}
-
-/* ターミナルURLアクションダイアログ */
-.url-action-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 12px;
-  box-sizing: border-box;
-}
-
-.url-action-dialog {
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px;
-  width: 100%;
-  max-width: 480px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.url-action-url {
-  font-size: 11px;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  word-break: break-all;
-}
-
-.url-action-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.url-action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px;
-  border-radius: var(--radius);
-  font-size: 13px;
-  cursor: pointer;
-  border: 1px solid var(--border);
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  min-height: 0;
-  width: 100%;
-}
-
-.url-action-btn .mdi {
-  font-size: 16px;
-}
-
-.url-action-btn-cancel {
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .url-action-btn:hover {
-    background: var(--bg-tertiary);
-  }
 }
 
 .drag-handle {
