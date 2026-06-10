@@ -4,7 +4,7 @@
       <!-- ツールバー -->
       <div class="ws-toolbar">
         <span class="ws-toolbar-spacer"></span>
-        <button type="button" class="ws-toolbar-btn" aria-label="Add group" data-tooltip="Add group" @click="startAddGroup">
+        <button type="button" class="ws-toolbar-btn" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
           <span class="mdi mdi-folder-plus-outline"></span>
         </button>
       </div>
@@ -33,7 +33,7 @@
               <span class="mdi" :class="collapsedGroups.has(item.group.id) ? 'mdi-chevron-right' : 'mdi-chevron-down'"></span>
               {{ item.group.name }}
             </button>
-            <button type="button" class="picker-ws-edit-btn" aria-label="Edit group" data-tooltip="Edit group" @click.stop="startRenameGroup(item.group)">
+            <button type="button" class="picker-ws-edit-btn" aria-label="Edit group" data-tooltip="Edit group" @click.stop="groupDialog?.openRename(item.group)">
               <span class="mdi mdi-pencil-outline"></span>
             </button>
           </div>
@@ -96,29 +96,7 @@
     </div>
 
     <!-- グループ名入力モーダル -->
-    <div v-if="groupDialogOpen" class="picker-group-overlay" @click.self="groupDialogOpen = false">
-      <div class="picker-group-dialog" role="dialog" aria-modal="true">
-        <div class="picker-group-dialog-title">{{ editingGroup ? 'Rename group' : 'Add group' }}</div>
-        <input
-          ref="groupInputEl"
-          v-model="groupInputName"
-          class="form-input"
-          type="text"
-          placeholder="Group name"
-          autocomplete="off"
-          @keydown.enter.prevent="submitGroupDialog"
-          @keydown.esc.prevent="groupDialogOpen = false"
-        />
-        <div class="picker-group-dialog-buttons">
-          <button v-if="editingGroup" class="prompt-btn prompt-btn-danger" @click="deleteGroup(editingGroup)">Delete</button>
-          <span class="picker-group-dialog-spacer"></span>
-          <button class="prompt-btn prompt-btn-cancel" @click="groupDialogOpen = false">Cancel</button>
-          <button class="prompt-btn prompt-btn-ok" :disabled="!groupInputName.trim()" @click="submitGroupDialog">
-            {{ editingGroup ? 'Rename' : 'Create' }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <WorkspaceGroupDialog ref="groupDialog" />
   </div>
 </template>
 
@@ -128,7 +106,7 @@ const _collapsedGroups = new Set();
 </script>
 
 <script setup>
-import { computed, inject, ref, reactive, onMounted, onBeforeUnmount, nextTick } from "vue";
+import { computed, inject, ref, reactive, onMounted, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useApi } from "../composables/useApi.js";
@@ -138,8 +116,10 @@ import { renderIconStr } from "../utils/render-icon.js";
 import { dirtyBadgeHtml } from "../utils/git.js";
 import { worktreeBranchLabel, workspaceDisplayName } from "../utils/worktree.js";
 import GitActionBtn from "./GitActionBtn.vue";
-import { EP_WORKSPACE_ORDER, EP_GROUPS, EP_GROUP_ORDER } from "../utils/endpoints.js";
+import WorkspaceGroupDialog from "./WorkspaceGroupDialog.vue";
+import { EP_WORKSPACE_ORDER, EP_GROUP_ORDER } from "../utils/endpoints.js";
 import { useListDragSort } from "../composables/useListDragSort.js";
+import { useWorkspaceListDrag } from "../composables/useWorkspaceListDrag.js";
 import { buildFlatList, deriveGroupChanges } from "../utils/workspace-groups.js";
 
 const modalTitle = inject("modalTitle");
@@ -147,7 +127,7 @@ const pushView = inject("pushView");
 modalTitle.value = "Workspaces";
 
 const workspaceStore = useWorkspaceStore();
-const { apiGet, apiPost, apiPut, apiDelete, wsEndpoint } = useApi();
+const { apiGet, apiPut, apiDelete, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
 const toast = useToast();
 const { gitAction, isRunning } = useGitRemoteAction();
@@ -156,10 +136,7 @@ const wsListEl = ref(null);
 const collapsedGroups = reactive(_collapsedGroups);
 
 // グループダイアログ
-const groupDialogOpen = ref(false);
-const groupInputName = ref("");
-const groupInputEl = ref(null);
-const editingGroup = ref(null);
+const groupDialog = ref(null);
 
 // グループなし（トップレベル）
 const ungrouped = computed(() => {
@@ -211,114 +188,12 @@ const { dragFromIdx: groupDragFrom, dragOverIdx: groupDragOver, onDragStart: onG
   },
 });
 
-// ---- ワークスペースドラッグ状態 ----
-const dragIdx = ref(-1);
-const dragOffsetY = ref(0);
-const dragFlatList = ref(null);
-let _dragStartY = 0;
-let _dragRowHeight = 0;
-let _dragDidMove = false;
-
-function onDragStart(e, flatIdx) {
-  const fl = flatList.value;
-  if (fl.filter((item) => item.type === "ws").length < 2) return;
-  const list = wsListEl.value;
-  if (!list) return;
-
-  if (navigator.vibrate) navigator.vibrate(30);
-
-  dragFlatList.value = fl.map((item) => ({ ...item }));
-  const rows = list.querySelectorAll(".picker-ws-group");
-  _dragRowHeight = rows[0]?.getBoundingClientRect().height || 44;
-  _dragStartY = e.clientY ?? e.touches?.[0]?.clientY;
-  dragIdx.value = flatIdx;
-  dragOffsetY.value = 0;
-  _dragDidMove = false;
-
-  if (e.pointerId != null) {
-    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ }
-  }
-
-  document.addEventListener("pointermove", _onDragMove);
-  document.addEventListener("pointerup", _onDragEnd);
-  document.addEventListener("pointercancel", _onDragEnd);
-  document.addEventListener("touchmove", _onTouchMove, { passive: false });
-  document.addEventListener("touchend", _onDragEnd);
-  document.addEventListener("touchcancel", _onDragEnd);
-}
-
-function _onDragMove(e) {
-  if (dragIdx.value < 0) return;
-  _applyMove(e.clientY);
-}
-
-function _onTouchMove(e) {
-  if (dragIdx.value < 0) return;
-  if (e.cancelable) e.preventDefault();
-  _applyMove(e.touches[0].clientY);
-}
-
-function _applyMove(clientY) {
-  const dy = clientY - _dragStartY;
-  dragOffsetY.value = dy;
-
-  const steps = Math.trunc(dy / _dragRowHeight);
-  if (steps === 0) return;
-
-  const arr = dragFlatList.value;
-  const direction = steps > 0 ? 1 : -1;
-
-  // ヘッダーを飛び越えて次のws項目を探す
-  let target = dragIdx.value + direction;
-  while (target >= 0 && target < arr.length && arr[target]?.type !== "ws") {
-    target += direction;
-  }
-
-  // 上方向で ws が見つからない場合、ヘッダーより前（ungrouped エリア）への移動を許可
-  if (direction === -1 && target < 0) {
-    const hasHeaderAbove = arr.slice(0, dragIdx.value).some((item) => item.type === "header");
-    if (!hasHeaderAbove) return;
-    target = 0;
-  } else if (target < 0 || target >= arr.length || arr[target]?.type !== "ws") {
-    return;
-  }
-
-  const [moved] = arr.splice(dragIdx.value, 1);
-  arr.splice(target, 0, moved);
-  dragIdx.value = target;
-  _dragStartY = clientY;
-  dragOffsetY.value = 0;
-  _dragDidMove = true;
-}
-
-function _onDragEnd() {
-  const moved = _dragDidMove;
-  const finalList = dragFlatList.value ? [...dragFlatList.value] : null;
-  _cleanupDragListeners();
-  if (moved && finalList) {
-    // dragFlatList は fetchWorkspaces 完了後にクリア（先にクリアすると旧順序が一瞬見える）
-    _saveOrderAndGroups(finalList);
-  } else {
-    dragFlatList.value = null;
-  }
-}
-
-function _cleanupDragListeners() {
-  document.removeEventListener("pointermove", _onDragMove);
-  document.removeEventListener("pointerup", _onDragEnd);
-  document.removeEventListener("pointercancel", _onDragEnd);
-  document.removeEventListener("touchmove", _onTouchMove);
-  document.removeEventListener("touchend", _onDragEnd);
-  document.removeEventListener("touchcancel", _onDragEnd);
-  dragIdx.value = -1;
-  dragOffsetY.value = 0;
-  _dragDidMove = false;
-}
-
-function _cleanupDrag() {
-  _cleanupDragListeners();
-  dragFlatList.value = null;
-}
+// ---- ワークスペースドラッグ ----
+const { dragIdx, dragOffsetY, dragFlatList, onDragStart, cleanup: cleanupWsDrag } = useWorkspaceListDrag({
+  flatList,
+  listEl: wsListEl,
+  onReorder: _saveOrderAndGroups,
+});
 
 async function _saveOrderAndGroups(finalList) {
   const { changes: groupChanges, visibleOrder } = deriveGroupChanges(finalList);
@@ -340,7 +215,6 @@ async function _saveOrderAndGroups(finalList) {
 
   await apiPut(EP_WORKSPACE_ORDER, { order: fullOrder }, { errorMessage: "Failed to save workspace order" });
   await workspaceStore.fetchWorkspaces();
-  dragFlatList.value = null;
 }
 
 function toggleGroup(groupId) {
@@ -349,42 +223,6 @@ function toggleGroup(groupId) {
   } else {
     collapsedGroups.add(groupId);
   }
-}
-
-function startAddGroup() {
-  editingGroup.value = null;
-  groupInputName.value = "";
-  groupDialogOpen.value = true;
-  nextTick(() => groupInputEl.value?.focus());
-}
-
-function startRenameGroup(group) {
-  editingGroup.value = group;
-  groupInputName.value = group.name;
-  groupDialogOpen.value = true;
-  nextTick(() => groupInputEl.value?.focus());
-}
-
-async function submitGroupDialog() {
-  const name = groupInputName.value.trim();
-  if (!name) return;
-  groupDialogOpen.value = false;
-  if (editingGroup.value) {
-    const { ok } = await apiPut(`${EP_GROUPS}/${editingGroup.value.id}`, { name }, { errorMessage: "Failed to rename group" });
-    if (ok) await workspaceStore.fetchGroups();
-  } else {
-    const { ok } = await apiPost(EP_GROUPS, { name }, { errorMessage: "Failed to create group" });
-    if (ok) await workspaceStore.fetchGroups();
-  }
-}
-
-async function deleteGroup(group) {
-  groupDialogOpen.value = false;
-  if (!await confirm(`Delete group "${group.name}"? Workspaces in this group will be unassigned.`)) return;
-  const { ok } = await apiDelete(`${EP_GROUPS}/${group.id}`, { errorMessage: "Failed to delete group" });
-  if (!ok) return;
-  await workspaceStore.fetchGroups();
-  await workspaceStore.fetchWorkspaces();
 }
 
 function doAction(ws, action) {
@@ -429,7 +267,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  _cleanupDrag();
+  cleanupWsDrag();
 });
 </script>
 
@@ -832,55 +670,6 @@ button.git-badge:disabled {
     background: var(--bg-tertiary);
     color: var(--text-primary);
   }
-}
-
-/* グループ名ダイアログ */
-.picker-group-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 210;
-  padding: 20px;
-}
-
-.picker-group-dialog {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
-  width: min(320px, calc(100vw - 40px));
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.picker-group-dialog-title {
-  color: var(--text-primary);
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.picker-group-dialog-buttons {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.picker-group-dialog-spacer {
-  flex: 1;
-}
-
-.prompt-btn-danger {
-  padding: 6px 14px;
-  background: transparent;
-  border: 1px solid var(--error);
-  border-radius: var(--radius);
-  color: var(--error);
-  font-size: 13px;
-  cursor: pointer;
 }
 
 .clone-repo-empty {
