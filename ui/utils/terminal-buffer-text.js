@@ -65,6 +65,19 @@ export function findUrlInBuffer(term, clientX, clientY) {
   return null;
 }
 
+export function getFullBufferText(term) {
+  if (!term) return null;
+  const buf = term.buffer.active;
+  const lines = [];
+  for (let i = 0; i < buf.length; i++) {
+    const line = buf.getLine(i);
+    if (!line) continue;
+    lines.push(line.translateToString(true).replace(/[\s 　]+$/, ""));
+  }
+  while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+  return lines.join("\n") || null;
+}
+
 export function getVisibleBufferText(term) {
   if (!term) return null;
   const buf = term.buffer.active;

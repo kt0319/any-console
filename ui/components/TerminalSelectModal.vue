@@ -14,15 +14,17 @@
         <button type="button" class="modal-close-btn" @click="close">&times;</button>
       </div>
       <div class="modal-body">
-        <textarea
-          ref="textareaEl"
-          class="terminal-select-textarea"
-          :value="text"
-          readonly
-          spellcheck="false"
-          autocapitalize="off"
-          autocomplete="off"
-        ></textarea>
+        <div class="textarea-scroll-wrapper">
+          <textarea
+            ref="textareaEl"
+            class="terminal-select-textarea"
+            :value="text"
+            readonly
+            spellcheck="false"
+            autocapitalize="off"
+            autocomplete="off"
+          ></textarea>
+        </div>
       </div>
     </div>
   </div>
@@ -31,13 +33,14 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import { on } from "../app-bridge.js";
+import { getFullBufferText } from "../utils/terminal-buffer-text.js";
 
 const visible = ref(false);
 const text = ref("");
 const textareaEl = ref(null);
 
 function open(payload) {
-  text.value = payload?.text || "";
+  text.value = payload?.text || getFullBufferText(payload?.tab?.term) || payload?.fallbackText || "";
   visible.value = true;
 }
 
@@ -118,6 +121,7 @@ onBeforeUnmount(() => { offSelectionOpen?.(); });
 }
 
 .modal-body {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -146,33 +150,37 @@ onBeforeUnmount(() => { offSelectionOpen?.(); });
   outline: none;
 }
 
+.textarea-scroll-wrapper {
+  position: absolute;
+  inset: 0;
+  overflow-y: scroll;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
 .terminal-select-textarea {
-  flex: 1;
-  min-height: 0;
   width: 100%;
+  min-height: 100%;
   resize: none;
   padding: 12px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: none;
   outline: none;
   font-family: "Hack Nerd Font", "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace;
   font-size: 11px;
   line-height: 1.4;
-  white-space: pre;
-  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow: hidden;
+  box-sizing: border-box;
   user-select: text;
   -webkit-user-select: text;
   -webkit-touch-callout: default;
 }
 
 .terminal-select-textarea::selection {
-  background: var(--accent);
-  color: var(--bg-primary);
-}
-
-.terminal-select-textarea::-moz-selection {
   background: var(--accent);
   color: var(--bg-primary);
 }

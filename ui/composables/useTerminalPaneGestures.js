@@ -1,7 +1,7 @@
 import { useTerminalStore, isLinkTapped, setLongPressActive } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { createTouchTracker } from "../utils/gesture.js";
-import { findUrlInBuffer, getVisibleBufferText } from "../utils/terminal-buffer-text.js";
+import { findUrlInBuffer, getFullBufferText } from "../utils/terminal-buffer-text.js";
 import { emit } from "../app-bridge.js";
 
 const LONG_PRESS_URL_MS = 400;
@@ -68,12 +68,9 @@ export function useTerminalPaneGestures({ tab, frameEl, pillEl, isActive, paneIn
         pendingUrl = null;
         return;
       }
-      const text = getVisibleBufferText(tab.value?.term);
-      if (text) {
-        longPressHandled = true;
-        if (navigator.vibrate) navigator.vibrate(40);
-        emit("selection:open", { text });
-      }
+      longPressHandled = true;
+      if (navigator.vibrate) navigator.vibrate(40);
+      emit("selection:open", { tab: tab.value, fallbackText: getFullBufferText(tab.value?.term) });
     }, LONG_PRESS_URL_MS);
   }
 
