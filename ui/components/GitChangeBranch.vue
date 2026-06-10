@@ -129,31 +129,48 @@
   </div>
 </template>
 
-<script>
-// モジュールスコープ: コンポーネント再マウント後もキャッシュを保持する
-const _remoteCache = new Map();
-</script>
-
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from "vue";
-import { useApi } from "../composables/useApi.js";
-import { useWorkspace } from "../composables/useWorkspace.js";
-import { useConfirm } from "../composables/useConfirm.js";
-import { useToast } from "../composables/useToast.js";
-import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
+import { ref, computed, watch } from "vue";
+import { useBranchList } from "../composables/useBranchList.js";
+import { useBranchActions } from "../composables/useBranchActions.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import GitActionBtn from "./GitActionBtn.vue";
-import { worktreeBranchLabel } from "../utils/worktree.js";
+import { canPull, canPush } from "../utils/git-branch.js";
 import { emit } from "../app-bridge.js";
 
 const branchEmit = defineEmits(["count"]);
 
-const { apiGet, apiCommand, apiDelete, wsEndpoint } = useApi();
-const { withWorkspace } = useWorkspace();
-const { confirm } = useConfirm();
-const toast = useToast();
-const { gitAction, isRunning } = useGitRemoteAction();
 const workspaceStore = useWorkspaceStore();
+
+const branchList = useBranchList();
+const {
+  localBranches,
+  remoteBranches,
+  remoteLoaded,
+  isRemoteBranchListLoading,
+  isSwitchingBranch,
+  worktreeByBranch,
+  branches,
+  linkedWorktree,
+  loadBranchList,
+} = branchList;
+
+const {
+  isFetchingRemote,
+  isRunning,
+  isPushing,
+  createBranch,
+  createWorktree,
+  removeWorktree,
+  pushBranch,
+  pullBranch,
+  deleteBranch,
+  backgroundFetch,
+  fetchRemote,
+} = useBranchActions(branchList);
+
+const isBusy = computed(() => isFetchingRemote.value || isSwitchingBranch.value);
+const branchListEl = ref(null);
 
 const addModalOpen = ref(false);
 const addType = ref("branch");
@@ -170,104 +187,10 @@ async function submitAddModal() {
   if (!name) return;
   addModalOpen.value = false;
   if (addType.value === "worktree") {
-    await doCreateWorktree(name);
+    await createWorktree(name);
   } else {
-    await withWorkspace(async (workspace) => {
-      const { ok } = await apiCommand(wsEndpoint(workspace, "create-branch"), { branch: name });
-      if (!ok) return;
-      await loadBranchList();
-      emit("git:commitDone");
-    });
+    await createBranch(name);
   }
-}
-
-const localBranches = ref([]);
-const worktrees = ref([]);
-
-const worktreeByBranch = computed(() => {
-  const map = {};
-  for (const wt of worktrees.value) {
-    if (wt.branch) map[wt.branch] = wt;
-  }
-  return map;
-});
-
-function linkedWorktree(branch) {
-  const wt = worktreeByBranch.value[branch.name];
-  return wt && !wt.is_main ? wt : null;
-}
-const remoteBranches = ref([]);
-const remoteLoaded = ref(false);
-const isBranchListLoading = ref(false);
-const isRemoteBranchListLoading = ref(false);
-const isFetchingRemote = ref(false);
-const isSwitchingBranch = ref(false);
-const isBusy = computed(() => isFetchingRemote.value || isSwitchingBranch.value);
-const branchListEl = ref(null);
-
-const branches = computed(() => [...localBranches.value, ...remoteBranches.value]);
-
-async function loadBranchList() {
-  isSwitchingBranch.value = false;
-  await withWorkspace(async (workspace) => {
-    isBranchListLoading.value = true;
-    try {
-      const { ok, data } = await apiGet(wsEndpoint(workspace, "branches"));
-      if (!ok) return;
-      localBranches.value = (data || []).map((b) => ({
-        name: b.name || b,
-        current: !!b.current,
-        remote: false,
-        ahead: Number(b.ahead) || 0,
-        behind: Number(b.behind) || 0,
-        upstream: b.upstream || null,
-        gone: !!b.gone,
-      }));
-      const cached = _remoteCache.get(workspace);
-      if (cached) {
-        remoteBranches.value = cached;
-        remoteLoaded.value = true;
-      } else {
-        remoteBranches.value = [];
-        remoteLoaded.value = false;
-      }
-    } catch (e) {
-      console.error("branch load failed:", e);
-    } finally {
-      isBranchListLoading.value = false;
-    }
-  });
-  await loadWorktrees();
-}
-
-async function loadWorktrees() {
-  await withWorkspace(async (workspace) => {
-    const { ok, data } = await apiGet(wsEndpoint(workspace, "worktrees"));
-    if (!ok) return;
-    worktrees.value = data?.worktrees || [];
-  });
-}
-
-async function loadRemoteBranches() {
-  if (isRemoteBranchListLoading.value) return;
-  await withWorkspace(async (workspace) => {
-    isRemoteBranchListLoading.value = true;
-    try {
-      const { ok, data } = await apiGet(wsEndpoint(workspace, "branches/remote"));
-      if (!ok) return;
-      const localNames = new Set(localBranches.value.map((b) => b.name));
-      const filtered = (data || [])
-        .filter((b) => !localNames.has(b.name || b))
-        .map((b) => ({ name: b.name || b, current: false, remote: true }));
-      remoteBranches.value = filtered;
-      remoteLoaded.value = true;
-      _remoteCache.set(workspace, filtered);
-    } catch (e) {
-      console.error("remote branch load failed:", e);
-    } finally {
-      isRemoteBranchListLoading.value = false;
-    }
-  });
 }
 
 function selectBranch(branch) {
@@ -289,112 +212,6 @@ function switchToWorkspace(name) {
 
 function openWorktree(wt) {
   if (wt?.workspace) switchToWorkspace(wt.workspace);
-}
-
-async function doCreateWorktree(branchName) {
-  await withWorkspace(async (workspace) => {
-    const { ok, data } = await apiCommand(
-      wsEndpoint(workspace, "worktrees"),
-      { branch: branchName },
-      { errorMessage: "Failed to create worktree" },
-    );
-    if (!ok) return;
-    const created = data?.workspace;
-    await workspaceStore.fetchWorkspaces();
-    await loadBranchList();
-    if (created?.name) {
-      toast.success(`Worktree ${worktreeBranchLabel(created.branch)} created`);
-      emit("worktree:open", { name: created.name, pane: "jobs" });
-    }
-  });
-}
-
-async function removeWorktree(wt) {
-  await withWorkspace(async (workspace) => {
-    if (!await confirm(`Remove worktree "${wt.branch || wt.path}"? The working tree directory will be deleted. This cannot be undone.`)) return;
-    const { ok } = await apiDelete(
-      wsEndpoint(workspace, "worktrees"),
-      { body: { path: wt.path }, checkStatus: true, errorMessage: "Failed to remove worktree" },
-    );
-    if (!ok) return;
-    await workspaceStore.fetchWorkspaces();
-    await loadWorktrees();
-    toast.success(`Worktree removed: ${workspace} [${wt.branch || wt.path}]`);
-  });
-}
-
-async function pushBranch(branch) {
-  await withWorkspace(async (workspace) => {
-    await gitAction(workspace, "push-branch", { branch: branch.name });
-    await loadBranchList();
-  });
-}
-
-function isPushing(branch) {
-  return isRunning(workspaceStore.selectedWorkspace, "push-branch", branch.name);
-}
-
-function canPull(branch) {
-  return !branch.remote && !!branch.upstream && branch.behind > 0;
-}
-
-function canPush(branch) {
-  if (branch.remote) return false;
-  if (!branch.upstream) return true;
-  return branch.ahead > 0;
-}
-
-async function pullBranch(branch) {
-  if (!branch.current) {
-    emit("toast:show", { message: `Switch to "${branch.name}" to pull`, type: "info" });
-    return;
-  }
-  await withWorkspace(async (workspace) => {
-    await gitAction(workspace, "pull");
-    await loadBranchList();
-  });
-}
-
-async function deleteBranch(branch) {
-  await withWorkspace(async (workspace) => {
-    const label = branch.remote ? `Remote branch ${branch.name}` : `Branch ${branch.name}`;
-    if (!await confirm(`Delete ${label}?`)) return;
-    const { ok } = await apiCommand(wsEndpoint(workspace, "delete-branch"), { branch: branch.name, remote: branch.remote });
-    if (!ok) return;
-    if (branch.remote) _remoteCache.delete(workspace);
-    await loadBranchList();
-    emit("git:commitDone");
-    await fetchRemote();
-  });
-}
-
-async function backgroundFetch() {
-  await withWorkspace(async (workspace) => {
-    try {
-      await apiCommand(wsEndpoint(workspace, "fetch"));
-    } catch (e) {
-      console.error("background fetch failed:", e);
-    }
-  });
-}
-
-async function fetchRemote() {
-  if (isFetchingRemote.value) return;
-  isFetchingRemote.value = true;
-  try {
-    await withWorkspace(async (workspace) => {
-      const { ok } = await apiCommand(wsEndpoint(workspace, "fetch"), {}, {
-        errorMessage: "Fetch failed",
-      });
-      if (!ok) return;
-      remoteLoaded.value = false;
-      await loadBranchList();
-      await loadRemoteBranches();
-      emit("toast:show", { message: "Fetched remote", type: "success" });
-    });
-  } finally {
-    isFetchingRemote.value = false;
-  }
 }
 
 watch(branches, (list) => {
