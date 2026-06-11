@@ -108,10 +108,9 @@ def create_worktree(name: str, body: CreateWorktreeRequest):
         ws_path = _ensure_git_repo(name)
         worktrees = git_worktree_list(ws_path)
         main_path = _main_worktree_path(worktrees) or ws_path
-        repo_name = main_path.name
 
-        # メイン作業ツリーの兄弟に "<repo>.worktrees/<safe-branch>" を作る。
-        wt_root = main_path.parent / f"{repo_name}.worktrees"
+        # メイン作業ツリー内の ".worktrees/<safe-branch>" に作る。
+        wt_root = main_path / ".worktrees"
         target = wt_root / _sanitize_segment(branch)
         if target.exists():
             raise conflict(f"Worktree path already exists: {target}")
