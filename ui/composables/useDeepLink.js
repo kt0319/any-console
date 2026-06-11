@@ -1,6 +1,7 @@
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
 import { useConfirm } from "./useConfirm.js";
+import { usePrompt } from "./usePrompt.js";
 import { emit } from "../app-bridge.js";
 
 const VALID_PANES = new Set([
@@ -11,6 +12,7 @@ export function useDeepLink() {
   const workspaceStore = useWorkspaceStore();
   const { apiGet, apiCommand, wsEndpoint } = useApi();
   const { confirm } = useConfirm();
+  const { prompt } = usePrompt();
 
   async function resolveBranch(ws, branch, currentBranch) {
     if (branch === currentBranch) return;
@@ -25,10 +27,17 @@ export function useDeepLink() {
       return;
     }
 
-    if (!await confirm(`Branch "${branch}" does not exist. Create it from current branch?`)) return;
-    const res = await apiCommand(wsEndpoint(ws, "create-branch"), { branch }, { errorMessage: "Failed to create branch" });
+    const newName = await prompt({
+      title: "Create branch",
+      message: `Branch "${branch}" does not exist. Create from current branch?`,
+      initialValue: branch,
+      placeholder: "branch name",
+      confirmLabel: "Create",
+    });
+    if (!newName) return;
+    const res = await apiCommand(wsEndpoint(ws, "create-branch"), { branch: newName }, { errorMessage: "Failed to create branch" });
     if (!res.ok) return;
-    emit("git:checkoutBranch", { branch, remote: false });
+    emit("git:checkoutBranch", { branch: newName, remote: false });
   }
 
   async function apply() {
