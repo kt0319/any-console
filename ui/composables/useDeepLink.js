@@ -1,4 +1,6 @@
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { useApi } from "./useApi.js";
+import { useConfirm } from "./useConfirm.js";
 import { emit } from "../app-bridge.js";
 
 const VALID_PANES = new Set([
@@ -7,8 +9,29 @@ const VALID_PANES = new Set([
 
 export function useDeepLink() {
   const workspaceStore = useWorkspaceStore();
+  const { apiGet, apiCommand, wsEndpoint } = useApi();
+  const { confirm } = useConfirm();
 
-  function apply() {
+  async function resolveBranch(ws, branch, currentBranch) {
+    if (branch === currentBranch) return;
+
+    const { ok, data } = await apiGet(wsEndpoint(ws, "branches"));
+    const branches = ok && Array.isArray(data) ? data.map((b) => b.name) : [];
+    const exists = branches.includes(branch);
+
+    if (exists) {
+      if (!await confirm(`Switch to branch "${branch}"?`)) return;
+      emit("git:checkoutBranch", { branch, remote: false });
+      return;
+    }
+
+    if (!await confirm(`Branch "${branch}" does not exist. Create it from current branch?`)) return;
+    const res = await apiCommand(wsEndpoint(ws, "create-branch"), { branch }, { errorMessage: "Failed to create branch" });
+    if (!res.ok) return;
+    emit("git:checkoutBranch", { branch, remote: false });
+  }
+
+  async function apply() {
     const params = new URLSearchParams(location.search);
     const ws = params.get("ws");
     const pane = params.get("pane");
@@ -20,17 +43,16 @@ export function useDeepLink() {
     if (!found) return;
 
     workspaceStore.selectedWorkspace = ws;
-
-    if (branch) {
-      emit("git:checkoutBranch", { branch, remote: false });
-    }
+    history.replaceState({}, "", location.pathname);
 
     const resolvedPane = pane && VALID_PANES.has(pane) ? pane : null;
     if (resolvedPane) {
       emit("git:openFileModal", { pane: resolvedPane });
     }
 
-    history.replaceState({}, "", location.pathname);
+    if (branch) {
+      await resolveBranch(ws, branch, found.branch || "");
+    }
   }
 
   return { apply };
