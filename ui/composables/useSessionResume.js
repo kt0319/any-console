@@ -22,8 +22,13 @@ export function useSessionResume({ terminalBaseView }) {
 
   function handleResume() {
     for (const tab of terminalStore.openTabs) {
+      // 中断中に予約された再接続タイマーは WS の有無に関わらず必ず破棄する。
+      // 残すと復帰時の再接続と並走して同じタブに WS が二重接続され表示が崩れる。
+      if (tab._reconnectTimer) {
+        clearTimeout(tab._reconnectTimer);
+        tab._reconnectTimer = null;
+      }
       if (tab.ws) {
-        if (tab._reconnectTimer) clearTimeout(tab._reconnectTimer);
         try { tab.ws.onclose = null; tab.ws.close(); } catch {}
         tab.ws = null;
       }

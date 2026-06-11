@@ -37,6 +37,7 @@ from ..tmux import (
     _run_tmux_cmd,
     create_tmux_session,
     get_tmux_created,
+    get_window_width,
     is_grouped_session_name,
     tmux_session_exists,
 )
@@ -95,17 +96,33 @@ async def get_terminal_history(session_id: str, cols: int | None = None, rows: i
     session = get_terminal_session(session_id)
     # クライアントから cols/rows を受けたら tmux を先にリサイズしてから capture する。
     # こうしないと、古いサイズで wrap された pane 内容をクライアントが書き戻して画面が崩れる。
-    # ただし他のクライアントが接続中（bridges あり）の場合はウィンドウを動かすとそちらの
-    # 表示を乱すため、resize はスキップする（その場合でも接続時の tmux 再描画で可視領域は揃う）。
-    if cols and rows and cols > 0 and rows > 0 and not session.bridges:
-        try:
-            subprocess.run(
-                ["tmux", "resize-window", "-t", session.tmux_session_name, "-x", str(cols), "-y", str(rows)],
-                timeout=TMUX_CMD_TIMEOUT_SEC,
-                capture_output=True,
-            )
-        except (subprocess.TimeoutExpired, OSError):
-            pass
+    if cols and rows and cols > 0 and rows > 0:
+        if not session.bridges:
+            try:
+                subprocess.run(
+                    [
+                        "tmux", "resize-window", "-t", session.tmux_session_name,
+                        "-x", str(cols), "-y", str(rows),
+                        # resize-window は window-size を manual に書き換えるため latest へ
+                        # 戻す。戻さないと以後のクライアント PTY リサイズにウィンドウが
+                        # 追従しなくなる（ADR 15）。
+                        ";", "set-option", "-t", session.tmux_session_name,
+                        "window-size", "latest",
+                    ],
+                    timeout=TMUX_CMD_TIMEOUT_SEC,
+                    capture_output=True,
+                )
+            except (subprocess.TimeoutExpired, OSError):
+                pass
+        else:
+            # 他のクライアントが接続中はウィンドウを動かすとそちらの表示を乱すため
+            # resize できない。幅が一致していればそのまま capture できるが、不一致の
+            # まま capture すると誤った幅で wrap された内容をクライアントが書き戻して
+            # 全スクロールバックが崩れるため、復元自体をスキップする（可視領域は
+            # 接続時の tmux 再描画で揃う）。
+            width = get_window_width(session.tmux_session_name)
+            if width is not None and width != cols:
+                return {"content": ""}
     try:
         result = subprocess.run(
             ["tmux", "capture-pane", "-t", session.tmux_session_name, "-p", "-e", "-S", "-", "-E", "-"],

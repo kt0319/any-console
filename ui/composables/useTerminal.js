@@ -38,16 +38,34 @@ export function useTerminal() {
 
   async function connectTerminalWs(tab, opts = {}) {
     if (!tab || tab._wsDisposed) return;
-    // history を書き込む前に fit して cols を確定させる。
-    // 後から fit が走ると ANSI のカーソル位置が古い cols 基準のままになり画面が崩れる。
-    fitTerminal(tab, { force: true });
-    await restoreHistoryIfNeeded(tab);
-    if (tab._wsDisposed) return;
+    // 二重接続ガード。再接続タイマー・セッション復帰・タブ切替が並走すると
+    // 同じ xterm へ 2 本の WS が書き込み、再描画が交錯して表示が崩れる。
+    // history 復元の await 中も `_connecting` で締め出す。
+    if (tab.ws || tab._connecting) return;
+    tab._connecting = true;
+    try {
+      // history を書き込む前に fit して cols を確定させる。
+      // 後から fit が走ると ANSI のカーソル位置が古い cols 基準のままになり画面が崩れる。
+      fitTerminal(tab, { force: true });
+      await restoreHistoryIfNeeded(tab);
+      if (tab._wsDisposed) return;
+      connectWebSocket(tab, opts);
+    } finally {
+      tab._connecting = false;
+    }
+  }
+
+  function connectWebSocket(tab, opts = {}) {
     const frame = document.getElementById(`frame-${tab.id}`);
     const frameRect = frame?.getBoundingClientRect();
     const frameVisible = frameRect && frameRect.width >= 2 && frameRect.height >= 2;
     const dims = frameVisible ? tab.fitAddon?.proposeDimensions?.() : null;
-    const wsUrl = buildWebSocketUrl(tab.sessionId, dims?.cols, dims?.rows);
+    // 非表示タブ（フレーム寸法 0）は xterm の現在サイズで接続する。サイズ未指定だと
+    // サーバがデフォルト 80x24 でアタッチし、xterm のバッファ幅と食い違う再描画が
+    // 書き込まれて崩れる。
+    const cols = Number.isFinite(dims?.cols) ? dims.cols : tab.term?.cols;
+    const rows = Number.isFinite(dims?.rows) ? dims.rows : tab.term?.rows;
+    const wsUrl = buildWebSocketUrl(tab.sessionId, cols, rows);
     const ws = new WebSocket(wsUrl);
     ws.binaryType = "arraybuffer";
     tab.ws = ws;
@@ -55,7 +73,7 @@ export function useTerminal() {
       terminalStore.setTabFlag(tab.id, "reconnecting", true);
     }
     const wsOpenedAt = performance.now();
-    debugLog("[WS] connect", tab.sessionId?.slice(-8), `cols=${dims?.cols}`, `rows=${dims?.rows}`);
+    debugLog("[WS] connect", tab.sessionId?.slice(-8), `cols=${cols}`, `rows=${rows}`);
 
     ws.onopen = () => {
       debugLog("[WS] open", tab.sessionId?.slice(-8), `${Math.round(performance.now() - wsOpenedAt)}ms`);
