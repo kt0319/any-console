@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { fitTerminal } from "../../ui/composables/useTerminalResize.js";
+import { useTerminal } from "../../ui/composables/useTerminal.js";
 import { useConfirm } from "../../ui/composables/useConfirm.js";
 import { usePrompt } from "../../ui/composables/usePrompt.js";
 import { emit, on } from "../../ui/app-bridge.js";
@@ -59,6 +60,76 @@ describe("fitTerminal: DOM サイズ変化なしの fit 抑制", () => {
     };
     fitTerminal(tab, { force: true });
     expect(fit).toHaveBeenCalledOnce();
+  });
+});
+
+// ── Test: connectTerminalWs の二重接続ガード ─────────────────────────────────
+
+describe("connectTerminalWs: 二重接続ガード", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function makeTab() {
+    return {
+      id: 1,
+      sessionId: "sess-guard",
+      term: { cols: 45, rows: 30 },
+      fitAddon: { proposeDimensions: () => ({ cols: 45, rows: 30 }), fit: vi.fn() },
+      ws: null,
+      _needsHistoryRestore: false,
+      _inputBound: true,
+    };
+  }
+
+  it("接続処理の並走呼び出しでは WS を 1 本しか張らない", async () => {
+    const sockets = [];
+    vi.stubGlobal("WebSocket", class {
+      constructor(url) {
+        this.url = url;
+        sockets.push(this);
+      }
+      close() {}
+      send() {}
+    });
+    const { connectTerminalWs } = useTerminal();
+    const tab = makeTab();
+
+    // 再接続タイマー・セッション復帰・タブ切替の並走を模擬する。
+    // 2 本の WS が同じ xterm に書き込むと再描画が交錯して表示が崩れる。
+    await Promise.all([connectTerminalWs(tab), connectTerminalWs(tab)]);
+    expect(sockets.length).toBe(1);
+    expect(tab.ws).toBe(sockets[0]);
+
+    // 接続済みタブへの再呼び出しも新しい WS を張らない
+    await connectTerminalWs(tab);
+    expect(sockets.length).toBe(1);
+  });
+
+  it("非表示フレームでは xterm の現在サイズで接続する", async () => {
+    const sockets = [];
+    vi.stubGlobal("WebSocket", class {
+      constructor(url) {
+        this.url = url;
+        sockets.push(this);
+      }
+      close() {}
+      send() {}
+    });
+    const { connectTerminalWs } = useTerminal();
+    // frame 要素が DOM に無い（非表示）タブ。サイズ未指定で接続すると
+    // サーバがデフォルト 80x24 でアタッチし xterm のバッファ幅と食い違う。
+    const tab = makeTab();
+    tab.fitAddon = { proposeDimensions: () => undefined, fit: vi.fn() };
+
+    await connectTerminalWs(tab);
+    expect(sockets.length).toBe(1);
+    expect(sockets[0].url).toContain("cols=45");
+    expect(sockets[0].url).toContain("rows=30");
   });
 });
 
