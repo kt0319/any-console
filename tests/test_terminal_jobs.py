@@ -91,7 +91,7 @@ class TestSessionLimit:
 
 
 class TestSessionListingExcludesGrouped:
-    """grouped session（クライアント単位の使い捨てビュー）はタブ一覧に出さない。"""
+    """旧アーキテクチャの grouped session はタブ一覧に出さない（後方互換）。"""
 
     def test_grouped_sessions_are_filtered_out(self, client, monkeypatch):
         import subprocess as sp
@@ -100,8 +100,8 @@ class TestSessionListingExcludesGrouped:
             if "list-sessions" in args:
                 stdout = (
                     "ac-real-abc123\n"
-                    "acg-real-abc123-deadbeef\n"   # 現行 grouped
-                    "acg-other-0011\n"             # 現行 grouped
+                    "acg-real-abc123-deadbeef\n"   # 旧 grouped（後方互換で除外）
+                    "acg-other-0011\n"             # 旧 grouped（後方互換で除外）
                     "ac-real-abc123__c0011\n"      # 旧版 leak（後方互換で除外）
                 )
                 return sp.CompletedProcess(["tmux", *args], 0, stdout=stdout, stderr="")
@@ -118,7 +118,7 @@ class TestSessionListingExcludesGrouped:
 
 
 class TestCleanupOrphanGroupedSessions:
-    """起動時に残存 grouped session を掃除する（旧版 leak 含む）。"""
+    """起動時に旧アーキテクチャの grouped session を掃除する（旧版 leak 含む）。"""
 
     def test_kills_grouped_and_legacy_only(self, monkeypatch):
         import subprocess as sp
@@ -350,7 +350,7 @@ class TestApplyBridgeSize:
 
     def _make_bridge(self):
         from api.terminal_session import ClientBridge
-        return ClientBridge(fd=999, pid=1, grouped_name="ac-test__c0")
+        return ClientBridge(fd=999, pid=1)
 
     def test_applies_only_on_change(self, monkeypatch):
         from api import terminal_session as ts

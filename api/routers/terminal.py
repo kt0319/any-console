@@ -56,8 +56,8 @@ async def list_terminal_sessions():
     sessions = []
     for line in result.stdout.strip().splitlines():
         name = line.strip()
-        # grouped session（クライアント単位の使い捨てビュー）はタブにしない。
-        # 旧版が leak させた ac-...__c... 名も後方互換で除外する。
+        # 旧アーキテクチャの grouped session（acg-... / ac-...__c...）はタブにしない。
+        # 現行は作らないが、移行直後に残っている分を後方互換で除外する。
         if is_grouped_session_name(name):
             continue
         if not name.startswith(TMUX_SESSION_PREFIX):
@@ -105,7 +105,7 @@ async def get_terminal_history(session_id: str, cols: int | None = None, rows: i
                         "-x", str(cols), "-y", str(rows),
                         # resize-window は window-size を manual に書き換えるため latest へ
                         # 戻す。戻さないと以後のクライアント PTY リサイズにウィンドウが
-                        # 追従しなくなる（ADR 15）。
+                        # 追従しなくなる（ADR 16）。
                         ";", "set-option", "-t", session.tmux_session_name,
                         "window-size", "latest",
                     ],
@@ -302,9 +302,9 @@ async def terminal_ws(websocket: WebSocket, session_id: str, token: str = "", co
     if not await _ensure_tmux_session(websocket, session, session_id):
         return
 
-    # この接続専用の grouped tmux session を作って独立アタッチする。
-    # クライアントごとに PTY を分けることで、サイズの取り合いや再接続オーバーラップ
-    # による表示崩れを構造的に避ける。
+    # この接続専用の PTY でベースセッションへ独立アタッチする。
+    # クライアントごとに PTY（tmux クライアント）を分けることで、サイズの取り合いや
+    # 再接続オーバーラップによる表示崩れを構造的に避ける。
     try:
         bridge = attach_client_bridge(session, cols, rows)
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:

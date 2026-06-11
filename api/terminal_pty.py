@@ -62,10 +62,10 @@ def close_pty(fd: int | None, pid: int | None) -> None:
 def resize_client_pty(fd: int, cols: int, rows: int) -> None:
     """アタッチ済みクライアント PTY の winsize を更新する。
 
-    各 WebSocket クライアントは専用の grouped tmux session に独立した tmux
-    クライアントとしてアタッチしている。PTY の winsize を変えると tmux は
-    SIGWINCH を受け取り、`window-size latest` ポリシーに従ってウィンドウを
-    リサイズする。**アプリ側から `tmux resize-window` を叩かないこと**
+    各 WebSocket クライアントはベースセッションへ独立した tmux クライアントとして
+    アタッチしている。PTY の winsize を変えると tmux は SIGWINCH を受け取り、
+    `window-size latest` ポリシーに従ってウィンドウをリサイズする。
+    **アプリ側から `tmux resize-window` を叩かないこと**
     （複数クライアントが 1 つの window のサイズを奪い合って崩れるのを避けるため、
     各クライアントの PTY サイズだけを真実とする）。stale fd でのクラッシュを
     避けるため `OSError` は握りつぶす。

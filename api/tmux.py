@@ -62,10 +62,11 @@ def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
             ";", "set-option", "-t", session_name, "mouse", "off",
             ";", "set-option", "-t", session_name, "history-limit", "100000",
             ";", "set-option", "-t", session_name, "set-clipboard", "on",
-            # 各 WS クライアントは grouped session で独立アタッチする。ウィンドウは
-            # 直近にアクティブだったクライアントのサイズに追従させる（端末をまたいだ
-            # 操作の引き継ぎで自然なリサイズになる）。アプリは resize-window を叩かず、
-            # この window-size ポリシー + クライアント PTY の winsize だけに委ねる。
+            # 各 WS クライアントはこのベースセッションへ独立した tmux クライアントとして
+            # アタッチする。ウィンドウは直近にアクティブだったクライアントのサイズに
+            # 追従させる（端末をまたいだ操作の引き継ぎで自然なリサイズになる）。アプリは
+            # resize-window を叩かず、この window-size ポリシー + クライアント PTY の
+            # winsize だけに委ねる。
             ";", "set-option", "-t", session_name, "window-size", "latest",
         ],
         cwd=cwd,
@@ -74,29 +75,6 @@ def create_tmux_session(workspace_path: str | None, session_name: str) -> None:
         check=True,
         capture_output=True,
     )
-
-
-def create_grouped_session(base_name: str, group_name: str) -> None:
-    """base_name とウィンドウを共有する grouped session を作る（この接続専用ビュー）。
-
-    grouped session はベースの window/pane（＝同じシェル）を共有しつつ、独立した
-    tmux クライアントとして自分のサイズを持てる。各 WebSocket クライアントが自分用の
-    grouped session にアタッチすることで、1 つの window のサイズを複数クライアントで
-    奪い合って表示が崩れる問題を構造的に避ける。grouped session 側にも status / mouse /
-    window-size を明示設定する（セッションオプションはグループ間で共有されないため）。
-
-    ベースセッションは状態（シェル・スクロールバック）の保持役として常に残し、
-    grouped session はクライアント切断時に kill する。
-    """
-    result = _run_tmux_cmd(
-        "new-session", "-d", "-s", group_name, "-t", base_name,
-        ";", "set-option", "-t", group_name, "status", "off",
-        ";", "set-option", "-t", group_name, "mouse", "off",
-        ";", "set-option", "-t", group_name, "window-size", "latest",
-    )
-    if result is None or result.returncode != 0:
-        stderr = result.stderr.strip() if result and result.stderr else "tmux new-session failed"
-        raise OSError(f"failed to create grouped session {group_name}: {stderr}")
 
 
 def attach_tmux_session(session_name: str, cols: int = 0, rows: int = 0) -> tuple[int, int]:
@@ -137,22 +115,24 @@ def tmux_session_exists(name: str) -> bool:
 
 
 def is_grouped_session_name(name: str) -> bool:
-    """クライアント単位の grouped session（使い捨てビュー）の名前か判定する。
+    """旧アーキテクチャの grouped session（使い捨てビュー）の名前か判定する。
 
-    現行は `TMUX_GROUPED_PREFIX`（`acg-`）で命名する。旧版は
-    `ac-<id>__c<hex>` という名前で leak していたため、`__c` を含む名前も
-    後方互換で grouped 扱いにして一覧・カウントから除外/掃除する。
+    現行はクライアントをベースセッションへ直接アタッチするため grouped session は
+    作らない。旧版は `TMUX_GROUPED_PREFIX`（`acg-`）や `ac-<id>__c<hex>` という名前で
+    クライアント単位のセッションを作っていたため、それらを後方互換で grouped 扱いにし、
+    一覧から除外し起動時に掃除する。
     """
     from .common import TMUX_GROUPED_PREFIX
     return name.startswith(TMUX_GROUPED_PREFIX) or "__c" in name
 
 
 def cleanup_orphan_grouped_sessions() -> int:
-    """残存している grouped session を全て kill する（起動時の自己修復）。
+    """旧アーキテクチャが残した grouped session を全て kill する（起動時の自己修復）。
 
-    grouped session はクライアント接続中だけ意味を持つ使い捨てビューで、
-    プロセス再起動をまたいで生きていても価値がない。旧版が leak させた分も
-    含めて掃除し、セッション上限の枠を食い潰さないようにする。kill した数を返す。
+    現行はクライアントをベースセッションへ直接アタッチするため grouped session を
+    作らないが、旧版から移行した直後の tmux サーバには使い捨ての grouped session が
+    残りうる。それらを掃除してセッション上限の枠を食い潰さないようにする。
+    kill した数を返す（現行アーキテクチャでは通常 0）。
     """
     result = _run_tmux_cmd("list-sessions", "-F", "#{session_name}")
     if not result or result.returncode != 0:

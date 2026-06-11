@@ -32,7 +32,7 @@ class TestHistoryRestore:
     """history は xterm と同じ幅で capture できる時だけスクロールバックを返す。
 
     幅が食い違ったまま capture すると、誤った幅で wrap された内容をクライアントが
-    書き戻して全スクロールバックが崩れる（ADR 15 の grouped session 構成での回帰）。
+    書き戻して全スクロールバックが崩れる（ADR 16 の直接アタッチ構成での回帰）。
     """
 
     SESSION_ID = "hist-test"
@@ -47,7 +47,7 @@ class TestHistoryRestore:
         )
         session = TerminalSession(workspace=None, tmux_session_name=self.TMUX_NAME)
         if with_bridge:
-            session.bridges[object()] = ClientBridge(fd=None, pid=None, grouped_name=None)
+            session.bridges[object()] = ClientBridge(fd=None, pid=None)
         with sessions_lock:
             TERMINAL_SESSIONS[self.SESSION_ID] = session
 
