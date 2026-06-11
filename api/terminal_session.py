@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import secrets
 import subprocess
 import threading
 
@@ -11,7 +10,6 @@ from .common import (
     TERMINAL_DEFAULT_COLS,
     TERMINAL_DEFAULT_ROWS,
     TMUX_CMD_TIMEOUT_SEC,
-    TMUX_GROUPED_PREFIX,
     TMUX_SESSION_PREFIX,
 )
 from .errors import not_found
@@ -25,7 +23,6 @@ from .terminal_pty import (
 )
 from .tmux import (
     attach_tmux_session,
-    create_grouped_session,
     detect_workspace_from_tmux,
     kill_tmux_by_name,
     load_tmux_metadata,
@@ -51,17 +48,17 @@ _TMUX_ATTR_MAP = {
 class ClientBridge:
     """1 つの WebSocket クライアント専用の tmux アタッチ。
 
-    各クライアントは自分用の grouped tmux session（`grouped_name`）に PTY で
-    アタッチし、自分の (fd, pid) と reader タスクを持つ。サイズは自分の PTY winsize
-    だけで決まり、他クライアントと取り合わない。
+    各クライアントはベースセッションに PTY で独立した tmux クライアントとして
+    アタッチし、自分の (fd, pid) と reader タスクを持つ。サイズは自分の PTY
+    winsize だけで決まり、tmux の `window-size latest` ポリシーで直近にアクティブ
+    だったクライアントにウィンドウが追従する。
     """
 
-    __slots__ = ("fd", "pid", "grouped_name", "reader_task", "applied_size")
+    __slots__ = ("fd", "pid", "reader_task", "applied_size")
 
-    def __init__(self, fd: int | None, pid: int | None, grouped_name: str | None):
+    def __init__(self, fd: int | None, pid: int | None):
         self.fd = fd
         self.pid = pid
-        self.grouped_name = grouped_name
         self.reader_task: asyncio.Task | None = None
         self.applied_size: tuple[int, int] | None = None
 
@@ -70,8 +67,8 @@ class TerminalSession:
     """1 つの tmux ベースセッション（＝1 シェル）と、それに紐づくクライアント群。
 
     ベースセッション（`tmux_session_name`）はシェルとスクロールバックの保持役で、
-    アプリは直接アタッチしない。各 WebSocket クライアントは `bridges` に
-    `ClientBridge` として登録され、grouped session 経由で独立アタッチする。
+    各 WebSocket クライアントは `bridges` に `ClientBridge` として登録され、その
+    ベースセッションへ別個の tmux クライアントとして独立アタッチする。
     """
 
     __slots__ = (
@@ -169,16 +166,17 @@ def get_terminal_session(session_id: str) -> TerminalSession:
 # ─── Per-client PTY bridge lifecycle ─────────────────────────────────────────
 
 def _close_bridge(bridge: ClientBridge) -> None:
-    """1 つのブリッジを完全に閉じる（reader 停止・PTY 解放・grouped session kill）。"""
+    """1 つのブリッジを完全に閉じる（reader 停止・PTY 解放）。
+
+    PTY（＝`tmux attach` プロセス）を閉じると、その tmux クライアントは
+    ベースセッションから自動的に detach する。ベースセッションは残る。
+    """
     if bridge.reader_task is not None and not bridge.reader_task.done():
         bridge.reader_task.cancel()
     bridge.reader_task = None
     close_pty(bridge.fd, bridge.pid)
     bridge.fd = None
     bridge.pid = None
-    if bridge.grouped_name:
-        kill_tmux_by_name(bridge.grouped_name)
-        bridge.grouped_name = None
 
 
 def _detach_pty_bridge(session: TerminalSession) -> None:
@@ -194,25 +192,18 @@ def _kill_tmux_session(session: TerminalSession) -> None:
 
 
 def attach_client_bridge(session: TerminalSession, cols: int, rows: int) -> ClientBridge:
-    """この接続専用の grouped tmux session を作り、PTY でアタッチする。
+    """この接続専用の PTY でベースセッションに独立アタッチする。
 
-    tmux / pty.fork の失敗は `OSError`（または subprocess 例外）として送出する。
-    grouped session 作成後にアタッチが失敗したら grouped session を片付けてから再送出する。
+    各 WS クライアントはベースセッションへ別個の tmux クライアントとして
+    アタッチする。サイズは各クライアントの PTY winsize に閉じ、tmux が
+    `window-size latest` でウィンドウを直近アクティブなクライアントに追従させる
+    （アプリから `tmux resize-window` は叩かない）。tmux / pty.fork の失敗は
+    `OSError`（または subprocess 例外）として送出する。
     """
     effective_cols = cols if cols > 0 else TERMINAL_DEFAULT_COLS
     effective_rows = rows if rows > 0 else TERMINAL_DEFAULT_ROWS
-    # grouped session は一覧（タブ生成元）に出さないため TMUX_SESSION_PREFIX とは
-    # 別プレフィックスで命名する。デバッグ用にベース名（プレフィックス除去）を埋める。
-    base = session.tmux_session_name
-    base_suffix = base[len(TMUX_SESSION_PREFIX):] if base.startswith(TMUX_SESSION_PREFIX) else base
-    grouped_name = f"{TMUX_GROUPED_PREFIX}{base_suffix}-{secrets.token_hex(4)}"
-    create_grouped_session(session.tmux_session_name, grouped_name)
-    try:
-        fd, pid = attach_tmux_session(grouped_name, effective_cols, effective_rows)
-    except OSError:
-        kill_tmux_by_name(grouped_name)
-        raise
-    bridge = ClientBridge(fd=fd, pid=pid, grouped_name=grouped_name)
+    fd, pid = attach_tmux_session(session.tmux_session_name, effective_cols, effective_rows)
+    bridge = ClientBridge(fd=fd, pid=pid)
     bridge.applied_size = (effective_cols, effective_rows)
     return bridge
 
@@ -283,7 +274,7 @@ async def _bridge_reader(websocket: WebSocket, bridge: ClientBridge, session_id:
     finally:
         bridge.reader_task = None
         if pty_eof:
-            # シェル終了でベースセッションが消えると grouped クライアントも EOF になる。
+            # シェル終了でベースセッションが消えるとアタッチ中のクライアントも EOF になる。
             # このクライアントを閉じて、フロントにセッション終了を伝える。
             logger.info("PTY EOF detected, closing client session=%s", session_id)
             try:
