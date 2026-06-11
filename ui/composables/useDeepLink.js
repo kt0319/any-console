@@ -1,4 +1,5 @@
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "./useApi.js";
 import { useConfirm } from "./useConfirm.js";
 import { usePrompt } from "./usePrompt.js";
@@ -10,6 +11,7 @@ const VALID_PANES = new Set([
 
 export function useDeepLink() {
   const workspaceStore = useWorkspaceStore();
+  const terminalStore = useTerminalStore();
   const { apiGet, apiCommand, wsEndpoint } = useApi();
   const { confirm } = useConfirm();
   const { prompt } = usePrompt();
@@ -27,9 +29,10 @@ export function useDeepLink() {
       return;
     }
 
+    const base = currentBranch || "current branch";
     const newName = await prompt({
       title: "Create branch",
-      message: `Branch "${branch}" does not exist. Create from current branch?`,
+      message: `Branch "${branch}" does not exist. Create from "${base}"?`,
       initialValue: branch,
       placeholder: "branch name",
       confirmLabel: "Create",
@@ -42,7 +45,7 @@ export function useDeepLink() {
 
   async function apply() {
     const params = new URLSearchParams(location.search);
-    const ws = params.get("ws");
+    const ws = params.get("workspace") || params.get("ws");
     const pane = params.get("pane");
     const branch = params.get("branch");
 
@@ -53,6 +56,11 @@ export function useDeepLink() {
 
     workspaceStore.selectedWorkspace = ws;
     history.replaceState({}, "", location.pathname);
+
+    const existingTab = terminalStore.openTabs.find((t) => t.workspace === ws && !t.hidden);
+    if (existingTab) {
+      terminalStore.switchTab(existingTab.id);
+    }
 
     const resolvedPane = pane && VALID_PANES.has(pane) ? pane : null;
     if (resolvedPane) {
