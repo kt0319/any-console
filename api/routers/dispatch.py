@@ -5,12 +5,15 @@
 text の tmux 送信までを行う。
 """
 
+import asyncio
+import json
 import logging
 import re
 import secrets
 import subprocess
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from ..auth import verify_token
@@ -44,6 +47,19 @@ from .jobs_common import get_workspace_jobs
 logger = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(verify_token)])
+
+DISPATCH_TIMEOUT_SEC = 30
+SSE_PING_SEC = 20
+_PENDING: dict[str, dict] = {}
+_SSE_QUEUES: list[asyncio.Queue] = []
+
+
+def _broadcast(payload: dict) -> None:
+    for q in list(_SSE_QUEUES):
+        try:
+            q.put_nowait(payload)
+        except asyncio.QueueFull:
+            pass
 
 
 class DispatchRequest(BaseModel):
@@ -137,10 +153,67 @@ def _create_session(workspace: str, ws_path, job: str, job_def):
     return session_id, session
 
 
+class DispatchDecision(BaseModel):
+    approved: bool
+
+
+@router.get("/dispatch/events")
+async def dispatch_events():
+    async def gen():
+        q: asyncio.Queue = asyncio.Queue(maxsize=100)
+        _SSE_QUEUES.append(q)
+        try:
+            yield "data: {\"type\":\"hello\"}\n\n"
+            for pending_id, p in list(_PENDING.items()):
+                if not p["event"].is_set():
+                    yield f"data: {json.dumps({'type': 'pending', 'id': pending_id, 'request': p['request']})}\n\n"
+            while True:
+                try:
+                    item = await asyncio.wait_for(q.get(), timeout=SSE_PING_SEC)
+                    yield f"data: {json.dumps(item)}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": ping\n\n"
+        finally:
+            if q in _SSE_QUEUES:
+                _SSE_QUEUES.remove(q)
+    return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@router.post("/dispatch/{dispatch_id}/decision")
+async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
+    p = _PENDING.get(dispatch_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Pending dispatch not found")
+    p["approved"] = body.approved
+    p["event"].set()
+    _broadcast({"type": "decided", "id": dispatch_id, "approved": body.approved})
+    return {"status": "ok"}
+
+
 @router.post("/dispatch")
-def dispatch(body: DispatchRequest):
+async def dispatch(body: DispatchRequest):
     ws_path = resolve_workspace_path(body.workspace)
     job_def = _resolve_job_def(body.workspace, body.job)
+
+    dispatch_id = secrets.token_urlsafe(8)
+    event = asyncio.Event()
+    _PENDING[dispatch_id] = {
+        "request": body.model_dump(),
+        "event": event,
+        "approved": False,
+    }
+    _broadcast({"type": "pending", "id": dispatch_id, "request": body.model_dump()})
+
+    try:
+        await asyncio.wait_for(event.wait(), timeout=DISPATCH_TIMEOUT_SEC)
+    except asyncio.TimeoutError:
+        _PENDING.pop(dispatch_id, None)
+        _broadcast({"type": "expired", "id": dispatch_id})
+        raise HTTPException(status_code=503, detail="No UI client confirmed within timeout") from None
+
+    record = _PENDING.pop(dispatch_id, {})
+    if not record.get("approved"):
+        raise HTTPException(status_code=403, detail="Dispatch rejected by user")
 
     if body.branch:
         _ensure_branch(ws_path, body.branch, body.create_branch, body.base_branch)
