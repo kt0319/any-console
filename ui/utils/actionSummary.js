@@ -13,6 +13,7 @@ function summarizePrompt(text) {
  * @param {{
  *   title: string,
  *   workspace?: string|null,
+ *   worktree?: string|null,
  *   session?: string|null,
  *   job?: string|null,
  *   pane?: string|null,
@@ -26,6 +27,7 @@ function summarizePrompt(text) {
 export function buildActionSummary(opts) {
   const lines = [];
   if (opts.workspace) lines.push(`Workspace: ${opts.workspace}`);
+  if (opts.worktree) lines.push(`Worktree: ${opts.worktree}`);
   if (opts.session) lines.push(`Session: ${opts.session}`);
   if (opts.job && opts.job !== "terminal") lines.push(`Job: ${opts.job}`);
   if (opts.pane) lines.push(`Pane: ${opts.pane}`);

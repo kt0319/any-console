@@ -15,6 +15,7 @@ function buildMessage(req) {
   return buildActionSummary({
     title: "Run dispatch?",
     workspace: req.workspace,
+    worktree: req.worktree,
     job: req.job,
     branch: req.branch,
     branchStatus: req.branch_status,

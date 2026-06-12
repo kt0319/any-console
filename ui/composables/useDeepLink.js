@@ -92,29 +92,32 @@ export function useDeepLink() {
   async function apply() {
     const params = new URLSearchParams(location.search);
     const ws = params.get("workspace") || params.get("ws");
+    const worktree = params.get("worktree");
     const pane = params.get("pane");
     const branch = params.get("branch");
     const baseBranch = params.get("base_branch") || params.get("base");
     const session = params.get("session");
+    const effectiveWs = ws && worktree ? `${ws} [${worktree}]` : ws;
 
-    if (!ws && !session) return;
+    if (!effectiveWs && !session) return;
 
     let found = null;
-    if (ws) {
-      found = workspaceStore.allWorkspaces.find((w) => w.name === ws);
+    if (effectiveWs) {
+      found = workspaceStore.allWorkspaces.find((w) => w.name === effectiveWs);
       if (!found) return;
     }
     history.replaceState({}, "", location.pathname);
 
     const resolvedPane = pane && VALID_PANES.has(pane) ? pane : null;
     let branchStatus = null;
-    if (branch && ws) {
-      branchStatus = await fetchBranchStatus(ws, branch, found?.branch || "");
+    if (branch && effectiveWs && !worktree) {
+      branchStatus = await fetchBranchStatus(effectiveWs, branch, found?.branch || "");
     }
 
     const message = buildDeepLinkMessage({
       ws,
-      branch,
+      worktree,
+      branch: worktree ? null : branch,
       branchStatus,
       baseBranch,
       pane: resolvedPane,
@@ -122,15 +125,15 @@ export function useDeepLink() {
     });
     if (!await confirm(message, { ok: { label: "Open", icon: "mdi-open-in-new" } })) return;
 
-    if (ws) workspaceStore.selectedWorkspace = ws;
+    if (effectiveWs) workspaceStore.selectedWorkspace = effectiveWs;
 
     if (session) {
       const attached = await attachSessionTab(session);
       if (attached) return;
     }
 
-    if (ws) {
-      const existingTab = terminalStore.openTabs.find((t) => t.workspace === ws && !t.hidden);
+    if (effectiveWs) {
+      const existingTab = terminalStore.openTabs.find((t) => t.workspace === effectiveWs && !t.hidden);
       if (existingTab) {
         terminalStore.switchTab(existingTab.id);
       }
@@ -140,8 +143,8 @@ export function useDeepLink() {
       emit("git:openFileModal", { pane: resolvedPane });
     }
 
-    if (branch && ws) {
-      await resolveBranch(ws, branch, found?.branch || "", branchStatus, baseBranch);
+    if (branch && effectiveWs && !worktree) {
+      await resolveBranch(effectiveWs, branch, found?.branch || "", branchStatus, baseBranch);
     }
   }
 

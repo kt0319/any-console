@@ -64,6 +64,7 @@ def _broadcast(payload: dict) -> None:
 
 class DispatchRequest(BaseModel):
     workspace: str
+    worktree: str | None = None
     job: str = TERMINAL_JOB_KEY
     text: str = ""
     enter: bool = True
@@ -71,6 +72,11 @@ class DispatchRequest(BaseModel):
     branch: str | None = None
     create_branch: bool = False
     base_branch: str | None = None
+    confirm: bool = True
+
+    @property
+    def effective_workspace(self) -> str:
+        return f"{self.workspace} [{self.worktree}]" if self.worktree else self.workspace
 
 
 def _resolve_job_def(workspace: str, job: str):
@@ -227,26 +233,28 @@ def _branch_status(ws_path, branch: str) -> str:
 
 @router.post("/dispatch")
 async def dispatch(body: DispatchRequest):
-    ws_path = resolve_workspace_path(body.workspace)
-    job_def = _resolve_job_def(body.workspace, body.job)
+    effective_ws = body.effective_workspace
+    ws_path = resolve_workspace_path(effective_ws)
+    job_def = _resolve_job_def(effective_ws, body.job)
 
     payload = body.model_dump()
-    if body.branch:
+    payload["effective_workspace"] = effective_ws
+    if body.branch and not body.worktree:
         payload["branch_status"] = _branch_status(ws_path, body.branch)
 
-    dispatch_id = await _await_user_approval(body, payload)
+    dispatch_id = await _await_user_approval(body, payload) if body.confirm else secrets.token_urlsafe(8)
 
-    if body.branch:
+    if body.branch and not body.worktree:
         _ensure_branch(ws_path, body.branch, body.create_branch, body.base_branch)
 
     session_id = None
     session = None
     created = False
 
-    session_id, session = _find_existing_session(body.workspace, body.job, body.match)
+    session_id, session = _find_existing_session(effective_ws, body.job, body.match)
 
     if session is None:
-        session_id, session = _create_session(body.workspace, ws_path, body.job, job_def)
+        session_id, session = _create_session(effective_ws, ws_path, body.job, job_def)
         created = True
         wait_pane_ready(session.tmux_session_name)
         if job_def.command:
@@ -265,16 +273,16 @@ async def dispatch(body: DispatchRequest):
         "type": "result",
         "id": dispatch_id,
         "session_id": session_id,
-        "workspace": body.workspace,
+        "workspace": effective_ws,
         "created": created,
     })
 
     return {
         "status": "ok",
         "session_id": session_id,
-        "workspace": body.workspace,
+        "workspace": effective_ws,
         "job": body.job,
         "created": created,
-        "url": f"/?workspace={body.workspace}&session={session_id}",
+        "url": f"/?workspace={effective_ws}&session={session_id}",
         "ws_url": f"/terminal/ws/{session_id}",
     }
