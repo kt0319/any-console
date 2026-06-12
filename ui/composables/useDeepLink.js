@@ -25,10 +25,11 @@ export function useDeepLink() {
     return data.some((b) => b.name === branch) ? "exists" : "missing";
   }
 
-  function buildDeepLinkMessage({ ws, branch, branchStatus, baseBranch, pane, session }) {
+  function buildDeepLinkMessage({ ws, worktree, branch, branchStatus, baseBranch, pane, session }) {
     return buildActionSummary({
       title: "Open from URL?",
       workspace: ws,
+      worktree,
       session,
       pane,
       branch,
