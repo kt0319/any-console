@@ -192,7 +192,7 @@ async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
     return {"status": "ok"}
 
 
-async def _await_user_approval(body: DispatchRequest, request_payload: dict) -> None:
+async def _await_user_approval(body: DispatchRequest, request_payload: dict) -> str:
     dispatch_id = secrets.token_urlsafe(8)
     event = asyncio.Event()
     _PENDING[dispatch_id] = {
@@ -212,6 +212,7 @@ async def _await_user_approval(body: DispatchRequest, request_payload: dict) -> 
     record = _PENDING.pop(dispatch_id, {})
     if not record.get("approved"):
         raise HTTPException(status_code=403, detail="Dispatch rejected by user")
+    return dispatch_id
 
 
 def _branch_status(ws_path, branch: str) -> str:
@@ -234,7 +235,7 @@ async def dispatch(body: DispatchRequest):
     if body.branch:
         payload["branch_status"] = _branch_status(ws_path, body.branch)
 
-    await _await_user_approval(body, payload)
+    dispatch_id = await _await_user_approval(body, payload)
 
     if body.branch:
         _ensure_branch(ws_path, body.branch, body.create_branch, body.base_branch)
@@ -261,6 +262,14 @@ async def dispatch(body: DispatchRequest):
     elif body.text:
         if not send_keys_to_tmux(session.tmux_session_name, body.text, enter=body.enter):
             logger.warning("dispatch text send-keys failed session=%s", session_id)
+
+    _broadcast({
+        "type": "result",
+        "id": dispatch_id,
+        "session_id": session_id,
+        "workspace": body.workspace,
+        "created": created,
+    })
 
     return {
         "status": "ok",
