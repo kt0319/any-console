@@ -40,8 +40,8 @@ function restack() {
   }
 }
 
-function dismiss(toast) {
-  if (toast.action) {
+function dismiss(toast, { runAction = true } = {}) {
+  if (runAction && toast.action) {
     const action = toast.action;
     if (typeof action === "string") {
       emit(action);
@@ -49,7 +49,7 @@ function dismiss(toast) {
       const { event, ...payload } = action;
       emit(event, payload);
     }
-  } else if (navigator.clipboard?.writeText) {
+  } else if (runAction && !toast.action && navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(toast.message).catch(() => {});
   }
   toasts.value = toasts.value.filter((t) => t.id !== toast.id);
@@ -77,7 +77,7 @@ function onPointerUp(toast, e) {
   toast._ty = undefined;
   e.currentTarget.releasePointerCapture?.(e.pointerId);
   if (Math.abs(dy) > SWIPE_DISMISS_PX) {
-    dismiss(toast);
+    dismiss(toast, { runAction: false });
   } else if (Math.abs(dy) < 5) {
     dismiss(toast);
   }
