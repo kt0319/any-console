@@ -17,29 +17,46 @@ export function useDeepLink() {
   const { confirm } = useConfirm();
   const { prompt } = usePrompt();
 
-  async function resolveBranch(ws, branch, currentBranch) {
-    if (branch === currentBranch) return;
-
+  async function fetchBranchStatus(ws, branch, currentBranch) {
+    if (branch === currentBranch) return "current";
     const { ok, data } = await apiGet(wsEndpoint(ws, "branches"));
-    const branches = ok && Array.isArray(data) ? data.map((b) => b.name) : [];
-    const exists = branches.includes(branch);
+    if (!ok || !Array.isArray(data)) return "unknown";
+    return data.some((b) => b.name === branch) ? "exists" : "missing";
+  }
 
-    if (exists) {
-      if (!await confirm(`Switch to branch "${branch}"?`)) return;
+  function buildDeepLinkMessage({ ws, branch, branchStatus, baseBranch, pane, session }) {
+    const lines = [];
+    if (ws) lines.push(`Workspace: ${ws}`);
+    if (session) lines.push(`Session: ${session}`);
+    if (pane) lines.push(`Pane: ${pane}`);
+    if (branch) {
+      let note = "";
+      if (branchStatus === "current") note = " (already current)";
+      else if (branchStatus === "exists") note = " (checkout)";
+      else if (branchStatus === "missing") note = baseBranch ? ` (new from "${baseBranch}")` : " (new branch)";
+      lines.push(`Branch: ${branch}${note}`);
+    }
+    return `Open from URL?\n\n${lines.join("\n")}`;
+  }
+
+  async function resolveBranch(ws, branch, currentBranch, branchStatus, baseBranch) {
+    if (branchStatus === "current") return;
+    if (branchStatus === "exists") {
       emit("git:checkoutBranch", { branch, remote: false });
       return;
     }
-
-    const base = currentBranch || "current branch";
+    const base = baseBranch || currentBranch || "current branch";
     const newName = await prompt({
       title: "Create branch",
-      message: `Branch "${branch}" does not exist. Create from "${base}"?`,
+      message: `Create branch from "${base}":`,
       initialValue: branch,
       placeholder: "branch name",
       confirmLabel: "Create",
     });
     if (!newName) return;
-    const res = await apiCommand(wsEndpoint(ws, "create-branch"), { branch: newName }, { errorMessage: "Failed to create branch" });
+    const body = { branch: newName };
+    if (baseBranch) body.base_branch = baseBranch;
+    const res = await apiCommand(wsEndpoint(ws, "create-branch"), body, { errorMessage: "Failed to create branch" });
     if (!res.ok) return;
     emit("git:checkoutBranch", { branch: newName, remote: false });
   }
@@ -78,6 +95,7 @@ export function useDeepLink() {
     const ws = params.get("workspace") || params.get("ws");
     const pane = params.get("pane");
     const branch = params.get("branch");
+    const baseBranch = params.get("base_branch") || params.get("base");
     const session = params.get("session");
 
     if (!ws && !session) return;
@@ -86,9 +104,26 @@ export function useDeepLink() {
     if (ws) {
       found = workspaceStore.allWorkspaces.find((w) => w.name === ws);
       if (!found) return;
-      workspaceStore.selectedWorkspace = ws;
     }
     history.replaceState({}, "", location.pathname);
+
+    const resolvedPane = pane && VALID_PANES.has(pane) ? pane : null;
+    let branchStatus = null;
+    if (branch && ws) {
+      branchStatus = await fetchBranchStatus(ws, branch, found?.branch || "");
+    }
+
+    const message = buildDeepLinkMessage({
+      ws,
+      branch,
+      branchStatus,
+      baseBranch,
+      pane: resolvedPane,
+      session,
+    });
+    if (!await confirm(message, { ok: { label: "Open", icon: "mdi-open-in-new" } })) return;
+
+    if (ws) workspaceStore.selectedWorkspace = ws;
 
     if (session) {
       const attached = await attachSessionTab(session);
@@ -102,13 +137,12 @@ export function useDeepLink() {
       }
     }
 
-    const resolvedPane = pane && VALID_PANES.has(pane) ? pane : null;
     if (resolvedPane) {
       emit("git:openFileModal", { pane: resolvedPane });
     }
 
     if (branch && ws) {
-      await resolveBranch(ws, branch, found?.branch || "");
+      await resolveBranch(ws, branch, found?.branch || "", branchStatus, baseBranch);
     }
   }
 
