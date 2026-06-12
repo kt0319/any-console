@@ -67,7 +67,6 @@ class DispatchRequest(BaseModel):
     job: str = TERMINAL_JOB_KEY
     text: str = ""
     enter: bool = True
-    reuse: bool = True
     match: str = "any"  # "any": workspace一致のみ / "job": workspace+job一致
     branch: str | None = None
     create_branch: bool = False
@@ -244,8 +243,7 @@ async def dispatch(body: DispatchRequest):
     session = None
     created = False
 
-    if body.reuse:
-        session_id, session = _find_existing_session(body.workspace, body.job, body.match)
+    session_id, session = _find_existing_session(body.workspace, body.job, body.match)
 
     if session is None:
         session_id, session = _create_session(body.workspace, ws_path, body.job, job_def)
