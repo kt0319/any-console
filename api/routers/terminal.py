@@ -39,8 +39,11 @@ from ..tmux import (
     get_tmux_created,
     get_window_width,
     is_grouped_session_name,
+    send_keys_to_tmux,
     tmux_session_exists,
 )
+
+PENDING_TEXT_DELAY_SEC = 0.5
 
 logger = logging.getLogger(__name__)
 
@@ -276,6 +279,17 @@ async def _ws_message_loop(websocket: WebSocket, session, bridge) -> None:
                 await loop.run_in_executor(PTY_EXECUTOR, os.write, bridge.fd, data)
 
 
+async def _flush_pending_text(session, session_id: str) -> None:
+    """attach 後 tmux の初期 redraw + resize を待ってから pending text を送る。"""
+    await asyncio.sleep(PENDING_TEXT_DELAY_SEC)
+    text = session.pending_text
+    if not text:
+        return
+    session.pending_text = None
+    if not send_keys_to_tmux(session.tmux_session_name, text, enter=session.pending_enter):
+        logger.warning("pending text send-keys failed session=%s", session_id)
+
+
 async def _cleanup_ws_client(websocket: WebSocket, session) -> None:
     detach_client_bridge(session, websocket)
     try:
@@ -314,6 +328,9 @@ async def terminal_ws(websocket: WebSocket, session_id: str, token: str = "", co
 
     register_bridge(session, websocket, bridge)
     start_bridge_reader(session_id, websocket, bridge)
+
+    if session.pending_text:
+        asyncio.create_task(_flush_pending_text(session, session_id))
 
     try:
         await _ws_message_loop(websocket, session, bridge)

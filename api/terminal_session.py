@@ -76,6 +76,7 @@ class TerminalSession:
         "icon", "icon_color", "job_name", "job_label",
         "tmux_session_name",
         "bridges",
+        "pending_text", "pending_enter",
     )
 
     def __init__(self, workspace: str | None,
@@ -89,6 +90,8 @@ class TerminalSession:
         self.job_label = job_label
         self.tmux_session_name = tmux_session_name
         self.bridges: dict[WebSocket, ClientBridge] = {}
+        self.pending_text: str | None = None
+        self.pending_enter: bool = True
 
     def save_metadata(self) -> None:
         pairs = [

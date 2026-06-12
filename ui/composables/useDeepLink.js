@@ -1,3 +1,4 @@
+import { nextTick } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "./useApi.js";
@@ -43,23 +44,62 @@ export function useDeepLink() {
     emit("git:checkoutBranch", { branch: newName, remote: false });
   }
 
+  async function attachSessionTab(sessionId) {
+    const existing = terminalStore.openTabs.find((t) => t.sessionId === sessionId);
+    if (existing) {
+      terminalStore.switchTab(existing.id);
+      return true;
+    }
+    const { ok, data } = await apiGet("/terminal/sessions");
+    if (!ok || !Array.isArray(data)) return false;
+    const meta = data.find((s) => s.session_id === sessionId);
+    if (!meta) return false;
+    const tab = terminalStore.addTerminalTab({
+      wsUrl: meta.ws_url,
+      workspace: meta.workspace,
+      wsIcon: meta.icon,
+      wsIconColor: meta.icon_color,
+      icon: meta.job_name ? (meta.icon || "mdi-play") : "mdi-console",
+      iconColor: meta.icon_color,
+      jobName: meta.job_name,
+      jobLabel: meta.job_label,
+      restored: true,
+      hidden: false,
+    });
+    emit("tab:select", { tab });
+    await nextTick();
+    emit("layout:fitAll");
+    setTimeout(() => emit("layout:fitAll"), 200);
+    return true;
+  }
+
   async function apply() {
     const params = new URLSearchParams(location.search);
     const ws = params.get("workspace") || params.get("ws");
     const pane = params.get("pane");
     const branch = params.get("branch");
+    const session = params.get("session");
 
-    if (!ws) return;
+    if (!ws && !session) return;
 
-    const found = workspaceStore.allWorkspaces.find((w) => w.name === ws);
-    if (!found) return;
-
-    workspaceStore.selectedWorkspace = ws;
+    let found = null;
+    if (ws) {
+      found = workspaceStore.allWorkspaces.find((w) => w.name === ws);
+      if (!found) return;
+      workspaceStore.selectedWorkspace = ws;
+    }
     history.replaceState({}, "", location.pathname);
 
-    const existingTab = terminalStore.openTabs.find((t) => t.workspace === ws && !t.hidden);
-    if (existingTab) {
-      terminalStore.switchTab(existingTab.id);
+    if (session) {
+      const attached = await attachSessionTab(session);
+      if (attached) return;
+    }
+
+    if (ws) {
+      const existingTab = terminalStore.openTabs.find((t) => t.workspace === ws && !t.hidden);
+      if (existingTab) {
+        terminalStore.switchTab(existingTab.id);
+      }
     }
 
     const resolvedPane = pane && VALID_PANES.has(pane) ? pane : null;
@@ -67,8 +107,8 @@ export function useDeepLink() {
       emit("git:openFileModal", { pane: resolvedPane });
     }
 
-    if (branch) {
-      await resolveBranch(ws, branch, found.branch || "");
+    if (branch && ws) {
+      await resolveBranch(ws, branch, found?.branch || "");
     }
   }
 
