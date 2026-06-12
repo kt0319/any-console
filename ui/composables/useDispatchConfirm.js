@@ -3,6 +3,7 @@ import { useApi } from "./useApi.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { emit } from "../app-bridge.js";
+import { buildActionSummary } from "../utils/actionSummary.js";
 
 const RECONNECT_DELAY_MS = 3000;
 const handled = new Set();
@@ -10,27 +11,17 @@ const approvedIds = new Set();
 let started = false;
 let es = null;
 
-function summarizePrompt(text) {
-  if (!text) return "(no input)";
-  const cleaned = text.replace(/\s+/g, " ").trim();
-  return cleaned.length > 80 ? `${cleaned.slice(0, 80)}…` : cleaned;
-}
-
-function branchNote(req) {
-  if (!req.branch) return "";
-  if (req.branch_status === "current") return " (already current)";
-  if (req.branch_status === "exists") return " (checkout)";
-  if (req.branch_status === "missing") return req.create_branch ? " (new branch)" : " (does not exist — will fail)";
-  return req.create_branch ? " (create if missing)" : "";
-}
-
 function buildMessage(req) {
-  const lines = [];
-  lines.push(`Workspace: ${req.workspace}`);
-  if (req.job && req.job !== "terminal") lines.push(`Job: ${req.job}`);
-  if (req.branch) lines.push(`Branch: ${req.branch}${branchNote(req)}`);
-  if (req.text) lines.push(`Input: ${summarizePrompt(req.text)}`);
-  return `Run dispatch?\n\n${lines.join("\n")}`;
+  return buildActionSummary({
+    title: "Run dispatch?",
+    workspace: req.workspace,
+    job: req.job,
+    branch: req.branch,
+    branchStatus: req.branch_status,
+    createBranch: req.create_branch,
+    baseBranch: req.base_branch,
+    text: req.text,
+  });
 }
 
 export function useDispatchConfirm() {

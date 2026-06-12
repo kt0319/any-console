@@ -5,6 +5,7 @@ import { useApi } from "./useApi.js";
 import { useConfirm } from "./useConfirm.js";
 import { usePrompt } from "./usePrompt.js";
 import { emit } from "../app-bridge.js";
+import { buildActionSummary } from "../utils/actionSummary.js";
 
 const VALID_PANES = new Set([
   "history", "files", "changes", "branch", "jobs", "stash", "issues", "actions", "prs",
@@ -25,18 +26,16 @@ export function useDeepLink() {
   }
 
   function buildDeepLinkMessage({ ws, branch, branchStatus, baseBranch, pane, session }) {
-    const lines = [];
-    if (ws) lines.push(`Workspace: ${ws}`);
-    if (session) lines.push(`Session: ${session}`);
-    if (pane) lines.push(`Pane: ${pane}`);
-    if (branch) {
-      let note = "";
-      if (branchStatus === "current") note = " (already current)";
-      else if (branchStatus === "exists") note = " (checkout)";
-      else if (branchStatus === "missing") note = baseBranch ? ` (new from "${baseBranch}")` : " (new branch)";
-      lines.push(`Branch: ${branch}${note}`);
-    }
-    return `Open from URL?\n\n${lines.join("\n")}`;
+    return buildActionSummary({
+      title: "Open from URL?",
+      workspace: ws,
+      session,
+      pane,
+      branch,
+      branchStatus,
+      createBranch: true,
+      baseBranch,
+    });
   }
 
   async function resolveBranch(ws, branch, currentBranch, branchStatus, baseBranch) {
