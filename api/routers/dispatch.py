@@ -176,7 +176,8 @@ async def dispatch_events():
         finally:
             if q in _SSE_QUEUES:
                 _SSE_QUEUES.remove(q)
-    return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    headers = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    return StreamingResponse(gen(), media_type="text/event-stream", headers=headers)
 
 
 @router.post("/dispatch/{dispatch_id}/decision")
@@ -190,11 +191,7 @@ async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
     return {"status": "ok"}
 
 
-@router.post("/dispatch")
-async def dispatch(body: DispatchRequest):
-    ws_path = resolve_workspace_path(body.workspace)
-    job_def = _resolve_job_def(body.workspace, body.job)
-
+async def _await_user_approval(body: DispatchRequest) -> None:
     dispatch_id = secrets.token_urlsafe(8)
     event = asyncio.Event()
     _PENDING[dispatch_id] = {
@@ -214,6 +211,14 @@ async def dispatch(body: DispatchRequest):
     record = _PENDING.pop(dispatch_id, {})
     if not record.get("approved"):
         raise HTTPException(status_code=403, detail="Dispatch rejected by user")
+
+
+@router.post("/dispatch")
+async def dispatch(body: DispatchRequest):
+    ws_path = resolve_workspace_path(body.workspace)
+    job_def = _resolve_job_def(body.workspace, body.job)
+
+    await _await_user_approval(body)
 
     if body.branch:
         _ensure_branch(ws_path, body.branch, body.create_branch, body.base_branch)
