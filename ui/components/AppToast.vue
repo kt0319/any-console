@@ -13,11 +13,10 @@
         }"
         :role="toast.type === 'error' ? 'alert' : 'status'"
         :aria-live="toast.type === 'error' ? 'assertive' : 'polite'"
-        @click="dismiss(toast)"
-        @touchstart.passive="onTouchStart(toast, $event)"
-        @touchmove.passive="onTouchMove(toast, $event)"
-        @touchend="onTouchEnd(toast, $event)"
-        @touchcancel="onTouchCancel(toast)"
+        @pointerdown="onPointerDown(toast, $event)"
+        @pointermove="onPointerMove(toast, $event)"
+        @pointerup="onPointerUp(toast, $event)"
+        @pointercancel="onPointerCancel(toast)"
       >
         <div v-for="(line, i) in toast.lines" :key="i" class="toast-line">{{ line }}</div>
       </div>
@@ -59,29 +58,32 @@ function dismiss(toast) {
 
 const SWIPE_DISMISS_PX = 40;
 
-function onTouchStart(toast, e) {
-  toast._ty = e.touches[0].clientY;
-  toast._tx = e.touches[0].clientX;
+function onPointerDown(toast, e) {
+  toast._ty = e.clientY;
+  toast._tx = e.clientX;
+  e.currentTarget.setPointerCapture?.(e.pointerId);
 }
 
-function onTouchMove(toast, e) {
+function onPointerMove(toast, e) {
   if (toast._ty === undefined) return;
-  const dy = e.touches[0].clientY - toast._ty;
-  const dx = e.touches[0].clientX - toast._tx;
+  const dy = e.clientY - toast._ty;
+  const dx = e.clientX - toast._tx;
   if (Math.abs(dy) > Math.abs(dx)) toast.swipeDy = dy;
 }
 
-function onTouchEnd(toast, e) {
+function onPointerUp(toast, e) {
   const dy = toast.swipeDy || 0;
   toast.swipeDy = 0;
   toast._ty = undefined;
+  e.currentTarget.releasePointerCapture?.(e.pointerId);
   if (Math.abs(dy) > SWIPE_DISMISS_PX) {
-    e.preventDefault();
+    dismiss(toast);
+  } else if (Math.abs(dy) < 5) {
     dismiss(toast);
   }
 }
 
-function onTouchCancel(toast) {
+function onPointerCancel(toast) {
   toast.swipeDy = 0;
   toast._ty = undefined;
 }
@@ -125,6 +127,9 @@ defineExpose({ show });
   width: auto;
   cursor: pointer;
   pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
   transition: top 0.3s, opacity 0.3s;
 }
 .toast-line {
