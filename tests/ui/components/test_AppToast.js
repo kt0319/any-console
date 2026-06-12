@@ -59,11 +59,13 @@ describe("AppToast", () => {
     expect(lines[1].textContent).toBe("2行目");
   });
 
-  it("クリックでトーストが消える", async () => {
+  it("タップでトーストが消える", async () => {
     wrapper.vm.show("消えるか", "info");
     await nextTick();
-    expect(bodyFind(".toast")).not.toBeNull();
-    bodyFind(".toast")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const toast = bodyFind(".toast");
+    expect(toast).not.toBeNull();
+    toast?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: 100, clientY: 50, pointerId: 1 }));
+    toast?.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, clientX: 100, clientY: 50, pointerId: 1 }));
     await nextTick();
     expect(bodyFind(".toast")).toBeNull();
   });
