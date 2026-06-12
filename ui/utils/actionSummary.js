@@ -9,23 +9,6 @@ function summarizePrompt(text) {
 }
 
 /**
- * @param {string|null|undefined} status
- * @param {boolean|null|undefined} createIfMissing
- * @param {string|null|undefined} baseBranch
- */
-function branchNote(status, createIfMissing, baseBranch) {
-  if (status === "current") return " (already current)";
-  if (status === "exists") return " (checkout)";
-  if (status === "missing") {
-    if (baseBranch) return ` (new from "${baseBranch}")`;
-    if (createIfMissing) return " (new branch)";
-    return " (does not exist — will fail)";
-  }
-  if (createIfMissing) return " (create if missing)";
-  return "";
-}
-
-/**
  * 確認ダイアログ用の操作サマリを組み立てる。
  * @param {{
  *   title: string,
@@ -47,7 +30,15 @@ export function buildActionSummary(opts) {
   if (opts.job && opts.job !== "terminal") lines.push(`Job: ${opts.job}`);
   if (opts.pane) lines.push(`Pane: ${opts.pane}`);
   if (opts.branch) {
-    lines.push(`Branch: ${opts.branch}${branchNote(opts.branchStatus, opts.createBranch, opts.baseBranch)}`);
+    let note = "";
+    if (opts.branchStatus === "current") note = " (already current)";
+    else if (opts.branchStatus === "exists") note = " (checkout)";
+    else if (opts.branchStatus === "missing") {
+      if (opts.baseBranch) note = ` (new from "${opts.baseBranch}")`;
+      else if (opts.createBranch) note = " (new branch)";
+      else note = " (does not exist — will fail)";
+    } else if (opts.createBranch) note = " (create if missing)";
+    lines.push(`Branch: ${opts.branch}${note}`);
   }
   if (opts.text) lines.push(`Input: ${summarizePrompt(opts.text)}`);
   return `${opts.title}\n\n${lines.join("\n")}`;
