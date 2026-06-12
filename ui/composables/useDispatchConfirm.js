@@ -12,13 +12,19 @@ function summarizePrompt(text) {
   return cleaned.length > 80 ? `${cleaned.slice(0, 80)}…` : cleaned;
 }
 
+function branchNote(req) {
+  if (!req.branch) return "";
+  if (req.branch_status === "current") return " (already current)";
+  if (req.branch_status === "exists") return " (checkout)";
+  if (req.branch_status === "missing") return req.create_branch ? " (new branch)" : " (does not exist — will fail)";
+  return req.create_branch ? " (create if missing)" : "";
+}
+
 function buildMessage(req) {
   const lines = [];
   lines.push(`Workspace: ${req.workspace}`);
   if (req.job && req.job !== "terminal") lines.push(`Job: ${req.job}`);
-  if (req.branch) {
-    lines.push(`Branch: ${req.branch}${req.create_branch ? " (create if missing)" : ""}`);
-  }
+  if (req.branch) lines.push(`Branch: ${req.branch}${branchNote(req)}`);
   if (req.text) lines.push(`Input: ${summarizePrompt(req.text)}`);
   return `Run dispatch?\n\n${lines.join("\n")}`;
 }

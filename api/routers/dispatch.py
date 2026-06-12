@@ -191,15 +191,15 @@ async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
     return {"status": "ok"}
 
 
-async def _await_user_approval(body: DispatchRequest) -> None:
+async def _await_user_approval(body: DispatchRequest, request_payload: dict) -> None:
     dispatch_id = secrets.token_urlsafe(8)
     event = asyncio.Event()
     _PENDING[dispatch_id] = {
-        "request": body.model_dump(),
+        "request": request_payload,
         "event": event,
         "approved": False,
     }
-    _broadcast({"type": "pending", "id": dispatch_id, "request": body.model_dump()})
+    _broadcast({"type": "pending", "id": dispatch_id, "request": request_payload})
 
     try:
         await asyncio.wait_for(event.wait(), timeout=DISPATCH_TIMEOUT_SEC)
@@ -213,12 +213,27 @@ async def _await_user_approval(body: DispatchRequest) -> None:
         raise HTTPException(status_code=403, detail="Dispatch rejected by user")
 
 
+def _branch_status(ws_path, branch: str) -> str:
+    try:
+        current = git_branch(ws_path)
+        if branch == current:
+            return "current"
+        branches = git_branches(ws_path)
+        return "exists" if branch in branches else "missing"
+    except (OSError, ValueError):
+        return "unknown"
+
+
 @router.post("/dispatch")
 async def dispatch(body: DispatchRequest):
     ws_path = resolve_workspace_path(body.workspace)
     job_def = _resolve_job_def(body.workspace, body.job)
 
-    await _await_user_approval(body)
+    payload = body.model_dump()
+    if body.branch:
+        payload["branch_status"] = _branch_status(ws_path, body.branch)
+
+    await _await_user_approval(body, payload)
 
     if body.branch:
         _ensure_branch(ws_path, body.branch, body.create_branch, body.base_branch)
