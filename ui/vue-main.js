@@ -5,6 +5,7 @@ import "@xterm/xterm/css/xterm.css";
 import "highlight.js/styles/tokyo-night-dark.css";
 import "./styles/a11y.css";
 import "./styles/drag-utils.css";
+import "./styles/base.css";
 import App from "./components/App.vue";
 import { useAuthStore } from "./stores/auth.js";
 import { installErrorReporter } from "./utils/error-reporter.js";
