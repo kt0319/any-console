@@ -68,6 +68,7 @@ class DispatchRequest(BaseModel):
     text: str = ""
     enter: bool = True
     reuse: bool = True
+    match: str = "any"  # "any": workspace一致のみ / "job": workspace+job一致
     branch: str | None = None
     create_branch: bool = False
     base_branch: str | None = None
@@ -103,13 +104,13 @@ def _ensure_branch(ws_path, branch: str, create: bool, base: str | None) -> None
         raise bad_request(result.stderr.strip() or "Branch operation failed")
 
 
-def _find_existing_session(workspace: str, job: str):
+def _find_existing_session(workspace: str, job: str, match: str = "any"):
     target_job = None if job == TERMINAL_JOB_KEY else job
     with sessions_lock:
         for sid, sess in TERMINAL_SESSIONS.items():
             if sess.workspace != workspace:
                 continue
-            if sess.job_name != target_job:
+            if match == "job" and sess.job_name != target_job:
                 continue
             if tmux_session_exists(sess.tmux_session_name):
                 return sid, sess
@@ -243,7 +244,7 @@ async def dispatch(body: DispatchRequest):
     created = False
 
     if body.reuse:
-        session_id, session = _find_existing_session(body.workspace, body.job)
+        session_id, session = _find_existing_session(body.workspace, body.job, body.match)
 
     if session is None:
         session_id, session = _create_session(body.workspace, ws_path, body.job, job_def)
