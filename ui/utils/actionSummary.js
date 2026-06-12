@@ -9,9 +9,9 @@ function summarizePrompt(text) {
 }
 
 /**
- * @param {string} status
- * @param {boolean} createIfMissing
- * @param {string|null} baseBranch
+ * @param {string|null|undefined} status
+ * @param {boolean|null|undefined} createIfMissing
+ * @param {string|null|undefined} baseBranch
  */
 function branchNote(status, createIfMissing, baseBranch) {
   if (status === "current") return " (already current)";
