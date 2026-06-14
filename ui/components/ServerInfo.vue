@@ -55,18 +55,29 @@ function parseBrowser(ua) {
 }
 
 const row = (label, value) => ({ label, values: [value] });
+
+function formatAuth(auth) {
+  if (!auth) return "-";
+  if (auth.auth_method === "tailscale") return `Tailscale (${auth.tailscale_user})`;
+  if (auth.auth_method === "token") return "Token";
+  if (auth.auth_method === "disabled") return "Disabled";
+  return auth.auth_method || "-";
+}
 const mapProcess = (p) => ({ label: p.name, values: [`${p.cpu.toFixed(1)}%`, `${p.mem.toFixed(1)}%`] });
 
 async function load() {
   isLoading.value = true;
   const get = (ep) => apiGet(ep).then((r) => r.ok ? r.data : null).catch(() => null);
-  const [srv, prc, tmx] = await Promise.all([get(EP_SYSTEM_INFO), get(EP_SYSTEM_PROCESSES), get(EP_SYSTEM_TMUX_INFO)]);
+  const [srv, prc, tmx, auth] = await Promise.all([
+    get(EP_SYSTEM_INFO), get(EP_SYSTEM_PROCESSES), get(EP_SYSTEM_TMUX_INFO), get("/auth/check"),
+  ]);
 
   sections.value = [
     {
       label: "Client",
       rows: [
         row("URL", location.origin),
+        row("Auth", formatAuth(auth)),
         row("Browser", parseBrowser(navigator.userAgent)),
         row("Platform", navigator.userAgentData?.platform || navigator.platform || "-"),
         row("Screen", `${screen.width} x ${screen.height}`),

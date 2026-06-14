@@ -194,12 +194,27 @@ app.include_router(settings.router)
 
 
 
-@app.get("/auth/check", dependencies=[Depends(verify_token)])
-def auth_check():
+@app.get("/auth/check")
+def auth_check(auth_subject: str = Depends(verify_token)):
+    # auth_subject は verify_token の戻り値:
+    #   - "tailscale:<login>" → Tailscale 経由
+    #   - 32文字程度のトークン文字列 → Bearer / cookie
+    #   - "" → 認証無効化されている
+    if auth_subject.startswith("tailscale:"):
+        auth_method = "tailscale"
+        tailscale_user = auth_subject[len("tailscale:"):]
+    elif auth_subject:
+        auth_method = "token"
+        tailscale_user = None
+    else:
+        auth_method = "disabled"
+        tailscale_user = None
     return {
         "status": "ok",
         "hostname": socket.gethostname(),
         "version": system.get_app_version(),
+        "auth_method": auth_method,
+        "tailscale_user": tailscale_user,
     }
 
 
