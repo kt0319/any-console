@@ -66,6 +66,7 @@ async function load() {
     {
       label: "Client",
       rows: [
+        row("URL", location.origin),
         row("Browser", parseBrowser(navigator.userAgent)),
         row("Platform", navigator.userAgentData?.platform || navigator.platform || "-"),
         row("Screen", `${screen.width} x ${screen.height}`),
