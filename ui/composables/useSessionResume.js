@@ -35,6 +35,7 @@ export function useSessionResume({ terminalBaseView }) {
       tab._pendingRedraw = true;
       tab._reconnectAttempts = 0;
       terminalStore.setTabFlag(tab.id, "reconnecting", true);
+      terminalStore.setTabFlag(tab.id, "reconnectReason", "resume");
     }
 
     syncSessionsFromServer().then(() => {

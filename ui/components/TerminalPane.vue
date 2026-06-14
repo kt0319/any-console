@@ -9,7 +9,7 @@
     @touchend="onTouchEnd"
     @touchcancel="onTouchEnd"
   >
-    <StatusOverlay :visible="isReconnecting" label="Reconnecting" variant="warning" />
+    <StatusOverlay :visible="isReconnecting" :label="reconnectLabel" variant="warning" />
     <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
       <div
         class="terminal-info-pill"
@@ -45,6 +45,7 @@ import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js
 import { useTerminalPaste } from "../composables/useTerminalPaste.js";
 import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.js";
 import StatusOverlay from "./StatusOverlay.vue";
+import { buildReconnectLabel } from "../utils/terminal-ws.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -97,6 +98,9 @@ const isActive = computed(() => {
 const { isOffline } = useConnectivityMonitor();
 const isReconnecting = computed(() =>
   !isOffline.value && !!terminalStore.tabFlags[props.tab.id]?.reconnecting,
+);
+const reconnectLabel = computed(() =>
+  buildReconnectLabel(terminalStore.tabFlags[props.tab.id]?.reconnectReason),
 );
 
 const tabRef = toRef(props, "tab");
