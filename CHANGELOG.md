@@ -5,6 +5,85 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0](https://github.com/kt0319/any-console/compare/v0.3.0...v0.4.0) (2026-06-14)
+
+
+### Features
+
+* dispatch/ディープリンクをworktreeに対応し、dispatchに確認スキップオプション追加 ([320f9d0](https://github.com/kt0319/any-console/commit/320f9d04918f434cb23b0c1562e3da769558556d))
+* dispatchのreuse判定をworkspace一致のみに緩和（matchパラメータで切替可能） ([211b94e](https://github.com/kt0319/any-console/commit/211b94e0111113e49c0e146d455749bc040ace3c))
+* dispatch実行前にUI側で確認ダイアログを表示するSSEフローを追加 ([536f8c6](https://github.com/kt0319/any-console/commit/536f8c669ba44ff3666924f4024122ac7f7fa1e7))
+* dispatch承認後にそのタブへ自動フォーカスする ([a09a289](https://github.com/kt0319/any-console/commit/a09a289b9806fee38a94deafa42115c53429e6b7))
+* dispatch確認ダイアログにブランチ状態を表示し、テスト追加でカバレッジ修正 ([16ca57d](https://github.com/kt0319/any-console/commit/16ca57d1688f2b04428862837b20c780f11f56cd))
+* Select & Copyでターミナルの全スクロールバックを開けるよう改善 ([1fcbbde](https://github.com/kt0319/any-console/commit/1fcbbde55ce1ba996a654964750ed012c50da791))
+* System InfoのClientセクションに現在URLを表示 ([67e1c12](https://github.com/kt0319/any-console/commit/67e1c126a3d603e3dcc5a341d656da2caa95e33e))
+* URLディープリンクで確認モーダルとbase_branch指定に対応 ([ca9dc55](https://github.com/kt0319/any-console/commit/ca9dc556fcee17f7d14c1be5583a83b759943e14))
+* URLディープリンクにbranchパラメータを追加 ([44c9799](https://github.com/kt0319/any-console/commit/44c979963e2e4e5530f522082e6d0d023dfe6787))
+* カスタムキーボードのEnterキーでShift+Enterを送信できるよう対応 ([555a05e](https://github.com/kt0319/any-console/commit/555a05e1e3ce17b37e41c19f3176180ac02b18de))
+* ディープリンクでのブランチ新規作成時に名前を編集可能に ([688fcd5](https://github.com/kt0319/any-console/commit/688fcd56873cf7eb391e14fd5dd4d5c474859f11))
+* ディープリンクのworkspace別名対応・既存タブのアクティブ化・作成元ブランチ表示 ([52ff6eb](https://github.com/kt0319/any-console/commit/52ff6ebbfec21e2f2482ef0bfd2a2cf9407dbbc8))
+* ディープリンクのブランチ指定で切替確認と未作成ブランチの作成に対応 ([68b6e00](https://github.com/kt0319/any-console/commit/68b6e006ceb35900188dd6a33369e8db04931b11))
+* トーストのスワイプ閉じはactionを発火しないよう変更 ([15961eb](https://github.com/kt0319/any-console/commit/15961eb903389c53250d2b502f077ac0c667335e))
+* トーストをフリックして閉じられるようにする ([16ca5d5](https://github.com/kt0319/any-console/commit/16ca5d53a22f5bb0457a2bc1a7ccec014a1b22d6))
+* 外部APIから新規セッション起動とプロンプト送信を行うdispatchエンドポイントを追加 ([f7b52f3](https://github.com/kt0319/any-console/commit/f7b52f3c131992e91e728f917f82506792276f9d))
+
+
+### Bug Fixes
+
+* actionSummaryのbranchNote型注釈をnull/undefined許容に修正 ([9506126](https://github.com/kt0319/any-console/commit/950612656cb845378796c7c4115db2efaa4abdac))
+* browserタイプのjob実行時にダイアログを閉じないよう修正 ([a75cc11](https://github.com/kt0319/any-console/commit/a75cc1178e98898562b1827e05347a1f01bd191c))
+* buildDeepLinkMessageの引数型にworktreeを追加 ([c52e2e4](https://github.com/kt0319/any-console/commit/c52e2e495d289d254c88311b5718a295fc6caa5b))
+* dispatch routerのlint指摘を修正（行長・複雑度） ([06c3ecb](https://github.com/kt0319/any-console/commit/06c3ecb11f70c3f581b6973a2e9693f12948bf1a))
+* grouped tmux sessionを別プレフィックスにしてタブ一覧から除外する ([a2b5573](https://github.com/kt0319/any-console/commit/a2b5573ea6cb9b067ff40e0382330043bab052eb))
+* RSSフィードとグループのダイアログにアクセシブルネームを付与 ([aa1ca37](https://github.com/kt0319/any-console/commit/aa1ca37a66a4dde76edbd96b5095c25ca846889c))
+* ターミナルのリサイズを ioctl に一本化して表示崩れを防ぐ ([41209a5](https://github.com/kt0319/any-console/commit/41209a575c274892534a66309423ee7ce14d79bd))
+* ターミナルのリサイズをサイズ変化時のみ適用して崩れと未リサイズを解消 ([c65f3f7](https://github.com/kt0319/any-console/commit/c65f3f7acd5f21e3e7f0a300ab1f4798c192313e))
+* ターミナルをWSクライアントごとにgrouped tmux sessionで独立アタッチする ([dcb613a](https://github.com/kt0319/any-console/commit/dcb613a16bfe75a2c123e83ed2f38f3c3a085ce3))
+* タブclose後にnextTickを挟んでからterm.dispose()を実行しタイムラグを解消 ([911795f](https://github.com/kt0319/any-console/commit/911795ffd8e0dc908be625a98bcde3f0e73cca1c))
+* トーストのスワイプcloseをマウスでもできるようPointer Events化 ([ccfd630](https://github.com/kt0319/any-console/commit/ccfd630455494e8eefdb108fb32c355651f1c846))
+* ドラッグ並び替えとファイルアイコンとセッション整列のnull安全性を修正 ([8c62406](https://github.com/kt0319/any-console/commit/8c62406107981e050d64d8682a065d2e62614047))
+* ホイールスクロールを常にxtermスクロールバックに統一 ([d21ccf2](https://github.com/kt0319/any-console/commit/d21ccf2bdaa94be6d1f5f1d4cb19c30df06cc471))
+* モバイルでのターミナル表示崩れの残存要因を修正 ([49f816c](https://github.com/kt0319/any-console/commit/49f816c6e83cb894edb424dc04262e5e1b4992fb))
+* モバイルでのターミナル表示崩れの残存要因を修正 ([f6d9d14](https://github.com/kt0319/any-console/commit/f6d9d14a3bc3386c57ac0b5faecc36d76d4c5265))
+* 再起動後に非アクティブターミナルが最小サイズで表示される問題を修正 ([6dbb75a](https://github.com/kt0319/any-console/commit/6dbb75ad61e0271a6d27178f2b033aab4bfe1bed))
+* 分割で生成した composable の型エラーを解消 ([919e66c](https://github.com/kt0319/any-console/commit/919e66cbdd13a20b453f724a244e78dc65bc4837))
+* 残存grouped tmux sessionを起動時に掃除しセッション上限の枯渇を防ぐ ([d84fca6](https://github.com/kt0319/any-console/commit/d84fca6acdca9dbfc94d4277e011ed9dd473c832))
+* 非アクティブ復元タブ切り替え時にWSが二重接続されて表示が崩れる問題を修正 ([f19700d](https://github.com/kt0319/any-console/commit/f19700d72f3f83a8eff3279728fdb2fdd4defde9))
+
+
+### Refactor
+
+* App.vue のグローバルCSSを ui/styles/base.css に抽出 ([03c3fe1](https://github.com/kt0319/any-console/commit/03c3fe1d48836d183da0f57db6c3ac51b10d1b4a))
+* App.vue の認証ゲート・接続監視・タイトル同期を composable に分離 ([76da098](https://github.com/kt0319/any-console/commit/76da09880351a38efc677f336d590881a23f4866))
+* branchNote補助関数をbuildActionSummaryにインライン化 ([e310371](https://github.com/kt0319/any-console/commit/e31037148109c76e08a59862b14480e079975cd4))
+* dispatch/deep-linkの確認メッセージ組み立てを共通化 ([419b5bb](https://github.com/kt0319/any-console/commit/419b5bb62a7d753ea42554f12c0d0ede275cceed))
+* dispatchのreuseパラメータを削除（常に既存セッションを再利用） ([8cf10ae](https://github.com/kt0319/any-console/commit/8cf10ae8604415df1dfb2113fbebd13258fb3752))
+* FileBrowser のメニュー操作とパンくず処理を composable に分離 ([a84166b](https://github.com/kt0319/any-console/commit/a84166b95009b5ee208dca6198fb26570168c669))
+* GitChangeBranch のブランチ取得とGit操作を composable に分離 ([12a19f0](https://github.com/kt0319/any-console/commit/12a19f0f4d4376d0bbf6dbbbc6b24d64a5af16bb))
+* GitHistory のコミット操作とファイル操作を composable に分離 ([7bedb2d](https://github.com/kt0319/any-console/commit/7bedb2d1f2a5843acc77d6fdcc8ae28685afdd0b))
+* KeyboardBar の状態管理とグローバルCSSを分離 ([cf3ea31](https://github.com/kt0319/any-console/commit/cf3ea31b23806a7e78c7e073fa5f0bdd2d43c76d))
+* KeyboardQwertyKey のキー処理を composable と utils に分離 ([e29b654](https://github.com/kt0319/any-console/commit/e29b654189ad3bf0dc86301e3994a37b0a13b2fa))
+* RSSルーターのエラーをHTTPException(detail形式)に統一し例外捕捉を具体化 ([7321cf4](https://github.com/kt0319/any-console/commit/7321cf4f47599bae90c1b68dc65b4569aaaabffc))
+* strictNullChecksを有効化し型注釈で全エラーを解消する ([46b7bc7](https://github.com/kt0319/any-console/commit/46b7bc798506ddded1d833608bc287290688bdab))
+* TerminalBase の分割ペイン管理とドロップゾーンを分離 ([a65ac68](https://github.com/kt0319/any-console/commit/a65ac68fba5edfa6ee458dd961f37552b7823e93))
+* WorkspaceDetail の RSS タブ管理を composable に分離 ([78f8481](https://github.com/kt0319/any-console/commit/78f848142aa7b51ed2d05459368fae70d4102b96))
+* WorkspaceOpen のドラッグ並べ替えとグループダイアログを分離 ([829726f](https://github.com/kt0319/any-console/commit/829726fe74b08082c4432ab58cdf6e2de109efc4))
+* worktreeの作成先をリポジトリ内の.worktrees/配下に変更 ([f4f9443](https://github.com/kt0319/any-console/commit/f4f9443dbf2382fd74e1380256c1e5f8dc93a494))
+* ターミナルをベースセッションへ直接アタッチして grouped session を廃止 ([1a05e98](https://github.com/kt0319/any-console/commit/1a05e983044fa52a0d34ccdfd50c0c62da815cb9))
+
+
+### Documentation
+
+* ターミナルのリサイズを ioctl 一本化した設計判断を DECISIONS に記録 ([5be0af0](https://github.com/kt0319/any-console/commit/5be0af00f66daaf66dc54dcd15a623c890831b41))
+
+
+### Tests
+
+* actionSummary用のテスト追加でフロントエンドbranch coverage修復 ([1c1e300](https://github.com/kt0319/any-console/commit/1c1e3003f66e1552077a1d6004f874c4a0331dae))
+* AppToastのクリックテストをPointer Eventsベースに更新 ([806cf62](https://github.com/kt0319/any-console/commit/806cf622ac1902ec66085f1104778b7e775759bc))
+* test_api.py をドメイン別の5ファイルに分割 ([d9e83d9](https://github.com/kt0319/any-console/commit/d9e83d9ffb94913b7c712e3ee3f504c8cb9ccc2b))
+* test_api.py をドメイン別の5ファイルに分割 ([bb43233](https://github.com/kt0319/any-console/commit/bb432332dbbb50248fb139be38da3dfbbeb75b10))
+
 ## [0.3.0](https://github.com/kt0319/any-console/compare/v0.2.0...v0.3.0) (2026-06-03)
 
 
