@@ -5,7 +5,10 @@
       <label class="terminal-settings-item terminal-settings-toggle">
         <div class="terminal-settings-toggle-copy">
           <span class="settings-item-label">Require token authentication</span>
-          <span class="settings-item-desc">Protect access with a Bearer token</span>
+          <span class="settings-item-desc">
+            Protect access with a Bearer token.
+            When accessed through an authenticated Tailscale connection, token authentication is skipped automatically.
+          </span>
         </div>
         <input type="checkbox" v-model="enabled" @change="onToggle" />
       </label>

@@ -1,9 +1,10 @@
 import hmac
+import ipaddress
 import json
 import logging
 import secrets
 from pathlib import Path
-from typing import Optional
+from typing import Mapping, Optional
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -14,6 +15,18 @@ logger = logging.getLogger(__name__)
 _AUTH_FILE = Path(__file__).resolve().parent.parent / "data" / "auth.json"
 
 COOKIE_NAME_TOKEN = "any_console_session"  # noqa: S105 (cookie name, not a secret)
+
+# Tailscale Serve / tailscaled が upstream に付与するヘッダ。
+# 受信した HTTP ヘッダにこれが含まれていれば「Tailscale 経由で認証済みのユーザ」だが、
+# 信頼するのは trusted な接続元（loopback または Tailscale CGNAT 範囲）からのみ。
+# 任意のクライアントが付けられるヘッダなので、信頼ソースの判定なしに使うと危険。
+TAILSCALE_HEADER_USER = "tailscale-user-login"
+TAILSCALE_HEADER_NAME = "tailscale-user-name"
+# 100.64.0.0/10 は CGNAT 帯。Tailscale は tailnet 内の各端末にこの範囲を割り当てる。
+# Tailscale Serve / Funnel 経由のリクエストは tailscaled が同ホスト loopback に
+# プロキシするケースが多いため、loopback も信頼ソースに含める。
+_TAILSCALE_CGNAT = ipaddress.ip_network("100.64.0.0/10")
+_LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 
 
 def _load_token_from_file() -> str:
@@ -27,8 +40,45 @@ def _load_token_from_file() -> str:
 ANY_CONSOLE_TOKEN: str = _load_token_from_file()
 
 
-def verify_ws_token(token: str) -> bool:
+def _is_trusted_proxy_source(client_host: str) -> bool:
+    """Tailscale ヘッダを信頼してよい接続元か判定する。
+
+    Tailscale Serve / tailscaled は同ホスト loopback に upstream（このプロセス）を
+    プロキシする使い方が一般的なので、loopback を信頼する。tailnet 上の他端末から
+    直接アクセスする構成（any-console を 100.x.x.x にバインド）にも対応するため
+    CGNAT 帯（100.64.0.0/10）も信頼する。
+
+    192.168.x や public IP は Tailscale 経由ではない経路なので、これらの接続元から
+    送られた Tailscale-User-* ヘッダは偽装の可能性があり信頼してはならない。
+    """
+    if not client_host:
+        return False
+    if client_host in _LOOPBACK_HOSTS:
+        return True
+    try:
+        return ipaddress.ip_address(client_host) in _TAILSCALE_CGNAT
+    except ValueError:
+        return False
+
+
+def _tailscale_user(client_host: str, headers: Mapping[str, str]) -> str | None:
+    """信頼できる接続元からのリクエストに Tailscale-User-Login があれば返す。
+
+    SECURITY: ヘッダ単独では信頼しない。`_is_trusted_proxy_source` で接続元を
+    絞り、Tailscale Serve / tailscaled 経由が確実な場合のみ採用する。
+    fastapi / starlette のヘッダ名は case-insensitive だが、テストの簡便さの
+    ため小文字キーで参照する。
+    """
+    if not _is_trusted_proxy_source(client_host):
+        return None
+    user = headers.get(TAILSCALE_HEADER_USER, "").strip()
+    return user or None
+
+
+def verify_ws_token(token: str, client_host: str = "", headers: Mapping[str, str] | None = None) -> bool:
     if not ANY_CONSOLE_TOKEN:
+        return True
+    if headers is not None and _tailscale_user(client_host, headers):
         return True
     return hmac.compare_digest(token, ANY_CONSOLE_TOKEN)
 
@@ -59,6 +109,12 @@ def verify_token(
 ) -> str:
     if not ANY_CONSOLE_TOKEN:
         return ""
+    # Tailscale 経由のリクエストなら token を要求しない。
+    # 接続元が trusted（loopback / tailnet）であることを `_tailscale_user` 内で確認済み。
+    client_host = (request.client.host or "") if request.client else ""
+    ts_user = _tailscale_user(client_host, request.headers)
+    if ts_user:
+        return f"tailscale:{ts_user}"
     if credentials is not None and hmac.compare_digest(credentials.credentials, ANY_CONSOLE_TOKEN):
         return str(credentials.credentials)
     cookie_token = str(request.cookies.get(COOKIE_NAME_TOKEN, "") or "")

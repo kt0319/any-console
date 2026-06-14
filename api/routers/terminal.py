@@ -301,7 +301,8 @@ async def _cleanup_ws_client(websocket: WebSocket, session) -> None:
 @ws_router.websocket("/terminal/ws/{session_id}")
 async def terminal_ws(websocket: WebSocket, session_id: str, token: str = "", cols: int = 0, rows: int = 0):
     auth_token = token or websocket.cookies.get(COOKIE_NAME_TOKEN, "")
-    if not verify_ws_token(auth_token):
+    ws_client_host = (websocket.client.host or "") if websocket.client else ""
+    if not verify_ws_token(auth_token, ws_client_host, websocket.headers):
         await websocket.close(code=1008, reason="Unauthorized")
         return
 
