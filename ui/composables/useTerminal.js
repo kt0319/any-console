@@ -71,6 +71,7 @@ export function useTerminal() {
     tab.ws = ws;
     if ((tab._reconnectAttempts || 0) >= RECONNECTING_OVERLAY_MIN_ATTEMPTS) {
       terminalStore.setTabFlag(tab.id, "reconnecting", true);
+      terminalStore.setTabFlag(tab.id, "reconnectReason", `retry ${tab._reconnectAttempts}`);
     }
     const wsOpenedAt = performance.now();
     debugLog("[WS] connect", tab.sessionId?.slice(-8), `cols=${cols}`, `rows=${rows}`);
@@ -85,6 +86,7 @@ export function useTerminal() {
         try { tab.term?.refresh(0, tab.term.rows - 1); } catch {}
       }
       terminalStore.setTabFlag(tab.id, "reconnecting", false);
+      terminalStore.setTabFlag(tab.id, "reconnectReason", null);
       if (tab.term && terminalStore.activeTabId === tab.id && opts.focus !== false) {
         tab.term.focus();
       }

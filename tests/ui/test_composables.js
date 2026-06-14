@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 import { buildFileList } from "../../ui/composables/useGitDiff.js";
 import { useConfirm } from "../../ui/composables/useConfirm.js";
 import { usePrompt } from "../../ui/composables/usePrompt.js";
-import { buildWebSocketUrl } from "../../ui/utils/terminal-ws.js";
+import { buildWebSocketUrl, buildReconnectLabel } from "../../ui/utils/terminal-ws.js";
 import { extractApiError } from "../../ui/utils/constants.js";
 
 // ── Tests ──
@@ -69,6 +69,19 @@ describe("buildWebSocketUrl", () => {
   it("does not include token in url", () => {
     const url = buildWebSocketUrl("wss:", "host", "s", 80, 24);
     expect(!url.includes("token=")).toBeTruthy();
+  });
+});
+
+describe("buildReconnectLabel", () => {
+  it("returns bare label without reason", () => {
+    expect(buildReconnectLabel(null)).toBe("Reconnecting");
+    expect(buildReconnectLabel(undefined)).toBe("Reconnecting");
+    expect(buildReconnectLabel("")).toBe("Reconnecting");
+  });
+
+  it("appends the reason in parentheses", () => {
+    expect(buildReconnectLabel("resume")).toBe("Reconnecting (resume)");
+    expect(buildReconnectLabel("retry 2")).toBe("Reconnecting (retry 2)");
   });
 });
 
