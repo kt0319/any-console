@@ -190,6 +190,17 @@ onMounted(() => {
     ensureKeyboardTargetTab();
   }));
 
+  bridgeCleanups.push(on("connectivity:back", () => {
+    // サーバ復活直後、bach-off で待ち状態にある WS タブを即時再接続させる。
+    for (const tab of terminalStore.openTabs) {
+      if (tab._wsDisposed || tab.ws) continue;
+      if (tab._reconnectTimer) clearTimeout(tab._reconnectTimer);
+      tab._reconnectTimer = null;
+      tab._reconnectAttempts = 0;
+      refreshTab(tab);
+    }
+  }));
+
   bridgeCleanups.push(on("preview:open", ({ url }) => {
     if (!url) return;
     // PWA standalone から OS の既定ブラウザ（iOS なら Safari）で開かせるため、

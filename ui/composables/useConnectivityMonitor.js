@@ -5,6 +5,7 @@ import {
   CONNECTIVITY_PING_TIMEOUT_MS as PING_TIMEOUT_MS,
   CONNECTIVITY_OFFLINE_THRESHOLD as OFFLINE_THRESHOLD,
 } from "../utils/constants.js";
+import { emit } from "../app-bridge.js";
 
 const isOffline = ref(false);
 let pingTimerId = null;
@@ -27,8 +28,12 @@ export function useConnectivityMonitor() {
         signal: ctrl.signal,
       });
       clearTimeout(tid);
+      const wasFailing = consecutiveFailures > 0;
       consecutiveFailures = 0;
       isOffline.value = false;
+      // サーバが復活した瞬間にバックオフ待ちの WS を即時再接続させる。
+      // restart 直後の retry 大量化（5秒×N回 待ち）を縮める。
+      if (wasFailing) emit("connectivity:back");
     } catch {
       consecutiveFailures++;
       if (consecutiveFailures >= OFFLINE_THRESHOLD) {

@@ -27,6 +27,7 @@ export const BUS_EVENTS = Object.freeze([
   "job:run",
   "jobs:refresh",
   "keyboard:activate",
+  "connectivity:back",
   "preview:open",
   "preview:showConfig",
   "keyboard:deactivate",
