@@ -53,6 +53,7 @@ import { useSessionResume } from "../composables/useSessionResume.js";
 import { useGlobalShortcuts } from "../composables/useGlobalShortcuts.js";
 import { useDeepLink } from "../composables/useDeepLink.js";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
+import { usePreviewWatch } from "../composables/usePreviewWatch.js";
 import { on, emit } from "../app-bridge.js";
 
 const layoutStore = useLayoutStore();
@@ -72,6 +73,7 @@ const terminalBaseView = ref(null);
 const { booting, bootMessage, initializeApp } = useAppBootstrap();
 const { apply: applyDeepLink } = useDeepLink();
 const { start: startDispatchConfirm } = useDispatchConfirm();
+const { start: startPreviewWatch } = usePreviewWatch();
 const {
   activateTerminalTab,
   ensureKeyboardTargetTab,
@@ -188,6 +190,20 @@ onMounted(() => {
     ensureKeyboardTargetTab();
   }));
 
+  bridgeCleanups.push(on("preview:open", ({ url }) => {
+    if (!url) return;
+    // PWA standalone から OS の既定ブラウザ（iOS なら Safari）で開かせるため、
+    // window.open ではなく a target=_blank の擬似クリックを使う。
+    // window.open だと in-app browser に閉じ込められるケースがある。
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }));
+
   bridgeCleanups.push(on("oskeyboard:show", () => { keyboardOpen.value = true; }));
   bridgeCleanups.push(on("oskeyboard:hide", () => { keyboardOpen.value = false; }));
 
@@ -210,6 +226,7 @@ onMounted(async () => {
     applyDeepLink();
     startSyncPolling();
     startDispatchConfirm();
+    startPreviewWatch();
   } finally {
     booting.value = false;
     bootMessage.value = "Loading...";

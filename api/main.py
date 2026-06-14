@@ -29,6 +29,7 @@ from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
 from .routers import devices as devices_router
 from .routers import dispatch, git, github, groups, job_runner, jobs, rss, settings, system, terminal, workspaces
+from .routers import preview as preview_router
 
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 (intentional: local network bind for personal console)
 DEFAULT_PORT = 8888
@@ -163,7 +164,11 @@ async def lifespan(app: FastAPI):
         cleanup_orphan_grouped_sessions()
     except OSError as e:
         logger.warning("grouped session cleanup skipped: %s", e)
+    from .preview import set_self_ports, start_scanner, stop_scanner
+    set_self_ports([port])
+    start_scanner()
     yield
+    stop_scanner()
     from .terminal_session import TERMINAL_SESSIONS, _detach_pty_bridge, sessions_lock
     with sessions_lock:
         sessions = list(TERMINAL_SESSIONS.values())
@@ -189,6 +194,8 @@ app.include_router(jobs.router)
 app.include_router(job_runner.router)
 app.include_router(dispatch.router)
 app.include_router(devices_router.router)
+app.include_router(preview_router.router)
+app.include_router(preview_router.ws_router)
 app.include_router(terminal.router)
 app.include_router(terminal.ws_router)
 app.include_router(system.router)
