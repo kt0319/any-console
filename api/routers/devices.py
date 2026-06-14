@@ -50,15 +50,15 @@ def _is_https(request: Request) -> bool:
 
 
 def _set_device_cookies(response: Response, request: Request, device_id: str, raw_secret: str) -> None:
-    common = {
-        "max_age": COOKIE_MAX_AGE_SEC,
-        "httponly": True,
-        "samesite": "strict",
-        "secure": _is_https(request),
-        "path": "/",
-    }
-    response.set_cookie(key=COOKIE_DEVICE_ID, value=device_id, **common)
-    response.set_cookie(key=COOKIE_DEVICE_SECRET, value=raw_secret, **common)
+    secure = _is_https(request)
+    response.set_cookie(
+        key=COOKIE_DEVICE_ID, value=device_id,
+        max_age=COOKIE_MAX_AGE_SEC, httponly=True, samesite="strict", secure=secure, path="/",
+    )
+    response.set_cookie(
+        key=COOKIE_DEVICE_SECRET, value=raw_secret,
+        max_age=COOKIE_MAX_AGE_SEC, httponly=True, samesite="strict", secure=secure, path="/",
+    )
 
 
 def _clear_device_cookies(response: Response) -> None:

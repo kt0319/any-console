@@ -147,7 +147,8 @@ def verify_device(device_id: str, raw_secret: str) -> dict | None:
         if hmac.compare_digest(dev["secret_hash"], expected_hash):
             dev["last_seen_at"] = int(time.time())
             _save(data)
-            return dev
+            result: dict = dev
+            return result
     return None
 
 
@@ -177,5 +178,6 @@ def get_device(device_id: str) -> dict | None:
         return None
     for dev in _load()["devices"]:
         if dev["id"] == device_id:
-            return {k: v for k, v in dev.items() if k != "secret_hash"}
+            result: dict = {k: v for k, v in dev.items() if k != "secret_hash"}
+            return result
     return None
