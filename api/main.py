@@ -27,6 +27,7 @@ from .common import BACKGROUND_EXECUTOR, MAX_UPLOAD_SIZE, UPLOAD_DIR
 from .errors import bad_request, too_large, unauthorized
 from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
+from .routers import devices as devices_router
 from .routers import dispatch, git, github, groups, job_runner, jobs, rss, settings, system, terminal, workspaces
 
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 (intentional: local network bind for personal console)
@@ -187,6 +188,7 @@ app.include_router(rss.router)
 app.include_router(jobs.router)
 app.include_router(job_runner.router)
 app.include_router(dispatch.router)
+app.include_router(devices_router.router)
 app.include_router(terminal.router)
 app.include_router(terminal.ws_router)
 app.include_router(system.router)
@@ -194,27 +196,74 @@ app.include_router(settings.router)
 
 
 
+def _autoregister_device(request: Request, response: Response, source: str) -> dict | None:
+    """device cookie が無ければデバイスを新規登録して cookie を発行する。
+
+    cookie に既に有効な device があればスキップ。stale な場合は上書き登録。
+    """
+    from .devices import (
+        autoname_from_user_agent,
+        get_device,
+        register_device,
+        verify_device,
+    )
+    from .routers.devices import _set_device_cookies
+    existing = verify_device(
+        request.cookies.get("any_console_device", ""),
+        request.cookies.get("any_console_secret", ""),
+    )
+    if existing:
+        return existing
+    ua = request.headers.get("user-agent", "")
+    name = autoname_from_user_agent(ua)
+    device_id, raw_secret = register_device(name, ua, source=source)
+    _set_device_cookies(response, request, device_id, raw_secret)
+    response.delete_cookie(COOKIE_NAME_TOKEN, path="/")
+    return get_device(device_id)
+
+
 @app.get("/auth/check")
-def auth_check(auth_subject: str = Depends(verify_token)):
+def auth_check(request: Request, response: Response, auth_subject: str = Depends(verify_token)):
     # auth_subject は verify_token の戻り値:
     #   - "tailscale:<login>" → Tailscale 経由
-    #   - 32文字程度のトークン文字列 → Bearer / cookie
+    #   - "device:<id>"       → 登録済みデバイス cookie
+    #   - 32文字程度のトークン文字列 → Bearer / 旧 raw token cookie
     #   - "" → 認証無効化されている
+    #
+    # 認証経路に関わらず、まだ device 登録されていなければ自動登録する。
+    # 以降の認証は device cookie 経由に一本化される。
+    tailscale_user = None
+    device = None
     if auth_subject.startswith("tailscale:"):
         auth_method = "tailscale"
         tailscale_user = auth_subject[len("tailscale:"):]
+        device = _autoregister_device(request, response, source="tailscale")
+    elif auth_subject.startswith("device:"):
+        from .devices import get_device
+        auth_method = "device"
+        device = get_device(auth_subject[len("device:"):])
     elif auth_subject:
-        auth_method = "token"
-        tailscale_user = None
+        # Bearer token（cookie なしの API 呼び出し）は対象外。cookie auth のときだけ登録。
+        legacy_cookie = request.cookies.get(COOKIE_NAME_TOKEN, "")
+        is_legacy_cookie_auth = (
+            legacy_cookie
+            and auth_module.ANY_CONSOLE_TOKEN
+            and hmac.compare_digest(legacy_cookie, auth_module.ANY_CONSOLE_TOKEN)
+        )
+        if is_legacy_cookie_auth:
+            auth_method = "device"
+            device = _autoregister_device(request, response, source="legacy")
+        else:
+            auth_method = "token"
     else:
         auth_method = "disabled"
-        tailscale_user = None
     return {
         "status": "ok",
         "hostname": socket.gethostname(),
         "version": system.get_app_version(),
         "auth_method": auth_method,
         "tailscale_user": tailscale_user,
+        "device": device,
     }
 
 

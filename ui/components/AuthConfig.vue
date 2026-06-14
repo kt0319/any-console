@@ -46,6 +46,28 @@
         {{ savingAuth ? "Saving..." : "Save" }}
       </button>
       <div v-if="authSaveMessage" class="form-message" :class="authSaveMessageType">{{ authSaveMessage }}</div>
+
+      <div class="settings-section-label">Trusted Devices</div>
+      <div class="settings-item-desc" style="margin-bottom: 8px;">
+        Registered devices can sign in without entering a token. Revoke any device that should no longer have access.
+      </div>
+      <div v-if="devicesLoading" class="text-muted-center">Loading...</div>
+      <template v-else>
+        <div v-if="!devices.length" class="settings-item-desc">No devices registered yet.</div>
+        <div v-for="d in devices" :key="d.id" class="device-row">
+          <div class="device-meta">
+            <span class="device-name">
+              {{ d.name }}
+              <span v-if="d.current" class="device-tag">This device</span>
+              <span v-if="d.source && d.source !== 'token'" class="device-tag source">{{ d.source }}</span>
+            </span>
+            <span class="device-sub">Last seen: {{ formatRelativeTime(d.last_seen_at * 1000) }}</span>
+          </div>
+          <button type="button" class="security-icon-btn" :title="d.current ? 'Logout' : 'Revoke'" @click="revoke(d)">
+            <span class="mdi mdi-close"></span>
+          </button>
+        </div>
+      </template>
     </template>
   </div>
 </template>
@@ -55,14 +77,17 @@ import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { EP_SETTINGS_AUTH } from "../utils/endpoints.js";
+import { formatRelativeTime } from "../utils/format.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Auth";
 
-const { apiGet, apiPut } = useApi();
+const { apiGet, apiPut, apiDelete } = useApi();
 const { confirm } = useConfirm();
 
 const loading = ref(true);
+const devices = ref([]);
+const devicesLoading = ref(true);
 
 const enabled = ref(false);
 const tokenConfigured = ref(false);
@@ -114,6 +139,28 @@ async function saveAuth() {
   }
 }
 
+async function loadDevices() {
+  devicesLoading.value = true;
+  const res = await apiGet("/devices");
+  devices.value = res.ok && Array.isArray(res.data) ? res.data : [];
+  devicesLoading.value = false;
+}
+
+async function revoke(d) {
+  const isSelf = !!d.current;
+  const msg = isSelf
+    ? `Logout this device "${d.name}"? You will need to sign in again.`
+    : `Revoke device "${d.name}"? It will need to register again with a token.`;
+  if (!await confirm(msg)) return;
+  const { ok } = await apiDelete(`/devices/${encodeURIComponent(d.id)}`, { errorMessage: "Failed to revoke" });
+  if (!ok) return;
+  if (isSelf) {
+    location.reload();
+    return;
+  }
+  await loadDevices();
+}
+
 onMounted(async () => {
   const authRes = await apiGet(EP_SETTINGS_AUTH);
   if (authRes.ok) {
@@ -121,6 +168,7 @@ onMounted(async () => {
     tokenConfigured.value = !!authRes.data.auth_required;
   }
   loading.value = false;
+  await loadDevices();
 });
 </script>
 
@@ -235,4 +283,41 @@ onMounted(async () => {
 
 .security-token-status.configured { color: var(--success); }
 .security-token-status.missing { color: var(--warning); }
+
+.device-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.device-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.device-name {
+  font-size: 14px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.device-tag {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+.device-tag.source {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+.device-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
 </style>

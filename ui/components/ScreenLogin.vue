@@ -35,7 +35,7 @@ async function handleLogin() {
   submitting.value = true;
   errorMessage.value = "";
 
-  const loginResult = await auth.login(val);
+  const loginResult = await auth.registerDevice(val);
   if (!loginResult.ok) {
     errorMessage.value = loginResult.error;
     submitting.value = false;

@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 _AUTH_FILE = Path(__file__).resolve().parent.parent / "data" / "auth.json"
 
 COOKIE_NAME_TOKEN = "any_console_session"  # noqa: S105 (cookie name, not a secret)
+COOKIE_DEVICE_ID = "any_console_device"  # noqa: S105
+COOKIE_DEVICE_SECRET = "any_console_secret"  # noqa: S105
 
 # Tailscale Serve / tailscaled が upstream に付与するヘッダ。
 # 受信した HTTP ヘッダにこれが含まれていれば「Tailscale 経由で認証済みのユーザ」だが、
@@ -75,11 +77,20 @@ def _tailscale_user(client_host: str, headers: Mapping[str, str]) -> str | None:
     return user or None
 
 
-def verify_ws_token(token: str, client_host: str = "", headers: Mapping[str, str] | None = None) -> bool:
+def verify_ws_token(
+    token: str,
+    client_host: str = "",
+    headers: Mapping[str, str] | None = None,
+    cookies: Mapping[str, str] | None = None,
+) -> bool:
     if not ANY_CONSOLE_TOKEN:
         return True
     if headers is not None and _tailscale_user(client_host, headers):
         return True
+    if cookies is not None:
+        from .devices import verify_device
+        if verify_device(cookies.get(COOKIE_DEVICE_ID, ""), cookies.get(COOKIE_DEVICE_SECRET, "")):
+            return True
     return hmac.compare_digest(token, ANY_CONSOLE_TOKEN)
 
 
@@ -109,14 +120,24 @@ def verify_token(
 ) -> str:
     if not ANY_CONSOLE_TOKEN:
         return ""
-    # Tailscale 経由のリクエストなら token を要求しない。
-    # 接続元が trusted（loopback / tailnet）であることを `_tailscale_user` 内で確認済み。
+    # 1. Tailscale 経由のリクエストなら token を要求しない。
+    #    接続元が trusted（loopback / tailnet）であることを `_tailscale_user` 内で確認済み。
     client_host = (request.client.host or "") if request.client else ""
     ts_user = _tailscale_user(client_host, request.headers)
     if ts_user:
         return f"tailscale:{ts_user}"
+    # 2. 登録済みデバイス cookie。device 単位で revoke 可能。
+    from .devices import verify_device
+    dev = verify_device(
+        request.cookies.get(COOKIE_DEVICE_ID, ""),
+        request.cookies.get(COOKIE_DEVICE_SECRET, ""),
+    )
+    if dev:
+        return f"device:{dev['id']}"
+    # 3. Bearer token（外部API / 新デバイス登録時）
     if credentials is not None and hmac.compare_digest(credentials.credentials, ANY_CONSOLE_TOKEN):
         return str(credentials.credentials)
+    # 4. 旧 raw token cookie（マイグレーション期間のフォールバック）
     cookie_token = str(request.cookies.get(COOKIE_NAME_TOKEN, "") or "")
     if cookie_token and hmac.compare_digest(cookie_token, ANY_CONSOLE_TOKEN):
         return cookie_token

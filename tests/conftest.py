@@ -35,9 +35,13 @@ def isolate_fs(tmp_path, monkeypatch):
 
     import api.common as common_mod
     import api.config as config_mod
+    import api.devices as devices_mod
 
     monkeypatch.setattr(common_mod, "CONFIG_FILE", config_file)
     monkeypatch.setattr(config_mod, "CONFIG_FILE", config_file)
+    # devices.json と server_key も tmp に隔離する（実ファイルへの書き込みを防ぐ）。
+    monkeypatch.setattr(devices_mod, "_DEVICES_FILE", data / "devices.json")
+    monkeypatch.setattr(devices_mod, "_SERVER_KEY_FILE", data / "server_key")
 
     return {"work": work, "data": data, "config_file": config_file}
 

@@ -59,6 +59,7 @@ const row = (label, value) => ({ label, values: [value] });
 function formatAuth(auth) {
   if (!auth) return "-";
   if (auth.auth_method === "tailscale") return `Tailscale (${auth.tailscale_user})`;
+  if (auth.auth_method === "device") return `Device (${auth.device?.name || "unknown"})`;
   if (auth.auth_method === "token") return "Token";
   if (auth.auth_method === "disabled") return "Disabled";
   return auth.auth_method || "-";

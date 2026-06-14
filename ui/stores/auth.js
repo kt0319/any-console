@@ -43,6 +43,20 @@ export const useAuthStore = defineStore("auth", () => {
     return { ok: true };
   }
 
+  async function registerDevice(rawToken, name = "") {
+    const res = await fetch("/devices/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: rawToken, name }),
+      credentials: "same-origin",
+    });
+    if (res.status === 401) return { ok: false, error: "Invalid token" };
+    if (!res.ok) return { ok: false, error: `Registration failed: ${res.status}` };
+    const data = await res.json().catch(() => ({}));
+    token.value = AUTHED_SENTINEL;
+    return { ok: true, deviceId: data.device_id, name: data.name };
+  }
+
   async function logout() {
     try {
       await fetch(EP_AUTH_LOGOUT, { method: "POST", credentials: "same-origin" });
@@ -136,6 +150,7 @@ export const useAuthStore = defineStore("auth", () => {
     isHandlingUnauthorized,
     apiFetch,
     login,
+    registerDevice,
     logout,
     migrateLegacyToken,
     checkToken,
