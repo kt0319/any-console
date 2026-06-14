@@ -1,22 +1,16 @@
 const CACHE_NAME = 'any-console-__BUILD_HASH__';
-const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './manifest.json',
-  './favicon.png',
-  './apple-touch-icon.png',
-  './icon-192.png',
-  './icon-512.png',
-  './vendor/js/highlight.min.js',
-  './vendor/js/xterm.js',
-  './vendor/js/addon-fit.js',
-  './vendor/js/addon-web-links.js',
-  './vendor/css/materialdesignicons.min.css',
-  './vendor/css/xterm.css',
-  './vendor/css/tokyo-night-dark.min.css',
-  './vendor/fonts/materialdesignicons-webfont.woff2',
-  './vendor/fonts/materialdesignicons-webfont.woff',
-];
+// precache 対象はビルド時に vite.config.js が dist/ を走査して注入する
+// （__PRECACHE_ASSETS__ を JSON 配列へ置換）。手で一覧を保守しない。
+// dev（未ビルドの素の sw.js を直接読む経路）では置換が走らないため空配列にフォールバックする。
+const ASSETS_TO_CACHE = (() => {
+  const injected = '__PRECACHE_ASSETS__';
+  try {
+    const list = JSON.parse(injected);
+    return Array.isArray(list) ? list : [];
+  } catch (_e) {
+    return [];
+  }
+})();
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
