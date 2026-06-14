@@ -121,8 +121,8 @@
 - **Status**: Accepted
 - **Date**: 2025-05
 - **Context**: モバイルファースト (ADR #5) の帰結として、ホーム画面への追加・standalone 表示・Tailscale 経由でのコールドスタート短縮が必要だった。
-- **Decision**: `manifest.json` + `ui/sw.js` を採用。キャッシュ名は `any-console-{git-short-hash}` とし、ビルド時に vite.config.js が置換することでデプロイごとに自動で cache busting される。API リクエストは fetch ハンドラの bypass リストで除外し、network-first の対象外とする。
-- **Consequences**: オフラインで動くのは静的アセットのみ（terminal / git / jobs はバックエンド必須）。API ルートを追加・変更した際は `ui/sw.js` の bypass リストも同時に更新しなければならない保守負担がある。
+- **Decision**: `manifest.json` + `ui/sw.js` を採用。キャッシュ名は `any-console-{git-short-hash}` とし、ビルド時に vite.config.js が置換することでデプロイごとに自動で cache busting される。キャッシュ対象は API を denylist で除外するのではなく、**静的アセットを allowlist する**方式とする（`isCacheableAsset`：ナビゲーション・`STATIC_ASSET_PATHS`・`STATIC_ASSET_PREFIXES` のみ network-first でキャッシュし、該当しないリクエスト＝API ルート・動的リソースは素通し）。precache 一覧（`ASSETS_TO_CACHE`）はビルド時に vite.config.js の `closeBundle` が `dist/` を再帰走査して `__PRECACHE_ASSETS__` プレースホルダへ注入し、手で保守しない（sw.js 自身は除外、ナビゲーション用に `./` を補う）。
+- **Consequences**: オフラインで動くのは静的アセットのみ（terminal / git / jobs はバックエンド必須）。allowlist 方式により、API ルートを追加・変更しても更新漏れの failure mode は「キャッシュされず素通し（＝正しい挙動）」に倒れ、API レスポンスが stale になる事故は起きない（旧 denylist 方式が抱えていた手動同期の保守負担は解消済み）。precache 一覧もビルド時に dist から自動生成するため、新しい静的アセットを増やしても sw.js を手で更新する必要はない。ハッシュ付きの本体バンドル（`/assets/*.js`,`.css`）も precache 対象に入る。
 - **Alternatives considered**: PWA なし — モバイル UX が一段下がる (ブラウザの UI バーが常に表示される等)。Workbox 導入 — 個人ツールには設定コストが過剰。
 
 ---
