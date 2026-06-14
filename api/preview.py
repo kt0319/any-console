@@ -54,6 +54,7 @@ class DetectedPort:
     proxy_port: int | None
     process: str
     pid: int | None
+    is_self: bool
     first_seen_at: int
     last_seen_at: int
 
@@ -113,17 +114,17 @@ def _scan_listening_ports() -> dict[int, tuple[str, int | None]]:
             port = int(port_match.group(1))
         except ValueError:
             continue
-        if not (MIN_PORT <= port <= MAX_PORT) or port in _SELF_PORTS or port in proxy_ports:
+        if not (MIN_PORT <= port <= MAX_PORT) or port in proxy_ports:
             continue
         proc_match = _SS_PROC_RE.search(line)
-        if proc_match:
-            proc_name = proc_match.group(1)
-            pid = int(proc_match.group(2))
-            label = _read_cmdline(pid) or proc_name
-            found[port] = (label, pid)
-        else:
-            # 他ユーザのプロセス（権限なし）→ 名前不明だが LISTEN は事実
-            found[port] = ("(other user)", None)
+        if not proc_match:
+            # 他ユーザ所有のプロセス（権限不足で名前取れない）。dev server として
+            # preview したいケースはほぼない（postgres / system daemons）ので除外。
+            continue
+        proc_name = proc_match.group(1)
+        pid = int(proc_match.group(2))
+        label = _read_cmdline(pid) or proc_name
+        found[port] = (label, pid)
     return found
 
 
@@ -131,6 +132,9 @@ def scan_once() -> None:
     now = int(time.time())
     live = _scan_listening_ports()
     for port, (proc, pid) in live.items():
+        is_self = port in _SELF_PORTS
+        # 自分自身は proxy を立てない（proxy_port=None）→ UI で open ボタン非表示。
+        proxy = None if is_self else proxy_port_for(port)
         existing = _DETECTED.get(port)
         if existing:
             existing.last_seen_at = now
@@ -139,8 +143,9 @@ def scan_once() -> None:
         else:
             _DETECTED[port] = DetectedPort(
                 session_id=SESSION_ID, port=port,
-                proxy_port=proxy_port_for(port),
+                proxy_port=proxy,
                 process=proc, pid=pid,
+                is_self=is_self,
                 first_seen_at=now, last_seen_at=now,
             )
     for port in list(_DETECTED.keys()):
@@ -152,8 +157,9 @@ def scan_once() -> None:
 
 
 def list_ports(session_id: str | None = None) -> list[dict]:
-    # proxy_port が無いポート（>= 10000）は preview として開けないので一覧から除外。
-    items = [p for p in _DETECTED.values() if p.proxy_port is not None]
+    # 自分自身は表示する（識別用、ボタンは UI で出さない）。
+    # その他は proxy が立たないポートを除外する。
+    items = [p for p in _DETECTED.values() if p.is_self or p.proxy_port is not None]
     if session_id and session_id != SESSION_ID:
         return []
     items.sort(key=lambda p: p.port)

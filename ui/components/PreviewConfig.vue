@@ -15,15 +15,21 @@
       </div>
       <div v-for="p in ports" :key="`${p.session_id}-${p.port}`" class="preview-row">
         <div class="preview-meta">
-          <span class="preview-port">:{{ p.port }}<span v-if="p.proxy_port" class="preview-proxy"> → :{{ p.proxy_port }}</span></span>
+          <span class="preview-port">
+            :{{ p.port }}
+            <span v-if="p.proxy_port" class="preview-proxy"> → :{{ p.proxy_port }}</span>
+            <span v-if="p.is_self" class="preview-self">this console</span>
+          </span>
           <span class="preview-sub">{{ p.process }}<span v-if="p.pid"> (pid {{ p.pid }})</span></span>
         </div>
-        <button type="button" class="preview-copy" :title="copiedPort === p.port ? 'Copied!' : 'Copy URL'" @click="copyUrl(p)">
-          <span class="mdi" :class="copiedPort === p.port ? 'mdi-check' : 'mdi-content-copy'"></span>
-        </button>
-        <a class="preview-open" :href="buildPreviewUrl(p)" target="_blank" rel="noopener noreferrer external" title="Open in new tab">
-          <span class="mdi mdi-open-in-new"></span> Open
-        </a>
+        <template v-if="!p.is_self">
+          <button type="button" class="preview-copy" :title="copiedPort === p.port ? 'Copied!' : 'Copy URL'" @click="copyUrl(p)">
+            <span class="mdi" :class="copiedPort === p.port ? 'mdi-check' : 'mdi-content-copy'"></span>
+          </button>
+          <a class="preview-open" :href="buildPreviewUrl(p)" target="_blank" rel="noopener noreferrer external" title="Open in new tab">
+            <span class="mdi mdi-open-in-new"></span> Open
+          </a>
+        </template>
       </div>
     </template>
   </div>
@@ -147,6 +153,14 @@ onMounted(async () => {
 .preview-proxy {
   color: var(--accent);
   font-size: 13px;
+}
+.preview-self {
+  margin-left: 6px;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
 }
 .preview-skip {
   font-size: 12px;
