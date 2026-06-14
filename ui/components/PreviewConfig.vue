@@ -2,8 +2,13 @@
   <div class="modal-scroll-body">
     <div v-if="loading" class="text-muted-center">Loading...</div>
     <template v-else>
-      <div class="settings-item-desc" style="margin-bottom: 12px;">
-        Detected local dev server ports on each terminal session. Tap Open to view in a new tab.
+      <div class="preview-head">
+        <div class="settings-item-desc">
+          Detected local dev server ports. Tap Open to view in a new tab.
+        </div>
+        <button type="button" class="preview-refresh" :disabled="refreshing" @click="reload" title="Refresh">
+          <span class="mdi mdi-refresh" :class="{ spinning: refreshing }"></span>
+        </button>
       </div>
       <div v-if="!ports.length" class="settings-item-desc">
         No ports detected yet. Start a dev server (e.g. <code>npm run dev</code>) in a terminal.
@@ -13,19 +18,13 @@
           <span class="preview-port">:{{ p.port }}<span v-if="p.proxy_port" class="preview-proxy"> → :{{ p.proxy_port }}</span></span>
           <span class="preview-sub">{{ p.process }}<span v-if="p.pid"> (pid {{ p.pid }})</span></span>
         </div>
-        <template v-if="p.proxy_port">
-          <button type="button" class="preview-copy" :title="copiedPort === p.port ? 'Copied!' : 'Copy URL'" @click="copyUrl(p)">
-            <span class="mdi" :class="copiedPort === p.port ? 'mdi-check' : 'mdi-content-copy'"></span>
-          </button>
-          <a class="preview-open" :href="buildPreviewUrl(p)" target="_blank" rel="noopener noreferrer external" title="Open in new tab">
-            <span class="mdi mdi-open-in-new"></span> Open
-          </a>
-        </template>
-        <span v-else class="preview-skip" title="Ports >= 10000 are not proxied">No proxy</span>
+        <button type="button" class="preview-copy" :title="copiedPort === p.port ? 'Copied!' : 'Copy URL'" @click="copyUrl(p)">
+          <span class="mdi" :class="copiedPort === p.port ? 'mdi-check' : 'mdi-content-copy'"></span>
+        </button>
+        <a class="preview-open" :href="buildPreviewUrl(p)" target="_blank" rel="noopener noreferrer external" title="Open in new tab">
+          <span class="mdi mdi-open-in-new"></span> Open
+        </a>
       </div>
-      <button type="button" class="preview-refresh" :disabled="refreshing" @click="reload">
-        <span class="mdi mdi-refresh" :class="{ spinning: refreshing }"></span> Refresh
-      </button>
     </template>
   </div>
 </template>
@@ -153,18 +152,29 @@ onMounted(async () => {
   font-size: 12px;
   color: var(--text-muted);
 }
+.preview-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.preview-head .settings-item-desc {
+  flex: 1;
+  margin: 0;
+}
 .preview-refresh {
-  margin-top: 12px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  justify-content: center;
+  width: 36px;
+  height: 32px;
   background: var(--bg-tertiary);
-  color: var(--text-primary);
+  color: var(--text-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  font-size: 13px;
+  font-size: 16px;
   cursor: pointer;
+  flex-shrink: 0;
 }
 .spinning {
   animation: spin 1s linear infinite;

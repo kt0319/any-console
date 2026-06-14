@@ -152,7 +152,8 @@ def scan_once() -> None:
 
 
 def list_ports(session_id: str | None = None) -> list[dict]:
-    items = list(_DETECTED.values())
+    # proxy_port が無いポート（>= 10000）は preview として開けないので一覧から除外。
+    items = [p for p in _DETECTED.values() if p.proxy_port is not None]
     if session_id and session_id != SESSION_ID:
         return []
     items.sort(key=lambda p: p.port)
