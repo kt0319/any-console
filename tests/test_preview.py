@@ -299,6 +299,70 @@ class TestReconcileProxies:
             preview_mod._PROXIES.clear()
         asyncio.run(run())
 
+    def test_pipes_data_through_proxy(self):
+        """実 upstream を立てて proxy がデータを透過することを確認する。"""
+        import asyncio
+        import socket as sock_mod
+
+        def free_port() -> int:
+            with sock_mod.socket(sock_mod.AF_INET, sock_mod.SOCK_STREAM) as s:
+                s.bind(("127.0.0.1", 0))
+                return s.getsockname()[1]
+
+        async def upstream(reader, writer):
+            data = await reader.read(64)
+            writer.write(b"ECHO:" + data)
+            await writer.drain()
+            writer.close()
+
+        async def run():
+            # upstream は固定ポートが必要（asyncio.open_connection で 127.0.0.1:port に繋ぐため）
+            up_port = free_port()
+            up_server = await asyncio.start_server(upstream, host="127.0.0.1", port=up_port)
+            try:
+                proxy_port = free_port()
+                await preview_mod._start_proxy(up_port, proxy_port)
+                # クライアント接続して echo を受け取る
+                reader, writer = await asyncio.open_connection("127.0.0.1", proxy_port)
+                writer.write(b"hello")
+                await writer.drain()
+                response = await asyncio.wait_for(reader.read(64), timeout=2.0)
+                assert response.startswith(b"ECHO:hello")
+                writer.close()
+            finally:
+                up_server.close()
+                for s in list(preview_mod._PROXIES.values()):
+                    s.close()
+                preview_mod._PROXIES.clear()
+        asyncio.run(run())
+
+    def test_proxy_upstream_unreachable(self):
+        """upstream が落ちている場合、proxy 経由の接続はすぐ閉じる。"""
+        import asyncio
+        import socket as sock_mod
+
+        def free_port() -> int:
+            with sock_mod.socket(sock_mod.AF_INET, sock_mod.SOCK_STREAM) as s:
+                s.bind(("127.0.0.1", 0))
+                return s.getsockname()[1]
+
+        async def run():
+            # 存在しない upstream ポートを指定（free_port は予約だけして閉じる）
+            up_port = free_port()  # bind 直後に閉じるので LISTEN なし
+            proxy_port = free_port()
+            await preview_mod._start_proxy(up_port, proxy_port)
+            try:
+                reader, writer = await asyncio.open_connection("127.0.0.1", proxy_port)
+                # ハンドラは upstream connect 失敗で client を即 close する
+                data = await asyncio.wait_for(reader.read(1), timeout=2.0)
+                assert data == b""  # 即 EOF
+                writer.close()
+            finally:
+                for s in list(preview_mod._PROXIES.values()):
+                    s.close()
+                preview_mod._PROXIES.clear()
+        asyncio.run(run())
+
     def test_reconcile_closes_unneeded_proxy(self):
         """_DETECTED から消えた proxy が close されることを確認。"""
         import asyncio
