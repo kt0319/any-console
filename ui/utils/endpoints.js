@@ -22,7 +22,6 @@ export function getActionFailureMessage(data, fallback = "unknown error") {
 }
 
 export const EP_AUTH_CHECK = "/auth/check";
-export const EP_AUTH_LOGIN = "/auth/login";
 export const EP_AUTH_LOGOUT = "/auth/logout";
 export const EP_RUN = "/run";
 export const EP_WORKSPACES = "/workspaces";

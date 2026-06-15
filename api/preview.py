@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 
 SCAN_INTERVAL_SEC = 3.0
 PORT_STALE_SEC = 30  # LISTEN が消えてから一覧から落とすまで
+# /preview/ports へのアクセスからこの秒数を過ぎたら background scan を休止する。
+# パネルを閉じている間は ss を回さない（既存 proxy は維持する）。
+PREVIEW_IDLE_SEC = 60.0
 MIN_PORT = 1024
 MAX_PORT = 65535
 SESSION_ID = "local"
@@ -63,6 +66,20 @@ class DetectedPort:
 
 
 _DETECTED: dict[int, DetectedPort] = {}
+
+# 直近に /preview/ports がアクセスされた monotonic 時刻。0.0 は未アクセス（=休止）。
+_last_access: float = 0.0
+
+
+def touch_access() -> None:
+    """preview が使われたことを記録し、background scan を起こす。"""
+    global _last_access
+    _last_access = time.monotonic()
+
+
+def _should_scan_now() -> bool:
+    """直近アクセスから PREVIEW_IDLE_SEC 以内なら background scan する。"""
+    return time.monotonic() - _last_access <= PREVIEW_IDLE_SEC
 
 # ss -ltnp の各行から「LISTEN行のローカルポート」と「最初の (\"proc\",pid=N) 」を抜く。
 # 出力例:
@@ -166,12 +183,6 @@ def list_ports(session_id: str | None = None) -> list[dict]:
     return [p.to_dict() for p in items]
 
 
-def find_port(session_id: str, port: int) -> DetectedPort | None:
-    if session_id != SESSION_ID:
-        return None
-    return _DETECTED.get(port)
-
-
 _scan_task: asyncio.Task | None = None
 
 # {target_port: (asyncio.Server, asyncio.Task)} — 各検出ポートに対する TCP proxy。
@@ -246,9 +257,11 @@ def _reconcile_proxies() -> None:
 async def _scan_loop() -> None:
     while True:
         try:
+            # preview が最近使われた時だけスキャンする（常時 ss を回さない）。
             # ss は数百バイトで数十ms。proxy reconcile が asyncio.create_task を呼ぶため
             # メインループ上で同期実行する。executor に逃がすと get_event_loop が失敗する。
-            scan_once()
+            if _should_scan_now():
+                scan_once()
         except Exception as e:  # noqa: BLE001
             logger.warning("preview scan failed: %s", e)
         await asyncio.sleep(SCAN_INTERVAL_SEC)

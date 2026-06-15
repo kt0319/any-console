@@ -69,7 +69,7 @@ class TestSkipMatcher:
         for path in [
             "/workspaces",
             "/workspaces/test-ws/status",
-            "/auth/login",
+            "/devices/register",
             "/auth/logout",
             "/jobs/foo/run",
             "/git/foo/branches",
@@ -104,5 +104,5 @@ class TestSkipMatcher:
         from api.rate_limiter import _should_skip
 
         assert _should_skip("/auth/check") is True
-        assert _should_skip("/auth/login") is False
+        assert _should_skip("/devices/register") is False
         assert _should_skip("/auth/logout") is False

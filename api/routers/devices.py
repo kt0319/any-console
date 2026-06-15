@@ -21,7 +21,6 @@ from .. import auth as auth_module
 from ..auth import (
     COOKIE_DEVICE_ID,
     COOKIE_DEVICE_SECRET,
-    COOKIE_NAME_TOKEN,
     verify_token,
 )
 from ..devices import (
@@ -77,8 +76,6 @@ def register(body: RegisterBody, request: Request, response: Response):
     name = (body.name or autoname_from_user_agent(ua)).strip() or "Unknown device"
     device_id, raw_secret = register_device(name, ua)
     _set_device_cookies(response, request, device_id, raw_secret)
-    # 旧 raw token cookie が残っていればクリア（device 認証に移行する）
-    response.delete_cookie(COOKIE_NAME_TOKEN, path="/")
     return {"ok": True, "device_id": device_id, "name": name, "auth_required": True}
 
 
@@ -110,5 +107,4 @@ def logout(request: Request, response: Response):
     if device_id:
         revoke_device(device_id)
     _clear_device_cookies(response)
-    response.delete_cookie(COOKIE_NAME_TOKEN, path="/")
     return {"ok": True}

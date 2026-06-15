@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 _AUTH_FILE = Path(__file__).resolve().parent.parent / "data" / "auth.json"
 
-COOKIE_NAME_TOKEN = "any_console_session"  # noqa: S105 (cookie name, not a secret)
 COOKIE_DEVICE_ID = "any_console_device"  # noqa: S105
 COOKIE_DEVICE_SECRET = "any_console_secret"  # noqa: S105
 
@@ -137,10 +136,6 @@ def verify_token(
     # 3. Bearer token（外部API / 新デバイス登録時）
     if credentials is not None and hmac.compare_digest(credentials.credentials, ANY_CONSOLE_TOKEN):
         return str(credentials.credentials)
-    # 4. 旧 raw token cookie（マイグレーション期間のフォールバック）
-    cookie_token = str(request.cookies.get(COOKIE_NAME_TOKEN, "") or "")
-    if cookie_token and hmac.compare_digest(cookie_token, ANY_CONSOLE_TOKEN):
-        return cookie_token
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid token",

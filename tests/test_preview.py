@@ -167,83 +167,46 @@ class TestListPorts:
         assert preview_mod.list_ports("other") == []
 
 
-class TestFindPort:
-    def test_returns_entry(self):
-        from api.preview import DetectedPort
-        entry = DetectedPort(
-            session_id="local", port=3000, proxy_port=23000,
-            process="x", pid=1, is_self=False,
-            first_seen_at=0, last_seen_at=0,
-        )
-        preview_mod._DETECTED[3000] = entry
-        assert preview_mod.find_port("local", 3000) is entry
-
-    def test_returns_none_for_other_session(self):
-        from api.preview import DetectedPort
-        preview_mod._DETECTED[3000] = DetectedPort(
-            session_id="local", port=3000, proxy_port=23000,
-            process="x", pid=1, is_self=False,
-            first_seen_at=0, last_seen_at=0,
-        )
-        assert preview_mod.find_port("other", 3000) is None
-
-    def test_returns_none_for_unknown_port(self):
-        assert preview_mod.find_port("local", 99999) is None
-
-
 class TestEndpoints:
     def test_list_endpoint_requires_auth(self, client):
         assert client.get("/preview/ports").status_code == 401
 
-    def test_list_endpoint_returns_array(self, client):
+    def test_list_endpoint_returns_array(self, client, monkeypatch):
         from api.preview import DetectedPort
-        preview_mod._DETECTED[3000] = DetectedPort(
-            session_id="local", port=3000, proxy_port=23000,
-            process="node nuxt", pid=42, is_self=False,
-            first_seen_at=0, last_seen_at=0,
-        )
+
+        def fake_scan():
+            preview_mod._DETECTED[3000] = DetectedPort(
+                session_id="local", port=3000, proxy_port=23000,
+                process="node nuxt", pid=42, is_self=False,
+                first_seen_at=0, last_seen_at=0,
+            )
+        # エンドポイントはアクセス時にスキャンを起こす。実 ss を避けて注入する。
+        monkeypatch.setattr(preview_mod, "scan_once", fake_scan)
         res = client.get("/preview/ports", headers=AUTH)
         assert res.status_code == 200
         items = res.json()
         assert len(items) == 1
         assert items[0]["port"] == 3000
 
-    def test_proxy_rejects_unknown_port(self, client):
-        res = client.get("/preview/local/9999/", headers=AUTH)
-        assert res.status_code == 404
 
-    def test_proxy_requires_auth(self, client):
-        # 認可 cookie / Bearer 無しは preview proxy も 401
-        res = client.get("/preview/local/3000/")
-        assert res.status_code == 401
+class TestLazyScan:
+    def test_endpoint_triggers_scan_and_touches_access(self, client, monkeypatch):
+        called = {"n": 0}
+        monkeypatch.setattr(preview_mod, "scan_once",
+                            lambda: called.__setitem__("n", called["n"] + 1))
+        res = client.get("/preview/ports", headers=AUTH)
+        assert res.status_code == 200
+        assert called["n"] == 1
+        assert preview_mod._should_scan_now() is True
 
-    def test_proxy_known_port_upstream_fail_returns_502(self, client, monkeypatch):
-        # find_port は通すが、upstream 127.0.0.1:3000 への接続が失敗する想定。
-        # 本来 dev server が居ないので httpx.ConnectError が出て 502 になる。
-        from api.preview import DetectedPort
-        preview_mod._DETECTED[3000] = DetectedPort(
-            session_id="local", port=3000, proxy_port=23000,
-            process="x", pid=1, is_self=False,
-            first_seen_at=0, last_seen_at=0,
-        )
-        res = client.get("/preview/local/3000/", headers=AUTH)
-        # connect 失敗 = 502 / それ以外（運悪く 127.0.0.1:3000 で他サービスが応答）も許容
-        assert res.status_code in (200, 502, 503)
+    def test_should_scan_now_idle(self, monkeypatch):
+        # 未アクセス（_last_access=0）はアイドル扱いでスキャンしない。
+        monkeypatch.setattr(preview_mod, "_last_access", 0.0)
+        assert preview_mod._should_scan_now() is False
 
-
-class TestWebSocketProxy:
-    def test_ws_rejects_unauthorized(self, client):
-        with pytest.raises(Exception):  # noqa: PT011  (WS closed by server)
-            with client.websocket_connect("/preview/local/3000/?token=wrong"):
-                pass
-
-    def test_ws_rejects_unknown_port(self, client):
-        # 認証は通るが port は detected されていないので 1008 で閉じる
-        from api.preview import DetectedPort
-        preview_mod._DETECTED.clear()
-        with pytest.raises(Exception):  # noqa: PT011
-            with client.websocket_connect(f"/preview/local/9999/?token={AUTH['Authorization'].split()[1]}"):
-                pass
+    def test_touch_access_enables_scan(self):
+        preview_mod.touch_access()
+        assert preview_mod._should_scan_now() is True
 
 
 class TestScannerLifecycle:

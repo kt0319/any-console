@@ -4,7 +4,7 @@ import { useToast } from "./useToast.js";
 
 /**
  * App.vue の認証ゲート。
- * - 起動時のトークン検証（レガシートークンの移行を含む）
+ * - 起動時のトークン検証
  * - ログイン画面 / メイン画面の表示切替フラグ管理
  */
 export function useAppAuthGate() {
@@ -20,11 +20,7 @@ export function useAppAuthGate() {
   }
 
   async function checkAuthOnBoot() {
-    let result = await auth.checkToken();
-    if (!result.ok && !result.auth) {
-      const migrated = await auth.migrateLegacyToken();
-      if (migrated) result = await auth.checkToken();
-    }
+    const result = await auth.checkToken();
     if (result.ok) {
       auth.markAuthenticated();
       auth.setServerInfo(result.hostname, result.version);
