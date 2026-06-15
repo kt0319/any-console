@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { LS_KEY_TOKEN, LS_PREFIX_API_CACHE, LS_PREFIX_WS_META, COOKIE_NAME_TOKEN } from "../utils/constants.js";
-import { EP_AUTH_CHECK, EP_AUTH_LOGIN, EP_AUTH_LOGOUT } from "../utils/endpoints.js";
+import { LS_PREFIX_API_CACHE, LS_PREFIX_WS_META } from "../utils/constants.js";
+import { EP_AUTH_CHECK, EP_AUTH_LOGOUT } from "../utils/endpoints.js";
 
 const AUTHED_SENTINEL = "1";
 
@@ -30,19 +30,6 @@ export const useAuthStore = defineStore("auth", () => {
     return res;
   }
 
-  async function login(rawToken) {
-    const res = await fetch(EP_AUTH_LOGIN, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: rawToken }),
-      credentials: "same-origin",
-    });
-    if (res.status === 401) return { ok: false, error: "Invalid token" };
-    if (!res.ok) return { ok: false, error: `Login failed: ${res.status}` };
-    token.value = AUTHED_SENTINEL;
-    return { ok: true };
-  }
-
   async function registerDevice(rawToken, name = "") {
     const res = await fetch("/devices/register", {
       method: "POST",
@@ -69,31 +56,6 @@ export const useAuthStore = defineStore("auth", () => {
   function clearLocalState() {
     clearPersistedApiCaches();
     token.value = "";
-  }
-
-  async function migrateLegacyToken() {
-    const legacy = localStorage.getItem(LS_KEY_TOKEN);
-    const legacyCookie = readLegacyCookie();
-    const candidate = legacy || legacyCookie;
-    if (legacy) localStorage.removeItem(LS_KEY_TOKEN);
-    if (legacyCookie) deleteLegacyCookie();
-    if (!candidate) return false;
-    const result = await login(candidate);
-    return result.ok;
-  }
-
-  function readLegacyCookie() {
-    const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${COOKIE_NAME_TOKEN}=([^;]*)`));
-    if (!match) return "";
-    try {
-      return decodeURIComponent(match[1]);
-    } catch {
-      return "";
-    }
-  }
-
-  function deleteLegacyCookie() {
-    document.cookie = `${COOKIE_NAME_TOKEN}=;path=/;max-age=0;SameSite=Strict`;
   }
 
   async function checkToken() {
@@ -149,10 +111,8 @@ export const useAuthStore = defineStore("auth", () => {
     serverVersion,
     isHandlingUnauthorized,
     apiFetch,
-    login,
     registerDevice,
     logout,
-    migrateLegacyToken,
     checkToken,
     handleUnauthorized,
     setServerInfo,

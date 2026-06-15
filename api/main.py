@@ -1,6 +1,5 @@
 import asyncio
 import fcntl
-import hmac
 import ipaddress
 import logging
 import os
@@ -18,13 +17,12 @@ from pathlib import Path
 import uvicorn
 from fastapi import Depends, FastAPI, Request, Response, UploadFile
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
 
 from . import auth as auth_module
-from .auth import COOKIE_NAME_TOKEN, verify_token
+from .auth import verify_token
 from .client_log import ClientLogMiddleware
 from .common import BACKGROUND_EXECUTOR, MAX_UPLOAD_SIZE, UPLOAD_DIR
-from .errors import bad_request, too_large, unauthorized
+from .errors import bad_request, too_large
 from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
 from .routers import devices as devices_router
@@ -195,7 +193,6 @@ app.include_router(job_runner.router)
 app.include_router(dispatch.router)
 app.include_router(devices_router.router)
 app.include_router(preview_router.router)
-app.include_router(preview_router.ws_router)
 app.include_router(terminal.router)
 app.include_router(terminal.ws_router)
 app.include_router(system.router)
@@ -225,7 +222,6 @@ def _autoregister_device(request: Request, response: Response, source: str) -> d
     name = autoname_from_user_agent(ua)
     device_id, raw_secret = register_device(name, ua, source=source)
     _set_device_cookies(response, request, device_id, raw_secret)
-    response.delete_cookie(COOKIE_NAME_TOKEN, path="/")
     return get_device(device_id)
 
 
@@ -234,11 +230,11 @@ def auth_check(request: Request, response: Response, auth_subject: str = Depends
     # auth_subject は verify_token の戻り値:
     #   - "tailscale:<login>" → Tailscale 経由
     #   - "device:<id>"       → 登録済みデバイス cookie
-    #   - 32文字程度のトークン文字列 → Bearer / 旧 raw token cookie
+    #   - 32文字程度のトークン文字列 → Bearer（外部API）
     #   - "" → 認証無効化されている
     #
-    # 認証経路に関わらず、まだ device 登録されていなければ自動登録する。
-    # 以降の認証は device cookie 経由に一本化される。
+    # Tailscale 経由でまだ device 登録されていなければ自動登録する。
+    # ブラウザの通常ログインは /devices/register が device cookie を直接発行する。
     tailscale_user = None
     device = None
     if auth_subject.startswith("tailscale:"):
@@ -250,18 +246,7 @@ def auth_check(request: Request, response: Response, auth_subject: str = Depends
         auth_method = "device"
         device = get_device(auth_subject[len("device:"):])
     elif auth_subject:
-        # Bearer token（cookie なしの API 呼び出し）は対象外。cookie auth のときだけ登録。
-        legacy_cookie = request.cookies.get(COOKIE_NAME_TOKEN, "")
-        is_legacy_cookie_auth = (
-            legacy_cookie
-            and auth_module.ANY_CONSOLE_TOKEN
-            and hmac.compare_digest(legacy_cookie, auth_module.ANY_CONSOLE_TOKEN)
-        )
-        if is_legacy_cookie_auth:
-            auth_method = "device"
-            device = _autoregister_device(request, response, source="legacy")
-        else:
-            auth_method = "token"
+        auth_method = "token"
     else:
         auth_method = "disabled"
     return {
@@ -274,38 +259,17 @@ def auth_check(request: Request, response: Response, auth_subject: str = Depends
     }
 
 
-COOKIE_MAX_AGE_SEC = 365 * 24 * 60 * 60
-
-
-class LoginBody(BaseModel):
-    token: str = ""
-
-
-def _set_session_cookie(response: Response, request: Request, value: str) -> None:
-    response.set_cookie(
-        key=COOKIE_NAME_TOKEN,
-        value=value,
-        max_age=COOKIE_MAX_AGE_SEC,
-        httponly=True,
-        samesite="strict",
-        secure=request.url.scheme == "https",
-        path="/",
-    )
-
-
-@app.post("/auth/login")
-def auth_login(body: LoginBody, request: Request, response: Response):
-    if not auth_module.ANY_CONSOLE_TOKEN:
-        return {"ok": True, "auth_required": False}
-    if not body.token or not hmac.compare_digest(body.token, auth_module.ANY_CONSOLE_TOKEN):
-        raise unauthorized("Invalid token")
-    _set_session_cookie(response, request, body.token)
-    return {"ok": True, "auth_required": True}
-
-
 @app.post("/auth/logout")
-def auth_logout(response: Response):
-    response.delete_cookie(COOKIE_NAME_TOKEN, path="/")
+def auth_logout(request: Request, response: Response):
+    # device cookie は HttpOnly なのでサーバ側でクリアする。現在 device は revoke して
+    # 端末を確実にログアウトさせる（トークンを知っていれば再登録できる）。
+    from .auth import COOKIE_DEVICE_ID
+    from .devices import revoke_device
+    from .routers.devices import _clear_device_cookies
+    device_id = request.cookies.get(COOKIE_DEVICE_ID, "")
+    if device_id:
+        revoke_device(device_id)
+    _clear_device_cookies(response)
     return {"ok": True}
 
 

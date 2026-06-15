@@ -25,34 +25,35 @@ class TestAuthSecurity:
         res = client.get("/auth/check", headers={"Authorization": "Bearer wrong-token"})
         assert res.status_code == 401
 
-    def test_login_rejects_wrong_token(self, client):
-        res = client.post("/auth/login", json={"token": "wrong-token"})
+    def test_register_rejects_wrong_token(self, client):
+        res = client.post("/devices/register", json={"token": "wrong-token"})
         assert res.status_code == 401
 
-    def test_login_rejects_empty_token(self, client):
-        res = client.post("/auth/login", json={"token": ""})
+    def test_register_rejects_empty_token(self, client):
+        res = client.post("/devices/register", json={"token": ""})
         assert res.status_code == 401
 
-    def test_login_sets_httponly_cookie(self, client):
+    def test_register_sets_httponly_device_cookies(self, client):
         from conftest import TOKEN
-        res = client.post("/auth/login", json={"token": TOKEN})
+        res = client.post("/devices/register", json={"token": TOKEN})
         assert res.status_code == 200
         cookie_header = res.headers.get("set-cookie", "")
-        assert "any_console_session=" in cookie_header
+        assert "any_console_device=" in cookie_header
+        assert "any_console_secret=" in cookie_header
         assert "HttpOnly" in cookie_header
-        assert "SameSite=strict" in cookie_header.lower() or "samesite=strict" in cookie_header.lower()
+        assert "samesite=strict" in cookie_header.lower()
 
-    def test_cookie_auth_grants_access(self, client):
+    def test_device_cookie_auth_grants_access(self, client):
         from conftest import TOKEN
-        login_res = client.post("/auth/login", json={"token": TOKEN})
-        assert login_res.status_code == 200
-        # TestClient persists cookies on the client instance
+        reg = client.post("/devices/register", json={"token": TOKEN})
+        assert reg.status_code == 200
+        # TestClient persists cookies → device cookie で認証が通る
         check_res = client.get("/auth/check")
         assert check_res.status_code == 200
 
     def test_logout_clears_cookie(self, client):
         from conftest import TOKEN
-        client.post("/auth/login", json={"token": TOKEN})
+        client.post("/devices/register", json={"token": TOKEN})
         logout_res = client.post("/auth/logout")
         assert logout_res.status_code == 200
         client.cookies.clear()
