@@ -10,6 +10,38 @@ import App from "./components/App.vue";
 import { useAuthStore } from "./stores/auth.js";
 import { installErrorReporter } from "./utils/error-reporter.js";
 
+// 古い index.html がキャッシュされたまま新ビルドの asset hash を踏むと、
+// dynamic chunk の読み込みが 404 になり Safari が "Load failed" を出す。
+// 検知したら一度だけ自動リロードして新しい hash を取りに行く。
+// （ループ回避のため sessionStorage でガード）
+function installChunkErrorAutoReload() {
+  const RELOAD_GUARD_KEY = "__ac_chunk_reload_at__";
+  function tryReload() {
+    try {
+      const last = Number(sessionStorage.getItem(RELOAD_GUARD_KEY) || "0");
+      if (Date.now() - last < 10000) return;  // 直近10秒以内はループ防止
+      sessionStorage.setItem(RELOAD_GUARD_KEY, String(Date.now()));
+    } catch { /* private mode 等 */ }
+    location.reload();
+  }
+  function isChunkError(msg) {
+    if (!msg) return false;
+    const s = String(msg).toLowerCase();
+    return s.includes("dynamically imported module")
+      || s.includes("loading chunk")
+      || s.includes("failed to fetch")
+      || s.includes("importing a module script failed");
+  }
+  window.addEventListener("error", (e) => {
+    if (isChunkError(e?.message) || isChunkError(e?.error?.message)) tryReload();
+  });
+  window.addEventListener("unhandledrejection", (e) => {
+    if (isChunkError(e?.reason?.message || e?.reason)) tryReload();
+  });
+}
+
+installChunkErrorAutoReload();
+
 async function bootstrap() {
   // xterm.js が文字幅を測る前に Hack Nerd Font をロードしておく。
   // 未ロードのまま Terminal を生成するとフォールバック幅で grid が決まり、
