@@ -41,6 +41,20 @@ OS固有機能の追加は最小限にする（クロスプラットフォーム
 
 # テスト・Lint
 
+## 新機能を追加する時のチェックリスト (**MUST**)
+
+新しいモジュール・エンドポイント・関数を追加したら、**コミット前に以下を必ず通す**:
+
+1. **テストを書く**: `api/` に新コードを追加したら同じ範囲をカバーする `tests/test_*.py` を追加・拡張する。UI のロジック（`ui/utils/*.js` / `ui/composables/*.js`）も同じく `tests/ui/test_*.js` に追加する。
+2. **カバレッジ閾値（85%）を維持**: `pytest --cov --cov-fail-under=85` でローカル確認する。落ちたら必ずテストを足してから push する。
+3. **`ruff check api/`** が clean。
+4. **`mypy api/`** が clean（型注釈に `Any` 漏れがないか確認）。
+5. **`npm run typecheck`** が clean（JSDoc 型注釈漏れに注意）。
+
+CI が落ちてからの修正コミットを増やさないために、push 前に上記をひと通り実行すること。
+
+## コマンド
+
 ```bash
 pytest                 # Backend
 pytest --cov           # Backend coverage
