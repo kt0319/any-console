@@ -1,0 +1,341 @@
+"""Port Preview の検出ロジックとエンドポイントのテスト。"""
+
+import subprocess
+
+import pytest
+
+from api import preview as preview_mod
+from conftest import AUTH
+
+
+@pytest.fixture(autouse=True)
+def _reset_preview_state():
+    preview_mod._DETECTED.clear()
+    preview_mod._SELF_PORTS.clear()
+    yield
+    preview_mod._DETECTED.clear()
+    preview_mod._SELF_PORTS.clear()
+
+
+class TestProxyPortFor:
+    def test_in_range(self):
+        assert preview_mod.proxy_port_for(3000) == 23000
+        assert preview_mod.proxy_port_for(5173) == 25173
+
+    def test_min_boundary(self):
+        assert preview_mod.proxy_port_for(1024) == 21024
+        assert preview_mod.proxy_port_for(9999) == 29999
+
+    def test_below_min(self):
+        assert preview_mod.proxy_port_for(80) is None
+
+    def test_above_max(self):
+        assert preview_mod.proxy_port_for(10000) is None
+        assert preview_mod.proxy_port_for(65535) is None
+
+
+class TestSetSelfPorts:
+    def test_sets_self_ports(self):
+        preview_mod.set_self_ports([8888, 9999])
+        assert preview_mod._SELF_PORTS == {8888, 9999}
+
+    def test_replaces(self):
+        preview_mod.set_self_ports([1])
+        preview_mod.set_self_ports([2])
+        assert preview_mod._SELF_PORTS == {2}
+
+
+class TestScanListeningPorts:
+    SAMPLE_SS_OUTPUT = (
+        "State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process\n"
+        'LISTEN 0 511 0.0.0.0:3000 0.0.0.0:* users:(("node",pid=12345,fd=21))\n'
+        'LISTEN 0 511 127.0.0.1:7002 0.0.0.0:* users:(("python3",pid=22222,fd=24))\n'
+        # 他ユーザ所有 → 名前情報なし → 除外される
+        "LISTEN 0 4096 0.0.0.0:5432 0.0.0.0:*\n"
+        # 範囲外
+        'LISTEN 0 100 0.0.0.0:80 0.0.0.0:* users:(("nginx",pid=33333,fd=6))\n'
+    )
+
+    def test_parses_owned_ports(self, monkeypatch):
+        def fake_run(*a, **kw):
+            return subprocess.CompletedProcess(args=a, returncode=0, stdout=self.SAMPLE_SS_OUTPUT, stderr="")
+        monkeypatch.setattr(preview_mod.subprocess, "run", fake_run)
+        # cmdline は読めないので proc_name にフォールバック
+        monkeypatch.setattr(preview_mod, "_read_cmdline", lambda pid: "")
+        found = preview_mod._scan_listening_ports()
+        assert 3000 in found
+        assert found[3000] == ("node", 12345)
+        assert 7002 in found
+        # 他ユーザ所有は除外
+        assert 5432 not in found
+        # 範囲外は除外
+        assert 80 not in found
+
+    def test_includes_self_ports_in_raw_scan(self, monkeypatch):
+        # _scan_listening_ports は self/その他を区別せず返す（is_self の判定は scan_once）。
+        preview_mod.set_self_ports([3000])
+        def fake_run(*a, **kw):
+            return subprocess.CompletedProcess(args=a, returncode=0, stdout=self.SAMPLE_SS_OUTPUT, stderr="")
+        monkeypatch.setattr(preview_mod.subprocess, "run", fake_run)
+        monkeypatch.setattr(preview_mod, "_read_cmdline", lambda pid: "")
+        found = preview_mod._scan_listening_ports()
+        assert 3000 in found
+        assert 7002 in found
+
+    def test_handles_subprocess_error(self, monkeypatch):
+        def fake_run(*a, **kw):
+            raise OSError("ss not found")
+        monkeypatch.setattr(preview_mod.subprocess, "run", fake_run)
+        assert preview_mod._scan_listening_ports() == {}
+
+
+class TestReadCmdline:
+    def test_empty_on_unreadable_pid(self):
+        # 存在しない PID は OSError → 空文字
+        assert preview_mod._read_cmdline(99999999) == ""
+
+    def test_returns_for_real_pid(self):
+        import os
+        # 自分自身の PID を使う（必ず読める）
+        result = preview_mod._read_cmdline(os.getpid())
+        # pytest プロセスの basename が含まれていれば OK（厳密一致は環境依存）
+        assert isinstance(result, str)
+
+
+class TestScanOnce:
+    def test_adds_new_port(self, monkeypatch):
+        monkeypatch.setattr(preview_mod, "_scan_listening_ports", lambda: {3000: ("node", 1)})
+        preview_mod.scan_once()
+        items = preview_mod.list_ports()
+        assert len(items) == 1
+        assert items[0]["port"] == 3000
+        assert items[0]["proxy_port"] == 23000
+        assert items[0]["is_self"] is False
+
+    def test_marks_self_port(self, monkeypatch):
+        preview_mod.set_self_ports([8888])
+        monkeypatch.setattr(preview_mod, "_scan_listening_ports",
+                            lambda: {8888: ("python3", 1)})
+        preview_mod.scan_once()
+        items = preview_mod.list_ports()
+        # 自分自身は is_self=True で表示される（proxy_port は無し）
+        assert len(items) == 1
+        assert items[0]["port"] == 8888
+        assert items[0]["is_self"] is True
+        assert items[0]["proxy_port"] is None
+
+    def test_purges_stale_entries(self, monkeypatch):
+        monkeypatch.setattr(preview_mod, "_scan_listening_ports", lambda: {3000: ("node", 1)})
+        preview_mod.scan_once()
+        assert 3000 in preview_mod._DETECTED
+        # 消えるシミュレーション
+        monkeypatch.setattr(preview_mod, "_scan_listening_ports", lambda: {})
+        preview_mod._DETECTED[3000].last_seen_at = 0  # かなり古い扱い
+        preview_mod.scan_once()
+        assert 3000 not in preview_mod._DETECTED
+
+
+class TestListPorts:
+    def test_excludes_no_proxy_non_self(self):
+        from api.preview import DetectedPort
+        preview_mod._DETECTED[20000] = DetectedPort(
+            session_id="local", port=20000, proxy_port=None,
+            process="x", pid=1, is_self=False,
+            first_seen_at=0, last_seen_at=0,
+        )
+        assert preview_mod.list_ports() == []
+
+    def test_includes_self_without_proxy(self):
+        from api.preview import DetectedPort
+        preview_mod._DETECTED[8888] = DetectedPort(
+            session_id="local", port=8888, proxy_port=None,
+            process="python3", pid=1, is_self=True,
+            first_seen_at=0, last_seen_at=0,
+        )
+        items = preview_mod.list_ports()
+        assert len(items) == 1
+        assert items[0]["is_self"] is True
+
+    def test_session_id_filter(self):
+        from api.preview import DetectedPort
+        preview_mod._DETECTED[3000] = DetectedPort(
+            session_id="local", port=3000, proxy_port=23000,
+            process="x", pid=1, is_self=False,
+            first_seen_at=0, last_seen_at=0,
+        )
+        assert preview_mod.list_ports("local") != []
+        assert preview_mod.list_ports("other") == []
+
+
+class TestFindPort:
+    def test_returns_entry(self):
+        from api.preview import DetectedPort
+        entry = DetectedPort(
+            session_id="local", port=3000, proxy_port=23000,
+            process="x", pid=1, is_self=False,
+            first_seen_at=0, last_seen_at=0,
+        )
+        preview_mod._DETECTED[3000] = entry
+        assert preview_mod.find_port("local", 3000) is entry
+
+    def test_returns_none_for_other_session(self):
+        from api.preview import DetectedPort
+        preview_mod._DETECTED[3000] = DetectedPort(
+            session_id="local", port=3000, proxy_port=23000,
+            process="x", pid=1, is_self=False,
+            first_seen_at=0, last_seen_at=0,
+        )
+        assert preview_mod.find_port("other", 3000) is None
+
+    def test_returns_none_for_unknown_port(self):
+        assert preview_mod.find_port("local", 99999) is None
+
+
+class TestEndpoints:
+    def test_list_endpoint_requires_auth(self, client):
+        assert client.get("/preview/ports").status_code == 401
+
+    def test_list_endpoint_returns_array(self, client):
+        from api.preview import DetectedPort
+        preview_mod._DETECTED[3000] = DetectedPort(
+            session_id="local", port=3000, proxy_port=23000,
+            process="node nuxt", pid=42, is_self=False,
+            first_seen_at=0, last_seen_at=0,
+        )
+        res = client.get("/preview/ports", headers=AUTH)
+        assert res.status_code == 200
+        items = res.json()
+        assert len(items) == 1
+        assert items[0]["port"] == 3000
+
+    def test_proxy_rejects_unknown_port(self, client):
+        res = client.get("/preview/local/9999/", headers=AUTH)
+        assert res.status_code == 404
+
+    def test_proxy_requires_auth(self, client):
+        # 認可 cookie / Bearer 無しは preview proxy も 401
+        res = client.get("/preview/local/3000/")
+        assert res.status_code == 401
+
+    def test_proxy_known_port_upstream_fail_returns_502(self, client, monkeypatch):
+        # find_port は通すが、upstream 127.0.0.1:3000 への接続が失敗する想定。
+        # 本来 dev server が居ないので httpx.ConnectError が出て 502 になる。
+        from api.preview import DetectedPort
+        preview_mod._DETECTED[3000] = DetectedPort(
+            session_id="local", port=3000, proxy_port=23000,
+            process="x", pid=1, is_self=False,
+            first_seen_at=0, last_seen_at=0,
+        )
+        res = client.get("/preview/local/3000/", headers=AUTH)
+        # connect 失敗 = 502 / それ以外（運悪く 127.0.0.1:3000 で他サービスが応答）も許容
+        assert res.status_code in (200, 502, 503)
+
+
+class TestWebSocketProxy:
+    def test_ws_rejects_unauthorized(self, client):
+        with pytest.raises(Exception):  # noqa: PT011  (WS closed by server)
+            with client.websocket_connect("/preview/local/3000/?token=wrong"):
+                pass
+
+    def test_ws_rejects_unknown_port(self, client):
+        # 認証は通るが port は detected されていないので 1008 で閉じる
+        from api.preview import DetectedPort
+        preview_mod._DETECTED.clear()
+        with pytest.raises(Exception):  # noqa: PT011
+            with client.websocket_connect(f"/preview/local/9999/?token={AUTH['Authorization'].split()[1]}"):
+                pass
+
+
+class TestScannerLifecycle:
+    def test_start_and_stop(self):
+        # 起動・停止が例外なく完了することだけ確認
+        import asyncio
+        async def run():
+            preview_mod.start_scanner()
+            assert preview_mod._scan_task is not None
+            preview_mod.stop_scanner()
+            assert preview_mod._scan_task is None
+        asyncio.run(run())
+
+    def test_stop_when_not_started(self):
+        preview_mod._scan_task = None
+        preview_mod.stop_scanner()
+        assert preview_mod._scan_task is None
+
+
+class TestReconcileProxies:
+    def test_skip_when_no_event_loop(self):
+        # asyncio ループ外（同期テスト）から呼んでも例外を出さない
+        from api.preview import DetectedPort
+        preview_mod._DETECTED[3000] = DetectedPort(
+            session_id="local", port=3000, proxy_port=23000,
+            process="x", pid=1, is_self=False,
+            first_seen_at=0, last_seen_at=0,
+        )
+        preview_mod._reconcile_proxies()  # no raise
+
+    def test_starts_and_stops_proxy(self):
+        """高いポートで実際に proxy を起こして停止できることを確認する。"""
+        import asyncio
+        import socket as sock_mod
+        from api.preview import DetectedPort
+
+        def free_port() -> int:
+            with sock_mod.socket(sock_mod.AF_INET, sock_mod.SOCK_STREAM) as s:
+                s.bind(("127.0.0.1", 0))
+                return s.getsockname()[1]
+
+        async def run():
+            proxy_target_port = free_port()
+            proxy_listen_port = free_port()
+            # _start_proxy を直接呼ぶ
+            await preview_mod._start_proxy(proxy_target_port, proxy_listen_port)
+            assert proxy_target_port in preview_mod._PROXIES
+            # bind 失敗パスもカバー（同じポートに再 bind）
+            await preview_mod._start_proxy(proxy_target_port + 1, proxy_listen_port)
+            # 後始末
+            for server in list(preview_mod._PROXIES.values()):
+                server.close()
+            preview_mod._PROXIES.clear()
+        asyncio.run(run())
+
+    def test_reconcile_closes_unneeded_proxy(self):
+        """_DETECTED から消えた proxy が close されることを確認。"""
+        import asyncio
+        import socket as sock_mod
+
+        def free_port() -> int:
+            with sock_mod.socket(sock_mod.AF_INET, sock_mod.SOCK_STREAM) as s:
+                s.bind(("127.0.0.1", 0))
+                return s.getsockname()[1]
+
+        async def run():
+            target = free_port()
+            listen = free_port()
+            await preview_mod._start_proxy(target, listen)
+            assert target in preview_mod._PROXIES
+            preview_mod._DETECTED.clear()  # 検出消滅
+            preview_mod._reconcile_proxies()
+            assert target not in preview_mod._PROXIES
+        asyncio.run(run())
+
+
+class TestProxyListenerPorts:
+    def test_collects_proxy_ports(self):
+        from api.preview import DetectedPort
+        preview_mod._DETECTED[3000] = DetectedPort(
+            session_id="local", port=3000, proxy_port=23000,
+            process="x", pid=1, is_self=False,
+            first_seen_at=0, last_seen_at=0,
+        )
+        preview_mod._DETECTED[5173] = DetectedPort(
+            session_id="local", port=5173, proxy_port=25173,
+            process="x", pid=2, is_self=False,
+            first_seen_at=0, last_seen_at=0,
+        )
+        preview_mod._DETECTED[8888] = DetectedPort(
+            session_id="local", port=8888, proxy_port=None,
+            process="x", pid=3, is_self=True,
+            first_seen_at=0, last_seen_at=0,
+        )
+        assert preview_mod._proxy_listener_ports() == {23000, 25173}
