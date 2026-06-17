@@ -42,6 +42,11 @@ const placeholder = computed(() => focused.value ? "↑↓ history · ←→ sni
 let suppressBlurRefocus = false;
 let refocusToken = 0;
 const composing = ref(false);
+// 直近の submit() 実行時刻。iOS Safari + iPhone Mirroring 等で
+// keydown の preventDefault が form submit を止めきれないケースがあり、
+// onEnterKey → form @submit と二重発火して Enter が 2 回飛ぶ問題を防ぐ。
+let lastSubmitAt = 0;
+const SUBMIT_DEDUP_MS = 300;
 
 function onEnterKey(e) {
   const isComposing = composing.value || e.isComposing || e.keyCode === 229;
@@ -105,6 +110,10 @@ function backspace() {
 
 function submit({ sendEnter = false } = {}) {
   if (composing.value && draft.value.trim()) return;
+  // 二重発火（keydown.enter → form @submit）抑止
+  const now = performance.now();
+  if (now - lastSubmitAt < SUBMIT_DEDUP_MS) return;
+  lastSubmitAt = now;
   suppressBlurRefocus = false;
   refocusToken += 1;
   const text = draft.value.trim();
