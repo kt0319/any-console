@@ -67,8 +67,9 @@ class DetectedPort:
 
 _DETECTED: dict[int, DetectedPort] = {}
 
-# 直近に /preview/ports がアクセスされた monotonic 時刻。0.0 は未アクセス（=休止）。
-_last_access: float = 0.0
+# 直近に /preview/ports がアクセスされた monotonic 時刻。None は未アクセス（=休止）。
+# 0.0 を sentinel に使うと time.monotonic() の起点（boot 直後）と区別できないため避ける。
+_last_access: float | None = None
 
 
 def touch_access() -> None:
@@ -79,6 +80,8 @@ def touch_access() -> None:
 
 def _should_scan_now() -> bool:
     """直近アクセスから PREVIEW_IDLE_SEC 以内なら background scan する。"""
+    if _last_access is None:
+        return False
     return time.monotonic() - _last_access <= PREVIEW_IDLE_SEC
 
 # ss -ltnp の各行から「LISTEN行のローカルポート」と「最初の (\"proc\",pid=N) 」を抜く。

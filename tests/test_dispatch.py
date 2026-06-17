@@ -219,3 +219,123 @@ class TestBroadcast:
             dispatch_mod._broadcast({"type": "test"})  # should not raise
         finally:
             dispatch_mod._SSE_QUEUES.clear()
+
+
+class TestApplyOverrides:
+    def test_no_overrides_keeps_values(self):
+        from api.routers.dispatch import DispatchRequest, _apply_overrides
+        body = DispatchRequest(workspace="ws", branch="main", base_branch="dev", text="hi")
+        _apply_overrides(body, None)
+        assert body.branch == "main"
+        assert body.base_branch == "dev"
+        assert body.text == "hi"
+
+    def test_overrides_replace_fields(self):
+        from api.routers.dispatch import DispatchRequest, _apply_overrides
+        body = DispatchRequest(workspace="ws", branch="main", text="x")
+        _apply_overrides(body, {"branch": "feat/x", "base_branch": "develop", "text": "y"})
+        assert body.branch == "feat/x"
+        assert body.base_branch == "develop"
+        assert body.text == "y"
+
+    def test_overrides_empty_string_clears_branch(self):
+        from api.routers.dispatch import DispatchRequest, _apply_overrides
+        body = DispatchRequest(workspace="ws", branch="main")
+        _apply_overrides(body, {"branch": ""})
+        assert body.branch is None
+
+    def test_overrides_none_value_is_skipped(self):
+        from api.routers.dispatch import DispatchRequest, _apply_overrides
+        body = DispatchRequest(workspace="ws", branch="main", text="hi")
+        _apply_overrides(body, {"branch": None, "base_branch": None, "text": None})
+        assert body.branch == "main"
+        assert body.text == "hi"
+
+
+class TestDecisionOverrides:
+    def test_decision_with_overrides_applies(self, client, git_workspace_with_commit):
+        """承認時に override を送ると、サーバ側で body.branch などが書き換わって git op が走る。"""
+        import threading
+        import time as _time
+
+        def grab_and_approve_with_override():
+            for _ in range(40):
+                if dispatch_mod._PENDING:
+                    pid = next(iter(dispatch_mod._PENDING.keys()))
+                    client.post(
+                        f"/dispatch/{pid}/decision",
+                        headers=AUTH,
+                        json={"approved": True, "branch": "feature/from-override", "base_branch": None, "text": None},
+                    )
+                    return
+                _time.sleep(0.01)
+        threading.Thread(target=grab_and_approve_with_override, daemon=True).start()
+
+        res = client.post(
+            "/dispatch",
+            headers=AUTH,
+            json={
+                "workspace": "test-ws",
+                "text": "echo",
+                "branch": "main",  # override で feature/from-override に置き換わる
+                "create_branch": True,
+            },
+        )
+        # branch override 経由でブランチ作成 → 成功
+        assert res.status_code == 200, res.text
+
+
+class TestConfirmSkip:
+    def test_confirm_false_skips_approval(self, client, workspace):
+        """confirm:false は UI 承認を待たずに即実行される。"""
+        res = client.post(
+            "/dispatch",
+            headers=AUTH,
+            json={"workspace": "test-ws", "text": "echo skip", "confirm": False},
+        )
+        assert res.status_code == 200
+        assert res.json()["created"] is True
+
+
+class TestWorktreeField:
+    def test_effective_workspace_with_worktree(self):
+        from api.routers.dispatch import DispatchRequest
+        body = DispatchRequest(workspace="ws", worktree="feature/x")
+        assert body.effective_workspace == "ws [feature/x]"
+
+    def test_effective_workspace_without_worktree(self):
+        from api.routers.dispatch import DispatchRequest
+        body = DispatchRequest(workspace="ws")
+        assert body.effective_workspace == "ws"
+
+
+class TestFindExistingSession:
+    def test_match_any_finds_any_workspace_session(self, _mock_tmux):
+        from api.routers.dispatch import _find_existing_session
+        from api.terminal_session import TERMINAL_SESSIONS, TerminalSession, sessions_lock
+        _mock_tmux.append("ac-test-ws-other")
+        sess = TerminalSession(
+            workspace="test-ws",
+            tmux_session_name="ac-test-ws-other",
+            job_name="other-job",
+        )
+        with sessions_lock:
+            TERMINAL_SESSIONS["test-ws-other"] = sess
+        sid, found = _find_existing_session("test-ws", "terminal", "any")
+        assert sid == "test-ws-other"
+        assert found is sess
+
+    def test_match_job_skips_different_job(self, _mock_tmux):
+        from api.routers.dispatch import _find_existing_session
+        from api.terminal_session import TERMINAL_SESSIONS, TerminalSession, sessions_lock
+        _mock_tmux.append("ac-test-ws-other")
+        sess = TerminalSession(
+            workspace="test-ws",
+            tmux_session_name="ac-test-ws-other",
+            job_name="other-job",
+        )
+        with sessions_lock:
+            TERMINAL_SESSIONS["test-ws-other"] = sess
+        sid, found = _find_existing_session("test-ws", "terminal", "job")
+        assert sid is None
+        assert found is None

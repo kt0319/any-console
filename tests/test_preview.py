@@ -12,9 +12,11 @@ from conftest import AUTH
 def _reset_preview_state():
     preview_mod._DETECTED.clear()
     preview_mod._SELF_PORTS.clear()
+    preview_mod._last_access = None
     yield
     preview_mod._DETECTED.clear()
     preview_mod._SELF_PORTS.clear()
+    preview_mod._last_access = None
 
 
 class TestProxyPortFor:
@@ -200,8 +202,8 @@ class TestLazyScan:
         assert preview_mod._should_scan_now() is True
 
     def test_should_scan_now_idle(self, monkeypatch):
-        # 未アクセス（_last_access=0）はアイドル扱いでスキャンしない。
-        monkeypatch.setattr(preview_mod, "_last_access", 0.0)
+        # 未アクセス（_last_access=None）はアイドル扱いでスキャンしない。
+        monkeypatch.setattr(preview_mod, "_last_access", None)
         assert preview_mod._should_scan_now() is False
 
     def test_touch_access_enables_scan(self):
