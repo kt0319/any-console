@@ -141,9 +141,9 @@ defineExpose({ load });
 <style scoped>
 .si-body { display: flex; flex-direction: column; }
 .si-card { flex-shrink: 0; }
-.si-card + .si-card { margin-top: 4px; }
-.si-card-head { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: color-mix(in srgb, var(--bg-tertiary) 60%, transparent); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-.si-card-title { flex: 1; font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+.si-card + .si-card { margin-top: 16px; }
+.si-card-head { display: flex; align-items: center; gap: 6px; padding: 10px 12px; background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent); border-top: 2px solid var(--accent); border-bottom: 1px solid var(--border); }
+.si-card-title { flex: 1; font-size: 15px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.02em; }
 .si-col-heads { display: flex; gap: 16px; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .si-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
 .si-row:last-child { border-bottom: none; }
