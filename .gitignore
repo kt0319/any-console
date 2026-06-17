@@ -18,6 +18,10 @@ coverage.xml
 coverage/
 htmlcov/
 
+# Playwright E2E artifacts
+playwright-report/
+test-results/
+
 # Logs
 logs/
 *.log

@@ -9,9 +9,11 @@
     "typecheck": "tsc -p jsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.0",
     "@vitest/coverage-v8": "^4.1.5",
     "@vue/test-utils": "^2.4.10",
     "axe-core": "^4.12.0",
