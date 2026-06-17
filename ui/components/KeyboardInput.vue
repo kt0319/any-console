@@ -15,7 +15,6 @@
         enterkeyhint="send"
         :placeholder="placeholder"
         @keydown.enter="onEnterKey"
-        @keyup.enter="onEnterKeyUp"
         @compositionstart="composing = true"
         @compositionend="composing = false"
         @focus="onFocus"
@@ -48,15 +47,9 @@ function onEnterKey(e) {
   const isComposing = composing.value || e.isComposing || e.keyCode === 229;
   if (isComposing && draft.value.trim()) return;
   e.preventDefault();
-  submit();
-}
-
-function onEnterKeyUp(e) {
-  if (composing.value || e.isComposing) return;
-  if (!draft.value.trim()) {
-    e.preventDefault();
-    sendKeyToTerminal({ key: "Enter" });
-  }
+  // ハードウェア Enter は text + Enter を atomic に送る。
+  // iPhone Mirroring 等 keyup が抜ける環境でも Enter が確実に届く。
+  submit({ sendEnter: true });
 }
 
 function onFocus() {
@@ -110,13 +103,16 @@ function backspace() {
   draft.value = draft.value.slice(0, -1);
 }
 
-function submit() {
+function submit({ sendEnter = false } = {}) {
   if (composing.value && draft.value.trim()) return;
   suppressBlurRefocus = false;
   refocusToken += 1;
   const text = draft.value.trim();
   if (!text) { sendKeyToTerminal({ key: "Enter" }); return; }
   sendTextToTerminal(text);
+  // 物理キーボード Enter からの送信は Enter も付与する。
+  // タッチ UI の送信ボタン経由（form @submit）は text のみで終了。
+  if (sendEnter) sendKeyToTerminal({ key: "Enter" });
   inputStore.addInputHistory(text);
   draft.value = "";
   inputEl.value?.blur();
