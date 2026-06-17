@@ -161,6 +161,11 @@ def _create_session(workspace: str, ws_path, job: str, job_def):
 
 class DispatchDecision(BaseModel):
     approved: bool
+    # UI 確認時にユーザが書き換えた値を上書きとして受け取る。
+    # 未指定（None）なら元の DispatchRequest 値をそのまま使う。
+    branch: str | None = None
+    base_branch: str | None = None
+    text: str | None = None
 
 
 @router.get("/dispatch/events")
@@ -192,9 +197,26 @@ async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
     if not p:
         raise HTTPException(status_code=404, detail="Pending dispatch not found")
     p["approved"] = body.approved
+    p["overrides"] = {
+        "branch": body.branch,
+        "base_branch": body.base_branch,
+        "text": body.text,
+    }
     p["event"].set()
     _broadcast({"type": "decided", "id": dispatch_id, "approved": body.approved})
     return {"status": "ok"}
+
+
+def _apply_overrides(body: DispatchRequest, overrides: dict | None) -> None:
+    """承認モーダルで変更された値を DispatchRequest に反映する。空文字は無視。"""
+    if not overrides:
+        return
+    if "branch" in overrides and overrides["branch"] is not None:
+        body.branch = overrides["branch"] or None
+    if "base_branch" in overrides and overrides["base_branch"] is not None:
+        body.base_branch = overrides["base_branch"] or None
+    if "text" in overrides and overrides["text"] is not None:
+        body.text = overrides["text"] or ""
 
 
 async def _await_user_approval(body: DispatchRequest, request_payload: dict) -> str:
@@ -204,6 +226,7 @@ async def _await_user_approval(body: DispatchRequest, request_payload: dict) -> 
         "request": request_payload,
         "event": event,
         "approved": False,
+        "overrides": None,
     }
     _broadcast({"type": "pending", "id": dispatch_id, "request": request_payload})
 
@@ -217,6 +240,7 @@ async def _await_user_approval(body: DispatchRequest, request_payload: dict) -> 
     record = _PENDING.pop(dispatch_id, {})
     if not record.get("approved"):
         raise HTTPException(status_code=403, detail="Dispatch rejected by user")
+    _apply_overrides(body, record.get("overrides"))
     return dispatch_id
 
 

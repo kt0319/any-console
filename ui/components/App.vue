@@ -11,6 +11,7 @@
   <AppToast ref="appToast" />
   <ConfirmDialog />
   <PromptDialog />
+  <DispatchPromptDialog />
   <UrlActionDialog />
 </template>
 
@@ -21,6 +22,7 @@ import ScreenMain from "./ScreenMain.vue";
 import AppToast from "./AppToast.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import PromptDialog from "./PromptDialog.vue";
+import DispatchPromptDialog from "./DispatchPromptDialog.vue";
 import UrlActionDialog from "./UrlActionDialog.vue";
 import { on } from "../app-bridge.js";
 import { useLayoutStore } from "../stores/layout.js";

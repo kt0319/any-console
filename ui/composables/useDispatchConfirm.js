@@ -1,9 +1,8 @@
-import { useConfirm } from "./useConfirm.js";
 import { useApi } from "./useApi.js";
+import { useDispatchPrompt } from "./useDispatchPrompt.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { emit } from "../app-bridge.js";
-import { buildActionSummary } from "../utils/actionSummary.js";
 
 const RECONNECT_DELAY_MS = 3000;
 const handled = new Set();
@@ -11,22 +10,8 @@ const approvedIds = new Set();
 let started = false;
 let es = null;
 
-function buildMessage(req) {
-  return buildActionSummary({
-    title: "Run dispatch?",
-    workspace: req.workspace,
-    worktree: req.worktree,
-    job: req.job,
-    branch: req.branch,
-    branchStatus: req.branch_status,
-    createBranch: req.create_branch,
-    baseBranch: req.base_branch,
-    text: req.text,
-  });
-}
-
 export function useDispatchConfirm() {
-  const { confirm } = useConfirm();
+  const { open: openDispatchPrompt } = useDispatchPrompt();
   const { apiPost, apiGet } = useApi();
   const terminalStore = useTerminalStore();
   const workspaceStore = useWorkspaceStore();
@@ -61,12 +46,13 @@ export function useDispatchConfirm() {
   async function handlePending(payload) {
     if (!payload?.id || handled.has(payload.id)) return;
     handled.add(payload.id);
-    const approved = await confirm(buildMessage(payload.request || {}), {
-      ok: { label: "Run", icon: "mdi-play" },
-    });
+    const { approved, overrides } = await openDispatchPrompt(payload.request || {});
     if (approved) approvedIds.add(payload.id);
     try {
-      await apiPost(`/dispatch/${encodeURIComponent(payload.id)}/decision`, { approved: !!approved });
+      await apiPost(`/dispatch/${encodeURIComponent(payload.id)}/decision`, {
+        approved: !!approved,
+        ...(approved ? overrides : {}),
+      });
     } catch {}
   }
 
