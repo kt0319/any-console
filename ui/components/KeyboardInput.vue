@@ -117,10 +117,6 @@ function submit() {
   const text = draft.value.trim();
   if (!text) { sendKeyToTerminal({ key: "Enter" }); return; }
   sendTextToTerminal(text);
-  // text と Enter を両方ここで送る。iPhone Mirroring など keyup が発火しない
-  // 環境でも Enter が確実に届くようにする。素のタッチキーボードでは onEnterKeyUp
-  // が空 draft でのみ Enter を送るためここでの Enter とは衝突しない。
-  sendKeyToTerminal({ key: "Enter" });
   inputStore.addInputHistory(text);
   draft.value = "";
   inputEl.value?.blur();
