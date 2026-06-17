@@ -43,9 +43,22 @@ export function useDispatchConfirm() {
     emit("tab:select", { tab });
   }
 
+  function focusMatchingTab(req) {
+    if (!req?.workspace) return;
+    // dispatch の match=any 仕様に合わせて、workspace 一致タブがあれば即アクティブにする。
+    // ユーザがダイアログを見た時点で「どのタブに入力が流れるか」を視認できるようにする。
+    const effectiveWs = req.effective_workspace || req.workspace;
+    const candidates = terminalStore.openTabs.filter((t) => t.workspace === effectiveWs && !t.hidden);
+    if (!candidates.length) return;
+    // 最後にアクティブだったタブ、なければ最新のもの
+    const target = candidates.find((t) => t.id === terminalStore.activeTabId) || candidates[0];
+    emit("tab:select", { tab: target });
+  }
+
   async function handlePending(payload) {
     if (!payload?.id || handled.has(payload.id)) return;
     handled.add(payload.id);
+    focusMatchingTab(payload.request || {});
     const { approved, overrides } = await openDispatchPrompt(payload.request || {});
     if (approved) approvedIds.add(payload.id);
     try {
