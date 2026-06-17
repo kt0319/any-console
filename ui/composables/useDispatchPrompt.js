@@ -1,11 +1,27 @@
 import { ref } from "vue";
 
+/**
+ * @typedef {{
+ *   workspace?: string,
+ *   worktree?: string|null,
+ *   job?: string,
+ *   branch?: string|null,
+ *   branch_status?: string,
+ *   base_branch?: string|null,
+ *   create_branch?: boolean,
+ *   text?: string,
+ *   effective_workspace?: string,
+ * }} DispatchRequestPayload
+ */
+
 // dispatch 承認モーダルの状態（単一ダイアログ）。
 const visible = ref(false);
+/** @type {import("vue").Ref<DispatchRequestPayload|null>} */
 const request = ref(null);
 const branch = ref("");
 const baseBranch = ref("");
 const text = ref("");
+/** @type {((value: {approved: boolean, overrides: object}) => void) | null} */
 let _resolve = null;
 
 function reset() {
