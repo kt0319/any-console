@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from ..auth import verify_token
 from ..common import SYSTEM_CMD_TIMEOUT_SEC, run_subprocess_safe, sanitize_log_value
-from ..errors import server_error
+from ..errors import bad_request, not_found, server_error
 
 logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(verify_token)])
@@ -207,6 +207,58 @@ def report_client_error(body: ClientErrorReport):
         sanitize_log_value(body.stack),
     )
     return {"status": "ok"}
+
+
+class TmuxKillBody(BaseModel):
+    name: str
+
+
+@router.post("/system/tmux/kill")
+def kill_tmux_session(body: TmuxKillBody):
+    """指定名の tmux セッションを kill する。ac- プレフィックスなしの
+    ユーザ個人セッションを管理画面から削除するために使う。"""
+    from ..tmux import kill_tmux_by_name, tmux_session_exists
+    name = body.name.strip()
+    if not name:
+        raise bad_request("Empty session name")
+    if not tmux_session_exists(name):
+        raise not_found("Session not found")
+    kill_tmux_by_name(name)
+    return {"ok": True}
+
+
+class TmuxAdoptBody(BaseModel):
+    name: str
+
+
+@router.post("/system/tmux/adopt")
+def adopt_tmux_session(body: TmuxAdoptBody):
+    """外部 tmux セッションを any-console 管理化（ac- プレフィックス）にリネームする。
+
+    元の名前を識別子として残しつつ、ランダム ID を付与して衝突を避ける。
+    リネーム後は通常の any-console セッションとして UI でタブ化できる。
+    """
+    import re as _re
+    import secrets
+
+    from ..common import TMUX_SESSION_PREFIX
+    from ..tmux import _run_tmux_cmd, tmux_session_exists
+    name = body.name.strip()
+    if not name:
+        raise bad_request("Empty session name")
+    if name.startswith(TMUX_SESSION_PREFIX):
+        raise bad_request("Already managed by any-console")
+    if not tmux_session_exists(name):
+        raise not_found("Session not found")
+    safe = _re.sub(r"[^a-zA-Z0-9_-]", "_", name)
+    session_id = f"{safe}-{secrets.token_urlsafe(6)}"
+    new_name = f"{TMUX_SESSION_PREFIX}{session_id}"
+    result = _run_tmux_cmd("rename-session", "-t", name, new_name)
+    if not result or result.returncode != 0:
+        stderr = (result.stderr if result else "").strip()
+        raise server_error(f"Failed to rename tmux session: {stderr or 'unknown'}")
+    logger.info("adopted external tmux session %s -> %s", name, new_name)
+    return {"ok": True, "session_id": session_id, "tmux_name": new_name}
 
 
 @router.get("/system/tmux-info")
