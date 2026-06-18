@@ -1,5 +1,6 @@
 import { onMounted } from "vue";
 import { arrowResolver } from "../utils/flick-resolvers.js";
+import { createArrowFlickHandler } from "../utils/arrow-flick.js";
 import { useEnterAction } from "./useEnterAction.js";
 
 export function useKeyboardBarFlicks({
@@ -13,23 +14,14 @@ export function useKeyboardBarFlicks({
   const { onEnter, makeFlickResolver } = useEnterAction({ hasDraft, keyboardInput, sendKeyToTerminal });
   onMounted(() => {
     if (arrowEl.value) {
-      let arrowFlickHandled = false;
-      arrowEl.value.addEventListener("touchstart", () => { arrowFlickHandled = false; }, { passive: true });
-      const onArrowFlick = (key) => {
-        if (!inputFocused.value) return false;
-        if (key.key === "ArrowLeft" || key.key === "ArrowRight") {
-          if (!arrowFlickHandled) { arrowFlickHandled = true; cycleSnippet(key.key === "ArrowLeft" ? 1 : -1); }
-          return true;
-        }
-        if (arrowFlickHandled) return true;
-        arrowFlickHandled = true;
-        if (key.key === "ArrowUp") historyPrev();
-        else if (key.key === "ArrowDown") historyNext();
-        return true;
-      };
+      const arrowFlick = createArrowFlickHandler({
+        isInputFocused: () => inputFocused.value,
+        cycleSnippet, historyPrev, historyNext,
+      });
+      arrowEl.value.addEventListener("touchstart", () => arrowFlick.reset(), { passive: true });
       setupFlickRepeat(arrowEl.value, arrowResolver, dismissKeyboard, {
         accelerateRepeat: true,
-        onFlick: onArrowFlick,
+        onFlick: arrowFlick.onFlick,
       });
     }
 

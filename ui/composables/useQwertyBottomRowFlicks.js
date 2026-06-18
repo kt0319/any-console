@@ -1,5 +1,6 @@
 import { onMounted } from "vue";
 import { arrowResolver } from "../utils/flick-resolvers.js";
+import { createArrowFlickHandler } from "../utils/arrow-flick.js";
 import { useEnterAction } from "./useEnterAction.js";
 
 /**
@@ -17,21 +18,12 @@ export function useQwertyBottomRowFlicks({
   const { onEnter, makeFlickResolver } = useEnterAction({ hasDraft, keyboardInput, sendKeyToTerminal });
   onMounted(() => {
     if (arrowEl.value) {
-      let arrowFlickHandled = false;
-      arrowEl.value.addEventListener("touchstart", () => { arrowFlickHandled = false; }, { passive: true });
-      const onArrowFlick = (key) => {
-        if (!inputFocused.value) return false;
-        if (key.key === "ArrowLeft" || key.key === "ArrowRight") {
-          if (!arrowFlickHandled) { arrowFlickHandled = true; cycleSnippet(key.key === "ArrowLeft" ? 1 : -1); }
-          return true;
-        }
-        if (arrowFlickHandled) return true;
-        arrowFlickHandled = true;
-        if (key.key === "ArrowUp") historyPrev();
-        else if (key.key === "ArrowDown") historyNext();
-        return true;
-      };
-      setupFlickRepeat(arrowEl.value, arrowResolver, dismissKeyboard, { accelerateRepeat: true, onFlick: onArrowFlick });
+      const arrowFlick = createArrowFlickHandler({
+        isInputFocused: () => inputFocused.value,
+        cycleSnippet, historyPrev, historyNext,
+      });
+      arrowEl.value.addEventListener("touchstart", () => arrowFlick.reset(), { passive: true });
+      setupFlickRepeat(arrowEl.value, arrowResolver, dismissKeyboard, { accelerateRepeat: true, onFlick: arrowFlick.onFlick });
     }
     if (enterEl.value) {
       setupFlickRepeat(enterEl.value, makeFlickResolver((_, __, ___) => inputFocused.value && hasDraft.value), onEnter, { accelerateRepeat: true });
