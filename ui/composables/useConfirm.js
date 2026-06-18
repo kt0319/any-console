@@ -1,10 +1,11 @@
 import { ref } from "vue";
+import { createPendingPromise } from "../utils/pending-promise.js";
 
 const visible = ref(false);
 const message = ref("");
 const extraButton = ref(/** @type {{ label: string, value: string, icon: string, desc: string }|null} */ (null));
 const okButton = ref(/** @type {{ label: string, icon: string, danger: boolean }|null} */ (null));
-let _resolve = null;
+const pending = createPendingPromise();
 
 function clear() {
   visible.value = false;
@@ -22,10 +23,6 @@ export function useConfirm() {
    * @returns {Promise<boolean | string>}
    */
   function confirm(msg, opts = {}) {
-    if (_resolve) {
-      _resolve(false);
-      _resolve = null;
-    }
     message.value = msg;
     extraButton.value = opts.extra
       ? {
@@ -39,15 +36,14 @@ export function useConfirm() {
       ? { label: opts.ok.label, icon: opts.ok.icon || "", danger: !!opts.ok.danger }
       : null;
     visible.value = true;
-    return new Promise((resolve) => { _resolve = resolve; });
+    return pending.begin(false);
   }
-  function onOk() { clear(); _resolve?.(true); _resolve = null; }
-  function onCancel() { clear(); _resolve?.(false); _resolve = null; }
+  function onOk() { clear(); pending.settle(true); }
+  function onCancel() { clear(); pending.settle(false); }
   function onExtra() {
     const v = extraButton.value?.value || "extra";
     clear();
-    _resolve?.(v);
-    _resolve = null;
+    pending.settle(v);
   }
   return { visible, message, extraButton, okButton, confirm, onOk, onCancel, onExtra };
 }

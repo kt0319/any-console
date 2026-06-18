@@ -1,4 +1,5 @@
 import { ref } from "vue";
+import { createPendingPromise } from "../utils/pending-promise.js";
 
 const visible = ref(false);
 const title = ref("");
@@ -9,7 +10,7 @@ const confirmLabel = ref("OK");
 const cancelLabel = ref("Cancel");
 const inputType = ref("text");
 const selectOnOpen = ref(true);
-let _resolve = null;
+const pending = createPendingPromise();
 
 function resetState() {
   title.value = "";
@@ -26,11 +27,6 @@ export function usePrompt() {
   function prompt(options) {
     const next = typeof options === "string" ? { message: options } : (options || {});
 
-    if (_resolve) {
-      _resolve(null);
-      _resolve = null;
-    }
-
     title.value = next.title || "";
     message.value = next.message || "";
     value.value = next.initialValue ?? "";
@@ -41,24 +37,18 @@ export function usePrompt() {
     selectOnOpen.value = next.selectOnOpen !== false;
     visible.value = true;
 
-    return new Promise((resolve) => {
-      _resolve = resolve;
-    });
+    return pending.begin(null);
   }
 
   function onSubmit() {
     visible.value = false;
-    const resolve = _resolve;
-    _resolve = null;
-    resolve?.(value.value);
+    pending.settle(value.value);
     resetState();
   }
 
   function onCancel() {
     visible.value = false;
-    const resolve = _resolve;
-    _resolve = null;
-    resolve?.(null);
+    pending.settle(null);
     resetState();
   }
 
