@@ -455,8 +455,10 @@ onMounted(loadOrphans);
   flex-shrink: 0;
   cursor: pointer;
 }
-.split-tab-icon-btn:hover {
-  color: var(--text-primary);
+@media (hover: hover) and (pointer: fine) {
+  .split-tab-icon-btn:hover {
+    color: var(--text-primary);
+  }
 }
 
 .orphan-head {
