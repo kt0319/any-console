@@ -68,7 +68,7 @@ def _is_auth_disabled() -> bool:
     try:
         from .config import load_global_config_section
         return bool(load_global_config_section("auth_disabled", False))
-    except Exception:
+    except OSError:
         return False
 
 
