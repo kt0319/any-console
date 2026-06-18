@@ -111,7 +111,6 @@ async function load() {
       rightValues: tmx ? (tmx.available ? [tmx.version] : ["not available"]) : undefined,
       rows: tmx?.available ? tmx.sessions.map((s) => {
         const tags = [`${s.windows}w`];
-        if (s.attached) tags.push("attached");
         if (s.created) tags.push(formatRelativeTime(s.created * 1000));
         return { label: s.name, values: tags };
       }) : [],
