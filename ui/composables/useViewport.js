@@ -11,23 +11,12 @@ let orientationFitTimer = null;
 let prevViewportHeightPx = 0;
 let onFitCallback = null;
 
-function resetWindowScroll() {
-  // iOS Safari/PWA は input フォーカスや visualViewport の挙動でページ全体が
-  // 上にスクロールしてしまい、ターミナル下部が画面外に消えることがある。
-  // body は overflow:hidden だが scrollY > 0 になる経路があるため戻す。
-  if (window.scrollX !== 0 || window.scrollY !== 0) {
-    window.scrollTo(0, 0);
-  }
-}
-
 function updateViewportHeight() {
   const layoutStore = useLayoutStore();
   const vv = window.visualViewport;
   const viewportHeight = vv ? vv.height : window.innerHeight;
   const viewportHeightPx = Math.round(viewportHeight);
   const isKbOpen = !!(vv && (window.innerHeight - vv.height > 100));
-
-  resetWindowScroll();
   const useFullHeight = layoutStore.isPwa && !isKbOpen;
   const appliedViewportHeightPx = useFullHeight
     ? Math.round(window.innerHeight)
@@ -81,7 +70,6 @@ export function useViewport() {
       window.visualViewport.addEventListener("scroll", updateViewportHeight);
     }
     window.addEventListener("resize", updateViewportHeight);
-    window.addEventListener("scroll", resetWindowScroll, { passive: true });
     window.addEventListener("orientationchange", () => {
       if (orientationFitTimer) clearTimeout(orientationFitTimer);
       orientationFitTimer = setTimeout(() => {
