@@ -104,14 +104,9 @@ const reconnectLabel = computed(() =>
 );
 
 const tabRef = toRef(props, "tab");
-const paneIndexRef = toRef(props, "paneIndex");
 const { onTouchStart, onTouchMove, onTouchEnd } = useTerminalPaneGestures({
   tab: tabRef,
-  frameEl,
   pillEl,
-  isActive,
-  paneIndex: paneIndexRef,
-  onSelectPane: (idx) => emits("select-pane", idx),
 });
 useTerminalPaste({ tab: tabRef, isActive });
 
