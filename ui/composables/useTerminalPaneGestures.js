@@ -1,16 +1,20 @@
 import { setLongPressActive } from "../stores/terminal.js";
 import { createTouchTracker } from "../utils/gesture.js";
-import { findUrlInBuffer, getFullBufferText } from "../utils/terminal-buffer-text.js";
+import { findUrlInBuffer } from "../utils/terminal-buffer-text.js";
 import { emit } from "../app-bridge.js";
+import { RADIAL_TRIGGER_PX } from "./useRadialKey.js";
 
 const LONG_PRESS_URL_MS = 400;
 
-// ターミナル本体のタッチは「長押し（URL 起動 / Select & Copy）」のみ拾う。
-// 短いタップやスワイプは何もしない（入力フォーム展開・スクロールバック追従は廃止）。
-export function useTerminalPaneGestures({ tab, pillEl }) {
+// ターミナル本体のタッチは
+//   - 長押し: URL 起動
+//   - スワイプ: サークルキー（Select & Copy も含む）
+// だけを扱う。短いタップ・縦スクロールは何もしない。
+export function useTerminalPaneGestures({ tab, pillEl, radial }) {
   const paneTouch = createTouchTracker();
 
-  let lastTouchPos = { x: 0, y: 0 };
+  let startX = 0;
+  let startY = 0;
   let touchMoved = false;
   let longPressTimer = null;
 
@@ -30,35 +34,48 @@ export function useTerminalPaneGestures({ tab, pillEl }) {
     paneTouch.start(e);
     setLongPressActive(false);
     const t = e.touches?.[0];
-    lastTouchPos = { x: t?.clientX || 0, y: t?.clientY || 0 };
+    startX = t?.clientX || 0;
+    startY = t?.clientY || 0;
     touchMoved = false;
     cancelLongPressTimer();
     longPressTimer = setTimeout(() => {
       longPressTimer = null;
-      if (touchMoved) return;
-      const url = findUrlInBuffer(tab.value?.term, lastTouchPos.x, lastTouchPos.y);
-      if (url) {
-        if (navigator.vibrate) navigator.vibrate(40);
-        emit("terminal:url", { uri: url });
-        return;
-      }
+      if (touchMoved || radial?.state.visible) return;
+      const url = findUrlInBuffer(tab.value?.term, startX, startY);
+      if (!url) return;
       if (navigator.vibrate) navigator.vibrate(40);
-      emit("selection:open", { tab: tab.value, fallbackText: getFullBufferText(tab.value?.term) });
+      emit("terminal:url", { uri: url });
     }, LONG_PRESS_URL_MS);
   }
 
   function onTouchMove(e) {
     if (isOnPill(e.target)) return;
-    const { dx, dy } = paneTouch.delta(e);
-    if (Math.abs(dx) > 20 || Math.abs(dy) > 20) {
+    const t = e.touches?.[0];
+    if (!t) return;
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    if (!touchMoved && Math.hypot(dx, dy) > 20) {
       touchMoved = true;
       cancelLongPressTimer();
+    }
+    if (radial) {
+      if (!radial.state.visible && Math.hypot(dx, dy) > RADIAL_TRIGGER_PX) {
+        radial.open(startX, startY);
+        if (navigator.vibrate) navigator.vibrate(15);
+      }
+      if (radial.state.visible) radial.update(t.clientX, t.clientY);
     }
   }
 
   function onTouchEnd() {
     cancelLongPressTimer();
+    if (radial?.state.visible) radial.commitAndClose(tab.value);
   }
 
-  return { onTouchStart, onTouchMove, onTouchEnd };
+  function onTouchCancel() {
+    cancelLongPressTimer();
+    if (radial?.state.visible) radial.cancel();
+  }
+
+  return { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel };
 }

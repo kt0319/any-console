@@ -7,9 +7,10 @@
     @touchstart="onTouchStart"
     @touchmove.passive="onTouchMove"
     @touchend="onTouchEnd"
-    @touchcancel="onTouchEnd"
+    @touchcancel="onTouchCancel"
   >
     <StatusOverlay :visible="isReconnecting" :label="reconnectLabel" variant="warning" />
+    <RadialKey :state="radial.state" />
     <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
       <div
         class="terminal-info-pill"
@@ -44,6 +45,8 @@ import { usePillDrag } from "../composables/usePillDrag.js";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useTerminalPaste } from "../composables/useTerminalPaste.js";
 import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.js";
+import { useRadialKey } from "../composables/useRadialKey.js";
+import RadialKey from "./RadialKey.vue";
 import StatusOverlay from "./StatusOverlay.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
 
@@ -104,9 +107,11 @@ const reconnectLabel = computed(() =>
 );
 
 const tabRef = toRef(props, "tab");
-const { onTouchStart, onTouchMove, onTouchEnd } = useTerminalPaneGestures({
+const radial = useRadialKey();
+const { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel } = useTerminalPaneGestures({
   tab: tabRef,
   pillEl,
+  radial,
 });
 useTerminalPaste({ tab: tabRef, isActive });
 
