@@ -160,6 +160,16 @@ export const useTerminalStore = defineStore("terminal", () => {
     }
   }
 
+  function setTabHidden(tabId, hidden) {
+    // tab オブジェクトは markRaw 化されているので property の直接代入では
+    // Vue の reactivity を発火しない。配列を作り直して openTabs の ref を
+    // 入れ替えることで computed (TabBar の hiddenTabCount など) を再評価させる。
+    const idx = openTabs.value.findIndex((t) => t.id === tabId);
+    if (idx === -1) return;
+    openTabs.value[idx].hidden = !!hidden;
+    openTabs.value = [...openTabs.value];
+  }
+
   function moveTab(fromIndex, toIndex) {
     if (fromIndex === toIndex) return;
     if (fromIndex < 0 || fromIndex >= openTabs.value.length) return;
@@ -220,6 +230,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     addTerminalTab,
     removeTab,
     switchTab,
+    setTabHidden,
     moveTab,
     saveTabOrder,
     loadTabOrder,

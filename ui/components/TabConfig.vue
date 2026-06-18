@@ -28,12 +28,14 @@
           </span>
           <span class="split-tab-input-wrap">
             <input
+              v-if="!isSplitMode"
               type="radio"
               class="split-tab-input"
               :checked="tab.id === activeTabId"
               @click.stop="onRadioClick(tab)"
             />
             <input
+              v-else
               type="checkbox"
               class="split-tab-input"
               :checked="splitPaneTabIds.includes(tab.id)"
@@ -44,24 +46,53 @@
             <span v-if="tab.wsIcon" v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
             <span v-if="tab.icon" v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
             <span class="split-tab-row-name">{{ tabDisplayName(tab) }}</span>
-            <span v-if="tab.hidden" class="split-tab-row-badge">Hidden</span>
           </span>
+          <button
+            type="button"
+            class="split-tab-icon-btn"
+            :title="tab.hidden ? 'Show in tab bar' : 'Hide from tab bar'"
+            @click.stop="toggleHidden(tab)"
+          >
+            <span class="mdi" :class="tab.hidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"></span>
+          </button>
           <button type="button" class="split-tab-close-btn" @click.stop="onClose(tab)">&times;</button>
         </div>
         <div v-if="openTabs.length === 0" class="clone-repo-empty">No open tabs</div>
       </div>
+
+      <template v-if="orphanSessions.length">
+        <div class="orphan-head">
+          <span class="orphan-title">Orphan sessions</span>
+          <span class="orphan-desc">tmux sessions with no open tab</span>
+        </div>
+        <div class="orphan-list">
+          <div v-for="s in orphanSessions" :key="s.session_id" class="orphan-row">
+            <div class="orphan-meta">
+              <span class="orphan-name">{{ s.workspace || s.session_id }}</span>
+              <span class="orphan-sub">{{ s.session_id }}</span>
+            </div>
+            <button type="button" class="orphan-btn" @click="openOrphan(s)" title="Open as tab">
+              <span class="mdi mdi-tab-plus"></span>
+            </button>
+            <button type="button" class="orphan-btn danger" @click="closeOrphan(s)" title="Close session">
+              <span class="mdi mdi-close"></span>
+            </button>
+          </div>
+        </div>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup>
-import { inject, computed } from "vue";
+import { inject, computed, ref, onMounted } from "vue";
 import SplitModeSelector from "./SplitModeSelector.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
 import { useConfirm } from "../composables/useConfirm.js";
+import { useApi } from "../composables/useApi.js";
 import { useListDragSort } from "../composables/useListDragSort.js";
 
 const modalTitle = inject("modalTitle");
@@ -147,10 +178,55 @@ async function onClose(tab) {
   }
 }
 
+function toggleHidden(tab) {
+  // タブバーから隠す / 戻す。tmux セッション自体には影響しない。
+  // store 側で reactivity を発火させる必要がある（tab は markRaw されている）。
+  terminalStore.setTabHidden(tab.id, !tab.hidden);
+}
+
 const { dragFromIdx, dragOverIdx, onDragStart } = useListDragSort({
   rowSelector: ".split-tab-row",
   onReorder: (fromIdx, toIdx) => terminalStore.moveTab(fromIdx, toIdx),
 });
+
+const { apiGet, apiDelete } = useApi();
+const orphanSessions = ref([]);
+
+async function loadOrphans() {
+  const { ok, data } = await apiGet("/terminal/sessions");
+  if (!ok || !Array.isArray(data)) {
+    orphanSessions.value = [];
+    return;
+  }
+  const knownIds = new Set(openTabs.value.map((t) => t.sessionId).filter(Boolean));
+  orphanSessions.value = data.filter((s) => !knownIds.has(s.session_id));
+}
+
+function openOrphan(s) {
+  const tab = terminalStore.addTerminalTab({
+    wsUrl: `/terminal/ws/${s.session_id}`,
+    workspace: s.workspace || null,
+    wsIcon: s.icon ? s.icon : null,
+    wsIconColor: s.icon_color || null,
+    icon: s.job_name ? (s.icon || "mdi-play") : "mdi-console",
+    iconColor: s.icon_color || null,
+    jobName: s.job_name || null,
+    jobLabel: s.job_label || (s.workspace || s.session_id),
+    restored: false,
+    hidden: false,
+  });
+  emit("tab:select", { tab });
+  loadOrphans();
+}
+
+async function closeOrphan(s) {
+  const label = s.workspace || s.session_id;
+  if (!await confirm(`Close session "${label}"? The tmux session will be killed.`)) return;
+  await apiDelete(`/terminal/sessions/${encodeURIComponent(s.session_id)}`, { errorMessage: "Failed to close session" });
+  await loadOrphans();
+}
+
+onMounted(loadOrphans);
 </script>
 
 <style scoped>
@@ -243,8 +319,7 @@ const { dragFromIdx, dragOverIdx, onDragStart } = useListDragSort({
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 18px;
-  width: 76px;
+  width: 28px;
   cursor: pointer;
 }
 
@@ -301,7 +376,8 @@ const { dragFromIdx, dragOverIdx, onDragStart } = useListDragSort({
   background: var(--bg-primary);
 }
 
-.split-tab-close-btn {
+.split-tab-close-btn,
+.split-tab-icon-btn {
   width: 36px;
   height: 36px;
   border: none;
@@ -312,5 +388,74 @@ const { dragFromIdx, dragOverIdx, onDragStart } = useListDragSort({
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  cursor: pointer;
+}
+.split-tab-icon-btn:hover {
+  color: var(--text-primary);
+}
+
+.orphan-head {
+  margin-top: 16px;
+  padding: 8px 4px 6px;
+  border-top: 2px solid var(--accent);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.orphan-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.orphan-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.orphan-list {
+  display: flex;
+  flex-direction: column;
+}
+.orphan-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.orphan-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.orphan-name {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.orphan-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.orphan-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+}
+.orphan-btn.danger:hover {
+  background: color-mix(in srgb, var(--error) 20%, var(--bg-tertiary));
+  color: var(--error);
 }
 </style>
