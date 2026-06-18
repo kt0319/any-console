@@ -1,4 +1,4 @@
-import { cpSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { execSync } from "node:child_process";
 import { defineConfig } from "vite";
@@ -40,6 +40,31 @@ export default defineConfig({
   },
   plugins: [
     vue(),
+    {
+      // MDI フォントは @mdi/font の CSS が eot/ttf/woff/woff2 全部を src に並べているため
+      // Vite が 4 種類すべてを bundle してしまう（合計 ~3.5MB）。woff2 は iOS 12+ / Chrome /
+      // Firefox / Edge で対応済みなので、woff2 以外を削除して CSS の参照も剥がす。
+      name: "strip-legacy-font-formats",
+      apply: "build",
+      closeBundle() {
+        const distAssets = "dist/assets";
+        if (!existsSync(distAssets)) return;
+        for (const name of readdirSync(distAssets)) {
+          if (name.endsWith(".css")) {
+            const fp = join(distAssets, name);
+            let css = readFileSync(fp, "utf-8");
+            // @font-face 内の url(....eot|ttf|woff) を含む src フラグメントを除去。
+            const stripped = css.replace(
+              /url\([^)]+\.(?:eot|ttf|woff)(?:\?[^)]*)?\)\s*format\([^)]+\)\s*,?\s*/g,
+              "",
+            ).replace(/,\s*;/g, ";");
+            if (stripped !== css) writeFileSync(fp, stripped);
+          } else if (/\.(eot|ttf|woff)$/.test(name)) {
+            try { unlinkSync(join(distAssets, name)); } catch { /* noop */ }
+          }
+        }
+      },
+    },
     {
       name: "copy-static",
       closeBundle() {

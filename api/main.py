@@ -350,9 +350,21 @@ def serve_sw():
     return Response(content=content, media_type="application/javascript", headers={"Cache-Control": "no-cache"})
 
 
+class HashedAssetStaticFiles(StaticFiles):
+    """Vite が出力する /assets/* はファイル名にハッシュが入っており内容が変わらないので、
+    ブラウザに 1 年間 immutable キャッシュさせて再ダウンロードを避ける。
+    それ以外（index.html / sw.js など）は別ハンドラで no-cache 指定済み。"""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if path.startswith("assets/") and getattr(response, "status_code", 0) == 200:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+
 ICONS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/icons", StaticFiles(directory=str(ICONS_DIR)), name="icons")
-app.mount("/", StaticFiles(directory=str(FRONTEND_DIR)), name="ui")
+app.mount("/", HashedAssetStaticFiles(directory=str(FRONTEND_DIR)), name="ui")
 
 app.add_middleware(ClientLogMiddleware)
 app.add_middleware(RateLimitMiddleware)
