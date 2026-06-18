@@ -1,4 +1,5 @@
 import { ref } from "vue";
+import { createPendingPromise } from "../utils/pending-promise.js";
 
 /**
  * @typedef {{
@@ -21,8 +22,7 @@ const request = ref(null);
 const branch = ref("");
 const baseBranch = ref("");
 const text = ref("");
-/** @type {((value: {approved: boolean, overrides: object}) => void) | null} */
-let _resolve = null;
+const pending = createPendingPromise();
 
 function reset() {
   visible.value = false;
@@ -39,16 +39,12 @@ export function useDispatchPrompt() {
    * @returns {Promise<{approved: boolean, overrides: object}>}
    */
   function open(req) {
-    if (_resolve) {
-      _resolve({ approved: false, overrides: {} });
-      _resolve = null;
-    }
     request.value = req || {};
     branch.value = req?.branch || "";
     baseBranch.value = req?.base_branch || "";
     text.value = req?.text || "";
     visible.value = true;
-    return new Promise((resolve) => { _resolve = resolve; });
+    return pending.begin({ approved: false, overrides: {} });
   }
 
   function approve() {
@@ -57,17 +53,13 @@ export function useDispatchPrompt() {
       base_branch: baseBranch.value !== (request.value?.base_branch || "") ? baseBranch.value : null,
       text: text.value !== (request.value?.text || "") ? text.value : null,
     };
-    const r = _resolve;
-    _resolve = null;
     reset();
-    r?.({ approved: true, overrides });
+    pending.settle({ approved: true, overrides });
   }
 
   function cancel() {
-    const r = _resolve;
-    _resolve = null;
     reset();
-    r?.({ approved: false, overrides: {} });
+    pending.settle({ approved: false, overrides: {} });
   }
 
   return { visible, request, branch, baseBranch, text, open, approve, cancel };
