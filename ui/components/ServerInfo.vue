@@ -28,8 +28,7 @@
 import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES, EP_SYSTEM_TMUX_INFO } from "../utils/endpoints.js";
-import { formatRelativeTime } from "../utils/format.js";
+import { EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES } from "../utils/endpoints.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "System Info";
@@ -69,8 +68,8 @@ const mapProcess = (p) => ({ label: p.name, values: [`${p.cpu.toFixed(1)}%`, `${
 async function load() {
   isLoading.value = true;
   const get = (ep) => apiGet(ep).then((r) => r.ok ? r.data : null).catch(() => null);
-  const [srv, prc, tmx, auth] = await Promise.all([
-    get(EP_SYSTEM_INFO), get(EP_SYSTEM_PROCESSES), get(EP_SYSTEM_TMUX_INFO), get("/auth/check"),
+  const [srv, prc, auth] = await Promise.all([
+    get(EP_SYSTEM_INFO), get(EP_SYSTEM_PROCESSES), get("/auth/check"),
   ]);
 
   sections.value = [
@@ -104,16 +103,6 @@ async function load() {
       refreshable: true,
       rightValues: ["CPU", "MEM"],
       rows: prc ? prc.map(mapProcess) : [],
-    },
-    {
-      label: "tmux",
-      error: tmx ? null : "Failed to load",
-      rightValues: tmx ? (tmx.available ? [tmx.version] : ["not available"]) : undefined,
-      rows: tmx?.available ? tmx.sessions.map((s) => {
-        const tags = [`${s.windows}w`];
-        if (s.created) tags.push(formatRelativeTime(s.created * 1000));
-        return { label: s.name, values: tags };
-      }) : [],
     },
   ];
   isLoading.value = false;
