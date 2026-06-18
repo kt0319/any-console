@@ -14,7 +14,6 @@
         spellcheck="false"
         enterkeyhint="send"
         :placeholder="placeholder"
-        @keydown.enter="onEnterKey"
         @compositionstart="composing = true"
         @compositionend="composing = false"
         @focus="onFocus"
@@ -42,20 +41,6 @@ const placeholder = computed(() => focused.value ? "↑↓ history · ←→ sni
 let suppressBlurRefocus = false;
 let refocusToken = 0;
 const composing = ref(false);
-// 直近の submit() 実行時刻。iOS Safari + iPhone Mirroring 等で
-// keydown の preventDefault が form submit を止めきれないケースがあり、
-// onEnterKey → form @submit と二重発火して Enter が 2 回飛ぶ問題を防ぐ。
-let lastSubmitAt = 0;
-const SUBMIT_DEDUP_MS = 300;
-
-function onEnterKey(e) {
-  const isComposing = composing.value || e.isComposing || e.keyCode === 229;
-  if (isComposing && draft.value.trim()) return;
-  e.preventDefault();
-  // ハードウェア Enter は text + Enter を atomic に送る。
-  // iPhone Mirroring 等 keyup が抜ける環境でも Enter が確実に届く。
-  submit({ sendEnter: true });
-}
 
 function onFocus() {
   focused.value = true;
@@ -108,20 +93,13 @@ function backspace() {
   draft.value = draft.value.slice(0, -1);
 }
 
-function submit({ sendEnter = false } = {}) {
+function submit() {
   if (composing.value && draft.value.trim()) return;
-  // 二重発火（keydown.enter → form @submit）抑止
-  const now = performance.now();
-  if (now - lastSubmitAt < SUBMIT_DEDUP_MS) return;
-  lastSubmitAt = now;
   suppressBlurRefocus = false;
   refocusToken += 1;
   const text = draft.value.trim();
   if (!text) { sendKeyToTerminal({ key: "Enter" }); return; }
   sendTextToTerminal(text);
-  // 物理キーボード Enter からの送信は Enter も付与する。
-  // タッチ UI の送信ボタン経由（form @submit）は text のみで終了。
-  if (sendEnter) sendKeyToTerminal({ key: "Enter" });
   inputStore.addInputHistory(text);
   draft.value = "";
   inputEl.value?.blur();
