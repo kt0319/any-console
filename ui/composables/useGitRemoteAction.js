@@ -5,23 +5,20 @@ import { useConfirm } from "./useConfirm.js";
 import { useToast } from "./useToast.js";
 import { formatRemoteToast } from "../utils/git-remote.js";
 
-const ACTION_LABELS = {
-  pull: "Pull",
-  push: "Push",
-  "push-branch": "Push",
-  "push-upstream": "Push (set upstream)",
-  "set-upstream": "Set Upstream",
-};
-
-const ACTION_CONFIRM = {
-  pull: "pull",
-  push: "push",
-  "push-branch": "push",
-  "push-upstream": "set upstream and push",
-  "set-upstream": "set upstream tracking",
+/** @type {Record<string, { label: string, confirm: string }>} */
+const REMOTE_ACTIONS = {
+  pull: { label: "Pull", confirm: "pull" },
+  push: { label: "Push", confirm: "push" },
+  "push-branch": { label: "Push", confirm: "push" },
+  "push-upstream": { label: "Push (set upstream)", confirm: "set upstream and push" },
+  "set-upstream": { label: "Set Upstream", confirm: "set upstream tracking" },
 };
 
 const PUSH_ACTIONS = new Set(["pull", "push", "push-branch"]);
+
+function actionLabel(action) {
+  return REMOTE_ACTIONS[action]?.label || action;
+}
 
 function makeActionKey(wsName, action, branch) {
   return action === "push-branch" && branch
@@ -30,8 +27,8 @@ function makeActionKey(wsName, action, branch) {
 }
 
 function buildConfirmMessage(wsName, action, branch) {
-  const label = ACTION_LABELS[action] || action;
-  const confirmText = ACTION_CONFIRM[action] || `execute ${label}`;
+  const label = actionLabel(action);
+  const confirmText = REMOTE_ACTIONS[action]?.confirm || `execute ${label}`;
   const lines = [`Repository: ${wsName}`];
   if (branch) lines.push(`Branch: ${branch}`);
   lines.push("", confirmText);
@@ -75,7 +72,7 @@ export function useGitRemoteAction() {
     if (!await confirm(buildConfirmMessage(wsName, action, branch))) return;
     runningAction.value = makeActionKey(wsName, action, branch);
     try {
-      const label = ACTION_LABELS[action] || action;
+      const label = actionLabel(action);
       if (PUSH_ACTIONS.has(action)) {
         await runPushPull(wsName, action, branch, label);
       } else {

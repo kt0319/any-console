@@ -93,7 +93,9 @@ def invalidate_git_info(workspace_name: str):
 
 def git_branch(directory: Path) -> str | None:
     out = _run_git_query(["rev-parse", "--abbrev-ref", "HEAD"], directory)
-    return out.strip() or None if out is not None else None
+    if out is None:
+        return None
+    return out.strip() or None
 
 
 def _parse_github_url(remote_url: str) -> str | None:
