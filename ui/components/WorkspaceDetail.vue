@@ -87,18 +87,26 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { useToast } from "../composables/useToast.js";
 import { useModalView } from "../composables/useModalView.js";
-import { getCachedCount, useGitHub } from "../composables/useGitHub.js";
-import { getStashCachedCount, setStashCache } from "../composables/useStashCache.js";
+import { useWorkspaceCounts } from "../composables/useWorkspaceCounts.js";
 import { useWorkspaceRssTabs } from "../composables/useWorkspaceRssTabs.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { workspaceDisplayName } from "../utils/worktree.js";
 
 const workspaceStore = useWorkspaceStore();
-const { apiCommand, apiGet, wsEndpoint } = useApi();
+const { apiCommand, wsEndpoint } = useApi();
 const toast = useToast();
 const { confirm } = useConfirm();
-const { loadWorkspaceGithubUrl, loadIssues, loadPRs } = useGitHub();
 const { modalTitle, viewState } = useModalView();
+const {
+  issuesCount,
+  prsCount,
+  stashCount,
+  branchCount,
+  changesCount,
+  hasGithub,
+  primeFromCache,
+  loadCounts,
+} = useWorkspaceCounts();
 
 const fileBrowser = ref(null);
 const gitHistory = ref(null);
@@ -114,16 +122,6 @@ const activePane = ref("jobs");
 const selectedDiffFile = ref("");
 const diffMessage = ref("");
 
-const changesCount = computed(() => {
-  const ws = workspaceStore.currentWorkspace;
-  if (!ws || ws.clean !== false) return 0;
-  return ws.changed_files || 0;
-});
-
-const issuesCount = ref(null);
-const prsCount = ref(null);
-const stashCount = ref(null);
-const branchCount = ref(null);
 const fileBrowserDeep = ref(false);
 const historyExpanded = ref(false);
 
@@ -152,8 +150,6 @@ function onFileBrowserState({ atRoot, fileOpen }) {
 }
 
 const filesBrowsing = computed(() => fileBrowserDeep.value || !!selectedDiffFile.value);
-
-const hasGithub = computed(() => !!workspaceStore.currentWorkspace?.github_url);
 
 const tabs = computed(() => {
   const list = [
@@ -207,33 +203,6 @@ function handleBack() {
   return false;
 }
 
-async function backgroundLoadCounts(workspace) {
-  try {
-    const { ok, data } = await apiGet(wsEndpoint(workspace, "stash-list"));
-    if (ok) {
-      const entries = data.entries || [];
-      stashCount.value = entries.length;
-      setStashCache(workspace, entries);
-    }
-  } catch {}
-
-  try {
-    const { ok, data } = await apiGet(wsEndpoint(workspace, "branches"));
-    if (ok) branchCount.value = (data || []).filter((b) => !b.remote).length;
-  } catch {}
-
-  if (!hasGithub.value) return;
-  loadWorkspaceGithubUrl();
-  const issueItems = ref([]), issueLoading = ref(false), issueError = ref("");
-  const prItems = ref([]), prLoading = ref(false), prError = ref("");
-  await Promise.all([
-    loadIssues(issueItems, issueLoading, issueError),
-    loadPRs(prItems, prLoading, prError),
-  ]);
-  if (!issueError.value) issuesCount.value = issueItems.value.length;
-  if (!prError.value) prsCount.value = prItems.value.length;
-}
-
 function open(options) {
   options = options || {};
   const paneKey = options.pane || "jobs";
@@ -243,11 +212,8 @@ function open(options) {
   updateViewTitle();
 
   const workspace = workspaceStore.selectedWorkspace;
-  issuesCount.value = getCachedCount(workspace, "issues");
-  prsCount.value = getCachedCount(workspace, "prs");
-  stashCount.value = getStashCachedCount(workspace);
-
-  backgroundLoadCounts(workspace);
+  primeFromCache(workspace);
+  loadCounts(workspace);
 
   const workspaceChanged = workspace !== loadedWorkspace;
   if (workspaceChanged) {
