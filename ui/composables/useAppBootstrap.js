@@ -3,6 +3,7 @@ import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useSessionSync } from "./useSessionSync.js";
 import { useToast } from "./useToast.js";
+import { useRadialConfigStore } from "../stores/radial-config.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_SETTINGS_CONFIG_HEALTH } from "../utils/endpoints.js";
 
 export function useAppBootstrap() {
@@ -27,6 +28,7 @@ export function useAppBootstrap() {
     const sessionsPromise = auth.apiFetch(EP_TERMINAL_SESSIONS).catch(() => null);
     const jobsPromise = auth.apiFetch(EP_JOBS_WORKSPACES).catch(() => null);
     const healthPromise = auth.apiFetch(EP_SETTINGS_CONFIG_HEALTH).catch(() => null);
+    useRadialConfigStore().load();
 
     const [, sessionsRes, jobsRes, healthRes] = await Promise.all([workspacesPromise, sessionsPromise, jobsPromise, healthPromise]);
 

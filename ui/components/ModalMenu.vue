@@ -28,6 +28,9 @@
       <button type="button" class="settings-menu-item" @click="pushView('PreviewConfig')">
         <span class="mdi mdi-open-in-app"></span> Port Preview
       </button>
+      <button type="button" class="settings-menu-item" @click="pushView('RadialKeyConfig')">
+        <span class="mdi mdi-gesture-tap"></span> Radial Key
+      </button>
 
       <div class="settings-menu-section-label">System</div>
       <button type="button" class="settings-menu-item" @click="pushView('AuthConfig')">

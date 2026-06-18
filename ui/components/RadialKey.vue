@@ -23,24 +23,14 @@
 </template>
 
 <script setup>
-import { RADIAL_KEYS, SPECIAL_BUTTONS, SPECIAL_BUTTON_SIZE } from "../composables/useRadialKey.js";
+import { SPECIAL_BUTTON_SIZE } from "../composables/useRadialKey.js";
 
 defineProps({
   state: { type: Object, required: true },
+  keys: { type: Array, required: true },
+  specials: { type: Array, required: true },
 });
 
-const keys = RADIAL_KEYS;
-const specials = SPECIAL_BUTTONS;
-
-function specialStyle(b) {
-  return {
-    minWidth: `${SPECIAL_BUTTON_SIZE.width}px`,
-    minHeight: `${SPECIAL_BUTTON_SIZE.height}px`,
-    transform: `translate(calc(-50% + ${b.offsetX}px), calc(-50% + ${b.offsetY}px))`,
-  };
-}
-// 中央のサークル（リング）半径と、キーボタンを配置する半径を分離する。
-// ボタンはリングの外側に並ぶよう RING_RADIUS + ボタン半径 + 余白 で算出。
 const RING_RADIUS = 44;
 const RADIUS = RING_RADIUS + 44;
 
@@ -49,6 +39,14 @@ function itemStyle(k) {
   const x = Math.cos(rad) * RADIUS;
   const y = Math.sin(rad) * RADIUS;
   return { transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` };
+}
+
+function specialStyle(b) {
+  return {
+    minWidth: `${SPECIAL_BUTTON_SIZE.width}px`,
+    minHeight: `${SPECIAL_BUTTON_SIZE.height}px`,
+    transform: `translate(calc(-50% + ${b.offsetX}px), calc(-50% + ${b.offsetY}px))`,
+  };
 }
 </script>
 

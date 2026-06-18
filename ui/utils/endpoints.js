@@ -39,6 +39,7 @@ export const EP_SYSTEM_PROCESSES = "/system/processes";
 export const EP_SYSTEM_TMUX_INFO = "/system/tmux-info";
 export const EP_SETTINGS_EDITOR = "/settings/editor";
 export const EP_SETTINGS_AUTH = "/settings/auth";
+export const EP_SETTINGS_RADIAL = "/settings/radial";
 export const EP_SETTINGS_EXPORT = "/settings/export";
 export const EP_SETTINGS_IMPORT = "/settings/import";
 export const EP_SETTINGS_CONFIG_HEALTH = "/settings/config-health";

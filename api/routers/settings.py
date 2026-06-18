@@ -123,6 +123,51 @@ def put_editor_settings(body: EditorSettings):
     return {"status": "ok", "url_template": url_template}
 
 
+RADIAL_KEY_COUNT = 8
+RADIAL_SPECIAL_COUNT = 4
+RADIAL_LABEL_MAX = 20
+RADIAL_ACTION_MAX = 60
+RADIAL_KEY_NAME_MAX = 30
+
+
+class RadialKeyDef(BaseModel):
+    key: str = Field(..., max_length=RADIAL_KEY_NAME_MAX)
+    ctrl: bool = False
+    shift: bool = False
+    label: str = Field("", max_length=RADIAL_LABEL_MAX)
+
+
+class RadialSpecialDef(BaseModel):
+    label: str = Field(..., max_length=RADIAL_LABEL_MAX)
+    action: str = Field(..., max_length=RADIAL_ACTION_MAX)
+    payload: dict | None = None
+
+
+class RadialSettings(BaseModel):
+    keys: list[RadialKeyDef] = Field(default_factory=list)
+    specials: list[RadialSpecialDef] = Field(default_factory=list)
+
+
+@router.get("/settings/radial")
+def get_radial_settings():
+    raw = load_global_config_section("radial", {})
+    if not isinstance(raw, dict):
+        raw = {}
+    keys = raw.get("keys") if isinstance(raw.get("keys"), list) else []
+    specials = raw.get("specials") if isinstance(raw.get("specials"), list) else []
+    return {"keys": keys, "specials": specials}
+
+
+@router.put("/settings/radial")
+def put_radial_settings(body: RadialSettings):
+    if len(body.keys) not in (0, RADIAL_KEY_COUNT):
+        raise bad_request(f"keys must have 0 or {RADIAL_KEY_COUNT} items")
+    if len(body.specials) not in (0, RADIAL_SPECIAL_COUNT):
+        raise bad_request(f"specials must have 0 or {RADIAL_SPECIAL_COUNT} items")
+    save_global_config_section("radial", body.model_dump())
+    return {"status": "ok"}
+
+
 MAX_RECENT_JOBS = 5
 MAX_RECENT_JOB_COMMAND_LENGTH = 10000
 

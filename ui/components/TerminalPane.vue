@@ -10,7 +10,7 @@
     @touchcancel="onTouchCancel"
   >
     <StatusOverlay :visible="isReconnecting" :label="reconnectLabel" variant="warning" />
-    <RadialKey :state="radial.state" />
+    <RadialKey :state="radial.state" :keys="radialKeys" :specials="radialSpecials" />
     <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
       <div
         class="terminal-info-pill"
@@ -108,6 +108,8 @@ const reconnectLabel = computed(() =>
 
 const tabRef = toRef(props, "tab");
 const radial = useRadialKey();
+const radialKeys = radial.keys;
+const radialSpecials = radial.specials;
 const { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel } = useTerminalPaneGestures({
   tab: tabRef,
   pillEl,
