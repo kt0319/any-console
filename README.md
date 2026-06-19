@@ -37,20 +37,23 @@ Website: <https://any-console.highedge.net/>
 
 **Client side: any OS, any device with a modern browser.** This is the whole point of any-console — open `https://<your-host>/` from your phone, laptop, or any browser and you get the full UI.
 
-**Host (server) side: Linux only for real use.** The runtime is POSIX-portable, but the operational pieces that make any-console useful (`systemd` for service management, `tmux` for persistent sessions, the `./any-console` helper) all assume Linux.
+**Host (server) side: Linux or macOS for real use.** The runtime is POSIX-portable. Service management is platform-native — `systemd` on Linux, `launchd` on macOS — and `tmux` provides persistent sessions on both. The `./any-console` helper detects the OS and drives the right service manager.
 
 | Host setup | Platforms | Status |
 |------------|-----------|--------|
 | **systemd** (first-class) | Linux | Supported. Daily-use target. |
+| **launchd** (first-class) | macOS | Supported. Ideal for an always-on Mac (e.g. a Mac mini server). |
 | **Docker** | Linux / macOS / Windows | Demo / sandbox only — not suitable for real workspaces. |
 
-The host running any-console needs Linux. Browser access from macOS / Windows / iOS / Android is fully supported and is the intended client experience. Docker exists to let curious users try the UI without provisioning a Linux box; the host's workspaces, SSH keys, git/gh config, and shell environment are intentionally not threaded into the container.
+A first-class host needs Linux or macOS. Browser access from any OS (macOS / Windows / iOS / Android) is fully supported and is the intended client experience. Docker exists to let curious users try the UI without provisioning a real host; the host's workspaces, SSH keys, git/gh config, and shell environment are intentionally not threaded into the container.
+
+> **macOS note:** an always-on Mac mini / Mac Studio is the sweet spot. The `launchd` service is registered as a `LaunchDaemon`, so it starts at boot and survives without an interactive login. A MacBook that sleeps or travels is a poor fit for the "check from your phone while away" use case.
 
 ## Setup
 
 **Which one should I use?**
 
-- **You have a Linux host and want to actually use any-console** → `./any-console setup` (systemd). Your SSH keys, git/gh config, and shell environment all carry over; tmux sessions persist across reboots.
+- **You have a Linux or macOS host and want to actually use any-console** → `./any-console setup`. It registers a systemd (Linux) or launchd (macOS) service. Your SSH keys, git/gh config, and shell environment all carry over; tmux sessions persist across reboots.
 - **You just want to try the UI from any OS** → Docker. Runs in seconds on macOS / Windows / Linux, but the container has no access to your real workspaces, keys, or shell — only the bundled `./work` directory.
 
 ### systemd (Linux) — first-class
@@ -62,6 +65,18 @@ cd any-console
 ```
 
 Installs dependencies, builds the frontend, and registers a systemd service in one step. After this, manage the service with `./any-console start|stop|update|logs|...` (see [Commands](#commands)).
+
+### launchd (macOS) — first-class
+
+```bash
+git clone https://github.com/kt0319/any-console.git
+cd any-console
+./any-console setup
+```
+
+Same one-step flow as Linux. On macOS, `setup` registers a `launchd` `LaunchDaemon` (sudo required) that runs as your user and starts at boot — no interactive login needed, which is what makes a headless Mac mini work. Logs go to `logs/any-console.log` (`./any-console logs` tails it). Manage the service with the same `./any-console start|stop|restart|status|logs` commands.
+
+Best paired with an always-on Mac mini / Mac Studio. Install the dependencies first with `brew install python node git tmux gh`.
 
 ### Docker (Linux / macOS / Windows) — demo / sandbox
 
@@ -140,21 +155,21 @@ The default port is 8888. To change it, set `__global__.port` in `config.json`.
 
 ## Commands
 
-For the systemd setup, all operations go through the `./any-console` command. (Docker users: manage with `docker compose` instead — see [Platform support](#platform-support).)
+For the systemd (Linux) and launchd (macOS) setups, all operations go through the `./any-console` command, which detects the OS and drives the right service manager. (Docker users: manage with `docker compose` instead — see [Platform support](#platform-support).)
 
 ```
-./any-console setup      First-time setup (install deps + build + register systemd)
+./any-console setup      First-time setup (install deps + build + register service)
 ./any-console update     Update to latest (git pull + update deps + build + restart)
-./any-console start      Start the service          (systemctl start)
-./any-console stop       Stop the service           (systemctl stop)
-./any-console restart    Restart the service        (systemctl restart)
+./any-console start      Start the service          (systemctl / launchctl)
+./any-console stop       Stop the service           (systemctl / launchctl)
+./any-console restart    Restart the service        (systemctl / launchctl)
 ./any-console status     Show status (service state, URL, version)
-./any-console logs       Show service logs          (journalctl)
-./any-console run        Run in foreground (no systemd; macOS / WSL / etc.)
+./any-console logs       Show service logs          (journalctl / log file)
+./any-console run        Run in foreground (no service; any OS)
 ./any-console version    Show version
 ```
 
-`run` skips systemd entirely and starts the API directly via `python3 -m api.main`. Useful for macOS / WSL or for quick test runs on a Linux box without registering a service.
+`run` skips the service manager entirely and starts the API directly via `python3 -m api.main`. Useful for WSL or for quick test runs without registering a service.
 
 ### Updating
 
