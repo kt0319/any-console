@@ -81,6 +81,12 @@ const { pillDragging, onPillMouseDown, onPillClick, onPillTouchStart, onPillTouc
   tabId,
   canDrag,
   onTabClick: () => {
+    // split mode の非アクティブ pane は最初の pill タップで pane 選択にとどめ、
+    // 2 回目（アクティブ状態でのタップ）でワークスペース詳細を開く。
+    if (layoutStore.isSplitMode && !isActive.value) {
+      emits("select-pane", props.paneIndex);
+      return;
+    }
     if (props.tab.workspace) {
       workspaceStore.selectedWorkspace = props.tab.workspace;
       emit("git:openFileModal");

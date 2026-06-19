@@ -9,7 +9,7 @@ const LONG_PRESS_URL_MS = 400;
 // ターミナル本体のタッチは
 //   - 長押し: URL 起動
 //   - スワイプ: サークルキー（Select & Copy も含む）
-// だけを扱う。短いタップ・縦スクロールは何もしない。
+// だけを扱う。pane 選択は pill タップ側で行う。
 export function useTerminalPaneGestures({ tab, pillEl, radial }) {
   const paneTouch = createTouchTracker();
 

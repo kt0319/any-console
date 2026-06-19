@@ -3,6 +3,8 @@ import { keyDefToAnsi } from "../utils/key-ansi.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { getFullBufferText } from "../utils/terminal-buffer-text.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { useTerminalStore } from "../stores/terminal.js";
+import { useLayoutStore } from "../stores/layout.js";
 import { useRadialConfigStore } from "../stores/radial-config.js";
 
 // スワイプで起動するサークルキーパッド。
@@ -57,6 +59,8 @@ function sectorIndexFromDelta(dx, dy) {
 
 export function useRadialKey() {
   const workspaceStore = useWorkspaceStore();
+  const terminalStore = useTerminalStore();
+  const layoutStore = useLayoutStore();
   const config = useRadialConfigStore();
 
   // ストアから読んだ keyDef を表示用 items に整形する。
@@ -106,6 +110,63 @@ export function useRadialKey() {
   function emitSpecial(s, tab) {
     if (s.action === "selection:open") {
       bridgeEmit("selection:open", { tab, fallbackText: getFullBufferText(tab?.term) });
+      return;
+    }
+    if (s.action === "app:reload") {
+      window.location.reload();
+      return;
+    }
+    if (s.action === "terminal:scrollToBottom") {
+      tab?.term?.scrollToBottom?.();
+      return;
+    }
+    if (s.action === "terminal:scrollToTop") {
+      tab?.term?.scrollToTop?.();
+      return;
+    }
+    if (s.action === "terminal:clear") {
+      // Ctrl+L 相当
+      if (tab?.ws && tab.ws.readyState === WebSocket.OPEN) {
+        tab.ws.send(new TextEncoder().encode("\x0c"));
+      }
+      return;
+    }
+    if (s.action === "terminal:paste") {
+      navigator.clipboard?.readText?.().then((text) => {
+        if (!text) return;
+        if (tab?.ws && tab.ws.readyState === WebSocket.OPEN) {
+          tab.ws.send(new TextEncoder().encode(text));
+        }
+      }).catch(() => { /* permission denied */ });
+      return;
+    }
+    if (s.action === "tab:refresh") {
+      bridgeEmit("tab:refresh", { tab });
+      return;
+    }
+    if (s.action === "tab:close") {
+      bridgeEmit("tab:close", { tab });
+      return;
+    }
+    if (s.action === "tab:hide") {
+      if (tab?.id != null) terminalStore.setTabHidden(tab.id, true);
+      return;
+    }
+    if (s.action === "layout:splitToggle") {
+      if (layoutStore.isSplitMode) {
+        layoutStore.exitSplitMode?.();
+      } else {
+        const ids = terminalStore.openTabs.filter((t) => !t.hidden).map((t) => t.id);
+        if (ids.length >= 2) {
+          layoutStore.splitPaneTabIds = ids;
+          layoutStore.activePaneIndex = 0;
+          layoutStore.isSplitMode = true;
+        }
+      }
+      return;
+    }
+    if (s.action === "terminal:newForWorkspace") {
+      bridgeEmit("terminal:launch", tab?.workspace ? { workspace: tab.workspace } : {});
       return;
     }
     // git:* 系（WorkspaceDetail を開く）はそのターミナルのワークスペースを選択した状態で開く。

@@ -42,6 +42,20 @@ export const RADIAL_SPECIAL_PRESETS = [
   { id: "auth",      label: "Auth",       action: "settings:open", payload: { view: "AuthConfig" } },
   { id: "sysinfo",   label: "System",     action: "settings:open", payload: { view: "ServerInfo" } },
   { id: "preview",   label: "Preview",    action: "settings:open", payload: { view: "PreviewConfig" } },
+  { id: "reload",    label: "Reload",     action: "app:reload" },
+  { id: "refresh",   label: "Refresh",    action: "tab:refresh" },
+  { id: "totop",     label: "To Top",     action: "terminal:scrollToTop" },
+  { id: "tobottom",  label: "To Bottom",  action: "terminal:scrollToBottom" },
+  { id: "clear",     label: "Clear",      action: "terminal:clear" },
+  { id: "paste",     label: "Paste",      action: "terminal:paste" },
+  { id: "files",     label: "Files",      action: "git:openFileModal", payload: { pane: "files" } },
+  { id: "history",   label: "History",    action: "git:openFileModal", payload: { pane: "history" } },
+  { id: "changes",   label: "Changes",    action: "git:openFileModal", payload: { pane: "changes" } },
+  { id: "github",    label: "GitHub",     action: "git:openGitHub" },
+  { id: "closetab",  label: "Close Tab",  action: "tab:close" },
+  { id: "hidetab",   label: "Hide Tab",   action: "tab:hide" },
+  { id: "splittoggle", label: "Split",    action: "layout:splitToggle" },
+  { id: "newterm",   label: "New Term",   action: "terminal:newForWorkspace" },
 ];
 
 // 8 方向のラベル（N から時計回り）。
