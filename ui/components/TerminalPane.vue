@@ -81,12 +81,6 @@ const { pillDragging, onPillMouseDown, onPillClick, onPillTouchStart, onPillTouc
   tabId,
   canDrag,
   onTabClick: () => {
-    // split mode の非アクティブ pane は最初の pill タップで pane 選択にとどめ、
-    // 2 回目（アクティブ状態でのタップ）でワークスペース詳細を開く。
-    if (layoutStore.isSplitMode && !isActive.value) {
-      emits("select-pane", props.paneIndex);
-      return;
-    }
     if (props.tab.workspace) {
       workspaceStore.selectedWorkspace = props.tab.workspace;
       emit("git:openFileModal");
@@ -113,6 +107,7 @@ const reconnectLabel = computed(() =>
 );
 
 const tabRef = toRef(props, "tab");
+const paneIndexRef = toRef(props, "paneIndex");
 const radial = useRadialKey();
 const radialKeys = radial.keys;
 const radialSpecials = radial.specials;
@@ -120,6 +115,9 @@ const { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel } = useTerminalPane
   tab: tabRef,
   pillEl,
   radial,
+  isActive,
+  paneIndex: paneIndexRef,
+  onSelectPane: (idx) => emits("select-pane", idx),
 });
 useTerminalPaste({ tab: tabRef, isActive });
 

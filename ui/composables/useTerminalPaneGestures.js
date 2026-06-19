@@ -1,16 +1,20 @@
 import { setLongPressActive } from "../stores/terminal.js";
+import { useLayoutStore } from "../stores/layout.js";
 import { createTouchTracker } from "../utils/gesture.js";
 import { findUrlInBuffer } from "../utils/terminal-buffer-text.js";
 import { emit } from "../app-bridge.js";
 import { RADIAL_TRIGGER_PX } from "./useRadialKey.js";
 
 const LONG_PRESS_URL_MS = 400;
+const TAP_MAX_DELTA_PX = 10;
 
 // ターミナル本体のタッチは
 //   - 長押し: URL 起動
 //   - スワイプ: サークルキー（Select & Copy も含む）
-// だけを扱う。pane 選択は pill タップ側で行う。
-export function useTerminalPaneGestures({ tab, pillEl, radial }) {
+//   - 短いタップ: split mode のときだけ pane 選択
+// を扱う。
+export function useTerminalPaneGestures({ tab, pillEl, radial, isActive, paneIndex, onSelectPane }) {
+  const layoutStore = useLayoutStore();
   const paneTouch = createTouchTracker();
 
   let startX = 0;
@@ -67,9 +71,20 @@ export function useTerminalPaneGestures({ tab, pillEl, radial }) {
     }
   }
 
-  function onTouchEnd() {
+  function onTouchEnd(e) {
     cancelLongPressTimer();
-    if (radial?.state.visible) radial.commitAndClose(tab.value);
+    if (radial?.state.visible) {
+      radial.commitAndClose(tab.value);
+      return;
+    }
+    if (!layoutStore.isSplitMode) return;
+    if (isActive?.value) return;
+    const t = e.changedTouches?.[0];
+    if (!t) return;
+    const dx = Math.abs(t.clientX - startX);
+    const dy = Math.abs(t.clientY - startY);
+    if (dx > TAP_MAX_DELTA_PX || dy > TAP_MAX_DELTA_PX) return;
+    onSelectPane?.(paneIndex?.value);
   }
 
   function onTouchCancel() {
