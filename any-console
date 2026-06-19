@@ -13,6 +13,17 @@ NC='\033[0m'
 
 SERVICE_NAME="any-console"
 
+# OS 判定。Linux は systemd、macOS (Darwin) は launchd で常駐サービスを管理する。
+OS_NAME="$(uname -s)"
+is_macos() { [ "$OS_NAME" = "Darwin" ]; }
+
+# macOS: LaunchDaemon として登録する（ログイン不要・起動時から常駐）。
+# Label は reverse-DNS（サイト any-console.highedge.net）。plist は system ドメイン。
+LAUNCHD_LABEL="net.highedge.any-console"
+LAUNCHD_PLIST="/Library/LaunchDaemons/$LAUNCHD_LABEL.plist"
+# journalctl が無いため stdout/stderr はログファイルへ出す。
+LOG_FILE="$SCRIPT_DIR/logs/$SERVICE_NAME.log"
+
 error() { echo -e "${RED}Error: $1${NC}" >&2; exit 1; }
 info()  { echo -e "${GREEN}$1${NC}"; }
 warn()  { echo -e "${YELLOW}$1${NC}"; }
@@ -209,13 +220,18 @@ p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + '\n', encoding='utf
   info "  HTTPS configured: https://${hostname}:$(get_port)"
 
   if is_service_installed; then
-    info "  Updating systemd service with SSL env vars..."
-    local service_dest="/etc/systemd/system/$SERVICE_NAME.service"
-    generate_service_unit | sudo tee "$service_dest" > /dev/null
-    sudo systemctl daemon-reload
-    if is_service_active; then
-      sudo systemctl restart "$SERVICE_NAME"
-      info "  Service restarted"
+    info "  Updating service with SSL env vars..."
+    if is_macos; then
+      # plist を作り直すと SSL env が反映され、bootstrap で再起動もされる。
+      install_launchd
+    else
+      local service_dest="/etc/systemd/system/$SERVICE_NAME.service"
+      generate_service_unit | sudo tee "$service_dest" > /dev/null
+      sudo systemctl daemon-reload
+      if is_service_active; then
+        sudo systemctl restart "$SERVICE_NAME"
+        info "  Service restarted"
+      fi
     fi
   fi
 
@@ -249,12 +265,58 @@ prompt_https_setup() {
 }
 
 is_service_active() {
-  systemctl is-active "$SERVICE_NAME" >/dev/null 2>&1
+  if is_macos; then
+    # sudo を避けるためプロセスの有無で判定する（単一アプリ前提）。
+    pgrep -f "api.main" >/dev/null 2>&1
+  else
+    systemctl is-active "$SERVICE_NAME" >/dev/null 2>&1
+  fi
 }
 
 is_service_installed() {
-  systemctl list-unit-files "$SERVICE_NAME.service" >/dev/null 2>&1 && \
-    [ -f "/etc/systemd/system/$SERVICE_NAME.service" ]
+  if is_macos; then
+    [ -f "$LAUNCHD_PLIST" ]
+  else
+    systemctl list-unit-files "$SERVICE_NAME.service" >/dev/null 2>&1 && \
+      [ -f "/etc/systemd/system/$SERVICE_NAME.service" ]
+  fi
+}
+
+# 常駐サービスの起動/停止/再起動を OS ごとに分岐する。
+start_service() {
+  if is_macos; then
+    sudo launchctl bootstrap system "$LAUNCHD_PLIST" 2>/dev/null || true
+    sudo launchctl kickstart "system/$LAUNCHD_LABEL"
+  else
+    sudo systemctl start "$SERVICE_NAME"
+  fi
+}
+
+stop_service() {
+  if is_macos; then
+    # bootout で current boot のロードを解除（KeepAlive 下で確実に止めるため）。
+    # 次回起動時は launchd が /Library/LaunchDaemons から自動ロードする。
+    sudo launchctl bootout system "$LAUNCHD_PLIST" 2>/dev/null \
+      || sudo launchctl bootout "system/$LAUNCHD_LABEL" 2>/dev/null || true
+  else
+    sudo systemctl stop "$SERVICE_NAME"
+  fi
+}
+
+restart_service() {
+  if is_macos; then
+    sudo launchctl kickstart -k "system/$LAUNCHD_LABEL"
+  else
+    sudo systemctl restart "$SERVICE_NAME"
+  fi
+}
+
+install_service() {
+  if is_macos; then
+    install_launchd
+  else
+    install_systemd
+  fi
 }
 
 cmd_setup() {
@@ -262,7 +324,7 @@ cmd_setup() {
   info "=== any-console setup ==="
   echo ""
   echo "This will: check dependencies, install packages, build the UI,"
-  echo "and ask you a few questions about bind / workspace / systemd."
+  echo "and ask you a few questions about bind / workspace / service."
   echo ""
 
   info "[1/6] Checking dependencies"
@@ -292,15 +354,23 @@ cmd_setup() {
   prompt_initial_workspace
 
   echo ""
-  info "Optional: systemd service"
-  echo "  Registers any-console as a background service that starts on boot."
-  echo "  Recommended for Linux hosts (skip for macOS / WSL — use './any-console run' instead)."
-  echo ""
-  read -rp "Register a systemd service? [y/N] " answer
-  local systemd_registered=0
+  if is_macos; then
+    info "Optional: launchd service"
+    echo "  Registers any-console as a LaunchDaemon that starts at boot (no login required)."
+    echo "  Recommended for an always-on Mac (e.g. a Mac mini server). Requires sudo."
+    echo ""
+    read -rp "Register a launchd service? [y/N] " answer
+  else
+    info "Optional: systemd service"
+    echo "  Registers any-console as a background service that starts on boot."
+    echo "  Recommended for Linux hosts (skip for WSL — use './any-console run' instead)."
+    echo ""
+    read -rp "Register a systemd service? [y/N] " answer
+  fi
+  local service_registered=0
   if [[ "$answer" =~ ^[Yy]$ ]]; then
-    install_systemd
-    systemd_registered=1
+    install_service
+    service_registered=1
   fi
 
   echo ""
@@ -311,12 +381,12 @@ cmd_setup() {
   info "=== Setup complete ==="
   echo ""
   echo "Next steps:"
-  if [ "$systemd_registered" -eq 1 ]; then
+  if [ "$service_registered" -eq 1 ]; then
     echo "  1. Start the service:  ./any-console start"
     echo "  2. Check status:       ./any-console status"
   else
     echo "  1. Start in foreground: ./any-console run"
-    echo "     (or register systemd later via ./any-console setup)"
+    echo "     (or register the service later via ./any-console setup)"
   fi
   local bind_host bind_port proto ts_host
   bind_host=$(get_host)
@@ -379,6 +449,70 @@ install_systemd() {
   info "systemd service registered"
 }
 
+generate_plist() {
+  local python_bin ssl_cert ssl_key ssl_env=""
+  python_bin="$(command -v python3)"
+  ssl_cert=$(get_ssl_certfile)
+  ssl_key=$(get_ssl_keyfile)
+  if [ -n "$ssl_cert" ] && [ -n "$ssl_key" ]; then
+    ssl_env="    <key>SSL_CERTFILE</key>
+    <string>$ssl_cert</string>
+    <key>SSL_KEYFILE</key>
+    <string>$ssl_key</string>
+"
+  fi
+  # UserName で実ユーザーとして起動し、SSH 鍵・git/gh 設定・tmux を本人の環境で使う。
+  # daemon は最小 env のため PATH（Homebrew 含む）と HOME を明示する。
+  cat <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$LAUNCHD_LABEL</string>
+  <key>UserName</key>
+  <string>$USER</string>
+  <key>WorkingDirectory</key>
+  <string>$SCRIPT_DIR</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$python_bin</string>
+    <string>-m</string>
+    <string>api.main</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>HOME</key>
+    <string>$HOME</string>
+$ssl_env  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>$LOG_FILE</string>
+  <key>StandardErrorPath</key>
+  <string>$LOG_FILE</string>
+</dict>
+</plist>
+PLIST
+}
+
+install_launchd() {
+  info "Registering launchd service (sudo required)..."
+  mkdir -p "$SCRIPT_DIR/logs"
+  generate_plist | sudo tee "$LAUNCHD_PLIST" > /dev/null
+  sudo chown root:wheel "$LAUNCHD_PLIST"
+  sudo chmod 644 "$LAUNCHD_PLIST"
+  # 既存ロードがあれば貼り直してから登録（env 変更を反映）。
+  sudo launchctl bootout system "$LAUNCHD_PLIST" 2>/dev/null || true
+  sudo launchctl bootstrap system "$LAUNCHD_PLIST"
+  sudo launchctl enable "system/$LAUNCHD_LABEL"
+  info "launchd service registered (starts at boot, no login required)"
+}
+
 cmd_update() {
   info "=== any-console update ==="
 
@@ -407,9 +541,9 @@ cmd_update() {
   info "Building frontend..."
   npm run build
 
-  if is_service_active; then
+  if is_service_installed && is_service_active; then
     info "Restarting service..."
-    sudo systemctl restart "$SERVICE_NAME"
+    restart_service
     info "Service restarted"
   fi
 
@@ -417,17 +551,17 @@ cmd_update() {
 }
 
 cmd_start() {
-  sudo systemctl start "$SERVICE_NAME"
+  start_service
   info "Service started"
 }
 
 cmd_stop() {
-  sudo systemctl stop "$SERVICE_NAME"
+  stop_service
   info "Service stopped"
 }
 
 cmd_restart() {
-  sudo systemctl restart "$SERVICE_NAME"
+  restart_service
   info "Service restarted"
 }
 
@@ -454,7 +588,15 @@ cmd_status() {
 }
 
 cmd_logs() {
-  journalctl -u "$SERVICE_NAME" -f --no-pager -n 50
+  if is_macos; then
+    if [ ! -f "$LOG_FILE" ]; then
+      warn "No log file yet at $LOG_FILE (start the service first)."
+      return 0
+    fi
+    tail -n 50 -f "$LOG_FILE"
+  else
+    journalctl -u "$SERVICE_NAME" -f --no-pager -n 50
+  fi
 }
 
 cmd_run() {
@@ -484,14 +626,14 @@ usage() {
   echo -e "${BOLD}Usage:${NC} ./any-console <command>"
   echo ""
   echo "Commands:"
-  echo "  setup        Initial setup (install deps + build + optional systemd register)"
+  echo "  setup        Initial setup (install deps + build + optional service register)"
   echo "  update       Update to latest (git pull + deps + build + service restart)"
-  echo "  start        Start service (systemd)"
-  echo "  stop         Stop service (systemd)"
-  echo "  restart      Restart service (systemd)"
+  echo "  start        Start service (systemd / launchd)"
+  echo "  stop         Stop service (systemd / launchd)"
+  echo "  restart      Restart service (systemd / launchd)"
   echo "  status       Show service state, URL, version"
-  echo "  logs         Tail service logs (journalctl)"
-  echo "  run          Run in foreground (no systemd; macOS/WSL/etc.)"
+  echo "  logs         Tail service logs (journalctl / log file)"
+  echo "  run          Run in foreground (no service; any OS)"
   echo "  https-setup  Issue / renew a Tailscale HTTPS cert (required for PWA install)"
   echo "  version      Print version"
 }

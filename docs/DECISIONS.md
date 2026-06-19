@@ -191,3 +191,14 @@
 - **Consequences**: 1 ターミナル = tmux セッション 1 個になり、`tmux ls` の見え方が直感に一致する。接続のたびの grouped session 作成（tmux subprocess）が消えて接続が軽くなり、grouped のリークという失敗モード自体が無くなる。ADR 15 の崩れ対策（クライアントごと独立アタッチ・`window-size latest`・出力非ブロードキャスト・接続時に必ず実サイズを渡す・フロントの二重接続ガード）はすべて維持される。冪等性は引き続き `ClientBridge` 単位で担保（`tests/test_terminal_jobs.py::TestApplyBridgeSize`）。後方互換の掃除コードは将来 grouped session が現実的に絶滅したら削除してよい。
 - **Alternatives considered**: ADR 15 の grouped 方式を維持 — 機能的には等価だが、セッションが増える非直感さとリーク対策の恒常コストが残る。grouped を消すと同時に後方互換の掃除コードも全部消す — 移行直後の tmux サーバに旧 grouped session が残った場合に `tmux ls` やセッション一覧へ漏れるため、一度きりの掃除は残す方が安全。
 
+---
+
+### 17. macOS を launchd で一級ホストとしてサポートする
+
+- **Status**: Accepted
+- **Date**: 2026-06
+- **Context**: 常駐サービス管理が systemd 専従で、`./any-console` の `start/stop/restart/status/logs/setup` がすべて `systemctl`/`journalctl` 前提だった。ランタイム本体（`python3 -m api.main` + tmux + `pty.fork` + git subprocess）は POSIX 依存で macOS でもそのまま動き、`run`（フォアグラウンド）は既に macOS/WSL 向けに用意されていたが、**自動起動・再起動・ログといった常駐運用の足回りが Linux にしか無かった**。AIコーディングエージェントを自分の箱で走らせスマホから監視する用途では利用者層が Mac 中心で、特に Mac mini / Mac Studio を常時起動サーバにしたいニーズがあった。
+- **Decision**: `./any-console` が `uname -s` で OS を判定し、常駐サービスを Linux = systemd / macOS = launchd の二系統で扱う。macOS では **LaunchDaemon**（`/Library/LaunchDaemons/net.highedge.any-console.plist`）として登録する。LaunchAgent ではなく LaunchDaemon を選ぶのは、**GUI ログインセッション無し（ヘッドレス）で起動時から常駐**させるため。`UserName` に実ユーザーを指定して本人の SSH 鍵・git/gh 設定・tmux 環境をそのまま使い、daemon の最小 env を補うため `PATH`（Homebrew の `/opt/homebrew/bin`・`/usr/local/bin` を含む）と `HOME` を plist で明示する。`RunAtLoad` + `KeepAlive` で systemd の `Restart=always` 相当を得る。`journalctl` が無いので stdout/stderr を `logs/any-console.log` に出し、`logs` は `tail -f`。起動/停止/再起動は `launchctl bootstrap/bootout/kickstart`（system ドメイン）で行う。`status` の稼働判定は sudo を避けるため `pgrep -f api.main` を使う。systemd 経路は一切変更しない。
+- **Consequences**: Mac mini 等を常時起動サーバとして一級運用できる（ログイン不要・再起動後も自動復帰）。`setup`/`update`/`https-setup` も OS 分岐で一貫して動く。新たに launchd という OS 固有機能を抱える（plist 生成・`launchctl` 操作・ログファイル運用）が、これは systemd の対称物であり「クロスプラットフォーム志向（CLAUDE.md）」の範囲内 — プロダクトの思想（単一プロセス・単一トークン・モバイル一級）は変えていない。MacBook はスリープ・持ち歩きで「外出先から監視」に向かないため、README で Mac mini / Studio 常時起動を推奨と明記。`pgrep` 判定はフォアグラウンド `run` も検出するが、稼働中であることに変わりはなく実害なし。
+- **Alternatives considered**: **LaunchAgent**（`~/Library/LaunchAgents`、sudo 不要）— シンプルだが GUI ログインセッションが必要で、ヘッドレス Mac mini では自動ログイン設定が前提になり「ログイン不要で常駐」という要件を満たせない。**Docker for Mac** — 既存方針どおりホストの鍵・shell 環境を引き込めず実運用に不向き（デモ専用）。**macOS は `run` のみで非対応のまま** — 常駐・自動起動が無く、サーバ用途に耐えない。
+
