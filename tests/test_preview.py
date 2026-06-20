@@ -239,6 +239,32 @@ class TestReconcileProxies:
         )
         preview_mod._reconcile_proxies()  # no raise
 
+    def test_start_proxy_binds_loopback(self, monkeypatch):
+        """proxy は外部公開せず loopback に bind する。"""
+        import asyncio
+
+        captured = {}
+
+        async def fake_start_server(handler, *, host, port):
+            captured["host"] = host
+            captured["port"] = port
+
+            class FakeServer:
+                def close(self):
+                    pass
+
+            return FakeServer()
+
+        async def run():
+            monkeypatch.setattr(preview_mod.asyncio, "start_server", fake_start_server)
+            try:
+                await preview_mod._start_proxy(3000, 23000)
+            finally:
+                preview_mod._PROXIES.clear()
+
+        asyncio.run(run())
+        assert captured == {"host": "127.0.0.1", "port": 23000}
+
     def test_starts_and_stops_proxy(self):
         """高いポートで実際に proxy を起こして停止できることを確認する。"""
         import asyncio

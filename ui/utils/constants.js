@@ -8,6 +8,7 @@ export const MIN_REPEAT_INTERVAL = 30;
 export const REPEAT_ACCELERATION = 8;
 export const INFINITE_SCROLL_THRESHOLD_PX = 80;
 export const LAYOUT_FIT_DELAY_MS = 500;
+export const DEEPLINK_REFIT_DELAY_MS = 200;
 export const POST_WRITE_REFRESH_MS = 300;
 export const KEYBOARD_CLOSE_DELAY_MS = 500;
 export const KEYBOARD_OPEN_DELAY_MS = 300;

@@ -63,4 +63,12 @@ describe("renderIconStr", () => {
     const html = renderIconStr("mdi-home");
     expect(html).toContain("font-size:16px");
   });
+  it("rejects unsafe icon values", () => {
+    expect(renderIconStr('mdi-home" onclick="alert(1)', "#fff")).toBe("");
+    expect(renderIconStr('icon:../secret.svg', null)).toBe("");
+    expect(renderIconStr('icon:bad" onerror="alert(1).svg', null)).toBe("");
+    expect(renderIconStr('data:image/svg+xml,<svg onload=alert(1)>', null)).toBe("");
+    expect(renderIconStr('mdi-home', null, '" onmouseover="alert(1)')).toContain('font-size:16px');
+  });
+
 });
