@@ -20,7 +20,7 @@
 ### 1. 単一プロセスのみの採用
 
 - **Status**: Accepted
-- **Date**: 2024-01
+- **Date**: 2026-02
 - **Context**: ターミナルセッション・レートリミッタ・TTL キャッシュをプロセス内 state に持つ設計のため、複数ワーカーでは state が分断される。
 - **Decision**: `_acquire_singleton_lock` により `uvicorn --workers > 1` を起動時に拒否する。
 - **Consequences**: 水平スケールは不可能。ただし pty/tmux はホストローカルなリソースであり、そもそも複数プロセスでの共有は不可能。個人ツールとして問題なし。
@@ -31,7 +31,7 @@
 ### 2. Git 操作は subprocess のみ、ライブラリ不使用
 
 - **Status**: Accepted
-- **Date**: 2024-01
+- **Date**: 2026-02
 - **Context**: Git 操作の実装方針として、Python バインディングライブラリを使うか subprocess で git CLI を直接呼ぶかを選択する必要があった。
 - **Decision**: GitPython・pygit2 等を使わず、subprocess で git コマンドを直接呼び出す。
 - **Consequences**: 依存を最小限に保てる。git 本体の挙動と完全一致し、git のアップデートに自動追従する。subprocess 呼び出しのオーバーヘッドは対話的ツールとして許容範囲。
@@ -42,7 +42,7 @@
 ### 3. 認証は単一 Bearer Token、ユーザー分離なし
 
 - **Status**: Accepted
-- **Date**: 2024-01
+- **Date**: 2026-02
 - **Context**: 個人ツールとして設計されており、複数ユーザーによる同時利用は想定していない。
 - **Decision**: 単一トークンで HTTP / WebSocket 両方を保護する。user 概念・セッション管理・ロール管理は持たない。
 - **Consequences**: マルチユーザー運用は不可。設計がシンプルで実装・審査コストが低い。Tailscale 等の閉域ネットワーク前提では認証自体を無効化できる。
@@ -53,7 +53,7 @@
 ### 4. tmux × pty.fork × WebSocket ブリッジを自前実装
 
 - **Status**: Accepted
-- **Date**: 2024-01
+- **Date**: 2026-02
 - **Context**: ブラウザ上でターミナルを提供する方法として、既存 OSS の統合か自前実装かを選ぶ必要があった。
 - **Decision**: WeTTY / GoTTY を採用せず、薄いブリッジ層を自前実装する。
 - **Consequences**: 永続セッション・フリック入力・他 UI との統合が自由に実現できる。実装・保守コストはかかるが、製品の中核なので妥当。
@@ -64,7 +64,7 @@
 ### 5. モバイルファースト UI
 
 - **Status**: Accepted
-- **Date**: 2024-01
+- **Date**: 2026-02
 - **Context**: スマホから開発操作を行うことが主要ユースケース。PC でも同等の機能を提供したい。
 - **Decision**: モバイルを基準に設計し、広い画面では情報密度を上げる方向で PC にも対応する。独自フリック入力キーボードを実装し、44px タップターゲット規約を設ける。
 - **Consequences**: PC ファーストのツールより UI 実装コストが高い。一方、スマホ体験が一級市民になる。
@@ -75,7 +75,7 @@
 ### 6. ジョブ実行のデフォルトタイムアウト 300 秒
 
 - **Status**: Accepted
-- **Date**: 2024-06
+- **Date**: 2026-05
 - **Context**: subprocess でジョブを実行するため、無限に待ち続けるリスクがある。
 - **Decision**: デフォルト 300 秒でタイムアウトし、ジョブごとに `timeout_sec` で上書き可能（上限 86400 秒）にする。
 - **Consequences**: 長時間ジョブは `timeout_sec` の明示設定が必要。暴走プロセスを自動的に停止できる。
@@ -86,7 +86,7 @@
 ### 7. CLAUDE.md を主とし AGENTS.md は symlink
 
 - **Status**: Accepted
-- **Date**: 2024-12
+- **Date**: 2026-02
 - **Context**: AI コーディングエージェントが読む規約ファイルの命名が `CLAUDE.md`（Claude Code）と `AGENTS.md`（他ツール）で分かれている状況。
 - **Decision**: `CLAUDE.md` を実体ファイルとし、`AGENTS.md` はそのシンボリックリンクにする。
 - **Consequences**: どちらの命名規則にも対応しつつ、内容の二重管理を避けられる。
@@ -97,7 +97,7 @@
 ### 8. Python 3.11+ を最低要件とする
 
 - **Status**: Accepted
-- **Date**: 2024-01
+- **Date**: 2026-02
 - **Context**: Python のバージョン要件をどこに設定するかを決める必要があった。
 - **Decision**: Python 3.11 以上を要件とする。
 - **Consequences**: `tomllib` 標準化・`TaskGroup`・型ヒントの改善・パフォーマンス向上の恩恵を受けられる。古い環境への対応コストを払わなくて済む。個人ツールなので LTS 範囲であれば十分。
@@ -108,7 +108,7 @@
 ### 9. Vue 3 + Pinia + Vite の採用
 
 - **Status**: Accepted
-- **Date**: 2024-01
+- **Date**: 2026-03
 - **Context**: フロントエンドのフレームワーク・状態管理・ビルドツールを選定する必要があった。
 - **Decision**: Vue 3 (Composition API) + Pinia + Vite を採用する。
 - **Consequences**: Composition API による composable 分割でロジックの再利用がしやすい。Vite のビルド速度は開発ループを短縮する。React に比べ学習済みの技術スタックであるため選択。
@@ -119,7 +119,7 @@
 ### 10. PWA (Service Worker + manifest) の採用
 
 - **Status**: Accepted
-- **Date**: 2025-05
+- **Date**: 2026-05
 - **Context**: モバイルファースト (ADR #5) の帰結として、ホーム画面への追加・standalone 表示・Tailscale 経由でのコールドスタート短縮が必要だった。
 - **Decision**: `manifest.json` + `ui/sw.js` を採用。キャッシュ名は `any-console-{git-short-hash}` とし、ビルド時に vite.config.js が置換することでデプロイごとに自動で cache busting される。キャッシュ対象は API を denylist で除外するのではなく、**静的アセットを allowlist する**方式とする（`isCacheableAsset`：ナビゲーション・`STATIC_ASSET_PATHS`・`STATIC_ASSET_PREFIXES` のみ network-first でキャッシュし、該当しないリクエスト＝API ルート・動的リソースは素通し）。precache 一覧（`ASSETS_TO_CACHE`）はビルド時に vite.config.js の `closeBundle` が `dist/` を再帰走査して `__PRECACHE_ASSETS__` プレースホルダへ注入し、手で保守しない（sw.js 自身は除外、ナビゲーション用に `./` を補う）。
 - **Consequences**: オフラインで動くのは静的アセットのみ（terminal / git / jobs はバックエンド必須）。allowlist 方式により、API ルートを追加・変更しても更新漏れの failure mode は「キャッシュされず素通し（＝正しい挙動）」に倒れ、API レスポンスが stale になる事故は起きない（旧 denylist 方式が抱えていた手動同期の保守負担は解消済み）。precache 一覧もビルド時に dist から自動生成するため、新しい静的アセットを増やしても sw.js を手で更新する必要はない。ハッシュ付きの本体バンドル（`/assets/*.js`,`.css`）も precache 対象に入る。
