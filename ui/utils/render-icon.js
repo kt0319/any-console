@@ -11,20 +11,43 @@ function hasFetchableFavicon(domain) {
   return host.includes(".");
 }
 
+const DATA_IMAGE_RE = /^data:image\/(?:png|jpeg|jpg|gif|webp);base64,[a-zA-Z0-9+/=]+$/;
+const ICON_PATH_RE = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*$/;
+const MDI_ICON_RE = /^mdi-[a-z0-9-]+$/;
+
+function normalizeSize(size) {
+  const n = Number(size);
+  if (!Number.isFinite(n) || n <= 0) return 16;
+  return Math.round(n);
+}
+
+function safeIconPath(path) {
+  if (!ICON_PATH_RE.test(path)) return null;
+  if (path.includes("..") || path.includes("//")) return null;
+  return path;
+}
+
 export function renderIconStr(icon, color, size = 16) {
-  if (!icon) return "";
-  if (icon.startsWith("data:image/") || icon.startsWith("icon:")) {
-    const src = icon.startsWith("icon:") ? `/icons/${icon.slice(5)}` : icon;
-    return `<img src="${src}" width="${size}" height="${size}" class="favicon-icon" draggable="false" alt="" />`;
+  if (!icon || typeof icon !== "string") return "";
+  const safeSize = normalizeSize(size);
+  if (icon.startsWith("data:image/")) {
+    if (!DATA_IMAGE_RE.test(icon)) return "";
+    return `<img src="${icon}" width="${safeSize}" height="${safeSize}" class="favicon-icon" draggable="false" alt="" />`;
+  }
+  if (icon.startsWith("icon:")) {
+    const path = safeIconPath(icon.slice(5));
+    if (!path) return "";
+    return `<img src="/icons/${path}" width="${safeSize}" height="${safeSize}" class="favicon-icon" draggable="false" alt="" />`;
   }
   if (icon.startsWith("favicon:")) {
     const domain = icon.slice("favicon:".length);
     if (!hasFetchableFavicon(domain)) {
-      return `<span class="mdi mdi-web" style="font-size:${size}px"></span>`;
+      return `<span class="mdi mdi-web" style="font-size:${safeSize}px"></span>`;
     }
-    return `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32" width="${size}" height="${size}" class="favicon-icon" draggable="false" alt="" />`;
+    return `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32" width="${safeSize}" height="${safeSize}" class="favicon-icon" draggable="false" alt="" />`;
   }
-  const styles = [`font-size:${size}px`];
-  if (color && /^#[0-9a-fA-F]{3,6}$/.test(color)) styles.push(`color:${color}`);
+  if (!MDI_ICON_RE.test(icon)) return "";
+  const styles = [`font-size:${safeSize}px`];
+  if (color && /^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?$/.test(color)) styles.push(`color:${color}`);
   return `<span class="mdi ${icon}" style="${styles.join(";")}"></span>`;
 }

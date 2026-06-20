@@ -42,6 +42,7 @@ def set_self_ports(ports: list[int]) -> None:
 PROXY_OFFSET = 20000
 PROXY_MIN_TARGET = 1024
 PROXY_MAX_TARGET = 9999  # 10000 以上は +20000 が衝突するのでプロキシ立てない
+PROXY_BIND_HOST = "127.0.0.1"
 
 
 def proxy_port_for(target: int) -> int | None:
@@ -226,12 +227,12 @@ def _make_handler(target_port: int):
 
 async def _start_proxy(target_port: int, proxy_port: int) -> None:
     try:
-        server = await asyncio.start_server(_make_handler(target_port), host="0.0.0.0", port=proxy_port)  # noqa: S104
+        server = await asyncio.start_server(_make_handler(target_port), host=PROXY_BIND_HOST, port=proxy_port)
     except OSError as e:
         logger.warning("preview proxy bind failed proxy_port=%d: %s", proxy_port, e)
         return
     _PROXIES[target_port] = server
-    logger.info("preview proxy started %d -> 127.0.0.1:%d", proxy_port, target_port)
+    logger.info("preview proxy started %s:%d -> 127.0.0.1:%d", PROXY_BIND_HOST, proxy_port, target_port)
 
 
 def _reconcile_proxies() -> None:
@@ -265,7 +266,7 @@ async def _scan_loop() -> None:
             # メインループ上で同期実行する。executor に逃がすと get_event_loop が失敗する。
             if _should_scan_now():
                 scan_once()
-        except Exception as e:  # noqa: BLE001
+        except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as e:
             logger.warning("preview scan failed: %s", e)
         await asyncio.sleep(SCAN_INTERVAL_SEC)
 

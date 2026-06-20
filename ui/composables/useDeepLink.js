@@ -6,6 +6,7 @@ import { useConfirm } from "./useConfirm.js";
 import { usePrompt } from "./usePrompt.js";
 import { emit } from "../app-bridge.js";
 import { buildActionSummary } from "../utils/actionSummary.js";
+import { DEEPLINK_REFIT_DELAY_MS } from "../utils/constants.js";
 
 const VALID_PANES = new Set([
   "history", "files", "changes", "branch", "jobs", "stash", "issues", "actions", "prs",
@@ -86,7 +87,7 @@ export function useDeepLink() {
     emit("tab:select", { tab });
     await nextTick();
     emit("layout:fitAll");
-    setTimeout(() => emit("layout:fitAll"), 200);
+    setTimeout(() => emit("layout:fitAll"), DEEPLINK_REFIT_DELAY_MS);
     return true;
   }
 
