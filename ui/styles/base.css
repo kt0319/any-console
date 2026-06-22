@@ -198,11 +198,20 @@ button:disabled {
   padding: 2px 6px;
   border-radius: 3px;
   white-space: nowrap;
+  line-height: 1;
+  position: relative;
+}
+
+/* テキスト部だけ省略表示。.git-ref 自身は overflow:visible にして data-tooltip
+   の ::after がクリップされないようにする。 */
+.git-ref-text {
   overflow: hidden;
   text-overflow: ellipsis;
+  display: inline-block;
   max-width: 160px;
-  line-height: 1;
+  vertical-align: middle;
 }
+
 
 .git-ref .mdi {
   font-size: 12px;

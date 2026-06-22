@@ -96,7 +96,7 @@ const workspaceStore = useWorkspaceStore();
 const { apiCommand, wsEndpoint } = useApi();
 const toast = useToast();
 const { confirm } = useConfirm();
-const { modalTitle, viewState } = useModalView();
+const { modalTitle, viewState, modalBranch } = useModalView();
 const {
   issuesCount,
   prsCount,
@@ -180,6 +180,7 @@ const tabs = computed(() => {
 function updateViewTitle() {
   const ws = workspaceStore.currentWorkspace;
   modalTitle.value = ws ? workspaceDisplayName(ws) : (workspaceStore.selectedWorkspace || "Git");
+  if (modalBranch) modalBranch.value = ws?.branch || "";
 }
 
 

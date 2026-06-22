@@ -18,7 +18,7 @@
         >
           <h3 class="modal-title">
             <span v-if="canNavigateBack" class="mdi mdi-arrow-left modal-title-back-icon" aria-hidden="true"></span>
-            {{ modalTitle }}<template v-if="modalBranch"><span class="modal-title-sep"> / </span><span class="modal-title-branch">{{ modalBranch }}</span></template>
+            {{ modalTitle }}<template v-if="modalBranch"><span class="modal-title-sep"> / </span><span class="modal-title-branch" :data-tooltip="modalBranch">{{ modalBranch }}</span></template>
           </h3>
         </button>
         <button type="button" class="modal-close-btn" aria-label="Close" data-tooltip="Close" @click="closeModal">&times;</button>

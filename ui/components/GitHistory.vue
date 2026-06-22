@@ -11,7 +11,7 @@
           <span class="git-log-entry-row1">
             <span class="git-log-entry-row1-left">
               <span v-if="selectedCommitForFiles.refs?.length" class="git-log-entry-refs">
-                <span v-for="r in selectedCommitForFiles.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type"><span v-if="r.synced" class="mdi mdi-link-variant"></span><span :class="'mdi ' + r.icon"></span><span v-if="abbreviateRef(r).abbr" class="branch-abbr">{{ abbreviateRef(r).abbr }}</span>{{ abbreviateRef(r).rest }}</span>
+                <span v-for="r in selectedCommitForFiles.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type" :data-tooltip="r.label"><span v-if="r.synced" class="mdi mdi-link-variant"></span><span :class="'mdi ' + r.icon"></span><span class="git-ref-text"><span v-if="abbreviateRef(r).abbr" class="branch-abbr">{{ abbreviateRef(r).abbr }}</span>{{ abbreviateRef(r).rest }}</span></span>
               </span>
             </span>
             <span class="git-log-entry-meta">
@@ -83,7 +83,7 @@
             <span class="git-log-entry-row1">
               <span class="git-log-entry-row1-left">
                 <span v-if="row.entry.refs.length" class="git-log-entry-refs">
-                  <span v-for="r in row.entry.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type"><span v-if="r.synced" class="mdi mdi-link-variant"></span><span :class="'mdi ' + r.icon"></span><span v-if="abbreviateRef(r).abbr" class="branch-abbr">{{ abbreviateRef(r).abbr }}</span>{{ abbreviateRef(r).rest }}</span>
+                  <span v-for="r in row.entry.refs" :key="r.label" class="git-ref" :class="'git-ref-' + r.type" :data-tooltip="r.label"><span v-if="r.synced" class="mdi mdi-link-variant"></span><span :class="'mdi ' + r.icon"></span><span class="git-ref-text"><span v-if="abbreviateRef(r).abbr" class="branch-abbr">{{ abbreviateRef(r).abbr }}</span>{{ abbreviateRef(r).rest }}</span></span>
                 </span>
               </span>
               <span class="git-log-entry-meta">
@@ -302,14 +302,14 @@ defineExpose({
 
 .git-log-entry-row1-left {
   min-width: 0;
-  overflow: hidden;
+  /* overflow:hidden は子の data-tooltip ::after をクリップするため visible。
+     ref ラベル自体は .git-ref の max-width で個別に絞っているので暴走しない。 */
 }
 
 .git-log-entry-refs {
   display: flex;
   gap: 4px;
   flex-wrap: nowrap;
-  overflow: hidden;
 }
 
 .branch-abbr {
