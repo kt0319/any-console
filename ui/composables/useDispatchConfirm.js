@@ -20,6 +20,7 @@ export function useDispatchConfirm() {
     if (!sessionId) return;
     const existing = terminalStore.openTabs.find((t) => t.sessionId === sessionId);
     if (existing) {
+      if (existing.hidden) terminalStore.setTabHidden(existing.id, false);
       emit("tab:select", { tab: existing });
       return;
     }
@@ -47,11 +48,12 @@ export function useDispatchConfirm() {
     if (!req?.workspace) return;
     // dispatch の match=any 仕様に合わせて、workspace 一致タブがあれば即アクティブにする。
     // ユーザがダイアログを見た時点で「どのタブに入力が流れるか」を視認できるようにする。
+    // hidden タブも候補にし、選ばれた時は hidden を解除して可視化する。
     const effectiveWs = req.effective_workspace || req.workspace;
-    const candidates = terminalStore.openTabs.filter((t) => t.workspace === effectiveWs && !t.hidden);
+    const candidates = terminalStore.openTabs.filter((t) => t.workspace === effectiveWs);
     if (!candidates.length) return;
-    // 最後にアクティブだったタブ、なければ最新のもの
     const target = candidates.find((t) => t.id === terminalStore.activeTabId) || candidates[0];
+    if (target.hidden) terminalStore.setTabHidden(target.id, false);
     emit("tab:select", { tab: target });
   }
 
