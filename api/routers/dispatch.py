@@ -115,6 +115,8 @@ def _find_existing_session(workspace: str, job: str, match: str = "any"):
         for sid, sess in TERMINAL_SESSIONS.items():
             if sess.workspace != workspace:
                 continue
+            if sess.hidden:
+                continue
             if match == "job" and sess.job_name != target_job:
                 continue
             if tmux_session_exists(sess.tmux_session_name):

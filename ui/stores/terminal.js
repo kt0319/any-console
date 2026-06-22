@@ -166,8 +166,16 @@ export const useTerminalStore = defineStore("terminal", () => {
     // 入れ替えることで computed (TabBar の hiddenTabCount など) を再評価させる。
     const idx = openTabs.value.findIndex((t) => t.id === tabId);
     if (idx === -1) return;
-    openTabs.value[idx].hidden = !!hidden;
+    const tab = openTabs.value[idx];
+    tab.hidden = !!hidden;
     openTabs.value = [...openTabs.value];
+    // dispatch が hidden セッションへ送らないよう backend にも反映する。
+    if (tab.sessionId) {
+      const auth = useAuthStore();
+      auth.apiFetch(`/terminal/sessions/${encodeURIComponent(tab.sessionId)}/hidden`, {
+        method: "PUT", body: { hidden: !!hidden },
+      }).catch(() => { /* ignore */ });
+    }
   }
 
   function moveTab(fromIndex, toIndex) {

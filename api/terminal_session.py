@@ -77,6 +77,7 @@ class TerminalSession:
         "tmux_session_name",
         "bridges",
         "pending_text", "pending_enter",
+        "hidden",
     )
 
     def __init__(self, workspace: str | None,
@@ -92,6 +93,10 @@ class TerminalSession:
         self.bridges: dict[WebSocket, ClientBridge] = {}
         self.pending_text: str | None = None
         self.pending_enter: bool = True
+        # フロント側で hidden（タブバーから非表示）にされたセッションは
+        # dispatch のターゲット候補から除外する。ユーザが意図的に隠した枠に
+        # 勝手に入力が流れるのを防ぐ。
+        self.hidden: bool = False
 
     def save_metadata(self) -> None:
         pairs = [
@@ -115,11 +120,25 @@ class TerminalSession:
             logger.error("save metadata error session=%s: %s",
                          self.tmux_session_name, e)
 
+    def save_hidden(self) -> None:
+        """tmux のセッション環境変数に hidden 状態を保存する（永続化）。
+        False のときは env を unset して残骸を残さない。"""
+        if self.hidden:
+            argv = ["tmux", "set-environment", "-t", self.tmux_session_name,
+                    "TMUX_HIDDEN", "1"]
+        else:
+            argv = ["tmux", "set-environment", "-u", "-t", self.tmux_session_name,
+                    "TMUX_HIDDEN"]
+        try:
+            subprocess.run(argv, timeout=TMUX_CMD_TIMEOUT_SEC, capture_output=True)
+        except (subprocess.TimeoutExpired, OSError) as e:
+            logger.warning("save_hidden failed session=%s: %s", self.tmux_session_name, e)
+
     @classmethod
     def from_tmux(cls, tmux_name: str) -> "TerminalSession":
         meta = load_tmux_metadata(tmux_name)
         workspace = meta.get("TMUX_WORKSPACE") or detect_workspace_from_tmux(tmux_name)
-        return cls(
+        sess = cls(
             workspace=workspace,
             tmux_session_name=tmux_name,
             icon=meta.get("TMUX_ICON"),
@@ -127,6 +146,8 @@ class TerminalSession:
             job_name=meta.get("TMUX_JOB_NAME"),
             job_label=meta.get("TMUX_JOB_LABEL"),
         )
+        sess.hidden = bool(meta.get("TMUX_HIDDEN"))
+        return sess
 
     def metadata_dict(self) -> dict:
         return {
