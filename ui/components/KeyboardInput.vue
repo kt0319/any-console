@@ -14,6 +14,7 @@
         spellcheck="false"
         enterkeyhint="send"
         :placeholder="placeholder"
+        @keydown.escape="onEscape"
         @compositionstart="composing = true"
         @compositionend="composing = false"
         @focus="onFocus"
@@ -48,6 +49,14 @@ const composing = ref(false);
 // e.code が "" や "Unidentified" になる。
 function isHardwareKeyboardEvent(e) {
   return !!e?.code && e.code !== "Unidentified";
+}
+
+// 入力モード中の Esc で入力モードを抜ける（フォーカスを外す）。
+// IME 変換中の Esc は変換キャンセル用なので素通し。
+function onEscape(e) {
+  if (composing.value || e.isComposing || e.keyCode === 229) return;
+  e.preventDefault();
+  blur();
 }
 
 function onFocus() {
