@@ -1,17 +1,13 @@
 import { reactive } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
-import { useInputStore } from "../stores/input.js";
 import { keyDefToAnsi } from "../utils/key-ansi.js";
-import {
-  LONG_PRESS_MS, FLICK_THRESHOLD,
-  REPEAT_DELAY, REPEAT_INTERVAL, MIN_REPEAT_INTERVAL, REPEAT_ACCELERATION,
-} from "../utils/constants.js";
+import { dispatchKeyToTab, dispatchTextToTab } from "../utils/terminal-dispatch.js";
+import { attachFlickKey } from "./useFlickKey.js";
 
 const modifierState = reactive({ ctrl: false, shift: false });
 
 export function useKeyboard() {
   const terminalStore = useTerminalStore();
-  const inputStore = useInputStore();
 
   function getActiveTerminalTab() {
     const tabs = terminalStore.openTabs;
@@ -22,16 +18,11 @@ export function useKeyboard() {
   }
 
   function sendKeyToTerminal(keyDef) {
-    const tab = getActiveTerminalTab();
-    if (!tab || !tab.ws || tab.ws.readyState !== WebSocket.OPEN) return;
-    const seq = keyDefToAnsi(keyDef);
-    if (seq) tab.ws.send(new TextEncoder().encode(seq));
+    dispatchKeyToTab(getActiveTerminalTab(), keyDef);
   }
 
   function sendTextToTerminal(text) {
-    const tab = getActiveTerminalTab();
-    if (!tab || !tab.ws || tab.ws.readyState !== WebSocket.OPEN) return;
-    tab.ws.send(new TextEncoder().encode(text));
+    dispatchTextToTab(getActiveTerminalTab(), text);
   }
 
   function scrollTerminal(direction) {
@@ -46,91 +37,7 @@ export function useKeyboard() {
   }
 
   function setupFlickRepeat(el, resolveKey, onTap, opts = {}) {
-    let startX = 0, startY = 0;
-    let repeatTimer = null;
-    let repeatingKey = null;
-    let longPressTimer = null;
-    let longPressFired = false;
-    let lastTouchTimestamp = 0;
-
-    const stopRepeat = () => {
-      if (repeatTimer !== null) { clearTimeout(repeatTimer); repeatTimer = null; }
-      repeatingKey = null;
-    };
-    const cancelLongPress = () => {
-      if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
-    };
-    const scheduleRepeat = (key, interval) => {
-      repeatTimer = setTimeout(() => {
-        sendKeyToTerminal(key);
-        const next = opts.accelerateRepeat
-          ? Math.max(MIN_REPEAT_INTERVAL, interval - REPEAT_ACCELERATION)
-          : interval;
-        scheduleRepeat(key, next);
-      }, interval);
-    };
-
-    el.addEventListener("touchstart", (e) => {
-      if (e.cancelable) e.preventDefault();
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      el.classList.add("pressed");
-      stopRepeat();
-      longPressFired = false;
-      if (opts.onLongPress && (!opts.longPressGuard || opts.longPressGuard())) {
-        longPressTimer = setTimeout(() => {
-          longPressTimer = null;
-          longPressFired = true;
-          el.classList.remove("pressed");
-          opts.onLongPress();
-        }, LONG_PRESS_MS);
-      }
-    }, { passive: false });
-
-    el.addEventListener("touchmove", (e) => {
-      const dx = e.touches[0].clientX - startX;
-      const dy = e.touches[0].clientY - startY;
-      const key = resolveKey(dx, dy, FLICK_THRESHOLD);
-      cancelLongPress();
-      if (!key) { stopRepeat(); return; }
-      if (opts.onFlick && opts.onFlick(key, dx, dy)) { stopRepeat(); return; }
-      if (repeatingKey && repeatingKey.key === key.key) return;
-      stopRepeat();
-      repeatingKey = key;
-      sendKeyToTerminal(key);
-      repeatTimer = setTimeout(() => scheduleRepeat(key, REPEAT_INTERVAL), REPEAT_DELAY);
-    }, { passive: true });
-
-    el.addEventListener("touchend", (e) => {
-      if (e.cancelable) e.preventDefault();
-      el.classList.remove("pressed");
-      cancelLongPress();
-      lastTouchTimestamp = Date.now();
-      if (longPressFired) return;
-      if (repeatingKey) { stopRepeat(); return; }
-      const dx = e.changedTouches[0].clientX - startX;
-      const dy = e.changedTouches[0].clientY - startY;
-      const key = resolveKey(dx, dy, FLICK_THRESHOLD);
-      if (key) {
-        if (opts.onFlick && opts.onFlick(key, dx, dy)) return;
-        sendKeyToTerminal(key);
-      } else if (onTap) {
-        onTap();
-      }
-    });
-
-    el.addEventListener("touchcancel", () => {
-      el.classList.remove("pressed");
-      stopRepeat();
-      cancelLongPress();
-      lastTouchTimestamp = Date.now();
-    });
-
-    // マウス（PC）クリック対応。タッチ直後の合成クリックは無視する。
-    el.addEventListener("click", () => {
-      if (Date.now() - lastTouchTimestamp < 500) return;
-      if (onTap) onTap();
-    });
+    attachFlickKey(el, resolveKey, sendKeyToTerminal, onTap, opts);
   }
 
   return {
@@ -144,3 +51,4 @@ export function useKeyboard() {
     getActiveTerminalTab,
   };
 }
+

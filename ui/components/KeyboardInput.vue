@@ -29,11 +29,12 @@
 </template>
 
 <script setup>
-import { ref, nextTick, computed } from "vue";
+import { ref, computed } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useInputDraftHistory } from "../composables/useInputDraftHistory.js";
 import { useHardwareKeyboard } from "../composables/useHardwareKeyboard.js";
+import { useSuppressedBlur } from "../composables/useSuppressedBlur.js";
 import { isComposingEvent } from "../utils/keyboard-event.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 
@@ -48,13 +49,17 @@ const focused = ref(false);
 const composing = ref(false);
 
 const { hasHardwareKeyboard } = useHardwareKeyboard({ inputEl, composing });
+const {
+  markInternal: markInternalInteraction,
+  blur,
+  handleBlur,
+  resetSuppression,
+} = useSuppressedBlur(inputEl);
 
 const placeholder = computed(() => {
   if (focused.value) return "↑↓ history · ←→ snippet";
   return hasHardwareKeyboard.value ? "Tap (or Shift+Space) to input" : "Tap to input";
 });
-let suppressBlurRefocus = false;
-let refocusToken = 0;
 
 // フリックバーの矢印キーと同じ挙動（履歴↑↓、snippet ←→）を
 // 物理キーボードの矢印キーでも再現するため、同じ composable を再利用する。
@@ -82,12 +87,6 @@ function onFocus() {
   bridgeEmit("oskeyboard:show");
 }
 
-function blur() {
-  suppressBlurRefocus = false;
-  refocusToken += 1;
-  inputEl.value?.blur();
-}
-
 function moveCursor(delta) {
   const el = inputEl.value;
   if (!el) return;
@@ -96,19 +95,10 @@ function moveCursor(delta) {
 }
 
 function onBlur() {
-  if (suppressBlurRefocus) {
-    suppressBlurRefocus = false;
-    const token = ++refocusToken;
-    nextTick(() => { if (token === refocusToken) inputEl.value?.focus(); });
-    return;
-  }
+  if (!handleBlur()) return;
   focused.value = false;
   emit("focused", false);
   bridgeEmit("oskeyboard:hide");
-}
-
-function markInternalInteraction() {
-  suppressBlurRefocus = true;
 }
 
 function focus() {
@@ -129,8 +119,7 @@ function backspace() {
 
 function submit() {
   if (composing.value && draft.value.trim()) return;
-  suppressBlurRefocus = false;
-  refocusToken += 1;
+  resetSuppression();
   const text = draft.value.trim();
   // テキストが空なら Enter 単体送信、あれば text のみ送信（Enter は付けない）。
   if (!text) { sendKeyToTerminal({ key: "Enter" }); return; }

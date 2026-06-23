@@ -1,5 +1,5 @@
 import { computed, reactive } from "vue";
-import { keyDefToAnsi } from "../utils/key-ansi.js";
+import { dispatchKeyToTab, dispatchTextToTab } from "../utils/terminal-dispatch.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { getFullBufferText } from "../utils/terminal-buffer-text.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
@@ -125,18 +125,12 @@ export function useRadialKey() {
       return;
     }
     if (s.action === "terminal:clear") {
-      // Ctrl+L 相当
-      if (tab?.ws && tab.ws.readyState === WebSocket.OPEN) {
-        tab.ws.send(new TextEncoder().encode("\x0c"));
-      }
+      dispatchTextToTab(tab, "\x0c"); // Ctrl+L 相当
       return;
     }
     if (s.action === "terminal:paste") {
       navigator.clipboard?.readText?.().then((text) => {
-        if (!text) return;
-        if (tab?.ws && tab.ws.readyState === WebSocket.OPEN) {
-          tab.ws.send(new TextEncoder().encode(text));
-        }
+        if (text) dispatchTextToTab(tab, text);
       }).catch(() => { /* permission denied */ });
       return;
     }
@@ -192,11 +186,7 @@ export function useRadialKey() {
       const idx = Number(id.slice("key:".length));
       const k = keys.value[idx];
       if (!k?.keyDef?.key) return;
-      const seq = keyDefToAnsi(k.keyDef);
-      if (!seq) return;
-      if (tab?.ws && tab.ws.readyState === WebSocket.OPEN) {
-        tab.ws.send(new TextEncoder().encode(seq));
-      }
+      dispatchKeyToTab(tab, k.keyDef);
     }
   }
 
