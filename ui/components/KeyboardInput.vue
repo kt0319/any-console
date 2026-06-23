@@ -29,11 +29,12 @@
 </template>
 
 <script setup>
-import { ref, nextTick, computed, onMounted, onBeforeUnmount } from "vue";
+import { ref, nextTick, computed } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useInputDraftHistory } from "../composables/useInputDraftHistory.js";
-import { keyDefToAnsi } from "../utils/key-ansi.js";
+import { useHardwareKeyboard } from "../composables/useHardwareKeyboard.js";
+import { isComposingEvent } from "../utils/keyboard-event.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 
 const emit = defineEmits(["focused", "submitted"]);
@@ -44,14 +45,16 @@ const { sendTextToTerminal, sendKeyToTerminal } = useKeyboard();
 const draft = defineModel("draft", { default: "" });
 const inputEl = ref(null);
 const focused = ref(false);
+const composing = ref(false);
+
+const { hasHardwareKeyboard } = useHardwareKeyboard({ inputEl, composing });
+
 const placeholder = computed(() => {
   if (focused.value) return "↑↓ history · ←→ snippet";
   return hasHardwareKeyboard.value ? "Tap (or Shift+Space) to input" : "Tap to input";
 });
 let suppressBlurRefocus = false;
 let refocusToken = 0;
-const composing = ref(false);
-const hasHardwareKeyboard = ref(false);
 
 // フリックバーの矢印キーと同じ挙動（履歴↑↓、snippet ←→）を
 // 物理キーボードの矢印キーでも再現するため、同じ composable を再利用する。
@@ -60,22 +63,15 @@ const { historyPrev, historyNext, cycleSnippet } = useInputDraftHistory(
 );
 
 function onArrowKey(e, action) {
-  if (composing.value || e.isComposing || e.keyCode === 229) return;
+  if (isComposingEvent(e, composing.value)) return;
   e.preventDefault();
   action();
-}
-
-// 物理（外付け）キーボード判定: KeyboardEvent.code は物理キー由来のときだけ
-// "KeyA"/"Enter"/"Backspace" 等の値を持つ。iOS のソフトキーボード由来は
-// e.code が "" や "Unidentified" になる。
-function isHardwareKeyboardEvent(e) {
-  return !!e?.code && e.code !== "Unidentified";
 }
 
 // 入力モード中の Esc で入力モードを抜ける（フォーカスを外す）。
 // IME 変換中の Esc は変換キャンセル用なので素通し。
 function onEscape(e) {
-  if (composing.value || e.isComposing || e.keyCode === 229) return;
+  if (isComposingEvent(e, composing.value)) return;
   e.preventDefault();
   blur();
 }
@@ -144,44 +140,6 @@ function submit() {
   inputEl.value?.blur();
   emit("submitted");
 }
-
-// 物理キーボード時はフォーカス位置に関係なく特殊キーを拾うために window で listen。
-// input に focus が無くてもターミナル枠が表に出ていれば BS/Tab/Esc/矢印 が直接届く。
-// 入力モード（input フォーカス時）は draft 蓄積に専念し、Enter は form @submit
-// で送信される。通常時（input にフォーカスなし）かつ物理キーボード由来の
-// キーだけ、ターミナルへ直接送る。
-function onGlobalKeydown(e) {
-  // Shift+Space で input フォームへフォーカス（入力モード切替ショートカット）。
-  if (e.code === "Space" && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
-    if (!isFocused()) {
-      e.preventDefault();
-      focus();
-    }
-    return;
-  }
-  if (isFocused()) return;
-  const target = /** @type {HTMLElement | null} */ (e.target);
-  if (target && target !== inputEl.value) {
-    const tag = target.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return;
-  }
-  if (!isHardwareKeyboardEvent(e)) return;
-  hasHardwareKeyboard.value = true;
-  if (composing.value || e.isComposing || e.keyCode === 229) return;
-  if (e.key === "Shift" || e.key === "Control" || e.key === "Alt" || e.key === "Meta") return;
-  const keyDef = { key: e.key, ctrl: e.ctrlKey, shift: e.shiftKey };
-  const seq = keyDefToAnsi(keyDef);
-  if (seq == null) return;
-  e.preventDefault();
-  sendKeyToTerminal(keyDef);
-}
-
-onMounted(() => {
-  window.addEventListener("keydown", onGlobalKeydown, true);
-});
-onBeforeUnmount(() => {
-  window.removeEventListener("keydown", onGlobalKeydown, true);
-});
 
 defineExpose({ focus, blur, isFocused, appendChar, backspace, submit, moveCursor });
 </script>
