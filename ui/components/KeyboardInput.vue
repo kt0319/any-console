@@ -39,10 +39,14 @@ const { sendTextToTerminal, sendKeyToTerminal } = useKeyboard();
 const draft = defineModel("draft", { default: "" });
 const inputEl = ref(null);
 const focused = ref(false);
-const placeholder = computed(() => focused.value ? "↑↓ history · ←→ snippet" : "Tap to input");
+const placeholder = computed(() => {
+  if (focused.value) return "↑↓ history · ←→ snippet";
+  return hasHardwareKeyboard.value ? "Tap (or Shift+Space) to input" : "Tap to input";
+});
 let suppressBlurRefocus = false;
 let refocusToken = 0;
 const composing = ref(false);
+const hasHardwareKeyboard = ref(false);
 
 // 物理（外付け）キーボード判定: KeyboardEvent.code は物理キー由来のときだけ
 // "KeyA"/"Enter"/"Backspace" 等の値を持つ。iOS のソフトキーボード由来は
@@ -145,6 +149,7 @@ function onGlobalKeydown(e) {
     if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return;
   }
   if (!isHardwareKeyboardEvent(e)) return;
+  hasHardwareKeyboard.value = true;
   if (composing.value || e.isComposing || e.keyCode === 229) return;
   if (e.key === "Shift" || e.key === "Control" || e.key === "Alt" || e.key === "Meta") return;
   const keyDef = { key: e.key, ctrl: e.ctrlKey, shift: e.shiftKey };
