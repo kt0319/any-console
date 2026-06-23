@@ -15,6 +15,10 @@
         enterkeyhint="send"
         :placeholder="placeholder"
         @keydown.escape="onEscape"
+        @keydown.up="(e) => onArrowKey(e, historyPrev)"
+        @keydown.down="(e) => onArrowKey(e, historyNext)"
+        @keydown.left="(e) => onArrowKey(e, () => cycleSnippet(1))"
+        @keydown.right="(e) => onArrowKey(e, () => cycleSnippet(-1))"
         @compositionstart="composing = true"
         @compositionend="composing = false"
         @focus="onFocus"
@@ -28,6 +32,7 @@
 import { ref, nextTick, computed, onMounted, onBeforeUnmount } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
+import { useInputDraftHistory } from "../composables/useInputDraftHistory.js";
 import { keyDefToAnsi } from "../utils/key-ansi.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 
@@ -47,6 +52,18 @@ let suppressBlurRefocus = false;
 let refocusToken = 0;
 const composing = ref(false);
 const hasHardwareKeyboard = ref(false);
+
+// フリックバーの矢印キーと同じ挙動（履歴↑↓、snippet ←→）を
+// 物理キーボードの矢印キーでも再現するため、同じ composable を再利用する。
+const { historyPrev, historyNext, cycleSnippet } = useInputDraftHistory(
+  draft, focused, sendTextToTerminal,
+);
+
+function onArrowKey(e, action) {
+  if (composing.value || e.isComposing || e.keyCode === 229) return;
+  e.preventDefault();
+  action();
+}
 
 // 物理（外付け）キーボード判定: KeyboardEvent.code は物理キー由来のときだけ
 // "KeyA"/"Enter"/"Backspace" 等の値を持つ。iOS のソフトキーボード由来は
