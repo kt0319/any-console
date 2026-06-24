@@ -144,12 +144,16 @@ export const useTerminalStore = defineStore("terminal", () => {
       tab.term = null;
     }
     openTabs.value.splice(idx, 1);
-    if (activeTabId.value === tabId) {
-      const visibleTabs = openTabs.value.filter((t) => !t.hidden);
-      const next = visibleTabs.find((t) => openTabs.value.indexOf(t) >= idx)
-        || visibleTabs[visibleTabs.length - 1];
-      activeTabId.value = next ? next.id : null;
-    }
+    if (activeTabId.value === tabId) pickActiveAfter(idx);
+  }
+
+  // idx 位置以降で最初の visible タブ（無ければ末尾の visible / null）へ active を移す。
+  // タブが閉じられた・hidden 化されて active として使えなくなった時の共通再選出。
+  function pickActiveAfter(idx) {
+    const visibleTabs = openTabs.value.filter((t) => !t.hidden);
+    const next = visibleTabs.find((t) => openTabs.value.indexOf(t) >= idx)
+      || visibleTabs[visibleTabs.length - 1];
+    activeTabId.value = next ? next.id : null;
   }
 
   function switchTab(tabId) {
@@ -169,6 +173,9 @@ export const useTerminalStore = defineStore("terminal", () => {
     const tab = openTabs.value[idx];
     tab.hidden = !!hidden;
     openTabs.value = [...openTabs.value];
+    // アクティブなタブを hidden にしたら、キー入力が裏の hidden タブへ送られない
+    // よう次の visible タブへ active を移す。
+    if (!!hidden && activeTabId.value === tabId) pickActiveAfter(idx);
     // dispatch が hidden セッションへ送らないよう backend にも反映する。
     if (tab.sessionId) {
       const auth = useAuthStore();
