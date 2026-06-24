@@ -107,7 +107,7 @@ export function useDiffFileActions({ selectedCommit, reopenWorkingTreeDiff }) {
 
   async function deleteDiffFile(file) {
     await withWorkspace(async (workspace) => {
-      await _execDiffFileAction(file, wsEndpoint(workspace, "delete-file"), "Delete failed", "Deleted");
+      await _execDiffFileAction(file, wsEndpoint(workspace, "delete-file"), "Delete failed", `Deleted "${file.path.split("/").pop()}"`);
     });
   }
 

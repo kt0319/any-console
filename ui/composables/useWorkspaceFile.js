@@ -35,7 +35,7 @@ export function useWorkspaceFile() {
         { path: filePath },
         { errorMessage },
       );
-      if (ok) toast.success("Deleted");
+      if (ok) toast.success(`Deleted "${filePath.split("/").pop()}"`);
       return ok;
     });
     return result ?? false;
