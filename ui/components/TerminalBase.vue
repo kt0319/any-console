@@ -136,15 +136,6 @@ defineExpose({ fitAllTerminals, selectPane });
   border-color: var(--accent);
 }
 
-.output-container.split-mobile {
-  flex-direction: column;
-}
-
-.output-container.split-mobile > .split-pane {
-  flex: 1;
-  min-height: 0;
-}
-
 .output-container.split-vertical {
   flex-direction: column;
 }
@@ -161,5 +152,15 @@ defineExpose({ fitAllTerminals, selectPane });
 .output-container.split-horizontal > .split-pane {
   flex: 1;
   min-width: 0;
+}
+
+/* モバイルは常に上下レイアウト（split-horizontal より後ろで上書き） */
+.output-container.split-mobile {
+  flex-direction: column;
+}
+
+.output-container.split-mobile > .split-pane {
+  flex: 1;
+  min-height: 0;
 }
 </style>
