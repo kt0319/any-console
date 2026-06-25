@@ -203,6 +203,58 @@ class TestRadialSettings:
         assert res.json()["enabled"] is False
 
 
+class TestLayoutSettings:
+    def test_get_default(self, client):
+        res = client.get("/settings/layout", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json()["split"] is None
+
+    def test_put_and_get(self, client):
+        res = client.put("/settings/layout", headers=AUTH, json={
+            "session_ids": ["sess-a", "sess-b"],
+            "layout": "horizontal",
+            "active_pane_index": 0,
+        })
+        assert res.status_code == 200
+
+        res = client.get("/settings/layout", headers=AUTH)
+        split = res.json()["split"]
+        assert split is not None
+        assert split["session_ids"] == ["sess-a", "sess-b"]
+        assert split["layout"] == "horizontal"
+        assert split["active_pane_index"] == 0
+
+    def test_put_with_null_session_ids(self, client):
+        res = client.put("/settings/layout", headers=AUTH, json={
+            "session_ids": ["sess-a", None, "sess-b"],
+            "layout": "grid",
+            "active_pane_index": 1,
+        })
+        assert res.status_code == 200
+        split = client.get("/settings/layout", headers=AUTH).json()["split"]
+        assert split["session_ids"] == ["sess-a", None, "sess-b"]
+        assert split["layout"] == "grid"
+
+    def test_put_invalid_layout(self, client):
+        res = client.put("/settings/layout", headers=AUTH, json={
+            "session_ids": ["sess-a"],
+            "layout": "invalid",
+            "active_pane_index": 0,
+        })
+        assert res.status_code == 400
+
+    def test_delete(self, client):
+        client.put("/settings/layout", headers=AUTH, json={
+            "session_ids": ["sess-a"],
+            "layout": "horizontal",
+            "active_pane_index": 0,
+        })
+        res = client.delete("/settings/layout", headers=AUTH)
+        assert res.status_code == 200
+        split = client.get("/settings/layout", headers=AUTH).json()["split"]
+        assert split is None
+
+
 class TestRecentJobs:
     def test_get_empty(self, client):
         res = client.get("/recent-jobs", headers=AUTH)

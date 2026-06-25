@@ -170,6 +170,43 @@ def put_radial_settings(body: RadialSettings):
     return {"status": "ok"}
 
 
+SPLIT_LAYOUT_VALUES = {"horizontal", "vertical", "grid"}
+SPLIT_SESSION_IDS_MAX = 16
+
+
+class SplitLayoutSettings(BaseModel):
+    session_ids: list[str | None] = Field(default_factory=list)
+    layout: str = "horizontal"
+    active_pane_index: int = 0
+
+
+@router.get("/settings/layout")
+def get_layout_settings():
+    raw = load_global_config_section("layout", {})
+    if not isinstance(raw, dict):
+        return {"split": None}
+    split = raw.get("split")
+    if not isinstance(split, dict):
+        return {"split": None}
+    return {"split": split}
+
+
+@router.put("/settings/layout")
+def put_layout_settings(body: SplitLayoutSettings):
+    if body.layout not in SPLIT_LAYOUT_VALUES:
+        raise bad_request(f"layout must be one of: {', '.join(sorted(SPLIT_LAYOUT_VALUES))}")
+    if len(body.session_ids) > SPLIT_SESSION_IDS_MAX:
+        raise bad_request(f"session_ids must have at most {SPLIT_SESSION_IDS_MAX} items")
+    save_global_config_section("layout", {"split": body.model_dump()})
+    return {"status": "ok"}
+
+
+@router.delete("/settings/layout")
+def delete_layout_settings():
+    save_global_config_section("layout", {})
+    return {"status": "ok"}
+
+
 MAX_RECENT_JOBS = 5
 MAX_RECENT_JOB_COMMAND_LENGTH = 10000
 

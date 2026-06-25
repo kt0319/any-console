@@ -1,7 +1,9 @@
 import { useAuthStore } from "../stores/auth.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { useLayoutStore } from "../stores/layout.js";
 import { useTerminal } from "./useTerminal.js";
+import { useLayoutPersist } from "./useLayoutPersist.js";
 import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION, SESSION_SYNC_INTERVAL_MS } from "../utils/constants.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 import { emit } from "../app-bridge.js";
@@ -10,7 +12,9 @@ export function useSessionSync() {
   const auth = useAuthStore();
   const terminalStore = useTerminalStore();
   const workspaceStore = useWorkspaceStore();
+  const layoutStore = useLayoutStore();
   const { disconnectTerminal } = useTerminal();
+  const { restoreLayout } = useLayoutPersist();
 
   function _buildTabParams(s, allJobs) {
     const ws = workspaceStore.allWorkspaces.find((w) => w.name === s.workspace);
@@ -65,11 +69,15 @@ export function useSessionSync() {
         terminalStore.addTerminalTab(_buildTabParams(s, allJobs));
       }
 
-      const savedSessionId = localStorage.getItem(LS_KEY_ACTIVE_SESSION);
-      const visibleTabs = terminalStore.openTabs.filter((t) => !t.hidden);
-      const target = (savedSessionId && visibleTabs.find((t) => t.sessionId === savedSessionId))
-        || visibleTabs[0];
-      if (target) terminalStore.switchTab(target.id);
+      await restoreLayout();
+
+      if (!layoutStore.isSplitMode) {
+        const savedSessionId = localStorage.getItem(LS_KEY_ACTIVE_SESSION);
+        const visibleTabs = terminalStore.openTabs.filter((t) => !t.hidden);
+        const target = (savedSessionId && visibleTabs.find((t) => t.sessionId === savedSessionId))
+          || visibleTabs[0];
+        if (target) terminalStore.switchTab(target.id);
+      }
       setTimeout(() => emit("layout:fitAll", { force: true }), LAYOUT_FIT_DELAY_MS);
     } catch (e) {
       console.error("restoreExistingSessions failed:", e);

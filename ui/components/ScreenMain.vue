@@ -52,6 +52,7 @@ import { useGlobalShortcuts } from "../composables/useGlobalShortcuts.js";
 import { useDeepLink } from "../composables/useDeepLink.js";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
 import { usePreviewWatch } from "../composables/usePreviewWatch.js";
+import { useLayoutPersist } from "../composables/useLayoutPersist.js";
 import { on, emit } from "../app-bridge.js";
 
 const layoutStore = useLayoutStore();
@@ -72,6 +73,7 @@ const { booting, bootMessage, initializeApp } = useAppBootstrap();
 const { apply: applyDeepLink } = useDeepLink();
 const { start: startDispatchConfirm } = useDispatchConfirm();
 const { start: startPreviewWatch } = usePreviewWatch();
+const { startWatching: startLayoutPersist } = useLayoutPersist();
 const {
   activateTerminalTab,
   ensureKeyboardTargetTab,
@@ -236,6 +238,7 @@ onMounted(async () => {
     startSyncPolling();
     startDispatchConfirm();
     startPreviewWatch();
+    startLayoutPersist();
   } finally {
     booting.value = false;
     bootMessage.value = "Loading...";
