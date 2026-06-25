@@ -42,7 +42,7 @@ def set_self_ports(ports: list[int]) -> None:
 PROXY_OFFSET = 20000
 PROXY_MIN_TARGET = 1024
 PROXY_MAX_TARGET = 9999  # 10000 以上は +20000 が衝突するのでプロキシ立てない
-PROXY_BIND_HOST = "0.0.0.0"
+PROXY_BIND_HOST = "0.0.0.0"  # noqa: S104
 
 
 def proxy_port_for(target: int) -> int | None:
