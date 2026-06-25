@@ -7,5 +7,6 @@ export function useModalView() {
     viewState: inject("viewState"),
     pushView: inject("pushView"),
     popView: inject("popView"),
+    updateViewState: inject("updateViewState"),
   };
 }

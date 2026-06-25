@@ -90,6 +90,7 @@ provide("modalBranch", modalBranch);
 provide("viewState", currentState);
 provide("pushView", pushView);
 provide("popView", popView);
+provide("updateViewState", updateViewState);
 
 function setPaneRef(el) {
   currentPaneRef.value = el;
@@ -98,6 +99,13 @@ function setPaneRef(el) {
 function pushView(view, state = {}) {
   modalBranch.value = "";
   viewStack.value = [...viewStack.value, { view, state }];
+}
+
+function updateViewState(state) {
+  if (!viewStack.value.length) return;
+  const stack = viewStack.value.slice();
+  stack[stack.length - 1] = { ...stack[stack.length - 1], state };
+  viewStack.value = stack;
 }
 
 function popView(result) {

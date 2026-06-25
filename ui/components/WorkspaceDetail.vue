@@ -79,7 +79,7 @@ const workspaceStore = useWorkspaceStore();
 const { apiCommand, wsEndpoint } = useApi();
 const toast = useToast();
 const { confirm } = useConfirm();
-const { modalTitle, viewState, modalBranch } = useModalView();
+const { modalTitle, viewState, modalBranch, updateViewState } = useModalView();
 const {
   issuesCount,
   prsCount,
@@ -191,6 +191,7 @@ async function switchPane(key) {
   if (key === "browser") key = "history";
 
   activePane.value = key;
+  updateViewState?.({ detail: { pane: key } });
   updateViewTitle();
 
   if (key === "history") {
