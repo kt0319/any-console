@@ -10,10 +10,15 @@ class TestAuthSettings:
     def setup_method(self):
         import api.auth as _auth
         self._original_token = _auth.ANY_CONSOLE_TOKEN
+        self._original_file = _auth._AUTH_FILE.read_text() if _auth._AUTH_FILE.exists() else None
 
     def teardown_method(self):
         import api.auth as _auth
         _auth.ANY_CONSOLE_TOKEN = self._original_token
+        if self._original_file is not None:
+            _auth._AUTH_FILE.write_text(self._original_file)
+        elif _auth._AUTH_FILE.exists():
+            _auth._AUTH_FILE.unlink()
 
     def test_get_auth_settings(self, client):
         res = client.get("/settings/auth", headers=AUTH)

@@ -40,16 +40,14 @@ export function useLayoutPersist() {
       return;
     }
     const session_ids = layoutStore.splitPaneTabIds.map(_tabIdToSessionId);
-    const body = {
-      session_ids,
-      layout: layoutStore.splitLayout || "horizontal",
-      active_pane_index: layoutStore.activePaneIndex,
-    };
     try {
       await auth.apiFetch(EP_SETTINGS_LAYOUT, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: {
+          session_ids,
+          layout: layoutStore.splitLayout || "horizontal",
+          active_pane_index: layoutStore.activePaneIndex,
+        },
       });
     } catch {}
   }

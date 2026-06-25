@@ -207,13 +207,20 @@ onMounted(() => {
   if (props.tab._pendingOpen && frameEl.value) {
     // 非アクティブな復元タブは hidden 状態で term.open() を呼ぶと
     // xterm.js のセル寸法計測が 0 になり fit が永久に失敗するため、
-    // isActive になるまで open を遅延させる
-    if (!isActive.value && props.tab._pendingRedraw) {
+    // isActive になるまで open を遅延させる。
+    // ただし分割モードのペインは非アクティブでも画面上に表示されているので即時 open する。
+    const inVisibleSplitPane = layoutStore.isSplitMode && props.paneIndex >= 0;
+    if (!isActive.value && props.tab._pendingRedraw && !inVisibleSplitPane) {
       // isActive watcher で開く
     } else {
       ensureTerminalOpened(props.tab, frameEl.value);
       applyFocusGuard(props.tab.term);
       requestAnimationFrame(() => fitTerminal(props.tab));
+      // 非アクティブな分割ペインは isActive watcher が発火しないため WS 接続を自分でトリガー
+      if (inVisibleSplitPane && !isActive.value && props.tab._pendingRedraw
+          && !props.tab.ws && !props.tab._wsDisposed) {
+        connectTerminalWs(props.tab, { onOpen: () => requestAnimationFrame(() => fitTerminal(props.tab)) });
+      }
     }
   } else if (props.tab.term && frameEl.value && props.tab.term.element) {
     frameEl.value.appendChild(props.tab.term.element);
