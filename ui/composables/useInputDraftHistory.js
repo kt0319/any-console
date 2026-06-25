@@ -11,8 +11,11 @@ export function useInputDraftHistory(draft, inputFocused, sendTextToTerminal, { 
   const inputStore = useInputStore();
 
   let historyIndex = -1;
-  let savedDraft = "";
+  // history ナビ開始前の途中入力（history を抜けたときに復元する）
+  let savedHistoryDraft = "";
+
   let snippetIndex = -1;
+  // snippet ナビ開始前の途中入力（snippet を抜けたときに復元する）
   let savedSnippetDraft = "";
 
   watch(draft, (val) => {
@@ -25,7 +28,7 @@ export function useInputDraftHistory(draft, inputFocused, sendTextToTerminal, { 
   function historyPrev() {
     const list = inputStore.inputHistory;
     if (!list.length) return;
-    if (historyIndex === -1) savedDraft = draft.value;
+    if (historyIndex === -1) savedHistoryDraft = draft.value;
     historyIndex = Math.min(historyIndex + 1, list.length - 1);
     draft.value = list[historyIndex];
   }
@@ -35,7 +38,7 @@ export function useInputDraftHistory(draft, inputFocused, sendTextToTerminal, { 
     historyIndex -= 1;
     if (historyIndex < 0) {
       historyIndex = -1;
-      draft.value = savedDraft;
+      draft.value = savedHistoryDraft;
       return;
     }
     draft.value = inputStore.inputHistory[historyIndex];
@@ -45,22 +48,29 @@ export function useInputDraftHistory(draft, inputFocused, sendTextToTerminal, { 
     const list = inputStore.snippetsCache;
     if (!list.length) return;
     if (inputFocused.value) {
-      // 入力中は左右で末尾⇄先頭をループする
+      // 入力中は左右でスニペットを順送り。境界を越えたら snippet 開始前の状態に戻る。
       if (snippetIndex === -1) {
         savedSnippetDraft = draft.value;
         snippetIndex = dir > 0 ? 0 : list.length - 1;
       } else {
-        snippetIndex = (snippetIndex + dir + list.length) % list.length;
+        const next = snippetIndex + dir;
+        if (next < 0 || next >= list.length) {
+          snippetIndex = -1;
+          draft.value = savedSnippetDraft;
+          return;
+        }
+        snippetIndex = next;
       }
       const command = list[snippetIndex]?.command;
       if (command) draft.value = command;
       return;
     }
-    // 非フォーカス時は順送りで端まで進んだら原稿に戻る既存挙動
+    // 非フォーカス時は順送りで端まで進んだら snippet 開始前の状態に戻る
     if (snippetIndex === -1) savedSnippetDraft = draft.value;
     const next = snippetIndex + dir;
     if (next < 0) {
       snippetIndex = -1;
+      draft.value = savedSnippetDraft;
       return;
     }
     snippetIndex = Math.min(next, list.length - 1);
