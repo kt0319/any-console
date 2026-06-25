@@ -2,13 +2,8 @@
   <div class="modal-scroll-body">
     <div v-if="loading" class="text-muted-center">Loading...</div>
     <template v-else>
-      <div class="preview-head">
-        <div class="settings-item-desc">
-          Detected local dev server ports. Tap Open to view in a new tab.
-        </div>
-        <button type="button" class="preview-refresh" :disabled="refreshing" @click="reload" title="Refresh">
-          <span class="mdi mdi-refresh" :class="{ spinning: refreshing }"></span>
-        </button>
+      <div class="settings-item-desc">
+        Detected local dev servers on <code>{{ hostname }}</code>.
       </div>
       <div v-if="!ports.length" class="settings-item-desc">
         No ports detected yet. Start a dev server (e.g. <code>npm run dev</code>) in a terminal.
@@ -20,7 +15,7 @@
             <span v-if="p.proxy_port" class="preview-proxy"> → :{{ p.proxy_port }}</span>
             <span v-if="p.is_self" class="preview-self">this console</span>
           </span>
-          <span class="preview-sub">{{ p.process }}<span v-if="p.pid"> (pid {{ p.pid }})</span></span>
+          <span class="preview-sub">{{ p.process }}<span v-if="p.pid"> [pid {{ p.pid }}]</span></span>
         </div>
         <template v-if="!p.is_self">
           <button type="button" class="preview-copy" :title="copiedPort === p.port ? 'Copied!' : 'Copy URL'" @click="copyUrl(p)">
@@ -47,6 +42,7 @@ const loading = ref(true);
 const refreshing = ref(false);
 const ports = ref([]);
 const copiedPort = ref(null);
+const hostname = location.hostname;
 
 function buildPreviewUrl(p) {
   // ユニークポート方式: any-console が target+20000 で TCP proxy を立てている。
@@ -123,12 +119,14 @@ onMounted(async () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  align-self: flex-end;
 }
 .preview-open {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 12px;
+  padding: 0 12px;
+  height: 36px;
   background: var(--accent);
   color: var(--bg-primary);
   border: none;
@@ -142,7 +140,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   width: 36px;
-  height: 32px;
+  height: 36px;
   background: var(--bg-tertiary);
   color: var(--text-secondary);
   border: 1px solid var(--border);
@@ -152,7 +150,6 @@ onMounted(async () => {
 }
 .preview-proxy {
   color: var(--accent);
-  font-size: 13px;
 }
 .preview-self {
   margin-left: 6px;
@@ -165,36 +162,6 @@ onMounted(async () => {
 .preview-skip {
   font-size: 12px;
   color: var(--text-muted);
-}
-.preview-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.preview-head .settings-item-desc {
-  flex: 1;
-  margin: 0;
-}
-.preview-refresh {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 32px;
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  font-size: 16px;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.spinning {
-  animation: spin 1s linear infinite;
-}
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 code {
   font-family: monospace;
