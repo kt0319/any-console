@@ -146,6 +146,7 @@ class RadialSpecialDef(BaseModel):
 class RadialSettings(BaseModel):
     keys: list[RadialKeyDef] = Field(default_factory=list)
     specials: list[RadialSpecialDef] = Field(default_factory=list)
+    enabled: bool = True
 
 
 @router.get("/settings/radial")
@@ -155,7 +156,8 @@ def get_radial_settings():
         raw = {}
     keys = raw.get("keys") if isinstance(raw.get("keys"), list) else []
     specials = raw.get("specials") if isinstance(raw.get("specials"), list) else []
-    return {"keys": keys, "specials": specials}
+    enabled = raw.get("enabled", True)
+    return {"keys": keys, "specials": specials, "enabled": bool(enabled)}
 
 
 @router.put("/settings/radial")

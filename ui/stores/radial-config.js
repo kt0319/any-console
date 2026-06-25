@@ -28,6 +28,7 @@ export const useRadialConfigStore = defineStore("radial-config", () => {
   const keys = ref(defaultKeyDefs());
   /** @type {import("vue").Ref<Array<{label: string, action: string, payload: object | null}>>} */
   const specials = ref(defaultSpecialDefs());
+  const enabled = ref(true);
   const loaded = ref(false);
 
   async function load() {
@@ -38,6 +39,7 @@ export const useRadialConfigStore = defineStore("radial-config", () => {
         const data = await res.json();
         keys.value = sanitizeKeys(data.keys);
         specials.value = sanitizeSpecials(data.specials);
+        enabled.value = data.enabled !== false;
       }
     } catch { /* keep defaults */ }
     loaded.value = true;
@@ -47,14 +49,15 @@ export const useRadialConfigStore = defineStore("radial-config", () => {
     const auth = useAuthStore();
     await auth.apiFetch(EP_SETTINGS_RADIAL, {
       method: "PUT",
-      body: { keys: keys.value, specials: specials.value },
+      body: { keys: keys.value, specials: specials.value, enabled: enabled.value },
     });
   }
 
   function resetToDefaults() {
     keys.value = defaultKeyDefs();
     specials.value = defaultSpecialDefs();
+    enabled.value = true;
   }
 
-  return { keys, specials, loaded, load, save, resetToDefaults };
+  return { keys, specials, enabled, loaded, load, save, resetToDefaults };
 });

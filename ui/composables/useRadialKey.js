@@ -195,5 +195,7 @@ export function useRadialKey() {
     state.activeId = null;
   }
 
-  return { state, open, update, commitAndClose, cancel, keys, specials };
+  const enabled = computed(() => config.enabled);
+
+  return { state, open, update, commitAndClose, cancel, keys, specials, enabled };
 }

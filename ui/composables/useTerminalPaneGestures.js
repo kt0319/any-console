@@ -62,7 +62,7 @@ export function useTerminalPaneGestures({ tab, pillEl, radial, isActive, paneInd
       touchMoved = true;
       cancelLongPressTimer();
     }
-    if (radial) {
+    if (radial && radial.enabled) {
       if (!radial.state.visible && Math.hypot(dx, dy) > RADIAL_TRIGGER_PX) {
         radial.open(startX, startY);
         if (navigator.vibrate) navigator.vibrate(15);

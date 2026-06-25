@@ -3,6 +3,13 @@
     <div v-if="!radial.loaded" class="text-muted-center">Loading...</div>
     <template v-else>
       <div class="radial-cfg-section">
+        <label class="radial-cfg-enable">
+          <input type="checkbox" v-model="radial.enabled">
+          Enable radial key
+        </label>
+      </div>
+
+      <div class="radial-cfg-section">
         <div class="radial-cfg-section-title">Directional keys</div>
         <p class="radial-cfg-desc">8 keys around the ring, clockwise from north.</p>
         <div v-for="(k, i) in radial.keys" :key="i" class="radial-cfg-row">
@@ -151,5 +158,24 @@ async function save() {
 
 .radial-cfg-actions button {
   flex: 1;
+}
+
+.radial-cfg-enable {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.radial-cfg-enable input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent, currentColor);
 }
 </style>
