@@ -26,7 +26,7 @@ from .errors import bad_request, too_large
 from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
 from .routers import devices as devices_router
-from .routers import dispatch, git, github, groups, job_runner, jobs, rss, settings, system, terminal, workspaces
+from .routers import dispatch, git, github, groups, job_runner, jobs, settings, system, terminal, workspaces
 from .routers import preview as preview_router
 
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 (intentional: local network bind for personal console)
@@ -187,7 +187,6 @@ app.include_router(workspaces.router)
 app.include_router(groups.router)
 app.include_router(git.router)
 app.include_router(github.router)
-app.include_router(rss.router)
 app.include_router(jobs.router)
 app.include_router(job_runner.router)
 app.include_router(dispatch.router)

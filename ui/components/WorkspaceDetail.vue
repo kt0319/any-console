@@ -12,9 +12,6 @@
         <span :class="['mdi', tab.icon]" :style="tab.iconColor ? { color: tab.iconColor } : null"></span>
         <span class="workspace-tab-label">{{ tab.label }}<span v-if="tab.count"> ({{ tab.count }})</span></span>
       </button>
-      <button class="workspace-tab-rss-add" aria-label="Add RSS feed" data-tooltip="Add RSS feed" @click="onRssAddFeed">
-        <span class="mdi mdi-plus"></span>
-      </button>
     </div>
 
     <!-- タブコンテンツ -->
@@ -50,22 +47,7 @@
       <div v-if="activePane === 'prs'" class="file-modal-pane">
         <GitHubPRsPane ref="githubPrs" @count="prsCount = $event" />
       </div>
-      <div v-if="activePane.startsWith('rss-')" class="file-modal-pane">
-        <RSSPane :key="activePane" :feed="currentRssFeed" @removed="onFeedRemoved" @edit="onFeedEdit" />
-      </div>
     </div>
-
-    <!-- RSS追加ダイアログ -->
-    <RssFeedDialog
-      v-if="rssAddingFeed"
-      v-model:url="rssNewFeedUrl"
-      v-model:title="rssNewFeedTitle"
-      :editing-feed="rssEditingFeed"
-      :error="rssAddError"
-      :submitting="rssAddSubmitting"
-      @submit="submitRssAddFeed"
-      @close="rssAddingFeed = false"
-    />
   </div>
 </template>
 
@@ -80,15 +62,12 @@ import WorkspaceJobsPane from "./WorkspaceJobsPane.vue";
 import GitHubIssuesPane from "./GitHubIssuesPane.vue";
 import GitHubActionsPane from "./GitHubActionsPane.vue";
 import GitHubPRsPane from "./GitHubPRsPane.vue";
-import RSSPane from "./RSSPane.vue";
-import RssFeedDialog from "./RssFeedDialog.vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { useToast } from "../composables/useToast.js";
 import { useModalView } from "../composables/useModalView.js";
 import { useWorkspaceCounts } from "../composables/useWorkspaceCounts.js";
-import { useWorkspaceRssTabs } from "../composables/useWorkspaceRssTabs.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { workspaceDisplayName } from "../utils/worktree.js";
 
@@ -125,26 +104,6 @@ const diffMessage = ref("");
 const fileBrowserDeep = ref(false);
 const historyExpanded = ref(false);
 
-// RSS タブ（state・ロジックは composable 側に集約）
-const {
-  rssFeeds,
-  rssNewItemCounts,
-  rssAddingFeed,
-  rssEditingFeed,
-  rssNewFeedUrl,
-  rssNewFeedTitle,
-  rssAddError,
-  rssAddSubmitting,
-  rssLabel,
-  currentRssFeed,
-  loadRssFeeds,
-  onRssAddFeed,
-  onFeedEdit,
-  submitRssAddFeed,
-  checkRssUpdates,
-  onFeedRemoved,
-} = useWorkspaceRssTabs({ activePane, switchPane, confirm });
-
 function onFileBrowserState({ atRoot, fileOpen }) {
   fileBrowserDeep.value = !atRoot || fileOpen;
 }
@@ -167,12 +126,6 @@ const tabs = computed(() => {
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !hasGithub.value || !issuesCount.value },
     { key: "actions", icon: "mdi-github", label: "Actions", hidden: !hasGithub.value },
     { key: "prs", icon: "mdi-github", label: "PRs", count: prsCount.value || 0, hidden: !hasGithub.value || !prsCount.value },
-    ...rssFeeds.value.map((f) => ({
-      key: `rss-${f.id}`,
-      icon: "mdi-rss",
-      label: rssLabel(f),
-      count: rssNewItemCounts.value[f.id] || 0,
-    })),
   ];
   return list.filter((t) => !t.hidden);
 });
@@ -218,14 +171,8 @@ function open(options) {
 
   const workspaceChanged = workspace !== loadedWorkspace;
   if (workspaceChanged) {
-    rssNewItemCounts.value = {};
-    // History(git-log) / Files は表示ペインを開いた時に遅延ロードする。
     historyLoadedFor = null;
     filesLoadedFor = null;
-  }
-  loadRssFeeds().then(() => checkRssUpdates());
-
-  if (workspaceChanged) {
     loadedWorkspace = workspace;
   }
 
@@ -241,7 +188,6 @@ async function switchPane(key) {
   updateViewTitle();
 
   if (key === "history") {
-    // GitHistory は v-show で常時マウント済み。表示時に未ロードならロード（git-log の無駄打ち防止）
     nextTick(() => {
       if (historyLoadedFor !== workspaceStore.selectedWorkspace) {
         historyLoadedFor = workspaceStore.selectedWorkspace;
@@ -260,7 +206,6 @@ async function switchPane(key) {
   } else if (key === "jobs") {
     nextTick(() => jobsPane.value?.load());
   } else if (key === "files") {
-    // FileBrowser は v-show で常時マウント済み。表示時に未ロードならロード
     nextTick(() => {
       if (filesLoadedFor !== workspaceStore.selectedWorkspace) {
         filesLoadedFor = workspaceStore.selectedWorkspace;
@@ -268,7 +213,7 @@ async function switchPane(key) {
       }
     });
   }
-  // issues/actions/prs/rss-* は v-if + onMounted で自動ロード
+  // issues/actions/prs は v-if + onMounted で自動ロード
 }
 
 function onStashCount(n) {
@@ -311,7 +256,6 @@ const _offHandlers = [
   }),
 
   on("git:commitDone", () => {
-    // History を表示中なら再取得、そうでなければ次に開いた時に再取得させる。
     if (activePane.value === "history") {
       gitHistory.value?.reload();
     } else {
@@ -419,34 +363,6 @@ onMounted(() => {
   line-height: 1;
 }
 
-.workspace-tab-rss-add {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-muted);
-  cursor: pointer;
-  flex-shrink: 0;
-  align-self: center;
-  margin-left: 4px;
-}
-
-.workspace-tab-rss-add .mdi {
-  font-size: 16px;
-  line-height: 1;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .workspace-tab-rss-add:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-}
-
 /* タブコンテンツ */
 .workspace-tab-content {
   flex: 1;
@@ -466,10 +382,6 @@ onMounted(() => {
   }
 
   .workspace-tab {
-    border-radius: 0 0 var(--radius) var(--radius);
-  }
-
-  .workspace-tab-rss-add {
     border-radius: 0 0 var(--radius) var(--radius);
   }
 }
