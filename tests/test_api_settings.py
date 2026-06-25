@@ -3,6 +3,38 @@ import json
 from conftest import AUTH, find_ws_entry
 
 
+# --- 認証設定 ---
+
+
+class TestAuthSettings:
+    def setup_method(self):
+        import api.auth as _auth
+        self._original_token = _auth.ANY_CONSOLE_TOKEN
+
+    def teardown_method(self):
+        import api.auth as _auth
+        _auth.ANY_CONSOLE_TOKEN = self._original_token
+
+    def test_get_auth_settings(self, client):
+        res = client.get("/settings/auth", headers=AUTH)
+        assert res.status_code == 200
+        assert "auth_required" in res.json()
+
+    def test_put_disable_auth(self, client):
+        res = client.put("/settings/auth", headers=AUTH, json={"enabled": False, "token": ""})
+        assert res.status_code == 200
+        assert res.json()["auth_required"] is False
+
+    def test_put_enable_auth_requires_token(self, client):
+        res = client.put("/settings/auth", headers=AUTH, json={"enabled": True, "token": ""})
+        assert res.status_code == 400
+
+    def test_put_enable_auth_with_token(self, client):
+        res = client.put("/settings/auth", headers=AUTH, json={"enabled": True, "token": "newtoken"})
+        assert res.status_code == 200
+        assert res.json()["auth_required"] is True
+
+
 # --- 設定エクスポート/インポート ---
 
 
@@ -59,6 +91,33 @@ class TestSettings:
         assert res.json() == {}
 
 
+class TestConfigHealth:
+    def test_get_config_health(self, client):
+        res = client.get("/settings/config-health", headers=AUTH)
+        assert res.status_code == 200
+        assert "ok" in res.json() or isinstance(res.json(), dict)
+
+    def test_import_content_length_too_large(self, client):
+        res = client.post(
+            "/settings/import",
+            headers={**AUTH, "Content-Type": "application/json", "Content-Length": str(2 * 1024 * 1024)},
+            content=json.dumps({}),
+        )
+        assert res.status_code == 413
+
+    def test_import_global_config_key(self, client, isolate_fs):
+        res = client.post("/settings/import", headers=AUTH, json={"__global__": {"editor": {}}})
+        assert res.status_code == 200
+
+    def test_import_non_dict_ws_config_is_skipped(self, client):
+        res = client.post("/settings/import", headers=AUTH, json={"some-ws": "not-a-dict"})
+        assert res.status_code == 200
+
+    def test_import_workspace_path_not_dir_is_skipped(self, client, isolate_fs):
+        res = client.post("/settings/import", headers=AUTH, json={"test-ws": {"icon": "star"}})
+        assert res.status_code == 200
+
+
 class TestEditorSettings:
     def test_get_default(self, client):
         res = client.get("/settings/editor", headers=AUTH)
@@ -93,6 +152,124 @@ class TestEditorSettings:
 
         res = client.get("/settings/editor", headers=AUTH)
         assert res.json()["url_template"] == ""
+
+    def test_get_falls_back_when_config_not_dict(self, client, isolate_fs):
+        import json as _json
+        isolate_fs["config_file"].write_text(_json.dumps({"__global__": {"editor": "broken"}}))
+        res = client.get("/settings/editor", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json()["url_template"] == ""
+
+
+class TestRadialSettings:
+    def test_get_default(self, client):
+        res = client.get("/settings/radial", headers=AUTH)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["keys"] == []
+        assert data["specials"] == []
+        assert data["enabled"] is True
+
+    def test_get_enabled_false(self, client, isolate_fs):
+        import json as _json
+        isolate_fs["config_file"].write_text(_json.dumps({"__global__": {"radial": {"enabled": False, "keys": [], "specials": []}}}))
+        res = client.get("/settings/radial", headers=AUTH)
+        assert res.json()["enabled"] is False
+
+    def test_put_and_get(self, client):
+        keys = [{"key": str(i), "ctrl": False, "shift": False, "label": f"k{i}"} for i in range(8)]
+        specials = [{"label": f"s{i}", "action": f"action:{i}", "payload": None} for i in range(4)]
+        res = client.put("/settings/radial", headers=AUTH, json={"keys": keys, "specials": specials, "enabled": True})
+        assert res.status_code == 200
+
+        res = client.get("/settings/radial", headers=AUTH)
+        assert len(res.json()["keys"]) == 8
+        assert res.json()["enabled"] is True
+
+    def test_put_wrong_key_count(self, client):
+        res = client.put("/settings/radial", headers=AUTH, json={"keys": [{"key": "a", "ctrl": False, "shift": False, "label": "x"}], "specials": [], "enabled": True})
+        assert res.status_code == 400
+
+    def test_put_wrong_special_count(self, client):
+        keys = [{"key": str(i), "ctrl": False, "shift": False, "label": f"k{i}"} for i in range(8)]
+        specials = [{"label": "x", "action": "y", "payload": None}]
+        res = client.put("/settings/radial", headers=AUTH, json={"keys": keys, "specials": specials, "enabled": True})
+        assert res.status_code == 400
+
+    def test_put_disabled(self, client):
+        res = client.put("/settings/radial", headers=AUTH, json={"keys": [], "specials": [], "enabled": False})
+        assert res.status_code == 200
+        res = client.get("/settings/radial", headers=AUTH)
+        assert res.json()["enabled"] is False
+
+
+class TestRecentJobs:
+    def test_get_empty(self, client):
+        res = client.get("/recent-jobs", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json()["jobs"] == []
+
+    def test_record_and_get(self, client):
+        item = {
+            "key": "ws/job",
+            "workspace": "ws",
+            "wsIcon": "",
+            "wsIconColor": "",
+            "jobName": "job",
+            "jobLabel": "Job",
+            "jobIcon": "",
+            "jobIconColor": "",
+            "jobCommand": "echo hi",
+            "jobConfirm": None,
+            "jobHiddenTab": False,
+        }
+        res = client.post("/recent-jobs", headers=AUTH, json=item)
+        assert res.status_code == 200
+        assert len(res.json()["jobs"]) == 1
+        assert res.json()["jobs"][0]["key"] == "ws/job"
+
+        res = client.get("/recent-jobs", headers=AUTH)
+        assert len(res.json()["jobs"]) == 1
+
+    def test_deduplicates_by_key(self, client):
+        item = {
+            "key": "ws/job",
+            "workspace": "ws",
+            "wsIcon": "",
+            "wsIconColor": "",
+            "jobName": "job",
+            "jobLabel": "A",
+            "jobIcon": "",
+            "jobIconColor": "",
+            "jobCommand": "echo 1",
+            "jobConfirm": None,
+            "jobHiddenTab": False,
+        }
+        client.post("/recent-jobs", headers=AUTH, json=item)
+        item["jobLabel"] = "B"
+        client.post("/recent-jobs", headers=AUTH, json=item)
+        res = client.get("/recent-jobs", headers=AUTH)
+        assert len(res.json()["jobs"]) == 1
+        assert res.json()["jobs"][0]["jobLabel"] == "B"
+
+    def test_capped_at_five(self, client):
+        for i in range(7):
+            item = {
+                "key": f"ws/job{i}",
+                "workspace": "ws",
+                "wsIcon": "",
+                "wsIconColor": "",
+                "jobName": f"job{i}",
+                "jobLabel": "",
+                "jobIcon": "",
+                "jobIconColor": "",
+                "jobCommand": f"echo {i}",
+                "jobConfirm": None,
+                "jobHiddenTab": False,
+            }
+            client.post("/recent-jobs", headers=AUTH, json=item)
+        res = client.get("/recent-jobs", headers=AUTH)
+        assert len(res.json()["jobs"]) == 5
 
 
 class TestSnippets:
