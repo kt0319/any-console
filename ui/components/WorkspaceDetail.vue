@@ -47,6 +47,9 @@
       <div v-if="activePane === 'prs'" class="file-modal-pane">
         <GitHubPRsPane ref="githubPrs" @count="prsCount = $event" />
       </div>
+      <div v-show="activePane === 'select'" class="file-modal-pane">
+        <TerminalSelectPane ref="terminalSelectPane" />
+      </div>
     </div>
   </div>
 </template>
@@ -62,6 +65,7 @@ import WorkspaceJobsPane from "./WorkspaceJobsPane.vue";
 import GitHubIssuesPane from "./GitHubIssuesPane.vue";
 import GitHubActionsPane from "./GitHubActionsPane.vue";
 import GitHubPRsPane from "./GitHubPRsPane.vue";
+import TerminalSelectPane from "./TerminalSelectPane.vue";
 import { on, emit as bridgeEmit } from "../app-bridge.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
@@ -96,6 +100,7 @@ const githubIssues = ref(null);
 const githubActions = ref(null);
 const githubPrs = ref(null);
 const jobsPane = ref(null);
+const terminalSelectPane = ref(null);
 
 const activePane = ref("jobs");
 const selectedDiffFile = ref("");
@@ -126,6 +131,7 @@ const tabs = computed(() => {
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !hasGithub.value || !issuesCount.value },
     { key: "actions", icon: "mdi-github", label: "Actions", hidden: !hasGithub.value },
     { key: "prs", icon: "mdi-github", label: "PRs", count: prsCount.value || 0, hidden: !hasGithub.value || !prsCount.value },
+    { key: "select", icon: "mdi-content-copy", label: "Select & Copy" },
   ];
   return list.filter((t) => !t.hidden);
 });
@@ -214,6 +220,9 @@ async function switchPane(key) {
     });
   }
   // issues/actions/prs は v-if + onMounted で自動ロード
+  if (key === "select") {
+    nextTick(() => terminalSelectPane.value?.refresh());
+  }
 }
 
 function onStashCount(n) {
