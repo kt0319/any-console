@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { MOBILE_BREAKPOINT_PX } from "../utils/constants.js";
-import { isEmptyPaneId, makeEmptyPaneId, countRealPanes } from "../utils/empty-pane.js";
+import { isEmptyPaneId, makeEmptyPaneId, countRealPanes, realTabIds } from "../utils/empty-pane.js";
 
 export const useLayoutStore = defineStore("layout", () => {
   const isTouchDevice = !window.matchMedia("(pointer: fine)").matches && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
@@ -157,6 +157,26 @@ export const useLayoutStore = defineStore("layout", () => {
     return restoreTabId;
   }
 
+  /**
+   * 指定タブを分割から外す。残り実ペインが1つになったら分割解除する。
+   * 分割解除時は残ったタブのIDを返す（呼び出し元でアクティブタブを切り替えるため）。
+   * @returns {number|null} 切り替え先タブID（分割解除時のみ）
+   */
+  function removeFromSplit(tabId) {
+    if (!isSplitMode.value) return null;
+    const ids = splitPaneTabIds.value.filter((id) => id !== tabId);
+    const remaining = realTabIds(ids);
+    if (remaining.length <= 1) {
+      exitSplitMode();
+      return remaining[0] ?? null;
+    }
+    splitPaneTabIds.value = ids;
+    if (activePaneIndex.value >= ids.length) {
+      activePaneIndex.value = ids.length - 1;
+    }
+    return null;
+  }
+
   return {
     isPanelBottom,
     isTouchDevice,
@@ -172,6 +192,7 @@ export const useLayoutStore = defineStore("layout", () => {
     exitSplitMode,
     assignTabToPane,
     replaceTabWithEmpty,
+    removeFromSplit,
     isEmptyPaneId,
     countRealPanes,
   };

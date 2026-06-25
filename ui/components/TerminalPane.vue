@@ -12,21 +12,32 @@
     <StatusOverlay :visible="isReconnecting" :label="reconnectLabel" variant="warning" />
     <RadialKey :state="radial.state" :keys="radialKeys" :specials="radialSpecials" />
     <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
-      <div
-        class="terminal-info-pill"
-        :class="{ 'tab-activity': tab._activity, dragging: pillDragging }"
-        ref="pillEl"
-        tabindex="-1"
-        @mousedown="onPillMouseDown"
-        @click="onPillClick"
-        @touchstart.passive="onPillTouchStart"
-      >
-        <span class="terminal-info-pill-info">
-          <span v-if="tab.wsIcon" v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
-          <span v-if="tab.icon" v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
-          {{ tab.workspace || tab.label || '' }}
-        </span>
-        <span v-if="isDirty" class="pill-dirty-dot" aria-label="uncommitted changes"></span>
+      <div class="pill-group" ref="pillEl">
+        <div
+          class="terminal-info-pill"
+          :class="{ 'tab-activity': tab._activity, dragging: pillDragging }"
+          tabindex="-1"
+          @mousedown="onPillMouseDown"
+          @click="onPillClick"
+          @touchstart.passive="onPillTouchStart"
+        >
+          <span class="terminal-info-pill-info">
+            <span v-if="tab.wsIcon" v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
+            <span v-if="tab.icon" v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
+            {{ tab.workspace || tab.label || '' }}
+          </span>
+          <span v-if="isDirty" class="pill-dirty-dot" aria-label="uncommitted changes"></span>
+        </div>
+        <button
+          v-if="layoutStore.isSplitMode"
+          type="button"
+          class="pill-split-close"
+          aria-label="Remove from split"
+          data-tooltip="Remove from split"
+          @pointerdown.stop="onSplitCloseDown"
+          @pointerup.stop="onSplitCloseUp"
+          @click.stop
+        >&times;</button>
       </div>
     </div>
   </div>
@@ -139,6 +150,17 @@ function scheduleActiveFit() {
       try { props.tab.term.refresh(0, props.tab.term.rows - 1); } catch {}
     }
   }, ACTIVE_FIT_DELAY_MS);
+}
+
+function onSplitCloseDown(e) {
+  e.currentTarget.setPointerCapture(e.pointerId);
+}
+
+function onSplitCloseUp() {
+  const switchToId = layoutStore.removeFromSplit(props.tab.id);
+  if (switchToId != null) {
+    terminalStore.switchTab(switchToId);
+  }
 }
 
 function onPointerDown(e) {
@@ -280,15 +302,21 @@ defineExpose({
   display: none;
 }
 
-.terminal-info-pill {
+.pill-group {
   position: absolute;
   top: 10px;
   right: 10px;
   z-index: 30;
   display: inline-flex;
   align-items: center;
+  gap: 4px;
+  max-width: min(80vw, 450px);
+}
+
+.terminal-info-pill {
+  display: inline-flex;
+  align-items: center;
   min-height: 28px;
-  max-width: min(80vw, 420px);
   padding: 4px 10px;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -301,6 +329,8 @@ defineExpose({
   -webkit-touch-callout: none;
   cursor: pointer;
   gap: 6px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .terminal-info-pill img {
@@ -318,6 +348,30 @@ defineExpose({
 
 .terminal-info-pill.dragging {
   opacity: 0.5;
+}
+
+.pill-split-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  width: 28px;
+  flex-shrink: 0;
+  padding: 0;
+  background: rgba(26, 27, 38, 0.93);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pill-split-close:hover {
+    border-color: var(--accent);
+    color: var(--text-primary);
+  }
 }
 
 .terminal-info-pill-info {
@@ -353,10 +407,13 @@ defineExpose({
 }
 
 @media (min-width: 769px) {
-  .terminal-info-pill {
-    cursor: grab;
+  .pill-group {
     top: 20px;
     right: 20px;
+  }
+
+  .terminal-info-pill {
+    cursor: grab;
   }
 
   .terminal-info-pill.dragging {
