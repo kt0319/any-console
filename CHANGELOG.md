@@ -5,6 +5,119 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/kt0319/any-console/compare/v0.4.0...v0.5.0) (2026-06-25)
+
+
+### Features
+
+* dispatchダイアログ表示時に対象workspaceのタブを即アクティブ化 ([93aac58](https://github.com/kt0319/any-console/commit/93aac58822e7983674bce265a95d0766c7f4b90d))
+* dispatchでアクティブ化するタブのhidden条件を撤廃し自動で可視化 ([1ac4700](https://github.com/kt0319/any-console/commit/1ac47004d0bc49b5defb9626185677b6e9e311af))
+* dispatch確認モーダルでbranch/base_branch/textを編集可能に ([b42f2d7](https://github.com/kt0319/any-console/commit/b42f2d750f6e5475786de3d9f2dacf6689875b37))
+* hiddenタブをdispatchの対象から除外しtmuxセッション環境変数で永続化 ([5b4819d](https://github.com/kt0319/any-console/commit/5b4819ddc3ac3e7362df5e25be19766d162bd4b0))
+* macOSをlaunchdで常駐サービスとして一級サポート ([8d2c723](https://github.com/kt0319/any-console/commit/8d2c723977c8d69e29b90dc0d12db2d86ad66047))
+* manifest に id フィールドを追加 ([03e3b41](https://github.com/kt0319/any-console/commit/03e3b412caa5d3789688ca7489ff29f85be5f401))
+* Port Previewで自分自身のポートを表示しother user所有は除外 ([ce64580](https://github.com/kt0319/any-console/commit/ce64580fe03b789406945f94ab0c04d5c9e1377c))
+* Port Previewのrefreshボタン位置調整とno-proxyポートの非表示化 ([de847b0](https://github.com/kt0319/any-console/commit/de847b059245bf2b3d3f6dc4ac935c562ce36595))
+* Port Preview画面のUIを改善（ホスト名表示・ボタン高さ統一・pid表示整形） ([4035994](https://github.com/kt0319/any-console/commit/40359942bb76af5a2201b90bbdfcb1966cc4b9ab))
+* PWAアイコンをフラットデザインに刷新 ([31579e8](https://github.com/kt0319/any-console/commit/31579e8d002a6aff96284b8bcd932ed42260c01d))
+* PWAにmaskableアイコンを追加してAndroidのアイコン表示を改善 ([914f47e](https://github.com/kt0319/any-console/commit/914f47efdc82333950d60f207f9a3b712cab7926))
+* radial キーの有効/無効チェックボックスを追加 ([85412e8](https://github.com/kt0319/any-console/commit/85412e82d679c986a85f3163b25bddc26a7f70bf))
+* RSS機能を全て削除 ([f6dab55](https://github.com/kt0319/any-console/commit/f6dab5577565bf2e7fa2747904fbbc51a1455d00))
+* stickyなShift/Ctrlトグルをフリックキー送信にも自動反映 ([0a0b75c](https://github.com/kt0319/any-console/commit/0a0b75c3785101a842e7af7a1ab82fc1a33d3c81))
+* System Infoに認証方式（Tailscale/Token/Disabled）を表示 ([d0c68f7](https://github.com/kt0319/any-console/commit/d0c68f72fedfb9aea2943fd23d3bde45c8763cd4))
+* System Infoのセクションヘッダーを強調して区切りを明確化 ([901d372](https://github.com/kt0319/any-console/commit/901d372de9c096b44cd4a1c923803078222d25a6))
+* TabConfigにorphan tmuxセッション統合とhidden切替ボタンを追加 ([1ef2ca5](https://github.com/kt0319/any-console/commit/1ef2ca53aba0791851c437f0e42e3ba606244280))
+* Tailscale経由のアクセス時にトークン認証を自動スキップ ([5aebe4f](https://github.com/kt0319/any-console/commit/5aebe4f42dada20fbf20986815e7e9f79081c644))
+* Trusted Device認証を追加し、認証経路を問わずデバイス登録に一本化 ([7895504](https://github.com/kt0319/any-console/commit/7895504c3a51a3a2ef5f37afd107b4be60b014a7))
+* WorkspaceDetail に Select & Copy タブを追加 ([6799ab3](https://github.com/kt0319/any-console/commit/6799ab3a50aea73f8b3b2426f1390a3ce770b743))
+* サークルキーの特殊メニュー候補追加とsplitモードでのピルタップpane選択 ([dc7d9d1](https://github.com/kt0319/any-console/commit/dc7d9d1a48837b631616db7baefb9ca9a1f312ab))
+* サークルキーパッドの割り当てを設定画面でカスタマイズ可能に ([8126b71](https://github.com/kt0319/any-console/commit/8126b71a4d7481cf87660b10cc1658655b08a0d6))
+* サーバ復活検知時にWS再接続を即時トリガーする ([9c99c89](https://github.com/kt0319/any-console/commit/9c99c892df025eed1d556a8ef098f99414b5296e))
+* ターミナルスワイプでサークルキーパッドを追加（8方向キー+四隅の特殊メニュー） ([b0003d1](https://github.com/kt0319/any-console/commit/b0003d13685a75f21ce8ba3c5b23b1bbec5f4a63))
+* ターミナル選択モーダルにコピーと自動フォーマットを追加 ([f7c2f0a](https://github.com/kt0319/any-console/commit/f7c2f0aebe9a45ddb8f32f830eba644b9b10e9c1))
+* ファイル削除トーストに削除したファイル名を表示 ([96f7262](https://github.com/kt0319/any-console/commit/96f72622e77678f8210c452343ad735787182e22))
+* ローカルdev serverをユニークポートで露出するPort Preview機能を追加 ([e6fa2fb](https://github.com/kt0319/any-console/commit/e6fa2fbd21846938940d79124e38e086391db9cb))
+* ワークスペース詳細とコミット履歴のブランチラベルに即時ツールチップを追加 ([aadbb44](https://github.com/kt0319/any-console/commit/aadbb44611a5d7a7a44d50385cf247144b5be68b))
+* 入力モード中にEscキーで入力モードを抜けられるよう対応 ([d7337bf](https://github.com/kt0319/any-console/commit/d7337bf3bbb8fb6fade842b3282c042b2dff4a4f))
+* 入力モード中の物理矢印キーを履歴/snippet切替に割り当て ([4682341](https://github.com/kt0319/any-console/commit/4682341bfbf6f5fa4b752f31c6c7b1d7be3bce9c))
+* 再接続オーバーレイに何をしているかを括弧で表示する ([d771476](https://github.com/kt0319/any-console/commit/d771476d7e78e753d1295c13b262eea2bed1934f))
+* 分割モードのタブピルに×ボタンを追加して分割から外せるようにする ([4789cb7](https://github.com/kt0319/any-console/commit/4789cb750d86278c1abaebdf67de0a7829699383))
+* 分割モードの状態をサーバーに保存し再起動後も復元する ([ef59689](https://github.com/kt0319/any-console/commit/ef59689b5e14b606b97498b7b8e151e9d7eed396))
+* 動的chunk読込失敗時に自動でリロードしてPWAキャッシュを復帰させる ([34de0da](https://github.com/kt0319/any-console/commit/34de0dac74e9268d72a3d2ec860e31bc14e617e0))
+* 外部tmuxセッションをany-console管理化するAdopt機能を追加 ([b182a62](https://github.com/kt0319/any-console/commit/b182a62c56d55260947ef75b9600a79df681a2c4))
+* 物理キーボードのキーを通常時はターミナルへ直接送信しShift+Spaceで入力モード切替 ([907c337](https://github.com/kt0319/any-console/commit/907c3376c2a8108b5ef5f58272420c3c7ab1f177))
+* 物理キーボード検出後はプレースホルダにShift+Space案内を追加 ([4157ed8](https://github.com/kt0319/any-console/commit/4157ed8d563aff332ea6d1acf1e8c4f2fd5d2a34))
+
+
+### Bug Fixes
+
+* BUS_EVENTSをソート順に並び替えてfrontend testをpassさせる ([9ce90db](https://github.com/kt0319/any-console/commit/9ce90db44dc76086eec12f052a502e1ffa7eb5ff))
+* devices.pyとdevices routerの型チェックエラーを修正 ([1f38efb](https://github.com/kt0319/any-console/commit/1f38efb6617b7dac395493e471d6507ecf704c46))
+* edit job画面から戻るとjobsタブに戻るよう修正 ([bb52f3b](https://github.com/kt0319/any-console/commit/bb52f3bae83ebce3bec5d1fda635853f91ed6f19))
+* hiddenタブへキー入力が送られる不具合を修正 ([fb8e2fa](https://github.com/kt0319/any-console/commit/fb8e2fa8d9e08680b22b2509a39618c97ec9ad59))
+* history/snippet ナビで snippet 境界を越えたら途中入力を復元する ([3460de2](https://github.com/kt0319/any-console/commit/3460de28ec1ad20309803e9a9e63d22ffc422f62))
+* iOS Safari/PWAでターミナルが上にずれて下が見えなくなる現象を修正 ([e88ddca](https://github.com/kt0319/any-console/commit/e88ddca4f021f0f3172a432ac5fad0df3b19d992))
+* iPhone Mirroring経由でEnterが発火しない問題を回避してsubmit時に必ずEnterを送る ([01423f1](https://github.com/kt0319/any-console/commit/01423f1ed2dc89b577837c6ed7f2af7f935093a8))
+* preview _last_accessをNone初期化しidleテストをCIで安定化、dispatchのテスト追加 ([37b82ab](https://github.com/kt0319/any-console/commit/37b82ab67ea5ba4335283934bcaed7a84bcdddcc))
+* RSS削除時に残っていたテストファイルを削除 ([c1e0a2a](https://github.com/kt0319/any-console/commit/c1e0a2a5109823cb184819f7008f67491d75513d))
+* ruff S104警告をnoqaで抑制（0.0.0.0バインドは意図的） ([e96bd64](https://github.com/kt0319/any-console/commit/e96bd64f72c95be19c1a476f7c38b3824e5b9159))
+* submit関数に二重発火ガードを追加してiOS SafariのEnter重複を防止 ([8294b4e](https://github.com/kt0319/any-console/commit/8294b4eab621287b34708baaa78f314d12ba4b8e))
+* Trusted Devicesで同一UAのTailscale再認証時にデバイスが重複登録される問題を修正 ([85159c2](https://github.com/kt0319/any-console/commit/85159c251f13860cff826457dc030274f2202c83))
+* useDispatchPromptに型注釈を追加してfrontend typecheckを通す ([ef75cfb](https://github.com/kt0319/any-console/commit/ef75cfb0ae8e6c6e45382ac5c11d598fd8371630))
+* タブ一覧の目アイコンのhoverをPC限定にしてモバイルの色残りを修正 ([ad3d359](https://github.com/kt0319/any-console/commit/ad3d359d2af56d27f55b81e785759f689ca76429))
+* プレビューとアイコン描画の安全性を強化 ([7752193](https://github.com/kt0319/any-console/commit/7752193c80543f1ad44cb90b9263be24f2338c76))
+* ポートプレビューのTCPプロキシをTailscale IP経由でもアクセス可能にする ([9bf49fd](https://github.com/kt0319/any-console/commit/9bf49fdeb9c5e0c1f52254391bf456ccd750281b))
+* モバイルで分割モードが横並びになるCSSの優先順位問題を修正 ([876cdd2](https://github.com/kt0319/any-console/commit/876cdd2f60552d42ee479658b589c3822b007b52))
+* 入力submit時のEnter同時送信を撤回しtext送信のみに戻す ([aabdda2](https://github.com/kt0319/any-console/commit/aabdda2724bcd4f5a709c8ed3fbe2dd5b4169a96))
+* 分割モード復元でPUT保存失敗・非アクティブペインが真っ黒になる不具合を修正 ([0b63e81](https://github.com/kt0319/any-console/commit/0b63e81025d18b383c147e803dfeb95416558cc7))
+* 物理Enterキー時のみsubmit末尾にEnterを付与しiPhoneミラーリングでも確実化 ([659761e](https://github.com/kt0319/any-console/commit/659761ed08bb98300ee336a77b8545464771e191))
+
+
+### Performance Improvements
+
+* アセットを長期キャッシュ化しMDIフォントをwoff2のみに絞って初回・再訪を高速化 ([f1d3759](https://github.com/kt0319/any-console/commit/f1d3759d16b8466f0b5c001d7b941b1d9ce88dbc))
+
+
+### Refactor
+
+* blur抑制とflick処理とWS送信を共通composable/utilsへ分離 ([fe77f44](https://github.com/kt0319/any-console/commit/fe77f441aea2c66d2c7c11ca4611c366e9a66f92))
+* git remote アクションの並行マップを1つに統合 ([48732c8](https://github.com/kt0319/any-console/commit/48732c8a69441fe330ceb53e16a52ecfb0f6bc41))
+* iPhoneミラーリング対応を削除しテキスト送信時にEnterを付けないよう統一 ([2d26194](https://github.com/kt0319/any-console/commit/2d26194b82793972c18743700df059fe4c3d88b7))
+* Select & Copy を WorkspaceDetail タブに統合し旧モーダルを削除 ([d677568](https://github.com/kt0319/any-console/commit/d677568738aa4464334ab05032071876af978b65))
+* System Infoのtmuxセクションを削除（Tabs画面に統合済みのため） ([0e2355a](https://github.com/kt0319/any-console/commit/0e2355ae3ca5e903473a133ab3f6a7b5933fb2e5))
+* System Infoのtmuxセッション表示からattachedタグを削除 ([4a9470d](https://github.com/kt0319/any-console/commit/4a9470de4a68744ca434f7892cb78485cdbfa7e8))
+* WorkspaceDetail のバッジ件数管理を composable に切り出す ([8fd95f7](https://github.com/kt0319/any-console/commit/8fd95f7df38776023a8139be8facdefa19dae024))
+* ターミナル本体のタップ・スワイプ操作を無効化し長押しのみ残す ([34b7439](https://github.com/kt0319/any-console/commit/34b7439d8c716b55d98603142ce6ea18dc8a36a3))
+* モーダルの保留Promise管理を共通ヘルパーに統合 ([63330d5](https://github.com/kt0319/any-console/commit/63330d5cc83ac764fd314212a2db347436b223f4))
+* 冗長な三項演算子と広すぎる例外捕捉を整理 ([0ba0353](https://github.com/kt0319/any-console/commit/0ba03531ab240ca1aac771261a721028dc89924b))
+* 物理キーボード処理をcomposableに分離しIME/編集要素判定を共通化 ([e4c9ce0](https://github.com/kt0319/any-console/commit/e4c9ce06227895003b26a11f7fe3837e7c70f324))
+* 矢印フリック処理の重複を共通化してテストを追加 ([12c27d9](https://github.com/kt0319/any-console/commit/12c27d952c0bc5ff7d59df0a206a9ddd9f63e5e2))
+* 過剰な認証フォールバックとpreview二重プロキシを整理する ([4ebeeb8](https://github.com/kt0319/any-console/commit/4ebeeb84d1c9d52acf18d9636bc136115e441484))
+
+
+### Documentation
+
+* ADR [#10](https://github.com/kt0319/any-console/issues/10) を allowlist 方式と precache 自動生成に合わせて更新 ([0624bc7](https://github.com/kt0319/any-console/commit/0624bc7b91f0893baade923049849094a5dc94ec))
+* BUS_EVENTSのソート順維持ルールをCLAUDE.mdに追加 ([672fcb8](https://github.com/kt0319/any-console/commit/672fcb8051be721c7915d37869815401728f6dfb))
+* DECISIONS.mdのADR日付を実際の実装月に訂正 ([e20c9d3](https://github.com/kt0319/any-console/commit/e20c9d3d718fed4d31f8bb60c8eb5a341474bd7b))
+* 新機能追加時にテスト・型・lintを必ず通すルールをCLAUDE.mdに追加 ([3b561ab](https://github.com/kt0319/any-console/commit/3b561abbdff4c80b0c72f4e27291c0b5dacc3c6b))
+
+
+### Tests
+
+* key-ansiとradial-key-presetsのユニットテストを追加しカバレッジ閾値を回復 ([f51520d](https://github.com/kt0319/any-console/commit/f51520d26ea15bd660d7d18d7ff64e76736a8071))
+* Port Preview proxyの実データ透過テスト追加でカバレッジ余裕を確保 ([eaca3e2](https://github.com/kt0319/any-console/commit/eaca3e27794b83ee245988f5f53806661fab1181))
+* Port Preview用テスト追加でカバレッジ85%を維持 ([e2dd69c](https://github.com/kt0319/any-console/commit/e2dd69c907359826b3e359e06629a8fc8aabf24d))
+* settings APIのテストを追加してカバレッジ85%を回復 ([586f163](https://github.com/kt0319/any-console/commit/586f163980f1f88067c69db9aa16e0841bd5da40))
+* ターミナルタブのactive再選出テストを追加 ([7fe20a1](https://github.com/kt0319/any-console/commit/7fe20a18cab0042e32538f35d47d0b90f84e0a7e))
+
+
+### Build
+
+* package-lock.jsonにplaywright依存を反映 ([bbe7eb6](https://github.com/kt0319/any-console/commit/bbe7eb678ae2877f6bd67362afc36a4cdee1fd5f))
+* Playwrightスモーク E2E を手動実行用に追加（CI対象外） ([69677fc](https://github.com/kt0319/any-console/commit/69677fc71e40176ae196171174f385a2db34346a))
+* SW の precache 一覧をビルド時に dist から自動生成する ([9084618](https://github.com/kt0319/any-console/commit/90846181ff67165a10e7856e24efcc884f28287f))
+
 ## [0.4.0](https://github.com/kt0319/any-console/compare/v0.3.0...v0.4.0) (2026-06-14)
 
 
