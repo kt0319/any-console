@@ -109,7 +109,8 @@ export function useRadialKey() {
 
   function emitSpecial(s, tab) {
     if (s.action === "selection:open") {
-      bridgeEmit("selection:open", { tab, fallbackText: getFullBufferText(tab?.term) });
+      if (tab?.workspace) workspaceStore.selectedWorkspace = tab.workspace;
+      bridgeEmit("git:openFileModal", { pane: "select" });
       return;
     }
     if (s.action === "app:reload") {

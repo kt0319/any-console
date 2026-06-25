@@ -1,15 +1,5 @@
 <template>
   <div class="select-pane">
-    <button type="button" class="primary copy-full-btn" @mousedown.prevent @click="copySelection">
-      <span class="mdi mdi-content-copy"></span> Copy
-    </button>
-    <div class="format-options">
-      <label class="format-option format-option-all"><input type="checkbox" v-model="allChecked"> All formats</label>
-      <label class="format-option"><input type="checkbox" v-model="format.stripLeading"> Strip leading spaces</label>
-      <label class="format-option"><input type="checkbox" v-model="format.joinWrapped"> Join wrapped lines</label>
-      <label class="format-option"><input type="checkbox" v-model="format.breakLines"> Break at punctuation</label>
-      <label class="format-option"><input type="checkbox" v-model="format.tidy"> Tidy whitespace</label>
-    </div>
     <div class="textarea-scroll-wrapper">
       <textarea
         ref="textareaEl"
@@ -21,6 +11,16 @@
         autocomplete="off"
       ></textarea>
     </div>
+    <div class="format-options">
+      <label class="format-option format-option-all"><input type="checkbox" v-model="allChecked"> All formats</label>
+      <label class="format-option"><input type="checkbox" v-model="format.stripLeading"> Strip leading spaces</label>
+      <label class="format-option"><input type="checkbox" v-model="format.joinWrapped"> Join wrapped lines</label>
+      <label class="format-option"><input type="checkbox" v-model="format.breakLines"> Break at punctuation</label>
+      <label class="format-option"><input type="checkbox" v-model="format.tidy"> Tidy whitespace</label>
+    </div>
+    <button type="button" class="primary copy-full-btn" @mousedown.prevent @click="copySelection">
+      <span class="mdi mdi-content-copy"></span> Copy
+    </button>
   </div>
 </template>
 
@@ -74,9 +74,17 @@ async function copySelection() {
   gap: 0;
 }
 
+.format-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  padding-top: 8px;
+  flex-shrink: 0;
+}
+
 .copy-full-btn {
   width: auto;
-  margin-bottom: 8px;
+  margin-top: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -85,14 +93,6 @@ async function copySelection() {
 
 .copy-full-btn .mdi {
   font-size: 18px;
-}
-
-.format-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 12px;
-  padding-bottom: 8px;
-  flex-shrink: 0;
 }
 
 .format-option {

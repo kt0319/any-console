@@ -36,7 +36,6 @@ export const BUS_EVENTS = Object.freeze([
   "oskeyboard:show",
   "preview:open",
   "preview:showConfig",
-  "selection:open",
   "settings:close",
   "settings:imported",
   "settings:open",
