@@ -200,14 +200,15 @@ app.include_router(settings.router)
 
 
 def _autoregister_device(request: Request, response: Response, source: str) -> dict | None:
-    """device cookie が無ければデバイスを新規登録して cookie を発行する。
+    """device cookie が無ければデバイスを登録して cookie を発行する。
 
-    cookie に既に有効な device があればスキップ。stale な場合は上書き登録。
+    cookie に既に有効な device があればスキップ。stale な場合は同一UA・sourceの
+    既存デバイスを再利用（secret 再発行）し、見つからなければ新規登録する。
     """
     from .devices import (
         autoname_from_user_agent,
+        find_or_register_device,
         get_device,
-        register_device,
         verify_device,
     )
     from .routers.devices import _set_device_cookies
@@ -219,7 +220,7 @@ def _autoregister_device(request: Request, response: Response, source: str) -> d
         return existing
     ua = request.headers.get("user-agent", "")
     name = autoname_from_user_agent(ua)
-    device_id, raw_secret = register_device(name, ua, source=source)
+    device_id, raw_secret = find_or_register_device(name, ua, source=source)
     _set_device_cookies(response, request, device_id, raw_secret)
     return get_device(device_id)
 

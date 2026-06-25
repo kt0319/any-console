@@ -39,6 +39,42 @@ class TestAutoName:
         assert devices_mod.autoname_from_user_agent("") == "Unknown device"
 
 
+class TestFindOrRegister:
+    def test_same_ua_and_source_reuses_device(self):
+        ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1"
+        id1, _ = devices_mod.find_or_register_device("Safari on iOS", ua, source="tailscale")
+        id2, secret2 = devices_mod.find_or_register_device("Safari on iOS", ua, source="tailscale")
+        assert id1 == id2
+        assert devices_mod.verify_device(id2, secret2) is not None
+
+    def test_old_secret_invalidated_after_reissue(self):
+        ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1"
+        id1, secret1 = devices_mod.find_or_register_device("Safari on iOS", ua, source="tailscale")
+        _, _ = devices_mod.find_or_register_device("Safari on iOS", ua, source="tailscale")
+        assert devices_mod.verify_device(id1, secret1) is None
+
+    def test_different_source_creates_new_device(self):
+        ua = "Mozilla/5.0 Chrome/120.0"
+        id1, _ = devices_mod.find_or_register_device("Chrome", ua, source="tailscale")
+        id2, _ = devices_mod.find_or_register_device("Chrome", ua, source="token")
+        assert id1 != id2
+
+    def test_different_ua_creates_new_device(self):
+        id1, _ = devices_mod.find_or_register_device("Dev A", "ua/a", source="tailscale")
+        id2, _ = devices_mod.find_or_register_device("Dev B", "ua/b", source="tailscale")
+        assert id1 != id2
+
+    def test_multiple_candidates_reuses_existing(self):
+        ua = "Mozilla/5.0 Chrome/120.0"
+        # 同じUA・sourceで2件手動登録（重複データの再現）
+        id1, _ = devices_mod.register_device("Chrome", ua, source="tailscale")
+        id2, _ = devices_mod.register_device("Chrome", ua, source="tailscale")
+        # 新規登録は行われず既存のいずれかを再利用する
+        reused_id, _ = devices_mod.find_or_register_device("Chrome", ua, source="tailscale")
+        assert reused_id in (id1, id2)
+        assert len(devices_mod.list_devices()) == 2  # 古い id1 は残ったまま（削除はしない）
+
+
 class TestRegisterAndVerify:
     def test_register_returns_id_and_secret(self):
         device_id, secret = devices_mod.register_device("MyMac", "ua/1")

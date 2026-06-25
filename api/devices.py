@@ -111,6 +111,29 @@ def autoname_from_user_agent(user_agent: str) -> str:
     return f"{browser} on {os_name}"
 
 
+def find_or_register_device(name: str, user_agent: str, source: str) -> tuple[str, str]:
+    """同一UA・sourceのデバイスが既登録なら secret を再発行して返す。なければ新規登録。
+
+    Tailscale 経由の自動登録で cookie が失われるたびに同一デバイスが増殖するのを防ぐ。
+    最も直近に使われたエントリを再利用する（複数あった場合は last_seen_at が最新のもの）。
+    """
+    ua_stored = (user_agent or "")[:MAX_UA_LEN]
+    data = _load()
+    candidates = [
+        d for d in data["devices"]
+        if d.get("user_agent", "") == ua_stored and d.get("source", "token") == source
+    ]
+    if candidates:
+        existing = max(candidates, key=lambda d: d["last_seen_at"])
+        raw_secret = secrets.token_urlsafe(32)
+        existing["secret_hash"] = _hash_secret(raw_secret)
+        existing["last_seen_at"] = int(time.time())
+        _save(data)
+        logger.info("device reissued id=%s name=%s source=%s", existing["id"], existing["name"], source)
+        return existing["id"], raw_secret
+    return register_device(name, ua_stored, source=source)
+
+
 def register_device(name: str, user_agent: str, source: str = "token") -> tuple[str, str]:
     """新デバイスを登録し (device_id, raw_secret) を返す。
 
