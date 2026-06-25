@@ -8,8 +8,9 @@
 
 セキュリティ:
 - proxy の upstream host は 127.0.0.1 にハードコード（`api/preview.py`）。
-- 認証は信頼ネットワーク（Tailscale）境界に委ねる。proxy 自体は LISTEN 済みの
-  ローカル dev server を tailnet に橋渡しするだけで、新たな到達経路は作らない。
+- proxy の listen は 0.0.0.0（全インターフェース）。Tailscale IP 経由でも開ける。
+- 認証は信頼ネットワーク（Tailscale）境界に委ねる。proxy はローカル dev server を
+  tailnet に橋渡しするだけで、upstream は必ず loopback に限定する。
 """
 
 from __future__ import annotations

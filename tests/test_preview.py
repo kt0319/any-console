@@ -239,8 +239,8 @@ class TestReconcileProxies:
         )
         preview_mod._reconcile_proxies()  # no raise
 
-    def test_start_proxy_binds_loopback(self, monkeypatch):
-        """proxy は外部公開せず loopback に bind する。"""
+    def test_start_proxy_bind_host(self, monkeypatch):
+        """proxy は全インターフェース（0.0.0.0）で listen する（Tailscale IP からもアクセス可能）。"""
         import asyncio
 
         captured = {}
@@ -263,7 +263,7 @@ class TestReconcileProxies:
                 preview_mod._PROXIES.clear()
 
         asyncio.run(run())
-        assert captured == {"host": "127.0.0.1", "port": 23000}
+        assert captured == {"host": "0.0.0.0", "port": 23000}
 
     def test_starts_and_stops_proxy(self):
         """高いポートで実際に proxy を起こして停止できることを確認する。"""
