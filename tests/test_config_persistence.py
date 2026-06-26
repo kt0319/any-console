@@ -156,7 +156,7 @@ class TestConfigSection:
 
 class TestConfigVersionMigration:
     def test_get_version_helpers(self):
-        from api.config import _get_config_version, _set_config_version
+        from api.config_migrations import _get_config_version, _set_config_version
         assert _get_config_version({}) == 0
         assert _get_config_version({"__global__": {}}) == 0
         assert _get_config_version({"__global__": {"config_version": 3}}) == 3
@@ -224,8 +224,8 @@ class TestConfigVersionMigration:
         assert on_disk["__global__"]["config_version"] == future
 
     def test_migrate_applies_registered_steps(self):
-        from api import config as config_mod
-        from api.config import _migrate_config_version
+        from api import config_migrations as config_mod
+        from api.config_migrations import _migrate_config_version
 
         calls = []
 
