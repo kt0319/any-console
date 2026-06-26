@@ -103,12 +103,14 @@ export function useTerminalLifecycle({ terminalBaseView }) {
       const data = await res.json();
       if (detached) {
         // detached 起動: タブに追加せず、セッションを detached としてマークするだけ。
-        // Tabs パネルの Detached sessions セクションに表示される。
+        // Tabs パネルの Detached tabs セクションに表示される。
         if (data.session_id) {
           auth.apiFetch(terminalSessionDetachedPath(data.session_id), {
             method: "PUT", body: { detached: true },
           }).catch(() => {});
         }
+        const label = jobLabel || jobName || "Job";
+        toast.show(`${label} started in background`, "success");
         return;
       }
       const tab = terminalStore.addTerminalTab({
