@@ -36,7 +36,7 @@ export function useRecentJobs() {
       jobUrl: job.url || "",
       jobType: job.type || "command",
       jobConfirm: job.confirm ?? null,
-      jobHiddenTab: !!job.hidden_tab,
+      jobDetachedTab: !!job.detached_tab,
     };
     try {
       const res = await auth.apiFetch(EP_RECENT_JOBS, {

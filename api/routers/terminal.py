@@ -88,6 +88,7 @@ async def list_terminal_sessions():
             "job_name": md["job_name"],
             "job_label": md["job_label"],
             "created_at": created_at,
+            "detached": meta_src.detached,
         })
 
     sessions.sort(key=lambda s: s.get("created_at") or 0)
@@ -144,22 +145,22 @@ async def delete_terminal_session(session_id: str):
     return {"status": "ok"}
 
 
-class HiddenBody(BaseModel):
-    hidden: bool
+class DetachedBody(BaseModel):
+    detached: bool
 
 
-@router.put("/terminal/sessions/{session_id}/hidden")
-async def set_terminal_hidden(session_id: str, body: HiddenBody):
-    """フロントのタブ hidden 状態を tmux セッション環境変数に永続化する。
+@router.put("/terminal/sessions/{session_id}/detached")
+async def set_terminal_detached(session_id: str, body: DetachedBody):
+    """セッションの detached 状態を tmux 環境変数に永続化する。
     dispatch がターゲット候補から除外する判定に使う。"""
     with sessions_lock:
         session = TERMINAL_SESSIONS.get(session_id)
         if session:
-            session.hidden = bool(body.hidden)
+            session.detached = bool(body.detached)
     if not session:
         raise not_found("Terminal session not found")
-    session.save_hidden()
-    return {"status": "ok", "hidden": session.hidden}
+    session.save_detached()
+    return {"status": "ok", "detached": session.detached}
 
 
 _TAB_ORDER_FILE = Path(__file__).resolve().parent.parent.parent / "data" / "sessions.json"

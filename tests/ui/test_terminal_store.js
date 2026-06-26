@@ -5,14 +5,12 @@ import { setActivePinia, createPinia } from "pinia";
 import { useTerminalStore } from "../../ui/stores/terminal.js";
 
 // addTerminalTab は xterm 依存で重いので使わず、active 再選出ロジックの検証に
-// 必要な最小プロパティ（id / hidden / term / sessionId）だけのタブを直接挿入する。
-// term:null → removeTab の dispose をスキップ、sessionId:"" → setTabHidden の
-// backend 反映 fetch をスキップ。
+// 必要な最小プロパティ（id / term / sessionId）だけのタブを直接挿入する。
+// term:null → removeTab / detachTab の dispose をスキップ、sessionId:"" → API fetch をスキップ。
 function seedTabs(store, specs) {
   store.openTabs = specs.map((s) => ({
     id: s.id,
     sessionId: "",
-    hidden: !!s.hidden,
     term: null,
     ws: null,
   }));
@@ -25,56 +23,55 @@ describe("terminal store: active 再選出", () => {
     store = useTerminalStore();
   });
 
-  describe("setTabHidden", () => {
-    it("アクティブタブを hidden にすると次の visible タブへ active が移る", () => {
+  describe("detachTab", () => {
+    it("アクティブタブを detach すると次のタブへ active が移る", () => {
       seedTabs(store, [{ id: 1 }, { id: 2 }, { id: 3 }]);
       store.activeTabId = 1;
-      store.setTabHidden(1, true);
+      store.detachTab(1);
       expect(store.activeTabId).toBe(2);
     });
 
-    it("後続に visible が無ければ手前の visible タブが選ばれる", () => {
+    it("後続タブが無ければ手前のタブが選ばれる", () => {
       seedTabs(store, [{ id: 1 }, { id: 2 }, { id: 3 }]);
       store.activeTabId = 3;
-      store.setTabHidden(3, true);
+      store.detachTab(3);
       expect(store.activeTabId).toBe(2);
     });
 
-    it("非アクティブタブを hidden にしても active は変わらない", () => {
+    it("非アクティブタブを detach しても active は変わらない", () => {
       seedTabs(store, [{ id: 1 }, { id: 2 }]);
       store.activeTabId = 1;
-      store.setTabHidden(2, true);
+      store.detachTab(2);
       expect(store.activeTabId).toBe(1);
     });
 
-    it("全タブが hidden になったら active は null", () => {
+    it("最後のタブを detach したら active は null", () => {
       seedTabs(store, [{ id: 1 }]);
       store.activeTabId = 1;
-      store.setTabHidden(1, true);
+      store.detachTab(1);
       expect(store.activeTabId).toBe(null);
     });
 
-    it("hidden を解除する操作では active を動かさない", () => {
-      seedTabs(store, [{ id: 1, hidden: true }, { id: 2 }]);
-      store.activeTabId = 2;
-      store.setTabHidden(1, false);
-      expect(store.activeTabId).toBe(2);
+    it("detach したタブは openTabs から消える", () => {
+      seedTabs(store, [{ id: 1 }, { id: 2 }]);
+      store.detachTab(1);
+      expect(store.openTabs.map((t) => t.id)).toEqual([2]);
     });
   });
 
   describe("removeTab", () => {
-    it("アクティブタブ削除で次の visible タブへ active が移る", () => {
+    it("アクティブタブ削除で次のタブへ active が移る", () => {
       seedTabs(store, [{ id: 1 }, { id: 2 }, { id: 3 }]);
       store.activeTabId = 1;
       store.removeTab(1);
       expect(store.activeTabId).toBe(2);
     });
 
-    it("active 再選出は hidden タブをスキップする", () => {
-      seedTabs(store, [{ id: 1 }, { id: 2, hidden: true }, { id: 3 }]);
-      store.activeTabId = 1;
-      store.removeTab(1);
-      expect(store.activeTabId).toBe(3);
+    it("後続タブが無ければ手前のタブが選ばれる", () => {
+      seedTabs(store, [{ id: 1 }, { id: 2 }, { id: 3 }]);
+      store.activeTabId = 3;
+      store.removeTab(3);
+      expect(store.activeTabId).toBe(2);
     });
 
     it("非アクティブタブ削除では active は変わらない", () => {

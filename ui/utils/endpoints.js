@@ -57,6 +57,11 @@ export function terminalSessionPath(sessionId) {
 }
 
 /** @param {string} sessionId @returns {string} */
+export function terminalSessionDetachedPath(sessionId) {
+  return `/terminal/sessions/${encodeURIComponent(sessionId)}/detached`;
+}
+
+/** @param {string} sessionId @returns {string} */
 export function terminalWsPath(sessionId) {
   return `/terminal/ws/${sessionId}`;
 }

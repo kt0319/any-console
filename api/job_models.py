@@ -18,7 +18,7 @@ class JobDefinition:
     icon: str = ""
     icon_color: str = ""
     confirm: bool = True
-    hidden_tab: bool = False
+    detached_tab: bool = False
     type: str = "command"
     url: str = ""
     timeout_sec: int | None = None

@@ -29,7 +29,6 @@ export function useSessionSync() {
       jobName: s.job_name,
       jobLabel: s.job_label,
       restored: true,
-      hidden: !!jobDef?.hidden_tab,
     };
   }
 
@@ -66,6 +65,7 @@ export function useSessionSync() {
 
       const allJobs = await _safeResJson(jobsRes);
       for (const s of sortedSessions) {
+        if (s.detached) continue; // detached セッションは Tabs パネルの Detached sessions に表示
         terminalStore.addTerminalTab(_buildTabParams(s, allJobs));
       }
 
@@ -73,9 +73,9 @@ export function useSessionSync() {
 
       if (!layoutStore.isSplitMode) {
         const savedSessionId = localStorage.getItem(LS_KEY_ACTIVE_SESSION);
-        const visibleTabs = terminalStore.openTabs.filter((t) => !t.hidden);
-        const target = (savedSessionId && visibleTabs.find((t) => t.sessionId === savedSessionId))
-          || visibleTabs[0];
+        const tabs = terminalStore.openTabs;
+        const target = (savedSessionId && tabs.find((t) => t.sessionId === savedSessionId))
+          || tabs[0];
         if (target) terminalStore.switchTab(target.id);
       }
       setTimeout(() => emit("layout:fitAll", { force: true }), LAYOUT_FIT_DELAY_MS);
@@ -102,6 +102,7 @@ export function useSessionSync() {
       const localSessionIds = new Set(terminalStore.openTabs.map((t) => t.sessionId));
 
       for (const s of sessions) {
+        if (s.detached) continue;
         if (!localSessionIds.has(s.session_id)) {
           terminalStore.addTerminalTab(_buildTabParams(s, allJobs));
         }

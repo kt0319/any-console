@@ -76,7 +76,7 @@ class TerminalSession:
         "tmux_session_name",
         "bridges",
         "pending_text", "pending_enter",
-        "hidden",
+        "detached",
     )
 
     def __init__(self, workspace: str | None,
@@ -92,10 +92,9 @@ class TerminalSession:
         self.bridges: dict[WebSocket, ClientBridge] = {}
         self.pending_text: str | None = None
         self.pending_enter: bool = True
-        # フロント側で hidden（タブバーから非表示）にされたセッションは
-        # dispatch のターゲット候補から除外する。ユーザが意図的に隠した枠に
-        # 勝手に入力が流れるのを防ぐ。
-        self.hidden: bool = False
+        # detached セッションは dispatch のターゲット候補から除外する。
+        # ユーザが意図的に切り離した枠に勝手に入力が流れるのを防ぐ。
+        self.detached: bool = False
 
     def save_metadata(self) -> None:
         pairs = [
@@ -117,15 +116,15 @@ class TerminalSession:
             logger.warning("save metadata failed session=%s: %s",
                            self.tmux_session_name, result.stderr)
 
-    def save_hidden(self) -> None:
-        """tmux のセッション環境変数に hidden 状態を保存する（永続化）。
+    def save_detached(self) -> None:
+        """tmux のセッション環境変数に detached 状態を保存する（永続化）。
         False のときは env を unset して残骸を残さない。"""
-        if self.hidden:
-            args = ["set-environment", "-t", self.tmux_session_name, "TMUX_HIDDEN", "1"]
+        if self.detached:
+            args = ["set-environment", "-t", self.tmux_session_name, "TMUX_DETACHED", "1"]
         else:
-            args = ["set-environment", "-u", "-t", self.tmux_session_name, "TMUX_HIDDEN"]
+            args = ["set-environment", "-u", "-t", self.tmux_session_name, "TMUX_DETACHED"]
         if _run_tmux_cmd(*args) is None:
-            logger.warning("save_hidden failed session=%s", self.tmux_session_name)
+            logger.warning("save_detached failed session=%s", self.tmux_session_name)
 
     @classmethod
     def from_tmux(cls, tmux_name: str) -> "TerminalSession":
@@ -139,7 +138,7 @@ class TerminalSession:
             job_name=meta.get("TMUX_JOB_NAME"),
             job_label=meta.get("TMUX_JOB_LABEL"),
         )
-        sess.hidden = bool(meta.get("TMUX_HIDDEN"))
+        sess.detached = bool(meta.get("TMUX_DETACHED"))
         return sess
 
     def metadata_dict(self) -> dict:

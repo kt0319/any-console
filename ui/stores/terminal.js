@@ -8,7 +8,7 @@ import { LS_KEY_TERMINAL_SETTINGS, LS_KEY_ACTIVE_SESSION } from "../utils/consta
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { TERMINAL_SETTINGS_META, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../utils/terminal-settings.js";
 import { safeJsonLoad } from "../utils/storage.js";
-import { EP_TERMINAL_ORDER } from "../utils/endpoints.js";
+import { EP_TERMINAL_ORDER, terminalSessionDetachedPath } from "../utils/endpoints.js";
 import { useAuthStore } from "./auth.js";
 
 const TERMINAL_SETTINGS_KEY = LS_KEY_TERMINAL_SETTINGS;
@@ -50,7 +50,6 @@ function loadTerminalSettingsFromStorage() {
  * @property {ReturnType<typeof setTimeout>|null} _activityTimer
  * @property {boolean} _inputBound
  * @property {boolean} _elementBound
- * @property {boolean} hidden
  */
 
 export const useTerminalStore = defineStore("terminal", () => {
@@ -90,7 +89,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     return terminalSettings.value;
   }
 
-  function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, restored, hidden }) {
+  function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, restored }) {
     const opts = getTerminalRuntimeOptions();
     const term = new Terminal({ ...opts, allowProposedApi: true });
     const fitAddon = new FitAddon();
@@ -128,7 +127,6 @@ export const useTerminalStore = defineStore("terminal", () => {
       _activityTimer: null,
       _inputBound: false,
       _elementBound: false,
-      hidden: !!hidden,
     });
 
     openTabs.value.push(tab);
@@ -147,12 +145,10 @@ export const useTerminalStore = defineStore("terminal", () => {
     if (activeTabId.value === tabId) pickActiveAfter(idx);
   }
 
-  // idx 位置以降で最初の visible タブ（無ければ末尾の visible / null）へ active を移す。
-  // タブが閉じられた・hidden 化されて active として使えなくなった時の共通再選出。
+  // idx 位置以降で最初のタブ（無ければ末尾）へ active を移す。
   function pickActiveAfter(idx) {
-    const visibleTabs = openTabs.value.filter((t) => !t.hidden);
-    const next = visibleTabs.find((t) => openTabs.value.indexOf(t) >= idx)
-      || visibleTabs[visibleTabs.length - 1];
+    const tabs = openTabs.value;
+    const next = tabs.find((_, i) => i >= idx) || tabs[tabs.length - 1];
     activeTabId.value = next ? next.id : null;
   }
 
@@ -164,24 +160,21 @@ export const useTerminalStore = defineStore("terminal", () => {
     }
   }
 
-  function setTabHidden(tabId, hidden) {
-    // tab オブジェクトは markRaw 化されているので property の直接代入では
-    // Vue の reactivity を発火しない。配列を作り直して openTabs の ref を
-    // 入れ替えることで computed (TabBar の hiddenTabCount など) を再評価させる。
+  function detachTab(tabId) {
     const idx = openTabs.value.findIndex((t) => t.id === tabId);
     if (idx === -1) return;
     const tab = openTabs.value[idx];
-    tab.hidden = !!hidden;
-    openTabs.value = [...openTabs.value];
-    // アクティブなタブを hidden にしたら、キー入力が裏の hidden タブへ送られない
-    // よう次の visible タブへ active を移す。
-    if (!!hidden && activeTabId.value === tabId) pickActiveAfter(idx);
-    // dispatch が hidden セッションへ送らないよう backend にも反映する。
+    if (tab.term) {
+      try { tab.term.dispose(); } catch {}
+      tab.term = null;
+    }
+    openTabs.value = openTabs.value.filter((t) => t.id !== tabId);
+    if (activeTabId.value === tabId) pickActiveAfter(idx);
     if (tab.sessionId) {
       const auth = useAuthStore();
-      auth.apiFetch(`/terminal/sessions/${encodeURIComponent(tab.sessionId)}/hidden`, {
-        method: "PUT", body: { hidden: !!hidden },
-      }).catch(() => { /* ignore */ });
+      auth.apiFetch(terminalSessionDetachedPath(tab.sessionId), {
+        method: "PUT", body: { detached: true },
+      }).catch(() => {});
     }
   }
 
@@ -245,7 +238,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     addTerminalTab,
     removeTab,
     switchTab,
-    setTabHidden,
+    detachTab,
     moveTab,
     saveTabOrder,
     loadTabOrder,

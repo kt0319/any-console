@@ -17,7 +17,7 @@
         v-for="job in commonJobs"
         :key="'c-' + job.name"
         class="job-item-row"
-        :class="{ 'job-item-hidden': job.hidden_tab }"
+        :class="{ 'job-item-detached': job.detached_tab }"
       >
         <button type="button" class="job-item" @click="runJob(job)">
           <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
@@ -40,7 +40,7 @@
         v-for="job in localJobs"
         :key="'l-' + job.name"
         class="job-item-row"
-        :class="{ 'job-item-hidden': job.hidden_tab }"
+        :class="{ 'job-item-detached': job.detached_tab }"
       >
         <button type="button" class="job-item" @click="runJob(job)">
           <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
@@ -145,7 +145,7 @@ async function runJob(job) {
     jobIcon: job.icon,
     jobIconColor: job.icon_color,
     initialCommand: job.command,
-    hidden: !!job.hidden_tab,
+    detached: !!job.detached_tab,
   });
   emit("modal:close");
 }
@@ -221,7 +221,7 @@ defineExpose({ load });
   color: var(--text-primary);
 }
 
-.job-item-hidden {
+.job-item-detached {
   opacity: 0.6;
 }
 

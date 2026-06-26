@@ -15,10 +15,6 @@
         <span class="mdi mdi-plus"></span>
       </button>
     </div>
-    <button v-if="!isSplitMode && hiddenTabCount > 0" class="tab-hidden-btn" :class="{ active: showHiddenTabs }" @click="toggleHidden" title="Show hidden tabs">
-      <span class="mdi" :class="showHiddenTabs ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"></span>
-      <span class="tab-hidden-badge">{{ hiddenTabCount }}</span>
-    </button>
     <button v-if="!isSplitMode" class="tab-settings-btn" @click="onSettingsClick" title="Settings">
       <span class="mdi mdi-cog"></span>
     </button>
@@ -26,7 +22,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import TabItem from "./TabItem.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
@@ -42,16 +38,8 @@ const props = defineProps({
 const activeTabId = computed(() => terminalStore.activeTabId);
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
-const showHiddenTabs = ref(false);
-
-const hiddenTabCount = computed(() => props.tabs.filter((t) => t.hidden).length);
-
-const visibleTabs = computed(() =>
-  showHiddenTabs.value ? props.tabs : props.tabs.filter((t) => !t.hidden),
-);
-
 const sortedItems = computed(() => {
-  return visibleTabs.value.map((tab, i) => ({ type: "tab", tab, index: i }));
+  return props.tabs.map((tab, i) => ({ type: "tab", tab, index: i }));
 });
 
 const showBarRow = computed(() => !isSplitMode.value);
@@ -74,10 +62,6 @@ function onRefresh(tab) {
 function onAddClick() {
   if (Date.now() < suppressAddUntil) return;
   emit("workspace:openModal");
-}
-
-function toggleHidden() {
-  showHiddenTabs.value = !showHiddenTabs.value;
 }
 
 function onSettingsClick() {
@@ -138,37 +122,6 @@ function onSettingsClick() {
   .tab-add-btn:hover {
     background: var(--bg-tertiary);
   }
-}
-
-.tab-hidden-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  gap: 2px;
-  height: 30px;
-  margin: 0;
-  padding: 0 6px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.tab-hidden-btn:active {
-  background: var(--bg-tertiary);
-}
-
-.tab-hidden-btn.active {
-  color: #f7c948;
-}
-
-
-.tab-hidden-badge {
-  font-size: 13px;
-  line-height: 1;
 }
 
 .tab-settings-btn {

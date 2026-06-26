@@ -117,7 +117,7 @@ class TestJobsContract:
 
         jobs = client.get("/workspaces/test-ws/jobs", headers=AUTH).json()
         job = jobs[data["name"]]
-        for key in ("command", "label", "confirm", "hidden_tab"):
+        for key in ("command", "label", "confirm", "detached_tab"):
             assert key in job, f"Missing key: {key}"
 
 
@@ -126,7 +126,7 @@ class TestRunContract:
         client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "label": "echo",
             "command": "echo contract",
-            "hidden_tab": False,
+            "detached_tab": False,
         })
         job_name = client.get("/workspaces/test-ws/jobs", headers=AUTH).json()
         name = list(job_name.keys())[0]

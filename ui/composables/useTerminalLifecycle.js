@@ -6,7 +6,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminal } from "./useTerminal.js";
 import { useToast } from "./useToast.js";
 import { usePrompt } from "./usePrompt.js";
-import { EP_RUN } from "../utils/endpoints.js";
+import { EP_RUN, terminalSessionDetachedPath } from "../utils/endpoints.js";
 import { TERMINAL_JOB_KEY } from "../utils/constants.js";
 import { collectCommandVars } from "../utils/command-vars.js";
 
@@ -71,13 +71,12 @@ export function useTerminalLifecycle({ terminalBaseView }) {
       }
     }
 
-    const visibleTabs = terminalStore.openTabs.filter((t) => !t.hidden);
-    const firstId = (visibleTabs[0] || terminalStore.openTabs[0]).id;
+    const firstId = terminalStore.openTabs[0].id;
     terminalStore.switchTab(firstId);
     focusTabTerminal(firstId);
   }
 
-  async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, jobIcon, jobIconColor, initialCommand, hidden }) {
+  async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, jobIcon, jobIconColor, initialCommand, detached }) {
     try {
       const commandVars = await collectCommandVars(initialCommand, prompt);
       if (commandVars === null) return; // プレースホルダー入力がキャンセルされた
@@ -102,6 +101,16 @@ export function useTerminalLifecycle({ terminalBaseView }) {
         return;
       }
       const data = await res.json();
+      if (detached) {
+        // detached 起動: タブに追加せず、セッションを detached としてマークするだけ。
+        // Tabs パネルの Detached sessions セクションに表示される。
+        if (data.session_id) {
+          auth.apiFetch(terminalSessionDetachedPath(data.session_id), {
+            method: "PUT", body: { detached: true },
+          }).catch(() => {});
+        }
+        return;
+      }
       const tab = terminalStore.addTerminalTab({
         wsUrl: data.ws_url,
         workspace,
@@ -112,7 +121,6 @@ export function useTerminalLifecycle({ terminalBaseView }) {
         jobName,
         jobLabel,
         restored: false,
-        hidden,
       });
       activateTerminalTab(tab.id, { focus: false });
       if (workspace) workspaceStore.selectedWorkspace = workspace;

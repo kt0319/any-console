@@ -14,7 +14,6 @@
           class="split-tab-row"
           :class="{
             active: !isSplitMode && tab.id === activeTabId,
-            hidden: tab.hidden,
             'drag-source': dragFromIdx === idx,
             'drag-over-above': dragOverIdx === idx && dragFromIdx > idx,
             'drag-over-below': dragOverIdx === idx && dragFromIdx < idx,
@@ -50,10 +49,10 @@
           <button
             type="button"
             class="split-tab-icon-btn"
-            :title="tab.hidden ? 'Show in tab bar' : 'Hide from tab bar'"
-            @click.stop="toggleHidden(tab)"
+            title="Detach (keep session running without a tab)"
+            @click.stop="onDetach(tab)"
           >
-            <span class="mdi" :class="tab.hidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"></span>
+            <span class="mdi mdi-link-variant-off"></span>
           </button>
           <button type="button" class="split-tab-close-btn" @click.stop="onClose(tab)">&times;</button>
         </div>
@@ -98,6 +97,7 @@ import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useApi } from "../composables/useApi.js";
+import { useTerminal } from "../composables/useTerminal.js";
 import { useListDragSort } from "../composables/useListDragSort.js";
 import { buildDetachedSessionList } from "../utils/detached-sessions.js";
 import {
@@ -105,6 +105,7 @@ import {
   EP_SYSTEM_TMUX_INFO,
   EP_SYSTEM_TMUX_ADOPT,
   EP_SYSTEM_TMUX_KILL,
+  EP_JOBS_WORKSPACES,
   terminalSessionPath,
   terminalWsPath,
 } from "../utils/endpoints.js";
@@ -115,6 +116,7 @@ modalTitle.value = "Tabs";
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const { confirm } = useConfirm();
+const { disconnectTerminal } = useTerminal();
 
 const openTabs = computed(() => terminalStore.openTabs);
 const activeTabId = computed(() => terminalStore.activeTabId);
@@ -192,10 +194,10 @@ async function onClose(tab) {
   }
 }
 
-function toggleHidden(tab) {
-  // タブバーから隠す / 戻す。tmux セッション自体には影響しない。
-  // store 側で reactivity を発火させる必要がある（tab は markRaw されている）。
-  terminalStore.setTabHidden(tab.id, !tab.hidden);
+function onDetach(tab) {
+  disconnectTerminal(tab);
+  terminalStore.detachTab(tab.id);
+  loadDetached();
 }
 
 const { dragFromIdx, dragOverIdx, onDragStart } = useListDragSort({
@@ -205,15 +207,18 @@ const { dragFromIdx, dragOverIdx, onDragStart } = useListDragSort({
 
 const { apiGet, apiDelete, apiPost } = useApi();
 const detachedSessions = ref([]);
+const allJobsData = ref({});
 
 async function loadDetached() {
   // 全 tmux セッション + any-console 管理セッションをマージ。
   // - ac- 付き = any-console 管理（Open 可能）
   // - ac- なし = ユーザ個人セッション（external 扱い、Close のみ）
-  const [tmuxRes, ownedRes] = await Promise.all([
+  const [tmuxRes, ownedRes, jobsRes] = await Promise.all([
     apiGet(EP_SYSTEM_TMUX_INFO),
     apiGet(EP_TERMINAL_SESSIONS),
+    apiGet(EP_JOBS_WORKSPACES),
   ]);
+  allJobsData.value = jobsRes.ok && jobsRes.data ? jobsRes.data : {};
   const owned = ownedRes.ok && Array.isArray(ownedRes.data) ? ownedRes.data : [];
   const knownTabIds = new Set(openTabs.value.map((t) => t.sessionId).filter(Boolean));
   const all = tmuxRes.ok && Array.isArray(tmuxRes.data?.sessions) ? tmuxRes.data.sessions : [];
@@ -221,17 +226,19 @@ async function loadDetached() {
 }
 
 function openDetached(s) {
+  const jobDef = s.job_name && s.workspace
+    ? allJobsData.value[s.workspace]?.[s.job_name]
+    : null;
   const tab = terminalStore.addTerminalTab({
     wsUrl: terminalWsPath(s.session_id),
     workspace: s.workspace || null,
-    wsIcon: s.icon ? s.icon : null,
+    wsIcon: s.icon || null,
     wsIconColor: s.icon_color || null,
-    icon: s.job_name ? (s.icon || "mdi-play") : "mdi-console",
-    iconColor: s.icon_color || null,
+    icon: s.job_name ? (jobDef?.icon || "mdi-play") : "mdi-console",
+    iconColor: jobDef?.icon_color || null,
     jobName: s.job_name || null,
     jobLabel: s.job_label || (s.workspace || s.session_id),
     restored: false,
-    hidden: false,
   });
   emit("tab:select", { tab });
   loadDetached();
@@ -253,7 +260,6 @@ async function adoptDetached(s) {
     jobName: null,
     jobLabel: s.tmux_name,
     restored: false,
-    hidden: false,
   });
   emit("tab:select", { tab });
   await loadDetached();
@@ -323,11 +329,6 @@ onMounted(loadDetached);
 .split-tab-row.dragging {
   opacity: 0.7;
   background: var(--bg-tertiary);
-}
-
-.split-tab-row.hidden .split-tab-row-name {
-  color: var(--text-muted);
-  font-style: italic;
 }
 
 .split-tab-row-name {

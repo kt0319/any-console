@@ -5,7 +5,7 @@ import { EP_RUN } from "../utils/endpoints.js";
 
 /**
  * App.vue のルートで購読する job:* イベントのハンドラ。
- * - job:run: hidden_tab=false なら非ターミナル実行、それ以外は terminal:launch
+ * - job:run: detached_tab=false なら非ターミナル実行、それ以外は terminal:launch
  * - job:exec: 強制的に非ターミナル実行
  */
 export function useAppJobBridge() {
@@ -21,7 +21,7 @@ export function useAppJobBridge() {
 
   function bind() {
     on("job:run", ({ jobName, job, workspace }) => {
-      if (job?.hidden_tab === false) {
+      if (job?.detached_tab === false) {
         execNonTerminalJob(jobName, workspace);
         return;
       }

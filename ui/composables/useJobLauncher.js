@@ -41,7 +41,7 @@ export function useJobLauncher() {
       jobIcon: job.icon,
       jobIconColor: job.icon_color,
       initialCommand: job.command,
-      hidden: !!job.hidden_tab,
+      detached: !!job.detached_tab,
     });
   }
 
@@ -64,7 +64,7 @@ export function useJobLauncher() {
       jobIcon: recent.jobIcon,
       jobIconColor: recent.jobIconColor,
       initialCommand: recent.jobCommand,
-      hidden: !!recent.jobHiddenTab,
+      detached: !!recent.jobDetachedTab,
     });
   }
 

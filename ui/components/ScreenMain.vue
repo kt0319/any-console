@@ -87,10 +87,9 @@ useGlobalShortcuts({ closeTab });
 
 const openTabs = computed(() => terminalStore.openTabs);
 const hasAnyTab = computed(() => openTabs.value.length > 0);
-const hasVisibleTab = computed(() => openTabs.value.some((t) => !t.hidden));
 const isEmptyScreenVisible = computed(() => {
   if (layoutStore.isSplitMode) return false;
-  if (hasVisibleTab.value) return false;
+  if (openTabs.value.length > 0) return false;
   return !openTabs.value.some(t => t.id === terminalStore.activeTabId);
 });
 
