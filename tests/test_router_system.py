@@ -189,62 +189,73 @@ class TestVersionInSystemInfo:
         assert "version" not in res.json()
 
 
+def _git_out_table(table, default=None):
+    def fn(args, timeout=0):
+        return table.get(" ".join(args), default)
+    return fn
+
+
 class TestCheckUpdate:
     def _patch(self, monkeypatch, table, fetch_rc=0):
-        monkeypatch.setattr(system_mod, "_git_out",
-                            lambda args, timeout=0: table.get(" ".join(args)))
-        monkeypatch.setattr(system_mod, "_git",
-                            lambda args, timeout=0: _completed(returncode=fetch_rc))
+        monkeypatch.setattr(system_mod, "_git_out", _git_out_table(table))
+        monkeypatch.setattr(system_mod, "_git", lambda args, timeout=0: _completed(returncode=fetch_rc))
 
     def test_update_available(self, client, monkeypatch):
         self._patch(monkeypatch, {
-            "rev-parse --abbrev-ref HEAD": "main",
-            "rev-parse --abbrev-ref --symbolic-full-name @{u}": "origin/main",
-            "rev-list --count HEAD..origin/main": "3",
-            "rev-list --count origin/main..HEAD": "0",
+            "rev-parse --is-inside-work-tree": "true",
+            "remote": "origin",
             "describe --tags --always": "v0.5.0-3-gabc",
             "describe --tags --abbrev=0": "v0.5.0",
-            "describe --tags --abbrev=0 origin/main": "v0.6.0",
+            "tag --sort=-v:refname": "v0.6.0\nv0.5.0\nv0.3.0",
+            "rev-list --count v0.5.0..v0.6.0": "12",
         })
         res = client.get("/system/update/check", headers=AUTH)
         assert res.status_code == 200
         data = res.json()
         assert data["update_available"] is True
-        assert data["behind"] == 3
+        assert data["behind"] == 12
         assert data["latest_release"] == "v0.6.0"
+        assert data["current_release"] == "v0.5.0"
         assert data["version"] == "v0.5.0-3-gabc"
         assert data["fetch_ok"] is True
 
-    def test_up_to_date_and_upstream_fallback(self, client, monkeypatch):
-        # @{u} 未設定 -> origin/<branch> にフォールバック
+    def test_up_to_date(self, client, monkeypatch):
         self._patch(monkeypatch, {
-            "rev-parse --abbrev-ref HEAD": "main",
-            "rev-list --count HEAD..origin/main": "0",
-            "rev-list --count origin/main..HEAD": "0",
-            "describe --tags --always": "v0.5.0",
-            "describe --tags --abbrev=0": "v0.5.0",
-            "describe --tags --abbrev=0 origin/main": "v0.5.0",
+            "rev-parse --is-inside-work-tree": "true",
+            "remote": "origin",
+            "describe --tags --always": "v0.6.0",
+            "describe --tags --abbrev=0": "v0.6.0",
+            "tag --sort=-v:refname": "v0.6.0\nv0.5.0",
         })
         res = client.get("/system/update/check", headers=AUTH)
         assert res.status_code == 200
         data = res.json()
-        assert data["upstream"] == "origin/main"
         assert data["update_available"] is False
         assert data["behind"] == 0
 
     def test_fetch_failure_sets_flag(self, client, monkeypatch):
         self._patch(monkeypatch, {
-            "rev-parse --abbrev-ref HEAD": "main",
-            "rev-parse --abbrev-ref --symbolic-full-name @{u}": "origin/main",
-            "rev-list --count HEAD..origin/main": "0",
-            "rev-list --count origin/main..HEAD": "0",
-            "describe --tags --always": "v0.5.0",
-            "describe --tags --abbrev=0": "v0.5.0",
-            "describe --tags --abbrev=0 origin/main": "v0.5.0",
+            "rev-parse --is-inside-work-tree": "true",
+            "remote": "origin",
+            "describe --tags --abbrev=0": "v0.6.0",
+            "tag --sort=-v:refname": "v0.6.0",
         }, fetch_rc=1)
         res = client.get("/system/update/check", headers=AUTH)
         assert res.status_code == 200
         assert res.json()["fetch_ok"] is False
+
+    def test_update_available_when_no_current_tag(self, client, monkeypatch):
+        # 現在タグが取れない（describe 失敗）が最新タグはある -> 更新あり
+        self._patch(monkeypatch, {
+            "rev-parse --is-inside-work-tree": "true",
+            "remote": "origin",
+            "tag --sort=-v:refname": "v0.6.0",
+        })
+        res = client.get("/system/update/check", headers=AUTH)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["current_release"] == ""
+        assert data["update_available"] is True
 
     def test_not_a_git_repo_returns_500(self, client, monkeypatch):
         monkeypatch.setattr(system_mod, "_git_out", lambda args, timeout=0: None)
@@ -254,20 +265,33 @@ class TestCheckUpdate:
 
 
 class TestApplyUpdate:
+    def _patch(self, monkeypatch, table, git_fn):
+        monkeypatch.setattr(system_mod, "_git_out", _git_out_table(table))
+        monkeypatch.setattr(system_mod, "_git", git_fn)
+
     def test_success(self, client, monkeypatch):
-        monkeypatch.setattr(system_mod, "_git_out",
-                            lambda args, timeout=0: "" if args[:1] == ["status"] else "v0.6.0")
-        monkeypatch.setattr(system_mod, "_git",
-                            lambda args, timeout=0: _completed(stdout="Updating abc..def\n"))
+        def git_fn(args, timeout=0):
+            return _completed()  # fetch も checkout も成功
+        self._patch(monkeypatch, {
+            "rev-parse --is-inside-work-tree": "true",
+            "status --porcelain": "",
+            "remote": "origin",
+            "tag --sort=-v:refname": "v0.6.0\nv0.5.0",
+            "describe --tags --always": "v0.6.0",
+        }, git_fn)
         res = client.post("/system/update/apply", headers=AUTH)
         assert res.status_code == 200
         data = res.json()
         assert data["ok"] is True
         assert data["restart_required"] is True
+        assert data["checked_out"] == "v0.6.0"
         assert data["version"] == "v0.6.0"
 
     def test_dirty_tree_returns_409(self, client, monkeypatch):
-        monkeypatch.setattr(system_mod, "_git_out", lambda args, timeout=0: " M api/foo.py")
+        self._patch(monkeypatch, {
+            "rev-parse --is-inside-work-tree": "true",
+            "status --porcelain": " M api/foo.py",
+        }, lambda args, timeout=0: _completed())
         res = client.post("/system/update/apply", headers=AUTH)
         assert res.status_code == 409
 
@@ -276,15 +300,47 @@ class TestApplyUpdate:
         res = client.post("/system/update/apply", headers=AUTH)
         assert res.status_code == 500
 
-    def test_pull_failure_returns_500(self, client, monkeypatch):
-        monkeypatch.setattr(system_mod, "_git_out", lambda args, timeout=0: "")
-        monkeypatch.setattr(system_mod, "_git",
-                            lambda args, timeout=0: _completed(returncode=1, stderr="not fast-forward"))
+    def test_fetch_failure_returns_500(self, client, monkeypatch):
+        self._patch(monkeypatch, {
+            "rev-parse --is-inside-work-tree": "true",
+            "status --porcelain": "",
+            "remote": "origin",
+        }, lambda args, timeout=0: _completed(returncode=1, stderr="network"))
         res = client.post("/system/update/apply", headers=AUTH)
         assert res.status_code == 500
 
-    def test_pull_none_returns_500(self, client, monkeypatch):
-        monkeypatch.setattr(system_mod, "_git_out", lambda args, timeout=0: "")
-        monkeypatch.setattr(system_mod, "_git", lambda args, timeout=0: None)
+    def test_no_tags_returns_500(self, client, monkeypatch):
+        self._patch(monkeypatch, {
+            "rev-parse --is-inside-work-tree": "true",
+            "status --porcelain": "",
+            "remote": "origin",
+            "tag --sort=-v:refname": "",
+        }, lambda args, timeout=0: _completed())  # fetch 成功
+        res = client.post("/system/update/apply", headers=AUTH)
+        assert res.status_code == 500
+
+    def test_checkout_failure_returns_500(self, client, monkeypatch):
+        def git_fn(args, timeout=0):
+            if "checkout" in args:
+                return _completed(returncode=1, stderr="checkout failed")
+            return _completed()  # fetch 成功
+        self._patch(monkeypatch, {
+            "rev-parse --is-inside-work-tree": "true",
+            "status --porcelain": "",
+            "remote": "origin",
+            "tag --sort=-v:refname": "v0.6.0",
+        }, git_fn)
+        res = client.post("/system/update/apply", headers=AUTH)
+        assert res.status_code == 500
+
+    def test_checkout_none_returns_500(self, client, monkeypatch):
+        def git_fn(args, timeout=0):
+            return None if "checkout" in args else _completed()
+        self._patch(monkeypatch, {
+            "rev-parse --is-inside-work-tree": "true",
+            "status --porcelain": "",
+            "remote": "origin",
+            "tag --sort=-v:refname": "v0.6.0",
+        }, git_fn)
         res = client.post("/system/update/apply", headers=AUTH)
         assert res.status_code == 500

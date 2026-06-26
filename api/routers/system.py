@@ -338,62 +338,82 @@ def get_system_info():
     return info
 
 
+def _git_remote() -> str:
+    out = _git_out(["remote"])
+    return out.splitlines()[0] if out else "origin"
+
+
+def _latest_release_tag() -> str:
+    """バージョン降順で最新のリリースタグを返す（無ければ空文字）。"""
+    tags = _git_out(["tag", "--sort=-v:refname"])
+    return tags.splitlines()[0] if tags else ""
+
+
 @router.get("/system/update/check")
 def check_update():
-    """追跡ブランチ（通常 origin/main）に対する更新の有無を返す。
+    """最新のリリースタグに対する更新の有無を返す。
 
-    リリースは release-please が main 上のコミット（タグ）として作るため、
-    main を追う＝最新リリースを取り込むことになる。current/latest はリリース
-    タグ（例: v0.5.0）で示し、behind は未取り込みコミット数。
+    リリースは release-please が付けるタグ（例: v0.5.0）。current_release は現在の
+    HEAD から見える最新タグ、latest_release は fetch 後のリポジトリ最新タグ。
+    更新適用はブランチ HEAD ではなくこの最新タグへ checkout する（リリース単位）。
     """
-    branch = _git_out(["rev-parse", "--abbrev-ref", "HEAD"])
-    if branch is None:
+    if _git_out(["rev-parse", "--is-inside-work-tree"]) is None:
         raise server_error("Not a git repository; cannot check for updates")
 
-    upstream = _git_out(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
-    if not upstream:
-        upstream = f"origin/{branch}"
-    remote = upstream.split("/", 1)[0]
-
-    fetched = _git(["fetch", "--tags", "--quiet", remote], timeout=GIT_FETCH_TIMEOUT_SEC)
+    fetched = _git(["fetch", "--tags", "--force", "--quiet", _git_remote()],
+                   timeout=GIT_FETCH_TIMEOUT_SEC)
     fetch_ok = fetched is not None and fetched.returncode == 0
 
-    behind = _git_out(["rev-list", "--count", f"HEAD..{upstream}"])
-    ahead = _git_out(["rev-list", "--count", f"{upstream}..HEAD"])
-    behind_n = int(behind) if behind and behind.isdigit() else 0
-    ahead_n = int(ahead) if ahead and ahead.isdigit() else 0
+    current_release = _git_out(["describe", "--tags", "--abbrev=0"]) or ""
+    latest_release = _latest_release_tag()
+
+    behind = 0
+    update_available = False
+    if latest_release and latest_release != current_release:
+        if not current_release:
+            update_available = True
+        else:
+            # current より latest が新しい（current の先に commit がある）か
+            cnt = _git_out(["rev-list", "--count", f"{current_release}..{latest_release}"])
+            if cnt and cnt.isdigit() and int(cnt) > 0:
+                update_available = True
+                behind = int(cnt)
 
     return {
-        "branch": branch,
-        "upstream": upstream,
         "version": get_app_release(),
-        "current_release": _git_out(["describe", "--tags", "--abbrev=0"]) or "",
-        "latest_release": _git_out(["describe", "--tags", "--abbrev=0", upstream]) or "",
-        "behind": behind_n,
-        "ahead": ahead_n,
-        "update_available": behind_n > 0,
+        "current_release": current_release,
+        "latest_release": latest_release,
+        "behind": behind,
+        "update_available": update_available,
         "fetch_ok": fetch_ok,
     }
 
 
 @router.post("/system/update/apply")
 def apply_update():
-    """追跡ブランチへ git pull --ff-only で更新する。反映には再起動が必要。"""
-    status = _git_out(["status", "--porcelain"])
-    if status is None:
+    """最新のリリースタグへ checkout して更新する。反映には再起動が必要。"""
+    if _git_out(["rev-parse", "--is-inside-work-tree"]) is None:
         raise server_error("Not a git repository; cannot update")
-    if status:
+    if _git_out(["status", "--porcelain"]):
         raise conflict("Uncommitted changes present. Commit or stash before updating.")
 
-    result = _git(["pull", "--ff-only"], timeout=GIT_FETCH_TIMEOUT_SEC)
+    fetched = _git(["fetch", "--tags", "--force", _git_remote()], timeout=GIT_FETCH_TIMEOUT_SEC)
+    if fetched is None or fetched.returncode != 0:
+        raise server_error("git fetch failed")
+
+    latest = _latest_release_tag()
+    if not latest:
+        raise server_error("No release tags found")
+
+    result = _git(["-c", "advice.detachedHead=false", "checkout", latest])
     if result is None:
-        raise server_error("git pull failed to run")
+        raise server_error("git checkout failed to run")
     if result.returncode != 0:
-        raise server_error(f"git pull failed: {(result.stderr or '').strip()[:300]}")
+        raise server_error(f"git checkout failed: {(result.stderr or '').strip()[:300]}")
 
     return {
         "ok": True,
         "version": get_app_release(),
+        "checked_out": latest,
         "restart_required": True,
-        "output": (result.stdout or "").strip(),
     }

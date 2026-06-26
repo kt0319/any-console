@@ -4,9 +4,9 @@
       <span class="upd-label">Installed version</span>
       <span class="upd-value">{{ status.version || "unknown" }}</span>
     </div>
-    <div v-if="status.branch" class="upd-row">
-      <span class="upd-label">Tracking</span>
-      <span class="upd-value">{{ status.upstream || status.branch }}</span>
+    <div v-if="status.current_release" class="upd-row">
+      <span class="upd-label">Current release</span>
+      <span class="upd-value">{{ status.current_release }}</span>
     </div>
 
     <div v-if="checking" class="upd-note">Checking for updates…</div>
@@ -18,23 +18,20 @@
       <div v-else-if="status.update_available" class="upd-callout upd-callout-update">
         <span class="mdi mdi-arrow-up-bold-circle-outline"></span>
         <div>
-          <div class="upd-callout-title">Update available</div>
-          <div class="upd-callout-note">
-            {{ status.behind }} commit{{ status.behind === 1 ? "" : "s" }} behind
-            <template v-if="status.latest_release && status.latest_release !== status.current_release">
-              · latest release {{ status.latest_release }}
-            </template>
+          <div class="upd-callout-title">Update available: {{ status.latest_release }}</div>
+          <div v-if="status.behind" class="upd-callout-note">
+            {{ status.behind }} commit{{ status.behind === 1 ? "" : "s" }} since {{ status.current_release }}
           </div>
         </div>
       </div>
       <div v-else class="upd-callout upd-callout-ok">
         <span class="mdi mdi-check-circle-outline"></span>
-        <div class="upd-callout-title">You're up to date</div>
+        <div class="upd-callout-title">You're on the latest release</div>
       </div>
     </template>
 
     <div v-if="applied" class="status-message success">
-      Updated to {{ status.version }}. Restart any-console to apply
+      Checked out {{ status.checked_out }}. Restart any-console to apply
       (<code>./any-console restart</code>, or <code>./any-console run</code> in the foreground).
     </div>
     <div v-if="applyError" class="status-message error">{{ applyError }}</div>
@@ -50,13 +47,13 @@
         @click="apply"
         :disabled="applying"
       >
-        {{ applying ? "Updating…" : "Update now (git pull)" }}
+        {{ applying ? "Updating…" : `Update to ${status.latest_release}` }}
       </button>
     </div>
 
     <p class="upd-hint">
-      Updates pull the latest commits of the tracked branch (which includes the newest
-      release). Dependency or frontend changes take effect after a restart.
+      Updates check out the latest release tag. Dependency or frontend changes take
+      effect after a restart.
     </p>
   </div>
 </template>
@@ -74,9 +71,8 @@ const { apiGet, apiPost } = useApi();
 const { confirm } = useConfirm();
 
 const status = reactive({
-  version: "", branch: "", upstream: "",
-  behind: 0, ahead: 0, update_available: false, fetch_ok: true,
-  current_release: "", latest_release: "",
+  version: "", current_release: "", latest_release: "", checked_out: "",
+  behind: 0, update_available: false, fetch_ok: true,
 });
 const checking = ref(false);
 const checked = ref(false);
@@ -97,12 +93,13 @@ async function check() {
 }
 
 async function apply() {
-  if (!await confirm(`Pull the latest changes onto ${status.branch}? A restart is required to apply them.`)) return;
+  if (!await confirm(`Update to ${status.latest_release}? A restart is required to apply it.`)) return;
   applying.value = true;
   applyError.value = "";
   const { ok, data } = await apiPost(EP_SYSTEM_UPDATE_APPLY, {});
   if (ok && data?.ok) {
     if (data.version) status.version = data.version;
+    status.checked_out = data.checked_out || status.latest_release;
     status.update_available = false;
     applied.value = true;
   } else {
