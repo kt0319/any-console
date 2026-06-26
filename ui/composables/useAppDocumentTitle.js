@@ -12,7 +12,7 @@ export function useAppDocumentTitle() {
   const terminalStore = useTerminalStore();
 
   const activeTabLabel = computed(() => {
-    if (!terminalStore.openTabs.some((t) => !t.hidden)) return "";
+    if (!terminalStore.openTabs.length) return "";
     const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
     if (!tab) return "";
     const ws = tab.workspace || "";

@@ -2,7 +2,7 @@
   <button
     ref="pillEl"
     class="tab-btn"
-    :class="{ active: isActive, 'tab-activity': tab._activity, dragging: isDragging, 'drag-over-left': dropSide === 'left', 'drag-over-right': dropSide === 'right', 'tab-hidden': tab.hidden }"
+    :class="{ active: isActive, 'tab-activity': tab._activity, dragging: isDragging, 'drag-over-left': dropSide === 'left', 'drag-over-right': dropSide === 'right' }"
     :draggable="canDrag"
     tabindex="-1"
     @mousedown="onMouseDown"
@@ -325,11 +325,6 @@ onBeforeUnmount(() => {
   line-height: 1;
   cursor: pointer;
   padding: 0;
-}
-
-.tab-btn.tab-hidden {
-  border: 1px dashed var(--text-muted);
-  opacity: 0.7;
 }
 
 .tab-btn :deep(.favicon-icon) {

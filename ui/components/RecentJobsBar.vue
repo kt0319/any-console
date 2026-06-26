@@ -6,7 +6,7 @@
         :key="recent.key"
         type="button"
         class="picker-recent-btn"
-        :class="{ 'is-hidden-tab': recent.jobHiddenTab }"
+        :class="{ 'is-detached-tab': recent.jobDetachedTab }"
         @click="$emit('run', recent)"
       >
         <span v-if="recent.wsIcon" v-html="renderIconStr(recent.wsIcon, recent.wsIconColor, 18)"></span>
@@ -62,7 +62,7 @@ defineEmits(["run", "settings"]);
   font-family: inherit;
 }
 
-.picker-recent-btn.is-hidden-tab {
+.picker-recent-btn.is-detached-tab {
   border-style: dashed;
 }
 

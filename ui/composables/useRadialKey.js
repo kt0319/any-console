@@ -109,14 +109,14 @@ export function useRadialKey() {
       return;
     }
     if (s.action === "tab:hide") {
-      if (tab?.id != null) terminalStore.setTabHidden(tab.id, true);
+      if (tab?.id != null) terminalStore.detachTab(tab.id);
       return;
     }
     if (s.action === "layout:splitToggle") {
       if (layoutStore.isSplitMode) {
         layoutStore.exitSplitMode?.();
       } else {
-        const ids = terminalStore.openTabs.filter((t) => !t.hidden).map((t) => t.id);
+        const ids = terminalStore.openTabs.map((t) => t.id);
         if (ids.length >= 2) {
           layoutStore.splitPaneTabIds = ids;
           layoutStore.activePaneIndex = 0;

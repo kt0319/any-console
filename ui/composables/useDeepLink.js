@@ -82,7 +82,6 @@ export function useDeepLink() {
       jobName: meta.job_name,
       jobLabel: meta.job_label,
       restored: true,
-      hidden: false,
     });
     emit("tab:select", { tab });
     await nextTick();
@@ -135,7 +134,7 @@ export function useDeepLink() {
     }
 
     if (effectiveWs) {
-      const existingTab = terminalStore.openTabs.find((t) => t.workspace === effectiveWs && !t.hidden);
+      const existingTab = terminalStore.openTabs.find((t) => t.workspace === effectiveWs);
       if (existingTab) {
         terminalStore.switchTab(existingTab.id);
       }

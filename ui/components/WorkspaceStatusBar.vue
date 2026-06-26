@@ -107,7 +107,7 @@ const layoutStore = useLayoutStore();
 const activeTab = computed(() =>
   terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId),
 );
-const hasVisibleTabs = computed(() => terminalStore.openTabs.some((t) => !t.hidden));
+const hasVisibleTabs = computed(() => terminalStore.openTabs.length > 0);
 const workspace = computed(() => hasVisibleTabs.value ? (activeTab.value?.workspace || null) : null);
 const showHeader = computed(() => !layoutStore.isSplitMode);
 
