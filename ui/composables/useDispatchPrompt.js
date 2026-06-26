@@ -23,6 +23,8 @@ const branch = ref("");
 const baseBranch = ref("");
 const text = ref("");
 const pending = createPendingPromise();
+/** @type {import("vue").Ref<string|null>} */
+const currentId = ref(null);
 
 function reset() {
   visible.value = false;
@@ -30,6 +32,7 @@ function reset() {
   branch.value = "";
   baseBranch.value = "";
   text.value = "";
+  currentId.value = null;
 }
 
 export function useDispatchPrompt() {
@@ -38,11 +41,12 @@ export function useDispatchPrompt() {
    * @param {object} req dispatch リクエスト（サーバから流れてきた payload）
    * @returns {Promise<{approved: boolean, overrides: object}>}
    */
-  function open(req) {
+  function open(req, id = null) {
     request.value = req || {};
     branch.value = req?.branch || "";
     baseBranch.value = req?.base_branch || "";
     text.value = req?.text || "";
+    currentId.value = id;
     visible.value = true;
     return pending.begin({ approved: false, overrides: {} });
   }
@@ -62,5 +66,9 @@ export function useDispatchPrompt() {
     pending.settle({ approved: false, overrides: {} });
   }
 
-  return { visible, request, branch, baseBranch, text, open, approve, cancel };
+  function dismissById(id) {
+    if (currentId.value === id && visible.value) cancel();
+  }
+
+  return { visible, request, branch, baseBranch, text, open, approve, cancel, dismissById };
 }

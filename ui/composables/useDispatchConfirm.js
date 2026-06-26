@@ -11,7 +11,7 @@ let started = false;
 let es = null;
 
 export function useDispatchConfirm() {
-  const { open: openDispatchPrompt } = useDispatchPrompt();
+  const { open: openDispatchPrompt, dismissById } = useDispatchPrompt();
   const { apiPost, apiGet } = useApi();
   const terminalStore = useTerminalStore();
   const workspaceStore = useWorkspaceStore();
@@ -57,7 +57,7 @@ export function useDispatchConfirm() {
     if (!payload?.id || handled.has(payload.id)) return;
     handled.add(payload.id);
     focusMatchingTab(payload.request || {});
-    const { approved, overrides } = await openDispatchPrompt(payload.request || {});
+    const { approved, overrides } = await openDispatchPrompt(payload.request || {}, payload.id);
     if (approved) approvedIds.add(payload.id);
     try {
       await apiPost(`/dispatch/${encodeURIComponent(payload.id)}/decision`, {
@@ -81,7 +81,10 @@ export function useDispatchConfirm() {
       try { payload = JSON.parse(e.data); } catch { return; }
       if (payload.type === "pending") handlePending(payload);
       else if (payload.type === "result") handleResult(payload);
-      else if (payload.type === "expired" || payload.type === "decided") handled.add(payload.id);
+      else if (payload.type === "expired" || payload.type === "decided") {
+        handled.add(payload.id);
+        dismissById(payload.id);
+      }
     };
     es.onerror = () => {
       try { es?.close(); } catch {}
