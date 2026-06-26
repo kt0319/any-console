@@ -64,7 +64,8 @@ import { useConfirm } from "../composables/useConfirm.js";
 import { confirmIrreversible } from "../utils/confirm-irreversible.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
-import { EP_COMMON_JOBS } from "../utils/endpoints.js";
+import { EP_COMMON_JOBS, workspaceApiPath } from "../utils/endpoints.js";
+import { extractDomain } from "../utils/icon-url.js";
 
 const { modalTitle, viewState, pushView, popView } = useModalView();
 const { apiPost, apiPut, apiDelete } = useApi();
@@ -125,15 +126,6 @@ onMounted(() => {
   modalTitle.value = isNew ? "Add Job" : "Edit Job";
 });
 
-function extractDomain(text) {
-  try {
-    if (text.startsWith("http://") || text.startsWith("https://")) return new URL(text).hostname;
-    return text.split("/")[0];
-  } catch {
-    return text;
-  }
-}
-
 async function saveJob() {
   const f = form.value;
   if (f.type === "browser") {
@@ -144,7 +136,7 @@ async function saveJob() {
   saving.value = true;
   formError.value = "";
   try {
-    const baseUrl = isCommon ? EP_COMMON_JOBS : `/workspaces/${encodeURIComponent(workspaceName)}/jobs`;
+    const baseUrl = isCommon ? EP_COMMON_JOBS : workspaceApiPath(workspaceName, "/jobs");
     const url = isNew ? baseUrl : `${baseUrl}/${encodeURIComponent(jobEntry.name)}`;
     const trimmedUrl = f.url.trim();
     const icon = f.type === "browser"
@@ -179,7 +171,7 @@ async function deleteJob() {
   if (isNew || !jobEntry) return;
   const label = jobEntry.job.label || jobEntry.name;
   if (!await confirmIrreversible(confirm, `Delete job "${label}"?`)) return;
-  const baseUrl = isCommon ? EP_COMMON_JOBS : `/workspaces/${encodeURIComponent(workspaceName)}/jobs`;
+  const baseUrl = isCommon ? EP_COMMON_JOBS : workspaceApiPath(workspaceName, "/jobs");
   const url = `${baseUrl}/${encodeURIComponent(jobEntry.name)}`;
   const { ok, data } = await apiDelete(url, { errorMessage: MSG_DELETE_FAILED });
   if (ok) {
