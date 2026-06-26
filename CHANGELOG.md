@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1](https://github.com/kt0319/any-console/compare/v0.5.0...v0.5.1) (2026-06-26)
+
+
+### Bug Fixes
+
+* dispatch のブランチ操作で subprocess 例外を捕捉する ([e6abc13](https://github.com/kt0319/any-console/commit/e6abc13e4a272b007d2c904ea4468f5bb35c6b6b))
+
+
+### Refactor
+
+* IconPicker のグリッド整形ロジックを純粋関数に抽出する ([220b6e4](https://github.com/kt0319/any-console/commit/220b6e4c1ea364daef08317073eee62fa75e932f))
+* JobConfig の extractDomain 重複と URL 直書きを解消する ([0d08320](https://github.com/kt0319/any-console/commit/0d083206615ada5722e55b62ac9723fc8279006a))
+* run_git_raw に型注釈を追加する ([2cd2dbf](https://github.com/kt0319/any-console/commit/2cd2dbfd9bd0f771acd5e300ae05dda2c096fe7d))
+* TabConfig の orphan セッション整形を純粋関数に抽出する ([ada86a7](https://github.com/kt0319/any-console/commit/ada86a79f8463289ff64f7d9fd65df7facf5f973))
+* tmux コマンド実行を共通ラッパーに集約する ([639660b](https://github.com/kt0319/any-console/commit/639660b95d0d2d68da6066c617211f5ba9e0b089))
+* コマンド変数収集を command-vars.js に抽出する ([4230ea1](https://github.com/kt0319/any-console/commit/4230ea1802e832563648a8e674a2d19f708e04f9))
+* ステータスバーの git 表示ロジックを composable に抽出する ([944d71a](https://github.com/kt0319/any-console/commit/944d71ab6e3338dd8cb545c0965d76b797705591))
+* ブランチ追加ダイアログを composable に抽出する ([2d438d8](https://github.com/kt0319/any-console/commit/2d438d8f3798590d90191d77a4c2a469128fd7e8))
+* 円形キーパッドの幾何計算を純粋関数に抽出する ([77acec8](https://github.com/kt0319/any-console/commit/77acec882e9789c85da1e73c092bd87027a11042))
+
 ## [0.5.0](https://github.com/kt0319/any-console/compare/v0.4.0...v0.5.0) (2026-06-25)
 
 
