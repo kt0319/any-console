@@ -101,22 +101,12 @@ async def get_terminal_history(session_id: str, cols: int | None = None, rows: i
     # こうしないと、古いサイズで wrap された pane 内容をクライアントが書き戻して画面が崩れる。
     if cols and rows and cols > 0 and rows > 0:
         if not session.bridges:
-            try:
-                subprocess.run(
-                    [
-                        "tmux", "resize-window", "-t", session.tmux_session_name,
-                        "-x", str(cols), "-y", str(rows),
-                        # resize-window は window-size を manual に書き換えるため latest へ
-                        # 戻す。戻さないと以後のクライアント PTY リサイズにウィンドウが
-                        # 追従しなくなる（ADR 16）。
-                        ";", "set-option", "-t", session.tmux_session_name,
-                        "window-size", "latest",
-                    ],
-                    timeout=TMUX_CMD_TIMEOUT_SEC,
-                    capture_output=True,
-                )
-            except (subprocess.TimeoutExpired, OSError):
-                pass
+            # resize-window は window-size を manual に書き換えるため latest へ戻す。
+            # 戻さないと以後のクライアント PTY リサイズにウィンドウが追従しなくなる（ADR 16）。
+            _run_tmux_cmd(
+                "resize-window", "-t", session.tmux_session_name, "-x", str(cols), "-y", str(rows),
+                ";", "set-option", "-t", session.tmux_session_name, "window-size", "latest",
+            )
         else:
             # 他のクライアントが接続中はウィンドウを動かすとそちらの表示を乱すため
             # resize できない。幅が一致していればそのまま capture できるが、不一致の

@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import subprocess
 import threading
 
 from fastapi import WebSocket
@@ -9,7 +8,6 @@ from fastapi import WebSocket
 from .common import (
     TERMINAL_DEFAULT_COLS,
     TERMINAL_DEFAULT_ROWS,
-    TMUX_CMD_TIMEOUT_SEC,
     TMUX_SESSION_PREFIX,
 )
 from .errors import not_found
@@ -22,6 +20,7 @@ from .terminal_pty import (
     resize_client_pty,
 )
 from .tmux import (
+    _run_tmux_cmd,
     attach_tmux_session,
     detect_workspace_from_tmux,
     kill_tmux_by_name,
@@ -106,33 +105,27 @@ class TerminalSession:
         ]
         if not pairs:
             return
-        argv: list[str] = ["tmux"]
+        args: list[str] = []
         for i, (env_key, value) in enumerate(pairs):
             if i > 0:
-                argv.append(";")
-            argv.extend(["set-environment", "-t", self.tmux_session_name, env_key, value])
-        try:
-            result = subprocess.run(argv, timeout=TMUX_CMD_TIMEOUT_SEC, capture_output=True)
-            if result.returncode != 0:
-                logger.warning("save metadata failed session=%s: %s",
-                               self.tmux_session_name, result.stderr)
-        except (subprocess.TimeoutExpired, OSError) as e:
-            logger.error("save metadata error session=%s: %s",
-                         self.tmux_session_name, e)
+                args.append(";")
+            args.extend(["set-environment", "-t", self.tmux_session_name, env_key, value])
+        result = _run_tmux_cmd(*args)
+        if result is None:
+            logger.error("save metadata error session=%s", self.tmux_session_name)
+        elif result.returncode != 0:
+            logger.warning("save metadata failed session=%s: %s",
+                           self.tmux_session_name, result.stderr)
 
     def save_hidden(self) -> None:
         """tmux のセッション環境変数に hidden 状態を保存する（永続化）。
         False のときは env を unset して残骸を残さない。"""
         if self.hidden:
-            argv = ["tmux", "set-environment", "-t", self.tmux_session_name,
-                    "TMUX_HIDDEN", "1"]
+            args = ["set-environment", "-t", self.tmux_session_name, "TMUX_HIDDEN", "1"]
         else:
-            argv = ["tmux", "set-environment", "-u", "-t", self.tmux_session_name,
-                    "TMUX_HIDDEN"]
-        try:
-            subprocess.run(argv, timeout=TMUX_CMD_TIMEOUT_SEC, capture_output=True)
-        except (subprocess.TimeoutExpired, OSError) as e:
-            logger.warning("save_hidden failed session=%s: %s", self.tmux_session_name, e)
+            args = ["set-environment", "-u", "-t", self.tmux_session_name, "TMUX_HIDDEN"]
+        if _run_tmux_cmd(*args) is None:
+            logger.warning("save_hidden failed session=%s", self.tmux_session_name)
 
     @classmethod
     def from_tmux(cls, tmux_name: str) -> "TerminalSession":
