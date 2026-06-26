@@ -639,12 +639,12 @@ class TestWorkspaceConfigUpdateConflicts:
 
 class TestRemapGlobalReferences:
     def test_remaps_workspace_order(self):
-        from api.config import _remap_global_references
+        from api.config_migrations import _remap_global_references
         out = _remap_global_references({"workspace_order": ["old1", "old2", "untouched"]}, {"old1": "ID_1", "old2": "ID_2"})
         assert out["workspace_order"] == ["ID_1", "ID_2", "untouched"]
 
     def test_remaps_recent_jobs_workspace(self):
-        from api.config import _remap_global_references
+        from api.config_migrations import _remap_global_references
         recent = [
             {"key": "k1", "workspace": "old1", "jobName": "j"},
             {"key": "k2", "workspace": "stays", "jobName": "j"},
@@ -656,7 +656,7 @@ class TestRemapGlobalReferences:
         assert out["recent_jobs"][2] == "not-a-dict"
 
     def test_ignores_non_list_fields(self):
-        from api.config import _remap_global_references
+        from api.config_migrations import _remap_global_references
         out = _remap_global_references({"workspace_order": "bad", "recent_jobs": "bad"}, {})
         assert out["workspace_order"] == "bad"
         assert out["recent_jobs"] == "bad"
