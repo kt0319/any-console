@@ -12,12 +12,6 @@ import logging
 import threading
 from pathlib import Path
 
-from cryptography.hazmat.primitives.asymmetric.ec import SECP256R1, generate_private_key
-from cryptography.hazmat.primitives.serialization import (
-    Encoding,
-    PublicFormat,
-)
-
 logger = logging.getLogger(__name__)
 
 _DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -33,7 +27,14 @@ _vapid_sub: str = "https://localhost"
 
 
 def _generate_vapid_keys() -> tuple[str, str]:
-    """秘密鍵を base64url、公開鍵を base64url で返す。"""
+    """秘密鍵を base64url、公開鍵を base64url で返す。
+
+    cryptography は push 通知のための任意依存。未インストールの環境でも本体の起動を
+    妨げないよう、鍵生成時にのみ遅延 import する（ImportError は呼び出し元が握る）。
+    """
+    from cryptography.hazmat.primitives.asymmetric.ec import SECP256R1, generate_private_key
+    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
     key = generate_private_key(SECP256R1())
     raw_priv = key.private_numbers().private_value.to_bytes(32, "big")  # type: ignore[attr-defined]
     private_b64 = base64.urlsafe_b64encode(raw_priv).rstrip(b"=").decode()
@@ -66,7 +67,15 @@ def set_vapid_sub(sub: str) -> None:
 def init_vapid(sub: str | None = None) -> None:
     global _vapid_private_b64, _vapid_public_b64, _vapid_sub
     with _lock:
-        _vapid_private_b64, _vapid_public_b64 = _load_or_create_vapid_keys()
+        try:
+            _vapid_private_b64, _vapid_public_b64 = _load_or_create_vapid_keys()
+        except ImportError:
+            # cryptography 未インストール: push 通知は無効化し、本体は起動を続ける。
+            logger.warning(
+                "cryptography not installed; push notifications disabled "
+                "(install cryptography and pywebpush to enable)"
+            )
+            return
         saved_sub = _VAPID_SUB_FILE.read_text().strip() if _VAPID_SUB_FILE.exists() else None
         if saved_sub:
             _vapid_sub = saved_sub
@@ -74,10 +83,11 @@ def init_vapid(sub: str | None = None) -> None:
             _vapid_sub = sub
 
 
-def get_vapid_public_key() -> str:
+def get_vapid_public_key() -> str | None:
+    """VAPID 公開鍵を返す。push が利用不可（cryptography 未導入）なら None。"""
     if _vapid_public_b64 is None:
         init_vapid()
-    return _vapid_public_b64  # type: ignore[return-value]
+    return _vapid_public_b64
 
 
 def _load_subscriptions() -> list[dict]:
@@ -117,6 +127,9 @@ def send_push_notification(title: str, body: str, url: str = "/") -> None:
     """全サブスクリプションへ Push 通知を非同期送信する。失敗したサブスクリプションは削除する。"""
     if _vapid_private_b64 is None:
         init_vapid()
+    if _vapid_private_b64 is None:
+        # cryptography 未導入等で push が無効。サイレントにスキップする。
+        return
 
     with _lock:
         subs = _load_subscriptions()

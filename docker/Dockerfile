@@ -8,8 +8,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY requirements.txt package*.json ./
-RUN pip install --no-cache-dir -r requirements.txt && npm ci
+COPY requirements.txt requirements-optional.txt package*.json ./
+# Optional push deps are best-effort: a native build failure must not break the image.
+RUN pip install --no-cache-dir -r requirements.txt \
+    && (pip install --no-cache-dir -r requirements-optional.txt || echo "optional push deps skipped") \
+    && npm ci
 
 COPY . .
 RUN npm run build
