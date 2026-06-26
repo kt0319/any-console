@@ -8,7 +8,7 @@ import { useToast } from "./useToast.js";
 import { usePrompt } from "./usePrompt.js";
 import { EP_RUN } from "../utils/endpoints.js";
 import { TERMINAL_JOB_KEY } from "../utils/constants.js";
-import { extractPlaceholders } from "../utils/placeholders.js";
+import { collectCommandVars } from "../utils/command-vars.js";
 
 export function useTerminalLifecycle({ terminalBaseView }) {
   const auth = useAuthStore();
@@ -18,24 +18,6 @@ export function useTerminalLifecycle({ terminalBaseView }) {
   const { disconnectTerminal, deleteSession, connectTerminalWs } = useTerminal();
   const toast = useToast();
   const { prompt } = usePrompt();
-
-  // コマンド内の {{name}} を起動時に入力させて値を集める。
-  // キャンセルされたら null を返し、起動を中止する。
-  async function collectCommandVars(command) {
-    const names = extractPlaceholders(command);
-    if (names.length === 0) return {};
-    const vars = {};
-    for (const name of names) {
-      const value = await prompt({
-        title: `Enter ${name}`,
-        placeholder: name,
-        confirmLabel: "Run",
-      });
-      if (value == null) return null;
-      vars[name] = value;
-    }
-    return vars;
-  }
 
   function focusTabTerminal(tabId) {
     const tab = terminalStore.openTabs.find((t) => t.id === tabId);
@@ -97,7 +79,7 @@ export function useTerminalLifecycle({ terminalBaseView }) {
 
   async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, jobIcon, jobIconColor, initialCommand, hidden }) {
     try {
-      const commandVars = await collectCommandVars(initialCommand);
+      const commandVars = await collectCommandVars(initialCommand, prompt);
       if (commandVars === null) return; // プレースホルダー入力がキャンセルされた
       const res = await auth.apiFetch(EP_RUN, {
         method: "POST",
