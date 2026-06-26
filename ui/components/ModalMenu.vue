@@ -48,9 +48,6 @@
       </button>
       <button type="button" class="settings-menu-item" @click="pushView('ServerInfo')">
         <span class="mdi mdi-information-outline"></span> System Info
-      </button>
-      <button type="button" class="settings-menu-item" @click="pushView('UpdateConfig')">
-        <span class="mdi mdi-update"></span> Check for Update
         <span v-if="appVersion" class="settings-menu-version">{{ appVersion }}</span>
       </button>
     </div>

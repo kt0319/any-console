@@ -21,20 +21,97 @@
         </div>
       </div>
     </div>
+
+    <div v-if="!isLoading" class="si-card">
+      <div class="si-card-head">
+        <span class="si-card-title">Update</span>
+        <button type="button" class="si-refresh" :disabled="upd.checking || upd.applying" @click="updCheck">
+          <span class="mdi mdi-refresh" :class="{ spinning: upd.checking }"></span>
+        </button>
+      </div>
+      <div v-if="upd.checking" class="si-row"><span class="si-label" style="color:var(--text-muted)">Checking…</span></div>
+      <template v-else-if="upd.checked">
+        <div v-if="!upd.status.fetch_ok" class="status-message error" style="margin:8px 12px">
+          Could not reach the remote. Check network and try again.
+        </div>
+        <template v-else>
+          <div v-if="upd.status.update_available" class="si-row">
+            <span class="si-label">Latest release</span>
+            <span class="si-vals" style="color:var(--accent)"><span>{{ upd.status.latest_release }}</span></span>
+          </div>
+          <div v-if="upd.status.update_available && upd.status.behind" class="si-row">
+            <span class="si-label">Behind</span>
+            <span class="si-vals"><span>{{ upd.status.behind }} commit{{ upd.status.behind === 1 ? "" : "s" }}</span></span>
+          </div>
+          <div v-if="!upd.status.update_available" class="si-row">
+            <span class="si-label" style="color:var(--success)"><span class="mdi mdi-check-circle-outline"></span> Up to date</span>
+          </div>
+        </template>
+      </template>
+      <div v-if="upd.applied" class="status-message success" style="margin:8px 12px">
+        Checked out {{ upd.status.checked_out }}. Restart to apply (<code>./any-console restart</code>).
+      </div>
+      <div v-if="upd.applyError" class="status-message error" style="margin:8px 12px">{{ upd.applyError }}</div>
+      <div v-if="upd.checked && upd.status.update_available && upd.status.fetch_ok && !upd.applied" class="si-update-actions">
+        <button type="button" class="primary" :disabled="upd.applying" @click="updApply">
+          {{ upd.applying ? "Updating…" : `Update to ${upd.status.latest_release}` }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, inject, onMounted } from "vue";
+import { ref, reactive, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
+import { useConfirm } from "../composables/useConfirm.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES } from "../utils/endpoints.js";
+import { EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY } from "../utils/endpoints.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "System Info";
 
-const { apiGet } = useApi();
+const { apiGet, apiPost } = useApi();
+const { confirm } = useConfirm();
 const layoutStore = useLayoutStore();
+
+const upd = reactive({
+  checking: false,
+  checked: false,
+  applying: false,
+  applied: false,
+  applyError: "",
+  status: {
+    version: "", current_release: "", latest_release: "", checked_out: "",
+    behind: 0, update_available: false, fetch_ok: true,
+  },
+});
+
+async function updCheck() {
+  upd.checking = true;
+  upd.applied = false;
+  upd.applyError = "";
+  const { ok, data } = await apiGet(EP_SYSTEM_UPDATE_CHECK, { errorMessage: "Failed to check for updates" });
+  if (ok && data) Object.assign(upd.status, data);
+  upd.checked = ok;
+  upd.checking = false;
+}
+
+async function updApply() {
+  if (!await confirm(`Update to ${upd.status.latest_release}? A restart is required to apply it.`)) return;
+  upd.applying = true;
+  upd.applyError = "";
+  const { ok, data } = await apiPost(EP_SYSTEM_UPDATE_APPLY, {});
+  if (ok && data?.ok) {
+    if (data.version) upd.status.version = data.version;
+    upd.status.checked_out = data.checked_out || upd.status.latest_release;
+    upd.status.update_available = false;
+    upd.applied = true;
+  } else {
+    upd.applyError = data?.detail || "Update failed";
+  }
+  upd.applying = false;
+}
 const isLoading = ref(true);
 const isRefreshing = ref(false);
 const sections = ref([]);
@@ -74,10 +151,29 @@ async function load() {
 
   sections.value = [
     {
-      label: "Client",
-      rows: [
+      label: "any-console",
+      error: srv ? null : "Failed to load",
+      rows: srv ? [
+        row("Version", srv.version),
         row("URL", location.origin),
         row("Auth", formatAuth(auth)),
+        row("Install dir", srv.install_dir),
+        row("User", srv.user),
+        row("Work dir", srv.work_dir),
+      ].filter((r) => r.values[0]) : [],
+    },
+    {
+      label: "Host",
+      error: srv ? null : "Failed to load",
+      rows: srv ? [
+        row("Hostname", srv.hostname), row("OS", srv.os), row("IP", srv.ip),
+        row("Uptime", srv.uptime), row("Memory", srv.memory),
+        row("CPU Temp", srv.cpu_temp), row("Disk", srv.disk),
+      ].filter((r) => r.values[0]) : [],
+    },
+    {
+      label: "Client",
+      rows: [
         row("Browser", parseBrowser(navigator.userAgent)),
         row("Platform", navigator.userAgentData?.platform || navigator.platform || "-"),
         row("Screen", `${screen.width} x ${screen.height}`),
@@ -87,16 +183,6 @@ async function load() {
         row("Online", navigator.onLine ? "Yes" : "No"),
         row("Language", navigator.language),
       ],
-    },
-    {
-      label: "Server",
-      error: srv ? null : "Failed to load",
-      rows: srv ? [
-        row("Version", srv.version),
-        row("Hostname", srv.hostname), row("OS", srv.os), row("IP", srv.ip),
-        row("Uptime", srv.uptime), row("Memory", srv.memory),
-        row("CPU Temp", srv.cpu_temp), row("Disk", srv.disk),
-      ].filter((r) => r.values[0]) : [],
     },
     {
       label: "Processes",
@@ -123,7 +209,7 @@ async function refresh() {
   }
 }
 
-onMounted(load);
+onMounted(() => { load(); updCheck(); });
 defineExpose({ load });
 </script>
 
@@ -142,4 +228,6 @@ defineExpose({ load });
 .si-refresh:disabled { opacity: 0.4; cursor: default; }
 .si-refresh .spinning { display: inline-block; animation: spin 0.6s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.si-update-actions { padding: 10px 12px; }
+.si-update-actions .primary { width: 100%; }
 </style>
