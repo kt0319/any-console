@@ -24,27 +24,117 @@ LAUNCHD_PLIST="/Library/LaunchDaemons/$LAUNCHD_LABEL.plist"
 # journalctl が無いため stdout/stderr はログファイルへ出す。
 LOG_FILE="$SCRIPT_DIR/logs/$SERVICE_NAME.log"
 
+# Python 依存はシステムを汚さないよう専用 venv に隔離する（externally-managed
+# 環境での pip エラー回避と再現性のため）。サービス起動も venv の python を使う。
+VENV_DIR="$SCRIPT_DIR/.venv"
+
 error() { echo -e "${RED}Error: $1${NC}" >&2; exit 1; }
 info()  { echo -e "${GREEN}$1${NC}"; }
 warn()  { echo -e "${YELLOW}$1${NC}"; }
 
+# アプリ実行に使う python を返す。venv があればそれを、無ければシステム python3。
+venv_python() {
+  if [ -x "$VENV_DIR/bin/python3" ]; then
+    echo "$VENV_DIR/bin/python3"
+  else
+    command -v python3
+  fi
+}
+
+# 利用可能なパッケージマネージャを1つ返す（無ければ空文字）。
+detect_pkg_manager() {
+  if is_macos; then
+    command -v brew >/dev/null 2>&1 && { echo "brew"; return; }
+  else
+    local m
+    for m in apt-get dnf yum pacman zypper apk; do
+      command -v "$m" >/dev/null 2>&1 && { echo "$m"; return; }
+    done
+  fi
+  echo ""
+}
+
+# コマンド名をパッケージマネージャ別のパッケージ名に変換する。
+_pkg_name() {
+  # $1 = manager, $2 = command
+  case "$2" in
+    node)
+      case "$1" in
+        apt-get) echo "nodejs" ;;
+        *)       echo "node" ;;
+      esac ;;
+    python3)
+      case "$1" in
+        brew) echo "python" ;;
+        *)    echo "python3" ;;
+      esac ;;
+    *) echo "$2" ;;
+  esac
+}
+
+# 指定マネージャで不足コマンドを入れるインストールコマンド文字列を組み立てる。
+install_cmd_for() {
+  local mgr="$1"; shift
+  local pkgs=() c
+  for c in "$@"; do pkgs+=("$(_pkg_name "$mgr" "$c")"); done
+  case "$mgr" in
+    brew)    echo "brew install ${pkgs[*]}" ;;
+    apt-get) echo "sudo apt-get install -y ${pkgs[*]}" ;;
+    dnf)     echo "sudo dnf install -y ${pkgs[*]}" ;;
+    yum)     echo "sudo yum install -y ${pkgs[*]}" ;;
+    pacman)  echo "sudo pacman -S --noconfirm ${pkgs[*]}" ;;
+    zypper)  echo "sudo zypper install -y ${pkgs[*]}" ;;
+    apk)     echo "sudo apk add ${pkgs[*]}" ;;
+    *)       echo "" ;;
+  esac
+}
+
 check_deps() {
-  local missing=()
+  local missing=() cmd
   for cmd in python3 node git tmux; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
       missing+=("$cmd")
     fi
   done
+  [ ${#missing[@]} -eq 0 ] && return
 
-  if [ ${#missing[@]} -gt 0 ]; then
+  echo ""
+  echo -e "${RED}Missing commands: ${missing[*]}${NC}" >&2
+
+  local mgr cmd_line answer still
+  mgr="$(detect_pkg_manager)"
+  cmd_line="$(install_cmd_for "$mgr" "${missing[@]}")"
+
+  # 対話 TTY かつ対応マネージャを検出できた場合だけ、同意制で自動インストールを提案する。
+  if [ -n "$cmd_line" ] && [ -t 0 ]; then
     echo ""
-    echo -e "${RED}Missing commands: ${missing[*]}${NC}" >&2
+    echo "Detected package manager: $mgr"
+    echo "  $cmd_line"
     echo ""
-    echo "Install examples:"
-    echo "  Debian/Ubuntu: sudo apt install ${missing[*]}"
-    echo "  macOS:         brew install ${missing[*]}"
-    exit 1
+    read -rp "Install the missing dependencies now? [y/N] " answer
+    if [[ "$answer" =~ ^[Yy]$ ]]; then
+      if eval "$cmd_line"; then
+        still=()
+        for cmd in "${missing[@]}"; do
+          command -v "$cmd" >/dev/null 2>&1 || still+=("$cmd")
+        done
+        if [ ${#still[@]} -eq 0 ]; then
+          info "Dependencies installed."
+          return
+        fi
+        error "Still missing after install: ${still[*]} — install manually: $cmd_line"
+      fi
+      error "Automatic install failed. Install manually: $cmd_line"
+    fi
+    error "Dependencies required. Install with: $cmd_line"
   fi
+
+  # 非対話 or 未対応マネージャ: 手順を提示して終了する。
+  echo ""
+  echo "Install examples:"
+  echo "  Debian/Ubuntu: $(install_cmd_for apt-get "${missing[@]}")"
+  echo "  macOS:         $(install_cmd_for brew "${missing[@]}")"
+  exit 1
 }
 
 check_python_version() {
@@ -319,6 +409,31 @@ install_service() {
   fi
 }
 
+# セットアップが「実際に使える状態」かを確認する。
+# 1) 依存が解決し api.main が import できるか（依存欠落・ビルド失敗をここで検出）
+# 2) 既にサーバが動いていれば HTTP で応答するか（curl がある場合のみ）
+verify_install() {
+  local py port code
+  py="$(venv_python)"
+
+  if "$py" -c "import api.main" >/dev/null 2>&1; then
+    info "  OK: dependencies resolve, api.main imports cleanly"
+  else
+    warn "  FAILED: api.main does not import. Inspect with:"
+    warn "    $py -c 'import api.main'"
+    return
+  fi
+
+  if command -v curl >/dev/null 2>&1; then
+    port="$(get_port)"
+    if code=$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 3 "http://127.0.0.1:${port}/" 2>/dev/null); then
+      info "  OK: server responding at http://localhost:${port}/ (HTTP $code)"
+    else
+      echo "  (server not started yet — it will answer on port ${port} once started)"
+    fi
+  fi
+}
+
 cmd_setup() {
   echo ""
   info "=== any-console setup ==="
@@ -334,8 +449,17 @@ cmd_setup() {
   info "  OK: Python $python_version, node $(node -v), git $(git --version | cut -d' ' -f3), tmux $(tmux -V | cut -d' ' -f2)"
 
   echo ""
-  info "[2/6] Installing Python dependencies"
-  pip install -r requirements.txt
+  info "[2/6] Installing Python dependencies (.venv)"
+  if [ ! -d "$VENV_DIR" ]; then
+    python3 -m venv "$VENV_DIR"
+  fi
+  "$VENV_DIR/bin/pip" install --upgrade pip >/dev/null
+  "$VENV_DIR/bin/pip" install -r requirements.txt
+  # Push 通知の依存（pywebpush / http-ece）はネイティブビルドが必要で minimal な
+  # ホストでは失敗しうる。失敗してもセットアップは止めず、push 無効で続行する。
+  if ! "$VENV_DIR/bin/pip" install -r requirements-optional.txt; then
+    warn "  Optional push-notification deps failed to build — continuing without push."
+  fi
 
   echo ""
   info "[3/6] Installing Node.js dependencies"
@@ -378,6 +502,10 @@ cmd_setup() {
   prompt_https_setup
 
   echo ""
+  info "[verify] Health check"
+  verify_install
+
+  echo ""
   info "=== Setup complete ==="
   echo ""
   echo "Next steps:"
@@ -411,7 +539,8 @@ cmd_setup() {
 }
 
 generate_service_unit() {
-  local ssl_cert ssl_key env_lines=""
+  local python_bin ssl_cert ssl_key env_lines=""
+  python_bin="$(venv_python)"
   ssl_cert=$(get_ssl_certfile)
   ssl_key=$(get_ssl_keyfile)
   if [ -n "$ssl_cert" ]; then env_lines+="Environment=SSL_CERTFILE=$ssl_cert"$'\n'; fi
@@ -424,7 +553,7 @@ After=network.target
 [Service]
 User=$USER
 WorkingDirectory=$SCRIPT_DIR
-ExecStart=/usr/bin/python3 -m api.main
+ExecStart=$python_bin -m api.main
 ${env_lines}KillMode=process
 Restart=always
 RestartSec=3
@@ -451,7 +580,7 @@ install_systemd() {
 
 generate_plist() {
   local python_bin ssl_cert ssl_key ssl_env=""
-  python_bin="$(command -v python3)"
+  python_bin="$(venv_python)"
   ssl_cert=$(get_ssl_certfile)
   ssl_key=$(get_ssl_keyfile)
   if [ -n "$ssl_cert" ] && [ -n "$ssl_key" ]; then
@@ -535,7 +664,13 @@ cmd_update() {
   fi
 
   info "Updating dependencies..."
-  pip install -r requirements.txt
+  if [ ! -d "$VENV_DIR" ]; then
+    python3 -m venv "$VENV_DIR"
+  fi
+  "$VENV_DIR/bin/pip" install -r requirements.txt
+  if ! "$VENV_DIR/bin/pip" install -r requirements-optional.txt; then
+    warn "  Optional push-notification deps failed to build — continuing without push."
+  fi
   npm install
 
   info "Building frontend..."
@@ -610,7 +745,7 @@ cmd_run() {
   fi
   info "Starting any-console in the foreground (Ctrl+C to stop)"
   echo "  URL: ${proto}://localhost:$(get_port)"
-  exec python3 -m api.main
+  exec "$(venv_python)" -m api.main
 }
 
 cmd_https_setup() {
