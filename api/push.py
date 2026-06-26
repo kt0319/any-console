@@ -1,7 +1,8 @@
 """Web Push 通知のコア処理。
 
 VAPID キーの生成・保存・ロード、サブスクリプション管理、通知送信を担う。
-キーは data/vapid_private.pem / data/vapid_public.txt に保存する（初回自動生成）。
+秘密鍵は base64url エンコードした生バイト（32 bytes）で data/vapid_private.txt に保存する。
+公開鍵（非圧縮 EC ポイント 65 bytes の base64url）は data/vapid_public.txt に保存する。
 サブスクリプションは data/push_subscriptions.json に保存する。
 """
 
@@ -14,48 +15,48 @@ from pathlib import Path
 from cryptography.hazmat.primitives.asymmetric.ec import SECP256R1, generate_private_key
 from cryptography.hazmat.primitives.serialization import (
     Encoding,
-    NoEncryption,
-    PrivateFormat,
     PublicFormat,
 )
 
 logger = logging.getLogger(__name__)
 
 _DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-_VAPID_PRIVATE_FILE = _DATA_DIR / "vapid_private.pem"
+_VAPID_PRIVATE_FILE = _DATA_DIR / "vapid_private.txt"
 _VAPID_PUBLIC_FILE = _DATA_DIR / "vapid_public.txt"
 _SUBSCRIPTIONS_FILE = _DATA_DIR / "push_subscriptions.json"
 
 _lock = threading.Lock()
-_vapid_private_pem: str | None = None
+_vapid_private_b64: str | None = None
 _vapid_public_b64: str | None = None
 
 VAPID_CLAIMS_SUB = "mailto:admin@localhost"
 
 
 def _generate_vapid_keys() -> tuple[str, str]:
+    """秘密鍵を base64url、公開鍵を base64url で返す。"""
     key = generate_private_key(SECP256R1())
-    private_pem = key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()  # type: ignore[attr-defined]
+    raw_priv = key.private_numbers().private_value.to_bytes(32, "big")  # type: ignore[attr-defined]
+    private_b64 = base64.urlsafe_b64encode(raw_priv).rstrip(b"=").decode()
     raw_pub = key.public_key().public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)  # type: ignore[arg-type]
     public_b64 = base64.urlsafe_b64encode(raw_pub).rstrip(b"=").decode()
-    return private_pem, public_b64
+    return private_b64, public_b64
 
 
 def _load_or_create_vapid_keys() -> tuple[str, str]:
     _DATA_DIR.mkdir(parents=True, exist_ok=True)
     if _VAPID_PRIVATE_FILE.exists() and _VAPID_PUBLIC_FILE.exists():
-        return _VAPID_PRIVATE_FILE.read_text(), _VAPID_PUBLIC_FILE.read_text().strip()
-    private_pem, public_b64 = _generate_vapid_keys()
-    _VAPID_PRIVATE_FILE.write_text(private_pem)
+        return _VAPID_PRIVATE_FILE.read_text().strip(), _VAPID_PUBLIC_FILE.read_text().strip()
+    private_b64, public_b64 = _generate_vapid_keys()
+    _VAPID_PRIVATE_FILE.write_text(private_b64)
     _VAPID_PUBLIC_FILE.write_text(public_b64)
     logger.info("VAPID keys generated")
-    return private_pem, public_b64
+    return private_b64, public_b64
 
 
 def init_vapid() -> None:
-    global _vapid_private_pem, _vapid_public_b64
+    global _vapid_private_b64, _vapid_public_b64
     with _lock:
-        _vapid_private_pem, _vapid_public_b64 = _load_or_create_vapid_keys()
+        _vapid_private_b64, _vapid_public_b64 = _load_or_create_vapid_keys()
 
 
 def get_vapid_public_key() -> str:
@@ -99,7 +100,7 @@ def remove_subscription(endpoint: str) -> None:
 
 def send_push_notification(title: str, body: str, url: str = "/") -> None:
     """全サブスクリプションへ Push 通知を非同期送信する。失敗したサブスクリプションは削除する。"""
-    if _vapid_private_pem is None:
+    if _vapid_private_b64 is None:
         init_vapid()
 
     with _lock:
@@ -122,7 +123,7 @@ def send_push_notification(title: str, body: str, url: str = "/") -> None:
             webpush(
                 subscription_info=sub,
                 data=payload,
-                vapid_private_key=_vapid_private_pem,
+                vapid_private_key=_vapid_private_b64,
                 vapid_claims={"sub": VAPID_CLAIMS_SUB},
             )
         except WebPushException as e:

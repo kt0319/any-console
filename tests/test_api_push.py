@@ -15,28 +15,28 @@ from conftest import AUTH
 class TestVapidKeys:
     def setup_method(self):
         import api.push as p
-        self._orig_priv = p._vapid_private_pem
+        self._orig_priv = p._vapid_private_b64
         self._orig_pub = p._vapid_public_b64
 
     def teardown_method(self):
         import api.push as p
-        p._vapid_private_pem = self._orig_priv
+        p._vapid_private_b64 = self._orig_priv
         p._vapid_public_b64 = self._orig_pub
 
     def test_init_vapid_sets_keys(self, tmp_path):
         import api.push as p
-        p._vapid_private_pem = None
+        p._vapid_private_b64 = None
         p._vapid_public_b64 = None
         with patch.object(p, "_DATA_DIR", tmp_path), \
              patch.object(p, "_VAPID_PRIVATE_FILE", tmp_path / "vapid_private.pem"), \
              patch.object(p, "_VAPID_PUBLIC_FILE", tmp_path / "vapid_public.txt"):
             p.init_vapid()
-        assert p._vapid_private_pem is not None
+        assert p._vapid_private_b64 is not None
         assert p._vapid_public_b64 is not None
 
     def test_get_vapid_public_key_triggers_init(self, tmp_path):
         import api.push as p
-        p._vapid_private_pem = None
+        p._vapid_private_b64 = None
         p._vapid_public_b64 = None
         with patch.object(p, "_DATA_DIR", tmp_path), \
              patch.object(p, "_VAPID_PRIVATE_FILE", tmp_path / "vapid_private.pem"), \
@@ -53,12 +53,12 @@ class TestVapidKeys:
         with patch.object(p, "_DATA_DIR", tmp_path), \
              patch.object(p, "_VAPID_PRIVATE_FILE", priv_file), \
              patch.object(p, "_VAPID_PUBLIC_FILE", pub_file):
-            p._vapid_private_pem = None
+            p._vapid_private_b64 = None
             p._vapid_public_b64 = None
             p.init_vapid()
             first_pub = p._vapid_public_b64
             # リセットして再ロード
-            p._vapid_private_pem = None
+            p._vapid_private_b64 = None
             p._vapid_public_b64 = None
             p.init_vapid()
             assert p._vapid_public_b64 == first_pub
@@ -113,18 +113,18 @@ class TestSendPushNotification:
         import api.push as p
         self._p = p
         self._orig_file = p._SUBSCRIPTIONS_FILE
-        self._orig_priv = p._vapid_private_pem
+        self._orig_priv = p._vapid_private_b64
         self._orig_pub = p._vapid_public_b64
 
     def teardown_method(self):
         self._p._SUBSCRIPTIONS_FILE = self._orig_file
-        self._p._vapid_private_pem = self._orig_priv
+        self._p._vapid_private_b64 = self._orig_priv
         self._p._vapid_public_b64 = self._orig_pub
 
     def test_send_skips_when_no_subscriptions(self, tmp_path):
         import api.push as p
         p._SUBSCRIPTIONS_FILE = tmp_path / "subs.json"
-        p._vapid_private_pem = "dummy"
+        p._vapid_private_b64 = "dummy"
         # サブスクリプションがなければ webpush を呼ばない
         with patch("api.push.send_push_notification.__wrapped__", None, create=True):
             p.send_push_notification("title", "body")  # 例外なければOK
@@ -132,7 +132,7 @@ class TestSendPushNotification:
     def test_send_calls_webpush(self, tmp_path):
         import api.push as p
         p._SUBSCRIPTIONS_FILE = tmp_path / "subs.json"
-        p._vapid_private_pem = "dummy-pem"
+        p._vapid_private_b64 = "dummy-pem"
         sub = {"endpoint": "https://example.com/push/1", "keys": {"auth": "a", "p256dh": "b"}}
         p.add_subscription(sub)
 
@@ -151,7 +151,7 @@ class TestSendPushNotification:
     def test_send_removes_stale_subscription_on_410(self, tmp_path):
         import api.push as p
         p._SUBSCRIPTIONS_FILE = tmp_path / "subs.json"
-        p._vapid_private_pem = "dummy-pem"
+        p._vapid_private_b64 = "dummy-pem"
         sub = {"endpoint": "https://example.com/push/gone", "keys": {}}
         p.add_subscription(sub)
 
@@ -171,7 +171,7 @@ class TestSendPushNotification:
     def test_send_handles_generic_exception(self, tmp_path):
         import api.push as p
         p._SUBSCRIPTIONS_FILE = tmp_path / "subs.json"
-        p._vapid_private_pem = "dummy-pem"
+        p._vapid_private_b64 = "dummy-pem"
         sub = {"endpoint": "https://example.com/push/1", "keys": {}}
         p.add_subscription(sub)
 
