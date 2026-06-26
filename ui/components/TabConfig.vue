@@ -99,6 +99,15 @@ import { emit } from "../app-bridge.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useApi } from "../composables/useApi.js";
 import { useListDragSort } from "../composables/useListDragSort.js";
+import { buildOrphanSessionList } from "../utils/orphan-sessions.js";
+import {
+  EP_TERMINAL_SESSIONS,
+  EP_SYSTEM_TMUX_INFO,
+  EP_SYSTEM_TMUX_ADOPT,
+  EP_SYSTEM_TMUX_KILL,
+  terminalSessionPath,
+  terminalWsPath,
+} from "../utils/endpoints.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Tabs";
@@ -197,51 +206,23 @@ const { dragFromIdx, dragOverIdx, onDragStart } = useListDragSort({
 const { apiGet, apiDelete, apiPost } = useApi();
 const orphanSessions = ref([]);
 
-const AC_PREFIX = "ac-";
-
 async function loadOrphans() {
   // 全 tmux セッション + any-console 管理セッションをマージ。
   // - ac- 付き = any-console 管理（Open 可能）
   // - ac- なし = ユーザ個人セッション（external 扱い、Close のみ）
   const [tmuxRes, ownedRes] = await Promise.all([
-    apiGet("/system/tmux-info"),
-    apiGet("/terminal/sessions"),
+    apiGet(EP_SYSTEM_TMUX_INFO),
+    apiGet(EP_TERMINAL_SESSIONS),
   ]);
   const owned = ownedRes.ok && Array.isArray(ownedRes.data) ? ownedRes.data : [];
-  const ownedById = new Map(owned.map((s) => [s.session_id, s]));
   const knownTabIds = new Set(openTabs.value.map((t) => t.sessionId).filter(Boolean));
   const all = tmuxRes.ok && Array.isArray(tmuxRes.data?.sessions) ? tmuxRes.data.sessions : [];
-  const list = [];
-  for (const s of all) {
-    if (s.name.startsWith(AC_PREFIX)) {
-      const sessionId = s.name.slice(AC_PREFIX.length);
-      if (knownTabIds.has(sessionId)) continue;
-      const owned = ownedById.get(sessionId);
-      list.push({
-        session_id: sessionId,
-        tmux_name: s.name,
-        workspace: owned?.workspace || null,
-        icon: owned?.icon,
-        icon_color: owned?.icon_color,
-        job_name: owned?.job_name,
-        job_label: owned?.job_label,
-        external: false,
-      });
-    } else {
-      list.push({
-        session_id: null,
-        tmux_name: s.name,
-        workspace: null,
-        external: true,
-      });
-    }
-  }
-  orphanSessions.value = list;
+  orphanSessions.value = buildOrphanSessionList(all, owned, knownTabIds);
 }
 
 function openOrphan(s) {
   const tab = terminalStore.addTerminalTab({
-    wsUrl: `/terminal/ws/${s.session_id}`,
+    wsUrl: terminalWsPath(s.session_id),
     workspace: s.workspace || null,
     wsIcon: s.icon ? s.icon : null,
     wsIconColor: s.icon_color || null,
@@ -260,10 +241,10 @@ async function adoptOrphan(s) {
   // 外部 tmux セッションを ac- プレフィックスにリネームして any-console 管理化、
   // そのままタブとして開く。
   if (!await confirm(`Adopt "${s.tmux_name}" into any-console? The tmux session will be renamed.`)) return;
-  const { ok, data } = await apiPost("/system/tmux/adopt", { name: s.tmux_name }, { errorMessage: "Failed to adopt session" });
+  const { ok, data } = await apiPost(EP_SYSTEM_TMUX_ADOPT, { name: s.tmux_name }, { errorMessage: "Failed to adopt session" });
   if (!ok || !data?.session_id) return;
   const tab = terminalStore.addTerminalTab({
-    wsUrl: `/terminal/ws/${data.session_id}`,
+    wsUrl: terminalWsPath(data.session_id),
     workspace: null,
     wsIcon: null,
     wsIconColor: null,
@@ -283,10 +264,10 @@ async function closeOrphan(s) {
   if (!await confirm(`Close session "${label}"? The tmux session will be killed.`)) return;
   if (s.session_id) {
     // any-console 管理セッションは /terminal/sessions API で kill
-    await apiDelete(`/terminal/sessions/${encodeURIComponent(s.session_id)}`, { errorMessage: "Failed to close session" });
+    await apiDelete(terminalSessionPath(s.session_id), { errorMessage: "Failed to close session" });
   } else {
-    // 外部セッション。/system/tmux/kill 経由（後述・別途追加）
-    await apiPost("/system/tmux/kill", { name: s.tmux_name }, { errorMessage: "Failed to kill session" });
+    // 外部セッション。/system/tmux/kill 経由
+    await apiPost(EP_SYSTEM_TMUX_KILL, { name: s.tmux_name }, { errorMessage: "Failed to kill session" });
   }
   await loadOrphans();
 }

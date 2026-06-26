@@ -37,6 +37,8 @@ export const EP_COMMON_JOBS = "/common/jobs";
 export const EP_SYSTEM_INFO = "/system/info";
 export const EP_SYSTEM_PROCESSES = "/system/processes";
 export const EP_SYSTEM_TMUX_INFO = "/system/tmux-info";
+export const EP_SYSTEM_TMUX_ADOPT = "/system/tmux/adopt";
+export const EP_SYSTEM_TMUX_KILL = "/system/tmux/kill";
 export const EP_SETTINGS_EDITOR = "/settings/editor";
 export const EP_SETTINGS_AUTH = "/settings/auth";
 export const EP_SETTINGS_RADIAL = "/settings/radial";
@@ -52,6 +54,11 @@ export const EP_CLIENT_ERRORS = "/client-errors";
 /** @param {string} sessionId @returns {string} */
 export function terminalSessionPath(sessionId) {
   return `/terminal/sessions/${encodeURIComponent(sessionId)}`;
+}
+
+/** @param {string} sessionId @returns {string} */
+export function terminalWsPath(sessionId) {
+  return `/terminal/ws/${sessionId}`;
 }
 
 /** @param {string} sessionId @param {{cols?: number, rows?: number}} [opts] @returns {string} */
