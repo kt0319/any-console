@@ -72,10 +72,10 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useIsMobile } from "../composables/useIsMobile.js";
+import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.js";
 import { emit } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import { POLL_INTERVAL_MS } from "../utils/constants.js";
-import { abbreviateBranch, truncateMid } from "../utils/git.js";
 
 const { gitAction, isRunning } = useGitRemoteAction();
 const { isMobile } = useIsMobile();
@@ -115,38 +115,22 @@ const ws = computed(() =>
   workspaceStore.allWorkspaces.find((w) => w.name === workspace.value),
 );
 
-const isGitRepo = computed(() => ws.value?.is_git_repo === true);
-const hasUpstream = computed(() => ws.value?.has_upstream !== false);
-const hasRemoteBranch = computed(() => ws.value?.has_remote_branch !== false);
-const ahead = computed(() => ws.value?.ahead || 0);
-const behind = computed(() => ws.value?.behind || 0);
-
-const hasGitActions = computed(() =>
-  behind.value > 0 || ahead.value > 0 || !hasUpstream.value,
-);
-const isDirty = computed(() => ws.value && ws.value.clean === false);
-
-const statusLoading = computed(() => ws.value && ws.value.last_commit_message === undefined);
-
-const branchParts = computed(() => {
-  const branch = ws.value?.branch || "";
-  if (!isMobile.value) return { abbr: "", rest: branch };
-  const parts = abbreviateBranch(branch);
-  parts.rest = truncateMid(parts.rest, 16);
-  return parts;
-});
-const isBranchLong = computed(() => {
-  if (!isMobile.value) return false;
-  return (ws.value?.branch?.length || 0) > 10;
-});
-const msgText = computed(() => {
-  if (!ws.value) return "";
-  if (statusLoading.value) return "Loading";
-  return ws.value.last_commit_message || "";
-});
-const changedFiles = computed(() => ws.value?.changed_files || 0);
-const insertions = computed(() => ws.value?.insertions || 0);
-const deletions = computed(() => ws.value?.deletions || 0);
+const {
+  isGitRepo,
+  hasUpstream,
+  hasRemoteBranch,
+  ahead,
+  behind,
+  hasGitActions,
+  isDirty,
+  statusLoading,
+  branchParts,
+  isBranchLong,
+  msgText,
+  changedFiles,
+  insertions,
+  deletions,
+} = useWorkspaceGitStatus(ws, isMobile);
 
 function openFileModal(pane = "files") {
   if (workspace.value) {
