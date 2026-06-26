@@ -28,6 +28,7 @@ from .rate_limiter import RateLimitMiddleware
 from .routers import devices as devices_router
 from .routers import dispatch, git, github, groups, job_runner, jobs, settings, system, terminal, workspaces
 from .routers import preview as preview_router
+from .routers import push as push_router
 
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 (intentional: local network bind for personal console)
 DEFAULT_PORT = 8888
@@ -163,6 +164,8 @@ async def lifespan(app: FastAPI):
     except OSError as e:
         logger.warning("grouped session cleanup skipped: %s", e)
     from .preview import set_self_ports, start_scanner, stop_scanner
+    from .push import init_vapid
+    init_vapid()
     set_self_ports([port])
     start_scanner()
     yield
@@ -196,6 +199,7 @@ app.include_router(terminal.router)
 app.include_router(terminal.ws_router)
 app.include_router(system.router)
 app.include_router(settings.router)
+app.include_router(push_router.router)
 
 
 

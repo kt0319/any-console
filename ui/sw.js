@@ -56,6 +56,37 @@ function isCacheableAsset(request, url) {
   return STATIC_ASSET_PREFIXES.some((prefix) => url.pathname.startsWith(prefix));
 }
 
+self.addEventListener('push', (event) => {
+  let data = { title: 'any-console', body: '', url: '/' };
+  try {
+    if (event.data) Object.assign(data, JSON.parse(event.data.text()));
+  } catch (_e) {}
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data: { url: data.url },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || '/';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      const existing = clients.find((c) => c.url.includes(self.location.origin));
+      if (existing) {
+        existing.focus();
+        existing.navigate(url);
+      } else {
+        self.clients.openWindow(url);
+      }
+    })
+  );
+});
+
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 

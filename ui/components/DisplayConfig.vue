@@ -1,11 +1,11 @@
 <template>
   <div class="modal-scroll-body">
     <label class="display-settings-item display-settings-toggle">
+      <input type="checkbox" v-model="debugMode" />
       <div class="display-settings-toggle-copy">
         <span class="display-settings-item-label">Debug mode</span>
         <span class="display-settings-note">Show real-time logs (WS / API / events) in the title bar instead of the tab title.</span>
       </div>
-      <input type="checkbox" v-model="debugMode" />
     </label>
     <div class="display-settings-item" :class="{ 'display-settings-disabled': !debugMode }">
       <span class="display-settings-item-label">Log levels</span>
@@ -61,7 +61,6 @@ onMounted(() => { modalTitle.value = "Display"; });
 .display-settings-toggle {
   flex-direction: row;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
   cursor: pointer;
 }

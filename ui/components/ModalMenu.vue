@@ -33,6 +33,9 @@
       <button type="button" class="settings-menu-item" @click="pushView('PreviewConfig')">
         <span class="mdi mdi-open-in-app"></span> Port Preview
       </button>
+      <button type="button" class="settings-menu-item" @click="pushView('NotificationConfig')">
+        <span class="mdi mdi-bell-outline"></span> Notifications
+      </button>
       <button type="button" class="settings-menu-item" @click="pushView('AuthConfig')">
         <span class="mdi mdi-shield-lock-outline"></span> Auth
         <span v-if="authWarn" class="settings-menu-warn" data-tooltip="No token configured — anyone with network access can use this console">

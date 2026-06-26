@@ -30,6 +30,7 @@ from ..git_utils import (
     run_git_raw,
 )
 from ..job_models import TERMINAL_JOB, TERMINAL_JOB_KEY
+from ..push import send_push_notification
 from ..terminal_session import (
     TERMINAL_SESSIONS,
     TerminalSession,
@@ -305,6 +306,13 @@ async def dispatch(body: DispatchRequest):
         "workspace": effective_ws,
         "created": created,
     })
+
+    job_label = job_def.label or body.job
+    send_push_notification(
+        title="Dispatch received",
+        body=f"{job_label} on {effective_ws}",
+        url=f"/?workspace={effective_ws}&session={session_id}",
+    )
 
     return {
         "status": "ok",
