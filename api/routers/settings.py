@@ -222,7 +222,7 @@ class RecentJobItem(BaseModel):
     jobIconColor: str = Field("", max_length=50)
     jobCommand: str = Field("", max_length=MAX_RECENT_JOB_COMMAND_LENGTH)
     jobConfirm: bool | None = None
-    jobHiddenTab: bool = False
+    jobDetachedTab: bool = False
 
 
 @router.get("/recent-jobs")

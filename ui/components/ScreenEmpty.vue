@@ -22,7 +22,7 @@
           :key="recent.key"
           type="button"
           class="screen-empty-menu-item"
-          :class="{ 'is-hidden-tab': recent.jobHiddenTab }"
+          :class="{ 'is-detached-tab': recent.jobDetachedTab }"
           @click="runRecentJob(recent)"
         >
           <span class="screen-empty-recent-icons">
@@ -80,7 +80,7 @@ async function runRecentJob(recent) {
     jobIcon: recent.jobIcon,
     jobIconColor: recent.jobIconColor,
     initialCommand: recent.jobCommand,
-    hidden: !!recent.jobHiddenTab,
+    detached: !!recent.jobDetachedTab,
   });
 }
 </script>
@@ -136,7 +136,7 @@ async function runRecentJob(recent) {
   min-height: 0;
 }
 
-.screen-empty-menu-item.is-hidden-tab {
+.screen-empty-menu-item.is-detached-tab {
   opacity: 0.6;
 }
 

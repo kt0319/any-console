@@ -12,7 +12,6 @@
           v-for="tab in openTabs"
           :key="tab.id"
           class="empty-pane-row"
-          :class="{ hidden: tab.hidden }"
           @click.stop="onSelectTab(tab.id)"
         >
           <span v-if="tab.wsIcon" v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
@@ -124,16 +123,6 @@ function onSelectTab(tabId) {
   font-size: 13px;
   cursor: pointer;
   min-width: 0;
-}
-
-.empty-pane-row.hidden {
-  border-style: dashed;
-  background: transparent;
-  color: var(--text-muted);
-}
-
-.empty-pane-row.hidden .empty-pane-row-name {
-  font-style: italic;
 }
 
 .empty-pane-row:active {

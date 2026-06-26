@@ -536,7 +536,7 @@ class TestRecentJobsEndpoint:
         item = {
             "key": "k1", "workspace": "ws", "wsIcon": "", "wsIconColor": "",
             "jobName": "j1", "jobLabel": "", "jobIcon": "", "jobIconColor": "",
-            "jobCommand": "echo hi", "jobConfirm": False, "jobHiddenTab": False,
+            "jobCommand": "echo hi", "jobConfirm": False, "jobDetachedTab": False,
         }
         res = client.post("/recent-jobs", headers=AUTH, json=item)
         assert res.status_code == 200
@@ -547,7 +547,7 @@ class TestRecentJobsEndpoint:
         item = {
             "key": "k1", "workspace": "ws", "wsIcon": "", "wsIconColor": "",
             "jobName": "j1", "jobLabel": "", "jobIcon": "", "jobIconColor": "",
-            "jobCommand": "echo hi", "jobConfirm": False, "jobHiddenTab": False,
+            "jobCommand": "echo hi", "jobConfirm": False, "jobDetachedTab": False,
         }
         client.post("/recent-jobs", headers=AUTH, json=item)
         client.post("/recent-jobs", headers=AUTH, json=item)

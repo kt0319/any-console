@@ -18,7 +18,7 @@ export function useDispatchConfirm() {
 
   async function focusSession(sessionId, workspace) {
     if (!sessionId) return;
-    const existing = terminalStore.openTabs.find((t) => t.sessionId === sessionId && !t.hidden);
+    const existing = terminalStore.openTabs.find((t) => t.sessionId === sessionId);
     if (existing) {
       emit("tab:select", { tab: existing });
       return;
@@ -38,7 +38,6 @@ export function useDispatchConfirm() {
       jobName: meta.job_name,
       jobLabel: meta.job_label,
       restored: false,
-      hidden: false,
     });
     emit("tab:select", { tab });
   }
@@ -47,9 +46,8 @@ export function useDispatchConfirm() {
     if (!req?.workspace) return;
     // dispatch の match=any 仕様に合わせて、workspace 一致タブがあれば即アクティブにする。
     // ユーザがダイアログを見た時点で「どのタブに入力が流れるか」を視認できるようにする。
-    // hidden タブはユーザが意図的に隠しているので候補から除外する。
     const effectiveWs = req.effective_workspace || req.workspace;
-    const candidates = terminalStore.openTabs.filter((t) => t.workspace === effectiveWs && !t.hidden);
+    const candidates = terminalStore.openTabs.filter((t) => t.workspace === effectiveWs);
     if (!candidates.length) return;
     const target = candidates.find((t) => t.id === terminalStore.activeTabId) || candidates[0];
     emit("tab:select", { tab: target });

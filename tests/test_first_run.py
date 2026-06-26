@@ -230,7 +230,7 @@ class TestFirstJob:
             "jobIconColor": "",
             "jobCommand": "echo tracked",
             "jobConfirm": False,
-            "jobHiddenTab": False,
+            "jobDetachedTab": False,
         })
 
         res = client.get("/recent-jobs", headers=AUTH)

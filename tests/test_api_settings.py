@@ -278,7 +278,7 @@ class TestRecentJobs:
             "jobIconColor": "",
             "jobCommand": "echo hi",
             "jobConfirm": None,
-            "jobHiddenTab": False,
+            "jobDetachedTab": False,
         }
         res = client.post("/recent-jobs", headers=AUTH, json=item)
         assert res.status_code == 200
@@ -300,7 +300,7 @@ class TestRecentJobs:
             "jobIconColor": "",
             "jobCommand": "echo 1",
             "jobConfirm": None,
-            "jobHiddenTab": False,
+            "jobDetachedTab": False,
         }
         client.post("/recent-jobs", headers=AUTH, json=item)
         item["jobLabel"] = "B"
@@ -322,7 +322,7 @@ class TestRecentJobs:
                 "jobIconColor": "",
                 "jobCommand": f"echo {i}",
                 "jobConfirm": None,
-                "jobHiddenTab": False,
+                "jobDetachedTab": False,
             }
             client.post("/recent-jobs", headers=AUTH, json=item)
         res = client.get("/recent-jobs", headers=AUTH)
