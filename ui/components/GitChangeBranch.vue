@@ -10,7 +10,7 @@
       </button>
     </div>
 
-    <div v-if="addModalOpen" class="branch-add-overlay" @click.self="addModalOpen = false">
+    <div v-if="addModalOpen" class="branch-add-overlay" @click.self="closeAddModal">
       <div class="branch-add-dialog" role="dialog" aria-modal="true" aria-label="Add Branch or Worktree">
         <div class="branch-add-dialog-title">Add</div>
         <div class="branch-add-radio-group">
@@ -35,10 +35,10 @@
           autocorrect="off"
           spellcheck="false"
           @keydown.enter.prevent="submitAddModal"
-          @keydown.esc.prevent="addModalOpen = false"
+          @keydown.esc.prevent="closeAddModal"
         />
         <div class="branch-add-dialog-buttons">
-          <button class="prompt-btn prompt-btn-cancel" @click="addModalOpen = false">Cancel</button>
+          <button class="prompt-btn prompt-btn-cancel" @click="closeAddModal">Cancel</button>
           <button class="prompt-btn prompt-btn-ok" :disabled="!addName.trim()" @click="submitAddModal">Create</button>
         </div>
       </div>
@@ -133,6 +133,7 @@
 import { ref, computed, watch } from "vue";
 import { useBranchList } from "../composables/useBranchList.js";
 import { useBranchActions } from "../composables/useBranchActions.js";
+import { useBranchAddDialog } from "../composables/useBranchAddDialog.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import { canPull, canPush } from "../utils/git-branch.js";
@@ -172,26 +173,14 @@ const {
 const isBusy = computed(() => isFetchingRemote.value || isSwitchingBranch.value);
 const branchListEl = ref(null);
 
-const addModalOpen = ref(false);
-const addType = ref("branch");
-const addName = ref("");
-
-function openAddModal() {
-  addName.value = "";
-  addType.value = "branch";
-  addModalOpen.value = true;
-}
-
-async function submitAddModal() {
-  const name = addName.value.trim();
-  if (!name) return;
-  addModalOpen.value = false;
-  if (addType.value === "worktree") {
-    await createWorktree(name);
-  } else {
-    await createBranch(name);
-  }
-}
+const {
+  addModalOpen,
+  addType,
+  addName,
+  openAddModal,
+  closeAddModal,
+  submitAddModal,
+} = useBranchAddDialog({ createBranch, createWorktree });
 
 function selectBranch(branch) {
   if (branch.current) return;
