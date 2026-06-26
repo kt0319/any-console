@@ -55,6 +55,7 @@ import { useModalView } from "../composables/useModalView.js";
 import { useIconUpload } from "../composables/useIconUpload.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { looksLikeUrl, extractDomain } from "../utils/icon-url.js";
+import { buildIconGridModel } from "../utils/icon-grid.js";
 import MDI_ICONS from "../data/mdi-icons.js";
 
 const { modalTitle, viewState, popView } = useModalView();
@@ -96,18 +97,12 @@ const loadingIcons = ref(false);
 const canSubmit = ref(false);
 let pendingClear = false;
 
-function filterIcons(icons, query) {
-  if (!query) return icons;
-  return icons.filter((name) => name.includes(query));
-}
-
 function renderGrid(icons, query) {
   const el = gridRef.value;
   if (!el) return;
   el.innerHTML = "";
-  const filtered = filterIcons(icons, query);
-  const slice = filtered.slice(0, MAX_DISPLAY);
-  for (const name of slice) {
+  const { items, remaining } = buildIconGridModel(icons, query, MAX_DISPLAY);
+  for (const name of items) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "icon-picker-item";
@@ -116,13 +111,13 @@ function renderGrid(icons, query) {
     btn.addEventListener("click", () => selectMdiIcon(`mdi-${name}`));
     el.appendChild(btn);
   }
-  if (filtered.length > MAX_DISPLAY) {
+  if (remaining > 0) {
     const more = document.createElement("div");
     more.className = "icon-picker-more";
-    more.textContent = `and ${filtered.length - MAX_DISPLAY} more... use search to filter`;
+    more.textContent = `and ${remaining} more... use search to filter`;
     el.appendChild(more);
   }
-  if (slice.length === 0) {
+  if (items.length === 0) {
     const empty = document.createElement("div");
     empty.className = "icon-picker-more";
     empty.textContent = "No matching icons";

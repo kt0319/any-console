@@ -6,56 +6,21 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useRadialConfigStore } from "../stores/radial-config.js";
+import {
+  RADIAL_ANGLES,
+  SPECIAL_POSITIONS,
+  SPECIAL_BUTTON_SIZE,
+  specialIdAt,
+  sectorIndexFromDelta,
+} from "../utils/radial-geometry.js";
 
 // スワイプで起動するサークルキーパッド。
 // ターミナル上でタッチ起点から一定距離（RADIAL_TRIGGER_PX）動かしたら起点に円形メニューを表示し、
 // 指を離した方向に応じてキーを送信する。中心付近で離した場合はキャンセル。
 export const RADIAL_TRIGGER_PX = 36;
-const RADIAL_DEADZONE_PX = 40;
-// 各セクターの中心 ±SECTOR_HALF° のみキー判定。隙間（中心から ±18°超〜±22.5°）はキャンセル。
-const SECTOR_HALF_DEG = 18;
 
-// N から時計回り 45° 刻みで 8 セクター。
-export const RADIAL_ANGLES = [-90, -45, 0, 45, 90, 135, 180, -135];
-
-const SPECIAL_WIDTH = 80;
-const SPECIAL_HEIGHT = 34;
-const SPECIAL_OFFSET = 100;
-// 四隅の配置順: 左上 / 右上 / 左下 / 右下（store の specials と同じ順）。
-export const SPECIAL_POSITIONS = [
-  { offsetX: -SPECIAL_OFFSET, offsetY: -SPECIAL_OFFSET },
-  { offsetX:  SPECIAL_OFFSET, offsetY: -SPECIAL_OFFSET },
-  { offsetX: -SPECIAL_OFFSET, offsetY:  SPECIAL_OFFSET },
-  { offsetX:  SPECIAL_OFFSET, offsetY:  SPECIAL_OFFSET },
-];
-
-export const SPECIAL_BUTTON_SIZE = { width: SPECIAL_WIDTH, height: SPECIAL_HEIGHT };
-
-function specialIdAt(dx, dy) {
-  const halfW = SPECIAL_WIDTH / 2;
-  const halfH = SPECIAL_HEIGHT / 2;
-  for (let i = 0; i < SPECIAL_POSITIONS.length; i++) {
-    const p = SPECIAL_POSITIONS[i];
-    if (dx >= p.offsetX - halfW && dx <= p.offsetX + halfW
-      && dy >= p.offsetY - halfH && dy <= p.offsetY + halfH) {
-      return `special:${i}`;
-    }
-  }
-  return null;
-}
-
-function sectorIndexFromDelta(dx, dy) {
-  const dist = Math.hypot(dx, dy);
-  if (dist < RADIAL_DEADZONE_PX) return null;
-  const deg = Math.atan2(dy, dx) * (180 / Math.PI);
-  for (let i = 0; i < RADIAL_ANGLES.length; i++) {
-    let diff = deg - RADIAL_ANGLES[i];
-    while (diff > 180) diff -= 360;
-    while (diff < -180) diff += 360;
-    if (Math.abs(diff) < SECTOR_HALF_DEG) return i;
-  }
-  return null;
-}
+// 幾何計算と関連定数は radial-geometry.js に分離（テスト容易化）。既存の import 互換のため再エクスポートする。
+export { RADIAL_ANGLES, SPECIAL_POSITIONS, SPECIAL_BUTTON_SIZE };
 
 export function useRadialKey() {
   const workspaceStore = useWorkspaceStore();
