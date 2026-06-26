@@ -600,7 +600,7 @@ class TestSystemInfoEndpoint:
         data = res.json()
         assert "hostname" in data
         assert "user" in data
-        assert "work_dir" in data
+        assert "install_dir" in data
 
 
 class TestWorkspaceConfigUpdateConflicts:

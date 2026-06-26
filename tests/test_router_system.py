@@ -123,7 +123,7 @@ class TestSystemInfoEndpoint:
         data = res.json()
         assert "hostname" in data
         assert "user" in data
-        assert "work_dir" in data
+        assert "install_dir" in data
         assert data["ip"] == "192.168.1.1"
         assert data["os"] == "Test OS"
         assert data["uptime"] == "up 1 minute"
