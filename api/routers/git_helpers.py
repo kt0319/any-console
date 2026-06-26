@@ -9,8 +9,9 @@ from ..common import (
     resolve_workspace_path,
 )
 from ..errors import bad_request, forbidden, server_error, timeout_error
+from ..git_info import invalidate_git_info
 from ..git_lock import workspace_write_lock
-from ..git_utils import git_branch, invalidate_git_info, run_git_command, run_git_raw
+from ..git_utils import git_branch, run_git_command, run_git_raw
 
 _action_logger = logging.getLogger(__name__)
 

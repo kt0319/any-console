@@ -6,21 +6,23 @@ mock 不要のロジック部分（dict変換、stdoutパース等）を網羅�
 import subprocess
 from pathlib import Path
 
-from api.git_utils import (
+from api.git_info import (
     _apply_ahead_behind,
     _apply_branch_and_remote,
     _apply_diff_stats,
     _apply_upstream,
     _empty_git_info,
     _parse_revlist_pair,
+    git_info,
+    git_info_to_status_dict,
+    invalidate_git_info,
+)
+from api.git_utils import (
     command_result_dict,
     git_branch,
     git_branches,
-    git_info,
-    git_info_to_status_dict,
     git_is_repo,
     git_remote_branches,
-    invalidate_git_info,
     ssh_env,
 )
 

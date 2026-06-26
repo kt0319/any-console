@@ -22,10 +22,10 @@ from ..config import (
     save_workspace_config,
 )
 from ..errors import bad_request, conflict
+from ..git_info import git_info_to_status_dict
 from ..git_utils import (
     git_branch,
     git_github_url,
-    git_info_to_status_dict,
     git_is_repo,
     git_worktree_list,
     worktree_display_name,
