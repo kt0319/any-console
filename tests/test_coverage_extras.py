@@ -270,6 +270,41 @@ class TestGitHelpersErrors:
                 run_raw_git(["status"], "/p")
 
 
+class TestEnsureBranchErrors:
+    def _patch_branch_state(self):
+        return patch.multiple(
+            "api.routers.dispatch",
+            git_branch=MagicMock(return_value="main"),
+            git_branches=MagicMock(return_value=["main"]),
+        )
+
+    def test_ensure_branch_timeout_raises_server_error(self):
+        from fastapi import HTTPException
+
+        from api.routers.dispatch import _ensure_branch
+
+        with self._patch_branch_state(), patch(
+            "api.routers.dispatch.run_git_raw",
+            side_effect=subprocess.TimeoutExpired(cmd=["git"], timeout=1),
+        ):
+            with pytest.raises(HTTPException) as exc:
+                _ensure_branch("/p", "feature", create=True, base=None)
+        assert exc.value.status_code == 500
+
+    def test_ensure_branch_os_error_raises_server_error(self):
+        from fastapi import HTTPException
+
+        from api.routers.dispatch import _ensure_branch
+
+        with self._patch_branch_state(), patch(
+            "api.routers.dispatch.run_git_raw",
+            side_effect=OSError("boom"),
+        ):
+            with pytest.raises(HTTPException) as exc:
+                _ensure_branch("/p", "feature", create=True, base=None)
+        assert exc.value.status_code == 500
+
+
 class TestValidateJobArgs:
     def test_missing_required_raises(self):
         from fastapi import HTTPException

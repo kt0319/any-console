@@ -104,7 +104,10 @@ def _ensure_branch(ws_path, branch: str, create: bool, base: str | None) -> None
             args.append(validate_branch_name(base))
     else:
         raise bad_request(f"Branch does not exist: {branch}")
-    result = run_git_raw(args, ws_path)
+    try:
+        result = run_git_raw(args, ws_path)
+    except (subprocess.TimeoutExpired, OSError) as e:
+        raise server_error(f"Branch operation failed: {e}") from None
     if result.returncode != 0:
         raise bad_request(result.stderr.strip() or "Branch operation failed")
 
