@@ -126,7 +126,7 @@ def is_grouped_session_name(name: str) -> bool:
     return name.startswith(TMUX_GROUPED_PREFIX) or "__c" in name
 
 
-def cleanup_orphan_grouped_sessions() -> int:
+def cleanup_detached_grouped_sessions() -> int:
     """旧アーキテクチャが残した grouped session を全て kill する（起動時の自己修復）。
 
     現行はクライアントをベースセッションへ直接アタッチするため grouped session を
@@ -144,7 +144,7 @@ def cleanup_orphan_grouped_sessions() -> int:
             kill_tmux_by_name(name)
             killed += 1
     if killed:
-        logger.info("cleaned up %d orphan grouped tmux session(s)", killed)
+        logger.info("cleaned up %d detached grouped tmux session(s)", killed)
     return killed
 
 

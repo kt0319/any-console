@@ -117,7 +117,7 @@ class TestSessionListingExcludesGrouped:
         assert ids == ["real-abc123"]
 
 
-class TestCleanupOrphanGroupedSessions:
+class TestCleanupDetachedGroupedSessions:
     """起動時に旧アーキテクチャの grouped session を掃除する（旧版 leak 含む）。"""
 
     def test_kills_grouped_and_legacy_only(self, monkeypatch):
@@ -140,7 +140,7 @@ class TestCleanupOrphanGroupedSessions:
         monkeypatch.setattr(tmux_mod, "_run_tmux_cmd", fake_run_tmux_cmd)
         monkeypatch.setattr(tmux_mod, "kill_tmux_by_name", lambda name: killed.append(name))
 
-        n = tmux_mod.cleanup_orphan_grouped_sessions()
+        n = tmux_mod.cleanup_detached_grouped_sessions()
         assert n == 2
         assert killed == ["acg-real-abc123-deadbeef", "ac-real-abc123__c0011"]
 

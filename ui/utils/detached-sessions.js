@@ -1,4 +1,4 @@
-// tmux セッション一覧を「孤立セッション（タブ未割り当て）」リストに整形する純粋関数。
+// tmux セッション一覧を「デタッチセッション（タブ未割り当て）」リストに整形する純粋関数。
 // DOM / API から分離してテスト可能にする。
 
 // any-console 管理セッションの tmux 名プレフィックス。
@@ -20,7 +20,7 @@ export const AC_PREFIX = "ac-";
  */
 
 /**
- * 全 tmux セッションを孤立セッションリストに整形する。
+ * 全 tmux セッションをデタッチセッションリストに整形する。
  * - `ac-` プレフィックス付き = any-console 管理（Open 可能）。owned 情報があれば付与する。
  *   ただし既にタブとして開いている（knownTabIds に含まれる）ものは除外。
  * - プレフィックスなし = 外部のユーザ個人セッション（external 扱い、Close のみ）。
@@ -30,7 +30,7 @@ export const AC_PREFIX = "ac-";
  * @param {Set<string>|Iterable<string>} knownTabIds 既に開いているタブの session_id 集合
  * @returns {Object[]}
  */
-export function buildOrphanSessionList(allSessions, owned, knownTabIds) {
+export function buildDetachedSessionList(allSessions, owned, knownTabIds) {
   const ownedById = new Map((owned || []).map((s) => [s.session_id, s]));
   const known = knownTabIds instanceof Set ? knownTabIds : new Set(knownTabIds || []);
   const list = [];

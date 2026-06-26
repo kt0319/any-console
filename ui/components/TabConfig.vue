@@ -60,27 +60,27 @@
         <div v-if="openTabs.length === 0" class="clone-repo-empty">No open tabs</div>
       </div>
 
-      <div class="orphan-head">
-        <span class="orphan-title">Orphan sessions</span>
-        <span class="orphan-desc">tmux sessions with no open tab</span>
+      <div class="detached-head">
+        <span class="detached-title">Detached sessions</span>
+        <span class="detached-desc">tmux sessions with no open tab</span>
       </div>
-      <div v-if="!orphanSessions.length" class="orphan-empty">No orphan sessions</div>
-      <div v-else class="orphan-list">
-        <div v-for="s in orphanSessions" :key="s.tmux_name" class="orphan-row">
-          <div class="orphan-meta">
-            <span class="orphan-name">
+      <div v-if="!detachedSessions.length" class="detached-empty">No detached sessions</div>
+      <div v-else class="detached-list">
+        <div v-for="s in detachedSessions" :key="s.tmux_name" class="detached-row">
+          <div class="detached-meta">
+            <span class="detached-name">
               {{ s.workspace || s.tmux_name }}
-              <span v-if="s.external" class="orphan-tag">external</span>
+              <span v-if="s.external" class="detached-tag">external</span>
             </span>
-            <span class="orphan-sub">{{ s.tmux_name }}</span>
+            <span class="detached-sub">{{ s.tmux_name }}</span>
           </div>
-          <button v-if="!s.external" type="button" class="orphan-btn" @click="openOrphan(s)" title="Open as tab">
+          <button v-if="!s.external" type="button" class="detached-btn" @click="openDetached(s)" title="Open as tab">
             <span class="mdi mdi-tab-plus"></span>
           </button>
-          <button v-else type="button" class="orphan-btn" @click="adoptOrphan(s)" title="Adopt into any-console (rename tmux session)">
+          <button v-else type="button" class="detached-btn" @click="adoptDetached(s)" title="Adopt into any-console (rename tmux session)">
             <span class="mdi mdi-import"></span>
           </button>
-          <button type="button" class="orphan-btn danger" @click="closeOrphan(s)" title="Close session">
+          <button type="button" class="detached-btn danger" @click="closeDetached(s)" title="Close session">
             <span class="mdi mdi-close"></span>
           </button>
         </div>
@@ -99,7 +99,7 @@ import { emit } from "../app-bridge.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useApi } from "../composables/useApi.js";
 import { useListDragSort } from "../composables/useListDragSort.js";
-import { buildOrphanSessionList } from "../utils/orphan-sessions.js";
+import { buildDetachedSessionList } from "../utils/detached-sessions.js";
 import {
   EP_TERMINAL_SESSIONS,
   EP_SYSTEM_TMUX_INFO,
@@ -204,9 +204,9 @@ const { dragFromIdx, dragOverIdx, onDragStart } = useListDragSort({
 });
 
 const { apiGet, apiDelete, apiPost } = useApi();
-const orphanSessions = ref([]);
+const detachedSessions = ref([]);
 
-async function loadOrphans() {
+async function loadDetached() {
   // 全 tmux セッション + any-console 管理セッションをマージ。
   // - ac- 付き = any-console 管理（Open 可能）
   // - ac- なし = ユーザ個人セッション（external 扱い、Close のみ）
@@ -217,10 +217,10 @@ async function loadOrphans() {
   const owned = ownedRes.ok && Array.isArray(ownedRes.data) ? ownedRes.data : [];
   const knownTabIds = new Set(openTabs.value.map((t) => t.sessionId).filter(Boolean));
   const all = tmuxRes.ok && Array.isArray(tmuxRes.data?.sessions) ? tmuxRes.data.sessions : [];
-  orphanSessions.value = buildOrphanSessionList(all, owned, knownTabIds);
+  detachedSessions.value = buildDetachedSessionList(all, owned, knownTabIds);
 }
 
-function openOrphan(s) {
+function openDetached(s) {
   const tab = terminalStore.addTerminalTab({
     wsUrl: terminalWsPath(s.session_id),
     workspace: s.workspace || null,
@@ -234,10 +234,10 @@ function openOrphan(s) {
     hidden: false,
   });
   emit("tab:select", { tab });
-  loadOrphans();
+  loadDetached();
 }
 
-async function adoptOrphan(s) {
+async function adoptDetached(s) {
   // 外部 tmux セッションを ac- プレフィックスにリネームして any-console 管理化、
   // そのままタブとして開く。
   if (!await confirm(`Adopt "${s.tmux_name}" into any-console? The tmux session will be renamed.`)) return;
@@ -256,10 +256,10 @@ async function adoptOrphan(s) {
     hidden: false,
   });
   emit("tab:select", { tab });
-  await loadOrphans();
+  await loadDetached();
 }
 
-async function closeOrphan(s) {
+async function closeDetached(s) {
   const label = s.workspace || s.session_id || s.tmux_name;
   if (!await confirm(`Close session "${label}"? The tmux session will be killed.`)) return;
   if (s.session_id) {
@@ -269,10 +269,10 @@ async function closeOrphan(s) {
     // 外部セッション。/system/tmux/kill 経由
     await apiPost(EP_SYSTEM_TMUX_KILL, { name: s.tmux_name }, { errorMessage: "Failed to kill session" });
   }
-  await loadOrphans();
+  await loadDetached();
 }
 
-onMounted(loadOrphans);
+onMounted(loadDetached);
 </script>
 
 <style scoped>
@@ -442,7 +442,7 @@ onMounted(loadOrphans);
   }
 }
 
-.orphan-head {
+.detached-head {
   margin-top: 16px;
   padding: 8px 4px 6px;
   border-top: 2px solid var(--accent);
@@ -450,43 +450,43 @@ onMounted(loadOrphans);
   flex-direction: column;
   gap: 2px;
 }
-.orphan-title {
+.detached-title {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
 }
-.orphan-desc {
+.detached-desc {
   font-size: 11px;
   color: var(--text-muted);
 }
-.orphan-list {
+.detached-list {
   display: flex;
   flex-direction: column;
 }
-.orphan-empty {
+.detached-empty {
   padding: 10px 4px;
   font-size: 12px;
   color: var(--text-muted);
 }
-.orphan-row {
+.detached-row {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 4px;
   border-bottom: 1px solid var(--border);
 }
-.orphan-meta {
+.detached-meta {
   display: flex;
   flex-direction: column;
   gap: 2px;
   flex: 1;
   min-width: 0;
 }
-.orphan-name {
+.detached-name {
   font-size: 14px;
   color: var(--text-primary);
 }
-.orphan-sub {
+.detached-sub {
   font-size: 11px;
   color: var(--text-muted);
   font-family: monospace;
@@ -494,7 +494,7 @@ onMounted(loadOrphans);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.orphan-btn {
+.detached-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -507,7 +507,7 @@ onMounted(loadOrphans);
   cursor: pointer;
   font-size: 16px;
 }
-.orphan-tag {
+.detached-tag {
   margin-left: 6px;
   font-size: 11px;
   padding: 1px 6px;
@@ -515,7 +515,7 @@ onMounted(loadOrphans);
   background: var(--bg-tertiary);
   color: var(--text-muted);
 }
-.orphan-btn.danger:hover {
+.detached-btn.danger:hover {
   background: color-mix(in srgb, var(--error) 20%, var(--bg-tertiary));
   color: var(--error);
 }
