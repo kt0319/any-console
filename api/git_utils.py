@@ -45,7 +45,13 @@ def command_result_dict(result: subprocess.CompletedProcess) -> dict:
     }
 
 
-def run_git_raw(args, cwd, timeout=GIT_QUICK_TIMEOUT_SEC, text=True, env=None):
+def run_git_raw(
+    args: list[str],
+    cwd: str | Path,
+    timeout: float = GIT_QUICK_TIMEOUT_SEC,
+    text: bool = True,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["git", *args],
         capture_output=True, text=text, timeout=timeout,
