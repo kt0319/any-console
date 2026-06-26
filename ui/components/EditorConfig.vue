@@ -58,24 +58,21 @@ const EDITOR_PRESETS = [
   { label: "VS Code", template: "vscode://vscode-remote/ssh-remote+{host}{workspace_path}" },
   { label: "Cursor", template: "cursor://vscode-remote/ssh-remote+{host}{workspace_path}" },
 ];
-const TEMPLATE_VARS = ["{user}", "{host}", "{work_dir}", "{workspace}", "{workspace_path}"];
+const TEMPLATE_VARS = ["{user}", "{host}", "{workspace}", "{workspace_path}"];
 
 const textareaRef = ref(null);
 const urlTemplate = ref("");
 const editorUser = ref("");
 const editorHost = ref("");
-const workDir = ref("");
 
 const previewUrl = computed(() => {
   const tmpl = urlTemplate.value.trim();
   if (!tmpl) return "(Editor button hidden)";
-  const exampleWorkDir = workDir.value || "/home/user";
   return tmpl
     .replace(/\{user\}/g, editorUser.value || "user")
     .replace(/\{host\}/g, editorHost.value || "host")
-    .replace(/\{work_dir\}/g, exampleWorkDir)
     .replace(/\{workspace\}/g, "example-workspace")
-    .replace(/\{workspace_path\}/g, exampleWorkDir + "/work/example-workspace");
+    .replace(/\{workspace_path\}/g, "/home/user/example-workspace");
 });
 
 function insertVar(v) {
@@ -106,7 +103,6 @@ async function loadEditorConfig() {
     if (ok) {
       if (data.user) editorUser.value = data.user;
       if (data.hostname) editorHost.value = data.hostname;
-      if (data.work_dir) workDir.value = data.work_dir;
     }
   } catch {}
   try {

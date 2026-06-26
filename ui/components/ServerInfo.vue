@@ -159,7 +159,6 @@ async function load() {
         row("Auth", formatAuth(auth)),
         row("Install dir", srv.install_dir),
         row("User", srv.user),
-        row("Work dir", srv.work_dir),
       ].filter((r) => r.values[0]) : [],
     },
     {

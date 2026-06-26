@@ -315,7 +315,6 @@ def get_system_info():
     info = {
         "hostname": socket.gethostname(),
         "user": getpass.getuser(),
-        "work_dir": str(Path.home()),
         "install_dir": REPO_DIR,
     }
     release = get_app_release()

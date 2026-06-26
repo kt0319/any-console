@@ -8,7 +8,7 @@ export function useEditorIntegration() {
   const { apiGet } = useApi();
 
   const editorUrlTemplate = ref("");
-  /** @type {import("vue").Ref<{ user?: string, hostname?: string, work_dir?: string }>} */
+  /** @type {import("vue").Ref<{ user?: string, hostname?: string }>} */
   const systemInfo = ref({});
 
   async function fetchEditorSettings() {
@@ -34,7 +34,6 @@ export function useEditorIntegration() {
     let url = tmpl
       .replace(/\{user\}/g, systemInfo.value.user || "")
       .replace(/\{host\}/g, systemInfo.value.hostname || "")
-      .replace(/\{work_dir\}/g, systemInfo.value.work_dir || "")
       .replace(/\{workspace\}/g, workspace)
       .replace(/\{workspace_path\}/g, workspacePath);
     if (path) url += "/" + path;
