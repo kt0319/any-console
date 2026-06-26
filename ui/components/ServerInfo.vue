@@ -92,6 +92,7 @@ async function load() {
       label: "Server",
       error: srv ? null : "Failed to load",
       rows: srv ? [
+        row("Version", srv.version),
         row("Hostname", srv.hostname), row("OS", srv.os), row("IP", srv.ip),
         row("Uptime", srv.uptime), row("Memory", srv.memory),
         row("CPU Temp", srv.cpu_temp), row("Disk", srv.disk),

@@ -770,19 +770,22 @@ cmd_update() {
     error "Uncommitted changes present. Commit or stash first."
   fi
 
-  local before_hash
-  before_hash=$(git rev-parse HEAD)
+  info "Fetching latest releases..."
+  git fetch --tags --force origin
 
-  info "Fetching latest..."
-  git pull --ff-only
-
-  local after_hash
-  after_hash=$(git rev-parse HEAD)
-
-  if [ "$before_hash" = "$after_hash" ]; then
-    info "Already up to date ($(get_version))"
+  local latest current
+  latest=$(git tag -l --sort=-v:refname | head -1)
+  current=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+  if [ -z "$latest" ]; then
+    error "No release tags found"
+  fi
+  if [ "$latest" = "$current" ]; then
+    info "Already on the latest release ($current)"
     return
   fi
+
+  info "Updating ${current:-(none)} -> $latest"
+  git -c advice.detachedHead=false checkout "$latest"
 
   info "Updating dependencies..."
   if [ ! -d "$VENV_DIR" ]; then

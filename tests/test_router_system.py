@@ -165,3 +165,182 @@ class TestSystemProcessesEndpoint:
         monkeypatch.setattr(system_mod, "run_subprocess_safe", lambda *a, **kw: None)
         res = client.get("/system/processes", headers=AUTH)
         assert res.status_code == 500
+
+
+def _completed(returncode=0, stdout="", stderr=""):
+    return subprocess.CompletedProcess(["git"], returncode, stdout, stderr)
+
+
+class TestVersionInSystemInfo:
+    def test_version_included(self, client, monkeypatch):
+        monkeypatch.setattr(system_mod, "get_app_release", lambda: "v0.5.0-3-gabc123")
+        for getter in ("_get_ip", "_get_os_name", "_get_uptime", "_get_cpu_temp", "_get_memory"):
+            monkeypatch.setattr(system_mod, getter, lambda: None)
+        res = client.get("/system/info", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json()["version"] == "v0.5.0-3-gabc123"
+
+    def test_version_omitted_when_empty(self, client, monkeypatch):
+        monkeypatch.setattr(system_mod, "get_app_release", lambda: "")
+        for getter in ("_get_ip", "_get_os_name", "_get_uptime", "_get_cpu_temp", "_get_memory"):
+            monkeypatch.setattr(system_mod, getter, lambda: None)
+        res = client.get("/system/info", headers=AUTH)
+        assert res.status_code == 200
+        assert "version" not in res.json()
+
+
+def _git_out_table(table, default=None):
+    def fn(args, timeout=0):
+        return table.get(" ".join(args), default)
+    return fn
+
+
+class TestCheckUpdate:
+    def _patch(self, monkeypatch, table, fetch_rc=0):
+        monkeypatch.setattr(system_mod, "_git_out", _git_out_table(table))
+        monkeypatch.setattr(system_mod, "_git", lambda args, timeout=0: _completed(returncode=fetch_rc))
+
+    def test_update_available(self, client, monkeypatch):
+        self._patch(monkeypatch, {
+            "rev-parse --is-inside-work-tree": "true",
+            "remote": "origin",
+            "describe --tags --always": "v0.5.0-3-gabc",
+            "describe --tags --abbrev=0": "v0.5.0",
+            "tag --sort=-v:refname": "v0.6.0\nv0.5.0\nv0.3.0",
+            "rev-list --count v0.5.0..v0.6.0": "12",
+        })
+        res = client.get("/system/update/check", headers=AUTH)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["update_available"] is True
+        assert data["behind"] == 12
+        assert data["latest_release"] == "v0.6.0"
+        assert data["current_release"] == "v0.5.0"
+        assert data["version"] == "v0.5.0-3-gabc"
+        assert data["fetch_ok"] is True
+
+    def test_up_to_date(self, client, monkeypatch):
+        self._patch(monkeypatch, {
+            "rev-parse --is-inside-work-tree": "true",
+            "remote": "origin",
+            "describe --tags --always": "v0.6.0",
+            "describe --tags --abbrev=0": "v0.6.0",
+            "tag --sort=-v:refname": "v0.6.0\nv0.5.0",
+        })
+        res = client.get("/system/update/check", headers=AUTH)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["update_available"] is False
+        assert data["behind"] == 0
+
+    def test_fetch_failure_sets_flag(self, client, monkeypatch):
+        self._patch(monkeypatch, {
+            "rev-parse --is-inside-work-tree": "true",
+            "remote": "origin",
+            "describe --tags --abbrev=0": "v0.6.0",
+            "tag --sort=-v:refname": "v0.6.0",
+        }, fetch_rc=1)
+        res = client.get("/system/update/check", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json()["fetch_ok"] is False
+
+    def test_update_available_when_no_current_tag(self, client, monkeypatch):
+        # 現在タグが取れない（describe 失敗）が最新タグはある -> 更新あり
+        self._patch(monkeypatch, {
+            "rev-parse --is-inside-work-tree": "true",
+            "remote": "origin",
+            "tag --sort=-v:refname": "v0.6.0",
+        })
+        res = client.get("/system/update/check", headers=AUTH)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["current_release"] == ""
+        assert data["update_available"] is True
+
+    def test_not_a_git_repo_returns_500(self, client, monkeypatch):
+        monkeypatch.setattr(system_mod, "_git_out", lambda args, timeout=0: None)
+        monkeypatch.setattr(system_mod, "_git", lambda args, timeout=0: _completed())
+        res = client.get("/system/update/check", headers=AUTH)
+        assert res.status_code == 500
+
+
+class TestApplyUpdate:
+    def _patch(self, monkeypatch, table, git_fn):
+        monkeypatch.setattr(system_mod, "_git_out", _git_out_table(table))
+        monkeypatch.setattr(system_mod, "_git", git_fn)
+
+    def test_success(self, client, monkeypatch):
+        def git_fn(args, timeout=0):
+            return _completed()  # fetch も checkout も成功
+        self._patch(monkeypatch, {
+            "rev-parse --is-inside-work-tree": "true",
+            "status --porcelain": "",
+            "remote": "origin",
+            "tag --sort=-v:refname": "v0.6.0\nv0.5.0",
+            "describe --tags --always": "v0.6.0",
+        }, git_fn)
+        res = client.post("/system/update/apply", headers=AUTH)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["ok"] is True
+        assert data["restart_required"] is True
+        assert data["checked_out"] == "v0.6.0"
+        assert data["version"] == "v0.6.0"
+
+    def test_dirty_tree_returns_409(self, client, monkeypatch):
+        self._patch(monkeypatch, {
+            "rev-parse --is-inside-work-tree": "true",
+            "status --porcelain": " M api/foo.py",
+        }, lambda args, timeout=0: _completed())
+        res = client.post("/system/update/apply", headers=AUTH)
+        assert res.status_code == 409
+
+    def test_not_a_git_repo_returns_500(self, client, monkeypatch):
+        monkeypatch.setattr(system_mod, "_git_out", lambda args, timeout=0: None)
+        res = client.post("/system/update/apply", headers=AUTH)
+        assert res.status_code == 500
+
+    def test_fetch_failure_returns_500(self, client, monkeypatch):
+        self._patch(monkeypatch, {
+            "rev-parse --is-inside-work-tree": "true",
+            "status --porcelain": "",
+            "remote": "origin",
+        }, lambda args, timeout=0: _completed(returncode=1, stderr="network"))
+        res = client.post("/system/update/apply", headers=AUTH)
+        assert res.status_code == 500
+
+    def test_no_tags_returns_500(self, client, monkeypatch):
+        self._patch(monkeypatch, {
+            "rev-parse --is-inside-work-tree": "true",
+            "status --porcelain": "",
+            "remote": "origin",
+            "tag --sort=-v:refname": "",
+        }, lambda args, timeout=0: _completed())  # fetch 成功
+        res = client.post("/system/update/apply", headers=AUTH)
+        assert res.status_code == 500
+
+    def test_checkout_failure_returns_500(self, client, monkeypatch):
+        def git_fn(args, timeout=0):
+            if "checkout" in args:
+                return _completed(returncode=1, stderr="checkout failed")
+            return _completed()  # fetch 成功
+        self._patch(monkeypatch, {
+            "rev-parse --is-inside-work-tree": "true",
+            "status --porcelain": "",
+            "remote": "origin",
+            "tag --sort=-v:refname": "v0.6.0",
+        }, git_fn)
+        res = client.post("/system/update/apply", headers=AUTH)
+        assert res.status_code == 500
+
+    def test_checkout_none_returns_500(self, client, monkeypatch):
+        def git_fn(args, timeout=0):
+            return None if "checkout" in args else _completed()
+        self._patch(monkeypatch, {
+            "rev-parse --is-inside-work-tree": "true",
+            "status --porcelain": "",
+            "remote": "origin",
+            "tag --sort=-v:refname": "v0.6.0",
+        }, git_fn)
+        res = client.post("/system/update/apply", headers=AUTH)
+        assert res.status_code == 500

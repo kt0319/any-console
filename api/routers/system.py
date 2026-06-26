@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from ..auth import verify_token
 from ..common import SYSTEM_CMD_TIMEOUT_SEC, run_subprocess_safe, sanitize_log_value
-from ..errors import bad_request, not_found, server_error
+from ..errors import bad_request, conflict, not_found, server_error
 
 logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(verify_token)])
@@ -21,6 +21,10 @@ router = APIRouter(dependencies=[Depends(verify_token)])
 IS_DARWIN = platform.system() == "Darwin"
 PROCESS_LIST_LIMIT = 10
 PS_FIELD_COUNT = 11
+
+# any-console のリポジトリルート（git pull で自己更新する対象）。
+REPO_DIR = str(Path(__file__).resolve().parent.parent.parent)
+GIT_FETCH_TIMEOUT_SEC = 30.0
 
 
 def _run_cmd_safe(cmd: list[str], timeout: float = SYSTEM_CMD_TIMEOUT_SEC, cwd: str | None = None) -> str | None:
@@ -33,9 +37,25 @@ def _run_cmd_safe(cmd: list[str], timeout: float = SYSTEM_CMD_TIMEOUT_SEC, cwd: 
 def get_app_version() -> str:
     out = _run_cmd_safe(
         ["git", "log", "-1", "--format=%cd", "--date=format:%Y-%m-%d %H:%M"],
-        cwd=str(Path(__file__).resolve().parent.parent.parent),
+        cwd=REPO_DIR,
     )
     return out.strip() if out and out.strip() else ""
+
+
+def _git(args: list[str], timeout: float = SYSTEM_CMD_TIMEOUT_SEC):
+    return run_subprocess_safe(["git", *args], timeout=timeout, cwd=REPO_DIR)
+
+
+def _git_out(args: list[str], timeout: float = SYSTEM_CMD_TIMEOUT_SEC) -> str | None:
+    r = _git(args, timeout=timeout)
+    if r is not None and r.returncode == 0:
+        return str(r.stdout).strip()
+    return None
+
+
+def get_app_release() -> str:
+    """人間が読めるバージョン文字列。リリースタグ基準（例: v0.5.0-38-g844f239）。"""
+    return _git_out(["describe", "--tags", "--always"]) or ""
 
 
 def _get_ip() -> str | None:
@@ -293,6 +313,9 @@ def get_tmux_info():
 @router.get("/system/info")
 def get_system_info():
     info = {"hostname": socket.gethostname(), "user": getpass.getuser(), "work_dir": str(Path.home())}
+    release = get_app_release()
+    if release:
+        info["version"] = release
     for key, getter in [
         ("ip", _get_ip),
         ("os", _get_os_name),
@@ -313,3 +336,84 @@ def get_system_info():
         pass
 
     return info
+
+
+def _git_remote() -> str:
+    out = _git_out(["remote"])
+    return out.splitlines()[0] if out else "origin"
+
+
+def _latest_release_tag() -> str:
+    """バージョン降順で最新のリリースタグを返す（無ければ空文字）。"""
+    tags = _git_out(["tag", "--sort=-v:refname"])
+    return tags.splitlines()[0] if tags else ""
+
+
+@router.get("/system/update/check")
+def check_update():
+    """最新のリリースタグに対する更新の有無を返す。
+
+    リリースは release-please が付けるタグ（例: v0.5.0）。current_release は現在の
+    HEAD から見える最新タグ、latest_release は fetch 後のリポジトリ最新タグ。
+    更新適用はブランチ HEAD ではなくこの最新タグへ checkout する（リリース単位）。
+    """
+    if _git_out(["rev-parse", "--is-inside-work-tree"]) is None:
+        raise server_error("Not a git repository; cannot check for updates")
+
+    fetched = _git(["fetch", "--tags", "--force", "--quiet", _git_remote()],
+                   timeout=GIT_FETCH_TIMEOUT_SEC)
+    fetch_ok = fetched is not None and fetched.returncode == 0
+
+    current_release = _git_out(["describe", "--tags", "--abbrev=0"]) or ""
+    latest_release = _latest_release_tag()
+
+    behind = 0
+    update_available = False
+    if latest_release and latest_release != current_release:
+        if not current_release:
+            update_available = True
+        else:
+            # current より latest が新しい（current の先に commit がある）か
+            cnt = _git_out(["rev-list", "--count", f"{current_release}..{latest_release}"])
+            if cnt and cnt.isdigit() and int(cnt) > 0:
+                update_available = True
+                behind = int(cnt)
+
+    return {
+        "version": get_app_release(),
+        "current_release": current_release,
+        "latest_release": latest_release,
+        "behind": behind,
+        "update_available": update_available,
+        "fetch_ok": fetch_ok,
+    }
+
+
+@router.post("/system/update/apply")
+def apply_update():
+    """最新のリリースタグへ checkout して更新する。反映には再起動が必要。"""
+    if _git_out(["rev-parse", "--is-inside-work-tree"]) is None:
+        raise server_error("Not a git repository; cannot update")
+    if _git_out(["status", "--porcelain"]):
+        raise conflict("Uncommitted changes present. Commit or stash before updating.")
+
+    fetched = _git(["fetch", "--tags", "--force", _git_remote()], timeout=GIT_FETCH_TIMEOUT_SEC)
+    if fetched is None or fetched.returncode != 0:
+        raise server_error("git fetch failed")
+
+    latest = _latest_release_tag()
+    if not latest:
+        raise server_error("No release tags found")
+
+    result = _git(["-c", "advice.detachedHead=false", "checkout", latest])
+    if result is None:
+        raise server_error("git checkout failed to run")
+    if result.returncode != 0:
+        raise server_error(f"git checkout failed: {(result.stderr or '').strip()[:300]}")
+
+    return {
+        "ok": True,
+        "version": get_app_release(),
+        "checked_out": latest,
+        "restart_required": True,
+    }
