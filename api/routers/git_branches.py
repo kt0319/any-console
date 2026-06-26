@@ -8,11 +8,11 @@ from ..common import (
     resolve_workspace_path,
 )
 from ..errors import bad_request
+from ..git_info import git_info_to_status_dict
 from ..git_lock import workspace_write_lock
 from ..git_utils import (
     git_branch,
     git_branches,
-    git_info_to_status_dict,
     git_remote_branches,
     run_git_command,
     ssh_env,

@@ -22,12 +22,12 @@ from ..config import (
     load_workspace_config,
 )
 from ..errors import bad_request, conflict, not_found
+from ..git_info import invalidate_git_info
 from ..git_lock import workspace_write_lock
 from ..git_utils import (
     git_branches,
     git_is_repo,
     git_worktree_list,
-    invalidate_git_info,
     run_git_command,
     worktree_display_name,
 )
