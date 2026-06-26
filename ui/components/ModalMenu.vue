@@ -8,11 +8,11 @@
       <button type="button" class="settings-menu-item" @click="pushView('WorkspaceAdd')">
         <span class="mdi mdi-folder-plus-outline"></span> Add Workspace
       </button>
+      <button type="button" class="settings-menu-item" @click="pushView('TabConfig')">
+        <span class="mdi mdi-tab"></span> Tabs & Sessions
+      </button>
 
       <div class="settings-menu-section-label">Customize</div>
-      <button type="button" class="settings-menu-item" @click="pushView('TabConfig')">
-        <span class="mdi mdi-tab"></span> Tabs
-      </button>
       <button type="button" class="settings-menu-item" @click="pushView('TerminalConfig')">
         <span class="mdi mdi-format-font-size-increase"></span> Terminal
       </button>
@@ -25,14 +25,14 @@
       <button type="button" class="settings-menu-item" @click="pushView('SnippetConfig')">
         <span class="mdi mdi-bookmark-multiple"></span> Snippets
       </button>
-      <button type="button" class="settings-menu-item" @click="pushView('PreviewConfig')">
-        <span class="mdi mdi-open-in-app"></span> Port Preview
-      </button>
       <button type="button" class="settings-menu-item" @click="pushView('RadialKeyConfig')">
         <span class="mdi mdi-gesture-tap"></span> Radial Key
       </button>
 
       <div class="settings-menu-section-label">System</div>
+      <button type="button" class="settings-menu-item" @click="pushView('PreviewConfig')">
+        <span class="mdi mdi-open-in-app"></span> Port Preview
+      </button>
       <button type="button" class="settings-menu-item" @click="pushView('AuthConfig')">
         <span class="mdi mdi-shield-lock-outline"></span> Auth
         <span v-if="authWarn" class="settings-menu-warn" data-tooltip="No token configured — anyone with network access can use this console">

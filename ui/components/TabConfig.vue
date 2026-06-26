@@ -1,12 +1,20 @@
 <template>
   <div class="modal-scroll-body split-tab-scroll">
     <div class="split-tab-content">
+      <div class="detached-head">
+        <span class="detached-title">Tab layout</span>
+        <span class="detached-desc">split mode and arrangement</span>
+      </div>
       <SplitModeSelector
         :current-mode="currentMode"
         :tab-count="openTabs.length"
         @select="setMode"
       />
 
+      <div class="detached-head">
+        <span class="detached-title">Attached tabs</span>
+        <span class="detached-desc">open tabs in the tab bar</span>
+      </div>
       <div class="split-tab-list">
         <div
           v-for="(tab, idx) in openTabs"
@@ -60,8 +68,8 @@
       </div>
 
       <div class="detached-head">
-        <span class="detached-title">Detached sessions</span>
-        <span class="detached-desc">tmux sessions with no open tab</span>
+        <span class="detached-title">Detached tabs</span>
+        <span class="detached-desc">sessions running without an open tab</span>
       </div>
       <div v-if="!detachedSessions.length" class="detached-empty">No detached sessions</div>
       <div v-else class="detached-list">
@@ -111,7 +119,7 @@ import {
 } from "../utils/endpoints.js";
 
 const modalTitle = inject("modalTitle");
-modalTitle.value = "Tabs";
+modalTitle.value = "Tabs & Sessions";
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
@@ -444,21 +452,23 @@ onMounted(loadDetached);
 }
 
 .detached-head {
-  margin-top: 16px;
-  padding: 8px 4px 6px;
-  border-top: 2px solid var(--accent);
+  margin-top: 12px;
+  padding: 6px 4px 4px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 .detached-title {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
 }
 .detached-desc {
   font-size: 11px;
   color: var(--text-muted);
+  opacity: 0.7;
 }
 .detached-list {
   display: flex;
