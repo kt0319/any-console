@@ -4,7 +4,11 @@ websockets>=12,<17
 pydantic>=2,<3
 python-multipart>=0.0.5
 cryptography>=41
-pywebpush>=2.0
+
+# Push notifications need pywebpush too — see requirements-optional.txt.
+# It pulls a native dependency (http-ece) that can fail to build on minimal
+# hosts; it is installed best-effort so a build failure never blocks setup,
+# and push is lazily imported so a missing dep never blocks app startup.
 
 # dev
 pytest>=7,<9

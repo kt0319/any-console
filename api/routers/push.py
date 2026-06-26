@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from ..auth import verify_token
+from ..errors import service_unavailable
 from ..push import add_subscription, get_vapid_public_key, remove_subscription, set_vapid_sub
 
 logger = logging.getLogger(__name__)
@@ -16,7 +17,10 @@ router = APIRouter(dependencies=[Depends(verify_token)])
 
 @router.get("/push/vapid-public-key")
 def vapid_public_key():
-    return {"publicKey": get_vapid_public_key()}
+    key = get_vapid_public_key()
+    if key is None:
+        raise service_unavailable("Push notifications are not available on this server")
+    return {"publicKey": key}
 
 
 class PushSubscription(BaseModel):

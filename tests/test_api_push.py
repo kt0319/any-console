@@ -66,6 +66,24 @@ class TestVapidKeys:
             p.init_vapid()
             assert p._vapid_public_b64 == first_pub
 
+    def test_init_vapid_disabled_when_crypto_missing(self, tmp_path):
+        """cryptography 未導入（鍵生成が ImportError）でも例外を出さず push 無効化する。"""
+        import api.push as p
+        p._vapid_private_b64 = None
+        p._vapid_public_b64 = None
+        with patch.object(p, "_load_or_create_vapid_keys", side_effect=ImportError("no cryptography")):
+            p.init_vapid()  # 例外が伝播しないこと
+        assert p._vapid_private_b64 is None
+        assert p._vapid_public_b64 is None
+
+    def test_get_vapid_public_key_none_when_disabled(self, tmp_path):
+        import api.push as p
+        p._vapid_private_b64 = None
+        p._vapid_public_b64 = None
+        with patch.object(p, "_load_or_create_vapid_keys", side_effect=ImportError):
+            key = p.get_vapid_public_key()
+        assert key is None
+
     def test_init_vapid_loads_saved_sub(self, tmp_path):
         import api.push as p
         sub_file = tmp_path / "vapid_sub.txt"
@@ -194,6 +212,22 @@ class TestSendPushNotification:
 
         assert p._load_subscriptions() == []
 
+    def test_send_skips_when_push_disabled(self, tmp_path):
+        """鍵が無い（cryptography 未導入）状態では webpush に到達せず黙ってスキップする。"""
+        import api.push as p
+        p._SUBSCRIPTIONS_FILE = tmp_path / "subs.json"
+        p._vapid_private_b64 = None
+        p._vapid_public_b64 = None
+        p._save_subscriptions([{"endpoint": "https://example.com/push/1", "keys": {}}])
+
+        called: list[int] = []
+        mock_exc_cls = type("WebPushException", (Exception,), {"response": None})
+        with patch.object(p, "_load_or_create_vapid_keys", side_effect=ImportError), \
+             patch.dict("sys.modules", {"pywebpush": MagicMock(
+                 webpush=lambda **k: called.append(1), WebPushException=mock_exc_cls)}):
+            p.send_push_notification("title", "body")
+        assert called == []
+
     def test_send_handles_generic_exception(self, tmp_path):
         import api.push as p
         p._SUBSCRIPTIONS_FILE = tmp_path / "subs.json"
@@ -221,6 +255,19 @@ class TestPushRouter:
         res = client.get("/push/vapid-public-key", headers=AUTH)
         assert res.status_code == 200
         assert res.json()["publicKey"] == "test-public-key"
+
+    def test_vapid_public_key_503_when_unavailable(self, client):
+        """push が利用不可（鍵 None）なら 503 を返し detail を含む。"""
+        import api.push as p
+        orig = p._vapid_public_b64
+        p._vapid_public_b64 = None
+        try:
+            with patch.object(p, "init_vapid", lambda *a, **k: None):
+                res = client.get("/push/vapid-public-key", headers=AUTH)
+            assert res.status_code == 503
+            assert "detail" in res.json()
+        finally:
+            p._vapid_public_b64 = orig
 
     def test_subscribe(self, client, tmp_path):
         import api.push as p

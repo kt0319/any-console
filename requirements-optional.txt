@@ -1,0 +1,11 @@
+# Optional dependencies — enable Web Push notifications.
+#
+# pywebpush pulls a native dependency (http-ece) that needs a build toolchain
+# and can fail to install on minimal hosts. any-console runs fine without it:
+# `./any-console setup` installs this best-effort and skips push on failure,
+# and the backend lazily imports these so the app always starts.
+#
+#   ./any-console setup            # installs this automatically (best-effort)
+#   .venv/bin/pip install -r requirements-optional.txt   # enable push manually
+
+pywebpush>=2.0
