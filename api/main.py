@@ -165,7 +165,8 @@ async def lifespan(app: FastAPI):
         logger.warning("grouped session cleanup skipped: %s", e)
     from .preview import set_self_ports, start_scanner, stop_scanner
     from .push import init_vapid
-    init_vapid()
+    _display_host = "localhost" if host in ("0.0.0.0", "::", "") else host  # noqa: S104
+    init_vapid(sub=f"https://{_display_host}")
     set_self_ports([port])
     start_scanner()
     yield

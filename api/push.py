@@ -24,12 +24,12 @@ _DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 _VAPID_PRIVATE_FILE = _DATA_DIR / "vapid_private.txt"
 _VAPID_PUBLIC_FILE = _DATA_DIR / "vapid_public.txt"
 _SUBSCRIPTIONS_FILE = _DATA_DIR / "push_subscriptions.json"
+_VAPID_SUB_FILE = _DATA_DIR / "vapid_sub.txt"
 
 _lock = threading.Lock()
 _vapid_private_b64: str | None = None
 _vapid_public_b64: str | None = None
-
-VAPID_CLAIMS_SUB = "mailto:admin@localhost"
+_vapid_sub: str = "https://localhost"
 
 
 def _generate_vapid_keys() -> tuple[str, str]:
@@ -53,10 +53,25 @@ def _load_or_create_vapid_keys() -> tuple[str, str]:
     return private_b64, public_b64
 
 
-def init_vapid() -> None:
-    global _vapid_private_b64, _vapid_public_b64
+def set_vapid_sub(sub: str) -> None:
+    """VAPID sub を更新してファイルに永続化する。"""
+    global _vapid_sub
+    with _lock:
+        _vapid_sub = sub
+        _DATA_DIR.mkdir(parents=True, exist_ok=True)
+        _VAPID_SUB_FILE.write_text(sub)
+    logger.info("VAPID sub updated: %s", sub)
+
+
+def init_vapid(sub: str | None = None) -> None:
+    global _vapid_private_b64, _vapid_public_b64, _vapid_sub
     with _lock:
         _vapid_private_b64, _vapid_public_b64 = _load_or_create_vapid_keys()
+        saved_sub = _VAPID_SUB_FILE.read_text().strip() if _VAPID_SUB_FILE.exists() else None
+        if saved_sub:
+            _vapid_sub = saved_sub
+        elif sub:
+            _vapid_sub = sub
 
 
 def get_vapid_public_key() -> str:
@@ -124,16 +139,20 @@ def send_push_notification(title: str, body: str, url: str = "/") -> None:
                 subscription_info=sub,
                 data=payload,
                 vapid_private_key=_vapid_private_b64,
-                vapid_claims={"sub": VAPID_CLAIMS_SUB},
+                vapid_claims={"sub": _vapid_sub},
             )
         except WebPushException as e:
-            status = getattr(e.response, "status_code", None) if e.response else None
-            logger.warning("push failed endpoint=%s status=%s", sub.get("endpoint", ""), status)
-            # 410 Gone / 404 は購読失効
-            if status in (404, 410):
+            resp = e.response
+            status = (
+                getattr(resp, "status_code", None)
+                or getattr(resp, "status", None)
+            ) if resp is not None else None
+            logger.warning("push failed endpoint=%s status=%s detail=%s", sub.get("endpoint", ""), status, str(e))
+            # 404/410 = 購読失効、400 VapidPkHashMismatch = 鍵不一致（永続的に無効）
+            if status in (400, 404, 410):
                 failed_endpoints.append(sub.get("endpoint", ""))
         except Exception as e:
-            logger.warning("push error: %s", e)
+            logger.warning("push error type=%s detail=%s", type(e).__name__, e)
 
     if failed_endpoints:
         with _lock:

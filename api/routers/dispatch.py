@@ -274,8 +274,8 @@ async def dispatch(body: DispatchRequest):
 
     job_label = job_def.label or body.job
     send_push_notification(
-        title="Dispatch received",
-        body=f"{job_label} on {effective_ws}",
+        title=job_label,
+        body=effective_ws,
         url=f"/?workspace={effective_ws}",
     )
 

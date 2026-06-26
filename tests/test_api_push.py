@@ -29,7 +29,8 @@ class TestVapidKeys:
         p._vapid_public_b64 = None
         with patch.object(p, "_DATA_DIR", tmp_path), \
              patch.object(p, "_VAPID_PRIVATE_FILE", tmp_path / "vapid_private.pem"), \
-             patch.object(p, "_VAPID_PUBLIC_FILE", tmp_path / "vapid_public.txt"):
+             patch.object(p, "_VAPID_PUBLIC_FILE", tmp_path / "vapid_public.txt"), \
+             patch.object(p, "_VAPID_SUB_FILE", tmp_path / "vapid_sub.txt"):
             p.init_vapid()
         assert p._vapid_private_b64 is not None
         assert p._vapid_public_b64 is not None
@@ -40,7 +41,8 @@ class TestVapidKeys:
         p._vapid_public_b64 = None
         with patch.object(p, "_DATA_DIR", tmp_path), \
              patch.object(p, "_VAPID_PRIVATE_FILE", tmp_path / "vapid_private.pem"), \
-             patch.object(p, "_VAPID_PUBLIC_FILE", tmp_path / "vapid_public.txt"):
+             patch.object(p, "_VAPID_PUBLIC_FILE", tmp_path / "vapid_public.txt"), \
+             patch.object(p, "_VAPID_SUB_FILE", tmp_path / "vapid_sub.txt"):
             key = p.get_vapid_public_key()
         assert isinstance(key, str)
         assert len(key) > 0
@@ -52,7 +54,8 @@ class TestVapidKeys:
         # 一度生成してファイルに保存する
         with patch.object(p, "_DATA_DIR", tmp_path), \
              patch.object(p, "_VAPID_PRIVATE_FILE", priv_file), \
-             patch.object(p, "_VAPID_PUBLIC_FILE", pub_file):
+             patch.object(p, "_VAPID_PUBLIC_FILE", pub_file), \
+             patch.object(p, "_VAPID_SUB_FILE", tmp_path / "vapid_sub.txt"):
             p._vapid_private_b64 = None
             p._vapid_public_b64 = None
             p.init_vapid()
@@ -62,6 +65,29 @@ class TestVapidKeys:
             p._vapid_public_b64 = None
             p.init_vapid()
             assert p._vapid_public_b64 == first_pub
+
+    def test_init_vapid_loads_saved_sub(self, tmp_path):
+        import api.push as p
+        sub_file = tmp_path / "vapid_sub.txt"
+        sub_file.write_text("https://example.com")
+        with patch.object(p, "_DATA_DIR", tmp_path), \
+             patch.object(p, "_VAPID_PRIVATE_FILE", tmp_path / "vapid_private.pem"), \
+             patch.object(p, "_VAPID_PUBLIC_FILE", tmp_path / "vapid_public.txt"), \
+             patch.object(p, "_VAPID_SUB_FILE", sub_file):
+            p._vapid_private_b64 = None
+            p._vapid_public_b64 = None
+            p.init_vapid(sub="https://fallback.com")
+        assert p._vapid_sub == "https://example.com"
+
+    def test_set_vapid_sub(self, tmp_path):
+        import api.push as p
+        orig = p._vapid_sub
+        with patch.object(p, "_DATA_DIR", tmp_path), \
+             patch.object(p, "_VAPID_SUB_FILE", tmp_path / "vapid_sub.txt"):
+            p.set_vapid_sub("https://pi.example.com")
+        assert p._vapid_sub == "https://pi.example.com"
+        assert (tmp_path / "vapid_sub.txt").read_text() == "https://pi.example.com"
+        p._vapid_sub = orig
 
 
 class TestSubscriptions:
@@ -205,6 +231,43 @@ class TestPushRouter:
         assert res.json()["status"] == "ok"
         subs = p._load_subscriptions()
         assert any(s["endpoint"] == payload["endpoint"] for s in subs)
+
+    def test_subscribe_auto_detects_origin(self, client, tmp_path):
+        import api.push as p
+        p._SUBSCRIPTIONS_FILE = tmp_path / "subs.json"
+        orig_sub = p._vapid_sub
+        with patch.object(p, "_DATA_DIR", tmp_path), \
+             patch.object(p, "_VAPID_SUB_FILE", tmp_path / "vapid_sub.txt"):
+            payload = {"endpoint": "https://example.com/push/z", "keys": {}}
+            headers = {**AUTH, "Origin": "https://pi.tail794a9.ts.net"}
+            res = client.post("/push/subscribe", headers=headers, json=payload)
+        assert res.status_code == 200
+        assert p._vapid_sub == "https://pi.tail794a9.ts.net"
+        p._vapid_sub = orig_sub
+
+    def test_extract_sub_strips_port(self):
+        from api.routers.push import _extract_sub
+        from unittest.mock import MagicMock
+        req = MagicMock()
+        req.headers.get = lambda k, d="": "https://example.com:8888" if k == "origin" else d
+        result = _extract_sub(req)
+        assert result == "https://example.com"
+
+    def test_extract_sub_uses_referer_fallback(self):
+        from api.routers.push import _extract_sub
+        from unittest.mock import MagicMock
+        req = MagicMock()
+        req.headers.get = lambda k, d="": "" if k == "origin" else "https://host.example.com/path?q=1"
+        result = _extract_sub(req)
+        assert result == "https://host.example.com"
+
+    def test_extract_sub_none_when_no_headers(self):
+        from api.routers.push import _extract_sub
+        from unittest.mock import MagicMock
+        req = MagicMock()
+        req.headers.get = lambda k, d="": d
+        result = _extract_sub(req)
+        assert result is None
 
     def test_unsubscribe(self, client, tmp_path):
         import api.push as p
