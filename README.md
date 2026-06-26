@@ -59,8 +59,8 @@ A first-class host needs Linux or macOS. Browser access from any OS (macOS / Win
 ### systemd (Linux) — first-class
 
 ```bash
-git clone https://github.com/kt0319/any-console.git
-cd any-console
+git clone https://github.com/kt0319/any-console.git ~/any-console
+cd ~/any-console
 ./any-console setup
 ```
 
@@ -69,8 +69,8 @@ Installs dependencies, builds the frontend, and registers a systemd service in o
 ### launchd (macOS) — first-class
 
 ```bash
-git clone https://github.com/kt0319/any-console.git
-cd any-console
+git clone https://github.com/kt0319/any-console.git ~/any-console
+cd ~/any-console
 ./any-console setup
 ```
 
