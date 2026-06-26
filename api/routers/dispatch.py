@@ -272,6 +272,13 @@ async def dispatch(body: DispatchRequest):
     if body.branch and not body.worktree:
         payload["branch_status"] = _branch_status(ws_path, body.branch)
 
+    job_label = job_def.label or body.job
+    send_push_notification(
+        title="Dispatch received",
+        body=f"{job_label} on {effective_ws}",
+        url=f"/?workspace={effective_ws}",
+    )
+
     dispatch_id = await _await_user_approval(body, payload) if body.confirm else secrets.token_urlsafe(8)
 
     if body.branch and not body.worktree:
@@ -306,13 +313,6 @@ async def dispatch(body: DispatchRequest):
         "workspace": effective_ws,
         "created": created,
     })
-
-    job_label = job_def.label or body.job
-    send_push_notification(
-        title="Dispatch received",
-        body=f"{job_label} on {effective_ws}",
-        url=f"/?workspace={effective_ws}&session={session_id}",
-    )
 
     return {
         "status": "ok",
