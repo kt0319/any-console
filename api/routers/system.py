@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from ..auth import verify_token
 from ..common import SYSTEM_CMD_TIMEOUT_SEC, run_subprocess_safe, sanitize_log_value
-from ..errors import bad_request, not_found, server_error
+from ..errors import bad_request, conflict, not_found, server_error
 
 logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(verify_token)])
@@ -21,6 +21,10 @@ router = APIRouter(dependencies=[Depends(verify_token)])
 IS_DARWIN = platform.system() == "Darwin"
 PROCESS_LIST_LIMIT = 10
 PS_FIELD_COUNT = 11
+
+# any-console のリポジトリルート（git pull で自己更新する対象）。
+REPO_DIR = str(Path(__file__).resolve().parent.parent.parent)
+GIT_FETCH_TIMEOUT_SEC = 30.0
 
 
 def _run_cmd_safe(cmd: list[str], timeout: float = SYSTEM_CMD_TIMEOUT_SEC, cwd: str | None = None) -> str | None:
@@ -33,9 +37,25 @@ def _run_cmd_safe(cmd: list[str], timeout: float = SYSTEM_CMD_TIMEOUT_SEC, cwd: 
 def get_app_version() -> str:
     out = _run_cmd_safe(
         ["git", "log", "-1", "--format=%cd", "--date=format:%Y-%m-%d %H:%M"],
-        cwd=str(Path(__file__).resolve().parent.parent.parent),
+        cwd=REPO_DIR,
     )
     return out.strip() if out and out.strip() else ""
+
+
+def _git(args: list[str], timeout: float = SYSTEM_CMD_TIMEOUT_SEC):
+    return run_subprocess_safe(["git", *args], timeout=timeout, cwd=REPO_DIR)
+
+
+def _git_out(args: list[str], timeout: float = SYSTEM_CMD_TIMEOUT_SEC) -> str | None:
+    r = _git(args, timeout=timeout)
+    if r is not None and r.returncode == 0:
+        return str(r.stdout).strip()
+    return None
+
+
+def get_app_release() -> str:
+    """人間が読めるバージョン文字列。リリースタグ基準（例: v0.5.0-38-g844f239）。"""
+    return _git_out(["describe", "--tags", "--always"]) or ""
 
 
 def _get_ip() -> str | None:
@@ -293,6 +313,9 @@ def get_tmux_info():
 @router.get("/system/info")
 def get_system_info():
     info = {"hostname": socket.gethostname(), "user": getpass.getuser(), "work_dir": str(Path.home())}
+    release = get_app_release()
+    if release:
+        info["version"] = release
     for key, getter in [
         ("ip", _get_ip),
         ("os", _get_os_name),
@@ -313,3 +336,64 @@ def get_system_info():
         pass
 
     return info
+
+
+@router.get("/system/update/check")
+def check_update():
+    """追跡ブランチ（通常 origin/main）に対する更新の有無を返す。
+
+    リリースは release-please が main 上のコミット（タグ）として作るため、
+    main を追う＝最新リリースを取り込むことになる。current/latest はリリース
+    タグ（例: v0.5.0）で示し、behind は未取り込みコミット数。
+    """
+    branch = _git_out(["rev-parse", "--abbrev-ref", "HEAD"])
+    if branch is None:
+        raise server_error("Not a git repository; cannot check for updates")
+
+    upstream = _git_out(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
+    if not upstream:
+        upstream = f"origin/{branch}"
+    remote = upstream.split("/", 1)[0]
+
+    fetched = _git(["fetch", "--tags", "--quiet", remote], timeout=GIT_FETCH_TIMEOUT_SEC)
+    fetch_ok = fetched is not None and fetched.returncode == 0
+
+    behind = _git_out(["rev-list", "--count", f"HEAD..{upstream}"])
+    ahead = _git_out(["rev-list", "--count", f"{upstream}..HEAD"])
+    behind_n = int(behind) if behind and behind.isdigit() else 0
+    ahead_n = int(ahead) if ahead and ahead.isdigit() else 0
+
+    return {
+        "branch": branch,
+        "upstream": upstream,
+        "version": get_app_release(),
+        "current_release": _git_out(["describe", "--tags", "--abbrev=0"]) or "",
+        "latest_release": _git_out(["describe", "--tags", "--abbrev=0", upstream]) or "",
+        "behind": behind_n,
+        "ahead": ahead_n,
+        "update_available": behind_n > 0,
+        "fetch_ok": fetch_ok,
+    }
+
+
+@router.post("/system/update/apply")
+def apply_update():
+    """追跡ブランチへ git pull --ff-only で更新する。反映には再起動が必要。"""
+    status = _git_out(["status", "--porcelain"])
+    if status is None:
+        raise server_error("Not a git repository; cannot update")
+    if status:
+        raise conflict("Uncommitted changes present. Commit or stash before updating.")
+
+    result = _git(["pull", "--ff-only"], timeout=GIT_FETCH_TIMEOUT_SEC)
+    if result is None:
+        raise server_error("git pull failed to run")
+    if result.returncode != 0:
+        raise server_error(f"git pull failed: {(result.stderr or '').strip()[:300]}")
+
+    return {
+        "ok": True,
+        "version": get_app_release(),
+        "restart_required": True,
+        "output": (result.stdout or "").strip(),
+    }

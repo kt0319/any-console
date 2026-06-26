@@ -165,3 +165,126 @@ class TestSystemProcessesEndpoint:
         monkeypatch.setattr(system_mod, "run_subprocess_safe", lambda *a, **kw: None)
         res = client.get("/system/processes", headers=AUTH)
         assert res.status_code == 500
+
+
+def _completed(returncode=0, stdout="", stderr=""):
+    return subprocess.CompletedProcess(["git"], returncode, stdout, stderr)
+
+
+class TestVersionInSystemInfo:
+    def test_version_included(self, client, monkeypatch):
+        monkeypatch.setattr(system_mod, "get_app_release", lambda: "v0.5.0-3-gabc123")
+        for getter in ("_get_ip", "_get_os_name", "_get_uptime", "_get_cpu_temp", "_get_memory"):
+            monkeypatch.setattr(system_mod, getter, lambda: None)
+        res = client.get("/system/info", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json()["version"] == "v0.5.0-3-gabc123"
+
+    def test_version_omitted_when_empty(self, client, monkeypatch):
+        monkeypatch.setattr(system_mod, "get_app_release", lambda: "")
+        for getter in ("_get_ip", "_get_os_name", "_get_uptime", "_get_cpu_temp", "_get_memory"):
+            monkeypatch.setattr(system_mod, getter, lambda: None)
+        res = client.get("/system/info", headers=AUTH)
+        assert res.status_code == 200
+        assert "version" not in res.json()
+
+
+class TestCheckUpdate:
+    def _patch(self, monkeypatch, table, fetch_rc=0):
+        monkeypatch.setattr(system_mod, "_git_out",
+                            lambda args, timeout=0: table.get(" ".join(args)))
+        monkeypatch.setattr(system_mod, "_git",
+                            lambda args, timeout=0: _completed(returncode=fetch_rc))
+
+    def test_update_available(self, client, monkeypatch):
+        self._patch(monkeypatch, {
+            "rev-parse --abbrev-ref HEAD": "main",
+            "rev-parse --abbrev-ref --symbolic-full-name @{u}": "origin/main",
+            "rev-list --count HEAD..origin/main": "3",
+            "rev-list --count origin/main..HEAD": "0",
+            "describe --tags --always": "v0.5.0-3-gabc",
+            "describe --tags --abbrev=0": "v0.5.0",
+            "describe --tags --abbrev=0 origin/main": "v0.6.0",
+        })
+        res = client.get("/system/update/check", headers=AUTH)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["update_available"] is True
+        assert data["behind"] == 3
+        assert data["latest_release"] == "v0.6.0"
+        assert data["version"] == "v0.5.0-3-gabc"
+        assert data["fetch_ok"] is True
+
+    def test_up_to_date_and_upstream_fallback(self, client, monkeypatch):
+        # @{u} 未設定 -> origin/<branch> にフォールバック
+        self._patch(monkeypatch, {
+            "rev-parse --abbrev-ref HEAD": "main",
+            "rev-list --count HEAD..origin/main": "0",
+            "rev-list --count origin/main..HEAD": "0",
+            "describe --tags --always": "v0.5.0",
+            "describe --tags --abbrev=0": "v0.5.0",
+            "describe --tags --abbrev=0 origin/main": "v0.5.0",
+        })
+        res = client.get("/system/update/check", headers=AUTH)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["upstream"] == "origin/main"
+        assert data["update_available"] is False
+        assert data["behind"] == 0
+
+    def test_fetch_failure_sets_flag(self, client, monkeypatch):
+        self._patch(monkeypatch, {
+            "rev-parse --abbrev-ref HEAD": "main",
+            "rev-parse --abbrev-ref --symbolic-full-name @{u}": "origin/main",
+            "rev-list --count HEAD..origin/main": "0",
+            "rev-list --count origin/main..HEAD": "0",
+            "describe --tags --always": "v0.5.0",
+            "describe --tags --abbrev=0": "v0.5.0",
+            "describe --tags --abbrev=0 origin/main": "v0.5.0",
+        }, fetch_rc=1)
+        res = client.get("/system/update/check", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json()["fetch_ok"] is False
+
+    def test_not_a_git_repo_returns_500(self, client, monkeypatch):
+        monkeypatch.setattr(system_mod, "_git_out", lambda args, timeout=0: None)
+        monkeypatch.setattr(system_mod, "_git", lambda args, timeout=0: _completed())
+        res = client.get("/system/update/check", headers=AUTH)
+        assert res.status_code == 500
+
+
+class TestApplyUpdate:
+    def test_success(self, client, monkeypatch):
+        monkeypatch.setattr(system_mod, "_git_out",
+                            lambda args, timeout=0: "" if args[:1] == ["status"] else "v0.6.0")
+        monkeypatch.setattr(system_mod, "_git",
+                            lambda args, timeout=0: _completed(stdout="Updating abc..def\n"))
+        res = client.post("/system/update/apply", headers=AUTH)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["ok"] is True
+        assert data["restart_required"] is True
+        assert data["version"] == "v0.6.0"
+
+    def test_dirty_tree_returns_409(self, client, monkeypatch):
+        monkeypatch.setattr(system_mod, "_git_out", lambda args, timeout=0: " M api/foo.py")
+        res = client.post("/system/update/apply", headers=AUTH)
+        assert res.status_code == 409
+
+    def test_not_a_git_repo_returns_500(self, client, monkeypatch):
+        monkeypatch.setattr(system_mod, "_git_out", lambda args, timeout=0: None)
+        res = client.post("/system/update/apply", headers=AUTH)
+        assert res.status_code == 500
+
+    def test_pull_failure_returns_500(self, client, monkeypatch):
+        monkeypatch.setattr(system_mod, "_git_out", lambda args, timeout=0: "")
+        monkeypatch.setattr(system_mod, "_git",
+                            lambda args, timeout=0: _completed(returncode=1, stderr="not fast-forward"))
+        res = client.post("/system/update/apply", headers=AUTH)
+        assert res.status_code == 500
+
+    def test_pull_none_returns_500(self, client, monkeypatch):
+        monkeypatch.setattr(system_mod, "_git_out", lambda args, timeout=0: "")
+        monkeypatch.setattr(system_mod, "_git", lambda args, timeout=0: None)
+        res = client.post("/system/update/apply", headers=AUTH)
+        assert res.status_code == 500

@@ -49,6 +49,10 @@
       <button type="button" class="settings-menu-item" @click="pushView('ServerInfo')">
         <span class="mdi mdi-information-outline"></span> System Info
       </button>
+      <button type="button" class="settings-menu-item" @click="pushView('UpdateConfig')">
+        <span class="mdi mdi-update"></span> Check for Update
+        <span v-if="appVersion" class="settings-menu-version">{{ appVersion }}</span>
+      </button>
     </div>
   </div>
 </template>
@@ -56,7 +60,7 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
-import { EP_SETTINGS_AUTH } from "../utils/endpoints.js";
+import { EP_SETTINGS_AUTH, EP_SYSTEM_INFO } from "../utils/endpoints.js";
 
 const modalTitle = inject("modalTitle");
 const pushView = inject("pushView");
@@ -64,11 +68,13 @@ modalTitle.value = "Settings";
 
 const { apiGet } = useApi();
 const authWarn = ref(false);
+const appVersion = ref("");
 
 onMounted(async () => {
-  const { ok, data } = await apiGet(EP_SETTINGS_AUTH);
-  if (!ok) return;
-  authWarn.value = !data?.auth_required;
+  const auth = await apiGet(EP_SETTINGS_AUTH);
+  if (auth.ok) authWarn.value = !auth.data?.auth_required;
+  const info = await apiGet(EP_SYSTEM_INFO);
+  if (info.ok && info.data?.version) appVersion.value = info.data.version;
 });
 </script>
 
@@ -121,5 +127,12 @@ onMounted(async () => {
 
 .settings-menu-warn .mdi {
   font-size: 14px;
+}
+
+.settings-menu-version {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 </style>
