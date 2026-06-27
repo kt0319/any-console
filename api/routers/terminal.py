@@ -36,6 +36,7 @@ from ..terminal_session import (
 from ..tmux import (
     _run_tmux_cmd,
     create_tmux_session,
+    get_session_cwd,
     get_tmux_created,
     get_window_width,
     is_grouped_session_name,
@@ -143,6 +144,32 @@ async def delete_terminal_session(session_id: str):
     _kill_tmux_session(session)
     logger.info("terminal session deleted session=%s", session_id)
     return {"status": "ok"}
+
+
+@router.get("/terminal/sessions/{session_id}/cwd")
+async def get_terminal_session_cwd(session_id: str):
+    """アクティブなターミナルセッションのカレントディレクトリを返す。"""
+    session = get_terminal_session(session_id)
+    tmux_name = TMUX_SESSION_PREFIX + session_id
+    cwd = get_session_cwd(tmux_name)
+    if cwd is None:
+        raise not_found("CWD unavailable")
+    return {"cwd": cwd}
+
+
+class WorkspaceBody(BaseModel):
+    workspace: str
+
+
+@router.put("/terminal/sessions/{session_id}/workspace")
+async def set_terminal_session_workspace(session_id: str, body: WorkspaceBody):
+    """セッションにワークスペースを紐付け、tmux 環境変数に永続化する。"""
+    session = get_terminal_session(session_id)
+    with sessions_lock:
+        session.workspace = body.workspace
+    session.save_workspace()
+    logger.info("terminal session workspace set session=%s workspace=%s", session_id, body.workspace)
+    return {"status": "ok", "workspace": body.workspace}
 
 
 class DetachedBody(BaseModel):

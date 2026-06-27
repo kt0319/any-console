@@ -126,6 +126,16 @@ class TerminalSession:
         if _run_tmux_cmd(*args) is None:
             logger.warning("save_detached failed session=%s", self.tmux_session_name)
 
+    def save_workspace(self) -> None:
+        """tmux のセッション環境変数に workspace 名を保存する（永続化）。
+        None のときは env を unset して残骸を残さない。"""
+        if self.workspace:
+            args = ["set-environment", "-t", self.tmux_session_name, "TMUX_WORKSPACE", self.workspace]
+        else:
+            args = ["set-environment", "-u", "-t", self.tmux_session_name, "TMUX_WORKSPACE"]
+        if _run_tmux_cmd(*args) is None:
+            logger.warning("save_workspace failed session=%s", self.tmux_session_name)
+
     @classmethod
     def from_tmux(cls, tmux_name: str) -> "TerminalSession":
         meta = load_tmux_metadata(tmux_name)

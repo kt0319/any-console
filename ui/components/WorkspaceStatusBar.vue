@@ -52,33 +52,49 @@
         <GitActionBtn v-if="hasUpstream && ahead > 0" icon="push" title="Push" :count="ahead" :running="isRunning(workspace, 'push')" btn-class="push-btn has-count" @action="doAction('push')" />
       </div>
     </template>
-    <button
-      v-else
-      type="button"
-      tabindex="-1"
-      class="status-empty-hint"
-      @click="openWorkspaceModal"
-    >
-      <span class="mdi mdi-folder-open-outline status-btn-icon" aria-hidden="true"></span>
-      <span class="status-empty-hint-text">Open a workspace to get started</span>
-    </button>
+    <template v-else>
+      <button
+        v-if="activeTab"
+        type="button"
+        tabindex="-1"
+        class="status-empty-hint"
+        :disabled="registeringWorkspace"
+        @click="registerCurrentDir"
+      >
+        <span class="mdi mdi-folder-plus-outline status-btn-icon" aria-hidden="true"></span>
+        <span class="status-empty-hint-text">{{ registeringWorkspace ? 'Registering…' : 'Register current dir as workspace' }}</span>
+      </button>
+      <button
+        type="button"
+        tabindex="-1"
+        class="status-empty-hint"
+        @click="openWorkspaceModal"
+      >
+        <span class="mdi mdi-folder-open-outline status-btn-icon" aria-hidden="true"></span>
+        <span class="status-empty-hint-text">Open a workspace</span>
+      </button>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onBeforeUnmount } from "vue";
+import { computed, onMounted, onBeforeUnmount, ref } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useIsMobile } from "../composables/useIsMobile.js";
 import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.js";
+import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import { POLL_INTERVAL_MS } from "../utils/constants.js";
+import { terminalSessionCwdPath, terminalSessionWorkspacePath, EP_WORKSPACES } from "../utils/endpoints.js";
 
 const { gitAction, isRunning } = useGitRemoteAction();
 const { isMobile } = useIsMobile();
+const { apiGet, apiPost, apiPut } = useApi();
+const registeringWorkspace = ref(false);
 
 let pollTimer = null;
 
@@ -148,6 +164,42 @@ function doAction(action) {
 
 function openWorkspaceModal() {
   emit("workspace:openModal");
+}
+
+async function registerCurrentDir() {
+  const tab = activeTab.value;
+  if (!tab?.sessionId || registeringWorkspace.value) return;
+  registeringWorkspace.value = true;
+  try {
+    const { ok: cwdOk, data: cwdData } = await apiGet(
+      terminalSessionCwdPath(tab.sessionId),
+      { errorMessage: "Failed to get current directory" },
+    );
+    if (!cwdOk) return;
+
+    const cwd = cwdData.cwd;
+    const defaultName = cwd.split("/").filter(Boolean).pop() || cwd;
+    const name = window.prompt(`Register as workspace:\n${cwd}\n\nWorkspace name:`, defaultName);
+    if (name === null) return;
+
+    const { ok: addOk, data: addData } = await apiPost(
+      EP_WORKSPACES,
+      { path: cwd, name: name.trim() || undefined },
+      { errorMessage: "Failed to register workspace" },
+    );
+    if (!addOk) return;
+
+    const wsName = addData.name;
+    await apiPut(
+      terminalSessionWorkspacePath(tab.sessionId),
+      { workspace: wsName },
+    );
+    terminalStore.setTabWorkspace(tab.id, wsName);
+    workspaceStore.selectedWorkspace = wsName;
+    await workspaceStore.fetchStatuses();
+  } finally {
+    registeringWorkspace.value = false;
+  }
 }
 
 </script>

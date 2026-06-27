@@ -66,6 +66,16 @@ export function terminalSessionDetachedPath(sessionId) {
 }
 
 /** @param {string} sessionId @returns {string} */
+export function terminalSessionCwdPath(sessionId) {
+  return `/terminal/sessions/${encodeURIComponent(sessionId)}/cwd`;
+}
+
+/** @param {string} sessionId @returns {string} */
+export function terminalSessionWorkspacePath(sessionId) {
+  return `/terminal/sessions/${encodeURIComponent(sessionId)}/workspace`;
+}
+
+/** @param {string} sessionId @returns {string} */
 export function terminalWsPath(sessionId) {
   return `/terminal/ws/${sessionId}`;
 }

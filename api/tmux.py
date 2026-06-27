@@ -205,6 +205,14 @@ def load_tmux_metadata(tmux_name: str) -> dict:
     return meta
 
 
+def get_session_cwd(tmux_name: str) -> str | None:
+    """tmux セッションのカレントディレクトリを返す。"""
+    result = _run_tmux_cmd("display-message", "-t", tmux_name, "-p", "#{pane_current_path}")
+    if result and result.returncode == 0:
+        return result.stdout.strip() or None
+    return None
+
+
 def detect_workspace_from_tmux(tmux_name: str) -> str | None:
     result = _run_tmux_cmd("display-message", "-t", tmux_name, "-p", "#{pane_current_path}")
     if result and result.returncode == 0:
