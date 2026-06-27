@@ -3,6 +3,10 @@
     <div class="split-tab-content">
       <!-- ツールバー -->
       <div class="ws-toolbar">
+        <button type="button" class="ws-toolbar-btn ws-toolbar-btn-terminal" aria-label="Open terminal (no workspace)" data-tooltip="Open terminal (no workspace)" @click="openBareTerminal">
+          <span class="mdi mdi-console"></span>
+          <span class="ws-toolbar-btn-label">Terminal</span>
+        </button>
         <span class="ws-toolbar-spacer"></span>
         <button type="button" class="ws-toolbar-btn" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
           <span class="mdi mdi-folder-plus-outline"></span>
@@ -118,6 +122,7 @@ import { worktreeBranchLabel, workspaceDisplayName } from "../utils/worktree.js"
 import GitActionBtn from "./GitActionBtn.vue";
 import WorkspaceGroupDialog from "./WorkspaceGroupDialog.vue";
 import { EP_WORKSPACE_ORDER, EP_GROUP_ORDER } from "../utils/endpoints.js";
+import { emit as bridgeEmit } from "../app-bridge.js";
 import { useListDragSort } from "../composables/useListDragSort.js";
 import { useWorkspaceListDrag } from "../composables/useWorkspaceListDrag.js";
 import { buildFlatList, deriveGroupChanges } from "../utils/workspace-groups.js";
@@ -233,6 +238,11 @@ async function loadWorkspaceOverview() {
   await workspaceStore.fetchGroups();
   await workspaceStore.fetchWorkspaces();
   await workspaceStore.fetchStatuses();
+}
+
+function openBareTerminal() {
+  bridgeEmit("modal:close");
+  bridgeEmit("terminal:launch", {});
 }
 
 function openDetail(ws) {
@@ -670,6 +680,15 @@ button.git-badge:disabled {
     background: var(--bg-tertiary);
     color: var(--text-primary);
   }
+}
+
+.ws-toolbar-btn-terminal {
+  color: var(--accent);
+  gap: 4px;
+}
+
+.ws-toolbar-btn-label {
+  font-size: 12px;
 }
 
 .clone-repo-empty {
