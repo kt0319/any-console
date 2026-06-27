@@ -61,7 +61,7 @@
               <span v-if="d.current" class="device-tag">This device</span>
               <span v-if="d.source && d.source !== 'token'" class="device-tag source">{{ d.source }}</span>
             </span>
-            <span class="device-sub">Last seen: {{ formatRelativeTime(d.last_seen_at * 1000) }}</span>
+            <span class="device-sub">Last seen: {{ formatRelativeTime(d.last_seen_at) }}</span>
           </div>
           <button type="button" class="security-icon-btn" :title="d.current ? 'Logout' : 'Revoke'" @click="revoke(d)">
             <span class="mdi mdi-close"></span>
