@@ -153,12 +153,9 @@ class DetachedBody(BaseModel):
 async def set_terminal_detached(session_id: str, body: DetachedBody):
     """セッションの detached 状態を tmux 環境変数に永続化する。
     dispatch がターゲット候補から除外する判定に使う。"""
+    session = get_terminal_session(session_id)
     with sessions_lock:
-        session = TERMINAL_SESSIONS.get(session_id)
-        if session:
-            session.detached = bool(body.detached)
-    if not session:
-        raise not_found("Terminal session not found")
+        session.detached = bool(body.detached)
     session.save_detached()
     return {"status": "ok", "detached": session.detached}
 
