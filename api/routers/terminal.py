@@ -149,7 +149,7 @@ async def delete_terminal_session(session_id: str):
 @router.get("/terminal/sessions/{session_id}/cwd")
 async def get_terminal_session_cwd(session_id: str):
     """アクティブなターミナルセッションのカレントディレクトリを返す。"""
-    session = get_terminal_session(session_id)
+    get_terminal_session(session_id)
     tmux_name = TMUX_SESSION_PREFIX + session_id
     cwd = get_session_cwd(tmux_name)
     if cwd is None:
