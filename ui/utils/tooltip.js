@@ -65,12 +65,12 @@ export function installTooltip() {
   document.head.appendChild(style);
 
   document.addEventListener("mouseover", (e) => {
-    const target = e.target.closest("[data-tooltip]");
-    if (target) show(target, target.dataset.tooltip);
+    const el = e.target instanceof HTMLElement ? e.target.closest("[data-tooltip]") : null;
+    if (el instanceof HTMLElement) show(el, el.dataset.tooltip);
   });
 
   document.addEventListener("mouseout", (e) => {
-    if (e.target.closest("[data-tooltip]")) hide();
+    if (e.target instanceof HTMLElement && e.target.closest("[data-tooltip]")) hide();
   });
 
   document.addEventListener("click", hide);
