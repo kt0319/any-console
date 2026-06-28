@@ -1,21 +1,21 @@
 <template>
   <div
     v-if="state.visible"
-    class="radial-key"
+    class="circle-keypad"
     :style="{ left: `${state.originX}px`, top: `${state.originY}px` }"
   >
-    <div class="radial-key-ring"></div>
+    <div class="circle-keypad-ring"></div>
     <div
       v-for="k in keys"
       :key="k.id"
-      class="radial-key-item"
+      class="circle-keypad-item"
       :class="{ active: state.activeId === k.id }"
       :style="itemStyle(k)"
     >{{ k.label }}</div>
     <div
       v-for="b in specials"
       :key="b.id"
-      class="radial-key-item special"
+      class="circle-keypad-item special"
       :class="{ active: state.activeId === b.id }"
       :style="specialStyle(b)"
     >{{ b.label }}</div>
@@ -23,7 +23,7 @@
 </template>
 
 <script setup>
-import { SPECIAL_BUTTON_SIZE } from "../composables/useRadialKey.js";
+import { SPECIAL_BUTTON_SIZE } from "../composables/useCircleKeyPad.js";
 
 defineProps({
   state: { type: Object, required: true },
@@ -51,7 +51,7 @@ function specialStyle(b) {
 </script>
 
 <style scoped>
-.radial-key {
+.circle-keypad {
   position: fixed;
   z-index: 200;
   width: 0;
@@ -59,7 +59,7 @@ function specialStyle(b) {
   pointer-events: none;
 }
 
-.radial-key::before {
+.circle-keypad::before {
   content: "";
   position: absolute;
   left: 50%;
@@ -72,7 +72,7 @@ function specialStyle(b) {
   border: 1px solid var(--accent);
 }
 
-.radial-key-ring {
+.circle-keypad-ring {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -84,7 +84,7 @@ function specialStyle(b) {
   background: rgba(26, 27, 38, 0.25);
 }
 
-.radial-key-item {
+.circle-keypad-item {
   position: absolute;
   left: 0;
   top: 0;
@@ -105,14 +105,14 @@ function specialStyle(b) {
   transition: transform 0.05s ease, background 0.1s ease, border-color 0.1s ease;
 }
 
-.radial-key-item.active {
+.circle-keypad-item.active {
   background: var(--accent);
   color: var(--bg-primary);
   border-color: var(--accent);
   box-shadow: 0 0 12px rgba(130, 170, 255, 0.6);
 }
 
-.radial-key-item.special {
+.circle-keypad-item.special {
   background: rgba(26, 27, 38, 0.7);
   border-color: var(--border);
   color: var(--text-muted);
@@ -121,7 +121,7 @@ function specialStyle(b) {
   white-space: nowrap;
 }
 
-.radial-key-item.special.active {
+.circle-keypad-item.special.active {
   background: var(--warning);
   color: var(--bg-primary);
   border-color: var(--warning);

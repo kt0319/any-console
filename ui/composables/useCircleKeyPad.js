@@ -5,28 +5,28 @@ import { getFullBufferText } from "../utils/terminal-buffer-text.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { useRadialConfigStore } from "../stores/radial-config.js";
+import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.js";
 import {
   RADIAL_ANGLES,
   SPECIAL_POSITIONS,
   SPECIAL_BUTTON_SIZE,
   specialIdAt,
   sectorIndexFromDelta,
-} from "../utils/radial-geometry.js";
+} from "../utils/circle-keypad-geometry.js";
 
 // スワイプで起動するサークルキーパッド。
-// ターミナル上でタッチ起点から一定距離（RADIAL_TRIGGER_PX）動かしたら起点に円形メニューを表示し、
+// ターミナル上でタッチ起点から一定距離（CIRCLE_KEYPAD_TRIGGER_PX）動かしたら起点に円形メニューを表示し、
 // 指を離した方向に応じてキーを送信する。中心付近で離した場合はキャンセル。
-export const RADIAL_TRIGGER_PX = 36;
+export const CIRCLE_KEYPAD_TRIGGER_PX = 36;
 
-// 幾何計算と関連定数は radial-geometry.js に分離（テスト容易化）。既存の import 互換のため再エクスポートする。
+// 幾何計算と関連定数は circle-keypad-geometry.js に分離（テスト容易化）。既存の import 互換のため再エクスポートする。
 export { RADIAL_ANGLES, SPECIAL_POSITIONS, SPECIAL_BUTTON_SIZE };
 
-export function useRadialKey() {
+export function useCircleKeyPad() {
   const workspaceStore = useWorkspaceStore();
   const terminalStore = useTerminalStore();
   const layoutStore = useLayoutStore();
-  const config = useRadialConfigStore();
+  const config = useCircleKeyPadConfigStore();
 
   // ストアから読んだ keyDef を表示用 items に整形する。
   const keys = computed(() => config.keys.map((k, i) => ({

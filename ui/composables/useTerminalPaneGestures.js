@@ -3,7 +3,7 @@ import { useLayoutStore } from "../stores/layout.js";
 import { createTouchTracker } from "../utils/gesture.js";
 import { findUrlInBuffer } from "../utils/terminal-buffer-text.js";
 import { emit } from "../app-bridge.js";
-import { RADIAL_TRIGGER_PX } from "./useRadialKey.js";
+import { CIRCLE_KEYPAD_TRIGGER_PX } from "./useCircleKeyPad.js";
 
 const LONG_PRESS_URL_MS = 400;
 const TAP_MAX_DELTA_PX = 10;
@@ -63,7 +63,7 @@ export function useTerminalPaneGestures({ tab, pillEl, radial, isActive, paneInd
       cancelLongPressTimer();
     }
     if (radial && radial.enabled) {
-      if (!radial.state.visible && Math.hypot(dx, dy) > RADIAL_TRIGGER_PX) {
+      if (!radial.state.visible && Math.hypot(dx, dy) > CIRCLE_KEYPAD_TRIGGER_PX) {
         radial.open(startX, startY);
         if (navigator.vibrate) navigator.vibrate(15);
       }

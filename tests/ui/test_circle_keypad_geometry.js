@@ -6,9 +6,9 @@ import {
   SPECIAL_BUTTON_SIZE,
   specialIdAt,
   sectorIndexFromDelta,
-} from "../../ui/utils/radial-geometry.js";
+} from "../../ui/utils/circle-keypad-geometry.js";
 
-describe("radial-geometry constants", () => {
+describe("circle-keypad-geometry constants", () => {
   it("exposes 8 sector angles and 4 special positions", () => {
     expect(RADIAL_ANGLES).toHaveLength(8);
     expect(SPECIAL_POSITIONS).toHaveLength(4);

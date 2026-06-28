@@ -10,7 +10,7 @@
     @touchcancel="onTouchCancel"
   >
     <StatusOverlay :visible="isReconnecting" :label="reconnectLabel" variant="warning" />
-    <RadialKey :state="radial.state" :keys="radialKeys" :specials="radialSpecials" />
+    <CircleKeyPad :state="radial.state" :keys="radialKeys" :specials="radialSpecials" />
     <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
       <div class="pill-group" ref="pillEl">
         <div
@@ -56,8 +56,8 @@ import { usePillDrag } from "../composables/usePillDrag.js";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useTerminalPaste } from "../composables/useTerminalPaste.js";
 import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.js";
-import { useRadialKey } from "../composables/useRadialKey.js";
-import RadialKey from "./RadialKey.vue";
+import { useCircleKeyPad } from "../composables/useCircleKeyPad.js";
+import CircleKeyPad from "./CircleKeyPad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
 
@@ -119,7 +119,7 @@ const reconnectLabel = computed(() =>
 
 const tabRef = toRef(props, "tab");
 const paneIndexRef = toRef(props, "paneIndex");
-const radial = useRadialKey();
+const radial = useCircleKeyPad();
 const radialKeys = radial.keys;
 const radialSpecials = radial.specials;
 const { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel } = useTerminalPaneGestures({

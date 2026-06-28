@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { defaultKeyDefs, defaultSpecialDefs } from "../utils/radial-key-presets.js";
+import { defaultKeyDefs, defaultSpecialDefs } from "../utils/circle-keypad-presets.js";
 import { EP_SETTINGS_RADIAL } from "../utils/endpoints.js";
 import { useAuthStore } from "./auth.js";
 
@@ -23,7 +23,7 @@ function sanitizeSpecials(specials) {
   }));
 }
 
-export const useRadialConfigStore = defineStore("radial-config", () => {
+export const useCircleKeyPadConfigStore = defineStore("circle-keypad-config", () => {
   /** @type {import("vue").Ref<Array<{key: string, ctrl: boolean, shift: boolean, label: string}>>} */
   const keys = ref(defaultKeyDefs());
   /** @type {import("vue").Ref<Array<{label: string, action: string, payload: object | null}>>} */

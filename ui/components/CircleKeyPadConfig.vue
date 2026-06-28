@@ -1,37 +1,37 @@
 <template>
-  <div class="modal-scroll-body radial-cfg">
+  <div class="modal-scroll-body ckpad-cfg">
     <div v-if="!radial.loaded" class="text-muted-center">Loading...</div>
     <template v-else>
-      <div class="radial-cfg-section">
-        <label class="radial-cfg-enable">
+      <div class="ckpad-cfg-section">
+        <label class="ckpad-cfg-enable">
           <input type="checkbox" v-model="radial.enabled">
-          Enable radial key
+          Enable Circle Key Pad
         </label>
       </div>
 
-      <div class="radial-cfg-section">
-        <div class="radial-cfg-section-title">Directional keys</div>
-        <p class="radial-cfg-desc">8 keys around the ring, clockwise from north.</p>
-        <div v-for="(k, i) in radial.keys" :key="i" class="radial-cfg-row">
-          <span class="radial-cfg-dir">{{ directions[i] }}</span>
-          <select class="form-input radial-cfg-select" :value="keyId(k)" @change="setKey(i, $event.target.value)">
+      <div class="ckpad-cfg-section">
+        <div class="ckpad-cfg-section-title">Directional keys</div>
+        <p class="ckpad-cfg-desc">8 keys around the ring, clockwise from north.</p>
+        <div v-for="(k, i) in radial.keys" :key="i" class="ckpad-cfg-row">
+          <span class="ckpad-cfg-dir">{{ directions[i] }}</span>
+          <select class="form-input ckpad-cfg-select" :value="keyId(k)" @change="setKey(i, $event.target.value)">
             <option v-for="p in keyPresets" :key="p.id" :value="p.id">{{ p.label }} ({{ presetDescription(p) }})</option>
           </select>
         </div>
       </div>
 
-      <div class="radial-cfg-section">
-        <div class="radial-cfg-section-title">Corner actions</div>
-        <p class="radial-cfg-desc">Special buttons outside the ring.</p>
-        <div v-for="(s, i) in radial.specials" :key="i" class="radial-cfg-row">
-          <span class="radial-cfg-dir">{{ corners[i] }}</span>
-          <select class="form-input radial-cfg-select" :value="specialId(s)" @change="setSpecial(i, $event.target.value)">
+      <div class="ckpad-cfg-section">
+        <div class="ckpad-cfg-section-title">Corner actions</div>
+        <p class="ckpad-cfg-desc">Special buttons outside the ring.</p>
+        <div v-for="(s, i) in radial.specials" :key="i" class="ckpad-cfg-row">
+          <span class="ckpad-cfg-dir">{{ corners[i] }}</span>
+          <select class="form-input ckpad-cfg-select" :value="specialId(s)" @change="setSpecial(i, $event.target.value)">
             <option v-for="p in specialPresets" :key="p.id" :value="p.id">{{ p.label }}</option>
           </select>
         </div>
       </div>
 
-      <div class="radial-cfg-actions">
+      <div class="ckpad-cfg-actions">
         <button type="button" @click="reset">Reset to defaults</button>
         <button type="button" class="primary" :disabled="saving" @click="save">{{ saving ? "Saving..." : "Save" }}</button>
       </div>
@@ -41,7 +41,7 @@
 
 <script setup>
 import { inject, ref } from "vue";
-import { useRadialConfigStore } from "../stores/radial-config.js";
+import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.js";
 import {
   RADIAL_KEY_PRESETS,
   RADIAL_SPECIAL_PRESETS,
@@ -49,12 +49,12 @@ import {
   RADIAL_CORNER_LABELS,
   findKeyPreset,
   findSpecialPreset,
-} from "../utils/radial-key-presets.js";
+} from "../utils/circle-keypad-presets.js";
 
 const modalTitle = inject("modalTitle");
-modalTitle.value = "Radial Key";
+modalTitle.value = "Circle Key Pad";
 
-const radial = useRadialConfigStore();
+const radial = useCircleKeyPadConfigStore();
 const keyPresets = RADIAL_KEY_PRESETS;
 const specialPresets = RADIAL_SPECIAL_PRESETS;
 const directions = RADIAL_DIRECTION_LABELS;
@@ -113,54 +113,54 @@ async function save() {
 </script>
 
 <style scoped>
-.radial-cfg-section + .radial-cfg-section {
+.ckpad-cfg-section + .ckpad-cfg-section {
   margin-top: 16px;
 }
 
-.radial-cfg-section-title {
+.ckpad-cfg-section-title {
   font-size: 14px;
   font-weight: 700;
   color: var(--text-primary);
   padding: 8px 4px 4px;
 }
 
-.radial-cfg-desc {
+.ckpad-cfg-desc {
   font-size: 11px;
   color: var(--text-muted);
   margin: 0 4px 8px;
 }
 
-.radial-cfg-row {
+.ckpad-cfg-row {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 6px 4px;
 }
 
-.radial-cfg-dir {
+.ckpad-cfg-dir {
   flex-shrink: 0;
   width: 88px;
   font-size: 13px;
   color: var(--text-secondary);
 }
 
-.radial-cfg-select {
+.ckpad-cfg-select {
   flex: 1;
   min-width: 0;
 }
 
-.radial-cfg-actions {
+.ckpad-cfg-actions {
   display: flex;
   gap: 8px;
   margin-top: 16px;
   padding: 8px 4px 16px;
 }
 
-.radial-cfg-actions button {
+.ckpad-cfg-actions button {
   flex: 1;
 }
 
-.radial-cfg-enable {
+.ckpad-cfg-enable {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -172,7 +172,7 @@ async function save() {
   user-select: none;
 }
 
-.radial-cfg-enable input {
+.ckpad-cfg-enable input {
   width: 16px;
   height: 16px;
   margin: 0;

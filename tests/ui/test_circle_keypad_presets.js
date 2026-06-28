@@ -11,7 +11,7 @@ import {
   findSpecialPreset,
   defaultKeyDefs,
   defaultSpecialDefs,
-} from "../../ui/utils/radial-key-presets.js";
+} from "../../ui/utils/circle-keypad-presets.js";
 
 describe("RADIAL_*_PRESETS metadata", () => {
   it("has 8 direction labels", () => {

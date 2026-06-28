@@ -38,7 +38,7 @@
         <SnippetConfig v-if="currentView === 'SnippetConfig'" />
         <PreviewConfig v-if="currentView === 'PreviewConfig'" />
         <NotificationConfig v-if="currentView === 'NotificationConfig'" />
-        <RadialKeyConfig v-if="currentView === 'RadialKeyConfig'" />
+        <CircleKeyPadConfig v-if="currentView === 'CircleKeyPadConfig'" />
         <GitHubPane v-if="currentView === 'GitHubPane'" />
         <ConfigFile v-if="currentView === 'ConfigFile'" />
         <IconPicker v-if="currentView === 'IconPicker'" />
@@ -65,7 +65,7 @@ import DisplayConfig from "./DisplayConfig.vue";
 import SnippetConfig from "./SnippetConfig.vue";
 import PreviewConfig from "./PreviewConfig.vue";
 import NotificationConfig from "./NotificationConfig.vue";
-import RadialKeyConfig from "./RadialKeyConfig.vue";
+import CircleKeyPadConfig from "./CircleKeyPadConfig.vue";
 import ConfigFile from "./ConfigFile.vue";
 import GitHubPane from "./GitHubPane.vue";
 import IconPicker from "./IconPicker.vue";
