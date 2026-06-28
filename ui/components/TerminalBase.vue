@@ -18,7 +18,7 @@
       <template v-if="splitLayout === 'grid'">
         <div v-for="(row, ri) in gridRows" :key="'row-' + ri" class="split-row">
           <template v-for="pane in row" :key="pane.tabId">
-            <EmptyPane
+            <SplitEmptyPane
               v-if="isEmptyPaneId(pane.tabId)"
               :pane-index="pane.globalIndex"
               :class="['split-pane', 'pane-' + pane.globalIndex, { 'active-pane': pane.globalIndex === activePaneIndex }]"
@@ -37,7 +37,7 @@
       </template>
       <template v-else>
         <template v-for="(tabId, idx) in splitPaneTabIds" :key="tabId">
-          <EmptyPane
+          <SplitEmptyPane
             v-if="isEmptyPaneId(tabId)"
             :pane-index="idx"
             :class="['split-pane', 'pane-' + idx, { 'active-pane': idx === activePaneIndex }]"
@@ -60,7 +60,7 @@
 
 <script setup>
 import TerminalPane from "./TerminalPane.vue";
-import EmptyPane from "./EmptyPane.vue";
+import SplitEmptyPane from "./SplitEmptyPane.vue";
 import TerminalSplitDropZones from "./TerminalSplitDropZones.vue";
 import { isEmptyPaneId } from "../utils/empty-pane.js";
 import { useTerminalSplitPanes } from "../composables/useTerminalSplitPanes.js";
