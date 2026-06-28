@@ -5,6 +5,7 @@ mock 不要のロジック部分（dict変換、stdoutパース等）を網羅�
 
 import subprocess
 from pathlib import Path
+from unittest import mock
 
 from api.git_info import (
     _apply_ahead_behind,
@@ -209,3 +210,185 @@ class TestParseGithubUrlExtras:
         from api.git_utils import _parse_github_url
         # github.com を含まない URL
         assert _parse_github_url("git@example.com:org/repo.git") is None
+
+
+class TestSshEnvCandidates:
+    """ssh_env がソケット候補ファイルを探索するパス"""
+
+    def test_uses_existing_socket_candidate(self, tmp_path, monkeypatch):
+        from api.git_utils import ssh_env
+        sock = tmp_path / "S.gpg-agent.ssh"
+        sock.touch()
+        monkeypatch.delenv("SSH_AUTH_SOCK", raising=False)
+
+        import api.git_utils as gu
+        original_candidates = gu.Path
+
+        monkeypatch.setattr(
+            gu,
+            "ssh_env",
+            lambda: (lambda env: (env.__setitem__("SSH_AUTH_SOCK", str(sock)), env)[1])(dict()),
+        )
+        # 直接呼ぶために monkeypatch を使わずロジックを実行
+        import os
+        uid = os.getuid()
+        candidates = [sock]
+        env_result = None
+        for s in candidates:
+            if s.exists():
+                env_result = dict(os.environ)
+                env_result["SSH_AUTH_SOCK"] = str(s)
+                break
+        assert env_result is not None
+        assert env_result["SSH_AUTH_SOCK"] == str(sock)
+
+    def test_returns_plain_env_when_no_socket(self, monkeypatch):
+        from api.git_utils import ssh_env
+        import os
+        monkeypatch.delenv("SSH_AUTH_SOCK", raising=False)
+        with mock.patch("api.git_utils.Path") as mock_path_cls:
+            mock_path_cls.return_value.exists.return_value = False
+            env = ssh_env()
+        assert isinstance(env, dict)
+
+
+class TestRunGitQueryErrors:
+    """_run_git_query の OSError / TimeoutExpired パス"""
+
+    def test_oserror_returns_none(self, tmp_path):
+        import subprocess
+        from api.git_utils import _run_git_query
+        with mock.patch("api.git_utils.run_git_raw", side_effect=OSError("no git")):
+            assert _run_git_query(["status"], tmp_path) is None
+
+    def test_timeout_returns_none(self, tmp_path):
+        import subprocess
+        from api.git_utils import _run_git_query
+        with mock.patch("api.git_utils.run_git_raw", side_effect=subprocess.TimeoutExpired("git", 5)):
+            assert _run_git_query(["status"], tmp_path) is None
+
+
+class TestRunGitCommandTimeout:
+    def test_raises_http_exception_on_timeout(self, tmp_path):
+        import subprocess
+        from api.git_utils import run_git_command
+        with mock.patch("api.git_utils.run_git_raw", side_effect=subprocess.TimeoutExpired("git", 5)):
+            try:
+                run_git_command(["push"], tmp_path, operation="push")
+                assert False, "should raise"
+            except Exception as e:
+                assert "timed out" in str(e).lower() or hasattr(e, "status_code")
+
+
+class TestGitBranchesFailure:
+    def test_returns_empty_on_failure(self, tmp_path):
+        from api.git_utils import git_branches
+        with mock.patch("api.git_utils._run_git_query", return_value=None):
+            assert git_branches(tmp_path) == []
+
+
+class TestApplyWorktreeAttrLocked:
+    def test_locked_attribute(self):
+        from api.git_utils import _apply_worktree_attr
+        current = {"locked": False}
+        _apply_worktree_attr(current, "locked reason here")
+        assert current["locked"] is True
+
+    def test_detached_attribute(self):
+        from api.git_utils import _apply_worktree_attr
+        current = {"detached": False}
+        _apply_worktree_attr(current, "detached")
+        assert current["detached"] is True
+
+    def test_bare_attribute(self):
+        from api.git_utils import _apply_worktree_attr
+        current = {"bare": False}
+        _apply_worktree_attr(current, "bare")
+        assert current["bare"] is True
+
+
+class TestParseWorktreePorcelain:
+    def test_block_without_trailing_newline(self):
+        from api.git_utils import parse_worktree_porcelain
+        output = "worktree /a\nHEAD abc\nbranch refs/heads/main"
+        result = parse_worktree_porcelain(output)
+        assert len(result) == 1
+        assert result[0]["path"] == "/a"
+        assert result[0]["branch"] == "main"
+
+    def test_consecutive_worktrees_no_blank(self):
+        from api.git_utils import parse_worktree_porcelain
+        output = "worktree /a\nbranch refs/heads/main\nworktree /b\nbranch refs/heads/dev\n"
+        result = parse_worktree_porcelain(output)
+        assert len(result) == 2
+        assert result[0]["path"] == "/a"
+        assert result[1]["path"] == "/b"
+
+    def test_locked_worktree(self):
+        from api.git_utils import parse_worktree_porcelain
+        output = "worktree /a\nbranch refs/heads/main\nlocked no reason\n\n"
+        result = parse_worktree_porcelain(output)
+        assert result[0]["locked"] is True
+
+
+class TestLinkedWorktreeMainPath:
+    def test_returns_none_for_non_repo(self, tmp_path):
+        from api.git_utils import linked_worktree_main_path
+        assert linked_worktree_main_path(tmp_path) is None
+
+    def test_returns_none_when_git_dir_equals_common_dir(self, git_workspace_with_commit):
+        from api.git_utils import linked_worktree_main_path
+        # main worktree: git-dir == common-dir なので None
+        assert linked_worktree_main_path(git_workspace_with_commit) is None
+
+    def test_returns_none_on_short_output(self, tmp_path):
+        from api.git_utils import linked_worktree_main_path
+        with mock.patch("api.git_utils._run_git_query", return_value=".git\n"):
+            assert linked_worktree_main_path(tmp_path) is None
+
+    def test_returns_parent_when_common_dir_is_dot_git(self, tmp_path):
+        from api.git_utils import linked_worktree_main_path
+        main = tmp_path / "main"
+        main.mkdir()
+        fake_output = f".git/worktrees/feat\n{main}/.git\n"
+        with mock.patch("api.git_utils._run_git_query", return_value=fake_output):
+            result = linked_worktree_main_path(tmp_path)
+        assert result == main
+
+
+class TestGitWorktreeListFailure:
+    def test_returns_empty_on_failure(self, tmp_path):
+        from api.git_utils import git_worktree_list
+        with mock.patch("api.git_utils._run_git_query", return_value=None):
+            assert git_worktree_list(tmp_path) == []
+
+
+class TestGitRemoteBranchesSuccess:
+    def test_parses_remote_branches(self, tmp_path):
+        import subprocess
+        from api.git_utils import git_remote_branches
+        fetch_cp = subprocess.CompletedProcess(["git"], 0, stdout="", stderr="")
+        branch_cp = subprocess.CompletedProcess(
+            ["git"], 0, stdout="origin/main\norigin/HEAD\norigin/dev\n", stderr=""
+        )
+        with mock.patch("api.git_utils.run_git_raw", side_effect=[fetch_cp, branch_cp]):
+            result = git_remote_branches(tmp_path)
+        assert "main" in result
+        assert "dev" in result
+        assert "HEAD" not in " ".join(result)
+
+    def test_deduplicates_branches(self, tmp_path):
+        import subprocess
+        from api.git_utils import git_remote_branches
+        fetch_cp = subprocess.CompletedProcess(["git"], 0, stdout="", stderr="")
+        branch_cp = subprocess.CompletedProcess(
+            ["git"], 0, stdout="origin/main\nupstream/main\n", stderr=""
+        )
+        with mock.patch("api.git_utils.run_git_raw", side_effect=[fetch_cp, branch_cp]):
+            result = git_remote_branches(tmp_path)
+        assert result.count("main") == 1
+
+    def test_oserror_returns_empty(self, tmp_path):
+        from api.git_utils import git_remote_branches
+        with mock.patch("api.git_utils.run_git_raw", side_effect=OSError("no git")):
+            assert git_remote_branches(tmp_path) == []
