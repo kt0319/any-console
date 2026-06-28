@@ -52,6 +52,7 @@ export const BUS_EVENTS = Object.freeze([
   "terminal:send",
   "terminal:url",
   "toast:show",
+  "workspace:openAdd",
   "workspace:openModal",
   "worktree:open",
 ]);

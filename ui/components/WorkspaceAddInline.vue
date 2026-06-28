@@ -50,11 +50,15 @@ import { useDirectorySuggest } from "../composables/useDirectorySuggest.js";
 import { EP_WORKSPACES } from "../utils/endpoints.js";
 import { MSG_ERROR_OCCURRED } from "../utils/constants.js";
 
+const props = defineProps({
+  initialPath: { type: String, default: "" },
+});
+
 const emit = defineEmits(["added"]);
 
 const { apiPost } = useApi();
 
-const addPath = ref("");
+const addPath = ref(props.initialPath || "");
 const adding = ref(false);
 const addError = ref("");
 const addSuccess = ref("");
@@ -81,7 +85,7 @@ async function doAddExisting() {
     } else {
       addSuccess.value = `${data?.name || "directory"} added`;
       addPath.value = "";
-      emit("added");
+      emit("added", data?.name || null);
       loadSuggest();
     }
   } catch (e) {

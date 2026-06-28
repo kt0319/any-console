@@ -1,22 +1,38 @@
 <template>
   <div class="modal-scroll-body">
-    <WorkspaceAddInline @added="onAdded" />
+    <WorkspaceAddInline :initial-path="initialPath" @added="onAdded" />
   </div>
 </template>
 
 <script setup>
-import { onMounted } from "vue";
+import { computed, onMounted } from "vue";
 import WorkspaceAddInline from "./WorkspaceAddInline.vue";
 import { useModalView } from "../composables/useModalView.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { useTerminalStore } from "../stores/terminal.js";
+import { useApi } from "../composables/useApi.js";
+import { terminalSessionWorkspacePath } from "../utils/endpoints.js";
 
-const { modalTitle, popView } = useModalView();
+const { modalTitle, popView, viewState } = useModalView();
 const workspaceStore = useWorkspaceStore();
+const terminalStore = useTerminalStore();
+const { apiPut } = useApi();
+
+const initialPath = computed(() => viewState.value?.initialPath || "");
 
 onMounted(() => { modalTitle.value = "Add Workspace"; });
 
-async function onAdded() {
+async function onAdded(name) {
   await workspaceStore.fetchWorkspaces();
+  // 素のターミナルからの登録時は、追加したワークスペースを発火元タブに紐付ける。
+  const sessionId = viewState.value?.attachSessionId;
+  const tabId = viewState.value?.attachTabId;
+  if (name && sessionId && tabId != null) {
+    await apiPut(terminalSessionWorkspacePath(sessionId), { workspace: name });
+    terminalStore.setTabWorkspace(tabId, name);
+    workspaceStore.selectedWorkspace = name;
+    await workspaceStore.fetchStatuses();
+  }
   popView(true);
 }
 </script>

@@ -1,6 +1,6 @@
 <template>
   <div class="workspace-status-bar" :style="{ display: showHeader ? 'flex' : 'none' }">
-    <template v-if="workspace">
+    <template v-if="workspace && isGitRepo">
       <div class="status-nav-group">
         <template v-if="!isMobile">
           <button type="button" class="status-nav-btn" aria-label="Jobs" data-tooltip="Jobs" @click="openFileModal('jobs')">
@@ -13,72 +13,68 @@
             <span class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Files</span>
           </button>
         </template>
-        <template v-if="isGitRepo">
-          <div v-if="!isMobile" class="status-divider"></div>
-          <button type="button" class="status-nav-btn status-msg-btn" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
-            <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
-            <span class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
-          </button>
-          <template v-if="!isMobile || isDirty">
-            <div class="status-divider"></div>
-            <button type="button" class="status-nav-btn status-numstat-btn" tabindex="-1" aria-label="Changes" data-tooltip="Changes" @click="openFileModal('changes')">
-              <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
-              <span v-if="!isDirty || statusLoading" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Changes</span>
-              <template v-if="isDirty && !statusLoading">
-                <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
-                <span class="diff-num-plus">+{{ insertions }}</span>
-                <span class="diff-num-del">-{{ deletions }}</span>
-              </template>
-            </button>
-          </template>
+        <div v-if="!isMobile" class="status-divider"></div>
+        <button type="button" class="status-nav-btn status-msg-btn" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
+          <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
+          <span class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
+        </button>
+        <template v-if="!isMobile || isDirty">
           <div class="status-divider"></div>
-          <button type="button" class="status-nav-btn status-branch-btn" tabindex="-1" aria-label="Branches" data-tooltip="Branches" @click="openFileModal('branch')">
-            <span class="mdi mdi-source-branch status-btn-icon" aria-hidden="true"></span>
-            <span class="status-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
+          <button type="button" class="status-nav-btn status-numstat-btn" tabindex="-1" aria-label="Changes" data-tooltip="Changes" @click="openFileModal('changes')">
+            <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
+            <span v-if="!isDirty || statusLoading" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Changes</span>
+            <template v-if="isDirty && !statusLoading">
+              <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
+              <span class="diff-num-plus">+{{ insertions }}</span>
+              <span class="diff-num-del">-{{ deletions }}</span>
+            </template>
           </button>
         </template>
-        <button
-          v-else
-          type="button"
-          tabindex="-1"
-          class="non-git-hint status-msg-standalone"
-          @click="openFileModal('changes')"
-        >Not a Git repository</button>
+        <div class="status-divider"></div>
+        <button type="button" class="status-nav-btn status-branch-btn" tabindex="-1" aria-label="Branches" data-tooltip="Branches" @click="openFileModal('branch')">
+          <span class="mdi mdi-source-branch status-btn-icon" aria-hidden="true"></span>
+          <span class="status-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
+        </button>
       </div>
-      <div v-if="isGitRepo && !statusLoading && hasGitActions" class="git-actions">
+      <div v-if="!statusLoading && hasGitActions" class="git-actions">
         <GitActionBtn v-if="behind > 0" icon="pull" title="Pull" :count="behind" :running="isRunning(workspace, 'pull')" btn-class="pull-btn has-count" @action="doAction('pull')" />
         <GitActionBtn v-if="!hasUpstream && hasRemoteBranch" icon="set-upstream" title="Set Upstream" :running="isRunning(workspace, 'set-upstream')" btn-class="icon-only upstream-set-btn" @action="doAction('set-upstream')" />
         <GitActionBtn v-if="!hasUpstream && !hasRemoteBranch" icon="push-upstream" title="Push" :count="ahead" :running="isRunning(workspace, 'push-upstream')" btn-class="upstream-btn" @action="doAction('push-upstream')" />
         <GitActionBtn v-if="hasUpstream && ahead > 0" icon="push" title="Push" :count="ahead" :running="isRunning(workspace, 'push')" btn-class="push-btn has-count" @action="doAction('push')" />
       </div>
     </template>
-    <template v-else>
-      <button
-        v-if="activeTab"
-        type="button"
-        tabindex="-1"
-        class="status-empty-hint"
-        :disabled="registeringWorkspace"
-        @click="registerCurrentDir"
-      >
-        <span class="mdi mdi-folder-plus-outline status-btn-icon" aria-hidden="true"></span>
-        <span class="status-empty-hint-text">{{ registeringWorkspace ? 'Registering…' : 'Register current dir as workspace' }}</span>
-      </button>
-      <button
-        type="button"
-        tabindex="-1"
-        class="status-empty-hint"
-        @click="openWorkspaceModal"
-      >
-        <span class="mdi mdi-folder-open-outline status-btn-icon" aria-hidden="true"></span>
-        <span class="status-empty-hint-text">Open a workspace</span>
-      </button>
+    <template v-else-if="hasVisibleTabs">
+      <div class="status-nav-group">
+        <template v-if="!isMobile">
+          <button type="button" class="status-nav-btn" aria-label="Files" data-tooltip="Files" @click="openFileModal('files')">
+            <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
+            <span class="status-btn-label status-btn-label-always">Files</span>
+          </button>
+          <div class="status-divider"></div>
+        </template>
+        <button
+          v-if="activeTab"
+          type="button"
+          class="status-nav-btn"
+          aria-label="Add current dir as workspace"
+          :data-tooltip="registerLabel"
+          @click="registerCurrentDir"
+        >
+          <span class="mdi mdi-folder-plus-outline status-btn-icon" aria-hidden="true"></span>
+          <span class="status-btn-label status-btn-label-always">{{ registerLabel }}</span>
+        </button>
+        <div v-if="activeTab" class="status-divider"></div>
+        <button type="button" class="status-nav-btn" aria-label="Open a workspace" data-tooltip="Open a workspace" @click="openWorkspaceModal">
+          <span class="mdi mdi-folder-open-outline status-btn-icon" aria-hidden="true"></span>
+          <span class="status-btn-label status-btn-label-always">Open</span>
+        </button>
+      </div>
     </template>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onBeforeUnmount, ref } from "vue";
+import { computed, onMounted, onBeforeUnmount, ref, watch } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
@@ -89,12 +85,12 @@ import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import { POLL_INTERVAL_MS } from "../utils/constants.js";
-import { terminalSessionCwdPath, terminalSessionWorkspacePath, EP_WORKSPACES } from "../utils/endpoints.js";
+import { terminalSessionCwdPath } from "../utils/endpoints.js";
 
 const { gitAction, isRunning } = useGitRemoteAction();
 const { isMobile } = useIsMobile();
-const { apiGet, apiPost, apiPut } = useApi();
-const registeringWorkspace = ref(false);
+const { apiGet } = useApi();
+const currentCwd = ref("");
 
 let pollTimer = null;
 
@@ -125,7 +121,7 @@ const activeTab = computed(() =>
 );
 const hasVisibleTabs = computed(() => terminalStore.openTabs.length > 0);
 const workspace = computed(() => hasVisibleTabs.value ? (activeTab.value?.workspace || null) : null);
-const showHeader = computed(() => !layoutStore.isSplitMode);
+const showHeader = computed(() => !layoutStore.isSplitMode && hasVisibleTabs.value);
 
 const ws = computed(() =>
   workspaceStore.allWorkspaces.find((w) => w.name === workspace.value),
@@ -148,6 +144,25 @@ const {
   deletions,
 } = useWorkspaceGitStatus(ws, isMobile);
 
+// git リポジトリでないターミナル（素のターミナル含む）では、登録ボタンに現在の
+// ディレクトリ名を表示する。cwd はセッションから取得する。
+watch(
+  () => [activeTab.value?.sessionId, isGitRepo.value],
+  async ([sessionId, gitRepo]) => {
+    currentCwd.value = "";
+    if (!sessionId || gitRepo) return;
+    const { ok, data } = await apiGet(terminalSessionCwdPath(sessionId));
+    if (ok) currentCwd.value = data?.cwd || "";
+  },
+  { immediate: true },
+);
+
+const registerLabel = computed(() => {
+  if (!currentCwd.value) return "Register current dir";
+  const name = currentCwd.value.split("/").filter(Boolean).pop() || currentCwd.value;
+  return `Register "${name}"`;
+});
+
 function openFileModal(pane = "files") {
   if (workspace.value) {
     workspaceStore.selectedWorkspace = workspace.value;
@@ -168,38 +183,17 @@ function openWorkspaceModal() {
 
 async function registerCurrentDir() {
   const tab = activeTab.value;
-  if (!tab?.sessionId || registeringWorkspace.value) return;
-  registeringWorkspace.value = true;
-  try {
-    const { ok: cwdOk, data: cwdData } = await apiGet(
-      terminalSessionCwdPath(tab.sessionId),
-      { errorMessage: "Failed to get current directory" },
-    );
-    if (!cwdOk) return;
-
-    const cwd = cwdData.cwd;
-    const defaultName = cwd.split("/").filter(Boolean).pop() || cwd;
-    const name = window.prompt(`Register as workspace:\n${cwd}\n\nWorkspace name:`, defaultName);
-    if (name === null) return;
-
-    const { ok: addOk, data: addData } = await apiPost(
-      EP_WORKSPACES,
-      { path: cwd, name: name.trim() || undefined },
-      { errorMessage: "Failed to register workspace" },
-    );
-    if (!addOk) return;
-
-    const wsName = addData.name;
-    await apiPut(
-      terminalSessionWorkspacePath(tab.sessionId),
-      { workspace: wsName },
-    );
-    terminalStore.setTabWorkspace(tab.id, wsName);
-    workspaceStore.selectedWorkspace = wsName;
-    await workspaceStore.fetchStatuses();
-  } finally {
-    registeringWorkspace.value = false;
-  }
+  if (!tab?.sessionId) return;
+  // 最新の cwd を取りに行く（watch 取得後に cd された場合に備える）。
+  let cwd = currentCwd.value;
+  const { ok, data } = await apiGet(terminalSessionCwdPath(tab.sessionId));
+  if (ok && data?.cwd) cwd = data.cwd;
+  // ワークスペース追加画面を cwd 入力済みで開く。追加後は発火元タブに紐付ける。
+  emit("workspace:openAdd", {
+    initialPath: cwd || "",
+    attachSessionId: tab.sessionId,
+    attachTabId: tab.id,
+  });
 }
 
 </script>
@@ -360,26 +354,6 @@ async function registerCurrentDir() {
   color: var(--warning);
 }
 
-.non-git-hint {
-  color: var(--text-muted);
-}
-
-.status-msg-standalone {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-  height: 36px;
-  padding: 0 10px;
-  font-size: 12px;
-  font-family: inherit;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
-  text-align: left;
-}
-
 .git-actions {
   display: flex;
   align-items: center;
@@ -387,33 +361,8 @@ async function registerCurrentDir() {
   flex-shrink: 0;
 }
 
-.status-empty-hint {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-  gap: 6px;
-  height: 36px;
-  padding: 0 10px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-size: 12px;
-  font-family: inherit;
-  color: var(--text-muted);
-  text-align: left;
-}
-
-.status-empty-hint-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
 @media (hover: hover) and (pointer: fine) {
-  .status-nav-btn:hover,
-  .status-empty-hint:hover {
+  .status-nav-btn:hover {
     background: var(--bg-secondary);
   }
 }

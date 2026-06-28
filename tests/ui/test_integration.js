@@ -17,6 +17,7 @@ import { emit, on } from "../../ui/app-bridge.js";
 import ConfirmDialog from "../../ui/components/ConfirmDialog.vue";
 import PromptDialog from "../../ui/components/PromptDialog.vue";
 import WorkspaceStatusBar from "../../ui/components/WorkspaceStatusBar.vue";
+import { useTerminalStore } from "../../ui/stores/terminal.js";
 
 // ── Test 1: fit 抑制 ──────────────────────────────────────────────────────────
 
@@ -165,15 +166,20 @@ describe("WorkspaceStatusBar: ワークスペース未選択時のヒントボ�
     vi.useRealTimers();
   });
 
-  it("ヒントボタンをクリックすると workspace:openModal が emit される", async () => {
+  it("Open ボタンをクリックすると workspace:openModal が emit される", async () => {
     const handler = vi.fn();
     const off = on("workspace:openModal", handler);
 
-    const wrapper = mount(WorkspaceStatusBar);
-    const hint = wrapper.find(".status-empty-hint");
-    expect(hint.exists()).toBe(true);
+    // git でないタブを1つ用意（統合ステータスバーが出る状態）
+    const terminalStore = useTerminalStore();
+    terminalStore.openTabs.push({ id: 1, workspace: null, sessionId: "s1" });
+    terminalStore.activeTabId = 1;
 
-    await hint.trigger("click");
+    const wrapper = mount(WorkspaceStatusBar);
+    const openBtn = wrapper.find('[aria-label="Open a workspace"]');
+    expect(openBtn.exists()).toBe(true);
+
+    await openBtn.trigger("click");
     expect(handler).toHaveBeenCalledOnce();
 
     wrapper.unmount();

@@ -166,6 +166,12 @@ onMounted(() => {
     { view: "WorkspaceOpen", state: {} },
   ]));
 
+  on("workspace:openAdd", (detail) => openView([
+    { view: "ModalMenu", state: {} },
+    { view: "WorkspaceOpen", state: {} },
+    { view: "WorkspaceAdd", state: { ...detail } },
+  ]));
+
   on("git:openFileModal", (detail) => openView([
     { view: "ModalMenu", state: {} },
     { view: "WorkspaceOpen", state: {} },
