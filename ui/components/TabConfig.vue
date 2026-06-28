@@ -76,10 +76,10 @@
         <div v-for="s in detachedSessions" :key="s.tmux_name" class="detached-row">
           <div class="detached-meta">
             <span class="detached-name">
-              {{ s.workspace || s.tmux_name }}
+              {{ s.workspace || s.job_label || s.job_name || (s.external ? s.tmux_name : "terminal") }}
               <span v-if="s.external" class="detached-tag">external</span>
             </span>
-            <span class="detached-sub">{{ s.tmux_name }}</span>
+            <span v-if="s.external" class="detached-sub">{{ s.tmux_name }}</span>
           </div>
           <button v-if="!s.external" type="button" class="detached-btn" @click="openDetached(s)" title="Open as tab">
             <span class="mdi mdi-tab-plus"></span>
