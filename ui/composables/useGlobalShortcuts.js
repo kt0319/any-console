@@ -46,7 +46,7 @@ export function useGlobalShortcuts({ closeTab }) {
       emit("workspace:openModal");
     } else if (e.code === "KeyT") {
       e.preventDefault();
-      emit("settings:open", { view: "TabConfig" });
+      emit("terminal:launch", {});
     } else if (e.code === "Period") {
       e.preventDefault();
       emit("settings:open");

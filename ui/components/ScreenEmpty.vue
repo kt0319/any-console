@@ -6,6 +6,7 @@
         <button type="button" class="screen-empty-menu-item" @click="openTerminal">
           <span class="mdi mdi-console screen-empty-menu-icon"></span>
           <span class="screen-empty-menu-label">New Terminal</span>
+          <span class="screen-empty-menu-shortcut">⌘⇧T</span>
         </button>
         <button type="button" class="screen-empty-menu-item" @click="$emit('openWorkspace')">
           <span class="mdi mdi-plus screen-empty-menu-icon"></span>
