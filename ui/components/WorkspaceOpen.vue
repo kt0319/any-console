@@ -3,7 +3,7 @@
     <div class="split-tab-content">
       <!-- ツールバー -->
       <div class="ws-toolbar">
-        <button type="button" class="ws-toolbar-btn ws-toolbar-btn-terminal" aria-label="Open terminal (no workspace)" data-tooltip="Open terminal (no workspace)" @click="openBareTerminal">
+        <button type="button" class="ws-toolbar-btn ws-toolbar-btn-terminal" aria-label="New terminal" data-tooltip="New terminal" @click="openBareTerminal">
           <span class="mdi mdi-console"></span>
           <span class="ws-toolbar-btn-label">Terminal</span>
         </button>

@@ -9,6 +9,7 @@ import "./styles/base.css";
 import App from "./components/App.vue";
 import { useAuthStore } from "./stores/auth.js";
 import { installErrorReporter } from "./utils/error-reporter.js";
+import { installTooltip } from "./utils/tooltip.js";
 
 // 古い index.html がキャッシュされたまま新ビルドの asset hash を踏むと、
 // dynamic chunk の読み込みが 404 になり Safari が "Load failed" を出す。
@@ -41,6 +42,7 @@ function installChunkErrorAutoReload() {
 }
 
 installChunkErrorAutoReload();
+installTooltip();
 
 async function bootstrap() {
   // xterm.js が文字幅を測る前に Hack Nerd Font をロードしておく。
