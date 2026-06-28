@@ -37,7 +37,7 @@
           @pointerdown.stop="onSplitCloseDown"
           @pointerup.stop="onSplitCloseUp"
           @click.stop
-        >&times;</button>
+        >&minus;</button>
       </div>
     </div>
   </div>
@@ -365,10 +365,10 @@ defineExpose({
   width: 28px;
   flex-shrink: 0;
   padding: 0;
-  background: rgba(26, 27, 38, 0.93);
-  border: 1px solid var(--border);
+  background: var(--error-bg-20);
+  border: 1px solid rgba(255, 85, 114, 0.4);
   border-radius: 999px;
-  color: var(--text-muted);
+  color: var(--error);
   font-size: 14px;
   line-height: 1;
   cursor: pointer;
@@ -376,8 +376,9 @@ defineExpose({
 
 @media (hover: hover) and (pointer: fine) {
   .pill-split-close:hover {
-    border-color: var(--accent);
-    color: var(--text-primary);
+    background: var(--error);
+    border-color: var(--error);
+    color: #fff;
   }
 }
 

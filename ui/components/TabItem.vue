@@ -27,7 +27,7 @@
         @touchstart.stop.prevent="onClosePress"
         @mouseup.stop="onCloseUp"
         @click.stop.prevent
-      >&minus;</span>
+      >&times;</span>
     </template>
     <span v-if="isDirty && isPanelBottom" class="tab-dirty-dot" aria-label="uncommitted changes"></span>
   </button>
