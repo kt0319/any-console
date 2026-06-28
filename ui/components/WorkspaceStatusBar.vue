@@ -168,7 +168,7 @@ const matchingWorkspace = computed(() => {
 
 const addLabel = computed(() => {
   if (matchingWorkspace.value) {
-    return `Change "${matchingWorkspace.value.name}" workspace`;
+    return `Open "${matchingWorkspace.value.name}" workspace`;
   }
   if (!currentCwd.value) return "Open a workspace";
   const name = currentCwd.value.split("/").filter(Boolean).pop() || currentCwd.value;
