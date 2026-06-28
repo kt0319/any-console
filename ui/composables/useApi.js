@@ -20,7 +20,14 @@ export function useApi() {
     const { method = "GET", body = null, checkStatus = false, errorMessage } = opts;
     const fetchOpts = method === "GET" ? undefined : { method, ...(body != null && { body }) };
     const t0 = performance.now();
-    const res = await auth.apiFetch(endpoint, fetchOpts);
+    let res;
+    try {
+      res = await auth.apiFetch(endpoint, fetchOpts);
+    } catch {
+      debugLog("[API]", method, endpoint, "network error");
+      showErrorToast(null, errorMessage);
+      return { ok: false, data: null };
+    }
     const ms = Math.round(performance.now() - t0);
     if (!res || !res.ok) {
       const data = res ? await res.json().catch(() => null) : null;

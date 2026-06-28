@@ -170,7 +170,7 @@ const addLabel = computed(() => {
   if (matchingWorkspace.value) {
     return `Change "${matchingWorkspace.value.name}" workspace`;
   }
-  if (!currentCwd.value) return "Add workspace";
+  if (!currentCwd.value) return "Open a workspace";
   const name = currentCwd.value.split("/").filter(Boolean).pop() || currentCwd.value;
   return `Add "${name}" workspace`;
 });
@@ -196,10 +196,17 @@ function openWorkspaceModal() {
 async function registerCurrentDir() {
   const tab = activeTab.value;
   if (!tab?.sessionId) return;
+  // cwd が不明な場合はワークスペース選択モーダルを開くだけにする。
+  if (!currentCwd.value) {
+    emit("workspace:openModal");
+    return;
+  }
   // 最新の cwd を取りに行く（watch 取得後に cd された場合に備える）。
   let cwd = currentCwd.value;
-  const { ok, data } = await apiGet(terminalSessionCwdPath(tab.sessionId));
-  if (ok && data?.cwd) cwd = data.cwd;
+  try {
+    const { ok, data } = await apiGet(terminalSessionCwdPath(tab.sessionId));
+    if (ok && data?.cwd) cwd = data.cwd;
+  } catch { /* フェッチ失敗時は既存の cwd で続行 */ }
 
   // CWD が既存ワークスペースのパスと一致する場合はそのワークスペースで開き直す。
   const existing = workspaceStore.allWorkspaces.find((w) => w.path === cwd);
