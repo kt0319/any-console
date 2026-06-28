@@ -53,8 +53,9 @@ describe("GitActionBtn", () => {
     expect(wrapper.emitted("action")).toHaveLength(1);
   });
 
-  it("title が title 属性に反映される", () => {
+  it("title が aria-label と data-tooltip に反映される", () => {
     const wrapper = mount(GitActionBtn, { props: { icon: "pull", title: "Pull" } });
-    expect(wrapper.attributes("title")).toBe("Pull");
+    expect(wrapper.attributes("aria-label")).toBe("Pull");
+    expect(wrapper.attributes("data-tooltip")).toBe("Pull");
   });
 });

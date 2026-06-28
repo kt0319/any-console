@@ -4,7 +4,6 @@
     tabindex="-1"
     class="git-action-btn"
     :class="[btnClass, { running, disabled }]"
-    :title="title"
     :aria-label="title"
     :data-tooltip="title"
     @click.stop="$emit('action')"
