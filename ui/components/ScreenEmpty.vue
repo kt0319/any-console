@@ -3,6 +3,10 @@
     <div class="screen-empty-content">
       <div class="screen-empty-section">
         <div class="screen-empty-section-label">Get Started</div>
+        <button type="button" class="screen-empty-menu-item" @click="openTerminal">
+          <span class="mdi mdi-console screen-empty-menu-icon"></span>
+          <span class="screen-empty-menu-label">New Terminal</span>
+        </button>
         <button type="button" class="screen-empty-menu-item" @click="$emit('openWorkspace')">
           <span class="mdi mdi-plus screen-empty-menu-icon"></span>
           <span class="screen-empty-menu-label">Open Workspace</span>
@@ -64,6 +68,10 @@ onMounted(() => loadRecentJobs());
 
 function openSettings() {
   emit("settings:open");
+}
+
+function openTerminal() {
+  emit("terminal:launch", {});
 }
 
 async function runRecentJob(recent) {

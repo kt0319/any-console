@@ -115,22 +115,25 @@ function onFileBrowserState({ atRoot, fileOpen }) {
 
 const filesBrowsing = computed(() => fileBrowserDeep.value || !!selectedDiffFile.value);
 
+const isGitWorkspace = computed(() => !!workspaceStore.currentWorkspace?.is_git_repo);
+
 const tabs = computed(() => {
+  const isGit = isGitWorkspace.value;
   const list = [
-    { key: "jobs", icon: "mdi-play-circle-outline", label: "Jobs" },
+    { key: "jobs", icon: "mdi-play-circle-outline", label: "Jobs", hidden: !isGit },
     {
       key: "files",
       icon: filesBrowsing.value ? "mdi-folder-open-outline" : "mdi-folder-outline",
       iconColor: filesBrowsing.value ? "var(--accent)" : "",
       label: "Files",
     },
-    { key: "history", icon: "mdi-history", label: "History", iconColor: historyExpanded.value ? "var(--accent)" : "" },
-    { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0 },
-    { key: "branch", icon: "mdi-source-branch", label: "Branches", count: branchCount.value || 0 },
-    { key: "stash", icon: "mdi-package-variant", label: "Stashes", count: stashCount.value || 0, hidden: !stashCount.value },
-    { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !hasGithub.value || !issuesCount.value },
-    { key: "actions", icon: "mdi-github", label: "Actions", hidden: !hasGithub.value },
-    { key: "prs", icon: "mdi-github", label: "PRs", count: prsCount.value || 0, hidden: !hasGithub.value || !prsCount.value },
+    { key: "history", icon: "mdi-history", label: "History", iconColor: historyExpanded.value ? "var(--accent)" : "", hidden: !isGit },
+    { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0, hidden: !isGit },
+    { key: "branch", icon: "mdi-source-branch", label: "Branches", count: branchCount.value || 0, hidden: !isGit },
+    { key: "stash", icon: "mdi-package-variant", label: "Stashes", count: stashCount.value || 0, hidden: !isGit || !stashCount.value },
+    { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGithub.value || !issuesCount.value },
+    { key: "actions", icon: "mdi-github", label: "Actions", hidden: !isGit || !hasGithub.value },
+    { key: "prs", icon: "mdi-github", label: "PRs", count: prsCount.value || 0, hidden: !isGit || !hasGithub.value || !prsCount.value },
     { key: "select", icon: "mdi-content-copy", label: "Select & Copy" },
   ];
   return list.filter((t) => !t.hidden);
@@ -166,7 +169,12 @@ function handleBack() {
 function open(options) {
   options = options || {};
   const paneKey = options.pane || "jobs";
-  const resolvedPane = paneKey === "browser" ? "history" : paneKey;
+  let resolvedPane = paneKey === "browser" ? "history" : paneKey;
+  // 非 git ワークスペースで git 専用ペインが指定された場合は files にフォールバック
+  const gitOnlyPanes = new Set(["jobs", "history", "changes", "branch", "stash", "issues", "actions", "prs"]);
+  if (gitOnlyPanes.has(resolvedPane) && !workspaceStore.currentWorkspace?.is_git_repo) {
+    resolvedPane = "files";
+  }
   selectedDiffFile.value = "";
   diffMessage.value = "";
   updateViewTitle();

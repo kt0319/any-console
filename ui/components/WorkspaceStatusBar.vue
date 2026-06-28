@@ -45,28 +45,16 @@
     </template>
     <template v-else-if="hasVisibleTabs">
       <div class="status-nav-group">
-        <template v-if="!isMobile">
-          <button type="button" class="status-nav-btn" aria-label="Files" data-tooltip="Files" @click="openFileModal('files')">
-            <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
-            <span class="status-btn-label status-btn-label-always">Files</span>
-          </button>
-          <div class="status-divider"></div>
-        </template>
         <button
           v-if="activeTab"
           type="button"
           class="status-nav-btn"
-          aria-label="Add current dir as workspace"
-          :data-tooltip="registerLabel"
+          :aria-label="addLabel"
+          :data-tooltip="addLabel"
           @click="registerCurrentDir"
         >
           <span class="mdi mdi-folder-plus-outline status-btn-icon" aria-hidden="true"></span>
-          <span class="status-btn-label status-btn-label-always">{{ registerLabel }}</span>
-        </button>
-        <div v-if="activeTab" class="status-divider"></div>
-        <button type="button" class="status-nav-btn" aria-label="Open a workspace" data-tooltip="Open a workspace" @click="openWorkspaceModal">
-          <span class="mdi mdi-folder-open-outline status-btn-icon" aria-hidden="true"></span>
-          <span class="status-btn-label status-btn-label-always">Open</span>
+          <span class="status-btn-label status-btn-label-always">{{ addLabel }}</span>
         </button>
       </div>
     </template>
@@ -84,7 +72,7 @@ import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.js";
 import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
-import { POLL_INTERVAL_MS } from "../utils/constants.js";
+import { POLL_INTERVAL_MS, CWD_POLL_INTERVAL_MS } from "../utils/constants.js";
 import { terminalSessionCwdPath } from "../utils/endpoints.js";
 
 const { gitAction, isRunning } = useGitRemoteAction();
@@ -93,6 +81,14 @@ const { apiGet } = useApi();
 const currentCwd = ref("");
 
 let pollTimer = null;
+let cwdTimer = null;
+
+async function fetchCwd() {
+  const tab = activeTab.value;
+  if (!tab?.sessionId || isGitRepo.value) return;
+  const { ok, data } = await apiGet(terminalSessionCwdPath(tab.sessionId));
+  if (ok) currentCwd.value = data?.cwd || "";
+}
 
 function startPolling() {
   stopPolling();
@@ -100,13 +96,15 @@ function startPolling() {
     if (document.hidden) return;
     workspaceStore.fetchStatuses();
   }, POLL_INTERVAL_MS);
+  cwdTimer = setInterval(() => {
+    if (document.hidden) return;
+    fetchCwd();
+  }, CWD_POLL_INTERVAL_MS);
 }
 
 function stopPolling() {
-  if (pollTimer) {
-    clearInterval(pollTimer);
-    pollTimer = null;
-  }
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  if (cwdTimer) { clearInterval(cwdTimer); cwdTimer = null; }
 }
 
 onMounted(() => { startPolling(); });
@@ -163,6 +161,20 @@ const registerLabel = computed(() => {
   return `Register "${name}"`;
 });
 
+const matchingWorkspace = computed(() => {
+  if (!currentCwd.value) return null;
+  return workspaceStore.allWorkspaces.find((w) => w.path === currentCwd.value) || null;
+});
+
+const addLabel = computed(() => {
+  if (matchingWorkspace.value) {
+    return `Change "${matchingWorkspace.value.name}" workspace`;
+  }
+  if (!currentCwd.value) return "Add workspace";
+  const name = currentCwd.value.split("/").filter(Boolean).pop() || currentCwd.value;
+  return `Add "${name}" workspace`;
+});
+
 function openFileModal(pane = "files") {
   if (workspace.value) {
     workspaceStore.selectedWorkspace = workspace.value;
@@ -188,6 +200,18 @@ async function registerCurrentDir() {
   let cwd = currentCwd.value;
   const { ok, data } = await apiGet(terminalSessionCwdPath(tab.sessionId));
   if (ok && data?.cwd) cwd = data.cwd;
+
+  // CWD が既存ワークスペースのパスと一致する場合はそのワークスペースで開き直す。
+  const existing = workspaceStore.allWorkspaces.find((w) => w.path === cwd);
+  if (existing) {
+    emit("terminal:launch", {
+      workspace: existing.name,
+      icon: existing.icon,
+      iconColor: existing.icon_color,
+    });
+    return;
+  }
+
   // ワークスペース追加画面を cwd 入力済みで開く。追加後は発火元タブに紐付ける。
   emit("workspace:openAdd", {
     initialPath: cwd || "",
