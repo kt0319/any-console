@@ -404,15 +404,15 @@ defineExpose({
 }
 
 .pill-minus-btn {
-  background: rgba(245, 197, 66, 0.15);
-  border: 1px solid rgba(245, 197, 66, 0.45);
-  color: #f5c542;
+  background: rgba(245, 197, 66, 0.1);
+  border: 1px solid rgba(245, 197, 66, 0.35);
+  color: rgba(245, 197, 66, 0.75);
 }
 
 .pill-tab-close-btn {
-  background: var(--error-bg-20);
-  border: 1px solid rgba(255, 85, 114, 0.4);
-  color: var(--error);
+  background: rgba(255, 85, 114, 0.1);
+  border: 1px solid rgba(255, 85, 114, 0.35);
+  color: rgba(255, 85, 114, 0.75);
 }
 
 @media (hover: hover) and (pointer: fine) {
