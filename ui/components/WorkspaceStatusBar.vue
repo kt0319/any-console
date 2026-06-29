@@ -2,17 +2,19 @@
   <div class="workspace-status-bar" :style="{ display: showHeader ? 'flex' : 'none' }">
     <template v-if="workspace && isGitRepo">
       <div class="status-nav-group">
-        <button type="button" class="status-nav-btn" aria-label="Jobs" data-tooltip="Jobs" @click="openFileModal('jobs')">
-          <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
-          <span v-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Jobs</span>
-        </button>
-        <div class="status-divider"></div>
-        <button type="button" class="status-nav-btn" aria-label="Files" data-tooltip="Files" @click="openFileModal('files')">
-          <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
-          <span v-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Files</span>
-        </button>
-        <div class="status-divider"></div>
-        <button type="button" class="status-nav-btn status-msg-btn" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
+        <template v-if="showJobsFiles">
+          <button type="button" class="status-nav-btn" aria-label="Jobs" data-tooltip="Jobs" @click="openFileModal('jobs')">
+            <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
+            <span v-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Jobs</span>
+          </button>
+          <div class="status-divider"></div>
+          <button type="button" class="status-nav-btn" aria-label="Files" data-tooltip="Files" @click="openFileModal('files')">
+            <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
+            <span v-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Files</span>
+          </button>
+          <div class="status-divider"></div>
+        </template>
+        <button ref="msgBtnEl" type="button" class="status-nav-btn status-msg-btn" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
           <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
           <span class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
         </button>
@@ -77,9 +79,12 @@ const { gitAction, isRunning } = useGitRemoteAction();
 const { isMobile } = useIsMobile();
 const { apiGet } = useApi();
 const currentCwd = ref("");
+const showJobsFiles = ref(true);
+const msgBtnEl = ref(null);
 
 let pollTimer = null;
 let cwdTimer = null;
+let roMsgBtn = null;
 
 async function fetchCwd() {
   const tab = activeTab.value;
@@ -105,8 +110,28 @@ function stopPolling() {
   if (cwdTimer) { clearInterval(cwdTimer); cwdTimer = null; }
 }
 
+// msgBtnEl は workspace が確定してから DOM に現れるため watch で監視する
+watch(msgBtnEl, (el) => {
+  roMsgBtn?.disconnect();
+  roMsgBtn = null;
+  if (!el) return;
+  roMsgBtn = new ResizeObserver((entries) => {
+    for (const e of entries) {
+      const w = e.contentRect.width;
+      // ヒステリシス: Historyボタンが狭くなったら Jobs/Files を隠し、
+      // 十分な余裕が戻ったら再表示する（閾値を分けて振動を防ぐ）
+      if (w < 60) showJobsFiles.value = false;
+      else if (w > 100) showJobsFiles.value = true;
+    }
+  });
+  roMsgBtn.observe(el);
+});
+
 onMounted(() => { startPolling(); });
-onBeforeUnmount(() => { stopPolling(); });
+onBeforeUnmount(() => {
+  stopPolling();
+  roMsgBtn?.disconnect();
+});
 
 const workspaceStore = useWorkspaceStore();
 const terminalStore = useTerminalStore();
@@ -395,5 +420,6 @@ async function registerCurrentDir() {
     background: var(--bg-secondary);
   }
 }
+
 
 </style>
