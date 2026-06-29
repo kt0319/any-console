@@ -40,6 +40,7 @@
           @click.stop
         >&minus;</button>
         <button
+          v-if="!layoutStore.isSplitMode"
           type="button"
           class="pill-close-btn pill-tab-close-btn"
           aria-label="Close tab"
