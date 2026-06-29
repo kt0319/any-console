@@ -2,18 +2,16 @@
   <div class="workspace-status-bar" :style="{ display: showHeader ? 'flex' : 'none' }">
     <template v-if="workspace && isGitRepo">
       <div class="status-nav-group">
-        <template v-if="!isMobile">
-          <button type="button" class="status-nav-btn" aria-label="Jobs" data-tooltip="Jobs" @click="openFileModal('jobs')">
-            <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
-            <span class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Jobs</span>
-          </button>
-          <div class="status-divider"></div>
-          <button type="button" class="status-nav-btn" aria-label="Files" data-tooltip="Files" @click="openFileModal('files')">
-            <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
-            <span class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Files</span>
-          </button>
-        </template>
-        <div v-if="!isMobile" class="status-divider"></div>
+        <button type="button" class="status-nav-btn" aria-label="Jobs" data-tooltip="Jobs" @click="openFileModal('jobs')">
+          <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
+          <span v-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Jobs</span>
+        </button>
+        <div class="status-divider"></div>
+        <button type="button" class="status-nav-btn" aria-label="Files" data-tooltip="Files" @click="openFileModal('files')">
+          <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
+          <span v-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Files</span>
+        </button>
+        <div class="status-divider"></div>
         <button type="button" class="status-nav-btn status-msg-btn" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
           <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
           <span class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
