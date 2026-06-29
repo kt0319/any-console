@@ -357,10 +357,11 @@ defineExpose({
   align-items: center;
   min-height: 28px;
   padding: 4px 10px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(59, 66, 97, 0.5);
   border-radius: 999px;
-  background: rgba(26, 27, 38, 0.93);
+  background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
+  opacity: 0.9;
   font-size: 12px;
   line-height: 1.2;
   user-select: none;
@@ -404,15 +405,15 @@ defineExpose({
 }
 
 .pill-minus-btn {
-  background: rgba(245, 197, 66, 0.1);
-  border: 1px solid rgba(245, 197, 66, 0.35);
-  color: rgba(245, 197, 66, 0.75);
+  background: rgba(245, 197, 66, 0.12);
+  border: 1px solid rgba(245, 197, 66, 0.2);
+  color: rgba(245, 197, 66, 0.9);
 }
 
 .pill-tab-close-btn {
-  background: rgba(255, 85, 114, 0.1);
-  border: 1px solid rgba(255, 85, 114, 0.35);
-  color: rgba(255, 85, 114, 0.75);
+  background: rgba(255, 85, 114, 0.12);
+  border: 1px solid rgba(255, 85, 114, 0.2);
+  color: rgba(255, 85, 114, 0.9);
 }
 
 @media (hover: hover) and (pointer: fine) {
