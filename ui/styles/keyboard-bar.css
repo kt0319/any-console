@@ -4,6 +4,7 @@
   flex-direction: column;
   flex-shrink: 0;
   border-top: 1px solid var(--border);
+  touch-action: none;
 }
 
 /* フルキーボードはバー行の上にフロート */

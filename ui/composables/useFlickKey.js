@@ -67,6 +67,9 @@ export function attachFlickKey(el, resolveKey, sendKey, onTap = null, opts = {})
   }, { passive: false });
 
   el.addEventListener("touchmove", (e) => {
+    // passive:false + preventDefault でAndroidのエッジスワイプ「戻る」ジェスチャーを抑制する。
+    // touchstart だけでは方向確定フェーズ（touchmove）でシステムに横取りされることがある。
+    if (e.cancelable) e.preventDefault();
     const dx = e.touches[0].clientX - startX;
     const dy = e.touches[0].clientY - startY;
     const key = resolveKey(dx, dy, FLICK_THRESHOLD);
@@ -78,7 +81,7 @@ export function attachFlickKey(el, resolveKey, sendKey, onTap = null, opts = {})
     repeatingKey = key;
     sendKey(key);
     repeatTimer = setTimeout(() => scheduleRepeat(key, REPEAT_INTERVAL), REPEAT_DELAY);
-  }, { passive: true });
+  }, { passive: false });
 
   el.addEventListener("touchend", (e) => {
     if (e.cancelable) e.preventDefault();
