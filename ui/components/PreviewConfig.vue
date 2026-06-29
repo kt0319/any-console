@@ -21,9 +21,9 @@
           <button type="button" class="preview-copy" :title="copiedPort === p.port ? 'Copied!' : 'Copy URL'" @click="copyUrl(p)">
             <span class="mdi" :class="copiedPort === p.port ? 'mdi-check' : 'mdi-content-copy'"></span>
           </button>
-          <a class="preview-open" :href="buildPreviewUrl(p)" target="_blank" rel="noopener noreferrer external" title="Open in new tab">
+          <button type="button" class="preview-open" @click="openPreview(p)">
             <span class="mdi mdi-open-in-new"></span> Open
-          </a>
+          </button>
         </template>
       </div>
     </template>
@@ -49,6 +49,14 @@ function buildPreviewUrl(p) {
   // HTTPS の any-console から開いた場合でも、preview 自体は http (proxy は TLS なし)。
   if (!p.proxy_port) return "";
   return `http://${location.hostname}:${p.proxy_port}/`;
+}
+
+function openPreview(p) {
+  const url = buildPreviewUrl(p);
+  if (!url) return;
+  // iOS PWA モードでは <a target="_blank"> がループするため window.open を使う。
+  // ユーザーインタラクション（click）から直接呼ぶのでポップアップブロックに引っかかりにくい。
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 async function copyUrl(p) {

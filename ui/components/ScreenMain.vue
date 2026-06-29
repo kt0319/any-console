@@ -202,16 +202,8 @@ onMounted(() => {
 
   bridgeCleanups.push(on("preview:open", ({ url }) => {
     if (!url) return;
-    // PWA standalone から OS の既定ブラウザ（iOS なら Safari）で開かせるため、
-    // window.open ではなく a target=_blank の擬似クリックを使う。
-    // window.open だと in-app browser に閉じ込められるケースがある。
-    const a = document.createElement("a");
-    a.href = url;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    // iOS PWA モードでは <a target="_blank"> の擬似クリックがループするため window.open を使う。
+    window.open(url, "_blank", "noopener,noreferrer");
   }));
 
   bridgeCleanups.push(on("oskeyboard:show", () => { keyboardOpen.value = true; }));
