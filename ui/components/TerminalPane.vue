@@ -16,6 +16,7 @@
         <div
           class="terminal-info-pill"
           :class="{ 'tab-activity': tab._activity, dragging: pillDragging }"
+          :data-tooltip="pillTooltip"
           tabindex="-1"
           @mousedown="onPillMouseDown"
           @click="onPillClick"
@@ -31,13 +32,22 @@
         <button
           v-if="layoutStore.isSplitMode"
           type="button"
-          class="pill-split-close"
+          class="pill-close-btn pill-minus-btn"
           aria-label="Remove from split"
           data-tooltip="Remove from split"
           @pointerdown.stop="onSplitCloseDown"
           @pointerup.stop="onSplitCloseUp"
           @click.stop
         >&minus;</button>
+        <button
+          type="button"
+          class="pill-close-btn pill-tab-close-btn"
+          aria-label="Close tab"
+          data-tooltip="Close tab"
+          @pointerdown.stop="onTabCloseDown"
+          @pointerup.stop="onTabCloseUp"
+          @click.stop
+        >&times;</button>
       </div>
     </div>
   </div>
@@ -55,6 +65,8 @@ import { ACTIVE_FIT_DELAY_MS } from "../utils/constants.js";
 import { usePillDrag } from "../composables/usePillDrag.js";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useTerminalPaste } from "../composables/useTerminalPaste.js";
+import { useConfirm } from "../composables/useConfirm.js";
+import { confirmCloseTab } from "../utils/tab-close-confirm.js";
 import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.js";
 import { useCircleKeyPad } from "../composables/useCircleKeyPad.js";
 import CircleKeyPad from "./CircleKeyPad.vue";
@@ -72,6 +84,7 @@ const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 setTouchEnv(layoutStore.isTouchDevice);
 const workspaceStore = useWorkspaceStore();
+const { confirm } = useConfirm();
 
 const isDirty = computed(() => {
   if (!props.tab.workspace) return false;
@@ -86,6 +99,9 @@ const pillEl = ref(null);
 let activeFitTimer = null;
 
 const canDrag = computed(() => terminalStore.openTabs.length >= 1);
+const pillTooltip = computed(() =>
+  layoutStore.isTouchDevice ? "Tap for details" : "Drag to split  ·  Click for details",
+);
 
 const tabId = computed(() => props.tab.id);
 const { pillDragging, onPillMouseDown, onPillClick, onPillTouchStart, onPillTouchMove, onPillTouchEnd } = usePillDrag({
@@ -161,6 +177,21 @@ function onSplitCloseUp() {
   if (switchToId != null) {
     terminalStore.switchTab(switchToId);
   }
+}
+
+let tabClosePending = false;
+
+function onTabCloseDown(e) {
+  e.currentTarget.setPointerCapture(e.pointerId);
+  tabClosePending = true;
+}
+
+async function onTabCloseUp() {
+  if (!tabClosePending) return;
+  tabClosePending = false;
+  const result = await confirmCloseTab(confirm, props.tab);
+  if (result === true) emit("tab:close", { tab: props.tab });
+  else if (result === "refresh") emit("tab:refresh", { tab: props.tab });
 }
 
 function onPointerDown(e) {
@@ -357,7 +388,7 @@ defineExpose({
   opacity: 0.5;
 }
 
-.pill-split-close {
+.pill-close-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -365,17 +396,32 @@ defineExpose({
   width: 28px;
   flex-shrink: 0;
   padding: 0;
-  background: var(--error-bg-20);
-  border: 1px solid rgba(255, 85, 114, 0.4);
   border-radius: 999px;
-  color: var(--error);
   font-size: 14px;
   line-height: 1;
   cursor: pointer;
 }
 
+.pill-minus-btn {
+  background: rgba(245, 197, 66, 0.15);
+  border: 1px solid rgba(245, 197, 66, 0.45);
+  color: #f5c542;
+}
+
+.pill-tab-close-btn {
+  background: var(--error-bg-20);
+  border: 1px solid rgba(255, 85, 114, 0.4);
+  color: var(--error);
+}
+
 @media (hover: hover) and (pointer: fine) {
-  .pill-split-close:hover {
+  .pill-minus-btn:hover {
+    background: #f5c542;
+    border-color: #f5c542;
+    color: #1a1b26;
+  }
+
+  .pill-tab-close-btn:hover {
     background: var(--error);
     border-color: var(--error);
     color: #fff;
