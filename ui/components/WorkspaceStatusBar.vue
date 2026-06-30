@@ -14,22 +14,20 @@
           </button>
           <div class="status-divider"></div>
         </template>
-        <button type="button" class="status-nav-btn status-msg-btn" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
+        <button v-if="!isMobile || !isDirty" type="button" class="status-nav-btn status-msg-btn" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
           <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
           <span class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
         </button>
-        <template v-if="!isMobile || isDirty">
-          <div class="status-divider"></div>
-          <button type="button" class="status-nav-btn status-numstat-btn" tabindex="-1" aria-label="Changes" data-tooltip="Changes" @click="openFileModal('changes')">
-            <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
-            <span v-if="!isDirty || statusLoading" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Changes</span>
-            <template v-if="isDirty && !statusLoading">
-              <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
-              <span class="diff-num-plus">+{{ insertions }}</span>
-              <span class="diff-num-del">-{{ deletions }}</span>
-            </template>
-          </button>
-        </template>
+        <div v-if="!isMobile" class="status-divider"></div>
+        <button v-if="!isMobile || isDirty" type="button" class="status-nav-btn status-numstat-btn" :class="{ 'status-msg-btn': isMobile }" tabindex="-1" aria-label="Changes" data-tooltip="Changes" @click="openFileModal('changes')">
+          <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
+          <template v-if="isDirty && !statusLoading">
+            <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
+            <span class="diff-num-plus">+{{ insertions }}</span>
+            <span class="diff-num-del">-{{ deletions }}</span>
+          </template>
+          <span v-else-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Changes</span>
+        </button>
         <div class="status-divider"></div>
         <button type="button" class="status-nav-btn status-branch-btn" tabindex="-1" aria-label="Branches" data-tooltip="Branches" @click="openFileModal('branch')">
           <span class="mdi mdi-source-branch status-btn-icon" aria-hidden="true"></span>
