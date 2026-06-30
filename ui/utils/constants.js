@@ -28,7 +28,7 @@ export const RECONNECTING_OVERLAY_MIN_ATTEMPTS = 2;
 export const POLL_INTERVAL_MS = 5000;
 export const CWD_POLL_INTERVAL_MS = 2000;
 export const MOBILE_BREAKPOINT_PX = 768;
-export const INPUT_HISTORY_MAX = 20;
+export const INPUT_HISTORY_MAX = 100;
 export const GIT_LOG_ENTRIES_PER_PAGE = 30;
 
 export const TOAST_DEFAULT_DURATION_MS = 3000;
