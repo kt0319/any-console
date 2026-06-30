@@ -1,7 +1,7 @@
 <template>
   <div class="workspace-status-bar" :style="{ display: showHeader ? 'flex' : 'none' }">
     <template v-if="workspace && isGitRepo">
-      <div class="status-nav-group">
+      <div class="status-nav-group" ref="navGroupEl">
         <template v-if="showJobsFiles">
           <button type="button" class="status-nav-btn" aria-label="Jobs" data-tooltip="Jobs" @click="openFileModal('jobs')">
             <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
@@ -14,7 +14,7 @@
           </button>
           <div class="status-divider"></div>
         </template>
-        <button ref="msgBtnEl" type="button" class="status-nav-btn status-msg-btn" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
+        <button type="button" class="status-nav-btn status-msg-btn" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
           <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
           <span class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
         </button>
@@ -80,11 +80,12 @@ const { isMobile } = useIsMobile();
 const { apiGet } = useApi();
 const currentCwd = ref("");
 const showJobsFiles = ref(true);
-const msgBtnEl = ref(null);
+const navGroupEl = ref(null);
 
 let pollTimer = null;
 let cwdTimer = null;
-let roMsgBtn = null;
+let roNavGroup = null;
+let navGroupTimer = null;
 
 async function fetchCwd() {
   const tab = activeTab.value;
@@ -110,27 +111,31 @@ function stopPolling() {
   if (cwdTimer) { clearInterval(cwdTimer); cwdTimer = null; }
 }
 
-// msgBtnEl は workspace が確定してから DOM に現れるため watch で監視する
-watch(msgBtnEl, (el) => {
-  roMsgBtn?.disconnect();
-  roMsgBtn = null;
+// status-nav-group を観測する（Jobs/Files の表示切替で幅が変わらない安定した要素）。
+// History ボタン自体を観測するとJobs/Files 表示切替 → ボタン幅変化 → 再切替のループが起きる。
+watch(navGroupEl, (el) => {
+  roNavGroup?.disconnect();
+  roNavGroup = null;
+  if (navGroupTimer) { clearTimeout(navGroupTimer); navGroupTimer = null; }
   if (!el) return;
-  roMsgBtn = new ResizeObserver((entries) => {
+  roNavGroup = new ResizeObserver((entries) => {
     for (const e of entries) {
       const w = e.contentRect.width;
-      // ヒステリシス: Historyボタンが狭くなったら Jobs/Files を隠し、
-      // 十分な余裕が戻ったら再表示する（閾値を分けて振動を防ぐ）
-      if (w < 60) showJobsFiles.value = false;
-      else if (w > 100) showJobsFiles.value = true;
+      if (navGroupTimer) { clearTimeout(navGroupTimer); navGroupTimer = null; }
+      navGroupTimer = setTimeout(() => {
+        if (w < 230) showJobsFiles.value = false;
+        else if (w > 280) showJobsFiles.value = true;
+      }, 80);
     }
   });
-  roMsgBtn.observe(el);
+  roNavGroup.observe(el);
 });
 
 onMounted(() => { startPolling(); });
 onBeforeUnmount(() => {
   stopPolling();
-  roMsgBtn?.disconnect();
+  roNavGroup?.disconnect();
+  if (navGroupTimer) { clearTimeout(navGroupTimer); navGroupTimer = null; }
 });
 
 const workspaceStore = useWorkspaceStore();
