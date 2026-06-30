@@ -231,7 +231,7 @@ def _autoregister_device(request: Request, response: Response, source: str) -> d
 
 
 @app.get("/auth/check")
-def auth_check(request: Request, response: Response, auth_subject: str = Depends(verify_token)):
+async def auth_check(request: Request, response: Response, auth_subject: str = Depends(verify_token)):
     # auth_subject は verify_token の戻り値:
     #   - "tailscale:<login>" → Tailscale 経由
     #   - "device:<id>"       → 登録済みデバイス cookie
@@ -378,8 +378,10 @@ if __name__ == "__main__":
     ssl_keyfile = os.environ.get("SSL_KEYFILE")
     ssl_certfile = os.environ.get("SSL_CERTFILE")
     host, port = _resolve_bind()
+    ws_kwargs = {"ws_ping_interval": 30, "ws_ping_timeout": 60}
     if ssl_keyfile and ssl_certfile:
         uvicorn.run(app, host=host, port=port, proxy_headers=True, forwarded_allow_ips="127.0.0.1",
-                    ssl_keyfile=ssl_keyfile, ssl_certfile=ssl_certfile)
+                    ssl_keyfile=ssl_keyfile, ssl_certfile=ssl_certfile, **ws_kwargs)
     else:
-        uvicorn.run(app, host=host, port=port, proxy_headers=True, forwarded_allow_ips="127.0.0.1")
+        uvicorn.run(app, host=host, port=port, proxy_headers=True, forwarded_allow_ips="127.0.0.1",
+                    **ws_kwargs)
