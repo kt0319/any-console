@@ -45,8 +45,8 @@ export const DOUBLE_TAP_ZOOM_PREVENT_MS = 300;
 export const HOVER_MENU_CLOSE_DELAY_MS = 150;
 export const SESSION_SYNC_INTERVAL_MS = 5000;
 export const CONNECTIVITY_PING_INTERVAL_MS = 3000;
-export const CONNECTIVITY_PING_TIMEOUT_MS = 2000;
-export const CONNECTIVITY_OFFLINE_THRESHOLD = 2;
+export const CONNECTIVITY_PING_TIMEOUT_MS = 5000;
+export const CONNECTIVITY_OFFLINE_THRESHOLD = 3;
 
 export const LS_KEY_INPUT_HISTORY = "any_console_input_history";
 export const LS_KEY_TERMINAL_SETTINGS = "any_console_terminal_settings";
