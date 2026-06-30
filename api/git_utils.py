@@ -48,7 +48,11 @@ def run_git_raw(
 ) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["git", *args],
-        capture_output=True, text=text, timeout=timeout,
+        capture_output=True,
+        text=text,
+        encoding="utf-8" if text else None,
+        errors="replace" if text else None,
+        timeout=timeout,
         cwd=str(cwd), env=env,
     )
 
