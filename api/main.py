@@ -378,10 +378,10 @@ if __name__ == "__main__":
     ssl_keyfile = os.environ.get("SSL_KEYFILE")
     ssl_certfile = os.environ.get("SSL_CERTFILE")
     host, port = _resolve_bind()
-    ws_kwargs = {"ws_ping_interval": 30, "ws_ping_timeout": 60}
     if ssl_keyfile and ssl_certfile:
         uvicorn.run(app, host=host, port=port, proxy_headers=True, forwarded_allow_ips="127.0.0.1",
-                    ssl_keyfile=ssl_keyfile, ssl_certfile=ssl_certfile, **ws_kwargs)
+                    ssl_keyfile=ssl_keyfile, ssl_certfile=ssl_certfile,
+                    ws_ping_interval=30, ws_ping_timeout=60)
     else:
         uvicorn.run(app, host=host, port=port, proxy_headers=True, forwarded_allow_ips="127.0.0.1",
-                    **ws_kwargs)
+                    ws_ping_interval=30, ws_ping_timeout=60)
