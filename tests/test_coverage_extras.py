@@ -524,36 +524,6 @@ class TestSettingsImport:
         assert res.status_code == 200
 
 
-class TestRecentJobsEndpoint:
-    def test_get_empty(self, client):
-        from conftest import AUTH
-        res = client.get("/recent-jobs", headers=AUTH)
-        assert res.status_code == 200
-        assert res.json() == {"jobs": []}
-
-    def test_post_and_retrieve(self, client):
-        from conftest import AUTH
-        item = {
-            "key": "k1", "workspace": "ws", "wsIcon": "", "wsIconColor": "",
-            "jobName": "j1", "jobLabel": "", "jobIcon": "", "jobIconColor": "",
-            "jobCommand": "echo hi", "jobConfirm": False, "jobDetachedTab": False,
-        }
-        res = client.post("/recent-jobs", headers=AUTH, json=item)
-        assert res.status_code == 200
-        assert res.json()["jobs"][0]["key"] == "k1"
-
-    def test_post_deduplicates_same_key(self, client):
-        from conftest import AUTH
-        item = {
-            "key": "k1", "workspace": "ws", "wsIcon": "", "wsIconColor": "",
-            "jobName": "j1", "jobLabel": "", "jobIcon": "", "jobIconColor": "",
-            "jobCommand": "echo hi", "jobConfirm": False, "jobDetachedTab": False,
-        }
-        client.post("/recent-jobs", headers=AUTH, json=item)
-        client.post("/recent-jobs", headers=AUTH, json=item)
-        res = client.get("/recent-jobs", headers=AUTH)
-        assert len([j for j in res.json()["jobs"] if j["key"] == "k1"]) == 1
-
 
 class TestSnippetsEndpoint:
     def test_get_empty(self, client):
@@ -643,23 +613,10 @@ class TestRemapGlobalReferences:
         out = _remap_global_references({"workspace_order": ["old1", "old2", "untouched"]}, {"old1": "ID_1", "old2": "ID_2"})
         assert out["workspace_order"] == ["ID_1", "ID_2", "untouched"]
 
-    def test_remaps_recent_jobs_workspace(self):
-        from api.config_migrations import _remap_global_references
-        recent = [
-            {"key": "k1", "workspace": "old1", "jobName": "j"},
-            {"key": "k2", "workspace": "stays", "jobName": "j"},
-            "not-a-dict",
-        ]
-        out = _remap_global_references({"recent_jobs": recent}, {"old1": "ID_1"})
-        assert out["recent_jobs"][0]["workspace"] == "ID_1"
-        assert out["recent_jobs"][1]["workspace"] == "stays"
-        assert out["recent_jobs"][2] == "not-a-dict"
-
     def test_ignores_non_list_fields(self):
         from api.config_migrations import _remap_global_references
-        out = _remap_global_references({"workspace_order": "bad", "recent_jobs": "bad"}, {})
+        out = _remap_global_references({"workspace_order": "bad"}, {})
         assert out["workspace_order"] == "bad"
-        assert out["recent_jobs"] == "bad"
 
 
 class TestSettingsImportNonObjectEntry:
@@ -679,13 +636,6 @@ class TestJobsCommonEdgeCases:
         import json
         cfg = {"__global__": {section: value}}
         isolate_fs["config_file"].write_text(json.dumps(cfg), encoding="utf-8")
-
-    def test_get_recent_with_non_list_existing(self, client, isolate_fs):
-        from conftest import AUTH
-        self._write_raw_global(isolate_fs, "recent_jobs", "not-a-list")
-        res = client.get("/recent-jobs", headers=AUTH)
-        assert res.status_code == 200
-        assert res.json() == {"jobs": []}
 
     def test_get_snippets_with_non_list_existing(self, client, isolate_fs):
         from conftest import AUTH

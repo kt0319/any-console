@@ -1,28 +1,25 @@
 import { ref } from "vue";
-import { useAuthStore } from "../stores/auth.js";
-import { EP_RECENT_JOBS } from "../utils/endpoints.js";
+import { LS_KEY_RECENT_JOBS } from "../utils/constants.js";
 
 const MAX_RECENT = 8;
 
+/** @type {import("vue").Ref<Record<string, unknown>[]>} */
 const recentJobs = ref([]);
 let loaded = false;
 
 export function useRecentJobs() {
-  const auth = useAuthStore();
-
-  async function loadRecentJobs() {
+  function loadRecentJobs() {
     if (loaded) return;
     loaded = true;
     try {
-      const res = await auth.apiFetch(EP_RECENT_JOBS);
-      if (res?.ok) {
-        const data = await res.json();
-        recentJobs.value = (data.jobs || []).slice(0, MAX_RECENT);
-      }
-    } catch { /* ignore */ }
+      const raw = localStorage.getItem(LS_KEY_RECENT_JOBS);
+      recentJobs.value = raw ? JSON.parse(raw).slice(0, MAX_RECENT) : [];
+    } catch {
+      recentJobs.value = [];
+    }
   }
 
-  async function recordJob(ws, job) {
+  function recordJob(ws, job) {
     const item = {
       key: `${ws.name}:${job.name}`,
       workspace: ws.name,
@@ -38,15 +35,11 @@ export function useRecentJobs() {
       jobConfirm: job.confirm ?? null,
       jobDetachedTab: !!job.detached_tab,
     };
+    const jobs = recentJobs.value.filter((j) => j.key !== item.key);
+    jobs.unshift(item);
+    recentJobs.value = jobs.slice(0, MAX_RECENT);
     try {
-      const res = await auth.apiFetch(EP_RECENT_JOBS, {
-        method: "POST",
-        body: item,
-      });
-      if (res?.ok) {
-        const data = await res.json();
-        recentJobs.value = (data.jobs || []).slice(0, MAX_RECENT);
-      }
+      localStorage.setItem(LS_KEY_RECENT_JOBS, JSON.stringify(recentJobs.value));
     } catch { /* ignore */ }
   }
 

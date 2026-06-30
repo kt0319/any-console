@@ -48,6 +48,7 @@ export const CONNECTIVITY_PING_INTERVAL_MS = 3000;
 export const CONNECTIVITY_PING_TIMEOUT_MS = 5000;
 export const CONNECTIVITY_OFFLINE_THRESHOLD = 3;
 
+export const LS_KEY_RECENT_JOBS = "any_console_recent_jobs";
 export const LS_KEY_INPUT_HISTORY = "any_console_input_history";
 export const LS_KEY_TERMINAL_SETTINGS = "any_console_terminal_settings";
 export const LS_KEY_ACTIVE_SESSION = "any_console_active_session";

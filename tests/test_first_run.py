@@ -23,11 +23,6 @@ class TestFreshStart:
         assert res.status_code == 200
         assert res.json() == {}
 
-    def test_recent_jobs_is_empty(self, client):
-        res = client.get("/recent-jobs", headers=AUTH)
-        assert res.status_code == 200
-        assert res.json()["jobs"] == []
-
     def test_snippets_is_empty(self, client):
         res = client.get("/snippets", headers=AUTH)
         assert res.status_code == 200
@@ -209,34 +204,5 @@ class TestFirstJob:
         assert res.json()["exit_code"] == 0
         assert "first-run-ok" in res.json()["stdout"]
 
-    def test_recent_jobs_recorded_after_execution(self, client, workspace):
-        res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
-            "label": "Tracked Job",
-            "command": "echo tracked",
-            "icon": "mdi-play-circle-outline",
-            "confirm": False,
-        })
-        job_name = res.json()["name"]
-
-        # recent に記録する
-        client.post("/recent-jobs", headers=AUTH, json={
-            "key": f"test-ws:{job_name}",
-            "workspace": "test-ws",
-            "wsIcon": "mdi-console",
-            "wsIconColor": "",
-            "jobName": job_name,
-            "jobLabel": "Tracked Job",
-            "jobIcon": "mdi-play-circle-outline",
-            "jobIconColor": "",
-            "jobCommand": "echo tracked",
-            "jobConfirm": False,
-            "jobDetachedTab": False,
-        })
-
-        res = client.get("/recent-jobs", headers=AUTH)
-        jobs = res.json()["jobs"]
-        assert len(jobs) == 1
-        assert jobs[0]["jobLabel"] == "Tracked Job"
-        assert jobs[0]["jobIcon"] == "mdi-play-circle-outline"
 
 
