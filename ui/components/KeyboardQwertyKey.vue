@@ -25,7 +25,10 @@
         </div>
       </div>
       <div class="quick-extra-row">
-        <div v-for="navKey in navKeys" :key="navKey.key" class="quick-key quick-fn-key" @touchstart.prevent @touchend.prevent="sendKeyToTerminal({ key: navKey.key })" @touchcancel="onQuickKeyCancel($event)" @click="sendKeyToTerminal({ key: navKey.key })">
+        <div class="quick-key quick-fn-key" @touchstart.prevent @touchend.prevent="(e) => onNavCameraEnd(e)" @touchcancel="onQuickKeyCancel($event)" @click="openCamera">
+          <span class="flick-main"><span class="mdi mdi-camera"></span></span>
+        </div>
+        <div v-for="navKey in navKeys" :key="navKey.key" class="quick-key quick-fn-key" @touchstart.prevent @touchend.prevent="(e) => onNavKeyEnd(e, navKey.key)" @touchcancel="onQuickKeyCancel($event)" @click="sendKeyToTerminal({ key: navKey.key })">
           <span class="flick-main" style="font-size:11px">{{ navKey.label }}</span>
         </div>
       </div>
@@ -35,11 +38,11 @@
         v-if="ri === 2"
         class="quick-key"
         @touchstart.prevent="onModifierKeyStart"
-        @touchend.prevent="(e) => onModifierKeyEnd(e, openCamera)"
+        @touchend.prevent="(e) => onModifierKeyEnd(e, () => sendKeyToTerminal({ key: 'Escape' }))"
         @touchcancel="onQuickKeyCancel($event)"
-        @click="openCamera"
+        @click="sendKeyToTerminal({ key: 'Escape' })"
       >
-        <span class="flick-main"><span class="mdi mdi-camera"></span></span>
+        <span class="flick-main">Esc</span>
       </div>
       <template v-for="(keyDef, ci) in row" :key="ci">
         <div
@@ -317,6 +320,22 @@ function onModifierKeyEnd(e, fn) {
   void el.offsetWidth;
   el.classList.add("tap-bounce");
   fn();
+}
+
+function onNavKeyEnd(e, key) {
+  const el = e.currentTarget;
+  el.classList.remove("tap-bounce");
+  void el.offsetWidth;
+  el.classList.add("tap-bounce");
+  sendKeyToTerminal({ key });
+}
+
+function onNavCameraEnd(e) {
+  const el = e.currentTarget;
+  el.classList.remove("tap-bounce");
+  void el.offsetWidth;
+  el.classList.add("tap-bounce");
+  openCamera();
 }
 
 const navKeys = [
