@@ -202,3 +202,22 @@
 - **Consequences**: Mac mini 等を常時起動サーバとして一級運用できる（ログイン不要・再起動後も自動復帰）。`setup`/`update`/`https-setup` も OS 分岐で一貫して動く。新たに launchd という OS 固有機能を抱える（plist 生成・`launchctl` 操作・ログファイル運用）が、これは systemd の対称物であり「クロスプラットフォーム志向（CLAUDE.md）」の範囲内 — プロダクトの思想（単一プロセス・単一トークン・モバイル一級）は変えていない。MacBook はスリープ・持ち歩きで「外出先から監視」に向かないため、README で Mac mini / Studio 常時起動を推奨と明記。`pgrep` 判定はフォアグラウンド `run` も検出するが、稼働中であることに変わりはなく実害なし。
 - **Alternatives considered**: **LaunchAgent**（`~/Library/LaunchAgents`、sudo 不要）— シンプルだが GUI ログインセッションが必要で、ヘッドレス Mac mini では自動ログイン設定が前提になり「ログイン不要で常駐」という要件を満たせない。**Docker for Mac** — 既存方針どおりホストの鍵・shell 環境を引き込めず実運用に不向き（デモ専用）。**macOS は `run` のみで非対応のまま** — 常駐・自動起動が無く、サーバ用途に耐えない。
 
+---
+
+### 18. Raspberry Pi 5 でのスレッドプール枯渇と "connection lost" 誤検知への対応
+
+- **Status**: Accepted
+- **Date**: 2026-07
+- **Context**: Raspberry Pi 5（4コア）上で any-console を運用中、特定のワークスペース（dotfiles）を開いた直後に「connection lost」が頻発した。調査の結果、複数の問題が重なっていた。
+  1. **スレッドプール枯渇**: Python の `ThreadPoolExecutor` デフォルトサイズは `min(32, cpu+4)`。4コア RPi では 8 スレッド。FastAPI の同期 `def` ルートはスレッドプールで実行されるため、`/github/issues`・`/github/pulls`（gh CLI を呼ぶエンドポイント）が旧タイムアウト 30 秒で複数同時起動するとスレッドが埋まり、`/auth/check`（フロントが 3 秒ごとに呼ぶ疎通確認エンドポイント、同期 `def`）がキューで詰まって 2 秒タイムアウトに引っかかった。
+  2. **バイナリ diff でサーバがクラッシュ**: dotfiles リポジトリには暗号鍵・証明書・バイナリバックアップが含まれており、`subprocess.run(text=True)` がデフォルト UTF-8 デコードに失敗して `UnicodeDecodeError` を送出し、git diff エンドポイントが 500 を返した（クラッシュではなく都度エラー）。ただしエラーログが大量発生してサーバ負荷が上がった。
+  3. **フロントの誤検知閾値が厳しすぎた**: `CONNECTIVITY_PING_TIMEOUT_MS=2000`（タイムアウト 2 秒）かつ `CONNECTIVITY_OFFLINE_THRESHOLD=2`（連続 2 回失敗でオフライン判定）は、RPi の一時的な高負荷で容易に到達できた。
+- **Decision**: 以下の 5 点を並行して修正した。
+  1. **`/auth/check` を `async def` に変更**（`api/main.py`）: イベントループで直接実行されスレッドプールを消費しなくなる。疎通確認はほぼ即時完了するため async 化に適している。
+  2. **gh CLI タイムアウトを 30 秒→8 秒に短縮**（`api/common.py` の `GITHUB_CLI_TIMEOUT_SEC`）: スレッド占有時間の上限を下げてプール枯渇を緩和する。8 秒は遅い回線でも gh が正常応答する十分な時間。
+  3. **バイナリ diff を文字化けで通過させる**（`api/git_utils.py` の `run_git_raw`）: `encoding="utf-8", errors="replace"` を指定し、バイナリバイトを `U+FFFD` に置換して続行する。diff 内容として意味はないが 500 エラーは出なくなる。
+  4. **WebSocket ping 設定を明示**（`api/main.py`）: `ws_ping_interval=30, ws_ping_timeout=60` を uvicorn.run に追加。デフォルト（interval=20s, timeout=20s）より長くして、短い中断でターミナルセッションが切断されないようにする。
+  5. **フロント疎通判定閾値を緩和**（`ui/utils/constants.js`）: `CONNECTIVITY_PING_TIMEOUT_MS: 2000→5000`、`CONNECTIVITY_OFFLINE_THRESHOLD: 2→3`。RPi の一時的な高負荷（2〜3 秒）を「オフライン」と誤判定しなくなる。
+- **Consequences**: dotfiles ワークスペースを開いても「connection lost」が発生しなくなった。gh CLI が詰まっても `/auth/check` はスレッドプールを使わないため疎通確認が影響を受けない。バイナリファイルを含む diff は文字化けになるが、UI に表示する差分として許容範囲。ping timeout を長くしたことで、ネットワークが数十秒切断した場合にセッション終了の検知が遅れる可能性はあるが、モバイル運用では誤検知コストの方が大きいと判断した。
+- **Alternatives considered**: **スレッドプールを拡張**（`asyncio.get_event_loop().set_default_executor(ThreadPoolExecutor(max_workers=N))`）— 根本対策ではなく、gh CLI タスクが増えると同じ問題が再発する。**gh CLI 呼び出しをキャッシュ**— 有効だが実装コストが高く、今回はタイムアウト短縮と async 化で十分だった。**gh CLI を非同期プロセスに変更**（`asyncio.create_subprocess_exec`）— より根本的だが全呼び出し箇所の改修が必要。現状のタイムアウト短縮で実用上問題ないため先送り。
+
