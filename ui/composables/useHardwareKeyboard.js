@@ -1,7 +1,9 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useKeyboard } from "./useKeyboard.js";
+import { useTerminalStore } from "../stores/terminal.js";
 import { keyDefToAnsi } from "../utils/key-ansi.js";
 import { isEditableTarget } from "../utils/dom.js";
+import { isTouchOnly } from "../utils/keyboard.js";
 import {
   MODIFIER_KEYS,
   isComposingEvent,
@@ -20,6 +22,7 @@ import {
  */
 export function useHardwareKeyboard({ inputEl, composing }) {
   const { sendKeyToTerminal } = useKeyboard();
+  const terminalStore = useTerminalStore();
   const hasHardwareKeyboard = ref(false);
 
   function isFocused() {
@@ -42,6 +45,8 @@ export function useHardwareKeyboard({ inputEl, composing }) {
     hasHardwareKeyboard.value = true;
     if (isComposingEvent(e, composing.value)) return;
     if (MODIFIER_KEYS.has(e.key)) return;
+    // Cmd/Win キー併用のショートカットはブラウザ・アプリに委ねる
+    if (e.metaKey) return;
     const keyDef = { key: e.key, ctrl: e.ctrlKey, shift: e.shiftKey };
     const seq = keyDefToAnsi(keyDef);
     if (seq == null) return;
@@ -49,8 +54,25 @@ export function useHardwareKeyboard({ inputEl, composing }) {
     sendKeyToTerminal(keyDef);
   }
 
-  onMounted(() => window.addEventListener("keydown", onGlobalKeydown, true));
-  onBeforeUnmount(() => window.removeEventListener("keydown", onGlobalKeydown, true));
+  function onGlobalClick(e) {
+    if (isTouchOnly()) return;
+    const target = /** @type {HTMLElement | null} */ (e.target);
+    if (!target) return;
+    // 編集可能要素・ダイアログ内のクリックは xterm に戻さない
+    if (isEditableTarget(target)) return;
+    if (target.closest("[role='dialog']")) return;
+    const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
+    try { tab?.term?.focus(); } catch {}
+  }
+
+  onMounted(() => {
+    window.addEventListener("keydown", onGlobalKeydown, true);
+    document.addEventListener("click", onGlobalClick, true);
+  });
+  onBeforeUnmount(() => {
+    window.removeEventListener("keydown", onGlobalKeydown, true);
+    document.removeEventListener("click", onGlobalClick, true);
+  });
 
   return { hasHardwareKeyboard };
 }
