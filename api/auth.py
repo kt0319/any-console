@@ -2,6 +2,7 @@ import hmac
 import ipaddress
 import json
 import logging
+import os
 import secrets
 from pathlib import Path
 from typing import Mapping, Optional
@@ -21,8 +22,15 @@ COOKIE_DEVICE_SECRET = "any_console_secret"  # noqa: S105
 # 受信した HTTP ヘッダにこれが含まれていれば「Tailscale 経由で認証済みのユーザ」だが、
 # 信頼するのは trusted な接続元（loopback または Tailscale CGNAT 範囲）からのみ。
 # 任意のクライアントが付けられるヘッダなので、信頼ソースの判定なしに使うと危険。
+#
+# さらに接続元判定だけでは防げない構成がある: Tailscale 以外のトンネル・プロキシ
+# （ssh -L / cloudflared / XFF を付けない nginx 等）を同ホストに立てると、外部からの
+# リクエストが loopback 発として届き、偽装ヘッダで認証を素通しできてしまう。
+# tailnet 上の他端末（CGNAT 帯）も Serve を経由せず直接ヘッダを付けられる。
+# このため Tailscale ヘッダによる自動認証は opt-in とし、デフォルトでは信頼しない。
 TAILSCALE_HEADER_USER = "tailscale-user-login"
 TAILSCALE_HEADER_NAME = "tailscale-user-name"
+ENV_TRUST_TAILSCALE = "ANY_CONSOLE_TRUST_TAILSCALE_AUTH"
 # 100.64.0.0/10 は CGNAT 帯。Tailscale は tailnet 内の各端末にこの範囲を割り当てる。
 # Tailscale Serve / Funnel 経由のリクエストは tailscaled が同ホスト loopback に
 # プロキシするケースが多いため、loopback も信頼ソースに含める。
@@ -39,6 +47,31 @@ def _load_token_from_file() -> str:
 
 
 ANY_CONSOLE_TOKEN: str = _load_token_from_file()
+
+
+# 認証はリクエストごとに通るため、config 読み込みは初回のみ行い結果をキャッシュする。
+# 変更（config.json の trust_tailscale_auth / 環境変数）の反映には再起動が必要。
+_TRUST_TAILSCALE_CACHE: bool | None = None
+
+
+def _is_tailscale_trust_enabled() -> bool:
+    """Tailscale ヘッダによる自動認証が明示的に有効化されているか。
+
+    デフォルトは無効。環境変数 ANY_CONSOLE_TRUST_TAILSCALE_AUTH=1 または
+    config.json の __global__.trust_tailscale_auth: true で有効化する。
+    無効時は Tailscale ヘッダを一切信頼せず、token / device cookie 認証に落ちる。
+    """
+    global _TRUST_TAILSCALE_CACHE
+    if _TRUST_TAILSCALE_CACHE is None:
+        if os.environ.get(ENV_TRUST_TAILSCALE, "").strip() == "1":
+            _TRUST_TAILSCALE_CACHE = True
+        else:
+            try:
+                from .config import load_global_config_section
+                _TRUST_TAILSCALE_CACHE = bool(load_global_config_section("trust_tailscale_auth", False))
+            except OSError:
+                _TRUST_TAILSCALE_CACHE = False
+    return _TRUST_TAILSCALE_CACHE
 
 
 def _is_trusted_proxy_source(client_host: str) -> bool:
@@ -65,11 +98,14 @@ def _is_trusted_proxy_source(client_host: str) -> bool:
 def _tailscale_user(client_host: str, headers: Mapping[str, str]) -> str | None:
     """信頼できる接続元からのリクエストに Tailscale-User-Login があれば返す。
 
-    SECURITY: ヘッダ単独では信頼しない。`_is_trusted_proxy_source` で接続元を
-    絞り、Tailscale Serve / tailscaled 経由が確実な場合のみ採用する。
+    SECURITY: ヘッダ単独では信頼しない。まず opt-in（`_is_tailscale_trust_enabled`）
+    を要求し、その上で `_is_trusted_proxy_source` で接続元を絞る。接続元判定だけでは
+    loopback 上の非 Tailscale プロキシ経由の偽装を防げないため、デフォルトは無効。
     fastapi / starlette のヘッダ名は case-insensitive だが、テストの簡便さの
     ため小文字キーで参照する。
     """
+    if not _is_tailscale_trust_enabled():
+        return None
     if not _is_trusted_proxy_source(client_host):
         return None
     user = headers.get(TAILSCALE_HEADER_USER, "").strip()
