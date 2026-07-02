@@ -231,3 +231,14 @@
 - **Consequences**: 端末が実際に流れている間は負荷でオフライン誤検知しない（生きた WS があれば HTTP 判定を短絡）。常時 HTTP ポーリングが消え、通信も減る。半開き接続（サーバハング等で FIN が来ない）は keepalive 無音で検知でき、uvicorn の ping-timeout(60s) を待たずに再接続できる。生存判定の分岐が端末ストア（`openTabs` / `tab._lastWriteAt` / `tab.ws`）に依存するため、監視 composable が terminal store を参照する結合が生まれる。keepalive を 15s に縮めた分だけ idle 時の空フレーム送出が増えるが、ペイロード 0 で無視できる。
 - **Alternatives considered**: **閾値・タイムアウトの継続チューニング** — 誤検知の窓を動かすだけで、監視の二重化という根本を残す。**HTTP ポーリングのみを高速化/低速化** — WS の実状態と乖離した別経路である点は変わらず、負荷時の誤検知は消えない。**WS 上に独自の ping/pong 制御メッセージを実装** — 端末ストリームは pty の生バイトを運ぶため制御フレームの多重化が要り侵襲的。既存の idle keepalive（空フレーム）を activity シグナルに流用すれば足りる。**サーバの全 git/gh エンドポイントを専用 executor へ async 移行**（または gh CLI 結果のキャッシュ、#18 の Alternatives 参照）— 生存パスは #18 の `/auth/check` async 化と本項の WS 一次情報源化で既に隔離されており、connection lost 誤検知に対する追加効果は無い。実機のスレッドプールは 8 枠と小さく枯渇し得るが、それは status 等 *他の* 同期エンドポイントの堅牢化であり、worktree 並列運用（エージェント司令塔）regime で `status ポーリングのキャッシュ化` とセットで入れるのが適切。単独では痛みの無い所に広範リファクタを足すことになり、CLAUDE.md の「大規模リファクタ回避」に反するため先送りする。
 
+---
+
+### 20. git ステータスは FS 監視 + WebSocket push でリアルタイム配信する
+
+- **Status**: Accepted
+- **Date**: 2026-07
+- **Context**: dirty 判定や ahead/behind（Push/Pull ボタン）の更新が、クライアントの 5 秒ポーリング（`POLL_INTERVAL_MS`）とサーバの TTL キャッシュ（`GIT_INFO_CACHE_TTL_SEC`=5s）の重なりで最悪 10 秒近く遅れていた。ターミナル内でエージェントがファイルを書き換える・コミットする使い方が主流のため、UI 操作を伴わない変更はポーリング周期まで反映されない。
+- **Decision**: `api/git_watch.py` を追加し、watchfiles でワークスペースの作業ツリーと `.git` の要所（`HEAD` / `index` / `refs/` / `FETCH_HEAD` 等）を監視する。変更のあったワークスペースだけ `git_info` を再計算し、前回送信スナップショットと差分があれば WebSocket（`/workspaces/statuses/ws`、認証・keepalive はターミナル WS と同方式）で購読クライアントへ push する。API 経由の git 操作は `invalidate_git_info` からの nudge で FS イベントを待たずに即 push。購読者がいる間は定期 `git fetch`（`GIT_AUTO_FETCH_INTERVAL_SEC`=180s、`GIT_TERMINAL_PROMPT=0`）で behind 判定も自動更新する。監視・自動 fetch は購読者ゼロで全停止する。フロントは受信ステータスをストアへ即時マージし、WS 接続中は既存ポーリングを停止（切断中はポーリングがフォールバック）。
+- **Consequences**: ファイル編集・コミット・push/pull がサブ秒〜1 秒程度で UI に反映される（実測: 編集 ~90ms、コミット ~270ms）。watchfiles（Rust 製 notify、wheel 配布あり）への依存が増えるが、未インストールでも起動でき、push が fetch/API 契機のみに劣化してポーリングが下支えする。巨大リポジトリ多数登録時は inotify 上限に達しうるが、その場合も監視エラーをログして再試行し、ポーリングへ劣化するだけで壊れない。linked worktree の git 状態（本体側 `.git/worktrees/`）の変更は、ベースに属する worktree ワークスペースの再計算にも展開する。
+- **Alternatives considered**: **ポーリング間隔と TTL の短縮** — 負荷が線形に増える割に「リアルタイム」にはならない対症療法。**サーバ側で全ワークスペースを短周期ポーリング** — git subprocess を常時多数起動することになり、アイドル時のコストがゼロにならない。**pure Python の FS 監視自作**（mtime 走査）— 大きなツリーで走査コストが高く、watchfiles の方が枯れている。**SSE（Server-Sent Events）** — 認証済み WS 基盤（`verify_ws_token`・cookie 認証・keepalive 方式）が既にあり、EventSource はヘッダ認証不可でトークンを URL に晒す必要が出るため WS に揃えた。
+

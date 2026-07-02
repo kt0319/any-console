@@ -4,6 +4,9 @@ websockets>=12,<17
 pydantic>=2,<3
 python-multipart>=0.0.5
 cryptography>=41
+# Filesystem watching for realtime git status push (api/git_watch.py).
+# The app still starts without it — status push degrades to fetch/API triggers.
+watchfiles>=0.21,<2
 
 # Push notifications need pywebpush too — see requirements-optional.txt.
 # It pulls a native dependency (http-ece) that can fail to build on minimal

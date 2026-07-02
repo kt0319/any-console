@@ -27,6 +27,7 @@ export const EP_RUN = "/run";
 export const EP_WORKSPACES = "/workspaces";
 export const EP_WORKSPACES_SUGGEST = "/workspaces/suggest";
 export const EP_WORKSPACES_STATUSES = "/workspaces/statuses";
+export const EP_WORKSPACES_STATUSES_WS = "/workspaces/statuses/ws";
 export const EP_WORKSPACE_ORDER = "/workspace-order";
 export const EP_GROUPS = "/groups";
 export const EP_GROUP_ORDER = "/group-order";

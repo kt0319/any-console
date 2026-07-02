@@ -30,6 +30,7 @@ from ..git_utils import (
     git_worktree_list,
     worktree_display_name,
 )
+from ..git_watch import notify_workspaces_changed
 from ..icons import normalize_icon
 from ..validators import validate_workspace_name
 
@@ -218,6 +219,7 @@ def update_workspace_config_endpoint(name: str, body: UpdateConfigRequest):
     if body.path is not None:
         _apply_path_update(config, ws_id, body.path)
     save_workspace_config(name, config)
+    notify_workspaces_changed()
     logger.info("workspace config updated workspace=%s", name)
     return {"status": "ok"}
 
@@ -244,6 +246,7 @@ def add_workspace(body: AddWorkspaceRequest):
     while new_id in entries:
         new_id = generate_workspace_id()
     save_workspace_config(new_id, {"name": display_name, "path": str(abs_path)})
+    notify_workspaces_changed()
     logger.info("workspace registered id=%s name=%s path=%s", new_id, display_name, abs_path)
     return {"status": "ok", "id": new_id, "name": display_name}
 
@@ -252,6 +255,7 @@ def add_workspace(body: AddWorkspaceRequest):
 def delete_workspace(name: str):
     ensure_workspace_exists(name)
     delete_workspace_config(name)
+    notify_workspaces_changed()
     logger.info("workspace deleted name=%s", name)
     return {"status": "ok"}
 

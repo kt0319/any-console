@@ -26,7 +26,19 @@ from .errors import bad_request, too_large
 from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
 from .routers import devices as devices_router
-from .routers import dispatch, git, github, groups, job_runner, jobs, settings, system, terminal, workspaces
+from .routers import (
+    dispatch,
+    git,
+    github,
+    groups,
+    job_runner,
+    jobs,
+    settings,
+    status_stream,
+    system,
+    terminal,
+    workspaces,
+)
 from .routers import preview as preview_router
 from .routers import push as push_router
 
@@ -171,6 +183,8 @@ async def lifespan(app: FastAPI):
     start_scanner()
     yield
     stop_scanner()
+    from .git_watch import shutdown as git_watch_shutdown
+    git_watch_shutdown()
     from .terminal_session import TERMINAL_SESSIONS, _detach_pty_bridge, sessions_lock
     with sessions_lock:
         sessions = list(TERMINAL_SESSIONS.values())
@@ -198,6 +212,7 @@ app.include_router(devices_router.router)
 app.include_router(preview_router.router)
 app.include_router(terminal.router)
 app.include_router(terminal.ws_router)
+app.include_router(status_stream.ws_router)
 app.include_router(system.router)
 app.include_router(settings.router)
 app.include_router(push_router.router)
