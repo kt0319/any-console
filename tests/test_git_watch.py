@@ -14,6 +14,7 @@ from api.git_watch import (
     collect_watch_targets,
     is_relevant_change,
     match_workspaces,
+    stream_watching,
     watch_available,
     watch_roots,
 )
@@ -36,6 +37,7 @@ def _reset_git_watch_state():
     git_watch._loop = None
     git_watch._targets = []
     git_watch._restart_event = None
+    git_watch._watch_failed = False
 
 
 class TestIsRelevantChange:
@@ -120,6 +122,21 @@ class TestMatchWorkspaces:
         # ベースをもつ worktree ワークスペースへも展開する
         names = match_workspaces({shared_ref}, self._targets())
         assert names == {"main", "main [feat]"}
+
+    def test_shared_ref_with_registered_worktree_includes_dynamic_ones(self):
+        # 登録済み worktree の common 候補（base/.git）が最長一致で勝つ構成でも、
+        # 共有 ref の変更はベース＋動的 worktree（common を持たない）へ展開される
+        targets = [
+            WatchTarget("main", Path("/repos/main")),
+            WatchTarget(
+                "reg-wt", Path("/repos/reg-wt"), base="main",
+                gitdir=Path("/repos/main/.git/worktrees/reg-wt"),
+                common=Path("/repos/main/.git"),
+            ),
+            WatchTarget("main [feat]", Path("/repos/main-feat"), base="main"),
+        ]
+        names = match_workspaces({"/repos/main/.git/FETCH_HEAD"}, targets)
+        assert names == {"main", "reg-wt", "main [feat]"}
 
     def test_unmatched_path_is_dropped(self):
         assert match_workspaces({"/elsewhere/file"}, self._targets()) == set()
@@ -447,7 +464,7 @@ class TestStatusStreamWebSocket:
         with client.websocket_connect(f"/workspaces/statuses/ws?token={TOKEN}") as ws:
             # 接続直後に FS 監視の有無が hello で通知される
             hello = ws.receive_json()
-            assert hello == {"type": "hello", "watching": watch_available()}
+            assert hello == {"type": "hello", "watching": stream_watching()}
             assert git_watch.subscriber_count() == 1
         # 切断後は購読解除される（タスク停止は _reset_git_watch_state が担保）
         assert git_watch.subscriber_count() == 0
@@ -455,6 +472,25 @@ class TestStatusStreamWebSocket:
     def test_watch_available_reflects_watchfiles_install(self):
         # CI / 開発環境では requirements.txt により watchfiles が入っている
         assert watch_available() is True
+        assert stream_watching() is True
+
+    def test_watch_failure_notifies_subscribers_to_resume_polling(self):
+        # awatch の失敗中は hello(watching=False) が再送され、クライアントは
+        # ポーリングを再開できる。復帰時にも watching=True が通知される
+        async def run():
+            fake = FakeWS()
+            git_watch._subscribers.add(fake)
+            await git_watch._set_watch_failed(True)
+            assert stream_watching() is False
+            assert fake.sent == [{"type": "hello", "watching": False}]
+            # 同じ状態の再設定では再送しない
+            await git_watch._set_watch_failed(True)
+            assert len(fake.sent) == 1
+            await git_watch._set_watch_failed(False)
+            assert stream_watching() is True
+            assert fake.sent[-1] == {"type": "hello", "watching": True}
+
+        asyncio.run(run())
 
     def test_hello_send_failure_still_unsubscribes(self, client, monkeypatch):
         # hello 送信前に切断されたクライアントが _subscribers に残らないこと

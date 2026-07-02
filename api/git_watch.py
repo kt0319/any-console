@@ -170,12 +170,12 @@ def _names_for_hit(
         if _GIT_SEG in p:
             names.update(c.name for c in targets if c.base == t.name)
         return names
-    # kind == "common": 共有 .git は同じ .git を共有する全 worktree ＋ ベース本体へ
+    # kind == "common": 共有 .git の変更（FETCH_HEAD・refs 等）は、同じ .git を共有する
+    # 全 worktree ＋ ベース本体 ＋ ベースに属する動的 worktree（common を持たない）へ展開する
     names = {c.name for c in targets if c.common is not None and str(c.common) == prefix}
     if t.base:
         names.add(t.base)
-        if _GIT_WORKTREES_SEG in p:
-            names.update(c.name for c in targets if c.base == t.base)
+        names.update(c.name for c in targets if c.base == t.base)
     return names
 
 
@@ -209,14 +209,34 @@ def match_workspaces(changed_paths: set[str], targets: list[WatchTarget]) -> set
 
 
 _has_watchfiles: bool | None = None
+# awatch が失敗している間 True（inotify 上限・ディレクトリ消失等）。
+# 健全性が確認できる（イベントが届く）まで sticky に保ち、安全側＝ポーリング継続に倒す。
+_watch_failed = False
 
 
 def watch_available() -> bool:
-    """FS 監視（watchfiles）が使えるか。クライアントへの hello 通知にも使う。"""
+    """FS 監視（watchfiles）が使えるか。"""
     global _has_watchfiles
     if _has_watchfiles is None:
         _has_watchfiles = importlib.util.find_spec("watchfiles") is not None
     return _has_watchfiles
+
+
+def stream_watching() -> bool:
+    """クライアントへ通知する「FS 監視が実効か」の現在値。
+
+    False の間、クライアントはポーリングを継続する（hello メッセージで通知）。
+    """
+    return watch_available() and not _watch_failed
+
+
+async def _set_watch_failed(failed: bool) -> None:
+    """監視の失敗状態を更新し、変化があれば購読者へ hello を再送する。"""
+    global _watch_failed
+    if _watch_failed == failed:
+        return
+    _watch_failed = failed
+    await _broadcast({"type": "hello", "watching": stream_watching()})
 
 
 _subscribers: set[WebSocket] = set()
@@ -397,10 +417,14 @@ async def _watch_loop() -> None:  # pragma: no cover - OS の FS イベントに
                     step=GIT_WATCH_STEP_MS,
                     stop_event=_restart_event,
                 ):
+                    # イベントが届いた＝監視は健全。失敗状態から復帰していれば通知する
+                    await _set_watch_failed(False)
                     await _handle_changes(changes, targets)
             except OSError as e:
-                # inotify 上限やディレクトリ消失など。少し待って対象を再収集する。
+                # inotify 上限やディレクトリ消失など。ポーリング再開をクライアントへ
+                # 通知したうえで、少し待って対象を再収集・再試行する。
                 logger.warning("git watch error (retrying): %s", e)
+                await _set_watch_failed(True)
                 await asyncio.sleep(GIT_WATCH_RETRY_SEC)
     except asyncio.CancelledError:
         pass
