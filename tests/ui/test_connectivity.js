@@ -8,7 +8,13 @@ import {
 } from "../../ui/utils/connectivity.js";
 
 const STALE = 35000;
-const openTab = (overrides = {}) => ({ ws: {}, _wsDisposed: false, _lastWriteAt: 1000, ...overrides });
+const WS_OPEN = 1;
+const WS_CONNECTING = 0;
+const WS_CLOSING = 2;
+const openTab = (overrides = {}) => {
+  const { readyState = WS_OPEN, ...rest } = overrides;
+  return { ws: { readyState }, _wsDisposed: false, _lastWriteAt: 1000, ...rest };
+};
 
 // ── isTabWsAlive ──
 
@@ -36,6 +42,24 @@ describe("isTabWsAlive", () => {
   it("null/undefined tab は死んでいる", () => {
     expect(isTabWsAlive(null, 1000, STALE)).toBe(false);
     expect(isTabWsAlive(undefined, 1000, STALE)).toBe(false);
+  });
+
+  it("CONNECTING は生存扱いしない（握手中）", () => {
+    expect(isTabWsAlive(openTab({ readyState: WS_CONNECTING, _lastWriteAt: 1000 }), 1000, STALE)).toBe(false);
+  });
+
+  it("CLOSING は生存扱いしない", () => {
+    expect(isTabWsAlive(openTab({ readyState: WS_CLOSING, _lastWriteAt: 1000 }), 1000, STALE)).toBe(false);
+  });
+
+  it("受信が stale でも送信(_lastSendAt)が最近なら生存（エコー無し入力）", () => {
+    const tab = openTab({ _lastWriteAt: 0, _lastSendAt: 1000 });
+    expect(isTabWsAlive(tab, 1000 + STALE - 1, STALE)).toBe(true);
+  });
+
+  it("受信・送信ともに stale なら死んでいる", () => {
+    const tab = openTab({ _lastWriteAt: 0, _lastSendAt: 0 });
+    expect(isTabWsAlive(tab, STALE + 1, STALE)).toBe(false);
   });
 });
 
@@ -69,6 +93,18 @@ describe("staleAliveTabs", () => {
     const closed = openTab({ ws: null, _lastWriteAt: 0 });
     const result = staleAliveTabs([fresh, stale, disposed, closed], now, STALE);
     expect(result).toEqual([stale]);
+  });
+
+  it("送信が最近のタブは強制クローズ対象にしない（エコー無し入力を守る）", () => {
+    const now = 1000 + STALE;
+    const sending = openTab({ _lastWriteAt: 0, _lastSendAt: now });
+    expect(staleAliveTabs([sending], now, STALE)).toEqual([]);
+  });
+
+  it("CONNECTING は強制クローズ対象にしない（握手中）", () => {
+    const now = 1000 + STALE;
+    const connecting = openTab({ readyState: WS_CONNECTING, _lastWriteAt: 0 });
+    expect(staleAliveTabs([connecting], now, STALE)).toEqual([]);
   });
 
   it("空/未定義配列は空配列", () => {
