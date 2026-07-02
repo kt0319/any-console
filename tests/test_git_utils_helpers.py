@@ -192,6 +192,14 @@ class TestGitRepoQueries:
         assert d["name"] == "ws1"
         assert d["is_git_repo"] is True
 
+    def test_git_info_unborn_head_resolves_branch(self, git_workspace):
+        # コミットが無い（unborn HEAD）でも symbolic-ref からブランチ名を補完し、
+        # last_commit_message は None（未コミット）を返す。
+        info = git_info(git_workspace)
+        assert info["is_git_repo"] is True
+        assert info["branch"]  # rev-parse は失敗するが symbolic-ref で補完される
+        assert info["last_commit_message"] is None
+
 
 class TestInvalidateGitInfo:
     def test_invalidate_existing_workspace(self, workspace):

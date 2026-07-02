@@ -83,7 +83,12 @@ export const useWorkspaceStore = defineStore("workspace", () => {
       const ws = allWorkspaces.value.find((w) => w.name === status.name);
       if (!ws) continue;
       for (const [k, v] of Object.entries(status)) {
+        // 良い既存値を transient な null で潰さないため null はスキップするが、
+        // 未設定（undefined）のフィールドには null も反映する。未コミットのリポジトリは
+        // last_commit_message が null で返り、これを反映しないと statusLoading が
+        // 解けず「Loading」表示が残るため。
         if (v != null) ws[k] = v;
+        else if (ws[k] === undefined) ws[k] = v;
       }
       const entry = {};
       for (const field of STATUS_CACHE_FIELDS) {

@@ -37,6 +37,16 @@ describe("workspace store: applyStatuses", () => {
     expect(ws1.last_commit_message).toBe("feat: x");
   });
 
+  it("未設定フィールドには null も反映する（未コミットのリポジトリ）", () => {
+    store.applyStatuses([
+      { name: "ws1", branch: "main", last_commit_message: null, clean: true },
+    ]);
+    const ws1 = store.allWorkspaces.find((w) => w.name === "ws1");
+    // undefined ではなく null になることで statusLoading が解ける
+    expect(ws1.last_commit_message).toBeNull();
+    expect(ws1.branch).toBe("main");
+  });
+
   it("未知のワークスペース名は無視する", () => {
     expect(() => store.applyStatuses([{ name: "nope", clean: false }])).not.toThrow();
   });

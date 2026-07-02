@@ -175,6 +175,8 @@ def _apply_ahead_behind(info: dict, revlist_out: str | None, run_git) -> None:
 
 _GIT_INFO_QUERIES: dict[str, tuple[str, ...]] = {
     "branch": ("rev-parse", "--abbrev-ref", "HEAD"),
+    # 未コミット（unborn HEAD）では rev-parse が失敗するため symbolic-ref で補完する。
+    "symbolic_branch": ("symbolic-ref", "--short", "HEAD"),
     "commit": ("log", "-1", "--format=%cI"),
     "message": ("log", "-1", "--format=%s"),
     "remote": ("remote", "get-url", "origin"),
@@ -191,7 +193,7 @@ def _populate_git_info(info: dict, directory: Path, run_git) -> None:
     futures = {key: _GIT_INFO_EXECUTOR.submit(run_git, *args) for key, args in _GIT_INFO_QUERIES.items()}
     out = {key: _stdout_if_ok(f) for key, f in futures.items()}
 
-    _apply_branch_and_remote(info, out["branch"], out["remote_branches"])
+    _apply_branch_and_remote(info, out["branch"] or out["symbolic_branch"], out["remote_branches"])
     _apply_head_commit(info, out["commit"], out["message"])
     _apply_upstream(info, out["upstream"])
     _apply_github_url(info, out["remote"])
