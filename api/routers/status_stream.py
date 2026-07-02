@@ -29,11 +29,11 @@ async def workspace_statuses_ws(websocket: WebSocket, token: str = ""):
 
     await websocket.accept()
     await subscribe(websocket)
-    # FS 監視が使えない環境ではクライアントはポーリングを継続する必要があるため、
-    # 接続直後に監視の有無を通知する
-    await websocket.send_json({"type": "hello", "watching": watch_available()})
     logger.info("status stream connected watching=%s", watch_available())
     try:
+        # FS 監視が使えない環境ではクライアントはポーリングを継続する必要があるため、
+        # 接続直後に監視の有無を通知する（送信失敗時も finally で必ず購読解除する）
+        await websocket.send_json({"type": "hello", "watching": watch_available()})
         while True:
             try:
                 msg = await asyncio.wait_for(websocket.receive(), timeout=WS_PING_INTERVAL_SEC)
@@ -47,4 +47,9 @@ async def workspace_statuses_ws(websocket: WebSocket, token: str = ""):
         pass
     finally:
         unsubscribe(websocket)
+        # 相手切断後の close は RuntimeError になるため握りつぶす（terminal_ws と同様）
+        try:
+            await websocket.close()
+        except (WebSocketDisconnect, RuntimeError, OSError):
+            pass
         logger.info("status stream disconnected")

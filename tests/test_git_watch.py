@@ -106,8 +106,20 @@ class TestMatchWorkspaces:
         assert names == {"nested"}
 
     def test_plain_change_maps_to_owner(self):
+        # 作業ツリー内の変更はベース本体のみ（worktree の状態には影響しない）
         names = match_workspaces({"/repos/main/src/a.py"}, self._targets())
         assert names == {"main"}
+
+    @pytest.mark.parametrize("shared_ref", [
+        "/repos/main/.git/FETCH_HEAD",
+        "/repos/main/.git/refs/remotes/origin/main",
+        "/repos/main/.git/packed-refs",
+    ])
+    def test_shared_ref_change_expands_to_worktrees(self, shared_ref):
+        # fetch 等による共有 git 状態の変更は worktree の ahead/behind にも影響するため、
+        # ベースをもつ worktree ワークスペースへも展開する
+        names = match_workspaces({shared_ref}, self._targets())
+        assert names == {"main", "main [feat]"}
 
     def test_unmatched_path_is_dropped(self):
         assert match_workspaces({"/elsewhere/file"}, self._targets()) == set()
@@ -443,3 +455,16 @@ class TestStatusStreamWebSocket:
     def test_watch_available_reflects_watchfiles_install(self):
         # CI / 開発環境では requirements.txt により watchfiles が入っている
         assert watch_available() is True
+
+    def test_hello_send_failure_still_unsubscribes(self, client, monkeypatch):
+        # hello 送信前に切断されたクライアントが _subscribers に残らないこと
+        from starlette.websockets import WebSocket
+
+        async def broken_send_json(self, data, mode="text"):
+            raise WebSocketDisconnect(1006)
+
+        monkeypatch.setattr(WebSocket, "send_json", broken_send_json)
+        with pytest.raises((WebSocketDisconnect, Exception)):
+            with client.websocket_connect(f"/workspaces/statuses/ws?token={TOKEN}") as ws:
+                ws.receive_json()
+        assert git_watch.subscriber_count() == 0

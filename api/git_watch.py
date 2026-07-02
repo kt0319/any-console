@@ -64,6 +64,7 @@ _GIT_WATCH_BASENAMES = frozenset({
 # エディタの一時ファイル等（watchfiles DefaultFilter 相当）
 _IGNORE_ENTITY_RE = re.compile(r"\.py[cod]$|\.sw.$|~$|^\.#|^\.DS_Store$")
 
+_GIT_SEG = f"{os.sep}.git{os.sep}"
 _GIT_WORKTREES_SEG = f"{os.sep}.git{os.sep}worktrees{os.sep}"
 
 
@@ -164,7 +165,9 @@ def _names_for_hit(
         return {t.name}
     if kind == "path":
         names = {t.name}
-        if _GIT_WORKTREES_SEG in p:
+        # .git 配下（FETCH_HEAD・refs/remotes 等の共有 git 状態）の変更は、この
+        # リポジトリをベースとする worktree の ahead/behind にも影響するため展開する
+        if _GIT_SEG in p:
             names.update(c.name for c in targets if c.base == t.name)
         return names
     # kind == "common": 共有 .git は同じ .git を共有する全 worktree ＋ ベース本体へ
