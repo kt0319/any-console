@@ -193,6 +193,7 @@ async function onTabCloseUp() {
   const result = await confirmCloseTab(confirm, props.tab);
   if (result === true) emit("tab:close", { tab: props.tab });
   else if (result === "refresh") emit("tab:refresh", { tab: props.tab });
+  else if (result === "detach") terminalStore.detachTab(props.tab.id);
 }
 
 function onPointerDown(e) {

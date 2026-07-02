@@ -16,6 +16,12 @@ export function confirmCloseTab(confirm, tab) {
       icon: "mdi-refresh",
       desc: "Refresh: reconnects and redraws the terminal. The running session is preserved. Use this when the display looks broken.",
     },
+    extra2: {
+      label: "Detach",
+      value: "detach",
+      icon: "mdi-minus-circle-outline",
+      desc: "Detach: hides the tab without ending the session. Reopen it anytime from the Detached tabs section in Tabs & Sessions.",
+    },
     ok: { label: "Close", icon: "mdi-close", danger: true },
   });
 }

@@ -40,6 +40,8 @@ export function useGlobalShortcuts({ closeTab }) {
         workspaceStore.selectedWorkspace = activeTab?.workspace || null;
       } else if (result === "refresh") {
         emit("tab:refresh", { tab });
+      } else if (result === "detach") {
+        terminalStore.detachTab(tab.id);
       }
     } else if (e.code === "KeyN") {
       e.preventDefault();

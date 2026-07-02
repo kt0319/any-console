@@ -8,11 +8,17 @@
       aria-describedby="confirm-msg"
     >
       <p id="confirm-msg" class="confirm-message">{{ message }}</p>
-      <div v-if="extraButton?.desc" class="confirm-extra-desc">{{ extraButton.desc }}</div>
+      <div v-if="extraButton?.desc || extra2Button?.desc" class="confirm-extra-desc">
+        <div v-if="extraButton?.desc">{{ extraButton.desc }}</div>
+        <div v-if="extra2Button?.desc">{{ extra2Button.desc }}</div>
+      </div>
       <div class="confirm-buttons">
         <button ref="cancelBtn" class="confirm-btn confirm-btn-cancel" @click="onCancel">Cancel</button>
         <button v-if="extraButton" class="confirm-btn confirm-btn-extra" @click="onExtra">
           <span v-if="extraButton.icon" class="mdi" :class="extraButton.icon"></span>{{ extraButton.label }}
+        </button>
+        <button v-if="extra2Button" class="confirm-btn confirm-btn-extra2" @click="onExtra2">
+          <span v-if="extra2Button.icon" class="mdi" :class="extra2Button.icon"></span>{{ extra2Button.label }}
         </button>
         <button class="confirm-btn" :class="okButton?.danger ? 'confirm-btn-danger' : 'confirm-btn-ok'" @click="onOk">
           <span v-if="okButton?.icon" class="mdi" :class="okButton.icon"></span>{{ okButton?.label || "OK" }}
@@ -28,7 +34,7 @@ import { useConfirm } from "../composables/useConfirm.js";
 import { focusFirstFocusable, trapFocusWithin } from "../composables/useModal.js";
 import { isTouchOnly, listenForEscape } from "../utils/keyboard.js";
 
-const { visible, message, extraButton, okButton, onOk, onCancel, onExtra } = useConfirm();
+const { visible, message, extraButton, extra2Button, okButton, onOk, onCancel, onExtra, onExtra2 } = useConfirm();
 const cancelBtn = ref(null);
 const dialogEl = ref(null);
 
@@ -149,6 +155,12 @@ onUnmounted(() => {
   background: transparent;
   color: var(--success);
   border-color: var(--success);
+}
+
+.confirm-btn-extra2 {
+  background: transparent;
+  color: #fde047;
+  border-color: #fde047;
 }
 
 .confirm-btn-danger {

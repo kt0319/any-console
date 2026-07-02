@@ -4,12 +4,14 @@ import { createPendingPromise } from "../utils/pending-promise.js";
 const visible = ref(false);
 const message = ref("");
 const extraButton = ref(/** @type {{ label: string, value: string, icon: string, desc: string }|null} */ (null));
+const extra2Button = ref(/** @type {{ label: string, value: string, icon: string, desc: string }|null} */ (null));
 const okButton = ref(/** @type {{ label: string, icon: string, danger: boolean }|null} */ (null));
 const pending = createPendingPromise();
 
 function clear() {
   visible.value = false;
   extraButton.value = null;
+  extra2Button.value = null;
   okButton.value = null;
 }
 
@@ -19,6 +21,7 @@ export function useConfirm() {
    * @param {{
    *   ok?: { label: string, icon?: string, danger?: boolean },
    *   extra?: { label: string, value?: string, icon?: string, desc?: string },
+   *   extra2?: { label: string, value?: string, icon?: string, desc?: string },
    * }} [opts]
    * @returns {Promise<boolean | string>}
    */
@@ -30,6 +33,14 @@ export function useConfirm() {
           value: opts.extra.value ?? "extra",
           icon: opts.extra.icon || "",
           desc: opts.extra.desc || "",
+        }
+      : null;
+    extra2Button.value = opts.extra2
+      ? {
+          label: opts.extra2.label,
+          value: opts.extra2.value ?? "extra2",
+          icon: opts.extra2.icon || "",
+          desc: opts.extra2.desc || "",
         }
       : null;
     okButton.value = opts.ok
@@ -45,5 +56,10 @@ export function useConfirm() {
     clear();
     pending.settle(v);
   }
-  return { visible, message, extraButton, okButton, confirm, onOk, onCancel, onExtra };
+  function onExtra2() {
+    const v = extra2Button.value?.value || "extra2";
+    clear();
+    pending.settle(v);
+  }
+  return { visible, message, extraButton, extra2Button, okButton, confirm, onOk, onCancel, onExtra, onExtra2 };
 }
