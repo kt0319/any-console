@@ -4,8 +4,11 @@ import {
   CONNECTIVITY_PING_INTERVAL_MS as PING_INTERVAL_MS,
   CONNECTIVITY_PING_TIMEOUT_MS as PING_TIMEOUT_MS,
   CONNECTIVITY_OFFLINE_THRESHOLD as OFFLINE_THRESHOLD,
+  WS_STALE_THRESHOLD_MS,
 } from "../utils/constants.js";
 import { emit } from "../app-bridge.js";
+import { useTerminalStore } from "../stores/terminal.js";
+import { anyTabWsAlive, staleAliveTabs, decideOffline } from "../utils/connectivity.js";
 
 const isOffline = ref(false);
 let pingTimerId = null;
@@ -13,33 +16,71 @@ let consecutiveFailures = 0;
 
 export function useConnectivityMonitor() {
 
-  async function checkConnectivity() {
-    if (!navigator.onLine) {
-      consecutiveFailures = OFFLINE_THRESHOLD;
-      isOffline.value = true;
-      return;
-    }
+  // WS が生存判定を語れない時だけ叩く HTTP フォールバック。到達可否を返す。
+  async function probeServer() {
     try {
       const ctrl = new AbortController();
       const tid = setTimeout(() => ctrl.abort(), PING_TIMEOUT_MS);
-      await fetch(EP_AUTH_CHECK, {
-        method: "GET",
-        credentials: "same-origin",
-        signal: ctrl.signal,
-      });
-      clearTimeout(tid);
-      const wasFailing = consecutiveFailures > 0;
-      consecutiveFailures = 0;
-      isOffline.value = false;
-      // サーバが復活した瞬間にバックオフ待ちの WS を即時再接続させる。
-      // restart 直後の retry 大量化（5秒×N回 待ち）を縮める。
-      if (wasFailing) emit("connectivity:back");
+      try {
+        await fetch(EP_AUTH_CHECK, {
+          method: "GET",
+          credentials: "same-origin",
+          signal: ctrl.signal,
+        });
+      } finally {
+        clearTimeout(tid);
+      }
+      return true;
     } catch {
-      consecutiveFailures++;
-      if (consecutiveFailures >= OFFLINE_THRESHOLD) {
-        isOffline.value = true;
+      return false;
+    }
+  }
+
+  function currentTabs() {
+    try {
+      return useTerminalStore().openTabs;
+    } catch {
+      // Pinia 未初期化（起動直後など）は WS 情報なしとして扱う。
+      return [];
+    }
+  }
+
+  async function checkConnectivity() {
+    const navigatorOnline = navigator.onLine;
+    const now = performance.now();
+    const tabs = currentTabs();
+
+    // 半開き接続（open だが keepalive も来ない）を強制的に閉じ、backoff 再接続へ回す。
+    if (navigatorOnline) {
+      for (const tab of staleAliveTabs(tabs, now, WS_STALE_THRESHOLD_MS)) {
+        try { tab.ws.close(); } catch { /* already closing */ }
       }
     }
+
+    const wsAlive = navigatorOnline && anyTabWsAlive(tabs, now, WS_STALE_THRESHOLD_MS);
+
+    // 生きた WS があれば HTTP は叩かない（常時ポーリングを止め、負荷時の誤検知も消す）。
+    let reachable = wsAlive;
+    if (navigatorOnline && !wsAlive) {
+      reachable = await probeServer();
+    }
+
+    if (reachable) {
+      consecutiveFailures = 0;
+    } else if (navigatorOnline) {
+      consecutiveFailures++;
+    }
+
+    const wasOffline = isOffline.value;
+    isOffline.value = decideOffline({
+      navigatorOnline,
+      anyWsAlive: wsAlive,
+      consecutiveFailures,
+      threshold: OFFLINE_THRESHOLD,
+    });
+
+    // オフライン→オンライン復帰時、backoff 待ちの WS を即時再接続させる。
+    if (wasOffline && !isOffline.value) emit("connectivity:back");
   }
 
   function startPing() {
@@ -54,8 +95,13 @@ export function useConnectivityMonitor() {
     }
   }
 
-  function onOnline() { checkConnectivity(); }
+  function onOnline() {
+    consecutiveFailures = 0;
+    checkConnectivity();
+    // ネットワーク復帰時は待ち状態の WS を即座に叩き起こす。
+    emit("connectivity:back");
+  }
   function onOffline() { isOffline.value = true; }
 
-  return { isOffline, startPing, stopPing, onOnline, onOffline };
+  return { isOffline, startPing, stopPing, onOnline, onOffline, checkConnectivity };
 }

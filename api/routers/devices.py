@@ -45,7 +45,7 @@ class RegisterBody(BaseModel):
 
 
 def _is_https(request: Request) -> bool:
-    return request.url.scheme == "https"
+    return bool(request.url.scheme == "https")
 
 
 def _set_device_cookies(response: Response, request: Request, device_id: str, raw_secret: str) -> None:

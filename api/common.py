@@ -53,7 +53,9 @@ TMUX_META_ENV_NAMES = (
     "TMUX_JOB_NAME", "TMUX_JOB_LABEL", "TMUX_DETACHED",
 )
 
-WS_PING_INTERVAL_SEC = 25
+# WS が idle でもこの間隔で空フレームを送り、クライアントの生存監視に
+# 一定周期のハートビートを供給する（フロントの WS_STALE_THRESHOLD_MS はこの約2回分）。
+WS_PING_INTERVAL_SEC = 15
 
 BRANCH_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_./-]+$")
 COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{4,40}$|^stash@\{\d+\}$")

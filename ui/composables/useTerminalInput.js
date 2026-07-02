@@ -7,12 +7,18 @@ export function bindTerminalInput(tab) {
 
   const encoder = new TextEncoder();
 
+  // WS へ入力を送る唯一の経路。送信時刻を記録し、生存監視が「送信も activity」
+  // として扱えるようにする（エコー無しプログラムへの連続入力で誤切断しないため）。
+  const sendInput = (bytes) => {
+    if (tab.ws?.readyState !== WebSocket.OPEN) return;
+    tab.ws.send(bytes);
+    tab._lastSendAt = performance.now();
+  };
+
   tab.term?.attachCustomKeyEventHandler((e) => {
     if (e.type === "keydown" && e.key === "Enter" && e.shiftKey) {
       e.preventDefault();
-      if (tab.ws?.readyState === WebSocket.OPEN) {
-        tab.ws.send(encoder.encode("\n"));
-      }
+      sendInput(encoder.encode("\n"));
       return false;
     }
     // 選択がある状態で Ctrl/Cmd+C はコピーに割り当てる（無選択なら SIGINT を送る）
@@ -51,19 +57,15 @@ export function bindTerminalInput(tab) {
   });
 
   tab.term?.onData((data) => {
-    if (tab.ws?.readyState === WebSocket.OPEN) {
-      tab.ws.send(encoder.encode(data));
-    }
+    sendInput(encoder.encode(data));
   });
 
   tab.term?.onResize(({ cols, rows }) => {
-    if (tab.ws?.readyState === WebSocket.OPEN) {
-      const payload = encoder.encode(JSON.stringify({ type: "resize", cols, rows }));
-      const msg = new Uint8Array(1 + payload.length);
-      msg[0] = WS_MSG_RESIZE;
-      msg.set(payload, 1);
-      tab.ws.send(msg);
-    }
+    const payload = encoder.encode(JSON.stringify({ type: "resize", cols, rows }));
+    const msg = new Uint8Array(1 + payload.length);
+    msg[0] = WS_MSG_RESIZE;
+    msg.set(payload, 1);
+    sendInput(msg);
   });
 
   tab.term?.onKey(() => {
@@ -91,6 +93,7 @@ export function bindTerminalElement(tab) {
     e.stopPropagation();
     if (tab.ws?.readyState === WebSocket.OPEN) {
       tab.ws.send(encoder.encode(text));
+      tab._lastSendAt = performance.now();
     }
   }, true);
 }
