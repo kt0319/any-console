@@ -54,6 +54,8 @@ export const RADIAL_SPECIAL_PRESETS = [
   { id: "github",    label: "GitHub",     action: "git:openGitHub" },
   { id: "closetab",  label: "Close Tab",  action: "tab:close" },
   { id: "hidetab",   label: "Detach Tab", action: "tab:hide" },
+  { id: "nexttab",   label: "Next Tab",   action: "tab:next" },
+  { id: "prevtab",   label: "Prev Tab",   action: "tab:prev" },
   { id: "splittoggle", label: "Split",    action: "layout:splitToggle" },
   { id: "newterm",   label: "New Term",   action: "terminal:newForWorkspace" },
 ];

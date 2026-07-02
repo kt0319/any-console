@@ -112,6 +112,17 @@ export function useCircleKeyPad() {
       if (tab?.id != null) terminalStore.detachTab(tab.id);
       return;
     }
+    if (s.action === "tab:next" || s.action === "tab:prev") {
+      const tabs = terminalStore.openTabs;
+      if (tabs.length < 2) return;
+      const refId = tab?.id ?? terminalStore.activeTabId;
+      const cur = tabs.findIndex((t) => t.id === refId);
+      if (cur < 0) return;
+      const delta = s.action === "tab:next" ? 1 : -1;
+      const next = tabs[(cur + delta + tabs.length) % tabs.length];
+      if (next) bridgeEmit("tab:select", { tab: next });
+      return;
+    }
     if (s.action === "layout:splitToggle") {
       if (layoutStore.isSplitMode) {
         layoutStore.exitSplitMode?.();
