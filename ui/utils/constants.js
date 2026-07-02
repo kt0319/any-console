@@ -47,6 +47,9 @@ export const SESSION_SYNC_INTERVAL_MS = 5000;
 export const CONNECTIVITY_PING_INTERVAL_MS = 3000;
 export const CONNECTIVITY_PING_TIMEOUT_MS = 5000;
 export const CONNECTIVITY_OFFLINE_THRESHOLD = 3;
+// WS が open でも受信フレーム（keepalive 含む）がこの時間途絶したら半開き接続とみなす。
+// サーバの idle keepalive 間隔（WS_PING_INTERVAL_SEC=15s）の約2回分＋余裕。
+export const WS_STALE_THRESHOLD_MS = 35000;
 
 export const LS_KEY_RECENT_JOBS = "any_console_recent_jobs";
 export const LS_KEY_INPUT_HISTORY = "any_console_input_history";

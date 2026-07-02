@@ -78,6 +78,8 @@ export function useTerminal() {
 
     ws.onopen = () => {
       debugLog("[WS] open", tab.sessionId?.slice(-8), `${Math.round(performance.now() - wsOpenedAt)}ms`);
+      // 生存監視の起点。最初のフレーム受信前に stale 判定されないよう open 時刻を記録する。
+      tab._lastWriteAt = performance.now();
       tab._reconnectAttempts = 0;
       fitTerminal(tab, { force: true });
       sendResize(tab);
