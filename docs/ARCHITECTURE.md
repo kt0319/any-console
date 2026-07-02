@@ -27,7 +27,6 @@ ui/                           Frontend (Vue 3 + Pinia, built with Vite)
   composables/                Reusable logic (useApi, useTerminal, useModal, etc.)
   utils/                      Pure functions, constants, endpoints
   styles/                     Global CSS
-docker/                       Dockerfile, compose.yml
 docs/                         ARCHITECTURE.md, DECISIONS.md, A11Y_AUDIT.md
 config.json                   Config file (auto-generated, .gitignore'd)
 data/auth.json                Token storage (.gitignore'd)

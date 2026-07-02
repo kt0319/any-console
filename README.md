@@ -43,18 +43,14 @@ Website: <https://any-console.highedge.net/>
 |------------|-----------|--------|
 | **systemd** (first-class) | Linux | Supported. Daily-use target. |
 | **launchd** (first-class) | macOS | Supported. Ideal for an always-on Mac (e.g. a Mac mini server). |
-| **Docker** | Linux / macOS / Windows | Demo / sandbox only — not suitable for real workspaces. |
 
-A first-class host needs Linux or macOS. Browser access from any OS (macOS / Windows / iOS / Android) is fully supported and is the intended client experience. Docker exists to let curious users try the UI without provisioning a real host; the host's workspaces, SSH keys, git/gh config, and shell environment are intentionally not threaded into the container.
+A first-class host needs Linux or macOS. Browser access from any OS (macOS / Windows / iOS / Android) is fully supported and is the intended client experience.
 
 > **macOS note:** an always-on Mac mini / Mac Studio is the sweet spot. The `launchd` service is registered as a `LaunchDaemon`, so it starts at boot and survives without an interactive login. A MacBook that sleeps or travels is a poor fit for the "check from your phone while away" use case.
 
 ## Setup
 
-**Which one should I use?**
-
-- **You have a Linux or macOS host and want to actually use any-console** → `./any-console setup`. It registers a systemd (Linux) or launchd (macOS) service. Your SSH keys, git/gh config, and shell environment all carry over; tmux sessions persist across reboots.
-- **You just want to try the UI from any OS** → Docker. Runs in seconds on macOS / Windows / Linux, but the container has no access to your real workspaces, keys, or shell — only the bundled `./work` directory.
+On a Linux or macOS host, `./any-console setup` registers a systemd (Linux) or launchd (macOS) service. Your SSH keys, git/gh config, and shell environment all carry over; tmux sessions persist across reboots.
 
 ### systemd (Linux) — first-class
 
@@ -77,20 +73,6 @@ cd ~/any-console
 Same one-step flow as Linux. On macOS, `setup` registers a `launchd` `LaunchDaemon` (sudo required) that runs as your user and starts at boot — no interactive login needed, which is what makes a headless Mac mini work. Logs go to `logs/any-console.log` (`./any-console logs` tails it). Manage the service with the same `./any-console start|stop|restart|status|logs` commands.
 
 Best paired with an always-on Mac mini / Mac Studio. Install the dependencies first with `brew install python node git tmux gh`.
-
-### Docker (Linux / macOS / Windows) — demo / sandbox
-
-```bash
-git clone https://github.com/kt0319/any-console.git
-cd any-console
-docker compose -f docker/compose.yml up -d
-```
-
-Open `http://<host>:8888`.
-
-The default compose file mounts only `./work` inside the repository as the workspace root. The container has its own user, no host SSH keys, no host `git`/`gh` config, and no access to the host shell environment. That makes Docker fine for trying any-console out, but ill-suited for daily work on your real projects.
-
-The `./any-console` CLI does not manage Docker containers. Use `docker compose` directly for start/stop/logs, and `git pull && docker compose ... up -d --build` to update.
 
 ### Requirements
 
@@ -155,7 +137,7 @@ The default port is 8888. To change it, set `__global__.port` in `config.json`.
 
 ## Commands
 
-For the systemd (Linux) and launchd (macOS) setups, all operations go through the `./any-console` command, which detects the OS and drives the right service manager. (Docker users: manage with `docker compose` instead — see [Platform support](#platform-support).)
+For the systemd (Linux) and launchd (macOS) setups, all operations go through the `./any-console` command, which detects the OS and drives the right service manager.
 
 ```
 ./any-console setup      First-time setup (install deps + build + register service)
@@ -184,7 +166,6 @@ Runs `git pull` → update deps → build → restart in one shot. Skips steps w
 ```
 api/      Backend (FastAPI)
 ui/       Frontend (Vue 3 + Pinia, built with Vite)
-docker/   Docker files
 docs/     Architecture & design docs
 ```
 
