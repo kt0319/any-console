@@ -36,6 +36,17 @@ def invalidate_git_info(workspace_name: str):
         _git_info_cache.invalidate(str(ws_path))
     else:
         _git_info_cache.invalidate(workspace_name)
+    # API 経由の git 操作はここを必ず通るので、ステータスストリーム購読者へ
+    # FS イベントを待たずに即時 push する（git_watch → git_info の一方向依存を
+    # 保つため遅延 import）。
+    from .git_watch import nudge_workspace
+    nudge_workspace(workspace_name)
+
+
+def refresh_git_info(directory: Path, name: str) -> dict[str, Any]:
+    """キャッシュを破棄して git_info を再計算する（ステータスストリーム用）。"""
+    _git_info_cache.invalidate(str(directory))
+    return git_info_to_status_dict(directory, name)
 
 
 _FUTURE_TIMEOUT_SEC = GIT_QUICK_TIMEOUT_SEC + 2

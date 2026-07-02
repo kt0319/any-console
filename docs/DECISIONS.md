@@ -242,3 +242,14 @@
 - **Consequences**: loopback 上の非 Tailscale プロキシや tailnet 他端末からのヘッダ偽装による認証バイパスが、デフォルト構成では成立しなくなる。従来ヘッダ自動認証に依存していた利用者は、フラグを立てるか、各デバイスで token を1度入力する移行が必要（README にリスクと併せて明記）。有効化の変更に再起動が要る非対称性は、認証パスに毎リクエストのファイル I/O を入れないための意図的な代償。
 - **Alternatives considered**: **従来どおりデフォルト有効のまま README で警告** — 「よくある構成変更が静かに認証を無効化する」footgun が残り、警告は読まれない前提に立つべき。**`tailscale whois` API で接続元を照合** — 偽装耐性は上がるが tailscaled への依存・レイテンシ・障害モードが増え、個人ツールには過剰。**loopback を信頼ソースから外し CGNAT のみ信頼** — Tailscale Serve は loopback 経由で届くため XFF の解釈に依存することになり、構成による挙動差が読みにくい。opt-in の方が判断が単純で説明可能。
 
+---
+
+### 21. git ステータスは FS 監視 + WebSocket push でリアルタイム配信する
+
+- **Status**: Accepted
+- **Date**: 2026-07
+- **Context**: dirty 判定や ahead/behind（Push/Pull ボタン）の更新が、クライアントの 5 秒ポーリング（`POLL_INTERVAL_MS`）とサーバの TTL キャッシュ（`GIT_INFO_CACHE_TTL_SEC`=5s）の重なりで最悪 10 秒近く遅れていた。ターミナル内でエージェントがファイルを書き換える・コミットする使い方が主流のため、UI 操作を伴わない変更はポーリング周期まで反映されない。
+- **Decision**: `api/git_watch.py` を追加し、watchfiles でワークスペースの作業ツリーと `.git` の要所（`HEAD` / `index` / `refs/` / `FETCH_HEAD` 等）を監視する。変更のあったワークスペースだけ `git_info` を再計算し、前回送信スナップショットと差分があれば WebSocket（`/workspaces/statuses/ws`、認証・keepalive はターミナル WS と同方式）で購読クライアントへ push する。API 経由の git 操作は `invalidate_git_info` からの nudge で FS イベントを待たずに即 push。購読者がいる間は定期 `git fetch`（`GIT_AUTO_FETCH_INTERVAL_SEC`=180s、`GIT_TERMINAL_PROMPT=0`）で behind 判定も自動更新する。監視・自動 fetch は購読者ゼロで全停止する。サーバは接続直後に hello メッセージで FS 監視の有無（watchfiles の有無）を通知し、フロントは**監視が有効なときだけ**既存ポーリングを停止する（切断中・監視無効時はポーリングがフォールバック）。受信ステータスはストアへ即時マージする。linked worktree の git 状態は本体側 `.git/worktrees/` にあるため、worktree ワークスペース（動的検出・登録済みの両方）はベースとの対応を保持し、ベース未登録の場合は共有 `.git` を監視ルートに追加する。
+- **Consequences**: ファイル編集・コミット・push/pull がサブ秒〜1 秒程度で UI に反映される（実測: 編集 ~90ms、コミット ~270ms）。watchfiles（Rust 製 notify、wheel 配布あり）への依存が増えるが、未インストールでも起動でき、push が fetch/API 契機のみに劣化してポーリングが下支えする。巨大リポジトリ多数登録時は inotify 上限に達しうるが、その場合も監視エラーをログして再試行し、ポーリングへ劣化するだけで壊れない。linked worktree の git 状態（本体側 `.git/worktrees/`）の変更は、ベースに属する worktree ワークスペースの再計算にも展開する。
+- **Alternatives considered**: **ポーリング間隔と TTL の短縮** — 負荷が線形に増える割に「リアルタイム」にはならない対症療法。**サーバ側で全ワークスペースを短周期ポーリング** — git subprocess を常時多数起動することになり、アイドル時のコストがゼロにならない。**pure Python の FS 監視自作**（mtime 走査）— 大きなツリーで走査コストが高く、watchfiles の方が枯れている。**SSE（Server-Sent Events）** — 認証済み WS 基盤（`verify_ws_token`・cookie 認証・keepalive 方式）が既にあり、EventSource はヘッダ認証不可でトークンを URL に晒す必要が出るため WS に揃えた。
+

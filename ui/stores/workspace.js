@@ -32,6 +32,9 @@ export const useWorkspaceStore = defineStore("workspace", () => {
   const selectedWorkspace = ref(/** @type {string|null} */ (null));
   const workspaceJobs = ref({});
   const pendingJob = ref(null);
+  // ステータスストリーム WS が「接続中かつサーバの FS 監視が有効」かどうか。
+  // true の間はポーリングを止めて push に任せる（サーバの hello 通知で決まる）。
+  const statusStreamConnected = ref(false);
   const visibleWorkspaces = computed(() => allWorkspaces.value);
 
   const currentWorkspace = computed(() =>
@@ -68,12 +71,15 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     groups.value = data;
   }
 
-  async function fetchStatuses() {
-    const { ok, data } = await _safeFetch(EP_WORKSPACES_STATUSES);
-    if (!ok) return;
-    if (!data?.statuses) return;
+  /**
+   * ステータス配列（/workspaces/statuses の statuses、または WS push の statuses）を
+   * ストアへマージする。
+   * @param {Record<string, any>[]} statuses
+   */
+  function applyStatuses(statuses) {
+    if (!Array.isArray(statuses) || statuses.length === 0) return;
     const cache = loadStatusCache();
-    for (const status of data.statuses) {
+    for (const status of statuses) {
       const ws = allWorkspaces.value.find((w) => w.name === status.name);
       if (!ws) continue;
       for (const [k, v] of Object.entries(status)) {
@@ -88,16 +94,25 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     saveStatusCache(cache);
   }
 
+  async function fetchStatuses() {
+    const { ok, data } = await _safeFetch(EP_WORKSPACES_STATUSES);
+    if (!ok) return;
+    if (!data?.statuses) return;
+    applyStatuses(data.statuses);
+  }
+
   return {
     allWorkspaces,
     groups,
     selectedWorkspace,
     workspaceJobs,
     pendingJob,
+    statusStreamConnected,
     visibleWorkspaces,
     currentWorkspace,
     fetchWorkspaces,
     fetchGroups,
+    applyStatuses,
     fetchStatuses,
   };
 });

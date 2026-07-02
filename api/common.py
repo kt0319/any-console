@@ -36,6 +36,12 @@ GIT_LOG_MAX_ENTRIES = 10000
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024
 WORKSPACE_JOBS_CACHE_TTL_SEC = 60
 GIT_INFO_CACHE_TTL_SEC = 5
+
+# git ステータスのリアルタイム配信（api/git_watch.py）
+GIT_WATCH_DEBOUNCE_MS = 300  # FS イベントのバッチング最大待ち時間
+GIT_WATCH_STEP_MS = 50  # FS イベントのポーリング刻み
+GIT_WATCH_RETRY_SEC = 5  # 監視エラー後の再試行までの待ち
+GIT_AUTO_FETCH_INTERVAL_SEC = 180  # 購読者がいる間の自動 fetch 間隔（behind 判定の更新用）
 PTY_READ_BUFFER_SIZE = 16384
 PTY_READER_WORKERS = 8
 MAX_TERMINAL_SESSIONS = 20

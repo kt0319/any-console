@@ -1,0 +1,57 @@
+"""ワークスペース git ステータスのリアルタイム配信 WebSocket。
+
+クライアントは /workspaces/statuses/ws を購読すると、変更のあったワークスペースの
+ステータス（/workspaces/statuses の statuses 要素と同形式）を push で受け取る。
+認証・keepalive はターミナル WS（routers/terminal.py）と同じ方式に揃えている。
+"""
+
+import asyncio
+import logging
+
+from fastapi import APIRouter, WebSocket
+from fastapi.websockets import WebSocketDisconnect
+
+from ..auth import verify_ws_token
+from ..common import WS_PING_INTERVAL_SEC
+from ..git_watch import stream_watching, subscribe, unsubscribe
+
+logger = logging.getLogger(__name__)
+
+ws_router = APIRouter()
+
+
+@ws_router.websocket("/workspaces/statuses/ws")
+async def workspace_statuses_ws(websocket: WebSocket, token: str = ""):
+    ws_client_host = (websocket.client.host or "") if websocket.client else ""
+    if not verify_ws_token(token, ws_client_host, websocket.headers, websocket.cookies):
+        await websocket.close(code=1008, reason="Unauthorized")
+        return
+
+    await websocket.accept()
+    await subscribe(websocket)
+    logger.info("status stream connected watching=%s", stream_watching())
+    try:
+        # FS 監視が実効でない間（watchfiles 欠如・awatch 失敗中）はクライアントが
+        # ポーリングを継続する必要があるため、接続直後に監視状態を通知する。
+        # 状態が変わったときはサーバ側から hello を再送する（git_watch._set_watch_failed）。
+        # 送信失敗時も finally で必ず購読解除する。
+        await websocket.send_json({"type": "hello", "watching": stream_watching()})
+        while True:
+            try:
+                msg = await asyncio.wait_for(websocket.receive(), timeout=WS_PING_INTERVAL_SEC)
+            except asyncio.TimeoutError:
+                # idle keepalive（クライアントの生存監視用ハートビート）
+                await websocket.send_json({"type": "ping"})
+                continue
+            if msg.get("type") == "websocket.disconnect":
+                break
+    except (WebSocketDisconnect, RuntimeError, OSError):
+        pass
+    finally:
+        unsubscribe(websocket)
+        # 相手切断後の close は RuntimeError になるため握りつぶす（terminal_ws と同様）
+        try:
+            await websocket.close()
+        except (WebSocketDisconnect, RuntimeError, OSError):
+            pass
+        logger.info("status stream disconnected")

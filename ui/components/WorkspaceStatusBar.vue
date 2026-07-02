@@ -95,7 +95,8 @@ async function fetchCwd() {
 function startPolling() {
   stopPolling();
   pollTimer = setInterval(() => {
-    if (document.hidden) return;
+    // ステータスストリーム接続中は push で更新されるのでポーリングしない
+    if (document.hidden || workspaceStore.statusStreamConnected) return;
     workspaceStore.fetchStatuses();
   }, POLL_INTERVAL_MS);
   cwdTimer = setInterval(() => {

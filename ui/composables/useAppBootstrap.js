@@ -2,6 +2,7 @@ import { ref } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useSessionSync } from "./useSessionSync.js";
+import { useStatusStream } from "./useStatusStream.js";
 import { useToast } from "./useToast.js";
 import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_SETTINGS_CONFIG_HEALTH } from "../utils/endpoints.js";
@@ -10,6 +11,7 @@ export function useAppBootstrap() {
   const auth = useAuthStore();
   const workspaceStore = useWorkspaceStore();
   const { restoreExistingSessions } = useSessionSync();
+  const statusStream = useStatusStream();
   const toast = useToast();
 
   const booting = ref(true);
@@ -52,6 +54,7 @@ export function useAppBootstrap() {
     await restoreExistingSessions(sessionsRes, jobsRes);
 
     workspaceStore.fetchStatuses();
+    statusStream.start();
   }
 
   return { booting, bootMessage, initializeApp };
