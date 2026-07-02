@@ -20,14 +20,19 @@ vi.mock("../../../ui/app-bridge.js", () => ({
 
 vi.mock("../../../ui/composables/useApi.js", () => ({
   useApi: () => ({
-    apiGet: vi.fn(async () => ({
-      ok: true,
-      data: {
-        ws1: {
+    wsEndpoint: (ws, path) => `/workspaces/${ws}/${path}`,
+    apiGet: vi.fn(async (url) => {
+      if (url === "/common/jobs") {
+        return { ok: true, data: { build: { label: "Build", command: "make build", description: "compile" } } };
+      }
+      return {
+        ok: true,
+        data: {
           deploy: { label: "Deploy", common: false, command: "make deploy", description: "ship it" },
+          build: { label: "Build", common: true, command: "make build", description: "compile" },
         },
-      },
-    })),
+      };
+    }),
   }),
 }));
 

@@ -64,16 +64,19 @@ import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { emit, on } from "../app-bridge.js";
 import { renderIconStr } from "../utils/render-icon.js";
-import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
+import { EP_COMMON_JOBS } from "../utils/endpoints.js";
 import { openExternalUrl } from "../utils/open-external.js";
 
 const pushView = inject("pushView");
 
-const jobsCache = {};
+// common jobs は全ワークスペース共通・変更頻度が低いためモジュール単位で1回だけ保持する。
+// workspace-local jobs は ws 単位でキャッシュする。いずれも jobs:refresh で無効化する。
+let commonJobsCache = null;
+const wsJobsCache = {};
 
 const workspaceStore = useWorkspaceStore();
 const { recordJob } = useRecentJobs();
-const { apiGet } = useApi();
+const { apiGet, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
 
 const commonJobs = ref([]);
@@ -85,28 +88,33 @@ const ws = computed(() =>
 );
 
 function applyJobs(wsName) {
-  const cached = jobsCache[wsName];
-  if (!cached) {
-    commonJobs.value = [];
-    localJobs.value = [];
-    return;
-  }
-  commonJobs.value = cached.filter((j) => j.common);
-  localJobs.value = cached.filter((j) => !j.common);
+  commonJobs.value = commonJobsCache || [];
+  localJobs.value = wsName ? (wsJobsCache[wsName] || []) : [];
+}
+
+async function loadCommonJobs() {
+  if (commonJobsCache) return;
+  const { ok, data } = await apiGet(EP_COMMON_JOBS);
+  if (!ok) return;
+  commonJobsCache = Object.entries(data)
+    .filter(([n]) => n !== "terminal")
+    .map(([n, job]) => ({ name: n, ...job }));
+}
+
+async function loadWsJobs(wsName) {
+  if (wsJobsCache[wsName]) return;
+  const { ok, data } = await apiGet(wsEndpoint(wsName, "jobs"));
+  if (!ok) return;
+  wsJobsCache[wsName] = Object.entries(data)
+    .filter(([n, job]) => n !== "terminal" && !job.common)
+    .map(([n, job]) => ({ name: n, ...job }));
 }
 
 async function load() {
   const wsName = workspace.value;
   if (!wsName) { applyJobs(null); return; }
-  if (jobsCache[wsName]) { applyJobs(wsName); return; }
   try {
-    const { ok, data } = await apiGet(EP_JOBS_WORKSPACES);
-    if (!ok) return;
-    for (const [name, jobs] of Object.entries(data)) {
-      jobsCache[name] = Object.entries(jobs)
-        .filter(([n]) => n !== "terminal")
-        .map(([n, job]) => ({ name: n, ...job }));
-    }
+    await Promise.all([loadCommonJobs(), loadWsJobs(wsName)]);
     applyJobs(wsName);
   } catch { /* ignore */ }
 }
@@ -173,7 +181,8 @@ function startEditJob(job, isCommon) {
 }
 
 const offJobsRefresh = on("jobs:refresh", () => {
-  for (const key of Object.keys(jobsCache)) delete jobsCache[key];
+  commonJobsCache = null;
+  for (const key of Object.keys(wsJobsCache)) delete wsJobsCache[key];
   load();
 });
 
