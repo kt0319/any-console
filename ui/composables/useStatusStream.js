@@ -34,13 +34,20 @@ export function useStatusStream() {
     ws.onopen = () => {
       debugLog("[StatusStream] connected");
       reconnectAttempts = 0;
-      workspaceStore.statusStreamConnected = true;
       // 切断中の変更を取りこぼしている可能性があるため、接続のたびに全量を同期する
       workspaceStore.fetchStatuses();
     };
     ws.onmessage = (e) => {
-      const statuses = parseStatusStreamMessage(e.data);
-      if (statuses) workspaceStore.applyStatuses(statuses);
+      const msg = parseStatusStreamMessage(e.data);
+      if (!msg) return;
+      if (msg.type === "hello") {
+        // サーバ側で FS 監視が有効なときだけ push を一次情報源にしてポーリングを止める。
+        // watchfiles の無い環境では push が API/fetch 契機のみに劣化するため、
+        // 接続中でもポーリングを継続する必要がある。
+        workspaceStore.statusStreamConnected = msg.watching;
+      } else if (msg.type === "statuses") {
+        workspaceStore.applyStatuses(msg.statuses);
+      }
     };
     ws.onclose = () => {
       workspaceStore.statusStreamConnected = false;

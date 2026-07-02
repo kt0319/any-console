@@ -13,6 +13,7 @@ watchfiles が未インストールの環境では FS 監視をスキップし�
 """
 
 import asyncio
+import importlib.util
 import logging
 import os
 import re
@@ -31,10 +32,11 @@ from .common import (
     GIT_WATCH_RETRY_SEC,
     GIT_WATCH_STEP_MS,
     run_subprocess_safe,
+    safe_resolve_str,
 )
 from .config import list_workspace_entries
 from .git_info import refresh_git_info
-from .git_utils import git_is_repo
+from .git_utils import git_is_repo, run_git_raw
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +44,12 @@ logger = logging.getLogger(__name__)
 class WatchTarget(NamedTuple):
     name: str
     path: Path
-    # 動的 worktree の場合はベースワークスペースの表示名。それ以外は None。
+    # worktree の場合はベースワークスペースの表示名（ベースが未登録なら None）。
     base: str | None = None
+    # linked worktree の専用 gitdir（<base>/.git/worktrees/<x>）。通常リポジトリは None。
+    gitdir: Path | None = None
+    # linked worktree が共有する本体の .git。通常リポジトリは None。
+    common: Path | None = None
 
 
 # watchfiles DefaultFilter 相当の無視リスト（.git は要所のみ通すため除外して個別処理）
@@ -77,42 +83,137 @@ def is_relevant_change(path_str: str) -> bool:
     return not _IGNORE_ENTITY_RE.search(parts[-1])
 
 
+def _worktree_git_dirs(path: Path) -> tuple[Path, Path] | None:
+    """path が linked worktree なら (専用 gitdir, 共有 .git) を返す。通常リポジトリは None。"""
+    try:
+        result = run_git_raw(["rev-parse", "--absolute-git-dir", "--git-common-dir"], path)
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+    if result.returncode != 0:
+        return None
+    lines = result.stdout.strip().splitlines()
+    if len(lines) != 2:
+        return None
+    git_dir = Path(lines[0])
+    common = Path(lines[1])
+    if not common.is_absolute():
+        common = (path / common).resolve()
+    if safe_resolve_str(git_dir) == safe_resolve_str(common):
+        return None
+    return git_dir, common
+
+
 def collect_watch_targets() -> list[WatchTarget]:
     """監視対象（登録済み git ワークスペース + 動的 worktree）を集める。
 
-    /workspaces/statuses が返す集合と一致させる。
+    /workspaces/statuses が返す集合と一致させる。登録済みワークスペース自体が
+    linked worktree の場合は、git 状態の実体である専用 gitdir / 共有 .git も記録し、
+    ベースが登録済みならその表示名を base に載せる（監視・マッピングに使う）。
     """
     # routers.workspaces は本モジュールを import するため、循環回避で遅延 import する
     from .routers.workspaces import _dynamic_worktree_entries
-    targets = []
+    registered: list[tuple[str, Path]] = []
     for ws_id, config in list_workspace_entries().items():
         p = Path(config.get("path", ""))
         if p.is_dir() and git_is_repo(p):
-            targets.append(WatchTarget(config.get("name") or ws_id, p))
+            registered.append((config.get("name") or ws_id, p))
+    name_by_path = {safe_resolve_str(p): name for name, p in registered}
+
+    targets = []
+    for name, p in registered:
+        dirs = _worktree_git_dirs(p)
+        if dirs is None:
+            targets.append(WatchTarget(name, p))
+            continue
+        gitdir, common = dirs
+        base_name = name_by_path.get(safe_resolve_str(common.parent))
+        targets.append(WatchTarget(name, p, base=base_name, gitdir=gitdir, common=common))
     for wt in _dynamic_worktree_entries():
         targets.append(WatchTarget(wt["name"], Path(wt["path"]), base=wt["worktree_base"]))
     return targets
 
 
+def watch_roots(targets: list[WatchTarget]) -> list[Path]:
+    """監視ルートの集合を組み立てる。
+
+    作業ツリーに加え、作業ツリー群でカバーされない worktree の共有 .git / 専用
+    gitdir（ベースが未登録のケース）も監視する。ネスト・重複は取り除く。
+    """
+    roots = [str(t.path) for t in targets]
+
+    def covered(d: str, base: list[str]) -> bool:
+        return any(d == r or d.startswith(r + os.sep) for r in base)
+
+    extras: list[str] = []
+    for t in targets:
+        for d in (t.common, t.gitdir):  # gitdir は common 配下なので common を先に見る
+            if d is None:
+                continue
+            s = str(d)
+            if not covered(s, roots) and not covered(s, extras):
+                extras.append(s)
+    return [Path(r) for r in roots + extras]
+
+
+def _names_for_hit(
+    prefix: str, t: WatchTarget, kind: str, p: str, targets: list[WatchTarget],
+) -> set[str]:
+    """一致したプレフィックスの種別ごとに、再計算すべきワークスペース名を決める。"""
+    if kind == "gitdir":
+        # linked worktree の専用 gitdir（HEAD/index 等）はその worktree だけ
+        return {t.name}
+    if kind == "path":
+        names = {t.name}
+        if _GIT_WORKTREES_SEG in p:
+            names.update(c.name for c in targets if c.base == t.name)
+        return names
+    # kind == "common": 共有 .git は同じ .git を共有する全 worktree ＋ ベース本体へ
+    names = {c.name for c in targets if c.common is not None and str(c.common) == prefix}
+    if t.base:
+        names.add(t.base)
+        if _GIT_WORKTREES_SEG in p:
+            names.update(c.name for c in targets if c.base == t.base)
+    return names
+
+
 def match_workspaces(changed_paths: set[str], targets: list[WatchTarget]) -> set[str]:
     """変更パス集合を、再計算すべきワークスペース名の集合へ対応付ける。
 
-    linked worktree の git 状態は本体側 <base>/.git/worktrees/ に置かれるため、
-    そこが変わったらベースに属する worktree ワークスペースも再計算対象にする。
+    - 最長プレフィックス一致で持ち主を決める（作業ツリー・専用 gitdir・共有 .git）
+    - 展開の内訳は _names_for_hit を参照
     """
-    ordered = sorted(targets, key=lambda t: len(str(t.path)), reverse=True)
+    candidates: list[tuple[str, WatchTarget, str]] = []
+    for t in targets:
+        candidates.append((str(t.path), t, "path"))
+        if t.gitdir is not None:
+            candidates.append((str(t.gitdir), t, "gitdir"))
+        if t.common is not None:
+            candidates.append((str(t.common), t, "common"))
+    # 同一プレフィックス（共有 .git 等）が隣接するよう文字列でも整列する
+    candidates.sort(key=lambda c: (-len(c[0]), c[0]))
+
     names: set[str] = set()
     for p in changed_paths:
-        matched = next(
-            (t for t in ordered if p == str(t.path) or p.startswith(str(t.path) + os.sep)),
-            None,
-        )
-        if not matched:
-            continue
-        names.add(matched.name)
-        if _GIT_WORKTREES_SEG in p:
-            names.update(t.name for t in targets if t.base == matched.name)
+        best: str | None = None
+        for prefix, t, kind in candidates:
+            if best is not None and prefix != best:
+                break
+            if p != prefix and not p.startswith(prefix + os.sep):
+                continue
+            best = prefix
+            names.update(_names_for_hit(prefix, t, kind, p, targets))
     return names
+
+
+_has_watchfiles: bool | None = None
+
+
+def watch_available() -> bool:
+    """FS 監視（watchfiles）が使えるか。クライアントへの hello 通知にも使う。"""
+    global _has_watchfiles
+    if _has_watchfiles is None:
+        _has_watchfiles = importlib.util.find_spec("watchfiles") is not None
+    return _has_watchfiles
 
 
 _subscribers: set[WebSocket] = set()
@@ -254,24 +355,30 @@ def _watch_filter(change: object, path: str) -> bool:
 
 
 async def _handle_changes(changes: set, targets: list[WatchTarget]) -> None:
+    global _targets
     paths = {p for _, p in changes}
     names = match_workspaces(paths, targets)
     for target in targets:
         if target.name in names:
             await _push_status(target)
-    # worktree の作成・削除は監視対象集合を変えるので再収集させる
+    # worktree の作成・削除は監視対象集合を変えるので再収集する。ただし worktree 内の
+    # コミット等も .git/worktrees/ を触るため、無条件に再起動すると awatch の再構築中に
+    # 直後のイベントを取りこぼす。集合が実際に変わったときだけ再起動する。
     if any(_GIT_WORKTREES_SEG in p for p in paths):
-        _set_restart()
+        loop = asyncio.get_running_loop()
+        new_targets = await loop.run_in_executor(BACKGROUND_EXECUTOR, collect_watch_targets)
+        if set(new_targets) != set(targets):
+            _targets = new_targets
+            _set_restart()
 
 
 async def _watch_loop() -> None:  # pragma: no cover - OS の FS イベントに依存
     """watchfiles で FS を監視し、変更のあったワークスペースを push する。"""
     global _restart_event
-    try:
-        from watchfiles import awatch
-    except ImportError:
+    if not watch_available():
         logger.info("watchfiles not installed; realtime git status falls back to fetch/API triggers")
         return
+    from watchfiles import awatch
     try:
         while _subscribers:
             targets = await _refresh_targets()
@@ -281,7 +388,7 @@ async def _watch_loop() -> None:  # pragma: no cover - OS の FS イベントに
                 continue
             try:
                 async for changes in awatch(
-                    *[t.path for t in targets],
+                    *watch_roots(targets),
                     watch_filter=_watch_filter,
                     debounce=GIT_WATCH_DEBOUNCE_MS,
                     step=GIT_WATCH_STEP_MS,

@@ -16,10 +16,12 @@ export function buildStatusStreamUrl(proto, host) {
 }
 
 /**
- * 受信メッセージから statuses 配列を取り出す。
+ * 受信メッセージをパースして種別ごとの正規化オブジェクトを返す。
+ * - statuses: `{ type: "statuses", statuses: [...] }`
+ * - hello（接続直後のサーバ環境通知）: `{ type: "hello", watching: boolean }`
  * ping・不正 JSON・形式違いは null を返す（呼び出し側は無視すればよい）。
  * @param {unknown} raw
- * @returns {Record<string, any>[] | null}
+ * @returns {{ type: "statuses", statuses: Record<string, any>[] } | { type: "hello", watching: boolean } | null}
  */
 export function parseStatusStreamMessage(raw) {
   if (typeof raw !== "string") return null;
@@ -29,8 +31,14 @@ export function parseStatusStreamMessage(raw) {
   } catch {
     return null;
   }
-  if (!msg || msg.type !== "statuses" || !Array.isArray(msg.statuses)) return null;
-  return msg.statuses;
+  if (!msg || typeof msg.type !== "string") return null;
+  if (msg.type === "statuses" && Array.isArray(msg.statuses)) {
+    return { type: "statuses", statuses: msg.statuses };
+  }
+  if (msg.type === "hello") {
+    return { type: "hello", watching: msg.watching === true };
+  }
+  return null;
 }
 
 /**

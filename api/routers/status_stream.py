@@ -13,7 +13,7 @@ from fastapi.websockets import WebSocketDisconnect
 
 from ..auth import verify_ws_token
 from ..common import WS_PING_INTERVAL_SEC
-from ..git_watch import subscribe, unsubscribe
+from ..git_watch import subscribe, unsubscribe, watch_available
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,10 @@ async def workspace_statuses_ws(websocket: WebSocket, token: str = ""):
 
     await websocket.accept()
     await subscribe(websocket)
-    logger.info("status stream connected")
+    # FS 監視が使えない環境ではクライアントはポーリングを継続する必要があるため、
+    # 接続直後に監視の有無を通知する
+    await websocket.send_json({"type": "hello", "watching": watch_available()})
+    logger.info("status stream connected watching=%s", watch_available())
     try:
         while True:
             try:

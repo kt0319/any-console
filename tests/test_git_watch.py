@@ -14,8 +14,18 @@ from api.git_watch import (
     collect_watch_targets,
     is_relevant_change,
     match_workspaces,
+    watch_available,
+    watch_roots,
 )
 from conftest import TOKEN
+
+
+def register_workspace(config_file, name, path):
+    """config.json へワークスペースを追記する（表示名キーで書けば自動マイグレートされる）。"""
+    import json
+    config = json.loads(config_file.read_text(encoding="utf-8")) if config_file.is_file() else {}
+    config.setdefault(name, {})["path"] = str(path)
+    config_file.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 @pytest.fixture(autouse=True)
@@ -112,6 +122,72 @@ class TestMatchWorkspaces:
         targets = [WatchTarget("main", Path("/repos/main"))]
         assert match_workspaces({"/repos/main-other/file"}, targets) == set()
 
+    def test_registered_worktree_gitdir_maps_precisely(self):
+        # 登録済み worktree の専用 gitdir 変更は、その worktree だけに対応付ける
+        targets = [
+            WatchTarget("main", Path("/repos/main")),
+            WatchTarget(
+                "wt", Path("/repos/wt"), base="main",
+                gitdir=Path("/repos/main/.git/worktrees/wt"),
+                common=Path("/repos/main/.git"),
+            ),
+        ]
+        names = match_workspaces({"/repos/main/.git/worktrees/wt/index"}, targets)
+        assert names == {"wt"}
+
+    def test_shared_common_gitdir_maps_to_all_sharers(self):
+        # ベース未登録で複数 worktree が同じ .git を共有する場合、共有 refs の変更は両方へ
+        common = Path("/repos/unreg/.git")
+        targets = [
+            WatchTarget("wt1", Path("/repos/wt1"), gitdir=common / "worktrees/wt1", common=common),
+            WatchTarget("wt2", Path("/repos/wt2"), gitdir=common / "worktrees/wt2", common=common),
+        ]
+        names = match_workspaces({"/repos/unreg/.git/refs/heads/main"}, targets)
+        assert names == {"wt1", "wt2"}
+        # 専用 gitdir は共有 .git より深いので、そちらが優先されて単独マッチする
+        names = match_workspaces({"/repos/unreg/.git/worktrees/wt2/HEAD"}, targets)
+        assert names == {"wt2"}
+
+    def test_registered_worktree_included_in_base_expansion(self):
+        # ベースの .git/worktrees/ 変更で、base を持つ登録済み worktree も再計算される
+        targets = [
+            WatchTarget("main", Path("/repos/main")),
+            WatchTarget(
+                "wt", Path("/repos/wt"), base="main",
+                gitdir=Path("/repos/main/.git/worktrees/wt"),
+                common=Path("/repos/main/.git"),
+            ),
+        ]
+        names = match_workspaces({"/repos/main/.git/worktrees/other/HEAD"}, targets)
+        assert "main" in names and "wt" in names
+
+
+class TestWatchRoots:
+    def test_plain_targets_watch_working_trees(self):
+        targets = [WatchTarget("a", Path("/repos/a")), WatchTarget("b", Path("/repos/b"))]
+        assert watch_roots(targets) == [Path("/repos/a"), Path("/repos/b")]
+
+    def test_gitdir_under_registered_base_is_not_duplicated(self):
+        # ベースの作業ツリーを監視していれば .git/worktrees/ もカバー済み
+        targets = [
+            WatchTarget("main", Path("/repos/main")),
+            WatchTarget(
+                "wt", Path("/repos/wt"), base="main",
+                gitdir=Path("/repos/main/.git/worktrees/wt"),
+                common=Path("/repos/main/.git"),
+            ),
+        ]
+        assert watch_roots(targets) == [Path("/repos/main"), Path("/repos/wt")]
+
+    def test_unregistered_base_gitdir_is_added_once(self):
+        # ベース未登録なら共有 .git を追加で監視する（複数 worktree でも 1 回だけ）
+        common = Path("/repos/unreg/.git")
+        targets = [
+            WatchTarget("wt1", Path("/repos/wt1"), gitdir=common / "worktrees/wt1", common=common),
+            WatchTarget("wt2", Path("/repos/wt2"), gitdir=common / "worktrees/wt2", common=common),
+        ]
+        assert watch_roots(targets) == [Path("/repos/wt1"), Path("/repos/wt2"), common]
+
 
 class TestCollectWatchTargets:
     def test_git_workspace_is_collected(self, git_workspace_with_commit):
@@ -134,6 +210,46 @@ class TestCollectWatchTargets:
         wt = next(t for t in targets if t.name != "test-ws")
         assert wt.base == "test-ws"
         assert wt.path == wt_path
+
+    def test_registered_worktree_keeps_base_and_gitdir(self, git_workspace_with_commit, isolate_fs):
+        # linked worktree をワークスペースとして登録した場合、動的列挙からは外れるが
+        # base と gitdir / 共有 .git は保持される（監視・マッピングに必要）
+        wt_path = git_workspace_with_commit.parent / "registered-wt"
+        subprocess.run(
+            ["git", "worktree", "add", str(wt_path), "-b", "reg-feat"],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+        register_workspace(isolate_fs["config_file"], "registered-wt", wt_path)
+        targets = collect_watch_targets()
+        assert {t.name for t in targets} == {"test-ws", "registered-wt"}
+        wt = next(t for t in targets if t.name == "registered-wt")
+        assert wt.base == "test-ws"
+        assert wt.gitdir is not None and "worktrees" in wt.gitdir.parts
+        assert wt.common == git_workspace_with_commit / ".git"
+        base = next(t for t in targets if t.name == "test-ws")
+        assert base.gitdir is None and base.common is None
+
+    def test_registered_worktree_with_unregistered_base(self, git_workspace_with_commit, isolate_fs):
+        # ベースを config から外しても、worktree 単体で gitdir / 共有 .git が引ける
+        wt_path = git_workspace_with_commit.parent / "orphan-wt"
+        subprocess.run(
+            ["git", "worktree", "add", str(wt_path), "-b", "orphan-feat"],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+        import json
+        config_file = isolate_fs["config_file"]
+        config = json.loads(config_file.read_text(encoding="utf-8"))
+        config = {k: v for k, v in config.items() if k == "__global__"}
+        config_file.write_text(json.dumps(config), encoding="utf-8")
+        register_workspace(config_file, "orphan-wt", wt_path)
+
+        targets = collect_watch_targets()
+        assert [t.name for t in targets] == ["orphan-wt"]
+        wt = targets[0]
+        assert wt.base is None
+        assert wt.common == git_workspace_with_commit / ".git"
+        # 共有 .git は作業ツリー群でカバーされないため監視ルートに追加される
+        assert watch_roots(targets) == [wt_path, git_workspace_with_commit / ".git"]
 
 
 class FakeWS:
@@ -196,13 +312,31 @@ class TestBroadcastAndPush:
 
 
 class TestHandleChanges:
-    def test_worktrees_change_triggers_restart(self, git_workspace_with_commit):
+    def test_worktree_add_triggers_restart(self, git_workspace_with_commit):
+        # worktree が実際に増えた（監視対象集合が変わった）場合のみ再起動する
         async def run():
             git_watch._restart_event = asyncio.Event()
             targets = [WatchTarget("test-ws", git_workspace_with_commit)]
             gitdir = str(git_workspace_with_commit / ".git" / "worktrees" / "feat" / "HEAD")
             await git_watch._handle_changes({(1, gitdir)}, targets)
             assert git_watch._restart_event.is_set()
+
+        wt_path = git_workspace_with_commit.parent / "test-ws-new"
+        subprocess.run(
+            ["git", "worktree", "add", str(wt_path), "-b", "new-feat"],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+        asyncio.run(run())
+
+    def test_worktree_commit_does_not_restart(self, git_workspace_with_commit):
+        # worktree 内のコミットも .git/worktrees/ を触るが、監視対象集合は変わらない
+        # ため再起動しない（再起動すると awatch 再構築中の後続イベントを取りこぼす）
+        async def run():
+            git_watch._restart_event = asyncio.Event()
+            targets = collect_watch_targets()
+            gitdir = str(git_workspace_with_commit / ".git" / "worktrees" / "feat" / "index")
+            await git_watch._handle_changes({(2, gitdir)}, targets)
+            assert not git_watch._restart_event.is_set()
 
         asyncio.run(run())
 
@@ -298,7 +432,14 @@ class TestStatusStreamWebSocket:
             assert exc.code == 1008
 
     def test_ws_accepts_valid_token_and_subscribes(self, client, git_workspace_with_commit):
-        with client.websocket_connect(f"/workspaces/statuses/ws?token={TOKEN}"):
+        with client.websocket_connect(f"/workspaces/statuses/ws?token={TOKEN}") as ws:
+            # 接続直後に FS 監視の有無が hello で通知される
+            hello = ws.receive_json()
+            assert hello == {"type": "hello", "watching": watch_available()}
             assert git_watch.subscriber_count() == 1
         # 切断後は購読解除される（タスク停止は _reset_git_watch_state が担保）
         assert git_watch.subscriber_count() == 0
+
+    def test_watch_available_reflects_watchfiles_install(self):
+        # CI / 開発環境では requirements.txt により watchfiles が入っている
+        assert watch_available() is True

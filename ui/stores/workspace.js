@@ -32,7 +32,8 @@ export const useWorkspaceStore = defineStore("workspace", () => {
   const selectedWorkspace = ref(/** @type {string|null} */ (null));
   const workspaceJobs = ref({});
   const pendingJob = ref(null);
-  // ステータスストリーム WS の接続状態。接続中はポーリングを止めて push に任せる。
+  // ステータスストリーム WS が「接続中かつサーバの FS 監視が有効」かどうか。
+  // true の間はポーリングを止めて push に任せる（サーバの hello 通知で決まる）。
   const statusStreamConnected = ref(false);
   const visibleWorkspaces = computed(() => allWorkspaces.value);
 

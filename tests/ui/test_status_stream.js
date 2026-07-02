@@ -22,12 +22,31 @@ describe("buildStatusStreamUrl", () => {
 });
 
 describe("parseStatusStreamMessage", () => {
-  it("statuses メッセージから配列を取り出す", () => {
+  it("statuses メッセージを正規化して返す", () => {
     const raw = JSON.stringify({
       type: "statuses",
       statuses: [{ name: "ws1", clean: false, ahead: 2 }],
     });
-    expect(parseStatusStreamMessage(raw)).toEqual([{ name: "ws1", clean: false, ahead: 2 }]);
+    expect(parseStatusStreamMessage(raw)).toEqual({
+      type: "statuses",
+      statuses: [{ name: "ws1", clean: false, ahead: 2 }],
+    });
+  });
+
+  it("hello メッセージから watching フラグを取り出す", () => {
+    expect(parseStatusStreamMessage(JSON.stringify({ type: "hello", watching: true }))).toEqual({
+      type: "hello",
+      watching: true,
+    });
+    expect(parseStatusStreamMessage(JSON.stringify({ type: "hello", watching: false }))).toEqual({
+      type: "hello",
+      watching: false,
+    });
+    // 欠損・boolean 以外は false 扱い（安全側 = ポーリング継続）
+    expect(parseStatusStreamMessage(JSON.stringify({ type: "hello" }))).toEqual({
+      type: "hello",
+      watching: false,
+    });
   });
 
   it("ping メッセージは null", () => {
@@ -43,10 +62,11 @@ describe("parseStatusStreamMessage", () => {
     expect(parseStatusStreamMessage(undefined)).toBe(null);
   });
 
-  it("statuses が配列でない場合は null", () => {
+  it("statuses が配列でない・未知 type・null は null", () => {
     expect(parseStatusStreamMessage(JSON.stringify({ type: "statuses", statuses: {} }))).toBe(null);
     expect(parseStatusStreamMessage(JSON.stringify({ type: "other", statuses: [] }))).toBe(null);
     expect(parseStatusStreamMessage(JSON.stringify(null))).toBe(null);
+    expect(parseStatusStreamMessage(JSON.stringify({ statuses: [] }))).toBe(null);
   });
 });
 
