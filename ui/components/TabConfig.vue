@@ -116,6 +116,7 @@ import {
   EP_JOBS_WORKSPACES,
   terminalSessionPath,
   terminalWsPath,
+  terminalSessionDetachedPath,
 } from "../utils/endpoints.js";
 
 const modalTitle = inject("modalTitle");
@@ -213,7 +214,7 @@ const { dragFromIdx, dragOverIdx, onDragStart } = useListDragSort({
   onReorder: (fromIdx, toIdx) => terminalStore.moveTab(fromIdx, toIdx),
 });
 
-const { apiGet, apiDelete, apiPost } = useApi();
+const { apiGet, apiDelete, apiPost, apiPut } = useApi();
 const detachedSessions = ref([]);
 const allJobsData = ref({});
 
@@ -248,6 +249,7 @@ function openDetached(s) {
     jobLabel: s.job_label || (s.workspace || s.session_id),
     restored: false,
   });
+  apiPut(terminalSessionDetachedPath(s.session_id), { detached: false }).catch(() => {});
   emit("tab:select", { tab });
   loadDetached();
 }
