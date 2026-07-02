@@ -41,6 +41,7 @@ from .routers import (
 )
 from .routers import preview as preview_router
 from .routers import push as push_router
+from .security_headers import SecurityHeadersMiddleware
 
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 (intentional: local network bind for personal console)
 DEFAULT_PORT = 8888
@@ -85,18 +86,21 @@ def _is_auth_disabled() -> bool:
         return False
 
 
-def _print_token_url(host: str, port: int, token: str) -> None:
+def _print_token_notice(host: str, port: int, token: str) -> None:
+    # SECURITY: トークンを URL のクエリに埋め込まない。埋め込むとブラウザ履歴・
+    # プロキシ/アクセスログに残る（UI はクエリの token を消費しないので利点もない）。
+    # 起動ログへの平文出力は初回ブートストラップに必要な一度きりの妥協。
     display_host = "localhost" if host in ("0.0.0.0", "::", "") else host  # noqa: S104
-    url = f"http://{display_host}:{port}/?token={token}"
+    url = f"http://{display_host}:{port}/"
     border = "=" * 64
     msg = (
         f"\n{border}\n"
-        f"any-console: Auth token (open this URL on your device):\n"
-        f"  {url}\n"
+        f"any-console: First-run auth token:\n"
+        f"  {token}\n"
+        f"Open {url} on your device and sign in with this token.\n"
         f"{border}"
     )
     print(msg, flush=True)  # noqa: T201
-    logger.info("any-console: Auth token URL: %s", url)
 
 
 def _emit_insecure_bind_warning(host: str) -> None:
@@ -168,7 +172,7 @@ async def lifespan(app: FastAPI):
     if not _is_auth_disabled():
         auto_token = auth_module.ensure_default_token()
         if auto_token:
-            _print_token_url(host, port, auto_token)
+            _print_token_notice(host, port, auto_token)
     _emit_insecure_bind_warning(host)
     try:
         from .tmux import cleanup_detached_grouped_sessions
@@ -388,6 +392,7 @@ app.mount("/", HashedAssetStaticFiles(directory=str(FRONTEND_DIR)), name="ui")
 
 app.add_middleware(ClientLogMiddleware)
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 if __name__ == "__main__":
     ssl_keyfile = os.environ.get("SSL_KEYFILE")

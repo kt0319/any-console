@@ -78,6 +78,16 @@ def _cleanup_terminal_sessions():
 
 
 @pytest.fixture(autouse=True)
+def _reset_tailscale_trust(monkeypatch):
+    """Tailscale ヘッダ信頼の opt-in キャッシュをテストごとにリセットする。
+
+    デフォルト（環境変数なし・config なし）は無効 = ヘッダを信頼しない。
+    """
+    monkeypatch.delenv(auth_module.ENV_TRUST_TAILSCALE, raising=False)
+    monkeypatch.setattr(auth_module, "_TRUST_TAILSCALE_CACHE", None)
+
+
+@pytest.fixture(autouse=True)
 def _reset_rate_limiter():
     """各テスト前にレートリミッターのカウンターをリセット"""
     from api.rate_limiter import _counter

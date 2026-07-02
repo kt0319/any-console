@@ -233,7 +233,18 @@
 
 ---
 
-### 20. git ステータスは FS 監視 + WebSocket push でリアルタイム配信する
+### 20. Tailscale ヘッダ自動認証を opt-in（デフォルト無効）にする
+
+- **Status**: Accepted
+- **Date**: 2026-07
+- **Context**: `Tailscale-User-Login` ヘッダによる自動認証は、接続元が loopback または Tailscale CGNAT 帯（100.64.0.0/10）であることを条件に無条件で有効だった。しかしこの接続元判定だけでは防げない構成がある。(1) Tailscale 以外のトンネル・リバースプロキシ（`ssh -L`・cloudflared・X-Forwarded-For を付けない nginx 等）を同ホストに立てると、外部からのリクエストが loopback 発として届き、偽装ヘッダだけで認証を素通しできる。(2) tailnet 上の他端末は Tailscale Serve を経由せず直接ヘッダを付けられる（共有 tailnet・node sharing では他人になり得る）。さらに `/auth/check` はヘッダ認証成功時にデバイス cookie を自動発行するため、一度の偽装で永続クレデンシャルが手に入る。本ツールは任意コマンド実行を提供するため、認証バイパスの被害はホスト全体に及ぶ。
+- **Decision**: Tailscale ヘッダの信頼を opt-in にする。環境変数 `ANY_CONSOLE_TRUST_TAILSCALE_AUTH=1` または `__global__.trust_tailscale_auth: true` で明示的に有効化した場合のみ、従来どおり接続元判定＋ヘッダで認証する。デフォルトでは Tailscale 経由でも token / デバイス cookie 認証に落ちる（初回に token を1度入力すれば cookie で継続するため UX 低下は最小）。判定結果は認証がリクエストごとに通るためプロセス内にキャッシュし、変更の反映は再起動とする。あわせて (a) 初回起動時のトークン表示を `?token=` 入り URL からトークン単体の表示に変更（UI はクエリの token を消費しておらず、ブラウザ履歴・プロキシログへ漏れるだけだった）、(b) 全レスポンスにセキュリティヘッダ（`X-Frame-Options: DENY` / `X-Content-Type-Options: nosniff` / `Referrer-Policy: no-referrer`）を付与するミドルウェアを追加した（`api/security_headers.py`。プロキシ先アプリを壊さないよう `/preview/` 配下は対象外）。
+- **Consequences**: loopback 上の非 Tailscale プロキシや tailnet 他端末からのヘッダ偽装による認証バイパスが、デフォルト構成では成立しなくなる。従来ヘッダ自動認証に依存していた利用者は、フラグを立てるか、各デバイスで token を1度入力する移行が必要（README にリスクと併せて明記）。有効化の変更に再起動が要る非対称性は、認証パスに毎リクエストのファイル I/O を入れないための意図的な代償。
+- **Alternatives considered**: **従来どおりデフォルト有効のまま README で警告** — 「よくある構成変更が静かに認証を無効化する」footgun が残り、警告は読まれない前提に立つべき。**`tailscale whois` API で接続元を照合** — 偽装耐性は上がるが tailscaled への依存・レイテンシ・障害モードが増え、個人ツールには過剰。**loopback を信頼ソースから外し CGNAT のみ信頼** — Tailscale Serve は loopback 経由で届くため XFF の解釈に依存することになり、構成による挙動差が読みにくい。opt-in の方が判断が単純で説明可能。
+
+---
+
+### 21. git ステータスは FS 監視 + WebSocket push でリアルタイム配信する
 
 - **Status**: Accepted
 - **Date**: 2026-07

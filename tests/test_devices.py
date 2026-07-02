@@ -195,9 +195,13 @@ class TestLogout:
 
 
 class TestVerifyTokenIntegration:
-    def test_tailscale_priority_over_device(self):
-        """Tailscale ヘッダがあれば device cookie より優先される（既存挙動を壊さない）。"""
+    def test_tailscale_priority_over_device(self, monkeypatch):
+        """Tailscale ヘッダがあれば device cookie より優先される（既存挙動を壊さない）。
+
+        Tailscale ヘッダ信頼は opt-in（ADR #20）のため有効化してから確認する。
+        """
         # ここはユニットテストで auth.py の verify_token 順序を担保。詳細は test_tailscale_auth.py 参照。
+        monkeypatch.setattr(auth_module, "_TRUST_TAILSCALE_CACHE", True)
         assert auth_module._tailscale_user("127.0.0.1", {"tailscale-user-login": "alice@example.com"}) == "alice@example.com"
 
     def test_bearer_token_still_works(self, client):

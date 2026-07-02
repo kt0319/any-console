@@ -41,7 +41,7 @@ class TestEnsureDefaultToken:
 
     def test_disable_auth_env_skips_generation(self, isolate_auth, monkeypatch):
         monkeypatch.setenv("ANY_CONSOLE_DISABLE_AUTH", "1")
-        from api.main import _is_auth_disabled, _print_token_url
+        from api.main import _is_auth_disabled, _print_token_notice  # noqa: F401
 
         assert _is_auth_disabled() is True
 
