@@ -70,6 +70,55 @@ class TestAuthSecurity:
         )
 
 
+class TestSecurityHeaders:
+    """全レスポンスへのセキュリティヘッダ付与（api/security_headers.py）"""
+
+    def test_headers_present_on_api_response(self, client):
+        res = client.get("/auth/check", headers=AUTH)
+        assert res.headers.get("x-frame-options") == "DENY"
+        assert res.headers.get("x-content-type-options") == "nosniff"
+        assert res.headers.get("referrer-policy") == "no-referrer"
+
+    def test_headers_present_on_401_response(self, client):
+        res = client.get("/auth/check", headers={"Authorization": "Bearer wrong-token"})
+        assert res.status_code == 401
+        assert res.headers.get("x-frame-options") == "DENY"
+
+    def test_preview_proxy_paths_are_skipped(self, client):
+        # /preview/ はプロキシ先アプリのヘッダ・フレーム利用を壊さないため対象外
+        res = client.get("/preview/9999/", headers=AUTH)
+        assert "x-frame-options" not in res.headers
+
+    def test_skip_helper(self):
+        from api.security_headers import should_skip_security_headers
+        assert should_skip_security_headers("/preview/3000/index.html")
+        assert not should_skip_security_headers("/auth/check")
+        assert not should_skip_security_headers("/")
+
+
+class TestFirstRunTokenNotice:
+    """初回トークン表示にトークン入り URL を含めない（履歴・ログ漏洩防止）"""
+
+    def test_token_not_embedded_in_url(self, capsys):
+        from api.main import _print_token_notice
+        _print_token_notice("0.0.0.0", 8888, "secret-token-xyz")
+        out = capsys.readouterr().out
+        assert "secret-token-xyz" in out
+        assert "?token=" not in out
+        assert "http://localhost:8888/" in out
+
+
+class TestTailscaleTrustDefault:
+    """Tailscale ヘッダ自動認証はデフォルト無効（詳細は test_tailscale_auth.py）"""
+
+    def test_forged_header_does_not_authenticate_by_default(self, client):
+        res = client.get(
+            "/auth/check",
+            headers={"Tailscale-User-Login": "attacker@example.com"},
+        )
+        assert res.status_code == 401
+
+
 class TestBranchNameInjection:
     """ブランチ名によるコマンドインジェクション防止"""
 

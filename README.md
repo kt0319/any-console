@@ -101,19 +101,33 @@ brew install python node git tmux gh
 ## Authentication
 
 - On first start, if `data/auth.json` does not exist, a random 32-character token is generated and saved automatically.
-- The connection URL is printed to stdout and journalctl once. Open it on your device to start an authenticated session.
+- The token is printed to the startup log once (stdout / journalctl / `logs/any-console.log`). Open the app URL on your device and sign in with it — the device gets a revocable cookie, so you only enter the token once per device.
 - On subsequent starts, `data/auth.json` is never overwritten.
 - The token can be changed from the "Security" settings in the UI.
 
+### Tailscale header auto-auth (opt-in)
+
+When any-console is served through [Tailscale Serve](https://tailscale.com/kb/1312/serve), Tailscale adds an authenticated `Tailscale-User-Login` header. any-console can use it to skip token entry, but this is **disabled by default** and must be opted into via `config.json`:
+
+```jsonc
+// config.json
+"__global__": { "trust_tailscale_auth": true }
+```
+
+The `ANY_CONSOLE_TRUST_TAILSCALE_AUTH=1` environment variable also enables it, but only where the environment actually reaches the server process — foreground runs (`ANY_CONSOLE_TRUST_TAILSCALE_AUTH=1 ./any-console run`) or a service unit you edited yourself. `./any-console start` delegates to systemd/launchd, which does **not** inherit your shell environment, so prefer `config.json` for the managed service.
+
+> **Security note:** only enable this if requests reach any-console *exclusively* via Tailscale Serve / tailnet peers. The header check trusts loopback and tailnet (CGNAT) source addresses, so any *other* tunnel or reverse proxy on the same host (`ssh -L`, `cloudflared`, nginx, etc.) would let its clients forge the header and bypass authentication entirely. If you use any non-Tailscale proxy in front of any-console, leave this off — token + device-cookie auth works fine over Tailscale too.
+
+A restart is required for changes to take effect.
+
 ### Disabling authentication (for closed networks like Tailscale)
 
-```bash
-# via environment variable
-ANY_CONSOLE_DISABLE_AUTH=1 ./any-console start
-
-# or in config.json
-# "auth_disabled": true
+```jsonc
+// config.json
+"__global__": { "auth_disabled": true }
 ```
+
+As above, the `ANY_CONSOLE_DISABLE_AUTH=1` environment variable works only for foreground runs (`./any-console run`) or a custom service environment — not with `./any-console start`, which does not pass your shell environment to the systemd/launchd service.
 
 ## HTTPS
 

@@ -74,6 +74,9 @@ class GlobalConfig(_ConfigModel):
     jobs: dict[str, JobConfig] = Field(default_factory=dict)
     host: str = ""
     port: int = 0
+    # Tailscale ヘッダ（Tailscale-User-Login）による自動認証の opt-in。
+    # デフォルト無効（api/auth.py の SECURITY コメント参照）。反映には再起動が必要。
+    trust_tailscale_auth: bool = False
 
 
 def _model_validate(model_cls: type[BaseModel], data: Any) -> BaseModel:

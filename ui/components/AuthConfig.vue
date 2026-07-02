@@ -7,7 +7,7 @@
           <span class="settings-item-label">Require token authentication</span>
           <span class="settings-item-desc">
             Protect access with a Bearer token.
-            When accessed through an authenticated Tailscale connection, token authentication is skipped automatically.
+            Tailscale connections can skip token authentication, but only when trust_tailscale_auth is enabled in config.json (off by default).
           </span>
         </div>
         <input type="checkbox" v-model="enabled" @change="onToggle" />
