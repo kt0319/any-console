@@ -13,7 +13,6 @@ from .common import (
 from .config_migrations import (
     _get_config_version,
     _migrate_config_version,
-    _migrate_workspace_keys_to_ids,
 )
 from .config_schema import normalize_loaded_config, validate_config_entry
 from .errors import bad_request
@@ -103,9 +102,8 @@ def _read_config_unlocked() -> dict:
     normalized, errors = normalize_loaded_config(raw, GLOBAL_CONFIG_KEY)
     for name, error in errors:
         logger.warning("config validation failed key=%s: %s", name, error)
-    migrated, did_migrate = _migrate_workspace_keys_to_ids(normalized)
-    migrated, did_version_migrate = _migrate_config_version(migrated)
-    if restore_needed or did_migrate or did_version_migrate:
+    migrated, did_version_migrate = _migrate_config_version(normalized)
+    if restore_needed or did_version_migrate:
         _write_config_unlocked(migrated)
     return migrated
 

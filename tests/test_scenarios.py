@@ -311,7 +311,7 @@ class TestConfigImportExportScenario:
         assert len(current) == 2
 
         # エクスポートした設定を再インポート（1ジョブに戻る）
-        from api.routers.jobs import _workspace_jobs_cache
+        from api.routers.jobs_common import _workspace_jobs_cache
         res = client.post("/settings/import", headers=AUTH, json=exported)
         assert res.status_code == 200
         _workspace_jobs_cache.invalidate_all()

@@ -3,73 +3,19 @@
 ファイル I/O やロックは持たず、config dict を受け取って変換後の dict を返す
 純粋関数のみを置く。config.py（I/O 層）から呼び出される一方向依存とする。
 
-2系統のマイグレーションがある:
-- workspace キーの ID 化（旧形式: キー=表示名 → 新形式: キー=ID）
-- スキーマバージョンの段階適用（__global__.config_version を基準）
+マイグレーションはスキーマバージョンの段階適用（__global__.config_version を基準）
+のみ。破壊的なスキーマ変更は `_CONFIG_MIGRATIONS` に変換関数を登録して行う。
 """
 
 import logging
 from collections.abc import Callable
-from typing import Any
 
 from .common import (
     CONFIG_SCHEMA_VERSION,
     GLOBAL_CONFIG_KEY,
-    generate_workspace_id,
-    is_workspace_id,
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _rebuild_workspace_keys(config: dict) -> tuple[dict, dict[str, str]]:
-    """workspace entry のキーを ID 化し、旧名→新ID の対応表を返す。"""
-    name_to_id: dict[str, str] = {}
-    new_config: dict[str, Any] = {}
-    for key, entry in config.items():
-        if key == GLOBAL_CONFIG_KEY or not isinstance(entry, dict) or is_workspace_id(key):
-            new_config[key] = entry
-            continue
-        new_id = generate_workspace_id()
-        while new_id in config or new_id in new_config:
-            new_id = generate_workspace_id()
-        name_to_id[key] = new_id
-        new_entry = dict(entry)
-        new_entry.setdefault("name", key)
-        new_config[new_id] = new_entry
-    return new_config, name_to_id
-
-
-def _remap_global_references(global_section: dict, name_to_id: dict[str, str]) -> dict:
-    """__global__ 配下の workspace_order / recent_jobs を旧名→新IDに置き換える。"""
-    global_section = dict(global_section)
-    order = global_section.get("workspace_order")
-    if isinstance(order, list):
-        global_section["workspace_order"] = [name_to_id.get(n, n) for n in order]
-    recent = global_section.get("recent_jobs")
-    if isinstance(recent, list):
-        new_recent = []
-        for r in recent:
-            if isinstance(r, dict):
-                r = dict(r)
-                old_ws = r.get("workspace")
-                if isinstance(old_ws, str) and old_ws in name_to_id:
-                    r["workspace"] = name_to_id[old_ws]
-            new_recent.append(r)
-        global_section["recent_jobs"] = new_recent
-    return global_section
-
-
-def _migrate_workspace_keys_to_ids(config: dict) -> tuple[dict, bool]:
-    """旧形式（キー=表示名）を新形式（キー=ID）に変換し、参照箇所も更新。"""
-    new_config, name_to_id = _rebuild_workspace_keys(config)
-    if not name_to_id:
-        return new_config, False
-    global_section = new_config.get(GLOBAL_CONFIG_KEY)
-    if isinstance(global_section, dict):
-        new_config[GLOBAL_CONFIG_KEY] = _remap_global_references(global_section, name_to_id)
-    logger.info("migrated %d workspace key(s) to id", len(name_to_id))
-    return new_config, True
 
 
 def _get_config_version(config: dict) -> int:

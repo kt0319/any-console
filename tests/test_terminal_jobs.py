@@ -90,61 +90,6 @@ class TestSessionLimit:
         assert res.status_code == 429
 
 
-class TestSessionListingExcludesGrouped:
-    """旧アーキテクチャの grouped session はタブ一覧に出さない（後方互換）。"""
-
-    def test_grouped_sessions_are_filtered_out(self, client, monkeypatch):
-        import subprocess as sp
-
-        def fake_run_tmux_cmd(*args):
-            if "list-sessions" in args:
-                stdout = (
-                    "ac-real-abc123\n"
-                    "acg-real-abc123-deadbeef\n"   # 旧 grouped（後方互換で除外）
-                    "acg-other-0011\n"             # 旧 grouped（後方互換で除外）
-                    "ac-real-abc123__c0011\n"      # 旧版 leak（後方互換で除外）
-                )
-                return sp.CompletedProcess(["tmux", *args], 0, stdout=stdout, stderr="")
-            # メタデータ/作成時刻などの問い合わせは無害な空応答にする
-            return sp.CompletedProcess(["tmux", *args], 0, stdout="", stderr="")
-
-        monkeypatch.setattr("api.routers.terminal._run_tmux_cmd", fake_run_tmux_cmd)
-        monkeypatch.setattr("api.tmux._run_tmux_cmd", fake_run_tmux_cmd)
-
-        res = client.get("/terminal/sessions", headers=AUTH)
-        assert res.status_code == 200
-        ids = [s["session_id"] for s in res.json()]
-        assert ids == ["real-abc123"]
-
-
-class TestCleanupDetachedGroupedSessions:
-    """起動時に旧アーキテクチャの grouped session を掃除する（旧版 leak 含む）。"""
-
-    def test_kills_grouped_and_legacy_only(self, monkeypatch):
-        import subprocess as sp
-
-        from api import tmux as tmux_mod
-
-        killed = []
-
-        def fake_run_tmux_cmd(*args):
-            if "list-sessions" in args:
-                stdout = (
-                    "ac-real-abc123\n"
-                    "acg-real-abc123-deadbeef\n"
-                    "ac-real-abc123__c0011\n"
-                )
-                return sp.CompletedProcess(["tmux", *args], 0, stdout=stdout, stderr="")
-            return sp.CompletedProcess(["tmux", *args], 0, stdout="", stderr="")
-
-        monkeypatch.setattr(tmux_mod, "_run_tmux_cmd", fake_run_tmux_cmd)
-        monkeypatch.setattr(tmux_mod, "kill_tmux_by_name", lambda name: killed.append(name))
-
-        n = tmux_mod.cleanup_detached_grouped_sessions()
-        assert n == 2
-        assert killed == ["acg-real-abc123-deadbeef", "ac-real-abc123__c0011"]
-
-
 class TestTerminalSessionMetadata:
     def test_session_metadata(self, client, workspace):
         """POST /run で作成後、GET /terminal/sessions にメタデータ反映"""

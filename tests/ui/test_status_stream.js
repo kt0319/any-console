@@ -33,22 +33,6 @@ describe("parseStatusStreamMessage", () => {
     });
   });
 
-  it("hello メッセージから watching フラグを取り出す", () => {
-    expect(parseStatusStreamMessage(JSON.stringify({ type: "hello", watching: true }))).toEqual({
-      type: "hello",
-      watching: true,
-    });
-    expect(parseStatusStreamMessage(JSON.stringify({ type: "hello", watching: false }))).toEqual({
-      type: "hello",
-      watching: false,
-    });
-    // 欠損・boolean 以外は false 扱い（安全側 = ポーリング継続）
-    expect(parseStatusStreamMessage(JSON.stringify({ type: "hello" }))).toEqual({
-      type: "hello",
-      watching: false,
-    });
-  });
-
   it("ping メッセージは null", () => {
     expect(parseStatusStreamMessage(JSON.stringify({ type: "ping" }))).toBe(null);
   });

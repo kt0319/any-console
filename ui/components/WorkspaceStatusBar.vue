@@ -70,7 +70,7 @@ import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.js";
 import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
-import { POLL_INTERVAL_MS, CWD_POLL_INTERVAL_MS } from "../utils/constants.js";
+import { CWD_POLL_INTERVAL_MS } from "../utils/constants.js";
 import { terminalSessionCwdPath } from "../utils/endpoints.js";
 
 const { gitAction, isRunning } = useGitRemoteAction();
@@ -80,7 +80,6 @@ const currentCwd = ref("");
 const showJobsFiles = ref(true);
 const navGroupEl = ref(null);
 
-let pollTimer = null;
 let cwdTimer = null;
 let roNavGroup = null;
 let navGroupTimer = null;
@@ -94,11 +93,6 @@ async function fetchCwd() {
 
 function startPolling() {
   stopPolling();
-  pollTimer = setInterval(() => {
-    // ステータスストリーム接続中は push で更新されるのでポーリングしない
-    if (document.hidden || workspaceStore.statusStreamConnected) return;
-    workspaceStore.fetchStatuses();
-  }, POLL_INTERVAL_MS);
   cwdTimer = setInterval(() => {
     if (document.hidden) return;
     fetchCwd();
@@ -106,7 +100,6 @@ function startPolling() {
 }
 
 function stopPolling() {
-  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   if (cwdTimer) { clearInterval(cwdTimer); cwdTimer = null; }
 }
 

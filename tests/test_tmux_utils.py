@@ -198,42 +198,6 @@ class TestRunOutsideCgroup:
         assert "echo" in calls
 
 
-class TestCleanupDetachedGroupedSessions:
-    def test_returns_zero_on_cmd_failure(self):
-        from api.tmux import cleanup_detached_grouped_sessions
-        with mock.patch("api.tmux._run_tmux_cmd", return_value=None):
-            assert cleanup_detached_grouped_sessions() == 0
-
-    def test_returns_zero_on_nonzero_returncode(self):
-        from api.tmux import cleanup_detached_grouped_sessions
-        result = mock.MagicMock()
-        result.returncode = 1
-        with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
-            assert cleanup_detached_grouped_sessions() == 0
-
-    def test_kills_grouped_sessions_and_returns_count(self):
-        from api.tmux import cleanup_detached_grouped_sessions
-        result = mock.MagicMock()
-        result.returncode = 0
-        result.stdout = "acg-old\nnormal-session\nacg-another\n"
-        with mock.patch("api.tmux._run_tmux_cmd", return_value=result), \
-             mock.patch("api.tmux.kill_tmux_by_name") as kill:
-            count = cleanup_detached_grouped_sessions()
-        assert count == 2
-        assert kill.call_count == 2
-
-    def test_returns_zero_when_no_grouped_sessions(self):
-        from api.tmux import cleanup_detached_grouped_sessions
-        result = mock.MagicMock()
-        result.returncode = 0
-        result.stdout = "normal-session\nother-session\n"
-        with mock.patch("api.tmux._run_tmux_cmd", return_value=result), \
-             mock.patch("api.tmux.kill_tmux_by_name") as kill:
-            count = cleanup_detached_grouped_sessions()
-        assert count == 0
-        kill.assert_not_called()
-
-
 class TestGetSessionCwd:
     def test_returns_cwd_on_success(self):
         from api.tmux import get_session_cwd

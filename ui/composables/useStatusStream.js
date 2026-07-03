@@ -16,7 +16,7 @@ let started = false;
 /**
  * git ステータスのリアルタイム配信 WS を購読する。
  * 受信したステータスは workspace ストアへ即時マージされる。
- * 切断時はバックオフ付きで再接続し、その間は既存のポーリングがフォールバックする。
+ * 切断時はバックオフ付きで再接続し、再接続のたびに全量を同期して取りこぼしを埋める。
  */
 export function useStatusStream() {
   const workspaceStore = useWorkspaceStore();
@@ -39,18 +39,11 @@ export function useStatusStream() {
     };
     ws.onmessage = (e) => {
       const msg = parseStatusStreamMessage(e.data);
-      if (!msg) return;
-      if (msg.type === "hello") {
-        // サーバ側で FS 監視が有効なときだけ push を一次情報源にしてポーリングを止める。
-        // watchfiles の無い環境では push が API/fetch 契機のみに劣化するため、
-        // 接続中でもポーリングを継続する必要がある。
-        workspaceStore.statusStreamConnected = msg.watching;
-      } else if (msg.type === "statuses") {
+      if (msg?.type === "statuses") {
         workspaceStore.applyStatuses(msg.statuses);
       }
     };
     ws.onclose = () => {
-      workspaceStore.statusStreamConnected = false;
       scheduleReconnect();
     };
   }

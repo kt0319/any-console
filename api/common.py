@@ -47,10 +47,6 @@ PTY_READER_WORKERS = 8
 MAX_TERMINAL_SESSIONS = 20
 
 TMUX_SESSION_PREFIX = "ac-"
-# 旧アーキテクチャが WS クライアントごとに作っていた grouped session 用プレフィックス。
-# 現行はベースセッションへ直接アタッチするため新規作成しないが、移行直後に残った
-# 旧 grouped session を一覧から除外・起動時に掃除するための後方互換判定に使う。
-TMUX_GROUPED_PREFIX = "acg-"
 TMUX_CMD_TIMEOUT_SEC = 5
 TMUX_PANE_READY_TIMEOUT_SEC = 2.0
 TMUX_PANE_POLL_INTERVAL_SEC = 0.05
@@ -67,15 +63,11 @@ BRANCH_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_./-]+$")
 COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{4,40}$|^stash@\{\d+\}$")
 WORKSPACE_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_.-]+$")
 WORKSPACE_ID_PREFIX = "ws_"
-WORKSPACE_ID_PATTERN = re.compile(r"^ws_[0-9a-f]{12}$")
 
 
 def generate_workspace_id() -> str:
     return WORKSPACE_ID_PREFIX + secrets.token_hex(6)
 
-
-def is_workspace_id(value: str) -> bool:
-    return bool(WORKSPACE_ID_PATTERN.match(value))
 
 MAX_LABEL_LENGTH = 200
 MAX_COMMAND_LENGTH = 10000

@@ -607,18 +607,6 @@ class TestWorkspaceConfigUpdateConflicts:
         assert res.status_code == 400
 
 
-class TestRemapGlobalReferences:
-    def test_remaps_workspace_order(self):
-        from api.config_migrations import _remap_global_references
-        out = _remap_global_references({"workspace_order": ["old1", "old2", "untouched"]}, {"old1": "ID_1", "old2": "ID_2"})
-        assert out["workspace_order"] == ["ID_1", "ID_2", "untouched"]
-
-    def test_ignores_non_list_fields(self):
-        from api.config_migrations import _remap_global_references
-        out = _remap_global_references({"workspace_order": "bad"}, {})
-        assert out["workspace_order"] == "bad"
-
-
 class TestSettingsImportNonObjectEntry:
     def test_non_dict_workspace_entry_skipped(self, client):
         from conftest import AUTH

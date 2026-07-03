@@ -14,18 +14,22 @@ from api.git_watch import (
     collect_watch_targets,
     is_relevant_change,
     match_workspaces,
-    stream_watching,
-    watch_available,
     watch_roots,
 )
 from conftest import TOKEN
 
 
 def register_workspace(config_file, name, path):
-    """config.json へワークスペースを追記する（表示名キーで書けば自動マイグレートされる）。"""
+    """config.json へワークスペースを現行フォーマット（キー=ID、name フィールド）で追記する。"""
     import json
+
+    from api.common import generate_workspace_id
+
+    from conftest import find_ws_id
     config = json.loads(config_file.read_text(encoding="utf-8")) if config_file.is_file() else {}
-    config.setdefault(name, {})["path"] = str(path)
+    ws_id = find_ws_id(config, name) or generate_workspace_id()
+    entry = config.setdefault(ws_id, {"name": name})
+    entry["path"] = str(path)
     config_file.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
@@ -37,7 +41,6 @@ def _reset_git_watch_state():
     git_watch._loop = None
     git_watch._targets = []
     git_watch._restart_event = None
-    git_watch._watch_failed = False
 
 
 class TestIsRelevantChange:
@@ -461,46 +464,7 @@ class TestStatusStreamWebSocket:
             assert exc.code == 1008
 
     def test_ws_accepts_valid_token_and_subscribes(self, client, git_workspace_with_commit):
-        with client.websocket_connect(f"/workspaces/statuses/ws?token={TOKEN}") as ws:
-            # 接続直後に FS 監視の有無が hello で通知される
-            hello = ws.receive_json()
-            assert hello == {"type": "hello", "watching": stream_watching()}
+        with client.websocket_connect(f"/workspaces/statuses/ws?token={TOKEN}"):
             assert git_watch.subscriber_count() == 1
         # 切断後は購読解除される（タスク停止は _reset_git_watch_state が担保）
-        assert git_watch.subscriber_count() == 0
-
-    def test_watch_available_reflects_watchfiles_install(self):
-        # CI / 開発環境では requirements.txt により watchfiles が入っている
-        assert watch_available() is True
-        assert stream_watching() is True
-
-    def test_watch_failure_notifies_subscribers_to_resume_polling(self):
-        # awatch の失敗中は hello(watching=False) が再送され、クライアントは
-        # ポーリングを再開できる。復帰時にも watching=True が通知される
-        async def run():
-            fake = FakeWS()
-            git_watch._subscribers.add(fake)
-            await git_watch._set_watch_failed(True)
-            assert stream_watching() is False
-            assert fake.sent == [{"type": "hello", "watching": False}]
-            # 同じ状態の再設定では再送しない
-            await git_watch._set_watch_failed(True)
-            assert len(fake.sent) == 1
-            await git_watch._set_watch_failed(False)
-            assert stream_watching() is True
-            assert fake.sent[-1] == {"type": "hello", "watching": True}
-
-        asyncio.run(run())
-
-    def test_hello_send_failure_still_unsubscribes(self, client, monkeypatch):
-        # hello 送信前に切断されたクライアントが _subscribers に残らないこと
-        from starlette.websockets import WebSocket
-
-        async def broken_send_json(self, data, mode="text"):
-            raise WebSocketDisconnect(1006)
-
-        monkeypatch.setattr(WebSocket, "send_json", broken_send_json)
-        with pytest.raises((WebSocketDisconnect, Exception)):
-            with client.websocket_connect(f"/workspaces/statuses/ws?token={TOKEN}") as ws:
-                ws.receive_json()
         assert git_watch.subscriber_count() == 0

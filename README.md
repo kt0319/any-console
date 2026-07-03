@@ -175,6 +175,8 @@ For the systemd (Linux) and launchd (macOS) setups, all operations go through th
 
 Runs `git pull` → update deps → build → restart in one shot. Skips steps where nothing has changed.
 
+Upgrade compatibility note: legacy-migration code for versions prior to 2026-06 has been removed — `config.json` files keyed by workspace display name are no longer rewritten to ID keys (they still load, but new installs always use ID keys), and leftover grouped tmux sessions (`acg-*` / `ac-*__c*`) from the pre-2026-06 terminal architecture are no longer cleaned up at startup. When upgrading from such an old version, kill those stale tmux sessions manually (`tmux kill-session -t <name>`) if any remain.
+
 ## Repository layout
 
 ```

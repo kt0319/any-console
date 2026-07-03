@@ -39,7 +39,6 @@ from ..tmux import (
     get_session_cwd,
     get_tmux_created,
     get_window_width,
-    is_grouped_session_name,
     send_keys_to_tmux,
     tmux_session_exists,
 )
@@ -60,10 +59,6 @@ async def list_terminal_sessions():
     sessions = []
     for line in result.stdout.strip().splitlines():
         name = line.strip()
-        # 旧アーキテクチャの grouped session（acg-... / ac-...__c...）はタブにしない。
-        # 現行は作らないが、移行直後に残っている分を後方互換で除外する。
-        if is_grouped_session_name(name):
-            continue
         if not name.startswith(TMUX_SESSION_PREFIX):
             continue
         session_id = name[len(TMUX_SESSION_PREFIX):]

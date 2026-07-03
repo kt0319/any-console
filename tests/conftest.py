@@ -11,11 +11,11 @@ AUTH = {"Authorization": f"Bearer {TOKEN}"}
 
 
 def find_ws_id(config: dict, display_name: str) -> str | None:
-    """config.json から表示名で workspace ID を引く。"""
+    """config.json から表示名で workspace ID を引く（ランタイム同様キー直接一致も許容）。"""
     for key, value in config.items():
-        if key == "__global__":
+        if key == "__global__" or not isinstance(value, dict):
             continue
-        if isinstance(value, dict) and value.get("name") == display_name:
+        if key == display_name or value.get("name") == display_name:
             return key
     return None
 
@@ -57,10 +57,14 @@ def workspace(isolate_fs):
     ws = isolate_fs["work"] / "test-ws"
     ws.mkdir()
     import json
+
+    from api.common import generate_workspace_id
     config_file = isolate_fs["config_file"]
     config = json.loads(config_file.read_text(encoding="utf-8")) if config_file.is_file() else {}
-    # 互換目的でキーは表示名で書く（読み込み時に自動マイグレートされる）
-    config.setdefault("test-ws", {})["path"] = str(ws)
+    # 現行フォーマット（キー=ID、表示名は name フィールド）で書く
+    ws_id = find_ws_id(config, "test-ws") or generate_workspace_id()
+    entry = config.setdefault(ws_id, {"name": "test-ws"})
+    entry["path"] = str(ws)
     config_file.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
     return ws
 
@@ -97,7 +101,7 @@ def _reset_rate_limiter():
 @pytest.fixture(autouse=True)
 def _reset_jobs_cache():
     """各テスト前にジョブキャッシュをクリア"""
-    from api.routers.jobs import _common_jobs_cache, _workspace_jobs_cache
+    from api.routers.jobs_common import _common_jobs_cache, _workspace_jobs_cache
     _workspace_jobs_cache.invalidate_all()
     _common_jobs_cache.invalidate_all()
 
