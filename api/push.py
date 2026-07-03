@@ -124,7 +124,7 @@ def remove_subscription(endpoint: str) -> None:
 
 
 def send_push_notification(title: str, body: str, url: str = "/") -> None:
-    """全サブスクリプションへ Push 通知を非同期送信する。失敗したサブスクリプションは削除する。"""
+    """全サブスクリプションへ Push 通知を同期送信する（ブロッキング）。失敗したサブスクリプションは削除する。"""
     if _vapid_private_b64 is None:
         init_vapid()
     if _vapid_private_b64 is None:

@@ -14,7 +14,8 @@ const REMOTE_ACTIONS = {
   "set-upstream": { label: "Set Upstream", confirm: "set upstream tracking" },
 };
 
-const PUSH_ACTIONS = new Set(["pull", "push", "push-branch"]);
+// commit 件数トーストを出す push/pull 系アクション（runPushPull で処理する）
+const PUSH_PULL_ACTIONS = new Set(["pull", "push", "push-branch"]);
 
 function actionLabel(action) {
   return REMOTE_ACTIONS[action]?.label || action;
@@ -73,7 +74,7 @@ export function useGitRemoteAction() {
     runningAction.value = makeActionKey(wsName, action, branch);
     try {
       const label = actionLabel(action);
-      if (PUSH_ACTIONS.has(action)) {
+      if (PUSH_PULL_ACTIONS.has(action)) {
         await runPushPull(wsName, action, branch, label);
       } else {
         await runGenericAction(wsName, action, label);

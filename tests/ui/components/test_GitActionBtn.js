@@ -40,6 +40,18 @@ describe("GitActionBtn", () => {
     expect(wrapper.classes()).toContain("disabled");
   });
 
+  it("disabled=true のとき aria-disabled が付き action を emit しない", async () => {
+    const wrapper = mount(GitActionBtn, { props: { icon: "pull", disabled: true } });
+    expect(wrapper.attributes("aria-disabled")).toBe("true");
+    await wrapper.trigger("click");
+    expect(wrapper.emitted("action")).toBeFalsy();
+  });
+
+  it("disabled=false のとき aria-disabled が付かない", () => {
+    const wrapper = mount(GitActionBtn, { props: { icon: "pull" } });
+    expect(wrapper.attributes("aria-disabled")).toBeUndefined();
+  });
+
   it("btnClass が追加のクラスとして反映される", () => {
     const wrapper = mount(GitActionBtn, { props: { icon: "pull", btnClass: "pull-btn has-count" } });
     expect(wrapper.classes()).toContain("pull-btn");

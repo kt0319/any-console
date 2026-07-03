@@ -180,12 +180,13 @@ def _create_terminal_session(body, ws_path):
 def _run_regular_job(body, job_def, ordered_args, ws_path):
     cwd_path = str(ws_path) if ws_path else ""
     logger.info("job start job=%s workspace=%s", body.job, body.workspace or "(none)")
+    timeout_sec = job_def.timeout_sec if job_def.timeout_sec is not None else JOB_TIMEOUT_SEC
     try:
         result = run_job(job_def, ordered_args, workspace=cwd_path)
     except subprocess.TimeoutExpired:
         logger.warning("job timeout job=%s workspace=%s sec=%d",
-                       body.job, body.workspace or "(none)", JOB_TIMEOUT_SEC)
-        raise timeout_error(f"Job execution timed out after {JOB_TIMEOUT_SEC}s") from None
+                       body.job, body.workspace or "(none)", timeout_sec)
+        raise timeout_error(f"Job execution timed out after {timeout_sec}s") from None
     except OSError as e:
         logger.error("job exec failed job=%s workspace=%s: %s", body.job, body.workspace or "(none)", e)
         raise server_error(f"Job execution failed: {e}") from None
