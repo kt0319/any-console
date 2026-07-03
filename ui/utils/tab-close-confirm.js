@@ -5,7 +5,7 @@
  *   - `useConfirm()` から取得した confirm 関数。
  * @param {{ workspace?: string | null, label?: string }} tab
  * @returns {Promise<boolean | string>}
- *   - true: 閉じる確定 / "refresh": 再接続を選択 / false: キャンセル
+ *   - true: 閉じる確定 / "refresh": 再接続を選択 / "detach": デタッチを選択 / false: キャンセル
  */
 export function confirmCloseTab(confirm, tab) {
   const label = tab?.workspace || tab?.label || "terminal";

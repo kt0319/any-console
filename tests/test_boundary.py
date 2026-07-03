@@ -217,6 +217,15 @@ class TestConfigSchema:
         result, errors = normalize_loaded_config(raw, "__global__")
         assert len(errors) == 1
 
+    def test_job_config_detached_tab_field(self):
+        from api.config_schema import JobConfig, validate_workspace_config
+        assert JobConfig(command="echo hi").detached_tab is False
+        assert JobConfig(command="echo hi", detached_tab=True).detached_tab is True
+        result = validate_workspace_config({
+            "jobs": {"j1": {"command": "echo hi", "detached_tab": True}},
+        })
+        assert result["jobs"]["j1"]["detached_tab"] is True
+
     def test_validate_config_entry_global(self):
         from api.config_schema import validate_config_entry
         result = validate_config_entry("__global__", {"snippets": []}, "__global__")

@@ -8,14 +8,15 @@ export function useSessionResume({ terminalBaseView }) {
   const { connectTerminalWs } = useTerminal();
   const { syncSessionsFromServer, startSyncPolling, stopSyncPolling } = useSessionSync();
 
-  let resumeDebounceTimer = null;
+  // 短時間に連続する復帰トリガーを1回の resume にまとめる（先行予約優先）
+  let resumeCoalesceTimer = null;
   let wasHidden = false;
 
   function scheduleResume() {
     if (document.hidden) return;
-    if (resumeDebounceTimer) return;
-    resumeDebounceTimer = setTimeout(() => {
-      resumeDebounceTimer = null;
+    if (resumeCoalesceTimer) return;
+    resumeCoalesceTimer = setTimeout(() => {
+      resumeCoalesceTimer = null;
       handleResume();
     }, 100);
   }
@@ -74,9 +75,9 @@ export function useSessionResume({ terminalBaseView }) {
   onBeforeUnmount(() => {
     document.removeEventListener("visibilitychange", onVisibilityChange);
     window.removeEventListener("pageshow", onPageShow);
-    if (resumeDebounceTimer) {
-      clearTimeout(resumeDebounceTimer);
-      resumeDebounceTimer = null;
+    if (resumeCoalesceTimer) {
+      clearTimeout(resumeCoalesceTimer);
+      resumeCoalesceTimer = null;
     }
   });
 }

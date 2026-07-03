@@ -35,7 +35,7 @@ class JobConfig(_ConfigModel):
     icon: str = ""
     icon_color: str = ""
     confirm: bool = True
-    terminal: bool = False
+    detached_tab: bool = False
     timeout_sec: int | None = None
 
     @field_validator("timeout_sec")

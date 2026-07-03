@@ -214,15 +214,16 @@ def get_session_cwd(tmux_name: str) -> str | None:
 
 
 def detect_workspace_from_tmux(tmux_name: str) -> str | None:
+    """ペインのカレントディレクトリからワークスペース ID を推定して返す。"""
     result = _run_tmux_cmd("display-message", "-t", tmux_name, "-p", "#{pane_current_path}")
     if result and result.returncode == 0:
         pane_path = result.stdout.strip()
         from .config import list_workspace_entries
         entries = list_workspace_entries()
-        for name, config in entries.items():
+        for ws_id, config in entries.items():
             ws_path = config.get("path", "")
             if ws_path and (pane_path == ws_path or pane_path.startswith(ws_path + "/")):
-                return name
+                return ws_id
     return None
 
 

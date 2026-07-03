@@ -214,7 +214,8 @@ async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
 
 
 def _apply_overrides(body: DispatchRequest, overrides: dict | None) -> None:
-    """承認モーダルで変更された値を DispatchRequest に反映する。空文字は無視。"""
+    """承認モーダルで変更された値を DispatchRequest に反映する。None は無視。
+    空文字は branch / base_branch を None にクリアし、text は空文字を設定する。"""
     if not overrides:
         return
     if "branch" in overrides and overrides["branch"] is not None:
