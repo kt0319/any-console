@@ -1,6 +1,10 @@
+import copy
+import logging
 from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+
+logger = logging.getLogger(__name__)
 
 try:
     from pydantic import ConfigDict
@@ -97,8 +101,45 @@ def validate_workspace_config(data: Any) -> dict[str, Any]:
     return _model_dump(_model_validate(WorkspaceConfig, data))
 
 
+def _strip_invalid_global_locations(data: dict[str, Any], exc: ValidationError) -> dict[str, Any]:
+    """検証エラーになった該当箇所だけを取り除く（残りのフィールドは保持する）。
+
+    宣言スカラー（port 等）はキーごと削除してデフォルトに委ね、jobs は該当ジョブのみ、
+    snippets は該当インデックスのみを落とす。radial 等の extra フィールドは触らない。
+    """
+    repaired = copy.deepcopy(data)
+    snippet_drop: set[int] = set()
+    for err in exc.errors():
+        loc = err.get("loc", ())
+        if not loc or not isinstance(loc[0], str):
+            continue
+        head = loc[0]
+        sub = loc[1] if len(loc) >= 2 else None
+        if head == "jobs" and isinstance(sub, str) and isinstance(repaired.get("jobs"), dict):
+            repaired["jobs"].pop(sub, None)
+        elif head == "snippets" and isinstance(sub, int):
+            snippet_drop.add(sub)
+        else:
+            repaired.pop(head, None)
+    if snippet_drop and isinstance(repaired.get("snippets"), list):
+        repaired["snippets"] = [s for i, s in enumerate(repaired["snippets"]) if i not in snippet_drop]
+    return repaired
+
+
 def validate_global_config(data: Any) -> dict[str, Any]:
-    return _model_dump(_model_validate(GlobalConfig, data))
+    try:
+        return _model_dump(_model_validate(GlobalConfig, data))
+    except ValidationError as exc:
+        # 不正なフィールドが1つでもあると global セクション全体が破棄され、無関係な
+        # radial（サークルキーパッド）や jobs/snippets まで巻き添えでリセットされる。
+        # 該当箇所だけ落として残りを救済する。
+        if not isinstance(data, dict):
+            raise
+        repaired = _strip_invalid_global_locations(data, exc)
+        result = _model_dump(_model_validate(GlobalConfig, repaired))
+        dropped = sorted({str(e.get("loc", ("?",))[0]) for e in exc.errors()})
+        logger.warning("global config had invalid entries; dropped fields=%s (other settings preserved)", dropped)
+        return result
 
 
 def validate_config_entry(name: str, data: Any, global_config_key: str) -> dict[str, Any]:

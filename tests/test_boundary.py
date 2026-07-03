@@ -6,7 +6,6 @@ config_schema.pyの正規化・検証をテストする。
 
 import pytest
 from fastapi import HTTPException
-from pydantic import ValidationError
 
 from conftest import AUTH
 
@@ -236,9 +235,14 @@ class TestConfigSchema:
         assert len(result["snippets"]) == 1
 
     def test_validate_global_config_snippet_requires_command(self):
+        # 不正な snippet は例外にせず該当エントリのみ落として救済する
+        # （1つの不正エントリで global 全体が捨てられ radial 等が巻き添えリセットされるのを防ぐ）。
         from api.config_schema import validate_global_config
-        with pytest.raises(ValidationError):
-            validate_global_config({"snippets": [{"label": "no cmd"}]})
+        result = validate_global_config({
+            "snippets": [{"command": "echo hi", "label": "ok"}, {"label": "no cmd"}],
+        })
+        assert len(result["snippets"]) == 1
+        assert result["snippets"][0]["command"] == "echo hi"
 
 
 class TestJobValidation:
