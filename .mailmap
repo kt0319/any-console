@@ -1,0 +1,7 @@
+# テスト環境の git identity のままコミットされた履歴を実作者に正規化する。
+# 表示上のマッピングのみで、コミットハッシュは変わらない。
+Kentaro Takasaki <kt0319@gmail.com> <test@example.com>
+Kentaro Takasaki <kt0319@gmail.com> <test@test.com>
+Kentaro Takasaki <kt0319@gmail.com> <test@test>
+Kentaro Takasaki <kt0319@gmail.com> <test@test.local>
+Kentaro Takasaki <kt0319@gmail.com> kt0319 <kt0319@gmail.com>
