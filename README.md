@@ -100,6 +100,8 @@ brew install python node git tmux gh
 
 ## Authentication
 
+> **Read [SECURITY.md](SECURITY.md) before deploying.** any-console gives the browser full shell access to the host — the token must be treated like an SSH key, and the app must never be exposed to the public internet.
+
 - On first start, if `data/auth.json` does not exist, a random 32-character token is generated and saved automatically.
 - The token is printed to the startup log once (stdout / journalctl / `logs/any-console.log`). Open the app URL on your device and sign in with it — the device gets a revocable cookie, so you only enter the token once per device.
 - On subsequent starts, `data/auth.json` is never overwritten.
