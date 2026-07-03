@@ -14,8 +14,6 @@ from ..errors import not_found
 from .jobs_common import (
     JobRequest,
     ReorderJobsRequest,
-    _common_jobs_cache,
-    _workspace_jobs_cache,
     common_jobs_context,
     delete_job,
     entry_to_job_definition,
@@ -33,16 +31,6 @@ from .workspaces import _dynamic_worktree_entries
 logger = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(verify_token)])
-
-# Backwards-compatible re-exports for tests that import these directly.
-__all__ = [
-    "_common_jobs_cache",
-    "_workspace_jobs_cache",
-    "get_workspace_jobs",
-    "serialize_workspace_jobs",
-    "job_definition_to_dict",
-    "router",
-]
 
 
 def _merge_jobs_for_ws(display_name, ws_jobs_data, common_jobs_data):

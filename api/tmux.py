@@ -114,40 +114,6 @@ def tmux_session_exists(name: str) -> bool:
     return result is not None and result.returncode == 0
 
 
-def is_grouped_session_name(name: str) -> bool:
-    """旧アーキテクチャの grouped session（使い捨てビュー）の名前か判定する。
-
-    現行はクライアントをベースセッションへ直接アタッチするため grouped session は
-    作らない。旧版は `TMUX_GROUPED_PREFIX`（`acg-`）や `ac-<id>__c<hex>` という名前で
-    クライアント単位のセッションを作っていたため、それらを後方互換で grouped 扱いにし、
-    一覧から除外し起動時に掃除する。
-    """
-    from .common import TMUX_GROUPED_PREFIX
-    return name.startswith(TMUX_GROUPED_PREFIX) or "__c" in name
-
-
-def cleanup_detached_grouped_sessions() -> int:
-    """旧アーキテクチャが残した grouped session を全て kill する（起動時の自己修復）。
-
-    現行はクライアントをベースセッションへ直接アタッチするため grouped session を
-    作らないが、旧版から移行した直後の tmux サーバには使い捨ての grouped session が
-    残りうる。それらを掃除してセッション上限の枠を食い潰さないようにする。
-    kill した数を返す（現行アーキテクチャでは通常 0）。
-    """
-    result = _run_tmux_cmd("list-sessions", "-F", "#{session_name}")
-    if not result or result.returncode != 0:
-        return 0
-    killed = 0
-    for line in result.stdout.strip().splitlines():
-        name = line.strip()
-        if name and is_grouped_session_name(name):
-            kill_tmux_by_name(name)
-            killed += 1
-    if killed:
-        logger.info("cleaned up %d detached grouped tmux session(s)", killed)
-    return killed
-
-
 def kill_tmux_by_name(name: str) -> None:
     _run_tmux_cmd("kill-session", "-t", name)
 

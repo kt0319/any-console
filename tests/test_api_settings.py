@@ -50,7 +50,10 @@ class TestSettings:
         assert res.json() == {}
 
     def test_export_includes_all_workspaces(self, client, workspace, isolate_fs):
-        config = {"test-ws": {"icon": "star"}, "nonexistent": {"icon": "x"}}
+        config = {
+            "ws_aaaaaaaaaaaa": {"name": "test-ws", "icon": "star"},
+            "ws_bbbbbbbbbbbb": {"name": "nonexistent", "icon": "x"},
+        }
         isolate_fs["config_file"].write_text(json.dumps(config))
         res = client.get("/settings/export", headers=AUTH)
         data = res.json()

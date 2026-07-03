@@ -174,11 +174,6 @@ async def lifespan(app: FastAPI):
         if auto_token:
             _print_token_notice(host, port, auto_token)
     _emit_insecure_bind_warning(host)
-    try:
-        from .tmux import cleanup_detached_grouped_sessions
-        cleanup_detached_grouped_sessions()
-    except OSError as e:
-        logger.warning("grouped session cleanup skipped: %s", e)
     from .preview import set_self_ports, start_scanner, stop_scanner
     from .push import init_vapid
     _display_host = "localhost" if host in ("0.0.0.0", "::", "") else host  # noqa: S104
