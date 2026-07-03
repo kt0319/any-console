@@ -1,6 +1,6 @@
 <template>
   <!-- グループ名入力モーダル -->
-  <div v-if="groupDialogOpen" class="picker-group-overlay" @click.self="groupDialogOpen = false">
+  <BaseDialog :visible="groupDialogOpen" :z-index="210" initial-focus="none" @dismiss="groupDialogOpen = false">
     <div class="picker-group-dialog" role="dialog" aria-modal="true" :aria-label="editingGroup ? 'Rename group' : 'Add group'">
       <div class="picker-group-dialog-title">{{ editingGroup ? 'Rename group' : 'Add group' }}</div>
       <input
@@ -15,19 +15,20 @@
         @keydown.esc.prevent="groupDialogOpen = false"
       />
       <div class="picker-group-dialog-buttons">
-        <button v-if="editingGroup" class="prompt-btn prompt-btn-danger" @click="deleteGroup(editingGroup)">Delete</button>
+        <button v-if="editingGroup" class="dialog-btn group-btn-danger" @click="deleteGroup(editingGroup)">Delete</button>
         <span class="picker-group-dialog-spacer"></span>
-        <button class="prompt-btn prompt-btn-cancel" @click="groupDialogOpen = false">Cancel</button>
-        <button class="prompt-btn prompt-btn-ok" :disabled="!groupInputName.trim()" @click="submitGroupDialog">
+        <button class="dialog-btn dialog-btn-cancel" @click="groupDialogOpen = false">Cancel</button>
+        <button class="dialog-btn dialog-btn-ok" :disabled="!groupInputName.trim()" @click="submitGroupDialog">
           {{ editingGroup ? 'Rename' : 'Create' }}
         </button>
       </div>
     </div>
-  </div>
+  </BaseDialog>
 </template>
 
 <script setup>
 import { ref, nextTick } from "vue";
+import BaseDialog from "./BaseDialog.vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
@@ -84,17 +85,6 @@ defineExpose({ openAdd: startAddGroup, openRename: startRenameGroup });
 
 <style scoped>
 /* グループ名ダイアログ */
-.picker-group-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 210;
-  padding: 20px;
-}
-
 .picker-group-dialog {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -122,13 +112,9 @@ defineExpose({ openAdd: startAddGroup, openRename: startRenameGroup });
   flex: 1;
 }
 
-.prompt-btn-danger {
-  padding: 6px 14px;
+.group-btn-danger {
   background: transparent;
-  border: 1px solid var(--error);
-  border-radius: var(--radius);
+  border-color: var(--error);
   color: var(--error);
-  font-size: 13px;
-  cursor: pointer;
 }
 </style>

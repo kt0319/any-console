@@ -1,57 +1,56 @@
 <template>
-  <Teleport to="body">
-    <div v-if="visible" class="dispatch-prompt-backdrop" @click.self="cancel">
-      <div class="dispatch-prompt-box" role="dialog" aria-modal="true">
-        <h3 class="dispatch-prompt-title">Run dispatch?</h3>
+  <BaseDialog :visible="visible" :z-index="10001" @dismiss="cancel">
+    <div class="dispatch-prompt-box" role="dialog" aria-modal="true" aria-labelledby="dispatch-prompt-title">
+      <h3 id="dispatch-prompt-title" class="dispatch-prompt-title">Run dispatch?</h3>
 
-        <dl class="dispatch-prompt-meta">
-          <template v-if="request?.workspace">
-            <dt>Workspace</dt>
-            <dd>{{ request.workspace }}</dd>
-          </template>
-          <template v-if="request?.worktree">
-            <dt>Worktree</dt>
-            <dd>{{ request.worktree }}</dd>
-          </template>
-          <template v-if="request?.job && request.job !== 'terminal'">
-            <dt>Job</dt>
-            <dd>{{ request.job }}</dd>
-          </template>
-        </dl>
-
-        <template v-if="hasBranchField">
-          <label class="dispatch-prompt-field">
-            <span class="dispatch-prompt-label">
-              Branch
-              <span v-if="branchStatusNote" class="dispatch-prompt-note">{{ branchStatusNote }}</span>
-            </span>
-            <input v-model="branch" type="text" autocomplete="off" spellcheck="false" />
-          </label>
-
-          <label class="dispatch-prompt-field">
-            <span class="dispatch-prompt-label">Base branch</span>
-            <input v-model="baseBranch" type="text" autocomplete="off" spellcheck="false" placeholder="(current)" />
-          </label>
+      <dl class="dispatch-prompt-meta">
+        <template v-if="request?.workspace">
+          <dt>Workspace</dt>
+          <dd>{{ request.workspace }}</dd>
         </template>
+        <template v-if="request?.worktree">
+          <dt>Worktree</dt>
+          <dd>{{ request.worktree }}</dd>
+        </template>
+        <template v-if="request?.job && request.job !== 'terminal'">
+          <dt>Job</dt>
+          <dd>{{ request.job }}</dd>
+        </template>
+      </dl>
 
+      <template v-if="hasBranchField">
         <label class="dispatch-prompt-field">
-          <span class="dispatch-prompt-label">Input</span>
-          <textarea v-model="text" rows="4" autocomplete="off" spellcheck="false"></textarea>
+          <span class="dispatch-prompt-label">
+            Branch
+            <span v-if="branchStatusNote" class="dispatch-prompt-note">{{ branchStatusNote }}</span>
+          </span>
+          <input v-model="branch" type="text" autocomplete="off" spellcheck="false" />
         </label>
 
-        <div class="dispatch-prompt-actions">
-          <button type="button" class="dispatch-prompt-cancel" @click="cancel">Cancel</button>
-          <button type="button" class="dispatch-prompt-ok" @click="approve">
-            <span class="mdi mdi-play"></span> Run
-          </button>
-        </div>
+        <label class="dispatch-prompt-field">
+          <span class="dispatch-prompt-label">Base branch</span>
+          <input v-model="baseBranch" type="text" autocomplete="off" spellcheck="false" placeholder="(current)" />
+        </label>
+      </template>
+
+      <label class="dispatch-prompt-field">
+        <span class="dispatch-prompt-label">Input</span>
+        <textarea v-model="text" rows="4" autocomplete="off" spellcheck="false"></textarea>
+      </label>
+
+      <div class="dialog-buttons">
+        <button type="button" class="dialog-btn dialog-btn-cancel" @click="cancel">Cancel</button>
+        <button type="button" class="dialog-btn dialog-btn-ok" @click="approve">
+          <span class="mdi mdi-play"></span> Run
+        </button>
       </div>
     </div>
-  </Teleport>
+  </BaseDialog>
 </template>
 
 <script setup>
 import { computed } from "vue";
+import BaseDialog from "./BaseDialog.vue";
 import { useDispatchPrompt } from "../composables/useDispatchPrompt.js";
 
 const { visible, request, branch, baseBranch, text, approve, cancel } = useDispatchPrompt();
@@ -68,16 +67,6 @@ const branchStatusNote = computed(() => {
 </script>
 
 <style scoped>
-.dispatch-prompt-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  z-index: 10001;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
 .dispatch-prompt-box {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -141,31 +130,5 @@ const branchStatusNote = computed(() => {
 .dispatch-prompt-field textarea {
   resize: vertical;
   font-family: monospace;
-}
-.dispatch-prompt-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 4px;
-}
-.dispatch-prompt-cancel,
-.dispatch-prompt-ok {
-  padding: 8px 16px;
-  border-radius: var(--radius);
-  font-size: 14px;
-  cursor: pointer;
-}
-.dispatch-prompt-cancel {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-}
-.dispatch-prompt-ok {
-  background: var(--accent);
-  color: var(--bg-primary);
-  border: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
 }
 </style>

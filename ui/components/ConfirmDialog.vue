@@ -1,7 +1,6 @@
 <template>
-  <div v-if="visible" class="confirm-overlay" @click.self="onCancel">
+  <BaseDialog :visible="visible" @dismiss="onCancel">
     <div
-      ref="dialogEl"
       class="confirm-dialog"
       role="dialog"
       aria-modal="true"
@@ -13,89 +12,29 @@
         <div v-if="extra2Button?.desc">{{ extra2Button.desc }}</div>
       </div>
       <div class="confirm-buttons">
-        <button ref="cancelBtn" class="confirm-btn confirm-btn-cancel" @click="onCancel">Cancel</button>
-        <button v-if="extraButton" class="confirm-btn confirm-btn-extra" @click="onExtra">
+        <button class="dialog-btn dialog-btn-cancel" @click="onCancel">Cancel</button>
+        <button v-if="extraButton" class="dialog-btn confirm-btn-extra" @click="onExtra">
           <span v-if="extraButton.icon" class="mdi" :class="extraButton.icon"></span>{{ extraButton.label }}
         </button>
-        <button v-if="extra2Button" class="confirm-btn confirm-btn-extra2" @click="onExtra2">
+        <button v-if="extra2Button" class="dialog-btn confirm-btn-extra2" @click="onExtra2">
           <span v-if="extra2Button.icon" class="mdi" :class="extra2Button.icon"></span>{{ extra2Button.label }}
         </button>
-        <button class="confirm-btn" :class="okButton?.danger ? 'confirm-btn-danger' : 'confirm-btn-ok'" @click="onOk">
+        <button class="dialog-btn" :class="okButton?.danger ? 'dialog-btn-danger' : 'dialog-btn-ok'" @click="onOk">
           <span v-if="okButton?.icon" class="mdi" :class="okButton.icon"></span>{{ okButton?.label || "OK" }}
         </button>
       </div>
     </div>
-  </div>
+  </BaseDialog>
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onUnmounted } from "vue";
+import BaseDialog from "./BaseDialog.vue";
 import { useConfirm } from "../composables/useConfirm.js";
-import { focusFirstFocusable, trapFocusWithin } from "../composables/useModal.js";
-import { isTouchOnly, listenForEscape } from "../utils/keyboard.js";
 
 const { visible, message, extraButton, extra2Button, okButton, onOk, onCancel, onExtra, onExtra2 } = useConfirm();
-const cancelBtn = ref(null);
-const dialogEl = ref(null);
-
-let prevFocus = null;
-let releaseEscape = null;
-let releaseTrap = null;
-
-watch(visible, (val) => {
-  if (val) {
-    prevFocus = document.activeElement;
-    // タッチデバイスでは自動フォーカスしない（キーボード誤起動を防ぐ）
-    if (!isTouchOnly()) {
-      nextTick(() => {
-        if (dialogEl.value) {
-          releaseTrap?.();
-          releaseTrap = trapFocusWithin(dialogEl.value);
-          focusFirstFocusable(dialogEl.value);
-        } else {
-          cancelBtn.value?.focus();
-        }
-      });
-    } else {
-      nextTick(() => {
-        if (dialogEl.value) {
-          releaseTrap?.();
-          releaseTrap = trapFocusWithin(dialogEl.value);
-        }
-      });
-    }
-    releaseEscape = listenForEscape(onCancel);
-  } else {
-    releaseTrap?.();
-    releaseTrap = null;
-    releaseEscape?.();
-    releaseEscape = null;
-    // タッチデバイスでは prevFocus 復元もしない（xterm 等にフォーカス戻すと
-    // ソフトキーボードが起動してしまうため）
-    if (!isTouchOnly()) {
-      nextTick(() => /** @type {HTMLElement|null} */ (prevFocus)?.focus());
-    }
-    prevFocus = null;
-  }
-});
-onUnmounted(() => {
-  releaseTrap?.();
-  releaseEscape?.();
-});
 </script>
 
 <style scoped>
-.confirm-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 200;
-  padding: 20px;
-}
-
 .confirm-dialog {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -124,31 +63,8 @@ onUnmounted(() => {
   justify-content: flex-end;
 }
 
-.confirm-btn {
+.confirm-buttons .dialog-btn {
   flex: 1;
-  min-width: 80px;
-  min-height: 44px;
-  padding: 8px 12px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-}
-
-.confirm-btn-cancel {
-  background: transparent;
-  color: var(--text-secondary);
-}
-
-.confirm-btn-ok {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
 }
 
 .confirm-btn-extra {
@@ -161,12 +77,6 @@ onUnmounted(() => {
   background: transparent;
   color: #fde047;
   border-color: #fde047;
-}
-
-.confirm-btn-danger {
-  background: var(--error);
-  color: #fff;
-  border-color: var(--error);
 }
 
 .confirm-extra-desc {

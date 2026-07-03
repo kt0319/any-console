@@ -1,0 +1,50 @@
+/* ダイアログ共通スタイル。構造・フォーカス管理は BaseDialog.vue が担う。 */
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.dialog-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.dialog-btn {
+  min-width: 80px;
+  min-height: 44px;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.dialog-btn-cancel {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.dialog-btn-ok {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.dialog-btn-danger {
+  background: var(--error);
+  color: #fff;
+  border-color: var(--error);
+}
