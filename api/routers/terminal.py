@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import os
 import subprocess
@@ -16,7 +15,9 @@ from ..common import (
     TMUX_SESSION_PREFIX,
     WS_MSG_RESIZE,
     WS_PING_INTERVAL_SEC,
+    load_json_file,
     resolve_workspace_path,
+    save_json_file,
 )
 from ..errors import not_found, server_error, timeout_error
 from ..terminal_session import (
@@ -186,12 +187,7 @@ _TAB_ORDER_FILE = Path(__file__).resolve().parent.parent.parent / "data" / "sess
 
 
 def _load_tab_order() -> list[str]:
-    try:
-        if not _TAB_ORDER_FILE.exists():
-            return []
-        data = json.loads(_TAB_ORDER_FILE.read_text())
-    except (OSError, json.JSONDecodeError):
-        return []
+    data = load_json_file(_TAB_ORDER_FILE, {})
     order = data.get("order") if isinstance(data, dict) else None
     if not isinstance(order, list):
         return []
@@ -199,8 +195,7 @@ def _load_tab_order() -> list[str]:
 
 
 def _save_tab_order(order: list[str]) -> None:
-    _TAB_ORDER_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _TAB_ORDER_FILE.write_text(json.dumps({"order": order}))
+    save_json_file(_TAB_ORDER_FILE, {"order": order})
 
 
 class TabOrderPayload(BaseModel):

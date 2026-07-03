@@ -1,9 +1,9 @@
 <template>
   <div class="terminal-settings-view">
     <template v-for="(schema, key) in TERMINAL_SETTINGS_META" :key="key">
-      <div v-if="schema.type === 'number'" class="terminal-settings-item">
-        <div class="terminal-settings-item-header">
-          <span class="terminal-settings-item-label">{{ schema.label }}</span>
+      <div v-if="schema.type === 'number'" class="settings-item">
+        <div class="settings-item-header">
+          <span class="settings-item-label">{{ schema.label }}</span>
         </div>
         <div class="terminal-settings-control-row">
           <button type="button" class="terminal-font-size-step-btn" :disabled="currentValues[key] <= schema.min" @click="stepValue(key, -1)">-</button>
@@ -20,18 +20,18 @@
           <button type="button" class="terminal-font-size-step-btn" :disabled="currentValues[key] >= schema.max" @click="stepValue(key, 1)">+</button>
         </div>
         <div class="terminal-settings-value">{{ currentValues[key] }}{{ schema.unit || '' }}</div>
-        <div v-if="schema.note" class="terminal-settings-note">{{ schema.note }}</div>
+        <div v-if="schema.note" class="settings-note">{{ schema.note }}</div>
       </div>
-      <label v-else-if="schema.type === 'boolean'" class="terminal-settings-item terminal-settings-toggle">
-        <div class="terminal-settings-toggle-copy">
-          <span class="terminal-settings-item-label">{{ schema.label }}</span>
-          <span v-if="schema.note" class="terminal-settings-note">{{ schema.note }}</span>
+      <label v-else-if="schema.type === 'boolean'" class="settings-item settings-toggle">
+        <div class="settings-toggle-copy">
+          <span class="settings-item-label">{{ schema.label }}</span>
+          <span v-if="schema.note" class="settings-note">{{ schema.note }}</span>
         </div>
         <input type="checkbox" :checked="currentValues[key]" @change="commitValue(key, $event.target.checked)" />
       </label>
-      <div v-else-if="schema.type === 'select'" class="terminal-settings-item">
-        <div class="terminal-settings-item-header">
-          <span class="terminal-settings-item-label">{{ schema.label }}</span>
+      <div v-else-if="schema.type === 'select'" class="settings-item">
+        <div class="settings-item-header">
+          <span class="settings-item-label">{{ schema.label }}</span>
         </div>
         <div class="terminal-settings-segmented">
           <button
@@ -43,7 +43,7 @@
             @click="commitValue(key, opt.value)"
           >{{ opt.label }}</button>
         </div>
-        <div v-if="schema.note" class="terminal-settings-note">{{ schema.note }}</div>
+        <div v-if="schema.note" class="settings-note">{{ schema.note }}</div>
       </div>
     </template>
     <div class="terminal-settings-actions">
@@ -90,46 +90,6 @@ function resetAll() {
   flex-direction: column;
 }
 
-.terminal-settings-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 4px;
-  border-bottom: 1px solid var(--border);
-  background: transparent;
-}
-
-.terminal-settings-item:last-of-type {
-  border-bottom: none;
-}
-
-.terminal-settings-item-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.terminal-settings-toggle {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.terminal-settings-toggle-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-  flex: 1;
-}
-
-.terminal-settings-toggle input[type="checkbox"] {
-  width: 22px;
-  height: 22px;
-  flex: 0 0 auto;
-}
-
 .terminal-settings-control-row {
   display: flex;
   align-items: center;
@@ -156,11 +116,6 @@ function resetAll() {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
-}
-
-.terminal-settings-note {
-  font-size: 12px;
-  color: var(--text-muted);
 }
 
 .terminal-settings-segmented {

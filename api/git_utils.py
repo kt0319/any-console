@@ -188,16 +188,42 @@ _WORKTREE_NAME_RE = re.compile(r'^(.+?)\s+\[(.+)\]$')
 
 
 def worktree_display_name(base: str, branch: str) -> str:
-    """動的worktreeの表示名 '{base} [{branch}]' を組み立てる（_WORKTREE_NAME_RE の逆）。"""
+    """動的worktreeの表示名 '{base} [{branch}]' を組み立てる（split_worktree_name の逆）。"""
     return f"{base} [{branch}]"
+
+
+def split_worktree_name(name: str) -> "tuple[str, str] | None":
+    """worktree 表示名 '{base} [{branch}]' を (base, branch) に分解する。非該当は None。"""
+    m = _WORKTREE_NAME_RE.match(name)
+    return (m.group(1), m.group(2)) if m else None
+
+
+def worktree_base_of(name: str) -> str:
+    """worktree 表示名ならベース名を、そうでなければ名前をそのまま返す。"""
+    parts = split_worktree_name(name)
+    return parts[0] if parts else name
+
+
+def list_git_workspace_paths() -> "list[tuple[str, Path]]":
+    """登録済みワークスペースのうち実在する git リポジトリを (表示名, パス) で列挙する。
+
+    /workspaces/statuses の対象集合と git_watch の監視対象はこの列挙を共有する。
+    """
+    from .config import list_workspace_entries
+    result = []
+    for ws_id, entry in list_workspace_entries().items():
+        p = Path(entry.get("path", ""))
+        if p.is_dir() and git_is_repo(p):
+            result.append((entry.get("name") or ws_id, p))
+    return result
 
 
 def find_dynamic_worktree_path(name: str) -> "Path | None":
     """'{base} [{branch}]' 形式の動的worktree名からパスを返す。configに登録されていないworktree用。"""
-    m = _WORKTREE_NAME_RE.match(name)
-    if not m:
+    parts = split_worktree_name(name)
+    if not parts:
         return None
-    base_name, branch = m.group(1), m.group(2)
+    base_name, branch = parts
     from .config import list_workspace_entries
     for entry in list_workspace_entries().values():
         if entry.get("name") != base_name:

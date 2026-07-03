@@ -1,0 +1,49 @@
+/* 設定画面（*Config.vue）共通のフォーム行スタイル。
+   トグル行は「ラベル+説明のコピー部」と「22px チェックボックス」の横並びで、
+   コピー部が先でも後でも同じ見た目になる（flex:1 が余白を埋める）。 */
+
+.settings-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+
+.settings-item:last-of-type {
+  border-bottom: none;
+}
+
+.settings-item-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.settings-toggle {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+}
+
+.settings-toggle-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.settings-toggle input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+.settings-note {
+  font-size: 12px;
+  color: var(--text-muted);
+}

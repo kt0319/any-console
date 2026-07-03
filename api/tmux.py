@@ -11,21 +11,14 @@ from .common import (
     TMUX_META_ENV_NAMES,
     TMUX_PANE_POLL_INTERVAL_SEC,
     TMUX_PANE_READY_TIMEOUT_SEC,
+    run_subprocess_safe,
 )
 
 logger = logging.getLogger(__name__)
 
 
 def _run_tmux_cmd(*args: str) -> subprocess.CompletedProcess | None:
-    try:
-        return subprocess.run(
-            ["tmux", *args],
-            timeout=TMUX_CMD_TIMEOUT_SEC,
-            capture_output=True,
-            text=True,
-        )
-    except (subprocess.TimeoutExpired, OSError):
-        return None
+    return run_subprocess_safe(["tmux", *args], timeout=TMUX_CMD_TIMEOUT_SEC, log_label="tmux")
 
 
 def run_outside_cgroup(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:

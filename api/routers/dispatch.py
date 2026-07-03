@@ -24,10 +24,10 @@ from ..common import (
 )
 from ..errors import bad_request, server_error, too_many_requests
 from ..git_utils import (
-    _WORKTREE_NAME_RE,
     git_branch,
     git_branches,
     run_git_raw,
+    worktree_base_of,
 )
 from ..job_models import TERMINAL_JOB, TERMINAL_JOB_KEY
 from ..push import send_push_notification
@@ -130,9 +130,7 @@ def _find_existing_session(workspace: str, job: str, match: str = "any"):
 
 def _make_session_id(workspace: str) -> str:
     short_id = secrets.token_urlsafe(6)
-    m = _WORKTREE_NAME_RE.match(workspace)
-    raw = m.group(1) if m else workspace
-    safe = re.sub(r"[^a-zA-Z0-9_-]", "_", raw)
+    safe = re.sub(r"[^a-zA-Z0-9_-]", "_", worktree_base_of(workspace))
     return f"{safe}-{short_id}"
 
 

@@ -2,9 +2,10 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import { MOBILE_BREAKPOINT_PX } from "../utils/constants.js";
 import { isEmptyPaneId, makeEmptyPaneId, countRealPanes, realTabIds } from "../utils/empty-pane.js";
+import { isTouchInput } from "../utils/device.js";
 
 export const useLayoutStore = defineStore("layout", () => {
-  const isTouchDevice = !window.matchMedia("(pointer: fine)").matches && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+  const isTouchDevice = isTouchInput();
   const panelBottomMediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px)`);
   const isPanelBottom = ref(panelBottomMediaQuery.matches);
   panelBottomMediaQuery.addEventListener("change", (e) => {

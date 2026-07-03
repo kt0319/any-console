@@ -28,6 +28,7 @@ from ..git_utils import (
     git_github_url,
     git_is_repo,
     git_worktree_list,
+    list_git_workspace_paths,
     worktree_display_name,
 )
 from ..git_watch import notify_workspaces_changed
@@ -146,12 +147,7 @@ def list_workspaces():
 
 @router.get("/workspaces/statuses")
 def list_workspace_statuses():
-    entries = list_workspace_entries()
-    items = []
-    for ws_id, config in entries.items():
-        ws_path = Path(config.get("path", ""))
-        if ws_path.is_dir() and git_is_repo(ws_path):
-            items.append((ws_path, config.get("name") or ws_id))
+    items = [(path, name) for name, path in list_git_workspace_paths()]
     for wt in _dynamic_worktree_entries():
         items.append((Path(wt["path"]), wt["name"]))
 

@@ -8,6 +8,7 @@ import { LS_KEY_TERMINAL_SETTINGS, LS_KEY_ACTIVE_SESSION } from "../utils/consta
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { TERMINAL_SETTINGS_META, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../utils/terminal-settings.js";
 import { safeJsonLoad } from "../utils/storage.js";
+import { isTouchInput } from "../utils/device.js";
 import { EP_TERMINAL_ORDER, terminalSessionDetachedPath } from "../utils/endpoints.js";
 import { useAuthStore } from "./auth.js";
 
@@ -19,9 +20,6 @@ export function isLinkTapped() { return _linkTapped; }
 let _longPressActive = false;
 export function setLongPressActive(v) { _longPressActive = !!v; }
 export function isLongPressActive() { return _longPressActive; }
-
-let _isTouchEnv = false;
-export function setTouchEnv(v) { _isTouchEnv = !!v; }
 
 function loadTerminalSettingsFromStorage() {
   return sanitizeTerminalSettings(safeJsonLoad(TERMINAL_SETTINGS_KEY, {}));
@@ -95,7 +93,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.loadAddon(new WebLinksAddon((e, uri) => {
-      if (_isTouchEnv && !_longPressActive) return;
+      if (isTouchInput() && !_longPressActive) return;
       _linkTapped = true;
       bridgeEmit("terminal:url", { uri });
       setTimeout(() => { _linkTapped = false; }, LINK_TAP_RESET_MS);

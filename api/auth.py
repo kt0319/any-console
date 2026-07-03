@@ -1,6 +1,5 @@
 import hmac
 import ipaddress
-import json
 import logging
 import os
 import secrets
@@ -9,6 +8,8 @@ from typing import Mapping, Optional
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from .common import load_json_file, save_json_file
 
 security = HTTPBearer(auto_error=False)
 logger = logging.getLogger(__name__)
@@ -39,11 +40,9 @@ _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 
 
 def _load_token_from_file() -> str:
-    try:
-        token = json.loads(_AUTH_FILE.read_text()).get("token", "")
-        return str(token) if token else ""
-    except (OSError, json.JSONDecodeError, AttributeError):
-        return ""
+    data = load_json_file(_AUTH_FILE, {})
+    token = data.get("token", "") if isinstance(data, dict) else ""
+    return str(token) if token else ""
 
 
 ANY_CONSOLE_TOKEN: str = _load_token_from_file()
@@ -112,27 +111,45 @@ def _tailscale_user(client_host: str, headers: Mapping[str, str]) -> str | None:
     return user or None
 
 
+def _authenticate(
+    token: str,
+    client_host: str,
+    headers: Mapping[str, str] | None,
+    cookies: Mapping[str, str] | None,
+) -> str | None:
+    """認証判定のコア（HTTP / WS 共通）。
+
+    Tailscale ヘッダ → デバイス cookie → Bearer token の順に判定し、
+    成功なら「誰として認証されたか」の識別子文字列、失敗なら None を返す。
+    """
+    if not ANY_CONSOLE_TOKEN:
+        return ""
+    if headers is not None:
+        ts_user = _tailscale_user(client_host, headers)
+        if ts_user:
+            return f"tailscale:{ts_user}"
+    if cookies is not None:
+        from .devices import verify_device
+        dev = verify_device(cookies.get(COOKIE_DEVICE_ID, ""), cookies.get(COOKIE_DEVICE_SECRET, ""))
+        if dev:
+            return f"device:{dev['id']}"
+    if hmac.compare_digest(token, ANY_CONSOLE_TOKEN):
+        return token
+    return None
+
+
 def verify_ws_token(
     token: str,
     client_host: str = "",
     headers: Mapping[str, str] | None = None,
     cookies: Mapping[str, str] | None = None,
 ) -> bool:
-    if not ANY_CONSOLE_TOKEN:
-        return True
-    if headers is not None and _tailscale_user(client_host, headers):
-        return True
-    if cookies is not None:
-        from .devices import verify_device
-        if verify_device(cookies.get(COOKIE_DEVICE_ID, ""), cookies.get(COOKIE_DEVICE_SECRET, "")):
-            return True
-    return hmac.compare_digest(token, ANY_CONSOLE_TOKEN)
+    return _authenticate(token, client_host, headers, cookies) is not None
 
 
 def update_token(new_token: str) -> None:
     global ANY_CONSOLE_TOKEN
-    _AUTH_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _AUTH_FILE.write_text(json.dumps({"token": new_token}))
+    save_json_file(_AUTH_FILE, {"token": new_token})
     ANY_CONSOLE_TOKEN = new_token
 
 
@@ -153,29 +170,19 @@ def verify_token(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> str:
-    if not ANY_CONSOLE_TOKEN:
-        return ""
-    # 1. Tailscale 経由のリクエストなら token を要求しない。
-    #    接続元が trusted（loopback / tailnet）であることを `_tailscale_user` 内で確認済み。
     client_host = (request.client.host or "") if request.client else ""
-    ts_user = _tailscale_user(client_host, request.headers)
-    if ts_user:
-        return f"tailscale:{ts_user}"
-    # 2. 登録済みデバイス cookie。device 単位で revoke 可能。
-    from .devices import verify_device
-    dev = verify_device(
-        request.cookies.get(COOKIE_DEVICE_ID, ""),
-        request.cookies.get(COOKIE_DEVICE_SECRET, ""),
+    identity = _authenticate(
+        str(credentials.credentials) if credentials is not None else "",
+        client_host,
+        request.headers,
+        request.cookies,
     )
-    if dev:
-        return f"device:{dev['id']}"
-    # 3. Bearer token（外部API / 新デバイス登録時）
-    if credentials is not None and hmac.compare_digest(credentials.credentials, ANY_CONSOLE_TOKEN):
-        return str(credentials.credentials)
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid token",
-    )
+    if identity is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
+    return identity
 
 
 def _extract_client_ip(request: Request) -> str:

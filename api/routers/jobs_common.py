@@ -26,7 +26,7 @@ from ..config import (
     save_workspace_config_section,
 )
 from ..errors import bad_request, not_found
-from ..git_utils import _WORKTREE_NAME_RE
+from ..git_utils import split_worktree_name
 from ..job_models import JobDefinition
 from ..validators import validate_icon, validate_icon_color
 
@@ -71,11 +71,9 @@ def resolve_jobs_owner(workspace_name: str) -> str:
     """
     if not workspace_name:
         return workspace_name
-    m = _WORKTREE_NAME_RE.match(workspace_name)
-    if m:
-        base = m.group(1)
-        if resolve_workspace_id(base):
-            return base
+    parts = split_worktree_name(workspace_name)
+    if parts and resolve_workspace_id(parts[0]):
+        return parts[0]
     return workspace_name
 
 

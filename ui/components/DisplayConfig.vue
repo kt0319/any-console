@@ -1,14 +1,14 @@
 <template>
   <div class="modal-scroll-body">
-    <label class="display-settings-item display-settings-toggle">
+    <label class="settings-item settings-toggle">
       <input type="checkbox" v-model="debugMode" />
-      <div class="display-settings-toggle-copy">
-        <span class="display-settings-item-label">Debug mode</span>
-        <span class="display-settings-note">Show real-time logs (WS / API / events) in the title bar instead of the tab title.</span>
+      <div class="settings-toggle-copy">
+        <span class="settings-item-label">Debug mode</span>
+        <span class="settings-note">Show real-time logs (WS / API / events) in the title bar instead of the tab title.</span>
       </div>
     </label>
-    <div class="display-settings-item" :class="{ 'display-settings-disabled': !debugMode }">
-      <span class="display-settings-item-label">Log levels</span>
+    <div class="settings-item" :class="{ 'display-settings-disabled': !debugMode }">
+      <span class="settings-item-label">Log levels</span>
       <div class="display-settings-level-list">
         <label v-for="level in DEBUG_LEVELS" :key="level" class="display-settings-level-item">
           <input type="checkbox" :checked="debugLevels.has(level)" :disabled="!debugMode" @change="toggleLevel(level)" />
@@ -39,51 +39,6 @@ onMounted(() => { modalTitle.value = "Display"; });
 </script>
 
 <style scoped>
-.display-settings-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 4px;
-  border-bottom: 1px solid var(--border);
-  background: transparent;
-}
-
-.display-settings-item:last-of-type {
-  border-bottom: none;
-}
-
-.display-settings-item-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.display-settings-toggle {
-  flex-direction: row;
-  align-items: center;
-  gap: 16px;
-  cursor: pointer;
-}
-
-.display-settings-toggle-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-  flex: 1;
-}
-
-.display-settings-toggle input[type="checkbox"] {
-  width: 22px;
-  height: 22px;
-  flex: 0 0 auto;
-}
-
-.display-settings-note {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
 .display-settings-level-list {
   display: flex;
   gap: 12px;
