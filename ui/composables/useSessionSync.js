@@ -6,6 +6,7 @@ import { useTerminal } from "./useTerminal.js";
 import { useLayoutPersist } from "./useLayoutPersist.js";
 import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION, SESSION_SYNC_INTERVAL_MS } from "../utils/constants.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
+import { loadAllJobs } from "../utils/session-jobs.js";
 import { emit } from "../app-bridge.js";
 
 export function useSessionSync() {
@@ -39,6 +40,16 @@ export function useSessionSync() {
     return {};
   }
 
+  // allJobs が空のままジョブセッションを焼き込むと、アイコンが mdi-play に固定され
+  // リロードまで直らない（tab.icon は markRaw で再解決されないため）。
+  // /jobs/workspaces の一時失敗を想定し、ジョブセッションがあるのに空なら 1 回だけ再取得する。
+  function _loadAllJobs(jobsRes, sessions) {
+    return loadAllJobs(jobsRes, sessions, {
+      readJson: _safeResJson,
+      refetch: () => auth.apiFetch(EP_JOBS_WORKSPACES).catch(() => null),
+    });
+  }
+
   async function restoreExistingSessions(sessionsRes, jobsRes) {
     if (terminalStore.hasRestoredTabsFromStorage) return;
     terminalStore.hasRestoredTabsFromStorage = true;
@@ -63,7 +74,7 @@ export function useSessionSync() {
         return (a.created_at || 0) - (b.created_at || 0);
       });
 
-      const allJobs = await _safeResJson(jobsRes);
+      const allJobs = await _loadAllJobs(jobsRes, sortedSessions);
       for (const s of sortedSessions) {
         if (s.detached) continue; // detached セッションは Tabs パネルの Detached sessions に表示
         terminalStore.addTerminalTab(_buildTabParams(s, allJobs));
@@ -97,7 +108,7 @@ export function useSessionSync() {
       const sessions = await sessionsRes.json();
       if (!Array.isArray(sessions)) return;
 
-      const allJobs = await _safeResJson(jobsRes);
+      const allJobs = await _loadAllJobs(jobsRes, sessions);
       const serverSessionIds = new Set(sessions.map((s) => s.session_id));
       const localSessionIds = new Set(terminalStore.openTabs.map((t) => t.sessionId));
 
