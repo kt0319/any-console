@@ -39,7 +39,6 @@
         <PreviewConfig v-if="currentView === 'PreviewConfig'" />
         <NotificationConfig v-if="currentView === 'NotificationConfig'" />
         <CircleKeyPadConfig v-if="currentView === 'CircleKeyPadConfig'" />
-        <GitHubPane v-if="currentView === 'GitHubPane'" />
         <ConfigFile v-if="currentView === 'ConfigFile'" />
         <IconPicker v-if="currentView === 'IconPicker'" />
         <WorkspaceDetail v-if="currentView === 'WorkspaceDetail'" :ref="setPaneRef" />
@@ -67,7 +66,6 @@ import PreviewConfig from "./PreviewConfig.vue";
 import NotificationConfig from "./NotificationConfig.vue";
 import CircleKeyPadConfig from "./CircleKeyPadConfig.vue";
 import ConfigFile from "./ConfigFile.vue";
-import GitHubPane from "./GitHubPane.vue";
 import IconPicker from "./IconPicker.vue";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
 import { on } from "../app-bridge.js";
@@ -187,8 +185,7 @@ onMounted(() => {
   on("git:openGitHub", () => openView([
     { view: "ModalMenu", state: {} },
     { view: "WorkspaceOpen", state: {} },
-    { view: "WorkspaceDetail", state: {} },
-    { view: "GitHubPane", state: {} },
+    { view: "WorkspaceDetail", state: { detail: { pane: "issues" } } },
   ]));
 
   on("git:openLogGraph", () => openView([
