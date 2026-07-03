@@ -10,7 +10,7 @@
           <span v-if="entry.time" class="stash-entry-time">{{ entry.time }}</span>
         </div>
         <div class="stash-entry-actions">
-          <button type="button" class="commit-action-item" @click="stashPop(entry)">Apply</button>
+          <button type="button" class="commit-action-item" @click="stashPop(entry)">Pop</button>
           <button type="button" class="commit-action-item commit-action-danger" @click="stashDrop(entry)">Drop</button>
         </div>
       </div>
@@ -56,7 +56,7 @@ async function loadStashList() {
 
 async function stashPop(entry) {
   await withWorkspace(async (workspace) => {
-    const { ok } = await apiCommand(wsEndpoint(workspace, "stash-pop-ref"), { stash_ref: entry.ref }, { errorMessage: "Stash apply failed" });
+    const { ok } = await apiCommand(wsEndpoint(workspace, "stash-pop-ref"), { stash_ref: entry.ref }, { errorMessage: "Stash pop failed" });
     if (!ok) return;
     invalidateStashCache(workspace);
     await loadStashList();

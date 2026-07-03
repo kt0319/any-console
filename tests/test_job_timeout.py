@@ -91,6 +91,33 @@ class TestJobApiTimeout:
         job = res.json()[job_name]
         assert job.get("timeout_sec") is None
 
+    def test_timeout_error_reports_custom_timeout_sec(self, client, workspace):
+        res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
+            "label": "slow job",
+            "command": "sleep 5",
+            "timeout_sec": 600,
+        })
+        job_name = res.json()["name"]
+
+        with patch("api.routers.job_runner.run_job",
+                   side_effect=subprocess.TimeoutExpired(cmd="sleep 5", timeout=600)):
+            res = client.post("/run", headers=AUTH, json={"job": job_name, "workspace": "test-ws"})
+        assert res.status_code == 504
+        assert "600s" in res.json()["detail"]
+
+    def test_timeout_error_reports_default_timeout_sec(self, client, workspace):
+        res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
+            "label": "slow job",
+            "command": "sleep 5",
+        })
+        job_name = res.json()["name"]
+
+        with patch("api.routers.job_runner.run_job",
+                   side_effect=subprocess.TimeoutExpired(cmd="sleep 5", timeout=JOB_TIMEOUT_SEC)):
+            res = client.post("/run", headers=AUTH, json={"job": job_name, "workspace": "test-ws"})
+        assert res.status_code == 504
+        assert f"{JOB_TIMEOUT_SEC}s" in res.json()["detail"]
+
     def test_save_job_timeout_sec_over_max(self, client, workspace):
         res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "label": "bad job",
