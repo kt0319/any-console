@@ -41,6 +41,13 @@ describe("TERMINAL_URL_REGEX", () => {
     const m = "(https://example.com/x)".match(TERMINAL_URL_REGEX);
     expect(m?.[0]).toBe("https://example.com/x");
   });
+
+  it("stops at full-width parenthesis and CJK text", () => {
+    // 日本語はスペースが無く、全角カッコは ASCII の ) ではないため、
+    // 非ASCII終端が無いと後続テキストまで URL に飲み込まれる。
+    const m = "は http://100.109.44.17:3900（Tailscale直）で稼働中".match(TERMINAL_URL_REGEX);
+    expect(m?.[0]).toBe("http://100.109.44.17:3900");
+  });
 });
 
 describe("getVisibleBufferText", () => {

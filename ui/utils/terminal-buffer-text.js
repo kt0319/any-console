@@ -1,4 +1,7 @@
-export const TERMINAL_URL_REGEX = /(https?:\/\/[^\s)\]>'"]+|www\.[^\s)\]>'"]+)/g;
+// URL 本体は非ASCII文字（全角カッコ「（）」や日本語など）でも終端する。
+// URL に生の非ASCIIは入らない前提。これがないと `http://host:3900（Tailscale直）` の
+// ように後続の全角テキストまで URL に飲み込まれる（日本語はスペースが無いため）。
+export const TERMINAL_URL_REGEX = /(https?:\/\/[^\s)\]>'"\u0080-\uffff]+|www\.[^\s)\]>'"\u0080-\uffff]+)/g;
 
 function lastCharOfLine(line) {
   if (!line) return " ";
