@@ -1,5 +1,5 @@
 /**
- * any-console スモーク E2E。CI には組み込まない。手動 / ローカル実行用。
+ * any-console スモーク E2E。CI（e2e ジョブ）で毎回実行し、ローカル手動実行も可能。
  *
  * 前提:
  * - any-console が `ANY_CONSOLE_URL`（既定 http://localhost:8888）で起動済み

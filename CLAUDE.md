@@ -66,7 +66,7 @@ pytest                 # Backend
 pytest --cov           # Backend coverage
 npm test               # Frontend
 npm run test:coverage  # Frontend coverage
-npm run test:e2e       # E2E スモーク（手動実行・CI 非対象）
+npm run test:e2e       # E2E スモーク（CI でも毎回実行）
 ruff check api/        # Lint
 mypy                   # 型チェック
 ```
@@ -87,18 +87,18 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
 
 ## E2E スモーク
 
-- `tests/e2e/smoke.spec.js` に Playwright スモークを置く（**CI 対象外、手動実行のみ**）
+- `tests/e2e/smoke.spec.js` に Playwright スモークを置く（**CI の `e2e` ジョブで毎回実行**。ローカル手動実行も可）
 - 重要な体験フロー（ログイン → メイン画面遷移）が壊れていないか確認する用途
-- 初回セットアップ:
+- CI ではフロントエンドをビルドし、テスト用トークンでサーバを起動してから実行する（`.github/workflows/ci.yml` 参照）
+- ローカル初回セットアップ:
   ```bash
   npm install
   npx playwright install chromium
   ```
-- 実行:
+- ローカル実行（サーバ起動済み前提）:
   ```bash
   ANY_CONSOLE_URL=http://localhost:8888 npm run test:e2e
   ```
-- 大きな UI 変更時のみ手動実行する（毎回走らせない）
 
 ---
 
