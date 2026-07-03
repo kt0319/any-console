@@ -12,10 +12,16 @@ from conftest import AUTH
 def _reset_preview_state():
     preview_mod._DETECTED.clear()
     preview_mod._SELF_PORTS.clear()
+    preview_mod._PROBING.clear()
     preview_mod._last_access = None
+    # 実環境の certs/ を拾って TLS 有効化されるとテストが非決定的になるため無効化する
+    # （ロード済みかつ ctx=None 扱い）。TLS を検証するテストは preview_scheme を monkeypatch する。
+    preview_mod._ssl_loaded = True
+    preview_mod._ssl_ctx = None
     yield
     preview_mod._DETECTED.clear()
     preview_mod._SELF_PORTS.clear()
+    preview_mod._PROBING.clear()
     preview_mod._last_access = None
 
 
@@ -125,6 +131,22 @@ class TestScanOnce:
         assert items[0]["port"] == 8888
         assert items[0]["is_self"] is True
         assert items[0]["proxy_port"] is None
+        # proxy が無いポートは scheme も無い
+        assert items[0]["scheme"] is None
+
+    def test_scheme_https_when_cert_present(self, monkeypatch):
+        monkeypatch.setattr(preview_mod, "preview_scheme", lambda: "https")
+        monkeypatch.setattr(preview_mod, "_scan_listening_ports", lambda: {3000: ("node", 1)})
+        preview_mod.scan_once()
+        items = preview_mod.list_ports()
+        assert items[0]["scheme"] == "https"
+
+    def test_scheme_http_when_no_cert(self, monkeypatch):
+        monkeypatch.setattr(preview_mod, "preview_scheme", lambda: "http")
+        monkeypatch.setattr(preview_mod, "_scan_listening_ports", lambda: {3000: ("node", 1)})
+        preview_mod.scan_once()
+        items = preview_mod.list_ports()
+        assert items[0]["scheme"] == "http"
 
     def test_purges_stale_entries(self, monkeypatch):
         monkeypatch.setattr(preview_mod, "_scan_listening_ports", lambda: {3000: ("node", 1)})
@@ -157,6 +179,69 @@ class TestListPorts:
         items = preview_mod.list_ports()
         assert len(items) == 1
         assert items[0]["is_self"] is True
+
+    def test_excludes_non_http_port(self):
+        from api.preview import DetectedPort
+        preview_mod._DETECTED[5037] = DetectedPort(
+            session_id="local", port=5037, proxy_port=25037,
+            process="adb", pid=1, is_self=False,
+            first_seen_at=0, last_seen_at=0, http_ok=False,
+        )
+        assert preview_mod.list_ports() == []
+
+    def test_includes_unprobed_and_http_ok_port(self):
+        from api.preview import DetectedPort
+        preview_mod._DETECTED[3000] = DetectedPort(
+            session_id="local", port=3000, proxy_port=23000,
+            process="node", pid=1, is_self=False,
+            first_seen_at=0, last_seen_at=0, http_ok=None,
+        )
+        preview_mod._DETECTED[3001] = DetectedPort(
+            session_id="local", port=3001, proxy_port=23001,
+            process="node", pid=2, is_self=False,
+            first_seen_at=0, last_seen_at=0, http_ok=True,
+        )
+        ports = {p["port"] for p in preview_mod.list_ports()}
+        assert ports == {3000, 3001}
+
+
+class TestProbeHttp:
+    def test_true_for_http_upstream(self):
+        import asyncio
+
+        async def run():
+            async def handler(reader, writer):
+                await reader.read(200)
+                writer.write(b"HTTP/1.1 200 OK\r\n\r\nhi")
+                await writer.drain()
+                writer.close()
+            server = await asyncio.start_server(handler, "127.0.0.1", 0)
+            port = server.sockets[0].getsockname()[1]
+            async with server:
+                return await preview_mod._probe_http(port)
+
+        assert asyncio.run(run()) is True
+
+    def test_false_for_non_http_upstream(self):
+        import asyncio
+
+        async def run():
+            async def handler(reader, writer):
+                await reader.read(200)
+                writer.write(b"OK host:transport\r\n")  # adb 風の非HTTP応答
+                await writer.drain()
+                writer.close()
+            server = await asyncio.start_server(handler, "127.0.0.1", 0)
+            port = server.sockets[0].getsockname()[1]
+            async with server:
+                return await preview_mod._probe_http(port)
+
+        assert asyncio.run(run()) is False
+
+    def test_false_for_unreachable_port(self):
+        import asyncio
+        # 1 番ポートは通常接続不可
+        assert asyncio.run(preview_mod._probe_http(1)) is False
 
     def test_session_id_filter(self):
         from api.preview import DetectedPort
@@ -245,9 +330,10 @@ class TestReconcileProxies:
 
         captured = {}
 
-        async def fake_start_server(handler, *, host, port):
+        async def fake_start_server(handler, *, host, port, ssl=None):
             captured["host"] = host
             captured["port"] = port
+            captured["ssl"] = ssl
 
             class FakeServer:
                 def close(self):
@@ -263,7 +349,8 @@ class TestReconcileProxies:
                 preview_mod._PROXIES.clear()
 
         asyncio.run(run())
-        assert captured == {"host": "0.0.0.0", "port": 23000}
+        # cert 未設定のテスト環境では TLS なし（ssl=None）で listen する。
+        assert captured == {"host": "0.0.0.0", "port": 23000, "ssl": None}
 
     def test_starts_and_stops_proxy(self):
         """高いポートで実際に proxy を起こして停止できることを確認する。"""

@@ -13,12 +13,20 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
+import ssl
 import subprocess
 import time
 from dataclasses import asdict, dataclass
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# preview proxy の TLS 終端に使う証明書。本体は Tailscale serve 経由で HTTPS 化される
+# ため通常 SSL_CERTFILE は未設定。その場合は certs/<hostname>.crt/.key を探索する
+# （`sudo tailscale cert` で発行したもの。`./any-console https-setup` と同じ置き場所）。
+_CERT_DIR = Path(__file__).resolve().parent.parent / "certs"
 
 SCAN_INTERVAL_SEC = 3.0
 PORT_STALE_SEC = 30  # LISTEN が消えてから一覧から落とすまで
@@ -51,6 +59,47 @@ def proxy_port_for(target: int) -> int | None:
     return None
 
 
+def _find_cert_pair() -> tuple[Path, Path] | None:
+    env_cert = os.environ.get("SSL_CERTFILE")
+    env_key = os.environ.get("SSL_KEYFILE")
+    if env_cert and env_key and Path(env_cert).is_file() and Path(env_key).is_file():
+        return Path(env_cert), Path(env_key)
+    if _CERT_DIR.is_dir():
+        for cert in sorted(_CERT_DIR.glob("*.crt")):
+            key = cert.with_suffix(".key")
+            if key.is_file():
+                return cert, key
+    return None
+
+
+_ssl_ctx: ssl.SSLContext | None = None
+_ssl_loaded = False
+
+
+def preview_ssl_context() -> ssl.SSLContext | None:
+    """preview proxy 用の TLS コンテキスト。証明書が無ければ None（平文 http）。"""
+    global _ssl_ctx, _ssl_loaded
+    if _ssl_loaded:
+        return _ssl_ctx
+    _ssl_loaded = True
+    pair = _find_cert_pair()
+    if pair is None:
+        return None
+    cert, key = pair
+    try:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(certfile=str(cert), keyfile=str(key))
+        _ssl_ctx = ctx
+        logger.info("preview TLS enabled cert=%s", cert.name)
+    except (ssl.SSLError, OSError) as e:
+        logger.warning("preview TLS disabled: cert load failed: %s", e)
+    return _ssl_ctx
+
+
+def preview_scheme() -> str:
+    return "https" if preview_ssl_context() is not None else "http"
+
+
 @dataclass
 class DetectedPort:
     session_id: str
@@ -61,6 +110,10 @@ class DetectedPort:
     is_self: bool
     first_seen_at: int
     last_seen_at: int
+    # proxy の URL スキーム（"https"/"http"）。proxy が無ければ None。
+    scheme: str | None = None
+    # upstream が HTTP を喋るか。None=未判定 / True=HTTP / False=非HTTP（adb/RTSP/HTTPS 等）。
+    http_ok: bool | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -168,6 +221,7 @@ def scan_once() -> None:
                 process=proc, pid=pid,
                 is_self=is_self,
                 first_seen_at=now, last_seen_at=now,
+                scheme=None if proxy is None else preview_scheme(),
             )
     for port in list(_DETECTED.keys()):
         if port in live:
@@ -179,8 +233,9 @@ def scan_once() -> None:
 
 def list_ports(session_id: str | None = None) -> list[dict]:
     # 自分自身は表示する（識別用、ボタンは UI で出さない）。
-    # その他は proxy が立たないポートを除外する。
-    items = [p for p in _DETECTED.values() if p.is_self or p.proxy_port is not None]
+    # proxy が立たないポート、HTTP を喋らないと判定されたポート（adb/RTSP/HTTPS upstream 等）は除外する。
+    items = [p for p in _DETECTED.values()
+             if p.is_self or (p.proxy_port is not None and p.http_ok is not False)]
     if session_id and session_id != SESSION_ID:
         return []
     items.sort(key=lambda p: p.port)
@@ -226,13 +281,59 @@ def _make_handler(target_port: int):
 
 
 async def _start_proxy(target_port: int, proxy_port: int) -> None:
+    ctx = preview_ssl_context()
     try:
-        server = await asyncio.start_server(_make_handler(target_port), host=PROXY_BIND_HOST, port=proxy_port)
+        server = await asyncio.start_server(
+            _make_handler(target_port), host=PROXY_BIND_HOST, port=proxy_port, ssl=ctx,
+        )
     except OSError as e:
         logger.warning("preview proxy bind failed proxy_port=%d: %s", proxy_port, e)
         return
     _PROXIES[target_port] = server
-    logger.info("preview proxy started %s:%d -> 127.0.0.1:%d", PROXY_BIND_HOST, proxy_port, target_port)
+    logger.info("preview proxy started %s %s:%d -> 127.0.0.1:%d",
+                preview_scheme(), PROXY_BIND_HOST, proxy_port, target_port)
+
+
+HTTP_PROBE_TIMEOUT_SEC = 0.5
+# HTTP プローブ実行中のターゲットポート（多重起動を防ぐ）。
+_PROBING: set[int] = set()
+
+
+async def _probe_http(target_port: int) -> bool:
+    """upstream が HTTP 応答を返すか最小リクエストで確認する。
+
+    adb / RTSP(go2rtc) / HTTPS upstream(home-dash) など HTTP を喋らないポートを
+    preview 一覧から除外するために使う。応答の先頭が "HTTP/" なら True。
+    """
+    try:
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection("127.0.0.1", target_port), timeout=HTTP_PROBE_TIMEOUT_SEC,
+        )
+    except (OSError, asyncio.TimeoutError):
+        return False
+    try:
+        writer.write(b"GET / HTTP/1.0\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+        await asyncio.wait_for(writer.drain(), timeout=HTTP_PROBE_TIMEOUT_SEC)
+        head = await asyncio.wait_for(reader.read(16), timeout=HTTP_PROBE_TIMEOUT_SEC)
+        return head.startswith(b"HTTP/")
+    except (OSError, asyncio.TimeoutError):
+        return False
+    finally:
+        try:
+            writer.close()
+        except OSError:
+            pass
+
+
+async def _probe_and_reconcile(target_port: int) -> None:
+    ok = await _probe_http(target_port)
+    entry = _DETECTED.get(target_port)
+    if entry is not None:
+        entry.http_ok = ok
+        if not ok:
+            logger.info("preview skip non-HTTP port=%d proc=%s", target_port, entry.process)
+    _PROBING.discard(target_port)
+    _reconcile_proxies()
 
 
 def _reconcile_proxies() -> None:
@@ -242,9 +343,14 @@ def _reconcile_proxies() -> None:
     except RuntimeError:
         # asyncio ループが回ってないコンテキスト（テストの sync 呼び出しなど）はスキップ
         return
+    # 未判定ポートを HTTP プローブする（1回だけ）。非HTTP と分かれば以後は除外される。
+    for entry in _DETECTED.values():
+        if entry.proxy_port is not None and entry.http_ok is None and entry.port not in _PROBING:
+            _PROBING.add(entry.port)
+            loop.create_task(_probe_and_reconcile(entry.port))
     needed: dict[int, int] = {}
     for entry in _DETECTED.values():
-        if entry.proxy_port is not None:
+        if entry.proxy_port is not None and entry.http_ok is not False:
             needed[entry.port] = entry.proxy_port
     # 不要な proxy を閉じる
     for target_port in list(_PROXIES.keys()):

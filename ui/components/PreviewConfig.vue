@@ -46,9 +46,9 @@ const hostname = location.hostname;
 
 function buildPreviewUrl(p) {
   // ユニークポート方式: any-console が target+20000 で TCP proxy を立てている。
-  // HTTPS の any-console から開いた場合でも、preview 自体は http (proxy は TLS なし)。
+  // proxy 証明書があれば scheme=https で TLS 終端、無ければ http。
   if (!p.proxy_port) return "";
-  return `http://${location.hostname}:${p.proxy_port}/`;
+  return `${p.scheme || "http"}://${location.hostname}:${p.proxy_port}/`;
 }
 
 function openPreview(p) {
