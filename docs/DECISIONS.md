@@ -253,3 +253,14 @@
 - **Consequences**: ファイル編集・コミット・push/pull がサブ秒〜1 秒程度で UI に反映される（実測: 編集 ~90ms、コミット ~270ms）。watchfiles（Rust 製 notify、wheel 配布あり）への依存が増えるが、未インストールでも起動でき、push が fetch/API 契機のみに劣化してポーリングが下支えする。巨大リポジトリ多数登録時は inotify 上限に達しうるが、その場合も監視エラーをログして再試行し、ポーリングへ劣化するだけで壊れない。linked worktree の git 状態（本体側 `.git/worktrees/`）の変更は、ベースに属する worktree ワークスペースの再計算にも展開する。
 - **Alternatives considered**: **ポーリング間隔と TTL の短縮** — 負荷が線形に増える割に「リアルタイム」にはならない対症療法。**サーバ側で全ワークスペースを短周期ポーリング** — git subprocess を常時多数起動することになり、アイドル時のコストがゼロにならない。**pure Python の FS 監視自作**（mtime 走査）— 大きなツリーで走査コストが高く、watchfiles の方が枯れている。**SSE（Server-Sent Events）** — 認証済み WS 基盤（`verify_ws_token`・cookie 認証・keepalive 方式）が既にあり、EventSource はヘッダ認証不可でトークンを URL に晒す必要が出るため WS に揃えた。
 
+---
+
+### 22. watchfiles を必須依存とし、クライアントの git ステータスポーリングを廃止する
+
+- **Status**: Accepted（ADR 21 の「監視無効時・切断中はポーリングがフォールバック」部分を置き換える）
+- **Date**: 2026-07
+- **Context**: ADR 21 は watchfiles を optional 扱いにしたため、git ステータス配信が「FS 監視 + WS push」「監視無効を hello で通知」「クライアント側の常時ポーリング（5 秒間隔、`statusStreamConnected` でゲート）」の多重系統になっていた。フォールバックの分岐がサーバ（`watch_available` / `_watch_failed` / `stream_watching` / hello 再送）とフロント（hello ハンドリング・`statusStreamConnected`・`POLL_INTERVAL_MS` のポーリングループ）の両側に走り、DRY の観点で保守負担になっていた。watchfiles は Rust 製 notify の wheel 配布があり、実際のインストール障壁は低い。
+- **Decision**: watchfiles を必須依存に格上げする（`api/git_watch.py` がモジュールレベルで import し、欠如時は起動に失敗する）。「FS 監視が実効か」をクライアントへ伝える hello メッセージと、フロントの常時ポーリング（`POLL_INTERVAL_MS` / `statusStreamConnected`）を削除する。awatch の一時失敗（inotify 上限等）は従来どおりリトライし、その間は API 操作起点の push と定期 auto-fetch 後の明示 push が下支えする。WS 切断中の取りこぼしは、再接続時の全量同期（`fetchStatuses()`）で埋める（切断中はターミナル自体も使えないため、ステータスの鮮度が落ちても実害はない）。
+- **Consequences**: git ステータスの経路が「WS push（+切断時は再接続時同期）」の一本になり、hello プロトコル・監視状態の sticky 管理・ポーリングゲートが消える。watchfiles が入らない環境（極端に古い libc 等）では起動できなくなるが、wheel 配布範囲では現実的に問題にならない。inotify 上限で監視が失敗し続ける環境では更新が API 契機と 180 秒間隔の auto-fetch 契機に劣化する（従来はポーリングが 5 秒で下支えしていた）。
+- **Alternatives considered**: **optional のまま維持**（ADR 21）— フォールバック分岐が両側に残り続ける。**ポーリングだけ残して hello を消す** — ポーリングの存在理由が「監視無効環境の救済」なので、必須化とセットでなければ一貫しない。**SSE 等での監視状態通知の維持** — 通知する状態そのものを無くす方が単純。
+
