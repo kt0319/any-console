@@ -1,9 +1,11 @@
+import json
 import logging
 import re
 import secrets
 import subprocess
 import threading
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, overload
@@ -187,6 +189,33 @@ def count_file_lines(file_path: Path) -> int:
             return sum(1 for _ in f)
     except OSError:
         return 0
+
+
+def load_json_file(
+    path: Path,
+    default: Any,
+    *,
+    validate: Callable[[Any], bool] | None = None,
+    log_label: str | None = None,
+) -> Any:
+    """data/ 配下の JSON ファイルを読む。欠如・破損・検証失敗時は default を返す。"""
+    try:
+        if not path.exists():
+            return default
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        if log_label:
+            logging.getLogger(__name__).warning("%s unreadable; using default", log_label)
+        return default
+    if validate is not None and not validate(data):
+        return default
+    return data
+
+
+def save_json_file(path: Path, data: Any) -> None:
+    """data/ 配下の JSON ファイルへ書き込む（親ディレクトリを自動作成）。"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 @overload

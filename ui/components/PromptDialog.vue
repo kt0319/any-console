@@ -1,6 +1,6 @@
 <template>
-  <div v-if="visible" class="prompt-overlay" @click.self="onCancel">
-    <div ref="dialogEl" class="prompt-dialog" role="dialog" aria-modal="true" :aria-label="title || 'Input dialog'">
+  <BaseDialog :visible="visible" :z-index="210" initial-focus="none" @dismiss="onCancel">
+    <div class="prompt-dialog" role="dialog" aria-modal="true" :aria-label="title || 'Input dialog'">
       <div v-if="title" class="prompt-title">{{ title }}</div>
       <p v-if="message" class="prompt-message">{{ message }}</p>
       <input
@@ -17,19 +17,18 @@
         @keydown.enter.prevent="onSubmit"
         @keydown.esc.prevent="onCancel"
       />
-      <div class="prompt-buttons">
-        <button class="prompt-btn prompt-btn-cancel" @click="onCancel">{{ cancelLabel }}</button>
-        <button class="prompt-btn prompt-btn-ok" :disabled="value.length === 0" @click="onSubmit">{{ confirmLabel }}</button>
+      <div class="dialog-buttons">
+        <button class="dialog-btn dialog-btn-cancel" @click="onCancel">{{ cancelLabel }}</button>
+        <button class="dialog-btn dialog-btn-ok" :disabled="value.length === 0" @click="onSubmit">{{ confirmLabel }}</button>
       </div>
     </div>
-  </div>
+  </BaseDialog>
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onUnmounted } from "vue";
+import { ref, watch, nextTick } from "vue";
+import BaseDialog from "./BaseDialog.vue";
 import { usePrompt } from "../composables/usePrompt.js";
-import { trapFocusWithin } from "../composables/useModal.js";
-import { isTouchOnly, listenForEscape } from "../utils/keyboard.js";
 
 const {
   visible,
@@ -46,54 +45,17 @@ const {
 } = usePrompt();
 
 const inputEl = ref(null);
-const dialogEl = ref(null);
-let prevFocus = null;
-let releaseEscape = null;
-let releaseTrap = null;
 
+// 入力ダイアログは端末種別に関わらず入力欄へ直接フォーカスする
 watch(visible, async (nextVisible) => {
-  if (nextVisible) {
-    prevFocus = document.activeElement;
-    releaseEscape = listenForEscape(onCancel);
-    await nextTick();
-    if (dialogEl.value) {
-      releaseTrap?.();
-      releaseTrap = trapFocusWithin(dialogEl.value);
-    }
-    inputEl.value?.focus();
-    if (selectOnOpen.value) inputEl.value?.select?.();
-    return;
-  }
-
-  releaseTrap?.();
-  releaseTrap = null;
-  releaseEscape?.();
-  releaseEscape = null;
-  if (!isTouchOnly()) {
-    await nextTick();
-    /** @type {HTMLElement|null} */ (prevFocus)?.focus();
-  }
-  prevFocus = null;
-});
-
-onUnmounted(() => {
-  releaseTrap?.();
-  releaseEscape?.();
+  if (!nextVisible) return;
+  await nextTick();
+  inputEl.value?.focus();
+  if (selectOnOpen.value) inputEl.value?.select?.();
 });
 </script>
 
 <style scoped>
-.prompt-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 210;
-  padding: 20px;
-}
-
 .prompt-dialog {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -123,32 +85,5 @@ onUnmounted(() => {
 .prompt-input {
   min-height: 40px;
   font-size: 14px;
-}
-
-.prompt-buttons {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.prompt-btn {
-  min-width: 80px;
-  min-height: 40px;
-  padding: 0 16px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.prompt-btn-cancel {
-  background: transparent;
-  color: var(--text-secondary);
-}
-
-.prompt-btn-ok {
-  background: var(--accent);
-  color: var(--bg-primary);
-  border-color: var(--accent);
 }
 </style>

@@ -232,7 +232,7 @@ describe("Dialog accessibility behavior", () => {
     const pending = prompt({ title: "Rename", initialValue: "old.txt" });
     await Promise.resolve();
 
-    const cancelButton = wrapper.find(".prompt-btn-cancel").element;
+    const cancelButton = wrapper.find(".dialog-btn-cancel").element;
     cancelButton.focus();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
 

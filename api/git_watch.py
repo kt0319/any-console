@@ -35,9 +35,8 @@ from .common import (
     run_subprocess_safe,
     safe_resolve_str,
 )
-from .config import list_workspace_entries
 from .git_info import refresh_git_info
-from .git_utils import git_is_repo, run_git_raw
+from .git_utils import list_git_workspace_paths, run_git_raw
 
 logger = logging.getLogger(__name__)
 
@@ -114,11 +113,7 @@ def collect_watch_targets() -> list[WatchTarget]:
     """
     # routers.workspaces は本モジュールを import するため、循環回避で遅延 import する
     from .routers.workspaces import _dynamic_worktree_entries
-    registered: list[tuple[str, Path]] = []
-    for ws_id, config in list_workspace_entries().items():
-        p = Path(config.get("path", ""))
-        if p.is_dir() and git_is_repo(p):
-            registered.append((config.get("name") or ws_id, p))
+    registered = list_git_workspace_paths()
     name_by_path = {safe_resolve_str(p): name for name, p in registered}
 
     targets = []

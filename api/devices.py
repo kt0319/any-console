@@ -13,11 +13,12 @@
 
 import hashlib
 import hmac
-import json
 import logging
 import secrets
 import time
 from pathlib import Path
+
+from .common import load_json_file, save_json_file
 
 logger = logging.getLogger(__name__)
 
@@ -46,21 +47,16 @@ def _hash_secret(raw_secret: str) -> str:
 
 
 def _load() -> dict:
-    if not _DEVICES_FILE.exists():
-        return {"devices": []}
-    try:
-        data = json.loads(_DEVICES_FILE.read_text(encoding="utf-8"))
-        if not isinstance(data, dict) or "devices" not in data:
-            return {"devices": []}
-        return data
-    except (OSError, json.JSONDecodeError):
-        logger.warning("devices.json unreadable, starting with empty list")
-        return {"devices": []}
+    data = load_json_file(
+        _DEVICES_FILE, {"devices": []},
+        validate=lambda d: isinstance(d, dict) and "devices" in d,
+        log_label="devices.json",
+    )
+    return data if isinstance(data, dict) else {"devices": []}
 
 
 def _save(data: dict) -> None:
-    _DEVICES_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _DEVICES_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    save_json_file(_DEVICES_FILE, data)
 
 
 def autoname_from_user_agent(user_agent: str) -> str:

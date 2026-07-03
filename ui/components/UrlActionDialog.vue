@@ -1,7 +1,7 @@
 <template>
   <!-- ターミナルURLアクションダイアログ -->
-  <div v-if="terminalUrl" class="url-action-overlay" @click.self="terminalUrl = ''">
-    <div class="url-action-dialog">
+  <BaseDialog :visible="!!terminalUrl" :z-index="1000" @dismiss="terminalUrl = ''">
+    <div class="url-action-dialog" role="dialog" aria-modal="true" aria-label="Open URL">
       <div class="url-action-url">{{ terminalUrl }}</div>
       <div class="url-action-buttons">
         <button class="url-action-btn" @click="doUrlOpen">
@@ -13,11 +13,12 @@
         <button class="url-action-btn url-action-btn-cancel" @click="terminalUrl = ''">Cancel</button>
       </div>
     </div>
-  </div>
+  </BaseDialog>
 </template>
 
 <script setup>
 import { ref, onMounted } from "vue";
+import BaseDialog from "./BaseDialog.vue";
 import { on } from "../app-bridge.js";
 import { URL_COPIED_RESET_MS } from "../utils/constants.js";
 
@@ -45,19 +46,7 @@ onMounted(() => {
 });
 </script>
 
-<style>
-.url-action-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 12px;
-  box-sizing: border-box;
-}
-
+<style scoped>
 .url-action-dialog {
   background: var(--bg-primary);
   border: 1px solid var(--border);

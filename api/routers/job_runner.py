@@ -24,7 +24,7 @@ from ..common import (
     sanitize_log_value,
 )
 from ..errors import bad_request, server_error, timeout_error, too_many_requests
-from ..git_utils import _WORKTREE_NAME_RE, command_result_dict, git_branches
+from ..git_utils import command_result_dict, git_branches, worktree_base_of
 from ..job_models import TERMINAL_JOB, TERMINAL_JOB_KEY
 from ..runner import run_job
 from ..terminal_session import (
@@ -134,9 +134,7 @@ def _create_terminal_session(body, ws_path):
     cwd_path = str(ws_path) if ws_path else None
     short_id = secrets.token_urlsafe(6)
     if body.workspace:
-        m = _WORKTREE_NAME_RE.match(body.workspace)
-        raw = m.group(1) if m else body.workspace
-        safe_name = re.sub(r"[^a-zA-Z0-9_-]", "_", raw)
+        safe_name = re.sub(r"[^a-zA-Z0-9_-]", "_", worktree_base_of(body.workspace))
     else:
         safe_name = None
     session_id = f"{safe_name}-{short_id}" if safe_name else short_id

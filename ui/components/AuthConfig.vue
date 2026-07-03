@@ -2,10 +2,10 @@
   <div class="modal-scroll-body">
     <div v-if="loading" class="text-muted-center">Loading...</div>
     <template v-else>
-      <label class="terminal-settings-item terminal-settings-toggle">
-        <div class="terminal-settings-toggle-copy">
+      <label class="settings-item settings-toggle">
+        <div class="settings-toggle-copy">
           <span class="settings-item-label">Require token authentication</span>
-          <span class="settings-item-desc">
+          <span class="settings-note">
             Protect access with a Bearer token.
             Tailscale connections can skip token authentication, but only when trust_tailscale_auth is enabled in config.json (off by default).
           </span>
@@ -48,12 +48,12 @@
       <div v-if="authSaveMessage" class="form-message" :class="authSaveMessageType">{{ authSaveMessage }}</div>
 
       <div class="settings-section-label">Trusted Devices</div>
-      <div class="settings-item-desc" style="margin-bottom: 8px;">
+      <div class="settings-note" style="margin-bottom: 8px;">
         Registered devices can sign in without entering a token. Revoke any device that should no longer have access.
       </div>
       <div v-if="devicesLoading" class="text-muted-center">Loading...</div>
       <template v-else>
-        <div v-if="!devices.length" class="settings-item-desc">No devices registered yet.</div>
+        <div v-if="!devices.length" class="settings-note">No devices registered yet.</div>
         <div v-for="d in devices" :key="d.id" class="device-row">
           <div class="device-meta">
             <span class="device-name">
@@ -182,43 +182,6 @@ onMounted(async () => {
   font-weight: 600;
   color: var(--text-secondary);
   margin: 16px 0 6px;
-}
-
-.settings-item-label {
-  font-size: 14px;
-  color: var(--text-primary);
-}
-
-.settings-item-desc {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.terminal-settings-item {
-  display: flex;
-  padding: 10px 4px;
-  border-bottom: 1px solid var(--border);
-}
-
-.terminal-settings-toggle {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.terminal-settings-toggle-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  flex: 1;
-}
-
-.terminal-settings-toggle input[type="checkbox"] {
-  width: 22px;
-  height: 22px;
-  flex: 0 0 auto;
 }
 
 .security-token-row {

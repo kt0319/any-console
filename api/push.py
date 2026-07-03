@@ -12,6 +12,8 @@ import logging
 import threading
 from pathlib import Path
 
+from .common import load_json_file, save_json_file
+
 logger = logging.getLogger(__name__)
 
 _DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -91,18 +93,12 @@ def get_vapid_public_key() -> str | None:
 
 
 def _load_subscriptions() -> list[dict]:
-    if not _SUBSCRIPTIONS_FILE.exists():
-        return []
-    try:
-        data = json.loads(_SUBSCRIPTIONS_FILE.read_text())
-        return data if isinstance(data, list) else []
-    except (OSError, json.JSONDecodeError):
-        return []
+    subs = load_json_file(_SUBSCRIPTIONS_FILE, [], validate=lambda d: isinstance(d, list))
+    return subs if isinstance(subs, list) else []
 
 
 def _save_subscriptions(subs: list[dict]) -> None:
-    _DATA_DIR.mkdir(parents=True, exist_ok=True)
-    _SUBSCRIPTIONS_FILE.write_text(json.dumps(subs, indent=2))
+    save_json_file(_SUBSCRIPTIONS_FILE, subs)
 
 
 def add_subscription(sub: dict) -> None:

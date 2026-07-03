@@ -57,7 +57,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick, toRef } from "vue";
 import { useTerminal } from "../composables/useTerminal.js";
-import { useTerminalStore, setTouchEnv } from "../stores/terminal.js";
+import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { renderIconStr } from "../utils/render-icon.js";
@@ -83,7 +83,6 @@ const emits = defineEmits(["select-pane"]);
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
-setTouchEnv(layoutStore.isTouchDevice);
 const workspaceStore = useWorkspaceStore();
 const { confirm } = useConfirm();
 
