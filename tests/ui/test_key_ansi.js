@@ -44,4 +44,35 @@ describe("keyDefToAnsi", () => {
   it("returns null for unknown multi-char keys", () => {
     expect(keyDefToAnsi({ key: "Unknown" })).toBe(null);
   });
+
+  it("encodes ctrl modifier for arrow / Home / End keys", () => {
+    expect(keyDefToAnsi({ key: "End", ctrl: true })).toBe("\x1b[1;5F");
+    expect(keyDefToAnsi({ key: "Home", ctrl: true })).toBe("\x1b[1;5H");
+    expect(keyDefToAnsi({ key: "ArrowRight", ctrl: true })).toBe("\x1b[1;5C");
+    expect(keyDefToAnsi({ key: "ArrowLeft", ctrl: true })).toBe("\x1b[1;5D");
+  });
+
+  it("encodes shift and shift+ctrl modifiers", () => {
+    expect(keyDefToAnsi({ key: "End", shift: true })).toBe("\x1b[1;2F");
+    expect(keyDefToAnsi({ key: "End", ctrl: true, shift: true })).toBe("\x1b[1;6F");
+  });
+
+  it("encodes modifiers for tilde-form keys (Page/Insert/Delete/F5+)", () => {
+    expect(keyDefToAnsi({ key: "PageUp", ctrl: true })).toBe("\x1b[5;5~");
+    expect(keyDefToAnsi({ key: "PageDown", ctrl: true })).toBe("\x1b[6;5~");
+    expect(keyDefToAnsi({ key: "Delete", ctrl: true })).toBe("\x1b[3;5~");
+    expect(keyDefToAnsi({ key: "F5", ctrl: true })).toBe("\x1b[15;5~");
+  });
+
+  it("maps F1-F4 as SS3 unmodified and CSI when modified", () => {
+    expect(keyDefToAnsi({ key: "F1" })).toBe("\x1bOP");
+    expect(keyDefToAnsi({ key: "F1", ctrl: true })).toBe("\x1b[1;5P");
+  });
+
+  it("keeps unmodified special keys backward compatible", () => {
+    expect(keyDefToAnsi({ key: "End" })).toBe("\x1b[F");
+    expect(keyDefToAnsi({ key: "Home" })).toBe("\x1b[H");
+    expect(keyDefToAnsi({ key: "PageUp" })).toBe("\x1b[5~");
+    expect(keyDefToAnsi({ key: "Delete" })).toBe("\x1b[3~");
+  });
 });

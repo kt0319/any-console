@@ -2,6 +2,28 @@
  * keyDef -> ANSI escape sequence へ変換する。
  * keyDef は { key: string, ctrl?: boolean, shift?: boolean } 形式。
  */
+
+// CSI 最終文字形式のキー（矢印・Home・End）。修飾時は ESC[1;{mod}{letter}。
+const CSI_LETTER = {
+  ArrowUp: "A", ArrowDown: "B", ArrowRight: "C", ArrowLeft: "D",
+  Home: "H", End: "F",
+};
+
+// CSI チルダ形式のキー。修飾時は ESC[{num};{mod}~。
+const CSI_TILDE = {
+  Insert: "2", Delete: "3", PageUp: "5", PageDown: "6",
+  F5: "15", F6: "17", F7: "18", F8: "19",
+  F9: "20", F10: "21", F11: "23", F12: "24",
+};
+
+// SS3 形式のファンクションキー。未修飾は ESCO{letter}、修飾時は ESC[1;{mod}{letter}。
+const SS3_FN = { F1: "P", F2: "Q", F3: "R", F4: "S" };
+
+// xterm 準拠の修飾パラメータ: 1 + Shift(1) + Alt(2) + Ctrl(4)。1（修飾なし）は省略される。
+function modifierParam(keyDef) {
+  return 1 + (keyDef.shift ? 1 : 0) + (keyDef.ctrl ? 4 : 0);
+}
+
 export function keyDefToAnsi(keyDef) {
   if (keyDef.ctrl && keyDef.key.length === 1) {
     const code = keyDef.key.toLowerCase().charCodeAt(0) - 96;
@@ -10,14 +32,25 @@ export function keyDefToAnsi(keyDef) {
   if (keyDef.shift && keyDef.key === "Tab") return "\x1b[Z";
   if (keyDef.shift && keyDef.key === "Enter") return "\n";
   if (keyDef.shift && keyDef.key.length === 1) return keyDef.key.toUpperCase();
+
+  const mod = modifierParam(keyDef);
+
+  if (CSI_LETTER[keyDef.key]) {
+    const letter = CSI_LETTER[keyDef.key];
+    return mod > 1 ? `\x1b[1;${mod}${letter}` : `\x1b[${letter}`;
+  }
+  if (CSI_TILDE[keyDef.key]) {
+    const num = CSI_TILDE[keyDef.key];
+    return mod > 1 ? `\x1b[${num};${mod}~` : `\x1b[${num}~`;
+  }
+  if (SS3_FN[keyDef.key]) {
+    const letter = SS3_FN[keyDef.key];
+    return mod > 1 ? `\x1b[1;${mod}${letter}` : `\x1bO${letter}`;
+  }
+
   const mapping = {
     Backspace: "\x7f", Enter: "\r", Tab: "\t", Escape: "\x1b",
-    ArrowUp: "\x1b[A", ArrowDown: "\x1b[B", ArrowRight: "\x1b[C", ArrowLeft: "\x1b[D",
-    Home: "\x1b[H", End: "\x1b[F", Insert: "\x1b[2~", Delete: "\x1b[3~",
-    PageUp: "\x1b[5~", PageDown: "\x1b[6~", " ": " ", "/": "/",
-    F1: "\x1bOP", F2: "\x1bOQ", F3: "\x1bOR", F4: "\x1bOS",
-    F5: "\x1b[15~", F6: "\x1b[17~", F7: "\x1b[18~", F8: "\x1b[19~",
-    F9: "\x1b[20~", F10: "\x1b[21~", F11: "\x1b[23~", F12: "\x1b[24~",
+    " ": " ", "/": "/",
   };
   if (mapping[keyDef.key]) return mapping[keyDef.key];
   if (keyDef.key.length === 1) return keyDef.key;
