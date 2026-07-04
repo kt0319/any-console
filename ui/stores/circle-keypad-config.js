@@ -31,18 +31,25 @@ export const useCircleKeyPadConfigStore = defineStore("circle-keypad-config", ()
   const enabled = ref(true);
   const loaded = ref(false);
 
+  // 取得失敗を defaults で握りつぶすと、サーバに設定があってもリセットされたように
+  // 見える（loaded=true で確定してしまい再取得もされない）。失敗時は 1 回リトライし、
+  // それでもダメなら loaded を立てず、次に開いたときの再取得に委ねる。
+  // res.ok かつ空配列（初回・未保存）は正当な defaults なので通常成功として扱う。
   async function load() {
     const auth = useAuthStore();
-    try {
-      const res = await auth.apiFetch(EP_SETTINGS_RADIAL);
-      if (res && res.ok) {
-        const data = await res.json();
-        keys.value = sanitizeKeys(data.keys);
-        specials.value = sanitizeSpecials(data.specials);
-        enabled.value = data.enabled !== false;
-      }
-    } catch { /* keep defaults */ }
-    loaded.value = true;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await auth.apiFetch(EP_SETTINGS_RADIAL);
+        if (res && res.ok) {
+          const data = await res.json();
+          keys.value = sanitizeKeys(data.keys);
+          specials.value = sanitizeSpecials(data.specials);
+          enabled.value = data.enabled !== false;
+          loaded.value = true;
+          return;
+        }
+      } catch { /* リトライへ */ }
+    }
   }
 
   async function save() {
