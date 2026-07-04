@@ -157,7 +157,6 @@ onMounted(() => {
       openView("ModalMenu");
     }
   });
-  on("settings:close", () => closeModal());
 
   on("workspace:openModal", () => openView([
     { view: "ModalMenu", state: {} },
@@ -186,12 +185,6 @@ onMounted(() => {
     { view: "ModalMenu", state: {} },
     { view: "WorkspaceOpen", state: {} },
     { view: "WorkspaceDetail", state: { detail: { pane: "issues" } } },
-  ]));
-
-  on("git:openLogGraph", () => openView([
-    { view: "ModalMenu", state: {} },
-    { view: "WorkspaceOpen", state: {} },
-    { view: "WorkspaceDetail", state: {} },
   ]));
 
   on("git:openHistory", ({ wsName } = {}) => {

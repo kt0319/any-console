@@ -137,18 +137,18 @@ describe("connectTerminalWs: 二重接続ガード", () => {
 // ── Test 2: layout:fitAll はフォーム送信で発火しない ─────────────────────────
 
 describe("layout:fitAll のイベント分離", () => {
-  it("terminal:send を emit しても layout:fitAll は発火しない", () => {
+  it("terminal:url を emit しても layout:fitAll は発火しない", () => {
     const handler = vi.fn();
     const off = on("layout:fitAll", handler);
-    emit("terminal:send", { data: "ls -la\n" });
+    emit("terminal:url", { uri: "https://example.com" });
     expect(handler).not.toHaveBeenCalled();
     off();
   });
 
-  it("input:submit を emit しても layout:fitAll は発火しない", () => {
+  it("jobs:refresh を emit しても layout:fitAll は発火しない", () => {
     const handler = vi.fn();
     const off = on("layout:fitAll", handler);
-    emit("input:submit", { text: "echo hello" });
+    emit("jobs:refresh", {});
     expect(handler).not.toHaveBeenCalled();
     off();
   });

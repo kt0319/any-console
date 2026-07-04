@@ -2,7 +2,6 @@
 import { describe, it, expect } from "vitest";
 import {
   workspaceApiPath,
-  getActionFailureMessage,
   terminalSessionPath,
   terminalSessionHistoryPath,
   workspaceGitDiscardPath,
@@ -34,32 +33,6 @@ describe("workspaceApiPath", () => {
 
   it("handles empty workspace name", () => {
     expect(workspaceApiPath("")).toBe("/workspaces/");
-  });
-});
-
-describe("getActionFailureMessage", () => {
-  it("returns fallback for null", () => {
-    expect(getActionFailureMessage(null)).toBe("unknown error");
-  });
-
-  it("returns fallback for string", () => {
-    expect(getActionFailureMessage("not an object")).toBe("unknown error");
-  });
-
-  it("returns stderr if present", () => {
-    expect(getActionFailureMessage({ stderr: "error output" })).toBe("error output");
-  });
-
-  it("returns stdout if no stderr", () => {
-    expect(getActionFailureMessage({ stdout: "standard output" })).toBe("standard output");
-  });
-
-  it("returns detail if no stderr/stdout", () => {
-    expect(getActionFailureMessage({ detail: "detail msg" })).toBe("detail msg");
-  });
-
-  it("uses custom fallback", () => {
-    expect(getActionFailureMessage({}, "custom fallback")).toBe("custom fallback");
   });
 });
 

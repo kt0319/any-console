@@ -73,7 +73,6 @@ export function useDiffFileActions({ selectedCommit, reopenWorkingTreeDiff }) {
       const { ok } = await apiCommand(endpoint, { path: file.path }, { errorMessage });
       if (ok) {
         if (successMessage) toast.success(successMessage);
-        bridgeEmit("git:refreshStatus");
         reopenWorkingTreeDiff();
       }
     });

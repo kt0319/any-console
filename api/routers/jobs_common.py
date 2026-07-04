@@ -106,10 +106,6 @@ def parse_jobs_data(data):
     return {name: entry_to_job_definition(name, entry) for name, entry in data.items()}
 
 
-def get_common_jobs():
-    return parse_jobs_data(load_common_jobs_data())
-
-
 def get_workspace_jobs(workspace_name):
     if not workspace_name:
         return {}

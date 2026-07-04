@@ -76,7 +76,6 @@ const { start: startPreviewWatch } = usePreviewWatch();
 const { startWatching: startLayoutPersist } = useLayoutPersist();
 const {
   activateTerminalTab,
-  ensureKeyboardTargetTab,
   launchTerminal,
   refreshTab,
   closeTab,
@@ -185,10 +184,6 @@ onMounted(() => {
 
   loadSnippetCache();
 
-  bridgeCleanups.push(on("keyboard:activate", () => {
-    ensureKeyboardTargetTab();
-  }));
-
   bridgeCleanups.push(on("connectivity:back", () => {
     // サーバ復活直後、bach-off で待ち状態にある WS タブを即時再接続させる。
     for (const tab of terminalStore.openTabs) {
@@ -198,12 +193,6 @@ onMounted(() => {
       tab._reconnectAttempts = 0;
       refreshTab(tab);
     }
-  }));
-
-  bridgeCleanups.push(on("preview:open", ({ url }) => {
-    if (!url) return;
-    // iOS PWA モードでは <a target="_blank"> の擬似クリックがループするため window.open を使う。
-    window.open(url, "_blank", "noopener,noreferrer");
   }));
 
   bridgeCleanups.push(on("oskeyboard:show", () => { keyboardOpen.value = true; }));

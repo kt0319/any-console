@@ -80,17 +80,3 @@ export function getFullBufferText(term) {
   while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
   return lines.join("\n") || null;
 }
-
-export function getVisibleBufferText(term) {
-  if (!term) return null;
-  const buf = term.buffer.active;
-  const start = buf.viewportY;
-  const end = Math.min(buf.length - 1, buf.viewportY + term.rows - 1);
-  const lines = [];
-  for (let i = start; i <= end; i++) {
-    const line = buf.getLine(i);
-    if (!line) continue;
-    lines.push(line.translateToString(true).replace(/[\s 　]+$/, ""));
-  }
-  return lines.join("\n").replace(/^\n+|\n+$/g, "") || null;
-}

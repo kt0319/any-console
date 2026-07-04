@@ -54,28 +54,6 @@ export function useTerminalLifecycle({ terminalBaseView }) {
     if (focus) focusTabTerminal(tabId);
   }
 
-  function ensureKeyboardTargetTab() {
-    if (terminalStore.openTabs.length === 0) return;
-    const hasActive = terminalStore.openTabs.some((t) => t.id === terminalStore.activeTabId);
-    if (hasActive) return;
-
-    if (layoutStore.isSplitMode) {
-      const ids = layoutStore.splitPaneTabIds || [];
-      const paneIndex = layoutStore.activePaneIndex || 0;
-      const isReal = (id) => id != null && !layoutStore.isEmptyPaneId(id);
-      const targetId = isReal(ids[paneIndex]) ? ids[paneIndex] : ids.find(isReal);
-      if (targetId) {
-        terminalStore.switchTab(targetId);
-        focusTabTerminal(targetId);
-        return;
-      }
-    }
-
-    const firstId = terminalStore.openTabs[0].id;
-    terminalStore.switchTab(firstId);
-    focusTabTerminal(firstId);
-  }
-
   async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, jobIcon, jobIconColor, initialCommand, detached }) {
     try {
       const commandVars = await collectCommandVars(initialCommand, prompt);
@@ -176,7 +154,6 @@ export function useTerminalLifecycle({ terminalBaseView }) {
   return {
     focusTabTerminal,
     activateTerminalTab,
-    ensureKeyboardTargetTab,
     launchTerminal,
     refreshTab,
     closeTab,

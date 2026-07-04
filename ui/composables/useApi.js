@@ -49,6 +49,11 @@ export function useApi() {
   const apiDelete = (endpoint, opts) => apiRequest(endpoint, { method: "DELETE", ...opts });
   const apiCommand = (endpoint, body = {}, opts) => apiRequest(endpoint, { method: "POST", body, checkStatus: true, ...opts });
 
+  /**
+   * @param {string} endpoint
+   * @param {Record<string, any>} body
+   * @param {{ successMessage: string, errorMessage: string, onSuccess?: () => void }} opts
+   */
   async function apiWithToast(endpoint, body, { successMessage, errorMessage, onSuccess }) {
     try {
       const { ok, data } = await apiCommand(endpoint, body, { errorMessage });

@@ -339,31 +339,6 @@ class TestParseWorktreePorcelain:
         assert result[0]["locked"] is True
 
 
-class TestLinkedWorktreeMainPath:
-    def test_returns_none_for_non_repo(self, tmp_path):
-        from api.git_utils import linked_worktree_main_path
-        assert linked_worktree_main_path(tmp_path) is None
-
-    def test_returns_none_when_git_dir_equals_common_dir(self, git_workspace_with_commit):
-        from api.git_utils import linked_worktree_main_path
-        # main worktree: git-dir == common-dir なので None
-        assert linked_worktree_main_path(git_workspace_with_commit) is None
-
-    def test_returns_none_on_short_output(self, tmp_path):
-        from api.git_utils import linked_worktree_main_path
-        with mock.patch("api.git_utils._run_git_query", return_value=".git\n"):
-            assert linked_worktree_main_path(tmp_path) is None
-
-    def test_returns_parent_when_common_dir_is_dot_git(self, tmp_path):
-        from api.git_utils import linked_worktree_main_path
-        main = tmp_path / "main"
-        main.mkdir()
-        fake_output = f".git/worktrees/feat\n{main}/.git\n"
-        with mock.patch("api.git_utils._run_git_query", return_value=fake_output):
-            result = linked_worktree_main_path(tmp_path)
-        assert result == main
-
-
 class TestGitWorktreeListFailure:
     def test_returns_empty_on_failure(self, tmp_path):
         from api.git_utils import git_worktree_list
