@@ -6,6 +6,8 @@ import { useConfirm } from "./useConfirm.js";
 import { usePrompt } from "./usePrompt.js";
 import { emit } from "../app-bridge.js";
 import { buildActionSummary } from "../utils/actionSummary.js";
+import { buildSessionTabParams } from "../utils/session-jobs.js";
+import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 import { DEEPLINK_REFIT_DELAY_MS } from "../utils/constants.js";
 
 const VALID_PANES = new Set([
@@ -68,19 +70,16 @@ export function useDeepLink() {
       terminalStore.switchTab(existing.id);
       return true;
     }
-    const { ok, data } = await apiGet("/terminal/sessions");
-    if (!ok || !Array.isArray(data)) return false;
-    const meta = data.find((s) => s.session_id === sessionId);
+    const [sessionsRes, jobsRes] = await Promise.all([
+      apiGet("/terminal/sessions"),
+      apiGet(EP_JOBS_WORKSPACES),
+    ]);
+    if (!sessionsRes.ok || !Array.isArray(sessionsRes.data)) return false;
+    const meta = sessionsRes.data.find((s) => s.session_id === sessionId);
     if (!meta) return false;
+    const allJobs = jobsRes.ok && jobsRes.data ? jobsRes.data : {};
     const tab = terminalStore.addTerminalTab({
-      wsUrl: meta.ws_url,
-      workspace: meta.workspace,
-      wsIcon: meta.icon,
-      wsIconColor: meta.icon_color,
-      icon: meta.job_name ? (meta.icon || "mdi-play") : "mdi-console",
-      iconColor: meta.icon_color,
-      jobName: meta.job_name,
-      jobLabel: meta.job_label,
+      ...buildSessionTabParams(meta, { workspaces: workspaceStore.allWorkspaces, allJobs }),
       restored: true,
     });
     emit("tab:select", { tab });

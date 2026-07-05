@@ -6,7 +6,7 @@ import { useTerminal } from "./useTerminal.js";
 import { useLayoutPersist } from "./useLayoutPersist.js";
 import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION, SESSION_SYNC_INTERVAL_MS } from "../utils/constants.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
-import { loadAllJobs, loadSessionsResponse } from "../utils/session-jobs.js";
+import { loadAllJobs, loadSessionsResponse, buildSessionTabParams } from "../utils/session-jobs.js";
 import { emit } from "../app-bridge.js";
 
 export function useSessionSync() {
@@ -18,17 +18,8 @@ export function useSessionSync() {
   const { restoreLayout } = useLayoutPersist();
 
   function _buildTabParams(s, allJobs) {
-    const ws = workspaceStore.allWorkspaces.find((w) => w.name === s.workspace);
-    const jobDef = s.job_name && s.workspace ? allJobs[s.workspace]?.[s.job_name] : null;
     return {
-      wsUrl: s.ws_url,
-      workspace: s.workspace,
-      wsIcon: ws?.icon || s.icon || null,
-      wsIconColor: ws?.icon_color || s.icon_color,
-      icon: s.job_name ? (jobDef?.icon || "mdi-play") : "mdi-console",
-      iconColor: jobDef?.icon_color,
-      jobName: s.job_name,
-      jobLabel: s.job_label,
+      ...buildSessionTabParams(s, { workspaces: workspaceStore.allWorkspaces, allJobs }),
       restored: true,
     };
   }

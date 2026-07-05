@@ -101,7 +101,9 @@ import { inject, computed, ref, onMounted } from "vue";
 import SplitModeSelector from "./SplitModeSelector.vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
+import { useWorkspaceStore } from "../stores/workspace.js";
 import { renderIconStr } from "../utils/render-icon.js";
+import { buildSessionTabParams } from "../utils/session-jobs.js";
 import { emit } from "../app-bridge.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useApi } from "../composables/useApi.js";
@@ -124,6 +126,7 @@ modalTitle.value = "Tabs & Sessions";
 
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
+const workspaceStore = useWorkspaceStore();
 const { confirm } = useConfirm();
 const { disconnectTerminal } = useTerminal();
 
@@ -235,17 +238,9 @@ async function loadDetached() {
 }
 
 function openDetached(s) {
-  const jobDef = s.job_name && s.workspace
-    ? allJobsData.value[s.workspace]?.[s.job_name]
-    : null;
   const tab = terminalStore.addTerminalTab({
+    ...buildSessionTabParams(s, { workspaces: workspaceStore.allWorkspaces, allJobs: allJobsData.value }),
     wsUrl: terminalWsPath(s.session_id),
-    workspace: s.workspace || null,
-    wsIcon: s.icon || null,
-    wsIconColor: s.icon_color || null,
-    icon: s.job_name ? (jobDef?.icon || "mdi-play") : "mdi-console",
-    iconColor: jobDef?.icon_color || null,
-    jobName: s.job_name || null,
     jobLabel: s.job_label || (s.workspace || s.session_id),
     restored: false,
   });

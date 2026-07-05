@@ -43,3 +43,29 @@ export async function loadSessionsResponse(sessionsRes, { refetch }) {
   if (sessionsRes && sessionsRes.ok) return sessionsRes;
   return refetch();
 }
+
+/**
+ * /terminal/sessions のセッション meta から addTerminalTab 用のパラメータを組み立てる。
+ * 復元・dispatch 結果・ディープリンク・detached 復帰の全経路で共通に使い、アイコン解決の
+ * 分岐（wsIcon をワークスペース設定から、ジョブアイコンをジョブ定義から）を一元化する。
+ * 呼び出し側は返り値へ `restored` 等を足す。
+ *
+ * @param {{ ws_url: string, workspace?: string|null, icon?: string|null, icon_color?: string|null, job_name?: string|null, job_label?: string|null }} session
+ * @param {{ workspaces?: Array<Record<string, any>>, allJobs?: Record<string, any> }} [ctx]
+ */
+export function buildSessionTabParams(session, { workspaces = [], allJobs = {} } = {}) {
+  const ws = (workspaces || []).find((w) => w.name === session.workspace);
+  const jobDef = session.job_name && session.workspace
+    ? allJobs?.[session.workspace]?.[session.job_name]
+    : null;
+  return {
+    wsUrl: session.ws_url,
+    workspace: session.workspace || null,
+    wsIcon: ws?.icon || session.icon || null,
+    wsIconColor: ws?.icon_color || session.icon_color || null,
+    icon: session.job_name ? (jobDef?.icon || "mdi-play") : "mdi-console",
+    iconColor: jobDef?.icon_color || null,
+    jobName: session.job_name || null,
+    jobLabel: session.job_label || null,
+  };
+}

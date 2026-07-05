@@ -2,6 +2,8 @@ import { useApi } from "./useApi.js";
 import { useDispatchPrompt } from "./useDispatchPrompt.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
+import { buildSessionTabParams } from "../utils/session-jobs.js";
 import { emit } from "../app-bridge.js";
 
 const RECONNECT_DELAY_MS = 3000;
@@ -23,20 +25,17 @@ export function useDispatchConfirm() {
       emit("tab:select", { tab: existing });
       return;
     }
-    const { ok, data } = await apiGet("/terminal/sessions");
-    if (!ok || !Array.isArray(data)) return;
-    const meta = data.find((s) => s.session_id === sessionId);
+    const [sessionsRes, jobsRes] = await Promise.all([
+      apiGet("/terminal/sessions"),
+      apiGet(EP_JOBS_WORKSPACES),
+    ]);
+    if (!sessionsRes.ok || !Array.isArray(sessionsRes.data)) return;
+    const meta = sessionsRes.data.find((s) => s.session_id === sessionId);
     if (!meta) return;
     if (workspace) workspaceStore.selectedWorkspace = workspace;
+    const allJobs = jobsRes.ok && jobsRes.data ? jobsRes.data : {};
     const tab = terminalStore.addTerminalTab({
-      wsUrl: meta.ws_url,
-      workspace: meta.workspace,
-      wsIcon: meta.icon,
-      wsIconColor: meta.icon_color,
-      icon: meta.job_name ? (meta.icon || "mdi-play") : "mdi-console",
-      iconColor: meta.icon_color,
-      jobName: meta.job_name,
-      jobLabel: meta.job_label,
+      ...buildSessionTabParams(meta, { workspaces: workspaceStore.allWorkspaces, allJobs }),
       restored: false,
     });
     emit("tab:select", { tab });
