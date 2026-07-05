@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { parseGitRefs, formatGitTime, parseGitLogEntries, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, countContentLines, abbreviateBranch, dirtyBadgeHtml, entryBranches, buildGithubFileUrl } from "../../ui/utils/git.js";
+import { parseGitRefs, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, countContentLines, abbreviateBranch, dirtyBadgeHtml, entryBranches, buildGithubFileUrl } from "../../ui/utils/git.js";
 
 // ── Tests ──
 
@@ -92,55 +92,6 @@ describe("formatGitTime", () => {
   it("ISO日付をフォーマットする", () => {
     const result = formatGitTime("2025-03-15T10:30:00");
     expect(result).toBe("2025-03-15 10:30");
-  });
-});
-
-describe("parseGitLogEntries", () => {
-  it("空文字列で空配列", () => {
-    expect(parseGitLogEntries("")).toEqual([]);
-  });
-
-  it("nullで空配列", () => {
-    expect(parseGitLogEntries(null)).toEqual([]);
-  });
-
-  it("タブ区切りログ行をパースする", () => {
-    const line = "abc1234567890def\t2025-03-15T10:30:00\tauthor\t\tcommit message";
-    const entries = parseGitLogEntries(line);
-    expect(entries.length).toBe(1);
-    expect(entries[0].hash).toBe("abc12345");
-    expect(entries[0].fullHash).toBe("abc1234567890def");
-    expect(entries[0].author).toBe("author");
-    expect(entries[0].message).toBe("commit message");
-  });
-
-  it("5フィールド未満の行はスキップ", () => {
-    const entries = parseGitLogEntries("abc\t123\tauthor");
-    expect(entries.length).toBe(0);
-  });
-
-  it("複数行をパースする", () => {
-    const lines = [
-      "aaa1111122222333\t2025-01-01T00:00:00\tAlice\t\tfirst",
-      "bbb4444455555666\t2025-01-02T00:00:00\tBob\t\tsecond",
-    ].join("\n");
-    const entries = parseGitLogEntries(lines);
-    expect(entries.length).toBe(2);
-    expect(entries[0].message).toBe("first");
-    expect(entries[1].message).toBe("second");
-  });
-
-  it("refsありの行をパースする", () => {
-    const line = "abc1234567890def\t2025-03-15T10:30:00\tauthor\tHEAD -> main\tcommit";
-    const entries = parseGitLogEntries(line);
-    expect(entries[0].refs.length).toBe(1);
-    expect(entries[0].refs[0].label).toBe("main");
-  });
-
-  it("メッセージにタブが含まれる場合も結合される", () => {
-    const line = "abc1234567890def\t2025-03-15T10:30:00\tauthor\t\tpart1\tpart2";
-    const entries = parseGitLogEntries(line);
-    expect(entries[0].message).toBe("part1\tpart2");
   });
 });
 

@@ -184,7 +184,6 @@ async function discardFile(file) {
       { errorMessage: `Failed to discard ${file.path}` },
     );
     if (result.ok) {
-      emit("git:refreshStatus");
       await loadWorkingTreeDiff();
     }
   });
@@ -200,7 +199,6 @@ async function deleteFile(file) {
   if (!await confirmIrreversible(confirm, `Delete file "${file.path}"?`)) return;
   const ok = await deleteWorkspaceFile(file.path);
   if (ok) {
-    emit("git:refreshStatus");
     await loadWorkingTreeDiff();
   }
 }

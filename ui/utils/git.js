@@ -44,26 +44,6 @@ export function formatGitTime(timeText) {
   return `${y}-${m}-${day} ${h}:${min}`;
 }
 
-export function parseGitLogEntries(stdout) {
-  if (!stdout) return [];
-  const lines = stdout.trim().split("\n");
-  const result = [];
-  for (const line of lines) {
-    const parts = line.split("\t");
-    if (parts.length < 5) continue;
-    const [hash, time, author, refs, ...msgParts] = parts;
-    result.push({
-      hash: hash.slice(0, 8),
-      fullHash: hash,
-      refs: parseGitRefs(refs),
-      author,
-      time: formatGitTime(time),
-      message: msgParts.join("\t"),
-    });
-  }
-  return result;
-}
-
 export function parseDiffNumstatFromChunk(diffChunk) {
   if (!diffChunk) return null;
   let insertions = 0;

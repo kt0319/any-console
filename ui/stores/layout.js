@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import { MOBILE_BREAKPOINT_PX } from "../utils/constants.js";
 import { isEmptyPaneId, makeEmptyPaneId, countRealPanes, realTabIds } from "../utils/empty-pane.js";
+import { calcGridLayout } from "../utils/terminal-layout.js";
 import { isTouchInput } from "../utils/device.js";
 
 export const useLayoutStore = defineStore("layout", () => {
@@ -18,7 +19,6 @@ export const useLayoutStore = defineStore("layout", () => {
   const splitPaneTabIds = ref(/** @type {(number|string)[]} */ ([]));
   const activePaneIndex = ref(0);
   const splitLayout = ref("grid");
-  const isPaneSelectedByTap = ref(false);
 
   const isShowDropZones = ref(false);
   const dragTabId = ref(null);
@@ -27,14 +27,6 @@ export const useLayoutStore = defineStore("layout", () => {
   function nextEmptyId() {
     emptyPaneSeq += 1;
     return makeEmptyPaneId(emptyPaneSeq);
-  }
-
-  function calcGridLayout(count) {
-    if (count <= 1) return [1];
-    if (count === 2) return [1, 1];
-    if (count === 3) return [2, 1];
-    if (count === 4) return [2, 2];
-    return [3, Math.max(1, count - 3)];
   }
 
   function cornerToGridIndex(count, corner) {
@@ -186,7 +178,6 @@ export const useLayoutStore = defineStore("layout", () => {
     splitPaneTabIds,
     activePaneIndex,
     splitLayout,
-    isPaneSelectedByTap,
     isShowDropZones,
     dragTabId,
     splitWithDrop,

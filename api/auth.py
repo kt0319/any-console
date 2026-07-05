@@ -30,7 +30,6 @@ COOKIE_DEVICE_SECRET = "any_console_secret"  # noqa: S105
 # tailnet 上の他端末（CGNAT 帯）も Serve を経由せず直接ヘッダを付けられる。
 # このため Tailscale ヘッダによる自動認証は opt-in とし、デフォルトでは信頼しない。
 TAILSCALE_HEADER_USER = "tailscale-user-login"
-TAILSCALE_HEADER_NAME = "tailscale-user-name"
 ENV_TRUST_TAILSCALE = "ANY_CONSOLE_TRUST_TAILSCALE_AUTH"
 # 100.64.0.0/10 は CGNAT 帯。Tailscale は tailnet 内の各端末にこの範囲を割り当てる。
 # Tailscale Serve / Funnel 経由のリクエストは tailscaled が同ホスト loopback に

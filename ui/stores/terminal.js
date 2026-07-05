@@ -3,7 +3,6 @@ import { ref, reactive, markRaw } from "vue";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
-import { LINK_TAP_RESET_MS } from "../utils/constants.js";
 import { LS_KEY_TERMINAL_SETTINGS, LS_KEY_ACTIVE_SESSION } from "../utils/constants.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { TERMINAL_SETTINGS_META, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../utils/terminal-settings.js";
@@ -14,12 +13,8 @@ import { useAuthStore } from "./auth.js";
 
 const TERMINAL_SETTINGS_KEY = LS_KEY_TERMINAL_SETTINGS;
 
-let _linkTapped = false;
-export function isLinkTapped() { return _linkTapped; }
-
 let _longPressActive = false;
 export function setLongPressActive(v) { _longPressActive = !!v; }
-export function isLongPressActive() { return _longPressActive; }
 
 function loadTerminalSettingsFromStorage() {
   return sanitizeTerminalSettings(safeJsonLoad(TERMINAL_SETTINGS_KEY, {}));
@@ -94,9 +89,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     term.loadAddon(fitAddon);
     term.loadAddon(new WebLinksAddon((e, uri) => {
       if (isTouchInput() && !_longPressActive) return;
-      _linkTapped = true;
       bridgeEmit("terminal:url", { uri });
-      setTimeout(() => { _linkTapped = false; }, LINK_TAP_RESET_MS);
     }));
 
     const sessionId = wsUrl.replace(/.*\/terminal\/ws\//, "").replace(/\?.*/, "");

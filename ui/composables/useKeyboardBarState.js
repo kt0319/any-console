@@ -41,12 +41,6 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers, sendTextToT
   }
 
   // ─── キーボード開閉 ────────────────────────────────────────────
-  function showInput() {
-    isFullKeyboard.value = true;
-    showSnippetView.value = false;
-    nextTick(() => keyboardInput.value?.focus?.());
-  }
-
   function hideInput() {
     isFullKeyboard.value = false;
     clearModifiers();
@@ -79,7 +73,6 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers, sendTextToT
   }
 
   const cleanups = [
-    on("keyboard:activate", showInput),
     on("keyboard:deactivate", hideInput),
   ];
   onUnmounted(() => cleanups.forEach((fn) => fn()));
@@ -94,6 +87,6 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers, sendTextToT
   return {
     isFullKeyboard, draft, inputFocused, showSnippetView, hasDraft,
     onInputFocused, toggleSnippetView, onChipTap,
-    showInput, hideInput, toggleKeyboard, dismissKeyboard, onSubmitted,
+    hideInput, toggleKeyboard, dismissKeyboard, onSubmitted,
   };
 }

@@ -3,7 +3,6 @@ import { describe, it, expect } from "vitest";
 import {
   TERMINAL_URL_REGEX,
   findUrlInBuffer,
-  getVisibleBufferText,
 } from "../../ui/utils/terminal-buffer-text.js";
 
 function makeTerm({ lines, viewportY = 0, cols = 80, rows = 24, element = null }) {
@@ -47,27 +46,6 @@ describe("TERMINAL_URL_REGEX", () => {
     // 非ASCII終端が無いと後続テキストまで URL に飲み込まれる。
     const m = "は http://100.109.44.17:3900（Tailscale直）で稼働中".match(TERMINAL_URL_REGEX);
     expect(m?.[0]).toBe("http://100.109.44.17:3900");
-  });
-});
-
-describe("getVisibleBufferText", () => {
-  it("returns null for falsy term", () => {
-    expect(getVisibleBufferText(null)).toBeNull();
-  });
-
-  it("joins visible lines and trims trailing spaces per line", () => {
-    const term = makeTerm({ lines: ["line1   ", "line2", "line3"], viewportY: 0, rows: 3 });
-    expect(getVisibleBufferText(term)).toBe("line1\nline2\nline3");
-  });
-
-  it("returns null when only blank lines", () => {
-    const term = makeTerm({ lines: ["", "", ""], rows: 3 });
-    expect(getVisibleBufferText(term)).toBeNull();
-  });
-
-  it("respects viewportY offset", () => {
-    const term = makeTerm({ lines: ["a", "b", "c", "d"], viewportY: 2, rows: 2 });
-    expect(getVisibleBufferText(term)).toBe("c\nd");
   });
 });
 

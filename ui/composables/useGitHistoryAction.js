@@ -1,6 +1,5 @@
 import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
-import { emit } from "../app-bridge.js";
 import { useConfirm } from "./useConfirm.js";
 import { usePrompt } from "./usePrompt.js";
 
@@ -11,11 +10,7 @@ export function useGitHistoryAction() {
   const { prompt } = usePrompt();
 
   async function runAndToast(endpoint, body, { successMessage, errorMessage }) {
-    await apiWithToast(endpoint, body, {
-      successMessage,
-      errorMessage,
-      onSuccess: () => emit("git:refresh"),
-    });
+    await apiWithToast(endpoint, body, { successMessage, errorMessage });
   }
 
   async function confirmAndRun(msg, fn, closeFn) {

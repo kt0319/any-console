@@ -7,20 +7,6 @@ export function workspaceApiPath(workspace, path = "") {
   return `/workspaces/${encodeURIComponent(workspace)}${path}`;
 }
 
-/**
- * @param {unknown} data
- * @param {string} [fallback]
- * @returns {string}
- */
-export function getActionFailureMessage(data, fallback = "unknown error") {
-  if (!data || typeof data !== "object") return fallback;
-  const d = /** @type {Record<string, unknown>} */ (data);
-  if (d.stderr) return typeof d.stderr === "string" ? d.stderr : fallback;
-  if (d.stdout) return typeof d.stdout === "string" ? d.stdout : fallback;
-  if (d.detail) return typeof d.detail === "string" ? d.detail : fallback;
-  return fallback;
-}
-
 export const EP_AUTH_CHECK = "/auth/check";
 export const EP_AUTH_LOGOUT = "/auth/logout";
 export const EP_RUN = "/run";
