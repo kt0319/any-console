@@ -6,7 +6,7 @@ import { useTerminal } from "./useTerminal.js";
 import { useLayoutPersist } from "./useLayoutPersist.js";
 import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION, SESSION_SYNC_INTERVAL_MS } from "../utils/constants.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
-import { loadAllJobs } from "../utils/session-jobs.js";
+import { loadAllJobs, loadSessionsResponse } from "../utils/session-jobs.js";
 import { emit } from "../app-bridge.js";
 
 export function useSessionSync() {
@@ -50,19 +50,28 @@ export function useSessionSync() {
     });
   }
 
+  function _loadSessions(sessionsRes) {
+    return loadSessionsResponse(sessionsRes, {
+      refetch: () => auth.apiFetch(EP_TERMINAL_SESSIONS).catch(() => null),
+    });
+  }
+
   async function restoreExistingSessions(sessionsRes, jobsRes) {
     if (terminalStore.hasRestoredTabsFromStorage) return;
-    terminalStore.hasRestoredTabsFromStorage = true;
     terminalStore.restoreSessionsLoading = true;
     terminalStore.restoreSessionsError = "";
     try {
-      if (!sessionsRes || !sessionsRes.ok) {
-        if (sessionsRes) {
-          terminalStore.restoreSessionsError = await sessionsRes.text?.().catch(() => "") || "Failed to fetch existing sessions";
+      // 一時失敗を defaults 同様に握りつぶすとタブ 0 件で確定するため、失敗時は再取得する。
+      // 成功を確認できたときだけ「復元済み」フラグを立て、失敗時はポーリング等での復帰に委ねる。
+      const res = await _loadSessions(sessionsRes);
+      if (!res || !res.ok) {
+        if (res) {
+          terminalStore.restoreSessionsError = await res.text?.().catch(() => "") || "Failed to fetch existing sessions";
         }
         return;
       }
-      const sessions = await sessionsRes.json();
+      terminalStore.hasRestoredTabsFromStorage = true;
+      const sessions = await res.json();
       if (!Array.isArray(sessions) || sessions.length === 0) return;
 
       const savedOrder = await terminalStore.loadTabOrder();

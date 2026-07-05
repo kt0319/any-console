@@ -30,3 +30,16 @@ export async function loadAllJobs(jobsRes, sessions, { readJson, refetch }) {
   const retryRes = await refetch();
   return readJson(retryRes);
 }
+
+/**
+ * /terminal/sessions の一時失敗でタブが 0 件のまま「復元完了」になるのを防ぐ。
+ * レスポンスが失敗（null / !ok）なら 1 回だけ再取得したレスポンスを返す。
+ *
+ * @param {*} sessionsRes 先行取得済みの /terminal/sessions レスポンス（null 可）
+ * @param {{ refetch: () => Promise<*> }} deps
+ * @returns {Promise<*>}
+ */
+export async function loadSessionsResponse(sessionsRes, { refetch }) {
+  if (sessionsRes && sessionsRes.ok) return sessionsRes;
+  return refetch();
+}

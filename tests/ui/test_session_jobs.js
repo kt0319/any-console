@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { needsJobsRefetch, loadAllJobs } from "../../ui/utils/session-jobs.js";
+import { needsJobsRefetch, loadAllJobs, loadSessionsResponse } from "../../ui/utils/session-jobs.js";
 
 describe("needsJobsRefetch", () => {
   it("空 allJobs + ジョブセッションあり → 再取得する", () => {
@@ -61,5 +61,41 @@ describe("loadAllJobs", () => {
     const allJobs = await loadAllJobs(null, [{ job_name: "job_1" }], { readJson, refetch });
     expect(refetch).toHaveBeenCalledTimes(1);
     expect(allJobs).toEqual(populated);
+  });
+});
+
+describe("loadSessionsResponse", () => {
+  const ok = { ok: true };
+  const fail = { ok: false };
+
+  it("初回が ok ならそのまま返し再取得しない", async () => {
+    const refetch = vi.fn();
+    const out = await loadSessionsResponse(ok, { refetch });
+    expect(refetch).not.toHaveBeenCalled();
+    expect(out).toBe(ok);
+  });
+
+  it("初回が失敗(!ok)なら再取得したレスポンスを返す", async () => {
+    const retry = { ok: true };
+    const refetch = vi.fn().mockResolvedValue(retry);
+    const out = await loadSessionsResponse(fail, { refetch });
+    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(out).toBe(retry);
+  });
+
+  it("初回が null なら再取得する", async () => {
+    const retry = { ok: true };
+    const refetch = vi.fn().mockResolvedValue(retry);
+    const out = await loadSessionsResponse(null, { refetch });
+    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(out).toBe(retry);
+  });
+
+  it("再取得も失敗ならその失敗レスポンスを返す（無限リトライしない）", async () => {
+    const retry = { ok: false };
+    const refetch = vi.fn().mockResolvedValue(retry);
+    const out = await loadSessionsResponse(null, { refetch });
+    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(out).toBe(retry);
   });
 });
