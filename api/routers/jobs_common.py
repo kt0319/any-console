@@ -17,6 +17,7 @@ from ..common import (
     MAX_LABEL_LENGTH,
     MAX_STATE_PATTERN_LENGTH,
     MAX_STATE_PATTERNS_PER_STATE,
+    MAX_WATCH_PHRASES,
     WORKSPACE_JOBS_CACHE_TTL_SEC,
     TTLCache,
     resolve_workspace_path,
@@ -103,6 +104,9 @@ def entry_to_job_definition(name, entry):
         url=entry.get("url", ""),
         timeout_sec=entry.get("timeout_sec") or None,
         state_patterns=entry.get("state_patterns") or {},
+        disabled_state_patterns=entry.get("disabled_state_patterns") or {},
+        watch_phrases=entry.get("watch_phrases") or [],
+        watch_phrases_disabled=entry.get("watch_phrases_disabled") or [],
     )
 
 
@@ -137,6 +141,9 @@ def job_definition_to_dict(job_def, is_common=None):
         "url": job_def.url,
         "timeout_sec": job_def.timeout_sec,
         "state_patterns": job_def.state_patterns,
+        "disabled_state_patterns": job_def.disabled_state_patterns,
+        "watch_phrases": job_def.watch_phrases,
+        "watch_phrases_disabled": job_def.watch_phrases_disabled,
     }
     if is_common is not None:
         d["common"] = is_common
@@ -169,6 +176,9 @@ def build_job_entry(
     url: str = "",
     timeout_sec: int | None = None,
     state_patterns: dict[str, list[str]] | None = None,
+    disabled_state_patterns: dict[str, list[str]] | None = None,
+    watch_phrases: list[dict] | None = None,
+    watch_phrases_disabled: list[dict] | None = None,
 ) -> dict:
     entry: dict[str, Any] = {}
     if job_type == "browser":
@@ -188,6 +198,12 @@ def build_job_entry(
         entry["timeout_sec"] = timeout_sec
     if state_patterns:
         entry["state_patterns"] = state_patterns
+    if disabled_state_patterns:
+        entry["disabled_state_patterns"] = disabled_state_patterns
+    if watch_phrases:
+        entry["watch_phrases"] = watch_phrases
+    if watch_phrases_disabled:
+        entry["watch_phrases_disabled"] = watch_phrases_disabled
     return entry
 
 
@@ -202,6 +218,9 @@ class JobRequest(BaseModel):
     detached_tab: bool = False
     timeout_sec: int | None = Field(None, ge=1, le=86400)
     state_patterns: dict[str, list[str]] = Field(default_factory=dict)
+    disabled_state_patterns: dict[str, list[str]] = Field(default_factory=dict)
+    watch_phrases: list[dict] = Field(default_factory=list)
+    watch_phrases_disabled: list[dict] = Field(default_factory=list)
 
 
 class ReorderJobsRequest(BaseModel):
@@ -241,6 +260,34 @@ def validate_state_patterns(raw: dict[str, list[str]]) -> dict[str, list[str]]:
     return result
 
 
+def validate_watch_phrases(raw: list[dict]) -> list[dict]:
+    """watch_phrases（語句+アイコンのリスト）を検証・正規化する。"""
+    if not isinstance(raw, list):
+        raise bad_request("watch_phrases must be a list")
+    if len(raw) > MAX_WATCH_PHRASES:
+        raise bad_request(f"Too many watch_phrases (max {MAX_WATCH_PHRASES})")
+    result: list[dict] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            raise bad_request("Each watch_phrase must be an object")
+        phrase = item.get("phrase", "")
+        if not isinstance(phrase, str):
+            raise bad_request("watch_phrase.phrase must be a string")
+        phrase = phrase.strip()
+        if not phrase:
+            continue
+        if len(phrase) > MAX_STATE_PATTERN_LENGTH:
+            raise bad_request(f"watch_phrase too long (max {MAX_STATE_PATTERN_LENGTH} chars)")
+        icon = item.get("icon", "")
+        if not isinstance(icon, str):
+            raise bad_request("watch_phrase.icon must be a string")
+        icon = validate_icon(icon.strip())
+        if not icon:
+            raise bad_request("watch_phrase.icon is required")
+        result.append({"phrase": phrase, "icon": icon})
+    return result
+
+
 def _validate_job_fields(body):
     label = body.label.strip()
     if not label:
@@ -260,12 +307,18 @@ def _validate_job_fields(body):
 def save_job(data, save_fn, job_name, body, log_msg):
     label, command, job_type, url = _validate_job_fields(body)
     state_patterns = {} if job_type == "browser" else validate_state_patterns(body.state_patterns)
+    disabled_state_patterns = {} if job_type == "browser" else validate_state_patterns(body.disabled_state_patterns)
+    watch_phrases = [] if job_type == "browser" else validate_watch_phrases(body.watch_phrases)
+    watch_phrases_disabled = [] if job_type == "browser" else validate_watch_phrases(body.watch_phrases_disabled)
     if job_name is None:
         job_name = generate_job_key(data)
     data[job_name] = build_job_entry(
         command, label, body.icon, body.icon_color, body.confirm, body.detached_tab,
         job_type=job_type, url=url, timeout_sec=body.timeout_sec,
         state_patterns=state_patterns,
+        disabled_state_patterns=disabled_state_patterns,
+        watch_phrases=watch_phrases,
+        watch_phrases_disabled=watch_phrases_disabled,
     )
     save_fn(data)
     logger.info(log_msg, job_name)

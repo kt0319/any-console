@@ -2,7 +2,7 @@
   <button
     ref="pillEl"
     class="tab-btn"
-    :class="{ active: isActive, 'tab-activity': tab._activity, dragging: isDragging, 'drag-over-left': dropSide === 'left', 'drag-over-right': dropSide === 'right' }"
+    :class="{ active: isActive, 'tab-activity': tab._activity, dragging: isDragging, 'drag-over-left': dropSide === 'left', 'drag-over-right': dropSide === 'right', 'tab-panel-bottom': isPanelBottom }"
     :draggable="canDrag"
     tabindex="-1"
     @mousedown="onMouseDown"
@@ -16,11 +16,13 @@
   >
     <span v-if="wsIconHtml" v-html="wsIconHtml"></span>
     <span v-if="isWorktree" class="mdi mdi-file-tree tab-worktree-icon" aria-label="worktree" data-tooltip="worktree"></span>
-    <span v-if="iconHtml" v-html="iconHtml"></span>
-    <AgentStateBadge :state="agentState" />
+    <span v-if="agentStateBadge(agentState) || iconHtml" class="tab-icon-slot">
+      <AgentStateBadge v-if="agentStateBadge(agentState)" :state="agentState" />
+      <span v-else v-html="iconHtml"></span>
+    </span>
     <template v-if="!isPanelBottom">
       {{ label }}
-      <span v-if="isDirty" class="tab-dirty-dot" aria-label="uncommitted changes"></span>
+      <span class="tab-dirty-dot" :style="{ visibility: isDirty ? 'visible' : 'hidden' }" :aria-hidden="!isDirty" aria-label="uncommitted changes"></span>
       <span
         class="tab-close"
         draggable="false"
@@ -30,7 +32,7 @@
         @click.stop.prevent
       >&times;</span>
     </template>
-    <span v-if="isDirty && isPanelBottom" class="tab-dirty-dot" aria-label="uncommitted changes"></span>
+    <span v-if="isPanelBottom && isDirty" class="tab-dirty-dot" aria-label="uncommitted changes"></span>
   </button>
 </template>
 
@@ -49,6 +51,7 @@ import { useSplitDropDrag } from "../composables/useSplitDropDrag.js";
 import { useLongPress } from "../composables/useLongPress.js";
 import { isPastDragThreshold, createTouchTracker } from "../utils/gesture.js";
 import AgentStateBadge from "./AgentStateBadge.vue";
+import { agentStateBadge } from "../utils/agent-state.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -104,6 +107,7 @@ const iconHtml = computed(() => {
   if (props.tab.icon) return renderIconStr(props.tab.icon.name, props.tab.icon.color, 18);
   return "";
 });
+
 
 function onClick(e) {
   mouseLongPress.cancel();
@@ -312,6 +316,16 @@ onBeforeUnmount(() => {
 .tab-worktree-icon {
   font-size: 13px;
   color: var(--accent);
+  flex-shrink: 0;
+}
+
+.tab-panel-bottom { justify-content: center; }
+
+.tab-icon-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
   flex-shrink: 0;
 }
 

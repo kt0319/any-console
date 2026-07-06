@@ -50,6 +50,7 @@ AGENT_WATCH_POLL_INTERVAL_SEC = 2  # 可視ペインのポーリング間隔
 AGENT_STATE_PATTERN_KEYS = ("blocked", "done")  # ジョブ定義 state_patterns の許可キー
 MAX_STATE_PATTERN_LENGTH = 200  # 検知語句 1 件の最大長
 MAX_STATE_PATTERNS_PER_STATE = 20  # 状態ごとの検知語句の最大数
+MAX_WATCH_PHRASES = 40  # watch_phrases の最大件数
 PTY_READ_BUFFER_SIZE = 16384
 PTY_READER_WORKERS = 8
 MAX_TERMINAL_SESSIONS = 20

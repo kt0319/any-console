@@ -25,6 +25,13 @@ class JobDefinition:
     # エージェント状態の検知語句（api/agent_watch.py が可視ペインと照合する）。
     # キーは blocked / done、値は部分一致で照合するプレーン文字列のリスト。
     state_patterns: dict[str, list[str]] = field(default_factory=dict)
+    # 一時的に無効化した検知語句。agent_watch.py は参照しない。
+    disabled_state_patterns: dict[str, list[str]] = field(default_factory=dict)
+    # 統合フレーズリスト（各要素: {phrase: str, icon: str}）。
+    # state_patterns より優先される。旧ジョブは空のまま。
+    watch_phrases: list[dict] = field(default_factory=list)
+    # 一時的に無効化した watch_phrases。agent_watch.py は参照しない。
+    watch_phrases_disabled: list[dict] = field(default_factory=list)
 
 
 TERMINAL_JOB_KEY = "terminal"

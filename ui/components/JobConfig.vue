@@ -41,18 +41,39 @@
           placeholder="Default (300)" min="1" max="86400" autocomplete="off" />
       </div>
       <div v-if="form.type !== 'browser'" class="ws-settings-row ws-settings-row-stack">
-        <span class="ws-settings-label">Blocked phrases</span>
-        <textarea class="form-input job-command-input" v-model="form.blocked_text"
-          placeholder="Phrases shown while waiting for input (one per line)"
-          autocomplete="off" rows="2" spellcheck="false"></textarea>
-        <span class="ws-settings-label">Done phrases</span>
-        <textarea class="form-input job-command-input" v-model="form.done_text"
-          placeholder="Phrases shown when finished (one per line)"
-          autocomplete="off" rows="2" spellcheck="false"></textarea>
+        <div class="phrase-template-row">
+          <span class="ws-settings-label">State icons</span>
+          <select class="form-input phrase-template-select" @change="applyTemplate($event.target.value); $event.target.value = ''">
+            <option value="" disabled>Templates…</option>
+            <option v-for="t in phraseTemplates" :key="t.id" :value="t.id">{{ t.label }}</option>
+          </select>
+        </div>
+        <div class="phrase-list">
+          <div v-for="(item, i) in form.phrases" :key="i" class="phrase-row">
+            <input type="checkbox" class="form-checkbox" v-model="item.enabled" />
+            <button
+              type="button"
+              class="phrase-icon-btn"
+              :class="iconClass(item.icon)"
+              :data-tooltip="item.icon"
+              @click="openPhraseIconPicker(i)"
+            >
+              <span class="mdi" :class="item.icon" aria-hidden="true"></span>
+            </button>
+            <input type="text" class="form-input phrase-input" v-model="item.phrase"
+              placeholder="phrase" spellcheck="false" autocomplete="off" />
+            <button type="button" class="phrase-del" aria-label="Remove phrase"
+              @click="removePhrase(i)">
+              <span class="mdi mdi-close"></span>
+            </button>
+          </div>
+          <button type="button" class="phrase-add" @click="addPhrase">
+            <span class="mdi mdi-plus"></span> Add
+          </button>
+        </div>
         <div class="job-command-hint">
-          Detects agent state from the visible terminal screen (plain substring match,
-          one phrase per line). Short distinctive phrases work best — long ones may
-          break across wrapped lines. Shown as a tab badge.
+          Changes the tab icon when a phrase appears on screen (plain substring match).
+          Short distinctive phrases work best — long ones may break across wrapped lines.
         </div>
       </div>
       <div class="ws-settings-row" style="gap:8px">
@@ -81,7 +102,13 @@ import { renderIconStr } from "../utils/render-icon.js";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
 import { EP_COMMON_JOBS, workspaceApiPath } from "../utils/endpoints.js";
 import { extractDomain } from "../utils/icon-url.js";
-import { buildStatePatterns, phrasesToText } from "../utils/agent-state.js";
+import {
+  buildWatchPhraseItems,
+  enabledWatchPhrases,
+  disabledWatchPhrases,
+  WATCH_PHRASE_ICON_OPTIONS,
+} from "../utils/agent-state.js";
+import { PHRASE_TEMPLATES } from "../utils/phrase-templates.js";
 
 const { modalTitle, viewState, pushView, popView } = useModalView();
 const { apiPost, apiPut, apiDelete } = useApi();
@@ -93,11 +120,20 @@ const jobEntry = viewState.value.jobEntry;
 const initialForm = viewState.value.initialForm;
 
 const DEFAULT_JOB_ICON = "mdi-play-circle-outline";
+const DEFAULT_PHRASE_ICON = "mdi-hand-back-right";
 
 const isNew = !jobEntry;
+
+function copyPhrases(phrases) {
+  return (phrases || []).map((i) => ({ ...i }));
+}
+
 const form = ref(
   initialForm
-    ? { ...initialForm }
+    ? {
+        ...initialForm,
+        phrases: copyPhrases(initialForm.phrases),
+      }
     : jobEntry
       ? {
           label: jobEntry.job.label || "",
@@ -109,8 +145,10 @@ const form = ref(
           confirm: jobEntry.job.confirm !== false,
           detached_tab: !!jobEntry.job.detached_tab,
           timeout_sec: jobEntry.job.timeout_sec ?? null,
-          blocked_text: phrasesToText(jobEntry.job.state_patterns?.blocked),
-          done_text: phrasesToText(jobEntry.job.state_patterns?.done),
+          phrases: buildWatchPhraseItems(
+            jobEntry.job.watch_phrases,
+            jobEntry.job.watch_phrases_disabled,
+          ),
         }
       : {
           label: "",
@@ -122,10 +160,47 @@ const form = ref(
           confirm: false,
           detached_tab: false,
           timeout_sec: null,
-          blocked_text: "",
-          done_text: "",
+          phrases: [],
         }
 );
+
+const phraseTemplates = PHRASE_TEMPLATES;
+
+function iconClass(icon) {
+  if (["mdi-hand-back-right", "mdi-cursor-default-click", "mdi-alert-circle"].includes(icon)) return "agent-state-blocked";
+  if (icon === "mdi-arrow-decision") return "agent-state-select";
+  if (["mdi-check-circle", "mdi-check-all"].includes(icon)) return "agent-state-done";
+  return "agent-state-custom";
+}
+
+function openPhraseIconPicker(phraseIndex) {
+  const item = form.value.phrases[phraseIndex];
+  pushView("PhraseIconPicker", {
+    currentIcon: item?.icon || DEFAULT_PHRASE_ICON,
+    iconOptions: WATCH_PHRASE_ICON_OPTIONS,
+    onReturn: (result, parentEntry) => {
+      if (parentEntry) {
+        const phrases = copyPhrases(form.value.phrases);
+        if (phrases[phraseIndex]) phrases[phraseIndex].icon = result.icon;
+        parentEntry.state.initialForm = { ...form.value, phrases };
+      }
+    },
+  });
+}
+
+function applyTemplate(id) {
+  const tpl = PHRASE_TEMPLATES.find((t) => t.id === id);
+  if (!tpl) return;
+  form.value.phrases = tpl.phrases.map((p) => ({ ...p, enabled: true }));
+}
+
+function addPhrase() {
+  form.value.phrases.push({ phrase: "", icon: DEFAULT_PHRASE_ICON, enabled: true });
+}
+
+function removePhrase(i) {
+  form.value.phrases.splice(i, 1);
+}
 
 const saving = ref(false);
 const formError = ref("");
@@ -136,7 +211,12 @@ function openIconPicker() {
     currentColor: form.value.icon_color,
     onReturn: (result, parentEntry) => {
       if (parentEntry) {
-        parentEntry.state.initialForm = { ...form.value, icon: result.icon, icon_color: result.color };
+        parentEntry.state.initialForm = {
+          ...form.value,
+          icon: result.icon,
+          icon_color: result.color,
+          phrases: copyPhrases(form.value.phrases),
+        };
       }
     },
   });
@@ -173,7 +253,10 @@ async function saveJob() {
       confirm: f.type === "browser" ? false : f.confirm,
       detached_tab: f.type === "browser" ? false : f.detached_tab,
       timeout_sec: timeoutSec,
-      state_patterns: f.type === "browser" ? {} : buildStatePatterns(f.blocked_text, f.done_text),
+      state_patterns: {},
+      disabled_state_patterns: {},
+      watch_phrases: f.type === "browser" ? [] : enabledWatchPhrases(f.phrases),
+      watch_phrases_disabled: f.type === "browser" ? [] : disabledWatchPhrases(f.phrases),
     };
     const { ok, data } = isNew ? await apiPost(url, body) : await apiPut(url, body);
     if (!ok) {
@@ -244,6 +327,34 @@ async function deleteJob() {
   border-radius: 4px;
   background: var(--bg-tertiary);
 }
+
+.phrase-template-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.phrase-template-select { max-width: 160px; font-size: 12px; padding: 4px 6px; }
+
+.phrase-list { display: flex; flex-direction: column; gap: 4px; }
+.phrase-row { display: flex; align-items: center; gap: 6px; }
+.phrase-input { flex: 1; min-width: 0; font-family: ui-monospace, "Menlo", "Consolas", monospace; }
+.phrase-del { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px 4px; font-size: 16px; line-height: 1; flex-shrink: 0; }
+@media (hover: hover) and (pointer: fine) { .phrase-del:hover { color: var(--error); } }
+.phrase-add { display: flex; align-items: center; gap: 4px; background: none; border: 1px dashed var(--border); color: var(--text-muted); cursor: pointer; padding: 5px 10px; border-radius: var(--radius); font-size: 12px; margin-top: 2px; }
+@media (hover: hover) and (pointer: fine) { .phrase-add:hover { color: var(--text-primary); border-color: var(--text-muted); } }
+
+.phrase-icon-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3px 6px;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.phrase-icon-btn.agent-state-blocked { color: var(--error); }
+.phrase-icon-btn.agent-state-select { color: #f5a623; }
+.phrase-icon-btn.agent-state-done { color: var(--success); }
+.phrase-icon-btn.agent-state-custom { color: var(--accent); }
 
 .ws-delete-btn {
   display: flex;

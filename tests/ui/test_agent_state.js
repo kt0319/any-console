@@ -4,6 +4,9 @@ import {
   parsePhrasesText,
   phrasesToText,
   buildStatePatterns,
+  buildPhraseItems,
+  enabledPhrases,
+  disabledPhrases,
 } from "../../ui/utils/agent-state.js";
 
 describe("agentStateBadge", () => {
@@ -54,6 +57,44 @@ describe("phrasesToText", () => {
   it("配列以外は空文字", () => {
     expect(phrasesToText(undefined)).toBe("");
     expect(phrasesToText(null)).toBe("");
+  });
+});
+
+describe("buildPhraseItems", () => {
+  it("有効・無効を結合してアイテムリストを返す", () => {
+    expect(buildPhraseItems(["a", "b"], ["c"])).toEqual([
+      { phrase: "a", enabled: true },
+      { phrase: "b", enabled: true },
+      { phrase: "c", enabled: false },
+    ]);
+  });
+
+  it("片方が空・undefined でも動く", () => {
+    expect(buildPhraseItems(["a"], undefined)).toEqual([{ phrase: "a", enabled: true }]);
+    expect(buildPhraseItems(undefined, ["b"])).toEqual([{ phrase: "b", enabled: false }]);
+    expect(buildPhraseItems(undefined, undefined)).toEqual([]);
+  });
+});
+
+describe("enabledPhrases / disabledPhrases", () => {
+  const items = [
+    { phrase: "a", enabled: true },
+    { phrase: " b ", enabled: false },
+    { phrase: "c", enabled: true },
+    { phrase: "", enabled: true },
+  ];
+
+  it("enabledPhrases は有効かつ空でない語句を返す", () => {
+    expect(enabledPhrases(items)).toEqual(["a", "c"]);
+  });
+
+  it("disabledPhrases は無効かつ空でない語句を返す", () => {
+    expect(disabledPhrases(items)).toEqual(["b"]);
+  });
+
+  it("undefined / 空配列は空配列", () => {
+    expect(enabledPhrases(undefined)).toEqual([]);
+    expect(disabledPhrases([])).toEqual([]);
   });
 });
 

@@ -53,15 +53,31 @@ def classify_agent_state(
     capture: str,
     prev_capture: str | None,
     patterns: dict[str, list[str]],
+    watch_phrases: list[dict] | None = None,
 ) -> str:
     """可視ペインの内容からセッション状態を判定する純関数。
 
     - 前回ポーリングから出力が変化していれば working（スピナー等の動きも拾う）
+    - watch_phrases がある場合（新方式）: マッチした語句のアイコン名を返す
+    - watch_phrases が空の場合（旧方式）: state_patterns で blocked/done を返す
     - 画面が静止しているときだけ語句照合し、blocked と done の両方が出ている
       場合は後（画面の下方）に現れた方を勝たせる
     """
     if prev_capture is not None and capture != prev_capture:
         return STATE_WORKING
+    if watch_phrases:
+        best_pos = -1
+        best_icon = STATE_IDLE
+        for wp in watch_phrases:
+            phrase = wp.get("phrase", "")
+            icon = wp.get("icon", "")
+            if not phrase or not icon:
+                continue
+            pos = capture.rfind(phrase)
+            if pos > best_pos:
+                best_pos = pos
+                best_icon = icon
+        return best_icon if best_pos >= 0 else STATE_IDLE
     blocked_pos = _last_match_pos(capture, patterns.get(STATE_BLOCKED, []))
     done_pos = _last_match_pos(capture, patterns.get(STATE_DONE, []))
     if blocked_pos >= 0 and blocked_pos >= done_pos:
@@ -107,14 +123,33 @@ def _job_state_patterns(workspace: str | None, job_name: str | None) -> dict[str
         entry = get_workspace_jobs(workspace).get(job_name)
         if not entry:
             return {}
-        patterns: dict[str, list[str]] = entry[0].state_patterns
-        return patterns
+        return entry[0].state_patterns
     data = load_common_jobs_data()
     raw = data.get(job_name)
     if raw is None:
         return {}
-    common_patterns: dict[str, list[str]] = entry_to_job_definition(job_name, raw).state_patterns
-    return common_patterns
+    return entry_to_job_definition(job_name, raw).state_patterns
+
+
+def _job_watch_phrases(workspace: str | None, job_name: str | None) -> list[dict]:
+    """セッションを起動したジョブ定義から watch_phrases を引く（ジョブ無しは空リスト）。"""
+    if not job_name:
+        return []
+    from .routers.jobs_common import (
+        entry_to_job_definition,
+        get_workspace_jobs,
+        load_common_jobs_data,
+    )
+    if workspace:
+        entry = get_workspace_jobs(workspace).get(job_name)
+        if not entry:
+            return []
+        return entry[0].watch_phrases
+    data = load_common_jobs_data()
+    raw = data.get(job_name)
+    if raw is None:
+        return []
+    return entry_to_job_definition(job_name, raw).watch_phrases
 
 
 # ポーリング間の可視ペイン内容（アクティビティ判定用）。ポーリングタスクのみが触る。
@@ -132,9 +167,10 @@ def collect_agent_states() -> dict[str, str]:
         if capture is None:
             continue
         workspace, job_name = _session_meta(session_id)
+        watch_phrases = _job_watch_phrases(workspace, job_name)
         patterns = _job_state_patterns(workspace, job_name)
         states[session_id] = classify_agent_state(
-            capture, _last_capture.get(session_id), patterns,
+            capture, _last_capture.get(session_id), patterns, watch_phrases,
         )
         _last_capture[session_id] = capture
     for stale in set(_last_capture) - set(states):

@@ -46,6 +46,14 @@ const badge = computed(() => agentStateBadge(props.state));
   color: var(--accent);
 }
 
+.agent-state-select {
+  color: #f5a623;
+}
+
+.agent-state-custom {
+  color: var(--accent);
+}
+
 .agent-state-working .mdi {
   animation: agent-state-spin 1s linear infinite;
 }
