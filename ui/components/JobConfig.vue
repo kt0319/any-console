@@ -40,6 +40,21 @@
         <input type="number" class="form-input" style="max-width:120px" v-model.number="form.timeout_sec"
           placeholder="Default (300)" min="1" max="86400" autocomplete="off" />
       </div>
+      <div v-if="form.type !== 'browser'" class="ws-settings-row ws-settings-row-stack">
+        <span class="ws-settings-label">Blocked phrases</span>
+        <textarea class="form-input job-command-input" v-model="form.blocked_text"
+          placeholder="Phrases shown while waiting for input (one per line)"
+          autocomplete="off" rows="2" spellcheck="false"></textarea>
+        <span class="ws-settings-label">Done phrases</span>
+        <textarea class="form-input job-command-input" v-model="form.done_text"
+          placeholder="Phrases shown when finished (one per line)"
+          autocomplete="off" rows="2" spellcheck="false"></textarea>
+        <div class="job-command-hint">
+          Detects agent state from the visible terminal screen (plain substring match,
+          one phrase per line). Short distinctive phrases work best — long ones may
+          break across wrapped lines. Shown as a tab badge.
+        </div>
+      </div>
       <div class="ws-settings-row" style="gap:8px">
         <button type="button" class="primary" :disabled="saving" @click="saveJob">
           {{ saving ? 'Saving...' : 'Save' }}
@@ -66,6 +81,7 @@ import { renderIconStr } from "../utils/render-icon.js";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
 import { EP_COMMON_JOBS, workspaceApiPath } from "../utils/endpoints.js";
 import { extractDomain } from "../utils/icon-url.js";
+import { buildStatePatterns, phrasesToText } from "../utils/agent-state.js";
 
 const { modalTitle, viewState, pushView, popView } = useModalView();
 const { apiPost, apiPut, apiDelete } = useApi();
@@ -93,6 +109,8 @@ const form = ref(
           confirm: jobEntry.job.confirm !== false,
           detached_tab: !!jobEntry.job.detached_tab,
           timeout_sec: jobEntry.job.timeout_sec ?? null,
+          blocked_text: phrasesToText(jobEntry.job.state_patterns?.blocked),
+          done_text: phrasesToText(jobEntry.job.state_patterns?.done),
         }
       : {
           label: "",
@@ -104,6 +122,8 @@ const form = ref(
           confirm: false,
           detached_tab: false,
           timeout_sec: null,
+          blocked_text: "",
+          done_text: "",
         }
 );
 
@@ -153,6 +173,7 @@ async function saveJob() {
       confirm: f.type === "browser" ? false : f.confirm,
       detached_tab: f.type === "browser" ? false : f.detached_tab,
       timeout_sec: timeoutSec,
+      state_patterns: f.type === "browser" ? {} : buildStatePatterns(f.blocked_text, f.done_text),
     };
     const { ok, data } = isNew ? await apiPost(url, body) : await apiPut(url, body);
     if (!ok) {

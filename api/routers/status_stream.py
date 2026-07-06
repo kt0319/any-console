@@ -1,7 +1,9 @@
-"""ワークスペース git ステータスのリアルタイム配信 WebSocket。
+"""ワークスペース git ステータス／エージェント状態のリアルタイム配信 WebSocket。
 
 クライアントは /workspaces/statuses/ws を購読すると、変更のあったワークスペースの
-ステータス（/workspaces/statuses の statuses 要素と同形式）を push で受け取る。
+ステータス（/workspaces/statuses の statuses 要素と同形式、type="statuses"）と、
+ターミナルセッションのエージェント状態（type="agent_states"、api/agent_watch.py）を
+同じソケットで push で受け取る。
 認証・keepalive はターミナル WS（routers/terminal.py）と同じ方式に揃えている。
 """
 
@@ -11,6 +13,8 @@ import logging
 from fastapi import APIRouter, WebSocket
 from fastapi.websockets import WebSocketDisconnect
 
+from ..agent_watch import subscribe as agent_subscribe
+from ..agent_watch import unsubscribe as agent_unsubscribe
 from ..auth import verify_ws_token
 from ..common import WS_PING_INTERVAL_SEC
 from ..git_watch import subscribe, unsubscribe
@@ -29,6 +33,7 @@ async def workspace_statuses_ws(websocket: WebSocket, token: str = ""):
 
     await websocket.accept()
     await subscribe(websocket)
+    await agent_subscribe(websocket)
     logger.info("status stream connected")
     try:
         while True:
@@ -44,6 +49,7 @@ async def workspace_statuses_ws(websocket: WebSocket, token: str = ""):
         pass
     finally:
         unsubscribe(websocket)
+        agent_unsubscribe(websocket)
         # 相手切断後の close は RuntimeError になるため握りつぶす（terminal_ws と同様）
         try:
             await websocket.close()

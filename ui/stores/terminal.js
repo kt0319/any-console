@@ -54,6 +54,21 @@ export const useTerminalStore = defineStore("terminal", () => {
   const restoreSessionsError = ref("");
   const terminalSettings = ref(loadTerminalSettingsFromStorage());
   const tabFlags = reactive({});
+  // sessionId → エージェント状態（blocked/done/working/idle）。status stream WS が更新する。
+  const agentStates = reactive(/** @type {Record<string, string>} */ ({}));
+
+  /**
+   * status stream WS から届いたエージェント状態をマージする。
+   * @param {{ session_id: string, state: string }[]} states
+   */
+  function applyAgentStates(states) {
+    if (!Array.isArray(states)) return;
+    for (const entry of states) {
+      if (entry && typeof entry.session_id === "string" && typeof entry.state === "string") {
+        agentStates[entry.session_id] = entry.state;
+      }
+    }
+  }
 
   function setTabFlag(tabId, key, value) {
     if (!tabFlags[tabId]) tabFlags[tabId] = {};
@@ -227,6 +242,8 @@ export const useTerminalStore = defineStore("terminal", () => {
     restoreSessionsError,
     terminalSettings,
     tabFlags,
+    agentStates,
+    applyAgentStates,
     setTabFlag,
     clearTabFlags,
     TERMINAL_SETTINGS_KEY,

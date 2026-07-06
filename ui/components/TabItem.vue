@@ -17,6 +17,7 @@
     <span v-if="wsIconHtml" v-html="wsIconHtml"></span>
     <span v-if="isWorktree" class="mdi mdi-file-tree tab-worktree-icon" aria-label="worktree" data-tooltip="worktree"></span>
     <span v-if="iconHtml" v-html="iconHtml"></span>
+    <AgentStateBadge :state="agentState" />
     <template v-if="!isPanelBottom">
       {{ label }}
       <span v-if="isDirty" class="tab-dirty-dot" aria-label="uncommitted changes"></span>
@@ -47,6 +48,7 @@ import { DRAG_THRESHOLD, LONG_PRESS_MS } from "../utils/constants.js";
 import { useSplitDropDrag } from "../composables/useSplitDropDrag.js";
 import { useLongPress } from "../composables/useLongPress.js";
 import { isPastDragThreshold, createTouchTracker } from "../utils/gesture.js";
+import AgentStateBadge from "./AgentStateBadge.vue";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -84,6 +86,8 @@ const isDirty = computed(() => {
   const ws = workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace);
   return ws?.clean === false;
 });
+
+const agentState = computed(() => terminalStore.agentStates[props.tab.sessionId] || "");
 
 const isWorktree = computed(() => {
   if (!props.tab.workspace) return false;

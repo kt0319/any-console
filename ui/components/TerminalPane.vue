@@ -25,6 +25,7 @@
           <span class="terminal-info-pill-info">
             <span v-if="tab.wsIcon" v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
             <span v-if="tab.icon" v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
+            <AgentStateBadge :state="agentState" />
             {{ tab.workspace || tab.label || '' }}
           </span>
           <span v-if="isDirty" class="pill-dirty-dot" aria-label="uncommitted changes"></span>
@@ -72,6 +73,7 @@ import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.
 import { useCircleKeyPad } from "../composables/useCircleKeyPad.js";
 import CircleKeyPad from "./CircleKeyPad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
+import AgentStateBadge from "./AgentStateBadge.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
 
 const props = defineProps({
@@ -91,6 +93,8 @@ const isDirty = computed(() => {
   const ws = workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace);
   return ws?.clean === false;
 });
+
+const agentState = computed(() => terminalStore.agentStates[props.tab.sessionId] || "");
 const { ensureTerminalOpened, fitTerminal, sendResize, observeFrameResize, connectTerminalWs } = useTerminal();
 
 const paneEl = ref(null);

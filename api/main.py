@@ -182,6 +182,8 @@ async def lifespan(app: FastAPI):
     start_scanner()
     yield
     stop_scanner()
+    from .agent_watch import shutdown as agent_watch_shutdown
+    agent_watch_shutdown()
     from .git_watch import shutdown as git_watch_shutdown
     git_watch_shutdown()
     from .terminal_session import TERMINAL_SESSIONS, _detach_pty_bridge, sessions_lock

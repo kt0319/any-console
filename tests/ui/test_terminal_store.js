@@ -82,3 +82,35 @@ describe("terminal store: active 再選出", () => {
     });
   });
 });
+
+describe("terminal store: agentStates", () => {
+  let store;
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    store = useTerminalStore();
+  });
+
+  it("applyAgentStates で sessionId ごとの状態をマージする", () => {
+    store.applyAgentStates([
+      { session_id: "s1", state: "blocked" },
+      { session_id: "s2", state: "working" },
+    ]);
+    expect(store.agentStates.s1).toBe("blocked");
+    expect(store.agentStates.s2).toBe("working");
+
+    store.applyAgentStates([{ session_id: "s1", state: "done" }]);
+    expect(store.agentStates.s1).toBe("done");
+    expect(store.agentStates.s2).toBe("working");
+  });
+
+  it("不正なエントリと配列以外は無視する", () => {
+    store.applyAgentStates([
+      null,
+      { session_id: 1, state: "blocked" },
+      { session_id: "s3" },
+    ]);
+    expect(Object.keys(store.agentStates)).toEqual([]);
+    store.applyAgentStates("not-an-array");
+    expect(Object.keys(store.agentStates)).toEqual([]);
+  });
+});

@@ -1,4 +1,5 @@
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { useTerminalStore } from "../stores/terminal.js";
 import { on } from "../app-bridge.js";
 import { debugLog } from "./useClientLogs.js";
 import {
@@ -14,12 +15,15 @@ let reconnectAttempts = 0;
 let started = false;
 
 /**
- * git ステータスのリアルタイム配信 WS を購読する。
- * 受信したステータスは workspace ストアへ即時マージされる。
- * 切断時はバックオフ付きで再接続し、再接続のたびに全量を同期して取りこぼしを埋める。
+ * git ステータス／エージェント状態のリアルタイム配信 WS を購読する。
+ * 受信した git ステータスは workspace ストアへ、エージェント状態は terminal
+ * ストアへ即時マージされる。
+ * 切断時はバックオフ付きで再接続し、再接続のたびに全量を同期して取りこぼしを埋める
+ * （エージェント状態はサーバが購読開始時にスナップショットを送る）。
  */
 export function useStatusStream() {
   const workspaceStore = useWorkspaceStore();
+  const terminalStore = useTerminalStore();
 
   function isClosed() {
     return !socket || socket.readyState === WebSocket.CLOSED;
@@ -41,6 +45,8 @@ export function useStatusStream() {
       const msg = parseStatusStreamMessage(e.data);
       if (msg?.type === "statuses") {
         workspaceStore.applyStatuses(msg.statuses);
+      } else if (msg?.type === "agent_states") {
+        terminalStore.applyAgentStates(msg.states);
       }
     };
     ws.onclose = () => {
