@@ -7,6 +7,9 @@ import {
   buildPhraseItems,
   enabledPhrases,
   disabledPhrases,
+  buildWatchPhraseItems,
+  enabledWatchPhrases,
+  disabledWatchPhrases,
 } from "../../ui/utils/agent-state.js";
 
 describe("agentStateBadge", () => {
@@ -29,6 +32,27 @@ describe("agentStateBadge", () => {
     expect(agentStateBadge("idle")).toBe(null);
     expect(agentStateBadge("unknown")).toBe(null);
     expect(agentStateBadge("")).toBe(null);
+  });
+
+  it("mdi-* state は動的バッジを返す（既知アイコンは対応クラス）", () => {
+    const blocked = agentStateBadge("mdi-hand-back-right");
+    expect(blocked).not.toBe(null);
+    expect(blocked.icon).toBe("mdi-hand-back-right");
+    expect(blocked.className).toBe("agent-state-blocked");
+
+    const done = agentStateBadge("mdi-check-circle");
+    expect(done.className).toBe("agent-state-done");
+
+    const select = agentStateBadge("mdi-arrow-decision");
+    expect(select.className).toBe("agent-state-select");
+  });
+
+  it("未知の mdi-* は agent-state-custom クラスにフォールバック", () => {
+    const badge = agentStateBadge("mdi-unknown-icon");
+    expect(badge).not.toBe(null);
+    expect(badge.icon).toBe("mdi-unknown-icon");
+    expect(badge.className).toBe("agent-state-custom");
+    expect(badge.label).toBe("agent state");
   });
 });
 
@@ -95,6 +119,59 @@ describe("enabledPhrases / disabledPhrases", () => {
   it("undefined / 空配列は空配列", () => {
     expect(enabledPhrases(undefined)).toEqual([]);
     expect(disabledPhrases([])).toEqual([]);
+  });
+});
+
+describe("buildWatchPhraseItems", () => {
+  it("有効・無効を結合して {phrase, icon, enabled} リストを返す", () => {
+    const enabled = [{ phrase: "a", icon: "mdi-hand-back-right" }];
+    const disabled = [{ phrase: "b", icon: "mdi-check-circle" }];
+    expect(buildWatchPhraseItems(enabled, disabled)).toEqual([
+      { phrase: "a", icon: "mdi-hand-back-right", enabled: true },
+      { phrase: "b", icon: "mdi-check-circle", enabled: false },
+    ]);
+  });
+
+  it("icon が省略された場合はデフォルトアイコンを補う", () => {
+    const result = buildWatchPhraseItems([{ phrase: "x" }], undefined);
+    expect(result[0].icon).toBe("mdi-hand-back-right");
+  });
+
+  it("undefined / 空は空配列", () => {
+    expect(buildWatchPhraseItems(undefined, undefined)).toEqual([]);
+    expect(buildWatchPhraseItems([], [])).toEqual([]);
+  });
+});
+
+describe("enabledWatchPhrases / disabledWatchPhrases", () => {
+  const items = [
+    { phrase: "a", icon: "mdi-hand-back-right", enabled: true },
+    { phrase: " b ", icon: "mdi-check-circle", enabled: false },
+    { phrase: "c", icon: "mdi-arrow-decision", enabled: true },
+    { phrase: "", icon: "mdi-hand-back-right", enabled: true },
+  ];
+
+  it("enabledWatchPhrases は有効かつ空でない語句を返す", () => {
+    expect(enabledWatchPhrases(items)).toEqual([
+      { phrase: "a", icon: "mdi-hand-back-right" },
+      { phrase: "c", icon: "mdi-arrow-decision" },
+    ]);
+  });
+
+  it("disabledWatchPhrases は無効かつ空でない語句を返す", () => {
+    expect(disabledWatchPhrases(items)).toEqual([
+      { phrase: "b", icon: "mdi-check-circle" },
+    ]);
+  });
+
+  it("icon が省略された場合はデフォルトアイコンを補う", () => {
+    const result = enabledWatchPhrases([{ phrase: "x", enabled: true }]);
+    expect(result[0].icon).toBe("mdi-hand-back-right");
+  });
+
+  it("undefined / 空配列は空配列", () => {
+    expect(enabledWatchPhrases(undefined)).toEqual([]);
+    expect(disabledWatchPhrases([])).toEqual([]);
   });
 });
 
