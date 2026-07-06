@@ -123,12 +123,14 @@ def _job_state_patterns(workspace: str | None, job_name: str | None) -> dict[str
         entry = get_workspace_jobs(workspace).get(job_name)
         if not entry:
             return {}
-        return entry[0].state_patterns
+        patterns: dict[str, list[str]] = entry[0].state_patterns
+        return patterns
     data = load_common_jobs_data()
     raw = data.get(job_name)
     if raw is None:
         return {}
-    return entry_to_job_definition(job_name, raw).state_patterns
+    common_patterns: dict[str, list[str]] = entry_to_job_definition(job_name, raw).state_patterns
+    return common_patterns
 
 
 def _job_watch_phrases(workspace: str | None, job_name: str | None) -> list[dict]:
@@ -144,12 +146,14 @@ def _job_watch_phrases(workspace: str | None, job_name: str | None) -> list[dict
         entry = get_workspace_jobs(workspace).get(job_name)
         if not entry:
             return []
-        return entry[0].watch_phrases
+        phrases: list[dict] = entry[0].watch_phrases
+        return phrases
     data = load_common_jobs_data()
     raw = data.get(job_name)
     if raw is None:
         return []
-    return entry_to_job_definition(job_name, raw).watch_phrases
+    common_phrases: list[dict] = entry_to_job_definition(job_name, raw).watch_phrases
+    return common_phrases
 
 
 # ポーリング間の可視ペイン内容（アクティビティ判定用）。ポーリングタスクのみが触る。
