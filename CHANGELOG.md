@@ -5,6 +5,142 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0](https://github.com/kt0319/any-console/compare/v0.5.0...v0.6.0) (2026-07-06)
+
+
+### Features
+
+* detachedジョブ起動時にバックグラウンド開始トーストを表示 ([989a95d](https://github.com/kt0319/any-console/commit/989a95dc360369c9338be9ae22382e70ed6ac767))
+* dispatch承認/否決時に全クライアントのモーダルを閉じる ([1f8de69](https://github.com/kt0319/any-console/commit/1f8de6932ec1cefe55c479e134349009a2948d2c))
+* gitステータスをFS監視とWebSocket pushでリアルタイム更新する ([fe1c243](https://github.com/kt0319/any-console/commit/fe1c24335499ba130a7cfa761192ca1bd9208313))
+* hiddenタブをdetachedセッションに統合し、detached_tab設計に移行 ([c5b06bc](https://github.com/kt0319/any-console/commit/c5b06bc6353b1af3e2f16527c5f64511664d1ced))
+* Push通知のVAPID subをOriginヘッダーから自動検出して永続化する ([70737e6](https://github.com/kt0319/any-console/commit/70737e673e9c77e66c4d0efb1ed02c0f69c73cf2))
+* PWAプッシュ通知機能を追加（dispatch受付時に通知） ([416269b](https://github.com/kt0319/any-console/commit/416269b2339a14c9182b8c0112cd5700721970fb))
+* setup で git リポジトリを自動検出し複数選択で一括登録できるようにする ([844f239](https://github.com/kt0319/any-console/commit/844f239c9c374919f9de2ad41e2ec98b132ff080))
+* setup を venv 隔離・依存自動インストール提案・ヘルスチェック対応 ([7d225be](https://github.com/kt0319/any-console/commit/7d225be0175a1b94d3a435d934ce4443cfd9deb3))
+* System InfoにUpdate確認とany-consoleセクションを統合 ([af4dc46](https://github.com/kt0319/any-console/commit/af4dc4655fc25e27575573b35024a284e4f1fb07))
+* tooltipをJS実装に切り替えてモーダル内でも途切れないよう修正 ([c0112a4](https://github.com/kt0319/any-console/commit/c0112a45813fb5ad8995fcf926a0ab56065525ca))
+* サークルキーパッドにNext Tab/Prev Tabアクションを追加 ([49d1d19](https://github.com/kt0319/any-console/commit/49d1d1957182125e35e3dc9ae98b7c0ec6e06311))
+* ステータスバーにターミナルCWDをワークスペースとして登録するボタンを追加 ([a4245ca](https://github.com/kt0319/any-console/commit/a4245ca3e599e4f51134f634b259648ee72221dc))
+* ステータスバーのChangesボタンを常時表示し、モバイルはdirty状態でHistory/Changesを切り替え ([43ea68e](https://github.com/kt0319/any-console/commit/43ea68e0de83f840ba33e5aafefa3506dd4f764b))
+* ステータスバーのJobs・Filesボタンをモバイルでもアイコンのみ表示 ([68e6624](https://github.com/kt0319/any-console/commit/68e662403c2da57dbc17833a28b5e746fdc4d3f9))
+* ステータスバーのJobs/FilesをHistoryボタン幅で動的に表示/非表示 ([933c90f](https://github.com/kt0319/any-console/commit/933c90f44ea017c8776917c04f950056834cbbef))
+* タブ閉じるボタンを×に戻し・分割ピルを−（赤背景）に変更・push-upstream ラベルを「Push & Set Upstream」に修正 ([4bdf0e8](https://github.com/kt0319/any-console/commit/4bdf0e8cfca2b772375c25eb58b2bb91a79faf71))
+* タブ閉じ確認ダイアログにDetachボタンを追加 ([aa4d55c](https://github.com/kt0319/any-console/commit/aa4d55c0ecbafdc605f5e55bb7b71288cc7d28d3))
+* ピルインフォに×ボタンとツールチップを追加 ([a5f9882](https://github.com/kt0319/any-console/commit/a5f9882483960a7251983497c1d31f20e7479b2c))
+* プル/プッシュボタンにツールチップ（data-tooltip）を追加 ([0c295ea](https://github.com/kt0319/any-console/commit/0c295ea688f77cea79284c334805512b565c0391))
+* ポートプレビューをHTTPS対応しHTTP以外のポートを一覧から除外 ([e96fc9d](https://github.com/kt0319/any-console/commit/e96fc9d9f1a4fd0e59351a7b877611dbf9138a9b))
+* ワークスペース一覧にワークスペース未指定でターミナルを開くボタンを追加 ([e8a585e](https://github.com/kt0319/any-console/commit/e8a585ee88fb8a58a6a46d4e4472bc7efaf12897))
+* ワークスペース詳細モーダルのChangesアイコンに変更ありで青色を付与 ([e51c43d](https://github.com/kt0319/any-console/commit/e51c43d04f594fda83d9b42ef7db3d339cf13ab4))
+* 入力フォームの履歴上限を20件から100件に変更 ([8233d0f](https://github.com/kt0319/any-console/commit/8233d0f659e79989476c81fd648380f7c8be837f))
+* 素のターミナルと非gitワークスペースのUXを改善 ([7825f3a](https://github.com/kt0319/any-console/commit/7825f3a78bda8093ecb18262a101430f9277be20))
+* 素のターミナルにワークスペース追加導線を統合 ([1aaaa3e](https://github.com/kt0319/any-console/commit/1aaaa3e0bea2cdc159a1d424fd43f5f85f76ddf1))
+* 設定に Check for Update を追加しバージョンを表示する ([9e317d5](https://github.com/kt0319/any-console/commit/9e317d50dd441bc5fd3a8ba85c68d5d270117aac))
+
+
+### Bug Fixes
+
+* _is_https の mypy no-any-return エラーを解消 ([0d80426](https://github.com/kt0319/any-console/commit/0d804269430144183ea6457af4076c6467ffbc57))
+* ⌘⇧T のショートカットを新規ターミナル起動に変更し、スタート画面にヒントを追加 ([cbce8d1](https://github.com/kt0319/any-console/commit/cbce8d1b3456b16a2f21336bb24499d245f4334f))
+* Androidエッジスワイプ「戻る」ジェスチャーをキーボードバーのフリック操作中に抑制 ([9cafbfd](https://github.com/kt0319/any-console/commit/9cafbfdf845e860fff9987469e591d3b0a7b726b))
+* auth/checkをasync化しスレッドプール競合を解消、WebSocket pingタイムアウトを延長 ([abf2cc8](https://github.com/kt0319/any-console/commit/abf2cc8647c8ee5bdf54d3879844645043ea0fc7))
+* cryptography・pywebpushをrequirements.txtに追加 ([a876333](https://github.com/kt0319/any-console/commit/a87633390d3ebfc44a48ae73cc18c4221761a52f))
+* DetachedタブをOpenした際にdetachedフラグをfalseに戻しリロード後も正しく復元されるよう修正 ([7131f38](https://github.com/kt0319/any-console/commit/7131f38151810e42a0dac5864ad16b110318b662))
+* detachedフラグ設定時にセッション未登録でも tmux env に永続化されない問題を修正 ([a9965b6](https://github.com/kt0319/any-console/commit/a9965b64e445a52a15fa5088be1284e6622ca308))
+* detached移行の積み残しを掃除しジョブのdetached起動を修復 ([24d83da](https://github.com/kt0319/any-console/commit/24d83da7fd6ab4901c8648305f95b898a1242025))
+* dispatch のブランチ操作で subprocess 例外を捕捉する ([e6abc13](https://github.com/kt0319/any-console/commit/e6abc13e4a272b007d2c904ea4468f5bb35c6b6b))
+* dispatch等で開いたタブにアイコンが出ない不具合を修正 ([8fe74fe](https://github.com/kt0319/any-console/commit/8fe74fe7141032916cdb78df5c962c9afcaf573c))
+* dispatch通知をconfirm承認待ち前に送るよう変更 ([b369338](https://github.com/kt0319/any-console/commit/b36933844fd636172baf7b3b82e0c3249b5ed778))
+* GitHub CLI タイムアウトを30sから8sに短縮しWebSocket切断を抑制 ([beeb45c](https://github.com/kt0319/any-console/commit/beeb45cd50d8600d14a7d7b6e918f74bca73d517))
+* Jobs/Filesボタンの表示切替ループを修正（観測対象をnavGroupに変更） ([22d9c7c](https://github.com/kt0319/any-console/commit/22d9c7cda9fe959a32f3f5aa4d04cd6838644039))
+* PCでターミナル非フォーカス時の日本語入力とmetaキーショートカットが効かない問題を修正 ([826c69b](https://github.com/kt0319/any-console/commit/826c69b42eecb5c9f5fd7c684ea72db4eba7d355))
+* push 依存を任意化し未導入でもアプリが起動するようにする ([4c474de](https://github.com/kt0319/any-console/commit/4c474de2c1bb6996082c1252510eaa4edff8846a))
+* QWERTYキーボードのFnビュー改善（Insertキー追加・カメラ移動・Esc配置） ([0a3681e](https://github.com/kt0319/any-console/commit/0a3681ecb550d9ed8c28b38f18d041c1df849168))
+* splitピルの閉じるボタンを×からマイナス記号に変更 ([5bb6451](https://github.com/kt0319/any-console/commit/5bb6451950ce138f7fb6211c790fcef5995d5720))
+* Tailscaleヘッダ自動認証をopt-in化し認証まわりのセキュリティを強化 ([a42f38a](https://github.com/kt0319/any-console/commit/a42f38a2d3a1c0b131a48f9d9948745c9e9bc36f))
+* TMUX_DETACHED を TMUX_META_ENV_NAMES に追加し再起動後も detached 状態を正しく復元 ([e254b45](https://github.com/kt0319/any-console/commit/e254b45a026ff90ce34fdcad891badf3e648be4b))
+* tooltip.js のイベントリスナーで EventTarget → HTMLElement に型を絞りCI型エラーを解消 ([64b3b71](https://github.com/kt0319/any-console/commit/64b3b714538f3253449c87921c18da6d397ec420))
+* trusted deviceのLast seen表示が常にnowになる二重変換を修正 ([c9e9877](https://github.com/kt0319/any-console/commit/c9e9877ecd1c876f4d5dd1155500b0c24e3f2043))
+* uvicorn.runのws_ping引数をアンパックから明示的指定に変更しmypy型エラーを解消 ([ba7fdbd](https://github.com/kt0319/any-console/commit/ba7fdbde95f8c952f36f9bca85a805887b89e6b1))
+* VAPID秘密鍵をbase64url形式で保存しpywebpushとの互換性を修正 ([ed2819f](https://github.com/kt0319/any-console/commit/ed2819fcf5373a0657b2e965e20f77e114a67717))
+* WS生存判定にreadyState=OPENと送信activityを加味し誤切断・誤検知を解消 ([a8e2c42](https://github.com/kt0319/any-console/commit/a8e2c426661c5addee14b3b7a0362051fcc233db))
+* サークルキーパッドが取得失敗でdefaultsにリセットされる不具合を修正 ([ee00a96](https://github.com/kt0319/any-console/commit/ee00a96db74e118a86115425ae9df35301e0fcd3))
+* ステータスバーのワークスペース切替ボタンのラベルを「Change」→「Open」に変更 ([aabf108](https://github.com/kt0319/any-console/commit/aabf10834b2fd2d4e99e351cbd891fd48ee87be3))
+* ステータスバー未選択時ラベルと動作を修正・APIネットワークエラーの unhandled rejection を解消 ([8ec31ff](https://github.com/kt0319/any-console/commit/8ec31ffc09b7a97802feb6edfdef51d155f600a0))
+* ソフトキーボードで特殊キーにCtrl/Shift修飾が乗らない不具合を修正 ([268f7bc](https://github.com/kt0319/any-console/commit/268f7bcfe2dfecaa02ebac3c27c950d6c4e66e46))
+* ターミナルのURLリンク化が全角カッコ以降のテキストを飲み込む問題を修正 ([700c2e5](https://github.com/kt0319/any-console/commit/700c2e5bbc1a002ff7f848ac2c2691f5789479f7))
+* ツールチップをSVG子要素ホバーでも発動するよう修正・GitActionBtn の title 属性を削除し aria-label/data-tooltip に統一 ([679eee5](https://github.com/kt0319/any-console/commit/679eee5bce846eaeb62fc3ee9c44f5db7d4ad103))
+* デタッチセッション一覧で素のターミナルのtmux IDが表示される問題を修正 ([45d9c7d](https://github.com/kt0319/any-console/commit/45d9c7d554d6dececee6e906addeff70f2f1abfd))
+* バイナリファイルを含むコミットのdiff取得時のUnicodeDecodeErrorを修正 ([d5f68c3](https://github.com/kt0319/any-console/commit/d5f68c3c82db4020297bd0143ec379ec20d0d266))
+* ピルインフォとボタンの透明度を上げ、ボタン枠色を控えめに調整 ([4f3bcc7](https://github.com/kt0319/any-console/commit/4f3bcc7194311f7724db53906d0cd341546e4b13))
+* ピルインフォの×ボタンを非スプリット時のみ表示に変更 ([05ed5e3](https://github.com/kt0319/any-console/commit/05ed5e31457e351f5d532d7264e6cb6c201fe40e))
+* ピルインフォのボタン色を控えめだが視認可能な透明度に調整 ([65511bf](https://github.com/kt0319/any-console/commit/65511bf3739927ad1c523a95badc678b1086844f))
+* ファイル一覧の一時失敗で即Failed to loadになる不具合を修正 ([03c765e](https://github.com/kt0319/any-console/commit/03c765e3980d005c8b45bcc6b711da49afa2a7e8))
+* ポートプレビューのOpenボタンをwindow.openに変更し、iOS PWAのdata:ループバグを修正 ([9af6337](https://github.com/kt0319/any-console/commit/9af633701b7bf6836529b8097477b53e82d6c81a))
+* リロード時にジョブタブのアイコンがmdi-playに固定される不具合を修正 ([dc4a40b](https://github.com/kt0319/any-console/commit/dc4a40bfdf8cb9e6c57e09be251f4867df58c267))
+* リロード時にセッション取得の一時失敗でタブが復元されない不具合を修正 ([8579ce5](https://github.com/kt0319/any-console/commit/8579ce56ffce499424cd8f93d9cd678aac034f6a))
+* レビュー指摘対応（登録済みworktreeの監視とFS監視無効時のポーリング継続） ([b06524b](https://github.com/kt0319/any-console/commit/b06524b4fbab52cc3c1554f6338a95a037ad9d5f))
+* 不正な設定1件でサークルキーパッド等のグローバル設定全体がリセットされる問題を修正 ([cfeac6d](https://github.com/kt0319/any-console/commit/cfeac6df4c1a519f8bc913b5140efc3933a32662))
+* 共有ref変更のworktree展開とWS切断時の購読解除漏れを修正 ([4546037](https://github.com/kt0319/any-console/commit/4546037971ae89151c3d544267fb15065ade7dca))
+* 共有ref変更の展開漏れとFS監視失敗時のポーリング再開通知を追加 ([fcd6892](https://github.com/kt0319/any-console/commit/fcd6892b61fff3d843ae45c6b1ff721562a78279))
+* 冪等なGET読み込みの一時失敗を自動リトライして空表示を防ぐ ([823650c](https://github.com/kt0319/any-console/commit/823650c54f87d85d227ebd6d5c0152004cff11b2))
+* 実装と命名がずれていたユーザー可視の挙動を修正 ([af9d17f](https://github.com/kt0319/any-console/commit/af9d17fb3cb6adaf91d72b743da90efb518eadff))
+* 接続監視のタイムアウトと閾値を緩和しconnection lost誤検知を抑制 ([cd1db76](https://github.com/kt0319/any-console/commit/cd1db76aee6e0ec8b1e44f96abfee81f459a6eee))
+* 接続監視をWebSocket一次情報源に再設計しconnection lost誤検知を解消 ([7bb9271](https://github.com/kt0319/any-console/commit/7bb92711ca86ef16359f96671e6ad9830743a2da))
+* 未コミットのリポジトリでステータスバーがLoadingのまま残る問題を修正 ([3bb5e1f](https://github.com/kt0319/any-console/commit/3bb5e1f01853c1348dfc6413dc82d5b78dab5d32))
+* 通知タップ時に iOS Safari の「Open from URL?」確認ダイアログが出る問題を修正 ([6a3fa03](https://github.com/kt0319/any-console/commit/6a3fa0376921d4727aeb90b2afca2ffe70f829c5))
+
+
+### Refactor
+
+* config のマイグレーションを config_migrations.py に分離する ([a52920a](https://github.com/kt0319/any-console/commit/a52920a6a5118098d8e4f6ce3e01af4cb2cfbb1d))
+* EmptyPane を SplitEmptyPane にリネーム ([4611cfe](https://github.com/kt0319/any-console/commit/4611cfe1573690bf326b27e76326bee40dac5652))
+* git_info パイプラインを git_info.py に分離する ([ec2f041](https://github.com/kt0319/any-console/commit/ec2f041bba1a7cffde9a5403d30a21d10f6abef4))
+* GitHub全部入りビューを削除しタブ別パネルへ一本化 ([0283954](https://github.com/kt0319/any-console/commit/02839545edfb15d301b0585c70529c9db8e04cbc))
+* IconPicker のグリッド整形ロジックを純粋関数に抽出する ([220b6e4](https://github.com/kt0319/any-console/commit/220b6e4c1ea364daef08317073eee62fa75e932f))
+* JobConfig の extractDomain 重複と URL 直書きを解消する ([0d08320](https://github.com/kt0319/any-console/commit/0d083206615ada5722e55b62ac9723fc8279006a))
+* orphan sessionsをDetached sessionsに改名 ([49ce195](https://github.com/kt0319/any-console/commit/49ce19525c152659ec70a6dab2fd18b8546d5f80))
+* Radial Key を Circle Key Pad にリネーム ([3519b9c](https://github.com/kt0319/any-console/commit/3519b9c2acda403e4d1981a7147772787d5f7e9e))
+* recent jobsをサーバー保存からlocalStorageに移行しAPIエンドポイントを削除 ([c95858b](https://github.com/kt0319/any-console/commit/c95858bdf8320602c02586ec2125abd65ccc934b))
+* run_git_raw に型注釈を追加する ([2cd2dbf](https://github.com/kt0319/any-console/commit/2cd2dbfd9bd0f771acd5e300ae05dda2c096fe7d))
+* TabConfig の orphan セッション整形を純粋関数に抽出する ([ada86a7](https://github.com/kt0319/any-console/commit/ada86a79f8463289ff64f7d9fd65df7facf5f973))
+* Tabs & Sessions画面のUI整理とメニュー配置を変更 ([9ce1adf](https://github.com/kt0319/any-console/commit/9ce1adf9adcea1339e175839c2a4d3080a8a22c9))
+* tmux コマンド実行を共通ラッパーに集約する ([639660b](https://github.com/kt0319/any-console/commit/639660b95d0d2d68da6066c617211f5ba9e0b089))
+* watchfilesを必須依存にしてステータスポーリングのフォールバックを廃止 ([81534c3](https://github.com/kt0319/any-console/commit/81534c387466677ff63e5f0a003e1388344e7569))
+* Workspaceジョブパネルのcommon jobsをモジュール単位でキャッシュ ([ff57ca9](https://github.com/kt0319/any-console/commit/ff57ca972c7aeed75c14014e513a37f13783fc46))
+* エディタ設定から{work_dir}テンプレート変数を削除 ([7f18e5f](https://github.com/kt0319/any-console/commit/7f18e5f10e6509d007b18ae70e899b17f2f99d91))
+* コマンド変数収集を command-vars.js に抽出する ([4230ea1](https://github.com/kt0319/any-console/commit/4230ea1802e832563648a8e674a2d19f708e04f9))
+* ステータスバーの git 表示ロジックを composable に抽出する ([944d71a](https://github.com/kt0319/any-console/commit/944d71ab6e3338dd8cb545c0965d76b797705591))
+* ダイアログ共通シェル BaseDialog を導入しフォーカス管理を一元化 ([305f569](https://github.com/kt0319/any-console/commit/305f569705f9c2eb0b0149b79036d4c27b8be29d))
+* デモ用Dockerセットアップを削除 ([4ab9beb](https://github.com/kt0319/any-console/commit/4ab9beb06b9e18a475d7ddf25653139fdfa7eba2))
+* ブランチ追加ダイアログを composable に抽出する ([2d438d8](https://github.com/kt0319/any-console/commit/2d438d8f3798590d90191d77a4c2a469128fd7e8))
+* 円形キーパッドの幾何計算を純粋関数に抽出する ([77acec8](https://github.com/kt0319/any-console/commit/77acec882e9789c85da1e73c092bd87027a11042))
+* 命名・docstring を実際の挙動に合わせて整理 ([450415f](https://github.com/kt0319/any-console/commit/450415f72b25adb404a588aa060f9eb2db09aa0f))
+* 小規模な重複実装を集約する ([6077dc2](https://github.com/kt0319/any-console/commit/6077dc29ed0914dde86f8c1bb5993c6372986a7b))
+* 旧アーキテクチャの後方互換コードを削除 ([5c67563](https://github.com/kt0319/any-console/commit/5c675636bc40186622c8422f4e77720632c155cc))
+* 更新をブランチHEADではなくリリースタグ単位に変更する ([25c66a0](https://github.com/kt0319/any-console/commit/25c66a006fcedf6d43fce4726f0bb194b9a0122e))
+* 未使用コード・重複実装・到達不能なイベント配線を削除 ([98c7d26](https://github.com/kt0319/any-console/commit/98c7d264854b4177d87ff83af47ed3bfbf6da6ba))
+
+
+### Documentation
+
+* RPi5スレッドプール枯渇とconnection lost誤検知の調査・対応をDECISIONSに追記 ([420ff0e](https://github.com/kt0319/any-console/commit/420ff0e23bd2df5e1a218ee437990323d362647f))
+* SECURITY.md を追加し脅威モデルと運用上の注意を明文化 ([c080ac9](https://github.com/kt0319/any-console/commit/c080ac920484b919d8ec64925fef24c2f131de05))
+* セットアップ手順のgit clone先を~/any-consoleに統一 ([a815112](https://github.com/kt0319/any-console/commit/a815112a23382954c11acf8c82fca0f258423b52))
+* 認証系環境変数がサービス起動に届かない旨をREADMEに明記 ([16d2065](https://github.com/kt0319/any-console/commit/16d2065ce80f843dd154b5a0b502bb6d2cd37b1a))
+
+
+### Tests
+
+* push通知のカバレッジテストを追加 ([1fe55c6](https://github.com/kt0319/any-console/commit/1fe55c6c73dc59a159bb5c3d773950b84d7562c2))
+* work_dirの削除に合わせてシステム情報テストをinstall_dirに更新 ([ced2fca](https://github.com/kt0319/any-console/commit/ced2fca911d84cf483b8d6eb6544f5205fddf1ae))
+* バックエンドカバレッジを 85.9% → 88.8% に引き上げ（git_utils/tmux/git_diff/git_branches/git_file_utils） ([cb3b3f9](https://github.com/kt0319/any-console/commit/cb3b3f99f187566095f05407e10cb15c32c155ea))
+
+
+### CI
+
+* E2E スモークを CI で毎回実行するようにする ([e01e4ff](https://github.com/kt0319/any-console/commit/e01e4ffe5d508008c1ee27071ff35e256425e24c))
+
 ## [0.5.0](https://github.com/kt0319/any-console/compare/v0.4.0...v0.5.0) (2026-06-25)
 
 
