@@ -1,6 +1,7 @@
 import { ref } from "vue";
 import { useApi } from "./useApi.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { getWithRetry } from "../utils/api-retry.js";
 
 export function useFileBrowserNav() {
   const workspaceStore = useWorkspaceStore();
@@ -24,7 +25,7 @@ export function useFileBrowserNav() {
     errorMessage.value = "";
 
     try {
-      const { ok, data } = await apiGet(wsEndpoint(workspace, `files?path=${encodeURIComponent(path)}`));
+      const { ok, data } = await getWithRetry(apiGet, wsEndpoint(workspace, `files?path=${encodeURIComponent(path)}`));
       if (!ok) {
         errorMessage.value = "Failed to load";
         return;
@@ -46,7 +47,7 @@ export function useFileBrowserNav() {
     errorMessage.value = "";
 
     try {
-      const { ok, data } = await apiGet(wsEndpoint(workspace, `file-content?path=${encodeURIComponent(path)}`));
+      const { ok, data } = await getWithRetry(apiGet, wsEndpoint(workspace, `file-content?path=${encodeURIComponent(path)}`));
       if (!ok) {
         errorMessage.value = "Could not open file";
         return;
