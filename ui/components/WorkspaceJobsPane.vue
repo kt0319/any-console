@@ -61,6 +61,7 @@ import { ref, computed, inject, onMounted, watch, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { useApi } from "../composables/useApi.js";
+import { getWithRetry } from "../utils/api-retry.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { emit, on } from "../app-bridge.js";
 import { renderIconStr } from "../utils/render-icon.js";
@@ -94,7 +95,7 @@ function applyJobs(wsName) {
 
 async function loadCommonJobs() {
   if (commonJobsCache) return;
-  const { ok, data } = await apiGet(EP_COMMON_JOBS);
+  const { ok, data } = await getWithRetry(apiGet, EP_COMMON_JOBS);
   if (!ok) return;
   commonJobsCache = Object.entries(data)
     .filter(([n]) => n !== "terminal")
@@ -103,7 +104,7 @@ async function loadCommonJobs() {
 
 async function loadWsJobs(wsName) {
   if (wsJobsCache[wsName]) return;
-  const { ok, data } = await apiGet(wsEndpoint(wsName, "jobs"));
+  const { ok, data } = await getWithRetry(apiGet, wsEndpoint(wsName, "jobs"));
   if (!ok) return;
   wsJobsCache[wsName] = Object.entries(data)
     .filter(([n, job]) => n !== "terminal" && !job.common)

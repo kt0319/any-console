@@ -1,6 +1,7 @@
 import { ref, computed } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
+import { getWithRetry } from "../utils/api-retry.js";
 
 const _countCache = {};
 
@@ -68,7 +69,7 @@ export function useGitHub() {
     loadingRef.value = true;
     errorRef.value = "";
     try {
-      const { ok, data } = await apiGet(wsEndpoint(workspace, endpoint));
+      const { ok, data } = await getWithRetry(apiGet, wsEndpoint(workspace, endpoint));
       if (!ok) { errorRef.value = "Failed to fetch"; return; }
       if (data.status !== "ok") { errorRef.value = data.message || "Failed to fetch"; return; }
       const result = (data.data || []).map(mapper);

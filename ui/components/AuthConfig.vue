@@ -75,6 +75,7 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
+import { getWithRetry } from "../utils/api-retry.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { EP_SETTINGS_AUTH } from "../utils/endpoints.js";
 import { formatRelativeTime } from "../utils/format.js";
@@ -141,7 +142,7 @@ async function saveAuth() {
 
 async function loadDevices() {
   devicesLoading.value = true;
-  const res = await apiGet("/devices");
+  const res = await getWithRetry(apiGet, "/devices");
   devices.value = res.ok && Array.isArray(res.data) ? res.data : [];
   devicesLoading.value = false;
 }
@@ -162,7 +163,7 @@ async function revoke(d) {
 }
 
 onMounted(async () => {
-  const authRes = await apiGet(EP_SETTINGS_AUTH);
+  const authRes = await getWithRetry(apiGet, EP_SETTINGS_AUTH);
   if (authRes.ok) {
     enabled.value = !!authRes.data.auth_required;
     tokenConfigured.value = !!authRes.data.auth_required;

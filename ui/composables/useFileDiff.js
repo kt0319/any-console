@@ -2,6 +2,7 @@ import { ref, watch } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitStore } from "../stores/git.js";
 import { useApi } from "./useApi.js";
+import { getWithRetry } from "../utils/api-retry.js";
 import { colorDiff, escapeDiffHtml } from "../utils/diff-color.js";
 
 export function useFileDiff({ getDiffFile, getDiffMessage }) {
@@ -24,7 +25,7 @@ export function useFileDiff({ getDiffFile, getDiffMessage }) {
     if (status === "??" || status === "A") {
       const workspace = workspaceStore.selectedWorkspace;
       try {
-        const { ok, data } = await apiGet(wsEndpoint(workspace, `file-content?path=${encodeURIComponent(file)}`));
+        const { ok, data } = await getWithRetry(apiGet, wsEndpoint(workspace, `file-content?path=${encodeURIComponent(file)}`));
         if (ok && data) {
           diffNewFileContent.value = data;
           diffHtml.value = "";

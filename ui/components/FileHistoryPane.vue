@@ -46,6 +46,7 @@
 <script setup>
 import { ref, watch } from "vue";
 import { useApi } from "../composables/useApi.js";
+import { getWithRetry } from "../utils/api-retry.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { workspaceFileHistoryPath, workspaceFileDiffPath } from "../utils/endpoints.js";
 import { colorDiff } from "../utils/diff-color.js";
@@ -92,7 +93,7 @@ async function loadHistory() {
   isLoading.value = true;
   loadError.value = "";
   try {
-    const { ok, data } = await apiGet(workspaceFileHistoryPath(workspace, props.filePath));
+    const { ok, data } = await getWithRetry(apiGet, workspaceFileHistoryPath(workspace, props.filePath));
     if (!ok) {
       loadError.value = data?.stderr || data?.detail || "Failed to load history";
       return;
@@ -110,7 +111,7 @@ async function selectEntry(entry) {
   isDiffLoading.value = true;
   try {
     const workspace = workspaceStore.selectedWorkspace;
-    const { ok, data } = await apiGet(workspaceFileDiffPath(workspace, entry.hash, props.filePath));
+    const { ok, data } = await getWithRetry(apiGet, workspaceFileDiffPath(workspace, entry.hash, props.filePath));
     if (!ok) {
       diffError.value = data?.stderr || data?.detail || "Failed to load diff";
       return;

@@ -4,12 +4,13 @@
 // そのまま返し、無駄な再試行を避ける。
 
 /**
- * @param {(endpoint: string) => Promise<{ok: boolean, data: any}>} get
+ * @param {(endpoint: string, opts?: any) => Promise<{ok: boolean, data: any}>} get
  * @param {string} endpoint
+ * @param {any} [opts] apiGet に渡す追加オプション（errorMessage 等）をそのまま転送する
  * @returns {Promise<{ok: boolean, data: any}>}
  */
-export async function getWithRetry(get, endpoint) {
-  const first = await get(endpoint);
+export async function getWithRetry(get, endpoint, opts) {
+  const first = await get(endpoint, opts);
   if (first.ok || first.data != null) return first;
-  return get(endpoint);
+  return get(endpoint, opts);
 }

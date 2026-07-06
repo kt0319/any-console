@@ -64,6 +64,7 @@
 <script setup>
 import { ref, reactive, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
+import { getWithRetry } from "../utils/api-retry.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY } from "../utils/endpoints.js";
@@ -144,7 +145,7 @@ const mapProcess = (p) => ({ label: p.name, values: [`${p.cpu.toFixed(1)}%`, `${
 
 async function load() {
   isLoading.value = true;
-  const get = (ep) => apiGet(ep).then((r) => r.ok ? r.data : null).catch(() => null);
+  const get = (ep) => getWithRetry(apiGet, ep).then((r) => r.ok ? r.data : null).catch(() => null);
   const [srv, prc, auth] = await Promise.all([
     get(EP_SYSTEM_INFO), get(EP_SYSTEM_PROCESSES), get("/auth/check"),
   ]);

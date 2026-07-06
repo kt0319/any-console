@@ -21,6 +21,7 @@
 <script setup>
 import { ref } from "vue";
 import { useApi } from "../composables/useApi.js";
+import { getWithRetry } from "../utils/api-retry.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { confirmIrreversible } from "../utils/confirm-irreversible.js";
 import { useWorkspace } from "../composables/useWorkspace.js";
@@ -40,7 +41,7 @@ async function loadStashList() {
   await withWorkspace(async (workspace) => {
     isStashListLoading.value = true;
     try {
-      const { ok, data } = await apiGet(wsEndpoint(workspace, "stash-list"));
+      const { ok, data } = await getWithRetry(apiGet, wsEndpoint(workspace, "stash-list"));
       if (!ok) return;
       const result = data.entries || [];
       stashEntries.value = result;

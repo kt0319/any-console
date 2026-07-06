@@ -1,5 +1,6 @@
 import { useAuthStore } from "../stores/auth.js";
 import { useApi } from "./useApi.js";
+import { getWithRetry } from "../utils/api-retry.js";
 import { useWorkspace } from "./useWorkspace.js";
 import { useWorkspaceFile } from "./useWorkspaceFile.js";
 import { useToast } from "./useToast.js";
@@ -87,7 +88,7 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
   const normalizedName = (f) => (f.name || "").normalize("NFC");
 
   async function fetchExistingNames(workspace, uploadPath) {
-    const listing = await apiGet(wsEndpoint(workspace, `files?path=${encodeURIComponent(uploadPath)}`));
+    const listing = await getWithRetry(apiGet, wsEndpoint(workspace, `files?path=${encodeURIComponent(uploadPath)}`));
     const names = new Set();
     if (listing.ok && listing.data?.entries) {
       for (const e of listing.data.entries) names.add(e.name);

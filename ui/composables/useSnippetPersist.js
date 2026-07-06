@@ -1,5 +1,6 @@
 import { useInputStore } from "../stores/input.js";
 import { useApi } from "./useApi.js";
+import { getWithRetry } from "../utils/api-retry.js";
 import { emit } from "../app-bridge.js";
 import { EP_SNIPPETS } from "../utils/endpoints.js";
 
@@ -10,7 +11,7 @@ export function useSnippetPersist() {
   async function loadSnippetCache() {
     if (inputStore.isSnippetsLoaded) return;
     try {
-      const { ok, data } = await apiGet(EP_SNIPPETS);
+      const { ok, data } = await getWithRetry(apiGet, EP_SNIPPETS);
       if (!ok) return;
       inputStore.snippetsCache = data.snippets || [];
       inputStore.isSnippetsLoaded = true;

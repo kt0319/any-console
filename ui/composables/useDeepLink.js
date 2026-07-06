@@ -2,6 +2,7 @@ import { nextTick } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "./useApi.js";
+import { getWithRetry } from "../utils/api-retry.js";
 import { useConfirm } from "./useConfirm.js";
 import { usePrompt } from "./usePrompt.js";
 import { emit } from "../app-bridge.js";
@@ -23,7 +24,7 @@ export function useDeepLink() {
 
   async function fetchBranchStatus(ws, branch, currentBranch) {
     if (branch === currentBranch) return "current";
-    const { ok, data } = await apiGet(wsEndpoint(ws, "branches"));
+    const { ok, data } = await getWithRetry(apiGet, wsEndpoint(ws, "branches"));
     if (!ok || !Array.isArray(data)) return "unknown";
     return data.some((b) => b.name === branch) ? "exists" : "missing";
   }
@@ -71,8 +72,8 @@ export function useDeepLink() {
       return true;
     }
     const [sessionsRes, jobsRes] = await Promise.all([
-      apiGet("/terminal/sessions"),
-      apiGet(EP_JOBS_WORKSPACES),
+      getWithRetry(apiGet, "/terminal/sessions"),
+      getWithRetry(apiGet, EP_JOBS_WORKSPACES),
     ]);
     if (!sessionsRes.ok || !Array.isArray(sessionsRes.data)) return false;
     const meta = sessionsRes.data.find((s) => s.session_id === sessionId);

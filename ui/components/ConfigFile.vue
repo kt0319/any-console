@@ -19,6 +19,7 @@ import hljs from "highlight.js/lib/core";
 import json from "highlight.js/lib/languages/json";
 hljs.registerLanguage("json", json);
 import { useApi } from "../composables/useApi.js";
+import { getWithRetry } from "../utils/api-retry.js";
 import { useToast } from "../composables/useToast.js";
 import { emit } from "../app-bridge.js";
 import { EP_SETTINGS_EXPORT, EP_SETTINGS_IMPORT } from "../utils/endpoints.js";
@@ -41,7 +42,7 @@ function highlight() {
 
 async function loadConfigFile() {
   try {
-    const { ok, data } = await apiGet(EP_SETTINGS_EXPORT);
+    const { ok, data } = await getWithRetry(apiGet, EP_SETTINGS_EXPORT);
     if (!ok) {
       jsonText.value = "Failed to load config";
       return;

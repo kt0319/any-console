@@ -57,6 +57,7 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
+import { getWithRetry } from "../utils/api-retry.js";
 import { EP_SETTINGS_AUTH, EP_SYSTEM_INFO } from "../utils/endpoints.js";
 
 const modalTitle = inject("modalTitle");
@@ -68,9 +69,9 @@ const authWarn = ref(false);
 const appVersion = ref("");
 
 onMounted(async () => {
-  const auth = await apiGet(EP_SETTINGS_AUTH);
+  const auth = await getWithRetry(apiGet, EP_SETTINGS_AUTH);
   if (auth.ok) authWarn.value = !auth.data?.auth_required;
-  const info = await apiGet(EP_SYSTEM_INFO);
+  const info = await getWithRetry(apiGet, EP_SYSTEM_INFO);
   if (info.ok && info.data?.version) appVersion.value = info.data.version;
 });
 </script>

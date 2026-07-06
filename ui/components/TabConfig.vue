@@ -107,6 +107,7 @@ import { buildSessionTabParams } from "../utils/session-jobs.js";
 import { emit } from "../app-bridge.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useApi } from "../composables/useApi.js";
+import { getWithRetry } from "../utils/api-retry.js";
 import { useTerminal } from "../composables/useTerminal.js";
 import { useListDragSort } from "../composables/useListDragSort.js";
 import { buildDetachedSessionList } from "../utils/detached-sessions.js";
@@ -226,9 +227,9 @@ async function loadDetached() {
   // - ac- 付き = any-console 管理（Open 可能）
   // - ac- なし = ユーザ個人セッション（external 扱い、Close のみ）
   const [tmuxRes, ownedRes, jobsRes] = await Promise.all([
-    apiGet(EP_SYSTEM_TMUX_INFO),
-    apiGet(EP_TERMINAL_SESSIONS),
-    apiGet(EP_JOBS_WORKSPACES),
+    getWithRetry(apiGet, EP_SYSTEM_TMUX_INFO),
+    getWithRetry(apiGet, EP_TERMINAL_SESSIONS),
+    getWithRetry(apiGet, EP_JOBS_WORKSPACES),
   ]);
   allJobsData.value = jobsRes.ok && jobsRes.data ? jobsRes.data : {};
   const owned = ownedRes.ok && Array.isArray(ownedRes.data) ? ownedRes.data : [];

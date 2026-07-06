@@ -1,6 +1,7 @@
 import { ref, computed } from "vue";
 import { useApi } from "./useApi.js";
 import { useWorkspace } from "./useWorkspace.js";
+import { getWithRetry } from "../utils/api-retry.js";
 import { normalizeLocalBranches, filterRemoteBranches, buildWorktreeMap } from "../utils/git-branch.js";
 
 // モジュールスコープ: コンポーネント再マウント後もキャッシュを保持する
@@ -31,7 +32,7 @@ export function useBranchList() {
     await withWorkspace(async (workspace) => {
       isBranchListLoading.value = true;
       try {
-        const { ok, data } = await apiGet(wsEndpoint(workspace, "branches"));
+        const { ok, data } = await getWithRetry(apiGet, wsEndpoint(workspace, "branches"));
         if (!ok) return;
         localBranches.value = normalizeLocalBranches(data);
         const cached = _remoteCache.get(workspace);
@@ -53,7 +54,7 @@ export function useBranchList() {
 
   async function loadWorktrees() {
     await withWorkspace(async (workspace) => {
-      const { ok, data } = await apiGet(wsEndpoint(workspace, "worktrees"));
+      const { ok, data } = await getWithRetry(apiGet, wsEndpoint(workspace, "worktrees"));
       if (!ok) return;
       worktrees.value = data?.worktrees || [];
     });
@@ -64,7 +65,7 @@ export function useBranchList() {
     await withWorkspace(async (workspace) => {
       isRemoteBranchListLoading.value = true;
       try {
-        const { ok, data } = await apiGet(wsEndpoint(workspace, "branches/remote"));
+        const { ok, data } = await getWithRetry(apiGet, wsEndpoint(workspace, "branches/remote"));
         if (!ok) return;
         const filtered = filterRemoteBranches(data, localBranches.value);
         remoteBranches.value = filtered;

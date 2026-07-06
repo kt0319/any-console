@@ -1,4 +1,5 @@
 import { useApi } from "./useApi.js";
+import { getWithRetry } from "../utils/api-retry.js";
 import { useDispatchPrompt } from "./useDispatchPrompt.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
@@ -26,8 +27,8 @@ export function useDispatchConfirm() {
       return;
     }
     const [sessionsRes, jobsRes] = await Promise.all([
-      apiGet("/terminal/sessions"),
-      apiGet(EP_JOBS_WORKSPACES),
+      getWithRetry(apiGet, "/terminal/sessions"),
+      getWithRetry(apiGet, EP_JOBS_WORKSPACES),
     ]);
     if (!sessionsRes.ok || !Array.isArray(sessionsRes.data)) return;
     const meta = sessionsRes.data.find((s) => s.session_id === sessionId);

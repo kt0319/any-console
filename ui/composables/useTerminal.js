@@ -1,5 +1,6 @@
 import { useTerminalStore } from "../stores/terminal.js";
 import { useApi } from "./useApi.js";
+import { getWithRetry } from "../utils/api-retry.js";
 import { WS_CLOSE_SESSION_NOT_FOUND, WS_CLOSE_SESSION_EXITED, RECONNECT_INITIAL_DELAY, RECONNECT_BACKOFF_MULTIPLIER, RECONNECT_BACKOFF_BASE_MS, RECONNECT_BACKOFF_MAX, POST_WRITE_REFRESH_MS, RECONNECTING_OVERLAY_MIN_ATTEMPTS } from "../utils/constants.js";
 import { emit } from "../app-bridge.js";
 import { useToast } from "./useToast.js";
@@ -28,7 +29,7 @@ export function useTerminal() {
       const dims = tab.fitAddon?.proposeDimensions?.();
       const cols = Number.isFinite(dims?.cols) ? dims.cols : tab.term.cols;
       const rows = Number.isFinite(dims?.rows) ? dims.rows : tab.term.rows;
-      const { ok, data } = await apiGet(terminalSessionHistoryPath(tab.sessionId, { cols, rows }));
+      const { ok, data } = await getWithRetry(apiGet, terminalSessionHistoryPath(tab.sessionId, { cols, rows }));
       if (ok && data?.content) {
         tab.term.write(data.content);
         tab._lastWriteAt = performance.now();
