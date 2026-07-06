@@ -18,9 +18,12 @@ export function buildStatusStreamUrl(proto, host) {
 /**
  * 受信メッセージをパースして種別ごとの正規化オブジェクトを返す。
  * - statuses: `{ type: "statuses", statuses: [...] }`
+ * - agent_states: `{ type: "agent_states", states: [{ session_id, state }] }`
  * ping・不正 JSON・形式違いは null を返す（呼び出し側は無視すればよい）。
  * @param {unknown} raw
- * @returns {{ type: "statuses", statuses: Record<string, any>[] } | null}
+ * @returns {{ type: "statuses", statuses: Record<string, any>[] }
+ *   | { type: "agent_states", states: { session_id: string, state: string }[] }
+ *   | null}
  */
 export function parseStatusStreamMessage(raw) {
   if (typeof raw !== "string") return null;
@@ -33,6 +36,9 @@ export function parseStatusStreamMessage(raw) {
   if (!msg || typeof msg.type !== "string") return null;
   if (msg.type === "statuses" && Array.isArray(msg.statuses)) {
     return { type: "statuses", statuses: msg.statuses };
+  }
+  if (msg.type === "agent_states" && Array.isArray(msg.states)) {
+    return { type: "agent_states", states: msg.states };
   }
   return null;
 }

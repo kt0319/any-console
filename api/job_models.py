@@ -22,6 +22,9 @@ class JobDefinition:
     type: str = "command"
     url: str = ""
     timeout_sec: int | None = None
+    # エージェント状態の検知語句（api/agent_watch.py が可視ペインと照合する）。
+    # キーは blocked / done、値は部分一致で照合するプレーン文字列のリスト。
+    state_patterns: dict[str, list[str]] = field(default_factory=dict)
 
 
 TERMINAL_JOB_KEY = "terminal"

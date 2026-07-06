@@ -164,6 +164,18 @@ def load_tmux_metadata(tmux_name: str) -> dict:
     return meta
 
 
+def capture_visible_pane(tmux_name: str) -> str | None:
+    """可視ペインの内容をプレーンテキストで返す（失敗時は None）。
+
+    スクロールバックは含めない。agent_watch が「いま画面に出ているもの」だけを
+    検知語句と照合するために使う。
+    """
+    result = _run_tmux_cmd("capture-pane", "-p", "-t", tmux_name)
+    if result is None or result.returncode != 0:
+        return None
+    return str(result.stdout)
+
+
 def get_session_cwd(tmux_name: str) -> str | None:
     """tmux セッションのカレントディレクトリを返す。"""
     result = _run_tmux_cmd("display-message", "-t", tmux_name, "-p", "#{pane_current_path}")

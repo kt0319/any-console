@@ -11,9 +11,12 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from ..common import (
+    AGENT_STATE_PATTERN_KEYS,
     MAX_COMMAND_LENGTH,
     MAX_ICON_VALUE_LENGTH,
     MAX_LABEL_LENGTH,
+    MAX_STATE_PATTERN_LENGTH,
+    MAX_STATE_PATTERNS_PER_STATE,
     WORKSPACE_JOBS_CACHE_TTL_SEC,
     TTLCache,
     resolve_workspace_path,
@@ -99,6 +102,7 @@ def entry_to_job_definition(name, entry):
         type=entry.get("type", "command"),
         url=entry.get("url", ""),
         timeout_sec=entry.get("timeout_sec") or None,
+        state_patterns=entry.get("state_patterns") or {},
     )
 
 
@@ -132,6 +136,7 @@ def job_definition_to_dict(job_def, is_common=None):
         "type": job_def.type,
         "url": job_def.url,
         "timeout_sec": job_def.timeout_sec,
+        "state_patterns": job_def.state_patterns,
     }
     if is_common is not None:
         d["common"] = is_common
@@ -163,6 +168,7 @@ def build_job_entry(
     job_type: str = "command",
     url: str = "",
     timeout_sec: int | None = None,
+    state_patterns: dict[str, list[str]] | None = None,
 ) -> dict:
     entry: dict[str, Any] = {}
     if job_type == "browser":
@@ -180,6 +186,8 @@ def build_job_entry(
         entry["detached_tab"] = True
     if timeout_sec is not None:
         entry["timeout_sec"] = timeout_sec
+    if state_patterns:
+        entry["state_patterns"] = state_patterns
     return entry
 
 
@@ -193,6 +201,7 @@ class JobRequest(BaseModel):
     confirm: bool = True
     detached_tab: bool = False
     timeout_sec: int | None = Field(None, ge=1, le=86400)
+    state_patterns: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class ReorderJobsRequest(BaseModel):
@@ -205,6 +214,31 @@ def generate_job_key(existing: dict) -> str:
         if candidate not in existing:
             return candidate
     return f"job_{int(time.time())}"
+
+
+def validate_state_patterns(raw: dict[str, list[str]]) -> dict[str, list[str]]:
+    """state_patterns（状態→検知語句リスト）を検証・正規化する。
+
+    キーは blocked / done のみ許可。語句は前後空白を除去し、空行は捨てる。
+    正規表現ではなくプレーンな部分一致として扱う前提の文字列を受ける。
+    """
+    result: dict[str, list[str]] = {}
+    for key, phrases in raw.items():
+        if key not in AGENT_STATE_PATTERN_KEYS:
+            raise bad_request(f"Unknown state pattern key: {key}")
+        if len(phrases) > MAX_STATE_PATTERNS_PER_STATE:
+            raise bad_request(f"Too many state patterns for '{key}' (max {MAX_STATE_PATTERNS_PER_STATE})")
+        cleaned = []
+        for phrase in phrases:
+            stripped = phrase.strip()
+            if not stripped:
+                continue
+            if len(stripped) > MAX_STATE_PATTERN_LENGTH:
+                raise bad_request(f"State pattern too long (max {MAX_STATE_PATTERN_LENGTH} chars)")
+            cleaned.append(stripped)
+        if cleaned:
+            result[key] = cleaned
+    return result
 
 
 def _validate_job_fields(body):
@@ -225,11 +259,13 @@ def _validate_job_fields(body):
 
 def save_job(data, save_fn, job_name, body, log_msg):
     label, command, job_type, url = _validate_job_fields(body)
+    state_patterns = {} if job_type == "browser" else validate_state_patterns(body.state_patterns)
     if job_name is None:
         job_name = generate_job_key(data)
     data[job_name] = build_job_entry(
         command, label, body.icon, body.icon_color, body.confirm, body.detached_tab,
         job_type=job_type, url=url, timeout_sec=body.timeout_sec,
+        state_patterns=state_patterns,
     )
     save_fn(data)
     logger.info(log_msg, job_name)

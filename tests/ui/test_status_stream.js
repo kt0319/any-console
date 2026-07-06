@@ -52,6 +52,21 @@ describe("parseStatusStreamMessage", () => {
     expect(parseStatusStreamMessage(JSON.stringify(null))).toBe(null);
     expect(parseStatusStreamMessage(JSON.stringify({ statuses: [] }))).toBe(null);
   });
+
+  it("agent_states メッセージを正規化して返す", () => {
+    const raw = JSON.stringify({
+      type: "agent_states",
+      states: [{ session_id: "s1", state: "blocked" }],
+    });
+    expect(parseStatusStreamMessage(raw)).toEqual({
+      type: "agent_states",
+      states: [{ session_id: "s1", state: "blocked" }],
+    });
+  });
+
+  it("agent_states の states が配列でなければ null", () => {
+    expect(parseStatusStreamMessage(JSON.stringify({ type: "agent_states", states: {} }))).toBe(null);
+  });
 });
 
 describe("statusStreamReconnectDelay", () => {
