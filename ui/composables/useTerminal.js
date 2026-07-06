@@ -71,6 +71,7 @@ export function useTerminal() {
     ws.binaryType = "arraybuffer";
     tab.ws = ws;
     if ((tab._reconnectAttempts || 0) >= RECONNECTING_OVERLAY_MIN_ATTEMPTS) {
+      terminalStore.clearAgentState(tab.sessionId);
       terminalStore.setTabFlag(tab.id, "reconnecting", true);
       terminalStore.setTabFlag(tab.id, "reconnectReason", `retry ${tab._reconnectAttempts}`);
     }

@@ -75,6 +75,10 @@ export const useTerminalStore = defineStore("terminal", () => {
     tabFlags[tabId][key] = value;
   }
 
+  function clearAgentState(sessionId) {
+    if (sessionId) delete agentStates[sessionId];
+  }
+
   function clearTabFlags(tabId) {
     delete tabFlags[tabId];
   }
@@ -244,6 +248,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     tabFlags,
     agentStates,
     applyAgentStates,
+    clearAgentState,
     setTabFlag,
     clearTabFlags,
     TERMINAL_SETTINGS_KEY,

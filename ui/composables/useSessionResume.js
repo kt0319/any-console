@@ -35,6 +35,7 @@ export function useSessionResume({ terminalBaseView }) {
       }
       tab._pendingRedraw = true;
       tab._reconnectAttempts = 0;
+      terminalStore.clearAgentState(tab.sessionId);
       terminalStore.setTabFlag(tab.id, "reconnecting", true);
       terminalStore.setTabFlag(tab.id, "reconnectReason", "resume");
     }
