@@ -16,19 +16,24 @@ export function usePreviewWatch() {
     const currentKeys = new Set(data.map((p) => `${p.session_id}:${p.port}`));
     // 検出済みから消えたものは seen から除外（次回出てきた時に再通知できる）
     for (const k of [...seen]) if (!currentKeys.has(k)) seen.delete(k);
+    const newPorts = [];
     for (const p of data) {
       const key = `${p.session_id}:${p.port}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      if (!notify) continue;
-      // iOS PWA はプログラム経由の window.open / a.click() を外部 Safari に流せない
-      // ため、トーストでは通知だけして、タップで Preview 設定画面を開く。
-      // ユーザがそこから物理タップでリンクを開けば Safari で起動する。
-      toast.success(`Port ${p.port} detected`, {
-        duration: 6000,
-        action: { event: "preview:showConfig" },
-      });
+      if (notify) newPorts.push(p.port);
     }
+    if (newPorts.length === 0) return;
+    // iOS PWA はプログラム経由の window.open / a.click() を外部 Safari に流せない
+    // ため、トーストでは通知だけして、タップで Preview 設定画面を開く。
+    // ユーザがそこから物理タップでリンクを開けば Safari で起動する。
+    const message = newPorts.length === 1
+      ? `Port ${newPorts[0]} detected`
+      : `${newPorts.length} ports detected (${newPorts.join(", ")})`;
+    toast.success(message, {
+      duration: 6000,
+      action: { event: "preview:showConfig" },
+    });
   }
 
   async function start() {
