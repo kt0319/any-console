@@ -4,6 +4,7 @@
   flex-direction: column;
   flex-shrink: 0;
   border-top: 1px solid var(--border);
+  background: var(--bg-tertiary);
   touch-action: none;
 }
 
@@ -57,7 +58,7 @@
 
 
 .keyboard-bar-row .quick-key-toggle.active {
-  background: rgb(33, 40, 60);
+  background: var(--bg-secondary);
   border-color: rgba(130, 170, 255, 0.7);
   color: rgba(130, 170, 255, 0.9);
 }
@@ -76,10 +77,10 @@
   min-width: 0;
   flex: 1;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255,255,255,0.12);
   border-radius: var(--radius);
-  background: rgba(40, 44, 65, 0.8);
-  color: rgba(255, 255, 255, 0.8);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   font-size: 16px;
   cursor: pointer;
   display: flex;
@@ -94,7 +95,7 @@
 }
 
 .quick-key.pressed {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255,255,255,0.12);
   color: var(--text-primary);
   transform: scale(0.85);
   transition: transform 0.06s ease, background 0.06s ease;
@@ -112,7 +113,7 @@
 
 .quick-key-toggle.active,
 .quick-modifier.active {
-  background: rgb(33, 40, 60);
+  background: var(--bg-secondary);
   color: var(--accent);
   border-color: var(--accent);
 }
@@ -221,14 +222,14 @@
 }
 
 .quick-qwerty-panel .quick-modifier {
-  background: rgba(40, 44, 65, 0.8);
+  background: var(--bg-secondary);
   border-color: var(--white-30);
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
 }
 
 .quick-qwerty-panel .quick-key-toggle.active,
 .quick-qwerty-panel .quick-modifier.active {
-  background: rgb(33, 40, 60);
+  background: var(--bg-secondary);
   color: rgba(130, 170, 255, 0.9);
   border-color: rgba(130, 170, 255, 0.7);
 }
@@ -296,7 +297,7 @@
   padding: 0 10px;
   border: 1px solid var(--white-30);
   border-radius: var(--radius);
-  background: rgba(40, 44, 65, 0.8);
+  background: var(--bg-secondary);
   color: var(--text-primary);
   font-size: 9px;
   line-height: 30px;
@@ -358,9 +359,9 @@
   min-width: 0;
   height: 44px;
   padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255,255,255,0.25);
   border-radius: var(--radius);
-  background: rgba(25, 28, 45, 0.95);
+  background: var(--bg-primary);
   color: var(--text-primary);
   font-size: 16px;
   font-family: inherit;
@@ -378,7 +379,7 @@
   padding: 0;
   border: 1px solid var(--white-30);
   border-radius: 50%;
-  background: rgba(40, 44, 65, 0.8);
+  background: var(--bg-secondary);
   color: var(--accent);
   font-size: 18px;
   font-family: inherit;
