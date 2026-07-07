@@ -31,23 +31,8 @@
           </span>
         </button>
       </div>
-      <div v-if="form.type !== 'browser'" class="ws-settings-row ws-settings-row-stack">
-        <span class="ws-settings-label">Notify phrase</span>
-        <input type="text" class="form-input" v-model="form.notify_phrase"
-          placeholder="Phrase to watch in output" spellcheck="false" autocomplete="off" />
-        <div class="notify-phrase-hint">
-          Sends a push notification when this phrase appears in the output. (PWA only)
-          e.g. {{ NOTIFY_EXAMPLES.join(", ") }}
-        </div>
-        <label class="notify-delay-label">
-          Delay
-          <input type="number" class="form-input notify-delay-input" v-model.number="form.notify_delay_min"
-            min="0" max="60" autocomplete="off" />
-          min
-        </label>
-      </div>
-      <details v-if="form.type !== 'browser'" class="job-advanced">
-        <summary class="job-advanced-summary">Advanced</summary>
+      <template v-if="form.type !== 'browser'">
+        <div class="job-section-divider"></div>
         <div class="ws-settings-row" style="gap:8px">
           <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.confirm" /> Confirm dialog</label>
           <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.detached_tab" /> Run detached</label>
@@ -57,7 +42,16 @@
           <input type="number" class="form-input" style="max-width:120px" v-model.number="form.timeout_sec"
             placeholder="Default (300)" min="1" max="86400" autocomplete="off" />
         </div>
-      </details>
+        <div class="ws-settings-row ws-settings-row-stack">
+          <span class="ws-settings-label">Notify phrase <span class="job-label-note">(PWA only)</span></span>
+          <input type="text" class="form-input" v-model="form.notify_phrase"
+            placeholder="Phrase to watch in output" spellcheck="false" autocomplete="off" />
+          <div class="notify-phrase-hint">
+            Push notification after 1 min when this phrase appears in output.
+            e.g. {{ NOTIFY_EXAMPLES.join(", ") }}
+          </div>
+        </div>
+      </template>
       <div class="ws-settings-row" style="gap:8px">
         <button type="button" class="primary" :disabled="saving" @click="saveJob">
           {{ saving ? 'Saving...' : 'Save' }}
@@ -115,7 +109,6 @@ const form = ref(
           detached_tab: !!jobEntry.job.detached_tab,
           timeout_sec: jobEntry.job.timeout_sec ?? null,
           notify_phrase: jobEntry.job.notify_phrase || "",
-          notify_delay_min: jobEntry.job.notify_delay_min ?? 0,
         }
       : {
           label: "",
@@ -128,7 +121,6 @@ const form = ref(
           detached_tab: false,
           timeout_sec: null,
           notify_phrase: "",
-          notify_delay_min: 0,
         }
 );
 
@@ -183,7 +175,7 @@ async function saveJob() {
       detached_tab: f.type === "browser" ? false : f.detached_tab,
       timeout_sec: timeoutSec,
       notify_phrase: f.type === "browser" ? "" : f.notify_phrase.trim(),
-      notify_delay_min: f.type === "browser" ? 0 : (f.notify_delay_min || 0),
+      notify_delay_min: f.type === "browser" ? 0 : 1,
       working_enabled: true,
     };
     const { ok, data } = isNew ? await apiPost(url, body) : await apiPut(url, body);
@@ -257,44 +249,15 @@ async function deleteJob() {
 }
 
 
-.job-advanced {
-  margin: 4px 0;
-}
-
-.job-advanced-summary {
-  padding: 6px 0;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--text-primary);
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  user-select: none;
-}
-
-.job-advanced-summary::before {
-  content: "▸";
-  font-size: 16px;
-  transition: transform 0.15s;
-  line-height: 1;
-}
-
-details[open] > .job-advanced-summary::before {
-  transform: rotate(90deg);
-}
-
-.notify-delay-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
+.job-label-note {
+  font-size: 11px;
   color: var(--text-muted);
+  font-weight: 400;
 }
 
-.notify-delay-input {
-  width: 60px;
-  flex: none;
+.job-section-divider {
+  border-top: 1px solid var(--border);
+  margin: 4px 0;
 }
 
 .notify-phrase-hint {

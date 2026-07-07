@@ -146,15 +146,15 @@ def reset_last_capture(session_id: str) -> None:
         _last_states.pop(session_id, None)
 
 
-def collect_agent_states() -> tuple[dict[str, str], list[tuple[str, str]]]:
+def collect_agent_states() -> tuple[dict[str, str], list[tuple[str, str, str | None]]]:
     """全ターミナルセッションの状態を判定して返す（executor スレッドで実行）。
 
     Returns:
         (states, notifications): states は session_id→state の辞書、
-        notifications はプッシュ通知すべき (session_id, phrase) のリスト。
+        notifications はプッシュ通知すべき (session_id, phrase, workspace) のリスト。
     """
     states: dict[str, str] = {}
-    notifications: list[tuple[str, str]] = []
+    notifications: list[tuple[str, str, str | None]] = []
     now = time.monotonic()
     for session_id in _list_session_ids():
         capture = capture_visible_pane(TMUX_SESSION_PREFIX + session_id)
@@ -173,7 +173,7 @@ def collect_agent_states() -> tuple[dict[str, str], list[tuple[str, str]]]:
             if detected_at is not None:
                 delay_sec = _job_notify_delay(workspace, job_name) * 60
                 if now - detected_at >= delay_sec:
-                    notifications.append((session_id, notify_phrase))
+                    notifications.append((session_id, notify_phrase, workspace))
                     _phrase_detected_at[session_id] = None  # 送信済みマーク
         else:
             _phrase_detected_at.pop(session_id, None)
@@ -287,10 +287,10 @@ async def _poll_loop() -> None:  # pragma: no cover - 実時間スリープに�
             _last_states.update(states)
             if changed:
                 await _broadcast(states_payload(changed))
-            for session_id, phrase in notifications:
+            for session_id, phrase, workspace in notifications:
                 send_push_notification(
                     title="Phrase detected",
-                    body=phrase,
+                    body=f"{workspace}: {phrase}" if workspace else phrase,
                     url=f"/?session={session_id}",
                     notif_type="phrase",
                 )

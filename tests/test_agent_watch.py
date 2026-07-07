@@ -88,7 +88,7 @@ class TestCollectAgentStates:
 
         states, notifications = collect_agent_states()
         assert states == {"s1": "idle"}
-        assert any(phrase == "Session complete" for _, phrase in notifications)
+        assert any(phrase == "Session complete" for _, phrase, *_ in notifications)
 
     def test_notify_phrase_not_duplicated(self, client, monkeypatch):
         res = client.post("/common/jobs", headers=AUTH, json={
@@ -105,7 +105,7 @@ class TestCollectAgentStates:
         )
 
         _, notifications = collect_agent_states()
-        assert any(phrase == "Done" for _, phrase in notifications)
+        assert any(phrase == "Done" for _, phrase, *_ in notifications)
 
         # 同じフレーズが画面にある間は再通知しない
         _, notifications2 = collect_agent_states()
@@ -161,7 +161,7 @@ class TestCollectAgentStates:
         self._setup_tmux(monkeypatch, ["ac-s2"], {"ac-s2": "FINISHED\n$ "})
         states, notifications = collect_agent_states()
         assert states == {"s2": "idle"}
-        assert any(phrase == "FINISHED" for _, phrase in notifications)
+        assert any(phrase == "FINISHED" for _, phrase, *_ in notifications)
 
 
 class _FakeWebSocket:
