@@ -55,6 +55,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
 import { EP_WORKSPACES } from "../utils/endpoints.js";
+import { emit } from "../app-bridge.js";
 
 
 const DEFAULT_WS_ICON = "mdi-console";
@@ -84,11 +85,13 @@ const { confirm } = useConfirm();
 
 async function onDelete() {
   if (!editWs.value) return;
-  if (!await confirm(`Delete "${editWs.value.name}"?\nThe directory will remain.`)) return;
-  const { ok, data } = await apiDelete(`${EP_WORKSPACES}/${encodeURIComponent(editWs.value.name)}`, { errorMessage: MSG_DELETE_FAILED });
+  const name = editWs.value.name;
+  if (!await confirm(`Delete "${name}"?\nThe directory will remain.`)) return;
+  const { ok, data } = await apiDelete(`${EP_WORKSPACES}/${encodeURIComponent(name)}`, { errorMessage: MSG_DELETE_FAILED });
   if (ok) {
     await workspaceStore.fetchWorkspaces();
     popView();
+    emit("toast:show", { message: `Deleted "${name}"` });
   } else if (data?.detail) {
     saveError.value = data.detail;
   }
