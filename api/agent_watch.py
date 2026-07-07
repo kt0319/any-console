@@ -160,14 +160,20 @@ def _job_watch_phrases(workspace: str | None, job_name: str | None) -> list[dict
 _last_capture: dict[str, str] = {}
 
 
-def reset_last_capture(session_id: str) -> None:
-    """リサイズ後など、次回ポーリングで working を誤検知しないよう比較基準をクリアする。"""
-    _last_capture.pop(session_id, None)
-
-
 _subscribers: set[WebSocket] = set()
 _poll_task: asyncio.Task | None = None
 _last_states: dict[str, str] = {}
+
+
+def reset_last_capture(session_id: str) -> None:
+    """リサイズ後など、次回ポーリングで working を誤検知しないよう比較基準をクリアする。
+
+    _last_states の stale な "working" も除去する。status stream WS が再接続時に
+    スナップショットを送る際に古い "working" が届かないようにするため。
+    """
+    _last_capture.pop(session_id, None)
+    if _last_states.get(session_id) == STATE_WORKING:
+        _last_states.pop(session_id, None)
 
 
 def collect_agent_states() -> dict[str, str]:
