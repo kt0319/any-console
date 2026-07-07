@@ -27,6 +27,7 @@ export const BUS_EVENTS = Object.freeze([
   "keyboard:deactivate",
   "layout:fitAll",
   "modal:close",
+  "notification:open-session",
   "oskeyboard:hide",
   "oskeyboard:show",
   "preview:showConfig",

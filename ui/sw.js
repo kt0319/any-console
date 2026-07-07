@@ -56,11 +56,21 @@ function isCacheableAsset(request, url) {
   return STATIC_ASSET_PREFIXES.some((prefix) => url.pathname.startsWith(prefix));
 }
 
+// 通知タイプごとの表示設定。ページから sync-notif-prefs メッセージで同期する。
+let _notifPrefs = { dispatch: true, phrase: true };
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'sync-notif-prefs') {
+    _notifPrefs = { ...event.data.prefs };
+  }
+});
+
 self.addEventListener('push', (event) => {
-  let data = { title: 'any-console', body: '', url: '/' };
+  let data = { title: 'any-console', body: '', url: '/', type: '' };
   try {
     if (event.data) Object.assign(data, JSON.parse(event.data.text()));
   } catch (_e) {}
+  if (data.type && _notifPrefs[data.type] === false) return;
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
@@ -74,10 +84,15 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = event.notification.data?.url || '/';
+  let sessionId = null;
+  try {
+    sessionId = new URL(url, self.location.origin).searchParams.get('session');
+  } catch (_e) {}
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       const existing = clients.find((c) => c.url.includes(self.location.origin));
       if (existing) {
+        if (sessionId) existing.postMessage({ type: 'notification-navigate', sessionId });
         existing.focus();
       } else {
         self.clients.openWindow(url);

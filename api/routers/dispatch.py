@@ -280,11 +280,11 @@ async def dispatch(body: DispatchRequest):
     if _pre_sess is not None:
         payload["job"] = _pre_sess.job_name or TERMINAL_JOB_KEY
 
-    job_label = job_def.label or body.job
     send_push_notification(
-        title=job_label,
+        title="Dispatch",
         body=effective_ws,
         url=f"/?workspace={effective_ws}",
+        notif_type="dispatch",
     )
 
     dispatch_id = await _await_user_approval(body, payload) if body.confirm else secrets.token_urlsafe(8)

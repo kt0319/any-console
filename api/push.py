@@ -119,7 +119,7 @@ def remove_subscription(endpoint: str) -> None:
     logger.info("push subscription removed endpoint=%s", endpoint)
 
 
-def send_push_notification(title: str, body: str, url: str = "/") -> None:
+def send_push_notification(title: str, body: str, url: str = "/", notif_type: str = "") -> None:
     """全サブスクリプションへ Push 通知を同期送信する（ブロッキング）。失敗したサブスクリプションは削除する。"""
     if _vapid_private_b64 is None:
         init_vapid()
@@ -139,7 +139,7 @@ def send_push_notification(title: str, body: str, url: str = "/") -> None:
         logger.warning("pywebpush not installed, push notification skipped")
         return
 
-    payload = json.dumps({"title": title, "body": body, "url": url})
+    payload = json.dumps({"title": title, "body": body, "url": url, "type": notif_type})
     failed_endpoints: list[str] = []
 
     for sub in subs:

@@ -146,15 +146,15 @@ def reset_last_capture(session_id: str) -> None:
         _last_states.pop(session_id, None)
 
 
-def collect_agent_states() -> tuple[dict[str, str], list[str]]:
+def collect_agent_states() -> tuple[dict[str, str], list[tuple[str, str]]]:
     """全ターミナルセッションの状態を判定して返す（executor スレッドで実行）。
 
     Returns:
-        (states, notification_states): states は session_id→state の辞書、
-        notification_states はプッシュ通知すべき notify_phrase 文字列のリスト。
+        (states, notifications): states は session_id→state の辞書、
+        notifications はプッシュ通知すべき (session_id, phrase) のリスト。
     """
     states: dict[str, str] = {}
-    notification_states: list[str] = []
+    notifications: list[tuple[str, str]] = []
     now = time.monotonic()
     for session_id in _list_session_ids():
         capture = capture_visible_pane(TMUX_SESSION_PREFIX + session_id)
@@ -173,7 +173,7 @@ def collect_agent_states() -> tuple[dict[str, str], list[str]]:
             if detected_at is not None:
                 delay_sec = _job_notify_delay(workspace, job_name) * 60
                 if now - detected_at >= delay_sec:
-                    notification_states.append(notify_phrase)
+                    notifications.append((session_id, notify_phrase))
                     _phrase_detected_at[session_id] = None  # 送信済みマーク
         else:
             _phrase_detected_at.pop(session_id, None)
@@ -182,7 +182,7 @@ def collect_agent_states() -> tuple[dict[str, str], list[str]]:
         del _last_capture[stale]
     for stale in set(_phrase_detected_at) - set(states):
         del _phrase_detected_at[stale]
-    return states, notification_states
+    return states, notifications
 
 
 def subscriber_count() -> int:
@@ -281,13 +281,18 @@ async def _poll_loop() -> None:  # pragma: no cover - 実時間スリープに�
             if not _subscribers:
                 break
             loop = asyncio.get_running_loop()
-            states, notification_states = await loop.run_in_executor(BACKGROUND_EXECUTOR, collect_agent_states)
+            states, notifications = await loop.run_in_executor(BACKGROUND_EXECUTOR, collect_agent_states)
             changed = diff_states(_last_states, states)
             _last_states.clear()
             _last_states.update(states)
             if changed:
                 await _broadcast(states_payload(changed))
-            for phrase in notification_states:
-                send_push_notification(title="Job alert", body=phrase)
+            for session_id, phrase in notifications:
+                send_push_notification(
+                    title="Phrase detected",
+                    body=phrase,
+                    url=f"/?session={session_id}",
+                    notif_type="phrase",
+                )
     except asyncio.CancelledError:
         pass

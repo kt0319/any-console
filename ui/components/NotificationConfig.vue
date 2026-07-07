@@ -12,10 +12,28 @@
         <span class="settings-note">
           <template v-if="!isSupported">Not supported in this browser (requires HTTPS).</template>
           <template v-else-if="permission === 'denied'">Blocked in browser settings. Allow and reload to enable.</template>
-          <template v-else>Notify when a dispatch is accepted, even when the tab is in the background.</template>
+          <template v-else>Notify in the background. Requires PWA install.</template>
         </span>
       </div>
     </label>
+
+    <template v-if="isSubscribed">
+      <div class="notif-section-title">Notify on</div>
+      <label class="settings-item settings-toggle">
+        <input type="checkbox" v-model="prefs.dispatch" @change="savePrefs" />
+        <div class="settings-toggle-copy">
+          <span class="settings-item-label">Dispatch accepted</span>
+          <span class="settings-note">When a dispatch request is approved.</span>
+        </div>
+      </label>
+      <label class="settings-item settings-toggle">
+        <input type="checkbox" v-model="prefs.phrase" @change="savePrefs" />
+        <div class="settings-toggle-copy">
+          <span class="settings-item-label">Phrase detected</span>
+          <span class="settings-note">When a "Notify phrase" appears in job output.</span>
+        </div>
+      </label>
+    </template>
   </div>
 </template>
 
@@ -29,6 +47,33 @@ modalTitle.value = "Notifications";
 const { isSupported, isSubscribed, permission, subscribe, unsubscribe, init } = usePushNotification();
 const loading = ref(false);
 
+const PREFS_KEY = "notifPrefs";
+const DEFAULT_PREFS = { dispatch: true, phrase: true };
+
+const prefs = ref({ ...DEFAULT_PREFS });
+
+function loadPrefs() {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    if (raw) prefs.value = { ...DEFAULT_PREFS, ...JSON.parse(raw) };
+  } catch (_e) {}
+}
+
+async function savePrefs() {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs.value));
+  } catch (_e) {}
+  await syncPrefsToSW();
+}
+
+async function syncPrefsToSW() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    reg.active?.postMessage({ type: "sync-notif-prefs", prefs: prefs.value });
+  } catch (_e) {}
+}
+
 async function onToggle() {
   loading.value = true;
   if (isSubscribed.value) {
@@ -39,12 +84,24 @@ async function onToggle() {
   loading.value = false;
 }
 
-onMounted(init);
+onMounted(async () => {
+  loadPrefs();
+  await init();
+  await syncPrefsToSW();
+});
 </script>
 
 <style scoped>
 .notif-disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+.notif-section-title {
+  padding: 12px 16px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 </style>

@@ -149,5 +149,5 @@ export function useDeepLink() {
     }
   }
 
-  return { apply };
+  return { apply, attachSessionTab };
 }

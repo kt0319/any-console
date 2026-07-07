@@ -76,4 +76,11 @@ bootstrap();
 
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js");
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    if (event.data?.type === "notification-navigate") {
+      import("./app-bridge.js").then(({ emit }) => {
+        emit("notification:open-session", { sessionId: event.data.sessionId });
+      });
+    }
+  });
 }

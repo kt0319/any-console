@@ -70,7 +70,7 @@ const tabBarView = ref(null);
 const terminalBaseView = ref(null);
 
 const { booting, bootMessage, initializeApp } = useAppBootstrap();
-const { apply: applyDeepLink } = useDeepLink();
+const { apply: applyDeepLink, attachSessionTab } = useDeepLink();
 const { start: startDispatchConfirm } = useDispatchConfirm();
 const { start: startPreviewWatch } = usePreviewWatch();
 const { startWatching: startLayoutPersist } = useLayoutPersist();
@@ -197,6 +197,7 @@ onMounted(() => {
 
   bridgeCleanups.push(on("oskeyboard:show", () => { keyboardOpen.value = true; }));
   bridgeCleanups.push(on("oskeyboard:hide", () => { keyboardOpen.value = false; }));
+  bridgeCleanups.push(on("notification:open-session", ({ sessionId }) => { attachSessionTab(sessionId); }));
 
   initViewport((opts) => {
     terminalBaseView.value?.fitAllTerminals(opts);
