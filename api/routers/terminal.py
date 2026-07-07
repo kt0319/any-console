@@ -275,7 +275,7 @@ def _update_cmd_buffer(buf: bytearray, data: bytes) -> str | None:
     return None
 
 
-async def _ws_message_loop(websocket: WebSocket, session, bridge) -> None:
+async def _ws_message_loop(websocket: WebSocket, session, bridge, session_id: str) -> None:
     loop = asyncio.get_event_loop()
     cmd_buf: bytearray = bytearray()
     while True:
@@ -293,7 +293,7 @@ async def _ws_message_loop(websocket: WebSocket, session, bridge) -> None:
             continue
 
         if data[0:1] == WS_MSG_RESIZE:
-            _handle_resize(bridge, data[1:])
+            _handle_resize(bridge, data[1:], session_id)
         else:
             cmd = _update_cmd_buffer(cmd_buf, data)
             if cmd:
@@ -357,7 +357,7 @@ async def terminal_ws(websocket: WebSocket, session_id: str, token: str = "", co
         asyncio.create_task(_flush_pending_text(session, session_id))
 
     try:
-        await _ws_message_loop(websocket, session, bridge)
+        await _ws_message_loop(websocket, session, bridge, session_id)
     except (WebSocketDisconnect, OSError, asyncio.CancelledError):
         pass
 

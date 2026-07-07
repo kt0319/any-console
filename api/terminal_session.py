@@ -264,12 +264,14 @@ def _apply_bridge_size(bridge: ClientBridge, cols: int, rows: int) -> None:
     resize_client_pty(bridge.fd, cols, rows)
 
 
-def _handle_resize(bridge: ClientBridge, payload: bytes) -> None:
+def _handle_resize(bridge: ClientBridge, payload: bytes, session_id: str) -> None:
     try:
         size = json.loads(payload)
         cols = size.get("cols", TERMINAL_DEFAULT_COLS)
         rows = size.get("rows", TERMINAL_DEFAULT_ROWS)
         _apply_bridge_size(bridge, cols, rows)
+        from .agent_watch import reset_last_capture
+        reset_last_capture(session_id)
     except (json.JSONDecodeError, OSError, KeyError):
         pass
 

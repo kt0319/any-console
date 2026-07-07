@@ -158,6 +158,13 @@ def _job_watch_phrases(workspace: str | None, job_name: str | None) -> list[dict
 
 # ポーリング間の可視ペイン内容（アクティビティ判定用）。ポーリングタスクのみが触る。
 _last_capture: dict[str, str] = {}
+
+
+def reset_last_capture(session_id: str) -> None:
+    """リサイズ後など、次回ポーリングで working を誤検知しないよう比較基準をクリアする。"""
+    _last_capture.pop(session_id, None)
+
+
 _subscribers: set[WebSocket] = set()
 _poll_task: asyncio.Task | None = None
 _last_states: dict[str, str] = {}
