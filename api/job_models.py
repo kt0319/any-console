@@ -32,6 +32,8 @@ class JobDefinition:
     watch_phrases: list[dict] = field(default_factory=list)
     # 一時的に無効化した watch_phrases。agent_watch.py は参照しない。
     watch_phrases_disabled: list[dict] = field(default_factory=list)
+    # output 変化（working 状態）の検知を有効にするか。False にすると working を返さない。
+    working_enabled: bool = True
 
 
 TERMINAL_JOB_KEY = "terminal"

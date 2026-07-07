@@ -107,6 +107,7 @@ def entry_to_job_definition(name, entry):
         disabled_state_patterns=entry.get("disabled_state_patterns") or {},
         watch_phrases=entry.get("watch_phrases") or [],
         watch_phrases_disabled=entry.get("watch_phrases_disabled") or [],
+        working_enabled=entry.get("working_enabled", True),
     )
 
 
@@ -144,6 +145,7 @@ def job_definition_to_dict(job_def, is_common=None):
         "disabled_state_patterns": job_def.disabled_state_patterns,
         "watch_phrases": job_def.watch_phrases,
         "watch_phrases_disabled": job_def.watch_phrases_disabled,
+        "working_enabled": job_def.working_enabled,
     }
     if is_common is not None:
         d["common"] = is_common
@@ -165,6 +167,26 @@ def _apply_icon_fields(entry: dict, icon: str, icon_color: str) -> None:
         entry["icon_color"] = icon_color
 
 
+def _apply_agent_watch_fields(
+    entry: dict,
+    state_patterns: dict[str, list[str]] | None,
+    disabled_state_patterns: dict[str, list[str]] | None,
+    watch_phrases: list[dict] | None,
+    watch_phrases_disabled: list[dict] | None,
+    working_enabled: bool,
+) -> None:
+    if state_patterns:
+        entry["state_patterns"] = state_patterns
+    if disabled_state_patterns:
+        entry["disabled_state_patterns"] = disabled_state_patterns
+    if watch_phrases:
+        entry["watch_phrases"] = watch_phrases
+    if watch_phrases_disabled:
+        entry["watch_phrases_disabled"] = watch_phrases_disabled
+    if not working_enabled:
+        entry["working_enabled"] = False
+
+
 def build_job_entry(
     command: str,
     label: str,
@@ -179,6 +201,7 @@ def build_job_entry(
     disabled_state_patterns: dict[str, list[str]] | None = None,
     watch_phrases: list[dict] | None = None,
     watch_phrases_disabled: list[dict] | None = None,
+    working_enabled: bool = True,
 ) -> dict:
     entry: dict[str, Any] = {}
     if job_type == "browser":
@@ -196,14 +219,10 @@ def build_job_entry(
         entry["detached_tab"] = True
     if timeout_sec is not None:
         entry["timeout_sec"] = timeout_sec
-    if state_patterns:
-        entry["state_patterns"] = state_patterns
-    if disabled_state_patterns:
-        entry["disabled_state_patterns"] = disabled_state_patterns
-    if watch_phrases:
-        entry["watch_phrases"] = watch_phrases
-    if watch_phrases_disabled:
-        entry["watch_phrases_disabled"] = watch_phrases_disabled
+    _apply_agent_watch_fields(
+        entry, state_patterns, disabled_state_patterns,
+        watch_phrases, watch_phrases_disabled, working_enabled,
+    )
     return entry
 
 
@@ -221,6 +240,7 @@ class JobRequest(BaseModel):
     disabled_state_patterns: dict[str, list[str]] = Field(default_factory=dict)
     watch_phrases: list[dict] = Field(default_factory=list)
     watch_phrases_disabled: list[dict] = Field(default_factory=list)
+    working_enabled: bool = True
 
 
 class ReorderJobsRequest(BaseModel):
@@ -319,6 +339,7 @@ def save_job(data, save_fn, job_name, body, log_msg):
         disabled_state_patterns=disabled_state_patterns,
         watch_phrases=watch_phrases,
         watch_phrases_disabled=watch_phrases_disabled,
+        working_enabled=body.working_enabled if job_type != "browser" else True,
     )
     save_fn(data)
     logger.info(log_msg, job_name)

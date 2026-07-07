@@ -54,6 +54,7 @@ def classify_agent_state(
     prev_capture: str | None,
     patterns: dict[str, list[str]],
     watch_phrases: list[dict] | None = None,
+    working_enabled: bool = True,
 ) -> str:
     """可視ペインの内容からセッション状態を判定する純関数。
 
@@ -63,7 +64,7 @@ def classify_agent_state(
     - 画面が静止しているときだけ語句照合し、blocked と done の両方が出ている
       場合は後（画面の下方）に現れた方を勝たせる
     """
-    if prev_capture is not None and capture != prev_capture:
+    if working_enabled and prev_capture is not None and capture != prev_capture:
         return STATE_WORKING
     if watch_phrases:
         best_pos = -1
@@ -133,6 +134,23 @@ def _job_state_patterns(workspace: str | None, job_name: str | None) -> dict[str
     return common_patterns
 
 
+def _job_working_enabled(workspace: str | None, job_name: str | None) -> bool:
+    """セッションを起動したジョブ定義から working_enabled を引く（ジョブ無しは True）。"""
+    if not job_name:
+        return True
+    from .routers.jobs_common import (
+        entry_to_job_definition,
+        get_workspace_jobs,
+        load_common_jobs_data,
+    )
+    if workspace:
+        entry = get_workspace_jobs(workspace).get(job_name)
+        return entry[0].working_enabled if entry else True
+    data = load_common_jobs_data()
+    raw = data.get(job_name)
+    return entry_to_job_definition(job_name, raw).working_enabled if raw is not None else True
+
+
 def _job_watch_phrases(workspace: str | None, job_name: str | None) -> list[dict]:
     """セッションを起動したジョブ定義から watch_phrases を引く（ジョブ無しは空リスト）。"""
     if not job_name:
@@ -186,8 +204,9 @@ def collect_agent_states() -> dict[str, str]:
         workspace, job_name = _session_meta(session_id)
         watch_phrases = _job_watch_phrases(workspace, job_name)
         patterns = _job_state_patterns(workspace, job_name)
+        working_enabled = _job_working_enabled(workspace, job_name)
         states[session_id] = classify_agent_state(
-            capture, _last_capture.get(session_id), patterns, watch_phrases,
+            capture, _last_capture.get(session_id), patterns, watch_phrases, working_enabled,
         )
         _last_capture[session_id] = capture
     for stale in set(_last_capture) - set(states):
