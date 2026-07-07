@@ -15,7 +15,7 @@
       <div class="pill-group" ref="pillEl">
         <div
           class="terminal-info-pill"
-          :class="{ 'tab-activity': tab._activity, dragging: pillDragging }"
+          :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working', dragging: pillDragging }"
           :data-tooltip="pillTooltip"
           tabindex="-1"
           @mousedown="onPillMouseDown"
@@ -24,9 +24,8 @@
         >
           <span class="terminal-info-pill-info">
             <span v-if="tab.wsIcon" v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
-            <span v-if="agentStateBadge(agentState) || tab.icon" class="pill-icon-slot">
-              <AgentStateBadge v-if="agentStateBadge(agentState)" :state="agentState" />
-              <span v-else v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
+            <span v-if="tab.icon" class="pill-icon-slot">
+              <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
             </span>
             {{ tab.workspace || tab.label || '' }}
             <span class="pill-dirty-dot" :style="{ visibility: isDirty ? 'visible' : 'hidden' }" :aria-hidden="!isDirty" aria-label="uncommitted changes"></span>
@@ -75,8 +74,6 @@ import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.
 import { useCircleKeyPad } from "../composables/useCircleKeyPad.js";
 import CircleKeyPad from "./CircleKeyPad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
-import AgentStateBadge from "./AgentStateBadge.vue";
-import { agentStateBadge } from "../utils/agent-state.js";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
 
 const props = defineProps({
@@ -469,6 +466,19 @@ defineExpose({
 @keyframes pill-activity-glow {
   0%, 100% { border-color: var(--border); }
   50% { border-color: rgba(130, 170, 255, 0.7); }
+}
+
+.terminal-info-pill.pill-working {
+  animation: pill-working-pulse 1.8s ease-in-out infinite;
+}
+
+.terminal-pane.active .terminal-info-pill.pill-working {
+  animation: none;
+}
+
+@keyframes pill-working-pulse {
+  0%, 100% { background: rgba(26, 27, 38, 0.88); border-color: rgba(59, 66, 97, 0.5); }
+  50% { background: rgba(40, 65, 140, 0.7); border-color: rgba(100, 150, 255, 0.5); }
 }
 
 @media (pointer: coarse) {

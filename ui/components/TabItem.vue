@@ -2,7 +2,7 @@
   <button
     ref="pillEl"
     class="tab-btn"
-    :class="{ active: isActive, 'tab-activity': tab._activity, dragging: isDragging, 'drag-over-left': dropSide === 'left', 'drag-over-right': dropSide === 'right', 'tab-panel-bottom': isPanelBottom }"
+    :class="{ active: isActive, 'tab-activity': tab._activity, 'tab-working': agentState === 'working', dragging: isDragging, 'drag-over-left': dropSide === 'left', 'drag-over-right': dropSide === 'right', 'tab-panel-bottom': isPanelBottom }"
     :draggable="canDrag"
     tabindex="-1"
     @mousedown="onMouseDown"
@@ -16,9 +16,8 @@
   >
     <span v-if="wsIconHtml" v-html="wsIconHtml"></span>
     <span v-if="isWorktree" class="mdi mdi-file-tree tab-worktree-icon" aria-label="worktree" data-tooltip="worktree"></span>
-    <span v-if="agentStateBadge(agentState) || iconHtml" class="tab-icon-slot">
-      <AgentStateBadge v-if="agentStateBadge(agentState)" :state="agentState" />
-      <span v-else v-html="iconHtml"></span>
+    <span v-if="iconHtml" class="tab-icon-slot">
+      <span v-html="iconHtml"></span>
     </span>
     <template v-if="!isPanelBottom">
       {{ label }}
@@ -50,8 +49,6 @@ import { DRAG_THRESHOLD, LONG_PRESS_MS } from "../utils/constants.js";
 import { useSplitDropDrag } from "../composables/useSplitDropDrag.js";
 import { useLongPress } from "../composables/useLongPress.js";
 import { isPastDragThreshold, createTouchTracker } from "../utils/gesture.js";
-import AgentStateBadge from "./AgentStateBadge.vue";
-import { agentStateBadge } from "../utils/agent-state.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -355,5 +352,14 @@ onBeforeUnmount(() => {
 @keyframes tab-activity-glow {
   0%, 100% { background: var(--bg-primary); }
   50% { background: rgba(130, 170, 255, 0.25); }
+}
+
+.tab-btn.tab-working:not(.active) {
+  animation: tab-working-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes tab-working-pulse {
+  0%, 100% { background: var(--bg-primary); }
+  50% { background: rgba(100, 150, 255, 0.18); }
 }
 </style>
