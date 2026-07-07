@@ -275,6 +275,11 @@ async def dispatch(body: DispatchRequest):
     if body.branch and not body.worktree:
         payload["branch_status"] = _branch_status(ws_path, body.branch)
 
+    # 既存セッションがある場合、モーダルに実際のジョブを表示するため先に探索する。
+    _pre_sid, _pre_sess = _find_existing_session(effective_ws, body.job, body.match)
+    if _pre_sess is not None:
+        payload["job"] = _pre_sess.job_name or TERMINAL_JOB_KEY
+
     job_label = job_def.label or body.job
     send_push_notification(
         title=job_label,
