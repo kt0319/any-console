@@ -248,6 +248,10 @@ function onCommitCollapsed() {
 }
 
 const _offHandlers = [
+  on("git:openFileModal", (detail) => {
+    open(detail);
+  }),
+
   on("worktree:open", ({ name, pane } = {}) => {
     if (name) workspaceStore.selectedWorkspace = name;
     open({ pane: pane || "jobs" });
