@@ -12,11 +12,23 @@
           <dt>Worktree</dt>
           <dd>{{ request.worktree }}</dd>
         </template>
-        <template v-if="request?.job && request.job !== 'terminal'">
-          <dt>Job</dt>
-          <dd>{{ request.job }}</dd>
-        </template>
       </dl>
+
+      <template v-if="request?.workspace">
+        <dl v-if="request?.job" class="dispatch-prompt-meta">
+          <dt>Job</dt>
+          <dd>{{ jobLabel }}</dd>
+        </dl>
+        <label v-else class="dispatch-prompt-field">
+          <span class="dispatch-prompt-label">Job</span>
+          <select v-model="selectedJob" class="dispatch-prompt-select">
+            <option value="terminal">Terminal</option>
+            <option v-for="job in jobs" :key="job.key" :value="job.key">
+              {{ job.label }}
+            </option>
+          </select>
+        </label>
+      </template>
 
       <template v-if="hasBranchField">
         <label class="dispatch-prompt-field">
@@ -49,11 +61,33 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import BaseDialog from "./BaseDialog.vue";
 import { useDispatchPrompt } from "../composables/useDispatchPrompt.js";
+import { useApi } from "../composables/useApi.js";
 
-const { visible, request, branch, baseBranch, text, approve, cancel } = useDispatchPrompt();
+const { visible, request, branch, baseBranch, text, selectedJob, approve, cancel } = useDispatchPrompt();
+const { apiGet } = useApi();
+
+const jobs = ref([]);
+
+const jobLabel = computed(() => {
+  const key = request.value?.job;
+  if (!key || key === "terminal") return "Terminal";
+  return jobs.value.find((j) => j.key === key)?.label || key;
+});
+
+watch(visible, async (v) => {
+  if (!v) {
+    jobs.value = [];
+    return;
+  }
+  const ws = request.value?.workspace;
+  if (!ws) return;
+  const res = await apiGet(`/workspaces/${encodeURIComponent(ws)}/jobs`);
+  if (!res.ok || !res.data) return;
+  jobs.value = Object.entries(res.data).map(([key, def]) => ({ key, label: def.label || key }));
+});
 
 const hasBranchField = computed(() => !!request.value?.branch || !!request.value?.worktree === false && !!request.value?.create_branch);
 
@@ -116,7 +150,8 @@ const branchStatusNote = computed(() => {
   font-size: 11px;
 }
 .dispatch-prompt-field input,
-.dispatch-prompt-field textarea {
+.dispatch-prompt-field textarea,
+.dispatch-prompt-select {
   padding: 8px;
   background: var(--bg-primary);
   color: var(--text-primary);

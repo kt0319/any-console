@@ -170,6 +170,7 @@ class DispatchDecision(BaseModel):
     branch: str | None = None
     base_branch: str | None = None
     text: str | None = None
+    job: str | None = None
 
 
 @router.get("/dispatch/events")
@@ -205,6 +206,7 @@ async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
         "branch": body.branch,
         "base_branch": body.base_branch,
         "text": body.text,
+        "job": body.job,
     }
     p["event"].set()
     _broadcast({"type": "decided", "id": dispatch_id, "approved": body.approved})
@@ -222,6 +224,8 @@ def _apply_overrides(body: DispatchRequest, overrides: dict | None) -> None:
         body.base_branch = overrides["base_branch"] or None
     if "text" in overrides and overrides["text"] is not None:
         body.text = overrides["text"] or ""
+    if "job" in overrides and overrides["job"] is not None:
+        body.job = overrides["job"]
 
 
 async def _await_user_approval(body: DispatchRequest, request_payload: dict) -> str:
@@ -279,6 +283,9 @@ async def dispatch(body: DispatchRequest):
     )
 
     dispatch_id = await _await_user_approval(body, payload) if body.confirm else secrets.token_urlsafe(8)
+
+    # 承認モーダルで job が変更された場合に備えて再解決する。
+    job_def = _resolve_job_def(effective_ws, body.job)
 
     if body.branch and not body.worktree:
         _ensure_branch(ws_path, body.branch, body.create_branch, body.base_branch)
