@@ -89,6 +89,7 @@ export function useTerminal() {
         tab._pendingRedraw = false;
         try { tab.term?.refresh(0, tab.term.rows - 1); } catch {}
       }
+      terminalStore.suppressWorkingState(tab.sessionId);
       terminalStore.setTabFlag(tab.id, "reconnecting", false);
       terminalStore.setTabFlag(tab.id, "reconnectReason", null);
       if (tab.term && terminalStore.activeTabId === tab.id && opts.focus !== false) {

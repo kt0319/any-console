@@ -56,15 +56,32 @@ export const useTerminalStore = defineStore("terminal", () => {
   const tabFlags = reactive({});
   // sessionId → エージェント状態（blocked/done/working/idle）。status stream WS が更新する。
   const agentStates = reactive(/** @type {Record<string, string>} */ ({}));
+  // reconnect 直後の再描画で working が誤検知されるのを抑制するタイマー管理。
+  const _workingSuppressTimers = /** @type {Record<string, ReturnType<typeof setTimeout>>} */ ({});
+
+  /**
+   * reconnect 完了後、指定時間だけ "working" state を無視する。
+   * @param {string|undefined|null} sessionId
+   * @param {number} [ms]
+   */
+  function suppressWorkingState(sessionId, ms = 4000) {
+    if (!sessionId) return;
+    clearTimeout(_workingSuppressTimers[sessionId]);
+    _workingSuppressTimers[sessionId] = setTimeout(() => {
+      delete _workingSuppressTimers[sessionId];
+    }, ms);
+  }
 
   /**
    * status stream WS から届いたエージェント状態をマージする。
+   * reconnect 直後の抑制期間中は "working" を無視する。
    * @param {{ session_id: string, state: string }[]} states
    */
   function applyAgentStates(states) {
     if (!Array.isArray(states)) return;
     for (const entry of states) {
       if (entry && typeof entry.session_id === "string" && typeof entry.state === "string") {
+        if (entry.state === "working" && _workingSuppressTimers[entry.session_id]) continue;
         agentStates[entry.session_id] = entry.state;
       }
     }
@@ -249,6 +266,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     agentStates,
     applyAgentStates,
     clearAgentState,
+    suppressWorkingState,
     setTabFlag,
     clearTabFlags,
     TERMINAL_SETTINGS_KEY,
