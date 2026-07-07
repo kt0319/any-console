@@ -36,9 +36,9 @@
     </div>
 
     <div class="ws-settings-section ws-delete-section">
-      <button type="button" class="ws-delete-btn" @click="onDelete">
+      <button type="button" class="ws-delete-btn" :disabled="deleting" @click="onDelete">
         <span class="mdi mdi-delete-outline"></span>
-        Delete Workspace
+        {{ deleting ? 'Deleting...' : 'Delete Workspace' }}
       </button>
     </div>
 
@@ -70,6 +70,7 @@ const editName = ref(editWs.value?.name || "");
 const editPath = ref(editWs.value?.path || "");
 const editGroupId = ref(editWs.value?.group_id ?? null);
 const savingDetails = ref(false);
+const deleting = ref(false);
 const saveError = ref("");
 
 modalTitle.value = editWs.value?.name || "Workspace";
@@ -87,13 +88,18 @@ async function onDelete() {
   if (!editWs.value) return;
   const name = editWs.value.name;
   if (!await confirm(`Delete "${name}"?\nThe directory will remain.`)) return;
-  const { ok, data } = await apiDelete(`${EP_WORKSPACES}/${encodeURIComponent(name)}`, { errorMessage: MSG_DELETE_FAILED });
-  if (ok) {
-    await workspaceStore.fetchWorkspaces();
-    popView();
-    emit("toast:show", { message: `Deleted "${name}"` });
-  } else if (data?.detail) {
-    saveError.value = data.detail;
+  deleting.value = true;
+  try {
+    const { ok, data } = await apiDelete(`${EP_WORKSPACES}/${encodeURIComponent(name)}`, { errorMessage: MSG_DELETE_FAILED });
+    if (ok) {
+      await workspaceStore.fetchWorkspaces();
+      popView();
+      emit("toast:show", { message: `Deleted "${name}"` });
+    } else if (data?.detail) {
+      saveError.value = data.detail;
+    }
+  } finally {
+    deleting.value = false;
   }
 }
 
