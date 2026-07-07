@@ -31,51 +31,64 @@
           </span>
         </button>
       </div>
-      <div v-if="form.type !== 'browser'" class="ws-settings-row" style="gap:8px">
-        <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.confirm" /> Confirm dialog</label>
-        <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.detached_tab" /> Run detached</label>
-      </div>
-      <div v-if="form.type !== 'browser'" class="ws-settings-row">
-        <span class="ws-settings-label">Timeout (sec)</span>
-        <input type="number" class="form-input" style="max-width:120px" v-model.number="form.timeout_sec"
-          placeholder="Default (300)" min="1" max="86400" autocomplete="off" />
-      </div>
-      <div v-if="form.type !== 'browser'" class="ws-settings-row ws-settings-row-stack">
-        <div class="phrase-template-row">
-          <span class="ws-settings-label">State icons</span>
-          <select class="form-input phrase-template-select" @change="applyTemplate($event.target.value); $event.target.value = ''">
-            <option value="" disabled>Templates…</option>
-            <option v-for="t in phraseTemplates" :key="t.id" :value="t.id">{{ t.label }}</option>
-          </select>
+      <details v-if="form.type !== 'browser'" class="job-advanced">
+        <summary class="job-advanced-summary">Advanced</summary>
+        <div class="ws-settings-row" style="gap:8px">
+          <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.confirm" /> Confirm dialog</label>
+          <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.detached_tab" /> Run detached</label>
         </div>
-        <div class="phrase-list">
-          <div v-for="(item, i) in form.phrases" :key="i" class="phrase-row">
-            <input type="checkbox" class="form-checkbox" v-model="item.enabled" />
-            <button
-              type="button"
-              class="phrase-icon-btn"
-              :class="iconClass(item.icon)"
-              :data-tooltip="item.icon"
-              @click="openPhraseIconPicker(i)"
-            >
-              <span class="mdi" :class="item.icon" aria-hidden="true"></span>
-            </button>
-            <input type="text" class="form-input phrase-input" v-model="item.phrase"
-              placeholder="phrase" spellcheck="false" autocomplete="off" />
-            <button type="button" class="phrase-del" aria-label="Remove phrase"
-              @click="removePhrase(i)">
-              <span class="mdi mdi-close"></span>
+        <div class="ws-settings-row">
+          <span class="ws-settings-label">Timeout (sec)</span>
+          <input type="number" class="form-input" style="max-width:120px" v-model.number="form.timeout_sec"
+            placeholder="Default (300)" min="1" max="86400" autocomplete="off" />
+        </div>
+        <div class="ws-settings-row ws-settings-row-stack">
+          <div class="phrase-template-row">
+            <span class="ws-settings-label">State icons</span>
+            <label class="phrase-template-label">
+              Template
+              <select class="form-input phrase-template-select" v-model="selectedTemplate" @change="applyTemplate(selectedTemplate)">
+                <option value="custom">Custom</option>
+                <option v-for="t in phraseTemplates" :key="t.id" :value="t.id">{{ t.label }}</option>
+              </select>
+            </label>
+          </div>
+          <div class="phrase-list">
+            <div class="phrase-row">
+              <input type="checkbox" class="form-checkbox" v-model="form.working_enabled" />
+              <button type="button" class="phrase-icon-btn agent-state-working" tabindex="-1" style="cursor:default;pointer-events:none" data-tooltip="mdi-loading" aria-hidden="true">
+                <span class="mdi mdi-loading phrase-icon-spin"></span>
+              </button>
+              <span class="form-input phrase-input phrase-input-fixed">Output active</span>
+            </div>
+            <div v-for="(item, i) in form.phrases" :key="i" class="phrase-row">
+              <input type="checkbox" class="form-checkbox" v-model="item.enabled" />
+              <button
+                type="button"
+                class="phrase-icon-btn"
+                :class="iconClass(item.icon)"
+                :data-tooltip="item.icon"
+                @click="openPhraseIconPicker(i)"
+              >
+                <span class="mdi" :class="item.icon" aria-hidden="true"></span>
+              </button>
+              <input type="text" class="form-input phrase-input" v-model="item.phrase"
+                placeholder="phrase" spellcheck="false" autocomplete="off" />
+              <button type="button" class="phrase-del" aria-label="Remove phrase"
+                @click="removePhrase(i)">
+                <span class="mdi mdi-close"></span>
+              </button>
+            </div>
+            <button type="button" class="phrase-add" @click="addPhrase">
+              <span class="mdi mdi-plus"></span> Add phrase
             </button>
           </div>
-          <button type="button" class="phrase-add" @click="addPhrase">
-            <span class="mdi mdi-plus"></span> Add
-          </button>
+          <div class="job-command-hint">
+            Changes the tab icon when a phrase appears on screen (plain substring match).
+            Short distinctive phrases work best — long ones may break across wrapped lines.
+          </div>
         </div>
-        <div class="job-command-hint">
-          Changes the tab icon when a phrase appears on screen (plain substring match).
-          Short distinctive phrases work best — long ones may break across wrapped lines.
-        </div>
-      </div>
+      </details>
       <div class="ws-settings-row" style="gap:8px">
         <button type="button" class="primary" :disabled="saving" @click="saveJob">
           {{ saving ? 'Saving...' : 'Save' }}
@@ -145,6 +158,7 @@ const form = ref(
           confirm: jobEntry.job.confirm !== false,
           detached_tab: !!jobEntry.job.detached_tab,
           timeout_sec: jobEntry.job.timeout_sec ?? null,
+          working_enabled: jobEntry.job.working_enabled !== false,
           phrases: buildWatchPhraseItems(
             jobEntry.job.watch_phrases,
             jobEntry.job.watch_phrases_disabled,
@@ -160,11 +174,13 @@ const form = ref(
           confirm: false,
           detached_tab: false,
           timeout_sec: null,
+          working_enabled: true,
           phrases: [],
         }
 );
 
 const phraseTemplates = PHRASE_TEMPLATES;
+const selectedTemplate = ref("custom");
 
 function iconClass(icon) {
   if (["mdi-hand-back-right", "mdi-cursor-default-click", "mdi-alert-circle"].includes(icon)) return "agent-state-blocked";
@@ -192,6 +208,7 @@ function applyTemplate(id) {
   const tpl = PHRASE_TEMPLATES.find((t) => t.id === id);
   if (!tpl) return;
   form.value.phrases = tpl.phrases.map((p) => ({ ...p, enabled: true }));
+  selectedTemplate.value = id;
 }
 
 function addPhrase() {
@@ -257,6 +274,7 @@ async function saveJob() {
       disabled_state_patterns: {},
       watch_phrases: f.type === "browser" ? [] : enabledWatchPhrases(f.phrases),
       watch_phrases_disabled: f.type === "browser" ? [] : disabledWatchPhrases(f.phrases),
+      working_enabled: f.type === "browser" ? true : f.working_enabled,
     };
     const { ok, data } = isNew ? await apiPost(url, body) : await apiPut(url, body);
     if (!ok) {
@@ -328,7 +346,11 @@ async function deleteJob() {
   background: var(--bg-tertiary);
 }
 
+.phrase-input-fixed { flex: 1; min-width: 0; font-family: ui-monospace, "Menlo", "Consolas", monospace; color: var(--text-primary); cursor: default; pointer-events: none; opacity: 0.5; }
+.phrase-icon-spin { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .phrase-template-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.phrase-template-label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
 .phrase-template-select { max-width: 160px; font-size: 12px; padding: 4px 6px; }
 
 .phrase-list { display: flex; flex-direction: column; gap: 4px; }
@@ -349,12 +371,41 @@ async function deleteJob() {
   line-height: 1;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
+.phrase-icon-btn.agent-state-working { color: var(--accent); }
 .phrase-icon-btn.agent-state-blocked { color: var(--error); }
 .phrase-icon-btn.agent-state-select { color: #f5a623; }
 .phrase-icon-btn.agent-state-done { color: var(--success); }
 .phrase-icon-btn.agent-state-custom { color: var(--accent); }
+
+.job-advanced {
+  margin: 4px 0;
+}
+
+.job-advanced-summary {
+  padding: 6px 0;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.job-advanced-summary::before {
+  content: "▸";
+  font-size: 16px;
+  transition: transform 0.15s;
+  line-height: 1;
+}
+
+details[open] > .job-advanced-summary::before {
+  transform: rotate(90deg);
+}
 
 .ws-delete-btn {
   display: flex;
