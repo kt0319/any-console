@@ -2,6 +2,8 @@
   <div class="git-files-pane-wrapper">
     <div class="diff-file-list">
       <div v-if="isLoading" class="text-muted-center">Loading...</div>
+      <div v-else-if="loadError" class="text-muted-center">{{ loadError }}</div>
+      <div v-else-if="files.length === 0" class="text-muted-center">No changes</div>
       <ul v-else class="file-browser-list diff-file-browser-list">
         <template v-for="file in files" :key="file.path">
           <FileItem
@@ -76,12 +78,13 @@ const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
 const { editorUrlTemplate, fetchEditorSettings, openInEditor } = useEditorIntegration();
 const { apiPost } = useApi();
 const { confirm } = useConfirm();
-const { withWorkspace } = useWorkspace();
+const { withWorkspace, getWorkspace } = useWorkspace();
 const { downloadWorkspaceFile, deleteWorkspaceFile } = useWorkspaceFile();
 const longPress = useLongPress();
 
 const files = ref([]);
 const isLoading = ref(false);
+const loadError = ref("");
 const selectedFile = ref("");
 const actionButtons = ref([]);
 const isWorkingTree = ref(false);
@@ -204,29 +207,36 @@ async function deleteFile(file) {
 }
 
 async function loadWorkingTreeDiff() {
-  await withWorkspace(async () => {
-    isLoading.value = true;
-    isWorkingTree.value = true;
-    const stashBtn = {
-      label: "Stash",
-      loading: false,
-      disabled: () => isStashDisabled.value,
-      handler: async () => { stashBtn.loading = true; emit("git:stashSave"); },
-    };
-    actionButtons.value = [
-      { label: "Commit", class: "primary", disabled: () => isCommitDisabled.value, handler: () => commitForm.value?.submit() },
-      stashBtn,
-    ];
-    try {
-      const result = await fetchWorkingTreeDiff();
-      if (!result) return;
-      files.value = result.fileList;
-    } catch (e) {
-      console.error("diff load failed:", e);
-    } finally {
-      isLoading.value = false;
+  if (!getWorkspace()) {
+    loadError.value = "No workspace selected";
+    return;
+  }
+  isLoading.value = true;
+  loadError.value = "";
+  isWorkingTree.value = true;
+  const stashBtn = {
+    label: "Stash",
+    loading: false,
+    disabled: () => isStashDisabled.value,
+    handler: async () => { stashBtn.loading = true; emit("git:stashSave"); },
+  };
+  actionButtons.value = [
+    { label: "Commit", class: "primary", disabled: () => isCommitDisabled.value, handler: () => commitForm.value?.submit() },
+    stashBtn,
+  ];
+  try {
+    const result = await fetchWorkingTreeDiff();
+    if (!result) {
+      loadError.value = "Failed to load changes";
+      return;
     }
-  });
+    files.value = result.fileList;
+  } catch (e) {
+    loadError.value = "Failed to load changes";
+    console.error("diff load failed:", e);
+  } finally {
+    isLoading.value = false;
+  }
 }
 
 async function loadCommitDiff(hash) {
