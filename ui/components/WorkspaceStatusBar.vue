@@ -329,7 +329,7 @@ async function registerCurrentDir() {
 .status-branch-btn {
   flex-shrink: 1;
   min-width: 0;
-  max-width: 50%;
+  max-width: 60%;
   gap: 4px;
   padding-left: 8px;
   color: var(--text-primary);

@@ -1,5 +1,5 @@
 import { computed } from "vue";
-import { abbreviateBranch, truncateMid } from "../utils/git.js";
+import { abbreviateBranch, truncateHead } from "../utils/git.js";
 
 /**
  * ワークスペースの git ステータスを表示用の派生値に整形する。
@@ -26,7 +26,7 @@ export function useWorkspaceGitStatus(ws, isMobile) {
     const branch = ws.value?.branch || "";
     if (!isMobile.value) return { abbr: "", rest: branch };
     const parts = abbreviateBranch(branch);
-    parts.rest = truncateMid(parts.rest, 16);
+    parts.rest = truncateHead(parts.rest, 14);
     return parts;
   });
   const isBranchLong = computed(() => {

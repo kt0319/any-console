@@ -64,7 +64,7 @@ describe("useWorkspaceGitStatus", () => {
 
   it("branchParts abbreviates/truncates on mobile and flags long branches", () => {
     const s = make({ branch: "feature/some-really-long-branch" }, true);
-    expect(s.branchParts.value.rest.length).toBeLessThanOrEqual(16);
+    expect(s.branchParts.value.rest.length).toBeLessThanOrEqual(14);
     expect(s.isBranchLong.value).toBe(true);
   });
 });

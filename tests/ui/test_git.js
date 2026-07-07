@@ -1,6 +1,6 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
-import { parseGitRefs, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, countContentLines, abbreviateBranch, dirtyBadgeHtml, entryBranches, buildGithubFileUrl } from "../../ui/utils/git.js";
+import { parseGitRefs, formatGitTime, parseDiffNumstatFromChunk, buildNumstatHtml, buildFileNumstatHtml, countContentLines, abbreviateBranch, truncateHead, dirtyBadgeHtml, entryBranches, buildGithubFileUrl } from "../../ui/utils/git.js";
 
 // ── Tests ──
 
@@ -247,6 +247,19 @@ describe("abbreviateBranch", () => {
   });
   it("空文字列はabbr空、rest空", () => {
     expect(abbreviateBranch("")).toEqual({ abbr: "", rest: "" });
+  });
+});
+
+describe("truncateHead", () => {
+  it("maxLen以下はそのまま", () => {
+    expect(truncateHead("short", 14)).toBe("short");
+  });
+  it("超えたら先頭を…で省略して末尾を残す", () => {
+    expect(truncateHead("DW_JOY_FRONTEND-1690", 14)).toBe("…FRONTEND-1690");
+    expect(truncateHead("DW_JOY_FRONTEND-1690", 14).length).toBe(14);
+  });
+  it("デフォルトmaxLen=14", () => {
+    expect(truncateHead("DW_JOY_FRONTEND-1690").length).toBeLessThanOrEqual(14);
   });
 });
 

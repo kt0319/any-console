@@ -144,6 +144,11 @@ export function truncateMid(str, maxLen = 16) {
   return str.slice(0, head) + "…" + str.slice(str.length - tail);
 }
 
+export function truncateHead(str, maxLen = 14) {
+  if (str.length <= maxLen) return str;
+  return "…" + str.slice(str.length - (maxLen - 1));
+}
+
 export function dirtyBadgeHtml(ws) {
   const files = ws?.changed_files || 0;
   const ins = ws?.insertions || 0;
