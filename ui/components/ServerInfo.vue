@@ -18,6 +18,9 @@
           <span class="si-vals">
             <span v-for="v in row.values" :key="v">{{ v }}</span>
           </span>
+          <button v-if="row.pid" type="button" class="si-kill-btn" aria-label="Kill process" data-tooltip="Kill process" @click="killProcess(row.pid)">
+            <span class="mdi mdi-close"></span>
+          </button>
         </div>
       </div>
     </div>
@@ -67,7 +70,7 @@ import { useApi } from "../composables/useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useLayoutStore } from "../stores/layout.js";
-import { EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY } from "../utils/endpoints.js";
+import { EP_SYSTEM_INFO, EP_SYSTEM_PROCESSES, EP_SYSTEM_UPDATE_CHECK, EP_SYSTEM_UPDATE_APPLY, EP_SYSTEM_PROCESS_KILL } from "../utils/endpoints.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "System Info";
@@ -141,7 +144,7 @@ function formatAuth(auth) {
   if (auth.auth_method === "disabled") return "Disabled";
   return auth.auth_method || "-";
 }
-const mapProcess = (p) => ({ label: p.name, values: [`${p.cpu.toFixed(1)}%`, `${p.mem.toFixed(1)}%`] });
+const mapProcess = (p) => ({ label: p.name, pid: p.pid, values: [`${p.cpu.toFixed(1)}%`, `${p.mem.toFixed(1)}%`] });
 
 async function load() {
   isLoading.value = true;
@@ -195,6 +198,12 @@ async function load() {
   isLoading.value = false;
 }
 
+async function killProcess(pid) {
+  if (!await confirm(`Kill process ${pid}? This sends SIGTERM.`)) return;
+  const { ok } = await apiPost(EP_SYSTEM_PROCESS_KILL, { pid }, { errorMessage: "Failed to kill process" });
+  if (ok) await refresh();
+}
+
 async function refresh() {
   if (isRefreshing.value) return;
   isRefreshing.value = true;
@@ -230,4 +239,8 @@ defineExpose({ load });
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .si-update-actions { padding: 10px 12px; }
 .si-update-actions .primary { width: 100%; }
+.si-kill-btn { background: none; border: none; color: var(--text-muted); padding: 0 0 0 8px; cursor: pointer; font-size: 16px; line-height: 1; flex-shrink: 0; }
+@media (hover: hover) and (pointer: fine) {
+  .si-kill-btn:hover { color: var(--error); }
+}
 </style>

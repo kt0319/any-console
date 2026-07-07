@@ -1,8 +1,10 @@
 import getpass
 import logging
+import os
 import platform
 import re
 import shutil
+import signal
 import socket
 import time
 from pathlib import Path
@@ -227,6 +229,22 @@ def report_client_error(body: ClientErrorReport):
         sanitize_log_value(body.stack),
     )
     return {"status": "ok"}
+
+
+class ProcessKillBody(BaseModel):
+    pid: int
+
+
+@router.post("/system/process/kill")
+def kill_process(body: ProcessKillBody):
+    """指定PIDのプロセスをSIGTERMで終了させる。"""
+    try:
+        os.kill(body.pid, signal.SIGTERM)
+    except ProcessLookupError as e:
+        raise not_found("Process not found") from e
+    except PermissionError as e:
+        raise bad_request("Permission denied") from e
+    return {"ok": True}
 
 
 class TmuxKillBody(BaseModel):

@@ -26,6 +26,7 @@ export const EP_SYSTEM_PROCESSES = "/system/processes";
 export const EP_SYSTEM_TMUX_INFO = "/system/tmux-info";
 export const EP_SYSTEM_TMUX_ADOPT = "/system/tmux/adopt";
 export const EP_SYSTEM_TMUX_KILL = "/system/tmux/kill";
+export const EP_SYSTEM_PROCESS_KILL = "/system/process/kill";
 export const EP_SYSTEM_UPDATE_CHECK = "/system/update/check";
 export const EP_SYSTEM_UPDATE_APPLY = "/system/update/apply";
 export const EP_SETTINGS_EDITOR = "/settings/editor";
