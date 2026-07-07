@@ -22,16 +22,10 @@ class JobDefinition:
     type: str = "command"
     url: str = ""
     timeout_sec: int | None = None
-    # エージェント状態の検知語句（api/agent_watch.py が可視ペインと照合する）。
-    # キーは blocked / done、値は部分一致で照合するプレーン文字列のリスト。
-    state_patterns: dict[str, list[str]] = field(default_factory=dict)
-    # 一時的に無効化した検知語句。agent_watch.py は参照しない。
-    disabled_state_patterns: dict[str, list[str]] = field(default_factory=dict)
-    # 統合フレーズリスト（各要素: {phrase: str, icon: str}）。
-    # state_patterns より優先される。旧ジョブは空のまま。
-    watch_phrases: list[dict] = field(default_factory=list)
-    # 一時的に無効化した watch_phrases。agent_watch.py は参照しない。
-    watch_phrases_disabled: list[dict] = field(default_factory=list)
+    # 通知フレーズ: 可視ペインにこの文字列が現れたらプッシュ通知を送る。
+    notify_phrase: str = ""
+    # フレーズ検出から通知を送るまでの遅延（分）。0 は即時。
+    notify_delay_min: int = 0
     # output 変化（working 状態）の検知を有効にするか。False にすると working を返さない。
     working_enabled: bool = True
 

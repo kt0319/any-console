@@ -41,7 +41,6 @@
         <CircleKeyPadConfig v-if="currentView === 'CircleKeyPadConfig'" />
         <ConfigFile v-if="currentView === 'ConfigFile'" />
         <IconPicker v-if="currentView === 'IconPicker'" />
-        <PhraseIconPicker v-if="currentView === 'PhraseIconPicker'" />
         <WorkspaceDetail v-if="currentView === 'WorkspaceDetail'" :ref="setPaneRef" />
       </div>
     </div>
@@ -68,7 +67,6 @@ import NotificationConfig from "./NotificationConfig.vue";
 import CircleKeyPadConfig from "./CircleKeyPadConfig.vue";
 import ConfigFile from "./ConfigFile.vue";
 import IconPicker from "./IconPicker.vue";
-import PhraseIconPicker from "./PhraseIconPicker.vue";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
 import { on } from "../app-bridge.js";
 import { useWorkspaceStore } from "../stores/workspace.js";

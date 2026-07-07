@@ -56,11 +56,11 @@ describe("parseStatusStreamMessage", () => {
   it("agent_states メッセージを正規化して返す", () => {
     const raw = JSON.stringify({
       type: "agent_states",
-      states: [{ session_id: "s1", state: "blocked" }],
+      states: [{ session_id: "s1", state: "working" }],
     });
     expect(parseStatusStreamMessage(raw)).toEqual({
       type: "agent_states",
-      states: [{ session_id: "s1", state: "blocked" }],
+      states: [{ session_id: "s1", state: "working" }],
     });
   });
 

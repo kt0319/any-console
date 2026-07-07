@@ -92,21 +92,21 @@ describe("terminal store: agentStates", () => {
 
   it("applyAgentStates で sessionId ごとの状態をマージする", () => {
     store.applyAgentStates([
-      { session_id: "s1", state: "blocked" },
+      { session_id: "s1", state: "idle" },
       { session_id: "s2", state: "working" },
     ]);
-    expect(store.agentStates.s1).toBe("blocked");
+    expect(store.agentStates.s1).toBe("idle");
     expect(store.agentStates.s2).toBe("working");
 
-    store.applyAgentStates([{ session_id: "s1", state: "done" }]);
-    expect(store.agentStates.s1).toBe("done");
+    store.applyAgentStates([{ session_id: "s1", state: "working" }]);
+    expect(store.agentStates.s1).toBe("working");
     expect(store.agentStates.s2).toBe("working");
   });
 
   it("不正なエントリと配列以外は無視する", () => {
     store.applyAgentStates([
       null,
-      { session_id: 1, state: "blocked" },
+      { session_id: 1, state: "working" },
       { session_id: "s3" },
     ]);
     expect(Object.keys(store.agentStates)).toEqual([]);

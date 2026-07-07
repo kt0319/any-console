@@ -1,15 +1,15 @@
 """ターミナルセッションのエージェント状態の監視・配信。
 
-tmux の可視ペイン内容を定期ポーリングし、ジョブ定義の state_patterns
-（blocked / done の検知語句）と出力アクティビティから各セッションの状態を
-判定して、変化のあったセッションだけ status stream の WebSocket 購読者へ
+tmux の可視ペイン内容を定期ポーリングし、出力アクティビティから各セッションの
+状態を判定して、変化のあったセッションだけ status stream の WebSocket 購読者へ
 push する（routers/status_stream.py が git_watch と同じソケットに相乗せする）。
 
-状態は 4 値:
-- blocked: 画面が静止し、blocked 語句が可視ペインに出ている（承認待ち等）
-- done:    画面が静止し、done 語句が可視ペインに出ている
+状態は 2 値:
 - working: 前回ポーリングから出力が変化した
-- idle:    画面が静止し、どの語句にも一致しない
+- idle:    画面が静止している
+
+ジョブ定義に notify_phrase が設定されている場合、可視ペインにその文字列が
+現れたタイミングでプッシュ通知を送る（重複送信は抑制する）。
 
 git_watch と同じく購読者がいる間だけポーリングタスクが動き、購読者ゼロで
 停止するため、クライアントが繋がっていないときのコストはゼロ。
@@ -17,6 +17,7 @@ git_watch と同じく購読者がいる間だけポーリングタスクが動�
 
 import asyncio
 import logging
+import time
 from typing import Any
 
 from fastapi import WebSocket
@@ -31,60 +32,22 @@ from .tmux import _run_tmux_cmd, capture_visible_pane, load_tmux_metadata
 
 logger = logging.getLogger(__name__)
 
-STATE_BLOCKED = "blocked"
-STATE_DONE = "done"
 STATE_WORKING = "working"
 STATE_IDLE = "idle"
-
-
-def _last_match_pos(text: str, phrases: list[str]) -> int:
-    """text 中で最後に現れる語句の開始位置を返す（どれも無ければ -1）。"""
-    pos = -1
-    for phrase in phrases:
-        if not phrase:
-            continue
-        found = text.rfind(phrase)
-        if found > pos:
-            pos = found
-    return pos
 
 
 def classify_agent_state(
     capture: str,
     prev_capture: str | None,
-    patterns: dict[str, list[str]],
-    watch_phrases: list[dict] | None = None,
     working_enabled: bool = True,
 ) -> str:
     """可視ペインの内容からセッション状態を判定する純関数。
 
     - 前回ポーリングから出力が変化していれば working（スピナー等の動きも拾う）
-    - watch_phrases がある場合（新方式）: マッチした語句のアイコン名を返す
-    - watch_phrases が空の場合（旧方式）: state_patterns で blocked/done を返す
-    - 画面が静止しているときだけ語句照合し、blocked と done の両方が出ている
-      場合は後（画面の下方）に現れた方を勝たせる
+    - 画面が静止していれば idle
     """
     if working_enabled and prev_capture is not None and capture != prev_capture:
         return STATE_WORKING
-    if watch_phrases:
-        best_pos = -1
-        best_icon = STATE_IDLE
-        for wp in watch_phrases:
-            phrase = wp.get("phrase", "")
-            icon = wp.get("icon", "")
-            if not phrase or not icon:
-                continue
-            pos = capture.rfind(phrase)
-            if pos > best_pos:
-                best_pos = pos
-                best_icon = icon
-        return best_icon if best_pos >= 0 else STATE_IDLE
-    blocked_pos = _last_match_pos(capture, patterns.get(STATE_BLOCKED, []))
-    done_pos = _last_match_pos(capture, patterns.get(STATE_DONE, []))
-    if blocked_pos >= 0 and blocked_pos >= done_pos:
-        return STATE_BLOCKED
-    if done_pos >= 0:
-        return STATE_DONE
     return STATE_IDLE
 
 
@@ -111,10 +74,10 @@ def _session_meta(session_id: str) -> tuple[str | None, str | None]:
     return meta.get("TMUX_WORKSPACE"), meta.get("TMUX_JOB_NAME")
 
 
-def _job_state_patterns(workspace: str | None, job_name: str | None) -> dict[str, list[str]]:
-    """セッションを起動したジョブ定義から検知語句を引く（ジョブ無しは空 dict）。"""
+def _job_notify_phrase(workspace: str | None, job_name: str | None) -> str:
+    """セッションを起動したジョブ定義から notify_phrase を引く（ジョブ無しは空文字）。"""
     if not job_name:
-        return {}
+        return ""
     from .routers.jobs_common import (
         entry_to_job_definition,
         get_workspace_jobs,
@@ -122,16 +85,27 @@ def _job_state_patterns(workspace: str | None, job_name: str | None) -> dict[str
     )
     if workspace:
         entry = get_workspace_jobs(workspace).get(job_name)
-        if not entry:
-            return {}
-        patterns: dict[str, list[str]] = entry[0].state_patterns
-        return patterns
+        return entry[0].notify_phrase if entry else ""
     data = load_common_jobs_data()
     raw = data.get(job_name)
-    if raw is None:
-        return {}
-    common_patterns: dict[str, list[str]] = entry_to_job_definition(job_name, raw).state_patterns
-    return common_patterns
+    return entry_to_job_definition(job_name, raw).notify_phrase if raw is not None else ""
+
+
+def _job_notify_delay(workspace: str | None, job_name: str | None) -> int:
+    """セッションを起動したジョブ定義から notify_delay_min を引く（ジョブ無しは 0）。"""
+    if not job_name:
+        return 0
+    from .routers.jobs_common import (
+        entry_to_job_definition,
+        get_workspace_jobs,
+        load_common_jobs_data,
+    )
+    if workspace:
+        entry = get_workspace_jobs(workspace).get(job_name)
+        return entry[0].notify_delay_min if entry else 0
+    data = load_common_jobs_data()
+    raw = data.get(job_name)
+    return entry_to_job_definition(job_name, raw).notify_delay_min if raw is not None else 0
 
 
 def _job_working_enabled(workspace: str | None, job_name: str | None) -> bool:
@@ -151,32 +125,10 @@ def _job_working_enabled(workspace: str | None, job_name: str | None) -> bool:
     return entry_to_job_definition(job_name, raw).working_enabled if raw is not None else True
 
 
-def _job_watch_phrases(workspace: str | None, job_name: str | None) -> list[dict]:
-    """セッションを起動したジョブ定義から watch_phrases を引く（ジョブ無しは空リスト）。"""
-    if not job_name:
-        return []
-    from .routers.jobs_common import (
-        entry_to_job_definition,
-        get_workspace_jobs,
-        load_common_jobs_data,
-    )
-    if workspace:
-        entry = get_workspace_jobs(workspace).get(job_name)
-        if not entry:
-            return []
-        phrases: list[dict] = entry[0].watch_phrases
-        return phrases
-    data = load_common_jobs_data()
-    raw = data.get(job_name)
-    if raw is None:
-        return []
-    common_phrases: list[dict] = entry_to_job_definition(job_name, raw).watch_phrases
-    return common_phrases
-
-
 # ポーリング間の可視ペイン内容（アクティビティ判定用）。ポーリングタスクのみが触る。
 _last_capture: dict[str, str] = {}
-
+# フレーズ初検出時刻（monotonic）。キー不在 = 未検出、None = 通知送信済み。
+_phrase_detected_at: dict[str, float | None] = {}
 
 _subscribers: set[WebSocket] = set()
 _poll_task: asyncio.Task | None = None
@@ -194,24 +146,43 @@ def reset_last_capture(session_id: str) -> None:
         _last_states.pop(session_id, None)
 
 
-def collect_agent_states() -> dict[str, str]:
-    """全ターミナルセッションの状態を判定して返す（executor スレッドで実行）。"""
+def collect_agent_states() -> tuple[dict[str, str], list[str]]:
+    """全ターミナルセッションの状態を判定して返す（executor スレッドで実行）。
+
+    Returns:
+        (states, notification_states): states は session_id→state の辞書、
+        notification_states はプッシュ通知すべき notify_phrase 文字列のリスト。
+    """
     states: dict[str, str] = {}
+    notification_states: list[str] = []
+    now = time.monotonic()
     for session_id in _list_session_ids():
         capture = capture_visible_pane(TMUX_SESSION_PREFIX + session_id)
         if capture is None:
             continue
         workspace, job_name = _session_meta(session_id)
-        watch_phrases = _job_watch_phrases(workspace, job_name)
-        patterns = _job_state_patterns(workspace, job_name)
+        notify_phrase = _job_notify_phrase(workspace, job_name)
         working_enabled = _job_working_enabled(workspace, job_name)
-        states[session_id] = classify_agent_state(
-            capture, _last_capture.get(session_id), patterns, watch_phrases, working_enabled,
-        )
+        new_state = classify_agent_state(capture, _last_capture.get(session_id), working_enabled)
+        states[session_id] = new_state
+        if notify_phrase and notify_phrase in capture:
+            if session_id not in _phrase_detected_at:
+                # 初検出: 検出時刻を記録
+                _phrase_detected_at[session_id] = now
+            detected_at = _phrase_detected_at[session_id]
+            if detected_at is not None:
+                delay_sec = _job_notify_delay(workspace, job_name) * 60
+                if now - detected_at >= delay_sec:
+                    notification_states.append(notify_phrase)
+                    _phrase_detected_at[session_id] = None  # 送信済みマーク
+        else:
+            _phrase_detected_at.pop(session_id, None)
         _last_capture[session_id] = capture
     for stale in set(_last_capture) - set(states):
         del _last_capture[stale]
-    return states
+    for stale in set(_phrase_detected_at) - set(states):
+        del _phrase_detected_at[stale]
+    return states, notification_states
 
 
 def subscriber_count() -> int:
@@ -272,6 +243,7 @@ def _stop_task() -> None:
     _poll_task = None
     _last_states.clear()
     _last_capture.clear()
+    _phrase_detected_at.clear()
 
 
 def shutdown() -> None:
@@ -302,17 +274,20 @@ async def _broadcast(payload: dict[str, Any]) -> None:
 
 async def _poll_loop() -> None:  # pragma: no cover - 実時間スリープに依存
     """購読者がいる間、可視ペインをポーリングして状態変化を push する。"""
+    from .push import send_push_notification
     try:
         while _subscribers:
             await asyncio.sleep(AGENT_WATCH_POLL_INTERVAL_SEC)
             if not _subscribers:
                 break
             loop = asyncio.get_running_loop()
-            states = await loop.run_in_executor(BACKGROUND_EXECUTOR, collect_agent_states)
+            states, notification_states = await loop.run_in_executor(BACKGROUND_EXECUTOR, collect_agent_states)
             changed = diff_states(_last_states, states)
             _last_states.clear()
             _last_states.update(states)
             if changed:
                 await _broadcast(states_payload(changed))
+            for phrase in notification_states:
+                send_push_notification(title="Job alert", body=phrase)
     except asyncio.CancelledError:
         pass

@@ -22,50 +22,25 @@ def _reset_agent_watch_state():
 
 
 class TestClassifyAgentState:
-    PATTERNS = {"blocked": ["Do you want to", "esc to interrupt"], "done": ["Session complete"]}
-
     def test_output_change_is_working(self):
-        assert classify_agent_state("spinner /", "spinner -", self.PATTERNS) == "working"
+        assert classify_agent_state("spinner /", "spinner -") == "working"
 
-    def test_static_screen_with_blocked_phrase(self):
-        text = "...\nDo you want to proceed?\n> "
-        assert classify_agent_state(text, text, self.PATTERNS) == "blocked"
-
-    def test_static_screen_with_done_phrase(self):
-        text = "...\nSession complete\n$ "
-        assert classify_agent_state(text, text, self.PATTERNS) == "done"
-
-    def test_later_phrase_wins_blocked_after_done(self):
-        text = "Session complete\n...\nDo you want to commit?\n"
-        assert classify_agent_state(text, text, self.PATTERNS) == "blocked"
-
-    def test_later_phrase_wins_done_after_blocked(self):
-        text = "Do you want to proceed?\n...\nSession complete\n"
-        assert classify_agent_state(text, text, self.PATTERNS) == "done"
-
-    def test_static_screen_without_match_is_idle(self):
+    def test_static_screen_is_idle(self):
         text = "$ ls\nREADME.md\n$ "
-        assert classify_agent_state(text, text, self.PATTERNS) == "idle"
+        assert classify_agent_state(text, text) == "idle"
 
-    def test_first_poll_matches_phrases_without_activity(self):
-        # 初回（prev なし）はアクティビティ判定をスキップして語句照合する
-        text = "Do you want to proceed?\n"
-        assert classify_agent_state(text, None, self.PATTERNS) == "blocked"
+    def test_first_poll_is_idle(self):
+        assert classify_agent_state("anything", None) == "idle"
 
-    def test_no_patterns_is_idle_or_working(self):
-        assert classify_agent_state("abc", "abc", {}) == "idle"
-        assert classify_agent_state("abc", "abd", {}) == "working"
-
-    def test_empty_phrase_is_ignored(self):
-        text = "anything"
-        assert classify_agent_state(text, text, {"blocked": [""]}) == "idle"
+    def test_working_disabled_is_always_idle(self):
+        assert classify_agent_state("abc", "abd", working_enabled=False) == "idle"
 
 
 class TestDiffStates:
     def test_only_changed_entries_are_returned(self):
-        prev = {"a": "working", "b": "blocked"}
-        cur = {"a": "working", "b": "done", "c": "idle"}
-        assert diff_states(prev, cur) == {"b": "done", "c": "idle"}
+        prev = {"a": "working", "b": "idle"}
+        cur = {"a": "working", "b": "working", "c": "idle"}
+        assert diff_states(prev, cur) == {"b": "working", "c": "idle"}
 
     def test_removed_sessions_are_not_reported(self):
         assert diff_states({"a": "working"}, {}) == {}
@@ -73,10 +48,10 @@ class TestDiffStates:
 
 class TestStatesPayload:
     def test_payload_shape(self):
-        payload = states_payload({"s1": "blocked"})
+        payload = states_payload({"s1": "idle"})
         assert payload == {
             "type": "agent_states",
-            "states": [{"session_id": "s1", "state": "blocked"}],
+            "states": [{"session_id": "s1", "state": "idle"}],
         }
 
 
@@ -97,34 +72,60 @@ class TestCollectAgentStates:
             lambda name: captures.get(name),
         )
 
-    def test_states_by_job_patterns(self, client, monkeypatch):
+    def test_notify_phrase_triggers_notification(self, client, monkeypatch):
         res = client.post("/common/jobs", headers=AUTH, json={
             "label": "agent",
             "command": "claude",
-            "state_patterns": {"blocked": ["Do you want to"], "done": ["All done"]},
+            "notify_phrase": "Session complete",
         })
         job_name = res.json()["name"]
 
-        self._setup_tmux(monkeypatch, ["ac-s1", "other"], {"ac-s1": "Do you want to proceed?\n"})
+        self._setup_tmux(monkeypatch, ["ac-s1", "other"], {"ac-s1": "Session complete\n$ "})
         monkeypatch.setattr(
             agent_watch, "load_tmux_metadata",
             lambda name: {"TMUX_JOB_NAME": job_name},
         )
 
-        assert collect_agent_states() == {"s1": "blocked"}
+        states, notifications = collect_agent_states()
+        assert states == {"s1": "idle"}
+        assert "Session complete" in notifications
+
+    def test_notify_phrase_not_duplicated(self, client, monkeypatch):
+        res = client.post("/common/jobs", headers=AUTH, json={
+            "label": "agent",
+            "command": "claude",
+            "notify_phrase": "Done",
+        })
+        job_name = res.json()["name"]
+
+        self._setup_tmux(monkeypatch, ["ac-s1"], {"ac-s1": "Done\n$ "})
+        monkeypatch.setattr(
+            agent_watch, "load_tmux_metadata",
+            lambda name: {"TMUX_JOB_NAME": job_name},
+        )
+
+        _, notifications = collect_agent_states()
+        assert "Done" in notifications
+
+        # 同じフレーズが画面にある間は再通知しない
+        _, notifications2 = collect_agent_states()
+        assert notifications2 == []
 
     def test_activity_between_polls_is_working(self, client, monkeypatch):
         self._setup_tmux(monkeypatch, ["ac-s1"], {"ac-s1": "output A"})
         monkeypatch.setattr(agent_watch, "load_tmux_metadata", lambda name: {})
 
-        assert collect_agent_states() == {"s1": "idle"}
+        states, _ = collect_agent_states()
+        assert states == {"s1": "idle"}
 
         self._setup_tmux(monkeypatch, ["ac-s1"], {"ac-s1": "output B"})
-        assert collect_agent_states() == {"s1": "working"}
+        states, _ = collect_agent_states()
+        assert states == {"s1": "working"}
 
     def test_capture_failure_skips_session(self, monkeypatch):
         self._setup_tmux(monkeypatch, ["ac-s1"], {})
-        assert collect_agent_states() == {}
+        states, _ = collect_agent_states()
+        assert states == {}
 
     def test_stale_captures_are_pruned(self, monkeypatch):
         self._setup_tmux(monkeypatch, ["ac-s1"], {"ac-s1": "text"})
@@ -133,18 +134,20 @@ class TestCollectAgentStates:
         assert "s1" in agent_watch._last_capture
 
         self._setup_tmux(monkeypatch, [], {})
-        assert collect_agent_states() == {}
+        states, _ = collect_agent_states()
+        assert states == {}
         assert agent_watch._last_capture == {}
 
     def test_tmux_unavailable_returns_empty(self, monkeypatch):
         monkeypatch.setattr(agent_watch, "_run_tmux_cmd", lambda *args: None)
-        assert collect_agent_states() == {}
+        states, _ = collect_agent_states()
+        assert states == {}
 
     def test_cached_session_meta_is_used(self, client, workspace, monkeypatch):
         res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "label": "agent",
             "command": "claude",
-            "state_patterns": {"done": ["FINISHED"]},
+            "notify_phrase": "FINISHED",
         })
         job_name = res.json()["name"]
 
@@ -156,7 +159,9 @@ class TestCollectAgentStates:
             TERMINAL_SESSIONS["s2"] = session
 
         self._setup_tmux(monkeypatch, ["ac-s2"], {"ac-s2": "FINISHED\n$ "})
-        assert collect_agent_states() == {"s2": "done"}
+        states, notifications = collect_agent_states()
+        assert states == {"s2": "idle"}
+        assert "FINISHED" in notifications
 
 
 class _FakeWebSocket:
@@ -171,11 +176,11 @@ class TestSubscribeLifecycle:
     def test_subscribe_sends_snapshot_and_manages_task(self):
         async def run():
             ws = _FakeWebSocket()
-            agent_watch._last_states["s1"] = "blocked"
+            agent_watch._last_states["s1"] = "idle"
             await agent_watch.subscribe(ws)
             assert agent_watch.subscriber_count() == 1
             assert agent_watch._poll_task is not None
-            assert ws.sent == [states_payload({"s1": "blocked"})]
+            assert ws.sent == [states_payload({"s1": "idle"})]
 
             agent_watch.unsubscribe(ws)
             assert agent_watch.subscriber_count() == 0
@@ -202,8 +207,8 @@ class TestSubscribeLifecycle:
             alive, dead = _FakeWebSocket(), DeadWS()
             await agent_watch.subscribe(alive)
             await agent_watch.subscribe(dead)
-            await agent_watch._broadcast(states_payload({"s1": "done"}))
-            assert alive.sent == [states_payload({"s1": "done"})]
+            await agent_watch._broadcast(states_payload({"s1": "idle"}))
+            assert alive.sent == [states_payload({"s1": "idle"})]
             assert dead not in agent_watch._subscribers
             agent_watch.unsubscribe(alive)
 
@@ -212,59 +217,41 @@ class TestSubscribeLifecycle:
 
 class TestStatusStreamWs:
     def test_snapshot_delivered_on_connect(self, client):
-        agent_watch._last_states["s9"] = "blocked"
+        agent_watch._last_states["s9"] = "idle"
         with client.websocket_connect(f"/workspaces/statuses/ws?token={TOKEN}") as ws:
             msg = ws.receive_json()
-            assert msg == states_payload({"s9": "blocked"})
+            assert msg == states_payload({"s9": "idle"})
 
 
-class TestJobStatePatternsApi:
+class TestNotifyPhraseApi:
     def test_roundtrip_via_common_jobs(self, client):
         res = client.post("/common/jobs", headers=AUTH, json={
             "label": "agent",
             "command": "claude",
-            "state_patterns": {"blocked": [" Do you want to ", ""], "done": []},
+            "notify_phrase": "  Session complete  ",
         })
         assert res.status_code == 200
         job_name = res.json()["name"]
 
         jobs = client.get("/common/jobs", headers=AUTH).json()
-        # 語句は trim され、空行・空の状態キーは保存されない
-        assert jobs[job_name]["state_patterns"] == {"blocked": ["Do you want to"]}
-
-    def test_unknown_state_key_is_rejected(self, client):
-        res = client.post("/common/jobs", headers=AUTH, json={
-            "label": "agent",
-            "command": "claude",
-            "state_patterns": {"running": ["x"]},
-        })
-        assert res.status_code == 400
-        assert "Unknown state pattern key" in res.json()["detail"]
+        assert jobs[job_name]["notify_phrase"] == "Session complete"
 
     def test_too_long_phrase_is_rejected(self, client):
         res = client.post("/common/jobs", headers=AUTH, json={
             "label": "agent",
             "command": "claude",
-            "state_patterns": {"blocked": ["x" * 201]},
+            "notify_phrase": "x" * 201,
         })
-        assert res.status_code == 400
+        assert res.status_code == 422
 
-    def test_too_many_phrases_are_rejected(self, client):
-        res = client.post("/common/jobs", headers=AUTH, json={
-            "label": "agent",
-            "command": "claude",
-            "state_patterns": {"blocked": ["p"] * 21},
-        })
-        assert res.status_code == 400
-
-    def test_browser_job_ignores_patterns(self, client):
+    def test_browser_job_ignores_notify_phrase(self, client):
         res = client.post("/common/jobs", headers=AUTH, json={
             "label": "docs",
             "type": "browser",
             "url": "https://example.com",
-            "state_patterns": {"blocked": ["never"]},
+            "notify_phrase": "never",
         })
         assert res.status_code == 200
         job_name = res.json()["name"]
         jobs = client.get("/common/jobs", headers=AUTH).json()
-        assert jobs[job_name]["state_patterns"] == {}
+        assert jobs[job_name].get("notify_phrase", "") == ""
