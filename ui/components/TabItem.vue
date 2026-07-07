@@ -355,11 +355,20 @@ onBeforeUnmount(() => {
 }
 
 .tab-btn.tab-working:not(.active) {
-  animation: tab-working-pulse 1.8s ease-in-out infinite;
+  background-image: linear-gradient(
+    90deg,
+    var(--bg-primary) 0%,
+    var(--bg-primary) 10%,
+    rgba(130, 170, 255, 0.2) 50%,
+    var(--bg-primary) 90%,
+    var(--bg-primary) 100%
+  );
+  background-size: 200% 100%;
+  animation: tab-working-pulse 2s linear infinite;
 }
 
 @keyframes tab-working-pulse {
-  0%, 100% { background: var(--bg-primary); }
-  50% { background: rgba(100, 150, 255, 0.18); }
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
 }
 </style>
