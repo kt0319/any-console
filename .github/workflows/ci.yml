@@ -133,6 +133,9 @@ jobs:
         run: sudo apt-get install -y tmux
 
       - name: Start server
+        # E2E は短時間に多数のリクエストを送るため、レート制限(既定 200req/60s)を引き上げる
+        env:
+          ANY_CONSOLE_RATE_LIMIT: "2000"
         run: |
           mkdir -p data
           echo '{"token": "e2e-ci-token"}' > data/auth.json

@@ -87,9 +87,16 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
 
 ## E2E スモーク
 
-- `tests/e2e/smoke.spec.js` に Playwright スモークを置く（**CI の `e2e` ジョブで毎回実行**。ローカル手動実行も可）
+- `tests/e2e/*.spec.js` に Playwright スモークを置く（**CI の `e2e` ジョブで毎回実行**。ローカル手動実行も可）
+  - `smoke.spec.js`: 認証フロー（ログイン画面・不正トークン・認証維持）
+  - `settings.spec.js`: 設定モーダルの開閉（Esc / Close）とビュー遷移
+  - `terminal.spec.js`: ターミナル起動・コマンド実行・タブクローズ確認ダイアログ
+  - `mobile.spec.js`: モバイルビューポート（375px）での主要フロー
+  - 共通ヘルパー（ログイン・セッション後始末）は `helpers.js`
 - 重要な体験フロー（ログイン → メイン画面遷移）が壊れていないか確認する用途
 - CI ではフロントエンドをビルドし、テスト用トークンでサーバを起動してから実行する（`.github/workflows/ci.yml` 参照）
+- テストがサーバ状態を汚さないこと (**MUST**): セッション等を作るテストは自分が作った分だけを必ず後始末する（`helpers.js` の `cleanupNewSessions` を使う。既存セッションには触れない）
+- E2E は短時間に多数の API リクエストを送るため、対象サーバはレート制限を引き上げて起動する（`ANY_CONSOLE_RATE_LIMIT=2000` 等。既定 200req/60s のままだと連続実行で 429 になる）
 - ローカル初回セットアップ:
   ```bash
   npm install
