@@ -52,6 +52,7 @@ describe("TERMINAL_URL_REGEX", () => {
 function makeTermWithRect({ lines, cols = 80, rows = 24, rect = { left: 0, top: 0, width: 800, height: 240 } }) {
   const lineObjects = lines.map((text) => ({
     length: text.length,
+    isWrapped: false,
     getCell: (i) => ({ getChars: () => text[i] || " " }),
     translateToString: () => text,
   }));
@@ -112,8 +113,12 @@ describe("findUrlInBuffer", () => {
     const part2 = "unners/new";
     const cols = part1.length;
     const lineObjects = [
-      { length: cols, isWrapped: false, getCell: (i) => ({ getChars: () => part1[i] || " " }) },
-      { length: cols, isWrapped: true,  getCell: (i) => ({ getChars: () => part2[i] || " " }) },
+      { length: cols, isWrapped: false,
+        getCell: (i) => ({ getChars: () => part1[i] || " " }),
+        translateToString: () => part1 },
+      { length: cols, isWrapped: true,
+        getCell: (i) => ({ getChars: () => part2[i] || " " }),
+        translateToString: () => part2.padEnd(cols) },
     ];
     const rect = { left: 0, top: 0, width: cols * 10, height: 40 };
     const element = { querySelector: () => ({ getBoundingClientRect: () => rect }) };

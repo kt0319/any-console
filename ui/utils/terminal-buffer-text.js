@@ -21,17 +21,31 @@ export function findUrlInBuffer(term, clientX, clientY) {
   const lineIdx = buf.viewportY + rowOffset;
   if (!buf.getLine(lineIdx)) return null;
 
-  // isWrapped で折り返し行を正確に連結する（末尾文字判定より確実）。
-  // 前方: クリック行が isWrapped なら前の行へさかのぼる。
-  let startIdx = lineIdx;
-  while (startIdx > 0 && buf.getLine(startIdx)?.isWrapped) {
-    startIdx--;
+  // isWrapped（ターミナル折り返し）と行末文字（アプリ改行）の両方で連結行を判定する。
+  function lineEndsWithUrlChar(idx) {
+    const l = buf.getLine(idx);
+    if (!l) return false;
+    const last = l.translateToString(true).slice(-1);
+    return !!last && last !== " ";
   }
 
-  // 後方: 次の行が isWrapped なら含める。
+  let startIdx = lineIdx;
+  while (startIdx > 0) {
+    if (buf.getLine(startIdx)?.isWrapped || lineEndsWithUrlChar(startIdx - 1)) {
+      startIdx--;
+    } else {
+      break;
+    }
+  }
+
   let endIdx = lineIdx;
-  while (endIdx < buf.length - 1 && buf.getLine(endIdx + 1)?.isWrapped) {
-    endIdx++;
+  while (endIdx < buf.length - 1) {
+    const next = buf.getLine(endIdx + 1);
+    if (next?.isWrapped || lineEndsWithUrlChar(endIdx)) {
+      endIdx++;
+    } else {
+      break;
+    }
   }
 
   let text = "";
@@ -40,9 +54,12 @@ export function findUrlInBuffer(term, clientX, clientY) {
     const cur = buf.getLine(i);
     if (!cur) break;
     lineOffsets[i] = text.length;
-    for (let j = 0; j < cur.length; j++) {
-      text += cur.getCell(j)?.getChars() || "";
-    }
+    // 折り返し行の末尾スペースパディングを除いてから結合する。
+    // xterm は折り返し行の余白をスペースで埋めるため、そのまま結合すると
+    // 正規表現がスペースで URL を途切れさせる。
+    const lineText = cur.translateToString(true);
+    // 最終行以外は末尾スペースをトリムして継続結合する。
+    text += (i < endIdx) ? lineText.trimEnd() : lineText;
   }
 
   const absPos = (lineOffsets[lineIdx] || 0) + col;
