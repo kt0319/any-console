@@ -12,6 +12,7 @@ import { createPendingPromise } from "../utils/pending-promise.js";
  *   create_branch?: boolean,
  *   text?: string,
  *   effective_workspace?: string,
+ *   existing_session_id?: string|null,
  * }} DispatchRequestPayload
  */
 
