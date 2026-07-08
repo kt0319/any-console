@@ -3,18 +3,8 @@
     <div class="dispatch-prompt-box" role="dialog" aria-modal="true" aria-labelledby="dispatch-prompt-title">
       <h3 id="dispatch-prompt-title" class="dispatch-prompt-title">Run dispatch?</h3>
 
-      <dl class="dispatch-prompt-meta">
-        <template v-if="request?.workspace">
-          <dt>Workspace</dt>
-          <dd>{{ request.workspace }}</dd>
-        </template>
-        <template v-if="request?.worktree">
-          <dt>Worktree</dt>
-          <dd>{{ request.worktree }}</dd>
-        </template>
-      </dl>
-
       <template v-if="request?.workspace">
+        <!-- Session toggle -->
         <div class="dispatch-prompt-field">
           <span class="dispatch-prompt-label">Session</span>
           <div class="dispatch-match-options">
@@ -25,50 +15,67 @@
               <input type="radio" v-model="selectedMatch" value="new" /> New session
             </label>
           </div>
-          <select v-if="selectedMatch === 'existing' && sessions.length > 0" v-model="selectedSessionId" class="dispatch-prompt-select">
-            <option v-for="s in sessions" :key="s.session_id" :value="s.session_id">
-              {{ s.job_label || s.job_name || 'Terminal' }}
-            </option>
-          </select>
         </div>
-        <dl v-if="request?.job" class="dispatch-prompt-meta">
-          <dt>Job</dt>
-          <dd>{{ jobLabel }}</dd>
-        </dl>
-        <label v-else class="dispatch-prompt-field">
-          <span class="dispatch-prompt-label">Job</span>
-          <select v-model="selectedJob" class="dispatch-prompt-select">
-            <option value="terminal">Terminal</option>
-            <option v-for="job in jobs" :key="job.key" :value="job.key">
-              {{ job.label }}
-            </option>
-          </select>
-        </label>
-      </template>
 
-      <template v-if="hasBranchField">
-        <div class="dispatch-prompt-field">
-          <span class="dispatch-prompt-label">Branch</span>
-          <div class="dispatch-match-options">
-            <label class="dispatch-match-option">
-              <input type="radio" v-model="selectedCreateBranch" :value="true" /> Create
+        <!-- Use existing: セッション選択のみ -->
+        <template v-if="selectedMatch === 'existing'">
+          <label class="dispatch-prompt-field">
+            <span class="dispatch-prompt-label">Session</span>
+            <select v-model="selectedSessionId" class="dispatch-prompt-select">
+              <option v-if="sessions.length === 0" :value="null">(No sessions)</option>
+              <option v-for="s in sessions" :key="s.session_id" :value="s.session_id">
+                {{ s.workspace ? `${s.workspace} / ${s.job_label || s.job_name || 'Terminal'}` : (s.job_label || s.job_name || 'Terminal') }}
+              </option>
+            </select>
+          </label>
+        </template>
+
+        <!-- New session: Workspace / Job を表示 -->
+        <template v-else>
+          <dl class="dispatch-prompt-meta">
+            <dt>Workspace</dt>
+            <dd>{{ request.workspace }}</dd>
+            <template v-if="request?.worktree">
+              <dt>Worktree</dt>
+              <dd>{{ request.worktree }}</dd>
+            </template>
+          </dl>
+          <dl v-if="request?.job" class="dispatch-prompt-meta">
+            <dt>Job</dt>
+            <dd>{{ jobLabel }}</dd>
+          </dl>
+          <label v-else class="dispatch-prompt-field">
+            <span class="dispatch-prompt-label">Job</span>
+            <select v-model="selectedJob" class="dispatch-prompt-select">
+              <option value="terminal">Terminal</option>
+              <option v-for="job in jobs" :key="job.key" :value="job.key">
+                {{ job.label }}
+              </option>
+            </select>
+          </label>
+        </template>
+
+        <template v-if="hasBranchField">
+          <label class="dispatch-match-option">
+            <input type="checkbox" v-model="selectedCreateBranch" /> Create branch
+          </label>
+          <template v-if="selectedCreateBranch">
+            <label class="dispatch-prompt-field">
+              <span class="dispatch-prompt-label">
+                Branch name
+                <span v-if="branchStatusNote" class="dispatch-prompt-note">{{ branchStatusNote }}</span>
+              </span>
+              <input v-model="branch" type="text" autocomplete="off" spellcheck="false" />
             </label>
-            <label class="dispatch-match-option">
-              <input type="radio" v-model="selectedCreateBranch" :value="false" /> Checkout
+            <label class="dispatch-prompt-field">
+              <span class="dispatch-prompt-label">Base branch</span>
+              <select v-model="baseBranch" class="dispatch-prompt-select">
+                <option value="">(current)</option>
+                <option v-for="b in localBranches" :key="b" :value="b">{{ b }}</option>
+              </select>
             </label>
-          </div>
-        </div>
-        <label class="dispatch-prompt-field">
-          <span class="dispatch-prompt-label">
-            Branch name
-            <span v-if="branchStatusNote" class="dispatch-prompt-note">{{ branchStatusNote }}</span>
-          </span>
-          <input v-model="branch" type="text" autocomplete="off" spellcheck="false" />
-        </label>
-        <label class="dispatch-prompt-field">
-          <span class="dispatch-prompt-label">Base branch</span>
-          <input v-model="baseBranch" type="text" autocomplete="off" spellcheck="false" placeholder="(current)" />
-        </label>
+          </template>
+        </template>
       </template>
 
       <label class="dispatch-prompt-field">
@@ -97,6 +104,7 @@ const { apiGet } = useApi();
 
 const jobs = ref([]);
 const sessions = ref([]);
+const localBranches = ref([]);
 
 const jobLabel = computed(() => {
   const key = request.value?.job;
@@ -108,6 +116,7 @@ watch(visible, async (v) => {
   if (!v) {
     jobs.value = [];
     sessions.value = [];
+    localBranches.value = [];
     return;
   }
   const ws = request.value?.workspace;
@@ -120,9 +129,27 @@ watch(visible, async (v) => {
     jobs.value = Object.entries(jobsRes.data).map(([key, def]) => ({ key, label: def.label || key }));
   }
   if (sessionsRes.ok && Array.isArray(sessionsRes.data)) {
-    sessions.value = sessionsRes.data.filter((s) => s.workspace === ws && !s.detached);
+    sessions.value = sessionsRes.data.filter((s) => !s.detached);
   }
 });
+
+// Base branch のブランチ一覧: 選択中セッションのワークスペースまたはリクエストのワークスペース
+const baseBranchWorkspace = computed(() => {
+  if (selectedMatch.value === "existing" && selectedSessionId.value) {
+    const s = sessions.value.find((s) => s.session_id === selectedSessionId.value);
+    return s?.workspace || request.value?.workspace;
+  }
+  return request.value?.workspace;
+});
+
+watch(baseBranchWorkspace, async (ws) => {
+  localBranches.value = [];
+  if (!ws || !visible.value) return;
+  const res = await apiGet(`/workspaces/${encodeURIComponent(ws)}/branches`);
+  if (res.ok && Array.isArray(res.data)) {
+    localBranches.value = res.data.map((b) => b.name);
+  }
+}, { immediate: true });
 
 const hasBranchField = computed(() => !!request.value?.branch || !!request.value?.worktree === false && !!request.value?.create_branch);
 
@@ -198,7 +225,7 @@ const branchStatusNote = computed(() => {
   color: var(--text-muted);
   font-size: 11px;
 }
-.dispatch-prompt-field input,
+.dispatch-prompt-field input:not([type="radio"]),
 .dispatch-prompt-field textarea,
 .dispatch-prompt-select {
   padding: 8px;

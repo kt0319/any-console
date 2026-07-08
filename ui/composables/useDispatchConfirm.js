@@ -44,8 +44,11 @@ export function useDispatchConfirm() {
 
   function focusMatchingTab(req) {
     if (!req?.workspace) return;
-    // dispatch の match=any 仕様に合わせて、workspace 一致タブがあれば即アクティブにする。
-    // ユーザがダイアログを見た時点で「どのタブに入力が流れるか」を視認できるようにする。
+    // existing_session_id があればそのタブを優先してアクティブにする。
+    if (req.existing_session_id) {
+      const sessionTab = terminalStore.openTabs.find((t) => t.sessionId === req.existing_session_id);
+      if (sessionTab) { emit("tab:select", { tab: sessionTab }); return; }
+    }
     const effectiveWs = req.effective_workspace || req.workspace;
     const candidates = terminalStore.openTabs.filter((t) => t.workspace === effectiveWs);
     if (!candidates.length) return;

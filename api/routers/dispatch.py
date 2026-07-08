@@ -213,6 +213,9 @@ async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
         "base_branch": body.base_branch,
         "text": body.text,
         "job": body.job,
+        "match": body.match,
+        "create_branch": body.create_branch,
+        "session_id": body.session_id,
     }
     p["event"].set()
     _broadcast({"type": "decided", "id": dispatch_id, "approved": body.approved})
@@ -305,9 +308,6 @@ async def dispatch(body: DispatchRequest):
     # 承認モーダルで job が変更された場合に備えて再解決する。
     job_def = _resolve_job_def(effective_ws, body.job)
 
-    if body.branch and not body.worktree:
-        _ensure_branch(ws_path, body.branch, body.create_branch, body.base_branch)
-
     session_id = None
     session = None
     created = False
@@ -321,6 +321,12 @@ async def dispatch(body: DispatchRequest):
             session = None
     if session is None:
         session_id, session = _find_existing_session(effective_ws, body.job, body.match)
+
+    # ブランチ操作は確定したセッションのワークスペースで行う。
+    if body.branch and not body.worktree:
+        branch_ws = (session.workspace if session and session.workspace else None) or effective_ws
+        branch_ws_path = resolve_workspace_path(branch_ws)
+        _ensure_branch(branch_ws_path, body.branch, body.create_branch, body.base_branch)
 
     if session is None:
         session_id, session = _create_session(effective_ws, ws_path, body.job, job_def)

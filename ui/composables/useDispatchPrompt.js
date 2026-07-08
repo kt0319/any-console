@@ -58,7 +58,7 @@ export function useDispatchPrompt() {
     selectedJob.value = req?.job || "terminal";
     selectedMatch.value = req?.existing_session_id ? "existing" : "new";
     selectedSessionId.value = req?.existing_session_id || null;
-    selectedCreateBranch.value = req?.create_branch !== false;
+    selectedCreateBranch.value = !!req?.create_branch;
     currentId.value = id;
     visible.value = true;
     return pending.begin({ approved: false, overrides: {} });
@@ -67,7 +67,7 @@ export function useDispatchPrompt() {
   function approve() {
     const orig = request.value || {};
     const origMatch = orig.existing_session_id ? "existing" : "new";
-    const origCreateBranch = orig.create_branch !== false;
+    const origCreateBranch = !!orig.create_branch;
     const overrides = {
       branch: branch.value !== (orig.branch || "") ? branch.value : null,
       base_branch: baseBranch.value !== (orig.base_branch || "") ? baseBranch.value : null,
