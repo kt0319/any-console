@@ -70,6 +70,7 @@ class DispatchRequest(BaseModel):
     text: str = ""
     enter: bool = True
     match: str = "any"  # "any": workspace一致のみ / "job": workspace+job一致
+    session_id: str | None = None  # 特定セッションを指定する場合に設定
     branch: str | None = None
     create_branch: bool = False
     base_branch: str | None = None
@@ -174,6 +175,8 @@ class DispatchDecision(BaseModel):
     text: str | None = None
     job: str | None = None
     match: str | None = None
+    create_branch: bool | None = None
+    session_id: str | None = None
 
 
 @router.get("/dispatch/events")
@@ -231,6 +234,10 @@ def _apply_overrides(body: DispatchRequest, overrides: dict | None) -> None:
         body.job = overrides["job"]
     if "match" in overrides and overrides["match"] is not None:
         body.match = overrides["match"]
+    if "create_branch" in overrides and overrides["create_branch"] is not None:
+        body.create_branch = overrides["create_branch"]
+    if "session_id" in overrides and overrides["session_id"] is not None:
+        body.session_id = overrides["session_id"]
 
 
 async def _await_user_approval(body: DispatchRequest, request_payload: dict) -> str:
@@ -305,7 +312,15 @@ async def dispatch(body: DispatchRequest):
     session = None
     created = False
 
-    session_id, session = _find_existing_session(effective_ws, body.job, body.match)
+    if body.session_id:
+        with sessions_lock:
+            session = TERMINAL_SESSIONS.get(body.session_id)
+        if session and tmux_session_exists(session.tmux_session_name):
+            session_id = body.session_id
+        else:
+            session = None
+    if session is None:
+        session_id, session = _find_existing_session(effective_ws, body.job, body.match)
 
     if session is None:
         session_id, session = _create_session(effective_ws, ws_path, body.job, job_def)

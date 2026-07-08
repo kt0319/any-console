@@ -25,6 +25,8 @@ const baseBranch = ref("");
 const text = ref("");
 const selectedJob = ref("terminal");
 const selectedMatch = ref("existing");
+const selectedSessionId = ref(null);
+const selectedCreateBranch = ref(true);
 const pending = createPendingPromise();
 /** @type {import("vue").Ref<string|null>} */
 const currentId = ref(null);
@@ -37,6 +39,8 @@ function reset() {
   text.value = "";
   selectedJob.value = "terminal";
   selectedMatch.value = "existing";
+  selectedSessionId.value = null;
+  selectedCreateBranch.value = true;
   currentId.value = null;
 }
 
@@ -53,6 +57,8 @@ export function useDispatchPrompt() {
     text.value = req?.text || "";
     selectedJob.value = req?.job || "terminal";
     selectedMatch.value = req?.existing_session_id ? "existing" : "new";
+    selectedSessionId.value = req?.existing_session_id || null;
+    selectedCreateBranch.value = req?.create_branch !== false;
     currentId.value = id;
     visible.value = true;
     return pending.begin({ approved: false, overrides: {} });
@@ -61,12 +67,15 @@ export function useDispatchPrompt() {
   function approve() {
     const orig = request.value || {};
     const origMatch = orig.existing_session_id ? "existing" : "new";
+    const origCreateBranch = orig.create_branch !== false;
     const overrides = {
       branch: branch.value !== (orig.branch || "") ? branch.value : null,
       base_branch: baseBranch.value !== (orig.base_branch || "") ? baseBranch.value : null,
       text: text.value !== (orig.text || "") ? text.value : null,
       job: selectedJob.value !== (orig.job || "terminal") ? selectedJob.value : null,
       match: selectedMatch.value !== origMatch ? (selectedMatch.value === "new" ? "none" : "any") : null,
+      session_id: selectedMatch.value === "existing" && selectedSessionId.value !== (orig.existing_session_id || null) ? selectedSessionId.value : null,
+      create_branch: selectedCreateBranch.value !== origCreateBranch ? selectedCreateBranch.value : null,
     };
     reset();
     pending.settle({ approved: true, overrides });
@@ -81,5 +90,5 @@ export function useDispatchPrompt() {
     if (currentId.value === id && visible.value) cancel();
   }
 
-  return { visible, request, branch, baseBranch, text, selectedJob, selectedMatch, open, approve, cancel, dismissById };
+  return { visible, request, branch, baseBranch, text, selectedJob, selectedMatch, selectedSessionId, selectedCreateBranch, open, approve, cancel, dismissById };
 }
