@@ -1,10 +1,21 @@
+import os
 import time
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse
 
-RATE_LIMIT_GENERAL = 200
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, ""))
+    except ValueError:
+        return default
+
+
+# E2E テスト等で連続アクセスが上限を超える場合に環境変数で引き上げられる
+# （通常運用では未設定のまま既定値を使う）。
+RATE_LIMIT_GENERAL = _env_int("ANY_CONSOLE_RATE_LIMIT", 200)
 RATE_WINDOW_SEC = 60
 
 # Static asset directories. Matched as path prefix.
