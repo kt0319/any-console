@@ -38,6 +38,28 @@ class TestFixedWindowCounter:
         assert c.is_allowed("k", 1, 0.01) is True
 
 
+class TestEnvInt:
+    """_env_int（ANY_CONSOLE_RATE_LIMIT 上書き）の判定パターン"""
+
+    def test_未設定ならデフォルト値(self, monkeypatch):
+        from api.rate_limiter import _env_int
+
+        monkeypatch.delenv("X_RATE_TEST", raising=False)
+        assert _env_int("X_RATE_TEST", 200) == 200
+
+    def test_数値なら上書きされる(self, monkeypatch):
+        from api.rate_limiter import _env_int
+
+        monkeypatch.setenv("X_RATE_TEST", "1000")
+        assert _env_int("X_RATE_TEST", 200) == 1000
+
+    def test_数値以外ならデフォルト値(self, monkeypatch):
+        from api.rate_limiter import _env_int
+
+        monkeypatch.setenv("X_RATE_TEST", "abc")
+        assert _env_int("X_RATE_TEST", 200) == 200
+
+
 class TestRateLimitMiddleware:
     """エンドポイント経由のレートリミットテスト"""
 
