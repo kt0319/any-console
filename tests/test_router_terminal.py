@@ -110,3 +110,41 @@ class TestHistoryRestore:
         assert res.status_code == 200
         assert res.json()["content"] == "line1\r\nline2"
         assert not any("resize-window" in c for c in calls)
+
+
+class TestWsAttachResetsCapture:
+    """WS アタッチ時に reset_last_capture を呼び、再アタッチ reflow の working 誤検知を防ぐ。"""
+
+    SESSION_ID = "attach-reset"
+    TMUX_NAME = "ac-attach-reset"
+
+    def _register_session(self) -> None:
+        from api.terminal_session import (
+            TERMINAL_SESSIONS,
+            TerminalSession,
+            sessions_lock,
+        )
+        session = TerminalSession(workspace=None, tmux_session_name=self.TMUX_NAME)
+        with sessions_lock:
+            TERMINAL_SESSIONS[self.SESSION_ID] = session
+
+    def test_attach_calls_reset_last_capture(self, client, monkeypatch):
+        from api.terminal_session import ClientBridge
+
+        self._register_session()
+        reset_calls: list[str] = []
+        monkeypatch.setattr("api.routers.terminal.tmux_session_exists", lambda name: True)
+        monkeypatch.setattr(
+            "api.routers.terminal.attach_client_bridge",
+            lambda session, cols, rows: ClientBridge(fd=None, pid=None),
+        )
+        monkeypatch.setattr("api.routers.terminal.start_bridge_reader", lambda *a, **k: None)
+        monkeypatch.setattr(
+            "api.routers.terminal.reset_last_capture", lambda sid: reset_calls.append(sid)
+        )
+
+        from conftest import TOKEN
+        with client.websocket_connect(f"/terminal/ws/{self.SESSION_ID}?token={TOKEN}"):
+            pass
+
+        assert reset_calls == [self.SESSION_ID]

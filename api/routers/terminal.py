@@ -9,6 +9,7 @@ from fastapi.websockets import WebSocketDisconnect
 from pydantic import BaseModel
 
 from ..activity import log_activity
+from ..agent_watch import reset_last_capture
 from ..auth import verify_token, verify_ws_token
 from ..common import (
     TMUX_CMD_TIMEOUT_SEC,
@@ -352,6 +353,9 @@ async def terminal_ws(websocket: WebSocket, session_id: str, token: str = "", co
 
     register_bridge(session, websocket, bridge)
     start_bridge_reader(session_id, websocket, bridge)
+    # 再アタッチ時の window-size 追従による reflow を working と誤検知しないよう、
+    # 比較基準をリセットする（resize 時の _handle_resize と同じ扱い）。
+    reset_last_capture(session_id)
 
     if session.pending_text:
         asyncio.create_task(_flush_pending_text(session, session_id))
