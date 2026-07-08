@@ -15,6 +15,17 @@
       </dl>
 
       <template v-if="request?.workspace">
+        <div v-if="request?.existing_session_id" class="dispatch-prompt-field">
+          <span class="dispatch-prompt-label">Session</span>
+          <div class="dispatch-match-options">
+            <label class="form-check-label">
+              <input type="radio" v-model="selectedMatch" value="existing" /> Use existing
+            </label>
+            <label class="form-check-label">
+              <input type="radio" v-model="selectedMatch" value="new" /> New session
+            </label>
+          </div>
+        </div>
         <dl v-if="request?.job" class="dispatch-prompt-meta">
           <dt>Job</dt>
           <dd>{{ jobLabel }}</dd>
@@ -66,7 +77,7 @@ import BaseDialog from "./BaseDialog.vue";
 import { useDispatchPrompt } from "../composables/useDispatchPrompt.js";
 import { useApi } from "../composables/useApi.js";
 
-const { visible, request, branch, baseBranch, text, selectedJob, approve, cancel } = useDispatchPrompt();
+const { visible, request, branch, baseBranch, text, selectedJob, selectedMatch, approve, cancel } = useDispatchPrompt();
 const { apiGet } = useApi();
 
 const jobs = ref([]);
@@ -134,6 +145,11 @@ const branchStatusNote = computed(() => {
   color: var(--text-primary);
   word-break: break-all;
 }
+.dispatch-match-options {
+  display: flex;
+  gap: 16px;
+}
+
 .dispatch-prompt-field {
   display: flex;
   flex-direction: column;

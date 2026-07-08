@@ -23,6 +23,7 @@ const branch = ref("");
 const baseBranch = ref("");
 const text = ref("");
 const selectedJob = ref("terminal");
+const selectedMatch = ref("existing");
 const pending = createPendingPromise();
 /** @type {import("vue").Ref<string|null>} */
 const currentId = ref(null);
@@ -34,6 +35,7 @@ function reset() {
   baseBranch.value = "";
   text.value = "";
   selectedJob.value = "terminal";
+  selectedMatch.value = "existing";
   currentId.value = null;
 }
 
@@ -49,6 +51,7 @@ export function useDispatchPrompt() {
     baseBranch.value = req?.base_branch || "";
     text.value = req?.text || "";
     selectedJob.value = req?.job || "terminal";
+    selectedMatch.value = req?.existing_session_id ? "existing" : "new";
     currentId.value = id;
     visible.value = true;
     return pending.begin({ approved: false, overrides: {} });
@@ -56,11 +59,13 @@ export function useDispatchPrompt() {
 
   function approve() {
     const orig = request.value || {};
+    const origMatch = orig.existing_session_id ? "existing" : "new";
     const overrides = {
       branch: branch.value !== (orig.branch || "") ? branch.value : null,
       base_branch: baseBranch.value !== (orig.base_branch || "") ? baseBranch.value : null,
       text: text.value !== (orig.text || "") ? text.value : null,
       job: selectedJob.value !== (orig.job || "terminal") ? selectedJob.value : null,
+      match: selectedMatch.value !== origMatch ? (selectedMatch.value === "new" ? "none" : "any") : null,
     };
     reset();
     pending.settle({ approved: true, overrides });
@@ -75,5 +80,5 @@ export function useDispatchPrompt() {
     if (currentId.value === id && visible.value) cancel();
   }
 
-  return { visible, request, branch, baseBranch, text, selectedJob, open, approve, cancel, dismissById };
+  return { visible, request, branch, baseBranch, text, selectedJob, selectedMatch, open, approve, cancel, dismissById };
 }

@@ -114,6 +114,8 @@ def _ensure_branch(ws_path, branch: str, create: bool, base: str | None) -> None
 
 
 def _find_existing_session(workspace: str, job: str, match: str = "any"):
+    if match == "none":
+        return None, None
     target_job = None if job == TERMINAL_JOB_KEY else job
     with sessions_lock:
         for sid, sess in TERMINAL_SESSIONS.items():
@@ -171,6 +173,7 @@ class DispatchDecision(BaseModel):
     base_branch: str | None = None
     text: str | None = None
     job: str | None = None
+    match: str | None = None
 
 
 @router.get("/dispatch/events")
@@ -226,6 +229,8 @@ def _apply_overrides(body: DispatchRequest, overrides: dict | None) -> None:
         body.text = overrides["text"] or ""
     if "job" in overrides and overrides["job"] is not None:
         body.job = overrides["job"]
+    if "match" in overrides and overrides["match"] is not None:
+        body.match = overrides["match"]
 
 
 async def _await_user_approval(body: DispatchRequest, request_payload: dict) -> str:
@@ -275,10 +280,11 @@ async def dispatch(body: DispatchRequest):
     if body.branch and not body.worktree:
         payload["branch_status"] = _branch_status(ws_path, body.branch)
 
-    # 既存セッションがある場合、モーダルに実際のジョブを表示するため先に探索する。
+    # 既存セッションがある場合、モーダルに実際のジョブと session_id を渡す。
     _pre_sid, _pre_sess = _find_existing_session(effective_ws, body.job, body.match)
     if _pre_sess is not None:
         payload["job"] = _pre_sess.job_name or TERMINAL_JOB_KEY
+        payload["existing_session_id"] = _pre_sid
 
     send_push_notification(
         title="Dispatch",
