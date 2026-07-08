@@ -243,6 +243,42 @@ def _apply_overrides(body: DispatchRequest, overrides: dict | None) -> None:
         body.session_id = overrides["session_id"]
 
 
+def _resolve_session(body: DispatchRequest, effective_ws: str):
+    """body.session_id → 既存セッション探索 の順でセッションを解決する。"""
+    if body.session_id:
+        with sessions_lock:
+            session = TERMINAL_SESSIONS.get(body.session_id)
+        if session and tmux_session_exists(session.tmux_session_name):
+            return body.session_id, session
+    return _find_existing_session(effective_ws, body.job, body.match)
+
+
+def _resolve_and_launch_session(body: DispatchRequest, effective_ws: str, ws_path, job_def):
+    """セッション解決・ブランチ操作・テキスト送信を行い (session_id, session, created) を返す。"""
+    session_id, session = _resolve_session(body, effective_ws)
+
+    if body.branch and not body.worktree:
+        branch_ws = (session.workspace if session and session.workspace else None) or effective_ws
+        _ensure_branch(resolve_workspace_path(branch_ws), body.branch, body.create_branch, body.base_branch)
+
+    created = False
+    if session is None:
+        session_id, session = _create_session(effective_ws, ws_path, body.job, job_def)
+        created = True
+        wait_pane_ready(session.tmux_session_name)
+        if job_def.command:
+            if not send_keys_to_tmux(session.tmux_session_name, job_def.command, enter=True):
+                logger.warning("dispatch job launch send-keys failed session=%s", session_id)
+        if body.text:
+            session.pending_text = body.text
+            session.pending_enter = body.enter
+    elif body.text:
+        if not send_keys_to_tmux(session.tmux_session_name, body.text, enter=body.enter):
+            logger.warning("dispatch text send-keys failed session=%s", session_id)
+
+    return session_id, session, created
+
+
 async def _await_user_approval(body: DispatchRequest, request_payload: dict) -> str:
     dispatch_id = secrets.token_urlsafe(8)
     event = asyncio.Event()
@@ -308,41 +344,7 @@ async def dispatch(body: DispatchRequest):
     # 承認モーダルで job が変更された場合に備えて再解決する。
     job_def = _resolve_job_def(effective_ws, body.job)
 
-    session_id = None
-    session = None
-    created = False
-
-    if body.session_id:
-        with sessions_lock:
-            session = TERMINAL_SESSIONS.get(body.session_id)
-        if session and tmux_session_exists(session.tmux_session_name):
-            session_id = body.session_id
-        else:
-            session = None
-    if session is None:
-        session_id, session = _find_existing_session(effective_ws, body.job, body.match)
-
-    # ブランチ操作は確定したセッションのワークスペースで行う。
-    if body.branch and not body.worktree:
-        branch_ws = (session.workspace if session and session.workspace else None) or effective_ws
-        branch_ws_path = resolve_workspace_path(branch_ws)
-        _ensure_branch(branch_ws_path, body.branch, body.create_branch, body.base_branch)
-
-    if session is None:
-        session_id, session = _create_session(effective_ws, ws_path, body.job, job_def)
-        created = True
-        wait_pane_ready(session.tmux_session_name)
-        if job_def.command:
-            if not send_keys_to_tmux(session.tmux_session_name, job_def.command, enter=True):
-                logger.warning("dispatch job launch send-keys failed session=%s", session_id)
-        if body.text:
-            # 新規セッションは tmux attach 直後の redraw で短い出力が消えるため、
-            # WS クライアントが接続したタイミングで送る pending text に積む。
-            session.pending_text = body.text
-            session.pending_enter = body.enter
-    elif body.text:
-        if not send_keys_to_tmux(session.tmux_session_name, body.text, enter=body.enter):
-            logger.warning("dispatch text send-keys failed session=%s", session_id)
+    session_id, session, created = _resolve_and_launch_session(body, effective_ws, ws_path, job_def)
 
     _broadcast({
         "type": "result",
