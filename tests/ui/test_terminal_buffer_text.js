@@ -105,4 +105,24 @@ describe("findUrlInBuffer", () => {
     const term = makeTermWithRect({ lines: [line], cols: line.length, rows: 1, rect: { left: 0, top: 0, width: line.length * 10, height: 20 } });
     expect(findUrlInBuffer(term, 0, 10)).toBeNull();
   });
+
+  it("isWrapped な折り返し行をまたいで URL を検出する", () => {
+    // "https://github.com/kt0319/actions/r" が行末で折り返し "unners/new" が次行に続く
+    const part1 = "https://github.com/kt0319/actions/r";
+    const part2 = "unners/new";
+    const cols = part1.length;
+    const lineObjects = [
+      { length: cols, isWrapped: false, getCell: (i) => ({ getChars: () => part1[i] || " " }) },
+      { length: cols, isWrapped: true,  getCell: (i) => ({ getChars: () => part2[i] || " " }) },
+    ];
+    const rect = { left: 0, top: 0, width: cols * 10, height: 40 };
+    const element = { querySelector: () => ({ getBoundingClientRect: () => rect }) };
+    const term = {
+      cols, rows: 2, element,
+      buffer: { active: { viewportY: 0, length: 2, getLine: (i) => lineObjects[i] || null } },
+    };
+    // 2行目の "u" をクリック → URL全体が返る
+    const url = findUrlInBuffer(term, 0, 25);
+    expect(url).toBe("https://github.com/kt0319/actions/runners/new");
+  });
 });
