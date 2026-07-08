@@ -59,6 +59,18 @@ class TestEnvInt:
         monkeypatch.setenv("X_RATE_TEST", "abc")
         assert _env_int("X_RATE_TEST", 200) == 200
 
+    def test_ゼロならデフォルト値(self, monkeypatch):
+        from api.rate_limiter import _env_int
+
+        monkeypatch.setenv("X_RATE_TEST", "0")
+        assert _env_int("X_RATE_TEST", 200) == 200
+
+    def test_負数ならデフォルト値(self, monkeypatch):
+        from api.rate_limiter import _env_int
+
+        monkeypatch.setenv("X_RATE_TEST", "-5")
+        assert _env_int("X_RATE_TEST", 200) == 200
+
 
 class TestRateLimitMiddleware:
     """エンドポイント経由のレートリミットテスト"""
