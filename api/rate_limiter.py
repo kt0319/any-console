@@ -8,9 +8,12 @@ from starlette.responses import JSONResponse
 
 def _env_int(name: str, default: int) -> int:
     try:
-        return int(os.environ.get(name, ""))
+        value = int(os.environ.get(name, ""))
     except ValueError:
         return default
+    # 0 や負数はリクエスト上限として不正（1リクエスト目以降すべて429になり
+    # UIが実質ロックされる）ため、既定値にフォールバックする。
+    return value if value > 0 else default
 
 
 # E2E テスト等で連続アクセスが上限を超える場合に環境変数で引き上げられる
