@@ -782,10 +782,10 @@ install_launchd() {
   generate_plist | sudo tee "$LAUNCHD_PLIST" > /dev/null
   sudo chown root:wheel "$LAUNCHD_PLIST"
   sudo chmod 644 "$LAUNCHD_PLIST"
-  # 既存ロードがあれば貼り直してから登録（env 変更を反映）。
+  # 既存ロードがあれば先に外す。disable 状態でも bootstrap できるよう enable を先に実行する。
   sudo launchctl bootout system "$LAUNCHD_PLIST" 2>/dev/null || true
-  sudo launchctl bootstrap system "$LAUNCHD_PLIST"
   sudo launchctl enable "system/$LAUNCHD_LABEL"
+  sudo launchctl bootstrap system "$LAUNCHD_PLIST"
   info "launchd service registered (starts at boot, no login required)"
 }
 
