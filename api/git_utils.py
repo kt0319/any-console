@@ -190,7 +190,7 @@ def list_git_workspace_paths() -> "list[tuple[str, Path]]":
     from .config import list_workspace_entries
     result = []
     for ws_id, entry in list_workspace_entries().items():
-        p = Path(entry.get("path", ""))
+        p = Path(entry.get("path", "")).expanduser()
         if p.is_dir() and git_is_repo(p):
             result.append((entry.get("name") or ws_id, p))
     return result
@@ -206,7 +206,7 @@ def find_dynamic_worktree_path(name: str) -> "Path | None":
     for entry in list_workspace_entries().values():
         if entry.get("name") != base_name:
             continue
-        base_path = Path(entry.get("path", ""))
+        base_path = Path(entry.get("path", "")).expanduser()
         if not base_path.is_dir():
             continue
         for wt in git_worktree_list(base_path)[1:]:  # インデックス0はmain

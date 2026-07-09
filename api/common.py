@@ -186,6 +186,19 @@ def safe_resolve_str(path: str | Path) -> str:
         return str(path)
 
 
+def collapse_user_path(p: Path) -> str:
+    """ホームディレクトリ配下のパスを ~/... 形式の文字列に変換する。"""
+    try:
+        return "~/" + str(p.relative_to(Path.home()))
+    except ValueError:
+        return str(p)
+
+
+def expand_workspace_path(s: str) -> Path:
+    """config.json に保存されたパス文字列を Path に変換する（~ を展開する）。"""
+    return Path(s).expanduser()
+
+
 def count_file_lines(file_path: Path) -> int:
     try:
         with open(file_path, "rb") as f:
@@ -234,7 +247,7 @@ def resolve_workspace_path(workspace: str | None) -> Path | None:
     config = load_workspace_config(workspace)
     ws_path_str = config.get("path", "")
     if ws_path_str:
-        ws_path = Path(ws_path_str)
+        ws_path = Path(ws_path_str).expanduser()
         if not ws_path.is_dir():
             raise bad_request(f"Workspace not found: {workspace}")
         return ws_path

@@ -8,6 +8,8 @@ from ..auth import verify_token
 from ..common import (
     BACKGROUND_EXECUTOR,
     BACKGROUND_FETCH_TIMEOUT_SEC,
+    collapse_user_path,
+    expand_workspace_path,
     generate_workspace_id,
     run_subprocess_safe,
     safe_resolve_str,
@@ -90,7 +92,7 @@ def _workspace_summary(item):
 def _registered_workspace_paths() -> set[str]:
     """登録済みワークスペースの解決済みパス集合。動的worktreeの重複判定に使う。"""
     return {
-        safe_resolve_str(p)
+        safe_resolve_str(expand_workspace_path(p))
         for cfg in list_workspace_entries().values()
         if (p := cfg.get("path"))
     }
@@ -103,7 +105,7 @@ def _dynamic_worktree_entries() -> list[dict]:
     existing_paths = _registered_workspace_paths()
     result = []
     for ws_id, config in list_workspace_entries().items():
-        ws_path = Path(config.get("path", ""))
+        ws_path = expand_workspace_path(config.get("path", ""))
         if not ws_path.is_dir() or not git_is_repo(ws_path):
             continue
         base_name = config.get("name") or ws_id
@@ -140,7 +142,7 @@ def list_workspaces():
     sorted_items = sorted(entries.items(), key=_sort_key_by_workspace_order(workspace_order))
     result = list(BACKGROUND_EXECUTOR.map(_workspace_summary, sorted_items))
     result.extend(_dynamic_worktree_entries())
-    git_dirs = [Path(e.get("path", "")) for e in entries.values() if Path(e.get("path", "")).is_dir()]
+    git_dirs = [expand_workspace_path(e.get("path", "")) for e in entries.values() if expand_workspace_path(e.get("path", "")).is_dir()]
     BACKGROUND_EXECUTOR.submit(_background_fetch, git_dirs)
     return result
 
@@ -197,9 +199,9 @@ def _apply_path_update(config: dict, ws_id: str | None, new_path_raw: str) -> No
     for other_id, other_entry in list_workspace_entries().items():
         if other_id == ws_id:
             continue
-        if Path(other_entry.get("path", "")).resolve() == abs_path:
+        if expand_workspace_path(other_entry.get("path", "")).resolve() == abs_path:
             raise conflict(f"Path already used: {abs_path}")
-    config["path"] = str(abs_path)
+    config["path"] = collapse_user_path(abs_path)
 
 
 @router.put("/workspaces/{name}/config")
@@ -241,7 +243,7 @@ def add_workspace(body: AddWorkspaceRequest):
     new_id = generate_workspace_id()
     while new_id in entries:
         new_id = generate_workspace_id()
-    save_workspace_config(new_id, {"name": display_name, "path": str(abs_path)})
+    save_workspace_config(new_id, {"name": display_name, "path": collapse_user_path(abs_path)})
     notify_workspaces_changed()
     logger.info("workspace registered id=%s name=%s path=%s", new_id, display_name, abs_path)
     return {"status": "ok", "id": new_id, "name": display_name}
@@ -289,7 +291,7 @@ def suggest_workspace_dirs(path: str = ""):
 
     existing = set()
     for cfg in list_workspace_entries().values():
-        p = Path(cfg.get("path", ""))
+        p = expand_workspace_path(cfg.get("path", ""))
         try:
             existing.add(str(p.resolve()))
         except OSError:
