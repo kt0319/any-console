@@ -44,10 +44,10 @@ def invalidate_git_info(workspace_name: str):
 
 
 def refresh_git_info(directory: Path, name: str) -> dict[str, Any]:
-    """watchfiles 起点の更新。diff/staged/status の3本だけ再計算してキャッシュを部分更新する。
+    """watchfiles 起点の部分更新。diff/staged/status に加え last_commit/message も再計算する。
 
-    branch / last_commit / ahead-behind などはファイル保存では変わらないため
-    キャッシュを流用し、応答を高速化する。キャッシュが無い場合はフル再計算。
+    ahead-behind・branch・upstream などリモート問い合わせが必要な値はキャッシュを流用し高速化する。
+    キャッシュが無い場合はフル再計算。
     """
     cache_key = str(directory)
     cached: dict[str, Any] | None = _git_info_cache.get(cache_key)
@@ -59,13 +59,15 @@ def refresh_git_info(directory: Path, name: str) -> dict[str, Any]:
     def run_git(*args):
         return run_git_raw(list(args), directory)
 
-    _DIFF_QUERIES = {
-        "status": ("--no-optional-locks", "status", "--porcelain", "--untracked-files=all"),
-        "diff":   ("--no-optional-locks", "diff", "--shortstat"),
-        "staged": ("--no-optional-locks", "diff", "--staged", "--shortstat"),
+    _PARTIAL_QUERIES = {
+        "status":  ("--no-optional-locks", "status", "--porcelain", "--untracked-files=all"),
+        "diff":    ("--no-optional-locks", "diff", "--shortstat"),
+        "staged":  ("--no-optional-locks", "diff", "--staged", "--shortstat"),
+        "commit":  ("log", "-1", "--format=%cI"),
+        "message": ("log", "-1", "--format=%s"),
     }
     try:
-        futures = {key: _GIT_INFO_EXECUTOR.submit(run_git, *args) for key, args in _DIFF_QUERIES.items()}
+        futures = {key: _GIT_INFO_EXECUTOR.submit(run_git, *args) for key, args in _PARTIAL_QUERIES.items()}
         out = {key: _stdout_if_ok(f) for key, f in futures.items()}
     except (subprocess.TimeoutExpired, OSError) as e:
         logger.warning("refresh_git_info diff queries failed dir=%s: %s", directory, e)
@@ -80,6 +82,7 @@ def refresh_git_info(directory: Path, name: str) -> dict[str, Any]:
     updated["changed_files"] = 0
     if not updated["clean"]:
         _apply_diff_stats(updated, (out["diff"] or "", out["staged"] or ""), out["status"], directory)
+    _apply_head_commit(updated, out["commit"], out["message"])
     _git_info_cache.set(cache_key, {k: v for k, v in updated.items() if k != "name"})
     return updated
 
