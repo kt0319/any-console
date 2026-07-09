@@ -101,6 +101,11 @@ def _save_subscriptions(subs: list[dict]) -> None:
     save_json_file(_SUBSCRIPTIONS_FILE, subs)
 
 
+def has_subscriptions() -> bool:
+    """push subscription が1件以上登録されているか返す。"""
+    return len(_load_subscriptions()) > 0
+
+
 def add_subscription(sub: dict) -> None:
     with _lock:
         subs = _load_subscriptions()
@@ -109,6 +114,8 @@ def add_subscription(sub: dict) -> None:
         subs.append(sub)
         _save_subscriptions(subs)
     logger.info("push subscription added endpoint=%s", endpoint)
+    from .agent_watch import ensure_phrase_task
+    ensure_phrase_task()
 
 
 def remove_subscription(endpoint: str) -> None:

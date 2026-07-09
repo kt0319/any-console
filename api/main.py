@@ -175,11 +175,14 @@ async def lifespan(app: FastAPI):
             _print_token_notice(host, port, auto_token)
     _emit_insecure_bind_warning(host)
     from .preview import set_self_ports, start_scanner, stop_scanner
-    from .push import init_vapid
+    from .push import init_vapid, has_subscriptions
     _display_host = "localhost" if host in ("0.0.0.0", "::", "") else host  # noqa: S104
     init_vapid(sub=f"https://{_display_host}")
     set_self_ports([port])
     start_scanner()
+    if has_subscriptions():
+        from .agent_watch import ensure_phrase_task
+        ensure_phrase_task()
     yield
     stop_scanner()
     from .agent_watch import shutdown as agent_watch_shutdown

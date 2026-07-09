@@ -233,6 +233,21 @@ def _ensure_task() -> None:
         _poll_task = loop.create_task(_poll_loop())
 
 
+def ensure_phrase_task() -> None:
+    """push subscription が存在する場合にポーリングタスクを起動する。
+
+    ブラウザが背景に行き WS 購読者がいなくても phrase 検出を継続するために呼ぶ。
+    イベントループが動いていない場合（サーバ起動前など）は無視する。
+    """
+    global _poll_task
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    if _task_stale(_poll_task, loop):
+        _poll_task = loop.create_task(_poll_loop())
+
+
 def _stop_task() -> None:
     global _poll_task
     if _poll_task is not None and not _poll_task.done():
@@ -273,12 +288,16 @@ async def _broadcast(payload: dict[str, Any]) -> None:
 
 
 async def _poll_loop() -> None:  # pragma: no cover - 実時間スリープに依存
-    """購読者がいる間、可視ペインをポーリングして状態変化を push する。"""
-    from .push import send_push_notification
+    """購読者がいる間、または push subscription がある間、可視ペインをポーリングする。
+
+    WS 購読者がいない場合でも push subscription が登録されていれば phrase 検出を継続し、
+    バックグラウンド時の通知を可能にする。
+    """
+    from .push import has_subscriptions, send_push_notification
     try:
-        while _subscribers:
+        while _subscribers or has_subscriptions():
             await asyncio.sleep(AGENT_WATCH_POLL_INTERVAL_SEC)
-            if not _subscribers:
+            if not _subscribers and not has_subscriptions():
                 break
             loop = asyncio.get_running_loop()
             states, notifications = await loop.run_in_executor(BACKGROUND_EXECUTOR, collect_agent_states)
