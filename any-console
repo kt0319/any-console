@@ -474,8 +474,8 @@ prompt_https_setup() {
   echo "  HTTPS is only required if you want to install any-console as a PWA on phones."
   echo "  HTTP works fine from any browser including phones — feel free to skip and try first."
   echo ""
-  read -rp "Set up HTTPS via Tailscale now? [y/N] " answer
-  if [[ ! "$answer" =~ ^[Yy]$ ]]; then
+  read -rp "Set up HTTPS via Tailscale now? [Y/n] " answer
+  if [[ "$answer" =~ ^[Nn]$ ]]; then
     info "  Skipped (run './any-console https-setup' anytime to enable)"
     return 0
   fi
@@ -611,16 +611,16 @@ cmd_setup() {
     echo "  Registers any-console as a LaunchAgent that starts at login."
     echo "  Recommended for an always-on Mac (e.g. a Mac mini server). Requires sudo."
     echo ""
-    read -rp "Register a launchd service? [y/N] " answer
+    read -rp "Register a launchd service? [Y/n] " answer
   else
     info "Optional: systemd service"
     echo "  Registers any-console as a background service that starts on boot."
     echo "  Recommended for Linux hosts (skip for WSL — use './any-console run' instead)."
     echo ""
-    read -rp "Register a systemd service? [y/N] " answer
+    read -rp "Register a systemd service? [Y/n] " answer
   fi
   local service_registered=0
-  if [[ "$answer" =~ ^[Yy]$ ]]; then
+  if [[ ! "$answer" =~ ^[Nn]$ ]]; then
     install_service
     service_registered=1
   fi
