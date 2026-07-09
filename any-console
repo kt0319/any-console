@@ -380,7 +380,13 @@ prompt_initial_workspace() {
 }
 
 tailscale_hostname() {
-  tailscale status --json 2>/dev/null | python3 -c "
+  local ts_bin
+  ts_bin=$(command -v tailscale 2>/dev/null \
+    || { [ -x /usr/local/bin/tailscale ] && echo /usr/local/bin/tailscale; } \
+    || { [ -x /Applications/Tailscale.app/Contents/MacOS/Tailscale ] && echo /Applications/Tailscale.app/Contents/MacOS/Tailscale; } \
+    || echo "")
+  [ -z "$ts_bin" ] && return
+  "$ts_bin" status --json 2>/dev/null | python3 -c "
 import json, sys
 try:
     d = json.load(sys.stdin)
