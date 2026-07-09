@@ -110,6 +110,7 @@ const { onDragEnter, onDragLeave, onDrop } = useTerminalDrop();
 .split-drop-zone.drop-bottom-right {
   width: 18%;
   height: 18%;
+  z-index: 1;
 }
 
 .split-drop-zone.drop-top-left { top: 0; left: 0; }
