@@ -56,6 +56,7 @@ class WatchTarget(NamedTuple):
 _IGNORE_DIRS = frozenset({
     "__pycache__", ".hg", ".svn", ".tox", ".venv", "node_modules",
     ".idea", ".mypy_cache", ".pytest_cache", ".hypothesis", "site-packages",
+    "dist",
 })
 # .git 配下で git 状態の変化を表すファイル（これ以外の .git 内部は無視する）
 _GIT_WATCH_BASENAMES = frozenset({
