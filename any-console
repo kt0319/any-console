@@ -655,8 +655,27 @@ cmd_setup() {
     echo "  http://${bind_host}:${bind_port}"
   fi
   echo ""
-  echo "First time? In the UI, open Settings > Security to issue an auth token"
-  echo "(or browse Settings > Workspaces to add more directories)."
+  local auth_token
+  auth_token=$(venv_python -c "
+import secrets, json, pathlib
+p = pathlib.Path('data/auth.json')
+if not p.exists():
+    token = secrets.token_urlsafe(24)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps({'token': token}) + '\n')
+    print(token)
+" 2>/dev/null)
+  if [ -n "$auth_token" ]; then
+    info "Auth token (save this — shown only once):"
+    echo ""
+    echo "  $auth_token"
+    echo ""
+    echo "Enter this token in the UI when you first open any-console."
+    echo "(or browse Settings > Workspaces to add more directories.)"
+  else
+    echo "Auth token already exists in data/auth.json."
+    echo "(or browse Settings > Workspaces to add more directories.)"
+  fi
 }
 
 generate_service_unit() {
