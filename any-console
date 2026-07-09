@@ -874,10 +874,16 @@ cmd_status() {
     echo -e "${YELLOW}not registered${NC}"
   fi
 
-  local proto="http"
+  local proto="http" ts_host url
   has_https && proto="https"
+  ts_host=$(tailscale_hostname 2>/dev/null || echo "")
+  if [ "$proto" = "https" ] && [ -n "$ts_host" ]; then
+    url="${proto}://${ts_host}:$(get_port)"
+  else
+    url="${proto}://localhost:$(get_port)"
+  fi
   echo "  Version: $(get_version)"
-  echo "  URL: ${proto}://localhost:$(get_port)"
+  echo "  URL: $url"
   echo "  Directory: $SCRIPT_DIR"
 }
 
@@ -957,14 +963,20 @@ cmd_uninstall() {
 cmd_run() {
   check_deps
   check_python_version >/dev/null
-  local proto="http"
+  local proto="http" ts_host url
   if has_https; then
     export SSL_CERTFILE="$(get_ssl_certfile)"
     export SSL_KEYFILE="$(get_ssl_keyfile)"
     proto="https"
   fi
+  ts_host=$(tailscale_hostname 2>/dev/null || echo "")
+  if [ "$proto" = "https" ] && [ -n "$ts_host" ]; then
+    url="${proto}://${ts_host}:$(get_port)"
+  else
+    url="${proto}://localhost:$(get_port)"
+  fi
   info "Starting any-console in the foreground (Ctrl+C to stop)"
-  echo "  URL: ${proto}://localhost:$(get_port)"
+  echo "  URL: $url"
   exec "$(venv_python)" -m api.main
 }
 
