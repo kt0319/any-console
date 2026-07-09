@@ -17,10 +17,11 @@ SERVICE_NAME="any-console"
 OS_NAME="$(uname -s)"
 is_macos() { [ "$OS_NAME" = "Darwin" ]; }
 
-# macOS: LaunchDaemon として登録する（ログイン不要・起動時から常駐）。
-# Label は reverse-DNS（サイト any-console.highedge.net）。plist は system ドメイン。
+# macOS: LaunchAgent として登録する（ユーザーログイン後に常駐）。
+# LaunchDaemon（system 域）はユーザーホームへのアクセスを macOS が制限するため、
+# ユーザー域で実行する LaunchAgent を使う。sudo 不要。
 LAUNCHD_LABEL="net.highedge.any-console"
-LAUNCHD_PLIST="/Library/LaunchDaemons/$LAUNCHD_LABEL.plist"
+LAUNCHD_PLIST="$HOME/Library/LaunchAgents/$LAUNCHD_LABEL.plist"
 # journalctl が無いため stdout/stderr はログファイルへ出す。
 LOG_FILE="$SCRIPT_DIR/logs/$SERVICE_NAME.log"
 
@@ -500,10 +501,12 @@ is_service_installed() {
 }
 
 # 常駐サービスの起動/停止/再起動を OS ごとに分岐する。
+_launchd_domain() { echo "gui/$(id -u)"; }
+
 start_service() {
   if is_macos; then
-    sudo launchctl bootstrap system "$LAUNCHD_PLIST" 2>/dev/null || true
-    sudo launchctl kickstart "system/$LAUNCHD_LABEL"
+    launchctl bootstrap "$(_launchd_domain)" "$LAUNCHD_PLIST" 2>/dev/null || true
+    launchctl kickstart "$(_launchd_domain)/$LAUNCHD_LABEL"
   else
     sudo systemctl start "$SERVICE_NAME"
   fi
@@ -511,10 +514,8 @@ start_service() {
 
 stop_service() {
   if is_macos; then
-    # bootout で current boot のロードを解除（KeepAlive 下で確実に止めるため）。
-    # 次回起動時は launchd が /Library/LaunchDaemons から自動ロードする。
-    sudo launchctl bootout system "$LAUNCHD_PLIST" 2>/dev/null \
-      || sudo launchctl bootout "system/$LAUNCHD_LABEL" 2>/dev/null || true
+    launchctl bootout "$(_launchd_domain)" "$LAUNCHD_PLIST" 2>/dev/null \
+      || launchctl bootout "$(_launchd_domain)/$LAUNCHD_LABEL" 2>/dev/null || true
   else
     sudo systemctl stop "$SERVICE_NAME"
   fi
@@ -522,7 +523,7 @@ stop_service() {
 
 restart_service() {
   if is_macos; then
-    sudo launchctl kickstart -k "system/$LAUNCHD_LABEL"
+    launchctl kickstart -k "$(_launchd_domain)/$LAUNCHD_LABEL"
   else
     sudo systemctl restart "$SERVICE_NAME"
   fi
@@ -607,7 +608,7 @@ cmd_setup() {
   echo ""
   if is_macos; then
     info "Optional: launchd service"
-    echo "  Registers any-console as a LaunchDaemon that starts at boot (no login required)."
+    echo "  Registers any-console as a LaunchAgent that starts at login."
     echo "  Recommended for an always-on Mac (e.g. a Mac mini server). Requires sudo."
     echo ""
     read -rp "Register a launchd service? [y/N] " answer
@@ -737,8 +738,8 @@ generate_plist() {
     <string>$ssl_key</string>
 "
   fi
-  # UserName で実ユーザーとして起動し、SSH 鍵・git/gh 設定・tmux を本人の環境で使う。
-  # daemon は最小 env のため PATH（Homebrew 含む）と HOME を明示する。
+  # LaunchAgent はユーザーセッション内で動くため UserName 不要。
+  # agent も最小 env のため PATH（Homebrew 含む）と HOME を明示する。
   cat <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -746,8 +747,6 @@ generate_plist() {
 <dict>
   <key>Label</key>
   <string>$LAUNCHD_LABEL</string>
-  <key>UserName</key>
-  <string>$USER</string>
   <key>WorkingDirectory</key>
   <string>$SCRIPT_DIR</string>
   <key>ProgramArguments</key>
@@ -777,16 +776,26 @@ PLIST
 }
 
 install_launchd() {
-  info "Registering launchd service (sudo required)..."
+  info "Registering launchd service..."
+
+  # 旧 LaunchDaemon（/Library/LaunchDaemons/）が残っていれば移行撤去する。
+  local old_plist="/Library/LaunchDaemons/$LAUNCHD_LABEL.plist"
+  if [ -f "$old_plist" ]; then
+    info "  Migrating from system daemon to user agent (sudo required)..."
+    sudo launchctl bootout "system/$LAUNCHD_LABEL" 2>/dev/null || true
+    sudo launchctl disable "system/$LAUNCHD_LABEL" 2>/dev/null || true
+    sudo rm -f "$old_plist"
+  fi
+
   mkdir -p "$SCRIPT_DIR/logs"
-  generate_plist | sudo tee "$LAUNCHD_PLIST" > /dev/null
-  sudo chown root:wheel "$LAUNCHD_PLIST"
-  sudo chmod 644 "$LAUNCHD_PLIST"
+  mkdir -p "$(dirname "$LAUNCHD_PLIST")"
+  generate_plist > "$LAUNCHD_PLIST"
+  chmod 644 "$LAUNCHD_PLIST"
   # 既存ロードがあれば先に外す。disable 状態でも bootstrap できるよう enable を先に実行する。
-  sudo launchctl bootout system "$LAUNCHD_PLIST" 2>/dev/null || true
-  sudo launchctl enable "system/$LAUNCHD_LABEL"
-  sudo launchctl bootstrap system "$LAUNCHD_PLIST"
-  info "launchd service registered (starts at boot, no login required)"
+  launchctl bootout "$(_launchd_domain)" "$LAUNCHD_PLIST" 2>/dev/null || true
+  launchctl enable "$(_launchd_domain)/$LAUNCHD_LABEL"
+  launchctl bootstrap "$(_launchd_domain)" "$LAUNCHD_PLIST"
+  info "launchd agent registered (starts at login)"
 }
 
 cmd_update() {
@@ -896,10 +905,18 @@ cmd_uninstall() {
   if is_service_installed; then
     info "Stopping and removing service..."
     if is_macos; then
-      sudo launchctl bootout system "$LAUNCHD_PLIST" 2>/dev/null || true
-      sudo launchctl disable "system/$LAUNCHD_LABEL" 2>/dev/null || true
-      sudo rm -f "$LAUNCHD_PLIST"
-      info "  launchd service removed"
+      launchctl bootout "$(_launchd_domain)" "$LAUNCHD_PLIST" 2>/dev/null || true
+      launchctl disable "$(_launchd_domain)/$LAUNCHD_LABEL" 2>/dev/null || true
+      rm -f "$LAUNCHD_PLIST"
+      # 旧 system daemon が残っていれば併せて撤去する。
+      local old_plist="/Library/LaunchDaemons/$LAUNCHD_LABEL.plist"
+      if [ -f "$old_plist" ]; then
+        sudo launchctl bootout "system/$LAUNCHD_LABEL" 2>/dev/null || true
+        sudo rm -f "$old_plist"
+      fi
+      # launchd の bootout で止まらなかった残存プロセスを終了する。
+      pkill -f "api.main" 2>/dev/null || true
+      info "  launchd agent removed"
     else
       sudo systemctl stop "$SERVICE_NAME" 2>/dev/null || true
       sudo systemctl disable "$SERVICE_NAME" 2>/dev/null || true
