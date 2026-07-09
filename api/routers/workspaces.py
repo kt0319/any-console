@@ -142,7 +142,11 @@ def list_workspaces():
     sorted_items = sorted(entries.items(), key=_sort_key_by_workspace_order(workspace_order))
     result = list(BACKGROUND_EXECUTOR.map(_workspace_summary, sorted_items))
     result.extend(_dynamic_worktree_entries())
-    git_dirs = [expand_workspace_path(e.get("path", "")) for e in entries.values() if expand_workspace_path(e.get("path", "")).is_dir()]
+    git_dirs = [
+        expand_workspace_path(e.get("path", ""))
+        for e in entries.values()
+        if expand_workspace_path(e.get("path", "")).is_dir()
+    ]
     BACKGROUND_EXECUTOR.submit(_background_fetch, git_dirs)
     return result
 
