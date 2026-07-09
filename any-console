@@ -656,7 +656,7 @@ cmd_setup() {
   fi
   echo ""
   local auth_token
-  auth_token=$(venv_python -c "
+  auth_token=$("$(venv_python)" -c "
 import secrets, json, pathlib
 p = pathlib.Path('data/auth.json')
 if not p.exists():
