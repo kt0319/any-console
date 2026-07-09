@@ -63,4 +63,6 @@ export async function login(page, context, token) {
     .first()
     .or(page.locator(".tab-btn").first());
   await expect(bootDone.first()).toBeVisible({ timeout: 10_000 });
+  // キーボードショートカットが確実に受け付けられるようページにフォーカスを当てる
+  await page.locator("body").click();
 }
