@@ -670,11 +670,16 @@ if not p.exists():
     echo ""
     echo "  $auth_token"
     echo ""
-    echo "Enter this token in the UI when you first open any-console."
-    echo "(or browse Settings > Workspaces to add more directories.)"
+    echo "How to use:"
+    echo "  1. Start the service and open any-console in your browser"
+    echo "  2. You will be prompted to enter a token on first visit"
+    echo "  3. Paste the token above and sign in"
+    echo "  Token is stored in data/auth.json — keep it secret."
+    echo ""
+    echo "(Settings > Workspaces to add more directories after signing in.)"
   else
     echo "Auth token already exists in data/auth.json."
-    echo "(or browse Settings > Workspaces to add more directories.)"
+    echo "(Settings > Workspaces to add more directories.)"
   fi
 }
 
@@ -877,6 +882,59 @@ cmd_logs() {
   fi
 }
 
+cmd_uninstall() {
+  echo ""
+  info "=== any-console uninstall ==="
+  echo ""
+  echo "This will remove the any-console service registration."
+  echo ""
+  read -rp "Continue? [y/N] " answer
+  [[ "$answer" =~ ^[Yy]$ ]] || { echo "Aborted."; return; }
+
+  if is_service_installed; then
+    info "Stopping and removing service..."
+    if is_macos; then
+      sudo launchctl bootout system "$LAUNCHD_PLIST" 2>/dev/null || true
+      sudo launchctl disable "system/$LAUNCHD_LABEL" 2>/dev/null || true
+      sudo rm -f "$LAUNCHD_PLIST"
+      info "  launchd service removed"
+    else
+      sudo systemctl stop "$SERVICE_NAME" 2>/dev/null || true
+      sudo systemctl disable "$SERVICE_NAME" 2>/dev/null || true
+      sudo rm -f "/etc/systemd/system/$SERVICE_NAME.service"
+      sudo systemctl daemon-reload
+      info "  systemd service removed"
+    fi
+  else
+    info "No service registered — skipping"
+  fi
+
+  echo ""
+  echo "Remove data/ directory? (auth token, config, push subscriptions)"
+  read -rp "[y/N] " answer
+  if [[ "$answer" =~ ^[Yy]$ ]]; then
+    rm -rf "$SCRIPT_DIR/data"
+    info "  data/ removed"
+  else
+    info "  data/ kept"
+  fi
+
+  echo ""
+  echo "Remove .venv/ and node_modules/? (can be reinstalled with setup)"
+  read -rp "[y/N] " answer
+  if [[ "$answer" =~ ^[Yy]$ ]]; then
+    rm -rf "$SCRIPT_DIR/.venv" "$SCRIPT_DIR/node_modules"
+    info "  .venv/ and node_modules/ removed"
+  else
+    info "  .venv/ and node_modules/ kept"
+  fi
+
+  echo ""
+  info "Uninstall complete."
+  echo "The any-console directory itself is not removed."
+  echo "To fully remove, delete: $SCRIPT_DIR"
+}
+
 cmd_run() {
   check_deps
   check_python_version >/dev/null
@@ -913,6 +971,7 @@ usage() {
   echo "  logs         Tail service logs (journalctl / log file)"
   echo "  run          Run in foreground (no service; any OS)"
   echo "  https-setup  Issue / renew a Tailscale HTTPS cert (required for PWA install)"
+  echo "  uninstall    Remove service registration and optionally clean up files"
   echo "  version      Print version"
 }
 
@@ -928,6 +987,7 @@ case "$command" in
   logs)    cmd_logs ;;
   run)         cmd_run ;;
   https-setup) cmd_https_setup ;;
+  uninstall)   cmd_uninstall ;;
   version)     cmd_version ;;
   *)       usage ;;
 esac
