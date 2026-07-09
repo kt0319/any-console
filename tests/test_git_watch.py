@@ -447,6 +447,27 @@ class TestRefreshGitInfo:
         second = refresh_git_info(git_workspace_with_commit, "test-ws")
         assert second["clean"] is False
 
+    def test_refresh_with_cache_uses_partial_update(self, git_workspace_with_commit):
+        # キャッシュがある状態で refresh すると diff/status だけ再計算してブランチは流用する
+        first = refresh_git_info(git_workspace_with_commit, "test-ws")
+        branch = first["branch"]
+        (git_workspace_with_commit / "dirty.txt").write_text("hello\n" * 5, encoding="utf-8")
+        second = refresh_git_info(git_workspace_with_commit, "test-ws")
+        assert second["clean"] is False
+        assert second["branch"] == branch  # キャッシュから流用される
+
+    def test_refresh_clean_resets_diff_stats(self, git_workspace_with_commit):
+        # 一度 dirty にしてから clean に戻すと insertions/deletions/changed_files がリセットされる
+        dirty = git_workspace_with_commit / "tmp.txt"
+        dirty.write_text("line\n", encoding="utf-8")
+        refresh_git_info(git_workspace_with_commit, "test-ws")
+        dirty.unlink()
+        result = refresh_git_info(git_workspace_with_commit, "test-ws")
+        assert result["clean"] is True
+        assert result["insertions"] == 0
+        assert result["deletions"] == 0
+        assert result["changed_files"] == 0
+
     def test_invalidate_nudges_stream(self, git_workspace_with_commit, monkeypatch):
         nudged = []
         monkeypatch.setattr(git_watch, "nudge_workspace", lambda name: nudged.append(name))

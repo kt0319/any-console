@@ -44,9 +44,46 @@ def invalidate_git_info(workspace_name: str):
 
 
 def refresh_git_info(directory: Path, name: str) -> dict[str, Any]:
-    """キャッシュを破棄して git_info を再計算する（ステータスストリーム用）。"""
-    _git_info_cache.invalidate(str(directory))
-    return git_info_to_status_dict(directory, name)
+    """watchfiles 起点の更新。diff/staged/status の3本だけ再計算してキャッシュを部分更新する。
+
+    branch / last_commit / ahead-behind などはファイル保存では変わらないため
+    キャッシュを流用し、応答を高速化する。キャッシュが無い場合はフル再計算。
+    """
+    cache_key = str(directory)
+    cached: dict[str, Any] | None = _git_info_cache.get(cache_key)
+    if cached is None:
+        # 初回またはキャッシュ切れ: フル再計算
+        _git_info_cache.invalidate(cache_key)
+        return git_info_to_status_dict(directory, name)
+
+    def run_git(*args):
+        return run_git_raw(list(args), directory)
+
+    _DIFF_QUERIES = {
+        "status": ("--no-optional-locks", "status", "--porcelain", "--untracked-files=all"),
+        "diff":   ("--no-optional-locks", "diff", "--shortstat"),
+        "staged": ("--no-optional-locks", "diff", "--staged", "--shortstat"),
+    }
+    try:
+        futures = {key: _GIT_INFO_EXECUTOR.submit(run_git, *args) for key, args in _DIFF_QUERIES.items()}
+        out = {key: _stdout_if_ok(f) for key, f in futures.items()}
+    except (subprocess.TimeoutExpired, OSError) as e:
+        logger.warning("refresh_git_info diff queries failed dir=%s: %s", directory, e)
+        return git_info_to_status_dict(directory, name)
+
+    updated = dict(cached)
+    updated["name"] = name
+    if out["status"] is not None:
+        updated["clean"] = len(out["status"].strip()) == 0
+    # clean になった場合は diff 統計をリセット
+    if updated["clean"]:
+        updated["insertions"] = 0
+        updated["deletions"] = 0
+        updated["changed_files"] = 0
+    else:
+        _apply_diff_stats(updated, (out["diff"] or "", out["staged"] or ""), out["status"], directory)
+    _git_info_cache.set(cache_key, {k: v for k, v in updated.items() if k != "name"})
+    return updated
 
 
 _FUTURE_TIMEOUT_SEC = GIT_QUICK_TIMEOUT_SEC + 2
