@@ -646,13 +646,9 @@ cmd_setup() {
   echo ""
   echo "Open:"
   if [ "$proto" = "https" ] && [ -n "$ts_host" ]; then
-    echo "  https://${ts_host}:${bind_port}      (Tailscale, PWA-ready)"
-    echo "  http://localhost:${bind_port}              (this machine, no PWA)"
-  elif [ "$bind_host" = "0.0.0.0" ]; then
-    echo "  http://localhost:${bind_port}              (this machine)"
-    echo "  http://<this-host-ip>:${bind_port}         (LAN / Tailscale)"
+    echo "  https://${ts_host}:${bind_port}"
   else
-    echo "  http://${bind_host}:${bind_port}"
+    echo "  http://localhost:${bind_port}"
   fi
   echo ""
   local auth_token
