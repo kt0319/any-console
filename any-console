@@ -636,13 +636,16 @@ cmd_setup() {
   echo ""
   info "=== Setup complete ==="
   echo ""
-  echo "Next steps:"
   if [ "$service_registered" -eq 1 ]; then
-    echo "  1. Start the service:  ./any-console start"
-    echo "  2. Check status:       ./any-console status"
+    info "Starting service..."
+    start_service
+    echo ""
+    echo "Next steps:"
+    echo "  Check status:  ./any-console status"
   else
-    echo "  1. Start in foreground: ./any-console run"
-    echo "     (or register the service later via ./any-console setup)"
+    echo "Next steps:"
+    echo "  Start in foreground: ./any-console run"
+    echo "  (or register the service later via ./any-console setup)"
   fi
   local bind_host bind_port proto ts_host
   bind_host=$(get_host)
