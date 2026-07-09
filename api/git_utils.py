@@ -217,9 +217,9 @@ def find_dynamic_worktree_path(name: str) -> "Path | None":
     return None
 
 
-def git_remote_branches(directory: Path) -> list[str]:
+def git_remote_branches(directory: Path, env: dict[str, str] | None = None) -> list[str]:
     try:
-        run_git_raw(["fetch", "--prune"], directory, timeout=GIT_STANDARD_TIMEOUT_SEC)
+        run_git_raw(["fetch", "--prune"], directory, timeout=GIT_STANDARD_TIMEOUT_SEC, env=env)
         result = run_git_raw(["branch", "-r", "--format=%(refname:short)"], directory)
         if result.returncode == 0:
             branches = []

@@ -140,7 +140,7 @@ def list_branches(name: str):
 @router.get("/workspaces/{name}/branches/remote")
 def list_remote_branches(name: str):
     ws_path = resolve_workspace_path(name)
-    return git_remote_branches(ws_path)
+    return git_remote_branches(ws_path, env=ssh_env())
 
 
 @router.post("/workspaces/{name}/delete-branch")
@@ -242,4 +242,4 @@ def git_push_upstream(name: str):
 
 @router.post("/workspaces/{name}/fetch")
 def git_fetch(name: str):
-    return execute_git_action(name, ["fetch", "--prune"], operation="fetch")
+    return execute_git_action(name, ["fetch", "--prune"], operation="fetch", env=ssh_env())
