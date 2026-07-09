@@ -75,12 +75,10 @@ def refresh_git_info(directory: Path, name: str) -> dict[str, Any]:
     updated["name"] = name
     if out["status"] is not None:
         updated["clean"] = len(out["status"].strip()) == 0
-    # clean になった場合は diff 統計をリセット
-    if updated["clean"]:
-        updated["insertions"] = 0
-        updated["deletions"] = 0
-        updated["changed_files"] = 0
-    else:
+    updated["insertions"] = 0
+    updated["deletions"] = 0
+    updated["changed_files"] = 0
+    if not updated["clean"]:
         _apply_diff_stats(updated, (out["diff"] or "", out["staged"] or ""), out["status"], directory)
     _git_info_cache.set(cache_key, {k: v for k, v in updated.items() if k != "name"})
     return updated
@@ -150,19 +148,19 @@ def _apply_diff_stats(
     for diff_stat_output in diff_outputs:
         if not diff_stat_output:
             continue
-        files_match = re.search(r"(\d+) file", diff_stat_output)
         insertions_match = re.search(r"(\d+) insertion", diff_stat_output)
         deletions_match = re.search(r"(\d+) deletion", diff_stat_output)
-        if files_match:
-            info["changed_files"] += int(files_match.group(1))
         if insertions_match:
             info["insertions"] += int(insertions_match.group(1))
         if deletions_match:
             info["deletions"] += int(deletions_match.group(1))
     if status_out:
         for line in status_out.splitlines():
+            if not line:
+                continue
+            # git status --porcelain は各ファイル1行なので Changed タブと一致する
+            info["changed_files"] += 1
             if line.startswith("?? "):
-                info["changed_files"] += 1
                 info["insertions"] += count_file_lines(directory / line[3:])
 
 

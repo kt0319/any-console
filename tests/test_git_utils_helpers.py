@@ -94,11 +94,13 @@ class TestApplyUpstream:
 
 
 class TestApplyDiffStats:
-    def test_shortstat_parsing(self, tmp_path):
+    def test_shortstat_parses_insertions_deletions(self, tmp_path):
+        """--shortstat から insertions/deletions を取得する。changed_files は status_out から取る。"""
         info = _empty_git_info()
         diff = " 2 files changed, 5 insertions(+), 1 deletion(-)\n"
         _apply_diff_stats(info, (diff,), None, tmp_path)
-        assert info["changed_files"] == 2
+        # status_out=None のとき changed_files は 0（status から取るため）
+        assert info["changed_files"] == 0
         assert info["insertions"] == 5
         assert info["deletions"] == 1
 
@@ -113,13 +115,17 @@ class TestApplyDiffStats:
         assert info["insertions"] == 3
 
     def test_combined_diff_and_untracked(self, tmp_path):
+        """tracked 変更 + untracked を含む status では各ファイル1回ずつカウントされる。"""
         info = _empty_git_info()
         f = tmp_path / "u.txt"
         f.write_text("x\n", encoding="utf-8")
         diff = " 1 file changed, 2 insertions(+)\n"
-        status = "?? u.txt\n"
+        # status には tracked 変更ファイルも含む（git status --porcelain の実際の出力に対応）
+        status = " M tracked.py\n?? u.txt\n"
         _apply_diff_stats(info, (diff,), status, tmp_path)
+        # status 行数 = 2 ファイル
         assert info["changed_files"] == 2
+        # tracked の insertions は diff から、untracked は行数から
         assert info["insertions"] == 3
 
 
