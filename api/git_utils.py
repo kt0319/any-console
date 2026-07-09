@@ -220,12 +220,18 @@ def find_dynamic_worktree_path(name: str) -> "Path | None":
 def git_remote_branches(directory: Path, env: dict[str, str] | None = None) -> list[str]:
     try:
         run_git_raw(["fetch", "--prune"], directory, timeout=GIT_STANDARD_TIMEOUT_SEC, env=env)
-        result = run_git_raw(["branch", "-r", "--format=%(refname:short)"], directory)
+        # refname:short はgitのバージョンによってシンボリックな `origin/HEAD` を
+        # "origin" に短縮することがあるため、常に安定なロング形式で判定する。
+        result = run_git_raw(["for-each-ref", "--format=%(refname)", "refs/remotes"], directory)
         if result.returncode == 0:
             branches = []
-            for b in result.stdout.strip().splitlines():
-                b = b.strip()
-                if not b or b.endswith("/HEAD"):
+            for ref in result.stdout.strip().splitlines():
+                ref = ref.strip()
+                prefix = "refs/remotes/"
+                if not ref.startswith(prefix):
+                    continue
+                b = ref[len(prefix):]
+                if not b or b.split("/", 1)[-1] == "HEAD":
                     continue
                 if "/" in b:
                     b = b.split("/", 1)[1]

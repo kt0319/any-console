@@ -358,7 +358,9 @@ class TestGitRemoteBranchesSuccess:
         from api.git_utils import git_remote_branches
         fetch_cp = subprocess.CompletedProcess(["git"], 0, stdout="", stderr="")
         branch_cp = subprocess.CompletedProcess(
-            ["git"], 0, stdout="origin/main\norigin/HEAD\norigin/dev\n", stderr=""
+            ["git"], 0,
+            stdout="refs/remotes/origin/main\nrefs/remotes/origin/HEAD\nrefs/remotes/origin/dev\n",
+            stderr="",
         )
         with mock.patch("api.git_utils.run_git_raw", side_effect=[fetch_cp, branch_cp]):
             result = git_remote_branches(tmp_path)
@@ -366,12 +368,29 @@ class TestGitRemoteBranchesSuccess:
         assert "dev" in result
         assert "HEAD" not in " ".join(result)
 
+    def test_skips_symbolic_head_shortened_by_newer_git(self, tmp_path):
+        """新しいgitは `origin/HEAD` の `%(refname:short)` を `origin` に短縮するため、
+        ロング形式(refname)で判定していることを確認する。"""
+        import subprocess
+        from api.git_utils import git_remote_branches
+        fetch_cp = subprocess.CompletedProcess(["git"], 0, stdout="", stderr="")
+        branch_cp = subprocess.CompletedProcess(
+            ["git"], 0,
+            stdout="refs/remotes/origin/HEAD\nrefs/remotes/origin/main\n",
+            stderr="",
+        )
+        with mock.patch("api.git_utils.run_git_raw", side_effect=[fetch_cp, branch_cp]):
+            result = git_remote_branches(tmp_path)
+        assert result == ["main"]
+
     def test_deduplicates_branches(self, tmp_path):
         import subprocess
         from api.git_utils import git_remote_branches
         fetch_cp = subprocess.CompletedProcess(["git"], 0, stdout="", stderr="")
         branch_cp = subprocess.CompletedProcess(
-            ["git"], 0, stdout="origin/main\nupstream/main\n", stderr=""
+            ["git"], 0,
+            stdout="refs/remotes/origin/main\nrefs/remotes/upstream/main\n",
+            stderr="",
         )
         with mock.patch("api.git_utils.run_git_raw", side_effect=[fetch_cp, branch_cp]):
             result = git_remote_branches(tmp_path)
