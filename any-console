@@ -414,7 +414,7 @@ do_https_setup() {
     warn "  Failed to obtain certificate"
     return 1
   fi
-  sudo chown "$USER:$USER" "$cert_path" "$key_path" 2>/dev/null || true
+  sudo chown "$USER" "$cert_path" "$key_path" 2>/dev/null || true
 
   CERT="$cert_path" KEY="$key_path" python3 -c "
 import json, os, pathlib
