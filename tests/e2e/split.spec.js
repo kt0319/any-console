@@ -57,7 +57,9 @@ test.describe("terminal split", () => {
     await expect(tabs).toHaveCount(countBefore + 2, { timeout: 10_000 });
     await expect(page.locator(".xterm >> visible=true").first()).toBeVisible({ timeout: 10_000 });
 
-    const pill = page.locator(".terminal-info-pill", { hasText: /.+/ }).first();
+    // 非split時、非アクティブタブの TerminalPane は v-show で非表示のまま DOM に残る
+    // （TerminalBase.vue）。.first() では表示中とは限らないため visible=true で絞る。
+    const pill = page.locator(".terminal-info-pill >> visible=true").first();
     await expect(pill).toBeVisible({ timeout: 5000 });
 
     await dragPillToZone(page, pill, ".drop-left");
