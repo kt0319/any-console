@@ -300,8 +300,52 @@ def auth_logout(request: Request, response: Response):
 ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 
 
-async def _write_image_to_clipboard(filepath: Path, content_type: str) -> bool:
-    if not sys.platform.startswith("linux") or not shutil.which("xclip"):
+# AppKit の NSPasteboard に NSImage を書き込む。pbcopy はテキスト専用でバイナリ
+# 画像を扱えないため、osascript 経由で AppleScriptObjC ブリッジを使う。
+# launchd LaunchAgent は既にユーザーの GUI セッション内で動くため、Linux 版の
+# ような sudo によるユーザー切り替えは不要。
+_MACOS_CLIPBOARD_SCRIPT = """
+use framework "AppKit"
+use scripting additions
+set thePath to system attribute "AC_IMAGE_PATH"
+set theImage to current application's NSImage's alloc()'s initWithContentsOfFile:thePath
+if theImage is missing value then error "failed to load image"
+set thePasteboard to current application's NSPasteboard's generalPasteboard()
+thePasteboard's clearContents()
+thePasteboard's writeObjects:{theImage}
+"""
+
+
+async def _write_image_to_clipboard_macos(filepath: Path) -> bool:
+    if not shutil.which("osascript"):
+        return False
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "osascript", "-",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+            env={**os.environ, "AC_IMAGE_PATH": str(filepath)},
+        )
+        if proc.stdin is None or proc.stderr is None:
+            return False
+        proc.stdin.write(_MACOS_CLIPBOARD_SCRIPT.encode())
+        await proc.stdin.drain()
+        proc.stdin.close()
+        await asyncio.wait_for(proc.wait(), timeout=3.0)
+        if proc.returncode == 0:
+            logger.info("osascript clipboard ok pid=%d", proc.pid)
+            return True
+        stderr = (await proc.stderr.read()).decode()
+        logger.warning("osascript clipboard failed returncode=%d stderr=%s", proc.returncode, stderr)
+        return False
+    except OSError as e:
+        logger.warning("osascript clipboard failed: %s", e)
+        return False
+
+
+async def _write_image_to_clipboard_linux(filepath: Path, content_type: str) -> bool:
+    if not shutil.which("xclip"):
         return False
     mime = content_type if content_type.startswith("image/") else "image/png"
     import getpass
@@ -330,6 +374,14 @@ async def _write_image_to_clipboard(filepath: Path, content_type: str) -> bool:
     except OSError as e:
         logger.warning("xclip failed: %s", e)
         return False
+
+
+async def _write_image_to_clipboard(filepath: Path, content_type: str) -> bool:
+    if sys.platform == "darwin":
+        return await _write_image_to_clipboard_macos(filepath)
+    if sys.platform.startswith("linux"):
+        return await _write_image_to_clipboard_linux(filepath, content_type)
+    return False
 
 
 @app.post("/upload-image", dependencies=[Depends(verify_token)])
