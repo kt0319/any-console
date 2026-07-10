@@ -1,8 +1,9 @@
 """ローカル dev server のポート検出と検出結果ストア。
 
-`ss -ltn` で 127.0.0.1 / 0.0.0.0 を LISTEN しているポートを列挙する。
-セッションごとの紐付けは不要（個人ツール前提）で、検出した全ポートを共通
-"local" セッションとして扱う。proxy URL は /preview/local/<port>/... になる。
+Linux では `ss -ltnp`、macOS では `lsof -iTCP -sTCP:LISTEN` で 127.0.0.1 /
+0.0.0.0 を LISTEN しているポートを列挙する。セッションごとの紐付けは不要
+（個人ツール前提）で、検出した全ポートを共通 "local" セッションとして扱う。
+proxy URL は /preview/local/<port>/... になる。
 
 セキュリティ:
 - upstream host は 127.0.0.1 にハードコード（preview router 側）。
@@ -14,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import platform
 import re
 import ssl
 import subprocess
@@ -22,6 +24,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+_IS_MACOS = platform.system() == "Darwin"
 
 # preview proxy の TLS 終端に使う証明書。本体は Tailscale serve 経由で HTTPS 化される
 # ため通常 SSL_CERTFILE は未設定。その場合は certs/<hostname>.crt/.key を探索する
@@ -144,14 +148,13 @@ def _should_scan_now() -> bool:
 _SS_PORT_RE = re.compile(r"(?:127\.0\.0\.1|0\.0\.0\.0|\*|\[?::\]?):(\d{2,5})\b")
 _SS_PROC_RE = re.compile(r'users:\(\("([^"]+)",pid=(\d+),')
 
+# lsof -F pcn の "n" 行（アドレス）末尾からポート番号を抜く。
+# 出力例: n127.0.0.1:5173 / n*:5173 / n[::1]:5173
+_LSOF_ADDR_RE = re.compile(r":(\d{2,5})$")
 
-def _read_cmdline(pid: int) -> str:
-    """より具体的な実行コマンドを /proc/<pid>/cmdline から取得（先頭の basename を返す）。"""
-    try:
-        raw = open(f"/proc/{pid}/cmdline", "rb").read().split(b"\x00")  # noqa: SIM115
-    except (OSError, ValueError):
-        return ""
-    parts = [p.decode("utf-8", "replace") for p in raw if p]
+
+def _label_from_cmdline_parts(parts: list[str]) -> str:
+    """cmdline の各要素から表示用ラベルを組み立てる（先頭の basename を返す）。"""
     if not parts:
         return ""
     # node の場合は実行スクリプト名（例: vite, next）が二番目以降に来る。
@@ -163,12 +166,31 @@ def _read_cmdline(pid: int) -> str:
     return parts[0].rsplit("/", 1)[-1]
 
 
+def _read_cmdline(pid: int) -> str:
+    """より具体的な実行コマンドを取得（先頭の basename を返す）。"""
+    if _IS_MACOS:
+        try:
+            out = subprocess.run(
+                ["ps", "-o", "command=", "-p", str(pid)],
+                capture_output=True, text=True, timeout=1.0, check=False,
+            ).stdout
+        except (OSError, subprocess.TimeoutExpired):
+            return ""
+        return _label_from_cmdline_parts(out.strip().split())
+    try:
+        raw = open(f"/proc/{pid}/cmdline", "rb").read().split(b"\x00")  # noqa: SIM115
+    except (OSError, ValueError):
+        return ""
+    parts = [p.decode("utf-8", "replace") for p in raw if p]
+    return _label_from_cmdline_parts(parts)
+
+
 def _proxy_listener_ports() -> set[int]:
     """現在 any-console が proxy listener として立てているポート集合。"""
     return {entry.proxy_port for entry in _DETECTED.values() if entry.proxy_port is not None}
 
 
-def _scan_listening_ports() -> dict[int, tuple[str, int | None]]:
+def _scan_listening_ports_linux() -> dict[int, tuple[str, int | None]]:
     try:
         out = subprocess.run(
             ["ss", "-ltnp"], capture_output=True, text=True, timeout=2.0, check=False,
@@ -200,6 +222,51 @@ def _scan_listening_ports() -> dict[int, tuple[str, int | None]]:
         label = _read_cmdline(pid) or proc_name
         found[port] = (label, pid)
     return found
+
+
+def _parse_lsof_listeners(out: str) -> list[tuple[int, int, str]]:
+    """lsof -F pcn の出力を (port, pid, command) のリストへ変換する。"""
+    listeners: list[tuple[int, int, str]] = []
+    pid: int | None = None
+    command = ""
+    for line in out.splitlines():
+        if not line:
+            continue
+        tag, value = line[0], line[1:]
+        if tag == "p":
+            pid = int(value) if value.isdigit() else None
+            command = ""
+        elif tag == "c":
+            command = value
+        elif tag == "n" and pid is not None:
+            addr_match = _LSOF_ADDR_RE.search(value)
+            if addr_match:
+                listeners.append((int(addr_match.group(1)), pid, command))
+    return listeners
+
+
+def _scan_listening_ports_macos() -> dict[int, tuple[str, int | None]]:
+    try:
+        out = subprocess.run(
+            ["lsof", "-iTCP", "-sTCP:LISTEN", "-P", "-n", "-F", "pcn"],
+            capture_output=True, text=True, timeout=2.0, check=False,
+        ).stdout
+    except (OSError, subprocess.TimeoutExpired) as e:
+        logger.warning("lsof failed: %s", e)
+        return {}
+    proxy_ports = _proxy_listener_ports()
+    found: dict[int, tuple[str, int | None]] = {}
+    for port, pid, command in _parse_lsof_listeners(out):
+        if not (MIN_PORT <= port <= MAX_PORT) or port in proxy_ports:
+            continue
+        found[port] = (_read_cmdline(pid) or command, pid)
+    return found
+
+
+def _scan_listening_ports() -> dict[int, tuple[str, int | None]]:
+    if _IS_MACOS:
+        return _scan_listening_ports_macos()
+    return _scan_listening_ports_linux()
 
 
 def scan_once() -> None:

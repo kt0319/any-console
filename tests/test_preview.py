@@ -53,7 +53,7 @@ class TestSetSelfPorts:
         assert preview_mod._SELF_PORTS == {2}
 
 
-class TestScanListeningPorts:
+class TestScanListeningPortsLinux:
     SAMPLE_SS_OUTPUT = (
         "State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process\n"
         'LISTEN 0 511 0.0.0.0:3000 0.0.0.0:* users:(("node",pid=12345,fd=21))\n'
@@ -70,7 +70,7 @@ class TestScanListeningPorts:
         monkeypatch.setattr(preview_mod.subprocess, "run", fake_run)
         # cmdline は読めないので proc_name にフォールバック
         monkeypatch.setattr(preview_mod, "_read_cmdline", lambda pid: "")
-        found = preview_mod._scan_listening_ports()
+        found = preview_mod._scan_listening_ports_linux()
         assert 3000 in found
         assert found[3000] == ("node", 12345)
         assert 7002 in found
@@ -80,13 +80,13 @@ class TestScanListeningPorts:
         assert 80 not in found
 
     def test_includes_self_ports_in_raw_scan(self, monkeypatch):
-        # _scan_listening_ports は self/その他を区別せず返す（is_self の判定は scan_once）。
+        # _scan_listening_ports_linux は self/その他を区別せず返す（is_self の判定は scan_once）。
         preview_mod.set_self_ports([3000])
         def fake_run(*a, **kw):
             return subprocess.CompletedProcess(args=a, returncode=0, stdout=self.SAMPLE_SS_OUTPUT, stderr="")
         monkeypatch.setattr(preview_mod.subprocess, "run", fake_run)
         monkeypatch.setattr(preview_mod, "_read_cmdline", lambda pid: "")
-        found = preview_mod._scan_listening_ports()
+        found = preview_mod._scan_listening_ports_linux()
         assert 3000 in found
         assert 7002 in found
 
@@ -94,7 +94,53 @@ class TestScanListeningPorts:
         def fake_run(*a, **kw):
             raise OSError("ss not found")
         monkeypatch.setattr(preview_mod.subprocess, "run", fake_run)
-        assert preview_mod._scan_listening_ports() == {}
+        assert preview_mod._scan_listening_ports_linux() == {}
+
+
+class TestScanListeningPortsMacos:
+    # lsof -iTCP -sTCP:LISTEN -P -n -F pcn の出力形式。
+    SAMPLE_LSOF_OUTPUT = (
+        "p12345\n"
+        "cnode\n"
+        "n127.0.0.1:3000\n"
+        "n*:3000\n"
+        "p22222\n"
+        "cpython3\n"
+        "n*:7002\n"
+        # 範囲外
+        "p33333\n"
+        "cnginx\n"
+        "n*:80\n"
+    )
+
+    def test_parses_owned_ports(self, monkeypatch):
+        def fake_run(*a, **kw):
+            return subprocess.CompletedProcess(args=a, returncode=0, stdout=self.SAMPLE_LSOF_OUTPUT, stderr="")
+        monkeypatch.setattr(preview_mod.subprocess, "run", fake_run)
+        monkeypatch.setattr(preview_mod, "_read_cmdline", lambda pid: "")
+        found = preview_mod._scan_listening_ports_macos()
+        assert found[3000] == ("node", 12345)
+        assert found[7002] == ("python3", 22222)
+        # 範囲外は除外
+        assert 80 not in found
+
+    def test_handles_subprocess_error(self, monkeypatch):
+        def fake_run(*a, **kw):
+            raise OSError("lsof not found")
+        monkeypatch.setattr(preview_mod.subprocess, "run", fake_run)
+        assert preview_mod._scan_listening_ports_macos() == {}
+
+
+class TestScanListeningPortsDispatch:
+    def test_dispatches_to_macos(self, monkeypatch):
+        monkeypatch.setattr(preview_mod, "_IS_MACOS", True)
+        monkeypatch.setattr(preview_mod, "_scan_listening_ports_macos", lambda: {1: ("x", 1)})
+        assert preview_mod._scan_listening_ports() == {1: ("x", 1)}
+
+    def test_dispatches_to_linux(self, monkeypatch):
+        monkeypatch.setattr(preview_mod, "_IS_MACOS", False)
+        monkeypatch.setattr(preview_mod, "_scan_listening_ports_linux", lambda: {2: ("y", 2)})
+        assert preview_mod._scan_listening_ports() == {2: ("y", 2)}
 
 
 class TestReadCmdline:
@@ -108,6 +154,20 @@ class TestReadCmdline:
         result = preview_mod._read_cmdline(os.getpid())
         # pytest プロセスの basename が含まれていれば OK（厳密一致は環境依存）
         assert isinstance(result, str)
+
+    def test_macos_uses_ps(self, monkeypatch):
+        monkeypatch.setattr(preview_mod, "_IS_MACOS", True)
+        def fake_run(*a, **kw):
+            return subprocess.CompletedProcess(args=a, returncode=0, stdout="/usr/bin/node /app/vite.js\n", stderr="")
+        monkeypatch.setattr(preview_mod.subprocess, "run", fake_run)
+        assert preview_mod._read_cmdline(1) == "node vite.js"
+
+    def test_macos_empty_on_subprocess_error(self, monkeypatch):
+        monkeypatch.setattr(preview_mod, "_IS_MACOS", True)
+        def fake_run(*a, **kw):
+            raise OSError("ps not found")
+        monkeypatch.setattr(preview_mod.subprocess, "run", fake_run)
+        assert preview_mod._read_cmdline(1) == ""
 
 
 class TestScanOnce:
