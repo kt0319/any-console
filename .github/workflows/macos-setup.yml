@@ -1,0 +1,68 @@
+name: macOS setup
+
+# macOS 実機での ./any-console setup（非対話）〜起動〜疎通確認までを検証する。
+# メインの CI (ci.yml) は ubuntu-latest のみのため、macOS 依存分岐（launchd 判定、
+# lsof/ps によるポート検出など）の壊れを見逃さないための補完。
+# macos-latest runner は課金レートが高いため、macOS 関連ファイルを触った時だけ動かす。
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "any-console"
+      - "api/preview.py"
+      - "api/main.py"
+      - "requirements.txt"
+      - "requirements-optional.txt"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/macos-setup.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "any-console"
+      - "api/preview.py"
+      - "api/main.py"
+      - "requirements.txt"
+      - "requirements-optional.txt"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/macos-setup.yml"
+
+jobs:
+  macos-setup:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install tmux
+        run: brew install tmux
+
+      - name: Run setup (non-interactive)
+        run: ./any-console setup --non-interactive
+
+      - name: Start in foreground and verify
+        run: |
+          nohup ./any-console run > server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf -o /dev/null http://localhost:8888/; then
+              echo "server up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "server did not start"
+          cat server.log
+          exit 1
+
+      - name: Server log
+        if: failure()
+        run: cat server.log

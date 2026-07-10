@@ -563,6 +563,11 @@ verify_install() {
 }
 
 cmd_setup() {
+  local non_interactive=0
+  if [ "${1:-}" = "--non-interactive" ] || [ "${CI:-}" = "true" ]; then
+    non_interactive=1
+  fi
+
   echo ""
   info "=== any-console setup ==="
   echo ""
@@ -599,35 +604,52 @@ cmd_setup() {
 
   echo ""
   info "[5/6] Network bind configuration"
-  prompt_bind_config
+  if [ "$non_interactive" -eq 1 ]; then
+    info "  Non-interactive: keeping default bind ($(get_host):$(get_port))"
+  else
+    prompt_bind_config
+  fi
 
   echo ""
   info "[6/6] Initial workspace registration"
-  prompt_initial_workspace
-
-  echo ""
-  if is_macos; then
-    info "Optional: launchd service"
-    echo "  Registers any-console as a LaunchAgent that starts at login."
-    echo "  Recommended for an always-on Mac (e.g. a Mac mini server). Requires sudo."
-    echo ""
-    read -rp "Register a launchd service? [Y/n] " answer
+  if [ "$non_interactive" -eq 1 ]; then
+    info "  Non-interactive: skipped (add workspaces from the UI later)"
   else
-    info "Optional: systemd service"
-    echo "  Registers any-console as a background service that starts on boot."
-    echo "  Recommended for Linux hosts (skip for WSL — use './any-console run' instead)."
-    echo ""
-    read -rp "Register a systemd service? [Y/n] " answer
+    prompt_initial_workspace
   fi
+
   local service_registered=0
-  if [[ ! "$answer" =~ ^[Nn]$ ]]; then
-    install_service
-    service_registered=1
+  echo ""
+  if [ "$non_interactive" -eq 1 ]; then
+    info "Optional: service registration"
+    info "  Non-interactive: skipped (register later via './any-console setup')"
+  else
+    if is_macos; then
+      info "Optional: launchd service"
+      echo "  Registers any-console as a LaunchAgent that starts at login."
+      echo "  Recommended for an always-on Mac (e.g. a Mac mini server). Requires sudo."
+      echo ""
+      read -rp "Register a launchd service? [Y/n] " answer
+    else
+      info "Optional: systemd service"
+      echo "  Registers any-console as a background service that starts on boot."
+      echo "  Recommended for Linux hosts (skip for WSL — use './any-console run' instead)."
+      echo ""
+      read -rp "Register a systemd service? [Y/n] " answer
+    fi
+    if [[ ! "$answer" =~ ^[Nn]$ ]]; then
+      install_service
+      service_registered=1
+    fi
   fi
 
   echo ""
   info "Optional: HTTPS via Tailscale"
-  prompt_https_setup
+  if [ "$non_interactive" -eq 1 ]; then
+    info "  Non-interactive: skipped (run './any-console https-setup' later)"
+  else
+    prompt_https_setup
+  fi
 
   echo ""
   info "[verify] Health check"
@@ -997,6 +1019,7 @@ usage() {
   echo ""
   echo "Commands:"
   echo "  setup        Initial setup (install deps + build + optional service register)"
+  echo "               --non-interactive: skip prompts, use defaults (also auto-detected via CI=true)"
   echo "  update       Update to latest (git pull + deps + build + service restart)"
   echo "  start        Start service (systemd / launchd)"
   echo "  stop         Stop service (systemd / launchd)"
@@ -1012,7 +1035,7 @@ usage() {
 command="${1:-}"
 
 case "$command" in
-  setup)   cmd_setup ;;
+  setup)   cmd_setup "${2:-}" ;;
   update)  cmd_update ;;
   start)   cmd_start ;;
   stop)    cmd_stop ;;
