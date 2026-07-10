@@ -261,15 +261,19 @@ function openEditWs(ws) {
 
 async function removeWorktree(base, wt) {
   const label = worktreeBranchLabel(wt.worktree_branch || wt.branch) || wt.name;
-  if (!await confirm(`Remove worktree "${label}"? The working tree directory will be deleted. This cannot be undone.`)) return;
-  const { ok } = await apiDelete(wsEndpoint(base.name, "worktrees"), {
-    body: { path: wt.path },
-    checkStatus: true,
-    errorMessage: "Failed to remove worktree",
+  await confirm(`Remove worktree "${label}"? The working tree directory will be deleted. This cannot be undone.`, {
+    busyLabel: "Removing...",
+    run: async () => {
+      const { ok } = await apiDelete(wsEndpoint(base.name, "worktrees"), {
+        body: { path: wt.path },
+        checkStatus: true,
+        errorMessage: "Failed to remove worktree",
+      });
+      if (!ok) return;
+      await workspaceStore.fetchWorkspaces();
+      toast.success("Worktree removed");
+    },
   });
-  if (!ok) return;
-  await workspaceStore.fetchWorkspaces();
-  toast.success("Worktree removed");
 }
 
 onMounted(() => {

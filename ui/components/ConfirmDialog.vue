@@ -12,15 +12,22 @@
         <div v-if="extra2Button?.desc">{{ extra2Button.desc }}</div>
       </div>
       <div class="confirm-buttons">
-        <button class="dialog-btn dialog-btn-cancel" @click="onCancel">Cancel</button>
-        <button v-if="extraButton" class="dialog-btn confirm-btn-extra" @click="onExtra">
+        <button class="dialog-btn dialog-btn-cancel" :disabled="busy" @click="onCancel">Cancel</button>
+        <button v-if="extraButton" class="dialog-btn confirm-btn-extra" :disabled="busy" @click="onExtra">
           <span v-if="extraButton.icon" class="mdi" :class="extraButton.icon"></span>{{ extraButton.label }}
         </button>
-        <button v-if="extra2Button" class="dialog-btn confirm-btn-extra2" @click="onExtra2">
+        <button v-if="extra2Button" class="dialog-btn confirm-btn-extra2" :disabled="busy" @click="onExtra2">
           <span v-if="extra2Button.icon" class="mdi" :class="extra2Button.icon"></span>{{ extra2Button.label }}
         </button>
-        <button class="dialog-btn" :class="okButton?.danger ? 'dialog-btn-danger' : 'dialog-btn-ok'" @click="onOk">
-          <span v-if="okButton?.icon" class="mdi" :class="okButton.icon"></span>{{ okButton?.label || "OK" }}
+        <button
+          class="dialog-btn"
+          :class="okButton?.danger ? 'dialog-btn-danger' : 'dialog-btn-ok'"
+          :disabled="busy"
+          @click="onOk"
+        >
+          <span v-if="busy" class="mdi mdi-loading confirm-btn-spin"></span>
+          <span v-else-if="okButton?.icon" class="mdi" :class="okButton.icon"></span>
+          {{ busy ? (busyLabel || "Removing...") : (okButton?.label || "OK") }}
         </button>
       </div>
     </div>
@@ -31,7 +38,10 @@
 import BaseDialog from "./BaseDialog.vue";
 import { useConfirm } from "../composables/useConfirm.js";
 
-const { visible, message, extraButton, extra2Button, okButton, onOk, onCancel, onExtra, onExtra2 } = useConfirm();
+const {
+  visible, message, extraButton, extra2Button, okButton, busy, busyLabel,
+  onOk, onCancel, onExtra, onExtra2,
+} = useConfirm();
 </script>
 
 <style scoped>
@@ -84,5 +94,13 @@ const { visible, message, extraButton, extra2Button, okButton, onOk, onCancel, o
   color: var(--text-muted);
   line-height: 1.5;
   margin: -8px 0 0;
+}
+
+.confirm-btn-spin {
+  animation: confirm-btn-spin 0.6s linear infinite;
+}
+
+@keyframes confirm-btn-spin {
+  to { transform: rotate(360deg); }
 }
 </style>
