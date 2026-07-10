@@ -19,6 +19,9 @@
           <span class="empty-pane-row-name">{{ tab.workspace || tab.label || 'terminal' }}</span>
         </li>
       </ul>
+      <button type="button" class="empty-pane-stop-split" @click.stop="onStopSplit">
+        <span class="mdi mdi-fullscreen"></span> Stop split
+      </button>
     </div>
 
   </div>
@@ -59,6 +62,10 @@ function onPaneClick() {
 function onSelectTab(tabId) {
   layoutStore.assignTabToPane(props.paneIndex, tabId);
   terminalStore.switchTab(tabId);
+}
+
+function onStopSplit() {
+  layoutStore.exitSplitMode();
 }
 </script>
 
@@ -138,9 +145,34 @@ function onSelectTab(tabId) {
   white-space: nowrap;
 }
 
+.empty-pane-stop-split {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 10px 12px;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 6px);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.empty-pane-stop-split:active {
+  transform: scale(0.98);
+}
+
 @media (hover: hover) and (pointer: fine) {
   .empty-pane-row:hover {
     border-color: var(--accent);
+  }
+
+  .empty-pane-stop-split:hover {
+    border-color: var(--accent);
+    color: var(--text-primary);
   }
 }
 </style>

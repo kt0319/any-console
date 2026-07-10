@@ -59,3 +59,23 @@ describe("layout store: splitWithDrop", () => {
     expect(store.splitPaneTabIds).toEqual(["A", "B"]);
   });
 });
+
+describe("layout store: exitSplitMode", () => {
+  let store;
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    store = useLayoutStore();
+  });
+
+  it("スプリット状態をリセットする（SplitEmptyPane の Stop split から呼ばれる）", () => {
+    store.splitWithDrop("A", "left", []);
+    store.splitPaneTabIds = ["A", "B"];
+    expect(store.isSplitMode).toBe(true);
+
+    store.exitSplitMode();
+
+    expect(store.isSplitMode).toBe(false);
+    expect(store.splitPaneTabIds).toEqual([]);
+    expect(store.activePaneIndex).toBe(0);
+  });
+});
