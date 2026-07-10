@@ -88,7 +88,10 @@ export const useLayoutStore = defineStore("layout", () => {
     if (isSplitMode.value) {
       const wantFirst = direction === "left" || direction === "top";
       const currentIdx = splitPaneTabIds.value.indexOf(tabId);
-      if ((wantFirst && currentIdx === 0) || (!wantFirst && currentIdx === splitPaneTabIds.value.length - 1)) return;
+      const positionUnchanged = (wantFirst && currentIdx === 0) || (!wantFirst && currentIdx === splitPaneTabIds.value.length - 1);
+      // 並び順だけでなく軸（vertical/horizontal）も変わらない時だけ何もしない。
+      // 軸が変わる場合は並び順が同じでも splitLayout を更新する必要がある。
+      if (positionUnchanged && splitLayout.value === newLayout) return;
       const others = splitPaneTabIds.value.filter((id) => id !== tabId);
       splitLayout.value = newLayout;
       splitPaneTabIds.value = wantFirst ? [tabId, ...others] : [...others, tabId];
