@@ -469,16 +469,26 @@ defineExpose({
 }
 
 .terminal-info-pill.pill-working {
-  animation: pill-working-pulse 1.8s ease-in-out infinite;
+  background-image: linear-gradient(
+    90deg,
+    rgba(26, 27, 38, 0.88) 0%,
+    rgba(26, 27, 38, 0.88) 10%,
+    rgba(100, 150, 255, 0.35) 50%,
+    rgba(26, 27, 38, 0.88) 90%,
+    rgba(26, 27, 38, 0.88) 100%
+  );
+  background-size: 200% 100%;
+  animation: pill-working-pulse 2s linear infinite;
 }
 
 .terminal-pane.active .terminal-info-pill.pill-working {
   animation: none;
+  background-image: none;
 }
 
 @keyframes pill-working-pulse {
-  0%, 100% { background: rgba(26, 27, 38, 0.88); border-color: rgba(59, 66, 97, 0.5); }
-  50% { background: rgba(40, 65, 140, 0.7); border-color: rgba(100, 150, 255, 0.5); }
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
 }
 
 @media (pointer: coarse) {
