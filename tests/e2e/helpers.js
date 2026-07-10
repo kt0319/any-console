@@ -63,6 +63,8 @@ export async function login(page, context, token) {
     .first()
     .or(page.locator(".tab-btn").first());
   await expect(bootDone.first()).toBeVisible({ timeout: 10_000 });
-  // キーボードショートカットが確実に受け付けられるようページにフォーカスを当てる
-  await page.locator("body").click();
+  // キーボードショートカットが確実に受け付けられるようページにフォーカスを当てる。
+  // 座標指定なしの click は body 中心を叩くため、モバイルビューポートでは画面中央の
+  // Get Started メニュー項目に命中して誤操作してしまう。何も無い左上隅を叩く。
+  await page.locator("body").click({ position: { x: 0, y: 0 } });
 }
