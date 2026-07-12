@@ -27,7 +27,7 @@ from .git_utils import _parse_github_url, run_git_raw
 logger = logging.getLogger(__name__)
 
 _git_info_cache = TTLCache(GIT_INFO_CACHE_TTL_SEC)
-_GIT_INFO_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="git-info")
+_GIT_INFO_EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="git-info")
 
 
 def invalidate_git_info(workspace_name: str):

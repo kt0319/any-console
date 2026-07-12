@@ -104,7 +104,7 @@ ICON_PATTERN = re.compile(
 )
 ICON_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{3,6}$")
 
-BACKGROUND_EXECUTOR = ThreadPoolExecutor(max_workers=4)
+BACKGROUND_EXECUTOR = ThreadPoolExecutor(max_workers=8)
 
 _subprocess_logger = logging.getLogger(__name__)
 
