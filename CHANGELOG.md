@@ -5,6 +5,104 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0](https://github.com/kt0319/any-console/compare/v0.6.0...v0.7.0) (2026-07-13)
+
+
+### Features
+
+* config.jsonのワークスペースパスをチルダ形式で保存するよう変更 ([1736ef8](https://github.com/kt0319/any-console/commit/1736ef8e31bd78b15fc7feaf3b908b867f11bc4c))
+* dispatchモーダルにジョブ選択を追加（既存タブでは固定表示） ([d26e0c4](https://github.com/kt0319/any-console/commit/d26e0c491543bb757052121b57ce8e9192f59120))
+* dispatchモーダルにブランチ作成切替・既存セッション選択を追加 ([452ad4f](https://github.com/kt0319/any-console/commit/452ad4fa7e85534471f84ee26036ac8ae39689c4))
+* dispatchモーダルに既存/新規セッション切替ラジオボタンを追加 ([446b507](https://github.com/kt0319/any-console/commit/446b5079decbd414e25274263ec427acc406a0f1))
+* dispatchモーダルのsession選択・branch作成・overrides修正 ([2752c40](https://github.com/kt0319/any-console/commit/2752c4025284b10907f73c4cf239369bfcdda879))
+* dispatch承認ダイアログのタイムアウトを30秒から5分に延長 ([ecd97a4](https://github.com/kt0319/any-console/commit/ecd97a4b1fb503cb23fb76fa3265640cc2d52826))
+* JobConfig画面をAdvanced折りたたみ・State icons UIを刷新 ([9c645c7](https://github.com/kt0319/any-console/commit/9c645c7697c811819f7b158bec744e5c1fde325d))
+* job設定のAdvanced廃止・notify delay固定1分・通知にワークスペース名を追加 ([819fb85](https://github.com/kt0319/any-console/commit/819fb856da44f871456a9f378b8af74eadc6bfcc))
+* setupでサービス登録した場合はそのまま起動まで実行する ([2e95f88](https://github.com/kt0319/any-console/commit/2e95f883b1e9ebe19059eb41e57e4b8a8152826e))
+* setupの完了時に認証トークンを生成して表示する ([db90825](https://github.com/kt0319/any-console/commit/db908258abfb4e4f076cdbda44d00abd754ff7a5))
+* System Infoのプロセス一覧にkillボタンを追加 ([ebe271e](https://github.com/kt0319/any-console/commit/ebe271e530429d2a355d8a60e8ba158b33aab590))
+* uninstallコマンドを追加・setupのトークン表示に使い方の説明を追加 ([1edfe36](https://github.com/kt0319/any-console/commit/1edfe361b6eebb8204acb0fed5b4ff9044edb095))
+* working状態をタブ・ピルの背景アニメーションで表現しスピナーを廃止 ([65be76e](https://github.com/kt0319/any-console/commit/65be76e1af357162502e5a2da3851be40af8c93d))
+* worktree削除の確認ダイアログを削除完了までRemoving表示で維持するよう変更 ([2cd5676](https://github.com/kt0319/any-console/commit/2cd5676e2b533a4bd1f7492671f757c83142eeb3))
+* クリップボード画像貼り付けをmacOSでも動作するよう対応 ([c61572c](https://github.com/kt0319/any-console/commit/c61572cad65a5a5adba18f36539f1f3e37df2c8c))
+* ジョブのフレーズ検知をbloced/done統合リストに変更しアイコンを語句ごとに設定可能にする ([1001e81](https://github.com/kt0319/any-console/commit/1001e81f4735bf581c064be0b843c34fa8eab216))
+* ジョブの検知語句によるエージェント状態バッジを追加 ([de7c8eb](https://github.com/kt0319/any-console/commit/de7c8eb692317afb236f4ea94f7df3bdb55ad5a3))
+* ジョブ設定に working_enabled フラグを追加してoutput変化検知を制御可能にする ([e407be3](https://github.com/kt0319/any-console/commit/e407be352aaf07e73679c7b30f8be1f7c447b177))
+* バックグラウンド時もphrase検出を継続してpush通知を送れるようにする ([1ebcccc](https://github.com/kt0319/any-console/commit/1ebcccc76a92db5d100beef647f64bb47bae0aa6))
+* ポート検出トーストに1件の場合はpreview URLを表示する ([2b02f7c](https://github.com/kt0319/any-console/commit/2b02f7c594c8a204ea086d75b6af15bb50cf91f7))
+* レート制限の上限を環境変数ANY_CONSOLE_RATE_LIMITで上書き可能にする ([94cdf23](https://github.com/kt0319/any-console/commit/94cdf231feb849ac06e86033531985dd655b8564))
+* 空きペイン画面（Open a tab in this pane）にStop splitボタンを追加 ([f9bbdde](https://github.com/kt0319/any-console/commit/f9bbdde6d0ea5cb735f3878d71272c92ac05c62d))
+* 通知クリックでタブ開く・通知タイプ別オン/オフ設定を追加 ([e6c3c86](https://github.com/kt0319/any-console/commit/e6c3c866eb99dca59015a71f7251c989a8d39c6c))
+
+
+### Bug Fixes
+
+* agent_watch.pyの戻り値型注釈を明示しmypy errorを解消 ([6dd688c](https://github.com/kt0319/any-console/commit/6dd688cde2d7824ef86af6bf91b7f2798bcfaf3e))
+* ANY_CONSOLE_RATE_LIMITの0以下の値を拒否して既定値にフォールバックする ([446daaa](https://github.com/kt0319/any-console/commit/446daaab03ace27dfcd48fa79df229bd318b10bc))
+* changesパネルが空欄になるケースにエラー・空状態メッセージを追加 ([834dd2a](https://github.com/kt0319/any-console/commit/834dd2a535e3d0dc1883aa0108ec45af01d87f6e))
+* collect_agent_states の戻り値変更に合わせてテストを修正 ([49c4b54](https://github.com/kt0319/any-console/commit/49c4b549b60cc85ea6ef3c6ed717787c9f3fbb24))
+* DispatchRequestPayloadにexisting_session_idの型定義を追加 ([8d51fce](https://github.com/kt0319/any-console/commit/8d51fce417b3f32e110cecc4078ff3e6f96ad048))
+* dispatchモーダルに既存セッションの実際のジョブを表示 ([1241280](https://github.com/kt0319/any-console/commit/124128059c96f29be90062e8bd8f7f10cf13d8dd))
+* E2Eテストのログインヘルパーでbodyクリックしてキーボードフォーカスを確保 ([3bcd988](https://github.com/kt0319/any-console/commit/3bcd988b281ad2fb64c216e5551f8921692c2edd))
+* E2Eログインヘルパーのbody.clickがモバイル画面中央のボタンを誤タップする不具合を修正 ([e8b4508](https://github.com/kt0319/any-console/commit/e8b4508d22d60f10ce88495f4584ebefd94dceac))
+* git_watchのdistディレクトリ監視を除外してビルド時の誤検知を防ぐ ([d378d65](https://github.com/kt0319/any-console/commit/d378d65affb3379944da7924db272c1ac1880888))
+* gitバージョン差でorigin/HEADが偽ブランチとして混入する不具合を修正 ([bbfc4a9](https://github.com/kt0319/any-console/commit/bbfc4a98ead259b67eb13170fc2c72465d4d592e))
+* https-setupの証明書chownをmacOSでも動くよう修正 ([ebe5479](https://github.com/kt0319/any-console/commit/ebe547975592bf1ea9a3c31682fc478e798a1f66))
+* launchd再登録時にdisable状態でbootstrapが失敗する問題を修正 ([24adceb](https://github.com/kt0319/any-console/commit/24adcebc94bdc659a1e917a9f57d264375f4fea6))
+* macOS LaunchDaemonをLaunchAgentに変更してhome以下のSSL証明書が読める問題を修正 ([b2e66f1](https://github.com/kt0319/any-console/commit/b2e66f1c3566811a354671e1f10a30b278cd642e))
+* main.pyのimport順をruffに合わせる ([e0e90c3](https://github.com/kt0319/any-console/commit/e0e90c32f5edb7f1572e85064930a836d5799956))
+* resume・WS再接続中はエージェント状態バッジをクリアしworkingアイコンが出ないようにする ([e018086](https://github.com/kt0319/any-console/commit/e0180860890cf27ca931a33463e813cc7dffd5bf))
+* setupのOpen表示をHTTPS優先・単一URLに簡略化 ([a566d70](https://github.com/kt0319/any-console/commit/a566d70dca56d14470361332dea218b75f51a784))
+* setupのサービス登録とHTTPSプロンプトのデフォルトをYに変更 ([ca9b031](https://github.com/kt0319/any-console/commit/ca9b031554897b8020402d81e12fa04980928067))
+* setupのトークン生成でvenv_pythonの呼び出し方を修正 ([2a4fe76](https://github.com/kt0319/any-console/commit/2a4fe76cb44a9ebe34f53ccba6a1afd2b529b259))
+* statusとrunのURLをhttps-setup済みの場合はTailscaleホスト名で表示 ([c870b3f](https://github.com/kt0319/any-console/commit/c870b3ffbd7933306ce234c179faac1a8d59ea48))
+* tailscale_hostnameをmacOSの一般的なインストールパスに対応 ([bf1c8c8](https://github.com/kt0319/any-console/commit/bf1c8c830758bcb4d4d98d1d64568a62ef82e72b))
+* workingタブのアニメーションを横グラデーションシマーに変更 ([3e4ad8d](https://github.com/kt0319/any-console/commit/3e4ad8d1575e1bccf33eacfe897494e99b5efe07))
+* WorkspaceDetail表示中にgit:openFileModalを受け取るとペインが切り替わらない問題を修正 ([0119144](https://github.com/kt0319/any-console/commit/0119144e4ea6987c1d82840e826d52ca545592a3))
+* workspaces.pyの行長オーバーをruffに合わせて修正 ([63f85fb](https://github.com/kt0319/any-console/commit/63f85fb98146343673b9ac4369fca81dd0d91509))
+* WS reconnect後4秒間はworking状態を抑制しタブ切替による誤検知を防ぐ ([0c2da57](https://github.com/kt0319/any-console/commit/0c2da57d6955c8a21571f17a4c6615f79ccb6c85))
+* キーボードバーの色をCSS変数に統一しステータスバーと背景色を合わせる ([210ec05](https://github.com/kt0319/any-console/commit/210ec05f6389edb46a972f026142eafd052418e2))
+* ステータスバーのchanged_filesをChangesタブのファイル数と一致させる ([49f1dac](https://github.com/kt0319/any-console/commit/49f1dac9c85904f035e9e8dc2fa539653c8d028f))
+* ステータスバーのコミットメッセージがコミット後に即時更新されない問題を修正 ([4291eb9](https://github.com/kt0319/any-console/commit/4291eb9af7188feb7a02f44932902ad31f8db822))
+* ステータスバーのブランチ表示を末尾省略に変更しチケット番号が見えるようにする ([3061afb](https://github.com/kt0319/any-console/commit/3061afb6ccd69ba47521c2b6b58de1ac6d65e60c))
+* スプリットドロップゾーンの4隅がタブドラッグで反応しない問題を修正 ([b4e55bd](https://github.com/kt0319/any-console/commit/b4e55bdf5d4af5d2bb4cdda57fc90d47d02507aa))
+* スプリット済みペインから別軸方向へのピルドロップで遷移できない不具合を修正 ([8474009](https://github.com/kt0319/any-console/commit/8474009b28654966d224ce5ae1c143593c553113))
+* ポートプレビューのポート検出をmacOSでも動作するよう修正 ([9d44d55](https://github.com/kt0319/any-console/commit/9d44d552e31197982829155a98462a77c33856e6))
+* リサイズ時に _last_capture をクリアして working の誤検知を防ぐ ([a20f537](https://github.com/kt0319/any-console/commit/a20f5377fd14b6ded2382052c68c38e1189fd969))
+* リサイズ時に _last_states の stale な working も除去してresume後の誤表示を防ぐ ([256686e](https://github.com/kt0319/any-console/commit/256686efa59e31f5f3c0a1b43f745deb0cafb5a0))
+* リモートブランチ一覧取得とfetchでSSH認証環境を渡すよう修正 ([7fe9f2a](https://github.com/kt0319/any-console/commit/7fe9f2a69b6e4bdbaa368e07d932d065bea35052))
+* ワークスペース削除中にボタンをDeleting...に変えて二重送信を防止 ([88a2412](https://github.com/kt0319/any-console/commit/88a2412012ddeb5064137efdb4926998dd2e578e))
+* ワークスペース削除後にトーストで完了を通知する ([a035bd3](https://github.com/kt0319/any-console/commit/a035bd3235bce88d577eea508e121c90935219a4))
+* 分割E2Eテストのピルセレクタを可視要素に限定 ([a211f75](https://github.com/kt0319/any-console/commit/a211f75e99c6fe463c23c4964e626ead053931db))
+* 折り返し行URLをisWrappedと行末文字判定の両方で連結する ([170e851](https://github.com/kt0319/any-console/commit/170e85116d3535ad2c6ad9320bd0ab56fe306d42))
+* 折り返し行をまたぐURLをisWrappedで正確に検出する ([7b70abd](https://github.com/kt0319/any-console/commit/7b70abd5fe9e8b173e92503746361288b5afeacb))
+* 複数ポート同時検出時はまとめてトーストで通知 ([c931d61](https://github.com/kt0319/any-console/commit/c931d610a3953a238b6fb0150fb18c3eba0d124f))
+
+
+### Performance Improvements
+
+* watchfiles起点のgit情報更新をdiff/status3本に絞って高速化 ([44c0c5e](https://github.com/kt0319/any-console/commit/44c0c5e74a89d0d90716e5b3e1a777101db73f5e))
+* バックグラウンド並列度・レート制限・UIポーリング間隔を引き上げ ([cbea42e](https://github.com/kt0319/any-console/commit/cbea42e00f50395f4c59840c3cedd13fcf5fe279))
+
+
+### Refactor
+
+* dispatch関数の複雑度を下げるためセッション解決処理を関数に切り出す ([b3933c0](https://github.com/kt0319/any-console/commit/b3933c08c10a4770532a058e369260866917597a))
+* state icon / watch_phrases を単一の notify_phrase に置き換え ([4a265de](https://github.com/kt0319/any-console/commit/4a265de3276decf0fa8f79d9c13c628c66fc4792))
+
+
+### Tests
+
+* agent-state.jsのmdi-state・watch_phrases系関数のテストを追加しカバレッジ閾値を回復 ([341bacc](https://github.com/kt0319/any-console/commit/341baccc048ddec2e2fae48fec95780cc24c6c12))
+* E2Eスモークを設定モーダル・ターミナル・モバイルに拡充 ([0b830ee](https://github.com/kt0319/any-console/commit/0b830eef3e3d0d42d09180967588065d7a4a9587))
+* Port PreviewのE2Eスモークを追加 ([dd7ff7f](https://github.com/kt0319/any-console/commit/dd7ff7f32437fd70a7070325048846b11db4d136))
+* ターミナル分割のE2Eスモークを追加 ([5ca27fa](https://github.com/kt0319/any-console/commit/5ca27fa13d5ba88e842ebbf43d6787d663018902))
+
+
+### CI
+
+* macOSでの非対話setup〜起動疎通確認をCIに追加 ([0c66d29](https://github.com/kt0319/any-console/commit/0c66d2906a607c977cbec57419b8e7d2169334f8))
+
 ## [0.6.0](https://github.com/kt0319/any-console/compare/v0.5.0...v0.6.0) (2026-07-06)
 
 
