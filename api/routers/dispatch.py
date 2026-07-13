@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
-DISPATCH_TIMEOUT_SEC = 30
+DISPATCH_TIMEOUT_SEC = 300
 SSE_PING_SEC = 20
 _PENDING: dict[str, dict] = {}
 _SSE_QUEUES: list[asyncio.Queue] = []
