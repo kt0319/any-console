@@ -7,73 +7,81 @@
       style="display:none"
       @change="onCameraFileChange"
     />
-    <div v-if="showSnippetView && !inputFocused" class="keyboard-chips-row">
-      <KeyboardChips :insert-mode="true" @chip:tap="onChipTap" />
-    </div>
-    <template v-if="showFnView && !inputFocused">
-      <div class="quick-extra-row">
-        <div
-          v-for="keyDef in numberKeys" :key="keyDef.key"
-          class="quick-key quick-fn-key quick-flick-arrow"
-          @touchstart.prevent="onFnNumberTouchStart"
-          @touchend.prevent="(e) => onFnNumberTouchEnd(e, keyDef)"
-          @touchcancel="onQuickKeyCancel($event)"
-          @click="sendKeyToTerminal({ key: keyDef.key })"
-        >
-          <span class="flick-hint-top">{{ keyDef.flickUp }}</span>
-          <span class="flick-main">{{ keyDef.label }}</span>
+    <div class="quick-extra-stack">
+      <div class="quick-extra-layer quick-extra-layer-qwerty" :class="{ 'layer-hidden': inputFocused || showSnippetView || showFnView }">
+        <div v-for="(row, ri) in qwertyRows" :key="ri" class="quick-extra-row">
+          <div
+            v-if="ri === 2"
+            class="quick-key"
+            @touchstart.prevent="onModifierKeyStart"
+            @touchend.prevent="(e) => onModifierKeyEnd(e, () => sendKeyToTerminal({ key: 'Escape' }))"
+            @touchcancel="onQuickKeyCancel($event)"
+            @click="sendKeyToTerminal({ key: 'Escape' })"
+          >
+            <span class="flick-main">Esc</span>
+          </div>
+          <template v-for="(keyDef, ci) in row" :key="ci">
+            <div
+              class="quick-key"
+              :class="{ 'quick-flick-arrow': hasFlick(ri, ci, keyDef) }"
+              @touchstart.prevent="onQwertyTouchStart($event, keyDef)"
+              @touchend.prevent="onQwertyTouchEnd($event, keyDef, ri, ci)"
+              @touchcancel="onQuickKeyCancel($event)"
+              @click="onQwertyTap(keyDef)"
+            >
+              <template v-if="keyDef.key === '_camera'">
+                <span class="flick-main"><span class="mdi mdi-camera"></span></span>
+              </template>
+              <template v-else-if="hasFlick(ri, ci, keyDef)">
+                <span v-if="(!showSymbolView || keyDef.noSymbol) && flickUpLabel(ri, ci, keyDef)" class="flick-hint-top">{{ flickUpLabel(ri, ci, keyDef) }}</span>
+                <span :class="['flick-main', { 'flick-main-text': symbolDisplayLabel(keyDef).length > 1 }]">{{ symbolDisplayLabel(keyDef) }}</span>
+                <span v-if="(!showSymbolView || keyDef.noSymbol) && keyDef.flickDown" class="flick-hint-bottom">{{ keyDef.flickDown }}</span>
+              </template>
+              <template v-else>{{ symbolDisplayLabel(keyDef) }}</template>
+            </div>
+            <div
+              v-if="ri === 2 && ci === row.length - 1"
+              class="quick-key"
+              @touchstart.prevent="onModifierKeyStart"
+              @touchend.prevent="(e) => onModifierKeyEnd(e, () => sendOrType({ key: 'Enter', shift: modifierState.shift, ctrl: modifierState.ctrl }))"
+              @touchcancel="onQuickKeyCancel($event)"
+              @click="() => sendOrType({ key: 'Enter', shift: modifierState.shift, ctrl: modifierState.ctrl })"
+            >
+              <span class="flick-main" style="font-size:13px">&crarr;</span>
+            </div>
+          </template>
         </div>
       </div>
-      <div class="quick-extra-row">
-        <div class="quick-key quick-fn-key" @touchstart.prevent @touchend.prevent="(e) => onNavCameraEnd(e)" @touchcancel="onQuickKeyCancel($event)" @click="openCamera">
-          <span class="flick-main"><span class="mdi mdi-camera"></span></span>
-        </div>
-        <div v-for="navKey in navKeys" :key="navKey.key" class="quick-key quick-fn-key" @touchstart.prevent @touchend.prevent="(e) => onNavKeyEnd(e, navKey.key)" @touchcancel="onQuickKeyCancel($event)" @click="sendKeyToTerminal({ key: navKey.key })">
-          <span class="flick-main" style="font-size:11px">{{ navKey.label }}</span>
+
+      <div v-if="showSnippetView && !inputFocused" class="quick-extra-layer quick-extra-layer-overlay">
+        <div class="keyboard-chips-row">
+          <KeyboardChips :insert-mode="true" @chip:tap="onChipTap" />
         </div>
       </div>
-    </template>
-    <div v-show="!inputFocused && !showSnippetView && !showFnView" v-for="(row, ri) in qwertyRows" :key="ri" class="quick-extra-row">
-      <div
-        v-if="ri === 2"
-        class="quick-key"
-        @touchstart.prevent="onModifierKeyStart"
-        @touchend.prevent="(e) => onModifierKeyEnd(e, () => sendKeyToTerminal({ key: 'Escape' }))"
-        @touchcancel="onQuickKeyCancel($event)"
-        @click="sendKeyToTerminal({ key: 'Escape' })"
-      >
-        <span class="flick-main">Esc</span>
-      </div>
-      <template v-for="(keyDef, ci) in row" :key="ci">
-        <div
-          class="quick-key"
-          :class="{ 'quick-flick-arrow': hasFlick(ri, ci, keyDef) }"
-          @touchstart.prevent="onQwertyTouchStart($event, keyDef)"
-          @touchend.prevent="onQwertyTouchEnd($event, keyDef, ri, ci)"
-          @touchcancel="onQuickKeyCancel($event)"
-          @click="onQwertyTap(keyDef)"
-        >
-          <template v-if="keyDef.key === '_camera'">
+
+      <div v-if="showFnView && !inputFocused" class="quick-extra-layer quick-extra-layer-overlay">
+        <div class="quick-extra-row">
+          <div
+            v-for="keyDef in numberKeys" :key="keyDef.key"
+            class="quick-key quick-fn-key quick-flick-arrow"
+            @touchstart.prevent="onFnNumberTouchStart"
+            @touchend.prevent="(e) => onFnNumberTouchEnd(e, keyDef)"
+            @touchcancel="onQuickKeyCancel($event)"
+            @click="sendKeyToTerminal({ key: keyDef.key })"
+          >
+            <span class="flick-hint-top">{{ keyDef.flickUp }}</span>
+            <span class="flick-main">{{ keyDef.label }}</span>
+          </div>
+        </div>
+        <div class="quick-extra-row">
+          <div class="quick-key quick-fn-key" @touchstart.prevent @touchend.prevent="(e) => onNavCameraEnd(e)" @touchcancel="onQuickKeyCancel($event)" @click="openCamera">
             <span class="flick-main"><span class="mdi mdi-camera"></span></span>
-          </template>
-          <template v-else-if="hasFlick(ri, ci, keyDef)">
-            <span v-if="(!showSymbolView || keyDef.noSymbol) && flickUpLabel(ri, ci, keyDef)" class="flick-hint-top">{{ flickUpLabel(ri, ci, keyDef) }}</span>
-            <span :class="['flick-main', { 'flick-main-text': symbolDisplayLabel(keyDef).length > 1 }]">{{ symbolDisplayLabel(keyDef) }}</span>
-            <span v-if="(!showSymbolView || keyDef.noSymbol) && keyDef.flickDown" class="flick-hint-bottom">{{ keyDef.flickDown }}</span>
-          </template>
-          <template v-else>{{ symbolDisplayLabel(keyDef) }}</template>
+          </div>
+          <div v-for="navKey in navKeys" :key="navKey.key" class="quick-key quick-fn-key" @touchstart.prevent @touchend.prevent="(e) => onNavKeyEnd(e, navKey.key)" @touchcancel="onQuickKeyCancel($event)" @click="sendKeyToTerminal({ key: navKey.key })">
+            <span class="flick-main" style="font-size:11px">{{ navKey.label }}</span>
+          </div>
         </div>
-        <div
-          v-if="ri === 2 && ci === row.length - 1"
-          class="quick-key"
-          @touchstart.prevent="onModifierKeyStart"
-          @touchend.prevent="(e) => onModifierKeyEnd(e, () => sendOrType({ key: 'Enter', shift: modifierState.shift, ctrl: modifierState.ctrl }))"
-          @touchcancel="onQuickKeyCancel($event)"
-          @click="() => sendOrType({ key: 'Enter', shift: modifierState.shift, ctrl: modifierState.ctrl })"
-        >
-          <span class="flick-main" style="font-size:13px">&crarr;</span>
-        </div>
-      </template>
+      </div>
     </div>
     <div v-show="!inputFocused" class="quick-extra-row quick-extra-modifier-keys">
       <div

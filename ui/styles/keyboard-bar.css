@@ -8,31 +8,9 @@
   touch-action: none;
 }
 
-/* フルキーボードはバー行の上にフロート */
-.keyboard-bar {
-  position: relative;
-}
-
 .keyboard-bar .quick-extra-panel {
-  position: absolute !important;
-  bottom: 100% !important;
-  left: 0;
-  right: 0;
-  z-index: 30;
-  background: transparent;
-  border-top: none;
-  border-bottom: none;
+  border-bottom: 1px solid var(--border);
   padding: 4px;
-}
-
-.keyboard-bar-snippets {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  right: 0;
-  z-index: 30;
-  padding: 4px;
-  background: transparent;
 }
 
 .keyboard-bar-row {
@@ -177,14 +155,8 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 30;
-  pointer-events: auto;
   padding: 4px;
-  background: transparent;
+  background: var(--bg-tertiary);
 }
 
 .quick-extra-panel .quick-key {
@@ -194,6 +166,31 @@
 .quick-extra-row {
   display: flex;
   gap: 4px;
+}
+
+/* QWERTY行群の高さを基準に固定し、スニペット/fnビューはその領域内で重ねてスクロールさせる */
+.quick-extra-stack {
+  position: relative;
+}
+
+.quick-extra-layer-qwerty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quick-extra-layer-qwerty.layer-hidden {
+  visibility: hidden;
+}
+
+.quick-extra-layer-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .quick-qwerty-panel {
@@ -242,6 +239,8 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1;
+  min-height: 0;
 }
 
 .quick-extra-bottom-keys .keyboard-input-wrapper {
@@ -261,6 +260,7 @@
   padding: 4px 0;
   flex: 1;
   min-width: 0;
+  min-height: 0;
   pointer-events: none;
 }
 
@@ -272,12 +272,13 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   pointer-events: auto;
   scrollbar-width: none;
-  max-height: 40vh;
 }
 
 .quick-snippet-scroll-row::-webkit-scrollbar {
