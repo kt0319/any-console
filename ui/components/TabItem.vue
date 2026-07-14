@@ -2,8 +2,9 @@
   <button
     ref="pillEl"
     class="tab-btn"
-    :class="{ active: isActive, 'tab-activity': tab._activity, 'tab-working': agentState === 'working', dragging: isDragging, 'drag-over-left': dropSide === 'left', 'drag-over-right': dropSide === 'right', 'tab-panel-bottom': isPanelBottom }"
+    :class="{ active: isActive, 'tab-activity': tab._activity, 'tab-working': agentState === 'working', dragging: isDragging, 'drag-over-left': effectiveDropSide === 'left', 'drag-over-right': effectiveDropSide === 'right', 'tab-panel-bottom': isPanelBottom }"
     :draggable="canDrag"
+    :data-tab-id="tab.id"
     tabindex="-1"
     @mousedown="onMouseDown"
     @click="onClick"
@@ -61,7 +62,7 @@ const layoutStore = useLayoutStore();
 const { confirm } = useConfirm();
 const terminalStore = useTerminalStore();
 const workspaceStore = useWorkspaceStore();
-const { beginDrag, cancelDrag } = useSplitDropDrag();
+const { beginDrag, updateHover, finishSplitDrop, cancelDrag } = useSplitDropDrag();
 const mouseLongPress = useLongPress(LONG_PRESS_MS);
 const touchLongPress = useLongPress(LONG_PRESS_MS);
 const pillEl = ref(null);
@@ -71,6 +72,11 @@ let closePending = false;
 
 const isActive = computed(() => props.activeTabId === props.tab.id);
 const canDrag = computed(() => !layoutStore.isTouchDevice && terminalStore.openTabs.length >= 1);
+const canTouchDrag = computed(() => terminalStore.openTabs.length >= 1);
+const effectiveDropSide = computed(() => {
+  if (layoutStore.dragOverTabId === props.tab.id) return layoutStore.dragOverSide;
+  return dropSide.value;
+});
 
 const label = computed(() => {
   if (props.tab.workspace) {
@@ -209,37 +215,105 @@ function onDropOnTab(e) {
   cancelDrag();
 }
 
-// Mobile: long press to close, horizontal scroll handled natively
+// Mobile: 短いスワイプ=ネイティブ横スクロール、長押し→そのまま離す=閉じる、
+// 長押し→動かす=ドラッグ（横移動で並び替え、タブバー外へドラッグでスプリット）
 const touchTracker = createTouchTracker();
+
+function hitTestTab(clientX, clientY) {
+  const el = document.elementFromPoint(clientX, clientY);
+  const btn = el?.closest?.(".tab-btn[data-tab-id]");
+  if (!btn) return null;
+  const tabId = Number(btn.dataset.tabId);
+  if (!Number.isFinite(tabId) || tabId === props.tab.id) return null;
+  const rect = btn.getBoundingClientRect();
+  const side = clientX < rect.left + rect.width / 2 ? "left" : "right";
+  return { tabId, side };
+}
+
+function clearDragOverIndicator() {
+  layoutStore.dragOverTabId = null;
+  layoutStore.dragOverSide = "";
+}
+
+function finishTouchDrag(clientX, clientY) {
+  const hit = hitTestTab(clientX, clientY);
+  if (hit) {
+    const fromIndex = terminalStore.openTabs.findIndex((t) => t.id === props.tab.id);
+    const targetIndex = terminalStore.openTabs.findIndex((t) => t.id === hit.tabId);
+    if (fromIndex >= 0 && targetIndex >= 0) {
+      let toIndex = hit.side === "left" ? targetIndex : targetIndex + 1;
+      if (fromIndex < toIndex) toIndex -= 1;
+      toIndex = Math.max(0, Math.min(toIndex, terminalStore.openTabs.length - 1));
+      terminalStore.moveTab(fromIndex, toIndex);
+    }
+  } else {
+    finishSplitDrop({
+      tabId: props.tab.id,
+      clientX, clientY,
+      openTabs: terminalStore.openTabs,
+      activeTabId: terminalStore.activeTabId,
+    });
+  }
+  clearDragOverIndicator();
+  cancelDrag();
+}
 
 function onTouchStart(e) {
   touchTracker.start(e);
   touchLongPress.reset();
-  touchLongPress.start(onClose);
+  isDragging.value = false;
+  touchLongPress.start(() => {});
 }
 
 function onTouchMove(e) {
   const { dx, dy } = touchTracker.delta(e);
-  if (isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
-    touchLongPress.cancel();
+  if (!touchLongPress.isFired()) {
+    if (isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
+      touchLongPress.cancel();
+    }
+    return;
   }
+  if (!isDragging.value) {
+    if (!isPastDragThreshold(dx, dy, DRAG_THRESHOLD) || !canTouchDrag.value) return;
+    isDragging.value = true;
+    beginDrag(props.tab.id);
+  }
+  if (e.cancelable) e.preventDefault();
+  const touch = e.touches[0];
+  updateHover(touch.clientX, touch.clientY);
+  const hit = hitTestTab(touch.clientX, touch.clientY);
+  layoutStore.dragOverTabId = hit?.tabId ?? null;
+  layoutStore.dragOverSide = hit?.side ?? "";
 }
 
-function onTouchEnd() {
+function onTouchEnd(e) {
   touchLongPress.cancel();
-  touchLongPress.consumeFired();
+  const fired = touchLongPress.consumeFired();
+  if (isDragging.value) {
+    if (e.cancelable) e.preventDefault();
+    const touch = e.changedTouches[0];
+    finishTouchDrag(touch.clientX, touch.clientY);
+    isDragging.value = false;
+    return;
+  }
+  if (fired) onClose();
 }
 
 function onTouchCancel() {
   touchLongPress.cancel();
   touchLongPress.consumeFired();
+  if (isDragging.value) {
+    isDragging.value = false;
+    clearDragOverIndicator();
+    cancelDrag();
+  }
 }
 
 onMounted(() => {
   const el = pillEl.value;
   if (!el) return;
-  el.addEventListener("touchmove", onTouchMove, { passive: true });
-  el.addEventListener("touchend", onTouchEnd);
+  el.addEventListener("touchmove", onTouchMove, { passive: false });
+  el.addEventListener("touchend", onTouchEnd, { passive: false });
   el.addEventListener("touchcancel", onTouchCancel);
 });
 

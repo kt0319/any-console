@@ -92,8 +92,8 @@ const { onDragEnter, onDragLeave, onDrop } = useTerminalDrop();
   align-items: center;
   justify-content: center;
   pointer-events: auto;
-  background: rgba(130, 170, 255, 0.08);
-  border: 2px dashed rgba(130, 170, 255, 0.3);
+  background: rgba(130, 170, 255, 0.18);
+  border: 2px dashed rgba(130, 170, 255, 0.45);
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
@@ -168,8 +168,8 @@ const { onDragEnter, onDragLeave, onDrop } = useTerminalDrop();
   flex-direction: column;
   gap: 4px;
   border-radius: 8px;
-  background: rgba(130, 170, 255, 0.08);
-  border: 2px dashed rgba(130, 170, 255, 0.35);
+  background: rgba(130, 170, 255, 0.18);
+  border: 2px dashed rgba(130, 170, 255, 0.45);
 }
 
 .split-drop-zone.drop-center .drop-zone-icon {
@@ -186,7 +186,7 @@ const { onDragEnter, onDragLeave, onDrop } = useTerminalDrop();
 }
 
 .split-drop-zone.drag-over.drop-center {
-  background: rgba(130, 170, 255, 0.18);
+  background: rgba(130, 170, 255, 0.32);
   border-color: var(--accent);
 }
 
@@ -196,7 +196,7 @@ const { onDragEnter, onDragLeave, onDrop } = useTerminalDrop();
 }
 
 .split-drop-zone.drag-over {
-  background: rgba(130, 170, 255, 0.2);
+  background: rgba(130, 170, 255, 0.32);
   border-color: var(--accent);
 }
 

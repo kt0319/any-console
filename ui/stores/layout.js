@@ -22,6 +22,9 @@ export const useLayoutStore = defineStore("layout", () => {
 
   const isShowDropZones = ref(false);
   const dragTabId = ref(null);
+  // タッチドラッグ中、指下のタブに対する挿入インジケータ（別コンポーネントインスタンス間で共有するため store 経由）
+  const dragOverTabId = ref(null);
+  const dragOverSide = ref("");
 
   let emptyPaneSeq = 0;
   function nextEmptyId() {
@@ -183,6 +186,8 @@ export const useLayoutStore = defineStore("layout", () => {
     splitLayout,
     isShowDropZones,
     dragTabId,
+    dragOverTabId,
+    dragOverSide,
     splitWithDrop,
     exitSplitMode,
     assignTabToPane,
