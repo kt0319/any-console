@@ -42,17 +42,27 @@
         </button>
       </div>
 
+      <div v-if="serverInfo" class="screen-empty-server-info">
+        <span class="mdi mdi-server-outline"></span>
+        <span>{{ serverInfo.hostname }}</span>
+        <span v-if="serverInfo.version" class="screen-empty-server-info-sep">·</span>
+        <span v-if="serverInfo.version">{{ serverInfo.version }}</span>
+      </div>
+
     </div>
     <StatusOverlay :visible="booting" :label="bootLabel" variant="info" />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { emit } from "../app-bridge.js";
 import { useConfirm } from "../composables/useConfirm.js";
+import { useApi } from "../composables/useApi.js";
+import { getWithRetry } from "../utils/api-retry.js";
 import { renderIconStr } from "../utils/render-icon.js";
+import { EP_SYSTEM_INFO } from "../utils/endpoints.js";
 import StatusOverlay from "./StatusOverlay.vue";
 
 const props = defineProps({
@@ -64,8 +74,19 @@ defineEmits(["openWorkspace"]);
 const bootLabel = computed(() => (props.bootMessage || "Loading").replace(/\.+$/, ""));
 
 const { recentJobs, loadRecentJobs } = useRecentJobs();
+const { apiGet } = useApi();
 const { confirm } = useConfirm();
-onMounted(() => loadRecentJobs());
+const serverInfo = ref(null);
+
+onMounted(() => {
+  loadRecentJobs();
+  loadServerInfo();
+});
+
+async function loadServerInfo() {
+  const { ok, data } = await getWithRetry(apiGet, EP_SYSTEM_INFO);
+  if (ok && data) serverInfo.value = data;
+}
 
 function openSettings() {
   emit("settings:open");
@@ -198,6 +219,20 @@ async function runRecentJob(recent) {
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.screen-empty-server-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.screen-empty-server-info-sep {
+  opacity: 0.6;
 }
 
 </style>
