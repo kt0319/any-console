@@ -669,6 +669,19 @@ cmd_setup() {
     echo "  Start in foreground: ./any-console run"
     echo "  (or register the service later via ./any-console setup)"
   fi
+
+  if is_macos && [ "$service_registered" -eq 1 ]; then
+    echo ""
+    warn "macOS note: file access prompts"
+    echo "  When any-console reads files under a TCC-protected folder (Desktop,"
+    echo "  Documents, Downloads, iCloud Drive), macOS may show a one-time"
+    echo "  permission dialog for the Python process. This cannot be suppressed"
+    echo "  from code — grant access once via:"
+    echo "    System Settings > Privacy & Security > Files and Folders"
+    echo "    (or Full Disk Access) > add:"
+    echo "    $(venv_python)"
+    echo "  Then: ./any-console restart"
+  fi
   local bind_host bind_port proto ts_host
   bind_host=$(get_host)
   bind_port=$(get_port)
