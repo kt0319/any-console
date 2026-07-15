@@ -28,6 +28,8 @@ class JobDefinition:
     notify_delay_min: int = 0
     # output 変化（working 状態）の検知を有効にするか。False にすると working を返さない。
     working_enabled: bool = True
+    # 非ターミナル実行（/run, detached_tab=False）の完了時にプッシュ通知を送るか。
+    notify_on_done: bool = False
 
 
 TERMINAL_JOB_KEY = "terminal"

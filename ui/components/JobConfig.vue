@@ -37,6 +37,12 @@
           <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.confirm" /> Confirm dialog</label>
           <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.detached_tab" /> Run detached</label>
         </div>
+        <div v-if="!form.detached_tab" class="ws-settings-row" style="gap:8px">
+          <label class="form-check-label">
+            <input type="checkbox" class="form-checkbox" v-model="form.notify_on_done" />
+            Notify when finished <span class="job-label-note">(PWA only)</span>
+          </label>
+        </div>
         <div class="ws-settings-row">
           <span class="ws-settings-label">Timeout (sec)</span>
           <input type="number" class="form-input" style="max-width:120px" v-model.number="form.timeout_sec"
@@ -109,6 +115,7 @@ const form = ref(
           detached_tab: !!jobEntry.job.detached_tab,
           timeout_sec: jobEntry.job.timeout_sec ?? null,
           notify_phrase: jobEntry.job.notify_phrase || "",
+          notify_on_done: !!jobEntry.job.notify_on_done,
         }
       : {
           label: "",
@@ -121,6 +128,7 @@ const form = ref(
           detached_tab: false,
           timeout_sec: null,
           notify_phrase: "",
+          notify_on_done: false,
         }
 );
 
@@ -177,6 +185,7 @@ async function saveJob() {
       notify_phrase: f.type === "browser" ? "" : f.notify_phrase.trim(),
       notify_delay_min: f.type === "browser" ? 0 : 1,
       working_enabled: true,
+      notify_on_done: f.type !== "browser" && !f.detached_tab && f.notify_on_done,
     };
     const { ok, data } = isNew ? await apiPost(url, body) : await apiPut(url, body);
     if (!ok) {

@@ -29,7 +29,8 @@ class TestJobExecution:
         assert data["exit_code"] == 0
         assert "hello" in data["stdout"]
 
-    def test_run_job_sends_job_done_push_notification(self, client, workspace, monkeypatch):
+    def test_run_job_without_notify_on_done_sends_no_push(self, client, workspace, monkeypatch):
+        # notify_on_done はデフォルト false なので、未設定のジョブでは送信しない。
         sent = []
         monkeypatch.setattr(
             "api.routers.job_runner.send_push_notification",
@@ -38,7 +39,23 @@ class TestJobExecution:
         res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "label": "echo",
             "command": "echo hello",
-            "terminal": False,
+        })
+        job_name = res.json()["name"]
+
+        res = client.post("/run", headers=AUTH, json={"job": job_name, "workspace": "test-ws"})
+        assert res.status_code == 200
+        assert sent == []
+
+    def test_run_job_with_notify_on_done_sends_job_done_push_notification(self, client, workspace, monkeypatch):
+        sent = []
+        monkeypatch.setattr(
+            "api.routers.job_runner.send_push_notification",
+            lambda **kwargs: sent.append(kwargs),
+        )
+        res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
+            "label": "echo",
+            "command": "echo hello",
+            "notify_on_done": True,
         })
         job_name = res.json()["name"]
 
@@ -58,7 +75,7 @@ class TestJobExecution:
         res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "label": "fail",
             "command": "exit 1",
-            "terminal": False,
+            "notify_on_done": True,
         })
         job_name = res.json()["name"]
 
@@ -66,6 +83,23 @@ class TestJobExecution:
         assert res.status_code == 200
         assert len(sent) == 1
         assert "Failed" in sent[0]["title"]
+
+    def test_notify_on_done_ignored_when_detached_tab_true(self, client, workspace, monkeypatch):
+        # notify_on_done は detached_tab=True（ターミナルタブ起動）のジョブには効果がない。
+        sent = []
+        monkeypatch.setattr(
+            "api.routers.job_runner.send_push_notification",
+            lambda **kwargs: sent.append(kwargs),
+        )
+        res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
+            "label": "echo",
+            "command": "echo hello",
+            "notify_on_done": True,
+            "detached_tab": True,
+        })
+        job_name = res.json()["name"]
+        detail = client.get(f"/workspaces/test-ws/jobs/{job_name}", headers=AUTH).json()
+        assert detail["notify_on_done"] is False
 
 
 class TestTerminalSession:

@@ -203,15 +203,16 @@ def _run_regular_job(body, job_def, ordered_args, ws_path):
             result.returncode, sanitize_log_value(result.stderr[:200]),
         )
 
-    label = job_def.label or body.job
-    status = "Succeeded" if ok else f"Failed (exit {result.returncode})"
-    url = f"/?workspace={body.workspace}" if body.workspace else "/"
-    send_push_notification(
-        title=f"{label}: {status}",
-        body=body.workspace or "",
-        url=url,
-        notif_type="job_done",
-    )
+    if job_def.notify_on_done:
+        label = job_def.label or body.job
+        status = "Succeeded" if ok else f"Failed (exit {result.returncode})"
+        url = f"/?workspace={body.workspace}" if body.workspace else "/"
+        send_push_notification(
+            title=f"{label}: {status}",
+            body=body.workspace or "",
+            url=url,
+            notif_type="job_done",
+        )
 
     return payload
 

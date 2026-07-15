@@ -102,6 +102,7 @@ def entry_to_job_definition(name, entry):
         notify_phrase=entry.get("notify_phrase", ""),
         notify_delay_min=entry.get("notify_delay_min", 0),
         working_enabled=entry.get("working_enabled", True),
+        notify_on_done=entry.get("notify_on_done", False),
     )
 
 
@@ -138,6 +139,7 @@ def job_definition_to_dict(job_def, is_common=None):
         "notify_phrase": job_def.notify_phrase,
         "notify_delay_min": job_def.notify_delay_min,
         "working_enabled": job_def.working_enabled,
+        "notify_on_done": job_def.notify_on_done,
     }
     if is_common is not None:
         d["common"] = is_common
@@ -186,6 +188,7 @@ def build_job_entry(
     notify_phrase: str = "",
     notify_delay_min: int = 0,
     working_enabled: bool = True,
+    notify_on_done: bool = False,
 ) -> dict:
     entry: dict[str, Any] = {}
     if job_type == "browser":
@@ -203,6 +206,8 @@ def build_job_entry(
         entry["detached_tab"] = True
     if timeout_sec is not None:
         entry["timeout_sec"] = timeout_sec
+    if notify_on_done:
+        entry["notify_on_done"] = True
     _apply_agent_watch_fields(entry, notify_phrase, notify_delay_min, working_enabled)
     return entry
 
@@ -220,6 +225,7 @@ class JobRequest(BaseModel):
     notify_phrase: str = Field("", max_length=200)
     notify_delay_min: int = Field(0, ge=0, le=60)
     working_enabled: bool = True
+    notify_on_done: bool = False
 
 
 class ReorderJobsRequest(BaseModel):
@@ -255,6 +261,8 @@ def save_job(data, save_fn, job_name, body, log_msg):
     label, command, job_type, url = _validate_job_fields(body)
     notify_phrase = "" if job_type == "browser" else body.notify_phrase.strip()
     notify_delay_min = 0 if job_type == "browser" else body.notify_delay_min
+    # notify_on_done は非ターミナル実行（detached_tab=False）の完了通知にのみ意味を持つ。
+    notify_on_done = job_type != "browser" and not body.detached_tab and body.notify_on_done
     if job_name is None:
         job_name = generate_job_key(data)
     data[job_name] = build_job_entry(
@@ -263,6 +271,7 @@ def save_job(data, save_fn, job_name, body, log_msg):
         notify_phrase=notify_phrase,
         notify_delay_min=notify_delay_min,
         working_enabled=body.working_enabled if job_type != "browser" else True,
+        notify_on_done=notify_on_done,
     )
     save_fn(data)
     logger.info(log_msg, job_name)
