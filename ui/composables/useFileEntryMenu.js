@@ -82,7 +82,7 @@ export function useFileEntryMenu({
   }
 
   function onEntryClick(entry) {
-    if (longPress.isMenuEl() || longPress.isFired()) {
+    if (longPress.getMenuEl() || longPress.isFired()) {
       return;
     }
     if (!isHoverDevice) {

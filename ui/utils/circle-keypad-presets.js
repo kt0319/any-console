@@ -46,7 +46,7 @@ export const RADIAL_SPECIAL_PRESETS = [
   { id: "tabs",      label: "Tabs",       action: "settings:open", payload: { view: "TabConfig" } },
   { id: "auth",      label: "Auth",       action: "settings:open", payload: { view: "AuthConfig" } },
   { id: "sysinfo",   label: "System",     action: "settings:open", payload: { view: "ServerInfo" } },
-  { id: "preview",   label: "Preview",    action: "settings:open", payload: { view: "PreviewConfig" } },
+  { id: "preview",   label: "Preview",    action: "settings:open", payload: { view: "PreviewPorts" } },
   { id: "reload",    label: "Reload",     action: "app:reload" },
   { id: "refresh",   label: "Refresh",    action: "tab:refresh" },
   { id: "totop",     label: "To Top",     action: "terminal:scrollToTop" },

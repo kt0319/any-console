@@ -174,10 +174,6 @@ onMounted(() => {
     moveSnippetToFront(command);
   }));
 
-  bridgeCleanups.push(on("snippet:reorder", ({ command }) => {
-    moveSnippetToFront(command);
-  }));
-
   bridgeCleanups.push(on("snippet:add", ({ label, command }) => addSnippet(label, command)));
   bridgeCleanups.push(on("snippet:delete", ({ index }) => deleteSnippet(index)));
   bridgeCleanups.push(on("snippet:move", ({ from, to }) => moveSnippet(from, to)));

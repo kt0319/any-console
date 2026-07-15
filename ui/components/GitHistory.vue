@@ -158,7 +158,7 @@ function fileIconHtml(file) {
 
 const {
   longPressEntry, onLongPressStart, onLongPressEnd, closeLongPressMenu,
-  isLongPressFired, isMenuEl, toggleActionMenu, onCommitAction,
+  isLongPressFired, getMenuEl, toggleActionMenu, onCommitAction,
 } = useCommitActionMenu();
 
 function openDiffFiles(entry, fetchFn) {
@@ -174,7 +174,7 @@ function openWorkingTreeDiffFiles() {
 
 
 function openCommitDiffFiles(entry) {
-  if (isMenuEl() || isLongPressFired()) return;
+  if (getMenuEl() || isLongPressFired()) return;
   if (longPressEntry.value) closeLongPressMenu();
   openDiffFiles(entry, () => fetchCommitDiff(entry.fullHash));
 }

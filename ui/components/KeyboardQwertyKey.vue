@@ -196,7 +196,7 @@ const props = defineProps({
   externalSnippetView: { type: Boolean, default: false },
 });
 
-const emitLocal = defineEmits(["cycleMode", "submitted", "inputFocus", "snippetToggle"]);
+const emitLocal = defineEmits(["dismiss", "submitted", "inputFocus", "snippetToggle"]);
 
 const inputStore = useInputStore();
 const auth = useAuthStore();
@@ -236,7 +236,7 @@ function closeSnippetView() {
 }
 
 const { historyPrev, historyNext, cycleSnippet } = useInputDraftHistory(
-  draft, inputFocused, sendTextToTerminal, { onSend: () => emitLocal("cycleMode") }
+  draft, inputFocused, sendTextToTerminal, { onSend: () => emitLocal("dismiss") }
 );
 
 function onInputFocused(focused) {
@@ -251,7 +251,7 @@ function onChipTap({ command }) {
   } else {
     sendTextToTerminal(command);
     inputStore.addInputHistory(command);
-    emitLocal("cycleMode");
+    emitLocal("dismiss");
     return;
   }
   _showSnippetView.value = false;
@@ -266,7 +266,7 @@ const qwertyRows = computed(() => inputStore.QWERTY_ROWS || []);
 const numberKeys = computed(() => inputStore.NUMBER_KEYS || []);
 
 function doReload() {
-  emitLocal("cycleMode");
+  emitLocal("dismiss");
   window.location.replace(window.location.pathname + "?_=" + Date.now());
 }
 
@@ -282,7 +282,7 @@ const {
 const { cameraInputEl, openCamera, onCameraFileChange } = useQwertyCamera({
   apiFetch: auth.apiFetch.bind(auth),
   getActiveTerminalTab,
-  onBeforeUpload: () => emitLocal("cycleMode"),
+  onBeforeUpload: () => emitLocal("dismiss"),
 });
 
 const {
@@ -362,13 +362,13 @@ useQwertyBottomRowFlicks({
   inputFocused, hasDraft, keyboardInput,
   cycleSnippet, historyPrev, historyNext,
   setupFlickRepeat, sendKeyToTerminal,
-  dismissKeyboard: () => emitLocal("cycleMode"),
+  dismissKeyboard: () => emitLocal("dismiss"),
 });
 
 let offSnippetTap = null;
 onMounted(() => {
   offSnippetTap = on("snippet:tap", () => {
-    if (props.active) emitLocal("cycleMode");
+    if (props.active) emitLocal("dismiss");
   });
 });
 onUnmounted(() => { offSnippetTap?.(); });

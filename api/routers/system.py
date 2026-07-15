@@ -36,7 +36,8 @@ def _run_cmd_safe(cmd: list[str], timeout: float = SYSTEM_CMD_TIMEOUT_SEC, cwd: 
     return None
 
 
-def get_app_version() -> str:
+def get_app_commit_date() -> str:
+    """最終コミットの日時文字列（例: 2026-07-15 12:34）。バージョン表記は get_app_release() を使う。"""
     out = _run_cmd_safe(
         ["git", "log", "-1", "--format=%cd", "--date=format:%Y-%m-%d %H:%M"],
         cwd=REPO_DIR,

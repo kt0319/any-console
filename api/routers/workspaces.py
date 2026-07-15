@@ -10,7 +10,7 @@ from ..common import (
     BACKGROUND_FETCH_TIMEOUT_SEC,
     collapse_user_path,
     expand_workspace_path,
-    generate_workspace_id,
+    generate_entity_id,
     run_subprocess_safe,
     safe_resolve_str,
 )
@@ -244,9 +244,9 @@ def add_workspace(body: AddWorkspaceRequest):
     for entry in entries.values():
         if entry.get("name") == display_name:
             raise conflict(f"'{display_name}' is already registered")
-    new_id = generate_workspace_id()
+    new_id = generate_entity_id()
     while new_id in entries:
-        new_id = generate_workspace_id()
+        new_id = generate_entity_id()
     save_workspace_config(new_id, {"name": display_name, "path": collapse_user_path(abs_path)})
     notify_workspaces_changed()
     logger.info("workspace registered id=%s name=%s path=%s", new_id, display_name, abs_path)

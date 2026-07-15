@@ -67,11 +67,14 @@ WS_PING_INTERVAL_SEC = 15
 BRANCH_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_./-]+$")
 COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{4,40}$|^stash@\{\d+\}$")
 WORKSPACE_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_.-]+$")
-WORKSPACE_ID_PREFIX = "ws_"
+# workspace / group 共通の永続ID用プレフィックス。歴史的経緯で "ws_" を共用しており、
+# 保存済み config 内のIDと互換を保つため変更しない。
+ENTITY_ID_PREFIX = "ws_"
 
 
-def generate_workspace_id() -> str:
-    return WORKSPACE_ID_PREFIX + secrets.token_hex(6)
+def generate_entity_id() -> str:
+    """workspace や group など、config に保存する永続エンティティのIDを生成する。"""
+    return ENTITY_ID_PREFIX + secrets.token_hex(6)
 
 
 MAX_LABEL_LENGTH = 200

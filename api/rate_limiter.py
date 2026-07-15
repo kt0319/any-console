@@ -52,11 +52,12 @@ _SKIP_EXACT = frozenset({
     "/auth/check",
 })
 
-# WebSocket paths bypass the HTTP rate limiter; the WS handshake itself is rare.
-_SKIP_WS_PREFIXES = ("/terminal/ws/", "/preview/")  # noqa: S105
-# 注: /preview/ は HTTP proxy 経由のアプリ資産（JS/CSS/HMR）が大量に流れるため、
-# ここで rate limit に掛けると Vite や Next.js が壊れる。loopback への proxy なので
-# 認可は preview router 側の verify_token に任せ、レート制限は外す。
+# Rate limiter を素通しするパスプレフィックス。
+# - /terminal/ws/ は WebSocket。ハンドシェイク自体は稀なので制限不要。
+# - /preview/ は HTTP proxy 経由のアプリ資産（JS/CSS/HMR）が大量に流れるため、
+#   ここで rate limit に掛けると Vite や Next.js が壊れる。loopback への proxy なので
+#   認可は preview router 側の verify_token に任せ、レート制限は外す。
+_SKIP_PREFIXES = ("/terminal/ws/", "/preview/")  # noqa: S105
 
 
 def _should_skip(path: str) -> bool:
@@ -64,7 +65,7 @@ def _should_skip(path: str) -> bool:
         return True
     if any(path.startswith(p) for p in _STATIC_DIRS):
         return True
-    if any(path.startswith(p) for p in _SKIP_WS_PREFIXES):
+    if any(path.startswith(p) for p in _SKIP_PREFIXES):
         return True
     if any(path.endswith(s) for s in _STATIC_SUFFIXES):
         return True

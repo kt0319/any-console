@@ -53,7 +53,7 @@ import { isPastDragThreshold, createTouchTracker } from "../utils/gesture.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
-  activeTabId: { type: String, default: null },
+  activeTabId: { type: Number, default: null },
   isPanelBottom: { type: Boolean, default: false },
 });
 

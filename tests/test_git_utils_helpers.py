@@ -1,4 +1,4 @@
-"""api/git_utils.py の純粋ヘルパー関数の単体テスト。
+"""api/git_utils.py / api/git_info.py の純粋ヘルパー関数の単体テスト。
 
 mock 不要のロジック部分（dict変換、stdoutパース等）を網羅する。
 """
@@ -185,7 +185,7 @@ class TestGitRepoQueries:
         info = git_info(git_workspace_with_commit)
         assert info["is_git_repo"] is True
         assert info["branch"]
-        assert info["last_commit"]
+        assert info["last_commit_date"]
 
     def test_git_info_returns_empty_for_non_repo(self, tmp_path):
         plain = tmp_path / "plain"

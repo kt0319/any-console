@@ -233,10 +233,10 @@ def _autoregister_device(request: Request, response: Response, source: str) -> d
         autoname_from_user_agent,
         find_or_register_device,
         get_device,
-        verify_device,
+        verify_and_touch_device,
     )
     from .routers.devices import _set_device_cookies
-    existing = verify_device(
+    existing = verify_and_touch_device(
         request.cookies.get("any_console_device", ""),
         request.cookies.get("any_console_secret", ""),
     )
@@ -276,7 +276,7 @@ async def auth_check(request: Request, response: Response, auth_subject: str = D
     return {
         "status": "ok",
         "hostname": socket.gethostname(),
-        "version": system.get_app_version(),
+        "commit_date": system.get_app_commit_date(),
         "auth_method": auth_method,
         "tailscale_user": tailscale_user,
         "device": device,

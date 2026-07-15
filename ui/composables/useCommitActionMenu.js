@@ -2,7 +2,7 @@ import { useLongPress } from "./useLongPress.js";
 import { useGitHistoryAction } from "./useGitHistoryAction.js";
 
 export function useCommitActionMenu() {
-  const { activeEntry: longPressEntry, startMenu: onLongPressStart, endMenu: onLongPressEnd, closeMenu: closeLongPressMenu, isFired: isLongPressFired, isMenuEl } = useLongPress();
+  const { activeEntry: longPressEntry, startMenu: onLongPressStart, endMenu: onLongPressEnd, closeMenu: closeLongPressMenu, isFired: isLongPressFired, getMenuEl } = useLongPress();
   const { execAction: execCommitAction, execReset: execCommitReset, execCreateBranch: execCommitCreateBranch, execMerge: execCommitMerge, execRebase: execCommitRebase } = useGitHistoryAction();
 
   function toggleActionMenu(entry) {
@@ -33,7 +33,7 @@ export function useCommitActionMenu() {
     onLongPressEnd,
     closeLongPressMenu,
     isLongPressFired,
-    isMenuEl,
+    getMenuEl,
     toggleActionMenu,
     onCommitAction,
   };
