@@ -29,6 +29,44 @@ class TestJobExecution:
         assert data["exit_code"] == 0
         assert "hello" in data["stdout"]
 
+    def test_run_job_sends_job_done_push_notification(self, client, workspace, monkeypatch):
+        sent = []
+        monkeypatch.setattr(
+            "api.routers.job_runner.send_push_notification",
+            lambda **kwargs: sent.append(kwargs),
+        )
+        res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
+            "label": "echo",
+            "command": "echo hello",
+            "terminal": False,
+        })
+        job_name = res.json()["name"]
+
+        res = client.post("/run", headers=AUTH, json={"job": job_name, "workspace": "test-ws"})
+        assert res.status_code == 200
+        assert len(sent) == 1
+        assert sent[0]["notif_type"] == "job_done"
+        assert "Succeeded" in sent[0]["title"]
+        assert sent[0]["body"] == "test-ws"
+
+    def test_run_failing_job_reports_failure_in_push_notification(self, client, workspace, monkeypatch):
+        sent = []
+        monkeypatch.setattr(
+            "api.routers.job_runner.send_push_notification",
+            lambda **kwargs: sent.append(kwargs),
+        )
+        res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
+            "label": "fail",
+            "command": "exit 1",
+            "terminal": False,
+        })
+        job_name = res.json()["name"]
+
+        res = client.post("/run", headers=AUTH, json={"job": job_name, "workspace": "test-ws"})
+        assert res.status_code == 200
+        assert len(sent) == 1
+        assert "Failed" in sent[0]["title"]
+
 
 class TestTerminalSession:
     def test_create_terminal_session(self, client, workspace):

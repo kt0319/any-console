@@ -26,6 +26,7 @@ from ..common import (
 from ..errors import bad_request, server_error, timeout_error, too_many_requests
 from ..git_utils import command_result_dict, git_branches, worktree_base_of
 from ..job_models import TERMINAL_JOB, TERMINAL_JOB_KEY
+from ..push import send_push_notification
 from ..runner import run_job
 from ..terminal_session import (
     TERMINAL_SESSIONS,
@@ -191,7 +192,8 @@ def _run_regular_job(body, job_def, ordered_args, ws_path):
 
     payload = command_result_dict(result)
 
-    if result.returncode == 0:
+    ok = result.returncode == 0
+    if ok:
         logger.info("job ok job=%s workspace=%s", body.job, body.workspace or "(none)")
         log_activity(body.workspace, "job_run", job=body.job)
     else:
@@ -200,6 +202,17 @@ def _run_regular_job(body, job_def, ordered_args, ws_path):
             body.job, body.workspace or "(none)",
             result.returncode, sanitize_log_value(result.stderr[:200]),
         )
+
+    label = job_def.label or body.job
+    status = "Succeeded" if ok else f"Failed (exit {result.returncode})"
+    url = f"/?workspace={body.workspace}" if body.workspace else "/"
+    send_push_notification(
+        title=f"{label}: {status}",
+        body=body.workspace or "",
+        url=url,
+        notif_type="job_done",
+    )
+
     return payload
 
 
