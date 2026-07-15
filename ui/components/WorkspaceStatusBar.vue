@@ -3,42 +3,42 @@
     <template v-if="hasVisibleTabs">
       <div class="status-nav-group" ref="navGroupEl">
         <template v-if="showJobsFiles || isPlainTerminal">
-          <button v-if="isGitRepo" type="button" class="status-nav-btn" aria-label="Jobs" data-tooltip="Jobs" @click="openFileModal('jobs')">
+          <button v-if="isGitRepo" type="button" class="status-nav-btn status-icon-btn" aria-label="Jobs" data-tooltip="Jobs" @click="openFileModal('jobs')">
             <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
             <span v-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Jobs</span>
           </button>
           <button
             v-else-if="activeTab"
             type="button"
-            class="status-nav-btn status-add-workspace-btn"
+            class="status-nav-btn status-icon-btn status-add-workspace-btn"
             :aria-label="addLabel"
             :data-tooltip="addLabel"
             @click="registerCurrentDir"
           >
             <span class="mdi mdi-folder-plus-outline status-btn-icon" aria-hidden="true"></span>
-            <span class="status-btn-label status-btn-label-always">{{ addLabel }}</span>
+            <span v-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">{{ addLabel }}</span>
           </button>
           <div class="status-divider"></div>
-          <button type="button" class="status-nav-btn" aria-label="Files" data-tooltip="Files" @click="openFileModal('files')">
+          <button type="button" class="status-nav-btn status-icon-btn" aria-label="Files" data-tooltip="Files" @click="openFileModal('files')">
             <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
-            <span v-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': isPlainTerminal || !isBranchLong }">Files</span>
+            <span v-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Files</span>
           </button>
           <div class="status-divider"></div>
         </template>
-        <button v-if="!isMobile || !isDirty || isPlainTerminal" type="button" class="status-nav-btn status-msg-btn" :class="{ 'status-placeholder-btn': isPlainTerminal }" :disabled="isPlainTerminal" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
+        <button v-if="!isMobile || !isDirty" type="button" class="status-nav-btn status-msg-btn" :class="{ 'status-placeholder-btn': isPlainTerminal }" :disabled="isPlainTerminal" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
           <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
           <span v-if="isGitRepo" class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
           <span v-else class="status-btn-label status-btn-label-always">History</span>
         </button>
-        <div v-if="!isMobile || isPlainTerminal" class="status-divider"></div>
-        <button v-if="!isMobile || isDirty || isPlainTerminal" type="button" class="status-nav-btn status-numstat-btn" :class="{ 'status-msg-btn': isMobile, 'status-placeholder-btn': isPlainTerminal }" :disabled="isPlainTerminal" tabindex="-1" aria-label="Changes" data-tooltip="Changes" @click="openFileModal('changes')">
+        <div v-if="!isMobile" class="status-divider"></div>
+        <button v-if="!isMobile || isDirty" type="button" class="status-nav-btn status-numstat-btn" :class="{ 'status-msg-btn': isMobile, 'status-placeholder-btn': isPlainTerminal }" :disabled="isPlainTerminal" tabindex="-1" aria-label="Changes" data-tooltip="Changes" @click="openFileModal('changes')">
           <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
           <template v-if="isDirty && !statusLoading">
             <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
             <span class="diff-num-plus">+{{ insertions }}</span>
             <span class="diff-num-del">-{{ deletions }}</span>
           </template>
-          <span v-else-if="!isMobile || isPlainTerminal" class="status-btn-label" :class="{ 'status-btn-label-always': isPlainTerminal || !isBranchLong }">Changes</span>
+          <span v-else-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Changes</span>
         </button>
         <div class="status-divider"></div>
         <button type="button" class="status-nav-btn status-branch-btn" :class="{ 'status-placeholder-btn': isPlainTerminal }" :disabled="isPlainTerminal" tabindex="-1" aria-label="Branches" data-tooltip="Branches" @click="openFileModal('branch')">
@@ -265,7 +265,7 @@ async function registerCurrentDir() {
   justify-content: center;
   gap: 4px;
   height: 36px;
-  padding: 0 2px;
+  padding: 0 8px;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -314,6 +314,17 @@ color: #ffffff;
 
 .status-nav-btn:has(.status-btn-label-always) {
   padding: 0 8px;
+}
+
+/* アイコングリフの文字送り幅に応じてボタンの外枠幅がズレないよう、アイコンのみの
+   状態では正方形に固定する（Jobs / Add workspace / Files で見た目の位置を揃える）。
+   ラベルが表示される場合はテキストに合わせて広がる必要があるため固定を解除する。 */
+.status-icon-btn {
+  width: 36px;
+}
+
+.status-icon-btn:has(.status-btn-label-always) {
+  width: auto;
 }
 
 .status-add-workspace-btn {
@@ -419,6 +430,12 @@ color: #ffffff;
   padding-left: 8px;
   padding-right: 8px;
   justify-content: flex-start;
+}
+
+.status-numstat-btn .numstat-files,
+.status-numstat-btn .diff-num-plus,
+.status-numstat-btn .diff-num-del {
+  font-weight: 600;
 }
 
 .numstat-files {
