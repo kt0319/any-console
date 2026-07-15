@@ -23,6 +23,7 @@ from ..common import (
     resolve_workspace_path,
 )
 from ..errors import bad_request, server_error, too_many_requests
+from ..git_info import invalidate_git_info
 from ..git_utils import (
     git_branch,
     git_branches,
@@ -92,7 +93,7 @@ def _resolve_job_def(workspace: str, job: str):
     return job_def
 
 
-def _ensure_branch(ws_path, branch: str, create: bool, base: str | None) -> None:
+def _ensure_branch(workspace_name: str, ws_path, branch: str, create: bool, base: str | None) -> None:
     branch = validate_branch_name(branch)
     current = git_branch(ws_path)
     if branch == current:
@@ -112,6 +113,8 @@ def _ensure_branch(ws_path, branch: str, create: bool, base: str | None) -> None
         raise server_error(f"Branch operation failed: {e}") from None
     if result.returncode != 0:
         raise bad_request(result.stderr.strip() or "Branch operation failed")
+    # ステータスストリーム購読者へ FS イベントを待たずに即時反映する
+    invalidate_git_info(workspace_name)
 
 
 def _find_existing_session(workspace: str, job: str, match: str = "any"):
@@ -259,7 +262,7 @@ def _resolve_and_launch_session(body: DispatchRequest, effective_ws: str, ws_pat
 
     if body.branch and not body.worktree:
         branch_ws = (session.workspace if session and session.workspace else None) or effective_ws
-        _ensure_branch(resolve_workspace_path(branch_ws), body.branch, body.create_branch, body.base_branch)
+        _ensure_branch(branch_ws, resolve_workspace_path(branch_ws), body.branch, body.create_branch, body.base_branch)
 
     created = False
     if session is None:

@@ -288,7 +288,7 @@ class TestEnsureBranchErrors:
             side_effect=subprocess.TimeoutExpired(cmd=["git"], timeout=1),
         ):
             with pytest.raises(HTTPException) as exc:
-                _ensure_branch("/p", "feature", create=True, base=None)
+                _ensure_branch("ws", "/p", "feature", create=True, base=None)
         assert exc.value.status_code == 500
 
     def test_ensure_branch_os_error_raises_server_error(self):
@@ -301,7 +301,7 @@ class TestEnsureBranchErrors:
             side_effect=OSError("boom"),
         ):
             with pytest.raises(HTTPException) as exc:
-                _ensure_branch("/p", "feature", create=True, base=None)
+                _ensure_branch("ws", "/p", "feature", create=True, base=None)
         assert exc.value.status_code == 500
 
 
