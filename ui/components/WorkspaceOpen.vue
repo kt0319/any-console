@@ -487,13 +487,22 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-.picker-ws-top-meta :deep(.git-badge),
-.picker-ws-top-meta :deep(.picker-ws-mini-btn),
-.picker-ws-top-meta :deep(.git-action-btn) {
+.picker-ws-top-meta :deep(.git-badge) {
   height: 22px;
   min-height: 22px;
   max-height: 22px;
   min-width: auto;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.picker-ws-top-meta :deep(.picker-ws-mini-btn),
+.picker-ws-top-meta :deep(.git-action-btn) {
+  height: 26px;
+  min-height: 26px;
+  max-height: 26px;
+  min-width: 26px;
   padding: 0 6px;
   font-size: 11px;
   line-height: 1;
@@ -506,6 +515,7 @@ onBeforeUnmount(() => {
   width: 26px;
   height: 26px;
   flex-shrink: 0;
+  margin-left: 4px;
   padding: 0;
   background: transparent;
   border: 1px solid var(--border);
