@@ -57,6 +57,16 @@ export function terminalSessionCwdPath(sessionId) {
   return `/terminal/sessions/${encodeURIComponent(sessionId)}/cwd`;
 }
 
+/** @param {string} sessionId @param {string} path @returns {string} */
+export function terminalSessionFilesPath(sessionId, path = "") {
+  return `/terminal/sessions/${encodeURIComponent(sessionId)}/files?path=${encodeURIComponent(path)}`;
+}
+
+/** @param {string} sessionId @param {string} filePath @returns {string} */
+export function terminalSessionFileContentPath(sessionId, filePath) {
+  return `/terminal/sessions/${encodeURIComponent(sessionId)}/file-content?path=${encodeURIComponent(filePath)}`;
+}
+
 /** @param {string} sessionId @returns {string} */
 export function terminalSessionWorkspacePath(sessionId) {
   return `/terminal/sessions/${encodeURIComponent(sessionId)}/workspace`;

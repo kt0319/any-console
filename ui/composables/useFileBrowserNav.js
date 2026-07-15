@@ -2,8 +2,9 @@ import { ref } from "vue";
 import { useApi } from "./useApi.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { getWithRetry } from "../utils/api-retry.js";
+import { terminalSessionFileContentPath, terminalSessionFilesPath } from "../utils/endpoints.js";
 
-export function useFileBrowserNav() {
+export function useFileBrowserNav({ getTerminalSessionId = () => "" } = {}) {
   const workspaceStore = useWorkspaceStore();
   const { apiGet, wsEndpoint } = useApi();
 
@@ -14,9 +15,27 @@ export function useFileBrowserNav() {
   const errorMessage = ref("");
   const showHistory = ref(false);
 
-  async function navigateToPath(path) {
+  function resolveListEndpoint(path) {
+    const sessionId = getTerminalSessionId();
+    if (sessionId) return terminalSessionFilesPath(sessionId, path);
+
     const workspace = workspaceStore.selectedWorkspace;
-    if (!workspace) return;
+    if (!workspace) return "";
+    return wsEndpoint(workspace, `files?path=${encodeURIComponent(path)}`);
+  }
+
+  function resolveFileEndpoint(path) {
+    const sessionId = getTerminalSessionId();
+    if (sessionId) return terminalSessionFileContentPath(sessionId, path);
+
+    const workspace = workspaceStore.selectedWorkspace;
+    if (!workspace) return "";
+    return wsEndpoint(workspace, `file-content?path=${encodeURIComponent(path)}`);
+  }
+
+  async function navigateToPath(path) {
+    const endpoint = resolveListEndpoint(path);
+    if (!endpoint) return;
 
     currentPath.value = path;
     fileContent.value = null;
@@ -25,7 +44,7 @@ export function useFileBrowserNav() {
     errorMessage.value = "";
 
     try {
-      const { ok, data } = await getWithRetry(apiGet, wsEndpoint(workspace, `files?path=${encodeURIComponent(path)}`));
+      const { ok, data } = await getWithRetry(apiGet, endpoint);
       if (!ok) {
         errorMessage.value = "Failed to load";
         return;
@@ -40,14 +59,14 @@ export function useFileBrowserNav() {
   }
 
   async function openFile(path) {
-    const workspace = workspaceStore.selectedWorkspace;
-    if (!workspace) return;
+    const endpoint = resolveFileEndpoint(path);
+    if (!endpoint) return;
 
     isLoading.value = true;
     errorMessage.value = "";
 
     try {
-      const { ok, data } = await getWithRetry(apiGet, wsEndpoint(workspace, `file-content?path=${encodeURIComponent(path)}`));
+      const { ok, data } = await getWithRetry(apiGet, endpoint);
       if (!ok) {
         errorMessage.value = "Could not open file";
         return;

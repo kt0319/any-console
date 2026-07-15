@@ -4,7 +4,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket
 from fastapi.websockets import WebSocketDisconnect
 from pydantic import BaseModel
 
@@ -43,6 +43,8 @@ from ..tmux import (
     send_keys_to_tmux,
     tmux_session_exists,
 )
+from .git_file_utils import list_directory_entries, read_file_content_response
+from .git_helpers import resolve_and_validate_workspace_path
 
 PENDING_TEXT_DELAY_SEC = 0.5
 
@@ -151,6 +153,45 @@ async def get_terminal_session_cwd(session_id: str):
     if cwd is None:
         raise not_found("CWD unavailable")
     return {"cwd": cwd}
+
+
+def _resolve_terminal_session_file(session_id: str, path: str):
+    get_terminal_session(session_id)
+    tmux_name = TMUX_SESSION_PREFIX + session_id
+    cwd = get_session_cwd(tmux_name)
+    if cwd is None:
+        raise not_found("CWD unavailable")
+    root = Path(cwd).resolve()
+    target, rel = resolve_and_validate_workspace_path(root, path)
+    return root, target, rel
+
+
+@router.get("/terminal/sessions/{session_id}/files")
+async def list_terminal_session_files(session_id: str, path: str = Query("")):
+    root, target, rel = _resolve_terminal_session_file(session_id, path)
+    rel_path = str(rel)
+    if rel_path == ".":
+        rel_path = ""
+
+    if not target.is_dir():
+        raise not_found("Directory not found")
+
+    entries = list_directory_entries(root, target)
+    return {"status": "ok", "path": rel_path, "entries": entries}
+
+
+@router.get("/terminal/sessions/{session_id}/file-content")
+async def get_terminal_session_file_content(session_id: str, path: str = Query(...)):
+    _, target, rel = _resolve_terminal_session_file(session_id, path)
+    rel_path = str(rel)
+    if rel_path == ".":
+        raise not_found("File not found")
+
+    if target.is_symlink():
+        raise not_found("File not found")
+    if not target.is_file():
+        raise not_found("File not found")
+    return read_file_content_response(rel_path, target)
 
 
 class WorkspaceBody(BaseModel):

@@ -28,6 +28,61 @@ class TestDeleteSession:
         assert res.status_code in (401, 403)
 
 
+class TestSessionFiles:
+    SESSION_ID = "files-test"
+    TMUX_NAME = "ac-files-test"
+
+    def _register_session(self, cwd, monkeypatch) -> None:
+        from api.terminal_session import TERMINAL_SESSIONS, TerminalSession, sessions_lock
+
+        session = TerminalSession(workspace=None, tmux_session_name=self.TMUX_NAME)
+        with sessions_lock:
+            TERMINAL_SESSIONS[self.SESSION_ID] = session
+        monkeypatch.setattr("api.routers.terminal.get_session_cwd", lambda name: str(cwd))
+
+    def test_list_files_from_terminal_cwd(self, client, tmp_path, monkeypatch):
+        cwd = tmp_path / "plain"
+        cwd.mkdir()
+        (cwd / "docs").mkdir()
+        (cwd / "note.txt").write_text("hello", encoding="utf-8")
+        self._register_session(cwd, monkeypatch)
+
+        res = client.get(f"/terminal/sessions/{self.SESSION_ID}/files", headers=AUTH)
+
+        assert res.status_code == 200
+        data = res.json()
+        assert data["path"] == ""
+        assert [e["name"] for e in data["entries"]] == ["docs", "note.txt"]
+
+    def test_read_file_from_terminal_cwd(self, client, tmp_path, monkeypatch):
+        cwd = tmp_path / "plain"
+        cwd.mkdir()
+        (cwd / "note.txt").write_text("hello", encoding="utf-8")
+        self._register_session(cwd, monkeypatch)
+
+        res = client.get(
+            f"/terminal/sessions/{self.SESSION_ID}/file-content",
+            headers=AUTH,
+            params={"path": "note.txt"},
+        )
+
+        assert res.status_code == 200
+        assert res.json()["content"] == "hello"
+
+    def test_terminal_cwd_files_rejects_path_escape(self, client, tmp_path, monkeypatch):
+        cwd = tmp_path / "plain"
+        cwd.mkdir()
+        self._register_session(cwd, monkeypatch)
+
+        res = client.get(
+            f"/terminal/sessions/{self.SESSION_ID}/files",
+            headers=AUTH,
+            params={"path": ".."},
+        )
+
+        assert res.status_code == 400
+
+
 class TestHistoryRestore:
     """history は xterm と同じ幅で capture できる時だけスクロールバックを返す。
 

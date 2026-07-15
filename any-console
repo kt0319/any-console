@@ -325,8 +325,10 @@ prompt_manual_workspace() {
 }
 
 # インストール済みのAIエージェントCLIを検知し、未登録なら common job として自動登録する。
+# 対話モードでは検出したツールをデフォルト全チェック済みで提示し、番号指定で解除できる。
 # 既に同じ command のジョブが登録済みなら二重登録しない（setup 再実行でも安全）。
 register_ai_agent_jobs() {
+  local non_interactive="${1:-0}"
   local -a detected=()
   local tool
   for tool in claude codex gemini copilot opencode; do
@@ -334,15 +336,56 @@ register_ai_agent_jobs() {
   done
   [ ${#detected[@]} -eq 0 ] && { info "  No AI agent CLI tools detected (claude/codex/gemini/copilot/opencode)"; return 0; }
 
-  AI_TOOLS="$(printf '%s\n' "${detected[@]}")" python3 - <<'PY'
+  local -a selected=("${detected[@]}")
+
+  if [ "$non_interactive" -ne 1 ]; then
+    echo "  Detected AI agent CLI tools (checked = will be registered as a common job):"
+    local i
+    for i in "${!detected[@]}"; do
+      printf "    [x] %2d) %s\n" "$((i + 1))" "${detected[$i]}"
+    done
+    echo ""
+    local sel
+    read -rp "  Register all, or type numbers to exclude (e.g. 2 4), or [n]one: " sel
+    case "$sel" in
+      ""|[Yy])
+        : ;;
+      [Nn])
+        selected=() ;;
+      *)
+        local -a exclude=()
+        local tok
+        for tok in $sel; do
+          if [[ "$tok" =~ ^[0-9]+$ ]] && [ "$tok" -ge 1 ] && [ "$tok" -le "${#detected[@]}" ]; then
+            exclude+=("${detected[$((tok - 1))]}")
+          fi
+        done
+        selected=()
+        for tool in "${detected[@]}"; do
+          local skip=0 ex
+          for ex in "${exclude[@]}"; do
+            [ "$ex" = "$tool" ] && skip=1
+          done
+          [ "$skip" -eq 0 ] && selected+=("$tool")
+        done
+        ;;
+    esac
+  fi
+
+  [ ${#selected[@]} -eq 0 ] && { info "  Skipped (no AI agent jobs registered)"; return 0; }
+
+  AI_TOOLS="$(printf '%s\n' "${selected[@]}")" python3 - <<'PY'
 import json, os, pathlib
 
+# notify_phrase: エージェントの承認待ちプロンプトに現れる文字列。合致した約1分後にプッシュ通知する。
+# 確度の高いものだけ入れてある（不正確な文字列は「設定した気になって実は一生鳴らない」方が
+# 空欄より害があるため）。claude/codex 以外は実際のプロンプト文言が分かり次第補う想定。
 TOOL_META = {
-    "claude":   {"label": "Claude Code",     "icon": "mdi-robot-outline", "icon_color": "#d97757"},
-    "codex":    {"label": "Codex",           "icon": "mdi-robot-outline", "icon_color": "#10a37f"},
-    "gemini":   {"label": "Gemini CLI",      "icon": "mdi-robot-outline", "icon_color": "#4285f4"},
-    "copilot":  {"label": "GitHub Copilot",  "icon": "mdi-robot-outline", "icon_color": "#8957e5"},
-    "opencode": {"label": "opencode",        "icon": "mdi-robot-outline", "icon_color": "#fab283"},
+    "claude":   {"label": "Claude Code",     "icon": "mdi-robot-outline", "icon_color": "#d97757", "notify_phrase": "1. Yes"},
+    "codex":    {"label": "Codex",           "icon": "mdi-robot-outline", "icon_color": "#10a37f", "notify_phrase": "1. Yes"},
+    "gemini":   {"label": "Gemini CLI",      "icon": "mdi-robot-outline", "icon_color": "#4285f4", "notify_phrase": ""},
+    "copilot":  {"label": "GitHub Copilot",  "icon": "mdi-robot-outline", "icon_color": "#8957e5", "notify_phrase": "1. Yes"},
+    "opencode": {"label": "opencode",        "icon": "mdi-robot-outline", "icon_color": "#fab283", "notify_phrase": ""},
 }
 
 tools = [t.strip() for t in os.environ.get("AI_TOOLS", "").splitlines() if t.strip()]
@@ -374,6 +417,9 @@ for cmd in tools:
         "confirm": False,
         "detached_tab": True,
     }
+    if meta.get("notify_phrase"):
+        jobs[key]["notify_phrase"] = meta["notify_phrase"]
+        jobs[key]["notify_delay_min"] = 1
     existing_commands.add(cmd)
     added.append(meta["label"])
 
@@ -684,7 +730,7 @@ cmd_setup() {
 
   echo ""
   info "[7/7] AI agent CLI detection"
-  register_ai_agent_jobs
+  register_ai_agent_jobs "$non_interactive"
 
   local service_registered=0
   echo ""
