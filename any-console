@@ -379,10 +379,10 @@ import json, os, pathlib
 
 # notify_phrase: エージェントの承認待ちプロンプトに現れる文字列。合致した約1分後にプッシュ通知する。
 # 確度の高いものだけ入れてある（不正確な文字列は「設定した気になって実は一生鳴らない」方が
-# 空欄より害があるため）。claude 以外は実際のプロンプト文言が分かり次第補う想定。
+# 空欄より害があるため）。claude/codex 以外は実際のプロンプト文言が分かり次第補う想定。
 TOOL_META = {
     "claude":   {"label": "Claude Code",     "icon": "mdi-robot-outline", "icon_color": "#d97757", "notify_phrase": "1. Yes"},
-    "codex":    {"label": "Codex",           "icon": "mdi-robot-outline", "icon_color": "#10a37f", "notify_phrase": ""},
+    "codex":    {"label": "Codex",           "icon": "mdi-robot-outline", "icon_color": "#10a37f", "notify_phrase": "1. Yes"},
     "gemini":   {"label": "Gemini CLI",      "icon": "mdi-robot-outline", "icon_color": "#4285f4", "notify_phrase": ""},
     "copilot":  {"label": "GitHub Copilot",  "icon": "mdi-robot-outline", "icon_color": "#8957e5", "notify_phrase": ""},
     "opencode": {"label": "opencode",        "icon": "mdi-robot-outline", "icon_color": "#fab283", "notify_phrase": ""},
