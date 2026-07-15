@@ -355,7 +355,6 @@ color: #ffffff;
   gap: 4px;
   padding-left: 8px;
   color: var(--text-primary);
-  font-weight: 600;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -419,7 +418,6 @@ color: #ffffff;
   gap: 6px;
   padding-left: 8px;
   padding-right: 8px;
-  font-weight: 600;
   justify-content: flex-start;
 }
 
