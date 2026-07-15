@@ -1,6 +1,6 @@
 /**
  * keyDef -> ANSI escape sequence へ変換する。
- * keyDef は { key: string, ctrl?: boolean, shift?: boolean } 形式。
+ * keyDef は { key: string, ctrl?: boolean, shift?: boolean, alt?: boolean } 形式。
  */
 
 // CSI 最終文字形式のキー（矢印・Home・End）。修飾時は ESC[1;{mod}{letter}。
@@ -21,18 +21,12 @@ const SS3_FN = { F1: "P", F2: "Q", F3: "R", F4: "S" };
 
 // xterm 準拠の修飾パラメータ: 1 + Shift(1) + Alt(2) + Ctrl(4)。1（修飾なし）は省略される。
 function modifierParam(keyDef) {
-  return 1 + (keyDef.shift ? 1 : 0) + (keyDef.ctrl ? 4 : 0);
+  return 1 + (keyDef.shift ? 1 : 0) + (keyDef.alt ? 2 : 0) + (keyDef.ctrl ? 4 : 0);
 }
 
 export function keyDefToAnsi(keyDef) {
-  if (keyDef.ctrl && keyDef.key.length === 1) {
-    const code = keyDef.key.toLowerCase().charCodeAt(0) - 96;
-    if (code > 0 && code < 27) return String.fromCharCode(code);
-  }
-  if (keyDef.shift && keyDef.key === "Tab") return "\x1b[Z";
-  if (keyDef.shift && keyDef.key === "Enter") return "\n";
-  if (keyDef.shift && keyDef.key.length === 1) return keyDef.key.toUpperCase();
-
+  // CSI/SS3 系のキーは Alt もモディファイアパラメータに畳み込む（ESC は既にシーケンス先頭にあるため
+  // 二重プレフィックスにしない）。
   const mod = modifierParam(keyDef);
 
   if (CSI_LETTER[keyDef.key]) {
@@ -48,11 +42,22 @@ export function keyDefToAnsi(keyDef) {
     return mod > 1 ? `\x1b[1;${mod}${letter}` : `\x1bO${letter}`;
   }
 
+  // それ以外は「Alt はキーの前に ESC を送る」という xterm の meta-sends-escape 慣習で表す。
+  const altPrefix = keyDef.alt ? "\x1b" : "";
+
+  if (keyDef.ctrl && keyDef.key.length === 1) {
+    const code = keyDef.key.toLowerCase().charCodeAt(0) - 96;
+    if (code > 0 && code < 27) return altPrefix + String.fromCharCode(code);
+  }
+  if (keyDef.shift && keyDef.key === "Tab") return altPrefix + "\x1b[Z";
+  if (keyDef.shift && keyDef.key === "Enter") return altPrefix + "\n";
+  if (keyDef.shift && keyDef.key.length === 1) return altPrefix + keyDef.key.toUpperCase();
+
   const mapping = {
     Backspace: "\x7f", Enter: "\r", Tab: "\t", Escape: "\x1b",
     " ": " ", "/": "/",
   };
-  if (mapping[keyDef.key]) return mapping[keyDef.key];
-  if (keyDef.key.length === 1) return keyDef.key;
+  if (mapping[keyDef.key]) return altPrefix + mapping[keyDef.key];
+  if (keyDef.key.length === 1) return altPrefix + keyDef.key;
   return null;
 }

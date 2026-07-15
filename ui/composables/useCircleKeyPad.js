@@ -33,7 +33,7 @@ export function useCircleKeyPad() {
     id: `key:${i}`,
     angle: RADIAL_ANGLES[i],
     label: k.label || k.key || "",
-    keyDef: { key: k.key, ctrl: !!k.ctrl, shift: !!k.shift },
+    keyDef: { key: k.key, ctrl: !!k.ctrl, shift: !!k.shift, alt: !!k.alt },
   })));
 
   const specials = computed(() => config.specials.map((s, i) => ({

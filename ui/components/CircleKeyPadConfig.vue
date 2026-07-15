@@ -14,8 +14,11 @@
         <p class="ckpad-cfg-desc">8 keys around the ring, clockwise from north.</p>
         <div v-for="(k, i) in radial.keys" :key="i" class="ckpad-cfg-row">
           <span class="ckpad-cfg-dir">{{ directions[i] }}</span>
-          <select class="form-input ckpad-cfg-select" :value="keyId(k)" @change="setKey(i, $event.target.value)">
-            <option v-for="p in keyPresets" :key="p.id" :value="p.id">{{ p.label }} ({{ presetDescription(p) }})</option>
+          <select class="form-input ckpad-cfg-select ckpad-cfg-select-modifier" :value="modifierIdOf(k)" @change="setModifier(i, $event.target.value)">
+            <option v-for="m in modifierOptions" :key="m.id" :value="m.id">{{ m.label }}</option>
+          </select>
+          <select class="form-input ckpad-cfg-select" :value="baseKeyIdOf(k)" @change="setBaseKey(i, $event.target.value)">
+            <option v-for="bk in baseKeys" :key="bk.id" :value="bk.id">{{ bk.label }}</option>
           </select>
         </div>
       </div>
@@ -43,33 +46,30 @@
 import { inject, ref } from "vue";
 import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.js";
 import {
-  RADIAL_KEY_PRESETS,
+  RADIAL_MODIFIER_OPTIONS,
+  RADIAL_BASE_KEYS,
   RADIAL_SPECIAL_PRESETS,
   RADIAL_DIRECTION_LABELS,
   RADIAL_CORNER_LABELS,
-  findKeyPreset,
+  findModifierOption,
   findSpecialPreset,
+  modifierIdOf,
+  baseKeyIdOf,
+  radialKeyLabel,
 } from "../utils/circle-keypad-presets.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Circle Key Pad";
 
 const radial = useCircleKeyPadConfigStore();
-const keyPresets = RADIAL_KEY_PRESETS;
+const modifierOptions = RADIAL_MODIFIER_OPTIONS;
+const baseKeys = RADIAL_BASE_KEYS;
 const specialPresets = RADIAL_SPECIAL_PRESETS;
 const directions = RADIAL_DIRECTION_LABELS;
 const corners = RADIAL_CORNER_LABELS;
 const saving = ref(false);
 
 if (!radial.loaded) radial.load();
-
-function keyId(k) {
-  return RADIAL_KEY_PRESETS.find((p) =>
-    p.keyDef.key === k.key
-    && !!p.keyDef.ctrl === !!k.ctrl
-    && !!p.keyDef.shift === !!k.shift
-  )?.id || "";
-}
 
 function specialId(s) {
   return RADIAL_SPECIAL_PRESETS.find((p) =>
@@ -78,18 +78,17 @@ function specialId(s) {
   )?.id || "";
 }
 
-function presetDescription(p) {
-  const parts = [];
-  if (p.keyDef.ctrl) parts.push("Ctrl");
-  if (p.keyDef.shift) parts.push("Shift");
-  parts.push(p.keyDef.key);
-  return parts.join("+");
+function setModifier(i, modifierId) {
+  const mod = findModifierOption(modifierId);
+  const k = radial.keys[i];
+  const key = baseKeyIdOf(k);
+  radial.keys[i] = { key, ctrl: mod.ctrl, shift: mod.shift, alt: mod.alt, label: radialKeyLabel(modifierId, key) };
 }
 
-function setKey(i, id) {
-  const p = findKeyPreset(id);
-  if (!p) return;
-  radial.keys[i] = { ...p.keyDef, label: p.label };
+function setBaseKey(i, keyId) {
+  const k = radial.keys[i];
+  const modifierId = modifierIdOf(k);
+  radial.keys[i] = { key: keyId, ctrl: !!k.ctrl, shift: !!k.shift, alt: !!k.alt, label: radialKeyLabel(modifierId, keyId) };
 }
 
 function setSpecial(i, id) {
@@ -147,6 +146,10 @@ async function save() {
 .ckpad-cfg-select {
   flex: 1;
   min-width: 0;
+}
+
+.ckpad-cfg-select-modifier {
+  flex: 0 0 40%;
 }
 
 .ckpad-cfg-actions {

@@ -1,34 +1,39 @@
-// サークルキーパッドの 8 方向に割り当て可能なキープリセット。
-// 順序は UI のドロップダウン表示順 = サークルの N から時計回り。
-export const RADIAL_KEY_PRESETS = [
-  { id: "up",       label: "↑",     keyDef: { key: "ArrowUp" } },
-  { id: "down",     label: "↓",     keyDef: { key: "ArrowDown" } },
-  { id: "left",     label: "←",     keyDef: { key: "ArrowLeft" } },
-  { id: "right",    label: "→",     keyDef: { key: "ArrowRight" } },
-  { id: "tab",      label: "Tab",   keyDef: { key: "Tab" } },
-  { id: "shifttab", label: "S-Tab", keyDef: { key: "Tab", shift: true } },
-  { id: "enter",    label: "↵",     keyDef: { key: "Enter" } },
-  { id: "esc",      label: "Esc",   keyDef: { key: "Escape" } },
-  { id: "bs",       label: "BS",    keyDef: { key: "Backspace" } },
-  { id: "del",      label: "Del",   keyDef: { key: "Delete" } },
-  { id: "home",     label: "Home",  keyDef: { key: "Home" } },
-  { id: "end",      label: "End",   keyDef: { key: "End" } },
-  { id: "pgup",     label: "PgUp",  keyDef: { key: "PageUp" } },
-  { id: "pgdn",     label: "PgDn",  keyDef: { key: "PageDown" } },
-  { id: "space",    label: "␣",     keyDef: { key: " " } },
-  { id: "ctrl_a",   label: "^A",    keyDef: { key: "a", ctrl: true } },
-  { id: "ctrl_b",   label: "^B",    keyDef: { key: "b", ctrl: true } },
-  { id: "ctrl_c",   label: "^C",    keyDef: { key: "c", ctrl: true } },
-  { id: "ctrl_d",   label: "^D",    keyDef: { key: "d", ctrl: true } },
-  { id: "ctrl_e",   label: "^E",    keyDef: { key: "e", ctrl: true } },
-  { id: "ctrl_k",   label: "^K",    keyDef: { key: "k", ctrl: true } },
-  { id: "ctrl_l",   label: "^L",    keyDef: { key: "l", ctrl: true } },
-  { id: "ctrl_n",   label: "^N",    keyDef: { key: "n", ctrl: true } },
-  { id: "ctrl_p",   label: "^P",    keyDef: { key: "p", ctrl: true } },
-  { id: "ctrl_r",   label: "^R",    keyDef: { key: "r", ctrl: true } },
-  { id: "ctrl_u",   label: "^U",    keyDef: { key: "u", ctrl: true } },
-  { id: "ctrl_w",   label: "^W",    keyDef: { key: "w", ctrl: true } },
-  { id: "ctrl_z",   label: "^Z",    keyDef: { key: "z", ctrl: true } },
+// サークルキーパッドの各キーは「モディファイア（None/Ctrl/Shift/Alt の組み合わせ）」+
+// 「ベースキー（矢印・文字・特殊キー）」の直積で組み立てる。手作りの固定プリセットリストより
+// 組み合わせを広く網羅できる。
+
+export const RADIAL_MODIFIER_OPTIONS = [
+  { id: "none",           label: "—",              ctrl: false, shift: false, alt: false },
+  { id: "shift",          label: "Shift",          ctrl: false, shift: true,  alt: false },
+  { id: "ctrl",           label: "Ctrl",           ctrl: true,  shift: false, alt: false },
+  { id: "alt",            label: "Alt",            ctrl: false, shift: false, alt: true },
+  { id: "ctrl_shift",     label: "Ctrl+Shift",     ctrl: true,  shift: true,  alt: false },
+  { id: "ctrl_alt",       label: "Ctrl+Alt",       ctrl: true,  shift: false, alt: true },
+  { id: "shift_alt",      label: "Shift+Alt",      ctrl: false, shift: true,  alt: true },
+  { id: "ctrl_shift_alt", label: "Ctrl+Shift+Alt", ctrl: true,  shift: true,  alt: true },
+];
+
+const LETTER_BASE_KEYS = Array.from({ length: 26 }, (_, i) => {
+  const ch = String.fromCharCode(97 + i);
+  return { id: ch, label: ch.toUpperCase() };
+});
+
+export const RADIAL_BASE_KEYS = [
+  { id: "ArrowUp",    label: "↑" },
+  { id: "ArrowDown",  label: "↓" },
+  { id: "ArrowLeft",  label: "←" },
+  { id: "ArrowRight", label: "→" },
+  { id: "Tab",        label: "Tab" },
+  { id: "Enter",      label: "↵" },
+  { id: "Escape",     label: "Esc" },
+  { id: "Backspace",  label: "BS" },
+  { id: "Delete",     label: "Del" },
+  { id: "Home",       label: "Home" },
+  { id: "End",        label: "End" },
+  { id: "PageUp",     label: "PgUp" },
+  { id: "PageDown",   label: "PgDn" },
+  { id: " ",          label: "Space" },
+  ...LETTER_BASE_KEYS,
 ];
 
 // 四隅の特殊メニューに割り当て可能なアクション。
@@ -63,30 +68,63 @@ export const RADIAL_SPECIAL_PRESETS = [
 // 8 方向のラベル（N から時計回り）。
 export const RADIAL_DIRECTION_LABELS = ["↑", "↗", "→", "↘", "↓", "↙", "←", "↖"];
 
-// デフォルトの 8 方向キー（N から時計回り）。
-export const DEFAULT_RADIAL_KEYS = ["up", "tab", "right", "enter", "down", "esc", "left", "ctrl_c"];
+// デフォルトの 8 方向キー（N から時計回り）。modifier は RADIAL_MODIFIER_OPTIONS の id。
+export const DEFAULT_RADIAL_KEY_DEFS = [
+  { modifier: "none", key: "ArrowUp" },
+  { modifier: "none", key: "Tab" },
+  { modifier: "none", key: "ArrowRight" },
+  { modifier: "none", key: "Enter" },
+  { modifier: "none", key: "ArrowDown" },
+  { modifier: "none", key: "Escape" },
+  { modifier: "none", key: "ArrowLeft" },
+  { modifier: "ctrl", key: "c" },
+];
 
 // 四隅の位置（左上 / 右上 / 左下 / 右下）と既定の割り当て。
 export const RADIAL_CORNER_LABELS = ["Top-Left", "Top-Right", "Bottom-Left", "Bottom-Right"];
 export const DEFAULT_RADIAL_SPECIALS = ["workspace", "jobs", "selcopy", "settings"];
 
-export function findKeyPreset(id) {
-  return RADIAL_KEY_PRESETS.find((p) => p.id === id) || null;
+export function findModifierOption(id) {
+  return RADIAL_MODIFIER_OPTIONS.find((m) => m.id === id) || RADIAL_MODIFIER_OPTIONS[0];
+}
+
+export function findBaseKey(id) {
+  return RADIAL_BASE_KEYS.find((k) => k.id === id) || null;
 }
 
 export function findSpecialPreset(id) {
   return RADIAL_SPECIAL_PRESETS.find((p) => p.id === id) || null;
 }
 
+// keyDef の ctrl/shift/alt から一致するモディファイア id を逆引きする。
+export function modifierIdOf(keyDef) {
+  const match = RADIAL_MODIFIER_OPTIONS.find((m) =>
+    !!m.ctrl === !!keyDef?.ctrl && !!m.shift === !!keyDef?.shift && !!m.alt === !!keyDef?.alt
+  );
+  return match?.id || "none";
+}
+
+// keyDef.key が既知のベースキーなら id、そうでなければ空文字。
+export function baseKeyIdOf(keyDef) {
+  return RADIAL_BASE_KEYS.some((k) => k.id === keyDef?.key) ? keyDef.key : "";
+}
+
+export function radialKeyLabel(modifierId, keyId) {
+  const mod = findModifierOption(modifierId);
+  const bk = findBaseKey(keyId);
+  const keyLabel = bk?.label || keyId || "";
+  return mod.id === "none" ? keyLabel : `${mod.label}+${keyLabel}`;
+}
+
 export function defaultKeyDefs() {
-  return DEFAULT_RADIAL_KEYS.map((id) => {
-    const p = findKeyPreset(id);
-    if (!p) return { key: "", ctrl: false, shift: false, label: "" };
+  return DEFAULT_RADIAL_KEY_DEFS.map(({ modifier, key }) => {
+    const mod = findModifierOption(modifier);
     return {
-      key: p.keyDef.key,
-      ctrl: !!p.keyDef.ctrl,
-      shift: !!p.keyDef.shift,
-      label: p.label,
+      key,
+      ctrl: mod.ctrl,
+      shift: mod.shift,
+      alt: mod.alt,
+      label: radialKeyLabel(modifier, key),
     };
   });
 }

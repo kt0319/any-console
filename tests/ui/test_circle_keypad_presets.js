@@ -1,19 +1,24 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
 import {
-  RADIAL_KEY_PRESETS,
+  RADIAL_MODIFIER_OPTIONS,
+  RADIAL_BASE_KEYS,
   RADIAL_SPECIAL_PRESETS,
   RADIAL_DIRECTION_LABELS,
   RADIAL_CORNER_LABELS,
-  DEFAULT_RADIAL_KEYS,
+  DEFAULT_RADIAL_KEY_DEFS,
   DEFAULT_RADIAL_SPECIALS,
-  findKeyPreset,
+  findModifierOption,
+  findBaseKey,
   findSpecialPreset,
+  modifierIdOf,
+  baseKeyIdOf,
+  radialKeyLabel,
   defaultKeyDefs,
   defaultSpecialDefs,
 } from "../../ui/utils/circle-keypad-presets.js";
 
-describe("RADIAL_*_PRESETS metadata", () => {
+describe("RADIAL_* metadata", () => {
   it("has 8 direction labels", () => {
     expect(RADIAL_DIRECTION_LABELS).toHaveLength(8);
   });
@@ -22,17 +27,18 @@ describe("RADIAL_*_PRESETS metadata", () => {
     expect(RADIAL_CORNER_LABELS).toHaveLength(4);
   });
 
-  it("default key list matches direction count", () => {
-    expect(DEFAULT_RADIAL_KEYS).toHaveLength(8);
+  it("default key def list matches direction count", () => {
+    expect(DEFAULT_RADIAL_KEY_DEFS).toHaveLength(8);
   });
 
   it("default special list matches corner count", () => {
     expect(DEFAULT_RADIAL_SPECIALS).toHaveLength(4);
   });
 
-  it("every default key id resolves to a preset", () => {
-    for (const id of DEFAULT_RADIAL_KEYS) {
-      expect(findKeyPreset(id)).not.toBeNull();
+  it("every default key def resolves to a known modifier and base key", () => {
+    for (const { modifier, key } of DEFAULT_RADIAL_KEY_DEFS) {
+      expect(findModifierOption(modifier)).toBeTruthy();
+      expect(findBaseKey(key)).not.toBeNull();
     }
   });
 
@@ -41,30 +47,77 @@ describe("RADIAL_*_PRESETS metadata", () => {
       expect(findSpecialPreset(id)).not.toBeNull();
     }
   });
+
+  it("modifier options cover the ctrl/shift/alt combinations", () => {
+    expect(RADIAL_MODIFIER_OPTIONS).toHaveLength(8);
+    const none = RADIAL_MODIFIER_OPTIONS.find((m) => m.id === "none");
+    expect(none.ctrl).toBe(false);
+    expect(none.shift).toBe(false);
+    expect(none.alt).toBe(false);
+    const all = RADIAL_MODIFIER_OPTIONS.find((m) => m.id === "ctrl_shift_alt");
+    expect(all.ctrl).toBe(true);
+    expect(all.shift).toBe(true);
+    expect(all.alt).toBe(true);
+  });
+
+  it("base keys include arrows, letters, and special keys", () => {
+    expect(RADIAL_BASE_KEYS.some((k) => k.id === "ArrowUp")).toBe(true);
+    expect(RADIAL_BASE_KEYS.some((k) => k.id === "a")).toBe(true);
+    expect(RADIAL_BASE_KEYS.some((k) => k.id === "z")).toBe(true);
+    expect(RADIAL_BASE_KEYS.some((k) => k.id === "PageUp")).toBe(true);
+  });
 });
 
-describe("findKeyPreset / findSpecialPreset", () => {
-  it("returns null for unknown id", () => {
-    expect(findKeyPreset("no-such")).toBeNull();
+describe("findModifierOption / findBaseKey / findSpecialPreset", () => {
+  it("returns null for unknown base key / special id", () => {
+    expect(findBaseKey("no-such")).toBeNull();
     expect(findSpecialPreset("no-such")).toBeNull();
   });
 
-  it("returns matching preset", () => {
-    const up = findKeyPreset("up");
-    expect(up?.keyDef.key).toBe("ArrowUp");
-    const selcopy = findSpecialPreset("selcopy");
-    expect(selcopy?.action).toBe("selection:open");
+  it("falls back to none for unknown modifier id", () => {
+    expect(findModifierOption("no-such").id).toBe("none");
+  });
+
+  it("returns matching entries", () => {
+    expect(findModifierOption("ctrl").ctrl).toBe(true);
+    expect(findBaseKey("ArrowUp")?.id).toBe("ArrowUp");
+    expect(findSpecialPreset("selcopy")?.action).toBe("selection:open");
+  });
+});
+
+describe("modifierIdOf / baseKeyIdOf", () => {
+  it("resolves modifier id from ctrl/shift/alt flags", () => {
+    expect(modifierIdOf({ ctrl: false, shift: false, alt: false })).toBe("none");
+    expect(modifierIdOf({ ctrl: true, shift: false, alt: false })).toBe("ctrl");
+    expect(modifierIdOf({ ctrl: true, shift: true, alt: true })).toBe("ctrl_shift_alt");
+  });
+
+  it("resolves base key id or empty string for unknown key", () => {
+    expect(baseKeyIdOf({ key: "ArrowUp" })).toBe("ArrowUp");
+    expect(baseKeyIdOf({ key: "no-such" })).toBe("");
+  });
+});
+
+describe("radialKeyLabel", () => {
+  it("returns bare key label when modifier is none", () => {
+    expect(radialKeyLabel("none", "ArrowUp")).toBe("↑");
+  });
+
+  it("prefixes modifier label otherwise", () => {
+    expect(radialKeyLabel("ctrl", "c")).toBe("Ctrl+C");
+    expect(radialKeyLabel("ctrl_alt", "a")).toBe("Ctrl+Alt+A");
   });
 });
 
 describe("defaultKeyDefs / defaultSpecialDefs", () => {
-  it("returns 8 normalized key entries with ctrl/shift booleans", () => {
+  it("returns 8 normalized key entries with ctrl/shift/alt booleans", () => {
     const defs = defaultKeyDefs();
     expect(defs).toHaveLength(8);
     for (const d of defs) {
       expect(typeof d.key).toBe("string");
       expect(typeof d.ctrl).toBe("boolean");
       expect(typeof d.shift).toBe("boolean");
+      expect(typeof d.alt).toBe("boolean");
       expect(typeof d.label).toBe("string");
     }
   });
@@ -81,16 +134,6 @@ describe("defaultKeyDefs / defaultSpecialDefs", () => {
     for (const d of defs) {
       expect(typeof d.label).toBe("string");
       expect(typeof d.action).toBe("string");
-    }
-  });
-});
-
-describe("RADIAL_KEY_PRESETS entries", () => {
-  it("each entry has key/label/keyDef.key", () => {
-    for (const p of RADIAL_KEY_PRESETS) {
-      expect(typeof p.id).toBe("string");
-      expect(typeof p.label).toBe("string");
-      expect(typeof p.keyDef.key).toBe("string");
     }
   });
 });

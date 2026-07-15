@@ -75,4 +75,25 @@ describe("keyDefToAnsi", () => {
     expect(keyDefToAnsi({ key: "PageUp" })).toBe("\x1b[5~");
     expect(keyDefToAnsi({ key: "Delete" })).toBe("\x1b[3~");
   });
+
+  it("prefixes ESC for alt on printable chars (meta-sends-escape)", () => {
+    expect(keyDefToAnsi({ key: "a", alt: true })).toBe("\x1ba");
+    expect(keyDefToAnsi({ key: "a", alt: true, shift: true })).toBe("\x1bA");
+  });
+
+  it("prefixes ESC for alt on control-code letters", () => {
+    expect(keyDefToAnsi({ key: "c", ctrl: true, alt: true })).toBe("\x1b\x03");
+  });
+
+  it("prefixes ESC for alt on special keys via table", () => {
+    expect(keyDefToAnsi({ key: "Backspace", alt: true })).toBe("\x1b\x7f");
+    expect(keyDefToAnsi({ key: "Enter", alt: true })).toBe("\x1b\r");
+  });
+
+  it("folds alt into the CSI modifier parameter for arrow/tilde/SS3 keys", () => {
+    expect(keyDefToAnsi({ key: "ArrowUp", alt: true })).toBe("\x1b[1;3A");
+    expect(keyDefToAnsi({ key: "PageUp", alt: true })).toBe("\x1b[5;3~");
+    expect(keyDefToAnsi({ key: "F1", alt: true })).toBe("\x1b[1;3P");
+    expect(keyDefToAnsi({ key: "ArrowLeft", ctrl: true, alt: true })).toBe("\x1b[1;7D");
+  });
 });

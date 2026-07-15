@@ -10,6 +10,7 @@ function sanitizeKeys(keys) {
     key: typeof k?.key === "string" ? k.key : "",
     ctrl: !!k?.ctrl,
     shift: !!k?.shift,
+    alt: !!k?.alt,
     label: typeof k?.label === "string" ? k.label : "",
   }));
 }
@@ -24,7 +25,7 @@ function sanitizeSpecials(specials) {
 }
 
 export const useCircleKeyPadConfigStore = defineStore("circle-keypad-config", () => {
-  /** @type {import("vue").Ref<Array<{key: string, ctrl: boolean, shift: boolean, label: string}>>} */
+  /** @type {import("vue").Ref<Array<{key: string, ctrl: boolean, shift: boolean, alt: boolean, label: string}>>} */
   const keys = ref(defaultKeyDefs());
   /** @type {import("vue").Ref<Array<{label: string, action: string, payload: object | null}>>} */
   const specials = ref(defaultSpecialDefs());

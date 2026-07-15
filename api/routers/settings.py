@@ -134,6 +134,7 @@ class RadialKeyDef(BaseModel):
     key: str = Field(..., max_length=RADIAL_KEY_NAME_MAX)
     ctrl: bool = False
     shift: bool = False
+    alt: bool = False
     label: str = Field("", max_length=RADIAL_LABEL_MAX)
 
 
