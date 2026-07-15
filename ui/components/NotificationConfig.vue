@@ -22,8 +22,8 @@
       <label class="settings-item settings-toggle">
         <input type="checkbox" v-model="prefs.dispatch" @change="savePrefs" />
         <div class="settings-toggle-copy">
-          <span class="settings-item-label">Dispatch accepted</span>
-          <span class="settings-note">When a dispatch request is approved.</span>
+          <span class="settings-item-label">Dispatch requested</span>
+          <span class="settings-note">When a dispatch request needs your approval.</span>
         </div>
       </label>
       <label class="settings-item settings-toggle">
