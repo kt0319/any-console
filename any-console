@@ -384,7 +384,7 @@ TOOL_META = {
     "claude":   {"label": "Claude Code",     "icon": "mdi-robot-outline", "icon_color": "#d97757", "notify_phrase": "1. Yes"},
     "codex":    {"label": "Codex",           "icon": "mdi-robot-outline", "icon_color": "#10a37f", "notify_phrase": "1. Yes"},
     "gemini":   {"label": "Gemini CLI",      "icon": "mdi-robot-outline", "icon_color": "#4285f4", "notify_phrase": ""},
-    "copilot":  {"label": "GitHub Copilot",  "icon": "mdi-robot-outline", "icon_color": "#8957e5", "notify_phrase": ""},
+    "copilot":  {"label": "GitHub Copilot",  "icon": "mdi-robot-outline", "icon_color": "#8957e5", "notify_phrase": "1. Yes"},
     "opencode": {"label": "opencode",        "icon": "mdi-robot-outline", "icon_color": "#fab283", "notify_phrase": ""},
 }
 

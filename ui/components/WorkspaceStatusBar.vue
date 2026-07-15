@@ -298,8 +298,14 @@ async function registerCurrentDir() {
 
 .status-btn-label {
   font-size: 12px;
-  color: var(--text-muted);
+color: #ffffff;
   display: none;
+}
+
+/* Placeholder や読み込み中の例外は既存のクラスで上書きされる */
+.status-placeholder-btn .status-btn-label,
+.status-msg-loading + .status-btn-label {
+  color: var(--text-muted);
 }
 
 .status-btn-label-always {
