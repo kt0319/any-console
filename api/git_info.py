@@ -55,7 +55,7 @@ def invalidate_git_info_cache(directory: Path) -> None:
 
 
 def refresh_git_info(directory: Path, name: str) -> dict[str, Any]:
-    """watchfiles 起点の部分更新。diff/staged/status に加え last_commit/message も再計算する。
+    """watchfiles 起点の部分更新。diff/staged/status に加え last_commit_date/message も再計算する。
 
     ahead-behind・branch・upstream などリモート問い合わせが必要な値はキャッシュを流用し高速化する。
     キャッシュが無い場合はフル再計算。
@@ -121,7 +121,7 @@ def _empty_git_info() -> dict[str, Any]:
         "upstream": None,
         "has_upstream": None,
         "has_remote_branch": None,
-        "last_commit": None,
+        "last_commit_date": None,
         "last_commit_message": None,
         "github_url": None,
         "clean": None,
@@ -190,7 +190,7 @@ def _parse_revlist_pair(out: str) -> tuple[int, int] | None:
 
 def _apply_head_commit(info: dict, commit_out: str | None, message_out: str | None) -> None:
     if commit_out and (s := commit_out.strip()):
-        info["last_commit"] = s
+        info["last_commit_date"] = s
     if message_out and (s := message_out.strip()):
         info["last_commit_message"] = s
 

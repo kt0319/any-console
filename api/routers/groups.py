@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from ..auth import verify_token
-from ..common import GLOBAL_CONFIG_KEY, generate_workspace_id
+from ..common import GLOBAL_CONFIG_KEY, generate_entity_id
 from ..config import load_all_config, save_all_config
 from ..errors import not_found
 
@@ -62,7 +62,7 @@ def create_group(body: GroupRequest):
     if not name:
         from ..errors import bad_request
         raise bad_request("Group name is required")
-    group_id = generate_workspace_id()
+    group_id = generate_entity_id()
     all_config = load_all_config()
     groups = _load_groups(all_config)
     groups.append({"id": group_id, "name": name})

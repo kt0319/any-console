@@ -30,7 +30,7 @@
       </button>
 
       <div class="settings-menu-section-label">System</div>
-      <button type="button" class="settings-menu-item" @click="pushView('PreviewConfig')">
+      <button type="button" class="settings-menu-item" @click="pushView('PreviewPorts')">
         <span class="mdi mdi-open-in-app"></span> Port Preview
       </button>
       <button type="button" class="settings-menu-item" @click="pushView('NotificationConfig')">

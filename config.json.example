@@ -49,7 +49,7 @@
       "dotfiles"
     ],
     "editor": {
-      "url_template": "vscode://vscode-remote/ssh-remote+{user}@{host}{work_dir}/{workspace}"
+      "url_template": "vscode://vscode-remote/ssh-remote+{user}@{host}{workspace_path}"
     },
     "recent_jobs": []
   }

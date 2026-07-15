@@ -36,7 +36,7 @@
         <ServerInfo v-if="currentView === 'ServerInfo'" />
         <DisplayConfig v-if="currentView === 'DisplayConfig'" />
         <SnippetConfig v-if="currentView === 'SnippetConfig'" />
-        <PreviewConfig v-if="currentView === 'PreviewConfig'" />
+        <PreviewPorts v-if="currentView === 'PreviewPorts'" />
         <NotificationConfig v-if="currentView === 'NotificationConfig'" />
         <CircleKeyPadConfig v-if="currentView === 'CircleKeyPadConfig'" />
         <ConfigFile v-if="currentView === 'ConfigFile'" />
@@ -62,7 +62,7 @@ import AuthConfig from "./AuthConfig.vue";
 import ServerInfo from "./ServerInfo.vue";
 import DisplayConfig from "./DisplayConfig.vue";
 import SnippetConfig from "./SnippetConfig.vue";
-import PreviewConfig from "./PreviewConfig.vue";
+import PreviewPorts from "./PreviewPorts.vue";
 import NotificationConfig from "./NotificationConfig.vue";
 import CircleKeyPadConfig from "./CircleKeyPadConfig.vue";
 import ConfigFile from "./ConfigFile.vue";
@@ -149,9 +149,11 @@ function onBack() {
 onMounted(() => {
   on("settings:open", (detail) => {
     if (detail?.view) {
+      // 保存済み circle keypad 設定には旧 view 名が残っている可能性があるため読み替える
+      const view = detail.view === "PreviewConfig" ? "PreviewPorts" : detail.view;
       openView([
         { view: "ModalMenu", state: {} },
-        { view: detail.view, state: {} },
+        { view, state: {} },
       ]);
     } else {
       openView("ModalMenu");
@@ -175,9 +177,9 @@ onMounted(() => {
     { view: "WorkspaceDetail", state: { detail } },
   ]));
 
-  on("preview:showConfig", () => openView([
+  on("preview:showPorts", () => openView([
     { view: "ModalMenu", state: {} },
-    { view: "PreviewConfig", state: {} },
+    { view: "PreviewPorts", state: {} },
   ]));
   on("git:closeFileModal", () => closeModal());
 

@@ -24,11 +24,11 @@ def register_workspace(config_file, name, path):
     """config.json へワークスペースを現行フォーマット（キー=ID、name フィールド）で追記する。"""
     import json
 
-    from api.common import generate_workspace_id
+    from api.common import generate_entity_id
 
     from conftest import find_ws_id
     config = json.loads(config_file.read_text(encoding="utf-8")) if config_file.is_file() else {}
-    ws_id = find_ws_id(config, name) or generate_workspace_id()
+    ws_id = find_ws_id(config, name) or generate_entity_id()
     entry = config.setdefault(ws_id, {"name": name})
     entry["path"] = str(path)
     config_file.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")

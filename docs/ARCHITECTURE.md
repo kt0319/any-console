@@ -19,7 +19,8 @@ api/                          Backend (FastAPI)
   terminal_session.py / tmux.py  tmux × pty.fork × WebSocket bridge
   git_utils.py / git_lock.py  Git subprocess invocation, workspace lock
   git_watch.py                Filesystem watching (watchfiles) × WebSocket push for realtime git status
-  config.py / config_schema.py  config.json read/write, Pydantic validation, schema versioning + auto-migration
+  config.py / config_schema.py  config.json read/write, Pydantic validation
+  config_migrations.py        config.json schema versioning + auto-migration
   rate_limiter.py             In-process rate limiter
   routers/                    workspaces, jobs, terminal, system, settings, git, github
 ui/                           Frontend (Vue 3 + Pinia, built with Vite)

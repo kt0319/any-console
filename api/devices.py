@@ -154,8 +154,11 @@ def register_device(name: str, user_agent: str, source: str = "token") -> tuple[
     return device_id, raw_secret
 
 
-def verify_device(device_id: str, raw_secret: str) -> dict | None:
-    """device_id + raw_secret が登録済みデバイスと一致すれば dict を返す。"""
+def verify_and_touch_device(device_id: str, raw_secret: str) -> dict | None:
+    """device_id + raw_secret が登録済みデバイスと一致すれば dict を返す。
+
+    一致した場合は last_seen_at を現在時刻に更新して保存する（副作用あり）。
+    """
     if not device_id or not raw_secret:
         return None
     data = _load()

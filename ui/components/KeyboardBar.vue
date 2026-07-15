@@ -6,7 +6,7 @@
       :hide-bottom-row="true"
       :external-input-focused="inputFocused"
       :external-snippet-view="showSnippetView"
-      @cycleMode="toggleKeyboard"
+      @dismiss="hideInput"
       @submitted="onSubmitted"
       @snippetToggle="toggleSnippetView"
     />
@@ -76,7 +76,7 @@ const barEnterFlickEl = ref(null);
 const {
   isFullKeyboard, draft, inputFocused, showSnippetView, hasDraft,
   onInputFocused, toggleSnippetView,
-  toggleKeyboard, dismissKeyboard, onSubmitted,
+  hideInput, dismissKeyboard, onSubmitted,
 } = useKeyboardBarState({ keyboardInput, clearModifiers, sendTextToTerminal });
 
 const { historyPrev, historyNext, cycleSnippet } = useInputDraftHistory(draft, inputFocused, sendTextToTerminal);

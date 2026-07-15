@@ -45,13 +45,13 @@ class TestFindOrRegister:
         id1, _ = devices_mod.find_or_register_device("Safari on iOS", ua, source="tailscale")
         id2, secret2 = devices_mod.find_or_register_device("Safari on iOS", ua, source="tailscale")
         assert id1 == id2
-        assert devices_mod.verify_device(id2, secret2) is not None
+        assert devices_mod.verify_and_touch_device(id2, secret2) is not None
 
     def test_old_secret_invalidated_after_reissue(self):
         ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1"
         id1, secret1 = devices_mod.find_or_register_device("Safari on iOS", ua, source="tailscale")
         _, _ = devices_mod.find_or_register_device("Safari on iOS", ua, source="tailscale")
-        assert devices_mod.verify_device(id1, secret1) is None
+        assert devices_mod.verify_and_touch_device(id1, secret1) is None
 
     def test_different_source_creates_new_device(self):
         ua = "Mozilla/5.0 Chrome/120.0"
@@ -83,31 +83,31 @@ class TestRegisterAndVerify:
 
     def test_verify_succeeds_after_register(self):
         device_id, secret = devices_mod.register_device("MyMac", "ua/1")
-        dev = devices_mod.verify_device(device_id, secret)
+        dev = devices_mod.verify_and_touch_device(device_id, secret)
         assert dev is not None
         assert dev["name"] == "MyMac"
 
     def test_verify_wrong_secret_fails(self):
         device_id, _ = devices_mod.register_device("MyMac", "ua/1")
-        assert devices_mod.verify_device(device_id, "wrong") is None
+        assert devices_mod.verify_and_touch_device(device_id, "wrong") is None
 
     def test_verify_unknown_id_fails(self):
-        assert devices_mod.verify_device("dev_doesnotexist", "anything") is None
+        assert devices_mod.verify_and_touch_device("dev_doesnotexist", "anything") is None
 
     def test_verify_empty_args_fails(self):
-        assert devices_mod.verify_device("", "") is None
+        assert devices_mod.verify_and_touch_device("", "") is None
 
     def test_revoke_removes_device(self):
         device_id, secret = devices_mod.register_device("MyMac", "ua/1")
         assert devices_mod.revoke_device(device_id) is True
-        assert devices_mod.verify_device(device_id, secret) is None
+        assert devices_mod.verify_and_touch_device(device_id, secret) is None
 
     def test_revoke_keeps_others(self):
         a_id, a_secret = devices_mod.register_device("A", "ua/a")
         b_id, b_secret = devices_mod.register_device("B", "ua/b")
         devices_mod.revoke_device(a_id)
-        assert devices_mod.verify_device(a_id, a_secret) is None
-        assert devices_mod.verify_device(b_id, b_secret) is not None
+        assert devices_mod.verify_and_touch_device(a_id, a_secret) is None
+        assert devices_mod.verify_and_touch_device(b_id, b_secret) is not None
 
     def test_list_devices_excludes_secret_hash(self):
         devices_mod.register_device("A", "ua/a")

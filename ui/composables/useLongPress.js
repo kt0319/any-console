@@ -69,7 +69,7 @@ export function useLongPress(durationMs = 500) {
     endMenu();
   }
 
-  function isMenuEl() {
+  function getMenuEl() {
     return menuEl;
   }
 
@@ -83,6 +83,6 @@ export function useLongPress(durationMs = 500) {
     startMenu,
     endMenu,
     closeMenu,
-    isMenuEl,
+    getMenuEl,
   };
 }

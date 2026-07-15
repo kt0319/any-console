@@ -58,11 +58,11 @@ def workspace(isolate_fs):
     ws.mkdir()
     import json
 
-    from api.common import generate_workspace_id
+    from api.common import generate_entity_id
     config_file = isolate_fs["config_file"]
     config = json.loads(config_file.read_text(encoding="utf-8")) if config_file.is_file() else {}
     # 現行フォーマット（キー=ID、表示名は name フィールド）で書く
-    ws_id = find_ws_id(config, "test-ws") or generate_workspace_id()
+    ws_id = find_ws_id(config, "test-ws") or generate_entity_id()
     entry = config.setdefault(ws_id, {"name": "test-ws"})
     entry["path"] = str(ws)
     config_file.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")

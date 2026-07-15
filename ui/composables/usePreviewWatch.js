@@ -37,7 +37,7 @@ export function usePreviewWatch() {
     }
     toast.success(message, {
       duration: 6000,
-      action: { event: "preview:showConfig" },
+      action: { event: "preview:showPorts" },
     });
   }
 

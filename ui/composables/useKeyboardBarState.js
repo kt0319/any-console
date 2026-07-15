@@ -46,11 +46,6 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers, sendTextToT
     clearModifiers();
   }
 
-  function toggleKeyboard() {
-    isFullKeyboard.value = false;
-    clearModifiers();
-  }
-
   function dismissKeyboard() {
     if (inputFocused.value) {
       keyboardInput.value?.blur?.();
@@ -87,6 +82,6 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers, sendTextToT
   return {
     isFullKeyboard, draft, inputFocused, showSnippetView, hasDraft,
     onInputFocused, toggleSnippetView, onChipTap,
-    hideInput, toggleKeyboard, dismissKeyboard, onSubmitted,
+    hideInput, dismissKeyboard, onSubmitted,
   };
 }

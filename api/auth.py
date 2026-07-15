@@ -128,8 +128,8 @@ def _authenticate(
         if ts_user:
             return f"tailscale:{ts_user}"
     if cookies is not None:
-        from .devices import verify_device
-        dev = verify_device(cookies.get(COOKIE_DEVICE_ID, ""), cookies.get(COOKIE_DEVICE_SECRET, ""))
+        from .devices import verify_and_touch_device
+        dev = verify_and_touch_device(cookies.get(COOKIE_DEVICE_ID, ""), cookies.get(COOKIE_DEVICE_SECRET, ""))
         if dev:
             return f"device:{dev['id']}"
     if hmac.compare_digest(token, ANY_CONSOLE_TOKEN):

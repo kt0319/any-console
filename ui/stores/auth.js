@@ -8,7 +8,7 @@ const AUTHED_SENTINEL = "1";
 export const useAuthStore = defineStore("auth", () => {
   const token = ref("");
   const serverHostname = ref("");
-  const serverVersion = ref("");
+  const serverCommitDate = ref("");
   const isHandlingUnauthorized = ref(false);
 
   /**
@@ -63,7 +63,7 @@ export const useAuthStore = defineStore("auth", () => {
       const res = await fetch(EP_AUTH_CHECK, { credentials: "same-origin" });
       if (res.status === 401) return { ok: false, auth: false, error: "Authentication failed" };
       const data = await res.json();
-      return { ok: true, hostname: data.hostname, version: data.version };
+      return { ok: true, hostname: data.hostname, commitDate: data.commit_date };
     } catch (e) {
       return { ok: false, auth: true, error: `Cannot connect to server: ${e instanceof Error ? e.message : String(e)}` };
     }
@@ -85,9 +85,9 @@ export const useAuthStore = defineStore("auth", () => {
     return false;
   }
 
-  function setServerInfo(hostname, version) {
+  function setServerInfo(hostname, commitDate) {
     if (hostname) serverHostname.value = hostname;
-    if (version) serverVersion.value = version;
+    if (commitDate) serverCommitDate.value = commitDate;
   }
 
   function markAuthenticated() {
@@ -108,7 +108,7 @@ export const useAuthStore = defineStore("auth", () => {
   return {
     token,
     serverHostname,
-    serverVersion,
+    serverCommitDate,
     isHandlingUnauthorized,
     apiFetch,
     registerDevice,
