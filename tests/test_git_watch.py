@@ -11,6 +11,7 @@ from api import git_watch
 from api.git_info import invalidate_git_info, refresh_git_info
 from api.git_watch import (
     WatchTarget,
+    _touches_branch_change,
     collect_watch_targets,
     is_relevant_change,
     match_workspaces,
@@ -343,7 +344,64 @@ class TestBroadcastAndPush:
         asyncio.run(run())
 
 
+class TestTouchesBranchChange:
+    def test_head_change_is_branch_change(self):
+        assert _touches_branch_change({"/ws/.git/HEAD"}) is True
+
+    def test_orig_head_change_is_branch_change(self):
+        assert _touches_branch_change({"/ws/.git/ORIG_HEAD"}) is True
+
+    def test_packed_refs_change_is_branch_change(self):
+        assert _touches_branch_change({"/ws/.git/packed-refs"}) is True
+
+    def test_refs_heads_change_is_branch_change(self):
+        assert _touches_branch_change({"/ws/.git/refs/heads/feature"}) is True
+
+    def test_refs_remotes_change_is_branch_change(self):
+        assert _touches_branch_change({"/ws/.git/refs/remotes/origin/main"}) is True
+
+    def test_working_tree_edit_is_not_branch_change(self):
+        assert _touches_branch_change({"/ws/src/main.py"}) is False
+
+    def test_index_change_is_not_branch_change(self):
+        assert _touches_branch_change({"/ws/.git/index"}) is False
+
+
 class TestHandleChanges:
+    def test_head_change_invalidates_cache_before_push(self, git_workspace_with_commit, monkeypatch):
+        # HEAD 変更検知時は push 前にキャッシュを無効化し、次の refresh_git_info を
+        # フル再計算させる（ブランチ名の反映遅延を防ぐ）。
+        async def run():
+            invalidated = []
+            monkeypatch.setattr(
+                git_watch, "invalidate_git_info_cache",
+                lambda path: invalidated.append(path),
+            )
+            fake = FakeWS()
+            git_watch._subscribers.add(fake)
+            targets = [WatchTarget("test-ws", git_workspace_with_commit)]
+            head_path = str(git_workspace_with_commit / ".git" / "HEAD")
+            await git_watch._handle_changes({(2, head_path)}, targets)
+            assert invalidated == [git_workspace_with_commit]
+
+        asyncio.run(run())
+
+    def test_working_tree_change_does_not_invalidate_cache(self, git_workspace_with_commit, monkeypatch):
+        async def run():
+            invalidated = []
+            monkeypatch.setattr(
+                git_watch, "invalidate_git_info_cache",
+                lambda path: invalidated.append(path),
+            )
+            fake = FakeWS()
+            git_watch._subscribers.add(fake)
+            targets = [WatchTarget("test-ws", git_workspace_with_commit)]
+            changed = str(git_workspace_with_commit / "README.md")
+            await git_watch._handle_changes({(2, changed)}, targets)
+            assert invalidated == []
+
+        asyncio.run(run())
+
     def test_worktree_add_triggers_restart(self, git_workspace_with_commit):
         # worktree が実際に増えた（監視対象集合が変わった）場合のみ再起動する
         async def run():

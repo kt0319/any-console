@@ -43,6 +43,17 @@ def invalidate_git_info(workspace_name: str):
     nudge_workspace(workspace_name)
 
 
+def invalidate_git_info_cache(directory: Path) -> None:
+    """指定パスの git_info キャッシュのみを無効化する（push はしない）。
+
+    refresh_git_info はキャッシュ命中時に branch/upstream/ahead/behind を使い回すため、
+    ターミナル内で直接 checkout 等をした場合はキャッシュが残っている間ブランチ名が古いまま
+    になる。git_watch が HEAD/refs の変更を検知した際に呼び、次の refresh_git_info を
+    フル再計算させる。
+    """
+    _git_info_cache.invalidate(str(directory))
+
+
 def refresh_git_info(directory: Path, name: str) -> dict[str, Any]:
     """watchfiles 起点の部分更新。diff/staged/status に加え last_commit/message も再計算する。
 

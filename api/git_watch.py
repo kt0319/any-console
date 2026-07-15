@@ -35,7 +35,7 @@ from .common import (
     run_subprocess_safe,
     safe_resolve_str,
 )
-from .git_info import refresh_git_info
+from .git_info import invalidate_git_info_cache, refresh_git_info
 from .git_utils import list_git_workspace_paths, run_git_raw
 
 logger = logging.getLogger(__name__)
@@ -62,6 +62,10 @@ _IGNORE_DIRS = frozenset({
 _GIT_WATCH_BASENAMES = frozenset({
     "HEAD", "ORIG_HEAD", "MERGE_HEAD", "FETCH_HEAD", "index", "packed-refs",
 })
+# ブランチ切替・作成やリモート追跡ブランチの更新を表すファイル。refresh_git_info は
+# branch/upstream/ahead/behind をキャッシュ流用するため、これらの変更時はキャッシュを
+# 無効化してフル再計算させないと反映が遅れる。
+_BRANCH_CHANGE_BASENAMES = frozenset({"HEAD", "ORIG_HEAD", "packed-refs"})
 # エディタの一時ファイル等（watchfiles DefaultFilter 相当）
 _IGNORE_ENTITY_RE = re.compile(r"\.py[cod]$|\.sw.$|~$|^\.#|^\.DS_Store$")
 
@@ -83,6 +87,24 @@ def is_relevant_change(path_str: str) -> bool:
     if any(p in _IGNORE_DIRS for p in parts):
         return False
     return not _IGNORE_ENTITY_RE.search(parts[-1])
+
+
+def _touches_branch_change(paths: set[str]) -> bool:
+    """変更パス群に HEAD/ORIG_HEAD/packed-refs や refs/ 配下の変更が含まれるか判定する。
+
+    含まれる場合、checkout/switch やブランチ作成・リモート追跡ブランチ更新の可能性が高く、
+    git_info キャッシュを無効化してブランチ名等をフル再計算させる必要がある。
+    """
+    for p in paths:
+        parts = Path(p).parts
+        if ".git" not in parts:
+            continue
+        inner = parts[parts.index(".git") + 1:]
+        if not inner:
+            continue
+        if inner[-1] in _BRANCH_CHANGE_BASENAMES or "refs" in inner:
+            return True
+    return False
 
 
 def _worktree_git_dirs(path: Path) -> tuple[Path, Path] | None:
@@ -347,8 +369,11 @@ async def _handle_changes(changes: set, targets: list[WatchTarget]) -> None:
     global _targets
     paths = {p for _, p in changes}
     names = match_workspaces(paths, targets)
+    branch_changed = _touches_branch_change(paths)
     for target in targets:
         if target.name in names:
+            if branch_changed:
+                invalidate_git_info_cache(target.path)
             await _push_status(target)
     # worktree の作成・削除は監視対象集合を変えるので再収集する。ただし worktree 内の
     # コミット等も .git/worktrees/ を触るため、無条件に再起動すると awatch の再構築中に
