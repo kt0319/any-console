@@ -2,6 +2,8 @@
 import { describe, it, expect } from "vitest";
 import {
   workspaceApiPath,
+  terminalSessionFileContentPath,
+  terminalSessionFilesPath,
   terminalSessionPath,
   terminalSessionHistoryPath,
   workspaceGitDiscardPath,
@@ -48,6 +50,16 @@ describe("terminalSessionPath", () => {
 describe("terminalSessionHistoryPath", () => {
   it("builds history path", () => {
     expect(terminalSessionHistoryPath("abc")).toBe("/terminal/sessions/abc/history");
+  });
+});
+
+describe("terminal session file paths", () => {
+  it("builds session files path", () => {
+    expect(terminalSessionFilesPath("abc", "src/main.js")).toBe("/terminal/sessions/abc/files?path=src%2Fmain.js");
+  });
+
+  it("builds session file content path", () => {
+    expect(terminalSessionFileContentPath("abc", "src/main.js")).toBe("/terminal/sessions/abc/file-content?path=src%2Fmain.js");
   });
 });
 

@@ -1,59 +1,57 @@
 <template>
   <div class="workspace-status-bar" :style="{ display: showHeader ? 'flex' : 'none' }">
-    <template v-if="workspace && isGitRepo">
+    <template v-if="hasVisibleTabs">
       <div class="status-nav-group" ref="navGroupEl">
-        <template v-if="showJobsFiles">
-          <button type="button" class="status-nav-btn" aria-label="Jobs" data-tooltip="Jobs" @click="openFileModal('jobs')">
+        <template v-if="showJobsFiles || isPlainTerminal">
+          <button v-if="isGitRepo" type="button" class="status-nav-btn" aria-label="Jobs" data-tooltip="Jobs" @click="openFileModal('jobs')">
             <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
             <span v-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Jobs</span>
+          </button>
+          <button
+            v-else-if="activeTab"
+            type="button"
+            class="status-nav-btn status-add-workspace-btn"
+            :aria-label="addLabel"
+            :data-tooltip="addLabel"
+            @click="registerCurrentDir"
+          >
+            <span class="mdi mdi-folder-plus-outline status-btn-icon" aria-hidden="true"></span>
+            <span class="status-btn-label status-btn-label-always">{{ addLabel }}</span>
           </button>
           <div class="status-divider"></div>
           <button type="button" class="status-nav-btn" aria-label="Files" data-tooltip="Files" @click="openFileModal('files')">
             <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
-            <span v-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Files</span>
+            <span v-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': isPlainTerminal || !isBranchLong }">Files</span>
           </button>
           <div class="status-divider"></div>
         </template>
-        <button v-if="!isMobile || !isDirty" type="button" class="status-nav-btn status-msg-btn" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
+        <button v-if="!isMobile || !isDirty || isPlainTerminal" type="button" class="status-nav-btn status-msg-btn" :class="{ 'status-placeholder-btn': isPlainTerminal }" :disabled="isPlainTerminal" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
           <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
-          <span class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
+          <span v-if="isGitRepo" class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
+          <span v-else class="status-btn-label status-btn-label-always">History</span>
         </button>
-        <div v-if="!isMobile" class="status-divider"></div>
-        <button v-if="!isMobile || isDirty" type="button" class="status-nav-btn status-numstat-btn" :class="{ 'status-msg-btn': isMobile }" tabindex="-1" aria-label="Changes" data-tooltip="Changes" @click="openFileModal('changes')">
+        <div v-if="!isMobile || isPlainTerminal" class="status-divider"></div>
+        <button v-if="!isMobile || isDirty || isPlainTerminal" type="button" class="status-nav-btn status-numstat-btn" :class="{ 'status-msg-btn': isMobile, 'status-placeholder-btn': isPlainTerminal }" :disabled="isPlainTerminal" tabindex="-1" aria-label="Changes" data-tooltip="Changes" @click="openFileModal('changes')">
           <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
           <template v-if="isDirty && !statusLoading">
             <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
             <span class="diff-num-plus">+{{ insertions }}</span>
             <span class="diff-num-del">-{{ deletions }}</span>
           </template>
-          <span v-else-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Changes</span>
+          <span v-else-if="!isMobile || isPlainTerminal" class="status-btn-label" :class="{ 'status-btn-label-always': isPlainTerminal || !isBranchLong }">Changes</span>
         </button>
         <div class="status-divider"></div>
-        <button type="button" class="status-nav-btn status-branch-btn" tabindex="-1" aria-label="Branches" data-tooltip="Branches" @click="openFileModal('branch')">
+        <button type="button" class="status-nav-btn status-branch-btn" :class="{ 'status-placeholder-btn': isPlainTerminal }" :disabled="isPlainTerminal" tabindex="-1" aria-label="Branches" data-tooltip="Branches" @click="openFileModal('branch')">
           <span class="mdi mdi-source-branch status-btn-icon" aria-hidden="true"></span>
-          <span class="status-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
+          <span v-if="isGitRepo" class="status-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
+          <span v-else class="status-btn-label status-btn-label-always">Branches</span>
         </button>
       </div>
-      <div v-if="!statusLoading && hasGitActions" class="git-actions">
+      <div v-if="isGitRepo && !statusLoading && hasGitActions" class="git-actions">
         <GitActionBtn v-if="behind > 0" icon="pull" title="Pull" :count="behind" :running="isRunning(workspace, 'pull')" btn-class="pull-btn has-count" @action="doAction('pull')" />
         <GitActionBtn v-if="!hasUpstream && hasRemoteBranch" icon="set-upstream" title="Set Upstream" :running="isRunning(workspace, 'set-upstream')" btn-class="icon-only upstream-set-btn" @action="doAction('set-upstream')" />
         <GitActionBtn v-if="!hasUpstream && !hasRemoteBranch" icon="push-upstream" title="Push & Set Upstream" :count="ahead" :running="isRunning(workspace, 'push-upstream')" btn-class="upstream-btn" @action="doAction('push-upstream')" />
         <GitActionBtn v-if="hasUpstream && ahead > 0" icon="push" title="Push" :count="ahead" :running="isRunning(workspace, 'push')" btn-class="push-btn has-count" @action="doAction('push')" />
-      </div>
-    </template>
-    <template v-else-if="hasVisibleTabs">
-      <div class="status-nav-group">
-        <button
-          v-if="activeTab"
-          type="button"
-          class="status-nav-btn"
-          :aria-label="addLabel"
-          :data-tooltip="addLabel"
-          @click="registerCurrentDir"
-        >
-          <span class="mdi mdi-folder-plus-outline status-btn-icon" aria-hidden="true"></span>
-          <span class="status-btn-label status-btn-label-always">{{ addLabel }}</span>
-        </button>
       </div>
     </template>
   </div>
@@ -86,9 +84,10 @@ let navGroupTimer = null;
 
 async function fetchCwd() {
   const tab = activeTab.value;
-  if (!tab?.sessionId || isGitRepo.value) return;
+  if (!tab?.sessionId || isGitRepo.value) return currentCwd.value;
   const { ok, data } = await apiGet(terminalSessionCwdPath(tab.sessionId));
   if (ok) currentCwd.value = data?.cwd || "";
+  return currentCwd.value;
 }
 
 function startPolling() {
@@ -161,6 +160,7 @@ const {
   insertions,
   deletions,
 } = useWorkspaceGitStatus(ws, isMobile);
+const isPlainTerminal = computed(() => hasVisibleTabs.value && !isGitRepo.value);
 
 // git リポジトリでないターミナル（素のターミナル含む）では、登録ボタンに現在の
 // ディレクトリ名を表示する。cwd はセッションから取得する。
@@ -169,17 +169,14 @@ watch(
   async ([sessionId, gitRepo]) => {
     currentCwd.value = "";
     if (!sessionId || gitRepo) return;
-    const { ok, data } = await apiGet(terminalSessionCwdPath(sessionId));
-    if (ok) currentCwd.value = data?.cwd || "";
+    await fetchCwd();
   },
   { immediate: true },
 );
 
-const registerLabel = computed(() => {
-  if (!currentCwd.value) return "Register current dir";
-  const name = currentCwd.value.split("/").filter(Boolean).pop() || currentCwd.value;
-  return `Register "${name}"`;
-});
+function cwdBaseName(path) {
+  return path.split("/").filter(Boolean).pop() || path;
+}
 
 const matchingWorkspace = computed(() => {
   if (!currentCwd.value) return null;
@@ -191,15 +188,21 @@ const addLabel = computed(() => {
     return `Open "${matchingWorkspace.value.name}" workspace`;
   }
   if (!currentCwd.value) return "Open a workspace";
-  const name = currentCwd.value.split("/").filter(Boolean).pop() || currentCwd.value;
-  return `Add "${name}" workspace`;
+  return `Add "${cwdBaseName(currentCwd.value)}" workspace`;
 });
 
-function openFileModal(pane = "files") {
+async function openFileModal(pane = "files") {
+  if (!isGitRepo.value && pane !== "files") return;
   if (workspace.value) {
     workspaceStore.selectedWorkspace = workspace.value;
   }
-  emit("git:openFileModal", { pane });
+  const detail = { pane };
+  if (!isGitRepo.value && activeTab.value?.sessionId) {
+    await fetchCwd();
+    detail.terminalSessionId = activeTab.value.sessionId;
+    detail.rootLabel = currentCwd.value ? cwdBaseName(currentCwd.value) : "terminal";
+  }
+  emit("git:openFileModal", detail);
 }
 
 function doAction(action) {
@@ -207,10 +210,6 @@ function doAction(action) {
   if (!wsName) return;
   const branch = ws.value?.branch || "";
   gitAction(wsName, action, { branch });
-}
-
-function openWorkspaceModal() {
-  emit("workspace:openModal");
 }
 
 async function registerCurrentDir() {
@@ -309,6 +308,23 @@ async function registerCurrentDir() {
 
 .status-nav-btn:has(.status-btn-label-always) {
   padding: 0 8px;
+}
+
+.status-add-workspace-btn {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.status-add-workspace-btn .status-btn-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-placeholder-btn {
+  cursor: default;
+  color: var(--text-muted);
+  opacity: 0.55;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -413,7 +429,7 @@ async function registerCurrentDir() {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .status-nav-btn:hover {
+  .status-nav-btn:not(:disabled):hover {
     background: var(--bg-secondary);
   }
 }

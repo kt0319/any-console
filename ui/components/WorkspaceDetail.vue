@@ -24,7 +24,14 @@
         />
       </div>
       <div v-show="activePane === 'files'" class="file-modal-pane">
-        <FileBrowser ref="fileBrowser" :diffFile="selectedDiffFile" :diffMessage="diffMessage" @state="onFileBrowserState" />
+        <FileBrowser
+          ref="fileBrowser"
+          :diffFile="selectedDiffFile"
+          :diffMessage="diffMessage"
+          :rootLabel="fileBrowserRootLabel"
+          :terminalSessionId="terminalSessionId"
+          @state="onFileBrowserState"
+        />
       </div>
       <div v-if="activePane === 'changes'" class="file-modal-pane">
         <GitFiles ref="gitFiles" />
@@ -108,6 +115,8 @@ const diffMessage = ref("");
 
 const fileBrowserDeep = ref(false);
 const historyExpanded = ref(false);
+const terminalSessionId = computed(() => viewState.value?.detail?.terminalSessionId || "");
+const fileBrowserRootLabel = computed(() => viewState.value?.detail?.rootLabel || "");
 
 function onFileBrowserState({ atRoot, fileOpen }) {
   fileBrowserDeep.value = !atRoot || fileOpen;
@@ -115,7 +124,7 @@ function onFileBrowserState({ atRoot, fileOpen }) {
 
 const filesBrowsing = computed(() => fileBrowserDeep.value || !!selectedDiffFile.value);
 
-const isGitWorkspace = computed(() => !!workspaceStore.currentWorkspace?.is_git_repo);
+const isGitWorkspace = computed(() => !terminalSessionId.value && !!workspaceStore.currentWorkspace?.is_git_repo);
 
 const tabs = computed(() => {
   const isGit = isGitWorkspace.value;
@@ -141,8 +150,8 @@ const tabs = computed(() => {
 
 function updateViewTitle() {
   const ws = workspaceStore.currentWorkspace;
-  modalTitle.value = ws ? workspaceDisplayName(ws) : (workspaceStore.selectedWorkspace || "Git");
-  if (modalBranch) modalBranch.value = ws?.branch || "";
+  modalTitle.value = fileBrowserRootLabel.value || (ws ? workspaceDisplayName(ws) : (workspaceStore.selectedWorkspace || "Git"));
+  if (modalBranch) modalBranch.value = terminalSessionId.value ? "" : (ws?.branch || "");
 }
 
 
@@ -179,15 +188,18 @@ function open(options) {
   diffMessage.value = "";
   updateViewTitle();
 
-  const workspace = workspaceStore.selectedWorkspace;
-  primeFromCache(workspace);
-  loadCounts(workspace);
+  const workspace = terminalSessionId.value ? null : workspaceStore.selectedWorkspace;
+  if (workspace) {
+    primeFromCache(workspace);
+    loadCounts(workspace);
+  }
 
-  const workspaceChanged = workspace !== loadedWorkspace;
+  const filesKey = terminalSessionId.value || workspace;
+  const workspaceChanged = filesKey !== loadedWorkspace;
   if (workspaceChanged) {
     historyLoadedFor = null;
     filesLoadedFor = null;
-    loadedWorkspace = workspace;
+    loadedWorkspace = filesKey;
   }
 
   switchPane(resolvedPane);
@@ -199,7 +211,7 @@ async function switchPane(key) {
   if (key === "browser") key = "history";
 
   activePane.value = key;
-  updateViewState?.({ detail: { pane: key } });
+  updateViewState?.({ detail: { ...(viewState.value?.detail || {}), pane: key } });
   updateViewTitle();
 
   if (key === "history") {
@@ -222,8 +234,9 @@ async function switchPane(key) {
     nextTick(() => jobsPane.value?.load());
   } else if (key === "files") {
     nextTick(() => {
-      if (filesLoadedFor !== workspaceStore.selectedWorkspace) {
-        filesLoadedFor = workspaceStore.selectedWorkspace;
+      const filesKey = terminalSessionId.value || workspaceStore.selectedWorkspace;
+      if (filesLoadedFor !== filesKey) {
+        filesLoadedFor = filesKey;
         fileBrowser.value?.load();
       }
     });

@@ -6,8 +6,9 @@
  * - layout:fitAll がフォーム送信で発火しないこと
  * - WorkspaceStatusBar ヒントボタン
  */
+import { defineComponent, ref } from "vue";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { fitTerminal } from "../../ui/composables/useTerminalResize.js";
 import { useTerminal } from "../../ui/composables/useTerminal.js";
@@ -17,7 +18,9 @@ import { emit, on } from "../../ui/app-bridge.js";
 import ConfirmDialog from "../../ui/components/ConfirmDialog.vue";
 import PromptDialog from "../../ui/components/PromptDialog.vue";
 import WorkspaceStatusBar from "../../ui/components/WorkspaceStatusBar.vue";
+import WorkspaceDetail from "../../ui/components/WorkspaceDetail.vue";
 import { useTerminalStore } from "../../ui/stores/terminal.js";
+import { useAuthStore } from "../../ui/stores/auth.js";
 
 // ── Test 1: fit 抑制 ──────────────────────────────────────────────────────────
 
@@ -154,9 +157,9 @@ describe("layout:fitAll のイベント分離", () => {
   });
 });
 
-// ── Test 4: WorkspaceStatusBar ヒントボタン ──────────────────────────────────
+// ── Test 4: WorkspaceStatusBar 追加ワークスペースボタン ──────────────────────
 
-describe("WorkspaceStatusBar: ワークスペース未選択時のヒントボタン", () => {
+describe("WorkspaceStatusBar: 素のターミナルの追加ワークスペースボタン", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.useFakeTimers();
@@ -166,7 +169,7 @@ describe("WorkspaceStatusBar: ワークスペース未選択時のヒントボ�
     vi.useRealTimers();
   });
 
-  it("Open ボタンをクリックすると workspace:openModal が emit される", async () => {
+  it("cwd 不明時の Open ボタンをクリックすると workspace:openModal が emit される", async () => {
     const handler = vi.fn();
     const off = on("workspace:openModal", handler);
 
@@ -184,6 +187,135 @@ describe("WorkspaceStatusBar: ワークスペース未選択時のヒントボ�
 
     wrapper.unmount();
     off();
+  });
+
+  it("cwd が取れたら通常バーの先頭ボタンに Add ディレクトリ名 workspace を表示する", async () => {
+    const authStore = useAuthStore();
+    authStore.apiFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ cwd: "/Users/k-takasaki/work/any-console" }),
+    });
+
+    const terminalStore = useTerminalStore();
+    terminalStore.openTabs.push({ id: 1, workspace: null, sessionId: "s1" });
+    terminalStore.activeTabId = 1;
+
+    const wrapper = mount(WorkspaceStatusBar);
+    await flushPromises();
+
+    const addBtn = wrapper.findAll("button").find((btn) =>
+      btn.attributes("aria-label") === 'Add "any-console" workspace'
+    );
+    expect(addBtn).toBeTruthy();
+    expect(addBtn.classes()).toContain("status-add-workspace-btn");
+    expect(wrapper.find('[aria-label="Jobs"]').exists()).toBe(false);
+    expect(wrapper.findAll("button").map((btn) => btn.attributes("aria-label"))).toEqual([
+      'Add "any-console" workspace',
+      "Files",
+      "History",
+      "Changes",
+      "Branches",
+    ]);
+    expect(wrapper.find('[aria-label="Files"]').attributes("disabled")).toBeUndefined();
+    for (const label of ["History", "Changes", "Branches"]) {
+      expect(wrapper.find(`[aria-label="${label}"]`).attributes("disabled")).toBeDefined();
+    }
+
+    wrapper.unmount();
+  });
+
+  it("素のターミナルの Files は session cwd のブラウズとして開く", async () => {
+    const handler = vi.fn();
+    const off = on("git:openFileModal", handler);
+    const authStore = useAuthStore();
+    authStore.apiFetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ cwd: "/Users/k-takasaki/work/any-console" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ cwd: "/Users/k-takasaki/work/current-dir" }),
+      });
+
+    const terminalStore = useTerminalStore();
+    terminalStore.openTabs.push({ id: 1, workspace: null, sessionId: "s1" });
+    terminalStore.activeTabId = 1;
+
+    const wrapper = mount(WorkspaceStatusBar);
+    await flushPromises();
+
+    await wrapper.find('[aria-label="Files"]').trigger("click");
+    await flushPromises();
+    expect(handler).toHaveBeenCalledWith({
+      pane: "files",
+      terminalSessionId: "s1",
+      rootLabel: "current-dir",
+    });
+
+    wrapper.unmount();
+    off();
+  });
+});
+
+describe("WorkspaceDetail: terminal cwd files", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  it("pane 更新時に terminalSessionId を保持する", async () => {
+    const modalTitle = ref("");
+    const modalBranch = ref("");
+    const viewState = ref({
+      detail: {
+        pane: "files",
+        terminalSessionId: "s1",
+        rootLabel: "current-dir",
+      },
+    });
+    const updateViewState = vi.fn((state) => {
+      viewState.value = state;
+    });
+
+    const FileBrowserStub = defineComponent({
+      template: "<div />",
+      setup(_, { expose }) {
+        expose({ load: vi.fn(), navigateToPath: vi.fn() });
+      },
+    });
+
+    mount(WorkspaceDetail, {
+      global: {
+        provide: {
+          modalTitle,
+          modalBranch,
+          viewState,
+          updateViewState,
+        },
+        stubs: {
+          FileBrowser: FileBrowserStub,
+          GitHistory: true,
+          GitFiles: true,
+          GitChangeBranch: true,
+          GitStash: true,
+          WorkspaceJobsPane: true,
+          GitHubIssuesPane: true,
+          GitHubActionsPane: true,
+          GitHubPRsPane: true,
+          TerminalSelectPane: true,
+        },
+      },
+    });
+    await flushPromises();
+
+    expect(updateViewState).toHaveBeenCalledWith({
+      detail: {
+        pane: "files",
+        terminalSessionId: "s1",
+        rootLabel: "current-dir",
+      },
+    });
+    expect(viewState.value.detail.terminalSessionId).toBe("s1");
   });
 });
 

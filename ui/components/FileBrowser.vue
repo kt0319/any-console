@@ -8,7 +8,7 @@
     @drop="onDropFiles"
   >
     <div class="file-browser-header">
-      <button class="file-browser-crumb" @click="onCrumbClick('')">{{ workspaceStore.selectedWorkspace || 'root' }}</button>
+      <button class="file-browser-crumb" @click="onCrumbClick('')">{{ rootLabel }}</button>
       <template v-for="(seg, i) in displayPathSegments" :key="i">
         <span class="file-browser-crumb-sep">/</span>
         <button
@@ -121,13 +121,15 @@ const workspaceStore = useWorkspaceStore();
 const props = defineProps({
   diffFile: { type: String, default: "" },
   diffMessage: { type: String, default: "" },
+  rootLabel: { type: String, default: "" },
+  terminalSessionId: { type: String, default: "" },
 });
 
 const {
   currentPath, entries, fileContent,
   isLoading: isFileBrowserLoading, errorMessage: fileBrowserError, showHistory,
   navigateToPath, openFile, toggleHistory,
-} = useFileBrowserNav();
+} = useFileBrowserNav({ getTerminalSessionId: () => props.terminalSessionId });
 const {
   contextEntry,
   openMenu: openContextMenu, closeMenu: closeContextMenu,
@@ -176,6 +178,7 @@ const visibleEntries = computed(() => {
   if (showGitignored.value) return entries.value;
   return entries.value.filter((e) => !e.gitignored);
 });
+const rootLabel = computed(() => props.rootLabel || workspaceStore.selectedWorkspace || "root");
 
 const {
   displayPathSegments, onCrumbClick,
