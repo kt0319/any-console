@@ -56,7 +56,12 @@ router = APIRouter(dependencies=[Depends(verify_token)])
 @router.get("/terminal/sessions")
 async def list_terminal_sessions():
     result = _run_tmux_cmd("list-sessions", "-F", "#{session_name}")
-    if not result or result.returncode != 0:
+    if result is None:
+        # tmux コマンド自体が失敗（タイムアウト/OSError）。「セッション0件」と区別しないと
+        # クライアントが誤ってタブを全消去してしまう（syncSessionsFromServer参照）。
+        raise server_error("Failed to list tmux sessions")
+    if result.returncode != 0:
+        # tmux が正常応答した上での「セッション無し」は正当な空配列。
         return []
 
     sessions = []

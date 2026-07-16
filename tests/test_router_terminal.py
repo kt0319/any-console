@@ -3,6 +3,7 @@
 既存の test_terminal_jobs.py がカバーしていないエラーパス・認証ガードを補完する。
 """
 import subprocess
+from unittest.mock import patch
 
 from conftest import AUTH
 
@@ -16,6 +17,22 @@ class TestListSessions:
     def test_list_sessions_requires_auth(self, client):
         res = client.get("/terminal/sessions")
         assert res.status_code in (401, 403)
+
+    def test_tmux_command_failure_returns_error_not_empty_list(self, client):
+        # tmux コマンド自体が失敗（タイムアウト/OSError で None）した場合、
+        # 「セッション0件」と誤解されないよう空配列ではなくエラーを返す
+        # （クライアント側の syncSessionsFromServer がタブを全消去してしまうため）。
+        with patch("api.routers.terminal._run_tmux_cmd", return_value=None):
+            res = client.get("/terminal/sessions", headers=AUTH)
+        assert res.status_code == 500
+
+    def test_tmux_no_sessions_returns_empty_list(self, client):
+        # tmux が正常応答した上での「セッション無し」（非ゼロ終了）は正当な空配列。
+        no_sessions = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="no server running")
+        with patch("api.routers.terminal._run_tmux_cmd", return_value=no_sessions):
+            res = client.get("/terminal/sessions", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json() == []
 
 
 class TestDeleteSession:
