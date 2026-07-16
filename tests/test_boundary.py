@@ -245,7 +245,7 @@ class TestConfigSchema:
 
     def test_validate_global_config_snippet_requires_command(self):
         # 不正な snippet は例外にせず該当エントリのみ落として救済する
-        # （1つの不正エントリで global 全体が捨てられ radial 等が巻き添えリセットされるのを防ぐ）。
+        # （1つの不正エントリで global 全体が捨てられ circle_keypad 等が巻き添えリセットされるのを防ぐ）。
         from api.config_schema import validate_global_config
         result = validate_global_config({
             "snippets": [{"command": "echo hi", "label": "ok"}, {"label": "no cmd"}],

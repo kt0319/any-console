@@ -1,18 +1,18 @@
 <template>
   <div class="modal-scroll-body ckpad-cfg">
-    <div v-if="!radial.loaded" class="text-muted-center">Loading...</div>
+    <div v-if="!circleKeypad.loaded" class="text-muted-center">Loading...</div>
     <template v-else>
       <div class="ckpad-cfg-section">
         <label class="ckpad-cfg-enable">
-          <input type="checkbox" v-model="radial.enabled">
-          Enable Circle Key Pad
+          <input type="checkbox" v-model="circleKeypad.enabled">
+          Enable Circle Keypad
         </label>
       </div>
 
       <div class="ckpad-cfg-section">
         <div class="ckpad-cfg-section-title">Directional keys</div>
         <p class="ckpad-cfg-desc">8 keys around the ring, clockwise from north.</p>
-        <div v-for="(k, i) in radial.keys" :key="i" class="ckpad-cfg-row">
+        <div v-for="(k, i) in circleKeypad.keys" :key="i" class="ckpad-cfg-row">
           <span class="ckpad-cfg-dir">{{ directions[i] }}</span>
           <select class="form-input ckpad-cfg-select ckpad-cfg-select-modifier" :value="modifierIdOf(k)" @change="setModifier(i, $event.target.value)">
             <option v-for="m in modifierOptions" :key="m.id" :value="m.id">{{ m.label }}</option>
@@ -26,7 +26,7 @@
       <div class="ckpad-cfg-section">
         <div class="ckpad-cfg-section-title">Corner actions</div>
         <p class="ckpad-cfg-desc">Special buttons outside the ring.</p>
-        <div v-for="(s, i) in radial.specials" :key="i" class="ckpad-cfg-row">
+        <div v-for="(s, i) in circleKeypad.specials" :key="i" class="ckpad-cfg-row">
           <span class="ckpad-cfg-dir">{{ corners[i] }}</span>
           <select class="form-input ckpad-cfg-select" :value="specialId(s)" @change="setSpecial(i, $event.target.value)">
             <option v-for="p in specialPresets" :key="p.id" :value="p.id">{{ p.label }}</option>
@@ -46,33 +46,33 @@
 import { inject, ref } from "vue";
 import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.js";
 import {
-  RADIAL_MODIFIER_OPTIONS,
-  RADIAL_BASE_KEYS,
-  RADIAL_SPECIAL_PRESETS,
-  RADIAL_DIRECTION_LABELS,
-  RADIAL_CORNER_LABELS,
+  CIRCLE_KEYPAD_MODIFIER_OPTIONS,
+  CIRCLE_KEYPAD_BASE_KEYS,
+  CIRCLE_KEYPAD_SPECIAL_PRESETS,
+  CIRCLE_KEYPAD_DIRECTION_LABELS,
+  CIRCLE_KEYPAD_CORNER_LABELS,
   findModifierOption,
   findSpecialPreset,
   modifierIdOf,
   baseKeyIdOf,
-  radialKeyLabel,
+  circleKeypadKeyLabel,
 } from "../utils/circle-keypad-presets.js";
 
 const modalTitle = inject("modalTitle");
-modalTitle.value = "Circle Key Pad";
+modalTitle.value = "Circle Keypad";
 
-const radial = useCircleKeyPadConfigStore();
-const modifierOptions = RADIAL_MODIFIER_OPTIONS;
-const baseKeys = RADIAL_BASE_KEYS;
-const specialPresets = RADIAL_SPECIAL_PRESETS;
-const directions = RADIAL_DIRECTION_LABELS;
-const corners = RADIAL_CORNER_LABELS;
+const circleKeypad = useCircleKeyPadConfigStore();
+const modifierOptions = CIRCLE_KEYPAD_MODIFIER_OPTIONS;
+const baseKeys = CIRCLE_KEYPAD_BASE_KEYS;
+const specialPresets = CIRCLE_KEYPAD_SPECIAL_PRESETS;
+const directions = CIRCLE_KEYPAD_DIRECTION_LABELS;
+const corners = CIRCLE_KEYPAD_CORNER_LABELS;
 const saving = ref(false);
 
-if (!radial.loaded) radial.load();
+if (!circleKeypad.loaded) circleKeypad.load();
 
 function specialId(s) {
-  return RADIAL_SPECIAL_PRESETS.find((p) =>
+  return CIRCLE_KEYPAD_SPECIAL_PRESETS.find((p) =>
     p.action === s.action
     && JSON.stringify(p.payload || null) === JSON.stringify(s.payload || null)
   )?.id || "";
@@ -80,31 +80,31 @@ function specialId(s) {
 
 function setModifier(i, modifierId) {
   const mod = findModifierOption(modifierId);
-  const k = radial.keys[i];
+  const k = circleKeypad.keys[i];
   const key = baseKeyIdOf(k);
-  radial.keys[i] = { key, ctrl: mod.ctrl, shift: mod.shift, alt: mod.alt, label: radialKeyLabel(modifierId, key) };
+  circleKeypad.keys[i] = { key, ctrl: mod.ctrl, shift: mod.shift, alt: mod.alt, label: circleKeypadKeyLabel(modifierId, key) };
 }
 
 function setBaseKey(i, keyId) {
-  const k = radial.keys[i];
+  const k = circleKeypad.keys[i];
   const modifierId = modifierIdOf(k);
-  radial.keys[i] = { key: keyId, ctrl: !!k.ctrl, shift: !!k.shift, alt: !!k.alt, label: radialKeyLabel(modifierId, keyId) };
+  circleKeypad.keys[i] = { key: keyId, ctrl: !!k.ctrl, shift: !!k.shift, alt: !!k.alt, label: circleKeypadKeyLabel(modifierId, keyId) };
 }
 
 function setSpecial(i, id) {
   const p = findSpecialPreset(id);
   if (!p) return;
-  radial.specials[i] = { label: p.label, action: p.action, payload: p.payload || null };
+  circleKeypad.specials[i] = { label: p.label, action: p.action, payload: p.payload || null };
 }
 
 function reset() {
-  radial.resetToDefaults();
+  circleKeypad.resetToDefaults();
 }
 
 async function save() {
   saving.value = true;
   try {
-    await radial.save();
+    await circleKeypad.save();
   } finally {
     saving.value = false;
   }

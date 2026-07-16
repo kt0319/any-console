@@ -78,48 +78,48 @@ class TestConfigLoadSave:
         assert find_ws_id(loaded, "bad-ws") is None
 
     def test_load_preserves_global_when_one_job_invalid(self, isolate_fs):
-        # 不正なジョブが1つあっても __global__ 全体は捨てず、radial(サークルキーパッド)
+        # 不正なジョブが1つあっても __global__ 全体は捨てず、circle_keypad(サークルキーパッド)
         # や正常なジョブは保持する（無関係な設定の巻き添えリセットを防ぐ）。
         from api.common import GLOBAL_CONFIG_KEY
         from api.config import load_all_config
         config_file = isolate_fs["config_file"]
         config_file.parent.mkdir(parents=True, exist_ok=True)
-        radial = {
+        circle_keypad = {
             "keys": [{"key": "a"}] * 8,
             "specials": [{"label": "x", "action": "y"}] * 4,
             "enabled": True,
         }
         raw = {GLOBAL_CONFIG_KEY: {
-            "radial": radial,
+            "circle_keypad": circle_keypad,
             "jobs": {"good": {"command": "ls"}, "bad": {"label": "x"}},
         }}
         config_file.write_text(json.dumps(raw), encoding="utf-8")
 
         loaded = load_all_config()
         g = loaded[GLOBAL_CONFIG_KEY]
-        assert len(g.get("radial", {}).get("keys", [])) == 8
+        assert len(g.get("circle_keypad", {}).get("keys", [])) == 8
         assert "good" in g.get("jobs", {})
         assert "bad" not in g.get("jobs", {})
 
-    def test_load_preserves_radial_when_snippet_invalid(self, isolate_fs):
+    def test_load_preserves_circle_keypad_when_snippet_invalid(self, isolate_fs):
         from api.common import GLOBAL_CONFIG_KEY
         from api.config import load_all_config
         config_file = isolate_fs["config_file"]
         config_file.parent.mkdir(parents=True, exist_ok=True)
-        radial = {
+        circle_keypad = {
             "keys": [{"key": "a"}] * 8,
             "specials": [{"label": "x", "action": "y"}] * 4,
             "enabled": True,
         }
         raw = {GLOBAL_CONFIG_KEY: {
-            "radial": radial,
+            "circle_keypad": circle_keypad,
             "snippets": [{"label": "ok", "command": "ls"}, {"label": "bad"}],
         }}
         config_file.write_text(json.dumps(raw), encoding="utf-8")
 
         loaded = load_all_config()
         g = loaded[GLOBAL_CONFIG_KEY]
-        assert len(g.get("radial", {}).get("keys", [])) == 8
+        assert len(g.get("circle_keypad", {}).get("keys", [])) == 8
         assert len(g.get("snippets", [])) == 1
 
     def test_atomic_write(self, isolate_fs):

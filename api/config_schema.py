@@ -105,7 +105,7 @@ def _strip_invalid_global_locations(data: dict[str, Any], exc: ValidationError) 
     """検証エラーになった該当箇所だけを取り除く（残りのフィールドは保持する）。
 
     宣言スカラー（port 等）はキーごと削除してデフォルトに委ね、jobs は該当ジョブのみ、
-    snippets は該当インデックスのみを落とす。radial 等の extra フィールドは触らない。
+    snippets は該当インデックスのみを落とす。circle_keypad 等の extra フィールドは触らない。
     """
     repaired = copy.deepcopy(data)
     snippet_drop: set[int] = set()
@@ -131,7 +131,7 @@ def validate_global_config(data: Any) -> dict[str, Any]:
         return _model_dump(_model_validate(GlobalConfig, data))
     except ValidationError as exc:
         # 不正なフィールドが1つでもあると global セクション全体が破棄され、無関係な
-        # radial（サークルキーパッド）や jobs/snippets まで巻き添えでリセットされる。
+        # circle_keypad（サークルキーパッド）や jobs/snippets まで巻き添えでリセットされる。
         # 該当箇所だけ落として残りを救済する。
         if not isinstance(data, dict):
             raise

@@ -10,7 +10,7 @@
     @touchcancel="onTouchCancel"
   >
     <StatusOverlay :visible="isReconnecting" :label="reconnectLabel" variant="warning" />
-    <CircleKeyPad :state="radial.state" :keys="radialKeys" :specials="radialSpecials" />
+    <CircleKeyPad :state="circleKeypad.state" :keys="circleKeypadKeys" :specials="circleKeypadSpecials" />
     <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
       <div class="pill-group" ref="pillEl">
         <div
@@ -139,13 +139,13 @@ const reconnectLabel = computed(() =>
 
 const tabRef = toRef(props, "tab");
 const paneIndexRef = toRef(props, "paneIndex");
-const radial = useCircleKeyPad();
-const radialKeys = radial.keys;
-const radialSpecials = radial.specials;
+const circleKeypad = useCircleKeyPad();
+const circleKeypadKeys = circleKeypad.keys;
+const circleKeypadSpecials = circleKeypad.specials;
 const { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel } = useTerminalPaneGestures({
   tab: tabRef,
   pillEl,
-  radial,
+  circleKeypad,
   isActive,
   paneIndex: paneIndexRef,
   onSelectPane: (idx) => emits("select-pane", idx),

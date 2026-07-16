@@ -3,12 +3,12 @@
 const SPECIAL_WIDTH = 80;
 const SPECIAL_HEIGHT = 34;
 const SPECIAL_OFFSET = 100;
-const RADIAL_DEADZONE_PX = 40;
+const CIRCLE_KEYPAD_DEADZONE_PX = 40;
 // 各セクターの中心 ±SECTOR_HALF° のみキー判定。隙間（中心から ±18°超〜±22.5°）はキャンセル。
 const SECTOR_HALF_DEG = 18;
 
 // N から時計回り 45° 刻みで 8 セクター。
-export const RADIAL_ANGLES = [-90, -45, 0, 45, 90, 135, 180, -135];
+export const CIRCLE_KEYPAD_ANGLES = [-90, -45, 0, 45, 90, 135, 180, -135];
 
 // 四隅の配置順: 左上 / 右上 / 左下 / 右下（store の specials と同じ順）。
 export const SPECIAL_POSITIONS = [
@@ -48,10 +48,10 @@ export function specialIdAt(dx, dy) {
  */
 export function sectorIndexFromDelta(dx, dy) {
   const dist = Math.hypot(dx, dy);
-  if (dist < RADIAL_DEADZONE_PX) return null;
+  if (dist < CIRCLE_KEYPAD_DEADZONE_PX) return null;
   const deg = Math.atan2(dy, dx) * (180 / Math.PI);
-  for (let i = 0; i < RADIAL_ANGLES.length; i++) {
-    let diff = deg - RADIAL_ANGLES[i];
+  for (let i = 0; i < CIRCLE_KEYPAD_ANGLES.length; i++) {
+    let diff = deg - CIRCLE_KEYPAD_ANGLES[i];
     while (diff > 180) diff -= 360;
     while (diff < -180) diff += 360;
     if (Math.abs(diff) < SECTOR_HALF_DEG) return i;

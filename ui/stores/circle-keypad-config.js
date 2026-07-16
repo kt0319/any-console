@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { defaultKeyDefs, defaultSpecialDefs } from "../utils/circle-keypad-presets.js";
-import { EP_SETTINGS_RADIAL } from "../utils/endpoints.js";
+import { EP_SETTINGS_CIRCLE_KEYPAD } from "../utils/endpoints.js";
 import { useAuthStore } from "./auth.js";
 
 function sanitizeKeys(keys) {
@@ -40,7 +40,7 @@ export const useCircleKeyPadConfigStore = defineStore("circle-keypad-config", ()
     const auth = useAuthStore();
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const res = await auth.apiFetch(EP_SETTINGS_RADIAL);
+        const res = await auth.apiFetch(EP_SETTINGS_CIRCLE_KEYPAD);
         if (res && res.ok) {
           const data = await res.json();
           keys.value = sanitizeKeys(data.keys);
@@ -55,7 +55,7 @@ export const useCircleKeyPadConfigStore = defineStore("circle-keypad-config", ()
 
   async function save() {
     const auth = useAuthStore();
-    await auth.apiFetch(EP_SETTINGS_RADIAL, {
+    await auth.apiFetch(EP_SETTINGS_CIRCLE_KEYPAD, {
       method: "PUT",
       body: { keys: keys.value, specials: specials.value, enabled: enabled.value },
     });

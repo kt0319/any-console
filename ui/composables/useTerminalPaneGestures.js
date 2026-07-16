@@ -13,7 +13,7 @@ const TAP_MAX_DELTA_PX = 10;
 //   - スワイプ: サークルキー（Select & Copy も含む）
 //   - 短いタップ: split mode のときだけ pane 選択
 // を扱う。
-export function useTerminalPaneGestures({ tab, pillEl, radial, isActive, paneIndex, onSelectPane }) {
+export function useTerminalPaneGestures({ tab, pillEl, circleKeypad, isActive, paneIndex, onSelectPane }) {
   const layoutStore = useLayoutStore();
   const paneTouch = createTouchTracker();
 
@@ -44,7 +44,7 @@ export function useTerminalPaneGestures({ tab, pillEl, radial, isActive, paneInd
     cancelLongPressTimer();
     longPressTimer = setTimeout(() => {
       longPressTimer = null;
-      if (touchMoved || radial?.state.visible) return;
+      if (touchMoved || circleKeypad?.state.visible) return;
       const url = findUrlInBuffer(tab.value?.term, startX, startY);
       if (!url) return;
       if (navigator.vibrate) navigator.vibrate(40);
@@ -62,19 +62,19 @@ export function useTerminalPaneGestures({ tab, pillEl, radial, isActive, paneInd
       touchMoved = true;
       cancelLongPressTimer();
     }
-    if (radial && radial.enabled) {
-      if (!radial.state.visible && Math.hypot(dx, dy) > CIRCLE_KEYPAD_TRIGGER_PX) {
-        radial.open(startX, startY);
+    if (circleKeypad && circleKeypad.enabled) {
+      if (!circleKeypad.state.visible && Math.hypot(dx, dy) > CIRCLE_KEYPAD_TRIGGER_PX) {
+        circleKeypad.open(startX, startY);
         if (navigator.vibrate) navigator.vibrate(15);
       }
-      if (radial.state.visible) radial.update(t.clientX, t.clientY);
+      if (circleKeypad.state.visible) circleKeypad.update(t.clientX, t.clientY);
     }
   }
 
   function onTouchEnd(e) {
     cancelLongPressTimer();
-    if (radial?.state.visible) {
-      radial.commitAndClose(tab.value);
+    if (circleKeypad?.state.visible) {
+      circleKeypad.commitAndClose(tab.value);
       return;
     }
     if (!layoutStore.isSplitMode) return;
@@ -89,7 +89,7 @@ export function useTerminalPaneGestures({ tab, pillEl, radial, isActive, paneInd
 
   function onTouchCancel() {
     cancelLongPressTimer();
-    if (radial?.state.visible) radial.cancel();
+    if (circleKeypad?.state.visible) circleKeypad.cancel();
   }
 
   return { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel };

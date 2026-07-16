@@ -1,7 +1,7 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
 import {
-  RADIAL_ANGLES,
+  CIRCLE_KEYPAD_ANGLES,
   SPECIAL_POSITIONS,
   SPECIAL_BUTTON_SIZE,
   specialIdAt,
@@ -10,7 +10,7 @@ import {
 
 describe("circle-keypad-geometry constants", () => {
   it("exposes 8 sector angles and 4 special positions", () => {
-    expect(RADIAL_ANGLES).toHaveLength(8);
+    expect(CIRCLE_KEYPAD_ANGLES).toHaveLength(8);
     expect(SPECIAL_POSITIONS).toHaveLength(4);
     expect(SPECIAL_BUTTON_SIZE).toEqual({ width: 80, height: 34 });
   });

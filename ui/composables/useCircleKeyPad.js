@@ -7,7 +7,7 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.js";
 import {
-  RADIAL_ANGLES,
+  CIRCLE_KEYPAD_ANGLES,
   SPECIAL_POSITIONS,
   SPECIAL_BUTTON_SIZE,
   specialIdAt,
@@ -20,7 +20,7 @@ import {
 export const CIRCLE_KEYPAD_TRIGGER_PX = 36;
 
 // 幾何計算と関連定数は circle-keypad-geometry.js に分離（テスト容易化）。既存の import 互換のため再エクスポートする。
-export { RADIAL_ANGLES, SPECIAL_POSITIONS, SPECIAL_BUTTON_SIZE };
+export { CIRCLE_KEYPAD_ANGLES, SPECIAL_POSITIONS, SPECIAL_BUTTON_SIZE };
 
 export function useCircleKeyPad() {
   const workspaceStore = useWorkspaceStore();
@@ -31,7 +31,7 @@ export function useCircleKeyPad() {
   // ストアから読んだ keyDef を表示用 items に整形する。
   const keys = computed(() => config.keys.map((k, i) => ({
     id: `key:${i}`,
-    angle: RADIAL_ANGLES[i],
+    angle: CIRCLE_KEYPAD_ANGLES[i],
     label: k.label || k.key || "",
     keyDef: { key: k.key, ctrl: !!k.ctrl, shift: !!k.shift, alt: !!k.alt },
   })));

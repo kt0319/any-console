@@ -123,51 +123,62 @@ def put_editor_settings(body: EditorSettings):
     return {"status": "ok", "url_template": url_template}
 
 
-RADIAL_KEY_COUNT = 8
-RADIAL_SPECIAL_COUNT = 4
-RADIAL_LABEL_MAX = 20
-RADIAL_ACTION_MAX = 60
-RADIAL_KEY_NAME_MAX = 30
+CIRCLE_KEYPAD_KEY_COUNT = 8
+CIRCLE_KEYPAD_SPECIAL_COUNT = 4
+CIRCLE_KEYPAD_LABEL_MAX = 20
+CIRCLE_KEYPAD_ACTION_MAX = 60
+CIRCLE_KEYPAD_KEY_NAME_MAX = 30
+
+# 旧名（サークルキーパッド導入時の内部呼称）。config.json に既存ユーザーの設定が
+# このキーで残っているため、新キーが空のときだけ読み取り専用でフォールバックする。
+_LEGACY_CIRCLE_KEYPAD_SECTION = "radial"
+_CIRCLE_KEYPAD_SECTION = "circle_keypad"
 
 
-class RadialKeyDef(BaseModel):
-    key: str = Field(..., max_length=RADIAL_KEY_NAME_MAX)
+class CircleKeypadKeyDef(BaseModel):
+    key: str = Field(..., max_length=CIRCLE_KEYPAD_KEY_NAME_MAX)
     ctrl: bool = False
     shift: bool = False
     alt: bool = False
-    label: str = Field("", max_length=RADIAL_LABEL_MAX)
+    label: str = Field("", max_length=CIRCLE_KEYPAD_LABEL_MAX)
 
 
-class RadialSpecialDef(BaseModel):
-    label: str = Field(..., max_length=RADIAL_LABEL_MAX)
-    action: str = Field(..., max_length=RADIAL_ACTION_MAX)
+class CircleKeypadSpecialDef(BaseModel):
+    label: str = Field(..., max_length=CIRCLE_KEYPAD_LABEL_MAX)
+    action: str = Field(..., max_length=CIRCLE_KEYPAD_ACTION_MAX)
     payload: dict | None = None
 
 
-class RadialSettings(BaseModel):
-    keys: list[RadialKeyDef] = Field(default_factory=list)
-    specials: list[RadialSpecialDef] = Field(default_factory=list)
+class CircleKeypadSettings(BaseModel):
+    keys: list[CircleKeypadKeyDef] = Field(default_factory=list)
+    specials: list[CircleKeypadSpecialDef] = Field(default_factory=list)
     enabled: bool = True
 
 
-@router.get("/settings/radial")
-def get_radial_settings():
-    raw = load_global_config_section("radial", {})
+@router.get("/settings/circle-keypad")
+def get_circle_keypad_settings():
+    raw = load_global_config_section(_CIRCLE_KEYPAD_SECTION, {})
     if not isinstance(raw, dict):
         raw = {}
+    if not raw:
+        # 新キーに未保存 = 旧キー（radial）時代のまま。あれば移行して次回以降は新キーに統一する。
+        legacy = load_global_config_section(_LEGACY_CIRCLE_KEYPAD_SECTION, {})
+        if isinstance(legacy, dict) and legacy:
+            raw = legacy
+            save_global_config_section(_CIRCLE_KEYPAD_SECTION, raw)
     keys = raw.get("keys") if isinstance(raw.get("keys"), list) else []
     specials = raw.get("specials") if isinstance(raw.get("specials"), list) else []
     enabled = raw.get("enabled", True)
     return {"keys": keys, "specials": specials, "enabled": bool(enabled)}
 
 
-@router.put("/settings/radial")
-def put_radial_settings(body: RadialSettings):
-    if len(body.keys) not in (0, RADIAL_KEY_COUNT):
-        raise bad_request(f"keys must have 0 or {RADIAL_KEY_COUNT} items")
-    if len(body.specials) not in (0, RADIAL_SPECIAL_COUNT):
-        raise bad_request(f"specials must have 0 or {RADIAL_SPECIAL_COUNT} items")
-    save_global_config_section("radial", body.model_dump())
+@router.put("/settings/circle-keypad")
+def put_circle_keypad_settings(body: CircleKeypadSettings):
+    if len(body.keys) not in (0, CIRCLE_KEYPAD_KEY_COUNT):
+        raise bad_request(f"keys must have 0 or {CIRCLE_KEYPAD_KEY_COUNT} items")
+    if len(body.specials) not in (0, CIRCLE_KEYPAD_SPECIAL_COUNT):
+        raise bad_request(f"specials must have 0 or {CIRCLE_KEYPAD_SPECIAL_COUNT} items")
+    save_global_config_section(_CIRCLE_KEYPAD_SECTION, body.model_dump())
     return {"status": "ok"}
 
 

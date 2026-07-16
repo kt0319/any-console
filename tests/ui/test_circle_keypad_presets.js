@@ -1,70 +1,70 @@
 // @ts-check
 import { describe, it, expect } from "vitest";
 import {
-  RADIAL_MODIFIER_OPTIONS,
-  RADIAL_BASE_KEYS,
-  RADIAL_SPECIAL_PRESETS,
-  RADIAL_DIRECTION_LABELS,
-  RADIAL_CORNER_LABELS,
-  DEFAULT_RADIAL_KEY_DEFS,
-  DEFAULT_RADIAL_SPECIALS,
+  CIRCLE_KEYPAD_MODIFIER_OPTIONS,
+  CIRCLE_KEYPAD_BASE_KEYS,
+  CIRCLE_KEYPAD_SPECIAL_PRESETS,
+  CIRCLE_KEYPAD_DIRECTION_LABELS,
+  CIRCLE_KEYPAD_CORNER_LABELS,
+  DEFAULT_CIRCLE_KEYPAD_KEY_DEFS,
+  DEFAULT_CIRCLE_KEYPAD_SPECIALS,
   findModifierOption,
   findBaseKey,
   findSpecialPreset,
   modifierIdOf,
   baseKeyIdOf,
-  radialKeyLabel,
+  circleKeypadKeyLabel,
   defaultKeyDefs,
   defaultSpecialDefs,
 } from "../../ui/utils/circle-keypad-presets.js";
 
-describe("RADIAL_* metadata", () => {
+describe("CIRCLE_KEYPAD_* metadata", () => {
   it("has 8 direction labels", () => {
-    expect(RADIAL_DIRECTION_LABELS).toHaveLength(8);
+    expect(CIRCLE_KEYPAD_DIRECTION_LABELS).toHaveLength(8);
   });
 
   it("has 4 corner labels", () => {
-    expect(RADIAL_CORNER_LABELS).toHaveLength(4);
+    expect(CIRCLE_KEYPAD_CORNER_LABELS).toHaveLength(4);
   });
 
   it("default key def list matches direction count", () => {
-    expect(DEFAULT_RADIAL_KEY_DEFS).toHaveLength(8);
+    expect(DEFAULT_CIRCLE_KEYPAD_KEY_DEFS).toHaveLength(8);
   });
 
   it("default special list matches corner count", () => {
-    expect(DEFAULT_RADIAL_SPECIALS).toHaveLength(4);
+    expect(DEFAULT_CIRCLE_KEYPAD_SPECIALS).toHaveLength(4);
   });
 
   it("every default key def resolves to a known modifier and base key", () => {
-    for (const { modifier, key } of DEFAULT_RADIAL_KEY_DEFS) {
+    for (const { modifier, key } of DEFAULT_CIRCLE_KEYPAD_KEY_DEFS) {
       expect(findModifierOption(modifier)).toBeTruthy();
       expect(findBaseKey(key)).not.toBeNull();
     }
   });
 
   it("every default special id resolves to a preset", () => {
-    for (const id of DEFAULT_RADIAL_SPECIALS) {
+    for (const id of DEFAULT_CIRCLE_KEYPAD_SPECIALS) {
       expect(findSpecialPreset(id)).not.toBeNull();
     }
   });
 
   it("modifier options cover the ctrl/shift/alt combinations", () => {
-    expect(RADIAL_MODIFIER_OPTIONS).toHaveLength(8);
-    const none = RADIAL_MODIFIER_OPTIONS.find((m) => m.id === "none");
+    expect(CIRCLE_KEYPAD_MODIFIER_OPTIONS).toHaveLength(8);
+    const none = CIRCLE_KEYPAD_MODIFIER_OPTIONS.find((m) => m.id === "none");
     expect(none.ctrl).toBe(false);
     expect(none.shift).toBe(false);
     expect(none.alt).toBe(false);
-    const all = RADIAL_MODIFIER_OPTIONS.find((m) => m.id === "ctrl_shift_alt");
+    const all = CIRCLE_KEYPAD_MODIFIER_OPTIONS.find((m) => m.id === "ctrl_shift_alt");
     expect(all.ctrl).toBe(true);
     expect(all.shift).toBe(true);
     expect(all.alt).toBe(true);
   });
 
   it("base keys include arrows, letters, and special keys", () => {
-    expect(RADIAL_BASE_KEYS.some((k) => k.id === "ArrowUp")).toBe(true);
-    expect(RADIAL_BASE_KEYS.some((k) => k.id === "a")).toBe(true);
-    expect(RADIAL_BASE_KEYS.some((k) => k.id === "z")).toBe(true);
-    expect(RADIAL_BASE_KEYS.some((k) => k.id === "PageUp")).toBe(true);
+    expect(CIRCLE_KEYPAD_BASE_KEYS.some((k) => k.id === "ArrowUp")).toBe(true);
+    expect(CIRCLE_KEYPAD_BASE_KEYS.some((k) => k.id === "a")).toBe(true);
+    expect(CIRCLE_KEYPAD_BASE_KEYS.some((k) => k.id === "z")).toBe(true);
+    expect(CIRCLE_KEYPAD_BASE_KEYS.some((k) => k.id === "PageUp")).toBe(true);
   });
 });
 
@@ -98,14 +98,14 @@ describe("modifierIdOf / baseKeyIdOf", () => {
   });
 });
 
-describe("radialKeyLabel", () => {
+describe("circleKeypadKeyLabel", () => {
   it("returns bare key label when modifier is none", () => {
-    expect(radialKeyLabel("none", "ArrowUp")).toBe("↑");
+    expect(circleKeypadKeyLabel("none", "ArrowUp")).toBe("↑");
   });
 
-  it("prefixes modifier label otherwise", () => {
-    expect(radialKeyLabel("ctrl", "c")).toBe("Ctrl+C");
-    expect(radialKeyLabel("ctrl_alt", "a")).toBe("Ctrl+Alt+A");
+  it("prefixes modifier symbol otherwise (compact for ring display)", () => {
+    expect(circleKeypadKeyLabel("ctrl", "c")).toBe("⌃C");
+    expect(circleKeypadKeyLabel("ctrl_alt", "a")).toBe("⌃⌥A");
   });
 });
 
@@ -138,9 +138,9 @@ describe("defaultKeyDefs / defaultSpecialDefs", () => {
   });
 });
 
-describe("RADIAL_SPECIAL_PRESETS entries", () => {
+describe("CIRCLE_KEYPAD_SPECIAL_PRESETS entries", () => {
   it("each entry has id/label/action", () => {
-    for (const p of RADIAL_SPECIAL_PRESETS) {
+    for (const p of CIRCLE_KEYPAD_SPECIAL_PRESETS) {
       expect(typeof p.id).toBe("string");
       expect(typeof p.label).toBe("string");
       expect(typeof p.action).toBe("string");

@@ -169,9 +169,9 @@ class TestEditorSettings:
         assert res.json()["url_template"] == ""
 
 
-class TestRadialSettings:
+class TestCircleKeypadSettings:
     def test_get_default(self, client):
-        res = client.get("/settings/radial", headers=AUTH)
+        res = client.get("/settings/circle-keypad", headers=AUTH)
         assert res.status_code == 200
         data = res.json()
         assert data["keys"] == []
@@ -180,34 +180,46 @@ class TestRadialSettings:
 
     def test_get_enabled_false(self, client, isolate_fs):
         import json as _json
-        isolate_fs["config_file"].write_text(_json.dumps({"__global__": {"radial": {"enabled": False, "keys": [], "specials": []}}}))
-        res = client.get("/settings/radial", headers=AUTH)
+        isolate_fs["config_file"].write_text(_json.dumps({"__global__": {"circle_keypad": {"enabled": False, "keys": [], "specials": []}}}))
+        res = client.get("/settings/circle-keypad", headers=AUTH)
         assert res.json()["enabled"] is False
+
+    def test_get_migrates_from_legacy_radial_key(self, client, isolate_fs):
+        # 旧名（radial）で保存されていた既存ユーザーの設定を、新キー（circle_keypad）
+        # 未保存のときだけ読み取り移行する。
+        import json as _json
+        isolate_fs["config_file"].write_text(_json.dumps({"__global__": {"radial": {"enabled": False, "keys": [], "specials": []}}}))
+        res = client.get("/settings/circle-keypad", headers=AUTH)
+        assert res.json()["enabled"] is False
+
+        # 移行後は新キーに書き戻され、以後は新キーが正となる
+        config = _json.loads(isolate_fs["config_file"].read_text())
+        assert config["__global__"]["circle_keypad"]["enabled"] is False
 
     def test_put_and_get(self, client):
         keys = [{"key": str(i), "ctrl": False, "shift": False, "label": f"k{i}"} for i in range(8)]
         specials = [{"label": f"s{i}", "action": f"action:{i}", "payload": None} for i in range(4)]
-        res = client.put("/settings/radial", headers=AUTH, json={"keys": keys, "specials": specials, "enabled": True})
+        res = client.put("/settings/circle-keypad", headers=AUTH, json={"keys": keys, "specials": specials, "enabled": True})
         assert res.status_code == 200
 
-        res = client.get("/settings/radial", headers=AUTH)
+        res = client.get("/settings/circle-keypad", headers=AUTH)
         assert len(res.json()["keys"]) == 8
         assert res.json()["enabled"] is True
 
     def test_put_wrong_key_count(self, client):
-        res = client.put("/settings/radial", headers=AUTH, json={"keys": [{"key": "a", "ctrl": False, "shift": False, "label": "x"}], "specials": [], "enabled": True})
+        res = client.put("/settings/circle-keypad", headers=AUTH, json={"keys": [{"key": "a", "ctrl": False, "shift": False, "label": "x"}], "specials": [], "enabled": True})
         assert res.status_code == 400
 
     def test_put_wrong_special_count(self, client):
         keys = [{"key": str(i), "ctrl": False, "shift": False, "label": f"k{i}"} for i in range(8)]
         specials = [{"label": "x", "action": "y", "payload": None}]
-        res = client.put("/settings/radial", headers=AUTH, json={"keys": keys, "specials": specials, "enabled": True})
+        res = client.put("/settings/circle-keypad", headers=AUTH, json={"keys": keys, "specials": specials, "enabled": True})
         assert res.status_code == 400
 
     def test_put_disabled(self, client):
-        res = client.put("/settings/radial", headers=AUTH, json={"keys": [], "specials": [], "enabled": False})
+        res = client.put("/settings/circle-keypad", headers=AUTH, json={"keys": [], "specials": [], "enabled": False})
         assert res.status_code == 200
-        res = client.get("/settings/radial", headers=AUTH)
+        res = client.get("/settings/circle-keypad", headers=AUTH)
         assert res.json()["enabled"] is False
 
 
