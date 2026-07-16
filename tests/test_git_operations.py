@@ -32,6 +32,19 @@ class TestResetSoft:
         assert head == first
         assert (git_workspace / "b.txt").exists()
 
+    def test_reset_logs_activity_with_before_and_after_commit(self, client, git_workspace):
+        from unittest import mock
+        first = _git_commit(git_workspace, "a.txt", "a", "first")
+        second = _git_commit(git_workspace, "b.txt", "b", "second")
+
+        with mock.patch("api.routers.git_history.log_activity") as log:
+            res = client.post("/workspaces/test-ws/reset", headers=AUTH, json={
+                "commit_hash": first,
+                "mode": "soft",
+            })
+        assert res.status_code == 200
+        log.assert_called_once_with("test-ws", "git_reset", mode="soft", from_commit=second, commit=first)
+
 
 class TestResetHard:
     def test_reset_hard(self, client, git_workspace):
@@ -68,6 +81,22 @@ class TestDeleteBranch:
         ).stdout
         assert "feature-x" not in branches
 
+    def test_delete_local_branch_logs_activity(self, client, git_workspace):
+        from unittest import mock
+        head = _git_commit(git_workspace, "a.txt", "a", "init")
+        subprocess.run(
+            ["git", "branch", "feature-x"], cwd=git_workspace, check=True, capture_output=True,
+        )
+
+        with mock.patch("api.routers.git_branches.log_activity") as log:
+            res = client.post("/workspaces/test-ws/delete-branch", headers=AUTH, json={
+                "branch": "feature-x",
+            })
+        assert res.status_code == 200
+        log.assert_called_once_with(
+            "test-ws", "git_delete_branch", branch="feature-x", remote=False, commit=head,
+        )
+
     def test_delete_current_branch_fails(self, client, git_workspace):
         _git_commit(git_workspace, "a.txt", "a", "init")
         current = subprocess.run(
@@ -100,11 +129,20 @@ class TestCherryPick:
                 ["git", "checkout", "master"], cwd=git_workspace, check=True, capture_output=True,
             )
 
-        res = client.post("/workspaces/test-ws/cherry-pick", headers=AUTH, json={
-            "commit_hash": cherry_hash,
-        })
+        from unittest import mock
+        with mock.patch("api.routers.git_history.log_activity") as log:
+            res = client.post("/workspaces/test-ws/cherry-pick", headers=AUTH, json={
+                "commit_hash": cherry_hash,
+            })
         assert res.status_code == 200
         assert (git_workspace / "b.txt").exists()
+
+        new_head = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=git_workspace, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        log.assert_called_once_with(
+            "test-ws", "git_cherry_pick", source_commit=cherry_hash, commit=new_head,
+        )
 
 
 class TestMerge:
@@ -127,12 +165,24 @@ class TestMerge:
                 ["git", "checkout", "master"], cwd=git_workspace, check=True, capture_output=True,
             )
 
-        res = client.post("/workspaces/test-ws/merge", headers=AUTH, json={
-            "branch": "feature",
-        })
+        from unittest import mock
+        before = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=git_workspace, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        with mock.patch("api.routers.git_history.log_activity") as log:
+            res = client.post("/workspaces/test-ws/merge", headers=AUTH, json={
+                "branch": "feature",
+            })
         assert res.status_code == 200
         assert (git_workspace / "b.txt").exists()
         assert (git_workspace / "b.txt").read_text() == "merge-content"
+
+        after = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=git_workspace, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        log.assert_called_once_with(
+            "test-ws", "git_merge", branch="feature", from_commit=before, commit=after,
+        )
 
     def test_merge_invalid_branch(self, client, git_workspace):
         _git_commit(git_workspace, "a.txt", "a", "init")
@@ -164,12 +214,24 @@ class TestRebase:
             )
         _git_commit(git_workspace, "c.txt", "c", "main commit")
 
-        res = client.post("/workspaces/test-ws/rebase", headers=AUTH, json={
-            "branch": "feature",
-        })
+        from unittest import mock
+        before = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=git_workspace, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        with mock.patch("api.routers.git_history.log_activity") as log:
+            res = client.post("/workspaces/test-ws/rebase", headers=AUTH, json={
+                "branch": "feature",
+            })
         assert res.status_code == 200
         assert (git_workspace / "b.txt").exists()
         assert (git_workspace / "b.txt").read_text() == "rebase-content"
+
+        after = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=git_workspace, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        log.assert_called_once_with(
+            "test-ws", "git_rebase", branch="feature", from_commit=before, commit=after,
+        )
 
     def test_rebase_invalid_branch(self, client, git_workspace):
         _git_commit(git_workspace, "a.txt", "a", "init")
@@ -190,6 +252,24 @@ class TestRevert:
         })
         assert res.status_code == 200
         assert not (git_workspace / "b.txt").exists()
+
+    def test_revert_logs_activity(self, client, git_workspace):
+        from unittest import mock
+        _git_commit(git_workspace, "a.txt", "a", "init")
+        target = _git_commit(git_workspace, "b.txt", "b", "add b")
+
+        with mock.patch("api.routers.git_history.log_activity") as log:
+            res = client.post("/workspaces/test-ws/revert", headers=AUTH, json={
+                "commit_hash": target,
+            })
+        assert res.status_code == 200
+
+        new_head = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=git_workspace, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        log.assert_called_once_with(
+            "test-ws", "git_revert", source_commit=target, commit=new_head,
+        )
 
 
 class TestInvalidInputs:

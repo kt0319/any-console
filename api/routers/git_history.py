@@ -65,6 +65,10 @@ def _execute_commit_action(name: str, commit_hash: str, git_args: list[str], ope
     return execute_git_action(name, [*git_args, h], operation=operation, log_extra=f"commit={h[:8]}")
 
 
+def _rev_parse(ws_path, ref: str, operation: str) -> str:
+    return str(run_git_command(["rev-parse", ref], cwd=ws_path, operation=operation)["stdout"]).strip()
+
+
 @router.get("/workspaces/{name}/commit-message")
 def get_commit_message(name: str, hash: str):
     h = validate_commit_hash(hash)
@@ -75,24 +79,48 @@ def get_commit_message(name: str, hash: str):
 
 @router.post("/workspaces/{name}/cherry-pick")
 def git_cherry_pick(name: str, body: GitActionRequest):
-    return _execute_commit_action(name, body.commit_hash, ["cherry-pick"], "cherry-pick")
+    ws_path = resolve_workspace_path(name)
+    source_commit = validate_commit_hash(body.commit_hash)
+    result = _execute_commit_action(name, body.commit_hash, ["cherry-pick"], "cherry-pick")
+    if result["status"] == "ok":
+        commit = _rev_parse(ws_path, "HEAD", "rev-parse after cherry-pick")
+        log_activity(name, "git_cherry_pick", source_commit=source_commit, commit=commit)
+    return result
 
 
 @router.post("/workspaces/{name}/revert")
 def git_revert(name: str, body: GitActionRequest):
-    return _execute_commit_action(name, body.commit_hash, ["revert", "--no-edit"], "revert")
+    ws_path = resolve_workspace_path(name)
+    source_commit = validate_commit_hash(body.commit_hash)
+    result = _execute_commit_action(name, body.commit_hash, ["revert", "--no-edit"], "revert")
+    if result["status"] == "ok":
+        commit = _rev_parse(ws_path, "HEAD", "rev-parse after revert")
+        log_activity(name, "git_revert", source_commit=source_commit, commit=commit)
+    return result
 
 
 @router.post("/workspaces/{name}/merge")
 def git_merge(name: str, body: GitActionRequest):
     branch = validate_branch_name(body.branch)
-    return execute_git_action(name, ["merge", branch], operation="merge", log_extra=f"branch={branch}")
+    ws_path = resolve_workspace_path(name)
+    before_hash = _rev_parse(ws_path, "HEAD", "rev-parse before merge")
+    result = execute_git_action(name, ["merge", branch], operation="merge", log_extra=f"branch={branch}")
+    if result["status"] == "ok":
+        commit = _rev_parse(ws_path, "HEAD", "rev-parse after merge")
+        log_activity(name, "git_merge", branch=branch, from_commit=before_hash, commit=commit)
+    return result
 
 
 @router.post("/workspaces/{name}/rebase")
 def git_rebase(name: str, body: GitActionRequest):
     branch = validate_branch_name(body.branch)
-    return execute_git_action(name, ["rebase", branch], operation="rebase", log_extra=f"branch={branch}")
+    ws_path = resolve_workspace_path(name)
+    before_hash = _rev_parse(ws_path, "HEAD", "rev-parse before rebase")
+    result = execute_git_action(name, ["rebase", branch], operation="rebase", log_extra=f"branch={branch}")
+    if result["status"] == "ok":
+        commit = _rev_parse(ws_path, "HEAD", "rev-parse after rebase")
+        log_activity(name, "git_rebase", branch=branch, from_commit=before_hash, commit=commit)
+    return result
 
 
 @router.post("/workspaces/{name}/reset")
@@ -100,10 +128,15 @@ def git_reset(name: str, body: GitActionRequest):
     commit_hash = validate_commit_hash(body.commit_hash)
     if body.mode not in ("soft", "hard"):
         raise bad_request(f"Invalid reset mode: {body.mode}")
-    return execute_git_action(
+    ws_path = resolve_workspace_path(name)
+    before_hash = _rev_parse(ws_path, "HEAD", "rev-parse before reset")
+    result = execute_git_action(
         name, ["reset", f"--{body.mode}", commit_hash],
         operation="reset", log_extra=f"mode={body.mode} commit={commit_hash[:8]}",
     )
+    if result["status"] == "ok":
+        log_activity(name, "git_reset", mode=body.mode, from_commit=before_hash, commit=commit_hash)
+    return result
 
 
 @router.post("/workspaces/{name}/commit")
@@ -117,7 +150,10 @@ def git_commit(name: str, body: CommitRequest):
         return add_result
     result = execute_git_action(name, ["commit", "-m", message], operation="commit")
     if result.get("status") == "ok":
-        log_activity(name, "git_commit", message=message)
+        commit = run_git_command(
+            ["rev-parse", "HEAD"], cwd=ws_path, operation="rev-parse after commit",
+        )["stdout"].strip()
+        log_activity(name, "git_commit", message=message, commit=commit)
     return result
 
 
@@ -140,7 +176,10 @@ def git_stash_list(name: str):
 @router.post("/workspaces/{name}/stash-drop")
 def git_stash_drop(name: str, body: GitActionRequest):
     ref = validate_stash_ref(body.stash_ref)
-    return execute_git_action(name, ["stash", "drop", ref], operation="stash drop", log_extra=f"ref={ref}")
+    result = execute_git_action(name, ["stash", "drop", ref], operation="stash drop", log_extra=f"ref={ref}")
+    if result["status"] == "ok":
+        log_activity(name, "git_stash_drop", ref=ref)
+    return result
 
 
 @router.post("/workspaces/{name}/stash-pop-ref")

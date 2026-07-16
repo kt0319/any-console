@@ -29,6 +29,16 @@ class TestCheckout:
         assert res.status_code == 200
         assert _current_branch(git_workspace) == "feature"
 
+    def test_checkout_logs_activity(self, client, git_workspace):
+        from unittest import mock
+        head = _git_commit(git_workspace, "a.txt", "a", "init")
+        subprocess.run(["git", "branch", "feature"], cwd=git_workspace, check=True, capture_output=True)
+
+        with mock.patch("api.routers.git_branches.log_activity") as log:
+            res = client.post("/workspaces/test-ws/checkout", headers=AUTH, json={"branch": "feature"})
+        assert res.status_code == 200
+        log.assert_called_once_with("test-ws", "git_checkout", branch="feature", commit=head)
+
     def test_checkout_nonexistent_branch_fails(self, client, git_workspace):
         _git_commit(git_workspace, "a.txt", "a", "init")
 
@@ -50,6 +60,15 @@ class TestCreateBranch:
         res = client.post("/workspaces/test-ws/create-branch", headers=AUTH, json={"branch": "new-feature"})
         assert res.status_code == 200
         assert _current_branch(git_workspace) == "new-feature"
+
+    def test_create_branch_logs_activity(self, client, git_workspace):
+        from unittest import mock
+        head = _git_commit(git_workspace, "a.txt", "a", "init")
+
+        with mock.patch("api.routers.git_branches.log_activity") as log:
+            res = client.post("/workspaces/test-ws/create-branch", headers=AUTH, json={"branch": "new-feature"})
+        assert res.status_code == 200
+        log.assert_called_once_with("test-ws", "git_create_branch", branch="new-feature", commit=head)
 
     def test_create_branch_already_exists(self, client, git_workspace):
         _git_commit(git_workspace, "a.txt", "a", "init")
@@ -104,6 +123,20 @@ class TestCommit:
             ["git", "log", "--oneline", "-1"], cwd=git_workspace, check=True, capture_output=True, text=True,
         ).stdout
         assert "add b" in log
+
+    def test_commit_logs_activity_with_resulting_commit_hash(self, client, git_workspace):
+        from unittest import mock
+        _git_commit(git_workspace, "a.txt", "a", "init")
+        (git_workspace / "b.txt").write_text("new file", encoding="utf-8")
+
+        with mock.patch("api.routers.git_history.log_activity") as log:
+            res = client.post("/workspaces/test-ws/commit", headers=AUTH, json={"message": "add b"})
+        assert res.status_code == 200
+
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=git_workspace, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        log.assert_called_once_with("test-ws", "git_commit", message="add b", commit=head)
 
     def test_commit_empty_message_rejected(self, client, git_workspace):
         _git_commit(git_workspace, "a.txt", "a", "init")
@@ -176,6 +209,17 @@ class TestStash:
             ["git", "stash", "list"], cwd=git_workspace, check=True, capture_output=True, text=True,
         ).stdout
         assert stash_list.strip() == ""
+
+    def test_stash_drop_logs_activity(self, client, git_workspace):
+        from unittest import mock
+        _git_commit(git_workspace, "a.txt", "a", "init")
+        (git_workspace / "a.txt").write_text("mod", encoding="utf-8")
+        subprocess.run(["git", "stash"], cwd=git_workspace, check=True, capture_output=True)
+
+        with mock.patch("api.routers.git_history.log_activity") as log:
+            res = client.post("/workspaces/test-ws/stash-drop", headers=AUTH, json={"stash_ref": "stash@{0}"})
+        assert res.status_code == 200
+        log.assert_called_once_with("test-ws", "git_stash_drop", ref="stash@{0}")
 
     def test_stash_pop_ref(self, client, git_workspace):
         _git_commit(git_workspace, "a.txt", "a", "init")

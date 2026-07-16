@@ -150,23 +150,27 @@ class TestGitPullMocked:
              mock.patch("api.routers.git_branches._stash_if_dirty", return_value=False), \
              mock.patch("api.routers.git_branches.execute_git_action", return_value=ok), \
              mock.patch("api.routers.git_branches._commits_between", return_value=commits), \
-             mock.patch("api.routers.git_branches.log_activity"):
+             mock.patch("api.routers.git_branches.log_activity") as log:
             res = client.post("/workspaces/test-ws/pull", headers=AUTH)
         assert res.status_code == 200
         assert "commits" in res.json()
+        log.assert_called_once_with("test-ws", "git_pull", from_commit="abc123", commit="abc123")
 
 
 class TestGitPushMocked:
     def test_push_success_includes_commits(self, client, git_workspace_with_commit):
         from unittest import mock
         ok = {"status": "ok", "exit_code": 0, "stdout": "", "stderr": "", "detail": ""}
+        rev_result = {"status": "ok", "exit_code": 0, "stdout": "def456\n", "stderr": "", "detail": ""}
         commits = {"count": 1, "messages": ["feat: add"]}
         with mock.patch("api.routers.git_branches._commits_between", return_value=commits), \
              mock.patch("api.routers.git_branches.execute_git_action", return_value=ok), \
-             mock.patch("api.routers.git_branches.log_activity"):
+             mock.patch("api.routers.git_branches.run_git_command", return_value=rev_result), \
+             mock.patch("api.routers.git_branches.log_activity") as log:
             res = client.post("/workspaces/test-ws/push", headers=AUTH)
         assert res.status_code == 200
         assert res.json()["commits"]["count"] == 1
+        log.assert_called_once_with("test-ws", "git_push", from_commit="def456", commit="def456")
 
 
 class TestCreateBranchWithBase:
@@ -188,35 +192,57 @@ class TestGitPushBranch:
     def test_push_branch_success(self, client, git_workspace_with_commit):
         from unittest import mock
         ok = {"status": "ok", "exit_code": 0, "stdout": "", "stderr": "", "detail": ""}
+        rev_result = {"status": "ok", "exit_code": 0, "stdout": "ghi789\n", "stderr": "", "detail": ""}
         commits = {"count": 0, "messages": []}
         with mock.patch("api.routers.git_branches._commits_between", return_value=commits), \
              mock.patch("api.routers.git_branches.execute_git_action", return_value=ok), \
-             mock.patch("api.routers.git_branches.log_activity"):
+             mock.patch("api.routers.git_branches.run_git_command", return_value=rev_result), \
+             mock.patch("api.routers.git_branches.log_activity") as log:
             res = client.post(
                 "/workspaces/test-ws/push-branch",
                 headers=AUTH,
                 json={"branch": "feature-x"},
             )
         assert res.status_code == 200
+        log.assert_called_once_with(
+            "test-ws", "git_push", branch="feature-x", from_commit="ghi789", commit="ghi789",
+        )
 
 
 class TestGitSetUpstream:
     def test_set_upstream_invokes_git_action(self, client, git_workspace_with_commit):
         from unittest import mock
         ok = {"status": "ok", "exit_code": 0, "stdout": "", "stderr": "", "detail": ""}
-        with mock.patch("api.routers.git_branches.execute_git_action", return_value=ok) as exe:
+        with mock.patch("api.routers.git_branches.execute_git_action", return_value=ok) as exe, \
+             mock.patch("api.routers.git_branches.log_activity") as log:
             res = client.post("/workspaces/test-ws/set-upstream", headers=AUTH)
         assert res.status_code == 200
         args = exe.call_args[0][1]
         assert "--set-upstream-to" in args
+        log.assert_called_once_with("test-ws", "git_set_upstream", branch=mock.ANY)
 
 
 class TestGitPushUpstream:
     def test_push_upstream_invokes_git_action(self, client, git_workspace_with_commit):
         from unittest import mock
         ok = {"status": "ok", "exit_code": 0, "stdout": "", "stderr": "", "detail": ""}
-        with mock.patch("api.routers.git_branches.execute_git_action", return_value=ok) as exe:
+        rev_result = {"status": "ok", "exit_code": 0, "stdout": "jkl012\n", "stderr": "", "detail": ""}
+        with mock.patch("api.routers.git_branches.execute_git_action", return_value=ok) as exe, \
+             mock.patch("api.routers.git_branches.run_git_command", return_value=rev_result), \
+             mock.patch("api.routers.git_branches.log_activity") as log:
             res = client.post("/workspaces/test-ws/push-upstream", headers=AUTH)
         assert res.status_code == 200
         args = exe.call_args[0][1]
         assert "-u" in args
+        log.assert_called_once_with("test-ws", "git_push", commit="jkl012")
+
+
+class TestGitFetch:
+    def test_fetch_logs_activity(self, client, git_workspace_with_commit):
+        from unittest import mock
+        ok = {"status": "ok", "exit_code": 0, "stdout": "", "stderr": "", "detail": ""}
+        with mock.patch("api.routers.git_branches.execute_git_action", return_value=ok), \
+             mock.patch("api.routers.git_branches.log_activity") as log:
+            res = client.post("/workspaces/test-ws/fetch", headers=AUTH)
+        assert res.status_code == 200
+        log.assert_called_once_with("test-ws", "git_fetch")
