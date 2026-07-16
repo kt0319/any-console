@@ -521,6 +521,113 @@ class TestReconcileProxies:
             assert target not in preview_mod._PROXIES
         asyncio.run(run())
 
+    def test_does_not_probe_newly_detected_port_immediately(self):
+        """検出直後（INITIAL_PROBE_DELAY_SEC 未経過）は初回プローブしない
+        （dev server がポートを開けた直後で未初期化のうちに空振りするのを防ぐ）。"""
+        import asyncio
+        import time
+        from api.preview import DetectedPort
+
+        preview_mod._DETECTED[3000] = DetectedPort(
+            session_id="local", port=3000, proxy_port=23000,
+            process="x", pid=1, is_self=False,
+            first_seen_at=int(time.time()), last_seen_at=int(time.time()),
+        )
+        probed = []
+
+        async def run():
+            async def fake_probe_and_reconcile(port):
+                probed.append(port)
+
+            import unittest.mock
+            with unittest.mock.patch.object(preview_mod, "_probe_and_reconcile", fake_probe_and_reconcile):
+                preview_mod._reconcile_proxies()
+                await asyncio.sleep(0)
+
+        asyncio.run(run())
+        assert probed == []
+
+    def test_probes_after_initial_delay_elapses(self):
+        """INITIAL_PROBE_DELAY_SEC 経過後は未判定ポートが初回プローブされる。"""
+        import asyncio
+        import time
+        from api.preview import DetectedPort
+
+        preview_mod._DETECTED[3000] = DetectedPort(
+            session_id="local", port=3000, proxy_port=23000,
+            process="x", pid=1, is_self=False,
+            first_seen_at=int(time.time()) - preview_mod.INITIAL_PROBE_DELAY_SEC - 1,
+            last_seen_at=int(time.time()),
+        )
+        probed = []
+
+        async def run():
+            async def fake_probe_and_reconcile(port):
+                probed.append(port)
+                preview_mod._PROBING.discard(port)
+
+            import unittest.mock
+            with unittest.mock.patch.object(preview_mod, "_probe_and_reconcile", fake_probe_and_reconcile):
+                preview_mod._reconcile_proxies()
+                await asyncio.sleep(0)
+
+        asyncio.run(run())
+        assert probed == [3000]
+
+    def test_reprobes_false_after_retry_interval(self):
+        """http_ok=False は起動直後の空振りの可能性があるため、
+        HTTP_PROBE_RETRY_SEC 経過後は再プローブ対象になる（恒久除外しない）。"""
+        import asyncio
+        import time
+        from api.preview import DetectedPort
+
+        preview_mod._DETECTED[3000] = DetectedPort(
+            session_id="local", port=3000, proxy_port=23000,
+            process="x", pid=1, is_self=False,
+            first_seen_at=0, last_seen_at=0,
+            http_ok=False, http_probed_at=int(time.time()) - preview_mod.HTTP_PROBE_RETRY_SEC - 1,
+        )
+        probed = []
+
+        async def run():
+            async def fake_probe_and_reconcile(port):
+                probed.append(port)
+                preview_mod._PROBING.discard(port)
+
+            import unittest.mock
+            with unittest.mock.patch.object(preview_mod, "_probe_and_reconcile", fake_probe_and_reconcile):
+                preview_mod._reconcile_proxies()
+                await asyncio.sleep(0)  # スケジュールされた task を実行させる
+
+        asyncio.run(run())
+        assert probed == [3000]
+
+    def test_does_not_reprobe_false_before_retry_interval(self):
+        """再プローブ間隔内は http_ok=False のまま再プローブしない（毎スキャンでの無駄打ち防止）。"""
+        import asyncio
+        import time
+        from api.preview import DetectedPort
+
+        preview_mod._DETECTED[3000] = DetectedPort(
+            session_id="local", port=3000, proxy_port=23000,
+            process="x", pid=1, is_self=False,
+            first_seen_at=0, last_seen_at=0,
+            http_ok=False, http_probed_at=int(time.time()),
+        )
+        probed = []
+
+        async def run():
+            async def fake_probe_and_reconcile(port):
+                probed.append(port)
+
+            import unittest.mock
+            with unittest.mock.patch.object(preview_mod, "_probe_and_reconcile", fake_probe_and_reconcile):
+                preview_mod._reconcile_proxies()
+                await asyncio.sleep(0)
+
+        asyncio.run(run())
+        assert probed == []
+
 
 class TestProxyListenerPorts:
     def test_collects_proxy_ports(self):

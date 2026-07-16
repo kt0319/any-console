@@ -118,6 +118,10 @@ class DetectedPort:
     scheme: str | None = None
     # upstream が HTTP を喋るか。None=未判定 / True=HTTP / False=非HTTP（adb/RTSP/HTTPS 等）。
     http_ok: bool | None = None
+    # 直近にプローブした時刻（epoch秒）。False 判定を一定間隔で再プローブするために使う
+    # （dev server がポートを先に開けてからアプリ初期化する場合、起動直後のプローブが
+    # 空振りして非HTTPと誤判定されたまま固定されるのを防ぐ）。
+    http_probed_at: int = 0
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -392,15 +396,43 @@ async def _probe_http(target_port: int) -> bool:
             pass
 
 
+HTTP_PROBE_RETRY_SEC = 30  # http_ok=False は誤判定の可能性があるため一定間隔で再プローブする
+# dev server はポートを先に開けてからアプリ初期化するものが多く、検出直後にプローブすると
+# 空振りしやすい。初回プローブは検出からこの秒数だけ待ってから行う。
+INITIAL_PROBE_DELAY_SEC = 10
+
+
 async def _probe_and_reconcile(target_port: int) -> None:
     ok = await _probe_http(target_port)
     entry = _DETECTED.get(target_port)
     if entry is not None:
         entry.http_ok = ok
+        entry.http_probed_at = int(time.time())
         if not ok:
             logger.info("preview skip non-HTTP port=%d proc=%s", target_port, entry.process)
     _PROBING.discard(target_port)
     _reconcile_proxies()
+
+
+def _needs_probe(entry: DetectedPort, now: int) -> bool:
+    """未判定ポートは検出から INITIAL_PROBE_DELAY_SEC 待ってからプローブする（起動直後の
+    空振り防止）。非HTTPと判定された後も HTTP_PROBE_RETRY_SEC 間隔で再プローブする
+    （それでも空振りする遅い dev server 向けの安全網）。"""
+    if entry.http_ok is None:
+        return now - entry.first_seen_at >= INITIAL_PROBE_DELAY_SEC
+    if entry.http_ok is False:
+        return now - entry.http_probed_at >= HTTP_PROBE_RETRY_SEC
+    return False
+
+
+def _schedule_probes(loop: asyncio.AbstractEventLoop) -> None:
+    now = int(time.time())
+    for entry in _DETECTED.values():
+        if entry.proxy_port is None or entry.port in _PROBING:
+            continue
+        if _needs_probe(entry, now):
+            _PROBING.add(entry.port)
+            loop.create_task(_probe_and_reconcile(entry.port))
 
 
 def _reconcile_proxies() -> None:
@@ -410,11 +442,7 @@ def _reconcile_proxies() -> None:
     except RuntimeError:
         # asyncio ループが回ってないコンテキスト（テストの sync 呼び出しなど）はスキップ
         return
-    # 未判定ポートを HTTP プローブする（1回だけ）。非HTTP と分かれば以後は除外される。
-    for entry in _DETECTED.values():
-        if entry.proxy_port is not None and entry.http_ok is None and entry.port not in _PROBING:
-            _PROBING.add(entry.port)
-            loop.create_task(_probe_and_reconcile(entry.port))
+    _schedule_probes(loop)
     needed: dict[int, int] = {}
     for entry in _DETECTED.values():
         if entry.proxy_port is not None and entry.http_ok is not False:
