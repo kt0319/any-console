@@ -10,6 +10,10 @@
         autocomplete="current-password"
         name="token"
       />
+      <div class="login-hint">
+        Forgot the token? SSH into <code>{{ hostname }}</code> and check
+        <code>data/auth.json</code> inside the any-console directory.
+      </div>
       <div v-if="errorMessage" class="login-error">{{ errorMessage }}</div>
       <button class="primary" type="submit" :disabled="submitting">Login</button>
     </form>
@@ -28,6 +32,7 @@ const tokenValue = ref("");
 const errorMessage = ref("");
 const submitting = ref(false);
 const tokenInput = ref(null);
+const hostname = window.location.hostname;
 
 async function handleLogin() {
   const val = tokenValue.value.trim();
@@ -106,6 +111,14 @@ defineExpose({ show, hide, visible });
 .login-box input:focus {
   outline: none;
   border-color: var(--accent);
+}
+.login-hint {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.login-hint code {
+  color: var(--text-primary);
 }
 .login-error {
   color: var(--error);
