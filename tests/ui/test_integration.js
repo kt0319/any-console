@@ -295,7 +295,7 @@ describe("WorkspaceDetail: terminal cwd files", () => {
         stubs: {
           FileBrowser: FileBrowserStub,
           GitHistory: true,
-          GitFiles: true,
+          GitChanges: true,
           GitChangeBranch: true,
           GitStash: true,
           WorkspaceJobsPane: true,
