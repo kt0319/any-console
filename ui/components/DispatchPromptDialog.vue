@@ -70,7 +70,7 @@
             <label class="dispatch-prompt-field">
               <span class="dispatch-prompt-label">Base branch</span>
               <select v-model="baseBranch" class="dispatch-prompt-select">
-                <option value="">(current)</option>
+                <option value="">(current branch)</option>
                 <option v-for="b in localBranches" :key="b" :value="b">{{ b }}</option>
               </select>
             </label>
@@ -148,6 +148,9 @@ watch(baseBranchWorkspace, async (ws) => {
   const res = await apiGet(`/workspaces/${encodeURIComponent(ws)}/branches`);
   if (res.ok && Array.isArray(res.data)) {
     localBranches.value = res.data.map((b) => b.name);
+  }
+  if (baseBranch.value && !localBranches.value.includes(baseBranch.value)) {
+    baseBranch.value = "";
   }
 }, { immediate: true });
 
