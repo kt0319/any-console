@@ -51,9 +51,18 @@ def classify_agent_state(
     return STATE_IDLE
 
 
-def _list_session_ids() -> list[str]:
+def _list_session_ids() -> list[str] | None:
+    """tmux のセッション一覧を返す。tmux コマンド自体が失敗した場合は None。
+
+    result.returncode != 0（tmux サーバー未起動でセッション0件など）と、
+    result is None（コマンド実行自体の失敗・タイムアウト）を区別する。
+    前者は正当な「セッション0件」なので [] を返すが、後者を [] にすると
+    呼び出し元が一時的な取得失敗を「セッション消滅」と誤認してしまう。
+    """
     result = _run_tmux_cmd("list-sessions", "-F", "#{session_name}")
-    if result is None or result.returncode != 0:
+    if result is None:
+        return None
+    if result.returncode != 0:
         return []
     ids = []
     for line in result.stdout.strip().splitlines():
@@ -146,17 +155,22 @@ def reset_last_capture(session_id: str) -> None:
         _last_states.pop(session_id, None)
 
 
-def collect_agent_states() -> tuple[dict[str, str], list[tuple[str, str, str | None]]]:
+def collect_agent_states() -> tuple[dict[str, str] | None, list[tuple[str, str, str | None]]]:
     """全ターミナルセッションの状態を判定して返す（executor スレッドで実行）。
 
     Returns:
-        (states, notifications): states は session_id→state の辞書、
+        (states, notifications): states は session_id→state の辞書。
+        tmux コマンド自体が失敗した場合は states が None（呼び出し元は
+        直前のスナップショットを保持し、空で上書きしない）。
         notifications はプッシュ通知すべき (session_id, phrase, workspace) のリスト。
     """
+    session_ids = _list_session_ids()
+    if session_ids is None:
+        return None, []
     states: dict[str, str] = {}
     notifications: list[tuple[str, str, str | None]] = []
     now = time.monotonic()
-    for session_id in _list_session_ids():
+    for session_id in session_ids:
         capture = capture_visible_pane(TMUX_SESSION_PREFIX + session_id)
         if capture is None:
             continue
@@ -301,6 +315,10 @@ async def _poll_loop() -> None:  # pragma: no cover - 実時間スリープに�
                 break
             loop = asyncio.get_running_loop()
             states, notifications = await loop.run_in_executor(BACKGROUND_EXECUTOR, collect_agent_states)
+            if states is None:
+                # tmux コマンド自体が一時的に失敗。直前のスナップショットを保持して
+                # 次の周期に委ね、状態を空で上書きしない（誤って working/idle が消えるのを防ぐ）。
+                continue
             changed = diff_states(_last_states, states)
             _last_states.clear()
             _last_states.update(states)

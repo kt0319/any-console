@@ -138,8 +138,19 @@ class TestCollectAgentStates:
         assert states == {}
         assert agent_watch._last_capture == {}
 
-    def test_tmux_unavailable_returns_empty(self, monkeypatch):
+    def test_tmux_unavailable_returns_none(self, monkeypatch):
+        # tmux コマンド自体の失敗（result is None）は、正当な「セッション0件」と区別する。
+        # None のまま呼び出し元（_poll_loop）に伝播させ、直前の状態を上書きさせないため。
         monkeypatch.setattr(agent_watch, "_run_tmux_cmd", lambda *args: None)
+        states, notifications = collect_agent_states()
+        assert states is None
+        assert notifications == []
+
+    def test_tmux_zero_sessions_returns_empty(self, monkeypatch):
+        monkeypatch.setattr(
+            agent_watch, "_run_tmux_cmd",
+            lambda *args: _FakeTmuxResult("", returncode=1),
+        )
         states, _ = collect_agent_states()
         assert states == {}
 
