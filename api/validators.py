@@ -1,6 +1,6 @@
 from .common import (
     BRANCH_NAME_PATTERN,
-    COMMIT_HASH_PATTERN,
+    COMMIT_REF_PATTERN,
     ICON_COLOR_PATTERN,
     ICON_PATTERN,
     MAX_ICON_VALUE_LENGTH,
@@ -29,10 +29,11 @@ def validate_branch_name(branch: str) -> str:
     return branch
 
 
-def validate_commit_hash(commit_hash: str) -> str:
-    if not COMMIT_HASH_PATTERN.match(commit_hash):
-        raise bad_request(f"Invalid commit hash: {commit_hash}")
-    return commit_hash
+def validate_commit_ref(commit_ref: str) -> str:
+    """commit を指す ref（コミットハッシュまたは stash エントリ）を検証する。"""
+    if not COMMIT_REF_PATTERN.match(commit_ref):
+        raise bad_request(f"Invalid commit ref: {commit_ref}")
+    return commit_ref
 
 
 def validate_stash_ref(stash_ref: str) -> str:
@@ -42,13 +43,12 @@ def validate_stash_ref(stash_ref: str) -> str:
     return ref
 
 
-def validate_git_ref(ref: str | None) -> str | None:
+def validate_optional_commit_ref(ref: str | None) -> str | None:
+    """空・None は None を返し、それ以外は validate_commit_ref で検証する。"""
     value = (ref or "").strip()
     if not value:
         return None
-    if STASH_REF_PATTERN.match(value):
-        return value
-    return validate_commit_hash(value)
+    return validate_commit_ref(value)
 
 
 def validate_icon(icon: str) -> str:

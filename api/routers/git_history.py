@@ -10,7 +10,7 @@ from ..common import (
 )
 from ..errors import bad_request
 from ..git_utils import run_git_command
-from ..validators import validate_branch_name, validate_commit_hash, validate_stash_ref
+from ..validators import validate_branch_name, validate_commit_ref, validate_stash_ref
 from .git_helpers import execute_git_action, resolve_workspace_file
 
 router = APIRouter(dependencies=[Depends(verify_token)])
@@ -61,7 +61,7 @@ def get_file_history(name: str, path: str, limit: int = 50):
 
 
 def _execute_commit_action(name: str, commit_hash: str, git_args: list[str], operation: str):
-    h = validate_commit_hash(commit_hash)
+    h = validate_commit_ref(commit_hash)
     return execute_git_action(name, [*git_args, h], operation=operation, log_extra=f"commit={h[:8]}")
 
 
@@ -71,7 +71,7 @@ def _rev_parse(ws_path, ref: str, operation: str) -> str:
 
 @router.get("/workspaces/{name}/commit-message")
 def get_commit_message(name: str, hash: str):
-    h = validate_commit_hash(hash)
+    h = validate_commit_ref(hash)
     ws_path = resolve_workspace_path(name)
     result = run_git_command(["--no-pager", "log", "-1", "--format=%B", h], cwd=ws_path, operation="commit-message")
     return {"message": result.get("stdout", "").strip() if result.get("status") == "ok" else ""}
@@ -80,7 +80,7 @@ def get_commit_message(name: str, hash: str):
 @router.post("/workspaces/{name}/cherry-pick")
 def git_cherry_pick(name: str, body: GitActionRequest):
     ws_path = resolve_workspace_path(name)
-    source_commit = validate_commit_hash(body.commit_hash)
+    source_commit = validate_commit_ref(body.commit_hash)
     result = _execute_commit_action(name, body.commit_hash, ["cherry-pick"], "cherry-pick")
     if result["status"] == "ok":
         commit = _rev_parse(ws_path, "HEAD", "rev-parse after cherry-pick")
@@ -91,7 +91,7 @@ def git_cherry_pick(name: str, body: GitActionRequest):
 @router.post("/workspaces/{name}/revert")
 def git_revert(name: str, body: GitActionRequest):
     ws_path = resolve_workspace_path(name)
-    source_commit = validate_commit_hash(body.commit_hash)
+    source_commit = validate_commit_ref(body.commit_hash)
     result = _execute_commit_action(name, body.commit_hash, ["revert", "--no-edit"], "revert")
     if result["status"] == "ok":
         commit = _rev_parse(ws_path, "HEAD", "rev-parse after revert")
@@ -125,7 +125,7 @@ def git_rebase(name: str, body: GitActionRequest):
 
 @router.post("/workspaces/{name}/reset")
 def git_reset(name: str, body: GitActionRequest):
-    commit_hash = validate_commit_hash(body.commit_hash)
+    commit_hash = validate_commit_ref(body.commit_hash)
     if body.mode not in ("soft", "hard"):
         raise bad_request(f"Invalid reset mode: {body.mode}")
     ws_path = resolve_workspace_path(name)

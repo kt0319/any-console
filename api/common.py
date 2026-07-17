@@ -65,7 +65,8 @@ TMUX_META_ENV_NAMES = (
 WS_PING_INTERVAL_SEC = 15
 
 BRANCH_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_./-]+$")
-COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{4,40}$|^stash@\{\d+\}$")
+# commit を指す ref（省略形〜フルのコミットハッシュ、または stash エントリ）を受理する。
+COMMIT_REF_PATTERN = re.compile(r"^[0-9a-f]{4,40}$|^stash@\{\d+\}$")
 WORKSPACE_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_.-]+$")
 # workspace / group 共通の永続ID用プレフィックス。歴史的経緯で "ws_" を共用しており、
 # 保存済み config 内のIDと互換を保つため変更しない。

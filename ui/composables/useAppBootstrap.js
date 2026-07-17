@@ -22,7 +22,7 @@ export function useAppBootstrap() {
 
     const workspacesPromise = workspaceStore.fetchWorkspaces().then(() => {
       if (!workspaceStore.selectedWorkspace) {
-        const first = workspaceStore.visibleWorkspaces[0];
+        const first = workspaceStore.allWorkspaces[0];
         if (first) workspaceStore.selectedWorkspace = first.name;
       }
     }).catch((e) => console.error("workspaces fetch failed:", e));

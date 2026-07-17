@@ -158,7 +158,11 @@ _LSOF_ADDR_RE = re.compile(r":(\d{2,5})$")
 
 
 def _label_from_cmdline_parts(parts: list[str]) -> str:
-    """cmdline の各要素から表示用ラベルを組み立てる（先頭の basename を返す）。"""
+    """cmdline の各要素から表示用ラベルを組み立てる。
+
+    通常は先頭要素の basename。node/python 等のランタイム経由の場合は
+    実行スクリプト名を続けた "node vite" のような 2 語のラベルを返す。
+    """
     if not parts:
         return ""
     # node の場合は実行スクリプト名（例: vite, next）が二番目以降に来る。
@@ -171,7 +175,7 @@ def _label_from_cmdline_parts(parts: list[str]) -> str:
 
 
 def _read_cmdline(pid: int) -> str:
-    """より具体的な実行コマンドを取得（先頭の basename を返す）。"""
+    """プロセスの cmdline から表示用ラベルを取得する（_label_from_cmdline_parts 参照）。"""
     if _IS_MACOS:
         try:
             out = subprocess.run(
@@ -315,7 +319,7 @@ def list_ports(session_id: str | None = None) -> list[dict]:
 
 _scan_task: asyncio.Task | None = None
 
-# {target_port: (asyncio.Server, asyncio.Task)} — 各検出ポートに対する TCP proxy。
+# {target_port: asyncio.Server} — 各検出ポートに対する TCP proxy の listener。
 _PROXIES: dict[int, asyncio.base_events.Server] = {}
 
 

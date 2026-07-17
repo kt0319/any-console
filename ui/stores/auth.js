@@ -3,10 +3,9 @@ import { ref } from "vue";
 import { LS_PREFIX_API_CACHE, LS_PREFIX_WS_META } from "../utils/constants.js";
 import { EP_AUTH_CHECK, EP_AUTH_LOGOUT } from "../utils/endpoints.js";
 
-const AUTHED_SENTINEL = "1";
-
 export const useAuthStore = defineStore("auth", () => {
-  const token = ref("");
+  // 実トークンは cookie で管理されるため保持しない。認証済みかどうかのフラグのみ持つ。
+  const authed = ref(false);
   const serverHostname = ref("");
   const serverCommitDate = ref("");
   const isHandlingUnauthorized = ref(false);
@@ -40,7 +39,7 @@ export const useAuthStore = defineStore("auth", () => {
     if (res.status === 401) return { ok: false, error: "Invalid token" };
     if (!res.ok) return { ok: false, error: `Registration failed: ${res.status}` };
     const data = await res.json().catch(() => ({}));
-    token.value = AUTHED_SENTINEL;
+    authed.value = true;
     return { ok: true, deviceId: data.device_id, name: data.name };
   }
 
@@ -55,7 +54,7 @@ export const useAuthStore = defineStore("auth", () => {
 
   function clearLocalState() {
     clearPersistedApiCaches();
-    token.value = "";
+    authed.value = false;
   }
 
   async function checkToken() {
@@ -70,7 +69,7 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   async function handleUnauthorized() {
-    if (isHandlingUnauthorized.value || !token.value) return false;
+    if (isHandlingUnauthorized.value || !authed.value) return false;
     isHandlingUnauthorized.value = true;
     try {
       const res = await fetch(EP_AUTH_CHECK, { credentials: "same-origin" });
@@ -91,7 +90,7 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   function markAuthenticated() {
-    token.value = AUTHED_SENTINEL;
+    authed.value = true;
   }
 
   function clearPersistedApiCaches() {
@@ -106,7 +105,7 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   return {
-    token,
+    authed,
     serverHostname,
     serverCommitDate,
     isHandlingUnauthorized,

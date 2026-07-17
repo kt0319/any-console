@@ -8,7 +8,7 @@ import pytest
 
 from api.runner import run_job
 from api.git_lock import workspace_write_lock
-from api.validators import validate_workspace_name, validate_git_ref
+from api.validators import validate_workspace_name, validate_optional_commit_ref
 from api.routers.git_branches import (
     _parse_upstream_track,
     _branch_tracking_info,
@@ -95,12 +95,12 @@ class TestValidatorsExtras:
             validate_workspace_name("   ")
 
     def test_git_ref_accepts_stash_ref(self):
-        assert validate_git_ref("stash@{0}") == "stash@{0}"
+        assert validate_optional_commit_ref("stash@{0}") == "stash@{0}"
 
     def test_git_ref_returns_none_for_empty(self):
-        assert validate_git_ref("") is None
-        assert validate_git_ref(None) is None
-        assert validate_git_ref("   ") is None
+        assert validate_optional_commit_ref("") is None
+        assert validate_optional_commit_ref(None) is None
+        assert validate_optional_commit_ref("   ") is None
 
 
 class TestParseUpstreamTrack:

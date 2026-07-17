@@ -217,7 +217,8 @@ def find_dynamic_worktree_path(name: str) -> "Path | None":
     return None
 
 
-def git_remote_branches(directory: Path, env: dict[str, str] | None = None) -> list[str]:
+def git_fetch_remote_branches(directory: Path, env: dict[str, str] | None = None) -> list[str]:
+    """`git fetch --prune` でリモート追跡refを更新してから、リモートブランチ名一覧を返す。"""
     try:
         run_git_raw(["fetch", "--prune"], directory, timeout=GIT_STANDARD_TIMEOUT_SEC, env=env)
         # refname:short はgitのバージョンによってシンボリックな `origin/HEAD` を
@@ -239,5 +240,5 @@ def git_remote_branches(directory: Path, env: dict[str, str] | None = None) -> l
                     branches.append(b)
             return branches
     except (subprocess.TimeoutExpired, OSError) as e:
-        logger.warning("git_remote_branches failed dir=%s: %s", directory, e)
+        logger.warning("git_fetch_remote_branches failed dir=%s: %s", directory, e)
     return []
