@@ -34,7 +34,7 @@
         />
       </div>
       <div v-if="activePane === 'changes'" class="file-modal-pane">
-        <GitFiles ref="gitFiles" />
+        <GitChanges ref="gitChanges" />
       </div>
       <div v-if="activePane === 'branch'" class="file-modal-pane">
         <GitChangeBranch ref="gitBranch" @count="branchCount = $event" />
@@ -65,7 +65,7 @@
 import { ref, computed, nextTick, onMounted, onUnmounted } from "vue";
 import FileBrowser from "./FileBrowser.vue";
 import GitHistory from "./GitHistory.vue";
-import GitFiles from "./GitFiles.vue";
+import GitChanges from "./GitChanges.vue";
 import GitChangeBranch from "./GitChangeBranch.vue";
 import GitStash from "./GitStash.vue";
 import WorkspaceJobsPane from "./WorkspaceJobsPane.vue";
@@ -100,7 +100,7 @@ const {
 
 const fileBrowser = ref(null);
 const gitHistory = ref(null);
-const gitFiles = ref(null);
+const gitChanges = ref(null);
 const gitBranch = ref(null);
 const gitStash = ref(null);
 const githubIssues = ref(null);
@@ -222,7 +222,7 @@ async function switchPane(key) {
       }
     });
   } else if (key === "changes") {
-    nextTick(() => gitFiles.value?.loadWorkingTreeDiff());
+    nextTick(() => gitChanges.value?.loadWorkingTreeDiff());
   } else if (key === "branch") {
     nextTick(() => {
       gitBranch.value?.load();
