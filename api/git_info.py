@@ -74,7 +74,7 @@ def refresh_git_info(directory: Path, name: str) -> dict[str, Any]:
         "status":  ("--no-optional-locks", "status", "--porcelain", "--untracked-files=all"),
         "diff":    ("--no-optional-locks", "diff", "--shortstat"),
         "staged":  ("--no-optional-locks", "diff", "--staged", "--shortstat"),
-        "commit":  ("log", "-1", "--format=%cI"),
+        "commit_date": ("log", "-1", "--format=%cI"),
         "message": ("log", "-1", "--format=%s"),
     }
     try:
@@ -93,7 +93,7 @@ def refresh_git_info(directory: Path, name: str) -> dict[str, Any]:
     updated["changed_files"] = 0
     if not updated["clean"]:
         _apply_diff_stats(updated, (out["diff"] or "", out["staged"] or ""), out["status"], directory)
-    _apply_head_commit(updated, out["commit"], out["message"])
+    _apply_head_commit(updated, out["commit_date"], out["message"])
     _git_info_cache.set(cache_key, {k: v for k, v in updated.items() if k != "name"})
     return updated
 
@@ -188,8 +188,8 @@ def _parse_revlist_pair(out: str) -> tuple[int, int] | None:
     return None
 
 
-def _apply_head_commit(info: dict, commit_out: str | None, message_out: str | None) -> None:
-    if commit_out and (s := commit_out.strip()):
+def _apply_head_commit(info: dict, commit_date_out: str | None, message_out: str | None) -> None:
+    if commit_date_out and (s := commit_date_out.strip()):
         info["last_commit_date"] = s
     if message_out and (s := message_out.strip()):
         info["last_commit_message"] = s
@@ -226,7 +226,7 @@ _GIT_INFO_QUERIES: dict[str, tuple[str, ...]] = {
     "branch": ("rev-parse", "--abbrev-ref", "HEAD"),
     # 未コミット（unborn HEAD）では rev-parse が失敗するため symbolic-ref で補完する。
     "symbolic_branch": ("symbolic-ref", "--short", "HEAD"),
-    "commit": ("log", "-1", "--format=%cI"),
+    "commit_date": ("log", "-1", "--format=%cI"),
     "message": ("log", "-1", "--format=%s"),
     "remote": ("remote", "get-url", "origin"),
     "status": ("--no-optional-locks", "status", "--porcelain", "--untracked-files=all"),
@@ -243,7 +243,7 @@ def _populate_git_info(info: dict, directory: Path, run_git) -> None:
     out = {key: _stdout_if_ok(f) for key, f in futures.items()}
 
     _apply_branch_and_remote(info, out["branch"] or out["symbolic_branch"], out["remote_branches"])
-    _apply_head_commit(info, out["commit"], out["message"])
+    _apply_head_commit(info, out["commit_date"], out["message"])
     _apply_upstream(info, out["upstream"])
     _apply_github_url(info, out["remote"])
 

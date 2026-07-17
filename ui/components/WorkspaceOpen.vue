@@ -145,7 +145,7 @@ const groupDialog = ref(null);
 
 // グループなし（トップレベル）
 const ungrouped = computed(() => {
-  const list = workspaceStore.visibleWorkspaces;
+  const list = workspaceStore.allWorkspaces;
   const baseNames = new Set(list.filter((w) => !w.worktree).map((w) => w.name));
   return list.filter((w) =>
     !w.group_id &&
@@ -155,7 +155,7 @@ const ungrouped = computed(() => {
 
 // グループ内のワークスペース
 function groupedWorkspaces(groupId) {
-  const list = workspaceStore.visibleWorkspaces;
+  const list = workspaceStore.allWorkspaces;
   const baseNames = new Set(list.filter((w) => !w.worktree).map((w) => w.name));
   return list.filter((w) =>
     w.group_id === groupId &&
@@ -163,7 +163,7 @@ function groupedWorkspaces(groupId) {
   );
 }
 
-const displayWorkspaces = computed(() => workspaceStore.visibleWorkspaces);
+const displayWorkspaces = computed(() => workspaceStore.allWorkspaces);
 
 // グループヘッダーとワークスペースを1本のリストに統合
 // type:'header' はグループ見出し、type:'ws' はワークスペース行
@@ -173,7 +173,7 @@ const flatList = computed(() =>
 
 const worktreesByBase = computed(() => {
   const map = {};
-  for (const ws of workspaceStore.visibleWorkspaces) {
+  for (const ws of workspaceStore.allWorkspaces) {
     if (ws.worktree && ws.worktree_base) {
       (map[ws.worktree_base] ||= []).push(ws);
     }

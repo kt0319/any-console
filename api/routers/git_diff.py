@@ -9,7 +9,7 @@ from ..common import (
     resolve_workspace_path,
 )
 from ..git_utils import run_git_command
-from ..validators import validate_commit_hash
+from ..validators import validate_commit_ref
 from .git_diff_utils import build_file_entry, build_file_list, parse_numstat_result
 from .git_helpers import execute_git_action, resolve_workspace_file
 
@@ -60,7 +60,7 @@ def get_commit_diff(name: str, commit_hash: str):
             operation_prefix="stash show",
         )
 
-    validate_commit_hash(commit_hash)
+    validate_commit_ref(commit_hash)
     ref = f"{commit_hash}~1"
     return _build_diff_response(
         ws_path,
@@ -72,7 +72,7 @@ def get_commit_diff(name: str, commit_hash: str):
 
 @router.get("/workspaces/{name}/file-diff/{commit_hash}")
 def get_file_commit_diff(name: str, commit_hash: str, path: str):
-    validate_commit_hash(commit_hash)
+    validate_commit_ref(commit_hash)
     ws_path, _, rel = resolve_workspace_file(name, path)
     diff_result = run_git_command(
         ["--no-pager", "show", "--format=", commit_hash, "--", rel],

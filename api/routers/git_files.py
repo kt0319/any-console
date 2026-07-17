@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 from ..auth import verify_token
 from ..common import MAX_UPLOAD_SIZE
 from ..errors import bad_request, conflict, not_found, too_large
-from ..validators import validate_git_ref
+from ..validators import validate_optional_commit_ref
 from .git_file_utils import (
     list_directory_entries,
     read_blob_content_response,
@@ -70,7 +70,7 @@ def list_files(name: str, path: str = Query(""), ref: str | None = Query(None)):
     if rel_path == ".":
         rel_path = ""
 
-    ref_value = validate_git_ref(ref)
+    ref_value = validate_optional_commit_ref(ref)
     if ref_value:
         entries = list_directory_entries_at_ref(ws_path, rel_path, ref_value)
         return {"status": "ok", "path": rel_path, "entries": entries}
@@ -89,7 +89,7 @@ def get_file_content(name: str, path: str = Query(...), ref: str | None = Query(
     if rel_path == ".":
         raise not_found("File not found")
 
-    ref_value = validate_git_ref(ref)
+    ref_value = validate_optional_commit_ref(ref)
     if ref_value:
         return read_file_content_at_ref(ws_path, rel_path, ref_value)
 

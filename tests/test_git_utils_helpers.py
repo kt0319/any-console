@@ -23,7 +23,7 @@ from api.git_utils import (
     git_branch,
     git_branches,
     git_is_repo,
-    git_remote_branches,
+    git_fetch_remote_branches,
     ssh_env,
 )
 
@@ -176,9 +176,9 @@ class TestGitRepoQueries:
         assert isinstance(branches, list)
         assert len(branches) >= 1
 
-    def test_git_remote_branches_empty_without_remote(self, git_workspace_with_commit):
+    def test_git_fetch_remote_branches_empty_without_remote(self, git_workspace_with_commit):
         # remote 未設定だと空リスト
-        result = git_remote_branches(git_workspace_with_commit)
+        result = git_fetch_remote_branches(git_workspace_with_commit)
         assert result == []
 
     def test_git_info_populates_basic_fields(self, git_workspace_with_commit):
@@ -352,10 +352,10 @@ class TestGitWorktreeListFailure:
             assert git_worktree_list(tmp_path) == []
 
 
-class TestGitRemoteBranchesSuccess:
+class TestGitFetchRemoteBranchesSuccess:
     def test_parses_remote_branches(self, tmp_path):
         import subprocess
-        from api.git_utils import git_remote_branches
+        from api.git_utils import git_fetch_remote_branches
         fetch_cp = subprocess.CompletedProcess(["git"], 0, stdout="", stderr="")
         branch_cp = subprocess.CompletedProcess(
             ["git"], 0,
@@ -363,7 +363,7 @@ class TestGitRemoteBranchesSuccess:
             stderr="",
         )
         with mock.patch("api.git_utils.run_git_raw", side_effect=[fetch_cp, branch_cp]):
-            result = git_remote_branches(tmp_path)
+            result = git_fetch_remote_branches(tmp_path)
         assert "main" in result
         assert "dev" in result
         assert "HEAD" not in " ".join(result)
@@ -372,7 +372,7 @@ class TestGitRemoteBranchesSuccess:
         """新しいgitは `origin/HEAD` の `%(refname:short)` を `origin` に短縮するため、
         ロング形式(refname)で判定していることを確認する。"""
         import subprocess
-        from api.git_utils import git_remote_branches
+        from api.git_utils import git_fetch_remote_branches
         fetch_cp = subprocess.CompletedProcess(["git"], 0, stdout="", stderr="")
         branch_cp = subprocess.CompletedProcess(
             ["git"], 0,
@@ -380,12 +380,12 @@ class TestGitRemoteBranchesSuccess:
             stderr="",
         )
         with mock.patch("api.git_utils.run_git_raw", side_effect=[fetch_cp, branch_cp]):
-            result = git_remote_branches(tmp_path)
+            result = git_fetch_remote_branches(tmp_path)
         assert result == ["main"]
 
     def test_deduplicates_branches(self, tmp_path):
         import subprocess
-        from api.git_utils import git_remote_branches
+        from api.git_utils import git_fetch_remote_branches
         fetch_cp = subprocess.CompletedProcess(["git"], 0, stdout="", stderr="")
         branch_cp = subprocess.CompletedProcess(
             ["git"], 0,
@@ -393,10 +393,10 @@ class TestGitRemoteBranchesSuccess:
             stderr="",
         )
         with mock.patch("api.git_utils.run_git_raw", side_effect=[fetch_cp, branch_cp]):
-            result = git_remote_branches(tmp_path)
+            result = git_fetch_remote_branches(tmp_path)
         assert result.count("main") == 1
 
     def test_oserror_returns_empty(self, tmp_path):
-        from api.git_utils import git_remote_branches
+        from api.git_utils import git_fetch_remote_branches
         with mock.patch("api.git_utils.run_git_raw", side_effect=OSError("no git")):
-            assert git_remote_branches(tmp_path) == []
+            assert git_fetch_remote_branches(tmp_path) == []

@@ -104,8 +104,8 @@ class TestBranchNameValidation:
         assert validate_branch_name("  main  ") == "main"
 
 
-class TestCommitHashValidation:
-    """COMMIT_HASH_PATTERN の境界テスト"""
+class TestCommitRefValidation:
+    """COMMIT_REF_PATTERN の境界テスト"""
 
     @pytest.mark.parametrize("hash_val", [
         "abcd",
@@ -114,9 +114,9 @@ class TestCommitHashValidation:
         "stash@{0}",
         "stash@{99}",
     ])
-    def test_valid_commit_hashes(self, hash_val):
-        from api.validators import validate_commit_hash
-        assert validate_commit_hash(hash_val) == hash_val
+    def test_valid_commit_refs(self, hash_val):
+        from api.validators import validate_commit_ref
+        assert validate_commit_ref(hash_val) == hash_val
 
     @pytest.mark.parametrize("hash_val", [
         "abc",
@@ -129,10 +129,10 @@ class TestCommitHashValidation:
         "stash@{}",
         "",
     ])
-    def test_invalid_commit_hashes(self, hash_val):
-        from api.validators import validate_commit_hash
+    def test_invalid_commit_refs(self, hash_val):
+        from api.validators import validate_commit_ref
         with pytest.raises(HTTPException) as exc_info:
-            validate_commit_hash(hash_val)
+            validate_commit_ref(hash_val)
         assert exc_info.value.status_code == 400
 
 

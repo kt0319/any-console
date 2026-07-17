@@ -13,11 +13,11 @@ from ..git_lock import workspace_write_lock
 from ..git_utils import (
     git_branch,
     git_branches,
-    git_remote_branches,
+    git_fetch_remote_branches,
     run_git_command,
     ssh_env,
 )
-from ..validators import validate_branch_name, validate_commit_hash
+from ..validators import validate_branch_name, validate_commit_ref
 from .git_helpers import execute_git_action, get_current_branch
 
 _COMMIT_PREVIEW_LIMIT = 3
@@ -140,7 +140,7 @@ def list_branches(name: str):
 @router.get("/workspaces/{name}/branches/remote")
 def list_remote_branches(name: str):
     ws_path = resolve_workspace_path(name)
-    return git_remote_branches(ws_path, env=ssh_env())
+    return git_fetch_remote_branches(ws_path, env=ssh_env())
 
 
 def _rev_parse(ws_path, ref: str, operation: str) -> str:
@@ -175,7 +175,7 @@ def create_branch(name: str, body: CheckoutRequest):
     ws_path = resolve_workspace_path(name)
     args = ["checkout", "-b", branch]
     if body.start_point:
-        args.append(validate_commit_hash(body.start_point))
+        args.append(validate_commit_ref(body.start_point))
     elif body.base_branch:
         args.append(validate_branch_name(body.base_branch))
     result = execute_git_action(name, args, operation="create-branch", log_extra=f"branch={branch}")

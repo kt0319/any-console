@@ -204,10 +204,6 @@ onMounted(() => {
   fetchEditorSettings();
 });
 
-function setActivePane(key) {
-  activePane.value = key;
-}
-
 function hasSelectedCommitFiles() {
   return !!selectedCommitForFiles.value;
 }
@@ -215,7 +211,6 @@ function hasSelectedCommitFiles() {
 defineExpose({
   reload: reloadHistory,
   load: loadHistory,
-  setActivePane,
   closeExpanded: closeSelectedCommitFiles,
   hasExpanded: hasSelectedCommitFiles,
 });

@@ -8,8 +8,6 @@ import { debugLog } from "./composables/useClientLogs.js";
 // なく可視化される（カタログ自体の更新漏れも同様に可視化されるので、ここが
 // 新たなサイレントな同期点にはならない）。
 export const BUS_EVENTS = Object.freeze([
-  "app:reload",
-  "chip:tap",
   "connectivity:back",
   "git:browseToFolder",
   "git:checkoutBranch",
@@ -41,7 +39,6 @@ export const BUS_EVENTS = Object.freeze([
   "tab:refresh",
   "tab:select",
   "terminal:launch",
-  "terminal:scrollToBottom",
   "terminal:url",
   "toast:show",
   "workspace:openAdd",

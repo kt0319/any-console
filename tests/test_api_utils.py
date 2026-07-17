@@ -5,25 +5,25 @@ import pytest
 
 
 class TestUtils:
-    def test_validate_commit_hash_valid(self):
-        from api.validators import validate_commit_hash
+    def test_validate_commit_ref_valid(self):
+        from api.validators import validate_commit_ref
 
-        assert validate_commit_hash("abcd") == "abcd"
-        assert validate_commit_hash("a" * 40) == "a" * 40
+        assert validate_commit_ref("abcd") == "abcd"
+        assert validate_commit_ref("a" * 40) == "a" * 40
 
-    def test_validate_commit_hash_invalid(self):
-        from api.validators import validate_commit_hash
+    def test_validate_commit_ref_invalid(self):
+        from api.validators import validate_commit_ref
         from fastapi import HTTPException
 
         with pytest.raises(HTTPException) as exc_info:
-            validate_commit_hash("xyz")
+            validate_commit_ref("xyz")
         assert exc_info.value.status_code == 400
 
         with pytest.raises(HTTPException):
-            validate_commit_hash("abc")
+            validate_commit_ref("abc")
 
         with pytest.raises(HTTPException):
-            validate_commit_hash("ABCD")
+            validate_commit_ref("ABCD")
 
     def test_resolve_workspace_path_invalid(self):
         from api.common import resolve_workspace_path
