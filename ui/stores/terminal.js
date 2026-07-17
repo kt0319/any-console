@@ -54,6 +54,19 @@ export const useTerminalStore = defineStore("terminal", () => {
   const restoreSessionsError = ref("");
   const terminalSettings = ref(loadTerminalSettingsFromStorage());
   const tabFlags = reactive({});
+  // closeTab がローカル除去済み・サーバー削除リクエスト未完了の sessionId。
+  // syncSessionsFromServer のポーリングがこの間隙でタブを復活させるのを防ぐ。
+  const pendingCloseSessionIds = ref(/** @type {Set<string>} */ (new Set()));
+
+  function markPendingClose(sessionId) {
+    if (!sessionId) return;
+    pendingCloseSessionIds.value.add(sessionId);
+  }
+
+  function clearPendingClose(sessionId) {
+    if (!sessionId) return;
+    pendingCloseSessionIds.value.delete(sessionId);
+  }
   // sessionId → エージェント状態（blocked/done/working/idle）。status stream WS が更新する。
   const agentStates = reactive(/** @type {Record<string, string>} */ ({}));
 
@@ -246,6 +259,9 @@ export const useTerminalStore = defineStore("terminal", () => {
     restoreSessionsError,
     terminalSettings,
     tabFlags,
+    pendingCloseSessionIds,
+    markPendingClose,
+    clearPendingClose,
     agentStates,
     applyAgentStates,
     clearAgentState,

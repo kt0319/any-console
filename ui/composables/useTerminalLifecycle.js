@@ -139,6 +139,7 @@ export function useTerminalLifecycle({ terminalBaseView }) {
     const tabId = tab.id;
     const sessionId = tab.sessionId;
     const tabObj = terminalStore.openTabs.find((t) => t.id === tabId);
+    if (sessionId) terminalStore.markPendingClose(sessionId);
     if (tabObj) disconnectTerminal(tabObj);
     terminalStore.removeTab(tabId);
     if (layoutStore.isSplitMode) {
@@ -147,7 +148,11 @@ export function useTerminalLifecycle({ terminalBaseView }) {
     await nextTick();
     if (tabObj?.term) tabObj.term.dispose();
     if (sessionId) {
-      await deleteSession(sessionId);
+      try {
+        await deleteSession(sessionId);
+      } finally {
+        terminalStore.clearPendingClose(sessionId);
+      }
     }
   }
 

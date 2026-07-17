@@ -114,6 +114,7 @@ export function useSessionSync() {
 
       for (const s of sessions) {
         if (s.detached) continue;
+        if (terminalStore.pendingCloseSessionIds.has(s.session_id)) continue;
         if (!localSessionIds.has(s.session_id)) {
           terminalStore.addTerminalTab(_buildTabParams(s, allJobs));
         }
