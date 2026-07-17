@@ -60,6 +60,8 @@ export function useBranchList() {
     });
   }
 
+  // GET branches/remote は読み取り専用（ローカルのリモート追跡refを返すだけ）。
+  // 鮮度は呼び出し側の POST fetch（useBranchActions の fetchRemote）が担う。
   async function loadRemoteBranches() {
     if (isRemoteBranchListLoading.value) return;
     await withWorkspace(async (workspace) => {
