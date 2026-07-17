@@ -13,7 +13,7 @@ from ..git_lock import workspace_write_lock
 from ..git_utils import (
     git_branch,
     git_branches,
-    git_fetch_remote_branches,
+    git_remote_branches,
     run_git_command,
     ssh_env,
 )
@@ -139,8 +139,10 @@ def list_branches(name: str):
 
 @router.get("/workspaces/{name}/branches/remote")
 def list_remote_branches(name: str):
+    # 読み取り専用。リモート追跡refの更新は POST /workspaces/{name}/fetch が担う
+    # （UI の REMOTE タップは fetch → この GET の順で呼ぶ）。
     ws_path = resolve_workspace_path(name)
-    return git_fetch_remote_branches(ws_path, env=ssh_env())
+    return git_remote_branches(ws_path)
 
 
 def _rev_parse(ws_path, ref: str, operation: str) -> str:
