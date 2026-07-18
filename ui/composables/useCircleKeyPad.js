@@ -65,7 +65,9 @@ export function useCircleKeyPad() {
     const dy = y - state.originY;
     const specialId = specialIdAt(dx, dy);
     if (specialId) {
-      state.activeId = specialId;
+      const idx = Number(specialId.slice("special:".length));
+      // action 未割り当て（None）のコーナーはヒット判定しても表示・アクティブ化しない
+      state.activeId = specials.value[idx]?.action ? specialId : null;
       return;
     }
     const idx = sectorIndexFromDelta(dx, dy);

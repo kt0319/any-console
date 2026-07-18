@@ -146,4 +146,10 @@ describe("CIRCLE_KEYPAD_SPECIAL_PRESETS entries", () => {
       expect(typeof p.action).toBe("string");
     }
   });
+
+  it("includes a 'none' preset with an empty action (hides the corner button)", () => {
+    const none = findSpecialPreset("none");
+    expect(none).not.toBeNull();
+    expect(none.action).toBe("");
+  });
 });

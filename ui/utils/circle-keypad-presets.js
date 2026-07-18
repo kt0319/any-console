@@ -39,7 +39,9 @@ export const CIRCLE_KEYPAD_BASE_KEYS = [
 ];
 
 // 四隅の特殊メニューに割り当て可能なアクション。
+// "none" はコーナーボタンを表示しない（action 空文字 = 何も割り当てない）。
 export const CIRCLE_KEYPAD_SPECIAL_PRESETS = [
+  { id: "none",      label: "(None)",     action: "" },
   { id: "selcopy",   label: "Sel & Copy", action: "selection:open" },
   { id: "workspace", label: "Workspace",  action: "workspace:openModal" },
   { id: "jobs",      label: "Jobs",       action: "git:openFileModal", payload: { pane: "jobs" } },

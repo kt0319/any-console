@@ -12,13 +12,14 @@
       :class="{ active: state.activeId === k.id }"
       :style="itemStyle(k)"
     >{{ k.label }}</div>
-    <div
-      v-for="b in specials"
-      :key="b.id"
-      class="circle-keypad-item special"
-      :class="{ active: state.activeId === b.id }"
-      :style="specialStyle(b)"
-    >{{ b.label }}</div>
+    <template v-for="b in specials" :key="b.id">
+      <div
+        v-if="b.action"
+        class="circle-keypad-item special"
+        :class="{ active: state.activeId === b.id }"
+        :style="specialStyle(b)"
+      >{{ b.label }}</div>
+    </template>
   </div>
 </template>
 
