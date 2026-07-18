@@ -46,7 +46,15 @@ Website: <https://any-console.highedge.net/>
 
 A first-class host needs Linux or macOS. Browser access from any OS (macOS / Windows / iOS / Android) is fully supported and is the intended client experience.
 
-> **macOS note:** an always-on Mac mini / Mac Studio is the sweet spot. The `launchd` service is registered as a `LaunchDaemon`, so it starts at boot and survives without an interactive login. A MacBook that sleeps or travels is a poor fit for the "check from your phone while away" use case.
+> **macOS note:** an always-on Mac mini / Mac Studio is the sweet spot. The `launchd` service is registered as a user `LaunchAgent`, so it starts at login — enable automatic login (System Settings → Users & Groups) if the Mac runs headless. A MacBook that sleeps or travels is a poor fit for the "check from your phone while away" use case.
+>
+> **Keep the Mac awake.** macOS sleeps by default, and Tailscale cannot wake a sleeping Mac — while asleep the server is unreachable, and the burst of timeouts right after wake-up causes flaky sessions and reconnect storms. On a server Mac, disable system sleep:
+>
+> ```bash
+> sudo pmset -a sleep 0 disksleep 0
+> ```
+>
+> (Display sleep is fine to keep. Verify with `pmset -g` — `sleep` should be `0`.)
 
 ## Setup
 
@@ -70,7 +78,7 @@ cd ~/any-console
 ./any-console setup
 ```
 
-Same one-step flow as Linux. On macOS, `setup` registers a `launchd` `LaunchDaemon` (sudo required) that runs as your user and starts at boot — no interactive login needed, which is what makes a headless Mac mini work. Logs go to `logs/any-console.log` (`./any-console logs` tails it). Manage the service with the same `./any-console start|stop|restart|status|logs` commands.
+Same one-step flow as Linux. On macOS, `setup` registers a `launchd` user `LaunchAgent` (no sudo needed) that starts at login. For a headless Mac mini, enable automatic login and disable system sleep (see the macOS note above). Logs go to `logs/any-console.log` (`./any-console logs` tails it). Manage the service with the same `./any-console start|stop|restart|status|logs` commands.
 
 Best paired with an always-on Mac mini / Mac Studio. Install the dependencies first with `brew install python node git tmux gh`.
 
