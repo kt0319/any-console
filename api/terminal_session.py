@@ -10,7 +10,7 @@ from .common import (
     TERMINAL_DEFAULT_ROWS,
     TMUX_SESSION_PREFIX,
 )
-from .errors import not_found
+from .errors import not_found, server_error
 from .terminal_pty import (
     PTY_EOF,
     PTY_EXECUTOR,
@@ -23,9 +23,9 @@ from .tmux import (
     _run_tmux_cmd,
     attach_tmux_session,
     detect_workspace_from_tmux,
+    has_tmux_session,
     kill_tmux_by_name,
     load_tmux_metadata,
-    tmux_session_exists,
 )
 
 logger = logging.getLogger(__name__)
@@ -183,7 +183,12 @@ def get_terminal_session(session_id: str) -> TerminalSession:
             return session
 
     tmux_name = TMUX_SESSION_PREFIX + session_id
-    if not tmux_session_exists(tmux_name):
+    exists = has_tmux_session(tmux_name)
+    if exists is None:
+        # tmux コマンド自体の失敗。「セッション不在」と誤判定して 404 を返すと
+        # クライアントが生きているセッションを閉じてしまうため 500 で区別する。
+        raise server_error("Failed to check tmux session")
+    if not exists:
         raise not_found("Terminal session not found")
 
     return _register_tmux_session(session_id, tmux_name)

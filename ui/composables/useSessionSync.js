@@ -6,7 +6,7 @@ import { useTerminal } from "./useTerminal.js";
 import { useLayoutPersist } from "./useLayoutPersist.js";
 import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION, SESSION_SYNC_INTERVAL_MS } from "../utils/constants.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
-import { loadAllJobs, loadSessionsResponse, buildSessionTabParams } from "../utils/session-jobs.js";
+import { loadAllJobs, loadSessionsResponse, buildSessionTabParams, stalePendingCloseIds } from "../utils/session-jobs.js";
 import { emit } from "../app-bridge.js";
 
 export function useSessionSync() {
@@ -111,6 +111,12 @@ export function useSessionSync() {
       const allJobs = await _loadAllJobs(jobsRes, sessions);
       const serverSessionIds = new Set(sessions.map((s) => s.session_id));
       const localSessionIds = new Set(terminalStore.openTabs.map((t) => t.sessionId));
+
+      // サーバから消えたセッションの pendingClose は取り残し（clearPendingClose 漏れ）。
+      // 残すとそのセッションのタブを二度と再追加できなくなるためここで自己回復させる。
+      for (const id of stalePendingCloseIds(terminalStore.pendingCloseSessionIds, serverSessionIds)) {
+        terminalStore.clearPendingClose(id);
+      }
 
       for (const s of sessions) {
         if (s.detached) continue;

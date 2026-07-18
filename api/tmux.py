@@ -102,9 +102,22 @@ def attach_tmux_session(session_name: str, cols: int = 0, rows: int = 0) -> tupl
     return fd, pid
 
 
-def tmux_session_exists(name: str) -> bool:
+def has_tmux_session(name: str) -> bool | None:
+    """セッションの存在を tri-state で返す。
+
+    tmux コマンド自体の失敗（タイムアウト/OSError）を「セッション無し」と
+    区別しないと、一時的な tmux の遅延だけでクライアントが生きているセッションを
+    閉じてしまう（terminal_ws / get_terminal_session 参照）。
+    True=存在 / False=不在（tmux が正常応答） / None=不明（tmux コマンド失敗）。
+    """
     result = _run_tmux_cmd("has-session", "-t", name)
-    return result is not None and result.returncode == 0
+    if result is None:
+        return None
+    return result.returncode == 0
+
+
+def tmux_session_exists(name: str) -> bool:
+    return has_tmux_session(name) is True
 
 
 def kill_tmux_by_name(name: str) -> None:

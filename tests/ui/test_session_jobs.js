@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { needsJobsRefetch, loadAllJobs, loadSessionsResponse, buildSessionTabParams } from "../../ui/utils/session-jobs.js";
+import { needsJobsRefetch, loadAllJobs, loadSessionsResponse, buildSessionTabParams, stalePendingCloseIds } from "../../ui/utils/session-jobs.js";
 
 describe("needsJobsRefetch", () => {
   it("空 allJobs + ジョブセッションあり → 再取得する", () => {
@@ -146,5 +146,24 @@ describe("buildSessionTabParams", () => {
     const p = buildSessionTabParams(session);
     expect(p.icon).toBe("mdi-play");
     expect(p.wsIcon).toBe(null);
+  });
+});
+
+describe("stalePendingCloseIds", () => {
+  it("サーバ一覧に無い pendingClose id を返す", () => {
+    const pending = new Set(["s1", "s2"]);
+    const server = new Set(["s2", "s3"]);
+    expect(stalePendingCloseIds(pending, server)).toEqual(["s1"]);
+  });
+
+  it("全てサーバに残っていれば空", () => {
+    const pending = new Set(["s1"]);
+    const server = new Set(["s1", "s2"]);
+    expect(stalePendingCloseIds(pending, server)).toEqual([]);
+  });
+
+  it("pendingClose が空・null でも落ちない", () => {
+    expect(stalePendingCloseIds(new Set(), new Set(["s1"]))).toEqual([]);
+    expect(stalePendingCloseIds(null, new Set())).toEqual([]);
   });
 });
