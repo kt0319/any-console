@@ -283,6 +283,27 @@ def _handle_resize(bridge: ClientBridge, payload: bytes, session_id: str) -> Non
 
 # ─── Per-client reader loop ──────────────────────────────────────────────────
 
+WS_CLOSE_CLIENT_DETACHED = 1011
+
+
+def eof_close_code(base_session_exists: bool | None) -> int:
+    """PTY EOF 時の WS close コードを決める。
+
+    EOF は「シェル終了でベースセッションが消えた」以外に、attach クライアント
+    プロセスだけが死んだ場合（macOS のスリープ復帰・tmux の一時不調・C-b d 等）
+    にも起きる。ベースセッションの実在を確認せず 4001（session exited）を送ると、
+    クライアントがタブを閉じて生きているセッションを失う（ADR 23 と同型の誤判定）。
+
+    - False（確実に不在）→ 4001: 正当なセッション終了としてタブを閉じさせる
+    - True / None（存在 or 不明）→ 1011: 再接続バックオフに乗せて attach し直させる
+      （不明時に本当は不在だった場合は、再接続後の _ensure_tmux_session が
+      セッションを再作成してタブが残る。稀なエッジだが破壊よりは安全側）
+    """
+    if base_session_exists is False:
+        return WS_CLOSE_SESSION_EXITED
+    return WS_CLOSE_CLIENT_DETACHED
+
+
 async def _bridge_reader(websocket: WebSocket, bridge: ClientBridge, session_id: str) -> None:
     loop = asyncio.get_event_loop()
     pty_eof = False
@@ -307,11 +328,16 @@ async def _bridge_reader(websocket: WebSocket, bridge: ClientBridge, session_id:
     finally:
         bridge.reader_task = None
         if pty_eof:
-            # シェル終了でベースセッションが消えるとアタッチ中のクライアントも EOF になる。
-            # このクライアントを閉じて、フロントにセッション終了を伝える。
-            logger.info("PTY EOF detected, closing client session=%s", session_id)
+            # シェル終了でベースセッションが消えるとアタッチ中のクライアントも EOF になるが、
+            # attach クライアントだけが死んだ（セッションは生きている）場合もある。
+            # ベースセッションの実在を確認してから close コードを選ぶ（eof_close_code 参照）。
+            tmux_name = TMUX_SESSION_PREFIX + session_id
+            exists = await loop.run_in_executor(PTY_EXECUTOR, has_tmux_session, tmux_name)
+            code = eof_close_code(exists)
+            reason = "session exited" if code == WS_CLOSE_SESSION_EXITED else "client detached"
+            logger.info("PTY EOF detected session=%s exists=%s close=%d", session_id, exists, code)
             try:
-                await websocket.close(code=WS_CLOSE_SESSION_EXITED, reason="session exited")
+                await websocket.close(code=code, reason=reason)
             except (RuntimeError, OSError):
                 pass
 

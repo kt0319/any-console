@@ -892,6 +892,9 @@ generate_plist() {
   fi
   # LaunchAgent はユーザーセッション内で動くため UserName 不要。
   # agent も最小 env のため PATH（Homebrew 含む）と HOME を明示する。
+  # ProcessType=Interactive は必須: 未指定だと GUI セッション内のバックグラウンド
+  # プロセスとして macOS の絞り込み（App Nap / QoS 降格）対象になり、tmux
+  # subprocess がタイムアウトしてセッション消失系の誤判定を誘発する。
   cat <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -918,6 +921,8 @@ $ssl_env  </dict>
   <true/>
   <key>KeepAlive</key>
   <true/>
+  <key>ProcessType</key>
+  <string>Interactive</string>
   <key>StandardOutPath</key>
   <string>$LOG_FILE</string>
   <key>StandardErrorPath</key>

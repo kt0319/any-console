@@ -398,3 +398,25 @@ class TestApplyBridgeSize:
         ts._apply_bridge_size(bridge, 80, 0)
         assert calls == []
         assert bridge.applied_size is None
+
+
+class TestEofCloseCode:
+    """PTY EOF 時の WS close コード判定（eof_close_code）。
+
+    attach クライアントだけが死んだ場合（セッションは生存）に 4001 を送ると、
+    クライアントがタブを閉じて生きているセッションを削除してしまう（ADR 23）。
+    ベースセッションが確実に不在のときだけ 4001 を返すことを確認する。
+    """
+
+    def test_session_definitely_gone_returns_session_exited(self):
+        from api.terminal_session import WS_CLOSE_SESSION_EXITED, eof_close_code
+        assert eof_close_code(False) == WS_CLOSE_SESSION_EXITED
+
+    def test_session_alive_returns_client_detached(self):
+        from api.terminal_session import WS_CLOSE_CLIENT_DETACHED, eof_close_code
+        assert eof_close_code(True) == WS_CLOSE_CLIENT_DETACHED
+
+    def test_unknown_returns_client_detached(self):
+        # tmux コマンド一時失敗（None）は「不在」と区別し、破壊的でない側に倒す。
+        from api.terminal_session import WS_CLOSE_CLIENT_DETACHED, eof_close_code
+        assert eof_close_code(None) == WS_CLOSE_CLIENT_DETACHED
