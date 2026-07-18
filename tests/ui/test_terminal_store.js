@@ -114,3 +114,27 @@ describe("terminal store: agentStates", () => {
     expect(Object.keys(store.agentStates)).toEqual([]);
   });
 });
+
+describe("terminal store: pendingClose", () => {
+  let store;
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    store = useTerminalStore();
+  });
+
+  it("markPendingClose / clearPendingClose で Set が更新される", () => {
+    store.markPendingClose("s1");
+    expect(store.pendingCloseSessionIds.has("s1")).toBe(true);
+    store.clearPendingClose("s1");
+    expect(store.pendingCloseSessionIds.has("s1")).toBe(false);
+  });
+
+  it("falsy な sessionId は無視される", () => {
+    store.markPendingClose("");
+    store.markPendingClose(null);
+    expect(store.pendingCloseSessionIds.size).toBe(0);
+    // 未登録 id の clear も安全
+    store.clearPendingClose("unknown");
+    expect(store.pendingCloseSessionIds.size).toBe(0);
+  });
+});

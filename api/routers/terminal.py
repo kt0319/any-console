@@ -40,8 +40,8 @@ from ..tmux import (
     get_session_cwd,
     get_tmux_created,
     get_window_width,
+    has_tmux_session,
     send_keys_to_tmux,
-    tmux_session_exists,
 )
 from .git_file_utils import list_directory_entries, read_file_content_response
 from .git_helpers import resolve_and_validate_workspace_path
@@ -266,18 +266,35 @@ ws_router = APIRouter()
 
 
 async def _resolve_session_for_ws(session_id: str):
+    """セッションを解決する。戻り値は (session, tmux_unavailable)。
+
+    tmux コマンドの一時失敗を「セッション不在」と区別する。不在扱いで 1008 を
+    返すとクライアントがタブを閉じてしまうため、不明時は tmux_unavailable=True で
+    返し、呼び出し元が再接続可能なコード（1011）で閉じる。
+    """
     with sessions_lock:
         session = TERMINAL_SESSIONS.get(session_id)
-    if not session:
-        tmux_name = TMUX_SESSION_PREFIX + session_id
-        if tmux_session_exists(tmux_name):
-            session = _register_tmux_session(session_id, tmux_name)
-    return session
+    if session:
+        return session, False
+    tmux_name = TMUX_SESSION_PREFIX + session_id
+    exists = has_tmux_session(tmux_name)
+    if exists is None:
+        return None, True
+    if exists:
+        return _register_tmux_session(session_id, tmux_name), False
+    return None, False
 
 
 async def _ensure_tmux_session(websocket: WebSocket, session, session_id: str) -> bool:
-    if tmux_session_exists(session.tmux_session_name):
+    exists = has_tmux_session(session.tmux_session_name)
+    if exists:
         return True
+    if exists is None:
+        # tmux コマンドの一時失敗。セッション不在と誤判定して再作成や registry 破棄を
+        # すると生きているセッションを失うため、再接続可能なコードで閉じて何もしない。
+        logger.warning("tmux has-session failed transiently session=%s", session_id)
+        await websocket.close(code=1011, reason="tmux unavailable")
+        return False
     try:
         ws_resolved = resolve_workspace_path(session.workspace)
         workspace_path = str(ws_resolved) if ws_resolved else None
@@ -375,9 +392,15 @@ async def terminal_ws(websocket: WebSocket, session_id: str, token: str = "", co
         await websocket.close(code=1008, reason="Unauthorized")
         return
 
-    session = await _resolve_session_for_ws(session_id)
+    session, tmux_unavailable = await _resolve_session_for_ws(session_id)
 
     await websocket.accept()
+
+    if tmux_unavailable:
+        # 一時的な tmux 失敗。1008（not found）で閉じるとクライアントがタブを
+        # 閉じてしまうため、再接続バックオフに乗る 1011 で閉じる。
+        await websocket.close(code=1011, reason="tmux unavailable")
+        return
 
     if not session:
         await websocket.close(code=1008, reason="Session not found")

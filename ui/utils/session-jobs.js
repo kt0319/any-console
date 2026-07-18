@@ -45,6 +45,20 @@ export async function loadSessionsResponse(sessionsRes, { refetch }) {
 }
 
 /**
+ * pendingClose のうち、サーバのセッション一覧にもう存在しない id を返す。
+ * サーバから消えた時点で削除は完了しており、pendingClose を保持し続ける理由がない。
+ * 例外等で clearPendingClose が漏れた場合の取り残しをここで自己回復させる
+ * （残ると同期ポーリングがそのセッションのタブを再追加できなくなる）。
+ *
+ * @param {Iterable<string>} pendingIds pendingClose 中の sessionId
+ * @param {Set<string>} serverSessionIds サーバが返した sessionId の集合
+ * @returns {string[]}
+ */
+export function stalePendingCloseIds(pendingIds, serverSessionIds) {
+  return [...(pendingIds || [])].filter((id) => !serverSessionIds.has(id));
+}
+
+/**
  * /terminal/sessions のセッション meta から addTerminalTab 用のパラメータを組み立てる。
  * 復元・dispatch 結果・ディープリンク・detached 復帰の全経路で共通に使い、アイコン解決の
  * 分岐（wsIcon をワークスペース設定から、ジョブアイコンをジョブ定義から）を一元化する。

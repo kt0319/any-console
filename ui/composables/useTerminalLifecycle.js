@@ -135,24 +135,27 @@ export function useTerminalLifecycle({ terminalBaseView }) {
     });
   }
 
-  async function closeTab(tab) {
+  // localOnly: タブのローカル除去のみでサーバのセッション削除は行わない。
+  // サーバ側の「セッション不在」通知（WS 1008）由来のクローズで使う。誤判定時に
+  // DELETE で生きている tmux セッションを殺さないため（真偽は同期ポーリングが確定させる）。
+  async function closeTab(tab, { localOnly = false } = {}) {
     const tabId = tab.id;
-    const sessionId = tab.sessionId;
+    const sessionId = localOnly ? null : tab.sessionId;
     const tabObj = terminalStore.openTabs.find((t) => t.id === tabId);
     if (sessionId) terminalStore.markPendingClose(sessionId);
-    if (tabObj) disconnectTerminal(tabObj);
-    terminalStore.removeTab(tabId);
-    if (layoutStore.isSplitMode) {
-      layoutStore.replaceTabWithEmpty(tabId);
-    }
-    await nextTick();
-    if (tabObj?.term) tabObj.term.dispose();
-    if (sessionId) {
-      try {
-        await deleteSession(sessionId);
-      } finally {
-        terminalStore.clearPendingClose(sessionId);
+    try {
+      if (tabObj) disconnectTerminal(tabObj);
+      terminalStore.removeTab(tabId);
+      if (layoutStore.isSplitMode) {
+        layoutStore.replaceTabWithEmpty(tabId);
       }
+      await nextTick();
+      if (tabObj?.term) tabObj.term.dispose();
+      if (sessionId) await deleteSession(sessionId);
+    } finally {
+      // 途中で例外が起きても pendingClose を残さない。残ると同期ポーリングが
+      // そのセッションを再追加できなくなり、タブがリロードまで消えたままになる。
+      if (sessionId) terminalStore.clearPendingClose(sessionId);
     }
   }
 

@@ -182,3 +182,82 @@ class TestHistoryRestore:
         assert res.status_code == 200
         assert res.json()["content"] == "line1\r\nline2"
         assert not any("resize-window" in c for c in calls)
+
+
+class TestWsTmuxTransientFailure:
+    """tmux コマンド一時失敗時に WS がセッションを「不在」と誤判定しないことを確認する。
+
+    誤って 1008（Session not found）で閉じると、クライアントがタブを閉じて
+    生きているセッションを失うため、再接続可能な 1011 で閉じる必要がある。
+    """
+
+    SESSION_ID = "ws-transient-test"
+
+    def _register_session(self):
+        from api.terminal_session import TERMINAL_SESSIONS, TerminalSession, sessions_lock
+        session = TerminalSession(workspace=None, tmux_session_name=f"ac-{self.SESSION_ID}")
+        with sessions_lock:
+            TERMINAL_SESSIONS[self.SESSION_ID] = session
+        return session
+
+    def test_registered_session_transient_failure_closes_1011_and_keeps_registry(self, client):
+        import pytest
+        from starlette.websockets import WebSocketDisconnect
+
+        from api.terminal_session import TERMINAL_SESSIONS, sessions_lock
+        from conftest import TOKEN
+
+        self._register_session()
+        with patch("api.routers.terminal.has_tmux_session", return_value=None):
+            with pytest.raises(WebSocketDisconnect) as exc_info:
+                with client.websocket_connect(
+                    f"/terminal/ws/{self.SESSION_ID}?token={TOKEN}"
+                ) as ws:
+                    ws.receive_bytes()
+        assert exc_info.value.code == 1011
+        # 一時失敗では registry からセッションを破棄しない
+        with sessions_lock:
+            assert self.SESSION_ID in TERMINAL_SESSIONS
+
+    def test_unregistered_session_transient_failure_closes_1011(self, client):
+        import pytest
+        from starlette.websockets import WebSocketDisconnect
+
+        from conftest import TOKEN
+
+        with patch("api.routers.terminal.has_tmux_session", return_value=None):
+            with pytest.raises(WebSocketDisconnect) as exc_info:
+                with client.websocket_connect(
+                    f"/terminal/ws/{self.SESSION_ID}-unreg?token={TOKEN}"
+                ) as ws:
+                    ws.receive_bytes()
+        assert exc_info.value.code == 1011
+
+    def test_unregistered_session_definitely_missing_closes_1008(self, client):
+        import pytest
+        from starlette.websockets import WebSocketDisconnect
+
+        from conftest import TOKEN
+
+        with patch("api.routers.terminal.has_tmux_session", return_value=False):
+            with pytest.raises(WebSocketDisconnect) as exc_info:
+                with client.websocket_connect(
+                    f"/terminal/ws/{self.SESSION_ID}-missing?token={TOKEN}"
+                ) as ws:
+                    ws.receive_bytes()
+        assert exc_info.value.code == 1008
+
+
+class TestGetSessionTransientFailure:
+    """get_terminal_session 経由のエンドポイントが tmux 一時失敗を 404 と区別することを確認する。"""
+
+    def test_history_returns_500_on_transient_tmux_failure(self, client):
+        # 404 を返すとクライアントが「セッション消滅」と誤解し得るため 500 で区別する。
+        with patch("api.terminal_session.has_tmux_session", return_value=None):
+            res = client.get("/terminal/sessions/nonexistent-transient/history", headers=AUTH)
+        assert res.status_code == 500
+
+    def test_history_returns_404_when_definitely_missing(self, client):
+        with patch("api.terminal_session.has_tmux_session", return_value=False):
+            res = client.get("/terminal/sessions/nonexistent-gone/history", headers=AUTH)
+        assert res.status_code == 404

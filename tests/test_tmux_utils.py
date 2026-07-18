@@ -119,6 +119,29 @@ class TestTmuxSessionExists:
             assert tmux_session_exists("x") is False
 
 
+class TestHasTmuxSession:
+    """tri-state 版。一時失敗（None）を「不在」（False）と区別する。"""
+
+    def test_true_when_returncode_zero(self):
+        from api.tmux import has_tmux_session
+        result = mock.MagicMock()
+        result.returncode = 0
+        with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
+            assert has_tmux_session("x") is True
+
+    def test_false_when_nonzero(self):
+        from api.tmux import has_tmux_session
+        result = mock.MagicMock()
+        result.returncode = 1
+        with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
+            assert has_tmux_session("x") is False
+
+    def test_none_when_command_failed(self):
+        from api.tmux import has_tmux_session
+        with mock.patch("api.tmux._run_tmux_cmd", return_value=None):
+            assert has_tmux_session("x") is None
+
+
 class TestKillTmuxByName:
     def test_invokes_kill_session(self):
         from api.tmux import kill_tmux_by_name
