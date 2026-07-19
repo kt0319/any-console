@@ -50,10 +50,10 @@ def isolate_fs(tmp_path, monkeypatch):
 def isolate_sessions_snapshot():
     # スナップショットはモジュールグローバルの TTL キャッシュのため、
     # テスト間で持ち越すと前のテストの一覧が漏れる。毎テスト破棄する。
-    from api.session_snapshot import reset_sessions_snapshot
-    reset_sessions_snapshot()
+    from api.session_snapshot import invalidate_sessions_snapshot
+    invalidate_sessions_snapshot()
     yield
-    reset_sessions_snapshot()
+    invalidate_sessions_snapshot()
 
 
 @pytest.fixture()

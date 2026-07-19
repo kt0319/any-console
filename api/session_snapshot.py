@@ -6,8 +6,10 @@ subprocess を発生させ、その一時失敗を呼び出し側ごとに tri-s
 集約し、
 
 - TTL 内は同じスナップショットを返す（tmux 呼び出しがクライアント数に比例しない）
-- 再構築に失敗した場合は最後に成功したスナップショットを返し続ける
+- 受動的読み取りの再構築に失敗した場合は最後に成功した一覧を返し続ける
   （last-known-good — 一時失敗が「セッション消滅」としてクライアントへ伝播しない）
+- 変更操作（作成・削除・属性変更）後は前回値ごと破棄する（変更を跨いで
+  変更前の一覧を正として配信しない）
 - 発見したセッションはその場でレジストリへ登録する（メタデータ読み取りは
   セッションごとに一度きり）
 
@@ -25,25 +27,33 @@ from .tmux import _run_tmux_cmd
 logger = logging.getLogger(__name__)
 
 _snapshot: list[dict] | None = None
-_snapshot_at: float = 0.0
+# 最後の構築試行（成功・失敗とも）が完了した時刻。失敗も刻むことで、tmux が
+# 詰まっている間にポーリング全員が 5 秒タイムアウトの構築を直列に繰り返して
+# threadpool を食い潰すのを防ぐ（再試行は TTL ごとに 1 回）。
+_attempt_at: float = 0.0
+# invalidate のたびに進む世代。構築中に変更操作が入った場合、その構築結果は
+# 変更前の tmux 状態を写した可能性があるため、世代が進んでいたらキャッシュしない。
+_generation: int = 0
+# 構築の直列化用。構築は最大 TMUX_CMD_TIMEOUT_SEC 待つため、変更操作を
+# 待たせないよう invalidate はこのロックを取らない（_state_lock だけ取る）。
 _build_lock = threading.Lock()
+# _snapshot / _attempt_at / _generation の更新を守る短時間ロック。
+_state_lock = threading.Lock()
 
 
 def invalidate_sessions_snapshot() -> None:
     """セッションの作成・削除・属性変更後に呼び、次回読み取りで必ず再構築させる。
 
-    TTL 待ちにすると「作成直後のポーリングが古い一覧を受け取り、作りたての
-    タブを閉じてしまう」競合が生まれるため、変更操作は即時 invalidate する。
+    前回値も破棄する: last-known-good は受動的読み取りの可用性のための機構で、
+    変更を跨いで変更前の一覧を返すと「作りたてのタブが閉じられる／削除した
+    タブが復活する」誤動作になる。破棄後に構築が失敗している間、一覧 API は
+    500 を返し、クライアントはそのポーリングサイクルを skip する（安全側）。
     """
-    global _snapshot_at
-    _snapshot_at = 0.0
-
-
-def reset_sessions_snapshot() -> None:
-    """スナップショットを完全に破棄する（テストの隔離用）。"""
-    global _snapshot, _snapshot_at
-    _snapshot = None
-    _snapshot_at = 0.0
+    global _snapshot, _attempt_at, _generation
+    with _state_lock:
+        _generation += 1
+        _snapshot = None
+        _attempt_at = 0.0
 
 
 def _parse_list_output(stdout: str) -> list[tuple[str, int | None]]:
@@ -121,18 +131,27 @@ def _build_snapshot() -> list[dict] | None:
 def get_sessions_snapshot() -> list[dict] | None:
     """セッション一覧を返す。
 
-    TTL 内は前回のスナップショットをそのまま返す。再構築に失敗した場合も
-    最後に成功したスナップショット（last-known-good）を返し、一度も成功して
-    いない場合だけ None を返す（呼び出し側は 500 で「不明」を区別する）。
+    最後の構築試行から TTL 内は前回結果（失敗中なら last-known-good、変更
+    直後の失敗中なら None = 500）をそのまま返す。None は「一覧が不明」で、
+    クライアントはタブ操作をせずそのサイクルを skip する。
     """
-    global _snapshot, _snapshot_at
+    global _snapshot, _attempt_at
     with _build_lock:
-        if _snapshot is not None and time.monotonic() - _snapshot_at < SESSIONS_SNAPSHOT_TTL_SEC:
-            return _snapshot
+        with _state_lock:
+            if time.monotonic() - _attempt_at < SESSIONS_SNAPSHOT_TTL_SEC:
+                return _snapshot
+            generation = _generation
         fresh = _build_snapshot()
-        if fresh is not None:
-            _snapshot = fresh
-            _snapshot_at = time.monotonic()
-        elif _snapshot is not None:
-            logger.warning("sessions snapshot refresh failed; serving last-known-good")
-        return _snapshot
+        with _state_lock:
+            if fresh is None:
+                _attempt_at = time.monotonic()
+                if _snapshot is not None:
+                    logger.warning("sessions snapshot refresh failed; serving last-known-good")
+                return _snapshot
+            if _generation == generation:
+                _snapshot = fresh
+                _attempt_at = time.monotonic()
+            # 世代が進んでいたら、この結果は変更前の状態かもしれないので
+            # キャッシュしない（返すのは可 — 変更前の一瞬の読み取りと等価）。
+            # _attempt_at も進めず、次の読み取りで即再構築させる。
+            return fresh

@@ -25,29 +25,34 @@ export function useSessionSync() {
     return buildSessionTabParams(s, { workspaces: workspaceStore.allWorkspaces, allJobs });
   }
 
-  async function _safeResJson(res) {
+  // ジョブ定義を JSON で返す。取得失敗は null（空 {} と区別する — 失敗を空と
+  // 混同すると、既存ジョブタブのアイコンが mdi-play へ揺れ戻る）。
+  async function _jobsJson(res) {
     try {
       if (res && res.ok) return await res.json();
     } catch {}
-    return {};
+    return null;
   }
 
   /**
    * サーバのセッション一覧へタブ群を冪等に追随させる（復元・ポーリング共通）。
    * 追加・表示メタの更新のみ行う。削除は syncSessionsFromServer 側だけが行う
    * （復元初回は一覧が信頼できても、タブがまだ無いだけの可能性があるため）。
+   * 追加タブは常に restored 扱い: ここで発見されるのは既存の tmux セッション
+   * であり、スクロールバックの履歴復元が必要なため。
+   * allJobs が null（取得失敗）の間は既存タブのメタ更新をスキップし、
+   * 誤ったフォールバックアイコンで上書きしない。
    */
-  function _reconcileTabs(sessions, allJobs, { restored = false } = {}) {
+  function _reconcileTabs(sessions, allJobs) {
     const tabBySession = new Map(terminalStore.openTabs.map((t) => [t.sessionId, t]));
     for (const s of sessions) {
       if (s.detached) continue; // detached セッションは Tabs パネルの Detached sessions に表示
       if (terminalStore.pendingCloseSessionIds.has(s.session_id)) continue;
-      const params = _buildTabParams(s, allJobs);
       const tab = tabBySession.get(s.session_id);
       if (tab) {
-        terminalStore.applyTabMeta(tab.id, params);
+        if (allJobs) terminalStore.applyTabMeta(tab.id, _buildTabParams(s, allJobs));
       } else {
-        terminalStore.addTerminalTab({ ...params, restored });
+        terminalStore.addTerminalTab({ ..._buildTabParams(s, allJobs || {}), restored: true });
       }
     }
   }
@@ -77,8 +82,7 @@ export function useSessionSync() {
         return (a.created_at || 0) - (b.created_at || 0);
       });
 
-      const allJobs = await _safeResJson(jobsRes);
-      _reconcileTabs(sortedSessions, allJobs, { restored: true });
+      _reconcileTabs(sortedSessions, await _jobsJson(jobsRes));
 
       await restoreLayout();
 
@@ -108,7 +112,7 @@ export function useSessionSync() {
       const sessions = await sessionsRes.json();
       if (!Array.isArray(sessions)) return;
 
-      const allJobs = await _safeResJson(jobsRes);
+      const allJobs = await _jobsJson(jobsRes);
       const serverSessionIds = new Set(sessions.map((s) => s.session_id));
 
       // サーバから消えたセッションの pendingClose は取り残し（clearPendingClose 漏れ）。

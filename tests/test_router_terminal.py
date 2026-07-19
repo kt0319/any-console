@@ -27,22 +27,22 @@ class TestListSessions:
         assert res.status_code == 500
 
     def test_tmux_failure_serves_last_known_good(self, client):
-        # 一度スナップショットが取れていれば、以後の tmux 一時失敗では
-        # 最後に成功した一覧を返し続ける（タブの全消去・点滅を構造的に防ぐ）。
-        from api.session_snapshot import invalidate_sessions_snapshot
+        # 一度スナップショットが取れていれば、TTL 失効後の受動的な再構築が
+        # 失敗しても最後に成功した一覧を返し続ける（タブの全消去・点滅を
+        # 構造的に防ぐ）。TTL=0 で毎リクエスト再構築を強制する。
         listing = subprocess.CompletedProcess(
             args=[], returncode=0, stdout="ac-lkg-test\t1700000000\n", stderr="")
-        with patch("api.session_snapshot._run_tmux_cmd", return_value=listing), \
-             patch("api.terminal_session.load_tmux_metadata", return_value={}), \
-             patch("api.terminal_session.detect_workspace_from_tmux", return_value=None):
-            first = client.get("/terminal/sessions", headers=AUTH)
-        assert [s["session_id"] for s in first.json()] == ["lkg-test"]
         try:
-            invalidate_sessions_snapshot()
-            with patch("api.session_snapshot._run_tmux_cmd", return_value=None):
-                res = client.get("/terminal/sessions", headers=AUTH)
-            assert res.status_code == 200
-            assert [s["session_id"] for s in res.json()] == ["lkg-test"]
+            with patch("api.session_snapshot.SESSIONS_SNAPSHOT_TTL_SEC", 0.0):
+                with patch("api.session_snapshot._run_tmux_cmd", return_value=listing), \
+                     patch("api.terminal_session.load_tmux_metadata", return_value={}), \
+                     patch("api.terminal_session.detect_workspace_from_tmux", return_value=None):
+                    first = client.get("/terminal/sessions", headers=AUTH)
+                assert [s["session_id"] for s in first.json()] == ["lkg-test"]
+                with patch("api.session_snapshot._run_tmux_cmd", return_value=None):
+                    res = client.get("/terminal/sessions", headers=AUTH)
+                assert res.status_code == 200
+                assert [s["session_id"] for s in res.json()] == ["lkg-test"]
         finally:
             from api.terminal_session import TERMINAL_SESSIONS, sessions_lock
             with sessions_lock:
