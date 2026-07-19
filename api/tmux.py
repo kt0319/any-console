@@ -238,11 +238,3 @@ def get_window_width(tmux_name: str) -> int | None:
     return None
 
 
-def get_tmux_created(tmux_name: str) -> int | None:
-    result = _run_tmux_cmd("display-message", "-t", tmux_name, "-p", "#{session_created}")
-    if result and result.returncode == 0:
-        try:
-            return int(result.stdout.strip())
-        except ValueError:
-            pass
-    return None

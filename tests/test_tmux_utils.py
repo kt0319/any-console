@@ -67,29 +67,6 @@ class TestDetectWorkspaceFromTmux:
         assert ws == "myproject"
 
 
-class TestGetTmuxCreated:
-    def test_returns_none_if_cmd_fails(self):
-        from api.tmux import get_tmux_created
-        with mock.patch("api.tmux._run_tmux_cmd", return_value=None):
-            assert get_tmux_created("test-session") is None
-
-    def test_returns_int_on_success(self):
-        from api.tmux import get_tmux_created
-        result = mock.MagicMock()
-        result.returncode = 0
-        result.stdout = "1700000000\n"
-        with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
-            assert get_tmux_created("test-session") == 1700000000
-
-    def test_returns_none_on_invalid_output(self):
-        from api.tmux import get_tmux_created
-        result = mock.MagicMock()
-        result.returncode = 0
-        result.stdout = "not_a_number\n"
-        with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
-            assert get_tmux_created("test-session") is None
-
-
 class TestRunTmuxCmd:
     def test_timeout_returns_none(self):
         from api.tmux import _run_tmux_cmd

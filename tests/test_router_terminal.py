@@ -19,17 +19,39 @@ class TestListSessions:
         assert res.status_code in (401, 403)
 
     def test_tmux_command_failure_returns_error_not_empty_list(self, client):
-        # tmux コマンド自体が失敗（タイムアウト/OSError で None）した場合、
-        # 「セッション0件」と誤解されないよう空配列ではなくエラーを返す
-        # （クライアント側の syncSessionsFromServer がタブを全消去してしまうため）。
-        with patch("api.routers.terminal._run_tmux_cmd", return_value=None):
+        # tmux コマンド自体が失敗（タイムアウト/OSError で None）し、一度も
+        # スナップショットを構築できていない場合は「セッション0件」と誤解されない
+        # よう空配列ではなくエラーを返す。
+        with patch("api.session_snapshot._run_tmux_cmd", return_value=None):
             res = client.get("/terminal/sessions", headers=AUTH)
         assert res.status_code == 500
+
+    def test_tmux_failure_serves_last_known_good(self, client):
+        # 一度スナップショットが取れていれば、以後の tmux 一時失敗では
+        # 最後に成功した一覧を返し続ける（タブの全消去・点滅を構造的に防ぐ）。
+        from api.session_snapshot import invalidate_sessions_snapshot
+        listing = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="ac-lkg-test\t1700000000\n", stderr="")
+        with patch("api.session_snapshot._run_tmux_cmd", return_value=listing), \
+             patch("api.terminal_session.load_tmux_metadata", return_value={}), \
+             patch("api.terminal_session.detect_workspace_from_tmux", return_value=None):
+            first = client.get("/terminal/sessions", headers=AUTH)
+        assert [s["session_id"] for s in first.json()] == ["lkg-test"]
+        try:
+            invalidate_sessions_snapshot()
+            with patch("api.session_snapshot._run_tmux_cmd", return_value=None):
+                res = client.get("/terminal/sessions", headers=AUTH)
+            assert res.status_code == 200
+            assert [s["session_id"] for s in res.json()] == ["lkg-test"]
+        finally:
+            from api.terminal_session import TERMINAL_SESSIONS, sessions_lock
+            with sessions_lock:
+                TERMINAL_SESSIONS.pop("lkg-test", None)
 
     def test_tmux_no_sessions_returns_empty_list(self, client):
         # tmux が正常応答した上での「セッション無し」（非ゼロ終了）は正当な空配列。
         no_sessions = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="no server running")
-        with patch("api.routers.terminal._run_tmux_cmd", return_value=no_sessions):
+        with patch("api.session_snapshot._run_tmux_cmd", return_value=no_sessions):
             res = client.get("/terminal/sessions", headers=AUTH)
         assert res.status_code == 200
         assert res.json() == []
@@ -353,9 +375,8 @@ class TestRestoreWorkspaceSelfHeal:
             TERMINAL_SESSIONS[self.SESSION_ID] = session
         try:
             list_result = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout=f"{self.TMUX_NAME}\n", stderr="")
-            with patch("api.routers.terminal._run_tmux_cmd", return_value=list_result), \
-                 patch("api.routers.terminal.get_tmux_created", return_value=1700000000), \
+                args=[], returncode=0, stdout=f"{self.TMUX_NAME}\t1700000000\n", stderr="")
+            with patch("api.session_snapshot._run_tmux_cmd", return_value=list_result), \
                  patch("api.terminal_session.load_tmux_metadata",
                        return_value={"TMUX_WORKSPACE": "ws1"}):
                 res = client.get("/terminal/sessions", headers=AUTH)
