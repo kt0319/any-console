@@ -1,48 +1,9 @@
-// セッション復元時のジョブ定義（/jobs/workspaces）取得に関する純粋ロジック。
-
-/**
- * allJobs が空のままジョブセッションを復元すると、タブのジョブアイコンが
- * mdi-play にフォールバックし、以後リロードまで直らない（tab.icon は焼き込み）。
- * ジョブセッションが 1 つでもあるのに allJobs が空なら、一時失敗とみなして再取得すべき。
- *
- * @param {Record<string, any>} allJobs /jobs/workspaces の結果
- * @param {{job_name?: string|null}[]} sessions 復元対象のセッション一覧
- * @returns {boolean}
- */
-export function needsJobsRefetch(allJobs, sessions) {
-  const isEmpty = !allJobs || Object.keys(allJobs).length === 0;
-  if (!isEmpty) return false;
-  return (sessions || []).some((s) => !!s.job_name);
-}
-
-/**
- * ジョブ定義を取得する。一時失敗で空だった場合は 1 回だけ再取得する。
- * fetch / JSON パースは呼び出し側から注入し、この関数自体はストア非依存に保つ。
- *
- * @param {*} jobsRes 先行取得済みの /jobs/workspaces レスポンス（null 可）
- * @param {{job_name?: string|null}[]} sessions 復元対象のセッション一覧
- * @param {{ readJson: (res: *) => Promise<Record<string, any>>, refetch: () => Promise<*> }} deps
- * @returns {Promise<Record<string, any>>}
- */
-export async function loadAllJobs(jobsRes, sessions, { readJson, refetch }) {
-  const allJobs = await readJson(jobsRes);
-  if (!needsJobsRefetch(allJobs, sessions)) return allJobs;
-  const retryRes = await refetch();
-  return readJson(retryRes);
-}
-
-/**
- * /terminal/sessions の一時失敗でタブが 0 件のまま「復元完了」になるのを防ぐ。
- * レスポンスが失敗（null / !ok）なら 1 回だけ再取得したレスポンスを返す。
- *
- * @param {*} sessionsRes 先行取得済みの /terminal/sessions レスポンス（null 可）
- * @param {{ refetch: () => Promise<*> }} deps
- * @returns {Promise<*>}
- */
-export async function loadSessionsResponse(sessionsRes, { refetch }) {
-  if (sessionsRes && sessionsRes.ok) return sessionsRes;
-  return refetch();
-}
+// セッション復元・同期でタブへ反映するメタ情報の純粋ロジック。
+//
+// サーバの /terminal/sessions はスナップショット + last-known-good（ADR 24）で
+// 常に信頼できる一覧を返すため、フロント側のリトライや個別の自己回復は持たない。
+// 同期ポーリングが毎回 buildSessionTabParams → buildTabMeta を通してタブ表示を
+// サーバ値へ追随させる（一時的な取りこぼしは次のポーリングで自然に直る）。
 
 /**
  * pendingClose のうち、サーバのセッション一覧にもう存在しない id を返す。
@@ -56,27 +17,6 @@ export async function loadSessionsResponse(sessionsRes, { refetch }) {
  */
 export function stalePendingCloseIds(pendingIds, serverSessionIds) {
   return [...(pendingIds || [])].filter((id) => !serverSessionIds.has(id));
-}
-
-/**
- * サーバ側で workspace が判明しているのに、ローカルタブが素のターミナルのまま
- * になっている組を返す。リストア時の一時失敗で workspace 無しのまま焼き込まれた
- * タブを、同期ポーリングで自己回復させるために使う。
- *
- * @param {{session_id: string, workspace?: string|null}[]} sessions サーバのセッション一覧
- * @param {{id: number, sessionId: string, workspace: string|null}[]} tabs ローカルの開タブ
- * @returns {{tabId: number, workspace: string}[]}
- */
-export function workspaceHealTargets(sessions, tabs) {
-  const wsById = new Map(
-    (sessions || []).filter((s) => s.workspace).map((s) => [s.session_id, s.workspace]),
-  );
-  const targets = [];
-  for (const t of tabs || []) {
-    const workspace = t.workspace ? null : wsById.get(t.sessionId);
-    if (workspace) targets.push({ tabId: t.id, workspace });
-  }
-  return targets;
 }
 
 /**
@@ -103,4 +43,51 @@ export function buildSessionTabParams(session, { workspaces = [], allJobs = {} }
     jobName: session.job_name || null,
     jobLabel: session.job_label || null,
   };
+}
+
+/**
+ * @typedef {{name: string, color: string|null}|null} TabIcon
+ * @typedef {{workspace: string|null, label: string, wsIcon: TabIcon, icon: TabIcon, jobName: string|null, jobLabel: string|null}} TabMeta
+ */
+
+/**
+ * buildSessionTabParams の出力からタブの表示メタを正規化する。
+ * タブ生成（addTerminalTab）と同期時の追随（applyTabMeta）が同じ変換を共有する
+ * ことで、「生成時に焼き込んだ値が古いまま残る」クラスの不整合を無くす。
+ *
+ * @param {{workspace?: string|null, wsIcon?: string|null, wsIconColor?: string|null, icon?: string|null, iconColor?: string|null, jobName?: string|null, jobLabel?: string|null}} params
+ * @returns {TabMeta}
+ */
+export function buildTabMeta({ workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel }) {
+  return {
+    workspace: workspace || null,
+    label: jobLabel || workspace || "terminal",
+    wsIcon: wsIcon ? { name: wsIcon, color: wsIconColor || null } : null,
+    icon: icon ? { name: icon, color: iconColor || null } : null,
+    jobName: jobName || null,
+    jobLabel: jobLabel || null,
+  };
+}
+
+/** @param {TabIcon} a @param {TabIcon} b */
+function iconEquals(a, b) {
+  if (!a && !b) return true;
+  return !!a && !!b && a.name === b.name && a.color === b.color;
+}
+
+/**
+ * タブが既に meta と同じ表示状態かを返す。同期ポーリングごとの不要な
+ * 再レンダリング（配列参照の張り替え）を避けるための変更検知に使う。
+ *
+ * @param {{workspace: string|null, label: string, wsIcon: TabIcon, icon: TabIcon, jobName: string|null, jobLabel: string|null}} tab
+ * @param {TabMeta} meta
+ * @returns {boolean}
+ */
+export function tabMetaEquals(tab, meta) {
+  return tab.workspace === meta.workspace
+    && tab.label === meta.label
+    && tab.jobName === meta.jobName
+    && tab.jobLabel === meta.jobLabel
+    && iconEquals(tab.wsIcon, meta.wsIcon)
+    && iconEquals(tab.icon, meta.icon);
 }
