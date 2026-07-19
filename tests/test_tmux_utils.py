@@ -5,15 +5,25 @@ from unittest import mock
 
 
 class TestLoadTmuxMetadata:
-    def test_returns_empty_if_run_tmux_cmd_fails(self):
+    """tri-state 版。一時失敗（None）を「メタデータ無し」（空 dict）と区別する。"""
+
+    def test_returns_none_if_run_tmux_cmd_fails(self):
         from api.tmux import load_tmux_metadata
         with mock.patch("api.tmux._run_tmux_cmd", return_value=None):
-            assert load_tmux_metadata("test-session") == {}
+            assert load_tmux_metadata("test-session") is None
 
-    def test_returns_empty_if_nonzero_returncode(self):
+    def test_returns_none_if_nonzero_returncode(self):
         from api.tmux import load_tmux_metadata
         result = mock.MagicMock()
         result.returncode = 1
+        with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
+            assert load_tmux_metadata("test-session") is None
+
+    def test_returns_empty_dict_when_no_metadata(self):
+        from api.tmux import load_tmux_metadata
+        result = mock.MagicMock()
+        result.returncode = 0
+        result.stdout = "PATH=/usr/bin\n"
         with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
             assert load_tmux_metadata("test-session") == {}
 
@@ -278,3 +288,42 @@ class TestDetectWorkspaceFromTmuxSubpath:
              mock.patch("api.config.list_workspace_entries", return_value=entries):
             ws = detect_workspace_from_tmux("sess")
         assert ws == "myproject"
+
+    def test_matches_tilde_path(self, monkeypatch):
+        # config には `~/...` で登録されうる一方、pane_current_path は展開済みの
+        # 実パスで返るため、展開せずに比較すると検出を取りこぼす。
+        from api.tmux import detect_workspace_from_tmux
+        monkeypatch.setenv("HOME", "/home/user")
+        result = mock.MagicMock()
+        result.returncode = 0
+        result.stdout = "/home/user/myproject\n"
+        entries = {"myproject": {"path": "~/myproject"}}
+        with mock.patch("api.tmux._run_tmux_cmd", return_value=result), \
+             mock.patch("api.config.list_workspace_entries", return_value=entries):
+            ws = detect_workspace_from_tmux("sess")
+        assert ws == "myproject"
+
+    def test_matches_symlinked_config_path(self, tmp_path):
+        # config path がシンボリックリンク経由でも、実パスで返る pane_current_path と
+        # realpath 比較で一致させる。
+        from api.tmux import detect_workspace_from_tmux
+        real_dir = tmp_path / "real"
+        real_dir.mkdir()
+        link = tmp_path / "link"
+        link.symlink_to(real_dir)
+        result = mock.MagicMock()
+        result.returncode = 0
+        result.stdout = f"{real_dir}\n"
+        entries = {"myproject": {"path": str(link)}}
+        with mock.patch("api.tmux._run_tmux_cmd", return_value=result), \
+             mock.patch("api.config.list_workspace_entries", return_value=entries):
+            ws = detect_workspace_from_tmux("sess")
+        assert ws == "myproject"
+
+    def test_empty_pane_path_returns_none(self):
+        from api.tmux import detect_workspace_from_tmux
+        result = mock.MagicMock()
+        result.returncode = 0
+        result.stdout = "\n"
+        with mock.patch("api.tmux._run_tmux_cmd", return_value=result):
+            assert detect_workspace_from_tmux("sess") is None

@@ -6,7 +6,7 @@ import { useTerminal } from "./useTerminal.js";
 import { useLayoutPersist } from "./useLayoutPersist.js";
 import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION, SESSION_SYNC_INTERVAL_MS } from "../utils/constants.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
-import { loadAllJobs, loadSessionsResponse, buildSessionTabParams, stalePendingCloseIds } from "../utils/session-jobs.js";
+import { loadAllJobs, loadSessionsResponse, buildSessionTabParams, stalePendingCloseIds, workspaceHealTargets } from "../utils/session-jobs.js";
 import { emit } from "../app-bridge.js";
 
 export function useSessionSync() {
@@ -124,6 +124,12 @@ export function useSessionSync() {
         if (!localSessionIds.has(s.session_id)) {
           terminalStore.addTerminalTab(_buildTabParams(s, allJobs));
         }
+      }
+
+      // リストア時の一時失敗で workspace 無しのまま焼き込まれたタブは、
+      // サーバ側で workspace が判明した時点でここで自己回復させる。
+      for (const { tabId, workspace } of workspaceHealTargets(sessions, terminalStore.openTabs)) {
+        terminalStore.setTabWorkspace(tabId, workspace);
       }
 
       for (const tab of [...terminalStore.openTabs]) {

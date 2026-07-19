@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { needsJobsRefetch, loadAllJobs, loadSessionsResponse, buildSessionTabParams, stalePendingCloseIds } from "../../ui/utils/session-jobs.js";
+import { needsJobsRefetch, loadAllJobs, loadSessionsResponse, buildSessionTabParams, stalePendingCloseIds, workspaceHealTargets } from "../../ui/utils/session-jobs.js";
 
 describe("needsJobsRefetch", () => {
   it("空 allJobs + ジョブセッションあり → 再取得する", () => {
@@ -146,6 +146,43 @@ describe("buildSessionTabParams", () => {
     const p = buildSessionTabParams(session);
     expect(p.icon).toBe("mdi-play");
     expect(p.wsIcon).toBe(null);
+  });
+});
+
+describe("workspaceHealTargets", () => {
+  it("サーバに workspace があるのにタブが素のターミナルの組を返す", () => {
+    const sessions = [
+      { session_id: "s1", workspace: "ws1" },
+      { session_id: "s2", workspace: "ws2" },
+    ];
+    const tabs = [
+      { id: 1, sessionId: "s1", workspace: null },
+      { id: 2, sessionId: "s2", workspace: "ws2" },
+    ];
+    expect(workspaceHealTargets(sessions, tabs)).toEqual([{ tabId: 1, workspace: "ws1" }]);
+  });
+
+  it("サーバ側も workspace 無しなら対象外（素のターミナルは正当）", () => {
+    const sessions = [{ session_id: "s1", workspace: null }];
+    const tabs = [{ id: 1, sessionId: "s1", workspace: null }];
+    expect(workspaceHealTargets(sessions, tabs)).toEqual([]);
+  });
+
+  it("タブに既に workspace があれば上書き対象にしない", () => {
+    const sessions = [{ session_id: "s1", workspace: "ws-new" }];
+    const tabs = [{ id: 1, sessionId: "s1", workspace: "ws-old" }];
+    expect(workspaceHealTargets(sessions, tabs)).toEqual([]);
+  });
+
+  it("サーバ一覧に無いタブは対象外", () => {
+    const sessions = [{ session_id: "s1", workspace: "ws1" }];
+    const tabs = [{ id: 9, sessionId: "gone", workspace: null }];
+    expect(workspaceHealTargets(sessions, tabs)).toEqual([]);
+  });
+
+  it("null/undefined を安全に扱う", () => {
+    expect(workspaceHealTargets(null, null)).toEqual([]);
+    expect(workspaceHealTargets([], undefined)).toEqual([]);
   });
 });
 

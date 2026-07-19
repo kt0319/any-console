@@ -77,6 +77,10 @@ async def list_terminal_sessions():
             cached = TERMINAL_SESSIONS.get(session_id)
 
         if cached:
+            # メタデータ読み込みが一時失敗のまま登録されたセッションは、ここで
+            # 再試行して自己回復させる（放置するとワークスペースセッションが
+            # 素のターミナルとしてキャッシュされ続ける）。
+            cached.refresh_metadata_if_incomplete()
             meta_src = cached
         else:
             meta_src = TerminalSession.from_tmux(name)

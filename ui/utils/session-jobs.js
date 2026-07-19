@@ -59,6 +59,27 @@ export function stalePendingCloseIds(pendingIds, serverSessionIds) {
 }
 
 /**
+ * サーバ側で workspace が判明しているのに、ローカルタブが素のターミナルのまま
+ * になっている組を返す。リストア時の一時失敗で workspace 無しのまま焼き込まれた
+ * タブを、同期ポーリングで自己回復させるために使う。
+ *
+ * @param {{session_id: string, workspace?: string|null}[]} sessions サーバのセッション一覧
+ * @param {{id: number, sessionId: string, workspace: string|null}[]} tabs ローカルの開タブ
+ * @returns {{tabId: number, workspace: string}[]}
+ */
+export function workspaceHealTargets(sessions, tabs) {
+  const wsById = new Map(
+    (sessions || []).filter((s) => s.workspace).map((s) => [s.session_id, s.workspace]),
+  );
+  const targets = [];
+  for (const t of tabs || []) {
+    const workspace = t.workspace ? null : wsById.get(t.sessionId);
+    if (workspace) targets.push({ tabId: t.id, workspace });
+  }
+  return targets;
+}
+
+/**
  * /terminal/sessions のセッション meta から addTerminalTab 用のパラメータを組み立てる。
  * 復元・dispatch 結果・ディープリンク・detached 復帰の全経路で共通に使い、アイコン解決の
  * 分岐（wsIcon をワークスペース設定から、ジョブアイコンをジョブ定義から）を一元化する。
