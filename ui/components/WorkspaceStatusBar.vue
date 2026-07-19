@@ -242,6 +242,7 @@ async function registerCurrentDir() {
   emit("workspace:openAdd", {
     initialPath: cwd || "",
     attachSessionId: tab.sessionId,
+    attachTabId: tab.id,
   });
 }
 

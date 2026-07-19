@@ -28,7 +28,6 @@ from ..git_utils import command_result_dict, git_branches, worktree_base_of
 from ..job_models import TERMINAL_JOB, TERMINAL_JOB_KEY
 from ..push import send_push_notification
 from ..runner import run_job
-from ..session_snapshot import invalidate_sessions_snapshot
 from ..terminal_session import (
     TERMINAL_SESSIONS,
     TerminalSession,
@@ -157,7 +156,6 @@ def _create_terminal_session(body, ws_path):
     with sessions_lock:
         TERMINAL_SESSIONS[session_id] = session
     session.save_metadata()
-    invalidate_sessions_snapshot()
     logger.info("terminal session created session=%s tmux=%s workspace=%s",
                  session_id, tmux_name, body.workspace or "(none)")
 

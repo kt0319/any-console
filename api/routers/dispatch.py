@@ -32,7 +32,6 @@ from ..git_utils import (
 )
 from ..job_models import TERMINAL_JOB, TERMINAL_JOB_KEY
 from ..push import send_push_notification
-from ..session_snapshot import invalidate_sessions_snapshot
 from ..terminal_session import (
     TERMINAL_SESSIONS,
     TerminalSession,
@@ -165,7 +164,6 @@ def _create_session(workspace: str, ws_path, job: str, job_def):
     with sessions_lock:
         TERMINAL_SESSIONS[session_id] = session
     session.save_metadata()
-    invalidate_sessions_snapshot()
     logger.info("dispatch session created session=%s workspace=%s job=%s",
                 session_id, workspace, job)
     return session_id, session

@@ -6,13 +6,9 @@ import { useTerminal } from "./useTerminal.js";
 import { useLayoutPersist } from "./useLayoutPersist.js";
 import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION, SESSION_SYNC_INTERVAL_MS } from "../utils/constants.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
-import { buildSessionTabParams, stalePendingCloseIds } from "../utils/session-jobs.js";
+import { loadAllJobs, loadSessionsResponse, buildSessionTabParams } from "../utils/session-jobs.js";
 import { emit } from "../app-bridge.js";
 
-// サーバの /terminal/sessions はスナップショット + last-known-good（ADR 24）で
-// 一時失敗が「セッション消滅」として返ることはない。フロントはこの一覧を信頼して
-// 毎ポーリング同じ reconcile（不足タブの追加・余剰タブの削除・表示メタの追随）を
-// 冪等に適用するだけにし、リトライや個別の自己回復は持たない。
 export function useSessionSync() {
   const auth = useAuthStore();
   const terminalStore = useTerminalStore();
@@ -22,43 +18,33 @@ export function useSessionSync() {
   const { restoreLayout } = useLayoutPersist();
 
   function _buildTabParams(s, allJobs) {
-    return buildSessionTabParams(s, { workspaces: workspaceStore.allWorkspaces, allJobs });
+    return {
+      ...buildSessionTabParams(s, { workspaces: workspaceStore.allWorkspaces, allJobs }),
+      restored: true,
+    };
   }
 
-  // ジョブ定義を JSON で返す。取得失敗は null（空 {} と区別する — 失敗を空と
-  // 混同すると、既存ジョブタブのアイコンが mdi-play へ揺れ戻る）。
-  async function _jobsJson(res) {
+  async function _safeResJson(res) {
     try {
       if (res && res.ok) return await res.json();
     } catch {}
-    return null;
+    return {};
   }
 
-  /**
-   * サーバのセッション一覧へタブ群を冪等に追随させる（復元・ポーリング共通）。
-   * 追加・表示メタの更新のみ行う。削除は syncSessionsFromServer 側だけが行う
-   * （復元初回は一覧が信頼できても、タブがまだ無いだけの可能性があるため）。
-   * 追加タブは常に restored 扱い: ここで発見されるのは既存の tmux セッション
-   * であり、スクロールバックの履歴復元が必要なため。
-   * allJobs が null（取得失敗）の間は「ジョブタブの」メタ更新だけスキップし、
-   * 誤ったフォールバックアイコン（mdi-play）で上書きしない。ジョブに依存
-   * しないタブの workspace・ラベル更新は通す（ワークスペース紐付け直後の
-   * 反映を jobs エンドポイントの不調で止めない）。
-   */
-  function _reconcileTabs(sessions, allJobs) {
-    const tabBySession = new Map(terminalStore.openTabs.map((t) => [t.sessionId, t]));
-    for (const s of sessions) {
-      if (s.detached) continue; // detached セッションは Tabs パネルの Detached sessions に表示
-      if (terminalStore.pendingCloseSessionIds.has(s.session_id)) continue;
-      const tab = tabBySession.get(s.session_id);
-      if (tab) {
-        if (allJobs || !s.job_name) {
-          terminalStore.applyTabMeta(tab.id, _buildTabParams(s, allJobs || {}));
-        }
-      } else {
-        terminalStore.addTerminalTab({ ..._buildTabParams(s, allJobs || {}), restored: true });
-      }
-    }
+  // allJobs が空のままジョブセッションを焼き込むと、アイコンが mdi-play に固定され
+  // リロードまで直らない（tab.icon は markRaw で再解決されないため）。
+  // /jobs/workspaces の一時失敗を想定し、ジョブセッションがあるのに空なら 1 回だけ再取得する。
+  function _loadAllJobs(jobsRes, sessions) {
+    return loadAllJobs(jobsRes, sessions, {
+      readJson: _safeResJson,
+      refetch: () => auth.apiFetch(EP_JOBS_WORKSPACES).catch(() => null),
+    });
+  }
+
+  function _loadSessions(sessionsRes) {
+    return loadSessionsResponse(sessionsRes, {
+      refetch: () => auth.apiFetch(EP_TERMINAL_SESSIONS).catch(() => null),
+    });
   }
 
   async function restoreExistingSessions(sessionsRes, jobsRes) {
@@ -66,15 +52,17 @@ export function useSessionSync() {
     terminalStore.restoreSessionsLoading = true;
     terminalStore.restoreSessionsError = "";
     try {
-      // 失敗時は「復元済み」にせず、同期ポーリングでのタブ追加に委ねる
-      // （タブ 0 件のまま確定させない）。
-      if (!sessionsRes || !sessionsRes.ok) {
-        terminalStore.restoreSessionsError =
-          await sessionsRes?.text?.().catch(() => "") || "Failed to fetch existing sessions";
+      // 一時失敗を defaults 同様に握りつぶすとタブ 0 件で確定するため、失敗時は再取得する。
+      // 成功を確認できたときだけ「復元済み」フラグを立て、失敗時はポーリング等での復帰に委ねる。
+      const res = await _loadSessions(sessionsRes);
+      if (!res || !res.ok) {
+        if (res) {
+          terminalStore.restoreSessionsError = await res.text?.().catch(() => "") || "Failed to fetch existing sessions";
+        }
         return;
       }
       terminalStore.hasRestoredTabsFromStorage = true;
-      const sessions = await sessionsRes.json();
+      const sessions = await res.json();
       if (!Array.isArray(sessions) || sessions.length === 0) return;
 
       const savedOrder = await terminalStore.loadTabOrder();
@@ -86,7 +74,11 @@ export function useSessionSync() {
         return (a.created_at || 0) - (b.created_at || 0);
       });
 
-      _reconcileTabs(sortedSessions, await _jobsJson(jobsRes));
+      const allJobs = await _loadAllJobs(jobsRes, sortedSessions);
+      for (const s of sortedSessions) {
+        if (s.detached) continue; // detached セッションは Tabs パネルの Detached sessions に表示
+        terminalStore.addTerminalTab(_buildTabParams(s, allJobs));
+      }
 
       await restoreLayout();
 
@@ -116,16 +108,17 @@ export function useSessionSync() {
       const sessions = await sessionsRes.json();
       if (!Array.isArray(sessions)) return;
 
-      const allJobs = await _jobsJson(jobsRes);
+      const allJobs = await _loadAllJobs(jobsRes, sessions);
       const serverSessionIds = new Set(sessions.map((s) => s.session_id));
+      const localSessionIds = new Set(terminalStore.openTabs.map((t) => t.sessionId));
 
-      // サーバから消えたセッションの pendingClose は取り残し（clearPendingClose 漏れ）。
-      // 残すとそのセッションのタブを二度と再追加できなくなるためここで自己回復させる。
-      for (const id of stalePendingCloseIds(terminalStore.pendingCloseSessionIds, serverSessionIds)) {
-        terminalStore.clearPendingClose(id);
+      for (const s of sessions) {
+        if (s.detached) continue;
+        if (terminalStore.pendingCloseSessionIds.has(s.session_id)) continue;
+        if (!localSessionIds.has(s.session_id)) {
+          terminalStore.addTerminalTab(_buildTabParams(s, allJobs));
+        }
       }
-
-      _reconcileTabs(sessions, allJobs);
 
       for (const tab of [...terminalStore.openTabs]) {
         if (!serverSessionIds.has(tab.sessionId)) {

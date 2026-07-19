@@ -64,11 +64,6 @@ TMUX_META_ENV_NAMES = (
 # 一定周期のハートビートを供給する（フロントの WS_STALE_THRESHOLD_MS はこの約2回分）。
 WS_PING_INTERVAL_SEC = 15
 
-# セッション一覧スナップショットの有効期間。フロントのポーリング間隔
-# （SESSION_SYNC_INTERVAL_MS = 3s）より短くしつつ、複数クライアントの
-# ポーリングを 1 回の tmux 読み取りに畳む（session_snapshot.py 参照）。
-SESSIONS_SNAPSHOT_TTL_SEC = 2.0
-
 BRANCH_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_./-]+$")
 # commit を指す ref（省略形〜フルのコミットハッシュ、または stash エントリ）を受理する。
 COMMIT_REF_PATTERN = re.compile(r"^[0-9a-f]{4,40}$|^stash@\{\d+\}$")

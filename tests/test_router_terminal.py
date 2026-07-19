@@ -19,39 +19,17 @@ class TestListSessions:
         assert res.status_code in (401, 403)
 
     def test_tmux_command_failure_returns_error_not_empty_list(self, client):
-        # tmux コマンド自体が失敗（タイムアウト/OSError で None）し、一度も
-        # スナップショットを構築できていない場合は「セッション0件」と誤解されない
-        # よう空配列ではなくエラーを返す。
-        with patch("api.session_snapshot._run_tmux_cmd", return_value=None):
+        # tmux コマンド自体が失敗（タイムアウト/OSError で None）した場合、
+        # 「セッション0件」と誤解されないよう空配列ではなくエラーを返す
+        # （クライアント側の syncSessionsFromServer がタブを全消去してしまうため）。
+        with patch("api.routers.terminal._run_tmux_cmd", return_value=None):
             res = client.get("/terminal/sessions", headers=AUTH)
         assert res.status_code == 500
-
-    def test_tmux_failure_serves_last_known_good(self, client):
-        # 一度スナップショットが取れていれば、TTL 失効後の受動的な再構築が
-        # 失敗しても最後に成功した一覧を返し続ける（タブの全消去・点滅を
-        # 構造的に防ぐ）。TTL=0 で毎リクエスト再構築を強制する。
-        listing = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="ac-lkg-test\t1700000000\n", stderr="")
-        try:
-            with patch("api.session_snapshot.SESSIONS_SNAPSHOT_TTL_SEC", 0.0):
-                with patch("api.session_snapshot._run_tmux_cmd", return_value=listing), \
-                     patch("api.terminal_session.load_tmux_metadata", return_value={}), \
-                     patch("api.terminal_session.detect_workspace_from_tmux", return_value=None):
-                    first = client.get("/terminal/sessions", headers=AUTH)
-                assert [s["session_id"] for s in first.json()] == ["lkg-test"]
-                with patch("api.session_snapshot._run_tmux_cmd", return_value=None):
-                    res = client.get("/terminal/sessions", headers=AUTH)
-                assert res.status_code == 200
-                assert [s["session_id"] for s in res.json()] == ["lkg-test"]
-        finally:
-            from api.terminal_session import TERMINAL_SESSIONS, sessions_lock
-            with sessions_lock:
-                TERMINAL_SESSIONS.pop("lkg-test", None)
 
     def test_tmux_no_sessions_returns_empty_list(self, client):
         # tmux が正常応答した上での「セッション無し」（非ゼロ終了）は正当な空配列。
         no_sessions = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="no server running")
-        with patch("api.session_snapshot._run_tmux_cmd", return_value=no_sessions):
+        with patch("api.routers.terminal._run_tmux_cmd", return_value=no_sessions):
             res = client.get("/terminal/sessions", headers=AUTH)
         assert res.status_code == 200
         assert res.json() == []
@@ -204,129 +182,3 @@ class TestHistoryRestore:
         assert res.status_code == 200
         assert res.json()["content"] == "line1\r\nline2"
         assert not any("resize-window" in c for c in calls)
-
-
-class TestWsTmuxTransientFailure:
-    """tmux コマンド一時失敗時に WS がセッションを「不在」と誤判定しないことを確認する。
-
-    誤って 1008（Session not found）で閉じると、クライアントがタブを閉じて
-    生きているセッションを失うため、再接続可能な 1011 で閉じる必要がある。
-    """
-
-    SESSION_ID = "ws-transient-test"
-
-    def _register_session(self):
-        from api.terminal_session import TERMINAL_SESSIONS, TerminalSession, sessions_lock
-        session = TerminalSession(workspace=None, tmux_session_name=f"ac-{self.SESSION_ID}")
-        with sessions_lock:
-            TERMINAL_SESSIONS[self.SESSION_ID] = session
-        return session
-
-    def test_registered_session_transient_failure_closes_1011_and_keeps_registry(self, client):
-        import pytest
-        from starlette.websockets import WebSocketDisconnect
-
-        from api.terminal_session import TERMINAL_SESSIONS, sessions_lock
-        from conftest import TOKEN
-
-        self._register_session()
-        with patch("api.routers.terminal.has_tmux_session", return_value=None):
-            with pytest.raises(WebSocketDisconnect) as exc_info:
-                with client.websocket_connect(
-                    f"/terminal/ws/{self.SESSION_ID}?token={TOKEN}"
-                ) as ws:
-                    ws.receive_bytes()
-        assert exc_info.value.code == 1011
-        # 一時失敗では registry からセッションを破棄しない
-        with sessions_lock:
-            assert self.SESSION_ID in TERMINAL_SESSIONS
-
-    def test_unregistered_session_transient_failure_closes_1011(self, client):
-        import pytest
-        from starlette.websockets import WebSocketDisconnect
-
-        from conftest import TOKEN
-
-        with patch("api.routers.terminal.has_tmux_session", return_value=None):
-            with pytest.raises(WebSocketDisconnect) as exc_info:
-                with client.websocket_connect(
-                    f"/terminal/ws/{self.SESSION_ID}-unreg?token={TOKEN}"
-                ) as ws:
-                    ws.receive_bytes()
-        assert exc_info.value.code == 1011
-
-    def test_unregistered_session_definitely_missing_closes_1008(self, client):
-        import pytest
-        from starlette.websockets import WebSocketDisconnect
-
-        from conftest import TOKEN
-
-        with patch("api.routers.terminal.has_tmux_session", return_value=False):
-            with pytest.raises(WebSocketDisconnect) as exc_info:
-                with client.websocket_connect(
-                    f"/terminal/ws/{self.SESSION_ID}-missing?token={TOKEN}"
-                ) as ws:
-                    ws.receive_bytes()
-        assert exc_info.value.code == 1008
-
-
-class TestGetSessionTransientFailure:
-    """get_terminal_session 経由のエンドポイントが tmux 一時失敗を 404 と区別することを確認する。"""
-
-    def test_history_returns_500_on_transient_tmux_failure(self, client):
-        # 404 を返すとクライアントが「セッション消滅」と誤解し得るため 500 で区別する。
-        with patch("api.terminal_session.has_tmux_session", return_value=None):
-            res = client.get("/terminal/sessions/nonexistent-transient/history", headers=AUTH)
-        assert res.status_code == 500
-
-    def test_history_returns_404_when_definitely_missing(self, client):
-        with patch("api.terminal_session.has_tmux_session", return_value=False):
-            res = client.get("/terminal/sessions/nonexistent-gone/history", headers=AUTH)
-        assert res.status_code == 404
-
-
-class TestRestoreMetadataUnavailable:
-    """tmux メタデータが読めない間は不完全な登録をしないことを確認する。
-
-    workspace 無しで registry にキャッシュされると、ワークスペースセッションが
-    素のターミナルに化けたまま固定される。読めない間はセッション解決自体を
-    「一時失敗」（500 / WS 1011 / スナップショット last-known-good）に倒す。
-    """
-
-    TMUX_NAME = "ac-meta-test"
-
-    def test_from_tmux_returns_none_when_metadata_unavailable(self):
-        from api.terminal_session import TerminalSession
-        with patch("api.terminal_session.load_tmux_metadata", return_value=None):
-            assert TerminalSession.from_tmux(self.TMUX_NAME) is None
-
-    def test_from_tmux_empty_metadata_is_plain_terminal(self):
-        # tmux が正常応答した上での「メタデータ無し」（素のターミナル）は正当。
-        from api.terminal_session import TerminalSession
-        with patch("api.terminal_session.load_tmux_metadata", return_value={}), \
-             patch("api.terminal_session.detect_workspace_from_tmux", return_value=None):
-            sess = TerminalSession.from_tmux(self.TMUX_NAME)
-        assert sess is not None
-        assert sess.workspace is None
-
-    def test_get_terminal_session_returns_500_when_metadata_unavailable(self, client):
-        # 404 にするとクライアントが「セッション消滅」と誤解するため 500 で区別する。
-        with patch("api.terminal_session.has_tmux_session", return_value=True), \
-             patch("api.terminal_session.load_tmux_metadata", return_value=None):
-            res = client.get("/terminal/sessions/meta-test/history", headers=AUTH)
-        assert res.status_code == 500
-
-    def test_ws_closes_1011_when_metadata_unavailable(self, client):
-        import pytest
-        from starlette.websockets import WebSocketDisconnect
-
-        from conftest import TOKEN
-
-        with patch("api.routers.terminal.has_tmux_session", return_value=True), \
-             patch("api.terminal_session.load_tmux_metadata", return_value=None):
-            with pytest.raises(WebSocketDisconnect) as exc_info:
-                with client.websocket_connect(
-                    f"/terminal/ws/meta-test?token={TOKEN}"
-                ) as ws:
-                    ws.receive_bytes()
-        assert exc_info.value.code == 1011

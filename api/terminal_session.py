@@ -10,7 +10,7 @@ from .common import (
     TERMINAL_DEFAULT_ROWS,
     TMUX_SESSION_PREFIX,
 )
-from .errors import not_found, server_error
+from .errors import not_found
 from .terminal_pty import (
     PTY_EOF,
     PTY_EXECUTOR,
@@ -23,9 +23,9 @@ from .tmux import (
     _run_tmux_cmd,
     attach_tmux_session,
     detect_workspace_from_tmux,
-    has_tmux_session,
     kill_tmux_by_name,
     load_tmux_metadata,
+    tmux_session_exists,
 )
 
 logger = logging.getLogger(__name__)
@@ -137,18 +137,8 @@ class TerminalSession:
             logger.warning("save_workspace failed session=%s", self.tmux_session_name)
 
     @classmethod
-    def from_tmux(cls, tmux_name: str) -> "TerminalSession | None":
-        """tmux のセッション環境変数からセッションを復元する。
-
-        メタデータが読めない（tmux コマンドの一時失敗）場合は None を返す。
-        workspace 無しのまま登録するとレジストリにキャッシュされ、ワークスペース
-        セッションが素のターミナルに化けたまま固定されるため、不完全な登録は
-        せず判断を呼び出し側に委ねる（スナップショットは last-known-good を返し、
-        WS はリトライ可能なコードで閉じる）。
-        """
+    def from_tmux(cls, tmux_name: str) -> "TerminalSession":
         meta = load_tmux_metadata(tmux_name)
-        if meta is None:
-            return None
         workspace = meta.get("TMUX_WORKSPACE") or detect_workspace_from_tmux(tmux_name)
         sess = cls(
             workspace=workspace,
@@ -177,13 +167,10 @@ TERMINAL_SESSIONS: dict[str, TerminalSession] = {}
 sessions_lock = threading.Lock()
 
 
-def _register_tmux_session(session_id: str, tmux_name: str) -> TerminalSession | None:
-    """tmux からセッションを復元して登録する。メタデータが読めなければ None。"""
+def _register_tmux_session(session_id: str, tmux_name: str) -> TerminalSession:
     session = TerminalSession.from_tmux(tmux_name)
-    if session is None:
-        return None
     with sessions_lock:
-        session = TERMINAL_SESSIONS.setdefault(session_id, session)
+        TERMINAL_SESSIONS[session_id] = session
     logger.info("on-demand registered tmux session=%s workspace=%s",
                 session_id, session.workspace or "(none)")
     return session
@@ -192,22 +179,14 @@ def _register_tmux_session(session_id: str, tmux_name: str) -> TerminalSession |
 def get_terminal_session(session_id: str) -> TerminalSession:
     with sessions_lock:
         session = TERMINAL_SESSIONS.get(session_id)
-    if session:
-        return session
+        if session:
+            return session
 
     tmux_name = TMUX_SESSION_PREFIX + session_id
-    exists = has_tmux_session(tmux_name)
-    if exists is None:
-        # tmux コマンド自体の失敗。「セッション不在」と誤判定して 404 を返すと
-        # クライアントが生きているセッションを閉じてしまうため 500 で区別する。
-        raise server_error("Failed to check tmux session")
-    if not exists:
+    if not tmux_session_exists(tmux_name):
         raise not_found("Terminal session not found")
 
-    session = _register_tmux_session(session_id, tmux_name)
-    if session is None:
-        raise server_error("Failed to load session metadata")
-    return session
+    return _register_tmux_session(session_id, tmux_name)
 
 
 # ─── Per-client PTY bridge lifecycle ─────────────────────────────────────────
@@ -299,27 +278,6 @@ def _handle_resize(bridge: ClientBridge, payload: bytes, session_id: str) -> Non
 
 # ─── Per-client reader loop ──────────────────────────────────────────────────
 
-WS_CLOSE_CLIENT_DETACHED = 1011
-
-
-def eof_close_code(base_session_exists: bool | None) -> int:
-    """PTY EOF 時の WS close コードを決める。
-
-    EOF は「シェル終了でベースセッションが消えた」以外に、attach クライアント
-    プロセスだけが死んだ場合（macOS のスリープ復帰・tmux の一時不調・C-b d 等）
-    にも起きる。ベースセッションの実在を確認せず 4001（session exited）を送ると、
-    クライアントがタブを閉じて生きているセッションを失う（ADR 23 と同型の誤判定）。
-
-    - False（確実に不在）→ 4001: 正当なセッション終了としてタブを閉じさせる
-    - True / None（存在 or 不明）→ 1011: 再接続バックオフに乗せて attach し直させる
-      （不明時に本当は不在だった場合は、再接続後の _ensure_tmux_session が
-      セッションを再作成してタブが残る。稀なエッジだが破壊よりは安全側）
-    """
-    if base_session_exists is False:
-        return WS_CLOSE_SESSION_EXITED
-    return WS_CLOSE_CLIENT_DETACHED
-
-
 async def _bridge_reader(websocket: WebSocket, bridge: ClientBridge, session_id: str) -> None:
     loop = asyncio.get_event_loop()
     pty_eof = False
@@ -344,16 +302,11 @@ async def _bridge_reader(websocket: WebSocket, bridge: ClientBridge, session_id:
     finally:
         bridge.reader_task = None
         if pty_eof:
-            # シェル終了でベースセッションが消えるとアタッチ中のクライアントも EOF になるが、
-            # attach クライアントだけが死んだ（セッションは生きている）場合もある。
-            # ベースセッションの実在を確認してから close コードを選ぶ（eof_close_code 参照）。
-            tmux_name = TMUX_SESSION_PREFIX + session_id
-            exists = await loop.run_in_executor(PTY_EXECUTOR, has_tmux_session, tmux_name)
-            code = eof_close_code(exists)
-            reason = "session exited" if code == WS_CLOSE_SESSION_EXITED else "client detached"
-            logger.info("PTY EOF detected session=%s exists=%s close=%d", session_id, exists, code)
+            # シェル終了でベースセッションが消えるとアタッチ中のクライアントも EOF になる。
+            # このクライアントを閉じて、フロントにセッション終了を伝える。
+            logger.info("PTY EOF detected, closing client session=%s", session_id)
             try:
-                await websocket.close(code=code, reason=reason)
+                await websocket.close(code=WS_CLOSE_SESSION_EXITED, reason="session exited")
             except (RuntimeError, OSError):
                 pass
 

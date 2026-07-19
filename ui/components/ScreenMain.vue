@@ -155,8 +155,8 @@ onMounted(() => {
     }
   }));
 
-  bridgeCleanups.push(on("tab:close", ({ tab, localOnly }) => {
-    closeTab(tab, { localOnly: !!localOnly });
+  bridgeCleanups.push(on("tab:close", ({ tab }) => {
+    closeTab(tab);
     const activeTab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
     workspaceStore.selectedWorkspace = activeTab?.workspace || null;
   }));

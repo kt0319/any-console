@@ -9,7 +9,6 @@ import { TERMINAL_SETTINGS_META, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSett
 import { safeJsonLoad } from "../utils/storage.js";
 import { isTouchInput } from "../utils/device.js";
 import { EP_TERMINAL_ORDER, terminalSessionDetachedPath } from "../utils/endpoints.js";
-import { buildTabMeta, tabMetaEquals } from "../utils/session-jobs.js";
 import { useAuthStore } from "./auth.js";
 
 const TERMINAL_SETTINGS_KEY = LS_KEY_TERMINAL_SETTINGS;
@@ -115,8 +114,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     return terminalSettings.value;
   }
 
-  function addTerminalTab(params) {
-    const { wsUrl, restored } = params;
+  function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, restored }) {
     const opts = getTerminalRuntimeOptions();
     const term = new Terminal({ ...opts, allowProposedApi: true });
     const fitAddon = new FitAddon();
@@ -128,12 +126,18 @@ export const useTerminalStore = defineStore("terminal", () => {
 
     const sessionId = wsUrl.replace(/.*\/terminal\/ws\//, "").replace(/\?.*/, "");
     const id = ++terminalIdCounter.value;
+    const label = jobLabel || workspace || "terminal";
 
     const tab = markRaw({
       id,
       sessionId,
       wsUrl,
-      ...buildTabMeta(params),
+      workspace: workspace || null,
+      label,
+      wsIcon: wsIcon ? { name: wsIcon, color: wsIconColor || null } : null,
+      icon: icon ? { name: icon, color: iconColor || null } : null,
+      jobName: jobName || null,
+      jobLabel: jobLabel || null,
       term,
       fitAddon,
       ws: null,
@@ -197,22 +201,12 @@ export const useTerminalStore = defineStore("terminal", () => {
     }
   }
 
-  /**
-   * タブの表示メタ（workspace / label / アイコン類）をサーバのセッション情報へ
-   * 追随させる。同期ポーリングから毎回呼ばれる前提で、変更が無ければ何もしない。
-   * @param {number} tabId
-   * @param {Parameters<typeof buildTabMeta>[0]} params buildSessionTabParams の出力
-   * @returns {boolean} 変更を適用したか
-   */
-  function applyTabMeta(tabId, params) {
+  function setTabWorkspace(tabId, workspaceName) {
     const tab = openTabs.value.find((t) => t.id === tabId);
-    if (!tab) return false;
-    const meta = buildTabMeta(params);
-    if (tabMetaEquals(tab, meta)) return false;
-    Object.assign(tab, meta);
+    if (!tab) return;
+    tab.workspace = workspaceName || null;
     // markRaw オブジェクトの変更を Vue に検知させるため配列参照を更新
     openTabs.value = [...openTabs.value];
-    return true;
   }
 
   function moveTab(fromIndex, toIndex) {
@@ -283,7 +277,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     switchTab,
     detachTab,
     moveTab,
-    applyTabMeta,
+    setTabWorkspace,
     saveTabOrder,
     loadTabOrder,
     resetTerminalSettings,

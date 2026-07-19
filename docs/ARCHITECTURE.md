@@ -17,7 +17,6 @@ api/                          Backend (FastAPI)
   auth.py                     Bearer token auth (optional), trusted-proxy detection
   runner.py                   Job execution (subprocess, default timeout 300s)
   terminal_session.py / tmux.py  tmux × pty.fork × WebSocket bridge
-  session_snapshot.py         Session list snapshot (TTL + last-known-good, ADR 24)
   git_utils.py / git_lock.py  Git subprocess invocation, workspace lock
   git_watch.py                Filesystem watching (watchfiles) × WebSocket push for realtime git status
   config.py / config_schema.py  config.json read/write, Pydantic validation
