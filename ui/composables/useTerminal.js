@@ -130,10 +130,7 @@ export function useTerminal() {
       if (e.code === WS_CLOSE_SESSION_NOT_FOUND) {
         const label = tab.jobLabel || tab.label || tab.sessionId;
         toast.error(`${label}: Session terminated unexpectedly`);
-        // サーバが「セッション不在」と判断したケース。ここから DELETE を送ると
-        // 誤判定時に生きている tmux セッションを殺してしまうため、タブのローカル除去に
-        // 留める。本当に不在なら同期ポーリングが再追加せず、生きていれば再追加される。
-        emit("tab:close", { tab, localOnly: true });
+        emit("tab:close", { tab });
         return;
       }
 

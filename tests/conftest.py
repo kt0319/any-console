@@ -46,16 +46,6 @@ def isolate_fs(tmp_path, monkeypatch):
     return {"work": work, "data": data, "config_file": config_file}
 
 
-@pytest.fixture(autouse=True)
-def isolate_sessions_snapshot():
-    # スナップショットはモジュールグローバルの TTL キャッシュのため、
-    # テスト間で持ち越すと前のテストの一覧が漏れる。毎テスト破棄する。
-    from api.session_snapshot import invalidate_sessions_snapshot
-    invalidate_sessions_snapshot()
-    yield
-    invalidate_sessions_snapshot()
-
-
 @pytest.fixture()
 def client():
     from api.main import app

@@ -20,10 +20,10 @@ from ..common import (
     save_json_file,
 )
 from ..errors import not_found, server_error, timeout_error
-from ..session_snapshot import get_sessions_snapshot, invalidate_sessions_snapshot
 from ..terminal_session import (
     PTY_EXECUTOR,
     TERMINAL_SESSIONS,
+    TerminalSession,
     _handle_resize,
     _kill_tmux_session,
     _register_tmux_session,
@@ -38,9 +38,10 @@ from ..tmux import (
     _run_tmux_cmd,
     create_tmux_session,
     get_session_cwd,
+    get_tmux_created,
     get_window_width,
-    has_tmux_session,
     send_keys_to_tmux,
+    tmux_session_exists,
 )
 from .git_file_utils import list_directory_entries, read_file_content_response
 from .git_helpers import resolve_and_validate_workspace_path
@@ -53,14 +54,48 @@ router = APIRouter(dependencies=[Depends(verify_token)])
 
 
 @router.get("/terminal/sessions")
-def list_terminal_sessions():
-    # sync def にして FastAPI の threadpool で実行する（tmux subprocess で
-    # イベントループを塞がない）。一覧の実体は session_snapshot に集約。
-    sessions = get_sessions_snapshot()
-    if sessions is None:
-        # tmux コマンドが失敗し、一度も一覧を取得できていない。「セッション0件」と
-        # 区別しないとクライアントが誤ってタブを全消去してしまう。
+async def list_terminal_sessions():
+    result = _run_tmux_cmd("list-sessions", "-F", "#{session_name}")
+    if result is None:
+        # tmux コマンド自体が失敗（タイムアウト/OSError）。「セッション0件」と区別しないと
+        # クライアントが誤ってタブを全消去してしまう（syncSessionsFromServer参照）。
         raise server_error("Failed to list tmux sessions")
+    if result.returncode != 0:
+        # tmux が正常応答した上での「セッション無し」は正当な空配列。
+        return []
+
+    sessions = []
+    for line in result.stdout.strip().splitlines():
+        name = line.strip()
+        if not name.startswith(TMUX_SESSION_PREFIX):
+            continue
+        session_id = name[len(TMUX_SESSION_PREFIX):]
+        if not session_id:
+            continue
+
+        with sessions_lock:
+            cached = TERMINAL_SESSIONS.get(session_id)
+
+        if cached:
+            meta_src = cached
+        else:
+            meta_src = TerminalSession.from_tmux(name)
+        md = meta_src.metadata_dict()
+
+        created_at = get_tmux_created(name)
+        sessions.append({
+            "session_id": session_id,
+            "workspace": md["workspace"],
+            "ws_url": f"/terminal/ws/{session_id}",
+            "icon": md["icon"],
+            "icon_color": md["icon_color"],
+            "job_name": md["job_name"],
+            "job_label": md["job_label"],
+            "created_at": created_at,
+            "detached": meta_src.detached,
+        })
+
+    sessions.sort(key=lambda s: s.get("created_at") or 0)
     return sessions
 
 
@@ -110,7 +145,6 @@ async def delete_terminal_session(session_id: str):
     if not session:
         raise not_found("Terminal session not found")
     _kill_tmux_session(session)
-    invalidate_sessions_snapshot()
     logger.info("terminal session deleted session=%s", session_id)
     return {"status": "ok"}
 
@@ -176,7 +210,6 @@ async def set_terminal_session_workspace(session_id: str, body: WorkspaceBody):
     with sessions_lock:
         session.workspace = body.workspace
     session.save_workspace()
-    invalidate_sessions_snapshot()
     logger.info("terminal session workspace set session=%s workspace=%s", session_id, body.workspace)
     return {"status": "ok", "workspace": body.workspace}
 
@@ -193,7 +226,6 @@ async def set_terminal_detached(session_id: str, body: DetachedBody):
     with sessions_lock:
         session.detached = bool(body.detached)
     session.save_detached()
-    invalidate_sessions_snapshot()
     return {"status": "ok", "detached": session.detached}
 
 
@@ -234,37 +266,18 @@ ws_router = APIRouter()
 
 
 async def _resolve_session_for_ws(session_id: str):
-    """セッションを解決する。戻り値は (session, tmux_unavailable)。
-
-    tmux コマンドの一時失敗を「セッション不在」と区別する。不在扱いで 1008 を
-    返すとクライアントがタブを閉じてしまうため、不明時は tmux_unavailable=True で
-    返し、呼び出し元が再接続可能なコード（1011）で閉じる。
-    """
     with sessions_lock:
         session = TERMINAL_SESSIONS.get(session_id)
-    if session:
-        return session, False
-    tmux_name = TMUX_SESSION_PREFIX + session_id
-    exists = has_tmux_session(tmux_name)
-    if exists is None:
-        return None, True
-    if exists:
-        session = _register_tmux_session(session_id, tmux_name)
-        # メタデータが読めない間は不完全な登録をせず、一時失敗として扱う。
-        return session, session is None
-    return None, False
+    if not session:
+        tmux_name = TMUX_SESSION_PREFIX + session_id
+        if tmux_session_exists(tmux_name):
+            session = _register_tmux_session(session_id, tmux_name)
+    return session
 
 
 async def _ensure_tmux_session(websocket: WebSocket, session, session_id: str) -> bool:
-    exists = has_tmux_session(session.tmux_session_name)
-    if exists:
+    if tmux_session_exists(session.tmux_session_name):
         return True
-    if exists is None:
-        # tmux コマンドの一時失敗。セッション不在と誤判定して再作成や registry 破棄を
-        # すると生きているセッションを失うため、再接続可能なコードで閉じて何もしない。
-        logger.warning("tmux has-session failed transiently session=%s", session_id)
-        await websocket.close(code=1011, reason="tmux unavailable")
-        return False
     try:
         ws_resolved = resolve_workspace_path(session.workspace)
         workspace_path = str(ws_resolved) if ws_resolved else None
@@ -273,7 +286,6 @@ async def _ensure_tmux_session(websocket: WebSocket, session, session_id: str) -
     try:
         create_tmux_session(workspace_path, session.tmux_session_name)
         session.save_metadata()
-        invalidate_sessions_snapshot()
         logger.info("recreated tmux session=%s workspace=%s", session_id, session.workspace or "(none)")
         return True
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
@@ -363,15 +375,9 @@ async def terminal_ws(websocket: WebSocket, session_id: str, token: str = "", co
         await websocket.close(code=1008, reason="Unauthorized")
         return
 
-    session, tmux_unavailable = await _resolve_session_for_ws(session_id)
+    session = await _resolve_session_for_ws(session_id)
 
     await websocket.accept()
-
-    if tmux_unavailable:
-        # 一時的な tmux 失敗。1008（not found）で閉じるとクライアントがタブを
-        # 閉じてしまうため、再接続バックオフに乗る 1011 で閉じる。
-        await websocket.close(code=1011, reason="tmux unavailable")
-        return
 
     if not session:
         await websocket.close(code=1008, reason="Session not found")
