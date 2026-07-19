@@ -79,7 +79,7 @@ def _session_meta(session_id: str) -> tuple[str | None, str | None]:
         cached = TERMINAL_SESSIONS.get(session_id)
     if cached is not None:
         return cached.workspace, cached.job_name
-    meta = load_tmux_metadata(TMUX_SESSION_PREFIX + session_id)
+    meta = load_tmux_metadata(TMUX_SESSION_PREFIX + session_id) or {}
     return meta.get("TMUX_WORKSPACE"), meta.get("TMUX_JOB_NAME")
 
 

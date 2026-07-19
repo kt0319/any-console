@@ -137,8 +137,18 @@ class TerminalSession:
             logger.warning("save_workspace failed session=%s", self.tmux_session_name)
 
     @classmethod
-    def from_tmux(cls, tmux_name: str) -> "TerminalSession":
+    def from_tmux(cls, tmux_name: str) -> "TerminalSession | None":
+        """tmux のセッション環境変数からセッションを復元する。
+
+        メタデータが読めない（tmux コマンドの一時失敗）場合は None を返す。
+        workspace 無しのまま登録するとレジストリにキャッシュされ、ワークスペース
+        セッションが素のターミナルに化けたまま固定されるため、不完全な登録は
+        せず判断を呼び出し側に委ねる（スナップショットは last-known-good を返し、
+        WS はリトライ可能なコードで閉じる）。
+        """
         meta = load_tmux_metadata(tmux_name)
+        if meta is None:
+            return None
         workspace = meta.get("TMUX_WORKSPACE") or detect_workspace_from_tmux(tmux_name)
         sess = cls(
             workspace=workspace,
@@ -167,10 +177,13 @@ TERMINAL_SESSIONS: dict[str, TerminalSession] = {}
 sessions_lock = threading.Lock()
 
 
-def _register_tmux_session(session_id: str, tmux_name: str) -> TerminalSession:
+def _register_tmux_session(session_id: str, tmux_name: str) -> TerminalSession | None:
+    """tmux からセッションを復元して登録する。メタデータが読めなければ None。"""
     session = TerminalSession.from_tmux(tmux_name)
+    if session is None:
+        return None
     with sessions_lock:
-        TERMINAL_SESSIONS[session_id] = session
+        session = TERMINAL_SESSIONS.setdefault(session_id, session)
     logger.info("on-demand registered tmux session=%s workspace=%s",
                 session_id, session.workspace or "(none)")
     return session
@@ -179,8 +192,8 @@ def _register_tmux_session(session_id: str, tmux_name: str) -> TerminalSession:
 def get_terminal_session(session_id: str) -> TerminalSession:
     with sessions_lock:
         session = TERMINAL_SESSIONS.get(session_id)
-        if session:
-            return session
+    if session:
+        return session
 
     tmux_name = TMUX_SESSION_PREFIX + session_id
     exists = has_tmux_session(tmux_name)
@@ -191,7 +204,10 @@ def get_terminal_session(session_id: str) -> TerminalSession:
     if not exists:
         raise not_found("Terminal session not found")
 
-    return _register_tmux_session(session_id, tmux_name)
+    session = _register_tmux_session(session_id, tmux_name)
+    if session is None:
+        raise server_error("Failed to load session metadata")
+    return session
 
 
 # ─── Per-client PTY bridge lifecycle ─────────────────────────────────────────

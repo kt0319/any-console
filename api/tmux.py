@@ -163,10 +163,17 @@ def wait_pane_ready(
     return False
 
 
-def load_tmux_metadata(tmux_name: str) -> dict:
+def load_tmux_metadata(tmux_name: str) -> dict | None:
+    """セッション環境変数からメタデータを読み込む（tri-state）。
+
+    tmux コマンドの一時失敗（タイムアウト/OSError/非ゼロ終了）を「メタデータ無し」
+    （空 dict）と区別しないと、ワークスペースセッションを素のターミナルとして
+    復元してしまう（has_tmux_session と同型の誤判定）。
+    dict=成功（空含む） / None=不明（tmux コマンド失敗）。
+    """
     result = _run_tmux_cmd("show-environment", "-t", tmux_name)
     if not result or result.returncode != 0:
-        return {}
+        return None
     meta = {}
     for line in result.stdout.strip().splitlines():
         if "=" not in line:
@@ -200,13 +207,23 @@ def get_session_cwd(tmux_name: str) -> str | None:
 def detect_workspace_from_tmux(tmux_name: str) -> str | None:
     """ペインのカレントディレクトリからワークスペース ID を推定して返す。"""
     result = _run_tmux_cmd("display-message", "-t", tmux_name, "-p", "#{pane_current_path}")
-    if result and result.returncode == 0:
-        pane_path = result.stdout.strip()
-        from .config import list_workspace_entries
-        entries = list_workspace_entries()
-        for ws_id, config in entries.items():
-            ws_path = config.get("path", "")
-            if ws_path and (pane_path == ws_path or pane_path.startswith(ws_path + "/")):
+    if not result or result.returncode != 0:
+        return None
+    pane_path = result.stdout.strip()
+    if not pane_path:
+        return None
+    from .config import list_workspace_entries
+    entries = list_workspace_entries()
+    for ws_id, config in entries.items():
+        raw_path = config.get("path", "")
+        if not raw_path:
+            continue
+        # config の path は `~` やシンボリックリンクを含みうる一方、
+        # pane_current_path はカーネルが解決した実パスで返るため、
+        # 展開・解決の両方で比較しないとワークスペース検出を取りこぼす。
+        expanded = os.path.expanduser(raw_path)
+        for ws_path in {expanded, os.path.realpath(expanded)}:
+            if pane_path == ws_path or pane_path.startswith(ws_path + "/"):
                 return ws_id
     return None
 
@@ -221,11 +238,3 @@ def get_window_width(tmux_name: str) -> int | None:
     return None
 
 
-def get_tmux_created(tmux_name: str) -> int | None:
-    result = _run_tmux_cmd("display-message", "-t", tmux_name, "-p", "#{session_created}")
-    if result and result.returncode == 0:
-        try:
-            return int(result.stdout.strip())
-        except ValueError:
-            pass
-    return None
