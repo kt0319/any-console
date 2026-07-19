@@ -151,7 +151,10 @@ def get_sessions_snapshot() -> list[dict] | None:
             if _generation == generation:
                 _snapshot = fresh
                 _attempt_at = time.monotonic()
-            # 世代が進んでいたら、この結果は変更前の状態かもしれないので
-            # キャッシュしない（返すのは可 — 変更前の一瞬の読み取りと等価）。
-            # _attempt_at も進めず、次の読み取りで即再構築させる。
-            return fresh
+                return fresh
+            # 世代が進んでいた: この結果は変更前の tmux 状態を写した可能性が
+            # あるため、キャッシュも配信もしない。変更時の invalidate は前回値を
+            # 破棄しているので _snapshot は None（= 500）となり、クライアントは
+            # このサイクルを skip する。_attempt_at も進めず、次の読み取りで
+            # 即再構築させる。
+            return _snapshot

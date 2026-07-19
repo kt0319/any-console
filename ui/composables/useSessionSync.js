@@ -40,8 +40,10 @@ export function useSessionSync() {
    * （復元初回は一覧が信頼できても、タブがまだ無いだけの可能性があるため）。
    * 追加タブは常に restored 扱い: ここで発見されるのは既存の tmux セッション
    * であり、スクロールバックの履歴復元が必要なため。
-   * allJobs が null（取得失敗）の間は既存タブのメタ更新をスキップし、
-   * 誤ったフォールバックアイコンで上書きしない。
+   * allJobs が null（取得失敗）の間は「ジョブタブの」メタ更新だけスキップし、
+   * 誤ったフォールバックアイコン（mdi-play）で上書きしない。ジョブに依存
+   * しないタブの workspace・ラベル更新は通す（ワークスペース紐付け直後の
+   * 反映を jobs エンドポイントの不調で止めない）。
    */
   function _reconcileTabs(sessions, allJobs) {
     const tabBySession = new Map(terminalStore.openTabs.map((t) => [t.sessionId, t]));
@@ -50,7 +52,9 @@ export function useSessionSync() {
       if (terminalStore.pendingCloseSessionIds.has(s.session_id)) continue;
       const tab = tabBySession.get(s.session_id);
       if (tab) {
-        if (allJobs) terminalStore.applyTabMeta(tab.id, _buildTabParams(s, allJobs));
+        if (allJobs || !s.job_name) {
+          terminalStore.applyTabMeta(tab.id, _buildTabParams(s, allJobs || {}));
+        }
       } else {
         terminalStore.addTerminalTab({ ..._buildTabParams(s, allJobs || {}), restored: true });
       }

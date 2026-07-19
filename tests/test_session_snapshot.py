@@ -100,22 +100,23 @@ class TestLastKnownGood:
 
 
 class TestGenerationGuard:
-    def test_invalidate_during_build_prevents_caching(self, registry_cleanup):
+    def test_invalidate_during_build_discards_result(self, registry_cleanup):
         # 構築中に変更操作（invalidate）が入ったら、その構築結果は変更前の
-        # 状態かもしれないのでキャッシュせず、次の読み取りで再構築する。
+        # 状態かもしれないのでキャッシュも配信もしない（None = 500 で
+        # クライアントにそのサイクルを skip させる）。次の読み取りで再構築する。
         from api.session_snapshot import invalidate_sessions_snapshot
 
         def run_and_mutate(*args):
             invalidate_sessions_snapshot()  # 構築中の変更操作をシミュレート
             return _listing("ac-snap-a\t100\n")
 
-        with patch("api.session_snapshot._run_tmux_cmd", side_effect=run_and_mutate) as run:
-            first = _get()
-        assert [s["session_id"] for s in first] == ["snap-a"]
+        with patch("api.session_snapshot._run_tmux_cmd", side_effect=run_and_mutate):
+            assert _get() is None  # 変更を跨いだ結果は正として配信しない
         with patch("api.session_snapshot._run_tmux_cmd",
                    return_value=_listing("ac-snap-a\t100\n")) as run2:
-            _get()
-        assert run2.call_count == 1  # キャッシュされていないので TTL 内でも再構築
+            snap = _get()
+        assert [s["session_id"] for s in snap] == ["snap-a"]
+        assert run2.call_count == 1  # attempt を進めていないので TTL 内でも即再構築
 
 
 class TestBuildSnapshot:
