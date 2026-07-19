@@ -39,16 +39,9 @@
               </template>
               <template v-else>{{ symbolDisplayLabel(keyDef) }}</template>
             </div>
-            <div
-              v-if="ri === 2 && ci === row.length - 1"
-              class="quick-key"
-              @touchstart.prevent="onModifierKeyStart"
-              @touchend.prevent="(e) => onModifierKeyEnd(e, () => sendOrType({ key: 'Enter', shift: modifierState.shift, ctrl: modifierState.ctrl }))"
-              @touchcancel="onQuickKeyCancel($event)"
-              @click="() => sendOrType({ key: 'Enter', shift: modifierState.shift, ctrl: modifierState.ctrl })"
-            >
-              <span class="flick-main" style="font-size:13px">&crarr;</span>
-            </div>
+            <!-- fn キーの旧スロット。列幅を他行と揃えるための非表示プレースホルダ
+                 （実体は quick-extra-stack 直下に絶対配置で常時右下固定表示） -->
+            <div v-if="ri === 2 && ci === row.length - 1" class="quick-key quick-key-placeholder"></div>
           </template>
         </div>
       </div>
@@ -74,77 +67,26 @@
           </div>
         </div>
         <div class="quick-extra-row">
-          <div class="quick-key quick-fn-key" @touchstart.prevent @touchend.prevent="(e) => onNavCameraEnd(e)" @touchcancel="onQuickKeyCancel($event)" @click="openCamera">
-            <span class="flick-main"><span class="mdi mdi-camera"></span></span>
-          </div>
           <div v-for="navKey in navKeys" :key="navKey.key" class="quick-key quick-fn-key" @touchstart.prevent @touchend.prevent="(e) => onNavKeyEnd(e, navKey.key)" @touchcancel="onQuickKeyCancel($event)" @click="sendKeyToTerminal({ key: navKey.key })">
             <span class="flick-main" style="font-size:11px">{{ navKey.label }}</span>
           </div>
         </div>
       </div>
-    </div>
-    <div v-show="!inputFocused" class="quick-extra-row quick-extra-modifier-keys">
+
+      <!-- fn キー: qwerty / snippet / fn のどのパネル表示中も同じ右下位置に固定表示する -->
       <div
-        class="quick-key quick-flick-arrow quick-modifier"
-        :class="{ active: modifierState.shift }"
-        @touchstart.prevent="shiftFlick.onStart"
-        @touchend.prevent="shiftFlick.onEnd"
-        @touchcancel="onQuickKeyCancel($event)"
-        @click="toggleShift"
-      >
-        <span class="flick-hint-top" :class="{ 'flick-hint-active': showSymbolView }">#+=</span>
-        <span class="flick-main"><span class="mdi mdi-arrow-up-bold"></span></span>
-      </div>
-      <div
-        class="quick-key quick-flick-arrow quick-modifier"
-        :class="{ active: modifierState.ctrl }"
-        @touchstart.prevent="ctrlFlick.onStart"
-        @touchend.prevent="ctrlFlick.onEnd"
-        @touchcancel="onQuickKeyCancel($event)"
-        @click="toggleCtrl"
-      >
-        <span class="flick-hint-top">^C</span>
-        <span class="flick-hint-left">^L</span>
-        <span class="flick-main">&Hat;</span>
-        <span class="flick-hint-right">^R</span>
-        <span class="flick-hint-bottom">^O</span>
-      </div>
-      <div
-        class="quick-key quick-flick-arrow"
-        @touchstart.prevent="spaceFlick.onStart"
-        @touchend.prevent="spaceFlick.onEnd"
-        @touchcancel="onQuickKeyCancel($event)"
-        @click="sendSpace"
-      >
-        <span class="flick-hint-top">PgU</span>
-        <span class="flick-hint-left">Home</span>
-        <span class="flick-main">&blank;</span>
-        <span class="flick-hint-right">End</span>
-        <span class="flick-hint-bottom">PgD</span>
-      </div>
-      <div
-        class="quick-key quick-flick-arrow quick-modifier"
+        class="quick-key quick-modifier quick-fn-toggle"
         :class="{ active: showFnView }"
-        @touchstart.prevent="fnFlick.onStart"
-        @touchend.prevent="fnFlick.onEnd"
-        @touchcancel="onQuickKeyCancel($event)"
-        @click="toggleFnView"
-      >
-        <span class="flick-hint-top">Refresh</span>
-        <span class="flick-main" style="font-size:12px">fn</span>
-        <span class="flick-hint-bottom">Reload</span>
-      </div>
-      <div
-        class="quick-key quick-modifier"
-        :class="{ active: showSnippetView }"
         @touchstart.prevent="onModifierKeyStart"
-        @touchend.prevent="(e) => onModifierKeyEnd(e, toggleSnippetView)"
+        @touchend.prevent="(e) => onModifierKeyEnd(e, cycleFnKey)"
         @touchcancel="onQuickKeyCancel($event)"
-        @click="toggleSnippetView"
+        @click="cycleFnKey"
       >
-        <span class="flick-main"><span class="mdi mdi-text-box-multiple-outline"></span></span>
+        <span class="flick-main" style="font-size:12px">{{ fnKeyLabel }}</span>
       </div>
     </div>
+    <!-- shift/ctrl/space は KeyboardBar 側（isFullKeyboard 中に入力フォームと入れ替わる行）に移動済み。
+         fn は Esc キー位置、snippet は Enter キー位置に統合済み（上の quick-extra-layer-qwerty 内）。 -->
     <div v-if="!hideBottomRow" class="quick-extra-row quick-extra-bottom-keys">
       <KeyboardInput ref="keyboardInput" v-model:draft="draft" @focused="onInputFocused" @submitted="$emit('submitted')" />
       <div class="quick-key quick-flick-arrow quick-key-toggle active" ref="topArrowFlickEl">
@@ -180,7 +122,6 @@ import { useKeyboard } from "../composables/useKeyboard.js";
 import { useInputStore } from "../stores/input.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useInputDraftHistory } from "../composables/useInputDraftHistory.js";
-import { useQwertyKeyViews } from "../composables/useQwertyKeyViews.js";
 import { useQwertyKeyPress } from "../composables/useQwertyKeyPress.js";
 import { useQwertyCamera } from "../composables/useQwertyCamera.js";
 import { useQwertyBottomRowFlicks } from "../composables/useQwertyBottomRowFlicks.js";
@@ -194,9 +135,10 @@ const props = defineProps({
   hideBottomRow: { type: Boolean, default: false },
   externalInputFocused: { type: Boolean, default: false },
   externalSnippetView: { type: Boolean, default: false },
+  externalFnView: { type: Boolean, default: false },
 });
 
-const emitLocal = defineEmits(["dismiss", "submitted", "inputFocus", "snippetToggle"]);
+const emitLocal = defineEmits(["dismiss", "submitted", "inputFocus", "snippetToggle", "fnToggle"]);
 
 const inputStore = useInputStore();
 const auth = useAuthStore();
@@ -220,20 +162,35 @@ function toggleSnippetView() {
   }
 }
 
-function dismissSnippetView() {
-  if (!showSnippetView.value) return;
-  if (props.hideBottomRow) emitLocal("snippetToggle");
-  else _showSnippetView.value = false;
-}
-
-// fn ビュー表示時に snippet ビューを閉じる (hideBottomRow 時は KeyboardBar 側の状態を切替)
-function closeSnippetView() {
+function toggleFnView() {
   if (props.hideBottomRow) {
-    if (props.externalSnippetView) emitLocal("snippetToggle");
+    emitLocal("fnToggle");
   } else {
-    _showSnippetView.value = false;
+    _showFnView.value = !_showFnView.value;
   }
 }
+
+// fn キー: タップごとに fnビュー → snippetビュー → 通常グリッド → fnビュー…と巡回する。
+// toggleFnView が ON 化時に closeSnippetView（snippet を閉じる）を伴うため、
+// fn→snippet の遷移は「fn を先に OFF」→「snippet を ON」の順で呼ぶ。
+function cycleFnKey() {
+  if (showFnView.value) {
+    toggleFnView();
+    toggleSnippetView();
+  } else if (showSnippetView.value) {
+    toggleSnippetView();
+  } else {
+    toggleFnView();
+  }
+}
+
+// fn キーのラベル。予告型 = 次にタップしたら遷移する先の状態を表示する
+// （qwerty中は次がfnなので "fn"、fn中は次がsnippetなので "snip"、snippet中は次がqwertyなので "ABC"）。
+const fnKeyLabel = computed(() => {
+  if (showFnView.value) return "snip";
+  if (showSnippetView.value) return "ABC";
+  return "fn";
+});
 
 const { historyPrev, historyNext, cycleSnippet } = useInputDraftHistory(
   draft, inputFocused, sendTextToTerminal, { onSend: () => emitLocal("dismiss") }
@@ -265,19 +222,12 @@ const topEnterFlickEl = ref(null);
 const qwertyRows = computed(() => inputStore.QWERTY_ROWS || []);
 const numberKeys = computed(() => inputStore.NUMBER_KEYS || []);
 
-function doReload() {
-  emitLocal("dismiss");
-  window.location.replace(window.location.pathname + "?_=" + Date.now());
-}
-
-const {
-  showFnView, showSymbolView,
-  toggleShift, toggleCtrl, toggleFnView, sendSpace,
-  shiftFlick, ctrlFlick, spaceFlick, fnFlick,
-} = useQwertyKeyViews({
-  modifierState, showSnippetView, dismissSnippetView, closeSnippetView,
-  sendKeyToTerminal, getActiveTerminalTab, onReload: doReload,
-});
+// fn ビュー（数字/記号パッド）の開閉状態は shift/ctrl/space と同じく KeyboardBar 側が単一管理する
+// （hideBottomRow=true のとき external-fn-view prop 経由で渡される）。
+const _showFnView = ref(false);
+const showFnView = computed(() => props.hideBottomRow ? props.externalFnView : _showFnView.value);
+// 記号ロック機能は撤去済み。symbolDisplayLabel 等の分岐を壊さないための常時 false の無害な状態。
+const showSymbolView = ref(false);
 
 const { cameraInputEl, openCamera, onCameraFileChange } = useQwertyCamera({
   apiFetch: auth.apiFetch.bind(auth),
@@ -296,7 +246,7 @@ const {
 watch(() => props.active, (active) => {
   if (!active) {
     clearModifiers();
-    showFnView.value = false;
+    _showFnView.value = false;
     showSymbolView.value = false;
   }
 });
@@ -338,13 +288,6 @@ function onNavKeyEnd(e, key) {
   sendKeyToTerminal({ key });
 }
 
-function onNavCameraEnd(e) {
-  const el = e.currentTarget;
-  el.classList.remove("tap-bounce");
-  void el.offsetWidth;
-  el.classList.add("tap-bounce");
-  openCamera();
-}
 
 const navKeys = [
   { label: "Home",  key: "Home" },

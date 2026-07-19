@@ -6,18 +6,63 @@
       :hide-bottom-row="true"
       :external-input-focused="inputFocused"
       :external-snippet-view="showSnippetView"
+      :external-fn-view="showFnView"
       @dismiss="hideInput"
       @submitted="onSubmitted"
       @snippetToggle="toggleSnippetView"
+      @fnToggle="toggleFnView"
     />
     <!-- バー行 = フルキーボードの最下行と同構成 -->
     <div class="keyboard-bar-row">
       <KeyboardInput
+        v-show="!isFullKeyboard"
         ref="keyboardInput"
         v-model:draft="draft"
         @focused="onInputFocused"
         @submitted="onSubmitted"
       />
+      <!-- ソフト（QWERTY）キーボード表示中は入力フォームの代わりに shift/ctrl/space を表示 -->
+      <div v-if="isFullKeyboard" class="keyboard-bar-modifier-keys">
+        <div
+          class="quick-key quick-flick-arrow quick-modifier"
+          :class="{ active: modifierState.shift }"
+          @touchstart.prevent="shiftFlick.onStart"
+          @touchend.prevent="shiftFlick.onEnd"
+          @touchcancel="onQuickKeyCancel($event)"
+          @click="toggleShift"
+        >
+          <span class="flick-hint-top">Refresh</span>
+          <span class="flick-main"><span class="mdi mdi-arrow-up-bold"></span></span>
+          <span class="flick-hint-bottom">Reload</span>
+        </div>
+        <div
+          class="quick-key quick-flick-arrow quick-modifier"
+          :class="{ active: modifierState.ctrl }"
+          @touchstart.prevent="ctrlFlick.onStart"
+          @touchend.prevent="ctrlFlick.onEnd"
+          @touchcancel="onQuickKeyCancel($event)"
+          @click="toggleCtrl"
+        >
+          <span class="flick-hint-top">^C</span>
+          <span class="flick-hint-left">^L</span>
+          <span class="flick-main">&Hat;</span>
+          <span class="flick-hint-right">^R</span>
+          <span class="flick-hint-bottom">^O</span>
+        </div>
+        <div
+          class="quick-key quick-flick-arrow"
+          @touchstart.prevent="spaceFlick.onStart"
+          @touchend.prevent="spaceFlick.onEnd"
+          @touchcancel="onQuickKeyCancel($event)"
+          @click="sendSpace"
+        >
+          <span class="flick-hint-top">PgU</span>
+          <span class="flick-hint-left">Home</span>
+          <span class="flick-main">&blank;</span>
+          <span class="flick-hint-right">End</span>
+          <span class="flick-hint-bottom">PgD</span>
+        </div>
+      </div>
       <div class="quick-key quick-flick-arrow quick-key-toggle" :class="{ active: isFullKeyboard || inputFocused }" ref="barArrowFlickEl">
         <span class="flick-hint-top">&uarr;</span>
         <span class="flick-hint-left">&larr;</span>
@@ -47,12 +92,13 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useInputDraftHistory } from "../composables/useInputDraftHistory.js";
 import { useKeyboardBarFlicks } from "../composables/useKeyboardBarFlicks.js";
 import { useKeyboardBarState } from "../composables/useKeyboardBarState.js";
+import { useQwertyKeyViews } from "../composables/useQwertyKeyViews.js";
 import { emit } from "../app-bridge.js";
 import KeyboardQwertyKey from "./KeyboardQwertyKey.vue";
 import KeyboardInput from "./KeyboardInput.vue";
@@ -65,7 +111,7 @@ const props = defineProps({
 const layoutStore = useLayoutStore();
 const isVisible = computed(() => props.isPanelBottom || layoutStore.isSplitMode);
 
-const { clearModifiers, sendKeyToTerminal, sendTextToTerminal, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
+const { clearModifiers, sendKeyToTerminal, sendTextToTerminal, modifierState, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
 
 const qwertyView = ref(null);
 const keyboardInput = ref(null);
@@ -92,6 +138,29 @@ function doReload() {
 function onQuickKeyCancel(e) {
   e.currentTarget.classList.remove("pressed");
 }
+
+// isFullKeyboard 中、入力フォームの代わりに表示する shift/ctrl/space（bar行）。
+// fn は QWERTY パネルの Esc キー位置、snippet は Enter キー位置に統合されているため、
+// ここでは showFnView/toggleFnView のみ KeyboardQwertyKey.vue へ受け渡す用に保持する
+// （showFnView は external-fn-view prop 経由、modifierState はモジュール単位のシングルトン）。
+const {
+  showFnView,
+  toggleShift, toggleCtrl, toggleFnView, sendSpace,
+  shiftFlick, ctrlFlick, spaceFlick,
+} = useQwertyKeyViews({
+  modifierState,
+  showSnippetView,
+  dismissSnippetView: () => { showSnippetView.value = false; },
+  closeSnippetView: () => { showSnippetView.value = false; },
+  sendKeyToTerminal,
+  getActiveTerminalTab,
+  onReload: doReload,
+});
+
+// フル（QWERTY）キーボードを閉じたら fn ビュー（数字/記号パッド）も閉じる
+watch(isFullKeyboard, (active) => {
+  if (!active) showFnView.value = false;
+});
 
 useKeyboardBarFlicks({
   arrowEl: barArrowFlickEl, enterEl: barEnterFlickEl,

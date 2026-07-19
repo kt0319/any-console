@@ -21,12 +21,6 @@ export function useQwertyKeyViews({
   watch(showSnippetView, (val) => { if (val) showFnView.value = false; });
 
   function toggleShift() {
-    if (showSymbolView.value) {
-      showSymbolView.value = false;
-      modifierState.shift = false;
-      dismissSnippetView();
-      return;
-    }
     dismissSnippetView();
     modifierState.shift = !modifierState.shift;
     if (modifierState.shift) { showFnView.value = false; }
@@ -48,11 +42,6 @@ export function useQwertyKeyViews({
     }
   }
 
-  function toggleSymbolView() {
-    showSymbolView.value = !showSymbolView.value;
-    if (showSymbolView.value) { modifierState.shift = false; showFnView.value = false; }
-  }
-
   function sendSpace() { sendKeyToTerminal({ key: " " }); }
 
   function doRefresh() {
@@ -63,12 +52,8 @@ export function useQwertyKeyViews({
   const fnFlick = createFlickHandlers({ up: doRefresh, down: onReload, tap: toggleFnView });
 
   const shiftFlick = createFlickHandlers({
-    up: () => {
-      const next = !showSymbolView.value;
-      showSymbolView.value = next;
-      modifierState.shift = false;
-      if (next) showFnView.value = false;
-    },
+    up: doRefresh,
+    down: onReload,
     left: () => sendKeyToTerminal({ key: "u", ctrl: true }),
     right: () => sendKeyToTerminal({ key: "k", ctrl: true }),
     tap: toggleShift,
@@ -96,7 +81,6 @@ export function useQwertyKeyViews({
     toggleShift,
     toggleCtrl,
     toggleFnView,
-    toggleSymbolView,
     sendSpace,
     shiftFlick,
     ctrlFlick,

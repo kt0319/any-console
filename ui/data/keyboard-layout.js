@@ -7,30 +7,30 @@ export const MODIFIER_KEYS = [
 ];
 
 export const NUMBER_KEYS = [
-  { label: "1", key: "1", code: "Digit1", keyCode: 49, flickUp: "F1" },
-  { label: "2", key: "2", code: "Digit2", keyCode: 50, flickUp: "F2" },
-  { label: "3", key: "3", code: "Digit3", keyCode: 51, flickUp: "F3" },
-  { label: "4", key: "4", code: "Digit4", keyCode: 52, flickUp: "F4" },
-  { label: "5", key: "5", code: "Digit5", keyCode: 53, flickUp: "F5" },
-  { label: "6", key: "6", code: "Digit6", keyCode: 54, flickUp: "F6" },
-  { label: "7", key: "7", code: "Digit7", keyCode: 55, flickUp: "F7" },
-  { label: "8", key: "8", code: "Digit8", keyCode: 56, flickUp: "F8" },
-  { label: "9", key: "9", code: "Digit9", keyCode: 57, flickUp: "F9" },
-  { label: "0", key: "0", code: "Digit0", keyCode: 48, flickUp: "F10" },
+  { label: "F1",  key: "F1" },
+  { label: "F2",  key: "F2" },
+  { label: "F3",  key: "F3" },
+  { label: "F4",  key: "F4" },
+  { label: "F5",  key: "F5" },
+  { label: "F6",  key: "F6" },
+  { label: "F7",  key: "F7" },
+  { label: "F8",  key: "F8" },
+  { label: "F9",  key: "F9" },
+  { label: "F10", key: "F10" },
 ];
 
 export const QWERTY_ROWS = [
   [
-    { label: "q", key: "q", flickUp: "!" },
-    { label: "w", key: "w", flickUp: "\"" },
-    { label: "e", key: "e", flickUp: "#" },
-    { label: "r", key: "r", flickUp: "$" },
-    { label: "t", key: "t", flickUp: "%" },
-    { label: "y", key: "y", flickUp: "&" },
-    { label: "u", key: "u", flickUp: "@" },
-    { label: "i", key: "i", flickUp: "+" },
-    { label: "o", key: "o", flickUp: "-" },
-    { label: "p", key: "p", flickUp: "=" },
+    { label: "q", key: "q", flickUp: "1", flickDown: "!" },
+    { label: "w", key: "w", flickUp: "2", flickDown: "\"" },
+    { label: "e", key: "e", flickUp: "3", flickDown: "#" },
+    { label: "r", key: "r", flickUp: "4", flickDown: "$" },
+    { label: "t", key: "t", flickUp: "5", flickDown: "%" },
+    { label: "y", key: "y", flickUp: "6", flickDown: "&" },
+    { label: "u", key: "u", flickUp: "7", flickDown: "@" },
+    { label: "i", key: "i", flickUp: "8", flickDown: "+" },
+    { label: "o", key: "o", flickUp: "9", flickDown: "-" },
+    { label: "p", key: "p", flickUp: "0", flickDown: "=" },
   ],
   [
     { label: "a", key: "a", flickUp: "`" },
@@ -52,6 +52,6 @@ export const QWERTY_ROWS = [
     { label: "b", key: "b", flickUp: "." },
     { label: "n", key: "n", flickUp: "?" },
     { label: "m", key: "m", flickUp: "_" },
-    { label: "Tab", key: "Tab", flickUp: "Escape", flickUpLabel: "Esc", noSymbol: true },
+    { label: "Camera", key: "_camera" },
   ],
 ];

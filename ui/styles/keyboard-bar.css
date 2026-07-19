@@ -26,6 +26,25 @@
   padding: 0;
 }
 
+/* keyboardEngaged 中、入力フォームの代わりに表示する shift/ctrl/space 行。
+   input-wrapper と同じ flex:3 の枠内に 3 キーを並べる。 */
+.keyboard-bar-row .keyboard-bar-modifier-keys {
+  display: flex;
+  flex: 3;
+  min-width: 0;
+  gap: 4px;
+}
+
+.keyboard-bar-row .keyboard-bar-modifier-keys .quick-key {
+  flex: 1;
+  min-width: 0;
+  border-color: var(--white-30);
+}
+
+.keyboard-bar-row .keyboard-bar-modifier-keys .quick-key.active {
+  border-color: var(--accent);
+}
+
 .keyboard-bar-row .quick-flick-arrow,
 .keyboard-bar-row .quick-flick-enter {
   flex: 1;
@@ -193,6 +212,23 @@
   min-height: 0;
 }
 
+/* fn キーの旧スロット。列幅だけ確保し、見た目・操作は無し（実体は quick-fn-toggle）。 */
+.quick-key-placeholder {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* fn キー本体。quick-extra-stack 直下に固定配置し、qwerty/snippet/fn どのパネル表示中も
+   同じ右下位置に常時表示する（レイヤーごとに複製していた旧実装からの一本化）。
+   幅は qwerty 行（10列 / gap 2px）と同じ計算式で揃える（.quick-qwerty-panel .quick-extra-row の gap: 2px に対応）。 */
+.quick-fn-toggle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: calc((100% - 9 * 2px) / 10);
+  flex: none;
+}
+
 .quick-qwerty-panel {
   gap: 6px;
 }
@@ -212,10 +248,6 @@
 
 .quick-qwerty-panel .flick-main-text {
   font-size: 11px;
-}
-
-.quick-qwerty-panel .flick-hint-active {
-  color: rgba(130, 170, 255, 0.9);
 }
 
 .quick-qwerty-panel .quick-modifier {
