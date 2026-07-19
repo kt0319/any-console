@@ -215,16 +215,6 @@ export const useTerminalStore = defineStore("terminal", () => {
     return true;
   }
 
-  function setTabWorkspace(tabId, workspaceName) {
-    const tab = openTabs.value.find((t) => t.id === tabId);
-    if (!tab) return;
-    tab.workspace = workspaceName || null;
-    // 素のターミナルとして作られたタブの "terminal" ラベルを紐付け先へ揃える
-    tab.label = tab.jobLabel || tab.workspace || "terminal";
-    // markRaw オブジェクトの変更を Vue に検知させるため配列参照を更新
-    openTabs.value = [...openTabs.value];
-  }
-
   function moveTab(fromIndex, toIndex) {
     if (fromIndex === toIndex) return;
     if (fromIndex < 0 || fromIndex >= openTabs.value.length) return;
@@ -294,7 +284,6 @@ export const useTerminalStore = defineStore("terminal", () => {
     detachTab,
     moveTab,
     applyTabMeta,
-    setTabWorkspace,
     saveTabOrder,
     loadTabOrder,
     resetTerminalSettings,

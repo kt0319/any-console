@@ -9,13 +9,13 @@ import { computed, onMounted } from "vue";
 import WorkspaceAddInline from "./WorkspaceAddInline.vue";
 import { useModalView } from "../composables/useModalView.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { useTerminalStore } from "../stores/terminal.js";
+import { useSessionSync } from "../composables/useSessionSync.js";
 import { useApi } from "../composables/useApi.js";
 import { terminalSessionWorkspacePath } from "../utils/endpoints.js";
 
 const { modalTitle, popView, viewState } = useModalView();
 const workspaceStore = useWorkspaceStore();
-const terminalStore = useTerminalStore();
+const { syncSessionsFromServer } = useSessionSync();
 const { apiPut } = useApi();
 
 const initialPath = computed(() => viewState.value?.initialPath || "");
@@ -26,10 +26,10 @@ async function onAdded(name) {
   await workspaceStore.fetchWorkspaces();
   // 素のターミナルからの登録時は、追加したワークスペースを発火元タブに紐付ける。
   const sessionId = viewState.value?.attachSessionId;
-  const tabId = viewState.value?.attachTabId;
-  if (name && sessionId && tabId != null) {
+  if (name && sessionId) {
     await apiPut(terminalSessionWorkspacePath(sessionId), { workspace: name });
-    terminalStore.setTabWorkspace(tabId, name);
+    // タブ表示（ラベル・アイコン）は同期 reconcile がサーバ値へ揃える。
+    await syncSessionsFromServer();
     workspaceStore.selectedWorkspace = name;
     await workspaceStore.fetchStatuses();
   }

@@ -285,126 +285,48 @@ class TestGetSessionTransientFailure:
         assert res.status_code == 404
 
 
-class TestRestoreWorkspaceSelfHeal:
-    """リストア時に tmux メタデータ読み込みが一時失敗しても、ワークスペース
-    セッションが素のターミナルとして固定されないことを確認する。
+class TestRestoreMetadataUnavailable:
+    """tmux メタデータが読めない間は不完全な登録をしないことを確認する。
 
-    load_tmux_metadata の一時失敗（None）を「メタデータ無し」と混同すると
-    workspace 無しでレジストリにキャッシュされ、サーバ再起動まで直らない。
-    from_tmux は 1 回だけ再試行し、それでも失敗なら meta_incomplete を立てて
-    後続アクセスで自己回復させる。
+    workspace 無しで registry にキャッシュされると、ワークスペースセッションが
+    素のターミナルに化けたまま固定される。読めない間はセッション解決自体を
+    「一時失敗」（500 / WS 1011 / スナップショット last-known-good）に倒す。
     """
 
-    SESSION_ID = "heal-test"
-    TMUX_NAME = "ac-heal-test"
+    TMUX_NAME = "ac-meta-test"
 
-    def _pop_registry(self):
-        from api.terminal_session import TERMINAL_SESSIONS, sessions_lock
-        with sessions_lock:
-            TERMINAL_SESSIONS.pop(self.SESSION_ID, None)
-
-    def test_from_tmux_retries_transient_metadata_failure(self):
+    def test_from_tmux_returns_none_when_metadata_unavailable(self):
         from api.terminal_session import TerminalSession
-        with patch("api.terminal_session.load_tmux_metadata",
-                   side_effect=[None, {"TMUX_WORKSPACE": "ws1"}]) as load:
-            sess = TerminalSession.from_tmux(self.TMUX_NAME)
-        assert load.call_count == 2
-        assert sess.workspace == "ws1"
-        assert sess.meta_incomplete is False
+        with patch("api.terminal_session.load_tmux_metadata", return_value=None):
+            assert TerminalSession.from_tmux(self.TMUX_NAME) is None
 
-    def test_from_tmux_marks_incomplete_when_metadata_unavailable(self):
-        from api.terminal_session import TerminalSession
-        with patch("api.terminal_session.load_tmux_metadata", return_value=None), \
-             patch("api.terminal_session.detect_workspace_from_tmux", return_value=None):
-            sess = TerminalSession.from_tmux(self.TMUX_NAME)
-        assert sess.workspace is None
-        assert sess.meta_incomplete is True
-
-    def test_from_tmux_empty_metadata_is_not_incomplete(self):
+    def test_from_tmux_empty_metadata_is_plain_terminal(self):
         # tmux が正常応答した上での「メタデータ無し」（素のターミナル）は正当。
         from api.terminal_session import TerminalSession
         with patch("api.terminal_session.load_tmux_metadata", return_value={}), \
              patch("api.terminal_session.detect_workspace_from_tmux", return_value=None):
             sess = TerminalSession.from_tmux(self.TMUX_NAME)
+        assert sess is not None
         assert sess.workspace is None
-        assert sess.meta_incomplete is False
 
-    def test_refresh_heals_workspace_and_clears_flag(self):
-        from api.terminal_session import TerminalSession
-        sess = TerminalSession(workspace=None, tmux_session_name=self.TMUX_NAME)
-        sess.meta_incomplete = True
-        with patch("api.terminal_session.load_tmux_metadata",
-                   return_value={"TMUX_WORKSPACE": "ws1", "TMUX_DETACHED": "1"}):
-            sess.refresh_metadata_if_incomplete()
-        assert sess.workspace == "ws1"
-        assert sess.detached is True
-        assert sess.meta_incomplete is False
+    def test_get_terminal_session_returns_500_when_metadata_unavailable(self, client):
+        # 404 にするとクライアントが「セッション消滅」と誤解するため 500 で区別する。
+        with patch("api.terminal_session.has_tmux_session", return_value=True), \
+             patch("api.terminal_session.load_tmux_metadata", return_value=None):
+            res = client.get("/terminal/sessions/meta-test/history", headers=AUTH)
+        assert res.status_code == 500
 
-    def test_refresh_keeps_flag_while_tmux_still_failing(self):
-        from api.terminal_session import TerminalSession
-        sess = TerminalSession(workspace=None, tmux_session_name=self.TMUX_NAME)
-        sess.meta_incomplete = True
-        with patch("api.terminal_session.load_tmux_metadata", return_value=None):
-            sess.refresh_metadata_if_incomplete()
-        assert sess.workspace is None
-        assert sess.meta_incomplete is True
+    def test_ws_closes_1011_when_metadata_unavailable(self, client):
+        import pytest
+        from starlette.websockets import WebSocketDisconnect
 
-    def test_refresh_does_not_clobber_runtime_workspace(self):
-        # 回復前に PUT /workspace 等で設定された値は tmux env で上書きしない。
-        from api.terminal_session import TerminalSession
-        sess = TerminalSession(workspace="manual-ws", tmux_session_name=self.TMUX_NAME)
-        sess.meta_incomplete = True
-        with patch("api.terminal_session.load_tmux_metadata",
-                   return_value={"TMUX_WORKSPACE": "ws1"}):
-            sess.refresh_metadata_if_incomplete()
-        assert sess.workspace == "manual-ws"
-        assert sess.meta_incomplete is False
+        from conftest import TOKEN
 
-    def test_refresh_noop_when_metadata_complete(self):
-        from api.terminal_session import TerminalSession
-        sess = TerminalSession(workspace=None, tmux_session_name=self.TMUX_NAME)
-        with patch("api.terminal_session.load_tmux_metadata") as load:
-            sess.refresh_metadata_if_incomplete()
-        load.assert_not_called()
-
-    def test_list_sessions_heals_cached_incomplete_session(self, client):
-        from api.terminal_session import TERMINAL_SESSIONS, TerminalSession, sessions_lock
-        session = TerminalSession(workspace=None, tmux_session_name=self.TMUX_NAME)
-        session.meta_incomplete = True
-        with sessions_lock:
-            TERMINAL_SESSIONS[self.SESSION_ID] = session
-        try:
-            list_result = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout=f"{self.TMUX_NAME}\t1700000000\n", stderr="")
-            with patch("api.session_snapshot._run_tmux_cmd", return_value=list_result), \
-                 patch("api.terminal_session.load_tmux_metadata",
-                       return_value={"TMUX_WORKSPACE": "ws1"}):
-                res = client.get("/terminal/sessions", headers=AUTH)
-            assert res.status_code == 200
-            entry = next(s for s in res.json() if s["session_id"] == self.SESSION_ID)
-            assert entry["workspace"] == "ws1"
-            assert session.workspace == "ws1"
-            assert session.meta_incomplete is False
-        finally:
-            self._pop_registry()
-
-    def test_get_terminal_session_heals_cached_incomplete_session(self):
-        from api.terminal_session import (
-            TERMINAL_SESSIONS,
-            TerminalSession,
-            get_terminal_session,
-            sessions_lock,
-        )
-        session = TerminalSession(workspace=None, tmux_session_name=self.TMUX_NAME)
-        session.meta_incomplete = True
-        with sessions_lock:
-            TERMINAL_SESSIONS[self.SESSION_ID] = session
-        try:
-            with patch("api.terminal_session.load_tmux_metadata",
-                       return_value={"TMUX_WORKSPACE": "ws1"}):
-                got = get_terminal_session(self.SESSION_ID)
-            assert got is session
-            assert got.workspace == "ws1"
-            assert got.meta_incomplete is False
-        finally:
-            self._pop_registry()
+        with patch("api.routers.terminal.has_tmux_session", return_value=True), \
+             patch("api.terminal_session.load_tmux_metadata", return_value=None):
+            with pytest.raises(WebSocketDisconnect) as exc_info:
+                with client.websocket_connect(
+                    f"/terminal/ws/meta-test?token={TOKEN}"
+                ) as ws:
+                    ws.receive_bytes()
+        assert exc_info.value.code == 1011

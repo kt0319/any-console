@@ -118,14 +118,22 @@ class TestBuildSnapshot:
         assert snap[0]["workspace"] == "ws-cached"
         load.assert_not_called()
 
-    def test_incomplete_cached_entry_self_heals(self, registry_cleanup):
-        from api.terminal_session import TERMINAL_SESSIONS, TerminalSession, sessions_lock
-        session = TerminalSession(workspace=None, tmux_session_name="ac-snap-a")
-        session.meta_incomplete = True
-        with sessions_lock:
-            TERMINAL_SESSIONS["snap-a"] = session
+    def test_metadata_failure_during_discovery_keeps_last_known_good(self, registry_cleanup):
+        # 未登録セッションのメタデータが読めない間は、不完全な一覧を配信せず
+        # ビルドごと失敗させて前回の正常値を返す（素のターミナル化の防止）。
+        from api.session_snapshot import get_sessions_snapshot, invalidate_sessions_snapshot
+        from api.terminal_session import TERMINAL_SESSIONS, sessions_lock
         with patch("api.session_snapshot._run_tmux_cmd",
                    return_value=_listing("ac-snap-a\t100\n")):
-            snap = _get(meta={"TMUX_WORKSPACE": "ws1"})
-        assert snap[0]["workspace"] == "ws1"
-        assert session.meta_incomplete is False
+            first = _get(meta={"TMUX_WORKSPACE": "ws1"})
+        assert first[0]["workspace"] == "ws1"
+        invalidate_sessions_snapshot()
+        with sessions_lock:
+            TERMINAL_SESSIONS.pop("snap-a", None)  # 未登録状態を再現
+        with patch("api.session_snapshot._run_tmux_cmd",
+                   return_value=_listing("ac-snap-a\t100\n")), \
+             patch("api.terminal_session.load_tmux_metadata", return_value=None):
+            again = get_sessions_snapshot()
+        assert again is first
+        with sessions_lock:
+            assert "snap-a" not in TERMINAL_SESSIONS  # 不完全な登録をしていない

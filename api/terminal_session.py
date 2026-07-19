@@ -77,7 +77,6 @@ class TerminalSession:
         "bridges",
         "pending_text", "pending_enter",
         "detached",
-        "meta_incomplete",
     )
 
     def __init__(self, workspace: str | None,
@@ -96,9 +95,6 @@ class TerminalSession:
         # detached セッションは dispatch のターゲット候補から除外する。
         # ユーザが意図的に切り離した枠に勝手に入力が流れるのを防ぐ。
         self.detached: bool = False
-        # tmux メタデータの読み込みが一時失敗のまま登録された印。
-        # True の間は refresh_metadata_if_incomplete が成功するまで再試行する。
-        self.meta_incomplete: bool = False
 
     def save_metadata(self) -> None:
         pairs = [
@@ -141,16 +137,18 @@ class TerminalSession:
             logger.warning("save_workspace failed session=%s", self.tmux_session_name)
 
     @classmethod
-    def from_tmux(cls, tmux_name: str) -> "TerminalSession":
-        # メタデータ読み込みの一時失敗（None）をそのまま workspace 無しとして
-        # 復元すると、ワークスペースセッションが素のターミナルに化ける。
-        # 1 回だけ再試行し、それでも失敗なら meta_incomplete を立てて登録し、
-        # 以後の refresh_metadata_if_incomplete による自己回復に委ねる。
+    def from_tmux(cls, tmux_name: str) -> "TerminalSession | None":
+        """tmux のセッション環境変数からセッションを復元する。
+
+        メタデータが読めない（tmux コマンドの一時失敗）場合は None を返す。
+        workspace 無しのまま登録するとレジストリにキャッシュされ、ワークスペース
+        セッションが素のターミナルに化けたまま固定されるため、不完全な登録は
+        せず判断を呼び出し側に委ねる（スナップショットは last-known-good を返し、
+        WS はリトライ可能なコードで閉じる）。
+        """
         meta = load_tmux_metadata(tmux_name)
         if meta is None:
-            meta = load_tmux_metadata(tmux_name)
-        incomplete = meta is None
-        meta = meta or {}
+            return None
         workspace = meta.get("TMUX_WORKSPACE") or detect_workspace_from_tmux(tmux_name)
         sess = cls(
             workspace=workspace,
@@ -161,36 +159,7 @@ class TerminalSession:
             job_label=meta.get("TMUX_JOB_LABEL"),
         )
         sess.detached = bool(meta.get("TMUX_DETACHED"))
-        sess.meta_incomplete = incomplete
         return sess
-
-    def refresh_metadata_if_incomplete(self) -> None:
-        """メタデータ読み込み失敗のまま登録されたセッションを自己回復させる。
-
-        レジストリにキャッシュされたセッションはサーバ再起動まで生き続けるため、
-        workspace 無しのまま放置するとワークスペースセッションが素のターミナル
-        として扱われ続ける。tmux 読み込みが成功するまで再試行し、成功した回で
-        だけフラグを下ろす。ランタイムに設定済みの値（PUT /workspace 等）は
-        上書きしない。
-        """
-        if not self.meta_incomplete:
-            return
-        meta = load_tmux_metadata(self.tmux_session_name)
-        if meta is None:
-            return
-        workspace = meta.get("TMUX_WORKSPACE") or detect_workspace_from_tmux(self.tmux_session_name)
-        with sessions_lock:
-            if not self.meta_incomplete:
-                return
-            self.workspace = self.workspace or workspace
-            self.icon = self.icon or meta.get("TMUX_ICON")
-            self.icon_color = self.icon_color or meta.get("TMUX_ICON_COLOR")
-            self.job_name = self.job_name or meta.get("TMUX_JOB_NAME")
-            self.job_label = self.job_label or meta.get("TMUX_JOB_LABEL")
-            self.detached = self.detached or bool(meta.get("TMUX_DETACHED"))
-            self.meta_incomplete = False
-        logger.info("metadata self-healed session=%s workspace=%s",
-                    self.tmux_session_name, self.workspace or "(none)")
 
     def metadata_dict(self) -> dict:
         return {
@@ -208,10 +177,13 @@ TERMINAL_SESSIONS: dict[str, TerminalSession] = {}
 sessions_lock = threading.Lock()
 
 
-def _register_tmux_session(session_id: str, tmux_name: str) -> TerminalSession:
+def _register_tmux_session(session_id: str, tmux_name: str) -> TerminalSession | None:
+    """tmux からセッションを復元して登録する。メタデータが読めなければ None。"""
     session = TerminalSession.from_tmux(tmux_name)
+    if session is None:
+        return None
     with sessions_lock:
-        TERMINAL_SESSIONS[session_id] = session
+        session = TERMINAL_SESSIONS.setdefault(session_id, session)
     logger.info("on-demand registered tmux session=%s workspace=%s",
                 session_id, session.workspace or "(none)")
     return session
@@ -221,7 +193,6 @@ def get_terminal_session(session_id: str) -> TerminalSession:
     with sessions_lock:
         session = TERMINAL_SESSIONS.get(session_id)
     if session:
-        session.refresh_metadata_if_incomplete()
         return session
 
     tmux_name = TMUX_SESSION_PREFIX + session_id
@@ -233,7 +204,10 @@ def get_terminal_session(session_id: str) -> TerminalSession:
     if not exists:
         raise not_found("Terminal session not found")
 
-    return _register_tmux_session(session_id, tmux_name)
+    session = _register_tmux_session(session_id, tmux_name)
+    if session is None:
+        raise server_error("Failed to load session metadata")
+    return session
 
 
 # ─── Per-client PTY bridge lifecycle ─────────────────────────────────────────

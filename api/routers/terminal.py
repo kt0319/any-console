@@ -249,7 +249,9 @@ async def _resolve_session_for_ws(session_id: str):
     if exists is None:
         return None, True
     if exists:
-        return _register_tmux_session(session_id, tmux_name), False
+        session = _register_tmux_session(session_id, tmux_name)
+        # メタデータが読めない間は不完全な登録をせず、一時失敗として扱う。
+        return session, session is None
     return None, False
 
 

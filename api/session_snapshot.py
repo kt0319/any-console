@@ -61,19 +61,26 @@ def _parse_list_output(stdout: str) -> list[tuple[str, int | None]]:
     return rows
 
 
-def _resolve_session(session_id: str, tmux_name: str) -> TerminalSession:
-    """レジストリからセッションを引く。未登録なら発見として登録する。"""
+def _resolve_session(session_id: str, tmux_name: str) -> TerminalSession | None:
+    """レジストリからセッションを引く。未登録なら発見として登録する。
+
+    メタデータが読めない（None）場合は登録せず None を返し、スナップショット
+    構築ごと失敗させる（呼び出し側が last-known-good を返す）。不完全な
+    メタデータで登録・配信すると、ワークスペースセッションが素のターミナル
+    として固定されるため。
+    """
     with sessions_lock:
         cached = TERMINAL_SESSIONS.get(session_id)
-    if cached is None:
-        discovered = TerminalSession.from_tmux(tmux_name)
-        with sessions_lock:
-            cached = TERMINAL_SESSIONS.setdefault(session_id, discovered)
-        if cached is discovered:
-            logger.info("discovered tmux session=%s workspace=%s",
-                        session_id, cached.workspace or "(none)")
-    else:
-        cached.refresh_metadata_if_incomplete()
+    if cached is not None:
+        return cached
+    discovered = TerminalSession.from_tmux(tmux_name)
+    if discovered is None:
+        return None
+    with sessions_lock:
+        cached = TERMINAL_SESSIONS.setdefault(session_id, discovered)
+    if cached is discovered:
+        logger.info("discovered tmux session=%s workspace=%s",
+                    session_id, cached.workspace or "(none)")
     return cached
 
 
@@ -93,6 +100,8 @@ def _build_snapshot() -> list[dict] | None:
         if not session_id:
             continue
         session = _resolve_session(session_id, name)
+        if session is None:
+            return None
         md = session.metadata_dict()
         sessions.append({
             "session_id": session_id,
