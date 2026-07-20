@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-menu-content">
+  <div class="modal-scroll-body">
     <div class="settings-menu">
       <div class="settings-menu-section-label">Workspaces</div>
       <button type="button" class="settings-menu-item" @click="pushView('WorkspaceOpen')">
