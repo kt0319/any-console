@@ -314,6 +314,7 @@ defineExpose({
   position: absolute;
   inset: 0;
   z-index: 45;
+  background: var(--overlay-bg);
 }
 
 .main-panel.panel-bottom :deep(.output-container) {
