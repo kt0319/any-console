@@ -21,6 +21,14 @@ export function useTerminalLifecycle({ terminalBaseView }) {
 
   const isLaunching = ref(false);
 
+  // nextTick は DOM への反映までしか保証しないため、実際に1フレーム描画されるまで
+  // 2 回の rAF で待つ（レイヤーを解除する前にタブが見えていることを確実にするため）。
+  function waitForNextPaint() {
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
+  }
+
   function focusTabTerminal(tabId) {
     const tab = terminalStore.openTabs.find((t) => t.id === tabId);
     if (!tab?.term) return;
@@ -112,6 +120,7 @@ export function useTerminalLifecycle({ terminalBaseView }) {
       await nextTick();
       terminalBaseView.value?.fitAllTerminals();
       activateTerminalTab(tab.id);
+      await waitForNextPaint();
     } catch (e) {
       toast.error(`Terminal launch error: ${e.message}`);
     } finally {
