@@ -28,7 +28,7 @@ defineProps({
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 40;
+  z-index: 46;
   pointer-events: none;
 }
 
