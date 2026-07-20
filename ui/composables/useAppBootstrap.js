@@ -1,15 +1,27 @@
 import { ref } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { useTerminalStore } from "../stores/terminal.js";
 import { useSessionSync } from "./useSessionSync.js";
 import { useStatusStream } from "./useStatusStream.js";
 import { useToast } from "./useToast.js";
 import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_SETTINGS_CONFIG_HEALTH } from "../utils/endpoints.js";
+import { on } from "../app-bridge.js";
+
+function waitForNextEvent(eventName) {
+  return new Promise((resolve) => {
+    const cleanup = on(eventName, (detail) => {
+      cleanup();
+      resolve(detail);
+    });
+  });
+}
 
 export function useAppBootstrap() {
   const auth = useAuthStore();
   const workspaceStore = useWorkspaceStore();
+  const terminalStore = useTerminalStore();
   const { restoreExistingSessions } = useSessionSync();
   const statusStream = useStatusStream();
   const toast = useToast();
@@ -52,6 +64,13 @@ export function useAppBootstrap() {
 
     bootMessage.value = "Restoring sessions...";
     await restoreExistingSessions(sessionsRes, jobsRes);
+
+    // restoreExistingSessions は復元したタブの WS 接続を layout:fitAll イベント経由で
+    // 遅延実行する（DOM 未マウントのため）。ここで待たずに booting を解除すると、
+    // ダイアログが消えた直後にまだ未接続のタブが見えてしまう。
+    if (terminalStore.openTabs.length > 0) {
+      await waitForNextEvent("layout:fitAll");
+    }
 
     workspaceStore.fetchStatuses();
     statusStream.start();
