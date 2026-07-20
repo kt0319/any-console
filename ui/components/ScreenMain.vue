@@ -20,6 +20,7 @@
       <StatusOverlay :visible="isOffline" label="Connection lost" variant="error" />
     </TerminalBase>
     <KeyboardBar :is-panel-bottom="isPanelBottom" />
+    <div v-if="booting" class="boot-block-layer"></div>
 
   </div>
   <Modal />
@@ -307,6 +308,12 @@ defineExpose({
   height: 100%;
   overflow: hidden;
   position: relative;
+}
+
+.boot-block-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
 }
 
 .main-panel.panel-bottom :deep(.output-container) {
