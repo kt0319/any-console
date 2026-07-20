@@ -153,6 +153,11 @@ def wait_pane_ready(
 def load_tmux_metadata(tmux_name: str) -> dict:
     result = _run_tmux_cmd("show-environment", "-t", tmux_name)
     if not result or result.returncode != 0:
+        logger.warning(
+            "load_tmux_metadata failed session=%s result=%s returncode=%s",
+            tmux_name, "None" if result is None else "ok",
+            None if result is None else result.returncode,
+        )
         return {}
     meta = {}
     for line in result.stdout.strip().splitlines():
@@ -187,14 +192,20 @@ def get_session_cwd(tmux_name: str) -> str | None:
 def detect_workspace_from_tmux(tmux_name: str) -> str | None:
     """ペインのカレントディレクトリからワークスペース ID を推定して返す。"""
     result = _run_tmux_cmd("display-message", "-t", tmux_name, "-p", "#{pane_current_path}")
-    if result and result.returncode == 0:
-        pane_path = result.stdout.strip()
-        from .config import list_workspace_entries
-        entries = list_workspace_entries()
-        for ws_id, config in entries.items():
-            ws_path = config.get("path", "")
-            if ws_path and (pane_path == ws_path or pane_path.startswith(ws_path + "/")):
-                return ws_id
+    if not result or result.returncode != 0:
+        logger.warning(
+            "detect_workspace_from_tmux failed session=%s result=%s returncode=%s",
+            tmux_name, "None" if result is None else "ok",
+            None if result is None else result.returncode,
+        )
+        return None
+    pane_path = result.stdout.strip()
+    from .config import list_workspace_entries
+    entries = list_workspace_entries()
+    for ws_id, config in entries.items():
+        ws_path = config.get("path", "")
+        if ws_path and (pane_path == ws_path or pane_path.startswith(ws_path + "/")):
+            return ws_id
     return None
 
 

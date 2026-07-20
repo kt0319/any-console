@@ -83,6 +83,13 @@ async def list_terminal_sessions():
         md = meta_src.metadata_dict()
 
         created_at = get_tmux_created(name)
+        if md["workspace"] is None:
+            # ADR 25: 「まれにワークスペースセッションが素のターミナルとして誤認識される」の
+            # 再着手条件（観測ログで事実を特定する）に基づく最小限の記録。挙動は変えない。
+            logger.warning(
+                "list_terminal_sessions: workspace unresolved session=%s cached=%s created_at=%s",
+                session_id, bool(cached), created_at,
+            )
         sessions.append({
             "session_id": session_id,
             "workspace": md["workspace"],
