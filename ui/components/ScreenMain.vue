@@ -20,7 +20,7 @@
       <StatusOverlay :visible="isOffline" label="Connection lost" variant="error" />
     </TerminalBase>
     <KeyboardBar :is-panel-bottom="isPanelBottom" />
-    <div v-if="booting" class="boot-block-layer"></div>
+    <div v-if="booting || isLaunching" class="block-layer"></div>
 
   </div>
   <Modal />
@@ -80,6 +80,7 @@ const {
   launchTerminal,
   refreshTab,
   closeTab,
+  isLaunching,
 } = useTerminalLifecycle({ terminalBaseView });
 
 useSessionResume({ terminalBaseView });
@@ -310,7 +311,7 @@ defineExpose({
   position: relative;
 }
 
-.boot-block-layer {
+.block-layer {
   position: absolute;
   inset: 0;
   z-index: 45;

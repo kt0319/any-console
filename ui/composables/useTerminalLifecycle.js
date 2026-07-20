@@ -1,4 +1,4 @@
-import { nextTick } from "vue";
+import { nextTick, ref } from "vue";
 import { useAuthStore } from "../stores/auth.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
@@ -18,6 +18,8 @@ export function useTerminalLifecycle({ terminalBaseView }) {
   const { disconnectTerminal, deleteSession, connectTerminalWs } = useTerminal();
   const toast = useToast();
   const { prompt } = usePrompt();
+
+  const isLaunching = ref(false);
 
   function focusTabTerminal(tabId) {
     const tab = terminalStore.openTabs.find((t) => t.id === tabId);
@@ -58,6 +60,9 @@ export function useTerminalLifecycle({ terminalBaseView }) {
     try {
       const commandVars = await collectCommandVars(initialCommand, prompt);
       if (commandVars === null) return; // プレースホルダー入力がキャンセルされた
+      // タブがまだ存在しない間、現在のアクティブタブを操作できてしまわないよう
+      // タブ作成完了までブロックする。
+      isLaunching.value = true;
       const res = await auth.apiFetch(EP_RUN, {
         method: "POST",
         body: {
@@ -109,6 +114,8 @@ export function useTerminalLifecycle({ terminalBaseView }) {
       activateTerminalTab(tab.id);
     } catch (e) {
       toast.error(`Terminal launch error: ${e.message}`);
+    } finally {
+      isLaunching.value = false;
     }
   }
 
@@ -162,5 +169,6 @@ export function useTerminalLifecycle({ terminalBaseView }) {
     launchTerminal,
     refreshTab,
     closeTab,
+    isLaunching,
   };
 }
