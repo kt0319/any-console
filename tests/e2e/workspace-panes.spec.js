@@ -46,6 +46,10 @@ test.describe("workspace detail panes", () => {
     wsDir = fs.mkdtempSync(path.join(os.tmpdir(), "any-console-e2e-git-"));
     wsName = path.basename(wsDir);
     git(wsDir, "init");
+    // サーバ経由の git commit / stash はグローバル設定の識別情報に依存するため、
+    // CI ランナーのように未設定の環境でも動くようリポジトリローカルに設定しておく
+    git(wsDir, "config", "user.email", "e2e@example.com");
+    git(wsDir, "config", "user.name", "e2e");
     fs.writeFileSync(path.join(wsDir, "README.md"), "# e2e repo\n");
     fs.mkdirSync(path.join(wsDir, "src"));
     fs.writeFileSync(path.join(wsDir, "src", "app.js"), "console.log(\"e2e-app\");\n");
