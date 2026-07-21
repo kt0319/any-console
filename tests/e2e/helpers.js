@@ -45,6 +45,33 @@ export async function cleanupNewSessions(page, beforeIds) {
 }
 
 /**
+ * API 直叩き用の Bearer 認証ヘッダを作る（テストの setup / cleanup 用）。
+ * @param {string} token
+ */
+export function bearerHeaders(token) {
+  return { Authorization: `Bearer ${token}` };
+}
+
+/**
+ * 設定モーダルをグローバルショートカット（⌘⇧.）で開く。
+ * 既存セッションの有無（空画面 / タブ表示）に依らず使える。
+ * @param {import("@playwright/test").Page} page
+ */
+export async function openSettingsModal(page) {
+  await page.keyboard.press("Meta+Shift+Period");
+  await expect(page.locator(".modal-overlay")).toBeVisible({ timeout: 5000 });
+}
+
+/**
+ * 設定モーダル内で指定ラベルのメニュー項目を開く。
+ * @param {import("@playwright/test").Page} page
+ * @param {string} label 例: "Add Workspace"
+ */
+export async function openSettingsView(page, label) {
+  await page.locator(".settings-menu-item", { hasText: label }).first().click();
+}
+
+/**
  * ログイン画面からトークン認証し、ブート完了まで待つ。
  * サーバに既存セッションがあると resume されてタブが開くため、
  * 「Get Started メニュー」か「タブ」のどちらかの表示をブート完了の合図にする。
@@ -63,6 +90,9 @@ export async function login(page, context, token) {
     .first()
     .or(page.locator(".tab-btn").first());
   await expect(bootDone.first()).toBeVisible({ timeout: 10_000 });
+  // メニュー表示後もブート用の block-layer が残っている間はタップ・クリックが
+  // 遮られるため、消えるまで待つ（サーバ起動直後の初回ブートで遅くなることがある）。
+  await expect(page.locator(".block-layer")).toBeHidden({ timeout: 20_000 });
   // キーボードショートカットが確実に受け付けられるようページにフォーカスを当てる。
   // 座標指定なしの click は body 中心を叩くため、モバイルビューポートでは画面中央の
   // Get Started メニュー項目に命中して誤操作してしまう。何も無い左上隅を叩く。

@@ -47,6 +47,39 @@ test.describe("terminal", () => {
     await expect(term).toContainText("e2e-42", { timeout: 10_000 });
   });
 
+  test("タブを切り替えても各ターミナルの出力が保持される", async ({ page }) => {
+    const tabs = page.locator(".tab-btn");
+    const countBefore = await tabs.count();
+    const term = page.locator(".xterm >> visible=true").first();
+
+    // 1つ目: e2e-first-11 を出力
+    await page.keyboard.press("Meta+Shift+KeyT");
+    await expect(tabs).toHaveCount(countBefore + 1, { timeout: 10_000 });
+    await expect(term).toBeVisible({ timeout: 10_000 });
+    await term.click();
+    await page.waitForTimeout(1000);
+    await page.keyboard.type("echo e2e-first-$((10+1))");
+    await page.keyboard.press("Enter");
+    await expect(term).toContainText("e2e-first-11", { timeout: 10_000 });
+
+    // 2つ目: e2e-second-22 を出力
+    await page.keyboard.press("Meta+Shift+KeyT");
+    await expect(tabs).toHaveCount(countBefore + 2, { timeout: 10_000 });
+    await expect(term).toBeVisible({ timeout: 10_000 });
+    await term.click();
+    await page.waitForTimeout(1000);
+    await page.keyboard.type("echo e2e-second-$((20+2))");
+    await page.keyboard.press("Enter");
+    await expect(term).toContainText("e2e-second-22", { timeout: 10_000 });
+    await expect(term).not.toContainText("e2e-first-11");
+
+    // タブを行き来してもそれぞれの出力が残っている
+    await tabs.nth(countBefore).click();
+    await expect(term).toContainText("e2e-first-11", { timeout: 10_000 });
+    await tabs.nth(countBefore + 1).click();
+    await expect(term).toContainText("e2e-second-22", { timeout: 10_000 });
+  });
+
   test("タブを閉じると確認ダイアログが出て Close で閉じる", async ({ page }) => {
     const tabs = page.locator(".tab-btn");
     const countBefore = await tabs.count();
