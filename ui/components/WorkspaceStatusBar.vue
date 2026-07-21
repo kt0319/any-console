@@ -27,7 +27,7 @@
         </template>
         <button v-if="!isMobile || !isDirty" type="button" class="status-nav-btn status-msg-btn" :class="{ 'status-placeholder-btn': isPlainTerminal }" :disabled="isPlainTerminal" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
           <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
-          <span v-if="isGitRepo" class="status-msg-text" :class="{ 'status-msg-loading': statusLoading }">{{ msgText }}</span>
+          <span v-if="isGitRepo" class="status-msg-text" :class="{ 'status-msg-loading loading-dots': statusLoading }">{{ msgText }}</span>
           <span v-else class="status-btn-label status-btn-label-always">History</span>
         </button>
         <div v-if="!isMobile" class="status-divider"></div>
@@ -410,18 +410,6 @@ color: #ffffff;
 
 .status-msg-loading {
   color: var(--text-muted);
-}
-
-.status-msg-loading::after {
-  content: "";
-  animation: loading-dots 1.2s steps(4) infinite;
-}
-
-@keyframes loading-dots {
-  0% { content: ""; }
-  25% { content: "."; }
-  50% { content: ".."; }
-  75% { content: "..."; }
 }
 
 .status-numstat-btn {

@@ -14,7 +14,7 @@
       </div>
 
       <div ref="wsListEl" class="terminal-ws-list">
-        <div v-if="isLoading" class="clone-repo-empty ws-list-loading">Loading</div>
+        <div v-if="isLoading" class="clone-repo-empty loading-dots">Loading</div>
         <template v-else>
         <template v-for="(item, flatIdx) in (dragFlatList || flatList)" :key="item.type === 'header' ? 'h-' + item.group.id : item.ws.name">
           <!-- グループヘッダー -->
@@ -722,17 +722,5 @@ button.git-badge:disabled {
   text-align: center;
   font-size: 13px;
   color: var(--text-muted);
-}
-
-.ws-list-loading::after {
-  content: "";
-  animation: ws-list-loading-dots 1.2s steps(4) infinite;
-}
-
-@keyframes ws-list-loading-dots {
-  0% { content: ""; }
-  25% { content: "."; }
-  50% { content: ".."; }
-  75% { content: "..."; }
 }
 </style>
