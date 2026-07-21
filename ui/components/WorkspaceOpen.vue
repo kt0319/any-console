@@ -244,10 +244,12 @@ async function loadWorkspaceOverview() {
   try {
     await workspaceStore.fetchGroups();
     await workspaceStore.fetchWorkspaces();
-    await workspaceStore.fetchStatuses();
   } finally {
     isLoading.value = false;
   }
+  // ステータス(git dirty/ahead/behind等)は行ごとの statusLoading 表示で埋まるため、
+  // 一覧表示自体はブロックしない。
+  workspaceStore.fetchStatuses();
 }
 
 function openBareTerminal() {
