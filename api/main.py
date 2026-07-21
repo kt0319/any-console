@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from . import auth as auth_module
 from .auth import verify_token
 from .client_log import ClientLogMiddleware
-from .common import BACKGROUND_EXECUTOR, MAX_UPLOAD_SIZE, UPLOAD_DIR
+from .common import BACKGROUND_EXECUTOR, BACKGROUND_FETCH_EXECUTOR, MAX_UPLOAD_SIZE, UPLOAD_DIR
 from .errors import bad_request, too_large
 from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
@@ -195,6 +195,7 @@ async def lifespan(app: FastAPI):
     for session in sessions:
         _detach_pty_bridge(session)
     BACKGROUND_EXECUTOR.shutdown(wait=False)
+    BACKGROUND_FETCH_EXECUTOR.shutdown(wait=False)
     _release_singleton_lock()
 
 

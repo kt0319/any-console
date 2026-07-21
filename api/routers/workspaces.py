@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from ..auth import verify_token
 from ..common import (
     BACKGROUND_EXECUTOR,
+    BACKGROUND_FETCH_EXECUTOR,
     BACKGROUND_FETCH_TIMEOUT_SEC,
     collapse_user_path,
     expand_workspace_path,
@@ -51,7 +52,7 @@ def _background_fetch(dirs):
         ) is None:
             logger.warning("background fetch failed dir=%s", workspace_dir.name)
 
-    list(BACKGROUND_EXECUTOR.map(fetch, dirs))
+    list(BACKGROUND_FETCH_EXECUTOR.map(fetch, dirs))
 
 
 def _sort_key_by_workspace_order(order_list):
@@ -158,7 +159,7 @@ def list_workspaces():
         for e in entries.values()
         if expand_workspace_path(e.get("path", "")).is_dir()
     ]
-    BACKGROUND_EXECUTOR.submit(_background_fetch, git_dirs)
+    BACKGROUND_FETCH_EXECUTOR.submit(_background_fetch, git_dirs)
     return result
 
 

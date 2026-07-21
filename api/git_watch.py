@@ -27,6 +27,7 @@ from watchfiles import awatch
 
 from .common import (
     BACKGROUND_EXECUTOR,
+    BACKGROUND_FETCH_EXECUTOR,
     BACKGROUND_FETCH_TIMEOUT_SEC,
     GIT_AUTO_FETCH_INTERVAL_SEC,
     GIT_WATCH_DEBOUNCE_MS,
@@ -441,7 +442,7 @@ async def _auto_fetch_loop() -> None:  # pragma: no cover - 実時間スリー�
             for target in targets:
                 if target.base is not None:
                     continue  # worktree は本体と remote/refs を共有するので本体のみ fetch
-                await loop.run_in_executor(BACKGROUND_EXECUTOR, _fetch_one, target.path)
+                await loop.run_in_executor(BACKGROUND_FETCH_EXECUTOR, _fetch_one, target.path)
             for target in targets:
                 await _push_status(target)
     except asyncio.CancelledError:

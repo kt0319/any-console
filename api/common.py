@@ -109,6 +109,10 @@ ICON_PATTERN = re.compile(
 ICON_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{3,6}$")
 
 BACKGROUND_EXECUTOR = ThreadPoolExecutor(max_workers=8)
+# git fetch 系のバックグラウンド処理専用プール。BACKGROUND_EXECUTOR と分離し、
+# ネットワーク越しの fetch がリクエスト処理（_workspace_summary 等）の
+# スレッドを奪って応答を遅らせないようにする。
+BACKGROUND_FETCH_EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
 _subprocess_logger = logging.getLogger(__name__)
 
