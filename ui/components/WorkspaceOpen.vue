@@ -14,6 +14,8 @@
       </div>
 
       <div ref="wsListEl" class="terminal-ws-list">
+        <div v-if="isLoading" class="clone-repo-empty">Loading...</div>
+        <template v-else>
         <template v-for="(item, flatIdx) in (dragFlatList || flatList)" :key="item.type === 'header' ? 'h-' + item.group.id : item.ws.name">
           <!-- グループヘッダー -->
           <div
@@ -96,6 +98,7 @@
         <div v-if="displayWorkspaces.length === 0" class="clone-repo-empty">
           No workspaces to display
         </div>
+        </template>
       </div>
     </div>
 
@@ -234,10 +237,17 @@ function doAction(ws, action) {
   gitAction(ws.name, action, { branch: ws.branch });
 }
 
+const isLoading = ref(false);
+
 async function loadWorkspaceOverview() {
-  await workspaceStore.fetchGroups();
-  await workspaceStore.fetchWorkspaces();
-  await workspaceStore.fetchStatuses();
+  isLoading.value = true;
+  try {
+    await workspaceStore.fetchGroups();
+    await workspaceStore.fetchWorkspaces();
+    await workspaceStore.fetchStatuses();
+  } finally {
+    isLoading.value = false;
+  }
 }
 
 function openBareTerminal() {
