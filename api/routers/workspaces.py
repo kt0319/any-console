@@ -98,17 +98,24 @@ def _registered_workspace_paths() -> set[str]:
     }
 
 
-def _dynamic_worktree_entries() -> list[dict]:
+def _dynamic_worktree_entries(is_git_repo_map: dict[str, bool] | None = None) -> list[dict]:
     """登録済みgitワークスペースのlinked worktreeをgitから動的に列挙する。
     configに登録されていないworktreeのみを返す（登録済みパスはスキップ）。
+    is_git_repo_map が渡された場合、is_git_repo の再判定（サブプロセス起動）をスキップして再利用する。
+    ワークスペースごとの git worktree list 呼び出しは並列実行する。
     """
     existing_paths = _registered_workspace_paths()
-    result = []
-    for ws_id, config in list_workspace_entries().items():
+
+    def _entries_for(item):
+        ws_id, config = item
         ws_path = expand_workspace_path(config.get("path", ""))
-        if not ws_path.is_dir() or not git_is_repo(ws_path):
-            continue
+        if not ws_path.is_dir():
+            return []
+        is_git = is_git_repo_map.get(ws_id, False) if is_git_repo_map is not None else git_is_repo(ws_path)
+        if not is_git:
+            return []
         base_name = config.get("name") or ws_id
+        entries = []
         for wt in git_worktree_list(ws_path)[1:]:  # インデックス0はmain
             wt_path_str = wt.get("path", "")
             if not wt_path_str:
@@ -117,7 +124,7 @@ def _dynamic_worktree_entries() -> list[dict]:
             if not wt_path.is_dir() or safe_resolve_str(wt_path) in existing_paths:
                 continue
             branch = wt.get("branch") or ""
-            result.append({
+            entries.append({
                 "id": None,
                 "name": worktree_display_name(base_name, branch),
                 "path": wt_path_str,
@@ -130,7 +137,10 @@ def _dynamic_worktree_entries() -> list[dict]:
                 "worktree_base": base_name,
                 "worktree_branch": branch,
             })
-    return result
+        return entries
+
+    results = BACKGROUND_EXECUTOR.map(_entries_for, list_workspace_entries().items())
+    return [entry for entries in results for entry in entries]
 
 
 @router.get("/workspaces")
@@ -141,7 +151,8 @@ def list_workspaces():
     workspace_order = load_global_config_section("workspace_order", [])
     sorted_items = sorted(entries.items(), key=_sort_key_by_workspace_order(workspace_order))
     result = list(BACKGROUND_EXECUTOR.map(_workspace_summary, sorted_items))
-    result.extend(_dynamic_worktree_entries())
+    is_git_repo_map = {r["id"]: r["is_git_repo"] for r in result}
+    result.extend(_dynamic_worktree_entries(is_git_repo_map))
     git_dirs = [
         expand_workspace_path(e.get("path", ""))
         for e in entries.values()
