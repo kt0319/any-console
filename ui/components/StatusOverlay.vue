@@ -3,7 +3,7 @@
     <div v-if="visible" class="status-overlay">
       <div :class="['status-overlay-pill', `variant-${variant}`]">
         <span class="status-overlay-label">{{ label }}</span>
-        <span class="status-overlay-dots loading-dots" aria-hidden="true"></span>
+        <span class="loading-dots" aria-hidden="true"></span>
       </div>
     </div>
   </Transition>
@@ -57,13 +57,6 @@ defineProps({
 .status-overlay-pill.variant-info {
   background: color-mix(in srgb, var(--accent) 75%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 75%, transparent);
-}
-
-.status-overlay-dots {
-  display: inline-block;
-  width: 1.2em;
-  text-align: left;
-  white-space: pre;
 }
 
 .status-overlay-fade-enter-active { transition: opacity 0.2s ease; }

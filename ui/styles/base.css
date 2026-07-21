@@ -81,6 +81,10 @@ body {
 
 .loading-dots::after {
   content: "";
+  display: inline-block;
+  width: 1.2em;
+  text-align: left;
+  white-space: pre;
   animation: loading-dots 1.2s steps(4) infinite;
 }
 
