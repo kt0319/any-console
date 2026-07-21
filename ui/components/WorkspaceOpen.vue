@@ -240,7 +240,10 @@ function doAction(ws, action) {
 const isLoading = ref(false);
 
 async function loadWorkspaceOverview() {
-  isLoading.value = true;
+  // アプリ起動時(useAppBootstrap)で既に一覧取得済みのことが多いため、
+  // 既存データがあればLoadingを出さず即表示し、裏で静かに再取得する。
+  const hasExistingData = workspaceStore.allWorkspaces.length > 0;
+  if (!hasExistingData) isLoading.value = true;
   try {
     await workspaceStore.fetchGroups();
     await workspaceStore.fetchWorkspaces();
