@@ -4,7 +4,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useTerminal } from "./useTerminal.js";
 import { useLayoutPersist } from "./useLayoutPersist.js";
-import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION, SESSION_SYNC_INTERVAL_MS } from "../utils/constants.js";
+import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION, SESSION_SYNC_INTERVAL_MS, NEW_TAB_SYNC_GRACE_MS } from "../utils/constants.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 import { loadAllJobs, loadSessionsResponse, buildSessionTabParams } from "../utils/session-jobs.js";
 import { emit } from "../app-bridge.js";
@@ -121,10 +121,13 @@ export function useSessionSync() {
       }
 
       for (const tab of [...terminalStore.openTabs]) {
-        if (!serverSessionIds.has(tab.sessionId)) {
-          disconnectTerminal(tab);
-          terminalStore.removeTab(tab.id);
-        }
+        if (serverSessionIds.has(tab.sessionId)) continue;
+        // 作成直後のタブは、このポーリングが発行された時点でまだサーバ側に
+        // セッションが反映されていない可能性がある（起動レスポンス遅延とのレース）。
+        // 猶予期間内は除去せず、次のポーリングでサーバが追いつくのを待つ。
+        if (Date.now() - tab._createdAt < NEW_TAB_SYNC_GRACE_MS) continue;
+        disconnectTerminal(tab);
+        terminalStore.removeTab(tab.id);
       }
     } catch (e) {
       console.error("syncSessionsFromServer failed:", e);

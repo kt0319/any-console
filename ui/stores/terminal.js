@@ -34,6 +34,7 @@ function loadTerminalSettingsFromStorage() {
  * @property {import("@xterm/xterm").Terminal|null} term
  * @property {import("@xterm/addon-fit").FitAddon} fitAddon
  * @property {WebSocket|null} ws
+ * @property {number} _createdAt
  * @property {boolean} _pendingOpen
  * @property {boolean} _pendingRedraw
  * @property {boolean} _needsHistoryRestore
@@ -141,6 +142,7 @@ export const useTerminalStore = defineStore("terminal", () => {
       term,
       fitAddon,
       ws: null,
+      _createdAt: Date.now(),
       _pendingOpen: true,
       _pendingRedraw: !!restored,
       _needsHistoryRestore: !!restored,
