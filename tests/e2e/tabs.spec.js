@@ -58,21 +58,28 @@ test.describe("tabs & sessions", () => {
     const countBefore = await tabs.count();
     await openTerminal(page, countBefore + 1);
 
+    // このテストが作ったセッションの ID（既存のデタッチ済みセッションと区別するため）
+    const newSessionId = (await listSessionIds(page)).find((id) => !sessionIdsBefore.includes(id));
+    expect(newSessionId).toBeTruthy();
+
     await openSettingsModal(page);
     await openSettingsView(page, "Tabs & Sessions");
 
     const rows = page.locator(".split-tab-row");
     await expect(rows).toHaveCount(countBefore + 1);
-    const detachedBefore = await page.locator(".detached-row").count();
 
-    // デタッチ: タブ行から消え、Detached 一覧に現れる（セッションは残る）
+    // デタッチ: タブ行から消え、Detached 一覧に「このテストのセッション」が現れる
+    // （サーバに既存のデタッチ済みセッションがあっても、それには触れない）
+    const detachedRow = page.locator(`.detached-row[data-session-id="${newSessionId}"]`);
+    await expect(detachedRow).toHaveCount(0);
     await rows.last().locator(".split-tab-icon-btn").click();
     await expect(rows).toHaveCount(countBefore, { timeout: 5000 });
-    await expect(page.locator(".detached-row")).toHaveCount(detachedBefore + 1, { timeout: 10_000 });
+    await expect(detachedRow).toBeVisible({ timeout: 10_000 });
 
-    // 再アタッチ（Open as tab）: タブ行に戻る
-    await page.locator('.detached-row .detached-btn[title="Open as tab"]').first().click();
+    // 再アタッチ（Open as tab）: タブ行に戻り、Detached 一覧から消える
+    await detachedRow.locator('.detached-btn[title="Open as tab"]').click();
     await expect(page.locator(".tab-btn")).toHaveCount(countBefore + 1, { timeout: 10_000 });
+    await expect(detachedRow).toHaveCount(0, { timeout: 10_000 });
   });
 
   test("タブ一覧の × は確認ダイアログを経て閉じる", async ({ page }) => {
