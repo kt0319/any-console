@@ -2,46 +2,46 @@
  * スニペット設定の E2E スモーク。
  * Settings → Snippets での追加・一覧表示・削除を確認する。
  *
- * スニペットはサーバ側（/snippets）に永続化されるため、
- * テスト前の状態を保存しておき afterEach で必ず復元する（既存スニペットを汚さない）。
+ * スニペットはサーバ側（/snippets）に永続化されるため、afterEach で
+ * このテストが作った分（SNIPPET_CMD）だけを現在の一覧から取り除く。
+ * スナップショットの全書き戻しは、テスト実行中に行われた無関係な編集まで
+ * 巻き戻してしまうため行わない（既存スニペットを汚さない）。
  */
 import { test, expect, BASE_URL, loadToken, login, bearerHeaders, openSettingsModal, openSettingsView } from "./helpers.js";
 
 const SNIPPET_CMD = "echo e2e-snippet-test";
 
 test.describe("snippets", () => {
-  /** @type {unknown[]} テスト開始時点のスニペット一覧（後始末で復元する） */
-  let snippetsBefore = [];
-  /** スナップショット取得に成功したときだけ復元する（失敗時に [] を書き戻すと既存スニペットを消してしまう） */
-  let snapshotOk = false;
-
-  test.beforeEach(async ({ page, context, request }) => {
+  test.beforeEach(async ({ page, context }) => {
     const token = loadToken();
     test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
-    snapshotOk = false;
-    const res = await request.get(`${BASE_URL}/snippets`, { headers: bearerHeaders(token) });
-    expect(res.ok(), "スニペットの事前スナップショット取得に失敗（復元不能になるため中断）").toBeTruthy();
-    snippetsBefore = (await res.json()).snippets || [];
-    snapshotOk = true;
     await login(page, context, token);
   });
 
   test.afterEach(async ({ request }) => {
     const token = loadToken();
-    if (!token || !snapshotOk) return;
-    // 復元の失敗を握りつぶすと既存スニペットが変更されたまま残るため、
-    // リトライの上で成功しなければ teardown を失敗させて顕在化する
+    if (!token) return;
+    // このテストのスニペットだけを差分で取り除く。後始末の失敗を握りつぶすと
+    // テスト用スニペットが残るため、リトライの上で成功しなければ teardown を失敗させる
     let lastStatus = 0;
     for (let attempt = 0; attempt < 3; attempt++) {
       if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 1000));
-      const res = await request.put(`${BASE_URL}/snippets`, {
+      const res = await request.get(`${BASE_URL}/snippets`, { headers: bearerHeaders(token) });
+      if (!res.ok()) {
+        lastStatus = res.status();
+        continue;
+      }
+      const current = (await res.json()).snippets || [];
+      const kept = current.filter((s) => s.command !== SNIPPET_CMD);
+      if (kept.length === current.length) return; // テスト用スニペットは残っていない
+      const putRes = await request.put(`${BASE_URL}/snippets`, {
         headers: bearerHeaders(token),
-        data: { snippets: snippetsBefore },
+        data: { snippets: kept },
       });
-      if (res.ok()) return;
-      lastStatus = res.status();
+      if (putRes.ok()) return;
+      lastStatus = putRes.status();
     }
-    throw new Error(`スニペットの復元に失敗しました（status=${lastStatus}）`);
+    throw new Error(`テスト用スニペットの後始末に失敗しました（status=${lastStatus}）`);
   });
 
   test("スニペットを追加して一覧に表示され、削除できる", async ({ page }) => {
