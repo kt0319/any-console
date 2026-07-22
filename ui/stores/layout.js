@@ -1,9 +1,10 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { MOBILE_BREAKPOINT_PX } from "../utils/constants.js";
-import { isEmptyPaneId, makeEmptyPaneId, countRealPanes } from "../utils/empty-pane.js";
+import { isEmptyPaneId, makeEmptyPaneId, countRealPanes, realTabIds } from "../utils/empty-pane.js";
 import { calcGridLayout } from "../utils/terminal-layout.js";
 import { isTouchInput } from "../utils/device.js";
+import { useTerminalStore } from "./terminal.js";
 
 export const useLayoutStore = defineStore("layout", () => {
   const isTouchDevice = isTouchInput();
@@ -141,28 +142,46 @@ export const useLayoutStore = defineStore("layout", () => {
   function replaceTabWithEmpty(tabId) {
     if (!isSplitMode.value) return;
     const ids = splitPaneTabIds.value.map((id) => (id === tabId ? nextEmptyId() : id));
+    // exitSplitMode は現在の splitPaneTabIds から復帰先タブを探すため、
+    // 呼ぶ前に置き換え後の状態を反映しておく（そうしないと今まさに外した
+    // tabId 自身が誤って復帰先候補として拾われる）。
+    splitPaneTabIds.value = ids;
     if (countRealPanes(ids) === 0) {
       exitSplitMode();
-      return;
     }
-    splitPaneTabIds.value = ids;
   }
 
+  /**
+   * 分割を解除し、必ず有効な（openTabsに存在する）タブがアクティブになるようにする。
+   * targetTabId未指定時は、アクティブペインの実タブ→ペイン内の最初の実タブの順に
+   * フォールバックして terminalStore.switchTab を呼ぶ。呼び出し元はswitchTabを
+   * 別途呼ぶ必要はない。
+   */
   function exitSplitMode(targetTabId) {
-    const restoreTabId = targetTabId || null;
+    const ids = splitPaneTabIds.value;
+    const activeId = ids[activePaneIndex.value];
+    const restoreTabId = targetTabId
+      ?? (activeId != null && !isEmptyPaneId(activeId) ? activeId : null)
+      ?? realTabIds(ids)[0]
+      ?? null;
     isSplitMode.value = false;
     splitPaneTabIds.value = [];
     activePaneIndex.value = 0;
+    if (restoreTabId != null) {
+      useTerminalStore().switchTab(restoreTabId);
+    }
     return restoreTabId;
   }
 
   /**
    * 指定インデックスの空きペインの隣に新しい空きペインを追加する
    * （SplitEmptyPane の Add pane ボタンから呼ばれる）。現在のレイアウト軸は変更しない。
+   * 開いているタブ数を超えてペインを増やしても埋められないため、そこで打ち止めにする。
    */
   function addPane(paneIndex) {
     if (!isSplitMode.value) return;
     if (paneIndex < 0 || paneIndex >= splitPaneTabIds.value.length) return;
+    if (splitPaneTabIds.value.length >= useTerminalStore().openTabs.length) return;
     const ids = splitPaneTabIds.value.slice();
     ids.splice(paneIndex + 1, 0, nextEmptyId());
     splitPaneTabIds.value = ids;

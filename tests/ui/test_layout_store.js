@@ -3,6 +3,13 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 import { useLayoutStore } from "../../ui/stores/layout.js";
+import { useTerminalStore } from "../../ui/stores/terminal.js";
+
+// addTerminalTab は xterm 依存で重いので使わず、id だけの最小タブを直接挿入する
+// （test_terminal_store.js の seedTabs と同じ方針）。
+function seedTabs(terminalStore, ids) {
+  terminalStore.openTabs = ids.map((id) => ({ id, sessionId: "", term: null, ws: null }));
+}
 
 describe("layout store: splitWithDrop", () => {
   let store;
@@ -78,6 +85,30 @@ describe("layout store: exitSplitMode", () => {
     expect(store.splitPaneTabIds).toEqual([]);
     expect(store.activePaneIndex).toBe(0);
   });
+
+  it("targetTabId未指定でも、アクティブペインが実タブならそれをactiveTabIdにする", () => {
+    // switchTab は openTabs にヒットすると localStorage に触れるため、
+    // ここでは activeTabId の代入だけを見たいので openTabs は空のままにする。
+    const terminalStore = useTerminalStore();
+    store.splitWithDrop(1, "left", []);
+    store.splitPaneTabIds = [1, 2];
+    store.activePaneIndex = 1;
+
+    store.exitSplitMode();
+
+    expect(terminalStore.activeTabId).toBe(2);
+  });
+
+  it("アクティブペインが空きペインでも、他に実タブがあればそれにフォールバックする", () => {
+    const terminalStore = useTerminalStore();
+    store.splitWithDrop(1, "left", []);
+    store.splitPaneTabIds = [1, "empty:1"];
+    store.activePaneIndex = 1; // 空きペインをアクティブにした状態
+
+    store.exitSplitMode();
+
+    expect(terminalStore.activeTabId).toBe(1);
+  });
 });
 
 describe("layout store: replaceTabWithEmpty（Remove from split ボタン）", () => {
@@ -118,6 +149,7 @@ describe("layout store: addPane（空きペインの Add pane ボタン）", () 
   });
 
   it("指定ペインの直後に新しい空きペインを追加する（レイアウト軸は変更しない）", () => {
+    seedTabs(useTerminalStore(), [1, 2, 3]); // ペイン数(2)より多いタブが必要
     store.splitWithDrop("A", "left", []);
     store.splitPaneTabIds = ["A", "B"];
 
@@ -129,6 +161,16 @@ describe("layout store: addPane（空きペインの Add pane ボタン）", () 
     expect(store.isEmptyPaneId(store.splitPaneTabIds[2])).toBe(true);
     expect(store.splitLayout).toBe("horizontal");
     expect(store.activePaneIndex).toBe(2);
+  });
+
+  it("開いているタブ数以上にはペインを増やさない", () => {
+    seedTabs(useTerminalStore(), [1, 2]); // タブは2つしかない
+    store.splitWithDrop("A", "left", []);
+    store.splitPaneTabIds = ["A", "B"]; // 既にペインも2つ＝タブ数と同数
+
+    store.addPane(1);
+
+    expect(store.splitPaneTabIds).toEqual(["A", "B"]);
   });
 
   it("スプリット中でなければ何もしない", () => {

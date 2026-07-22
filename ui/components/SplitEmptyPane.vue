@@ -31,7 +31,7 @@
         </li>
       </ul>
       <div class="empty-pane-actions">
-        <button type="button" class="empty-pane-action-btn" aria-label="Add pane" data-tooltip="Add pane" @click.stop="onAddPane">
+        <button type="button" class="empty-pane-action-btn" :disabled="!canAddPane" aria-label="Add pane" data-tooltip="Add pane" @click.stop="onAddPane">
           <span class="mdi mdi-plus-box-outline"></span> Add pane
         </button>
       </div>
@@ -70,6 +70,8 @@ const openTabs = computed(() => {
 const isActive = computed(() => layoutStore.activePaneIndex === props.paneIndex);
 const currentMode = computed(() => layoutStore.splitLayout || "vertical");
 const tabCount = computed(() => terminalStore.openTabs.length);
+// ペイン数がタブ数以上だと、これ以上増やしても埋められないペインができるだけなので押せなくする。
+const canAddPane = computed(() => layoutStore.splitPaneTabIds.length < tabCount.value);
 
 function onPaneClick() {
   if (!isActive.value) emits("select-pane", props.paneIndex);
@@ -93,8 +95,9 @@ function onAddPane() {
 }
 
 function onRemovePane() {
-  const targetTabId = layoutStore.removeEmptyPane(props.paneIndex);
-  if (targetTabId != null) terminalStore.switchTab(targetTabId);
+  // 分割解除が発生する場合の復帰先タブへの切り替えは layoutStore.removeEmptyPane
+  // （内部で exitSplitMode 経由）が保証するので、ここで別途 switchTab する必要はない。
+  layoutStore.removeEmptyPane(props.paneIndex);
 }
 </script>
 
@@ -226,6 +229,11 @@ function onRemovePane() {
 
 .empty-pane-action-btn:active {
   transform: scale(0.98);
+}
+
+.empty-pane-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 @media (hover: hover) and (pointer: fine) {
