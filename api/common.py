@@ -54,6 +54,9 @@ GIT_AUTO_FETCH_INTERVAL_SEC = 180  # 購読者がいる間の自動 fetch 間隔
 
 # エージェント状態のリアルタイム配信（api/agent_watch.py）
 AGENT_WATCH_POLL_INTERVAL_SEC = 2  # 可視ペインのポーリング間隔
+# notify_phrase 検出後、この秒数アクティビティ（画面の変化）が無ければ通知する。
+# 検出後すぐに画面が動いた（ユーザーが反応した）場合は通知を送らない。
+PHRASE_NOTIFY_IDLE_GRACE_SEC = 20
 PTY_READ_BUFFER_SIZE = 16384
 PTY_READER_WORKERS = 8
 MAX_TERMINAL_SESSIONS = 20

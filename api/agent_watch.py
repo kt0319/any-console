@@ -9,7 +9,10 @@ push する（routers/status_stream.py が git_watch と同じソケットに相
 - idle:    画面が静止している
 
 ジョブ定義に notify_phrase が設定されている場合、可視ペインにその文字列が
-現れたタイミングでプッシュ通知を送る（重複送信は抑制する）。
+現れたタイミングでプッシュ通知を送る（重複送信は抑制する）。ただし検出直後に
+画面が動いた（ユーザーが反応した = 見ていた）場合は、PHRASE_NOTIFY_IDLE_GRACE_SEC
+秒待っても通知しない。サーバー側に「今どのタブを見ているか」を伝える手段が無いため、
+検出後のアクティビティ有無を「見ていたかどうか」の代用指標として使う。
 
 git_watch と同じく購読者がいる間だけポーリングタスクが動き、購読者ゼロで
 停止するため、クライアントが繋がっていないときのコストはゼロ。
@@ -17,6 +20,7 @@ git_watch と同じく購読者がいる間だけポーリングタスクが動�
 
 import asyncio
 import logging
+import time
 from typing import Any
 
 from fastapi import WebSocket
@@ -25,6 +29,7 @@ from fastapi.websockets import WebSocketDisconnect
 from .common import (
     AGENT_WATCH_POLL_INTERVAL_SEC,
     BACKGROUND_EXECUTOR,
+    PHRASE_NOTIFY_IDLE_GRACE_SEC,
     TMUX_SESSION_PREFIX,
 )
 from .tmux import _run_tmux_cmd, capture_visible_pane, load_tmux_metadata
@@ -118,7 +123,11 @@ def _job_working_enabled(workspace: str | None, job_name: str | None) -> bool:
 
 # ポーリング間の可視ペイン内容（アクティビティ判定用）。ポーリングタスクのみが触る。
 _last_capture: dict[str, str] = {}
-# 通知送信済みのセッション（フレーズが表示され続けている間の重複送信を抑制）。
+# フレーズ初検出時刻（monotonic）。ここから PHRASE_NOTIFY_IDLE_GRACE_SEC 秒
+# アクティビティが無ければ通知する。値が無い = 未検出 or 通知要否が確定済み。
+_phrase_detected_at: dict[str, float] = {}
+# 通知送信済み、または検出後の反応により通知不要と判定済みのセッション
+# （フレーズが表示され続けている間の重複判定を抑制）。
 _phrase_notified: set[str] = set()
 
 _subscribers: set[WebSocket] = set()
@@ -137,6 +146,31 @@ def reset_last_capture(session_id: str) -> None:
         _last_states.pop(session_id, None)
 
 
+def _should_notify_phrase(session_id: str, notify_phrase: str, capture: str, changed: bool, now: float) -> bool:
+    """notify_phrase 検出から PHRASE_NOTIFY_IDLE_GRACE_SEC 秒アクティビティが無ければ True。
+    _phrase_detected_at / _phrase_notified の更新（副作用）もここで行う。"""
+    if not notify_phrase or notify_phrase not in capture:
+        _phrase_detected_at.pop(session_id, None)
+        _phrase_notified.discard(session_id)
+        return False
+    if session_id in _phrase_notified:
+        return False
+    if session_id not in _phrase_detected_at:
+        # 初検出。フレーズ出現自体による変化は無視し、これ以降の変化だけを見る。
+        _phrase_detected_at[session_id] = now
+        return False
+    if changed:
+        # 検出後に画面が動いた = 見ていた とみなし、このフレーズ出現では通知しない。
+        _phrase_detected_at.pop(session_id, None)
+        _phrase_notified.add(session_id)
+        return False
+    if now - _phrase_detected_at[session_id] >= PHRASE_NOTIFY_IDLE_GRACE_SEC:
+        _phrase_notified.add(session_id)
+        _phrase_detected_at.pop(session_id, None)
+        return True
+    return False
+
+
 def collect_agent_states() -> tuple[dict[str, str] | None, list[tuple[str, str, str | None]]]:
     """全ターミナルセッションの状態を判定して返す（executor スレッドで実行）。
 
@@ -151,6 +185,7 @@ def collect_agent_states() -> tuple[dict[str, str] | None, list[tuple[str, str, 
         return None, []
     states: dict[str, str] = {}
     notifications: list[tuple[str, str, str | None]] = []
+    now = time.monotonic()
     for session_id in session_ids:
         capture = capture_visible_pane(TMUX_SESSION_PREFIX + session_id)
         if capture is None:
@@ -158,17 +193,18 @@ def collect_agent_states() -> tuple[dict[str, str] | None, list[tuple[str, str, 
         workspace, job_name = _session_meta(session_id)
         notify_phrase = _job_notify_phrase(workspace, job_name)
         working_enabled = _job_working_enabled(workspace, job_name)
-        new_state = classify_agent_state(capture, _last_capture.get(session_id), working_enabled)
+        prev_capture = _last_capture.get(session_id)
+        new_state = classify_agent_state(capture, prev_capture, working_enabled)
         states[session_id] = new_state
-        if notify_phrase and notify_phrase in capture:
-            if session_id not in _phrase_notified:
-                notifications.append((session_id, notify_phrase, workspace))
-                _phrase_notified.add(session_id)
-        else:
-            _phrase_notified.discard(session_id)
+        # working_enabled 設定に関わらず、生の変化そのものを「反応の有無」の判定に使う。
+        changed = prev_capture is not None and capture != prev_capture
+        if _should_notify_phrase(session_id, notify_phrase, capture, changed, now):
+            notifications.append((session_id, notify_phrase, workspace))
         _last_capture[session_id] = capture
     for stale in set(_last_capture) - set(states):
         del _last_capture[stale]
+    for stale in set(_phrase_detected_at) - set(states):
+        del _phrase_detected_at[stale]
     _phrase_notified.intersection_update(states)
     return states, notifications
 
@@ -246,6 +282,7 @@ def _stop_task() -> None:
     _poll_task = None
     _last_states.clear()
     _last_capture.clear()
+    _phrase_detected_at.clear()
     _phrase_notified.clear()
 
 
