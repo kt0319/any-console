@@ -17,7 +17,6 @@ git_watch と同じく購読者がいる間だけポーリングタスクが動�
 
 import asyncio
 import logging
-import time
 from typing import Any
 
 from fastapi import WebSocket
@@ -100,23 +99,6 @@ def _job_notify_phrase(workspace: str | None, job_name: str | None) -> str:
     return entry_to_job_definition(job_name, raw).notify_phrase if raw is not None else ""
 
 
-def _job_notify_delay(workspace: str | None, job_name: str | None) -> int:
-    """セッションを起動したジョブ定義から notify_delay_min を引く（ジョブ無しは 0）。"""
-    if not job_name:
-        return 0
-    from .routers.jobs_common import (
-        entry_to_job_definition,
-        get_workspace_jobs,
-        load_common_jobs_data,
-    )
-    if workspace:
-        entry = get_workspace_jobs(workspace).get(job_name)
-        return entry[0].notify_delay_min if entry else 0
-    data = load_common_jobs_data()
-    raw = data.get(job_name)
-    return entry_to_job_definition(job_name, raw).notify_delay_min if raw is not None else 0
-
-
 def _job_working_enabled(workspace: str | None, job_name: str | None) -> bool:
     """セッションを起動したジョブ定義から working_enabled を引く（ジョブ無しは True）。"""
     if not job_name:
@@ -136,8 +118,8 @@ def _job_working_enabled(workspace: str | None, job_name: str | None) -> bool:
 
 # ポーリング間の可視ペイン内容（アクティビティ判定用）。ポーリングタスクのみが触る。
 _last_capture: dict[str, str] = {}
-# フレーズ初検出時刻（monotonic）。キー不在 = 未検出、None = 通知送信済み。
-_phrase_detected_at: dict[str, float | None] = {}
+# 通知送信済みのセッション（フレーズが表示され続けている間の重複送信を抑制）。
+_phrase_notified: set[str] = set()
 
 _subscribers: set[WebSocket] = set()
 _poll_task: asyncio.Task | None = None
@@ -169,7 +151,6 @@ def collect_agent_states() -> tuple[dict[str, str] | None, list[tuple[str, str, 
         return None, []
     states: dict[str, str] = {}
     notifications: list[tuple[str, str, str | None]] = []
-    now = time.monotonic()
     for session_id in session_ids:
         capture = capture_visible_pane(TMUX_SESSION_PREFIX + session_id)
         if capture is None:
@@ -180,22 +161,15 @@ def collect_agent_states() -> tuple[dict[str, str] | None, list[tuple[str, str, 
         new_state = classify_agent_state(capture, _last_capture.get(session_id), working_enabled)
         states[session_id] = new_state
         if notify_phrase and notify_phrase in capture:
-            if session_id not in _phrase_detected_at:
-                # 初検出: 検出時刻を記録
-                _phrase_detected_at[session_id] = now
-            detected_at = _phrase_detected_at[session_id]
-            if detected_at is not None:
-                delay_sec = _job_notify_delay(workspace, job_name) * 60
-                if now - detected_at >= delay_sec:
-                    notifications.append((session_id, notify_phrase, workspace))
-                    _phrase_detected_at[session_id] = None  # 送信済みマーク
+            if session_id not in _phrase_notified:
+                notifications.append((session_id, notify_phrase, workspace))
+                _phrase_notified.add(session_id)
         else:
-            _phrase_detected_at.pop(session_id, None)
+            _phrase_notified.discard(session_id)
         _last_capture[session_id] = capture
     for stale in set(_last_capture) - set(states):
         del _last_capture[stale]
-    for stale in set(_phrase_detected_at) - set(states):
-        del _phrase_detected_at[stale]
+    _phrase_notified.intersection_update(states)
     return states, notifications
 
 
@@ -272,7 +246,7 @@ def _stop_task() -> None:
     _poll_task = None
     _last_states.clear()
     _last_capture.clear()
-    _phrase_detected_at.clear()
+    _phrase_notified.clear()
 
 
 def shutdown() -> None:
