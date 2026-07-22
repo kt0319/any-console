@@ -110,30 +110,66 @@ describe("layout store: replaceTabWithEmpty（Remove from split ボタン）", (
   });
 });
 
-describe("layout store: splitEmptyPane（空きペインの横/縦分割ボタン）", () => {
+describe("layout store: addPane（空きペインの Add pane ボタン）", () => {
   let store;
   beforeEach(() => {
     setActivePinia(createPinia());
     store = useLayoutStore();
   });
 
-  it("指定ペインの直後に新しい空きペインを追加し、指定軸に切り替える", () => {
+  it("指定ペインの直後に新しい空きペインを追加する（レイアウト軸は変更しない）", () => {
     store.splitWithDrop("A", "left", []);
     store.splitPaneTabIds = ["A", "B"];
 
-    store.splitEmptyPane(1, "vertical");
+    store.addPane(1);
 
     expect(store.splitPaneTabIds.length).toBe(3);
     expect(store.splitPaneTabIds[0]).toBe("A");
     expect(store.splitPaneTabIds[1]).toBe("B");
     expect(store.isEmptyPaneId(store.splitPaneTabIds[2])).toBe(true);
-    expect(store.splitLayout).toBe("vertical");
+    expect(store.splitLayout).toBe("horizontal");
     expect(store.activePaneIndex).toBe(2);
   });
 
   it("スプリット中でなければ何もしない", () => {
-    store.splitEmptyPane(0, "horizontal");
+    store.addPane(0);
     expect(store.isSplitMode).toBe(false);
     expect(store.splitPaneTabIds).toEqual([]);
+  });
+});
+
+describe("layout store: removeEmptyPane（空きペインの × ボタン）", () => {
+  let store;
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    store = useLayoutStore();
+  });
+
+  it("3ペイン中の空きペインを削除すると、他のペインを保ったままスプリットは維持される", () => {
+    store.splitWithDrop(1, "left", []);
+    store.splitPaneTabIds = [1, 2, "empty:1"];
+
+    const target = store.removeEmptyPane(2);
+
+    expect(target).toBeNull();
+    expect(store.isSplitMode).toBe(true);
+    expect(store.splitPaneTabIds).toEqual([1, 2]);
+  });
+
+  it("2ペイン中の空きペインを削除すると分割解除し、残った実タブへの切り替え先を返す", () => {
+    store.splitWithDrop(1, "left", []);
+    store.splitPaneTabIds = [1, "empty:1"];
+
+    const target = store.removeEmptyPane(1);
+
+    expect(target).toBe(1);
+    expect(store.isSplitMode).toBe(false);
+    expect(store.splitPaneTabIds).toEqual([]);
+  });
+
+  it("スプリット中でなければ何もしない", () => {
+    const target = store.removeEmptyPane(0);
+    expect(target).toBeNull();
+    expect(store.isSplitMode).toBe(false);
   });
 });

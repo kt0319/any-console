@@ -5,7 +5,12 @@
     @click="onPaneClick"
   >
     <div class="empty-pane-inner">
-      <div class="empty-pane-title">Open a tab in this pane</div>
+      <div class="empty-pane-title-row">
+        <div class="empty-pane-title">Open a tab in this pane</div>
+        <button type="button" class="empty-pane-close-btn" aria-label="Remove pane" data-tooltip="Remove pane" @click.stop="onRemovePane">
+          <span class="mdi mdi-close"></span>
+        </button>
+      </div>
       <div v-if="openTabs.length === 0" class="empty-pane-hint">No open tabs</div>
       <ul v-else class="empty-pane-list">
         <li
@@ -20,11 +25,8 @@
         </li>
       </ul>
       <div class="empty-pane-actions">
-        <button type="button" class="empty-pane-action-btn" aria-label="Split horizontal" data-tooltip="Split horizontal" @click.stop="onSplit('horizontal')">
-          <span class="mdi mdi-arrow-split-vertical"></span> Split horizontal
-        </button>
-        <button type="button" class="empty-pane-action-btn" aria-label="Split vertical" data-tooltip="Split vertical" @click.stop="onSplit('vertical')">
-          <span class="mdi mdi-arrow-split-horizontal"></span> Split vertical
+        <button type="button" class="empty-pane-action-btn" aria-label="Add pane" data-tooltip="Add pane" @click.stop="onAddPane">
+          <span class="mdi mdi-plus-box-outline"></span> Add pane
         </button>
       </div>
       <button type="button" class="empty-pane-stop-split" @click.stop="onStopSplit">
@@ -76,8 +78,13 @@ function onStopSplit() {
   layoutStore.exitSplitMode();
 }
 
-function onSplit(direction) {
-  layoutStore.splitEmptyPane(props.paneIndex, direction);
+function onAddPane() {
+  layoutStore.addPane(props.paneIndex);
+}
+
+function onRemovePane() {
+  const targetTabId = layoutStore.removeEmptyPane(props.paneIndex);
+  if (targetTabId != null) terminalStore.switchTab(targetTabId);
 }
 </script>
 
@@ -109,11 +116,38 @@ function onSplit(direction) {
   min-height: 0;
 }
 
+.empty-pane-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .empty-pane-title {
   font-size: 12px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.empty-pane-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 6px);
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.empty-pane-close-btn:active {
+  transform: scale(0.95);
 }
 
 .empty-pane-hint {
@@ -199,7 +233,8 @@ function onSplit(direction) {
   }
 
   .empty-pane-action-btn:hover,
-  .empty-pane-stop-split:hover {
+  .empty-pane-stop-split:hover,
+  .empty-pane-close-btn:hover {
     border-color: var(--accent);
     color: var(--text-primary);
   }

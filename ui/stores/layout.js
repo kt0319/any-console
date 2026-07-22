@@ -157,17 +157,40 @@ export const useLayoutStore = defineStore("layout", () => {
   }
 
   /**
-   * 指定インデックスの空きペインをさらに分割し、隣に新しい空きペインを追加する
-   * （SplitEmptyPane の横/縦分割ボタンから呼ばれる）。
+   * 指定インデックスの空きペインの隣に新しい空きペインを追加する
+   * （SplitEmptyPane の Add pane ボタンから呼ばれる）。現在のレイアウト軸は変更しない。
    */
-  function splitEmptyPane(paneIndex, direction) {
+  function addPane(paneIndex) {
     if (!isSplitMode.value) return;
     if (paneIndex < 0 || paneIndex >= splitPaneTabIds.value.length) return;
     const ids = splitPaneTabIds.value.slice();
     ids.splice(paneIndex + 1, 0, nextEmptyId());
-    splitLayout.value = direction;
     splitPaneTabIds.value = ids;
     activePaneIndex.value = paneIndex + 1;
+  }
+
+  /**
+   * 指定インデックスの空きペインをペイン配列から削除する（SplitEmptyPane のタイトル横の
+   * ×ボタンから呼ばれる）。残りペインが1つになったら分割を解除し、それが実タブなら
+   * 切り替え先として返す（呼び出し元で terminalStore.switchTab するため）。
+   * @returns {number|null} 切り替え先タブID（分割解除時のみ）
+   */
+  function removeEmptyPane(paneIndex) {
+    if (!isSplitMode.value) return null;
+    if (paneIndex < 0 || paneIndex >= splitPaneTabIds.value.length) return null;
+    const ids = splitPaneTabIds.value.slice();
+    ids.splice(paneIndex, 1);
+    if (ids.length <= 1) {
+      const remaining = ids[0];
+      const targetTabId = typeof remaining === "number" ? remaining : null;
+      exitSplitMode(targetTabId);
+      return targetTabId;
+    }
+    splitPaneTabIds.value = ids;
+    if (activePaneIndex.value >= ids.length) {
+      activePaneIndex.value = ids.length - 1;
+    }
+    return null;
   }
 
   return {
@@ -186,7 +209,8 @@ export const useLayoutStore = defineStore("layout", () => {
     exitSplitMode,
     assignTabToPane,
     replaceTabWithEmpty,
-    splitEmptyPane,
+    addPane,
+    removeEmptyPane,
     isEmptyPaneId,
     countRealPanes,
   };
