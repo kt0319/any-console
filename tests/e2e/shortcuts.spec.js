@@ -3,8 +3,7 @@
  * ⌘⇧T（New Terminal）と ⌘⇧.（Settings）は terminal / settings スペックで
  * 使用済みのため、ここでは ⌘⇧N（Open Workspace）と ⌘⇧W（Close Tab）を確認する。
  */
-import { test, expect } from "@playwright/test";
-import { loadToken, login, listSessionIds, cleanupNewSessions } from "./helpers.js";
+import { test, expect, loadToken, login, listSessionIds, cleanupNewSessions } from "./helpers.js";
 
 test.describe("global shortcuts", () => {
   /** @type {string[]} テスト開始時点のセッション ID（後始末で増分だけ消す） */

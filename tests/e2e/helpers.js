@@ -7,7 +7,32 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { expect } from "@playwright/test";
+import { test as base, expect } from "@playwright/test";
+
+/**
+ * 全 E2E 共通の test（各 spec は "@playwright/test" ではなくこれを import する）。
+ * login() はテストごとに Trusted Device を新規登録するため、テスト終了後に
+ * そのテストのデバイスを自動失効させる auto fixture を仕込む
+ * （ローカルの実サーバに対して実行しても devices.json に孤児デバイスが溜まらない）。
+ */
+export const test = base.extend({
+  _revokeDeviceAfterTest: [
+    async ({ context, page }, use) => {
+      await use();
+      try {
+        const cookies = await context.cookies();
+        const deviceId = cookies.find((c) => c.name === "any_console_device")?.value;
+        if (deviceId) {
+          await page.request.delete(`/devices/${encodeURIComponent(deviceId)}`);
+        }
+      } catch {
+        // テスト中断でページが閉じている場合等は諦める（デバイスが1件残るだけで実害は小さい）
+      }
+    },
+    { auto: true },
+  ],
+});
+export { expect };
 
 export function loadToken() {
   if (process.env.ANY_CONSOLE_TOKEN) return process.env.ANY_CONSOLE_TOKEN;

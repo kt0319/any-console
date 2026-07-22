@@ -5,8 +5,7 @@
  *
  * テストが開いたセッションは afterEach で必ず後始末する（既存セッションには触れない）。
  */
-import { test, expect } from "@playwright/test";
-import { loadToken, login, listSessionIds, cleanupNewSessions, openSettingsModal, openSettingsView } from "./helpers.js";
+import { test, expect, loadToken, login, listSessionIds, cleanupNewSessions, openSettingsModal, openSettingsView } from "./helpers.js";
 
 test.describe("tabs & sessions", () => {
   /** @type {string[]} テスト開始時点のセッション ID（後始末で増分だけ消す） */

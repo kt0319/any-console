@@ -2,8 +2,7 @@
  * モバイルビューポートの E2E スモーク。
  * モバイルファースト UI が小画面でも主要フロー（ログイン → メニュー → 設定モーダル）を提供できることを確認する。
  */
-import { test, expect } from "@playwright/test";
-import { loadToken, login } from "./helpers.js";
+import { test, expect, loadToken, login } from "./helpers.js";
 
 test.use({ viewport: { width: 375, height: 667 }, hasTouch: true, isMobile: true });
 

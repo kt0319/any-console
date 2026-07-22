@@ -3,8 +3,7 @@
  * ピルをドロップゾーンへドラッグして horizontal split → vertical split へ
  * 遷移できることを確認する（stores/layout.js の splitWithDrop の軸切り替え）。
  */
-import { test, expect } from "@playwright/test";
-import { loadToken, login, listSessionIds, cleanupNewSessions } from "./helpers.js";
+import { test, expect, loadToken, login, listSessionIds, cleanupNewSessions } from "./helpers.js";
 
 /**
  * ピルを指定のドロップゾーンへドラッグする。

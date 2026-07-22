@@ -7,8 +7,7 @@
  * タブが開いている状態でも動くようタブ数の増減で検証する。
  * テストが作ったセッションは afterEach で API から削除する（既存セッションには触れない）。
  */
-import { test, expect } from "@playwright/test";
-import { loadToken, login, listSessionIds, cleanupNewSessions } from "./helpers.js";
+import { test, expect, loadToken, login, listSessionIds, cleanupNewSessions } from "./helpers.js";
 
 test.describe("terminal", () => {
   /** @type {string[]} テスト開始時点のセッション ID（後始末で増分だけ消す） */

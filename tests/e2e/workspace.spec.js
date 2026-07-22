@@ -9,8 +9,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { test, expect } from "@playwright/test";
-import { loadToken, login, deleteWorkspaceViaApi, openSettingsModal, openSettingsView } from "./helpers.js";
+import { test, expect, loadToken, login, deleteWorkspaceViaApi, openSettingsModal, openSettingsView } from "./helpers.js";
 
 test.describe.configure({ mode: "serial" });
 

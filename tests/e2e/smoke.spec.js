@@ -4,8 +4,7 @@
  * 前提・実行方法は helpers.js / CLAUDE.md 参照:
  *   ANY_CONSOLE_URL=http://localhost:8888 npm run test:e2e
  */
-import { test, expect } from "@playwright/test";
-import { loadToken, login } from "./helpers.js";
+import { test, expect, loadToken, login } from "./helpers.js";
 
 test.describe("any-console smoke", () => {
   test("ログイン画面が表示される（トークン未認証時）", async ({ page, context }) => {

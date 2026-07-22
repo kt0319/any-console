@@ -4,8 +4,7 @@
  * タイトル（戻るボタン）でメニューへ戻れることを確認する。
  * Auth / Config File / System Info は代表的な表示内容も検証する（読み取りのみ・状態変更なし）。
  */
-import { test, expect } from "@playwright/test";
-import { loadToken, login, openSettingsModal, openSettingsView } from "./helpers.js";
+import { test, expect, loadToken, login, openSettingsModal, openSettingsView } from "./helpers.js";
 
 // メニューラベル → 遷移後のモーダルタイトル
 const SETTINGS_VIEWS = [

@@ -10,18 +10,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { test, expect } from "@playwright/test";
-import {
-  BASE_URL,
-  loadToken,
-  login,
-  bearerHeaders,
-  deleteWorkspaceViaApi,
-  openSettingsModal,
-  openSettingsView,
-  listSessionIds,
-  cleanupNewSessions,
-} from "./helpers.js";
+import { test, expect, BASE_URL, loadToken, login, bearerHeaders, deleteWorkspaceViaApi, openSettingsModal, openSettingsView, listSessionIds, cleanupNewSessions } from "./helpers.js";
 
 const COMMIT_MSG_INITIAL = "feat: e2e 初期コミット";
 const COMMIT_MSG_UI = "test: e2e からのコミット";

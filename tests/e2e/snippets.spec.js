@@ -5,8 +5,7 @@
  * スニペットはサーバ側（/snippets）に永続化されるため、
  * テスト前の状態を保存しておき afterEach で必ず復元する（既存スニペットを汚さない）。
  */
-import { test, expect } from "@playwright/test";
-import { BASE_URL, loadToken, login, bearerHeaders, openSettingsModal, openSettingsView } from "./helpers.js";
+import { test, expect, BASE_URL, loadToken, login, bearerHeaders, openSettingsModal, openSettingsView } from "./helpers.js";
 
 const SNIPPET_CMD = "echo e2e-snippet-test";
 
