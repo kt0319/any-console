@@ -160,7 +160,7 @@ describe("a11y: TerminalSplitDropZones", () => {
 });
 
 describe("a11y: SplitEmptyPane", () => {
-  it("空きペイン（タブ選択+横/縦分割+Stop split）に a11y 違反が無い", async () => {
+  it("空きペイン（タブ選択+分割パターン選択+Add pane+Remove pane）に a11y 違反が無い", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const { useLayoutStore } = await import("../../../ui/stores/layout.js");

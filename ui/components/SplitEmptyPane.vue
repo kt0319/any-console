@@ -11,6 +11,12 @@
           <span class="mdi mdi-close"></span>
         </button>
       </div>
+      <SplitModeSelector
+        :current-mode="currentMode"
+        :tab-count="tabCount"
+        @select="onSelectMode"
+        @click.stop
+      />
       <div v-if="openTabs.length === 0" class="empty-pane-hint">No open tabs</div>
       <ul v-else class="empty-pane-list">
         <li
@@ -29,9 +35,6 @@
           <span class="mdi mdi-plus-box-outline"></span> Add pane
         </button>
       </div>
-      <button type="button" class="empty-pane-stop-split" @click.stop="onStopSplit">
-        <span class="mdi mdi-fullscreen"></span> Stop split
-      </button>
     </div>
 
   </div>
@@ -43,6 +46,7 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { isEmptyPaneId } from "../utils/empty-pane.js";
+import SplitModeSelector from "./SplitModeSelector.vue";
 
 const props = defineProps({
   paneIndex: { type: Number, required: true },
@@ -64,6 +68,8 @@ const openTabs = computed(() => {
   return terminalStore.openTabs.filter((t) => !occupied.has(t.id));
 });
 const isActive = computed(() => layoutStore.activePaneIndex === props.paneIndex);
+const currentMode = computed(() => layoutStore.splitLayout || "vertical");
+const tabCount = computed(() => terminalStore.openTabs.length);
 
 function onPaneClick() {
   if (!isActive.value) emits("select-pane", props.paneIndex);
@@ -74,8 +80,12 @@ function onSelectTab(tabId) {
   terminalStore.switchTab(tabId);
 }
 
-function onStopSplit() {
-  layoutStore.exitSplitMode();
+function onSelectMode(mode) {
+  if (mode === "normal") {
+    layoutStore.exitSplitMode();
+    return;
+  }
+  layoutStore.splitLayout = mode;
 }
 
 function onAddPane() {
@@ -197,8 +207,7 @@ function onRemovePane() {
   margin-top: 4px;
 }
 
-.empty-pane-action-btn,
-.empty-pane-stop-split {
+.empty-pane-action-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -211,19 +220,11 @@ function onRemovePane() {
   color: var(--text-secondary);
   font-size: 13px;
   cursor: pointer;
-}
-
-.empty-pane-action-btn {
   flex: 1;
   min-width: 0;
 }
 
-.empty-pane-stop-split {
-  margin-top: 0;
-}
-
-.empty-pane-action-btn:active,
-.empty-pane-stop-split:active {
+.empty-pane-action-btn:active {
   transform: scale(0.98);
 }
 
@@ -233,7 +234,6 @@ function onRemovePane() {
   }
 
   .empty-pane-action-btn:hover,
-  .empty-pane-stop-split:hover,
   .empty-pane-close-btn:hover {
     border-color: var(--accent);
     color: var(--text-primary);

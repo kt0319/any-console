@@ -67,7 +67,7 @@ describe("layout store: exitSplitMode", () => {
     store = useLayoutStore();
   });
 
-  it("スプリット状態をリセットする（SplitEmptyPane の Stop split から呼ばれる）", () => {
+  it("スプリット状態をリセットする（SplitEmptyPane の SplitModeSelector Single pane から呼ばれる）", () => {
     store.splitWithDrop("A", "left", []);
     store.splitPaneTabIds = ["A", "B"];
     expect(store.isSplitMode).toBe(true);
