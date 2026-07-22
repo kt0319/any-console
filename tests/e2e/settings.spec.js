@@ -2,8 +2,7 @@
  * 設定モーダルの E2E スモーク。
  * 開閉（Esc / Close ボタン）とビュー間ナビゲーション（メニュー → System Info → 戻る）を確認する。
  */
-import { test, expect } from "@playwright/test";
-import { loadToken, login } from "./helpers.js";
+import { test, expect, loadToken, login } from "./helpers.js";
 
 test.describe("settings modal", () => {
   test.beforeEach(async ({ page, context }) => {

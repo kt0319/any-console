@@ -13,6 +13,11 @@ export default defineConfig({
     ignoreHTTPSErrors: true,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
+    // Playwright 管理外の Chromium を使う環境（プリインストール済みバイナリ等）向けの上書き。
+    // 未設定なら通常どおり playwright install した Chromium を使う。
+    launchOptions: process.env.ANY_CONSOLE_E2E_CHROMIUM
+      ? { executablePath: process.env.ANY_CONSOLE_E2E_CHROMIUM }
+      : {},
   },
   reporter: [["list"]],
   // 並列度は控えめ（tmux セッション共有なので衝突回避）。

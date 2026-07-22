@@ -73,7 +73,7 @@
       </div>
       <div v-if="!detachedSessions.length" class="detached-empty">No detached sessions</div>
       <div v-else class="detached-list">
-        <div v-for="s in detachedSessions" :key="s.tmux_name" class="detached-row">
+        <div v-for="s in detachedSessions" :key="s.tmux_name" class="detached-row" :data-session-id="s.session_id || null">
           <div class="detached-meta">
             <span class="detached-name">
               {{ s.workspace || s.job_label || s.job_name || (s.external ? s.tmux_name : "terminal") }}

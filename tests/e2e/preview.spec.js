@@ -4,8 +4,7 @@
  * ことと、Open ボタンから proxy 経由で実際に到達できることを確認する。
  */
 import http from "node:http";
-import { test, expect } from "@playwright/test";
-import { loadToken, login } from "./helpers.js";
+import { test, expect, loadToken, login } from "./helpers.js";
 
 // PROXY_MIN_TARGET(1024) 〜 PROXY_MAX_TARGET(9999) の範囲に収める（api/preview.py）。
 // 8888(any-console本体) と衝突しない値を選ぶ。

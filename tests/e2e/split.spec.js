@@ -3,8 +3,7 @@
  * ピルをドロップゾーンへドラッグして horizontal split → vertical split へ
  * 遷移できることを確認する（stores/layout.js の splitWithDrop の軸切り替え）。
  */
-import { test, expect } from "@playwright/test";
-import { loadToken, login, listSessionIds, cleanupNewSessions } from "./helpers.js";
+import { test, expect, loadToken, login, listSessionIds, cleanupNewSessions } from "./helpers.js";
 
 /**
  * ピルを指定のドロップゾーンへドラッグする。
@@ -31,10 +30,11 @@ async function dragPillToZone(page, pill, zoneSelector) {
 }
 
 test.describe("terminal split", () => {
-  /** @type {string[]} テスト開始時点のセッション ID（後始末で増分だけ消す） */
-  let sessionIdsBefore = [];
+  /** @type {string[] | null} テスト開始時点のセッション ID（後始末で増分だけ消す。null = 未取得） */
+  let sessionIdsBefore = null;
 
   test.beforeEach(async ({ page, context }) => {
+    sessionIdsBefore = null;
     const token = loadToken();
     test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
     await login(page, context, token);

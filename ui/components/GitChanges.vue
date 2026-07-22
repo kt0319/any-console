@@ -99,7 +99,8 @@ const {
 } = useHoverMenu();
 
 const isCommitDisabled = computed(
-  () => !commitForm.value?.commitMessage?.value?.trim() || !!commitForm.value?.submitting?.value,
+  // defineExpose された ref はテンプレート ref 経由では自動アンラップされる（.value を付けると常に undefined）
+  () => !commitForm.value?.commitMessage?.trim() || !!commitForm.value?.submitting,
 );
 const isStashDisabled = computed(() => files.value.length === 0);
 

@@ -1,8 +1,11 @@
+import contextlib
 import json
 import logging
+import os
 import re
 import secrets
 import subprocess
+import tempfile
 import threading
 import time
 from collections.abc import Callable
@@ -237,9 +240,25 @@ def load_json_file(
 
 
 def save_json_file(path: Path, data: Any) -> None:
-    """data/ 配下の JSON ファイルへ書き込む（親ディレクトリを自動作成）。"""
+    """data/ 配下の JSON ファイルへ書き込む（親ディレクトリを自動作成）。
+
+    devices.json のように「リクエストごとに書き、並行して読まれる」ファイルがあるため、
+    tmp ファイルへ書いてから os.replace でアトミックに差し替える
+    （直接 write_text すると並行リーダーが書き込み途中の JSON を読んで
+    認証失敗などの誤動作を起こす）。
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    # tmp 名は書き込みごとにユニークにする（固定名だと並行ライター同士で
+    # rename が競合して FileNotFoundError になる）
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f"{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(json.dumps(data, ensure_ascii=False, indent=2))
+        os.replace(tmp_name, path)
+    except OSError:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp_name)
+        raise
 
 
 @overload

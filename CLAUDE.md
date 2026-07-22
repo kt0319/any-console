@@ -90,9 +90,18 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
 - `tests/e2e/*.spec.js` に Playwright スモークを置く（**CI の `e2e` ジョブで毎回実行**。ローカル手動実行も可）
   - `smoke.spec.js`: 認証フロー（ログイン画面・不正トークン・認証維持）
   - `settings.spec.js`: 設定モーダルの開閉（Esc / Close）とビュー遷移
-  - `terminal.spec.js`: ターミナル起動・コマンド実行・タブクローズ確認ダイアログ
+  - `settings-views.spec.js`: 設定モーダルの全ビュー遷移・Auth / Config File / System Info の表示
+  - `terminal.spec.js`: ターミナル起動・コマンド実行・タブ切替時の出力保持・タブクローズ確認ダイアログ
+  - `tabs.spec.js`: Tabs & Sessions（タブ一覧・アクティブ切替・デタッチ / 再アタッチ・クローズ確認）
+  - `shortcuts.spec.js`: グローバルショートカット（⌘⇧N / ⌘⇧W）
+  - `snippets.spec.js`: スニペットの追加・削除（テスト前の状態を API で復元）
+  - `workspace.spec.js`: ワークスペース登録・重複 / 不正パスエラー・削除（確認ダイアログ）
+  - `workspace-panes.spec.js`: ワークスペース詳細（Files / Changes+Commit / History / Branches / Jobs / Stash）とディープリンク（テスト用 git リポジトリを一時領域に作成）
+  - `split.spec.js`: ピルドラッグによるターミナル分割
+  - `preview.spec.js`: Port Preview の検出と proxy 経由アクセス
   - `mobile.spec.js`: モバイルビューポート（375px）での主要フロー
-  - 共通ヘルパー（ログイン・セッション後始末）は `helpers.js`
+  - `mobile-terminal.spec.js`: モバイルでのターミナル + KeyboardBar 表示
+  - 共通ヘルパー（ログイン・セッション後始末・設定モーダル操作・Bearer ヘッダ）は `helpers.js`
 - 重要な体験フロー（ログイン → メイン画面遷移）が壊れていないか確認する用途
 - CI ではフロントエンドをビルドし、テスト用トークンでサーバを起動してから実行する（`.github/workflows/ci.yml` 参照）
 - テストがサーバ状態を汚さないこと (**MUST**): セッション等を作るテストは自分が作った分だけを必ず後始末する（`helpers.js` の `cleanupNewSessions` を使う。既存セッションには触れない）
