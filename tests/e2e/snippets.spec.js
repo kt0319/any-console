@@ -29,7 +29,19 @@ test.describe("snippets", () => {
   test.afterEach(async ({ request }) => {
     const token = loadToken();
     if (!token || !snapshotOk) return;
-    await request.put(`${BASE_URL}/snippets`, { headers: bearerHeaders(token), data: { snippets: snippetsBefore } });
+    // 復元の失敗を握りつぶすと既存スニペットが変更されたまま残るため、
+    // リトライの上で成功しなければ teardown を失敗させて顕在化する
+    let lastStatus = 0;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 1000));
+      const res = await request.put(`${BASE_URL}/snippets`, {
+        headers: bearerHeaders(token),
+        data: { snippets: snippetsBefore },
+      });
+      if (res.ok()) return;
+      lastStatus = res.status();
+    }
+    throw new Error(`スニペットの復元に失敗しました（status=${lastStatus}）`);
   });
 
   test("スニペットを追加して一覧に表示され、削除できる", async ({ page }) => {
