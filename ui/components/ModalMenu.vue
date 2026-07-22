@@ -30,6 +30,10 @@
       </button>
 
       <div class="settings-menu-section-label">System</div>
+      <button v-if="dispatchQueue.length > 0" type="button" class="settings-menu-item" @click="pushView('DispatchQueueConfig')">
+        <span class="mdi mdi-tray-full"></span> Dispatch Queue
+        <span class="settings-menu-count">{{ dispatchQueue.length }}</span>
+      </button>
       <button type="button" class="settings-menu-item" @click="pushView('PreviewPorts')">
         <span class="mdi mdi-open-in-app"></span> Port Preview
       </button>
@@ -59,6 +63,7 @@ import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
 import { EP_SETTINGS_AUTH, EP_SYSTEM_INFO } from "../utils/endpoints.js";
+import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
 
 const modalTitle = inject("modalTitle");
 const pushView = inject("pushView");
@@ -67,6 +72,7 @@ modalTitle.value = "Settings";
 const { apiGet } = useApi();
 const authWarn = ref(false);
 const appVersion = ref("");
+const { queue: dispatchQueue } = useDispatchConfirm();
 
 onMounted(async () => {
   const auth = await getWithRetry(apiGet, EP_SETTINGS_AUTH);
@@ -125,6 +131,22 @@ onMounted(async () => {
 
 .settings-menu-warn .mdi {
   font-size: 14px;
+}
+
+.settings-menu-count {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg-primary, #1a1b26);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .settings-menu-version {

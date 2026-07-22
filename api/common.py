@@ -21,6 +21,10 @@ UPLOAD_DIR = Path("/tmp/any-console-uploads")
 CONFIG_FILE = PROJECT_ROOT / "config.json"
 GLOBAL_CONFIG_KEY = "__global__"
 
+# dispatch の承認待ちキュー専用ファイル。config.json とは意味が違う
+# （ユーザー設定ではなく一時的な運用状態）ため分離する。
+DISPATCH_QUEUE_FILE = PROJECT_ROOT / "dispatch_queue.json"
+
 # 現在のコードが理解する config スキーマのバージョン。
 # 破壊的なスキーマ変更を入れる際にインクリメントし、_CONFIG_MIGRATIONS に
 # 旧版 -> 新版の変換を登録する（api/config.py 参照）。
