@@ -22,6 +22,7 @@ import WorkspaceGroupDialog from "../../../ui/components/WorkspaceGroupDialog.vu
 import DispatchPromptDialog from "../../../ui/components/DispatchPromptDialog.vue";
 import UrlActionDialog from "../../../ui/components/UrlActionDialog.vue";
 import TerminalSplitDropZones from "../../../ui/components/TerminalSplitDropZones.vue";
+import SplitEmptyPane from "../../../ui/components/SplitEmptyPane.vue";
 import { createPinia, setActivePinia } from "pinia";
 import { useConfirm } from "../../../ui/composables/useConfirm.js";
 import { usePrompt } from "../../../ui/composables/usePrompt.js";
@@ -153,6 +154,23 @@ describe("a11y: TerminalSplitDropZones", () => {
   it("分割ドロップゾーンに a11y 違反が無い", async () => {
     setActivePinia(createPinia());
     const wrapper = mount(TerminalSplitDropZones, { attachTo: document.body });
+    await expectNoA11yViolations(wrapper.element);
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: SplitEmptyPane", () => {
+  it("空きペイン（タブ選択+横/縦分割+Stop split）に a11y 違反が無い", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const { useLayoutStore } = await import("../../../ui/stores/layout.js");
+    const layoutStore = useLayoutStore();
+    layoutStore.splitWithDrop(1, "left", []);
+    layoutStore.splitPaneTabIds = [1, "empty:1"];
+    const wrapper = mount(SplitEmptyPane, {
+      props: { paneIndex: 1 },
+      attachTo: document.body,
+    });
     await expectNoA11yViolations(wrapper.element);
     wrapper.unmount();
   });

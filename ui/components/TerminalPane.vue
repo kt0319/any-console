@@ -177,10 +177,7 @@ function onSplitCloseDown(e) {
 }
 
 function onSplitCloseUp() {
-  const switchToId = layoutStore.removeFromSplit(props.tab.id);
-  if (switchToId != null) {
-    terminalStore.switchTab(switchToId);
-  }
+  layoutStore.replaceTabWithEmpty(props.tab.id);
 }
 
 let tabClosePending = false;

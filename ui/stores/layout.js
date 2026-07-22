@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { MOBILE_BREAKPOINT_PX } from "../utils/constants.js";
-import { isEmptyPaneId, makeEmptyPaneId, countRealPanes, realTabIds } from "../utils/empty-pane.js";
+import { isEmptyPaneId, makeEmptyPaneId, countRealPanes } from "../utils/empty-pane.js";
 import { calcGridLayout } from "../utils/terminal-layout.js";
 import { isTouchInput } from "../utils/device.js";
 
@@ -157,23 +157,17 @@ export const useLayoutStore = defineStore("layout", () => {
   }
 
   /**
-   * 指定タブを分割から外す。残り実ペインが1つになったら分割解除する。
-   * 分割解除時は残ったタブのIDを返す（呼び出し元でアクティブタブを切り替えるため）。
-   * @returns {number|null} 切り替え先タブID（分割解除時のみ）
+   * 指定インデックスの空きペインをさらに分割し、隣に新しい空きペインを追加する
+   * （SplitEmptyPane の横/縦分割ボタンから呼ばれる）。
    */
-  function removeFromSplit(tabId) {
-    if (!isSplitMode.value) return null;
-    const ids = splitPaneTabIds.value.filter((id) => id !== tabId);
-    const remaining = realTabIds(ids);
-    if (remaining.length <= 1) {
-      exitSplitMode();
-      return remaining[0] ?? null;
-    }
+  function splitEmptyPane(paneIndex, direction) {
+    if (!isSplitMode.value) return;
+    if (paneIndex < 0 || paneIndex >= splitPaneTabIds.value.length) return;
+    const ids = splitPaneTabIds.value.slice();
+    ids.splice(paneIndex + 1, 0, nextEmptyId());
+    splitLayout.value = direction;
     splitPaneTabIds.value = ids;
-    if (activePaneIndex.value >= ids.length) {
-      activePaneIndex.value = ids.length - 1;
-    }
-    return null;
+    activePaneIndex.value = paneIndex + 1;
   }
 
   return {
@@ -192,7 +186,7 @@ export const useLayoutStore = defineStore("layout", () => {
     exitSplitMode,
     assignTabToPane,
     replaceTabWithEmpty,
-    removeFromSplit,
+    splitEmptyPane,
     isEmptyPaneId,
     countRealPanes,
   };

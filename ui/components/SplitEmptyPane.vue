@@ -19,6 +19,14 @@
           <span class="empty-pane-row-name">{{ tab.workspace || tab.label || 'terminal' }}</span>
         </li>
       </ul>
+      <div class="empty-pane-actions">
+        <button type="button" class="empty-pane-action-btn" aria-label="Split horizontal" data-tooltip="Split horizontal" @click.stop="onSplit('horizontal')">
+          <span class="mdi mdi-arrow-split-vertical"></span> Split horizontal
+        </button>
+        <button type="button" class="empty-pane-action-btn" aria-label="Split vertical" data-tooltip="Split vertical" @click.stop="onSplit('vertical')">
+          <span class="mdi mdi-arrow-split-horizontal"></span> Split vertical
+        </button>
+      </div>
       <button type="button" class="empty-pane-stop-split" @click.stop="onStopSplit">
         <span class="mdi mdi-fullscreen"></span> Stop split
       </button>
@@ -66,6 +74,10 @@ function onSelectTab(tabId) {
 
 function onStopSplit() {
   layoutStore.exitSplitMode();
+}
+
+function onSplit(direction) {
+  layoutStore.splitEmptyPane(props.paneIndex, direction);
 }
 </script>
 
@@ -145,12 +157,18 @@ function onStopSplit() {
   white-space: nowrap;
 }
 
+.empty-pane-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.empty-pane-action-btn,
 .empty-pane-stop-split {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  margin-top: 4px;
   padding: 10px 12px;
   min-height: 36px;
   border: 1px solid var(--border);
@@ -161,6 +179,16 @@ function onStopSplit() {
   cursor: pointer;
 }
 
+.empty-pane-action-btn {
+  flex: 1;
+  min-width: 0;
+}
+
+.empty-pane-stop-split {
+  margin-top: 0;
+}
+
+.empty-pane-action-btn:active,
 .empty-pane-stop-split:active {
   transform: scale(0.98);
 }
@@ -170,6 +198,7 @@ function onStopSplit() {
     border-color: var(--accent);
   }
 
+  .empty-pane-action-btn:hover,
   .empty-pane-stop-split:hover {
     border-color: var(--accent);
     color: var(--text-primary);
