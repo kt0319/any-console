@@ -69,7 +69,9 @@ test.describe("workspace lifecycle", () => {
     await openSettingsModal(page);
     await openSettingsView(page, "Add Workspace");
 
-    await page.locator(".ws-add-input").fill("/nonexistent/e2e-path");
+    // テスト管理下の wsDir 配下で「作っていない」子パスを使う。
+    // 固定の絶対パスだと実在する環境で登録が成功しサーバ状態を汚してしまう。
+    await page.locator(".ws-add-input").fill(path.join(wsDir, "e2e-missing-subdir"));
     await page.locator(".ws-add-btn").click();
     await expect(page.locator(".form-message.error")).toContainText("Directory does not exist", { timeout: 5000 });
   });
