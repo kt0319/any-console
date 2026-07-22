@@ -10,10 +10,11 @@ import { test, expect, loadToken, login, listSessionIds, cleanupNewSessions } fr
 test.use({ viewport: { width: 375, height: 667 }, hasTouch: true, isMobile: true });
 
 test.describe("mobile terminal", () => {
-  /** @type {string[]} テスト開始時点のセッション ID（後始末で増分だけ消す） */
-  let sessionIdsBefore = [];
+  /** @type {string[] | null} テスト開始時点のセッション ID（後始末で増分だけ消す。null = 未取得） */
+  let sessionIdsBefore = null;
 
   test.beforeEach(async ({ page, context }) => {
+    sessionIdsBefore = null;
     const token = loadToken();
     test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
     await login(page, context, token);

@@ -19,15 +19,29 @@ export const test = base.extend({
   _revokeDeviceAfterTest: [
     async ({ context, page }, use) => {
       await use();
+      let cookies;
       try {
-        const cookies = await context.cookies();
-        const deviceId = cookies.find((c) => c.name === "any_console_device")?.value;
-        if (deviceId) {
-          await page.request.delete(`/devices/${encodeURIComponent(deviceId)}`);
-        }
+        cookies = await context.cookies();
       } catch {
-        // テスト中断でページが閉じている場合等は諦める（デバイスが1件残るだけで実害は小さい）
+        // テスト中断でコンテキストが既に閉じている場合のみ諦める
+        return;
       }
+      const deviceId = cookies.find((c) => c.name === "any_console_device")?.value;
+      if (!deviceId) return;
+      // 失効の失敗を握りつぶすとデバイスが残り続けるため、リトライの上で
+      // 成功（または既に存在しない = 404）を確認できなければ teardown を失敗させる
+      let lastError = "";
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 1000));
+        try {
+          const res = await page.request.delete(`/devices/${encodeURIComponent(deviceId)}`);
+          if (res.ok() || res.status() === 404) return;
+          lastError = `status=${res.status()}`;
+        } catch (e) {
+          lastError = e.message || String(e);
+        }
+      }
+      throw new Error(`テスト用デバイスの失効に失敗しました（${lastError}）`);
     },
     { auto: true },
   ],
@@ -46,12 +60,16 @@ export function loadToken() {
 
 /**
  * 現在のターミナルセッション ID 一覧を API から取得する。
+ * 取得失敗を空配列にすると「既存セッションが全部テスト作成物」に見えてしまい、
+ * cleanupNewSessions が既存セッションを削除しかねないため、失敗時は例外にする。
  * @param {import("@playwright/test").Page} page 認証済みの page（cookie を共有する）
  * @returns {Promise<string[]>}
  */
 export async function listSessionIds(page) {
   const res = await page.request.get("/terminal/sessions");
-  if (!res.ok()) return [];
+  if (!res.ok()) {
+    throw new Error(`GET /terminal/sessions に失敗しました（status=${res.status()}）`);
+  }
   const sessions = await res.json();
   return sessions.map((s) => s.session_id);
 }
@@ -60,10 +78,19 @@ export async function listSessionIds(page) {
  * テスト中に増えたターミナルセッションだけを API で削除する。
  * （ローカルの実サーバに対して実行しても、既存セッションには触れない）
  * @param {import("@playwright/test").Page} page
- * @param {string[]} beforeIds テスト開始時点のセッション ID 一覧
+ * @param {string[] | null} beforeIds テスト開始時点のセッション ID 一覧。
+ *   null（beforeEach がスナップショット取得前に失敗した等）の場合は
+ *   「テストが作った分」を判定できないため何も消さない。
  */
 export async function cleanupNewSessions(page, beforeIds) {
-  const afterIds = await listSessionIds(page);
+  if (!beforeIds) return;
+  let afterIds;
+  try {
+    afterIds = await listSessionIds(page);
+  } catch {
+    // 現在一覧を取得できない場合も、誤削除しないよう消し漏れ側に倒す
+    return;
+  }
   for (const id of afterIds.filter((id) => !beforeIds.includes(id))) {
     await page.request.delete(`/terminal/sessions/${id}`).catch(() => {});
   }

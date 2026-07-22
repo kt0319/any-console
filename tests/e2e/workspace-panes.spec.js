@@ -64,10 +64,11 @@ test.describe("workspace detail panes", () => {
     if (wsDir) fs.rmSync(wsDir, { recursive: true, force: true });
   });
 
-  /** @type {string[]} テスト開始時点のセッション ID（ジョブ実行テストの後始末用） */
-  let sessionIdsBefore = [];
+  /** @type {string[] | null} テスト開始時点のセッション ID（ジョブ実行テストの後始末用。null = 未取得） */
+  let sessionIdsBefore = null;
 
   test.beforeEach(async ({ page, context }) => {
+    sessionIdsBefore = null;
     const token = loadToken();
     test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
     await login(page, context, token);
