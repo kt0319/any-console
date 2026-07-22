@@ -230,6 +230,17 @@ class DispatchDecision(BaseModel):
     session_id: str | None = None
 
 
+@router.get("/dispatch/queue")
+def get_dispatch_queue():
+    """現在の承認待ちdispatch一覧を返す（SettingsのDispatch Queueと同じ内容）。"""
+    items = [
+        {"id": dispatch_id, "request": p["request"]}
+        for dispatch_id, p in _PENDING.items()
+        if not p["event"].is_set()
+    ]
+    return {"items": items}
+
+
 @router.get("/dispatch/events")
 async def dispatch_events():
     async def gen():

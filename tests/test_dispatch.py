@@ -205,6 +205,63 @@ class TestDispatchDecision:
         assert res.status_code == 404
 
 
+class TestDispatchQueueEndpoint:
+    def test_empty_queue_returns_empty_list(self, client):
+        res = client.get("/dispatch/queue", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json() == {"items": []}
+
+    def test_pending_item_is_listed(self, client, workspace):
+        def runner():
+            client.post("/dispatch", headers=AUTH, json={"workspace": "test-ws", "text": "echo hi"})
+        t = threading.Thread(target=runner, daemon=True)
+        t.start()
+
+        pending_id = None
+        for _ in range(40):
+            pending = list(dispatch_mod._PENDING.keys())
+            if pending:
+                pending_id = pending[0]
+                break
+            time.sleep(0.01)
+        assert pending_id
+
+        res = client.get("/dispatch/queue", headers=AUTH)
+        assert res.status_code == 200
+        items = res.json()["items"]
+        assert len(items) == 1
+        assert items[0]["id"] == pending_id
+        assert items[0]["request"]["workspace"] == "test-ws"
+
+        client.post(f"/dispatch/{pending_id}/decision", headers=AUTH, json={"approved": False})
+        t.join(timeout=2)
+
+    def test_decided_item_is_not_listed(self, client, workspace):
+        def runner():
+            client.post("/dispatch", headers=AUTH, json={"workspace": "test-ws", "text": "echo hi"})
+        t = threading.Thread(target=runner, daemon=True)
+        t.start()
+
+        pending_id = None
+        for _ in range(40):
+            pending = list(dispatch_mod._PENDING.keys())
+            if pending:
+                pending_id = pending[0]
+                break
+            time.sleep(0.01)
+        assert pending_id
+
+        client.post(f"/dispatch/{pending_id}/decision", headers=AUTH, json={"approved": False})
+        t.join(timeout=2)
+
+        res = client.get("/dispatch/queue", headers=AUTH)
+        assert res.json() == {"items": []}
+
+    def test_requires_auth(self, client):
+        res = client.get("/dispatch/queue")
+        assert res.status_code == 401
+
+
 class TestReuseExisting:
     def test_reuse_finds_existing_session(self, client, workspace, _mock_tmux):
         from api.terminal_session import TERMINAL_SESSIONS, TerminalSession, sessions_lock
