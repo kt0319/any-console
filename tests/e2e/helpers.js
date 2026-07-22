@@ -44,12 +44,40 @@ export async function cleanupNewSessions(page, beforeIds) {
   }
 }
 
+export const BASE_URL = process.env.ANY_CONSOLE_URL || "http://localhost:8888";
+
 /**
  * API 直叩き用の Bearer 認証ヘッダを作る（テストの setup / cleanup 用）。
  * @param {string} token
  */
 export function bearerHeaders(token) {
   return { Authorization: `Bearer ${token}` };
+}
+
+/**
+ * テストが登録したワークスペースを API で確実に削除する（後始末用）。
+ * 200（削除成功）と 400 / 404（既に存在しない）は成功扱い。
+ * それ以外はリトライし、失敗が残る場合は例外にして後始末の失敗を顕在化させる
+ * （握りつぶすと、実サーバに「削除済みパスを指す登録」が残るため）。
+ * @param {import("@playwright/test").APIRequestContext} request
+ * @param {string} token
+ * @param {string} name ワークスペース名
+ */
+export async function deleteWorkspaceViaApi(request, token, name) {
+  let lastError = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const res = await request.delete(`${BASE_URL}/workspaces/${encodeURIComponent(name)}`, {
+        headers: bearerHeaders(token),
+      });
+      if (res.ok() || res.status() === 400 || res.status() === 404) return;
+      lastError = `status=${res.status()}`;
+    } catch (e) {
+      lastError = e.message || String(e);
+    }
+  }
+  throw new Error(`テスト用ワークスペース "${name}" の削除に失敗しました（${lastError}）`);
 }
 
 /**

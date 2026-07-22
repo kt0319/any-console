@@ -6,29 +6,31 @@
  * テスト前の状態を保存しておき afterEach で必ず復元する（既存スニペットを汚さない）。
  */
 import { test, expect } from "@playwright/test";
-import { loadToken, login, bearerHeaders, openSettingsModal, openSettingsView } from "./helpers.js";
+import { BASE_URL, loadToken, login, bearerHeaders, openSettingsModal, openSettingsView } from "./helpers.js";
 
-const BASE_URL = process.env.ANY_CONSOLE_URL || "http://localhost:8888";
 const SNIPPET_CMD = "echo e2e-snippet-test";
 
 test.describe("snippets", () => {
   /** @type {unknown[]} テスト開始時点のスニペット一覧（後始末で復元する） */
   let snippetsBefore = [];
+  /** スナップショット取得に成功したときだけ復元する（失敗時に [] を書き戻すと既存スニペットを消してしまう） */
+  let snapshotOk = false;
 
   test.beforeEach(async ({ page, context, request }) => {
     const token = loadToken();
     test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
+    snapshotOk = false;
     const res = await request.get(`${BASE_URL}/snippets`, { headers: bearerHeaders(token) });
-    snippetsBefore = res.ok() ? (await res.json()).snippets || [] : [];
+    expect(res.ok(), "スニペットの事前スナップショット取得に失敗（復元不能になるため中断）").toBeTruthy();
+    snippetsBefore = (await res.json()).snippets || [];
+    snapshotOk = true;
     await login(page, context, token);
   });
 
   test.afterEach(async ({ request }) => {
     const token = loadToken();
-    if (!token) return;
-    await request
-      .put(`${BASE_URL}/snippets`, { headers: bearerHeaders(token), data: { snippets: snippetsBefore } })
-      .catch(() => {});
+    if (!token || !snapshotOk) return;
+    await request.put(`${BASE_URL}/snippets`, { headers: bearerHeaders(token), data: { snippets: snippetsBefore } });
   });
 
   test("スニペットを追加して一覧に表示され、削除できる", async ({ page }) => {

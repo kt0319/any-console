@@ -12,16 +12,17 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { test, expect } from "@playwright/test";
 import {
+  BASE_URL,
   loadToken,
   login,
   bearerHeaders,
+  deleteWorkspaceViaApi,
   openSettingsModal,
   openSettingsView,
   listSessionIds,
   cleanupNewSessions,
 } from "./helpers.js";
 
-const BASE_URL = process.env.ANY_CONSOLE_URL || "http://localhost:8888";
 const COMMIT_MSG_INITIAL = "feat: e2e 初期コミット";
 const COMMIT_MSG_UI = "test: e2e からのコミット";
 
@@ -65,11 +66,11 @@ test.describe("workspace detail panes", () => {
   });
 
   test.afterAll(async ({ request }) => {
+    // 削除を確認できないままディレクトリを消すと「消えたパスを指す登録」が
+    // サーバに残るため、削除成功（または既に削除済み）を確認してから消す。
     const token = loadToken();
     if (token && wsName) {
-      await request
-        .delete(`${BASE_URL}/workspaces/${encodeURIComponent(wsName)}`, { headers: bearerHeaders(token) })
-        .catch(() => {});
+      await deleteWorkspaceViaApi(request, token, wsName);
     }
     if (wsDir) fs.rmSync(wsDir, { recursive: true, force: true });
   });

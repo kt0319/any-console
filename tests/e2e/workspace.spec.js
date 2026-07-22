@@ -10,7 +10,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test, expect } from "@playwright/test";
-import { loadToken, login, bearerHeaders, openSettingsModal, openSettingsView } from "./helpers.js";
+import { loadToken, login, deleteWorkspaceViaApi, openSettingsModal, openSettingsView } from "./helpers.js";
 
 test.describe.configure({ mode: "serial" });
 
@@ -27,14 +27,12 @@ test.describe("workspace lifecycle", () => {
   });
 
   test.afterAll(async ({ request }) => {
-    // UI 削除テストが失敗した場合に備えて API でも後始末する（404 は無視）
+    // UI 削除テストが失敗した場合に備えて API でも後始末する。
+    // 削除を確認できないままディレクトリを消すと「消えたパスを指す登録」が
+    // サーバに残るため、削除成功（または既に削除済み）を確認してから消す。
     const token = loadToken();
     if (token && wsName) {
-      await request
-        .delete(`${process.env.ANY_CONSOLE_URL || "http://localhost:8888"}/workspaces/${encodeURIComponent(wsName)}`, {
-          headers: bearerHeaders(token),
-        })
-        .catch(() => {});
+      await deleteWorkspaceViaApi(request, token, wsName);
     }
     if (wsDir) fs.rmSync(wsDir, { recursive: true, force: true });
   });
