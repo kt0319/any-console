@@ -34,12 +34,19 @@ def resolve_data_paths(env_value: str | None) -> tuple[Path, Path]:
     return PROJECT_ROOT / "data", PROJECT_ROOT / "config.json"
 
 
-DATA_DIR, CONFIG_FILE = resolve_data_paths(os.environ.get("ANY_CONSOLE_DATA_DIR"))
+_DATA_DIR_ENV = os.environ.get("ANY_CONSOLE_DATA_DIR")
+DATA_DIR, CONFIG_FILE = resolve_data_paths(_DATA_DIR_ENV)
 GLOBAL_CONFIG_KEY = "__global__"
 
 # dispatch の承認待ちキュー専用ファイル。config.json とは意味が違う
 # （ユーザー設定ではなく一時的な運用状態）ため分離する。
-DISPATCH_QUEUE_FILE = PROJECT_ROOT / "dispatch_queue.json"
+# 既定はレガシー位置（PROJECT_ROOT 直下）のまま、ANY_CONSOLE_DATA_DIR 指定時は
+# 隔離ディレクトリ配下に置く（使い捨てサーバが実運用のキューに触れないため）。
+DISPATCH_QUEUE_FILE = (
+    DATA_DIR / "dispatch_queue.json"
+    if _DATA_DIR_ENV and _DATA_DIR_ENV.strip()
+    else PROJECT_ROOT / "dispatch_queue.json"
+)
 
 # 現在のコードが理解する config スキーマのバージョン。
 # 破壊的なスキーマ変更を入れる際にインクリメントし、_CONFIG_MIGRATIONS に

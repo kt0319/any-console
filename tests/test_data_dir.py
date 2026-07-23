@@ -50,6 +50,13 @@ class TestResolveDataPaths:
         assert data_dir.name == "spaced dir "
 
 
+def test_dispatch_queue_stays_at_legacy_location_by_default():
+    # env 未設定の通常運用ではレガシー位置（PROJECT_ROOT 直下）を維持する
+    from api.common import DISPATCH_QUEUE_FILE
+
+    assert DISPATCH_QUEUE_FILE == PROJECT_ROOT / "dispatch_queue.json"
+
+
 class TestResolveTmuxPrefix:
     def test_default_when_env_unset(self):
         assert resolve_tmux_prefix(None) == "ac-"
@@ -79,9 +86,12 @@ def test_env_isolates_all_module_constants(tmp_path):
         from api.common import CONFIG_FILE, DATA_DIR, TMUX_SESSION_PREFIX
         from api.routers import terminal
 
+        from api.common import DISPATCH_QUEUE_FILE
+
         expected = Path(sys.argv[1]).resolve()
         assert DATA_DIR == expected, DATA_DIR
         assert TMUX_SESSION_PREFIX == "ac-e2etest99-"
+        assert DISPATCH_QUEUE_FILE == expected / "dispatch_queue.json"
         assert CONFIG_FILE == expected / "config.json"
         assert auth._AUTH_FILE == expected / "auth.json"
         assert devices._DEVICES_FILE == expected / "devices.json"
