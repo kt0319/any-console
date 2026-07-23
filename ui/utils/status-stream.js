@@ -19,10 +19,12 @@ export function buildStatusStreamUrl(proto, host) {
  * 受信メッセージをパースして種別ごとの正規化オブジェクトを返す。
  * - statuses: `{ type: "statuses", statuses: [...] }`
  * - agent_states: `{ type: "agent_states", states: [{ session_id, state }] }`
+ * - dispatch_queue: `{ type: "dispatch_queue", items: [{ id, request }] }`（全量スナップショット）
  * ping・不正 JSON・形式違いは null を返す（呼び出し側は無視すればよい）。
  * @param {unknown} raw
  * @returns {{ type: "statuses", statuses: Record<string, any>[] }
  *   | { type: "agent_states", states: { session_id: string, state: string }[] }
+ *   | { type: "dispatch_queue", items: { id: string, request: Record<string, any> }[] }
  *   | null}
  */
 export function parseStatusStreamMessage(raw) {
@@ -39,6 +41,9 @@ export function parseStatusStreamMessage(raw) {
   }
   if (msg.type === "agent_states" && Array.isArray(msg.states)) {
     return { type: "agent_states", states: msg.states };
+  }
+  if (msg.type === "dispatch_queue" && Array.isArray(msg.items)) {
+    return { type: "dispatch_queue", items: msg.items };
   }
   return null;
 }

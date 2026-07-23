@@ -1,5 +1,6 @@
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
+import { applyDispatchQueue } from "./useDispatchConfirm.js";
 import { on } from "../app-bridge.js";
 import { debugLog } from "./useClientLogs.js";
 import {
@@ -15,11 +16,11 @@ let reconnectAttempts = 0;
 let started = false;
 
 /**
- * git ステータス／エージェント状態のリアルタイム配信 WS を購読する。
+ * git ステータス／エージェント状態／dispatch キューのリアルタイム配信 WS を購読する。
  * 受信した git ステータスは workspace ストアへ、エージェント状態は terminal
- * ストアへ即時マージされる。
+ * ストアへ即時マージされ、dispatch キューは承認待ち一覧へ全量反映される。
  * 切断時はバックオフ付きで再接続し、再接続のたびに全量を同期して取りこぼしを埋める
- * （エージェント状態はサーバが購読開始時にスナップショットを送る）。
+ * （エージェント状態・dispatch キューはサーバが購読開始時にスナップショットを送る）。
  */
 export function useStatusStream() {
   const workspaceStore = useWorkspaceStore();
@@ -47,6 +48,8 @@ export function useStatusStream() {
         workspaceStore.applyStatuses(msg.statuses);
       } else if (msg?.type === "agent_states") {
         terminalStore.applyAgentStates(msg.states);
+      } else if (msg?.type === "dispatch_queue") {
+        applyDispatchQueue(msg.items);
       }
     };
     ws.onclose = () => {

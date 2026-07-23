@@ -42,6 +42,11 @@ export const EP_SNIPPETS = "/snippets";
 export const EP_UPLOAD_IMAGE = "/upload-image";
 export const EP_CLIENT_ERRORS = "/client-errors";
 
+/** @param {string} dispatchId @returns {string} */
+export function dispatchDecisionPath(dispatchId) {
+  return `/dispatch/${encodeURIComponent(dispatchId)}/decision`;
+}
+
 /** @param {string} sessionId @returns {string} */
 export function terminalSessionPath(sessionId) {
   return `/terminal/sessions/${encodeURIComponent(sessionId)}`;

@@ -1,19 +1,20 @@
 """dispatch エンドポイントのテスト。"""
 
 import asyncio
-import threading
-import time
 
 import pytest
 
 from api.routers import dispatch as dispatch_mod
-from conftest import AUTH
+from conftest import AUTH, TOKEN
 
 
 @pytest.fixture(autouse=True)
 def _clear_pending():
     dispatch_mod._PENDING.clear()
-    dispatch_mod._SSE_QUEUES.clear()
+    dispatch_mod._subscribers.clear()
+    yield
+    dispatch_mod._PENDING.clear()
+    dispatch_mod._subscribers.clear()
 
 
 @pytest.fixture(autouse=True)
@@ -39,21 +40,13 @@ def _mock_tmux(monkeypatch):
     return created_sessions
 
 
-def _approve_in_background(client, approved=True):
-    def runner():
-        for _ in range(40):
-            pending = list(dispatch_mod._PENDING.keys())
-            if pending:
-                client.post(
-                    f"/dispatch/{pending[0]}/decision",
-                    headers=AUTH,
-                    json={"approved": approved},
-                )
-                return
-            time.sleep(0.01)
-    t = threading.Thread(target=runner, daemon=True)
-    t.start()
-    return t
+def _enqueue(client, **fields):
+    """/dispatch を confirm あり（既定）で呼び、202 を検証して dispatch_id を返す。"""
+    res = client.post("/dispatch", headers=AUTH, json={"workspace": "test-ws", **fields})
+    assert res.status_code == 202, res.text
+    data = res.json()
+    assert data["status"] == "pending"
+    return data["id"]
 
 
 class TestDispatchValidation:
@@ -70,133 +63,54 @@ class TestDispatchValidation:
         assert res.status_code == 422
 
 
+class TestDispatchEnqueue:
+    def test_confirm_default_returns_202_and_queues(self, client, workspace, _mock_tmux):
+        dispatch_id = _enqueue(client, text="echo hi")
+        assert dispatch_id in dispatch_mod._PENDING
+        # 承認前は実行されない
+        assert _mock_tmux == []
+
+    def test_validation_failure_does_not_queue(self, client, workspace):
+        client.post("/dispatch", headers=AUTH, json={"workspace": "test-ws", "job": "nope"})
+        assert dispatch_mod._PENDING == {}
+
+
 class TestDispatchApproval:
-    def test_pending_without_decision_does_not_resolve(self, client, workspace):
-        """自動タイムアウトが無いことの確認。承認/却下されるまで解決しない。"""
-        result_holder = {}
-
-        def runner():
-            result_holder["res"] = client.post(
-                "/dispatch", headers=AUTH, json={"workspace": "test-ws", "text": "echo hi"},
-            )
-        t = threading.Thread(target=runner, daemon=True)
-        t.start()
-
-        pending = []
-        for _ in range(40):
-            pending = list(dispatch_mod._PENDING.keys())
-            if pending:
-                break
-            time.sleep(0.01)
-        assert pending
-
-        # 承認待ちのままさらに待っても、自動タイムアウトでは解決しないこと。
-        t.join(timeout=0.3)
-        assert t.is_alive()
-        assert "res" not in result_holder
-
-        client.post(f"/dispatch/{pending[0]}/decision", headers=AUTH, json={"approved": True})
-        t.join(timeout=2)
-        assert not t.is_alive()
-
-    def test_approved_creates_session(self, client, workspace):
-        _approve_in_background(client, approved=True)
-        res = client.post(
-            "/dispatch",
-            headers=AUTH,
-            json={"workspace": "test-ws", "text": "echo hi", "reuse": False},
-        )
+    def test_approved_creates_session_and_returns_result(self, client, workspace):
+        dispatch_id = _enqueue(client, text="echo hi")
+        res = client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
         assert res.status_code == 200, res.text
         data = res.json()
         assert data["created"] is True
         assert data["workspace"] == "test-ws"
         assert data["session_id"]
+        assert dispatch_id not in dispatch_mod._PENDING
 
-    def test_rejected_returns_403(self, client, workspace):
-        _approve_in_background(client, approved=False)
-        res = client.post(
-            "/dispatch",
-            headers=AUTH,
-            json={"workspace": "test-ws", "text": "echo hi", "reuse": False},
-        )
-        assert res.status_code == 403
+    def test_rejected_removes_without_executing(self, client, workspace, _mock_tmux):
+        dispatch_id = _enqueue(client, text="echo hi")
+        res = client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": False})
+        assert res.status_code == 200
+        assert dispatch_id not in dispatch_mod._PENDING
+        assert _mock_tmux == []
 
 
 class TestDispatchBranch:
-    def test_missing_branch_without_create_fails(self, client, git_workspace_with_commit):
-        """実行（ブランチ検証含む）は承認リクエスト側で行うため、検証エラーはそちらに出る。
-        元の /dispatch 側は「承認されたが実行失敗」として 500 になる。"""
-        decision_status = {}
-
-        def approve_and_capture():
-            for _ in range(40):
-                pending = list(dispatch_mod._PENDING.keys())
-                if pending:
-                    res = client.post(f"/dispatch/{pending[0]}/decision", headers=AUTH, json={"approved": True})
-                    decision_status["code"] = res.status_code
-                    return
-                time.sleep(0.01)
-        threading.Thread(target=approve_and_capture, daemon=True).start()
-
-        res = client.post(
-            "/dispatch",
-            headers=AUTH,
-            json={
-                "workspace": "test-ws",
-                "text": "echo",
-                "branch": "feature/new",
-                "create_branch": False,
-                "reuse": False,
-            },
-        )
-        assert res.status_code == 500
-
-        for _ in range(40):
-            if "code" in decision_status:
-                break
-            time.sleep(0.01)
-        assert decision_status.get("code") == 400
+    def test_missing_branch_without_create_fails_and_stays_queued(self, client, git_workspace_with_commit):
+        """実行（ブランチ検証含む）は承認時に行うため、検証エラーは decision に出る。
+        失敗した項目はキューに残り、再承認・却下をやり直せる。"""
+        dispatch_id = _enqueue(client, text="echo", branch="feature/new", create_branch=False)
+        res = client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
+        assert res.status_code == 400
+        assert dispatch_id in dispatch_mod._PENDING
 
     def test_create_branch_succeeds(self, client, git_workspace_with_commit):
-        _approve_in_background(client, approved=True)
-        res = client.post(
-            "/dispatch",
-            headers=AUTH,
-            json={
-                "workspace": "test-ws",
-                "text": "echo",
-                "branch": "feature/x",
-                "create_branch": True,
-                "reuse": False,
-            },
-        )
+        dispatch_id = _enqueue(client, text="echo", branch="feature/x", create_branch=True)
+        res = client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
         assert res.status_code == 200, res.text
 
     def test_branch_status_in_payload(self, client, git_workspace_with_commit):
-        captured = []
-
-        def grab():
-            for _ in range(40):
-                if dispatch_mod._PENDING:
-                    pid, rec = next(iter(dispatch_mod._PENDING.items()))
-                    captured.append(rec["request"])
-                    client.post(f"/dispatch/{pid}/decision", headers=AUTH, json={"approved": True})
-                    return
-                time.sleep(0.01)
-        threading.Thread(target=grab, daemon=True).start()
-
-        client.post(
-            "/dispatch",
-            headers=AUTH,
-            json={
-                "workspace": "test-ws",
-                "branch": "feature/new",
-                "create_branch": True,
-                "reuse": False,
-            },
-        )
-        assert captured
-        assert captured[0].get("branch_status") == "missing"
+        dispatch_id = _enqueue(client, branch="feature/new", create_branch=True)
+        assert dispatch_mod._PENDING[dispatch_id].get("branch_status") == "missing"
 
 
 class TestDispatchDecision:
@@ -212,48 +126,17 @@ class TestDispatchQueueEndpoint:
         assert res.json() == {"items": []}
 
     def test_pending_item_is_listed(self, client, workspace):
-        def runner():
-            client.post("/dispatch", headers=AUTH, json={"workspace": "test-ws", "text": "echo hi"})
-        t = threading.Thread(target=runner, daemon=True)
-        t.start()
-
-        pending_id = None
-        for _ in range(40):
-            pending = list(dispatch_mod._PENDING.keys())
-            if pending:
-                pending_id = pending[0]
-                break
-            time.sleep(0.01)
-        assert pending_id
-
+        dispatch_id = _enqueue(client, text="echo hi")
         res = client.get("/dispatch/queue", headers=AUTH)
         assert res.status_code == 200
         items = res.json()["items"]
         assert len(items) == 1
-        assert items[0]["id"] == pending_id
+        assert items[0]["id"] == dispatch_id
         assert items[0]["request"]["workspace"] == "test-ws"
 
-        client.post(f"/dispatch/{pending_id}/decision", headers=AUTH, json={"approved": False})
-        t.join(timeout=2)
-
     def test_decided_item_is_not_listed(self, client, workspace):
-        def runner():
-            client.post("/dispatch", headers=AUTH, json={"workspace": "test-ws", "text": "echo hi"})
-        t = threading.Thread(target=runner, daemon=True)
-        t.start()
-
-        pending_id = None
-        for _ in range(40):
-            pending = list(dispatch_mod._PENDING.keys())
-            if pending:
-                pending_id = pending[0]
-                break
-            time.sleep(0.01)
-        assert pending_id
-
-        client.post(f"/dispatch/{pending_id}/decision", headers=AUTH, json={"approved": False})
-        t.join(timeout=2)
-
+        dispatch_id = _enqueue(client, text="echo hi")
+        client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": False})
         res = client.get("/dispatch/queue", headers=AUTH)
         assert res.json() == {"items": []}
 
@@ -273,12 +156,8 @@ class TestReuseExisting:
         with sessions_lock:
             TERMINAL_SESSIONS["test-ws-existing"] = sess
 
-        _approve_in_background(client, approved=True)
-        res = client.post(
-            "/dispatch",
-            headers=AUTH,
-            json={"workspace": "test-ws", "text": "echo reuse"},
-        )
+        dispatch_id = _enqueue(client, text="echo reuse")
+        res = client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
         assert res.status_code == 200
         data = res.json()
         assert data["created"] is False
@@ -298,26 +177,80 @@ class TestBranchStatusHelper:
         assert dispatch_mod._branch_status(Path(git_workspace_with_commit), current) == "current"
 
 
-class TestBroadcast:
-    def test_broadcast_puts_to_queues(self):
-        q1 = asyncio.Queue(maxsize=10)
-        q2 = asyncio.Queue(maxsize=10)
-        dispatch_mod._SSE_QUEUES.extend([q1, q2])
-        try:
-            dispatch_mod._broadcast({"type": "test", "v": 1})
-            assert q1.get_nowait() == {"type": "test", "v": 1}
-            assert q2.get_nowait() == {"type": "test", "v": 1}
-        finally:
-            dispatch_mod._SSE_QUEUES.clear()
+class _FakeWS:
+    def __init__(self):
+        self.sent = []
 
-    def test_broadcast_skips_full_queue(self):
-        q = asyncio.Queue(maxsize=1)
-        q.put_nowait("filler")
-        dispatch_mod._SSE_QUEUES.append(q)
-        try:
-            dispatch_mod._broadcast({"type": "test"})  # should not raise
-        finally:
-            dispatch_mod._SSE_QUEUES.clear()
+    async def send_json(self, payload):
+        self.sent.append(payload)
+
+
+class _DeadWS:
+    async def send_json(self, payload):
+        raise RuntimeError("connection closed")
+
+
+class TestQueueBroadcast:
+    def test_subscribe_sends_snapshot_even_when_empty(self):
+        ws = _FakeWS()
+        asyncio.run(dispatch_mod.subscribe(ws))
+        assert ws.sent == [{"type": "dispatch_queue", "items": []}]
+        dispatch_mod.unsubscribe(ws)
+
+    def test_subscribe_sends_pending_items(self):
+        dispatch_mod._PENDING["x1"] = {"workspace": "test-ws"}
+        ws = _FakeWS()
+        asyncio.run(dispatch_mod.subscribe(ws))
+        assert ws.sent == [{
+            "type": "dispatch_queue",
+            "items": [{"id": "x1", "request": {"workspace": "test-ws"}}],
+        }]
+
+    def test_broadcast_reaches_all_subscribers(self):
+        ws1, ws2 = _FakeWS(), _FakeWS()
+
+        async def run():
+            await dispatch_mod.subscribe(ws1)
+            await dispatch_mod.subscribe(ws2)
+            dispatch_mod._PENDING["x1"] = {"workspace": "test-ws"}
+            await dispatch_mod._broadcast_queue()
+
+        asyncio.run(run())
+        expected = {
+            "type": "dispatch_queue",
+            "items": [{"id": "x1", "request": {"workspace": "test-ws"}}],
+        }
+        assert ws1.sent[-1] == expected
+        assert ws2.sent[-1] == expected
+
+    def test_broadcast_drops_dead_subscriber(self):
+        alive, dead = _FakeWS(), _DeadWS()
+
+        async def run():
+            await dispatch_mod.subscribe(alive)
+            dispatch_mod._subscribers.add(dead)
+            await dispatch_mod._broadcast_queue()
+
+        asyncio.run(run())
+        assert dead not in dispatch_mod._subscribers
+        assert alive in dispatch_mod._subscribers
+
+
+class TestStatusStreamSnapshot:
+    def test_dispatch_queue_snapshot_on_connect(self, client, workspace):
+        """ステータスストリーム WS 接続時に承認待ちキューの全量が届く。"""
+        dispatch_id = _enqueue(client, text="echo hi")
+        with client.websocket_connect(f"/workspaces/statuses/ws?token={TOKEN}") as ws:
+            # git 購読はスナップショットを送らず、agent 状態も空のため
+            # 最初の数メッセージ内に dispatch_queue が含まれる。
+            msg = None
+            for _ in range(3):
+                msg = ws.receive_json()
+                if msg.get("type") == "dispatch_queue":
+                    break
+            assert msg is not None
+            assert msg["type"] == "dispatch_queue"
+            assert [item["id"] for item in msg["items"]] == [dispatch_id]
 
 
 class TestApplyOverrides:
@@ -367,31 +300,11 @@ class TestApplyOverrides:
 class TestDecisionOverrides:
     def test_decision_with_overrides_applies(self, client, git_workspace_with_commit):
         """承認時に override を送ると、サーバ側で body.branch などが書き換わって git op が走る。"""
-        import threading
-        import time as _time
-
-        def grab_and_approve_with_override():
-            for _ in range(40):
-                if dispatch_mod._PENDING:
-                    pid = next(iter(dispatch_mod._PENDING.keys()))
-                    client.post(
-                        f"/dispatch/{pid}/decision",
-                        headers=AUTH,
-                        json={"approved": True, "branch": "feature/from-override", "base_branch": None, "text": None},
-                    )
-                    return
-                _time.sleep(0.01)
-        threading.Thread(target=grab_and_approve_with_override, daemon=True).start()
-
+        dispatch_id = _enqueue(client, text="echo", branch="main", create_branch=True)
         res = client.post(
-            "/dispatch",
+            f"/dispatch/{dispatch_id}/decision",
             headers=AUTH,
-            json={
-                "workspace": "test-ws",
-                "text": "echo",
-                "branch": "main",  # override で feature/from-override に置き換わる
-                "create_branch": True,
-            },
+            json={"approved": True, "branch": "feature/from-override", "base_branch": None, "text": None},
         )
         # branch override 経由でブランチ作成 → 成功
         assert res.status_code == 200, res.text
@@ -403,34 +316,14 @@ class TestDecisionOverrides:
         other.mkdir()
         client.post("/workspaces", headers=AUTH, json={"path": str(other), "name": "other-ws"})
 
-        captured = {}
-
-        def grab_and_approve_with_override():
-            for _ in range(40):
-                if dispatch_mod._PENDING:
-                    pid = next(iter(dispatch_mod._PENDING.keys()))
-                    res = client.post(
-                        f"/dispatch/{pid}/decision",
-                        headers=AUTH,
-                        json={"approved": True, "workspace": "other-ws"},
-                    )
-                    captured["status"] = res.status_code
-                    return
-                time.sleep(0.01)
-        t = threading.Thread(target=grab_and_approve_with_override, daemon=True)
-        t.start()
-
+        dispatch_id = _enqueue(client, text="echo hi")
         res = client.post(
-            "/dispatch",
+            f"/dispatch/{dispatch_id}/decision",
             headers=AUTH,
-            json={"workspace": "test-ws", "text": "echo hi"},
+            json={"approved": True, "workspace": "other-ws"},
         )
         assert res.status_code == 200, res.text
         assert res.json()["workspace"] == "other-ws"
-        # /dispatch と /decision は別々の portal 呼び出しなので、どちらが先に
-        # 呼び出し元スレッドへ返るかは保証されない。captured を見る前に必ず join する。
-        t.join(timeout=2)
-        assert captured.get("status") == 200
 
 
 class TestConfirmSkip:
@@ -443,6 +336,7 @@ class TestConfirmSkip:
         )
         assert res.status_code == 200
         assert res.json()["created"] is True
+        assert dispatch_mod._PENDING == {}
 
 
 class TestWorktreeField:
@@ -459,52 +353,42 @@ class TestWorktreeField:
 
 class TestPersistence:
     def test_persist_and_reload_pending(self):
-        dispatch_mod._PENDING["abc"] = {
-            "request": {"workspace": "test-ws", "text": "echo hi"},
-            "event": asyncio.Event(),
-            "approved": False,
-            "overrides": None,
-            "result": None,
-        }
+        dispatch_mod._PENDING["abc"] = {"workspace": "test-ws", "text": "echo hi"}
         dispatch_mod._persist_pending()
         dispatch_mod._PENDING.clear()
 
         dispatch_mod._load_persisted_pending()
 
-        assert "abc" in dispatch_mod._PENDING
-        assert dispatch_mod._PENDING["abc"]["request"]["workspace"] == "test-ws"
+        assert dispatch_mod._PENDING == {"abc": {"workspace": "test-ws", "text": "echo hi"}}
 
-    def test_decided_entries_are_not_persisted(self):
-        event = asyncio.Event()
-        event.set()
-        dispatch_mod._PENDING["done"] = {
-            "request": {"workspace": "test-ws"},
-            "event": event,
-            "approved": True,
-            "overrides": None,
-            "result": {"status": "ok"},
-        }
-        dispatch_mod._persist_pending()
+    def test_decided_item_removed_from_persisted_file(self, client, workspace):
+        dispatch_id = _enqueue(client, text="echo hi")
+        client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": False})
+
         dispatch_mod._PENDING.clear()
-
         dispatch_mod._load_persisted_pending()
+        assert dispatch_id not in dispatch_mod._PENDING
 
-        assert "done" not in dispatch_mod._PENDING
+    def test_non_dict_entries_are_skipped(self):
+        import json as json_mod
+        DISPATCH_QUEUE_FILE = dispatch_mod.DISPATCH_QUEUE_FILE
+        DISPATCH_QUEUE_FILE.write_text(
+            json_mod.dumps({"items": {"ok": {"workspace": "test-ws"}, "bad": "not-a-dict"}}),
+            encoding="utf-8",
+        )
+        dispatch_mod._load_persisted_pending()
+        assert "ok" in dispatch_mod._PENDING
+        assert "bad" not in dispatch_mod._PENDING
 
 
 class TestDecisionExecutesIndependently:
-    def test_decision_creates_session_without_original_waiter(self, client, workspace, _mock_tmux):
-        """サーバ再起動などで元の /dispatch 呼び出しがもう無くても、
-        Dispatch Queue からの承認だけでセッションが作られることを確認する。"""
-        dispatch_mod._PENDING["orphan"] = {
-            "request": {"workspace": "test-ws", "text": "echo hi"},
-            "event": asyncio.Event(),
-            "approved": False,
-            "overrides": None,
-            "result": None,
-        }
+    def test_decision_creates_session_without_original_request(self, client, workspace, _mock_tmux):
+        """サーバ再起動などで /dispatch の記憶が失われても、永続化から復元した
+        キュー項目の承認だけでセッションが作られることを確認する。"""
+        dispatch_mod._PENDING["orphan"] = {"workspace": "test-ws", "text": "echo hi"}
         res = client.post("/dispatch/orphan/decision", headers=AUTH, json={"approved": True})
         assert res.status_code == 200
+        assert res.json()["created"] is True
         assert "orphan" not in dispatch_mod._PENDING
 
 
