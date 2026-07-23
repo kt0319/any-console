@@ -15,6 +15,7 @@ def _clear_pending():
     yield
     dispatch_mod._PENDING.clear()
     dispatch_mod._subscribers.clear()
+    dispatch_mod._broadcast_tasks.clear()
 
 
 @pytest.fixture(autouse=True)
@@ -234,6 +235,45 @@ class TestQueueBroadcast:
         asyncio.run(run())
         assert dead not in dispatch_mod._subscribers
         assert alive in dispatch_mod._subscribers
+
+    def test_broadcast_drops_stuck_subscriber_after_timeout(self, monkeypatch):
+        """読み取りが止まった購読者は送信タイムアウトで切り離され、
+        他の購読者への配信は継続する。"""
+        monkeypatch.setattr(dispatch_mod, "BROADCAST_SEND_TIMEOUT_SEC", 0.01)
+
+        class _StuckWS:
+            async def send_json(self, payload):
+                await asyncio.Event().wait()
+
+        alive, stuck = _FakeWS(), _StuckWS()
+
+        async def run():
+            dispatch_mod._subscribers.add(stuck)
+            await dispatch_mod.subscribe(alive)
+            dispatch_mod._PENDING["x1"] = {"workspace": "test-ws"}
+            await dispatch_mod._broadcast_queue()
+
+        asyncio.run(run())
+        assert stuck not in dispatch_mod._subscribers
+        assert alive.sent[-1]["items"][0]["id"] == "x1"
+
+    def test_schedule_broadcast_decouples_from_caller(self):
+        """_schedule_queue_broadcast は即座に返り、配信はバックグラウンドで完了する。"""
+        ws = _FakeWS()
+
+        async def run():
+            await dispatch_mod.subscribe(ws)
+            dispatch_mod._PENDING["x1"] = {"workspace": "test-ws"}
+            dispatch_mod._schedule_queue_broadcast()
+            assert dispatch_mod._broadcast_tasks
+            await asyncio.gather(*dispatch_mod._broadcast_tasks)
+
+        asyncio.run(run())
+        assert ws.sent[-1] == {
+            "type": "dispatch_queue",
+            "items": [{"id": "x1", "request": {"workspace": "test-ws"}}],
+        }
+        assert not dispatch_mod._broadcast_tasks
 
 
 class TestStatusStreamSnapshot:

@@ -10,6 +10,7 @@ Settings の Dispatch Queue からの承認（/dispatch/{id}/decision）だけ�
 ショット）で全購読端末へ配信する。
 """
 
+import asyncio
 import json
 import logging
 import re
@@ -59,6 +60,11 @@ router = APIRouter(dependencies=[Depends(verify_token)])
 # dispatch_id -> リクエスト payload（純データ。永続化ファイルと同型）
 _PENDING: dict[str, dict] = {}
 _subscribers: set[WebSocket] = set()
+_broadcast_tasks: set[asyncio.Task] = set()
+
+# 読み取りが止まった購読者（サスペンド中のモバイル等）で送信バッファが詰まった
+# 場合に、他の購読者への配信まで巻き込まれないための上限。超えたら切り離す。
+BROADCAST_SEND_TIMEOUT_SEC = 5
 
 
 def _queue_payload() -> dict:
@@ -90,11 +96,23 @@ async def _broadcast_queue() -> None:
     dead = []
     for ws in list(_subscribers):
         try:
-            await ws.send_json(payload)
-        except (WebSocketDisconnect, RuntimeError, OSError):
+            await asyncio.wait_for(ws.send_json(payload), timeout=BROADCAST_SEND_TIMEOUT_SEC)
+        except (WebSocketDisconnect, RuntimeError, OSError, TimeoutError):
             dead.append(ws)
     for ws in dead:
         unsubscribe(ws)
+
+
+def _schedule_queue_broadcast() -> None:
+    """キュー配信をバックグラウンドタスクで行う。
+
+    購読者への send は読み取りが止まったクライアントでブロックしうるため、
+    API ハンドラ内で await せず、レスポンス（/dispatch の即時 202・decision の
+    実行結果）から切り離す。タスクは GC による中断を防ぐため完了まで保持する。
+    """
+    task = asyncio.get_running_loop().create_task(_broadcast_queue())
+    _broadcast_tasks.add(task)
+    task.add_done_callback(_broadcast_tasks.discard)
 
 
 def _persist_pending() -> None:
@@ -262,7 +280,7 @@ async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
     if not body.approved:
         _PENDING.pop(dispatch_id, None)
         _persist_pending()
-        await _broadcast_queue()
+        _schedule_queue_broadcast()
         return {"status": "ok"}
 
     dispatch_body = DispatchRequest(**payload)
@@ -270,7 +288,7 @@ async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
     result = _launch(dispatch_body)
     _PENDING.pop(dispatch_id, None)
     _persist_pending()
-    await _broadcast_queue()
+    _schedule_queue_broadcast()
     return result
 
 
@@ -398,7 +416,7 @@ async def dispatch(body: DispatchRequest):
 
     _PENDING[dispatch_id] = payload
     _persist_pending()
-    await _broadcast_queue()
+    _schedule_queue_broadcast()
     # 承認を待たずに返す。結果が必要な呼び出し元はセッションの出現（/terminal/sessions）
     # で確認するか、confirm:false で即実行を使う。
     return JSONResponse(status_code=202, content={"status": "pending", "id": dispatch_id})
