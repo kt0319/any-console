@@ -24,11 +24,7 @@
               <dd>{{ request.worktree }}</dd>
             </template>
           </dl>
-          <dl v-if="request?.job" class="dispatch-prompt-meta">
-            <dt>Job</dt>
-            <dd>{{ jobLabel }}</dd>
-          </dl>
-          <label v-else class="dispatch-prompt-field">
+          <label class="dispatch-prompt-field">
             <span class="dispatch-prompt-label">Job</span>
             <select v-model="selectedJob" class="dispatch-prompt-select">
               <option value="terminal">Terminal</option>
@@ -89,12 +85,6 @@ const { apiGet } = useApi();
 const jobs = ref([]);
 const sessions = ref([]);
 const localBranches = ref([]);
-
-const jobLabel = computed(() => {
-  const key = request.value?.job;
-  if (!key || key === "terminal") return "Terminal";
-  return jobs.value.find((j) => j.key === key)?.label || key;
-});
 
 watch(visible, async (v) => {
   if (!v) {
