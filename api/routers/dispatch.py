@@ -221,6 +221,7 @@ class DispatchDecision(BaseModel):
     approved: bool
     # UI 確認時にユーザが書き換えた値を上書きとして受け取る。
     # 未指定（None）なら元の DispatchRequest 値をそのまま使う。
+    workspace: str | None = None
     branch: str | None = None
     base_branch: str | None = None
     text: str | None = None
@@ -274,6 +275,7 @@ async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
         raise HTTPException(status_code=404, detail="Pending dispatch not found")
     p["approved"] = body.approved
     overrides = {
+        "workspace": body.workspace,
         "branch": body.branch,
         "base_branch": body.base_branch,
         "text": body.text,
@@ -316,6 +318,11 @@ def _apply_overrides(body: DispatchRequest, overrides: dict | None) -> None:
     空文字は branch / base_branch を None にクリアし、text は空文字を設定する。"""
     if not overrides:
         return
+    if "workspace" in overrides and overrides["workspace"]:
+        body.workspace = overrides["workspace"]
+        # ワークスペース選択は worktree を持たないベースワークスペースのみを
+        # 対象にしているため、変更時は元リクエストの worktree を持ち越さない。
+        body.worktree = None
     if "branch" in overrides and overrides["branch"] is not None:
         body.branch = overrides["branch"] or None
     if "base_branch" in overrides and overrides["base_branch"] is not None:

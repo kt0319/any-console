@@ -350,6 +350,19 @@ class TestApplyOverrides:
         assert body.branch == "main"
         assert body.text == "hi"
 
+    def test_workspace_override_replaces_workspace_and_clears_worktree(self):
+        from api.routers.dispatch import DispatchRequest, _apply_overrides
+        body = DispatchRequest(workspace="ws", worktree="feature/x")
+        _apply_overrides(body, {"workspace": "other-ws"})
+        assert body.workspace == "other-ws"
+        assert body.worktree is None
+
+    def test_workspace_override_empty_string_is_ignored(self):
+        from api.routers.dispatch import DispatchRequest, _apply_overrides
+        body = DispatchRequest(workspace="ws")
+        _apply_overrides(body, {"workspace": ""})
+        assert body.workspace == "ws"
+
 
 class TestDecisionOverrides:
     def test_decision_with_overrides_applies(self, client, git_workspace_with_commit):
@@ -382,6 +395,38 @@ class TestDecisionOverrides:
         )
         # branch override 経由でブランチ作成 → 成功
         assert res.status_code == 200, res.text
+
+    def test_decision_with_workspace_override_creates_session_in_other_workspace(
+        self, client, workspace, isolate_fs,
+    ):
+        other = isolate_fs["work"] / "other-ws"
+        other.mkdir()
+        client.post("/workspaces", headers=AUTH, json={"path": str(other), "name": "other-ws"})
+
+        captured = {}
+
+        def grab_and_approve_with_override():
+            for _ in range(40):
+                if dispatch_mod._PENDING:
+                    pid = next(iter(dispatch_mod._PENDING.keys()))
+                    res = client.post(
+                        f"/dispatch/{pid}/decision",
+                        headers=AUTH,
+                        json={"approved": True, "workspace": "other-ws"},
+                    )
+                    captured["status"] = res.status_code
+                    return
+                time.sleep(0.01)
+        threading.Thread(target=grab_and_approve_with_override, daemon=True).start()
+
+        res = client.post(
+            "/dispatch",
+            headers=AUTH,
+            json={"workspace": "test-ws", "text": "echo hi"},
+        )
+        assert res.status_code == 200, res.text
+        assert res.json()["workspace"] == "other-ws"
+        assert captured["status"] == 200
 
 
 class TestConfirmSkip:
