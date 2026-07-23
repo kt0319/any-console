@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from ..activity import log_activity
 from ..auth import verify_token
 from ..common import (
     DISPATCH_QUEUE_FILE,
@@ -291,12 +292,17 @@ async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
         _apply_overrides(dispatch_body, overrides)
         try:
             result = _launch(dispatch_body)
-        except HTTPException:
+        except HTTPException as e:
+            log_activity(dispatch_body.workspace, "dispatch_failed", detail=str(e.detail))
             _PENDING.pop(dispatch_id, None)
             _persist_pending()
             _wake(p)
             raise
         p["result"] = result
+        log_activity(
+            result["workspace"], "dispatch_approved",
+            job=result["job"], session_id=result["session_id"], created=result["created"],
+        )
         _broadcast({
             "type": "result",
             "id": dispatch_id,
@@ -305,6 +311,7 @@ async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
             "created": result["created"],
         })
     else:
+        log_activity(p["request"].get("workspace"), "dispatch_rejected")
         _broadcast({"type": "decided", "id": dispatch_id, "approved": False})
 
     _PENDING.pop(dispatch_id, None)
@@ -434,6 +441,10 @@ async def dispatch(body: DispatchRequest):
 
     if not body.confirm:
         result = _launch(body)
+        log_activity(
+            result["workspace"], "dispatch_executed",
+            job=result["job"], session_id=result["session_id"], created=result["created"],
+        )
         _broadcast({
             "type": "result",
             "id": dispatch_id,
@@ -442,6 +453,8 @@ async def dispatch(body: DispatchRequest):
             "created": result["created"],
         })
         return result
+
+    log_activity(effective_ws, "dispatch_pending", job=body.job, text=body.text)
 
     event = asyncio.Event()
     entry = {
