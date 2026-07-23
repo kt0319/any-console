@@ -861,10 +861,14 @@ generate_service_unit() {
   if [ -n "$ssl_cert" ]; then env_lines+="Environment=SSL_CERTFILE=$ssl_cert"$'\n'; fi
   if [ -n "$ssl_key" ];  then env_lines+="Environment=SSL_KEYFILE=$ssl_key"$'\n'; fi
   # サービスマネージャは setup 時のシェル環境を継承しないため、
-  # 隔離ディレクトリ指定はユニット定義に永続化する
-  # （空白入りパスでも切り詰められないよう systemd の引用規則で代入全体を囲む）
+  # 隔離ディレクトリ指定はユニット定義に永続化する。
+  # 空白入りパスでも切り詰められないよう systemd の引用規則で代入全体を囲み、
+  # 値中の \ と " は同規則でエスケープする（adopt_installed_data_dir が対で復元する）
   if [ -n "${ANY_CONSOLE_DATA_DIR:-}" ]; then
-    env_lines+="Environment=\"ANY_CONSOLE_DATA_DIR=$ANY_CONSOLE_DATA_DIR\""$'\n'
+    local data_dir_sysd="$ANY_CONSOLE_DATA_DIR"
+    data_dir_sysd=${data_dir_sysd//'\'/'\\'}
+    data_dir_sysd=${data_dir_sysd//'"'/'\"'}
+    env_lines+="Environment=\"ANY_CONSOLE_DATA_DIR=$data_dir_sysd\""$'\n'
   fi
   cat <<UNIT
 [Unit]
@@ -1207,6 +1211,11 @@ adopt_installed_data_dir() {
   local unit="/etc/systemd/system/$SERVICE_NAME.service" value=""
   if [ -f "$unit" ]; then
     value=$(sed -n 's/^Environment="ANY_CONSOLE_DATA_DIR=\(.*\)"$/\1/p' "$unit" | head -n1)
+    # generate_service_unit のエスケープ（\\ と \"）を復元する。
+    # 先に \\ を退避してから \" を戻さないと隣接シーケンスを誤解釈する
+    value=${value//'\\'/$'\x01'}
+    value=${value//'\"'/'"'}
+    value=${value//$'\x01'/'\'}
   elif [ -f "$LAUNCHD_PLIST" ]; then
     value=$(PLIST="$LAUNCHD_PLIST" python3 -c "
 import os, plistlib
