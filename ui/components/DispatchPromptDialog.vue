@@ -41,22 +41,20 @@
           <label class="dispatch-match-option">
             <input type="checkbox" v-model="selectedCreateBranch" /> Create branch
           </label>
-          <template v-if="selectedCreateBranch">
-            <label class="dispatch-prompt-field">
-              <span class="dispatch-prompt-label">
-                Branch name
-                <span v-if="branchStatusNote" class="dispatch-prompt-note">{{ branchStatusNote }}</span>
-              </span>
-              <input v-model="branch" type="text" autocomplete="off" spellcheck="false" />
-            </label>
-            <label class="dispatch-prompt-field">
-              <span class="dispatch-prompt-label">Base branch</span>
-              <select v-model="baseBranch" class="dispatch-prompt-select">
-                <option value="">(current branch)</option>
-                <option v-for="b in localBranches" :key="b" :value="b">{{ b }}</option>
-              </select>
-            </label>
-          </template>
+          <label class="dispatch-prompt-field">
+            <span class="dispatch-prompt-label">
+              Branch name
+              <span v-if="branchStatusNote" class="dispatch-prompt-note">{{ branchStatusNote }}</span>
+            </span>
+            <input v-model="branch" type="text" autocomplete="off" spellcheck="false" :disabled="!selectedCreateBranch" />
+          </label>
+          <label class="dispatch-prompt-field">
+            <span class="dispatch-prompt-label">Base branch</span>
+            <select v-model="baseBranch" class="dispatch-prompt-select" :disabled="!selectedCreateBranch">
+              <option value="">(current branch)</option>
+              <option v-for="b in localBranches" :key="b" :value="b">{{ b }}</option>
+            </select>
+          </label>
         </template>
       </template>
 
@@ -222,6 +220,11 @@ const branchStatusNote = computed(() => {
   font-family: inherit;
   width: 100%;
   box-sizing: border-box;
+}
+.dispatch-prompt-field input:disabled,
+.dispatch-prompt-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .dispatch-prompt-field textarea {
   resize: vertical;
