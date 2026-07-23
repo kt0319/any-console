@@ -862,8 +862,9 @@ generate_service_unit() {
   if [ -n "$ssl_key" ];  then env_lines+="Environment=SSL_KEYFILE=$ssl_key"$'\n'; fi
   # サービスマネージャは setup 時のシェル環境を継承しないため、
   # 隔離ディレクトリ指定はユニット定義に永続化する
+  # （空白入りパスでも切り詰められないよう systemd の引用規則で代入全体を囲む）
   if [ -n "${ANY_CONSOLE_DATA_DIR:-}" ]; then
-    env_lines+="Environment=ANY_CONSOLE_DATA_DIR=$ANY_CONSOLE_DATA_DIR"$'\n'
+    env_lines+="Environment=\"ANY_CONSOLE_DATA_DIR=$ANY_CONSOLE_DATA_DIR\""$'\n'
   fi
   cat <<UNIT
 [Unit]
@@ -911,10 +912,15 @@ generate_plist() {
 "
   fi
   # サービスマネージャは setup 時のシェル環境を継承しないため、
-  # 隔離ディレクトリ指定は plist に永続化する
+  # 隔離ディレクトリ指定は plist に永続化する（& < > を含むパスでも
+  # plist が壊れないよう XML エスケープして埋め込む）
   if [ -n "${ANY_CONSOLE_DATA_DIR:-}" ]; then
+    local data_dir_xml="$ANY_CONSOLE_DATA_DIR"
+    data_dir_xml=${data_dir_xml//&/\&amp;}
+    data_dir_xml=${data_dir_xml//</\&lt;}
+    data_dir_xml=${data_dir_xml//>/\&gt;}
     ssl_env+="    <key>ANY_CONSOLE_DATA_DIR</key>
-    <string>$ANY_CONSOLE_DATA_DIR</string>
+    <string>$data_dir_xml</string>
 "
   fi
   # LaunchAgent はユーザーセッション内で動くため UserName 不要。
@@ -1119,13 +1125,15 @@ cmd_uninstall() {
   fi
 
   echo ""
-  echo "Remove data/ directory? (auth token, config, push subscriptions)"
+  # ANY_CONSOLE_DATA_DIR 設定時はそのディレクトリが実データ（誤って既定側を消さない）
+  local data_dir="${ANY_CONSOLE_DATA_DIR:-$SCRIPT_DIR/data}"
+  echo "Remove ${data_dir}? (auth token, config, push subscriptions)"
   read -rp "[y/N] " answer
   if [[ "$answer" =~ ^[Yy]$ ]]; then
-    rm -rf "$SCRIPT_DIR/data"
-    info "  data/ removed"
+    rm -rf "$data_dir"
+    info "  ${data_dir} removed"
   else
-    info "  data/ kept"
+    info "  ${data_dir} kept"
   fi
 
   echo ""
