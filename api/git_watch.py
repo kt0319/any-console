@@ -36,7 +36,7 @@ from .common import (
     run_subprocess_safe,
     safe_resolve_str,
 )
-from .git_info import invalidate_git_info_cache, refresh_git_info
+from .git_info import cache_generation_for, invalidate_git_info_cache, refresh_git_info
 from .git_utils import list_git_workspace_paths, run_git_raw
 
 logger = logging.getLogger(__name__)
@@ -335,9 +335,14 @@ async def _push_by_name(workspace_name: str) -> None:
 async def _push_status(target: WatchTarget) -> None:
     """git_info を再計算し、前回送信時から変化があれば購読者へ配信する。"""
     loop = asyncio.get_running_loop()
+    gen_at_start = cache_generation_for(target.path)
     status = await loop.run_in_executor(
         BACKGROUND_EXECUTOR, refresh_git_info, target.path, target.name,
     )
+    if cache_generation_for(target.path) != gen_at_start:
+        # 計算中に checkout 等で invalidate された。この結果は古い可能性があるため
+        # 配信しない（invalidate 側が必ず新しい push を起こすのでそちらに任せる）。
+        return
     if _last_sent.get(target.name) == status:
         return
     _last_sent[target.name] = status

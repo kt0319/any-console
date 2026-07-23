@@ -427,8 +427,8 @@ class TestDecisionOverrides:
         )
         assert res.status_code == 200, res.text
         assert res.json()["workspace"] == "other-ws"
-        # decision の HTTP レスポンス受信（captured への書き込み）は /dispatch の
-        # 解決と並行して進むため、スレッド完了を待ってから検証する
+        # /dispatch と /decision は別々の portal 呼び出しなので、どちらが先に
+        # 呼び出し元スレッドへ返るかは保証されない。captured を見る前に必ず join する。
         t.join(timeout=2)
         assert captured.get("status") == 200
 

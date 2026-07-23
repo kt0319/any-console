@@ -10,6 +10,7 @@
 import logging
 import re
 import subprocess
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from pathlib import Path
@@ -29,13 +30,35 @@ logger = logging.getLogger(__name__)
 _git_info_cache = TTLCache(GIT_INFO_CACHE_TTL_SEC)
 _GIT_INFO_EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="git-info")
 
+# checkout等の直後にinvalidateしても、その前から走っていた古い再計算が後から
+# 完了してキャッシュを上書きすると、ブランチ名などが古いまま固定されてしまう
+# （invalidate → 再計算開始 → 別経路の遅い再計算が完了してキャッシュを上書き、
+# という順序で発生する）。世代カウンタで「計算開始時より新しいinvalidateが
+# 割り込んでいたら、その計算結果はキャッシュに書き込まない」ようにガードする。
+_cache_generation: dict[str, int] = {}
+_generation_lock = threading.Lock()
+
+
+def _current_generation(cache_key: str) -> int:
+    with _generation_lock:
+        return _cache_generation.get(cache_key, 0)
+
+
+def cache_generation_for(directory: Path) -> int:
+    """directory の現在のキャッシュ世代を返す。git_watch が push の陳腐化判定に使う。"""
+    return _current_generation(str(directory))
+
+
+def _bump_generation(cache_key: str) -> None:
+    with _generation_lock:
+        _cache_generation[cache_key] = _cache_generation.get(cache_key, 0) + 1
+
 
 def invalidate_git_info(workspace_name: str):
     ws_path = resolve_workspace_path(workspace_name)
-    if ws_path:
-        _git_info_cache.invalidate(str(ws_path))
-    else:
-        _git_info_cache.invalidate(workspace_name)
+    cache_key = str(ws_path) if ws_path else workspace_name
+    _git_info_cache.invalidate(cache_key)
+    _bump_generation(cache_key)
     # API 経由の git 操作はここを必ず通るので、ステータスストリーム購読者へ
     # FS イベントを待たずに即時 push する（git_watch → git_info の一方向依存を
     # 保つため遅延 import）。
@@ -51,7 +74,9 @@ def invalidate_git_info_cache(directory: Path) -> None:
     になる。git_watch が HEAD/refs の変更を検知した際に呼び、次の refresh_git_info を
     フル再計算させる。
     """
-    _git_info_cache.invalidate(str(directory))
+    cache_key = str(directory)
+    _git_info_cache.invalidate(cache_key)
+    _bump_generation(cache_key)
 
 
 def refresh_git_info(directory: Path, name: str) -> dict[str, Any]:
@@ -66,6 +91,7 @@ def refresh_git_info(directory: Path, name: str) -> dict[str, Any]:
         # 初回またはキャッシュ切れ: フル再計算
         _git_info_cache.invalidate(cache_key)
         return git_info_to_status_dict(directory, name)
+    gen_at_start = _current_generation(cache_key)
 
     def run_git(*args):
         return run_git_raw(list(args), directory)
@@ -94,7 +120,11 @@ def refresh_git_info(directory: Path, name: str) -> dict[str, Any]:
     if not updated["clean"]:
         _apply_diff_stats(updated, (out["diff"] or "", out["staged"] or ""), out["status"], directory)
     _apply_head_commit(updated, out["commit_date"], out["message"])
-    _git_info_cache.set(cache_key, {k: v for k, v in updated.items() if k != "name"})
+    # 計算中に checkout 等で invalidate（世代が進んだ）されていたら、この結果は
+    # 古い branch 等を引きずっている可能性があるためキャッシュには書き込まない
+    # （呼び出し元にはそのまま返す。次の再計算で正しい値に収束する）。
+    if _current_generation(cache_key) == gen_at_start:
+        _git_info_cache.set(cache_key, {k: v for k, v in updated.items() if k != "name"})
     return updated
 
 
@@ -260,6 +290,7 @@ def git_info(directory: Path) -> dict[str, Any]:
     cached: dict[str, Any] | None = _git_info_cache.get(cache_key)
     if cached is not None:
         return cached
+    gen_at_start = _current_generation(cache_key)
     info: dict[str, Any] = _empty_git_info()
 
     def run_git(*args):
@@ -273,7 +304,10 @@ def git_info(directory: Path) -> dict[str, Any]:
         _populate_git_info(info, directory, run_git)
     except (subprocess.TimeoutExpired, OSError) as e:
         logger.warning("git_info failed dir=%s: %s", directory, e)
-    _git_info_cache.set(cache_key, info)
+    # 計算中に checkout 等で invalidate（世代が進んだ）されていたら、古い結果で
+    # キャッシュを上書きしない（呼び出し元にはそのまま返す）。
+    if _current_generation(cache_key) == gen_at_start:
+        _git_info_cache.set(cache_key, info)
     return info
 
 
