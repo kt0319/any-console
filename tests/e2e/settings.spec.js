@@ -16,7 +16,7 @@ test.describe("settings modal", () => {
 
   test("設定メニューが表示される", async ({ page }) => {
     await expect(page.locator(".modal-title")).toHaveText("Settings");
-    for (const label of ["Workspaces", "Add Workspace", "Terminal", "Auth", "System Info"]) {
+    for (const label of ["Workspaces", "Terminal", "Auth", "System Info"]) {
       await expect(page.locator(".settings-menu-item", { hasText: label }).first()).toBeVisible();
     }
   });

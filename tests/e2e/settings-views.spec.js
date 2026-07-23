@@ -4,12 +4,13 @@
  * タイトル（戻るボタン）でメニューへ戻れることを確認する。
  * Auth / Config File / System Info は代表的な表示内容も検証する（読み取りのみ・状態変更なし）。
  */
-import { test, expect, loadToken, login, openSettingsModal, openSettingsView } from "./helpers.js";
+import { test, expect, loadToken, login, openSettingsModal, openSettingsView, openAddWorkspace } from "./helpers.js";
 
 // メニューラベル → 遷移後のモーダルタイトル
+// Add Workspace は Settings 直下ではなく Workspaces 一覧の「+」から開くため、
+// この一覧（Settings → 各ビュー → 戻る、の1階層ループ）には含めない。
 const SETTINGS_VIEWS = [
   ["Workspaces", "Workspaces"],
-  ["Add Workspace", "Add Workspace"],
   ["Tabs & Sessions", "Tabs & Sessions"],
   ["Terminal", "Terminal"],
   ["Editor", "Editor"],
@@ -39,6 +40,13 @@ test.describe("settings views", () => {
       await page.locator(".modal-title-wrap").click();
       await expect(page.locator(".modal-title")).toHaveText("Settings", { timeout: 5000 });
     }
+  });
+
+  test("Workspaces の「+」から Add Workspace が開いて戻れる", async ({ page }) => {
+    await openAddWorkspace(page);
+    await expect(page.locator(".modal-title")).toHaveText("Add Workspace", { timeout: 10_000 });
+    await page.locator(".modal-title-wrap").click();
+    await expect(page.locator(".modal-title")).toHaveText("Workspaces", { timeout: 5000 });
   });
 
   test("Auth ビューにトークン設定状態と自デバイスが表示される", async ({ page }) => {

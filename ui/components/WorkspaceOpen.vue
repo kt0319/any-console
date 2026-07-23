@@ -11,6 +11,9 @@
         <button type="button" class="ws-toolbar-btn" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
           <span class="mdi mdi-folder-plus-outline"></span>
         </button>
+        <button type="button" class="ws-toolbar-btn" aria-label="Add workspace" data-tooltip="Add workspace" @click="pushView('WorkspaceAdd')">
+          <span class="mdi mdi-plus"></span>
+        </button>
       </div>
 
       <div ref="wsListEl" class="terminal-ws-list">

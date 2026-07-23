@@ -9,7 +9,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { test, expect, loadToken, login, deleteWorkspaceViaApi, openSettingsModal, openSettingsView } from "./helpers.js";
+import { test, expect, loadToken, login, deleteWorkspaceViaApi, openSettingsModal, openSettingsView, openAddWorkspace } from "./helpers.js";
 
 test.describe.configure({ mode: "serial" });
 
@@ -44,21 +44,21 @@ test.describe("workspace lifecycle", () => {
 
   test("Add Workspace でディレクトリを登録できる", async ({ page }) => {
     await openSettingsModal(page);
-    await openSettingsView(page, "Add Workspace");
+    await openAddWorkspace(page);
     await expect(page.locator(".modal-title")).toHaveText("Add Workspace");
 
     await page.locator(".ws-add-input").fill(wsDir);
     await page.locator(".ws-add-btn").click();
 
-    // 登録成功後は Settings メニューへ戻る。Workspaces 一覧に追加した名前が表示される
-    await expect(page.locator(".modal-title")).toHaveText("Settings", { timeout: 10_000 });
-    await openSettingsView(page, "Workspaces");
+    // 登録成功後は Workspaces 一覧へ戻る（Settings → Workspaces → Add Workspace の1つ上）。
+    // 一覧に追加した名前が表示される
+    await expect(page.locator(".modal-title")).toHaveText("Workspaces", { timeout: 10_000 });
     await expect(page.locator(".picker-ws-name", { hasText: wsName })).toBeVisible({ timeout: 10_000 });
   });
 
   test("同じ名前の再登録はエラーになる", async ({ page }) => {
     await openSettingsModal(page);
-    await openSettingsView(page, "Add Workspace");
+    await openAddWorkspace(page);
 
     await page.locator(".ws-add-input").fill(wsDir);
     await page.locator(".ws-add-btn").click();
@@ -67,7 +67,7 @@ test.describe("workspace lifecycle", () => {
 
   test("存在しないパスはエラーになる", async ({ page }) => {
     await openSettingsModal(page);
-    await openSettingsView(page, "Add Workspace");
+    await openAddWorkspace(page);
 
     // テスト管理下の wsDir 配下で「作っていない」子パスを使う。
     // 固定の絶対パスだと実在する環境で登録が成功しサーバ状態を汚してしまう。

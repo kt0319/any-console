@@ -156,6 +156,15 @@ export async function openSettingsView(page, label) {
 }
 
 /**
+ * Settings → Workspaces → 「+」ボタンから Add Workspace 画面を開く。
+ * @param {import("@playwright/test").Page} page
+ */
+export async function openAddWorkspace(page) {
+  await openSettingsView(page, "Workspaces");
+  await page.locator('[data-tooltip="Add workspace"]').click();
+}
+
+/**
  * ログイン画面からトークン認証し、ブート完了まで待つ。
  * サーバに既存セッションがあると resume されてタブが開くため、
  * 「Get Started メニュー」か「タブ」のどちらかの表示をブート完了の合図にする。
