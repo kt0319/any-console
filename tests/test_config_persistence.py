@@ -268,6 +268,39 @@ class TestConfigVersionMigration:
         on_disk = json.loads(config_file.read_text(encoding="utf-8"))
         assert on_disk["__global__"]["config_version"] == future
 
+    def test_migrate_radial_renames_to_circle_keypad(self):
+        from api.config_migrations import _migrate_radial_to_circle_keypad
+        cfg = {"__global__": {"radial": {"enabled": False, "keys": []}, "snippets": []}}
+        out = _migrate_radial_to_circle_keypad(cfg)
+        assert "radial" not in out["__global__"]
+        assert out["__global__"]["circle_keypad"]["enabled"] is False
+        assert out["__global__"]["snippets"] == []
+        # 元 dict は破壊しない
+        assert "radial" in cfg["__global__"]
+
+    def test_migrate_radial_keeps_existing_circle_keypad(self):
+        from api.config_migrations import _migrate_radial_to_circle_keypad
+        cfg = {"__global__": {
+            "radial": {"enabled": False},
+            "circle_keypad": {"enabled": True},
+        }}
+        out = _migrate_radial_to_circle_keypad(cfg)
+        # 新キーに設定済みならそちらを正とし、旧キーは破棄する
+        assert out["__global__"]["circle_keypad"]["enabled"] is True
+        assert "radial" not in out["__global__"]
+
+    def test_migrate_radial_noop_without_radial(self):
+        from api.config_migrations import _migrate_radial_to_circle_keypad
+        cfg = {"__global__": {"snippets": []}}
+        assert _migrate_radial_to_circle_keypad(cfg) is cfg
+
+    def test_migrate_radial_drops_invalid_legacy_value(self):
+        from api.config_migrations import _migrate_radial_to_circle_keypad
+        cfg = {"__global__": {"radial": "broken"}}
+        out = _migrate_radial_to_circle_keypad(cfg)
+        assert "radial" not in out["__global__"]
+        assert "circle_keypad" not in out["__global__"]
+
     def test_migrate_applies_registered_steps(self):
         from api import config_migrations as config_mod
         from api.config_migrations import _migrate_config_version
