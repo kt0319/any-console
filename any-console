@@ -154,10 +154,13 @@ get_version() {
   git log -1 --format='%h %cd' --date=format:'%Y-%m-%d %H:%M' 2>/dev/null || echo "unknown"
 }
 
+# ANY_CONSOLE_DATA_DIR 設定時は config.json もそのディレクトリ配下に置かれる
+# （api/common.py の resolve_data_paths と同じ規則）。以下の各 python スニペットも同様。
 get_port() {
   python3 -c "
-import json, pathlib
-p = pathlib.Path('config.json')
+import json, os, pathlib
+d = os.environ.get('ANY_CONSOLE_DATA_DIR', '').strip()
+p = pathlib.Path(d).expanduser() / 'config.json' if d else pathlib.Path('config.json')
 if not p.is_file():
     print(8888); exit()
 try:
@@ -170,8 +173,9 @@ except Exception:
 
 get_host() {
   python3 -c "
-import json, pathlib
-p = pathlib.Path('config.json')
+import json, os, pathlib
+d = os.environ.get('ANY_CONSOLE_DATA_DIR', '').strip()
+p = pathlib.Path(d).expanduser() / 'config.json' if d else pathlib.Path('config.json')
 if not p.is_file():
     print('0.0.0.0'); exit()
 try:
@@ -185,7 +189,8 @@ except Exception:
 get_config_value() {
   KEY="$1" python3 -c "
 import json, os, pathlib
-p = pathlib.Path('config.json')
+d = os.environ.get('ANY_CONSOLE_DATA_DIR', '').strip()
+p = pathlib.Path(d).expanduser() / 'config.json' if d else pathlib.Path('config.json')
 if not p.is_file():
     print(''); exit()
 try:
@@ -218,7 +223,8 @@ prompt_bind_config() {
 
   HOST="$new_host" PORT="$new_port" python3 -c "
 import json, os, pathlib
-p = pathlib.Path('config.json')
+d = os.environ.get('ANY_CONSOLE_DATA_DIR', '').strip()
+p = pathlib.Path(d).expanduser() / 'config.json' if d else pathlib.Path('config.json')
 cfg = json.loads(p.read_text()) if p.is_file() else {}
 g = cfg.get('__global__', {})
 if not isinstance(g, dict):
@@ -287,7 +293,8 @@ import json, os, pathlib
 
 raw = os.environ.get("WS_PATHS", "")
 paths = [ln.strip() for ln in raw.splitlines() if ln.strip()]
-p = pathlib.Path("config.json")
+d = os.environ.get("ANY_CONSOLE_DATA_DIR", "").strip()
+p = pathlib.Path(d).expanduser() / "config.json" if d else pathlib.Path("config.json")
 cfg = json.loads(p.read_text()) if p.is_file() else {}
 
 existing = {
@@ -389,7 +396,8 @@ TOOL_META = {
 }
 
 tools = [t.strip() for t in os.environ.get("AI_TOOLS", "").splitlines() if t.strip()]
-p = pathlib.Path("config.json")
+d = os.environ.get("ANY_CONSOLE_DATA_DIR", "").strip()
+p = pathlib.Path(d).expanduser() / "config.json" if d else pathlib.Path("config.json")
 cfg = json.loads(p.read_text()) if p.is_file() else {}
 g = cfg.get("__global__", {})
 if not isinstance(g, dict):
@@ -535,7 +543,8 @@ do_https_setup() {
 
   CERT="$cert_path" KEY="$key_path" python3 -c "
 import json, os, pathlib
-p = pathlib.Path('config.json')
+d = os.environ.get('ANY_CONSOLE_DATA_DIR', '').strip()
+p = pathlib.Path(d).expanduser() / 'config.json' if d else pathlib.Path('config.json')
 cfg = json.loads(p.read_text()) if p.is_file() else {}
 g = cfg.get('__global__', {})
 if not isinstance(g, dict):
