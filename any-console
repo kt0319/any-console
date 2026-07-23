@@ -1131,10 +1131,11 @@ cmd_uninstall() {
   echo ""
   # ANY_CONSOLE_DATA_DIR 設定時はそのディレクトリが実データ（誤って既定側を消さない）。
   # シェルは変数展開後の ~ を展開しないため、バックエンド（resolve_data_paths）と
-  # 同じ expanduser 規則で展開してから削除対象にする
+  # 同じ expanduser + resolve 規則で正規化してから削除対象にする
+  # （symlink 経由の指定でも、バックエンドが実際に書いた先を消す）
   local data_dir
   if [ -n "${ANY_CONSOLE_DATA_DIR:-}" ]; then
-    data_dir=$(D="$ANY_CONSOLE_DATA_DIR" python3 -c "import os, pathlib; print(pathlib.Path(os.environ['D']).expanduser())")
+    data_dir=$(D="$ANY_CONSOLE_DATA_DIR" python3 -c "import os, pathlib; print(pathlib.Path(os.environ['D']).expanduser().resolve())")
   else
     data_dir="$SCRIPT_DIR/data"
   fi

@@ -34,8 +34,12 @@ function allocateFreePort() {
 // 使い捨てサーバモードのセットアップ。この config はワーカープロセスでも再評価されるが、
 // ワーカーは main プロセスが設定した ANY_CONSOLE_URL を env 継承するため、
 // このブロックは main プロセスで一度しか走らない（一時ディレクトリの二重作成を防ぐ）。
+// --list（エディタ拡張等のテスト discovery）は globalTeardown が走らないため、
+// 使い捨て領域を作るとそのまま溜まり続ける。discovery ではサーバ不要なので作らない。
+const LIST_ONLY = process.argv.includes("--list");
+
 let webServer;
-if (!process.env.ANY_CONSOLE_URL) {
+if (!process.env.ANY_CONSOLE_URL && !LIST_ONLY) {
   // 掃除は global-teardown.js が「この実行が作ったディレクトリ」だけを対象に行う。
   // プレフィックス一致での一括削除はしない（並行実行中の別ランの data 領域や、
   // spec が作る any-console-e2e-ws-* / any-console-e2e-git-* を巻き込むため）。
