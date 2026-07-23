@@ -58,6 +58,7 @@ CI が落ちてからの修正コミットを増やさないために、push 前
 - **`ui/app-bridge.js` の `BUS_EVENTS` は ABC ソート順を維持する**。新規イベントを追記したら必ず辞書順で挿入する（テストで sort 検証あり）。
 - **`ui/utils/constants.js` の値変更**は frontend test を必ず実行する（タイミング系の数値はテスト前提）。
 - 新規 BUS_EVENT を足したら呼び出し側（`emit` / `on`）と両方で使われているか確認する。
+- **サーバが読み書きする永続ファイル（`data/` 配下・`config.json`・キュー等の状態ファイル）のパスは `api/common.py` の `DATA_DIR` / `CONFIG_FILE` / `PROJECT_ROOT` 定数経由で組み立てる**。`Path(__file__)` からの直接組み立ては禁止 — `ANY_CONSOLE_DATA_DIR` による隔離（E2E 使い捨てサーバ）が効かなくなり、テストが実運用の状態を読み書きしてしまう（`tests/test_data_dir.py` が隔離を検証している）。
 
 ## コマンド
 
