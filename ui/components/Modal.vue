@@ -31,6 +31,7 @@
         <JobConfig v-if="currentView === 'JobConfig'" />
         <TabConfig v-if="currentView === 'TabConfig'" />
         <DispatchQueueConfig v-if="currentView === 'DispatchQueueConfig'" />
+        <DispatchRunView v-if="currentView === 'DispatchRunView'" />
         <TerminalConfig v-if="currentView === 'TerminalConfig'" />
         <EditorConfig v-if="currentView === 'EditorConfig'" />
         <AuthConfig v-if="currentView === 'AuthConfig'" />
@@ -58,6 +59,7 @@ import WorkspaceEditPane from "./WorkspaceEditPane.vue";
 import JobConfig from "./JobConfig.vue";
 import TabConfig from "./TabConfig.vue";
 import DispatchQueueConfig from "./DispatchQueueConfig.vue";
+import DispatchRunView from "./DispatchRunView.vue";
 import TerminalConfig from "./TerminalConfig.vue";
 import EditorConfig from "./EditorConfig.vue";
 import AuthConfig from "./AuthConfig.vue";

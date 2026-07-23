@@ -1,7 +1,6 @@
 import { ref } from "vue";
 import { useApi } from "./useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
-import { useDispatchPrompt } from "./useDispatchPrompt.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { dispatchDecisionPath, EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
@@ -21,21 +20,18 @@ function removeFromQueue(id) {
 
 /**
  * ステータスストリームから受信したキュー全量で置き換える。
- * 表示中の承認ダイアログの対象が消えた場合（他端末で決定済み）はダイアログも閉じる。
+ * DispatchRunView を開いたまま対象が消えた場合（他端末で決定済み）に一覧へ
+ * 戻れるよう、消えた項目IDを dispatch:itemRemoved で通知する。
  * @param {{id: string, request: Record<string, any>}[]} items
  */
 export function applyDispatchQueue(items) {
   const ids = new Set(items.map((q) => q.id));
   const removed = queue.value.filter((q) => !ids.has(q.id));
   queue.value = items;
-  if (removed.length) {
-    const { dismissById } = useDispatchPrompt();
-    for (const q of removed) dismissById(q.id);
-  }
+  for (const q of removed) emit("dispatch:itemRemoved", { id: q.id });
 }
 
 export function useDispatchConfirm() {
-  const { open: openDispatchPrompt, dismissById } = useDispatchPrompt();
   const { apiPost, apiGet } = useApi();
   const terminalStore = useTerminalStore();
   const workspaceStore = useWorkspaceStore();
@@ -63,9 +59,14 @@ export function useDispatchConfirm() {
     emit("tab:select", { tab });
   }
 
-  function focusMatchingTab(req) {
-    if (!req?.workspace) return;
-    // existing_session_id があればそのタブを優先してアクティブにする。
+  /**
+   * Settingsの「Dispatches」一覧で1件選んだ時、一致するタブがあれば先に
+   * アクティブ化しておく（実行/破棄の決定自体は DispatchRunView 側が行う）。
+   */
+  function focusItem(id) {
+    const item = queue.value.find((q) => q.id === id);
+    if (!item?.request?.workspace) return;
+    const req = item.request;
     if (req.existing_session_id) {
       const sessionTab = terminalStore.openTabs.find((t) => t.sessionId === req.existing_session_id);
       if (sessionTab) { emit("tab:select", { tab: sessionTab }); return; }
@@ -78,37 +79,35 @@ export function useDispatchConfirm() {
   }
 
   /**
-   * Settingsの「Dispatches」一覧で1件選んだときに呼ぶ。
-   * ここで初めてタブ切替・承認ダイアログ表示・決定APIの送信を行う。
-   * ダイアログの Cancel は「今は見ない」という意味なので、サーバへは何も送らず
-   * キューに残す（削除したい場合は一覧の×ボタン＝rejectItem を使う）。
-   * 承認時は決定APIのレスポンスが起動結果を返すため、そのままセッションへ移動する。
+   * DispatchRunView の Run から呼ぶ。決定APIのレスポンスが起動結果を返すため、
+   * 成功時はそのままセッションへ移動する。
+   * @param {string} id
+   * @param {Record<string, any>} overrides
+   * @returns {Promise<boolean>} 実行できたか
    */
-  async function resolveItem(id) {
-    const item = queue.value.find((q) => q.id === id);
-    if (!item) return;
-    focusMatchingTab(item.request);
-    const { approved, overrides } = await openDispatchPrompt(item.request, id);
-    if (!approved) return;
+  async function runItem(id, overrides) {
     const { ok, data } = await apiPost(dispatchDecisionPath(id), {
       approved: true,
       ...overrides,
     }, { errorMessage: "Failed to run dispatch (it may have already been decided elsewhere)" });
-    if (!ok) return;
+    if (!ok) return false;
     // WS ブロードキャストでも消えるが、切断中でも一覧へ即時反映する。
     removeFromQueue(id);
     focusSession(data?.session_id, data?.workspace);
+    return true;
   }
 
   /**
-   * Settingsの「Dispatches」一覧の×ボタンから呼ぶ。ダイアログを開かず却下する。
+   * DispatchRunView / 一覧の×ボタンから呼ぶ。
+   * @param {string} id
+   * @returns {Promise<boolean>} 破棄できたか
    */
   async function rejectItem(id) {
-    dismissById(id);
     const { ok } = await apiPost(dispatchDecisionPath(id), { approved: false },
       { errorMessage: "Failed to discard dispatch (it may have already been decided elsewhere)" });
     if (ok) removeFromQueue(id);
+    return ok;
   }
 
-  return { queue, resolveItem, rejectItem };
+  return { queue, focusItem, runItem, rejectItem };
 }

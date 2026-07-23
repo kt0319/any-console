@@ -9,6 +9,7 @@ import { debugLog } from "./composables/useClientLogs.js";
 // 新たなサイレントな同期点にはならない）。
 export const BUS_EVENTS = Object.freeze([
   "connectivity:back",
+  "dispatch:itemRemoved",
   "git:browseToFolder",
   "git:checkoutBranch",
   "git:closeFileModal",

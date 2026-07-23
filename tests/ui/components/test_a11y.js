@@ -19,14 +19,12 @@ import AppToast from "../../../ui/components/AppToast.vue";
 import FileItem from "../../../ui/components/FileItem.vue";
 import SplitModeSelector from "../../../ui/components/SplitModeSelector.vue";
 import WorkspaceGroupDialog from "../../../ui/components/WorkspaceGroupDialog.vue";
-import DispatchPromptDialog from "../../../ui/components/DispatchPromptDialog.vue";
 import UrlActionDialog from "../../../ui/components/UrlActionDialog.vue";
 import TerminalSplitDropZones from "../../../ui/components/TerminalSplitDropZones.vue";
 import SplitEmptyPane from "../../../ui/components/SplitEmptyPane.vue";
 import { createPinia, setActivePinia } from "pinia";
 import { useConfirm } from "../../../ui/composables/useConfirm.js";
 import { usePrompt } from "../../../ui/composables/usePrompt.js";
-import { useDispatchPrompt } from "../../../ui/composables/useDispatchPrompt.js";
 import { emit } from "../../../ui/app-bridge.js";
 import { expectNoA11yViolations } from "./axe-helper.js";
 
@@ -113,18 +111,6 @@ describe("a11y: WorkspaceGroupDialog", () => {
     wrapper.vm.openRename({ id: "g1", name: "Tools" });
     await nextTick();
     await expectNoA11yViolations(wrapper.find(".picker-group-dialog").element);
-    wrapper.unmount();
-  });
-});
-
-describe("a11y: DispatchPromptDialog", () => {
-  it("dispatch 承認ダイアログに a11y 違反が無い", async () => {
-    const wrapper = mount(DispatchPromptDialog, { attachTo: document.body });
-    const { open, cancel } = useDispatchPrompt();
-    open({ workspace: "test-ws", branch: "main", branch_status: "exists", text: "hello" });
-    await nextTick();
-    await expectNoA11yViolations(wrapper.find(".dispatch-prompt-box").element);
-    cancel();
     wrapper.unmount();
   });
 });
