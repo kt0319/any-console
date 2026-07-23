@@ -90,12 +90,10 @@ export function useDispatchConfirm() {
       return;
     }
     approvedIds.add(id);
-    try {
-      await apiPost(`/dispatch/${encodeURIComponent(id)}/decision`, {
-        approved: true,
-        ...overrides,
-      });
-    } catch {}
+    await apiPost(`/dispatch/${encodeURIComponent(id)}/decision`, {
+      approved: true,
+      ...overrides,
+    }, { errorMessage: "Failed to run dispatch (it may have already been decided elsewhere)" });
   }
 
   /**
@@ -106,9 +104,8 @@ export function useDispatchConfirm() {
     if (!item) return;
     removeFromQueue(id);
     dismissById(id);
-    try {
-      await apiPost(`/dispatch/${encodeURIComponent(id)}/decision`, { approved: false });
-    } catch {}
+    await apiPost(`/dispatch/${encodeURIComponent(id)}/decision`, { approved: false },
+      { errorMessage: "Failed to discard dispatch (it may have already been decided elsewhere)" });
   }
 
   function handleResult(payload) {
@@ -124,11 +121,13 @@ export function useDispatchConfirm() {
       let payload;
       try { payload = JSON.parse(e.data); } catch { return; }
       if (payload.type === "pending") handlePending(payload);
-      else if (payload.type === "result") handleResult(payload);
-      else if (payload.type === "decided") {
+      else if (payload.type === "result" || payload.type === "decided") {
+        // 承認/却下どちらも、この端末が起点でなくても一覧から消す
+        // （別端末で先に決定された項目が残り続けて404を踏むのを防ぐため）。
         handled.add(payload.id);
         removeFromQueue(payload.id);
         dismissById(payload.id);
+        if (payload.type === "result") handleResult(payload);
       }
     };
     es.onerror = () => {
