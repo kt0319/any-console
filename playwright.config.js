@@ -24,16 +24,9 @@ const E2E_DATA_DIR_PREFIX = "any-console-e2e-";
 // このブロックは main プロセスで一度しか走らない（一時ディレクトリの二重作成を防ぐ）。
 let webServer;
 if (!process.env.ANY_CONSOLE_URL) {
-  // 前回実行の取り残しを掃除する（teardown 後のサーバ終了時に書き戻された分など）
-  for (const name of fs.readdirSync(os.tmpdir())) {
-    if (name.startsWith(E2E_DATA_DIR_PREFIX)) {
-      try {
-        fs.rmSync(path.join(os.tmpdir(), name), { recursive: true, force: true });
-      } catch {
-        // 他ユーザ所有などで消せない場合は放置（OS の一時領域なので無害）
-      }
-    }
-  }
+  // 掃除は global-teardown.js が「この実行が作ったディレクトリ」だけを対象に行う。
+  // プレフィックス一致での一括削除はしない（並行実行中の別ランの data 領域や、
+  // spec が作る any-console-e2e-ws-* / any-console-e2e-git-* を巻き込むため）。
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), E2E_DATA_DIR_PREFIX));
   fs.writeFileSync(path.join(dataDir, "auth.json"), JSON.stringify({ token: E2E_TOKEN }));
   // bind 先とポートは隔離側 config.json で指定する（実運用の config.json は読まれない）
