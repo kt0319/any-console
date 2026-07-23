@@ -68,7 +68,18 @@ PTY_READ_BUFFER_SIZE = 16384
 PTY_READER_WORKERS = 8
 MAX_TERMINAL_SESSIONS = 20
 
-TMUX_SESSION_PREFIX = "ac-"
+def resolve_tmux_prefix(env_value: str | None) -> str:
+    """tmux セッション名のプレフィックスを決める（未設定は "ac-"）。
+
+    E2E の使い捨てサーバ（playwright.config.js 参照）がランごとにユニークな値を
+    渡すことで、並行ラン・実運用とセッション名前空間を分離する。
+    """
+    if env_value and env_value.strip():
+        return env_value.strip()
+    return "ac-"
+
+
+TMUX_SESSION_PREFIX = resolve_tmux_prefix(os.environ.get("ANY_CONSOLE_TMUX_PREFIX"))
 TMUX_CMD_TIMEOUT_SEC = 5
 TMUX_PANE_READY_TIMEOUT_SEC = 2.0
 TMUX_PANE_POLL_INTERVAL_SEC = 0.05

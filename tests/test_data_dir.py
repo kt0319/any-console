@@ -9,7 +9,12 @@ import subprocess
 import sys
 import textwrap
 
-from api.common import PROJECT_ROOT, SYSTEM_CMD_TIMEOUT_SEC, resolve_data_paths
+from api.common import (
+    PROJECT_ROOT,
+    SYSTEM_CMD_TIMEOUT_SEC,
+    resolve_data_paths,
+    resolve_tmux_prefix,
+)
 
 
 class TestResolveDataPaths:
@@ -39,6 +44,17 @@ class TestResolveDataPaths:
         assert "~" not in str(data_dir)
 
 
+class TestResolveTmuxPrefix:
+    def test_default_when_env_unset(self):
+        assert resolve_tmux_prefix(None) == "ac-"
+
+    def test_default_when_env_blank(self):
+        assert resolve_tmux_prefix("   ") == "ac-"
+
+    def test_custom_prefix(self):
+        assert resolve_tmux_prefix("ac-e2eabc123-") == "ac-e2eabc123-"
+
+
 def test_env_isolates_all_module_constants(tmp_path):
     """env を設定して import した各モジュールの data/ 配下パスが隔離側を指すこと
 
@@ -51,11 +67,12 @@ def test_env_isolates_all_module_constants(tmp_path):
         from pathlib import Path
 
         from api import activity, auth, devices, icons, push
-        from api.common import CONFIG_FILE, DATA_DIR
+        from api.common import CONFIG_FILE, DATA_DIR, TMUX_SESSION_PREFIX
         from api.routers import terminal
 
         expected = Path(sys.argv[1]).resolve()
         assert DATA_DIR == expected, DATA_DIR
+        assert TMUX_SESSION_PREFIX == "ac-e2etest99-"
         assert CONFIG_FILE == expected / "config.json"
         assert auth._AUTH_FILE == expected / "auth.json"
         assert devices._DEVICES_FILE == expected / "devices.json"
@@ -69,7 +86,11 @@ def test_env_isolates_all_module_constants(tmp_path):
     target = tmp_path / "isolated-data"
     result = subprocess.run(
         [sys.executable, "-c", code, str(target)],
-        env={**os.environ, "ANY_CONSOLE_DATA_DIR": str(target)},
+        env={
+            **os.environ,
+            "ANY_CONSOLE_DATA_DIR": str(target),
+            "ANY_CONSOLE_TMUX_PREFIX": "ac-e2etest99-",
+        },
         cwd=PROJECT_ROOT,
         capture_output=True,
         text=True,

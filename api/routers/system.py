@@ -302,8 +302,14 @@ def adopt_tmux_session(body: TmuxAdoptBody):
 
 @router.get("/system/tmux-info")
 def get_tmux_info():
+    from ..common import TMUX_SESSION_PREFIX
     from ..tmux import _run_tmux_cmd
-    info: dict[str, Any] = {"version": "", "sessions": [], "available": False}
+    # prefix: フロントが「any-console 管理セッション」を判別するための実効値
+    # （ANY_CONSOLE_TMUX_PREFIX で変わりうるため、直書きさせずここで渡す）
+    info: dict[str, Any] = {
+        "version": "", "sessions": [], "available": False,
+        "prefix": TMUX_SESSION_PREFIX,
+    }
     version_res = _run_tmux_cmd("-V")
     if version_res and version_res.returncode == 0:
         info["version"] = version_res.stdout.strip().replace("tmux ", "")

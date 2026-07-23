@@ -1199,7 +1199,30 @@ usage() {
   echo "  version      Print version"
 }
 
+# インストール済みサービス定義に永続化された隔離ディレクトリを環境へ引き継ぐ。
+# `ANY_CONSOLE_DATA_DIR=... ./any-console setup` で登録した後、env なしの通常呼び出し
+# （https-setup / uninstall / ユニット再生成など）が既定パスへ戻ってしまわないようにする。
+adopt_installed_data_dir() {
+  [ -n "${ANY_CONSOLE_DATA_DIR:-}" ] && return
+  local unit="/etc/systemd/system/$SERVICE_NAME.service" value=""
+  if [ -f "$unit" ]; then
+    value=$(sed -n 's/^Environment="ANY_CONSOLE_DATA_DIR=\(.*\)"$/\1/p' "$unit" | head -n1)
+  elif [ -f "$LAUNCHD_PLIST" ]; then
+    value=$(PLIST="$LAUNCHD_PLIST" python3 -c "
+import os, plistlib
+with open(os.environ['PLIST'], 'rb') as f:
+    d = plistlib.load(f)
+print(d.get('EnvironmentVariables', {}).get('ANY_CONSOLE_DATA_DIR', ''))
+" 2>/dev/null)
+  fi
+  if [ -n "$value" ]; then
+    export ANY_CONSOLE_DATA_DIR="$value"
+  fi
+}
+
 command="${1:-}"
+
+adopt_installed_data_dir
 
 case "$command" in
   setup)   cmd_setup "${2:-}" ;;

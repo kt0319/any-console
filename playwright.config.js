@@ -1,4 +1,5 @@
 import { execSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -40,6 +41,9 @@ if (!process.env.ANY_CONSOLE_URL) {
   // spec が作る any-console-e2e-ws-* / any-console-e2e-git-* を巻き込むため）。
   const port = allocateFreePort();
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), E2E_DATA_DIR_PREFIX));
+  // tmux セッション名前空間もランごとに分離する（既定の "ac-" のままだと
+  // ホスト tmux を共有する並行ランや実運用のセッションを列挙・巻き込みうるため）。
+  const tmuxPrefix = `ac-e2e${crypto.randomBytes(3).toString("hex")}-`;
   fs.writeFileSync(path.join(dataDir, "auth.json"), JSON.stringify({ token: E2E_TOKEN }));
   // bind 先とポートは隔離側 config.json で指定する（実運用の config.json は読まれない）
   fs.writeFileSync(
@@ -49,6 +53,7 @@ if (!process.env.ANY_CONSOLE_URL) {
   process.env.ANY_CONSOLE_URL = `http://127.0.0.1:${port}`;
   process.env.ANY_CONSOLE_TOKEN = E2E_TOKEN;
   process.env.ANY_CONSOLE_E2E_DATA_DIR = dataDir; // global-teardown.js が削除する
+  process.env.ANY_CONSOLE_E2E_TMUX_PREFIX = tmuxPrefix; // global-teardown.js が残セッションを掃除する
   webServer = {
     command: `${process.env.ANY_CONSOLE_E2E_PYTHON || "python3"} -m api.main`,
     url: `http://127.0.0.1:${port}/`,
@@ -59,6 +64,7 @@ if (!process.env.ANY_CONSOLE_URL) {
     env: {
       ...process.env,
       ANY_CONSOLE_DATA_DIR: dataDir,
+      ANY_CONSOLE_TMUX_PREFIX: tmuxPrefix,
       // E2E は短時間に多数のリクエストを送るため、レート制限(既定 200req/60s)を引き上げる
       ANY_CONSOLE_RATE_LIMIT: "2000",
     },

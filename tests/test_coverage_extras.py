@@ -572,6 +572,16 @@ class TestSystemInfoEndpoint:
         assert "user" in data
         assert "install_dir" in data
 
+    def test_tmux_info_exposes_session_prefix(self, client):
+        # フロントは /system/tmux-info の prefix で管理セッションを判別する
+        # （ANY_CONSOLE_TMUX_PREFIX で変わりうるため直書き不可）
+        from conftest import AUTH
+
+        from api.common import TMUX_SESSION_PREFIX
+        res = client.get("/system/tmux-info", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json()["prefix"] == TMUX_SESSION_PREFIX
+
 
 class TestWorkspaceConfigUpdateConflicts:
     def test_rename_to_existing_name_conflicts(self, client, tmp_path, workspace):
