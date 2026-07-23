@@ -379,6 +379,63 @@ class TestConfirmSkip:
         assert dispatch_mod._PENDING == {}
 
 
+class TestActivityLogging:
+    """dispatch の承認待ち/承認/却下/実行を既存の activity ログ（api/activity.py）に記録する。"""
+
+    def test_confirm_false_logs_executed(self, client, workspace):
+        from unittest import mock
+        with mock.patch("api.routers.dispatch.log_activity") as log:
+            res = client.post(
+                "/dispatch", headers=AUTH,
+                json={"workspace": "test-ws", "text": "echo hi", "confirm": False},
+            )
+        assert res.status_code == 200
+        data = res.json()
+        log.assert_called_once_with(
+            "test-ws", "dispatch_executed",
+            job="terminal", session_id=data["session_id"], created=True,
+        )
+
+    def test_confirm_true_logs_pending(self, client, workspace):
+        from unittest import mock
+        with mock.patch("api.routers.dispatch.log_activity") as log:
+            res = client.post(
+                "/dispatch", headers=AUTH,
+                json={"workspace": "test-ws", "text": "echo hi"},
+            )
+        assert res.status_code == 202
+        log.assert_called_once_with("test-ws", "dispatch_pending", job="terminal", text="echo hi")
+
+    def test_approved_logs_dispatch_approved(self, client, workspace):
+        from unittest import mock
+        dispatch_id = _enqueue(client, text="echo hi")
+        with mock.patch("api.routers.dispatch.log_activity") as log:
+            res = client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
+        assert res.status_code == 200
+        data = res.json()
+        log.assert_called_once_with(
+            "test-ws", "dispatch_approved",
+            job="terminal", session_id=data["session_id"], created=True,
+        )
+
+    def test_rejected_logs_dispatch_rejected(self, client, workspace):
+        from unittest import mock
+        dispatch_id = _enqueue(client, text="echo hi")
+        with mock.patch("api.routers.dispatch.log_activity") as log:
+            client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": False})
+        log.assert_called_once_with("test-ws", "dispatch_rejected")
+
+    def test_decision_execution_failure_logs_dispatch_failed(self, client, git_workspace_with_commit):
+        from unittest import mock
+        dispatch_id = _enqueue(client, text="echo", branch="feature/missing", create_branch=False)
+        with mock.patch("api.routers.dispatch.log_activity") as log:
+            res = client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
+        assert res.status_code == 400
+        calls = [c for c in log.call_args_list if c.args[1] == "dispatch_failed"]
+        assert len(calls) == 1
+        assert calls[0].args[0] == "test-ws"
+
+
 class TestWorktreeField:
     def test_effective_workspace_with_worktree(self):
         from api.routers.dispatch import DispatchRequest

@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse
 from fastapi.websockets import WebSocketDisconnect
 from pydantic import BaseModel
 
+from ..activity import log_activity
 from ..auth import verify_token
 from ..common import (
     DISPATCH_QUEUE_FILE,
@@ -278,6 +279,7 @@ async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
         raise HTTPException(status_code=404, detail="Pending dispatch not found")
 
     if not body.approved:
+        log_activity(payload.get("workspace"), "dispatch_rejected")
         _PENDING.pop(dispatch_id, None)
         _persist_pending()
         _schedule_queue_broadcast()
@@ -285,7 +287,16 @@ async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
 
     dispatch_body = DispatchRequest(**payload)
     _apply_overrides(dispatch_body, body.model_dump(exclude={"approved"}))
-    result = _launch(dispatch_body)
+    try:
+        result = _launch(dispatch_body)
+    except HTTPException as e:
+        # 失敗した項目はキューに残る（値を修正しての再承認・却下をやり直せる）
+        log_activity(dispatch_body.workspace, "dispatch_failed", detail=str(e.detail))
+        raise
+    log_activity(
+        result["workspace"], "dispatch_approved",
+        job=result["job"], session_id=result["session_id"], created=result["created"],
+    )
     _PENDING.pop(dispatch_id, None)
     _persist_pending()
     _schedule_queue_broadcast()
@@ -412,7 +423,14 @@ async def dispatch(body: DispatchRequest):
     )
 
     if not body.confirm:
-        return _launch(body)
+        result = _launch(body)
+        log_activity(
+            result["workspace"], "dispatch_executed",
+            job=result["job"], session_id=result["session_id"], created=result["created"],
+        )
+        return result
+
+    log_activity(effective_ws, "dispatch_pending", job=body.job, text=body.text)
 
     _PENDING[dispatch_id] = payload
     _persist_pending()
