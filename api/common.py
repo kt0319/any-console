@@ -18,7 +18,21 @@ from .errors import bad_request
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 UPLOAD_DIR = Path("/tmp/any-console-uploads")
 
-CONFIG_FILE = PROJECT_ROOT / "config.json"
+
+def resolve_data_paths(env_value: str | None) -> tuple[Path, Path]:
+    """(DATA_DIR, CONFIG_FILE) を決める。
+
+    ANY_CONSOLE_DATA_DIR が設定されていれば data/ も config.json もその配下に置く
+    （E2E 等の使い捨てサーバが実運用の data/・config.json を汚さないための隔離モード）。
+    未設定なら従来どおり PROJECT_ROOT 直下。
+    """
+    if env_value and env_value.strip():
+        data_dir = Path(env_value.strip()).expanduser().resolve()
+        return data_dir, data_dir / "config.json"
+    return PROJECT_ROOT / "data", PROJECT_ROOT / "config.json"
+
+
+DATA_DIR, CONFIG_FILE = resolve_data_paths(os.environ.get("ANY_CONSOLE_DATA_DIR"))
 GLOBAL_CONFIG_KEY = "__global__"
 
 # 現在のコードが理解する config スキーマのバージョン。

@@ -2,11 +2,12 @@
 import json
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
+
+from .common import DATA_DIR
 
 logger = logging.getLogger(__name__)
 
-_BASE = Path(__file__).parent.parent / "data" / "activity"
+_BASE = DATA_DIR / "activity"
 
 
 def log_activity(workspace: str | None, event_type: str, **kwargs) -> None:

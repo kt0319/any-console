@@ -16,14 +16,13 @@ import hmac
 import logging
 import secrets
 import time
-from pathlib import Path
 
-from .common import load_json_file, save_json_file
+from .common import DATA_DIR, load_json_file, save_json_file
 
 logger = logging.getLogger(__name__)
 
-_DEVICES_FILE = Path(__file__).resolve().parent.parent / "data" / "devices.json"
-_SERVER_KEY_FILE = Path(__file__).resolve().parent.parent / "data" / "server_key"
+_DEVICES_FILE = DATA_DIR / "devices.json"
+_SERVER_KEY_FILE = DATA_DIR / "server_key"
 MAX_NAME_LEN = 80
 MAX_UA_LEN = 200
 
