@@ -11,6 +11,7 @@ Settings の Dispatch Queue からの承認（/dispatch/{id}/decision）だけ�
 """
 
 import asyncio
+import functools
 import json
 import logging
 import re
@@ -77,15 +78,16 @@ def _queue_payload() -> dict:
 
 
 async def subscribe(websocket: WebSocket) -> None:
-    """ステータスストリーム WS の購読者を登録し、現在のキュー全量を即時送信する。
+    """ステータスストリーム WS の購読者を登録し、現在のキュー全量の配信を予約する。
 
+    初回スナップショットもここで直送せず後続更新と同じ単一ワーカー経由で送る
+    （直送すると、初回送信が backpressure で待たされている間にワーカーが新しい
+    スナップショットを並行送信し、古い初回分が後から届いて stale が残るため）。
+    全購読者への再送 1 回分のコストは、全量スナップショットが冪等なので無害。
     切断中に他端末で決定された項目が残らないよう、空でも必ず送る。
     """
     _subscribers.add(websocket)
-    try:
-        await websocket.send_json(_queue_payload())
-    except (WebSocketDisconnect, RuntimeError, OSError):
-        pass
+    _schedule_queue_broadcast()
 
 
 def unsubscribe(websocket: WebSocket) -> None:
@@ -99,10 +101,23 @@ async def _broadcast_queue() -> None:
     for ws in list(_subscribers):
         try:
             await asyncio.wait_for(ws.send_json(payload), timeout=BROADCAST_SEND_TIMEOUT_SEC)
-        except (WebSocketDisconnect, RuntimeError, OSError, TimeoutError):
+        except TimeoutError:
+            # タイムアウト＝半開きの可能性。dispatch 購読だけ黙って外すと、共有 WS が
+            # OPEN のままのクライアントは再接続せず dispatch_queue だけ永続的に stale
+            # になる。WS 自体を閉じ、クライアントの再接続（接続時の全量再同期）へ倒す。
+            dead.append(ws)
+            await _close_ws(ws)
+        except (WebSocketDisconnect, RuntimeError, OSError):
             dead.append(ws)
     for ws in dead:
         unsubscribe(ws)
+
+
+async def _close_ws(ws: WebSocket) -> None:
+    try:
+        await asyncio.wait_for(ws.close(), timeout=BROADCAST_SEND_TIMEOUT_SEC)
+    except (WebSocketDisconnect, RuntimeError, OSError, TimeoutError):
+        pass
 
 
 def _schedule_queue_broadcast() -> None:
@@ -132,6 +147,17 @@ async def _broadcast_worker() -> None:
     while _broadcast_pending:
         _broadcast_pending = False
         await _broadcast_queue()
+
+
+def _send_push_in_background(**kwargs) -> None:
+    """push 送信をスレッドプールで行う。
+
+    send_push_notification は全サブスクリプションへの同期送信（ブロッキング）
+    のため、ハンドラ内で直接呼ぶと /dispatch の即時 202 が push エンドポイント
+    の応答速度に引きずられ、イベントループも塞ぐ。
+    """
+    loop = asyncio.get_running_loop()
+    loop.run_in_executor(None, functools.partial(send_push_notification, **kwargs))
 
 
 def _persist_pending() -> None:
@@ -430,7 +456,7 @@ async def dispatch(body: DispatchRequest):
 
     dispatch_id = secrets.token_urlsafe(8)
 
-    send_push_notification(
+    _send_push_in_background(
         title="Dispatch",
         body=effective_ws,
         # 既存タブが無く新規ウィンドウが開く場合でも Dispatch Queue を開けるよう、

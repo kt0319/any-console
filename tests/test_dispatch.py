@@ -185,12 +185,16 @@ class TestBranchStatusHelper:
 class _FakeWS:
     def __init__(self):
         self.sent = []
+        self.closed = False
 
     async def send_json(self, payload):
         self.sent.append(payload)
 
+    async def close(self):
+        self.closed = True
 
-class _DeadWS:
+
+class _DeadWS(_FakeWS):
     async def send_json(self, payload):
         raise RuntimeError("connection closed")
 
@@ -198,14 +202,24 @@ class _DeadWS:
 class TestQueueBroadcast:
     def test_subscribe_sends_snapshot_even_when_empty(self):
         ws = _FakeWS()
-        asyncio.run(dispatch_mod.subscribe(ws))
+
+        async def run():
+            await dispatch_mod.subscribe(ws)
+            await dispatch_mod._broadcast_task
+
+        asyncio.run(run())
         assert ws.sent == [{"type": "dispatch_queue", "items": []}]
         dispatch_mod.unsubscribe(ws)
 
     def test_subscribe_sends_pending_items(self):
         dispatch_mod._PENDING["x1"] = {"workspace": "test-ws"}
         ws = _FakeWS()
-        asyncio.run(dispatch_mod.subscribe(ws))
+
+        async def run():
+            await dispatch_mod.subscribe(ws)
+            await dispatch_mod._broadcast_task
+
+        asyncio.run(run())
         assert ws.sent == [{
             "type": "dispatch_queue",
             "items": [{"id": "x1", "request": {"workspace": "test-ws"}}],
@@ -218,7 +232,8 @@ class TestQueueBroadcast:
             await dispatch_mod.subscribe(ws1)
             await dispatch_mod.subscribe(ws2)
             dispatch_mod._PENDING["x1"] = {"workspace": "test-ws"}
-            await dispatch_mod._broadcast_queue()
+            dispatch_mod._schedule_queue_broadcast()
+            await dispatch_mod._broadcast_task
 
         asyncio.run(run())
         expected = {
@@ -232,7 +247,7 @@ class TestQueueBroadcast:
         alive, dead = _FakeWS(), _DeadWS()
 
         async def run():
-            await dispatch_mod.subscribe(alive)
+            dispatch_mod._subscribers.add(alive)
             dispatch_mod._subscribers.add(dead)
             await dispatch_mod._broadcast_queue()
 
@@ -240,12 +255,13 @@ class TestQueueBroadcast:
         assert dead not in dispatch_mod._subscribers
         assert alive in dispatch_mod._subscribers
 
-    def test_broadcast_drops_stuck_subscriber_after_timeout(self, monkeypatch):
-        """読み取りが止まった購読者は送信タイムアウトで切り離され、
-        他の購読者への配信は継続する。"""
+    def test_broadcast_closes_and_drops_stuck_subscriber_after_timeout(self, monkeypatch):
+        """読み取りが止まった購読者は送信タイムアウトで切り離され、他の購読者への
+        配信は継続する。共有 WS 自体も閉じてクライアントの再接続に倒す
+        （dispatch 購読だけ外すと OPEN のままの WS が再接続されず永続的に stale になる）。"""
         monkeypatch.setattr(dispatch_mod, "BROADCAST_SEND_TIMEOUT_SEC", 0.01)
 
-        class _StuckWS:
+        class _StuckWS(_FakeWS):
             async def send_json(self, payload):
                 await asyncio.Event().wait()
 
@@ -253,12 +269,14 @@ class TestQueueBroadcast:
 
         async def run():
             dispatch_mod._subscribers.add(stuck)
-            await dispatch_mod.subscribe(alive)
+            dispatch_mod._subscribers.add(alive)
             dispatch_mod._PENDING["x1"] = {"workspace": "test-ws"}
             await dispatch_mod._broadcast_queue()
 
         asyncio.run(run())
         assert stuck not in dispatch_mod._subscribers
+        assert stuck.closed is True
+        assert alive.closed is False
         assert alive.sent[-1]["items"][0]["id"] == "x1"
 
     def test_schedule_broadcast_decouples_from_caller(self):
@@ -279,13 +297,13 @@ class TestQueueBroadcast:
         }
 
     def test_schedule_broadcast_coalesces_to_latest_snapshot(self):
-        """配信ワーカー起動前後の複数回のスケジュールは 1 回の最新スナップショット
-        配信へ合流し、古い状態が新しい状態の後に届くことはない。"""
+        """初回スナップショットを含む複数回のスケジュールは 1 回の最新スナップ
+        ショット配信へ合流し、古い状態が新しい状態の後に届くことはない。"""
         ws = _FakeWS()
 
         async def run():
             dispatch_mod._PENDING["x1"] = {"workspace": "test-ws"}
-            await dispatch_mod.subscribe(ws)  # snapshot: [x1]
+            await dispatch_mod.subscribe(ws)
             dispatch_mod._PENDING.pop("x1")
             dispatch_mod._schedule_queue_broadcast()
             dispatch_mod._PENDING["x2"] = {"workspace": "test-ws"}
@@ -294,7 +312,6 @@ class TestQueueBroadcast:
 
         asyncio.run(run())
         assert ws.sent == [
-            {"type": "dispatch_queue", "items": [{"id": "x1", "request": {"workspace": "test-ws"}}]},
             {"type": "dispatch_queue", "items": [{"id": "x2", "request": {"workspace": "test-ws"}}]},
         ]
 
@@ -324,6 +341,23 @@ class TestQueueBroadcast:
             {"type": "dispatch_queue", "items": [{"id": "x1", "request": {"workspace": "test-ws"}}]},
             {"type": "dispatch_queue", "items": []},
         ]
+
+
+class TestPushNotificationBackground:
+    def test_dispatch_sends_push_in_background(self, client, workspace, monkeypatch):
+        """push 送信はスレッドプールで行われ、202 応答をブロックしない。"""
+        import threading
+        called = threading.Event()
+        captured = {}
+
+        def fake_push(**kwargs):
+            captured.update(kwargs)
+            called.set()
+
+        monkeypatch.setattr(dispatch_mod, "send_push_notification", fake_push)
+        _enqueue(client, text="echo hi")
+        assert called.wait(timeout=2)
+        assert captured["notif_type"] == "dispatch"
 
 
 class TestStatusStreamSnapshot:
