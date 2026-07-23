@@ -860,6 +860,11 @@ generate_service_unit() {
   ssl_key=$(get_ssl_keyfile)
   if [ -n "$ssl_cert" ]; then env_lines+="Environment=SSL_CERTFILE=$ssl_cert"$'\n'; fi
   if [ -n "$ssl_key" ];  then env_lines+="Environment=SSL_KEYFILE=$ssl_key"$'\n'; fi
+  # サービスマネージャは setup 時のシェル環境を継承しないため、
+  # 隔離ディレクトリ指定はユニット定義に永続化する
+  if [ -n "${ANY_CONSOLE_DATA_DIR:-}" ]; then
+    env_lines+="Environment=ANY_CONSOLE_DATA_DIR=$ANY_CONSOLE_DATA_DIR"$'\n'
+  fi
   cat <<UNIT
 [Unit]
 Description=any-console API
@@ -903,6 +908,13 @@ generate_plist() {
     <string>$ssl_cert</string>
     <key>SSL_KEYFILE</key>
     <string>$ssl_key</string>
+"
+  fi
+  # サービスマネージャは setup 時のシェル環境を継承しないため、
+  # 隔離ディレクトリ指定は plist に永続化する
+  if [ -n "${ANY_CONSOLE_DATA_DIR:-}" ]; then
+    ssl_env+="    <key>ANY_CONSOLE_DATA_DIR</key>
+    <string>$ANY_CONSOLE_DATA_DIR</string>
 "
   fi
   # LaunchAgent はユーザーセッション内で動くため UserName 不要。

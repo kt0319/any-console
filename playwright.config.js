@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -10,14 +11,24 @@ import { defineConfig } from "@playwright/test";
 // - ANY_CONSOLE_URL 指定時: 起動済みの外部サーバに対して実行する。
 //   認証トークンは ANY_CONSOLE_TOKEN env、もしくは data/auth.json から読む。
 // - 未指定時（既定）: 一時ディレクトリを data 領域にした使い捨てサーバを
-//   ポート 8899 で自動起動する（ANY_CONSOLE_DATA_DIR 隔離モード）。
+//   ランごとに割り当てた空きポートで自動起動する（ANY_CONSOLE_DATA_DIR 隔離モード）。
 //   実運用の data/・config.json には一切触れないため、後始末漏れがサーバ状態を
 //   汚す心配がない。サーバ実行には python3（バックエンド依存インストール済み）と
 //   tmux が必要。python コマンドは ANY_CONSOLE_E2E_PYTHON で上書き可能。
 
-const E2E_PORT = 8899;
 const E2E_TOKEN = "e2e-ephemeral-token";
 const E2E_DATA_DIR_PREFIX = "any-console-e2e-";
+
+// ランごとに OS から空きポートを割り当てる（固定ポートだと並行ランや既存プロセスと
+// 衝突し、reuseExistingServer: false の webServer が起動前に失敗するため）。
+// bind→close 後に他プロセスへ取られる僅かな競合窓は許容する（その場合も
+// サーバ起動エラーとして顕在化するだけで、誤った対象へのテストにはならない）。
+function allocateFreePort() {
+  const script =
+    "const s=require('net').createServer();" +
+    "s.listen(0,'127.0.0.1',()=>{console.log(s.address().port);s.close()})";
+  return Number(execSync(`node -e "${script}"`, { encoding: "utf8" }).trim());
+}
 
 // 使い捨てサーバモードのセットアップ。この config はワーカープロセスでも再評価されるが、
 // ワーカーは main プロセスが設定した ANY_CONSOLE_URL を env 継承するため、
@@ -27,19 +38,20 @@ if (!process.env.ANY_CONSOLE_URL) {
   // 掃除は global-teardown.js が「この実行が作ったディレクトリ」だけを対象に行う。
   // プレフィックス一致での一括削除はしない（並行実行中の別ランの data 領域や、
   // spec が作る any-console-e2e-ws-* / any-console-e2e-git-* を巻き込むため）。
+  const port = allocateFreePort();
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), E2E_DATA_DIR_PREFIX));
   fs.writeFileSync(path.join(dataDir, "auth.json"), JSON.stringify({ token: E2E_TOKEN }));
   // bind 先とポートは隔離側 config.json で指定する（実運用の config.json は読まれない）
   fs.writeFileSync(
     path.join(dataDir, "config.json"),
-    JSON.stringify({ __global__: { config_version: 1, host: "127.0.0.1", port: E2E_PORT } }),
+    JSON.stringify({ __global__: { config_version: 1, host: "127.0.0.1", port } }),
   );
-  process.env.ANY_CONSOLE_URL = `http://127.0.0.1:${E2E_PORT}`;
+  process.env.ANY_CONSOLE_URL = `http://127.0.0.1:${port}`;
   process.env.ANY_CONSOLE_TOKEN = E2E_TOKEN;
   process.env.ANY_CONSOLE_E2E_DATA_DIR = dataDir; // global-teardown.js が削除する
   webServer = {
     command: `${process.env.ANY_CONSOLE_E2E_PYTHON || "python3"} -m api.main`,
-    url: `http://127.0.0.1:${E2E_PORT}/`,
+    url: `http://127.0.0.1:${port}/`,
     reuseExistingServer: false,
     timeout: 60_000,
     stdout: "pipe",
