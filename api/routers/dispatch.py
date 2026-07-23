@@ -3,17 +3,24 @@
 外部から「workspace + job + テキスト」を1回のリクエストで投げて、
 既存セッション再利用 or 新規作成、ブランチ確認/作成、起動コマンド実行、
 text の tmux 送信までを行う。
+
+confirm あり（既定）の場合は承認キューへ積んで即座に 202 を返し、実行は
+Settings の Dispatch Queue からの承認（/dispatch/{id}/decision）だけが担う。
+キューの変化はステータスストリーム WS（type="dispatch_queue" の全量スナップ
+ショット）で全購読端末へ配信する。
 """
 
 import asyncio
+import functools
 import json
 import logging
 import re
 import secrets
 import subprocess
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, WebSocket
+from fastapi.responses import JSONResponse
+from fastapi.websockets import WebSocketDisconnect
 from pydantic import BaseModel
 
 from ..activity import log_activity
@@ -52,38 +59,113 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
-SSE_PING_SEC = 20
+# dispatch_id -> リクエスト payload（純データ。永続化ファイルと同型）
 _PENDING: dict[str, dict] = {}
-_SSE_QUEUES: list[asyncio.Queue] = []
+_subscribers: set[WebSocket] = set()
+_broadcast_task: asyncio.Task | None = None
+_broadcast_pending = False
+
+# 読み取りが止まった購読者（サスペンド中のモバイル等）で送信バッファが詰まった
+# 場合に、他の購読者への配信まで巻き込まれないための上限。超えたら切り離す。
+BROADCAST_SEND_TIMEOUT_SEC = 5
 
 
-def _broadcast(payload: dict) -> None:
-    for q in list(_SSE_QUEUES):
+def _queue_payload() -> dict:
+    return {
+        "type": "dispatch_queue",
+        "items": [{"id": did, "request": req} for did, req in _PENDING.items()],
+    }
+
+
+async def subscribe(websocket: WebSocket) -> None:
+    """ステータスストリーム WS の購読者を登録し、現在のキュー全量の配信を予約する。
+
+    初回スナップショットもここで直送せず後続更新と同じ単一ワーカー経由で送る
+    （直送すると、初回送信が backpressure で待たされている間にワーカーが新しい
+    スナップショットを並行送信し、古い初回分が後から届いて stale が残るため）。
+    全購読者への再送 1 回分のコストは、全量スナップショットが冪等なので無害。
+    切断中に他端末で決定された項目が残らないよう、空でも必ず送る。
+    """
+    _subscribers.add(websocket)
+    _schedule_queue_broadcast()
+
+
+def unsubscribe(websocket: WebSocket) -> None:
+    _subscribers.discard(websocket)
+
+
+async def _broadcast_queue() -> None:
+    """キューの現在の全量を全購読者へ push する。"""
+    payload = _queue_payload()
+    dead = []
+    for ws in list(_subscribers):
         try:
-            q.put_nowait(payload)
-        except asyncio.QueueFull:
-            pass
+            await asyncio.wait_for(ws.send_json(payload), timeout=BROADCAST_SEND_TIMEOUT_SEC)
+        except TimeoutError:
+            # タイムアウト＝半開きの可能性。dispatch 購読だけ黙って外すと、共有 WS が
+            # OPEN のままのクライアントは再接続せず dispatch_queue だけ永続的に stale
+            # になる。WS 自体を閉じ、クライアントの再接続（接続時の全量再同期）へ倒す。
+            dead.append(ws)
+            await _close_ws(ws)
+        except (WebSocketDisconnect, RuntimeError, OSError):
+            dead.append(ws)
+    for ws in dead:
+        unsubscribe(ws)
 
 
-def _wake(p: dict) -> None:
-    """p["event"] を解決する。承認/却下は別リクエスト（別コルーチン）から来るため、
-    待っている側と別のイベントループで動いている可能性がある。asyncio.Event.set() を
-    別ループのスレッドから直接呼ぶのはスレッドセーフではない（待機側が永久にハングし
-    得る）ため、待機開始時に記録したループ経由で call_soon_threadsafe する。"""
-    loop = p.get("loop")
-    if loop is not None:
-        loop.call_soon_threadsafe(p["event"].set)
-    else:
-        p["event"].set()
+async def _close_ws(ws: WebSocket) -> None:
+    try:
+        await asyncio.wait_for(ws.close(), timeout=BROADCAST_SEND_TIMEOUT_SEC)
+    except (WebSocketDisconnect, RuntimeError, OSError, TimeoutError):
+        pass
+
+
+def _schedule_queue_broadcast() -> None:
+    """キュー配信をバックグラウンドの単一ワーカーで行う。
+
+    購読者への send は読み取りが止まったクライアントでブロックしうるため、
+    API ハンドラ内で await せず、レスポンス（/dispatch の即時 202・decision の
+    実行結果）から切り離す。
+
+    ワーカーは常に 1 本だけ走らせ、配信中に再スケジュールされたら完了後に
+    最新状態でもう一度配信する（呼び出しごとに独立タスクを作ると、遅い購読者に
+    足止めされた古いスナップショットが新しいものより後に届き、全量置き換えの
+    クライアントで決定済み項目が復活しうるため。ペイロードは送信直前に計算する
+    ので、この直列化により配信順は常に状態の新旧と一致する）。
+    タスク参照は GC による中断を防ぐためモジュール変数に保持する。
+    """
+    global _broadcast_task, _broadcast_pending
+    _broadcast_pending = True
+    if _broadcast_task is None or _broadcast_task.done():
+        _broadcast_task = asyncio.get_running_loop().create_task(_broadcast_worker())
+
+
+async def _broadcast_worker() -> None:
+    """dirty フラグが立っている限り、最新スナップショットの配信を繰り返す。
+    配信中に積まれた複数回のスケジュールは 1 回の配信へ合流する。"""
+    global _broadcast_pending
+    while _broadcast_pending:
+        _broadcast_pending = False
+        await _broadcast_queue()
+
+
+def _send_push_in_background(**kwargs) -> None:
+    """push 送信をスレッドプールで行う。
+
+    send_push_notification は全サブスクリプションへの同期送信（ブロッキング）
+    のため、ハンドラ内で直接呼ぶと /dispatch の即時 202 が push エンドポイント
+    の応答速度に引きずられ、イベントループも塞ぐ。
+    """
+    loop = asyncio.get_running_loop()
+    loop.run_in_executor(None, functools.partial(send_push_notification, **kwargs))
 
 
 def _persist_pending() -> None:
-    """未決定分のリクエストだけを専用ファイルへ書き出す（サーバ再起動をまたいで残すため）。
+    """承認待ちリクエストを専用ファイルへ書き出す（サーバ再起動をまたいで残すため）。
     config.json とは分離する（あちらはエクスポート/インポート対象のユーザー設定のため）。"""
-    items = {did: p["request"] for did, p in _PENDING.items() if not p["event"].is_set()}
     tmp_path = DISPATCH_QUEUE_FILE.with_suffix(".tmp")
     try:
-        tmp_path.write_text(json.dumps({"items": items}, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp_path.write_text(json.dumps({"items": _PENDING}, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp_path.replace(DISPATCH_QUEUE_FILE)
     except OSError as e:
         logger.warning("dispatch queue persist failed: %s", e)
@@ -101,16 +183,8 @@ def _load_persisted_pending() -> None:
     if not isinstance(items, dict):
         return
     for dispatch_id, request_payload in items.items():
-        if not isinstance(request_payload, dict):
-            continue
-        _PENDING[dispatch_id] = {
-            "request": request_payload,
-            "event": asyncio.Event(),
-            "loop": None,
-            "approved": False,
-            "overrides": None,
-            "result": None,
-        }
+        if isinstance(request_payload, dict):
+            _PENDING[dispatch_id] = request_payload
 
 
 class DispatchRequest(BaseModel):
@@ -235,89 +309,42 @@ class DispatchDecision(BaseModel):
 @router.get("/dispatch/queue")
 def get_dispatch_queue():
     """現在の承認待ちdispatch一覧を返す（SettingsのDispatch Queueと同じ内容）。"""
-    items = [
-        {"id": dispatch_id, "request": p["request"]}
-        for dispatch_id, p in _PENDING.items()
-        if not p["event"].is_set()
-    ]
-    return {"items": items}
-
-
-@router.get("/dispatch/events")
-async def dispatch_events():
-    async def gen():
-        q: asyncio.Queue = asyncio.Queue(maxsize=100)
-        _SSE_QUEUES.append(q)
-        try:
-            yield "data: {\"type\":\"hello\"}\n\n"
-            for pending_id, p in list(_PENDING.items()):
-                if not p["event"].is_set():
-                    yield f"data: {json.dumps({'type': 'pending', 'id': pending_id, 'request': p['request']})}\n\n"
-            while True:
-                try:
-                    item = await asyncio.wait_for(q.get(), timeout=SSE_PING_SEC)
-                    yield f"data: {json.dumps(item)}\n\n"
-                except asyncio.TimeoutError:
-                    yield ": ping\n\n"
-        finally:
-            if q in _SSE_QUEUES:
-                _SSE_QUEUES.remove(q)
-    headers = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
-    return StreamingResponse(gen(), media_type="text/event-stream", headers=headers)
+    return {"items": _queue_payload()["items"]}
 
 
 @router.post("/dispatch/{dispatch_id}/decision")
 async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
     """Settingsの「Dispatch Queue」からの承認/却下を受け取る。
-    承認時はここで実行まで行う（元の /dispatch 呼び出し元がサーバ再起動等で
-    もう存在しなくても、承認さえされれば実行できるようにするため）。"""
-    p = _PENDING.get(dispatch_id)
-    if not p:
+    承認時はここで実行まで行い、起動結果をそのまま返す（/dispatch はキュー登録で
+    即座に返るため、実行はこのエンドポイントだけが担う）。実行失敗時は項目を
+    キューへ残し、値を修正しての再承認や却下をやり直せるようにする。"""
+    payload = _PENDING.get(dispatch_id)
+    if payload is None:
         raise HTTPException(status_code=404, detail="Pending dispatch not found")
-    p["approved"] = body.approved
-    overrides = {
-        "workspace": body.workspace,
-        "branch": body.branch,
-        "base_branch": body.base_branch,
-        "text": body.text,
-        "job": body.job,
-        "match": body.match,
-        "create_branch": body.create_branch,
-        "session_id": body.session_id,
-    }
-    p["overrides"] = overrides
 
-    if body.approved:
-        dispatch_body = DispatchRequest(**p["request"])
-        _apply_overrides(dispatch_body, overrides)
-        try:
-            result = _launch(dispatch_body)
-        except HTTPException as e:
-            log_activity(dispatch_body.workspace, "dispatch_failed", detail=str(e.detail))
-            _PENDING.pop(dispatch_id, None)
-            _persist_pending()
-            _wake(p)
-            raise
-        p["result"] = result
-        log_activity(
-            result["workspace"], "dispatch_approved",
-            job=result["job"], session_id=result["session_id"], created=result["created"],
-        )
-        _broadcast({
-            "type": "result",
-            "id": dispatch_id,
-            "session_id": result["session_id"],
-            "workspace": result["workspace"],
-            "created": result["created"],
-        })
-    else:
-        log_activity(p["request"].get("workspace"), "dispatch_rejected")
-        _broadcast({"type": "decided", "id": dispatch_id, "approved": False})
+    if not body.approved:
+        log_activity(payload.get("workspace"), "dispatch_rejected")
+        _PENDING.pop(dispatch_id, None)
+        _persist_pending()
+        _schedule_queue_broadcast()
+        return {"status": "ok"}
 
+    dispatch_body = DispatchRequest(**payload)
+    _apply_overrides(dispatch_body, body.model_dump(exclude={"approved"}))
+    try:
+        result = _launch(dispatch_body)
+    except HTTPException as e:
+        # 失敗した項目はキューに残る（値を修正しての再承認・却下をやり直せる）
+        log_activity(dispatch_body.workspace, "dispatch_failed", detail=str(e.detail))
+        raise
+    log_activity(
+        result["workspace"], "dispatch_approved",
+        job=result["job"], session_id=result["session_id"], created=result["created"],
+    )
     _PENDING.pop(dispatch_id, None)
     _persist_pending()
-    _wake(p)
-    return {"status": "ok"}
+    _schedule_queue_broadcast()
+    return result
 
 
 def _apply_overrides(body: DispatchRequest, overrides: dict | None) -> None:
@@ -383,7 +410,7 @@ def _resolve_and_launch_session(body: DispatchRequest, effective_ws: str, ws_pat
 
 
 def _launch(body: DispatchRequest) -> dict:
-    """セッション起動を実行し、レスポンス/SSE共通のresult dictを返す。"""
+    """セッション起動を実行し、レスポンス用のresult dictを返す。"""
     effective_ws = body.effective_workspace
     ws_path = resolve_workspace_path(effective_ws)
     job_def = _resolve_job_def(effective_ws, body.job)
@@ -429,7 +456,7 @@ async def dispatch(body: DispatchRequest):
 
     dispatch_id = secrets.token_urlsafe(8)
 
-    send_push_notification(
+    _send_push_in_background(
         title="Dispatch",
         body=effective_ws,
         # 既存タブが無く新規ウィンドウが開く場合でも Dispatch Queue を開けるよう、
@@ -445,37 +472,13 @@ async def dispatch(body: DispatchRequest):
             result["workspace"], "dispatch_executed",
             job=result["job"], session_id=result["session_id"], created=result["created"],
         )
-        _broadcast({
-            "type": "result",
-            "id": dispatch_id,
-            "session_id": result["session_id"],
-            "workspace": result["workspace"],
-            "created": result["created"],
-        })
         return result
 
     log_activity(effective_ws, "dispatch_pending", job=body.job, text=body.text)
 
-    event = asyncio.Event()
-    entry = {
-        "request": payload,
-        "event": event,
-        "loop": asyncio.get_running_loop(),
-        "approved": False,
-        "overrides": None,
-        "result": None,
-    }
-    _PENDING[dispatch_id] = entry
+    _PENDING[dispatch_id] = payload
     _persist_pending()
-    _broadcast({"type": "pending", "id": dispatch_id, "request": payload})
-
-    # Settingsの「Dispatch Queue」から明示的に承認/却下されるまで待つ。自動では消さない。
-    # 承認された場合の実行自体は dispatch_decision 側で行う（サーバ再起動をまたいでも
-    # 承認だけで完結できるようにするため）。
-    await event.wait()
-
-    if not entry["approved"]:
-        raise HTTPException(status_code=403, detail="Dispatch rejected by user")
-    if entry["result"] is None:
-        raise server_error("Dispatch approved but execution failed")
-    return entry["result"]
+    _schedule_queue_broadcast()
+    # 承認を待たずに返す。結果が必要な呼び出し元はセッションの出現（/terminal/sessions）
+    # で確認するか、confirm:false で即実行を使う。
+    return JSONResponse(status_code=202, content={"status": "pending", "id": dispatch_id})

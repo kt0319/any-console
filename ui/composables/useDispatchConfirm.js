@@ -4,24 +4,34 @@ import { getWithRetry } from "../utils/api-retry.js";
 import { useDispatchPrompt } from "./useDispatchPrompt.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
+import { dispatchDecisionPath, EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 import { buildSessionTabParams } from "../utils/session-jobs.js";
 import { emit } from "../app-bridge.js";
 
-const RECONNECT_DELAY_MS = 3000;
-const handled = new Set();
-const approvedIds = new Set();
-let started = false;
-let es = null;
-
-// Settingsの「Dispatches」一覧が表示する保留中リクエスト。
-// pending 受信時点ではダイアログを開かず、ここに積むだけにする
-// （作業中に強制的にタブを切り替えられるのを避けるため）。
-/** @type {import("vue").Ref<{id: string, request: object}[]>} */
+// Settingsの「Dispatch Queue」一覧が表示する承認待ちリクエスト。
+// サーバがステータスストリーム WS（type="dispatch_queue"）で配信する全量スナップ
+// ショットをそのまま反映する。接続時・キュー変化時の両方で届くため、他端末で
+// 決定された項目が残り続けることはない。
+/** @type {import("vue").Ref<{id: string, request: Record<string, any>}[]>} */
 const queue = ref([]);
 
 function removeFromQueue(id) {
   queue.value = queue.value.filter((q) => q.id !== id);
+}
+
+/**
+ * ステータスストリームから受信したキュー全量で置き換える。
+ * 表示中の承認ダイアログの対象が消えた場合（他端末で決定済み）はダイアログも閉じる。
+ * @param {{id: string, request: Record<string, any>}[]} items
+ */
+export function applyDispatchQueue(items) {
+  const ids = new Set(items.map((q) => q.id));
+  const removed = queue.value.filter((q) => !ids.has(q.id));
+  queue.value = items;
+  if (removed.length) {
+    const { dismissById } = useDispatchPrompt();
+    for (const q of removed) dismissById(q.id);
+  }
 }
 
 export function useDispatchConfirm() {
@@ -67,81 +77,38 @@ export function useDispatchConfirm() {
     emit("tab:select", { tab: target });
   }
 
-  function handlePending(payload) {
-    if (!payload?.id || handled.has(payload.id)) return;
-    handled.add(payload.id);
-    queue.value = [...queue.value, { id: payload.id, request: payload.request || {} }];
-  }
-
   /**
    * Settingsの「Dispatches」一覧で1件選んだときに呼ぶ。
    * ここで初めてタブ切替・承認ダイアログ表示・決定APIの送信を行う。
    * ダイアログの Cancel は「今は見ない」という意味なので、サーバへは何も送らず
-   * キューに戻す（削除したい場合は一覧の×ボタン＝rejectItem を使う）。
+   * キューに残す（削除したい場合は一覧の×ボタン＝rejectItem を使う）。
+   * 承認時は決定APIのレスポンスが起動結果を返すため、そのままセッションへ移動する。
    */
   async function resolveItem(id) {
     const item = queue.value.find((q) => q.id === id);
     if (!item) return;
-    removeFromQueue(id);
     focusMatchingTab(item.request);
     const { approved, overrides } = await openDispatchPrompt(item.request, id);
-    if (!approved) {
-      queue.value = [...queue.value, item];
-      return;
-    }
-    approvedIds.add(id);
-    await apiPost(`/dispatch/${encodeURIComponent(id)}/decision`, {
+    if (!approved) return;
+    const { ok, data } = await apiPost(dispatchDecisionPath(id), {
       approved: true,
       ...overrides,
     }, { errorMessage: "Failed to run dispatch (it may have already been decided elsewhere)" });
+    if (!ok) return;
+    // WS ブロードキャストでも消えるが、切断中でも一覧へ即時反映する。
+    removeFromQueue(id);
+    focusSession(data?.session_id, data?.workspace);
   }
 
   /**
    * Settingsの「Dispatches」一覧の×ボタンから呼ぶ。ダイアログを開かず却下する。
    */
   async function rejectItem(id) {
-    const item = queue.value.find((q) => q.id === id);
-    if (!item) return;
-    removeFromQueue(id);
     dismissById(id);
-    await apiPost(`/dispatch/${encodeURIComponent(id)}/decision`, { approved: false },
+    const { ok } = await apiPost(dispatchDecisionPath(id), { approved: false },
       { errorMessage: "Failed to discard dispatch (it may have already been decided elsewhere)" });
+    if (ok) removeFromQueue(id);
   }
 
-  function handleResult(payload) {
-    if (!payload?.id || !approvedIds.has(payload.id)) return;
-    approvedIds.delete(payload.id);
-    focusSession(payload.session_id, payload.workspace);
-  }
-
-  function connect() {
-    if (typeof EventSource === "undefined") return;
-    es = new EventSource("/dispatch/events");
-    es.onmessage = (e) => {
-      let payload;
-      try { payload = JSON.parse(e.data); } catch { return; }
-      if (payload.type === "pending") handlePending(payload);
-      else if (payload.type === "result" || payload.type === "decided") {
-        // 承認/却下どちらも、この端末が起点でなくても一覧から消す
-        // （別端末で先に決定された項目が残り続けて404を踏むのを防ぐため）。
-        handled.add(payload.id);
-        removeFromQueue(payload.id);
-        dismissById(payload.id);
-        if (payload.type === "result") handleResult(payload);
-      }
-    };
-    es.onerror = () => {
-      try { es?.close(); } catch {}
-      es = null;
-      setTimeout(connect, RECONNECT_DELAY_MS);
-    };
-  }
-
-  function start() {
-    if (started) return;
-    started = true;
-    connect();
-  }
-
-  return { start, queue, resolveItem, rejectItem };
+  return { queue, resolveItem, rejectItem };
 }

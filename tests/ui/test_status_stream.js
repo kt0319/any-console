@@ -67,6 +67,28 @@ describe("parseStatusStreamMessage", () => {
   it("agent_states の states が配列でなければ null", () => {
     expect(parseStatusStreamMessage(JSON.stringify({ type: "agent_states", states: {} }))).toBe(null);
   });
+
+  it("dispatch_queue メッセージを正規化して返す", () => {
+    const raw = JSON.stringify({
+      type: "dispatch_queue",
+      items: [{ id: "d1", request: { workspace: "ws1", text: "echo hi" } }],
+    });
+    expect(parseStatusStreamMessage(raw)).toEqual({
+      type: "dispatch_queue",
+      items: [{ id: "d1", request: { workspace: "ws1", text: "echo hi" } }],
+    });
+  });
+
+  it("dispatch_queue の空 items も通す（キュー空の全量スナップショット）", () => {
+    expect(parseStatusStreamMessage(JSON.stringify({ type: "dispatch_queue", items: [] }))).toEqual({
+      type: "dispatch_queue",
+      items: [],
+    });
+  });
+
+  it("dispatch_queue の items が配列でなければ null", () => {
+    expect(parseStatusStreamMessage(JSON.stringify({ type: "dispatch_queue", items: {} }))).toBe(null);
+  });
 });
 
 describe("statusStreamReconnectDelay", () => {
