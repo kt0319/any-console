@@ -12,10 +12,14 @@ from conftest import AUTH, TOKEN
 def _clear_pending():
     dispatch_mod._PENDING.clear()
     dispatch_mod._subscribers.clear()
+    # テストごとにイベントループが変わるため、前のループのワーカータスク参照を破棄する
+    dispatch_mod._broadcast_task = None
+    dispatch_mod._broadcast_pending = False
     yield
     dispatch_mod._PENDING.clear()
     dispatch_mod._subscribers.clear()
-    dispatch_mod._broadcast_tasks.clear()
+    dispatch_mod._broadcast_task = None
+    dispatch_mod._broadcast_pending = False
 
 
 @pytest.fixture(autouse=True)
@@ -265,15 +269,61 @@ class TestQueueBroadcast:
             await dispatch_mod.subscribe(ws)
             dispatch_mod._PENDING["x1"] = {"workspace": "test-ws"}
             dispatch_mod._schedule_queue_broadcast()
-            assert dispatch_mod._broadcast_tasks
-            await asyncio.gather(*dispatch_mod._broadcast_tasks)
+            assert dispatch_mod._broadcast_task is not None
+            await dispatch_mod._broadcast_task
 
         asyncio.run(run())
         assert ws.sent[-1] == {
             "type": "dispatch_queue",
             "items": [{"id": "x1", "request": {"workspace": "test-ws"}}],
         }
-        assert not dispatch_mod._broadcast_tasks
+
+    def test_schedule_broadcast_coalesces_to_latest_snapshot(self):
+        """配信ワーカー起動前後の複数回のスケジュールは 1 回の最新スナップショット
+        配信へ合流し、古い状態が新しい状態の後に届くことはない。"""
+        ws = _FakeWS()
+
+        async def run():
+            dispatch_mod._PENDING["x1"] = {"workspace": "test-ws"}
+            await dispatch_mod.subscribe(ws)  # snapshot: [x1]
+            dispatch_mod._PENDING.pop("x1")
+            dispatch_mod._schedule_queue_broadcast()
+            dispatch_mod._PENDING["x2"] = {"workspace": "test-ws"}
+            dispatch_mod._schedule_queue_broadcast()
+            await dispatch_mod._broadcast_task
+
+        asyncio.run(run())
+        assert ws.sent == [
+            {"type": "dispatch_queue", "items": [{"id": "x1", "request": {"workspace": "test-ws"}}]},
+            {"type": "dispatch_queue", "items": [{"id": "x2", "request": {"workspace": "test-ws"}}]},
+        ]
+
+    def test_schedule_during_send_rebroadcasts_latest(self):
+        """送信中（await 中）に状態が変わって再スケジュールされた場合、ワーカーは
+        完了後に最新スナップショットをもう一度配信する。"""
+        sent = []
+
+        class _SlowWS:
+            async def send_json(self, payload):
+                sent.append(payload)
+                await asyncio.sleep(0)  # 送信中に他のコルーチンへ制御を渡す
+
+        ws = _SlowWS()
+
+        async def run():
+            dispatch_mod._subscribers.add(ws)
+            dispatch_mod._PENDING["x1"] = {"workspace": "test-ws"}
+            dispatch_mod._schedule_queue_broadcast()
+            await asyncio.sleep(0)  # ワーカーが x1 の送信に入るまで進める
+            dispatch_mod._PENDING.pop("x1")
+            dispatch_mod._schedule_queue_broadcast()  # 実行中ワーカーへ合流
+            await dispatch_mod._broadcast_task
+
+        asyncio.run(run())
+        assert sent == [
+            {"type": "dispatch_queue", "items": [{"id": "x1", "request": {"workspace": "test-ws"}}]},
+            {"type": "dispatch_queue", "items": []},
+        ]
 
 
 class TestStatusStreamSnapshot:

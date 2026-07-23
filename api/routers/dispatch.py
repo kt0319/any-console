@@ -61,7 +61,8 @@ router = APIRouter(dependencies=[Depends(verify_token)])
 # dispatch_id -> リクエスト payload（純データ。永続化ファイルと同型）
 _PENDING: dict[str, dict] = {}
 _subscribers: set[WebSocket] = set()
-_broadcast_tasks: set[asyncio.Task] = set()
+_broadcast_task: asyncio.Task | None = None
+_broadcast_pending = False
 
 # 読み取りが止まった購読者（サスペンド中のモバイル等）で送信バッファが詰まった
 # 場合に、他の購読者への配信まで巻き込まれないための上限。超えたら切り離す。
@@ -105,15 +106,32 @@ async def _broadcast_queue() -> None:
 
 
 def _schedule_queue_broadcast() -> None:
-    """キュー配信をバックグラウンドタスクで行う。
+    """キュー配信をバックグラウンドの単一ワーカーで行う。
 
     購読者への send は読み取りが止まったクライアントでブロックしうるため、
     API ハンドラ内で await せず、レスポンス（/dispatch の即時 202・decision の
-    実行結果）から切り離す。タスクは GC による中断を防ぐため完了まで保持する。
+    実行結果）から切り離す。
+
+    ワーカーは常に 1 本だけ走らせ、配信中に再スケジュールされたら完了後に
+    最新状態でもう一度配信する（呼び出しごとに独立タスクを作ると、遅い購読者に
+    足止めされた古いスナップショットが新しいものより後に届き、全量置き換えの
+    クライアントで決定済み項目が復活しうるため。ペイロードは送信直前に計算する
+    ので、この直列化により配信順は常に状態の新旧と一致する）。
+    タスク参照は GC による中断を防ぐためモジュール変数に保持する。
     """
-    task = asyncio.get_running_loop().create_task(_broadcast_queue())
-    _broadcast_tasks.add(task)
-    task.add_done_callback(_broadcast_tasks.discard)
+    global _broadcast_task, _broadcast_pending
+    _broadcast_pending = True
+    if _broadcast_task is None or _broadcast_task.done():
+        _broadcast_task = asyncio.get_running_loop().create_task(_broadcast_worker())
+
+
+async def _broadcast_worker() -> None:
+    """dirty フラグが立っている限り、最新スナップショットの配信を繰り返す。
+    配信中に積まれた複数回のスケジュールは 1 回の配信へ合流する。"""
+    global _broadcast_pending
+    while _broadcast_pending:
+        _broadcast_pending = False
+        await _broadcast_queue()
 
 
 def _persist_pending() -> None:
