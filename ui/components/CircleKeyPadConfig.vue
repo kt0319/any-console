@@ -4,7 +4,7 @@
     <template v-else>
       <div class="ckpad-cfg-section">
         <label class="ckpad-cfg-enable">
-          <input type="checkbox" v-model="circleKeypad.enabled">
+          <input type="checkbox" :checked="circleKeypad.enabled" @change="setEnabled($event.target.checked)">
           Enable Circle Keypad
         </label>
       </div>
@@ -35,15 +35,14 @@
       </div>
 
       <div class="ckpad-cfg-actions">
-        <button type="button" @click="reset">Reset to defaults</button>
-        <button type="button" class="primary" :disabled="saving" @click="save">{{ saving ? "Saving..." : "Save" }}</button>
+        <button type="button" class="ckpad-cfg-reset-btn" @click="reset">Reset to defaults</button>
       </div>
     </template>
   </div>
 </template>
 
 <script setup>
-import { inject, ref } from "vue";
+import { inject } from "vue";
 import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.js";
 import {
   CIRCLE_KEYPAD_MODIFIER_OPTIONS,
@@ -67,7 +66,6 @@ const baseKeys = CIRCLE_KEYPAD_BASE_KEYS;
 const specialPresets = CIRCLE_KEYPAD_SPECIAL_PRESETS;
 const directions = CIRCLE_KEYPAD_DIRECTION_LABELS;
 const corners = CIRCLE_KEYPAD_CORNER_LABELS;
-const saving = ref(false);
 
 if (!circleKeypad.loaded) circleKeypad.load();
 
@@ -78,36 +76,36 @@ function specialId(s) {
   )?.id || "";
 }
 
+function setEnabled(v) {
+  circleKeypad.enabled = v;
+  circleKeypad.save();
+}
+
 function setModifier(i, modifierId) {
   const mod = findModifierOption(modifierId);
   const k = circleKeypad.keys[i];
   const key = baseKeyIdOf(k);
   circleKeypad.keys[i] = { key, ctrl: mod.ctrl, shift: mod.shift, alt: mod.alt, label: circleKeypadKeyLabel(modifierId, key) };
+  circleKeypad.save();
 }
 
 function setBaseKey(i, keyId) {
   const k = circleKeypad.keys[i];
   const modifierId = modifierIdOf(k);
   circleKeypad.keys[i] = { key: keyId, ctrl: !!k.ctrl, shift: !!k.shift, alt: !!k.alt, label: circleKeypadKeyLabel(modifierId, keyId) };
+  circleKeypad.save();
 }
 
 function setSpecial(i, id) {
   const p = findSpecialPreset(id);
   if (!p) return;
   circleKeypad.specials[i] = { label: p.label, action: p.action, payload: p.payload || null };
+  circleKeypad.save();
 }
 
 function reset() {
   circleKeypad.resetToDefaults();
-}
-
-async function save() {
-  saving.value = true;
-  try {
-    await circleKeypad.save();
-  } finally {
-    saving.value = false;
-  }
+  circleKeypad.save();
 }
 </script>
 
@@ -154,13 +152,13 @@ async function save() {
 
 .ckpad-cfg-actions {
   display: flex;
-  gap: 8px;
+  justify-content: flex-end;
   margin-top: 16px;
   padding: 8px 4px 16px;
 }
 
-.ckpad-cfg-actions button {
-  flex: 1;
+.ckpad-cfg-reset-btn {
+  min-height: 40px;
 }
 
 .ckpad-cfg-enable {
