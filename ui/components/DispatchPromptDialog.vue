@@ -4,34 +4,18 @@
       <h3 id="dispatch-prompt-title" class="dispatch-prompt-title">Run dispatch?</h3>
 
       <template v-if="request?.workspace">
-        <!-- Session toggle -->
-        <div class="dispatch-prompt-field">
+        <label class="dispatch-prompt-field">
           <span class="dispatch-prompt-label">Session</span>
-          <div class="dispatch-match-options">
-            <label class="dispatch-match-option">
-              <input type="radio" v-model="selectedMatch" value="existing" /> Use existing
-            </label>
-            <label class="dispatch-match-option">
-              <input type="radio" v-model="selectedMatch" value="new" /> New session
-            </label>
-          </div>
-        </div>
-
-        <!-- Use existing: セッション選択のみ -->
-        <template v-if="selectedMatch === 'existing'">
-          <label class="dispatch-prompt-field">
-            <span class="dispatch-prompt-label">Session</span>
-            <select v-model="selectedSessionId" class="dispatch-prompt-select">
-              <option v-if="sessions.length === 0" :value="null">(No sessions)</option>
-              <option v-for="s in sessions" :key="s.session_id" :value="s.session_id">
-                {{ s.workspace ? `${s.workspace} / ${s.job_label || s.job_name || 'Terminal'}` : (s.job_label || s.job_name || 'Terminal') }}
-              </option>
-            </select>
-          </label>
-        </template>
+          <select v-model="selectedSessionId" class="dispatch-prompt-select">
+            <option :value="NEW_SESSION_VALUE">+ New session</option>
+            <option v-for="s in sessions" :key="s.session_id" :value="s.session_id">
+              {{ s.workspace ? `${s.workspace} / ${s.job_label || s.job_name || 'Terminal'}` : (s.job_label || s.job_name || 'Terminal') }}
+            </option>
+          </select>
+        </label>
 
         <!-- New session: Workspace / Job を表示 -->
-        <template v-else>
+        <template v-if="isNewSession">
           <dl class="dispatch-prompt-meta">
             <dt>Workspace</dt>
             <dd>{{ request.workspace }}</dd>
@@ -96,10 +80,10 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import BaseDialog from "./BaseDialog.vue";
-import { useDispatchPrompt } from "../composables/useDispatchPrompt.js";
+import { NEW_SESSION_VALUE, useDispatchPrompt } from "../composables/useDispatchPrompt.js";
 import { useApi } from "../composables/useApi.js";
 
-const { visible, request, branch, baseBranch, text, selectedJob, selectedMatch, selectedSessionId, selectedCreateBranch, approve, cancel } = useDispatchPrompt();
+const { visible, request, branch, baseBranch, text, selectedJob, selectedSessionId, isNewSession, selectedCreateBranch, approve, cancel } = useDispatchPrompt();
 const { apiGet } = useApi();
 
 const jobs = ref([]);
@@ -135,7 +119,7 @@ watch(visible, async (v) => {
 
 // Base branch のブランチ一覧: 選択中セッションのワークスペースまたはリクエストのワークスペース
 const baseBranchWorkspace = computed(() => {
-  if (selectedMatch.value === "existing" && selectedSessionId.value) {
+  if (!isNewSession.value && selectedSessionId.value) {
     const s = sessions.value.find((s) => s.session_id === selectedSessionId.value);
     return s?.workspace || request.value?.workspace;
   }
@@ -199,11 +183,6 @@ const branchStatusNote = computed(() => {
   color: var(--text-primary);
   word-break: break-all;
 }
-.dispatch-match-options {
-  display: flex;
-  gap: 16px;
-}
-
 .dispatch-match-option {
   display: flex;
   align-items: center;
