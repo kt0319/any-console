@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:smoke": "playwright test e2e/smoke.spec.js e2e/terminal.spec.js e2e/mobile.spec.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
