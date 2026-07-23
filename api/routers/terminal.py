@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from ..activity import log_activity
 from ..auth import verify_token, verify_ws_token
 from ..common import (
+    DATA_DIR,
     TMUX_CMD_TIMEOUT_SEC,
     TMUX_SESSION_PREFIX,
     WS_MSG_RESIZE,
@@ -236,7 +237,7 @@ async def set_terminal_detached(session_id: str, body: DetachedBody):
     return {"status": "ok", "detached": session.detached}
 
 
-_TAB_ORDER_FILE = Path(__file__).resolve().parent.parent.parent / "data" / "sessions.json"
+_TAB_ORDER_FILE = DATA_DIR / "sessions.json"
 
 
 def _load_tab_order() -> list[str]:

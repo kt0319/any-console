@@ -235,7 +235,8 @@ async function loadDetached() {
   const owned = ownedRes.ok && Array.isArray(ownedRes.data) ? ownedRes.data : [];
   const knownTabIds = new Set(openTabs.value.map((t) => t.sessionId).filter(Boolean));
   const all = tmuxRes.ok && Array.isArray(tmuxRes.data?.sessions) ? tmuxRes.data.sessions : [];
-  detachedSessions.value = buildDetachedSessionList(all, owned, knownTabIds);
+  const prefix = tmuxRes.ok && tmuxRes.data?.prefix ? tmuxRes.data.prefix : undefined;
+  detachedSessions.value = buildDetachedSessionList(all, owned, knownTabIds, prefix);
 }
 
 function openDetached(s) {

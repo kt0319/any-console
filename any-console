@@ -154,10 +154,13 @@ get_version() {
   git log -1 --format='%h %cd' --date=format:'%Y-%m-%d %H:%M' 2>/dev/null || echo "unknown"
 }
 
+# ANY_CONSOLE_DATA_DIR 設定時は config.json もそのディレクトリ配下に置かれる
+# （api/common.py の resolve_data_paths と同じ規則）。以下の各 python スニペットも同様。
 get_port() {
   python3 -c "
-import json, pathlib
-p = pathlib.Path('config.json')
+import json, os, pathlib
+d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
+p = pathlib.Path(d).expanduser() / 'config.json' if d.strip() else pathlib.Path('config.json')
 if not p.is_file():
     print(8888); exit()
 try:
@@ -170,8 +173,9 @@ except Exception:
 
 get_host() {
   python3 -c "
-import json, pathlib
-p = pathlib.Path('config.json')
+import json, os, pathlib
+d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
+p = pathlib.Path(d).expanduser() / 'config.json' if d.strip() else pathlib.Path('config.json')
 if not p.is_file():
     print('0.0.0.0'); exit()
 try:
@@ -185,7 +189,8 @@ except Exception:
 get_config_value() {
   KEY="$1" python3 -c "
 import json, os, pathlib
-p = pathlib.Path('config.json')
+d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
+p = pathlib.Path(d).expanduser() / 'config.json' if d.strip() else pathlib.Path('config.json')
 if not p.is_file():
     print(''); exit()
 try:
@@ -218,7 +223,8 @@ prompt_bind_config() {
 
   HOST="$new_host" PORT="$new_port" python3 -c "
 import json, os, pathlib
-p = pathlib.Path('config.json')
+d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
+p = pathlib.Path(d).expanduser() / 'config.json' if d.strip() else pathlib.Path('config.json')
 cfg = json.loads(p.read_text()) if p.is_file() else {}
 g = cfg.get('__global__', {})
 if not isinstance(g, dict):
@@ -226,6 +232,7 @@ if not isinstance(g, dict):
 g['host'] = os.environ['HOST']
 g['port'] = int(os.environ['PORT'])
 cfg['__global__'] = g
+p.parent.mkdir(parents=True, exist_ok=True)
 p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 "
   info "Saved to config.json (host=${new_host}, port=${new_port})"
@@ -287,7 +294,8 @@ import json, os, pathlib
 
 raw = os.environ.get("WS_PATHS", "")
 paths = [ln.strip() for ln in raw.splitlines() if ln.strip()]
-p = pathlib.Path("config.json")
+d = os.environ.get("ANY_CONSOLE_DATA_DIR", "")
+p = pathlib.Path(d).expanduser() / "config.json" if d.strip() else pathlib.Path("config.json")
 cfg = json.loads(p.read_text()) if p.is_file() else {}
 
 existing = {
@@ -309,6 +317,7 @@ for raw_path in paths:
     added.append(name)
 
 if added:
+    p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     for n in added:
         print(f"Registered: {n}")
@@ -389,7 +398,8 @@ TOOL_META = {
 }
 
 tools = [t.strip() for t in os.environ.get("AI_TOOLS", "").splitlines() if t.strip()]
-p = pathlib.Path("config.json")
+d = os.environ.get("ANY_CONSOLE_DATA_DIR", "")
+p = pathlib.Path(d).expanduser() / "config.json" if d.strip() else pathlib.Path("config.json")
 cfg = json.loads(p.read_text()) if p.is_file() else {}
 g = cfg.get("__global__", {})
 if not isinstance(g, dict):
@@ -426,6 +436,7 @@ for cmd in tools:
 if added:
     g["jobs"] = jobs
     cfg["__global__"] = g
+    p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     for name in added:
         print(f"  Registered common job: {name}")
@@ -535,7 +546,8 @@ do_https_setup() {
 
   CERT="$cert_path" KEY="$key_path" python3 -c "
 import json, os, pathlib
-p = pathlib.Path('config.json')
+d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
+p = pathlib.Path(d).expanduser() / 'config.json' if d.strip() else pathlib.Path('config.json')
 cfg = json.loads(p.read_text()) if p.is_file() else {}
 g = cfg.get('__global__', {})
 if not isinstance(g, dict):
@@ -543,6 +555,7 @@ if not isinstance(g, dict):
 g['ssl_certfile'] = os.environ['CERT']
 g['ssl_keyfile'] = os.environ['KEY']
 cfg['__global__'] = g
+p.parent.mkdir(parents=True, exist_ok=True)
 p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 "
   info "  HTTPS configured: https://${hostname}:$(get_port)"
@@ -812,8 +825,10 @@ cmd_setup() {
   echo ""
   local auth_token
   auth_token=$("$(venv_python)" -c "
-import secrets, json, pathlib
-p = pathlib.Path('data/auth.json')
+import secrets, json, os, pathlib
+d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
+base = pathlib.Path(d).expanduser() if d.strip() else pathlib.Path('data')
+p = base / 'auth.json'
 if not p.exists():
     token = secrets.token_urlsafe(24)
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -845,6 +860,16 @@ generate_service_unit() {
   ssl_key=$(get_ssl_keyfile)
   if [ -n "$ssl_cert" ]; then env_lines+="Environment=SSL_CERTFILE=$ssl_cert"$'\n'; fi
   if [ -n "$ssl_key" ];  then env_lines+="Environment=SSL_KEYFILE=$ssl_key"$'\n'; fi
+  # サービスマネージャは setup 時のシェル環境を継承しないため、
+  # 隔離ディレクトリ指定はユニット定義に永続化する。
+  # 空白入りパスでも切り詰められないよう systemd の引用規則で代入全体を囲み、
+  # 値中の \ と " は同規則でエスケープする（adopt_installed_data_dir が対で復元する）
+  if [ -n "${ANY_CONSOLE_DATA_DIR:-}" ]; then
+    local data_dir_sysd="$ANY_CONSOLE_DATA_DIR"
+    data_dir_sysd=${data_dir_sysd//'\'/'\\'}
+    data_dir_sysd=${data_dir_sysd//'"'/'\"'}
+    env_lines+="Environment=\"ANY_CONSOLE_DATA_DIR=$data_dir_sysd\""$'\n'
+  fi
   cat <<UNIT
 [Unit]
 Description=any-console API
@@ -888,6 +913,18 @@ generate_plist() {
     <string>$ssl_cert</string>
     <key>SSL_KEYFILE</key>
     <string>$ssl_key</string>
+"
+  fi
+  # サービスマネージャは setup 時のシェル環境を継承しないため、
+  # 隔離ディレクトリ指定は plist に永続化する（& < > を含むパスでも
+  # plist が壊れないよう XML エスケープして埋め込む）
+  if [ -n "${ANY_CONSOLE_DATA_DIR:-}" ]; then
+    local data_dir_xml="$ANY_CONSOLE_DATA_DIR"
+    data_dir_xml=${data_dir_xml//&/\&amp;}
+    data_dir_xml=${data_dir_xml//</\&lt;}
+    data_dir_xml=${data_dir_xml//>/\&gt;}
+    ssl_env+="    <key>ANY_CONSOLE_DATA_DIR</key>
+    <string>$data_dir_xml</string>
 "
   fi
   # LaunchAgent はユーザーセッション内で動くため UserName 不要。
@@ -1092,13 +1129,23 @@ cmd_uninstall() {
   fi
 
   echo ""
-  echo "Remove data/ directory? (auth token, config, push subscriptions)"
+  # ANY_CONSOLE_DATA_DIR 設定時はそのディレクトリが実データ（誤って既定側を消さない）。
+  # シェルは変数展開後の ~ を展開しないため、バックエンド（resolve_data_paths）と
+  # 同じ expanduser + resolve 規則で正規化してから削除対象にする
+  # （symlink 経由の指定でも、バックエンドが実際に書いた先を消す）
+  local data_dir
+  if [ -n "${ANY_CONSOLE_DATA_DIR:-}" ]; then
+    data_dir=$(D="$ANY_CONSOLE_DATA_DIR" python3 -c "import os, pathlib; print(pathlib.Path(os.environ['D']).expanduser().resolve())")
+  else
+    data_dir="$SCRIPT_DIR/data"
+  fi
+  echo "Remove ${data_dir}? (auth token, config, push subscriptions)"
   read -rp "[y/N] " answer
   if [[ "$answer" =~ ^[Yy]$ ]]; then
-    rm -rf "$SCRIPT_DIR/data"
-    info "  data/ removed"
+    rm -rf "$data_dir"
+    info "  ${data_dir} removed"
   else
-    info "  data/ kept"
+    info "  ${data_dir} kept"
   fi
 
   echo ""
@@ -1164,7 +1211,35 @@ usage() {
   echo "  version      Print version"
 }
 
+# インストール済みサービス定義に永続化された隔離ディレクトリを環境へ引き継ぐ。
+# `ANY_CONSOLE_DATA_DIR=... ./any-console setup` で登録した後、env なしの通常呼び出し
+# （https-setup / uninstall / ユニット再生成など）が既定パスへ戻ってしまわないようにする。
+adopt_installed_data_dir() {
+  [ -n "${ANY_CONSOLE_DATA_DIR:-}" ] && return
+  local unit="/etc/systemd/system/$SERVICE_NAME.service" value=""
+  if [ -f "$unit" ]; then
+    value=$(sed -n 's/^Environment="ANY_CONSOLE_DATA_DIR=\(.*\)"$/\1/p' "$unit" | head -n1)
+    # generate_service_unit のエスケープ（\\ と \"）を復元する。
+    # 先に \\ を退避してから \" を戻さないと隣接シーケンスを誤解釈する
+    value=${value//'\\'/$'\x01'}
+    value=${value//'\"'/'"'}
+    value=${value//$'\x01'/'\'}
+  elif [ -f "$LAUNCHD_PLIST" ]; then
+    value=$(PLIST="$LAUNCHD_PLIST" python3 -c "
+import os, plistlib
+with open(os.environ['PLIST'], 'rb') as f:
+    d = plistlib.load(f)
+print(d.get('EnvironmentVariables', {}).get('ANY_CONSOLE_DATA_DIR', ''))
+" 2>/dev/null)
+  fi
+  if [ -n "$value" ]; then
+    export ANY_CONSOLE_DATA_DIR="$value"
+  fi
+}
+
 command="${1:-}"
+
+adopt_installed_data_dir
 
 case "$command" in
   setup)   cmd_setup "${2:-}" ;;

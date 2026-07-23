@@ -27,6 +27,19 @@ describe("buildDetachedSessionList", () => {
     ]);
   });
 
+  it("uses the server-provided prefix to extract session ids", () => {
+    // ANY_CONSOLE_TMUX_PREFIX 指定サーバ（E2E 使い捨てモード等）では
+    // 既定 "ac-" のままだと session_id にプレフィックス残骸が混ざる
+    const all = [{ name: "ac-e2e0aff11-abc123" }, { name: "ac-other" }];
+    const list = buildDetachedSessionList(all, [], new Set(), "ac-e2e0aff11-");
+    expect(list[0].session_id).toBe("abc123");
+    expect(list[0].external).toBe(false);
+    // 自サーバのプレフィックスに一致しない名前は external 扱い
+    expect(list[1]).toEqual({
+      session_id: null, tmux_name: "ac-other", workspace: null, external: true,
+    });
+  });
+
   it("merges owned metadata by session_id", () => {
     const all = [{ name: "ac-xyz" }];
     const owned = [{ session_id: "xyz", workspace: "ws", icon: "mdi-play", icon_color: "#fff", job_name: "build", job_label: "Build" }];

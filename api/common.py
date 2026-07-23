@@ -18,12 +18,35 @@ from .errors import bad_request
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 UPLOAD_DIR = Path("/tmp/any-console-uploads")
 
-CONFIG_FILE = PROJECT_ROOT / "config.json"
+
+def resolve_data_paths(env_value: str | None) -> tuple[Path, Path]:
+    """(DATA_DIR, CONFIG_FILE) を決める。
+
+    ANY_CONSOLE_DATA_DIR が設定されていれば data/ も config.json もその配下に置く
+    （E2E 等の使い捨てサーバが実運用の data/・config.json を汚さないための隔離モード）。
+    未設定なら従来どおり PROJECT_ROOT 直下。
+    """
+    # strip は空値の検出のみに使い、パスには生の値を使う
+    # （前後に空白を含む正当なディレクトリ名を別パスへ化けさせないため）
+    if env_value and env_value.strip():
+        data_dir = Path(env_value).expanduser().resolve()
+        return data_dir, data_dir / "config.json"
+    return PROJECT_ROOT / "data", PROJECT_ROOT / "config.json"
+
+
+_DATA_DIR_ENV = os.environ.get("ANY_CONSOLE_DATA_DIR")
+DATA_DIR, CONFIG_FILE = resolve_data_paths(_DATA_DIR_ENV)
 GLOBAL_CONFIG_KEY = "__global__"
 
 # dispatch の承認待ちキュー専用ファイル。config.json とは意味が違う
 # （ユーザー設定ではなく一時的な運用状態）ため分離する。
-DISPATCH_QUEUE_FILE = PROJECT_ROOT / "dispatch_queue.json"
+# 既定はレガシー位置（PROJECT_ROOT 直下）のまま、ANY_CONSOLE_DATA_DIR 指定時は
+# 隔離ディレクトリ配下に置く（使い捨てサーバが実運用のキューに触れないため）。
+DISPATCH_QUEUE_FILE = (
+    DATA_DIR / "dispatch_queue.json"
+    if _DATA_DIR_ENV and _DATA_DIR_ENV.strip()
+    else PROJECT_ROOT / "dispatch_queue.json"
+)
 
 # 現在のコードが理解する config スキーマのバージョン。
 # 破壊的なスキーマ変更を入れる際にインクリメントし、_CONFIG_MIGRATIONS に
@@ -61,7 +84,19 @@ PTY_READ_BUFFER_SIZE = 16384
 PTY_READER_WORKERS = 8
 MAX_TERMINAL_SESSIONS = 20
 
-TMUX_SESSION_PREFIX = "ac-"
+def resolve_tmux_prefix(env_value: str | None) -> str:
+    """tmux セッション名のプレフィックスを決める（未設定は "ac-"）。
+
+    E2E の使い捨てサーバ（playwright.config.js 参照）がランごとにユニークな値を
+    渡すことで、並行ラン・実運用とセッション名前空間を分離する。
+    """
+    # strip は空値の検出のみ（値自体は生のまま使い、data dir の規則と揃える）
+    if env_value and env_value.strip():
+        return env_value
+    return "ac-"
+
+
+TMUX_SESSION_PREFIX = resolve_tmux_prefix(os.environ.get("ANY_CONSOLE_TMUX_PREFIX"))
 TMUX_CMD_TIMEOUT_SEC = 5
 TMUX_PANE_READY_TIMEOUT_SEC = 2.0
 TMUX_PANE_POLL_INTERVAL_SEC = 0.05

@@ -1,7 +1,9 @@
 // tmux セッション一覧を「デタッチセッション（タブ未割り当て）」リストに整形する純粋関数。
 // DOM / API から分離してテスト可能にする。
 
-// any-console 管理セッションの tmux 名プレフィックス。
+// any-console 管理セッションの tmux 名プレフィックス（既定値）。
+// 実効値はサーバが ANY_CONSOLE_TMUX_PREFIX で変えられるため、
+// /system/tmux-info の `prefix` を優先して使うこと。
 export const AC_PREFIX = "ac-";
 
 /**
@@ -28,15 +30,16 @@ export const AC_PREFIX = "ac-";
  * @param {TmuxSession[]} allSessions 全 tmux セッション
  * @param {OwnedSession[]} owned any-console 管理セッション（/terminal/sessions）
  * @param {Set<string>|Iterable<string>} knownTabIds 既に開いているタブの session_id 集合
+ * @param {string} [prefix] サーバの実効 tmux プレフィックス（/system/tmux-info の `prefix`）
  * @returns {Object[]}
  */
-export function buildDetachedSessionList(allSessions, owned, knownTabIds) {
+export function buildDetachedSessionList(allSessions, owned, knownTabIds, prefix = AC_PREFIX) {
   const ownedById = new Map((owned || []).map((s) => [s.session_id, s]));
   const known = knownTabIds instanceof Set ? knownTabIds : new Set(knownTabIds || []);
   const list = [];
   for (const s of allSessions || []) {
-    if (s.name.startsWith(AC_PREFIX)) {
-      const sessionId = s.name.slice(AC_PREFIX.length);
+    if (s.name.startsWith(prefix)) {
+      const sessionId = s.name.slice(prefix.length);
       if (known.has(sessionId)) continue;
       const ownedEntry = ownedById.get(sessionId);
       list.push({

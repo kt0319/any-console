@@ -34,6 +34,11 @@ config.json                   Config file (auto-generated, .gitignore'd)
 data/auth.json                Token storage (.gitignore'd)
 ```
 
+`data/` and `config.json` live at the project root by default. Setting the
+`ANY_CONSOLE_DATA_DIR` environment variable relocates both under the given
+directory — the E2E disposable-server mode (see `playwright.config.js`) uses
+this to keep test state fully isolated from a real deployment.
+
 ## Notes for contributors
 
 | Target | Watch out for |

@@ -142,25 +142,9 @@ jobs:
       - name: Install tmux
         run: sudo apt-get install -y tmux
 
-      - name: Start server
-        # E2E は短時間に多数のリクエストを送るため、レート制限(既定 200req/60s)を引き上げる
-        env:
-          ANY_CONSOLE_RATE_LIMIT: "2000"
-        run: |
-          mkdir -p data
-          echo '{"token": "e2e-ci-token"}' > data/auth.json
-          nohup python -m api.main > server.log 2>&1 &
-          for i in $(seq 1 30); do
-            if curl -sf -o /dev/null http://localhost:8888/; then
-              echo "server up after ${i}s"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "server did not start"
-          cat server.log
-          exit 1
-
+      # サーバは playwright.config.js の webServer が使い捨て data ディレクトリ付きで
+      # 自動起動する（ANY_CONSOLE_URL 未指定 = 使い捨てサーバモード）。
+      # サーバログは webServer の stdout/stderr として Playwright の出力に流れる。
       - name: E2E (${{ env.E2E_SUITE }})
         run: |
           if [ "$E2E_SUITE" = "full" ]; then
@@ -168,13 +152,6 @@ jobs:
           else
             npm run test:e2e:smoke
           fi
-        env:
-          ANY_CONSOLE_URL: http://localhost:8888
-          ANY_CONSOLE_TOKEN: e2e-ci-token
-
-      - name: Server log
-        if: failure()
-        run: cat server.log
 
       - name: Upload Playwright artifacts
         if: failure()

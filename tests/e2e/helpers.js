@@ -2,8 +2,10 @@
  * E2E テスト共通ヘルパー。
  *
  * 前提:
- * - any-console が `ANY_CONSOLE_URL`（既定 http://localhost:8888）で起動済み
- * - ANY_CONSOLE_TOKEN env か data/auth.json の token が利用可能
+ * - 既定では playwright.config.js が使い捨てサーバを自動起動し、
+ *   ANY_CONSOLE_URL / ANY_CONSOLE_TOKEN を env に設定する
+ * - 外部サーバに対して実行する場合のみ ANY_CONSOLE_URL を自分で指定し、
+ *   ANY_CONSOLE_TOKEN env か data/auth.json の token を用意する
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -96,6 +98,8 @@ export async function cleanupNewSessions(page, beforeIds) {
   }
 }
 
+// 使い捨てサーバモードでは playwright.config.js が env を設定済み。
+// フォールバックは「外部サーバモードで URL 指定を忘れた」場合の開発機既定値。
 export const BASE_URL = process.env.ANY_CONSOLE_URL || "http://localhost:8888";
 
 /**

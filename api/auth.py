@@ -3,18 +3,17 @@ import ipaddress
 import logging
 import os
 import secrets
-from pathlib import Path
 from typing import Mapping, Optional
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from .common import load_json_file, save_json_file
+from .common import DATA_DIR, load_json_file, save_json_file
 
 security = HTTPBearer(auto_error=False)
 logger = logging.getLogger(__name__)
 
-_AUTH_FILE = Path(__file__).resolve().parent.parent / "data" / "auth.json"
+_AUTH_FILE = DATA_DIR / "auth.json"
 
 COOKIE_DEVICE_ID = "any_console_device"  # noqa: S105
 COOKIE_DEVICE_SECRET = "any_console_secret"  # noqa: S105

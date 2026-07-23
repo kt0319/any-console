@@ -6,11 +6,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from .common import PROJECT_ROOT
+from .common import DATA_DIR
 
 logger = logging.getLogger(__name__)
 
-ICONS_DIR = PROJECT_ROOT / "data" / "icons"
+ICONS_DIR = DATA_DIR / "icons"
 
 MIME_TO_EXT = {
     "image/png": "png",

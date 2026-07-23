@@ -10,13 +10,12 @@ import base64
 import json
 import logging
 import threading
-from pathlib import Path
 
-from .common import load_json_file, save_json_file
+from .common import DATA_DIR, load_json_file, save_json_file
 
 logger = logging.getLogger(__name__)
 
-_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+_DATA_DIR = DATA_DIR
 _VAPID_PRIVATE_FILE = _DATA_DIR / "vapid_private.txt"
 _VAPID_PUBLIC_FILE = _DATA_DIR / "vapid_public.txt"
 _SUBSCRIPTIONS_FILE = _DATA_DIR / "push_subscriptions.json"
