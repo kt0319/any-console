@@ -26,6 +26,7 @@ const request = ref(null);
 const branch = ref("");
 const baseBranch = ref("");
 const text = ref("");
+const selectedWorkspace = ref("");
 const selectedJob = ref("terminal");
 const selectedSessionId = ref(NEW_SESSION_VALUE);
 const isNewSession = computed(() => selectedSessionId.value === NEW_SESSION_VALUE);
@@ -40,6 +41,7 @@ function reset() {
   branch.value = "";
   baseBranch.value = "";
   text.value = "";
+  selectedWorkspace.value = "";
   selectedJob.value = "terminal";
   selectedSessionId.value = NEW_SESSION_VALUE;
   selectedCreateBranch.value = true;
@@ -57,6 +59,7 @@ export function useDispatchPrompt() {
     branch.value = req?.branch || "";
     baseBranch.value = req?.base_branch || "";
     text.value = req?.text || "";
+    selectedWorkspace.value = req?.workspace || "";
     selectedJob.value = req?.job || "terminal";
     selectedSessionId.value = req?.existing_session_id || NEW_SESSION_VALUE;
     selectedCreateBranch.value = !!req?.create_branch;
@@ -70,6 +73,7 @@ export function useDispatchPrompt() {
     const origIsNew = !orig.existing_session_id;
     const origCreateBranch = !!orig.create_branch;
     const overrides = {
+      workspace: selectedWorkspace.value !== (orig.workspace || "") ? selectedWorkspace.value : null,
       branch: branch.value !== (orig.branch || "") ? branch.value : null,
       base_branch: baseBranch.value !== (orig.base_branch || "") ? baseBranch.value : null,
       text: text.value !== (orig.text || "") ? text.value : null,
@@ -91,5 +95,5 @@ export function useDispatchPrompt() {
     if (currentId.value === id && visible.value) cancel();
   }
 
-  return { visible, request, branch, baseBranch, text, selectedJob, selectedSessionId, isNewSession, selectedCreateBranch, open, approve, cancel, dismissById };
+  return { visible, request, branch, baseBranch, text, selectedWorkspace, selectedJob, selectedSessionId, isNewSession, selectedCreateBranch, open, approve, cancel, dismissById };
 }

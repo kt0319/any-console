@@ -14,15 +14,17 @@
           </select>
         </label>
 
-        <!-- New session: Workspace / Job を表示 -->
+        <!-- New session: Workspace / Job を選択 -->
         <template v-if="isNewSession">
-          <dl class="dispatch-prompt-meta">
-            <dt>Workspace</dt>
-            <dd>{{ request.workspace }}</dd>
-            <template v-if="request?.worktree">
-              <dt>Worktree</dt>
-              <dd>{{ request.worktree }}</dd>
-            </template>
+          <label class="dispatch-prompt-field">
+            <span class="dispatch-prompt-label">Workspace</span>
+            <select v-model="selectedWorkspace" class="dispatch-prompt-select">
+              <option v-for="w in workspaceOptions" :key="w.name" :value="w.name">{{ w.name }}</option>
+            </select>
+          </label>
+          <dl v-if="showWorktreeInfo" class="dispatch-prompt-meta">
+            <dt>Worktree</dt>
+            <dd>{{ request.worktree }}</dd>
           </dl>
           <label class="dispatch-prompt-field">
             <span class="dispatch-prompt-label">Job</span>
@@ -78,13 +80,20 @@ import { computed, ref, watch } from "vue";
 import BaseDialog from "./BaseDialog.vue";
 import { NEW_SESSION_VALUE, useDispatchPrompt } from "../composables/useDispatchPrompt.js";
 import { useApi } from "../composables/useApi.js";
+import { useWorkspaceStore } from "../stores/workspace.js";
 
-const { visible, request, branch, baseBranch, text, selectedJob, selectedSessionId, isNewSession, selectedCreateBranch, approve, cancel } = useDispatchPrompt();
+const { visible, request, branch, baseBranch, text, selectedWorkspace, selectedJob, selectedSessionId, isNewSession, selectedCreateBranch, approve, cancel } = useDispatchPrompt();
 const { apiGet } = useApi();
+const workspaceStore = useWorkspaceStore();
 
 const jobs = ref([]);
 const sessions = ref([]);
 const localBranches = ref([]);
+
+// worktree はドロップダウンの選択肢に含めない（ベースワークスペースのみ選択可能）ため、
+// 元のリクエストのworktree情報は選択中ワークスペースが変わっていない時だけ表示する。
+const workspaceOptions = computed(() => workspaceStore.allWorkspaces.filter((w) => !w.worktree));
+const showWorktreeInfo = computed(() => !!request.value?.worktree && selectedWorkspace.value === request.value?.workspace);
 
 watch(visible, async (v) => {
   if (!v) {
@@ -93,27 +102,31 @@ watch(visible, async (v) => {
     localBranches.value = [];
     return;
   }
-  const ws = request.value?.workspace;
-  if (!ws) return;
-  const [jobsRes, sessionsRes] = await Promise.all([
-    apiGet(`/workspaces/${encodeURIComponent(ws)}/jobs`),
-    apiGet("/terminal/sessions"),
-  ]);
-  if (jobsRes.ok && jobsRes.data) {
-    jobs.value = Object.entries(jobsRes.data).map(([key, def]) => ({ key, label: def.label || key }));
-  }
+  const sessionsRes = await apiGet("/terminal/sessions");
   if (sessionsRes.ok && Array.isArray(sessionsRes.data)) {
     sessions.value = sessionsRes.data.filter((s) => !s.detached);
   }
 });
 
-// Base branch のブランチ一覧: 選択中セッションのワークスペースまたはリクエストのワークスペース
+watch(selectedWorkspace, async (ws) => {
+  jobs.value = [];
+  if (!ws || !visible.value) return;
+  const res = await apiGet(`/workspaces/${encodeURIComponent(ws)}/jobs`);
+  if (res.ok && res.data) {
+    jobs.value = Object.entries(res.data).map(([key, def]) => ({ key, label: def.label || key }));
+  }
+  if (selectedJob.value !== "terminal" && !jobs.value.some((j) => j.key === selectedJob.value)) {
+    selectedJob.value = "terminal";
+  }
+}, { immediate: true });
+
+// Base branch のブランチ一覧: 選択中セッションのワークスペースまたは選択中のワークスペース
 const baseBranchWorkspace = computed(() => {
   if (!isNewSession.value && selectedSessionId.value) {
     const s = sessions.value.find((s) => s.session_id === selectedSessionId.value);
     return s?.workspace || request.value?.workspace;
   }
-  return request.value?.workspace;
+  return selectedWorkspace.value;
 });
 
 watch(baseBranchWorkspace, async (ws) => {
