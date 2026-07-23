@@ -26,8 +26,10 @@ def resolve_data_paths(env_value: str | None) -> tuple[Path, Path]:
     （E2E 等の使い捨てサーバが実運用の data/・config.json を汚さないための隔離モード）。
     未設定なら従来どおり PROJECT_ROOT 直下。
     """
+    # strip は空値の検出のみに使い、パスには生の値を使う
+    # （前後に空白を含む正当なディレクトリ名を別パスへ化けさせないため）
     if env_value and env_value.strip():
-        data_dir = Path(env_value.strip()).expanduser().resolve()
+        data_dir = Path(env_value).expanduser().resolve()
         return data_dir, data_dir / "config.json"
     return PROJECT_ROOT / "data", PROJECT_ROOT / "config.json"
 
@@ -74,8 +76,9 @@ def resolve_tmux_prefix(env_value: str | None) -> str:
     E2E の使い捨てサーバ（playwright.config.js 参照）がランごとにユニークな値を
     渡すことで、並行ラン・実運用とセッション名前空間を分離する。
     """
+    # strip は空値の検出のみ（値自体は生のまま使い、data dir の規則と揃える）
     if env_value and env_value.strip():
-        return env_value.strip()
+        return env_value
     return "ac-"
 
 

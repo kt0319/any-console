@@ -43,6 +43,12 @@ class TestResolveDataPaths:
         data_dir, _ = resolve_data_paths("~/any-console-e2e")
         assert "~" not in str(data_dir)
 
+    def test_surrounding_whitespace_is_preserved(self, tmp_path):
+        # strip は空判定のみ。前後に空白を含む正当なパスを別ディレクトリへ化けさせない
+        target = str(tmp_path / "spaced dir ")
+        data_dir, _ = resolve_data_paths(target)
+        assert data_dir.name == "spaced dir "
+
 
 class TestResolveTmuxPrefix:
     def test_default_when_env_unset(self):
@@ -53,6 +59,9 @@ class TestResolveTmuxPrefix:
 
     def test_custom_prefix(self):
         assert resolve_tmux_prefix("ac-e2eabc123-") == "ac-e2eabc123-"
+
+    def test_custom_prefix_is_used_verbatim(self):
+        assert resolve_tmux_prefix("ac-x -") == "ac-x -"
 
 
 def test_env_isolates_all_module_constants(tmp_path):

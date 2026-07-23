@@ -159,8 +159,8 @@ get_version() {
 get_port() {
   python3 -c "
 import json, os, pathlib
-d = os.environ.get('ANY_CONSOLE_DATA_DIR', '').strip()
-p = pathlib.Path(d).expanduser() / 'config.json' if d else pathlib.Path('config.json')
+d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
+p = pathlib.Path(d).expanduser() / 'config.json' if d.strip() else pathlib.Path('config.json')
 if not p.is_file():
     print(8888); exit()
 try:
@@ -174,8 +174,8 @@ except Exception:
 get_host() {
   python3 -c "
 import json, os, pathlib
-d = os.environ.get('ANY_CONSOLE_DATA_DIR', '').strip()
-p = pathlib.Path(d).expanduser() / 'config.json' if d else pathlib.Path('config.json')
+d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
+p = pathlib.Path(d).expanduser() / 'config.json' if d.strip() else pathlib.Path('config.json')
 if not p.is_file():
     print('0.0.0.0'); exit()
 try:
@@ -189,8 +189,8 @@ except Exception:
 get_config_value() {
   KEY="$1" python3 -c "
 import json, os, pathlib
-d = os.environ.get('ANY_CONSOLE_DATA_DIR', '').strip()
-p = pathlib.Path(d).expanduser() / 'config.json' if d else pathlib.Path('config.json')
+d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
+p = pathlib.Path(d).expanduser() / 'config.json' if d.strip() else pathlib.Path('config.json')
 if not p.is_file():
     print(''); exit()
 try:
@@ -223,8 +223,8 @@ prompt_bind_config() {
 
   HOST="$new_host" PORT="$new_port" python3 -c "
 import json, os, pathlib
-d = os.environ.get('ANY_CONSOLE_DATA_DIR', '').strip()
-p = pathlib.Path(d).expanduser() / 'config.json' if d else pathlib.Path('config.json')
+d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
+p = pathlib.Path(d).expanduser() / 'config.json' if d.strip() else pathlib.Path('config.json')
 cfg = json.loads(p.read_text()) if p.is_file() else {}
 g = cfg.get('__global__', {})
 if not isinstance(g, dict):
@@ -294,8 +294,8 @@ import json, os, pathlib
 
 raw = os.environ.get("WS_PATHS", "")
 paths = [ln.strip() for ln in raw.splitlines() if ln.strip()]
-d = os.environ.get("ANY_CONSOLE_DATA_DIR", "").strip()
-p = pathlib.Path(d).expanduser() / "config.json" if d else pathlib.Path("config.json")
+d = os.environ.get("ANY_CONSOLE_DATA_DIR", "")
+p = pathlib.Path(d).expanduser() / "config.json" if d.strip() else pathlib.Path("config.json")
 cfg = json.loads(p.read_text()) if p.is_file() else {}
 
 existing = {
@@ -398,8 +398,8 @@ TOOL_META = {
 }
 
 tools = [t.strip() for t in os.environ.get("AI_TOOLS", "").splitlines() if t.strip()]
-d = os.environ.get("ANY_CONSOLE_DATA_DIR", "").strip()
-p = pathlib.Path(d).expanduser() / "config.json" if d else pathlib.Path("config.json")
+d = os.environ.get("ANY_CONSOLE_DATA_DIR", "")
+p = pathlib.Path(d).expanduser() / "config.json" if d.strip() else pathlib.Path("config.json")
 cfg = json.loads(p.read_text()) if p.is_file() else {}
 g = cfg.get("__global__", {})
 if not isinstance(g, dict):
@@ -546,8 +546,8 @@ do_https_setup() {
 
   CERT="$cert_path" KEY="$key_path" python3 -c "
 import json, os, pathlib
-d = os.environ.get('ANY_CONSOLE_DATA_DIR', '').strip()
-p = pathlib.Path(d).expanduser() / 'config.json' if d else pathlib.Path('config.json')
+d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
+p = pathlib.Path(d).expanduser() / 'config.json' if d.strip() else pathlib.Path('config.json')
 cfg = json.loads(p.read_text()) if p.is_file() else {}
 g = cfg.get('__global__', {})
 if not isinstance(g, dict):
@@ -826,8 +826,8 @@ cmd_setup() {
   local auth_token
   auth_token=$("$(venv_python)" -c "
 import secrets, json, os, pathlib
-d = os.environ.get('ANY_CONSOLE_DATA_DIR', '').strip()
-base = pathlib.Path(d).expanduser() if d else pathlib.Path('data')
+d = os.environ.get('ANY_CONSOLE_DATA_DIR', '')
+base = pathlib.Path(d).expanduser() if d.strip() else pathlib.Path('data')
 p = base / 'auth.json'
 if not p.exists():
     token = secrets.token_urlsafe(24)
