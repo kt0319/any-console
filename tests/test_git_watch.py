@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from starlette.websockets import WebSocketDisconnect
 
+from api import git_info as git_info_mod
 from api import git_watch
 from api.git_info import invalidate_git_info, refresh_git_info
 from api.git_watch import (
@@ -327,6 +328,31 @@ class TestBroadcastAndPush:
             await git_watch._broadcast({"type": "statuses", "statuses": []})
             assert dead not in git_watch._subscribers
             assert alive.sent
+
+        asyncio.run(run())
+
+    def test_push_status_skips_broadcast_when_generation_advances_mid_compute(
+        self, git_workspace_with_commit, monkeypatch,
+    ):
+        """計算中に checkout 等で invalidate（世代が進む）されたら、古い結果を
+        配信しない（invalidate 側が起こす新しい push に任せる）。"""
+        cache_key = str(git_workspace_with_commit)
+
+        async def run():
+            fake = FakeWS()
+            git_watch._subscribers.add(fake)
+            target = WatchTarget("test-ws", git_workspace_with_commit)
+
+            original_refresh = git_info_mod.refresh_git_info
+
+            def refresh_then_bump(directory, name):
+                result = original_refresh(directory, name)
+                git_info_mod._bump_generation(cache_key)
+                return result
+            monkeypatch.setattr(git_watch, "refresh_git_info", refresh_then_bump)
+
+            await git_watch._push_status(target)
+            assert fake.sent == []
 
         asyncio.run(run())
 

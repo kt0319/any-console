@@ -1,3 +1,4 @@
+import { ref } from "vue";
 import { useApi } from "./useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
 import { useDispatchPrompt } from "./useDispatchPrompt.js";
@@ -12,6 +13,16 @@ const handled = new Set();
 const approvedIds = new Set();
 let started = false;
 let es = null;
+
+// Settingsの「Dispatches」一覧が表示する保留中リクエスト。
+// pending 受信時点ではダイアログを開かず、ここに積むだけにする
+// （作業中に強制的にタブを切り替えられるのを避けるため）。
+/** @type {import("vue").Ref<{id: string, request: object}[]>} */
+const queue = ref([]);
+
+function removeFromQueue(id) {
+  queue.value = queue.value.filter((q) => q.id !== id);
+}
 
 export function useDispatchConfirm() {
   const { open: openDispatchPrompt, dismissById } = useDispatchPrompt();
@@ -56,18 +67,45 @@ export function useDispatchConfirm() {
     emit("tab:select", { tab: target });
   }
 
-  async function handlePending(payload) {
+  function handlePending(payload) {
     if (!payload?.id || handled.has(payload.id)) return;
     handled.add(payload.id);
-    focusMatchingTab(payload.request || {});
-    const { approved, overrides } = await openDispatchPrompt(payload.request || {}, payload.id);
-    if (approved) approvedIds.add(payload.id);
-    try {
-      await apiPost(`/dispatch/${encodeURIComponent(payload.id)}/decision`, {
-        approved: !!approved,
-        ...(approved ? overrides : {}),
-      });
-    } catch {}
+    queue.value = [...queue.value, { id: payload.id, request: payload.request || {} }];
+  }
+
+  /**
+   * Settingsの「Dispatches」一覧で1件選んだときに呼ぶ。
+   * ここで初めてタブ切替・承認ダイアログ表示・決定APIの送信を行う。
+   * ダイアログの Cancel は「今は見ない」という意味なので、サーバへは何も送らず
+   * キューに戻す（削除したい場合は一覧の×ボタン＝rejectItem を使う）。
+   */
+  async function resolveItem(id) {
+    const item = queue.value.find((q) => q.id === id);
+    if (!item) return;
+    removeFromQueue(id);
+    focusMatchingTab(item.request);
+    const { approved, overrides } = await openDispatchPrompt(item.request, id);
+    if (!approved) {
+      queue.value = [...queue.value, item];
+      return;
+    }
+    approvedIds.add(id);
+    await apiPost(`/dispatch/${encodeURIComponent(id)}/decision`, {
+      approved: true,
+      ...overrides,
+    }, { errorMessage: "Failed to run dispatch (it may have already been decided elsewhere)" });
+  }
+
+  /**
+   * Settingsの「Dispatches」一覧の×ボタンから呼ぶ。ダイアログを開かず却下する。
+   */
+  async function rejectItem(id) {
+    const item = queue.value.find((q) => q.id === id);
+    if (!item) return;
+    removeFromQueue(id);
+    dismissById(id);
+    await apiPost(`/dispatch/${encodeURIComponent(id)}/decision`, { approved: false },
+      { errorMessage: "Failed to discard dispatch (it may have already been decided elsewhere)" });
   }
 
   function handleResult(payload) {
@@ -83,10 +121,13 @@ export function useDispatchConfirm() {
       let payload;
       try { payload = JSON.parse(e.data); } catch { return; }
       if (payload.type === "pending") handlePending(payload);
-      else if (payload.type === "result") handleResult(payload);
-      else if (payload.type === "expired" || payload.type === "decided") {
+      else if (payload.type === "result" || payload.type === "decided") {
+        // 承認/却下どちらも、この端末が起点でなくても一覧から消す
+        // （別端末で先に決定された項目が残り続けて404を踏むのを防ぐため）。
         handled.add(payload.id);
+        removeFromQueue(payload.id);
         dismissById(payload.id);
+        if (payload.type === "result") handleResult(payload);
       }
     };
     es.onerror = () => {
@@ -102,5 +143,5 @@ export function useDispatchConfirm() {
     connect();
   }
 
-  return { start };
+  return { start, queue, resolveItem, rejectItem };
 }

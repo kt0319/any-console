@@ -183,7 +183,6 @@ async function saveJob() {
       detached_tab: f.type === "browser" ? false : f.detached_tab,
       timeout_sec: timeoutSec,
       notify_phrase: f.type === "browser" ? "" : f.notify_phrase.trim(),
-      notify_delay_min: f.type === "browser" ? 0 : 1,
       working_enabled: true,
       notify_on_done: f.type !== "browser" && !f.detached_tab && f.notify_on_done,
     };

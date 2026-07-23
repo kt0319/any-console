@@ -5,6 +5,12 @@ on:
     branches: ["**"]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+# 同一ブランチへの連続 push では古い実行をキャンセルする（main は完走させる）
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   test:
@@ -104,6 +110,10 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    # 通常のブランチ push は smoke（認証・ターミナル・モバイル主要フロー）のみ。
+    # main への push・PR・手動実行（workflow_dispatch）は全スペック（full）を実行する。
+    env:
+      E2E_SUITE: ${{ (github.event_name == 'push' && github.ref != 'refs/heads/main') && 'smoke' || 'full' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -135,8 +145,13 @@ jobs:
       # サーバは playwright.config.js の webServer が使い捨て data ディレクトリ付きで
       # 自動起動する（ANY_CONSOLE_URL 未指定 = 使い捨てサーバモード）。
       # サーバログは webServer の stdout/stderr として Playwright の出力に流れる。
-      - name: E2E smoke
-        run: npm run test:e2e
+      - name: E2E (${{ env.E2E_SUITE }})
+        run: |
+          if [ "$E2E_SUITE" = "full" ]; then
+            npm run test:e2e
+          else
+            npm run test:e2e:smoke
+          fi
 
       - name: Upload Playwright artifacts
         if: failure()

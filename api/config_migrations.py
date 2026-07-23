@@ -38,10 +38,34 @@ def _set_config_version(config: dict, version: int) -> dict:
     return new_config
 
 
+def _migrate_radial_to_circle_keypad(config: dict) -> dict:
+    """v1 -> v2: サークルキーパッド設定の旧セクション名 radial を circle_keypad へ改名する。
+
+    旧版は GET /settings/circle-keypad が radial を読み取りフォールバックしていた。
+    恒久的な読み取り分岐を避けるため一回きりのマイグレーションへ移した。
+    circle_keypad に既に設定がある場合はそちらを正とし、radial は破棄する
+    （旧フォールバックと同じ優先順位）。
+    """
+    global_section = config.get(GLOBAL_CONFIG_KEY)
+    if not isinstance(global_section, dict) or "radial" not in global_section:
+        return config
+    global_section = dict(global_section)
+    legacy = global_section.pop("radial")
+    current = global_section.get("circle_keypad")
+    if (not isinstance(current, dict) or not current) and isinstance(legacy, dict) and legacy:
+        global_section["circle_keypad"] = legacy
+    new_config = dict(config)
+    new_config[GLOBAL_CONFIG_KEY] = global_section
+    return new_config
+
+
 # 旧バージョン -> 次バージョンへの変換関数。キー N の関数は version N の config を
 # version N+1 に変換する。破壊的なスキーマ変更を入れる際にここへ追加する。
 # 各関数は config dict を受け取り、変換後の dict を返す（元を破壊しないこと）。
-_CONFIG_MIGRATIONS: dict[int, Callable[[dict], dict]] = {}
+# セクション名等はマイグレーション時点の値を凍結するため文字列リテラルで書く。
+_CONFIG_MIGRATIONS: dict[int, Callable[[dict], dict]] = {
+    1: _migrate_radial_to_circle_keypad,
+}
 
 
 def _migrate_config_version(config: dict) -> tuple[dict, bool]:

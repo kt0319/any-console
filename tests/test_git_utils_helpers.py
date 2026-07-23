@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 from unittest import mock
 
+from api import git_info as git_info_mod
 from api.git_info import (
     _apply_ahead_behind,
     _apply_branch_and_remote,
@@ -14,9 +15,11 @@ from api.git_info import (
     _apply_upstream,
     _empty_git_info,
     _parse_revlist_pair,
+    cache_generation_for,
     git_info,
     git_info_to_status_dict,
     invalidate_git_info,
+    refresh_git_info,
 )
 from api.git_utils import (
     command_result_dict,
@@ -211,6 +214,54 @@ class TestInvalidateGitInfo:
     def test_invalidate_existing_workspace(self, workspace):
         # 登録済みワークスペースを invalidate しても例外にならない
         invalidate_git_info("test-ws")
+
+
+class TestCacheGenerationGuard:
+    """checkout等での invalidate が計算中に割り込んだ場合、古い結果でキャッシュを
+    上書きしないことを確認する（dispatchでブランチ作成直後にステータスバーの表示が
+    古いまま固定される不具合の再発防止）。"""
+
+    def test_git_info_skips_cache_write_when_generation_advances_mid_compute(
+        self, git_workspace_with_commit, monkeypatch,
+    ):
+        directory = git_workspace_with_commit
+        cache_key = str(directory)
+        git_info_mod._git_info_cache.invalidate(cache_key)
+
+        original = git_info_mod._populate_git_info
+
+        def populate_then_bump(info, dir_, run_git):
+            original(info, dir_, run_git)
+            # 計算の途中で別経路から invalidate（checkout等）が起きた状況を再現する。
+            git_info_mod._bump_generation(cache_key)
+        monkeypatch.setattr(git_info_mod, "_populate_git_info", populate_then_bump)
+
+        result = git_info(directory)
+        assert result["is_git_repo"] is True  # 呼び出し元へは計算結果をそのまま返す
+        assert git_info_mod._git_info_cache.get(cache_key) is None  # ただしキャッシュには書かない
+
+    def test_refresh_git_info_skips_cache_write_when_generation_advances_mid_compute(
+        self, git_workspace_with_commit, monkeypatch,
+    ):
+        directory = git_workspace_with_commit
+        cache_key = str(directory)
+        git_info_mod._git_info_cache.invalidate(cache_key)
+        git_info(directory)  # キャッシュを温める（部分更新ルートに入るため）
+        gen_before = cache_generation_for(directory)
+
+        original_apply = git_info_mod._apply_head_commit
+
+        def apply_then_bump(*args, **kwargs):
+            original_apply(*args, **kwargs)
+            git_info_mod._bump_generation(cache_key)
+        monkeypatch.setattr(git_info_mod, "_apply_head_commit", apply_then_bump)
+
+        cached_before = git_info_mod._git_info_cache.get(cache_key)
+        result = refresh_git_info(directory, "ws1")
+        assert result["name"] == "ws1"
+        assert cache_generation_for(directory) == gen_before + 1
+        # 世代が進んでいるので、計算前と同じキャッシュ内容のまま（上書きされていない）
+        assert git_info_mod._git_info_cache.get(cache_key) == cached_before
 
 
 class TestParseGithubUrlExtras:

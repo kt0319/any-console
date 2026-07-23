@@ -30,6 +30,7 @@
         <WorkspaceEditPane v-if="currentView === 'WorkspaceEdit'" />
         <JobConfig v-if="currentView === 'JobConfig'" />
         <TabConfig v-if="currentView === 'TabConfig'" />
+        <DispatchQueueConfig v-if="currentView === 'DispatchQueueConfig'" />
         <TerminalConfig v-if="currentView === 'TerminalConfig'" />
         <EditorConfig v-if="currentView === 'EditorConfig'" />
         <AuthConfig v-if="currentView === 'AuthConfig'" />
@@ -56,6 +57,7 @@ import WorkspaceAddView from "./WorkspaceAddView.vue";
 import WorkspaceEditPane from "./WorkspaceEditPane.vue";
 import JobConfig from "./JobConfig.vue";
 import TabConfig from "./TabConfig.vue";
+import DispatchQueueConfig from "./DispatchQueueConfig.vue";
 import TerminalConfig from "./TerminalConfig.vue";
 import EditorConfig from "./EditorConfig.vue";
 import AuthConfig from "./AuthConfig.vue";
@@ -153,7 +155,7 @@ onMounted(() => {
       const view = detail.view === "PreviewConfig" ? "PreviewPorts" : detail.view;
       openView([
         { view: "ModalMenu", state: {} },
-        { view, state: {} },
+        { view, state: detail.state || {} },
       ]);
     } else {
       openView("ModalMenu");

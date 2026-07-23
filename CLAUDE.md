@@ -66,7 +66,8 @@ pytest                 # Backend
 pytest --cov           # Backend coverage
 npm test               # Frontend
 npm run test:coverage  # Frontend coverage
-npm run test:e2e       # E2E スモーク（CI でも毎回実行）
+npm run test:e2e       # E2E 全スペック（CI では main への push・PR・手動実行で実行）
+npm run test:e2e:smoke # E2E スモークサブセット（CI では通常のブランチ push で実行）
 ruff check api/        # Lint
 mypy                   # 型チェック
 ```
@@ -87,7 +88,9 @@ CI: `.github/workflows/ci.yml`（codecov 連携）
 
 ## E2E スモーク
 
-- `tests/e2e/*.spec.js` に Playwright スモークを置く（**CI の `e2e` ジョブで毎回実行**。ローカル手動実行も可）
+- `tests/e2e/*.spec.js` に Playwright スモークを置く（CI の `e2e` ジョブで実行。ローカル手動実行も可）
+- CI は smoke / full の二段構成: 通常のブランチ push は **smoke サブセット**（`smoke` / `terminal` / `mobile` — 認証・ターミナル・モバイル主要フローの壊れたら即死する経路）のみ、main への push・PR・workflow_dispatch は**全スペック**を実行する（`npm run test:e2e:smoke` / `npm run test:e2e`）
+  - smoke サブセットに spec を足す・外す時は `package.json` の `test:e2e:smoke` を更新する（パターンは `e2e/<name>.spec.js` 形式で書く — 部分一致のため `terminal` だけだと `mobile-terminal` にも一致する）
   - `smoke.spec.js`: 認証フロー（ログイン画面・不正トークン・認証維持）
   - `settings.spec.js`: 設定モーダルの開閉（Esc / Close）とビュー遷移
   - `settings-views.spec.js`: 設定モーダルの全ビュー遷移・Auth / Config File / System Info の表示

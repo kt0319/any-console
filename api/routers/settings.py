@@ -129,9 +129,7 @@ CIRCLE_KEYPAD_LABEL_MAX = 20
 CIRCLE_KEYPAD_ACTION_MAX = 60
 CIRCLE_KEYPAD_KEY_NAME_MAX = 30
 
-# 旧名（サークルキーパッド導入時の内部呼称）。config.json に既存ユーザーの設定が
-# このキーで残っているため、新キーが空のときだけ読み取り専用でフォールバックする。
-_LEGACY_CIRCLE_KEYPAD_SECTION = "radial"
+# 旧セクション名 radial からの改名は config マイグレーション（v1 -> v2）が行う。
 _CIRCLE_KEYPAD_SECTION = "circle_keypad"
 
 
@@ -160,12 +158,6 @@ def get_circle_keypad_settings():
     raw = load_global_config_section(_CIRCLE_KEYPAD_SECTION, {})
     if not isinstance(raw, dict):
         raw = {}
-    if not raw:
-        # 新キーに未保存 = 旧キー（radial）時代のまま。あれば移行して次回以降は新キーに統一する。
-        legacy = load_global_config_section(_LEGACY_CIRCLE_KEYPAD_SECTION, {})
-        if isinstance(legacy, dict) and legacy:
-            raw = legacy
-            save_global_config_section(_CIRCLE_KEYPAD_SECTION, raw)
     keys = raw.get("keys") if isinstance(raw.get("keys"), list) else []
     specials = raw.get("specials") if isinstance(raw.get("specials"), list) else []
     enabled = raw.get("enabled", True)

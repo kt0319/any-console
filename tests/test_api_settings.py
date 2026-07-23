@@ -185,16 +185,17 @@ class TestCircleKeypadSettings:
         assert res.json()["enabled"] is False
 
     def test_get_migrates_from_legacy_radial_key(self, client, isolate_fs):
-        # 旧名（radial）で保存されていた既存ユーザーの設定を、新キー（circle_keypad）
-        # 未保存のときだけ読み取り移行する。
+        # 旧名（radial）で保存されていた既存ユーザーの設定は、config 読み込み時の
+        # マイグレーション（v1 -> v2）で circle_keypad へ改名される。
         import json as _json
         isolate_fs["config_file"].write_text(_json.dumps({"__global__": {"radial": {"enabled": False, "keys": [], "specials": []}}}))
         res = client.get("/settings/circle-keypad", headers=AUTH)
         assert res.json()["enabled"] is False
 
-        # 移行後は新キーに書き戻され、以後は新キーが正となる
+        # 移行後は新キーへ書き戻され、旧キーは残らない
         config = _json.loads(isolate_fs["config_file"].read_text())
         assert config["__global__"]["circle_keypad"]["enabled"] is False
+        assert "radial" not in config["__global__"]
 
     def test_put_and_get(self, client):
         keys = [{"key": str(i), "ctrl": False, "shift": False, "label": f"k{i}"} for i in range(8)]

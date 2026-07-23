@@ -37,12 +37,16 @@ def resolve_data_paths(env_value: str | None) -> tuple[Path, Path]:
 DATA_DIR, CONFIG_FILE = resolve_data_paths(os.environ.get("ANY_CONSOLE_DATA_DIR"))
 GLOBAL_CONFIG_KEY = "__global__"
 
+# dispatch の承認待ちキュー専用ファイル。config.json とは意味が違う
+# （ユーザー設定ではなく一時的な運用状態）ため分離する。
+DISPATCH_QUEUE_FILE = PROJECT_ROOT / "dispatch_queue.json"
+
 # 現在のコードが理解する config スキーマのバージョン。
 # 破壊的なスキーマ変更を入れる際にインクリメントし、_CONFIG_MIGRATIONS に
 # 旧版 -> 新版の変換を登録する（api/config.py 参照）。
 # config 自体は __global__.config_version に保存され、読み込み時に
 # このバージョンまで自動マイグレーションされる。
-CONFIG_SCHEMA_VERSION = 1
+CONFIG_SCHEMA_VERSION = 2
 
 GIT_QUICK_TIMEOUT_SEC = 5
 GIT_SHORT_TIMEOUT_SEC = 10
@@ -66,6 +70,9 @@ GIT_AUTO_FETCH_INTERVAL_SEC = 180  # 購読者がいる間の自動 fetch 間隔
 
 # エージェント状態のリアルタイム配信（api/agent_watch.py）
 AGENT_WATCH_POLL_INTERVAL_SEC = 2  # 可視ペインのポーリング間隔
+# notify_phrase 検出後、この秒数アクティビティ（画面の変化）が無ければ通知する。
+# 検出後すぐに画面が動いた（ユーザーが反応した）場合は通知を送らない。
+PHRASE_NOTIFY_IDLE_GRACE_SEC = 20
 PTY_READ_BUFFER_SIZE = 16384
 PTY_READER_WORKERS = 8
 MAX_TERMINAL_SESSIONS = 20

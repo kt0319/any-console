@@ -79,6 +79,7 @@ class TestCollectAgentStates:
             "notify_phrase": "Session complete",
         })
         job_name = res.json()["name"]
+        monkeypatch.setattr(agent_watch, "PHRASE_NOTIFY_IDLE_GRACE_SEC", 0)
 
         self._setup_tmux(monkeypatch, ["ac-s1", "other"], {"ac-s1": "Session complete\n$ "})
         monkeypatch.setattr(
@@ -86,9 +87,59 @@ class TestCollectAgentStates:
             lambda name: {"TMUX_JOB_NAME": job_name},
         )
 
+        # 初回検出のポーリングでは通知しない（フレーズ出現自体による画面変化を
+        # 「反応」と誤検知しないよう、検出時刻の記録だけを行う）。
         states, notifications = collect_agent_states()
         assert states == {"s1": "idle"}
+        assert notifications == []
+
+        # 画面が変わらないまま次のポーリング → 猶予(0)経過で通知される。
+        states, notifications = collect_agent_states()
         assert any(phrase == "Session complete" for _, phrase, *_ in notifications)
+
+    def test_notification_waits_for_idle_grace_period(self, client, monkeypatch):
+        res = client.post("/common/jobs", headers=AUTH, json={
+            "label": "agent",
+            "command": "claude",
+            "notify_phrase": "Done",
+        })
+        job_name = res.json()["name"]
+        monkeypatch.setattr(
+            agent_watch, "load_tmux_metadata",
+            lambda name: {"TMUX_JOB_NAME": job_name},
+        )
+        self._setup_tmux(monkeypatch, ["ac-s1"], {"ac-s1": "Done\n$ "})
+
+        collect_agent_states()  # 初検出
+        _, notifications = collect_agent_states()  # 画面は静止だが猶予(デフォルト20秒)未経過
+        assert notifications == []
+
+    def test_activity_after_detection_suppresses_notification(self, client, monkeypatch):
+        res = client.post("/common/jobs", headers=AUTH, json={
+            "label": "agent",
+            "command": "claude",
+            "notify_phrase": "Done",
+        })
+        job_name = res.json()["name"]
+        monkeypatch.setattr(agent_watch, "PHRASE_NOTIFY_IDLE_GRACE_SEC", 0)
+        monkeypatch.setattr(
+            agent_watch, "load_tmux_metadata",
+            lambda name: {"TMUX_JOB_NAME": job_name},
+        )
+
+        self._setup_tmux(monkeypatch, ["ac-s1"], {"ac-s1": "Done\n$ "})
+        _, notifications = collect_agent_states()
+        assert notifications == []  # 初検出のみ
+
+        # 検出直後に画面が動いた（ユーザーが反応した）→ このフレーズ出現では通知しない
+        self._setup_tmux(monkeypatch, ["ac-s1"], {"ac-s1": "Done\n$ echo hi\nhi\n$ "})
+        states, notifications = collect_agent_states()
+        assert notifications == []
+        assert states == {"s1": "working"}
+
+        # その後画面が変わらなくても、もう通知しない
+        _, notifications = collect_agent_states()
+        assert notifications == []
 
     def test_notify_phrase_not_duplicated(self, client, monkeypatch):
         res = client.post("/common/jobs", headers=AUTH, json={
@@ -97,6 +148,7 @@ class TestCollectAgentStates:
             "notify_phrase": "Done",
         })
         job_name = res.json()["name"]
+        monkeypatch.setattr(agent_watch, "PHRASE_NOTIFY_IDLE_GRACE_SEC", 0)
 
         self._setup_tmux(monkeypatch, ["ac-s1"], {"ac-s1": "Done\n$ "})
         monkeypatch.setattr(
@@ -104,7 +156,8 @@ class TestCollectAgentStates:
             lambda name: {"TMUX_JOB_NAME": job_name},
         )
 
-        _, notifications = collect_agent_states()
+        collect_agent_states()  # 初検出
+        _, notifications = collect_agent_states()  # 画面静止・猶予経過 → 通知
         assert any(phrase == "Done" for _, phrase, *_ in notifications)
 
         # 同じフレーズが画面にある間は再通知しない
@@ -169,7 +222,12 @@ class TestCollectAgentStates:
         with sessions_lock:
             TERMINAL_SESSIONS["s2"] = session
 
+        monkeypatch.setattr(agent_watch, "PHRASE_NOTIFY_IDLE_GRACE_SEC", 0)
         self._setup_tmux(monkeypatch, ["ac-s2"], {"ac-s2": "FINISHED\n$ "})
+        states, notifications = collect_agent_states()
+        assert states == {"s2": "idle"}
+        assert notifications == []  # 初検出のみ
+
         states, notifications = collect_agent_states()
         assert states == {"s2": "idle"}
         assert any(phrase == "FINISHED" for _, phrase, *_ in notifications)

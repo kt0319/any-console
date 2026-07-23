@@ -1,5 +1,8 @@
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { createPendingPromise } from "../utils/pending-promise.js";
+
+// Session select の「新規セッション」を表す特別値。
+export const NEW_SESSION_VALUE = "__new__";
 
 /**
  * @typedef {{
@@ -23,9 +26,10 @@ const request = ref(null);
 const branch = ref("");
 const baseBranch = ref("");
 const text = ref("");
+const selectedWorkspace = ref("");
 const selectedJob = ref("terminal");
-const selectedMatch = ref("existing");
-const selectedSessionId = ref(null);
+const selectedSessionId = ref(NEW_SESSION_VALUE);
+const isNewSession = computed(() => selectedSessionId.value === NEW_SESSION_VALUE);
 const selectedCreateBranch = ref(true);
 const pending = createPendingPromise();
 /** @type {import("vue").Ref<string|null>} */
@@ -37,9 +41,9 @@ function reset() {
   branch.value = "";
   baseBranch.value = "";
   text.value = "";
+  selectedWorkspace.value = "";
   selectedJob.value = "terminal";
-  selectedMatch.value = "existing";
-  selectedSessionId.value = null;
+  selectedSessionId.value = NEW_SESSION_VALUE;
   selectedCreateBranch.value = true;
   currentId.value = null;
 }
@@ -55,9 +59,9 @@ export function useDispatchPrompt() {
     branch.value = req?.branch || "";
     baseBranch.value = req?.base_branch || "";
     text.value = req?.text || "";
+    selectedWorkspace.value = req?.workspace || "";
     selectedJob.value = req?.job || "terminal";
-    selectedMatch.value = req?.existing_session_id ? "existing" : "new";
-    selectedSessionId.value = req?.existing_session_id || null;
+    selectedSessionId.value = req?.existing_session_id || NEW_SESSION_VALUE;
     selectedCreateBranch.value = !!req?.create_branch;
     currentId.value = id;
     visible.value = true;
@@ -66,15 +70,16 @@ export function useDispatchPrompt() {
 
   function approve() {
     const orig = request.value || {};
-    const origMatch = orig.existing_session_id ? "existing" : "new";
+    const origIsNew = !orig.existing_session_id;
     const origCreateBranch = !!orig.create_branch;
     const overrides = {
+      workspace: selectedWorkspace.value !== (orig.workspace || "") ? selectedWorkspace.value : null,
       branch: branch.value !== (orig.branch || "") ? branch.value : null,
       base_branch: baseBranch.value !== (orig.base_branch || "") ? baseBranch.value : null,
       text: text.value !== (orig.text || "") ? text.value : null,
       job: selectedJob.value !== (orig.job || "terminal") ? selectedJob.value : null,
-      match: selectedMatch.value !== origMatch ? (selectedMatch.value === "new" ? "none" : "any") : null,
-      session_id: selectedMatch.value === "existing" && selectedSessionId.value !== (orig.existing_session_id || null) ? selectedSessionId.value : null,
+      match: isNewSession.value !== origIsNew ? (isNewSession.value ? "none" : "any") : null,
+      session_id: !isNewSession.value && selectedSessionId.value !== (orig.existing_session_id || null) ? selectedSessionId.value : null,
       create_branch: selectedCreateBranch.value !== origCreateBranch ? selectedCreateBranch.value : null,
     };
     reset();
@@ -90,5 +95,5 @@ export function useDispatchPrompt() {
     if (currentId.value === id && visible.value) cancel();
   }
 
-  return { visible, request, branch, baseBranch, text, selectedJob, selectedMatch, selectedSessionId, selectedCreateBranch, open, approve, cancel, dismissById };
+  return { visible, request, branch, baseBranch, text, selectedWorkspace, selectedJob, selectedSessionId, isNewSession, selectedCreateBranch, open, approve, cancel, dismissById };
 }

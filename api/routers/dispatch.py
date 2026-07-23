@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from ..auth import verify_token
 from ..common import (
+    DISPATCH_QUEUE_FILE,
     MAX_TERMINAL_SESSIONS,
     TMUX_SESSION_PREFIX,
     resolve_workspace_path,
@@ -50,7 +51,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
-DISPATCH_TIMEOUT_SEC = 300
 SSE_PING_SEC = 20
 _PENDING: dict[str, dict] = {}
 _SSE_QUEUES: list[asyncio.Queue] = []
@@ -62,6 +62,54 @@ def _broadcast(payload: dict) -> None:
             q.put_nowait(payload)
         except asyncio.QueueFull:
             pass
+
+
+def _wake(p: dict) -> None:
+    """p["event"] を解決する。承認/却下は別リクエスト（別コルーチン）から来るため、
+    待っている側と別のイベントループで動いている可能性がある。asyncio.Event.set() を
+    別ループのスレッドから直接呼ぶのはスレッドセーフではない（待機側が永久にハングし
+    得る）ため、待機開始時に記録したループ経由で call_soon_threadsafe する。"""
+    loop = p.get("loop")
+    if loop is not None:
+        loop.call_soon_threadsafe(p["event"].set)
+    else:
+        p["event"].set()
+
+
+def _persist_pending() -> None:
+    """未決定分のリクエストだけを専用ファイルへ書き出す（サーバ再起動をまたいで残すため）。
+    config.json とは分離する（あちらはエクスポート/インポート対象のユーザー設定のため）。"""
+    items = {did: p["request"] for did, p in _PENDING.items() if not p["event"].is_set()}
+    tmp_path = DISPATCH_QUEUE_FILE.with_suffix(".tmp")
+    try:
+        tmp_path.write_text(json.dumps({"items": items}, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp_path.replace(DISPATCH_QUEUE_FILE)
+    except OSError as e:
+        logger.warning("dispatch queue persist failed: %s", e)
+
+
+def _load_persisted_pending() -> None:
+    if not DISPATCH_QUEUE_FILE.is_file():
+        return
+    try:
+        raw = json.loads(DISPATCH_QUEUE_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        logger.warning("dispatch queue read failed: %s", e)
+        return
+    items = raw.get("items") if isinstance(raw, dict) else None
+    if not isinstance(items, dict):
+        return
+    for dispatch_id, request_payload in items.items():
+        if not isinstance(request_payload, dict):
+            continue
+        _PENDING[dispatch_id] = {
+            "request": request_payload,
+            "event": asyncio.Event(),
+            "loop": None,
+            "approved": False,
+            "overrides": None,
+            "result": None,
+        }
 
 
 class DispatchRequest(BaseModel):
@@ -173,6 +221,7 @@ class DispatchDecision(BaseModel):
     approved: bool
     # UI 確認時にユーザが書き換えた値を上書きとして受け取る。
     # 未指定（None）なら元の DispatchRequest 値をそのまま使う。
+    workspace: str | None = None
     branch: str | None = None
     base_branch: str | None = None
     text: str | None = None
@@ -180,6 +229,17 @@ class DispatchDecision(BaseModel):
     match: str | None = None
     create_branch: bool | None = None
     session_id: str | None = None
+
+
+@router.get("/dispatch/queue")
+def get_dispatch_queue():
+    """現在の承認待ちdispatch一覧を返す（SettingsのDispatch Queueと同じ内容）。"""
+    items = [
+        {"id": dispatch_id, "request": p["request"]}
+        for dispatch_id, p in _PENDING.items()
+        if not p["event"].is_set()
+    ]
+    return {"items": items}
 
 
 @router.get("/dispatch/events")
@@ -207,11 +267,15 @@ async def dispatch_events():
 
 @router.post("/dispatch/{dispatch_id}/decision")
 async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
+    """Settingsの「Dispatch Queue」からの承認/却下を受け取る。
+    承認時はここで実行まで行う（元の /dispatch 呼び出し元がサーバ再起動等で
+    もう存在しなくても、承認さえされれば実行できるようにするため）。"""
     p = _PENDING.get(dispatch_id)
     if not p:
         raise HTTPException(status_code=404, detail="Pending dispatch not found")
     p["approved"] = body.approved
-    p["overrides"] = {
+    overrides = {
+        "workspace": body.workspace,
         "branch": body.branch,
         "base_branch": body.base_branch,
         "text": body.text,
@@ -220,8 +284,32 @@ async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
         "create_branch": body.create_branch,
         "session_id": body.session_id,
     }
-    p["event"].set()
-    _broadcast({"type": "decided", "id": dispatch_id, "approved": body.approved})
+    p["overrides"] = overrides
+
+    if body.approved:
+        dispatch_body = DispatchRequest(**p["request"])
+        _apply_overrides(dispatch_body, overrides)
+        try:
+            result = _launch(dispatch_body)
+        except HTTPException:
+            _PENDING.pop(dispatch_id, None)
+            _persist_pending()
+            _wake(p)
+            raise
+        p["result"] = result
+        _broadcast({
+            "type": "result",
+            "id": dispatch_id,
+            "session_id": result["session_id"],
+            "workspace": result["workspace"],
+            "created": result["created"],
+        })
+    else:
+        _broadcast({"type": "decided", "id": dispatch_id, "approved": False})
+
+    _PENDING.pop(dispatch_id, None)
+    _persist_pending()
+    _wake(p)
     return {"status": "ok"}
 
 
@@ -230,6 +318,11 @@ def _apply_overrides(body: DispatchRequest, overrides: dict | None) -> None:
     空文字は branch / base_branch を None にクリアし、text は空文字を設定する。"""
     if not overrides:
         return
+    if "workspace" in overrides and overrides["workspace"]:
+        body.workspace = overrides["workspace"]
+        # ワークスペース選択は worktree を持たないベースワークスペースのみを
+        # 対象にしているため、変更時は元リクエストの worktree を持ち越さない。
+        body.worktree = None
     if "branch" in overrides and overrides["branch"] is not None:
         body.branch = overrides["branch"] or None
     if "base_branch" in overrides and overrides["base_branch"] is not None:
@@ -282,29 +375,21 @@ def _resolve_and_launch_session(body: DispatchRequest, effective_ws: str, ws_pat
     return session_id, session, created
 
 
-async def _await_user_approval(body: DispatchRequest, request_payload: dict) -> str:
-    dispatch_id = secrets.token_urlsafe(8)
-    event = asyncio.Event()
-    _PENDING[dispatch_id] = {
-        "request": request_payload,
-        "event": event,
-        "approved": False,
-        "overrides": None,
+def _launch(body: DispatchRequest) -> dict:
+    """セッション起動を実行し、レスポンス/SSE共通のresult dictを返す。"""
+    effective_ws = body.effective_workspace
+    ws_path = resolve_workspace_path(effective_ws)
+    job_def = _resolve_job_def(effective_ws, body.job)
+    session_id, session, created = _resolve_and_launch_session(body, effective_ws, ws_path, job_def)
+    return {
+        "status": "ok",
+        "session_id": session_id,
+        "workspace": effective_ws,
+        "job": body.job,
+        "created": created,
+        "url": f"/?workspace={effective_ws}&session={session_id}",
+        "ws_url": f"/terminal/ws/{session_id}",
     }
-    _broadcast({"type": "pending", "id": dispatch_id, "request": request_payload})
-
-    try:
-        await asyncio.wait_for(event.wait(), timeout=DISPATCH_TIMEOUT_SEC)
-    except asyncio.TimeoutError:
-        _PENDING.pop(dispatch_id, None)
-        _broadcast({"type": "expired", "id": dispatch_id})
-        raise HTTPException(status_code=503, detail="No UI client confirmed within timeout") from None
-
-    record = _PENDING.pop(dispatch_id, {})
-    if not record.get("approved"):
-        raise HTTPException(status_code=403, detail="Dispatch rejected by user")
-    _apply_overrides(body, record.get("overrides"))
-    return dispatch_id
 
 
 def _branch_status(ws_path, branch: str) -> str:
@@ -322,7 +407,7 @@ def _branch_status(ws_path, branch: str) -> str:
 async def dispatch(body: DispatchRequest):
     effective_ws = body.effective_workspace
     ws_path = resolve_workspace_path(effective_ws)
-    job_def = _resolve_job_def(effective_ws, body.job)
+    _resolve_job_def(effective_ws, body.job)  # 存在確認のみ（不正な job 名を早期に弾く）
 
     payload = body.model_dump()
     payload["effective_workspace"] = effective_ws
@@ -335,34 +420,49 @@ async def dispatch(body: DispatchRequest):
         payload["job"] = _pre_sess.job_name or TERMINAL_JOB_KEY
         payload["existing_session_id"] = _pre_sid
 
+    dispatch_id = secrets.token_urlsafe(8)
+
     send_push_notification(
         title="Dispatch",
         body=effective_ws,
-        url=f"/?workspace={effective_ws}",
+        # 既存タブが無く新規ウィンドウが開く場合でも Dispatch Queue を開けるよう、
+        # クエリで明示する（sw.js の postMessage は既存タブにしか届かない）。
+        # dispatchId を付けて、通知から来た時にどのキュー項目か分かるようにする。
+        url=f"/?openDispatchQueue=1&dispatchId={dispatch_id}",
         notif_type="dispatch",
     )
 
-    dispatch_id = await _await_user_approval(body, payload) if body.confirm else secrets.token_urlsafe(8)
+    if not body.confirm:
+        result = _launch(body)
+        _broadcast({
+            "type": "result",
+            "id": dispatch_id,
+            "session_id": result["session_id"],
+            "workspace": result["workspace"],
+            "created": result["created"],
+        })
+        return result
 
-    # 承認モーダルで job が変更された場合に備えて再解決する。
-    job_def = _resolve_job_def(effective_ws, body.job)
-
-    session_id, session, created = _resolve_and_launch_session(body, effective_ws, ws_path, job_def)
-
-    _broadcast({
-        "type": "result",
-        "id": dispatch_id,
-        "session_id": session_id,
-        "workspace": effective_ws,
-        "created": created,
-    })
-
-    return {
-        "status": "ok",
-        "session_id": session_id,
-        "workspace": effective_ws,
-        "job": body.job,
-        "created": created,
-        "url": f"/?workspace={effective_ws}&session={session_id}",
-        "ws_url": f"/terminal/ws/{session_id}",
+    event = asyncio.Event()
+    entry = {
+        "request": payload,
+        "event": event,
+        "loop": asyncio.get_running_loop(),
+        "approved": False,
+        "overrides": None,
+        "result": None,
     }
+    _PENDING[dispatch_id] = entry
+    _persist_pending()
+    _broadcast({"type": "pending", "id": dispatch_id, "request": payload})
+
+    # Settingsの「Dispatch Queue」から明示的に承認/却下されるまで待つ。自動では消さない。
+    # 承認された場合の実行自体は dispatch_decision 側で行う（サーバ再起動をまたいでも
+    # 承認だけで完結できるようにするため）。
+    await event.wait()
+
+    if not entry["approved"]:
+        raise HTTPException(status_code=403, detail="Dispatch rejected by user")
+    if entry["result"] is None:
+        raise server_error("Dispatch approved but execution failed")
+    return entry["result"]

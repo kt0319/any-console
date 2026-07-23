@@ -24,8 +24,6 @@ class JobDefinition:
     timeout_sec: int | None = None
     # 通知フレーズ: 可視ペインにこの文字列が現れたらプッシュ通知を送る。
     notify_phrase: str = ""
-    # フレーズ検出から通知を送るまでの遅延（分）。0 は即時。
-    notify_delay_min: int = 0
     # output 変化（working 状態）の検知を有効にするか。False にすると working を返さない。
     working_enabled: bool = True
     # 非ターミナル実行（/run, detached_tab=False）の完了時にプッシュ通知を送るか。
