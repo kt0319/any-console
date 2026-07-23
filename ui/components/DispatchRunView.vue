@@ -11,28 +11,26 @@
         </select>
       </div>
 
-      <!-- New session: Workspace / Job を選択 -->
-      <template v-if="isNewSession">
-        <div class="ws-settings-row">
-          <span class="ws-settings-label">Workspace</span>
-          <select v-model="selectedWorkspace" class="form-input">
-            <option v-for="w in workspaceOptions" :key="w.name" :value="w.name">{{ w.name }}</option>
-          </select>
-        </div>
-        <dl v-if="showWorktreeInfo" class="dispatch-run-meta">
-          <dt>Worktree</dt>
-          <dd>{{ request.worktree }}</dd>
-        </dl>
-        <div class="ws-settings-row">
-          <span class="ws-settings-label">Job</span>
-          <select v-model="selectedJob" class="form-input">
-            <option value="terminal">Terminal</option>
-            <option v-for="job in jobs" :key="job.key" :value="job.key">
-              {{ job.label }}
-            </option>
-          </select>
-        </div>
-      </template>
+      <!-- Workspace / Job: 新規セッション時のみ有効（既存セッション選択時は参考表示のみ） -->
+      <div class="ws-settings-row">
+        <span class="ws-settings-label">Workspace</span>
+        <select v-model="selectedWorkspace" class="form-input" :disabled="!isNewSession">
+          <option v-for="w in workspaceOptions" :key="w.name" :value="w.name">{{ w.name }}</option>
+        </select>
+      </div>
+      <dl v-if="showWorktreeInfo" class="dispatch-run-meta">
+        <dt>Worktree</dt>
+        <dd>{{ request.worktree }}</dd>
+      </dl>
+      <div class="ws-settings-row">
+        <span class="ws-settings-label">Job</span>
+        <select v-model="selectedJob" class="form-input" :disabled="!isNewSession">
+          <option value="terminal">Terminal</option>
+          <option v-for="job in jobs" :key="job.key" :value="job.key">
+            {{ job.label }}
+          </option>
+        </select>
+      </div>
 
       <template v-if="hasBranchField">
         <div class="ws-settings-row" style="gap:8px">
