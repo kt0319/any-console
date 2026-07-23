@@ -417,7 +417,8 @@ class TestDecisionOverrides:
                     captured["status"] = res.status_code
                     return
                 time.sleep(0.01)
-        threading.Thread(target=grab_and_approve_with_override, daemon=True).start()
+        t = threading.Thread(target=grab_and_approve_with_override, daemon=True)
+        t.start()
 
         res = client.post(
             "/dispatch",
@@ -426,7 +427,10 @@ class TestDecisionOverrides:
         )
         assert res.status_code == 200, res.text
         assert res.json()["workspace"] == "other-ws"
-        assert captured["status"] == 200
+        # decision の HTTP レスポンス受信（captured への書き込み）は /dispatch の
+        # 解決と並行して進むため、スレッド完了を待ってから検証する
+        t.join(timeout=2)
+        assert captured.get("status") == 200
 
 
 class TestConfirmSkip:
