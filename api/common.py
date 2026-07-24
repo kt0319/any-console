@@ -226,9 +226,16 @@ class TTLCache:
 
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
 
+_SESSION_SEGMENT_RE = re.compile(r"[^a-zA-Z0-9_-]")
+
 
 def sanitize_log_value(value: str) -> str:
     return _CONTROL_CHAR_RE.sub(lambda m: f"\\x{ord(m.group()):02x}", value)
+
+
+def sanitize_session_segment(name: str) -> str:
+    """セッションIDの構成要素として安全な文字列へ変換する（英数と _ - 以外を _ に）。"""
+    return _SESSION_SEGMENT_RE.sub("_", name)
 
 
 def safe_resolve_str(path: str | Path) -> str:

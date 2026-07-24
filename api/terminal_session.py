@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import re
 import secrets
 import subprocess
 import threading
@@ -13,6 +12,7 @@ from .common import (
     TERMINAL_DEFAULT_COLS,
     TERMINAL_DEFAULT_ROWS,
     TMUX_SESSION_PREFIX,
+    sanitize_session_segment,
 )
 from .errors import not_found, server_error, too_many_requests
 from .git_utils import worktree_base_of
@@ -194,7 +194,7 @@ def create_registered_session(
             )
     short_id = secrets.token_urlsafe(6)
     if workspace:
-        safe_name = re.sub(r"[^a-zA-Z0-9_-]", "_", worktree_base_of(workspace))
+        safe_name = sanitize_session_segment(worktree_base_of(workspace))
         session_id = f"{safe_name}-{short_id}"
     else:
         session_id = short_id

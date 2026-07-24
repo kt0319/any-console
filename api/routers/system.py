@@ -277,10 +277,9 @@ def adopt_tmux_session(body: TmuxAdoptBody):
     元の名前を識別子として残しつつ、ランダム ID を付与して衝突を避ける。
     リネーム後は通常の any-console セッションとして UI でタブ化できる。
     """
-    import re as _re
     import secrets
 
-    from ..common import TMUX_SESSION_PREFIX
+    from ..common import TMUX_SESSION_PREFIX, sanitize_session_segment
     from ..tmux import _run_tmux_cmd, tmux_session_exists
     name = body.name.strip()
     if not name:
@@ -289,7 +288,7 @@ def adopt_tmux_session(body: TmuxAdoptBody):
         raise bad_request("Already managed by any-console")
     if not tmux_session_exists(name):
         raise not_found("Session not found")
-    safe = _re.sub(r"[^a-zA-Z0-9_-]", "_", name)
+    safe = sanitize_session_segment(name)
     session_id = f"{safe}-{secrets.token_urlsafe(6)}"
     new_name = f"{TMUX_SESSION_PREFIX}{session_id}"
     result = _run_tmux_cmd("rename-session", "-t", name, new_name)
