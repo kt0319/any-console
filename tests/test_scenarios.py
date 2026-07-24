@@ -41,15 +41,6 @@ class TestWorkspaceJobScenario:
         assert jobs[job_name]["label"] == "Say Hello"
         assert jobs[job_name]["icon"] == "mdi-play"
 
-        # ジョブ実行
-        res = client.post("/run", headers=AUTH, json={
-            "job": job_name,
-            "workspace": ws_name,
-        })
-        assert res.status_code == 200
-        assert res.json()["exit_code"] == 0
-        assert "hello-scenario" in res.json()["stdout"]
-
         # ジョブ削除
         res = client.delete(f"/workspaces/{ws_name}/jobs/{job_name}", headers=AUTH)
         assert res.status_code == 200
@@ -62,7 +53,7 @@ class TestWorkspaceJobScenario:
         res = client.delete(f"/workspaces/{ws_name}", headers=AUTH)
         assert res.status_code == 200
 
-    def test_job_update_then_execute(self, client, workspace):
+    def test_job_update_reflected_in_listing(self, client, workspace):
         # ジョブ作成
         res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
             "label": "Version 1",
@@ -70,9 +61,8 @@ class TestWorkspaceJobScenario:
         })
         job_name = res.json()["name"]
 
-        # 実行 → v1
-        res = client.post("/run", headers=AUTH, json={"job": job_name, "workspace": "test-ws"})
-        assert "v1" in res.json()["stdout"]
+        jobs = client.get("/workspaces/test-ws/jobs", headers=AUTH).json()
+        assert jobs[job_name]["command"] == "echo v1"
 
         # 更新
         client.put(f"/workspaces/test-ws/jobs/{job_name}", headers=AUTH, json={
@@ -80,9 +70,10 @@ class TestWorkspaceJobScenario:
             "command": "echo v2",
         })
 
-        # 再実行 → v2
-        res = client.post("/run", headers=AUTH, json={"job": job_name, "workspace": "test-ws"})
-        assert "v2" in res.json()["stdout"]
+        # 更新が一覧へ反映される
+        jobs = client.get("/workspaces/test-ws/jobs", headers=AUTH).json()
+        assert jobs[job_name]["label"] == "Version 2"
+        assert jobs[job_name]["command"] == "echo v2"
 
 
 class TestCommonJobScenario:
@@ -103,14 +94,6 @@ class TestCommonJobScenario:
         jobs = res.json()
         assert job_name in jobs
         assert jobs[job_name]["common"] is True
-
-        # ワークスペースから実行可能
-        res = client.post("/run", headers=AUTH, json={
-            "job": job_name,
-            "workspace": "test-ws",
-        })
-        assert res.status_code == 200
-        assert "common-test" in res.json()["stdout"]
 
         # グローバルジョブ削除
         res = client.delete(f"/common/jobs/{job_name}", headers=AUTH)
@@ -140,13 +123,12 @@ class TestCommonJobScenario:
             json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8"
         )
 
-        # 実行するとワークスペース版が優先
-        res = client.post("/run", headers=AUTH, json={
-            "job": common_job_name,
-            "workspace": "test-ws",
-        })
+        # 一覧ではワークスペース版が優先される
+        res = client.get("/workspaces/test-ws/jobs", headers=AUTH)
         assert res.status_code == 200
-        assert "from-workspace" in res.json()["stdout"]
+        job = res.json()[common_job_name]
+        assert job["label"] == "Overridden"
+        assert job["command"] == "echo from-workspace"
 
     def test_common_job_full_crud(self, client):
         # 作成

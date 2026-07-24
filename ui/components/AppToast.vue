@@ -28,6 +28,7 @@
 import { ref, nextTick } from "vue";
 import { TOAST_DEFAULT_DURATION_MS } from "../utils/constants.js";
 import { emit } from "../app-bridge.js";
+import { copyText } from "../utils/clipboard.js";
 
 let idCounter = 0;
 const toasts = ref([]);
@@ -49,8 +50,8 @@ function dismiss(toast, { runAction = true } = {}) {
       const { event, ...payload } = action;
       emit(event, payload);
     }
-  } else if (runAction && !toast.action && navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(toast.message).catch(() => {});
+  } else if (runAction && !toast.action) {
+    copyText(toast.message);
   }
   toasts.value = toasts.value.filter((t) => t.id !== toast.id);
   nextTick(restack);

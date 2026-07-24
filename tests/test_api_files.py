@@ -1,3 +1,4 @@
+import os
 import subprocess
 
 import pytest
@@ -189,6 +190,7 @@ class TestFileOperations:
         assert res.status_code == 200
         assert not d.exists()
 
+    @pytest.mark.skipif(os.geteuid() == 0, reason="root には chmod による書き込み禁止が効かないため")
     def test_rename_permission_denied_returns_403(self, client, workspace):
         readonly = workspace / "locked"
         readonly.mkdir()
@@ -204,6 +206,7 @@ class TestFileOperations:
         finally:
             readonly.chmod(0o755)
 
+    @pytest.mark.skipif(os.geteuid() == 0, reason="root には chmod による書き込み禁止が効かないため")
     def test_delete_permission_denied_returns_403(self, client, workspace):
         readonly = workspace / "locked2"
         readonly.mkdir()
@@ -300,6 +303,7 @@ class TestFileUpload:
         )
         assert res.status_code == 413
 
+    @pytest.mark.skipif(os.geteuid() == 0, reason="root には chmod による書き込み禁止が効かないため")
     def test_upload_permission_denied_returns_403(self, client, workspace):
         readonly = workspace / "locked"
         readonly.mkdir()

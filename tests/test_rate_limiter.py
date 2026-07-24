@@ -81,8 +81,8 @@ class TestRateLimitMiddleware:
 
         _counter._counts.clear()
         for _ in range(RATE_LIMIT_GENERAL):
-            res = client.get("/workspaces/test-ws/status", headers=AUTH)
-        res = client.get("/workspaces/test-ws/status", headers=AUTH)
+            res = client.get("/workspaces/test-ws/jobs", headers=AUTH)
+        res = client.get("/workspaces/test-ws/jobs", headers=AUTH)
         assert res.status_code == 429
 
     def test_authcheckはレート制限対象外(self, client):
@@ -102,7 +102,7 @@ class TestSkipMatcher:
 
         for path in [
             "/workspaces",
-            "/workspaces/test-ws/status",
+            "/workspaces/test-ws/jobs",
             "/devices/register",
             "/auth/logout",
             "/jobs/foo/run",

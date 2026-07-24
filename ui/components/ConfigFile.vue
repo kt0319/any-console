@@ -21,7 +21,6 @@ hljs.registerLanguage("json", json);
 import { useApi } from "../composables/useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
 import { useToast } from "../composables/useToast.js";
-import { emit } from "../app-bridge.js";
 import { EP_SETTINGS_EXPORT, EP_SETTINGS_IMPORT } from "../utils/endpoints.js";
 import { triggerBlobDownload } from "../utils/download.js";
 
@@ -78,7 +77,6 @@ async function upload() {
     toast.success("Config imported");
     jsonText.value = JSON.stringify(data, null, 2);
     highlight();
-    emit("settings:imported");
   } catch (e) {
     toast.error(e.message);
   }

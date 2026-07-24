@@ -188,21 +188,7 @@ class TestFirstJob:
         })
         assert res.status_code == 400
 
-    def test_execute_first_job(self, client, workspace):
-        res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
-            "label": "Hello",
-            "command": "echo first-run-ok",
-            "confirm": False,
-        })
-        job_name = res.json()["name"]
 
-        res = client.post("/run", headers=AUTH, json={
-            "job": job_name,
-            "workspace": "test-ws",
-        })
-        assert res.status_code == 200
-        assert res.json()["exit_code"] == 0
-        assert "first-run-ok" in res.json()["stdout"]
 
 
 

@@ -17,7 +17,6 @@ from .jobs_common import (
     common_jobs_context,
     delete_job,
     entry_to_job_definition,
-    get_workspace_jobs,
     job_definition_to_dict,
     load_common_jobs_data,
     parse_jobs_data,
@@ -69,17 +68,6 @@ def list_all_workspace_jobs():
 def list_workspace_jobs(name: str):
     resolve_workspace_path(name)
     return serialize_workspace_jobs(name)
-
-
-@router.get("/workspaces/{name}/jobs/{job_name}")
-def get_workspace_job(name: str, job_name: str):
-    resolve_workspace_path(name)
-    jobs = get_workspace_jobs(name)
-    entry = jobs.get(job_name)
-    if not entry:
-        raise not_found(f"Job '{job_name}' not found")
-    job_def, _ = entry
-    return job_definition_to_dict(job_def)
 
 
 @router.post("/workspaces/{name}/jobs")

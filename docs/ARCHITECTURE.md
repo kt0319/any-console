@@ -15,7 +15,6 @@ For the rationale behind each decision, see [DECISIONS.md](DECISIONS.md).
 api/                          Backend (FastAPI)
   main.py                     App init, static file serving, /auth/check, image upload
   auth.py                     Bearer token auth (optional), trusted-proxy detection
-  runner.py                   Job execution (subprocess, default timeout 300s)
   terminal_session.py / tmux.py  tmux × pty.fork × WebSocket bridge
   git_utils.py / git_lock.py  Git subprocess invocation, workspace lock
   git_watch.py                Filesystem watching (watchfiles) × WebSocket push for realtime git status

@@ -27,7 +27,6 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useAppConnectivity } from "../composables/useAppConnectivity.js";
 import { useAppDocumentTitle } from "../composables/useAppDocumentTitle.js";
 import { useAppAuthGate } from "../composables/useAppAuthGate.js";
-import { useAppJobBridge } from "../composables/useAppJobBridge.js";
 
 const layoutStore = useLayoutStore();
 
@@ -42,13 +41,11 @@ useAppDocumentTitle();
 useAppConnectivity();
 const { showLogin, authenticated, onAuthenticated, checkAuthOnBoot } = useAppAuthGate();
 const appToast = ref(null);
-const { bind: bindJobBridge } = useAppJobBridge();
 
 onMounted(async () => {
   if (layoutStore.isPwa) document.documentElement.classList.add("pwa");
 
   on("toast:show", ({ message, type, duration, action }) => appToast.value?.show(message, type, duration, action));
-  bindJobBridge();
 
   await checkAuthOnBoot();
 });

@@ -38,7 +38,8 @@ def _mock_tmux(monkeypatch):
     def fake_exists(name):
         return name in created_sessions
 
-    monkeypatch.setattr(dispatch_mod, "create_tmux_session", fake_create)
+    import api.terminal_session as terminal_session_mod
+    monkeypatch.setattr(terminal_session_mod, "create_tmux_session", fake_create)
     monkeypatch.setattr(dispatch_mod, "send_keys_to_tmux", fake_send_keys)
     monkeypatch.setattr(dispatch_mod, "wait_pane_ready", fake_wait_ready)
     monkeypatch.setattr(dispatch_mod, "tmux_session_exists", fake_exists)
@@ -122,32 +123,6 @@ class TestDispatchDecision:
     def test_unknown_id_returns_404(self, client):
         res = client.post("/dispatch/nonexistent/decision", headers=AUTH, json={"approved": True})
         assert res.status_code == 404
-
-
-class TestDispatchQueueEndpoint:
-    def test_empty_queue_returns_empty_list(self, client):
-        res = client.get("/dispatch/queue", headers=AUTH)
-        assert res.status_code == 200
-        assert res.json() == {"items": []}
-
-    def test_pending_item_is_listed(self, client, workspace):
-        dispatch_id = _enqueue(client, text="echo hi")
-        res = client.get("/dispatch/queue", headers=AUTH)
-        assert res.status_code == 200
-        items = res.json()["items"]
-        assert len(items) == 1
-        assert items[0]["id"] == dispatch_id
-        assert items[0]["request"]["workspace"] == "test-ws"
-
-    def test_decided_item_is_not_listed(self, client, workspace):
-        dispatch_id = _enqueue(client, text="echo hi")
-        client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": False})
-        res = client.get("/dispatch/queue", headers=AUTH)
-        assert res.json() == {"items": []}
-
-    def test_requires_auth(self, client):
-        res = client.get("/dispatch/queue")
-        assert res.status_code == 401
 
 
 class TestReuseExisting:

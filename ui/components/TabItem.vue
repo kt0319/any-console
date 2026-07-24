@@ -57,7 +57,7 @@ const props = defineProps({
   isPanelBottom: { type: Boolean, default: false },
 });
 
-const emits = defineEmits(["select", "close", "refresh", "active-click"]);
+const emits = defineEmits(["select", "close", "refresh"]);
 const layoutStore = useLayoutStore();
 const { confirm } = useConfirm();
 const terminalStore = useTerminalStore();
@@ -117,10 +117,7 @@ function onClick(e) {
   if (isDragging.value) return;
   if (mouseLongPress.consumeFired()) return;
   e.currentTarget?.blur();
-  if (isActive.value) {
-    emits("active-click", props.tab);
-    return;
-  }
+  if (isActive.value) return;
   emits("select", props.tab);
 }
 

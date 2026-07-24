@@ -1,11 +1,5 @@
 // キーレイアウト定義。flickUp/flickDown は上・下フリック時に送信する文字。
 
-export const MODIFIER_KEYS = [
-  { label: "Tab",  key: "Tab",     code: "Tab",         keyCode: 9  },
-  { label: "Ctrl", key: "Control", code: "ControlLeft",  keyCode: 17, modifier: "ctrl" },
-  { label: "Esc",  key: "Escape",  code: "Escape",       keyCode: 27 },
-];
-
 export const NUMBER_KEYS = [
   { label: "F1",  key: "F1" },
   { label: "F2",  key: "F2" },

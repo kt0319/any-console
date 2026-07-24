@@ -20,11 +20,11 @@ class TestPathTraversal:
         "....//",
     ])
     def test_workspace_traversal_rejected(self, client, workspace, ws_name):
-        res = client.get(f"/workspaces/{ws_name}/status", headers=AUTH)
+        res = client.get(f"/workspaces/{ws_name}/jobs", headers=AUTH)
         assert res.status_code in (400, 404, 422)
 
     def test_nonexistent_workspace_returns_400(self, client):
-        res = client.get("/workspaces/nonexistent-ws/status", headers=AUTH)
+        res = client.get("/workspaces/nonexistent-ws/jobs", headers=AUTH)
         assert res.status_code == 400
 
     @pytest.mark.parametrize("path", [

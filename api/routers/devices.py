@@ -3,7 +3,6 @@
 - POST /devices/register : token を提示して新規デバイスを登録（cookie 発行）
 - GET  /devices          : 登録済みデバイス一覧（要認証）
 - DELETE /devices/{id}   : デバイス削除（要認証）
-- POST /devices/logout   : 現在デバイスのみログアウト
 
 セキュリティ:
 - 登録には現行 token が必須（共有トークンを知っている人だけが新端末登録可能）
@@ -97,14 +96,4 @@ def revoke(device_id: str, request: Request, response: Response):
     # 自分自身を取り消した場合は cookie もクリア
     if request.cookies.get(COOKIE_DEVICE_ID, "") == device_id:
         _clear_device_cookies(response)
-    return {"ok": True}
-
-
-@router.post("/devices/logout")
-def logout(request: Request, response: Response):
-    """現在デバイスのみログアウト（device record も削除）。"""
-    device_id = request.cookies.get(COOKIE_DEVICE_ID, "")
-    if device_id:
-        revoke_device(device_id)
-    _clear_device_cookies(response)
     return {"ok": True}

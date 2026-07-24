@@ -191,8 +191,7 @@ button:disabled {
   background: var(--bg-secondary);
 }
 
-#config-file-body,
-.split-tab-settings-body:has(.config-file-code) {
+#config-file-body {
   flex: 1;
   min-height: 0;
   display: flex;
@@ -326,12 +325,6 @@ button:disabled {
   background: rgba(255, 142, 154, 0.12);
 }
 
-.diff-file-row-status.diff-status-ren {
-  color: #ffd27a;
-  border-color: rgba(255, 210, 122, 0.45);
-  background: rgba(255, 210, 122, 0.12);
-}
-
 .diff-file-browser-list {
   flex: 1;
 }
@@ -448,7 +441,6 @@ button:disabled {
   min-width: 48px;
 }
 
-.clone-repo-loading,
 .clone-repo-empty,
 .clone-repo-error,
 .job-config-error {

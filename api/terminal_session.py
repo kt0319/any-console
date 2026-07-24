@@ -1,16 +1,21 @@
 import asyncio
 import json
 import logging
+import secrets
+import subprocess
 import threading
 
 from fastapi import WebSocket
 
 from .common import (
+    MAX_TERMINAL_SESSIONS,
     TERMINAL_DEFAULT_COLS,
     TERMINAL_DEFAULT_ROWS,
     TMUX_SESSION_PREFIX,
+    sanitize_session_segment,
 )
-from .errors import not_found
+from .errors import not_found, server_error, too_many_requests
+from .git_utils import worktree_base_of
 from .terminal_pty import (
     PTY_EOF,
     PTY_EXECUTOR,
@@ -22,6 +27,7 @@ from .terminal_pty import (
 from .tmux import (
     _run_tmux_cmd,
     attach_tmux_session,
+    create_tmux_session,
     detect_workspace_from_tmux,
     kill_tmux_by_name,
     load_tmux_metadata,
@@ -165,6 +171,51 @@ class TerminalSession:
 
 TERMINAL_SESSIONS: dict[str, TerminalSession] = {}
 sessions_lock = threading.Lock()
+
+
+def create_registered_session(
+    ws_path,
+    *,
+    workspace: str | None,
+    icon: str | None = None,
+    icon_color: str | None = None,
+    job_name: str | None = None,
+    job_label: str | None = None,
+) -> tuple[str, TerminalSession]:
+    """tmux セッションを作成して registry へ登録し (session_id, session) を返す。
+
+    /run と /dispatch のセッション作成手順（容量チェック → ID 生成 →
+    tmux 作成 → 登録 → メタデータ保存）を共通化したもの。
+    """
+    with sessions_lock:
+        if len(TERMINAL_SESSIONS) >= MAX_TERMINAL_SESSIONS:
+            raise too_many_requests(
+                f"Maximum number of terminal sessions reached ({MAX_TERMINAL_SESSIONS})",
+            )
+    short_id = secrets.token_urlsafe(6)
+    if workspace:
+        safe_name = sanitize_session_segment(worktree_base_of(workspace))
+        session_id = f"{safe_name}-{short_id}"
+    else:
+        session_id = short_id
+    tmux_name = f"{TMUX_SESSION_PREFIX}{session_id}"
+    try:
+        create_tmux_session(str(ws_path) if ws_path else None, tmux_name)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
+        logger.error("tmux session creation failed: %s", e)
+        raise server_error(f"Failed to create terminal: {e}") from None
+    session = TerminalSession(
+        workspace=workspace,
+        tmux_session_name=tmux_name,
+        icon=icon,
+        icon_color=icon_color,
+        job_name=job_name,
+        job_label=job_label,
+    )
+    with sessions_lock:
+        TERMINAL_SESSIONS[session_id] = session
+    session.save_metadata()
+    return session_id, session
 
 
 def _register_tmux_session(session_id: str, tmux_name: str) -> TerminalSession:

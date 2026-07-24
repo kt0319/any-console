@@ -33,6 +33,7 @@
 <script setup>
 import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
+import { copyText } from "../utils/clipboard.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Port Preview";
@@ -61,19 +62,7 @@ function openPreview(p) {
 
 async function copyUrl(p) {
   const url = buildPreviewUrl(p);
-  try {
-    await navigator.clipboard.writeText(url);
-  } catch {
-    // Clipboard API が使えない環境（PWA + http など）のフォールバック
-    const ta = document.createElement("textarea");
-    ta.value = url;
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    try { document.execCommand("copy"); } catch {}
-    ta.remove();
-  }
+  await copyText(url);
   copiedPort.value = p.port;
   setTimeout(() => {
     if (copiedPort.value === p.port) copiedPort.value = null;

@@ -49,7 +49,7 @@ async function handleLogin() {
 
   const result = await auth.checkToken();
   if (result.ok) {
-    auth.setServerInfo(result.hostname, result.commitDate);
+    auth.setServerInfo(result.hostname);
     visible.value = false;
     emits("authenticated");
   } else {

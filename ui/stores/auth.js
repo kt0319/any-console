@@ -7,7 +7,6 @@ export const useAuthStore = defineStore("auth", () => {
   // 実トークンは cookie で管理されるため保持しない。認証済みかどうかのフラグのみ持つ。
   const authed = ref(false);
   const serverHostname = ref("");
-  const serverCommitDate = ref("");
   const isHandlingUnauthorized = ref(false);
 
   /**
@@ -62,7 +61,7 @@ export const useAuthStore = defineStore("auth", () => {
       const res = await fetch(EP_AUTH_CHECK, { credentials: "same-origin" });
       if (res.status === 401) return { ok: false, auth: false, error: "Authentication failed" };
       const data = await res.json();
-      return { ok: true, hostname: data.hostname, commitDate: data.commit_date };
+      return { ok: true, hostname: data.hostname };
     } catch (e) {
       return { ok: false, auth: true, error: `Cannot connect to server: ${e instanceof Error ? e.message : String(e)}` };
     }
@@ -84,9 +83,8 @@ export const useAuthStore = defineStore("auth", () => {
     return false;
   }
 
-  function setServerInfo(hostname, commitDate) {
+  function setServerInfo(hostname) {
     if (hostname) serverHostname.value = hostname;
-    if (commitDate) serverCommitDate.value = commitDate;
   }
 
   function markAuthenticated() {
@@ -107,13 +105,10 @@ export const useAuthStore = defineStore("auth", () => {
   return {
     authed,
     serverHostname,
-    serverCommitDate,
-    isHandlingUnauthorized,
     apiFetch,
     registerDevice,
     logout,
     checkToken,
-    handleUnauthorized,
     setServerInfo,
     markAuthenticated,
   };

@@ -188,7 +188,7 @@ class TestLogout:
     def test_logout_revokes_current_device(self, client):
         reg = client.post("/devices/register", json={"token": TOKEN, "name": "X"})
         device_id = reg.json()["device_id"]
-        res = client.post("/devices/logout")
+        res = client.post("/auth/logout")
         assert res.status_code == 200
         # device record も消えている
         assert devices_mod.get_device(device_id) is None

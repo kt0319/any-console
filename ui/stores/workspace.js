@@ -30,7 +30,6 @@ export const useWorkspaceStore = defineStore("workspace", () => {
   const allWorkspaces = ref(/** @type {Record<string, any>[]} */ ([]));
   const groups = ref(/** @type {Record<string, any>[]} */ ([]));
   const selectedWorkspace = ref(/** @type {string|null} */ (null));
-  const workspaceJobs = ref({});
 
   const currentWorkspace = computed(() =>
     allWorkspaces.value.find((w) => w.name === selectedWorkspace.value),
@@ -105,7 +104,6 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     allWorkspaces,
     groups,
     selectedWorkspace,
-    workspaceJobs,
     currentWorkspace,
     fetchWorkspaces,
     fetchGroups,
