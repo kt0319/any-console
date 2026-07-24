@@ -6,42 +6,6 @@
   overflow: hidden;
 }
 
-.github-section-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  border-bottom: 1px solid var(--border);
-}
-
-.github-section-title.github-section-link {
-  cursor: pointer;
-  color: var(--accent);
-  background: transparent;
-  border-radius: var(--radius);
-  margin: 6px 8px;
-  border-bottom: none;
-  justify-content: space-between;
-}
-
-.github-section-badge {
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--text-muted);
-}
-
-.github-badge-loading {
-  animation: github-badge-pulse 1s ease-in-out infinite;
-}
-
-@keyframes github-badge-pulse {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
-}
-
 .github-item {
   box-sizing: border-box;
   padding: 10px 12px;
