@@ -90,13 +90,13 @@ test.describe("workspace detail panes", () => {
   test("git ワークスペースの詳細に各ペインのタブが表示される", async ({ page }) => {
     await openDetail(page);
     for (const label of ["Jobs", "Files", "History", "Changes", "Branches", "Select & Copy"]) {
-      await expect(page.locator(".workspace-tab", { hasText: label })).toBeVisible({ timeout: 10_000 });
+      await expect(page.locator(".workspace-tabs").getByRole("button", { name: label })).toBeVisible({ timeout: 10_000 });
     }
   });
 
   test("Files ペインでディレクトリを辿ってファイル内容を表示できる", async ({ page }) => {
     await openDetail(page);
-    await page.locator(".workspace-tab", { hasText: "Files" }).click();
+    await page.locator(".workspace-tabs").getByRole("button", { name: "Files" }).click();
 
     // ルート一覧: README.md と src/
     await expect(page.locator(".file-browser-item", { hasText: "README.md" })).toBeVisible({ timeout: 10_000 });
@@ -115,7 +115,7 @@ test.describe("workspace detail panes", () => {
   test("Files ペインでファイルのリネームと削除ができる（各ダイアログあり）", async ({ page }) => {
     fs.writeFileSync(path.join(wsDir, "scratch.txt"), "temp\n");
     await openDetail(page);
-    await page.locator(".workspace-tab", { hasText: "Files" }).click();
+    await page.locator(".workspace-tabs").getByRole("button", { name: "Files" }).click();
 
     // hover デバイスではホバーでアクションメニューが開く → Rename → プロンプトダイアログ
     const row = page.locator(".file-browser-item", { hasText: "scratch.txt" });
@@ -146,7 +146,7 @@ test.describe("workspace detail panes", () => {
 
   test("History ペインにコミットが表示される", async ({ page }) => {
     await openDetail(page);
-    await page.locator(".workspace-tab", { hasText: "History" }).click();
+    await page.locator(".workspace-tabs").getByRole("button", { name: "History" }).click();
     await expect(page.locator(".git-log-entry-msg", { hasText: COMMIT_MSG_INITIAL })).toBeVisible({ timeout: 10_000 });
   });
 
@@ -154,7 +154,7 @@ test.describe("workspace detail panes", () => {
     // 変更を作ってから Changes を開く
     fs.appendFileSync(path.join(wsDir, "README.md"), "\ne2e change\n");
     await openDetail(page);
-    await page.locator(".workspace-tab", { hasText: "Changes" }).click();
+    await page.locator(".workspace-tabs").getByRole("button", { name: "Changes" }).click();
 
     const row = page.locator(".diff-file-row", { hasText: "README.md" });
     await expect(row).toBeVisible({ timeout: 10_000 });
@@ -170,13 +170,13 @@ test.describe("workspace detail panes", () => {
     await expect(page.locator(".toast", { hasText: "Committed" })).toBeVisible({ timeout: 10_000 });
 
     // History に反映されている
-    await page.locator(".workspace-tab", { hasText: "History" }).click();
+    await page.locator(".workspace-tabs").getByRole("button", { name: "History" }).click();
     await expect(page.locator(".git-log-entry-msg", { hasText: COMMIT_MSG_UI })).toBeVisible({ timeout: 10_000 });
   });
 
   test("Branches ペインに現在ブランチが表示され Add ダイアログを開閉できる", async ({ page }) => {
     await openDetail(page);
-    await page.locator(".workspace-tab", { hasText: "Branches" }).click();
+    await page.locator(".workspace-tabs").getByRole("button", { name: "Branches" }).click();
 
     const current = page.locator(".branch-item.current");
     await expect(current).toBeVisible({ timeout: 10_000 });
@@ -195,7 +195,7 @@ test.describe("workspace detail panes", () => {
   test("Branches ペインの Add ダイアログからブランチを作成できる", async ({ page }) => {
     const newBranch = "e2e/branch-test";
     await openDetail(page);
-    await page.locator(".workspace-tab", { hasText: "Branches" }).click();
+    await page.locator(".workspace-tabs").getByRole("button", { name: "Branches" }).click();
     await expect(page.locator(".branch-item.current")).toBeVisible({ timeout: 10_000 });
 
     await page.locator('.branch-toolbar-btn[aria-label="Add"]').click();
@@ -250,7 +250,7 @@ test.describe("workspace detail panes", () => {
     // 変更を作って Changes ペインから Stash する
     fs.appendFileSync(path.join(wsDir, "README.md"), "\nstash me\n");
     await openDetail(page);
-    await page.locator(".workspace-tab", { hasText: "Changes" }).click();
+    await page.locator(".workspace-tabs").getByRole("button", { name: "Changes" }).click();
     await expect(page.locator(".diff-file-row", { hasText: "README.md" })).toBeVisible({ timeout: 10_000 });
     await page.locator(".diff-actions button", { hasText: "Stash" }).click();
     await expect(page.locator(".toast", { hasText: "Saved" })).toBeVisible({ timeout: 10_000 });
@@ -259,7 +259,7 @@ test.describe("workspace detail panes", () => {
     await page.locator(".modal-close-btn").click();
     await expect(page.locator(".modal-overlay")).toBeHidden({ timeout: 5000 });
     await openDetail(page);
-    const stashTab = page.locator(".workspace-tab", { hasText: "Stashes" });
+    const stashTab = page.locator(".workspace-tabs").getByRole("button", { name: "Stashes" });
     await expect(stashTab).toBeVisible({ timeout: 10_000 });
     await stashTab.click();
 

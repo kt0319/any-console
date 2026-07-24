@@ -7,10 +7,12 @@
         :key="tab.key"
         class="workspace-tab"
         :class="{ active: activePane === tab.key }"
+        :aria-label="tab.count ? `${tab.label} (${tab.count})` : tab.label"
+        :data-tooltip="activePane === tab.key ? null : tab.label"
         @click="switchPane(tab.key)"
       >
-        <span :class="['mdi', tab.icon]" :style="tab.iconColor ? { color: tab.iconColor } : null"></span>
-        <span v-if="activePane === tab.key" class="workspace-tab-label">{{ tab.label }}<span v-if="tab.count"> ({{ tab.count }})</span></span>
+        <span :class="['mdi', tab.icon]" :style="tab.iconColor ? { color: tab.iconColor } : null" aria-hidden="true"></span>
+        <span v-if="activePane === tab.key" class="workspace-tab-label" aria-hidden="true">{{ tab.label }}<span v-if="tab.count"> ({{ tab.count }})</span></span>
       </button>
     </div>
 
