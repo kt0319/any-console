@@ -159,6 +159,21 @@ watch(selectedSessionId, () => {
   });
 }, { immediate: true });
 
+// 既存セッションを選んだら、そのセッションの実際の Workspace / Job を
+// プレビュー表示に反映する（disabled のままだが選択中セッションに追従させる）。
+// 新規セッションに戻したら元のリクエスト値に戻す。
+watch(selectedSessionId, (id) => {
+  if (id === NEW_SESSION_VALUE) {
+    selectedWorkspace.value = request.value?.workspace || "";
+    selectedJob.value = request.value?.job || "terminal";
+    return;
+  }
+  const s = sessions.value.find((s) => s.session_id === id);
+  if (!s) return;
+  selectedWorkspace.value = s.workspace || selectedWorkspace.value;
+  selectedJob.value = s.job_name || "terminal";
+});
+
 watch(selectedWorkspace, async (ws) => {
   jobs.value = [];
   if (!ws) return;
