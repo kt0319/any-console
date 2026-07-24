@@ -14,7 +14,7 @@ function setCountCache(workspace, key, count) {
   _countCache[`${workspace}:${key}`] = count;
 }
 
-export const RUN_STATUS = {
+const RUN_STATUS = {
   success: { icon: "✓", cls: "github-run-success" },
   failure: { icon: "✗", cls: "github-run-failure" },
   cancelled: { icon: "○", cls: "github-run-cancelled" },
