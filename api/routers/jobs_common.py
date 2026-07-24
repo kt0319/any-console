@@ -91,7 +91,6 @@ def entry_to_job_definition(name, entry):
     return JobDefinition(
         command=entry.get("command", ""),
         label=entry.get("label", name),
-        description=entry.get("description", ""),
         icon=entry.get("icon", ""),
         icon_color=entry.get("icon_color", ""),
         confirm=entry.get("confirm", True),
@@ -99,7 +98,6 @@ def entry_to_job_definition(name, entry):
         type=entry.get("type", "command"),
         url=entry.get("url", ""),
         notify_phrase=entry.get("notify_phrase", ""),
-        working_enabled=entry.get("working_enabled", True),
     )
 
 
@@ -124,7 +122,6 @@ def get_workspace_jobs(workspace_name):
 def job_definition_to_dict(job_def, is_common=None):
     d = {
         "label": job_def.label,
-        "description": job_def.description,
         "command": job_def.command,
         "icon": job_def.icon,
         "icon_color": job_def.icon_color,
@@ -133,7 +130,6 @@ def job_definition_to_dict(job_def, is_common=None):
         "type": job_def.type,
         "url": job_def.url,
         "notify_phrase": job_def.notify_phrase,
-        "working_enabled": job_def.working_enabled,
     }
     if is_common is not None:
         d["common"] = is_common
@@ -155,17 +151,6 @@ def _apply_icon_fields(entry: dict, icon: str, icon_color: str) -> None:
         entry["icon_color"] = icon_color
 
 
-def _apply_agent_watch_fields(
-    entry: dict,
-    notify_phrase: str,
-    working_enabled: bool,
-) -> None:
-    if notify_phrase:
-        entry["notify_phrase"] = notify_phrase
-    if not working_enabled:
-        entry["working_enabled"] = False
-
-
 def build_job_entry(
     command: str,
     label: str,
@@ -176,7 +161,6 @@ def build_job_entry(
     job_type: str = "command",
     url: str = "",
     notify_phrase: str = "",
-    working_enabled: bool = True,
 ) -> dict:
     entry: dict[str, Any] = {}
     if job_type == "browser":
@@ -192,7 +176,8 @@ def build_job_entry(
         entry["confirm"] = False
     if detached_tab:
         entry["detached_tab"] = True
-    _apply_agent_watch_fields(entry, notify_phrase, working_enabled)
+    if notify_phrase:
+        entry["notify_phrase"] = notify_phrase
     return entry
 
 
@@ -206,7 +191,6 @@ class JobRequest(BaseModel):
     confirm: bool = True
     detached_tab: bool = False
     notify_phrase: str = Field("", max_length=200)
-    working_enabled: bool = True
 
 
 class ReorderJobsRequest(BaseModel):
@@ -247,7 +231,6 @@ def save_job(data, save_fn, job_name, body, log_msg):
         command, label, body.icon, body.icon_color, body.confirm, body.detached_tab,
         job_type=job_type, url=url,
         notify_phrase=notify_phrase,
-        working_enabled=body.working_enabled if job_type != "browser" else True,
     )
     save_fn(data)
     logger.info(log_msg, job_name)

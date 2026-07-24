@@ -32,9 +32,6 @@ class TestClassifyAgentState:
     def test_first_poll_is_idle(self):
         assert classify_agent_state("anything", None) == "idle"
 
-    def test_working_disabled_is_always_idle(self):
-        assert classify_agent_state("abc", "abd", working_enabled=False) == "idle"
-
 
 class TestDiffStates:
     def test_only_changed_entries_are_returned(self):

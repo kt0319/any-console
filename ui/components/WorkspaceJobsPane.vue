@@ -22,7 +22,6 @@
         <button type="button" class="job-item" @click="runJob(job)">
           <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
           <span class="job-item-label">{{ job.label || job.name }}</span>
-          <span v-if="job.description" class="job-item-desc">{{ job.description }}</span>
           <span v-if="job.type === 'browser'" class="mdi mdi-open-in-new job-item-link-icon" aria-hidden="true"></span>
         </button>
         <button type="button" class="job-item-edit-btn" title="Edit" aria-label="Edit" @click.stop="startEditJob(job, true)">
@@ -45,7 +44,6 @@
         <button type="button" class="job-item" @click="runJob(job)">
           <span class="job-item-icon" v-html="renderIconStr(job.icon || 'mdi-play', job.icon_color, 18)"></span>
           <span class="job-item-label">{{ job.label || job.name }}</span>
-          <span v-if="job.description" class="job-item-desc">{{ job.description }}</span>
           <span v-if="job.type === 'browser'" class="mdi mdi-open-in-new job-item-link-icon" aria-hidden="true"></span>
         </button>
         <button type="button" class="job-item-edit-btn" title="Edit" aria-label="Edit" @click.stop="startEditJob(job, false)">
@@ -248,25 +246,11 @@ defineExpose({ load });
   flex-shrink: 0;
 }
 
-.job-item-desc {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-left: auto;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-align: right;
-}
-
 .job-item-link-icon {
   margin-left: 4px;
   font-size: 14px;
   color: var(--accent);
   flex-shrink: 0;
-}
-
-.job-item-desc + .job-item-link-icon {
-  margin-left: 6px;
 }
 
 .job-section-header {

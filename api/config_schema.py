@@ -31,7 +31,6 @@ class JobConfig(_ConfigModel):
     url: str = ""
     type: str = "command"
     label: str = ""
-    description: str = ""
     icon: str = ""
     icon_color: str = ""
     confirm: bool = True

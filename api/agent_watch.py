@@ -40,17 +40,13 @@ STATE_WORKING = "working"
 STATE_IDLE = "idle"
 
 
-def classify_agent_state(
-    capture: str,
-    prev_capture: str | None,
-    working_enabled: bool = True,
-) -> str:
+def classify_agent_state(capture: str, prev_capture: str | None) -> str:
     """可視ペインの内容からセッション状態を判定する純関数。
 
     - 前回ポーリングから出力が変化していれば working（スピナー等の動きも拾う）
     - 画面が静止していれば idle
     """
-    if working_enabled and prev_capture is not None and capture != prev_capture:
+    if prev_capture is not None and capture != prev_capture:
         return STATE_WORKING
     return STATE_IDLE
 
@@ -102,23 +98,6 @@ def _job_notify_phrase(workspace: str | None, job_name: str | None) -> str:
     data = load_common_jobs_data()
     raw = data.get(job_name)
     return entry_to_job_definition(job_name, raw).notify_phrase if raw is not None else ""
-
-
-def _job_working_enabled(workspace: str | None, job_name: str | None) -> bool:
-    """セッションを起動したジョブ定義から working_enabled を引く（ジョブ無しは True）。"""
-    if not job_name:
-        return True
-    from .routers.jobs_common import (
-        entry_to_job_definition,
-        get_workspace_jobs,
-        load_common_jobs_data,
-    )
-    if workspace:
-        entry = get_workspace_jobs(workspace).get(job_name)
-        return entry[0].working_enabled if entry else True
-    data = load_common_jobs_data()
-    raw = data.get(job_name)
-    return entry_to_job_definition(job_name, raw).working_enabled if raw is not None else True
 
 
 # ポーリング間の可視ペイン内容（アクティビティ判定用）。ポーリングタスクのみが触る。
@@ -192,11 +171,9 @@ def collect_agent_states() -> tuple[dict[str, str] | None, list[tuple[str, str, 
             continue
         workspace, job_name = _session_meta(session_id)
         notify_phrase = _job_notify_phrase(workspace, job_name)
-        working_enabled = _job_working_enabled(workspace, job_name)
         prev_capture = _last_capture.get(session_id)
-        new_state = classify_agent_state(capture, prev_capture, working_enabled)
+        new_state = classify_agent_state(capture, prev_capture)
         states[session_id] = new_state
-        # working_enabled 設定に関わらず、生の変化そのものを「反応の有無」の判定に使う。
         changed = prev_capture is not None and capture != prev_capture
         if _should_notify_phrase(session_id, notify_phrase, capture, changed, now):
             notifications.append((session_id, notify_phrase, workspace))

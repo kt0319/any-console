@@ -166,7 +166,6 @@ async function saveJob() {
       confirm: f.type === "browser" ? false : f.confirm,
       detached_tab: f.type === "browser" ? false : f.detached_tab,
       notify_phrase: f.type === "browser" ? "" : f.notify_phrase.trim(),
-      working_enabled: true,
     };
     const { ok, data } = isNew ? await apiPost(url, body) : await apiPut(url, body);
     if (!ok) {
