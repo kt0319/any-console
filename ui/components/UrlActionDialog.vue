@@ -21,6 +21,7 @@ import { ref, onMounted } from "vue";
 import BaseDialog from "./BaseDialog.vue";
 import { on } from "../app-bridge.js";
 import { URL_COPIED_RESET_MS } from "../utils/constants.js";
+import { copyText } from "../utils/clipboard.js";
 
 const terminalUrl = ref("");
 const urlCopied = ref(false);
@@ -32,12 +33,9 @@ function doUrlOpen() {
 
 async function doUrlCopy() {
   if (!terminalUrl.value) return;
-  try {
-    await navigator.clipboard.writeText(terminalUrl.value);
-    urlCopied.value = true;
+  urlCopied.value = await copyText(terminalUrl.value);
+  if (urlCopied.value) {
     setTimeout(() => { urlCopied.value = false; }, URL_COPIED_RESET_MS);
-  } catch {
-    urlCopied.value = false;
   }
 }
 

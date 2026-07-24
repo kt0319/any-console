@@ -8,6 +8,7 @@ import { useToast } from "./useToast.js";
 import { useConfirm } from "./useConfirm.js";
 import { useLongPress } from "./useLongPress.js";
 import { useHoverMenu, isHoverDevice } from "./useHoverMenu.js";
+import { copyText } from "../utils/clipboard.js";
 import { useEditorIntegration } from "./useEditorIntegration.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { buildGithubFileUrl } from "../utils/git.js";
@@ -126,10 +127,9 @@ export function useDiffFileActions({ selectedCommit, reopenWorkingTreeDiff }) {
       extra: { label: "Copy hash", value: "copy", icon: "mdi-content-copy" },
     });
     if (result === "copy") {
-      try {
-        await navigator.clipboard?.writeText(entry.hash);
+      if (await copyText(entry.hash)) {
         toast.success(`Copied ${entry.hash}`);
-      } catch {
+      } else {
         toast.error("Failed to copy hash");
       }
     }

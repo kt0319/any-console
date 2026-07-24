@@ -4,6 +4,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useConfirm } from "./useConfirm.js";
 import { confirmCloseTab } from "../utils/tab-close-confirm.js";
 import { emit } from "../app-bridge.js";
+import { copyText } from "../utils/clipboard.js";
 
 export function useGlobalShortcuts({ closeTab }) {
   const terminalStore = useTerminalStore();
@@ -20,9 +21,7 @@ export function useGlobalShortcuts({ closeTab }) {
         const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
         if (tab?.term?.hasSelection?.()) {
           const text = tab.term.getSelection();
-          if (text && navigator.clipboard?.writeText) {
-            navigator.clipboard.writeText(text).catch(() => {});
-          }
+          if (text) copyText(text);
           e.preventDefault();
           return;
         }

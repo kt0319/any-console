@@ -1,4 +1,5 @@
 import { WS_MSG_RESIZE } from "../utils/constants.js";
+import { copyText } from "../utils/clipboard.js";
 import { fitTerminal, sendResize } from "./useTerminalResize.js";
 
 export function bindTerminalInput(tab) {
@@ -25,9 +26,7 @@ export function bindTerminalInput(tab) {
     if (e.type === "keydown" && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === "c" || e.key === "C")) {
       if (tab.term?.hasSelection?.()) {
         const text = tab.term.getSelection();
-        if (text && navigator.clipboard?.writeText) {
-          navigator.clipboard.writeText(text).catch(() => {});
-        }
+        if (text) copyText(text);
         e.preventDefault();
         return false;
       }
@@ -36,6 +35,8 @@ export function bindTerminalInput(tab) {
   });
 
   // マウス選択でテキストが確定したら自動的にブラウザクリップボードへコピーする。
+  // 受動的に高頻度で走るため copyText は使わない（textarea フォールバックが
+  // select() でフォーカスを奪う）。非 secure context では黙って何もしない。
   tab.term?.onSelectionChange(() => {
     const text = tab.term?.getSelection();
     if (text) navigator.clipboard?.writeText(text).catch(() => {});
@@ -43,6 +44,7 @@ export function bindTerminalInput(tab) {
 
   // OSC 52: tmux が set-clipboard on のときに送ってくるクリップボード同期シーケンス。
   // data = "c;BASE64TEXT" の形式。デコードしてブラウザのクリップボードに書き込む。
+  // 出力ストリーム起点の受動経路のため copyText のフォールバックは使わない（フォーカスを奪う）。
   tab.term?.parser.registerOscHandler(52, (data) => {
     const semi = data.indexOf(";");
     if (semi === -1) return false;
