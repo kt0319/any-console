@@ -52,6 +52,10 @@ def get_current_branch(ws_path):
     return branch
 
 
+def rev_parse(ws_path, ref: str, operation: str) -> str:
+    return str(run_git_command(["rev-parse", ref], cwd=ws_path, operation=operation)["stdout"]).strip()
+
+
 def resolve_workspace_target_path(ws_path, path: str):
     target = (ws_path / path).resolve()
     try:

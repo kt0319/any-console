@@ -11,7 +11,7 @@ from ..common import (
 from ..errors import bad_request
 from ..git_utils import run_git_command
 from ..validators import validate_branch_name, validate_commit_ref, validate_stash_ref
-from .git_helpers import execute_git_action, resolve_workspace_file
+from .git_helpers import execute_git_action, resolve_workspace_file, rev_parse
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
@@ -65,10 +65,6 @@ def _execute_commit_action(name: str, commit_hash: str, git_args: list[str], ope
     return execute_git_action(name, [*git_args, h], operation=operation, log_extra=f"commit={h[:8]}")
 
 
-def _rev_parse(ws_path, ref: str, operation: str) -> str:
-    return str(run_git_command(["rev-parse", ref], cwd=ws_path, operation=operation)["stdout"]).strip()
-
-
 @router.get("/workspaces/{name}/commit-message")
 def get_commit_message(name: str, hash: str):
     h = validate_commit_ref(hash)
@@ -83,7 +79,7 @@ def git_cherry_pick(name: str, body: GitActionRequest):
     source_commit = validate_commit_ref(body.commit_hash)
     result = _execute_commit_action(name, body.commit_hash, ["cherry-pick"], "cherry-pick")
     if result["status"] == "ok":
-        commit = _rev_parse(ws_path, "HEAD", "rev-parse after cherry-pick")
+        commit = rev_parse(ws_path, "HEAD", "rev-parse after cherry-pick")
         log_activity(name, "git_cherry_pick", source_commit=source_commit, commit=commit)
     return result
 
@@ -94,7 +90,7 @@ def git_revert(name: str, body: GitActionRequest):
     source_commit = validate_commit_ref(body.commit_hash)
     result = _execute_commit_action(name, body.commit_hash, ["revert", "--no-edit"], "revert")
     if result["status"] == "ok":
-        commit = _rev_parse(ws_path, "HEAD", "rev-parse after revert")
+        commit = rev_parse(ws_path, "HEAD", "rev-parse after revert")
         log_activity(name, "git_revert", source_commit=source_commit, commit=commit)
     return result
 
@@ -103,10 +99,10 @@ def git_revert(name: str, body: GitActionRequest):
 def git_merge(name: str, body: GitActionRequest):
     branch = validate_branch_name(body.branch)
     ws_path = resolve_workspace_path(name)
-    before_hash = _rev_parse(ws_path, "HEAD", "rev-parse before merge")
+    before_hash = rev_parse(ws_path, "HEAD", "rev-parse before merge")
     result = execute_git_action(name, ["merge", branch], operation="merge", log_extra=f"branch={branch}")
     if result["status"] == "ok":
-        commit = _rev_parse(ws_path, "HEAD", "rev-parse after merge")
+        commit = rev_parse(ws_path, "HEAD", "rev-parse after merge")
         log_activity(name, "git_merge", branch=branch, from_commit=before_hash, commit=commit)
     return result
 
@@ -115,10 +111,10 @@ def git_merge(name: str, body: GitActionRequest):
 def git_rebase(name: str, body: GitActionRequest):
     branch = validate_branch_name(body.branch)
     ws_path = resolve_workspace_path(name)
-    before_hash = _rev_parse(ws_path, "HEAD", "rev-parse before rebase")
+    before_hash = rev_parse(ws_path, "HEAD", "rev-parse before rebase")
     result = execute_git_action(name, ["rebase", branch], operation="rebase", log_extra=f"branch={branch}")
     if result["status"] == "ok":
-        commit = _rev_parse(ws_path, "HEAD", "rev-parse after rebase")
+        commit = rev_parse(ws_path, "HEAD", "rev-parse after rebase")
         log_activity(name, "git_rebase", branch=branch, from_commit=before_hash, commit=commit)
     return result
 
@@ -129,7 +125,7 @@ def git_reset(name: str, body: GitActionRequest):
     if body.mode not in ("soft", "hard"):
         raise bad_request(f"Invalid reset mode: {body.mode}")
     ws_path = resolve_workspace_path(name)
-    before_hash = _rev_parse(ws_path, "HEAD", "rev-parse before reset")
+    before_hash = rev_parse(ws_path, "HEAD", "rev-parse before reset")
     result = execute_git_action(
         name, ["reset", f"--{body.mode}", commit_hash],
         operation="reset", log_extra=f"mode={body.mode} commit={commit_hash[:8]}",
@@ -150,9 +146,7 @@ def git_commit(name: str, body: CommitRequest):
         return add_result
     result = execute_git_action(name, ["commit", "-m", message], operation="commit")
     if result.get("status") == "ok":
-        commit = run_git_command(
-            ["rev-parse", "HEAD"], cwd=ws_path, operation="rev-parse after commit",
-        )["stdout"].strip()
+        commit = rev_parse(ws_path, "HEAD", "rev-parse after commit")
         log_activity(name, "git_commit", message=message, commit=commit)
     return result
 
