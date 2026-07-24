@@ -33,13 +33,6 @@
           <span class="settings-note">When a "Notify phrase" appears in job output.</span>
         </div>
       </label>
-      <label class="settings-item settings-toggle">
-        <input type="checkbox" v-model="prefs.job_done" @change="savePrefs" />
-        <div class="settings-toggle-copy">
-          <span class="settings-item-label">Job finished</span>
-          <span class="settings-note">When a job (non-terminal) exits.</span>
-        </div>
-      </label>
     </template>
   </div>
 </template>
@@ -55,7 +48,7 @@ const { isSupported, isSubscribed, permission, subscribe, unsubscribe, init } = 
 const loading = ref(false);
 
 const PREFS_KEY = "notifPrefs";
-const DEFAULT_PREFS = { dispatch: true, phrase: true, job_done: true };
+const DEFAULT_PREFS = { dispatch: true, phrase: true };
 
 const prefs = ref({ ...DEFAULT_PREFS });
 
