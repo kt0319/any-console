@@ -15,16 +15,6 @@ def _github_fetch(name: str, suffix: str, gh_args: list[str], error_message: str
     return {"status": "ok", "data": data}
 
 
-@router.get("/workspaces/{name}/github/info")
-def github_info(name: str):
-    return _github_fetch(
-        name, "info",
-        ["repo", "view", "--json",
-         "name,owner,description,url,stargazerCount,forkCount,isPrivate,defaultBranchRef,primaryLanguage"],
-        "Failed to fetch GitHub info",
-    )
-
-
 @router.get("/workspaces/{name}/github/issues")
 def github_issues(name: str):
     return _github_fetch(

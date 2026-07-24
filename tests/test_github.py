@@ -14,29 +14,6 @@ def _clear_caches():
     gh_utils._workspace_cache.invalidate_all()
 
 
-class TestGithubInfo:
-
-    def test_success(self, client, workspace, monkeypatch):
-        mock_data = {"name": "test-repo", "owner": {"login": "user"}, "url": "https://github.com/user/test-repo"}
-        monkeypatch.setattr(gh_utils, "run_gh_json", lambda args, cwd=None: mock_data)
-        _clear_caches()
-
-        res = client.get("/workspaces/test-ws/github/info", headers=AUTH)
-        assert res.status_code == 200
-        data = res.json()
-        assert data["status"] == "ok"
-        assert data["data"]["name"] == "test-repo"
-
-    def test_gh_failure(self, client, workspace, monkeypatch):
-        monkeypatch.setattr(gh_utils, "run_gh_json", lambda args, cwd=None: None)
-        _clear_caches()
-
-        res = client.get("/workspaces/test-ws/github/info", headers=AUTH)
-        assert res.status_code == 200
-        data = res.json()
-        assert data["status"] == "error"
-
-
 class TestGithubIssues:
 
     def test_success(self, client, workspace, monkeypatch):

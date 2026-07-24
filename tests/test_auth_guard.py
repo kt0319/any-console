@@ -18,11 +18,9 @@ ENDPOINTS = [
     ("POST", "/workspaces"),
     ("GET", "/workspaces/suggest"),
     # github
-    ("GET", "/workspaces/test-ws/github/info"),
     ("GET", "/workspaces/test-ws/github/issues"),
     ("GET", "/workspaces/test-ws/github/pulls"),
     # git refs
-    ("GET", "/workspaces/test-ws/status"),
     ("GET", "/workspaces/test-ws/branches"),
     ("GET", "/workspaces/test-ws/branches/remote"),
     ("POST", "/workspaces/test-ws/delete-branch"),
@@ -57,7 +55,6 @@ ENDPOINTS = [
     # jobs
     ("GET", "/jobs/workspaces"),
     ("GET", "/workspaces/test-ws/jobs"),
-    ("GET", "/workspaces/test-ws/jobs/job_test"),
     ("POST", "/workspaces/test-ws/jobs"),
     ("PUT", "/workspaces/test-ws/job-order"),
     ("PUT", "/workspaces/test-ws/jobs/job_test"),

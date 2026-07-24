@@ -280,12 +280,6 @@ class DispatchDecision(BaseModel):
     session_id: str | None = None
 
 
-@router.get("/dispatch/queue")
-def get_dispatch_queue():
-    """現在の承認待ちdispatch一覧を返す（SettingsのDispatch Queueと同じ内容）。"""
-    return {"items": _queue_payload()["items"]}
-
-
 @router.post("/dispatch/{dispatch_id}/decision")
 async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
     """Settingsの「Dispatch Queue」からの承認/却下を受け取る。

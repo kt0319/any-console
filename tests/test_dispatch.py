@@ -125,32 +125,6 @@ class TestDispatchDecision:
         assert res.status_code == 404
 
 
-class TestDispatchQueueEndpoint:
-    def test_empty_queue_returns_empty_list(self, client):
-        res = client.get("/dispatch/queue", headers=AUTH)
-        assert res.status_code == 200
-        assert res.json() == {"items": []}
-
-    def test_pending_item_is_listed(self, client, workspace):
-        dispatch_id = _enqueue(client, text="echo hi")
-        res = client.get("/dispatch/queue", headers=AUTH)
-        assert res.status_code == 200
-        items = res.json()["items"]
-        assert len(items) == 1
-        assert items[0]["id"] == dispatch_id
-        assert items[0]["request"]["workspace"] == "test-ws"
-
-    def test_decided_item_is_not_listed(self, client, workspace):
-        dispatch_id = _enqueue(client, text="echo hi")
-        client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": False})
-        res = client.get("/dispatch/queue", headers=AUTH)
-        assert res.json() == {"items": []}
-
-    def test_requires_auth(self, client):
-        res = client.get("/dispatch/queue")
-        assert res.status_code == 401
-
-
 class TestReuseExisting:
     def test_reuse_finds_existing_session(self, client, workspace, _mock_tmux):
         from api.terminal_session import TERMINAL_SESSIONS, TerminalSession, sessions_lock

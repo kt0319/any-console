@@ -204,7 +204,7 @@ class TestWorkspaceNameSecurity:
         "ws/../../../etc",
     ])
     def test_workspace_name_traversal(self, client, name):
-        res = client.get(f"/workspaces/{name}/status", headers=AUTH)
+        res = client.get(f"/workspaces/{name}/jobs", headers=AUTH)
         assert res.status_code in (400, 404, 422)
 
     @pytest.mark.parametrize("name", [

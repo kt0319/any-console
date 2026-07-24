@@ -68,10 +68,6 @@ class TestCheckoutValidation:
 
 
 class TestUnknownWorkspace:
-    def test_status_unknown_workspace_returns_400(self, client, isolate_fs):
-        res = client.get("/workspaces/no-such/status", headers=AUTH)
-        assert res.status_code == 400
-
     def test_branches_unknown_workspace_returns_400(self, client, isolate_fs):
         res = client.get("/workspaces/no-such/branches", headers=AUTH)
         assert res.status_code == 400

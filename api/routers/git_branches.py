@@ -8,7 +8,6 @@ from ..common import (
     resolve_workspace_path,
 )
 from ..errors import bad_request
-from ..git_info import git_info_to_status_dict
 from ..git_lock import workspace_write_lock
 from ..git_utils import (
     git_branch,
@@ -67,12 +66,6 @@ class CheckoutRequest(BaseModel):
     branch: str
     start_point: str | None = None
     base_branch: str | None = None
-
-
-@router.get("/workspaces/{name}/status")
-def get_workspace_status(name: str):
-    ws_path = resolve_workspace_path(name)
-    return git_info_to_status_dict(ws_path, name)
 
 
 def _parse_upstream_track(track: str) -> dict:

@@ -29,9 +29,12 @@ class TestWorkspacesContract:
 
 class TestGitStatusContract:
     def test_status_response_keys(self, client, git_workspace_with_commit):
-        res = client.get("/workspaces/test-ws/status", headers=AUTH)
+        res = client.get("/workspaces/statuses", headers=AUTH)
         assert res.status_code == 200
-        data = res.json()
+        statuses = res.json()["statuses"]
+        matched = [s for s in statuses if s.get("name") == "test-ws"]
+        assert len(matched) == 1
+        data = matched[0]
         expected_keys = {"name", "is_git_repo", "branch", "clean"}
         assert expected_keys.issubset(data.keys()), f"Missing keys: {expected_keys - data.keys()}"
 
