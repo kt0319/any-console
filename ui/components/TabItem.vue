@@ -370,16 +370,16 @@ onBeforeUnmount(() => {
 
 .tab-btn.active {
   color: var(--text-primary);
+  background: rgba(130, 170, 255, 0.12);
 }
 
 .tab-btn.active::after {
   content: "";
   position: absolute;
-  left: 10px;
-  right: 10px;
+  left: 0;
+  right: 0;
   bottom: -1px;
   height: 3px;
-  border-radius: 3px;
   background: var(--accent);
 }
 

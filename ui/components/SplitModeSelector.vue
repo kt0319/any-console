@@ -55,8 +55,8 @@ const modes = [
 }
 
 .split-tab-mode-option.active {
-  background: var(--accent);
-  color: var(--bg-primary);
+  background: rgba(130, 170, 255, 0.12);
+  color: var(--accent);
 }
 
 .split-tab-mode-option:disabled {

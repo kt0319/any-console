@@ -388,7 +388,7 @@ onMounted(() => {
 
 .workspace-tab.active {
   color: var(--text-primary);
-  background: var(--accent-bg-20);
+  background: rgba(130, 170, 255, 0.12);
   opacity: 1;
 }
 
