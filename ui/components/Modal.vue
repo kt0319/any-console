@@ -185,7 +185,6 @@ onMounted(() => {
     { view: "ModalMenu", state: {} },
     { view: "PreviewPorts", state: {} },
   ]));
-  on("git:closeFileModal", () => closeModal());
 
   on("git:openGitHub", () => openView([
     { view: "ModalMenu", state: {} },
