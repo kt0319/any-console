@@ -81,7 +81,7 @@ import { useConfirm } from "../composables/useConfirm.js";
 import { useModalView } from "../composables/useModalView.js";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { on } from "../app-bridge.js";
+import { emit, on } from "../app-bridge.js";
 
 // Session select の「新規セッション」を表す特別値。
 const NEW_SESSION_VALUE = "__new__";
@@ -229,7 +229,8 @@ async function run() {
   runError.value = "";
   try {
     const ok = await runItem(itemId, buildOverrides());
-    if (ok) popView();
+    // Run 成功後はそのままセッションを見せたいので、一覧へ戻さず Settings ごと閉じる。
+    if (ok) emit("modal:close");
   } finally {
     running.value = false;
   }
