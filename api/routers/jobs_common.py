@@ -98,10 +98,8 @@ def entry_to_job_definition(name, entry):
         detached_tab=entry.get("detached_tab", False),
         type=entry.get("type", "command"),
         url=entry.get("url", ""),
-        timeout_sec=entry.get("timeout_sec") or None,
         notify_phrase=entry.get("notify_phrase", ""),
         working_enabled=entry.get("working_enabled", True),
-        notify_on_done=entry.get("notify_on_done", False),
     )
 
 
@@ -134,10 +132,8 @@ def job_definition_to_dict(job_def, is_common=None):
         "detached_tab": job_def.detached_tab,
         "type": job_def.type,
         "url": job_def.url,
-        "timeout_sec": job_def.timeout_sec,
         "notify_phrase": job_def.notify_phrase,
         "working_enabled": job_def.working_enabled,
-        "notify_on_done": job_def.notify_on_done,
     }
     if is_common is not None:
         d["common"] = is_common
@@ -179,10 +175,8 @@ def build_job_entry(
     detached_tab: bool = False,
     job_type: str = "command",
     url: str = "",
-    timeout_sec: int | None = None,
     notify_phrase: str = "",
     working_enabled: bool = True,
-    notify_on_done: bool = False,
 ) -> dict:
     entry: dict[str, Any] = {}
     if job_type == "browser":
@@ -198,10 +192,6 @@ def build_job_entry(
         entry["confirm"] = False
     if detached_tab:
         entry["detached_tab"] = True
-    if timeout_sec is not None:
-        entry["timeout_sec"] = timeout_sec
-    if notify_on_done:
-        entry["notify_on_done"] = True
     _apply_agent_watch_fields(entry, notify_phrase, working_enabled)
     return entry
 
@@ -215,10 +205,8 @@ class JobRequest(BaseModel):
     icon_color: str = Field("", max_length=20)
     confirm: bool = True
     detached_tab: bool = False
-    timeout_sec: int | None = Field(None, ge=1, le=86400)
     notify_phrase: str = Field("", max_length=200)
     working_enabled: bool = True
-    notify_on_done: bool = False
 
 
 class ReorderJobsRequest(BaseModel):
@@ -253,16 +241,13 @@ def _validate_job_fields(body):
 def save_job(data, save_fn, job_name, body, log_msg):
     label, command, job_type, url = _validate_job_fields(body)
     notify_phrase = "" if job_type == "browser" else body.notify_phrase.strip()
-    # notify_on_done は非ターミナル実行（detached_tab=False）の完了通知にのみ意味を持つ。
-    notify_on_done = job_type != "browser" and not body.detached_tab and body.notify_on_done
     if job_name is None:
         job_name = generate_job_key(data)
     data[job_name] = build_job_entry(
         command, label, body.icon, body.icon_color, body.confirm, body.detached_tab,
-        job_type=job_type, url=url, timeout_sec=body.timeout_sec,
+        job_type=job_type, url=url,
         notify_phrase=notify_phrase,
         working_enabled=body.working_enabled if job_type != "browser" else True,
-        notify_on_done=notify_on_done,
     )
     save_fn(data)
     logger.info(log_msg, job_name)

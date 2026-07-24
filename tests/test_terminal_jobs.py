@@ -11,17 +11,6 @@ class TestJobExecution:
         })
         assert res.status_code == 400
 
-    def test_notify_on_done_ignored_when_detached_tab_true(self, client, workspace):
-        # notify_on_done は detached_tab=True（ターミナルタブ起動）のジョブには効果がない。
-        res = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
-            "label": "echo",
-            "command": "echo hello",
-            "notify_on_done": True,
-            "detached_tab": True,
-        })
-        job_name = res.json()["name"]
-        detail = client.get(f"/workspaces/test-ws/jobs/{job_name}", headers=AUTH).json()
-        assert detail["notify_on_done"] is False
 
 
 class TestTerminalSession:

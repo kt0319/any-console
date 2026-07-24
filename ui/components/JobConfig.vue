@@ -37,17 +37,6 @@
           <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.confirm" /> Confirm dialog</label>
           <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="form.detached_tab" /> Run detached</label>
         </div>
-        <div v-if="!form.detached_tab" class="ws-settings-row" style="gap:8px">
-          <label class="form-check-label">
-            <input type="checkbox" class="form-checkbox" v-model="form.notify_on_done" />
-            Notify when finished <span class="job-label-note">(PWA only)</span>
-          </label>
-        </div>
-        <div class="ws-settings-row">
-          <span class="ws-settings-label">Timeout (sec)</span>
-          <input type="number" class="form-input" style="max-width:120px" v-model.number="form.timeout_sec"
-            placeholder="Default (300)" min="1" max="86400" autocomplete="off" />
-        </div>
         <div class="ws-settings-row ws-settings-row-stack">
           <span class="ws-settings-label">Notify phrase <span class="job-label-note">(PWA only)</span></span>
           <input type="text" class="form-input" v-model="form.notify_phrase"
@@ -113,9 +102,7 @@ const form = ref(
           icon_color: jobEntry.job.icon_color || "",
           confirm: jobEntry.job.confirm !== false,
           detached_tab: !!jobEntry.job.detached_tab,
-          timeout_sec: jobEntry.job.timeout_sec ?? null,
           notify_phrase: jobEntry.job.notify_phrase || "",
-          notify_on_done: !!jobEntry.job.notify_on_done,
         }
       : {
           label: "",
@@ -126,9 +113,7 @@ const form = ref(
           icon_color: "",
           confirm: false,
           detached_tab: false,
-          timeout_sec: null,
           notify_phrase: "",
-          notify_on_done: false,
         }
 );
 
@@ -171,7 +156,6 @@ async function saveJob() {
     const icon = f.type === "browser"
       ? (trimmedUrl ? `favicon:${extractDomain(trimmedUrl)}` : DEFAULT_JOB_ICON)
       : (f.icon.trim() || DEFAULT_JOB_ICON);
-    const timeoutSec = f.type !== "browser" && f.timeout_sec ? Number(f.timeout_sec) : null;
     const body = {
       label: f.label.trim(),
       type: f.type,
@@ -181,10 +165,8 @@ async function saveJob() {
       icon_color: f.type === "browser" ? "" : f.icon_color.trim(),
       confirm: f.type === "browser" ? false : f.confirm,
       detached_tab: f.type === "browser" ? false : f.detached_tab,
-      timeout_sec: timeoutSec,
       notify_phrase: f.type === "browser" ? "" : f.notify_phrase.trim(),
       working_enabled: true,
-      notify_on_done: f.type !== "browser" && !f.detached_tab && f.notify_on_done,
     };
     const { ok, data } = isNew ? await apiPost(url, body) : await apiPut(url, body);
     if (!ok) {
