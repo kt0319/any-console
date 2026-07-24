@@ -51,8 +51,10 @@ export function useConnectivityMonitor() {
     const tabs = currentTabs();
 
     // 半開き接続（open だが keepalive も来ない）を強制的に閉じ、backoff 再接続へ回す。
+    // 切断中に tmux 側で進んだ出力を再接続後に取りこぼさないよう、history 復元も予約する。
     if (navigatorOnline) {
       for (const tab of staleAliveTabs(tabs, now, WS_STALE_THRESHOLD_MS)) {
+        tab._needsHistoryRestore = true;
         try { tab.ws.close(); } catch { /* already closing */ }
       }
     }

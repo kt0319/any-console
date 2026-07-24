@@ -31,6 +31,10 @@ export function useTerminal() {
       const rows = Number.isFinite(dims?.rows) ? dims.rows : tab.term.rows;
       const { ok, data } = await getWithRetry(apiGet, terminalSessionHistoryPath(tab.sessionId, { cols, rows }));
       if (ok && data?.content) {
+        // capture-pane は全スクロールバックを返すため、書き込み前に必ず一度リセットする。
+        // 新規/空の xterm では no-op だが、半開き接続からの再接続（既に内容が
+        // 描画済み）では reset しないと同じ内容が二重に積み上がる。
+        tab.term.reset();
         tab.term.write(data.content);
         tab._lastWriteAt = performance.now();
       }
