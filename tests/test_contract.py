@@ -122,24 +122,6 @@ class TestJobsContract:
 
 
 class TestRunContract:
-    def test_run_non_terminal_response_keys(self, client, workspace):
-        client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
-            "label": "echo",
-            "command": "echo contract",
-            "detached_tab": False,
-        })
-        job_name = client.get("/workspaces/test-ws/jobs", headers=AUTH).json()
-        name = list(job_name.keys())[0]
-
-        res = client.post("/run", headers=AUTH, json={
-            "job": name,
-            "workspace": "test-ws",
-        })
-        assert res.status_code == 200
-        data = res.json()
-        for key in ("status", "exit_code", "stdout", "stderr"):
-            assert key in data, f"Missing key: {key}"
-
     def test_run_terminal_response_keys(self, client, workspace):
         res = client.post("/run", headers=AUTH, json={
             "job": "terminal",

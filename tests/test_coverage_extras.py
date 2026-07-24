@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from api.runner import run_job
 from api.git_lock import workspace_write_lock
 from api.validators import validate_workspace_name, validate_optional_commit_ref
 from api.routers.git_branches import (
@@ -18,30 +17,6 @@ from api.routers.git_branches import (
 )
 from api.routers.git_helpers import run_raw_git
 from api.job_models import JobDefinition
-
-
-class TestRunJobExtras:
-    def _make_completed(self):
-        r = MagicMock(spec=subprocess.CompletedProcess)
-        r.returncode = 0
-        r.stdout = ""
-        r.stderr = ""
-        return r
-
-    def test_applies_extra_env(self):
-        job = JobDefinition(command="echo hi", label="t", description="")
-        with patch("api.runner.subprocess.run", return_value=self._make_completed()) as mock_run:
-            run_job(job, extra_env={"FOO": "bar"})
-            _, kwargs = mock_run.call_args
-            assert kwargs["env"].get("FOO") == "bar"
-
-    def test_multiline_command_passed_to_bash(self):
-        script = "set -e\nls\necho done"
-        job = JobDefinition(command=script, label="t", description="")
-        with patch("api.runner.subprocess.run", return_value=self._make_completed()) as mock_run:
-            run_job(job)
-            args, _ = mock_run.call_args
-            assert args[0] == ["bash", "-c", script]
 
 
 class TestWorkspaceWriteLockTimeout:

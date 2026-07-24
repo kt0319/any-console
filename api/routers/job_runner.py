@@ -1,13 +1,12 @@
 """/run エンドポイント。
 
-通常ジョブ（subprocess 実行）と TERMINAL_JOB（tmux セッション生成）の
-両方を扱う。
+TERMINAL_JOB（tmux セッション生成）を扱う。ジョブのコマンドは
+セッション作成後に tmux へ送り込まれて実行される（自動実行）。
 """
 
 import logging
 import re
 import shlex
-import subprocess
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -15,19 +14,14 @@ from pydantic import BaseModel
 from ..activity import log_activity
 from ..auth import verify_token
 from ..common import (
-    JOB_TIMEOUT_SEC,
     MAX_COMMAND_LENGTH,
     resolve_workspace_path,
     sanitize_log_value,
 )
-from ..errors import bad_request, server_error, timeout_error
-from ..git_utils import command_result_dict
-from ..job_models import TERMINAL_JOB, TERMINAL_JOB_KEY
-from ..push import send_push_notification
-from ..runner import run_job
+from ..errors import bad_request
+from ..job_models import TERMINAL_JOB_KEY
 from ..terminal_session import create_registered_session
 from ..tmux import send_keys_to_tmux, wait_pane_ready
-from .jobs_common import get_workspace_jobs
 
 logger = logging.getLogger(__name__)
 
@@ -122,61 +116,11 @@ def _create_terminal_session(body, ws_path):
     }
 
 
-def _run_regular_job(body, job_def, ws_path):
-    cwd_path = str(ws_path) if ws_path else ""
-    logger.info("job start job=%s workspace=%s", body.job, body.workspace or "(none)")
-    timeout_sec = job_def.timeout_sec if job_def.timeout_sec is not None else JOB_TIMEOUT_SEC
-    try:
-        result = run_job(job_def, workspace=cwd_path)
-    except subprocess.TimeoutExpired:
-        logger.warning("job timeout job=%s workspace=%s sec=%d",
-                       body.job, body.workspace or "(none)", timeout_sec)
-        raise timeout_error(f"Job execution timed out after {timeout_sec}s") from None
-    except OSError as e:
-        logger.error("job exec failed job=%s workspace=%s: %s", body.job, body.workspace or "(none)", e)
-        raise server_error(f"Job execution failed: {e}") from None
-
-    payload = command_result_dict(result)
-
-    ok = result.returncode == 0
-    if ok:
-        logger.info("job ok job=%s workspace=%s", body.job, body.workspace or "(none)")
-        log_activity(body.workspace, "job_run", job=body.job)
-    else:
-        logger.warning(
-            "job failed job=%s workspace=%s rc=%d stderr=%s",
-            body.job, body.workspace or "(none)",
-            result.returncode, sanitize_log_value(result.stderr[:200]),
-        )
-
-    if job_def.notify_on_done:
-        label = job_def.label or body.job
-        status = "Succeeded" if ok else f"Failed (exit {result.returncode})"
-        url = f"/?workspace={body.workspace}" if body.workspace else "/"
-        send_push_notification(
-            title=f"{label}: {status}",
-            body=body.workspace or "",
-            url=url,
-            notif_type="job_done",
-        )
-
-    return payload
-
-
 @router.post("/run")
 def execute_job(body: RunRequest):
     ws_path = resolve_workspace_path(body.workspace)
 
-    if body.job == TERMINAL_JOB_KEY:
-        job_def = TERMINAL_JOB
-    else:
-        available_jobs = get_workspace_jobs(body.workspace)
-        entry = available_jobs.get(body.job)
-        if not entry:
-            raise bad_request(f"Unknown job: {body.job}")
-        job_def, _ = entry
+    if body.job != TERMINAL_JOB_KEY:
+        raise bad_request(f"Unknown job: {body.job}")
 
-    if body.job == TERMINAL_JOB_KEY:
-        return _create_terminal_session(body, ws_path)
-
-    return _run_regular_job(body, job_def, ws_path)
+    return _create_terminal_session(body, ws_path)
