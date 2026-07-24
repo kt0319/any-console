@@ -127,7 +127,11 @@ function onClick(e) {
   if (isDragging.value) return;
   if (mouseLongPress.consumeFired()) return;
   e.currentTarget?.blur();
-  if (isActive.value) return;
+  if (isActive.value) {
+    // モバイル(パネル下部)はアクティブなタブを再タップしたらクローズ確認を出す。
+    if (props.isPanelBottom) onClose();
+    return;
+  }
   emits("select", props.tab);
 }
 
@@ -222,8 +226,9 @@ function onDropOnTab(e) {
   cancelDrag();
 }
 
-// Mobile: 短いスワイプ=ネイティブ横スクロール、長押し→そのまま離す=閉じる、
-// 長押し→動かす=ドラッグ（横移動で並び替え、タブバー外へドラッグでスプリット）
+// Mobile: 短いスワイプ=ネイティブ横スクロール、長押し→動かす=ドラッグ
+// （横移動で並び替え、タブバー外へドラッグでスプリット）。
+// クローズはジェスチャーではなく、アクティブなタブの再タップ(onClick)で行う。
 const touchTracker = createTouchTracker();
 
 function hitTestTab(clientX, clientY) {
@@ -295,7 +300,7 @@ function onTouchMove(e) {
 
 function onTouchEnd(e) {
   touchLongPress.cancel();
-  const fired = touchLongPress.consumeFired();
+  touchLongPress.consumeFired();
   if (isDragging.value) {
     if (e.cancelable) e.preventDefault();
     const touch = e.changedTouches[0];
@@ -303,7 +308,8 @@ function onTouchEnd(e) {
     isDragging.value = false;
     return;
   }
-  if (fired) onClose();
+  // 長押し→そのまま離す＝クローズは廃止。クローズはアクティブタブの
+  // 再タップ(onClick)に一本化する。
 }
 
 function onTouchCancel() {
