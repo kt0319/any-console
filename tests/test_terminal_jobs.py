@@ -145,8 +145,8 @@ class TestSessionLimit:
         import api.common as common_mod
         monkeypatch.setattr(common_mod, "MAX_TERMINAL_SESSIONS", 2)
 
-        import api.routers.job_runner as job_runner_mod
-        monkeypatch.setattr(job_runner_mod, "MAX_TERMINAL_SESSIONS", 2)
+        import api.terminal_session as terminal_session_mod
+        monkeypatch.setattr(terminal_session_mod, "MAX_TERMINAL_SESSIONS", 2)
 
         for _ in range(2):
             res = client.post("/run", headers=AUTH, json={

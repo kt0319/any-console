@@ -14,7 +14,6 @@ import asyncio
 import functools
 import json
 import logging
-import re
 import secrets
 import subprocess
 
@@ -27,27 +26,23 @@ from ..activity import log_activity
 from ..auth import verify_token
 from ..common import (
     DISPATCH_QUEUE_FILE,
-    MAX_TERMINAL_SESSIONS,
-    TMUX_SESSION_PREFIX,
     resolve_workspace_path,
 )
-from ..errors import bad_request, server_error, too_many_requests
+from ..errors import bad_request, server_error
 from ..git_info import invalidate_git_info
 from ..git_utils import (
     git_branch,
     git_branches,
     run_git_raw,
-    worktree_base_of,
 )
 from ..job_models import TERMINAL_JOB, TERMINAL_JOB_KEY
 from ..push import send_push_notification
 from ..terminal_session import (
     TERMINAL_SESSIONS,
-    TerminalSession,
+    create_registered_session,
     sessions_lock,
 )
 from ..tmux import (
-    create_tmux_session,
     send_keys_to_tmux,
     tmux_session_exists,
     wait_pane_ready,
@@ -257,36 +252,15 @@ def _find_existing_session(workspace: str, job: str, match: str = "any"):
     return None, None
 
 
-def _make_session_id(workspace: str) -> str:
-    short_id = secrets.token_urlsafe(6)
-    safe = re.sub(r"[^a-zA-Z0-9_-]", "_", worktree_base_of(workspace))
-    return f"{safe}-{short_id}"
-
-
 def _create_session(workspace: str, ws_path, job: str, job_def):
-    with sessions_lock:
-        if len(TERMINAL_SESSIONS) >= MAX_TERMINAL_SESSIONS:
-            raise too_many_requests(
-                f"Maximum number of terminal sessions reached ({MAX_TERMINAL_SESSIONS})",
-            )
-    session_id = _make_session_id(workspace)
-    tmux_name = f"{TMUX_SESSION_PREFIX}{session_id}"
-    try:
-        create_tmux_session(str(ws_path) if ws_path else None, tmux_name)
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
-        logger.error("tmux session creation failed: %s", e)
-        raise server_error(f"Failed to create terminal: {e}") from None
-    session = TerminalSession(
+    session_id, session = create_registered_session(
+        ws_path,
         workspace=workspace,
-        tmux_session_name=tmux_name,
         icon=job_def.icon,
         icon_color=job_def.icon_color,
         job_name=None if job == TERMINAL_JOB_KEY else job,
         job_label=job_def.label,
     )
-    with sessions_lock:
-        TERMINAL_SESSIONS[session_id] = session
-    session.save_metadata()
     logger.info("dispatch session created session=%s workspace=%s job=%s",
                 session_id, workspace, job)
     return session_id, session

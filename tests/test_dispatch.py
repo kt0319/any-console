@@ -38,7 +38,8 @@ def _mock_tmux(monkeypatch):
     def fake_exists(name):
         return name in created_sessions
 
-    monkeypatch.setattr(dispatch_mod, "create_tmux_session", fake_create)
+    import api.terminal_session as terminal_session_mod
+    monkeypatch.setattr(terminal_session_mod, "create_tmux_session", fake_create)
     monkeypatch.setattr(dispatch_mod, "send_keys_to_tmux", fake_send_keys)
     monkeypatch.setattr(dispatch_mod, "wait_pane_ready", fake_wait_ready)
     monkeypatch.setattr(dispatch_mod, "tmux_session_exists", fake_exists)

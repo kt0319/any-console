@@ -6,7 +6,6 @@
 
 import logging
 import re
-import secrets
 import shlex
 import subprocess
 
@@ -18,22 +17,16 @@ from ..auth import verify_token
 from ..common import (
     JOB_TIMEOUT_SEC,
     MAX_COMMAND_LENGTH,
-    MAX_TERMINAL_SESSIONS,
-    TMUX_SESSION_PREFIX,
     resolve_workspace_path,
     sanitize_log_value,
 )
-from ..errors import bad_request, server_error, timeout_error, too_many_requests
-from ..git_utils import command_result_dict, worktree_base_of
+from ..errors import bad_request, server_error, timeout_error
+from ..git_utils import command_result_dict
 from ..job_models import TERMINAL_JOB, TERMINAL_JOB_KEY
 from ..push import send_push_notification
 from ..runner import run_job
-from ..terminal_session import (
-    TERMINAL_SESSIONS,
-    TerminalSession,
-    sessions_lock,
-)
-from ..tmux import create_tmux_session, send_keys_to_tmux, wait_pane_ready
+from ..terminal_session import create_registered_session
+from ..tmux import send_keys_to_tmux, wait_pane_ready
 from .jobs_common import get_workspace_jobs
 
 logger = logging.getLogger(__name__)
@@ -100,35 +93,15 @@ def _validate_terminal_command(command: str | None) -> str | None:
 def _create_terminal_session(body, ws_path):
     command = _substitute_placeholders(body.command, body.command_vars)
     command = _validate_terminal_command(command)
-    with sessions_lock:
-        if len(TERMINAL_SESSIONS) >= MAX_TERMINAL_SESSIONS:
-            raise too_many_requests(
-                f"Maximum number of terminal sessions reached ({MAX_TERMINAL_SESSIONS})",
-            )
-    cwd_path = str(ws_path) if ws_path else None
-    short_id = secrets.token_urlsafe(6)
-    if body.workspace:
-        safe_name = re.sub(r"[^a-zA-Z0-9_-]", "_", worktree_base_of(body.workspace))
-    else:
-        safe_name = None
-    session_id = f"{safe_name}-{short_id}" if safe_name else short_id
-    tmux_name = f"{TMUX_SESSION_PREFIX}{session_id}"
-    try:
-        create_tmux_session(cwd_path, tmux_name)
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as e:
-        logger.error("tmux session creation failed: %s", e)
-        raise server_error(f"Failed to create terminal: {e}") from None
-    session = TerminalSession(
+    session_id, session = create_registered_session(
+        ws_path,
         workspace=body.workspace,
-        tmux_session_name=tmux_name,
         icon=body.icon,
         icon_color=body.icon_color,
         job_name=body.job_name,
         job_label=body.job_label,
     )
-    with sessions_lock:
-        TERMINAL_SESSIONS[session_id] = session
-    session.save_metadata()
+    tmux_name = session.tmux_session_name
     logger.info("terminal session created session=%s tmux=%s workspace=%s",
                  session_id, tmux_name, body.workspace or "(none)")
 
