@@ -10,7 +10,7 @@
         @click="switchPane(tab.key)"
       >
         <span :class="['mdi', tab.icon]" :style="tab.iconColor ? { color: tab.iconColor } : null"></span>
-        <span class="workspace-tab-label">{{ tab.label }}<span v-if="tab.count"> ({{ tab.count }})</span></span>
+        <span v-if="activePane === tab.key" class="workspace-tab-label">{{ tab.label }}<span v-if="tab.count"> ({{ tab.count }})</span></span>
       </button>
     </div>
 
@@ -354,8 +354,8 @@ onMounted(() => {
   display: flex;
   flex-direction: row;
   flex-shrink: 0;
-  gap: 2px;
-  padding: 4px 8px 0;
+  gap: 4px;
+  padding: 6px 8px;
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
@@ -371,26 +371,39 @@ onMounted(() => {
 .workspace-tab {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 6px 12px;
-  background: color-mix(in srgb, var(--bg-primary) 70%, transparent);
-  border: 1px solid var(--border);
-  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 13px;
   white-space: nowrap;
   cursor: pointer;
   flex-shrink: 0;
   position: relative;
+  opacity: 0.6;
 }
 
 .workspace-tab.active {
   color: var(--text-primary);
-  background: color-mix(in srgb, var(--bg-secondary) 70%, transparent);
+  background: var(--accent-bg-20);
+  opacity: 1;
+}
+
+.workspace-tab.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  background: var(--accent);
 }
 
 .workspace-tab .mdi {
-  font-size: 16px;
+  font-size: 20px;
   line-height: 1;
 }
 
@@ -414,10 +427,15 @@ onMounted(() => {
 
   .workspace-tabs {
     padding: 0 8px 4px;
+    /* column-reverse でタブバーは画面下部に来るため、コンテンツとの境界は
+       border-bottom（画面最下端になり無意味）ではなく border-top に出す。 */
+    border-bottom: none;
+    border-top: 1px solid var(--border);
   }
 
-  .workspace-tab {
-    border-radius: 0 0 var(--radius) var(--radius);
+  .workspace-tab.active::after {
+    top: -1px;
+    bottom: auto;
   }
 }
 </style>

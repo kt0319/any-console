@@ -328,14 +328,15 @@ defineExpose({
 }
 
 .main-panel.panel-bottom :deep(.tab-bar) {
-  padding: 0 8px;
+  padding: 0 4px;
+  gap: 2px;
 }
 
 .main-panel.panel-bottom :deep(.tab-btn) {
-  border-radius: 0 0 6px 6px;
-  padding: 6px 12px;
+  border-radius: 0;
+  padding: 8px 14px;
   gap: 2px;
-  min-width: 80px;
+  min-width: 0;
   justify-content: center;
 }
 

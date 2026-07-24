@@ -85,7 +85,7 @@ function onSettingsClick() {
   flex: 1;
   min-width: 0;
   min-height: 30px;
-  gap: 2px;
+  gap: 6px;
   padding: 4px 8px 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;

@@ -32,7 +32,13 @@
         @click.stop.prevent
       >&times;</span>
     </template>
-    <span v-if="isPanelBottom && isDirty" class="tab-dirty-dot" aria-label="uncommitted changes"></span>
+    <span
+      v-if="isPanelBottom"
+      class="tab-dirty-dot"
+      :style="{ visibility: isDirty ? 'visible' : 'hidden' }"
+      :aria-hidden="!isDirty"
+      aria-label="uncommitted changes"
+    ></span>
   </button>
 </template>
 
@@ -101,13 +107,17 @@ const isWorktree = computed(() => {
   return !!ws?.worktree;
 });
 
+// アイコン拡大はモバイル(パネル下部・アイコンのみ表示)の時だけ。
+// PCはラベル付きの横並びタブなので従来サイズのままにする。
+const iconSize = computed(() => (props.isPanelBottom ? 20 : 18));
+
 const wsIconHtml = computed(() => {
-  if (props.tab.wsIcon) return renderIconStr(props.tab.wsIcon.name, props.tab.wsIcon.color, 18);
+  if (props.tab.wsIcon) return renderIconStr(props.tab.wsIcon.name, props.tab.wsIcon.color, iconSize.value);
   return "";
 });
 
 const iconHtml = computed(() => {
-  if (props.tab.icon) return renderIconStr(props.tab.icon.name, props.tab.icon.color, 18);
+  if (props.tab.icon) return renderIconStr(props.tab.icon.name, props.tab.icon.color, iconSize.value);
   return "";
 });
 
@@ -325,16 +335,18 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .tab-btn {
+  position: relative;
   display: flex;
   align-items: center;
   flex-shrink: 0;
   gap: 6px;
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius) var(--radius) 0 0;
-  background: var(--bg-primary);
+  padding: 8px 12px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
   font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   cursor: pointer;
   white-space: nowrap;
@@ -351,8 +363,34 @@ onBeforeUnmount(() => {
 }
 
 .tab-btn.active {
-  background: var(--bg-tertiary);
   color: var(--text-primary);
+}
+
+.tab-btn.active::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+/* モバイル(パネル下部)はアイコンのみでテキストが無く、下線だけでは
+   アクティブ判別がしづらいため、非アクティブ側を明確に減光する。
+   インジケーターもタブバー自体が画面下部にあるため、アイコンの上側に出す。 */
+.tab-btn.tab-panel-bottom {
+  opacity: 0.55;
+}
+
+.tab-btn.tab-panel-bottom.active {
+  opacity: 1;
+}
+
+.tab-btn.tab-panel-bottom.active::after {
+  top: -1px;
+  bottom: auto;
 }
 
 .tab-btn.tab-activity {
@@ -397,6 +435,10 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
+.tab-btn.tab-panel-bottom .tab-icon-slot {
+  width: 20px;
+}
+
 .tab-close {
   display: inline-flex;
   align-items: center;
@@ -420,19 +462,24 @@ onBeforeUnmount(() => {
   -webkit-touch-callout: none;
 }
 
+.tab-btn.tab-panel-bottom :deep(.favicon-icon) {
+  width: 20px;
+  height: 20px;
+}
+
 @keyframes tab-activity-glow {
-  0%, 100% { background: var(--bg-primary); }
+  0%, 100% { background: transparent; }
   50% { background: rgba(130, 170, 255, 0.25); }
 }
 
 .tab-btn.tab-working:not(.active) {
   background-image: linear-gradient(
     90deg,
-    var(--bg-primary) 0%,
-    var(--bg-primary) 10%,
+    transparent 0%,
+    transparent 10%,
     rgba(130, 170, 255, 0.2) 50%,
-    var(--bg-primary) 90%,
-    var(--bg-primary) 100%
+    transparent 90%,
+    transparent 100%
   );
   background-size: 200% 100%;
   animation: tab-working-pulse 2s linear infinite;
