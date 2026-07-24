@@ -24,7 +24,7 @@ from ..common import (
     sanitize_log_value,
 )
 from ..errors import bad_request, server_error, timeout_error, too_many_requests
-from ..git_utils import command_result_dict, git_branches, worktree_base_of
+from ..git_utils import command_result_dict, worktree_base_of
 from ..job_models import TERMINAL_JOB, TERMINAL_JOB_KEY
 from ..push import send_push_notification
 from ..runner import run_job
@@ -43,7 +43,6 @@ router = APIRouter(dependencies=[Depends(verify_token)])
 
 class RunRequest(BaseModel):
     job: str
-    args: dict[str, str] = {}
     workspace: str | None = None
     icon: str | None = None
     icon_color: str | None = None
@@ -51,32 +50,6 @@ class RunRequest(BaseModel):
     job_label: str | None = None
     command: str | None = None
     command_vars: dict[str, str] = {}
-
-
-def _validate_job_args(job_def, body_args, ws_path):
-    ordered_args: list[str] = []
-    for arg_option in job_def.args:
-        value = body_args.get(arg_option.name)
-        if value is None:
-            if arg_option.required:
-                raise bad_request(f"Missing required argument: {arg_option.name}")
-            continue
-
-        if arg_option.dynamic == "branches":
-            if not ws_path:
-                raise bad_request("Workspace is required for this job")
-            allowed = git_branches(ws_path)
-            if value not in allowed:
-                raise bad_request(f"Invalid branch: {value}")
-        elif arg_option.values and value not in arg_option.values:
-            raise bad_request(
-                f"Invalid value for {arg_option.name}: {value} (allowed: {arg_option.values})",
-            )
-        else:
-            if re.search(r"[\x00-\x1f\x7f]", value):
-                raise bad_request(f"Invalid characters in argument: {arg_option.name}")
-        ordered_args.append(value)
-    return ordered_args
 
 
 _PLACEHOLDER_RE = re.compile(r"\[\[\s*([A-Za-z0-9_]+)\s*\]\]")
@@ -176,12 +149,12 @@ def _create_terminal_session(body, ws_path):
     }
 
 
-def _run_regular_job(body, job_def, ordered_args, ws_path):
+def _run_regular_job(body, job_def, ws_path):
     cwd_path = str(ws_path) if ws_path else ""
     logger.info("job start job=%s workspace=%s", body.job, body.workspace or "(none)")
     timeout_sec = job_def.timeout_sec if job_def.timeout_sec is not None else JOB_TIMEOUT_SEC
     try:
-        result = run_job(job_def, ordered_args, workspace=cwd_path)
+        result = run_job(job_def, workspace=cwd_path)
     except subprocess.TimeoutExpired:
         logger.warning("job timeout job=%s workspace=%s sec=%d",
                        body.job, body.workspace or "(none)", timeout_sec)
@@ -230,9 +203,7 @@ def execute_job(body: RunRequest):
             raise bad_request(f"Unknown job: {body.job}")
         job_def, _ = entry
 
-    ordered_args = _validate_job_args(job_def, body.args, ws_path)
-
     if body.job == TERMINAL_JOB_KEY:
         return _create_terminal_session(body, ws_path)
 
-    return _run_regular_job(body, job_def, ordered_args, ws_path)
+    return _run_regular_job(body, job_def, ws_path)

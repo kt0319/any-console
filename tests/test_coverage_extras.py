@@ -17,8 +17,7 @@ from api.routers.git_branches import (
     _unstash,
 )
 from api.routers.git_helpers import run_raw_git
-from api.routers.job_runner import _validate_job_args
-from api.job_models import JobDefinition, ArgOption
+from api.job_models import JobDefinition
 
 
 class TestRunJobExtras:
@@ -29,20 +28,10 @@ class TestRunJobExtras:
         r.stderr = ""
         return r
 
-    def test_extends_args_when_provided(self):
-        job = JobDefinition(command="echo $1 $2", label="t", description="")
-        with patch("api.runner.subprocess.run", return_value=self._make_completed()) as mock_run:
-            run_job(job, ["a", "b"])
-            args, _ = mock_run.call_args
-            # bash -c "<command>" bash arg1 arg2
-            assert args[0][:3] == ["bash", "-c", "echo $1 $2"]
-            assert args[0][3] == "bash"
-            assert args[0][4:] == ["a", "b"]
-
     def test_applies_extra_env(self):
         job = JobDefinition(command="echo hi", label="t", description="")
         with patch("api.runner.subprocess.run", return_value=self._make_completed()) as mock_run:
-            run_job(job, [], extra_env={"FOO": "bar"})
+            run_job(job, extra_env={"FOO": "bar"})
             _, kwargs = mock_run.call_args
             assert kwargs["env"].get("FOO") == "bar"
 
@@ -50,9 +39,9 @@ class TestRunJobExtras:
         script = "set -e\nls\necho done"
         job = JobDefinition(command=script, label="t", description="")
         with patch("api.runner.subprocess.run", return_value=self._make_completed()) as mock_run:
-            run_job(job, [])
+            run_job(job)
             args, _ = mock_run.call_args
-            assert args[0][:3] == ["bash", "-c", script]
+            assert args[0] == ["bash", "-c", script]
 
 
 class TestWorkspaceWriteLockTimeout:
@@ -303,70 +292,6 @@ class TestEnsureBranchErrors:
             with pytest.raises(HTTPException) as exc:
                 _ensure_branch("ws", "/p", "feature", create=True, base=None)
         assert exc.value.status_code == 500
-
-
-class TestValidateJobArgs:
-    def test_missing_required_raises(self):
-        from fastapi import HTTPException
-        job = JobDefinition(
-            command="echo",
-            label="t",
-            description="",
-            args=[ArgOption(name="x", values=[], required=True)],
-        )
-        with pytest.raises(HTTPException):
-            _validate_job_args(job, {}, None)
-
-    def test_missing_optional_skipped(self):
-        job = JobDefinition(
-            command="echo",
-            label="t",
-            description="",
-            args=[ArgOption(name="x", values=["a", "b"], required=False)],
-        )
-        assert _validate_job_args(job, {}, None) == []
-
-    def test_invalid_value_rejected(self):
-        from fastapi import HTTPException
-        job = JobDefinition(
-            command="echo",
-            label="t",
-            description="",
-            args=[ArgOption(name="x", values=["a", "b"], required=True)],
-        )
-        with pytest.raises(HTTPException):
-            _validate_job_args(job, {"x": "c"}, None)
-
-    def test_control_characters_rejected(self):
-        from fastapi import HTTPException
-        job = JobDefinition(
-            command="echo",
-            label="t",
-            description="",
-            args=[ArgOption(name="x", values=[], required=True)],
-        )
-        with pytest.raises(HTTPException):
-            _validate_job_args(job, {"x": "ok\x00bad"}, None)
-
-    def test_dynamic_branches_requires_workspace(self):
-        from fastapi import HTTPException
-        job = JobDefinition(
-            command="echo",
-            label="t",
-            description="",
-            args=[ArgOption(name="b", values=[], required=True, dynamic="branches")],
-        )
-        with pytest.raises(HTTPException):
-            _validate_job_args(job, {"b": "main"}, None)
-
-    def test_valid_value_appended(self):
-        job = JobDefinition(
-            command="echo",
-            label="t",
-            description="",
-            args=[ArgOption(name="x", values=["a", "b"], required=True)],
-        )
-        assert _validate_job_args(job, {"x": "a"}, None) == ["a"]
 
 
 class TestResolveSuggestBase:

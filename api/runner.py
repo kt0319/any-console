@@ -9,11 +9,10 @@ logger = logging.getLogger(__name__)
 
 
 def run_job(
-    job: JobDefinition, args: list[str], workspace: str = "", extra_env: dict[str, str] | None = None
+    job: JobDefinition, workspace: str = "", extra_env: dict[str, str] | None = None
 ) -> subprocess.CompletedProcess:
     # bash -c で実行して複数行スクリプト・パイプ・制御構文に対応する。
-    # args は bash の $1..$N として渡る（"bash" は $0 用のダミー）。
-    cmd_parts = ["bash", "-c", job.command, "bash", *(args or [])]
+    cmd_parts = ["bash", "-c", job.command]
     env = {**os.environ}
     if workspace:
         env["WORKSPACE"] = workspace
@@ -22,7 +21,7 @@ def run_job(
     cwd = workspace if workspace else str(PROJECT_ROOT)
 
     timeout = job.timeout_sec if job.timeout_sec is not None else JOB_TIMEOUT_SEC
-    logger.info("run command=%s args=%s cwd=%s timeout=%s", sanitize_log_value(job.command), args, cwd, timeout)
+    logger.info("run command=%s cwd=%s timeout=%s", sanitize_log_value(job.command), cwd, timeout)
     result = subprocess.run(
         cmd_parts,
         capture_output=True,

@@ -51,14 +51,14 @@ class TestRunnerTimeout:
     def test_uses_job_timeout_sec_when_set(self):
         job = JobDefinition(command="echo hi", label="test", description="", timeout_sec=10)
         with patch("api.runner.subprocess.run", return_value=self._make_completed()) as mock_run:
-            run_job(job, [])
+            run_job(job)
             _, kwargs = mock_run.call_args
             assert kwargs["timeout"] == 10
 
     def test_uses_default_timeout_when_none(self):
         job = JobDefinition(command="echo hi", label="test", description="", timeout_sec=None)
         with patch("api.runner.subprocess.run", return_value=self._make_completed()) as mock_run:
-            run_job(job, [])
+            run_job(job)
             _, kwargs = mock_run.call_args
             assert kwargs["timeout"] == JOB_TIMEOUT_SEC
 
