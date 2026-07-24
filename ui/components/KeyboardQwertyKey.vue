@@ -138,7 +138,7 @@ const props = defineProps({
   externalFnView: { type: Boolean, default: false },
 });
 
-const emitLocal = defineEmits(["dismiss", "submitted", "inputFocus", "snippetToggle", "fnToggle"]);
+const emitLocal = defineEmits(["dismiss", "submitted", "snippetToggle", "fnToggle"]);
 
 const inputStore = useInputStore();
 const auth = useAuthStore();
@@ -198,7 +198,6 @@ const { historyPrev, historyNext, cycleSnippet } = useInputDraftHistory(
 
 function onInputFocused(focused) {
   _inputFocused.value = !!focused;
-  emitLocal("inputFocus", !!focused);
 }
 
 function onChipTap({ command }) {

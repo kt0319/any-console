@@ -23,7 +23,7 @@ export function useAppAuthGate() {
     const result = await auth.checkToken();
     if (result.ok) {
       auth.markAuthenticated();
-      auth.setServerInfo(result.hostname, result.commitDate);
+      auth.setServerInfo(result.hostname);
       await onAuthenticated();
     } else if (!result.auth) {
       showLogin.value = true;

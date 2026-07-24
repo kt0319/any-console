@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import { LS_KEY_INPUT_HISTORY, INPUT_HISTORY_MAX } from "../utils/constants.js";
 import { safeJsonLoad } from "../utils/storage.js";
-import { MODIFIER_KEYS, NUMBER_KEYS as NUMBER_KEYS_DEF, QWERTY_ROWS as QWERTY_ROWS_DEF } from "../data/keyboard-layout.js";
+import { NUMBER_KEYS as NUMBER_KEYS_DEF, QWERTY_ROWS as QWERTY_ROWS_DEF } from "../data/keyboard-layout.js";
 
 const INPUT_HISTORY_KEY = LS_KEY_INPUT_HISTORY;
 
@@ -11,7 +11,6 @@ export const useInputStore = defineStore("input", () => {
   const snippetsCache = ref(/** @type {{ label: string, command: string }[]} */ ([]));
   const isSnippetsLoaded = ref(false);
 
-  const QUICK_KEYS = ref(MODIFIER_KEYS);
   const NUMBER_KEYS = ref(NUMBER_KEYS_DEF);
   const QWERTY_ROWS = ref(QWERTY_ROWS_DEF);
 
@@ -25,10 +24,8 @@ export const useInputStore = defineStore("input", () => {
   }
 
   return {
-    QUICK_KEYS,
     NUMBER_KEYS,
     QWERTY_ROWS,
-    INPUT_HISTORY_KEY,
     INPUT_HISTORY_MAX,
     inputHistory,
     snippetsCache,

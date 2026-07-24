@@ -255,7 +255,6 @@ export const useTerminalStore = defineStore("terminal", () => {
   return {
     openTabs,
     activeTabId,
-    terminalIdCounter,
     hasRestoredTabsFromStorage,
     restoreSessionsLoading,
     restoreSessionsError,
@@ -280,10 +279,8 @@ export const useTerminalStore = defineStore("terminal", () => {
     detachTab,
     moveTab,
     setTabWorkspace,
-    saveTabOrder,
     loadTabOrder,
     resetTerminalSettings,
-    getTerminalRuntimeOptions,
     sanitizeTerminalSetting,
     sanitizeTerminalSettings,
   };
