@@ -17,11 +17,15 @@
   token を即座に破棄して claimed へ倒し、リプレイ（同一トークンの再利用）を防ぐ。
   デバイス登録が完了して初めて claimed へ倒すため（下記 claim_pairing 参照）、
   途中で登録が失敗しても「claimed だがログインは失敗」という不整合を残さない。
+  登録中もエントリ自体は dict に残す（`claiming` フラグで二重claimだけ排他する）
+  — 一時的にでも dict から消すと、その間の status ポーリングが not_found を
+  返し、発行元が「期限切れ」と誤認してポーリングを止めてしまうため。
 - id・token どちらも総当たりされないよう、専用のレートリミッタ（rate_limiter.py
-  の `_FixedWindowCounter` を再利用）で start/status/claim を個別に絞る。claim は
-  pairing_id ごとに独立してカウントする（Tailscale Serve 経由だと全クライアントが
-  loopback 発に見えるため、IPだけで絞ると無関係な pairing_id への荒らしで
-  正規の pairing まで巻き添えでブロックされてしまう）。
+  の `_FixedWindowCounter` を再利用）で start/status/claim を個別に絞る。
+  status・claim はどちらも pairing_id ごとに独立してカウントする（Tailscale
+  Serve 経由だと全クライアントが loopback 発に見えるため、IPだけで絞ると
+  無関係な pairing_id への荒らしで正規の pairing まで巻き添えでブロック
+  されてしまう）。
 - claim は既存の単一トークン認証と同じ cookie 発行ロジックを共有する
   （二重実装しない）。QRペアリングは「同じユーザーの別デバイス追加」であり、
   新規ユーザー招待機能ではない（単一ユーザー前提は変えない）。同一UA・sourceの
@@ -29,9 +33,15 @@
   必ず新規デバイスとして登録する（同一UAの2台を続けてペアリングすると、
   再利用ロジックが後発デバイスのために先発デバイスのsecretを回転させ、
   先発デバイスが無言でログアウトされてしまうため）。
+- QRに埋め込む URL の https://<hostname> は、Tailscale Serve が「何かしら」
+  稼働しているだけでなく、実際にこのプロセスの待受ポートへ proxy している
+  ことまで確認できた場合にのみ使う（`_tailscale_serve_targets_port`）。
+  同一tailnetホストで別サービス向けにServeが設定されているだけのケースを
+  誤って信頼し、到達しないURLをQRに埋め込まないようにするため。
 """
 
 import hmac
+import json
 import logging
 import secrets
 import threading
@@ -42,6 +52,7 @@ from pydantic import BaseModel
 
 from .. import auth as auth_module
 from ..auth import _resolve_tailscale_name, verify_token
+from ..common import SYSTEM_CMD_TIMEOUT_SEC, run_subprocess_safe
 from ..devices import autoname_from_user_agent, register_device
 from ..errors import bad_request, gone, server_error, too_many_requests, unauthorized
 from ..rate_limiter import _FixedWindowCounter
@@ -87,16 +98,46 @@ def _sweep_expired_locked(now: float) -> None:
         _pairings.pop(pid, None)
 
 
+def _tailscale_serve_targets_port(port: int) -> bool:
+    """Tailscale Serveが実際にこのプロセスの待受ポートへproxyしているか確認する。
+
+    `tailscale serve status --json` の `Web.<host:443>.Handlers["/"].Proxy` が
+    このポートを指しているかまで見る。単に「TCP/Webキーが存在する」だけでは、
+    同一tailnetホストで動く別サービス向けのServe設定を誤って信頼してしまい
+    （その場合 https://<hostname> は any-console に届かない）、スキャン不能な
+    URLをQRに埋め込むことになるため、システム情報カード用の簡易チェック
+    （system._get_tailscale_serve_running、"何か動いているか"の表示用）とは
+    別に、ペアリング専用でここまで確認する。
+    """
+    result = run_subprocess_safe(["tailscale", "serve", "status", "--json"], timeout=SYSTEM_CMD_TIMEOUT_SEC)
+    if result is None or result.returncode != 0:
+        return False
+    try:
+        data = json.loads(result.stdout)
+    except (json.JSONDecodeError, TypeError):
+        return False
+    web = data.get("Web") if isinstance(data, dict) else None
+    if not isinstance(web, dict):
+        return False
+    needle = f":{port}"
+    for site in web.values():
+        handlers = site.get("Handlers", {}) if isinstance(site, dict) else {}
+        root = handlers.get("/", {}) if isinstance(handlers, dict) else {}
+        proxy = root.get("Proxy", "") if isinstance(root, dict) else ""
+        if isinstance(proxy, str) and proxy.endswith(needle):
+            return True
+    return False
+
+
 def _build_pairing_url(request: Request, pairing_id: str, pairing_token: str) -> str:
-    # MagicDNS名が引けても、Tailscale Serve(HTTPSでport443へproxyする)が実際に
-    # 設定されているとは限らない(直接LAN/tailnet IPへbindしている構成等)。
-    # Serveの稼働が未確認のまま https://<hostname> 決め打ちにすると、どこも
-    # listenしていないURLをQRに埋め込みスキャンできなくなるため、Serveが確認
-    # できた時だけMagicDNS名を使い、それ以外はこのリクエストが実際に届いた
-    # scheme/host/portをそのまま使う。
-    from .system import _get_tailscale_serve_running
+    # MagicDNS名が引けても、Tailscale Serveがこのプロセスの待受ポートへ実際に
+    # proxyしているとは確認できない限り https://<hostname> 決め打ちにはしない
+    # （直接LAN/tailnet IPへbindしている構成や、Serveが別サービス向けに設定
+    # されている構成では、そこにアクセスしても any-console には届かない）。
+    # 確認できなければこのリクエストが実際に届いたscheme/host/portを使う。
     hostname = _resolve_tailscale_name()
-    if hostname and _get_tailscale_serve_running():
+    port = request.url.port
+    if hostname and port and _tailscale_serve_targets_port(port):
         base = f"https://{hostname}"
     else:
         base = f"{request.url.scheme}://{request.url.netloc}"
@@ -118,6 +159,7 @@ def start_pairing(request: Request):
             "token": pairing_token,
             "expires_at": expires_at,
             "claimed": False,
+            "claiming": False,
         }
     url = _build_pairing_url(request, pairing_id, pairing_token)
     logger.info("pairing started id=%s client=%s", pairing_id, _client_ip(request))
@@ -130,7 +172,8 @@ def start_pairing(request: Request):
 
 @router.get("/{pairing_id}/status")
 def pairing_status(pairing_id: str, request: Request):
-    _check_rate_limit(request, "status", _STATUS_LIMIT)
+    # claimと同じ理由(モジュール docstring 参照)でpairing_idごとに独立してカウントする。
+    _check_rate_limit(request, "status", _STATUS_LIMIT, scope=pairing_id)
     now = time.time()
     with _lock:
         entry = _pairings.get(pairing_id)
@@ -153,17 +196,19 @@ def claim_pairing(pairing_id: str, body: ClaimBody, request: Request, response: 
         entry = _pairings.get(pairing_id)
         if entry is None:
             raise gone("Pairing request not found or already used")
-        if entry["claimed"] or entry["expires_at"] <= now:
-            _pairings.pop(pairing_id, None)
+        if entry["claimed"] or entry["claiming"] or entry["expires_at"] <= now:
+            if entry["expires_at"] <= now:
+                _pairings.pop(pairing_id, None)
             raise gone("Pairing request expired or already used")
         if not body.token or not hmac.compare_digest(body.token, entry["token"]):
             raise unauthorized("Invalid pairing token")
-        # token検証が通った時点でdictから一旦取り除き、以降の同時claimを排他する
-        # (他のリクエストからは即座に「存在しない」扱いになる)。ただしclaimed には
-        # まだ倒さない — デバイス登録がここから先で失敗する可能性があり、
-        # 倒してしまうと「claimedなのにログインは失敗」という観測不可能な
-        # 不整合を発行元に見せてしまうため。
-        del _pairings[pairing_id]
+        # デバイス登録が終わるまで claiming フラグだけで同時claimを排他する。
+        # エントリ自体は dict に残したまま（削除すると、その間の status ポーリング
+        # が not_found を返し、発行元が「期限切れ」と誤認してポーリングを止めて
+        # しまう）。claimed にはまだ倒さない — デバイス登録がここから先で失敗
+        # する可能性があり、倒してしまうと「claimedなのにログインは失敗」という
+        # 観測不可能な不整合を発行元に見せてしまうため。
+        entry["claiming"] = True
 
     ua = request.headers.get("user-agent", "")
     name = autoname_from_user_agent(ua)
@@ -176,11 +221,10 @@ def claim_pairing(pairing_id: str, body: ClaimBody, request: Request, response: 
         _set_device_cookies(response, request, device_id, raw_secret)
     except OSError:
         # デバイス登録(devices.json への書き込み等)に失敗。tokenをまだ破棄して
-        # いないので、エントリを復元して再試行可能にする(有効期限内なら同じ
+        # いないので、claimingを解除して再試行可能にする(有効期限内なら同じ
         # QRのままもう一度claimできる)。
         with _lock:
-            entry["claimed"] = False
-            _pairings[pairing_id] = entry
+            entry["claiming"] = False
         logger.warning("pairing claim failed to register device id=%s", pairing_id)
         raise server_error("Failed to complete pairing. Please try again.") from None
 
@@ -191,7 +235,7 @@ def claim_pairing(pairing_id: str, body: ClaimBody, request: Request, response: 
         # 扱いになる」ことがないようにするため(token自体は既に破棄済みなので
         # 延命してもリプレイのリスクは無い)。
         entry["claimed"] = True
+        entry["claiming"] = False
         entry["token"] = None
-        _pairings[pairing_id] = entry
     logger.info("pairing claimed id=%s device=%s client=%s", pairing_id, device_id, _client_ip(request))
     return {"ok": True, "device_id": device_id, "name": name, "auth_required": True}

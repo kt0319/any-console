@@ -6,13 +6,23 @@
 - 専用レートリミット
 """
 
+import subprocess
 import time
 
 import pytest
+from fastapi.testclient import TestClient
 
 from api import auth as auth_module
+from api.main import app
 from api.routers import pairing as pairing_mod
 from conftest import AUTH
+
+
+def _client_with_port(port=8888):
+    # デフォルトの `client` フィクスチャは base_url に明示ポートを含まないため、
+    # request.url.port が常に None になる。Serve のポート一致確認をテストするには
+    # 明示ポート付きのクライアントが要る。
+    return TestClient(app, base_url=f"http://testserver:{port}")
 
 
 @pytest.fixture(autouse=True)
@@ -48,20 +58,26 @@ class TestStart:
         res = client.post("/auth/pairing/start", headers=AUTH)
         assert res.json()["url"].startswith("http://testserver/pair/")
 
-    def test_uses_tailscale_hostname_when_serve_running(self, client, monkeypatch):
+    def test_uses_tailscale_hostname_when_serve_targets_this_port(self, client, monkeypatch):
         monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
-        import api.routers.system as system_mod
-        monkeypatch.setattr(system_mod, "_get_tailscale_serve_running", lambda: True)
-        res = client.post("/auth/pairing/start", headers=AUTH)
+        monkeypatch.setattr(pairing_mod, "_tailscale_serve_targets_port", lambda port: port == 8888)
+        res = _client_with_port(8888).post("/auth/pairing/start", headers=AUTH)
         assert res.json()["url"].startswith("https://myhost.tail1234.ts.net/pair/")
 
-    def test_falls_back_to_request_host_when_serve_not_running(self, client, monkeypatch):
-        # tailscaleがインストール済みでホスト名は引けても、Serveが未設定
-        # (直接LAN/tailnet IPへbind等)ならhttps://<hostname>はどこもlistenして
-        # いないため、リクエスト自身のhost:portにフォールバックしなければならない
+    def test_falls_back_when_serve_targets_a_different_port(self, client, monkeypatch):
+        # tailscaleがインストール済みでホスト名は引けても、Serveが別サービス/別ポート
+        # 向けに設定されているだけなら https://<hostname> は any-console に届かない
+        # ため、リクエスト自身のhost:portにフォールバックしなければならない
         monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
-        import api.routers.system as system_mod
-        monkeypatch.setattr(system_mod, "_get_tailscale_serve_running", lambda: False)
+        monkeypatch.setattr(pairing_mod, "_tailscale_serve_targets_port", lambda port: port == 9999)
+        res = _client_with_port(8888).post("/auth/pairing/start", headers=AUTH)
+        assert res.json()["url"].startswith("http://testserver:8888/pair/")
+
+    def test_falls_back_when_request_has_no_explicit_port(self, client, monkeypatch):
+        # request.url.port が取れない(Hostヘッダにポートが無い)場合は、Serveが
+        # 実際にどこへproxyしているか比較しようがないため安全側(フォールバック)に倒す
+        monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
+        monkeypatch.setattr(pairing_mod, "_tailscale_serve_targets_port", lambda port: True)
         res = client.post("/auth/pairing/start", headers=AUTH)
         assert res.json()["url"].startswith("http://testserver/pair/")
 
@@ -77,6 +93,38 @@ class TestStart:
         assert client.post("/auth/pairing/start", headers=AUTH).status_code == 200
         res = client.post("/auth/pairing/start", headers=AUTH)
         assert res.status_code == 429
+
+
+class TestTailscaleServeTargetsPort:
+    def test_true_when_web_handler_proxies_to_port(self, monkeypatch):
+        payload = subprocess.CompletedProcess(
+            args=[], returncode=0,
+            stdout='{"Web": {"myhost.ts.net:443": {"Handlers": {"/": {"Proxy": "http://127.0.0.1:8888"}}}}}',
+        )
+        monkeypatch.setattr(pairing_mod, "run_subprocess_safe", lambda *a, **k: payload)
+        assert pairing_mod._tailscale_serve_targets_port(8888) is True
+
+    def test_false_when_proxied_to_a_different_port(self, monkeypatch):
+        payload = subprocess.CompletedProcess(
+            args=[], returncode=0,
+            stdout='{"Web": {"myhost.ts.net:443": {"Handlers": {"/": {"Proxy": "http://127.0.0.1:3000"}}}}}',
+        )
+        monkeypatch.setattr(pairing_mod, "run_subprocess_safe", lambda *a, **k: payload)
+        assert pairing_mod._tailscale_serve_targets_port(8888) is False
+
+    def test_false_when_tailscale_not_installed(self, monkeypatch):
+        monkeypatch.setattr(pairing_mod, "run_subprocess_safe", lambda *a, **k: None)
+        assert pairing_mod._tailscale_serve_targets_port(8888) is False
+
+    def test_false_when_no_web_section(self, monkeypatch):
+        payload = subprocess.CompletedProcess(args=[], returncode=0, stdout="{}")
+        monkeypatch.setattr(pairing_mod, "run_subprocess_safe", lambda *a, **k: payload)
+        assert pairing_mod._tailscale_serve_targets_port(8888) is False
+
+    def test_false_on_invalid_json(self, monkeypatch):
+        payload = subprocess.CompletedProcess(args=[], returncode=0, stdout="not json")
+        monkeypatch.setattr(pairing_mod, "run_subprocess_safe", lambda *a, **k: payload)
+        assert pairing_mod._tailscale_serve_targets_port(8888) is False
 
 
 class TestStatus:
@@ -220,10 +268,30 @@ class TestClaim:
         # tokenはまだ破棄されていないので、同じ有効なQRでリトライできる
         assert data["id"] in pairing_mod._pairings
         assert pairing_mod._pairings[data["id"]]["claimed"] is False
+        assert pairing_mod._pairings[data["id"]]["claiming"] is False
 
         monkeypatch.undo()
         retry = client.post(f"/auth/pairing/{data['id']}/claim", json={"token": token})
         assert retry.status_code == 200, retry.text
+
+    def test_in_progress_claim_rejects_concurrent_claim(self, client, monkeypatch):
+        # 登録処理中(claiming=True)は、同じtokenでの二重claimも弾く必要がある
+        # (先発呼び出しが完了するまで新しいデバイスを2つ作ってしまわないように)。
+        data = _start(client, monkeypatch)
+        token = pairing_mod._pairings[data["id"]]["token"]
+        pairing_mod._pairings[data["id"]]["claiming"] = True
+        res = client.post(f"/auth/pairing/{data['id']}/claim", json={"token": token})
+        assert res.status_code == 410
+
+    def test_in_progress_claim_still_reports_pending_status(self, client, monkeypatch):
+        # デバイス登録中(claiming=True)でも、エントリはdictに残ったままなので
+        # statusはpendingを返し続ける(not_foundになって発行元が「期限切れ」と
+        # 誤認しポーリングを止めてしまうことを防ぐ)。
+        data = _start(client, monkeypatch)
+        pairing_mod._pairings[data["id"]]["claiming"] = True
+        res = client.get(f"/auth/pairing/{data['id']}/status")
+        assert res.status_code == 200
+        assert res.json()["status"] == "pending"
 
 
 class TestStatusRateLimit:
@@ -234,6 +302,17 @@ class TestStatusRateLimit:
         assert client.get(f"/auth/pairing/{data['id']}/status").status_code == 200
         res = client.get(f"/auth/pairing/{data['id']}/status")
         assert res.status_code == 429
+
+    def test_rate_limit_is_scoped_per_pairing_id(self, client, monkeypatch):
+        # claimと同じ理由: IPだけのバケットだと、無関係なpairing_idへの荒らしで
+        # 正規のpairingのstatusポーリングまで429にされてしまう。
+        monkeypatch.setattr(pairing_mod, "_STATUS_LIMIT", 1)
+        first = _start(client, monkeypatch)
+        second = _start(client, monkeypatch)
+        assert client.get(f"/auth/pairing/{first['id']}/status").status_code == 200
+        assert client.get(f"/auth/pairing/{first['id']}/status").status_code == 429
+        # 別のpairing_idへのstatusは影響を受けない
+        assert client.get(f"/auth/pairing/{second['id']}/status").status_code == 200
 
 
 def test_pair_page_serves_spa_shell(client):
