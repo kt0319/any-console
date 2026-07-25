@@ -171,12 +171,16 @@ def update_token(new_token: str) -> None:
     # api_tokens 等の他フィールドを消さないよう、既存データへマージして書く
     # （丸ごと上書きすると発行済みの API トークンが消えてしまう）。
     # _auth_file_lock で直列化し、同時に走る api_tokens の書き込みと競合して
-    # 互いの変更を巻き戻さないようにする。
+    # 互いの変更を巻き戻さないようにする。ANY_CONSOLE_TOKEN への代入もこの
+    # クリティカルセクションの中で行う（with を抜けた後だと、2つの update_token
+    # 呼び出しがロック解放後にプリエンプトされ、ディスクの完了順とメモリの代入順が
+    # 食い違いうる — 例えば A→B の順でファイルへ書いても、A のロック解放後に B が
+    # 先にメモリを書き換え、その後 A のメモリ代入が上書きしてしまうケース）。
     with _auth_file_lock:
         data = _load_auth_file()
         data["token"] = new_token
         save_json_file(_AUTH_FILE, data)
-    ANY_CONSOLE_TOKEN = new_token
+        ANY_CONSOLE_TOKEN = new_token
 
 
 def ensure_default_token() -> str | None:

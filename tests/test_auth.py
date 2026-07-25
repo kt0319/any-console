@@ -232,6 +232,66 @@ class TestAuthFileLockCoversMainToken:
         assert any(t["id"] == meta["id"] for t in saved["api_tokens"])
 
 
+class _InterceptingLock:
+    """threading.Lock をラップし、release 直後（with ブロックを抜けた直後、まだ
+    次の行が実行される前）に一度だけフックを実行するテスト専用ラッパー。
+
+    update_token の「ANY_CONSOLE_TOKEN への代入が with ブロックの外にある」バグは、
+    ロック解放と次の代入文の間にスレッド切り替えが入ることで発生する。この隙間は
+    関数呼び出しの境界ではないため通常の monkeypatch では狙えないが、ロックの
+    __exit__ 自体をフックすればロック解放直後の一瞬を確定的に再現できる。
+    """
+
+    def __init__(self, real_lock, on_release):
+        self._real_lock = real_lock
+        self._on_release = on_release
+        self._fired = False
+
+    def __enter__(self):
+        self._real_lock.acquire()
+        return self
+
+    def __exit__(self, *exc_info):
+        self._real_lock.release()
+        if not self._fired:
+            self._fired = True
+            self._on_release()
+        return False
+
+
+class TestUpdateTokenMemoryConsistency:
+    """update_token は data/auth.json への書き込みと ANY_CONSOLE_TOKEN への代入を
+    1つのクリティカルセクションとして扱う必要がある。分離されていると、2つの
+    update_token 呼び出しが競合した時にディスクの最終状態とメモリの最終状態が
+    食い違いうる（ディスクは新しい方の値、メモリは古い方の値のまま、等）。"""
+
+    def test_concurrent_updates_keep_memory_and_disk_consistent(self, monkeypatch, _isolate_auth_file):
+        def on_release():
+            # 最初の呼び出しがロックを解放した直後（まだ ANY_CONSOLE_TOKEN への
+            # 代入がロックの外にあるバージョンなら、その代入がまだ走っていない
+            # タイミング）に、別スレッドで2つ目の update_token を完走させる。
+            def do_second():
+                auth_module.update_token("token-B")
+
+            t = threading.Thread(target=do_second)
+            t.start()
+            t.join(timeout=2)
+            assert not t.is_alive()
+
+        real_lock = auth_module._auth_file_lock
+        monkeypatch.setattr(auth_module, "_auth_file_lock", _InterceptingLock(real_lock, on_release))
+
+        auth_module.update_token("token-A")
+
+        saved = json.loads(_isolate_auth_file.read_text(encoding="utf-8"))
+        assert saved["token"] == auth_module.ANY_CONSOLE_TOKEN, (
+            "on-disk token must always match the in-memory token"
+        )
+        # 2つ目の呼び出しが最後に完走したので、両方とも token-B に揃うはず
+        # （代入がロックの外にあるバグ版では token-A のまま取り残される）。
+        assert auth_module.ANY_CONSOLE_TOKEN == "token-B"
+
+
 class TestApiTokenEndpoints:
     def test_create_requires_main_auth(self, client):
         res = client.post("/api-tokens", json={"name": "x"})
