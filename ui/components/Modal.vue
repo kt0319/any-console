@@ -160,10 +160,12 @@ onMounted(() => {
     if (detail?.view) {
       // 保存済み circle keypad 設定には旧 view 名が残っている可能性があるため読み替える
       const view = detail.view === "PreviewConfig" ? "PreviewPorts" : detail.view;
-      openView([
-        { view: "ModalMenu", state: {} },
-        { view, state: detail.state || {} },
-      ]);
+      const stack = [{ view: "ModalMenu", state: {} }];
+      // PairDeviceConfigは通常AuthConfig配下からのみ遷移するビューのため、
+      // 直接開く場合もAuthConfigを積んでおき、戻る操作でAuthConfigに戻れるようにする
+      if (view === "PairDeviceConfig") stack.push({ view: "AuthConfig", state: {} });
+      stack.push({ view, state: detail.state || {} });
+      openView(stack);
     } else {
       openView("ModalMenu");
     }
