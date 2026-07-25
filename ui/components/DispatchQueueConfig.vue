@@ -1,5 +1,8 @@
 <template>
   <div class="modal-scroll-body">
+    <p class="dispatch-queue-desc">
+      Requests sent via the /dispatch API (CI, automation, external tools) wait here for approval before running in a workspace.
+    </p>
     <div class="settings-section-label">Pending dispatches</div>
     <div v-if="queue.length === 0" class="dispatch-queue-hint">No pending dispatches</div>
     <ul v-else class="dispatch-queue-list">
@@ -27,7 +30,7 @@ import { inject } from "vue";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
 
 const modalTitle = inject("modalTitle");
-modalTitle.value = "Dispatch Queue";
+modalTitle.value = "Dispatches";
 
 const viewState = inject("viewState");
 const pushView = inject("pushView");
@@ -46,6 +49,14 @@ const { queue } = useDispatchConfirm();
   letter-spacing: 0.06em;
   color: var(--text-muted);
   padding: 4px 4px 0;
+}
+
+.dispatch-queue-desc {
+  margin: 0 0 12px;
+  padding: 0 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .dispatch-queue-hint {

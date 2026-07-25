@@ -8,9 +8,9 @@
       <button type="button" class="settings-menu-item" @click="pushView('TabConfig')">
         <span class="mdi mdi-tab"></span> Tabs & Sessions
       </button>
-      <button v-if="dispatchQueue.length > 0" type="button" class="settings-menu-item" @click="pushView('DispatchQueueConfig')">
-        <span class="mdi mdi-tray-full"></span> Dispatch Queue
-        <span class="settings-menu-count">{{ dispatchQueue.length }}</span>
+      <button type="button" class="settings-menu-item" @click="pushView('DispatchQueueConfig')">
+        <span class="mdi mdi-tray-full"></span> Dispatches
+        <span v-if="dispatchQueue.length > 0" class="settings-menu-count">{{ dispatchQueue.length }}</span>
       </button>
       <button type="button" class="settings-menu-item" @click="pushView('PreviewPorts')">
         <span class="mdi mdi-open-in-app"></span> Port Preview
