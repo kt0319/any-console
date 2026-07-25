@@ -13,23 +13,23 @@
 セキュリティ:
 - ペアリングエントリはプロセス内メモリのみに保持する（他の in-process state
   と同様、ADR1: 単一プロセス前提）。ディスクへは書かない。
-- token は 24 バイトの url-safe ランダム値（推測不可能な入力）。claim 成功時に
-  token を即座に破棄して claimed へ倒し、リプレイ（同一トークンの再利用）を防ぐ。
-  デバイス登録が完了して初めて claimed へ倒すため（下記 claim_pairing 参照）、
-  途中で登録が失敗しても「claimed だがログインは失敗」という不整合を残さない。
-  登録中もエントリ自体は dict に残す（`claiming` フラグで二重claimだけ排他する）
-  — 一時的にでも dict から消すと、その間の status ポーリングが not_found を
-  返し、発行元が「期限切れ」と誤認してポーリングを止めてしまうため。
+- token は 24 バイトの url-safe ランダム値（推測不可能な入力）。claim は
+  トークン検証・デバイス登録・cookie発行・claimedへの更新までを丸ごと
+  `_lock` 保持下で行う（下記 claim_pairing 参照）。個人ツールの利用規模では
+  デバイス登録（devices.json書き込み）にかかる時間は無視できるため、途中経過
+  を表す中間状態を持たずに済む。これにより、同じtokenでの同時claimは後発が
+  ロック待ちの後「既にclaimed」を見て自然に弾かれ、statusポーリングも
+  claim完了前後どちらかの一貫した状態しか観測しない。
 - id・token どちらも総当たりされないよう、専用のレートリミッタ（rate_limiter.py
   の `_FixedWindowCounter` を再利用）で start/status/claim を個別に、IPごとに
   絞る。アプリ全体にかかる IP ベースの制限（rate_limiter.py の
   `RateLimitMiddleware`）に加えた二次防御であり、token の推測不可能性が
   主防御。
-- claim成功後のエントリ（tombstone）は claimed_at から独立した観測猶予
-  （`_CLAIMED_OBSERVATION_SEC`）で寿命を判定する。元の90秒期限間際にclaimが
-  成立したケースでも、発行元のポーリングが少し遅れただけでclaimedを
-  expiredと誤報告しないようにするため（statusは claimed を expires_at より
-  先にチェックする）。
+- claim成功後のエントリ（tombstone）は、claim成功時に `expires_at` を
+  `_CLAIMED_OBSERVATION_SEC` 分だけ先に延長することで、一定の観測猶予を
+  必ず確保する。元の90秒期限間際にclaimが成立し、発行元のポーリングが
+  少し遅れた場合でも「claimedを見損ねてexpired扱いになる」ことを防ぐ
+  （token自体は既に破棄済みなので延命してもリプレイのリスクは無い）。
 - claim は既存の単一トークン認証と同じ cookie 発行ロジックを共有する
   （二重実装しない）。QRペアリングは「同じユーザーの別デバイス追加」であり、
   新規ユーザー招待機能ではない（単一ユーザー前提は変えない）。同一UA・sourceの
@@ -72,11 +72,9 @@ router = APIRouter(prefix="/auth/pairing")
 
 PAIRING_TTL_SEC = 90
 
-# claim成功の観測猶予。claimがちょうど元の90秒期限間際に成立した場合でも、
-# 発行元のポーリングがバックグラウンドタブ等で少し遅延しただけで「claimedを
-# 見損ねてexpired扱いになる」ことがないよう、claimed後は claimed_at からの
-# 経過時間で独立に判定する（元のexpires_atがどれだけ残っていたかに関わらず
-# 一定の観測猶予を必ず確保する）。
+# claim成功の観測猶予。claim成功時にexpires_atをこの秒数だけ先に延長し、
+# 発行元のポーリングがバックグラウンドタブ等で少し遅延しても「claimedを
+# 見損ねてexpired扱いになる」ことがないようにする。
 _CLAIMED_OBSERVATION_SEC = 30
 
 # ポーリング（status）は countdown 表示のため数秒間隔で連打される想定なので緩め、
@@ -114,16 +112,6 @@ def _check_rate_limit(request: Request, bucket: str, limit: int) -> None:
 
 
 def _is_expired_locked(entry: dict, now: float) -> bool:
-    if entry["claimed"]:
-        return bool(now - entry.get("claimed_at", 0) > _CLAIMED_OBSERVATION_SEC)
-    if entry["claiming"]:
-        # デバイス登録の結果(claimed成功 or claiming解除してpendingへ戻る)が
-        # 確定するまでは期限切れ扱いにしない。ここで掃除してしまうと、
-        # claim_pairing側が保持しているローカル変数(_pairingsから見て既に
-        # detachedな同一dictオブジェクト)への以後の書き込みが誰からも
-        # 観測できなくなり、登録が成功してもissuer側は永久にnot_found/expired
-        # を見ることになる。
-        return False
     return bool(entry["expires_at"] <= now)
 
 
@@ -228,7 +216,6 @@ def start_pairing(request: Request):
             "token": pairing_token,
             "expires_at": expires_at,
             "claimed": False,
-            "claiming": False,
         }
     logger.info("pairing started id=%s client=%s", pairing_id, _client_ip(request))
     return {
@@ -246,22 +233,12 @@ def pairing_status(pairing_id: str, request: Request):
         entry = _pairings.get(pairing_id)
         if entry is None:
             return {"status": "not_found"}
-        # claimed後は claimed_at からの独立した観測猶予で判定する(元の
-        # expires_atで先に弾くと、期限間際にclaimが成立したケースで
-        # claimedをexpiredと誤報告してしまうため、claimed判定を先に行う)。
-        if entry["claimed"]:
-            if _is_expired_locked(entry, now):
-                _pairings.pop(pairing_id, None)
-                return {"status": "not_found"}
-            return {"status": "claimed"}
-        if entry["claiming"]:
-            # 登録処理の結果が確定するまでは期限切れにしない(理由は
-            # _is_expired_locked のコメント参照)。結果はclaim_pairing側で
-            # 確定させる(claimed成功、またはclaiming解除してpendingへ戻る)。
-            return {"status": "pending", "expires_in_sec": max(0, int(entry["expires_at"] - now))}
-        if entry["expires_at"] <= now:
+        if _is_expired_locked(entry, now):
+            was_claimed = entry["claimed"]
             _pairings.pop(pairing_id, None)
-            return {"status": "expired"}
+            return {"status": "not_found" if was_claimed else "expired"}
+        if entry["claimed"]:
+            return {"status": "claimed"}
         return {"status": "pending", "expires_in_sec": max(0, int(entry["expires_at"] - now))}
 
 
@@ -269,58 +246,47 @@ def pairing_status(pairing_id: str, request: Request):
 def claim_pairing(pairing_id: str, body: ClaimBody, request: Request, response: Response):
     _check_rate_limit(request, "claim", _CLAIM_LIMIT)
     now = time.time()
+    # トークン検証からデバイス登録・cookie発行・claimedへの更新まで、
+    # 丸ごと_lock保持下で行う。個人ツールの利用規模ではデバイス登録
+    # (devices.json書き込み)にかかる時間は無視できるため、途中経過を表す
+    # 中間状態を持たずに済む。同じtokenでの同時claimは後発がロック待ちの後
+    # 「既にclaimed」を見て自然に弾かれ、statusポーリングもclaim完了前後
+    # どちらかの一貫した状態しか観測しない。
     with _lock:
         entry = _pairings.get(pairing_id)
         if entry is None:
             raise gone("Pairing request not found or already used")
-        # 期限切れ判定は_is_expired_lockedに統一する(claiming中は素の expires_at
-        # だけでは判定しない — 素のexpires_atで直接弾くと、1件目のclaimが
-        # 登録処理中(claiming=True)のままdeadlineを跨いだ時に、2件目の重複claim
-        # requestがここでentryをpopしてしまい、1件目が後で書き込むclaimed状態が
-        # 誰からも観測できなくなる。claimed中のtombstoneも同様に、素のexpires_at
-        # だけでは観測猶予(_CLAIMED_OBSERVATION_SEC)を無視して早期に消してしまう)。
         if _is_expired_locked(entry, now):
             _pairings.pop(pairing_id, None)
             raise gone("Pairing request expired or already used")
-        if entry["claimed"] or entry["claiming"]:
+        if entry["claimed"]:
             raise gone("Pairing request expired or already used")
         if not body.token or not hmac.compare_digest(body.token, entry["token"]):
             raise unauthorized("Invalid pairing token")
-        # デバイス登録が終わるまで claiming フラグだけで同時claimを排他する。
-        # エントリ自体は dict に残したまま（削除すると、その間の status ポーリング
-        # が not_found を返し、発行元が「期限切れ」と誤認してポーリングを止めて
-        # しまう）。claimed にはまだ倒さない — デバイス登録がここから先で失敗
-        # する可能性があり、倒してしまうと「claimedなのにログインは失敗」という
-        # 観測不可能な不整合を発行元に見せてしまうため。
-        entry["claiming"] = True
 
-    ua = request.headers.get("user-agent", "")
-    name = autoname_from_user_agent(ua)
-    try:
-        # find_or_register_device ではなく必ず新規登録する: 同一UAの2台を続けて
-        # ペアリングした場合、再利用ロジックは後発のために先発のsecretを回転させ、
-        # 先発デバイスを無言でログアウトさせてしまうため(claimは常に人間の
-        # 明示操作なので、tailscale自動登録のような再利用の必要が無い)。
-        device_id, raw_secret = register_device(name, ua, source="pairing")
-        _set_device_cookies(response, request, device_id, raw_secret)
-    except OSError:
-        # デバイス登録(devices.json への書き込み等)に失敗。tokenをまだ破棄して
-        # いないので、claimingを解除して再試行可能にする(有効期限内なら同じ
-        # QRのままもう一度claimできる)。
-        with _lock:
-            entry["claiming"] = False
-        logger.warning("pairing claim failed to register device id=%s", pairing_id)
-        raise server_error("Failed to complete pairing. Please try again.") from None
+        ua = request.headers.get("user-agent", "")
+        name = autoname_from_user_agent(ua)
+        try:
+            # find_or_register_device ではなく必ず新規登録する: 同一UAの2台を
+            # 続けてペアリングした場合、再利用ロジックは後発のために先発の
+            # secretを回転させ、先発デバイスを無言でログアウトさせてしまう
+            # ため(claimは常に人間の明示操作なので、tailscale自動登録のような
+            # 再利用の必要が無い)。
+            device_id, raw_secret = register_device(name, ua, source="pairing")
+            _set_device_cookies(response, request, device_id, raw_secret)
+        except OSError:
+            # デバイス登録(devices.json への書き込み等)に失敗。entryは
+            # 一切変更していないので、token は有効なまま残り再試行できる。
+            logger.warning("pairing claim failed to register device id=%s", pairing_id)
+            raise server_error("Failed to complete pairing. Please try again.") from None
 
-    with _lock:
-        # 発行元がstatusでclaimedを観測できるよう、tombstoneとして残す。
-        # expires_atは元のペアリング有効期限のまま縮めない — 発行元のポーリングが
-        # バックグラウンドタブ等で数十秒遅延しても「claimedを見損ねてexpired
-        # 扱いになる」ことがないようにするため(token自体は既に破棄済みなので
-        # 延命してもリプレイのリスクは無い)。
+        # claimed後もtombstoneとしてエントリを残し、expires_atを観測猶予分
+        # 延長する — 発行元のポーリングがバックグラウンドタブ等で数十秒
+        # 遅延しても「claimedを見損ねてexpired扱いになる」ことがないように
+        # するため(token自体は既に破棄済みなので延命してもリプレイの
+        # リスクは無い)。
         entry["claimed"] = True
-        entry["claiming"] = False
         entry["token"] = None
-        entry["claimed_at"] = time.time()
+        entry["expires_at"] = now + _CLAIMED_OBSERVATION_SEC
     logger.info("pairing claimed id=%s device=%s client=%s", pairing_id, device_id, _client_ip(request))
     return {"ok": True, "device_id": device_id, "name": name, "auth_required": True}

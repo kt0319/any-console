@@ -263,27 +263,6 @@ class TestStatus:
         assert res.json()["status"] == "expired"
         assert data["id"] not in pairing_mod._pairings
 
-    def test_in_progress_claim_is_not_expired_even_past_deadline(self, client, monkeypatch):
-        # claimがexpires_at間際で始まり(claiming=True)、登録処理が元の期限を
-        # 跨いで終わるケース。この間にstatusがエントリを掃除してしまうと、
-        # claim_pairing側が保持しているのは既に_pairingsから外れた同一dict
-        # オブジェクトへの参照になり、以後 claimed=True を書き込んでも誰からも
-        # 観測できなくなる(登録は成功しているのに issuer は永久に
-        # expired/not_found を見続ける)。
-        data = _start(client, monkeypatch)
-        pairing_mod._pairings[data["id"]]["claiming"] = True
-        pairing_mod._pairings[data["id"]]["expires_at"] = time.time() - 1
-        res = client.get(f"/auth/pairing/{data['id']}/status")
-        assert res.json()["status"] == "pending"
-        assert data["id"] in pairing_mod._pairings
-
-    def test_in_progress_claim_survives_sweep_during_another_start(self, client, monkeypatch):
-        data = _start(client, monkeypatch)
-        pairing_mod._pairings[data["id"]]["claiming"] = True
-        pairing_mod._pairings[data["id"]]["expires_at"] = time.time() - 1
-        _start(client, monkeypatch)  # 別のstartがsweepを走らせる
-        assert data["id"] in pairing_mod._pairings
-
     def test_claimed_is_observable_then_gone(self, client, monkeypatch):
         data = _start(client, monkeypatch)
         token = pairing_mod._pairings[data["id"]]["token"]
@@ -292,22 +271,24 @@ class TestStatus:
         status_res = client.get(f"/auth/pairing/{data['id']}/status")
         assert status_res.json()["status"] == "claimed"
 
-    def test_claimed_survives_past_original_deadline(self, client, monkeypatch):
-        # claimが元の90秒期限ギリギリで成立した場合でも、claimed_atからの
-        # 独立した観測猶予があるため、元のexpires_atを過ぎてもclaimedのまま
-        # 観測できる(expiresを先にチェックしてexpiredと誤報告してはならない)。
+    def test_claim_extends_expiry_for_observation_window(self, client, monkeypatch):
+        # claim成功時にexpires_atが観測猶予(_CLAIMED_OBSERVATION_SEC)分延長される
+        # ことを確認する(token自体は既に破棄済みなので延命してもリプレイの
+        # リスクは無い)。元の90秒期限ギリギリでclaimが成立した場合でも、
+        # 発行元のポーリングが少し遅れただけでclaimedを見損ねてexpired扱いに
+        # なることを防ぐ。
         data = _start(client, monkeypatch)
         token = pairing_mod._pairings[data["id"]]["token"]
+        before = time.time()
         client.post(f"/auth/pairing/{data['id']}/claim", json={"token": token})
-        pairing_mod._pairings[data["id"]]["expires_at"] = time.time() - 1
-        res = client.get(f"/auth/pairing/{data['id']}/status")
-        assert res.json()["status"] == "claimed"
+        entry = pairing_mod._pairings[data["id"]]
+        assert entry["expires_at"] == pytest.approx(before + pairing_mod._CLAIMED_OBSERVATION_SEC, abs=2)
 
     def test_claimed_tombstone_eventually_expires(self, client, monkeypatch):
         data = _start(client, monkeypatch)
         token = pairing_mod._pairings[data["id"]]["token"]
         client.post(f"/auth/pairing/{data['id']}/claim", json={"token": token})
-        pairing_mod._pairings[data["id"]]["claimed_at"] = time.time() - pairing_mod._CLAIMED_OBSERVATION_SEC - 1
+        pairing_mod._pairings[data["id"]]["expires_at"] = time.time() - 1
         res = client.get(f"/auth/pairing/{data['id']}/status")
         assert res.json()["status"] == "not_found"
         assert data["id"] not in pairing_mod._pairings
@@ -406,46 +387,13 @@ class TestClaim:
         monkeypatch.setattr(pairing_mod, "register_device", _boom)
         failed = client.post(f"/auth/pairing/{data['id']}/claim", json={"token": token})
         assert failed.status_code == 500
-        # tokenはまだ破棄されていないので、同じ有効なQRでリトライできる
+        # entryは一切変更していないので、同じ有効なQRでリトライできる
         assert data["id"] in pairing_mod._pairings
         assert pairing_mod._pairings[data["id"]]["claimed"] is False
-        assert pairing_mod._pairings[data["id"]]["claiming"] is False
 
         monkeypatch.undo()
         retry = client.post(f"/auth/pairing/{data['id']}/claim", json={"token": token})
         assert retry.status_code == 200, retry.text
-
-    def test_in_progress_claim_rejects_concurrent_claim(self, client, monkeypatch):
-        # 登録処理中(claiming=True)は、同じtokenでの二重claimも弾く必要がある
-        # (先発呼び出しが完了するまで新しいデバイスを2つ作ってしまわないように)。
-        data = _start(client, monkeypatch)
-        token = pairing_mod._pairings[data["id"]]["token"]
-        pairing_mod._pairings[data["id"]]["claiming"] = True
-        res = client.post(f"/auth/pairing/{data['id']}/claim", json={"token": token})
-        assert res.status_code == 410
-
-    def test_duplicate_claim_past_deadline_during_registration_keeps_entry(self, client, monkeypatch):
-        # 1件目のclaimが登録処理中(claiming=True)のままdeadline(expires_at)を
-        # 跨いだ状態で、2件目の重複claimが素のexpires_atだけで判定してentryを
-        # popしてしまうと、1件目が後で書き込むclaimed状態を発行元が永久に
-        # 観測できなくなる(_is_expired_lockedはclaiming中を期限切れ扱いしない)。
-        data = _start(client, monkeypatch)
-        token = pairing_mod._pairings[data["id"]]["token"]
-        pairing_mod._pairings[data["id"]]["claiming"] = True
-        pairing_mod._pairings[data["id"]]["expires_at"] = time.time() - 1
-        res = client.post(f"/auth/pairing/{data['id']}/claim", json={"token": token})
-        assert res.status_code == 410
-        assert data["id"] in pairing_mod._pairings
-
-    def test_in_progress_claim_still_reports_pending_status(self, client, monkeypatch):
-        # デバイス登録中(claiming=True)でも、エントリはdictに残ったままなので
-        # statusはpendingを返し続ける(not_foundになって発行元が「期限切れ」と
-        # 誤認しポーリングを止めてしまうことを防ぐ)。
-        data = _start(client, monkeypatch)
-        pairing_mod._pairings[data["id"]]["claiming"] = True
-        res = client.get(f"/auth/pairing/{data['id']}/status")
-        assert res.status_code == 200
-        assert res.json()["status"] == "pending"
 
 
 class TestStatusRateLimit:
