@@ -462,6 +462,70 @@ class TestDecisionOverrides:
         assert res.json()["workspace"] == "other-ws"
 
 
+class TestDispatchTokenSessionIdIsolation:
+    """dispatch トークンは queue-only の低信頼な外部連携用。session_id をそのまま
+    許すと、承認モーダルには「New session」等が表示される一方、承認後は
+    body.session_id が優先されるため、攻撃者が知っている無関係な既存セッションへ
+    隠れてテキスト送信・ブランチ操作されうる（reviewer が見た内容と実際の実行対象が
+    乖離する）。scoped token からのリクエストでは session_id を無視することを確認する。
+    """
+
+    def _create_dispatch_token(self, client):
+        res = client.post("/api-tokens", headers=AUTH, json={"name": "ci"})
+        assert res.status_code == 200, res.text
+        return res.json()
+
+    def _register_victim_session(self, _mock_tmux):
+        from api.terminal_session import TERMINAL_SESSIONS, TerminalSession, sessions_lock
+        _mock_tmux.append("ac-victim")
+        victim = TerminalSession(workspace="other-ws", tmux_session_name="ac-victim", job_name="other-job")
+        with sessions_lock:
+            TERMINAL_SESSIONS["victim-session"] = victim
+
+    def test_dispatch_token_session_id_is_cleared_in_queue(self, client, workspace, _mock_tmux):
+        self._register_victim_session(_mock_tmux)
+        token = self._create_dispatch_token(client)
+        res = client.post(
+            "/dispatch",
+            headers={"Authorization": f"Bearer {token['token']}"},
+            json={"workspace": "test-ws", "text": "echo hi", "session_id": "victim-session"},
+        )
+        assert res.status_code == 202, res.text
+        dispatch_id = res.json()["id"]
+        assert dispatch_mod._PENDING[dispatch_id]["session_id"] is None
+
+    def test_dispatch_token_session_id_cannot_hijack_approval(self, client, workspace, _mock_tmux):
+        self._register_victim_session(_mock_tmux)
+        token = self._create_dispatch_token(client)
+        enqueue = client.post(
+            "/dispatch",
+            headers={"Authorization": f"Bearer {token['token']}"},
+            json={"workspace": "test-ws", "text": "echo hi", "session_id": "victim-session"},
+        )
+        assert enqueue.status_code == 202, enqueue.text
+        dispatch_id = enqueue.json()["id"]
+
+        res = client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
+        assert res.status_code == 200, res.text
+        data = res.json()
+        # 攻撃者が指定した victim-session ではなく、test-ws 向けの新規セッションが
+        # 作られる（既存セッション探索は workspace/job ベースのみに限定されるため）。
+        assert data["session_id"] != "victim-session"
+        assert data["created"] is True
+
+    def test_main_token_session_id_still_honored(self, client, workspace, _mock_tmux):
+        """メイントークンからの明示的な session_id 指定は従来通り機能する
+        （制限が scoped token だけを対象にしていることの回帰）。"""
+        from api.terminal_session import TERMINAL_SESSIONS, TerminalSession, sessions_lock
+        _mock_tmux.append("ac-test-ws-existing")
+        sess = TerminalSession(workspace="test-ws", tmux_session_name="ac-test-ws-existing")
+        with sessions_lock:
+            TERMINAL_SESSIONS["test-ws-existing"] = sess
+
+        dispatch_id = _enqueue(client, text="echo hi", session_id="test-ws-existing")
+        assert dispatch_mod._PENDING[dispatch_id]["session_id"] == "test-ws-existing"
+
+
 class TestDirectSkipsQueue:
     def test_direct_true_skips_approval(self, client, workspace):
         """direct:true は承認を待たず即座に実行される。"""
@@ -489,7 +553,7 @@ class TestActivityLogging:
         data = res.json()
         log.assert_called_once_with(
             "test-ws", "dispatch_executed",
-            job="terminal", session_id=data["session_id"], created=True,
+            job="terminal", session_id=data["session_id"], created=True, auth="main",
         )
 
     def test_direct_default_false_logs_pending(self, client, workspace):
@@ -500,7 +564,7 @@ class TestActivityLogging:
                 json={"workspace": "test-ws", "text": "echo hi"},
             )
         assert res.status_code == 202
-        log.assert_called_once_with("test-ws", "dispatch_pending", job="terminal", text="echo hi")
+        log.assert_called_once_with("test-ws", "dispatch_pending", job="terminal", text="echo hi", auth="main")
 
     def test_approved_logs_dispatch_approved(self, client, workspace):
         from unittest import mock
@@ -655,13 +719,13 @@ class TestDedupKey:
         _enqueue(client, text="echo 1", dedup_key="k")
         with mock.patch("api.routers.dispatch.log_activity") as log:
             _enqueue(client, text="echo 2", dedup_key="k")
-        log.assert_called_once_with("test-ws", "dispatch_superseded", job="terminal", text="echo 2")
+        log.assert_called_once_with("test-ws", "dispatch_superseded", job="terminal", text="echo 2", auth="main")
 
     def test_first_request_logs_dispatch_pending(self, client, workspace):
         from unittest import mock
         with mock.patch("api.routers.dispatch.log_activity") as log:
             _enqueue(client, text="echo 1", dedup_key="k")
-        log.assert_called_once_with("test-ws", "dispatch_pending", job="terminal", text="echo 1")
+        log.assert_called_once_with("test-ws", "dispatch_pending", job="terminal", text="echo 1", auth="main")
 
     def test_replaced_item_persists_with_retry_count(self, client, workspace):
         _enqueue(client, text="echo 1", dedup_key="k")

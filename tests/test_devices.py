@@ -7,6 +7,8 @@
 - 不正な secret は拒否
 """
 
+import threading
+
 import pytest
 
 from api import auth as auth_module
@@ -114,6 +116,49 @@ class TestRegisterAndVerify:
         items = devices_mod.list_devices()
         assert len(items) == 1
         assert "secret_hash" not in items[0]
+
+
+class TestServerKeyConcurrency:
+    """data/server_key が無い状態で複数スレッドが同時に鍵を要求しても、
+    生成される鍵が1個に収束することを回帰確認する（登録済み secret のハッシュが
+    後から絶対に一致しなくなる split-brain を防ぐ）。"""
+
+    def test_concurrent_creation_is_serialized_and_agrees_on_one_key(self, monkeypatch):
+        orig_token_bytes = devices_mod.secrets.token_bytes
+        call_count = {"n": 0}
+        other_results = []
+        other_attempted = threading.Event()
+        other_done = threading.Event()
+        holder = {}
+
+        def hooked_token_bytes(n):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                # ここは _load_or_create_server_key が _server_key_lock を保持した
+                # まま、まだファイルに書き込む前（鍵を新規生成した直後）。別スレッド
+                # で同時に呼んでも、書き込みが終わってロックが解放されるまでは
+                # 着手できないはず。
+                def do_call():
+                    other_attempted.set()
+                    other_results.append(devices_mod._load_or_create_server_key())
+                    other_done.set()
+
+                t = threading.Thread(target=do_call)
+                holder["thread"] = t
+                t.start()
+                assert other_attempted.wait(timeout=2)
+                assert not other_done.wait(timeout=0.2), (
+                    "concurrent caller should block until the key file is written"
+                )
+            return orig_token_bytes(n)
+
+        monkeypatch.setattr(devices_mod.secrets, "token_bytes", hooked_token_bytes)
+
+        first_key = devices_mod._load_or_create_server_key()
+        holder["thread"].join(timeout=2)
+
+        assert call_count["n"] == 1, "server key must be generated exactly once"
+        assert other_results == [first_key]
 
 
 class TestRegisterEndpoint:
