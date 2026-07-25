@@ -157,26 +157,23 @@ class TestResolveTailscaleName:
     """QRペアリング（api/routers/pairing.py）が使うホスト名解決。"""
 
     def test_returns_dns_name_from_status_json(self, monkeypatch):
-        payload = json.dumps({"Self": {"DNSName": "myhost.tail1234.ts.net."}})
-        result = subprocess.CompletedProcess(args=[], returncode=0, stdout=payload)
-        monkeypatch.setattr(auth_module, "run_subprocess_safe", lambda *a, **k: result)
+        data = {"Self": {"DNSName": "myhost.tail1234.ts.net."}}
+        monkeypatch.setattr(auth_module, "run_tailscale_json", lambda args: data)
         assert _resolve_tailscale_name() == "myhost.tail1234.ts.net"
 
     def test_returns_none_when_tailscale_not_installed(self, monkeypatch):
-        monkeypatch.setattr(auth_module, "run_subprocess_safe", lambda *a, **k: None)
+        monkeypatch.setattr(auth_module, "run_tailscale_json", lambda args: None)
         assert _resolve_tailscale_name() is None
 
     def test_returns_none_on_nonzero_exit(self, monkeypatch):
-        result = subprocess.CompletedProcess(args=[], returncode=1, stdout="")
-        monkeypatch.setattr(auth_module, "run_subprocess_safe", lambda *a, **k: result)
+        monkeypatch.setattr(auth_module, "run_tailscale_json", lambda args: None)
         assert _resolve_tailscale_name() is None
 
     def test_returns_none_on_invalid_json(self, monkeypatch):
-        result = subprocess.CompletedProcess(args=[], returncode=0, stdout="not json")
-        monkeypatch.setattr(auth_module, "run_subprocess_safe", lambda *a, **k: result)
+        monkeypatch.setattr(auth_module, "run_tailscale_json", lambda args: None)
         assert _resolve_tailscale_name() is None
 
     def test_returns_none_when_dns_name_missing(self, monkeypatch):
-        result = subprocess.CompletedProcess(args=[], returncode=0, stdout=json.dumps({"Self": {}}))
-        monkeypatch.setattr(auth_module, "run_subprocess_safe", lambda *a, **k: result)
+        data = {"Self": {}}
+        monkeypatch.setattr(auth_module, "run_tailscale_json", lambda args: data)
         assert _resolve_tailscale_name() is None

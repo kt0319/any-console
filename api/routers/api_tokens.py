@@ -18,7 +18,6 @@ from ..auth import (
     API_TOKEN_MAX_NAME_LEN,
     API_TOKEN_SCOPE_DISPATCH,
     create_api_token,
-    get_api_token,
     list_api_tokens,
     revoke_api_token,
     verify_token,
@@ -48,8 +47,6 @@ def list_tokens():
 
 @router.delete("/api-tokens/{token_id}")
 def revoke_token(token_id: str):
-    if not get_api_token(token_id):
-        raise not_found("API token not found")
     if not revoke_api_token(token_id):
         raise not_found("API token not found")
     return {"ok": True}

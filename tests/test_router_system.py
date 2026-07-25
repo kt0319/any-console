@@ -222,20 +222,16 @@ class TestGetTailscaleVersion:
 
 class TestGetTailscaleServeRunning:
     def test_running_with_web_handlers(self, monkeypatch):
-        result = subprocess.CompletedProcess(
-            args=[], returncode=0,
-            stdout='{"TCP": {"443": {"HTTPS": true}}, "Web": {"x": {}}}',
-        )
-        monkeypatch.setattr(system_mod, "run_subprocess_safe", lambda *a, **k: result)
+        data = {"TCP": {"443": {"HTTPS": True}}, "Web": {"x": {}}}
+        monkeypatch.setattr(system_mod, "run_tailscale_json", lambda args: data)
         assert system_mod._get_tailscale_serve_running() is True
 
     def test_not_configured(self, monkeypatch):
-        result = subprocess.CompletedProcess(args=[], returncode=0, stdout="{}")
-        monkeypatch.setattr(system_mod, "run_subprocess_safe", lambda *a, **k: result)
+        monkeypatch.setattr(system_mod, "run_tailscale_json", lambda args: {})
         assert system_mod._get_tailscale_serve_running() is False
 
     def test_command_unavailable_returns_none(self, monkeypatch):
-        monkeypatch.setattr(system_mod, "run_subprocess_safe", lambda *a, **k: None)
+        monkeypatch.setattr(system_mod, "run_tailscale_json", lambda args: None)
         assert system_mod._get_tailscale_serve_running() is None
 
 

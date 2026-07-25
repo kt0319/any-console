@@ -1,6 +1,5 @@
 import hmac
 import ipaddress
-import json
 import logging
 import os
 import secrets
@@ -11,7 +10,7 @@ from typing import Mapping, Optional
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from .common import DATA_DIR, SYSTEM_CMD_TIMEOUT_SEC, load_json_file, run_subprocess_safe, save_json_file
+from .common import DATA_DIR, load_json_file, run_tailscale_json, save_json_file
 
 security = HTTPBearer(auto_error=False)
 logger = logging.getLogger(__name__)
@@ -123,14 +122,10 @@ def _resolve_tailscale_name() -> str | None:
     `tailscale` 未インストール・未ログイン・コマンド失敗時は None を返し、
     呼び出し側はリクエスト自身の Host ヘッダへフォールバックする。
     """
-    result = run_subprocess_safe(["tailscale", "status", "--json"], timeout=SYSTEM_CMD_TIMEOUT_SEC)
-    if result is None or result.returncode != 0:
+    data = run_tailscale_json(["status", "--json"])
+    if data is None:
         return None
-    try:
-        data = json.loads(result.stdout)
-    except (json.JSONDecodeError, TypeError):
-        return None
-    self_info = data.get("Self") if isinstance(data, dict) else None
+    self_info = data.get("Self")
     dns_name = self_info.get("DNSName", "") if isinstance(self_info, dict) else ""
     return dns_name.rstrip(".") or None
 
@@ -248,6 +243,10 @@ def _save_api_tokens(tokens: list[dict]) -> None:
     save_json_file(_AUTH_FILE, data)
 
 
+def _strip_secret_hash(entry: dict) -> dict:
+    return {k: v for k, v in entry.items() if k != "secret_hash"}
+
+
 def create_api_token(name: str, scope: str = API_TOKEN_SCOPE_DISPATCH) -> tuple[dict, str]:
     """新規スコープ付き API トークンを発行する。
 
@@ -271,12 +270,12 @@ def create_api_token(name: str, scope: str = API_TOKEN_SCOPE_DISPATCH) -> tuple[
         tokens.append(entry)
         _save_api_tokens(tokens)
     logger.info("api token created id=%s name=%s scope=%s", token_id, entry["name"], scope)
-    return {k: v for k, v in entry.items() if k != "secret_hash"}, raw_token
+    return _strip_secret_hash(entry), raw_token
 
 
 def list_api_tokens() -> list[dict]:
     """secret_hash を除いた一覧を返す（UI 表示用）。"""
-    return [{k: v for k, v in t.items() if k != "secret_hash"} for t in _load_api_tokens()]
+    return [_strip_secret_hash(t) for t in _load_api_tokens()]
 
 
 def get_api_token(token_id: str) -> dict | None:
@@ -284,7 +283,7 @@ def get_api_token(token_id: str) -> dict | None:
         return None
     for t in _load_api_tokens():
         if t.get("id") == token_id:
-            return {k: v for k, v in t.items() if k != "secret_hash"}
+            return _strip_secret_hash(t)
     return None
 
 

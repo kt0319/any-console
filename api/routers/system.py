@@ -1,5 +1,4 @@
 import getpass
-import json
 import logging
 import os
 import platform
@@ -15,7 +14,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from ..auth import _is_tailscale_trust_enabled, verify_token
-from ..common import SYSTEM_CMD_TIMEOUT_SEC, run_subprocess_safe, sanitize_log_value
+from ..common import SYSTEM_CMD_TIMEOUT_SEC, run_subprocess_safe, run_tailscale_json, sanitize_log_value
 from ..errors import bad_request, conflict, not_found, server_error
 
 logger = logging.getLogger(__name__)
@@ -346,12 +345,8 @@ def _get_tailscale_version() -> str | None:
 
 def _get_tailscale_serve_running() -> bool | None:
     """Tailscale Serveが稼働中か。`tailscale`未インストール/tailscaled未起動ならNone。"""
-    result = run_subprocess_safe(["tailscale", "serve", "status", "--json"], timeout=SYSTEM_CMD_TIMEOUT_SEC)
-    if result is None or result.returncode != 0:
-        return None
-    try:
-        data = json.loads(result.stdout)
-    except (json.JSONDecodeError, TypeError):
+    data = run_tailscale_json(["serve", "status", "--json"])
+    if data is None:
         return None
     return bool(data.get("TCP") or data.get("Web"))
 

@@ -187,6 +187,21 @@ def run_subprocess_safe(
         _subprocess_logger.debug("subprocess failed %s: %s", label, e)
         return None
 
+def run_tailscale_json(args: list[str]) -> dict | None:
+    """`tailscale <args> --json` を実行しパース結果を返す。
+
+    未インストール・tailscaled未起動・非0終了・JSON不正のいずれでも None。
+    """
+    result = run_subprocess_safe(["tailscale", *args], timeout=SYSTEM_CMD_TIMEOUT_SEC)
+    if result is None or result.returncode != 0:
+        return None
+    try:
+        data = json.loads(result.stdout)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
 class TTLCache:
     def __init__(self, ttl_sec: float):
         self._ttl = ttl_sec

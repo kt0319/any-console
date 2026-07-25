@@ -60,6 +60,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel
 
 from .. import auth as auth_module
+from ..auth import _extract_client_ip as _client_ip
 from ..auth import _resolve_tailscale_name, verify_token
 from ..devices import autoname_from_user_agent, register_device
 from ..errors import bad_request, gone, server_error, too_many_requests, unauthorized
@@ -97,10 +98,6 @@ _rate_lock = threading.Lock()
 
 class ClaimBody(BaseModel):
     token: str = ""
-
-
-def _client_ip(request: Request) -> str:
-    return request.client.host if request.client else "unknown"
 
 
 def _check_rate_limit(request: Request, bucket: str, limit: int) -> None:
