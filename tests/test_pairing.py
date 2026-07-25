@@ -25,6 +25,11 @@ def _client_with_port(port=8888):
     return TestClient(app, base_url=f"http://testserver:{port}")
 
 
+def _client_loopback(host="localhost", port=8888):
+    # 起動時通知どおり http://localhost:8888 でアクセスしているケースを再現する。
+    return TestClient(app, base_url=f"http://{host}:{port}")
+
+
 @pytest.fixture(autouse=True)
 def _isolate_pairing():
     pairing_mod._pairings.clear()
@@ -81,6 +86,31 @@ class TestStart:
         res = client.post("/auth/pairing/start", headers=AUTH)
         assert res.json()["url"].startswith("http://testserver/pair/")
 
+    def test_loopback_origin_uses_hostname_with_http_when_available(self, client, monkeypatch):
+        # 発行元がhttp://localhost:8888(起動時通知どおり)で開いている場合、
+        # そのままだとQRの宛先が「スキャンした端末自身のlocalhost」になり
+        # 絶対に繋がらない。MagicDNS名+実ポートに差し替えなければならない。
+        monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
+        monkeypatch.setattr(pairing_mod, "_tailscale_serve_targets_port", lambda port: False)
+        res = _client_loopback("localhost", 8888).post("/auth/pairing/start", headers=AUTH)
+        assert res.status_code == 200, res.text
+        assert res.json()["url"].startswith("http://myhost.tail1234.ts.net:8888/pair/")
+
+    def test_loopback_origin_uses_ip_form_too(self, client, monkeypatch):
+        monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
+        monkeypatch.setattr(pairing_mod, "_tailscale_serve_targets_port", lambda port: False)
+        res = _client_loopback("127.0.0.1", 8888).post("/auth/pairing/start", headers=AUTH)
+        assert res.status_code == 200, res.text
+        assert res.json()["url"].startswith("http://myhost.tail1234.ts.net:8888/pair/")
+
+    def test_loopback_origin_rejected_without_a_tailscale_hostname(self, client, monkeypatch):
+        # tailscaleホスト名も引けず、リクエスト自体がloopbackなら、他端末から
+        # 到達できるURLを作りようがないため、明確なエラーで拒否する。
+        monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: None)
+        res = _client_loopback("localhost", 8888).post("/auth/pairing/start", headers=AUTH)
+        assert res.status_code == 400
+        assert "localhost" in res.json()["detail"]
+
     def test_disabled_when_auth_disabled(self, client, monkeypatch):
         monkeypatch.setattr(auth_module, "ANY_CONSOLE_TOKEN", "")
         res = client.post("/auth/pairing/start")
@@ -93,6 +123,12 @@ class TestStart:
         assert client.post("/auth/pairing/start", headers=AUTH).status_code == 200
         res = client.post("/auth/pairing/start", headers=AUTH)
         assert res.status_code == 429
+
+    def test_sweeps_stale_entries_from_a_previous_start(self, client, monkeypatch):
+        first = _start(client, monkeypatch)
+        pairing_mod._pairings[first["id"]]["expires_at"] = time.time() - 1
+        _start(client, monkeypatch)
+        assert first["id"] not in pairing_mod._pairings
 
 
 class TestTailscaleServeTargetsPort:
@@ -127,6 +163,23 @@ class TestTailscaleServeTargetsPort:
         assert pairing_mod._tailscale_serve_targets_port(8888) is False
 
 
+class TestIsLoopbackHost:
+    def test_localhost(self):
+        assert pairing_mod._is_loopback_host("localhost") is True
+
+    def test_ipv4_loopback(self):
+        assert pairing_mod._is_loopback_host("127.0.0.1") is True
+
+    def test_ipv6_loopback(self):
+        assert pairing_mod._is_loopback_host("::1") is True
+
+    def test_lan_ip_is_not_loopback(self):
+        assert pairing_mod._is_loopback_host("192.168.1.10") is False
+
+    def test_empty_is_not_loopback(self):
+        assert pairing_mod._is_loopback_host("") is False
+
+
 class TestStatus:
     def test_unknown_id_returns_not_found(self, client):
         res = client.get("/auth/pairing/pr_doesnotexist/status")
@@ -147,6 +200,27 @@ class TestStatus:
         res = client.get(f"/auth/pairing/{data['id']}/status")
         assert res.json()["status"] == "expired"
         assert data["id"] not in pairing_mod._pairings
+
+    def test_in_progress_claim_is_not_expired_even_past_deadline(self, client, monkeypatch):
+        # claimがexpires_at間際で始まり(claiming=True)、登録処理が元の期限を
+        # 跨いで終わるケース。この間にstatusがエントリを掃除してしまうと、
+        # claim_pairing側が保持しているのは既に_pairingsから外れた同一dict
+        # オブジェクトへの参照になり、以後 claimed=True を書き込んでも誰からも
+        # 観測できなくなる(登録は成功しているのに issuer は永久に
+        # expired/not_found を見続ける)。
+        data = _start(client, monkeypatch)
+        pairing_mod._pairings[data["id"]]["claiming"] = True
+        pairing_mod._pairings[data["id"]]["expires_at"] = time.time() - 1
+        res = client.get(f"/auth/pairing/{data['id']}/status")
+        assert res.json()["status"] == "pending"
+        assert data["id"] in pairing_mod._pairings
+
+    def test_in_progress_claim_survives_sweep_during_another_start(self, client, monkeypatch):
+        data = _start(client, monkeypatch)
+        pairing_mod._pairings[data["id"]]["claiming"] = True
+        pairing_mod._pairings[data["id"]]["expires_at"] = time.time() - 1
+        _start(client, monkeypatch)  # 別のstartがsweepを走らせる
+        assert data["id"] in pairing_mod._pairings
 
     def test_claimed_is_observable_then_gone(self, client, monkeypatch):
         data = _start(client, monkeypatch)

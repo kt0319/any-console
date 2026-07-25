@@ -46,9 +46,15 @@
   ことまで確認できた場合にのみ使う（`_tailscale_serve_targets_port`）。
   同一tailnetホストで別サービス向けにServeが設定されているだけのケースを
   誤って信頼し、到達しないURLをQRに埋め込まないようにするため。
+- 発行元が `http://localhost:8888` のようなloopbackアドレスで any-console を
+  開いている場合、そのままリクエストのnetlocをQRに使うと「スキャンした
+  端末自身のlocalhost」を指してしまい絶対に繋がらない。この場合は
+  MagicDNS名+実ポートへ差し替えるか（Serveは未確認でもtailnet越しに到達
+  できる）、それも引けなければ明確なエラーで拒否する（`_is_loopback_host`）。
 """
 
 import hmac
+import ipaddress
 import json
 import logging
 import secrets
@@ -126,6 +132,14 @@ def _bounded_pairing_scope(pairing_id: str) -> str:
 def _is_expired_locked(entry: dict, now: float) -> bool:
     if entry["claimed"]:
         return bool(now - entry.get("claimed_at", 0) > _CLAIMED_OBSERVATION_SEC)
+    if entry["claiming"]:
+        # デバイス登録の結果(claimed成功 or claiming解除してpendingへ戻る)が
+        # 確定するまでは期限切れ扱いにしない。ここで掃除してしまうと、
+        # claim_pairing側が保持しているローカル変数(_pairingsから見て既に
+        # detachedな同一dictオブジェクト)への以後の書き込みが誰からも
+        # 観測できなくなり、登録が成功してもissuer側は永久にnot_found/expired
+        # を見ることになる。
+        return False
     return bool(entry["expires_at"] <= now)
 
 
@@ -166,18 +180,43 @@ def _tailscale_serve_targets_port(port: int) -> bool:
     return False
 
 
+def _is_loopback_host(host: str) -> bool:
+    if not host:
+        return False
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
 def _build_pairing_url(request: Request, pairing_id: str, pairing_token: str) -> str:
     # MagicDNS名が引けても、Tailscale Serveがこのプロセスの待受ポートへ実際に
     # proxyしているとは確認できない限り https://<hostname> 決め打ちにはしない
     # （直接LAN/tailnet IPへbindしている構成や、Serveが別サービス向けに設定
     # されている構成では、そこにアクセスしても any-console には届かない）。
-    # 確認できなければこのリクエストが実際に届いたscheme/host/portを使う。
     hostname = _resolve_tailscale_name()
     port = request.url.port
     if hostname and port and _tailscale_serve_targets_port(port):
-        base = f"https://{hostname}"
-    else:
-        base = f"{request.url.scheme}://{request.url.netloc}"
+        return f"https://{hostname}/pair/{pairing_id}?t={pairing_token}"
+
+    # 発行元が起動時通知の http://localhost:8888 のようなloopbackアドレスで
+    # 開いている場合、そのままリクエストのnetlocを使うとQRの宛先が
+    # 「スキャンした端末自身のlocalhost」になってしまい絶対に繋がらない。
+    if _is_loopback_host(request.url.hostname or ""):
+        if hostname and port:
+            # Serveは未確認でも、MagicDNS名+実ポートならtailnet越しに
+            # 他端末から到達できる(plain HTTPでよい — tailnet自体が
+            # WireGuardで暗号化されているため、README記載のLAN/tailnet
+            # 運用と同じ扱い)。
+            return f"http://{hostname}:{port}/pair/{pairing_id}?t={pairing_token}"
+        raise bad_request(
+            "Cannot build a link reachable from another device while viewing "
+            "any-console via localhost. Open it via its LAN or Tailscale address instead."
+        )
+
+    base = f"{request.url.scheme}://{request.url.netloc}"
     return f"{base}/pair/{pairing_id}?t={pairing_token}"
 
 
@@ -224,6 +263,11 @@ def pairing_status(pairing_id: str, request: Request):
                 _pairings.pop(pairing_id, None)
                 return {"status": "not_found"}
             return {"status": "claimed"}
+        if entry["claiming"]:
+            # 登録処理の結果が確定するまでは期限切れにしない(理由は
+            # _is_expired_locked のコメント参照)。結果はclaim_pairing側で
+            # 確定させる(claimed成功、またはclaiming解除してpendingへ戻る)。
+            return {"status": "pending", "expires_in_sec": max(0, int(entry["expires_at"] - now))}
         if entry["expires_at"] <= now:
             _pairings.pop(pairing_id, None)
             return {"status": "expired"}
