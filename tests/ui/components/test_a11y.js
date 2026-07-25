@@ -9,9 +9,9 @@
  *
  * 色コントラスト・実機 SR 検証は対象外（axe-helper.js のコメント参照）。
  */
-import { describe, it, afterEach } from "vitest";
-import { mount } from "@vue/test-utils";
-import { nextTick } from "vue";
+import { describe, it, afterEach, vi } from "vitest";
+import { mount, flushPromises } from "@vue/test-utils";
+import { nextTick, ref } from "vue";
 import ConfirmDialog from "../../../ui/components/ConfirmDialog.vue";
 import PromptDialog from "../../../ui/components/PromptDialog.vue";
 import GitActionBtn from "../../../ui/components/GitActionBtn.vue";
@@ -22,6 +22,7 @@ import WorkspaceGroupDialog from "../../../ui/components/WorkspaceGroupDialog.vu
 import UrlActionDialog from "../../../ui/components/UrlActionDialog.vue";
 import TerminalSplitDropZones from "../../../ui/components/TerminalSplitDropZones.vue";
 import SplitEmptyPane from "../../../ui/components/SplitEmptyPane.vue";
+import AuthConfig from "../../../ui/components/AuthConfig.vue";
 import { createPinia, setActivePinia } from "pinia";
 import { useConfirm } from "../../../ui/composables/useConfirm.js";
 import { usePrompt } from "../../../ui/composables/usePrompt.js";
@@ -158,6 +159,47 @@ describe("a11y: SplitEmptyPane", () => {
       attachTo: document.body,
     });
     await expectNoA11yViolations(wrapper.element);
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: AuthConfig (API Tokens section)", () => {
+  function jsonResponse(data) {
+    return Promise.resolve({ ok: true, status: 200, json: async () => data });
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("トークン一覧・作成直後の raw トークン表示に a11y 違反が無い", async () => {
+    setActivePinia(createPinia());
+    let created = false;
+    vi.stubGlobal("fetch", vi.fn((url, opts = {}) => {
+      const method = opts.method || "GET";
+      if (url === "/api-tokens" && method === "GET") {
+        return jsonResponse(created ? [{ id: "tok_1", name: "ci", scope: "dispatch", last_used: null }] : []);
+      }
+      if (url === "/api-tokens" && method === "POST") {
+        created = true;
+        return jsonResponse({ id: "tok_1", name: "ci", scope: "dispatch", last_used: null, token: "raw-secret" });
+      }
+      return jsonResponse({});
+    }));
+
+    const wrapper = mount(AuthConfig, {
+      global: { provide: { modalTitle: ref("") } },
+      attachTo: document.body,
+    });
+    await flushPromises();
+    await expectNoA11yViolations(wrapper.element);
+
+    // Create 直後（raw トークン表示 + Copy ボタン）も検査する。
+    await wrapper.find('input[placeholder^="Token name"]').setValue("ci");
+    await wrapper.findAll("button").find((b) => b.text() === "Create").trigger("click");
+    await flushPromises();
+    await expectNoA11yViolations(wrapper.element);
+
     wrapper.unmount();
   });
 });

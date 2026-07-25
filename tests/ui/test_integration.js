@@ -20,9 +20,12 @@ import PromptDialog from "../../ui/components/PromptDialog.vue";
 import WorkspaceStatusBar from "../../ui/components/WorkspaceStatusBar.vue";
 import WorkspaceDetail from "../../ui/components/WorkspaceDetail.vue";
 import DispatchRunView from "../../ui/components/DispatchRunView.vue";
+import AuthConfig from "../../ui/components/AuthConfig.vue";
 import { useTerminalStore } from "../../ui/stores/terminal.js";
 import { useAuthStore } from "../../ui/stores/auth.js";
+import { useWorkspaceStore } from "../../ui/stores/workspace.js";
 import { applyDispatchQueue } from "../../ui/composables/useDispatchConfirm.js";
+import { EP_API_TOKENS, EP_SETTINGS_AUTH } from "../../ui/utils/endpoints.js";
 
 // ── Test 1: fit 抑制 ──────────────────────────────────────────────────────────
 
@@ -435,5 +438,255 @@ describe("DispatchRunView: dedup_key による置き換えの検知", () => {
     await flushPromises();
 
     expect(popView).not.toHaveBeenCalled();
+  });
+});
+
+// ── DispatchRunView: dirty workspace のブランチ切替ブロック ──────────────────
+
+function mountDispatchRunView(itemId = "d1") {
+  return mount(DispatchRunView, {
+    global: {
+      provide: {
+        modalTitle: ref(""),
+        viewState: ref({ itemId }),
+        popView: vi.fn(),
+      },
+    },
+  });
+}
+
+function findRunButton(wrapper) {
+  return wrapper.findAll("button").find((b) => b.text().includes("Run"));
+}
+
+describe("DispatchRunView: dirty workspace でのブランチ切替ブロック", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    applyDispatchQueue([]);
+  });
+
+  it("ブランチを切り替える dispatch + dirty workspace は Run を disable し理由を表示する", async () => {
+    applyDispatchQueue([
+      { id: "d1", request: { workspace: "ws1", text: "run", branch: "feature/x", create_branch: true, retry_count: 1 } },
+    ]);
+    useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 2 }];
+
+    const wrapper = mountDispatchRunView();
+    await flushPromises();
+
+    const runBtn = findRunButton(wrapper);
+    expect(runBtn.attributes("disabled")).toBeDefined();
+    expect(wrapper.text()).toContain("uncommitted changes (2 files)");
+    wrapper.unmount();
+  });
+
+  it("ファイル数が1件なら単数形で表示する", async () => {
+    applyDispatchQueue([
+      { id: "d1", request: { workspace: "ws1", text: "run", branch: "feature/x", create_branch: true, retry_count: 1 } },
+    ]);
+    useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 1 }];
+
+    const wrapper = mountDispatchRunView();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("uncommitted changes (1 file)");
+    wrapper.unmount();
+  });
+
+  it("ブランチが現在ブランチと同じならブロックしない", async () => {
+    applyDispatchQueue([
+      { id: "d1", request: { workspace: "ws1", text: "run", branch: "main", create_branch: true, retry_count: 1 } },
+    ]);
+    useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 3 }];
+
+    const wrapper = mountDispatchRunView();
+    await flushPromises();
+
+    const runBtn = findRunButton(wrapper);
+    expect(runBtn.attributes("disabled")).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("Create branch オフなら既存ブランチへの切替 + dirty でもブロックしない", async () => {
+    applyDispatchQueue([
+      { id: "d1", request: { workspace: "ws1", text: "run", branch: "feature/existing", create_branch: false, retry_count: 1 } },
+    ]);
+    useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 4 }];
+
+    const wrapper = mountDispatchRunView();
+    await flushPromises();
+
+    const runBtn = findRunButton(wrapper);
+    expect(runBtn.attributes("disabled")).toBeUndefined();
+    expect(wrapper.text()).not.toContain("uncommitted changes");
+    wrapper.unmount();
+  });
+
+  it("ブランチ未指定（現在ブランチのまま）ならdirtyでもブロックしない", async () => {
+    applyDispatchQueue([
+      { id: "d1", request: { workspace: "ws1", text: "run", retry_count: 1 } },
+    ]);
+    useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 5 }];
+
+    const wrapper = mountDispatchRunView();
+    await flushPromises();
+
+    const runBtn = findRunButton(wrapper);
+    expect(runBtn.attributes("disabled")).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("workspace がクリーン（changed_files: 0）ならブロックしない", async () => {
+    applyDispatchQueue([
+      { id: "d1", request: { workspace: "ws1", text: "run", branch: "feature/y", create_branch: true, retry_count: 1 } },
+    ]);
+    useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 0 }];
+
+    const wrapper = mountDispatchRunView();
+    await flushPromises();
+
+    const runBtn = findRunButton(wrapper);
+    expect(runBtn.attributes("disabled")).toBeUndefined();
+    wrapper.unmount();
+  });
+});
+
+// ── AuthConfig: API Tokens ────────────────────────────────────────────────
+
+describe("AuthConfig: API Tokens", () => {
+  /** @type {import("vitest").Mock} */
+  let fetchMock;
+
+  function jsonResponse(data, status = 200) {
+    return Promise.resolve({ ok: status < 400, status, json: async () => data });
+  }
+
+  function stubFetch(handlers) {
+    fetchMock = vi.fn((url, opts = {}) => {
+      const method = opts.method || "GET";
+      for (const [matchUrl, matchMethod, respond] of handlers) {
+        if (url === matchUrl && method === matchMethod) return respond();
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  }
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.innerHTML = "";
+  });
+
+  it("既存トークンを一覧表示する（scope チップ・Last used 込み）", async () => {
+    stubFetch([
+      [EP_SETTINGS_AUTH, "GET", () => jsonResponse({ auth_required: true })],
+      ["/devices", "GET", () => jsonResponse([])],
+      [EP_API_TOKENS, "GET", () => jsonResponse([
+        { id: "tok_1", name: "github-actions", scope: "dispatch", last_used: null },
+      ])],
+    ]);
+
+    const wrapper = mount(AuthConfig, { global: { provide: { modalTitle: ref("") } } });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("github-actions");
+    expect(wrapper.text()).toContain("dispatch");
+    expect(wrapper.text()).toContain("Never");
+    wrapper.unmount();
+  });
+
+  it("作成すると raw トークンを一度だけ表示し、一覧を再読込する", async () => {
+    let listCallCount = 0;
+    stubFetch([
+      [EP_SETTINGS_AUTH, "GET", () => jsonResponse({ auth_required: true })],
+      ["/devices", "GET", () => jsonResponse([])],
+      [EP_API_TOKENS, "GET", () => {
+        listCallCount += 1;
+        const data = listCallCount === 1 ? [] : [{ id: "tok_2", name: "ci", scope: "dispatch", last_used: null }];
+        return jsonResponse(data);
+      }],
+      [EP_API_TOKENS, "POST", () => jsonResponse({
+        id: "tok_2", name: "ci", scope: "dispatch", last_used: null, token: "raw-secret-value",
+      })],
+    ]);
+
+    const wrapper = mount(AuthConfig, { global: { provide: { modalTitle: ref("") } } });
+    await flushPromises();
+
+    await wrapper.find('input[placeholder^="Token name"]').setValue("ci");
+    const createBtn = wrapper.findAll("button").find((b) => b.text() === "Create");
+    await createBtn.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Copy this token now");
+    expect(wrapper.find(".security-token-row input[readonly]").element.value).toBe("raw-secret-value");
+    expect(wrapper.text()).toContain("ci");
+    expect(listCallCount).toBe(2);
+    wrapper.unmount();
+  });
+
+  it("Copy ボタンでクリップボードへコピーする", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    const origClipboard = navigator.clipboard;
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+
+    stubFetch([
+      [EP_SETTINGS_AUTH, "GET", () => jsonResponse({ auth_required: true })],
+      ["/devices", "GET", () => jsonResponse([])],
+      [EP_API_TOKENS, "GET", () => jsonResponse([])],
+      [EP_API_TOKENS, "POST", () => jsonResponse({
+        id: "tok_3", name: "ci", scope: "dispatch", last_used: null, token: "copy-me-token",
+      })],
+    ]);
+
+    const wrapper = mount(AuthConfig, { global: { provide: { modalTitle: ref("") } } });
+    await flushPromises();
+    await wrapper.find('input[placeholder^="Token name"]').setValue("ci");
+    await wrapper.findAll("button").find((b) => b.text() === "Create").trigger("click");
+    await flushPromises();
+
+    const copyBtn = wrapper.find('button[aria-label="Copy token"]');
+    await copyBtn.trigger("click");
+    await flushPromises();
+
+    expect(writeText).toHaveBeenCalledWith("copy-me-token");
+    Object.defineProperty(navigator, "clipboard", { value: origClipboard, configurable: true });
+    wrapper.unmount();
+  });
+
+  it("Revoke は useConfirm 経由で確認してから削除する", async () => {
+    let deleteCalled = false;
+    stubFetch([
+      [EP_SETTINGS_AUTH, "GET", () => jsonResponse({ auth_required: true })],
+      ["/devices", "GET", () => jsonResponse([])],
+      [EP_API_TOKENS, "GET", () => jsonResponse(
+        deleteCalled ? [] : [{ id: "tok_4", name: "ci", scope: "dispatch", last_used: null }],
+      )],
+      ["/api-tokens/tok_4", "DELETE", () => {
+        deleteCalled = true;
+        return jsonResponse({ ok: true });
+      }],
+    ]);
+
+    const wrapper = mount(AuthConfig, { global: { provide: { modalTitle: ref("") } } });
+    await flushPromises();
+    expect(wrapper.text()).toContain("ci");
+
+    const confirmState = useConfirm();
+    const revokeBtn = wrapper.find('button[aria-label="Revoke API token"]');
+    const clickPromise = revokeBtn.trigger("click");
+    await Promise.resolve();
+    await flushPromises();
+    confirmState.onOk();
+    await clickPromise;
+    await flushPromises();
+
+    expect(deleteCalled).toBe(true);
+    expect(wrapper.text()).not.toContain("ci");
+    wrapper.unmount();
   });
 });
