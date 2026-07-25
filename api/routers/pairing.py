@@ -21,17 +21,10 @@
   — 一時的にでも dict から消すと、その間の status ポーリングが not_found を
   返し、発行元が「期限切れ」と誤認してポーリングを止めてしまうため。
 - id・token どちらも総当たりされないよう、専用のレートリミッタ（rate_limiter.py
-  の `_FixedWindowCounter` を再利用）で start/status/claim を個別に絞る。
-  status・claim はどちらも実在する pairing_id ごとに独立してカウントする
-  （Tailscale Serve 経由だと全クライアントが loopback 発に見えるため、IPだけで
-  絞ると無関係な pairing_id への荒らしで正規の pairing まで巻き添えでブロック
-  されてしまう）。実在しない pairing_id は共有バケットにまとめ（`_bounded_pairing_scope`。
-  存在確認より前に呼ぶ都合上、そうしないと攻撃者が架空のIDを大量生成して
-  キー空間を際限なく肥大化させられてしまう）、実在する pairing_id 用のキーは
-  そのpairingがdictから消える時点で明示的に掃除する（`_evict_rate_limit_keys_for`。
-  `_FixedWindowCounter` はキーを自動失効しないため、掃除しないと正規の
-  pairingが完了・失効するたびにキーが永久に残り、長期稼働するプロセスで
-  ゆっくり肥大化し続けてしまう）。
+  の `_FixedWindowCounter` を再利用）で start/status/claim を個別に、IPごとに
+  絞る。アプリ全体にかかる IP ベースの制限（rate_limiter.py の
+  `RateLimitMiddleware`）に加えた二次防御であり、token の推測不可能性が
+  主防御。
 - claim成功後のエントリ（tombstone）は claimed_at から独立した観測猶予
   （`_CLAIMED_OBSERVATION_SEC`）で寿命を判定する。元の90秒期限間際にclaimが
   成立したケースでも、発行元のポーリングが少し遅れただけでclaimedを
@@ -44,25 +37,20 @@
   必ず新規デバイスとして登録する（同一UAの2台を続けてペアリングすると、
   再利用ロジックが後発デバイスのために先発デバイスのsecretを回転させ、
   先発デバイスが無言でログアウトされてしまうため）。
-- QRに埋め込む URL の https://<hostname> は、Tailscale Serve が「何かしら」
-  稼働しているだけでなく、実際にこのプロセスの待受ポートへ proxy している
-  ことまで確認できた場合にのみ使う（`_tailscale_serve_frontend_port`）。
-  同一tailnetホストで別サービス向けにServeが設定されているだけのケースを
-  誤って信頼し、到達しないURLをQRに埋め込まないようにするため。Serveの
-  HTTPSは443固定ではなく8443/10000もサポートされるため、443決め打ちにせず
-  実際のfrontendポートをWebキーから取り出して使う。
-- 発行元が `http://localhost:8888` のようなloopbackアドレスで any-console を
-  開いている場合、そのままリクエストのnetlocをQRに使うと「スキャンした
-  端末自身のlocalhost」を指してしまい絶対に繋がらない。この場合は
-  MagicDNS名+実ポートへ差し替える（Serveは未確認でもtailnet越しに到達
-  できる。schemeはリクエスト自身のものを保持する — native TLS運用で
-  https://localhost経由の場合にhttpへ決め打ちすると繋がらないため）か、
-  それも引けなければ明確なエラーで拒否する（`_is_loopback_host`）。
+- QRに埋め込む URL は、Tailscale の MagicDNS 名が引ければ「ホスト名 + この
+  プロセス自身の待受ポート」で組み立てる（Tailscale Serve の設定有無・
+  proxy先の確認はしない — Serve が無くても tailnet 経由の直接アクセスで
+  十分到達できるため、あえて複雑にしない）。ただし bind 自体がloopback専用
+  （`__global__.host` が `127.0.0.1`/`::1`）の場合、MagicDNS名を使っても
+  結局どこからも到達できないため使わない（`_bind_is_loopback_only`）。
+  MagicDNS名が引けず、かつ発行元が `http://localhost:8888` のような
+  loopbackアドレスで開いている場合は、そのままリクエストのnetlocを使うと
+  QRの宛先が「スキャンした端末自身のlocalhost」になってしまい絶対に
+  繋がらないため、明確なエラーで拒否する（`_is_loopback_host`）。
 """
 
 import hmac
 import ipaddress
-import json
 import logging
 import secrets
 import threading
@@ -73,7 +61,6 @@ from pydantic import BaseModel
 
 from .. import auth as auth_module
 from ..auth import _resolve_tailscale_name, verify_token
-from ..common import SYSTEM_CMD_TIMEOUT_SEC, run_subprocess_safe
 from ..devices import autoname_from_user_agent, register_device
 from ..errors import bad_request, gone, server_error, too_many_requests, unauthorized
 from ..rate_limiter import _FixedWindowCounter
@@ -106,10 +93,7 @@ _rate_counter = _FixedWindowCounter()
 # _rate_counter専用の別ロック。start/status/claimはsync defルートのため
 # FastAPI/Starletteのスレッドプールで実行され、複数リクエストが本当に並行して
 # _rate_counter に触れうる（_pairings用の`_lock`と違い、`_FixedWindowCounter`
-# 自体はロックを持たない）。`_evict_rate_limit_keys_for`は`_lock`保持中に
-# 呼ばれる箇所があるため、同じ`_lock`を使い回すと自己デッドロックする
-# （非再入ロック）。そのため独立したロックにする。ロック順序は常に
-# `_lock`→`_rate_lock`（逆順で取得する箇所は無い）。
+# 自体はロックを持たない）。
 _rate_lock = threading.Lock()
 
 
@@ -121,29 +105,12 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def _check_rate_limit(request: Request, bucket: str, limit: int, *, scope: str = "") -> None:
-    client_key = f"{_client_ip(request)}:{scope}" if scope else _client_ip(request)
-    key = f"pairing:{bucket}:{client_key}"
+def _check_rate_limit(request: Request, bucket: str, limit: int) -> None:
+    key = f"pairing:{bucket}:{_client_ip(request)}"
     with _rate_lock:
         allowed = _rate_counter.is_allowed(key, limit, _RATE_WINDOW_SEC)
     if not allowed:
         raise too_many_requests("Too many requests")
-
-
-def _bounded_pairing_scope(pairing_id: str) -> str:
-    """status/claimのレート制限に使うスコープ文字列。
-
-    status/claimはpairing存在確認より前に呼ぶ必要があるため、pairing_idを
-    そのままスコープに使うと、攻撃者が実在しないIDを無限に生成して
-    `_FixedWindowCounter`（期限切れキーを掃除しない）のキー空間を際限なく
-    肥大化させられてしまう。実在するpairing_idにだけ専用バケットを与え
-    （同時に存在するpairing数は個人ツールの利用規模では常に小さく、TTLで
-    自然に掃除される）、存在しないIDへのアクセスは共有バケットへまとめる
-    （このバケットのキー数はIPの数だけに収まり、pairing_id導入前と同等）。
-    """
-    with _lock:
-        exists = pairing_id in _pairings
-    return pairing_id if exists else "unknown"
 
 
 def _is_expired_locked(entry: dict, now: float) -> bool:
@@ -160,71 +127,10 @@ def _is_expired_locked(entry: dict, now: float) -> bool:
     return bool(entry["expires_at"] <= now)
 
 
-def _evict_rate_limit_keys_for(pairing_id: str) -> None:
-    """pairing_id を消費し終えたら、そのpairing_idにスコープされたレート
-    リミットキー（`pairing:status:<ip>:<pairing_id>` 等）も一緒に消す。
-
-    `_bounded_pairing_scope` は実在するpairing_idにだけ専用バケットを与えて
-    攻撃者による無限のID生成を防いだが、それだけでは正規のpairingが
-    完了・失効するたびにそのキーが`_rate_counter._counts`へ永久に残り続け、
-    長期稼働するプロセスでゆっくり肥大化してしまう。pairingが消える時点で
-    対応するキーも掃除し、生きているpairing数に比例するサイズへ抑える。
-
-    `_rate_lock` で保護する: sync defルート（start/status/claim）はスレッド
-    プールで実行されるため、他リクエストの `_check_rate_limit` が
-    `_rate_counter._counts` を読み書き中にここで走査・削除すると
-    "dictionary changed size during iteration" で500になりうる。
-    """
-    suffix = f":{pairing_id}"
-    with _rate_lock:
-        stale = [k for k in _rate_counter._counts if k.endswith(suffix)]
-        for k in stale:
-            _rate_counter._counts.pop(k, None)
-
-
 def _sweep_expired_locked(now: float) -> None:
     expired = [pid for pid, p in _pairings.items() if _is_expired_locked(p, now)]
     for pid in expired:
         _pairings.pop(pid, None)
-        _evict_rate_limit_keys_for(pid)
-
-
-def _tailscale_serve_frontend_port(backend_port: int) -> int | None:
-    """Tailscale Serveがこのプロセスの待受ポートへ実際にproxyしているか確認し、
-    確認できればServeの公開(フロントエンド)ポートを返す。一致しなければNone。
-
-    `tailscale serve status --json` の `Web` は `{"host:frontend_port": {...}}`
-    という形で、値の `Handlers["/"].Proxy` が実際にproxyしているbackend先を示す。
-    単に「TCP/Webキーが存在する」だけでは、同一tailnetホストで動く別サービス
-    向けのServe設定を誤って信頼してしまう（その場合 https://<hostname> は
-    any-console に届かない）ため、backend側のポート一致まで確認する。
-    さらにTailscaleのServe HTTPSは443固定ではなく8443/10000も使えるため、
-    frontend側のポートもkeyから取り出して返す（呼び出し側が443決め打ちで
-    URLを組み立てると、8443/10000で稼働している場合に繋がらないQRになる）。
-    システム情報カード用の簡易チェック（system._get_tailscale_serve_running、
-    "何か動いているか"の表示用）とは別に、ペアリング専用でここまで確認する。
-    """
-    result = run_subprocess_safe(["tailscale", "serve", "status", "--json"], timeout=SYSTEM_CMD_TIMEOUT_SEC)
-    if result is None or result.returncode != 0:
-        return None
-    try:
-        data = json.loads(result.stdout)
-    except (json.JSONDecodeError, TypeError):
-        return None
-    web = data.get("Web") if isinstance(data, dict) else None
-    if not isinstance(web, dict):
-        return None
-    needle = f":{backend_port}"
-    for key, site in web.items():
-        handlers = site.get("Handlers", {}) if isinstance(site, dict) else {}
-        root = handlers.get("/", {}) if isinstance(handlers, dict) else {}
-        proxy = root.get("Proxy", "") if isinstance(root, dict) else ""
-        if not (isinstance(proxy, str) and proxy.endswith(needle)):
-            continue
-        _, _, frontend_port_str = str(key).rpartition(":")
-        if frontend_port_str.isdigit():
-            return int(frontend_port_str)
-    return None
 
 
 def _is_loopback_host(host: str) -> bool:
@@ -261,9 +167,8 @@ def _effective_port(request: Request) -> int | None:
 
     `request.url.port` は URL に明示的にポートが書かれている時しか値を
     持たない。native TLS を443番で運用していて発行元が `https://localhost`
-    （`:443` を省略）で開いた場合、`port` が None のままだと Serve 一致確認や
-    loopbackフォールバックの両方が「ポート不明」として素通りしてしまい、
-    実際には到達可能なのにペアリングを拒否してしまう。
+    （`:443` を省略）で開いた場合、`port` が None のままだと「ポート不明」
+    として素通りしてしまい、実際には到達可能なのにペアリングを拒否してしまう。
     """
     if request.url.port is not None:
         return request.url.port
@@ -275,31 +180,22 @@ def _effective_port(request: Request) -> int | None:
 
 
 def _build_pairing_url(request: Request, pairing_id: str, pairing_token: str) -> str:
-    # MagicDNS名が引けても、Tailscale Serveがこのプロセスの待受ポートへ実際に
-    # proxyしているとは確認できない限り https://<hostname> 決め打ちにはしない
-    # （直接LAN/tailnet IPへbindしている構成や、Serveが別サービス向けに設定
-    # されている構成では、そこにアクセスしても any-console には届かない）。
+    # MagicDNS名が引ければ、このプロセス自身の待受ポートと組み合わせてtailnet
+    # 越しに到達させる(Tailscale Serveの設定有無・proxy先の確認はしない —
+    # Serveが無くてもtailnet経由の直接アクセスで到達できるため、あえて複雑に
+    # しない。同一LANアクセスよりtailnet全体から届くこちらを優先する)。
+    # ただしbind自体がloopback専用の場合は、MagicDNS名を使っても結局どこからも
+    # 到達できないため使わない。
     hostname = _resolve_tailscale_name()
     port = _effective_port(request)
-    frontend_port = _tailscale_serve_frontend_port(port) if hostname and port else None
-    if hostname and frontend_port is not None:
-        # ServeのHTTPSは443固定ではない(8443/10000もサポートされる)ため、
-        # 実際のfrontendポートを使う。443はデフォルトポートなので省略する。
-        suffix = "" if frontend_port == 443 else f":{frontend_port}"
-        return f"https://{hostname}{suffix}/pair/{pairing_id}?t={pairing_token}"
+    if hostname and port and not _bind_is_loopback_only():
+        return f"{request.url.scheme}://{hostname}:{port}/pair/{pairing_id}?t={pairing_token}"
 
-    # 発行元が起動時通知の http://localhost:8888 のようなloopbackアドレスで
-    # 開いている場合、そのままリクエストのnetlocを使うとQRの宛先が
-    # 「スキャンした端末自身のlocalhost」になってしまい絶対に繋がらない。
+    # MagicDNS名が引けない(またはbindがloopback専用)場合、発行元が起動時通知の
+    # http://localhost:8888 のようなloopbackアドレスで開いていると、そのまま
+    # リクエストのnetlocを使ってもQRの宛先が「スキャンした端末自身のlocalhost」
+    # になってしまい絶対に繋がらない。
     if _is_loopback_host(request.url.hostname or ""):
-        if hostname and port and not _bind_is_loopback_only():
-            # Serveは未確認だが、MagicDNS名+実ポートならtailnet越しに他端末
-            # から到達できる。schemeはリクエスト自身のものをそのまま使う
-            # (native TLS運用 — main.py の SSL_KEYFILE/SSL_CERTFILE — では
-            # そのポートがTLSを要求するため、http に決め打ちすると繋がらない)。
-            # ただしこのプロセス自体がloopback専用でbindされている場合は
-            # MagicDNS名を差し替えても無意味なので、その時は下の拒否に倒す。
-            return f"{request.url.scheme}://{hostname}:{port}/pair/{pairing_id}?t={pairing_token}"
         raise bad_request(
             "Cannot build a link reachable from another device while viewing "
             "any-console via localhost. Open it via its LAN or Tailscale address instead."
@@ -319,8 +215,8 @@ def start_pairing(request: Request):
     pairing_token = secrets.token_urlsafe(24)
     with _lock:
         _sweep_expired_locked(now)
-    # _build_pairing_url は tailscale サブプロセスを最大2回呼び（それぞれ
-    # SYSTEM_CMD_TIMEOUT_SEC 秒でタイムアウト）、遅い環境では数秒かかりうる。
+    # _build_pairing_url は tailscale サブプロセスを呼ぶため
+    # （SYSTEM_CMD_TIMEOUT_SEC 秒でタイムアウト）、遅い環境では数秒かかりうる。
     # expires_at をこの呼び出しより前に確定させると、レスポンスに乗せる
     # expires_in_sec（常にPAIRING_TTL_SEC固定）より先にバックエンドの寿命が
     # 進んでしまい、クライアントの表示するカウントダウンより早くexpiredに
@@ -344,8 +240,7 @@ def start_pairing(request: Request):
 
 @router.get("/{pairing_id}/status")
 def pairing_status(pairing_id: str, request: Request):
-    # claimと同じ理由(モジュール docstring 参照)でpairing_idごとに独立してカウントする。
-    _check_rate_limit(request, "status", _STATUS_LIMIT, scope=_bounded_pairing_scope(pairing_id))
+    _check_rate_limit(request, "status", _STATUS_LIMIT)
     now = time.time()
     with _lock:
         entry = _pairings.get(pairing_id)
@@ -357,7 +252,6 @@ def pairing_status(pairing_id: str, request: Request):
         if entry["claimed"]:
             if _is_expired_locked(entry, now):
                 _pairings.pop(pairing_id, None)
-                _evict_rate_limit_keys_for(pairing_id)
                 return {"status": "not_found"}
             return {"status": "claimed"}
         if entry["claiming"]:
@@ -367,15 +261,13 @@ def pairing_status(pairing_id: str, request: Request):
             return {"status": "pending", "expires_in_sec": max(0, int(entry["expires_at"] - now))}
         if entry["expires_at"] <= now:
             _pairings.pop(pairing_id, None)
-            _evict_rate_limit_keys_for(pairing_id)
             return {"status": "expired"}
         return {"status": "pending", "expires_in_sec": max(0, int(entry["expires_at"] - now))}
 
 
 @router.post("/{pairing_id}/claim")
 def claim_pairing(pairing_id: str, body: ClaimBody, request: Request, response: Response):
-    # 荒らし対策はpairing_idごとに独立してカウントする(理由はモジュール docstring 参照)。
-    _check_rate_limit(request, "claim", _CLAIM_LIMIT, scope=_bounded_pairing_scope(pairing_id))
+    _check_rate_limit(request, "claim", _CLAIM_LIMIT)
     now = time.time()
     with _lock:
         entry = _pairings.get(pairing_id)
@@ -389,7 +281,6 @@ def claim_pairing(pairing_id: str, body: ClaimBody, request: Request, response: 
         # だけでは観測猶予(_CLAIMED_OBSERVATION_SEC)を無視して早期に消してしまう)。
         if _is_expired_locked(entry, now):
             _pairings.pop(pairing_id, None)
-            _evict_rate_limit_keys_for(pairing_id)
             raise gone("Pairing request expired or already used")
         if entry["claimed"] or entry["claiming"]:
             raise gone("Pairing request expired or already used")
