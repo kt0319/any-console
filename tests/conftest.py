@@ -36,6 +36,7 @@ def isolate_fs(tmp_path, monkeypatch):
     import api.common as common_mod
     import api.config as config_mod
     import api.devices as devices_mod
+    import api.push as push_mod
     import api.routers.dispatch as dispatch_mod
 
     monkeypatch.setattr(common_mod, "CONFIG_FILE", config_file)
@@ -44,6 +45,19 @@ def isolate_fs(tmp_path, monkeypatch):
     monkeypatch.setattr(devices_mod, "_DEVICES_FILE", data / "devices.json")
     monkeypatch.setattr(devices_mod, "_SERVER_KEY_FILE", data / "server_key")
     monkeypatch.setattr(dispatch_mod, "DISPATCH_QUEUE_FILE", data / "dispatch_queue.json")
+    # push.py は _DATA_DIR をモジュールインポート時に一度だけ束縛するため、
+    # ここで明示的に隔離しないと dispatch enqueue のたびに実運用の
+    # push_subscriptions.json / vapid_private.txt を読み書きし、実機へ本物の
+    # push通知を送ってしまう（テストが本番の登録済みデバイスを汚染する）。
+    monkeypatch.setattr(push_mod, "_DATA_DIR", data)
+    monkeypatch.setattr(push_mod, "_VAPID_PRIVATE_FILE", data / "vapid_private.txt")
+    monkeypatch.setattr(push_mod, "_VAPID_PUBLIC_FILE", data / "vapid_public.txt")
+    monkeypatch.setattr(push_mod, "_SUBSCRIPTIONS_FILE", data / "push_subscriptions.json")
+    monkeypatch.setattr(push_mod, "_VAPID_SUB_FILE", data / "vapid_sub.txt")
+    # VAPID鍵はプロセス起動後に一度だけキャッシュされるため、隔離前に別テストが
+    # 実ファイルから読み込んでいた場合に備えてキャッシュも都度リセットする。
+    monkeypatch.setattr(push_mod, "_vapid_private_b64", None)
+    monkeypatch.setattr(push_mod, "_vapid_public_b64", None)
 
     return {"work": work, "data": data, "config_file": config_file}
 
