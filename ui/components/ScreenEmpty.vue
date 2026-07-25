@@ -1,6 +1,14 @@
 <template>
   <div class="screen-empty-container">
     <div class="screen-empty-content">
+      <div v-if="showPhonePairing" class="screen-empty-section">
+        <div class="screen-empty-section-label">Setup</div>
+        <button type="button" class="screen-empty-menu-item" @click="openPhonePairing">
+          <span class="mdi mdi-cellphone screen-empty-menu-icon"></span>
+          <span class="screen-empty-menu-label">Open on your phone</span>
+        </button>
+      </div>
+
       <div class="screen-empty-section">
         <div class="screen-empty-section-label">Get Started</div>
         <button type="button" class="screen-empty-menu-item" @click="openTerminal">
@@ -17,10 +25,6 @@
           <span class="mdi mdi-cog screen-empty-menu-icon"></span>
           <span class="screen-empty-menu-label">Settings</span>
           <span class="screen-empty-menu-shortcut">⌘⇧.</span>
-        </button>
-        <button v-if="showPhonePairing" type="button" class="screen-empty-menu-item" @click="openPhonePairing">
-          <span class="mdi mdi-cellphone screen-empty-menu-icon"></span>
-          <span class="screen-empty-menu-label">Open on your phone</span>
         </button>
       </div>
 
