@@ -47,7 +47,9 @@ const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
 const isSettingsOpen = computed(() => layoutStore.isSettingsOpen);
 const sortedItems = computed(() => {
-  return props.tabs.map((tab, i) => ({ type: "tab", tab, index: i }));
+  return props.tabs
+    .filter((tab) => !terminalStore.tabFlags[tab.id]?.autoDiscovered)
+    .map((tab, i) => ({ type: "tab", tab, index: i }));
 });
 
 const showBarRow = computed(() => !isSplitMode.value);

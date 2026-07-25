@@ -116,7 +116,11 @@ export function useSessionSync() {
         if (s.detached) continue;
         if (terminalStore.pendingCloseSessionIds.has(s.session_id)) continue;
         if (!localSessionIds.has(s.session_id)) {
-          terminalStore.addTerminalTab(_buildTabParams(s, allJobs));
+          // このブラウザセッションで直接操作して開いたタブではなく、ポーリングで
+          // サーバー側に見つかった（外部API等から起動された）タブなので、
+          // タブバーには出さずに Tabs & Sessions パネルからのみ参照できるようにする。
+          const tab = terminalStore.addTerminalTab(_buildTabParams(s, allJobs));
+          terminalStore.setTabFlag(tab.id, "autoDiscovered", true);
         }
       }
 

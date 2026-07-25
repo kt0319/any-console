@@ -109,4 +109,23 @@ test.describe("tabs & sessions", () => {
     await expect(rows).toHaveCount(countBefore, { timeout: 10_000 });
     await expect(page.locator(".tab-btn")).toHaveCount(countBefore);
   });
+
+  test("APIから直接起動したセッションはタブバーに出ず Tabs & Sessions からのみ見える", async ({ page }) => {
+    const tabs = page.locator(".tab-btn");
+    const countBefore = await tabs.count();
+
+    // ボタンクリックを経由せず /run を直接叩く（外部トリガーで起動したケースを模す）
+    const runRes = await page.request.post("/run", { data: { job: "terminal" } });
+    expect(runRes.ok()).toBeTruthy();
+
+    // ポーリング（SESSION_SYNC_INTERVAL_MS=3000）で検出された後もタブバーの数は増えない
+    await page.waitForTimeout(4000);
+    await expect(tabs).toHaveCount(countBefore);
+
+    // Tabs & Sessions パネルには行が増えて現れる（見失われてはいない）
+    await openSettingsModal(page);
+    await openSettingsView(page, "Tabs & Sessions");
+    const rows = page.locator(".split-tab-row");
+    await expect(rows).toHaveCount(countBefore + 1);
+  });
 });
