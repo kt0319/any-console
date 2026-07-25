@@ -5,6 +5,7 @@ import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import ScreenEmpty from "../../../ui/components/ScreenEmpty.vue";
 import { useLayoutStore } from "../../../ui/stores/layout.js";
+import { expectNoA11yViolations } from "./axe-helper.js";
 
 const apiGetMock = vi.fn();
 
@@ -102,5 +103,16 @@ describe("ScreenEmpty: phone pairing shortcut", () => {
 
     expect(handler).toHaveBeenCalledWith({ view: "PairDeviceConfig" });
     off();
+  });
+
+  it("has no a11y violations with the phone pairing shortcut visible", async () => {
+    const layoutStore = useLayoutStore();
+    layoutStore.isPanelBottom = false;
+    mockApi({ authRequired: true, devices: [] });
+
+    wrapper = mount(ScreenEmpty, { attachTo: document.body });
+    await flushPromises();
+
+    await expectNoA11yViolations(wrapper.element);
   });
 });
