@@ -430,6 +430,25 @@ def _find_pending_by_dedup_key(key: str) -> tuple[str, dict] | None:
     return None
 
 
+def _resolve_dedup(dispatch_id: str, dedup_key: str | None) -> tuple[str, int, bool]:
+    """dedup_key が既存の承認待ちと一致するかを判定する（_PENDING を変更しない純粋な判定のみ）。
+
+    戻り値: (使用すべき dispatch_id, retry_count, 初回通知を鳴らすべきか)。
+    一致した場合、使用すべき dispatch_id は古い項目の ID を引き継ぐ（初回の push
+    通知に埋め込んだ dispatchId を有効なまま保つため）。呼び出し側は retry_count > 1
+    のとき、この dispatch_id で古い _PENDING エントリを pop してから新しい payload
+    を書き込むこと。
+    """
+    if not dedup_key:
+        return dispatch_id, 1, True
+    superseded = _find_pending_by_dedup_key(dedup_key)
+    if superseded is None:
+        return dispatch_id, 1, True
+    old_id, old_payload = superseded
+    retry_count = old_payload.get("retry_count", 1) + 1
+    return old_id, retry_count, retry_count == 1
+
+
 def _branch_status(ws_path, branch: str) -> str:
     try:
         current = git_branch(ws_path)
@@ -501,20 +520,13 @@ async def dispatch(body: DispatchRequest, auth: tuple[str, bool] = Depends(verif
     # dedup_key が既存の承認待ちと一致する場合、古い項目を新しい項目へ置き換える
     # （同一失敗の連続 dispatch でキューが積み上がるのを防ぐ）。retry_count はその
     # 引き継ぎ回数で、UI 側で「何度目の失敗か」を示すのに使う。
-    retry_count = 1
-    superseded = _find_pending_by_dedup_key(body.dedup_key) if body.dedup_key else None
-    if superseded is not None:
-        old_id, old_payload = superseded
-        retry_count = old_payload.get("retry_count", 1) + 1
-        # 初回の push 通知に埋め込んだ dispatchId（URL）を有効なまま保つため、
-        # 置き換え後もその ID を引き継ぐ（新しい ID を発行すると、既に配信済みの
-        # 通知をタップした時にキューへ存在しない ID を指すことになってしまう）。
-        dispatch_id = old_id
-        _PENDING.pop(old_id, None)
+    dispatch_id, retry_count, should_notify = _resolve_dedup(dispatch_id, body.dedup_key)
+    if retry_count > 1:
+        _PENDING.pop(dispatch_id, None)
     payload["retry_count"] = retry_count
 
     # 置き換え時は既にキューに未対応の項目が待っている状態なので、通知を重ねて鳴らさない。
-    if retry_count == 1:
+    if should_notify:
         _notify_push()
 
     log_activity(
