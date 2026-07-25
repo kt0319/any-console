@@ -1,6 +1,7 @@
 /* デザイントークン・CSSリセット・コンポーネント横断の共有スタイル */
 
 :root {
+  color-scheme: dark;
   --app-dvh: 100vh;
   --bg-primary: #1a1b26;
   --bg-secondary: #24283b;
@@ -177,6 +178,11 @@ button:disabled {
 .form-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.form-input option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .diff-num-plus {
