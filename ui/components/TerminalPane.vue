@@ -206,6 +206,7 @@ function onPointerDown(e) {
     }
     if (tab.term) {
       try { tab.term.refresh(0, tab.term.rows - 1); } catch {}
+      try { tab.term.focus(); } catch {}
     }
   }
   if (!layoutStore.isSplitMode) return;
