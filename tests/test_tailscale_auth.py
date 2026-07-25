@@ -8,6 +8,7 @@
 """
 
 import json
+import subprocess
 
 import pytest
 
@@ -15,6 +16,7 @@ import api.auth as auth_module
 from api.auth import (
     _is_tailscale_trust_enabled,
     _is_trusted_proxy_source,
+    _resolve_tailscale_name,
     _tailscale_user,
     verify_ws_token,
 )
@@ -149,3 +151,32 @@ class TestVerifyWsTokenViaTailscale:
         # 既存呼び出し（client_host/headers なし）でも動く
         assert verify_ws_token(TOKEN)
         assert not verify_ws_token("wrong")
+
+
+class TestResolveTailscaleName:
+    """QRペアリング（api/routers/pairing.py）が使うホスト名解決。"""
+
+    def test_returns_dns_name_from_status_json(self, monkeypatch):
+        payload = json.dumps({"Self": {"DNSName": "myhost.tail1234.ts.net."}})
+        result = subprocess.CompletedProcess(args=[], returncode=0, stdout=payload)
+        monkeypatch.setattr(auth_module, "run_subprocess_safe", lambda *a, **k: result)
+        assert _resolve_tailscale_name() == "myhost.tail1234.ts.net"
+
+    def test_returns_none_when_tailscale_not_installed(self, monkeypatch):
+        monkeypatch.setattr(auth_module, "run_subprocess_safe", lambda *a, **k: None)
+        assert _resolve_tailscale_name() is None
+
+    def test_returns_none_on_nonzero_exit(self, monkeypatch):
+        result = subprocess.CompletedProcess(args=[], returncode=1, stdout="")
+        monkeypatch.setattr(auth_module, "run_subprocess_safe", lambda *a, **k: result)
+        assert _resolve_tailscale_name() is None
+
+    def test_returns_none_on_invalid_json(self, monkeypatch):
+        result = subprocess.CompletedProcess(args=[], returncode=0, stdout="not json")
+        monkeypatch.setattr(auth_module, "run_subprocess_safe", lambda *a, **k: result)
+        assert _resolve_tailscale_name() is None
+
+    def test_returns_none_when_dns_name_missing(self, monkeypatch):
+        result = subprocess.CompletedProcess(args=[], returncode=0, stdout=json.dumps({"Self": {}}))
+        monkeypatch.setattr(auth_module, "run_subprocess_safe", lambda *a, **k: result)
+        assert _resolve_tailscale_name() is None

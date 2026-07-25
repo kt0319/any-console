@@ -13,6 +13,8 @@ import {
   workspaceCommitMessagePath,
   workspaceFileHistoryPath,
   workspaceFileDiffPath,
+  pairingStatusPath,
+  pairingClaimPath,
 } from "../../ui/utils/endpoints.js";
 
 // ── Tests ──
@@ -106,5 +108,21 @@ describe("workspaceFileHistoryPath", () => {
 describe("workspaceFileDiffPath", () => {
   it("builds file diff path", () => {
     expect(workspaceFileDiffPath("repo", "abc123", "src/app.js")).toBe("/workspaces/repo/file-diff/abc123?path=src%2Fapp.js");
+  });
+});
+
+describe("pairingStatusPath", () => {
+  it("builds status path", () => {
+    expect(pairingStatusPath("pr_abc123")).toBe("/auth/pairing/pr_abc123/status");
+  });
+
+  it("encodes special characters", () => {
+    expect(pairingStatusPath("pr abc")).toBe("/auth/pairing/pr%20abc/status");
+  });
+});
+
+describe("pairingClaimPath", () => {
+  it("builds claim path", () => {
+    expect(pairingClaimPath("pr_abc123")).toBe("/auth/pairing/pr_abc123/claim");
   });
 });

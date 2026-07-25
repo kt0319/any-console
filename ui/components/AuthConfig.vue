@@ -51,6 +51,14 @@
       <div class="settings-note" style="margin-bottom: 8px;">
         Registered devices can sign in without entering a token. Revoke any device that should no longer have access.
       </div>
+      <button
+        v-if="tokenConfigured"
+        type="button"
+        class="add-device-btn"
+        @click="pushView('PairDeviceConfig')"
+      >
+        <span class="mdi mdi-qrcode-scan"></span> Add new device
+      </button>
       <div v-if="devicesLoading" class="text-muted-center">Loading...</div>
       <template v-else>
         <div v-if="!devices.length" class="settings-note">No devices registered yet.</div>
@@ -81,6 +89,7 @@ import { EP_SETTINGS_AUTH } from "../utils/endpoints.js";
 import { formatRelativeTime } from "../utils/format.js";
 
 const modalTitle = inject("modalTitle");
+const pushView = inject("pushView");
 modalTitle.value = "Auth";
 
 const { apiGet, apiPut, apiDelete } = useApi();
@@ -247,6 +256,27 @@ onMounted(async () => {
 
 .security-token-status.configured { color: var(--success); }
 .security-token-status.missing { color: var(--warning); }
+
+.add-device-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.add-device-btn .mdi {
+  font-size: 18px;
+}
 
 .device-row {
   display: flex;

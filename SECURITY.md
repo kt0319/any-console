@@ -36,6 +36,11 @@ no user separation):
 - Signing in exchanges the token for a per-device cookie. Devices can be
   reviewed and revoked individually from **Settings → Security**, and the
   token itself can be rotated there.
+- A signed-in device can add another device via a QR code (**Settings →
+  Security → Add new device**) instead of retyping the token. The QR link
+  is short-lived (90s) and single-use; it never widens access beyond the
+  existing single-user model — it is device provisioning, not user invites.
+  See `docs/DECISIONS.md` #27.
 - There are no user accounts or roles. One token means full access.
 - Request rate limiting and security headers are enabled by default.
 - **Tailscale header auto-auth** (`trust_tailscale_auth`) is **off by
