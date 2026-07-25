@@ -227,7 +227,7 @@ onMounted(() => {
 }
 
 .modal {
-  background: color-mix(in srgb, var(--bg-secondary) 70%, transparent);
+  background: color-mix(in srgb, var(--bg-secondary) 90%, transparent);
   padding: 12px 8px 0;
   width: 100%;
   max-width: 100%;
@@ -257,7 +257,7 @@ onMounted(() => {
 .modal-title-wrap {
   display: inline-flex;
   align-items: center;
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   min-height: 44px;
   padding: 0;
