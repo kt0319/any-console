@@ -213,22 +213,22 @@ onMounted(() => {
   inset: 0;
   background: var(--overlay-bg);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 100;
-  padding: 20px;
+  padding: 0;
 }
 
 .modal {
   background: color-mix(in srgb, var(--bg-secondary) 70%, transparent);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
   padding: 12px 8px 0;
   width: 100%;
-  max-width: min(600px, 92vw);
-  height: calc(var(--app-dvh) * 0.8);
+  max-width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 0;
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -240,8 +240,11 @@ onMounted(() => {
   gap: 2px;
   padding: 0 8px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 8px;
+  border-bottom: none;
+  border-top: 1px solid var(--border);
+  margin-bottom: 0;
+  margin-top: 8px;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 22px);
 }
 
 .modal-title-wrap {
@@ -334,37 +337,18 @@ onMounted(() => {
   outline-offset: 2px;
 }
 
-@media (min-width: 900px) {
-  .modal-overlay {
-    padding: 28px;
-  }
-
+/* PC幅ではモバイルのボトムシート風（ヘッダー下部）をやめ、ヘッダーを上に固定する */
+@media (min-width: 769px) {
   .modal {
-    max-width: min(900px, 90vw);
-    height: calc(var(--app-dvh) * 0.84);
-  }
-}
-
-@media (max-width: 768px) {
-  .modal-overlay {
-    padding: 0;
-    align-items: flex-start;
-  }
-
-  .modal {
-    max-width: 100%;
-    height: 100%;
-    border: none;
-    border-radius: 0;
-    flex-direction: column-reverse;
+    flex-direction: column;
   }
 
   .modal-header {
-    border-bottom: none;
-    border-top: 1px solid var(--border);
-    margin-bottom: 0;
-    margin-top: 8px;
-    padding-bottom: calc(env(safe-area-inset-bottom) + 22px);
+    border-bottom: 1px solid var(--border);
+    border-top: none;
+    margin-bottom: 8px;
+    margin-top: 0;
+    padding-bottom: 0;
   }
 }
 </style>
