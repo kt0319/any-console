@@ -51,6 +51,13 @@ const STATIC_ASSET_PATHS = new Set([
 
 function isCacheableAsset(request, url) {
   if (request.method !== 'GET') return false;
+  // /pair/{id}?t=... はQRペアリングの使い切りトークンをクエリに含む
+  // ナビゲーション。他のnavigateと同様に無条件でキャッシュすると、
+  // location.replace() で履歴から消しても Cache Storage には
+  // トークン付きURLがそのまま残り続けてしまう(次のSWバージョンで
+  // キャッシュ自体が入れ替わるまで消えない)。ここだけはキャッシュ対象から除外し
+  // 素通しする。
+  if (url.pathname.startsWith('/pair/')) return false;
   if (request.mode === 'navigate') return true;
   if (STATIC_ASSET_PATHS.has(url.pathname)) return true;
   return STATIC_ASSET_PREFIXES.some((prefix) => url.pathname.startsWith(prefix));

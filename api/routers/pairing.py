@@ -381,10 +381,17 @@ def claim_pairing(pairing_id: str, body: ClaimBody, request: Request, response: 
         entry = _pairings.get(pairing_id)
         if entry is None:
             raise gone("Pairing request not found or already used")
-        if entry["claimed"] or entry["claiming"] or entry["expires_at"] <= now:
-            if entry["expires_at"] <= now:
-                _pairings.pop(pairing_id, None)
-                _evict_rate_limit_keys_for(pairing_id)
+        # 期限切れ判定は_is_expired_lockedに統一する(claiming中は素の expires_at
+        # だけでは判定しない — 素のexpires_atで直接弾くと、1件目のclaimが
+        # 登録処理中(claiming=True)のままdeadlineを跨いだ時に、2件目の重複claim
+        # requestがここでentryをpopしてしまい、1件目が後で書き込むclaimed状態が
+        # 誰からも観測できなくなる。claimed中のtombstoneも同様に、素のexpires_at
+        # だけでは観測猶予(_CLAIMED_OBSERVATION_SEC)を無視して早期に消してしまう)。
+        if _is_expired_locked(entry, now):
+            _pairings.pop(pairing_id, None)
+            _evict_rate_limit_keys_for(pairing_id)
+            raise gone("Pairing request expired or already used")
+        if entry["claimed"] or entry["claiming"]:
             raise gone("Pairing request expired or already used")
         if not body.token or not hmac.compare_digest(body.token, entry["token"]):
             raise unauthorized("Invalid pairing token")

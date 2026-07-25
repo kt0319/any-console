@@ -508,6 +508,19 @@ class TestClaim:
         res = client.post(f"/auth/pairing/{data['id']}/claim", json={"token": token})
         assert res.status_code == 410
 
+    def test_duplicate_claim_past_deadline_during_registration_keeps_entry(self, client, monkeypatch):
+        # 1件目のclaimが登録処理中(claiming=True)のままdeadline(expires_at)を
+        # 跨いだ状態で、2件目の重複claimが素のexpires_atだけで判定してentryを
+        # popしてしまうと、1件目が後で書き込むclaimed状態を発行元が永久に
+        # 観測できなくなる(_is_expired_lockedはclaiming中を期限切れ扱いしない)。
+        data = _start(client, monkeypatch)
+        token = pairing_mod._pairings[data["id"]]["token"]
+        pairing_mod._pairings[data["id"]]["claiming"] = True
+        pairing_mod._pairings[data["id"]]["expires_at"] = time.time() - 1
+        res = client.post(f"/auth/pairing/{data['id']}/claim", json={"token": token})
+        assert res.status_code == 410
+        assert data["id"] in pairing_mod._pairings
+
     def test_in_progress_claim_still_reports_pending_status(self, client, monkeypatch):
         # デバイス登録中(claiming=True)でも、エントリはdictに残ったままなので
         # statusはpendingを返し続ける(not_foundになって発行元が「期限切れ」と
