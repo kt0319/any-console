@@ -142,9 +142,18 @@ const branchStatusNote = computed(() => {
   return "";
 });
 
+// dedup_key による置き換えは通知リンクを有効に保つため dispatch_id を維持する
+// （useDispatchConfirm.js 参照）。そのため置き換えられても dispatch:itemRemoved
+// は発火しない。retry_count の変化で「表示中の内容が別の失敗に置き換わった」
+// ことを検知し、フォームを黙って差し替えるのではなくダイアログを閉じる
+// （古い branch/text のまま承認され、置き換わった内容と食い違って実行される
+// 事故を防ぐため）。
+const initialRetryCount = ref(/** @type {number|null} */ (null));
+
 onMounted(() => {
   if (!item.value) { popView(); return; }
   initFromRequest(request.value);
+  initialRetryCount.value = request.value?.retry_count ?? 1;
   focusItem(itemId);
 });
 
@@ -152,6 +161,12 @@ const offItemRemoved = on("dispatch:itemRemoved", ({ id }) => {
   if (id === itemId) popView();
 });
 onUnmounted(offItemRemoved);
+
+watch(() => request.value?.retry_count, (count) => {
+  if (initialRetryCount.value !== null && count !== undefined && count !== initialRetryCount.value) {
+    popView();
+  }
+});
 
 watch(selectedSessionId, () => {
   apiGet("/terminal/sessions").then((res) => {
