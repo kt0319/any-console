@@ -5,6 +5,8 @@
     :class="{ active: isActive, 'tab-activity': tab._activity, 'tab-working': agentState === 'working', dragging: isDragging, 'drag-over-left': effectiveDropSide === 'left', 'drag-over-right': effectiveDropSide === 'right', 'tab-panel-bottom': isPanelBottom }"
     :draggable="canDrag"
     :data-tab-id="tab.id"
+    :aria-label="label"
+    :data-tooltip="label"
     tabindex="-1"
     @mousedown="onMouseDown"
     @click="onClick"
@@ -372,6 +374,16 @@ onBeforeUnmount(() => {
 .tab-btn.active {
   color: var(--text-primary);
   background: rgba(130, 170, 255, 0.12);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tab-btn:hover {
+    background: var(--bg-tertiary);
+  }
+
+  .tab-btn.active:hover {
+    background: rgba(130, 170, 255, 0.12);
+  }
 }
 
 .tab-btn.active::after {

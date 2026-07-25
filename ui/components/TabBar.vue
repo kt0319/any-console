@@ -120,13 +120,13 @@ function onSettingsClick() {
   margin: 0;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: 0;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   touch-action: manipulation;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s;
 }
 
 .tab-add-btn:active {
@@ -147,15 +147,15 @@ function onSettingsClick() {
   flex-shrink: 0;
   align-self: stretch;
   width: 30px;
-  margin: 0 4px;
+  margin: 4px 4px 0;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: 0;
   background: transparent;
-  color: var(--text-secondary);
-  font-size: 14px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s;
   touch-action: manipulation;
 }
 
@@ -163,10 +163,15 @@ function onSettingsClick() {
   background: var(--bg-tertiary);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .tab-settings-btn:hover {
+    background: var(--bg-tertiary);
+  }
+}
+
 .tab-settings-btn.active {
   color: var(--text-primary);
   background: rgba(130, 170, 255, 0.12);
-  border-radius: 0;
 }
 
 .tab-settings-btn.active::after {
