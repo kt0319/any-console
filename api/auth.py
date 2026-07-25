@@ -25,6 +25,11 @@ COOKIE_DEVICE_SECRET = "any_console_secret"  # noqa: S105
 # 用途限定トークン（docs/DECISIONS.md ADR 参照）。
 API_TOKEN_SCOPE_DISPATCH = "dispatch"  # noqa: S105
 API_TOKEN_MAX_NAME_LEN = 80
+# last_used 更新はリクエストのたびに auth.json を read-modify-write する
+# ため、高頻度呼び出し（CI連携等）でのディスクI/O・ロック保持時間を抑える
+# 目的で間引く。表示上の最終使用時刻がこの秒数だけ古くなりうるのはトレード
+# オフとして許容する。
+API_TOKEN_LAST_USED_THROTTLE_SEC = 60
 # data/auth.json への書き込み（メイントークンの update_token、api_tokens の
 # create/revoke/verify の last_used 更新）はいずれも load → 変更 → save の
 # read-modify-write。save_json_file は1回の書き込み自体はアトミックだが、この
@@ -312,8 +317,11 @@ def _verify_api_token(raw_token: str) -> dict | None:
         tokens = _load_api_tokens()
         for t in tokens:
             if hmac.compare_digest(t.get("secret_hash", ""), expected_hash):
-                t["last_used"] = int(time.time())
-                _save_api_tokens(tokens)
+                now = int(time.time())
+                last_used = t.get("last_used")
+                if last_used is None or now - last_used >= API_TOKEN_LAST_USED_THROTTLE_SEC:
+                    t["last_used"] = now
+                    _save_api_tokens(tokens)
                 return t
     return None
 

@@ -26,6 +26,10 @@ _DEVICES_FILE = DATA_DIR / "devices.json"
 _SERVER_KEY_FILE = DATA_DIR / "server_key"
 MAX_NAME_LEN = 80
 MAX_UA_LEN = 200
+# last_seen_at 更新はcookie認証を通るほぼ全リクエストでdevices.jsonをread-modify-write
+# するため、高頻度アクセス時のディスクI/O・ロック保持時間を抑える目的で間引く。
+# 表示上の最終アクセス時刻がこの秒数だけ古くなりうるのはトレードオフとして許容する。
+LAST_SEEN_THROTTLE_SEC = 60
 
 # data/server_key が無い状態で複数スレッドが同時に _load_or_create_server_key
 # を呼ぶと、全員が exists()==False を見て別々の鍵を生成し、最後の書き込みだけが
@@ -193,8 +197,11 @@ def verify_and_touch_device(device_id: str, raw_secret: str) -> dict | None:
             if dev["id"] != device_id:
                 continue
             if hmac.compare_digest(dev["secret_hash"], expected_hash):
-                dev["last_seen_at"] = int(time.time())
-                _save(data)
+                now = int(time.time())
+                last_seen_at = dev.get("last_seen_at")
+                if last_seen_at is None or now - last_seen_at >= LAST_SEEN_THROTTLE_SEC:
+                    dev["last_seen_at"] = now
+                    _save(data)
                 result: dict = dev
                 return result
         return None
