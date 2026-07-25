@@ -451,6 +451,15 @@ async def dispatch(body: DispatchRequest, auth: tuple[str, bool] = Depends(verif
     auth_label, is_scoped_token = auth
     if body.direct and is_scoped_token:
         raise bad_request("Direct execution is not allowed for dispatch token")
+    if is_scoped_token:
+        # dispatch トークンは低信頼な外部連携（CI 等）用でキュー登録専用。session_id
+        # をそのまま許すと、承認モーダルには _find_existing_session ベースの
+        # 「New session」等が表示される一方、承認後の _resolve_session は
+        # body.session_id を優先するため、攻撃者が知っている無関係な既存セッション
+        # へ隠れてテキスト送信・ブランチ操作されてしまう（reviewer が見た内容と
+        # 実行対象が乖離する）。dispatch トークンからのリクエストでは session_id を
+        # 無視し、通常の workspace/job ベースの既存セッション探索だけに限定する。
+        body.session_id = None
     effective_ws = body.effective_workspace
     ws_path = resolve_workspace_path(effective_ws)
     _resolve_job_def(effective_ws, body.job)  # 存在確認のみ（不正な job 名を早期に弾く）
