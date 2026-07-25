@@ -586,19 +586,24 @@ class TestDecisionExecutesIndependently:
 
 
 class TestDedupKey:
-    def test_second_request_with_same_key_replaces_first(self, client, workspace):
+    def test_second_request_with_same_key_reuses_id_and_replaces_payload(self, client, workspace):
+        """置き換え後も dispatch_id は最初の ID を引き継ぐ。初回 push 通知に埋め込んだ
+        URL の dispatchId が、置き換え後もキュー上の実在項目を指し続けるようにするため
+        （通知をタップした時に stale な ID を開いてしまわないように）。"""
         first_id = _enqueue(client, text="echo 1", dedup_key="ci-failure:test-ws:main")
         second_id = _enqueue(client, text="echo 2", dedup_key="ci-failure:test-ws:main")
-        assert first_id not in dispatch_mod._PENDING
-        assert second_id in dispatch_mod._PENDING
+        assert second_id == first_id
+        assert first_id in dispatch_mod._PENDING
+        assert dispatch_mod._PENDING[first_id]["text"] == "echo 2"
         assert len(dispatch_mod._PENDING) == 1
 
     def test_retry_count_increments_across_replacements(self, client, workspace):
-        _enqueue(client, text="echo 1", dedup_key="k")
+        first_id = _enqueue(client, text="echo 1", dedup_key="k")
         second_id = _enqueue(client, text="echo 2", dedup_key="k")
+        assert second_id == first_id
         assert dispatch_mod._PENDING[second_id]["retry_count"] == 2
         third_id = _enqueue(client, text="echo 3", dedup_key="k")
-        assert third_id != second_id
+        assert third_id == first_id
         assert dispatch_mod._PENDING[third_id]["retry_count"] == 3
 
     def test_first_request_has_retry_count_one(self, client, workspace):
@@ -618,11 +623,14 @@ class TestDedupKey:
         assert first_id in dispatch_mod._PENDING
         assert second_id in dispatch_mod._PENDING
 
-    def test_superseded_dispatch_id_returns_404_on_decision(self, client, workspace):
+    def test_original_dispatch_id_stays_valid_after_supersede(self, client, workspace):
+        """初回通知の URL に埋め込まれた dispatchId は、置き換えを経てもキュー上の
+        項目として引き続き承認できる（stale なリンクにならない）。"""
         first_id = _enqueue(client, text="echo 1", dedup_key="k")
         _enqueue(client, text="echo 2", dedup_key="k")
+        _enqueue(client, text="echo 3", dedup_key="k")
         res = client.post(f"/dispatch/{first_id}/decision", headers=AUTH, json={"approved": True})
-        assert res.status_code == 404
+        assert res.status_code == 200, res.text
 
     def test_push_notification_skipped_on_supersede(self, client, workspace, monkeypatch):
         import threading

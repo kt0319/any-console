@@ -479,6 +479,10 @@ async def dispatch(body: DispatchRequest):
     if superseded is not None:
         old_id, old_payload = superseded
         retry_count = old_payload.get("retry_count", 1) + 1
+        # 初回の push 通知に埋め込んだ dispatchId（URL）を有効なまま保つため、
+        # 置き換え後もその ID を引き継ぐ（新しい ID を発行すると、既に配信済みの
+        # 通知をタップした時にキューへ存在しない ID を指すことになってしまう）。
+        dispatch_id = old_id
         _PENDING.pop(old_id, None)
     payload["retry_count"] = retry_count
 
