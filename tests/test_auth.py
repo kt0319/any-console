@@ -137,7 +137,7 @@ class TestApiTokenConcurrency:
     """revoke と verify(last_used 更新) の read-modify-write が競合しても、
     失効済みトークンが復活しないことを回帰確認する。
 
-    verify の _save_api_tokens 呼び出しの内側（= _api_tokens_lock を保持したまま）
+    verify の _save_api_tokens 呼び出しの内側（= _auth_file_lock を保持したまま）
     から revoke を別スレッドで起動し、ロックのおかげでその revoke が
     verify の save 完了前には完了できないことを直接確認する。両者が同じ
     モック関数を経由するだけの単純なブロッキングでは、ロックが無くても
@@ -158,7 +158,7 @@ class TestApiTokenConcurrency:
         def hooked_save(tokens):
             call_count["n"] += 1
             if call_count["n"] == 1:
-                # ここは _verify_api_token が _api_tokens_lock を保持したまま呼んでいる
+                # ここは _verify_api_token が _auth_file_lock を保持したまま呼んでいる
                 # （with ブロックの中）。別スレッドで revoke を起動し、ロックのおかげで
                 # 着手できないことを確認する。join はまだしない — ここで join すると
                 # 「ロックを握ったまま、それを待つ相手を待つ」自己デッドロックになる
@@ -178,7 +178,7 @@ class TestApiTokenConcurrency:
         monkeypatch.setattr(auth_module, "_save_api_tokens", hooked_save)
 
         auth_module._verify_api_token(raw)
-        # _verify_api_token が戻った = _api_tokens_lock を解放した後、revoke が
+        # _verify_api_token が戻った = _auth_file_lock を解放した後、revoke が
         # 完了するのを待つ（解放前に join すると上記の通り自己デッドロックするため）。
         holder["thread"].join(timeout=2)
 
@@ -187,6 +187,49 @@ class TestApiTokenConcurrency:
         # 復活することはない。
         assert revoke_result["ok"] is True
         assert auth_module.get_api_token(meta["id"]) is None
+
+
+class TestAuthFileLockCoversMainToken:
+    """update_token（メイントークンのローテーション）も _auth_file_lock で
+    直列化され、同時に走る api_tokens の書き込みと互いを巻き戻さないことを確認する
+    （どちらも data/auth.json を丸ごと load → 変更 → save するため）。"""
+
+    def test_update_token_blocks_concurrent_api_token_create_and_neither_is_lost(self, monkeypatch, _isolate_auth_file):
+        orig_save_json = auth_module.save_json_file
+        call_count = {"n": 0}
+        create_attempted = threading.Event()
+        create_done = threading.Event()
+        create_result = {}
+        holder = {}
+
+        def hooked_save_json(path, data):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                # ここは update_token が _auth_file_lock を保持したまま呼んでいる。
+                # 別スレッドで create_api_token を起動し、ロックのおかげで
+                # 着手できないことを確認する（join は解放後まで行わない）。
+                def do_create():
+                    create_attempted.set()
+                    create_result["meta_raw"] = auth_module.create_api_token("ci")
+                    create_done.set()
+
+                t = threading.Thread(target=do_create)
+                holder["thread"] = t
+                t.start()
+                assert create_attempted.wait(timeout=2)
+                assert not create_done.wait(timeout=0.2), "create_api_token should block until update_token releases the lock"
+            orig_save_json(path, data)
+
+        monkeypatch.setattr(auth_module, "save_json_file", hooked_save_json)
+
+        auth_module.update_token("rotated-main-token")
+        holder["thread"].join(timeout=2)
+
+        assert auth_module.ANY_CONSOLE_TOKEN == "rotated-main-token"
+        meta, _raw = create_result["meta_raw"]
+        saved = json.loads(_isolate_auth_file.read_text(encoding="utf-8"))
+        assert saved["token"] == "rotated-main-token"
+        assert any(t["id"] == meta["id"] for t in saved["api_tokens"])
 
 
 class TestApiTokenEndpoints:
