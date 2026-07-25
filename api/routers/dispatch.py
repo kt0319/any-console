@@ -441,19 +441,15 @@ def _branch_status(ws_path, branch: str) -> str:
         return "unknown"
 
 
-def _auth_label(auth_subject: str) -> str:
-    """activity ログへ書き出す用の認証識別子。tailscale:/device:/token: 接頭辞は
-    秘密情報を含まないためそのまま使う。それ以外（メイン Bearer token 自体が
-    identity として返るケース）は生のトークン値をログへ残さないよう "main" に丸める。
-    """
-    if auth_subject.startswith(("tailscale:", "device:", "token:")):
-        return auth_subject
-    return "main" if auth_subject else "disabled"
-
-
 @router.post("/dispatch")
-async def dispatch(body: DispatchRequest, auth_subject: str = Depends(verify_dispatch_token)):
-    if body.direct and auth_subject.startswith("token:"):
+async def dispatch(body: DispatchRequest, auth: tuple[str, bool] = Depends(verify_dispatch_token)):
+    # auth_label は activity ログ用の安全な識別子（生のメイントークン値は含まない）、
+    # is_scoped_token は dispatch scope の API トークンで認証された場合のみ True。
+    # どちらも verify_dispatch_token が分岐確定時点で判定済みの値をそのまま使う
+    # （identity の文字列プレフィックスをここで推測しない — メイントークンは任意の
+    # 文字列に設定できるため、"token:" 等で始まる値だと誤判定するバグがあった）。
+    auth_label, is_scoped_token = auth
+    if body.direct and is_scoped_token:
         raise bad_request("Direct execution is not allowed for dispatch token")
     effective_ws = body.effective_workspace
     ws_path = resolve_workspace_path(effective_ws)
@@ -489,7 +485,7 @@ async def dispatch(body: DispatchRequest, auth_subject: str = Depends(verify_dis
         log_activity(
             result["workspace"], "dispatch_executed",
             job=result["job"], session_id=result["session_id"], created=result["created"],
-            auth=_auth_label(auth_subject),
+            auth=auth_label,
         )
         return result
 
@@ -514,7 +510,7 @@ async def dispatch(body: DispatchRequest, auth_subject: str = Depends(verify_dis
 
     log_activity(
         effective_ws, "dispatch_superseded" if retry_count > 1 else "dispatch_pending",
-        job=body.job, text=body.text, auth=_auth_label(auth_subject),
+        job=body.job, text=body.text, auth=auth_label,
     )
 
     _PENDING[dispatch_id] = payload

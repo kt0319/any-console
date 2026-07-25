@@ -296,13 +296,28 @@ def _verify_api_token(raw_token: str) -> dict | None:
 def verify_dispatch_token(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-) -> str:
+) -> tuple[str, bool]:
     """POST /dispatch 専用の認証依存関数。
 
     まず通常の認証（メイントークン / デバイス cookie / Tailscale ヘッダ）を試し、
     失敗したら supplied トークンを dispatch scope の API トークンとして照合する。
 
-    SECURITY: この依存関数を使うのは POST /dispatch だけにすること。
+    戻り値は (auth_label, is_scoped_token)。
+    - auth_label: activity ログ用の安全な識別子。生の Bearer 値（メイントークン
+      そのもの）は絶対に含まない。
+    - is_scoped_token: dispatch scope の API トークンで認証された場合のみ True。
+      呼び出し側（POST /dispatch）はこれで direct:true を拒否するかどうかを
+      判定する。
+
+    SECURITY: 呼び出し側で auth_label の文字列プレフィックス（"tailscale:" /
+    "device:" / "token:" 等）を見て「dispatch トークンかどうか」や「ログに安全か」
+    を判定してはならない。メイントークンは Settings > Auth で任意の文字列に設定
+    できるため、"token:..." のような値をメイントークンに設定した管理者が
+    dispatch トークン扱いされてしまう（direct:true が誤って拒否される／生の
+    メイントークンが activity ログへそのまま残る）実バグがあった。ここで
+    ブランチ確定時点の情報から判定を確定させ、文字列推測を必要としない形で返す。
+
+    この依存関数を使うのは POST /dispatch だけにすること。
     `/dispatch/{id}/decision`・ステータスストリーム WS・他の全 API は
     `verify_token`（メイントークンのみ）のままにする。dispatch トークンだけが
     漏れた場合に、それを使って自分が投げた dispatch を自己承認できてしまうため。
@@ -311,10 +326,18 @@ def verify_dispatch_token(
     raw = str(credentials.credentials) if credentials is not None else ""
     identity = _authenticate(raw, client_host, request.headers, request.cookies)
     if identity is not None:
-        return identity
+        if not identity:
+            return "disabled", False
+        if identity == raw:
+            # メイントークンの Bearer 一致（_authenticate の `return token` 分岐）
+            # だけが生の Bearer 値をそのまま identity として返す。他の分岐
+            # （tailscale:<user> / device:<id>）は自前で構築した非秘匿の識別子
+            # なのでこの等価判定には一致しない。
+            return "main", False
+        return identity, False
     token_entry = _verify_api_token(raw)
     if token_entry is not None and token_entry.get("scope") == API_TOKEN_SCOPE_DISPATCH:
-        return f"token:{token_entry['id']}"
+        return f"token:{token_entry['id']}", True
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 

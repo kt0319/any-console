@@ -401,23 +401,64 @@ class TestDispatchTokenExcludedFromOtherEndpoints:
         assert res.status_code == 401
 
 
-class TestAuthLabel:
-    def test_main_token_labeled_main(self):
-        from api.routers.dispatch import _auth_label
-        assert _auth_label(TOKEN) == "main"
+class TestVerifyDispatchTokenClassification:
+    """verify_dispatch_token は (auth_label, is_scoped_token) を返す。
 
-    def test_disabled_auth_labeled_disabled(self):
-        from api.routers.dispatch import _auth_label
-        assert _auth_label("") == "disabled"
+    dispatch.py 側は auth_label の文字列プレフィックスを見て「dispatch トークン
+    かどうか」を推測してはいけない — メイントークンは Settings > Auth で任意の
+    文字列に設定できるため、"token:"/"device:"/"tailscale:" で始まる値を
+    メイントークンに設定すると、prefix 推測では dispatch トークン扱いされて
+    しまう（生のメイントークンが activity ログに残る／direct:true が誤って
+    拒否される）。ここではその具体的な回帰シナリオを担保する。
+    """
 
-    def test_tailscale_identity_passthrough(self):
-        from api.routers.dispatch import _auth_label
-        assert _auth_label("tailscale:alice@example.com") == "tailscale:alice@example.com"
+    def test_normal_main_token_labeled_main_and_not_scoped(self, client, workspace):
+        from unittest import mock
+        with mock.patch("api.routers.dispatch.log_activity") as log:
+            res = client.post(
+                "/dispatch", headers=AUTH,
+                json={"workspace": "test-ws", "text": "echo hi", "direct": True},
+            )
+        assert res.status_code == 200
+        assert log.call_args.kwargs["auth"] == "main"
 
-    def test_device_identity_passthrough(self):
-        from api.routers.dispatch import _auth_label
-        assert _auth_label("device:dev_abc") == "device:dev_abc"
+    def test_main_token_shaped_like_scoped_token_prefix_is_not_misclassified(self, client, workspace, monkeypatch):
+        """メイントークンが偶然 'token:' で始まる文字列に設定されていても、
+        (1) direct:true が拒否されず、(2) activity ログにその生のメイントークン
+        値ではなく安全な 'main' ラベルが残ることを確認する（発見されたバグの回帰）。
+        """
+        from unittest import mock
+        weird_main_token = "token:looks-like-a-scoped-token"  # noqa: S105
+        monkeypatch.setattr(auth_module, "ANY_CONSOLE_TOKEN", weird_main_token)
+        headers = {"Authorization": f"Bearer {weird_main_token}"}
+        with mock.patch("api.routers.dispatch.log_activity") as log:
+            res = client.post(
+                "/dispatch", headers=headers,
+                json={"workspace": "test-ws", "text": "echo hi", "direct": True},
+            )
+        assert res.status_code == 200, res.text
+        assert log.call_args.kwargs["auth"] == "main"
+        assert weird_main_token not in log.call_args.kwargs["auth"]
 
-    def test_token_identity_passthrough(self):
-        from api.routers.dispatch import _auth_label
-        assert _auth_label("token:tok_abc") == "token:tok_abc"
+    def test_main_token_shaped_like_device_prefix_still_allows_direct(self, client, workspace, monkeypatch):
+        weird_main_token = "device:not-a-real-device"  # noqa: S105
+        monkeypatch.setattr(auth_module, "ANY_CONSOLE_TOKEN", weird_main_token)
+        headers = {"Authorization": f"Bearer {weird_main_token}"}
+        res = client.post(
+            "/dispatch", headers=headers,
+            json={"workspace": "test-ws", "text": "echo hi", "direct": True},
+        )
+        assert res.status_code == 200, res.text
+
+    def test_scoped_dispatch_token_still_labeled_with_its_id(self, client, workspace):
+        from unittest import mock
+        create_res = client.post("/api-tokens", headers=AUTH, json={"name": "ci"})
+        token = create_res.json()
+        with mock.patch("api.routers.dispatch.log_activity") as log:
+            res = client.post(
+                "/dispatch",
+                headers={"Authorization": f"Bearer {token['token']}"},
+                json={"workspace": "test-ws", "text": "echo hi"},
+            )
+        assert res.status_code == 202
+        assert log.call_args.kwargs["auth"] == f"token:{token['id']}"
