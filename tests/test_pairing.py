@@ -65,16 +65,24 @@ class TestStart:
 
     def test_uses_tailscale_hostname_when_serve_targets_this_port(self, client, monkeypatch):
         monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
-        monkeypatch.setattr(pairing_mod, "_tailscale_serve_targets_port", lambda port: port == 8888)
+        monkeypatch.setattr(pairing_mod, "_tailscale_serve_frontend_port", lambda port: 443 if port == 8888 else None)
         res = _client_with_port(8888).post("/auth/pairing/start", headers=AUTH)
         assert res.json()["url"].startswith("https://myhost.tail1234.ts.net/pair/")
+
+    def test_uses_serve_frontend_port_when_not_443(self, client, monkeypatch):
+        # TailscaleのServe HTTPSは443固定ではない(8443/10000もサポートされる)。
+        # 443決め打ちだと、別ポートで稼働している場合に繋がらないQRになる。
+        monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
+        monkeypatch.setattr(pairing_mod, "_tailscale_serve_frontend_port", lambda port: 8443 if port == 8888 else None)
+        res = _client_with_port(8888).post("/auth/pairing/start", headers=AUTH)
+        assert res.json()["url"].startswith("https://myhost.tail1234.ts.net:8443/pair/")
 
     def test_falls_back_when_serve_targets_a_different_port(self, client, monkeypatch):
         # tailscaleがインストール済みでホスト名は引けても、Serveが別サービス/別ポート
         # 向けに設定されているだけなら https://<hostname> は any-console に届かない
         # ため、リクエスト自身のhost:portにフォールバックしなければならない
         monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
-        monkeypatch.setattr(pairing_mod, "_tailscale_serve_targets_port", lambda port: port == 9999)
+        monkeypatch.setattr(pairing_mod, "_tailscale_serve_frontend_port", lambda port: 443 if port == 9999 else None)
         res = _client_with_port(8888).post("/auth/pairing/start", headers=AUTH)
         assert res.json()["url"].startswith("http://testserver:8888/pair/")
 
@@ -82,23 +90,33 @@ class TestStart:
         # request.url.port が取れない(Hostヘッダにポートが無い)場合は、Serveが
         # 実際にどこへproxyしているか比較しようがないため安全側(フォールバック)に倒す
         monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
-        monkeypatch.setattr(pairing_mod, "_tailscale_serve_targets_port", lambda port: True)
+        monkeypatch.setattr(pairing_mod, "_tailscale_serve_frontend_port", lambda port: 443)
         res = client.post("/auth/pairing/start", headers=AUTH)
         assert res.json()["url"].startswith("http://testserver/pair/")
 
-    def test_loopback_origin_uses_hostname_with_http_when_available(self, client, monkeypatch):
+    def test_loopback_origin_uses_hostname_preserving_scheme_when_available(self, client, monkeypatch):
         # 発行元がhttp://localhost:8888(起動時通知どおり)で開いている場合、
         # そのままだとQRの宛先が「スキャンした端末自身のlocalhost」になり
         # 絶対に繋がらない。MagicDNS名+実ポートに差し替えなければならない。
         monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
-        monkeypatch.setattr(pairing_mod, "_tailscale_serve_targets_port", lambda port: False)
+        monkeypatch.setattr(pairing_mod, "_tailscale_serve_frontend_port", lambda port: None)
         res = _client_loopback("localhost", 8888).post("/auth/pairing/start", headers=AUTH)
         assert res.status_code == 200, res.text
         assert res.json()["url"].startswith("http://myhost.tail1234.ts.net:8888/pair/")
 
+    def test_loopback_origin_preserves_https_scheme(self, client, monkeypatch):
+        # native TLS(SSL_KEYFILE/SSL_CERTFILE)運用でhttps://localhost:8888から
+        # 開いている場合、そのポートはTLSを要求するのでhttpに決め打ちしては
+        # ならない。requestのschemeをそのまま引き継ぐ。
+        monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
+        monkeypatch.setattr(pairing_mod, "_tailscale_serve_frontend_port", lambda port: None)
+        res = TestClient(app, base_url="https://localhost:8888").post("/auth/pairing/start", headers=AUTH)
+        assert res.status_code == 200, res.text
+        assert res.json()["url"].startswith("https://myhost.tail1234.ts.net:8888/pair/")
+
     def test_loopback_origin_uses_ip_form_too(self, client, monkeypatch):
         monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
-        monkeypatch.setattr(pairing_mod, "_tailscale_serve_targets_port", lambda port: False)
+        monkeypatch.setattr(pairing_mod, "_tailscale_serve_frontend_port", lambda port: None)
         res = _client_loopback("127.0.0.1", 8888).post("/auth/pairing/start", headers=AUTH)
         assert res.status_code == 200, res.text
         assert res.json()["url"].startswith("http://myhost.tail1234.ts.net:8888/pair/")
@@ -131,36 +149,53 @@ class TestStart:
         assert first["id"] not in pairing_mod._pairings
 
 
-class TestTailscaleServeTargetsPort:
-    def test_true_when_web_handler_proxies_to_port(self, monkeypatch):
+class TestTailscaleServeFrontendPort:
+    def test_returns_frontend_port_when_handler_proxies_to_backend_port(self, monkeypatch):
         payload = subprocess.CompletedProcess(
             args=[], returncode=0,
             stdout='{"Web": {"myhost.ts.net:443": {"Handlers": {"/": {"Proxy": "http://127.0.0.1:8888"}}}}}',
         )
         monkeypatch.setattr(pairing_mod, "run_subprocess_safe", lambda *a, **k: payload)
-        assert pairing_mod._tailscale_serve_targets_port(8888) is True
+        assert pairing_mod._tailscale_serve_frontend_port(8888) == 443
 
-    def test_false_when_proxied_to_a_different_port(self, monkeypatch):
+    def test_returns_non_443_frontend_port(self, monkeypatch):
+        # TailscaleはServeのHTTPSポートとして443の他に8443/10000もサポートする。
+        payload = subprocess.CompletedProcess(
+            args=[], returncode=0,
+            stdout='{"Web": {"myhost.ts.net:8443": {"Handlers": {"/": {"Proxy": "http://127.0.0.1:8888"}}}}}',
+        )
+        monkeypatch.setattr(pairing_mod, "run_subprocess_safe", lambda *a, **k: payload)
+        assert pairing_mod._tailscale_serve_frontend_port(8888) == 8443
+
+    def test_none_when_proxied_to_a_different_backend_port(self, monkeypatch):
         payload = subprocess.CompletedProcess(
             args=[], returncode=0,
             stdout='{"Web": {"myhost.ts.net:443": {"Handlers": {"/": {"Proxy": "http://127.0.0.1:3000"}}}}}',
         )
         monkeypatch.setattr(pairing_mod, "run_subprocess_safe", lambda *a, **k: payload)
-        assert pairing_mod._tailscale_serve_targets_port(8888) is False
+        assert pairing_mod._tailscale_serve_frontend_port(8888) is None
 
-    def test_false_when_tailscale_not_installed(self, monkeypatch):
+    def test_none_when_tailscale_not_installed(self, monkeypatch):
         monkeypatch.setattr(pairing_mod, "run_subprocess_safe", lambda *a, **k: None)
-        assert pairing_mod._tailscale_serve_targets_port(8888) is False
+        assert pairing_mod._tailscale_serve_frontend_port(8888) is None
 
-    def test_false_when_no_web_section(self, monkeypatch):
+    def test_none_when_no_web_section(self, monkeypatch):
         payload = subprocess.CompletedProcess(args=[], returncode=0, stdout="{}")
         monkeypatch.setattr(pairing_mod, "run_subprocess_safe", lambda *a, **k: payload)
-        assert pairing_mod._tailscale_serve_targets_port(8888) is False
+        assert pairing_mod._tailscale_serve_frontend_port(8888) is None
 
-    def test_false_on_invalid_json(self, monkeypatch):
+    def test_none_on_invalid_json(self, monkeypatch):
         payload = subprocess.CompletedProcess(args=[], returncode=0, stdout="not json")
         monkeypatch.setattr(pairing_mod, "run_subprocess_safe", lambda *a, **k: payload)
-        assert pairing_mod._tailscale_serve_targets_port(8888) is False
+        assert pairing_mod._tailscale_serve_frontend_port(8888) is None
+
+    def test_none_when_web_key_has_no_parseable_port(self, monkeypatch):
+        payload = subprocess.CompletedProcess(
+            args=[], returncode=0,
+            stdout='{"Web": {"malformed-key": {"Handlers": {"/": {"Proxy": "http://127.0.0.1:8888"}}}}}',
+        )
+        monkeypatch.setattr(pairing_mod, "run_subprocess_safe", lambda *a, **k: payload)
+        assert pairing_mod._tailscale_serve_frontend_port(8888) is None
 
 
 class TestIsLoopbackHost:
@@ -421,6 +456,19 @@ class TestStatusRateLimit:
         counter_keys = [k for k in pairing_mod._rate_counter._counts if k.startswith("pairing:status:")]
         assert len(counter_keys) == 1
         assert counter_keys[0].endswith(":unknown")
+
+    def test_key_is_evicted_once_the_pairing_is_swept(self, client, monkeypatch):
+        # 実在するpairing_id専用のレート制限キーは、そのpairingが期限切れで
+        # dictから消えたら一緒に掃除されなければならない。掃除しないと、
+        # 長期稼働するプロセスで正規のpairingが完了・失効するたびに
+        # counter dictへ永久にキーが残り続けてしまう。
+        data = _start(client, monkeypatch)
+        client.get(f"/auth/pairing/{data['id']}/status")
+        assert any(k.endswith(f":{data['id']}") for k in pairing_mod._rate_counter._counts)
+
+        pairing_mod._pairings[data["id"]]["expires_at"] = time.time() - 1
+        client.get(f"/auth/pairing/{data['id']}/status")
+        assert not any(k.endswith(f":{data['id']}") for k in pairing_mod._rate_counter._counts)
 
 
 def test_pair_page_serves_spa_shell(client):

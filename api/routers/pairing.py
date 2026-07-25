@@ -25,10 +25,13 @@
   status・claim はどちらも実在する pairing_id ごとに独立してカウントする
   （Tailscale Serve 経由だと全クライアントが loopback 発に見えるため、IPだけで
   絞ると無関係な pairing_id への荒らしで正規の pairing まで巻き添えでブロック
-  されてしまう）。ただし実在しない pairing_id は共有バケットにまとめる
-  （`_bounded_pairing_scope`）— 存在確認より前に呼ぶ都合上、そうしないと
-  攻撃者が架空のIDを大量生成して `_FixedWindowCounter`（期限切れキーを
-  掃除しない）のキー空間を際限なく肥大化させられてしまうため。
+  されてしまう）。実在しない pairing_id は共有バケットにまとめ（`_bounded_pairing_scope`。
+  存在確認より前に呼ぶ都合上、そうしないと攻撃者が架空のIDを大量生成して
+  キー空間を際限なく肥大化させられてしまう）、実在する pairing_id 用のキーは
+  そのpairingがdictから消える時点で明示的に掃除する（`_evict_rate_limit_keys_for`。
+  `_FixedWindowCounter` はキーを自動失効しないため、掃除しないと正規の
+  pairingが完了・失効するたびにキーが永久に残り、長期稼働するプロセスで
+  ゆっくり肥大化し続けてしまう）。
 - claim成功後のエントリ（tombstone）は claimed_at から独立した観測猶予
   （`_CLAIMED_OBSERVATION_SEC`）で寿命を判定する。元の90秒期限間際にclaimが
   成立したケースでも、発行元のポーリングが少し遅れただけでclaimedを
@@ -43,14 +46,18 @@
   先発デバイスが無言でログアウトされてしまうため）。
 - QRに埋め込む URL の https://<hostname> は、Tailscale Serve が「何かしら」
   稼働しているだけでなく、実際にこのプロセスの待受ポートへ proxy している
-  ことまで確認できた場合にのみ使う（`_tailscale_serve_targets_port`）。
+  ことまで確認できた場合にのみ使う（`_tailscale_serve_frontend_port`）。
   同一tailnetホストで別サービス向けにServeが設定されているだけのケースを
-  誤って信頼し、到達しないURLをQRに埋め込まないようにするため。
+  誤って信頼し、到達しないURLをQRに埋め込まないようにするため。Serveの
+  HTTPSは443固定ではなく8443/10000もサポートされるため、443決め打ちにせず
+  実際のfrontendポートをWebキーから取り出して使う。
 - 発行元が `http://localhost:8888` のようなloopbackアドレスで any-console を
   開いている場合、そのままリクエストのnetlocをQRに使うと「スキャンした
   端末自身のlocalhost」を指してしまい絶対に繋がらない。この場合は
-  MagicDNS名+実ポートへ差し替えるか（Serveは未確認でもtailnet越しに到達
-  できる）、それも引けなければ明確なエラーで拒否する（`_is_loopback_host`）。
+  MagicDNS名+実ポートへ差し替える（Serveは未確認でもtailnet越しに到達
+  できる。schemeはリクエスト自身のものを保持する — native TLS運用で
+  https://localhost経由の場合にhttpへ決め打ちすると繋がらないため）か、
+  それも引けなければ明確なエラーで拒否する（`_is_loopback_host`）。
 """
 
 import hmac
@@ -143,41 +150,65 @@ def _is_expired_locked(entry: dict, now: float) -> bool:
     return bool(entry["expires_at"] <= now)
 
 
+def _evict_rate_limit_keys_for(pairing_id: str) -> None:
+    """pairing_id を消費し終えたら、そのpairing_idにスコープされたレート
+    リミットキー（`pairing:status:<ip>:<pairing_id>` 等）も一緒に消す。
+
+    `_bounded_pairing_scope` は実在するpairing_idにだけ専用バケットを与えて
+    攻撃者による無限のID生成を防いだが、それだけでは正規のpairingが
+    完了・失効するたびにそのキーが`_rate_counter._counts`へ永久に残り続け、
+    長期稼働するプロセスでゆっくり肥大化してしまう。pairingが消える時点で
+    対応するキーも掃除し、生きているpairing数に比例するサイズへ抑える。
+    """
+    suffix = f":{pairing_id}"
+    stale = [k for k in _rate_counter._counts if k.endswith(suffix)]
+    for k in stale:
+        _rate_counter._counts.pop(k, None)
+
+
 def _sweep_expired_locked(now: float) -> None:
     expired = [pid for pid, p in _pairings.items() if _is_expired_locked(p, now)]
     for pid in expired:
         _pairings.pop(pid, None)
+        _evict_rate_limit_keys_for(pid)
 
 
-def _tailscale_serve_targets_port(port: int) -> bool:
-    """Tailscale Serveが実際にこのプロセスの待受ポートへproxyしているか確認する。
+def _tailscale_serve_frontend_port(backend_port: int) -> int | None:
+    """Tailscale Serveがこのプロセスの待受ポートへ実際にproxyしているか確認し、
+    確認できればServeの公開(フロントエンド)ポートを返す。一致しなければNone。
 
-    `tailscale serve status --json` の `Web.<host:443>.Handlers["/"].Proxy` が
-    このポートを指しているかまで見る。単に「TCP/Webキーが存在する」だけでは、
-    同一tailnetホストで動く別サービス向けのServe設定を誤って信頼してしまい
-    （その場合 https://<hostname> は any-console に届かない）、スキャン不能な
-    URLをQRに埋め込むことになるため、システム情報カード用の簡易チェック
-    （system._get_tailscale_serve_running、"何か動いているか"の表示用）とは
-    別に、ペアリング専用でここまで確認する。
+    `tailscale serve status --json` の `Web` は `{"host:frontend_port": {...}}`
+    という形で、値の `Handlers["/"].Proxy` が実際にproxyしているbackend先を示す。
+    単に「TCP/Webキーが存在する」だけでは、同一tailnetホストで動く別サービス
+    向けのServe設定を誤って信頼してしまう（その場合 https://<hostname> は
+    any-console に届かない）ため、backend側のポート一致まで確認する。
+    さらにTailscaleのServe HTTPSは443固定ではなく8443/10000も使えるため、
+    frontend側のポートもkeyから取り出して返す（呼び出し側が443決め打ちで
+    URLを組み立てると、8443/10000で稼働している場合に繋がらないQRになる）。
+    システム情報カード用の簡易チェック（system._get_tailscale_serve_running、
+    "何か動いているか"の表示用）とは別に、ペアリング専用でここまで確認する。
     """
     result = run_subprocess_safe(["tailscale", "serve", "status", "--json"], timeout=SYSTEM_CMD_TIMEOUT_SEC)
     if result is None or result.returncode != 0:
-        return False
+        return None
     try:
         data = json.loads(result.stdout)
     except (json.JSONDecodeError, TypeError):
-        return False
+        return None
     web = data.get("Web") if isinstance(data, dict) else None
     if not isinstance(web, dict):
-        return False
-    needle = f":{port}"
-    for site in web.values():
+        return None
+    needle = f":{backend_port}"
+    for key, site in web.items():
         handlers = site.get("Handlers", {}) if isinstance(site, dict) else {}
         root = handlers.get("/", {}) if isinstance(handlers, dict) else {}
         proxy = root.get("Proxy", "") if isinstance(root, dict) else ""
-        if isinstance(proxy, str) and proxy.endswith(needle):
-            return True
-    return False
+        if not (isinstance(proxy, str) and proxy.endswith(needle)):
+            continue
+        _, _, frontend_port_str = str(key).rpartition(":")
+        if frontend_port_str.isdigit():
+            return int(frontend_port_str)
+    return None
 
 
 def _is_loopback_host(host: str) -> bool:
@@ -198,19 +229,23 @@ def _build_pairing_url(request: Request, pairing_id: str, pairing_token: str) ->
     # されている構成では、そこにアクセスしても any-console には届かない）。
     hostname = _resolve_tailscale_name()
     port = request.url.port
-    if hostname and port and _tailscale_serve_targets_port(port):
-        return f"https://{hostname}/pair/{pairing_id}?t={pairing_token}"
+    frontend_port = _tailscale_serve_frontend_port(port) if hostname and port else None
+    if hostname and frontend_port is not None:
+        # ServeのHTTPSは443固定ではない(8443/10000もサポートされる)ため、
+        # 実際のfrontendポートを使う。443はデフォルトポートなので省略する。
+        suffix = "" if frontend_port == 443 else f":{frontend_port}"
+        return f"https://{hostname}{suffix}/pair/{pairing_id}?t={pairing_token}"
 
     # 発行元が起動時通知の http://localhost:8888 のようなloopbackアドレスで
     # 開いている場合、そのままリクエストのnetlocを使うとQRの宛先が
     # 「スキャンした端末自身のlocalhost」になってしまい絶対に繋がらない。
     if _is_loopback_host(request.url.hostname or ""):
         if hostname and port:
-            # Serveは未確認でも、MagicDNS名+実ポートならtailnet越しに
-            # 他端末から到達できる(plain HTTPでよい — tailnet自体が
-            # WireGuardで暗号化されているため、README記載のLAN/tailnet
-            # 運用と同じ扱い)。
-            return f"http://{hostname}:{port}/pair/{pairing_id}?t={pairing_token}"
+            # Serveは未確認だが、MagicDNS名+実ポートならtailnet越しに他端末
+            # から到達できる。schemeはリクエスト自身のものをそのまま使う
+            # (native TLS運用 — main.py の SSL_KEYFILE/SSL_CERTFILE — では
+            # そのポートがTLSを要求するため、http に決め打ちすると繋がらない)。
+            return f"{request.url.scheme}://{hostname}:{port}/pair/{pairing_id}?t={pairing_token}"
         raise bad_request(
             "Cannot build a link reachable from another device while viewing "
             "any-console via localhost. Open it via its LAN or Tailscale address instead."
@@ -261,6 +296,7 @@ def pairing_status(pairing_id: str, request: Request):
         if entry["claimed"]:
             if _is_expired_locked(entry, now):
                 _pairings.pop(pairing_id, None)
+                _evict_rate_limit_keys_for(pairing_id)
                 return {"status": "not_found"}
             return {"status": "claimed"}
         if entry["claiming"]:
@@ -270,6 +306,7 @@ def pairing_status(pairing_id: str, request: Request):
             return {"status": "pending", "expires_in_sec": max(0, int(entry["expires_at"] - now))}
         if entry["expires_at"] <= now:
             _pairings.pop(pairing_id, None)
+            _evict_rate_limit_keys_for(pairing_id)
             return {"status": "expired"}
         return {"status": "pending", "expires_in_sec": max(0, int(entry["expires_at"] - now))}
 
@@ -286,6 +323,7 @@ def claim_pairing(pairing_id: str, body: ClaimBody, request: Request, response: 
         if entry["claimed"] or entry["claiming"] or entry["expires_at"] <= now:
             if entry["expires_at"] <= now:
                 _pairings.pop(pairing_id, None)
+                _evict_rate_limit_keys_for(pairing_id)
             raise gone("Pairing request expired or already used")
         if not body.token or not hmac.compare_digest(body.token, entry["token"]):
             raise unauthorized("Invalid pairing token")
