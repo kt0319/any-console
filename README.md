@@ -123,7 +123,7 @@ Once one device is signed in, you can add another (e.g. add your iPhone from you
 2. Scan the QR code with the new device's camera app.
 3. The new device opens the link, signs in automatically, and lands on the normal app screen.
 
-The QR code encodes a one-time link that expires in 90 seconds and can only be used once — if it expires or was already used, the new device falls back to the normal token entry screen. See [docs/DECISIONS.md](docs/DECISIONS.md) (ADR 27) for the security rationale.
+The QR code encodes a one-time link that expires in 90 seconds and can only be used once — if it expires or was already used, the new device falls back to the normal token entry screen. See [docs/DECISIONS.md](docs/DECISIONS.md) (ADR 28) for the security rationale.
 
 ### Tailscale header auto-auth (opt-in)
 

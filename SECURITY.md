@@ -40,7 +40,7 @@ no user separation):
   Security → Add new device**) instead of retyping the token. The QR link
   is short-lived (90s) and single-use; it never widens access beyond the
   existing single-user model — it is device provisioning, not user invites.
-  See `docs/DECISIONS.md` #27.
+  See `docs/DECISIONS.md` #28.
 - There are no user accounts or roles. One token means full access.
 - Request rate limiting and security headers are enabled by default.
 - **Tailscale header auto-auth** (`trust_tailscale_auth`) is **off by

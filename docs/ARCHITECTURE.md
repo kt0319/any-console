@@ -22,7 +22,7 @@ api/                          Backend (FastAPI)
   config_migrations.py        config.json schema versioning + auto-migration
   rate_limiter.py             In-process rate limiter
   routers/                    workspaces, jobs, terminal, system, settings, git, github,
-                               pairing (QR code device pairing; short-lived, single-use tokens — see DECISIONS.md #27)
+                               pairing (QR code device pairing; short-lived, single-use tokens — see DECISIONS.md #28)
 ui/                           Frontend (Vue 3 + Pinia, built with Vite)
   components/                 Vue components
   stores/                     Pinia stores
