@@ -1,5 +1,6 @@
 import hmac
 import ipaddress
+import json
 import logging
 import os
 import secrets
@@ -10,7 +11,7 @@ from typing import Mapping, Optional
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from .common import DATA_DIR, load_json_file, save_json_file
+from .common import DATA_DIR, SYSTEM_CMD_TIMEOUT_SEC, load_json_file, run_subprocess_safe, save_json_file
 
 security = HTTPBearer(auto_error=False)
 logger = logging.getLogger(__name__)
@@ -111,6 +112,27 @@ def _is_trusted_proxy_source(client_host: str) -> bool:
         return ipaddress.ip_address(client_host) in _TAILSCALE_CGNAT
     except ValueError:
         return False
+
+
+def _resolve_tailscale_name() -> str | None:
+    """この端末の Tailscale MagicDNS ホスト名（例: `myhost.tail-scale.ts.net`）を返す。
+
+    QRペアリングURL（`api/routers/pairing.py`）に埋め込むために、tailnet上の
+    他端末から到達可能な名前が必要。IPアドレスは tailnet 内で不変とは限らず、
+    MagicDNS 名の方が Tailscale Serve/Funnel の証明書とも一致し扱いやすい。
+    `tailscale` 未インストール・未ログイン・コマンド失敗時は None を返し、
+    呼び出し側はリクエスト自身の Host ヘッダへフォールバックする。
+    """
+    result = run_subprocess_safe(["tailscale", "status", "--json"], timeout=SYSTEM_CMD_TIMEOUT_SEC)
+    if result is None or result.returncode != 0:
+        return None
+    try:
+        data = json.loads(result.stdout)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    self_info = data.get("Self") if isinstance(data, dict) else None
+    dns_name = self_info.get("DNSName", "") if isinstance(self_info, dict) else ""
+    return dns_name.rstrip(".") or None
 
 
 def _tailscale_user(client_host: str, headers: Mapping[str, str]) -> str | None:

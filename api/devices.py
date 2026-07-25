@@ -33,6 +33,14 @@ MAX_UA_LEN = 200
 # をロックで直列化し、鍵ファイルは常に1回だけ生成されるようにする。
 _server_key_lock = threading.Lock()
 
+# devices.json はここの各関数が load→変更→save という read-modify-write を
+# 行う。ロックが無いと、例えば既存デバイスの verify_and_touch_device と
+# 新規デバイスの register_device が並行実行された場合、後勝ちの save が
+# 相手側の変更ごと上書きしてしまう（QRペアリングで新規登録した端末が、
+# 別の既存端末の何気ないリクエストと重なるだけで消えうる）。全ての
+# load→save 区間をこのロックで直列化する。
+_devices_lock = threading.Lock()
+
 
 def _load_or_create_server_key() -> bytes:
     with _server_key_lock:
@@ -121,12 +129,14 @@ def find_or_register_device(name: str, user_agent: str, source: str) -> tuple[st
     最も直近に使われたエントリを再利用する（複数あった場合は last_seen_at が最新のもの）。
     """
     ua_stored = (user_agent or "")[:MAX_UA_LEN]
-    data = _load()
-    candidates = [
-        d for d in data["devices"]
-        if d.get("user_agent", "") == ua_stored and d.get("source", "token") == source
-    ]
-    if candidates:
+    with _devices_lock:
+        data = _load()
+        candidates = [
+            d for d in data["devices"]
+            if d.get("user_agent", "") == ua_stored and d.get("source", "token") == source
+        ]
+        if not candidates:
+            return _register_device_locked(name, ua_stored, source)
         existing = max(candidates, key=lambda d: d["last_seen_at"])
         raw_secret = secrets.token_urlsafe(32)
         existing["secret_hash"] = _hash_secret(raw_secret)
@@ -134,14 +144,12 @@ def find_or_register_device(name: str, user_agent: str, source: str) -> tuple[st
         _save(data)
         logger.info("device reissued id=%s name=%s source=%s", existing["id"], existing["name"], source)
         return existing["id"], raw_secret
-    return register_device(name, ua_stored, source=source)
 
 
-def register_device(name: str, user_agent: str, source: str = "token") -> tuple[str, str]:
-    """新デバイスを登録し (device_id, raw_secret) を返す。
-
-    raw_secret はサーバには保存せず、戻り値経由でのみクライアントに渡す。
-    source: 登録経路（"token" / "tailscale" / "legacy"）。UI 表示と運用判断用。
+def _register_device_locked(name: str, user_agent: str, source: str) -> tuple[str, str]:
+    """`_devices_lock` 保持中に呼ぶ前提の内部実装（`find_or_register_device`
+    からのネスト呼び出し用。非再入ロックなので `register_device` からは
+    呼ばない — ロックの取得は公開関数の入口だけに限定する）。
     """
     device_id = f"dev_{secrets.token_hex(8)}"
     raw_secret = secrets.token_urlsafe(32)
@@ -161,6 +169,16 @@ def register_device(name: str, user_agent: str, source: str = "token") -> tuple[
     return device_id, raw_secret
 
 
+def register_device(name: str, user_agent: str, source: str = "token") -> tuple[str, str]:
+    """新デバイスを登録し (device_id, raw_secret) を返す。
+
+    raw_secret はサーバには保存せず、戻り値経由でのみクライアントに渡す。
+    source: 登録経路（"token" / "tailscale" / "legacy"）。UI 表示と運用判断用。
+    """
+    with _devices_lock:
+        return _register_device_locked(name, (user_agent or "")[:MAX_UA_LEN], source)
+
+
 def verify_and_touch_device(device_id: str, raw_secret: str) -> dict | None:
     """device_id + raw_secret が登録済みデバイスと一致すれば dict を返す。
 
@@ -168,30 +186,32 @@ def verify_and_touch_device(device_id: str, raw_secret: str) -> dict | None:
     """
     if not device_id or not raw_secret:
         return None
-    data = _load()
-    expected_hash = _hash_secret(raw_secret)
-    for dev in data["devices"]:
-        if dev["id"] != device_id:
-            continue
-        if hmac.compare_digest(dev["secret_hash"], expected_hash):
-            dev["last_seen_at"] = int(time.time())
-            _save(data)
-            result: dict = dev
-            return result
-    return None
+    with _devices_lock:
+        data = _load()
+        expected_hash = _hash_secret(raw_secret)
+        for dev in data["devices"]:
+            if dev["id"] != device_id:
+                continue
+            if hmac.compare_digest(dev["secret_hash"], expected_hash):
+                dev["last_seen_at"] = int(time.time())
+                _save(data)
+                result: dict = dev
+                return result
+        return None
 
 
 def revoke_device(device_id: str) -> bool:
     if not device_id:
         return False
-    data = _load()
-    before = len(data["devices"])
-    data["devices"] = [d for d in data["devices"] if d["id"] != device_id]
-    if len(data["devices"]) == before:
-        return False
-    _save(data)
-    logger.info("device revoked id=%s", device_id)
-    return True
+    with _devices_lock:
+        data = _load()
+        before = len(data["devices"])
+        data["devices"] = [d for d in data["devices"] if d["id"] != device_id]
+        if len(data["devices"]) == before:
+            return False
+        _save(data)
+        logger.info("device revoked id=%s", device_id)
+        return True
 
 
 def list_devices() -> list[dict]:

@@ -4,9 +4,12 @@
     <span class="fatal-error-msg">{{ fatalError }}</span>
     <button class="fatal-error-reload" @click="location.reload()">Reload</button>
   </div>
-  <ScreenLogin v-if="showLogin" @authenticated="onAuthenticated" />
-  <template v-if="authenticated">
-    <ScreenMain />
+  <ScreenPair v-if="pairInfo" :pairing-id="pairInfo.id" :pairing-token="pairInfo.token" />
+  <template v-else>
+    <ScreenLogin v-if="showLogin" @authenticated="onAuthenticated" />
+    <template v-if="authenticated">
+      <ScreenMain />
+    </template>
   </template>
   <AppToast ref="appToast" />
   <ConfirmDialog />
@@ -18,6 +21,7 @@
 import { ref, onMounted, onErrorCaptured } from "vue";
 import ScreenLogin from "./ScreenLogin.vue";
 import ScreenMain from "./ScreenMain.vue";
+import ScreenPair from "./ScreenPair.vue";
 import AppToast from "./AppToast.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import PromptDialog from "./PromptDialog.vue";
@@ -27,6 +31,7 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useAppConnectivity } from "../composables/useAppConnectivity.js";
 import { useAppDocumentTitle } from "../composables/useAppDocumentTitle.js";
 import { useAppAuthGate } from "../composables/useAppAuthGate.js";
+import { parsePairUrl } from "../utils/pairing.js";
 
 const layoutStore = useLayoutStore();
 
@@ -36,6 +41,10 @@ onErrorCaptured((err) => {
   fatalError.value = err?.message || String(err);
   return false;
 });
+
+// "/pair/{id}?t=..." はQRペアリングのclaim画面。vue-router非導入のため、起動時の
+// URLをパースするだけの単純なルーティングで済ませる(ui/utils/pairing.js参照)。
+const pairInfo = parsePairUrl(location.pathname, location.search);
 
 useAppDocumentTitle();
 useAppConnectivity();
@@ -47,7 +56,9 @@ onMounted(async () => {
 
   on("toast:show", ({ message, type, duration, action }) => appToast.value?.show(message, type, duration, action));
 
-  await checkAuthOnBoot();
+  // ペアリング画面は未認証で開くページなので、通常の認証チェック(未認証トースト等)
+  // は不要かつログイン画面のちらつきの原因になるためスキップする。
+  if (!pairInfo) await checkAuthOnBoot();
 });
 
 </script>

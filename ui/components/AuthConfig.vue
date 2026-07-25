@@ -51,6 +51,14 @@
       <div class="settings-note" style="margin-bottom: 8px;">
         Registered devices can sign in without entering a token. Revoke any device that should no longer have access.
       </div>
+      <button
+        v-if="tokenConfigured"
+        type="button"
+        class="add-device-btn"
+        @click="pushView('PairDeviceConfig')"
+      >
+        <span class="mdi mdi-qrcode-scan"></span> Add new device
+      </button>
       <div v-if="devicesLoading" class="text-muted-center">Loading...</div>
       <template v-else>
         <div v-if="!devices.length" class="settings-note">No devices registered yet.</div>
@@ -134,12 +142,13 @@ import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
 import { useConfirm } from "../composables/useConfirm.js";
-import { EP_API_TOKENS, EP_SETTINGS_AUTH, apiTokenPath } from "../utils/endpoints.js";
+import { EP_SETTINGS_AUTH, EP_DEVICES, devicePath, EP_API_TOKENS, apiTokenPath } from "../utils/endpoints.js";
 import { formatRelativeTime } from "../utils/format.js";
 import { copyText } from "../utils/clipboard.js";
 import { URL_COPIED_RESET_MS } from "../utils/constants.js";
 
 const modalTitle = inject("modalTitle");
+const pushView = inject("pushView");
 modalTitle.value = "Auth";
 
 const { apiGet, apiPost, apiPut, apiDelete } = useApi();
@@ -208,7 +217,7 @@ async function saveAuth() {
 
 async function loadDevices() {
   devicesLoading.value = true;
-  const res = await getWithRetry(apiGet, "/devices");
+  const res = await getWithRetry(apiGet, EP_DEVICES);
   devices.value = res.ok && Array.isArray(res.data) ? res.data : [];
   devicesLoading.value = false;
 }
@@ -219,7 +228,7 @@ async function revoke(d) {
     ? `Logout this device "${d.name}"? You will need to sign in again.`
     : `Revoke device "${d.name}"? It will need to register again with a token.`;
   if (!await confirm(msg)) return;
-  const { ok } = await apiDelete(`/devices/${encodeURIComponent(d.id)}`, { errorMessage: "Failed to revoke" });
+  const { ok } = await apiDelete(devicePath(d.id), { errorMessage: "Failed to revoke" });
   if (!ok) return;
   if (isSelf) {
     location.reload();
@@ -350,6 +359,27 @@ onMounted(async () => {
 
 .security-token-status.configured { color: var(--success); }
 .security-token-status.missing { color: var(--warning); }
+
+.add-device-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.add-device-btn .mdi {
+  font-size: 18px;
+}
 
 .device-row {
   display: flex;

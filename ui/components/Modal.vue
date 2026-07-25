@@ -35,6 +35,7 @@
         <TerminalConfig v-if="currentView === 'TerminalConfig'" />
         <EditorConfig v-if="currentView === 'EditorConfig'" />
         <AuthConfig v-if="currentView === 'AuthConfig'" />
+        <PairDeviceConfig v-if="currentView === 'PairDeviceConfig'" />
         <ServerInfo v-if="currentView === 'ServerInfo'" />
         <DisplayConfig v-if="currentView === 'DisplayConfig'" />
         <SnippetConfig v-if="currentView === 'SnippetConfig'" />
@@ -63,6 +64,7 @@ import DispatchRunView from "./DispatchRunView.vue";
 import TerminalConfig from "./TerminalConfig.vue";
 import EditorConfig from "./EditorConfig.vue";
 import AuthConfig from "./AuthConfig.vue";
+import PairDeviceConfig from "./PairDeviceConfig.vue";
 import ServerInfo from "./ServerInfo.vue";
 import DisplayConfig from "./DisplayConfig.vue";
 import SnippetConfig from "./SnippetConfig.vue";
