@@ -4,10 +4,15 @@
 既存セッション再利用 or 新規作成、ブランチ確認/作成、起動コマンド実行、
 text の tmux 送信までを行う。
 
-confirm あり（既定）の場合は承認キューへ積んで即座に 202 を返し、実行は
+既定（direct: false）では承認キューへ積んで即座に 202 を返し、実行は
 Settings の Dispatch Queue からの承認（/dispatch/{id}/decision）だけが担う。
+direct: true を明示した場合のみ承認を待たず即座に実行する。
 キューの変化はステータスストリーム WS（type="dispatch_queue" の全量スナップ
 ショット）で全購読端末へ配信する。
+
+dedup_key を指定すると、同じキーの承認待ちが既にあればそれを置き換える
+（CI の連続失敗などで同一要件のキュー項目が積み上がるのを防ぐ）。置き換え
+時は retry_count を引き継いで +1 し、通知の重複送信は行わない。
 """
 
 import asyncio
@@ -193,7 +198,8 @@ class DispatchRequest(BaseModel):
     branch: str | None = None
     create_branch: bool = False
     base_branch: str | None = None
-    confirm: bool = True
+    direct: bool = False  # true: 承認を待たず即座に実行 / false（既定）: 承認キューへ積む
+    dedup_key: str | None = None  # 同一キューの重複を束ねる。呼び出し元が意味を決める opaque な文字列
 
     @property
     def effective_workspace(self) -> str:
@@ -211,11 +217,25 @@ def _resolve_job_def(workspace: str, job: str):
     return job_def
 
 
+def _has_uncommitted_changes(ws_path) -> bool:
+    try:
+        result = run_git_raw(["status", "--porcelain"], ws_path)
+    except (subprocess.TimeoutExpired, OSError) as e:
+        raise server_error(f"Failed to check workspace status: {e}") from None
+    return result.returncode == 0 and bool(result.stdout.strip())
+
+
 def _ensure_branch(workspace_name: str, ws_path, branch: str, create: bool, base: str | None) -> None:
     branch = validate_branch_name(branch)
     current = git_branch(ws_path)
     if branch == current:
         return
+    # checkout はブランチ切替時、未コミット変更があっても衝突しない限り黙って持ち越して
+    # しまう。dispatch は外部起点の承認フローなので、意図しない混入を明示的に弾く。
+    if _has_uncommitted_changes(ws_path):
+        raise bad_request(
+            f'Workspace has uncommitted changes. Commit or stash them before switching to "{branch}".'
+        )
     branches = git_branches(ws_path)
     if branch in branches:
         args = ["checkout", branch]
@@ -394,6 +414,13 @@ def _launch(body: DispatchRequest) -> dict:
     }
 
 
+def _find_pending_by_dedup_key(key: str) -> tuple[str, dict] | None:
+    for did, req in _PENDING.items():
+        if req.get("dedup_key") == key:
+            return did, req
+    return None
+
+
 def _branch_status(ws_path, branch: str) -> str:
     try:
         current = git_branch(ws_path)
@@ -424,17 +451,19 @@ async def dispatch(body: DispatchRequest):
 
     dispatch_id = secrets.token_urlsafe(8)
 
-    _send_push_in_background(
-        title="Dispatch",
-        body=effective_ws,
-        # 既存タブが無く新規ウィンドウが開く場合でも Dispatch Queue を開けるよう、
-        # クエリで明示する（sw.js の postMessage は既存タブにしか届かない）。
-        # dispatchId を付けて、通知から来た時にどのキュー項目か分かるようにする。
-        url=f"/?openDispatchQueue=1&dispatchId={dispatch_id}",
-        notif_type="dispatch",
-    )
+    def _notify_push() -> None:
+        _send_push_in_background(
+            title="Dispatch",
+            body=effective_ws,
+            # 既存タブが無く新規ウィンドウが開く場合でも Dispatch Queue を開けるよう、
+            # クエリで明示する（sw.js の postMessage は既存タブにしか届かない）。
+            # dispatchId を付けて、通知から来た時にどのキュー項目か分かるようにする。
+            url=f"/?openDispatchQueue=1&dispatchId={dispatch_id}",
+            notif_type="dispatch",
+        )
 
-    if not body.confirm:
+    if body.direct:
+        _notify_push()
         result = _launch(body)
         log_activity(
             result["workspace"], "dispatch_executed",
@@ -442,11 +471,33 @@ async def dispatch(body: DispatchRequest):
         )
         return result
 
-    log_activity(effective_ws, "dispatch_pending", job=body.job, text=body.text)
+    # dedup_key が既存の承認待ちと一致する場合、古い項目を新しい項目へ置き換える
+    # （同一失敗の連続 dispatch でキューが積み上がるのを防ぐ）。retry_count はその
+    # 引き継ぎ回数で、UI 側で「何度目の失敗か」を示すのに使う。
+    retry_count = 1
+    superseded = _find_pending_by_dedup_key(body.dedup_key) if body.dedup_key else None
+    if superseded is not None:
+        old_id, old_payload = superseded
+        retry_count = old_payload.get("retry_count", 1) + 1
+        # 初回の push 通知に埋め込んだ dispatchId（URL）を有効なまま保つため、
+        # 置き換え後もその ID を引き継ぐ（新しい ID を発行すると、既に配信済みの
+        # 通知をタップした時にキューへ存在しない ID を指すことになってしまう）。
+        dispatch_id = old_id
+        _PENDING.pop(old_id, None)
+    payload["retry_count"] = retry_count
+
+    # 置き換え時は既にキューに未対応の項目が待っている状態なので、通知を重ねて鳴らさない。
+    if retry_count == 1:
+        _notify_push()
+
+    log_activity(
+        effective_ws, "dispatch_superseded" if retry_count > 1 else "dispatch_pending",
+        job=body.job, text=body.text,
+    )
 
     _PENDING[dispatch_id] = payload
     _persist_pending()
     _schedule_queue_broadcast()
     # 承認を待たずに返す。結果が必要な呼び出し元はセッションの出現（/terminal/sessions）
-    # で確認するか、confirm:false で即実行を使う。
+    # で確認するか、direct:true で即実行を使う。
     return JSONResponse(status_code=202, content={"status": "pending", "id": dispatch_id})
