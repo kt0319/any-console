@@ -41,6 +41,10 @@ def isolate_fs(tmp_path, monkeypatch):
 
     monkeypatch.setattr(common_mod, "CONFIG_FILE", config_file)
     monkeypatch.setattr(config_mod, "CONFIG_FILE", config_file)
+    # auth.json（メイントークン・api_tokens一覧）も tmp に隔離する。ここが漏れて
+    # いると create_api_token/revoke_api_token 等が本番の実ファイルを直接
+    # 読み書きしてしまう。
+    monkeypatch.setattr(auth_module, "_AUTH_FILE", data / "auth.json")
     # devices.json と server_key も tmp に隔離する（実ファイルへの書き込みを防ぐ）。
     monkeypatch.setattr(devices_mod, "_DEVICES_FILE", data / "devices.json")
     monkeypatch.setattr(devices_mod, "_SERVER_KEY_FILE", data / "server_key")

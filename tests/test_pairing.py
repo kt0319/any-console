@@ -386,14 +386,18 @@ class TestClaim:
         def _boom(*a, **k):
             raise OSError("disk full")
 
-        monkeypatch.setattr(pairing_mod, "register_device", _boom)
-        failed = client.post(f"/auth/pairing/{data['id']}/claim", json={"token": token})
+        # register_device の差し替えだけを個別スコープの monkeypatch.context() で
+        # 行う。fixtureのmonkeypatchでこの後 undo() すると、autouse の isolate_fs
+        # フィクスチャが張った隔離（_DEVICES_FILE等）まで一緒に巻き戻ってしまい、
+        # 下のretry呼び出しが本番の実ファイルに書き込んでしまう。
+        with monkeypatch.context() as m:
+            m.setattr(pairing_mod, "register_device", _boom)
+            failed = client.post(f"/auth/pairing/{data['id']}/claim", json={"token": token})
         assert failed.status_code == 500
         # entryは一切変更していないので、同じ有効なQRでリトライできる
         assert data["id"] in pairing_mod._pairings
         assert pairing_mod._pairings[data["id"]]["claimed"] is False
 
-        monkeypatch.undo()
         retry = client.post(f"/auth/pairing/{data['id']}/claim", json={"token": token})
         assert retry.status_code == 200, retry.text
 
