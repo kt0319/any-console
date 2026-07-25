@@ -2,63 +2,88 @@
   <div class="modal-scroll-body">
     <div v-if="loading" class="text-muted-center">Loading...</div>
     <template v-else>
+      <div class="auth-category-head">
+        <span class="auth-category-title">{{ tokenConfigured ? "Replace user token" : "User Token" }}</span>
+        <span v-if="enabled && tokenConfigured" class="security-token-status configured">
+          <span class="mdi mdi-check-circle"></span>
+          Configured
+        </span>
+        <span v-else-if="enabled" class="security-token-status missing">
+          <span class="mdi mdi-alert-circle-outline"></span>
+          Not set
+        </span>
+      </div>
       <label class="settings-item settings-toggle">
+        <input type="checkbox" v-model="enabled" @change="onToggle" />
         <div class="settings-toggle-copy">
           <span class="settings-item-label">Require token authentication</span>
           <span class="settings-note">
-            Protect access with a Bearer token.
-            Tailscale connections can skip token authentication, but only when trust_tailscale_auth is enabled in config.json (off by default).
+            Protect access with a Bearer token. Tailscale can skip it only if trust_tailscale_auth is enabled in config.json.
           </span>
         </div>
-        <input type="checkbox" v-model="enabled" @change="onToggle" />
       </label>
 
       <template v-if="enabled">
-        <div v-if="tokenConfigured" class="security-token-status configured">
-          <span class="mdi mdi-check-circle"></span>
-          Token is configured
-        </div>
-        <div v-else class="security-token-status missing">
-          <span class="mdi mdi-alert-circle-outline"></span>
-          No token set yet
-        </div>
-
-        <div class="settings-section-label">{{ tokenConfigured ? "Replace token" : "Token" }}</div>
         <div class="security-token-row">
           <input
-            :type="showToken ? 'text' : 'password'"
+            type="text"
             v-model="tokenValue"
             class="security-token-input"
-            :placeholder="tokenConfigured ? 'Enter a new token to replace' : 'Enter a token'"
+            :placeholder="tokenConfigured ? 'Enter a new user token to replace' : 'Enter a user token'"
             autocomplete="new-password"
           />
-          <button type="button" class="security-icon-btn" :title="showToken ? 'Hide' : 'Show'" @click="showToken = !showToken">
-            <span :class="['mdi', showToken ? 'mdi-eye-off' : 'mdi-eye']"></span>
+          <button
+            type="button"
+            class="security-icon-btn"
+            :disabled="!tokenValue"
+            aria-label="Copy token"
+            data-tooltip="Copy token"
+            @click="copyTokenValue"
+          >
+            <span :class="['mdi', tokenValueCopied ? 'mdi-check' : 'mdi-content-copy']"></span>
           </button>
-          <button type="button" class="security-icon-btn" title="Generate random token" @click="generateToken">
+          <button
+            type="button"
+            class="security-icon-btn security-labeled-btn"
+            aria-label="Regenerate token"
+            data-tooltip="Regenerate token"
+            @click="generateToken"
+          >
             <span class="mdi mdi-refresh"></span>
+            Regenerate
+          </button>
+          <button
+            type="button"
+            class="primary auth-save-btn"
+            :disabled="savingAuth || (!tokenConfigured && !tokenValue.trim())"
+            @click="saveAuth"
+          >
+            {{ savingAuth ? "Saving..." : "Save" }}
           </button>
         </div>
         <div v-if="tokenConfigured" class="security-token-hint">Leave blank to keep the current token.</div>
       </template>
-
-      <button type="button" class="primary" :disabled="savingAuth" @click="saveAuth">
-        {{ savingAuth ? "Saving..." : "Save" }}
-      </button>
+      <div v-else class="auth-save-row">
+        <button type="button" class="primary auth-save-btn" :disabled="savingAuth" @click="saveAuth">
+          {{ savingAuth ? "Saving..." : "Save" }}
+        </button>
+      </div>
       <div v-if="authSaveMessage" class="form-message" :class="authSaveMessageType">{{ authSaveMessage }}</div>
 
-      <div class="settings-section-label">Trusted Devices</div>
+      <div class="auth-category-head">
+        <span class="auth-category-title">Trusted Devices</span>
+        <button
+          v-if="tokenConfigured"
+          type="button"
+          class="auth-card-action"
+          @click="pushView('PairDeviceConfig')"
+        >
+          <span class="mdi mdi-qrcode-scan"></span> Add new device
+        </button>
+      </div>
       <div class="settings-note" style="margin-bottom: 8px;">
         Registered devices can sign in without entering a token. Revoke any device that should no longer have access.
       </div>
-      <button
-        v-if="tokenConfigured"
-        type="button"
-        class="add-device-btn"
-        @click="pushView('PairDeviceConfig')"
-      >
-        <span class="mdi mdi-qrcode-scan"></span> Add new device
-      </button>
       <div v-if="devicesLoading" class="text-muted-center">Loading...</div>
       <template v-else>
         <div v-if="!devices.length" class="settings-note">No devices registered yet.</div>
@@ -77,7 +102,9 @@
         </div>
       </template>
 
-      <div class="settings-section-label">API Tokens</div>
+      <div class="auth-category-head">
+        <span class="auth-category-title">API Tokens</span>
+      </div>
       <div class="settings-note" style="margin-bottom: 8px;">
         Scoped tokens for external integrations (e.g. GitHub Actions). They can only queue a dispatch request — never approve one or access anything else.
       </div>
@@ -168,7 +195,7 @@ const tokenCopied = ref(false);
 const enabled = ref(false);
 const tokenConfigured = ref(false);
 const tokenValue = ref("");
-const showToken = ref(false);
+const tokenValueCopied = ref(false);
 const savingAuth = ref(false);
 const authSaveMessage = ref("");
 const authSaveMessageType = ref("success");
@@ -177,7 +204,14 @@ function generateToken() {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
   tokenValue.value = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
-  showToken.value = true;
+}
+
+async function copyTokenValue() {
+  if (!tokenValue.value) return;
+  tokenValueCopied.value = await copyText(tokenValue.value);
+  if (tokenValueCopied.value) {
+    setTimeout(() => { tokenValueCopied.value = false; }, URL_COPIED_RESET_MS);
+  }
 }
 
 function onToggle() {
@@ -185,7 +219,7 @@ function onToggle() {
 }
 
 async function saveAuth() {
-  if (enabled.value && !tokenValue.value.trim()) {
+  if (enabled.value && !tokenConfigured.value && !tokenValue.value.trim()) {
     authSaveMessage.value = "Token is required when authentication is enabled.";
     authSaveMessageType.value = "error";
     return;
@@ -290,15 +324,62 @@ onMounted(async () => {
 </style>
 
 <style scoped>
-.settings-section-label {
+.settings-toggle input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.auth-category-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 0 10px;
+  padding: 8px 8px;
+  background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent);
+  border-top: 2px solid var(--accent);
+  border-bottom: 1px solid var(--border);
+}
+.auth-category-head:first-child {
+  margin-top: 0;
+}
+.auth-category-title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+.auth-card-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 6px 12px;
   font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin: 16px 0 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.auth-card-action .mdi {
+  font-size: 16px;
+}
+
+.auth-save-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.auth-save-btn {
+  width: auto;
+  min-width: 96px;
+  padding: 8px 20px;
 }
 
 .security-token-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   align-items: center;
   margin-bottom: 4px;
@@ -336,6 +417,16 @@ onMounted(async () => {
   cursor: pointer;
 }
 
+.security-labeled-btn {
+  width: auto;
+  gap: 6px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+.security-labeled-btn .mdi {
+  font-size: 16px;
+}
+
 .security-token-hint {
   font-size: 12px;
   color: var(--text-muted);
@@ -352,6 +443,12 @@ onMounted(async () => {
   word-break: break-all;
 }
 
+.auth-category-head .security-token-status {
+  margin: 0;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
 .security-token-status .mdi {
   font-size: 18px;
   flex-shrink: 0;
@@ -359,27 +456,6 @@ onMounted(async () => {
 
 .security-token-status.configured { color: var(--success); }
 .security-token-status.missing { color: var(--warning); }
-
-.add-device-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 44px;
-  padding: 10px 14px;
-  margin-bottom: 8px;
-  font-size: 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
-.add-device-btn .mdi {
-  font-size: 18px;
-}
 
 .device-row {
   display: flex;
