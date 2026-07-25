@@ -21,7 +21,6 @@
             {{ modalTitle }}<template v-if="modalBranch"><span class="modal-title-sep"> / </span><span class="modal-title-branch" :data-tooltip="modalBranch">{{ modalBranch }}</span></template>
           </h3>
         </button>
-        <button type="button" class="modal-close-btn" aria-label="Close" data-tooltip="Close" @click="closeModal">&times;</button>
       </div>
       <div class="modal-body">
         <ModalMenu v-if="currentView === 'ModalMenu'" />
@@ -76,9 +75,11 @@ import IconPicker from "./IconPicker.vue";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
 import { on } from "../app-bridge.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { useLayoutStore } from "../stores/layout.js";
 
 const modal = useModal();
 const workspaceStore = useWorkspaceStore();
+const layoutStore = useLayoutStore();
 const modalEl = ref(null);
 const currentPaneRef = ref(null);
 
@@ -137,6 +138,7 @@ function openView(views) {
 
 function openModal() {
   modal.open(() => modalEl.value, closeModal);
+  layoutStore.isSettingsOpen = true;
 }
 
 function closeModal() {
@@ -145,6 +147,7 @@ function closeModal() {
   modalTitle.value = "";
   modalBranch.value = "";
   currentPaneRef.value = null;
+  layoutStore.isSettingsOpen = false;
 }
 
 function onBack() {
@@ -208,14 +211,18 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ScreenMain.vue の .content-area（TabBar/ステータスバー/KeyboardBar の外側 = ターミナル表示
+   エリアと全く同じ場所）内に配置する。position:fixed でビューポート全体を覆う方式だと、
+   TabBar等の実寸をピクセル計算でオフセットする必要がありモード（PC/モバイル/panel-bottom）
+   ごとにズレやすかったため、position:absolute + inset:0 で親エリアにそのまま追従させる。 */
 .modal-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   background: var(--overlay-bg);
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  z-index: 100;
+  z-index: 20;
   padding: 0;
 }
 
@@ -250,7 +257,7 @@ onMounted(() => {
 .modal-title-wrap {
   display: inline-flex;
   align-items: center;
-  flex: 0 1 auto;
+  flex: 1;
   min-width: 0;
   min-height: 44px;
   padding: 0;
@@ -311,30 +318,6 @@ onMounted(() => {
   flex: 1;
   min-height: 0;
   padding: 0 8px;
-}
-
-.modal-close-btn {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
-  flex-shrink: 0;
-  margin-left: auto;
-  padding: 0;
-  font-size: 22px;
-  line-height: 1;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.modal-close-btn:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 /* PC幅ではモバイルのボトムシート風（ヘッダー下部）をやめ、ヘッダーを上に固定する */

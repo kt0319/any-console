@@ -27,8 +27,8 @@ test.describe("mobile viewport", () => {
     const box = await modal.boundingBox();
     expect(box.width).toBeGreaterThanOrEqual(370);
 
-    // Close ボタンで閉じられる
-    await page.locator(".modal-close-btn").tap();
+    // 歯車ボタン（開いている間は Close に変わる）で閉じられる
+    await page.locator(".tab-settings-btn").tap();
     await expect(page.locator(".modal-overlay")).toBeHidden({ timeout: 5000 });
   });
 });

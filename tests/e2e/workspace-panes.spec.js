@@ -256,7 +256,7 @@ test.describe("workspace detail panes", () => {
     await expect(page.locator(".toast", { hasText: "Saved" })).toBeVisible({ timeout: 10_000 });
 
     // カウント類を読み直すため詳細を開き直すと Stashes タブが現れる
-    await page.locator(".modal-close-btn").click();
+    await page.locator(".tab-settings-btn").click();
     await expect(page.locator(".modal-overlay")).toBeHidden({ timeout: 5000 });
     await openDetail(page);
     const stashTab = page.locator(".workspace-tabs").getByRole("button", { name: "Stashes" });

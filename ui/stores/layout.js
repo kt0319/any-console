@@ -16,6 +16,8 @@ export const useLayoutStore = defineStore("layout", () => {
   const isPwa = window.matchMedia("(display-mode: standalone)").matches
     || /** @type {any} */ (navigator).standalone === true;
 
+  const isSettingsOpen = ref(false);
+
   const isSplitMode = ref(false);
   const splitPaneTabIds = ref(/** @type {(number|string)[]} */ ([]));
   const activePaneIndex = ref(0);
@@ -216,6 +218,7 @@ export const useLayoutStore = defineStore("layout", () => {
     isPanelBottom,
     isTouchDevice,
     isPwa,
+    isSettingsOpen,
     isSplitMode,
     splitPaneTabIds,
     activePaneIndex,

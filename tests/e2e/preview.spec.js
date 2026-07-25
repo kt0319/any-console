@@ -58,7 +58,7 @@ test.describe("port preview", () => {
     await expect(popup.locator("body")).toContainText(DUMMY_BODY, { timeout: 10_000 });
     await popup.close();
 
-    await page.locator(".modal-close-btn").click();
+    await page.locator(".tab-settings-btn").click();
     await expect(page.locator(".modal-overlay")).toBeHidden({ timeout: 5000 });
   });
 });

@@ -8,22 +8,24 @@
       <span v-else>{{ activeTabLabel || ' ' }}</span>
     </div>
     <WorkspaceStatusBar v-show="!booting" />
-    <div v-if="booting || isEmptyScreenVisible" class="screen-main-empty">
-      <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
+    <div class="content-area">
+      <div v-if="booting || isEmptyScreenVisible" class="screen-main-empty">
+        <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
+      </div>
+      <TerminalBase
+        v-if="hasAnyTab && !booting"
+        v-show="!isEmptyScreenVisible"
+        ref="terminalBaseView"
+        :is-panel-bottom="isPanelBottom"
+      >
+        <StatusOverlay :visible="isOffline" label="Connection lost" variant="error" />
+      </TerminalBase>
+      <Modal />
     </div>
-    <TerminalBase
-      v-if="hasAnyTab && !booting"
-      v-show="!isEmptyScreenVisible"
-      ref="terminalBaseView"
-      :is-panel-bottom="isPanelBottom"
-    >
-      <StatusOverlay :visible="isOffline" label="Connection lost" variant="error" />
-    </TerminalBase>
     <KeyboardBar :is-panel-bottom="isPanelBottom" />
     <div v-if="booting || isLaunching" class="block-layer"></div>
 
   </div>
-  <Modal />
 </template>
 
 <script setup>
@@ -234,6 +236,14 @@ defineExpose({
 </script>
 
 <style scoped>
+.content-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .screen-main-empty {
   flex: 1;
   min-height: 0;

@@ -84,7 +84,9 @@ export function useViewport() {
     }, { passive: false });
     let lastTouchEnd = 0;
     document.addEventListener("touchend", (e) => {
-      if (/** @type {Element} */ (e.target)?.closest?.(".modal-overlay")) return;
+      // .tab-settings-btn は設定ダイアログの開閉トグル（すぐ連打されうる）なので
+      // ダブルタップズーム防止の対象から除外する（.modal-overlay 内と同じ扱い）。
+      if (/** @type {Element} */ (e.target)?.closest?.(".modal-overlay, .tab-settings-btn")) return;
       const now = Date.now();
       if (now - lastTouchEnd <= DOUBLE_TAP_ZOOM_PREVENT_MS) e.preventDefault();
       lastTouchEnd = now;

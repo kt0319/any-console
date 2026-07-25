@@ -35,8 +35,8 @@ test.describe("settings modal", () => {
     await expect(page.locator(".modal-overlay")).toBeHidden({ timeout: 5000 });
   });
 
-  test("Close ボタンでモーダルが閉じる", async ({ page }) => {
-    await page.locator(".modal-close-btn").click();
+  test("歯車ボタン（Close）でモーダルが閉じる", async ({ page }) => {
+    await page.locator(".tab-settings-btn").click();
     await expect(page.locator(".modal-overlay")).toBeHidden({ timeout: 5000 });
   });
 });

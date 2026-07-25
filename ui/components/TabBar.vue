@@ -15,8 +15,15 @@
         <span class="mdi mdi-plus"></span>
       </button>
     </div>
-    <button v-if="!isSplitMode" class="tab-settings-btn" @click="onSettingsClick" title="Settings">
-      <span class="mdi mdi-cog"></span>
+    <button
+      v-if="!isSplitMode"
+      class="tab-settings-btn"
+      :class="{ active: isSettingsOpen, 'tab-panel-bottom': isPanelBottom }"
+      @click="onSettingsClick"
+      :aria-label="isSettingsOpen ? 'Close settings' : 'Settings'"
+      :data-tooltip="isSettingsOpen ? 'Close settings' : 'Settings'"
+    >
+      <span :class="['mdi', isSettingsOpen ? 'mdi-close' : 'mdi-cog']"></span>
     </button>
   </div>
 </template>
@@ -38,6 +45,7 @@ const props = defineProps({
 const activeTabId = computed(() => terminalStore.activeTabId);
 const isPanelBottom = computed(() => layoutStore.isPanelBottom);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
+const isSettingsOpen = computed(() => layoutStore.isSettingsOpen);
 const sortedItems = computed(() => {
   return props.tabs.map((tab, i) => ({ type: "tab", tab, index: i }));
 });
@@ -65,7 +73,11 @@ function onAddClick() {
 }
 
 function onSettingsClick() {
-  emit("settings:open");
+  if (isSettingsOpen.value) {
+    emit("modal:close");
+  } else {
+    emit("settings:open");
+  }
 }
 </script>
 
@@ -77,7 +89,6 @@ function onSettingsClick() {
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   min-height: 37px;
-  touch-action: pan-x;
 }
 
 .tab-bar {
@@ -90,6 +101,7 @@ function onSettingsClick() {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  touch-action: pan-x;
 }
 
 .tab-bar::-webkit-scrollbar {
@@ -109,6 +121,7 @@ function onSettingsClick() {
   border-radius: 6px;
   background: transparent;
   color: var(--text-secondary);
+  touch-action: manipulation;
   font-size: 14px;
   cursor: pointer;
   transition: background 0.15s;
@@ -125,12 +138,13 @@ function onSettingsClick() {
 }
 
 .tab-settings-btn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  align-self: stretch;
   width: 30px;
-  height: 30px;
   margin: 0 4px;
   padding: 0;
   border: none;
@@ -140,9 +154,33 @@ function onSettingsClick() {
   font-size: 14px;
   cursor: pointer;
   transition: background 0.15s;
+  touch-action: manipulation;
 }
 
 .tab-settings-btn:active {
   background: var(--bg-tertiary);
+}
+
+.tab-settings-btn.active {
+  color: var(--text-primary);
+  background: rgba(130, 170, 255, 0.12);
+  border-radius: 0;
+}
+
+.tab-settings-btn.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  background: var(--accent);
+}
+
+/* panel-bottom（ツールバーが画面下部にある配置）ではタブバー自体が画面下端に来るため、
+   下線は下端ではなく上端（TabItem の tab-panel-bottom.active と同じ扱い）に出す。 */
+.tab-settings-btn.tab-panel-bottom.active::after {
+  top: -1px;
+  bottom: auto;
 }
 </style>
