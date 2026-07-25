@@ -18,7 +18,7 @@
     <button
       v-if="!isSplitMode"
       class="tab-settings-btn"
-      :class="{ active: isSettingsOpen, 'tab-panel-bottom': isPanelBottom }"
+      :class="{ active: isSettingsOpen, 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isSettingsOpen, 'tab-underline-top': isPanelBottom }"
       @click="onSettingsClick"
       :aria-label="isSettingsOpen ? 'Close settings' : 'Settings'"
       :data-tooltip="isSettingsOpen ? 'Close settings' : 'Settings'"
@@ -171,20 +171,4 @@ function onSettingsClick() {
   background: rgba(130, 170, 255, 0.12);
 }
 
-.tab-settings-btn.active::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 3px;
-  background: var(--accent);
-}
-
-/* panel-bottom（ツールバーが画面下部にある配置）ではタブバー自体が画面下端に来るため、
-   下線は下端ではなく上端（TabItem の tab-panel-bottom.active と同じ扱い）に出す。 */
-.tab-settings-btn.tab-panel-bottom.active::after {
-  top: -1px;
-  bottom: auto;
-}
 </style>

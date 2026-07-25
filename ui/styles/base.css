@@ -146,6 +146,39 @@ button {
   min-width: 36px;
 }
 
+/* アクティブタブの下線インジケーター。親要素に position:relative が必要。
+   panel-bottom/モバイル等でタブバーが画面下端に来る配置では `.tab-underline-top`
+   を併用し、下端ではなく上端に出す。 */
+.tab-underline-active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  background: var(--accent);
+}
+
+.tab-underline-active.tab-underline-top::after {
+  top: -1px;
+  bottom: auto;
+}
+
+.icon-btn-square {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+}
+
 button.primary {
   background: var(--accent);
   border-color: var(--accent);

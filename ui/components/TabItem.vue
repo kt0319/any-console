@@ -2,7 +2,7 @@
   <button
     ref="pillEl"
     class="tab-btn"
-    :class="{ active: isActive, 'tab-activity': tab._activity, 'tab-working': agentState === 'working', dragging: isDragging, 'drag-over-left': effectiveDropSide === 'left', 'drag-over-right': effectiveDropSide === 'right', 'tab-panel-bottom': isPanelBottom }"
+    :class="{ active: isActive, 'tab-activity': tab._activity, 'tab-working': agentState === 'working', dragging: isDragging, 'drag-over-left': effectiveDropSide === 'left', 'drag-over-right': effectiveDropSide === 'right', 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isActive, 'tab-underline-top': isPanelBottom }"
     :draggable="canDrag"
     :data-tab-id="tab.id"
     :aria-label="label"
@@ -386,30 +386,14 @@ onBeforeUnmount(() => {
   }
 }
 
-.tab-btn.active::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 3px;
-  background: var(--accent);
-}
-
 /* モバイル(パネル下部)はアイコンのみでテキストが無く、下線だけでは
-   アクティブ判別がしづらいため、非アクティブ側を明確に減光する。
-   インジケーターもタブバー自体が画面下部にあるため、アイコンの上側に出す。 */
+   アクティブ判別がしづらいため、非アクティブ側を明確に減光する。 */
 .tab-btn.tab-panel-bottom {
   opacity: 0.55;
 }
 
 .tab-btn.tab-panel-bottom.active {
   opacity: 1;
-}
-
-.tab-btn.tab-panel-bottom.active::after {
-  top: -1px;
-  bottom: auto;
 }
 
 .tab-btn.tab-activity {

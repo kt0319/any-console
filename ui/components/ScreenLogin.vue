@@ -26,7 +26,7 @@
     <div class="scan-box">
       <div class="scan-header">
         <h2>Scan QR code</h2>
-        <button type="button" class="scan-close-btn" aria-label="Close" data-tooltip="Close" @click="closeScanner">
+        <button type="button" class="icon-btn-square" aria-label="Close" data-tooltip="Close" @click="closeScanner">
           <span class="mdi mdi-close"></span>
         </button>
       </div>
@@ -265,11 +265,7 @@ defineExpose({ show, hide, visible });
   width: 100%;
   min-height: 44px;
   margin-top: 10px;
-  padding-top: 16px;
-  padding-right: 14px;
-  padding-bottom: 10px;
-  padding-left: 14px;
-  border-top: 1px solid var(--border);
+  padding: 16px 14px 10px;
   font-size: 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -310,20 +306,6 @@ defineExpose({ show, hide, visible });
 .scan-header h2 {
   font-size: 18px;
   color: var(--accent);
-}
-.scan-close-btn {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-size: 18px;
-  cursor: pointer;
 }
 .scan-video {
   width: 100%;

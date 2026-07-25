@@ -36,7 +36,7 @@
         <code class="pair-url">{{ pairingUrl }}</code>
         <button
           type="button"
-          class="pair-copy-btn"
+          class="icon-btn-square"
           :aria-label="copied ? 'Copied' : 'Copy link'"
           :data-tooltip="copied ? 'Copied!' : 'Copy link'"
           @click="copyUrl"
@@ -249,21 +249,6 @@ onUnmounted(() => {
 
 .pair-status .mdi {
   font-size: 20px;
-}
-
-.pair-copy-btn {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-size: 18px;
-  cursor: pointer;
 }
 
 .pair-status-success { color: var(--success); }

@@ -6,7 +6,7 @@
         v-for="tab in tabs"
         :key="tab.key"
         class="workspace-tab"
-        :class="{ active: activePane === tab.key }"
+        :class="{ active: activePane === tab.key, 'tab-underline-active': activePane === tab.key }"
         :aria-label="tab.count ? `${tab.label} (${tab.count})` : tab.label"
         :data-tooltip="activePane === tab.key ? null : tab.label"
         @click="switchPane(tab.key)"
@@ -394,16 +394,6 @@ onMounted(() => {
   opacity: 1;
 }
 
-.workspace-tab.active::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 3px;
-  background: var(--accent);
-}
-
 .workspace-tab .mdi {
   font-size: 20px;
   line-height: 1;
@@ -435,7 +425,7 @@ onMounted(() => {
     border-top: 1px solid var(--border);
   }
 
-  .workspace-tab.active::after {
+  .workspace-tab.tab-underline-active::after {
     top: -1px;
     bottom: auto;
   }

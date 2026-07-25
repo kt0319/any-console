@@ -1,8 +1,8 @@
 <template>
   <div class="modal-scroll-body">
     <div class="settings-menu">
-      <div class="settings-menu-category-head">
-        <span class="settings-menu-category-title">Workspaces</span>
+      <div class="settings-category-head">
+        <span class="settings-category-title">Workspaces</span>
       </div>
       <div class="settings-menu-group">
         <button type="button" class="settings-menu-item" @click="pushView('WorkspaceOpen')">
@@ -20,8 +20,8 @@
         </button>
       </div>
 
-      <div class="settings-menu-category-head">
-        <span class="settings-menu-category-title">Customize</span>
+      <div class="settings-category-head">
+        <span class="settings-category-title">Customize</span>
       </div>
       <div class="settings-menu-group">
         <button type="button" class="settings-menu-item" @click="pushView('TerminalConfig')">
@@ -44,8 +44,8 @@
         </button>
       </div>
 
-      <div class="settings-menu-category-head">
-        <span class="settings-menu-category-title">System</span>
+      <div class="settings-category-head">
+        <span class="settings-category-title">System</span>
       </div>
       <div class="settings-menu-group">
         <button type="button" class="settings-menu-item" @click="pushView('AuthConfig')">
@@ -98,25 +98,12 @@ onMounted(async () => {
   gap: 8px;
 }
 
-.settings-menu-category-head {
-  display: flex;
-  align-items: center;
+.settings-category-head {
   margin-top: 8px;
-  padding: 8px 8px;
-  background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent);
-  border-top: 2px solid var(--accent);
-  border-bottom: 1px solid var(--border);
 }
 
-.settings-menu-category-head:first-child {
+.settings-category-head:first-child {
   margin-top: 0;
-}
-
-.settings-menu-category-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: 0.02em;
 }
 
 .settings-menu-group {

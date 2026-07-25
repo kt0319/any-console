@@ -48,3 +48,21 @@
   font-size: 12px;
   color: var(--text-muted);
 }
+
+.settings-category-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px;
+  background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent);
+  border-top: 2px solid var(--accent);
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-category-title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}

@@ -2,8 +2,8 @@
   <div class="modal-scroll-body">
     <div v-if="loading" class="text-muted-center">Loading...</div>
     <template v-else>
-      <div class="auth-category-head">
-        <span class="auth-category-title">{{ tokenConfigured ? "Replace user token" : "User Token" }}</span>
+      <div class="settings-category-head">
+        <span class="settings-category-title">{{ tokenConfigured ? "Replace user token" : "User Token" }}</span>
         <span v-if="enabled && tokenConfigured" class="security-token-status configured">
           <span class="mdi mdi-check-circle"></span>
           Configured
@@ -34,7 +34,7 @@
           />
           <button
             type="button"
-            class="security-icon-btn"
+            class="icon-btn-square"
             :disabled="!tokenValue"
             aria-label="Copy user token"
             data-tooltip="Copy user token"
@@ -44,7 +44,7 @@
           </button>
           <button
             type="button"
-            class="security-icon-btn security-labeled-btn"
+            class="icon-btn-square security-labeled-btn"
             aria-label="Regenerate token"
             data-tooltip="Regenerate token"
             @click="generateToken"
@@ -70,8 +70,8 @@
       </div>
       <div v-if="authSaveMessage" class="form-message" :class="authSaveMessageType">{{ authSaveMessage }}</div>
 
-      <div class="auth-category-head">
-        <span class="auth-category-title">Trusted Devices</span>
+      <div class="settings-category-head">
+        <span class="settings-category-title">Trusted Devices</span>
         <button
           v-if="tokenConfigured"
           type="button"
@@ -96,14 +96,14 @@
             </span>
             <span class="device-sub">Last seen: {{ formatRelativeTime(d.last_seen_at) }}</span>
           </div>
-          <button type="button" class="security-icon-btn" :title="d.current ? 'Logout' : 'Revoke'" @click="revoke(d)">
+          <button type="button" class="icon-btn-square" :title="d.current ? 'Logout' : 'Revoke'" @click="revoke(d)">
             <span class="mdi mdi-close"></span>
           </button>
         </div>
       </template>
 
-      <div class="auth-category-head">
-        <span class="auth-category-title">API Tokens</span>
+      <div class="settings-category-head">
+        <span class="settings-category-title">API Tokens</span>
       </div>
       <div class="settings-note" style="margin-bottom: 8px;">
         Scoped tokens for external integrations (e.g. GitHub Actions). They can only queue a dispatch request — never approve one or access anything else.
@@ -128,7 +128,7 @@
           <input :value="createdToken.token" type="text" readonly class="security-token-input" aria-label="New API token" />
           <button
             type="button"
-            class="security-icon-btn"
+            class="icon-btn-square"
             aria-label="Copy token"
             data-tooltip="Copy token"
             @click="copyCreatedToken"
@@ -151,7 +151,7 @@
           </div>
           <button
             type="button"
-            class="security-icon-btn"
+            class="icon-btn-square"
             aria-label="Revoke API token"
             data-tooltip="Revoke API token"
             @click="revokeApiToken(t)"
@@ -308,14 +308,16 @@ async function revokeApiToken(t) {
 }
 
 onMounted(async () => {
-  const authRes = await getWithRetry(apiGet, EP_SETTINGS_AUTH);
+  const [authRes] = await Promise.all([
+    getWithRetry(apiGet, EP_SETTINGS_AUTH),
+    loadDevices(),
+    loadApiTokens(),
+  ]);
   if (authRes.ok) {
     enabled.value = !!authRes.data.auth_required;
     tokenConfigured.value = !!authRes.data.auth_required;
   }
   loading.value = false;
-  await loadDevices();
-  await loadApiTokens();
 });
 </script>
 
@@ -324,25 +326,11 @@ onMounted(async () => {
 </style>
 
 <style scoped>
-.auth-category-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.settings-category-head {
   margin: 24px 0 10px;
-  padding: 8px 8px;
-  background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent);
-  border-top: 2px solid var(--accent);
-  border-bottom: 1px solid var(--border);
 }
-.auth-category-head:first-child {
+.settings-category-head:first-child {
   margin-top: 0;
-}
-.auth-category-title {
-  flex: 1;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: 0.02em;
 }
 .auth-card-action {
   display: flex;
@@ -398,21 +386,6 @@ onMounted(async () => {
   width: auto;
 }
 
-.security-icon-btn {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-size: 18px;
-  cursor: pointer;
-}
-
 .security-labeled-btn {
   width: auto;
   gap: 6px;
@@ -439,7 +412,7 @@ onMounted(async () => {
   word-break: break-all;
 }
 
-.auth-category-head .security-token-status {
+.settings-category-head .security-token-status {
   margin: 0;
   flex-shrink: 0;
   font-size: 12px;
