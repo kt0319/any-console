@@ -57,6 +57,7 @@ onMounted(() => { modalTitle.value = "Display"; });
   width: 18px;
   height: 18px;
   flex: 0 0 auto;
+  accent-color: var(--accent);
 }
 
 .debug-level-label { font-weight: 600; }

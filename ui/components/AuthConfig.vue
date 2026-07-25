@@ -324,10 +324,6 @@ onMounted(async () => {
 </style>
 
 <style scoped>
-.settings-toggle input[type="checkbox"] {
-  accent-color: var(--accent);
-}
-
 .auth-category-head {
   display: flex;
   align-items: center;
