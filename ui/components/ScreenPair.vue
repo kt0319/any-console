@@ -36,7 +36,9 @@ const errorMessage = ref("");
 
 function goToTokenLogin() {
   // クエリ・/pair パスを消して通常のトークン入力ログインへフォールバックする。
-  window.location.href = "/";
+  // hrefへの代入だとhistoryに/pair/...エントリが残ったままになり、
+  // Backで消費済みのペアリングリンクに戻ってしまう(下記と同じ理由でreplaceする)。
+  window.location.replace("/");
 }
 
 onMounted(async () => {
@@ -53,7 +55,10 @@ onMounted(async () => {
   }
   // cookie発行済み。pairingToken が残った URL を履歴・共有スクショに残さないよう、
   // クリーンな "/" へ遷移して通常の起動フロー(認証チェック→メイン画面)に合流する。
-  window.location.href = "/";
+  // hrefへの代入だと現在の履歴エントリの上に積む(push)だけでtoken付きURLが
+  // historyに残ってしまい、Backで消費済みのペアリングリンクへ戻って
+  // 「期限切れ」エラーを踏む。replaceで履歴エントリ自体を置き換える。
+  window.location.replace("/");
 });
 </script>
 

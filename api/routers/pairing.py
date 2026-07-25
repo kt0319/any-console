@@ -238,6 +238,23 @@ def _is_loopback_host(host: str) -> bool:
         return False
 
 
+def _bind_is_loopback_only() -> bool:
+    """`__global__.host`(main.py の `_resolve_bind` が読む設定)がloopback専用
+    かどうかを返す。circular import(main.pyがこのルータを登録している)を
+    避けるため、`_is_loopback_host` と同様にconfigを直接読む。
+
+    loopback専用bind(`127.0.0.1`/`::1`)の場合、tailnetの他端末はServeの
+    有無に関わらずこのプロセスへ絶対に到達できない。発行元がlocalhost経由で
+    開いていることだけを根拠にMagicDNS名へ差し替えると、そのMagicDNS名も
+    結局loopbackにしか届かず無意味なQRになってしまうため、差し替え前に
+    bind自体がloopback専用でないことも確認する。
+    """
+    from ..config import load_global_config_section
+
+    host = load_global_config_section("host", "") or "0.0.0.0"  # noqa: S104 (デフォルト値の記述。bind自体はmain.pyが行う)
+    return _is_loopback_host(str(host))
+
+
 def _effective_port(request: Request) -> int | None:
     """リクエストの実ポートを返す。省略時ポート(URLに `:port` が無い)は
     scheme標準ポート(https→443 / http→80)を補って返す。
@@ -275,11 +292,13 @@ def _build_pairing_url(request: Request, pairing_id: str, pairing_token: str) ->
     # 開いている場合、そのままリクエストのnetlocを使うとQRの宛先が
     # 「スキャンした端末自身のlocalhost」になってしまい絶対に繋がらない。
     if _is_loopback_host(request.url.hostname or ""):
-        if hostname and port:
+        if hostname and port and not _bind_is_loopback_only():
             # Serveは未確認だが、MagicDNS名+実ポートならtailnet越しに他端末
             # から到達できる。schemeはリクエスト自身のものをそのまま使う
             # (native TLS運用 — main.py の SSL_KEYFILE/SSL_CERTFILE — では
             # そのポートがTLSを要求するため、http に決め打ちすると繋がらない)。
+            # ただしこのプロセス自体がloopback専用でbindされている場合は
+            # MagicDNS名を差し替えても無意味なので、その時は下の拒否に倒す。
             return f"{request.url.scheme}://{hostname}:{port}/pair/{pairing_id}?t={pairing_token}"
         raise bad_request(
             "Cannot build a link reachable from another device while viewing "

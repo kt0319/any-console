@@ -150,6 +150,29 @@ class TestStart:
         assert res.status_code == 400
         assert "localhost" in res.json()["detail"]
 
+    def test_loopback_origin_rejected_when_bind_is_loopback_only(self, client, monkeypatch):
+        # __global__.host が 127.0.0.1/::1 のようなloopback専用でbindされている
+        # 場合、MagicDNS名が引けてもこのプロセスはtailnetのインターフェース上で
+        # 待ち受けていないため、差し替えたURLも結局どの他端末からも到達できない。
+        from api.config import save_global_config_section
+
+        save_global_config_section("host", "127.0.0.1")
+        monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
+        monkeypatch.setattr(pairing_mod, "_tailscale_serve_frontend_port", lambda port: None)
+        res = _client_loopback("localhost", 8888).post("/auth/pairing/start", headers=AUTH)
+        assert res.status_code == 400
+        assert "localhost" in res.json()["detail"]
+
+    def test_loopback_origin_still_used_when_bind_is_not_loopback_only(self, client, monkeypatch):
+        from api.config import save_global_config_section
+
+        save_global_config_section("host", "0.0.0.0")
+        monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
+        monkeypatch.setattr(pairing_mod, "_tailscale_serve_frontend_port", lambda port: None)
+        res = _client_loopback("localhost", 8888).post("/auth/pairing/start", headers=AUTH)
+        assert res.status_code == 200, res.text
+        assert res.json()["url"].startswith("http://myhost.tail1234.ts.net:8888/pair/")
+
     def test_disabled_when_auth_disabled(self, client, monkeypatch):
         monkeypatch.setattr(auth_module, "ANY_CONSOLE_TOKEN", "")
         res = client.post("/auth/pairing/start")
@@ -595,3 +618,17 @@ def test_pair_page_serves_spa_shell(client):
     res = client.get("/pair/pr_anything")
     assert res.status_code == 200
     assert "text/html" in res.headers["content-type"]
+
+
+def test_pair_page_rewrites_asset_paths_to_root_relative(client):
+    # /pair/{pairing_id} は index.html をそのまま返す(main.py serve_pair_page参照)。
+    # ソースモード(dist/未ビルド)でのasset pathが相対("vue-main.js")のままだと、
+    # ブラウザは現在のパス("/pair/xxx")を基準に解決して"/pair/vue-main.js"を
+    # 要求してしまう。これは動的ルート"/pair/{pairing_id}"自身にマッチし、
+    # moduleスクリプトとして期待されるJSの代わりにHTMLシェルが返るため
+    # MIME不一致でスクリプトが読み込まれない。ルート相対に固定されていること
+    # を確認する。
+    res = client.get("/pair/pr_anything")
+    assert res.status_code == 200
+    assert 'src="/vue-main.js' in res.text
+    assert 'src="vue-main.js' not in res.text

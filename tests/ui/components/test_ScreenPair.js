@@ -19,10 +19,15 @@ async function flushPromises() {
 
 describe("ScreenPair", () => {
   let originalHref;
+  let replaceSpy;
 
   beforeEach(() => {
     claimPairingMock.mockReset();
     originalHref = window.location.href;
+    // token付きの/pair/...URLをhistoryに残さないことを確認するため、
+    // hrefへの代入(push相当)ではなくreplaceが呼ばれることをスパイで検証する。
+    replaceSpy = vi.fn();
+    window.location.replace = replaceSpy;
   });
 
   afterEach(() => {
@@ -41,6 +46,9 @@ describe("ScreenPair", () => {
 
     expect(claimPairingMock).toHaveBeenCalledWith("pr_1", "tok");
     expect(wrapper.text()).toContain("Signed in.");
+    // hrefへの代入だとhistoryに/pair/...のtoken付きURLが残り、Backで消費済みの
+    // リンクへ戻って期限切れエラーを踏んでしまう。replaceで置き換えること。
+    expect(replaceSpy).toHaveBeenCalledWith("/");
     wrapper.unmount();
   });
 
@@ -55,6 +63,9 @@ describe("ScreenPair", () => {
     expect(wrapper.text()).toContain("This pairing link has expired or was already used");
     expect(wrapper.find("button.primary").text()).toBe("Enter token instead");
     expect(claimPairingMock).toHaveBeenCalled();
+
+    await wrapper.find("button.primary").trigger("click");
+    expect(replaceSpy).toHaveBeenCalledWith("/");
     wrapper.unmount();
   });
 
