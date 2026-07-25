@@ -36,13 +36,13 @@
         <div class="ws-settings-row" style="gap:8px">
           <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="selectedCreateBranch" /> Create branch</label>
           <input
-            v-if="selectedCreateBranch"
             v-model="branch"
             type="text"
             class="form-input"
             placeholder="New branch name"
             autocomplete="off"
             spellcheck="false"
+            :disabled="!selectedCreateBranch"
           />
         </div>
         <div class="ws-settings-row">
