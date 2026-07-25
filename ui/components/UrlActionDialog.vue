@@ -8,7 +8,7 @@
           <span class="mdi mdi-open-in-new"></span>Open
         </button>
         <button class="url-action-btn" @click="doUrlCopy">
-          <span class="mdi" :class="urlCopied ? 'mdi-check' : 'mdi-content-copy'"></span>{{ urlCopied ? "Copied!" : "Copy URL" }}
+          <span class="mdi" :class="copied ? 'mdi-check' : 'mdi-content-copy'"></span>{{ copied ? "Copied!" : "Copy URL" }}
         </button>
         <button class="url-action-btn url-action-btn-cancel" @click="terminalUrl = ''">Cancel</button>
       </div>
@@ -20,11 +20,10 @@
 import { ref, onMounted } from "vue";
 import BaseDialog from "./BaseDialog.vue";
 import { on } from "../app-bridge.js";
-import { URL_COPIED_RESET_MS } from "../utils/constants.js";
-import { copyText } from "../utils/clipboard.js";
+import { useCopyFeedback } from "../composables/useCopyFeedback.js";
 
 const terminalUrl = ref("");
-const urlCopied = ref(false);
+const { copied, copy } = useCopyFeedback();
 
 function doUrlOpen() {
   if (terminalUrl.value) window.open(terminalUrl.value, "_blank", "noopener,noreferrer");
@@ -33,14 +32,11 @@ function doUrlOpen() {
 
 async function doUrlCopy() {
   if (!terminalUrl.value) return;
-  urlCopied.value = await copyText(terminalUrl.value);
-  if (urlCopied.value) {
-    setTimeout(() => { urlCopied.value = false; }, URL_COPIED_RESET_MS);
-  }
+  await copy(terminalUrl.value);
 }
 
 onMounted(() => {
-  on("terminal:url", ({ uri }) => { terminalUrl.value = uri; urlCopied.value = false; });
+  on("terminal:url", ({ uri }) => { terminalUrl.value = uri; copied.value = false; });
 });
 </script>
 

@@ -52,7 +52,7 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useModalView } from "../composables/useModalView.js";
-import { copyText } from "../utils/clipboard.js";
+import { useCopyFeedback } from "../composables/useCopyFeedback.js";
 import { generateQrSvg } from "../utils/qrcode.js";
 import { formatPairingCountdown } from "../utils/pairing.js";
 import { EP_AUTH_PAIRING_START, pairingStatusPath } from "../utils/endpoints.js";
@@ -60,7 +60,6 @@ import {
   PAIRING_STATUS_POLL_MS,
   PAIRING_COUNTDOWN_TICK_MS,
   PAIRING_SUCCESS_CLOSE_DELAY_MS,
-  URL_COPIED_RESET_MS,
   extractApiError,
 } from "../utils/constants.js";
 import { emit } from "../app-bridge.js";
@@ -77,7 +76,7 @@ const pairingUrl = ref("");
 const secondsLeft = ref(0);
 /** @type {import("vue").Ref<"pending" | "claimed" | "expired">} */
 const status = ref("pending");
-const copied = ref(false);
+const { copied, copy: copyLink } = useCopyFeedback();
 
 /** @type {ReturnType<typeof setInterval> | null} */
 let pollTimer = null;
@@ -176,9 +175,7 @@ async function start() {
 }
 
 async function copyUrl() {
-  await copyText(pairingUrl.value);
-  copied.value = true;
-  setTimeout(() => { copied.value = false; }, URL_COPIED_RESET_MS);
+  await copyLink(pairingUrl.value);
 }
 
 onMounted(start);

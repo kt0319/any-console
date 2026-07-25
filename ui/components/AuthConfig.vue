@@ -171,8 +171,7 @@ import { getWithRetry } from "../utils/api-retry.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { EP_SETTINGS_AUTH, EP_DEVICES, devicePath, EP_API_TOKENS, apiTokenPath } from "../utils/endpoints.js";
 import { formatRelativeTime } from "../utils/format.js";
-import { copyText } from "../utils/clipboard.js";
-import { URL_COPIED_RESET_MS } from "../utils/constants.js";
+import { useCopyFeedback } from "../composables/useCopyFeedback.js";
 
 const modalTitle = inject("modalTitle");
 const pushView = inject("pushView");
@@ -190,12 +189,12 @@ const apiTokensLoading = ref(true);
 const newTokenName = ref("");
 const creatingToken = ref(false);
 const createdToken = ref(/** @type {{id: string, name: string, token: string}|null} */ (null));
-const tokenCopied = ref(false);
+const { copied: tokenCopied, copy: copyCreatedTokenText } = useCopyFeedback();
 
 const enabled = ref(false);
 const tokenConfigured = ref(false);
 const tokenValue = ref("");
-const tokenValueCopied = ref(false);
+const { copied: tokenValueCopied, copy: copyTokenValueText } = useCopyFeedback();
 const savingAuth = ref(false);
 const authSaveMessage = ref("");
 const authSaveMessageType = ref("success");
@@ -208,10 +207,7 @@ function generateToken() {
 
 async function copyTokenValue() {
   if (!tokenValue.value) return;
-  tokenValueCopied.value = await copyText(tokenValue.value);
-  if (tokenValueCopied.value) {
-    setTimeout(() => { tokenValueCopied.value = false; }, URL_COPIED_RESET_MS);
-  }
+  await copyTokenValueText(tokenValue.value);
 }
 
 function onToggle() {
@@ -293,10 +289,7 @@ async function createApiToken() {
 
 async function copyCreatedToken() {
   if (!createdToken.value) return;
-  tokenCopied.value = await copyText(createdToken.value.token);
-  if (tokenCopied.value) {
-    setTimeout(() => { tokenCopied.value = false; }, URL_COPIED_RESET_MS);
-  }
+  await copyCreatedTokenText(createdToken.value.token);
 }
 
 async function revokeApiToken(t) {
