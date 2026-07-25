@@ -47,7 +47,7 @@ def _mock_tmux(monkeypatch):
 
 
 def _enqueue(client, **fields):
-    """/dispatch を confirm あり（既定）で呼び、202 を検証して dispatch_id を返す。"""
+    """/dispatch を direct なし（既定でキュー行き）で呼び、202 を検証して dispatch_id を返す。"""
     res = client.post("/dispatch", headers=AUTH, json={"workspace": "test-ws", **fields})
     assert res.status_code == 202, res.text
     data = res.json()
@@ -70,7 +70,7 @@ class TestDispatchValidation:
 
 
 class TestDispatchEnqueue:
-    def test_confirm_default_returns_202_and_queues(self, client, workspace, _mock_tmux):
+    def test_direct_default_false_returns_202_and_queues(self, client, workspace, _mock_tmux):
         dispatch_id = _enqueue(client, text="echo hi")
         assert dispatch_id in dispatch_mod._PENDING
         # 承認前は実行されない
@@ -117,6 +117,43 @@ class TestDispatchBranch:
     def test_branch_status_in_payload(self, client, git_workspace_with_commit):
         dispatch_id = _enqueue(client, branch="feature/new", create_branch=True)
         assert dispatch_mod._PENDING[dispatch_id].get("branch_status") == "missing"
+
+
+class TestDispatchDirtyGuard:
+    def test_dirty_workspace_blocks_branch_switch_and_stays_queued(self, client, git_workspace_with_commit):
+        (git_workspace_with_commit / "untracked.txt").write_text("wip", encoding="utf-8")
+        dispatch_id = _enqueue(client, text="echo", branch="feature/x", create_branch=True)
+        res = client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
+        assert res.status_code == 400
+        assert "uncommitted changes" in res.json()["detail"]
+        assert dispatch_id in dispatch_mod._PENDING
+
+    def test_dirty_workspace_allows_switch_to_current_branch(self, client, git_workspace_with_commit):
+        import subprocess
+        (git_workspace_with_commit / "untracked.txt").write_text("wip", encoding="utf-8")
+        current = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=git_workspace_with_commit, capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        dispatch_id = _enqueue(client, text="echo", branch=current)
+        res = client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
+        assert res.status_code == 200, res.text
+
+    def test_clean_workspace_allows_branch_switch(self, client, git_workspace_with_commit):
+        dispatch_id = _enqueue(client, text="echo", branch="feature/y", create_branch=True)
+        res = client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
+        assert res.status_code == 200, res.text
+
+    def test_dirty_workspace_without_branch_field_is_unaffected(self, client, git_workspace_with_commit):
+        (git_workspace_with_commit / "untracked.txt").write_text("wip", encoding="utf-8")
+        dispatch_id = _enqueue(client, text="echo")
+        res = client.post(f"/dispatch/{dispatch_id}/decision", headers=AUTH, json={"approved": True})
+        assert res.status_code == 200, res.text
+
+    def test_has_uncommitted_changes_helper(self, git_workspace_with_commit):
+        assert dispatch_mod._has_uncommitted_changes(git_workspace_with_commit) is False
+        (git_workspace_with_commit / "untracked.txt").write_text("wip", encoding="utf-8")
+        assert dispatch_mod._has_uncommitted_changes(git_workspace_with_commit) is True
 
 
 class TestDispatchDecision:
@@ -425,13 +462,13 @@ class TestDecisionOverrides:
         assert res.json()["workspace"] == "other-ws"
 
 
-class TestConfirmSkip:
-    def test_confirm_false_skips_approval(self, client, workspace):
-        """confirm:false は UI 承認を待たずに即実行される。"""
+class TestDirectSkipsQueue:
+    def test_direct_true_skips_approval(self, client, workspace):
+        """direct:true は承認を待たず即座に実行される。"""
         res = client.post(
             "/dispatch",
             headers=AUTH,
-            json={"workspace": "test-ws", "text": "echo skip", "confirm": False},
+            json={"workspace": "test-ws", "text": "echo skip", "direct": True},
         )
         assert res.status_code == 200
         assert res.json()["created"] is True
@@ -441,12 +478,12 @@ class TestConfirmSkip:
 class TestActivityLogging:
     """dispatch の承認待ち/承認/却下/実行を既存の activity ログ（api/activity.py）に記録する。"""
 
-    def test_confirm_false_logs_executed(self, client, workspace):
+    def test_direct_true_logs_executed(self, client, workspace):
         from unittest import mock
         with mock.patch("api.routers.dispatch.log_activity") as log:
             res = client.post(
                 "/dispatch", headers=AUTH,
-                json={"workspace": "test-ws", "text": "echo hi", "confirm": False},
+                json={"workspace": "test-ws", "text": "echo hi", "direct": True},
             )
         assert res.status_code == 200
         data = res.json()
@@ -455,7 +492,7 @@ class TestActivityLogging:
             job="terminal", session_id=data["session_id"], created=True,
         )
 
-    def test_confirm_true_logs_pending(self, client, workspace):
+    def test_direct_default_false_logs_pending(self, client, workspace):
         from unittest import mock
         with mock.patch("api.routers.dispatch.log_activity") as log:
             res = client.post(
@@ -546,6 +583,95 @@ class TestDecisionExecutesIndependently:
         assert res.status_code == 200
         assert res.json()["created"] is True
         assert "orphan" not in dispatch_mod._PENDING
+
+
+class TestDedupKey:
+    def test_second_request_with_same_key_reuses_id_and_replaces_payload(self, client, workspace):
+        """置き換え後も dispatch_id は最初の ID を引き継ぐ。初回 push 通知に埋め込んだ
+        URL の dispatchId が、置き換え後もキュー上の実在項目を指し続けるようにするため
+        （通知をタップした時に stale な ID を開いてしまわないように）。"""
+        first_id = _enqueue(client, text="echo 1", dedup_key="ci-failure:test-ws:main")
+        second_id = _enqueue(client, text="echo 2", dedup_key="ci-failure:test-ws:main")
+        assert second_id == first_id
+        assert first_id in dispatch_mod._PENDING
+        assert dispatch_mod._PENDING[first_id]["text"] == "echo 2"
+        assert len(dispatch_mod._PENDING) == 1
+
+    def test_retry_count_increments_across_replacements(self, client, workspace):
+        first_id = _enqueue(client, text="echo 1", dedup_key="k")
+        second_id = _enqueue(client, text="echo 2", dedup_key="k")
+        assert second_id == first_id
+        assert dispatch_mod._PENDING[second_id]["retry_count"] == 2
+        third_id = _enqueue(client, text="echo 3", dedup_key="k")
+        assert third_id == first_id
+        assert dispatch_mod._PENDING[third_id]["retry_count"] == 3
+
+    def test_first_request_has_retry_count_one(self, client, workspace):
+        first_id = _enqueue(client, text="echo 1", dedup_key="k")
+        assert dispatch_mod._PENDING[first_id]["retry_count"] == 1
+
+    def test_without_dedup_key_never_replaces(self, client, workspace):
+        first_id = _enqueue(client, text="echo 1")
+        second_id = _enqueue(client, text="echo 2")
+        assert first_id in dispatch_mod._PENDING
+        assert second_id in dispatch_mod._PENDING
+        assert len(dispatch_mod._PENDING) == 2
+
+    def test_different_dedup_keys_do_not_collide(self, client, workspace):
+        first_id = _enqueue(client, text="echo 1", dedup_key="a")
+        second_id = _enqueue(client, text="echo 2", dedup_key="b")
+        assert first_id in dispatch_mod._PENDING
+        assert second_id in dispatch_mod._PENDING
+
+    def test_original_dispatch_id_stays_valid_after_supersede(self, client, workspace):
+        """初回通知の URL に埋め込まれた dispatchId は、置き換えを経てもキュー上の
+        項目として引き続き承認できる（stale なリンクにならない）。"""
+        first_id = _enqueue(client, text="echo 1", dedup_key="k")
+        _enqueue(client, text="echo 2", dedup_key="k")
+        _enqueue(client, text="echo 3", dedup_key="k")
+        res = client.post(f"/dispatch/{first_id}/decision", headers=AUTH, json={"approved": True})
+        assert res.status_code == 200, res.text
+
+    def test_push_notification_skipped_on_supersede(self, client, workspace, monkeypatch):
+        import threading
+        push_calls = []
+        called = threading.Event()
+
+        def fake_push(**kwargs):
+            push_calls.append(kwargs)
+            called.set()
+
+        monkeypatch.setattr(dispatch_mod, "send_push_notification", fake_push)
+        _enqueue(client, text="echo 1", dedup_key="k")
+        assert called.wait(timeout=2)
+        called.clear()
+
+        _enqueue(client, text="echo 2", dedup_key="k")
+        assert not called.wait(timeout=0.3)
+        assert len(push_calls) == 1
+
+    def test_supersede_logs_dispatch_superseded(self, client, workspace):
+        from unittest import mock
+        _enqueue(client, text="echo 1", dedup_key="k")
+        with mock.patch("api.routers.dispatch.log_activity") as log:
+            _enqueue(client, text="echo 2", dedup_key="k")
+        log.assert_called_once_with("test-ws", "dispatch_superseded", job="terminal", text="echo 2")
+
+    def test_first_request_logs_dispatch_pending(self, client, workspace):
+        from unittest import mock
+        with mock.patch("api.routers.dispatch.log_activity") as log:
+            _enqueue(client, text="echo 1", dedup_key="k")
+        log.assert_called_once_with("test-ws", "dispatch_pending", job="terminal", text="echo 1")
+
+    def test_replaced_item_persists_with_retry_count(self, client, workspace):
+        _enqueue(client, text="echo 1", dedup_key="k")
+        second_id = _enqueue(client, text="echo 2", dedup_key="k")
+
+        dispatch_mod._PENDING.clear()
+        dispatch_mod._load_persisted_pending()
+
+        assert list(dispatch_mod._PENDING.keys()) == [second_id]
+        assert dispatch_mod._PENDING[second_id]["retry_count"] == 2
 
 
 class TestFindExistingSession:

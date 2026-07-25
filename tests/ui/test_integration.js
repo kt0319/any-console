@@ -19,8 +19,10 @@ import ConfirmDialog from "../../ui/components/ConfirmDialog.vue";
 import PromptDialog from "../../ui/components/PromptDialog.vue";
 import WorkspaceStatusBar from "../../ui/components/WorkspaceStatusBar.vue";
 import WorkspaceDetail from "../../ui/components/WorkspaceDetail.vue";
+import DispatchRunView from "../../ui/components/DispatchRunView.vue";
 import { useTerminalStore } from "../../ui/stores/terminal.js";
 import { useAuthStore } from "../../ui/stores/auth.js";
+import { applyDispatchQueue } from "../../ui/composables/useDispatchConfirm.js";
 
 // ── Test 1: fit 抑制 ──────────────────────────────────────────────────────────
 
@@ -373,5 +375,65 @@ describe("Dialog accessibility behavior", () => {
 
     wrapper.unmount();
     document.body.innerHTML = "";
+  });
+});
+
+describe("DispatchRunView: dedup_key による置き換えの検知", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    applyDispatchQueue([]);
+  });
+
+  it("同じ id のまま payload が置き換わったら popView する（古い内容のまま実行されないように）", async () => {
+    applyDispatchQueue([
+      { id: "d1", request: { workspace: "ws1", text: "first", branch: "main", retry_count: 1 } },
+    ]);
+
+    const popView = vi.fn();
+    mount(DispatchRunView, {
+      global: {
+        provide: {
+          modalTitle: ref(""),
+          viewState: ref({ itemId: "d1" }),
+          popView,
+        },
+      },
+    });
+    await flushPromises();
+    expect(popView).not.toHaveBeenCalled();
+
+    // dispatch_id は変えず内容だけ置き換わるケース（同一 dedup_key の連続失敗）。
+    applyDispatchQueue([
+      { id: "d1", request: { workspace: "ws1", text: "second", branch: "feature/x", retry_count: 2 } },
+    ]);
+    await flushPromises();
+
+    expect(popView).toHaveBeenCalled();
+  });
+
+  it("retry_count が変わらない再描画では popView しない", async () => {
+    applyDispatchQueue([
+      { id: "d1", request: { workspace: "ws1", text: "first", branch: "main", retry_count: 1 } },
+    ]);
+
+    const popView = vi.fn();
+    mount(DispatchRunView, {
+      global: {
+        provide: {
+          modalTitle: ref(""),
+          viewState: ref({ itemId: "d1" }),
+          popView,
+        },
+      },
+    });
+    await flushPromises();
+
+    // 同じスナップショットの再配信（内容変化なし）。
+    applyDispatchQueue([
+      { id: "d1", request: { workspace: "ws1", text: "first", branch: "main", retry_count: 1 } },
+    ]);
+    await flushPromises();
+
+    expect(popView).not.toHaveBeenCalled();
   });
 });
