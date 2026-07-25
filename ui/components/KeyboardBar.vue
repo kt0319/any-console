@@ -109,8 +109,7 @@ const props = defineProps({
 });
 
 const layoutStore = useLayoutStore();
-// 設定ダイアログ表示中はターミナルへのキー送信先が無く無意味なため非表示にする。
-const isVisible = computed(() => (props.isPanelBottom || layoutStore.isSplitMode) && !layoutStore.isSettingsOpen);
+const isVisible = computed(() => props.isPanelBottom || layoutStore.isSplitMode);
 
 const { clearModifiers, sendKeyToTerminal, sendTextToTerminal, modifierState, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
 

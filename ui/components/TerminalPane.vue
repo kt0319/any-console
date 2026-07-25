@@ -346,7 +346,9 @@ defineExpose({
   position: absolute;
   top: 10px;
   right: 10px;
-  z-index: 30;
+  /* Modal.vue の .modal-overlay(z-index:20) より下にして、設定ダイアログ表示中は
+     このピルが上に乗って見えない・誤操作できてしまわないようにする。 */
+  z-index: 10;
   display: inline-flex;
   align-items: center;
   gap: 4px;
