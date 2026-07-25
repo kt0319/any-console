@@ -94,6 +94,25 @@ describe("PairDeviceConfig", () => {
     wrapper.unmount();
   });
 
+  it("shows the server's specific error detail when start fails with a reason", async () => {
+    // 例: viewing via localhost without a resolvable Tailscale hostname
+    // (api/routers/pairing.py _build_pairing_url参照)。汎用メッセージで
+    // 握りつぶさず、ユーザーが対処できる具体的な理由を表示する。
+    apiPostMock.mockResolvedValue({
+      ok: false,
+      data: {
+        detail: "Cannot build a link reachable from another device while viewing "
+          + "any-console via localhost. Open it via its LAN or Tailscale address instead.",
+      },
+    });
+
+    const { wrapper } = mountView();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Open it via its LAN or Tailscale address instead.");
+    wrapper.unmount();
+  });
+
   it("polls status and shows success + closes when claimed", async () => {
     apiPostMock.mockResolvedValue({
       ok: true,

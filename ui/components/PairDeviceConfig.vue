@@ -61,6 +61,7 @@ import {
   PAIRING_COUNTDOWN_TICK_MS,
   PAIRING_SUCCESS_CLOSE_DELAY_MS,
   URL_COPIED_RESET_MS,
+  extractApiError,
 } from "../utils/constants.js";
 import { emit } from "../app-bridge.js";
 
@@ -147,7 +148,10 @@ async function start() {
   if (isUnmounted || generation !== pairingGeneration) return;
   loading.value = false;
   if (!ok || !data) {
-    error.value = "Failed to start pairing.";
+    // サーバがloopbackアクセス等で具体的な理由(detail)を返すことがある
+    // (_build_pairing_url参照)。汎用メッセージで握りつぶさず、その理由を
+    // 表示することでユーザーが対処できるようにする。
+    error.value = extractApiError(data, "Failed to start pairing.");
     return;
   }
   pairingId.value = data.id;
