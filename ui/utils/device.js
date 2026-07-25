@@ -8,3 +8,18 @@ export function isTouchInput() {
     && !window.matchMedia("(pointer: fine)").matches
     && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
 }
+
+// スマートフォン/タブレットのUAらしさの判定（QRペアリングの導線 - ScreenEmpty.vue -
+// が「既にモバイル端末をペアリング済みか」を /devices の user_agent から判定する用途）。
+// api/devices.py の autoname_from_user_agent と判定対象は同じだが、真偽値だけで
+// 十分なためこちらは独立した軽量実装とする。
+const MOBILE_UA_MARKERS = ["iPhone", "iPad", "Android", "Mobile"];
+
+/**
+ * @param {string} userAgent
+ * @returns {boolean}
+ */
+export function isMobileUserAgent(userAgent) {
+  const ua = userAgent || "";
+  return MOBILE_UA_MARKERS.some((marker) => ua.includes(marker));
+}

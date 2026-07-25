@@ -41,6 +41,7 @@ export const HOVER_MENU_CLOSE_DELAY_MS = 150;
 export const SESSION_SYNC_INTERVAL_MS = 3000;
 export const PAIRING_STATUS_POLL_MS = 2000;
 export const PAIRING_COUNTDOWN_TICK_MS = 1000;
+export const PAIRING_SUCCESS_CLOSE_DELAY_MS = 1200;
 // syncSessionsFromServer が起動直後のタブをサーバ未認識として誤って除去しないための猶予期間。
 // SESSION_SYNC_INTERVAL_MS より長く取り、ポーリングが1周する間は除去対象にしない。
 export const NEW_TAB_SYNC_GRACE_MS = 6000;

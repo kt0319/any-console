@@ -48,10 +48,22 @@ class TestStart:
         res = client.post("/auth/pairing/start", headers=AUTH)
         assert res.json()["url"].startswith("http://testserver/pair/")
 
-    def test_uses_tailscale_hostname_when_available(self, client, monkeypatch):
+    def test_uses_tailscale_hostname_when_serve_running(self, client, monkeypatch):
         monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
+        import api.routers.system as system_mod
+        monkeypatch.setattr(system_mod, "_get_tailscale_serve_running", lambda: True)
         res = client.post("/auth/pairing/start", headers=AUTH)
         assert res.json()["url"].startswith("https://myhost.tail1234.ts.net/pair/")
+
+    def test_falls_back_to_request_host_when_serve_not_running(self, client, monkeypatch):
+        # tailscaleがインストール済みでホスト名は引けても、Serveが未設定
+        # (直接LAN/tailnet IPへbind等)ならhttps://<hostname>はどこもlistenして
+        # いないため、リクエスト自身のhost:portにフォールバックしなければならない
+        monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
+        import api.routers.system as system_mod
+        monkeypatch.setattr(system_mod, "_get_tailscale_serve_running", lambda: False)
+        res = client.post("/auth/pairing/start", headers=AUTH)
+        assert res.json()["url"].startswith("http://testserver/pair/")
 
     def test_disabled_when_auth_disabled(self, client, monkeypatch):
         monkeypatch.setattr(auth_module, "ANY_CONSOLE_TOKEN", "")
@@ -150,6 +162,68 @@ class TestClaim:
         assert client.post(f"/auth/pairing/{data['id']}/claim", json={"token": "wrong"}).status_code == 401
         res = client.post(f"/auth/pairing/{data['id']}/claim", json={"token": "wrong"})
         assert res.status_code == 429
+
+    def test_rate_limit_is_scoped_per_pairing_id(self, client, monkeypatch):
+        # Tailscale Serve経由では全クライアントがloopback発に見えるため、IPだけの
+        # バケットだと1つのpairing_idへの荒らしが無関係な別pairing_idまで
+        # 巻き添えでブロックしてしまう。pairing_idごとに独立counterであることを確認する。
+        monkeypatch.setattr(pairing_mod, "_CLAIM_LIMIT", 1)
+        first = _start(client, monkeypatch)
+        second = _start(client, monkeypatch)
+        assert client.post(f"/auth/pairing/{first['id']}/claim", json={"token": "wrong"}).status_code == 401
+        blocked = client.post(f"/auth/pairing/{first['id']}/claim", json={"token": "wrong"})
+        assert blocked.status_code == 429
+        # 別のpairing_idへのclaimは影響を受けない
+        other_token = pairing_mod._pairings[second["id"]]["token"]
+        unaffected = client.post(f"/auth/pairing/{second['id']}/claim", json={"token": other_token})
+        assert unaffected.status_code == 200, unaffected.text
+
+    def test_same_user_agent_registers_distinct_devices(self, client, monkeypatch):
+        # find_or_register_device のような同一UA再利用はしない: 同一UAの2台を続けて
+        # ペアリングしても、先発デバイスのcookie/secretが後発によって無効化されては
+        # ならない(claimは常に人間の明示操作であり、tailscale自動登録の再利用ロジックは
+        # 想定していない)。
+        ua = {"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1"}
+        first = _start(client, monkeypatch)
+        first_token = pairing_mod._pairings[first["id"]]["token"]
+        first_res = client.post(f"/auth/pairing/{first['id']}/claim", json={"token": first_token}, headers=ua)
+        assert first_res.status_code == 200, first_res.text
+        first_device_cookies = dict(first_res.cookies)
+
+        second = _start(client, monkeypatch)
+        second_token = pairing_mod._pairings[second["id"]]["token"]
+        second_res = client.post(f"/auth/pairing/{second['id']}/claim", json={"token": second_token}, headers=ua)
+        assert second_res.status_code == 200, second_res.text
+
+        assert first_res.json()["device_id"] != second_res.json()["device_id"]
+        # 先発デバイスのcookieがまだ有効であること(secretが回転させられていない)。
+        # `client` の cookie jar は second claim の Set-Cookie で上書き済みなので、
+        # 別クライアントに先発デバイスのcookieだけを積んで確認する。
+        from fastapi.testclient import TestClient
+        from api.main import app
+        check_client = TestClient(app)
+        check_client.cookies.set("any_console_device", first_device_cookies["any_console_device"])
+        check_client.cookies.set("any_console_secret", first_device_cookies["any_console_secret"])
+        check = check_client.get("/auth/check")
+        assert check.status_code == 200
+
+    def test_registration_failure_rolls_back_and_allows_retry(self, client, monkeypatch):
+        data = _start(client, monkeypatch)
+        token = pairing_mod._pairings[data["id"]]["token"]
+
+        def _boom(*a, **k):
+            raise OSError("disk full")
+
+        monkeypatch.setattr(pairing_mod, "register_device", _boom)
+        failed = client.post(f"/auth/pairing/{data['id']}/claim", json={"token": token})
+        assert failed.status_code == 500
+        # tokenはまだ破棄されていないので、同じ有効なQRでリトライできる
+        assert data["id"] in pairing_mod._pairings
+        assert pairing_mod._pairings[data["id"]]["claimed"] is False
+
+        monkeypatch.undo()
+        retry = client.post(f"/auth/pairing/{data['id']}/claim", json={"token": token})
+        assert retry.status_code == 200, retry.text
 
 
 class TestStatusRateLimit:

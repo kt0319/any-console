@@ -10,6 +10,7 @@ export function workspaceApiPath(workspace, path = "") {
 export const EP_AUTH_CHECK = "/auth/check";
 export const EP_AUTH_LOGOUT = "/auth/logout";
 export const EP_AUTH_PAIRING_START = "/auth/pairing/start";
+export const EP_DEVICES = "/devices";
 export const EP_RUN = "/run";
 export const EP_WORKSPACES = "/workspaces";
 export const EP_WORKSPACES_SUGGEST = "/workspaces/suggest";
@@ -56,6 +57,11 @@ export function pairingStatusPath(pairingId) {
 /** @param {string} pairingId @returns {string} */
 export function pairingClaimPath(pairingId) {
   return `/auth/pairing/${encodeURIComponent(pairingId)}/claim`;
+}
+
+/** @param {string} deviceId @returns {string} */
+export function devicePath(deviceId) {
+  return `/devices/${encodeURIComponent(deviceId)}`;
 }
 
 /** @param {string} sessionId @returns {string} */

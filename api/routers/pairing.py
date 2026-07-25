@@ -14,13 +14,21 @@
 - ペアリングエントリはプロセス内メモリのみに保持する（他の in-process state
   と同様、ADR1: 単一プロセス前提）。ディスクへは書かない。
 - token は 24 バイトの url-safe ランダム値（推測不可能な入力）。claim 成功時に
-  token を即座に破棄して claimed へ倒し、リプレイ（同一トークンの再利用）を防ぐ
-  （発行元が成功を観測できるよう、エントリ自体は短いtombstone期間だけ残す）。
+  token を即座に破棄して claimed へ倒し、リプレイ（同一トークンの再利用）を防ぐ。
+  デバイス登録が完了して初めて claimed へ倒すため（下記 claim_pairing 参照）、
+  途中で登録が失敗しても「claimed だがログインは失敗」という不整合を残さない。
 - id・token どちらも総当たりされないよう、専用のレートリミッタ（rate_limiter.py
-  の `_FixedWindowCounter` を再利用）で start/status/claim を個別に絞る。
+  の `_FixedWindowCounter` を再利用）で start/status/claim を個別に絞る。claim は
+  pairing_id ごとに独立してカウントする（Tailscale Serve 経由だと全クライアントが
+  loopback 発に見えるため、IPだけで絞ると無関係な pairing_id への荒らしで
+  正規の pairing まで巻き添えでブロックされてしまう）。
 - claim は既存の単一トークン認証と同じ cookie 発行ロジックを共有する
   （二重実装しない）。QRペアリングは「同じユーザーの別デバイス追加」であり、
-  新規ユーザー招待機能ではない（単一ユーザー前提は変えない）。
+  新規ユーザー招待機能ではない（単一ユーザー前提は変えない）。同一UA・sourceの
+  既存デバイスを再利用する `find_or_register_device` は使わず、claim のたびに
+  必ず新規デバイスとして登録する（同一UAの2台を続けてペアリングすると、
+  再利用ロジックが後発デバイスのために先発デバイスのsecretを回転させ、
+  先発デバイスが無言でログアウトされてしまうため）。
 """
 
 import hmac
@@ -34,8 +42,8 @@ from pydantic import BaseModel
 
 from .. import auth as auth_module
 from ..auth import _resolve_tailscale_name, verify_token
-from ..devices import autoname_from_user_agent, find_or_register_device
-from ..errors import bad_request, gone, too_many_requests, unauthorized
+from ..devices import autoname_from_user_agent, register_device
+from ..errors import bad_request, gone, server_error, too_many_requests, unauthorized
 from ..rate_limiter import _FixedWindowCounter
 from .devices import _set_device_cookies
 
@@ -44,11 +52,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth/pairing")
 
 PAIRING_TTL_SEC = 90
-
-# claim成功後、token自体は即座に破棄しつつ「claimed」を発行元が観測できるよう
-# エントリを少しだけ延命するtombstone期間。発行元は数秒間隔でstatusをポーリング
-# しており、claimedを見た時点で即モーダルを閉じるため、この程度で十分。
-_CLAIMED_TOMBSTONE_SEC = 10
 
 # ポーリング（status）は countdown 表示のため数秒間隔で連打される想定なので緩め、
 # start/claim は人間の単発操作なので厳しめにする。値の推測不可能性（24バイト）が
@@ -71,8 +74,9 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def _check_rate_limit(request: Request, bucket: str, limit: int) -> None:
-    key = f"pairing:{bucket}:{_client_ip(request)}"
+def _check_rate_limit(request: Request, bucket: str, limit: int, *, scope: str = "") -> None:
+    client_key = f"{_client_ip(request)}:{scope}" if scope else _client_ip(request)
+    key = f"pairing:{bucket}:{client_key}"
     if not _rate_counter.is_allowed(key, limit, _RATE_WINDOW_SEC):
         raise too_many_requests("Too many requests")
 
@@ -84,12 +88,17 @@ def _sweep_expired_locked(now: float) -> None:
 
 
 def _build_pairing_url(request: Request, pairing_id: str, pairing_token: str) -> str:
+    # MagicDNS名が引けても、Tailscale Serve(HTTPSでport443へproxyする)が実際に
+    # 設定されているとは限らない(直接LAN/tailnet IPへbindしている構成等)。
+    # Serveの稼働が未確認のまま https://<hostname> 決め打ちにすると、どこも
+    # listenしていないURLをQRに埋め込みスキャンできなくなるため、Serveが確認
+    # できた時だけMagicDNS名を使い、それ以外はこのリクエストが実際に届いた
+    # scheme/host/portをそのまま使う。
+    from .system import _get_tailscale_serve_running
     hostname = _resolve_tailscale_name()
-    if hostname:
+    if hostname and _get_tailscale_serve_running():
         base = f"https://{hostname}"
     else:
-        # tailscale未検出/未接続時は、同一LAN上での手動アクセス用にリクエスト
-        # 自身の host:port へフォールバックする(schemeもリクエストに合わせる)。
         base = f"{request.url.scheme}://{request.url.netloc}"
     return f"{base}/pair/{pairing_id}?t={pairing_token}"
 
@@ -137,7 +146,8 @@ def pairing_status(pairing_id: str, request: Request):
 
 @router.post("/{pairing_id}/claim")
 def claim_pairing(pairing_id: str, body: ClaimBody, request: Request, response: Response):
-    _check_rate_limit(request, "claim", _CLAIM_LIMIT)
+    # 荒らし対策はpairing_idごとに独立してカウントする(理由はモジュール docstring 参照)。
+    _check_rate_limit(request, "claim", _CLAIM_LIMIT, scope=pairing_id)
     now = time.time()
     with _lock:
         entry = _pairings.get(pairing_id)
@@ -148,16 +158,40 @@ def claim_pairing(pairing_id: str, body: ClaimBody, request: Request, response: 
             raise gone("Pairing request expired or already used")
         if not body.token or not hmac.compare_digest(body.token, entry["token"]):
             raise unauthorized("Invalid pairing token")
-        # 使い切り: 認証成功が確定した時点で即座に claimed へ倒す（リプレイ防止）。
-        # token自体はここで破棄し、以後の判定はclaimedフラグのみで行う。エントリは
-        # 発行元がstatusでclaimedを観測できるよう短いtombstone期間だけ残す。
-        entry["claimed"] = True
-        entry["token"] = None
-        entry["expires_at"] = now + _CLAIMED_TOMBSTONE_SEC
+        # token検証が通った時点でdictから一旦取り除き、以降の同時claimを排他する
+        # (他のリクエストからは即座に「存在しない」扱いになる)。ただしclaimed には
+        # まだ倒さない — デバイス登録がここから先で失敗する可能性があり、
+        # 倒してしまうと「claimedなのにログインは失敗」という観測不可能な
+        # 不整合を発行元に見せてしまうため。
+        del _pairings[pairing_id]
 
     ua = request.headers.get("user-agent", "")
     name = autoname_from_user_agent(ua)
-    device_id, raw_secret = find_or_register_device(name, ua, source="pairing")
-    _set_device_cookies(response, request, device_id, raw_secret)
+    try:
+        # find_or_register_device ではなく必ず新規登録する: 同一UAの2台を続けて
+        # ペアリングした場合、再利用ロジックは後発のために先発のsecretを回転させ、
+        # 先発デバイスを無言でログアウトさせてしまうため(claimは常に人間の
+        # 明示操作なので、tailscale自動登録のような再利用の必要が無い)。
+        device_id, raw_secret = register_device(name, ua, source="pairing")
+        _set_device_cookies(response, request, device_id, raw_secret)
+    except OSError:
+        # デバイス登録(devices.json への書き込み等)に失敗。tokenをまだ破棄して
+        # いないので、エントリを復元して再試行可能にする(有効期限内なら同じ
+        # QRのままもう一度claimできる)。
+        with _lock:
+            entry["claimed"] = False
+            _pairings[pairing_id] = entry
+        logger.warning("pairing claim failed to register device id=%s", pairing_id)
+        raise server_error("Failed to complete pairing. Please try again.") from None
+
+    with _lock:
+        # 発行元がstatusでclaimedを観測できるよう、tombstoneとして残す。
+        # expires_atは元のペアリング有効期限のまま縮めない — 発行元のポーリングが
+        # バックグラウンドタブ等で数十秒遅延しても「claimedを見損ねてexpired
+        # 扱いになる」ことがないようにするため(token自体は既に破棄済みなので
+        # 延命してもリプレイのリスクは無い)。
+        entry["claimed"] = True
+        entry["token"] = None
+        _pairings[pairing_id] = entry
     logger.info("pairing claimed id=%s device=%s client=%s", pairing_id, device_id, _client_ip(request))
     return {"ok": True, "device_id": device_id, "name": name, "auth_required": True}

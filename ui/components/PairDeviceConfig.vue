@@ -56,7 +56,12 @@ import { copyText } from "../utils/clipboard.js";
 import { generateQrSvg } from "../utils/qrcode.js";
 import { formatPairingCountdown } from "../utils/pairing.js";
 import { EP_AUTH_PAIRING_START, pairingStatusPath } from "../utils/endpoints.js";
-import { PAIRING_STATUS_POLL_MS, PAIRING_COUNTDOWN_TICK_MS, URL_COPIED_RESET_MS } from "../utils/constants.js";
+import {
+  PAIRING_STATUS_POLL_MS,
+  PAIRING_COUNTDOWN_TICK_MS,
+  PAIRING_SUCCESS_CLOSE_DELAY_MS,
+  URL_COPIED_RESET_MS,
+} from "../utils/constants.js";
 import { emit } from "../app-bridge.js";
 
 const { modalTitle, popView } = useModalView();
@@ -77,6 +82,8 @@ const copied = ref(false);
 let pollTimer = null;
 /** @type {ReturnType<typeof setInterval> | null} */
 let tickTimer = null;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let closeTimer = null;
 
 const qrSvg = computed(() => (pairingUrl.value ? generateQrSvg(pairingUrl.value) : ""));
 const countdownLabel = computed(() => formatPairingCountdown(secondsLeft.value));
@@ -84,19 +91,25 @@ const countdownLabel = computed(() => formatPairingCountdown(secondsLeft.value))
 function clearTimers() {
   if (pollTimer) clearInterval(pollTimer);
   if (tickTimer) clearInterval(tickTimer);
+  if (closeTimer) clearTimeout(closeTimer);
   pollTimer = null;
   tickTimer = null;
+  closeTimer = null;
 }
 
 async function poll() {
-  if (!pairingId.value) return;
-  const { ok, data } = await apiGet(pairingStatusPath(pairingId.value));
+  const requestedId = pairingId.value;
+  if (!requestedId) return;
+  const { ok, data } = await apiGet(pairingStatusPath(requestedId));
+  // start() が再度呼ばれ別のpairingへ切り替わった後にこの応答が返ってきた場合、
+  // 新しいpairingの状態を古い応答で上書きしてしまわないよう無視する。
+  if (requestedId !== pairingId.value) return;
   if (!ok || !data) return;
   if (data.status === "claimed") {
     status.value = "claimed";
     clearTimers();
     emit("toast:show", { message: "Device paired successfully", type: "success" });
-    setTimeout(() => popView(), 1200);
+    closeTimer = setTimeout(() => popView(), PAIRING_SUCCESS_CLOSE_DELAY_MS);
   } else if (data.status === "expired" || data.status === "not_found") {
     status.value = "expired";
     clearTimers();

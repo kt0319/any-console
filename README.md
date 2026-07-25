@@ -119,7 +119,7 @@ brew install python node git tmux gh
 
 Once one device is signed in, you can add another (e.g. add your iPhone from your already-authenticated laptop) without typing the token:
 
-1. On the signed-in device, open Settings > Auth and tap "Add new device".
+1. On the signed-in device, open Settings > Auth and tap "Add new device" (on a desktop-sized screen with no phone paired yet, a one-time "Open on your phone" shortcut also appears on the empty-state screen).
 2. Scan the QR code with the new device's camera app.
 3. The new device opens the link, signs in automatically, and lands on the normal app screen.
 

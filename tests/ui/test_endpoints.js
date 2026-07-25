@@ -15,6 +15,7 @@ import {
   workspaceFileDiffPath,
   pairingStatusPath,
   pairingClaimPath,
+  devicePath,
 } from "../../ui/utils/endpoints.js";
 
 // ── Tests ──
@@ -124,5 +125,15 @@ describe("pairingStatusPath", () => {
 describe("pairingClaimPath", () => {
   it("builds claim path", () => {
     expect(pairingClaimPath("pr_abc123")).toBe("/auth/pairing/pr_abc123/claim");
+  });
+});
+
+describe("devicePath", () => {
+  it("builds device path", () => {
+    expect(devicePath("dev_abc123")).toBe("/devices/dev_abc123");
+  });
+
+  it("encodes special characters", () => {
+    expect(devicePath("dev abc")).toBe("/devices/dev%20abc");
   });
 });

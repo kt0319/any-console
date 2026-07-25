@@ -85,7 +85,7 @@ import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
 import { useConfirm } from "../composables/useConfirm.js";
-import { EP_SETTINGS_AUTH } from "../utils/endpoints.js";
+import { EP_SETTINGS_AUTH, EP_DEVICES, devicePath } from "../utils/endpoints.js";
 import { formatRelativeTime } from "../utils/format.js";
 
 const modalTitle = inject("modalTitle");
@@ -151,7 +151,7 @@ async function saveAuth() {
 
 async function loadDevices() {
   devicesLoading.value = true;
-  const res = await getWithRetry(apiGet, "/devices");
+  const res = await getWithRetry(apiGet, EP_DEVICES);
   devices.value = res.ok && Array.isArray(res.data) ? res.data : [];
   devicesLoading.value = false;
 }
@@ -162,7 +162,7 @@ async function revoke(d) {
     ? `Logout this device "${d.name}"? You will need to sign in again.`
     : `Revoke device "${d.name}"? It will need to register again with a token.`;
   if (!await confirm(msg)) return;
-  const { ok } = await apiDelete(`/devices/${encodeURIComponent(d.id)}`, { errorMessage: "Failed to revoke" });
+  const { ok } = await apiDelete(devicePath(d.id), { errorMessage: "Failed to revoke" });
   if (!ok) return;
   if (isSelf) {
     location.reload();
