@@ -35,17 +35,22 @@
       <template v-if="hasBranchField">
         <div class="ws-settings-row" style="gap:8px">
           <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="selectedCreateBranch" /> Create branch</label>
-        </div>
-        <div class="ws-settings-row ws-settings-row-stack">
-          <span class="ws-settings-label">
-            Branch name
-            <span v-if="branchStatusNote" class="dispatch-run-note">{{ branchStatusNote }}</span>
-          </span>
-          <input v-model="branch" type="text" class="form-input" autocomplete="off" spellcheck="false" :disabled="!selectedCreateBranch" />
+          <input
+            v-if="selectedCreateBranch"
+            v-model="branch"
+            type="text"
+            class="form-input"
+            placeholder="New branch name"
+            autocomplete="off"
+            spellcheck="false"
+          />
         </div>
         <div class="ws-settings-row">
-          <span class="ws-settings-label">Base branch</span>
-          <select v-model="baseBranch" class="form-input" :disabled="!selectedCreateBranch">
+          <span class="ws-settings-label">
+            {{ selectedCreateBranch ? "Base branch" : "Branch" }}
+            <span v-if="branchStatusNote" class="dispatch-run-note">{{ branchStatusNote }}</span>
+          </span>
+          <select v-model="branchSelectValue" class="form-input">
             <option value="">(current branch)</option>
             <option v-for="b in localBranches" :key="b" :value="b">{{ b }}</option>
           </select>
@@ -86,7 +91,7 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { emit, on } from "../app-bridge.js";
 
 // Session select の「新規セッション」を表す特別値。
-const NEW_SESSION_VALUE = "__new__";
+const NEW_SESSION_VALUE = "__new_session__";
 
 const { modalTitle, viewState, popView } = useModalView();
 const { apiGet } = useApi();
@@ -108,6 +113,16 @@ const selectedJob = ref("terminal");
 const selectedSessionId = ref(NEW_SESSION_VALUE);
 const selectedCreateBranch = ref(false);
 const isNewSession = computed(() => selectedSessionId.value === NEW_SESSION_VALUE);
+
+// Branch select は Create branch の on/off で意味が変わる（対象ブランチ or 分岐元ブランチ）ため、
+// 書き込み先を切り替える get/set computed で1つの select 要素を共用する。
+const branchSelectValue = computed({
+  get: () => (selectedCreateBranch.value ? baseBranch.value : branch.value),
+  set: (val) => {
+    if (selectedCreateBranch.value) baseBranch.value = val;
+    else branch.value = val;
+  },
+});
 
 const jobs = ref([]);
 const sessions = ref([]);
@@ -133,7 +148,7 @@ const showWorktreeInfo = computed(() => !!request.value?.worktree && selectedWor
 
 // worktree 上の dispatch はブランチが既に固定されているため、ブランチ操作の
 // 項目自体を出さない。それ以外は常に表示し、Create branch のチェック有無で
-// Branch name / Base branch を disable/enable する（hide/show は使わない）。
+// Branch select の意味（対象 / 分岐元）と Branch name の表示を切り替える。
 const hasBranchField = computed(() => !request.value?.worktree);
 
 const branchStatusNote = computed(() => {
@@ -294,6 +309,11 @@ async function discard() {
 </script>
 
 <style scoped>
+/* "Base branch" 等の長いラベルに合わせて列幅を揃える（Session/Workspace/Job と同じ開始位置にする）。 */
+.ws-settings-label {
+  min-width: 84px;
+}
+
 .ws-settings-row-stack {
   flex-direction: column;
   align-items: stretch;
