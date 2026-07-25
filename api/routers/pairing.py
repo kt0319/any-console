@@ -238,13 +238,32 @@ def _is_loopback_host(host: str) -> bool:
         return False
 
 
+def _effective_port(request: Request) -> int | None:
+    """リクエストの実ポートを返す。省略時ポート(URLに `:port` が無い)は
+    scheme標準ポート(https→443 / http→80)を補って返す。
+
+    `request.url.port` は URL に明示的にポートが書かれている時しか値を
+    持たない。native TLS を443番で運用していて発行元が `https://localhost`
+    （`:443` を省略）で開いた場合、`port` が None のままだと Serve 一致確認や
+    loopbackフォールバックの両方が「ポート不明」として素通りしてしまい、
+    実際には到達可能なのにペアリングを拒否してしまう。
+    """
+    if request.url.port is not None:
+        return request.url.port
+    if request.url.scheme == "https":
+        return 443
+    if request.url.scheme == "http":
+        return 80
+    return None
+
+
 def _build_pairing_url(request: Request, pairing_id: str, pairing_token: str) -> str:
     # MagicDNS名が引けても、Tailscale Serveがこのプロセスの待受ポートへ実際に
     # proxyしているとは確認できない限り https://<hostname> 決め打ちにはしない
     # （直接LAN/tailnet IPへbindしている構成や、Serveが別サービス向けに設定
     # されている構成では、そこにアクセスしても any-console には届かない）。
     hostname = _resolve_tailscale_name()
-    port = request.url.port
+    port = _effective_port(request)
     frontend_port = _tailscale_serve_frontend_port(port) if hostname and port else None
     if hostname and frontend_port is not None:
         # ServeのHTTPSは443固定ではない(8443/10000もサポートされる)ため、
@@ -279,16 +298,23 @@ def start_pairing(request: Request):
     now = time.time()
     pairing_id = f"pr_{secrets.token_hex(8)}"
     pairing_token = secrets.token_urlsafe(24)
-    expires_at = now + PAIRING_TTL_SEC
     with _lock:
         _sweep_expired_locked(now)
+    # _build_pairing_url は tailscale サブプロセスを最大2回呼び（それぞれ
+    # SYSTEM_CMD_TIMEOUT_SEC 秒でタイムアウト）、遅い環境では数秒かかりうる。
+    # expires_at をこの呼び出しより前に確定させると、レスポンスに乗せる
+    # expires_in_sec（常にPAIRING_TTL_SEC固定）より先にバックエンドの寿命が
+    # 進んでしまい、クライアントの表示するカウントダウンより早くexpiredに
+    # なってしまう。URL確定後の時刻を起点にする。
+    url = _build_pairing_url(request, pairing_id, pairing_token)
+    expires_at = time.time() + PAIRING_TTL_SEC
+    with _lock:
         _pairings[pairing_id] = {
             "token": pairing_token,
             "expires_at": expires_at,
             "claimed": False,
             "claiming": False,
         }
-    url = _build_pairing_url(request, pairing_id, pairing_token)
     logger.info("pairing started id=%s client=%s", pairing_id, _client_ip(request))
     return {
         "id": pairing_id,

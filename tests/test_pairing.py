@@ -87,13 +87,33 @@ class TestStart:
         res = _client_with_port(8888).post("/auth/pairing/start", headers=AUTH)
         assert res.json()["url"].startswith("http://testserver:8888/pair/")
 
-    def test_falls_back_when_request_has_no_explicit_port(self, client, monkeypatch):
-        # request.url.port が取れない(Hostヘッダにポートが無い)場合は、Serveが
-        # 実際にどこへproxyしているか比較しようがないため安全側(フォールバック)に倒す
+    def test_infers_scheme_default_port_when_request_has_no_explicit_port(self, client, monkeypatch):
+        # request.url.port はHostヘッダに明示ポートが無いとNoneになるが、それは
+        # 「ポート不明」ではなくscheme標準ポート(http→80)を意味する。Serveの
+        # 一致確認にはこの推測ポートを渡さなければならない(そうしないと
+        # native TLSを443番で運用し `https://<hostname>` のように省略形で
+        # 開いた場合にも一致確認自体が働かず、常にフォールバックしてしまう)。
         monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
-        monkeypatch.setattr(pairing_mod, "_tailscale_serve_frontend_port", lambda port: 443)
+        monkeypatch.setattr(pairing_mod, "_tailscale_serve_frontend_port", lambda port: 443 if port == 80 else None)
+        res = client.post("/auth/pairing/start", headers=AUTH)
+        assert res.json()["url"].startswith("https://myhost.tail1234.ts.net/pair/")
+
+    def test_falls_back_when_no_explicit_port_and_serve_does_not_match(self, client, monkeypatch):
+        monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
+        monkeypatch.setattr(pairing_mod, "_tailscale_serve_frontend_port", lambda port: None)
         res = client.post("/auth/pairing/start", headers=AUTH)
         assert res.json()["url"].startswith("http://testserver/pair/")
+
+    def test_loopback_without_explicit_port_infers_scheme_default(self, client, monkeypatch):
+        # https://localhost (ポート省略。native TLSを443番で運用し、そのURLで
+        # 開いた想定) でも暗黙の443番を補ってMagicDNS名+ポートへ差し替えられる
+        # こと。補わなければportがNoneのまま扱われ、到達不能なloopbackの
+        # netlocがQRに残るか、無条件に400へ落ちてしまう。
+        monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: "myhost.tail1234.ts.net")
+        monkeypatch.setattr(pairing_mod, "_tailscale_serve_frontend_port", lambda port: None)
+        res = TestClient(app, base_url="https://localhost").post("/auth/pairing/start", headers=AUTH)
+        assert res.status_code == 200, res.text
+        assert res.json()["url"].startswith("https://myhost.tail1234.ts.net:443/pair/")
 
     def test_loopback_origin_uses_hostname_preserving_scheme_when_available(self, client, monkeypatch):
         # 発行元がhttp://localhost:8888(起動時通知どおり)で開いている場合、
@@ -149,6 +169,28 @@ class TestStart:
         _start(client, monkeypatch)
         assert first["id"] not in pairing_mod._pairings
 
+    def test_ttl_starts_after_url_discovery_not_before(self, client, monkeypatch):
+        # _build_pairing_url は tailscale サブプロセスを最大2回呼び、遅い環境
+        # では数秒かかりうる。expires_at をそれより前の時刻で確定すると、
+        # レスポンスに乗る expires_in_sec(常にPAIRING_TTL_SEC固定)より
+        # バックエンドの寿命が先に尽きてしまう。expires_at は URL 確定後の
+        # 時刻を起点にしなければならない。
+        monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: None)
+        clock = {"t": 1_000_000.0}
+        monkeypatch.setattr(pairing_mod.time, "time", lambda: clock["t"])
+        orig_build = pairing_mod._build_pairing_url
+
+        def slow_build(request, pairing_id, pairing_token):
+            clock["t"] += 10  # tailscaleサブプロセス呼び出しに10秒かかった体で進める
+            return orig_build(request, pairing_id, pairing_token)
+
+        monkeypatch.setattr(pairing_mod, "_build_pairing_url", slow_build)
+
+        res = client.post("/auth/pairing/start", headers=AUTH)
+        assert res.status_code == 200, res.text
+        entry = pairing_mod._pairings[res.json()["id"]]
+        assert entry["expires_at"] == pytest.approx(clock["t"] + pairing_mod.PAIRING_TTL_SEC)
+
 
 class TestTailscaleServeFrontendPort:
     def test_returns_frontend_port_when_handler_proxies_to_backend_port(self, monkeypatch):
@@ -197,6 +239,36 @@ class TestTailscaleServeFrontendPort:
         )
         monkeypatch.setattr(pairing_mod, "run_subprocess_safe", lambda *a, **k: payload)
         assert pairing_mod._tailscale_serve_frontend_port(8888) is None
+
+
+class TestEffectivePort:
+    def _request(self, scheme, port=None):
+        from starlette.requests import Request
+
+        host_header = "testserver" if port is None else f"testserver:{port}"
+        scope = {
+            "type": "http",
+            "scheme": scheme,
+            "server": ("testserver", port or 80),
+            "headers": [(b"host", host_header.encode())],
+            "path": "/",
+            "method": "GET",
+        }
+        return Request(scope)
+
+    def test_explicit_port_is_used_as_is(self):
+        assert pairing_mod._effective_port(self._request("http", 8888)) == 8888
+
+    def test_infers_443_for_https_without_explicit_port(self):
+        assert pairing_mod._effective_port(self._request("https")) == 443
+
+    def test_infers_80_for_http_without_explicit_port(self):
+        assert pairing_mod._effective_port(self._request("http")) == 80
+
+    def test_unknown_for_non_http_scheme_without_explicit_port(self):
+        # FastAPI/Starletteの実運用では http/https 以外は来ないが、念のための
+        # フォールバック(推測しようがないので素直にNoneを返す)を確認する。
+        assert pairing_mod._effective_port(self._request("ws")) is None
 
 
 class TestIsLoopbackHost:
