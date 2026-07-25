@@ -548,6 +548,87 @@ class TestDecisionExecutesIndependently:
         assert "orphan" not in dispatch_mod._PENDING
 
 
+class TestDedupKey:
+    def test_second_request_with_same_key_replaces_first(self, client, workspace):
+        first_id = _enqueue(client, text="echo 1", dedup_key="ci-failure:test-ws:main")
+        second_id = _enqueue(client, text="echo 2", dedup_key="ci-failure:test-ws:main")
+        assert first_id not in dispatch_mod._PENDING
+        assert second_id in dispatch_mod._PENDING
+        assert len(dispatch_mod._PENDING) == 1
+
+    def test_retry_count_increments_across_replacements(self, client, workspace):
+        _enqueue(client, text="echo 1", dedup_key="k")
+        second_id = _enqueue(client, text="echo 2", dedup_key="k")
+        assert dispatch_mod._PENDING[second_id]["retry_count"] == 2
+        third_id = _enqueue(client, text="echo 3", dedup_key="k")
+        assert third_id != second_id
+        assert dispatch_mod._PENDING[third_id]["retry_count"] == 3
+
+    def test_first_request_has_retry_count_one(self, client, workspace):
+        first_id = _enqueue(client, text="echo 1", dedup_key="k")
+        assert dispatch_mod._PENDING[first_id]["retry_count"] == 1
+
+    def test_without_dedup_key_never_replaces(self, client, workspace):
+        first_id = _enqueue(client, text="echo 1")
+        second_id = _enqueue(client, text="echo 2")
+        assert first_id in dispatch_mod._PENDING
+        assert second_id in dispatch_mod._PENDING
+        assert len(dispatch_mod._PENDING) == 2
+
+    def test_different_dedup_keys_do_not_collide(self, client, workspace):
+        first_id = _enqueue(client, text="echo 1", dedup_key="a")
+        second_id = _enqueue(client, text="echo 2", dedup_key="b")
+        assert first_id in dispatch_mod._PENDING
+        assert second_id in dispatch_mod._PENDING
+
+    def test_superseded_dispatch_id_returns_404_on_decision(self, client, workspace):
+        first_id = _enqueue(client, text="echo 1", dedup_key="k")
+        _enqueue(client, text="echo 2", dedup_key="k")
+        res = client.post(f"/dispatch/{first_id}/decision", headers=AUTH, json={"approved": True})
+        assert res.status_code == 404
+
+    def test_push_notification_skipped_on_supersede(self, client, workspace, monkeypatch):
+        import threading
+        push_calls = []
+        called = threading.Event()
+
+        def fake_push(**kwargs):
+            push_calls.append(kwargs)
+            called.set()
+
+        monkeypatch.setattr(dispatch_mod, "send_push_notification", fake_push)
+        _enqueue(client, text="echo 1", dedup_key="k")
+        assert called.wait(timeout=2)
+        called.clear()
+
+        _enqueue(client, text="echo 2", dedup_key="k")
+        assert not called.wait(timeout=0.3)
+        assert len(push_calls) == 1
+
+    def test_supersede_logs_dispatch_superseded(self, client, workspace):
+        from unittest import mock
+        _enqueue(client, text="echo 1", dedup_key="k")
+        with mock.patch("api.routers.dispatch.log_activity") as log:
+            _enqueue(client, text="echo 2", dedup_key="k")
+        log.assert_called_once_with("test-ws", "dispatch_superseded", job="terminal", text="echo 2")
+
+    def test_first_request_logs_dispatch_pending(self, client, workspace):
+        from unittest import mock
+        with mock.patch("api.routers.dispatch.log_activity") as log:
+            _enqueue(client, text="echo 1", dedup_key="k")
+        log.assert_called_once_with("test-ws", "dispatch_pending", job="terminal", text="echo 1")
+
+    def test_replaced_item_persists_with_retry_count(self, client, workspace):
+        _enqueue(client, text="echo 1", dedup_key="k")
+        second_id = _enqueue(client, text="echo 2", dedup_key="k")
+
+        dispatch_mod._PENDING.clear()
+        dispatch_mod._load_persisted_pending()
+
+        assert list(dispatch_mod._PENDING.keys()) == [second_id]
+        assert dispatch_mod._PENDING[second_id]["retry_count"] == 2
+
+
 class TestFindExistingSession:
     def test_match_any_finds_any_workspace_session(self, _mock_tmux):
         from api.routers.dispatch import _find_existing_session

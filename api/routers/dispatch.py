@@ -8,6 +8,10 @@ confirm あり（既定）の場合は承認キューへ積んで即座に 202 �
 Settings の Dispatch Queue からの承認（/dispatch/{id}/decision）だけが担う。
 キューの変化はステータスストリーム WS（type="dispatch_queue" の全量スナップ
 ショット）で全購読端末へ配信する。
+
+dedup_key を指定すると、同じキーの承認待ちが既にあればそれを置き換える
+（CI の連続失敗などで同一要件のキュー項目が積み上がるのを防ぐ）。置き換え
+時は retry_count を引き継いで +1 し、通知の重複送信は行わない。
 """
 
 import asyncio
@@ -194,6 +198,7 @@ class DispatchRequest(BaseModel):
     create_branch: bool = False
     base_branch: str | None = None
     confirm: bool = True
+    dedup_key: str | None = None  # 同一キューの重複を束ねる。呼び出し元が意味を決める opaque な文字列
 
     @property
     def effective_workspace(self) -> str:
@@ -394,6 +399,13 @@ def _launch(body: DispatchRequest) -> dict:
     }
 
 
+def _find_pending_by_dedup_key(key: str) -> tuple[str, dict] | None:
+    for did, req in _PENDING.items():
+        if req.get("dedup_key") == key:
+            return did, req
+    return None
+
+
 def _branch_status(ws_path, branch: str) -> str:
     try:
         current = git_branch(ws_path)
@@ -424,17 +436,19 @@ async def dispatch(body: DispatchRequest):
 
     dispatch_id = secrets.token_urlsafe(8)
 
-    _send_push_in_background(
-        title="Dispatch",
-        body=effective_ws,
-        # 既存タブが無く新規ウィンドウが開く場合でも Dispatch Queue を開けるよう、
-        # クエリで明示する（sw.js の postMessage は既存タブにしか届かない）。
-        # dispatchId を付けて、通知から来た時にどのキュー項目か分かるようにする。
-        url=f"/?openDispatchQueue=1&dispatchId={dispatch_id}",
-        notif_type="dispatch",
-    )
+    def _notify_push() -> None:
+        _send_push_in_background(
+            title="Dispatch",
+            body=effective_ws,
+            # 既存タブが無く新規ウィンドウが開く場合でも Dispatch Queue を開けるよう、
+            # クエリで明示する（sw.js の postMessage は既存タブにしか届かない）。
+            # dispatchId を付けて、通知から来た時にどのキュー項目か分かるようにする。
+            url=f"/?openDispatchQueue=1&dispatchId={dispatch_id}",
+            notif_type="dispatch",
+        )
 
     if not body.confirm:
+        _notify_push()
         result = _launch(body)
         log_activity(
             result["workspace"], "dispatch_executed",
@@ -442,7 +456,25 @@ async def dispatch(body: DispatchRequest):
         )
         return result
 
-    log_activity(effective_ws, "dispatch_pending", job=body.job, text=body.text)
+    # dedup_key が既存の承認待ちと一致する場合、古い項目を新しい項目へ置き換える
+    # （同一失敗の連続 dispatch でキューが積み上がるのを防ぐ）。retry_count はその
+    # 引き継ぎ回数で、UI 側で「何度目の失敗か」を示すのに使う。
+    retry_count = 1
+    superseded = _find_pending_by_dedup_key(body.dedup_key) if body.dedup_key else None
+    if superseded is not None:
+        old_id, old_payload = superseded
+        retry_count = old_payload.get("retry_count", 1) + 1
+        _PENDING.pop(old_id, None)
+    payload["retry_count"] = retry_count
+
+    # 置き換え時は既にキューに未対応の項目が待っている状態なので、通知を重ねて鳴らさない。
+    if retry_count == 1:
+        _notify_push()
+
+    log_activity(
+        effective_ws, "dispatch_superseded" if retry_count > 1 else "dispatch_pending",
+        job=body.job, text=body.text,
+    )
 
     _PENDING[dispatch_id] = payload
     _persist_pending()
