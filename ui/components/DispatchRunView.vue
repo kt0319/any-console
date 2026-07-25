@@ -57,8 +57,10 @@
         <textarea v-model="text" class="form-input dispatch-run-input" rows="4" autocomplete="off" spellcheck="false"></textarea>
       </div>
 
+      <div v-if="dirtyBlockReason" class="job-config-error">{{ dirtyBlockReason }}</div>
+
       <div class="ws-settings-row" style="gap:8px">
-        <button type="button" class="primary" :disabled="running" @click="run">
+        <button type="button" class="primary" :disabled="running || !!dirtyBlockReason" @click="run">
           <span class="mdi mdi-play"></span> {{ running ? "Running..." : "Run" }}
         </button>
       </div>
@@ -140,6 +142,32 @@ const branchStatusNote = computed(() => {
   if (status === "exists") return "(checkout)";
   if (status === "missing") return selectedCreateBranch.value ? "(new branch)" : "(missing)";
   return "";
+});
+
+// サーバ側のガード（api/routers/dispatch.py の _ensure_branch）と対になる UI 側の
+// 事前ブロック。新規ブランチを作成する dispatch（Create branch オン）は対象
+// ワークスペースが dirty だと 400 で失敗するため、送信前に理由を示して Run を
+// disable する。既存ブランチへの checkout（Create branch オフ）は対象外（サーバ
+// 側も dirty かどうかに関わらず同じ扱いだが、ここでは新規ブランチ作成時のみブロック
+// する方針）。
+// changed_files は untracked ファイル込みでカウントされる（api/git_info.py）ため、
+// ここでの dirty 判定も同じ基準（gitignore されていない未追跡ファイルがあれば
+// 安全側でブロックする）に揃える。
+const targetWorkspaceEntry = computed(() =>
+  workspaceStore.allWorkspaces.find((w) => w.name === selectedWorkspace.value),
+);
+const isSwitchingBranch = computed(() => {
+  if (!hasBranchField.value || !selectedCreateBranch.value) return false;
+  const target = branch.value.trim();
+  if (!target) return false;
+  const current = targetWorkspaceEntry.value?.branch || "";
+  return target !== current;
+});
+const workspaceChangedFiles = computed(() => targetWorkspaceEntry.value?.changed_files || 0);
+const dirtyBlockReason = computed(() => {
+  if (!isSwitchingBranch.value || workspaceChangedFiles.value <= 0) return "";
+  const n = workspaceChangedFiles.value;
+  return `Workspace has uncommitted changes (${n} file${n === 1 ? "" : "s"}). Commit or stash them, or clear the branch to run on the current branch.`;
 });
 
 // dedup_key による置き換えは通知リンクを有効に保つため dispatch_id を維持する
