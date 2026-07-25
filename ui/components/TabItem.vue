@@ -15,6 +15,7 @@
     @drop="onDropOnTab"
     @touchstart.passive="onTouchStart"
   >
+    <span v-if="isPanelBottom" class="tab-dirty-dot-spacer" aria-hidden="true"></span>
     <span v-if="wsIconHtml" v-html="wsIconHtml"></span>
     <span v-if="isWorktree" class="mdi mdi-file-tree tab-worktree-icon" aria-label="worktree" data-tooltip="worktree"></span>
     <span v-if="iconHtml" class="tab-icon-slot">
@@ -422,6 +423,14 @@ onBeforeUnmount(() => {
   height: 6px;
   border-radius: 50%;
   background: #f5a623;
+  flex-shrink: 0;
+}
+
+/* panel-bottom（アイコンのみ表示）では右端に tab-dirty-dot が付き、その分アイコンが
+   中央からズレて見える。同じ幅の透明スペーサーを左端にも置いて中央を保つ。 */
+.tab-dirty-dot-spacer {
+  width: 6px;
+  height: 6px;
   flex-shrink: 0;
 }
 
