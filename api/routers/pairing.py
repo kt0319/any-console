@@ -103,6 +103,14 @@ _RATE_WINDOW_SEC = 60
 _lock = threading.Lock()
 _pairings: dict[str, dict] = {}
 _rate_counter = _FixedWindowCounter()
+# _rate_counter専用の別ロック。start/status/claimはsync defルートのため
+# FastAPI/Starletteのスレッドプールで実行され、複数リクエストが本当に並行して
+# _rate_counter に触れうる（_pairings用の`_lock`と違い、`_FixedWindowCounter`
+# 自体はロックを持たない）。`_evict_rate_limit_keys_for`は`_lock`保持中に
+# 呼ばれる箇所があるため、同じ`_lock`を使い回すと自己デッドロックする
+# （非再入ロック）。そのため独立したロックにする。ロック順序は常に
+# `_lock`→`_rate_lock`（逆順で取得する箇所は無い）。
+_rate_lock = threading.Lock()
 
 
 class ClaimBody(BaseModel):
@@ -116,7 +124,9 @@ def _client_ip(request: Request) -> str:
 def _check_rate_limit(request: Request, bucket: str, limit: int, *, scope: str = "") -> None:
     client_key = f"{_client_ip(request)}:{scope}" if scope else _client_ip(request)
     key = f"pairing:{bucket}:{client_key}"
-    if not _rate_counter.is_allowed(key, limit, _RATE_WINDOW_SEC):
+    with _rate_lock:
+        allowed = _rate_counter.is_allowed(key, limit, _RATE_WINDOW_SEC)
+    if not allowed:
         raise too_many_requests("Too many requests")
 
 
@@ -159,11 +169,17 @@ def _evict_rate_limit_keys_for(pairing_id: str) -> None:
     完了・失効するたびにそのキーが`_rate_counter._counts`へ永久に残り続け、
     長期稼働するプロセスでゆっくり肥大化してしまう。pairingが消える時点で
     対応するキーも掃除し、生きているpairing数に比例するサイズへ抑える。
+
+    `_rate_lock` で保護する: sync defルート（start/status/claim）はスレッド
+    プールで実行されるため、他リクエストの `_check_rate_limit` が
+    `_rate_counter._counts` を読み書き中にここで走査・削除すると
+    "dictionary changed size during iteration" で500になりうる。
     """
     suffix = f":{pairing_id}"
-    stale = [k for k in _rate_counter._counts if k.endswith(suffix)]
-    for k in stale:
-        _rate_counter._counts.pop(k, None)
+    with _rate_lock:
+        stale = [k for k in _rate_counter._counts if k.endswith(suffix)]
+        for k in stale:
+            _rate_counter._counts.pop(k, None)
 
 
 def _sweep_expired_locked(now: float) -> None:

@@ -88,6 +88,13 @@ let closeTimer = null;
 // 起こさないようにするガード(pairingId比較だけでは、unmount後もrefの値自体は
 // 変わらず残るため、古いpairingへの切り替わりとunmountを区別できない)。
 let isUnmounted = false;
+// start()を呼ぶたびに進める世代カウンタ。「Generate new code」で古いpairingの
+// pollがin-flightのまま新しいstart()のapiPostがまだ解決していない間は、
+// pairingId.value自体はまだ古い値のままなので、pairingId比較だけでは
+// 古い応答を弾けない(start()が自身のawaitを終えて上書きするまでの間隙)。
+// start()の冒頭で同期的にインクリメントすることで、そのawait中に届いた
+// 旧世代の応答を確実に無効化する。
+let pairingGeneration = 0;
 
 const qrSvg = computed(() => (pairingUrl.value ? generateQrSvg(pairingUrl.value) : ""));
 const countdownLabel = computed(() => formatPairingCountdown(secondsLeft.value));
@@ -103,12 +110,15 @@ function clearTimers() {
 
 async function poll() {
   const requestedId = pairingId.value;
+  const requestedGeneration = pairingGeneration;
   if (!requestedId) return;
   const { ok, data } = await apiGet(pairingStatusPath(requestedId));
   if (isUnmounted) return;
   // start() が再度呼ばれ別のpairingへ切り替わった後にこの応答が返ってきた場合、
   // 新しいpairingの状態を古い応答で上書きしてしまわないよう無視する。
-  if (requestedId !== pairingId.value) return;
+  // 世代カウンタで判定する(pairingId比較だけだと、新しいstart()がまだ自身の
+  // apiPostをawait中でpairingId.valueを上書きする前の間隙をすり抜けてしまう)。
+  if (requestedGeneration !== pairingGeneration || requestedId !== pairingId.value) return;
   if (!ok || !data) return;
   if (data.status === "claimed") {
     status.value = "claimed";
@@ -122,15 +132,19 @@ async function poll() {
 }
 
 async function start() {
+  // apiPostのawait前に同期的に進める — これより後に届く旧世代のpoll()応答を
+  // (pairingId.valueがまだ書き換わっていない間隙も含めて)確実に無効化する。
+  const generation = ++pairingGeneration;
   loading.value = true;
   error.value = "";
   status.value = "pending";
   copied.value = false;
   clearTimers();
   const { ok, data } = await apiPost(EP_AUTH_PAIRING_START);
-  // アンマウント後に解決した場合、ここから先で新しいintervalを張ってしまうと
-  // 二度とclearされず残り続けるため、状態更新自体を行わない。
-  if (isUnmounted) return;
+  // アンマウント後、または自身より新しいstart()に追い越された後に解決した
+  // 場合、ここから先で新しいintervalを張ってしまうと二度とclearされず
+  // 残り続けるため、状態更新自体を行わない。
+  if (isUnmounted || generation !== pairingGeneration) return;
   loading.value = false;
   if (!ok || !data) {
     error.value = "Failed to start pairing.";

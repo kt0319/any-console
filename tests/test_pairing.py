@@ -7,6 +7,7 @@
 """
 
 import subprocess
+import threading
 import time
 
 import pytest
@@ -469,6 +470,53 @@ class TestStatusRateLimit:
         pairing_mod._pairings[data["id"]]["expires_at"] = time.time() - 1
         client.get(f"/auth/pairing/{data['id']}/status")
         assert not any(k.endswith(f":{data['id']}") for k in pairing_mod._rate_counter._counts)
+
+
+class TestRateCounterThreadSafety:
+    def test_concurrent_checks_and_evictions_do_not_raise(self):
+        # start/status/claimはsync defルートなのでスレッドプールで並行実行
+        # されうる。_check_rate_limit(読み書き)と_evict_rate_limit_keys_for
+        # (走査+削除)を同時に叩いても、辞書サイズ変更中の反復
+        # (RuntimeError: dictionary changed size during iteration)や
+        # カウンタの取りこぼしが起きないことを確認する。
+        class _FakeClient:
+            host = "1.2.3.4"
+
+        class _FakeRequest:
+            client = _FakeClient()
+
+        fake_request = _FakeRequest()
+        errors = []
+        # キー空間を広く・反復回数を多くしてスレッド間の割り込み(GILの切り替え)
+        # 機会を増やす。小さすぎるキー空間/反復回数だとロック無しでもたまたま
+        # 競合せず通ってしまい、リグレッションを検知できないテストになる
+        # (ロックを一時的に外して確認済み: この規模なら安定して再現する)。
+        keyspace = 500
+        iterations = 3000
+
+        def hammer_checks():
+            try:
+                for i in range(iterations):
+                    pairing_mod._check_rate_limit(fake_request, "status", 10_000_000, scope=f"pr_{i % keyspace}")
+            except Exception as e:  # noqa: BLE001
+                errors.append(e)
+
+        def hammer_evicts():
+            try:
+                for i in range(iterations):
+                    pairing_mod._evict_rate_limit_keys_for(f"pr_{i % keyspace}")
+            except Exception as e:  # noqa: BLE001
+                errors.append(e)
+
+        threads = (
+            [threading.Thread(target=hammer_checks) for _ in range(8)]
+            + [threading.Thread(target=hammer_evicts) for _ in range(8)]
+        )
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        assert errors == []
 
 
 def test_pair_page_serves_spa_shell(client):
