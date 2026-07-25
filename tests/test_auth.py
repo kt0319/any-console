@@ -10,6 +10,7 @@
 """
 
 import json
+import threading
 
 import pytest
 
@@ -130,6 +131,62 @@ class TestVerifyApiToken:
         meta, raw = auth_module.create_api_token("a")
         auth_module.revoke_api_token(meta["id"])
         assert auth_module._verify_api_token(raw) is None
+
+
+class TestApiTokenConcurrency:
+    """revoke と verify(last_used 更新) の read-modify-write が競合しても、
+    失効済みトークンが復活しないことを回帰確認する。
+
+    verify の _save_api_tokens 呼び出しの内側（= _api_tokens_lock を保持したまま）
+    から revoke を別スレッドで起動し、ロックのおかげでその revoke が
+    verify の save 完了前には完了できないことを直接確認する。両者が同じ
+    モック関数を経由するだけの単純なブロッキングでは、ロックが無くても
+    たまたま塞き止められたように見えてしまう（実際に一度その誤検知を確認した）
+    ため、ロックの効果だけを切り出して検証する構造にしている。
+    """
+
+    def test_revoke_blocks_while_verify_holds_lock_and_wins_after(self, monkeypatch):
+        meta, raw = auth_module.create_api_token("a")
+
+        orig_save = auth_module._save_api_tokens
+        call_count = {"n": 0}
+        revoke_attempted = threading.Event()
+        revoke_done = threading.Event()
+        revoke_result = {}
+        holder = {}
+
+        def hooked_save(tokens):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                # ここは _verify_api_token が _api_tokens_lock を保持したまま呼んでいる
+                # （with ブロックの中）。別スレッドで revoke を起動し、ロックのおかげで
+                # 着手できないことを確認する。join はまだしない — ここで join すると
+                # 「ロックを握ったまま、それを待つ相手を待つ」自己デッドロックになる
+                # （_save_api_tokens が返るまで _verify_api_token 側のロックは解放されない）。
+                def do_revoke():
+                    revoke_attempted.set()
+                    revoke_result["ok"] = auth_module.revoke_api_token(meta["id"])
+                    revoke_done.set()
+
+                t = threading.Thread(target=do_revoke)
+                holder["thread"] = t
+                t.start()
+                assert revoke_attempted.wait(timeout=2)
+                assert not revoke_done.wait(timeout=0.2), "revoke should block until verify releases the lock"
+            orig_save(tokens)
+
+        monkeypatch.setattr(auth_module, "_save_api_tokens", hooked_save)
+
+        auth_module._verify_api_token(raw)
+        # _verify_api_token が戻った = _api_tokens_lock を解放した後、revoke が
+        # 完了するのを待つ（解放前に join すると上記の通り自己デッドロックするため）。
+        holder["thread"].join(timeout=2)
+
+        # verify の save（last_used 更新のみ・トークンは残す）が先に完全に終わってから
+        # revoke の read-modify-write が走るため、失効が古いリストで上書きされて
+        # 復活することはない。
+        assert revoke_result["ok"] is True
+        assert auth_module.get_api_token(meta["id"]) is None
 
 
 class TestApiTokenEndpoints:

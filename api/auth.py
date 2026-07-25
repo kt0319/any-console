@@ -3,6 +3,7 @@ import ipaddress
 import logging
 import os
 import secrets
+import threading
 import time
 from typing import Mapping, Optional
 
@@ -24,6 +25,12 @@ COOKIE_DEVICE_SECRET = "any_console_secret"  # noqa: S105
 # 用途限定トークン（docs/DECISIONS.md ADR 参照）。
 API_TOKEN_SCOPE_DISPATCH = "dispatch"  # noqa: S105
 API_TOKEN_MAX_NAME_LEN = 80
+# create/revoke/verify(last_used 更新) はいずれも load → 変更 → save の
+# read-modify-write。save_json_file は1回の書き込み自体はアトミックだが、
+# この一連の手順自体は保護しないため、ロック無しだと revoke と同時に別スレッドの
+# verify が古いリストを読んで上書き保存し、失効済みトークンが復活しうる
+# （単一プロセス構成 = ADR 1 のため、プロセス内ロックのみで足りる）。
+_api_tokens_lock = threading.Lock()
 
 # Tailscale Serve / tailscaled が upstream に付与するヘッダ。
 # 受信した HTTP ヘッダにこれが含まれていれば「Tailscale 経由で認証済みのユーザ」だが、
@@ -227,9 +234,10 @@ def create_api_token(name: str, scope: str = API_TOKEN_SCOPE_DISPATCH) -> tuple[
         "created_at": int(time.time()),
         "last_used": None,
     }
-    tokens = _load_api_tokens()
-    tokens.append(entry)
-    _save_api_tokens(tokens)
+    with _api_tokens_lock:
+        tokens = _load_api_tokens()
+        tokens.append(entry)
+        _save_api_tokens(tokens)
     logger.info("api token created id=%s name=%s scope=%s", token_id, entry["name"], scope)
     return {k: v for k, v in entry.items() if k != "secret_hash"}, raw_token
 
@@ -251,12 +259,13 @@ def get_api_token(token_id: str) -> dict | None:
 def revoke_api_token(token_id: str) -> bool:
     if not token_id:
         return False
-    tokens = _load_api_tokens()
-    before = len(tokens)
-    tokens = [t for t in tokens if t.get("id") != token_id]
-    if len(tokens) == before:
-        return False
-    _save_api_tokens(tokens)
+    with _api_tokens_lock:
+        tokens = _load_api_tokens()
+        before = len(tokens)
+        tokens = [t for t in tokens if t.get("id") != token_id]
+        if len(tokens) == before:
+            return False
+        _save_api_tokens(tokens)
     logger.info("api token revoked id=%s", token_id)
     return True
 
@@ -268,12 +277,13 @@ def _verify_api_token(raw_token: str) -> dict | None:
         return None
     from .devices import _hash_secret
     expected_hash = _hash_secret(raw_token)
-    tokens = _load_api_tokens()
-    for t in tokens:
-        if hmac.compare_digest(t.get("secret_hash", ""), expected_hash):
-            t["last_used"] = int(time.time())
-            _save_api_tokens(tokens)
-            return t
+    with _api_tokens_lock:
+        tokens = _load_api_tokens()
+        for t in tokens:
+            if hmac.compare_digest(t.get("secret_hash", ""), expected_hash):
+                t["last_used"] = int(time.time())
+                _save_api_tokens(tokens)
+                return t
     return None
 
 
