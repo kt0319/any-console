@@ -400,6 +400,8 @@ button:disabled {
   font-size: 13px;
   color: var(--text-secondary);
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .icon-select-btn {
