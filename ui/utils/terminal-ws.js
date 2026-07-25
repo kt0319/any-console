@@ -9,7 +9,7 @@ export function buildWebSocketUrl(proto, host, sessionId, cols, rows) {
 /**
  * 再接続オーバーレイのラベルを組み立てる。
  * "Reconnecting" だけでは何が起きているか分からないため、理由を括弧で補足する。
- * reason 例: "resume"（バックグラウンド復帰）/ "retry 2"（切断後の再試行回数）。
+ * reason 例: "resume"（バックグラウンド復帰）/ "stale"（半開き接続の検知）/ "retry 2"（切断後の再試行回数）。
  * @param {string|null|undefined} reason
  * @returns {string}
  */
