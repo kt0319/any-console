@@ -4,8 +4,9 @@
 既存セッション再利用 or 新規作成、ブランチ確認/作成、起動コマンド実行、
 text の tmux 送信までを行う。
 
-confirm あり（既定）の場合は承認キューへ積んで即座に 202 を返し、実行は
+既定（direct: false）では承認キューへ積んで即座に 202 を返し、実行は
 Settings の Dispatch Queue からの承認（/dispatch/{id}/decision）だけが担う。
+direct: true を明示した場合のみ承認を待たず即座に実行する。
 キューの変化はステータスストリーム WS（type="dispatch_queue" の全量スナップ
 ショット）で全購読端末へ配信する。
 
@@ -197,7 +198,7 @@ class DispatchRequest(BaseModel):
     branch: str | None = None
     create_branch: bool = False
     base_branch: str | None = None
-    confirm: bool = True
+    direct: bool = False  # true: 承認を待たず即座に実行 / false（既定）: 承認キューへ積む
     dedup_key: str | None = None  # 同一キューの重複を束ねる。呼び出し元が意味を決める opaque な文字列
 
     @property
@@ -216,11 +217,25 @@ def _resolve_job_def(workspace: str, job: str):
     return job_def
 
 
+def _has_uncommitted_changes(ws_path) -> bool:
+    try:
+        result = run_git_raw(["status", "--porcelain"], ws_path)
+    except (subprocess.TimeoutExpired, OSError) as e:
+        raise server_error(f"Failed to check workspace status: {e}") from None
+    return result.returncode == 0 and bool(result.stdout.strip())
+
+
 def _ensure_branch(workspace_name: str, ws_path, branch: str, create: bool, base: str | None) -> None:
     branch = validate_branch_name(branch)
     current = git_branch(ws_path)
     if branch == current:
         return
+    # checkout はブランチ切替時、未コミット変更があっても衝突しない限り黙って持ち越して
+    # しまう。dispatch は外部起点の承認フローなので、意図しない混入を明示的に弾く。
+    if _has_uncommitted_changes(ws_path):
+        raise bad_request(
+            f'Workspace has uncommitted changes. Commit or stash them before switching to "{branch}".'
+        )
     branches = git_branches(ws_path)
     if branch in branches:
         args = ["checkout", branch]
@@ -447,7 +462,7 @@ async def dispatch(body: DispatchRequest):
             notif_type="dispatch",
         )
 
-    if not body.confirm:
+    if body.direct:
         _notify_push()
         result = _launch(body)
         log_activity(
@@ -480,5 +495,5 @@ async def dispatch(body: DispatchRequest):
     _persist_pending()
     _schedule_queue_broadcast()
     # 承認を待たずに返す。結果が必要な呼び出し元はセッションの出現（/terminal/sessions）
-    # で確認するか、confirm:false で即実行を使う。
+    # で確認するか、direct:true で即実行を使う。
     return JSONResponse(status_code=202, content={"status": "pending", "id": dispatch_id})
