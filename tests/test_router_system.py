@@ -117,6 +117,7 @@ class TestSystemInfoEndpoint:
         monkeypatch.setattr(system_mod, "_get_uptime", lambda: "up 1 minute")
         monkeypatch.setattr(system_mod, "_get_cpu_temp", lambda: "50.0 °C")
         monkeypatch.setattr(system_mod, "_get_memory", lambda: "1.0 / 8.0 GB")
+        monkeypatch.setattr(system_mod, "_get_tailscale_info", lambda: None)
 
         res = client.get("/system/info", headers=AUTH)
         assert res.status_code == 200
@@ -134,6 +135,7 @@ class TestSystemInfoEndpoint:
         monkeypatch.setattr(system_mod, "_get_uptime", lambda: None)
         monkeypatch.setattr(system_mod, "_get_cpu_temp", lambda: None)
         monkeypatch.setattr(system_mod, "_get_memory", lambda: None)
+        monkeypatch.setattr(system_mod, "_get_tailscale_info", lambda: None)
 
         res = client.get("/system/info", headers=AUTH)
         assert res.status_code == 200
@@ -143,6 +145,98 @@ class TestSystemInfoEndpoint:
         # None の getter は省略される
         assert "ip" not in data
         assert "os" not in data
+        assert "tailscale" not in data
+
+    def test_includes_tailscale_when_detected(self, client, monkeypatch):
+        monkeypatch.setattr(system_mod, "_get_ip", lambda: None)
+        monkeypatch.setattr(system_mod, "_get_os_name", lambda: None)
+        monkeypatch.setattr(system_mod, "_get_uptime", lambda: None)
+        monkeypatch.setattr(system_mod, "_get_cpu_temp", lambda: None)
+        monkeypatch.setattr(system_mod, "_get_memory", lambda: None)
+        monkeypatch.setattr(
+            system_mod, "_get_tailscale_info",
+            lambda: {"version": "1.98.9", "serve_running": True, "https_enabled": True,
+                      "trust_auth_enabled": False, "auth_config_safe": True},
+        )
+
+        res = client.get("/system/info", headers=AUTH)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["tailscale"]["version"] == "1.98.9"
+        assert data["tailscale"]["auth_config_safe"] is True
+
+
+class TestGetTailscaleInfo:
+    def test_not_installed_returns_none(self, monkeypatch):
+        monkeypatch.setattr(system_mod, "_get_tailscale_version", lambda: None)
+        assert system_mod._get_tailscale_info() is None
+
+    def test_trust_disabled_is_always_safe(self, monkeypatch):
+        monkeypatch.setattr(system_mod, "_get_tailscale_version", lambda: "1.98.9")
+        monkeypatch.setattr(system_mod, "_get_tailscale_serve_running", lambda: False)
+        monkeypatch.setattr(system_mod, "_is_tailscale_trust_enabled", lambda: False)
+        monkeypatch.delenv("SSL_KEYFILE", raising=False)
+        monkeypatch.delenv("SSL_CERTFILE", raising=False)
+        info = system_mod._get_tailscale_info()
+        assert info["trust_auth_enabled"] is False
+        assert info["auth_config_safe"] is True
+
+    def test_trust_enabled_with_serve_and_https_is_safe(self, monkeypatch):
+        monkeypatch.setattr(system_mod, "_get_tailscale_version", lambda: "1.98.9")
+        monkeypatch.setattr(system_mod, "_get_tailscale_serve_running", lambda: True)
+        monkeypatch.setattr(system_mod, "_is_tailscale_trust_enabled", lambda: True)
+        monkeypatch.setenv("SSL_KEYFILE", "/tmp/key")
+        monkeypatch.setenv("SSL_CERTFILE", "/tmp/cert")
+        info = system_mod._get_tailscale_info()
+        assert info["https_enabled"] is True
+        assert info["auth_config_safe"] is True
+
+    def test_trust_enabled_without_serve_is_unsafe(self, monkeypatch):
+        monkeypatch.setattr(system_mod, "_get_tailscale_version", lambda: "1.98.9")
+        monkeypatch.setattr(system_mod, "_get_tailscale_serve_running", lambda: False)
+        monkeypatch.setattr(system_mod, "_is_tailscale_trust_enabled", lambda: True)
+        monkeypatch.setenv("SSL_KEYFILE", "/tmp/key")
+        monkeypatch.setenv("SSL_CERTFILE", "/tmp/cert")
+        info = system_mod._get_tailscale_info()
+        assert info["auth_config_safe"] is False
+
+    def test_trust_enabled_without_https_is_unsafe(self, monkeypatch):
+        monkeypatch.setattr(system_mod, "_get_tailscale_version", lambda: "1.98.9")
+        monkeypatch.setattr(system_mod, "_get_tailscale_serve_running", lambda: True)
+        monkeypatch.setattr(system_mod, "_is_tailscale_trust_enabled", lambda: True)
+        monkeypatch.delenv("SSL_KEYFILE", raising=False)
+        monkeypatch.delenv("SSL_CERTFILE", raising=False)
+        info = system_mod._get_tailscale_info()
+        assert info["auth_config_safe"] is False
+
+
+class TestGetTailscaleVersion:
+    def test_parses_first_line(self, monkeypatch):
+        monkeypatch.setattr(system_mod, "_run_cmd_safe", lambda cmd: "1.98.9\ntailscale commit: abc\n")
+        assert system_mod._get_tailscale_version() == "1.98.9"
+
+    def test_not_installed_returns_none(self, monkeypatch):
+        monkeypatch.setattr(system_mod, "_run_cmd_safe", lambda cmd: None)
+        assert system_mod._get_tailscale_version() is None
+
+
+class TestGetTailscaleServeRunning:
+    def test_running_with_web_handlers(self, monkeypatch):
+        result = subprocess.CompletedProcess(
+            args=[], returncode=0,
+            stdout='{"TCP": {"443": {"HTTPS": true}}, "Web": {"x": {}}}',
+        )
+        monkeypatch.setattr(system_mod, "run_subprocess_safe", lambda *a, **k: result)
+        assert system_mod._get_tailscale_serve_running() is True
+
+    def test_not_configured(self, monkeypatch):
+        result = subprocess.CompletedProcess(args=[], returncode=0, stdout="{}")
+        monkeypatch.setattr(system_mod, "run_subprocess_safe", lambda *a, **k: result)
+        assert system_mod._get_tailscale_serve_running() is False
+
+    def test_command_unavailable_returns_none(self, monkeypatch):
+        monkeypatch.setattr(system_mod, "run_subprocess_safe", lambda *a, **k: None)
+        assert system_mod._get_tailscale_serve_running() is None
 
 
 class TestSystemProcessesEndpoint:

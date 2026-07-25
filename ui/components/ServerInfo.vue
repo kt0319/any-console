@@ -146,6 +146,22 @@ function formatAuth(auth) {
 }
 const mapProcess = (p) => ({ label: p.name, pid: p.pid, values: [`${p.cpu.toFixed(1)}%`, `${p.mem.toFixed(1)}%`] });
 
+function yesNoUnknown(v) {
+  if (v === null || v === undefined) return "Unknown";
+  return v ? "Yes" : "No";
+}
+
+function tailscaleRows(ts) {
+  if (!ts) return [];
+  return [
+    row("Version", ts.version),
+    row("Serve", ts.serve_running === null ? "Unknown" : (ts.serve_running ? "Running" : "Not running")),
+    row("HTTPS", yesNoUnknown(ts.https_enabled)),
+    row("Auto-auth", ts.trust_auth_enabled ? "Enabled" : "Disabled"),
+    row("Auth config", !ts.trust_auth_enabled ? "N/A" : (ts.auth_config_safe ? "Safe" : "Review needed")),
+  ];
+}
+
 async function load() {
   isLoading.value = true;
   const get = (ep) => getWithRetry(apiGet, ep).then((r) => r.ok ? r.data : null).catch(() => null);
@@ -174,6 +190,10 @@ async function load() {
         row("CPU Temp", srv.cpu_temp), row("Disk", srv.disk),
       ].filter((r) => r.values[0]) : [],
     },
+    ...(srv?.tailscale ? [{
+      label: "Tailscale",
+      rows: tailscaleRows(srv.tailscale),
+    }] : []),
     {
       label: "Client",
       rows: [

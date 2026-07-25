@@ -1,4 +1,5 @@
 import getpass
+import json
 import logging
 import os
 import platform
@@ -13,7 +14,7 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from ..auth import verify_token
+from ..auth import _is_tailscale_trust_enabled, verify_token
 from ..common import SYSTEM_CMD_TIMEOUT_SEC, run_subprocess_safe, sanitize_log_value
 from ..errors import bad_request, conflict, not_found, server_error
 
@@ -334,9 +335,55 @@ def get_tmux_info():
     return info
 
 
+def _get_tailscale_version() -> str | None:
+    """`tailscale version` の先頭行（クライアントバージョン）。tailscale未インストールならNone。"""
+    out = _run_cmd_safe(["tailscale", "version"])
+    if not out:
+        return None
+    first_line = out.splitlines()[0].strip() if out.strip() else ""
+    return first_line or None
+
+
+def _get_tailscale_serve_running() -> bool | None:
+    """Tailscale Serveが稼働中か。`tailscale`未インストール/tailscaled未起動ならNone。"""
+    result = run_subprocess_safe(["tailscale", "serve", "status", "--json"], timeout=SYSTEM_CMD_TIMEOUT_SEC)
+    if result is None or result.returncode != 0:
+        return None
+    try:
+        data = json.loads(result.stdout)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return bool(data.get("TCP") or data.get("Web"))
+
+
+def _get_tailscale_info() -> dict[str, Any] | None:
+    """System InfoのTailscaleカード用データ。tailscale未検出ならNone（カード自体を出さない）。"""
+    version = _get_tailscale_version()
+    if version is None:
+        return None
+    serve_running = _get_tailscale_serve_running()
+    https_enabled = bool(os.environ.get("SSL_KEYFILE") and os.environ.get("SSL_CERTFILE"))
+    trust_enabled = _is_tailscale_trust_enabled()
+    # 自動認証は「Tailscale経由の接続元だけ信頼する」判定が本体（api/auth.py参照）。
+    # その入口自体（Serve）が動いていない状態で有効化されていると、想定外の経路
+    # （別プロキシ経由でloopbackへ届く偽装ヘッダ等）を防げているか確認しづらいため
+    # 要確認とする。無効化されていれば、このリスク自体が存在しないため安全。
+    if not trust_enabled:
+        auth_config_safe = True
+    else:
+        auth_config_safe = bool(serve_running) and https_enabled
+    return {
+        "version": version,
+        "serve_running": serve_running,
+        "https_enabled": https_enabled,
+        "trust_auth_enabled": trust_enabled,
+        "auth_config_safe": auth_config_safe,
+    }
+
+
 @router.get("/system/info")
 def get_system_info():
-    info = {
+    info: dict[str, Any] = {
         "hostname": socket.gethostname(),
         "user": getpass.getuser(),
         "install_dir": REPO_DIR,
@@ -362,6 +409,10 @@ def get_system_info():
         info["disk"] = f"{used_gb:.1f} / {total_gb:.1f} GB"
     except OSError:
         pass
+
+    tailscale = _get_tailscale_info()
+    if tailscale is not None:
+        info["tailscale"] = tailscale
 
     return info
 
