@@ -157,8 +157,14 @@ async function start() {
   tickTimer = setInterval(() => {
     if (secondsLeft.value <= 1) {
       secondsLeft.value = 0;
-      status.value = "expired";
-      clearTimers();
+      // 表示上のカウントダウンを止めるだけ。status/pollTimerには触れない —
+      // サーバはclaim進行中のエントリをexpires_atを過ぎても`claiming`のまま
+      // 保持し、後から claimed へ倒すことがある(claim_pairing参照)。ここで
+      // pollTimerまで止めてしまうと、その後の成功をissuer側が永久に観測
+      // できなくなる。expired/claimedの最終判定はpoll()の応答(サーバ側)に
+      // 委ねる。
+      if (tickTimer) clearInterval(tickTimer);
+      tickTimer = null;
       return;
     }
     secondsLeft.value -= 1;
