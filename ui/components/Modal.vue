@@ -329,7 +329,7 @@ onMounted(() => {
   .modal-header {
     border-bottom: 1px solid var(--border);
     border-top: none;
-    margin-bottom: 8px;
+    margin-bottom: 0;
     margin-top: 0;
     padding-bottom: 0;
   }
