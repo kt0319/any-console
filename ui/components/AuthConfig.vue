@@ -36,8 +36,8 @@
             type="button"
             class="security-icon-btn"
             :disabled="!tokenValue"
-            aria-label="Copy token"
-            data-tooltip="Copy token"
+            aria-label="Copy user token"
+            data-tooltip="Copy user token"
             @click="copyTokenValue"
           >
             <span :class="['mdi', tokenValueCopied ? 'mdi-check' : 'mdi-content-copy']"></span>
