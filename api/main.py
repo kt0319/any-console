@@ -25,6 +25,7 @@ from .common import BACKGROUND_EXECUTOR, BACKGROUND_FETCH_EXECUTOR, MAX_UPLOAD_S
 from .errors import bad_request, too_large
 from .icons import ICONS_DIR
 from .rate_limiter import RateLimitMiddleware
+from .routers import api_tokens as api_tokens_router
 from .routers import devices as devices_router
 from .routers import (
     dispatch,
@@ -216,6 +217,7 @@ app.include_router(jobs.router)
 app.include_router(job_runner.router)
 app.include_router(dispatch.router)
 app.include_router(devices_router.router)
+app.include_router(api_tokens_router.router)
 app.include_router(preview_router.router)
 app.include_router(terminal.router)
 app.include_router(terminal.ws_router)

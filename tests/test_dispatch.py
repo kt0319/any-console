@@ -489,7 +489,7 @@ class TestActivityLogging:
         data = res.json()
         log.assert_called_once_with(
             "test-ws", "dispatch_executed",
-            job="terminal", session_id=data["session_id"], created=True,
+            job="terminal", session_id=data["session_id"], created=True, auth="main",
         )
 
     def test_direct_default_false_logs_pending(self, client, workspace):
@@ -500,7 +500,7 @@ class TestActivityLogging:
                 json={"workspace": "test-ws", "text": "echo hi"},
             )
         assert res.status_code == 202
-        log.assert_called_once_with("test-ws", "dispatch_pending", job="terminal", text="echo hi")
+        log.assert_called_once_with("test-ws", "dispatch_pending", job="terminal", text="echo hi", auth="main")
 
     def test_approved_logs_dispatch_approved(self, client, workspace):
         from unittest import mock
@@ -655,13 +655,13 @@ class TestDedupKey:
         _enqueue(client, text="echo 1", dedup_key="k")
         with mock.patch("api.routers.dispatch.log_activity") as log:
             _enqueue(client, text="echo 2", dedup_key="k")
-        log.assert_called_once_with("test-ws", "dispatch_superseded", job="terminal", text="echo 2")
+        log.assert_called_once_with("test-ws", "dispatch_superseded", job="terminal", text="echo 2", auth="main")
 
     def test_first_request_logs_dispatch_pending(self, client, workspace):
         from unittest import mock
         with mock.patch("api.routers.dispatch.log_activity") as log:
             _enqueue(client, text="echo 1", dedup_key="k")
-        log.assert_called_once_with("test-ws", "dispatch_pending", job="terminal", text="echo 1")
+        log.assert_called_once_with("test-ws", "dispatch_pending", job="terminal", text="echo 1", auth="main")
 
     def test_replaced_item_persists_with_retry_count(self, client, workspace):
         _enqueue(client, text="echo 1", dedup_key="k")

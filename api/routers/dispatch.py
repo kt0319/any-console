@@ -13,6 +13,12 @@ direct: true を明示した場合のみ承認を待たず即座に実行する�
 dedup_key を指定すると、同じキーの承認待ちが既にあればそれを置き換える
 （CI の連続失敗などで同一要件のキュー項目が積み上がるのを防ぐ）。置き換え
 時は retry_count を引き継いで +1 し、通知の重複送信は行わない。
+
+POST /dispatch のみ verify_dispatch_token を使い、メイントークンに加えて
+dispatch scope の API トークン（api/auth.py）も受け付ける。dispatch トークンは
+キュー登録専用で direct: true を拒否する。/dispatch/{id}/decision・ステータス
+ストリーム WS 等の他エンドポイントは引き続きメイントークンのみ
+（dispatch トークン漏洩だけで自己承認できないようにするための境界）。
 """
 
 import asyncio
@@ -28,7 +34,7 @@ from fastapi.websockets import WebSocketDisconnect
 from pydantic import BaseModel
 
 from ..activity import log_activity
-from ..auth import verify_token
+from ..auth import verify_dispatch_token, verify_token
 from ..common import (
     DISPATCH_QUEUE_FILE,
     resolve_workspace_path,
@@ -57,7 +63,10 @@ from .jobs_common import get_workspace_jobs
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(dependencies=[Depends(verify_token)])
+# NOTE: ルーター単位の共通 verify_token 依存はあえて使わない。POST /dispatch だけ
+# dispatch scope の API トークンも受け付ける verify_dispatch_token を使うため、
+# 各ルートで個別に依存を指定する（decision はメイントークンのみの verify_token）。
+router = APIRouter()
 
 # dispatch_id -> リクエスト payload（純データ。永続化ファイルと同型）
 _PENDING: dict[str, dict] = {}
@@ -301,7 +310,7 @@ class DispatchDecision(BaseModel):
 
 
 @router.post("/dispatch/{dispatch_id}/decision")
-async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
+async def dispatch_decision(dispatch_id: str, body: DispatchDecision, _auth: str = Depends(verify_token)):
     """Settingsの「Dispatch Queue」からの承認/却下を受け取る。
     承認時はここで実行まで行い、起動結果をそのまま返す（/dispatch はキュー登録で
     即座に返るため、実行はこのエンドポイントだけが担う）。実行失敗時は項目を
@@ -432,8 +441,20 @@ def _branch_status(ws_path, branch: str) -> str:
         return "unknown"
 
 
+def _auth_label(auth_subject: str) -> str:
+    """activity ログへ書き出す用の認証識別子。tailscale:/device:/token: 接頭辞は
+    秘密情報を含まないためそのまま使う。それ以外（メイン Bearer token 自体が
+    identity として返るケース）は生のトークン値をログへ残さないよう "main" に丸める。
+    """
+    if auth_subject.startswith(("tailscale:", "device:", "token:")):
+        return auth_subject
+    return "main" if auth_subject else "disabled"
+
+
 @router.post("/dispatch")
-async def dispatch(body: DispatchRequest):
+async def dispatch(body: DispatchRequest, auth_subject: str = Depends(verify_dispatch_token)):
+    if body.direct and auth_subject.startswith("token:"):
+        raise bad_request("Direct execution is not allowed for dispatch token")
     effective_ws = body.effective_workspace
     ws_path = resolve_workspace_path(effective_ws)
     _resolve_job_def(effective_ws, body.job)  # 存在確認のみ（不正な job 名を早期に弾く）
@@ -468,6 +489,7 @@ async def dispatch(body: DispatchRequest):
         log_activity(
             result["workspace"], "dispatch_executed",
             job=result["job"], session_id=result["session_id"], created=result["created"],
+            auth=_auth_label(auth_subject),
         )
         return result
 
@@ -492,7 +514,7 @@ async def dispatch(body: DispatchRequest):
 
     log_activity(
         effective_ws, "dispatch_superseded" if retry_count > 1 else "dispatch_pending",
-        job=body.job, text=body.text,
+        job=body.job, text=body.text, auth=_auth_label(auth_subject),
     )
 
     _PENDING[dispatch_id] = payload

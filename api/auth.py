@@ -3,6 +3,7 @@ import ipaddress
 import logging
 import os
 import secrets
+import time
 from typing import Mapping, Optional
 
 from fastapi import Depends, HTTPException, Request, status
@@ -17,6 +18,12 @@ _AUTH_FILE = DATA_DIR / "auth.json"
 
 COOKIE_DEVICE_ID = "any_console_device"  # noqa: S105
 COOKIE_DEVICE_SECRET = "any_console_secret"  # noqa: S105
+
+# スコープ付き API トークン（v1: "dispatch" のみ）。将来 GitHub Actions 等の外部連携
+# から /dispatch を呼ぶ際、全 API を解錠するメイントークンをそのまま渡さないための
+# 用途限定トークン（docs/DECISIONS.md ADR 参照）。
+API_TOKEN_SCOPE_DISPATCH = "dispatch"  # noqa: S105
+API_TOKEN_MAX_NAME_LEN = 80
 
 # Tailscale Serve / tailscaled が upstream に付与するヘッダ。
 # 受信した HTTP ヘッダにこれが含まれていれば「Tailscale 経由で認証済みのユーザ」だが、
@@ -37,9 +44,13 @@ _TAILSCALE_CGNAT = ipaddress.ip_network("100.64.0.0/10")
 _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 
 
-def _load_token_from_file() -> str:
+def _load_auth_file() -> dict:
     data = load_json_file(_AUTH_FILE, {})
-    token = data.get("token", "") if isinstance(data, dict) else ""
+    return data if isinstance(data, dict) else {}
+
+
+def _load_token_from_file() -> str:
+    token = _load_auth_file().get("token", "")
     return str(token) if token else ""
 
 
@@ -147,7 +158,11 @@ def verify_ws_token(
 
 def update_token(new_token: str) -> None:
     global ANY_CONSOLE_TOKEN
-    save_json_file(_AUTH_FILE, {"token": new_token})
+    # api_tokens 等の他フィールドを消さないよう、既存データへマージして書く
+    # （丸ごと上書きすると発行済みの API トークンが消えてしまう）。
+    data = _load_auth_file()
+    data["token"] = new_token
+    save_json_file(_AUTH_FILE, data)
     ANY_CONSOLE_TOKEN = new_token
 
 
@@ -181,6 +196,110 @@ def verify_token(
             detail="Invalid token",
         )
     return identity
+
+
+def _load_api_tokens() -> list[dict]:
+    tokens = _load_auth_file().get("api_tokens")
+    return tokens if isinstance(tokens, list) else []
+
+
+def _save_api_tokens(tokens: list[dict]) -> None:
+    data = _load_auth_file()
+    data["api_tokens"] = tokens
+    save_json_file(_AUTH_FILE, data)
+
+
+def create_api_token(name: str, scope: str = API_TOKEN_SCOPE_DISPATCH) -> tuple[dict, str]:
+    """新規スコープ付き API トークンを発行する。
+
+    (secret_hash を除いたメタデータ dict, raw トークン) を返す。raw トークンは
+    ここでしか取得できず、サーバには api/devices.py と同じ HMAC-SHA256 ハッシュ
+    （data/server_key）のみを保存する。
+    """
+    from .devices import _hash_secret
+    token_id = f"tok_{secrets.token_hex(8)}"
+    raw_token = secrets.token_urlsafe(32)
+    entry = {
+        "id": token_id,
+        "name": (name or "Unnamed token")[:API_TOKEN_MAX_NAME_LEN],
+        "scope": scope,
+        "secret_hash": _hash_secret(raw_token),
+        "created_at": int(time.time()),
+        "last_used": None,
+    }
+    tokens = _load_api_tokens()
+    tokens.append(entry)
+    _save_api_tokens(tokens)
+    logger.info("api token created id=%s name=%s scope=%s", token_id, entry["name"], scope)
+    return {k: v for k, v in entry.items() if k != "secret_hash"}, raw_token
+
+
+def list_api_tokens() -> list[dict]:
+    """secret_hash を除いた一覧を返す（UI 表示用）。"""
+    return [{k: v for k, v in t.items() if k != "secret_hash"} for t in _load_api_tokens()]
+
+
+def get_api_token(token_id: str) -> dict | None:
+    if not token_id:
+        return None
+    for t in _load_api_tokens():
+        if t.get("id") == token_id:
+            return {k: v for k, v in t.items() if k != "secret_hash"}
+    return None
+
+
+def revoke_api_token(token_id: str) -> bool:
+    if not token_id:
+        return False
+    tokens = _load_api_tokens()
+    before = len(tokens)
+    tokens = [t for t in tokens if t.get("id") != token_id]
+    if len(tokens) == before:
+        return False
+    _save_api_tokens(tokens)
+    logger.info("api token revoked id=%s", token_id)
+    return True
+
+
+def _verify_api_token(raw_token: str) -> dict | None:
+    """raw_token がどれかの api_tokens エントリと一致すれば last_used を更新して返す
+    （secret_hash を含む生の dict）。一致しなければ None。"""
+    if not raw_token:
+        return None
+    from .devices import _hash_secret
+    expected_hash = _hash_secret(raw_token)
+    tokens = _load_api_tokens()
+    for t in tokens:
+        if hmac.compare_digest(t.get("secret_hash", ""), expected_hash):
+            t["last_used"] = int(time.time())
+            _save_api_tokens(tokens)
+            return t
+    return None
+
+
+def verify_dispatch_token(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+) -> str:
+    """POST /dispatch 専用の認証依存関数。
+
+    まず通常の認証（メイントークン / デバイス cookie / Tailscale ヘッダ）を試し、
+    失敗したら supplied トークンを dispatch scope の API トークンとして照合する。
+
+    SECURITY: この依存関数を使うのは POST /dispatch だけにすること。
+    `/dispatch/{id}/decision`・ステータスストリーム WS・他の全 API は
+    `verify_token`（メイントークンのみ）のままにする。dispatch トークンだけが
+    漏れた場合に、それを使って自分が投げた dispatch を自己承認できてしまうため。
+    """
+    client_host = (request.client.host or "") if request.client else ""
+    raw = str(credentials.credentials) if credentials is not None else ""
+    identity = _authenticate(raw, client_host, request.headers, request.cookies)
+    if identity is not None:
+        return identity
+    token_entry = _verify_api_token(raw)
+    if token_entry is not None and token_entry.get("scope") == API_TOKEN_SCOPE_DISPATCH:
+        return f"token:{token_entry['id']}"
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 
 def _extract_client_ip(request: Request) -> str:
