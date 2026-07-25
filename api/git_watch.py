@@ -436,12 +436,11 @@ async def _auto_fetch_loop() -> None:  # pragma: no cover - 実時間スリー�
     fetch の結果 .git/FETCH_HEAD や refs が変わると FS 監視経由で push される。
     awatch が失敗している間の下支えとして、fetch 後は明示的に再計算・push も行う
     （変化がなければ _push_status 側の snapshot 比較で配信されない）。
+    最初の購読者が現れた瞬間に1回目の fetch を実行してから待機に入る（先に sleep すると
+    アプリを開いてから最大 GIT_AUTO_FETCH_INTERVAL_SEC 秒、behind 判定が古いまま残るため）。
     """
     try:
         while _subscribers:
-            await asyncio.sleep(GIT_AUTO_FETCH_INTERVAL_SEC)
-            if not _subscribers:
-                break
             targets = await _refresh_targets()
             loop = asyncio.get_running_loop()
             for target in targets:
@@ -450,6 +449,9 @@ async def _auto_fetch_loop() -> None:  # pragma: no cover - 実時間スリー�
                 await loop.run_in_executor(BACKGROUND_FETCH_EXECUTOR, _fetch_one, target.path)
             for target in targets:
                 await _push_status(target)
+            if not _subscribers:
+                break
+            await asyncio.sleep(GIT_AUTO_FETCH_INTERVAL_SEC)
     except asyncio.CancelledError:
         pass
     except subprocess.SubprocessError as e:
