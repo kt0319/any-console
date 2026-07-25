@@ -1,4 +1,6 @@
 name: CI
+# NOTE: dispatch-on-ci-failure.yml はこの name を workflow_run.workflows で参照している。
+# 変更する場合は dispatch-on-ci-failure.yml 側も合わせて更新すること。
 
 # PR ブランチへの push は pull_request の 1 回だけ実行する（push は main のみ）。
 # PR を開く前のブランチ push では CI は走らない。ドキュメントのみの変更もスキップする。

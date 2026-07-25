@@ -1,0 +1,61 @@
+name: Dispatch on CI failure
+
+# CI（ci.yml の name: と一致させること）が失敗した時、any-console の /dispatch
+# エンドポイントへ承認キュー登録を投げる。実行はしない（direct は送らない）。
+# キューに積まれた項目は Settings > Dispatch Queue から人間が承認するまで実行されない。
+#
+# マージ後にユーザーが手動で行う必要がある設定:
+#   - Tailscale ACL で tag:ci をこの any-console ホストの該当ポートだけに絞る
+#   - Tailscale OAuth クライアントを発行し、Secrets に TS_OAUTH_CLIENT_ID / TS_OAUTH_SECRET を登録
+#   - any-console の Settings > Auth > API Tokens で scope=dispatch のトークンを発行し、
+#     Secrets に ANY_CONSOLE_DISPATCH_TOKEN として登録（メイントークンは絶対に使わないこと）
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  dispatch:
+    # fork 由来の PR で CI が失敗しても発火させない（このリポジトリは public なため必須）。
+    if: >
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Connect to tailnet
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Queue dispatch on any-console
+        env:
+          # head_branch は fork 攻撃者が制御できる値なので、run: に ${{ }} で直書きせず
+          # env 経由で渡し、jq --arg で JSON 化する（シェルインジェクション対策）。
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          WORKSPACE: any-console
+          ANY_CONSOLE_DISPATCH_TOKEN: ${{ secrets.ANY_CONSOLE_DISPATCH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          dedup_key="ci-failure:${WORKSPACE}:${HEAD_BRANCH}"
+          text="CI failed on branch ${HEAD_BRANCH}. Run: ${RUN_URL}. First run \`gh run view --log-failed\` to inspect the failure log before fixing."
+
+          payload=$(jq -n \
+            --arg workspace "$WORKSPACE" \
+            --arg branch "$HEAD_BRANCH" \
+            --arg dedup_key "$dedup_key" \
+            --arg text "$text" \
+            '{workspace: $workspace, branch: $branch, dedup_key: $dedup_key, text: $text}')
+
+          # direct は送らない（省略 = 承認キュー行きが既定）。dispatch scope トークンは
+          # direct:true を指定すると 400 で拒否されるため、誤混入しても安全側で止まる。
+          curl --fail --show-error --silent \
+            -X POST "https://mini.tail794a9.ts.net/dispatch" \
+            -H "Authorization: Bearer ${ANY_CONSOLE_DISPATCH_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$payload"
