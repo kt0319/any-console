@@ -5,7 +5,7 @@ import os
 import secrets
 import threading
 import time
-from typing import Mapping, Optional
+from typing import Literal, Mapping, NamedTuple, Optional
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -152,30 +152,44 @@ def _tailscale_user(client_host: str, headers: Mapping[str, str]) -> str | None:
     return user or None
 
 
+class AuthResult(NamedTuple):
+    """`_authenticate` の判定結果。
+
+    kind: どの経路で認証されたか（呼び出し側はこれで分岐する。文字列プレフィックス
+    の推測に頼らないための構造化 — 過去に `verify_dispatch_token` が identity と
+    raw トークンの値比較でメイントークン判定を逆算しており、脆い構造だった）。
+    label: activity ログ・API レスポンス用の識別子文字列。kind="main" の場合のみ
+    生の Bearer 値そのもの（呼び出し側が値を握り潰す/別の安全な文字列に置き換える
+    かは呼び出し側の責務）。
+    """
+    kind: Literal["disabled", "main", "tailscale", "device"]
+    label: str
+
+
 def _authenticate(
     token: str,
     client_host: str,
     headers: Mapping[str, str] | None,
     cookies: Mapping[str, str] | None,
-) -> str | None:
+) -> AuthResult | None:
     """認証判定のコア（HTTP / WS 共通）。
 
     Tailscale ヘッダ → デバイス cookie → Bearer token の順に判定し、
-    成功なら「誰として認証されたか」の識別子文字列、失敗なら None を返す。
+    成功なら AuthResult、失敗なら None を返す。
     """
     if not ANY_CONSOLE_TOKEN:
-        return ""
+        return AuthResult("disabled", "")
     if headers is not None:
         ts_user = _tailscale_user(client_host, headers)
         if ts_user:
-            return f"tailscale:{ts_user}"
+            return AuthResult("tailscale", f"tailscale:{ts_user}")
     if cookies is not None:
         from .devices import verify_and_touch_device
         dev = verify_and_touch_device(cookies.get(COOKIE_DEVICE_ID, ""), cookies.get(COOKIE_DEVICE_SECRET, ""))
         if dev:
-            return f"device:{dev['id']}"
+            return AuthResult("device", f"device:{dev['id']}")
     if hmac.compare_digest(token, ANY_CONSOLE_TOKEN):
-        return token
+        return AuthResult("main", token)
     return None
 
 
@@ -223,18 +237,18 @@ def verify_token(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> str:
     client_host = (request.client.host or "") if request.client else ""
-    identity = _authenticate(
+    result = _authenticate(
         str(credentials.credentials) if credentials is not None else "",
         client_host,
         request.headers,
         request.cookies,
     )
-    if identity is None:
+    if result is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
         )
-    return identity
+    return result.label
 
 
 def _load_api_tokens() -> list[dict]:
@@ -342,13 +356,13 @@ def verify_dispatch_token(
       呼び出し側（POST /dispatch）はこれで direct:true を拒否するかどうかを
       判定する。
 
-    SECURITY: 呼び出し側で auth_label の文字列プレフィックス（"tailscale:" /
-    "device:" / "token:" 等）を見て「dispatch トークンかどうか」や「ログに安全か」
-    を判定してはならない。メイントークンは Settings > Auth で任意の文字列に設定
-    できるため、"token:..." のような値をメイントークンに設定した管理者が
-    dispatch トークン扱いされてしまう（direct:true が誤って拒否される／生の
-    メイントークンが activity ログへそのまま残る）実バグがあった。ここで
-    ブランチ確定時点の情報から判定を確定させ、文字列推測を必要としない形で返す。
+    SECURITY: 判定は `_authenticate` が返す `AuthResult.kind` のみに基づく
+    （文字列プレフィックスの推測はしない）。メイントークンは Settings > Auth で
+    任意の文字列に設定できるため、値のプレフィックス比較で判定すると
+    "token:..." のような値をメイントークンに設定した管理者が dispatch トークン
+    扱いされてしまう（direct:true が誤って拒否される／生のメイントークンが
+    activity ログへそのまま残る）実バグがあった。`kind` を見るこの構造ならその
+    種の誤判定は起こりえない。
 
     この依存関数を使うのは POST /dispatch だけにすること。
     `/dispatch/{id}/decision`・ステータスストリーム WS・他の全 API は
@@ -357,17 +371,14 @@ def verify_dispatch_token(
     """
     client_host = (request.client.host or "") if request.client else ""
     raw = str(credentials.credentials) if credentials is not None else ""
-    identity = _authenticate(raw, client_host, request.headers, request.cookies)
-    if identity is not None:
-        if not identity:
+    result = _authenticate(raw, client_host, request.headers, request.cookies)
+    if result is not None:
+        if result.kind == "disabled":
             return "disabled", False
-        if identity == raw:
-            # メイントークンの Bearer 一致（_authenticate の `return token` 分岐）
-            # だけが生の Bearer 値をそのまま identity として返す。他の分岐
-            # （tailscale:<user> / device:<id>）は自前で構築した非秘匿の識別子
-            # なのでこの等価判定には一致しない。
+        if result.kind == "main":
+            # 安全な固定ラベルを返す（生の Bearer 値は activity ログに残さない）。
             return "main", False
-        return identity, False
+        return result.label, False
     token_entry = _verify_api_token(raw)
     if token_entry is not None and token_entry.get("scope") == API_TOKEN_SCOPE_DISPATCH:
         return f"token:{token_entry['id']}", True
