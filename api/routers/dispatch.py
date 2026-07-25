@@ -13,6 +13,12 @@ direct: true を明示した場合のみ承認を待たず即座に実行する�
 dedup_key を指定すると、同じキーの承認待ちが既にあればそれを置き換える
 （CI の連続失敗などで同一要件のキュー項目が積み上がるのを防ぐ）。置き換え
 時は retry_count を引き継いで +1 し、通知の重複送信は行わない。
+
+POST /dispatch のみ verify_dispatch_token を使い、メイントークンに加えて
+dispatch scope の API トークン（api/auth.py）も受け付ける。dispatch トークンは
+キュー登録専用で direct: true を拒否する。/dispatch/{id}/decision・ステータス
+ストリーム WS 等の他エンドポイントは引き続きメイントークンのみ
+（dispatch トークン漏洩だけで自己承認できないようにするための境界）。
 """
 
 import asyncio
@@ -28,7 +34,7 @@ from fastapi.websockets import WebSocketDisconnect
 from pydantic import BaseModel
 
 from ..activity import log_activity
-from ..auth import verify_token
+from ..auth import verify_dispatch_token, verify_token
 from ..common import (
     DISPATCH_QUEUE_FILE,
     resolve_workspace_path,
@@ -57,7 +63,10 @@ from .jobs_common import get_workspace_jobs
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(dependencies=[Depends(verify_token)])
+# NOTE: ルーター単位の共通 verify_token 依存はあえて使わない。POST /dispatch だけ
+# dispatch scope の API トークンも受け付ける verify_dispatch_token を使うため、
+# 各ルートで個別に依存を指定する（decision はメイントークンのみの verify_token）。
+router = APIRouter()
 
 # dispatch_id -> リクエスト payload（純データ。永続化ファイルと同型）
 _PENDING: dict[str, dict] = {}
@@ -301,7 +310,7 @@ class DispatchDecision(BaseModel):
 
 
 @router.post("/dispatch/{dispatch_id}/decision")
-async def dispatch_decision(dispatch_id: str, body: DispatchDecision):
+async def dispatch_decision(dispatch_id: str, body: DispatchDecision, _auth: str = Depends(verify_token)):
     """Settingsの「Dispatch Queue」からの承認/却下を受け取る。
     承認時はここで実行まで行い、起動結果をそのまま返す（/dispatch はキュー登録で
     即座に返るため、実行はこのエンドポイントだけが担う）。実行失敗時は項目を
@@ -433,7 +442,24 @@ def _branch_status(ws_path, branch: str) -> str:
 
 
 @router.post("/dispatch")
-async def dispatch(body: DispatchRequest):
+async def dispatch(body: DispatchRequest, auth: tuple[str, bool] = Depends(verify_dispatch_token)):
+    # auth_label は activity ログ用の安全な識別子（生のメイントークン値は含まない）、
+    # is_scoped_token は dispatch scope の API トークンで認証された場合のみ True。
+    # どちらも verify_dispatch_token が分岐確定時点で判定済みの値をそのまま使う
+    # （identity の文字列プレフィックスをここで推測しない — メイントークンは任意の
+    # 文字列に設定できるため、"token:" 等で始まる値だと誤判定するバグがあった）。
+    auth_label, is_scoped_token = auth
+    if body.direct and is_scoped_token:
+        raise bad_request("Direct execution is not allowed for dispatch token")
+    if is_scoped_token:
+        # dispatch トークンは低信頼な外部連携（CI 等）用でキュー登録専用。session_id
+        # をそのまま許すと、承認モーダルには _find_existing_session ベースの
+        # 「New session」等が表示される一方、承認後の _resolve_session は
+        # body.session_id を優先するため、攻撃者が知っている無関係な既存セッション
+        # へ隠れてテキスト送信・ブランチ操作されてしまう（reviewer が見た内容と
+        # 実行対象が乖離する）。dispatch トークンからのリクエストでは session_id を
+        # 無視し、通常の workspace/job ベースの既存セッション探索だけに限定する。
+        body.session_id = None
     effective_ws = body.effective_workspace
     ws_path = resolve_workspace_path(effective_ws)
     _resolve_job_def(effective_ws, body.job)  # 存在確認のみ（不正な job 名を早期に弾く）
@@ -468,6 +494,7 @@ async def dispatch(body: DispatchRequest):
         log_activity(
             result["workspace"], "dispatch_executed",
             job=result["job"], session_id=result["session_id"], created=result["created"],
+            auth=auth_label,
         )
         return result
 
@@ -492,7 +519,7 @@ async def dispatch(body: DispatchRequest):
 
     log_activity(
         effective_ws, "dispatch_superseded" if retry_count > 1 else "dispatch_pending",
-        job=body.job, text=body.text,
+        job=body.job, text=body.text, auth=auth_label,
     )
 
     _PENDING[dispatch_id] = payload

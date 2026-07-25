@@ -76,6 +76,63 @@
           </button>
         </div>
       </template>
+
+      <div class="settings-section-label">API Tokens</div>
+      <div class="settings-note" style="margin-bottom: 8px;">
+        Scoped tokens for external integrations (e.g. GitHub Actions). They can only queue a dispatch request — never approve one or access anything else.
+      </div>
+      <div class="ws-settings-row" style="gap:8px">
+        <input
+          v-model="newTokenName"
+          type="text"
+          class="form-input"
+          placeholder="Token name (e.g. github-actions)"
+          maxlength="80"
+          @keydown.enter="createApiToken"
+        />
+        <button type="button" class="primary" :disabled="creatingToken || !newTokenName.trim()" @click="createApiToken">
+          {{ creatingToken ? "Creating..." : "Create" }}
+        </button>
+      </div>
+
+      <div v-if="createdToken" class="api-token-created">
+        <div class="settings-note">Copy this token now — it will not be shown again.</div>
+        <div class="security-token-row">
+          <input :value="createdToken.token" type="text" readonly class="security-token-input" aria-label="New API token" />
+          <button
+            type="button"
+            class="security-icon-btn"
+            aria-label="Copy token"
+            data-tooltip="Copy token"
+            @click="copyCreatedToken"
+          >
+            <span :class="['mdi', tokenCopied ? 'mdi-check' : 'mdi-content-copy']"></span>
+          </button>
+        </div>
+      </div>
+
+      <div v-if="apiTokensLoading" class="text-muted-center">Loading...</div>
+      <template v-else>
+        <div v-if="!apiTokens.length" class="settings-note">No API tokens yet.</div>
+        <div v-for="t in apiTokens" :key="t.id" class="device-row">
+          <div class="device-meta">
+            <span class="device-name">
+              {{ t.name }}
+              <span class="device-tag">{{ t.scope }}</span>
+            </span>
+            <span class="device-sub">Last used: {{ t.last_used ? formatRelativeTime(t.last_used) : "Never" }}</span>
+          </div>
+          <button
+            type="button"
+            class="security-icon-btn"
+            aria-label="Revoke API token"
+            data-tooltip="Revoke API token"
+            @click="revokeApiToken(t)"
+          >
+            <span class="mdi mdi-close"></span>
+          </button>
+        </div>
+      </template>
     </template>
   </div>
 </template>
@@ -85,19 +142,28 @@ import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
 import { useConfirm } from "../composables/useConfirm.js";
-import { EP_SETTINGS_AUTH, EP_DEVICES, devicePath } from "../utils/endpoints.js";
+import { EP_SETTINGS_AUTH, EP_DEVICES, devicePath, EP_API_TOKENS, apiTokenPath } from "../utils/endpoints.js";
 import { formatRelativeTime } from "../utils/format.js";
+import { copyText } from "../utils/clipboard.js";
+import { URL_COPIED_RESET_MS } from "../utils/constants.js";
 
 const modalTitle = inject("modalTitle");
 const pushView = inject("pushView");
 modalTitle.value = "Auth";
 
-const { apiGet, apiPut, apiDelete } = useApi();
+const { apiGet, apiPost, apiPut, apiDelete } = useApi();
 const { confirm } = useConfirm();
 
 const loading = ref(true);
 const devices = ref([]);
 const devicesLoading = ref(true);
+
+const apiTokens = ref([]);
+const apiTokensLoading = ref(true);
+const newTokenName = ref("");
+const creatingToken = ref(false);
+const createdToken = ref(/** @type {{id: string, name: string, token: string}|null} */ (null));
+const tokenCopied = ref(false);
 
 const enabled = ref(false);
 const tokenConfigured = ref(false);
@@ -171,6 +237,42 @@ async function revoke(d) {
   await loadDevices();
 }
 
+async function loadApiTokens() {
+  apiTokensLoading.value = true;
+  const res = await getWithRetry(apiGet, EP_API_TOKENS);
+  apiTokens.value = res.ok && Array.isArray(res.data) ? res.data : [];
+  apiTokensLoading.value = false;
+}
+
+async function createApiToken() {
+  const name = newTokenName.value.trim();
+  if (!name || creatingToken.value) return;
+  creatingToken.value = true;
+  const { ok, data } = await apiPost(EP_API_TOKENS, { name }, { errorMessage: "Failed to create token" });
+  creatingToken.value = false;
+  if (!ok) return;
+  createdToken.value = { id: data.id, name: data.name, token: data.token };
+  tokenCopied.value = false;
+  newTokenName.value = "";
+  await loadApiTokens();
+}
+
+async function copyCreatedToken() {
+  if (!createdToken.value) return;
+  tokenCopied.value = await copyText(createdToken.value.token);
+  if (tokenCopied.value) {
+    setTimeout(() => { tokenCopied.value = false; }, URL_COPIED_RESET_MS);
+  }
+}
+
+async function revokeApiToken(t) {
+  if (!await confirm(`Revoke API token "${t.name}"? Workflows using it will stop working. This cannot be undone.`)) return;
+  const { ok } = await apiDelete(apiTokenPath(t.id), { errorMessage: "Failed to revoke" });
+  if (!ok) return;
+  if (createdToken.value?.id === t.id) createdToken.value = null;
+  await loadApiTokens();
+}
+
 onMounted(async () => {
   const authRes = await getWithRetry(apiGet, EP_SETTINGS_AUTH);
   if (authRes.ok) {
@@ -179,6 +281,7 @@ onMounted(async () => {
   }
   loading.value = false;
   await loadDevices();
+  await loadApiTokens();
 });
 </script>
 
@@ -313,5 +416,13 @@ onMounted(async () => {
 .device-sub {
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.api-token-created {
+  margin: 8px 0 4px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
 }
 </style>

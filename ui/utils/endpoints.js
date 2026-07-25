@@ -33,6 +33,7 @@ export const EP_SYSTEM_UPDATE_CHECK = "/system/update/check";
 export const EP_SYSTEM_UPDATE_APPLY = "/system/update/apply";
 export const EP_SETTINGS_EDITOR = "/settings/editor";
 export const EP_SETTINGS_AUTH = "/settings/auth";
+export const EP_API_TOKENS = "/api-tokens";
 export const EP_PUSH_VAPID_KEY = "/push/vapid-public-key";
 export const EP_PUSH_SUBSCRIBE = "/push/subscribe";
 export const EP_SETTINGS_CIRCLE_KEYPAD = "/settings/circle-keypad";
@@ -62,6 +63,11 @@ export function pairingClaimPath(pairingId) {
 /** @param {string} deviceId @returns {string} */
 export function devicePath(deviceId) {
   return `/devices/${encodeURIComponent(deviceId)}`;
+}
+
+/** @param {string} tokenId @returns {string} */
+export function apiTokenPath(tokenId) {
+  return `/api-tokens/${encodeURIComponent(tokenId)}`;
 }
 
 /** @param {string} sessionId @returns {string} */

@@ -357,7 +357,7 @@ onMounted(() => {
   flex-direction: row;
   flex-shrink: 0;
   gap: 4px;
-  padding: 6px 8px;
+  padding: 6px 8px 0;
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;

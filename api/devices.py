@@ -15,6 +15,7 @@ import hashlib
 import hmac
 import logging
 import secrets
+import threading
 import time
 
 from .common import DATA_DIR, load_json_file, save_json_file
@@ -26,19 +27,26 @@ _SERVER_KEY_FILE = DATA_DIR / "server_key"
 MAX_NAME_LEN = 80
 MAX_UA_LEN = 200
 
+# data/server_key が無い状態で複数スレッドが同時に _load_or_create_server_key
+# を呼ぶと、全員が exists()==False を見て別々の鍵を生成し、最後の書き込みだけが
+# 残る（他のスレッドが計算したハッシュは以後絶対に一致しなくなる）。check-then-act
+# をロックで直列化し、鍵ファイルは常に1回だけ生成されるようにする。
+_server_key_lock = threading.Lock()
+
 
 def _load_or_create_server_key() -> bytes:
-    if _SERVER_KEY_FILE.exists():
-        return _SERVER_KEY_FILE.read_bytes()
-    _SERVER_KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
-    key = secrets.token_bytes(32)
-    _SERVER_KEY_FILE.write_bytes(key)
-    try:
-        _SERVER_KEY_FILE.chmod(0o600)
-    except OSError:
-        # Windows 等で chmod が効かない環境はそのまま続行
-        pass
-    return key
+    with _server_key_lock:
+        if _SERVER_KEY_FILE.exists():
+            return _SERVER_KEY_FILE.read_bytes()
+        _SERVER_KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
+        key = secrets.token_bytes(32)
+        _SERVER_KEY_FILE.write_bytes(key)
+        try:
+            _SERVER_KEY_FILE.chmod(0o600)
+        except OSError:
+            # Windows 等で chmod が効かない環境はそのまま続行
+            pass
+        return key
 
 
 def _hash_secret(raw_secret: str) -> str:
