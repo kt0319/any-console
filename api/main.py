@@ -34,6 +34,7 @@ from .routers import (
     groups,
     job_runner,
     jobs,
+    pairing,
     settings,
     status_stream,
     system,
@@ -217,6 +218,7 @@ app.include_router(jobs.router)
 app.include_router(job_runner.router)
 app.include_router(dispatch.router)
 app.include_router(devices_router.router)
+app.include_router(pairing.router)
 app.include_router(api_tokens_router.router)
 app.include_router(preview_router.router)
 app.include_router(terminal.router)
@@ -417,9 +419,23 @@ def serve_index(request: Request):
         cache_bust = request.query_params.get("_")
         if cache_bust and re.fullmatch(r"[0-9]{8,20}", cache_bust):
             version = cache_bust
-        html = re.sub(r'href="(?!https?://)([^"]+\.css)"', rf'href="\1?v={version}"', html)
-        html = re.sub(r'src="(?!https?://)([^"]+\.js)"', rf'src="\1?v={version}"', html)
+        # ソースモード(ui/を直接配信)の相対パスをルート相対に固定する。
+        # "/" だけでなく "/pair/{pairing_id}" からもこのシェルを返すため、
+        # 相対のままだとブラウザが "/pair/vue-main.js" のように現在のパスを
+        # 基準に解決してしまい、この動的ルート自体がそれにマッチして
+        # text/html を返してしまう(module scriptとしてMIME不一致で拒否される)。
+        html = re.sub(r'href="(?!https?://)/?([^"]+\.css)"', rf'href="/\1?v={version}"', html)
+        html = re.sub(r'src="(?!https?://)/?([^"]+\.js)"', rf'src="/\1?v={version}"', html)
     return Response(content=html, media_type="text/html", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/pair/{pairing_id}")
+def serve_pair_page(pairing_id: str, request: Request):
+    # 新デバイス用のQRペアリング画面。実際のclaim処理・id/tokenの解釈はすべて
+    # フロント(ScreenPair.vue)がURLから読んで行うため、ここではindex.htmlを
+    # そのまま返すだけでよい（"/" と同じSPAシェル）。
+    del pairing_id
+    return serve_index(request)
 
 
 @app.get("/sw.js")

@@ -161,6 +161,49 @@ class TestServerKeyConcurrency:
         assert other_results == [first_key]
 
 
+class TestDevicesFileConcurrency:
+    """devices.json への load→変更→save が並行実行されても取りこぼさないことを
+    回帰確認する。QRペアリングのclaim(register_device)と、既存端末の何気ない
+    リクエスト(verify_and_touch_device)が重なる場面を想定している。"""
+
+    def test_concurrent_register_and_verify_do_not_lose_writes(self, monkeypatch):
+        existing_id, existing_secret = devices_mod.register_device("Existing", "ua/existing")
+
+        orig_save = devices_mod._save
+        call_count = {"n": 0}
+        other_done = threading.Event()
+        holder = {}
+
+        def hooked_save(data):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                # ここは register_device が _devices_lock を保持したまま、新
+                # デバイスを追記した dict をまさに書き込もうとしている間隙。
+                # ロックが無ければ、この間に別スレッドの verify_and_touch_device
+                # が書き込み前の(新デバイスをまだ含まない)データを読み、直後に
+                # 保存し直してこちらの新デバイスを消してしまう(lost update)。
+                def do_verify():
+                    devices_mod.verify_and_touch_device(existing_id, existing_secret)
+                    other_done.set()
+
+                t = threading.Thread(target=do_verify)
+                holder["thread"] = t
+                t.start()
+                assert not other_done.wait(timeout=0.2), (
+                    "concurrent verify_and_touch_device should block until register_device releases the lock"
+                )
+            orig_save(data)
+
+        monkeypatch.setattr(devices_mod, "_save", hooked_save)
+
+        new_id, new_secret = devices_mod.register_device("New", "ua/new")
+        holder["thread"].join(timeout=2)
+
+        assert devices_mod.verify_and_touch_device(new_id, new_secret) is not None
+        assert devices_mod.verify_and_touch_device(existing_id, existing_secret) is not None
+        assert len(devices_mod.list_devices()) == 2
+
+
 class TestRegisterEndpoint:
     def test_register_with_valid_token(self, client):
         res = client.post("/devices/register", json={"token": TOKEN, "name": "Test Device"})

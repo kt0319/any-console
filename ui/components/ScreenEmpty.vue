@@ -18,6 +18,10 @@
           <span class="screen-empty-menu-label">Settings</span>
           <span class="screen-empty-menu-shortcut">⌘⇧.</span>
         </button>
+        <button v-if="showPhonePairing" type="button" class="screen-empty-menu-item" @click="openPhonePairing">
+          <span class="mdi mdi-cellphone screen-empty-menu-icon"></span>
+          <span class="screen-empty-menu-label">Open on your phone</span>
+        </button>
       </div>
 
       <div v-if="recentJobs.length" class="screen-empty-section">
@@ -62,7 +66,9 @@ import { useConfirm } from "../composables/useConfirm.js";
 import { useApi } from "../composables/useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
 import { renderIconStr } from "../utils/render-icon.js";
-import { EP_SYSTEM_INFO } from "../utils/endpoints.js";
+import { isMobileUserAgent } from "../utils/device.js";
+import { EP_SYSTEM_INFO, EP_SETTINGS_AUTH, EP_DEVICES } from "../utils/endpoints.js";
+import { useLayoutStore } from "../stores/layout.js";
 import StatusOverlay from "./StatusOverlay.vue";
 
 const props = defineProps({
@@ -76,11 +82,24 @@ const bootLabel = computed(() => (props.bootMessage || "Loading").replace(/\.+$/
 const { recentJobs, loadRecentJobs } = useRecentJobs();
 const { apiGet } = useApi();
 const { confirm } = useConfirm();
+const layoutStore = useLayoutStore();
 const serverInfo = ref(null);
+
+// 「Open on your phone」導線: モバイル端末を一度もペアリングしていないPCにだけ
+// 出す一回きりのオンボーディング促し。一度スマホでの利用が確認できたら
+// (=モバイルUAのdeviceが登録済みなら)以後は出さない — 目的は既に達成済みで、
+// 恒常的に出し続けるとノイズになるため。Settings > Auth の「Add new device」
+// ボタンは、複数台追加したい場合の恒久的な導線として引き続き常設する。
+const authRequired = ref(false);
+const hasMobileDevice = ref(false);
+const showPhonePairing = computed(() =>
+  !layoutStore.isPanelBottom && authRequired.value && !hasMobileDevice.value
+);
 
 onMounted(() => {
   loadRecentJobs();
   loadServerInfo();
+  loadPhonePairingEligibility();
 });
 
 async function loadServerInfo() {
@@ -88,8 +107,21 @@ async function loadServerInfo() {
   if (ok && data) serverInfo.value = data;
 }
 
+async function loadPhonePairingEligibility() {
+  const authRes = await getWithRetry(apiGet, EP_SETTINGS_AUTH);
+  authRequired.value = !!authRes.data?.auth_required;
+  if (!authRequired.value) return;
+  const devicesRes = await getWithRetry(apiGet, EP_DEVICES);
+  const devices = devicesRes.ok && Array.isArray(devicesRes.data) ? devicesRes.data : [];
+  hasMobileDevice.value = devices.some((d) => isMobileUserAgent(d.user_agent));
+}
+
 function openSettings() {
   emit("settings:open");
+}
+
+function openPhonePairing() {
+  emit("settings:open", { view: "PairDeviceConfig" });
 }
 
 function openTerminal() {

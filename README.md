@@ -115,6 +115,16 @@ brew install python node git tmux gh
 - On subsequent starts, `data/auth.json` is never overwritten.
 - The token can be changed from the "Security" settings in the UI.
 
+### Adding a new device with a QR code
+
+Once one device is signed in, you can add another (e.g. add your iPhone from your already-authenticated laptop) without typing the token:
+
+1. On the signed-in device, open Settings > Auth and tap "Add new device" (on a desktop-sized screen with no phone paired yet, a one-time "Open on your phone" shortcut also appears on the empty-state screen).
+2. Scan the QR code with the new device's camera app.
+3. The new device opens the link, signs in automatically, and lands on the normal app screen.
+
+The QR code encodes a one-time link that expires in 90 seconds and can only be used once — if it expires or was already used, the new device falls back to the normal token entry screen. See [docs/DECISIONS.md](docs/DECISIONS.md) (ADR 28) for the security rationale.
+
 ### Tailscale header auto-auth (opt-in)
 
 When any-console is served through [Tailscale Serve](https://tailscale.com/kb/1312/serve), Tailscale adds an authenticated `Tailscale-User-Login` header. any-console can use it to skip token entry, but this is **disabled by default** and must be opted into via `config.json`:

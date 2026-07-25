@@ -9,6 +9,8 @@ export function workspaceApiPath(workspace, path = "") {
 
 export const EP_AUTH_CHECK = "/auth/check";
 export const EP_AUTH_LOGOUT = "/auth/logout";
+export const EP_AUTH_PAIRING_START = "/auth/pairing/start";
+export const EP_DEVICES = "/devices";
 export const EP_RUN = "/run";
 export const EP_WORKSPACES = "/workspaces";
 export const EP_WORKSPACES_SUGGEST = "/workspaces/suggest";
@@ -46,6 +48,21 @@ export const EP_CLIENT_ERRORS = "/client-errors";
 /** @param {string} dispatchId @returns {string} */
 export function dispatchDecisionPath(dispatchId) {
   return `/dispatch/${encodeURIComponent(dispatchId)}/decision`;
+}
+
+/** @param {string} pairingId @returns {string} */
+export function pairingStatusPath(pairingId) {
+  return `/auth/pairing/${encodeURIComponent(pairingId)}/status`;
+}
+
+/** @param {string} pairingId @returns {string} */
+export function pairingClaimPath(pairingId) {
+  return `/auth/pairing/${encodeURIComponent(pairingId)}/claim`;
+}
+
+/** @param {string} deviceId @returns {string} */
+export function devicePath(deviceId) {
+  return `/devices/${encodeURIComponent(deviceId)}`;
 }
 
 /** @param {string} tokenId @returns {string} */
