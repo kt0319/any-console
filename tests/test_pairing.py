@@ -160,7 +160,7 @@ class TestStart:
 
     def test_rate_limited_after_burst(self, client, monkeypatch):
         monkeypatch.setattr(pairing_mod, "_resolve_tailscale_name", lambda: None)
-        monkeypatch.setattr(pairing_mod, "_START_LIMIT", 2)
+        monkeypatch.setattr(pairing_mod, "_PAIRING_RATE_LIMIT", 2)
         assert client.post("/auth/pairing/start", headers=AUTH).status_code == 200
         assert client.post("/auth/pairing/start", headers=AUTH).status_code == 200
         res = client.post("/auth/pairing/start", headers=AUTH)
@@ -342,7 +342,9 @@ class TestClaim:
 
     def test_rate_limited_after_burst(self, client, monkeypatch):
         data = _start(client, monkeypatch)
-        monkeypatch.setattr(pairing_mod, "_CLAIM_LIMIT", 2)
+        # start呼び出し分のカウントは対象外にする(start/status/claimは1バケット共有のため)。
+        pairing_mod._rate_counter._counts.clear()
+        monkeypatch.setattr(pairing_mod, "_PAIRING_RATE_LIMIT", 2)
         assert client.post(f"/auth/pairing/{data['id']}/claim", json={"token": "wrong"}).status_code == 401
         assert client.post(f"/auth/pairing/{data['id']}/claim", json={"token": "wrong"}).status_code == 401
         res = client.post(f"/auth/pairing/{data['id']}/claim", json={"token": "wrong"})
@@ -399,7 +401,9 @@ class TestClaim:
 class TestStatusRateLimit:
     def test_rate_limited_after_burst(self, client, monkeypatch):
         data = _start(client, monkeypatch)
-        monkeypatch.setattr(pairing_mod, "_STATUS_LIMIT", 2)
+        # start呼び出し分のカウントは対象外にする(start/status/claimは1バケット共有のため)。
+        pairing_mod._rate_counter._counts.clear()
+        monkeypatch.setattr(pairing_mod, "_PAIRING_RATE_LIMIT", 2)
         assert client.get(f"/auth/pairing/{data['id']}/status").status_code == 200
         assert client.get(f"/auth/pairing/{data['id']}/status").status_code == 200
         res = client.get(f"/auth/pairing/{data['id']}/status")
@@ -409,9 +413,10 @@ class TestStatusRateLimit:
         # pairing_idごとの個別スコープは持たない(シンプルさを優先し、IPごとに
         # start/status/claimをまとめて絞るだけの単純な制限にしている)。同じIP
         # からの別pairing_idへのstatusも同じバケットを消費する。
-        monkeypatch.setattr(pairing_mod, "_STATUS_LIMIT", 1)
         first = _start(client, monkeypatch)
         second = _start(client, monkeypatch)
+        pairing_mod._rate_counter._counts.clear()
+        monkeypatch.setattr(pairing_mod, "_PAIRING_RATE_LIMIT", 1)
         assert client.get(f"/auth/pairing/{first['id']}/status").status_code == 200
         res = client.get(f"/auth/pairing/{second['id']}/status")
         assert res.status_code == 429

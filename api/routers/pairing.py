@@ -21,10 +21,11 @@
   ロック待ちの後「既にclaimed」を見て自然に弾かれ、statusポーリングも
   claim完了前後どちらかの一貫した状態しか観測しない。
 - id・token どちらも総当たりされないよう、専用のレートリミッタ（rate_limiter.py
-  の `_FixedWindowCounter` を再利用）で start/status/claim を個別に、IPごとに
-  絞る。アプリ全体にかかる IP ベースの制限（rate_limiter.py の
-  `RateLimitMiddleware`）に加えた二次防御であり、token の推測不可能性が
-  主防御。
+  の `_FixedWindowCounter` を再利用）で start/status/claim 合算・IPごとに絞る。
+  アプリ全体にかかる IP ベースの制限（rate_limiter.py の `RateLimitMiddleware`）
+  に加えた二次防御であり、token の推測不可能性が主防御。3ルートを個別バケット
+  に分けていた過去の実装は、この二次防御という位置づけに対して過剰だったため
+  1バケットに統合している。
 - claim成功後のエントリ（tombstone）は、claim成功時に `expires_at` を
   `_CLAIMED_OBSERVATION_SEC` 分だけ先に延長することで、一定の観測猶予を
   必ず確保する。元の90秒期限間際にclaimが成立し、発行元のポーリングが
@@ -78,12 +79,11 @@ PAIRING_TTL_SEC = 90
 # 見損ねてexpired扱いになる」ことがないようにする。
 _CLAIMED_OBSERVATION_SEC = 30
 
-# ポーリング（status）は countdown 表示のため数秒間隔で連打される想定なので緩め、
-# start/claim は人間の単発操作なので厳しめにする。値の推測不可能性（24バイト）が
-# 主防御で、これは連打・スクリプトによる荒らしを抑える二次防御。
-_START_LIMIT = 20
-_STATUS_LIMIT = 120
-_CLAIM_LIMIT = 20
+# start/status/claim合算でIPごとに絞る。値の推測不可能性（24バイト）が主防御で、
+# これは連打・スクリプトによる荒らしを抑える二次防御に過ぎないため、ルートごとに
+# バケットを分ける必要はない。status は countdown 表示のため数秒間隔で連打される
+# 想定を踏まえ、緩めの上限にする。
+_PAIRING_RATE_LIMIT = 120
 _RATE_WINDOW_SEC = 60
 
 _lock = threading.Lock()
@@ -100,10 +100,10 @@ class ClaimBody(BaseModel):
     token: str = ""
 
 
-def _check_rate_limit(request: Request, bucket: str, limit: int) -> None:
-    key = f"pairing:{bucket}:{_client_ip(request)}"
+def _check_rate_limit(request: Request) -> None:
+    key = f"pairing:{_client_ip(request)}"
     with _rate_lock:
-        allowed = _rate_counter.is_allowed(key, limit, _RATE_WINDOW_SEC)
+        allowed = _rate_counter.is_allowed(key, _PAIRING_RATE_LIMIT, _RATE_WINDOW_SEC)
     if not allowed:
         raise too_many_requests("Too many requests")
 
@@ -194,7 +194,7 @@ def _build_pairing_url(request: Request, pairing_id: str, pairing_token: str) ->
 def start_pairing(request: Request):
     if not auth_module.ANY_CONSOLE_TOKEN:
         raise bad_request("Authentication is disabled")
-    _check_rate_limit(request, "start", _START_LIMIT)
+    _check_rate_limit(request)
     now = time.time()
     pairing_id = f"pr_{secrets.token_hex(8)}"
     pairing_token = secrets.token_urlsafe(24)
@@ -224,7 +224,7 @@ def start_pairing(request: Request):
 
 @router.get("/{pairing_id}/status")
 def pairing_status(pairing_id: str, request: Request):
-    _check_rate_limit(request, "status", _STATUS_LIMIT)
+    _check_rate_limit(request)
     now = time.time()
     with _lock:
         entry = _pairings.get(pairing_id)
@@ -241,7 +241,7 @@ def pairing_status(pairing_id: str, request: Request):
 
 @router.post("/{pairing_id}/claim")
 def claim_pairing(pairing_id: str, body: ClaimBody, request: Request, response: Response):
-    _check_rate_limit(request, "claim", _CLAIM_LIMIT)
+    _check_rate_limit(request)
     now = time.time()
     # トークン検証からデバイス登録・cookie発行・claimedへの更新まで、
     # 丸ごと_lock保持下で行う。個人ツールの利用規模ではデバイス登録
