@@ -86,7 +86,6 @@ function onSettingsClick() {
 <style scoped>
 .tab-bar-row {
   display: none;
-  align-items: center;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
@@ -97,9 +96,8 @@ function onSettingsClick() {
   display: flex;
   flex: 1;
   min-width: 0;
-  min-height: 30px;
   gap: 6px;
-  padding: 4px 8px 0;
+  padding: 0 8px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -116,7 +114,6 @@ function onSettingsClick() {
   justify-content: center;
   flex-shrink: 0;
   width: 30px;
-  height: 30px;
   margin: 0;
   padding: 0;
   border: none;
@@ -147,7 +144,7 @@ function onSettingsClick() {
   flex-shrink: 0;
   align-self: stretch;
   width: 30px;
-  margin: 4px 4px 0;
+  margin: 0 4px;
   padding: 0;
   border: none;
   border-radius: 0;
