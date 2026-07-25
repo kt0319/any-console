@@ -84,6 +84,10 @@ let pollTimer = null;
 let tickTimer = null;
 /** @type {ReturnType<typeof setTimeout> | null} */
 let closeTimer = null;
+// unmount後に解決したstatus応答が、共有viewStackに対してpopView等の副作用を
+// 起こさないようにするガード(pairingId比較だけでは、unmount後もrefの値自体は
+// 変わらず残るため、古いpairingへの切り替わりとunmountを区別できない)。
+let isUnmounted = false;
 
 const qrSvg = computed(() => (pairingUrl.value ? generateQrSvg(pairingUrl.value) : ""));
 const countdownLabel = computed(() => formatPairingCountdown(secondsLeft.value));
@@ -101,6 +105,7 @@ async function poll() {
   const requestedId = pairingId.value;
   if (!requestedId) return;
   const { ok, data } = await apiGet(pairingStatusPath(requestedId));
+  if (isUnmounted) return;
   // start() が再度呼ばれ別のpairingへ切り替わった後にこの応答が返ってきた場合、
   // 新しいpairingの状態を古い応答で上書きしてしまわないよう無視する。
   if (requestedId !== pairingId.value) return;
@@ -123,6 +128,9 @@ async function start() {
   copied.value = false;
   clearTimers();
   const { ok, data } = await apiPost(EP_AUTH_PAIRING_START);
+  // アンマウント後に解決した場合、ここから先で新しいintervalを張ってしまうと
+  // 二度とclearされず残り続けるため、状態更新自体を行わない。
+  if (isUnmounted) return;
   loading.value = false;
   if (!ok || !data) {
     error.value = "Failed to start pairing.";
@@ -150,7 +158,10 @@ async function copyUrl() {
 }
 
 onMounted(start);
-onUnmounted(clearTimers);
+onUnmounted(() => {
+  isUnmounted = true;
+  clearTimers();
+});
 </script>
 
 <style scoped>

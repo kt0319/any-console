@@ -156,6 +156,26 @@ class TestStatus:
         status_res = client.get(f"/auth/pairing/{data['id']}/status")
         assert status_res.json()["status"] == "claimed"
 
+    def test_claimed_survives_past_original_deadline(self, client, monkeypatch):
+        # claimが元の90秒期限ギリギリで成立した場合でも、claimed_atからの
+        # 独立した観測猶予があるため、元のexpires_atを過ぎてもclaimedのまま
+        # 観測できる(expiresを先にチェックしてexpiredと誤報告してはならない)。
+        data = _start(client, monkeypatch)
+        token = pairing_mod._pairings[data["id"]]["token"]
+        client.post(f"/auth/pairing/{data['id']}/claim", json={"token": token})
+        pairing_mod._pairings[data["id"]]["expires_at"] = time.time() - 1
+        res = client.get(f"/auth/pairing/{data['id']}/status")
+        assert res.json()["status"] == "claimed"
+
+    def test_claimed_tombstone_eventually_expires(self, client, monkeypatch):
+        data = _start(client, monkeypatch)
+        token = pairing_mod._pairings[data["id"]]["token"]
+        client.post(f"/auth/pairing/{data['id']}/claim", json={"token": token})
+        pairing_mod._pairings[data["id"]]["claimed_at"] = time.time() - pairing_mod._CLAIMED_OBSERVATION_SEC - 1
+        res = client.get(f"/auth/pairing/{data['id']}/status")
+        assert res.json()["status"] == "not_found"
+        assert data["id"] not in pairing_mod._pairings
+
 
 class TestClaim:
     def test_success_sets_device_cookies(self, client, monkeypatch):
@@ -313,6 +333,20 @@ class TestStatusRateLimit:
         assert client.get(f"/auth/pairing/{first['id']}/status").status_code == 429
         # 別のpairing_idへのstatusは影響を受けない
         assert client.get(f"/auth/pairing/{second['id']}/status").status_code == 200
+
+    def test_nonexistent_ids_share_a_single_bounded_bucket(self, client, monkeypatch):
+        # 実在しないpairing_idはそれぞれ専用バケットを持たせない
+        # (攻撃者が架空のIDを無限に生成してcounter dictを際限なく
+        # 肥大化させられないようにするため)。異なる架空IDへの連打が
+        # 同じ共有バケットを消費することを確認する。
+        monkeypatch.setattr(pairing_mod, "_STATUS_LIMIT", 2)
+        assert client.get("/auth/pairing/pr_fake1/status").status_code == 200
+        assert client.get("/auth/pairing/pr_fake2/status").status_code == 200
+        res = client.get("/auth/pairing/pr_fake3/status")
+        assert res.status_code == 429
+        counter_keys = [k for k in pairing_mod._rate_counter._counts if k.startswith("pairing:status:")]
+        assert len(counter_keys) == 1
+        assert counter_keys[0].endswith(":unknown")
 
 
 def test_pair_page_serves_spa_shell(client):

@@ -22,10 +22,18 @@
   返し、発行元が「期限切れ」と誤認してポーリングを止めてしまうため。
 - id・token どちらも総当たりされないよう、専用のレートリミッタ（rate_limiter.py
   の `_FixedWindowCounter` を再利用）で start/status/claim を個別に絞る。
-  status・claim はどちらも pairing_id ごとに独立してカウントする（Tailscale
-  Serve 経由だと全クライアントが loopback 発に見えるため、IPだけで絞ると
-  無関係な pairing_id への荒らしで正規の pairing まで巻き添えでブロック
-  されてしまう）。
+  status・claim はどちらも実在する pairing_id ごとに独立してカウントする
+  （Tailscale Serve 経由だと全クライアントが loopback 発に見えるため、IPだけで
+  絞ると無関係な pairing_id への荒らしで正規の pairing まで巻き添えでブロック
+  されてしまう）。ただし実在しない pairing_id は共有バケットにまとめる
+  （`_bounded_pairing_scope`）— 存在確認より前に呼ぶ都合上、そうしないと
+  攻撃者が架空のIDを大量生成して `_FixedWindowCounter`（期限切れキーを
+  掃除しない）のキー空間を際限なく肥大化させられてしまうため。
+- claim成功後のエントリ（tombstone）は claimed_at から独立した観測猶予
+  （`_CLAIMED_OBSERVATION_SEC`）で寿命を判定する。元の90秒期限間際にclaimが
+  成立したケースでも、発行元のポーリングが少し遅れただけでclaimedを
+  expiredと誤報告しないようにするため（statusは claimed を expires_at より
+  先にチェックする）。
 - claim は既存の単一トークン認証と同じ cookie 発行ロジックを共有する
   （二重実装しない）。QRペアリングは「同じユーザーの別デバイス追加」であり、
   新規ユーザー招待機能ではない（単一ユーザー前提は変えない）。同一UA・sourceの
@@ -64,6 +72,13 @@ router = APIRouter(prefix="/auth/pairing")
 
 PAIRING_TTL_SEC = 90
 
+# claim成功の観測猶予。claimがちょうど元の90秒期限間際に成立した場合でも、
+# 発行元のポーリングがバックグラウンドタブ等で少し遅延しただけで「claimedを
+# 見損ねてexpired扱いになる」ことがないよう、claimed後は claimed_at からの
+# 経過時間で独立に判定する（元のexpires_atがどれだけ残っていたかに関わらず
+# 一定の観測猶予を必ず確保する）。
+_CLAIMED_OBSERVATION_SEC = 30
+
 # ポーリング（status）は countdown 表示のため数秒間隔で連打される想定なので緩め、
 # start/claim は人間の単発操作なので厳しめにする。値の推測不可能性（24バイト）が
 # 主防御で、これは連打・スクリプトによる荒らしを抑える二次防御。
@@ -92,8 +107,30 @@ def _check_rate_limit(request: Request, bucket: str, limit: int, *, scope: str =
         raise too_many_requests("Too many requests")
 
 
+def _bounded_pairing_scope(pairing_id: str) -> str:
+    """status/claimのレート制限に使うスコープ文字列。
+
+    status/claimはpairing存在確認より前に呼ぶ必要があるため、pairing_idを
+    そのままスコープに使うと、攻撃者が実在しないIDを無限に生成して
+    `_FixedWindowCounter`（期限切れキーを掃除しない）のキー空間を際限なく
+    肥大化させられてしまう。実在するpairing_idにだけ専用バケットを与え
+    （同時に存在するpairing数は個人ツールの利用規模では常に小さく、TTLで
+    自然に掃除される）、存在しないIDへのアクセスは共有バケットへまとめる
+    （このバケットのキー数はIPの数だけに収まり、pairing_id導入前と同等）。
+    """
+    with _lock:
+        exists = pairing_id in _pairings
+    return pairing_id if exists else "unknown"
+
+
+def _is_expired_locked(entry: dict, now: float) -> bool:
+    if entry["claimed"]:
+        return bool(now - entry.get("claimed_at", 0) > _CLAIMED_OBSERVATION_SEC)
+    return bool(entry["expires_at"] <= now)
+
+
 def _sweep_expired_locked(now: float) -> None:
-    expired = [pid for pid, p in _pairings.items() if p["expires_at"] <= now]
+    expired = [pid for pid, p in _pairings.items() if _is_expired_locked(p, now)]
     for pid in expired:
         _pairings.pop(pid, None)
 
@@ -173,24 +210,30 @@ def start_pairing(request: Request):
 @router.get("/{pairing_id}/status")
 def pairing_status(pairing_id: str, request: Request):
     # claimと同じ理由(モジュール docstring 参照)でpairing_idごとに独立してカウントする。
-    _check_rate_limit(request, "status", _STATUS_LIMIT, scope=pairing_id)
+    _check_rate_limit(request, "status", _STATUS_LIMIT, scope=_bounded_pairing_scope(pairing_id))
     now = time.time()
     with _lock:
         entry = _pairings.get(pairing_id)
         if entry is None:
             return {"status": "not_found"}
+        # claimed後は claimed_at からの独立した観測猶予で判定する(元の
+        # expires_atで先に弾くと、期限間際にclaimが成立したケースで
+        # claimedをexpiredと誤報告してしまうため、claimed判定を先に行う)。
+        if entry["claimed"]:
+            if _is_expired_locked(entry, now):
+                _pairings.pop(pairing_id, None)
+                return {"status": "not_found"}
+            return {"status": "claimed"}
         if entry["expires_at"] <= now:
             _pairings.pop(pairing_id, None)
             return {"status": "expired"}
-        if entry["claimed"]:
-            return {"status": "claimed"}
         return {"status": "pending", "expires_in_sec": max(0, int(entry["expires_at"] - now))}
 
 
 @router.post("/{pairing_id}/claim")
 def claim_pairing(pairing_id: str, body: ClaimBody, request: Request, response: Response):
     # 荒らし対策はpairing_idごとに独立してカウントする(理由はモジュール docstring 参照)。
-    _check_rate_limit(request, "claim", _CLAIM_LIMIT, scope=pairing_id)
+    _check_rate_limit(request, "claim", _CLAIM_LIMIT, scope=_bounded_pairing_scope(pairing_id))
     now = time.time()
     with _lock:
         entry = _pairings.get(pairing_id)
@@ -237,5 +280,6 @@ def claim_pairing(pairing_id: str, body: ClaimBody, request: Request, response: 
         entry["claimed"] = True
         entry["claiming"] = False
         entry["token"] = None
+        entry["claimed_at"] = time.time()
     logger.info("pairing claimed id=%s device=%s client=%s", pairing_id, device_id, _client_ip(request))
     return {"ok": True, "device_id": device_id, "name": name, "auth_required": True}

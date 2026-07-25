@@ -130,6 +130,30 @@ describe("PairDeviceConfig", () => {
     expect(popView).not.toHaveBeenCalled();
   });
 
+  it("ignores a status response that resolves after the component has unmounted", async () => {
+    apiPostMock.mockResolvedValue({
+      ok: true,
+      data: { id: "pr_1", url: "https://host/pair/pr_1?t=tok", expires_in_sec: 90 },
+    });
+    let resolvePoll;
+    apiGetMock.mockReturnValueOnce(new Promise((resolve) => { resolvePoll = resolve; }));
+
+    const { wrapper, popView } = mountView();
+    await flushPromises();
+    // pollを1回発火させる(応答はまだ保留のまま = in-flight)
+    await vi.advanceTimersByTimeAsync(PAIRING_STATUS_POLL_MS);
+
+    // 応答が返る前にユーザーがモーダルを閉じる
+    wrapper.unmount();
+
+    // in-flightだったpollがここで初めて解決する。pairingIdは変わっていない
+    // (stale-id比較だけでは検知できない)ため、unmountフラグで無視されること。
+    resolvePoll({ ok: true, data: { status: "claimed" } });
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(PAIRING_SUCCESS_CLOSE_DELAY_MS);
+    expect(popView).not.toHaveBeenCalled();
+  });
+
   it("ignores a stale status response from a superseded pairing", async () => {
     apiPostMock
       .mockResolvedValueOnce({
