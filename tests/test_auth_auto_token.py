@@ -52,3 +52,26 @@ class TestEnsureDefaultToken:
 
         assert not auth_file.exists()
         assert auth_module.ANY_CONSOLE_TOKEN == ""
+
+
+class TestRenderTerminalQr:
+    def test_skips_when_not_a_tty(self, monkeypatch):
+        from api.main import _render_terminal_qr
+
+        monkeypatch.setattr("sys.stdout.isatty", lambda: False)
+
+        assert _render_terminal_qr("a" * 32) is None
+
+    def test_renders_half_block_qr_when_tty(self, monkeypatch):
+        from api.main import _render_terminal_qr
+
+        monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+
+        qr = _render_terminal_qr("a" * 32)
+
+        assert qr is not None
+        lines = qr.split("\n")
+        assert len(lines) > 1
+        assert all(len(line) == len(lines[0]) for line in lines)
+        # 半角ブロック文字（空白/▀/▄/█）以外は出力しない
+        assert set("".join(lines)) <= {" ", "▀", "▄", "█"}

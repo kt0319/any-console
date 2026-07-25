@@ -6,6 +6,8 @@ python-multipart>=0.0.5
 cryptography>=41
 # Filesystem watching for realtime git status push (api/git_watch.py). Required.
 watchfiles>=0.21,<2
+# First-run token QR code in the startup log (api/main.py _print_token_notice). Pure Python, no image deps.
+qrcode>=7,<9
 
 # Push notifications need pywebpush too — see requirements-optional.txt.
 # It pulls a native dependency (http-ece) that can fail to build on minimal

@@ -88,6 +88,41 @@ def _is_auth_disabled() -> bool:
         return False
 
 
+def _render_terminal_qr(data: str) -> str | None:
+    """`data` を半角ブロック文字のQRコードとして描画する。
+
+    tty以外（journalctl/ログファイル等）にはANSI/Unicodeが正しく出ないため呼ばない。
+    QRコード自体は SECURITY 方針（URLクエリにトークンを埋め込まない）に合わせ、
+    生のトークン文字列のみをエンコードする（URL化しない）。
+    """
+    if not sys.stdout.isatty():
+        return None
+    try:
+        import qrcode
+    except ImportError:
+        return None
+    qr = qrcode.QRCode(border=2, error_correction=qrcode.constants.ERROR_CORRECT_L)
+    qr.add_data(data)
+    qr.make(fit=True)
+    matrix = qr.get_matrix()
+    lines = []
+    for y in range(0, len(matrix), 2):
+        top = matrix[y]
+        bottom = matrix[y + 1] if y + 1 < len(matrix) else [False] * len(top)
+        chars = []
+        for is_top, is_bottom in zip(top, bottom, strict=True):
+            if is_top and is_bottom:
+                chars.append("█")
+            elif is_top:
+                chars.append("▀")
+            elif is_bottom:
+                chars.append("▄")
+            else:
+                chars.append(" ")
+        lines.append("".join(chars))
+    return "\n".join(lines)
+
+
 def _print_token_notice(host: str, port: int, token: str) -> None:
     # SECURITY: トークンを URL のクエリに埋め込まない。埋め込むとブラウザ履歴・
     # プロキシ/アクセスログに残る（UI はクエリの token を消費しないので利点もない）。
@@ -95,11 +130,18 @@ def _print_token_notice(host: str, port: int, token: str) -> None:
     display_host = "localhost" if host in ("0.0.0.0", "::", "") else host  # noqa: S104
     url = f"http://{display_host}:{port}/"
     border = "=" * 64
+    qr = _render_terminal_qr(token)
+    qr_section = (
+        f"\nOr open {url} on another device, tap \"Scan QR code\" on the login\nscreen, and scan this:\n\n{qr}\n"
+        if qr
+        else ""
+    )
     msg = (
         f"\n{border}\n"
         f"any-console: First-run auth token:\n"
         f"  {token}\n"
         f"Open {url} on your device and sign in with this token.\n"
+        f"{qr_section}"
         f"{border}"
     )
     print(msg, flush=True)  # noqa: T201

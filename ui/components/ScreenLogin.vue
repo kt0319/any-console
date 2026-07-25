@@ -159,21 +159,23 @@ function scanFrame() {
 }
 
 async function handleScannedText(text) {
+  const trimmed = text.trim();
   let parsed = null;
   try {
-    const url = new URL(text);
+    const url = new URL(trimmed);
     parsed = parsePairUrl(url.pathname, url.search);
   } catch {
     parsed = null;
   }
-  if (!parsed || !parsed.token) {
-    scanError.value = "Not a valid pairing QR code.";
-    scanFrameId = requestAnimationFrame(scanFrame);
-    return;
-  }
+
   stopScanCamera();
   scanClaiming.value = true;
-  const result = await auth.claimPairing(parsed.id, parsed.token);
+  // ペアリングURL（別デバイスで発行したQR）でなければ、生トークンのQR
+  // （初回起動ログのブートストラップQR）として直接ログインを試みる。
+  // 無関係なQR（ノイズ）でもサーバ側で単に無効トークン扱いになるだけで安全。
+  const result = parsed && parsed.token
+    ? await auth.claimPairing(parsed.id, parsed.token)
+    : await auth.registerDevice(trimmed);
   if (!result.ok) {
     scanClaiming.value = false;
     scanError.value = result.error || "Pairing failed.";
