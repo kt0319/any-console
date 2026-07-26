@@ -14,7 +14,10 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers, moveSnippet
   const isFullKeyboard = ref(false);
   const draft = ref("");
   const inputFocused = ref(false);
-  const showSnippetView = ref(false);
+  // ボタンタップごとの巡回順: 非表示 → スニペット一覧 → 入力履歴 → 非表示…
+  const SNIPPET_PANEL_VIEWS = ["none", "snippets", "history"];
+  const snippetPanelView = ref("none");
+  const showSnippetView = computed(() => snippetPanelView.value !== "none");
   const hasDraft = computed(() => draft.value.trim().length > 0);
 
   function onInputFocused(focused) {
@@ -22,14 +25,20 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers, moveSnippet
   }
 
   function toggleSnippetView() {
-    showSnippetView.value = !showSnippetView.value;
+    const nextIndex = (SNIPPET_PANEL_VIEWS.indexOf(snippetPanelView.value) + 1) % SNIPPET_PANEL_VIEWS.length;
+    snippetPanelView.value = SNIPPET_PANEL_VIEWS[nextIndex];
     if (showSnippetView.value) clearModifiers();
+  }
+
+  function closeSnippetPanel() {
+    snippetPanelView.value = "none";
   }
 
   function onChipTap({ command }) {
     draft.value = command;
-    showSnippetView.value = false;
-    moveSnippetToFront(command);
+    const wasSnippets = snippetPanelView.value === "snippets";
+    closeSnippetPanel();
+    if (wasSnippets) moveSnippetToFront(command);
   }
 
   // ─── キーボード開閉 ────────────────────────────────────────────
@@ -51,7 +60,7 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers, moveSnippet
       return;
     }
     isFullKeyboard.value = true;
-    showSnippetView.value = false;
+    closeSnippetPanel();
     clearModifiers();
   }
 
@@ -72,8 +81,8 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers, moveSnippet
   });
 
   return {
-    isFullKeyboard, draft, inputFocused, showSnippetView, hasDraft,
-    onInputFocused, toggleSnippetView, onChipTap,
+    isFullKeyboard, draft, inputFocused, showSnippetView, snippetPanelView, hasDraft,
+    onInputFocused, toggleSnippetView, closeSnippetPanel, onChipTap,
     hideInput, dismissKeyboard, onSubmitted,
   };
 }

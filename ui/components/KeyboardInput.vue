@@ -4,13 +4,13 @@
       <button
         type="button"
         class="keyboard-input-snippet-btn"
-        :class="{ active: snippetActive }"
-        aria-label="Insert snippet"
-        data-tooltip="Insert snippet"
+        :class="{ active: snippetView !== 'none' }"
+        :aria-label="snippetButtonLabel"
+        :data-tooltip="snippetButtonLabel"
         @pointerdown.prevent
         @click="emit('snippetToggle')"
       >
-        <span class="mdi mdi-bookmark-multiple"></span>
+        <span class="mdi" :class="snippetButtonIcon"></span>
       </button>
       <input
         ref="inputEl"
@@ -26,8 +26,6 @@
         enterkeyhint="send"
         :placeholder="placeholder"
         @keydown.escape="onEscape"
-        @keydown.up="(e) => onArrowKey(e, historyPrev)"
-        @keydown.down="(e) => onArrowKey(e, historyNext)"
         @compositionstart="composing = true"
         @compositionend="composing = false"
         @focus="onFocus"
@@ -41,16 +39,29 @@
 import { ref, computed } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
-import { useInputDraftHistory } from "../composables/useInputDraftHistory.js";
 import { useHardwareKeyboard } from "../composables/useHardwareKeyboard.js";
 import { useSuppressedBlur } from "../composables/useSuppressedBlur.js";
 import { isComposingEvent } from "../utils/keyboard-event.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 
-defineProps({
-  snippetActive: { type: Boolean, default: false },
+const props = defineProps({
+  // "none" | "snippets" | "history"
+  snippetView: { type: String, default: "none" },
 });
 const emit = defineEmits(["focused", "submitted", "snippetToggle"]);
+
+// ボタンのアイコン/ラベルは次にタップしたら遷移する先を表す（予告型）。
+// 巡回順: none(→Snippets) → snippets(→History) → history(→Close) → none…
+const snippetButtonIcon = computed(() => {
+  if (props.snippetView === "snippets") return "mdi-history";
+  if (props.snippetView === "history") return "mdi-close";
+  return "mdi-bookmark-multiple";
+});
+const snippetButtonLabel = computed(() => {
+  if (props.snippetView === "snippets") return "History";
+  if (props.snippetView === "history") return "Close";
+  return "Snippets";
+});
 
 const inputStore = useInputStore();
 const { sendTextToTerminal, sendKeyToTerminal } = useKeyboard();
@@ -69,19 +80,9 @@ const {
 } = useSuppressedBlur(inputEl);
 
 const placeholder = computed(() => {
-  if (focused.value) return "↑↓ history";
+  if (focused.value) return "";
   return hasHardwareKeyboard.value ? "Tap (or Shift+Space) to input" : "Tap to input";
 });
-
-// フリックバーの矢印キーと同じ挙動（履歴↑↓）を
-// 物理キーボードの矢印キーでも再現するため、同じ composable を再利用する。
-const { historyPrev, historyNext } = useInputDraftHistory(draft);
-
-function onArrowKey(e, action) {
-  if (isComposingEvent(e, composing.value)) return;
-  e.preventDefault();
-  action();
-}
 
 // 入力モード中の Esc で入力モードを抜ける（フォーカスを外す）。
 // IME 変換中の Esc は変換キャンセル用なので素通し。

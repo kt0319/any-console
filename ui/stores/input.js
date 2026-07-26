@@ -23,6 +23,11 @@ export const useInputStore = defineStore("input", () => {
     localStorage.setItem(INPUT_HISTORY_KEY, JSON.stringify(inputHistory.value));
   }
 
+  function removeInputHistory(text) {
+    inputHistory.value = inputHistory.value.filter((h) => h !== text);
+    localStorage.setItem(INPUT_HISTORY_KEY, JSON.stringify(inputHistory.value));
+  }
+
   return {
     NUMBER_KEYS,
     QWERTY_ROWS,
@@ -31,5 +36,6 @@ export const useInputStore = defineStore("input", () => {
     snippetsCache,
     isSnippetsLoaded,
     addInputHistory,
+    removeInputHistory,
   };
 });

@@ -10,9 +10,9 @@
       @submitted="onSubmitted"
       @fnToggle="toggleFnView"
     />
-    <!-- コンパクト入力中のスニペット挿入オーバーレイ（フルキーボード側の挿入ビューと同じ onChipTap を再利用） -->
+    <!-- コンパクト入力中のスニペット / 履歴挿入オーバーレイ（フルキーボード側の挿入ビューと同じ onChipTap を再利用） -->
     <div v-if="showSnippetView && !isFullKeyboard" class="keyboard-bar-snippet-overlay">
-      <KeyboardChips @chip:tap="onChipTap" />
+      <KeyboardChips :mode="snippetPanelView" @chip:tap="onChipTap" />
     </div>
     <!-- バー行 = フルキーボードの最下行と同構成 -->
     <div class="keyboard-bar-row">
@@ -20,7 +20,7 @@
         v-show="!isFullKeyboard"
         ref="keyboardInput"
         v-model:draft="draft"
-        :snippet-active="showSnippetView"
+        :snippet-view="snippetPanelView"
         @focused="onInputFocused"
         @submitted="onSubmitted"
         @snippetToggle="toggleSnippetView"
@@ -126,8 +126,8 @@ const barEnterFlickEl = ref(null);
 
 // ─── 入力 / スニペット状態・キーボード開閉 ──────────────────────
 const {
-  isFullKeyboard, draft, inputFocused, showSnippetView, hasDraft,
-  onInputFocused, toggleSnippetView, onChipTap,
+  isFullKeyboard, draft, inputFocused, showSnippetView, snippetPanelView, hasDraft,
+  onInputFocused, toggleSnippetView, closeSnippetPanel, onChipTap,
   hideInput, dismissKeyboard, onSubmitted,
 } = useKeyboardBarState({ keyboardInput, clearModifiers, moveSnippetToFront });
 
@@ -156,8 +156,8 @@ const {
 } = useQwertyKeyViews({
   modifierState,
   showSnippetView,
-  dismissSnippetView: () => { showSnippetView.value = false; },
-  closeSnippetView: () => { showSnippetView.value = false; },
+  dismissSnippetView: closeSnippetPanel,
+  closeSnippetView: closeSnippetPanel,
   sendKeyToTerminal,
   getActiveTerminalTab,
   onReload: doReload,
