@@ -24,7 +24,6 @@ import { useConfirm } from "../composables/useConfirm.js";
 import { confirmIrreversible } from "../utils/confirm-irreversible.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 
-const props = defineProps({ insertMode: { type: Boolean, default: false } });
 const emitToParent = defineEmits(["chip:tap"]);
 const { snippets, truncateQuickText } = useQuickInputData();
 const { confirm } = useConfirm();
@@ -49,7 +48,6 @@ function onChipTouchEnd(e, command) {
   longPress.cancel();
   if (longPress.consumeFired()) return;
   if (e.cancelable) e.preventDefault();
-  if (!props.insertMode) bridgeEmit("snippet:tap", { command });
   emitToParent("chip:tap", { command });
 }
 

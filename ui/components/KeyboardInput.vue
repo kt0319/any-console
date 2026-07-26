@@ -1,6 +1,17 @@
 <template>
   <div class="keyboard-input-wrapper" @pointerdown="markInternalInteraction">
     <form class="keyboard-input-row" autocomplete="off" role="presentation" @submit.prevent="submit">
+      <button
+        type="button"
+        class="keyboard-input-snippet-btn"
+        :class="{ active: snippetActive }"
+        aria-label="Insert snippet"
+        data-tooltip="Insert snippet"
+        @pointerdown.prevent
+        @click="emit('snippetToggle')"
+      >
+        <span class="mdi mdi-bookmark-multiple"></span>
+      </button>
       <input
         ref="inputEl"
         v-model="draft"
@@ -17,8 +28,6 @@
         @keydown.escape="onEscape"
         @keydown.up="(e) => onArrowKey(e, historyPrev)"
         @keydown.down="(e) => onArrowKey(e, historyNext)"
-        @keydown.left="(e) => onArrowKey(e, () => cycleSnippet(1))"
-        @keydown.right="(e) => onArrowKey(e, () => cycleSnippet(-1))"
         @compositionstart="composing = true"
         @compositionend="composing = false"
         @focus="onFocus"
@@ -38,7 +47,10 @@ import { useSuppressedBlur } from "../composables/useSuppressedBlur.js";
 import { isComposingEvent } from "../utils/keyboard-event.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 
-const emit = defineEmits(["focused", "submitted"]);
+defineProps({
+  snippetActive: { type: Boolean, default: false },
+});
+const emit = defineEmits(["focused", "submitted", "snippetToggle"]);
 
 const inputStore = useInputStore();
 const { sendTextToTerminal, sendKeyToTerminal } = useKeyboard();
@@ -57,15 +69,13 @@ const {
 } = useSuppressedBlur(inputEl);
 
 const placeholder = computed(() => {
-  if (focused.value) return "↑↓ history · ←→ snippet";
+  if (focused.value) return "↑↓ history";
   return hasHardwareKeyboard.value ? "Tap (or Shift+Space) to input" : "Tap to input";
 });
 
-// フリックバーの矢印キーと同じ挙動（履歴↑↓、snippet ←→）を
+// フリックバーの矢印キーと同じ挙動（履歴↑↓）を
 // 物理キーボードの矢印キーでも再現するため、同じ composable を再利用する。
-const { historyPrev, historyNext, cycleSnippet } = useInputDraftHistory(
-  draft, focused, sendTextToTerminal,
-);
+const { historyPrev, historyNext } = useInputDraftHistory(draft);
 
 function onArrowKey(e, action) {
   if (isComposingEvent(e, composing.value)) return;

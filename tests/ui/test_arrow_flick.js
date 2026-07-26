@@ -5,7 +5,6 @@ import { createArrowFlickHandler } from "../../ui/utils/arrow-flick.js";
 function makeHandler(focused = true) {
   const deps = {
     isInputFocused: () => focused,
-    cycleSnippet: vi.fn(),
     historyPrev: vi.fn(),
     historyNext: vi.fn(),
   };
@@ -15,17 +14,14 @@ function makeHandler(focused = true) {
 describe("createArrowFlickHandler", () => {
   it("ignores flicks when input is not focused", () => {
     const { handler, deps } = makeHandler(false);
-    expect(handler.onFlick({ key: "ArrowLeft" })).toBe(false);
-    expect(deps.cycleSnippet).not.toHaveBeenCalled();
+    expect(handler.onFlick({ key: "ArrowUp" })).toBe(false);
+    expect(deps.historyPrev).not.toHaveBeenCalled();
   });
 
-  it("cycles snippet forward on ArrowLeft and back on ArrowRight", () => {
-    const { handler, deps } = makeHandler();
-    expect(handler.onFlick({ key: "ArrowLeft" })).toBe(true);
-    expect(deps.cycleSnippet).toHaveBeenCalledWith(1);
-    handler.reset();
-    handler.onFlick({ key: "ArrowRight" });
-    expect(deps.cycleSnippet).toHaveBeenCalledWith(-1);
+  it("never handles ArrowLeft/ArrowRight, focused or not (falls back to default key send)", () => {
+    const { handler } = makeHandler(true);
+    expect(handler.onFlick({ key: "ArrowLeft" })).toBe(false);
+    expect(handler.onFlick({ key: "ArrowRight" })).toBe(false);
   });
 
   it("navigates history up/down on ArrowUp/ArrowDown", () => {
@@ -48,12 +44,5 @@ describe("createArrowFlickHandler", () => {
     handler.reset();
     handler.onFlick({ key: "ArrowDown" });
     expect(deps.historyNext).toHaveBeenCalledTimes(1);
-  });
-
-  it("latches left/right snippet cycling within one gesture", () => {
-    const { handler, deps } = makeHandler();
-    handler.onFlick({ key: "ArrowLeft" });
-    handler.onFlick({ key: "ArrowLeft" });
-    expect(deps.cycleSnippet).toHaveBeenCalledTimes(1);
   });
 });

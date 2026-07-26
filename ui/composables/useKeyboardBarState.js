@@ -1,5 +1,4 @@
 import { ref, computed, nextTick, onUnmounted, watch } from "vue";
-import { useInputStore } from "../stores/input.js";
 import { on, emit } from "../app-bridge.js";
 
 /**
@@ -8,11 +7,9 @@ import { on, emit } from "../app-bridge.js";
  * @param {Object} deps
  * @param {import('vue').Ref} deps.keyboardInput KeyboardInput コンポーネントへの ref
  * @param {() => void} deps.clearModifiers
- * @param {(text: string) => void} deps.sendTextToTerminal
+ * @param {(command: string) => void} deps.moveSnippetToFront
  */
-export function useKeyboardBarState({ keyboardInput, clearModifiers, sendTextToTerminal }) {
-  const inputStore = useInputStore();
-
+export function useKeyboardBarState({ keyboardInput, clearModifiers, moveSnippetToFront }) {
   // ─── 入力 / スニペット状態 ─────────────────────────────────────
   const isFullKeyboard = ref(false);
   const draft = ref("");
@@ -30,14 +27,9 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers, sendTextToT
   }
 
   function onChipTap({ command }) {
-    if (inputFocused.value) {
-      draft.value = command;
-      keyboardInput.value?.focus?.();
-    } else {
-      sendTextToTerminal(command);
-      inputStore.addInputHistory(command);
-    }
+    draft.value = command;
     showSnippetView.value = false;
+    moveSnippetToFront(command);
   }
 
   // ─── キーボード開閉 ────────────────────────────────────────────

@@ -8,7 +8,7 @@
       @change="onCameraFileChange"
     />
     <div class="quick-extra-stack">
-      <div class="quick-extra-layer quick-extra-layer-qwerty" :class="{ 'layer-hidden': inputFocused || showSnippetView || showFnView }">
+      <div class="quick-extra-layer quick-extra-layer-qwerty" :class="{ 'layer-hidden': inputFocused || showFnView }">
         <div v-for="(row, ri) in qwertyRows" :key="ri" class="quick-extra-row">
           <div
             v-if="ri === 2"
@@ -46,12 +46,6 @@
         </div>
       </div>
 
-      <div v-if="showSnippetView && !inputFocused" class="quick-extra-layer quick-extra-layer-overlay">
-        <div class="keyboard-chips-row">
-          <KeyboardChips :insert-mode="true" @chip:tap="onChipTap" />
-        </div>
-      </div>
-
       <div v-if="showFnView && !inputFocused" class="quick-extra-layer quick-extra-layer-overlay">
         <div class="quick-extra-row">
           <div
@@ -73,7 +67,7 @@
         </div>
       </div>
 
-      <!-- fn キー: qwerty / snippet / fn のどのパネル表示中も同じ右下位置に固定表示する -->
+      <!-- fn キー: qwerty / fn のどちらのパネル表示中も同じ右下位置に固定表示する -->
       <div
         class="quick-key quick-modifier quick-fn-toggle"
         :class="{ active: showFnView }"
@@ -85,8 +79,7 @@
         <span class="flick-main" style="font-size:12px">{{ fnKeyLabel }}</span>
       </div>
     </div>
-    <!-- shift/ctrl/space は KeyboardBar 側（isFullKeyboard 中に入力フォームと入れ替わる行）に移動済み。
-         fn は Esc キー位置、snippet は Enter キー位置に統合済み（上の quick-extra-layer-qwerty 内）。 -->
+    <!-- shift/ctrl/space は KeyboardBar 側（isFullKeyboard 中に入力フォームと入れ替わる行）に移動済み。 -->
     <div v-if="!hideBottomRow" class="quick-extra-row quick-extra-bottom-keys">
       <KeyboardInput ref="keyboardInput" v-model:draft="draft" @focused="onInputFocused" @submitted="$emit('submitted')" />
       <div class="quick-key quick-flick-arrow quick-key-toggle active" ref="topArrowFlickEl">
@@ -117,7 +110,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+import { ref, computed, watch } from "vue";
 import { useKeyboard } from "../composables/useKeyboard.js";
 import { useInputStore } from "../stores/input.js";
 import { useAuthStore } from "../stores/auth.js";
@@ -125,42 +118,29 @@ import { useInputDraftHistory } from "../composables/useInputDraftHistory.js";
 import { useQwertyKeyPress } from "../composables/useQwertyKeyPress.js";
 import { useQwertyCamera } from "../composables/useQwertyCamera.js";
 import { useQwertyBottomRowFlicks } from "../composables/useQwertyBottomRowFlicks.js";
-import { on } from "../app-bridge.js";
 import { qwertyHasFlick, qwertyFlickUpLabel, qwertySymbolLabel } from "../utils/qwerty-key.js";
 import KeyboardInput from "./KeyboardInput.vue";
-import KeyboardChips from "./KeyboardChips.vue";
 
 const props = defineProps({
   active: { type: Boolean, default: false },
   hideBottomRow: { type: Boolean, default: false },
   externalInputFocused: { type: Boolean, default: false },
-  externalSnippetView: { type: Boolean, default: false },
   externalFnView: { type: Boolean, default: false },
 });
 
-const emitLocal = defineEmits(["dismiss", "submitted", "snippetToggle", "fnToggle"]);
+const emitLocal = defineEmits(["dismiss", "submitted", "fnToggle"]);
 
 const inputStore = useInputStore();
 const auth = useAuthStore();
-const { sendKeyToTerminal, sendTextToTerminal, modifierState, clearModifiers, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
+const { sendKeyToTerminal, modifierState, clearModifiers, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
 
 const keyboardInput = ref(null);
 const _inputFocused = ref(false);
 const draft = ref("");
 const hasDraft = computed(() => draft.value.trim().length > 0);
-const _showSnippetView = ref(false);
 
 // hideBottomRow=true のとき KeyboardBar が状態を管理する
 const inputFocused = computed(() => props.hideBottomRow ? props.externalInputFocused : _inputFocused.value);
-const showSnippetView = computed(() => props.hideBottomRow ? props.externalSnippetView : _showSnippetView.value);
-
-function toggleSnippetView() {
-  if (props.hideBottomRow) {
-    emitLocal("snippetToggle");
-  } else {
-    _showSnippetView.value = !_showSnippetView.value;
-  }
-}
 
 function toggleFnView() {
   if (props.hideBottomRow) {
@@ -170,47 +150,19 @@ function toggleFnView() {
   }
 }
 
-// fn キー: タップごとに fnビュー → snippetビュー → 通常グリッド → fnビュー…と巡回する。
-// toggleFnView が ON 化時に closeSnippetView（snippet を閉じる）を伴うため、
-// fn→snippet の遷移は「fn を先に OFF」→「snippet を ON」の順で呼ぶ。
+// fn キー: タップごとに fnビュー ⇔ 通常グリッドを切り替える。
 function cycleFnKey() {
-  if (showFnView.value) {
-    toggleFnView();
-    toggleSnippetView();
-  } else if (showSnippetView.value) {
-    toggleSnippetView();
-  } else {
-    toggleFnView();
-  }
+  toggleFnView();
 }
 
 // fn キーのラベル。予告型 = 次にタップしたら遷移する先の状態を表示する
-// （qwerty中は次がfnなので "fn"、fn中は次がsnippetなので "snip"、snippet中は次がqwertyなので "ABC"）。
-const fnKeyLabel = computed(() => {
-  if (showFnView.value) return "snip";
-  if (showSnippetView.value) return "ABC";
-  return "fn";
-});
+// （qwerty中は次がfnなので "fn"、fn中は次がqwertyなので "ABC"）。
+const fnKeyLabel = computed(() => showFnView.value ? "ABC" : "fn");
 
-const { historyPrev, historyNext, cycleSnippet } = useInputDraftHistory(
-  draft, inputFocused, sendTextToTerminal, { onSend: () => emitLocal("dismiss") }
-);
+const { historyPrev, historyNext } = useInputDraftHistory(draft);
 
 function onInputFocused(focused) {
   _inputFocused.value = !!focused;
-}
-
-function onChipTap({ command }) {
-  if (inputFocused.value) {
-    draft.value = command;
-    keyboardInput.value?.focus?.();
-  } else {
-    sendTextToTerminal(command);
-    inputStore.addInputHistory(command);
-    emitLocal("dismiss");
-    return;
-  }
-  _showSnippetView.value = false;
 }
 
 defineExpose({});
@@ -302,17 +254,9 @@ useQwertyBottomRowFlicks({
   arrowEl: topArrowFlickEl,
   enterEl: topEnterFlickEl,
   inputFocused, hasDraft, keyboardInput,
-  cycleSnippet, historyPrev, historyNext,
+  historyPrev, historyNext,
   setupFlickRepeat, sendKeyToTerminal,
   dismissKeyboard: () => emitLocal("dismiss"),
 });
-
-let offSnippetTap = null;
-onMounted(() => {
-  offSnippetTap = on("snippet:tap", () => {
-    if (props.active) emitLocal("dismiss");
-  });
-});
-onUnmounted(() => { offSnippetTap?.(); });
 
 </script>

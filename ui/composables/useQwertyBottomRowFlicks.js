@@ -11,7 +11,7 @@ export function useQwertyBottomRowFlicks({
   arrowEl, enterEl,
   inputFocused, hasDraft,
   keyboardInput,
-  cycleSnippet, historyPrev, historyNext,
+  historyPrev, historyNext,
   setupFlickRepeat, sendKeyToTerminal,
   dismissKeyboard,
 }) {
@@ -20,7 +20,7 @@ export function useQwertyBottomRowFlicks({
     if (arrowEl.value) {
       const arrowFlick = createArrowFlickHandler({
         isInputFocused: () => inputFocused.value,
-        cycleSnippet, historyPrev, historyNext,
+        historyPrev, historyNext,
       });
       arrowEl.value.addEventListener("touchstart", () => arrowFlick.reset(), { passive: true });
       setupFlickRepeat(arrowEl.value, arrowResolver, dismissKeyboard, { accelerateRepeat: true, onFlick: arrowFlick.onFlick });

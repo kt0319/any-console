@@ -5,21 +5,25 @@
       :active="isFullKeyboard"
       :hide-bottom-row="true"
       :external-input-focused="inputFocused"
-      :external-snippet-view="showSnippetView"
       :external-fn-view="showFnView"
       @dismiss="hideInput"
       @submitted="onSubmitted"
-      @snippetToggle="toggleSnippetView"
       @fnToggle="toggleFnView"
     />
+    <!-- コンパクト入力中のスニペット挿入オーバーレイ（フルキーボード側の挿入ビューと同じ onChipTap を再利用） -->
+    <div v-if="showSnippetView && !isFullKeyboard" class="keyboard-bar-snippet-overlay">
+      <KeyboardChips @chip:tap="onChipTap" />
+    </div>
     <!-- バー行 = フルキーボードの最下行と同構成 -->
     <div class="keyboard-bar-row">
       <KeyboardInput
         v-show="!isFullKeyboard"
         ref="keyboardInput"
         v-model:draft="draft"
+        :snippet-active="showSnippetView"
         @focused="onInputFocused"
         @submitted="onSubmitted"
+        @snippetToggle="toggleSnippetView"
       />
       <!-- ソフト（QWERTY）キーボード表示中は入力フォームの代わりに shift/ctrl/space を表示 -->
       <div v-if="isFullKeyboard" class="keyboard-bar-modifier-keys">
@@ -99,6 +103,7 @@ import { useInputDraftHistory } from "../composables/useInputDraftHistory.js";
 import { useKeyboardBarFlicks } from "../composables/useKeyboardBarFlicks.js";
 import { useKeyboardBarState } from "../composables/useKeyboardBarState.js";
 import { useQwertyKeyViews } from "../composables/useQwertyKeyViews.js";
+import { useSnippetPersist } from "../composables/useSnippetPersist.js";
 import { emit } from "../app-bridge.js";
 import KeyboardQwertyKey from "./KeyboardQwertyKey.vue";
 import KeyboardInput from "./KeyboardInput.vue";
@@ -111,7 +116,8 @@ const props = defineProps({
 const layoutStore = useLayoutStore();
 const isVisible = computed(() => props.isPanelBottom || layoutStore.isSplitMode);
 
-const { clearModifiers, sendKeyToTerminal, sendTextToTerminal, modifierState, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
+const { clearModifiers, sendKeyToTerminal, modifierState, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
+const { moveSnippetToFront } = useSnippetPersist();
 
 const qwertyView = ref(null);
 const keyboardInput = ref(null);
@@ -121,11 +127,11 @@ const barEnterFlickEl = ref(null);
 // ─── 入力 / スニペット状態・キーボード開閉 ──────────────────────
 const {
   isFullKeyboard, draft, inputFocused, showSnippetView, hasDraft,
-  onInputFocused, toggleSnippetView,
+  onInputFocused, toggleSnippetView, onChipTap,
   hideInput, dismissKeyboard, onSubmitted,
-} = useKeyboardBarState({ keyboardInput, clearModifiers, sendTextToTerminal });
+} = useKeyboardBarState({ keyboardInput, clearModifiers, moveSnippetToFront });
 
-const { historyPrev, historyNext, cycleSnippet } = useInputDraftHistory(draft, inputFocused, sendTextToTerminal);
+const { historyPrev, historyNext } = useInputDraftHistory(draft);
 
 function doRefresh() {
   const tab = getActiveTerminalTab();
@@ -165,7 +171,7 @@ watch(isFullKeyboard, (active) => {
 useKeyboardBarFlicks({
   arrowEl: barArrowFlickEl, enterEl: barEnterFlickEl,
   inputFocused, hasDraft, draft, keyboardInput,
-  cycleSnippet, historyPrev, historyNext,
+  historyPrev, historyNext,
   setupFlickRepeat, sendKeyToTerminal, dismissKeyboard,
 });
 </script>

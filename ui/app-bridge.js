@@ -31,7 +31,6 @@ export const BUS_EVENTS = Object.freeze([
   "snippet:add",
   "snippet:delete",
   "snippet:move",
-  "snippet:tap",
   "tab:close",
   "tab:refresh",
   "tab:select",

@@ -42,7 +42,6 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminal } from "../composables/useTerminal.js";
-import { useKeyboard } from "../composables/useKeyboard.js";
 import { useViewport } from "../composables/useViewport.js";
 import { useSessionSync } from "../composables/useSessionSync.js";
 import { useSnippetPersist } from "../composables/useSnippetPersist.js";
@@ -62,11 +61,10 @@ const terminalStore = useTerminalStore();
 const { isOffline } = useConnectivityMonitor();
 const workspaceStore = useWorkspaceStore();
 const { connectDeferredTabs } = useTerminal();
-const { sendTextToTerminal } = useKeyboard();
 const { initViewport } = useViewport();
 const keyboardOpen = ref(false);
 const { startSyncPolling, stopSyncPolling } = useSessionSync();
-const { loadSnippetCache, moveSnippetToFront, addSnippet, deleteSnippet, moveSnippet } = useSnippetPersist();
+const { loadSnippetCache, addSnippet, deleteSnippet, moveSnippet } = useSnippetPersist();
 
 const tabBarView = ref(null);
 const terminalBaseView = ref(null);
@@ -169,11 +167,6 @@ onMounted(() => {
 
   bridgeCleanups.push(on("terminal:launch", (detail) => {
     launchTerminal(detail);
-  }));
-
-  bridgeCleanups.push(on("snippet:tap", ({ command }) => {
-    sendTextToTerminal(command);
-    moveSnippetToFront(command);
   }));
 
   bridgeCleanups.push(on("snippet:add", ({ label, command }) => addSnippet(label, command)));

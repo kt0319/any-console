@@ -387,6 +387,36 @@
   width: 100%;
 }
 
+.keyboard-input-snippet-btn {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.keyboard-input-snippet-btn.active {
+  background: var(--bg-secondary);
+  color: rgba(130, 170, 255, 0.9);
+  border-color: rgba(130, 170, 255, 0.7);
+}
+
+.keyboard-bar-snippet-overlay {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  height: 160px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+}
+
 .keyboard-input {
   flex: 1;
   min-width: 0;
