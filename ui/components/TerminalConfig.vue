@@ -1,5 +1,5 @@
 <template>
-  <div class="terminal-settings-view">
+  <div class="terminal-settings-view modal-scroll-body">
     <template v-for="(schema, key) in TERMINAL_SETTINGS_META" :key="key">
       <div v-if="schema.type === 'number'" class="settings-item">
         <div class="settings-item-header">
