@@ -101,6 +101,7 @@ async def list_terminal_sessions():
             "job_label": md["job_label"],
             "created_at": created_at,
             "detached": meta_src.detached,
+            "interactive": md["interactive"],
         })
 
     sessions.sort(key=lambda s: s.get("created_at") or 0)

@@ -84,6 +84,9 @@ export function useTerminalLifecycle({ terminalBaseView }) {
           // {{name}} は command_vars の値で shlex.quote 置換される。
           command: initialCommand || null,
           command_vars: commandVars,
+          // UIからの直接操作であることを明示する。他デバイスのタブバーにも
+          // 表示されるようにするため（外部ツールからの/run直叩きと区別する）。
+          interactive: true,
         },
       });
       if (!res || !res.ok) {

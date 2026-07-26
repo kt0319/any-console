@@ -37,6 +37,10 @@ class RunRequest(BaseModel):
     job_label: str | None = None
     command: str | None = None
     command_vars: dict[str, str] = {}
+    # UIが「+」等の操作で直接開いたリクエストであることの明示フラグ。/run は
+    # 外部ツールから直接叩かれることも想定するエンドポイントのため、既定は
+    # False（=タブバーには出さず Tabs & Sessions パネルのみに表示）。
+    interactive: bool = False
 
 
 _PLACEHOLDER_RE = re.compile(r"\[\[\s*([A-Za-z0-9_]+)\s*\]\]")
@@ -94,6 +98,7 @@ def _create_terminal_session(body, ws_path):
         icon_color=body.icon_color,
         job_name=body.job_name,
         job_label=body.job_label,
+        interactive=body.interactive,
     )
     tmux_name = session.tmux_session_name
     logger.info("terminal session created session=%s tmux=%s workspace=%s",

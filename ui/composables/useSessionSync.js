@@ -116,11 +116,12 @@ export function useSessionSync() {
         if (s.detached) continue;
         if (terminalStore.pendingCloseSessionIds.has(s.session_id)) continue;
         if (!localSessionIds.has(s.session_id)) {
-          // このブラウザセッションで直接操作して開いたタブではなく、ポーリングで
-          // サーバー側に見つかった（外部API等から起動された）タブなので、
-          // タブバーには出さずに Tabs & Sessions パネルからのみ参照できるようにする。
           const tab = terminalStore.addTerminalTab(_buildTabParams(s, allJobs));
-          terminalStore.setTabFlag(tab.id, "autoDiscovered", true);
+          // interactive=false（外部ツールから /run を直接叩いた等、UIの操作を
+          // 経由していないセッション）だけタブバーから隠す。UIの「+」等で別の
+          // 端末から開かれたセッションは interactive=true で届くので、この
+          // 端末のタブバーにも通常どおり表示される。
+          if (!s.interactive) terminalStore.setTabFlag(tab.id, "autoDiscovered", true);
         }
       }
 

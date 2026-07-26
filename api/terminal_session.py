@@ -47,6 +47,7 @@ _TMUX_ATTR_MAP = {
     "TMUX_ICON_COLOR": "icon_color",
     "TMUX_JOB_NAME": "job_name",
     "TMUX_JOB_LABEL": "job_label",
+    "TMUX_INTERACTIVE": "interactive",
 }
 
 
@@ -78,7 +79,7 @@ class TerminalSession:
 
     __slots__ = (
         "workspace",
-        "icon", "icon_color", "job_name", "job_label",
+        "icon", "icon_color", "job_name", "job_label", "interactive",
         "tmux_session_name",
         "bridges",
         "pending_text", "pending_enter",
@@ -88,12 +89,17 @@ class TerminalSession:
     def __init__(self, workspace: str | None,
                  tmux_session_name: str,
                  icon: str | None = None, icon_color: str | None = None,
-                 job_name: str | None = None, job_label: str | None = None):
+                 job_name: str | None = None, job_label: str | None = None,
+                 interactive: str | None = None):
         self.workspace = workspace
         self.icon = icon
         self.icon_color = icon_color
         self.job_name = job_name
         self.job_label = job_label
+        # UIから直接操作して開かれたセッションかどうか（"1"/None）。/run は
+        # 外部ツールからも叩かれうるため、UI発のリクエストだけがこれを立てる。
+        # タブバーへ表示するかどうかの判定に使う（useSessionSync.js参照）。
+        self.interactive = interactive
         self.tmux_session_name = tmux_session_name
         self.bridges: dict[WebSocket, ClientBridge] = {}
         self.pending_text: str | None = None
@@ -153,6 +159,7 @@ class TerminalSession:
             icon_color=meta.get("TMUX_ICON_COLOR"),
             job_name=meta.get("TMUX_JOB_NAME"),
             job_label=meta.get("TMUX_JOB_LABEL"),
+            interactive=meta.get("TMUX_INTERACTIVE"),
         )
         sess.detached = bool(meta.get("TMUX_DETACHED"))
         return sess
@@ -164,6 +171,7 @@ class TerminalSession:
             "icon_color": self.icon_color,
             "job_name": self.job_name,
             "job_label": self.job_label,
+            "interactive": bool(self.interactive),
         }
 
 
@@ -181,11 +189,17 @@ def create_registered_session(
     icon_color: str | None = None,
     job_name: str | None = None,
     job_label: str | None = None,
+    interactive: bool = True,
 ) -> tuple[str, TerminalSession]:
     """tmux セッションを作成して registry へ登録し (session_id, session) を返す。
 
     /run と /dispatch のセッション作成手順（容量チェック → ID 生成 →
     tmux 作成 → 登録 → メタデータ保存）を共通化したもの。
+
+    interactive: UIから直接操作して開かれたセッションかどうか。/dispatch は
+    承認という人手を介するため既定で True のままでよいが、/run は外部ツールから
+    直接叩かれることも想定するため、呼び出し側（job_runner.py）がUI発の
+    リクエストだけ明示的に True を渡す。
     """
     with sessions_lock:
         if len(TERMINAL_SESSIONS) >= MAX_TERMINAL_SESSIONS:
@@ -211,6 +225,7 @@ def create_registered_session(
         icon_color=icon_color,
         job_name=job_name,
         job_label=job_label,
+        interactive="1" if interactive else None,
     )
     with sessions_lock:
         TERMINAL_SESSIONS[session_id] = session
