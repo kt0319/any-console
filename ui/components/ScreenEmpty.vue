@@ -1,11 +1,23 @@
 <template>
   <div class="screen-empty-container">
     <div class="screen-empty-content">
-      <div v-if="showPhonePairing" class="screen-empty-section">
+      <div v-if="showPhonePairing || showHttpsSetup || showPwaInstall || showEnableNotifications" class="screen-empty-section">
         <div class="screen-empty-section-label">Setup</div>
-        <button type="button" class="screen-empty-menu-item" @click="openPhonePairing">
+        <button v-if="showPhonePairing" type="button" class="screen-empty-menu-item" @click="openPhonePairing">
           <span class="mdi mdi-cellphone screen-empty-menu-icon"></span>
           <span class="screen-empty-menu-label">Open on your phone</span>
+        </button>
+        <button v-if="showHttpsSetup" type="button" class="screen-empty-menu-item" @click="showHttpsInstructions">
+          <span class="mdi mdi-lock-outline screen-empty-menu-icon"></span>
+          <span class="screen-empty-menu-label">Set up HTTPS</span>
+        </button>
+        <button v-if="showPwaInstall" type="button" class="screen-empty-menu-item" @click="installPwa">
+          <span class="mdi mdi-cellphone-arrow-down screen-empty-menu-icon"></span>
+          <span class="screen-empty-menu-label">Install as app</span>
+        </button>
+        <button v-if="showEnableNotifications" type="button" class="screen-empty-menu-item" @click="enableNotifications">
+          <span class="mdi mdi-bell-outline screen-empty-menu-icon"></span>
+          <span class="screen-empty-menu-label">Enable notifications</span>
         </button>
       </div>
 
@@ -73,6 +85,7 @@ import { renderIconStr } from "../utils/render-icon.js";
 import { isMobileUserAgent } from "../utils/device.js";
 import { EP_SYSTEM_INFO, EP_SETTINGS_AUTH, EP_DEVICES } from "../utils/endpoints.js";
 import { useLayoutStore } from "../stores/layout.js";
+import { usePushNotification } from "../composables/usePushNotification.js";
 import StatusOverlay from "./StatusOverlay.vue";
 
 const props = defineProps({
@@ -100,10 +113,32 @@ const showPhonePairing = computed(() =>
   !layoutStore.isPanelBottom && authRequired.value && !hasMobileDevice.value
 );
 
+// HTTPS未設定の警告・PWAインストール導線。ローカル開発（localhost/127.0.0.1）では
+// HTTPS化は不要なので出さない。HTTPSが無いとPWAインストール自体できないため両者は
+// 排他（HTTP接続中はまずHTTPSを促し、PWA導線はHTTPS化後に出す）。
+const isLocalDev = ["localhost", "127.0.0.1"].includes(location.hostname);
+const showHttpsSetup = computed(() => !isLocalDev && location.protocol === "http:");
+const showPwaInstall = computed(() => !isLocalDev && location.protocol === "https:" && !layoutStore.isPwa);
+
+/** @type {Event | null} beforeinstallprompt でキャプチャした遅延プロンプト（Safari等では発火しない）。 */
+let deferredInstallPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+});
+
+// PWAインストール済み(=isPwa)でまだpush通知を購読していない場合の導線。
+// PWA未インストールの間はブラウザ通知の信頼性が低いため、インストール後に出す。
+const push = usePushNotification();
+const showEnableNotifications = computed(() =>
+  layoutStore.isPwa && push.isSupported && push.permission.value !== "denied" && !push.isSubscribed.value
+);
+
 onMounted(() => {
   loadRecentJobs();
   loadServerInfo();
   loadPhonePairingEligibility();
+  push.init();
 });
 
 async function loadServerInfo() {
@@ -126,6 +161,31 @@ function openSettings() {
 
 function openPhonePairing() {
   emit("settings:open", { view: "PairDeviceConfig" });
+}
+
+async function showHttpsInstructions() {
+  await confirm(
+    "Run \"./any-console https-setup\" on the server (via SSH) to issue a Tailscale HTTPS certificate. "
+    + "HTTPS is required for installing this as an app and for push notifications.",
+    { ok: { label: "Got it" } },
+  );
+}
+
+async function installPwa() {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    return;
+  }
+  const instructions = isMobileUserAgent(navigator.userAgent)
+    ? "Tap the Share icon, then \"Add to Home Screen\"."
+    : "Open your browser's menu and choose \"Install\" (or \"Add to Home Screen\").";
+  await confirm(instructions, { ok: { label: "Got it" } });
+}
+
+async function enableNotifications() {
+  await push.subscribe();
 }
 
 function openTerminal() {
