@@ -60,11 +60,16 @@ describe("CIRCLE_KEYPAD_* metadata", () => {
     expect(all.alt).toBe(true);
   });
 
-  it("base keys include arrows, letters, and special keys", () => {
+  it("base keys include arrows, letters, digits, and special keys", () => {
     expect(CIRCLE_KEYPAD_BASE_KEYS.some((k) => k.id === "ArrowUp")).toBe(true);
     expect(CIRCLE_KEYPAD_BASE_KEYS.some((k) => k.id === "a")).toBe(true);
     expect(CIRCLE_KEYPAD_BASE_KEYS.some((k) => k.id === "z")).toBe(true);
     expect(CIRCLE_KEYPAD_BASE_KEYS.some((k) => k.id === "PageUp")).toBe(true);
+    for (let i = 0; i <= 9; i++) {
+      const digit = CIRCLE_KEYPAD_BASE_KEYS.find((k) => k.id === String(i));
+      expect(digit).toBeTruthy();
+      expect(digit.label).toBe(String(i));
+    }
   });
 });
 

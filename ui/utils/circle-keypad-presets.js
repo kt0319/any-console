@@ -20,6 +20,11 @@ const LETTER_BASE_KEYS = Array.from({ length: 26 }, (_, i) => {
   return { id: ch, label: ch.toUpperCase() };
 });
 
+const DIGIT_BASE_KEYS = Array.from({ length: 10 }, (_, i) => {
+  const ch = String(i);
+  return { id: ch, label: ch };
+});
+
 export const CIRCLE_KEYPAD_BASE_KEYS = [
   { id: "ArrowUp",    label: "↑" },
   { id: "ArrowDown",  label: "↓" },
@@ -36,6 +41,7 @@ export const CIRCLE_KEYPAD_BASE_KEYS = [
   { id: "PageDown",   label: "PgDn" },
   { id: " ",          label: "Space" },
   ...LETTER_BASE_KEYS,
+  ...DIGIT_BASE_KEYS,
 ];
 
 // 四隅の特殊メニューに割り当て可能なアクション。
