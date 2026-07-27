@@ -145,7 +145,9 @@ const { pillDragging, onPillMouseDown, onPillClick, onPillTouchStart, onPillTouc
   onTabClick: () => {
     if (props.tab.workspace) {
       workspaceStore.selectedWorkspace = props.tab.workspace;
-      emit("git:openFileModal");
+      // ピルに ahead/behind（push/pullマーク）が出ている時は、その操作をする Branches ペインへ直接開く。
+      const hasPushPullMark = layoutStore.isSplitMode && (ahead.value > 0 || behind.value > 0);
+      emit("git:openFileModal", hasPushPullMark ? { pane: "branch" } : undefined);
     } else {
       emit("workspace:openModal");
     }
