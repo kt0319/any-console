@@ -8,6 +8,7 @@ import { emit as bridgeEmit } from "../app-bridge.js";
 import { TERMINAL_SETTINGS_META, DEFAULT_TERMINAL_SETTINGS, sanitizeTerminalSetting, sanitizeTerminalSettings } from "../utils/terminal-settings.js";
 import { safeJsonLoad } from "../utils/storage.js";
 import { isTouchInput } from "../utils/device.js";
+import { findUrlInBuffer } from "../utils/terminal-buffer-text.js";
 import { EP_TERMINAL_ORDER, terminalSessionDetachedPath } from "../utils/endpoints.js";
 import { useAuthStore } from "./auth.js";
 
@@ -122,7 +123,10 @@ export const useTerminalStore = defineStore("terminal", () => {
     term.loadAddon(fitAddon);
     term.loadAddon(new WebLinksAddon((e, uri) => {
       if (isTouchInput() && !_longPressActive) return;
-      bridgeEmit("terminal:url", { uri });
+      // WebLinksAddon はアプリ側が明示的に改行した URL（xterm の自動折返しではない）を
+      // 連結できず途中で切れることがあるため、クリック座標から改めて全体を再計算する。
+      const fullUri = findUrlInBuffer(term, e.clientX, e.clientY) || uri;
+      bridgeEmit("terminal:url", { uri: fullUri });
     }));
 
     const sessionId = wsUrl.replace(/.*\/terminal\/ws\//, "").replace(/\?.*/, "");
