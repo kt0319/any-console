@@ -89,6 +89,35 @@ describe("parseStatusStreamMessage", () => {
   it("dispatch_queue の items が配列でなければ null", () => {
     expect(parseStatusStreamMessage(JSON.stringify({ type: "dispatch_queue", items: {} }))).toBe(null);
   });
+
+  it("phrase_notify メッセージを正規化して返す", () => {
+    const raw = JSON.stringify({
+      type: "phrase_notify",
+      session_id: "s1",
+      phrase: "done!",
+      workspace: "ws1",
+    });
+    expect(parseStatusStreamMessage(raw)).toEqual({
+      type: "phrase_notify",
+      session_id: "s1",
+      phrase: "done!",
+      workspace: "ws1",
+    });
+  });
+
+  it("phrase_notify の workspace が無ければ null で補う", () => {
+    const raw = JSON.stringify({ type: "phrase_notify", session_id: "s1", phrase: "done!" });
+    expect(parseStatusStreamMessage(raw)).toEqual({
+      type: "phrase_notify",
+      session_id: "s1",
+      phrase: "done!",
+      workspace: null,
+    });
+  });
+
+  it("phrase_notify の session_id が文字列でなければ null", () => {
+    expect(parseStatusStreamMessage(JSON.stringify({ type: "phrase_notify" }))).toBe(null);
+  });
 });
 
 describe("statusStreamReconnectDelay", () => {

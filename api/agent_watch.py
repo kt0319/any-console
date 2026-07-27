@@ -14,6 +14,10 @@ push する（routers/status_stream.py が git_watch と同じソケットに相
 秒待っても通知しない。サーバー側に「今どのタブを見ているか」を伝える手段が無いため、
 検出後のアクティビティ有無を「見ていたかどうか」の代用指標として使う。
 
+タブの通知マーク（WS配信の phrase_notify）はこの猶予を待たない。クライアント側は
+「今どのタブがアクティブか」を直接知っているため、対象タブを見ていれば即座に
+消える。誤検知のコストが低いぶん、検出したポーリング周期で即時に一度だけ配信する。
+
 git_watch と同じく購読者がいる間だけポーリングタスクが動き、購読者ゼロで
 停止するため、クライアントが繋がっていないときのコストはゼロ。
 """
@@ -108,6 +112,9 @@ _phrase_detected_at: dict[str, float] = {}
 # 通知送信済み、または検出後の反応により通知不要と判定済みのセッション
 # （フレーズが表示され続けている間の重複判定を抑制）。
 _phrase_notified: set[str] = set()
+# タブの通知マーク（WS配信）を送信済みのセッション。push と違い誤検知の
+# コストが低い（見れば消える）ため、猶予を待たず検出即時に一度だけ送る。
+_phrase_ws_notified: set[str] = set()
 
 _subscribers: set[WebSocket] = set()
 _poll_task: asyncio.Task | None = None
@@ -150,20 +157,40 @@ def _should_notify_phrase(session_id: str, notify_phrase: str, capture: str, cha
     return False
 
 
-def collect_agent_states() -> tuple[dict[str, str] | None, list[tuple[str, str, str | None]]]:
+def _should_ws_notify_phrase(session_id: str, notify_phrase: str, capture: str) -> bool:
+    """タブの通知マーク用の判定。push と違い「見ていたか」の推測猶予を待たず、
+    検出したポーリング周期で即座に True を返す（見れば消える表示のため誤検知コストが低い）。
+    フレーズが画面から消えたら次の出現でまた通知できるようリセットする。"""
+    if not notify_phrase or notify_phrase not in capture:
+        _phrase_ws_notified.discard(session_id)
+        return False
+    if session_id in _phrase_ws_notified:
+        return False
+    _phrase_ws_notified.add(session_id)
+    return True
+
+
+def collect_agent_states() -> tuple[
+    dict[str, str] | None,
+    list[tuple[str, str, str | None]],
+    list[tuple[str, str, str | None]],
+]:
     """全ターミナルセッションの状態を判定して返す（executor スレッドで実行）。
 
     Returns:
-        (states, notifications): states は session_id→state の辞書。
+        (states, notifications, ws_notifications): states は session_id→state の辞書。
         tmux コマンド自体が失敗した場合は states が None（呼び出し元は
         直前のスナップショットを保持し、空で上書きしない）。
-        notifications はプッシュ通知すべき (session_id, phrase, workspace) のリスト。
+        notifications はプッシュ通知すべき (session_id, phrase, workspace) のリスト
+        （PHRASE_NOTIFY_IDLE_GRACE_SEC 秒の猶予あり）。
+        ws_notifications はタブの通知マーク配信用の同形式のリスト（猶予なし・即時）。
     """
     session_ids = _list_session_ids()
     if session_ids is None:
-        return None, []
+        return None, [], []
     states: dict[str, str] = {}
     notifications: list[tuple[str, str, str | None]] = []
+    ws_notifications: list[tuple[str, str, str | None]] = []
     now = time.monotonic()
     for session_id in session_ids:
         capture = capture_visible_pane(TMUX_SESSION_PREFIX + session_id)
@@ -177,13 +204,16 @@ def collect_agent_states() -> tuple[dict[str, str] | None, list[tuple[str, str, 
         changed = prev_capture is not None and capture != prev_capture
         if _should_notify_phrase(session_id, notify_phrase, capture, changed, now):
             notifications.append((session_id, notify_phrase, workspace))
+        if _should_ws_notify_phrase(session_id, notify_phrase, capture):
+            ws_notifications.append((session_id, notify_phrase, workspace))
         _last_capture[session_id] = capture
     for stale in set(_last_capture) - set(states):
         del _last_capture[stale]
     for stale in set(_phrase_detected_at) - set(states):
         del _phrase_detected_at[stale]
     _phrase_notified.intersection_update(states)
-    return states, notifications
+    _phrase_ws_notified.intersection_update(states)
+    return states, notifications, ws_notifications
 
 
 def subscriber_count() -> int:
@@ -197,6 +227,15 @@ def states_payload(states: dict[str, str]) -> dict[str, Any]:
             {"session_id": session_id, "state": state}
             for session_id, state in states.items()
         ],
+    }
+
+
+def phrase_notify_payload(session_id: str, phrase: str, workspace: str | None) -> dict[str, Any]:
+    return {
+        "type": "phrase_notify",
+        "session_id": session_id,
+        "phrase": phrase,
+        "workspace": workspace,
     }
 
 
@@ -261,6 +300,7 @@ def _stop_task() -> None:
     _last_capture.clear()
     _phrase_detected_at.clear()
     _phrase_notified.clear()
+    _phrase_ws_notified.clear()
 
 
 def shutdown() -> None:
@@ -302,7 +342,9 @@ async def _poll_loop() -> None:  # pragma: no cover - 実時間スリープに�
             if not _subscribers and not has_subscriptions():
                 break
             loop = asyncio.get_running_loop()
-            states, notifications = await loop.run_in_executor(BACKGROUND_EXECUTOR, collect_agent_states)
+            states, notifications, ws_notifications = await loop.run_in_executor(
+                BACKGROUND_EXECUTOR, collect_agent_states
+            )
             if states is None:
                 # tmux コマンド自体が一時的に失敗。直前のスナップショットを保持して
                 # 次の周期に委ね、状態を空で上書きしない（誤って working/idle が消えるのを防ぐ）。
@@ -312,6 +354,9 @@ async def _poll_loop() -> None:  # pragma: no cover - 実時間スリープに�
             _last_states.update(states)
             if changed:
                 await _broadcast(states_payload(changed))
+            # タブの通知マークは見れば消える表示なので、push の猶予を待たず検出即時に配信する。
+            for session_id, phrase, workspace in ws_notifications:
+                await _broadcast(phrase_notify_payload(session_id, phrase, workspace))
             for session_id, phrase, workspace in notifications:
                 send_push_notification(
                     title="Phrase detected",

@@ -20,11 +20,13 @@ export function buildStatusStreamUrl(proto, host) {
  * - statuses: `{ type: "statuses", statuses: [...] }`
  * - agent_states: `{ type: "agent_states", states: [{ session_id, state }] }`
  * - dispatch_queue: `{ type: "dispatch_queue", items: [{ id, request }] }`（全量スナップショット）
+ * - phrase_notify: `{ type: "phrase_notify", session_id, phrase, workspace }`
  * ping・不正 JSON・形式違いは null を返す（呼び出し側は無視すればよい）。
  * @param {unknown} raw
  * @returns {{ type: "statuses", statuses: Record<string, any>[] }
  *   | { type: "agent_states", states: { session_id: string, state: string }[] }
  *   | { type: "dispatch_queue", items: { id: string, request: Record<string, any> }[] }
+ *   | { type: "phrase_notify", session_id: string, phrase: string, workspace: string | null }
  *   | null}
  */
 export function parseStatusStreamMessage(raw) {
@@ -44,6 +46,9 @@ export function parseStatusStreamMessage(raw) {
   }
   if (msg.type === "dispatch_queue" && Array.isArray(msg.items)) {
     return { type: "dispatch_queue", items: msg.items };
+  }
+  if (msg.type === "phrase_notify" && typeof msg.session_id === "string") {
+    return { type: "phrase_notify", session_id: msg.session_id, phrase: msg.phrase ?? "", workspace: msg.workspace ?? null };
   }
   return null;
 }

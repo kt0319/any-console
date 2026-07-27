@@ -94,6 +94,17 @@ export const useTerminalStore = defineStore("terminal", () => {
     if (sessionId) delete agentStates[sessionId];
   }
 
+  // sessionId → notify_phrase 検知フラグ。タブが選択されたら見た扱いでクリアする。
+  const phraseNotifySessions = reactive(/** @type {Record<string, boolean>} */ ({}));
+
+  function markPhraseNotify(sessionId) {
+    if (sessionId) phraseNotifySessions[sessionId] = true;
+  }
+
+  function clearPhraseNotify(sessionId) {
+    if (sessionId) delete phraseNotifySessions[sessionId];
+  }
+
   function clearTabFlags(tabId) {
     delete tabFlags[tabId];
   }
@@ -186,6 +197,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     const tab = openTabs.value.find((t) => t.id === tabId);
     if (tab) {
       localStorage.setItem(LS_KEY_ACTIVE_SESSION, tab.sessionId);
+      clearPhraseNotify(tab.sessionId);
     }
   }
 
@@ -270,6 +282,9 @@ export const useTerminalStore = defineStore("terminal", () => {
     agentStates,
     applyAgentStates,
     clearAgentState,
+    phraseNotifySessions,
+    markPhraseNotify,
+    clearPhraseNotify,
     setTabFlag,
     clearTabFlags,
     TERMINAL_SETTINGS_KEY,

@@ -2,11 +2,11 @@
   <button
     ref="pillEl"
     class="tab-btn"
-    :class="{ active: isActive, 'tab-activity': tab._activity, 'tab-working': agentState === 'working', dragging: isDragging, 'drag-over-left': effectiveDropSide === 'left', 'drag-over-right': effectiveDropSide === 'right', 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isActive, 'tab-underline-top': isPanelBottom }"
+    :class="{ active: isActive, 'tab-activity': tab._activity, 'tab-working': agentState === 'working', 'tab-phrase-notify': hasPhraseNotify, dragging: isDragging, 'drag-over-left': effectiveDropSide === 'left', 'drag-over-right': effectiveDropSide === 'right', 'tab-panel-bottom': isPanelBottom, 'tab-underline-active': isActive, 'tab-underline-top': isPanelBottom }"
     :draggable="canDrag"
     :data-tab-id="tab.id"
-    :aria-label="label"
-    :data-tooltip="label"
+    :aria-label="tabAriaLabel"
+    :data-tooltip="tabAriaLabel"
     tabindex="-1"
     @mousedown="onMouseDown"
     @click="onClick"
@@ -103,6 +103,10 @@ const isDirty = computed(() => {
 });
 
 const agentState = computed(() => terminalStore.agentStates[props.tab.sessionId] || "");
+
+const hasPhraseNotify = computed(() => !!terminalStore.phraseNotifySessions[props.tab.sessionId]);
+
+const tabAriaLabel = computed(() => (hasPhraseNotify.value ? `${label.value} (phrase detected)` : label.value));
 
 const isWorktree = computed(() => {
   if (!props.tab.workspace) return false;
@@ -499,5 +503,19 @@ onBeforeUnmount(() => {
 @keyframes tab-working-pulse {
   0%   { background-position: 200% center; }
   100% { background-position: -200% center; }
+}
+
+/* notify_phrase 検知の通知マーク。ドット追加だと dirty-dot と場所を取り合う（特に
+   パネル下部のアイコンのみ表示）ため、幅を取らない背景の点滅で表現する。
+   tab-working（出力中）と同時に付く場合、tab-working の background-image
+   （右→左に流れるグラデーション）が残って点滅と混ざって見えるため打ち消す。 */
+.tab-btn.tab-phrase-notify:not(.active) {
+  background-image: none;
+  animation: tab-phrase-notify-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes tab-phrase-notify-blink {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgba(130, 170, 255, 0.35); }
 }
 </style>

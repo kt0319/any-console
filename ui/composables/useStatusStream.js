@@ -50,6 +50,8 @@ export function useStatusStream() {
         terminalStore.applyAgentStates(msg.states);
       } else if (msg?.type === "dispatch_queue") {
         applyDispatchQueue(msg.items);
+      } else if (msg?.type === "phrase_notify") {
+        terminalStore.markPhraseNotify(msg.session_id);
       }
     };
     ws.onclose = () => {
