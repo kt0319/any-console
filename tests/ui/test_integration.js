@@ -21,10 +21,14 @@ import WorkspaceStatusBar from "../../ui/components/WorkspaceStatusBar.vue";
 import WorkspaceDetail from "../../ui/components/WorkspaceDetail.vue";
 import DispatchRunView from "../../ui/components/DispatchRunView.vue";
 import AuthConfig from "../../ui/components/AuthConfig.vue";
+import SendSnippet from "../../ui/components/SendSnippet.vue";
+import SendHistory from "../../ui/components/SendHistory.vue";
 import { useTerminalStore } from "../../ui/stores/terminal.js";
 import { useAuthStore } from "../../ui/stores/auth.js";
 import { useWorkspaceStore } from "../../ui/stores/workspace.js";
+import { useInputStore } from "../../ui/stores/input.js";
 import { applyDispatchQueue } from "../../ui/composables/useDispatchConfirm.js";
+import { useKeyboardBarState } from "../../ui/composables/useKeyboardBarState.js";
 import { EP_API_TOKENS, EP_SETTINGS_AUTH } from "../../ui/utils/endpoints.js";
 
 // ── Test 1: fit 抑制 ──────────────────────────────────────────────────────────
@@ -739,6 +743,130 @@ describe("AuthConfig: API Tokens", () => {
 
     expect(deleteCalled).toBe(true);
     expect(wrapper.text()).not.toContain("ci");
+    wrapper.unmount();
+  });
+});
+
+// ── SendSnippet / SendHistory: 設定画面からの挿入 ──────────────────────────
+
+describe("SendSnippet: 設定画面からのタップ挿入", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  it("スニペット行をタップすると keyboard:setDraft / snippet:use / modal:close が発火する", async () => {
+    const inputStore = useInputStore();
+    inputStore.snippetsCache = [{ label: "ls", command: "ls -la" }];
+
+    const setDraftHandler = vi.fn();
+    const useHandler = vi.fn();
+    const closeHandler = vi.fn();
+    const offs = [
+      on("keyboard:setDraft", setDraftHandler),
+      on("snippet:use", useHandler),
+      on("modal:close", closeHandler),
+    ];
+
+    const wrapper = mount(SendSnippet, { global: { provide: { modalTitle: ref("") } } });
+    await wrapper.find(".snippet-command").trigger("click");
+
+    expect(setDraftHandler).toHaveBeenCalledWith({ command: "ls -la" });
+    expect(useHandler).toHaveBeenCalledWith({ command: "ls -la" });
+    expect(closeHandler).toHaveBeenCalledOnce();
+
+    wrapper.unmount();
+    offs.forEach((off) => off());
+  });
+});
+
+describe("SendHistory: 設定画面からのタップ挿入・削除", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  it("履歴行をタップすると keyboard:setDraft / modal:close が発火する（snippet:use は発火しない）", async () => {
+    const inputStore = useInputStore();
+    inputStore.inputHistory = ["echo hi"];
+
+    const setDraftHandler = vi.fn();
+    const useHandler = vi.fn();
+    const closeHandler = vi.fn();
+    const offs = [
+      on("keyboard:setDraft", setDraftHandler),
+      on("snippet:use", useHandler),
+      on("modal:close", closeHandler),
+    ];
+
+    const wrapper = mount(SendHistory, { global: { provide: { modalTitle: ref("") } } });
+    await wrapper.find(".history-command").trigger("click");
+
+    expect(setDraftHandler).toHaveBeenCalledWith({ command: "echo hi" });
+    expect(useHandler).not.toHaveBeenCalled();
+    expect(closeHandler).toHaveBeenCalledOnce();
+
+    wrapper.unmount();
+    offs.forEach((off) => off());
+  });
+
+  it("削除ボタンで inputStore.removeInputHistory が呼ばれる", async () => {
+    const inputStore = useInputStore();
+    inputStore.inputHistory = ["echo hi"];
+
+    const wrapper = mount(SendHistory, { global: { provide: { modalTitle: ref("") } } });
+    await wrapper.find(".history-delete").trigger("click");
+
+    expect(inputStore.inputHistory).toEqual([]);
+    wrapper.unmount();
+  });
+});
+
+// ── useKeyboardBarState: スニペット/履歴パネルの巡回 ────────────────────────
+
+describe("useKeyboardBarState: toggleSnippetView の巡回", () => {
+  function mountState() {
+    let state;
+    const wrapper = mount(defineComponent({
+      setup() {
+        state = useKeyboardBarState({ keyboardInput: ref(null), clearModifiers: () => {} });
+        return () => null;
+      },
+    }));
+    return { wrapper, state: () => state };
+  }
+
+  it("none→snippets→history→none の巡回で settings:open / modal:close を発火する", async () => {
+    const openHandler = vi.fn();
+    const closeHandler = vi.fn();
+    const offs = [
+      on("settings:open", openHandler),
+      on("modal:close", closeHandler),
+    ];
+    const { wrapper, state } = mountState();
+
+    state().toggleSnippetView();
+    expect(state().snippetPanelView.value).toBe("snippets");
+    expect(openHandler).toHaveBeenLastCalledWith({ view: "SendSnippet" });
+
+    state().toggleSnippetView();
+    expect(state().snippetPanelView.value).toBe("history");
+    expect(openHandler).toHaveBeenLastCalledWith({ view: "SendHistory" });
+
+    state().toggleSnippetView();
+    expect(state().snippetPanelView.value).toBe("none");
+    expect(closeHandler).toHaveBeenCalledOnce();
+
+    wrapper.unmount();
+    offs.forEach((off) => off());
+  });
+
+  it("settings:closed を受けると巡回状態が none にリセットされる", () => {
+    const { wrapper, state } = mountState();
+    state().toggleSnippetView();
+    expect(state().snippetPanelView.value).toBe("snippets");
+
+    emit("settings:closed");
+    expect(state().snippetPanelView.value).toBe("none");
+
     wrapper.unmount();
   });
 });

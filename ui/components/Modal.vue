@@ -44,7 +44,8 @@
         <PairDeviceConfig v-if="currentView === 'PairDeviceConfig'" />
         <ServerInfo v-if="currentView === 'ServerInfo'" />
         <DisplayConfig v-if="currentView === 'DisplayConfig'" />
-        <SnippetConfig v-if="currentView === 'SnippetConfig'" />
+        <SendSnippet v-if="currentView === 'SendSnippet'" />
+        <SendHistory v-if="currentView === 'SendHistory'" />
         <PreviewPorts v-if="currentView === 'PreviewPorts'" />
         <NotificationConfig v-if="currentView === 'NotificationConfig'" />
         <CircleKeyPadConfig v-if="currentView === 'CircleKeyPadConfig'" />
@@ -73,14 +74,15 @@ import AuthConfig from "./AuthConfig.vue";
 import PairDeviceConfig from "./PairDeviceConfig.vue";
 import ServerInfo from "./ServerInfo.vue";
 import DisplayConfig from "./DisplayConfig.vue";
-import SnippetConfig from "./SnippetConfig.vue";
+import SendSnippet from "./SendSnippet.vue";
+import SendHistory from "./SendHistory.vue";
 import PreviewPorts from "./PreviewPorts.vue";
 import NotificationConfig from "./NotificationConfig.vue";
 import CircleKeyPadConfig from "./CircleKeyPadConfig.vue";
 import ConfigFile from "./ConfigFile.vue";
 import IconPicker from "./IconPicker.vue";
 import WorkspaceDetail from "./WorkspaceDetail.vue";
-import { on } from "../app-bridge.js";
+import { on, emit as bridgeEmit } from "../app-bridge.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useLayoutStore } from "../stores/layout.js";
 
@@ -155,6 +157,7 @@ function closeModal() {
   modalBranch.value = "";
   currentPaneRef.value = null;
   layoutStore.isSettingsOpen = false;
+  bridgeEmit("settings:closed");
 }
 
 function onBack() {

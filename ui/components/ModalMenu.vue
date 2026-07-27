@@ -19,6 +19,12 @@
           <span class="mdi mdi-open-in-app"></span> Port Preview
           <span v-if="previewPortCount > 0" class="settings-menu-version">{{ previewPortCount }} detected</span>
         </button>
+        <button type="button" class="settings-menu-item" @click="pushView('SendSnippet')">
+          <span class="mdi mdi-bookmark-multiple"></span> Send Snippet
+        </button>
+        <button type="button" class="settings-menu-item" @click="pushView('SendHistory')">
+          <span class="mdi mdi-history"></span> Send History
+        </button>
       </div>
 
       <div class="settings-category-head">
@@ -33,9 +39,6 @@
         </button>
         <button type="button" class="settings-menu-item" @click="pushView('DisplayConfig')">
           <span class="mdi mdi-monitor-eye"></span> Display
-        </button>
-        <button type="button" class="settings-menu-item" @click="pushView('SnippetConfig')">
-          <span class="mdi mdi-bookmark-multiple"></span> Snippets
         </button>
         <button type="button" class="settings-menu-item" @click="pushView('CircleKeyPadConfig')">
           <span class="mdi mdi-gesture-tap"></span> Circle Keypad

@@ -1,15 +1,19 @@
 import { ref, computed, nextTick, onUnmounted, watch } from "vue";
 import { on, emit } from "../app-bridge.js";
 
+// スニペット/履歴の挿入は設定画面（Modal）側の画面として表示する。
+// ボタンタップごとの巡回順（非表示 → Snippets → History → 非表示）は維持しつつ、
+// 遷移先を設定モーダルの該当ビューへの pushView に置き換える。
+const SNIPPET_PANEL_SETTINGS_VIEW = { snippets: "SendSnippet", history: "SendHistory" };
+
 /**
  * KeyboardBar の入力 / スニペット状態とキーボード開閉を管理する。
  *
  * @param {Object} deps
  * @param {import('vue').Ref} deps.keyboardInput KeyboardInput コンポーネントへの ref
  * @param {() => void} deps.clearModifiers
- * @param {(command: string) => void} deps.moveSnippetToFront
  */
-export function useKeyboardBarState({ keyboardInput, clearModifiers, moveSnippetToFront }) {
+export function useKeyboardBarState({ keyboardInput, clearModifiers }) {
   // ─── 入力 / スニペット状態 ─────────────────────────────────────
   const isFullKeyboard = ref(false);
   const draft = ref("");
@@ -26,19 +30,19 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers, moveSnippet
 
   function toggleSnippetView() {
     const nextIndex = (SNIPPET_PANEL_VIEWS.indexOf(snippetPanelView.value) + 1) % SNIPPET_PANEL_VIEWS.length;
-    snippetPanelView.value = SNIPPET_PANEL_VIEWS[nextIndex];
-    if (showSnippetView.value) clearModifiers();
+    const next = SNIPPET_PANEL_VIEWS[nextIndex];
+    snippetPanelView.value = next;
+    if (next === "none") {
+      emit("modal:close");
+      return;
+    }
+    clearModifiers();
+    emit("settings:open", { view: SNIPPET_PANEL_SETTINGS_VIEW[next] });
   }
 
   function closeSnippetPanel() {
+    if (snippetPanelView.value !== "none") emit("modal:close");
     snippetPanelView.value = "none";
-  }
-
-  function onChipTap({ command }) {
-    draft.value = command;
-    const wasSnippets = snippetPanelView.value === "snippets";
-    closeSnippetPanel();
-    if (wasSnippets) moveSnippetToFront(command);
   }
 
   // ─── キーボード開閉 ────────────────────────────────────────────
@@ -70,19 +74,27 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers, moveSnippet
 
   const cleanups = [
     on("keyboard:deactivate", hideInput),
+    // 設定モーダルが（Snippets/History以外の理由も含め）閉じたら巡回状態をリセットする。
+    // そうしないと次のタップが「閉じる」扱いのまま出戻ってしまう。
+    on("settings:closed", () => { snippetPanelView.value = "none"; }),
+    on("keyboard:setDraft", async ({ command }) => {
+      draft.value = command;
+      await nextTick();
+      keyboardInput.value?.focus?.();
+    }),
   ];
   onUnmounted(() => cleanups.forEach((fn) => fn()));
 
   // 入力モード切替で keyboard-bar の高さが変わると terminal 領域も縮む / 広がる。
   // ResizeObserver の debounce を待たず、即座に fit を要求して旧サイズでの描画を最小化する。
-  watch([isFullKeyboard, inputFocused, showSnippetView], async () => {
+  watch([isFullKeyboard, inputFocused], async () => {
     await nextTick();
     emit("layout:fitAll", { force: true });
   });
 
   return {
     isFullKeyboard, draft, inputFocused, showSnippetView, snippetPanelView, hasDraft,
-    onInputFocused, toggleSnippetView, closeSnippetPanel, onChipTap,
+    onInputFocused, toggleSnippetView, closeSnippetPanel,
     hideInput, dismissKeyboard, onSubmitted,
   };
 }

@@ -10,10 +10,6 @@
       @submitted="onSubmitted"
       @fnToggle="toggleFnView"
     />
-    <!-- コンパクト入力中のスニペット / 履歴挿入オーバーレイ（フルキーボード側の挿入ビューと同じ onChipTap を再利用） -->
-    <div v-if="showSnippetView && !isFullKeyboard" class="keyboard-bar-snippet-overlay">
-      <KeyboardChips :mode="snippetPanelView" @chip:tap="onChipTap" />
-    </div>
     <!-- バー行 = フルキーボードの最下行と同構成 -->
     <div class="keyboard-bar-row">
       <KeyboardInput
@@ -103,11 +99,9 @@ import { useInputDraftHistory } from "../composables/useInputDraftHistory.js";
 import { useKeyboardBarFlicks } from "../composables/useKeyboardBarFlicks.js";
 import { useKeyboardBarState } from "../composables/useKeyboardBarState.js";
 import { useQwertyKeyViews } from "../composables/useQwertyKeyViews.js";
-import { useSnippetPersist } from "../composables/useSnippetPersist.js";
 import { emit } from "../app-bridge.js";
 import KeyboardQwertyKey from "./KeyboardQwertyKey.vue";
 import KeyboardInput from "./KeyboardInput.vue";
-import KeyboardChips from "./KeyboardChips.vue";
 
 const props = defineProps({
   isPanelBottom: { type: Boolean, default: false },
@@ -117,7 +111,6 @@ const layoutStore = useLayoutStore();
 const isVisible = computed(() => props.isPanelBottom || layoutStore.isSplitMode);
 
 const { clearModifiers, sendKeyToTerminal, modifierState, setupFlickRepeat, getActiveTerminalTab } = useKeyboard();
-const { moveSnippetToFront } = useSnippetPersist();
 
 const qwertyView = ref(null);
 const keyboardInput = ref(null);
@@ -127,9 +120,9 @@ const barEnterFlickEl = ref(null);
 // ─── 入力 / スニペット状態・キーボード開閉 ──────────────────────
 const {
   isFullKeyboard, draft, inputFocused, showSnippetView, snippetPanelView, hasDraft,
-  onInputFocused, toggleSnippetView, closeSnippetPanel, onChipTap,
+  onInputFocused, toggleSnippetView, closeSnippetPanel,
   hideInput, dismissKeyboard, onSubmitted,
-} = useKeyboardBarState({ keyboardInput, clearModifiers, moveSnippetToFront });
+} = useKeyboardBarState({ keyboardInput, clearModifiers });
 
 const { historyPrev, historyNext } = useInputDraftHistory(draft);
 

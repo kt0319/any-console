@@ -13,24 +13,8 @@
     </form>
 
     <div class="snippet-list">
-      <div
-        v-for="(snippet, idx) in snippets"
-        :key="idx"
-        class="snippet-row"
-        :class="{
-          'drag-source': dragFromIdx === idx,
-          'drag-over-above': dragOverIdx === idx && dragFromIdx > idx,
-          'drag-over-below': dragOverIdx === idx && dragFromIdx < idx,
-        }"
-      >
-        <span
-          class="drag-handle"
-          aria-hidden="true"
-          @pointerdown.prevent="onDragStart($event, idx)"
-        >
-          <span class="mdi mdi-drag-vertical"></span>
-        </span>
-        <div class="snippet-command">{{ snippet.command }}</div>
+      <div v-for="(snippet, idx) in snippets" :key="idx" class="snippet-row">
+        <button type="button" class="snippet-command" @click="onInsert(snippet.command)">{{ snippet.command }}</button>
         <button type="button" class="snippet-delete" @click="onDelete(idx)" aria-label="Delete snippet">
           <span class="mdi mdi-trash-can-outline"></span>
         </button>
@@ -44,12 +28,13 @@
 import { ref, computed, inject, onMounted } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
-import { useListDragSort } from "../composables/useListDragSort.js";
 
 const modalTitle = inject("modalTitle");
 const inputStore = useInputStore();
 
-const snippets = computed(() => inputStore.snippetsCache ? [...inputStore.snippetsCache].reverse() : []);
+// snippetsCache は末尾が最終使用（addSnippet/moveSnippetToFront とも末尾へ push）。
+// 逆順にせずそのまま表示することで、最終使用が一番下に来る。
+const snippets = computed(() => inputStore.snippetsCache ? [...inputStore.snippetsCache] : []);
 
 const newCommand = ref("");
 
@@ -60,21 +45,17 @@ function onAdd() {
   newCommand.value = "";
 }
 
-function onDelete(reversedIdx) {
-  const realIdx = inputStore.snippetsCache.length - 1 - reversedIdx;
-  bridgeEmit("snippet:delete", { index: realIdx });
+function onDelete(idx) {
+  bridgeEmit("snippet:delete", { index: idx });
 }
 
-// スニペットは逆順表示のため fromIdx/toIdx を実ストレージ順に変換して送る
-const { dragFromIdx, dragOverIdx, onDragStart } = useListDragSort({
-  rowSelector: ".snippet-row",
-  onReorder: (from, to) => {
-    const len = inputStore.snippetsCache.length;
-    bridgeEmit("snippet:move", { from: len - 1 - from, to: len - 1 - to });
-  },
-});
+function onInsert(command) {
+  bridgeEmit("keyboard:setDraft", { command });
+  bridgeEmit("snippet:use", { command });
+  bridgeEmit("modal:close");
+}
 
-onMounted(() => { modalTitle.value = "Snippets"; });
+onMounted(() => { modalTitle.value = "Send Snippet"; });
 </script>
 
 <style scoped>
@@ -125,31 +106,35 @@ onMounted(() => { modalTitle.value = "Snippets"; });
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 0;
+  padding: 6px 0;
   border-bottom: 1px solid var(--border);
-  transition: opacity 0.15s;
 }
-
 
 .snippet-command {
   flex: 1;
   min-width: 0;
-  font-size: 14px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  font-size: 13px;
   color: var(--text-primary);
   word-break: break-all;
+  cursor: pointer;
 }
 
 .snippet-delete {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 16px;
+  font-size: 14px;
   cursor: pointer;
 }
 

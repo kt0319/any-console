@@ -52,7 +52,7 @@ export const CIRCLE_KEYPAD_SPECIAL_PRESETS = [
   { id: "workspace", label: "Workspace",  action: "workspace:openModal" },
   { id: "jobs",      label: "Jobs",       action: "git:openFileModal", payload: { pane: "jobs" } },
   { id: "settings",  label: "Settings",   action: "settings:open" },
-  { id: "snippets",  label: "Snippets",   action: "settings:open", payload: { view: "SnippetConfig" } },
+  { id: "snippets",  label: "Snippets",   action: "settings:open", payload: { view: "SendSnippet" } },
   { id: "tabs",      label: "Tabs",       action: "settings:open", payload: { view: "TabConfig" } },
   { id: "auth",      label: "Auth",       action: "settings:open", payload: { view: "AuthConfig" } },
   { id: "sysinfo",   label: "System",     action: "settings:open", payload: { view: "ServerInfo" } },

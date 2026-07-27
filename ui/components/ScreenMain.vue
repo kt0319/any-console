@@ -63,7 +63,7 @@ const { connectDeferredTabs } = useTerminal();
 const { initViewport } = useViewport();
 const keyboardOpen = ref(false);
 const { startSyncPolling, stopSyncPolling } = useSessionSync();
-const { loadSnippetCache, addSnippet, deleteSnippet, moveSnippet } = useSnippetPersist();
+const { loadSnippetCache, addSnippet, deleteSnippet, moveSnippetToFront } = useSnippetPersist();
 
 const tabBarView = ref(null);
 const terminalBaseView = ref(null);
@@ -169,7 +169,7 @@ onMounted(() => {
 
   bridgeCleanups.push(on("snippet:add", ({ label, command }) => addSnippet(label, command)));
   bridgeCleanups.push(on("snippet:delete", ({ index }) => deleteSnippet(index)));
-  bridgeCleanups.push(on("snippet:move", ({ from, to }) => moveSnippet(from, to)));
+  bridgeCleanups.push(on("snippet:use", ({ command }) => moveSnippetToFront(command)));
 
   loadSnippetCache();
 
