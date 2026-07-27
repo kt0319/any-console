@@ -371,6 +371,53 @@ class TestPushNotificationBackground:
         assert called.wait(timeout=2)
         assert captured["notif_type"] == "dispatch"
 
+    def test_push_body_includes_branch_and_text(self, client, workspace, monkeypatch):
+        """通知本文に branch と text（プレビュー）が含まれ、何の dispatch か分かる。"""
+        import threading
+        called = threading.Event()
+        captured = {}
+
+        def fake_push(**kwargs):
+            captured.update(kwargs)
+            called.set()
+
+        monkeypatch.setattr(dispatch_mod, "send_push_notification", fake_push)
+        _enqueue(client, branch="feature/x", text="echo hi")
+        assert called.wait(timeout=2)
+        assert captured["body"] == "test-ws\nfeature/x\necho hi"
+
+    def test_push_body_truncates_long_text(self, client, workspace, monkeypatch):
+        """text が長い場合は _PUSH_TEXT_PREVIEW_LEN で切り詰める。"""
+        import threading
+        called = threading.Event()
+        captured = {}
+
+        def fake_push(**kwargs):
+            captured.update(kwargs)
+            called.set()
+
+        monkeypatch.setattr(dispatch_mod, "send_push_notification", fake_push)
+        long_text = "x" * 500
+        _enqueue(client, text=long_text)
+        assert called.wait(timeout=2)
+        expected = "test-ws\n" + long_text[:dispatch_mod._PUSH_TEXT_PREVIEW_LEN]
+        assert captured["body"] == expected
+
+
+class TestDispatchNotificationBody:
+    def test_workspace_only(self):
+        from api.job_models import TERMINAL_JOB
+        body = dispatch_mod.DispatchRequest(workspace="test-ws")
+        result = dispatch_mod._dispatch_notification_body("test-ws", body, TERMINAL_JOB)
+        assert result == "test-ws"
+
+    def test_non_terminal_job_includes_label(self):
+        from api.job_models import JobDefinition
+        body = dispatch_mod.DispatchRequest(workspace="test-ws", job="build")
+        job_def = JobDefinition(command="npm run build", label="Build")
+        result = dispatch_mod._dispatch_notification_body("test-ws", body, job_def)
+        assert result == "test-ws\nBuild"
+
 
 class TestStatusStreamSnapshot:
     def test_dispatch_queue_snapshot_on_connect(self, client, workspace):

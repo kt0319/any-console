@@ -70,6 +70,7 @@ router = APIRouter()
 
 # dispatch_id -> リクエスト payload（純データ。永続化ファイルと同型）
 _PENDING: dict[str, dict] = {}
+_PUSH_TEXT_PREVIEW_LEN = 120
 _subscribers: set[WebSocket] = set()
 _broadcast_task: asyncio.Task | None = None
 _broadcast_pending = False
@@ -449,6 +450,23 @@ def _resolve_dedup(dispatch_id: str, dedup_key: str | None) -> tuple[str, int, b
     return old_id, retry_count, retry_count == 1
 
 
+def _dispatch_notification_body(effective_ws: str, body: "DispatchRequest", job_def) -> str:
+    """push通知本文を組み立てる。
+    DispatchQueueConfig.vue の一覧表示（workspace / job / branch / text）と
+    同じ情報構成にして、通知だけでどんな dispatch かが分かるようにする。"""
+    detail_parts = []
+    if body.job != TERMINAL_JOB_KEY:
+        detail_parts.append(job_def.label)
+    if body.branch:
+        detail_parts.append(body.branch)
+    notif_body = effective_ws
+    if detail_parts:
+        notif_body += "\n" + " · ".join(detail_parts)
+    if body.text:
+        notif_body += "\n" + body.text[:_PUSH_TEXT_PREVIEW_LEN]
+    return notif_body
+
+
 def _branch_status(ws_path, branch: str) -> str:
     try:
         current = git_branch(ws_path)
@@ -481,7 +499,7 @@ async def dispatch(body: DispatchRequest, auth: tuple[str, bool] = Depends(verif
         body.session_id = None
     effective_ws = body.effective_workspace
     ws_path = resolve_workspace_path(effective_ws)
-    _resolve_job_def(effective_ws, body.job)  # 存在確認のみ（不正な job 名を早期に弾く）
+    job_def = _resolve_job_def(effective_ws, body.job)  # 存在確認 + push通知の詳細表示用
 
     payload = body.model_dump()
     payload["effective_workspace"] = effective_ws
@@ -499,7 +517,7 @@ async def dispatch(body: DispatchRequest, auth: tuple[str, bool] = Depends(verif
     def _notify_push() -> None:
         _send_push_in_background(
             title="Dispatch",
-            body=effective_ws,
+            body=_dispatch_notification_body(effective_ws, body, job_def),
             # 既存タブが無く新規ウィンドウが開く場合でも Dispatch Queue を開けるよう、
             # クエリで明示する（sw.js の postMessage は既存タブにしか届かない）。
             # dispatchId を付けて、通知から来た時にどのキュー項目か分かるようにする。
