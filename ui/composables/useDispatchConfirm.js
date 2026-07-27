@@ -60,25 +60,6 @@ export function useDispatchConfirm() {
   }
 
   /**
-   * Settingsの「Dispatches」一覧で1件選んだ時、一致するタブがあれば先に
-   * アクティブ化しておく（実行/破棄の決定自体は DispatchRunView 側が行う）。
-   */
-  function focusItem(id) {
-    const item = queue.value.find((q) => q.id === id);
-    if (!item?.request?.workspace) return;
-    const req = item.request;
-    if (req.existing_session_id) {
-      const sessionTab = terminalStore.openTabs.find((t) => t.sessionId === req.existing_session_id);
-      if (sessionTab) { emit("tab:select", { tab: sessionTab }); return; }
-    }
-    const effectiveWs = req.effective_workspace || req.workspace;
-    const candidates = terminalStore.openTabs.filter((t) => t.workspace === effectiveWs);
-    if (!candidates.length) return;
-    const target = candidates.find((t) => t.id === terminalStore.activeTabId) || candidates[0];
-    emit("tab:select", { tab: target });
-  }
-
-  /**
    * DispatchRunView の Run から呼ぶ。決定APIのレスポンスが起動結果を返すため、
    * 成功時はそのままセッションへ移動する。
    * @param {string} id
@@ -109,5 +90,5 @@ export function useDispatchConfirm() {
     return ok;
   }
 
-  return { queue, focusItem, runItem, rejectItem };
+  return { queue, runItem, rejectItem };
 }

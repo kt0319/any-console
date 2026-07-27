@@ -103,7 +103,7 @@ const NEW_SESSION_VALUE = "__new_session__";
 const { modalTitle, viewState, popView } = useModalView();
 const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
-const { queue, focusItem, runItem, rejectItem } = useDispatchConfirm();
+const { queue, runItem, rejectItem } = useDispatchConfirm();
 const workspaceStore = useWorkspaceStore();
 
 const itemId = viewState.value?.itemId;
@@ -214,7 +214,6 @@ onMounted(() => {
   if (!item.value) { popView(); return; }
   initFromRequest(request.value);
   initialRetryCount.value = request.value?.retry_count ?? 1;
-  focusItem(itemId);
 });
 
 const offItemRemoved = on("dispatch:itemRemoved", ({ id }) => {
