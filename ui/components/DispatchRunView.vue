@@ -34,8 +34,15 @@
 
       <template v-if="hasBranchField">
         <div class="ws-settings-row" style="gap:8px">
-          <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="selectedCreateBranch" /> Create branch</label>
-          <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="selectedCreateWorktree" /> Create worktree</label>
+          <label class="form-check-label"><input type="radio" v-model="createMode" value="" /> Change branch</label>
+          <label class="form-check-label"><input type="radio" v-model="createMode" value="branch" /> Create branch</label>
+          <label class="form-check-label"><input type="radio" v-model="createMode" value="worktree" /> Create worktree</label>
+        </div>
+        <div v-if="createMode" class="ws-settings-row">
+          <span class="ws-settings-label">
+            New branch
+            <span v-if="selectedCreateBranch && branchStatusNote" class="dispatch-run-note">{{ branchStatusNote }}</span>
+          </span>
           <input
             v-model="branch"
             type="text"
@@ -43,13 +50,12 @@
             placeholder="New branch name"
             autocomplete="off"
             spellcheck="false"
-            :disabled="!selectedCreateBranch && !selectedCreateWorktree"
           />
         </div>
         <div class="ws-settings-row">
           <span class="ws-settings-label">
-            {{ selectedCreateBranch || selectedCreateWorktree ? "Base branch" : "Branch" }}
-            <span v-if="branchStatusNote" class="dispatch-run-note">{{ branchStatusNote }}</span>
+            {{ createMode ? "Base branch" : "Branch" }}
+            <span v-if="!createMode && branchStatusNote" class="dispatch-run-note">{{ branchStatusNote }}</span>
           </span>
           <select v-model="branchSelectValue" class="form-input">
             <option value="">(current branch)</option>
@@ -112,13 +118,12 @@ const text = ref("");
 const selectedWorkspace = ref("");
 const selectedJob = ref("terminal");
 const selectedSessionId = ref(NEW_SESSION_VALUE);
-const selectedCreateBranch = ref(false);
-const selectedCreateWorktree = ref(false);
+// "" | "branch" | "worktree"。ラジオボタンで排他選択する（worktree は新規ブランチ前提のため
+// Create branch と両立しない）。
+const createMode = ref("");
+const selectedCreateBranch = computed(() => createMode.value === "branch");
+const selectedCreateWorktree = computed(() => createMode.value === "worktree");
 const isNewSession = computed(() => selectedSessionId.value === NEW_SESSION_VALUE);
-
-// Create branch / Create worktree は排他（worktree は新規ブランチ前提のため両立しない）。
-watch(selectedCreateBranch, (v) => { if (v) selectedCreateWorktree.value = false; });
-watch(selectedCreateWorktree, (v) => { if (v) selectedCreateBranch.value = false; });
 
 // Branch select は Create branch/worktree の on/off で意味が変わる（対象ブランチ or 分岐元ブランチ）ため、
 // 書き込み先を切り替える get/set computed で1つの select 要素を共用する。
@@ -144,7 +149,7 @@ function initFromRequest(req) {
   selectedWorkspace.value = req?.workspace || "";
   selectedJob.value = req?.job || "terminal";
   selectedSessionId.value = req?.existing_session_id || NEW_SESSION_VALUE;
-  selectedCreateBranch.value = !!req?.create_branch;
+  createMode.value = req?.create_branch ? "branch" : "";
 }
 
 // worktree はドロップダウンの選択肢に含めない（ベースワークスペースのみ選択可能）ため、
