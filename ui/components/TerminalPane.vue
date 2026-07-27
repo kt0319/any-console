@@ -28,13 +28,6 @@
               <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
             </span>
             {{ tab.workspace || tab.label || '' }}
-            <span
-              v-if="!layoutStore.isSplitMode"
-              class="pill-dirty-dot"
-              :style="{ visibility: isDirty ? 'visible' : 'hidden' }"
-              :aria-hidden="!isDirty"
-              aria-label="uncommitted changes"
-            ></span>
             <span v-if="layoutStore.isSplitMode && (behind > 0 || ahead > 0)" class="pill-ahead-behind" aria-label="ahead/behind commits">
               <span v-if="behind > 0" class="pill-behind">&darr;{{ behind }}</span>
               <span v-if="ahead > 0" class="pill-ahead">&uarr;{{ ahead }}</span>
@@ -413,14 +406,6 @@ defineExpose({
 .terminal-info-pill img {
   pointer-events: none;
   -webkit-user-drag: none;
-}
-
-.pill-dirty-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #f5a623;
-  flex-shrink: 0;
 }
 
 .pill-ahead-behind {
