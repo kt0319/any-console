@@ -21,6 +21,13 @@
             {{ modalTitle }}<template v-if="modalBranch"><span class="modal-title-sep"> / </span><span class="modal-title-branch" :data-tooltip="modalBranch">{{ modalBranch }}</span></template>
           </h3>
         </button>
+        <button
+          type="button"
+          class="modal-close-btn"
+          aria-label="Close settings"
+          data-tooltip="Close settings"
+          @click="closeModal"
+        >&times;</button>
       </div>
       <div class="modal-body">
         <ModalMenu v-if="currentView === 'ModalMenu'" />
@@ -310,6 +317,28 @@ onMounted(() => {
   font-size: 11px;
   color: var(--text-primary);
   font-weight: 400;
+}
+
+/* TabConfig.vue の split-tab-close-btn（Tabs & Sessions一覧のタブクローズ）と同じ見た目に揃える */
+.modal-close-btn {
+  width: 36px;
+  height: 36px;
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .modal-close-btn:hover {
+    color: var(--text-primary);
+  }
 }
 
 .modal-body {
