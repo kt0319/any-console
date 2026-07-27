@@ -17,6 +17,7 @@
         </button>
         <button type="button" class="settings-menu-item" @click="pushView('PreviewPorts')">
           <span class="mdi mdi-open-in-app"></span> Port Preview
+          <span v-if="previewPortCount > 0" class="settings-menu-version">{{ previewPortCount }} detected</span>
         </button>
       </div>
 
@@ -71,7 +72,7 @@
 import { ref, inject, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
-import { EP_SETTINGS_AUTH, EP_SYSTEM_INFO } from "../utils/endpoints.js";
+import { EP_SETTINGS_AUTH, EP_SYSTEM_INFO, EP_PREVIEW_PORTS } from "../utils/endpoints.js";
 import { useDispatchConfirm } from "../composables/useDispatchConfirm.js";
 
 const modalTitle = inject("modalTitle");
@@ -81,6 +82,7 @@ modalTitle.value = "Settings";
 const { apiGet } = useApi();
 const authWarn = ref(false);
 const appVersion = ref("");
+const previewPortCount = ref(0);
 const { queue: dispatchQueue } = useDispatchConfirm();
 
 onMounted(async () => {
@@ -88,6 +90,12 @@ onMounted(async () => {
   if (auth.ok) authWarn.value = !auth.data?.auth_required;
   const info = await getWithRetry(apiGet, EP_SYSTEM_INFO);
   if (info.ok && info.data?.version) appVersion.value = info.data.version;
+  // Settings を開くたび1回だけ取得する（常時ポーリングはしない。PreviewPorts.vue を
+  // 開いている間だけの継続ポーリングとは別に、メニュー表示用の軽い一発取得）。
+  const preview = await getWithRetry(apiGet, EP_PREVIEW_PORTS);
+  if (preview.ok && Array.isArray(preview.data)) {
+    previewPortCount.value = preview.data.filter((p) => !p.is_self).length;
+  }
 });
 </script>
 

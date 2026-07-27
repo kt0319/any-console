@@ -44,6 +44,7 @@ export const EP_SETTINGS_LAYOUT = "/settings/layout";
 export const EP_SNIPPETS = "/snippets";
 export const EP_UPLOAD_IMAGE = "/upload-image";
 export const EP_CLIENT_ERRORS = "/client-errors";
+export const EP_PREVIEW_PORTS = "/preview/ports";
 
 /** @param {string} dispatchId @returns {string} */
 export function dispatchDecisionPath(dispatchId) {

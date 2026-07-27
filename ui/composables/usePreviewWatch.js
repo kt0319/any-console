@@ -1,6 +1,7 @@
 import { ref } from "vue";
 import { useApi } from "./useApi.js";
 import { useToast } from "./useToast.js";
+import { EP_PREVIEW_PORTS } from "../utils/endpoints.js";
 
 const POLL_INTERVAL_MS = 5000;
 const seen = new Set();
@@ -15,7 +16,7 @@ export function usePreviewWatch() {
   const toast = useToast();
 
   async function poll(notify = true) {
-    const { ok, data } = await apiGet("/preview/ports");
+    const { ok, data } = await apiGet(EP_PREVIEW_PORTS);
     if (!ok || !Array.isArray(data)) return;
     ports.value = data;
     const currentKeys = new Set(data.map((p) => `${p.session_id}:${p.port}`));
