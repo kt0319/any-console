@@ -28,9 +28,32 @@
               <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
             </span>
             {{ tab.workspace || tab.label || '' }}
-            <span class="pill-dirty-dot" :style="{ visibility: isDirty ? 'visible' : 'hidden' }" :aria-hidden="!isDirty" aria-label="uncommitted changes"></span>
+            <span
+              v-if="!layoutStore.isSplitMode"
+              class="pill-dirty-dot"
+              :style="{ visibility: isDirty ? 'visible' : 'hidden' }"
+              :aria-hidden="!isDirty"
+              aria-label="uncommitted changes"
+            ></span>
+            <span v-if="layoutStore.isSplitMode && (behind > 0 || ahead > 0)" class="pill-ahead-behind" aria-label="ahead/behind commits">
+              <span v-if="behind > 0" class="pill-behind">&darr;{{ behind }}</span>
+              <span v-if="ahead > 0" class="pill-ahead">&uarr;{{ ahead }}</span>
+            </span>
           </span>
         </div>
+        <button
+          v-if="layoutStore.isSplitMode && isDirty"
+          type="button"
+          class="pill-numstat-btn"
+          aria-label="Changes"
+          data-tooltip="Changes"
+          @pointerdown.stop
+          @click.stop="openChanges"
+        >
+          <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
+          <span class="diff-num-plus">+{{ insertions }}</span>
+          <span class="diff-num-del">-{{ deletions }}</span>
+        </button>
         <button
           v-if="layoutStore.isSplitMode"
           type="button"
@@ -72,6 +95,7 @@ import { useConfirm } from "../composables/useConfirm.js";
 import { confirmCloseTab } from "../utils/tab-close-confirm.js";
 import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.js";
 import { useCircleKeyPad } from "../composables/useCircleKeyPad.js";
+import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.js";
 import CircleKeyPad from "./CircleKeyPad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
@@ -88,11 +112,18 @@ const layoutStore = useLayoutStore();
 const workspaceStore = useWorkspaceStore();
 const { confirm } = useConfirm();
 
-const isDirty = computed(() => {
-  if (!props.tab.workspace) return false;
-  const ws = workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace);
-  return ws?.clean === false;
-});
+const paneWorkspace = computed(() =>
+  props.tab.workspace ? workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace) : undefined,
+);
+// 分割モードでは WorkspaceStatusBar（アクティブタブ1つ分の表示）が隠れるため、
+// ペインごとの git 情報（変更行数・ahead/behind）をピルに直接出す。
+const { isDirty, ahead, behind, changedFiles, insertions, deletions } = useWorkspaceGitStatus(paneWorkspace, ref(false));
+
+function openChanges() {
+  if (!props.tab.workspace) return;
+  workspaceStore.selectedWorkspace = props.tab.workspace;
+  emit("git:openFileModal", { pane: "changes" });
+}
 
 const agentState = computed(() => terminalStore.agentStates[props.tab.sessionId] || "");
 const { ensureTerminalOpened, fitTerminal, sendResize, observeFrameResize, connectTerminalWs } = useTerminal();
@@ -388,6 +419,41 @@ defineExpose({
   border-radius: 50%;
   background: #f5a623;
   flex-shrink: 0;
+}
+
+.pill-ahead-behind {
+  display: inline-flex;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pill-behind {
+  color: var(--warning);
+}
+
+.pill-ahead {
+  color: var(--accent);
+}
+
+.pill-numstat-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 8px;
+  flex-shrink: 0;
+  border: 1px solid rgba(59, 66, 97, 0.5);
+  border-radius: 999px;
+  background: rgba(26, 27, 38, 0.88);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.numstat-files {
+  color: var(--warning);
 }
 
 .terminal-info-pill.dragging {
