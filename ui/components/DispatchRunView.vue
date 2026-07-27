@@ -158,6 +158,10 @@ const showWorktreeInfo = computed(() => !!request.value?.worktree && selectedWor
 const hasBranchField = computed(() => !request.value?.worktree);
 
 const branchStatusNote = computed(() => {
+  // worktree 作成は既存ブランチなら流用・無ければ新規作成するだけで missing という
+  // 失敗状態が無い。branch_status は元リクエストの branch に対する値で worktree の
+  // 新規ブランチ名とは無関係なので、Create worktree 選択中は出さない。
+  if (selectedCreateWorktree.value) return "";
   const status = request.value?.branch_status;
   if (status === "current") return "(already current)";
   if (status === "exists") return "(checkout)";
