@@ -12,6 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api import auth as auth_module
+from api import main as main_module
 from api.main import app
 from api.routers import pairing as pairing_mod
 from conftest import AUTH
@@ -432,7 +433,7 @@ def test_pair_page_serves_spa_shell(client):
     assert "text/html" in res.headers["content-type"]
 
 
-def test_pair_page_rewrites_asset_paths_to_root_relative(client):
+def test_pair_page_rewrites_asset_paths_to_root_relative(client, monkeypatch):
     # /pair/{pairing_id} は index.html をそのまま返す(main.py serve_pair_page参照)。
     # ソースモード(dist/未ビルド)でのasset pathが相対("vue-main.js")のままだと、
     # ブラウザは現在のパス("/pair/xxx")を基準に解決して"/pair/vue-main.js"を
@@ -440,6 +441,10 @@ def test_pair_page_rewrites_asset_paths_to_root_relative(client):
     # moduleスクリプトとして期待されるJSの代わりにHTMLシェルが返るため
     # MIME不一致でスクリプトが読み込まれない。ルート相対に固定されていること
     # を確認する。
+    # このテストが検証したいのはソースモード(dist/未ビルド)固有のリライトなので、
+    # 実リポジトリでの dist/ の有無（開発機で npm run build 済みかどうか）に
+    # 結果が左右されないよう、ここで明示的にソースモードへ固定する。
+    monkeypatch.setattr(main_module, "FRONTEND_DIR", main_module.UI_DIR)
     res = client.get("/pair/pr_anything")
     assert res.status_code == 200
     assert 'src="/vue-main.js' in res.text
