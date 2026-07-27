@@ -1,3 +1,4 @@
+import { ref } from "vue";
 import { useApi } from "./useApi.js";
 import { useToast } from "./useToast.js";
 
@@ -5,7 +6,10 @@ const POLL_INTERVAL_MS = 5000;
 const seen = new Set();
 let started = false;
 let timer = null;
+const ports = ref(/** @type {Record<string, any>[]} */ ([]));
 
+// Preview Ports 設定画面（PreviewPorts.vue）を開いている間だけポーリングする
+// （常時ポーリングだとサーバー側の実ポートスキャンが app 起動中ずっと回り続けてしまうため）。
 export function usePreviewWatch() {
   const { apiGet } = useApi();
   const toast = useToast();
@@ -13,6 +17,7 @@ export function usePreviewWatch() {
   async function poll(notify = true) {
     const { ok, data } = await apiGet("/preview/ports");
     if (!ok || !Array.isArray(data)) return;
+    ports.value = data;
     const currentKeys = new Set(data.map((p) => `${p.session_id}:${p.port}`));
     // 検出済みから消えたものは seen から除外（次回出てきた時に再通知できる）
     for (const k of [...seen]) if (!currentKeys.has(k)) seen.delete(k);
@@ -44,7 +49,7 @@ export function usePreviewWatch() {
   async function start() {
     if (started) return;
     started = true;
-    // 初回は通知なしで「既知」扱いに登録する。これにより app 起動時に
+    // 初回は通知なしで「既知」扱いに登録する。これによりパネルを開いた時点で
     // 既に動いてる dev サーバ群でトーストが大量に流れることを防ぐ。
     await poll(false);
     timer = setInterval(() => poll(true), POLL_INTERVAL_MS);
@@ -55,7 +60,8 @@ export function usePreviewWatch() {
     timer = null;
     started = false;
     seen.clear();
+    ports.value = [];
   }
 
-  return { start, stop };
+  return { start, stop, ports };
 }

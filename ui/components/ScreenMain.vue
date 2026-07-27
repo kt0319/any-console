@@ -52,7 +52,6 @@ import { useTerminalLifecycle } from "../composables/useTerminalLifecycle.js";
 import { useSessionResume } from "../composables/useSessionResume.js";
 import { useGlobalShortcuts } from "../composables/useGlobalShortcuts.js";
 import { useDeepLink } from "../composables/useDeepLink.js";
-import { usePreviewWatch } from "../composables/usePreviewWatch.js";
 import { useLayoutPersist } from "../composables/useLayoutPersist.js";
 import { on, emit } from "../app-bridge.js";
 
@@ -71,7 +70,6 @@ const terminalBaseView = ref(null);
 
 const { booting, bootMessage, initializeApp } = useAppBootstrap();
 const { apply: applyDeepLink, attachSessionTab } = useDeepLink();
-const { start: startPreviewWatch } = usePreviewWatch();
 const { startWatching: startLayoutPersist } = useLayoutPersist();
 const {
   activateTerminalTab,
@@ -208,7 +206,6 @@ onMounted(async () => {
     await initializeApp();
     applyDeepLink();
     startSyncPolling();
-    startPreviewWatch();
     startLayoutPersist();
   } finally {
     booting.value = false;

@@ -31,17 +31,15 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted } from "vue";
-import { useApi } from "../composables/useApi.js";
+import { ref, inject, onMounted, onUnmounted } from "vue";
+import { usePreviewWatch } from "../composables/usePreviewWatch.js";
 import { copyText } from "../utils/clipboard.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Port Preview";
 
-const { apiGet } = useApi();
+const { start, stop, ports } = usePreviewWatch();
 const loading = ref(true);
-const refreshing = ref(false);
-const ports = ref([]);
 const copiedPort = ref(null);
 const hostname = location.hostname;
 
@@ -69,19 +67,13 @@ async function copyUrl(p) {
   }, 1500);
 }
 
-async function reload() {
-  refreshing.value = true;
-  try {
-    const { ok, data } = await apiGet("/preview/ports");
-    ports.value = ok && Array.isArray(data) ? data : [];
-  } finally {
-    refreshing.value = false;
-  }
-}
-
 onMounted(async () => {
-  await reload();
+  await start();
   loading.value = false;
+});
+
+onUnmounted(() => {
+  stop();
 });
 </script>
 
