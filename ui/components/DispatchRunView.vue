@@ -35,6 +35,7 @@
       <template v-if="hasBranchField">
         <div class="ws-settings-row" style="gap:8px">
           <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="selectedCreateBranch" /> Create branch</label>
+          <label class="form-check-label"><input type="checkbox" class="form-checkbox" v-model="selectedCreateWorktree" /> Create worktree</label>
           <input
             v-model="branch"
             type="text"
@@ -42,12 +43,12 @@
             placeholder="New branch name"
             autocomplete="off"
             spellcheck="false"
-            :disabled="!selectedCreateBranch"
+            :disabled="!selectedCreateBranch && !selectedCreateWorktree"
           />
         </div>
         <div class="ws-settings-row">
           <span class="ws-settings-label">
-            {{ selectedCreateBranch ? "Base branch" : "Branch" }}
+            {{ selectedCreateBranch || selectedCreateWorktree ? "Base branch" : "Branch" }}
             <span v-if="branchStatusNote" class="dispatch-run-note">{{ branchStatusNote }}</span>
           </span>
           <select v-model="branchSelectValue" class="form-input">
@@ -65,7 +66,7 @@
       <div v-if="dirtyBlockReason" class="job-config-error">{{ dirtyBlockReason }}</div>
 
       <div class="ws-settings-row" style="gap:8px">
-        <button type="button" class="primary" :disabled="running || !!dirtyBlockReason" @click="run">
+        <button type="button" class="primary" :disabled="running || !!dirtyBlockReason || (selectedCreateWorktree && !branch.trim())" @click="run">
           <span class="mdi mdi-play"></span> {{ running ? "Running..." : "Run" }}
         </button>
       </div>
@@ -94,7 +95,7 @@ import { emit, on } from "../app-bridge.js";
 const NEW_SESSION_VALUE = "__new_session__";
 
 const { modalTitle, viewState, popView } = useModalView();
-const { apiGet } = useApi();
+const { apiGet, apiCommand, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
 const { queue, focusItem, runItem, rejectItem } = useDispatchConfirm();
 const workspaceStore = useWorkspaceStore();
@@ -112,14 +113,19 @@ const selectedWorkspace = ref("");
 const selectedJob = ref("terminal");
 const selectedSessionId = ref(NEW_SESSION_VALUE);
 const selectedCreateBranch = ref(false);
+const selectedCreateWorktree = ref(false);
 const isNewSession = computed(() => selectedSessionId.value === NEW_SESSION_VALUE);
 
-// Branch select は Create branch の on/off で意味が変わる（対象ブランチ or 分岐元ブランチ）ため、
+// Create branch / Create worktree は排他（worktree は新規ブランチ前提のため両立しない）。
+watch(selectedCreateBranch, (v) => { if (v) selectedCreateWorktree.value = false; });
+watch(selectedCreateWorktree, (v) => { if (v) selectedCreateBranch.value = false; });
+
+// Branch select は Create branch/worktree の on/off で意味が変わる（対象ブランチ or 分岐元ブランチ）ため、
 // 書き込み先を切り替える get/set computed で1つの select 要素を共用する。
 const branchSelectValue = computed({
-  get: () => (selectedCreateBranch.value ? baseBranch.value : branch.value),
+  get: () => (selectedCreateBranch.value || selectedCreateWorktree.value ? baseBranch.value : branch.value),
   set: (val) => {
-    if (selectedCreateBranch.value) baseBranch.value = val;
+    if (selectedCreateBranch.value || selectedCreateWorktree.value) baseBranch.value = val;
     else branch.value = val;
   },
 });
@@ -286,7 +292,27 @@ async function run() {
   running.value = true;
   runError.value = "";
   try {
-    const ok = await runItem(itemId, buildOverrides());
+    const overrides = buildOverrides();
+    if (selectedCreateWorktree.value) {
+      // worktree は既存の GitChangeBranch.vue の Add > Worktree と同じ API で先に作成し、
+      // 作成後の compound な workspace 名（"{base} [{branch}]"）をそのまま dispatch の
+      // workspace として使う（dispatch.py 側の worktree フィールドは既存 worktree の
+      // 検索専用で新規作成はしないため、作成自体はここで済ませる）。
+      const { ok, data } = await apiCommand(
+        wsEndpoint(selectedWorkspace.value, "worktrees"),
+        { branch: branch.value.trim(), base: baseBranch.value || null },
+        { errorMessage: "Failed to create worktree" },
+      );
+      if (!ok) return;
+      const createdName = data?.workspace?.name;
+      if (!createdName) return;
+      await workspaceStore.fetchWorkspaces();
+      overrides.workspace = createdName;
+      overrides.branch = null;
+      overrides.base_branch = null;
+      overrides.create_branch = null;
+    }
+    const ok = await runItem(itemId, overrides);
     // Run 成功後はそのままセッションを見せたいので、一覧へ戻さず Settings ごと閉じる。
     if (ok) emit("modal:close");
   } finally {
