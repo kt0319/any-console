@@ -211,10 +211,13 @@ onMounted(() => {
   on("modal:close", () => closeModal());
 
   // 設定ダイアログ表示中にタブを切り替えたら、ターミナルが見えるよう自動で閉じる。
-  // TabConfig（Tabs & Sessionsペイン）自体もラジオ切り替えで同じイベントを発火するため、
-  // そのビュー表示中は対象外にする（切り替える度に自分自身が閉じてしまうのを防ぐ）。
+  // 以下のビュー表示中は対象外にする（自分自身の内部処理が発火した tab:select で
+  // 閉じてしまうのを防ぐ）:
+  // - TabConfig（Tabs & Sessionsペイン）: ラジオ切り替え自体が同じイベントを発火する
+  // - DispatchRunView: useDispatchConfirm の focusItem が対象タブを裏で先にアクティブ化する
+  //   （設定は開いたまま実行/破棄を決めてもらうための挙動で、閉じる対象ではない）
   on("tab:select", () => {
-    if (modal.visible.value && currentView.value !== "TabConfig") closeModal();
+    if (modal.visible.value && currentView.value !== "TabConfig" && currentView.value !== "DispatchRunView") closeModal();
   });
 });
 </script>
