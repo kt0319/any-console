@@ -1,6 +1,6 @@
 /**
  * スニペット設定の E2E スモーク。
- * Settings → Snippets での追加・一覧表示・削除を確認する。
+ * Settings → Send Snippet での追加・一覧表示・削除を確認する。
  *
  * スニペットはサーバ側（/snippets）に永続化されるため、afterEach で
  * このテストが作った分（snippetCmd）だけを現在の一覧から取り除く。
@@ -52,8 +52,8 @@ test.describe("snippets", () => {
 
   test("スニペットを追加して一覧に表示され、削除できる", async ({ page }) => {
     await openSettingsModal(page);
-    await openSettingsView(page, "Snippets");
-    await expect(page.locator(".modal-title")).toHaveText("Snippets", { timeout: 10_000 });
+    await openSettingsView(page, "Send Snippet");
+    await expect(page.locator(".modal-title")).toHaveText("Send Snippet", { timeout: 10_000 });
 
     const countBefore = await page.locator(".snippet-row").count();
 
@@ -73,7 +73,7 @@ test.describe("snippets", () => {
 
   test("空のままでは追加ボタンが無効", async ({ page }) => {
     await openSettingsModal(page);
-    await openSettingsView(page, "Snippets");
+    await openSettingsView(page, "Send Snippet");
     await expect(page.locator(".snippet-add-btn")).toBeDisabled();
   });
 });
