@@ -132,29 +132,35 @@ def reset_last_capture(session_id: str) -> None:
         _last_states.pop(session_id, None)
 
 
-def _should_notify_phrase(session_id: str, notify_phrase: str, capture: str, changed: bool, now: float) -> bool:
-    """notify_phrase 検出から PHRASE_NOTIFY_IDLE_GRACE_SEC 秒アクティビティが無ければ True。
+def _should_notify_phrase(
+    session_id: str, notify_phrase: str, capture: str, changed: bool, now: float,
+) -> tuple[bool, bool]:
+    """(should_push, should_clear_ws) を返す。
+    should_push: notify_phrase 検出から PHRASE_NOTIFY_IDLE_GRACE_SEC 秒アクティビティが
+    無ければ True。should_clear_ws: 検出後にアクティビティがあり push を見送った瞬間に True
+    （タブ通知マークを取り消すタイミングとしてそのまま使う。push と『見ていたとみなす』
+    判定を共有するため、専用の状態は持たない）。
     _phrase_detected_at / _phrase_notified の更新（副作用）もここで行う。"""
     if not notify_phrase or notify_phrase not in capture:
         _phrase_detected_at.pop(session_id, None)
         _phrase_notified.discard(session_id)
-        return False
+        return False, False
     if session_id in _phrase_notified:
-        return False
+        return False, False
     if session_id not in _phrase_detected_at:
         # 初検出。フレーズ出現自体による変化は無視し、これ以降の変化だけを見る。
         _phrase_detected_at[session_id] = now
-        return False
+        return False, False
     if changed:
         # 検出後に画面が動いた = 見ていた とみなし、このフレーズ出現では通知しない。
         _phrase_detected_at.pop(session_id, None)
         _phrase_notified.add(session_id)
-        return False
+        return False, True
     if now - _phrase_detected_at[session_id] >= PHRASE_NOTIFY_IDLE_GRACE_SEC:
         _phrase_notified.add(session_id)
         _phrase_detected_at.pop(session_id, None)
-        return True
-    return False
+        return True, False
+    return False, False
 
 
 def _should_ws_notify_phrase(session_id: str, notify_phrase: str, capture: str) -> bool:
@@ -174,23 +180,27 @@ def collect_agent_states() -> tuple[
     dict[str, str] | None,
     list[tuple[str, str, str | None]],
     list[tuple[str, str, str | None]],
+    list[str],
 ]:
     """全ターミナルセッションの状態を判定して返す（executor スレッドで実行）。
 
     Returns:
-        (states, notifications, ws_notifications): states は session_id→state の辞書。
-        tmux コマンド自体が失敗した場合は states が None（呼び出し元は
-        直前のスナップショットを保持し、空で上書きしない）。
+        (states, notifications, ws_notifications, ws_clear_session_ids): states は
+        session_id→state の辞書。tmux コマンド自体が失敗した場合は states が None
+        （呼び出し元は直前のスナップショットを保持し、空で上書きしない）。
         notifications はプッシュ通知すべき (session_id, phrase, workspace) のリスト
         （PHRASE_NOTIFY_IDLE_GRACE_SEC 秒の猶予あり）。
         ws_notifications はタブの通知マーク配信用の同形式のリスト（猶予なし・即時）。
+        ws_clear_session_ids は、push を『見ていた』とみなして見送った session_id の
+        リスト（タブ通知マークを出していれば同じ理由で取り消す）。
     """
     session_ids = _list_session_ids()
     if session_ids is None:
-        return None, [], []
+        return None, [], [], []
     states: dict[str, str] = {}
     notifications: list[tuple[str, str, str | None]] = []
     ws_notifications: list[tuple[str, str, str | None]] = []
+    ws_clear_session_ids: list[str] = []
     now = time.monotonic()
     for session_id in session_ids:
         capture = capture_visible_pane(TMUX_SESSION_PREFIX + session_id)
@@ -202,8 +212,11 @@ def collect_agent_states() -> tuple[
         new_state = classify_agent_state(capture, prev_capture)
         states[session_id] = new_state
         changed = prev_capture is not None and capture != prev_capture
-        if _should_notify_phrase(session_id, notify_phrase, capture, changed, now):
+        should_push, should_clear_ws = _should_notify_phrase(session_id, notify_phrase, capture, changed, now)
+        if should_push:
             notifications.append((session_id, notify_phrase, workspace))
+        if should_clear_ws:
+            ws_clear_session_ids.append(session_id)
         if _should_ws_notify_phrase(session_id, notify_phrase, capture):
             ws_notifications.append((session_id, notify_phrase, workspace))
         _last_capture[session_id] = capture
@@ -213,7 +226,7 @@ def collect_agent_states() -> tuple[
         del _phrase_detected_at[stale]
     _phrase_notified.intersection_update(states)
     _phrase_ws_notified.intersection_update(states)
-    return states, notifications, ws_notifications
+    return states, notifications, ws_notifications, ws_clear_session_ids
 
 
 def subscriber_count() -> int:
@@ -236,6 +249,13 @@ def phrase_notify_payload(session_id: str, phrase: str, workspace: str | None) -
         "session_id": session_id,
         "phrase": phrase,
         "workspace": workspace,
+    }
+
+
+def phrase_notify_clear_payload(session_id: str) -> dict[str, Any]:
+    return {
+        "type": "phrase_notify_clear",
+        "session_id": session_id,
     }
 
 
@@ -342,7 +362,7 @@ async def _poll_loop() -> None:  # pragma: no cover - 実時間スリープに�
             if not _subscribers and not has_subscriptions():
                 break
             loop = asyncio.get_running_loop()
-            states, notifications, ws_notifications = await loop.run_in_executor(
+            states, notifications, ws_notifications, ws_clear_session_ids = await loop.run_in_executor(
                 BACKGROUND_EXECUTOR, collect_agent_states
             )
             if states is None:
@@ -357,6 +377,9 @@ async def _poll_loop() -> None:  # pragma: no cover - 実時間スリープに�
             # タブの通知マークは見れば消える表示なので、push の猶予を待たず検出即時に配信する。
             for session_id, phrase, workspace in ws_notifications:
                 await _broadcast(phrase_notify_payload(session_id, phrase, workspace))
+            # push を『見ていた』とみなして見送った session は、出していたタブ通知マークも取り消す。
+            for session_id in ws_clear_session_ids:
+                await _broadcast(phrase_notify_clear_payload(session_id))
             for session_id, phrase, workspace in notifications:
                 send_push_notification(
                     title="Phrase detected",

@@ -52,6 +52,8 @@ export function useStatusStream() {
         applyDispatchQueue(msg.items);
       } else if (msg?.type === "phrase_notify") {
         terminalStore.markPhraseNotify(msg.session_id);
+      } else if (msg?.type === "phrase_notify_clear") {
+        terminalStore.clearPhraseNotify(msg.session_id);
       }
     };
     ws.onclose = () => {

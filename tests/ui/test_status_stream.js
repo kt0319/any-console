@@ -118,6 +118,15 @@ describe("parseStatusStreamMessage", () => {
   it("phrase_notify の session_id が文字列でなければ null", () => {
     expect(parseStatusStreamMessage(JSON.stringify({ type: "phrase_notify" }))).toBe(null);
   });
+
+  it("phrase_notify_clear メッセージを正規化して返す", () => {
+    const raw = JSON.stringify({ type: "phrase_notify_clear", session_id: "s1" });
+    expect(parseStatusStreamMessage(raw)).toEqual({ type: "phrase_notify_clear", session_id: "s1" });
+  });
+
+  it("phrase_notify_clear の session_id が文字列でなければ null", () => {
+    expect(parseStatusStreamMessage(JSON.stringify({ type: "phrase_notify_clear" }))).toBe(null);
+  });
 });
 
 describe("statusStreamReconnectDelay", () => {

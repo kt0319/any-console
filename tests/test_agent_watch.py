@@ -10,6 +10,7 @@ from api.agent_watch import (
     classify_agent_state,
     collect_agent_states,
     diff_states,
+    phrase_notify_clear_payload,
     phrase_notify_payload,
     states_payload,
 )
@@ -68,6 +69,14 @@ class TestPhraseNotifyPayload:
         assert payload["workspace"] is None
 
 
+class TestPhraseNotifyClearPayload:
+    def test_payload_shape(self):
+        assert phrase_notify_clear_payload("s1") == {
+            "type": "phrase_notify_clear",
+            "session_id": "s1",
+        }
+
+
 class _FakeTmuxResult:
     def __init__(self, stdout: str, returncode: int = 0):
         self.stdout = stdout
@@ -102,12 +111,12 @@ class TestCollectAgentStates:
 
         # 初回検出のポーリングでは通知しない（フレーズ出現自体による画面変化を
         # 「反応」と誤検知しないよう、検出時刻の記録だけを行う）。
-        states, notifications, _ = collect_agent_states()
+        states, notifications, _, _ = collect_agent_states()
         assert states == {"s1": "idle"}
         assert notifications == []
 
         # 画面が変わらないまま次のポーリング → 猶予(0)経過で通知される。
-        states, notifications, _ = collect_agent_states()
+        states, notifications, _, _ = collect_agent_states()
         assert any(phrase == "Session complete" for _, phrase, *_ in notifications)
 
     def test_ws_notify_fires_immediately_without_grace_period(self, client, monkeypatch):
@@ -125,19 +134,19 @@ class TestCollectAgentStates:
             lambda name: {"TMUX_JOB_NAME": job_name},
         )
 
-        _, notifications, ws_notifications = collect_agent_states()
+        _, notifications, ws_notifications, _ = collect_agent_states()
         assert notifications == []  # push は初検出のみでは飛ばない
         assert ws_notifications == [("s1", "Session complete", None)]
 
         # 同じフレーズが画面にある間は再送しない
-        _, _, ws_notifications2 = collect_agent_states()
+        _, _, ws_notifications2, _ = collect_agent_states()
         assert ws_notifications2 == []
 
         # フレーズが消えたら次の出現でまた発火する
         self._setup_tmux(monkeypatch, ["ac-s1"], {"ac-s1": "$ "})
         collect_agent_states()
         self._setup_tmux(monkeypatch, ["ac-s1"], {"ac-s1": "Session complete\n$ "})
-        _, _, ws_notifications3 = collect_agent_states()
+        _, _, ws_notifications3, _ = collect_agent_states()
         assert ws_notifications3 == [("s1", "Session complete", None)]
 
     def test_notification_waits_for_idle_grace_period(self, client, monkeypatch):
@@ -154,7 +163,7 @@ class TestCollectAgentStates:
         self._setup_tmux(monkeypatch, ["ac-s1"], {"ac-s1": "Done\n$ "})
 
         collect_agent_states()  # 初検出
-        _, notifications, _ = collect_agent_states()  # 画面は静止だが猶予(デフォルト20秒)未経過
+        _, notifications, _, _ = collect_agent_states()  # 画面は静止だが猶予(デフォルト20秒)未経過
         assert notifications == []
 
     def test_activity_after_detection_suppresses_notification(self, client, monkeypatch):
@@ -171,18 +180,23 @@ class TestCollectAgentStates:
         )
 
         self._setup_tmux(monkeypatch, ["ac-s1"], {"ac-s1": "Done\n$ "})
-        _, notifications, _ = collect_agent_states()
+        _, notifications, ws_notifications, _ = collect_agent_states()
         assert notifications == []  # 初検出のみ
+        assert ws_notifications == [("s1", "Done", None)]  # タブ通知マークは即時発火済み
 
-        # 検出直後に画面が動いた（ユーザーが反応した）→ このフレーズ出現では通知しない
+        # 検出直後に画面が動いた（ユーザーが反応した）→ このフレーズ出現では通知しない。
+        # push を見送った理由（見ていたとみなす）は、既に出したタブ通知マークの
+        # 取り消し理由としても使う。
         self._setup_tmux(monkeypatch, ["ac-s1"], {"ac-s1": "Done\n$ echo hi\nhi\n$ "})
-        states, notifications, _ = collect_agent_states()
+        states, notifications, _, ws_clear_session_ids = collect_agent_states()
         assert notifications == []
         assert states == {"s1": "working"}
+        assert ws_clear_session_ids == ["s1"]
 
-        # その後画面が変わらなくても、もう通知しない
-        _, notifications, _ = collect_agent_states()
+        # その後画面が変わらなくても、もう通知もクリアもしない
+        _, notifications, _, ws_clear_session_ids2 = collect_agent_states()
         assert notifications == []
+        assert ws_clear_session_ids2 == []
 
     def test_notify_phrase_not_duplicated(self, client, monkeypatch):
         res = client.post("/common/jobs", headers=AUTH, json={
@@ -200,27 +214,27 @@ class TestCollectAgentStates:
         )
 
         collect_agent_states()  # 初検出
-        _, notifications, _ = collect_agent_states()  # 画面静止・猶予経過 → 通知
+        _, notifications, _, _ = collect_agent_states()  # 画面静止・猶予経過 → 通知
         assert any(phrase == "Done" for _, phrase, *_ in notifications)
 
         # 同じフレーズが画面にある間は再通知しない
-        _, notifications2, _ = collect_agent_states()
+        _, notifications2, _, _ = collect_agent_states()
         assert notifications2 == []
 
     def test_activity_between_polls_is_working(self, client, monkeypatch):
         self._setup_tmux(monkeypatch, ["ac-s1"], {"ac-s1": "output A"})
         monkeypatch.setattr(agent_watch, "load_tmux_metadata", lambda name: {})
 
-        states, _, _ = collect_agent_states()
+        states, _, _, _ = collect_agent_states()
         assert states == {"s1": "idle"}
 
         self._setup_tmux(monkeypatch, ["ac-s1"], {"ac-s1": "output B"})
-        states, _, _ = collect_agent_states()
+        states, _, _, _ = collect_agent_states()
         assert states == {"s1": "working"}
 
     def test_capture_failure_skips_session(self, monkeypatch):
         self._setup_tmux(monkeypatch, ["ac-s1"], {})
-        states, _, _ = collect_agent_states()
+        states, _, _, _ = collect_agent_states()
         assert states == {}
 
     def test_stale_captures_are_pruned(self, monkeypatch):
@@ -230,7 +244,7 @@ class TestCollectAgentStates:
         assert "s1" in agent_watch._last_capture
 
         self._setup_tmux(monkeypatch, [], {})
-        states, _, _ = collect_agent_states()
+        states, _, _, _ = collect_agent_states()
         assert states == {}
         assert agent_watch._last_capture == {}
 
@@ -238,7 +252,7 @@ class TestCollectAgentStates:
         # tmux コマンド自体の失敗（result is None）は、正当な「セッション0件」と区別する。
         # None のまま呼び出し元（_poll_loop）に伝播させ、直前の状態を上書きさせないため。
         monkeypatch.setattr(agent_watch, "_run_tmux_cmd", lambda *args: None)
-        states, notifications, _ = collect_agent_states()
+        states, notifications, _, _ = collect_agent_states()
         assert states is None
         assert notifications == []
 
@@ -247,7 +261,7 @@ class TestCollectAgentStates:
             agent_watch, "_run_tmux_cmd",
             lambda *args: _FakeTmuxResult("", returncode=1),
         )
-        states, _, _ = collect_agent_states()
+        states, _, _, _ = collect_agent_states()
         assert states == {}
 
     def test_cached_session_meta_is_used(self, client, workspace, monkeypatch):
@@ -267,11 +281,11 @@ class TestCollectAgentStates:
 
         monkeypatch.setattr(agent_watch, "PHRASE_NOTIFY_IDLE_GRACE_SEC", 0)
         self._setup_tmux(monkeypatch, ["ac-s2"], {"ac-s2": "FINISHED\n$ "})
-        states, notifications, _ = collect_agent_states()
+        states, notifications, _, _ = collect_agent_states()
         assert states == {"s2": "idle"}
         assert notifications == []  # 初検出のみ
 
-        states, notifications, _ = collect_agent_states()
+        states, notifications, _, _ = collect_agent_states()
         assert states == {"s2": "idle"}
         assert any(phrase == "FINISHED" for _, phrase, *_ in notifications)
 
