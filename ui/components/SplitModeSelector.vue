@@ -1,7 +1,7 @@
 <template>
   <div class="split-tab-mode-row">
     <button
-      v-for="m in modes"
+      v-for="m in visibleModes"
       :key="m.value"
       type="button"
       class="split-tab-mode-option"
@@ -18,6 +18,9 @@
 </template>
 
 <script setup>
+import { computed } from "vue";
+import { useIsMobile } from "../composables/useIsMobile.js";
+
 defineProps({
   currentMode: { type: String, required: true },
   tabCount: { type: Number, required: true },
@@ -25,12 +28,19 @@ defineProps({
 
 defineEmits(["select"]);
 
+const { isMobile } = useIsMobile();
+
 const modes = [
   { value: "normal", icon: "split-icon-normal", minTabs: 0, label: "Single pane" },
   { value: "vertical", icon: "split-icon-v", minTabs: 2, label: "Vertical split" },
   { value: "horizontal", icon: "split-icon-h", minTabs: 2, label: "Horizontal split" },
   { value: "grid", icon: "split-icon-grid", minTabs: 3, label: "Grid split" },
 ];
+
+// モバイルではレイアウトを Single pane / Vertical split のみに絞る
+const visibleModes = computed(() =>
+  isMobile.value ? modes.filter((m) => m.value === "normal" || m.value === "vertical") : modes,
+);
 </script>
 
 <style scoped>
