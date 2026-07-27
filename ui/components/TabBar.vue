@@ -10,6 +10,7 @@
         @select="onSelect"
         @close="onClose"
         @refresh="onRefresh"
+        @detach="onDetach"
       />
       <button class="tab-add-btn" @click="onAddClick" title="Open Workspace">
         <span class="mdi mdi-plus"></span>
@@ -67,6 +68,10 @@ function onClose(tab) {
 
 function onRefresh(tab) {
   emit("tab:refresh", { tab });
+}
+
+function onDetach(tab) {
+  terminalStore.detachTab(tab.id);
 }
 
 function onAddClick() {

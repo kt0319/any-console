@@ -66,7 +66,7 @@ const props = defineProps({
   isPanelBottom: { type: Boolean, default: false },
 });
 
-const emits = defineEmits(["select", "close", "refresh"]);
+const emits = defineEmits(["select", "close", "refresh", "detach"]);
 const layoutStore = useLayoutStore();
 const { confirm } = useConfirm();
 const terminalStore = useTerminalStore();
@@ -147,6 +147,7 @@ async function onClose() {
   const result = await confirmCloseTab(confirm, props.tab);
   if (result === true) emits("close", props.tab);
   else if (result === "refresh") emits("refresh", props.tab);
+  else if (result === "detach") emits("detach", props.tab);
 }
 
 function onCloseUp() {
