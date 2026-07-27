@@ -18,6 +18,10 @@ coverage.xml
 coverage/
 htmlcov/
 
+# vitest happy-dom 環境で globalThis.localStorage を有効化するための Node ネイティブ
+# localStorage バッキングファイル（--localstorage-file、tests/ui/test_workspace_store.js 等が使う）
+.vitest-localstorage*
+
 # Playwright E2E artifacts
 playwright-report/
 test-results/
