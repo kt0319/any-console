@@ -39,10 +39,7 @@
           <label class="form-check-label"><input type="radio" v-model="createMode" value="worktree" /> Create worktree</label>
         </div>
         <div v-if="createMode" class="ws-settings-row">
-          <span class="ws-settings-label">
-            New branch
-            <span v-if="selectedCreateBranch && branchStatusNote" class="dispatch-run-note">{{ branchStatusNote }}</span>
-          </span>
+          <span class="ws-settings-label">New branch</span>
           <input
             v-model="branch"
             type="text"
@@ -53,10 +50,7 @@
           />
         </div>
         <div class="ws-settings-row">
-          <span class="ws-settings-label">
-            {{ createMode ? "Base branch" : "Branch" }}
-            <span v-if="!createMode && branchStatusNote" class="dispatch-run-note">{{ branchStatusNote }}</span>
-          </span>
+          <span class="ws-settings-label">{{ createMode ? "Base branch" : "Branch" }}</span>
           <select v-model="branchSelectValue" class="form-input">
             <option value="">(current branch)</option>
             <option v-for="b in localBranches" :key="b" :value="b">{{ b }}</option>
@@ -69,10 +63,16 @@
         <textarea v-model="text" class="form-input dispatch-run-input" rows="4" autocomplete="off" spellcheck="false"></textarea>
       </div>
 
+      <div v-if="missingBranchBlockReason" class="job-config-error">{{ missingBranchBlockReason }}</div>
       <div v-if="dirtyBlockReason" class="job-config-error">{{ dirtyBlockReason }}</div>
 
       <div class="ws-settings-row" style="gap:8px">
-        <button type="button" class="primary" :disabled="running || !!dirtyBlockReason || (selectedCreateWorktree && !branch.trim())" @click="run">
+        <button
+          type="button"
+          class="primary"
+          :disabled="running || !!dirtyBlockReason || !!missingBranchBlockReason || (selectedCreateWorktree && !branch.trim())"
+          @click="run"
+        >
           <span class="mdi mdi-play"></span> {{ running ? "Running..." : "Run" }}
         </button>
       </div>
@@ -138,6 +138,7 @@ const branchSelectValue = computed({
 const jobs = ref([]);
 const sessions = ref([]);
 const localBranches = ref([]);
+const localBranchesLoaded = ref(false);
 const running = ref(false);
 const discarding = ref(false);
 const runError = ref("");
@@ -162,16 +163,17 @@ const showWorktreeInfo = computed(() => !!request.value?.worktree && selectedWor
 // Branch select の意味（対象 / 分岐元）と Branch name の表示を切り替える。
 const hasBranchField = computed(() => !request.value?.worktree);
 
-const branchStatusNote = computed(() => {
-  // worktree 作成は既存ブランチなら流用・無ければ新規作成するだけで missing という
-  // 失敗状態が無い。branch_status は元リクエストの branch に対する値で worktree の
-  // 新規ブランチ名とは無関係なので、Create worktree 選択中は出さない。
-  if (selectedCreateWorktree.value) return "";
-  const status = request.value?.branch_status;
-  if (status === "current") return "(already current)";
-  if (status === "exists") return "(checkout)";
-  if (status === "missing") return selectedCreateBranch.value ? "(new branch)" : "(missing)";
-  return "";
+// Change branch の select は localBranches（実在するブランチ）と「(current branch)」
+// しか選択肢が無いため、ユーザー操作では不正な値にならない。ズレが起き得るのは
+// 外部（CI等）から渡された元リクエストの branch が実在しない初期値のときだけ
+// （select 上は "(current branch)" のように見えて、実際の値はそのままズレている）。
+// これに気付かず Run すると失敗するので、送信前に検知して disable する。
+const missingBranchBlockReason = computed(() => {
+  if (createMode.value !== "") return "";
+  if (!localBranchesLoaded.value) return ""; // 一覧取得が未完了/失敗の間は判定しない（fail open）
+  const target = branch.value.trim();
+  if (!target || localBranches.value.includes(target)) return "";
+  return `Branch "${target}" does not exist in this workspace.`;
 });
 
 // サーバ側のガード（api/routers/dispatch.py の _ensure_branch）と対になる UI 側の
@@ -270,10 +272,12 @@ const baseBranchWorkspace = computed(() => {
 
 watch(baseBranchWorkspace, async (ws) => {
   localBranches.value = [];
+  localBranchesLoaded.value = false;
   if (!ws) return;
   const res = await apiGet(`/workspaces/${encodeURIComponent(ws)}/branches`);
   if (res.ok && Array.isArray(res.data)) {
     localBranches.value = res.data.map((b) => b.name);
+    localBranchesLoaded.value = true;
   }
   if (baseBranch.value && !localBranches.value.includes(baseBranch.value)) {
     baseBranch.value = "";

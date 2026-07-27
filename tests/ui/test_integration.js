@@ -522,6 +522,58 @@ describe("DispatchRunView: dirty workspace でのブランチ切替ブロック"
     wrapper.unmount();
   });
 
+  it("Change branch の初期値が実在しないブランチなら Run を disable してエラーを表示する", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn(async (url) => {
+      if (String(url).includes("/branches")) {
+        return { ok: true, json: async () => [{ name: "main" }, { name: "feature/y" }] };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+    try {
+      applyDispatchQueue([
+        { id: "d1", request: { workspace: "ws1", text: "run", branch: "feature/deleted", create_branch: false, retry_count: 1 } },
+      ]);
+      useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 0 }];
+
+      const wrapper = mountDispatchRunView();
+      await flushPromises();
+
+      const runBtn = findRunButton(wrapper);
+      expect(runBtn.attributes("disabled")).toBeDefined();
+      expect(wrapper.text()).toContain('Branch "feature/deleted" does not exist');
+      wrapper.unmount();
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("Change branch の初期値が実在するブランチならブロックしない", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn(async (url) => {
+      if (String(url).includes("/branches")) {
+        return { ok: true, json: async () => [{ name: "main" }, { name: "feature/existing" }] };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+    try {
+      applyDispatchQueue([
+        { id: "d1", request: { workspace: "ws1", text: "run", branch: "feature/existing", create_branch: false, retry_count: 1 } },
+      ]);
+      useWorkspaceStore().allWorkspaces = [{ name: "ws1", branch: "main", changed_files: 0 }];
+
+      const wrapper = mountDispatchRunView();
+      await flushPromises();
+
+      const runBtn = findRunButton(wrapper);
+      expect(runBtn.attributes("disabled")).toBeUndefined();
+      expect(wrapper.text()).not.toContain("does not exist");
+      wrapper.unmount();
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
   it("ブランチ未指定（現在ブランチのまま）ならdirtyでもブロックしない", async () => {
     applyDispatchQueue([
       { id: "d1", request: { workspace: "ws1", text: "run", retry_count: 1 } },
