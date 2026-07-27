@@ -313,7 +313,7 @@ def detach_client_bridge(session: TerminalSession, websocket: WebSocket) -> None
 
 # ─── Resize ──────────────────────────────────────────────────────────────────
 
-def _apply_bridge_size(bridge: ClientBridge, cols: int, rows: int) -> None:
+def _apply_bridge_size(bridge: ClientBridge, cols: int, rows: int, session_id: str = "") -> None:
     """ブリッジ（クライアント PTY）のサイズを更新する（実際に変化した時だけ）。
 
     フロントは入力のたびに resize を送るため、同一サイズでの ioctl 連打を避けて
@@ -326,6 +326,12 @@ def _apply_bridge_size(bridge: ClientBridge, cols: int, rows: int) -> None:
         return
     if bridge.applied_size == (cols, rows):
         return
+    # window-size latest はこの適用をトリガーに追従するため、どのセッション/クライアントが
+    # いつ・どのサイズに変えたかを追える調査用ログ（意図しないデバイスへの追従の切り分け用）。
+    logger.info(
+        "terminal resize applied session=%s from=%s to=(%d,%d)",
+        session_id, bridge.applied_size, cols, rows,
+    )
     bridge.applied_size = (cols, rows)
     resize_client_pty(bridge.fd, cols, rows)
 
@@ -335,7 +341,7 @@ def _handle_resize(bridge: ClientBridge, payload: bytes, session_id: str) -> Non
         size = json.loads(payload)
         cols = size.get("cols", TERMINAL_DEFAULT_COLS)
         rows = size.get("rows", TERMINAL_DEFAULT_ROWS)
-        _apply_bridge_size(bridge, cols, rows)
+        _apply_bridge_size(bridge, cols, rows, session_id)
         from .agent_watch import reset_last_capture
         reset_last_capture(session_id)
     except (json.JSONDecodeError, OSError, KeyError):
