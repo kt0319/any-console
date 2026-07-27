@@ -77,10 +77,8 @@ export function useKeyboardBarState({ keyboardInput, clearModifiers }) {
     // 設定モーダルが（Snippets/History以外の理由も含め）閉じたら巡回状態をリセットする。
     // そうしないと次のタップが「閉じる」扱いのまま出戻ってしまう。
     on("settings:closed", () => { snippetPanelView.value = "none"; }),
-    on("keyboard:setDraft", async ({ command }) => {
+    on("keyboard:setDraft", ({ command }) => {
       draft.value = command;
-      await nextTick();
-      keyboardInput.value?.focus?.();
     }),
   ];
   onUnmounted(() => cleanups.forEach((fn) => fn()));
