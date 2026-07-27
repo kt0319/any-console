@@ -260,7 +260,7 @@ onMounted(() => {
   border-top: 1px solid var(--border);
   margin-bottom: 0;
   margin-top: 0;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 22px);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
 }
 
 .modal-title-wrap {
