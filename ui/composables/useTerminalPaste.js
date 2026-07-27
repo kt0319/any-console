@@ -28,7 +28,10 @@ export function useTerminalPaste({ tab, isActive }) {
 
     // xterm の textarea にフォーカスがないとき、テキストをターミナルに転送する。
     // input/textarea/select/contenteditable にフォーカスがある場合は転送しない（ダイアログ等を壊さないため）。
+    // xterm 自身も textarea と element の両方に paste リスナーを持つため、フォーカスが
+    // element 配下（textarea 含む）にある間は xterm 側に処理を委ねる（二重貼り付け防止）。
     const textarea = tab.value.term?.textarea;
+    const termElement = tab.value.term?.element;
     const activeEl = /** @type {HTMLElement | null} */ (document.activeElement);
     const activeIsOtherInput = activeEl && activeEl !== textarea && (
       activeEl.tagName === "INPUT" ||
@@ -36,7 +39,8 @@ export function useTerminalPaste({ tab, isActive }) {
       activeEl.tagName === "SELECT" ||
       activeEl.isContentEditable
     );
-    if (textarea && !activeIsOtherInput && activeEl !== textarea) {
+    const focusInsideTerm = activeEl && termElement && termElement.contains(activeEl);
+    if (textarea && !activeIsOtherInput && !focusInsideTerm) {
       const text = e.clipboardData?.getData("text/plain");
       if (text) {
         e.preventDefault();
