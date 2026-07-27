@@ -418,9 +418,10 @@ onMounted(() => {
   }
 
   .workspace-tabs {
-    padding: 0 8px 4px;
+    padding: 0 8px;
     /* column-reverse でタブバーは画面下部に来るため、コンテンツとの境界は
-       border-bottom（画面最下端になり無意味）ではなく border-top に出す。 */
+       border-bottom（画面最下端になり無意味）ではなく border-top に出す。
+       下端は modal-header に直接隣接するため padding は付けない（付けると隙間になる）。 */
     border-bottom: none;
     border-top: 1px solid var(--border);
   }
