@@ -335,7 +335,6 @@ defineExpose({
 .main-panel.panel-bottom :deep(.tab-btn) {
   border-radius: 0;
   padding: 12px 16px;
-  gap: 2px;
   min-width: 0;
   justify-content: center;
 }
