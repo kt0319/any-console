@@ -12,10 +12,10 @@
         @refresh="onRefresh"
         @detach="onDetach"
       />
-      <button class="tab-add-btn" @click="onAddClick" title="Open Workspace">
-        <span class="mdi mdi-plus"></span>
-      </button>
     </div>
+    <button v-if="!isSplitMode" class="tab-add-btn" @click="onAddClick" title="Open Workspace">
+      <span class="mdi mdi-plus"></span>
+    </button>
     <button
       v-if="!isSplitMode"
       class="tab-settings-btn"
@@ -118,8 +118,9 @@ function onSettingsClick() {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  align-self: stretch;
   width: 30px;
-  margin: 0;
+  margin: 0 0 0 4px;
   padding: 0;
   border: none;
   border-radius: 0;

@@ -12,7 +12,7 @@
         @click="switchPane(tab.key)"
       >
         <span :class="['mdi', tab.icon]" :style="tab.iconColor ? { color: tab.iconColor } : null" aria-hidden="true"></span>
-        <span v-if="activePane === tab.key" class="workspace-tab-label" aria-hidden="true">{{ tab.label }}<span v-if="tab.count"> ({{ tab.count }})</span></span>
+        <span class="workspace-tab-label" :class="{ 'workspace-tab-label-active': activePane === tab.key }" aria-hidden="true">{{ tab.label }}<span v-if="tab.count"> ({{ tab.count }})</span></span>
       </button>
     </div>
 
@@ -401,6 +401,18 @@ onMounted(() => {
 
 .workspace-tab-label {
   line-height: 1;
+  max-width: 0;
+  margin-left: -6px;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width 0.25s ease, opacity 0.2s ease, margin-left 0.25s ease;
+}
+
+.workspace-tab-label-active {
+  max-width: 160px;
+  margin-left: 0;
+  opacity: 1;
 }
 
 /* タブコンテンツ */

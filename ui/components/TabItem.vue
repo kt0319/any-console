@@ -23,7 +23,7 @@
     <span v-if="iconHtml" class="tab-icon-slot">
       <span v-html="iconHtml"></span>
     </span>
-    <template v-if="!isPanelBottom">
+    <span class="tab-extra">
       {{ label }}
       <span class="tab-dirty-dot" :style="{ visibility: isDirty ? 'visible' : 'hidden' }" :aria-hidden="!isDirty" aria-label="uncommitted changes"></span>
       <span
@@ -34,10 +34,10 @@
         @mouseup.stop="onCloseUp"
         @click.stop.prevent
       >&times;</span>
-    </template>
+    </span>
     <span
       v-if="isPanelBottom"
-      class="tab-dirty-dot"
+      class="tab-dirty-dot tab-dirty-dot-compact"
       :style="{ visibility: isDirty ? 'visible' : 'hidden' }"
       :aria-hidden="!isDirty"
       aria-label="uncommitted changes"
@@ -114,9 +114,9 @@ const isWorktree = computed(() => {
   return !!ws?.worktree;
 });
 
-// アイコン拡大はモバイル(パネル下部・アイコンのみ表示)の時だけ。
-// PCはラベル付きの横並びタブなので従来サイズのままにする。
-const iconSize = computed(() => (props.isPanelBottom ? 20 : 18));
+// アイコン拡大はモバイル(パネル下部)の非アクティブ・アイコンのみ表示の時だけ。
+// アクティブ時はPCと同じラベル付き表示にするため従来サイズにする。
+const iconSize = computed(() => (props.isPanelBottom && !isActive.value ? 20 : 18));
 
 const wsIconHtml = computed(() => {
   if (props.tab.wsIcon) return renderIconStr(props.tab.wsIcon.name, props.tab.wsIcon.color, iconSize.value);
@@ -428,11 +428,35 @@ onBeforeUnmount(() => {
 }
 
 /* panel-bottom（アイコンのみ表示）では右端に tab-dirty-dot が付き、その分アイコンが
-   中央からズレて見える。同じ幅の透明スペーサーを左端にも置いて中央を保つ。 */
+   中央からズレて見える。同じ幅の透明スペーサーを左端にも置いて中央を保つ。
+   アクティブ時はラベルが出て中央寄せの意味が薄れるため詰める。tab-extra の
+   伸びとタイミングを揃えてtransitionさせる（v-ifでの瞬時除去だと、詰まる分だけ
+   一瞬左へスナップしてから右へ伸びる「跳ね」に見えてしまうため）。 */
 .tab-dirty-dot-spacer {
   width: 6px;
   height: 6px;
   flex-shrink: 0;
+  margin-right: 0;
+  transition: width 0.25s ease, margin-right 0.25s ease;
+}
+
+.tab-btn.tab-panel-bottom.active .tab-dirty-dot-spacer {
+  width: 0;
+  margin-right: -6px;
+}
+
+/* 右端の「アイコンのみ表示」用コンパクトdirty-dot。tab-extra内にも同じ役割の
+   dot があるため、アクティブ時はこちらを同じタイミングで畳んで入れ替える。 */
+.tab-dirty-dot-compact {
+  margin-left: 0;
+  transition: width 0.25s ease, height 0.25s ease, margin-left 0.25s ease, opacity 0.2s ease;
+}
+
+.tab-btn.tab-panel-bottom.active .tab-dirty-dot-compact {
+  width: 0;
+  height: 0;
+  margin-left: -6px;
+  opacity: 0;
 }
 
 .tab-worktree-icon {
@@ -451,8 +475,32 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-.tab-btn.tab-panel-bottom .tab-icon-slot {
+.tab-btn.tab-panel-bottom:not(.active) .tab-icon-slot {
   width: 20px;
+}
+
+.tab-extra {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* モバイル(パネル下部)は非アクティブ時アイコンのみにするため、ラベル・
+   dirty-dot・closeボタンをまとめて畳む。アクティブ化時にPCと同じ内容が
+   滑らかに広がって見えるようアニメーションする。 */
+.tab-btn.tab-panel-bottom .tab-extra {
+  max-width: 0;
+  margin-left: -6px;
+  opacity: 0;
+  transition: max-width 0.25s ease, opacity 0.2s ease, margin-left 0.25s ease;
+}
+
+.tab-btn.tab-panel-bottom.active .tab-extra {
+  max-width: 320px;
+  margin-left: 0;
+  opacity: 1;
 }
 
 .tab-close {
