@@ -122,15 +122,14 @@ async function copySelection() {
   position: relative;
   flex: 1;
   min-height: 0;
-  overflow-y: scroll;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
 
 .terminal-select-textarea {
   width: 100%;
-  min-height: 100%;
+  height: 100%;
   resize: none;
   padding: 12px;
   background: var(--bg-primary);
@@ -142,7 +141,8 @@ async function copySelection() {
   line-height: 1.4;
   white-space: pre-wrap;
   word-break: break-all;
-  overflow: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   box-sizing: border-box;
   user-select: text;
   -webkit-user-select: text;
