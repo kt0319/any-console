@@ -28,6 +28,13 @@
     </span>
     <span class="tab-extra">
       {{ label }}
+      <span
+        class="tab-close"
+        draggable="false"
+        @mousedown.stop.prevent="onClosePress"
+        @mouseup.stop="onCloseUp"
+        @click.stop.prevent
+      ><span class="mdi mdi-close"></span></span>
     </span>
   </button>
 </template>
@@ -64,6 +71,7 @@ const touchLongPress = useLongPress(LONG_PRESS_MS);
 const pillEl = ref(null);
 const isDragging = ref(false);
 const dropSide = ref("");
+let closePending = false;
 
 const isActive = computed(() => props.activeTabId === props.tab.id);
 const canDrag = computed(() => !layoutStore.isTouchDevice && terminalStore.openTabs.length >= 1);
@@ -124,10 +132,21 @@ function onClick(e) {
 }
 
 async function onClose() {
+  closePending = false;
   const result = await confirmCloseTab(confirm, props.tab);
   if (result === true) emits("close", props.tab);
   else if (result === "refresh") emits("refresh", props.tab);
   else if (result === "detach") emits("detach", props.tab);
+}
+
+function onCloseUp() {
+  if (!closePending) return;
+  onClose();
+}
+
+function onClosePress() {
+  mouseLongPress.cancel();
+  closePending = true;
 }
 
 function onMouseDown() {
@@ -138,7 +157,7 @@ function onMouseDown() {
 // PC: HTML5 Drag & Drop
 function onDragStart(e) {
   mouseLongPress.cancel();
-  if (!canDrag.value) { e.preventDefault(); return; }
+  if (!canDrag.value || closePending) { e.preventDefault(); return; }
   e.dataTransfer.setData("text/plain", props.tab.id);
   e.dataTransfer.effectAllowed = "move";
   isDragging.value = true;
@@ -439,6 +458,29 @@ onBeforeUnmount(() => {
   max-width: 0;
   margin-left: -6px;
   opacity: 0;
+}
+
+.tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tab-close:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
 }
 
 .tab-btn :deep(.favicon-icon) {
