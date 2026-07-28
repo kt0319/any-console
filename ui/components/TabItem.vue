@@ -349,7 +349,7 @@ onBeforeUnmount(() => {
   border-radius: 0;
   background: transparent;
   color: var(--text-muted);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
   font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   cursor: pointer;
