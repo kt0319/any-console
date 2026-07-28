@@ -346,12 +346,12 @@ onBeforeUnmount(() => {
   align-items: center;
   flex-shrink: 0;
   gap: 6px;
-  padding: 8px 12px;
+  padding: 12px 16px;
   border: none;
   border-radius: 0;
   background: transparent;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   cursor: pointer;

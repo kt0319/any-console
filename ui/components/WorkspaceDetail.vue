@@ -375,12 +375,12 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 14px;
+  padding: 12px 18px;
   background: transparent;
   border: none;
   border-radius: 0;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 15px;
   white-space: nowrap;
   cursor: pointer;
   flex-shrink: 0;
