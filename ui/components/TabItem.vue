@@ -109,17 +109,15 @@ const isWorktree = computed(() => {
   return !!ws?.worktree;
 });
 
-// アイコン拡大はモバイル(パネル下部)の非アクティブ・アイコンのみ表示の時だけ。
-// アクティブ時はPCと同じラベル付き表示にするため従来サイズにする。
-const iconSize = computed(() => (props.isPanelBottom && !isActive.value ? 20 : 18));
+const iconSize = 18;
 
 const wsIconHtml = computed(() => {
-  if (props.tab.wsIcon) return renderIconStr(props.tab.wsIcon.name, props.tab.wsIcon.color, iconSize.value);
+  if (props.tab.wsIcon) return renderIconStr(props.tab.wsIcon.name, props.tab.wsIcon.color, iconSize);
   return "";
 });
 
 const iconHtml = computed(() => {
-  if (props.tab.icon) return renderIconStr(props.tab.icon.name, props.tab.icon.color, iconSize.value);
+  if (props.tab.icon) return renderIconStr(props.tab.icon.name, props.tab.icon.color, iconSize);
   return "";
 });
 
@@ -446,10 +444,6 @@ onBeforeUnmount(() => {
   justify-content: center;
   width: 18px;
   flex-shrink: 0;
-}
-
-.tab-btn.tab-panel-bottom:not(.active) .tab-icon-slot {
-  width: 20px;
 }
 
 .tab-extra {
