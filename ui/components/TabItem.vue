@@ -17,15 +17,17 @@
     @drop="onDropOnTab"
     @touchstart.passive="onTouchStart"
   >
-    <span v-if="isPanelBottom" class="tab-dirty-dot-spacer" aria-hidden="true"></span>
-    <span v-if="wsIconHtml" v-html="wsIconHtml"></span>
+    <span v-if="wsIconHtml" class="tab-icon-badge-wrap">
+      <span v-html="wsIconHtml"></span>
+      <span v-if="isDirty" class="tab-dirty-badge" aria-label="uncommitted changes"></span>
+    </span>
     <span v-if="isWorktree" class="mdi mdi-file-tree tab-worktree-icon" aria-label="worktree" data-tooltip="worktree"></span>
-    <span v-if="iconHtml" class="tab-icon-slot">
+    <span v-if="iconHtml" class="tab-icon-slot tab-icon-badge-wrap">
       <span v-html="iconHtml"></span>
+      <span v-if="!wsIconHtml && isDirty" class="tab-dirty-badge" aria-label="uncommitted changes"></span>
     </span>
     <span class="tab-extra">
       {{ label }}
-      <span class="tab-dirty-dot" :style="{ visibility: isDirty ? 'visible' : 'hidden' }" :aria-hidden="!isDirty" aria-label="uncommitted changes"></span>
       <span
         class="tab-close"
         draggable="false"
@@ -35,13 +37,6 @@
         @click.stop.prevent
       >&times;</span>
     </span>
-    <span
-      v-if="isPanelBottom"
-      class="tab-dirty-dot tab-dirty-dot-compact"
-      :style="{ visibility: isDirty ? 'visible' : 'hidden' }"
-      :aria-hidden="!isDirty"
-      aria-label="uncommitted changes"
-    ></span>
   </button>
 </template>
 
@@ -416,44 +411,23 @@ onBeforeUnmount(() => {
   box-shadow: inset -2px 0 0 var(--accent);
 }
 
-.tab-dirty-dot {
+/* ダーティマークはワークスペースアイコン（無ければjobアイコン）の右下に
+   バッジとして重ねる。アイコン自体はアクティブ/非アクティブで常に表示
+   され続けるため、ラベルの開閉アニメーションとは独立して安定した位置に出せる。 */
+.tab-icon-badge-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.tab-dirty-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: #f5a623;
-  flex-shrink: 0;
-}
-
-/* panel-bottom（アイコンのみ表示）では右端に tab-dirty-dot が付き、その分アイコンが
-   中央からズレて見える。同じ幅の透明スペーサーを左端にも置いて中央を保つ。
-   アクティブ時はラベルが出て中央寄せの意味が薄れるため詰める。tab-extra の
-   伸びとタイミングを揃えてtransitionさせる（v-ifでの瞬時除去だと、詰まる分だけ
-   一瞬左へスナップしてから右へ伸びる「跳ね」に見えてしまうため）。 */
-.tab-dirty-dot-spacer {
-  width: 6px;
-  height: 6px;
-  flex-shrink: 0;
-  margin-right: 0;
-  transition: width 0.25s ease, margin-right 0.25s ease;
-}
-
-.tab-btn.tab-panel-bottom.active .tab-dirty-dot-spacer {
-  width: 0;
-  margin-right: -6px;
-}
-
-/* 右端の「アイコンのみ表示」用コンパクトdirty-dot。tab-extra内にも同じ役割の
-   dot があるため、アクティブ時はこちらを同じタイミングで畳んで入れ替える。 */
-.tab-dirty-dot-compact {
-  margin-left: 0;
-  transition: width 0.25s ease, height 0.25s ease, margin-left 0.25s ease, opacity 0.2s ease;
-}
-
-.tab-btn.tab-panel-bottom.active .tab-dirty-dot-compact {
-  width: 0;
-  height: 0;
-  margin-left: -6px;
-  opacity: 0;
+  border: 1px solid var(--bg-secondary);
 }
 
 .tab-worktree-icon {
