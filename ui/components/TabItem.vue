@@ -480,16 +480,23 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
   border: none;
-  border-radius: 3px;
+  border-radius: 4px;
   background: transparent;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1;
   cursor: pointer;
   padding: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tab-close:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
 }
 
 .tab-btn :deep(.favicon-icon) {
