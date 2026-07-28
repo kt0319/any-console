@@ -434,17 +434,11 @@ onBeforeUnmount(() => {
   line-height: 1;
 }
 
-/* モバイル(パネル下部)は非アクティブ時アイコンのみにするため、ラベルを畳む。 */
+/* モバイル(パネル下部)はアイコンのみ表示にするため、ラベルは常に畳む。 */
 .tab-btn.tab-panel-bottom .tab-extra {
   max-width: 0;
   margin-left: -6px;
   opacity: 0;
-}
-
-.tab-btn.tab-panel-bottom.active .tab-extra {
-  max-width: 320px;
-  margin-left: 0;
-  opacity: 1;
 }
 
 .tab-btn :deep(.favicon-icon) {
