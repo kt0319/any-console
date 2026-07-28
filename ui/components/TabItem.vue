@@ -35,7 +35,7 @@
         @touchstart.stop.prevent="onClosePress"
         @mouseup.stop="onCloseUp"
         @click.stop.prevent
-      >&times;</span>
+      ><span class="mdi mdi-close"></span></span>
     </span>
   </button>
 </template>
@@ -452,6 +452,7 @@ onBeforeUnmount(() => {
   gap: 6px;
   overflow: hidden;
   white-space: nowrap;
+  line-height: 1;
 }
 
 /* モバイル(パネル下部)は非アクティブ時アイコンのみにするため、ラベル・
