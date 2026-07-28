@@ -417,14 +417,16 @@ onBeforeUnmount(() => {
 .tab-icon-badge-wrap {
   position: relative;
   display: inline-flex;
+  align-items: center;
+  line-height: 1;
 }
 
 .tab-dirty-badge {
   position: absolute;
-  right: -2px;
-  bottom: -2px;
-  width: 6px;
-  height: 6px;
+  right: -3px;
+  bottom: -3px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: #f5a623;
   border: 1px solid var(--bg-secondary);

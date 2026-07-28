@@ -23,9 +23,13 @@
           @touchstart.passive="onPillTouchStart"
         >
           <span class="terminal-info-pill-info">
-            <span v-if="tab.wsIcon" v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
-            <span v-if="tab.icon" class="pill-icon-slot">
+            <span v-if="tab.wsIcon" class="pill-icon-badge-wrap">
+              <span v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
+              <span v-if="isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
+            </span>
+            <span v-if="tab.icon" class="pill-icon-slot pill-icon-badge-wrap">
               <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
+              <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
             </span>
             {{ tab.workspace || tab.label || '' }}
             <span v-if="layoutStore.isSplitMode && (behind > 0 || ahead > 0)" class="pill-ahead-behind" aria-label="ahead/behind commits">
@@ -500,6 +504,24 @@ defineExpose({
   justify-content: center;
   width: 14px;
   flex-shrink: 0;
+}
+
+.pill-icon-badge-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.pill-dirty-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f5a623;
+  border: 1px solid rgba(26, 27, 38, 0.88);
 }
 
 .terminal-info-pill :deep(.favicon-icon) {
