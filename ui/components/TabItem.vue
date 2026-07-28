@@ -134,11 +134,8 @@ function onClick(e) {
   if (isDragging.value) return;
   if (mouseLongPress.consumeFired()) return;
   e.currentTarget?.blur();
-  if (isActive.value) {
-    // モバイル(パネル下部)はアクティブなタブを再タップしたらクローズ確認を出す。
-    if (props.isPanelBottom) onClose();
-    return;
-  }
+  // アクティブなタブの再タップでは何もしない(PCと同じ)。閉じるには×ボタンを使う。
+  if (isActive.value) return;
   emits("select", props.tab);
 }
 
