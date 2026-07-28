@@ -34,6 +34,7 @@
         @mousedown.stop.prevent="onClosePress"
         @touchstart.stop.prevent="onClosePress"
         @mouseup.stop="onCloseUp"
+        @touchend.stop.prevent="onCloseUp"
         @click.stop.prevent
       ><span class="mdi mdi-close"></span></span>
     </span>
