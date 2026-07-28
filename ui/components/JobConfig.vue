@@ -42,7 +42,8 @@
           <input type="text" class="form-input" v-model="form.notify_phrase"
             placeholder="Phrase to watch in output" spellcheck="false" autocomplete="off" />
           <div class="notify-phrase-hint">
-            Push notification after 1 min when this phrase appears in output.
+            Push notification when this phrase appears in output
+            (delay configurable in Notifications settings).
             e.g. {{ NOTIFY_EXAMPLES.join(", ") }}
           </div>
         </div>

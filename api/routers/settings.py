@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from .. import auth as auth_module
 from ..auth import verify_token
-from ..common import GLOBAL_CONFIG_KEY, MAX_COMMAND_LENGTH, MAX_LABEL_LENGTH
+from ..common import GLOBAL_CONFIG_KEY, MAX_COMMAND_LENGTH, MAX_LABEL_LENGTH, PHRASE_NOTIFY_IDLE_GRACE_SEC
 from ..config import (
     check_config_health,
     find_workspace_key,
@@ -121,6 +121,30 @@ def put_editor_settings(body: EditorSettings):
     url_template = body.url_template.strip()
     save_global_config_section("editor", {"url_template": url_template})
     return {"status": "ok", "url_template": url_template}
+
+
+PHRASE_NOTIFY_GRACE_SEC_MAX = 600  # 10分。異常値のガード
+
+
+class NotificationSettings(BaseModel):
+    phrase_notify_grace_sec: int = Field(PHRASE_NOTIFY_IDLE_GRACE_SEC, ge=0, le=PHRASE_NOTIFY_GRACE_SEC_MAX)
+
+
+@router.get("/settings/notifications")
+def get_notification_settings():
+    raw = load_global_config_section("notifications", {})
+    if not isinstance(raw, dict):
+        raw = {}
+    value = raw.get("phrase_notify_grace_sec")
+    if not isinstance(value, int) or value < 0:
+        value = PHRASE_NOTIFY_IDLE_GRACE_SEC
+    return {"phrase_notify_grace_sec": value}
+
+
+@router.put("/settings/notifications")
+def put_notification_settings(body: NotificationSettings):
+    save_global_config_section("notifications", {"phrase_notify_grace_sec": body.phrase_notify_grace_sec})
+    return {"status": "ok", "phrase_notify_grace_sec": body.phrase_notify_grace_sec}
 
 
 CIRCLE_KEYPAD_KEY_COUNT = 8

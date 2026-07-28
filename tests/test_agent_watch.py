@@ -381,3 +381,31 @@ class TestNotifyPhraseApi:
         job_name = res.json()["name"]
         jobs = client.get("/common/jobs", headers=AUTH).json()
         assert jobs[job_name].get("notify_phrase", "") == ""
+
+
+class TestNotifyGraceSec:
+    def test_default_when_unset(self, client):
+        from api.agent_watch import PHRASE_NOTIFY_IDLE_GRACE_SEC, _notify_grace_sec
+        assert _notify_grace_sec() == PHRASE_NOTIFY_IDLE_GRACE_SEC
+
+    def test_uses_configured_value(self, client):
+        from api.agent_watch import _notify_grace_sec
+        res = client.put("/settings/notifications", headers=AUTH, json={
+            "phrase_notify_grace_sec": 15,
+        })
+        assert res.status_code == 200
+        assert _notify_grace_sec() == 15
+
+    def test_falls_back_when_config_not_dict(self, client, isolate_fs):
+        import json as _json
+        from api.agent_watch import PHRASE_NOTIFY_IDLE_GRACE_SEC, _notify_grace_sec
+        isolate_fs["config_file"].write_text(_json.dumps({"__global__": {"notifications": "broken"}}))
+        assert _notify_grace_sec() == PHRASE_NOTIFY_IDLE_GRACE_SEC
+
+    def test_falls_back_when_value_negative(self, client, isolate_fs):
+        import json as _json
+        from api.agent_watch import PHRASE_NOTIFY_IDLE_GRACE_SEC, _notify_grace_sec
+        isolate_fs["config_file"].write_text(
+            _json.dumps({"__global__": {"notifications": {"phrase_notify_grace_sec": -5}}}),
+        )
+        assert _notify_grace_sec() == PHRASE_NOTIFY_IDLE_GRACE_SEC

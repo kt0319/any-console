@@ -132,11 +132,29 @@ def reset_last_capture(session_id: str) -> None:
         _last_states.pop(session_id, None)
 
 
+def _notify_grace_sec() -> int:
+    """フレーズ検出からプッシュ通知までの猶予秒数（設定 > Notificationsで変更可能）。
+
+    ポーリング周期ごとにセッション数分呼ばれる _should_notify_phrase 側では呼ばず、
+    collect_agent_states の呼び出し1回につき1回だけ解決してから渡すこと
+    （config読み込みのディスクI/Oをセッション数倍にしないため）。
+    """
+    from .config import load_global_config_section
+    raw = load_global_config_section("notifications", {})
+    if not isinstance(raw, dict):
+        return PHRASE_NOTIFY_IDLE_GRACE_SEC
+    value = raw.get("phrase_notify_grace_sec")
+    if not isinstance(value, int) or value < 0:
+        return PHRASE_NOTIFY_IDLE_GRACE_SEC
+    return value
+
+
 def _should_notify_phrase(
     session_id: str, notify_phrase: str, capture: str, changed: bool, now: float,
+    grace_sec: int = PHRASE_NOTIFY_IDLE_GRACE_SEC,
 ) -> tuple[bool, bool]:
     """(should_push, should_clear_ws) を返す。
-    should_push: notify_phrase 検出から PHRASE_NOTIFY_IDLE_GRACE_SEC 秒アクティビティが
+    should_push: notify_phrase 検出から grace_sec 秒アクティビティが
     無ければ True。should_clear_ws: 検出後にアクティビティがあり push を見送った瞬間に True
     （タブ通知マークを取り消すタイミングとしてそのまま使う。push と『見ていたとみなす』
     判定を共有するため、専用の状態は持たない）。
@@ -156,7 +174,7 @@ def _should_notify_phrase(
         _phrase_detected_at.pop(session_id, None)
         _phrase_notified.add(session_id)
         return False, True
-    if now - _phrase_detected_at[session_id] >= PHRASE_NOTIFY_IDLE_GRACE_SEC:
+    if now - _phrase_detected_at[session_id] >= grace_sec:
         _phrase_notified.add(session_id)
         _phrase_detected_at.pop(session_id, None)
         return True, False
@@ -202,6 +220,7 @@ def collect_agent_states() -> tuple[
     ws_notifications: list[tuple[str, str, str | None]] = []
     ws_clear_session_ids: list[str] = []
     now = time.monotonic()
+    grace_sec = _notify_grace_sec()
     for session_id in session_ids:
         capture = capture_visible_pane(TMUX_SESSION_PREFIX + session_id)
         if capture is None:
@@ -212,7 +231,9 @@ def collect_agent_states() -> tuple[
         new_state = classify_agent_state(capture, prev_capture)
         states[session_id] = new_state
         changed = prev_capture is not None and capture != prev_capture
-        should_push, should_clear_ws = _should_notify_phrase(session_id, notify_phrase, capture, changed, now)
+        should_push, should_clear_ws = _should_notify_phrase(
+            session_id, notify_phrase, capture, changed, now, grace_sec,
+        )
         if should_push:
             notifications.append((session_id, notify_phrase, workspace))
         if should_clear_ws:

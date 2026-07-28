@@ -169,6 +169,42 @@ class TestEditorSettings:
         assert res.json()["url_template"] == ""
 
 
+class TestNotificationSettings:
+    def test_get_default(self, client):
+        res = client.get("/settings/notifications", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json() == {"phrase_notify_grace_sec": 20}
+
+    def test_put_and_get(self, client):
+        res = client.put("/settings/notifications", headers=AUTH, json={
+            "phrase_notify_grace_sec": 30,
+        })
+        assert res.status_code == 200
+        assert res.json()["phrase_notify_grace_sec"] == 30
+
+        res = client.get("/settings/notifications", headers=AUTH)
+        assert res.json()["phrase_notify_grace_sec"] == 30
+
+    def test_put_rejects_negative(self, client):
+        res = client.put("/settings/notifications", headers=AUTH, json={
+            "phrase_notify_grace_sec": -1,
+        })
+        assert res.status_code == 422
+
+    def test_put_rejects_too_large(self, client):
+        res = client.put("/settings/notifications", headers=AUTH, json={
+            "phrase_notify_grace_sec": 601,
+        })
+        assert res.status_code == 422
+
+    def test_get_falls_back_when_config_not_dict(self, client, isolate_fs):
+        import json as _json
+        isolate_fs["config_file"].write_text(_json.dumps({"__global__": {"notifications": "broken"}}))
+        res = client.get("/settings/notifications", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json()["phrase_notify_grace_sec"] == 20
+
+
 class TestCircleKeypadSettings:
     def test_get_default(self, client):
         res = client.get("/settings/circle-keypad", headers=AUTH)

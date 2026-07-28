@@ -32,6 +32,7 @@ export const EP_SYSTEM_PROCESS_KILL = "/system/process/kill";
 export const EP_SYSTEM_UPDATE_CHECK = "/system/update/check";
 export const EP_SYSTEM_UPDATE_APPLY = "/system/update/apply";
 export const EP_SETTINGS_EDITOR = "/settings/editor";
+export const EP_SETTINGS_NOTIFICATIONS = "/settings/notifications";
 export const EP_SETTINGS_AUTH = "/settings/auth";
 export const EP_API_TOKENS = "/api-tokens";
 export const EP_PUSH_VAPID_KEY = "/push/vapid-public-key";
