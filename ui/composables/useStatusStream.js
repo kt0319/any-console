@@ -1,6 +1,7 @@
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { applyDispatchQueue } from "./useDispatchConfirm.js";
+import { useSessionSync } from "./useSessionSync.js";
 import { on } from "../app-bridge.js";
 import { debugLog } from "./useClientLogs.js";
 import {
@@ -16,15 +17,20 @@ let reconnectAttempts = 0;
 let started = false;
 
 /**
- * git ステータス／エージェント状態／dispatch キューのリアルタイム配信 WS を購読する。
+ * git ステータス／エージェント状態／dispatch キュー／ターミナルセッション作成・削除の
+ * リアルタイム配信 WS を購読する。
  * 受信した git ステータスは workspace ストアへ、エージェント状態は terminal
  * ストアへ即時マージされ、dispatch キューは承認待ち一覧へ全量反映される。
+ * セッション作成・削除の通知は、他クライアントが開閉したタブをポーリング（最大
+ * SESSION_SYNC_INTERVAL_MS の遅延、かつ非表示タブでは停止する）を待たずに即座へ
+ * 反映するためのnudgeで、既存の syncSessionsFromServer() をそのまま呼ぶ。
  * 切断時はバックオフ付きで再接続し、再接続のたびに全量を同期して取りこぼしを埋める
  * （エージェント状態・dispatch キューはサーバが購読開始時にスナップショットを送る）。
  */
 export function useStatusStream() {
   const workspaceStore = useWorkspaceStore();
   const terminalStore = useTerminalStore();
+  const { syncSessionsFromServer } = useSessionSync();
 
   function isClosed() {
     return !socket || socket.readyState === WebSocket.CLOSED;
@@ -54,6 +60,8 @@ export function useStatusStream() {
         terminalStore.markPhraseNotify(msg.session_id);
       } else if (msg?.type === "phrase_notify_clear") {
         terminalStore.clearPhraseNotify(msg.session_id);
+      } else if (msg?.type === "session_created" || msg?.type === "session_removed") {
+        syncSessionsFromServer();
       }
     };
     ws.onclose = () => {

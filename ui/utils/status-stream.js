@@ -22,6 +22,8 @@ export function buildStatusStreamUrl(proto, host) {
  * - dispatch_queue: `{ type: "dispatch_queue", items: [{ id, request }] }`（全量スナップショット）
  * - phrase_notify: `{ type: "phrase_notify", session_id, phrase, workspace }`
  * - phrase_notify_clear: `{ type: "phrase_notify_clear", session_id }`
+ * - session_created / session_removed: `{ type, session_id }`（ターミナルセッションの
+ *   作成・削除。他クライアントでの変更をタブ一覧へ即時反映するためのnudge、api/session_watch.py）
  * ping・不正 JSON・形式違いは null を返す（呼び出し側は無視すればよい）。
  * @param {unknown} raw
  * @returns {{ type: "statuses", statuses: Record<string, any>[] }
@@ -29,6 +31,7 @@ export function buildStatusStreamUrl(proto, host) {
  *   | { type: "dispatch_queue", items: { id: string, request: Record<string, any> }[] }
  *   | { type: "phrase_notify", session_id: string, phrase: string, workspace: string | null }
  *   | { type: "phrase_notify_clear", session_id: string }
+ *   | { type: "session_created" | "session_removed", session_id: string }
  *   | null}
  */
 export function parseStatusStreamMessage(raw) {
@@ -54,6 +57,9 @@ export function parseStatusStreamMessage(raw) {
   }
   if (msg.type === "phrase_notify_clear" && typeof msg.session_id === "string") {
     return { type: "phrase_notify_clear", session_id: msg.session_id };
+  }
+  if ((msg.type === "session_created" || msg.type === "session_removed") && typeof msg.session_id === "string") {
+    return { type: msg.type, session_id: msg.session_id };
   }
   return null;
 }

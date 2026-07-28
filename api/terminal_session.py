@@ -16,6 +16,7 @@ from .common import (
 )
 from .errors import not_found, server_error, too_many_requests
 from .git_utils import worktree_base_of
+from .session_watch import notify_session_created
 from .terminal_pty import (
     PTY_EOF,
     PTY_EXECUTOR,
@@ -230,6 +231,7 @@ def create_registered_session(
     with sessions_lock:
         TERMINAL_SESSIONS[session_id] = session
     session.save_metadata()
+    notify_session_created(session_id)
     return session_id, session
 
 

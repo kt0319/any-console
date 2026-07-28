@@ -21,6 +21,7 @@ from ..common import (
     save_json_file,
 )
 from ..errors import not_found, server_error, timeout_error
+from ..session_watch import notify_session_removed
 from ..terminal_session import (
     PTY_EXECUTOR,
     TERMINAL_SESSIONS,
@@ -154,6 +155,7 @@ async def delete_terminal_session(session_id: str):
     if not session:
         raise not_found("Terminal session not found")
     _kill_tmux_session(session)
+    notify_session_removed(session_id)
     logger.info("terminal session deleted session=%s", session_id)
     return {"status": "ok"}
 
