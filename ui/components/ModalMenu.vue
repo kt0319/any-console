@@ -16,7 +16,7 @@
           <span v-if="dispatchQueue.length > 0" class="settings-menu-count">{{ dispatchQueue.length }}</span>
         </button>
         <button type="button" class="settings-menu-item" @click="pushView('PreviewPorts')">
-          <span class="mdi mdi-open-in-app"></span> Port Preview
+          <span class="mdi mdi-open-in-app"></span> Dev Server Preview
           <span v-if="previewPortCount > 0" class="settings-menu-version">{{ previewPortCount }} detected</span>
         </button>
         <button type="button" class="settings-menu-item" @click="pushView('SendSnippet')">

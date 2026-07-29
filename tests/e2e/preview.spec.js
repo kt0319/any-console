@@ -36,8 +36,8 @@ test.describe("port preview", () => {
 
     await page.keyboard.press("Meta+Shift+Period");
     await expect(page.locator(".modal-overlay")).toBeVisible({ timeout: 5000 });
-    await page.locator(".settings-menu-item", { hasText: "Port Preview" }).click();
-    await expect(page.locator(".modal-title")).toHaveText("Port Preview");
+    await page.locator(".settings-menu-item", { hasText: "Dev Server Preview" }).click();
+    await expect(page.locator(".modal-title")).toHaveText("Dev Server Preview");
 
     // GET /preview/ports はアクセス時に同期でスキャンを起こす（api/routers/preview.py）ため、
     // バックグラウンドスキャン間隔を待たずに一覧へ反映される。

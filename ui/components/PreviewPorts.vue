@@ -36,7 +36,7 @@ import { usePreviewWatch } from "../composables/usePreviewWatch.js";
 import { copyText } from "../utils/clipboard.js";
 
 const modalTitle = inject("modalTitle");
-modalTitle.value = "Port Preview";
+modalTitle.value = "Dev Server Preview";
 
 const { start, stop, ports } = usePreviewWatch();
 const loading = ref(true);
