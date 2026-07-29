@@ -153,7 +153,7 @@ const tabs = computed(() => {
 function updateViewTitle() {
   const ws = workspaceStore.currentWorkspace;
   modalTitle.value = fileBrowserRootLabel.value || (ws ? workspaceDisplayName(ws) : (workspaceStore.selectedWorkspace || "Git"));
-  if (modalBranch) modalBranch.value = terminalSessionId.value ? "" : (ws?.branch || "");
+  if (modalBranch) modalBranch.value = "";
 }
 
 
