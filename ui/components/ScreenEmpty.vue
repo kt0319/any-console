@@ -59,6 +59,16 @@
             <span v-if="recent.jobLabel || recent.jobName" class="screen-empty-recent-sep">/</span>
             <span class="screen-empty-recent-job">{{ recent.jobLabel || recent.jobName }}</span>
           </span>
+          <span
+            class="screen-empty-recent-pin"
+            :class="{ pinned: recent.pinned }"
+            role="button"
+            tabindex="0"
+            :aria-label="recent.pinned ? 'Unpin' : 'Pin'"
+            :data-tooltip="recent.pinned ? 'Unpin' : 'Pin'"
+            @click.stop="togglePin(recent.key)"
+            @keydown.enter.space.stop.prevent="togglePin(recent.key)"
+          ><span class="mdi" :class="recent.pinned ? 'mdi-pin' : 'mdi-pin-outline'"></span></span>
         </button>
       </div>
 
@@ -96,7 +106,7 @@ defineEmits(["openWorkspace"]);
 
 const bootLabel = computed(() => (props.bootMessage || "Loading").replace(/\.+$/, ""));
 
-const { recentJobs, loadRecentJobs, runRecentJob } = useRecentJobs();
+const { recentJobs, loadRecentJobs, runRecentJob, togglePin } = useRecentJobs();
 const { apiGet } = useApi();
 const { confirm } = useConfirm();
 const layoutStore = useLayoutStore();
@@ -297,6 +307,30 @@ function openTerminal() {
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.screen-empty-recent-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.screen-empty-recent-pin.pinned {
+  color: var(--accent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .screen-empty-recent-pin:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
 }
 
 .screen-empty-server-info {

@@ -16,26 +16,44 @@
         </button>
       </div>
 
-      <div v-if="recentJobs.length" class="picker-recent-jobs">
-        <div class="picker-recent-jobs-label">Recent Jobs</div>
-        <button
-          v-for="recent in recentJobs"
-          :key="recent.key"
-          type="button"
-          class="picker-recent-job-item"
-          :class="{ 'is-detached-tab': recent.jobDetachedTab }"
-          @click="runRecentJob(recent)"
-        >
-          <span class="picker-recent-job-icons">
-            <span v-if="recent.wsIcon" v-html="renderIconStr(recent.wsIcon, recent.wsIconColor, 16)"></span>
-            <span v-if="recent.jobIcon" v-html="renderIconStr(recent.jobIcon, recent.jobIconColor, 16)"></span>
-          </span>
-          <span class="picker-recent-job-label">
-            <span class="picker-recent-job-ws">{{ recent.workspace }}</span>
-            <span v-if="recent.jobLabel || recent.jobName" class="picker-recent-job-sep">/</span>
-            <span class="picker-recent-job-name">{{ recent.jobLabel || recent.jobName }}</span>
-          </span>
-        </button>
+      <template v-if="recentJobs.length">
+        <div class="settings-category-head">
+          <span class="settings-category-title">Recent Jobs</span>
+        </div>
+        <div class="picker-recent-jobs">
+          <button
+            v-for="recent in recentJobs"
+            :key="recent.key"
+            type="button"
+            class="picker-recent-job-item"
+            :class="{ 'is-detached-tab': recent.jobDetachedTab }"
+            @click="runRecentJob(recent)"
+          >
+            <span class="picker-recent-job-icons">
+              <span v-if="recent.wsIcon" v-html="renderIconStr(recent.wsIcon, recent.wsIconColor, 16)"></span>
+              <span v-if="recent.jobIcon" v-html="renderIconStr(recent.jobIcon, recent.jobIconColor, 16)"></span>
+            </span>
+            <span class="picker-recent-job-label">
+              <span class="picker-recent-job-ws">{{ recent.workspace }}</span>
+              <span v-if="recent.jobLabel || recent.jobName" class="picker-recent-job-sep">/</span>
+              <span class="picker-recent-job-name">{{ recent.jobLabel || recent.jobName }}</span>
+            </span>
+            <span
+              class="picker-recent-job-pin"
+              :class="{ pinned: recent.pinned }"
+              role="button"
+              tabindex="0"
+              :aria-label="recent.pinned ? 'Unpin' : 'Pin'"
+              :data-tooltip="recent.pinned ? 'Unpin' : 'Pin'"
+              @click.stop="togglePin(recent.key)"
+              @keydown.enter.space.stop.prevent="togglePin(recent.key)"
+            ><span class="mdi" :class="recent.pinned ? 'mdi-pin' : 'mdi-pin-outline'"></span></span>
+          </button>
+        </div>
+      </template>
+
+      <div class="settings-category-head">
+        <span class="settings-category-title">Workspaces</span>
       </div>
 
       <div ref="wsListEl" class="terminal-ws-list">
@@ -165,7 +183,7 @@ const { apiGet, apiPut, apiDelete, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
 const toast = useToast();
 const { gitAction, isRunning } = useGitRemoteAction();
-const { recentJobs, loadRecentJobs, runRecentJob } = useRecentJobs();
+const { recentJobs, loadRecentJobs, runRecentJob, togglePin } = useRecentJobs();
 
 const wsListEl = ref(null);
 const collapsedGroups = reactive(_collapsedGroups);
@@ -760,17 +778,6 @@ button.git-badge:disabled {
   flex-direction: column;
   gap: 2px;
   padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
-}
-
-.picker-recent-jobs-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 0 4px;
-  margin-bottom: 2px;
 }
 
 .picker-recent-job-item {
@@ -831,5 +838,29 @@ button.git-badge:disabled {
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.picker-recent-job-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.picker-recent-job-pin.pinned {
+  color: var(--accent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .picker-recent-job-pin:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+  }
 }
 </style>
