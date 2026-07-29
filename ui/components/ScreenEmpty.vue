@@ -223,6 +223,19 @@ function openTerminal() {
   max-width: 360px;
 }
 
+@media (min-width: 769px) {
+  .screen-empty-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+    max-width: 640px;
+  }
+
+  .screen-empty-server-info {
+    grid-column: 1 / -1;
+  }
+}
+
 .screen-empty-section {
   display: flex;
   flex-direction: column;
