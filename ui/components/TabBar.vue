@@ -150,14 +150,14 @@ function onSettingsClick() {
   justify-content: center;
   flex-shrink: 0;
   align-self: stretch;
-  width: 30px;
+  aspect-ratio: 1;
   margin: 0 4px;
   padding: 0;
   border: none;
   border-radius: 0;
   background: transparent;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 18px;
   font-weight: 500;
   cursor: pointer;
   touch-action: manipulation;
