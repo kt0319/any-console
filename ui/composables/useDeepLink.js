@@ -68,7 +68,7 @@ export function useDeepLink() {
   async function attachSessionTab(sessionId) {
     const existing = terminalStore.openTabs.find((t) => t.sessionId === sessionId);
     if (existing) {
-      terminalStore.switchTab(existing.id);
+      emit("tab:select", { tab: existing });
       return true;
     }
     const [sessionsRes, jobsRes] = await Promise.all([
