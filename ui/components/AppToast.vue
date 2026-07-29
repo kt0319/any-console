@@ -150,6 +150,10 @@ defineExpose({ show });
   background: color-mix(in srgb, var(--bg-tertiary) 85%, transparent);
   color: var(--text-primary);
 }
+.toast-warning {
+  background: color-mix(in srgb, var(--warning) 85%, transparent);
+  color: var(--bg-primary);
+}
 .toast-enter-from {
   opacity: 0;
   transform: translateX(-50%) translateY(-100%);
