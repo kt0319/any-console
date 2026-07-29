@@ -42,34 +42,7 @@
 
       <div v-if="recentJobs.length" class="screen-empty-section">
         <div class="screen-empty-section-label">Recent Jobs</div>
-        <button
-          v-for="recent in recentJobs"
-          :key="recent.key"
-          type="button"
-          class="screen-empty-menu-item"
-          :class="{ 'is-detached-tab': recent.jobDetachedTab }"
-          @click="runRecentJob(recent)"
-        >
-          <span class="screen-empty-recent-icons">
-            <span v-if="recent.wsIcon" v-html="renderIconStr(recent.wsIcon, recent.wsIconColor, 16)"></span>
-            <span v-if="recent.jobIcon" v-html="renderIconStr(recent.jobIcon, recent.jobIconColor, 16)"></span>
-          </span>
-          <span class="screen-empty-menu-label">
-            <span class="screen-empty-recent-ws">{{ recent.workspace }}</span>
-            <span v-if="recent.jobLabel || recent.jobName" class="screen-empty-recent-sep">/</span>
-            <span class="screen-empty-recent-job">{{ recent.jobLabel || recent.jobName }}</span>
-          </span>
-          <span
-            class="screen-empty-recent-pin"
-            :class="{ pinned: recent.pinned }"
-            role="button"
-            tabindex="0"
-            :aria-label="recent.pinned ? 'Unpin' : 'Pin'"
-            :data-tooltip="recent.pinned ? 'Unpin' : 'Pin'"
-            @click.stop="togglePin(recent.key)"
-            @keydown.enter.space.stop.prevent="togglePin(recent.key)"
-          ><span class="mdi" :class="recent.pinned ? 'mdi-pin' : 'mdi-pin-outline'"></span></span>
-        </button>
+        <RecentJobsList />
       </div>
 
       <div v-if="serverInfo" class="screen-empty-server-info">
@@ -91,12 +64,12 @@ import { emit } from "../app-bridge.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useApi } from "../composables/useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
-import { renderIconStr } from "../utils/render-icon.js";
 import { isMobileUserAgent } from "../utils/device.js";
 import { EP_SYSTEM_INFO, EP_SETTINGS_AUTH, EP_DEVICES } from "../utils/endpoints.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { usePushNotification } from "../composables/usePushNotification.js";
 import StatusOverlay from "./StatusOverlay.vue";
+import RecentJobsList from "./RecentJobsList.vue";
 
 const props = defineProps({
   booting: { type: Boolean, default: false },
@@ -106,7 +79,7 @@ defineEmits(["openWorkspace"]);
 
 const bootLabel = computed(() => (props.bootMessage || "Loading").replace(/\.+$/, ""));
 
-const { recentJobs, loadRecentJobs, runRecentJob, togglePin } = useRecentJobs();
+const { recentJobs, loadRecentJobs } = useRecentJobs();
 const { apiGet } = useApi();
 const { confirm } = useConfirm();
 const layoutStore = useLayoutStore();
@@ -267,10 +240,6 @@ function openTerminal() {
   min-height: 0;
 }
 
-.screen-empty-menu-item.is-detached-tab {
-  opacity: 0.6;
-}
-
 .screen-empty-menu-icon {
   font-size: 16px;
   flex-shrink: 0;
@@ -296,58 +265,6 @@ function openTerminal() {
   color: var(--text-muted);
   margin-left: auto;
   font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-}
-
-.screen-empty-recent-icons {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-  width: 20px;
-  justify-content: center;
-}
-
-.screen-empty-recent-ws {
-  color: var(--text-muted);
-}
-
-.screen-empty-recent-sep {
-  color: var(--border);
-  flex-shrink: 0;
-}
-
-.screen-empty-recent-job {
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.screen-empty-recent-pin {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-  margin-left: 4px;
-  padding: 0;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-muted);
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.screen-empty-recent-pin.pinned {
-  color: var(--accent);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .screen-empty-recent-pin:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
 }
 
 .screen-empty-server-info {

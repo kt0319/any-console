@@ -5,45 +5,7 @@
         <div class="settings-category-head">
           <span class="settings-category-title">Recent Jobs</span>
         </div>
-        <div class="picker-recent-jobs">
-          <button
-            v-for="recent in visibleRecentJobs"
-            :key="recent.key"
-            type="button"
-            class="picker-recent-job-item"
-            :class="{ 'is-detached-tab': recent.jobDetachedTab }"
-            @click="runRecentJob(recent)"
-          >
-            <span class="picker-recent-job-icons">
-              <span v-if="recent.wsIcon" v-html="renderIconStr(recent.wsIcon, recent.wsIconColor, 18)"></span>
-              <span v-if="recent.jobIcon" v-html="renderIconStr(recent.jobIcon, recent.jobIconColor, 18)"></span>
-            </span>
-            <span class="picker-recent-job-label">
-              <span class="picker-recent-job-ws">{{ recent.workspace }}</span>
-              <span v-if="recent.jobLabel || recent.jobName" class="picker-recent-job-sep">/</span>
-              <span class="picker-recent-job-name">{{ recent.jobLabel || recent.jobName }}</span>
-            </span>
-            <span
-              class="picker-recent-job-pin"
-              :class="{ pinned: recent.pinned }"
-              role="button"
-              tabindex="0"
-              :aria-label="recent.pinned ? 'Unpin' : 'Pin'"
-              :data-tooltip="recent.pinned ? 'Unpin' : 'Pin'"
-              @click.stop="togglePin(recent.key)"
-              @keydown.enter.space.stop.prevent="togglePin(recent.key)"
-            ><span class="mdi" :class="recent.pinned ? 'mdi-pin' : 'mdi-pin-outline'"></span></span>
-          </button>
-          <button
-            v-if="hasUnpinnedRecentJobs"
-            type="button"
-            class="picker-recent-jobs-more"
-            @click="showAllRecentJobs = !showAllRecentJobs"
-          >
-            <span class="mdi" :class="showAllRecentJobs ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
-            {{ showAllRecentJobs ? 'Less' : 'More' }}
-          </button>
-        </div>
+        <RecentJobsList />
       </template>
 
       <div class="settings-category-head">
@@ -173,6 +135,7 @@ import { dirtyBadgeHtml } from "../utils/git.js";
 import { worktreeBranchLabel, workspaceDisplayName } from "../utils/worktree.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import WorkspaceGroupDialog from "./WorkspaceGroupDialog.vue";
+import RecentJobsList from "./RecentJobsList.vue";
 import { EP_WORKSPACE_ORDER, EP_GROUP_ORDER } from "../utils/endpoints.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useListDragSort } from "../composables/useListDragSort.js";
@@ -188,14 +151,7 @@ const { apiGet, apiPut, apiDelete, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
 const toast = useToast();
 const { gitAction, isRunning } = useGitRemoteAction();
-const { recentJobs, loadRecentJobs, runRecentJob, togglePin } = useRecentJobs();
-
-// Recent Jobs: 初期表示はピン留めのみ。非ピン留めは「More」で展開する。
-const showAllRecentJobs = ref(false);
-const hasUnpinnedRecentJobs = computed(() => recentJobs.value.some((j) => !j.pinned));
-const visibleRecentJobs = computed(() =>
-  showAllRecentJobs.value ? recentJobs.value : recentJobs.value.filter((j) => j.pinned),
-);
+const { recentJobs, loadRecentJobs } = useRecentJobs();
 
 const wsListEl = ref(null);
 const collapsedGroups = reactive(_collapsedGroups);
@@ -778,122 +734,4 @@ button.git-badge:disabled {
   color: var(--text-muted);
 }
 
-.picker-recent-jobs {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px 8px;
-}
-
-.picker-recent-job-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 48px;
-  padding: 8px 12px 4px 12px;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius);
-  color: var(--text-secondary);
-  font-size: 13px;
-  cursor: pointer;
-  text-align: left;
-  box-sizing: border-box;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .picker-recent-job-item:hover {
-    background: var(--bg-tertiary);
-  }
-}
-
-.picker-recent-job-item.is-detached-tab {
-  opacity: 0.6;
-}
-
-.picker-recent-job-icons {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-  width: 20px;
-  margin-right: 4px;
-  justify-content: center;
-}
-
-.picker-recent-job-label {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.picker-recent-job-ws {
-  color: var(--text-muted);
-}
-
-.picker-recent-job-sep {
-  color: var(--border);
-  flex-shrink: 0;
-}
-
-.picker-recent-job-name {
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.picker-recent-job-pin {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-  margin-left: 4px;
-  padding: 0;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-muted);
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.picker-recent-job-pin.pinned {
-  color: var(--accent);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .picker-recent-job-pin:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-}
-
-.picker-recent-jobs-more {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  min-height: 36px;
-  padding: 6px 12px;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius);
-  color: var(--text-muted);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .picker-recent-jobs-more:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-}
 </style>
