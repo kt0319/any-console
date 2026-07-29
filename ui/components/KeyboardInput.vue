@@ -26,6 +26,8 @@
         enterkeyhint="send"
         :placeholder="placeholder"
         @keydown.escape="onEscape"
+        @keydown.up="(e) => onArrowKey(e, historyPrev)"
+        @keydown.down="(e) => onArrowKey(e, historyNext)"
         @compositionstart="composing = true"
         @compositionend="composing = false"
         @focus="onFocus"
@@ -39,6 +41,7 @@
 import { ref, computed } from "vue";
 import { useInputStore } from "../stores/input.js";
 import { useKeyboard } from "../composables/useKeyboard.js";
+import { useInputDraftHistory } from "../composables/useInputDraftHistory.js";
 import { useHardwareKeyboard } from "../composables/useHardwareKeyboard.js";
 import { useSuppressedBlur } from "../composables/useSuppressedBlur.js";
 import { isComposingEvent } from "../utils/keyboard-event.js";
@@ -80,9 +83,19 @@ const {
 } = useSuppressedBlur(inputEl);
 
 const placeholder = computed(() => {
-  if (focused.value) return "";
+  if (focused.value) return "↑↓ history";
   return hasHardwareKeyboard.value ? "Tap (or Shift+Space) to input" : "Tap to input";
 });
+
+// フリックバーの矢印キーと同じ挙動（履歴↑↓）を
+// 物理キーボードの矢印キーでも再現するため、同じ composable を再利用する。
+const { historyPrev, historyNext } = useInputDraftHistory(draft);
+
+function onArrowKey(e, action) {
+  if (isComposingEvent(e, composing.value)) return;
+  e.preventDefault();
+  action();
+}
 
 // 入力モード中の Esc で入力モードを抜ける（フォーカスを外す）。
 // IME 変換中の Esc は変換キャンセル用なので素通し。
