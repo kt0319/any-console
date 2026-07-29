@@ -3,6 +3,7 @@
 既存の test_terminal_jobs.py がカバーしていないエラーパス・認証ガードを補完する。
 """
 import subprocess
+from unittest import mock
 from unittest.mock import patch
 
 from conftest import AUTH
@@ -33,6 +34,35 @@ class TestListSessions:
             res = client.get("/terminal/sessions", headers=AUTH)
         assert res.status_code == 200
         assert res.json() == []
+
+    def test_uncached_session_reports_interactive_from_tmux_env(self, client):
+        # サーバー再起動直後等で TERMINAL_SESSIONS の in-memory キャッシュが無い
+        # セッションは TerminalSession.from_tmux() 経由で tmux 環境変数から
+        # 復元される。TMUX_INTERACTIVE が TMUX_META_ENV_NAMES に無いと常に
+        # interactive=False に化けてタブバーから消える回帰を防ぐ。
+        from api.common import TMUX_SESSION_PREFIX
+        session_name = f"{TMUX_SESSION_PREFIX}sess-uncached"
+
+        def fake_run(*args):
+            result = mock.MagicMock()
+            result.returncode = 0
+            if args[0] == "list-sessions":
+                result.stdout = f"{session_name}\n"
+            elif args[0] == "show-environment":
+                result.stdout = "TMUX_INTERACTIVE=1\nTMUX_WORKSPACE=demo\n"
+            elif args[0] == "display-message":
+                result.stdout = "1700000000\n"
+            else:
+                result.stdout = ""
+            return result
+
+        with patch("api.routers.terminal._run_tmux_cmd", side_effect=fake_run), \
+             patch("api.tmux._run_tmux_cmd", side_effect=fake_run):
+            res = client.get("/terminal/sessions", headers=AUTH)
+        assert res.status_code == 200
+        sessions = res.json()
+        assert len(sessions) == 1
+        assert sessions[0]["interactive"] is True
 
 
 class TestDeleteSession:

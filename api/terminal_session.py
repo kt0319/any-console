@@ -11,6 +11,7 @@ from .common import (
     MAX_TERMINAL_SESSIONS,
     TERMINAL_DEFAULT_COLS,
     TERMINAL_DEFAULT_ROWS,
+    TMUX_ATTR_MAP,
     TMUX_SESSION_PREFIX,
     sanitize_session_segment,
 )
@@ -41,15 +42,6 @@ WS_CLOSE_SESSION_EXITED = 4001
 
 
 # ─── Session model ───────────────────────────────────────────────────────────
-
-_TMUX_ATTR_MAP = {
-    "TMUX_WORKSPACE": "workspace",
-    "TMUX_ICON": "icon",
-    "TMUX_ICON_COLOR": "icon_color",
-    "TMUX_JOB_NAME": "job_name",
-    "TMUX_JOB_LABEL": "job_label",
-    "TMUX_INTERACTIVE": "interactive",
-}
 
 
 class ClientBridge:
@@ -112,7 +104,7 @@ class TerminalSession:
     def save_metadata(self) -> None:
         pairs = [
             (env_key, getattr(self, attr))
-            for env_key, attr in _TMUX_ATTR_MAP.items()
+            for env_key, attr in TMUX_ATTR_MAP.items()
             if getattr(self, attr)
         ]
         if not pairs:

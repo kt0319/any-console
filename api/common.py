@@ -99,10 +99,19 @@ TMUX_SESSION_PREFIX = resolve_tmux_prefix(os.environ.get("ANY_CONSOLE_TMUX_PREFI
 TMUX_CMD_TIMEOUT_SEC = 5
 TMUX_PANE_READY_TIMEOUT_SEC = 2.0
 TMUX_PANE_POLL_INTERVAL_SEC = 0.05
-TMUX_META_ENV_NAMES = (
-    "TMUX_WORKSPACE", "TMUX_ICON", "TMUX_ICON_COLOR",
-    "TMUX_JOB_NAME", "TMUX_JOB_LABEL", "TMUX_DETACHED",
-)
+# tmux 環境変数名 → TerminalSession 属性名。永続化する属性を増やす場合は
+# ここへの追加だけで書き込み(save_metadata)・読み込み許可リスト(TMUX_META_ENV_NAMES)
+# の両方に反映される（片方だけ更新して読み戻せなくなる不具合を防ぐ）。
+TMUX_ATTR_MAP = {
+    "TMUX_WORKSPACE": "workspace",
+    "TMUX_ICON": "icon",
+    "TMUX_ICON_COLOR": "icon_color",
+    "TMUX_JOB_NAME": "job_name",
+    "TMUX_JOB_LABEL": "job_label",
+    "TMUX_INTERACTIVE": "interactive",
+}
+# TMUX_DETACHED は save_detached/load 側で個別管理される（TMUX_ATTR_MAP対象外）ため別枠で追加。
+TMUX_META_ENV_NAMES = (*TMUX_ATTR_MAP, "TMUX_DETACHED")
 
 # WS が idle でもこの間隔で空フレームを送り、クライアントの生存監視に
 # 一定周期のハートビートを供給する（フロントの WS_STALE_THRESHOLD_MS はこの約2回分）。
