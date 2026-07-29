@@ -406,7 +406,9 @@ onBeforeUnmount(() => {
 }
 
 .picker-ws-row-top {
+  min-height: 44px;
   padding-bottom: 4px;
+  box-sizing: border-box;
 }
 
 .picker-ws-header-label {
@@ -784,6 +786,7 @@ button.git-badge:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 44px;
   padding: 8px 12px;
   background: transparent;
   border: none;
@@ -792,7 +795,7 @@ button.git-badge:disabled {
   font-size: 13px;
   cursor: pointer;
   text-align: left;
-  min-height: 0;
+  box-sizing: border-box;
 }
 
 @media (hover: hover) and (pointer: fine) {
