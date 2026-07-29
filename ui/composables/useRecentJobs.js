@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import { LS_KEY_RECENT_JOBS, RECENT_JOBS_MAX } from "../utils/constants.js";
-import { EP_PINNED_JOBS } from "../utils/endpoints.js";
+import { EP_RECENT_JOBS } from "../utils/endpoints.js";
 import { useConfirm } from "./useConfirm.js";
 import { useApi } from "./useApi.js";
 import { emit } from "../app-bridge.js";
@@ -21,45 +21,32 @@ export function useRecentJobs() {
     return [...pinned, ...unpinned];
   }
 
+  // localStorage はサーバー未応答時のオフライン表示用キャッシュ。正はサーバー側の recent_jobs。
   function _save() {
     try {
       localStorage.setItem(LS_KEY_RECENT_JOBS, JSON.stringify(recentJobs.value));
     } catch { /* ignore */ }
   }
 
-  /** ピン留め済みジョブ一覧をサーバーへ保存する。 */
-  async function _syncPinnedToServer() {
-    const pinned_jobs = recentJobs.value
-      .filter((j) => j.pinned)
-      .map(({ pinned: _pinned, ...rest }) => rest);
-    await apiPut(EP_PINNED_JOBS, { pinned_jobs }, { errorMessage: "Failed to save pinned job" });
+  async function _syncToServer() {
+    const recent_jobs = recentJobs.value;
+    await apiPut(EP_RECENT_JOBS, { recent_jobs }, { errorMessage: "Failed to save recent jobs" });
   }
 
   async function loadRecentJobs() {
     if (loaded) return;
     loaded = true;
-    let local = [];
     try {
       const raw = localStorage.getItem(LS_KEY_RECENT_JOBS);
       const parsed = raw ? JSON.parse(raw) : [];
-      local = Array.isArray(parsed) ? parsed : [];
-    } catch {
-      local = [];
+      if (Array.isArray(parsed)) recentJobs.value = _sortAndTrim(parsed);
+    } catch { /* ignore */ }
+
+    const { ok, data } = await apiGet(EP_RECENT_JOBS);
+    if (ok && Array.isArray(data?.recent_jobs)) {
+      recentJobs.value = _sortAndTrim(data.recent_jobs);
+      _save();
     }
-
-    const { ok, data } = await apiGet(EP_PINNED_JOBS);
-    const serverPinned = ok && Array.isArray(data?.pinned_jobs) ? data.pinned_jobs : [];
-    const serverKeys = new Set(serverPinned.map((j) => j.key));
-
-    // サーバーのピン留めを正とし、ローカル履歴とマージする（ローカルのみのピン留めは移行対象として残す）。
-    const merged = new Map(local.map((j) => [j.key, { ...j }]));
-    for (const item of serverPinned) merged.set(item.key, { ...item, pinned: true });
-    recentJobs.value = _sortAndTrim([...merged.values()]);
-    _save();
-
-    // 移行: サーバー導入前にローカルのみでピン留めされていた分をサーバーへ反映する。
-    const hasLocalOnlyPin = local.some((j) => j.pinned && !serverKeys.has(j.key));
-    if (hasLocalOnlyPin) await _syncPinnedToServer();
   }
 
   function recordJob(ws, job) {
@@ -84,13 +71,14 @@ export function useRecentJobs() {
     const rest = recentJobs.value.filter((j) => j.key !== key);
     recentJobs.value = _sortAndTrim([item, ...rest]);
     _save();
+    _syncToServer();
   }
 
   async function togglePin(key) {
     const jobs = recentJobs.value.map((j) => (j.key === key ? { ...j, pinned: !j.pinned } : j));
     recentJobs.value = _sortAndTrim(jobs);
     _save();
-    await _syncPinnedToServer();
+    await _syncToServer();
   }
 
   /** Recent Jobs 一覧から選んだジョブをターミナルとして起動する。 */

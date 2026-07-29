@@ -277,7 +277,7 @@ def put_snippets(body: UpdateSnippetsRequest):
     return {"status": "ok", "snippets": snippets}
 
 
-class PinnedJobItem(BaseModel):
+class RecentJobItem(BaseModel):
     key: str = Field(..., max_length=MAX_LABEL_LENGTH)
     workspace: str = Field("", max_length=MAX_LABEL_LENGTH)
     wsIcon: str = Field("", max_length=MAX_LABEL_LENGTH)
@@ -291,24 +291,25 @@ class PinnedJobItem(BaseModel):
     jobType: str = Field("command", max_length=MAX_LABEL_LENGTH)
     jobConfirm: bool | None = None
     jobDetachedTab: bool = False
+    pinned: bool = False
 
 
-class UpdatePinnedJobsRequest(BaseModel):
-    pinned_jobs: list[PinnedJobItem] = Field(default_factory=list)
+class UpdateRecentJobsRequest(BaseModel):
+    recent_jobs: list[RecentJobItem] = Field(default_factory=list)
 
 
-@router.get("/pinned-jobs")
-def get_pinned_jobs():
-    pinned_jobs = load_global_config_section("pinned_jobs", [])
-    if not isinstance(pinned_jobs, list):
-        pinned_jobs = []
-    sanitized = [item for item in pinned_jobs if isinstance(item, dict) and item.get("key")]
-    return {"pinned_jobs": sanitized}
+@router.get("/recent-jobs")
+def get_recent_jobs():
+    recent_jobs = load_global_config_section("recent_jobs", [])
+    if not isinstance(recent_jobs, list):
+        recent_jobs = []
+    sanitized = [item for item in recent_jobs if isinstance(item, dict) and item.get("key")]
+    return {"recent_jobs": sanitized}
 
 
-@router.put("/pinned-jobs")
-def put_pinned_jobs(body: UpdatePinnedJobsRequest):
-    pinned_jobs = [item.model_dump() for item in body.pinned_jobs if item.key.strip()]
-    save_global_config_section("pinned_jobs", pinned_jobs)
-    return {"status": "ok", "pinned_jobs": pinned_jobs}
+@router.put("/recent-jobs")
+def put_recent_jobs(body: UpdateRecentJobsRequest):
+    recent_jobs = [item.model_dump() for item in body.recent_jobs if item.key.strip()]
+    save_global_config_section("recent_jobs", recent_jobs)
+    return {"status": "ok", "recent_jobs": recent_jobs}
 

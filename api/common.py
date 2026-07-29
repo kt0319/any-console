@@ -53,7 +53,7 @@ DISPATCH_QUEUE_FILE = (
 # 旧版 -> 新版の変換を登録する（api/config.py 参照）。
 # config 自体は __global__.config_version に保存され、読み込み時に
 # このバージョンまで自動マイグレーションされる。
-CONFIG_SCHEMA_VERSION = 2
+CONFIG_SCHEMA_VERSION = 3
 
 GIT_QUICK_TIMEOUT_SEC = 5
 GIT_SHORT_TIMEOUT_SEC = 10

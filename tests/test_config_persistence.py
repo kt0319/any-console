@@ -301,6 +301,43 @@ class TestConfigVersionMigration:
         assert "radial" not in out["__global__"]
         assert "circle_keypad" not in out["__global__"]
 
+    def test_migrate_pinned_jobs_renames_to_recent_jobs(self):
+        from api.config_migrations import _migrate_pinned_jobs_to_recent_jobs
+        cfg = {"__global__": {
+            "pinned_jobs": [{"key": "ws1:build", "workspace": "ws1"}],
+            "snippets": [],
+        }}
+        out = _migrate_pinned_jobs_to_recent_jobs(cfg)
+        assert "pinned_jobs" not in out["__global__"]
+        assert out["__global__"]["recent_jobs"] == [
+            {"key": "ws1:build", "workspace": "ws1", "pinned": True},
+        ]
+        assert out["__global__"]["snippets"] == []
+        # 元 dict は破壊しない
+        assert "pinned_jobs" in cfg["__global__"]
+
+    def test_migrate_pinned_jobs_overwrites_legacy_recent_jobs_key(self):
+        from api.config_migrations import _migrate_pinned_jobs_to_recent_jobs
+        cfg = {"__global__": {
+            "pinned_jobs": [{"key": "ws1:build", "workspace": "ws1"}],
+            "recent_jobs": [{"key": "stale:leftover"}],
+        }}
+        out = _migrate_pinned_jobs_to_recent_jobs(cfg)
+        assert out["__global__"]["recent_jobs"] == [
+            {"key": "ws1:build", "workspace": "ws1", "pinned": True},
+        ]
+
+    def test_migrate_pinned_jobs_noop_without_pinned_jobs(self):
+        from api.config_migrations import _migrate_pinned_jobs_to_recent_jobs
+        cfg = {"__global__": {"snippets": []}}
+        assert _migrate_pinned_jobs_to_recent_jobs(cfg) is cfg
+
+    def test_migrate_pinned_jobs_drops_invalid_items(self):
+        from api.config_migrations import _migrate_pinned_jobs_to_recent_jobs
+        cfg = {"__global__": {"pinned_jobs": ["broken", {"workspace": "no-key"}, None]}}
+        out = _migrate_pinned_jobs_to_recent_jobs(cfg)
+        assert out["__global__"]["recent_jobs"] == []
+
     def test_migrate_applies_registered_steps(self):
         from api import config_migrations as config_mod
         from api.config_migrations import _migrate_config_version
