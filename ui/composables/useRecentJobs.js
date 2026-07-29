@@ -1,11 +1,9 @@
 import { ref } from "vue";
-import { LS_KEY_RECENT_JOBS } from "../utils/constants.js";
+import { LS_KEY_RECENT_JOBS, RECENT_JOBS_MAX } from "../utils/constants.js";
 import { EP_PINNED_JOBS } from "../utils/endpoints.js";
 import { useConfirm } from "./useConfirm.js";
 import { useApi } from "./useApi.js";
 import { emit } from "../app-bridge.js";
-
-const MAX_RECENT = 8;
 
 /** @type {import("vue").Ref<Record<string, unknown>[]>} */
 const recentJobs = ref([]);
@@ -16,10 +14,10 @@ export function useRecentJobs() {
   const { apiGet, apiPut } = useApi();
 
   // ピン留め済みを先頭にまとめ、そのあとを実行が新しい順にする。
-  // 上限 MAX_RECENT は非ピン留め分にのみ適用し、ピン留めは何件でも保持する。
+  // 上限 RECENT_JOBS_MAX は非ピン留め分にのみ適用し、ピン留めは何件でも保持する。
   function _sortAndTrim(jobs) {
     const pinned = jobs.filter((j) => j.pinned);
-    const unpinned = jobs.filter((j) => !j.pinned).slice(0, MAX_RECENT);
+    const unpinned = jobs.filter((j) => !j.pinned).slice(0, RECENT_JOBS_MAX);
     return [...pinned, ...unpinned];
   }
 

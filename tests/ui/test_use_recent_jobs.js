@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 // @ts-check
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 
 vi.mock("../../ui/app-bridge.js", () => ({
   emit: vi.fn(),
@@ -38,6 +38,12 @@ beforeEach(() => {
   apiGetMock.mockReset();
   apiPutMock.mockClear();
   apiGetMock.mockResolvedValue({ ok: true, data: { pinned_jobs: [] } });
+});
+
+// localStorage は --localstorage-file 経由でディスク上のファイルを共有するため、
+// 他のテストファイルへ漏れないよう最後に必ず後始末する。
+afterAll(() => {
+  localStorage.clear();
 });
 
 describe("useRecentJobs: サーバーとのピン留め同期", () => {
@@ -92,5 +98,20 @@ describe("useRecentJobs: サーバーとのピン留め同期", () => {
       { pinned_jobs: [expect.objectContaining({ key: "ws1:build" })] },
       expect.any(Object),
     );
+  });
+
+  it("非ピン留めの履歴は RECENT_JOBS_MAX(10)件を超えると古い順に切り捨てる", async () => {
+    const { useRecentJobs } = await freshModule();
+    const { recentJobs, loadRecentJobs, recordJob } = useRecentJobs();
+    await loadRecentJobs();
+
+    for (let i = 0; i < 12; i++) {
+      recordJob({ name: `ws${i}` }, { name: "build" });
+    }
+
+    expect(recentJobs.value.length).toBe(10);
+    // 直近に記録した分が残り、最初期の分は切り捨てられる
+    expect(recentJobs.value.map((j) => j.key)).toContain("ws11:build");
+    expect(recentJobs.value.map((j) => j.key)).not.toContain("ws0:build");
   });
 });

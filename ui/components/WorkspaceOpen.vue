@@ -7,7 +7,7 @@
         </div>
         <div class="picker-recent-jobs">
           <button
-            v-for="recent in recentJobs"
+            v-for="recent in visibleRecentJobs"
             :key="recent.key"
             type="button"
             class="picker-recent-job-item"
@@ -33,6 +33,15 @@
               @click.stop="togglePin(recent.key)"
               @keydown.enter.space.stop.prevent="togglePin(recent.key)"
             ><span class="mdi" :class="recent.pinned ? 'mdi-pin' : 'mdi-pin-outline'"></span></span>
+          </button>
+          <button
+            v-if="hasUnpinnedRecentJobs"
+            type="button"
+            class="picker-recent-jobs-more"
+            @click="showAllRecentJobs = !showAllRecentJobs"
+          >
+            <span class="mdi" :class="showAllRecentJobs ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
+            {{ showAllRecentJobs ? 'Less' : 'More' }}
           </button>
         </div>
       </template>
@@ -180,6 +189,13 @@ const { confirm } = useConfirm();
 const toast = useToast();
 const { gitAction, isRunning } = useGitRemoteAction();
 const { recentJobs, loadRecentJobs, runRecentJob, togglePin } = useRecentJobs();
+
+// Recent Jobs: 初期表示はピン留めのみ。非ピン留めは「More」で展開する。
+const showAllRecentJobs = ref(false);
+const hasUnpinnedRecentJobs = computed(() => recentJobs.value.some((j) => !j.pinned));
+const visibleRecentJobs = computed(() =>
+  showAllRecentJobs.value ? recentJobs.value : recentJobs.value.filter((j) => j.pinned),
+);
 
 const wsListEl = ref(null);
 const collapsedGroups = reactive(_collapsedGroups);
@@ -854,6 +870,28 @@ button.git-badge:disabled {
 
 @media (hover: hover) and (pointer: fine) {
   .picker-recent-job-pin:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+}
+
+.picker-recent-jobs-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 36px;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .picker-recent-jobs-more:hover {
     background: var(--bg-tertiary);
     color: var(--text-primary);
   }
