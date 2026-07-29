@@ -59,6 +59,9 @@ export const useTerminalStore = defineStore("terminal", () => {
   // closeTab がローカル除去済み・サーバー削除リクエスト未完了の sessionId。
   // syncSessionsFromServer のポーリングがこの間隙でタブを復活させるのを防ぐ。
   const pendingCloseSessionIds = ref(/** @type {Set<string>} */ (new Set()));
+  // switchTab(tabId, { focus: false }) の直後、TerminalPane の isActive watcher が
+  // 無条件で term.focus() してしまうのを一度だけ抑止するための one-shot フラグ。
+  const suppressNextFocus = ref(false);
 
   function markPendingClose(sessionId) {
     if (!sessionId) return;
@@ -192,8 +195,9 @@ export const useTerminalStore = defineStore("terminal", () => {
     activeTabId.value = next ? next.id : null;
   }
 
-  function switchTab(tabId) {
+  function switchTab(tabId, { focus = true } = {}) {
     activeTabId.value = tabId;
+    if (!focus) suppressNextFocus.value = true;
     const tab = openTabs.value.find((t) => t.id === tabId);
     if (tab) {
       localStorage.setItem(LS_KEY_ACTIVE_SESSION, tab.sessionId);
@@ -277,6 +281,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     terminalSettings,
     tabFlags,
     pendingCloseSessionIds,
+    suppressNextFocus,
     markPendingClose,
     clearPendingClose,
     agentStates,

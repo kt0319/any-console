@@ -316,6 +316,10 @@ watch(isActive, async (active) => {
   }
   await nextTick();
   scheduleActiveFit();
+  if (terminalStore.suppressNextFocus) {
+    terminalStore.suppressNextFocus = false;
+    return;
+  }
   try { props.tab.term?.focus(); } catch {}
 });
 

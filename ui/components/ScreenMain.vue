@@ -146,8 +146,8 @@ onMounted(() => {
     terminalBaseView.value?.fitAllTerminals(detail);
   }));
 
-  bridgeCleanups.push(on("tab:select", ({ tab }) => {
-    activateTerminalTab(tab.id);
+  bridgeCleanups.push(on("tab:select", ({ tab, skipFocus }) => {
+    activateTerminalTab(tab.id, { focus: !skipFocus });
     if (tab.workspace) {
       workspaceStore.selectedWorkspace = tab.workspace;
     }

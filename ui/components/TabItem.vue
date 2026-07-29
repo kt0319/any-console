@@ -72,6 +72,7 @@ const pillEl = ref(null);
 const isDragging = ref(false);
 const dropSide = ref("");
 let closePending = false;
+let lastInputWasTouch = false;
 
 const isActive = computed(() => props.activeTabId === props.tab.id);
 const canDrag = computed(() => !layoutStore.isTouchDevice && terminalStore.openTabs.length >= 1);
@@ -128,7 +129,10 @@ function onClick(e) {
   e.currentTarget?.blur();
   // アクティブなタブの再タップでクローズ確認を出す。
   if (isActive.value) { onClose(); return; }
-  emits("select", props.tab);
+  // タッチ操作での選択はソフトキーボードが誤起動するため、フォーカスしない。
+  const skipFocus = lastInputWasTouch;
+  lastInputWasTouch = false;
+  emits("select", props.tab, { skipFocus });
 }
 
 async function onClose() {
@@ -267,6 +271,7 @@ function finishTouchDrag(clientX, clientY) {
 }
 
 function onTouchStart(e) {
+  lastInputWasTouch = true;
   touchTracker.start(e);
   touchLongPress.reset();
   isDragging.value = false;

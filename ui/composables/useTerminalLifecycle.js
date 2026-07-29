@@ -29,18 +29,8 @@ export function useTerminalLifecycle({ terminalBaseView }) {
     });
   }
 
-  function focusTabTerminal(tabId) {
-    const tab = terminalStore.openTabs.find((t) => t.id === tabId);
-    if (!tab?.term) return;
-    requestAnimationFrame(() => {
-      try {
-        tab.term?.focus();
-      } catch {}
-    });
-  }
-
   function activateTerminalTab(tabId, { focus = true } = {}) {
-    terminalStore.switchTab(tabId);
+    terminalStore.switchTab(tabId, { focus });
 
     if (layoutStore.isSplitMode) {
       const existingPaneIndex = layoutStore.splitPaneTabIds.indexOf(tabId);
@@ -60,8 +50,6 @@ export function useTerminalLifecycle({ terminalBaseView }) {
         layoutStore.activePaneIndex = nextPaneTabIds.indexOf(tabId);
       }
     }
-
-    if (focus) focusTabTerminal(tabId);
   }
 
   async function launchTerminal({ workspace, icon, iconColor, jobName, jobLabel, jobIcon, jobIconColor, initialCommand, detached }) {
@@ -176,7 +164,6 @@ export function useTerminalLifecycle({ terminalBaseView }) {
   }
 
   return {
-    focusTabTerminal,
     activateTerminalTab,
     launchTerminal,
     refreshTab,

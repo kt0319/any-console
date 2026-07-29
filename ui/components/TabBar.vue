@@ -55,8 +55,8 @@ const sortedItems = computed(() => {
 
 const showBarRow = computed(() => !isSplitMode.value);
 
-function onSelect(tab) {
-  emit("tab:select", { tab });
+function onSelect(tab, { skipFocus = false } = {}) {
+  emit("tab:select", { tab, skipFocus });
 }
 
 let suppressAddUntil = 0;
