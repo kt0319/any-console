@@ -313,9 +313,13 @@ function openTerminal() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   flex-shrink: 0;
+  margin-left: 4px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--text-muted);
   font-size: 14px;

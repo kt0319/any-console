@@ -30,8 +30,8 @@
             @click="runRecentJob(recent)"
           >
             <span class="picker-recent-job-icons">
-              <span v-if="recent.wsIcon" v-html="renderIconStr(recent.wsIcon, recent.wsIconColor, 16)"></span>
-              <span v-if="recent.jobIcon" v-html="renderIconStr(recent.jobIcon, recent.jobIconColor, 16)"></span>
+              <span v-if="recent.wsIcon" v-html="renderIconStr(recent.wsIcon, recent.wsIconColor, 18)"></span>
+              <span v-if="recent.jobIcon" v-html="renderIconStr(recent.jobIcon, recent.jobIconColor, 18)"></span>
             </span>
             <span class="picker-recent-job-label">
               <span class="picker-recent-job-ws">{{ recent.workspace }}</span>
@@ -783,8 +783,8 @@ button.git-badge:disabled {
 .picker-recent-job-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 8px 12px;
   background: transparent;
   border: none;
   border-radius: var(--radius);
@@ -844,9 +844,13 @@ button.git-badge:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   flex-shrink: 0;
+  margin-left: 4px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--text-muted);
   font-size: 14px;
@@ -859,7 +863,7 @@ button.git-badge:disabled {
 
 @media (hover: hover) and (pointer: fine) {
   .picker-recent-job-pin:hover {
-    background: var(--bg-secondary);
+    background: var(--bg-tertiary);
     color: var(--text-primary);
   }
 }
