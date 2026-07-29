@@ -374,6 +374,54 @@ class TestSnippets:
         assert snippets[1]["label"] == "B"
 
 
+class TestPinnedJobs:
+    def test_get_empty(self, client):
+        res = client.get("/pinned-jobs", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json() == {"pinned_jobs": []}
+
+    def test_put_and_get(self, client):
+        item = {
+            "key": "ws1:build",
+            "workspace": "ws1",
+            "jobName": "build",
+            "jobLabel": "Build",
+            "jobCommand": "make build",
+        }
+        res = client.put("/pinned-jobs", headers=AUTH, json={"pinned_jobs": [item]})
+        assert res.status_code == 200
+        pinned = res.json()["pinned_jobs"]
+        assert len(pinned) == 1
+        assert pinned[0]["key"] == "ws1:build"
+        assert pinned[0]["jobCommand"] == "make build"
+
+        res = client.get("/pinned-jobs", headers=AUTH)
+        assert len(res.json()["pinned_jobs"]) == 1
+
+    def test_empty_key_is_skipped(self, client):
+        res = client.put("/pinned-jobs", headers=AUTH, json={
+            "pinned_jobs": [
+                {"key": "ws1:build", "workspace": "ws1", "jobName": "build"},
+                {"key": "  ", "workspace": "ws1", "jobName": "lint"},
+            ],
+        })
+        assert len(res.json()["pinned_jobs"]) == 1
+
+    def test_put_replaces_previous_list(self, client):
+        client.put("/pinned-jobs", headers=AUTH, json={
+            "pinned_jobs": [{"key": "ws1:build", "workspace": "ws1", "jobName": "build"}],
+        })
+        res = client.put("/pinned-jobs", headers=AUTH, json={
+            "pinned_jobs": [{"key": "ws2:deploy", "workspace": "ws2", "jobName": "deploy"}],
+        })
+        pinned = res.json()["pinned_jobs"]
+        assert len(pinned) == 1
+        assert pinned[0]["key"] == "ws2:deploy"
+
+        res = client.get("/pinned-jobs", headers=AUTH)
+        assert [p["key"] for p in res.json()["pinned_jobs"]] == ["ws2:deploy"]
+
+
 class TestDefaultLabel:
     """settings._default_label のユニットテスト"""
 
