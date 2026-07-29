@@ -117,8 +117,10 @@ function onSettingsClick() {
   display: flex;
   align-items: center;
   justify-content: center;
+  align-self: center;
   flex-shrink: 0;
   width: 30px;
+  height: 30px;
   margin: 0;
   padding: 0;
   border: none;
@@ -126,7 +128,7 @@ function onSettingsClick() {
   background: transparent;
   color: var(--text-muted);
   touch-action: manipulation;
-  font-size: 13px;
+  font-size: 18px;
   font-weight: 500;
   cursor: pointer;
 }
