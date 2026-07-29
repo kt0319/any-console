@@ -786,7 +786,7 @@ button.git-badge:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 44px;
+  min-height: 48px;
   padding: 8px 12px;
   background: transparent;
   border: none;
@@ -814,6 +814,7 @@ button.git-badge:disabled {
   gap: 2px;
   flex-shrink: 0;
   width: 20px;
+  margin-right: 4px;
   justify-content: center;
 }
 
