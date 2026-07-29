@@ -96,7 +96,7 @@ defineEmits(["openWorkspace"]);
 
 const bootLabel = computed(() => (props.bootMessage || "Loading").replace(/\.+$/, ""));
 
-const { recentJobs, loadRecentJobs } = useRecentJobs();
+const { recentJobs, loadRecentJobs, runRecentJob } = useRecentJobs();
 const { apiGet } = useApi();
 const { confirm } = useConfirm();
 const layoutStore = useLayoutStore();
@@ -190,24 +190,6 @@ async function enableNotifications() {
 
 function openTerminal() {
   emit("terminal:launch", {});
-}
-
-async function runRecentJob(recent) {
-  if (recent.jobConfirm !== false) {
-    const preview = recent.jobCommand ? (recent.jobCommand.length > 300 ? recent.jobCommand.slice(0, 300) + "..." : recent.jobCommand) : recent.jobName;
-    if (!await confirm(`${recent.jobLabel || recent.jobName}\n\n${preview}`)) return;
-  }
-  emit("terminal:launch", {
-    workspace: recent.workspace,
-    icon: recent.wsIcon,
-    iconColor: recent.wsIconColor,
-    jobName: recent.jobName,
-    jobLabel: recent.jobLabel,
-    jobIcon: recent.jobIcon,
-    jobIconColor: recent.jobIconColor,
-    initialCommand: recent.jobCommand,
-    detached: !!recent.jobDetachedTab,
-  });
 }
 </script>
 

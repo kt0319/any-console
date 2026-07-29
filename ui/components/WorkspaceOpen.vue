@@ -16,6 +16,28 @@
         </button>
       </div>
 
+      <div v-if="recentJobs.length" class="picker-recent-jobs">
+        <div class="picker-recent-jobs-label">Recent Jobs</div>
+        <button
+          v-for="recent in recentJobs"
+          :key="recent.key"
+          type="button"
+          class="picker-recent-job-item"
+          :class="{ 'is-detached-tab': recent.jobDetachedTab }"
+          @click="runRecentJob(recent)"
+        >
+          <span class="picker-recent-job-icons">
+            <span v-if="recent.wsIcon" v-html="renderIconStr(recent.wsIcon, recent.wsIconColor, 16)"></span>
+            <span v-if="recent.jobIcon" v-html="renderIconStr(recent.jobIcon, recent.jobIconColor, 16)"></span>
+          </span>
+          <span class="picker-recent-job-label">
+            <span class="picker-recent-job-ws">{{ recent.workspace }}</span>
+            <span v-if="recent.jobLabel || recent.jobName" class="picker-recent-job-sep">/</span>
+            <span class="picker-recent-job-name">{{ recent.jobLabel || recent.jobName }}</span>
+          </span>
+        </button>
+      </div>
+
       <div ref="wsListEl" class="terminal-ws-list">
         <div v-if="isLoading" class="clone-repo-empty loading-dots">Loading</div>
         <template v-else>
@@ -119,6 +141,7 @@ const _collapsedGroups = new Set();
 import { computed, inject, ref, reactive, onMounted, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
+import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useToast } from "../composables/useToast.js";
@@ -142,6 +165,7 @@ const { apiGet, apiPut, apiDelete, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
 const toast = useToast();
 const { gitAction, isRunning } = useGitRemoteAction();
+const { recentJobs, loadRecentJobs, runRecentJob } = useRecentJobs();
 
 const wsListEl = ref(null);
 const collapsedGroups = reactive(_collapsedGroups);
@@ -296,6 +320,7 @@ async function removeWorktree(base, wt) {
 
 onMounted(() => {
   loadWorkspaceOverview();
+  loadRecentJobs();
 });
 
 onBeforeUnmount(() => {
@@ -728,5 +753,83 @@ button.git-badge:disabled {
   text-align: center;
   font-size: 13px;
   color: var(--text-muted);
+}
+
+.picker-recent-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.picker-recent-jobs-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0 4px;
+  margin-bottom: 2px;
+}
+
+.picker-recent-job-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  min-height: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .picker-recent-job-item:hover {
+    background: var(--bg-tertiary);
+  }
+}
+
+.picker-recent-job-item.is-detached-tab {
+  opacity: 0.6;
+}
+
+.picker-recent-job-icons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  width: 20px;
+  justify-content: center;
+}
+
+.picker-recent-job-label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.picker-recent-job-ws {
+  color: var(--text-muted);
+}
+
+.picker-recent-job-sep {
+  color: var(--border);
+  flex-shrink: 0;
+}
+
+.picker-recent-job-name {
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

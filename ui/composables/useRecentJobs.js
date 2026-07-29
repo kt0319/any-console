@@ -1,5 +1,7 @@
 import { ref } from "vue";
 import { LS_KEY_RECENT_JOBS } from "../utils/constants.js";
+import { useConfirm } from "./useConfirm.js";
+import { emit } from "../app-bridge.js";
 
 const MAX_RECENT = 8;
 
@@ -8,6 +10,8 @@ const recentJobs = ref([]);
 let loaded = false;
 
 export function useRecentJobs() {
+  const { confirm } = useConfirm();
+
   function loadRecentJobs() {
     if (loaded) return;
     loaded = true;
@@ -43,5 +47,26 @@ export function useRecentJobs() {
     } catch { /* ignore */ }
   }
 
-  return { recentJobs, loadRecentJobs, recordJob };
+  /** Recent Jobs 一覧から選んだジョブをターミナルとして起動する。 */
+  async function runRecentJob(recent) {
+    if (recent.jobConfirm !== false) {
+      const preview = recent.jobCommand
+        ? (recent.jobCommand.length > 300 ? recent.jobCommand.slice(0, 300) + "..." : recent.jobCommand)
+        : recent.jobName;
+      if (!await confirm(`${recent.jobLabel || recent.jobName}\n\n${preview}`)) return;
+    }
+    emit("terminal:launch", {
+      workspace: recent.workspace,
+      icon: recent.wsIcon,
+      iconColor: recent.wsIconColor,
+      jobName: recent.jobName,
+      jobLabel: recent.jobLabel,
+      jobIcon: recent.jobIcon,
+      jobIconColor: recent.jobIconColor,
+      initialCommand: recent.jobCommand,
+      detached: !!recent.jobDetachedTab,
+    });
+  }
+
+  return { recentJobs, loadRecentJobs, recordJob, runRecentJob };
 }
