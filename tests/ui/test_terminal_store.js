@@ -83,6 +83,29 @@ describe("terminal store: active 再選出", () => {
   });
 });
 
+describe("terminal store: addTerminalTab の重複防止", () => {
+  let store;
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    store = useTerminalStore();
+  });
+
+  it("同一 session_id で2回呼んでも既存タブを返しタブは増えない", () => {
+    // dispatch のセッション作成通知(WS)とポーリング同期が競合しても、
+    // 二重タブが生成されないことの回帰テスト。
+    const tab1 = store.addTerminalTab({ wsUrl: "/terminal/ws/sess1", workspace: "ws1" });
+    const tab2 = store.addTerminalTab({ wsUrl: "/terminal/ws/sess1", workspace: "ws1" });
+    expect(tab2).toBe(tab1);
+    expect(store.openTabs.length).toBe(1);
+  });
+
+  it("session_id が異なれば別タブとして追加される", () => {
+    store.addTerminalTab({ wsUrl: "/terminal/ws/sess1", workspace: "ws1" });
+    store.addTerminalTab({ wsUrl: "/terminal/ws/sess2", workspace: "ws1" });
+    expect(store.openTabs.length).toBe(2);
+  });
+});
+
 describe("terminal store: agentStates", () => {
   let store;
   beforeEach(() => {
