@@ -313,8 +313,8 @@ function openTerminal() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   margin-left: 4px;
   padding: 0;

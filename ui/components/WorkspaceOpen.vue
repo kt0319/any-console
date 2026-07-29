@@ -1,21 +1,6 @@
 <template>
   <div class="modal-scroll-body split-tab-scroll">
     <div class="split-tab-content">
-      <!-- ツールバー -->
-      <div class="ws-toolbar">
-        <button type="button" class="ws-toolbar-btn ws-toolbar-btn-terminal" aria-label="New terminal" data-tooltip="New terminal" @click="openBareTerminal">
-          <span class="mdi mdi-console"></span>
-          <span class="ws-toolbar-btn-label">Terminal</span>
-        </button>
-        <span class="ws-toolbar-spacer"></span>
-        <button type="button" class="ws-toolbar-btn" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
-          <span class="mdi mdi-folder-plus-outline"></span>
-        </button>
-        <button type="button" class="ws-toolbar-btn" aria-label="Add workspace" data-tooltip="Add workspace" @click="pushView('WorkspaceAdd')">
-          <span class="mdi mdi-plus"></span>
-        </button>
-      </div>
-
       <template v-if="recentJobs.length">
         <div class="settings-category-head">
           <span class="settings-category-title">Recent Jobs</span>
@@ -54,6 +39,17 @@
 
       <div class="settings-category-head">
         <span class="settings-category-title">Workspaces</span>
+        <span class="ws-toolbar-spacer"></span>
+        <button type="button" class="ws-toolbar-btn ws-toolbar-btn-terminal" aria-label="New terminal" data-tooltip="New terminal" @click="openBareTerminal">
+          <span class="mdi mdi-console"></span>
+          <span class="ws-toolbar-btn-label">Terminal</span>
+        </button>
+        <button type="button" class="ws-toolbar-btn" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
+          <span class="mdi mdi-folder-plus-outline"></span>
+        </button>
+        <button type="button" class="ws-toolbar-btn" aria-label="Add workspace" data-tooltip="Add workspace" @click="pushView('WorkspaceAdd')">
+          <span class="mdi mdi-plus"></span>
+        </button>
       </div>
 
       <div ref="wsListEl" class="terminal-ws-list">
@@ -725,15 +721,6 @@ button.git-badge:disabled {
 .picker-ws-group-inset {
 }
 
-.ws-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
 .ws-toolbar-spacer {
   flex: 1;
 }
@@ -787,7 +774,7 @@ button.git-badge:disabled {
   align-items: center;
   gap: 8px;
   min-height: 48px;
-  padding: 8px 12px;
+  padding: 8px 12px 4px 12px;
   background: transparent;
   border: none;
   border-radius: var(--radius);
@@ -848,8 +835,8 @@ button.git-badge:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   margin-left: 4px;
   padding: 0;
