@@ -85,17 +85,7 @@ export function useFileEntryMenu({
     if (longPress.getMenuEl() || longPress.isFired()) {
       return;
     }
-    if (!isHoverDevice) {
-      if (contextEntry.value?.name === entry.name) {
-        closeContextMenu();
-        const childPath = joinEntryPath(currentPath.value, entry.name);
-        if (entry.type === "dir") navigateToPath(childPath);
-        else if (entry.type === "file") { currentPath.value = childPath; openFile(childPath); }
-      } else {
-        toggleContextMenu(entry);
-      }
-      return;
-    }
+    closeContextMenu();
     const childPath = joinEntryPath(currentPath.value, entry.name);
     if (entry.type === "dir") {
       navigateToPath(childPath);
