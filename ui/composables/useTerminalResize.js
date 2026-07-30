@@ -2,14 +2,21 @@ import { WS_MSG_RESIZE, FRAME_FIT_DEBOUNCE_MS, FIT_WRITE_QUIET_MS, FIT_MAX_WAIT_
 
 const encoder = new TextEncoder();
 
+// 非表示タブ（v-show=false で display:none）の frame は幅/高さ 0 になる。
+// 隠れている間に測った古い cols/rows をそのまま fit/resize に使うと、復帰時に
+// バックグラウンド化した瞬間のサイズ（例: モバイルの小さい寸法）で PTY/tmux が
+// 書き換わってしまう（表示中のタブしか見た目は変わらないため気付きにくい）。
+function isFrameVisible(tab) {
+  const frame = document.getElementById(`frame-${tab.id}`);
+  if (!frame) return true;
+  const rect = frame.getBoundingClientRect();
+  return rect.width >= 2 && rect.height >= 2;
+}
+
 export function fitTerminal(tab, opts = {}) {
   const force = !!opts?.force;
   if (!tab?.term || !tab?.fitAddon) return;
-  const frame = document.getElementById(`frame-${tab.id}`);
-  if (frame) {
-    const rect = frame.getBoundingClientRect();
-    if (rect.width < 2 || rect.height < 2) return;
-  }
+  if (!isFrameVisible(tab)) return;
   try {
     const dims = tab.fitAddon.proposeDimensions();
     if (!dims || isNaN(dims.cols) || isNaN(dims.rows)) return;
@@ -25,6 +32,7 @@ export function fitTerminal(tab, opts = {}) {
 
 export function sendResize(tab) {
   if (!tab?.term || !tab?.ws || tab.ws.readyState !== WebSocket.OPEN) return;
+  if (!isFrameVisible(tab)) return;
   const cols = tab.term.cols;
   const rows = tab.term.rows;
   if (!cols || !rows) return;

@@ -10,7 +10,7 @@ import { defineComponent, ref } from "vue";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { fitTerminal } from "../../ui/composables/useTerminalResize.js";
+import { fitTerminal, sendResize } from "../../ui/composables/useTerminalResize.js";
 import { useTerminal } from "../../ui/composables/useTerminal.js";
 import { useConfirm } from "../../ui/composables/useConfirm.js";
 import { usePrompt } from "../../ui/composables/usePrompt.js";
@@ -73,6 +73,46 @@ describe("fitTerminal: DOM サイズ変化なしの fit 抑制", () => {
     };
     fitTerminal(tab, { force: true });
     expect(fit).toHaveBeenCalledOnce();
+  });
+});
+
+// ── Test: 非表示タブは fit/resize を送らない（バックグラウンド復帰時の巻き込み防止） ──
+
+describe("fitTerminal / sendResize: 非表示フレームのガード", () => {
+  afterEach(() => {
+    document.getElementById("frame-hidden")?.remove();
+  });
+
+  function makeHiddenFrame() {
+    const frame = document.createElement("div");
+    frame.id = "frame-hidden";
+    frame.getBoundingClientRect = () => ({ width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0 });
+    document.body.appendChild(frame);
+    return frame;
+  }
+
+  it("frame が幅0(非表示)なら fit() を呼ばない", () => {
+    makeHiddenFrame();
+    const fit = vi.fn();
+    const tab = {
+      id: "hidden",
+      term: {},
+      fitAddon: { proposeDimensions: () => ({ cols: 40, rows: 10 }), fit },
+    };
+    fitTerminal(tab, { force: true });
+    expect(fit).not.toHaveBeenCalled();
+  });
+
+  it("frame が幅0(非表示)なら resize メッセージを送らない", () => {
+    makeHiddenFrame();
+    const send = vi.fn();
+    const tab = {
+      id: "hidden",
+      term: { cols: 40, rows: 10 },
+      ws: { readyState: 1 /* WebSocket.OPEN */, send },
+    };
+    sendResize(tab);
+    expect(send).not.toHaveBeenCalled();
   });
 });
 
