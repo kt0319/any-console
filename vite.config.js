@@ -30,6 +30,9 @@ export default defineConfig({
   build: {
     outDir: "../dist",
     emptyOutDir: true,
+    // xterm/jsQRを別チャンクに切り出した後の残りメインバンドルは gzip後 ~200kB。
+    // 単一ページのdevツールとして許容範囲のため、警告閾値のみ引き上げる。
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       output: {
         manualChunks(id) {

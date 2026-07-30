@@ -12,6 +12,7 @@ import App from "./components/App.vue";
 import { useAuthStore } from "./stores/auth.js";
 import { installErrorReporter } from "./utils/error-reporter.js";
 import { installTooltip } from "./utils/tooltip.js";
+import { emit } from "./app-bridge.js";
 
 // 古い index.html がキャッシュされたまま新ビルドの asset hash を踏むと、
 // dynamic chunk の読み込みが 404 になり Safari が "Load failed" を出す。
@@ -80,9 +81,7 @@ function openDispatchQueueFromUrlIfRequested() {
   const params = new URLSearchParams(location.search);
   if (params.get("openDispatchQueue") !== "1") return;
   const dispatchId = params.get("dispatchId") || null;
-  import("./app-bridge.js").then(({ emit }) => {
-    emit("settings:open", { view: "DispatchQueueConfig", state: { dispatchId } });
-  });
+  emit("settings:open", { view: "DispatchQueueConfig", state: { dispatchId } });
 }
 
 bootstrap();
@@ -91,15 +90,11 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js");
   navigator.serviceWorker.addEventListener("message", (event) => {
     if (event.data?.type === "notification-navigate") {
-      import("./app-bridge.js").then(({ emit }) => {
-        emit("notification:open-session", { sessionId: event.data.sessionId });
-      });
+      emit("notification:open-session", { sessionId: event.data.sessionId });
     } else if (event.data?.type === "notification-open-dispatch-queue") {
       // sw.js へ受信を ack する（届いていればURL遷移フォールバックを起こさせないため）。
       event.ports?.[0]?.postMessage("ack");
-      import("./app-bridge.js").then(({ emit }) => {
-        emit("settings:open", { view: "DispatchQueueConfig", state: { dispatchId: event.data.dispatchId || null } });
-      });
+      emit("settings:open", { view: "DispatchQueueConfig", state: { dispatchId: event.data.dispatchId || null } });
     }
   });
 }
