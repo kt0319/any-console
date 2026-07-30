@@ -28,6 +28,7 @@ export const CWD_POLL_INTERVAL_MS = 1000;
 export const MOBILE_BREAKPOINT_PX = 768;
 export const INPUT_HISTORY_MAX = 100;
 export const GIT_LOG_ENTRIES_PER_PAGE = 30;
+export const RECENT_JOBS_MAX = 10;
 
 export const TOAST_DEFAULT_DURATION_MS = 3000;
 export const URL_COPIED_RESET_MS = 1500;

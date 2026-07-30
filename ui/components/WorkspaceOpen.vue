@@ -1,13 +1,20 @@
 <template>
   <div class="modal-scroll-body split-tab-scroll">
     <div class="split-tab-content">
-      <!-- ツールバー -->
-      <div class="ws-toolbar">
+      <template v-if="recentJobs.length">
+        <div class="settings-category-head">
+          <span class="settings-category-title">Recent Jobs</span>
+        </div>
+        <RecentJobsList />
+      </template>
+
+      <div class="settings-category-head">
+        <span class="settings-category-title">Workspaces</span>
+        <span class="ws-toolbar-spacer"></span>
         <button type="button" class="ws-toolbar-btn ws-toolbar-btn-terminal" aria-label="New terminal" data-tooltip="New terminal" @click="openBareTerminal">
           <span class="mdi mdi-console"></span>
           <span class="ws-toolbar-btn-label">Terminal</span>
         </button>
-        <span class="ws-toolbar-spacer"></span>
         <button type="button" class="ws-toolbar-btn" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
           <span class="mdi mdi-folder-plus-outline"></span>
         </button>
@@ -119,6 +126,7 @@ const _collapsedGroups = new Set();
 import { computed, inject, ref, reactive, onMounted, onBeforeUnmount } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
+import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { useApi } from "../composables/useApi.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useToast } from "../composables/useToast.js";
@@ -127,6 +135,7 @@ import { dirtyBadgeHtml } from "../utils/git.js";
 import { worktreeBranchLabel, workspaceDisplayName } from "../utils/worktree.js";
 import GitActionBtn from "./GitActionBtn.vue";
 import WorkspaceGroupDialog from "./WorkspaceGroupDialog.vue";
+import RecentJobsList from "./RecentJobsList.vue";
 import { EP_WORKSPACE_ORDER, EP_GROUP_ORDER } from "../utils/endpoints.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useListDragSort } from "../composables/useListDragSort.js";
@@ -142,6 +151,7 @@ const { apiGet, apiPut, apiDelete, wsEndpoint } = useApi();
 const { confirm } = useConfirm();
 const toast = useToast();
 const { gitAction, isRunning } = useGitRemoteAction();
+const { recentJobs, loadRecentJobs } = useRecentJobs();
 
 const wsListEl = ref(null);
 const collapsedGroups = reactive(_collapsedGroups);
@@ -296,6 +306,7 @@ async function removeWorktree(base, wt) {
 
 onMounted(() => {
   loadWorkspaceOverview();
+  loadRecentJobs();
 });
 
 onBeforeUnmount(() => {
@@ -363,7 +374,9 @@ onBeforeUnmount(() => {
 }
 
 .picker-ws-row-top {
+  min-height: 44px;
   padding-bottom: 4px;
+  box-sizing: border-box;
 }
 
 .picker-ws-header-label {
@@ -680,15 +693,6 @@ button.git-badge:disabled {
 .picker-ws-group-inset {
 }
 
-.ws-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
 .ws-toolbar-spacer {
   flex: 1;
 }
@@ -729,4 +733,5 @@ button.git-badge:disabled {
   font-size: 13px;
   color: var(--text-muted);
 }
+
 </style>

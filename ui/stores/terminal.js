@@ -130,7 +130,17 @@ export const useTerminalStore = defineStore("terminal", () => {
     return terminalSettings.value;
   }
 
+  // 同一 session_id のタブ追加は必ずここで弾く。呼び出し側（useSessionSync の
+  // ポーリング/WS通知、useDispatchConfirm の focusSession 等）はそれぞれ
+  // 独立した非同期処理で「既存タブが無いか」を確認してから addTerminalTab を
+  // 呼ぶが、確認から呼び出しまでの await の間に別経路が同じセッションのタブを
+  // 追加してしまうレースがあり、二重タブが生成されうる。store 側の唯一の
+  // 追加窓口でチェックすることで、呼び出し側の確認タイミングに関わらず防ぐ。
   function addTerminalTab({ wsUrl, workspace, wsIcon, wsIconColor, icon, iconColor, jobName, jobLabel, restored }) {
+    const sessionId = wsUrl.replace(/.*\/terminal\/ws\//, "").replace(/\?.*/, "");
+    const existing = openTabs.value.find((t) => t.sessionId === sessionId);
+    if (existing) return existing;
+
     const opts = getTerminalRuntimeOptions();
     const term = new Terminal({ ...opts, allowProposedApi: true });
     const fitAddon = new FitAddon();
@@ -143,7 +153,6 @@ export const useTerminalStore = defineStore("terminal", () => {
       bridgeEmit("terminal:url", { uri: fullUri });
     }));
 
-    const sessionId = wsUrl.replace(/.*\/terminal\/ws\//, "").replace(/\?.*/, "");
     const id = ++terminalIdCounter.value;
     const label = jobLabel || workspace || "terminal";
 

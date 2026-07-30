@@ -42,24 +42,7 @@
 
       <div v-if="recentJobs.length" class="screen-empty-section">
         <div class="screen-empty-section-label">Recent Jobs</div>
-        <button
-          v-for="recent in recentJobs"
-          :key="recent.key"
-          type="button"
-          class="screen-empty-menu-item"
-          :class="{ 'is-detached-tab': recent.jobDetachedTab }"
-          @click="runRecentJob(recent)"
-        >
-          <span class="screen-empty-recent-icons">
-            <span v-if="recent.wsIcon" v-html="renderIconStr(recent.wsIcon, recent.wsIconColor, 16)"></span>
-            <span v-if="recent.jobIcon" v-html="renderIconStr(recent.jobIcon, recent.jobIconColor, 16)"></span>
-          </span>
-          <span class="screen-empty-menu-label">
-            <span class="screen-empty-recent-ws">{{ recent.workspace }}</span>
-            <span v-if="recent.jobLabel || recent.jobName" class="screen-empty-recent-sep">/</span>
-            <span class="screen-empty-recent-job">{{ recent.jobLabel || recent.jobName }}</span>
-          </span>
-        </button>
+        <RecentJobsList />
       </div>
 
       <div v-if="serverInfo" class="screen-empty-server-info">
@@ -81,12 +64,12 @@ import { emit } from "../app-bridge.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useApi } from "../composables/useApi.js";
 import { getWithRetry } from "../utils/api-retry.js";
-import { renderIconStr } from "../utils/render-icon.js";
 import { isMobileUserAgent } from "../utils/device.js";
 import { EP_SYSTEM_INFO, EP_SETTINGS_AUTH, EP_DEVICES } from "../utils/endpoints.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { usePushNotification } from "../composables/usePushNotification.js";
 import StatusOverlay from "./StatusOverlay.vue";
+import RecentJobsList from "./RecentJobsList.vue";
 
 const props = defineProps({
   booting: { type: Boolean, default: false },
@@ -191,24 +174,6 @@ async function enableNotifications() {
 function openTerminal() {
   emit("terminal:launch", {});
 }
-
-async function runRecentJob(recent) {
-  if (recent.jobConfirm !== false) {
-    const preview = recent.jobCommand ? (recent.jobCommand.length > 300 ? recent.jobCommand.slice(0, 300) + "..." : recent.jobCommand) : recent.jobName;
-    if (!await confirm(`${recent.jobLabel || recent.jobName}\n\n${preview}`)) return;
-  }
-  emit("terminal:launch", {
-    workspace: recent.workspace,
-    icon: recent.wsIcon,
-    iconColor: recent.wsIconColor,
-    jobName: recent.jobName,
-    jobLabel: recent.jobLabel,
-    jobIcon: recent.jobIcon,
-    jobIconColor: recent.jobIconColor,
-    initialCommand: recent.jobCommand,
-    detached: !!recent.jobDetachedTab,
-  });
-}
 </script>
 
 <style scoped>
@@ -229,6 +194,19 @@ async function runRecentJob(recent) {
   gap: 20px;
   width: 100%;
   max-width: 360px;
+}
+
+@media (min-width: 769px) {
+  .screen-empty-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+    max-width: 640px;
+  }
+
+  .screen-empty-server-info {
+    grid-column: 1 / -1;
+  }
 }
 
 .screen-empty-section {
@@ -262,10 +240,6 @@ async function runRecentJob(recent) {
   min-height: 0;
 }
 
-.screen-empty-menu-item.is-detached-tab {
-  opacity: 0.6;
-}
-
 .screen-empty-menu-icon {
   font-size: 16px;
   flex-shrink: 0;
@@ -291,30 +265,6 @@ async function runRecentJob(recent) {
   color: var(--text-muted);
   margin-left: auto;
   font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-}
-
-.screen-empty-recent-icons {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-  width: 20px;
-  justify-content: center;
-}
-
-.screen-empty-recent-ws {
-  color: var(--text-muted);
-}
-
-.screen-empty-recent-sep {
-  color: var(--border);
-  flex-shrink: 0;
-}
-
-.screen-empty-recent-job {
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .screen-empty-server-info {

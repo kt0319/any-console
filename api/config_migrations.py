@@ -59,12 +59,37 @@ def _migrate_radial_to_circle_keypad(config: dict) -> dict:
     return new_config
 
 
+def _migrate_pinned_jobs_to_recent_jobs(config: dict) -> dict:
+    """v2 -> v3: pinned_jobs（ピン留めのみ）を recent_jobs（Recent Jobs 全体、
+    サーバー保存化）へ統合する。ピン留め項目は pinned=True を付けて引き継ぐ。
+
+    旧 recent_jobs キーはサーバー保存方式が localStorage 化された時点（本マイグレーション
+    導入よりずっと前）から現行コードが一切読み書きしていない残骸データのため、
+    pinned_jobs から作った内容で上書きして構わない。
+    """
+    global_section = config.get(GLOBAL_CONFIG_KEY)
+    if not isinstance(global_section, dict) or "pinned_jobs" not in global_section:
+        return config
+    global_section = dict(global_section)
+    legacy_pinned = global_section.pop("pinned_jobs")
+    recent_jobs = [
+        {**item, "pinned": True}
+        for item in legacy_pinned
+        if isinstance(item, dict) and item.get("key")
+    ] if isinstance(legacy_pinned, list) else []
+    global_section["recent_jobs"] = recent_jobs
+    new_config = dict(config)
+    new_config[GLOBAL_CONFIG_KEY] = global_section
+    return new_config
+
+
 # 旧バージョン -> 次バージョンへの変換関数。キー N の関数は version N の config を
 # version N+1 に変換する。破壊的なスキーマ変更を入れる際にここへ追加する。
 # 各関数は config dict を受け取り、変換後の dict を返す（元を破壊しないこと）。
 # セクション名等はマイグレーション時点の値を凍結するため文字列リテラルで書く。
 _CONFIG_MIGRATIONS: dict[int, Callable[[dict], dict]] = {
     1: _migrate_radial_to_circle_keypad,
+    2: _migrate_pinned_jobs_to_recent_jobs,
 }
 
 

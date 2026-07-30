@@ -26,6 +26,23 @@ class SnippetConfig(_ConfigModel):
     command: str
 
 
+class RecentJobConfig(_ConfigModel):
+    key: str
+    workspace: str = ""
+    wsIcon: str = ""
+    wsIconColor: str = ""
+    jobName: str = ""
+    jobLabel: str = ""
+    jobIcon: str = ""
+    jobIconColor: str = ""
+    jobCommand: str = ""
+    jobUrl: str = ""
+    jobType: str = "command"
+    jobConfirm: bool | None = None
+    jobDetachedTab: bool = False
+    pinned: bool = False
+
+
 class JobConfig(_ConfigModel):
     command: str = ""
     url: str = ""
@@ -61,6 +78,7 @@ class WorkspaceConfig(_ConfigModel):
 
 class GlobalConfig(_ConfigModel):
     snippets: list[SnippetConfig] = Field(default_factory=list)
+    recent_jobs: list[RecentJobConfig] = Field(default_factory=list)
     workspace_order: list[str] = Field(default_factory=list)
     jobs: dict[str, JobConfig] = Field(default_factory=dict)
     host: str = ""
@@ -96,6 +114,7 @@ def _strip_invalid_global_locations(data: dict[str, Any], exc: ValidationError) 
     """
     repaired = copy.deepcopy(data)
     snippet_drop: set[int] = set()
+    recent_job_drop: set[int] = set()
     for err in exc.errors():
         loc = err.get("loc", ())
         if not loc or not isinstance(loc[0], str):
@@ -106,10 +125,16 @@ def _strip_invalid_global_locations(data: dict[str, Any], exc: ValidationError) 
             repaired["jobs"].pop(sub, None)
         elif head == "snippets" and isinstance(sub, int):
             snippet_drop.add(sub)
+        elif head == "recent_jobs" and isinstance(sub, int):
+            recent_job_drop.add(sub)
         else:
             repaired.pop(head, None)
     if snippet_drop and isinstance(repaired.get("snippets"), list):
         repaired["snippets"] = [s for i, s in enumerate(repaired["snippets"]) if i not in snippet_drop]
+    if recent_job_drop and isinstance(repaired.get("recent_jobs"), list):
+        repaired["recent_jobs"] = [
+            j for i, j in enumerate(repaired["recent_jobs"]) if i not in recent_job_drop
+        ]
     return repaired
 
 

@@ -374,6 +374,56 @@ class TestSnippets:
         assert snippets[1]["label"] == "B"
 
 
+class TestRecentJobs:
+    def test_get_empty(self, client):
+        res = client.get("/recent-jobs", headers=AUTH)
+        assert res.status_code == 200
+        assert res.json() == {"recent_jobs": []}
+
+    def test_put_and_get(self, client):
+        item = {
+            "key": "ws1:build",
+            "workspace": "ws1",
+            "jobName": "build",
+            "jobLabel": "Build",
+            "jobCommand": "make build",
+            "pinned": True,
+        }
+        res = client.put("/recent-jobs", headers=AUTH, json={"recent_jobs": [item]})
+        assert res.status_code == 200
+        recent = res.json()["recent_jobs"]
+        assert len(recent) == 1
+        assert recent[0]["key"] == "ws1:build"
+        assert recent[0]["jobCommand"] == "make build"
+        assert recent[0]["pinned"] is True
+
+        res = client.get("/recent-jobs", headers=AUTH)
+        assert len(res.json()["recent_jobs"]) == 1
+
+    def test_empty_key_is_skipped(self, client):
+        res = client.put("/recent-jobs", headers=AUTH, json={
+            "recent_jobs": [
+                {"key": "ws1:build", "workspace": "ws1", "jobName": "build"},
+                {"key": "  ", "workspace": "ws1", "jobName": "lint"},
+            ],
+        })
+        assert len(res.json()["recent_jobs"]) == 1
+
+    def test_put_replaces_previous_list(self, client):
+        client.put("/recent-jobs", headers=AUTH, json={
+            "recent_jobs": [{"key": "ws1:build", "workspace": "ws1", "jobName": "build"}],
+        })
+        res = client.put("/recent-jobs", headers=AUTH, json={
+            "recent_jobs": [{"key": "ws2:deploy", "workspace": "ws2", "jobName": "deploy"}],
+        })
+        recent = res.json()["recent_jobs"]
+        assert len(recent) == 1
+        assert recent[0]["key"] == "ws2:deploy"
+
+        res = client.get("/recent-jobs", headers=AUTH)
+        assert [j["key"] for j in res.json()["recent_jobs"]] == ["ws2:deploy"]
+
+
 class TestDefaultLabel:
     """settings._default_label のユニットテスト"""
 
