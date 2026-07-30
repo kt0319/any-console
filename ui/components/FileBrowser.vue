@@ -23,6 +23,12 @@
       <span v-if="showHistory" class="file-browser-crumb-badge">History</span>
       <span v-if="!props.diffFile" class="file-browser-header-actions">
         <template v-if="fileContent || showHistory">
+          <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openCurrentFileInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span></button>
+          <button type="button" class="file-browser-header-btn" aria-label="Download" data-tooltip="Download" @click="downloadFile(currentPath)"><span class="mdi mdi-download" aria-hidden="true"></span></button>
+          <button v-if="openFileGithubUrl" type="button" class="file-browser-header-btn" aria-label="GitHub" data-tooltip="GitHub" @click="openCurrentFileGithub"><span class="mdi mdi-github" aria-hidden="true"></span></button>
+          <button type="button" class="file-browser-header-btn" aria-label="Rename" data-tooltip="Rename" @click="renameOpenFile"><span class="mdi mdi-rename-box" aria-hidden="true"></span></button>
+          <button type="button" class="file-browser-header-btn" aria-label="Move" data-tooltip="Move" @click="moveOpenFile"><span class="mdi mdi-file-move-outline" aria-hidden="true"></span></button>
+          <button type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteOpenFile"><span class="mdi mdi-delete-outline" aria-hidden="true"></span></button>
           <button type="button" class="file-browser-header-btn" :aria-label="showHistory ? 'Show file' : 'Show history'" :data-tooltip="showHistory ? 'Show file' : 'Show history'" @click="toggleHistory"><span class="mdi" :class="showHistory ? 'mdi-file-document-outline' : 'mdi-history'" aria-hidden="true"></span></button>
         </template>
         <template v-else>
@@ -53,7 +59,6 @@
         <ul class="file-browser-list">
           <template v-for="entry in visibleEntries" :key="entry.name">
             <FileItem
-              long-press-surface
               :action-open="contextEntry?.name === entry.name"
               :gitignored="entry.gitignored"
               :data-type="entry.type"
@@ -62,29 +67,29 @@
               :size-text="entrySizeText(entry)"
               :mtime-text="formatRelativeTime(entry.mtime)"
               @click="onEntryClick(entry)"
-              @contextmenu="toggleContextMenu(entry)"
-              @mouseenter="onItemMouseEnter(entry)"
-              @mouseleave="onItemMouseLeave"
-              @mousedown="onLongPressStart($event, entry)"
-              @mouseup="onLongPressEnd"
-              @touchstart="onLongPressStart($event, entry)"
-              @touchend="onLongPressEnd"
-              @touchcancel="onLongPressEnd"
-            />
+              @contextmenu="entry.type === 'dir' && toggleContextMenu(entry)"
+            >
+              <template v-if="entry.type === 'dir'" #right>
+                <button
+                  type="button"
+                  class="file-browser-item-actions-btn"
+                  aria-label="Folder actions"
+                  data-tooltip="Folder actions"
+                  @click.stop="toggleContextMenu(entry)"
+                >
+                  <span class="mdi mdi-dots-vertical"></span>
+                </button>
+              </template>
+            </FileItem>
             <FileContextMenu
               v-if="contextEntry?.name === entry.name"
-              :is-file="entry.type === 'file'"
+              :is-file="false"
               :github-url="githubEntryUrl"
               @open="openEntry(entry)"
-              @editor="openEntryInEditor"
-              @history="openEntryHistory"
-              @download="downloadEntry"
               @github="openGitHub"
               @rename="renameEntry"
               @move="moveEntry"
               @delete="deleteEntry"
-              @menu-enter="onMenuMouseEnter"
-              @menu-leave="onMenuMouseLeave"
             />
           </template>
         </ul>
@@ -133,15 +138,14 @@ const {
 const {
   contextEntry,
   openMenu: openContextMenu, closeMenu: closeContextMenu,
-  onItemMouseEnter, onItemMouseLeave,
-  onMenuMouseEnter, onMenuMouseLeave,
 } = useHoverMenu();
 const uploadInputEl = ref(null);
 const { showGitignored } = useShowGitignored(toRef(workspaceStore, "selectedWorkspace"));
 
 const {
   renameEntry, moveEntry, deleteEntry,
-  downloadEntry,
+  downloadEntry, downloadFile,
+  renameOpenFile, moveOpenFile, deleteOpenFile,
   uploadDroppedFiles,
 } = useFileActions({
   getContextEntry: () => contextEntry.value,
@@ -190,13 +194,13 @@ const {
 
 const {
   githubEntryUrl,
-  onLongPressStart, onLongPressEnd,
   toggleContextMenu,
   openGitHub,
-  openEntry, openEntryHistory, openEntryInEditor, openDirInEditor,
+  openEntry, openDirInEditor,
+  openFileGithubUrl, openCurrentFileGithub, openCurrentFileInEditor,
   onEntryClick,
 } = useFileEntryMenu({
-  currentPath, fileContent, showHistory,
+  currentPath, fileContent,
   navigateToPath, openFile,
   contextEntry, openContextMenu, closeContextMenu,
   editorUrlTemplate, openInEditor,
@@ -321,6 +325,33 @@ defineExpose({ load: () => navigateToPath(""), navigateToPath });
   display: flex;
   gap: 8px;
   flex-shrink: 0;
+}
+
+.file-browser-header-btn-delete {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.file-browser-item-actions-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  min-width: 32px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .file-browser-item-actions-btn:hover {
+    background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+  }
 }
 
 .file-browser-crumb-badge {
