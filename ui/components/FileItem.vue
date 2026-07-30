@@ -72,6 +72,12 @@ defineEmits([
   cursor: pointer;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .file-browser-item:hover {
+    background: var(--bg-tertiary);
+  }
+}
+
 .file-browser-item-icon {
   flex-shrink: 0;
   width: 18px;

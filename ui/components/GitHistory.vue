@@ -20,12 +20,13 @@
             </span>
           </span>
         </span>
+        <CommitActionMenu
+          v-if="selectedCommitForFiles.hash !== '__dirty__'"
+          :branches="entryBranches(selectedCommitForFiles)"
+          @click.stop
+          @exec="onCommitAction(selectedCommitForFiles, $event)"
+        />
       </div>
-      <CommitActionMenu
-        v-if="selectedCommitForFiles.hash !== '__dirty__'"
-        :branches="entryBranches(selectedCommitForFiles)"
-        @exec="onCommitAction(selectedCommitForFiles, $event)"
-      />
       <div class="modal-scroll-body">
         <div v-if="isSelectedCommitFilesLoading" class="text-muted-center">Loading...</div>
         <ul v-if="!isSelectedCommitFilesLoading" class="file-browser-list diff-file-browser-list">
@@ -222,6 +223,13 @@ defineExpose({
   align-items: center;
   padding: 4px 8px;
   gap: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .git-log-commit:not(.git-log-graph-only):hover {
+    background: var(--bg-tertiary);
+    cursor: pointer;
+  }
 }
 
 .git-log-entry-body {
