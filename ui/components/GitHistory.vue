@@ -20,21 +20,11 @@
             </span>
           </span>
         </span>
-        <button
-          v-if="selectedCommitForFiles.hash !== '__dirty__'"
-          class="diff-files-actions-btn"
-          :class="{ active: showCommitActions }"
-          :aria-label="showCommitActions ? 'Hide actions' : 'Show actions'"
-          :data-tooltip="showCommitActions ? 'Hide actions' : 'Show actions'"
-          @click.stop="toggleCommitActions"
-        >
-          <span class="mdi mdi-dots-vertical"></span>
-        </button>
       </div>
       <CommitActionMenu
-        v-if="showCommitActions"
+        v-if="selectedCommitForFiles.hash !== '__dirty__'"
         :branches="entryBranches(selectedCommitForFiles)"
-        @exec="onCommitAction(selectedCommitForFiles, $event, closeCommitActions)"
+        @exec="onCommitAction(selectedCommitForFiles, $event)"
       />
       <div class="modal-scroll-body">
         <div v-if="isSelectedCommitFilesLoading" class="text-muted-center">Loading...</div>
@@ -107,7 +97,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted } from "vue";
 
 import FileItem from "./FileItem.vue";
 import FileActionMenu from "./FileActionMenu.vue";
@@ -160,15 +150,6 @@ function fileIconHtml(file) {
 }
 
 const { onCommitAction } = useCommitActionMenu();
-const showCommitActions = ref(false);
-
-function toggleCommitActions() {
-  showCommitActions.value = !showCommitActions.value;
-}
-
-function closeCommitActions() {
-  showCommitActions.value = false;
-}
 
 function openDiffFiles(entry, fetchFn) {
   emitToParent("commit:expanded", { message: entry.message });
@@ -188,7 +169,6 @@ function openCommitDiffFiles(entry) {
 
 function closeSelectedCommitFiles() {
   closeDiffFilesState();
-  showCommitActions.value = false;
   emitToParent("commit:collapsed");
 }
 
@@ -257,33 +237,6 @@ defineExpose({
 
 @media (hover: hover) and (pointer: fine) {
   .diff-files-close-btn:hover {
-    background: var(--bg-hover, rgba(255, 255, 255, 0.05));
-  }
-}
-
-.diff-files-actions-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 18px;
-  padding: 4px 8px;
-  cursor: pointer;
-  border-radius: 4px;
-  min-width: 32px;
-  min-height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.diff-files-actions-btn.active {
-  color: var(--text-primary);
-  background: rgba(130, 170, 255, 0.12);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .diff-files-actions-btn:hover {
     background: var(--bg-hover, rgba(255, 255, 255, 0.05));
   }
 }
