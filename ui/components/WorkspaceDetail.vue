@@ -439,7 +439,7 @@ onMounted(() => {
   }
 
   .workspace-tab.tab-underline-active::after {
-    top: -1px;
+    top: 0;
     bottom: auto;
   }
 }

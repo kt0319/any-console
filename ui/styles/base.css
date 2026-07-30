@@ -147,6 +147,8 @@ button {
 }
 
 /* アクティブタブの下線インジケーター。親要素に position:relative が必要。
+   タブ自身のボックス内側（bottom: 0）に収め、共有の境界線の外側にはみ出させない
+   （はみ出すとタブ行だけ下に伸びて見えてしまう）。
    panel-bottom/モバイル等でタブバーが画面下端に来る配置では `.tab-underline-top`
    を併用し、下端ではなく上端に出す。 */
 .tab-underline-active::after {
@@ -154,13 +156,13 @@ button {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -1px;
+  bottom: 0;
   height: 3px;
   background: var(--accent);
 }
 
 .tab-underline-active.tab-underline-top::after {
-  top: -1px;
+  top: 0;
   bottom: auto;
 }
 
