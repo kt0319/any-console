@@ -183,6 +183,7 @@ defineExpose({
 
 .diff-files-selected-commit {
   flex-shrink: 0;
+  flex-wrap: wrap;
   background: rgba(130, 170, 255, 0.06);
   border-bottom: 1px solid var(--border);
 }

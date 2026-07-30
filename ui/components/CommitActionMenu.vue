@@ -42,6 +42,14 @@ defineEmits(["exec"]);
   flex-wrap: wrap;
 }
 
+@media (max-width: 767px) {
+  .file-browser-header-actions {
+    flex-basis: 100%;
+    justify-content: flex-end;
+    margin-top: 4px;
+  }
+}
+
 .file-browser-header-btn {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
