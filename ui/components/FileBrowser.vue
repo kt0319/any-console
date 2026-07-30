@@ -318,6 +318,15 @@ defineExpose({ load: () => navigateToPath(""), navigateToPath });
   flex-shrink: 0;
 }
 
+@media (max-width: 767px) {
+  .file-browser-header-actions {
+    flex-basis: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
+    margin-top: 4px;
+  }
+}
+
 .file-browser-header-btn-delete {
   color: var(--error);
   border-color: var(--error);
