@@ -3,12 +3,14 @@ import { WS_MSG_RESIZE, FRAME_FIT_DEBOUNCE_MS, FIT_WRITE_QUIET_MS, FIT_MAX_WAIT_
 const encoder = new TextEncoder();
 
 // 非表示タブ（v-show=false で display:none）の frame は幅/高さ 0 になる。
-// 隠れている間に測った古い cols/rows をそのまま fit/resize に使うと、復帰時に
-// バックグラウンド化した瞬間のサイズ（例: モバイルの小さい寸法）で PTY/tmux が
-// 書き換わってしまう（表示中のタブしか見た目は変わらないため気付きにくい）。
+// スプリット枠に入っていない裏タブは TerminalPane 自体が未マウントで frame 要素が
+// DOM に存在しないこともある（v-if 相当）。どちらの場合も「見えていない」ため、
+// 要素が無い場合も非表示として扱う（fail-open で素通りさせると、隠れている間に
+// 測った古い cols/rows がバックグラウンド復帰時の一斉再接続で PTY/tmux に書き込まれ、
+// 見えていないタブまでスマホサイズにリサイズされてしまう）。
 function isFrameVisible(tab) {
   const frame = document.getElementById(`frame-${tab.id}`);
-  if (!frame) return true;
+  if (!frame) return false;
   const rect = frame.getBoundingClientRect();
   return rect.width >= 2 && rect.height >= 2;
 }
