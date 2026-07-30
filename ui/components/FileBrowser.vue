@@ -21,6 +21,14 @@
       </template>
       <span v-if="props.diffFile" class="file-browser-crumb-badge">Diff</span>
       <span v-if="showHistory" class="file-browser-crumb-badge">History</span>
+      <span v-if="props.diffFile" class="file-browser-header-actions">
+        <button type="button" class="file-browser-header-btn" aria-label="Show in Files" data-tooltip="Show in Files" @click="browseToDiffFolder"><span class="mdi mdi-folder-open-outline" aria-hidden="true"></span></button>
+        <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openDiffFileInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span></button>
+        <button type="button" class="file-browser-header-btn" aria-label="Download" data-tooltip="Download" @click="downloadDiffFile"><span class="mdi mdi-download" aria-hidden="true"></span></button>
+        <button v-if="diffGithubUrl" type="button" class="file-browser-header-btn" aria-label="GitHub" data-tooltip="GitHub" @click="openDiffFileGithub"><span class="mdi mdi-github" aria-hidden="true"></span></button>
+        <button v-if="props.diffIsWorkingTree" type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Discard" data-tooltip="Discard" @click="discardDiffFile"><span class="mdi mdi-undo" aria-hidden="true"></span></button>
+        <button v-if="props.diffIsWorkingTree" type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteDiffFile"><span class="mdi mdi-delete-outline" aria-hidden="true"></span></button>
+      </span>
       <span v-if="!props.diffFile" class="file-browser-header-actions">
         <template v-if="fileContent || showHistory">
           <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openCurrentFileInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span></button>
@@ -115,6 +123,7 @@ import { useFileDiff } from "../composables/useFileDiff.js";
 import { useFileBrowserNav } from "../composables/useFileBrowserNav.js";
 import { useFileBrowserCrumbs } from "../composables/useFileBrowserCrumbs.js";
 import { useFileEntryMenu } from "../composables/useFileEntryMenu.js";
+import { useDiffFileHeaderActions } from "../composables/useDiffFileHeaderActions.js";
 import { useShowGitignored } from "../composables/useShowGitignored.js";
 import { useHoverMenu } from "../composables/useHoverMenu.js";
 import { renderFileIcon } from "../utils/file-icon.js";
@@ -126,6 +135,8 @@ const workspaceStore = useWorkspaceStore();
 const props = defineProps({
   diffFile: { type: String, default: "" },
   diffMessage: { type: String, default: "" },
+  diffIsWorkingTree: { type: Boolean, default: false },
+  diffCommitHash: { type: String, default: "" },
   rootLabel: { type: String, default: "" },
   terminalSessionId: { type: String, default: "" },
 });
@@ -165,6 +176,18 @@ const {
 } = useFileDiff({
   getDiffFile: () => props.diffFile,
   getDiffMessage: () => props.diffMessage,
+});
+
+const {
+  githubUrl: diffGithubUrl, openGithub: openDiffFileGithub, openEditor: openDiffFileInEditor,
+  download: downloadDiffFile, browseToFolder: browseToDiffFolder,
+  discard: discardDiffFile, deleteFile: deleteDiffFile,
+} = useDiffFileHeaderActions({
+  filePath: computed(() => props.diffFile),
+  isWorkingTree: computed(() => props.diffIsWorkingTree),
+  commitHash: computed(() => props.diffCommitHash),
+  editorUrlTemplate,
+  openInEditor,
 });
 
 const {
