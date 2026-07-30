@@ -117,26 +117,28 @@ test.describe("workspace detail panes", () => {
     await openDetail(page);
     await page.locator(".workspace-tabs").getByRole("button", { name: "Files" }).click();
 
-    // hover デバイスではホバーでアクションメニューが開く → Rename → プロンプトダイアログ
+    // ファイルをクリックすると詳細画面に遷移し、ヘッダーに Rename/Delete が並ぶ
     const row = page.locator(".file-browser-item", { hasText: "scratch.txt" });
     await expect(row).toBeVisible({ timeout: 10_000 });
-    await row.hover();
-    const menu = page.locator(".file-browser-action-menu");
-    await expect(menu).toBeVisible({ timeout: 5000 });
-    await menu.locator("button", { hasText: "Rename" }).click();
+    await row.click();
+    const headerActions = page.locator(".file-browser-header-actions");
+    await expect(headerActions.getByRole("button", { name: "Rename" })).toBeVisible({ timeout: 5000 });
+    await headerActions.getByRole("button", { name: "Rename" }).click();
 
     const promptDialog = page.locator(".prompt-dialog");
     await expect(promptDialog).toBeVisible({ timeout: 5000 });
     await expect(promptDialog).toContainText('new name for "scratch.txt"');
     await promptDialog.locator(".prompt-input").fill("scratch-renamed.txt");
     await promptDialog.locator(".dialog-btn-ok").click();
+
+    // リネーム後は一覧（親ディレクトリ）に戻る
     const renamedRow = page.locator(".file-browser-item", { hasText: "scratch-renamed.txt" });
     await expect(renamedRow).toBeVisible({ timeout: 10_000 });
 
     // Delete → 確認ダイアログ（Confirm Rules）→ 一覧から消える
-    await renamedRow.hover();
-    await expect(menu).toBeVisible({ timeout: 5000 });
-    await menu.locator("button", { hasText: "Delete" }).click();
+    await renamedRow.click();
+    await expect(headerActions.getByRole("button", { name: "Delete" })).toBeVisible({ timeout: 5000 });
+    await headerActions.getByRole("button", { name: "Delete" }).click();
     const confirmDialog = page.locator(".confirm-dialog");
     await expect(confirmDialog).toBeVisible({ timeout: 5000 });
     await expect(confirmDialog).toContainText('Delete "scratch-renamed.txt"?');
