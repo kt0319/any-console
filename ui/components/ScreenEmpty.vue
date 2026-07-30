@@ -1,46 +1,48 @@
 <template>
   <div class="screen-empty-container">
     <div class="screen-empty-content">
-      <div v-if="showPhonePairing || showHttpsSetup || showPwaInstall || showEnableNotifications" class="screen-empty-section">
-        <div class="screen-empty-section-label">Setup</div>
-        <button v-if="showPhonePairing" type="button" class="screen-empty-menu-item" @click="openPhonePairing">
-          <span class="mdi mdi-cellphone screen-empty-menu-icon"></span>
-          <span class="screen-empty-menu-label">Open on your phone</span>
-        </button>
-        <button v-if="showHttpsSetup" type="button" class="screen-empty-menu-item" @click="showHttpsInstructions">
-          <span class="mdi mdi-lock-outline screen-empty-menu-icon"></span>
-          <span class="screen-empty-menu-label">Set up HTTPS</span>
-        </button>
-        <button v-if="showPwaInstall" type="button" class="screen-empty-menu-item" @click="installPwa">
-          <span class="mdi mdi-cellphone-arrow-down screen-empty-menu-icon"></span>
-          <span class="screen-empty-menu-label">Install as app</span>
-        </button>
-        <button v-if="showEnableNotifications" type="button" class="screen-empty-menu-item" @click="enableNotifications">
-          <span class="mdi mdi-bell-outline screen-empty-menu-icon"></span>
-          <span class="screen-empty-menu-label">Enable notifications</span>
-        </button>
+      <div class="screen-empty-column screen-empty-column-left">
+        <div v-if="showPhonePairing || showHttpsSetup || showPwaInstall || showEnableNotifications" class="screen-empty-section">
+          <div class="screen-empty-section-label">Setup</div>
+          <button v-if="showPhonePairing" type="button" class="screen-empty-menu-item" @click="openPhonePairing">
+            <span class="mdi mdi-cellphone screen-empty-menu-icon"></span>
+            <span class="screen-empty-menu-label">Open on your phone</span>
+          </button>
+          <button v-if="showHttpsSetup" type="button" class="screen-empty-menu-item" @click="showHttpsInstructions">
+            <span class="mdi mdi-lock-outline screen-empty-menu-icon"></span>
+            <span class="screen-empty-menu-label">Set up HTTPS</span>
+          </button>
+          <button v-if="showPwaInstall" type="button" class="screen-empty-menu-item" @click="installPwa">
+            <span class="mdi mdi-cellphone-arrow-down screen-empty-menu-icon"></span>
+            <span class="screen-empty-menu-label">Install as app</span>
+          </button>
+          <button v-if="showEnableNotifications" type="button" class="screen-empty-menu-item" @click="enableNotifications">
+            <span class="mdi mdi-bell-outline screen-empty-menu-icon"></span>
+            <span class="screen-empty-menu-label">Enable notifications</span>
+          </button>
+        </div>
+
+        <div class="screen-empty-section">
+          <div class="screen-empty-section-label">Get Started</div>
+          <button type="button" class="screen-empty-menu-item" @click="openTerminal">
+            <span class="mdi mdi-console screen-empty-menu-icon"></span>
+            <span class="screen-empty-menu-label">New Terminal</span>
+            <span class="screen-empty-menu-shortcut">⌘⇧T</span>
+          </button>
+          <button type="button" class="screen-empty-menu-item" @click="$emit('openWorkspace')">
+            <span class="mdi mdi-plus screen-empty-menu-icon"></span>
+            <span class="screen-empty-menu-label">Open Workspace</span>
+            <span class="screen-empty-menu-shortcut">⌘⇧N</span>
+          </button>
+          <button type="button" class="screen-empty-menu-item" @click="openSettings">
+            <span class="mdi mdi-cog screen-empty-menu-icon"></span>
+            <span class="screen-empty-menu-label">Settings</span>
+            <span class="screen-empty-menu-shortcut">⌘⇧.</span>
+          </button>
+        </div>
       </div>
 
-      <div class="screen-empty-section">
-        <div class="screen-empty-section-label">Get Started</div>
-        <button type="button" class="screen-empty-menu-item" @click="openTerminal">
-          <span class="mdi mdi-console screen-empty-menu-icon"></span>
-          <span class="screen-empty-menu-label">New Terminal</span>
-          <span class="screen-empty-menu-shortcut">⌘⇧T</span>
-        </button>
-        <button type="button" class="screen-empty-menu-item" @click="$emit('openWorkspace')">
-          <span class="mdi mdi-plus screen-empty-menu-icon"></span>
-          <span class="screen-empty-menu-label">Open Workspace</span>
-          <span class="screen-empty-menu-shortcut">⌘⇧N</span>
-        </button>
-        <button type="button" class="screen-empty-menu-item" @click="openSettings">
-          <span class="mdi mdi-cog screen-empty-menu-icon"></span>
-          <span class="screen-empty-menu-label">Settings</span>
-          <span class="screen-empty-menu-shortcut">⌘⇧.</span>
-        </button>
-      </div>
-
-      <div v-if="recentJobs.length" class="screen-empty-section">
+      <div v-if="recentJobs.length" class="screen-empty-column screen-empty-column-right screen-empty-section">
         <div class="screen-empty-section-label">Recent Jobs</div>
         <RecentJobsList />
       </div>
@@ -204,9 +206,25 @@ function openTerminal() {
     max-width: 640px;
   }
 
-  .screen-empty-server-info {
-    grid-column: 1 / -1;
+  .screen-empty-column-left {
+    grid-column: 1;
   }
+
+  .screen-empty-column-right {
+    grid-column: 2;
+  }
+
+  .screen-empty-server-info {
+    position: absolute;
+    right: 16px;
+    bottom: 16px;
+  }
+}
+
+.screen-empty-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .screen-empty-section {
