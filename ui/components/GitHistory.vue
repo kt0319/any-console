@@ -20,7 +20,22 @@
             </span>
           </span>
         </span>
+        <button
+          v-if="selectedCommitForFiles.hash !== '__dirty__'"
+          class="diff-files-actions-btn"
+          :class="{ active: showCommitActions }"
+          :aria-label="showCommitActions ? 'Hide actions' : 'Show actions'"
+          :data-tooltip="showCommitActions ? 'Hide actions' : 'Show actions'"
+          @click.stop="toggleCommitActions"
+        >
+          <span class="mdi mdi-dots-vertical"></span>
+        </button>
       </div>
+      <CommitActionMenu
+        v-if="showCommitActions"
+        :branches="entryBranches(selectedCommitForFiles)"
+        @exec="onCommitAction(selectedCommitForFiles, $event, closeCommitActions)"
+      />
       <div class="modal-scroll-body">
         <div v-if="isSelectedCommitFilesLoading" class="text-muted-center">Loading...</div>
         <ul v-if="!isSelectedCommitFilesLoading" class="file-browser-list diff-file-browser-list">
@@ -61,16 +76,9 @@
       <!-- Changes -->
       <template v-for="(row, idx) in graphRows" :key="idx">
         <div
-          class="git-log-entry git-log-commit long-press-surface"
-          :class="{ 'action-open': row.entry && longPressEntry?.hash === row.entry.hash, 'git-log-graph-only': !row.entry }"
+          class="git-log-entry git-log-commit"
+          :class="{ 'git-log-graph-only': !row.entry }"
           @click="row.entry && openCommitDiffFiles(row.entry)"
-          @mousedown="row.entry && onLongPressStart($event, row.entry)"
-          @mouseup="onLongPressEnd"
-          @mouseleave="onLongPressEnd"
-          @touchstart.passive="row.entry && onLongPressStart($event, row.entry)"
-          @touchend="onLongPressEnd"
-          @touchcancel="onLongPressEnd"
-          @contextmenu.prevent="row.entry && toggleActionMenu(row.entry)"
         >
           <svg class="git-graph-svg" :width="graphWidth" :height="GRAPH_ROW_HEIGHT" :viewBox="'0 0 ' + graphWidth + ' ' + GRAPH_ROW_HEIGHT">
             <template v-for="(seg, si) in row.segments" :key="si">
@@ -93,18 +101,13 @@
             </span>
           </span>
         </div>
-        <CommitActionMenu
-          v-if="row.entry && longPressEntry?.hash === row.entry.hash"
-          :branches="entryBranches(row.entry)"
-          @exec="onCommitAction(row.entry, $event)"
-        />
       </template>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
 
 import FileItem from "./FileItem.vue";
 import FileActionMenu from "./FileActionMenu.vue";
@@ -156,10 +159,16 @@ function fileIconHtml(file) {
   return renderFileIconFromPath(file.path);
 }
 
-const {
-  longPressEntry, onLongPressStart, onLongPressEnd, closeLongPressMenu,
-  isLongPressFired, getMenuEl, toggleActionMenu, onCommitAction,
-} = useCommitActionMenu();
+const { onCommitAction } = useCommitActionMenu();
+const showCommitActions = ref(false);
+
+function toggleCommitActions() {
+  showCommitActions.value = !showCommitActions.value;
+}
+
+function closeCommitActions() {
+  showCommitActions.value = false;
+}
 
 function openDiffFiles(entry, fetchFn) {
   emitToParent("commit:expanded", { message: entry.message });
@@ -174,13 +183,12 @@ function openWorkingTreeDiffFiles() {
 
 
 function openCommitDiffFiles(entry) {
-  if (getMenuEl() || isLongPressFired()) return;
-  if (longPressEntry.value) closeLongPressMenu();
   openDiffFiles(entry, () => fetchCommitDiff(entry.fullHash));
 }
 
 function closeSelectedCommitFiles() {
   closeDiffFilesState();
+  showCommitActions.value = false;
   emitToParent("commit:collapsed");
 }
 
@@ -249,6 +257,33 @@ defineExpose({
 
 @media (hover: hover) and (pointer: fine) {
   .diff-files-close-btn:hover {
+    background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+  }
+}
+
+.diff-files-actions-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  min-width: 32px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.diff-files-actions-btn.active {
+  color: var(--text-primary);
+  background: rgba(130, 170, 255, 0.12);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .diff-files-actions-btn:hover {
     background: var(--bg-hover, rgba(255, 255, 255, 0.05));
   }
 }
@@ -346,7 +381,6 @@ defineExpose({
   border-bottom: none;
 }
 
-.git-log-commit.action-open,
 .diff-file-row.action-open {
   background: rgba(130, 170, 255, 0.08);
 }
