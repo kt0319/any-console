@@ -1,41 +1,13 @@
 import { computed } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
-import { joinEntryPath, buildGithubEntryUrl } from "../utils/file-browser.js";
+import { joinEntryPath } from "../utils/file-browser.js";
 
 export function useFileEntryMenu({
   currentPath, fileContent,
   navigateToPath, openFile,
-  contextEntry, openContextMenu, closeContextMenu,
   editorUrlTemplate, openInEditor,
 }) {
   const workspaceStore = useWorkspaceStore();
-
-  const githubEntryUrl = computed(() => buildGithubEntryUrl(
-    workspaceStore.currentWorkspace, currentPath.value, contextEntry.value,
-  ));
-
-  function toggleContextMenu(entry) {
-    if (contextEntry.value?.name === entry.name) closeContextMenu();
-    else openContextMenu(entry);
-  }
-
-  function openGitHub() {
-    if (githubEntryUrl.value) {
-      window.open(githubEntryUrl.value, "_blank");
-    }
-    closeContextMenu();
-  }
-
-  function openEntry(entry) {
-    closeContextMenu();
-    const childPath = joinEntryPath(currentPath.value, entry.name);
-    if (entry.type === "dir") {
-      navigateToPath(childPath);
-    } else if (entry.type === "file") {
-      currentPath.value = childPath;
-      openFile(childPath);
-    }
-  }
 
   function openDirInEditor() {
     openInEditor(currentPath.value);
@@ -58,7 +30,6 @@ export function useFileEntryMenu({
   }
 
   function onEntryClick(entry) {
-    closeContextMenu();
     const childPath = joinEntryPath(currentPath.value, entry.name);
     if (entry.type === "dir") {
       navigateToPath(childPath);
@@ -69,10 +40,7 @@ export function useFileEntryMenu({
   }
 
   return {
-    githubEntryUrl,
-    toggleContextMenu,
-    openGitHub,
-    openEntry, openDirInEditor,
+    openDirInEditor,
     openFileGithubUrl, openCurrentFileGithub, openCurrentFileInEditor,
     onEntryClick,
   };

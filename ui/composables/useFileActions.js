@@ -8,7 +8,7 @@ import { MSG_DELETE_FAILED } from "../utils/constants.js";
 import { useConfirm } from "./useConfirm.js";
 import { usePrompt } from "./usePrompt.js";
 
-export function useFileActions({ getContextEntry, clearContextEntry, getCurrentPath, getFileContent, navigateToPath }) {
+export function useFileActions({ getCurrentPath, getFileContent, navigateToPath }) {
   const auth = useAuthStore();
   const { withWorkspace } = useWorkspace();
   const { apiGet, apiPost, wsEndpoint } = useApi();
@@ -16,13 +16,6 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
   const { confirm } = useConfirm();
   const { prompt } = usePrompt();
   const toast = useToast();
-
-  function entryPath() {
-    const entry = getContextEntry();
-    if (!entry) return "";
-    const cur = getCurrentPath();
-    return cur ? `${cur}/${entry.name}` : entry.name;
-  }
 
   async function renameFile(src, dest, afterPath) {
     await withWorkspace(async (workspace) => {
@@ -33,56 +26,8 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
     });
   }
 
-  async function renameEntry() {
-    const filePath = entryPath();
-    const fileName = getContextEntry()?.name;
-    if (!filePath || !fileName) return;
-    const newName = await prompt({
-      title: "Rename",
-      message: `Enter a new name for "${fileName}".`,
-      initialValue: fileName,
-      placeholder: fileName,
-    });
-    if (!newName || newName === fileName) { clearContextEntry(); return; }
-    const parentPath = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
-    const destPath = parentPath ? `${parentPath}/${newName}` : newName;
-    clearContextEntry();
-    await renameFile(filePath, destPath);
-  }
-
-  async function moveEntry() {
-    const filePath = entryPath();
-    if (!filePath) return;
-    const destPath = await prompt({
-      title: "Move",
-      message: "Enter destination path.",
-      initialValue: filePath,
-      placeholder: filePath,
-    });
-    if (!destPath || destPath === filePath) { clearContextEntry(); return; }
-    clearContextEntry();
-    await renameFile(filePath, destPath);
-  }
-
-  async function deleteEntry() {
-    const filePath = entryPath();
-    const fileName = getContextEntry()?.name;
-    if (!filePath || !fileName) return;
-    if (!await confirm(`Delete "${fileName}"?`)) { clearContextEntry(); return; }
-    clearContextEntry();
-    const ok = await deleteWorkspaceFile(filePath, { errorMessage: MSG_DELETE_FAILED });
-    if (ok) await navigateToPath(getCurrentPath());
-  }
-
   async function downloadFile(filePath) {
     await downloadWorkspaceFile(filePath);
-  }
-
-  async function downloadEntry() {
-    const filePath = entryPath();
-    if (!filePath) return;
-    clearContextEntry();
-    await downloadFile(filePath);
   }
 
   function baseName(filePath) {
@@ -95,7 +40,9 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
     return idx >= 0 ? filePath.slice(0, idx) : "";
   }
 
-  async function renameOpenFile() {
+  // 現在ブラウズ中のパス（開いているファイル、またはブラウズ中のディレクトリ）を対象にする。
+  // どちらも getCurrentPath() がそのフルパスを保持しているため同じロジックで扱える。
+  async function renameCurrentPath() {
     const filePath = getCurrentPath();
     if (!filePath) return;
     const fileName = baseName(filePath);
@@ -111,7 +58,7 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
     await renameFile(filePath, destPath, dir);
   }
 
-  async function moveOpenFile() {
+  async function moveCurrentPath() {
     const filePath = getCurrentPath();
     if (!filePath) return;
     const destPath = await prompt({
@@ -124,7 +71,7 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
     await renameFile(filePath, destPath, parentDir(filePath));
   }
 
-  async function deleteOpenFile() {
+  async function deleteCurrentPath() {
     const filePath = getCurrentPath();
     if (!filePath) return;
     const fileName = baseName(filePath);
@@ -206,9 +153,8 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
   }
 
   return {
-    renameEntry, moveEntry, deleteEntry,
-    downloadFile, downloadEntry,
-    renameOpenFile, moveOpenFile, deleteOpenFile,
+    downloadFile,
+    renameCurrentPath, moveCurrentPath, deleteCurrentPath,
     uploadDroppedFiles,
   };
 }

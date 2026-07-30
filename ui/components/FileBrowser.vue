@@ -34,9 +34,9 @@
           <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openCurrentFileInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span></button>
           <button type="button" class="file-browser-header-btn" aria-label="Download" data-tooltip="Download" @click="downloadFile(currentPath)"><span class="mdi mdi-download" aria-hidden="true"></span></button>
           <button v-if="openFileGithubUrl" type="button" class="file-browser-header-btn" aria-label="GitHub" data-tooltip="GitHub" @click="openCurrentFileGithub"><span class="mdi mdi-github" aria-hidden="true"></span></button>
-          <button type="button" class="file-browser-header-btn" aria-label="Rename" data-tooltip="Rename" @click="renameOpenFile"><span class="mdi mdi-rename-box" aria-hidden="true"></span></button>
-          <button type="button" class="file-browser-header-btn" aria-label="Move" data-tooltip="Move" @click="moveOpenFile"><span class="mdi mdi-file-move-outline" aria-hidden="true"></span></button>
-          <button type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteOpenFile"><span class="mdi mdi-delete-outline" aria-hidden="true"></span></button>
+          <button type="button" class="file-browser-header-btn" aria-label="Rename" data-tooltip="Rename" @click="renameCurrentPath"><span class="mdi mdi-rename-box" aria-hidden="true"></span></button>
+          <button type="button" class="file-browser-header-btn" aria-label="Move" data-tooltip="Move" @click="moveCurrentPath"><span class="mdi mdi-file-move-outline" aria-hidden="true"></span></button>
+          <button type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteCurrentPath"><span class="mdi mdi-delete-outline" aria-hidden="true"></span></button>
           <button type="button" class="file-browser-header-btn" :aria-label="showHistory ? 'Show file' : 'Show history'" :data-tooltip="showHistory ? 'Show file' : 'Show history'" @click="toggleHistory"><span class="mdi" :class="showHistory ? 'mdi-file-document-outline' : 'mdi-history'" aria-hidden="true"></span></button>
         </template>
         <template v-else>
@@ -44,6 +44,11 @@
           <button type="button" class="file-browser-header-btn" :aria-label="showGitignored ? 'Hide gitignored files' : 'Show gitignored files'" :data-tooltip="showGitignored ? 'Hide gitignored files' : 'Show gitignored files'" @click="showGitignored = !showGitignored"><span class="mdi" :class="showGitignored ? 'mdi-eye-outline' : 'mdi-eye-off-outline'" aria-hidden="true"></span></button>
           <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openDirInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span></button>
           <button type="button" class="file-browser-header-btn" aria-label="Upload files" data-tooltip="Upload files" @click="uploadInputEl?.click()"><span class="mdi mdi-upload" aria-hidden="true"></span></button>
+          <template v-if="currentPath">
+            <button type="button" class="file-browser-header-btn" aria-label="Rename" data-tooltip="Rename" @click="renameCurrentPath"><span class="mdi mdi-rename-box" aria-hidden="true"></span></button>
+            <button type="button" class="file-browser-header-btn" aria-label="Move" data-tooltip="Move" @click="moveCurrentPath"><span class="mdi mdi-file-move-outline" aria-hidden="true"></span></button>
+            <button type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteCurrentPath"><span class="mdi mdi-delete-outline" aria-hidden="true"></span></button>
+          </template>
         </template>
       </span>
     </div>
@@ -67,7 +72,6 @@
         <ul class="file-browser-list">
           <template v-for="entry in visibleEntries" :key="entry.name">
             <FileItem
-              :action-open="contextEntry?.name === entry.name"
               :gitignored="entry.gitignored"
               :data-type="entry.type"
               :label="entry.name"
@@ -75,29 +79,6 @@
               :size-text="entrySizeText(entry)"
               :mtime-text="formatRelativeTime(entry.mtime)"
               @click="onEntryClick(entry)"
-              @contextmenu="entry.type === 'dir' && toggleContextMenu(entry)"
-            >
-              <template v-if="entry.type === 'dir'" #right>
-                <button
-                  type="button"
-                  class="file-browser-item-actions-btn"
-                  aria-label="Folder actions"
-                  data-tooltip="Folder actions"
-                  @click.stop="toggleContextMenu(entry)"
-                >
-                  <span class="mdi mdi-dots-vertical"></span>
-                </button>
-              </template>
-            </FileItem>
-            <FileContextMenu
-              v-if="contextEntry?.name === entry.name"
-              :is-file="false"
-              :github-url="githubEntryUrl"
-              @open="openEntry(entry)"
-              @github="openGitHub"
-              @rename="renameEntry"
-              @move="moveEntry"
-              @delete="deleteEntry"
             />
           </template>
         </ul>
@@ -114,7 +95,6 @@ import { computed, ref, toRef, watch, onMounted, onBeforeUnmount } from "vue";
 import FileTextViewer from "./FileTextViewer.vue";
 import FileHistoryPane from "./FileHistoryPane.vue";
 import FileItem from "./FileItem.vue";
-import FileContextMenu from "./FileContextMenu.vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useFileDragDrop } from "../composables/useFileDragDrop.js";
 import { useFileActions } from "../composables/useFileActions.js";
@@ -125,7 +105,6 @@ import { useFileBrowserCrumbs } from "../composables/useFileBrowserCrumbs.js";
 import { useFileEntryMenu } from "../composables/useFileEntryMenu.js";
 import { useDiffFileHeaderActions } from "../composables/useDiffFileHeaderActions.js";
 import { useShowGitignored } from "../composables/useShowGitignored.js";
-import { useHoverMenu } from "../composables/useHoverMenu.js";
 import { renderFileIcon } from "../utils/file-icon.js";
 import { formatRelativeTime } from "../utils/format.js";
 import { entrySizeText } from "../utils/file-browser.js";
@@ -146,21 +125,14 @@ const {
   isLoading: isFileBrowserLoading, errorMessage: fileBrowserError, showHistory,
   navigateToPath, openFile, toggleHistory,
 } = useFileBrowserNav({ getTerminalSessionId: () => props.terminalSessionId });
-const {
-  contextEntry,
-  openMenu: openContextMenu, closeMenu: closeContextMenu,
-} = useHoverMenu();
 const uploadInputEl = ref(null);
 const { showGitignored } = useShowGitignored(toRef(workspaceStore, "selectedWorkspace"));
 
 const {
-  renameEntry, moveEntry, deleteEntry,
-  downloadEntry, downloadFile,
-  renameOpenFile, moveOpenFile, deleteOpenFile,
+  downloadFile,
+  renameCurrentPath, moveCurrentPath, deleteCurrentPath,
   uploadDroppedFiles,
 } = useFileActions({
-  getContextEntry: () => contextEntry.value,
-  clearContextEntry: () => { closeContextMenu(); },
   getCurrentPath: () => currentPath.value,
   getFileContent: () => fileContent.value,
   navigateToPath: (path) => navigateToPath(path),
@@ -216,16 +188,12 @@ const {
 });
 
 const {
-  githubEntryUrl,
-  toggleContextMenu,
-  openGitHub,
-  openEntry, openDirInEditor,
+  openDirInEditor,
   openFileGithubUrl, openCurrentFileGithub, openCurrentFileInEditor,
   onEntryClick,
 } = useFileEntryMenu({
   currentPath, fileContent,
   navigateToPath, openFile,
-  contextEntry, openContextMenu, closeContextMenu,
   editorUrlTemplate, openInEditor,
 });
 
@@ -355,27 +323,6 @@ defineExpose({ load: () => navigateToPath(""), navigateToPath });
   border-color: var(--error);
 }
 
-.file-browser-item-actions-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 16px;
-  padding: 4px 8px;
-  cursor: pointer;
-  border-radius: 4px;
-  min-width: 32px;
-  min-height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .file-browser-item-actions-btn:hover {
-    background: var(--bg-hover, rgba(255, 255, 255, 0.05));
-  }
-}
 
 .file-browser-crumb-badge {
   margin-left: 4px;
