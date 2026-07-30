@@ -35,26 +35,12 @@
               :label="file.path"
               :icon-html="fileIconHtml(file)"
               @click="onDiffFileClick(file)"
-              @contextmenu="openDiffMenu(file)"
-              @mouseenter="onDiffFileMouseEnter(file)"
-              @mouseleave="onDiffFileMouseLeave"
-              @mousedown="diffLongPress.startMenu($event, file)"
-              @mouseup="diffLongPress.endMenu()"
-              @touchstart="diffLongPress.startMenu($event, file)"
-              @touchend="diffLongPress.endMenu()"
-              @touchcancel="diffLongPress.endMenu()"
             >
               <template #right>
                 <span v-if="file.numstat" class="diff-file-row-numstat" v-html="file.numstat"></span>
                 <span :class="['diff-file-row-status', statusClass(file.status)]">{{ file.status }}</span>
               </template>
             </FileItem>
-            <FileActionMenu
-              v-if="diffContextEntry?.path === file.path"
-              :actions="diffMenuActions"
-              @menu-enter="onDiffMenuMouseEnter"
-              @menu-leave="onDiffMenuMouseLeave"
-            />
           </template>
         </ul>
       </div>
@@ -100,9 +86,7 @@
 import { computed, onMounted } from "vue";
 
 import FileItem from "./FileItem.vue";
-import FileActionMenu from "./FileActionMenu.vue";
 import CommitActionMenu from "./CommitActionMenu.vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitDiff } from "../composables/useGitDiff.js";
 import { useGitLogPagination } from "../composables/useGitLogPagination.js";
 import { useIsMobile } from "../composables/useIsMobile.js";
@@ -123,9 +107,7 @@ function abbreviateRef(r) {
   return abbreviateBranch(r.label);
 }
 
-const workspaceStore = useWorkspaceStore();
-const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
-const isDirty = computed(() => workspaceStore.currentWorkspace && workspaceStore.currentWorkspace.clean === false);
+const { fetchCommitDiff } = useGitDiff();
 
 const {
   graphRows, commitEntries, graphWidth,
@@ -156,13 +138,6 @@ function openDiffFiles(entry, fetchFn) {
   return openDiffFilesBase(entry, fetchFn);
 }
 
-function openWorkingTreeDiffFiles() {
-  if (!isDirty.value) return;
-  const dirtyEntry = { message: "Changes", author: "", time: "", hash: "__dirty__", fullHash: "__dirty__" };
-  openDiffFiles(dirtyEntry, fetchWorkingTreeDiff);
-}
-
-
 function openCommitDiffFiles(entry) {
   openDiffFiles(entry, () => fetchCommitDiff(entry.fullHash));
 }
@@ -172,15 +147,8 @@ function closeSelectedCommitFiles() {
   emitToParent("commit:collapsed");
 }
 
-const {
-  diffLongPress, diffContextEntry, openDiffMenu,
-  onDiffFileMouseEnter, onDiffFileMouseLeave,
-  onDiffMenuMouseEnter, onDiffMenuMouseLeave,
-  diffMenuActions, onDiffFileClick, showSelectedCommitMessage,
-  fetchEditorSettings,
-} = useDiffFileActions({
+const { onDiffFileClick, showSelectedCommitMessage } = useDiffFileActions({
   selectedCommit: selectedCommitForFiles,
-  reopenWorkingTreeDiff: openWorkingTreeDiffFiles,
 });
 
 async function reloadHistory() {
@@ -189,7 +157,6 @@ async function reloadHistory() {
 
 onMounted(() => {
   loadHistory();
-  fetchEditorSettings();
 });
 
 function hasSelectedCommitFiles() {
