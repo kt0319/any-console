@@ -29,7 +29,7 @@
       ><span class="mdi" :class="recent.pinned ? 'mdi-pin' : 'mdi-pin-outline'"></span></span>
     </button>
     <button
-      v-if="hasUnpinnedRecentJobs"
+      v-if="allowExpand && hasUnpinnedRecentJobs"
       type="button"
       class="recent-jobs-more"
       @click="showAll = !showAll"
@@ -44,15 +44,22 @@
 import { computed, ref } from "vue";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { renderIconStr } from "../utils/render-icon.js";
+import { RECENT_JOBS_MAX } from "../utils/constants.js";
+
+const props = defineProps({
+  allowExpand: { type: Boolean, default: true },
+});
 
 const { recentJobs, runRecentJob, togglePin } = useRecentJobs();
 
 // 初期表示はピン留めのみ。非ピン留めは「More」で展開する。
+// allowExpand=falseの場合はMore/Lessを出さず、常に全件（上限RECENT_JOBS_MAX件）表示する。
 const showAll = ref(false);
 const hasUnpinnedRecentJobs = computed(() => recentJobs.value.some((j) => !j.pinned));
-const visibleRecentJobs = computed(() =>
-  showAll.value ? recentJobs.value : recentJobs.value.filter((j) => j.pinned),
-);
+const visibleRecentJobs = computed(() => {
+  if (!props.allowExpand) return recentJobs.value.slice(0, RECENT_JOBS_MAX);
+  return showAll.value ? recentJobs.value : recentJobs.value.filter((j) => j.pinned);
+});
 </script>
 
 <style scoped>

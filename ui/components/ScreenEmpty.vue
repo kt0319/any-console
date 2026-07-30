@@ -44,7 +44,7 @@
 
       <div v-if="recentJobs.length" class="screen-empty-column screen-empty-column-right screen-empty-section">
         <div class="screen-empty-section-label">Recent Jobs</div>
-        <RecentJobsList />
+        <RecentJobsList :allow-expand="false" />
       </div>
 
       <div v-if="serverInfo" class="screen-empty-server-info">
