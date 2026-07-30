@@ -85,13 +85,6 @@ async def list_terminal_sessions():
         md = meta_src.metadata_dict()
 
         created_at = get_tmux_created(name)
-        if md["workspace"] is None:
-            # ADR 25: 「まれにワークスペースセッションが素のターミナルとして誤認識される」の
-            # 再着手条件（観測ログで事実を特定する）に基づく最小限の記録。挙動は変えない。
-            logger.warning(
-                "list_terminal_sessions: workspace unresolved session=%s cached=%s created_at=%s",
-                session_id, bool(cached), created_at,
-            )
         sessions.append({
             "session_id": session_id,
             "workspace": md["workspace"],
@@ -402,14 +395,6 @@ async def terminal_ws(websocket: WebSocket, session_id: str, token: str = "", co
     # 再接続オーバーラップによる表示崩れを構造的に避ける。
     try:
         bridge = attach_client_bridge(session, cols, rows)
-        # window-size latest はこのアタッチにも追従するため、resize と同じく調査用に残す
-        # （_apply_bridge_size のログは既存接続の明示 resize のみで、新規/再接続時の
-        # アタッチサイズはここでしか分からない）。
-        if bridge.applied_size:
-            logger.info(
-                "terminal client attached session=%s size=(%d,%d) client=%s",
-                session_id, bridge.applied_size[0], bridge.applied_size[1], ws_client_host,
-            )
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
         logger.error("tmux attach failed session=%s: %s", session_id, e)
         await websocket.close(code=1011, reason="tmux attach failed")
