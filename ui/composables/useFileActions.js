@@ -8,7 +8,7 @@ import { MSG_DELETE_FAILED } from "../utils/constants.js";
 import { useConfirm } from "./useConfirm.js";
 import { usePrompt } from "./usePrompt.js";
 
-export function useFileActions({ getContextEntry, clearContextEntry, getCurrentPath, getFileContent, navigateToPath }) {
+export function useFileActions({ getCurrentPath, getFileContent, navigateToPath }) {
   const auth = useAuthStore();
   const { withWorkspace } = useWorkspace();
   const { apiGet, apiPost, wsEndpoint } = useApi();
@@ -17,41 +17,49 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
   const { prompt } = usePrompt();
   const toast = useToast();
 
-  function entryPath() {
-    const entry = getContextEntry();
-    if (!entry) return "";
-    const cur = getCurrentPath();
-    return cur ? `${cur}/${entry.name}` : entry.name;
-  }
-
-  async function renameFile(src, dest) {
+  async function renameFile(src, dest, afterPath) {
     await withWorkspace(async (workspace) => {
       const { ok } = await apiPost(wsEndpoint(workspace, "rename"), { src, dest }, { errorMessage: "Rename failed" });
       if (!ok) return;
       toast.success("Renamed");
-      await navigateToPath(getCurrentPath());
+      await navigateToPath(afterPath ?? getCurrentPath());
     });
   }
 
-  async function renameEntry() {
-    const filePath = entryPath();
-    const fileName = getContextEntry()?.name;
-    if (!filePath || !fileName) return;
+  async function downloadFile(filePath) {
+    await downloadWorkspaceFile(filePath);
+  }
+
+  function baseName(filePath) {
+    const idx = filePath.lastIndexOf("/");
+    return idx >= 0 ? filePath.slice(idx + 1) : filePath;
+  }
+
+  function parentDir(filePath) {
+    const idx = filePath.lastIndexOf("/");
+    return idx >= 0 ? filePath.slice(0, idx) : "";
+  }
+
+  // 現在ブラウズ中のパス（開いているファイル、またはブラウズ中のディレクトリ）を対象にする。
+  // どちらも getCurrentPath() がそのフルパスを保持しているため同じロジックで扱える。
+  async function renameCurrentPath() {
+    const filePath = getCurrentPath();
+    if (!filePath) return;
+    const fileName = baseName(filePath);
     const newName = await prompt({
       title: "Rename",
       message: `Enter a new name for "${fileName}".`,
       initialValue: fileName,
       placeholder: fileName,
     });
-    if (!newName || newName === fileName) { clearContextEntry(); return; }
-    const parentPath = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
-    const destPath = parentPath ? `${parentPath}/${newName}` : newName;
-    clearContextEntry();
-    await renameFile(filePath, destPath);
+    if (!newName || newName === fileName) return;
+    const dir = parentDir(filePath);
+    const destPath = dir ? `${dir}/${newName}` : newName;
+    await renameFile(filePath, destPath, dir);
   }
 
-  async function moveEntry() {
-    const filePath = entryPath();
+  async function moveCurrentPath() {
+    const filePath = getCurrentPath();
     if (!filePath) return;
     const destPath = await prompt({
       title: "Move",
@@ -59,30 +67,17 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
       initialValue: filePath,
       placeholder: filePath,
     });
-    if (!destPath || destPath === filePath) { clearContextEntry(); return; }
-    clearContextEntry();
-    await renameFile(filePath, destPath);
+    if (!destPath || destPath === filePath) return;
+    await renameFile(filePath, destPath, parentDir(filePath));
   }
 
-  async function deleteEntry() {
-    const filePath = entryPath();
-    const fileName = getContextEntry()?.name;
-    if (!filePath || !fileName) return;
-    if (!await confirm(`Delete "${fileName}"?`)) { clearContextEntry(); return; }
-    clearContextEntry();
-    const ok = await deleteWorkspaceFile(filePath, { errorMessage: MSG_DELETE_FAILED });
-    if (ok) await navigateToPath(getCurrentPath());
-  }
-
-  async function downloadFile(filePath) {
-    await downloadWorkspaceFile(filePath);
-  }
-
-  async function downloadEntry() {
-    const filePath = entryPath();
+  async function deleteCurrentPath() {
+    const filePath = getCurrentPath();
     if (!filePath) return;
-    clearContextEntry();
-    await downloadFile(filePath);
+    const fileName = baseName(filePath);
+    if (!await confirm(`Delete "${fileName}"?`)) return;
+    const ok = await deleteWorkspaceFile(filePath, { errorMessage: MSG_DELETE_FAILED });
+    if (ok) await navigateToPath(parentDir(filePath));
   }
 
   const normalizedName = (f) => (f.name || "").normalize("NFC");
@@ -158,8 +153,8 @@ export function useFileActions({ getContextEntry, clearContextEntry, getCurrentP
   }
 
   return {
-    renameEntry, moveEntry, deleteEntry,
-    downloadFile, downloadEntry,
+    downloadFile,
+    renameCurrentPath, moveCurrentPath, deleteCurrentPath,
     uploadDroppedFiles,
   };
 }

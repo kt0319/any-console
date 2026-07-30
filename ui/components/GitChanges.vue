@@ -11,28 +11,13 @@
             :selected="selectedFile === file.path"
             :label="file.path"
             :icon-html="fileIconHtml(file)"
-            :long-press-surface="longPress.activeEntry.value?.path === file.path"
-            @click="onFileClick(file, $event)"
-            @contextmenu="onFileContextMenu(file)"
-            @mouseenter="onFileMouseEnter(file)"
-            @mouseleave="onFileMouseLeave"
-            @mousedown="longPress.startMenu($event, file)"
-            @mouseup="longPress.endMenu()"
-            @touchstart="longPress.startMenu($event, file)"
-            @touchend="longPress.endMenu()"
-            @touchcancel="longPress.endMenu()"
+            @click="selectFile(file)"
           >
             <template #right>
               <span v-if="file.numstat" class="diff-file-row-numstat" v-html="file.numstat"></span>
               <span :class="['diff-file-row-status', statusClass(file.status)]">{{ file.status }}</span>
             </template>
           </FileItem>
-          <FileActionMenu
-            v-if="contextEntry?.path === file.path"
-            :actions="contextMenuActions"
-            @menu-enter="onMenuMouseEnter"
-            @menu-leave="onMenuMouseLeave"
-          />
         </template>
       </ul>
     </div>
@@ -56,31 +41,15 @@
 <script setup>
 import { ref, computed } from "vue";
 import FileItem from "./FileItem.vue";
-import FileActionMenu from "./FileActionMenu.vue";
 import GitCommitForm from "./GitCommitForm.vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitDiff } from "../composables/useGitDiff.js";
-import { useEditorIntegration } from "../composables/useEditorIntegration.js";
-import { useLongPress } from "../composables/useLongPress.js";
-import { useHoverMenu, isHoverDevice } from "../composables/useHoverMenu.js";
-import { useApi } from "../composables/useApi.js";
-import { useConfirm } from "../composables/useConfirm.js";
-import { confirmIrreversible } from "../utils/confirm-irreversible.js";
 import { useWorkspace } from "../composables/useWorkspace.js";
-import { useWorkspaceFile } from "../composables/useWorkspaceFile.js";
 import { emit } from "../app-bridge.js";
 import { renderFileIconFromPath } from "../utils/file-icon.js";
 import { GIT_DIFF_STATUS_CLASSES } from "../utils/constants.js";
-import { workspaceGitDiscardPath } from "../utils/endpoints.js";
 
-const workspaceStore = useWorkspaceStore();
 const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
-const { editorUrlTemplate, fetchEditorSettings, openInEditor } = useEditorIntegration();
-const { apiPost } = useApi();
-const { confirm } = useConfirm();
-const { withWorkspace, getWorkspace } = useWorkspace();
-const { downloadWorkspaceFile, deleteWorkspaceFile } = useWorkspaceFile();
-const longPress = useLongPress();
+const { getWorkspace } = useWorkspace();
 
 const files = ref([]);
 const isLoading = ref(false);
@@ -89,14 +58,6 @@ const selectedFile = ref("");
 const actionButtons = ref([]);
 const isWorkingTree = ref(false);
 const commitForm = ref(null);
-const {
-  contextEntry,
-  openMenu,
-  closeMenu: closeHoverMenu,
-  onItemMouseEnter: onFileMouseEnter,
-  onItemMouseLeave: onFileMouseLeave,
-  onMenuMouseEnter, onMenuMouseLeave,
-} = useHoverMenu();
 
 const isCommitDisabled = computed(
   // defineExpose された ref はテンプレート ref 経由では自動アンラップされる（.value を付けると常に undefined）
@@ -112,99 +73,9 @@ function fileIconHtml(file) {
   return renderFileIconFromPath(file.path);
 }
 
-function githubFileUrl(file) {
-  const ws = workspaceStore.currentWorkspace;
-  if (!ws?.github_url) return "";
-  return `${ws.github_url}/blob/${ws.branch || "main"}/${file.path}`;
-}
-
-const contextMenuActions = computed(() => {
-  const file = contextEntry.value;
-  if (!file) return [];
-  return [
-    { icon: "mdi-eye-outline", label: "View", handler: () => viewDiff(file) },
-    { icon: "mdi-folder-open-outline", label: "Show in Files", handler: () => browseToFolder(file) },
-    { icon: "mdi-file-edit-outline", label: "Editor", show: !!editorUrlTemplate.value, handler: () => { openInEditor(file.path); closeMenu(); } },
-    { icon: "mdi-download", label: "Download", handler: () => downloadFile(file) },
-    { icon: "mdi-github", label: "GitHub", show: !!githubFileUrl(file), handler: () => openFileGithub(file) },
-    { icon: "mdi-undo", label: "Discard", show: isWorkingTree.value, danger: true, handler: () => discardFile(file) },
-    { icon: "mdi-delete-outline", label: "Delete", show: isWorkingTree.value, danger: true, handler: () => deleteFile(file) },
-  ];
-});
-
-function closeMenu() {
-  closeHoverMenu();
-  longPress.closeMenu();
-}
-
-function onFileContextMenu(file) {
-  openMenu(file);
-}
-
-function onFileClick(file, _event) {
-  if (!isHoverDevice) {
-    if (longPress.consumeFired()) return;
-    if (contextEntry.value?.path === file.path) {
-      closeMenu();
-      selectFile(file);
-      return;
-    }
-    openMenu(file);
-    return;
-  }
-  selectFile(file);
-}
-
-function viewDiff(file) {
-  closeMenu();
-  selectFile(file);
-}
-
-function openFileGithub(file) {
-  const url = githubFileUrl(file);
-  if (url) window.open(url, "_blank");
-  closeMenu();
-}
-
-function browseToFolder(file) {
-  closeMenu();
-  const parts = file.path.split("/");
-  parts.pop();
-  emit("git:browseToFolder", { path: parts.join("/") });
-}
-
 function selectFile(file) {
   selectedFile.value = file.path;
-  emit("git:selectDiffFile", { path: file.path });
-}
-
-async function discardFile(file) {
-  closeMenu();
-  if (!await confirmIrreversible(confirm, `Discard changes to "${file.path}"?`)) return;
-  await withWorkspace(async (workspace) => {
-    const result = await apiPost(
-      workspaceGitDiscardPath(workspace),
-      { path: file.path },
-      { errorMessage: `Failed to discard ${file.path}` },
-    );
-    if (result.ok) {
-      await loadWorkingTreeDiff();
-    }
-  });
-}
-
-async function downloadFile(file) {
-  closeMenu();
-  await downloadWorkspaceFile(file.path);
-}
-
-async function deleteFile(file) {
-  closeMenu();
-  if (!await confirmIrreversible(confirm, `Delete file "${file.path}"?`)) return;
-  const ok = await deleteWorkspaceFile(file.path);
-  if (ok) {
-    await loadWorkingTreeDiff();
-  }
+  emit("git:selectDiffFile", { path: file.path, isWorkingTree: isWorkingTree.value });
 }
 
 async function loadWorkingTreeDiff() {
@@ -255,8 +126,6 @@ async function loadCommitDiff(hash) {
   }
 }
 
-fetchEditorSettings();
-
 defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
 </script>
 
@@ -303,23 +172,5 @@ defineExpose({ loadWorkingTreeDiff, loadCommitDiff });
   min-height: 0;
 }
 
-.file-browser-action-menu {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--border);
-}
-
-.file-browser-action-menu button {
-  padding: 5px 10px;
-  font-size: 11px;
-  min-height: 0;
-}
-
-.file-browser-action-delete {
-  color: var(--error);
-  border-color: var(--error);
-}
 
 </style>

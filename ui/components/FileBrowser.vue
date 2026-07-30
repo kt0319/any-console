@@ -21,8 +21,22 @@
       </template>
       <span v-if="props.diffFile" class="file-browser-crumb-badge">Diff</span>
       <span v-if="showHistory" class="file-browser-crumb-badge">History</span>
+      <span v-if="props.diffFile" class="file-browser-header-actions">
+        <button type="button" class="file-browser-header-btn" aria-label="Show in Files" data-tooltip="Show in Files" @click="browseToDiffFolder"><span class="mdi mdi-folder-open-outline" aria-hidden="true"></span></button>
+        <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openDiffFileInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span></button>
+        <button type="button" class="file-browser-header-btn" aria-label="Download" data-tooltip="Download" @click="downloadDiffFile"><span class="mdi mdi-download" aria-hidden="true"></span></button>
+        <button v-if="diffGithubUrl" type="button" class="file-browser-header-btn" aria-label="GitHub" data-tooltip="GitHub" @click="openDiffFileGithub"><span class="mdi mdi-github" aria-hidden="true"></span></button>
+        <button v-if="props.diffIsWorkingTree" type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Discard" data-tooltip="Discard" @click="discardDiffFile"><span class="mdi mdi-undo" aria-hidden="true"></span></button>
+        <button v-if="props.diffIsWorkingTree" type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteDiffFile"><span class="mdi mdi-delete-outline" aria-hidden="true"></span></button>
+      </span>
       <span v-if="!props.diffFile" class="file-browser-header-actions">
         <template v-if="fileContent || showHistory">
+          <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openCurrentFileInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span></button>
+          <button type="button" class="file-browser-header-btn" aria-label="Download" data-tooltip="Download" @click="downloadFile(currentPath)"><span class="mdi mdi-download" aria-hidden="true"></span></button>
+          <button v-if="openFileGithubUrl" type="button" class="file-browser-header-btn" aria-label="GitHub" data-tooltip="GitHub" @click="openCurrentFileGithub"><span class="mdi mdi-github" aria-hidden="true"></span></button>
+          <button type="button" class="file-browser-header-btn" aria-label="Rename" data-tooltip="Rename" @click="renameCurrentPath"><span class="mdi mdi-rename-box" aria-hidden="true"></span></button>
+          <button type="button" class="file-browser-header-btn" aria-label="Move" data-tooltip="Move" @click="moveCurrentPath"><span class="mdi mdi-file-move-outline" aria-hidden="true"></span></button>
+          <button type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteCurrentPath"><span class="mdi mdi-delete-outline" aria-hidden="true"></span></button>
           <button type="button" class="file-browser-header-btn" :aria-label="showHistory ? 'Show file' : 'Show history'" :data-tooltip="showHistory ? 'Show file' : 'Show history'" @click="toggleHistory"><span class="mdi" :class="showHistory ? 'mdi-file-document-outline' : 'mdi-history'" aria-hidden="true"></span></button>
         </template>
         <template v-else>
@@ -30,6 +44,11 @@
           <button type="button" class="file-browser-header-btn" :aria-label="showGitignored ? 'Hide gitignored files' : 'Show gitignored files'" :data-tooltip="showGitignored ? 'Hide gitignored files' : 'Show gitignored files'" @click="showGitignored = !showGitignored"><span class="mdi" :class="showGitignored ? 'mdi-eye-outline' : 'mdi-eye-off-outline'" aria-hidden="true"></span></button>
           <button v-if="editorUrlTemplate" type="button" class="file-browser-header-btn" aria-label="Open in editor" data-tooltip="Open in editor" @click="openDirInEditor"><span class="mdi mdi-file-edit-outline" aria-hidden="true"></span></button>
           <button type="button" class="file-browser-header-btn" aria-label="Upload files" data-tooltip="Upload files" @click="uploadInputEl?.click()"><span class="mdi mdi-upload" aria-hidden="true"></span></button>
+          <template v-if="currentPath">
+            <button type="button" class="file-browser-header-btn" aria-label="Rename" data-tooltip="Rename" @click="renameCurrentPath"><span class="mdi mdi-rename-box" aria-hidden="true"></span></button>
+            <button type="button" class="file-browser-header-btn" aria-label="Move" data-tooltip="Move" @click="moveCurrentPath"><span class="mdi mdi-file-move-outline" aria-hidden="true"></span></button>
+            <button type="button" class="file-browser-header-btn file-browser-header-btn-delete" aria-label="Delete" data-tooltip="Delete" @click="deleteCurrentPath"><span class="mdi mdi-delete-outline" aria-hidden="true"></span></button>
+          </template>
         </template>
       </span>
     </div>
@@ -53,8 +72,6 @@
         <ul class="file-browser-list">
           <template v-for="entry in visibleEntries" :key="entry.name">
             <FileItem
-              long-press-surface
-              :action-open="contextEntry?.name === entry.name"
               :gitignored="entry.gitignored"
               :data-type="entry.type"
               :label="entry.name"
@@ -62,29 +79,6 @@
               :size-text="entrySizeText(entry)"
               :mtime-text="formatRelativeTime(entry.mtime)"
               @click="onEntryClick(entry)"
-              @contextmenu="toggleContextMenu(entry)"
-              @mouseenter="onItemMouseEnter(entry)"
-              @mouseleave="onItemMouseLeave"
-              @mousedown="onLongPressStart($event, entry)"
-              @mouseup="onLongPressEnd"
-              @touchstart="onLongPressStart($event, entry)"
-              @touchend="onLongPressEnd"
-              @touchcancel="onLongPressEnd"
-            />
-            <FileContextMenu
-              v-if="contextEntry?.name === entry.name"
-              :is-file="entry.type === 'file'"
-              :github-url="githubEntryUrl"
-              @open="openEntry(entry)"
-              @editor="openEntryInEditor"
-              @history="openEntryHistory"
-              @download="downloadEntry"
-              @github="openGitHub"
-              @rename="renameEntry"
-              @move="moveEntry"
-              @delete="deleteEntry"
-              @menu-enter="onMenuMouseEnter"
-              @menu-leave="onMenuMouseLeave"
             />
           </template>
         </ul>
@@ -101,7 +95,6 @@ import { computed, ref, toRef, watch, onMounted, onBeforeUnmount } from "vue";
 import FileTextViewer from "./FileTextViewer.vue";
 import FileHistoryPane from "./FileHistoryPane.vue";
 import FileItem from "./FileItem.vue";
-import FileContextMenu from "./FileContextMenu.vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useFileDragDrop } from "../composables/useFileDragDrop.js";
 import { useFileActions } from "../composables/useFileActions.js";
@@ -110,8 +103,8 @@ import { useFileDiff } from "../composables/useFileDiff.js";
 import { useFileBrowserNav } from "../composables/useFileBrowserNav.js";
 import { useFileBrowserCrumbs } from "../composables/useFileBrowserCrumbs.js";
 import { useFileEntryMenu } from "../composables/useFileEntryMenu.js";
+import { useDiffFileHeaderActions } from "../composables/useDiffFileHeaderActions.js";
 import { useShowGitignored } from "../composables/useShowGitignored.js";
-import { useHoverMenu } from "../composables/useHoverMenu.js";
 import { renderFileIcon } from "../utils/file-icon.js";
 import { formatRelativeTime } from "../utils/format.js";
 import { entrySizeText } from "../utils/file-browser.js";
@@ -121,6 +114,8 @@ const workspaceStore = useWorkspaceStore();
 const props = defineProps({
   diffFile: { type: String, default: "" },
   diffMessage: { type: String, default: "" },
+  diffIsWorkingTree: { type: Boolean, default: false },
+  diffCommitHash: { type: String, default: "" },
   rootLabel: { type: String, default: "" },
   terminalSessionId: { type: String, default: "" },
 });
@@ -130,22 +125,14 @@ const {
   isLoading: isFileBrowserLoading, errorMessage: fileBrowserError, showHistory,
   navigateToPath, openFile, toggleHistory,
 } = useFileBrowserNav({ getTerminalSessionId: () => props.terminalSessionId });
-const {
-  contextEntry,
-  openMenu: openContextMenu, closeMenu: closeContextMenu,
-  onItemMouseEnter, onItemMouseLeave,
-  onMenuMouseEnter, onMenuMouseLeave,
-} = useHoverMenu();
 const uploadInputEl = ref(null);
 const { showGitignored } = useShowGitignored(toRef(workspaceStore, "selectedWorkspace"));
 
 const {
-  renameEntry, moveEntry, deleteEntry,
-  downloadEntry,
+  downloadFile,
+  renameCurrentPath, moveCurrentPath, deleteCurrentPath,
   uploadDroppedFiles,
 } = useFileActions({
-  getContextEntry: () => contextEntry.value,
-  clearContextEntry: () => { closeContextMenu(); },
   getCurrentPath: () => currentPath.value,
   getFileContent: () => fileContent.value,
   navigateToPath: (path) => navigateToPath(path),
@@ -161,6 +148,18 @@ const {
 } = useFileDiff({
   getDiffFile: () => props.diffFile,
   getDiffMessage: () => props.diffMessage,
+});
+
+const {
+  githubUrl: diffGithubUrl, openGithub: openDiffFileGithub, openEditor: openDiffFileInEditor,
+  download: downloadDiffFile, browseToFolder: browseToDiffFolder,
+  discard: discardDiffFile, deleteFile: deleteDiffFile,
+} = useDiffFileHeaderActions({
+  filePath: computed(() => props.diffFile),
+  isWorkingTree: computed(() => props.diffIsWorkingTree),
+  commitHash: computed(() => props.diffCommitHash),
+  editorUrlTemplate,
+  openInEditor,
 });
 
 const {
@@ -189,16 +188,12 @@ const {
 });
 
 const {
-  githubEntryUrl,
-  onLongPressStart, onLongPressEnd,
-  toggleContextMenu,
-  openGitHub,
-  openEntry, openEntryHistory, openEntryInEditor, openDirInEditor,
+  openDirInEditor,
+  openFileGithubUrl, openCurrentFileGithub, openCurrentFileInEditor,
   onEntryClick,
 } = useFileEntryMenu({
-  currentPath, fileContent, showHistory,
+  currentPath, fileContent,
   navigateToPath, openFile,
-  contextEntry, openContextMenu, closeContextMenu,
   editorUrlTemplate, openInEditor,
 });
 
@@ -322,6 +317,21 @@ defineExpose({ load: () => navigateToPath(""), navigateToPath });
   gap: 8px;
   flex-shrink: 0;
 }
+
+@media (max-width: 767px) {
+  .file-browser-header-actions {
+    flex-basis: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
+    margin-top: 4px;
+  }
+}
+
+.file-browser-header-btn-delete {
+  color: var(--error);
+  border-color: var(--error);
+}
+
 
 .file-browser-crumb-badge {
   margin-left: 4px;

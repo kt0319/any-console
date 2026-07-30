@@ -57,7 +57,7 @@ defineEmits([
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 36px;
+  min-height: 44px;
   padding: 0 8px;
   border-bottom: 1px solid var(--border);
   color: var(--text-primary);
@@ -70,6 +70,12 @@ defineEmits([
 
 .file-browser-item[data-type="file"] {
   cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .file-browser-item:hover {
+    background: var(--bg-tertiary);
+  }
 }
 
 .file-browser-item-icon {

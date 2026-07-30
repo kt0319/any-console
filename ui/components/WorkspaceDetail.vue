@@ -30,6 +30,8 @@
           ref="fileBrowser"
           :diffFile="selectedDiffFile"
           :diffMessage="diffMessage"
+          :diffIsWorkingTree="selectedDiffIsWorkingTree"
+          :diffCommitHash="selectedDiffCommitHash"
           :rootLabel="fileBrowserRootLabel"
           :terminalSessionId="terminalSessionId"
           @state="onFileBrowserState"
@@ -114,6 +116,8 @@ const terminalSelectPane = ref(null);
 const activePane = ref("jobs");
 const selectedDiffFile = ref("");
 const diffMessage = ref("");
+const selectedDiffIsWorkingTree = ref(false);
+const selectedDiffCommitHash = ref("");
 
 const fileBrowserDeep = ref(false);
 const historyExpanded = ref(false);
@@ -161,17 +165,22 @@ let loadedWorkspace = null;
 let historyLoadedFor = null;
 let filesLoadedFor = null;
 
+function clearDiffSelection() {
+  selectedDiffFile.value = "";
+  diffMessage.value = "";
+  selectedDiffIsWorkingTree.value = false;
+  selectedDiffCommitHash.value = "";
+}
+
 function handleBack() {
   if (activePane.value === "history" && gitHistory.value?.hasExpanded?.()) {
     gitHistory.value?.closeExpanded?.();
-    selectedDiffFile.value = "";
-    diffMessage.value = "";
+    clearDiffSelection();
     updateViewTitle();
     return true;
   }
   if (selectedDiffFile.value) {
-    selectedDiffFile.value = "";
-    diffMessage.value = "";
+    clearDiffSelection();
     return true;
   }
   return false;
@@ -186,8 +195,7 @@ function open(options) {
   if (gitOnlyPanes.has(resolvedPane) && !workspaceStore.currentWorkspace?.is_git_repo) {
     resolvedPane = "files";
   }
-  selectedDiffFile.value = "";
-  diffMessage.value = "";
+  clearDiffSelection();
   updateViewTitle();
 
   const workspace = terminalSessionId.value ? null : workspaceStore.selectedWorkspace;
@@ -273,20 +281,20 @@ const _offHandlers = [
   }),
 
   on("git:selectDirty", () => {
-    selectedDiffFile.value = "";
-    diffMessage.value = "";
+    clearDiffSelection();
   }),
 
-  on("git:selectDiffFile", ({ path }) => {
+  on("git:selectDiffFile", ({ path, isWorkingTree, commitHash }) => {
     switchPane("files");
     selectedDiffFile.value = path;
     diffMessage.value = "";
+    selectedDiffIsWorkingTree.value = !!isWorkingTree;
+    selectedDiffCommitHash.value = commitHash || "";
   }),
 
   on("git:browseToFolder", ({ path }) => {
     activePane.value = "files";
-    selectedDiffFile.value = "";
-    diffMessage.value = "";
+    clearDiffSelection();
     filesLoadedFor = workspaceStore.selectedWorkspace;
     updateViewTitle();
     nextTick(() => fileBrowser.value?.navigateToPath(path));

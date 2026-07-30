@@ -20,6 +20,12 @@
             </span>
           </span>
         </span>
+        <CommitActionMenu
+          v-if="selectedCommitForFiles.hash !== '__dirty__'"
+          :branches="entryBranches(selectedCommitForFiles)"
+          @click.stop
+          @exec="onCommitAction(selectedCommitForFiles, $event)"
+        />
       </div>
       <div class="modal-scroll-body">
         <div v-if="isSelectedCommitFilesLoading" class="text-muted-center">Loading...</div>
@@ -30,26 +36,12 @@
               :label="file.path"
               :icon-html="fileIconHtml(file)"
               @click="onDiffFileClick(file)"
-              @contextmenu="openDiffMenu(file)"
-              @mouseenter="onDiffFileMouseEnter(file)"
-              @mouseleave="onDiffFileMouseLeave"
-              @mousedown="diffLongPress.startMenu($event, file)"
-              @mouseup="diffLongPress.endMenu()"
-              @touchstart="diffLongPress.startMenu($event, file)"
-              @touchend="diffLongPress.endMenu()"
-              @touchcancel="diffLongPress.endMenu()"
             >
               <template #right>
                 <span v-if="file.numstat" class="diff-file-row-numstat" v-html="file.numstat"></span>
                 <span :class="['diff-file-row-status', statusClass(file.status)]">{{ file.status }}</span>
               </template>
             </FileItem>
-            <FileActionMenu
-              v-if="diffContextEntry?.path === file.path"
-              :actions="diffMenuActions"
-              @menu-enter="onDiffMenuMouseEnter"
-              @menu-leave="onDiffMenuMouseLeave"
-            />
           </template>
         </ul>
       </div>
@@ -61,16 +53,9 @@
       <!-- Changes -->
       <template v-for="(row, idx) in graphRows" :key="idx">
         <div
-          class="git-log-entry git-log-commit long-press-surface"
-          :class="{ 'action-open': row.entry && longPressEntry?.hash === row.entry.hash, 'git-log-graph-only': !row.entry }"
+          class="git-log-entry git-log-commit"
+          :class="{ 'git-log-graph-only': !row.entry }"
           @click="row.entry && openCommitDiffFiles(row.entry)"
-          @mousedown="row.entry && onLongPressStart($event, row.entry)"
-          @mouseup="onLongPressEnd"
-          @mouseleave="onLongPressEnd"
-          @touchstart.passive="row.entry && onLongPressStart($event, row.entry)"
-          @touchend="onLongPressEnd"
-          @touchcancel="onLongPressEnd"
-          @contextmenu.prevent="row.entry && toggleActionMenu(row.entry)"
         >
           <svg class="git-graph-svg" :width="graphWidth" :height="GRAPH_ROW_HEIGHT" :viewBox="'0 0 ' + graphWidth + ' ' + GRAPH_ROW_HEIGHT">
             <template v-for="(seg, si) in row.segments" :key="si">
@@ -93,11 +78,6 @@
             </span>
           </span>
         </div>
-        <CommitActionMenu
-          v-if="row.entry && longPressEntry?.hash === row.entry.hash"
-          :branches="entryBranches(row.entry)"
-          @exec="onCommitAction(row.entry, $event)"
-        />
       </template>
     </div>
   </div>
@@ -107,9 +87,7 @@
 import { computed, onMounted } from "vue";
 
 import FileItem from "./FileItem.vue";
-import FileActionMenu from "./FileActionMenu.vue";
 import CommitActionMenu from "./CommitActionMenu.vue";
-import { useWorkspaceStore } from "../stores/workspace.js";
 import { useGitDiff } from "../composables/useGitDiff.js";
 import { useGitLogPagination } from "../composables/useGitLogPagination.js";
 import { useIsMobile } from "../composables/useIsMobile.js";
@@ -130,9 +108,7 @@ function abbreviateRef(r) {
   return abbreviateBranch(r.label);
 }
 
-const workspaceStore = useWorkspaceStore();
-const { fetchWorkingTreeDiff, fetchCommitDiff } = useGitDiff();
-const isDirty = computed(() => workspaceStore.currentWorkspace && workspaceStore.currentWorkspace.clean === false);
+const { fetchCommitDiff } = useGitDiff();
 
 const {
   graphRows, commitEntries, graphWidth,
@@ -156,26 +132,14 @@ function fileIconHtml(file) {
   return renderFileIconFromPath(file.path);
 }
 
-const {
-  longPressEntry, onLongPressStart, onLongPressEnd, closeLongPressMenu,
-  isLongPressFired, getMenuEl, toggleActionMenu, onCommitAction,
-} = useCommitActionMenu();
+const { onCommitAction } = useCommitActionMenu();
 
 function openDiffFiles(entry, fetchFn) {
   emitToParent("commit:expanded", { message: entry.message });
   return openDiffFilesBase(entry, fetchFn);
 }
 
-function openWorkingTreeDiffFiles() {
-  if (!isDirty.value) return;
-  const dirtyEntry = { message: "Changes", author: "", time: "", hash: "__dirty__", fullHash: "__dirty__" };
-  openDiffFiles(dirtyEntry, fetchWorkingTreeDiff);
-}
-
-
 function openCommitDiffFiles(entry) {
-  if (getMenuEl() || isLongPressFired()) return;
-  if (longPressEntry.value) closeLongPressMenu();
   openDiffFiles(entry, () => fetchCommitDiff(entry.fullHash));
 }
 
@@ -184,15 +148,8 @@ function closeSelectedCommitFiles() {
   emitToParent("commit:collapsed");
 }
 
-const {
-  diffLongPress, diffContextEntry, openDiffMenu,
-  onDiffFileMouseEnter, onDiffFileMouseLeave,
-  onDiffMenuMouseEnter, onDiffMenuMouseLeave,
-  diffMenuActions, onDiffFileClick, showSelectedCommitMessage,
-  fetchEditorSettings,
-} = useDiffFileActions({
+const { onDiffFileClick, showSelectedCommitMessage } = useDiffFileActions({
   selectedCommit: selectedCommitForFiles,
-  reopenWorkingTreeDiff: openWorkingTreeDiffFiles,
 });
 
 async function reloadHistory() {
@@ -201,7 +158,6 @@ async function reloadHistory() {
 
 onMounted(() => {
   loadHistory();
-  fetchEditorSettings();
 });
 
 function hasSelectedCommitFiles() {
@@ -227,6 +183,7 @@ defineExpose({
 
 .diff-files-selected-commit {
   flex-shrink: 0;
+  flex-wrap: wrap;
   background: rgba(130, 170, 255, 0.06);
   border-bottom: 1px solid var(--border);
 }
@@ -267,6 +224,13 @@ defineExpose({
   align-items: center;
   padding: 4px 8px;
   gap: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .git-log-commit:not(.git-log-graph-only):hover {
+    background: var(--bg-tertiary);
+    cursor: pointer;
+  }
 }
 
 .git-log-entry-body {
@@ -346,7 +310,6 @@ defineExpose({
   border-bottom: none;
 }
 
-.git-log-commit.action-open,
 .diff-file-row.action-open {
   background: rgba(130, 170, 255, 0.08);
 }
