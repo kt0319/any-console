@@ -94,13 +94,17 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
   async function resolveUploadTargets(files, existing) {
     const all = Array.from(files);
     const conflicts = all.filter((f) => existing.has(normalizedName(f)));
-    if (conflicts.length === 0) return { targets: all, overwrite: false };
+    if (conflicts.length === 0) return { targets: all, overwrite: false, skippedCount: 0 };
 
     const names = conflicts.map(normalizedName);
     const list = names.slice(0, 5).join(", ") + (names.length > 5 ? `, … and ${names.length - 5} more` : "");
     const overwrite = (await confirm(`Overwrite existing file(s)? ${list}`)) === true;
-    if (overwrite) return { targets: all, overwrite: true };
-    return { targets: all.filter((f) => !existing.has(normalizedName(f))), overwrite: false };
+    if (overwrite) return { targets: all, overwrite: true, skippedCount: 0 };
+    return {
+      targets: all.filter((f) => !existing.has(normalizedName(f))),
+      overwrite: false,
+      skippedCount: conflicts.length,
+    };
   }
 
   async function uploadOne(workspace, uploadPath, file, overwrite) {
@@ -116,9 +120,10 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
     }
   }
 
-  function emitUploadToasts(successCount, failCount) {
+  function emitUploadToasts(successCount, failCount, skippedCount) {
     if (successCount > 0) toast.success(`${successCount} file(s) uploaded`);
     if (failCount > 0) toast.error(`${failCount} file(s) failed to upload`);
+    if (skippedCount > 0) toast.error(`${skippedCount} file(s) skipped (overwrite declined)`);
   }
 
   async function uploadDroppedFiles(files) {
@@ -126,8 +131,11 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
     await withWorkspace(async (workspace) => {
       const uploadPath = getUploadDirPath();
       const existing = await fetchExistingNames(workspace, uploadPath);
-      const { targets, overwrite } = await resolveUploadTargets(files, existing);
-      if (targets.length === 0) return;
+      const { targets, overwrite, skippedCount } = await resolveUploadTargets(files, existing);
+      if (targets.length === 0) {
+        emitUploadToasts(0, 0, skippedCount);
+        return;
+      }
 
       let successCount = 0;
       let failCount = 0;
@@ -137,7 +145,7 @@ export function useFileActions({ getCurrentPath, getFileContent, navigateToPath 
         else failCount += 1;
       }
 
-      emitUploadToasts(successCount, failCount);
+      emitUploadToasts(successCount, failCount, skippedCount);
       await navigateToPath(uploadPath);
     });
   }
