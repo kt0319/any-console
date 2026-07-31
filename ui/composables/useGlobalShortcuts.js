@@ -1,6 +1,7 @@
 import { onMounted, onBeforeUnmount } from "vue";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
+import { useLayoutStore } from "../stores/layout.js";
 import { useConfirm } from "./useConfirm.js";
 import { confirmCloseTab } from "../utils/tab-close-confirm.js";
 import { emit } from "../app-bridge.js";
@@ -9,15 +10,16 @@ import { copyText } from "../utils/clipboard.js";
 export function useGlobalShortcuts({ closeTab }) {
   const terminalStore = useTerminalStore();
   const workspaceStore = useWorkspaceStore();
+  const layoutStore = useLayoutStore();
   const { confirm } = useConfirm();
 
   async function onGlobalKeydown(e) {
     // 選択中のターミナルがあれば Ctrl/Cmd+C をコピーに割り当てる（フォーカスが
-    // 入力フォーム等にあるときは標準のコピー動作を優先するため対象外）。
+    // 入力フォーム等にあるとき、設定画面が開いているときは標準のコピー動作を優先するため対象外）。
     if (e.type === "keydown" && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === "c" || e.key === "C")) {
       const tag = /** @type {HTMLElement} */ (e.target)?.tagName;
       const isFormField = tag === "INPUT" || tag === "TEXTAREA" || /** @type {HTMLElement} */ (e.target)?.isContentEditable;
-      if (!isFormField) {
+      if (!isFormField && !layoutStore.isSettingsOpen) {
         const tab = terminalStore.openTabs.find((t) => t.id === terminalStore.activeTabId);
         if (tab?.term?.hasSelection?.()) {
           const text = tab.term.getSelection();

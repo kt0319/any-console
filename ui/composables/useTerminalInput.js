@@ -1,10 +1,13 @@
 import { WS_MSG_RESIZE } from "../utils/constants.js";
 import { copyText } from "../utils/clipboard.js";
 import { fitTerminal, sendResize } from "./useTerminalResize.js";
+import { useLayoutStore } from "../stores/layout.js";
 
 export function bindTerminalInput(tab) {
   if (tab._inputBound) return;
   tab._inputBound = true;
+
+  const layoutStore = useLayoutStore();
 
   const encoder = new TextEncoder();
 
@@ -22,8 +25,9 @@ export function bindTerminalInput(tab) {
       sendInput(encoder.encode("\n"));
       return false;
     }
-    // 選択がある状態で Ctrl/Cmd+C はコピーに割り当てる（無選択なら SIGINT を送る）
-    if (e.type === "keydown" && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === "c" || e.key === "C")) {
+    // 選択がある状態で Ctrl/Cmd+C はコピーに割り当てる（無選択なら SIGINT を送る）。
+    // 設定画面が開いているときはそちらの標準コピー動作を優先するため対象外。
+    if (e.type === "keydown" && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === "c" || e.key === "C") && !layoutStore.isSettingsOpen) {
       if (tab.term?.hasSelection?.()) {
         const text = tab.term.getSelection();
         if (text) copyText(text);
