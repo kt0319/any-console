@@ -17,11 +17,13 @@
             <span v-else class="preview-label preview-label-none">No workspace</span>
             <span class="preview-sub">{{ p.process }}<span v-if="p.pid"> [pid {{ p.pid }}]</span></span>
           </div>
-          <span class="preview-port">
-            :{{ p.port }}
-            <span v-if="p.proxy_port" class="preview-proxy"> → :{{ p.proxy_port }}</span>
+          <div class="preview-port-row">
+            <span class="preview-port">
+              :{{ p.port }}
+              <span v-if="p.proxy_port" class="preview-proxy"> → :{{ p.proxy_port }}</span>
+            </span>
             <span v-if="p.is_self" class="preview-self">this console</span>
-          </span>
+          </div>
         </div>
         <template v-if="!p.is_self">
           <button type="button" class="preview-copy" :title="copiedPort === p.port ? 'Copied!' : 'Copy URL'" @click="copyUrl(p)">
@@ -111,6 +113,12 @@ onUnmounted(() => {
   font-family: monospace;
   color: var(--text-primary);
 }
+.preview-port-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
 .preview-top-row {
   display: flex;
   align-items: center;
@@ -173,7 +181,7 @@ onUnmounted(() => {
   color: var(--accent);
 }
 .preview-self {
-  margin-left: 6px;
+  flex-shrink: 0;
   font-size: 11px;
   padding: 1px 6px;
   border-radius: 8px;
