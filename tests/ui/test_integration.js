@@ -296,14 +296,10 @@ describe("WorkspaceStatusBar: 素のターミナルの追加ワークスペー�
     expect(wrapper.findAll("button").map((btn) => btn.attributes("aria-label"))).toEqual([
       'Add "any-console" workspace',
       "Files",
-      "History",
-      "Changes",
-      "Branches",
+      "No git",
     ]);
     expect(wrapper.find('[aria-label="Files"]').attributes("disabled")).toBeUndefined();
-    for (const label of ["History", "Changes", "Branches"]) {
-      expect(wrapper.find(`[aria-label="${label}"]`).attributes("disabled")).toBeDefined();
-    }
+    expect(wrapper.find('[aria-label="No git"]').attributes("disabled")).toBeDefined();
 
     wrapper.unmount();
   });

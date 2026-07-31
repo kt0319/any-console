@@ -27,26 +27,30 @@
           </button>
           <div class="status-divider"></div>
         </template>
-        <button v-if="!isMobile || !isDirty" type="button" class="status-nav-btn status-msg-btn" :class="{ 'status-placeholder-btn': isPlainTerminal }" :disabled="isPlainTerminal" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
-          <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
-          <span v-if="isGitRepo" class="status-msg-text" :class="{ 'status-msg-loading loading-dots': statusLoading }">{{ msgText }}</span>
-          <span v-else class="status-btn-label status-btn-label-always">History</span>
-        </button>
-        <div v-if="!isMobile" class="status-divider"></div>
-        <button v-if="!isMobile || isDirty" type="button" class="status-nav-btn status-numstat-btn" :class="{ 'status-msg-btn': isMobile, 'status-placeholder-btn': isPlainTerminal }" :disabled="isPlainTerminal" tabindex="-1" aria-label="Changes" data-tooltip="Changes" @click="openFileModal('changes')">
-          <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
-          <template v-if="isDirty && !statusLoading">
-            <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
-            <span class="diff-num-plus">+{{ insertions }}</span>
-            <span class="diff-num-del">-{{ deletions }}</span>
-          </template>
-          <span v-else-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Changes</span>
-        </button>
-        <div class="status-divider"></div>
-        <button type="button" class="status-nav-btn status-branch-btn" :class="{ 'status-placeholder-btn': isPlainTerminal }" :disabled="isPlainTerminal" tabindex="-1" aria-label="Branches" data-tooltip="Branches" @click="openFileModal('branch')">
-          <span class="mdi mdi-source-branch status-btn-icon" aria-hidden="true"></span>
-          <span v-if="isGitRepo" class="status-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
-          <span v-else class="status-btn-label status-btn-label-always">Branches</span>
+        <template v-if="isGitRepo">
+          <button v-if="!isMobile || !isDirty" type="button" class="status-nav-btn status-msg-btn" tabindex="-1" aria-label="History" data-tooltip="History" @click="openFileModal('history')">
+            <span class="mdi mdi-history status-btn-icon" aria-hidden="true"></span>
+            <span class="status-msg-text" :class="{ 'status-msg-loading loading-dots': statusLoading }">{{ msgText }}</span>
+          </button>
+          <div v-if="!isMobile && isDirty" class="status-divider"></div>
+          <button v-if="isDirty" type="button" class="status-nav-btn status-numstat-btn" :class="{ 'status-msg-btn': isMobile }" tabindex="-1" aria-label="Changes" data-tooltip="Changes" @click="openFileModal('changes')">
+            <span class="mdi mdi-file-document-multiple-outline status-btn-icon" aria-hidden="true"></span>
+            <template v-if="!statusLoading">
+              <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
+              <span class="diff-num-plus">+{{ insertions }}</span>
+              <span class="diff-num-del">-{{ deletions }}</span>
+            </template>
+            <span v-else class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Changes</span>
+          </button>
+          <div class="status-divider"></div>
+          <button type="button" class="status-nav-btn status-branch-btn" tabindex="-1" aria-label="Branches" data-tooltip="Branches" @click="openFileModal('branch')">
+            <span class="mdi mdi-source-branch status-btn-icon" aria-hidden="true"></span>
+            <span class="status-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
+          </button>
+        </template>
+        <button v-else-if="isPlainTerminal" type="button" class="status-nav-btn status-icon-btn status-placeholder-btn" disabled tabindex="-1" aria-label="No git" data-tooltip="Not a git repository">
+          <span class="mdi mdi-source-branch-remove status-btn-icon" aria-hidden="true"></span>
+          <span v-if="!isMobile" class="status-btn-label status-btn-label-always">No git</span>
         </button>
       </div>
       <div v-if="isGitRepo && !statusLoading && hasGitActions" class="git-actions">
