@@ -52,7 +52,7 @@ describe("ScreenEmpty: phone pairing shortcut", () => {
     expect(wrapper.text()).toContain("Open on your phone");
   });
 
-  it("hides the shortcut on a mobile-sized viewport", async () => {
+  it("shows the shortcut on a mobile-sized viewport too", async () => {
     const layoutStore = useLayoutStore();
     layoutStore.isPanelBottom = true;
     mockApi({ authRequired: true, devices: [] });
@@ -60,10 +60,10 @@ describe("ScreenEmpty: phone pairing shortcut", () => {
     wrapper = mount(ScreenEmpty, { attachTo: document.body });
     await flushPromises();
 
-    expect(wrapper.text()).not.toContain("Open on your phone");
+    expect(wrapper.text()).toContain("Open on your phone");
   });
 
-  it("hides the shortcut once a mobile device is already registered", async () => {
+  it("collapses the Setup section once all eligible items are done, and keeps the checkmark once expanded", async () => {
     const layoutStore = useLayoutStore();
     layoutStore.isPanelBottom = false;
     mockApi({
@@ -75,6 +75,10 @@ describe("ScreenEmpty: phone pairing shortcut", () => {
     await flushPromises();
 
     expect(wrapper.text()).not.toContain("Open on your phone");
+    await wrapper.find(".screen-empty-section-toggle").trigger("click");
+
+    expect(wrapper.text()).toContain("Open on your phone");
+    expect(wrapper.find(".screen-empty-menu-item-done").exists()).toBe(true);
   });
 
   it("hides the shortcut when authentication is disabled", async () => {

@@ -2,24 +2,38 @@
   <div class="screen-empty-container">
     <div class="screen-empty-content">
       <div class="screen-empty-column screen-empty-column-left">
-        <div v-if="showPhonePairing || showHttpsSetup || showPwaInstall || showEnableNotifications" class="screen-empty-section">
-          <div class="screen-empty-section-label">Setup</div>
-          <button v-if="showPhonePairing" type="button" class="screen-empty-menu-item" @click="openPhonePairing">
-            <span class="mdi mdi-cellphone screen-empty-menu-icon"></span>
-            <span class="screen-empty-menu-label">Open on your phone</span>
+        <div v-if="eligiblePhonePairing || eligibleHttpsSetup || eligiblePwaInstall || eligibleEnableNotifications" class="screen-empty-section">
+          <button
+            type="button"
+            class="screen-empty-section-label screen-empty-section-toggle"
+            :aria-expanded="setupExpanded"
+            @click="setupExpanded = !setupExpanded"
+          >
+            Setup
+            <span class="mdi" :class="setupExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
           </button>
-          <button v-if="showHttpsSetup" type="button" class="screen-empty-menu-item" @click="showHttpsInstructions">
-            <span class="mdi mdi-lock-outline screen-empty-menu-icon"></span>
-            <span class="screen-empty-menu-label">Set up HTTPS</span>
-          </button>
-          <button v-if="showPwaInstall" type="button" class="screen-empty-menu-item" @click="installPwa">
-            <span class="mdi mdi-cellphone-arrow-down screen-empty-menu-icon"></span>
-            <span class="screen-empty-menu-label">Install as app</span>
-          </button>
-          <button v-if="showEnableNotifications" type="button" class="screen-empty-menu-item" @click="enableNotifications">
-            <span class="mdi mdi-bell-outline screen-empty-menu-icon"></span>
-            <span class="screen-empty-menu-label">Enable notifications</span>
-          </button>
+          <template v-if="setupExpanded">
+            <button v-if="eligibleHttpsSetup" type="button" class="screen-empty-menu-item" :class="{ 'screen-empty-menu-item-done': doneHttpsSetup }" @click="showHttpsInstructions">
+              <span class="mdi mdi-lock-outline screen-empty-menu-icon"></span>
+              <span class="screen-empty-menu-label">Set up HTTPS</span>
+              <span v-if="doneHttpsSetup" class="mdi mdi-check-circle screen-empty-menu-check" aria-label="Done" data-tooltip="Done"></span>
+            </button>
+            <button v-if="eligiblePwaInstall" type="button" class="screen-empty-menu-item" :class="{ 'screen-empty-menu-item-done': donePwaInstall }" @click="installPwa">
+              <span class="mdi mdi-cellphone-arrow-down screen-empty-menu-icon"></span>
+              <span class="screen-empty-menu-label">Install as app</span>
+              <span v-if="donePwaInstall" class="mdi mdi-check-circle screen-empty-menu-check" aria-label="Done" data-tooltip="Done"></span>
+            </button>
+            <button v-if="eligiblePhonePairing" type="button" class="screen-empty-menu-item" :class="{ 'screen-empty-menu-item-done': donePhonePairing }" @click="openPhonePairing">
+              <span class="mdi mdi-cellphone screen-empty-menu-icon"></span>
+              <span class="screen-empty-menu-label">Open on your phone</span>
+              <span v-if="donePhonePairing" class="mdi mdi-check-circle screen-empty-menu-check" aria-label="Done" data-tooltip="Done"></span>
+            </button>
+            <button v-if="eligibleEnableNotifications" type="button" class="screen-empty-menu-item" :class="{ 'screen-empty-menu-item-done': doneEnableNotifications }" @click="enableNotifications">
+              <span class="mdi mdi-bell-outline screen-empty-menu-icon"></span>
+              <span class="screen-empty-menu-label">Enable notifications</span>
+              <span v-if="doneEnableNotifications" class="mdi mdi-check-circle screen-empty-menu-check" aria-label="Done" data-tooltip="Done"></span>
+            </button>
+          </template>
         </div>
 
         <div class="screen-empty-section">
@@ -60,7 +74,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRecentJobs } from "../composables/useRecentJobs.js";
 import { emit } from "../app-bridge.js";
 import { useConfirm } from "../composables/useConfirm.js";
@@ -87,23 +101,23 @@ const { confirm } = useConfirm();
 const layoutStore = useLayoutStore();
 const serverInfo = ref(null);
 
-// 「Open on your phone」導線: モバイル端末を一度もペアリングしていないPCにだけ
-// 出す一回きりのオンボーディング促し。一度スマホでの利用が確認できたら
-// (=モバイルUAのdeviceが登録済みなら)以後は出さない — 目的は既に達成済みで、
-// 恒常的に出し続けるとノイズになるため。Settings > Auth の「Add new device」
-// ボタンは、複数台追加したい場合の恒久的な導線として引き続き常設する。
+// 「Open on your phone」導線: 認証必須な環境で出す一回きりのオンボーディング促し。
+// 完了後も項目自体は消さず、チェックマークで完了を示す（何を設定済みか後から
+// 見返せるように）。Settings > Auth の「Add new device」ボタンは、複数台追加したい
+// 場合の恒久的な導線として引き続き常設する。
 const authRequired = ref(false);
 const hasMobileDevice = ref(false);
-const showPhonePairing = computed(() =>
-  !layoutStore.isPanelBottom && authRequired.value && !hasMobileDevice.value
-);
+const eligiblePhonePairing = computed(() => authRequired.value);
+const donePhonePairing = computed(() => hasMobileDevice.value);
 
 // HTTPS未設定の警告・PWAインストール導線。ローカル開発（localhost/127.0.0.1）では
 // HTTPS化は不要なので出さない。HTTPSが無いとPWAインストール自体できないため両者は
-// 排他（HTTP接続中はまずHTTPSを促し、PWA導線はHTTPS化後に出す）。
+// 順序依存（HTTPS化した後にPWA導線が現れる）。完了後も項目は消さずチェックマーク表示にする。
 const isLocalDev = ["localhost", "127.0.0.1"].includes(location.hostname);
-const showHttpsSetup = computed(() => !isLocalDev && location.protocol === "http:");
-const showPwaInstall = computed(() => !isLocalDev && location.protocol === "https:" && !layoutStore.isPwa);
+const eligibleHttpsSetup = computed(() => !isLocalDev);
+const doneHttpsSetup = computed(() => location.protocol === "https:");
+const eligiblePwaInstall = computed(() => !isLocalDev && location.protocol === "https:");
+const donePwaInstall = computed(() => layoutStore.isPwa);
 
 /** @type {Event | null} beforeinstallprompt でキャプチャした遅延プロンプト（Safari等では発火しない）。 */
 let deferredInstallPrompt = null;
@@ -112,12 +126,27 @@ window.addEventListener("beforeinstallprompt", (e) => {
   deferredInstallPrompt = e;
 });
 
-// PWAインストール済み(=isPwa)でまだpush通知を購読していない場合の導線。
+// PWAインストール済み(=isPwa)の場合に出すpush通知の導線。
 // PWA未インストールの間はブラウザ通知の信頼性が低いため、インストール後に出す。
 const push = usePushNotification();
-const showEnableNotifications = computed(() =>
-  layoutStore.isPwa && push.isSupported && push.permission.value !== "denied" && !push.isSubscribed.value
+const eligibleEnableNotifications = computed(() =>
+  layoutStore.isPwa && push.isSupported && push.permission.value !== "denied"
 );
+const doneEnableNotifications = computed(() => push.isSubscribed.value);
+
+// Setup項目が全て完了していたら初期状態でトグルを閉じる。開閉状態はユーザー操作を
+// 尊重し、allSetupDoneが変化した時（=データ読み込み完了時）だけ自動で追従させる。
+const allSetupDone = computed(() => {
+  const items = [
+    { eligible: eligiblePhonePairing.value, done: donePhonePairing.value },
+    { eligible: eligibleHttpsSetup.value, done: doneHttpsSetup.value },
+    { eligible: eligiblePwaInstall.value, done: donePwaInstall.value },
+    { eligible: eligibleEnableNotifications.value, done: doneEnableNotifications.value },
+  ].filter((item) => item.eligible);
+  return items.length > 0 && items.every((item) => item.done);
+});
+const setupExpanded = ref(false);
+watch(allSetupDone, (done) => { setupExpanded.value = !done; }, { immediate: true });
 
 onMounted(() => {
   loadRecentJobs();
@@ -184,10 +213,9 @@ function openTerminal() {
   flex: 1;
   width: 100%;
   height: 100%;
-  align-items: center;
-  justify-content: center;
   padding: 24px 16px;
   position: relative;
+  overflow-y: auto;
 }
 
 .screen-empty-content {
@@ -196,6 +224,7 @@ function openTerminal() {
   gap: 20px;
   width: 100%;
   max-width: 360px;
+  margin: auto;
 }
 
 @media (min-width: 769px) {
@@ -243,6 +272,22 @@ function openTerminal() {
   margin-bottom: 4px;
 }
 
+.screen-empty-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.screen-empty-section-toggle .mdi {
+  font-size: 14px;
+}
+
 .screen-empty-menu-item {
   display: flex;
   align-items: center;
@@ -264,6 +309,17 @@ function openTerminal() {
   width: 20px;
   text-align: center;
   color: var(--text-muted);
+}
+
+.screen-empty-menu-item-done {
+  opacity: 0.6;
+}
+
+.screen-empty-menu-check {
+  margin-left: auto;
+  font-size: 16px;
+  color: var(--success);
+  flex-shrink: 0;
 }
 
 .screen-empty-menu-label {
