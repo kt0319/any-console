@@ -13,17 +13,19 @@
     <CircleKeyPad :state="circleKeypad.state" :keys="circleKeypadKeys" :specials="circleKeypadSpecials" />
     <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
       <div class="pill-group" ref="pillEl">
-        <button
-          v-if="devServerEntry"
-          type="button"
-          class="pill-devserver-btn"
-          aria-label="Dev Server"
-          data-tooltip="Dev Server"
-          @pointerdown.stop
-          @click.stop="openDevServer"
-        >
-          <span class="mdi mdi-server"></span>
-        </button>
+        <Transition name="pill-pop">
+          <button
+            v-if="devServerEntry"
+            type="button"
+            class="pill-devserver-btn"
+            aria-label="Dev Server"
+            data-tooltip="Dev Server"
+            @pointerdown.stop
+            @click.stop="openDevServer"
+          >
+            <span class="mdi mdi-server"></span>
+          </button>
+        </Transition>
         <div
           class="terminal-info-pill"
           :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working', dragging: pillDragging }"
@@ -43,37 +45,43 @@
               <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
             </span>
             {{ tab.workspace || tab.label || '' }}
-            <span v-if="behind > 0 || ahead > 0" class="pill-ahead-behind" aria-label="ahead/behind commits">
-              <span v-if="behind > 0" class="pill-behind">&darr;{{ behind }}</span>
-              <span v-if="ahead > 0" class="pill-ahead">&uarr;{{ ahead }}</span>
-            </span>
+            <Transition name="pill-pop">
+              <span v-if="behind > 0 || ahead > 0" class="pill-ahead-behind" aria-label="ahead/behind commits">
+                <span v-if="behind > 0" class="pill-behind">&darr;{{ behind }}</span>
+                <span v-if="ahead > 0" class="pill-ahead">&uarr;{{ ahead }}</span>
+              </span>
+            </Transition>
           </span>
         </div>
-        <button
-          v-if="isDirty"
-          type="button"
-          class="pill-numstat-btn"
-          aria-label="Changes"
-          data-tooltip="Changes"
-          @pointerdown.stop
-          @click.stop="openChanges"
-        >
-          <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
-          <span class="diff-num-plus">+{{ insertions }}</span>
-          <span class="diff-num-del">-{{ deletions }}</span>
-        </button>
-        <button
-          v-if="isGitRepo && !isDirty"
-          type="button"
-          class="pill-branch-btn"
-          aria-label="Branches"
-          data-tooltip="Branches"
-          @pointerdown.stop
-          @click.stop="openBranch"
-        >
-          <span class="mdi mdi-source-branch"></span>
-          <span class="pill-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
-        </button>
+        <Transition name="pill-pop" mode="out-in">
+          <button
+            v-if="isDirty"
+            key="changes"
+            type="button"
+            class="pill-numstat-btn"
+            aria-label="Changes"
+            data-tooltip="Changes"
+            @pointerdown.stop
+            @click.stop="openChanges"
+          >
+            <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
+            <span class="diff-num-plus">+{{ insertions }}</span>
+            <span class="diff-num-del">-{{ deletions }}</span>
+          </button>
+          <button
+            v-else-if="isGitRepo"
+            key="branch"
+            type="button"
+            class="pill-branch-btn"
+            aria-label="Branches"
+            data-tooltip="Branches"
+            @pointerdown.stop
+            @click.stop="openBranch"
+          >
+            <span class="mdi mdi-source-branch"></span>
+            <span class="pill-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
+          </button>
+        </Transition>
         <button
           v-if="layoutStore.isSplitMode"
           type="button"
@@ -466,6 +474,17 @@ defineExpose({
   align-items: center;
   gap: 4px;
   max-width: min(80vw, 450px);
+}
+
+.pill-pop-enter-active,
+.pill-pop-leave-active {
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.pill-pop-enter-from,
+.pill-pop-leave-to {
+  opacity: 0;
+  transform: scale(0.7);
 }
 
 .terminal-info-pill {
