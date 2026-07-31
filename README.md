@@ -149,6 +149,38 @@ A restart is required for changes to take effect.
 
 As above, the `ANY_CONSOLE_DISABLE_AUTH=1` environment variable works only for foreground runs (`./any-console run`) or a custom service environment — not with `./any-console start`, which does not pass your shell environment to the systemd/launchd service.
 
+## Dispatch API
+
+`POST /dispatch` lets external tools (CI, automation, scripts) launch or send text to a workspace session over HTTP, without opening the UI.
+
+If any-console is only reachable via its `.ts.net` address (the default with Tailscale Serve, see [HTTPS](#https) below), the caller must be on the same tailnet — a hosted CI runner isn't by default. For GitHub Actions, add a step with [`tailscale/github-action`](https://github.com/tailscale/tailscale-github-action) (OAuth client credentials in Secrets, scoped via a Tailscale ACL tag) before the `curl` step. See `.github/workflows/dispatch-on-ci-failure.yml` for a working example.
+
+```bash
+curl -X POST https://<your-device>.ts.net/dispatch \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "workspace": "my-project",
+    "job": "terminal",
+    "text": "npm run build\n"
+  }'
+```
+
+By default (`direct: false`), the request waits in an approval queue — open it from Settings > Dispatches, or via a push notification if enabled. Only after a human approves does the text actually get sent. Set `"direct": true` to skip the queue and run immediately (not allowed for scoped dispatch tokens, see below).
+
+Key fields on the request body (`api/routers/dispatch.py`):
+
+| Field | Description |
+|---|---|
+| `workspace` | Workspace ID or display name to target |
+| `job` | Job key to launch (default: `terminal`) |
+| `text` | Text to send to the session (e.g. a shell command) |
+| `branch` | Checkout this branch before running (rejected with 400 if the workspace has uncommitted changes and the branch differs from the current one) |
+| `direct` | `true` = run immediately, skip the approval queue (default: `false`) |
+| `dedup_key` | Opaque string; a new request with the same key replaces the still-pending one instead of queuing a duplicate (useful for repeated CI-failure dispatches) |
+
+For CI/automation, use a **scoped dispatch token** instead of your main token — create one from Settings > Auth > API Tokens. It can only queue dispatch requests (`direct: true` is rejected) and cannot approve queue items or access anything else, so a leaked CI secret can't be used to run arbitrary commands on its own.
+
 ## HTTPS
 
 PWA installation and service workers require HTTPS.
