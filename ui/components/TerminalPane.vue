@@ -15,7 +15,7 @@
       <div
         class="pill-group"
         ref="pillEl"
-        :style="{ right: pillExpanded ? 'min(290px, 60%)' : '10px' }"
+        :style="{ right: pillGroupRight }"
       >
         <div
           class="terminal-info-pill"
@@ -45,7 +45,7 @@
             </Transition>
           </span>
         </div>
-        <div class="pill-trailing">
+        <div class="pill-trailing" ref="trailingEl">
           <TransitionGroup name="pill-pop">
             <button
               v-if="pillExpanded && devServerEntry"
@@ -218,6 +218,7 @@ const paneEl = ref(null);
 const frameEl = ref(null);
 const pillEl = ref(null);
 const infoPillEl = ref(null);
+const trailingEl = ref(null);
 let activeFitTimer = null;
 
 // ピル本体（アイコン・ワークスペース名・ahead/behind。展開ボタン群は含まない）が
@@ -286,6 +287,28 @@ watch(pillExpanded, (expanded) => {
     document.removeEventListener("keydown", collapsePill, true);
   }
 });
+
+// 展開時、.pill-trailing（Dev Server/Changes/Branches/Close）の実測幅ぶんだけ
+// pill-group を左へ寄せる。固定値だと実際のボタン構成によって画面端との間に
+// 余白が残ってしまう（× ボタンが画面端に届かない）ため、常に実測値を使う。
+const trailingWidth = ref(0);
+let roTrailing = null;
+
+watch(trailingEl, (el) => {
+  roTrailing?.disconnect();
+  roTrailing = null;
+  if (!el) return;
+  roTrailing = new ResizeObserver((entries) => {
+    for (const e of entries) trailingWidth.value = e.contentRect.width;
+  });
+  roTrailing.observe(el);
+});
+
+const pillGroupRight = computed(() =>
+  pillExpanded.value
+    ? `calc(var(--pill-base-right) + ${trailingWidth.value}px)`
+    : "var(--pill-base-right)",
+);
 
 const tabId = computed(() => props.tab.id);
 const { pillDragging, onPillMouseDown, onPillClick, onPillTouchStart, onPillTouchMove, onPillTouchEnd } = usePillDrag({
@@ -488,6 +511,8 @@ onBeforeUnmount(() => {
   stopPreviewPolling();
   roPane?.disconnect();
   roPane = null;
+  roTrailing?.disconnect();
+  roTrailing = null;
   document.removeEventListener("pointerdown", onDocumentPointerDownForPill, true);
   document.removeEventListener("keydown", collapsePill, true);
   if (pillEl.value) {
@@ -545,11 +570,11 @@ defineExpose({
 .pill-group {
   position: absolute;
   top: 10px;
-  /* 畳んでいる時は画面右端ぎりぎり(10px)。展開時だけ、Changes/Branches/Close
-     が収まる分の余白(290px)を確保する。right の値自体は script 側で
-     pillExpanded に応じて切り替え、ここでは transition だけ持たせて
-     瞬間移動ではなく滑らかに動くようにする。 */
-  right: 10px;
+  /* 畳んでいる時の画面端からの余白。@media (min-width: 769px) で上書きされる。
+     展開時は script 側で --pill-base-right に .pill-trailing の実測幅を
+     足した calc() を right に設定し、× ボタンが常に画面端に届くようにする。 */
+  --pill-base-right: 10px;
+  right: var(--pill-base-right);
   transition: right 0.35s ease;
   /* Modal.vue の .modal-overlay(z-index:20) より下にして、設定ダイアログ表示中は
      このピルが上に乗って見えない・誤操作できてしまわないようにする。 */
@@ -838,7 +863,7 @@ defineExpose({
 @media (min-width: 769px) {
   .pill-group {
     top: 20px;
-    right: 20px;
+    --pill-base-right: 20px;
   }
 
   .terminal-info-pill {
