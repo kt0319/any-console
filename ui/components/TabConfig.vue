@@ -460,7 +460,6 @@ onMounted(loadDetached);
 .detached-title {
   font-size: 11px;
   font-weight: 600;
-  text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-muted);
 }

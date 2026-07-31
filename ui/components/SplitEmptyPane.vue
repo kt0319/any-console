@@ -139,7 +139,6 @@ function onRemovePane() {
 .empty-pane-title {
   font-size: 12px;
   color: var(--text-muted);
-  text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 

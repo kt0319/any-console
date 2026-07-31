@@ -148,7 +148,6 @@ onMounted(async () => {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
-  text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 </style>

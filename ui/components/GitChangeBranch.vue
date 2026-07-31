@@ -381,7 +381,6 @@ defineExpose({ load: loadBranchList, backgroundFetch });
   color: var(--text-secondary);
   background: color-mix(in srgb, var(--bg-tertiary) 60%, transparent);
   border-bottom: 1px solid var(--border);
-  text-transform: uppercase;
 }
 
 .branch-section-header-toggle {

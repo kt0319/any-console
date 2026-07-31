@@ -45,7 +45,6 @@ const { queue } = useDispatchConfirm();
 .settings-section-label {
   font-size: 11px;
   font-weight: 600;
-  text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-muted);
   padding: 4px 4px 0;

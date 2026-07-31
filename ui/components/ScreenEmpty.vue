@@ -266,7 +266,6 @@ function openTerminal() {
   font-size: 10px;
   font-weight: 600;
   color: var(--text-muted);
-  text-transform: uppercase;
   letter-spacing: 0.06em;
   padding: 0 8px;
   margin-bottom: 4px;
