@@ -12,22 +12,26 @@
     <StatusOverlay :visible="isReconnecting" :label="reconnectLabel" variant="warning" />
     <CircleKeyPad :state="circleKeypad.state" :keys="circleKeypadKeys" :specials="circleKeypadSpecials" />
     <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
-      <div class="pill-group" ref="pillEl">
-        <Transition name="pill-pop">
-          <button
-            v-if="devServerEntry"
-            type="button"
-            class="pill-devserver-btn"
-            aria-label="Dev Server"
-            data-tooltip="Dev Server"
-            @pointerdown.stop
-            @click.stop="openDevServer"
-          >
-            <span class="mdi mdi-server"></span>
-          </button>
-        </Transition>
+      <div class="pill-group" ref="pillEl" :style="{ right: pillExpanded ? '290px' : '10px' }">
+        <div class="pill-leading">
+          <TransitionGroup name="pill-pop">
+            <button
+              v-if="pillExpanded && devServerEntry"
+              key="devserver"
+              type="button"
+              class="pill-devserver-btn"
+              aria-label="Dev Server"
+              data-tooltip="Dev Server"
+              @pointerdown.stop
+              @click.stop="openDevServer"
+            >
+              <span class="mdi mdi-server"></span>
+            </button>
+          </TransitionGroup>
+        </div>
         <div
           class="terminal-info-pill"
+          ref="infoPillEl"
           :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working', dragging: pillDragging }"
           :data-tooltip="pillTooltip"
           tabindex="-1"
@@ -53,55 +57,59 @@
             </Transition>
           </span>
         </div>
-        <Transition name="pill-pop" mode="out-in">
-          <button
-            v-if="isDirty"
-            key="changes"
-            type="button"
-            class="pill-numstat-btn"
-            aria-label="Changes"
-            data-tooltip="Changes"
-            @pointerdown.stop
-            @click.stop="openChanges"
-          >
-            <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
-            <span class="diff-num-plus">+{{ insertions }}</span>
-            <span class="diff-num-del">-{{ deletions }}</span>
-          </button>
-          <button
-            v-else-if="isGitRepo"
-            key="branch"
-            type="button"
-            class="pill-branch-btn"
-            aria-label="Branches"
-            data-tooltip="Branches"
-            @pointerdown.stop
-            @click.stop="openBranch"
-          >
-            <span class="mdi mdi-source-branch"></span>
-            <span class="pill-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
-          </button>
-        </Transition>
-        <button
-          v-if="layoutStore.isSplitMode"
-          type="button"
-          class="pill-close-btn pill-minus-btn"
-          aria-label="Remove from split"
-          data-tooltip="Remove from split"
-          @pointerdown.stop="onSplitCloseDown"
-          @pointerup.stop="onSplitCloseUp"
-          @click.stop
-        >&minus;</button>
-        <button
-          v-if="!layoutStore.isSplitMode"
-          type="button"
-          class="pill-close-btn pill-tab-close-btn"
-          aria-label="Close tab"
-          data-tooltip="Close tab"
-          @pointerdown.stop="onTabCloseDown"
-          @pointerup.stop="onTabCloseUp"
-          @click.stop
-        >&times;</button>
+        <div class="pill-trailing">
+          <TransitionGroup name="pill-pop">
+            <button
+              v-if="pillExpanded && isDirty"
+              key="changes"
+              type="button"
+              class="pill-numstat-btn"
+              aria-label="Changes"
+              data-tooltip="Changes"
+              @pointerdown.stop
+              @click.stop="openChanges"
+            >
+              <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
+              <span class="diff-num-plus">+{{ insertions }}</span>
+              <span class="diff-num-del">-{{ deletions }}</span>
+            </button>
+            <button
+              v-if="pillExpanded && isGitRepo"
+              key="branch"
+              type="button"
+              class="pill-branch-btn"
+              aria-label="Branches"
+              data-tooltip="Branches"
+              @pointerdown.stop
+              @click.stop="openBranch"
+            >
+              <span class="mdi mdi-source-branch"></span>
+              <span class="pill-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
+            </button>
+            <button
+              v-if="pillExpanded && layoutStore.isSplitMode"
+              key="minus"
+              type="button"
+              class="pill-close-btn pill-minus-btn"
+              aria-label="Remove from split"
+              data-tooltip="Remove from split"
+              @pointerdown.stop="onSplitCloseDown"
+              @pointerup.stop="onSplitCloseUp"
+              @click.stop
+            >&minus;</button>
+            <button
+              v-if="pillExpanded && !layoutStore.isSplitMode"
+              key="close"
+              type="button"
+              class="pill-close-btn pill-tab-close-btn"
+              aria-label="Close tab"
+              data-tooltip="Close tab"
+              @pointerdown.stop="onTabCloseDown"
+              @pointerup.stop="onTabCloseUp"
+              @click.stop
+            >&times;</button>
+          </TransitionGroup>
+        </div>
       </div>
     </div>
   </div>
@@ -209,10 +217,11 @@ const { ensureTerminalOpened, fitTerminal, sendResize, observeFrameResize, conne
 const paneEl = ref(null);
 const frameEl = ref(null);
 const pillEl = ref(null);
+const infoPillEl = ref(null);
 let activeFitTimer = null;
 
-// ピル（ワークスペース名込み）がペイン幅の半分以上を占有したら、ワークスペース名を
-// 省いてアイコン・ボタン類のスペースを優先する。
+// ピル本体（アイコン・ワークスペース名・ahead/behind。展開ボタン群は含まない）が
+// ペイン幅の半分以上を占有したら、ワークスペース名を省いてスペースを優先する。
 // 名前を隠すとピル自体が縮んで判定条件から外れてしまう（表示/非表示のバタつき）ため、
 // 「最後に名前込みで表示できていた時のピル幅」を基準にヒステリシスを持たせる。
 // 　- 表示中: ピル幅を都度記録し、ペイン幅の半分を超えたら隠す
@@ -233,7 +242,7 @@ function updatePaneNarrow() {
   }
 }
 
-watch([paneEl, pillEl], ([paneNode, pillNode]) => {
+watch([paneEl, infoPillEl], ([paneNode, pillNode]) => {
   roPane?.disconnect();
   roPane = null;
   if (!paneNode || !pillNode) return;
@@ -253,11 +262,40 @@ const pillTooltip = computed(() =>
   layoutStore.isTouchDevice ? "Tap for details" : "Drag to split  ·  Click for details",
 );
 
+// ピルの Dev Server / Changes・Branches / Close ボタンは普段は畳んでおき、
+// ピルを一度タップした時だけ展開する。展開中に他の操作（ピル外のクリック・
+// キー入力）があったら閉じる。展開済みでもう一度タップした時だけ、
+// 従来通り Files/Branches モーダルを開く。
+const pillExpanded = ref(false);
+
+function collapsePill() {
+  pillExpanded.value = false;
+}
+
+function onDocumentPointerDownForPill(e) {
+  if (pillEl.value && pillEl.value.contains(e.target)) return;
+  collapsePill();
+}
+
+watch(pillExpanded, (expanded) => {
+  if (expanded) {
+    document.addEventListener("pointerdown", onDocumentPointerDownForPill, true);
+    document.addEventListener("keydown", collapsePill, true);
+  } else {
+    document.removeEventListener("pointerdown", onDocumentPointerDownForPill, true);
+    document.removeEventListener("keydown", collapsePill, true);
+  }
+});
+
 const tabId = computed(() => props.tab.id);
 const { pillDragging, onPillMouseDown, onPillClick, onPillTouchStart, onPillTouchMove, onPillTouchEnd } = usePillDrag({
   tabId,
   canDrag,
   onTabClick: () => {
+    if (!pillExpanded.value) {
+      pillExpanded.value = true;
+      return;
+    }
     if (props.tab.workspace) {
       workspaceStore.selectedWorkspace = props.tab.workspace;
       // ピルに ahead/behind（push/pullマーク）が出ている時は、その操作をする Branches ペインへ直接開く。
@@ -450,6 +488,8 @@ onBeforeUnmount(() => {
   stopPreviewPolling();
   roPane?.disconnect();
   roPane = null;
+  document.removeEventListener("pointerdown", onDocumentPointerDownForPill, true);
+  document.removeEventListener("keydown", collapsePill, true);
   if (pillEl.value) {
     pillEl.value.removeEventListener("touchmove", onPillTouchMove);
     pillEl.value.removeEventListener("touchend", onPillTouchEnd);
@@ -505,7 +545,12 @@ defineExpose({
 .pill-group {
   position: absolute;
   top: 10px;
+  /* 畳んでいる時は画面右端ぎりぎり(10px)。展開時だけ、Changes/Branches/Close
+     が収まる分の余白(290px)を確保する。right の値自体は script 側で
+     pillExpanded に応じて切り替え、ここでは transition だけ持たせて
+     瞬間移動ではなく滑らかに動くようにする。 */
   right: 10px;
+  transition: right 0.35s ease;
   /* Modal.vue の .modal-overlay(z-index:20) より下にして、設定ダイアログ表示中は
      このピルが上に乗って見えない・誤操作できてしまわないようにする。 */
   z-index: 10;
@@ -515,21 +560,47 @@ defineExpose({
   max-width: min(80vw, 450px);
 }
 
+/* Dev Server / Changes・Branches / Close ボタンは position:absolute で通常の
+   flex フローから外し、.terminal-info-pill だけを唯一のフロー要素にする。
+   こうするとボタンの増減で pill-group 自体の幅が変わっても、ピル本体の
+   画面上の位置は一切動かない（ボタン群はピルの左右に浮いて増減するだけ）。 */
+.pill-leading,
+.pill-trailing {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pill-leading {
+  right: 100%;
+  margin-right: 4px;
+}
+
+.pill-trailing {
+  left: 100%;
+  margin-left: 4px;
+}
+
 .pill-pop-enter-active,
 .pill-pop-leave-active {
-  transition: max-width 0.2s ease, opacity 0.2s ease, padding 0.2s ease, margin 0.2s ease;
+  transition: transform 0.35s ease;
   overflow: hidden;
   white-space: nowrap;
 }
 
 .pill-pop-enter-from,
 .pill-pop-leave-to {
-  max-width: 0;
-  opacity: 0;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
+  /* ピル自体の移動量（.pill-group の right: 10px → 290px、差分280px）に
+     揃える。100vw 等の大きな距離だと、ピルの移動と別々のスピード・距離で
+     動いているように見えてバラバラな印象になるため合わせる。 */
+  transform: translateX(280px);
+}
+
+.pill-pop-move {
+  transition: transform 0.35s ease;
 }
 
 .terminal-info-pill {
@@ -549,6 +620,12 @@ defineExpose({
   -webkit-touch-callout: none;
   cursor: pointer;
   gap: 6px;
+  /* flex-shrink:0（デフォルトの1のまま放置しない）: 展開ボタン群のポップ
+     アニメーション中に、このピル自体の幅が兄弟の伸縮に引っ張られて揺れると、
+     isPaneNarrow 用の ResizeObserver が連鎖的に発火し、CSS トランジションの
+     layout 再計算に上乗せしてカクつく。ピル本体の幅は常に自分のコンテンツだけで
+     決まるようにする。 */
+  flex-shrink: 0;
   min-width: 0;
   overflow: hidden;
 }
