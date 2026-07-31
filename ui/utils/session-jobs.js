@@ -3,16 +3,21 @@
 /**
  * allJobs が空のままジョブセッションを復元すると、タブのジョブアイコンが
  * mdi-play にフォールバックし、以後リロードまで直らない（tab.icon は焼き込み）。
- * ジョブセッションが 1 つでもあるのに allJobs が空なら、一時失敗とみなして再取得すべき。
+ * レスポンス全体ではなく、セッションが参照するワークスペース単位でジョブ定義が
+ * 空なら一時失敗とみなして再取得すべき（他ワークスペース分は届いているのに、
+ * 特定ワークスペースだけ config 読み取りタイミングがずれて空になるケースがある）。
  *
  * @param {Record<string, any>} allJobs /jobs/workspaces の結果
- * @param {{job_name?: string|null}[]} sessions 復元対象のセッション一覧
+ * @param {{job_name?: string|null, workspace?: string|null}[]} sessions 復元対象のセッション一覧
  * @returns {boolean}
  */
 export function needsJobsRefetch(allJobs, sessions) {
-  const isEmpty = !allJobs || Object.keys(allJobs).length === 0;
-  if (!isEmpty) return false;
-  return (sessions || []).some((s) => !!s.job_name);
+  const jobs = allJobs || {};
+  return (sessions || []).some((s) => {
+    if (!s.job_name) return false;
+    const wsJobs = s.workspace ? jobs[s.workspace] : null;
+    return !wsJobs || Object.keys(wsJobs).length === 0;
+  });
 }
 
 /**
