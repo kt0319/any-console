@@ -12,23 +12,11 @@
     <StatusOverlay :visible="isReconnecting" :label="reconnectLabel" variant="warning" />
     <CircleKeyPad :state="circleKeypad.state" :keys="circleKeypadKeys" :specials="circleKeypadSpecials" />
     <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
-      <div class="pill-group" ref="pillEl" :style="{ right: pillExpanded ? '290px' : '10px' }">
-        <div class="pill-leading">
-          <TransitionGroup name="pill-pop">
-            <button
-              v-if="pillExpanded && devServerEntry"
-              key="devserver"
-              type="button"
-              class="pill-devserver-btn"
-              aria-label="Dev Server"
-              data-tooltip="Dev Server"
-              @pointerdown.stop
-              @click.stop="openDevServer"
-            >
-              <span class="mdi mdi-server"></span>
-            </button>
-          </TransitionGroup>
-        </div>
+      <div
+        class="pill-group"
+        ref="pillEl"
+        :style="{ right: pillExpanded ? 'min(290px, 60%)' : '10px' }"
+      >
         <div
           class="terminal-info-pill"
           ref="infoPillEl"
@@ -59,6 +47,18 @@
         </div>
         <div class="pill-trailing">
           <TransitionGroup name="pill-pop">
+            <button
+              v-if="pillExpanded && devServerEntry"
+              key="devserver"
+              type="button"
+              class="pill-devserver-btn"
+              aria-label="Dev Server"
+              data-tooltip="Dev Server"
+              @pointerdown.stop
+              @click.stop="openDevServer"
+            >
+              <span class="mdi mdi-server"></span>
+            </button>
             <button
               v-if="pillExpanded && isDirty"
               key="changes"
@@ -563,8 +563,7 @@ defineExpose({
 /* Dev Server / Changes・Branches / Close ボタンは position:absolute で通常の
    flex フローから外し、.terminal-info-pill だけを唯一のフロー要素にする。
    こうするとボタンの増減で pill-group 自体の幅が変わっても、ピル本体の
-   画面上の位置は一切動かない（ボタン群はピルの左右に浮いて増減するだけ）。 */
-.pill-leading,
+   画面上の位置は一切動かない（ボタン群はピルの右に浮いて増減するだけ）。 */
 .pill-trailing {
   position: absolute;
   top: 50%;
@@ -572,14 +571,6 @@ defineExpose({
   display: inline-flex;
   align-items: center;
   gap: 4px;
-}
-
-.pill-leading {
-  right: 100%;
-  margin-right: 4px;
-}
-
-.pill-trailing {
   left: 100%;
   margin-left: 4px;
 }
@@ -593,10 +584,8 @@ defineExpose({
 
 .pill-pop-enter-from,
 .pill-pop-leave-to {
-  /* ピル自体の移動量（.pill-group の right: 10px → 290px、差分280px）に
-     揃える。100vw 等の大きな距離だと、ピルの移動と別々のスピード・距離で
-     動いているように見えてバラバラな印象になるため合わせる。 */
-  transform: translateX(280px);
+  /* アニメーション開始位置がディスプレイの右端に一致するよう、画面幅基準にする。 */
+  transform: translateX(100vw);
 }
 
 .pill-pop-move {
