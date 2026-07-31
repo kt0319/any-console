@@ -13,6 +13,17 @@
     <CircleKeyPad :state="circleKeypad.state" :keys="circleKeypadKeys" :specials="circleKeypadSpecials" />
     <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
       <div class="pill-group" ref="pillEl">
+        <button
+          v-if="devServerEntry"
+          type="button"
+          class="pill-devserver-btn"
+          aria-label="Dev Server"
+          data-tooltip="Dev Server"
+          @pointerdown.stop
+          @click.stop="openDevServer"
+        >
+          <span class="mdi mdi-server"></span>
+        </button>
         <div
           class="terminal-info-pill"
           :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working', dragging: pillDragging }"
@@ -32,7 +43,7 @@
               <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
             </span>
             {{ tab.workspace || tab.label || '' }}
-            <span v-if="layoutStore.isSplitMode && (behind > 0 || ahead > 0)" class="pill-ahead-behind" aria-label="ahead/behind commits">
+            <span v-if="behind > 0 || ahead > 0" class="pill-ahead-behind" aria-label="ahead/behind commits">
               <span v-if="behind > 0" class="pill-behind">&darr;{{ behind }}</span>
               <span v-if="ahead > 0" class="pill-ahead">&uarr;{{ ahead }}</span>
             </span>
@@ -61,7 +72,7 @@
           @click.stop="openBranch"
         >
           <span class="mdi mdi-source-branch"></span>
-          <span class="pill-branch-text">{{ branchParts.rest }}</span>
+          <span class="pill-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
         </button>
         <button
           v-if="layoutStore.isSplitMode"
@@ -105,9 +116,13 @@ import { confirmCloseTab } from "../utils/tab-close-confirm.js";
 import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.js";
 import { useCircleKeyPad } from "../composables/useCircleKeyPad.js";
 import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.js";
+import { useIsMobile } from "../composables/useIsMobile.js";
+import { useApi } from "../composables/useApi.js";
 import CircleKeyPad from "./CircleKeyPad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
+import { DEV_SERVER_POLL_INTERVAL_MS } from "../utils/constants.js";
+import { EP_PREVIEW_PORTS } from "../utils/endpoints.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -120,13 +135,53 @@ const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const workspaceStore = useWorkspaceStore();
 const { confirm } = useConfirm();
+const { isMobile } = useIsMobile();
+const { apiGet } = useApi();
 
 const paneWorkspace = computed(() =>
   props.tab.workspace ? workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace) : undefined,
 );
 // 分割モードでは WorkspaceStatusBar（アクティブタブ1つ分の表示）が隠れるため、
 // ペインごとの git 情報（変更行数・ahead/behind）をピルに直接出す。
-const { isDirty, isGitRepo, ahead, behind, changedFiles, insertions, deletions, branchParts } = useWorkspaceGitStatus(paneWorkspace, ref(false));
+const { isDirty, isGitRepo, ahead, behind, changedFiles, insertions, deletions, branchParts } = useWorkspaceGitStatus(paneWorkspace, isMobile);
+
+// WorkspaceStatusBar と同じ理由（分割モードでは隠れる）で Dev Server ボタンもピルに直接出す。
+const previewPorts = ref(/** @type {Record<string, any>[]} */ ([]));
+let previewTimer = null;
+
+async function fetchPreviewPorts() {
+  if (!props.tab.workspace) { previewPorts.value = []; return; }
+  const { ok, data } = await apiGet(EP_PREVIEW_PORTS);
+  if (ok && Array.isArray(data)) previewPorts.value = data;
+}
+
+function startPreviewPolling() {
+  stopPreviewPolling();
+  fetchPreviewPorts();
+  previewTimer = setInterval(() => {
+    if (document.hidden) return;
+    fetchPreviewPorts();
+  }, DEV_SERVER_POLL_INTERVAL_MS);
+}
+
+function stopPreviewPolling() {
+  if (previewTimer) { clearInterval(previewTimer); previewTimer = null; }
+}
+
+const devServerEntry = computed(() =>
+  previewPorts.value.find((p) => p.workspace === props.tab.workspace && p.proxy_port) || null,
+);
+
+async function openDevServer() {
+  const p = devServerEntry.value;
+  if (!p) return;
+  const url = `${p.scheme || "http"}://${location.hostname}:${p.proxy_port}/`;
+  const ok = await confirm(`Open dev server preview at "${url}"?`, {
+    ok: { label: "Open" },
+  });
+  if (!ok) return;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
 
 function openChanges() {
   if (!props.tab.workspace) return;
@@ -318,7 +373,10 @@ onMounted(() => {
   if (frameEl.value) {
     frameEl.value.addEventListener("wheel", onWheel, { passive: false, capture: true });
   }
+  startPreviewPolling();
 });
+
+watch(() => props.tab.workspace, () => fetchPreviewPorts());
 
 watch(isActive, async (active) => {
   if (!active) return;
@@ -344,6 +402,7 @@ watch(isActive, async (active) => {
 
 onBeforeUnmount(() => {
   clearActiveFitTimer();
+  stopPreviewPolling();
   if (pillEl.value) {
     pillEl.value.removeEventListener("touchmove", onPillTouchMove);
     pillEl.value.removeEventListener("touchend", onPillTouchEnd);
@@ -451,6 +510,22 @@ defineExpose({
   color: var(--accent);
 }
 
+.pill-devserver-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  width: 28px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid rgba(59, 66, 97, 0.5);
+  border-radius: 999px;
+  background: rgba(26, 27, 38, 0.88);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
 .pill-numstat-btn {
   display: inline-flex;
   align-items: center;
@@ -484,7 +559,6 @@ defineExpose({
   background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
   font-size: 11px;
-  font-weight: 600;
   cursor: pointer;
 }
 
@@ -499,6 +573,11 @@ defineExpose({
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+
+.branch-abbr {
+  color: var(--accent);
+  font-weight: 500;
 }
 
 .terminal-info-pill.dragging {
