@@ -44,7 +44,7 @@
               <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
               <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
             </span>
-            {{ tab.workspace || tab.label || '' }}
+            <span v-if="!isPaneNarrow" class="pill-workspace-label">{{ tab.workspace || tab.label || '' }}</span>
             <Transition name="pill-pop">
               <span v-if="behind > 0 || ahead > 0" class="pill-ahead-behind" aria-label="ahead/behind commits">
                 <span v-if="behind > 0" class="pill-behind">&darr;{{ behind }}</span>
@@ -210,6 +210,43 @@ const paneEl = ref(null);
 const frameEl = ref(null);
 const pillEl = ref(null);
 let activeFitTimer = null;
+
+// ピル（ワークスペース名込み）がペイン幅の半分以上を占有したら、ワークスペース名を
+// 省いてアイコン・ボタン類のスペースを優先する。
+// 名前を隠すとピル自体が縮んで判定条件から外れてしまう（表示/非表示のバタつき）ため、
+// 「最後に名前込みで表示できていた時のピル幅」を基準にヒステリシスを持たせる。
+// 　- 表示中: ピル幅を都度記録し、ペイン幅の半分を超えたら隠す
+// 　- 非表示中: 記録済みのピル幅がペイン幅の半分以内に収まるようになったら再表示する
+const isPaneNarrow = ref(false);
+let lastShownPillWidth = 0;
+let paneWidth = 0;
+let pillWidth = 0;
+let roPane = null;
+
+function updatePaneNarrow() {
+  if (!paneWidth) return;
+  if (!isPaneNarrow.value) {
+    lastShownPillWidth = pillWidth;
+    if (pillWidth > paneWidth / 2) isPaneNarrow.value = true;
+  } else if (lastShownPillWidth <= paneWidth / 2) {
+    isPaneNarrow.value = false;
+  }
+}
+
+watch([paneEl, pillEl], ([paneNode, pillNode]) => {
+  roPane?.disconnect();
+  roPane = null;
+  if (!paneNode || !pillNode) return;
+  roPane = new ResizeObserver((entries) => {
+    for (const e of entries) {
+      if (e.target === paneNode) paneWidth = e.contentRect.width;
+      else if (e.target === pillNode) pillWidth = e.contentRect.width;
+    }
+    updatePaneNarrow();
+  });
+  roPane.observe(paneNode);
+  roPane.observe(pillNode);
+});
 
 const canDrag = computed(() => terminalStore.openTabs.length >= 1);
 const pillTooltip = computed(() =>
@@ -411,6 +448,8 @@ watch(isActive, async (active) => {
 onBeforeUnmount(() => {
   clearActiveFitTimer();
   stopPreviewPolling();
+  roPane?.disconnect();
+  roPane = null;
   if (pillEl.value) {
     pillEl.value.removeEventListener("touchmove", onPillTouchMove);
     pillEl.value.removeEventListener("touchend", onPillTouchEnd);
