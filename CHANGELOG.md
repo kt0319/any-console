@@ -5,6 +5,192 @@ All notable changes to this project will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0](https://github.com/kt0319/any-console/compare/v0.8.0...v0.9.0) (2026-07-31)
+
+
+### Features
+
+* Auth Config に API Tokens 管理 UI を追加 ([59f3d73](https://github.com/kt0319/any-console/commit/59f3d736dbcb8237c6fac55d9157fb8280ffd1d9))
+* Changesタブのホバー起動メニューを廃止し差分ページヘッダーにアクションを統合 ([65cbdf2](https://github.com/kt0319/any-console/commit/65cbdf27cef5fc332ab09ee5349d757b7d045d8b))
+* Circle Keypadの方向キー割り当てに数字(0-9)を追加 ([28176db](https://github.com/kt0319/any-console/commit/28176dbdc5b7bd1db484a0f56b6f749ff16bf8b1))
+* Dispatch Queueを常時表示にしDispatchesへ改称、説明文を追加 ([93e240a](https://github.com/kt0319/any-console/commit/93e240a38131a0baaf7b235fc9560086bd7b56f6))
+* dispatch キューの重複排除と direct フラグによる即時実行 ([0635072](https://github.com/kt0319/any-console/commit/063507213b61d2407ed4fe00764380cc979625fd))
+* dispatch のキュー項目を dedup_key で束ねる ([c537e5b](https://github.com/kt0319/any-console/commit/c537e5be6914035693d0244a29882da81c22e8c5))
+* dispatch を direct 実行指定に改名し未コミット変更のブランチ切替を防ぐ ([a54d4d7](https://github.com/kt0319/any-console/commit/a54d4d70a6dbd6673370fb05717a2f6aef319535))
+* dispatch 専用のスコープ付き API トークンを追加 ([b53ca05](https://github.com/kt0319/any-console/commit/b53ca0562fc24ff23e613608ba6ba813698aaefd))
+* Dispatch承認画面にworktree新規作成フォームを追加 ([4367037](https://github.com/kt0319/any-console/commit/43670371cb00a8962a9166db345d8617b8bd7c6b))
+* dispatch通知本文にjob/branch/textの詳細を追加 ([1b7996f](https://github.com/kt0319/any-console/commit/1b7996f7d3e03a38d802ff051abdee3614bd386b))
+* Filesタブのホバー起動メニューを廃止しフォルダの常設ボタンとファイル詳細ヘッダーに移行 ([d98d575](https://github.com/kt0319/any-console/commit/d98d57565abd8e9e62a6686e48ece8bd1cf96d79))
+* Historyタブのコミット選択でアクションメニューをコミット詳細画面に統合 ([435a1ed](https://github.com/kt0319/any-console/commit/435a1ed32063f0736e8ccdedd3848c901c232244))
+* Historyタブの差分ファイル一覧のホバー/長押しメニューを廃止し差分ページヘッダーに統一 ([0d1ea7b](https://github.com/kt0319/any-console/commit/0d1ea7b88c2b497ccf8dad2c650668127151e6cf))
+* PCのセッションタブに×ボタンを復活させる ([53a1d4e](https://github.com/kt0319/any-console/commit/53a1d4e4b294be2a030fe1291743088ef29f3c56))
+* pushの20秒猶予での活動検知をタブ通知マークの取り消しにも適用 ([3f31bed](https://github.com/kt0319/any-console/commit/3f31bed0c614f579264b57b0e1ba77b7f316fee5))
+* QRコードによるデバイスペアリング機能を追加 ([462b28d](https://github.com/kt0319/any-console/commit/462b28d9fb894b7ec47bc39b3482dae2186c8319))
+* QRコードによるデバイスペアリング機能を追加 ([87f4f54](https://github.com/kt0319/any-console/commit/87f4f54aeff80278f5d594be3867ea332d717b44))
+* Recent Jobsにピン留め機能を追加しWorkspaceOpenのカテゴリ表示をSettings画面に揃える ([c97902b](https://github.com/kt0319/any-console/commit/c97902b37525229172511ccf25bbc6a94c8e22d9))
+* Recent Jobsのピン留めをサーバーに保存するよう変更 ([b7d37ba](https://github.com/kt0319/any-console/commit/b7d37badac702a68fa0248fa908f9eb90b3c1733))
+* Recent Jobsの上限を10件にしワークスペース一覧でMoreボタンによる展開表示を追加 ([8ef8f01](https://github.com/kt0319/any-console/commit/8ef8f01d04baef5ca902845efb9543c498d00fac))
+* Recent Jobsの非ピン留め履歴もサーバーに保存するよう変更 ([ed64a04](https://github.com/kt0319/any-console/commit/ed64a0439a3849779ae8b8c0cbdb62d5f49ba14f))
+* ScreenEmptyのRecent JobsにMoreボタンを追加しRecentJobsListコンポーネントに共通化 ([482da30](https://github.com/kt0319/any-console/commit/482da307b62ad263a31fead438079057c7b4a759))
+* System InfoにTailscale情報カードを追加 ([dd471e7](https://github.com/kt0319/any-console/commit/dd471e749d949a5546530820572f53a8eb0ad1b0))
+* WorkspaceOpenモーダルにRecent Jobsセクションを追加 ([a2aad3b](https://github.com/kt0319/any-console/commit/a2aad3b99f37f0fbb8c24e0e876864b2b278ebd0))
+* インフォピルにpush/pullマークがある時はクリックでBranchesペインを開く ([4d656b7](https://github.com/kt0319/any-console/commit/4d656b79d7ada1c947d559497a69008ec7b1ad30))
+* スタートページのSetupセクションにHTTPS/PWA/通知の導線を追加 ([4065e32](https://github.com/kt0319/any-console/commit/4065e322d6fe4d02d8ac0cdd857c2ae5ff88e945))
+* スタートページのSetupセクションを最上部に配置する ([ae06cf5](https://github.com/kt0319/any-console/commit/ae06cf5d3a452dc8261357b4c63891dbf6d511c2))
+* スニペット/履歴の挿入を設定画面のSend Snippet/Send Historyに統合 ([c64cf29](https://github.com/kt0319/any-console/commit/c64cf291f4abec2eae13e7b76e3ea48e66ffbffd))
+* セッションタブ・ワークスペース詳細タブのアクティブ切替をアニメーション化 ([2aaefc9](https://github.com/kt0319/any-console/commit/2aaefc94eccf7bfc45165675574fdaefa3e18ecb))
+* セッションタブ・ワークスペース詳細タブのサイズを拡大 ([669dcae](https://github.com/kt0319/any-console/commit/669dcaed46d28dc2bbd716e0d0e1e618be0177ae))
+* セッションタブにnotify_phrase検知の通知マークを追加 ([0f48188](https://github.com/kt0319/any-console/commit/0f481881ee174f8bc949afc1a4cb8998879208e5))
+* ターミナルresize適用時にセッション別ログを追加(調査用) ([55887e5](https://github.com/kt0319/any-console/commit/55887e590f50ac292a49e568469d6c764ac970fb))
+* ターミナルWSアタッチ時にもクライアント別ログを追加(調査用) ([b1ea124](https://github.com/kt0319/any-console/commit/b1ea1245e5bf9031bf06f9bdd2cfe48e264b3321))
+* タブのダーティマークをワークスペース/jobアイコンの右下バッジに変更 ([6cbf1e7](https://github.com/kt0319/any-console/commit/6cbf1e7eb2d657353e844a05d03bfa702cf40902))
+* タブバーのタブ・＋ボタン・設定ボタンの見た目を統一する ([88f347e](https://github.com/kt0319/any-console/commit/88f347e0f78b0bfc8a0ec625075b913cdf346f88))
+* フォルダのRename/Move/Deleteをコンテキストメニューからページヘッダーに展開 ([8c85d37](https://github.com/kt0319/any-console/commit/8c85d3717d8406eb7b60b3d70ee35c63bbf4e1d0))
+* フレーズ検知の猶予秒数を設定可能にする ([14a4470](https://github.com/kt0319/any-console/commit/14a447004ae700eb9ed5057a02e92ccd58109f9f))
+* モバイルのタブはアクティブ再タップでクローズ確認、長押しクローズを廃止 ([5ddcdf5](https://github.com/kt0319/any-console/commit/5ddcdf57183085e14756c64d6cdbffb7207654ab))
+* モバイルのタブレイアウト設定をSingle pane/Vertical splitのみに絞る ([28cb8b8](https://github.com/kt0319/any-console/commit/28cb8b8017d02810de4fbb75dfcd0a171bf34c01))
+* ログイン画面にQRコード読み取りによるペアリング機能を追加 ([0c366c6](https://github.com/kt0319/any-console/commit/0c366c6fdd677bc1f9ff4c44d46788058fd5dd18))
+* 入力フォームにスニペット挿入ボタンを追加し矢印/fnキー切替を廃止 ([1f236b8](https://github.com/kt0319/any-console/commit/1f236b87a5150337778c2bdc68d617df78451f20))
+* 入力フォームのスニペットボタンに履歴表示を追加 ([8ab59f7](https://github.com/kt0319/any-console/commit/8ab59f7b0f451670bf510d77457ee271bb5481ac))
+* 入力フォームの物理キーボード矢印キーによる履歴ナビゲーションを復活 ([7440de7](https://github.com/kt0319/any-console/commit/7440de738027a5e8442a5e5fd665391d33b4a2da))
+* 分割モードのインフォピルにahead/behind表示とChanges numstatボタンを追加 ([46f6eb5](https://github.com/kt0319/any-console/commit/46f6eb5f5cb14d44eb630a5e03c889f60023b93c))
+* 分割モードの情報ピルにもアイコン右下のダーティバッジを追加 ([bb1513f](https://github.com/kt0319/any-console/commit/bb1513fb365a3fa3fc2f5265acb452fd1aecc85d))
+* 初回起動ログにトークンのQRコードを表示し1台目もQR経由でログインできるようにする ([c0f3b5b](https://github.com/kt0319/any-console/commit/c0f3b5b93323c70338bce216058677086f72e352))
+* 承認モーダルで新規ブランチ作成時の dirty ワークスペースをブロック ([3f902a8](https://github.com/kt0319/any-console/commit/3f902a8c5ec8f26ab0161b1acfce3b3b8c6557c6))
+* 設定メニューのPort Previewに検出サーバー数を表示 ([96a0c35](https://github.com/kt0319/any-console/commit/96a0c3578a6363731ffb26b89708197078a983a8))
+* 設定メニューをPCでもモバイルと同様のフルスクリーン表示にする ([f627e2f](https://github.com/kt0319/any-console/commit/f627e2fb2bf5498f50ac6ee84362c6de43db4892))
+* 設定画面ヘッダーに分割セッションと同じ見た目のクローズボタンを追加 ([3ea12b2](https://github.com/kt0319/any-console/commit/3ea12b22cb624689ba2623ec2bdff0757261a8af))
+* 設定画面表示中にタブを切り替えたら自動でダイアログを閉じる ([6757576](https://github.com/kt0319/any-console/commit/67575766ee27cc3d52ebe8ab36035ded3864d53b))
+
+
+### Bug Fixes
+
+* +ボタンをタブのスクロール行内・最後のタブの直後に戻す ([000c342](https://github.com/kt0319/any-console/commit/000c34234685a40c516e10b460ba55c58610d550))
+* api_tokens のrevoke/verifyをロックで直列化し失効の巻き戻りを防ぐ ([99a247d](https://github.com/kt0319/any-console/commit/99a247ddf40d15fdf95660ad2b324e1798f1f85b))
+* Chrome PWAで貼り付けが二重に反映される不具合を修正 ([6ae29b9](https://github.com/kt0319/any-console/commit/6ae29b95e65fe1415fa8ee9b94e0f12133d02471))
+* Create worktree選択時に無関係なbranch_statusノート(missing等)が表示される不具合を修正 ([74cd757](https://github.com/kt0319/any-console/commit/74cd757a706229724dddbe53f65640ad3d440671))
+* dispatch 置き換え時に dispatchId を引き継ぎ通知リンクを有効に保つ ([1bb2323](https://github.com/kt0319/any-console/commit/1bb23235933834e6013b68cdbfd4e5a524c1309e))
+* dispatch 置き換え時に開いたままの承認ダイアログを閉じる ([5df714a](https://github.com/kt0319/any-console/commit/5df714ac412cae76da7e13f42c93cea47d07f470))
+* dispatchトークンからのsession_id指定を無視し隠れたセッション誘導を防ぐ ([c1f5a44](https://github.com/kt0319/any-console/commit/c1f5a4434e3213346646ea88aec0310e9bb730d7))
+* dispatchのnew session実行で同一セッションのタブが二重に開く不具合を修正 ([f7dc737](https://github.com/kt0319/any-console/commit/f7dc737c2c5caa842a5951beb2280311d8d6ebc6))
+* Dispatch項目を開いた時のセッションタブ自動切り替えを廃止 ([056def8](https://github.com/kt0319/any-console/commit/056def8bc2bd99b8ed6eace622107c7133ee7a83))
+* Dispatch項目を開くと設定画面が閉じてしまう不具合を修正 ([8bc4eee](https://github.com/kt0319/any-console/commit/8bc4eeea1f653ef9ed7d4fa9ce6bb016a7eddbff))
+* E2Eのメニュー項目名をSend Snippet/Send Historyに追従 ([90acd69](https://github.com/kt0319/any-console/commit/90acd6955ec9a3d1c25478d7117011e3a719bc55))
+* Empty画面のPCレイアウトでRecent Jobsを右列・サーバー情報をウィンドウ右下端に固定 ([5f89198](https://github.com/kt0319/any-console/commit/5f89198ea7913b2a23b960ae346ad37a488e5a63))
+* FilesペインE2Eテストを廃止済みのホバーメニュー前提から新UI（ファイル詳細ヘッダー）に合わせて修正 ([fb56cfa](https://github.com/kt0319/any-console/commit/fb56cfadd1c1e28a13415338cbe535e518ada3f5))
+* New branch name入力をhide/showではなくdisable/enableに変更 ([6d885a0](https://github.com/kt0319/any-console/commit/6d885a0b73f99bf42f72886cf1de37dbc4bb7059))
+* Open on your phone経由のPairDeviceConfigで戻るとAuthに戻るよう修正 ([f66530a](https://github.com/kt0319/any-console/commit/f66530a04f6f5dd3e18ff7db08dc4a353c7149b6))
+* pairページのリライトテストがdist/の有無で結果が変わる不安定性を修正 ([d41b6bb](https://github.com/kt0319/any-console/commit/d41b6bb7173988c24b528aa0494fbf0da35dcd1a))
+* PCでターミナル領域クリック時にターミナルへフォーカスを当てる ([a6b4998](https://github.com/kt0319/any-console/commit/a6b49983b2d16a0048b6afdddf1c7770f87baa95))
+* pytestでpush通知が実運用データを読み書きしてしまう隔離漏れを修正 ([9f05e99](https://github.com/kt0319/any-console/commit/9f05e99eaa4fd86fed2c668c28fca92cdd79b263))
+* Recent JobsのMore/LessトグルをEmpty画面のみ廃止し全件（最大10件）表示にする ([c5ff3ee](https://github.com/kt0319/any-console/commit/c5ff3eefc335b83802474483189f1c142fd8863a))
+* Select & Copyのテキストエリアが二重スクロール構造でスクロールしづらい不具合を修正 ([50006ab](https://github.com/kt0319/any-console/commit/50006ab370b5b0dca4284bae67b8586993688450))
+* server_key初回生成のTOCTOUをロックで解消 ([52b454c](https://github.com/kt0319/any-console/commit/52b454cc8d0cbf79181bf9fce525b420fb4a0459))
+* Terminal設定画面でスクロールが効かない不具合を修正 ([95fc797](https://github.com/kt0319/any-console/commit/95fc797d4e81d3e28362a7423cf26017ca1dcf57))
+* update_tokenのメモリ代入をロック内に含め完了順の食い違いを防ぐ ([e131b55](https://github.com/kt0319/any-console/commit/e131b551b8d9414b69fe5ea89ebdfef651fd8f16))
+* User Tokenのコピーボタンのaria-labelをAPI Tokens側と重複しないよう修正 #CI ([62956bf](https://github.com/kt0319/any-console/commit/62956bf347fd7787c92cc003f0487d3d69fc467a))
+* vitest happy-domでglobalThis.localStorageが未定義になりtest_workspace_store.jsが失敗する不具合を修正 ([fe67888](https://github.com/kt0319/any-console/commit/fe678888f3b9d5819ac10ba6e0d6caf1c8a7c4d0))
+* warningタイプのトーストに背景色が定義されておらず透明に表示される不具合を修正 ([6f5a472](https://github.com/kt0319/any-console/commit/6f5a47265716e17435b6fde04420b49f76cf436b))
+* アクティブタブの下線インジケーターが境界線からはみ出し実際より大きく見える不具合を修正 ([e9e895f](https://github.com/kt0319/any-console/commit/e9e895f73817d6f7fc4decf35e80504f4791c0a5))
+* コピー失敗時にもCopied表示になる不整合を修正しコピー処理を共通化 ([9f3d053](https://github.com/kt0319/any-console/commit/9f3d053c7c325e4031f558c27a46bff736cdb782))
+* コミット詳細のアクションボタンをトグルではなく常時表示に変更 ([5bda5c6](https://github.com/kt0319/any-console/commit/5bda5c6605dbfe04657457a4257e278bed41686e))
+* サーバー再起動後に他デバイスのタブがタブバーから消える不具合を修正 ([2bb68d2](https://github.com/kt0319/any-console/commit/2bb68d2e72f45cd9043048a40909db8486599673))
+* スニペット/履歴の項目挿入時にテキストボックスへフォーカスしないよう修正 ([a94f6c4](https://github.com/kt0319/any-console/commit/a94f6c4780ad3e86d1481a3d0928c614bd5d3812))
+* スプリット枠外の未マウントタブがバックグラウンド復帰時に巻き込まれてリサイズされる不具合を修正 ([419c8cf](https://github.com/kt0319/any-console/commit/419c8cf602ffc1a923dd65e5be5a3860ab82e838))
+* セッションタブの+ボタンを正方形にしてアイコンを拡大 ([9e41faa](https://github.com/kt0319/any-console/commit/9e41faaf113d7fd8c437bc677b3a33b753b7e0ad))
+* セッションタブのアクティブ切替アニメーションと×ボタンを廃止し再タップクローズに戻す ([088d449](https://github.com/kt0319/any-console/commit/088d4493bf90506bee1327164fcee8f4a25ee77c))
+* セッションタブのフォントサイズをPC/モバイル共通で14pxに縮小 ([0e5b206](https://github.com/kt0319/any-console/commit/0e5b206a7ba51fba375d5e91c50ee401c7ef0c18))
+* セッションタブの歯車ボタンを正方形にしてアイコンを拡大 ([2485e43](https://github.com/kt0319/any-console/commit/2485e43cf79d336829ed1dac6c6ba096470b0276))
+* セッションタブの閉じるボタン・ラベルの縦位置ズレを修正 ([bfbbbfd](https://github.com/kt0319/any-console/commit/bfbbbfd381f15626090ff326bd01ee35a8e4959f))
+* セッションタブの閉じるボタンがモバイルで反応しない不具合を修正 ([ac39e7d](https://github.com/kt0319/any-console/commit/ac39e7ddf2fa369208e94fd19e721578fa9ed3cd))
+* セッションタブの閉じるボタンのタップ領域を拡大 ([70b03ae](https://github.com/kt0319/any-console/commit/70b03aea8360cd12bab386015601c5c997e40537))
+* セッションタブの高さがステータスバーと1px揃っていない不具合を修正 ([7411837](https://github.com/kt0319/any-console/commit/7411837c9685a4bc73768712d47c4eebd81e3eec))
+* ターミナルタブの複数クライアント間同期をWebSocket pushに変更 ([ea45e59](https://github.com/kt0319/any-console/commit/ea45e59d557acdc52d754066337a19cc7049306b))
+* ターミナルのURLクリックがアプリ改行で途中で切れる不具合を修正 ([647fb72](https://github.com/kt0319/any-console/commit/647fb72d45c1f7c3f010a928bbedcd943cebd5ba))
+* ターミナル情報ピルが設定ダイアログより前面に表示されるのを修正 ([ad92429](https://github.com/kt0319/any-console/commit/ad924292b4dd01d82943e260da7d439a3c674f67))
+* タブバーのDetach選択が無視される不具合を修正 ([994fb38](https://github.com/kt0319/any-console/commit/994fb3851b94fb8aea5fa085cd9e7faac587004e))
+* タブ切替時にタッチ操作でソフトキーボードが誤起動する不具合を修正 ([fd31623](https://github.com/kt0319/any-console/commit/fd31623bd29358eb1e22bf8bc219eb3f3f2e2252))
+* テストが実運用のauth.json/devices.jsonを汚染していた2つの隔離漏れを修正 ([87a9170](https://github.com/kt0319/any-console/commit/87a917095f6dcfab1918e6f9d22e3be138d93375))
+* ペアリング開始失敗時にサーバの具体的な理由を表示する ([8ddc77b](https://github.com/kt0319/any-console/commit/8ddc77b1a71e40c19696748ec148b6abdaedffda))
+* メイントークンのローテーションもauth.json書き込みロックの対象にする ([02ada5d](https://github.com/kt0319/any-console/commit/02ada5da3a35ce1805b0fb6240557ebd4ae524e0))
+* メイントークンの文字列をprefixで誤判定していたdispatch認証を修正 ([26fbbd1](https://github.com/kt0319/any-console/commit/26fbbd196f890793e4b52f8b6f23851107649495))
+* モバイルでFilesタブのファイル選択が2タップ必要な不具合を修正 ([bfc10b5](https://github.com/kt0319/any-console/commit/bfc10b581ee10030149d6b1840cac641f2f91a0d))
+* モバイルでアクティブタブの再タップによるクローズ確認を出さない ([41fc8c2](https://github.com/kt0319/any-console/commit/41fc8c2d77e50cb69f2c8b164d5aba4ad7449f3e))
+* モバイルのセッションタブでアイコンサイズをアクティブ/非アクティブ間で統一 ([80900d2](https://github.com/kt0319/any-console/commit/80900d232e273a640d532ff1dcd905d5531ca91e))
+* モバイルのセッションタブでアイコン間隔をPCと統一 ([4e74a28](https://github.com/kt0319/any-console/commit/4e74a2880f0c5692081384c18914442e628cae89))
+* モバイルのセッションタブでワークスペーステキストを常に非表示にする ([fa2264d](https://github.com/kt0319/any-console/commit/fa2264d69d817578c9a35b22b7b415c981b5529d))
+* モバイルのタブアイコンがdirtyドットの分だけ中央からズレるのを修正 ([518fe0c](https://github.com/kt0319/any-console/commit/518fe0ce7ec59675eaecd4e8e46ca1587f7f8593))
+* モバイルのワークスペース詳細タブのpadding-bottomでmodal-headerとの隙間ができる不具合を修正 ([c6de910](https://github.com/kt0319/any-console/commit/c6de910a760b6826d4804feaa5850eed21a914a0))
+* モバイル設定画面でmodal-headerの上マージンによりタブとの隙間ができる不具合を修正 ([50718f6](https://github.com/kt0319/any-console/commit/50718f6f898604594cf0f1d74886f992865e2989))
+* モバイル設定画面のタイトル下の余白を22pxから8pxに詰める ([34fbe2e](https://github.com/kt0319/any-console/commit/34fbe2e2a201d2629bf663e512fc6030d9c6c204))
+* ワークスペース詳細タブにaria-labelを付与しE2Eのタブ特定をhasTextから移行 ([c9bf798](https://github.com/kt0319/any-console/commit/c9bf798c6881017044d0bb9fb4babd81d04c0324))
+* ワークスペース詳細のタイトルにブランチ名を付けないようにする ([efc4e37](https://github.com/kt0319/any-console/commit/efc4e37cc98e86a9b9b80980c20133e42854f95d))
+* 他デバイスで開いたターミナルタブがタブバーから見えなくなる不具合を修正 ([340e41e](https://github.com/kt0319/any-console/commit/340e41e35880d9cacadadd483f55c1908db01aad))
+* 分割モード以外の情報ピルからdirtyドット表示を削除 ([df9ff31](https://github.com/kt0319/any-console/commit/df9ff3181785ae145d0d0c428eb70e905cf7f5d4))
+* 半開きWS再接続時にhistoryを取り直し、stale検知を早める ([4b622e7](https://github.com/kt0319/any-console/commit/4b622e729ef4177a1f825bf6186d1691d0fc0ee1))
+* 半開きWS検知時に即座にReconnectingオーバーレイを表示 ([012a3ad](https://github.com/kt0319/any-console/commit/012a3ad034f80422c38f285b5da2b6ef11ccc666))
+* 明示的なコピー操作をcopyTextに統一し非secure contextでも動くようにする ([5bfe483](https://github.com/kt0319/any-console/commit/5bfe48330e323d15d4e48ed0b0c07d59cc8ae319))
+* 自分が直接開いていないターミナルタブをタブバーから隠す ([ed0e8bf](https://github.com/kt0319/any-console/commit/ed0e8bfd8615af82c3e22c4d4520ffc4e68618f6))
+* 複数ファイルドロップで上書き拒否した際にスキップ件数をトーストに表示する ([94a425b](https://github.com/kt0319/any-console/commit/94a425b3d8633c8e3523fea8c3ca9fc10f82a233))
+* 設定ダイアログのタイトルのクリック域を文字列幅に、背景透過を抑える ([94393a5](https://github.com/kt0319/any-console/commit/94393a514236c28f9feed1eb379f8dbc9c91c488))
+* 設定ダイアログのヘッダーとコンテンツ間の余白を詰める ([5830c99](https://github.com/kt0319/any-console/commit/5830c999c4979be6443124ade1abe9c3ebf6240e))
+* 設定ダイアログをターミナル表示エリアに正確に合わせ閉じるボタンをタブバーに統合する ([9d6d097](https://github.com/kt0319/any-console/commit/9d6d0977e8cc3dc5c7b3705b9b46663210686fe3))
+* 設定画面が開いている間はターミナルのCtrl+Cコピー横取りを無効化する ([96931b3](https://github.com/kt0319/any-console/commit/96931b309e06a79b447b78ee4fa099ffff8cb195))
+* 設定画面のチェックボックスがOSアクセントカラー(緑)になるのを修正 ([94a6234](https://github.com/kt0319/any-console/commit/94a6234e72bb006db9e13313ec9239d6e50ed182))
+* 購読開始直後にauto fetchを実行してbehind判定の遅延を解消 ([9ad2656](https://github.com/kt0319/any-console/commit/9ad2656e3670094fd1509cc5557cb5ab4757ad25))
+* 通知クリックで既存タブへ再アタッチする際に設定モーダルが閉じ残る不具合を修正 ([be5185b](https://github.com/kt0319/any-console/commit/be5185bd8551fbfb76320faaf25acb26918ba081))
+* 非表示タブがバックグラウンド復帰時のWS再接続で古いサイズをPTYへ送ってしまう不具合を修正 ([7f055ba](https://github.com/kt0319/any-console/commit/7f055ba7c5503fa0b9dcb250fdc2728b54e24414))
+
+
+### Performance Improvements
+
+* last_seen_at/last_usedの更新をディスク書き込み間引きで軽量化 ([8bb8b95](https://github.com/kt0319/any-console/commit/8bb8b95813df533be94c50a4c95e635d29c4a269))
+* preview/portsのポーリングをアプリ起動中常時からPreview設定画面を開いている間だけに変更 ([11a32af](https://github.com/kt0319/any-console/commit/11a32afe1434adbce8037232cddf8b45ff2fe752))
+
+
+### Refactor
+
+* Authページのトークン/デバイス/APIトークンのカテゴリ表示とトークン欄UIを整理 ([bc14cfd](https://github.com/kt0319/any-console/commit/bc14cfd9c8766ad27900c86656c4d0eb4ef646c4))
+* dispatch.pyのdedup判定を純関数化しWS配信テストを分離 ([5abf91a](https://github.com/kt0319/any-console/commit/5abf91ad54212cd044b3337e51a958351c61e795))
+* DispatchモーダルのBranchフォームをCreate branchチェックボックス+共用セレクトに整理 ([a91e176](https://github.com/kt0319/any-console/commit/a91e176f6f76c37a6f18924cb64f313c6c94cd60))
+* Dispatch承認画面のCreate branch/worktreeをチェックボックスからラジオボタンに変更し新ブランチ行を分離 ([0fa89a7](https://github.com/kt0319/any-console/commit/0fa89a763d4c91b4df40b6649de9ba93e666ccf1))
+* Dispatch承認画面のブランチ状態表記を削除しRunのdisabled+エラー文に統一 ([e36976c](https://github.com/kt0319/any-console/commit/e36976c653d767c2fac55a7c0294f919f1c52a76))
+* Port PreviewをDev Server Previewに表示名を変更 ([f148237](https://github.com/kt0319/any-console/commit/f148237e3e829e4377ef3b92a56edf32b79f1e8e))
+* QRペアリングのレートリミッタをstart/status/claim個別から1バケットに統合 ([e399007](https://github.com/kt0319/any-console/commit/e39900749444d03d9005107840e01d95f3835ccc))
+* UIから到達不能だったworking_enabledとジョブdescriptionを削除 ([b7e8610](https://github.com/kt0319/any-console/commit/b7e86108929f488657cef27945d900bd51771ab0))
+* セッションタブ/ワークスペース詳細タブをボーダーレスのフラットタブに変更 ([d72863d](https://github.com/kt0319/any-console/commit/d72863d6162545f1f36d420aaafcd9791de597c0))
+* どのテンプレートからも参照されていない死にCSSを削除 ([a94aeb1](https://github.com/kt0319/any-console/commit/a94aeb1ddc476d4d1114fc2c1b668de6e0a3b96c))
+* バックエンドの重複処理を共通ヘルパーに整理 ([b3282f7](https://github.com/kt0319/any-console/commit/b3282f70daba93df1e7125c92160afeac42cef3f))
+* フロントエンドのCSS重複をグローバルスタイルに集約 ([7bc00f9](https://github.com/kt0319/any-console/commit/7bc00f9a547e7ad26d67fee425a56e7a23912e50))
+* フロントから呼ばれていない5つのエンドポイントを削除 ([c598af0](https://github.com/kt0319/any-console/commit/c598af0bebe514217cb91e1f649cb61416016b87))
+* フロントの死にemit・未参照ストアstate・非公開化すべき内部関数を整理 ([08823f3](https://github.com/kt0319/any-console/commit/08823f3b3ff20f79ef8a20dae1b112f9b50939ba))
+* ペアリングclaimの中間状態(claiming)を廃止しさらに単純化する ([41aef3c](https://github.com/kt0319/any-console/commit/41aef3c4f69b79c6c6acb02291fb0890596fce06))
+* 解決済み不具合の調査用ログを削除する ([66f5d88](https://github.com/kt0319/any-console/commit/66f5d888da0f267ad46fc77dea0770b45428a7bb))
+* 認証結果を構造化しdispatch tokenの脆い値比較判定を解消 ([6e21c86](https://github.com/kt0319/any-console/commit/6e21c86e8fe96d3b6e22e2c974894fbceb413481))
+* 送信元が無くなったJob finished通知の設定トグルを削除 ([9e61659](https://github.com/kt0319/any-console/commit/9e616596b519c235a85e94a2f8ca7ca6fb1ea0bf))
+
+
+### Documentation
+
+* dispatch専用APIトークン導入のADRを追加 ([f2e83b2](https://github.com/kt0319/any-console/commit/f2e83b235988dfa2ded9f8daee0ccd284ffe1043))
+* 非表示タブのリサイズ巻き込み不具合をADRに追記 [#29](https://github.com/kt0319/any-console/issues/29) ([3f0a480](https://github.com/kt0319/any-console/commit/3f0a4802e516bcc487d37c94eb398e475e5db5a7))
+
+
+### Tests
+
+* chmodベースの権限テストをroot実行時はスキップする ([8c783d0](https://github.com/kt0319/any-console/commit/8c783d0133e2e6650731f35e00b606776a45d4f4))
+
+
+### Build
+
+* app-bridge.jsの無効な動的importを解消しチャンクサイズ警告閾値を調整 ([4b9325a](https://github.com/kt0319/any-console/commit/4b9325a6e1ced237164f57042a2bf57405e1fa79))
+
+
+### CI
+
+* CI失敗時にany-consoleへdispatch通知するワークフローを追加 ([5073dbc](https://github.com/kt0319/any-console/commit/5073dbc1e57c504a2e9e3ca799da7bffb8ee98dd))
+* PRブランチでのCI二重実行を解消しdocsのみの変更をスキップ ([b152f54](https://github.com/kt0319/any-console/commit/b152f5405b9561d88b8e04b2da3cb3514aed2c15))
+
 ## [0.8.0](https://github.com/kt0319/any-console/compare/v0.7.0...v0.8.0) (2026-07-24)
 
 
