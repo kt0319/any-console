@@ -170,6 +170,83 @@ class TestReadCmdline:
         assert preview_mod._read_cmdline(1) == ""
 
 
+class TestReadCwd:
+    def test_none_on_unreadable_pid_linux(self, monkeypatch):
+        monkeypatch.setattr(preview_mod, "_IS_MACOS", False)
+        assert preview_mod._read_cwd(99999999) is None
+
+    def test_returns_for_real_pid_linux(self, monkeypatch):
+        import os
+        monkeypatch.setattr(preview_mod, "_IS_MACOS", False)
+        result = preview_mod._read_cwd(os.getpid())
+        assert result is None or isinstance(result, str)
+
+    def test_macos_uses_lsof(self, monkeypatch):
+        monkeypatch.setattr(preview_mod, "_IS_MACOS", True)
+        def fake_run(*a, **kw):
+            return subprocess.CompletedProcess(args=a, returncode=0, stdout="p1\nn/Users/dev/my-app\n", stderr="")
+        monkeypatch.setattr(preview_mod.subprocess, "run", fake_run)
+        assert preview_mod._read_cwd(1) == "/Users/dev/my-app"
+
+    def test_macos_none_on_subprocess_error(self, monkeypatch):
+        monkeypatch.setattr(preview_mod, "_IS_MACOS", True)
+        def fake_run(*a, **kw):
+            raise OSError("lsof not found")
+        monkeypatch.setattr(preview_mod.subprocess, "run", fake_run)
+        assert preview_mod._read_cwd(1) is None
+
+    def test_macos_none_when_no_cwd_line(self, monkeypatch):
+        monkeypatch.setattr(preview_mod, "_IS_MACOS", True)
+        def fake_run(*a, **kw):
+            return subprocess.CompletedProcess(args=a, returncode=0, stdout="p1\n", stderr="")
+        monkeypatch.setattr(preview_mod.subprocess, "run", fake_run)
+        assert preview_mod._read_cwd(1) is None
+
+
+class TestMatchWorkspace:
+    def test_none_for_empty_cwd(self):
+        assert preview_mod._match_workspace(None) is None
+        assert preview_mod._match_workspace("") is None
+
+    def test_exact_path_match(self, monkeypatch):
+        monkeypatch.setattr(
+            "api.config.list_workspace_entries",
+            lambda: {"my-app": {"name": "My App", "path": "/Users/dev/my-app"}},
+        )
+        assert preview_mod._match_workspace("/Users/dev/my-app") == "My App"
+
+    def test_subdirectory_match(self, monkeypatch):
+        monkeypatch.setattr(
+            "api.config.list_workspace_entries",
+            lambda: {"my-app": {"name": "My App", "path": "/Users/dev/my-app"}},
+        )
+        assert preview_mod._match_workspace("/Users/dev/my-app/packages/web") == "My App"
+
+    def test_falls_back_to_key_when_name_missing(self, monkeypatch):
+        monkeypatch.setattr(
+            "api.config.list_workspace_entries",
+            lambda: {"my-app": {"path": "/Users/dev/my-app"}},
+        )
+        assert preview_mod._match_workspace("/Users/dev/my-app") == "my-app"
+
+    def test_no_match_for_unrelated_cwd(self, monkeypatch):
+        monkeypatch.setattr(
+            "api.config.list_workspace_entries",
+            lambda: {"my-app": {"name": "My App", "path": "/Users/dev/my-app"}},
+        )
+        assert preview_mod._match_workspace("/Users/dev/other-app") is None
+
+    def test_picks_longest_prefix_match(self, monkeypatch):
+        monkeypatch.setattr(
+            "api.config.list_workspace_entries",
+            lambda: {
+                "root": {"name": "Root", "path": "/Users/dev"},
+                "nested": {"name": "Nested", "path": "/Users/dev/my-app"},
+            },
+        )
+        assert preview_mod._match_workspace("/Users/dev/my-app/src") == "Nested"
+
+
 class TestScanOnce:
     def test_adds_new_port(self, monkeypatch):
         monkeypatch.setattr(preview_mod, "_scan_listening_ports", lambda: {3000: ("node", 1)})
@@ -179,6 +256,43 @@ class TestScanOnce:
         assert items[0]["port"] == 3000
         assert items[0]["proxy_port"] == 23000
         assert items[0]["is_self"] is False
+
+    def test_new_port_matches_workspace_by_cwd(self, monkeypatch):
+        monkeypatch.setattr(preview_mod, "_scan_listening_ports", lambda: {3000: ("node", 1)})
+        monkeypatch.setattr(preview_mod, "_read_cwd", lambda pid: "/Users/dev/my-app")
+        monkeypatch.setattr(
+            "api.config.list_workspace_entries",
+            lambda: {"my-app": {"name": "My App", "path": "/Users/dev/my-app"}},
+        )
+        preview_mod.scan_once()
+        items = preview_mod.list_ports()
+        assert items[0]["cwd"] == "/Users/dev/my-app"
+        assert items[0]["workspace"] == "My App"
+
+    def test_new_port_workspace_none_when_no_match(self, monkeypatch):
+        monkeypatch.setattr(preview_mod, "_scan_listening_ports", lambda: {3000: ("node", 1)})
+        monkeypatch.setattr(preview_mod, "_read_cwd", lambda pid: "/Users/dev/other")
+        monkeypatch.setattr("api.config.list_workspace_entries", lambda: {})
+        preview_mod.scan_once()
+        items = preview_mod.list_ports()
+        assert items[0]["workspace"] is None
+
+    def test_rematches_workspace_when_pid_changes(self, monkeypatch):
+        monkeypatch.setattr(preview_mod, "_scan_listening_ports", lambda: {3000: ("node", 1)})
+        monkeypatch.setattr(preview_mod, "_read_cwd", lambda pid: "/Users/dev/first" if pid == 1 else "/Users/dev/second")
+        monkeypatch.setattr(
+            "api.config.list_workspace_entries",
+            lambda: {
+                "first": {"name": "First", "path": "/Users/dev/first"},
+                "second": {"name": "Second", "path": "/Users/dev/second"},
+            },
+        )
+        preview_mod.scan_once()
+        assert preview_mod._DETECTED[3000].workspace == "First"
+        # 同じポートを別 pid（プロセス再起動）が握った場合は再照合する
+        monkeypatch.setattr(preview_mod, "_scan_listening_ports", lambda: {3000: ("node", 2)})
+        preview_mod.scan_once()
+        assert preview_mod._DETECTED[3000].workspace == "Second"
 
     def test_marks_self_port(self, monkeypatch):
         preview_mod.set_self_ports([8888])

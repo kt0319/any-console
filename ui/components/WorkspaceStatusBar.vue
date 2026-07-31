@@ -3,12 +3,14 @@
     <template v-if="hasVisibleTabs">
       <div class="status-nav-group" ref="navGroupEl">
         <template v-if="showJobsFiles || isPlainTerminal">
-          <button v-if="isGitRepo" type="button" class="status-nav-btn status-icon-btn" aria-label="Jobs" data-tooltip="Jobs" @click="openFileModal('jobs')">
-            <span class="mdi mdi-play-circle-outline status-btn-icon" aria-hidden="true"></span>
-            <span v-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Jobs</span>
-          </button>
+          <template v-if="devServerEntry">
+            <button type="button" class="status-nav-btn status-icon-btn" aria-label="Dev Server" data-tooltip="Dev Server" @click="openDevServer">
+              <span class="mdi mdi-server status-btn-icon status-devserver-icon" aria-hidden="true"></span>
+              <span v-if="!isMobile" class="status-btn-label status-devserver-label" :class="{ 'status-btn-label-always': !isBranchLong }">Dev Server</span>
+            </button>
+          </template>
           <button
-            v-else-if="activeTab"
+            v-if="!isGitRepo && activeTab"
             type="button"
             class="status-nav-btn status-icon-btn status-add-workspace-btn"
             :aria-label="addLabel"
@@ -18,7 +20,7 @@
             <span class="mdi mdi-folder-plus-outline status-btn-icon" aria-hidden="true"></span>
             <span v-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">{{ addLabel }}</span>
           </button>
-          <div class="status-divider"></div>
+          <div v-if="devServerEntry || (!isGitRepo && activeTab)" class="status-divider"></div>
           <button type="button" class="status-nav-btn status-icon-btn" aria-label="Files" data-tooltip="Files" @click="openFileModal('files')">
             <span class="mdi mdi-folder-outline status-btn-icon" aria-hidden="true"></span>
             <span v-if="!isMobile" class="status-btn-label" :class="{ 'status-btn-label-always': !isBranchLong }">Files</span>
@@ -63,22 +65,26 @@ import { useWorkspaceStore } from "../stores/workspace.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
+import { useConfirm } from "../composables/useConfirm.js";
 import { useIsMobile } from "../composables/useIsMobile.js";
 import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.js";
 import { useApi } from "../composables/useApi.js";
 import { emit } from "../app-bridge.js";
 import GitActionBtn from "./GitActionBtn.vue";
-import { CWD_POLL_INTERVAL_MS } from "../utils/constants.js";
-import { terminalSessionCwdPath } from "../utils/endpoints.js";
+import { CWD_POLL_INTERVAL_MS, DEV_SERVER_POLL_INTERVAL_MS } from "../utils/constants.js";
+import { terminalSessionCwdPath, EP_PREVIEW_PORTS } from "../utils/endpoints.js";
 
 const { gitAction, isRunning } = useGitRemoteAction();
+const { confirm } = useConfirm();
 const { isMobile } = useIsMobile();
 const { apiGet } = useApi();
 const currentCwd = ref("");
 const showJobsFiles = ref(true);
 const navGroupEl = ref(null);
+const previewPorts = ref(/** @type {Record<string, any>[]} */ ([]));
 
 let cwdTimer = null;
+let previewTimer = null;
 let roNavGroup = null;
 let navGroupTimer = null;
 
@@ -102,6 +108,25 @@ function stopPolling() {
   if (cwdTimer) { clearInterval(cwdTimer); cwdTimer = null; }
 }
 
+// workspace が無い間はリクエストしない（cwd ポーリングと同じ早期リターンの流儀）。
+async function fetchPreviewPorts() {
+  if (!workspace.value) { previewPorts.value = []; return; }
+  const { ok, data } = await apiGet(EP_PREVIEW_PORTS);
+  if (ok && Array.isArray(data)) previewPorts.value = data;
+}
+
+function startPreviewPolling() {
+  stopPreviewPolling();
+  previewTimer = setInterval(() => {
+    if (document.hidden) return;
+    fetchPreviewPorts();
+  }, DEV_SERVER_POLL_INTERVAL_MS);
+}
+
+function stopPreviewPolling() {
+  if (previewTimer) { clearInterval(previewTimer); previewTimer = null; }
+}
+
 // status-nav-group を観測する（Jobs/Files の表示切替で幅が変わらない安定した要素）。
 // History ボタン自体を観測するとJobs/Files 表示切替 → ボタン幅変化 → 再切替のループが起きる。
 watch(navGroupEl, (el) => {
@@ -122,9 +147,10 @@ watch(navGroupEl, (el) => {
   roNavGroup.observe(el);
 });
 
-onMounted(() => { startPolling(); });
+onMounted(() => { startPolling(); startPreviewPolling(); });
 onBeforeUnmount(() => {
   stopPolling();
+  stopPreviewPolling();
   roNavGroup?.disconnect();
   if (navGroupTimer) { clearTimeout(navGroupTimer); navGroupTimer = null; }
 });
@@ -143,6 +169,24 @@ const showHeader = computed(() => !layoutStore.isSplitMode && hasVisibleTabs.val
 const ws = computed(() =>
   workspaceStore.allWorkspaces.find((w) => w.name === workspace.value),
 );
+
+watch(workspace, () => fetchPreviewPorts(), { immediate: true });
+
+const devServerEntry = computed(() =>
+  previewPorts.value.find((p) => p.workspace === workspace.value && p.proxy_port) || null,
+);
+
+async function openDevServer() {
+  const p = devServerEntry.value;
+  if (!p) return;
+  const url = `${p.scheme || "http"}://${location.hostname}:${p.proxy_port}/`;
+  const ok = await confirm(`Open dev server preview at "${url}"?`, {
+    ok: { label: "Open" },
+  });
+  if (!ok) return;
+  // iOS PWA では target=_blank がループするため window.open を使う（PreviewPorts.vue と同じ理由）。
+  window.open(url, "_blank", "noopener,noreferrer");
+}
 
 const {
   isGitRepo,
@@ -294,6 +338,30 @@ async function registerCurrentDir() {
   font-size: 15px;
   flex-shrink: 0;
   color: var(--text-muted);
+}
+
+.status-devserver-icon {
+  color: var(--accent);
+  animation: status-devserver-pulse 10s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-devserver-icon {
+    animation: none;
+  }
+}
+
+@keyframes status-devserver-pulse {
+  0%, 90%, 100% {
+    opacity: 1;
+  }
+  95% {
+    opacity: 0.35;
+  }
+}
+
+.status-devserver-label {
+  color: var(--accent);
 }
 
 .status-btn-label {

@@ -10,12 +10,18 @@
       </div>
       <div v-for="p in ports" :key="`${p.session_id}-${p.port}`" class="preview-row">
         <div class="preview-meta">
+          <div class="preview-top-row">
+            <span v-if="p.workspace" class="preview-label">
+              <span v-html="workspaceIconHtml(p.workspace)"></span>{{ p.workspace }}
+            </span>
+            <span v-else class="preview-label preview-label-none">No workspace</span>
+            <span class="preview-sub">{{ p.process }}<span v-if="p.pid"> [pid {{ p.pid }}]</span></span>
+          </div>
           <span class="preview-port">
             :{{ p.port }}
             <span v-if="p.proxy_port" class="preview-proxy"> → :{{ p.proxy_port }}</span>
             <span v-if="p.is_self" class="preview-self">this console</span>
           </span>
-          <span class="preview-sub">{{ p.process }}<span v-if="p.pid"> [pid {{ p.pid }}]</span></span>
         </div>
         <template v-if="!p.is_self">
           <button type="button" class="preview-copy" :title="copiedPort === p.port ? 'Copied!' : 'Copy URL'" @click="copyUrl(p)">
@@ -34,14 +40,22 @@
 import { ref, inject, onMounted, onUnmounted } from "vue";
 import { usePreviewWatch } from "../composables/usePreviewWatch.js";
 import { copyText } from "../utils/clipboard.js";
+import { useWorkspaceStore } from "../stores/workspace.js";
+import { renderIconStr } from "../utils/render-icon.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Dev Server Preview";
 
 const { start, stop, ports } = usePreviewWatch();
+const workspaceStore = useWorkspaceStore();
 const loading = ref(true);
 const copiedPort = ref(null);
 const hostname = location.hostname;
+
+function workspaceIconHtml(name) {
+  const ws = workspaceStore.allWorkspaces.find((w) => w.name === name);
+  return renderIconStr(ws?.icon || "mdi-console", ws?.icon_color, 14);
+}
 
 function buildPreviewUrl(p) {
   // ユニークポート方式: any-console が target+20000 で TCP proxy を立てている。
@@ -93,13 +107,31 @@ onUnmounted(() => {
   min-width: 0;
 }
 .preview-port {
-  font-size: 16px;
+  font-size: 14px;
   font-family: monospace;
   color: var(--text-primary);
 }
+.preview-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
 .preview-label {
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--bg-tertiary);
   color: var(--accent);
+}
+.preview-label-none {
+  color: var(--text-muted);
+  opacity: 0.7;
 }
 .preview-sub {
   font-size: 11px;
@@ -108,7 +140,7 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  align-self: flex-end;
+  min-width: 0;
 }
 .preview-open {
   display: inline-flex;

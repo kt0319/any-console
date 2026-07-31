@@ -33,13 +33,14 @@ export function usePreviewWatch() {
     // iOS PWA はプログラム経由の window.open / a.click() を外部 Safari に流せない
     // ため、トーストでは通知だけして、タップで Preview 設定画面を開く。
     // ユーザがそこから物理タップでリンクを開けば Safari で起動する。
+    const portLabel = (p) => (p.workspace ? `${p.port} (${p.workspace})` : `${p.port}`);
     let message;
     if (newEntries.length === 1) {
       const p = newEntries[0];
       const url = p.proxy_port ? `${p.scheme || "http"}://${window.location.hostname}:${p.proxy_port}/` : null;
-      message = url ? `Port ${p.port} detected\nPreview: ${url}` : `Port ${p.port} detected`;
+      message = url ? `Port ${portLabel(p)} detected\nPreview: ${url}` : `Port ${portLabel(p)} detected`;
     } else {
-      message = `${newEntries.length} ports detected (${newEntries.map((p) => p.port).join(", ")})`;
+      message = `${newEntries.length} ports detected (${newEntries.map(portLabel).join(", ")})`;
     }
     toast.success(message, {
       duration: 6000,

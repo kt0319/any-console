@@ -122,6 +122,10 @@ class DetectedPort:
     # （dev server がポートを先に開けてからアプリ初期化する場合、起動直後のプローブが
     # 空振りして非HTTPと誤判定されたまま固定されるのを防ぐ）。
     http_probed_at: int = 0
+    # プロセスの起動時カレントディレクトリ（取得できなければ None）。
+    cwd: str | None = None
+    # cwd から一致したワークスペース名（一致しなければ None）。
+    workspace: str | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -191,6 +195,43 @@ def _read_cmdline(pid: int) -> str:
         return ""
     parts = [p.decode("utf-8", "replace") for p in raw if p]
     return _label_from_cmdline_parts(parts)
+
+
+def _read_cwd(pid: int) -> str | None:
+    """プロセスの起動時カレントディレクトリを取得する（取得できなければ None）。"""
+    if _IS_MACOS:
+        try:
+            out = subprocess.run(
+                ["lsof", "-a", "-p", str(pid), "-d", "cwd", "-Fn"],
+                capture_output=True, text=True, timeout=1.0, check=False,
+            ).stdout
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        for line in out.splitlines():
+            if line.startswith("n"):
+                return line[1:]
+        return None
+    try:
+        return os.readlink(f"/proc/{pid}/cwd")
+    except OSError:
+        return None
+
+
+def _match_workspace(cwd: str | None) -> str | None:
+    """cwd を登録済みワークスペースのパスと前方一致させ、最長一致の名前を返す。"""
+    if not cwd:
+        return None
+    from .config import list_workspace_entries
+    best_name = None
+    best_len = -1
+    for key, entry in list_workspace_entries().items():
+        path = (entry.get("path") or "").rstrip("/")
+        if not path:
+            continue
+        if (cwd == path or cwd.startswith(path + "/")) and len(path) > best_len:
+            best_len = len(path)
+            best_name = entry.get("name") or key
+    return best_name
 
 
 def _proxy_listener_ports() -> set[int]:
@@ -288,8 +329,12 @@ def scan_once() -> None:
         if existing:
             existing.last_seen_at = now
             existing.process = proc
-            existing.pid = pid
+            if existing.pid != pid:
+                existing.pid = pid
+                existing.cwd = _read_cwd(pid) if pid else None
+                existing.workspace = _match_workspace(existing.cwd)
         else:
+            cwd = _read_cwd(pid) if pid else None
             _DETECTED[port] = DetectedPort(
                 session_id=SESSION_ID, port=port,
                 proxy_port=proxy,
@@ -297,6 +342,8 @@ def scan_once() -> None:
                 is_self=is_self,
                 first_seen_at=now, last_seen_at=now,
                 scheme=None if proxy is None else preview_scheme(),
+                cwd=cwd,
+                workspace=_match_workspace(cwd),
             )
     for port in list(_DETECTED.keys()):
         if port in live:
