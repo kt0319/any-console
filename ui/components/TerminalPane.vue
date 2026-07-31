@@ -39,7 +39,7 @@
           </span>
         </div>
         <button
-          v-if="layoutStore.isSplitMode && isDirty"
+          v-if="isDirty"
           type="button"
           class="pill-numstat-btn"
           aria-label="Changes"
@@ -50,6 +50,18 @@
           <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
           <span class="diff-num-plus">+{{ insertions }}</span>
           <span class="diff-num-del">-{{ deletions }}</span>
+        </button>
+        <button
+          v-if="isGitRepo && !isDirty"
+          type="button"
+          class="pill-branch-btn"
+          aria-label="Branches"
+          data-tooltip="Branches"
+          @pointerdown.stop
+          @click.stop="openBranch"
+        >
+          <span class="mdi mdi-source-branch"></span>
+          <span class="pill-branch-text">{{ branchParts.rest }}</span>
         </button>
         <button
           v-if="layoutStore.isSplitMode"
@@ -114,12 +126,18 @@ const paneWorkspace = computed(() =>
 );
 // 分割モードでは WorkspaceStatusBar（アクティブタブ1つ分の表示）が隠れるため、
 // ペインごとの git 情報（変更行数・ahead/behind）をピルに直接出す。
-const { isDirty, ahead, behind, changedFiles, insertions, deletions } = useWorkspaceGitStatus(paneWorkspace, ref(false));
+const { isDirty, isGitRepo, ahead, behind, changedFiles, insertions, deletions, branchParts } = useWorkspaceGitStatus(paneWorkspace, ref(false));
 
 function openChanges() {
   if (!props.tab.workspace) return;
   workspaceStore.selectedWorkspace = props.tab.workspace;
   emit("git:openFileModal", { pane: "changes" });
+}
+
+function openBranch() {
+  if (!props.tab.workspace) return;
+  workspaceStore.selectedWorkspace = props.tab.workspace;
+  emit("git:openFileModal", { pane: "branch" });
 }
 
 const agentState = computed(() => terminalStore.agentStates[props.tab.sessionId] || "");
@@ -143,8 +161,9 @@ const { pillDragging, onPillMouseDown, onPillClick, onPillTouchStart, onPillTouc
     if (props.tab.workspace) {
       workspaceStore.selectedWorkspace = props.tab.workspace;
       // ピルに ahead/behind（push/pullマーク）が出ている時は、その操作をする Branches ペインへ直接開く。
+      // それ以外は Files ペインを開く。
       const hasPushPullMark = layoutStore.isSplitMode && (ahead.value > 0 || behind.value > 0);
-      emit("git:openFileModal", hasPushPullMark ? { pane: "branch" } : undefined);
+      emit("git:openFileModal", { pane: hasPushPullMark ? "branch" : "files" });
     } else {
       emit("workspace:openModal");
     }
@@ -449,6 +468,37 @@ defineExpose({
 
 .numstat-files {
   color: var(--warning);
+}
+
+.pill-branch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 8px;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 140px;
+  border: 1px solid rgba(59, 66, 97, 0.5);
+  border-radius: 999px;
+  background: rgba(26, 27, 38, 0.88);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pill-branch-btn .mdi {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.pill-branch-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .terminal-info-pill.dragging {
