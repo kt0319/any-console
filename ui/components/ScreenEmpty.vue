@@ -280,7 +280,7 @@ function openTerminal() {
   background: transparent;
   border: none;
   cursor: pointer;
-  font: inherit;
+  font-family: inherit;
 }
 
 .screen-empty-section-toggle .mdi {
