@@ -478,13 +478,19 @@ defineExpose({
 
 .pill-pop-enter-active,
 .pill-pop-leave-active {
-  transition: opacity 0.16s ease, transform 0.16s ease;
+  transition: max-width 0.2s ease, opacity 0.2s ease, padding 0.2s ease, margin 0.2s ease;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .pill-pop-enter-from,
 .pill-pop-leave-to {
+  max-width: 0;
   opacity: 0;
-  transform: scale(0.7);
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
 }
 
 .terminal-info-pill {
