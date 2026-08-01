@@ -130,7 +130,7 @@
               <span class="pill-devserver-text">Server</span>
             </button>
             <button
-              v-if="effectivePillExpanded && !tab.workspace && tab.sessionId"
+              v-if="effectivePillExpanded && !isGitRepo && tab.sessionId"
               type="button"
               class="pill-devserver-btn"
               aria-label="Add workspace"
