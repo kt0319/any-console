@@ -39,7 +39,7 @@
               <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
             </span>
             <span v-if="!isPaneNarrow && !pillExpanded" class="pill-workspace-label">{{ tab.workspace || tab.label || '' }}</span>
-            <span class="mdi pill-chevron" :class="pillExpanded ? 'mdi-unfold-less' : 'mdi-unfold-more'" aria-hidden="true"></span>
+            <span class="mdi pill-chevron" :class="pillExpanded ? 'mdi-unfold-less-vertical' : 'mdi-unfold-more-vertical'" aria-hidden="true"></span>
           </span>
         </div>
         <div
