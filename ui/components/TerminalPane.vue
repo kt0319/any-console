@@ -45,22 +45,6 @@
         </div>
         <div class="pill-trailing" ref="trailingEl">
             <button
-              v-if="isMobile && !pillExpanded"
-              type="button"
-              class="pill-more-btn"
-              :class="[{ peeking: !!pillMorePeekItem }, pillMorePeekItem ? `variant-${pillMorePeekItem.variant}` : '']"
-              :aria-label="pillMorePeekItem ? pillMorePeekItem.text : 'Show more'"
-              :data-tooltip="pillMorePeekItem ? pillMorePeekItem.text : 'Show more'"
-              @pointerdown.stop
-              @click.stop="pillExpanded = true"
-            >
-              <template v-if="pillMorePeekItem">
-                <span class="mdi" :class="pillMorePeekItem.icon"></span>
-                <span class="pill-more-peek-text">{{ pillMorePeekItem.text }}</span>
-              </template>
-              <span v-else class="mdi mdi-dots-horizontal"></span>
-            </button>
-            <button
               v-if="effectivePillExpanded && isGitRepo"
               type="button"
               class="pill-branch-btn"
@@ -147,6 +131,24 @@
             >
               <span class="mdi mdi-folder-plus-outline"></span>
               <span class="pill-devserver-text">Add</span>
+            </button>
+            <button
+              v-if="isMobile"
+              type="button"
+              class="pill-more-btn"
+              :class="[{ peeking: !!pillMorePeekItem, expanded: pillExpanded }, pillMorePeekItem ? `variant-${pillMorePeekItem.variant}` : '']"
+              :aria-label="pillMorePeekItem ? pillMorePeekItem.text : (pillExpanded ? 'Show less' : 'Show more')"
+              :data-tooltip="pillMorePeekItem ? pillMorePeekItem.text : (pillExpanded ? 'Show less' : 'Show more')"
+              @pointerdown.stop
+              @click.stop="pillExpanded = !pillExpanded"
+            >
+              <template v-if="pillMorePeekItem">
+                <span class="mdi" :class="pillMorePeekItem.icon"></span>
+                <span class="pill-more-peek-text">
+                  <span v-for="(part, i) in pillMorePeekItem.parts" :key="i" :class="part.cls">{{ part.text }}</span>
+                </span>
+              </template>
+              <span v-else class="mdi mdi-dots-horizontal"></span>
             </button>
             <button
               v-if="layoutStore.isSplitMode"
@@ -382,37 +384,50 @@ watch(pillExpanded, (expanded) => {
 // と揃えておく。
 // variant は peek 表示時の配色を、対応する実ボタンと揃えるためのキー
 // （.pill-more-btn.variant-* で実ボタンと同じ色を当てる。CSS 側参照）。
+// parts はテキストを色分け表示するためのセグメント（changes の +/- 等、実ボタンと
+// 同じ numstat-files/diff-num-plus/diff-num-del クラスを使い回す）。
+function peekTextItem(key, icon, text, variant) {
+  return { key, icon, variant, text, parts: [{ text, cls: "" }] };
+}
+
 const trailingPeekItems = computed(() => {
   const items = [];
   if (isGitRepo.value) {
-    items.push({
-      key: "branch",
-      icon: "mdi-source-branch",
-      text: `${branchParts.value.abbr || ""}${branchParts.value.rest || ""}`,
-      variant: "branch",
-    });
+    items.push(peekTextItem(
+      "branch",
+      "mdi-source-branch",
+      `${branchParts.value.abbr || ""}${branchParts.value.rest || ""}`,
+      "branch",
+    ));
   }
   if (isGitRepo.value && isDirty.value) {
     const parts = [];
-    if (changedFiles.value > 0) parts.push(`${changedFiles.value}F`);
-    parts.push(`+${insertions.value}`, `-${deletions.value}`);
-    items.push({ key: "changes", icon: "mdi-file-document-multiple-outline", text: parts.join(" "), variant: "changes" });
+    if (changedFiles.value > 0) parts.push({ text: `${changedFiles.value}F`, cls: "numstat-files" });
+    parts.push({ text: `+${insertions.value}`, cls: "diff-num-plus" });
+    parts.push({ text: `-${deletions.value}`, cls: "diff-num-del" });
+    items.push({
+      key: "changes",
+      icon: "mdi-file-document-multiple-outline",
+      variant: "changes",
+      parts,
+      text: parts.map((p) => p.text).join(" "),
+    });
   }
   if (isGitRepo.value && behind.value > 0) {
-    items.push({ key: "pull", icon: "mdi-arrow-down", text: `Pull ${behind.value}`, variant: "pull" });
+    items.push(peekTextItem("pull", "mdi-arrow-down", `Pull ${behind.value}`, "pull"));
   }
   if (isGitRepo.value && !hasUpstream.value && hasRemoteBranch.value) {
-    items.push({ key: "push", icon: "mdi-arrow-up", text: "Set Upstream", variant: "set-upstream" });
+    items.push(peekTextItem("push", "mdi-arrow-up", "Set Upstream", "set-upstream"));
   } else if (isGitRepo.value && !hasUpstream.value && !hasRemoteBranch.value) {
-    items.push({ key: "push", icon: "mdi-arrow-up", text: `Push ${ahead.value}`, variant: "push-upstream" });
+    items.push(peekTextItem("push", "mdi-arrow-up", `Push ${ahead.value}`, "push-upstream"));
   } else if (isGitRepo.value && hasUpstream.value && ahead.value > 0) {
-    items.push({ key: "push", icon: "mdi-arrow-up", text: `Push ${ahead.value}`, variant: "push" });
+    items.push(peekTextItem("push", "mdi-arrow-up", `Push ${ahead.value}`, "push"));
   }
   if (devServerEntry.value) {
-    items.push({ key: "devserver", icon: "mdi-server", text: "Server", variant: "devserver" });
+    items.push(peekTextItem("devserver", "mdi-server", "Server", "devserver"));
   }
   if (!isGitRepo.value && props.tab.sessionId) {
-    items.push({ key: "add", icon: "mdi-folder-plus-outline", text: "Add", variant: "add" });
+    items.push(peekTextItem("add", "mdi-folder-plus-outline", "Add", "add"));
   }
   return items;
 });
@@ -962,6 +977,16 @@ defineExpose({
   transition: width 0.2s ease;
 }
 
+.pill-more-btn .mdi-dots-horizontal {
+  transition: transform 0.2s ease;
+}
+
+/* 展開時は × と並ぶ「閉じる」トグルとして機能する。ドットを寝かせて開閉が
+   分かるようにする（展開ボタン群は「...」の左側に生える）。 */
+.pill-more-btn.expanded .mdi-dots-horizontal {
+  transform: rotate(90deg);
+}
+
 /* 展開ボタン群のどれかが更新された時、数秒だけ「...」の代わりにその内容を見せる。
    基本の見た目は branch/changes/devserver/add と同じニュートラルな配色にし、
    pull/push 系だけ対応する実ボタンと同じアクセントカラーを当てる。 */
@@ -1018,6 +1043,8 @@ defineExpose({
 }
 
 .pill-more-peek-text {
+  display: inline-flex;
+  gap: 4px;
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
