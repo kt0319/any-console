@@ -385,9 +385,9 @@ const { pillDragging, onPillMouseDown, onPillClick, onPillTouchStart, onPillTouc
     if (props.tab.workspace) {
       workspaceStore.selectedWorkspace = props.tab.workspace;
       // ピルに ahead/behind（push/pullマーク）が出ている時は、その操作をする Branches ペインへ直接開く。
-      // それ以外は Files ペインを開く。
+      // それ以外は Jobs ペイン（既定）を開く。
       const hasPushPullMark = layoutStore.isSplitMode && (ahead.value > 0 || behind.value > 0);
-      emit("git:openFileModal", { pane: hasPushPullMark ? "branch" : "files" });
+      emit("git:openFileModal", hasPushPullMark ? { pane: "branch" } : undefined);
     } else if (props.tab.sessionId) {
       // ワークスペース未紐付けのベアターミナルでは cwd を読んで Files を開く
       openBareTerminalFiles();
