@@ -46,7 +46,7 @@
           class="pill-trailing"
           ref="trailingEl"
           :class="{ 'no-transition': suppressTrailingWidthTransition }"
-          :style="{ width: trailingWidth + 'px' }"
+          :style="{ width: trailingWidth + 'px', maxWidth: trailingMaxWidth + 'px' }"
         >
           <div class="pill-trailing-inner" ref="trailingInnerEl">
               <button
@@ -126,6 +126,18 @@
                 <span class="pill-devserver-text">Server</span>
               </button>
               <button
+                v-if="(pillExpanded || peekingKey === 'files') && !isGitRepo && tab.sessionId"
+                type="button"
+                class="pill-devserver-btn"
+                aria-label="Files"
+                data-tooltip="Browse files in this terminal's directory"
+                @pointerdown.stop
+                @click.stop="openBareTerminalFiles"
+              >
+                <span class="mdi mdi-folder-outline"></span>
+                <span class="pill-devserver-text">Files</span>
+              </button>
+              <button
                 v-if="(pillExpanded || peekingKey === 'add') && !isGitRepo && tab.sessionId"
                 type="button"
                 class="pill-devserver-btn"
@@ -197,7 +209,7 @@ import StatusOverlay from "./StatusOverlay.vue";
 import GitActionBtn from "./GitActionBtn.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
 import { terminalSessionCwdPath } from "../utils/endpoints.js";
-import { resolveRegisterCurrentDirAction } from "../utils/bare-terminal-actions.js";
+import { resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from "../utils/bare-terminal-actions.js";
 import { trailingItemsSignature, findChangedTrailingItem } from "../utils/pill-peek.js";
 
 const props = defineProps({
@@ -263,6 +275,15 @@ async function fetchCwd() {
   return ok ? (data?.cwd || "") : "";
 }
 
+// 非Gitワークスペースに紐づいたターミナルでcdして未登録ディレクトリへ移動した
+// 場合や、ワークスペース未紐付けのベアターミナルの場合、Files はワークスペース
+// パスではなくセッションの実際のcwdを起点に開く（廃止済みWorkspaceStatusBarの
+// isPlainTerminal時の挙動を踏襲）。
+async function openBareTerminalFiles() {
+  const cwd = props.tab.sessionId ? await fetchCwd() : "";
+  emit("git:openFileModal", resolveBareTerminalFilesDetail(props.tab.sessionId, cwd));
+}
+
 async function registerCurrentDir() {
   if (!props.tab.sessionId) return;
   const cwd = await fetchCwd();
@@ -304,6 +325,14 @@ let lastShownPillWidth = 0;
 let paneWidth = 0;
 let pillWidth = 0;
 let roPane = null;
+// 分割モードでは .terminal-pane がビューポートよりずっと狭い。.pill-trailing の
+// 横スクロール上限幅を 100vw 基準にすると、狭いペインではみ出した Branches/
+// Changes 等の先頭側ボタンが .terminal-pane の overflow クリップで完全に
+// 隠れ、スクロールしても届かなくなる。実測したペイン幅を基準にする。
+const paneWidthRef = ref(0);
+// 閉じるボタン・ワークスペースピル本体・余白ぶんを差し引いた残りをスクロール
+// 領域の上限にする。マイナスにはしない。
+const trailingMaxWidth = computed(() => Math.max(0, paneWidthRef.value - 80));
 
 function updatePaneNarrow() {
   if (!paneWidth) return;
@@ -321,8 +350,12 @@ watch([paneEl, infoPillEl], ([paneNode, pillNode]) => {
   if (!paneNode || !pillNode) return;
   roPane = new ResizeObserver((entries) => {
     for (const e of entries) {
-      if (e.target === paneNode) paneWidth = e.contentRect.width;
-      else if (e.target === pillNode) pillWidth = e.contentRect.width;
+      if (e.target === paneNode) {
+        paneWidth = e.contentRect.width;
+        paneWidthRef.value = paneWidth;
+      } else if (e.target === pillNode) {
+        pillWidth = e.contentRect.width;
+      }
     }
     updatePaneNarrow();
   });
@@ -371,6 +404,7 @@ const trailingPeekItems = computed(() => {
     items.push({ key: "devserver", text: "Server" });
   }
   if (!isGitRepo.value && props.tab.sessionId) {
+    items.push({ key: "files", text: "Files" });
     items.push({ key: "add", text: "Add" });
   }
   return items;
@@ -384,10 +418,20 @@ const trailingPeekItems = computed(() => {
 const peekingKey = ref(null);
 let prevTrailingSignature = trailingItemsSignature(trailingPeekItems.value);
 let pillMorePeekTimer = null;
+// paneWorkspace は workspaceStore.allWorkspaces（非同期フェッチ）に依存するため、
+// マウント直後は未解決（undefined）で isGitRepo 等が一時的に false になり得る。
+// このタイミングで prevTrailingSignature を確定させると、ワークスペース情報が
+// 届いた瞬間に「branch が新規に現れた」と誤検知して、畳んだ状態でも
+// Branches ボタンが一瞬 peek 表示されてしまう。ワークスペースが一度でも
+// 解決するまでは変化検出を行わず、解決した最初の1回はベースラインの
+// 更新だけ行って peek はスキップする。
+let workspaceEverResolved = paneWorkspace.value !== undefined;
 
 watch(trailingPeekItems, (items) => {
   const nextSignature = trailingItemsSignature(items);
-  if (!pillExpanded.value) {
+  const justResolved = !workspaceEverResolved && paneWorkspace.value !== undefined;
+  if (justResolved) workspaceEverResolved = true;
+  if (!pillExpanded.value && workspaceEverResolved && !justResolved) {
     const changed = findChangedTrailingItem(items, prevTrailingSignature);
     if (changed) {
       peekingKey.value = changed.key;
@@ -743,10 +787,11 @@ defineExpose({
    横スクロール時にクリップされない。 */
 .pill-trailing {
   min-width: 0;
-  /* ボタン数が多い狭い画面（Pull/Push/Set Upstream/Dev Server等が同時に出る場合）で
-     画面端からはみ出したボタンが見えない・押せなくなるのを防ぐ。可変個数を1行に
-     収めるのではなく、上限幅を設けて横スクロールで到達可能にする。 */
-  max-width: calc(100vw - 80px);
+  /* ボタン数が多い狭い画面・狭い分割ペイン（Pull/Push/Set Upstream/Dev Server等
+     が同時に出る場合）で画面端・ペイン端からはみ出したボタンが見えない・
+     押せなくなるのを防ぐ。可変個数を1行に収めるのではなく、上限幅（実測した
+     ペイン幅基準、script側の trailingMaxWidth）を設けて横スクロールで到達
+     可能にする。 */
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
