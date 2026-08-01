@@ -86,7 +86,26 @@
               @action="doAction('pull')"
             />
             <GitActionBtn
-              v-if="effectivePillExpanded && ahead > 0"
+              v-if="effectivePillExpanded && !hasUpstream && hasRemoteBranch"
+              icon="set-upstream"
+              title="Set Upstream"
+              :running="isRunning(tab.workspace, 'set-upstream')"
+              btn-class="icon-only upstream-set-btn"
+              @pointerdown.stop
+              @action="doAction('set-upstream')"
+            />
+            <GitActionBtn
+              v-if="effectivePillExpanded && !hasUpstream && !hasRemoteBranch"
+              icon="push-upstream"
+              title="Push & Set Upstream"
+              :count="ahead"
+              :running="isRunning(tab.workspace, 'push-upstream')"
+              btn-class="upstream-btn"
+              @pointerdown.stop
+              @action="doAction('push-upstream')"
+            />
+            <GitActionBtn
+              v-if="effectivePillExpanded && hasUpstream && ahead > 0"
               icon="push"
               title="Push"
               :count="ahead"
@@ -106,6 +125,18 @@
             >
               <span class="mdi mdi-server"></span>
               <span class="pill-devserver-text">Server</span>
+            </button>
+            <button
+              v-if="effectivePillExpanded && !tab.workspace && tab.sessionId"
+              type="button"
+              class="pill-devserver-btn"
+              aria-label="Add workspace"
+              data-tooltip="Add this directory as a workspace"
+              @pointerdown.stop
+              @click.stop="registerCurrentDir"
+            >
+              <span class="mdi mdi-folder-plus-outline"></span>
+              <span class="pill-devserver-text">Add</span>
             </button>
             <button
               v-if="layoutStore.isSplitMode"
@@ -153,12 +184,12 @@ import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.js";
 import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useIsMobile } from "../composables/useIsMobile.js";
 import { useApi } from "../composables/useApi.js";
+import { usePreviewPorts } from "../composables/usePreviewPorts.js";
 import CircleKeyPad from "./CircleKeyPad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
 import GitActionBtn from "./GitActionBtn.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
-import { DEV_SERVER_POLL_INTERVAL_MS } from "../utils/constants.js";
-import { EP_PREVIEW_PORTS } from "../utils/endpoints.js";
+import { terminalSessionCwdPath } from "../utils/endpoints.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -179,7 +210,7 @@ const paneWorkspace = computed(() =>
 );
 // 分割モードでは WorkspaceStatusBar（アクティブタブ1つ分の表示）が隠れるため、
 // ペインごとの git 情報（変更行数・ahead/behind）をピルに直接出す。
-const { isDirty, isGitRepo, ahead, behind, changedFiles, insertions, deletions, branchParts } = useWorkspaceGitStatus(paneWorkspace, isMobile);
+const { isDirty, isGitRepo, hasUpstream, hasRemoteBranch, ahead, behind, changedFiles, insertions, deletions, branchParts } = useWorkspaceGitStatus(paneWorkspace, isMobile);
 const { gitAction, isRunning } = useGitRemoteAction();
 
 function doAction(action) {
@@ -189,27 +220,8 @@ function doAction(action) {
 }
 
 // WorkspaceStatusBar と同じ理由（分割モードでは隠れる）で Dev Server ボタンもピルに直接出す。
-const previewPorts = ref(/** @type {Record<string, any>[]} */ ([]));
-let previewTimer = null;
-
-async function fetchPreviewPorts() {
-  if (!props.tab.workspace) { previewPorts.value = []; return; }
-  const { ok, data } = await apiGet(EP_PREVIEW_PORTS);
-  if (ok && Array.isArray(data)) previewPorts.value = data;
-}
-
-function startPreviewPolling() {
-  stopPreviewPolling();
-  fetchPreviewPorts();
-  previewTimer = setInterval(() => {
-    if (document.hidden) return;
-    fetchPreviewPorts();
-  }, DEV_SERVER_POLL_INTERVAL_MS);
-}
-
-function stopPreviewPolling() {
-  if (previewTimer) { clearInterval(previewTimer); previewTimer = null; }
-}
+// ポーリング自体は usePreviewPorts に集約し、開いている全タブで1本のタイマーを共有する。
+const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling, fetchPorts: fetchPreviewPorts } = usePreviewPorts();
 
 const devServerEntry = computed(() =>
   previewPorts.value.find((p) => p.workspace === props.tab.workspace && p.proxy_port) || null,
@@ -230,6 +242,40 @@ function openChanges() {
   if (!props.tab.workspace) return;
   workspaceStore.selectedWorkspace = props.tab.workspace;
   emit("git:openFileModal", { pane: "changes" });
+}
+
+// git 未登録（ワークスペース未紐付け）のベアターミナルでは、cwd を都度取得して
+// Files モーダル・ワークスペース登録に使う（常時ポーリングはせず必要時にのみ叩く）。
+async function fetchCwd() {
+  if (!props.tab.sessionId) return "";
+  const { ok, data } = await apiGet(terminalSessionCwdPath(props.tab.sessionId));
+  return ok ? (data?.cwd || "") : "";
+}
+
+function cwdBaseName(path) {
+  return path.split("/").filter(Boolean).pop() || path;
+}
+
+async function openBareTerminalFiles() {
+  const detail = { pane: "files" };
+  if (props.tab.sessionId) {
+    const cwd = await fetchCwd();
+    detail.terminalSessionId = props.tab.sessionId;
+    detail.rootLabel = cwd ? cwdBaseName(cwd) : "terminal";
+  }
+  emit("git:openFileModal", detail);
+}
+
+async function registerCurrentDir() {
+  if (!props.tab.sessionId) return;
+  const cwd = await fetchCwd();
+  if (!cwd) { emit("workspace:openModal"); return; }
+  const existing = workspaceStore.allWorkspaces.find((w) => w.path === cwd);
+  if (existing) {
+    emit("terminal:launch", { workspace: existing.name, icon: existing.icon, iconColor: existing.icon_color });
+    return;
+  }
+  emit("workspace:openAdd", { initialPath: cwd, attachSessionId: props.tab.sessionId, attachTabId: props.tab.id });
 }
 
 function openBranch() {
@@ -350,6 +396,10 @@ const { pillDragging, onPillMouseDown, onPillClick, onPillTouchStart, onPillTouc
       // それ以外は Files ペインを開く。
       const hasPushPullMark = layoutStore.isSplitMode && (ahead.value > 0 || behind.value > 0);
       emit("git:openFileModal", { pane: hasPushPullMark ? "branch" : "files" });
+    } else if (props.tab.sessionId) {
+      // ワークスペース未紐付けのベアターミナルでは cwd を読んで Files を開く
+      // （WorkspaceStatusBar の isPlainTerminal 時の openFileModal('files') と同じ挙動）。
+      openBareTerminalFiles();
     } else {
       emit("workspace:openModal");
     }
