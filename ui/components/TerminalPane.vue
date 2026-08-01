@@ -140,13 +140,13 @@
                 v-if="(pillExpanded || peekingKey === 'add') && !isGitRepo && tab.sessionId"
                 type="button"
                 class="pill-devserver-btn"
-                aria-label="Add workspace"
-                data-tooltip="Add this directory as a workspace"
+                :aria-label="registerActionLabel"
+                :data-tooltip="registerActionLabel"
                 @pointerdown.stop
                 @click.stop="registerCurrentDir"
               >
-                <span class="mdi mdi-folder-plus-outline"></span>
-                <span class="pill-devserver-text">Add</span>
+                <span class="mdi" :class="registerAction.type === 'launch' ? 'mdi-folder-open-outline' : 'mdi-folder-plus-outline'"></span>
+                <span class="pill-devserver-text">{{ registerAction.type === 'launch' ? 'Open' : 'Add' }}</span>
               </button>
             </div>
           </div>
@@ -252,8 +252,21 @@ function doAction(action) {
 }
 
 // Dev Server ボタンもピルに直接出す。ポーリング自体は usePreviewPorts に集約し、
-// 開いている全タブで1本のタイマーを共有する。
+// 開いている全タブで1本のタイマーを共有する。ワークスペース未紐付けのベアターミナルは
+// devServerEntry を絶対に持てない（下記参照）ため、それらのタブはポーリングに参加しない。
 const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling, fetchPorts: fetchPreviewPorts } = usePreviewPorts();
+let previewPollingStarted = false;
+
+function syncPreviewPolling() {
+  const shouldPoll = !!props.tab.workspace;
+  if (shouldPoll && !previewPollingStarted) {
+    previewPollingStarted = true;
+    startPreviewPolling();
+  } else if (!shouldPoll && previewPollingStarted) {
+    previewPollingStarted = false;
+    stopPreviewPolling();
+  }
+}
 
 const devServerEntry = computed(() => {
   // ワークスペース未紐付けのベアターミナルでは workspace===null 同士がマッチしてしまい、
@@ -307,6 +320,24 @@ async function registerCurrentDir() {
   } else {
     emit("workspace:openAdd", { initialPath: action.initialPath, attachSessionId: props.tab.sessionId, attachTabId: props.tab.id });
   }
+}
+
+// 「Add」ボタンは cwd がすでに登録済みワークスペースと一致する場合、実際には
+// ワークスペース追加ではなくそのワークスペースの起動（launch）を行う。ラベルが
+// 常に「Add」のままだと紛らわしい（意図せず別ターミナルを起動してしまう）ため、
+// ボタンが見える（展開 or peek 表示）タイミングで cwd を取り直してラベルに反映する。
+// 常時ポーリングはしない（表示されていない間の cwd 取得はコスト無駄なので不要）。
+const cwdForLabel = ref("");
+const registerAction = computed(() => resolveRegisterCurrentDirAction(cwdForLabel.value, workspaceStore.allWorkspaces));
+const registerActionLabel = computed(() =>
+  registerAction.value.type === "launch"
+    ? `Open "${registerAction.value.workspace}" workspace`
+    : "Add this directory as a workspace",
+);
+
+async function refreshCwdForLabel() {
+  if (isGitRepo.value || !props.tab.sessionId) return;
+  cwdForLabel.value = await fetchCwd();
 }
 
 function openBranch() {
@@ -464,6 +495,14 @@ watch(pillExpanded, (expanded) => {
   peekingKey.value = null;
   if (pillMorePeekTimer) { clearTimeout(pillMorePeekTimer); pillMorePeekTimer = null; }
 });
+
+// Add ボタンが見える（展開 or peek 表示）タイミングで cwd を取り直し、ラベルを最新化する。
+watch(
+  () => pillExpanded.value || peekingKey.value === "add",
+  (visible) => {
+    if (visible) refreshCwdForLabel();
+  },
+);
 
 // .pill-trailing（Dev Server/Changes/Branches等、可変ボタン群のクリップ用
 // コンテナ）の width を、中身の実測幅（.pill-trailing-inner の content サイズ）
@@ -690,10 +729,13 @@ onMounted(() => {
   if (frameEl.value) {
     frameEl.value.addEventListener("wheel", onWheel, { passive: false, capture: true });
   }
-  startPreviewPolling();
+  syncPreviewPolling();
 });
 
-watch(() => props.tab.workspace, () => fetchPreviewPorts());
+watch(() => props.tab.workspace, () => {
+  syncPreviewPolling();
+  if (previewPollingStarted) fetchPreviewPorts();
+});
 
 watch(isActive, async (active) => {
   if (!active) return;
@@ -719,7 +761,7 @@ watch(isActive, async (active) => {
 
 onBeforeUnmount(() => {
   clearActiveFitTimer();
-  stopPreviewPolling();
+  if (previewPollingStarted) stopPreviewPolling();
   if (pillMorePeekTimer) { clearTimeout(pillMorePeekTimer); pillMorePeekTimer = null; }
   roPane?.disconnect();
   roPane = null;
