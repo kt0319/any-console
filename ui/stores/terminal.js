@@ -233,11 +233,14 @@ export const useTerminalStore = defineStore("terminal", () => {
   }
 
   function setTabWorkspace(tabId, workspaceName) {
-    const tab = openTabs.value.find((t) => t.id === tabId);
-    if (!tab) return;
-    tab.workspace = workspaceName || null;
-    // markRaw オブジェクトの変更を Vue に検知させるため配列参照を更新
-    openTabs.value = [...openTabs.value];
+    const idx = openTabs.value.findIndex((t) => t.id === tabId);
+    if (idx === -1) return;
+    // tab は markRaw なので、既存オブジェクトのプロパティを書き換えるだけでは
+    // TerminalPane が受け取る tab prop の参照が変わらず、Vue が子コンポーネントの
+    // 再レンダリングをスキップしてしまう（watch(() => props.tab.workspace) 等が
+    // 発火しない）。配列だけでなく tab 自体も新しいオブジェクトに差し替える。
+    const next = markRaw({ ...openTabs.value[idx], workspace: workspaceName || null });
+    openTabs.value = openTabs.value.map((t, i) => (i === idx ? next : t));
   }
 
   function moveTab(fromIndex, toIndex) {

@@ -83,6 +83,37 @@ describe("terminal store: active 再選出", () => {
   });
 });
 
+describe("terminal store: setTabWorkspace", () => {
+  let store;
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    store = useTerminalStore();
+  });
+
+  it("workspace を更新し、tab オブジェクト自体を新しい参照に差し替える", () => {
+    seedTabs(store, [{ id: 1 }, { id: 2 }]);
+    const before = store.openTabs.find((t) => t.id === 1);
+    store.setTabWorkspace(1, "ws1");
+    const after = store.openTabs.find((t) => t.id === 1);
+    expect(after.workspace).toBe("ws1");
+    expect(after).not.toBe(before);
+  });
+
+  it("対象外のタブオブジェクトは参照を維持する", () => {
+    seedTabs(store, [{ id: 1 }, { id: 2 }]);
+    const other = store.openTabs.find((t) => t.id === 2);
+    store.setTabWorkspace(1, "ws1");
+    expect(store.openTabs.find((t) => t.id === 2)).toBe(other);
+  });
+
+  it("存在しない tabId は何もしない", () => {
+    seedTabs(store, [{ id: 1 }]);
+    const before = store.openTabs;
+    store.setTabWorkspace(999, "ws1");
+    expect(store.openTabs).toBe(before);
+  });
+});
+
 describe("terminal store: addTerminalTab の重複防止", () => {
   let store;
   beforeEach(() => {
