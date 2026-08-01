@@ -8,7 +8,7 @@ const APP_NAME = "any-console";
 /**
  * App.vue のルートで呼び出し、アクティブタブに応じて document.title を同期する。
  * - 表示中のタブが無ければアプリ名のみ
- * - タブがあれば「APP_NAME - workspace [branch] / job」形式
+ * - タブがあれば「APP_NAME - workspace | branch | job」形式
  */
 export function useAppDocumentTitle() {
   const terminalStore = useTerminalStore();
