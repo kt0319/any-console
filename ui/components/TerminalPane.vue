@@ -15,12 +15,13 @@
       <div
         class="pill-group"
         ref="pillEl"
+        :class="{ 'no-transition': suppressPillRightTransition }"
         :style="{ right: pillGroupRight }"
       >
         <div
           class="terminal-info-pill"
           ref="infoPillEl"
-          :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working', dragging: pillDragging }"
+          :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working', dragging: pillDragging, 'pill-collapsed': isMobile && !pillExpanded }"
           :data-tooltip="pillTooltip"
           tabindex="-1"
           @mousedown="onPillMouseDown"
@@ -37,44 +38,22 @@
               <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
             </span>
             <span v-if="!isPaneNarrow" class="pill-workspace-label">{{ tab.workspace || tab.label || '' }}</span>
-            <Transition name="pill-pop">
-              <span v-if="behind > 0 || ahead > 0" class="pill-ahead-behind" aria-label="ahead/behind commits">
-                <span v-if="behind > 0" class="pill-behind">&darr;{{ behind }}</span>
-                <span v-if="ahead > 0" class="pill-ahead">&uarr;{{ ahead }}</span>
-              </span>
-            </Transition>
           </span>
         </div>
         <div class="pill-trailing" ref="trailingEl">
           <TransitionGroup name="pill-pop">
             <button
-              v-if="pillExpanded && devServerEntry"
-              key="devserver"
+              v-if="isMobile && !pillExpanded"
+              key="more"
               type="button"
-              class="pill-devserver-btn"
-              aria-label="Dev Server"
-              data-tooltip="Dev Server"
+              class="pill-more-btn"
+              aria-label="Show more"
+              data-tooltip="Show more"
               @pointerdown.stop
-              @click.stop="openDevServer"
-            >
-              <span class="mdi mdi-server"></span>
-            </button>
+              @click.stop="pillExpanded = true"
+            ><span class="mdi mdi-dots-horizontal"></span></button>
             <button
-              v-if="pillExpanded && isDirty"
-              key="changes"
-              type="button"
-              class="pill-numstat-btn"
-              aria-label="Changes"
-              data-tooltip="Changes"
-              @pointerdown.stop
-              @click.stop="openChanges"
-            >
-              <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
-              <span class="diff-num-plus">+{{ insertions }}</span>
-              <span class="diff-num-del">-{{ deletions }}</span>
-            </button>
-            <button
-              v-if="pillExpanded && isGitRepo"
+              v-if="effectivePillExpanded && isGitRepo"
               key="branch"
               type="button"
               class="pill-branch-btn"
@@ -87,7 +66,56 @@
               <span class="pill-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
             </button>
             <button
-              v-if="pillExpanded && layoutStore.isSplitMode"
+              v-if="effectivePillExpanded && isDirty"
+              key="changes"
+              type="button"
+              class="pill-numstat-btn"
+              aria-label="Changes"
+              data-tooltip="Changes"
+              @pointerdown.stop
+              @click.stop="openChanges"
+            >
+              <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
+              <span class="diff-num-plus">+{{ insertions }}</span>
+              <span class="diff-num-del">-{{ deletions }}</span>
+            </button>
+            <GitActionBtn
+              v-if="effectivePillExpanded && behind > 0"
+              key="pull"
+              icon="pull"
+              title="Pull"
+              :count="behind"
+              :running="isRunning(tab.workspace, 'pull')"
+              btn-class="pull-btn has-count"
+              @pointerdown.stop
+              @action="doAction('pull')"
+            />
+            <GitActionBtn
+              v-if="effectivePillExpanded && ahead > 0"
+              key="push"
+              icon="push"
+              title="Push"
+              :count="ahead"
+              :running="isRunning(tab.workspace, 'push')"
+              btn-class="push-btn has-count"
+              @pointerdown.stop
+              @action="doAction('push')"
+            />
+            <button
+              v-if="effectivePillExpanded && devServerEntry"
+              key="devserver"
+              type="button"
+              class="pill-devserver-btn"
+              aria-label="Dev Server"
+              data-tooltip="Dev Server"
+              @pointerdown.stop
+              @click.stop="openDevServer"
+            >
+              <span class="mdi mdi-server"></span>
+              <span class="pill-devserver-text">Server</span>
+            </button>
+            <button
+              v-if="layoutStore.isSplitMode"
               key="minus"
               type="button"
               class="pill-close-btn pill-minus-btn"
@@ -98,7 +126,7 @@
               @click.stop
             >&minus;</button>
             <button
-              v-if="pillExpanded && !layoutStore.isSplitMode"
+              v-if="!layoutStore.isSplitMode"
               key="close"
               type="button"
               class="pill-close-btn pill-tab-close-btn"
@@ -132,10 +160,12 @@ import { confirmCloseTab } from "../utils/tab-close-confirm.js";
 import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.js";
 import { useCircleKeyPad } from "../composables/useCircleKeyPad.js";
 import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.js";
+import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useIsMobile } from "../composables/useIsMobile.js";
 import { useApi } from "../composables/useApi.js";
 import CircleKeyPad from "./CircleKeyPad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
+import GitActionBtn from "./GitActionBtn.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
 import { DEV_SERVER_POLL_INTERVAL_MS } from "../utils/constants.js";
 import { EP_PREVIEW_PORTS } from "../utils/endpoints.js";
@@ -160,6 +190,13 @@ const paneWorkspace = computed(() =>
 // 分割モードでは WorkspaceStatusBar（アクティブタブ1つ分の表示）が隠れるため、
 // ペインごとの git 情報（変更行数・ahead/behind）をピルに直接出す。
 const { isDirty, isGitRepo, ahead, behind, changedFiles, insertions, deletions, branchParts } = useWorkspaceGitStatus(paneWorkspace, isMobile);
+const { gitAction, isRunning } = useGitRemoteAction();
+
+function doAction(action) {
+  const wsName = props.tab.workspace;
+  if (!wsName) return;
+  gitAction(wsName, action, { branch: paneWorkspace.value?.branch || "" });
+}
 
 // WorkspaceStatusBar と同じ理由（分割モードでは隠れる）で Dev Server ボタンもピルに直接出す。
 const previewPorts = ref(/** @type {Record<string, any>[]} */ ([]));
@@ -263,11 +300,15 @@ const pillTooltip = computed(() =>
   layoutStore.isTouchDevice ? "Tap for details" : "Drag to split  ·  Click for details",
 );
 
-// ピルの Dev Server / Changes・Branches / Close ボタンは普段は畳んでおき、
-// ピルを一度タップした時だけ展開する。展開中に他の操作（ピル外のクリック・
+// ピルの Dev Server / Changes・Branches / Close ボタンは、狭い画面幅
+// （isMobile、MOBILE_BREAKPOINT_PX 基準）では普段は畳んでおき、ピルを
+// 一度タップした時だけ展開する。展開中に他の操作（ピル外のクリック・
 // キー入力）があったら閉じる。展開済みでもう一度タップした時だけ、
 // 従来通り Files/Branches モーダルを開く。
+// 広い画面幅ではスペースに余裕があるため、常に展開した状態にする
+// （タップ操作を挟まず、クリックで直接モーダルを開く）。
 const pillExpanded = ref(false);
+const effectivePillExpanded = computed(() => !isMobile.value || pillExpanded.value);
 
 function collapsePill() {
   pillExpanded.value = false;
@@ -304,21 +345,15 @@ watch(trailingEl, (el) => {
   roTrailing.observe(el);
 });
 
-const pillGroupRight = computed(() =>
-  pillExpanded.value
-    ? `calc(var(--pill-base-right) + ${trailingWidth.value}px)`
-    : "var(--pill-base-right)",
-);
+// minus/close ボタンは常時表示のため、.pill-trailing は畳んだ状態でも
+// 常に何かしら幅を持つ。よって right オフセットは常に実測幅を加算する。
+const pillGroupRight = computed(() => `calc(var(--pill-base-right) + ${trailingWidth.value}px)`);
 
 const tabId = computed(() => props.tab.id);
 const { pillDragging, onPillMouseDown, onPillClick, onPillTouchStart, onPillTouchMove, onPillTouchEnd } = usePillDrag({
   tabId,
   canDrag,
   onTabClick: () => {
-    if (!pillExpanded.value) {
-      pillExpanded.value = true;
-      return;
-    }
     if (props.tab.workspace) {
       workspaceStore.selectedWorkspace = props.tab.workspace;
       // ピルに ahead/behind（push/pullマーク）が出ている時は、その操作をする Branches ペインへ直接開く。
@@ -337,6 +372,27 @@ const isActive = computed(() => {
     return layoutStore.activePaneIndex === props.paneIndex;
   }
   return terminalStore.activeTabId === props.tab.id;
+});
+
+// v-show で非表示（display:none）の間、pill-trailing の ResizeObserver は幅を
+// 0 として報告する。タブ切り替えで再表示された直後に実測幅へ戻ると
+// pillGroupRight が変化し、.pill-group の `transition: right` でスライドして
+// 見えてしまう。タブ切り替え直後の 1 フレームだけこの transition を止める。
+const suppressPillRightTransition = ref(!isActive.value);
+watch(isActive, (active) => {
+  if (!active) return;
+  suppressPillRightTransition.value = true;
+  // ResizeObserver のコールバックは requestAnimationFrame の後、フレーム終端で
+  // 発火する。rAF を1回挟むだけだと trailingWidth の更新前に transition を
+  // 再有効化してしまいアニメーションが見えるため、rAF を2回重ねて
+  // ResizeObserver の発火・trailingWidth 反映を確実に待つ。
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        suppressPillRightTransition.value = false;
+      });
+    });
+  });
 });
 
 const { isOffline } = useConnectivityMonitor();
@@ -585,6 +641,10 @@ defineExpose({
   max-width: min(80vw, 450px);
 }
 
+.pill-group.no-transition {
+  transition: none;
+}
+
 /* Dev Server / Changes・Branches / Close ボタンは position:absolute で通常の
    flex フローから外し、.terminal-info-pill だけを唯一のフロー要素にする。
    こうするとボタンの増減で pill-group 自体の幅が変わっても、ピル本体の
@@ -626,7 +686,7 @@ defineExpose({
   border-radius: 999px;
   background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
-  opacity: 0.9;
+  opacity: 1;
   font-size: 12px;
   line-height: 1.2;
   user-select: none;
@@ -649,36 +709,48 @@ defineExpose({
   -webkit-user-drag: none;
 }
 
-.pill-ahead-behind {
-  display: inline-flex;
+/* GitActionBtn は WorkspaceStatusBar のツールバー用の見た目（アクセント色背景・
+   高さ36px）を持つ。このピル内では他ボタン（numstat/branch/devserver）と
+   同じ地の色・サイズ・フォントに統一し、push/pull は numstat-files や
+   diff-num-plus と同じパターン（ニュートラルな地に数字だけ意味色）にする。 */
+.pill-trailing :deep(.git-action-btn) {
+  min-height: 28px;
+  height: 28px;
+  max-height: 28px;
+  min-width: 28px;
+  padding: 0 8px;
   gap: 4px;
-  flex-shrink: 0;
+  border-radius: 999px;
+  background: rgba(26, 27, 38, 0.88);
+  border: 1px solid rgba(59, 66, 97, 0.5);
   font-size: 11px;
   font-weight: 600;
 }
 
-.pill-behind {
-  color: var(--warning);
-}
-
-.pill-ahead {
-  color: var(--accent);
+.pill-trailing :deep(.git-action-btn.pull-btn.has-count),
+.pill-trailing :deep(.git-action-btn.push-btn.has-count) {
+  background: rgba(26, 27, 38, 0.88);
+  border: 1px solid rgba(59, 66, 97, 0.5);
 }
 
 .pill-devserver-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 4px;
   min-height: 28px;
-  width: 28px;
   flex-shrink: 0;
-  padding: 0;
+  padding: 0 8px;
   border: 1px solid rgba(59, 66, 97, 0.5);
   border-radius: 999px;
   background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
   font-size: 13px;
   cursor: pointer;
+}
+
+.pill-devserver-text {
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .pill-numstat-btn {
@@ -737,6 +809,29 @@ defineExpose({
 
 .terminal-info-pill.dragging {
   opacity: 0.5;
+}
+
+/* モバイルで畳んだ状態を枠線の破線化で示す（「まだ隠れた操作がある」ことを伝える）。
+   実際に開く操作は隣接する .pill-more-btn（mdi-dots-horizontal ボタン）が担う。 */
+.terminal-info-pill.pill-collapsed {
+  border-style: dashed;
+}
+
+.pill-more-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  width: 28px;
+  flex-shrink: 0;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 66, 97, 0.5);
+  background: rgba(26, 27, 38, 0.88);
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .pill-close-btn {
@@ -873,6 +968,10 @@ defineExpose({
   .terminal-info-pill.dragging {
     opacity: 0.5;
     cursor: grabbing;
+  }
+
+  .pill-branch-btn {
+    max-width: none;
   }
 }
 
