@@ -15,8 +15,6 @@
       <div
         class="pill-group"
         ref="pillEl"
-        :class="{ 'no-transition': suppressPillRightTransition }"
-        :style="{ right: pillGroupRight }"
       >
         <div
           class="terminal-info-pill"
@@ -46,107 +44,111 @@
         <div
           class="pill-trailing"
           ref="trailingEl"
-          :class="{ 'no-transition': suppressPillRightTransition }"
-          :style="{ width: trailingTotalWidth + 'px' }"
+          :class="{ 'no-transition': suppressTrailingWidthTransition }"
+          :style="{ width: trailingWidth + 'px' }"
         >
           <div class="pill-trailing-inner" ref="trailingInnerEl">
-            <button
-              v-if="(effectivePillExpanded || peekingKey === 'branch') && isGitRepo"
-              type="button"
-              class="pill-branch-btn"
-              aria-label="Branches"
-              data-tooltip="Branches"
-              @pointerdown.stop
-              @click.stop="openBranch"
-            >
-              <span class="mdi mdi-source-branch"></span>
-              <span class="pill-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
-            </button>
-            <button
-              v-if="(effectivePillExpanded || peekingKey === 'changes') && isGitRepo && isDirty"
-              type="button"
-              class="pill-numstat-btn"
-              aria-label="Changes"
-              data-tooltip="Changes"
-              @pointerdown.stop
-              @click.stop="openChanges"
-            >
-              <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
-              <span class="diff-num-plus">+{{ insertions }}</span>
-              <span class="diff-num-del">-{{ deletions }}</span>
-            </button>
-            <GitActionBtn
-              v-if="(effectivePillExpanded || peekingKey === 'pull') && isGitRepo && behind > 0"
-              icon="pull"
-              title="Pull"
-              :count="behind"
-              :running="isRunning(tab.workspace, 'pull')"
-              btn-class="pull-btn has-count"
-              @pointerdown.stop
-              @action="doAction('pull')"
-            />
-            <GitActionBtn
-              v-if="(effectivePillExpanded || peekingKey === 'push') && isGitRepo && !hasUpstream && hasRemoteBranch"
-              icon="set-upstream"
-              title="Set Upstream"
-              :running="isRunning(tab.workspace, 'set-upstream')"
-              btn-class="icon-only upstream-set-btn"
-              @pointerdown.stop
-              @action="doAction('set-upstream')"
-            />
-            <GitActionBtn
-              v-if="(effectivePillExpanded || peekingKey === 'push') && isGitRepo && !hasUpstream && !hasRemoteBranch"
-              icon="push-upstream"
-              title="Push & Set Upstream"
-              :count="ahead"
-              :running="isRunning(tab.workspace, 'push-upstream')"
-              btn-class="upstream-btn"
-              @pointerdown.stop
-              @action="doAction('push-upstream')"
-            />
-            <GitActionBtn
-              v-if="(effectivePillExpanded || peekingKey === 'push') && isGitRepo && hasUpstream && ahead > 0"
-              icon="push"
-              title="Push"
-              :count="ahead"
-              :running="isRunning(tab.workspace, 'push')"
-              btn-class="push-btn has-count"
-              @pointerdown.stop
-              @action="doAction('push')"
-            />
-            <button
-              v-if="(effectivePillExpanded || peekingKey === 'devserver') && devServerEntry"
-              type="button"
-              class="pill-devserver-btn"
-              aria-label="Dev Server"
-              data-tooltip="Dev Server"
-              @pointerdown.stop
-              @click.stop="openDevServer"
-            >
-              <span class="mdi mdi-server"></span>
-              <span class="pill-devserver-text">Server</span>
-            </button>
-            <button
-              v-if="(effectivePillExpanded || peekingKey === 'add') && !isGitRepo && tab.sessionId"
-              type="button"
-              class="pill-devserver-btn"
-              aria-label="Add workspace"
-              data-tooltip="Add this directory as a workspace"
-              @pointerdown.stop
-              @click.stop="registerCurrentDir"
-            >
-              <span class="mdi mdi-folder-plus-outline"></span>
-              <span class="pill-devserver-text">Add</span>
-            </button>
+              <button
+                v-if="(effectivePillExpanded || peekingKey === 'branch') && isGitRepo"
+                type="button"
+                class="pill-branch-btn"
+                aria-label="Branches"
+                data-tooltip="Branches"
+                @pointerdown.stop
+                @click.stop="openBranch"
+              >
+                <span class="mdi mdi-source-branch"></span>
+                <span class="pill-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
+              </button>
+              <button
+                v-if="(effectivePillExpanded || peekingKey === 'changes') && isGitRepo && isDirty"
+                type="button"
+                class="pill-numstat-btn"
+                aria-label="Changes"
+                data-tooltip="Changes"
+                @pointerdown.stop
+                @click.stop="openChanges"
+              >
+                <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
+                <span class="diff-num-plus">+{{ insertions }}</span>
+                <span class="diff-num-del">-{{ deletions }}</span>
+              </button>
+              <GitActionBtn
+                v-if="(effectivePillExpanded || peekingKey === 'pull') && isGitRepo && behind > 0"
+                icon="pull"
+                title="Pull"
+                :count="behind"
+                :running="isRunning(tab.workspace, 'pull')"
+                btn-class="pull-btn has-count"
+                @pointerdown.stop
+                @action="doAction('pull')"
+              />
+              <GitActionBtn
+                v-if="(effectivePillExpanded || peekingKey === 'push') && isGitRepo && !hasUpstream && hasRemoteBranch"
+                icon="set-upstream"
+                title="Set Upstream"
+                :running="isRunning(tab.workspace, 'set-upstream')"
+                btn-class="icon-only upstream-set-btn"
+                @pointerdown.stop
+                @action="doAction('set-upstream')"
+              />
+              <GitActionBtn
+                v-if="(effectivePillExpanded || peekingKey === 'push') && isGitRepo && !hasUpstream && !hasRemoteBranch"
+                icon="push-upstream"
+                title="Push & Set Upstream"
+                :count="ahead"
+                :running="isRunning(tab.workspace, 'push-upstream')"
+                btn-class="upstream-btn"
+                @pointerdown.stop
+                @action="doAction('push-upstream')"
+              />
+              <GitActionBtn
+                v-if="(effectivePillExpanded || peekingKey === 'push') && isGitRepo && hasUpstream && ahead > 0"
+                icon="push"
+                title="Push"
+                :count="ahead"
+                :running="isRunning(tab.workspace, 'push')"
+                btn-class="push-btn has-count"
+                @pointerdown.stop
+                @action="doAction('push')"
+              />
+              <button
+                v-if="(effectivePillExpanded || peekingKey === 'devserver') && devServerEntry"
+                type="button"
+                class="pill-devserver-btn"
+                aria-label="Dev Server"
+                data-tooltip="Dev Server"
+                @pointerdown.stop
+                @click.stop="openDevServer"
+              >
+                <span class="mdi mdi-server"></span>
+                <span class="pill-devserver-text">Server</span>
+              </button>
+              <button
+                v-if="(effectivePillExpanded || peekingKey === 'add') && !isGitRepo && tab.sessionId"
+                type="button"
+                class="pill-devserver-btn"
+                aria-label="Add workspace"
+                data-tooltip="Add this directory as a workspace"
+                @pointerdown.stop
+                @click.stop="registerCurrentDir"
+              >
+                <span class="mdi mdi-folder-plus-outline"></span>
+                <span class="pill-devserver-text">Add</span>
+              </button>
+            </div>
           </div>
-          <!-- .pill-trailing-inner の flex フローから外し、.pill-trailing（外側）に
-               対して right:0 で直接固定する。こうすると閉じるボタンの位置は
-               width/right の transition タイミングに一切依存しなくなり、
-               常に .pill-trailing の右端にピッタリ張り付き続ける。 -->
+          <!-- 閉じるボタンは .pill-trailing（overflow-x:auto でクリップされ得る
+               widthアニメーション用コンテナ）の外、.pill-group の直接の flex子
+               として常時表示する。こうするとアニメーション中や多ボタン時の
+               横スクロール領域とは無関係になり、クリップされて欠けることが無い。
+               .pill-group 自体は right が固定値（JS計算なし）の flex コンテナ
+               なので、閉じるボタンは常にブラウザ標準のflexレイアウトで画面内に
+               正しく収まる（オフセット計算のズレで見切れる/崩れることが無い）。 -->
           <button
             v-if="layoutStore.isSplitMode"
             type="button"
-            class="pill-close-btn pill-minus-btn pill-close-btn-fixed"
+            class="pill-close-btn pill-minus-btn"
             aria-label="Remove from split"
             data-tooltip="Remove from split"
             @pointerdown.stop="onSplitCloseDown"
@@ -156,14 +158,13 @@
           <button
             v-if="!layoutStore.isSplitMode"
             type="button"
-            class="pill-close-btn pill-tab-close-btn pill-close-btn-fixed"
+            class="pill-close-btn pill-tab-close-btn"
             aria-label="Close tab"
             data-tooltip="Close tab"
             @pointerdown.stop="onTabCloseDown"
             @pointerup.stop="onTabCloseUp"
             @click.stop
           >&times;</button>
-        </div>
       </div>
     </div>
   </div>
@@ -439,14 +440,12 @@ watch(pillExpanded, (expanded) => {
   if (pillMorePeekTimer) { clearTimeout(pillMorePeekTimer); pillMorePeekTimer = null; }
 });
 
-// 展開時、.pill-trailing-inner（Dev Server/Changes/Branches等、可変ボタン群）の
-// 実測幅ぶんだけ pill-group を左へ寄せる。固定値だと実際のボタン構成によって
-// 画面端との間に余白が残ってしまうため、常に実測値を使う。
-// 計測は内側の pill-trailing-inner（常に content サイズ、閉じるボタンは含まない）
-// で行い、外側の pill-trailing 自身は同じ trailingWidth を width として
-// animate することで、「ボタンが即座にDOMへ出現 → 位置だけ遅れて追いつく」
-// というズレ（右へ一瞬はみ出してから左へ戻る見え方）を無くし、閉じるボタンを
-// 固定端に見せたまま内容が左向きに滑らかに開閉するようにする。
+// .pill-trailing（Dev Server/Changes/Branches等、可変ボタン群のクリップ用
+// コンテナ）の width を、中身の実測幅（.pill-trailing-inner の content サイズ）
+// へ滑らかに animate する。.pill-group 自体は right が固定値の flex コンテナ
+// なので、この width が変化するだけで pill-group 全体が自然に左右へ伸縮し、
+// JS でのオフセット計算は一切不要（閉じるボタンの位置ズレ・見切れの原因に
+// なっていた計算をまるごと廃止した）。
 const trailingWidth = ref(0);
 let roTrailing = null;
 
@@ -459,17 +458,6 @@ watch(trailingInnerEl, (el) => {
   });
   roTrailing.observe(el);
 });
-
-// 閉じるボタン（.pill-close-btn-fixed）は pill-trailing-inner の flow から外し
-// 幅28px + gap4px 分を .pill-trailing 自身の右端に固定表示するため、
-// ResizeObserver が測る trailingWidth（可変ボタン群のみ）とは別にこの分を
-// 常に加算する必要がある（閉じるボタンは常時表示のため定数扱いでよい）。
-const PILL_CLOSE_BTN_RESERVED_PX = 32;
-const trailingTotalWidth = computed(() => trailingWidth.value + PILL_CLOSE_BTN_RESERVED_PX);
-
-// minus/close ボタンは常時表示のため、.pill-trailing は畳んだ状態でも
-// 常に何かしら幅を持つ。よって right オフセットは常に実測幅を加算する。
-const pillGroupRight = computed(() => `calc(var(--pill-base-right) + ${trailingTotalWidth.value}px)`);
 
 // モバイルでは「...」ボタンを廃止し、ワークスペースピル本体のタップに開閉
 // トグルを統合した。展開ボタン群（Branches/Changes/Pull/Push/Dev Server/Add）
@@ -519,13 +507,13 @@ const isActive = computed(() => {
 });
 
 // v-show で非表示（display:none）の間、pill-trailing の ResizeObserver は幅を
-// 0 として報告する。タブ切り替えで再表示された直後に実測幅へ戻ると
-// pillGroupRight が変化し、.pill-group の `transition: right` でスライドして
-// 見えてしまう。タブ切り替え直後の 1 フレームだけこの transition を止める。
-const suppressPillRightTransition = ref(!isActive.value);
+// 0 として報告する。タブ切り替えで再表示された直後に実測幅へ戻ると、
+// .pill-trailing の `transition: width` でスライドして見えてしまう。
+// タブ切り替え直後の 1 フレームだけこの transition を止める。
+const suppressTrailingWidthTransition = ref(!isActive.value);
 watch(isActive, (active) => {
   if (!active) return;
-  suppressPillRightTransition.value = true;
+  suppressTrailingWidthTransition.value = true;
   // ResizeObserver のコールバックは requestAnimationFrame の後、フレーム終端で
   // 発火する。rAF を1回挟むだけだと trailingWidth の更新前に transition を
   // 再有効化してしまいアニメーションが見えるため、rAF を2回重ねて
@@ -533,7 +521,7 @@ watch(isActive, (active) => {
   nextTick(() => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        suppressPillRightTransition.value = false;
+        suppressTrailingWidthTransition.value = false;
       });
     });
   });
@@ -773,15 +761,17 @@ defineExpose({
   display: none;
 }
 
+/* right は固定値（JS計算なし）。.pill-group 自体を flex コンテナにして
+   terminal-info-pill / pill-trailing（幅アニメーション）/ 閉じるボタンを
+   直接の flex子として並べることで、閉じるボタンは常にブラウザ標準の
+   flexレイアウトで右端に位置する。ボタン数が増減して pill-trailing の
+   width が変わっても、right が固定なので pill-group 自体は伸縮に応じて
+   左方向へ自然に広がるだけで、右端がズレたり見切れたりしない。 */
 .pill-group {
   position: absolute;
   top: 10px;
-  /* 畳んでいる時の画面端からの余白。@media (min-width: 769px) で上書きされる。
-     展開時は script 側で --pill-base-right に .pill-trailing の実測幅を
-     足した calc() を right に設定し、× ボタンが常に画面端に届くようにする。 */
-  --pill-base-right: 10px;
-  right: var(--pill-base-right);
-  transition: right 0.35s ease;
+  /* 画面端からの余白。@media (min-width: 769px) で上書きされる。 */
+  right: 10px;
   /* Modal.vue の .modal-overlay(z-index:20) より下にして、設定ダイアログ表示中は
      このピルが上に乗って見えない・誤操作できてしまわないようにする。 */
   z-index: 10;
@@ -791,28 +781,24 @@ defineExpose({
   max-width: min(80vw, 450px);
 }
 
-.pill-group.no-transition {
-  transition: none;
-}
-
 /* Dev Server / Changes・Branches / Close ボタンは position:absolute で通常の
    flex フローから外し、.terminal-info-pill だけを唯一のフロー要素にする。
    こうするとボタンの増減で pill-group 自体の幅が変わっても、ピル本体の
-   画面上の位置は一切動かない（ボタン群はピルの右に浮いて増減するだけ）。 */
-/* 外側（trailingEl）は width を JS 実測値へ animate するクリップ用コンテナ。
-   × ボタンを含む中身（.pill-trailing-inner）は常に content サイズで存在させ、
-   外側の width だけを滑らかに広げ縮めることで、ボタンの出現/消失が位置の
-   スライドと同期し、「一瞬右へはみ出してから戻る」ズレを起こさない。 */
+   画面上の位置は一切動かない（ボタン群はピルの右に浮いて増減するだけ）。
+   閉じるボタンは常時表示の固定要素として pill-trailing（横スクロール/幅
+   アニメーション対象）の外に置き、クリップされて欠けることが無いようにする。 */
+/* .pill-group（flex行）の直接の子。width を JS 実測値へ animate するクリップ用
+   コンテナで、中身（.pill-trailing-inner）は常に content サイズで存在させ、
+   この width だけを滑らかに広げ縮めることで、ボタンの出現/消失が位置の
+   スライドと同期し、「一瞬右へはみ出してから戻る」ズレを起こさない。
+   閉じるボタンはここに含めず .pill-group の直接の flex子にするため、
+   横スクロール時にクリップされない。 */
 .pill-trailing {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  left: 100%;
-  margin-left: 4px;
+  min-width: 0;
   /* ボタン数が多い狭い画面（Pull/Push/Set Upstream/Dev Server等が同時に出る場合）で
      画面端からはみ出したボタンが見えない・押せなくなるのを防ぐ。可変個数を1行に
      収めるのではなく、上限幅を設けて横スクロールで到達可能にする。 */
-  max-width: calc(100vw - 24px);
+  max-width: calc(100vw - 80px);
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
@@ -829,16 +815,6 @@ defineExpose({
   display: inline-flex;
   align-items: center;
   gap: 4px;
-}
-
-/* .pill-trailing-inner の flex フローから外し、.pill-trailing（外側）自身に
-   対して固定する。width/right の transition タイミングに一切依存せず、
-   常に .pill-trailing の右端にピッタリ張り付く。 */
-.pill-close-btn-fixed {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  transform: translateY(-50%);
 }
 
 .pill-trailing::-webkit-scrollbar {
@@ -1103,7 +1079,7 @@ defineExpose({
 @media (min-width: 769px) {
   .pill-group {
     top: 20px;
-    --pill-base-right: 20px;
+    right: 20px;
   }
 
   .terminal-info-pill {
