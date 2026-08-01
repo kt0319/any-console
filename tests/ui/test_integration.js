@@ -4,7 +4,6 @@
  * 統合テスト:
  * - Terminal resize fit 抑制
  * - layout:fitAll がフォーム送信で発火しないこと
- * - WorkspaceStatusBar ヒントボタン
  */
 import { defineComponent, ref } from "vue";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -17,14 +16,12 @@ import { usePrompt } from "../../ui/composables/usePrompt.js";
 import { emit, on } from "../../ui/app-bridge.js";
 import ConfirmDialog from "../../ui/components/ConfirmDialog.vue";
 import PromptDialog from "../../ui/components/PromptDialog.vue";
-import WorkspaceStatusBar from "../../ui/components/WorkspaceStatusBar.vue";
 import WorkspaceDetail from "../../ui/components/WorkspaceDetail.vue";
 import DispatchRunView from "../../ui/components/DispatchRunView.vue";
 import AuthConfig from "../../ui/components/AuthConfig.vue";
 import SendSnippet from "../../ui/components/SendSnippet.vue";
 import SendHistory from "../../ui/components/SendHistory.vue";
 import { useTerminalStore } from "../../ui/stores/terminal.js";
-import { useAuthStore } from "../../ui/stores/auth.js";
 import { useWorkspaceStore } from "../../ui/stores/workspace.js";
 import { useInputStore } from "../../ui/stores/input.js";
 import { applyDispatchQueue } from "../../ui/composables/useDispatchConfirm.js";
@@ -241,102 +238,6 @@ describe("layout:fitAll のイベント分離", () => {
   });
 });
 
-// ── Test 4: WorkspaceStatusBar 追加ワークスペースボタン ──────────────────────
-
-describe("WorkspaceStatusBar: 素のターミナルの追加ワークスペースボタン", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("cwd 不明時の Open ボタンをクリックすると workspace:openModal が emit される", async () => {
-    const handler = vi.fn();
-    const off = on("workspace:openModal", handler);
-
-    // git でないタブを1つ用意（統合ステータスバーが出る状態）
-    const terminalStore = useTerminalStore();
-    terminalStore.openTabs.push({ id: 1, workspace: null, sessionId: "s1" });
-    terminalStore.activeTabId = 1;
-
-    const wrapper = mount(WorkspaceStatusBar);
-    const openBtn = wrapper.find('[aria-label="Open a workspace"]');
-    expect(openBtn.exists()).toBe(true);
-
-    await openBtn.trigger("click");
-    expect(handler).toHaveBeenCalledOnce();
-
-    wrapper.unmount();
-    off();
-  });
-
-  it("cwd が取れたら通常バーの先頭ボタンに Add ディレクトリ名 workspace を表示する", async () => {
-    const authStore = useAuthStore();
-    authStore.apiFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ cwd: "/Users/k-takasaki/work/any-console" }),
-    });
-
-    const terminalStore = useTerminalStore();
-    terminalStore.openTabs.push({ id: 1, workspace: null, sessionId: "s1" });
-    terminalStore.activeTabId = 1;
-
-    const wrapper = mount(WorkspaceStatusBar);
-    await flushPromises();
-
-    const addBtn = wrapper.findAll("button").find((btn) =>
-      btn.attributes("aria-label") === 'Add "any-console" workspace'
-    );
-    expect(addBtn).toBeTruthy();
-    expect(addBtn.classes()).toContain("status-add-workspace-btn");
-    expect(wrapper.find('[aria-label="Jobs"]').exists()).toBe(false);
-    expect(wrapper.findAll("button").map((btn) => btn.attributes("aria-label"))).toEqual([
-      'Add "any-console" workspace',
-      "Files",
-      "No git",
-    ]);
-    expect(wrapper.find('[aria-label="Files"]').attributes("disabled")).toBeUndefined();
-    expect(wrapper.find('[aria-label="No git"]').attributes("disabled")).toBeDefined();
-
-    wrapper.unmount();
-  });
-
-  it("素のターミナルの Files は session cwd のブラウズとして開く", async () => {
-    const handler = vi.fn();
-    const off = on("git:openFileModal", handler);
-    const authStore = useAuthStore();
-    authStore.apiFetch = vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ cwd: "/Users/k-takasaki/work/any-console" }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ cwd: "/Users/k-takasaki/work/current-dir" }),
-      });
-
-    const terminalStore = useTerminalStore();
-    terminalStore.openTabs.push({ id: 1, workspace: null, sessionId: "s1" });
-    terminalStore.activeTabId = 1;
-
-    const wrapper = mount(WorkspaceStatusBar);
-    await flushPromises();
-
-    await wrapper.find('[aria-label="Files"]').trigger("click");
-    await flushPromises();
-    expect(handler).toHaveBeenCalledWith({
-      pane: "files",
-      terminalSessionId: "s1",
-      rootLabel: "current-dir",
-    });
-
-    wrapper.unmount();
-    off();
-  });
-});
 
 describe("WorkspaceDetail: terminal cwd files", () => {
   beforeEach(() => {

@@ -190,6 +190,7 @@ import StatusOverlay from "./StatusOverlay.vue";
 import GitActionBtn from "./GitActionBtn.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
 import { terminalSessionCwdPath } from "../utils/endpoints.js";
+import { resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from "../utils/bare-terminal-actions.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -208,7 +209,6 @@ const { apiGet } = useApi();
 const paneWorkspace = computed(() =>
   props.tab.workspace ? workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace) : undefined,
 );
-// 分割モードでは WorkspaceStatusBar（アクティブタブ1つ分の表示）が隠れるため、
 // ペインごとの git 情報（変更行数・ahead/behind）をピルに直接出す。
 const { isDirty, isGitRepo, hasUpstream, hasRemoteBranch, ahead, behind, changedFiles, insertions, deletions, branchParts } = useWorkspaceGitStatus(paneWorkspace, isMobile);
 const { gitAction, isRunning } = useGitRemoteAction();
@@ -219,8 +219,8 @@ function doAction(action) {
   gitAction(wsName, action, { branch: paneWorkspace.value?.branch || "" });
 }
 
-// WorkspaceStatusBar と同じ理由（分割モードでは隠れる）で Dev Server ボタンもピルに直接出す。
-// ポーリング自体は usePreviewPorts に集約し、開いている全タブで1本のタイマーを共有する。
+// Dev Server ボタンもピルに直接出す。ポーリング自体は usePreviewPorts に集約し、
+// 開いている全タブで1本のタイマーを共有する。
 const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling, fetchPorts: fetchPreviewPorts } = usePreviewPorts();
 
 const devServerEntry = computed(() =>
@@ -252,30 +252,22 @@ async function fetchCwd() {
   return ok ? (data?.cwd || "") : "";
 }
 
-function cwdBaseName(path) {
-  return path.split("/").filter(Boolean).pop() || path;
-}
-
 async function openBareTerminalFiles() {
-  const detail = { pane: "files" };
-  if (props.tab.sessionId) {
-    const cwd = await fetchCwd();
-    detail.terminalSessionId = props.tab.sessionId;
-    detail.rootLabel = cwd ? cwdBaseName(cwd) : "terminal";
-  }
-  emit("git:openFileModal", detail);
+  const cwd = props.tab.sessionId ? await fetchCwd() : "";
+  emit("git:openFileModal", resolveBareTerminalFilesDetail(props.tab.sessionId, cwd));
 }
 
 async function registerCurrentDir() {
   if (!props.tab.sessionId) return;
   const cwd = await fetchCwd();
-  if (!cwd) { emit("workspace:openModal"); return; }
-  const existing = workspaceStore.allWorkspaces.find((w) => w.path === cwd);
-  if (existing) {
-    emit("terminal:launch", { workspace: existing.name, icon: existing.icon, iconColor: existing.icon_color });
-    return;
+  const action = resolveRegisterCurrentDirAction(cwd, workspaceStore.allWorkspaces);
+  if (action.type === "openModal") {
+    emit("workspace:openModal");
+  } else if (action.type === "launch") {
+    emit("terminal:launch", { workspace: action.workspace, icon: action.icon, iconColor: action.iconColor });
+  } else {
+    emit("workspace:openAdd", { initialPath: action.initialPath, attachSessionId: props.tab.sessionId, attachTabId: props.tab.id });
   }
-  emit("workspace:openAdd", { initialPath: cwd, attachSessionId: props.tab.sessionId, attachTabId: props.tab.id });
 }
 
 function openBranch() {
@@ -398,7 +390,6 @@ const { pillDragging, onPillMouseDown, onPillClick, onPillTouchStart, onPillTouc
       emit("git:openFileModal", { pane: hasPushPullMark ? "branch" : "files" });
     } else if (props.tab.sessionId) {
       // ワークスペース未紐付けのベアターミナルでは cwd を読んで Files を開く
-      // （WorkspaceStatusBar の isPlainTerminal 時の openFileModal('files') と同じ挙動）。
       openBareTerminalFiles();
     } else {
       emit("workspace:openModal");
@@ -732,10 +723,10 @@ defineExpose({
   -webkit-user-drag: none;
 }
 
-/* GitActionBtn は WorkspaceStatusBar のツールバー用の見た目（アクセント色背景・
-   高さ36px）を持つ。このピル内では他ボタン（numstat/branch/devserver）と
-   同じ地の色・サイズ・フォントに統一し、push/pull は numstat-files や
-   diff-num-plus と同じパターン（ニュートラルな地に数字だけ意味色）にする。 */
+/* GitActionBtn のデフォルトはツールバー用の見た目（アクセント色背景・高さ36px）。
+   このピル内では他ボタン（numstat/branch/devserver）と同じ地の色・サイズ・
+   フォントに統一し、push/pull は numstat-files や diff-num-plus と同じ
+   パターン（ニュートラルな地に数字だけ意味色）にする。 */
 .pill-trailing :deep(.git-action-btn) {
   min-height: 28px;
   height: 28px;
