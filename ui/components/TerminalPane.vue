@@ -48,7 +48,7 @@
               v-if="isMobile && !pillExpanded"
               type="button"
               class="pill-more-btn"
-              :class="{ peeking: !!pillMorePeekItem }"
+              :class="[{ peeking: !!pillMorePeekItem }, pillMorePeekItem ? `variant-${pillMorePeekItem.variant}` : '']"
               :aria-label="pillMorePeekItem ? pillMorePeekItem.text : 'Show more'"
               :data-tooltip="pillMorePeekItem ? pillMorePeekItem.text : 'Show more'"
               @pointerdown.stop
@@ -73,7 +73,7 @@
               <span class="pill-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
             </button>
             <button
-              v-if="effectivePillExpanded && isDirty"
+              v-if="effectivePillExpanded && isGitRepo && isDirty"
               type="button"
               class="pill-numstat-btn"
               aria-label="Changes"
@@ -86,7 +86,7 @@
               <span class="diff-num-del">-{{ deletions }}</span>
             </button>
             <GitActionBtn
-              v-if="effectivePillExpanded && behind > 0"
+              v-if="effectivePillExpanded && isGitRepo && behind > 0"
               icon="pull"
               title="Pull"
               :count="behind"
@@ -96,7 +96,7 @@
               @action="doAction('pull')"
             />
             <GitActionBtn
-              v-if="effectivePillExpanded && !hasUpstream && hasRemoteBranch"
+              v-if="effectivePillExpanded && isGitRepo && !hasUpstream && hasRemoteBranch"
               icon="set-upstream"
               title="Set Upstream"
               :running="isRunning(tab.workspace, 'set-upstream')"
@@ -105,7 +105,7 @@
               @action="doAction('set-upstream')"
             />
             <GitActionBtn
-              v-if="effectivePillExpanded && !hasUpstream && !hasRemoteBranch"
+              v-if="effectivePillExpanded && isGitRepo && !hasUpstream && !hasRemoteBranch"
               icon="push-upstream"
               title="Push & Set Upstream"
               :count="ahead"
@@ -115,7 +115,7 @@
               @action="doAction('push-upstream')"
             />
             <GitActionBtn
-              v-if="effectivePillExpanded && hasUpstream && ahead > 0"
+              v-if="effectivePillExpanded && isGitRepo && hasUpstream && ahead > 0"
               icon="push"
               title="Push"
               :count="ahead"
@@ -380,6 +380,8 @@ watch(pillExpanded, (expanded) => {
 // 畳んだ「...」ボタンの裏にある展開ボタン群（Branches/Changes/Pull/Push/Dev
 // Server/Add workspace）の内容。値だけ見て良く、v-if の表示条件（isGitRepo 等）
 // と揃えておく。
+// variant は peek 表示時の配色を、対応する実ボタンと揃えるためのキー
+// （.pill-more-btn.variant-* で実ボタンと同じ色を当てる。CSS 側参照）。
 const trailingPeekItems = computed(() => {
   const items = [];
   if (isGitRepo.value) {
@@ -387,29 +389,30 @@ const trailingPeekItems = computed(() => {
       key: "branch",
       icon: "mdi-source-branch",
       text: `${branchParts.value.abbr || ""}${branchParts.value.rest || ""}`,
+      variant: "branch",
     });
   }
-  if (isDirty.value) {
+  if (isGitRepo.value && isDirty.value) {
     const parts = [];
     if (changedFiles.value > 0) parts.push(`${changedFiles.value}F`);
     parts.push(`+${insertions.value}`, `-${deletions.value}`);
-    items.push({ key: "changes", icon: "mdi-file-document-multiple-outline", text: parts.join(" ") });
+    items.push({ key: "changes", icon: "mdi-file-document-multiple-outline", text: parts.join(" "), variant: "changes" });
   }
-  if (behind.value > 0) {
-    items.push({ key: "pull", icon: "mdi-arrow-down", text: `Pull ${behind.value}` });
+  if (isGitRepo.value && behind.value > 0) {
+    items.push({ key: "pull", icon: "mdi-arrow-down", text: `Pull ${behind.value}`, variant: "pull" });
   }
-  if (!hasUpstream.value && hasRemoteBranch.value) {
-    items.push({ key: "push", icon: "mdi-arrow-up", text: "Set Upstream" });
-  } else if (!hasUpstream.value && !hasRemoteBranch.value) {
-    items.push({ key: "push", icon: "mdi-arrow-up", text: `Push ${ahead.value}` });
-  } else if (hasUpstream.value && ahead.value > 0) {
-    items.push({ key: "push", icon: "mdi-arrow-up", text: `Push ${ahead.value}` });
+  if (isGitRepo.value && !hasUpstream.value && hasRemoteBranch.value) {
+    items.push({ key: "push", icon: "mdi-arrow-up", text: "Set Upstream", variant: "set-upstream" });
+  } else if (isGitRepo.value && !hasUpstream.value && !hasRemoteBranch.value) {
+    items.push({ key: "push", icon: "mdi-arrow-up", text: `Push ${ahead.value}`, variant: "push-upstream" });
+  } else if (isGitRepo.value && hasUpstream.value && ahead.value > 0) {
+    items.push({ key: "push", icon: "mdi-arrow-up", text: `Push ${ahead.value}`, variant: "push" });
   }
   if (devServerEntry.value) {
-    items.push({ key: "devserver", icon: "mdi-server", text: "Server" });
+    items.push({ key: "devserver", icon: "mdi-server", text: "Server", variant: "devserver" });
   }
   if (!isGitRepo.value && props.tab.sessionId) {
-    items.push({ key: "add", icon: "mdi-folder-plus-outline", text: "Add" });
+    items.push({ key: "add", icon: "mdi-folder-plus-outline", text: "Add", variant: "add" });
   }
   return items;
 });
@@ -469,7 +472,7 @@ function activatePill() {
     workspaceStore.selectedWorkspace = props.tab.workspace;
     // ピルに ahead/behind（push/pullマーク）が出ている時は、その操作をする Branches ペインへ直接開く。
     // それ以外は Jobs ペイン（既定）を開く。
-    const hasPushPullMark = layoutStore.isSplitMode && (ahead.value > 0 || behind.value > 0);
+    const hasPushPullMark = layoutStore.isSplitMode && isGitRepo.value && (ahead.value > 0 || behind.value > 0);
     emit("git:openFileModal", hasPushPullMark ? { pane: "branch" } : undefined);
   } else if (props.tab.sessionId) {
     // ワークスペース未紐付けのベアターミナルでは cwd を読んで Files を開く
@@ -959,14 +962,59 @@ defineExpose({
   transition: width 0.2s ease;
 }
 
-/* 展開ボタン群のどれかが更新された時、数秒だけ「...」の代わりにその内容を見せる。 */
+/* 展開ボタン群のどれかが更新された時、数秒だけ「...」の代わりにその内容を見せる。
+   基本の見た目は branch/changes/devserver/add と同じニュートラルな配色にし、
+   pull/push 系だけ対応する実ボタンと同じアクセントカラーを当てる。 */
 .pill-more-btn.peeking {
   width: auto;
   gap: 4px;
   padding: 0 8px;
   font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.pill-more-btn.peeking .mdi {
+  color: var(--text-muted);
+}
+
+.pill-more-btn.peeking.variant-pull {
+  color: var(--warning);
+  background: var(--warning-bg-20);
+  border-color: rgba(238, 166, 68, 0.3);
+}
+
+.pill-more-btn.peeking.variant-pull .mdi {
+  color: var(--warning);
+}
+
+.pill-more-btn.peeking.variant-push {
   color: var(--accent);
-  border-color: rgba(130, 170, 255, 0.4);
+  background: rgba(130, 170, 255, 0.15);
+  border-color: rgba(130, 170, 255, 0.3);
+}
+
+.pill-more-btn.peeking.variant-push .mdi {
+  color: var(--accent);
+}
+
+.pill-more-btn.peeking.variant-set-upstream {
+  color: var(--warning);
+  background: var(--warning-bg-20);
+  border-color: rgba(238, 166, 68, 0.3);
+}
+
+.pill-more-btn.peeking.variant-set-upstream .mdi {
+  color: var(--warning);
+}
+
+.pill-more-btn.peeking.variant-push-upstream {
+  color: var(--success);
+  background: var(--success-bg-20);
+  border-color: rgba(120, 200, 140, 0.3);
+}
+
+.pill-more-btn.peeking.variant-push-upstream .mdi {
+  color: var(--success);
 }
 
 .pill-more-peek-text {
