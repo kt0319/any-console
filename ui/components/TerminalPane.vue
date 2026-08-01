@@ -51,7 +51,7 @@
         >
           <div class="pill-trailing-inner" ref="trailingInnerEl">
             <button
-              v-if="effectivePillExpanded && isGitRepo"
+              v-if="(effectivePillExpanded || peekingKey === 'branch') && isGitRepo"
               type="button"
               class="pill-branch-btn"
               aria-label="Branches"
@@ -63,7 +63,7 @@
               <span class="pill-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
             </button>
             <button
-              v-if="effectivePillExpanded && isGitRepo && isDirty"
+              v-if="(effectivePillExpanded || peekingKey === 'changes') && isGitRepo && isDirty"
               type="button"
               class="pill-numstat-btn"
               aria-label="Changes"
@@ -76,7 +76,7 @@
               <span class="diff-num-del">-{{ deletions }}</span>
             </button>
             <GitActionBtn
-              v-if="effectivePillExpanded && isGitRepo && behind > 0"
+              v-if="(effectivePillExpanded || peekingKey === 'pull') && isGitRepo && behind > 0"
               icon="pull"
               title="Pull"
               :count="behind"
@@ -86,7 +86,7 @@
               @action="doAction('pull')"
             />
             <GitActionBtn
-              v-if="effectivePillExpanded && isGitRepo && !hasUpstream && hasRemoteBranch"
+              v-if="(effectivePillExpanded || peekingKey === 'push') && isGitRepo && !hasUpstream && hasRemoteBranch"
               icon="set-upstream"
               title="Set Upstream"
               :running="isRunning(tab.workspace, 'set-upstream')"
@@ -95,7 +95,7 @@
               @action="doAction('set-upstream')"
             />
             <GitActionBtn
-              v-if="effectivePillExpanded && isGitRepo && !hasUpstream && !hasRemoteBranch"
+              v-if="(effectivePillExpanded || peekingKey === 'push') && isGitRepo && !hasUpstream && !hasRemoteBranch"
               icon="push-upstream"
               title="Push & Set Upstream"
               :count="ahead"
@@ -105,7 +105,7 @@
               @action="doAction('push-upstream')"
             />
             <GitActionBtn
-              v-if="effectivePillExpanded && isGitRepo && hasUpstream && ahead > 0"
+              v-if="(effectivePillExpanded || peekingKey === 'push') && isGitRepo && hasUpstream && ahead > 0"
               icon="push"
               title="Push"
               :count="ahead"
@@ -115,7 +115,7 @@
               @action="doAction('push')"
             />
             <button
-              v-if="effectivePillExpanded && devServerEntry"
+              v-if="(effectivePillExpanded || peekingKey === 'devserver') && devServerEntry"
               type="button"
               class="pill-devserver-btn"
               aria-label="Dev Server"
@@ -127,7 +127,7 @@
               <span class="pill-devserver-text">Server</span>
             </button>
             <button
-              v-if="effectivePillExpanded && !isGitRepo && tab.sessionId"
+              v-if="(effectivePillExpanded || peekingKey === 'add') && !isGitRepo && tab.sessionId"
               type="button"
               class="pill-devserver-btn"
               aria-label="Add workspace"
@@ -142,19 +142,13 @@
               v-if="isMobile"
               type="button"
               class="pill-more-btn"
-              :class="[{ peeking: !!pillMorePeekItem, expanded: pillExpanded }, pillMorePeekItem ? `variant-${pillMorePeekItem.variant}` : '']"
-              :aria-label="pillMorePeekItem ? pillMorePeekItem.label : (pillExpanded ? 'Show less' : 'Show more')"
-              :data-tooltip="pillMorePeekItem ? pillMorePeekItem.label : (pillExpanded ? 'Show less' : 'Show more')"
+              :class="{ expanded: pillExpanded }"
+              :aria-label="pillExpanded ? 'Show less' : 'Show more'"
+              :data-tooltip="pillExpanded ? 'Show less' : 'Show more'"
               @pointerdown.stop
               @click.stop="pillExpanded = !pillExpanded"
             >
-              <template v-if="pillMorePeekItem">
-                <span v-if="pillMorePeekItem.icon" class="mdi" :class="pillMorePeekItem.icon"></span>
-                <span v-if="pillMorePeekItem.parts.length" class="pill-more-peek-text">
-                  <span v-for="(part, i) in pillMorePeekItem.parts" :key="i" :class="part.cls">{{ part.text }}</span>
-                </span>
-              </template>
-              <span v-else class="mdi mdi-dots-horizontal"></span>
+              <span class="mdi mdi-dots-horizontal"></span>
             </button>
           </div>
           <!-- .pill-trailing-inner の flex フローから外し、.pill-trailing（外側）に
@@ -393,67 +387,42 @@ watch(pillExpanded, (expanded) => {
 
 // 畳んだ「...」ボタンの裏にある展開ボタン群（Branches/Changes/Pull/Push/Dev
 // Server/Add workspace）の内容。値だけ見て良く、v-if の表示条件（isGitRepo 等）
-// と揃えておく。
-// variant は peek 表示時の配色を、対応する実ボタンと揃えるためのキー
-// （.pill-more-btn.variant-* で実ボタンと同じ色を当てる。CSS 側参照）。
-// parts はテキストを色分け表示するためのセグメント（changes の +/- 等、実ボタンと
-// 同じ numstat-files/diff-num-plus/diff-num-del クラスを使い回す）。
-// label は aria-label/tooltip 用の読み上げ名。text（見た目上の表示）が空の
-// 項目（set-upstream 等、実ボタンが icon-only）でもアクセシブルネームは必要なため分ける。
-function peekTextItem(key, icon, text, variant, label = text) {
-  return { key, icon, variant, text, label, parts: text ? [{ text, cls: "" }] : [] };
-}
-
+// と揃えておく（peekingKey による一時表示の判定にも同じ key を使う）。
+// ルックアライクは作らず「そのボタン自体」を一時的に表示するだけなので、
+// ここでは変化検出用の最小限の値（key + 見た目に影響する text）だけ持てば良い。
 const trailingPeekItems = computed(() => {
   const items = [];
   if (isGitRepo.value) {
-    items.push(peekTextItem(
-      "branch",
-      "mdi-source-branch",
-      `${branchParts.value.abbr || ""}${branchParts.value.rest || ""}`,
-      "branch",
-    ));
+    items.push({ key: "branch", text: `${branchParts.value.abbr || ""}${branchParts.value.rest || ""}` });
   }
   if (isGitRepo.value && isDirty.value) {
-    // 実ボタン（.pill-numstat-btn）にアイコンは無く、数値だけを色分け表示する。
-    const parts = [];
-    if (changedFiles.value > 0) parts.push({ text: `${changedFiles.value}F`, cls: "numstat-files" });
-    parts.push({ text: `+${insertions.value}`, cls: "diff-num-plus" });
-    parts.push({ text: `-${deletions.value}`, cls: "diff-num-del" });
-    items.push({
-      key: "changes",
-      icon: null,
-      variant: "changes",
-      parts,
-      text: parts.map((p) => p.text).join(" "),
-      label: "Changes",
-    });
+    items.push({ key: "changes", text: `${changedFiles.value}F +${insertions.value} -${deletions.value}` });
   }
   if (isGitRepo.value && behind.value > 0) {
-    // 実ボタン（GitActionBtn）はラベル文字列を持たず、アイコン+件数のみ。
-    items.push(peekTextItem("pull", "mdi-arrow-down", `${behind.value}`, "pull", "Pull"));
+    items.push({ key: "pull", text: `${behind.value}` });
   }
   if (isGitRepo.value && !hasUpstream.value && hasRemoteBranch.value) {
-    // set-upstream は icon-only（件数バッジも無い）。
-    items.push(peekTextItem("push", "mdi-plus", "", "set-upstream", "Set Upstream"));
+    items.push({ key: "push", text: "set-upstream" });
   } else if (isGitRepo.value && !hasUpstream.value && !hasRemoteBranch.value) {
-    items.push(peekTextItem("push", "mdi-chevron-double-up", `${ahead.value}`, "push-upstream", "Push & Set Upstream"));
+    items.push({ key: "push", text: `push-upstream:${ahead.value}` });
   } else if (isGitRepo.value && hasUpstream.value && ahead.value > 0) {
-    items.push(peekTextItem("push", "mdi-arrow-up", `${ahead.value}`, "push", "Push"));
+    items.push({ key: "push", text: `push:${ahead.value}` });
   }
   if (devServerEntry.value) {
-    items.push(peekTextItem("devserver", "mdi-server", "Server", "devserver"));
+    items.push({ key: "devserver", text: "Server" });
   }
   if (!isGitRepo.value && props.tab.sessionId) {
-    items.push(peekTextItem("add", "mdi-folder-plus-outline", "Add", "add"));
+    items.push({ key: "add", text: "Add" });
   }
   return items;
 });
 
-// 畳んだ「...」ボタンの中身が更新された時、その変化した項目のアイコン/テキストを
-// 数秒だけ「...」の代わりに見せてから戻す（PILL_MORE_PEEK_DURATION_MS）。
-// 展開中（!isMobile または pillExpanded）は「...」ボタン自体が無いので何もしない。
-const pillMorePeekItem = ref(null);
+// 畳んだ「...」ボタンの裏の展開ボタン群のどれかが更新された時、そのボタン
+// 自身を数秒だけ「...」の左に一時表示してから隠す（PILL_MORE_PEEK_DURATION_MS）。
+// ルックアライクではなく実ボタンをそのまま v-if で出す（下記テンプレート、
+// `|| peekingKey === '...'` 参照）ため、デザインは常に完全に一致する。
+// 展開中（!isMobile または pillExpanded）は不要なので何もしない。
+const peekingKey = ref(null);
 let prevTrailingSignature = trailingItemsSignature(trailingPeekItems.value);
 let pillMorePeekTimer = null;
 
@@ -462,10 +431,10 @@ watch(trailingPeekItems, (items) => {
   if (isMobile.value && !pillExpanded.value) {
     const changed = findChangedTrailingItem(items, prevTrailingSignature);
     if (changed) {
-      pillMorePeekItem.value = changed;
+      peekingKey.value = changed.key;
       if (pillMorePeekTimer) clearTimeout(pillMorePeekTimer);
       pillMorePeekTimer = setTimeout(() => {
-        pillMorePeekItem.value = null;
+        peekingKey.value = null;
         pillMorePeekTimer = null;
       }, PILL_MORE_PEEK_DURATION_MS);
     }
@@ -476,7 +445,7 @@ watch(trailingPeekItems, (items) => {
 // 展開時・タブ非アクティブ化時は peek 表示を残さない。
 watch(pillExpanded, (expanded) => {
   if (!expanded) return;
-  pillMorePeekItem.value = null;
+  peekingKey.value = null;
   if (pillMorePeekTimer) { clearTimeout(pillMorePeekTimer); pillMorePeekTimer = null; }
 });
 
@@ -1037,69 +1006,6 @@ defineExpose({
    分かるようにする（展開ボタン群は「...」の左側に生える）。 */
 .pill-more-btn.expanded .mdi-dots-horizontal {
   transform: rotate(90deg);
-}
-
-/* 展開ボタン群のどれかが更新された時、数秒だけ「...」の代わりにその内容を見せる。
-   基本の見た目は branch/changes/devserver/add と同じニュートラルな配色にし、
-   pull/push 系だけ対応する実ボタンと同じアクセントカラーを当てる。 */
-.pill-more-btn.peeking {
-  width: auto;
-  gap: 4px;
-  padding: 0 8px;
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.pill-more-btn.peeking .mdi {
-  color: var(--text-muted);
-}
-
-.pill-more-btn.peeking.variant-pull {
-  color: var(--warning);
-  background: var(--warning-bg-20);
-  border-color: rgba(238, 166, 68, 0.3);
-}
-
-.pill-more-btn.peeking.variant-pull .mdi {
-  color: var(--warning);
-}
-
-.pill-more-btn.peeking.variant-push {
-  color: var(--accent);
-  background: rgba(130, 170, 255, 0.15);
-  border-color: rgba(130, 170, 255, 0.3);
-}
-
-.pill-more-btn.peeking.variant-push .mdi {
-  color: var(--accent);
-}
-
-.pill-more-btn.peeking.variant-set-upstream {
-  color: var(--warning);
-  background: var(--warning-bg-20);
-  border-color: rgba(238, 166, 68, 0.3);
-}
-
-.pill-more-btn.peeking.variant-set-upstream .mdi {
-  color: var(--warning);
-}
-
-.pill-more-btn.peeking.variant-push-upstream {
-  color: var(--success);
-  background: var(--success-bg-20);
-  border-color: rgba(120, 200, 140, 0.3);
-}
-
-.pill-more-btn.peeking.variant-push-upstream .mdi {
-  color: var(--success);
-}
-
-.pill-more-peek-text {
-  display: inline-flex;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
 }
 
 .pill-close-btn {
