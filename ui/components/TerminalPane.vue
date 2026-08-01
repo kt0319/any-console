@@ -37,7 +37,7 @@
               <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
               <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
             </span>
-            <span v-if="!isPaneNarrow" class="pill-workspace-label">{{ tab.workspace || tab.label || '' }}</span>
+            <span v-if="!isPaneNarrow && !(isMobile && pillExpanded)" class="pill-workspace-label">{{ tab.workspace || tab.label || '' }}</span>
           </span>
         </div>
         <div class="pill-trailing" ref="trailingEl">
