@@ -23,9 +23,12 @@
           ref="infoPillEl"
           :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working', dragging: pillDragging, 'pill-collapsed': isMobile && !pillExpanded }"
           :data-tooltip="pillTooltip"
-          tabindex="-1"
+          :aria-label="pillTooltip"
+          role="button"
+          tabindex="0"
           @mousedown="onPillMouseDown"
           @click="onPillClick"
+          @keydown="onPillKeydown"
           @touchstart.passive="onPillTouchStart"
         >
           <span class="terminal-info-pill-info">
@@ -347,13 +350,19 @@ function onDocumentPointerDownForPill(e) {
   collapsePill();
 }
 
+// Escape 以外のキーで閉じてしまうと、展開中のボタン群への Tab 移動や
+// Enter/Space による操作がキー入力のたびに中断されてしまう。
+function onDocumentKeydownForPill(e) {
+  if (e.key === "Escape") collapsePill();
+}
+
 watch(pillExpanded, (expanded) => {
   if (expanded) {
     document.addEventListener("pointerdown", onDocumentPointerDownForPill, true);
-    document.addEventListener("keydown", collapsePill, true);
+    document.addEventListener("keydown", onDocumentKeydownForPill, true);
   } else {
     document.removeEventListener("pointerdown", onDocumentPointerDownForPill, true);
-    document.removeEventListener("keydown", collapsePill, true);
+    document.removeEventListener("keydown", onDocumentKeydownForPill, true);
   }
 });
 
@@ -377,24 +386,34 @@ watch(trailingEl, (el) => {
 // 常に何かしら幅を持つ。よって right オフセットは常に実測幅を加算する。
 const pillGroupRight = computed(() => `calc(var(--pill-base-right) + ${trailingWidth.value}px)`);
 
+function activatePill() {
+  if (props.tab.workspace) {
+    workspaceStore.selectedWorkspace = props.tab.workspace;
+    // ピルに ahead/behind（push/pullマーク）が出ている時は、その操作をする Branches ペインへ直接開く。
+    // それ以外は Jobs ペイン（既定）を開く。
+    const hasPushPullMark = layoutStore.isSplitMode && (ahead.value > 0 || behind.value > 0);
+    emit("git:openFileModal", hasPushPullMark ? { pane: "branch" } : undefined);
+  } else if (props.tab.sessionId) {
+    // ワークスペース未紐付けのベアターミナルでは cwd を読んで Files を開く
+    openBareTerminalFiles();
+  } else {
+    emit("workspace:openModal");
+  }
+}
+
+// キーボードでの Enter/Space はマウス/タッチのドラッグ判定（pillMouseDownTime等）を
+// 経由しないため、onPillClick とは別に activatePill を直接呼ぶ。
+function onPillKeydown(e) {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  e.preventDefault();
+  activatePill();
+}
+
 const tabId = computed(() => props.tab.id);
 const { pillDragging, onPillMouseDown, onPillClick, onPillTouchStart, onPillTouchMove, onPillTouchEnd } = usePillDrag({
   tabId,
   canDrag,
-  onTabClick: () => {
-    if (props.tab.workspace) {
-      workspaceStore.selectedWorkspace = props.tab.workspace;
-      // ピルに ahead/behind（push/pullマーク）が出ている時は、その操作をする Branches ペインへ直接開く。
-      // それ以外は Jobs ペイン（既定）を開く。
-      const hasPushPullMark = layoutStore.isSplitMode && (ahead.value > 0 || behind.value > 0);
-      emit("git:openFileModal", hasPushPullMark ? { pane: "branch" } : undefined);
-    } else if (props.tab.sessionId) {
-      // ワークスペース未紐付けのベアターミナルでは cwd を読んで Files を開く
-      openBareTerminalFiles();
-    } else {
-      emit("workspace:openModal");
-    }
-  },
+  onTabClick: activatePill,
   emit,
 });
 
@@ -601,7 +620,7 @@ onBeforeUnmount(() => {
   roTrailing?.disconnect();
   roTrailing = null;
   document.removeEventListener("pointerdown", onDocumentPointerDownForPill, true);
-  document.removeEventListener("keydown", collapsePill, true);
+  document.removeEventListener("keydown", onDocumentKeydownForPill, true);
   if (pillEl.value) {
     pillEl.value.removeEventListener("touchmove", onPillTouchMove);
     pillEl.value.removeEventListener("touchend", onPillTouchEnd);
