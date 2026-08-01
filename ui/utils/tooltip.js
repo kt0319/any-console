@@ -65,6 +65,10 @@ export function installTooltip() {
   document.head.appendChild(style);
 
   document.addEventListener("mouseover", (e) => {
+    // タッチ操作でも tap 後に合成 mouseover が発火するため、hover 可能な
+    // デバイス（PC）だけに絞る。ガード無しだとモバイルのタップ時に一瞬
+    // ヒントが見えてしまう。
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
     const el = e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
     if (el instanceof HTMLElement) show(el, el.dataset.tooltip);
   });
