@@ -39,9 +39,18 @@
               <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
             </span>
             <span v-if="!isPaneNarrow && !pillExpanded" class="pill-workspace-label">{{ tab.workspace || tab.label || '' }}</span>
-            <span class="mdi pill-chevron" :class="pillExpanded ? 'mdi-unfold-less-vertical' : 'mdi-unfold-more-vertical'" aria-hidden="true"></span>
           </span>
         </div>
+        <button
+          type="button"
+          class="pill-toggle-btn"
+          :aria-label="pillExpanded ? 'Show less' : 'Show more'"
+          :data-tooltip="pillExpanded ? 'Show less' : 'Show more'"
+          @pointerdown.stop
+          @click.stop="toggleExpand"
+        >
+          <span class="mdi" :class="pillExpanded ? 'mdi-unfold-less-vertical' : 'mdi-unfold-more-vertical'"></span>
+        </button>
         <div
           class="pill-trailing"
           ref="trailingEl"
@@ -364,18 +373,19 @@ watch([paneEl, infoPillEl], ([paneNode, pillNode]) => {
 });
 
 const canDrag = computed(() => terminalStore.openTabs.length >= 1);
-const pillTooltip = computed(() => {
-  const toggleHint = pillExpanded.value ? "hide actions" : "show actions";
-  if (layoutStore.isTouchDevice) return `Tap to ${toggleHint}`;
-  return `Drag to split  ·  Click to ${toggleHint}`;
-});
+const pillTooltip = computed(() =>
+  layoutStore.isTouchDevice ? "Tap for details" : "Drag to split  ·  Click for details",
+);
 
 // ピルの Dev Server / Changes・Branches / Close ボタンは、PC・モバイル問わず
-// 普段は畳んでおき、ワークスペースピル本体をタップ/クリックした時だけ開閉
-// トグルする（統一挙動）。開閉状態を変えるのはこのトグルだけで、ピル外の
-// クリックや Escape 等では変えない（activatePill 経由の操作のみが唯一の
-// 変更経路）。
+// 普段は畳んでおき、ワークスペースピルの隣にある専用トグルボタン
+// （.pill-toggle-btn）をタップ/クリックした時だけ開閉する。ワークスペース
+// ピル本体のタップ/クリックは Jobs/Files ペインを直接開く（統一前の挙動）。
 const pillExpanded = ref(false);
+
+function toggleExpand() {
+  pillExpanded.value = !pillExpanded.value;
+}
 
 // 畳んだ「...」ボタンの裏にある展開ボタン群（Branches/Changes/Pull/Push/Dev
 // Server/Add workspace）の内容。値だけ見て良く、v-if の表示条件（isGitRepo 等）
@@ -471,10 +481,21 @@ watch(trailingInnerEl, (el) => {
   roTrailing.observe(el);
 });
 
-// PC・モバイル問わず、ワークスペースピル本体のタップ/クリックに展開ボタン群
-// （Branches/Changes/Pull/Push/Dev Server/Add）の開閉トグルを統一する。
+// ワークスペースピル本体のタップ/クリックは Jobs/Files ペインを直接開く。
+// 展開ボタン群の開閉は .pill-toggle-btn（toggleExpand）が担当する。
 function activatePill() {
-  pillExpanded.value = !pillExpanded.value;
+  if (props.tab.workspace) {
+    workspaceStore.selectedWorkspace = props.tab.workspace;
+    // ピルに ahead/behind（push/pullマーク）が出ている時は、その操作をする Branches ペインへ直接開く。
+    // それ以外は Jobs ペイン（既定）を開く。
+    const hasPushPullMark = layoutStore.isSplitMode && isGitRepo.value && (ahead.value > 0 || behind.value > 0);
+    emit("git:openFileModal", hasPushPullMark ? { pane: "branch" } : undefined);
+  } else if (props.tab.sessionId) {
+    // ワークスペース未紐付けのベアターミナルでは cwd を読んで Files を開く
+    openBareTerminalFiles();
+  } else {
+    emit("workspace:openModal");
+  }
 }
 
 // キーボードでの Enter/Space はマウス/タッチのドラッグ判定（pillMouseDownTime等）を
@@ -1003,11 +1024,22 @@ defineExpose({
   flex-shrink: 0;
 }
 
-/* ピル自体のタップ/クリックで展開ボタン群が開閉することを示すインジケータ。 */
-.pill-chevron {
+/* ワークスペースピルとは独立した、展開ボタン群の開閉専用トグル。 */
+.pill-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  width: 28px;
   flex-shrink: 0;
-  font-size: 14px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 66, 97, 0.5);
+  background: rgba(26, 27, 38, 0.88);
   color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .pill-icon-badge-wrap {
