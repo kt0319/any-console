@@ -689,6 +689,19 @@ defineExpose({
   gap: 4px;
   left: 100%;
   margin-left: 4px;
+  /* ボタン数が多い狭い画面（Pull/Push/Set Upstream/Dev Server等が同時に出る場合）で
+     画面端からはみ出したボタンが見えない・押せなくなるのを防ぐ。可変個数を1行に
+     収めるのではなく、上限幅を設けて横スクロールで到達可能にする。 */
+  max-width: calc(100vw - 24px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  scrollbar-width: none;
+}
+
+.pill-trailing::-webkit-scrollbar {
+  display: none;
 }
 
 .terminal-info-pill {
