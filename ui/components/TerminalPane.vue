@@ -811,12 +811,6 @@ defineExpose({
   opacity: 0.5;
 }
 
-/* モバイルで畳んだ状態を枠線の破線化で示す（「まだ隠れた操作がある」ことを伝える）。
-   実際に開く操作は隣接する .pill-more-btn（mdi-dots-horizontal ボタン）が担う。 */
-.terminal-info-pill.pill-collapsed {
-  border-style: dashed;
-}
-
 .pill-more-btn {
   display: flex;
   align-items: center;
