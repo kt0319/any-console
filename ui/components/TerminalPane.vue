@@ -19,7 +19,7 @@
         <div
           class="terminal-info-pill"
           ref="infoPillEl"
-          :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working', dragging: pillDragging, 'pill-collapsed': isMobile && !pillExpanded }"
+          :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working', dragging: pillDragging }"
           :data-tooltip="pillTooltip"
           :aria-label="pillTooltip"
           role="button"
@@ -38,7 +38,8 @@
               <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
               <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
             </span>
-            <span v-if="!isPaneNarrow && !(isMobile && pillExpanded)" class="pill-workspace-label">{{ tab.workspace || tab.label || '' }}</span>
+            <span v-if="!isPaneNarrow && !pillExpanded" class="pill-workspace-label">{{ tab.workspace || tab.label || '' }}</span>
+            <span class="mdi pill-chevron" :class="pillExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
           </span>
         </div>
         <div
@@ -49,7 +50,7 @@
         >
           <div class="pill-trailing-inner" ref="trailingInnerEl">
               <button
-                v-if="(effectivePillExpanded || peekingKey === 'branch') && isGitRepo"
+                v-if="(pillExpanded || peekingKey === 'branch') && isGitRepo"
                 type="button"
                 class="pill-branch-btn"
                 aria-label="Branches"
@@ -61,7 +62,7 @@
                 <span class="pill-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
               </button>
               <button
-                v-if="(effectivePillExpanded || peekingKey === 'changes') && isGitRepo && isDirty"
+                v-if="(pillExpanded || peekingKey === 'changes') && isGitRepo && isDirty"
                 type="button"
                 class="pill-numstat-btn"
                 aria-label="Changes"
@@ -74,7 +75,7 @@
                 <span class="diff-num-del">-{{ deletions }}</span>
               </button>
               <GitActionBtn
-                v-if="(effectivePillExpanded || peekingKey === 'pull') && isGitRepo && behind > 0"
+                v-if="(pillExpanded || peekingKey === 'pull') && isGitRepo && behind > 0"
                 icon="pull"
                 title="Pull"
                 :count="behind"
@@ -84,7 +85,7 @@
                 @action="doAction('pull')"
               />
               <GitActionBtn
-                v-if="(effectivePillExpanded || peekingKey === 'push') && isGitRepo && !hasUpstream && hasRemoteBranch"
+                v-if="(pillExpanded || peekingKey === 'push') && isGitRepo && !hasUpstream && hasRemoteBranch"
                 icon="set-upstream"
                 title="Set Upstream"
                 :running="isRunning(tab.workspace, 'set-upstream')"
@@ -93,7 +94,7 @@
                 @action="doAction('set-upstream')"
               />
               <GitActionBtn
-                v-if="(effectivePillExpanded || peekingKey === 'push') && isGitRepo && !hasUpstream && !hasRemoteBranch"
+                v-if="(pillExpanded || peekingKey === 'push') && isGitRepo && !hasUpstream && !hasRemoteBranch"
                 icon="push-upstream"
                 title="Push & Set Upstream"
                 :count="ahead"
@@ -103,7 +104,7 @@
                 @action="doAction('push-upstream')"
               />
               <GitActionBtn
-                v-if="(effectivePillExpanded || peekingKey === 'push') && isGitRepo && hasUpstream && ahead > 0"
+                v-if="(pillExpanded || peekingKey === 'push') && isGitRepo && hasUpstream && ahead > 0"
                 icon="push"
                 title="Push"
                 :count="ahead"
@@ -113,7 +114,7 @@
                 @action="doAction('push')"
               />
               <button
-                v-if="(effectivePillExpanded || peekingKey === 'devserver') && devServerEntry"
+                v-if="(pillExpanded || peekingKey === 'devserver') && devServerEntry"
                 type="button"
                 class="pill-devserver-btn"
                 aria-label="Dev Server"
@@ -125,7 +126,7 @@
                 <span class="pill-devserver-text">Server</span>
               </button>
               <button
-                v-if="(effectivePillExpanded || peekingKey === 'add') && !isGitRepo && tab.sessionId"
+                v-if="(pillExpanded || peekingKey === 'add') && !isGitRepo && tab.sessionId"
                 type="button"
                 class="pill-devserver-btn"
                 aria-label="Add workspace"
@@ -196,7 +197,7 @@ import StatusOverlay from "./StatusOverlay.vue";
 import GitActionBtn from "./GitActionBtn.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
 import { terminalSessionCwdPath } from "../utils/endpoints.js";
-import { resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from "../utils/bare-terminal-actions.js";
+import { resolveRegisterCurrentDirAction } from "../utils/bare-terminal-actions.js";
 import { trailingItemsSignature, findChangedTrailingItem } from "../utils/pill-peek.js";
 
 const props = defineProps({
@@ -260,11 +261,6 @@ async function fetchCwd() {
   if (!props.tab.sessionId) return "";
   const { ok, data } = await apiGet(terminalSessionCwdPath(props.tab.sessionId));
   return ok ? (data?.cwd || "") : "";
-}
-
-async function openBareTerminalFiles() {
-  const cwd = props.tab.sessionId ? await fetchCwd() : "";
-  emit("git:openFileModal", resolveBareTerminalFilesDetail(props.tab.sessionId, cwd));
 }
 
 async function registerCurrentDir() {
@@ -336,45 +332,17 @@ watch([paneEl, infoPillEl], ([paneNode, pillNode]) => {
 
 const canDrag = computed(() => terminalStore.openTabs.length >= 1);
 const pillTooltip = computed(() => {
-  // モバイルはタップで展開ボタン群の開閉トグルに統合したため、その旨を示す。
-  if (isMobile.value) return pillExpanded.value ? "Tap to hide actions" : "Tap to show actions";
-  return layoutStore.isTouchDevice ? "Tap for details" : "Drag to split  ·  Click for details";
+  const toggleHint = pillExpanded.value ? "hide actions" : "show actions";
+  if (layoutStore.isTouchDevice) return `Tap to ${toggleHint}`;
+  return `Drag to split  ·  Click to ${toggleHint}`;
 });
 
-// ピルの Dev Server / Changes・Branches / Close ボタンは、狭い画面幅
-// （isMobile、MOBILE_BREAKPOINT_PX 基準）では普段は畳んでおき、ピルを
-// 一度タップした時だけ展開する。展開中に他の操作（ピル外のクリック・
-// キー入力）があったら閉じる。展開済みでもう一度タップした時だけ、
-// 従来通り Files/Branches モーダルを開く。
-// 広い画面幅ではスペースに余裕があるため、常に展開した状態にする
-// （タップ操作を挟まず、クリックで直接モーダルを開く）。
+// ピルの Dev Server / Changes・Branches / Close ボタンは、PC・モバイル問わず
+// 普段は畳んでおき、ワークスペースピル本体をタップ/クリックした時だけ開閉
+// トグルする（統一挙動）。開閉状態を変えるのはこのトグルだけで、ピル外の
+// クリックや Escape 等では変えない（activatePill 経由の操作のみが唯一の
+// 変更経路）。
 const pillExpanded = ref(false);
-const effectivePillExpanded = computed(() => !isMobile.value || pillExpanded.value);
-
-function collapsePill() {
-  pillExpanded.value = false;
-}
-
-function onDocumentPointerDownForPill(e) {
-  if (pillEl.value && pillEl.value.contains(e.target)) return;
-  collapsePill();
-}
-
-// Escape 以外のキーで閉じてしまうと、展開中のボタン群への Tab 移動や
-// Enter/Space による操作がキー入力のたびに中断されてしまう。
-function onDocumentKeydownForPill(e) {
-  if (e.key === "Escape") collapsePill();
-}
-
-watch(pillExpanded, (expanded) => {
-  if (expanded) {
-    document.addEventListener("pointerdown", onDocumentPointerDownForPill, true);
-    document.addEventListener("keydown", onDocumentKeydownForPill, true);
-  } else {
-    document.removeEventListener("pointerdown", onDocumentPointerDownForPill, true);
-    document.removeEventListener("keydown", onDocumentKeydownForPill, true);
-  }
-});
 
 // 畳んだ「...」ボタンの裏にある展開ボタン群（Branches/Changes/Pull/Push/Dev
 // Server/Add workspace）の内容。値だけ見て良く、v-if の表示条件（isGitRepo 等）
@@ -408,18 +376,18 @@ const trailingPeekItems = computed(() => {
   return items;
 });
 
-// 畳んだ「...」ボタンの裏の展開ボタン群のどれかが更新された時、そのボタン
-// 自身を数秒だけ「...」の左に一時表示してから隠す（PILL_MORE_PEEK_DURATION_MS）。
-// ルックアライクではなく実ボタンをそのまま v-if で出す（下記テンプレート、
-// `|| peekingKey === '...'` 参照）ため、デザインは常に完全に一致する。
-// 展開中（!isMobile または pillExpanded）は不要なので何もしない。
+// 畳んだピルの裏の展開ボタン群のどれかが更新された時、そのボタン自身を
+// 数秒だけワークスペースピルの左に一時表示してから隠す（PC・モバイル共通、
+// PILL_MORE_PEEK_DURATION_MS）。ルックアライクではなく実ボタンをそのまま
+// v-if で出す（下記テンプレート、`|| peekingKey === '...'` 参照）ため、
+// デザインは常に完全に一致する。展開中は不要なので何もしない。
 const peekingKey = ref(null);
 let prevTrailingSignature = trailingItemsSignature(trailingPeekItems.value);
 let pillMorePeekTimer = null;
 
 watch(trailingPeekItems, (items) => {
   const nextSignature = trailingItemsSignature(items);
-  if (isMobile.value && !pillExpanded.value) {
+  if (!pillExpanded.value) {
     const changed = findChangedTrailingItem(items, prevTrailingSignature);
     if (changed) {
       peekingKey.value = changed.key;
@@ -459,28 +427,10 @@ watch(trailingInnerEl, (el) => {
   roTrailing.observe(el);
 });
 
-// モバイルでは「...」ボタンを廃止し、ワークスペースピル本体のタップに開閉
-// トグルを統合した。展開ボタン群（Branches/Changes/Pull/Push/Dev Server/Add）
-// への導線はそちらに一本化し、ピルタップ自体はJobs/Filesペインを開かない。
-// デスクトップは常に展開状態（開閉の概念が無い）なので、従来通りピル
-// タップで直接 Jobs/Files ペインを開く。
+// PC・モバイル問わず、ワークスペースピル本体のタップ/クリックに展開ボタン群
+// （Branches/Changes/Pull/Push/Dev Server/Add）の開閉トグルを統一する。
 function activatePill() {
-  if (isMobile.value) {
-    pillExpanded.value = !pillExpanded.value;
-    return;
-  }
-  if (props.tab.workspace) {
-    workspaceStore.selectedWorkspace = props.tab.workspace;
-    // ピルに ahead/behind（push/pullマーク）が出ている時は、その操作をする Branches ペインへ直接開く。
-    // それ以外は Jobs ペイン（既定）を開く。
-    const hasPushPullMark = layoutStore.isSplitMode && isGitRepo.value && (ahead.value > 0 || behind.value > 0);
-    emit("git:openFileModal", hasPushPullMark ? { pane: "branch" } : undefined);
-  } else if (props.tab.sessionId) {
-    // ワークスペース未紐付けのベアターミナルでは cwd を読んで Files を開く
-    openBareTerminalFiles();
-  } else {
-    emit("workspace:openModal");
-  }
+  pillExpanded.value = !pillExpanded.value;
 }
 
 // キーボードでの Enter/Space はマウス/タッチのドラッグ判定（pillMouseDownTime等）を
@@ -707,8 +657,6 @@ onBeforeUnmount(() => {
   roPane = null;
   roTrailing?.disconnect();
   roTrailing = null;
-  document.removeEventListener("pointerdown", onDocumentPointerDownForPill, true);
-  document.removeEventListener("keydown", onDocumentKeydownForPill, true);
   if (infoPillEl.value) {
     infoPillEl.value.removeEventListener("touchmove", onPillTouchMove);
     infoPillEl.value.removeEventListener("touchend", onPillTouchEnd);
@@ -1008,6 +956,13 @@ defineExpose({
   justify-content: center;
   width: 14px;
   flex-shrink: 0;
+}
+
+/* ピル自体のタップ/クリックで展開ボタン群が開閉することを示すインジケータ。 */
+.pill-chevron {
+  flex-shrink: 0;
+  font-size: 14px;
+  color: var(--text-muted);
 }
 
 .pill-icon-badge-wrap {
