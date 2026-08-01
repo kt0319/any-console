@@ -48,11 +48,18 @@
               v-if="isMobile && !pillExpanded"
               type="button"
               class="pill-more-btn"
-              aria-label="Show more"
-              data-tooltip="Show more"
+              :class="{ peeking: !!pillMorePeekItem }"
+              :aria-label="pillMorePeekItem ? pillMorePeekItem.text : 'Show more'"
+              :data-tooltip="pillMorePeekItem ? pillMorePeekItem.text : 'Show more'"
               @pointerdown.stop
               @click.stop="pillExpanded = true"
-            ><span class="mdi mdi-dots-horizontal"></span></button>
+            >
+              <template v-if="pillMorePeekItem">
+                <span class="mdi" :class="pillMorePeekItem.icon"></span>
+                <span class="pill-more-peek-text">{{ pillMorePeekItem.text }}</span>
+              </template>
+              <span v-else class="mdi mdi-dots-horizontal"></span>
+            </button>
             <button
               v-if="effectivePillExpanded && isGitRepo"
               type="button"
@@ -175,7 +182,7 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
-import { ACTIVE_FIT_DELAY_MS } from "../utils/constants.js";
+import { ACTIVE_FIT_DELAY_MS, PILL_MORE_PEEK_DURATION_MS } from "../utils/constants.js";
 import { usePillDrag } from "../composables/usePillDrag.js";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useTerminalPaste } from "../composables/useTerminalPaste.js";
@@ -194,6 +201,7 @@ import GitActionBtn from "./GitActionBtn.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
 import { terminalSessionCwdPath } from "../utils/endpoints.js";
 import { resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from "../utils/bare-terminal-actions.js";
+import { trailingItemsSignature, findChangedTrailingItem } from "../utils/pill-peek.js";
 
 const props = defineProps({
   tab: { type: Object, required: true },
@@ -367,6 +375,73 @@ watch(pillExpanded, (expanded) => {
     document.removeEventListener("pointerdown", onDocumentPointerDownForPill, true);
     document.removeEventListener("keydown", onDocumentKeydownForPill, true);
   }
+});
+
+// 畳んだ「...」ボタンの裏にある展開ボタン群（Branches/Changes/Pull/Push/Dev
+// Server/Add workspace）の内容。値だけ見て良く、v-if の表示条件（isGitRepo 等）
+// と揃えておく。
+const trailingPeekItems = computed(() => {
+  const items = [];
+  if (isGitRepo.value) {
+    items.push({
+      key: "branch",
+      icon: "mdi-source-branch",
+      text: `${branchParts.value.abbr || ""}${branchParts.value.rest || ""}`,
+    });
+  }
+  if (isDirty.value) {
+    const parts = [];
+    if (changedFiles.value > 0) parts.push(`${changedFiles.value}F`);
+    parts.push(`+${insertions.value}`, `-${deletions.value}`);
+    items.push({ key: "changes", icon: "mdi-file-document-multiple-outline", text: parts.join(" ") });
+  }
+  if (behind.value > 0) {
+    items.push({ key: "pull", icon: "mdi-arrow-down", text: `Pull ${behind.value}` });
+  }
+  if (!hasUpstream.value && hasRemoteBranch.value) {
+    items.push({ key: "push", icon: "mdi-arrow-up", text: "Set Upstream" });
+  } else if (!hasUpstream.value && !hasRemoteBranch.value) {
+    items.push({ key: "push", icon: "mdi-arrow-up", text: `Push ${ahead.value}` });
+  } else if (hasUpstream.value && ahead.value > 0) {
+    items.push({ key: "push", icon: "mdi-arrow-up", text: `Push ${ahead.value}` });
+  }
+  if (devServerEntry.value) {
+    items.push({ key: "devserver", icon: "mdi-server", text: "Server" });
+  }
+  if (!isGitRepo.value && props.tab.sessionId) {
+    items.push({ key: "add", icon: "mdi-folder-plus-outline", text: "Add" });
+  }
+  return items;
+});
+
+// 畳んだ「...」ボタンの中身が更新された時、その変化した項目のアイコン/テキストを
+// 数秒だけ「...」の代わりに見せてから戻す（PILL_MORE_PEEK_DURATION_MS）。
+// 展開中（!isMobile または pillExpanded）は「...」ボタン自体が無いので何もしない。
+const pillMorePeekItem = ref(null);
+let prevTrailingSignature = trailingItemsSignature(trailingPeekItems.value);
+let pillMorePeekTimer = null;
+
+watch(trailingPeekItems, (items) => {
+  const nextSignature = trailingItemsSignature(items);
+  if (isMobile.value && !pillExpanded.value) {
+    const changed = findChangedTrailingItem(items, prevTrailingSignature);
+    if (changed) {
+      pillMorePeekItem.value = changed;
+      if (pillMorePeekTimer) clearTimeout(pillMorePeekTimer);
+      pillMorePeekTimer = setTimeout(() => {
+        pillMorePeekItem.value = null;
+        pillMorePeekTimer = null;
+      }, PILL_MORE_PEEK_DURATION_MS);
+    }
+  }
+  prevTrailingSignature = nextSignature;
+}, { deep: true });
+
+// 展開時・タブ非アクティブ化時は peek 表示を残さない。
+watch(pillExpanded, (expanded) => {
+  if (!expanded) return;
+  pillMorePeekItem.value = null;
+  if (pillMorePeekTimer) { clearTimeout(pillMorePeekTimer); pillMorePeekTimer = null; }
 });
 
 // 展開時、.pill-trailing（Dev Server/Changes/Branches/Close）の実測幅ぶんだけ
@@ -623,6 +698,7 @@ watch(isActive, async (active) => {
 onBeforeUnmount(() => {
   clearActiveFitTimer();
   stopPreviewPolling();
+  if (pillMorePeekTimer) { clearTimeout(pillMorePeekTimer); pillMorePeekTimer = null; }
   roPane?.disconnect();
   roPane = null;
   roTrailing?.disconnect();
@@ -880,6 +956,23 @@ defineExpose({
   font-size: 15px;
   line-height: 1;
   cursor: pointer;
+  transition: width 0.2s ease;
+}
+
+/* 展開ボタン群のどれかが更新された時、数秒だけ「...」の代わりにその内容を見せる。 */
+.pill-more-btn.peeking {
+  width: auto;
+  gap: 4px;
+  padding: 0 8px;
+  font-size: 13px;
+  color: var(--accent);
+  border-color: rgba(130, 170, 255, 0.4);
+}
+
+.pill-more-peek-text {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .pill-close-btn {
