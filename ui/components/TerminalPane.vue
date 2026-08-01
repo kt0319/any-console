@@ -15,6 +15,7 @@
       <div
         class="pill-group"
         ref="pillEl"
+        :class="{ 'no-transition': suppressPillRightTransition }"
         :style="{ right: pillGroupRight }"
       >
         <div
@@ -363,6 +364,27 @@ const isActive = computed(() => {
   return terminalStore.activeTabId === props.tab.id;
 });
 
+// v-show で非表示（display:none）の間、pill-trailing の ResizeObserver は幅を
+// 0 として報告する。タブ切り替えで再表示された直後に実測幅へ戻ると
+// pillGroupRight が変化し、.pill-group の `transition: right` でスライドして
+// 見えてしまう。タブ切り替え直後の 1 フレームだけこの transition を止める。
+const suppressPillRightTransition = ref(!isActive.value);
+watch(isActive, (active) => {
+  if (!active) return;
+  suppressPillRightTransition.value = true;
+  // ResizeObserver のコールバックは requestAnimationFrame の後、フレーム終端で
+  // 発火する。rAF を1回挟むだけだと trailingWidth の更新前に transition を
+  // 再有効化してしまいアニメーションが見えるため、rAF を2回重ねて
+  // ResizeObserver の発火・trailingWidth 反映を確実に待つ。
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        suppressPillRightTransition.value = false;
+      });
+    });
+  });
+});
+
 const { isOffline } = useConnectivityMonitor();
 const isReconnecting = computed(() =>
   !isOffline.value && !!terminalStore.tabFlags[props.tab.id]?.reconnecting,
@@ -599,6 +621,7 @@ defineExpose({
      足した calc() を right に設定し、× ボタンが常に画面端に届くようにする。 */
   --pill-base-right: 10px;
   right: var(--pill-base-right);
+  transition: right 0.35s ease;
   /* Modal.vue の .modal-overlay(z-index:20) より下にして、設定ダイアログ表示中は
      このピルが上に乗って見えない・誤操作できてしまわないようにする。 */
   z-index: 10;
@@ -606,6 +629,10 @@ defineExpose({
   align-items: center;
   gap: 4px;
   max-width: min(80vw, 450px);
+}
+
+.pill-group.no-transition {
+  transition: none;
 }
 
 /* Dev Server / Changes・Branches / Close ボタンは position:absolute で通常の
