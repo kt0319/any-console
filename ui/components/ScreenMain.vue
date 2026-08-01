@@ -54,6 +54,7 @@ import { useGlobalShortcuts } from "../composables/useGlobalShortcuts.js";
 import { useDeepLink } from "../composables/useDeepLink.js";
 import { useLayoutPersist } from "../composables/useLayoutPersist.js";
 import { on, emit } from "../app-bridge.js";
+import { tabTitleLabel } from "../utils/tab-label.js";
 
 const layoutStore = useLayoutStore();
 const terminalStore = useTerminalStore();
@@ -105,10 +106,7 @@ const activeTabLabel = computed(() => {
     if (paneId != null && !layoutStore.isEmptyPaneId(paneId)) tabId = paneId;
   }
   const tab = terminalStore.openTabs.find((t) => t.id === tabId);
-  if (!tab) return "";
-  const ws = tab.workspace || "";
-  const job = tab.jobLabel || tab.jobName || "";
-  const label = [ws, job].filter(Boolean).join(" / ");
+  const label = tabTitleLabel(tab, workspaceStore.allWorkspaces);
   return layoutStore.isSplitMode ? `[split] ${label}` : label;
 });
 
