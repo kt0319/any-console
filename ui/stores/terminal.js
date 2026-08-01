@@ -56,6 +56,15 @@ export const useTerminalStore = defineStore("terminal", () => {
   const restoreSessionsError = ref("");
   const terminalSettings = ref(loadTerminalSettingsFromStorage());
   const tabFlags = reactive({});
+  // tab は markRaw（xterm.Terminal/WebSocket等の重い実行時参照を保持するため
+  // 意図的に非リアクティブ）なので、tab.workspace のようなフィールドの変更は
+  // それ単体では画面に伝わらない。かといって tab オブジェクト自体を差し替えると
+  // connectTerminalWs/bindTerminalInput 等がこの identity をクロージャで
+  // 握っているため、ソケット/入力バインドの実行時状態が新旧オブジェクトに
+  // 分裂して壊れる（例: 入力が閉じた古いソケットへ送られ続ける）。
+  // tab の identity は変えず、フィールド変更を知りたい側がこの版数を
+  // 明示的に依存に含めることで再計算のトリガーにする。
+  const tabWorkspaceVersion = ref(0);
   // closeTab がローカル除去済み・サーバー削除リクエスト未完了の sessionId。
   // syncSessionsFromServer のポーリングがこの間隙でタブを復活させるのを防ぐ。
   const pendingCloseSessionIds = ref(/** @type {Set<string>} */ (new Set()));
@@ -233,14 +242,12 @@ export const useTerminalStore = defineStore("terminal", () => {
   }
 
   function setTabWorkspace(tabId, workspaceName) {
-    const idx = openTabs.value.findIndex((t) => t.id === tabId);
-    if (idx === -1) return;
-    // tab は markRaw なので、既存オブジェクトのプロパティを書き換えるだけでは
-    // TerminalPane が受け取る tab prop の参照が変わらず、Vue が子コンポーネントの
-    // 再レンダリングをスキップしてしまう（watch(() => props.tab.workspace) 等が
-    // 発火しない）。配列だけでなく tab 自体も新しいオブジェクトに差し替える。
-    const next = markRaw({ ...openTabs.value[idx], workspace: workspaceName || null });
-    openTabs.value = openTabs.value.map((t, i) => (i === idx ? next : t));
+    const tab = openTabs.value.find((t) => t.id === tabId);
+    if (!tab) return;
+    tab.workspace = workspaceName || null;
+    // tab の identity は変えず、tabWorkspaceVersion を進めることで
+    // 依存側（TerminalPane 等）に変更を伝える。
+    tabWorkspaceVersion.value++;
   }
 
   function moveTab(fromIndex, toIndex) {
@@ -315,6 +322,7 @@ export const useTerminalStore = defineStore("terminal", () => {
     detachTab,
     moveTab,
     setTabWorkspace,
+    tabWorkspaceVersion,
     loadTabOrder,
     resetTerminalSettings,
     sanitizeTerminalSetting,

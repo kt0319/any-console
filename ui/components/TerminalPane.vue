@@ -238,9 +238,14 @@ const { confirm } = useConfirm();
 const { isMobile } = useIsMobile();
 const { apiGet } = useApi();
 
-const paneWorkspace = computed(() =>
-  props.tab.workspace ? workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace) : undefined,
-);
+// tab は markRaw のため tab.workspace 単体の変更は追跡されない。
+// terminalStore.tabWorkspaceVersion を読むことで、setTabWorkspace（Add で
+// ベアターミナルにワークスペースを紐付けた時など）による変更をこの
+// computed の再計算トリガーにする。
+const paneWorkspace = computed(() => {
+  terminalStore.tabWorkspaceVersion;
+  return props.tab.workspace ? workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace) : undefined;
+});
 // ペインごとの git 情報（変更行数・ahead/behind）をピルに直接出す。
 const { isDirty, isGitRepo, hasUpstream, hasRemoteBranch, ahead, behind, changedFiles, insertions, deletions, branchParts } = useWorkspaceGitStatus(paneWorkspace, isMobile);
 const { gitAction, isRunning } = useGitRemoteAction();
@@ -269,6 +274,8 @@ function syncPreviewPolling() {
 }
 
 const devServerEntry = computed(() => {
+  // tab は markRaw のため tab.workspace 単体の変更は追跡されない（paneWorkspace と同じ理由）。
+  terminalStore.tabWorkspaceVersion;
   // ワークスペース未紐付けのベアターミナルでは workspace===null 同士がマッチしてしまい、
   // 無関係な（他のベアターミナルから検出された）dev server が出てしまうため対象外にする。
   if (!props.tab.workspace) return null;
@@ -735,7 +742,10 @@ onMounted(() => {
   syncPreviewPolling();
 });
 
-watch(() => props.tab.workspace, () => {
+// tab は markRaw のため tab.workspace 単体の変更は追跡されない。
+// tabWorkspaceVersion（setTabWorkspace が進める）を watch し、実際の
+// 値の読み取りは syncPreviewPolling 内で props.tab.workspace を直接見る。
+watch(() => terminalStore.tabWorkspaceVersion, () => {
   syncPreviewPolling();
   if (previewPollingStarted) fetchPreviewPorts();
 });

@@ -90,27 +90,32 @@ describe("terminal store: setTabWorkspace", () => {
     store = useTerminalStore();
   });
 
-  it("workspace を更新し、tab オブジェクト自体を新しい参照に差し替える", () => {
+  it("workspace を更新するが、tab オブジェクト自体の参照は維持する", () => {
+    // tab は markRaw で connectTerminalWs/bindTerminalInput 等がこの identity を
+    // クロージャで握っているため、差し替えるとソケット/入力バインドの実行時
+    // 状態が新旧オブジェクトに分裂して壊れる。identity は変えず、フィールドの
+    // 変更だけを行う（変更の伝播は tabWorkspaceVersion が担う。下記テスト参照）。
     seedTabs(store, [{ id: 1 }, { id: 2 }]);
     const before = store.openTabs.find((t) => t.id === 1);
     store.setTabWorkspace(1, "ws1");
     const after = store.openTabs.find((t) => t.id === 1);
     expect(after.workspace).toBe("ws1");
-    expect(after).not.toBe(before);
+    expect(after).toBe(before);
   });
 
-  it("対象外のタブオブジェクトは参照を維持する", () => {
-    seedTabs(store, [{ id: 1 }, { id: 2 }]);
-    const other = store.openTabs.find((t) => t.id === 2);
+  it("tabWorkspaceVersion を進め、tab は markRaw でも変更を検知できるようにする", () => {
+    seedTabs(store, [{ id: 1 }]);
+    const before = store.tabWorkspaceVersion;
     store.setTabWorkspace(1, "ws1");
-    expect(store.openTabs.find((t) => t.id === 2)).toBe(other);
+    expect(store.tabWorkspaceVersion).toBe(before + 1);
   });
 
   it("存在しない tabId は何もしない", () => {
     seedTabs(store, [{ id: 1 }]);
-    const before = store.openTabs;
+    const beforeVersion = store.tabWorkspaceVersion;
     store.setTabWorkspace(999, "ws1");
-    expect(store.openTabs).toBe(before);
+    expect(store.tabWorkspaceVersion).toBe(beforeVersion);
+    expect(store.openTabs.find((t) => t.id === 1).workspace).toBeUndefined();
   });
 });
 
