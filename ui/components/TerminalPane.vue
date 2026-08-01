@@ -429,7 +429,10 @@ function toggleExpand() {
 const trailingPeekItems = computed(() => {
   const items = [];
   if (isGitRepo.value) {
-    items.push({ key: "branch", text: `${branchParts.value.abbr || ""}${branchParts.value.rest || ""}` });
+    // branchParts は isMobile（画面回転で変わりうる）に応じて省略表示形式が
+    // 変わるため、そのまま text にすると回転しただけで「ブランチが変わった」
+    // と誤検知して peek が発火してしまう。表示形式に依存しない生のブランチ名を使う。
+    items.push({ key: "branch", text: paneWorkspace.value?.branch || "" });
   }
   if (isGitRepo.value && isDirty.value) {
     items.push({ key: "changes", text: `${changedFiles.value}F +${insertions.value} -${deletions.value}` });
