@@ -43,7 +43,13 @@
             <span v-if="!isPaneNarrow && !(isMobile && pillExpanded)" class="pill-workspace-label">{{ tab.workspace || tab.label || '' }}</span>
           </span>
         </div>
-        <div class="pill-trailing" ref="trailingEl">
+        <div
+          class="pill-trailing"
+          ref="trailingEl"
+          :class="{ 'no-transition': suppressPillRightTransition }"
+          :style="{ width: trailingWidth + 'px' }"
+        >
+          <div class="pill-trailing-inner" ref="trailingInnerEl">
             <button
               v-if="effectivePillExpanded && isGitRepo"
               type="button"
@@ -170,6 +176,7 @@
               @pointerup.stop="onTabCloseUp"
               @click.stop
             >&times;</button>
+          </div>
         </div>
       </div>
     </div>
@@ -300,6 +307,7 @@ const frameEl = ref(null);
 const pillEl = ref(null);
 const infoPillEl = ref(null);
 const trailingEl = ref(null);
+const trailingInnerEl = ref(null);
 let activeFitTimer = null;
 
 // ピル本体（アイコン・ワークスペース名・ahead/behind。展開ボタン群は含まない）が
@@ -468,13 +476,18 @@ watch(pillExpanded, (expanded) => {
   if (pillMorePeekTimer) { clearTimeout(pillMorePeekTimer); pillMorePeekTimer = null; }
 });
 
-// 展開時、.pill-trailing（Dev Server/Changes/Branches/Close）の実測幅ぶんだけ
-// pill-group を左へ寄せる。固定値だと実際のボタン構成によって画面端との間に
-// 余白が残ってしまう（× ボタンが画面端に届かない）ため、常に実測値を使う。
+// 展開時、.pill-trailing-inner（Dev Server/Changes/Branches/Close）の実測幅
+// ぶんだけ pill-group を左へ寄せる。固定値だと実際のボタン構成によって画面端
+// との間に余白が残ってしまう（× ボタンが画面端に届かない）ため、常に実測値を使う。
+// 計測は内側の pill-trailing-inner（常に content サイズ）で行い、外側の
+// pill-trailing 自身は同じ trailingWidth を width として animate することで、
+// 「ボタンが即座にDOMへ出現 → 位置だけ遅れて追いつく」というズレ（右へ一瞬
+// はみ出してから左へ戻る見え方）を無くし、× ボタンを固定端に見せたまま
+// 内容が左向きに滑らかに開閉するようにする。
 const trailingWidth = ref(0);
 let roTrailing = null;
 
-watch(trailingEl, (el) => {
+watch(trailingInnerEl, (el) => {
   roTrailing?.disconnect();
   roTrailing = null;
   if (!el) return;
@@ -807,13 +820,14 @@ defineExpose({
    flex フローから外し、.terminal-info-pill だけを唯一のフロー要素にする。
    こうするとボタンの増減で pill-group 自体の幅が変わっても、ピル本体の
    画面上の位置は一切動かない（ボタン群はピルの右に浮いて増減するだけ）。 */
+/* 外側（trailingEl）は width を JS 実測値へ animate するクリップ用コンテナ。
+   × ボタンを含む中身（.pill-trailing-inner）は常に content サイズで存在させ、
+   外側の width だけを滑らかに広げ縮めることで、ボタンの出現/消失が位置の
+   スライドと同期し、「一瞬右へはみ出してから戻る」ズレを起こさない。 */
 .pill-trailing {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
   left: 100%;
   margin-left: 4px;
   /* ボタン数が多い狭い画面（Pull/Push/Set Upstream/Dev Server等が同時に出る場合）で
@@ -825,6 +839,17 @@ defineExpose({
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x;
   scrollbar-width: none;
+  transition: width 0.35s ease;
+}
+
+.pill-trailing.no-transition {
+  transition: none;
+}
+
+.pill-trailing-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .pill-trailing::-webkit-scrollbar {
