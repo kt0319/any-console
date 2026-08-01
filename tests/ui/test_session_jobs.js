@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { needsJobsRefetch, loadAllJobs, loadSessionsResponse, buildSessionTabParams, applyCachedJobIcon } from "../../ui/utils/session-jobs.js";
+import { needsJobsRefetch, loadAllJobs, loadSessionsResponse, buildSessionTabParams, applyCachedJobIcon, isJobDefResolved } from "../../ui/utils/session-jobs.js";
 
 describe("needsJobsRefetch", () => {
   it("空 allJobs + ジョブセッションあり → 再取得する", () => {
@@ -153,29 +153,55 @@ describe("buildSessionTabParams", () => {
   });
 });
 
+describe("isJobDefResolved", () => {
+  it("job_name が無ければ常に解決済み扱い", () => {
+    expect(isJobDefResolved({ job_name: null }, {})).toBe(true);
+  });
+
+  it("allJobs にジョブ定義があれば解決済み", () => {
+    const allJobs = { ws: { job_1: { icon: "mdi-play" } } };
+    expect(isJobDefResolved({ job_name: "job_1", workspace: "ws" }, allJobs)).toBe(true);
+  });
+
+  it("ワークスペース/ジョブが allJobs に無ければ未解決", () => {
+    expect(isJobDefResolved({ job_name: "job_1", workspace: "ws" }, {})).toBe(false);
+    expect(isJobDefResolved({ job_name: "job_1", workspace: "ws" }, { ws: {} })).toBe(false);
+  });
+});
+
 describe("applyCachedJobIcon", () => {
   const session = { session_id: "sess_1", job_name: "job_1" };
 
   it("解決に成功したらキャッシュへ記録する", () => {
     const cache = new Map();
     const built = { icon: "icon:x.png", iconColor: "#0f0" };
-    const result = applyCachedJobIcon(built, session, cache);
+    const result = applyCachedJobIcon(built, true, session, cache);
     expect(result).toEqual(built);
     expect(cache.get("sess_1")).toEqual({ icon: "icon:x.png", iconColor: "#0f0" });
   });
 
-  it("mdi-play フォールバック時、キャッシュ済みの値があれば上書きしない", () => {
+  it("未解決時、キャッシュ済みの値があれば上書きしない", () => {
     const cache = new Map([["sess_1", { icon: "icon:x.png", iconColor: "#0f0" }]]);
     const built = { icon: "mdi-play", iconColor: null };
-    const result = applyCachedJobIcon(built, session, cache);
+    const result = applyCachedJobIcon(built, false, session, cache);
     expect(result.icon).toBe("icon:x.png");
     expect(result.iconColor).toBe("#0f0");
   });
 
-  it("mdi-play フォールバック時、キャッシュが無ければそのまま（かつ記録する）", () => {
+  it("未解決時、キャッシュが無ければそのまま（かつ記録する）", () => {
     const cache = new Map();
     const built = { icon: "mdi-play", iconColor: null };
-    const result = applyCachedJobIcon(built, session, cache);
+    const result = applyCachedJobIcon(built, false, session, cache);
+    expect(result.icon).toBe("mdi-play");
+    expect(cache.get("sess_1")).toEqual({ icon: "mdi-play", iconColor: null });
+  });
+
+  it("解決済みでアイコンが既定値(mdi-play)なだけの場合はキャッシュで上書きしない（新規登録する）", () => {
+    // ジョブのアイコンが削除・既定に戻された等でジョブ定義自体は見つかっているのに
+    // アイコン文字列だけを見て「未解決」と誤判定すると、古いキャッシュ値が復活してしまう。
+    const cache = new Map([["sess_1", { icon: "icon:x.png", iconColor: "#0f0" }]]);
+    const built = { icon: "mdi-play", iconColor: null };
+    const result = applyCachedJobIcon(built, true, session, cache);
     expect(result.icon).toBe("mdi-play");
     expect(cache.get("sess_1")).toEqual({ icon: "mdi-play", iconColor: null });
   });
@@ -183,7 +209,7 @@ describe("applyCachedJobIcon", () => {
   it("job_name が無ければキャッシュに触れない", () => {
     const cache = new Map();
     const built = { icon: "mdi-console", iconColor: null };
-    const result = applyCachedJobIcon(built, { session_id: "sess_2", job_name: null }, cache);
+    const result = applyCachedJobIcon(built, true, { session_id: "sess_2", job_name: null }, cache);
     expect(result).toBe(built);
     expect(cache.size).toBe(0);
   });
