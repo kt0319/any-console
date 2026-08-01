@@ -1090,11 +1090,14 @@ defineExpose({
   cursor: pointer;
 }
 
-/* 展開中はアクティブ色にして、開閉状態が一目で分かるようにする。 */
+/* 展開中はアクティブ色にして、開閉状態が一目で分かるようにする。
+   他のピルと同じ不透明度の地色を保ったまま色味だけアクセントに寄せる
+   （地の不透明度を大きく下げると、背後の端末出力が透けて他ピルより
+   薄く＝透明に見えてしまうため、rgba(26,27,38,0.88) 相当の濃さを維持する）。 */
 .pill-toggle-btn.expanded {
   color: var(--accent);
-  background: rgba(130, 170, 255, 0.15);
-  border-color: rgba(130, 170, 255, 0.3);
+  background: rgba(46, 74, 122, 0.92);
+  border-color: rgba(130, 170, 255, 0.5);
 }
 
 .pill-icon-badge-wrap {
