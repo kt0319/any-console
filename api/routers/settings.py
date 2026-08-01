@@ -12,10 +12,12 @@ from ..config import (
     find_workspace_key,
     load_all_config,
     load_global_config_section,
+    resolve_workspace_id,
     save_all_config,
     save_global_config_section,
 )
 from ..errors import bad_request, too_large
+from .jobs_common import get_workspace_jobs
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
@@ -298,13 +300,30 @@ class UpdateRecentJobsRequest(BaseModel):
     recent_jobs: list[RecentJobItem] = Field(default_factory=list)
 
 
+def _recent_job_still_exists(item: dict) -> bool:
+    """ジョブが削除→再作成されるとIDが変わるため、参照先が消えたスナップショットを弾く。
+
+    workspace が実在しない（解決できない）場合は判定できないため素通しする。
+    """
+    workspace = item.get("workspace", "")
+    job_name = item.get("jobName", "")
+    if not workspace or not job_name:
+        return True
+    if resolve_workspace_id(workspace) is None:
+        return True
+    return job_name in get_workspace_jobs(workspace)
+
+
 @router.get("/recent-jobs")
 def get_recent_jobs():
     recent_jobs = load_global_config_section("recent_jobs", [])
     if not isinstance(recent_jobs, list):
         recent_jobs = []
     sanitized = [item for item in recent_jobs if isinstance(item, dict) and item.get("key")]
-    return {"recent_jobs": sanitized}
+    valid = [item for item in sanitized if _recent_job_still_exists(item)]
+    if len(valid) != len(sanitized):
+        save_global_config_section("recent_jobs", valid)
+    return {"recent_jobs": valid}
 
 
 @router.put("/recent-jobs")

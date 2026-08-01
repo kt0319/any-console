@@ -423,6 +423,35 @@ class TestRecentJobs:
         res = client.get("/recent-jobs", headers=AUTH)
         assert [j["key"] for j in res.json()["recent_jobs"]] == ["ws2:deploy"]
 
+    def test_stale_job_reference_is_pruned_on_get(self, client, workspace):
+        job_name = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
+            "label": "build",
+            "command": "make build",
+        }).json()["name"]
+
+        client.put("/recent-jobs", headers=AUTH, json={
+            "recent_jobs": [
+                {"key": "test-ws:current", "workspace": "test-ws", "jobName": job_name},
+                {"key": "test-ws:deleted", "workspace": "test-ws", "jobName": "job_deleted_long_ago"},
+            ],
+        })
+
+        res = client.get("/recent-jobs", headers=AUTH)
+        assert [j["key"] for j in res.json()["recent_jobs"]] == ["test-ws:current"]
+
+        # 除去結果はサーバー側にも永続化される
+        res = client.get("/recent-jobs", headers=AUTH)
+        assert [j["key"] for j in res.json()["recent_jobs"]] == ["test-ws:current"]
+
+    def test_unresolvable_workspace_is_kept(self, client):
+        # workspace 自体が解決できない場合は判定不能なので素通しする
+        # （テストダブル的なworkspace名を使う既存テストの挙動を壊さない）
+        client.put("/recent-jobs", headers=AUTH, json={
+            "recent_jobs": [{"key": "ws1:build", "workspace": "ws1", "jobName": "build"}],
+        })
+        res = client.get("/recent-jobs", headers=AUTH)
+        assert [j["key"] for j in res.json()["recent_jobs"]] == ["ws1:build"]
+
 
 class TestDefaultLabel:
     """settings._default_label のユニットテスト"""
