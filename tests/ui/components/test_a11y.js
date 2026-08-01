@@ -225,6 +225,14 @@ describe("a11y: FileBrowser (Loading / Error メッセージ)", () => {
     });
 
     const wrapper = mount(FileBrowser, { attachTo: document.body });
+
+    // ライブリージョンは常時マウントしておく必要がある。v-if で挿入と同時に
+    // テキストを入れると、スクリーンリーダーが変化を検知できない場合があるため
+    // （マウント直後は空のまま存在していることを確認する）。
+    expect(wrapper.find('[role="status"]').exists()).toBe(true);
+    expect(wrapper.find('[role="status"]').text()).toBe("");
+    expect(wrapper.find('[role="alert"]').exists()).toBe(true);
+
     wrapper.vm.navigateToPath("subdir");
     await nextTick();
 

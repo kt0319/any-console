@@ -63,29 +63,31 @@
     </template>
 
     <template v-else>
-      <div v-if="isFileBrowserLoading" class="file-content-message" role="status" aria-live="polite">Loading...</div>
-      <div v-else-if="fileBrowserError" class="file-content-message" role="alert">{{ fileBrowserError }}</div>
+      <div :class="{ 'file-content-message': isFileBrowserLoading }" role="status" aria-live="polite">{{ isFileBrowserLoading ? "Loading..." : "" }}</div>
+      <div :class="{ 'file-content-message': fileBrowserError }" role="alert">{{ fileBrowserError }}</div>
 
-      <FileHistoryPane v-else-if="showHistory" :filePath="currentPath" />
+      <template v-if="!isFileBrowserLoading && !fileBrowserError">
+        <FileHistoryPane v-if="showHistory" :filePath="currentPath" />
 
-      <template v-else-if="!fileContent">
-        <ul class="file-browser-list">
-          <template v-for="entry in visibleEntries" :key="entry.name">
-            <FileItem
-              :gitignored="entry.gitignored"
-              :data-type="entry.type"
-              :label="entry.name"
-              :icon-html="renderFileIcon(entry)"
-              :size-text="entrySizeText(entry)"
-              :mtime-text="formatRelativeTime(entry.mtime)"
-              @click="onEntryClick(entry)"
-            />
-          </template>
-        </ul>
-        <div v-if="entries.length === 0" class="file-content-message">No files</div>
+        <template v-else-if="!fileContent">
+          <ul class="file-browser-list">
+            <template v-for="entry in visibleEntries" :key="entry.name">
+              <FileItem
+                :gitignored="entry.gitignored"
+                :data-type="entry.type"
+                :label="entry.name"
+                :icon-html="renderFileIcon(entry)"
+                :size-text="entrySizeText(entry)"
+                :mtime-text="formatRelativeTime(entry.mtime)"
+                @click="onEntryClick(entry)"
+              />
+            </template>
+          </ul>
+          <div v-if="entries.length === 0" class="file-content-message">No files</div>
+        </template>
+
+        <FileTextViewer v-else :fileContent="fileContent" :fileName="currentPath" />
       </template>
-
-      <FileTextViewer v-else :fileContent="fileContent" :fileName="currentPath" />
     </template>
   </div>
 </template>
