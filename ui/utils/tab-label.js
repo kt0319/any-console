@@ -1,4 +1,4 @@
-import { workspaceDisplayName, worktreeBranchLabel } from "./worktree.js";
+import { workspaceDisplayName } from "./worktree.js";
 
 /**
  * ワークスペース名にブランチ名を付与した表示用ラベルを返す。
@@ -10,7 +10,7 @@ import { workspaceDisplayName, worktreeBranchLabel } from "./worktree.js";
 export function workspaceBranchLabel(name, allWorkspaces) {
   const found = allWorkspaces.find((w) => w.name === name);
   if (found?.worktree) return workspaceDisplayName(found);
-  if (found?.branch) return `${name} ${worktreeBranchLabel(found.branch)}`;
+  if (found?.branch) return `${name} | ${found.branch}`;
   return name;
 }
 
