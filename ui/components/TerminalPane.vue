@@ -226,9 +226,12 @@ function doAction(action) {
 // 開いている全タブで1本のタイマーを共有する。
 const { ports: previewPorts, start: startPreviewPolling, stop: stopPreviewPolling, fetchPorts: fetchPreviewPorts } = usePreviewPorts();
 
-const devServerEntry = computed(() =>
-  previewPorts.value.find((p) => p.workspace === props.tab.workspace && p.proxy_port) || null,
-);
+const devServerEntry = computed(() => {
+  // ワークスペース未紐付けのベアターミナルでは workspace===null 同士がマッチしてしまい、
+  // 無関係な（他のベアターミナルから検出された）dev server が出てしまうため対象外にする。
+  if (!props.tab.workspace) return null;
+  return previewPorts.value.find((p) => p.workspace === props.tab.workspace && p.proxy_port) || null;
+});
 
 async function openDevServer() {
   const p = devServerEntry.value;
@@ -578,9 +581,14 @@ onMounted(() => {
     observeFrameResize(props.tab, frameEl.value);
     requestAnimationFrame(() => fitTerminal(props.tab));
   }
-  if (pillEl.value) {
-    pillEl.value.addEventListener("touchmove", onPillTouchMove, { passive: false });
-    pillEl.value.addEventListener("touchend", onPillTouchEnd, { passive: false });
+  if (infoPillEl.value) {
+    // pillEl（.pill-group）ではなく infoPillEl（.terminal-info-pill）にスコープする。
+    // pillEl には横スクロール可能な .pill-trailing も含まれており、そちらで
+    // 始まったタッチも拾ってしまうと、ボタン群のスワイプスクロールより先に
+    // ドラッグ判定（onPillTouchMove の e.preventDefault）が発火してスクロール
+    // できなくなる。touchstart は元々 infoPillEl 側にしか付いていないため合わせる。
+    infoPillEl.value.addEventListener("touchmove", onPillTouchMove, { passive: false });
+    infoPillEl.value.addEventListener("touchend", onPillTouchEnd, { passive: false });
   }
   if (frameEl.value) {
     frameEl.value.addEventListener("wheel", onWheel, { passive: false, capture: true });
@@ -621,9 +629,9 @@ onBeforeUnmount(() => {
   roTrailing = null;
   document.removeEventListener("pointerdown", onDocumentPointerDownForPill, true);
   document.removeEventListener("keydown", onDocumentKeydownForPill, true);
-  if (pillEl.value) {
-    pillEl.value.removeEventListener("touchmove", onPillTouchMove);
-    pillEl.value.removeEventListener("touchend", onPillTouchEnd);
+  if (infoPillEl.value) {
+    infoPillEl.value.removeEventListener("touchmove", onPillTouchMove);
+    infoPillEl.value.removeEventListener("touchend", onPillTouchEnd);
   }
   if (frameEl.value) {
     frameEl.value.removeEventListener("wheel", onWheel, { capture: true });
