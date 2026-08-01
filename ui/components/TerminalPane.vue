@@ -47,7 +47,7 @@
           class="pill-trailing"
           ref="trailingEl"
           :class="{ 'no-transition': suppressPillRightTransition }"
-          :style="{ width: trailingWidth + 'px' }"
+          :style="{ width: trailingTotalWidth + 'px' }"
         >
           <div class="pill-trailing-inner" ref="trailingInnerEl">
             <button
@@ -156,27 +156,31 @@
               </template>
               <span v-else class="mdi mdi-dots-horizontal"></span>
             </button>
-            <button
-              v-if="layoutStore.isSplitMode"
-              type="button"
-              class="pill-close-btn pill-minus-btn"
-              aria-label="Remove from split"
-              data-tooltip="Remove from split"
-              @pointerdown.stop="onSplitCloseDown"
-              @pointerup.stop="onSplitCloseUp"
-              @click.stop
-            >&minus;</button>
-            <button
-              v-if="!layoutStore.isSplitMode"
-              type="button"
-              class="pill-close-btn pill-tab-close-btn"
-              aria-label="Close tab"
-              data-tooltip="Close tab"
-              @pointerdown.stop="onTabCloseDown"
-              @pointerup.stop="onTabCloseUp"
-              @click.stop
-            >&times;</button>
           </div>
+          <!-- .pill-trailing-inner の flex フローから外し、.pill-trailing（外側）に
+               対して right:0 で直接固定する。こうすると閉じるボタンの位置は
+               width/right の transition タイミングに一切依存しなくなり、
+               常に .pill-trailing の右端にピッタリ張り付き続ける。 -->
+          <button
+            v-if="layoutStore.isSplitMode"
+            type="button"
+            class="pill-close-btn pill-minus-btn pill-close-btn-fixed"
+            aria-label="Remove from split"
+            data-tooltip="Remove from split"
+            @pointerdown.stop="onSplitCloseDown"
+            @pointerup.stop="onSplitCloseUp"
+            @click.stop
+          >&minus;</button>
+          <button
+            v-if="!layoutStore.isSplitMode"
+            type="button"
+            class="pill-close-btn pill-tab-close-btn pill-close-btn-fixed"
+            aria-label="Close tab"
+            data-tooltip="Close tab"
+            @pointerdown.stop="onTabCloseDown"
+            @pointerup.stop="onTabCloseUp"
+            @click.stop
+          >&times;</button>
         </div>
       </div>
     </div>
@@ -476,14 +480,14 @@ watch(pillExpanded, (expanded) => {
   if (pillMorePeekTimer) { clearTimeout(pillMorePeekTimer); pillMorePeekTimer = null; }
 });
 
-// 展開時、.pill-trailing-inner（Dev Server/Changes/Branches/Close）の実測幅
-// ぶんだけ pill-group を左へ寄せる。固定値だと実際のボタン構成によって画面端
-// との間に余白が残ってしまう（× ボタンが画面端に届かない）ため、常に実測値を使う。
-// 計測は内側の pill-trailing-inner（常に content サイズ）で行い、外側の
-// pill-trailing 自身は同じ trailingWidth を width として animate することで、
-// 「ボタンが即座にDOMへ出現 → 位置だけ遅れて追いつく」というズレ（右へ一瞬
-// はみ出してから左へ戻る見え方）を無くし、× ボタンを固定端に見せたまま
-// 内容が左向きに滑らかに開閉するようにする。
+// 展開時、.pill-trailing-inner（Dev Server/Changes/Branches等、可変ボタン群）の
+// 実測幅ぶんだけ pill-group を左へ寄せる。固定値だと実際のボタン構成によって
+// 画面端との間に余白が残ってしまうため、常に実測値を使う。
+// 計測は内側の pill-trailing-inner（常に content サイズ、閉じるボタンは含まない）
+// で行い、外側の pill-trailing 自身は同じ trailingWidth を width として
+// animate することで、「ボタンが即座にDOMへ出現 → 位置だけ遅れて追いつく」
+// というズレ（右へ一瞬はみ出してから左へ戻る見え方）を無くし、閉じるボタンを
+// 固定端に見せたまま内容が左向きに滑らかに開閉するようにする。
 const trailingWidth = ref(0);
 let roTrailing = null;
 
@@ -497,9 +501,16 @@ watch(trailingInnerEl, (el) => {
   roTrailing.observe(el);
 });
 
+// 閉じるボタン（.pill-close-btn-fixed）は pill-trailing-inner の flow から外し
+// 幅28px + gap4px 分を .pill-trailing 自身の右端に固定表示するため、
+// ResizeObserver が測る trailingWidth（可変ボタン群のみ）とは別にこの分を
+// 常に加算する必要がある（閉じるボタンは常時表示のため定数扱いでよい）。
+const PILL_CLOSE_BTN_RESERVED_PX = 32;
+const trailingTotalWidth = computed(() => trailingWidth.value + PILL_CLOSE_BTN_RESERVED_PX);
+
 // minus/close ボタンは常時表示のため、.pill-trailing は畳んだ状態でも
 // 常に何かしら幅を持つ。よって right オフセットは常に実測幅を加算する。
-const pillGroupRight = computed(() => `calc(var(--pill-base-right) + ${trailingWidth.value}px)`);
+const pillGroupRight = computed(() => `calc(var(--pill-base-right) + ${trailingTotalWidth.value}px)`);
 
 function activatePill() {
   if (props.tab.workspace) {
@@ -850,6 +861,16 @@ defineExpose({
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+
+/* .pill-trailing-inner の flex フローから外し、.pill-trailing（外側）自身に
+   対して固定する。width/right の transition タイミングに一切依存せず、
+   常に .pill-trailing の右端にピッタリ張り付く。 */
+.pill-close-btn-fixed {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
 }
 
 .pill-trailing::-webkit-scrollbar {
