@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { needsJobsRefetch, loadAllJobs, loadSessionsResponse, buildSessionTabParams } from "../../ui/utils/session-jobs.js";
+import { needsJobsRefetch, loadAllJobs, loadSessionsResponse, buildSessionTabParams, applyCachedJobIcon } from "../../ui/utils/session-jobs.js";
 
 describe("needsJobsRefetch", () => {
   it("空 allJobs + ジョブセッションあり → 再取得する", () => {
@@ -150,5 +150,41 @@ describe("buildSessionTabParams", () => {
     const p = buildSessionTabParams(session);
     expect(p.icon).toBe("mdi-play");
     expect(p.wsIcon).toBe(null);
+  });
+});
+
+describe("applyCachedJobIcon", () => {
+  const session = { session_id: "sess_1", job_name: "job_1" };
+
+  it("解決に成功したらキャッシュへ記録する", () => {
+    const cache = new Map();
+    const built = { icon: "icon:x.png", iconColor: "#0f0" };
+    const result = applyCachedJobIcon(built, session, cache);
+    expect(result).toEqual(built);
+    expect(cache.get("sess_1")).toEqual({ icon: "icon:x.png", iconColor: "#0f0" });
+  });
+
+  it("mdi-play フォールバック時、キャッシュ済みの値があれば上書きしない", () => {
+    const cache = new Map([["sess_1", { icon: "icon:x.png", iconColor: "#0f0" }]]);
+    const built = { icon: "mdi-play", iconColor: null };
+    const result = applyCachedJobIcon(built, session, cache);
+    expect(result.icon).toBe("icon:x.png");
+    expect(result.iconColor).toBe("#0f0");
+  });
+
+  it("mdi-play フォールバック時、キャッシュが無ければそのまま（かつ記録する）", () => {
+    const cache = new Map();
+    const built = { icon: "mdi-play", iconColor: null };
+    const result = applyCachedJobIcon(built, session, cache);
+    expect(result.icon).toBe("mdi-play");
+    expect(cache.get("sess_1")).toEqual({ icon: "mdi-play", iconColor: null });
+  });
+
+  it("job_name が無ければキャッシュに触れない", () => {
+    const cache = new Map();
+    const built = { icon: "mdi-console", iconColor: null };
+    const result = applyCachedJobIcon(built, { session_id: "sess_2", job_name: null }, cache);
+    expect(result).toBe(built);
+    expect(cache.size).toBe(0);
   });
 });

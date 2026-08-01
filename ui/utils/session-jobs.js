@@ -74,3 +74,23 @@ export function buildSessionTabParams(session, { workspaces = [], allJobs = {} }
     jobLabel: session.job_label || null,
   };
 }
+
+/**
+ * サーバー応答の一時的な揺らぎで /terminal/sessions からセッションが消えてタブが
+ * 削除→再生成された場合、buildSessionTabParams の結果が mdi-play フォールバックに
+ * なっていても、以前に解決できたジョブアイコンがキャッシュにあればそちらを優先する。
+ * 呼び出し側から Map を注入し、このモジュール自体はストア非依存に保つ。
+ *
+ * @param {ReturnType<typeof buildSessionTabParams>} built
+ * @param {{ session_id: string, job_name?: string|null }} session
+ * @param {Map<string, { icon: string, iconColor: string|null }>} cache
+ */
+export function applyCachedJobIcon(built, session, cache) {
+  if (!session.job_name) return built;
+  const cached = cache.get(session.session_id);
+  if (built.icon !== "mdi-play" || !cached) {
+    cache.set(session.session_id, { icon: built.icon, iconColor: built.iconColor });
+    return built;
+  }
+  return { ...built, icon: cached.icon, iconColor: cached.iconColor };
+}

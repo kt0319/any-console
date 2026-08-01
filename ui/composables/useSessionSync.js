@@ -6,8 +6,22 @@ import { useTerminal } from "./useTerminal.js";
 import { useLayoutPersist } from "./useLayoutPersist.js";
 import { LAYOUT_FIT_DELAY_MS, LS_KEY_ACTIVE_SESSION, SESSION_SYNC_INTERVAL_MS, NEW_TAB_SYNC_GRACE_MS } from "../utils/constants.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
-import { loadAllJobs, loadSessionsResponse, buildSessionTabParams } from "../utils/session-jobs.js";
+import { loadAllJobs, loadSessionsResponse, buildSessionTabParams, applyCachedJobIcon } from "../utils/session-jobs.js";
 import { emit } from "../app-bridge.js";
+
+// モジュールスコープ: サーバー応答の一時的な揺らぎで /terminal/sessions から
+// セッションが消えてタブが削除→再生成されても、一度解決できたジョブアイコンは
+// 保持する。再生成時に allJobs がまだ不完全で mdi-play フォールバックになった
+// 場合、このキャッシュがあれば上書きしない（session_id -> { icon, iconColor }）。
+const resolvedJobIcons = new Map();
+
+// launchTerminal() 等、buildSessionTabParams を経由しない経路で既にジョブ
+// アイコンが解決済みのときにキャッシュへ書き込む（useTerminalLifecycle.js から使用）。
+// 呼び出し側は mdi-play フォールバック適用前の生のジョブアイコンを渡すこと。
+export function rememberJobIcon(sessionId, icon, iconColor) {
+  if (!sessionId || !icon) return;
+  resolvedJobIcons.set(sessionId, { icon, iconColor: iconColor || null });
+}
 
 export function useSessionSync() {
   const auth = useAuthStore();
@@ -18,10 +32,8 @@ export function useSessionSync() {
   const { restoreLayout } = useLayoutPersist();
 
   function _buildTabParams(s, allJobs) {
-    return {
-      ...buildSessionTabParams(s, { workspaces: workspaceStore.allWorkspaces, allJobs }),
-      restored: true,
-    };
+    const built = buildSessionTabParams(s, { workspaces: workspaceStore.allWorkspaces, allJobs });
+    return { ...applyCachedJobIcon(built, s, resolvedJobIcons), restored: true };
   }
 
   async function _safeResJson(res) {
