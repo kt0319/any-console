@@ -138,18 +138,6 @@
               <span class="mdi mdi-folder-plus-outline"></span>
               <span class="pill-devserver-text">Add</span>
             </button>
-            <button
-              v-if="isMobile"
-              type="button"
-              class="pill-more-btn"
-              :class="{ expanded: pillExpanded }"
-              :aria-label="pillExpanded ? 'Show less' : 'Show more'"
-              :data-tooltip="pillExpanded ? 'Show less' : 'Show more'"
-              @pointerdown.stop
-              @click.stop="pillExpanded = !pillExpanded"
-            >
-              <span class="mdi mdi-dots-horizontal"></span>
-            </button>
           </div>
           <!-- .pill-trailing-inner の flex フローから外し、.pill-trailing（外側）に
                対して right:0 で直接固定する。こうすると閉じるボタンの位置は
@@ -346,9 +334,11 @@ watch([paneEl, infoPillEl], ([paneNode, pillNode]) => {
 });
 
 const canDrag = computed(() => terminalStore.openTabs.length >= 1);
-const pillTooltip = computed(() =>
-  layoutStore.isTouchDevice ? "Tap for details" : "Drag to split  ·  Click for details",
-);
+const pillTooltip = computed(() => {
+  // モバイルはタップで展開ボタン群の開閉トグルに統合したため、その旨を示す。
+  if (isMobile.value) return pillExpanded.value ? "Tap to hide actions" : "Tap to show actions";
+  return layoutStore.isTouchDevice ? "Tap for details" : "Drag to split  ·  Click for details";
+});
 
 // ピルの Dev Server / Changes・Branches / Close ボタンは、狭い画面幅
 // （isMobile、MOBILE_BREAKPOINT_PX 基準）では普段は畳んでおき、ピルを
@@ -481,7 +471,16 @@ const trailingTotalWidth = computed(() => trailingWidth.value + PILL_CLOSE_BTN_R
 // 常に何かしら幅を持つ。よって right オフセットは常に実測幅を加算する。
 const pillGroupRight = computed(() => `calc(var(--pill-base-right) + ${trailingTotalWidth.value}px)`);
 
+// モバイルでは「...」ボタンを廃止し、ワークスペースピル本体のタップに開閉
+// トグルを統合した。展開ボタン群（Branches/Changes/Pull/Push/Dev Server/Add）
+// への導線はそちらに一本化し、ピルタップ自体はJobs/Filesペインを開かない。
+// デスクトップは常に展開状態（開閉の概念が無い）なので、従来通りピル
+// タップで直接 Jobs/Files ペインを開く。
 function activatePill() {
+  if (isMobile.value) {
+    pillExpanded.value = !pillExpanded.value;
+    return;
+  }
   if (props.tab.workspace) {
     workspaceStore.selectedWorkspace = props.tab.workspace;
     // ピルに ahead/behind（push/pullマーク）が出ている時は、その操作をする Branches ペインへ直接開く。
@@ -978,34 +977,6 @@ defineExpose({
 
 .terminal-info-pill.dragging {
   opacity: 0.5;
-}
-
-.pill-more-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 28px;
-  width: 28px;
-  flex-shrink: 0;
-  padding: 0;
-  border-radius: 999px;
-  border: 1px solid rgba(59, 66, 97, 0.5);
-  background: rgba(26, 27, 38, 0.88);
-  color: var(--text-secondary);
-  font-size: 15px;
-  line-height: 1;
-  cursor: pointer;
-  transition: width 0.2s ease;
-}
-
-.pill-more-btn .mdi-dots-horizontal {
-  transition: transform 0.2s ease;
-}
-
-/* 展開時は × と並ぶ「閉じる」トグルとして機能する。ドットを寝かせて開閉が
-   分かるようにする（展開ボタン群は「...」の左側に生える）。 */
-.pill-more-btn.expanded .mdi-dots-horizontal {
-  transform: rotate(90deg);
 }
 
 .pill-close-btn {
