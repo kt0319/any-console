@@ -162,6 +162,7 @@
           <button
             type="button"
             class="pill-toggle-btn"
+            :class="{ expanded: pillExpanded }"
             :aria-label="pillExpanded ? 'Show less' : 'Show more'"
             :data-tooltip="pillExpanded ? 'Show less' : 'Show more'"
             @pointerdown.stop
@@ -1026,7 +1027,9 @@ defineExpose({
   flex-shrink: 0;
 }
 
-/* ワークスペースピルとは独立した、展開ボタン群の開閉専用トグル。 */
+/* ワークスペースピルとは独立した、展開ボタン群の開閉専用トグル。
+   閉じるボタンとは隣接した固定クラスタだが、視覚的に別要素と分かるよう
+   閉じるボタンとの間だけ少し余白を広げる。 */
 .pill-toggle-btn {
   display: flex;
   align-items: center;
@@ -1035,6 +1038,7 @@ defineExpose({
   width: 28px;
   flex-shrink: 0;
   padding: 0;
+  margin-right: 4px;
   border-radius: 999px;
   border: 1px solid rgba(59, 66, 97, 0.5);
   background: rgba(26, 27, 38, 0.88);
@@ -1042,6 +1046,13 @@ defineExpose({
   font-size: 14px;
   line-height: 1;
   cursor: pointer;
+}
+
+/* 展開中はアクティブ色にして、開閉状態が一目で分かるようにする。 */
+.pill-toggle-btn.expanded {
+  color: var(--accent);
+  background: rgba(130, 170, 255, 0.15);
+  border-color: rgba(130, 170, 255, 0.3);
 }
 
 .pill-icon-badge-wrap {
