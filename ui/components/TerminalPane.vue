@@ -43,7 +43,7 @@
         <div class="pill-trailing" ref="trailingEl">
           <TransitionGroup name="pill-pop">
             <button
-              v-if="isMobile && !pillExpanded"
+              v-if="isMobile && !pillExpanded && showMoreBtn"
               key="more"
               type="button"
               class="pill-more-btn"
@@ -151,7 +151,7 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
-import { ACTIVE_FIT_DELAY_MS } from "../utils/constants.js";
+import { ACTIVE_FIT_DELAY_MS, PILL_POP_LEAVE_MS } from "../utils/constants.js";
 import { usePillDrag } from "../composables/usePillDrag.js";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useTerminalPaste } from "../composables/useTerminalPaste.js";
@@ -310,6 +310,12 @@ const pillTooltip = computed(() =>
 const pillExpanded = ref(false);
 const effectivePillExpanded = computed(() => !isMobile.value || pillExpanded.value);
 
+// 閉じる際、Dev Server/Changes/Branches/Close 等の leave アニメーションが
+// 終わってから「…」ボタンを出す。同時に出すと閉じきる前に開閉ピルが
+// 割り込んで見えてしまうため。
+const showMoreBtn = ref(true);
+let moreBtnRevealTimer = null;
+
 function collapsePill() {
   pillExpanded.value = false;
 }
@@ -320,10 +326,15 @@ function onDocumentPointerDownForPill(e) {
 }
 
 watch(pillExpanded, (expanded) => {
+  clearTimeout(moreBtnRevealTimer);
   if (expanded) {
+    showMoreBtn.value = false;
     document.addEventListener("pointerdown", onDocumentPointerDownForPill, true);
     document.addEventListener("keydown", collapsePill, true);
   } else {
+    moreBtnRevealTimer = setTimeout(() => {
+      showMoreBtn.value = true;
+    }, PILL_POP_LEAVE_MS);
     document.removeEventListener("pointerdown", onDocumentPointerDownForPill, true);
     document.removeEventListener("keydown", collapsePill, true);
   }
@@ -564,6 +575,7 @@ watch(isActive, async (active) => {
 
 onBeforeUnmount(() => {
   clearActiveFitTimer();
+  clearTimeout(moreBtnRevealTimer);
   stopPreviewPolling();
   roPane?.disconnect();
   roPane = null;
