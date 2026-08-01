@@ -9,7 +9,7 @@
  *
  * 色コントラスト・実機 SR 検証は対象外（axe-helper.js のコメント参照）。
  */
-import { describe, it, afterEach, vi } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { nextTick, ref } from "vue";
 import ConfirmDialog from "../../../ui/components/ConfirmDialog.vue";
@@ -23,9 +23,12 @@ import UrlActionDialog from "../../../ui/components/UrlActionDialog.vue";
 import TerminalSplitDropZones from "../../../ui/components/TerminalSplitDropZones.vue";
 import SplitEmptyPane from "../../../ui/components/SplitEmptyPane.vue";
 import AuthConfig from "../../../ui/components/AuthConfig.vue";
+import FileBrowser from "../../../ui/components/FileBrowser.vue";
 import { createPinia, setActivePinia } from "pinia";
 import { useConfirm } from "../../../ui/composables/useConfirm.js";
 import { usePrompt } from "../../../ui/composables/usePrompt.js";
+import { useWorkspaceStore } from "../../../ui/stores/workspace.js";
+import { useAuthStore } from "../../../ui/stores/auth.js";
 import { emit } from "../../../ui/app-bridge.js";
 import { expectNoA11yViolations } from "./axe-helper.js";
 
@@ -199,6 +202,43 @@ describe("a11y: AuthConfig (API Tokens section)", () => {
     await wrapper.findAll("button").find((b) => b.text() === "Create").trigger("click");
     await flushPromises();
     await expectNoA11yViolations(wrapper.element);
+
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: FileBrowser (Loading / Error メッセージ)", () => {
+  function jsonResponse(data) {
+    return { ok: true, json: async () => data };
+  }
+
+  it("読み込み中は role=status、エラー時は role=alert を持つ", async () => {
+    setActivePinia(createPinia());
+    useWorkspaceStore().selectedWorkspace = "ws1";
+    const auth = useAuthStore();
+    let resolveList;
+    auth.apiFetch = vi.fn((url) => {
+      if (String(url).includes("/files?path=")) {
+        return new Promise((resolve) => { resolveList = resolve; });
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    const wrapper = mount(FileBrowser, { attachTo: document.body });
+    wrapper.vm.navigateToPath("subdir");
+    await nextTick();
+
+    const loadingEl = wrapper.find('[role="status"]');
+    expect(loadingEl.exists()).toBe(true);
+    expect(loadingEl.attributes("aria-live")).toBe("polite");
+    await expectNoA11yViolations(loadingEl.element);
+
+    resolveList({ ok: false, json: async () => ({ detail: "boom" }) });
+    await flushPromises();
+
+    const errorEl = wrapper.find('[role="alert"]');
+    expect(errorEl.exists()).toBe(true);
+    await expectNoA11yViolations(errorEl.element);
 
     wrapper.unmount();
   });

@@ -63,8 +63,8 @@
     </template>
 
     <template v-else>
-      <div v-if="isFileBrowserLoading" class="file-content-message">Loading...</div>
-      <div v-else-if="fileBrowserError" class="file-content-message">{{ fileBrowserError }}</div>
+      <div v-if="isFileBrowserLoading" class="file-content-message" role="status" aria-live="polite">Loading...</div>
+      <div v-else-if="fileBrowserError" class="file-content-message" role="alert">{{ fileBrowserError }}</div>
 
       <FileHistoryPane v-else-if="showHistory" :filePath="currentPath" />
 
