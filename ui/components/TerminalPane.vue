@@ -137,14 +137,14 @@
               type="button"
               class="pill-more-btn"
               :class="[{ peeking: !!pillMorePeekItem, expanded: pillExpanded }, pillMorePeekItem ? `variant-${pillMorePeekItem.variant}` : '']"
-              :aria-label="pillMorePeekItem ? pillMorePeekItem.text : (pillExpanded ? 'Show less' : 'Show more')"
-              :data-tooltip="pillMorePeekItem ? pillMorePeekItem.text : (pillExpanded ? 'Show less' : 'Show more')"
+              :aria-label="pillMorePeekItem ? pillMorePeekItem.label : (pillExpanded ? 'Show less' : 'Show more')"
+              :data-tooltip="pillMorePeekItem ? pillMorePeekItem.label : (pillExpanded ? 'Show less' : 'Show more')"
               @pointerdown.stop
               @click.stop="pillExpanded = !pillExpanded"
             >
               <template v-if="pillMorePeekItem">
-                <span class="mdi" :class="pillMorePeekItem.icon"></span>
-                <span class="pill-more-peek-text">
+                <span v-if="pillMorePeekItem.icon" class="mdi" :class="pillMorePeekItem.icon"></span>
+                <span v-if="pillMorePeekItem.parts.length" class="pill-more-peek-text">
                   <span v-for="(part, i) in pillMorePeekItem.parts" :key="i" :class="part.cls">{{ part.text }}</span>
                 </span>
               </template>
@@ -386,8 +386,10 @@ watch(pillExpanded, (expanded) => {
 // （.pill-more-btn.variant-* で実ボタンと同じ色を当てる。CSS 側参照）。
 // parts はテキストを色分け表示するためのセグメント（changes の +/- 等、実ボタンと
 // 同じ numstat-files/diff-num-plus/diff-num-del クラスを使い回す）。
-function peekTextItem(key, icon, text, variant) {
-  return { key, icon, variant, text, parts: [{ text, cls: "" }] };
+// label は aria-label/tooltip 用の読み上げ名。text（見た目上の表示）が空の
+// 項目（set-upstream 等、実ボタンが icon-only）でもアクセシブルネームは必要なため分ける。
+function peekTextItem(key, icon, text, variant, label = text) {
+  return { key, icon, variant, text, label, parts: text ? [{ text, cls: "" }] : [] };
 }
 
 const trailingPeekItems = computed(() => {
@@ -401,27 +403,31 @@ const trailingPeekItems = computed(() => {
     ));
   }
   if (isGitRepo.value && isDirty.value) {
+    // 実ボタン（.pill-numstat-btn）にアイコンは無く、数値だけを色分け表示する。
     const parts = [];
     if (changedFiles.value > 0) parts.push({ text: `${changedFiles.value}F`, cls: "numstat-files" });
     parts.push({ text: `+${insertions.value}`, cls: "diff-num-plus" });
     parts.push({ text: `-${deletions.value}`, cls: "diff-num-del" });
     items.push({
       key: "changes",
-      icon: "mdi-file-document-multiple-outline",
+      icon: null,
       variant: "changes",
       parts,
       text: parts.map((p) => p.text).join(" "),
+      label: "Changes",
     });
   }
   if (isGitRepo.value && behind.value > 0) {
-    items.push(peekTextItem("pull", "mdi-arrow-down", `Pull ${behind.value}`, "pull"));
+    // 実ボタン（GitActionBtn）はラベル文字列を持たず、アイコン+件数のみ。
+    items.push(peekTextItem("pull", "mdi-arrow-down", `${behind.value}`, "pull", "Pull"));
   }
   if (isGitRepo.value && !hasUpstream.value && hasRemoteBranch.value) {
-    items.push(peekTextItem("push", "mdi-arrow-up", "Set Upstream", "set-upstream"));
+    // set-upstream は icon-only（件数バッジも無い）。
+    items.push(peekTextItem("push", "mdi-plus", "", "set-upstream", "Set Upstream"));
   } else if (isGitRepo.value && !hasUpstream.value && !hasRemoteBranch.value) {
-    items.push(peekTextItem("push", "mdi-arrow-up", `Push ${ahead.value}`, "push-upstream"));
+    items.push(peekTextItem("push", "mdi-chevron-double-up", `${ahead.value}`, "push-upstream", "Push & Set Upstream"));
   } else if (isGitRepo.value && hasUpstream.value && ahead.value > 0) {
-    items.push(peekTextItem("push", "mdi-arrow-up", `Push ${ahead.value}`, "push"));
+    items.push(peekTextItem("push", "mdi-arrow-up", `${ahead.value}`, "push", "Push"));
   }
   if (devServerEntry.value) {
     items.push(peekTextItem("devserver", "mdi-server", "Server", "devserver"));
