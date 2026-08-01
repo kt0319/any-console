@@ -452,6 +452,26 @@ class TestRecentJobs:
         res = client.get("/recent-jobs", headers=AUTH)
         assert [j["key"] for j in res.json()["recent_jobs"]] == ["ws1:build"]
 
+    def test_dynamic_worktree_stale_job_reference_is_pruned(self, client, workspace):
+        # 動的worktreeの表示名は 'base [branch]' 形式で config には未登録のため、
+        # resolve_workspace_id をそのまま workspace 名に対して呼ぶと常に None になる。
+        # resolve_jobs_owner でベース（test-ws）に解決してから判定する必要がある。
+        job_name = client.post("/workspaces/test-ws/jobs", headers=AUTH, json={
+            "label": "build",
+            "command": "make build",
+        }).json()["name"]
+        worktree_ws = "test-ws [feature-x]"
+
+        client.put("/recent-jobs", headers=AUTH, json={
+            "recent_jobs": [
+                {"key": f"{worktree_ws}:current", "workspace": worktree_ws, "jobName": job_name},
+                {"key": f"{worktree_ws}:deleted", "workspace": worktree_ws, "jobName": "job_deleted_long_ago"},
+            ],
+        })
+
+        res = client.get("/recent-jobs", headers=AUTH)
+        assert [j["key"] for j in res.json()["recent_jobs"]] == [f"{worktree_ws}:current"]
+
 
 class TestDefaultLabel:
     """settings._default_label のユニットテスト"""

@@ -9,6 +9,7 @@ from ..auth import verify_token
 from ..common import GLOBAL_CONFIG_KEY, MAX_COMMAND_LENGTH, MAX_LABEL_LENGTH, PHRASE_NOTIFY_IDLE_GRACE_SEC
 from ..config import (
     check_config_health,
+    compare_and_update_global_config_section,
     find_workspace_key,
     load_all_config,
     load_global_config_section,
@@ -17,7 +18,7 @@ from ..config import (
     save_global_config_section,
 )
 from ..errors import bad_request, too_large
-from .jobs_common import get_workspace_jobs
+from .jobs_common import get_workspace_jobs, resolve_jobs_owner
 
 router = APIRouter(dependencies=[Depends(verify_token)])
 
@@ -304,25 +305,40 @@ def _recent_job_still_exists(item: dict) -> bool:
     """ジョブが削除→再作成されるとIDが変わるため、参照先が消えたスナップショットを弾く。
 
     workspace が実在しない（解決できない）場合は判定できないため素通しする。
+    動的worktree（'base [branch]' 形式、config には未登録）は resolve_jobs_owner で
+    ベースワークスペースへ解決してから存在確認する（get_workspace_jobs 自身も内部で
+    同じ解決をした上でベースのジョブ定義を返すため、素の workspace 名では常に
+    resolve_workspace_id が None になり判定をすり抜けてしまう）。
     """
     workspace = item.get("workspace", "")
     job_name = item.get("jobName", "")
     if not workspace or not job_name:
         return True
-    if resolve_workspace_id(workspace) is None:
+    if resolve_workspace_id(resolve_jobs_owner(workspace)) is None:
         return True
     return job_name in get_workspace_jobs(workspace)
 
 
+def _prune_recent_jobs(raw) -> list:
+    recent_jobs = raw if isinstance(raw, list) else []
+    sanitized = [item for item in recent_jobs if isinstance(item, dict) and item.get("key")]
+    return [item for item in sanitized if _recent_job_still_exists(item)]
+
+
 @router.get("/recent-jobs")
 def get_recent_jobs():
-    recent_jobs = load_global_config_section("recent_jobs", [])
-    if not isinstance(recent_jobs, list):
-        recent_jobs = []
-    sanitized = [item for item in recent_jobs if isinstance(item, dict) and item.get("key")]
-    valid = [item for item in sanitized if _recent_job_still_exists(item)]
-    if len(valid) != len(sanitized):
-        save_global_config_section("recent_jobs", valid)
+    # 除去対象の判定（_recent_job_still_exists 経由で get_workspace_jobs が
+    # config の読み込みロックを取る）はロックの外側で行い、書き戻しだけを
+    # compare_and_update で排他ロック下に閉じ込める。除去計算自体をロック内で
+    # 行うと、config 読み込みロックを再入することになり自己デッドロックする
+    # （_config_lock は非再入の threading.Lock のため）。
+    # 併せて、除去計算からロック取得までの間に他クライアントの PUT
+    # （記録・ピン留め）が割り込んでいた場合は、その更新をこの GET の
+    # 古いスナップショットで上書きしないよう compare_and_update が検知して破棄する。
+    raw = load_global_config_section("recent_jobs", [])
+    valid = _prune_recent_jobs(raw)
+    if valid != raw:
+        valid = compare_and_update_global_config_section("recent_jobs", raw, valid)
     return {"recent_jobs": valid}
 
 
