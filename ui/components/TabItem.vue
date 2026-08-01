@@ -82,7 +82,11 @@ const effectiveDropSide = computed(() => {
   return dropSide.value;
 });
 
+// tab は markRaw のため tab.workspace 単体の変更は追跡されない。Add で
+// ベアターミナルにワークスペースを紐付けた直後もタブラベルに反映されるよう、
+// tabWorkspaceVersion を読んで依存に含める。
 const label = computed(() => {
+  terminalStore.tabWorkspaceVersion;
   if (props.tab.workspace) {
     const ws = workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace);
     if (ws?.worktree) return workspaceDisplayName(ws);
@@ -92,6 +96,7 @@ const label = computed(() => {
 });
 
 const isDirty = computed(() => {
+  terminalStore.tabWorkspaceVersion;
   if (!props.tab.workspace) return false;
   const ws = workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace);
   return ws?.clean === false;
@@ -104,6 +109,7 @@ const hasPhraseNotify = computed(() => !!terminalStore.phraseNotifySessions[prop
 const tabAriaLabel = computed(() => (hasPhraseNotify.value ? `${label.value} (phrase detected)` : label.value));
 
 const isWorktree = computed(() => {
+  terminalStore.tabWorkspaceVersion;
   if (!props.tab.workspace) return false;
   const ws = workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace);
   return !!ws?.worktree;

@@ -97,6 +97,10 @@ watch(isEmptyScreenVisible, async (isEmpty) => {
 });
 
 const activeTabLabel = computed(() => {
+  // tab は markRaw のため tab.workspace 単体の変更は追跡されない。Add で
+  // ベアターミナルにワークスペースを紐付けた直後もタイトルに反映されるよう、
+  // tabWorkspaceVersion を読んで依存に含める。
+  terminalStore.tabWorkspaceVersion;
   if (isEmptyScreenVisible.value) return "";
   let tabId = terminalStore.activeTabId;
   if (layoutStore.isSplitMode) {

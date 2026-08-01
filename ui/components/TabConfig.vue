@@ -131,7 +131,13 @@ const workspaceStore = useWorkspaceStore();
 const { confirm } = useConfirm();
 const { disconnectTerminal } = useTerminal();
 
-const openTabs = computed(() => terminalStore.openTabs);
+// tab は markRaw のため tab.workspace 単体の変更は追跡されない。Add で
+// ベアターミナルにワークスペースを紐付けた直後もタブ名に反映されるよう、
+// tabWorkspaceVersion を読んで依存に含める。
+const openTabs = computed(() => {
+  terminalStore.tabWorkspaceVersion;
+  return terminalStore.openTabs;
+});
 const activeTabId = computed(() => terminalStore.activeTabId);
 const isSplitMode = computed(() => layoutStore.isSplitMode);
 const splitPaneTabIds = computed(() => layoutStore.splitPaneTabIds);
