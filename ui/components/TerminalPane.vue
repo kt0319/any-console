@@ -41,16 +41,6 @@
             <span v-if="!isPaneNarrow && !pillExpanded" class="pill-workspace-label">{{ tab.workspace || tab.label || '' }}</span>
           </span>
         </div>
-        <button
-          type="button"
-          class="pill-toggle-btn"
-          :aria-label="pillExpanded ? 'Show less' : 'Show more'"
-          :data-tooltip="pillExpanded ? 'Show less' : 'Show more'"
-          @pointerdown.stop
-          @click.stop="toggleExpand"
-        >
-          <span class="mdi" :class="pillExpanded ? 'mdi-unfold-less-vertical' : 'mdi-unfold-more-vertical'"></span>
-        </button>
         <div
           class="pill-trailing"
           ref="trailingEl"
@@ -160,13 +150,25 @@
               </button>
             </div>
           </div>
-          <!-- 閉じるボタンは .pill-trailing（overflow-x:auto でクリップされ得る
-               widthアニメーション用コンテナ）の外、.pill-group の直接の flex子
-               として常時表示する。こうするとアニメーション中や多ボタン時の
+          <!-- 開閉トグルと閉じるボタンは .pill-trailing（overflow-x:auto でクリップ
+               され得る幅アニメーション用コンテナ）の外、.pill-group の直接の
+               flex子として常時表示する。こうするとアニメーション中や多ボタン時の
                横スクロール領域とは無関係になり、クリップされて欠けることが無い。
+               並び順は「開閉トグル→閉じる」で固定し、隣接した固定クラスタとして
+               扱う（展開ボタン群はこのクラスタの左側に生える）。
                .pill-group 自体は right が固定値（JS計算なし）の flex コンテナ
-               なので、閉じるボタンは常にブラウザ標準のflexレイアウトで画面内に
+               なので、この2つは常にブラウザ標準のflexレイアウトで画面内に
                正しく収まる（オフセット計算のズレで見切れる/崩れることが無い）。 -->
+          <button
+            type="button"
+            class="pill-toggle-btn"
+            :aria-label="pillExpanded ? 'Show less' : 'Show more'"
+            :data-tooltip="pillExpanded ? 'Show less' : 'Show more'"
+            @pointerdown.stop
+            @click.stop="toggleExpand"
+          >
+            <span class="mdi" :class="pillExpanded ? 'mdi-unfold-less-vertical' : 'mdi-unfold-more-vertical'"></span>
+          </button>
           <button
             v-if="layoutStore.isSplitMode"
             type="button"
