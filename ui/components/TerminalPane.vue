@@ -33,11 +33,11 @@
                 @click.stop="openChanges"
               >
                 <span class="mdi mdi-file-document-edit-outline"></span>
-                <template v-if="peekingKey === 'changes'">
+                <span class="numstat-inline pill-label-hover" :class="{ peeking: peekingKey === 'changes' }">
                   <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
                   <span class="diff-num-plus">+{{ insertions }}</span>
                   <span class="diff-num-del">-{{ deletions }}</span>
-                </template>
+                </span>
               </button>
               <GitActionBtn
                 v-if="isGitRepo && behind > 0"
@@ -88,7 +88,7 @@
                 @click.stop="openBranch"
               >
                 <span class="mdi mdi-source-branch"></span>
-                <span v-if="peekingKey === 'branch'" class="pill-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
+                <span class="pill-branch-text pill-label-hover" :class="{ peeking: peekingKey === 'branch' }"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
               </button>
               <button
                 v-if="devServerEntry"
@@ -100,7 +100,7 @@
                 @click.stop="openDevServer"
               >
                 <span class="mdi mdi-server"></span>
-                <span v-if="peekingKey === 'devserver'" class="pill-devserver-text">Server</span>
+                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'devserver' }">Server</span>
               </button>
               <button
                 v-if="!isGitRepo && tab.sessionId"
@@ -112,7 +112,7 @@
                 @click.stop="openBareTerminalFiles"
               >
                 <span class="mdi mdi-folder-outline"></span>
-                <span v-if="peekingKey === 'files'" class="pill-devserver-text">Files</span>
+                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'files' }">Files</span>
               </button>
               <button
                 v-if="!isGitRepo && tab.sessionId"
@@ -124,7 +124,7 @@
                 @click.stop="registerCurrentDir"
               >
                 <span class="mdi" :class="registerAction.type === 'launch' ? 'mdi-folder-open-outline' : 'mdi-folder-plus-outline'"></span>
-                <span v-if="peekingKey === 'add'" class="pill-devserver-text">{{ registerAction.type === 'launch' ? 'Open' : 'Add' }}</span>
+                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'add' }">{{ registerAction.type === 'launch' ? 'Open' : 'Add' }}</span>
               </button>
             </div>
           </div>
@@ -160,7 +160,7 @@
                 <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 16)"></span>
                 <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
               </span>
-              <span v-if="peekingKey === 'workspace'" class="pill-workspace-label">{{ tab.workspace || tab.label || '' }}</span>
+              <span class="pill-workspace-label pill-label-hover" :class="{ peeking: peekingKey === 'workspace' }">{{ tab.workspace || tab.label || '' }}</span>
             </span>
           </div>
           <button
@@ -914,7 +914,6 @@ defineExpose({
 .pill-devserver-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
   min-height: 32px;
   flex-shrink: 0;
   padding: 0 10px;
@@ -934,7 +933,6 @@ defineExpose({
 .pill-numstat-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
   min-height: 32px;
   padding: 0 10px;
   flex-shrink: 0;
@@ -961,7 +959,6 @@ defineExpose({
 .pill-branch-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
   min-height: 32px;
   padding: 0 10px;
   flex-shrink: 1;
@@ -991,6 +988,42 @@ defineExpose({
 .branch-abbr {
   color: var(--accent);
   font-weight: 500;
+}
+
+/* 通常時はアイコンのみ・ラベルは幅0に畳んでおき、PCではボタンをホバー
+   すると、モバイルでのpeek表示（値が変化した時の一時表示）と同じ見た目で
+   ラベルをその場に展開する。ラベル自体は常にDOMに存在させる（v-ifで
+   出し入れするとホバーで表示できないため）。 */
+.pill-label-hover {
+  display: inline-block;
+  max-width: 0;
+  margin-left: 0;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width 0.2s ease, opacity 0.15s ease, margin-left 0.2s ease;
+}
+
+.pill-label-hover.peeking {
+  max-width: 160px;
+  margin-left: 4px;
+  opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pill-branch-btn:hover .pill-label-hover,
+  .pill-devserver-btn:hover .pill-label-hover,
+  .pill-numstat-btn:hover .pill-label-hover {
+    max-width: 160px;
+    margin-left: 4px;
+    opacity: 1;
+  }
+}
+
+.numstat-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .terminal-info-pill.dragging {
@@ -1042,6 +1075,23 @@ defineExpose({
   align-items: center;
   gap: 6px;
   min-width: 0;
+}
+
+/* .terminal-info-pill-info の gap:6px はアイコンバッジ同士の間隔用。
+   ラベルが畳まれている間はこの gap ぶんも見た目の余白になってしまうため、
+   畳んでいる間は同じ幅だけ負のmarginで打ち消し、展開時に元へ戻す。 */
+.pill-workspace-label.pill-label-hover {
+  margin-left: -6px;
+}
+
+.pill-workspace-label.pill-label-hover.peeking {
+  margin-left: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .terminal-info-pill:hover .pill-workspace-label.pill-label-hover {
+    margin-left: 0;
+  }
 }
 
 .pill-icon-slot {
