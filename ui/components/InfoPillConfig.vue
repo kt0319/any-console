@@ -2,11 +2,29 @@
   <div class="modal-scroll-body">
     <div v-if="!infoPillConfig.loaded" class="text-muted-center">Loading...</div>
     <template v-else>
-      <label v-for="item in TOGGLES" :key="item.field" class="settings-item settings-toggle">
+      <label v-for="(item, idx) in orderedToggles" :key="item.field" class="settings-item settings-toggle">
         <input type="checkbox" :checked="infoPillConfig[item.field]" @change="setField(item.field, $event.target.checked)" />
         <div class="settings-toggle-copy">
           <span class="settings-item-label">{{ item.label }}</span>
           <span class="settings-note">{{ item.note }}</span>
+        </div>
+        <div class="pill-order-buttons">
+          <button
+            type="button"
+            class="pill-order-btn"
+            :disabled="idx === 0"
+            aria-label="Move up"
+            data-tooltip="Move up"
+            @click="infoPillConfig.moveUp(item.field)"
+          ><span class="mdi mdi-chevron-up"></span></button>
+          <button
+            type="button"
+            class="pill-order-btn"
+            :disabled="idx === orderedToggles.length - 1"
+            aria-label="Move down"
+            data-tooltip="Move down"
+            @click="infoPillConfig.moveDown(item.field)"
+          ><span class="mdi mdi-chevron-down"></span></button>
         </div>
       </label>
     </template>
@@ -14,7 +32,7 @@
 </template>
 
 <script setup>
-import { inject } from "vue";
+import { inject, computed } from "vue";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
 
 const modalTitle = inject("modalTitle");
@@ -24,8 +42,7 @@ const infoPillConfig = useInfoPillConfigStore();
 if (!infoPillConfig.loaded) infoPillConfig.load();
 
 // ラベルはピル本体のツールチップ文言（TerminalPane.vue）に揃える。
-// 並び順はワークスペース詳細のタブ順（Files→History→Changes→Branch→PRs）に
-// 合わせている。
+// 表示順は infoPillConfig.order（上下ボタンで並び替え可能）に従う。
 const TOGGLES = [
   { field: "files", label: "Files", note: "Show the files browser button." },
   { field: "history", label: "History", note: "Show the commit history button." },
@@ -37,8 +54,42 @@ const TOGGLES = [
   { field: "add", label: "Add / Open", note: "Show the add-or-open-workspace button for non-Git terminals." },
 ];
 
+const orderedToggles = computed(() =>
+  infoPillConfig.order.map((field) => TOGGLES.find((t) => t.field === field)).filter(Boolean),
+);
+
 function setField(field, value) {
   infoPillConfig[field] = value;
   infoPillConfig.save();
 }
 </script>
+
+<style scoped>
+.pill-order-buttons {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+}
+
+.pill-order-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.pill-order-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.pill-order-btn:not(:disabled):hover {
+  color: var(--text-primary);
+}
+</style>

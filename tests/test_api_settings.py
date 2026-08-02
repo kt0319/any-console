@@ -215,6 +215,7 @@ class TestInfoPillSettings:
         "devserver": True,
         "files": True,
         "add": True,
+        "order": ["files", "history", "changes", "branch", "prs", "actions", "devserver", "add"],
     }
 
     def test_get_default(self, client):
@@ -252,6 +253,25 @@ class TestInfoPillSettings:
         res = client.get("/settings/info-pills", headers=AUTH)
         assert res.json()["branch"] is False
         assert res.json()["changes"] is True
+        assert res.json()["order"] == self.DEFAULTS["order"]
+
+    def test_put_and_get_custom_order(self, client):
+        custom_order = ["branch", "files", "history", "changes", "prs", "actions", "devserver", "add"]
+        res = client.put("/settings/info-pills", headers=AUTH, json={**self.DEFAULTS, "order": custom_order})
+        assert res.status_code == 200
+        assert res.json()["order"] == custom_order
+
+        res = client.get("/settings/info-pills", headers=AUTH)
+        assert res.json()["order"] == custom_order
+
+    def test_put_order_drops_unknown_keys_and_appends_missing(self, client):
+        res = client.put(
+            "/settings/info-pills",
+            headers=AUTH,
+            json={**self.DEFAULTS, "order": ["bogus", "branch", "files"]},
+        )
+        assert res.status_code == 200
+        assert res.json()["order"] == ["branch", "files", "history", "changes", "prs", "actions", "devserver", "add"]
 
 
 class TestCircleKeypadSettings:

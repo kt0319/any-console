@@ -23,8 +23,9 @@
           :style="{ width: trailingWidth + 'px', maxWidth: trailingMaxWidth + 'px' }"
         >
           <div class="pill-trailing-inner" ref="trailingInnerEl">
+              <template v-for="key in infoPillConfig.order" :key="key">
               <button
-                v-if="(isGitRepo || tab.sessionId) && infoPillConfig.files"
+                v-if="key === 'files' && (isGitRepo || tab.sessionId) && infoPillConfig.files"
                 type="button"
                 class="pill-devserver-btn"
                 :aria-label="filesTooltip"
@@ -36,7 +37,7 @@
                 <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'files' }">Files</span>
               </button>
               <button
-                v-if="isGitRepo && infoPillConfig.history"
+                v-else-if="key === 'history' && isGitRepo && infoPillConfig.history"
                 type="button"
                 class="pill-devserver-btn"
                 aria-label="History"
@@ -48,7 +49,7 @@
                 <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'history' }">{{ peekingKey === 'history' ? historyPeekLabel : 'History' }}</span>
               </button>
               <button
-                v-if="isGitRepo && isDirty && infoPillConfig.changes"
+                v-else-if="key === 'changes' && isGitRepo && isDirty && infoPillConfig.changes"
                 type="button"
                 class="pill-numstat-btn"
                 :aria-label="changesTooltip"
@@ -64,7 +65,7 @@
                 </span>
               </button>
               <button
-                v-if="isGitRepo && infoPillConfig.branch"
+                v-else-if="key === 'branch' && isGitRepo && infoPillConfig.branch"
                 type="button"
                 class="pill-branch-btn"
                 :aria-label="branchTooltip"
@@ -78,7 +79,7 @@
                 <span v-if="behind > 0" class="pill-branch-count pull-count"><span class="mdi mdi-arrow-down-thin"></span>{{ behind }}</span>
               </button>
               <button
-                v-if="branchPR && infoPillConfig.prs"
+                v-else-if="key === 'prs' && branchPR && infoPillConfig.prs"
                 type="button"
                 class="pill-devserver-btn"
                 :aria-label="prsTooltip"
@@ -90,7 +91,7 @@
                 <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'prs' }">#{{ branchPR?.number }}</span>
               </button>
               <button
-                v-if="visibleBranchAction && infoPillConfig.actions"
+                v-else-if="key === 'actions' && visibleBranchAction && infoPillConfig.actions"
                 type="button"
                 class="pill-devserver-btn"
                 :class="actionStatusClass"
@@ -103,7 +104,7 @@
                 <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'actions' }">{{ branchAction?.conclusion || branchAction?.status }}</span>
               </button>
               <button
-                v-if="devServerEntry && infoPillConfig.devserver"
+                v-else-if="key === 'devserver' && devServerEntry && infoPillConfig.devserver"
                 type="button"
                 class="pill-devserver-btn"
                 :aria-label="devServerTooltip"
@@ -115,7 +116,7 @@
                 <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'devserver' }">Server</span>
               </button>
               <button
-                v-if="!isGitRepo && tab.sessionId && infoPillConfig.add"
+                v-else-if="key === 'add' && !isGitRepo && tab.sessionId && infoPillConfig.add"
                 type="button"
                 class="pill-devserver-btn"
                 aria-label="Add or open this directory as a workspace"
@@ -126,6 +127,7 @@
                 <span class="mdi mdi-folder-plus-outline"></span>
                 <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'add' }">Add</span>
               </button>
+              </template>
             </div>
           </div>
           <!-- ワークスペースピル本体・閉じるボタンは .pill-trailing（overflow-x:

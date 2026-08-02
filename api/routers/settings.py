@@ -150,6 +150,9 @@ def put_notification_settings(body: NotificationSettings):
     return {"status": "ok", "phrase_notify_grace_sec": body.phrase_notify_grace_sec}
 
 
+INFO_PILL_FIELDS = ["files", "history", "changes", "branch", "prs", "actions", "devserver", "add"]
+
+
 class InfoPillSettings(BaseModel):
     branch: bool = True
     history: bool = True
@@ -159,6 +162,14 @@ class InfoPillSettings(BaseModel):
     devserver: bool = True
     files: bool = True
     add: bool = True
+    order: list[str] = Field(default_factory=lambda: list(INFO_PILL_FIELDS))
+
+
+def _normalize_pill_order(order: list[str]) -> list[str]:
+    """未知のキーを除外し、欠けているキー（新規追加分等）はデフォルト順で末尾に補う。"""
+    known = [key for key in order if key in INFO_PILL_FIELDS]
+    missing = [key for key in INFO_PILL_FIELDS if key not in known]
+    return known + missing
 
 
 @router.get("/settings/info-pills")
@@ -167,13 +178,22 @@ def get_info_pill_settings():
     if not isinstance(raw, dict):
         raw = {}
     defaults = InfoPillSettings()
-    return {field: bool(raw.get(field, default)) for field, default in defaults.model_dump().items()}
+    result: dict[str, bool | list[str]] = {
+        field: bool(raw.get(field, default))
+        for field, default in defaults.model_dump().items()
+        if field != "order"
+    }
+    raw_order = raw.get("order")
+    result["order"] = _normalize_pill_order(raw_order if isinstance(raw_order, list) else [])
+    return result
 
 
 @router.put("/settings/info-pills")
 def put_info_pill_settings(body: InfoPillSettings):
-    save_global_config_section("info_pills", body.model_dump())
-    return {"status": "ok", **body.model_dump()}
+    data = body.model_dump()
+    data["order"] = _normalize_pill_order(data["order"])
+    save_global_config_section("info_pills", data)
+    return {"status": "ok", **data}
 
 
 CIRCLE_KEYPAD_KEY_COUNT = 8
