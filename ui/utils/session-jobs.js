@@ -74,3 +74,42 @@ export function buildSessionTabParams(session, { workspaces = [], allJobs = {} }
     jobLabel: session.job_label || null,
   };
 }
+
+/**
+ * session が参照するジョブ定義が allJobs 内に実在するかを返す。
+ * jobDef.icon が未設定で "mdi-play" に落ちる場合と、ジョブ定義自体が見つからず
+ * "mdi-play" にフォールバックする場合を区別するために使う（icon 文字列の比較だけでは
+ * 「ジョブのアイコンが正規にデフォルトのまま」なのか「解決失敗」なのか判別できない）。
+ *
+ * @param {{ job_name?: string|null, workspace?: string|null }} session
+ * @param {Record<string, any>} allJobs
+ * @returns {boolean}
+ */
+export function isJobDefResolved(session, allJobs) {
+  if (!session.job_name) return true;
+  return !!(session.workspace && allJobs?.[session.workspace]?.[session.job_name]);
+}
+
+/**
+ * サーバー応答の一時的な揺らぎで /terminal/sessions からセッションが消えてタブが
+ * 削除→再生成された場合、ジョブ定義が実際に解決できなかった時に限り、以前に
+ * 解決できたジョブアイコンがキャッシュにあればそちらを優先する。
+ * ジョブ定義が解決できていて、その結果としてアイコンが正規にデフォルト
+ * （mdi-play）なだけのケースまでキャッシュで上書きしないよう、解決成否は
+ * jobResolved で明示的に渡す（built.icon 文字列からの推測はしない）。
+ * 呼び出し側から Map を注入し、このモジュール自体はストア非依存に保つ。
+ *
+ * @param {ReturnType<typeof buildSessionTabParams>} built
+ * @param {boolean} jobResolved isJobDefResolved の結果
+ * @param {{ session_id: string, job_name?: string|null }} session
+ * @param {Map<string, { icon: string, iconColor: string|null }>} cache
+ */
+export function applyCachedJobIcon(built, jobResolved, session, cache) {
+  if (!session.job_name) return built;
+  const cached = cache.get(session.session_id);
+  if (jobResolved || !cached) {
+    cache.set(session.session_id, { icon: built.icon, iconColor: built.iconColor });
+    return built;
+  }
+  return { ...built, icon: cached.icon, iconColor: cached.iconColor };
+}

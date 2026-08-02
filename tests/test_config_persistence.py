@@ -199,6 +199,45 @@ class TestConfigSection:
         assert load_global_config_section("workspace_order") == ["ws1", "ws2"]
 
 
+class TestCompareAndUpdateGlobalConfigSection:
+    def test_writes_when_current_matches_expected(self, isolate_fs):
+        from api.config import compare_and_update_global_config_section, save_global_config_section, load_global_config_section
+        save_global_config_section("snippets", [{"label": "a", "command": "a"}])
+
+        expected = load_global_config_section("snippets")
+        new_value = [{"label": "a", "command": "a"}, {"label": "b", "command": "b"}]
+        result = compare_and_update_global_config_section("snippets", expected, new_value)
+
+        assert result == new_value
+        assert load_global_config_section("snippets") == new_value
+
+    def test_discards_new_value_when_concurrent_write_happened(self, isolate_fs):
+        """expected_current 算出後、ロック取得前に別クライアントが書き込んだ場合、
+        古いスナップショットに基づく new_value で上書きしない（lost update 防止）。"""
+        from api.config import compare_and_update_global_config_section, save_global_config_section, load_global_config_section
+        save_global_config_section("snippets", [{"label": "a", "command": "a"}])
+
+        stale_expected = load_global_config_section("snippets")
+        # このタイミングで別クライアントが割り込んで書き込んだと仮定する
+        concurrent_value = [{"label": "b", "command": "b"}]
+        save_global_config_section("snippets", concurrent_value)
+
+        result = compare_and_update_global_config_section("snippets", stale_expected, [])
+
+        assert result == concurrent_value
+        assert load_global_config_section("snippets") == concurrent_value
+
+    def test_no_write_when_new_value_equals_current(self, isolate_fs):
+        from api.config import compare_and_update_global_config_section, save_global_config_section, load_global_config_section
+        save_global_config_section("snippets", [{"label": "a", "command": "a"}])
+
+        expected = load_global_config_section("snippets")
+        result = compare_and_update_global_config_section("snippets", expected, expected)
+
+        assert result == expected
+        assert load_global_config_section("snippets") == expected
+
+
 class TestConfigVersionMigration:
     def test_get_version_helpers(self):
         from api.config_migrations import _get_config_version, _set_config_version

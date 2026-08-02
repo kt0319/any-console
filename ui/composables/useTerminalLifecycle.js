@@ -9,6 +9,7 @@ import { usePrompt } from "./usePrompt.js";
 import { EP_RUN, terminalSessionDetachedPath } from "../utils/endpoints.js";
 import { TERMINAL_JOB_KEY } from "../utils/constants.js";
 import { collectCommandVars } from "../utils/command-vars.js";
+import { rememberJobIcon } from "./useSessionSync.js";
 
 export function useTerminalLifecycle({ terminalBaseView }) {
   const auth = useAuthStore();
@@ -83,6 +84,9 @@ export function useTerminalLifecycle({ terminalBaseView }) {
         return;
       }
       const data = await res.json();
+      // 同期ポーリング(useSessionSync)がこのセッションを再構築する際、
+      // /jobs/workspaces が一時的に不完全でもここで解決済みのアイコンを使えるようにする。
+      if (jobName && jobIcon) rememberJobIcon(data.session_id, jobIcon, jobIconColor);
       if (detached) {
         // detached 起動: タブに追加せず、セッションを detached としてマークするだけ。
         // Tabs パネルの Detached tabs セクションに表示される。

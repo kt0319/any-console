@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { worktreeBranchLabel, workspaceDisplayName } from "../../ui/utils/worktree.js";
 
 describe("worktreeBranchLabel", () => {
-  it("prefixes the branch name with a pipe separator", () => {
-    expect(worktreeBranchLabel("feature/x")).toBe("| feature/x");
+  it("returns the branch name as-is (単独表示用、縦線は付与しない)", () => {
+    expect(worktreeBranchLabel("feature/x")).toBe("feature/x");
   });
 
   it("returns empty string for missing branch", () => {
@@ -18,9 +18,9 @@ describe("workspaceDisplayName", () => {
     expect(workspaceDisplayName(ws)).toBe("proj | feature/x");
   });
 
-  it("falls back to pipe-only when base is missing", () => {
+  it("falls back to the branch name only when base is missing", () => {
     const ws = { name: "x", worktree: true, worktree_branch: "feature/x" };
-    expect(workspaceDisplayName(ws)).toBe("| feature/x");
+    expect(workspaceDisplayName(ws)).toBe("feature/x");
   });
 
   it("returns the plain name for non-worktree workspaces", () => {

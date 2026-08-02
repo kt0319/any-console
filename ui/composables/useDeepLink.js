@@ -7,7 +7,7 @@ import { useConfirm } from "./useConfirm.js";
 import { usePrompt } from "./usePrompt.js";
 import { emit } from "../app-bridge.js";
 import { buildActionSummary } from "../utils/actionSummary.js";
-import { buildSessionTabParams } from "../utils/session-jobs.js";
+import { buildSessionTabParamsWithCache } from "./useSessionSync.js";
 import { EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
 import { DEEPLINK_REFIT_DELAY_MS } from "../utils/constants.js";
 
@@ -80,7 +80,7 @@ export function useDeepLink() {
     if (!meta) return false;
     const allJobs = jobsRes.ok && jobsRes.data ? jobsRes.data : {};
     const tab = terminalStore.addTerminalTab({
-      ...buildSessionTabParams(meta, { workspaces: workspaceStore.allWorkspaces, allJobs }),
+      ...buildSessionTabParamsWithCache(meta, { workspaces: workspaceStore.allWorkspaces, allJobs }),
       restored: true,
     });
     emit("tab:select", { tab });

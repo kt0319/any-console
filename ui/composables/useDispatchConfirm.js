@@ -4,7 +4,7 @@ import { getWithRetry } from "../utils/api-retry.js";
 import { useTerminalStore } from "../stores/terminal.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { dispatchDecisionPath, EP_JOBS_WORKSPACES } from "../utils/endpoints.js";
-import { buildSessionTabParams } from "../utils/session-jobs.js";
+import { buildSessionTabParamsWithCache } from "./useSessionSync.js";
 import { emit } from "../app-bridge.js";
 
 // Settingsの「Dispatch Queue」一覧が表示する承認待ちリクエスト。
@@ -53,7 +53,7 @@ export function useDispatchConfirm() {
     if (workspace) workspaceStore.selectedWorkspace = workspace;
     const allJobs = jobsRes.ok && jobsRes.data ? jobsRes.data : {};
     const tab = terminalStore.addTerminalTab({
-      ...buildSessionTabParams(meta, { workspaces: workspaceStore.allWorkspaces, allJobs }),
+      ...buildSessionTabParamsWithCache(meta, { workspaces: workspaceStore.allWorkspaces, allJobs }),
       restored: false,
     });
     emit("tab:select", { tab });

@@ -57,7 +57,11 @@ const emits = defineEmits(["select-pane"]);
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 
+// tab は markRaw のため tab.workspace 単体の変更は追跡されない。Add で
+// ベアターミナルにワークスペースを紐付けた直後もタブ名に反映されるよう、
+// tabWorkspaceVersion を読んで依存に含める。
 const openTabs = computed(() => {
+  terminalStore.tabWorkspaceVersion;
   const occupied = new Set();
   const ids = layoutStore.splitPaneTabIds || [];
   ids.forEach((id, idx) => {

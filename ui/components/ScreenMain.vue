@@ -7,7 +7,6 @@
       </template>
       <span v-else>{{ activeTabLabel || ' ' }}</span>
     </div>
-    <WorkspaceStatusBar v-show="!booting" />
     <div class="content-area">
       <div v-if="booting || isEmptyScreenVisible" class="screen-main-empty">
         <ScreenEmpty :booting="booting" :boot-message="bootMessage" @openWorkspace="openWorkspaceSelection" />
@@ -30,7 +29,6 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
-import WorkspaceStatusBar from "./WorkspaceStatusBar.vue";
 import TabBar from "./TabBar.vue";
 import TerminalBase from "./TerminalBase.vue";
 import KeyboardBar from "./KeyboardBar.vue";
@@ -99,6 +97,10 @@ watch(isEmptyScreenVisible, async (isEmpty) => {
 });
 
 const activeTabLabel = computed(() => {
+  // tab は markRaw のため tab.workspace 単体の変更は追跡されない。Add で
+  // ベアターミナルにワークスペースを紐付けた直後もタイトルに反映されるよう、
+  // tabWorkspaceVersion を読んで依存に含める。
+  terminalStore.tabWorkspaceVersion;
   if (isEmptyScreenVisible.value) return "";
   let tabId = terminalStore.activeTabId;
   if (layoutStore.isSplitMode) {
@@ -341,12 +343,6 @@ defineExpose({
   order: 0;
 }
 
-.main-panel.panel-bottom :deep(.workspace-status-bar) {
-  order: 1;
-  border-bottom: none;
-  border-top: 1px solid var(--border);
-}
-
 .main-panel.panel-bottom .active-tab-title {
   order: 3;
   border: none;
@@ -354,8 +350,7 @@ defineExpose({
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-.main-panel.keyboard-open :deep(.tab-bar-row),
-.main-panel.keyboard-open :deep(.workspace-status-bar) {
+.main-panel.keyboard-open :deep(.tab-bar-row) {
   display: none !important;
 }
 

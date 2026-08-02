@@ -282,6 +282,25 @@ def save_global_config_section(key: str, data) -> None:
         _update_config_section(all_config, GLOBAL_CONFIG_KEY, key, data)
 
 
+def compare_and_update_global_config_section(key: str, expected_current: Any, new_value: Any) -> Any:
+    """expected_current を前提に算出した new_value を、排他ロック下で再検証してから書き戻す。
+
+    呼び出し側は new_value をロックの外側で（重い処理・他のロックを取る処理を挟んでも
+    よい）算出できる。ロック取得後に読み直した現在値が expected_current と一致しない
+    場合は、他クライアントの更新（例: PUT による記録・ピン留め）と競合したとみなし、
+    new_value を破棄してその時点の現在値をそのまま返す（read-modify-write の
+    非アトミック性による lost update を防ぐ）。
+    """
+    with _config_write() as all_config:
+        global_config = all_config.get(GLOBAL_CONFIG_KEY, {})
+        current = global_config.get(key, {})
+        if current != expected_current:
+            return current
+        if new_value != current:
+            _update_config_section(all_config, GLOBAL_CONFIG_KEY, key, new_value)
+        return new_value
+
+
 def ensure_workspace_exists(workspace_name: str) -> dict:
     """Validate workspace exists and return its config. Raise 400 otherwise."""
     with _config_read() as cfg:
