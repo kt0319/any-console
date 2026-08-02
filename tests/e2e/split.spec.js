@@ -1,25 +1,35 @@
 /**
  * ターミナル分割（split pane）の E2E スモーク。
- * ピルをドロップゾーンへドラッグして horizontal split → vertical split へ
- * 遷移できることを確認する（stores/layout.js の splitWithDrop の軸切り替え）。
+ * タブをドロップゾーンへドラッグして horizontal split へ遷移できること、
+ * および Tabs & Sessions（TabConfig.vue）の SplitModeSelector で
+ * vertical split へ軸切替えできることを確認する
+ * （stores/layout.js の splitWithDrop / setSplitLayout）。
+ * 以前はワークスペースピルのドラッグでも分割できたが、ピルのドラッグは
+ * ピル群の画面位置（top/bottom）切替えに用途を変更したため、分割の入口は
+ * タブ（TabItem.vue、ネイティブHTML5 DnD）のみになった。また split mode
+ * に入るとタブバー自体が非表示になる（TabBar.vue）ため、分割後の軸切替えは
+ * ドラッグではなく SplitModeSelector のボタンで行う。
  */
-import { test, expect, loadToken, login, listSessionIds, cleanupNewSessions } from "./helpers.js";
+import { test, expect, loadToken, login, listSessionIds, cleanupNewSessions, openSettingsModal, openSettingsView } from "./helpers.js";
 
 /**
- * ピルを指定のドロップゾーンへドラッグする。
- * usePillDrag.js は独自のマウスイベントベース実装（HTML5 DnD ではない）。
+ * タブをドラッグして指定のドロップゾーンへドロップする。
+ * TabItem.vue はネイティブ HTML5 draggable のため、実際のマウス操作で
+ * ブラウザ自身のドラッグ機構を発火させる（dragTo() は対象の可視化を
+ * 事前に要求するため使えない。ドロップゾーンはドラッグ開始後にしか
+ * マウントされない）。
  * @param {import("@playwright/test").Page} page
- * @param {import("@playwright/test").Locator} pill
+ * @param {import("@playwright/test").Locator} tabBtn
  * @param {string} zoneSelector 例: ".drop-left"
  */
-async function dragPillToZone(page, pill, zoneSelector) {
-  const pillBox = await pill.boundingBox();
-  const startX = pillBox.x + pillBox.width / 2;
-  const startY = pillBox.y + pillBox.height / 2;
+async function dragTabToZone(page, tabBtn, zoneSelector) {
+  const tabBox = await tabBtn.boundingBox();
+  const startX = tabBox.x + tabBox.width / 2;
+  const startY = tabBox.y + tabBox.height / 2;
 
   await page.mouse.move(startX, startY);
   await page.mouse.down();
-  // DRAG_THRESHOLD(15px) を超える最初の動きでドラッグ開始 → ドロップゾーンがマウントされる
+  // DRAG_THRESHOLD(15px) を超える最初の動きでネイティブドラッグが開始 → ドロップゾーンがマウントされる
   await page.mouse.move(startX + 30, startY + 30, { steps: 5 });
 
   const zone = page.locator(zoneSelector);
@@ -45,7 +55,7 @@ test.describe("terminal split", () => {
     await cleanupNewSessions(page, sessionIdsBefore);
   });
 
-  test("ピルドラッグで horizontal split → vertical split へ遷移できる", async ({ page }) => {
+  test("タブドラッグで horizontal split に入り、SplitModeSelectorで vertical split へ軸切替えできる", async ({ page }) => {
     const tabs = page.locator(".tab-btn");
     const countBefore = await tabs.count();
 
@@ -57,15 +67,60 @@ test.describe("terminal split", () => {
     await expect(tabs).toHaveCount(countBefore + 2, { timeout: 10_000 });
     await expect(page.locator(".xterm >> visible=true").first()).toBeVisible({ timeout: 10_000 });
 
-    // 非split時、非アクティブタブの TerminalPane は v-show で非表示のまま DOM に残る
-    // （TerminalBase.vue）。.first() では表示中とは限らないため visible=true で絞る。
-    const pill = page.locator(".terminal-info-pill >> visible=true").first();
-    await expect(pill).toBeVisible({ timeout: 5000 });
+    const tab = tabs.last();
+    await expect(tab).toBeVisible({ timeout: 5000 });
 
-    await dragPillToZone(page, pill, ".drop-left");
+    await dragTabToZone(page, tab, ".drop-left");
     await expect(page.locator(".output-container.split-horizontal")).toBeVisible({ timeout: 5000 });
 
-    await dragPillToZone(page, pill, ".drop-top");
+    // split mode に入るとタブバー（.tab-btn）は非表示になるため、軸切替えは
+    // Tabs & Sessions（TabConfig.vue）の SplitModeSelector ボタンで行う。
+    await openSettingsModal(page);
+    await openSettingsView(page, "Tabs & Sessions");
+    await page.locator('.modal-overlay .split-tab-mode-option[aria-label="Vertical split"] >> visible=true').click();
+    await page.locator(".modal-overlay .modal-close-btn").click();
+
     await expect(page.locator(".output-container.split-vertical")).toBeVisible({ timeout: 5000 });
+  });
+});
+
+test.describe("pill reposition drag", () => {
+  /** @type {string[] | null} テスト開始時点のセッション ID（後始末で増分だけ消す。null = 未取得） */
+  let sessionIdsBefore = null;
+
+  test.beforeEach(async ({ page, context }) => {
+    sessionIdsBefore = null;
+    const token = loadToken();
+    test.skip(!token, "ANY_CONSOLE_TOKEN または data/auth.json が必要");
+    await login(page, context, token);
+    sessionIdsBefore = await listSessionIds(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await cleanupNewSessions(page, sessionIdsBefore);
+    // 位置設定は他テストへ影響しないようtopへ戻しておく
+    const res = await page.request.get("/settings/info-pills");
+    const body = await res.json();
+    await page.request.put("/settings/info-pills", { data: { ...body, position: "top" } });
+  });
+
+  test("ワークスペースピルを下へドラッグすると、ピル群が画面下部（bottom）へ切り替わる", async ({ page }) => {
+    await page.keyboard.press("Meta+Shift+KeyT");
+    await expect(page.locator(".xterm >> visible=true").first()).toBeVisible({ timeout: 10_000 });
+
+    const pillGroup = page.locator(".pill-group >> visible=true").first();
+    await expect(pillGroup).not.toHaveClass(/pill-group-bottom/);
+
+    const pill = page.locator(".terminal-info-pill >> visible=true").first();
+    const pillBox = await pill.boundingBox();
+    const viewport = page.viewportSize();
+
+    await page.mouse.move(pillBox.x + pillBox.width / 2, pillBox.y + pillBox.height / 2);
+    await page.mouse.down();
+    // DRAG_THRESHOLD(15px)を超えてドラッグ開始 → 画面下半分まで動かして離す
+    await page.mouse.move(pillBox.x + pillBox.width / 2, viewport.height - 40, { steps: 10 });
+    await page.mouse.up();
+
+    await expect(pillGroup).toHaveClass(/pill-group-bottom/);
   });
 });

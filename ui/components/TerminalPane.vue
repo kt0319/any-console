@@ -15,6 +15,7 @@
       <div
         class="pill-group"
         :class="{ 'pill-group-bottom': infoPillConfig.position === 'bottom' }"
+        :style="pillDragging ? { transform: `translateY(${dragOffsetY}px)` } : null"
         ref="pillEl"
       >
         <div
@@ -441,7 +442,7 @@ watch(paneEl, (paneNode) => {
 const canDrag = computed(() => terminalStore.openTabs.length >= 1);
 const pillTooltip = computed(() => {
   const name = props.tab.workspace || props.tab.label || "";
-  const action = layoutStore.isTouchDevice ? "Tap for details" : "Drag to split  ·  Click for details";
+  const action = layoutStore.isTouchDevice ? "Tap for details" : "Drag to move  ·  Click for details";
   return name ? `${name}  ·  ${action}` : action;
 });
 
@@ -683,12 +684,16 @@ function onPillKeydown(e) {
   activatePill();
 }
 
-const tabId = computed(() => props.tab.id);
-const { pillDragging, onPillMouseDown, onPillClick, onPillTouchStart, onPillTouchMove, onPillTouchEnd } = usePillDrag({
-  tabId,
+// ワークスペースピルを上下にドラッグすると、離した位置（画面の上半分/
+// 下半分）に応じてピル群全体の表示位置（top/bottom）を切り替える。
+function onPillReposition(clientY) {
+  infoPillConfig.setPosition(clientY < window.innerHeight / 2 ? "top" : "bottom");
+}
+
+const { pillDragging, dragOffsetY, onPillMouseDown, onPillClick, onPillTouchStart, onPillTouchMove, onPillTouchEnd } = usePillDrag({
   canDrag,
   onTabClick: activatePill,
-  emit,
+  onReposition: onPillReposition,
 });
 
 const isActive = computed(() => {
