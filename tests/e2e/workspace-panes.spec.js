@@ -79,11 +79,14 @@ test.describe("workspace detail panes", () => {
     await cleanupNewSessions(page, sessionIdsBefore);
   });
 
-  /** Settings → Workspaces → テスト用ワークスペースの詳細を開く */
+  /** Settings → Workspaces → テスト用ワークスペースの詳細を開く
+   * （ワークスペース名クリックはJobsのインライン展開になったため、
+   * 詳細モーダルは行内の「Open workspace detail」ボタンから開く）。 */
   async function openDetail(page) {
     await openSettingsModal(page);
     await openSettingsView(page, "Workspaces");
-    await page.locator(".picker-ws-header-label", { hasText: wsName }).click();
+    const row = page.locator(".picker-ws-group", { has: page.locator(".picker-ws-header-label", { hasText: wsName }) });
+    await row.locator('[aria-label="Open workspace detail"]').click();
     await expect(page.locator(".modal-title")).toContainText(wsName, { timeout: 10_000 });
   }
 

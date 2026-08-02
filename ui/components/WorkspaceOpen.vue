@@ -68,7 +68,7 @@
               >
                 <span class="mdi mdi-drag-vertical"></span>
               </span>
-              <button type="button" class="picker-ws-header-label" @click="openDetail(item.ws)">
+              <button type="button" class="picker-ws-header-label" @click="toggleJobs(item.ws)">
                 <span v-html="renderIconStr(item.ws.icon || 'mdi-console', item.ws.icon_color, 18)"></span>
                 <span class="picker-ws-header-text">
                   <span class="picker-ws-name">
@@ -77,6 +77,7 @@
                   </span>
                   <span class="picker-ws-branch">{{ item.ws.branch || '-' }}</span>
                 </span>
+                <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspaces.has(item.ws.name) ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
               </button>
               <div class="picker-ws-top-meta" @click.stop>
                 <template v-if="item.ws.is_git_repo">
@@ -85,22 +86,37 @@
                   <GitActionBtn v-if="item.ws.ahead > 0 && item.ws.has_upstream !== false" icon="push" title="Push" :count="item.ws.ahead" :running="isRunning(item.ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(item.ws, 'push')" />
                   <GitActionBtn v-if="item.ws.ahead > 0 && item.ws.has_upstream === false" icon="push-upstream" title="Push" :count="item.ws.ahead" :running="isRunning(item.ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action="doAction(item.ws, 'push-upstream')" />
                 </template>
+                <button type="button" class="picker-ws-edit-btn" aria-label="Open workspace detail" data-tooltip="Open workspace detail" @click.stop="openDetail(item.ws)">
+                  <span class="mdi mdi-cog-outline"></span>
+                </button>
                 <button type="button" class="picker-ws-edit-btn" aria-label="Edit workspace" data-tooltip="Edit workspace" @click.stop="openEditWs(item.ws)">
                   <span class="mdi mdi-pencil-outline"></span>
                 </button>
               </div>
             </div>
+            <div v-if="expandedWorkspaces.has(item.ws.name)" class="picker-ws-jobs-inline">
+              <WorkspaceJobsPane :workspace="item.ws.name" />
+            </div>
             <div v-if="worktreesByBase[item.ws.name]?.length" class="picker-ws-worktrees">
-              <div v-for="wt in worktreesByBase[item.ws.name]" :key="wt.name" class="picker-ws-worktree-item">
-                <button type="button" class="picker-ws-worktree-open" @click="openDetail(wt)">
-                  <span class="mdi mdi-file-tree picker-ws-wt-child-icon"></span>
-                  <span class="picker-ws-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
-                  <span v-if="wt.clean === false" class="picker-ws-wt-dirty" aria-label="uncommitted changes"></span>
-                </button>
-                <button type="button" class="picker-ws-worktree-del" aria-label="Remove worktree" data-tooltip="Remove worktree" @click.stop="removeWorktree(item.ws, wt)">
-                  <span class="mdi mdi-delete-outline"></span>
-                </button>
-              </div>
+              <template v-for="wt in worktreesByBase[item.ws.name]" :key="wt.name">
+                <div class="picker-ws-worktree-item">
+                  <button type="button" class="picker-ws-worktree-open" @click="toggleJobs(wt)">
+                    <span class="mdi mdi-file-tree picker-ws-wt-child-icon"></span>
+                    <span class="picker-ws-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
+                    <span v-if="wt.clean === false" class="picker-ws-wt-dirty" aria-label="uncommitted changes"></span>
+                    <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspaces.has(wt.name) ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
+                  </button>
+                  <button type="button" class="picker-ws-edit-btn" aria-label="Open workspace detail" data-tooltip="Open workspace detail" @click.stop="openDetail(wt)">
+                    <span class="mdi mdi-cog-outline"></span>
+                  </button>
+                  <button type="button" class="picker-ws-worktree-del" aria-label="Remove worktree" data-tooltip="Remove worktree" @click.stop="removeWorktree(item.ws, wt)">
+                    <span class="mdi mdi-delete-outline"></span>
+                  </button>
+                </div>
+                <div v-if="expandedWorkspaces.has(wt.name)" class="picker-ws-jobs-inline">
+                  <WorkspaceJobsPane :workspace="wt.name" />
+                </div>
+              </template>
             </div>
           </div>
         </template>
@@ -136,6 +152,7 @@ import { worktreeBranchLabel, workspaceDisplayName } from "../utils/worktree.js"
 import GitActionBtn from "./GitActionBtn.vue";
 import WorkspaceGroupDialog from "./WorkspaceGroupDialog.vue";
 import RecentJobsList from "./RecentJobsList.vue";
+import WorkspaceJobsPane from "./WorkspaceJobsPane.vue";
 import { EP_WORKSPACE_ORDER, EP_GROUP_ORDER } from "../utils/endpoints.js";
 import { emit as bridgeEmit } from "../app-bridge.js";
 import { useListDragSort } from "../composables/useListDragSort.js";
@@ -276,6 +293,17 @@ function openBareTerminal() {
 function openDetail(ws) {
   workspaceStore.selectedWorkspace = ws.name;
   pushView("WorkspaceDetail", { detail: {} });
+}
+
+// ワークスペース名クリックはJobsをアコーディオン式にインライン展開する
+// （モーダルは開かない）。グループのcollapsedGroupsと同じSetパターン。
+const expandedWorkspaces = ref(new Set());
+
+function toggleJobs(ws) {
+  const next = new Set(expandedWorkspaces.value);
+  if (next.has(ws.name)) next.delete(ws.name);
+  else next.add(ws.name);
+  expandedWorkspaces.value = next;
 }
 
 function openChanges(ws) {
@@ -426,6 +454,20 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 2px;
   padding: 0 12px 8px 28px;
+}
+
+.picker-ws-jobs-chevron {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+.picker-ws-jobs-inline {
+  margin: 0 12px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
 }
 
 .picker-ws-worktree-item {

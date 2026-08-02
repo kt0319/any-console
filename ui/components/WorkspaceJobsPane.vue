@@ -66,6 +66,12 @@ import { renderIconStr } from "../utils/render-icon.js";
 import { EP_COMMON_JOBS } from "../utils/endpoints.js";
 import { openExternalUrl } from "../utils/open-external.js";
 
+const props = defineProps({
+  // ワークスペース一覧のインライン展開など、グローバルな selectedWorkspace と
+  // 独立して表示したい場合に指定する。省略時は従来通り selectedWorkspace に従う。
+  workspace: { type: String, default: null },
+});
+
 const pushView = inject("pushView");
 
 // common jobs は全ワークスペース共通・変更頻度が低いためモジュール単位で1回だけ保持する。
@@ -81,7 +87,7 @@ const { confirm } = useConfirm();
 const commonJobs = ref([]);
 const localJobs = ref([]);
 
-const workspace = computed(() => workspaceStore.selectedWorkspace);
+const workspace = computed(() => props.workspace || workspaceStore.selectedWorkspace);
 const ws = computed(() =>
   workspaceStore.allWorkspaces.find((w) => w.name === workspace.value),
 );
