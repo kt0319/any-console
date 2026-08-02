@@ -67,7 +67,6 @@ const terminalStore = useTerminalStore();
 const workspaceStore = useWorkspaceStore();
 const { beginDrag, updateHover, finishSplitDrop, cancelDrag } = useSplitDropDrag();
 const mouseLongPress = useLongPress(LONG_PRESS_MS);
-const touchLongPress = useLongPress(LONG_PRESS_MS);
 const pillEl = ref(null);
 const isDragging = ref(false);
 const dropSide = ref("");
@@ -76,7 +75,10 @@ let lastInputWasTouch = false;
 
 const isActive = computed(() => props.activeTabId === props.tab.id);
 const canDrag = computed(() => !layoutStore.isTouchDevice && terminalStore.openTabs.length >= 1);
-const canTouchDrag = computed(() => terminalStore.openTabs.length >= 1);
+// タッチでのドラッグはアクティブタブのみ許可する（非アクティブタブは横スワイプで
+// タブバーをスクロールする操作と誤認識しやすいため）。アクティブタブは長押し
+// 不要で、閾値を超えて動かした瞬間にすぐドラッグを開始する。
+const canTouchDrag = computed(() => isActive.value && terminalStore.openTabs.length >= 1);
 const effectiveDropSide = computed(() => {
   if (layoutStore.dragOverTabId === props.tab.id) return layoutStore.dragOverSide;
   return dropSide.value;
@@ -232,8 +234,10 @@ function onDropOnTab(e) {
   cancelDrag();
 }
 
-// Mobile: 短いスワイプ=ネイティブ横スクロール、長押し→動かす=ドラッグ
-// （横移動で並び替え、タブバー外へドラッグでスプリット）。
+// Mobile: アクティブタブのみ、長押し無しで閾値を超えた瞬間にドラッグ開始
+// （横移動で並び替え、タブバー外へドラッグでスプリット）。非アクティブタブは
+// canTouchDrag が false になりドラッグ自体が始まらない（横スワイプでの
+// タブバースクロールと誤認識しないようにするため）。
 // クローズはジェスチャーではなく、アクティブなタブの再タップ(onClick)で行う。
 const touchTracker = createTouchTracker();
 
@@ -279,21 +283,14 @@ function finishTouchDrag(clientX, clientY) {
 function onTouchStart(e) {
   lastInputWasTouch = true;
   touchTracker.start(e);
-  touchLongPress.reset();
   isDragging.value = false;
-  touchLongPress.start(() => {});
 }
 
 function onTouchMove(e) {
-  const { dx, dy } = touchTracker.delta(e);
-  if (!touchLongPress.isFired()) {
-    if (isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) {
-      touchLongPress.cancel();
-    }
-    return;
-  }
+  if (!canTouchDrag.value) return;
   if (!isDragging.value) {
-    if (!isPastDragThreshold(dx, dy, DRAG_THRESHOLD) || !canTouchDrag.value) return;
+    const { dx, dy } = touchTracker.delta(e);
+    if (!isPastDragThreshold(dx, dy, DRAG_THRESHOLD)) return;
     isDragging.value = true;
     beginDrag(props.tab.id);
   }
@@ -306,22 +303,17 @@ function onTouchMove(e) {
 }
 
 function onTouchEnd(e) {
-  touchLongPress.cancel();
-  touchLongPress.consumeFired();
   if (isDragging.value) {
     if (e.cancelable) e.preventDefault();
     const touch = e.changedTouches[0];
     finishTouchDrag(touch.clientX, touch.clientY);
     isDragging.value = false;
-    return;
   }
   // 長押し→そのまま離す＝クローズは廃止。クローズはアクティブタブの
   // 再タップ(onClick)に一本化する。
 }
 
 function onTouchCancel() {
-  touchLongPress.cancel();
-  touchLongPress.consumeFired();
   if (isDragging.value) {
     isDragging.value = false;
     clearDragOverIndicator();
