@@ -132,10 +132,6 @@ defineExpose({ fitAllTerminals, selectPane });
   inset: 0;
 }
 
-.split-pane.active-pane :deep(.terminal-info-pill) {
-  border-color: var(--accent);
-}
-
 .output-container.split-vertical {
   flex-direction: column;
 }

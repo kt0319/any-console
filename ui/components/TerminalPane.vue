@@ -987,7 +987,9 @@ defineExpose({
 /* 通常時はアイコンのみ・ラベルは幅0に畳んでおき、PCではボタンをホバー
    すると、モバイルでのpeek表示（値が変化した時の一時表示）と同じ見た目で
    ラベルをその場に展開する。ラベル自体は常にDOMに存在させる（v-ifで
-   出し入れするとホバーで表示できないため）。 */
+   出し入れするとホバーで表示できないため）。展開/収納はアニメーション
+   させず即座に切り替える（ホバーのたびに幅が動くと隣接ボタンの位置が
+   ガタつくため）。 */
 .pill-label-hover {
   display: inline-block;
   max-width: 0;
@@ -995,7 +997,6 @@ defineExpose({
   opacity: 0;
   overflow: hidden;
   white-space: nowrap;
-  transition: max-width 0.2s ease, opacity 0.15s ease, margin-left 0.2s ease;
 }
 
 .pill-label-hover.peeking {
@@ -1126,11 +1127,14 @@ defineExpose({
   transition: transform 0.1s ease, background 0.1s ease;
 }
 
-/* アクティブなペインのワークスペースピルは、タブバーのアクティブタブ
-   （.tab-btn.active）と同じ地色にして「今アクティブな対象」の見た目を
-   揃える。枠線は変えず背景のみで示す。 */
+/* アクティブなペインのワークスペースピルは背景色でアクセントを付ける
+   （枠線は変えない）。タブバーのアクティブタブと同じ配色
+   rgba(130,170,255,0.12) は不透明度が低すぎ、端末の出力（背景が
+   一定でないツールバーの上ではなく端末画面に浮かせて表示している）が
+   透けて他ピルより薄い＝透明に見えてしまうため、他ピルと同程度の
+   不透明度を保ったまま色味だけアクセントに寄せる。 */
 .terminal-pane.active .terminal-info-pill {
-  background: rgba(130, 170, 255, 0.12);
+  background: rgba(46, 74, 122, 0.92);
 }
 
 .terminal-info-pill.tab-activity {
