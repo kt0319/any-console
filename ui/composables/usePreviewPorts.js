@@ -10,13 +10,24 @@ import { DEV_SERVER_POLL_INTERVAL_MS } from "../utils/constants.js";
 const ports = ref(/** @type {Record<string, any>[]} */ ([]));
 let timer = null;
 let refCount = 0;
+// 複数ペインが同時に fetchPorts() を呼ぶと（ワークスペース紐付け直後の
+// 一斉リフレッシュ等）、/preview/ports への重複リクエストが同時に飛び、
+// サーバ側の preview.scan_once() も呼び出し回数ぶん重複実行されてしまう。
+// 実行中の fetch があればそれを返し、新規リクエストを発行しないようにする。
+let inFlight = null;
 
 export function usePreviewPorts() {
   const { apiGet } = useApi();
 
   async function fetchPorts() {
-    const { ok, data } = await apiGet(EP_PREVIEW_PORTS);
-    if (ok && Array.isArray(data)) ports.value = data;
+    if (inFlight) return inFlight;
+    inFlight = (async () => {
+      const { ok, data } = await apiGet(EP_PREVIEW_PORTS);
+      if (ok && Array.isArray(data)) ports.value = data;
+    })().finally(() => {
+      inFlight = null;
+    });
+    return inFlight;
   }
 
   function start() {
