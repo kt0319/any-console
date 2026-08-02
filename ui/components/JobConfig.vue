@@ -6,6 +6,12 @@
         <label class="form-check-label"><input type="radio" :checked="!isCommon" @change="isCommon = false" /> Workspace</label>
         <label class="form-check-label"><input type="radio" :checked="isCommon" @change="isCommon = true" /> Common</label>
       </div>
+      <div v-if="isNew && !isCommon" class="ws-settings-row">
+        <span class="ws-settings-label">Workspace</span>
+        <select v-model="workspaceName" class="form-input">
+          <option v-for="w in workspaceOptions" :key="w.name" :value="w.name">{{ w.name }}</option>
+        </select>
+      </div>
       <div class="ws-settings-row">
         <span class="ws-settings-label">Label</span>
         <input type="text" class="form-input" v-model="form.label" placeholder="Display name" autocomplete="off" />
@@ -70,10 +76,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useModalView } from "../composables/useModalView.js";
 import { useConfirm } from "../composables/useConfirm.js";
+import { useWorkspaceStore } from "../stores/workspace.js";
 import { confirmIrreversible } from "../utils/confirm-irreversible.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { MSG_SAVE_FAILED, MSG_DELETE_FAILED, MSG_ERROR_OCCURRED } from "../utils/constants.js";
@@ -83,12 +90,15 @@ import { extractDomain } from "../utils/icon-url.js";
 const { modalTitle, viewState, pushView, popView } = useModalView();
 const { apiPost, apiPut, apiDelete } = useApi();
 const { confirm } = useConfirm();
+const workspaceStore = useWorkspaceStore();
 
-const workspaceName = viewState.value.workspaceName;
 const jobEntry = viewState.value.jobEntry;
 // 新規作成時だけCommon/Workspaceを選べる（既存ジョブのスコープは作成後に
 // 変更しない。別コレクションへの移動になり削除+作り直しに近くなるため）。
 const isCommon = ref(!!viewState.value.isCommon);
+// Workspace選択も新規作成時だけ変更可能（開いた行のワークスペースを初期値にする）。
+const workspaceName = ref(viewState.value.workspaceName || "");
+const workspaceOptions = computed(() => workspaceStore.allWorkspaces.filter((w) => w.exists !== false));
 const initialForm = viewState.value.initialForm;
 
 const DEFAULT_JOB_ICON = "mdi-play-circle-outline";
@@ -158,7 +168,7 @@ async function saveJob() {
   saving.value = true;
   formError.value = "";
   try {
-    const baseUrl = isCommon.value ? EP_COMMON_JOBS : workspaceApiPath(workspaceName, "/jobs");
+    const baseUrl = isCommon.value ? EP_COMMON_JOBS : workspaceApiPath(workspaceName.value, "/jobs");
     const url = isNew ? baseUrl : `${baseUrl}/${encodeURIComponent(jobEntry.name)}`;
     const trimmedUrl = f.url.trim();
     const icon = f.type === "browser"
@@ -192,7 +202,7 @@ async function deleteJob() {
   if (isNew || !jobEntry) return;
   const label = jobEntry.job.label || jobEntry.name;
   if (!await confirmIrreversible(confirm, `Delete job "${label}"?`)) return;
-  const baseUrl = isCommon.value ? EP_COMMON_JOBS : workspaceApiPath(workspaceName, "/jobs");
+  const baseUrl = isCommon.value ? EP_COMMON_JOBS : workspaceApiPath(workspaceName.value, "/jobs");
   const url = `${baseUrl}/${encodeURIComponent(jobEntry.name)}`;
   const { ok, data } = await apiDelete(url, { errorMessage: MSG_DELETE_FAILED });
   if (ok) {

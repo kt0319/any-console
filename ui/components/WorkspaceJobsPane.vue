@@ -2,7 +2,6 @@
   <div class="jobs-pane-wrapper">
     <div class="modal-scroll-body">
       <div class="job-section-header">
-        <span>Jobs</span>
         <button type="button" class="job-section-add-btn" title="Add Job" @click="startAddJob(false)">
           <span class="mdi mdi-plus"></span>
         </button>
@@ -287,6 +286,7 @@ defineExpose({ load });
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-left: auto;
   width: 20px;
   height: 20px;
   padding: 0;
