@@ -325,8 +325,9 @@ async function registerCurrentDir() {
 // 「Add」ボタンは cwd がすでに登録済みワークスペースと一致する場合、実際には
 // ワークスペース追加ではなくそのワークスペースの起動（launch）を行う。ラベルが
 // 常に「Add」のままだと紛らわしい（意図せず別ターミナルを起動してしまう）ため、
-// ラベルが見える（peek 表示中の）タイミングで cwd を取り直してラベルに反映する。
-// 常時ポーリングはしない（表示されていない間の cwd 取得はコスト無駄なので不要）。
+// ボタンは常時表示（アイコンのみ）だが、そのボタンが出現しうるマウント時点で
+// 一度 cwd を取り直してラベルに反映する（peek 表示は登録直後の更新用）。
+// 常時ポーリングはしない（都度取得はコスト無駄なので不要）。
 const cwdForLabel = ref("");
 const registerAction = computed(() => resolveRegisterCurrentDirAction(cwdForLabel.value, workspaceStore.allWorkspaces));
 const registerActionLabel = computed(() =>
@@ -686,6 +687,7 @@ onMounted(() => {
     infoPillEl.value.addEventListener("touchmove", onPillTouchMove, { passive: false });
     infoPillEl.value.addEventListener("touchend", onPillTouchEnd, { passive: false });
   }
+  refreshCwdForLabel();
   if (frameEl.value) {
     frameEl.value.addEventListener("wheel", onWheel, { passive: false, capture: true });
   }
