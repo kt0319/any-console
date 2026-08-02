@@ -935,6 +935,13 @@ defineExpose({
   cursor: pointer;
 }
 
+/* button 自体は color:var(--text-secondary)（ラベル文字用）だが、
+   アイコンだけそのまま継承すると他のアイコン（branch/changes等は
+   var(--text-muted)）より明るく見えて浮くため、アイコンだけ揃える。 */
+.pill-devserver-btn .mdi {
+  color: var(--text-muted);
+}
+
 .pill-devserver-text {
   font-size: 12px;
   white-space: nowrap;
