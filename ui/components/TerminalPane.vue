@@ -38,7 +38,7 @@
               <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
               <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
             </span>
-            <span v-if="!isPaneNarrow && !pillExpanded" class="pill-workspace-label">{{ tab.workspace || tab.label || '' }}</span>
+            <span v-if="pillExpanded" class="pill-workspace-label">{{ tab.workspace || tab.label || '' }}</span>
           </span>
         </div>
         <div
@@ -364,17 +364,6 @@ const trailingEl = ref(null);
 const trailingInnerEl = ref(null);
 let activeFitTimer = null;
 
-// ピル本体（アイコン・ワークスペース名・ahead/behind。展開ボタン群は含まない）が
-// ペイン幅の半分以上を占有したら、ワークスペース名を省いてスペースを優先する。
-// 名前を隠すとピル自体が縮んで判定条件から外れてしまう（表示/非表示のバタつき）ため、
-// 「最後に名前込みで表示できていた時のピル幅」を基準にヒステリシスを持たせる。
-// 　- 表示中: ピル幅を都度記録し、ペイン幅の半分を超えたら隠す
-// 　- 非表示中: 記録済みのピル幅がペイン幅の半分以内に収まるようになったら再表示する
-const isPaneNarrow = ref(false);
-let lastShownPillWidth = 0;
-let paneWidth = 0;
-let pillWidth = 0;
-let roPane = null;
 // 分割モードでは .terminal-pane がビューポートよりずっと狭い。.pill-trailing の
 // 横スクロール上限幅を 100vw 基準にすると、狭いペインではみ出した Branches/
 // Changes 等の先頭側ボタンが .terminal-pane の overflow クリップで完全に
@@ -383,34 +372,16 @@ const paneWidthRef = ref(0);
 // 閉じるボタン・ワークスペースピル本体・余白ぶんを差し引いた残りをスクロール
 // 領域の上限にする。マイナスにはしない。
 const trailingMaxWidth = computed(() => Math.max(0, paneWidthRef.value - 80));
+let roPane = null;
 
-function updatePaneNarrow() {
-  if (!paneWidth) return;
-  if (!isPaneNarrow.value) {
-    lastShownPillWidth = pillWidth;
-    if (pillWidth > paneWidth / 2) isPaneNarrow.value = true;
-  } else if (lastShownPillWidth <= paneWidth / 2) {
-    isPaneNarrow.value = false;
-  }
-}
-
-watch([paneEl, infoPillEl], ([paneNode, pillNode]) => {
+watch(paneEl, (paneNode) => {
   roPane?.disconnect();
   roPane = null;
-  if (!paneNode || !pillNode) return;
+  if (!paneNode) return;
   roPane = new ResizeObserver((entries) => {
-    for (const e of entries) {
-      if (e.target === paneNode) {
-        paneWidth = e.contentRect.width;
-        paneWidthRef.value = paneWidth;
-      } else if (e.target === pillNode) {
-        pillWidth = e.contentRect.width;
-      }
-    }
-    updatePaneNarrow();
+    for (const e of entries) paneWidthRef.value = e.contentRect.width;
   });
   roPane.observe(paneNode);
-  roPane.observe(pillNode);
 });
 
 const canDrag = computed(() => terminalStore.openTabs.length >= 1);
@@ -911,10 +882,8 @@ defineExpose({
   cursor: pointer;
   gap: 6px;
   /* flex-shrink:0（デフォルトの1のまま放置しない）: 展開ボタン群のポップ
-     アニメーション中に、このピル自体の幅が兄弟の伸縮に引っ張られて揺れると、
-     isPaneNarrow 用の ResizeObserver が連鎖的に発火し、CSS トランジションの
-     layout 再計算に上乗せしてカクつく。ピル本体の幅は常に自分のコンテンツだけで
-     決まるようにする。 */
+     アニメーション中に、このピル自体の幅が兄弟の伸縮に引っ張られて揺れる
+     ことがないよう、ピル本体の幅は常に自分のコンテンツだけで決まるようにする。 */
   flex-shrink: 0;
   min-width: 0;
   overflow: hidden;
