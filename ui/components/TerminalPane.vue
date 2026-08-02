@@ -103,6 +103,18 @@
                 <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'history' }">History</span>
               </button>
               <button
+                v-if="isGitRepo && paneWorkspace?.github_url && infoPillConfig.prs"
+                type="button"
+                class="pill-devserver-btn"
+                aria-label="GitHub PRs"
+                data-tooltip="GitHub PRs"
+                @pointerdown.stop
+                @click.stop="openPRs"
+              >
+                <span class="mdi mdi-github"></span>
+                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'prs' }">PRs</span>
+              </button>
+              <button
                 v-if="devServerEntry && infoPillConfig.devserver"
                 type="button"
                 class="pill-devserver-btn"
@@ -362,6 +374,12 @@ function openHistory() {
   emit("git:openFileModal", { pane: "history" });
 }
 
+function openPRs() {
+  if (!props.tab.workspace) return;
+  workspaceStore.selectedWorkspace = props.tab.workspace;
+  emit("git:openFileModal", { pane: "prs" });
+}
+
 const agentState = computed(() => terminalStore.agentStates[props.tab.sessionId] || "");
 const { ensureTerminalOpened, fitTerminal, sendResize, observeFrameResize, connectTerminalWs } = useTerminal();
 
@@ -434,6 +452,9 @@ const trailingPeekItems = computed(() => {
     // と誤検知して peek が発火してしまう。表示形式に依存しない生のブランチ名を使う。
     items.push({ key: "branch", text: paneWorkspace.value?.branch || "" });
     items.push({ key: "history", text: "History" });
+    if (paneWorkspace.value?.github_url) {
+      items.push({ key: "prs", text: "PRs" });
+    }
   }
   if (isGitRepo.value && isDirty.value) {
     items.push({ key: "changes", text: `${changedFiles.value}F +${insertions.value} -${deletions.value}` });

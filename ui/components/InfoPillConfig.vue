@@ -28,6 +28,7 @@ const TOGGLES = [
   { field: "workspace", label: "Workspace name", note: "Show the workspace/tab name label on the pill." },
   { field: "branch", label: "Branches", note: "Show the current branch button." },
   { field: "history", label: "History", note: "Show the commit history button." },
+  { field: "prs", label: "GitHub PRs", note: "Show the GitHub pull requests button (repos with a GitHub remote only)." },
   { field: "changes", label: "Changes", note: "Show the uncommitted changes button." },
   { field: "pull", label: "Pull", note: "Show the pull (behind commits) button." },
   { field: "push", label: "Push", note: "Show the push / set upstream buttons." },

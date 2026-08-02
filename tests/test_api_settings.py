@@ -210,6 +210,7 @@ class TestInfoPillSettings:
         "workspace": True,
         "branch": True,
         "history": True,
+        "prs": True,
         "changes": True,
         "pull": True,
         "push": True,
