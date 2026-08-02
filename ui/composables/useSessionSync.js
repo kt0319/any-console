@@ -23,6 +23,16 @@ export function rememberJobIcon(sessionId, icon, iconColor) {
   resolvedJobIcons.set(sessionId, { icon, iconColor: iconColor || null });
 }
 
+// buildSessionTabParams を直接呼ぶ全ての経路（ポーリング再構築・dispatch queue
+// 実行・deep link アタッチ・Tabs & Sessions の Open detached 等）で共通に使う。
+// 解決できたジョブアイコンをキャッシュへ書き込み、かつ /jobs/workspaces が
+// 一時的に不完全な時は既存キャッシュへフォールバックする（resolvedJobIcons を
+// 経由しない経路が増えるたびに mdi-play 固定化の穴が再発しないようにする）。
+export function buildSessionTabParamsWithCache(session, opts) {
+  const built = buildSessionTabParams(session, opts);
+  return applyCachedJobIcon(built, isJobDefResolved(session, opts.allJobs), session, resolvedJobIcons);
+}
+
 export function useSessionSync() {
   const auth = useAuthStore();
   const terminalStore = useTerminalStore();
@@ -32,9 +42,7 @@ export function useSessionSync() {
   const { restoreLayout } = useLayoutPersist();
 
   function _buildTabParams(s, allJobs) {
-    const built = buildSessionTabParams(s, { workspaces: workspaceStore.allWorkspaces, allJobs });
-    const jobResolved = isJobDefResolved(s, allJobs);
-    return { ...applyCachedJobIcon(built, jobResolved, s, resolvedJobIcons), restored: true };
+    return { ...buildSessionTabParamsWithCache(s, { workspaces: workspaceStore.allWorkspaces, allJobs }), restored: true };
   }
 
   async function _safeResJson(res) {

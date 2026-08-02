@@ -103,10 +103,10 @@ import { useTerminalStore } from "../stores/terminal.js";
 import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { renderIconStr } from "../utils/render-icon.js";
-import { buildSessionTabParams } from "../utils/session-jobs.js";
 import { emit } from "../app-bridge.js";
 import { useConfirm } from "../composables/useConfirm.js";
 import { useApi } from "../composables/useApi.js";
+import { buildSessionTabParamsWithCache } from "../composables/useSessionSync.js";
 import { getWithRetry } from "../utils/api-retry.js";
 import { useTerminal } from "../composables/useTerminal.js";
 import { useListDragSort } from "../composables/useListDragSort.js";
@@ -247,7 +247,7 @@ async function loadDetached() {
 
 function openDetached(s) {
   const tab = terminalStore.addTerminalTab({
-    ...buildSessionTabParams(s, { workspaces: workspaceStore.allWorkspaces, allJobs: allJobsData.value }),
+    ...buildSessionTabParamsWithCache(s, { workspaces: workspaceStore.allWorkspaces, allJobs: allJobsData.value }),
     wsUrl: terminalWsPath(s.session_id),
     jobLabel: s.job_label || (s.workspace || s.session_id),
     restored: false,
