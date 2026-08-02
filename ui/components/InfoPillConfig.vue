@@ -2,6 +2,14 @@
   <div class="modal-scroll-body">
     <div v-if="!infoPillConfig.loaded" class="text-muted-center">Loading...</div>
     <template v-else>
+      <div class="settings-item">
+        <span class="settings-item-label">Position</span>
+        <span class="settings-note">Where the pill group is anchored on screen.</span>
+        <div class="pill-position-radios">
+          <label class="form-check-label"><input type="radio" :checked="infoPillConfig.position === 'top'" @change="infoPillConfig.setPosition('top')" /> Top</label>
+          <label class="form-check-label"><input type="radio" :checked="infoPillConfig.position === 'bottom'" @change="infoPillConfig.setPosition('bottom')" /> Bottom</label>
+        </div>
+      </div>
       <label v-for="(item, idx) in orderedToggles" :key="item.field" class="settings-item settings-toggle">
         <input type="checkbox" :checked="infoPillConfig[item.field]" @change="setField(item.field, $event.target.checked)" />
         <div class="settings-toggle-copy">
@@ -91,5 +99,10 @@ function setField(field, value) {
 
 .pill-order-btn:not(:disabled):hover {
   color: var(--text-primary);
+}
+
+.pill-position-radios {
+  display: flex;
+  gap: 16px;
 }
 </style>

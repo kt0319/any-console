@@ -16,6 +16,7 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
   const files = ref(true);
   const add = ref(true);
   const order = ref([...DEFAULT_ORDER]);
+  const position = ref("top");
   const loaded = ref(false);
 
   const fieldRefs = { branch, history, prs, actions, changes, devserver, files, add };
@@ -34,6 +35,7 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
             fieldRefs[field].value = data?.[field] !== false;
           }
           order.value = Array.isArray(data?.order) && data.order.length ? data.order : [...DEFAULT_ORDER];
+          position.value = data?.position === "bottom" ? "bottom" : "top";
           loaded.value = true;
           return;
         }
@@ -43,7 +45,7 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
 
   async function save() {
     const auth = useAuthStore();
-    const body = { order: order.value };
+    const body = { order: order.value, position: position.value };
     for (const field of FIELDS) body[field] = fieldRefs[field].value;
     await auth.apiFetch(EP_SETTINGS_INFO_PILLS, { method: "PUT", body });
   }
@@ -66,5 +68,10 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
     save();
   }
 
-  return { branch, history, prs, actions, changes, devserver, files, add, order, loaded, load, save, moveUp, moveDown };
+  function setPosition(value) {
+    position.value = value === "bottom" ? "bottom" : "top";
+    save();
+  }
+
+  return { branch, history, prs, actions, changes, devserver, files, add, order, position, loaded, load, save, moveUp, moveDown, setPosition };
 });

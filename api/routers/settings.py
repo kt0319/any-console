@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
@@ -163,6 +164,7 @@ class InfoPillSettings(BaseModel):
     files: bool = True
     add: bool = True
     order: list[str] = Field(default_factory=lambda: list(INFO_PILL_FIELDS))
+    position: Literal["top", "bottom"] = "top"
 
 
 def _normalize_pill_order(order: list[str]) -> list[str]:
@@ -178,13 +180,17 @@ def get_info_pill_settings():
     if not isinstance(raw, dict):
         raw = {}
     defaults = InfoPillSettings()
-    result: dict[str, bool | list[str]] = {
+    result: dict[str, bool | list[str] | str] = {
         field: bool(raw.get(field, default))
         for field, default in defaults.model_dump().items()
-        if field != "order"
+        if field not in ("order", "position")
     }
     raw_order = raw.get("order")
     result["order"] = _normalize_pill_order(raw_order if isinstance(raw_order, list) else [])
+    position = defaults.position
+    if raw.get("position") in ("top", "bottom"):
+        position = raw["position"]
+    result["position"] = position
     return result
 
 

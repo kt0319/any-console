@@ -14,6 +14,7 @@
     <div :id="'frame-' + tab.id" class="terminal-frame" ref="frameEl">
       <div
         class="pill-group"
+        :class="{ 'pill-group-bottom': infoPillConfig.position === 'bottom' }"
         ref="pillEl"
       >
         <div
@@ -996,6 +997,13 @@ defineExpose({
   max-width: min(80vw, 450px);
 }
 
+/* Info Pills設定の「Position」で右下配置を選んだ場合。right はそのまま
+   固定値を使い、上下だけ入れ替える。 */
+.pill-group.pill-group-bottom {
+  top: auto;
+  bottom: 10px;
+}
+
 /* .pill-group（flex行）の直接の子。width を JS 実測値へ animate するクリップ用
    コンテナで、中身（.pill-trailing-inner）は常に content サイズで存在させ、
    この width だけを滑らかに広げ縮めることで、ボタンの出現/消失が位置の
@@ -1393,6 +1401,11 @@ defineExpose({
   .pill-group {
     top: 20px;
     right: 20px;
+  }
+
+  .pill-group.pill-group-bottom {
+    top: auto;
+    bottom: 20px;
   }
 
   .terminal-info-pill {
