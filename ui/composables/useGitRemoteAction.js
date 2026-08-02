@@ -38,12 +38,14 @@ function buildConfirmMessage(wsName, action, branch) {
 
 // 分割表示で同じワークスペースを複数ペインが開いている場合、pull/push の
 // 実行中状態をペインごとに独立させると、他ペインのボタンが押せてしまい
-// 同じリポジトリへの並行実行（git lock 競合等）が起きる。ワークスペース名を
-// キーにしたモジュールスコープの単一状態にして、どのペインの
-// useGitRemoteAction() からも共有する。ロックの粒度はワークスペース単位
-// （同じリポジトリへは同時に1操作まで）にし、無関係な他ワークスペースの
-// 操作まで巻き込んでブロックしないようにする。
-/** @type {Map<string, string>} wsName -> 実行中のアクションキー */
+// 同じリポジトリへの並行実行（git lock 競合等）が起きる。モジュールスコープの
+// 単一状態にして、どのペインの useGitRemoteAction() からも共有する。ロックの
+// 粒度はワークスペース単位ではなく物理リポジトリ単位（同じリポジトリへは
+// 同時に1操作まで）にし、無関係な他リポジトリの操作まで巻き込んで
+// ブロックしないようにする。linked worktree はベースと同じリポジトリ・
+// 同じリモートrefを共有するため、ワークスペース名ではなく worktree_base
+// （無ければ自分自身の名前）をキーにする。
+/** @type {Map<string, string>} リポジトリキー -> 実行中のアクションキー */
 const runningActionByWorkspace = reactive(new Map());
 
 export function useGitRemoteAction() {
@@ -51,6 +53,11 @@ export function useGitRemoteAction() {
   const { apiWithToast, apiCommand, wsEndpoint } = useApi();
   const { confirm } = useConfirm();
   const toast = useToast();
+
+  function repoKeyFor(wsName) {
+    const ws = workspaceStore.allWorkspaces.find((w) => w.name === wsName);
+    return (ws?.worktree && ws.worktree_base) || wsName;
+  }
 
   /**
    * @param {string} wsName
@@ -78,9 +85,10 @@ export function useGitRemoteAction() {
 
   async function gitAction(wsName, action, opts = {}) {
     const { branch } = opts;
-    if (runningActionByWorkspace.has(wsName)) return;
+    const repoKey = repoKeyFor(wsName);
+    if (runningActionByWorkspace.has(repoKey)) return;
     if (!await confirm(buildConfirmMessage(wsName, action, branch))) return;
-    runningActionByWorkspace.set(wsName, makeActionKey(wsName, action, branch));
+    runningActionByWorkspace.set(repoKey, makeActionKey(wsName, action, branch));
     try {
       const label = actionLabel(action);
       if (PUSH_PULL_ACTIONS.has(action)) {
@@ -89,16 +97,16 @@ export function useGitRemoteAction() {
         await runGenericAction(wsName, action, label);
       }
     } finally {
-      runningActionByWorkspace.delete(wsName);
+      runningActionByWorkspace.delete(repoKey);
     }
   }
 
   function isRunning(wsName, action, branch) {
-    return runningActionByWorkspace.get(wsName) === makeActionKey(wsName, action, branch);
+    return runningActionByWorkspace.get(repoKeyFor(wsName)) === makeActionKey(wsName, action, branch);
   }
 
   function isAnyRunning(wsName) {
-    return wsName ? runningActionByWorkspace.has(wsName) : runningActionByWorkspace.size > 0;
+    return wsName ? runningActionByWorkspace.has(repoKeyFor(wsName)) : runningActionByWorkspace.size > 0;
   }
 
   return { gitAction, isRunning, isAnyRunning };
