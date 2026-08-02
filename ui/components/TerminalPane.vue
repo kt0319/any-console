@@ -196,7 +196,7 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
-import { ACTIVE_FIT_DELAY_MS, PILL_MORE_PEEK_DURATION_MS } from "../utils/constants.js";
+import { ACTIVE_FIT_DELAY_MS, PILL_MORE_PEEK_DURATION_MS, DEV_SERVER_POLL_INTERVAL_MS } from "../utils/constants.js";
 import { usePillDrag } from "../composables/usePillDrag.js";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useTerminalPaste } from "../composables/useTerminalPaste.js";
@@ -324,10 +324,11 @@ async function registerCurrentDir() {
 
 // 「Add」ボタンは cwd がすでに登録済みワークスペースと一致する場合、実際には
 // ワークスペース追加ではなくそのワークスペースの起動（launch）を行う。ラベルが
-// 常に「Add」のままだと紛らわしい（意図せず別ターミナルを起動してしまう）ため、
-// ボタンは常時表示（アイコンのみ）だが、そのボタンが出現しうるマウント時点で
-// 一度 cwd を取り直してラベルに反映する（peek 表示は登録直後の更新用）。
-// 常時ポーリングはしない（都度取得はコスト無駄なので不要）。
+// 古いままだと紛らわしい（意図せず別ターミナルを起動してしまう／逆にAddしたい
+// のにOpenが起動する）ため、ボタンは常時表示（アイコンのみ）だが、ターミナルで
+// cd されて cwd が変わった場合もラベルを追随させる必要がある。cd 自体を検知する
+// 手段が無いため、このペインがアクティブな間だけ低頻度でポーリングする
+// （非アクティブなタブでの無駄なcwd取得は避ける）。
 const cwdForLabel = ref("");
 const registerAction = computed(() => resolveRegisterCurrentDirAction(cwdForLabel.value, workspaceStore.allWorkspaces));
 const registerActionLabel = computed(() =>
@@ -339,6 +340,19 @@ const registerActionLabel = computed(() =>
 async function refreshCwdForLabel() {
   if (isGitRepo.value || !props.tab.sessionId) return;
   cwdForLabel.value = await fetchCwd();
+}
+
+let cwdForLabelTimer = null;
+
+function syncCwdForLabelPolling() {
+  const shouldPoll = isActive.value && !isGitRepo.value && !!props.tab.sessionId;
+  if (shouldPoll && !cwdForLabelTimer) {
+    refreshCwdForLabel();
+    cwdForLabelTimer = setInterval(refreshCwdForLabel, DEV_SERVER_POLL_INTERVAL_MS);
+  } else if (!shouldPoll && cwdForLabelTimer) {
+    clearInterval(cwdForLabelTimer);
+    cwdForLabelTimer = null;
+  }
 }
 
 function openBranch() {
@@ -457,14 +471,6 @@ watch(trailingPeekItems, (items) => {
   }
   prevTrailingSignature = nextSignature;
 }, { deep: true });
-
-// Add のラベルが見える（peek 表示中の）タイミングで cwd を取り直し、最新化する。
-watch(
-  () => peekingKey.value === "add",
-  (visible) => {
-    if (visible) refreshCwdForLabel();
-  },
-);
 
 // .pill-trailing（Dev Server/Changes/Branches等、可変ボタン群のクリップ用
 // コンテナ）の width を、中身の実測幅（.pill-trailing-inner の content サイズ）
@@ -687,7 +693,7 @@ onMounted(() => {
     infoPillEl.value.addEventListener("touchmove", onPillTouchMove, { passive: false });
     infoPillEl.value.addEventListener("touchend", onPillTouchEnd, { passive: false });
   }
-  refreshCwdForLabel();
+  syncCwdForLabelPolling();
   if (frameEl.value) {
     frameEl.value.addEventListener("wheel", onWheel, { passive: false, capture: true });
   }
@@ -702,7 +708,12 @@ watch(() => terminalStore.tabWorkspaceVersion, () => {
   if (previewPollingStarted) fetchPreviewPorts();
 });
 
+// isGitRepo が変わった場合（非Gitワークスペースへの切替等）もポーリング要否が
+// 変わるため、あわせて追随させる。
+watch(isGitRepo, () => syncCwdForLabelPolling());
+
 watch(isActive, async (active) => {
+  syncCwdForLabelPolling();
   if (!active) return;
   // 非アクティブ復元タブで遅延していた term.open() をここで実行（表示状態で正しく寸法計測される）
   if (props.tab._pendingOpen && frameEl.value) {
@@ -726,6 +737,7 @@ watch(isActive, async (active) => {
 
 onBeforeUnmount(() => {
   clearActiveFitTimer();
+  if (cwdForLabelTimer) { clearInterval(cwdForLabelTimer); cwdForLabelTimer = null; }
   if (previewPollingStarted) stopPreviewPolling();
   if (pillMorePeekTimer) { clearTimeout(pillMorePeekTimer); pillMorePeekTimer = null; }
   roPane?.disconnect();
