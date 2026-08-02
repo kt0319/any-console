@@ -6,6 +6,7 @@ import { useSessionSync } from "./useSessionSync.js";
 import { useStatusStream } from "./useStatusStream.js";
 import { useToast } from "./useToast.js";
 import { useCircleKeyPadConfigStore } from "../stores/circle-keypad-config.js";
+import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
 import { EP_TERMINAL_SESSIONS, EP_JOBS_WORKSPACES, EP_SETTINGS_CONFIG_HEALTH } from "../utils/endpoints.js";
 import { on } from "../app-bridge.js";
 
@@ -43,6 +44,7 @@ export function useAppBootstrap() {
     const jobsPromise = auth.apiFetch(EP_JOBS_WORKSPACES).catch(() => null);
     const healthPromise = auth.apiFetch(EP_SETTINGS_CONFIG_HEALTH).catch(() => null);
     useCircleKeyPadConfigStore().load();
+    useInfoPillConfigStore().load();
 
     const [, sessionsRes, jobsRes, healthRes] = await Promise.all([workspacesPromise, sessionsPromise, jobsPromise, healthPromise]);
 

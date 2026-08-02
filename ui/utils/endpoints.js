@@ -42,6 +42,7 @@ export const EP_SETTINGS_EXPORT = "/settings/export";
 export const EP_SETTINGS_IMPORT = "/settings/import";
 export const EP_SETTINGS_CONFIG_HEALTH = "/settings/config-health";
 export const EP_SETTINGS_LAYOUT = "/settings/layout";
+export const EP_SETTINGS_INFO_PILLS = "/settings/info-pills";
 export const EP_SNIPPETS = "/snippets";
 export const EP_RECENT_JOBS = "/recent-jobs";
 export const EP_UPLOAD_IMAGE = "/upload-image";

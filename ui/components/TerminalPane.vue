@@ -24,7 +24,7 @@
         >
           <div class="pill-trailing-inner" ref="trailingInnerEl">
               <button
-                v-if="isGitRepo && isDirty"
+                v-if="isGitRepo && isDirty && infoPillConfig.changes"
                 type="button"
                 class="pill-numstat-btn"
                 :aria-label="changesTooltip"
@@ -40,7 +40,7 @@
                 </span>
               </button>
               <GitActionBtn
-                v-if="isGitRepo && behind > 0"
+                v-if="isGitRepo && behind > 0 && infoPillConfig.pull"
                 icon="pull"
                 title="Pull"
                 :count="behind"
@@ -50,7 +50,7 @@
                 @action="doAction('pull')"
               />
               <GitActionBtn
-                v-if="isGitRepo && !hasUpstream && hasRemoteBranch"
+                v-if="isGitRepo && !hasUpstream && hasRemoteBranch && infoPillConfig.push"
                 icon="set-upstream"
                 title="Set Upstream"
                 :running="isRunning(tab.workspace, 'set-upstream')"
@@ -59,7 +59,7 @@
                 @action="doAction('set-upstream')"
               />
               <GitActionBtn
-                v-if="isGitRepo && !hasUpstream && !hasRemoteBranch"
+                v-if="isGitRepo && !hasUpstream && !hasRemoteBranch && infoPillConfig.push"
                 icon="push-upstream"
                 title="Push & Set Upstream"
                 :count="ahead"
@@ -69,7 +69,7 @@
                 @action="doAction('push-upstream')"
               />
               <GitActionBtn
-                v-if="isGitRepo && hasUpstream && ahead > 0"
+                v-if="isGitRepo && hasUpstream && ahead > 0 && infoPillConfig.push"
                 icon="push"
                 title="Push"
                 :count="ahead"
@@ -79,7 +79,7 @@
                 @action="doAction('push')"
               />
               <button
-                v-if="isGitRepo"
+                v-if="isGitRepo && infoPillConfig.branch"
                 type="button"
                 class="pill-branch-btn"
                 :aria-label="branchTooltip"
@@ -91,7 +91,7 @@
                 <span class="pill-branch-text pill-label-hover" :class="{ peeking: peekingKey === 'branch' }"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
               </button>
               <button
-                v-if="devServerEntry"
+                v-if="devServerEntry && infoPillConfig.devserver"
                 type="button"
                 class="pill-devserver-btn"
                 :aria-label="devServerTooltip"
@@ -103,7 +103,7 @@
                 <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'devserver' }">Server</span>
               </button>
               <button
-                v-if="!isGitRepo && tab.sessionId"
+                v-if="!isGitRepo && tab.sessionId && infoPillConfig.files"
                 type="button"
                 class="pill-devserver-btn"
                 aria-label="Files"
@@ -115,7 +115,7 @@
                 <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'files' }">Files</span>
               </button>
               <button
-                v-if="!isGitRepo && tab.sessionId"
+                v-if="!isGitRepo && tab.sessionId && infoPillConfig.add"
                 type="button"
                 class="pill-devserver-btn"
                 aria-label="Add or open this directory as a workspace"
@@ -160,7 +160,7 @@
                 <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 16)"></span>
                 <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
               </span>
-              <span class="pill-workspace-label pill-label-hover" :class="{ peeking: peekingKey === 'workspace' }">{{ tab.workspace || tab.label || '' }}</span>
+              <span v-if="infoPillConfig.workspace" class="pill-workspace-label pill-label-hover" :class="{ peeking: peekingKey === 'workspace' }">{{ tab.workspace || tab.label || '' }}</span>
             </span>
           </div>
           <button
@@ -209,6 +209,7 @@ import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useIsMobile } from "../composables/useIsMobile.js";
 import { useApi } from "../composables/useApi.js";
 import { usePreviewPorts } from "../composables/usePreviewPorts.js";
+import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
 import CircleKeyPad from "./CircleKeyPad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
 import GitActionBtn from "./GitActionBtn.vue";
@@ -227,6 +228,7 @@ const emits = defineEmits(["select-pane"]);
 const terminalStore = useTerminalStore();
 const layoutStore = useLayoutStore();
 const workspaceStore = useWorkspaceStore();
+const infoPillConfig = useInfoPillConfigStore();
 const { confirm } = useConfirm();
 const { isMobile } = useIsMobile();
 const { apiGet } = useApi();

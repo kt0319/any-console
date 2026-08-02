@@ -150,6 +150,32 @@ def put_notification_settings(body: NotificationSettings):
     return {"status": "ok", "phrase_notify_grace_sec": body.phrase_notify_grace_sec}
 
 
+class InfoPillSettings(BaseModel):
+    workspace: bool = True
+    branch: bool = True
+    changes: bool = True
+    pull: bool = True
+    push: bool = True
+    devserver: bool = True
+    files: bool = True
+    add: bool = True
+
+
+@router.get("/settings/info-pills")
+def get_info_pill_settings():
+    raw = load_global_config_section("info_pills", {})
+    if not isinstance(raw, dict):
+        raw = {}
+    defaults = InfoPillSettings()
+    return {field: bool(raw.get(field, default)) for field, default in defaults.model_dump().items()}
+
+
+@router.put("/settings/info-pills")
+def put_info_pill_settings(body: InfoPillSettings):
+    save_global_config_section("info_pills", body.model_dump())
+    return {"status": "ok", **body.model_dump()}
+
+
 CIRCLE_KEYPAD_KEY_COUNT = 8
 CIRCLE_KEYPAD_SPECIAL_COUNT = 4
 CIRCLE_KEYPAD_LABEL_MAX = 20

@@ -43,6 +43,9 @@
         <button type="button" class="settings-menu-item" @click="pushView('CircleKeyPadConfig')">
           <span class="mdi mdi-gesture-tap"></span> Circle Keypad
         </button>
+        <button type="button" class="settings-menu-item" @click="pushView('InfoPillConfig')">
+          <span class="mdi mdi-pill"></span> Info Pills
+        </button>
         <button type="button" class="settings-menu-item" @click="pushView('NotificationConfig')">
           <span class="mdi mdi-bell-outline"></span> Notifications
         </button>

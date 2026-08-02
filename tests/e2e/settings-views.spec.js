@@ -18,6 +18,7 @@ const SETTINGS_VIEWS = [
   ["Send Snippet", "Send Snippet"],
   ["Send History", "Send History"],
   ["Circle Keypad", "Circle Keypad"],
+  ["Info Pills", "Info Pills"],
   ["Dev Server Preview", "Dev Server Preview"],
   ["Notifications", "Notifications"],
   ["Auth", "Auth"],
