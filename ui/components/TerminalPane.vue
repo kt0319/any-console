@@ -27,8 +27,8 @@
                 v-if="isGitRepo && isDirty"
                 type="button"
                 class="pill-numstat-btn"
-                aria-label="Changes"
-                data-tooltip="Changes"
+                :aria-label="changesTooltip"
+                :data-tooltip="changesTooltip"
                 @pointerdown.stop
                 @click.stop="openChanges"
               >
@@ -82,8 +82,8 @@
                 v-if="isGitRepo"
                 type="button"
                 class="pill-branch-btn"
-                aria-label="Branches"
-                data-tooltip="Branches"
+                :aria-label="branchTooltip"
+                :data-tooltip="branchTooltip"
                 @pointerdown.stop
                 @click.stop="openBranch"
               >
@@ -94,8 +94,8 @@
                 v-if="devServerEntry"
                 type="button"
                 class="pill-devserver-btn"
-                aria-label="Dev Server"
-                data-tooltip="Dev Server"
+                :aria-label="devServerTooltip"
+                :data-tooltip="devServerTooltip"
                 @pointerdown.stop
                 @click.stop="openDevServer"
               >
@@ -363,9 +363,25 @@ watch(paneEl, (paneNode) => {
 });
 
 const canDrag = computed(() => terminalStore.openTabs.length >= 1);
-const pillTooltip = computed(() =>
-  layoutStore.isTouchDevice ? "Tap for details" : "Drag to split  ·  Click for details",
+const pillTooltip = computed(() => {
+  const name = props.tab.workspace || props.tab.label || "";
+  const action = layoutStore.isTouchDevice ? "Tap for details" : "Drag to split  ·  Click for details";
+  return name ? `${name}  ·  ${action}` : action;
+});
+
+// アイコンのみのボタンでも、PCでホバーした時にその時点の実際の値
+// （ブランチ名・変更行数・Dev Serverの接続先）が data-tooltip で
+// わかるようにする。固定の説明文言だけだと、展開しないと現在値を
+// 確認できないため。
+const branchTooltip = computed(() => `Branches: ${paneWorkspace.value?.branch || ""}`);
+const changesTooltip = computed(() =>
+  `Changes: ${changedFiles.value}F +${insertions.value} -${deletions.value}`,
 );
+const devServerTooltip = computed(() => {
+  const p = devServerEntry.value;
+  if (!p) return "Dev Server";
+  return `Dev Server: ${p.scheme || "http"}://${location.hostname}:${p.proxy_port}`;
+});
 
 // ピルの Dev Server / Changes・Branches / Files・Add・ワークスペース名は、
 // PC・モバイル問わず常にアイコンのみ表示する。ラベル文字列は普段は隠し、
@@ -791,7 +807,7 @@ defineExpose({
   z-index: 10;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   max-width: min(80vw, 450px);
 }
 
@@ -823,7 +839,7 @@ defineExpose({
 .pill-trailing-inner {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .pill-trailing::-webkit-scrollbar {
