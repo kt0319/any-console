@@ -21,6 +21,16 @@
         <button type="button" class="ws-toolbar-btn" aria-label="Add workspace" data-tooltip="Add workspace" @click="pushView('WorkspaceAdd')">
           <span class="mdi mdi-plus"></span>
         </button>
+        <button
+          type="button"
+          class="ws-toolbar-btn"
+          :class="{ active: isEditMode }"
+          :aria-label="isEditMode ? 'Done editing' : 'Edit workspaces'"
+          :data-tooltip="isEditMode ? 'Done editing' : 'Edit workspaces'"
+          @click="isEditMode = !isEditMode"
+        >
+          <span class="mdi" :class="isEditMode ? 'mdi-check' : 'mdi-pencil-outline'"></span>
+        </button>
       </div>
 
       <div ref="wsListEl" class="terminal-ws-list">
@@ -38,7 +48,7 @@
             }"
           >
             <span
-              v-if="workspaceStore.groups.length > 1"
+              v-if="isEditMode && workspaceStore.groups.length > 1"
               class="drag-handle picker-group-drag-handle"
               aria-hidden="true"
               @pointerdown.prevent="onGroupDragStart($event, item.groupIdx)"
@@ -49,7 +59,7 @@
               <span class="mdi" :class="collapsedGroups.has(item.group.id) ? 'mdi-chevron-right' : 'mdi-chevron-down'"></span>
               {{ item.group.name }}
             </button>
-            <button type="button" class="picker-ws-edit-btn" aria-label="Edit group" data-tooltip="Edit group" @click.stop="groupDialog?.openRename(item.group)">
+            <button v-if="isEditMode" type="button" class="picker-ws-edit-btn" aria-label="Edit group" data-tooltip="Edit group" @click.stop="groupDialog?.openRename(item.group)">
               <span class="mdi mdi-pencil-outline"></span>
             </button>
           </div>
@@ -62,6 +72,7 @@
           >
             <div class="picker-ws-row picker-ws-row-top">
               <span
+                v-if="isEditMode"
                 class="drag-handle picker-ws-drag-handle"
                 aria-hidden="true"
                 @pointerdown.prevent="onDragStart($event, flatIdx)"
@@ -86,12 +97,14 @@
                   <GitActionBtn v-if="item.ws.ahead > 0 && item.ws.has_upstream !== false" icon="push" title="Push" :count="item.ws.ahead" :running="isRunning(item.ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(item.ws, 'push')" />
                   <GitActionBtn v-if="item.ws.ahead > 0 && item.ws.has_upstream === false" icon="push-upstream" title="Push" :count="item.ws.ahead" :running="isRunning(item.ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action="doAction(item.ws, 'push-upstream')" />
                 </template>
-                <button type="button" class="picker-ws-edit-btn" aria-label="Open workspace detail" data-tooltip="Open workspace detail" @click.stop="openDetail(item.ws)">
-                  <span class="mdi mdi-cog-outline"></span>
-                </button>
-                <button type="button" class="picker-ws-edit-btn" aria-label="Edit workspace" data-tooltip="Edit workspace" @click.stop="openEditWs(item.ws)">
-                  <span class="mdi mdi-pencil-outline"></span>
-                </button>
+                <template v-if="isEditMode">
+                  <button type="button" class="picker-ws-edit-btn" aria-label="Open workspace detail" data-tooltip="Open workspace detail" @click.stop="openDetail(item.ws)">
+                    <span class="mdi mdi-cog-outline"></span>
+                  </button>
+                  <button type="button" class="picker-ws-edit-btn" aria-label="Edit workspace" data-tooltip="Edit workspace" @click.stop="openEditWs(item.ws)">
+                    <span class="mdi mdi-pencil-outline"></span>
+                  </button>
+                </template>
               </div>
             </div>
             <div v-if="expandedWorkspaces.has(item.ws.name)" class="picker-ws-jobs-inline">
@@ -106,12 +119,14 @@
                     <span v-if="wt.clean === false" class="picker-ws-wt-dirty" aria-label="uncommitted changes"></span>
                     <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspaces.has(wt.name) ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
                   </button>
-                  <button type="button" class="picker-ws-edit-btn" aria-label="Open workspace detail" data-tooltip="Open workspace detail" @click.stop="openDetail(wt)">
-                    <span class="mdi mdi-cog-outline"></span>
-                  </button>
-                  <button type="button" class="picker-ws-worktree-del" aria-label="Remove worktree" data-tooltip="Remove worktree" @click.stop="removeWorktree(item.ws, wt)">
-                    <span class="mdi mdi-delete-outline"></span>
-                  </button>
+                  <template v-if="isEditMode">
+                    <button type="button" class="picker-ws-edit-btn" aria-label="Open workspace detail" data-tooltip="Open workspace detail" @click.stop="openDetail(wt)">
+                      <span class="mdi mdi-cog-outline"></span>
+                    </button>
+                    <button type="button" class="picker-ws-worktree-del" aria-label="Remove worktree" data-tooltip="Remove worktree" @click.stop="removeWorktree(item.ws, wt)">
+                      <span class="mdi mdi-delete-outline"></span>
+                    </button>
+                  </template>
                 </div>
                 <div v-if="expandedWorkspaces.has(wt.name)" class="picker-ws-jobs-inline">
                   <WorkspaceJobsPane :workspace="wt.name" />
@@ -294,6 +309,11 @@ function openDetail(ws) {
   workspaceStore.selectedWorkspace = ws.name;
   pushView("WorkspaceDetail", { detail: {} });
 }
+
+// 普段はアイコン・名前・ブランチ・Jobs展開トグルだけの一覧表示にし、
+// 並び替え・詳細を開く・configの編集・worktree削除はEditモード中だけ操作
+// できるようにする（誤操作しやすい操作を一覧表示から分離する）。
+const isEditMode = ref(false);
 
 // ワークスペース名クリックはJobsをアコーディオン式にインライン展開する
 // （モーダルは開かない）。グループのcollapsedGroupsと同じSetパターン。
@@ -763,6 +783,12 @@ button.git-badge:disabled {
 .ws-toolbar-btn-terminal {
   color: var(--accent);
   gap: 4px;
+}
+
+.ws-toolbar-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-primary);
 }
 
 .ws-toolbar-btn-label {

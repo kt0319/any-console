@@ -102,7 +102,8 @@ test.describe("workspace lifecycle", () => {
     const row = page.locator(".picker-ws-group", { has: page.locator(".picker-ws-name", { hasText: wsName }) });
     await expect(row).toBeVisible({ timeout: 10_000 });
 
-    // Edit → Delete Workspace
+    // Edit → Delete Workspace（Editボタンはワークスペース一覧のEditモード中のみ表示）
+    await page.locator('[aria-label="Edit workspaces"]').click();
     await row.locator('.picker-ws-edit-btn[aria-label="Edit workspace"]').click();
     await expect(page.locator(".modal-title")).toHaveText(wsName);
     await page.locator(".ws-delete-btn").click();
