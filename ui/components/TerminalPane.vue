@@ -984,12 +984,10 @@ defineExpose({
   font-weight: 500;
 }
 
-/* 通常時はアイコンのみ・ラベルは幅0に畳んでおき、PCではボタンをホバー
-   すると、モバイルでのpeek表示（値が変化した時の一時表示）と同じ見た目で
-   ラベルをその場に展開する。ラベル自体は常にDOMに存在させる（v-ifで
-   出し入れするとホバーで表示できないため）。展開/収納はアニメーション
-   させず即座に切り替える（ホバーのたびに幅が動くと隣接ボタンの位置が
-   ガタつくため）。 */
+/* 通常時はアイコンのみ・ラベルは幅0に畳んでおく。ラベルは値が変化した
+   時だけ数秒間 peek 表示する（下記 .peeking）。ホバーでは展開しない
+   （ホバーのたびに幅が動いて隣接ボタンの位置がガタつくため）。PCでの
+   説明は各ボタンの data-tooltip に任せる。 */
 .pill-label-hover {
   display: inline-block;
   max-width: 0;
@@ -1003,16 +1001,6 @@ defineExpose({
   max-width: 160px;
   margin-left: 4px;
   opacity: 1;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .pill-branch-btn:hover .pill-label-hover,
-  .pill-devserver-btn:hover .pill-label-hover,
-  .pill-numstat-btn:hover .pill-label-hover {
-    max-width: 160px;
-    margin-left: 4px;
-    opacity: 1;
-  }
 }
 
 .numstat-inline {
@@ -1081,14 +1069,6 @@ defineExpose({
 
 .pill-workspace-label.pill-label-hover.peeking {
   margin-left: 0;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .terminal-info-pill:hover .pill-workspace-label.pill-label-hover {
-    max-width: 160px;
-    margin-left: 0;
-    opacity: 1;
-  }
 }
 
 .pill-icon-slot {
