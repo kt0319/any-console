@@ -1,4 +1,4 @@
-import { ref } from "vue";
+import { reactive } from "vue";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { useApi } from "./useApi.js";
 import { useConfirm } from "./useConfirm.js";
@@ -38,9 +38,13 @@ function buildConfirmMessage(wsName, action, branch) {
 
 // 分割表示で同じワークスペースを複数ペインが開いている場合、pull/push の
 // 実行中状態をペインごとに独立させると、他ペインのボタンが押せてしまい
-// 同じリポジトリへの並行実行（git lock 競合等）が起きる。モジュールスコープの
-// 単一状態にして、どのペインの useGitRemoteAction() からも共有する。
-const runningAction = ref(/** @type {string|null} */ (null));
+// 同じリポジトリへの並行実行（git lock 競合等）が起きる。ワークスペース名を
+// キーにしたモジュールスコープの単一状態にして、どのペインの
+// useGitRemoteAction() からも共有する。ロックの粒度はワークスペース単位
+// （同じリポジトリへは同時に1操作まで）にし、無関係な他ワークスペースの
+// 操作まで巻き込んでブロックしないようにする。
+/** @type {Map<string, string>} wsName -> 実行中のアクションキー */
+const runningActionByWorkspace = reactive(new Map());
 
 export function useGitRemoteAction() {
   const workspaceStore = useWorkspaceStore();
@@ -74,9 +78,9 @@ export function useGitRemoteAction() {
 
   async function gitAction(wsName, action, opts = {}) {
     const { branch } = opts;
-    if (runningAction.value) return;
+    if (runningActionByWorkspace.has(wsName)) return;
     if (!await confirm(buildConfirmMessage(wsName, action, branch))) return;
-    runningAction.value = makeActionKey(wsName, action, branch);
+    runningActionByWorkspace.set(wsName, makeActionKey(wsName, action, branch));
     try {
       const label = actionLabel(action);
       if (PUSH_PULL_ACTIONS.has(action)) {
@@ -85,17 +89,17 @@ export function useGitRemoteAction() {
         await runGenericAction(wsName, action, label);
       }
     } finally {
-      runningAction.value = null;
+      runningActionByWorkspace.delete(wsName);
     }
   }
 
   function isRunning(wsName, action, branch) {
-    return runningAction.value === makeActionKey(wsName, action, branch);
+    return runningActionByWorkspace.get(wsName) === makeActionKey(wsName, action, branch);
   }
 
-  function isAnyRunning() {
-    return runningAction.value !== null;
+  function isAnyRunning(wsName) {
+    return wsName ? runningActionByWorkspace.has(wsName) : runningActionByWorkspace.size > 0;
   }
 
-  return { runningAction, gitAction, isRunning, isAnyRunning };
+  return { gitAction, isRunning, isAnyRunning };
 }
