@@ -23,6 +23,7 @@ import UrlActionDialog from "../../../ui/components/UrlActionDialog.vue";
 import TerminalSplitDropZones from "../../../ui/components/TerminalSplitDropZones.vue";
 import SplitEmptyPane from "../../../ui/components/SplitEmptyPane.vue";
 import AuthConfig from "../../../ui/components/AuthConfig.vue";
+import InfoPillConfig from "../../../ui/components/InfoPillConfig.vue";
 import FileBrowser from "../../../ui/components/FileBrowser.vue";
 import { createPinia, setActivePinia } from "pinia";
 import { useConfirm } from "../../../ui/composables/useConfirm.js";
@@ -200,6 +201,32 @@ describe("a11y: AuthConfig (API Tokens section)", () => {
     // Create 直後（raw トークン表示 + Copy ボタン）も検査する。
     await wrapper.find('input[placeholder^="Token name"]').setValue("ci");
     await wrapper.findAll("button").find((b) => b.text() === "Create").trigger("click");
+    await flushPromises();
+    await expectNoA11yViolations(wrapper.element);
+
+    wrapper.unmount();
+  });
+});
+
+describe("a11y: InfoPillConfig", () => {
+  function jsonResponse(data) {
+    return Promise.resolve({ ok: true, status: 200, json: async () => data });
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("Info Pills 設定画面（Loading / 読み込み後）に a11y 違反が無い", async () => {
+    setActivePinia(createPinia());
+    vi.stubGlobal("fetch", vi.fn(() => jsonResponse({})));
+
+    const wrapper = mount(InfoPillConfig, {
+      global: { provide: { modalTitle: ref("") } },
+      attachTo: document.body,
+    });
+    await expectNoA11yViolations(wrapper.element);
+
     await flushPromises();
     await expectNoA11yViolations(wrapper.element);
 

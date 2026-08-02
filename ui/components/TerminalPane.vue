@@ -27,8 +27,8 @@
                 v-if="(isGitRepo || tab.sessionId) && infoPillConfig.files"
                 type="button"
                 class="pill-devserver-btn"
-                aria-label="Files"
-                :data-tooltip="isGitRepo ? 'Browse files' : 'Browse files in this terminal\'s directory'"
+                :aria-label="filesTooltip"
+                :data-tooltip="filesTooltip"
                 @pointerdown.stop
                 @click.stop="openFiles"
               >
@@ -99,7 +99,7 @@
                 @pointerdown.stop
                 @click.stop="openActions"
               >
-                <span class="mdi mdi-cog-play-outline"></span>
+                <span class="mdi" :class="actionStatusIcon"></span>
                 <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'actions' }">{{ branchAction?.conclusion || branchAction?.status }}</span>
               </button>
               <button
@@ -242,7 +242,7 @@ const paneWorkspace = computed(() => {
   return props.tab.workspace ? workspaceStore.allWorkspaces.find((w) => w.name === props.tab.workspace) : undefined;
 });
 // ペインごとの git 情報（変更行数・ahead/behind）をピルに直接出す。
-const { isDirty, isGitRepo, hasUpstream, hasRemoteBranch, ahead, behind, changedFiles, insertions, deletions, branchParts } = useWorkspaceGitStatus(paneWorkspace, isMobile);
+const { isDirty, isGitRepo, hasUpstream, ahead, behind, changedFiles, insertions, deletions, branchParts } = useWorkspaceGitStatus(paneWorkspace, isMobile);
 
 // Dev Server ボタンもピルに直接出す。ポーリング自体は usePreviewPorts に集約し、
 // 開いている全タブで1本のタイマーを共有する。ワークスペース未紐付けのベアターミナルは
@@ -273,7 +273,7 @@ const devServerEntry = computed(() => {
 // GitHub PRピルは「現在のブランチに対応するPRがある時」だけ表示する
 // （リポジトリ全体のPR一覧では無く、無関係なPRの存在では出さない）。
 // 複数ペインでの重複フェッチはuseWorkspacePRs側でまとめている。
-const { prsByWorkspace, fetchPRs } = useWorkspacePRs();
+const { prsByWorkspace, fetchPRs, startPolling: startPRsPolling, stopPolling: stopPRsPolling } = useWorkspacePRs();
 const branchPR = computed(() => {
   if (!isGitRepo.value || !props.tab.workspace) return null;
   const list = prsByWorkspace.value[props.tab.workspace];
@@ -305,10 +305,14 @@ const githubWorkspaceKey = computed(() => (isGitRepo.value && paneWorkspace.valu
 watch(
   githubWorkspaceKey,
   (workspace, prevWorkspace) => {
-    if (prevWorkspace) stopActionsPolling(prevWorkspace);
+    if (prevWorkspace) {
+      stopPRsPolling(prevWorkspace);
+      stopActionsPolling(prevWorkspace);
+    }
     if (workspace) {
       fetchPRs(workspace);
       fetchRuns(workspace);
+      startPRsPolling(workspace);
       startActionsPolling(workspace);
     }
   },
@@ -450,6 +454,9 @@ const branchTooltip = computed(() => {
   if (!hasUpstream.value) parts.push("no upstream");
   return parts.length ? `Branches: ${name} (${parts.join(", ")})` : `Branches: ${name}`;
 });
+const filesTooltip = computed(() =>
+  isGitRepo.value ? "Browse files" : "Browse files in this terminal's directory",
+);
 const changesTooltip = computed(() =>
   `Changes: ${changedFiles.value}F +${insertions.value} -${deletions.value}`,
 );
@@ -479,13 +486,20 @@ const actionsTooltip = computed(() => {
 });
 
 // 実行状況で色を変える（成功runはvisibleBranchActionで既に非表示のため、
-// ここに来るのは失敗=エラー色・進行中=警告色のみ）。
+// ここに来るのは失敗=エラー色・進行中=警告色のみ）。色だけで状態を示さない
+// よう、アイコン自体も状態ごとに変える（AGENTS.md: 色のみで状態を示さない）。
 const actionStatusClass = computed(() => {
   const run = branchAction.value;
   if (!run) return "";
   if (run.status !== "completed") return "action-status-running";
   if (run.conclusion === "failure") return "action-status-failure";
   return "";
+});
+const actionStatusIcon = computed(() => {
+  const run = branchAction.value;
+  if (!run || run.status !== "completed") return "mdi-progress-clock";
+  if (run.conclusion === "failure") return "mdi-alert-circle-outline";
+  return "mdi-cog-play-outline";
 });
 
 // ピルの Dev Server / Changes・Branches / Files・Add・ワークスペース名は、
@@ -502,41 +516,38 @@ const actionStatusClass = computed(() => {
 const trailingPeekItems = computed(() => {
   const items = [];
   items.push({ key: "workspace", text: props.tab.workspace || props.tab.label || "" });
-  if (isGitRepo.value || props.tab.sessionId) {
+  // 各キーは対応するボタンの v-if 条件（infoPillConfig.xxx含む）と揃える。
+  // 揃えないと、設定で非表示にしたピルの変化が findChangedTrailingItem に
+  // 拾われてしまい、実際に表示されている別のピルの変化が同じ枠を奪われて
+  // peekされない（見えないボタンがpeekの権利を横取りする）。
+  if ((isGitRepo.value || props.tab.sessionId) && infoPillConfig.files) {
     items.push({ key: "files", text: "Files" });
   }
-  if (isGitRepo.value) {
+  if (isGitRepo.value && infoPillConfig.history) {
     items.push({ key: "history", text: paneWorkspace.value?.last_commit_message || "" });
   }
-  if (isGitRepo.value && isDirty.value) {
+  if (isGitRepo.value && isDirty.value && infoPillConfig.changes) {
     items.push({ key: "changes", text: `${changedFiles.value}F +${insertions.value} -${deletions.value}` });
   }
-  if (isGitRepo.value) {
+  if (isGitRepo.value && infoPillConfig.branch) {
     // branchParts は isMobile（画面回転で変わりうる）に応じて省略表示形式が
     // 変わるため、そのまま text にすると回転しただけで「ブランチが変わった」
     // と誤検知して peek が発火してしまう。表示形式に依存しない生のブランチ名を使う。
-    items.push({ key: "branch", text: paneWorkspace.value?.branch || "" });
+    // ahead/behind（Push/Pullバッジ）もこのボタン自身に描画されるため、
+    // 同じ"branch"キーのシグネチャに含める（別キーにすると対応するボタンが
+    // 無いため、findChangedTrailingItemに拾われてもpeekが表示されない）。
+    items.push({ key: "branch", text: `${paneWorkspace.value?.branch || ""}:${ahead.value}:${behind.value}` });
   }
-  if (isGitRepo.value && behind.value > 0) {
-    items.push({ key: "pull", text: `${behind.value}` });
-  }
-  if (isGitRepo.value && !hasUpstream.value && hasRemoteBranch.value) {
-    items.push({ key: "push", text: "set-upstream" });
-  } else if (isGitRepo.value && !hasUpstream.value && !hasRemoteBranch.value) {
-    items.push({ key: "push", text: `push-upstream:${ahead.value}` });
-  } else if (isGitRepo.value && hasUpstream.value && ahead.value > 0) {
-    items.push({ key: "push", text: `push:${ahead.value}` });
-  }
-  if (branchPR.value) {
+  if (branchPR.value && infoPillConfig.prs) {
     items.push({ key: "prs", text: `${branchPR.value.number}:${branchPR.value.title}` });
   }
-  if (visibleBranchAction.value) {
+  if (visibleBranchAction.value && infoPillConfig.actions) {
     items.push({ key: "actions", text: `${visibleBranchAction.value.id}:${visibleBranchAction.value.status}:${visibleBranchAction.value.conclusion}` });
   }
-  if (devServerEntry.value) {
+  if (devServerEntry.value && infoPillConfig.devserver) {
     items.push({ key: "devserver", text: "Server" });
   }
-  if (!isGitRepo.value && props.tab.sessionId) {
+  if (!isGitRepo.value && props.tab.sessionId && infoPillConfig.add) {
     items.push({ key: "add", text: "Add" });
   }
   return items;
@@ -603,18 +614,24 @@ watch(trailingPeekItems, (items) => {
       // 必ず既存要素へのクラス変更として扱われるようにする（nextTickだけだと
       // ブラウザが実際に1フレーム描画する前にまとめて処理してしまうことがある
       // ため、他の抑制ロジックと同じ二重rAFで確実に1フレーム分待つ）。
+      // 非表示タブではrAFが止まる一方でsetTimeoutは予定通り発火し得るため、
+      // 隠すタイマーをpeekingKey設定と並行に張ると、タブが裏にある間に
+      // タイマーだけ先に発火→復帰後にrAFが遅れて発火してpeekingKeyを
+      // セットし直し、そのまま消えなくなる不具合があった。実際に
+      // peekingKeyをセットした後でタイマーを張ることで、この順序を保証する。
+      if (pillMorePeekTimer) clearTimeout(pillMorePeekTimer);
+      pillMorePeekTimer = null;
       nextTick(() => {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             peekingKey.value = changed.key;
+            pillMorePeekTimer = setTimeout(() => {
+              peekingKey.value = null;
+              pillMorePeekTimer = null;
+            }, PILL_MORE_PEEK_DURATION_MS);
           });
         });
       });
-      if (pillMorePeekTimer) clearTimeout(pillMorePeekTimer);
-      pillMorePeekTimer = setTimeout(() => {
-        peekingKey.value = null;
-        pillMorePeekTimer = null;
-      }, PILL_MORE_PEEK_DURATION_MS);
     }
   }
   prevTrailingSignature = nextSignature;
@@ -896,7 +913,10 @@ watch(isActive, async (active) => {
 onBeforeUnmount(() => {
   clearActiveFitTimer();
   if (previewPollingStarted) stopPreviewPolling();
-  if (githubWorkspaceKey.value) stopActionsPolling(githubWorkspaceKey.value);
+  if (githubWorkspaceKey.value) {
+    stopPRsPolling(githubWorkspaceKey.value);
+    stopActionsPolling(githubWorkspaceKey.value);
+  }
   if (pillMorePeekTimer) { clearTimeout(pillMorePeekTimer); pillMorePeekTimer = null; }
   roPane?.disconnect();
   roPane = null;
