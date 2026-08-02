@@ -1080,6 +1080,13 @@ defineExpose({
   transition: transform 0.1s ease, background 0.1s ease;
 }
 
+/* アクティブなペインのワークスペースピルは、タブバーのアクティブタブ
+   （.tab-btn.active）と同じ地色にして「今アクティブな対象」の見た目を
+   揃える。枠線は変えず背景のみで示す。 */
+.terminal-pane.active .terminal-info-pill {
+  background: rgba(130, 170, 255, 0.12);
+}
+
 .terminal-info-pill.tab-activity {
   animation: pill-activity-glow 3s ease-in-out 1;
 }
