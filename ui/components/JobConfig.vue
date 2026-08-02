@@ -1,6 +1,11 @@
 <template>
   <div class="modal-scroll-body">
     <div class="ws-settings-section">
+      <div v-if="isNew" class="ws-settings-row">
+        <span class="ws-settings-label">Scope</span>
+        <label class="form-check-label"><input type="radio" :checked="!isCommon" @change="isCommon = false" /> Workspace</label>
+        <label class="form-check-label"><input type="radio" :checked="isCommon" @change="isCommon = true" /> Common</label>
+      </div>
       <div class="ws-settings-row">
         <span class="ws-settings-label">Label</span>
         <input type="text" class="form-input" v-model="form.label" placeholder="Display name" autocomplete="off" />
@@ -80,8 +85,10 @@ const { apiPost, apiPut, apiDelete } = useApi();
 const { confirm } = useConfirm();
 
 const workspaceName = viewState.value.workspaceName;
-const isCommon = viewState.value.isCommon || false;
 const jobEntry = viewState.value.jobEntry;
+// 新規作成時だけCommon/Workspaceを選べる（既存ジョブのスコープは作成後に
+// 変更しない。別コレクションへの移動になり削除+作り直しに近くなるため）。
+const isCommon = ref(!!viewState.value.isCommon);
 const initialForm = viewState.value.initialForm;
 
 const DEFAULT_JOB_ICON = "mdi-play-circle-outline";
@@ -151,7 +158,7 @@ async function saveJob() {
   saving.value = true;
   formError.value = "";
   try {
-    const baseUrl = isCommon ? EP_COMMON_JOBS : workspaceApiPath(workspaceName, "/jobs");
+    const baseUrl = isCommon.value ? EP_COMMON_JOBS : workspaceApiPath(workspaceName, "/jobs");
     const url = isNew ? baseUrl : `${baseUrl}/${encodeURIComponent(jobEntry.name)}`;
     const trimmedUrl = f.url.trim();
     const icon = f.type === "browser"
@@ -185,7 +192,7 @@ async function deleteJob() {
   if (isNew || !jobEntry) return;
   const label = jobEntry.job.label || jobEntry.name;
   if (!await confirmIrreversible(confirm, `Delete job "${label}"?`)) return;
-  const baseUrl = isCommon ? EP_COMMON_JOBS : workspaceApiPath(workspaceName, "/jobs");
+  const baseUrl = isCommon.value ? EP_COMMON_JOBS : workspaceApiPath(workspaceName, "/jobs");
   const url = `${baseUrl}/${encodeURIComponent(jobEntry.name)}`;
   const { ok, data } = await apiDelete(url, { errorMessage: MSG_DELETE_FAILED });
   if (ok) {

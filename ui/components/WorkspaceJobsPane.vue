@@ -2,10 +2,13 @@
   <div class="jobs-pane-wrapper">
     <div class="modal-scroll-body">
       <div class="job-section-header">
-        <span>Common jobs</span>
-        <button type="button" class="job-section-add-btn" title="Add Common Job" @click="startAddJob(true)">
+        <span>Jobs</span>
+        <button type="button" class="job-section-add-btn" title="Add Job" @click="startAddJob(false)">
           <span class="mdi mdi-plus"></span>
         </button>
+      </div>
+      <div class="job-section-header job-section-subheader">
+        <span>Common jobs</span>
       </div>
       <div class="job-item-row">
         <button type="button" class="job-item" @click="openTerminal">
@@ -29,11 +32,8 @@
         </button>
       </div>
 
-      <div class="job-section-header">
+      <div v-if="localJobs.length" class="job-section-header job-section-subheader">
         <span>Workspace jobs</span>
-        <button type="button" class="job-section-add-btn" title="Add Job" @click="startAddJob(false)">
-          <span class="mdi mdi-plus"></span>
-        </button>
       </div>
       <div
         v-for="job in localJobs"
@@ -275,6 +275,12 @@ defineExpose({ load });
 
 .job-section-header:first-child {
   border-top: none;
+}
+
+.job-section-subheader {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: transparent;
 }
 
 .job-section-add-btn {
