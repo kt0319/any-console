@@ -98,21 +98,22 @@ describe("info-pill-config store: load 堅牢化", () => {
     });
   });
 
-  it("moveUp/moveDownは隣同士を入れ替えてsaveする", async () => {
+  it("reorderは指定インデックスへ並べ替えてsaveする（useListDragSortのonReorder互換）", async () => {
     auth.apiFetch = vi.fn().mockResolvedValue(okRes({ status: "ok" }));
-    store.moveDown("files");
+    store.reorder(0, 1);
     expect(store.order).toEqual(["history", "files", "changes", "branch", "prs", "actions", "devserver", "add"]);
     expect(auth.apiFetch).toHaveBeenCalledTimes(1);
 
-    store.moveUp("files");
+    store.reorder(1, 0);
     expect(store.order).toEqual(DEFAULT_ORDER);
     expect(auth.apiFetch).toHaveBeenCalledTimes(2);
   });
 
-  it("moveUpは先頭、moveDownは末尾では何もしない", () => {
+  it("reorderは同じインデックスや範囲外では何もしない", () => {
     auth.apiFetch = vi.fn().mockResolvedValue(okRes({ status: "ok" }));
-    store.moveUp("files");
-    store.moveDown("add");
+    store.reorder(0, 0);
+    store.reorder(-1, 2);
+    store.reorder(2, 99);
     expect(store.order).toEqual(DEFAULT_ORDER);
     expect(auth.apiFetch).not.toHaveBeenCalled();
   });

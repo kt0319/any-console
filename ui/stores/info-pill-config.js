@@ -50,20 +50,15 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
     await auth.apiFetch(EP_SETTINGS_INFO_PILLS, { method: "PUT", body });
   }
 
-  function moveUp(field) {
-    const idx = order.value.indexOf(field);
-    if (idx <= 0) return;
+  // useListDragSort の onReorder(fromIdx, toIdx) にそのまま渡せる形にする
+  // （TabConfig.vue の terminalStore.moveTab と同じsplice方式）。
+  function reorder(fromIndex, toIndex) {
+    if (fromIndex === toIndex) return;
+    if (fromIndex < 0 || fromIndex >= order.value.length) return;
+    if (toIndex < 0 || toIndex >= order.value.length) return;
     const next = [...order.value];
-    [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
-    order.value = next;
-    save();
-  }
-
-  function moveDown(field) {
-    const idx = order.value.indexOf(field);
-    if (idx < 0 || idx >= order.value.length - 1) return;
-    const next = [...order.value];
-    [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+    const [field] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, field);
     order.value = next;
     save();
   }
@@ -73,5 +68,5 @@ export const useInfoPillConfigStore = defineStore("info-pill-config", () => {
     save();
   }
 
-  return { branch, history, prs, actions, changes, devserver, files, add, order, position, loaded, load, save, moveUp, moveDown, setPosition };
+  return { branch, history, prs, actions, changes, devserver, files, add, order, position, loaded, load, save, reorder, setPosition };
 });

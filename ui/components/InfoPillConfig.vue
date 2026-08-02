@@ -10,29 +10,23 @@
           <label class="form-check-label"><input type="radio" :checked="infoPillConfig.position === 'bottom'" @change="infoPillConfig.setPosition('bottom')" /> Bottom</label>
         </div>
       </div>
-      <label v-for="(item, idx) in orderedToggles" :key="item.field" class="settings-item settings-toggle">
+      <label
+        v-for="(item, idx) in orderedToggles"
+        :key="item.field"
+        class="settings-item settings-toggle pill-toggle-row"
+        :class="{
+          'drag-source': dragFromIdx === idx,
+          'drag-over-above': dragOverIdx === idx && dragFromIdx > idx,
+          'drag-over-below': dragOverIdx === idx && dragFromIdx < idx,
+        }"
+      >
+        <span class="drag-handle" aria-hidden="true" @pointerdown.prevent="onDragStart($event, idx)">
+          <span class="mdi mdi-drag-vertical"></span>
+        </span>
         <input type="checkbox" :checked="infoPillConfig[item.field]" @change="setField(item.field, $event.target.checked)" />
         <div class="settings-toggle-copy">
           <span class="settings-item-label">{{ item.label }}</span>
           <span class="settings-note">{{ item.note }}</span>
-        </div>
-        <div class="pill-order-buttons">
-          <button
-            type="button"
-            class="pill-order-btn"
-            :disabled="idx === 0"
-            aria-label="Move up"
-            data-tooltip="Move up"
-            @click="infoPillConfig.moveUp(item.field)"
-          ><span class="mdi mdi-chevron-up"></span></button>
-          <button
-            type="button"
-            class="pill-order-btn"
-            :disabled="idx === orderedToggles.length - 1"
-            aria-label="Move down"
-            data-tooltip="Move down"
-            @click="infoPillConfig.moveDown(item.field)"
-          ><span class="mdi mdi-chevron-down"></span></button>
         </div>
       </label>
     </template>
@@ -42,6 +36,7 @@
 <script setup>
 import { inject, computed } from "vue";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
+import { useListDragSort } from "../composables/useListDragSort.js";
 
 const modalTitle = inject("modalTitle");
 modalTitle.value = "Info Pills";
@@ -50,7 +45,8 @@ const infoPillConfig = useInfoPillConfigStore();
 if (!infoPillConfig.loaded) infoPillConfig.load();
 
 // ラベルはピル本体のツールチップ文言（TerminalPane.vue）に揃える。
-// 表示順は infoPillConfig.order（上下ボタンで並び替え可能）に従う。
+// 表示順は infoPillConfig.order（ドラッグハンドルで並び替え可能。
+// ワークスペース一覧・Tabs & Sessionsと同じuseListDragSort）に従う。
 const TOGGLES = [
   { field: "files", label: "Files", note: "Show the files browser button." },
   { field: "history", label: "History", note: "Show the commit history button." },
@@ -66,6 +62,11 @@ const orderedToggles = computed(() =>
   infoPillConfig.order.map((field) => TOGGLES.find((t) => t.field === field)).filter(Boolean),
 );
 
+const { dragFromIdx, dragOverIdx, onDragStart } = useListDragSort({
+  rowSelector: ".pill-toggle-row",
+  onReorder: (fromIdx, toIdx) => infoPillConfig.reorder(fromIdx, toIdx),
+});
+
 function setField(field, value) {
   infoPillConfig[field] = value;
   infoPillConfig.save();
@@ -73,35 +74,11 @@ function setField(field, value) {
 </script>
 
 <style scoped>
-.pill-order-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  flex: 0 0 auto;
-}
-
-.pill-order-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.pill-order-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .pill-order-btn:not(:disabled):hover {
-    color: var(--text-primary);
-  }
+/* .settings-toggle（settings-form.css）は justify-content:space-between の
+   2要素（checkbox + copy）前提のため、先頭にdrag-handleを足すと間延びする。
+   ここだけ通常の並び順（handle→checkbox→copy）に上書きする。 */
+.pill-toggle-row {
+  justify-content: flex-start;
 }
 
 .pill-position-radios {
