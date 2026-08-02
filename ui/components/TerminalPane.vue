@@ -45,7 +45,7 @@
                 @click.stop="openHistory"
               >
                 <span class="mdi mdi-history"></span>
-                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'history' }">History</span>
+                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'history' }">{{ peekingKey === 'history' ? historyPeekLabel : 'History' }}</span>
               </button>
               <button
                 v-if="isGitRepo && isDirty && infoPillConfig.changes"
@@ -62,6 +62,18 @@
                   <span class="diff-num-plus">+{{ insertions }}</span>
                   <span class="diff-num-del">-{{ deletions }}</span>
                 </span>
+              </button>
+              <button
+                v-if="isGitRepo && infoPillConfig.branch"
+                type="button"
+                class="pill-branch-btn"
+                :aria-label="branchTooltip"
+                :data-tooltip="branchTooltip"
+                @pointerdown.stop
+                @click.stop="openBranch"
+              >
+                <span class="mdi mdi-source-branch"></span>
+                <span class="pill-branch-text pill-label-hover" :class="{ peeking: peekingKey === 'branch' }"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
               </button>
               <GitActionBtn
                 v-if="isGitRepo && behind > 0 && infoPillConfig.pull_push"
@@ -103,28 +115,16 @@
                 @action="doAction('push')"
               />
               <button
-                v-if="isGitRepo && infoPillConfig.branch"
-                type="button"
-                class="pill-branch-btn"
-                :aria-label="branchTooltip"
-                :data-tooltip="branchTooltip"
-                @pointerdown.stop
-                @click.stop="openBranch"
-              >
-                <span class="mdi mdi-source-branch"></span>
-                <span class="pill-branch-text pill-label-hover" :class="{ peeking: peekingKey === 'branch' }"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
-              </button>
-              <button
-                v-if="isGitRepo && paneWorkspace?.github_url && infoPillConfig.prs"
+                v-if="branchPR && infoPillConfig.prs"
                 type="button"
                 class="pill-devserver-btn"
-                aria-label="GitHub PRs"
-                data-tooltip="GitHub PRs"
+                :aria-label="prsTooltip"
+                :data-tooltip="prsTooltip"
                 @pointerdown.stop
                 @click.stop="openPRs"
               >
                 <span class="mdi mdi-github"></span>
-                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'prs' }">PRs</span>
+                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'prs' }">#{{ branchPR?.number }}</span>
               </button>
               <button
                 v-if="devServerEntry && infoPillConfig.devserver"
@@ -233,6 +233,7 @@ import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useIsMobile } from "../composables/useIsMobile.js";
 import { useApi } from "../composables/useApi.js";
 import { usePreviewPorts } from "../composables/usePreviewPorts.js";
+import { useWorkspacePRs } from "../composables/useWorkspacePRs.js";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
 import CircleKeyPad from "./CircleKeyPad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
@@ -300,6 +301,25 @@ const devServerEntry = computed(() => {
   if (!props.tab.workspace) return null;
   return previewPorts.value.find((p) => p.workspace === props.tab.workspace && p.proxy_port) || null;
 });
+
+// GitHub PRピルは「現在のブランチに対応するPRがある時」だけ表示する
+// （リポジトリ全体のPR一覧では無く、無関係なPRの存在では出さない）。
+// 複数ペインでの重複フェッチはuseWorkspacePRs側でまとめている。
+const { prsByWorkspace, fetchPRs } = useWorkspacePRs();
+const branchPR = computed(() => {
+  if (!isGitRepo.value || !props.tab.workspace) return null;
+  const list = prsByWorkspace.value[props.tab.workspace];
+  if (!list || !paneWorkspace.value?.branch) return null;
+  return list.find((pr) => pr.headRefName === paneWorkspace.value.branch) || null;
+});
+
+watch(
+  () => (isGitRepo.value && paneWorkspace.value?.github_url) ? props.tab.workspace : null,
+  (workspace) => {
+    if (workspace) fetchPRs(workspace);
+  },
+  { immediate: true },
+);
 
 async function openDevServer() {
   const p = devServerEntry.value;
@@ -432,6 +452,19 @@ const devServerTooltip = computed(() => {
   return `Dev Server: ${p.scheme || "http"}://${location.hostname}:${p.proxy_port}`;
 });
 
+// 新しくコミットされた時、Historyピルのpeek表示にコミットメッセージの
+// 先頭だけ短く出す（普段はアイコンのみ、"History"固定表示のまま）。
+const historyPeekLabel = computed(() => {
+  const msg = (paneWorkspace.value?.last_commit_message || "").split("\n")[0].trim();
+  if (!msg) return "History";
+  return msg.length > 10 ? `${msg.slice(0, 10)}…` : msg;
+});
+
+const prsTooltip = computed(() => {
+  const pr = branchPR.value;
+  return pr ? `GitHub PR #${pr.number}: ${pr.title}` : "GitHub PRs";
+});
+
 // ピルの Dev Server / Changes・Branches / Files・Add・ワークスペース名は、
 // PC・モバイル問わず常にアイコンのみ表示する。ラベル文字列は普段は隠し、
 // 値が更新された時だけそのボタン自身（ルックアライクではなく実ボタン）を
@@ -450,10 +483,16 @@ const trailingPeekItems = computed(() => {
     items.push({ key: "files", text: "Files" });
   }
   if (isGitRepo.value) {
-    items.push({ key: "history", text: "History" });
+    items.push({ key: "history", text: paneWorkspace.value?.last_commit_message || "" });
   }
   if (isGitRepo.value && isDirty.value) {
     items.push({ key: "changes", text: `${changedFiles.value}F +${insertions.value} -${deletions.value}` });
+  }
+  if (isGitRepo.value) {
+    // branchParts は isMobile（画面回転で変わりうる）に応じて省略表示形式が
+    // 変わるため、そのまま text にすると回転しただけで「ブランチが変わった」
+    // と誤検知して peek が発火してしまう。表示形式に依存しない生のブランチ名を使う。
+    items.push({ key: "branch", text: paneWorkspace.value?.branch || "" });
   }
   if (isGitRepo.value && behind.value > 0) {
     items.push({ key: "pull", text: `${behind.value}` });
@@ -465,14 +504,8 @@ const trailingPeekItems = computed(() => {
   } else if (isGitRepo.value && hasUpstream.value && ahead.value > 0) {
     items.push({ key: "push", text: `push:${ahead.value}` });
   }
-  if (isGitRepo.value) {
-    // branchParts は isMobile（画面回転で変わりうる）に応じて省略表示形式が
-    // 変わるため、そのまま text にすると回転しただけで「ブランチが変わった」
-    // と誤検知して peek が発火してしまう。表示形式に依存しない生のブランチ名を使う。
-    items.push({ key: "branch", text: paneWorkspace.value?.branch || "" });
-    if (paneWorkspace.value?.github_url) {
-      items.push({ key: "prs", text: "PRs" });
-    }
+  if (branchPR.value) {
+    items.push({ key: "prs", text: `${branchPR.value.number}:${branchPR.value.title}` });
   }
   if (devServerEntry.value) {
     items.push({ key: "devserver", text: "Server" });
@@ -496,9 +529,31 @@ let pillMorePeekTimer = null;
 // 解決するまでは変化検出を行わず、解決した最初の1回はベースラインの
 // 更新だけ行って peek はスキップする。
 let workspaceEverResolved = paneWorkspace.value !== undefined;
+// last_commit_message は paneWorkspace 自体が解決した後もさらに遅れて
+// 非同期ロードされる（useWorkspaceGitStatus の statusLoading 参照）。
+// これを "history" の変化検出にそのまま使うと、通常のロード完了時にも
+// 「新しくコミットされた」と誤検知してpeekが発火してしまうため、
+// 初めて値が解決した1回だけベースラインを更新して変化扱いにしない。
+let historyMessageEverResolved = paneWorkspace.value?.last_commit_message !== undefined;
+// PR一覧もfetchPRsによる非同期取得のため、初回のロード完了を
+// 「新しくPRが作られた」と誤検知しないよう同様のガードをかける。
+function prsResolvedFor(workspace) {
+  return !!workspace && prsByWorkspace.value[workspace] !== undefined;
+}
+let prsEverResolved = prsResolvedFor(props.tab.workspace);
 
 watch(trailingPeekItems, (items) => {
   const nextSignature = trailingItemsSignature(items);
+  const historyJustResolved = !historyMessageEverResolved && paneWorkspace.value?.last_commit_message !== undefined;
+  if (historyJustResolved) {
+    historyMessageEverResolved = true;
+    prevTrailingSignature.set("history", nextSignature.get("history"));
+  }
+  const prsJustResolved = !prsEverResolved && prsResolvedFor(props.tab.workspace);
+  if (prsJustResolved) {
+    prsEverResolved = true;
+    prevTrailingSignature.set("prs", nextSignature.get("prs"));
+  }
   const justResolved = !workspaceEverResolved && paneWorkspace.value !== undefined;
   if (justResolved) workspaceEverResolved = true;
   if (workspaceEverResolved && !justResolved) {
@@ -1014,9 +1069,12 @@ defineExpose({
 
 /* アイコン単体表示時、button の font-size（数字用の12px）のままだと他の
    アイコンボタン（14px）より小さく見え、周りの余白だけ目立ってしまうため、
-   アイコンだけ他ボタンと揃えた大きさにする。 */
+   アイコンだけ他ボタンと揃えた大きさにする。このボタンはisDirty時にしか
+   存在しない（=常に「変更あり」状態）ため、WorkspaceDetailのタブと同じく
+   アイコンをアクティブ色にする。 */
 .pill-numstat-btn .mdi {
   font-size: 14px;
+  color: var(--accent);
 }
 
 .numstat-files {
