@@ -156,6 +156,13 @@ function openIconPicker() {
 
 onMounted(() => {
   modalTitle.value = isNew ? "Add Job" : "Edit Job";
+  // ワークスペース未指定で開いた場合（ツールバーからの汎用Add Job等）は
+  // 先頭のワークスペースをデフォルト選択にする。指定無しのままだと
+  // <select>は最初のoptionを見た目上選択するがworkspaceName.valueには
+  // 反映されない（v-modelとネイティブselectの初期値ズレ）ため、明示的に揃える。
+  if (!workspaceName.value && workspaceOptions.value.length) {
+    workspaceName.value = workspaceOptions.value[0].name;
+  }
 });
 
 async function saveJob() {

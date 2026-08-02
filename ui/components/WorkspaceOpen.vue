@@ -17,6 +17,11 @@
         </button>
         <button v-if="isEditMode" type="button" class="ws-toolbar-btn" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
           <span class="mdi mdi-folder-plus-outline"></span>
+          <span class="ws-toolbar-btn-label">Add group</span>
+        </button>
+        <button v-if="isEditMode" type="button" class="ws-toolbar-btn" aria-label="Add job" data-tooltip="Add job" @click="openAddJob">
+          <span class="mdi mdi-play-box-outline"></span>
+          <span class="ws-toolbar-btn-label">Add job</span>
         </button>
         <button v-if="isEditMode" type="button" class="ws-toolbar-btn" aria-label="Add workspace" data-tooltip="Add workspace" @click="pushView('WorkspaceAdd')">
           <span class="mdi mdi-plus"></span>
@@ -90,16 +95,13 @@
                 </span>
               </button>
               <div class="picker-ws-top-meta" @click.stop>
-                <button v-if="item.ws.is_git_repo && item.ws.clean === false" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(item.ws)" @click.stop="openChanges(item.ws)"></button>
+                <button v-if="item.ws.is_git_repo && item.ws.clean === false && !isEditMode" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(item.ws)" @click.stop="openChanges(item.ws)"></button>
                 <template v-if="item.ws.is_git_repo && !isEditMode">
                   <GitActionBtn v-if="item.ws.behind > 0" icon="pull" title="Pull" :count="item.ws.behind" :running="isRunning(item.ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="doAction(item.ws, 'pull')" />
                   <GitActionBtn v-if="item.ws.ahead > 0 && item.ws.has_upstream !== false" icon="push" title="Push" :count="item.ws.ahead" :running="isRunning(item.ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(item.ws, 'push')" />
                   <GitActionBtn v-if="item.ws.ahead > 0 && item.ws.has_upstream === false" icon="push-upstream" title="Push" :count="item.ws.ahead" :running="isRunning(item.ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action="doAction(item.ws, 'push-upstream')" />
                 </template>
                 <template v-if="isEditMode">
-                  <button type="button" class="picker-ws-edit-btn" aria-label="Open workspace detail" data-tooltip="Open workspace detail" @click.stop="openDetail(item.ws)">
-                    <span class="mdi mdi-cog-outline"></span>
-                  </button>
                   <button type="button" class="picker-ws-edit-btn" aria-label="Edit workspace" data-tooltip="Edit workspace" @click.stop="openEditWs(item.ws)">
                     <span class="mdi mdi-pencil-outline"></span>
                   </button>
@@ -118,14 +120,9 @@
                     <span class="picker-ws-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
                     <span v-if="wt.clean === false" class="picker-ws-wt-dirty" aria-label="uncommitted changes"></span>
                   </button>
-                  <template v-if="isEditMode">
-                    <button type="button" class="picker-ws-edit-btn" aria-label="Open workspace detail" data-tooltip="Open workspace detail" @click.stop="openDetail(wt)">
-                      <span class="mdi mdi-cog-outline"></span>
-                    </button>
-                    <button type="button" class="picker-ws-worktree-del" aria-label="Remove worktree" data-tooltip="Remove worktree" @click.stop="removeWorktree(item.ws, wt)">
-                      <span class="mdi mdi-delete-outline"></span>
-                    </button>
-                  </template>
+                  <button v-if="isEditMode" type="button" class="picker-ws-worktree-del" aria-label="Remove worktree" data-tooltip="Remove worktree" @click.stop="removeWorktree(item.ws, wt)">
+                    <span class="mdi mdi-delete-outline"></span>
+                  </button>
                   <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspace === wt.name ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
                 </div>
                 <div v-if="expandedWorkspace === wt.name" class="picker-ws-jobs-inline">
@@ -305,14 +302,21 @@ function openBareTerminal() {
   bridgeEmit("terminal:launch", {});
 }
 
-function openDetail(ws) {
-  workspaceStore.selectedWorkspace = ws.name;
-  pushView("WorkspaceDetail", { detail: {} });
+// ワークスペースを1つずつ開かなくても、ツールバーからCommon/Workspace
+// どちらのJobも作成できるようにする（Workspaceスコープの場合はJobConfig側の
+// プルダウンで対象ワークスペースを選ぶ）。
+function openAddJob() {
+  pushView("JobConfig", {
+    workspaceName: "",
+    isCommon: false,
+    jobEntry: null,
+    onReturn: () => bridgeEmit("jobs:refresh"),
+  });
 }
 
 // 普段はアイコン・名前・ブランチ・Jobs展開トグルだけの一覧表示にし、
-// 並び替え・詳細を開く・configの編集・worktree削除はEditモード中だけ操作
-// できるようにする（誤操作しやすい操作を一覧表示から分離する）。
+// 並び替え・configの編集・worktree削除はEditモード中だけ操作できるように
+// する（誤操作しやすい操作を一覧表示から分離する）。
 const isEditMode = ref(false);
 
 // ワークスペース名クリックはJobsをアコーディオン式にインライン展開する
@@ -758,6 +762,7 @@ button.git-badge:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   padding: 4px 8px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -777,7 +782,6 @@ button.git-badge:disabled {
 
 .ws-toolbar-btn-terminal {
   color: var(--accent);
-  gap: 4px;
 }
 
 .ws-toolbar-btn.active {

@@ -1,11 +1,6 @@
 <template>
   <div class="jobs-pane-wrapper">
     <div class="modal-scroll-body">
-      <div class="job-section-header">
-        <button type="button" class="job-section-add-btn" title="Add Job" @click="startAddJob(false)">
-          <span class="mdi mdi-plus"></span>
-        </button>
-      </div>
       <div class="job-section-header job-section-subheader">
         <span>Common jobs</span>
       </div>
@@ -160,17 +155,6 @@ async function runJob(job) {
     detached: !!job.detached_tab,
   });
   emit("modal:close");
-}
-
-function startAddJob(isCommon) {
-  const wsName = workspace.value;
-  if (!wsName) return;
-  pushView("JobConfig", {
-    workspaceName: wsName,
-    isCommon,
-    jobEntry: null,
-    onReturn: () => emit("jobs:refresh"),
-  });
 }
 
 function startEditJob(job, isCommon) {
