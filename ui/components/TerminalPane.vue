@@ -1010,7 +1010,11 @@ defineExpose({
 /* 通常時はアイコンのみ・ラベルは幅0に畳んでおく。ラベルは値が変化した
    時だけ数秒間 peek 表示する（下記 .peeking）。ホバーでは展開しない
    （ホバーのたびに幅が動いて隣接ボタンの位置がガタつくため）。PCでの
-   説明は各ボタンの data-tooltip に任せる。 */
+   説明は各ボタンの data-tooltip に任せる。peek表示中は .pill-trailing
+   側のwidth transitionを止めて他ボタンを巻き込まないようにしている
+   （script側 watch(peekingKey, ...) 参照）ため、ラベル自身のこの
+   transitionだけがそのボタンの中でローカルに再生され、隣接ボタンは
+   動かない。 */
 .pill-label-hover {
   display: inline-block;
   max-width: 0;
@@ -1018,6 +1022,7 @@ defineExpose({
   opacity: 0;
   overflow: hidden;
   white-space: nowrap;
+  transition: max-width 0.2s ease, opacity 0.15s ease, margin-left 0.2s ease;
 }
 
 .pill-label-hover.peeking {
