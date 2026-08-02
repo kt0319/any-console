@@ -88,11 +88,10 @@
                   </span>
                   <span class="picker-ws-branch">{{ item.ws.branch || '-' }}</span>
                 </span>
-                <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspaces.has(item.ws.name) ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
               </button>
               <div class="picker-ws-top-meta" @click.stop>
-                <template v-if="item.ws.is_git_repo">
-                  <button v-if="item.ws.clean === false" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(item.ws)" @click.stop="openChanges(item.ws)"></button>
+                <button v-if="item.ws.is_git_repo && item.ws.clean === false" type="button" class="git-badge dirty" v-html="dirtyBadgeHtml(item.ws)" @click.stop="openChanges(item.ws)"></button>
+                <template v-if="item.ws.is_git_repo && !isEditMode">
                   <GitActionBtn v-if="item.ws.behind > 0" icon="pull" title="Pull" :count="item.ws.behind" :running="isRunning(item.ws.name, 'pull')" btn-class="picker-ws-mini-btn pull-btn has-count" @action="doAction(item.ws, 'pull')" />
                   <GitActionBtn v-if="item.ws.ahead > 0 && item.ws.has_upstream !== false" icon="push" title="Push" :count="item.ws.ahead" :running="isRunning(item.ws.name, 'push')" btn-class="picker-ws-mini-btn push-btn has-count" @action="doAction(item.ws, 'push')" />
                   <GitActionBtn v-if="item.ws.ahead > 0 && item.ws.has_upstream === false" icon="push-upstream" title="Push" :count="item.ws.ahead" :running="isRunning(item.ws.name, 'push-upstream')" btn-class="picker-ws-mini-btn upstream-btn" @action="doAction(item.ws, 'push-upstream')" />
@@ -106,6 +105,7 @@
                   </button>
                 </template>
               </div>
+              <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspaces.has(item.ws.name) ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
             </div>
             <div v-if="expandedWorkspaces.has(item.ws.name)" class="picker-ws-jobs-inline">
               <WorkspaceJobsPane :workspace="item.ws.name" />
@@ -117,7 +117,6 @@
                     <span class="mdi mdi-file-tree picker-ws-wt-child-icon"></span>
                     <span class="picker-ws-worktree-branch">{{ worktreeBranchLabel(wt.worktree_branch || wt.branch) }}</span>
                     <span v-if="wt.clean === false" class="picker-ws-wt-dirty" aria-label="uncommitted changes"></span>
-                    <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspaces.has(wt.name) ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
                   </button>
                   <template v-if="isEditMode">
                     <button type="button" class="picker-ws-edit-btn" aria-label="Open workspace detail" data-tooltip="Open workspace detail" @click.stop="openDetail(wt)">
@@ -127,6 +126,7 @@
                       <span class="mdi mdi-delete-outline"></span>
                     </button>
                   </template>
+                  <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspaces.has(wt.name) ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
                 </div>
                 <div v-if="expandedWorkspaces.has(wt.name)" class="picker-ws-jobs-inline">
                   <WorkspaceJobsPane :workspace="wt.name" />
