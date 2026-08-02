@@ -24,6 +24,30 @@
         >
           <div class="pill-trailing-inner" ref="trailingInnerEl">
               <button
+                v-if="(isGitRepo || tab.sessionId) && infoPillConfig.files"
+                type="button"
+                class="pill-devserver-btn"
+                aria-label="Files"
+                :data-tooltip="isGitRepo ? 'Browse files' : 'Browse files in this terminal\'s directory'"
+                @pointerdown.stop
+                @click.stop="openFiles"
+              >
+                <span class="mdi mdi-folder-outline"></span>
+                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'files' }">Files</span>
+              </button>
+              <button
+                v-if="isGitRepo && infoPillConfig.history"
+                type="button"
+                class="pill-devserver-btn"
+                aria-label="History"
+                data-tooltip="History"
+                @pointerdown.stop
+                @click.stop="openHistory"
+              >
+                <span class="mdi mdi-history"></span>
+                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'history' }">History</span>
+              </button>
+              <button
                 v-if="isGitRepo && isDirty && infoPillConfig.changes"
                 type="button"
                 class="pill-numstat-btn"
@@ -40,7 +64,7 @@
                 </span>
               </button>
               <GitActionBtn
-                v-if="isGitRepo && behind > 0 && infoPillConfig.pull"
+                v-if="isGitRepo && behind > 0 && infoPillConfig.pull_push"
                 icon="pull"
                 title="Pull"
                 :count="behind"
@@ -50,7 +74,7 @@
                 @action="doAction('pull')"
               />
               <GitActionBtn
-                v-if="isGitRepo && !hasUpstream && hasRemoteBranch && infoPillConfig.push"
+                v-if="isGitRepo && !hasUpstream && hasRemoteBranch && infoPillConfig.pull_push"
                 icon="set-upstream"
                 title="Set Upstream"
                 :running="isRunning(tab.workspace, 'set-upstream')"
@@ -59,7 +83,7 @@
                 @action="doAction('set-upstream')"
               />
               <GitActionBtn
-                v-if="isGitRepo && !hasUpstream && !hasRemoteBranch && infoPillConfig.push"
+                v-if="isGitRepo && !hasUpstream && !hasRemoteBranch && infoPillConfig.pull_push"
                 icon="push-upstream"
                 title="Push & Set Upstream"
                 :count="ahead"
@@ -69,7 +93,7 @@
                 @action="doAction('push-upstream')"
               />
               <GitActionBtn
-                v-if="isGitRepo && hasUpstream && ahead > 0 && infoPillConfig.push"
+                v-if="isGitRepo && hasUpstream && ahead > 0 && infoPillConfig.pull_push"
                 icon="push"
                 title="Push"
                 :count="ahead"
@@ -89,18 +113,6 @@
               >
                 <span class="mdi mdi-source-branch"></span>
                 <span class="pill-branch-text pill-label-hover" :class="{ peeking: peekingKey === 'branch' }"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
-              </button>
-              <button
-                v-if="isGitRepo && infoPillConfig.history"
-                type="button"
-                class="pill-devserver-btn"
-                aria-label="History"
-                data-tooltip="History"
-                @pointerdown.stop
-                @click.stop="openHistory"
-              >
-                <span class="mdi mdi-history"></span>
-                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'history' }">History</span>
               </button>
               <button
                 v-if="isGitRepo && paneWorkspace?.github_url && infoPillConfig.prs"
@@ -125,18 +137,6 @@
               >
                 <span class="mdi mdi-server"></span>
                 <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'devserver' }">Server</span>
-              </button>
-              <button
-                v-if="(isGitRepo || tab.sessionId) && infoPillConfig.files"
-                type="button"
-                class="pill-devserver-btn"
-                aria-label="Files"
-                :data-tooltip="isGitRepo ? 'Browse files' : 'Browse files in this terminal\'s directory'"
-                @pointerdown.stop
-                @click.stop="openFiles"
-              >
-                <span class="mdi mdi-folder-outline"></span>
-                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'files' }">Files</span>
               </button>
               <button
                 v-if="!isGitRepo && tab.sessionId && infoPillConfig.add"
@@ -184,7 +184,7 @@
                 <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 16)"></span>
                 <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
               </span>
-              <span v-if="infoPillConfig.workspace" class="pill-workspace-label pill-label-hover" :class="{ peeking: peekingKey === 'workspace' }">{{ tab.workspace || tab.label || '' }}</span>
+              <span class="pill-workspace-label pill-label-hover" :class="{ peeking: peekingKey === 'workspace' }">{{ tab.workspace || tab.label || '' }}</span>
             </span>
           </div>
           <button
@@ -446,15 +446,11 @@ const devServerTooltip = computed(() => {
 const trailingPeekItems = computed(() => {
   const items = [];
   items.push({ key: "workspace", text: props.tab.workspace || props.tab.label || "" });
+  if (isGitRepo.value || props.tab.sessionId) {
+    items.push({ key: "files", text: "Files" });
+  }
   if (isGitRepo.value) {
-    // branchParts は isMobile（画面回転で変わりうる）に応じて省略表示形式が
-    // 変わるため、そのまま text にすると回転しただけで「ブランチが変わった」
-    // と誤検知して peek が発火してしまう。表示形式に依存しない生のブランチ名を使う。
-    items.push({ key: "branch", text: paneWorkspace.value?.branch || "" });
     items.push({ key: "history", text: "History" });
-    if (paneWorkspace.value?.github_url) {
-      items.push({ key: "prs", text: "PRs" });
-    }
   }
   if (isGitRepo.value && isDirty.value) {
     items.push({ key: "changes", text: `${changedFiles.value}F +${insertions.value} -${deletions.value}` });
@@ -469,11 +465,17 @@ const trailingPeekItems = computed(() => {
   } else if (isGitRepo.value && hasUpstream.value && ahead.value > 0) {
     items.push({ key: "push", text: `push:${ahead.value}` });
   }
+  if (isGitRepo.value) {
+    // branchParts は isMobile（画面回転で変わりうる）に応じて省略表示形式が
+    // 変わるため、そのまま text にすると回転しただけで「ブランチが変わった」
+    // と誤検知して peek が発火してしまう。表示形式に依存しない生のブランチ名を使う。
+    items.push({ key: "branch", text: paneWorkspace.value?.branch || "" });
+    if (paneWorkspace.value?.github_url) {
+      items.push({ key: "prs", text: "PRs" });
+    }
+  }
   if (devServerEntry.value) {
     items.push({ key: "devserver", text: "Server" });
-  }
-  if (isGitRepo.value || props.tab.sessionId) {
-    items.push({ key: "files", text: "Files" });
   }
   if (!isGitRepo.value && props.tab.sessionId) {
     items.push({ key: "add", text: "Add" });
@@ -502,7 +504,21 @@ watch(trailingPeekItems, (items) => {
   if (workspaceEverResolved && !justResolved) {
     const changed = findChangedTrailingItem(items, prevTrailingSignature);
     if (changed) {
-      peekingKey.value = changed.key;
+      // Changes/Dev Server等、値の変化と同時にボタン自体がv-ifで新規マウント
+      // されるケースでは、同じ描画で peeking クラスまで付いてしまい、CSS
+      // transition の対象になる「既存要素でのクラス変更」にならず無音化する
+      // （新規挿入された要素の初期スタイルはtransitionされないため）。
+      // マウント直後の1フレームを描画させてからpeekingKeyを立てることで、
+      // 必ず既存要素へのクラス変更として扱われるようにする（nextTickだけだと
+      // ブラウザが実際に1フレーム描画する前にまとめて処理してしまうことがある
+      // ため、他の抑制ロジックと同じ二重rAFで確実に1フレーム分待つ）。
+      nextTick(() => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            peekingKey.value = changed.key;
+          });
+        });
+      });
       if (pillMorePeekTimer) clearTimeout(pillMorePeekTimer);
       pillMorePeekTimer = setTimeout(() => {
         peekingKey.value = null;

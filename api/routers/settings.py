@@ -151,13 +151,11 @@ def put_notification_settings(body: NotificationSettings):
 
 
 class InfoPillSettings(BaseModel):
-    workspace: bool = True
     branch: bool = True
     history: bool = True
     prs: bool = True
     changes: bool = True
-    pull: bool = True
-    push: bool = True
+    pull_push: bool = True
     devserver: bool = True
     files: bool = True
     add: bool = True

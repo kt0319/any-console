@@ -9,8 +9,8 @@ const okRes = (body) => ({ ok: true, json: async () => body });
 const failRes = { ok: false, json: async () => ({}) };
 
 const ALL_TRUE = {
-  workspace: true, branch: true, history: true, prs: true, changes: true, pull: true,
-  push: true, devserver: true, files: true, add: true,
+  branch: true, history: true, prs: true, changes: true, pull_push: true,
+  devserver: true, files: true, add: true,
 };
 
 describe("info-pill-config store: load 堅牢化", () => {
@@ -53,18 +53,18 @@ describe("info-pill-config store: load 堅牢化", () => {
     await store.load();
     expect(auth.apiFetch).toHaveBeenCalledTimes(1);
     expect(store.loaded).toBe(true);
-    expect(store.workspace).toBe(true);
+    expect(store.branch).toBe(true);
     expect(store.files).toBe(true);
   });
 
   it("save は現在の各フィールド値をまとめてPUTする", async () => {
     auth.apiFetch = vi.fn().mockResolvedValue(okRes({ status: "ok" }));
     store.branch = false;
-    store.push = false;
+    store.pull_push = false;
     await store.save();
     expect(auth.apiFetch).toHaveBeenCalledWith("/settings/info-pills", {
       method: "PUT",
-      body: { ...ALL_TRUE, branch: false, push: false },
+      body: { ...ALL_TRUE, branch: false, pull_push: false },
     });
   });
 });

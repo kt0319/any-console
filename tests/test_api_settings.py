@@ -207,13 +207,11 @@ class TestNotificationSettings:
 
 class TestInfoPillSettings:
     DEFAULTS = {
-        "workspace": True,
         "branch": True,
         "history": True,
         "prs": True,
         "changes": True,
-        "pull": True,
-        "push": True,
+        "pull_push": True,
         "devserver": True,
         "files": True,
         "add": True,
