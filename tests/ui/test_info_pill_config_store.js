@@ -9,7 +9,7 @@ const okRes = (body) => ({ ok: true, json: async () => body });
 const failRes = { ok: false, json: async () => ({}) };
 
 const ALL_TRUE = {
-  branch: true, history: true, prs: true, changes: true, pull_push: true,
+  branch: true, history: true, prs: true, actions: true, changes: true, pull_push: true,
   devserver: true, files: true, add: true,
 };
 

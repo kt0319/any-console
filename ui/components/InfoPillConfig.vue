@@ -33,6 +33,7 @@ const TOGGLES = [
   { field: "pull_push", label: "Pull / Push", note: "Show the pull and push / set upstream buttons." },
   { field: "branch", label: "Branches", note: "Show the current branch button." },
   { field: "prs", label: "GitHub PRs", note: "Show the GitHub PR button when the current branch has an open pull request." },
+  { field: "actions", label: "GitHub Actions", note: "Show the GitHub Actions run status button for the current branch." },
   { field: "devserver", label: "Dev Server", note: "Show the detected dev server button." },
   { field: "add", label: "Add / Open", note: "Show the add-or-open-workspace button for non-Git terminals." },
 ];

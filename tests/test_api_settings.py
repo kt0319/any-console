@@ -210,6 +210,7 @@ class TestInfoPillSettings:
         "branch": True,
         "history": True,
         "prs": True,
+        "actions": True,
         "changes": True,
         "pull_push": True,
         "devserver": True,

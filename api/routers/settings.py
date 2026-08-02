@@ -154,6 +154,7 @@ class InfoPillSettings(BaseModel):
     branch: bool = True
     history: bool = True
     prs: bool = True
+    actions: bool = True
     changes: bool = True
     pull_push: bool = True
     devserver: bool = True

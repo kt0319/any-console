@@ -123,8 +123,21 @@
                 @pointerdown.stop
                 @click.stop="openPRs"
               >
-                <span class="mdi mdi-github"></span>
+                <span class="mdi mdi-source-pull"></span>
                 <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'prs' }">#{{ branchPR?.number }}</span>
+              </button>
+              <button
+                v-if="branchAction && infoPillConfig.actions"
+                type="button"
+                class="pill-devserver-btn"
+                :class="actionStatusClass"
+                :aria-label="actionsTooltip"
+                :data-tooltip="actionsTooltip"
+                @pointerdown.stop
+                @click.stop="openActions"
+              >
+                <span class="mdi mdi-cog-play-outline"></span>
+                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'actions' }">{{ branchAction?.conclusion || branchAction?.status }}</span>
               </button>
               <button
                 v-if="devServerEntry && infoPillConfig.devserver"
@@ -234,6 +247,7 @@ import { useIsMobile } from "../composables/useIsMobile.js";
 import { useApi } from "../composables/useApi.js";
 import { usePreviewPorts } from "../composables/usePreviewPorts.js";
 import { useWorkspacePRs } from "../composables/useWorkspacePRs.js";
+import { useWorkspaceActions } from "../composables/useWorkspaceActions.js";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
 import CircleKeyPad from "./CircleKeyPad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
@@ -313,10 +327,22 @@ const branchPR = computed(() => {
   return list.find((pr) => pr.headRefName === paneWorkspace.value.branch) || null;
 });
 
+// GitHub Actionsピルも同様に「現在のブランチの最新run」がある時だけ表示する。
+const { runsByWorkspace, fetchRuns } = useWorkspaceActions();
+const branchAction = computed(() => {
+  if (!isGitRepo.value || !props.tab.workspace) return null;
+  const list = runsByWorkspace.value[props.tab.workspace];
+  if (!list || !paneWorkspace.value?.branch) return null;
+  return list.find((run) => run.headBranch === paneWorkspace.value.branch) || null;
+});
+
 watch(
   () => (isGitRepo.value && paneWorkspace.value?.github_url) ? props.tab.workspace : null,
   (workspace) => {
-    if (workspace) fetchPRs(workspace);
+    if (workspace) {
+      fetchPRs(workspace);
+      fetchRuns(workspace);
+    }
   },
   { immediate: true },
 );
@@ -400,6 +426,12 @@ function openPRs() {
   emit("git:openFileModal", { pane: "prs" });
 }
 
+function openActions() {
+  if (!props.tab.workspace) return;
+  workspaceStore.selectedWorkspace = props.tab.workspace;
+  emit("git:openFileModal", { pane: "actions" });
+}
+
 const agentState = computed(() => terminalStore.agentStates[props.tab.sessionId] || "");
 const { ensureTerminalOpened, fitTerminal, sendResize, observeFrameResize, connectTerminalWs } = useTerminal();
 
@@ -465,6 +497,22 @@ const prsTooltip = computed(() => {
   return pr ? `GitHub PR #${pr.number}: ${pr.title}` : "GitHub PRs";
 });
 
+const actionsTooltip = computed(() => {
+  const run = branchAction.value;
+  if (!run) return "GitHub Actions";
+  return `GitHub Actions: ${run.name} (${run.conclusion || run.status})`;
+});
+
+// 実行状況で色を変える（成功=アクセント、失敗=エラー色、進行中=警告色）。
+const actionStatusClass = computed(() => {
+  const run = branchAction.value;
+  if (!run) return "";
+  if (run.status !== "completed") return "action-status-running";
+  if (run.conclusion === "success") return "action-status-success";
+  if (run.conclusion === "failure") return "action-status-failure";
+  return "";
+});
+
 // ピルの Dev Server / Changes・Branches / Files・Add・ワークスペース名は、
 // PC・モバイル問わず常にアイコンのみ表示する。ラベル文字列は普段は隠し、
 // 値が更新された時だけそのボタン自身（ルックアライクではなく実ボタン）を
@@ -507,6 +555,9 @@ const trailingPeekItems = computed(() => {
   if (branchPR.value) {
     items.push({ key: "prs", text: `${branchPR.value.number}:${branchPR.value.title}` });
   }
+  if (branchAction.value) {
+    items.push({ key: "actions", text: `${branchAction.value.id}:${branchAction.value.status}:${branchAction.value.conclusion}` });
+  }
   if (devServerEntry.value) {
     items.push({ key: "devserver", text: "Server" });
   }
@@ -541,6 +592,11 @@ function prsResolvedFor(workspace) {
   return !!workspace && prsByWorkspace.value[workspace] !== undefined;
 }
 let prsEverResolved = prsResolvedFor(props.tab.workspace);
+// GitHub Actionsのrun一覧も同様に非同期取得のため、同じガードをかける。
+function actionsResolvedFor(workspace) {
+  return !!workspace && runsByWorkspace.value[workspace] !== undefined;
+}
+let actionsEverResolved = actionsResolvedFor(props.tab.workspace);
 
 watch(trailingPeekItems, (items) => {
   const nextSignature = trailingItemsSignature(items);
@@ -553,6 +609,11 @@ watch(trailingPeekItems, (items) => {
   if (prsJustResolved) {
     prsEverResolved = true;
     prevTrailingSignature.set("prs", nextSignature.get("prs"));
+  }
+  const actionsJustResolved = !actionsEverResolved && actionsResolvedFor(props.tab.workspace);
+  if (actionsJustResolved) {
+    actionsEverResolved = true;
+    prevTrailingSignature.set("actions", nextSignature.get("actions"));
   }
   const justResolved = !workspaceEverResolved && paneWorkspace.value !== undefined;
   if (justResolved) workspaceEverResolved = true;
@@ -1050,6 +1111,19 @@ defineExpose({
 .pill-devserver-text {
   font-size: 12px;
   white-space: nowrap;
+}
+
+/* GitHub Actionsピルの実行状況を色で示す（アイコンだけ、地色は他と揃える）。 */
+.pill-devserver-btn.action-status-success .mdi {
+  color: var(--success);
+}
+
+.pill-devserver-btn.action-status-failure .mdi {
+  color: var(--error);
+}
+
+.pill-devserver-btn.action-status-running .mdi {
+  color: var(--warning);
 }
 
 .pill-numstat-btn {
