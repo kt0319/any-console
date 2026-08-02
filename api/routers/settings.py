@@ -156,7 +156,6 @@ class InfoPillSettings(BaseModel):
     prs: bool = True
     actions: bool = True
     changes: bool = True
-    pull_push: bool = True
     devserver: bool = True
     files: bool = True
     add: bool = True

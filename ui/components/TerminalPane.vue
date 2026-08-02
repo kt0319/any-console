@@ -76,7 +76,7 @@
                   <span class="pill-branch-text pill-label-hover" :class="{ peeking: peekingKey === 'branch' }"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
                 </button>
                 <GitActionBtn
-                  v-if="behind > 0 && infoPillConfig.pull_push"
+                  v-if="behind > 0"
                   icon="pull"
                   title="Pull"
                   :count="behind"
@@ -86,7 +86,7 @@
                   @action="doAction('pull')"
                 />
                 <GitActionBtn
-                  v-if="!hasUpstream && hasRemoteBranch && infoPillConfig.pull_push"
+                  v-if="!hasUpstream && hasRemoteBranch"
                   icon="set-upstream"
                   title="Set Upstream"
                   :running="isRunning(tab.workspace, 'set-upstream')"
@@ -95,7 +95,7 @@
                   @action="doAction('set-upstream')"
                 />
                 <GitActionBtn
-                  v-if="!hasUpstream && !hasRemoteBranch && infoPillConfig.pull_push"
+                  v-if="!hasUpstream && !hasRemoteBranch"
                   icon="push-upstream"
                   title="Push & Set Upstream"
                   :count="ahead"
@@ -105,7 +105,7 @@
                   @action="doAction('push-upstream')"
                 />
                 <GitActionBtn
-                  v-if="hasUpstream && ahead > 0 && infoPillConfig.pull_push"
+                  v-if="hasUpstream && ahead > 0"
                   icon="push"
                   title="Push"
                   :count="ahead"

@@ -212,7 +212,6 @@ class TestInfoPillSettings:
         "prs": True,
         "actions": True,
         "changes": True,
-        "pull_push": True,
         "devserver": True,
         "files": True,
         "add": True,

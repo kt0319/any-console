@@ -9,7 +9,7 @@ const okRes = (body) => ({ ok: true, json: async () => body });
 const failRes = { ok: false, json: async () => ({}) };
 
 const ALL_TRUE = {
-  branch: true, history: true, prs: true, actions: true, changes: true, pull_push: true,
+  branch: true, history: true, prs: true, actions: true, changes: true,
   devserver: true, files: true, add: true,
 };
 
@@ -60,11 +60,11 @@ describe("info-pill-config store: load 堅牢化", () => {
   it("save は現在の各フィールド値をまとめてPUTする", async () => {
     auth.apiFetch = vi.fn().mockResolvedValue(okRes({ status: "ok" }));
     store.branch = false;
-    store.pull_push = false;
+    store.devserver = false;
     await store.save();
     expect(auth.apiFetch).toHaveBeenCalledWith("/settings/info-pills", {
       method: "PUT",
-      body: { ...ALL_TRUE, branch: false, pull_push: false },
+      body: { ...ALL_TRUE, branch: false, devserver: false },
     });
   });
 });
