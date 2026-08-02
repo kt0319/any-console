@@ -38,7 +38,7 @@
               <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
               <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
             </span>
-            <span v-if="pillExpanded" class="pill-workspace-label">{{ tab.workspace || tab.label || '' }}</span>
+            <span v-if="peekingKey === 'workspace'" class="pill-workspace-label">{{ tab.workspace || tab.label || '' }}</span>
           </span>
         </div>
         <div
@@ -49,7 +49,7 @@
         >
           <div class="pill-trailing-inner" ref="trailingInnerEl">
               <button
-                v-if="(pillExpanded || peekingKey === 'branch') && isGitRepo"
+                v-if="isGitRepo"
                 type="button"
                 class="pill-branch-btn"
                 aria-label="Branches"
@@ -58,10 +58,10 @@
                 @click.stop="openBranch"
               >
                 <span class="mdi mdi-source-branch"></span>
-                <span class="pill-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
+                <span v-if="peekingKey === 'branch'" class="pill-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
               </button>
               <button
-                v-if="(pillExpanded || peekingKey === 'changes') && isGitRepo && isDirty"
+                v-if="isGitRepo && isDirty"
                 type="button"
                 class="pill-numstat-btn"
                 aria-label="Changes"
@@ -69,12 +69,15 @@
                 @pointerdown.stop
                 @click.stop="openChanges"
               >
-                <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
-                <span class="diff-num-plus">+{{ insertions }}</span>
-                <span class="diff-num-del">-{{ deletions }}</span>
+                <span class="mdi mdi-file-document-edit-outline"></span>
+                <template v-if="peekingKey === 'changes'">
+                  <span v-if="changedFiles > 0" class="numstat-files">{{ changedFiles }}F</span>
+                  <span class="diff-num-plus">+{{ insertions }}</span>
+                  <span class="diff-num-del">-{{ deletions }}</span>
+                </template>
               </button>
               <GitActionBtn
-                v-if="(pillExpanded || peekingKey === 'pull') && isGitRepo && behind > 0"
+                v-if="isGitRepo && behind > 0"
                 icon="pull"
                 title="Pull"
                 :count="behind"
@@ -84,7 +87,7 @@
                 @action="doAction('pull')"
               />
               <GitActionBtn
-                v-if="(pillExpanded || peekingKey === 'push') && isGitRepo && !hasUpstream && hasRemoteBranch"
+                v-if="isGitRepo && !hasUpstream && hasRemoteBranch"
                 icon="set-upstream"
                 title="Set Upstream"
                 :running="isRunning(tab.workspace, 'set-upstream')"
@@ -93,7 +96,7 @@
                 @action="doAction('set-upstream')"
               />
               <GitActionBtn
-                v-if="(pillExpanded || peekingKey === 'push') && isGitRepo && !hasUpstream && !hasRemoteBranch"
+                v-if="isGitRepo && !hasUpstream && !hasRemoteBranch"
                 icon="push-upstream"
                 title="Push & Set Upstream"
                 :count="ahead"
@@ -103,7 +106,7 @@
                 @action="doAction('push-upstream')"
               />
               <GitActionBtn
-                v-if="(pillExpanded || peekingKey === 'push') && isGitRepo && hasUpstream && ahead > 0"
+                v-if="isGitRepo && hasUpstream && ahead > 0"
                 icon="push"
                 title="Push"
                 :count="ahead"
@@ -113,7 +116,7 @@
                 @action="doAction('push')"
               />
               <button
-                v-if="(pillExpanded || peekingKey === 'devserver') && devServerEntry"
+                v-if="devServerEntry"
                 type="button"
                 class="pill-devserver-btn"
                 aria-label="Dev Server"
@@ -122,10 +125,10 @@
                 @click.stop="openDevServer"
               >
                 <span class="mdi mdi-server"></span>
-                <span class="pill-devserver-text">Server</span>
+                <span v-if="peekingKey === 'devserver'" class="pill-devserver-text">Server</span>
               </button>
               <button
-                v-if="(pillExpanded || peekingKey === 'files') && !isGitRepo && tab.sessionId"
+                v-if="!isGitRepo && tab.sessionId"
                 type="button"
                 class="pill-devserver-btn"
                 aria-label="Files"
@@ -134,10 +137,10 @@
                 @click.stop="openBareTerminalFiles"
               >
                 <span class="mdi mdi-folder-outline"></span>
-                <span class="pill-devserver-text">Files</span>
+                <span v-if="peekingKey === 'files'" class="pill-devserver-text">Files</span>
               </button>
               <button
-                v-if="(pillExpanded || peekingKey === 'add') && !isGitRepo && tab.sessionId"
+                v-if="!isGitRepo && tab.sessionId"
                 type="button"
                 class="pill-devserver-btn"
                 :aria-label="registerActionLabel"
@@ -146,30 +149,17 @@
                 @click.stop="registerCurrentDir"
               >
                 <span class="mdi" :class="registerAction.type === 'launch' ? 'mdi-folder-open-outline' : 'mdi-folder-plus-outline'"></span>
-                <span class="pill-devserver-text">{{ registerAction.type === 'launch' ? 'Open' : 'Add' }}</span>
+                <span v-if="peekingKey === 'add'" class="pill-devserver-text">{{ registerAction.type === 'launch' ? 'Open' : 'Add' }}</span>
               </button>
             </div>
           </div>
-          <!-- 開閉トグルと閉じるボタンは .pill-trailing（overflow-x:auto でクリップ
-               され得る幅アニメーション用コンテナ）の外、.pill-group の直接の
-               flex子として常時表示する。こうするとアニメーション中や多ボタン時の
-               横スクロール領域とは無関係になり、クリップされて欠けることが無い。
-               並び順は「開閉トグル→閉じる」で固定し、隣接した固定クラスタとして
-               扱う（展開ボタン群はこのクラスタの左側に生える）。
+          <!-- 閉じるボタンは .pill-trailing（overflow-x:auto でクリップされ得る幅
+               アニメーション用コンテナ）の外、.pill-group の直接の flex子として
+               常時表示する。こうするとアニメーション中や多ボタン時の横スクロール
+               領域とは無関係になり、クリップされて欠けることが無い。
                .pill-group 自体は right が固定値（JS計算なし）の flex コンテナ
-               なので、この2つは常にブラウザ標準のflexレイアウトで画面内に
-               正しく収まる（オフセット計算のズレで見切れる/崩れることが無い）。 -->
-          <button
-            type="button"
-            class="pill-toggle-btn"
-            :class="{ expanded: pillExpanded }"
-            :aria-label="pillExpanded ? 'Show less' : 'Show more'"
-            :data-tooltip="pillExpanded ? 'Show less' : 'Show more'"
-            @pointerdown.stop
-            @click.stop="toggleExpand"
-          >
-            <span class="mdi" :class="pillExpanded ? 'mdi-unfold-less-vertical' : 'mdi-unfold-more-vertical'"></span>
-          </button>
+               なので、常にブラウザ標準のflexレイアウトで画面内に正しく収まる
+               （オフセット計算のズレで見切れる/崩れることが無い）。 -->
           <button
             v-if="layoutStore.isSplitMode"
             type="button"
@@ -332,7 +322,7 @@ async function registerCurrentDir() {
 // 「Add」ボタンは cwd がすでに登録済みワークスペースと一致する場合、実際には
 // ワークスペース追加ではなくそのワークスペースの起動（launch）を行う。ラベルが
 // 常に「Add」のままだと紛らわしい（意図せず別ターミナルを起動してしまう）ため、
-// ボタンが見える（展開 or peek 表示）タイミングで cwd を取り直してラベルに反映する。
+// ラベルが見える（peek 表示中の）タイミングで cwd を取り直してラベルに反映する。
 // 常時ポーリングはしない（表示されていない間の cwd 取得はコスト無駄なので不要）。
 const cwdForLabel = ref("");
 const registerAction = computed(() => resolveRegisterCurrentDirAction(cwdForLabel.value, workspaceStore.allWorkspaces));
@@ -389,23 +379,20 @@ const pillTooltip = computed(() =>
   layoutStore.isTouchDevice ? "Tap for details" : "Drag to split  ·  Click for details",
 );
 
-// ピルの Dev Server / Changes・Branches / Close ボタンは、PC・モバイル問わず
-// 普段は畳んでおき、ワークスペースピルの隣にある専用トグルボタン
-// （.pill-toggle-btn）をタップ/クリックした時だけ開閉する。ワークスペース
-// ピル本体のタップ/クリックは Jobs/Files ペインを直接開く（統一前の挙動）。
-const pillExpanded = ref(false);
+// ピルの Dev Server / Changes・Branches / Files・Add・ワークスペース名は、
+// PC・モバイル問わず常にアイコンのみ表示する。ラベル文字列は普段は隠し、
+// 値が更新された時だけそのボタン自身（ルックアライクではなく実ボタン）を
+// 数秒だけラベル込みで表示する（peekingKey、下記参照）。
 
-function toggleExpand() {
-  pillExpanded.value = !pillExpanded.value;
-}
-
-// 畳んだ「...」ボタンの裏にある展開ボタン群（Branches/Changes/Pull/Push/Dev
-// Server/Add workspace）の内容。値だけ見て良く、v-if の表示条件（isGitRepo 等）
-// と揃えておく（peekingKey による一時表示の判定にも同じ key を使う）。
-// ルックアライクは作らず「そのボタン自体」を一時的に表示するだけなので、
-// ここでは変化検出用の最小限の値（key + 見た目に影響する text）だけ持てば良い。
+// 畳んだアイコン群の裏にあるラベル（ワークスペース名/Branches/Changes/Pull/
+// Push/Dev Server/Files/Add workspace）の内容。値だけ見て良く、v-if の
+// 表示条件（isGitRepo 等）と揃えておく（peekingKey による一時表示の判定にも
+// 同じ key を使う）。ルックアライクは作らず「そのボタン自体」のラベル部分を
+// 一時的に表示するだけなので、ここでは変化検出用の最小限の値（key + 見た目に
+// 影響する text）だけ持てば良い。
 const trailingPeekItems = computed(() => {
   const items = [];
+  items.push({ key: "workspace", text: props.tab.workspace || props.tab.label || "" });
   if (isGitRepo.value) {
     // branchParts は isMobile（画面回転で変わりうる）に応じて省略表示形式が
     // 変わるため、そのまま text にすると回転しただけで「ブランチが変わった」
@@ -435,11 +422,8 @@ const trailingPeekItems = computed(() => {
   return items;
 });
 
-// 畳んだピルの裏の展開ボタン群のどれかが更新された時、そのボタン自身を
-// 数秒だけワークスペースピルの左に一時表示してから隠す（PC・モバイル共通、
-// PILL_MORE_PEEK_DURATION_MS）。ルックアライクではなく実ボタンをそのまま
-// v-if で出す（下記テンプレート、`|| peekingKey === '...'` 参照）ため、
-// デザインは常に完全に一致する。展開中は不要なので何もしない。
+// アイコン群のどれかのラベルが更新された時、そのボタンのラベル部分を
+// 数秒だけ表示してから隠す（PC・モバイル共通、PILL_MORE_PEEK_DURATION_MS）。
 const peekingKey = ref(null);
 let prevTrailingSignature = trailingItemsSignature(trailingPeekItems.value);
 let pillMorePeekTimer = null;
@@ -456,7 +440,7 @@ watch(trailingPeekItems, (items) => {
   const nextSignature = trailingItemsSignature(items);
   const justResolved = !workspaceEverResolved && paneWorkspace.value !== undefined;
   if (justResolved) workspaceEverResolved = true;
-  if (!pillExpanded.value && workspaceEverResolved && !justResolved) {
+  if (workspaceEverResolved && !justResolved) {
     const changed = findChangedTrailingItem(items, prevTrailingSignature);
     if (changed) {
       peekingKey.value = changed.key;
@@ -470,16 +454,9 @@ watch(trailingPeekItems, (items) => {
   prevTrailingSignature = nextSignature;
 }, { deep: true });
 
-// 展開時・タブ非アクティブ化時は peek 表示を残さない。
-watch(pillExpanded, (expanded) => {
-  if (!expanded) return;
-  peekingKey.value = null;
-  if (pillMorePeekTimer) { clearTimeout(pillMorePeekTimer); pillMorePeekTimer = null; }
-});
-
-// Add ボタンが見える（展開 or peek 表示）タイミングで cwd を取り直し、ラベルを最新化する。
+// Add のラベルが見える（peek 表示中の）タイミングで cwd を取り直し、最新化する。
 watch(
-  () => pillExpanded.value || peekingKey.value === "add",
+  () => peekingKey.value === "add",
   (visible) => {
     if (visible) refreshCwdForLabel();
   },
@@ -505,7 +482,6 @@ watch(trailingInnerEl, (el) => {
 });
 
 // ワークスペースピル本体のタップ/クリックは Jobs/Files ペインを直接開く。
-// 展開ボタン群の開閉は .pill-toggle-btn（toggleExpand）が担当する。
 function activatePill() {
   if (props.tab.workspace) {
     workspaceStore.selectedWorkspace = props.tab.workspace;
@@ -948,6 +924,7 @@ defineExpose({
   border: 1px solid rgba(59, 66, 97, 0.5);
   border-radius: 999px;
   background: rgba(26, 27, 38, 0.88);
+  color: var(--text-muted);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -1049,34 +1026,6 @@ defineExpose({
   justify-content: center;
   width: 14px;
   flex-shrink: 0;
-}
-
-/* ワークスペースピルとは独立した、展開ボタン群の開閉専用トグル。
-   閉じるボタンとは隣接した固定クラスタだが、視覚的に別要素と分かるよう
-   閉じるボタンとの間だけ少し余白を広げる。 */
-.pill-toggle-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 28px;
-  width: 28px;
-  flex-shrink: 0;
-  padding: 0;
-  margin-right: 4px;
-  border-radius: 999px;
-  border: 1px solid rgba(59, 66, 97, 0.5);
-  background: rgba(26, 27, 38, 0.88);
-  color: var(--text-muted);
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-/* 展開中はアクティブ色にして、開閉状態が一目で分かるようにする。
-   背景色を変えると明るくなりすぎる／他ピルより浮いて見えるため、
-   地色・枠線は他ピルと同じまま、アイコン色だけアクセントにする。 */
-.pill-toggle-btn.expanded {
-  color: var(--accent);
 }
 
 .pill-icon-badge-wrap {
