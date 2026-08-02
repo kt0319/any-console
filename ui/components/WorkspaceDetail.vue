@@ -138,7 +138,6 @@ const isNonDefaultBranch = computed(() => {
 const tabs = computed(() => {
   const isGit = isGitWorkspace.value;
   const list = [
-    { key: "jobs", icon: "mdi-play-circle-outline", label: "Jobs", hidden: !isGit },
     {
       key: "files",
       icon: filesBrowsing.value ? "mdi-folder-open-outline" : "mdi-folder-outline",

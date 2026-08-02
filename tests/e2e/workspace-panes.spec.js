@@ -88,10 +88,13 @@ test.describe("workspace detail panes", () => {
   }
 
   test("git ワークスペースの詳細に各ペインのタブが表示される", async ({ page }) => {
+    // Jobsはワークスペース一覧から開いた時の既定ペインとして残るが、
+    // タブとしては表示しない（詳細内から戻れないようにする）。
     await openDetail(page);
-    for (const label of ["Jobs", "Files", "History", "Changes", "Branches", "Select & Copy"]) {
+    for (const label of ["Files", "History", "Changes", "Branches", "Select & Copy"]) {
       await expect(page.locator(".workspace-tabs").getByRole("button", { name: label })).toBeVisible({ timeout: 10_000 });
     }
+    await expect(page.locator(".workspace-tabs").getByRole("button", { name: "Jobs" })).not.toBeVisible();
   });
 
   test("Files ペインでディレクトリを辿ってファイル内容を表示できる", async ({ page }) => {
