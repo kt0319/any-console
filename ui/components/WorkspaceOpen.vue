@@ -11,11 +11,11 @@
       <div class="settings-category-head">
         <span class="settings-category-title">Workspaces</span>
         <span class="ws-toolbar-spacer"></span>
-        <button type="button" class="ws-toolbar-btn ws-toolbar-btn-terminal" aria-label="New terminal" data-tooltip="New terminal" @click="openBareTerminal">
+        <button v-if="!isEditMode" type="button" class="ws-toolbar-btn ws-toolbar-btn-terminal" aria-label="New terminal" data-tooltip="New terminal" @click="openBareTerminal">
           <span class="mdi mdi-console"></span>
           <span class="ws-toolbar-btn-label">Terminal</span>
         </button>
-        <button type="button" class="ws-toolbar-btn" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
+        <button v-if="isEditMode" type="button" class="ws-toolbar-btn" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
           <span class="mdi mdi-folder-plus-outline"></span>
         </button>
         <button v-if="isEditMode" type="button" class="ws-toolbar-btn" aria-label="Add workspace" data-tooltip="Add workspace" @click="pushView('WorkspaceAdd')">
@@ -105,9 +105,9 @@
                   </button>
                 </template>
               </div>
-              <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspaces.has(item.ws.name) ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
+              <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspace === item.ws.name ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
             </div>
-            <div v-if="expandedWorkspaces.has(item.ws.name)" class="picker-ws-jobs-inline">
+            <div v-if="expandedWorkspace === item.ws.name" class="picker-ws-jobs-inline">
               <WorkspaceJobsPane :workspace="item.ws.name" />
             </div>
             <div v-if="worktreesByBase[item.ws.name]?.length" class="picker-ws-worktrees">
@@ -126,9 +126,9 @@
                       <span class="mdi mdi-delete-outline"></span>
                     </button>
                   </template>
-                  <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspaces.has(wt.name) ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
+                  <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspace === wt.name ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
                 </div>
-                <div v-if="expandedWorkspaces.has(wt.name)" class="picker-ws-jobs-inline">
+                <div v-if="expandedWorkspace === wt.name" class="picker-ws-jobs-inline">
                   <WorkspaceJobsPane :workspace="wt.name" />
                 </div>
               </template>
@@ -316,14 +316,11 @@ function openDetail(ws) {
 const isEditMode = ref(false);
 
 // ワークスペース名クリックはJobsをアコーディオン式にインライン展開する
-// （モーダルは開かない）。グループのcollapsedGroupsと同じSetパターン。
-const expandedWorkspaces = ref(new Set());
+// （モーダルは開かない）。排他的に1つしか開かない（別の行を開くと前の行は閉じる）。
+const expandedWorkspace = ref(/** @type {string | null} */ (null));
 
 function toggleJobs(ws) {
-  const next = new Set(expandedWorkspaces.value);
-  if (next.has(ws.name)) next.delete(ws.name);
-  else next.add(ws.name);
-  expandedWorkspaces.value = next;
+  expandedWorkspace.value = expandedWorkspace.value === ws.name ? null : ws.name;
 }
 
 function openChanges(ws) {
