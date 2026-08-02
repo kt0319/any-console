@@ -21,7 +21,7 @@
           <span class="job-item-label">{{ job.label || job.name }}</span>
           <span v-if="job.type === 'browser'" class="mdi mdi-open-in-new job-item-link-icon" aria-hidden="true"></span>
         </button>
-        <button type="button" class="job-item-edit-btn" title="Edit" aria-label="Edit" @click.stop="startEditJob(job, true)">
+        <button v-if="props.editMode" type="button" class="job-item-edit-btn" title="Edit" aria-label="Edit" @click.stop="startEditJob(job, true)">
           <span class="mdi mdi-pencil-outline" aria-hidden="true"></span>
         </button>
       </div>
@@ -40,7 +40,7 @@
           <span class="job-item-label">{{ job.label || job.name }}</span>
           <span v-if="job.type === 'browser'" class="mdi mdi-open-in-new job-item-link-icon" aria-hidden="true"></span>
         </button>
-        <button type="button" class="job-item-edit-btn" title="Edit" aria-label="Edit" @click.stop="startEditJob(job, false)">
+        <button v-if="props.editMode" type="button" class="job-item-edit-btn" title="Edit" aria-label="Edit" @click.stop="startEditJob(job, false)">
           <span class="mdi mdi-pencil-outline" aria-hidden="true"></span>
         </button>
       </div>
@@ -64,6 +64,9 @@ const props = defineProps({
   // ワークスペース一覧のインライン展開など、グローバルな selectedWorkspace と
   // 独立して表示したい場合に指定する。省略時は従来通り selectedWorkspace に従う。
   workspace: { type: String, default: null },
+  // ワークスペース一覧のEditモードと連動させ、各Jobの編集ボタンを
+  // Editモード中だけ表示する（誤操作しやすい操作を通常表示から分離する）。
+  editMode: { type: Boolean, default: false },
 });
 
 const pushView = inject("pushView");

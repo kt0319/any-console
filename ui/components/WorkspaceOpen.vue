@@ -110,7 +110,7 @@
               <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspace === item.ws.name ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
             </div>
             <div v-if="expandedWorkspace === item.ws.name" class="picker-ws-jobs-inline">
-              <WorkspaceJobsPane :workspace="item.ws.name" />
+              <WorkspaceJobsPane :workspace="item.ws.name" :edit-mode="isEditMode" />
             </div>
             <div v-if="worktreesByBase[item.ws.name]?.length" class="picker-ws-worktrees">
               <template v-for="wt in worktreesByBase[item.ws.name]" :key="wt.name">
@@ -126,7 +126,7 @@
                   <span class="mdi picker-ws-jobs-chevron" :class="expandedWorkspace === wt.name ? 'mdi-chevron-up' : 'mdi-chevron-down'" aria-hidden="true"></span>
                 </div>
                 <div v-if="expandedWorkspace === wt.name" class="picker-ws-jobs-inline">
-                  <WorkspaceJobsPane :workspace="wt.name" />
+                  <WorkspaceJobsPane :workspace="wt.name" :edit-mode="isEditMode" />
                 </div>
               </template>
             </div>
