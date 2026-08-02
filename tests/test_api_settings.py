@@ -209,6 +209,7 @@ class TestInfoPillSettings:
     DEFAULTS = {
         "workspace": True,
         "branch": True,
+        "history": True,
         "changes": True,
         "pull": True,
         "push": True,

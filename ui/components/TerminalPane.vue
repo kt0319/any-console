@@ -91,6 +91,18 @@
                 <span class="pill-branch-text pill-label-hover" :class="{ peeking: peekingKey === 'branch' }"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
               </button>
               <button
+                v-if="isGitRepo && infoPillConfig.history"
+                type="button"
+                class="pill-devserver-btn"
+                aria-label="History"
+                data-tooltip="History"
+                @pointerdown.stop
+                @click.stop="openHistory"
+              >
+                <span class="mdi mdi-history"></span>
+                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'history' }">History</span>
+              </button>
+              <button
                 v-if="devServerEntry && infoPillConfig.devserver"
                 type="button"
                 class="pill-devserver-btn"
@@ -344,6 +356,12 @@ function openBranch() {
   emit("git:openFileModal", { pane: "branch" });
 }
 
+function openHistory() {
+  if (!props.tab.workspace) return;
+  workspaceStore.selectedWorkspace = props.tab.workspace;
+  emit("git:openFileModal", { pane: "history" });
+}
+
 const agentState = computed(() => terminalStore.agentStates[props.tab.sessionId] || "");
 const { ensureTerminalOpened, fitTerminal, sendResize, observeFrameResize, connectTerminalWs } = useTerminal();
 
@@ -415,6 +433,7 @@ const trailingPeekItems = computed(() => {
     // 変わるため、そのまま text にすると回転しただけで「ブランチが変わった」
     // と誤検知して peek が発火してしまう。表示形式に依存しない生のブランチ名を使う。
     items.push({ key: "branch", text: paneWorkspace.value?.branch || "" });
+    items.push({ key: "history", text: "History" });
   }
   if (isGitRepo.value && isDirty.value) {
     items.push({ key: "changes", text: `${changedFiles.value}F +${insertions.value} -${deletions.value}` });
@@ -1009,6 +1028,11 @@ defineExpose({
    （script側 watch(peekingKey, ...) 参照）ため、ラベル自身のこの
    transitionだけがそのボタンの中でローカルに再生され、隣接ボタンは
    動かない。 */
+/* max-width/margin-left はレイアウト確保用（ここは瞬時に切り替え、
+   .pill-trailing 側の他ボタンを巻き込んだ横スライドを起こさない）。
+   実際に見える伸縮アニメーションは clip-path のみで行い、右端を
+   起点に左へ伸びる／右へ縮む見た目にする（文字を歪ませる
+   scaleXではなく、あくまで見える範囲を変えるクリッピングにする）。 */
 .pill-label-hover {
   display: inline-block;
   max-width: 0;
@@ -1016,13 +1040,15 @@ defineExpose({
   opacity: 0;
   overflow: hidden;
   white-space: nowrap;
-  transition: max-width 0.2s ease, opacity 0.15s ease, margin-left 0.2s ease;
+  clip-path: inset(0 0 0 100%);
+  transition: clip-path 0.2s ease, opacity 0.15s ease;
 }
 
 .pill-label-hover.peeking {
   max-width: 160px;
   margin-left: 4px;
   opacity: 1;
+  clip-path: inset(0 0 0 0%);
 }
 
 .numstat-inline {
