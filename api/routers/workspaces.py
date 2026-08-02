@@ -28,6 +28,7 @@ from ..errors import bad_request, conflict
 from ..git_info import git_info_to_status_dict
 from ..git_utils import (
     git_branch,
+    git_default_branch,
     git_github_url,
     git_is_repo,
     git_worktree_list,
@@ -74,6 +75,7 @@ def _workspace_summary(item):
     is_git = git_is_repo(ws_path) if is_dir else False
     branch = git_branch(ws_path) if is_git else None
     github_url = git_github_url(ws_path) if is_git else None
+    default_branch = git_default_branch(ws_path) if is_git else None
     info = {
         "id": ws_id,
         "name": config.get("name") or ws_id,
@@ -87,6 +89,8 @@ def _workspace_summary(item):
     }
     if github_url:
         info["github_url"] = github_url
+    if default_branch:
+        info["default_branch"] = default_branch
     return info
 
 
@@ -108,12 +112,13 @@ def _dynamic_worktree_entries(
     is_git_repo_map が渡された場合、is_git_repo の再判定（サブプロセス起動）をスキップして再利用する。
     ワークスペースごとの git worktree list 呼び出しは並列実行する。
 
-    include_github_url は /workspaces（都度取得、頻度低）でのみ true にする。
-    /workspaces/statuses は各パスに対して git_info()（github_url も含めて
-    解決済み）を別途呼ぶため、ここでも呼ぶと同じworktreeに対しgit remote
-    相当の呼び出しが二重になる。数秒間隔でポーリングされる高頻度パスで
-    サブプロセスを増やすと実機Raspberry Pi の共有スレッドプール枯渇
-    （docs/DECISIONS.md ADR #18/#19）を再発させかねないため、常には呼ばない。
+    include_github_url は /workspaces（都度取得、頻度低）でのみ true にする
+    （github_url・default_branchの解決を含む）。/workspaces/statuses は各
+    パスに対して git_info()（github_url も含めて解決済み）を別途呼ぶため、
+    ここでも呼ぶと同じworktreeに対しgit remote相当の呼び出しが二重になる。
+    数秒間隔でポーリングされる高頻度パスでサブプロセスを増やすと実機
+    Raspberry Pi の共有スレッドプール枯渇（docs/DECISIONS.md ADR #18/#19）
+    を再発させかねないため、常には呼ばない。
     """
     existing_paths = _registered_workspace_paths()
 
@@ -150,9 +155,12 @@ def _dynamic_worktree_entries(
             }
             if include_github_url:
                 # worktreeはmainリポジトリとgitディレクトリ（remote設定含む）を
-                # 共有するため、worktree自身のパスからでも github_url を解決できる。
+                # 共有するため、worktree自身のパスからでも github_url /
+                # default_branch を解決できる。
                 if github_url := git_github_url(wt_path):
                     entry["github_url"] = github_url
+                if default_branch := git_default_branch(wt_path):
+                    entry["default_branch"] = default_branch
             entries.append(entry)
         return entries
 

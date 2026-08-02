@@ -70,6 +70,7 @@
                 v-else-if="key === 'branch' && isGitRepo && infoPillConfig.branch"
                 type="button"
                 class="pill-branch-btn"
+                :class="{ 'branch-non-default': isNonDefaultBranch }"
                 :aria-label="branchTooltip"
                 :data-tooltip="branchTooltip"
                 @pointerdown.stop
@@ -458,6 +459,13 @@ const branchTooltip = computed(() => {
   if (!hasUpstream.value) parts.push("no upstream");
   return parts.length ? `Branches: ${name} (${parts.join(", ")})` : `Branches: ${name}`;
 });
+// defaultブランチ以外にいることを示す（defaultブランチが分からない場合は
+// 判定しない＝誤って強調表示しない）。
+const isNonDefaultBranch = computed(() => {
+  const defaultBranch = paneWorkspace.value?.default_branch;
+  const branch = paneWorkspace.value?.branch;
+  return !!defaultBranch && !!branch && branch !== defaultBranch;
+});
 const filesTooltip = computed(() =>
   isGitRepo.value ? "Browse files" : "Browse files in this terminal's directory",
 );
@@ -610,32 +618,15 @@ watch(trailingPeekItems, (items) => {
   if (workspaceEverResolved && !justResolved) {
     const changed = findChangedTrailingItem(items, prevTrailingSignature);
     if (changed) {
-      // Changes/Dev Server等、値の変化と同時にボタン自体がv-ifで新規マウント
-      // されるケースでは、同じ描画で peeking クラスまで付いてしまい、CSS
-      // transition の対象になる「既存要素でのクラス変更」にならず無音化する
-      // （新規挿入された要素の初期スタイルはtransitionされないため）。
-      // マウント直後の1フレームを描画させてからpeekingKeyを立てることで、
-      // 必ず既存要素へのクラス変更として扱われるようにする（nextTickだけだと
-      // ブラウザが実際に1フレーム描画する前にまとめて処理してしまうことがある
-      // ため、他の抑制ロジックと同じ二重rAFで確実に1フレーム分待つ）。
-      // 非表示タブではrAFが止まる一方でsetTimeoutは予定通り発火し得るため、
-      // 隠すタイマーをpeekingKey設定と並行に張ると、タブが裏にある間に
-      // タイマーだけ先に発火→復帰後にrAFが遅れて発火してpeekingKeyを
-      // セットし直し、そのまま消えなくなる不具合があった。実際に
-      // peekingKeyをセットした後でタイマーを張ることで、この順序を保証する。
+      // アニメーション無しで即座に切り替える（旧: 新規マウント要素でCSS
+      // transitionが無音化する問題を避けるための二重rAF遅延があったが、
+      // transition自体を廃止したため不要になった）。
       if (pillMorePeekTimer) clearTimeout(pillMorePeekTimer);
-      pillMorePeekTimer = null;
-      nextTick(() => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            peekingKey.value = changed.key;
-            pillMorePeekTimer = setTimeout(() => {
-              peekingKey.value = null;
-              pillMorePeekTimer = null;
-            }, PILL_MORE_PEEK_DURATION_MS);
-          });
-        });
-      });
+      peekingKey.value = changed.key;
+      pillMorePeekTimer = setTimeout(() => {
+        peekingKey.value = null;
+        pillMorePeekTimer = null;
+      }, PILL_MORE_PEEK_DURATION_MS);
     }
   }
   prevTrailingSignature = nextSignature;
@@ -1097,8 +1088,11 @@ defineExpose({
 
 /* PR・Dev Serverピルはボタン自体が「対応するPR/検出済みDev Serverが
    ある時」だけ存在する（v-if）ため、Changes（.pill-numstat-btn）と同じく
-   アイコンを常時アクセント色にする。 */
-.pill-pr-btn .mdi,
+   アイコンを常時アクティブ色にする（PRはGitHubのPRらしい紫）。 */
+.pill-pr-btn .mdi {
+  color: var(--purple);
+}
+
 .pill-server-btn .mdi {
   color: var(--accent);
 }
@@ -1136,11 +1130,11 @@ defineExpose({
 /* アイコン単体表示時、button の font-size（数字用の12px）のままだと他の
    アイコンボタン（14px）より小さく見え、周りの余白だけ目立ってしまうため、
    アイコンだけ他ボタンと揃えた大きさにする。このボタンはisDirty時にしか
-   存在しない（=常に「変更あり」状態）ため、WorkspaceDetailのタブと同じく
-   アイコンをアクティブ色にする。 */
+   存在しない（=常に「変更あり」状態）ため、アイコンをアクティブ色にする
+   （未コミットの変更であることを強調するため黄色）。 */
 .pill-numstat-btn .mdi {
   font-size: 14px;
-  color: var(--accent);
+  color: var(--warning);
 }
 
 .numstat-files {
@@ -1171,6 +1165,11 @@ defineExpose({
   flex-shrink: 0;
   font-size: 14px;
   color: var(--text-muted);
+}
+
+/* defaultブランチ以外にいる時はアイコンをアクティブ色にして気付きやすくする。 */
+.pill-branch-btn.branch-non-default .mdi {
+  color: var(--accent);
 }
 
 .pill-branch-text {
@@ -1214,18 +1213,10 @@ defineExpose({
 }
 
 /* 通常時はアイコンのみ・ラベルは幅0に畳んでおく。ラベルは値が変化した
-   時だけ数秒間 peek 表示する（下記 .peeking）。ホバーでは展開しない
-   （ホバーのたびに幅が動いて隣接ボタンの位置がガタつくため）。PCでの
-   説明は各ボタンの data-tooltip に任せる。peek表示中は .pill-trailing
-   側のwidth transitionを止めて他ボタンを巻き込まないようにしている
-   （script側 watch(peekingKey, ...) 参照）ため、ラベル自身のこの
-   transitionだけがそのボタンの中でローカルに再生され、隣接ボタンは
-   動かない。 */
-/* max-width/margin-left はレイアウト確保用（ここは瞬時に切り替え、
-   .pill-trailing 側の他ボタンを巻き込んだ横スライドを起こさない）。
-   実際に見える伸縮アニメーションは clip-path のみで行い、右端を
-   起点に左へ伸びる／右へ縮む見た目にする（文字を歪ませる
-   scaleXではなく、あくまで見える範囲を変えるクリッピングにする）。 */
+   時だけ数秒間 peek 表示する（下記 .peeking）。アニメーションは行わず、
+   表示/非表示は瞬時に切り替える。ホバーでは展開しない（ホバーのたびに
+   幅が動いて隣接ボタンの位置がガタつくため）。PCでの説明は各ボタンの
+   data-tooltip に任せる。 */
 .pill-label-hover {
   display: inline-block;
   max-width: 0;
@@ -1233,15 +1224,12 @@ defineExpose({
   opacity: 0;
   overflow: hidden;
   white-space: nowrap;
-  clip-path: inset(0 0 0 100%);
-  transition: clip-path 0.2s ease, opacity 0.15s ease;
 }
 
 .pill-label-hover.peeking {
   max-width: 160px;
   margin-left: 4px;
   opacity: 1;
-  clip-path: inset(0 0 0 0%);
 }
 
 .numstat-inline {
