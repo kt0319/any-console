@@ -551,6 +551,22 @@ watch(isActive, (active) => {
   });
 });
 
+// peek表示（値が変化した時の一時ラベル表示）で1つのボタンの幅が広がると、
+// .pill-trailing の `transition: width` が同じ行の他の全ボタン（例:
+// Branches）まで一緒にスライドさせてしまい、無関係なピルまで動いたように
+// 見える。peekingKey が変化した瞬間だけこの transition を止める（ボタン
+// 自体の出現/消失アニメーションは peekingKey を伴わないため影響しない）。
+watch(peekingKey, () => {
+  suppressTrailingWidthTransition.value = true;
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        suppressTrailingWidthTransition.value = false;
+      });
+    });
+  });
+});
+
 const { isOffline } = useConnectivityMonitor();
 const isReconnecting = computed(() =>
   !isOffline.value && !!terminalStore.tabFlags[props.tab.id]?.reconnecting,
