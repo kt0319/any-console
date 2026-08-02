@@ -63,57 +63,58 @@
                   <span class="diff-num-del">-{{ deletions }}</span>
                 </span>
               </button>
-              <button
-                v-if="isGitRepo && infoPillConfig.branch"
-                type="button"
-                class="pill-branch-btn"
-                :aria-label="branchTooltip"
-                :data-tooltip="branchTooltip"
-                @pointerdown.stop
-                @click.stop="openBranch"
-              >
-                <span class="mdi mdi-source-branch"></span>
-                <span class="pill-branch-text pill-label-hover" :class="{ peeking: peekingKey === 'branch' }"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
-              </button>
-              <GitActionBtn
-                v-if="isGitRepo && behind > 0 && infoPillConfig.pull_push"
-                icon="pull"
-                title="Pull"
-                :count="behind"
-                :running="isRunning(tab.workspace, 'pull')"
-                btn-class="pull-btn has-count"
-                @pointerdown.stop
-                @action="doAction('pull')"
-              />
-              <GitActionBtn
-                v-if="isGitRepo && !hasUpstream && hasRemoteBranch && infoPillConfig.pull_push"
-                icon="set-upstream"
-                title="Set Upstream"
-                :running="isRunning(tab.workspace, 'set-upstream')"
-                btn-class="icon-only upstream-set-btn"
-                @pointerdown.stop
-                @action="doAction('set-upstream')"
-              />
-              <GitActionBtn
-                v-if="isGitRepo && !hasUpstream && !hasRemoteBranch && infoPillConfig.pull_push"
-                icon="push-upstream"
-                title="Push & Set Upstream"
-                :count="ahead"
-                :running="isRunning(tab.workspace, 'push-upstream')"
-                btn-class="upstream-btn"
-                @pointerdown.stop
-                @action="doAction('push-upstream')"
-              />
-              <GitActionBtn
-                v-if="isGitRepo && hasUpstream && ahead > 0 && infoPillConfig.pull_push"
-                icon="push"
-                title="Push"
-                :count="ahead"
-                :running="isRunning(tab.workspace, 'push')"
-                btn-class="push-btn has-count"
-                @pointerdown.stop
-                @action="doAction('push')"
-              />
+              <div v-if="isGitRepo && infoPillConfig.branch" class="pill-branch-group">
+                <button
+                  type="button"
+                  class="pill-branch-btn"
+                  :aria-label="branchTooltip"
+                  :data-tooltip="branchTooltip"
+                  @pointerdown.stop
+                  @click.stop="openBranch"
+                >
+                  <span class="mdi mdi-source-branch"></span>
+                  <span class="pill-branch-text pill-label-hover" :class="{ peeking: peekingKey === 'branch' }"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
+                </button>
+                <GitActionBtn
+                  v-if="behind > 0 && infoPillConfig.pull_push"
+                  icon="pull"
+                  title="Pull"
+                  :count="behind"
+                  :running="isRunning(tab.workspace, 'pull')"
+                  btn-class="pull-btn has-count"
+                  @pointerdown.stop
+                  @action="doAction('pull')"
+                />
+                <GitActionBtn
+                  v-if="!hasUpstream && hasRemoteBranch && infoPillConfig.pull_push"
+                  icon="set-upstream"
+                  title="Set Upstream"
+                  :running="isRunning(tab.workspace, 'set-upstream')"
+                  btn-class="icon-only upstream-set-btn"
+                  @pointerdown.stop
+                  @action="doAction('set-upstream')"
+                />
+                <GitActionBtn
+                  v-if="!hasUpstream && !hasRemoteBranch && infoPillConfig.pull_push"
+                  icon="push-upstream"
+                  title="Push & Set Upstream"
+                  :count="ahead"
+                  :running="isRunning(tab.workspace, 'push-upstream')"
+                  btn-class="upstream-btn"
+                  @pointerdown.stop
+                  @action="doAction('push-upstream')"
+                />
+                <GitActionBtn
+                  v-if="hasUpstream && ahead > 0 && infoPillConfig.pull_push"
+                  icon="push"
+                  title="Push"
+                  :count="ahead"
+                  :running="isRunning(tab.workspace, 'push')"
+                  btn-class="push-btn has-count"
+                  @pointerdown.stop
+                  @action="doAction('push')"
+                />
+              </div>
               <button
                 v-if="branchPR && infoPillConfig.prs"
                 type="button"
@@ -1153,6 +1154,32 @@ defineExpose({
 
 .numstat-files {
   color: var(--warning);
+}
+
+/* BranchピルとPull/Push（GitActionBtn）を1本の連結したピルに見せる。
+   個々のボタン自体の背景色・境界線・角丸999pxはそのまま流用し、ここでは
+   「両端だけ丸め、内側の境界線を1pxずつ重ねて二重線にしない」処理だけ行う。
+   GitActionBtnはコンポーネントだが、ルート要素は親のscoped属性を継承する
+   ため :deep() 無しでも直接の子として選択できる。 */
+.pill-branch-group {
+  display: inline-flex;
+  align-items: center;
+}
+
+.pill-branch-group > * {
+  border-radius: 0;
+  margin-left: -1px;
+}
+
+.pill-branch-group > *:first-child {
+  border-top-left-radius: 999px;
+  border-bottom-left-radius: 999px;
+  margin-left: 0;
+}
+
+.pill-branch-group > *:last-child {
+  border-top-right-radius: 999px;
+  border-bottom-right-radius: 999px;
 }
 
 .pill-branch-btn {
