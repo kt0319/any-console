@@ -337,16 +337,11 @@ const branchAction = computed(() => {
   return list.find((run) => run.headBranch === paneWorkspace.value.branch) || null;
 });
 
-// successになったことをpeekで一度知らせたら、そのrunについてはピル自体を
-// 非表示にする（古い成功runをいつまでも出し続けない）。次に別のrun（別id）
-// が始まればまた表示される。
-const dismissedActionRunId = ref(null);
+// successになったrunはピル自体を表示しない（失敗中・実行中のrunだけ知らせる）。
 const visibleBranchAction = computed(() => {
   const run = branchAction.value;
   if (!run) return null;
-  if (run.status === "completed" && run.conclusion === "success" && dismissedActionRunId.value === run.id) {
-    return null;
-  }
+  if (run.status === "completed" && run.conclusion === "success") return null;
   return run;
 });
 
@@ -517,12 +512,12 @@ const actionsTooltip = computed(() => {
   return `GitHub Actions: ${run.name} (${run.conclusion || run.status})`;
 });
 
-// 実行状況で色を変える（成功=アクセント、失敗=エラー色、進行中=警告色）。
+// 実行状況で色を変える（成功runはvisibleBranchActionで既に非表示のため、
+// ここに来るのは失敗=エラー色・進行中=警告色のみ）。
 const actionStatusClass = computed(() => {
   const run = branchAction.value;
   if (!run) return "";
   if (run.status !== "completed") return "action-status-running";
-  if (run.conclusion === "success") return "action-status-success";
   if (run.conclusion === "failure") return "action-status-failure";
   return "";
 });
@@ -569,8 +564,8 @@ const trailingPeekItems = computed(() => {
   if (branchPR.value) {
     items.push({ key: "prs", text: `${branchPR.value.number}:${branchPR.value.title}` });
   }
-  if (branchAction.value) {
-    items.push({ key: "actions", text: `${branchAction.value.id}:${branchAction.value.status}:${branchAction.value.conclusion}` });
+  if (visibleBranchAction.value) {
+    items.push({ key: "actions", text: `${visibleBranchAction.value.id}:${visibleBranchAction.value.status}:${visibleBranchAction.value.conclusion}` });
   }
   if (devServerEntry.value) {
     items.push({ key: "devserver", text: "Server" });
@@ -654,14 +649,6 @@ watch(trailingPeekItems, (items) => {
         peekingKey.value = null;
         pillMorePeekTimer = null;
       }, PILL_MORE_PEEK_DURATION_MS);
-      // Actionsがsuccessで完了したことをpeekで一度知らせたら、そのrunは
-      // ピルごと非表示にする（同じrunをいつまでも出し続けない）。
-      if (changed.key === "actions" && branchAction.value?.status === "completed" && branchAction.value?.conclusion === "success") {
-        const succeededRunId = branchAction.value.id;
-        setTimeout(() => {
-          dismissedActionRunId.value = succeededRunId;
-        }, PILL_MORE_PEEK_DURATION_MS);
-      }
     }
   }
   prevTrailingSignature = nextSignature;
@@ -1135,11 +1122,8 @@ defineExpose({
   white-space: nowrap;
 }
 
-/* GitHub Actionsピルの実行状況を色で示す（アイコンだけ、地色は他と揃える）。 */
-.pill-devserver-btn.action-status-success .mdi {
-  color: var(--success);
-}
-
+/* GitHub Actionsピルの実行状況を色で示す（アイコンだけ、地色は他と揃える）。
+   成功runはvisibleBranchActionで非表示になるため、ここは失敗・進行中のみ。 */
 .pill-devserver-btn.action-status-failure .mdi {
   color: var(--error);
 }
