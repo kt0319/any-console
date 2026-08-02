@@ -82,7 +82,7 @@
               <button
                 v-else-if="key === 'prs' && branchPR && infoPillConfig.prs"
                 type="button"
-                class="pill-devserver-btn"
+                class="pill-devserver-btn pill-pr-btn"
                 :aria-label="prsTooltip"
                 :data-tooltip="prsTooltip"
                 @pointerdown.stop
@@ -107,7 +107,7 @@
               <button
                 v-else-if="key === 'devserver' && devServerEntry && infoPillConfig.devserver"
                 type="button"
-                class="pill-devserver-btn"
+                class="pill-devserver-btn pill-server-btn"
                 :aria-label="devServerTooltip"
                 :data-tooltip="devServerTooltip"
                 @pointerdown.stop
@@ -1088,6 +1088,14 @@ defineExpose({
    var(--text-muted)）より明るく見えて浮くため、アイコンだけ揃える。 */
 .pill-devserver-btn .mdi {
   color: var(--text-muted);
+}
+
+/* PR・Dev Serverピルはボタン自体が「対応するPR/検出済みDev Serverが
+   ある時」だけ存在する（v-if）ため、Changes（.pill-numstat-btn）と同じく
+   アイコンを常時アクセント色にする。 */
+.pill-pr-btn .mdi,
+.pill-server-btn .mdi {
+  color: var(--accent);
 }
 
 .pill-devserver-text {
