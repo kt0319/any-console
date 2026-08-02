@@ -161,7 +161,12 @@ export async function openSettingsView(page, label) {
  */
 export async function openAddWorkspace(page) {
   await openSettingsView(page, "Workspaces");
-  await page.locator('[data-tooltip="Add workspace"]').click();
+  // Add workspaceボタンはEditモード中のみ表示される
+  const addBtn = page.locator('[data-tooltip="Add workspace"]');
+  if (!(await addBtn.isVisible())) {
+    await page.locator('[data-tooltip="Edit workspaces"]').click();
+  }
+  await addBtn.click();
 }
 
 /**

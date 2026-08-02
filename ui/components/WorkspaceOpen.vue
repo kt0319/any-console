@@ -18,7 +18,7 @@
         <button type="button" class="ws-toolbar-btn" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
           <span class="mdi mdi-folder-plus-outline"></span>
         </button>
-        <button type="button" class="ws-toolbar-btn" aria-label="Add workspace" data-tooltip="Add workspace" @click="pushView('WorkspaceAdd')">
+        <button v-if="isEditMode" type="button" class="ws-toolbar-btn" aria-label="Add workspace" data-tooltip="Add workspace" @click="pushView('WorkspaceAdd')">
           <span class="mdi mdi-plus"></span>
         </button>
         <button
@@ -485,8 +485,6 @@ onBeforeUnmount(() => {
 
 .picker-ws-jobs-inline {
   margin: 0 12px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
   overflow: hidden;
 }
 
