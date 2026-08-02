@@ -17,31 +17,6 @@
         ref="pillEl"
       >
         <div
-          class="terminal-info-pill"
-          ref="infoPillEl"
-          :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working', dragging: pillDragging }"
-          :data-tooltip="pillTooltip"
-          :aria-label="pillTooltip"
-          role="button"
-          tabindex="0"
-          @mousedown="onPillMouseDown"
-          @click="onPillClick"
-          @keydown="onPillKeydown"
-          @touchstart.passive="onPillTouchStart"
-        >
-          <span class="terminal-info-pill-info">
-            <span v-if="tab.wsIcon" class="pill-icon-badge-wrap">
-              <span v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 14)"></span>
-              <span v-if="isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
-            </span>
-            <span v-if="tab.icon" class="pill-icon-slot pill-icon-badge-wrap">
-              <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 14)"></span>
-              <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
-            </span>
-            <span v-if="peekingKey === 'workspace'" class="pill-workspace-label">{{ tab.workspace || tab.label || '' }}</span>
-          </span>
-        </div>
-        <div
           class="pill-trailing"
           ref="trailingEl"
           :class="{ 'no-transition': suppressTrailingWidthTransition }"
@@ -153,13 +128,41 @@
               </button>
             </div>
           </div>
-          <!-- 閉じるボタンは .pill-trailing（overflow-x:auto でクリップされ得る幅
-               アニメーション用コンテナ）の外、.pill-group の直接の flex子として
-               常時表示する。こうするとアニメーション中や多ボタン時の横スクロール
-               領域とは無関係になり、クリップされて欠けることが無い。
+          <!-- ワークスペースピル本体・閉じるボタンは .pill-trailing（overflow-x:
+               auto でクリップされ得る幅アニメーション用コンテナ）の外、
+               .pill-group の直接の flex子として常時表示する。こうすると
+               アニメーション中や多ボタン時の横スクロール領域とは無関係になり、
+               クリップされて欠けることが無い。並び順は「展開ボタン群→
+               ワークスペースピル→閉じるボタン」で固定し、ワークスペースピルは
+               常に右端（閉じるボタンの左隣）に来る。
                .pill-group 自体は right が固定値（JS計算なし）の flex コンテナ
                なので、常にブラウザ標準のflexレイアウトで画面内に正しく収まる
                （オフセット計算のズレで見切れる/崩れることが無い）。 -->
+          <div
+            class="terminal-info-pill"
+            ref="infoPillEl"
+            :class="{ 'tab-activity': tab._activity, 'pill-working': agentState === 'working', dragging: pillDragging }"
+            :data-tooltip="pillTooltip"
+            :aria-label="pillTooltip"
+            role="button"
+            tabindex="0"
+            @mousedown="onPillMouseDown"
+            @click="onPillClick"
+            @keydown="onPillKeydown"
+            @touchstart.passive="onPillTouchStart"
+          >
+            <span class="terminal-info-pill-info">
+              <span v-if="tab.wsIcon" class="pill-icon-badge-wrap">
+                <span v-html="renderIconStr(tab.wsIcon.name, tab.wsIcon.color, 16)"></span>
+                <span v-if="isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
+              </span>
+              <span v-if="tab.icon" class="pill-icon-slot pill-icon-badge-wrap">
+                <span v-html="renderIconStr(tab.icon.name, tab.icon.color, 16)"></span>
+                <span v-if="!tab.wsIcon && isDirty" class="pill-dirty-badge" aria-label="uncommitted changes"></span>
+              </span>
+              <span v-if="peekingKey === 'workspace'" class="pill-workspace-label">{{ tab.workspace || tab.label || '' }}</span>
+            </span>
+          </div>
           <button
             v-if="layoutStore.isSplitMode"
             type="button"
@@ -169,7 +172,7 @@
             @pointerdown.stop="onSplitCloseDown"
             @pointerup.stop="onSplitCloseUp"
             @click.stop
-          >&minus;</button>
+          ><span class="mdi mdi-minus"></span></button>
           <button
             v-if="!layoutStore.isSplitMode"
             type="button"
@@ -179,7 +182,7 @@
             @pointerdown.stop="onTabCloseDown"
             @pointerup.stop="onTabCloseUp"
             @click.stop
-          >&times;</button>
+          ><span class="mdi mdi-close"></span></button>
       </div>
     </div>
   </div>
@@ -843,14 +846,14 @@ defineExpose({
 .terminal-info-pill {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  padding: 4px 10px;
+  min-height: 32px;
+  padding: 5px 12px;
   border: 1px solid rgba(59, 66, 97, 0.5);
   border-radius: 999px;
   background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
   opacity: 1;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.2;
   user-select: none;
   -webkit-user-select: none;
@@ -875,16 +878,16 @@ defineExpose({
    フォントに統一し、push/pull は numstat-files や diff-num-plus と同じ
    パターン（ニュートラルな地に数字だけ意味色）にする。 */
 .pill-trailing :deep(.git-action-btn) {
-  min-height: 28px;
-  height: 28px;
-  max-height: 28px;
-  min-width: 28px;
-  padding: 0 8px;
+  min-height: 32px;
+  height: 32px;
+  max-height: 32px;
+  min-width: 32px;
+  padding: 0 10px;
   gap: 4px;
   border-radius: 999px;
   background: rgba(26, 27, 38, 0.88);
   border: 1px solid rgba(59, 66, 97, 0.5);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -898,19 +901,19 @@ defineExpose({
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-height: 28px;
+  min-height: 32px;
   flex-shrink: 0;
-  padding: 0 8px;
+  padding: 0 10px;
   border: 1px solid rgba(59, 66, 97, 0.5);
   border-radius: 999px;
   background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
 }
 
 .pill-devserver-text {
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -918,16 +921,23 @@ defineExpose({
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-height: 28px;
-  padding: 0 8px;
+  min-height: 32px;
+  padding: 0 10px;
   flex-shrink: 0;
   border: 1px solid rgba(59, 66, 97, 0.5);
   border-radius: 999px;
   background: rgba(26, 27, 38, 0.88);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+}
+
+/* アイコン単体表示時、button の font-size（数字用の12px）のままだと他の
+   アイコンボタン（14px）より小さく見え、周りの余白だけ目立ってしまうため、
+   アイコンだけ他ボタンと揃えた大きさにする。 */
+.pill-numstat-btn .mdi {
+  font-size: 14px;
 }
 
 .numstat-files {
@@ -938,8 +948,8 @@ defineExpose({
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-height: 28px;
-  padding: 0 8px;
+  min-height: 32px;
+  padding: 0 10px;
   flex-shrink: 1;
   min-width: 0;
   max-width: 140px;
@@ -947,13 +957,13 @@ defineExpose({
   border-radius: 999px;
   background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 12px;
   cursor: pointer;
 }
 
 .pill-branch-btn .mdi {
   flex-shrink: 0;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-muted);
 }
 
@@ -977,12 +987,12 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 28px;
-  width: 28px;
+  min-height: 32px;
+  width: 32px;
   flex-shrink: 0;
   padding: 0;
   border-radius: 999px;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1;
   cursor: pointer;
 }
