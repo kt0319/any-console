@@ -118,13 +118,13 @@
                 v-if="!isGitRepo && tab.sessionId"
                 type="button"
                 class="pill-devserver-btn"
-                :aria-label="registerActionLabel"
-                :data-tooltip="registerActionLabel"
+                aria-label="Add or open this directory as a workspace"
+                data-tooltip="Add or open this directory as a workspace"
                 @pointerdown.stop
                 @click.stop="registerCurrentDir"
               >
-                <span class="mdi" :class="registerAction.type === 'launch' ? 'mdi-folder-open-outline' : 'mdi-folder-plus-outline'"></span>
-                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'add' }">{{ registerAction.type === 'launch' ? 'Open' : 'Add' }}</span>
+                <span class="mdi mdi-folder-plus-outline"></span>
+                <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'add' }">Add</span>
               </button>
             </div>
           </div>
@@ -196,7 +196,7 @@ import { useLayoutStore } from "../stores/layout.js";
 import { useWorkspaceStore } from "../stores/workspace.js";
 import { renderIconStr } from "../utils/render-icon.js";
 import { emit } from "../app-bridge.js";
-import { ACTIVE_FIT_DELAY_MS, PILL_MORE_PEEK_DURATION_MS, DEV_SERVER_POLL_INTERVAL_MS } from "../utils/constants.js";
+import { ACTIVE_FIT_DELAY_MS, PILL_MORE_PEEK_DURATION_MS } from "../utils/constants.js";
 import { usePillDrag } from "../composables/usePillDrag.js";
 import { useConnectivityMonitor } from "../composables/useConnectivityMonitor.js";
 import { useTerminalPaste } from "../composables/useTerminalPaste.js";
@@ -322,39 +322,9 @@ async function registerCurrentDir() {
   }
 }
 
-// 「Add」ボタンは cwd がすでに登録済みワークスペースと一致する場合、実際には
-// ワークスペース追加ではなくそのワークスペースの起動（launch）を行う。ラベルが
-// 古いままだと紛らわしい（意図せず別ターミナルを起動してしまう／逆にAddしたい
-// のにOpenが起動する）ため、ボタンは常時表示（アイコンのみ）だが、ターミナルで
-// cd されて cwd が変わった場合もラベルを追随させる必要がある。cd 自体を検知する
-// 手段が無いため、このペインがアクティブな間だけ低頻度でポーリングする
-// （非アクティブなタブでの無駄なcwd取得は避ける）。
-const cwdForLabel = ref("");
-const registerAction = computed(() => resolveRegisterCurrentDirAction(cwdForLabel.value, workspaceStore.allWorkspaces));
-const registerActionLabel = computed(() =>
-  registerAction.value.type === "launch"
-    ? `Open "${registerAction.value.workspace}" workspace`
-    : "Add this directory as a workspace",
-);
-
-async function refreshCwdForLabel() {
-  if (isGitRepo.value || !props.tab.sessionId) return;
-  cwdForLabel.value = await fetchCwd();
-}
-
-let cwdForLabelTimer = null;
-
-function syncCwdForLabelPolling() {
-  const shouldPoll = isActive.value && !isGitRepo.value && !!props.tab.sessionId;
-  if (shouldPoll && !cwdForLabelTimer) {
-    refreshCwdForLabel();
-    cwdForLabelTimer = setInterval(refreshCwdForLabel, DEV_SERVER_POLL_INTERVAL_MS);
-  } else if (!shouldPoll && cwdForLabelTimer) {
-    clearInterval(cwdForLabelTimer);
-    cwdForLabelTimer = null;
-  }
-}
-
+// 「Add」ボタンのラベル・アイコンは固定表示にする。実際にAdd/Openの
+// どちらとして動くかはクリック時にregisterCurrentDirがcwdを取得して
+// その場で判定する。
 function openBranch() {
   if (!props.tab.workspace) return;
   workspaceStore.selectedWorkspace = props.tab.workspace;
@@ -709,7 +679,6 @@ onMounted(() => {
     infoPillEl.value.addEventListener("touchmove", onPillTouchMove, { passive: false });
     infoPillEl.value.addEventListener("touchend", onPillTouchEnd, { passive: false });
   }
-  syncCwdForLabelPolling();
   if (frameEl.value) {
     frameEl.value.addEventListener("wheel", onWheel, { passive: false, capture: true });
   }
@@ -724,12 +693,7 @@ watch(() => terminalStore.tabWorkspaceVersion, () => {
   if (previewPollingStarted) fetchPreviewPorts();
 });
 
-// isGitRepo が変わった場合（非Gitワークスペースへの切替等）もポーリング要否が
-// 変わるため、あわせて追随させる。
-watch(isGitRepo, () => syncCwdForLabelPolling());
-
 watch(isActive, async (active) => {
-  syncCwdForLabelPolling();
   if (!active) return;
   // 非アクティブ復元タブで遅延していた term.open() をここで実行（表示状態で正しく寸法計測される）
   if (props.tab._pendingOpen && frameEl.value) {
@@ -753,7 +717,6 @@ watch(isActive, async (active) => {
 
 onBeforeUnmount(() => {
   clearActiveFitTimer();
-  if (cwdForLabelTimer) { clearInterval(cwdForLabelTimer); cwdForLabelTimer = null; }
   if (previewPollingStarted) stopPreviewPolling();
   if (pillMorePeekTimer) { clearTimeout(pillMorePeekTimer); pillMorePeekTimer = null; }
   roPane?.disconnect();
