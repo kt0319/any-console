@@ -1084,7 +1084,9 @@ defineExpose({
 
 @media (hover: hover) and (pointer: fine) {
   .terminal-info-pill:hover .pill-workspace-label.pill-label-hover {
+    max-width: 160px;
     margin-left: 0;
+    opacity: 1;
   }
 }
 
