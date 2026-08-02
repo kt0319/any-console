@@ -21,7 +21,6 @@
       <div v-show="activePane === 'history'" class="file-modal-pane">
         <GitHistory
           ref="gitHistory"
-          @commit:expanded="onCommitExpanded"
           @commit:collapsed="onCommitCollapsed"
         />
       </div>
@@ -120,7 +119,6 @@ const selectedDiffIsWorkingTree = ref(false);
 const selectedDiffCommitHash = ref("");
 
 const fileBrowserDeep = ref(false);
-const historyExpanded = ref(false);
 const terminalSessionId = computed(() => viewState.value?.detail?.terminalSessionId || "");
 const fileBrowserRootLabel = computed(() => viewState.value?.detail?.rootLabel || "");
 
@@ -147,7 +145,7 @@ const tabs = computed(() => {
       iconColor: filesBrowsing.value ? "var(--accent)" : "",
       label: "Files",
     },
-    { key: "history", icon: "mdi-history", label: "History", iconColor: historyExpanded.value ? "var(--accent)" : "", hidden: !isGit },
+    { key: "history", icon: "mdi-history", label: "History", iconColor: "var(--pink)", hidden: !isGit },
     { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0, iconColor: changesCount.value ? "var(--warning)" : "", hidden: !isGit },
     { key: "branch", icon: "mdi-source-branch", label: "Branches", count: branchCount.value || 0, iconColor: isNonDefaultBranch.value ? "var(--success)" : "", hidden: !isGit },
     { key: "stash", icon: "mdi-package-variant", label: "Stashes", count: stashCount.value || 0, hidden: !isGit || !stashCount.value },
@@ -266,12 +264,7 @@ function onStashCount(n) {
   stashCount.value = n;
 }
 
-function onCommitExpanded() {
-  historyExpanded.value = true;
-}
-
 function onCommitCollapsed() {
-  historyExpanded.value = false;
   updateViewTitle();
 }
 

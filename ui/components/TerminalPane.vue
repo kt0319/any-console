@@ -41,7 +41,7 @@
               <button
                 v-else-if="key === 'history' && isGitRepo && infoPillConfig.history"
                 type="button"
-                class="pill-devserver-btn"
+                class="pill-devserver-btn pill-history-btn"
                 aria-label="History"
                 data-tooltip="History"
                 @pointerdown.stop
@@ -1095,6 +1095,10 @@ defineExpose({
 
 .pill-server-btn .mdi {
   color: var(--accent);
+}
+
+.pill-history-btn .mdi {
+  color: var(--pink);
 }
 
 .pill-devserver-text {
