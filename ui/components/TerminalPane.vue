@@ -1032,6 +1032,20 @@ defineExpose({
   gap: 4px;
 }
 
+/* PCでピルをホバーした時、アクティブなワークスペースピルと同じ地色に
+   することで「今触れている対象」がわかるようにする。低不透明度だと
+   端末出力が透けて他ピルより薄く見える問題が既出のため、他ピルと同じ
+   不透明度を保ったまま色味だけアクセントに寄せた配色（アクティブ時の
+   ワークスペースピルと同じ色）を使う。 */
+@media (hover: hover) and (pointer: fine) {
+  .pill-branch-btn:hover,
+  .pill-numstat-btn:hover,
+  .pill-devserver-btn:hover,
+  .terminal-info-pill:hover {
+    background: rgba(38, 56, 82, 0.92);
+  }
+}
+
 .terminal-info-pill.dragging {
   opacity: 0.5;
 }
