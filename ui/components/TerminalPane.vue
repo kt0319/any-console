@@ -24,18 +24,6 @@
         >
           <div class="pill-trailing-inner" ref="trailingInnerEl">
               <button
-                v-if="isGitRepo"
-                type="button"
-                class="pill-branch-btn"
-                aria-label="Branches"
-                data-tooltip="Branches"
-                @pointerdown.stop
-                @click.stop="openBranch"
-              >
-                <span class="mdi mdi-source-branch"></span>
-                <span v-if="peekingKey === 'branch'" class="pill-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
-              </button>
-              <button
                 v-if="isGitRepo && isDirty"
                 type="button"
                 class="pill-numstat-btn"
@@ -90,6 +78,18 @@
                 @pointerdown.stop
                 @action="doAction('push')"
               />
+              <button
+                v-if="isGitRepo"
+                type="button"
+                class="pill-branch-btn"
+                aria-label="Branches"
+                data-tooltip="Branches"
+                @pointerdown.stop
+                @click.stop="openBranch"
+              >
+                <span class="mdi mdi-source-branch"></span>
+                <span v-if="peekingKey === 'branch'" class="pill-branch-text"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
+              </button>
               <button
                 v-if="devServerEntry"
                 type="button"
