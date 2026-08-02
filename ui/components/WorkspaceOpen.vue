@@ -15,16 +15,17 @@
           <span class="mdi mdi-console"></span>
           <span class="ws-toolbar-btn-label">Terminal</span>
         </button>
-        <button v-if="isEditMode" type="button" class="ws-toolbar-btn" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
-          <span class="mdi mdi-folder-plus-outline"></span>
-          <span class="ws-toolbar-btn-label">Add group</span>
-        </button>
-        <button v-if="isEditMode" type="button" class="ws-toolbar-btn" aria-label="Add job" data-tooltip="Add job" @click="openAddJob">
-          <span class="mdi mdi-play-box-outline"></span>
-          <span class="ws-toolbar-btn-label">Add job</span>
-        </button>
         <button v-if="isEditMode" type="button" class="ws-toolbar-btn" aria-label="Add workspace" data-tooltip="Add workspace" @click="pushView('WorkspaceAdd')">
           <span class="mdi mdi-plus"></span>
+          <span class="ws-toolbar-btn-label">WS</span>
+        </button>
+        <button v-if="isEditMode" type="button" class="ws-toolbar-btn" aria-label="Add group" data-tooltip="Add group" @click="groupDialog?.openAdd()">
+          <span class="mdi mdi-plus"></span>
+          <span class="ws-toolbar-btn-label">Group</span>
+        </button>
+        <button v-if="isEditMode" type="button" class="ws-toolbar-btn" aria-label="Add job" data-tooltip="Add job" @click="openAddJob">
+          <span class="mdi mdi-plus"></span>
+          <span class="ws-toolbar-btn-label">Job</span>
         </button>
         <button
           type="button"
