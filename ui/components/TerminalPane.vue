@@ -1040,7 +1040,7 @@ defineExpose({
   align-items: center;
   min-height: 32px;
   padding: 5px 12px;
-  border: 1px solid rgba(59, 66, 97, 0.5);
+  border: 1px solid rgba(59, 66, 97, 0.9);
   border-radius: 999px;
   background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
@@ -1071,7 +1071,7 @@ defineExpose({
   min-height: 32px;
   flex-shrink: 0;
   padding: 0 10px;
-  border: 1px solid rgba(59, 66, 97, 0.5);
+  border: 1px solid rgba(59, 66, 97, 0.9);
   border-radius: 999px;
   background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
@@ -1122,7 +1122,7 @@ defineExpose({
   min-height: 32px;
   padding: 0 10px;
   flex-shrink: 0;
-  border: 1px solid rgba(59, 66, 97, 0.5);
+  border: 1px solid rgba(59, 66, 97, 0.9);
   border-radius: 999px;
   background: rgba(26, 27, 38, 0.88);
   color: var(--text-muted);
@@ -1157,7 +1157,7 @@ defineExpose({
   padding: 0 10px;
   flex-shrink: 1;
   min-width: 0;
-  border: 1px solid rgba(59, 66, 97, 0.5);
+  border: 1px solid rgba(59, 66, 97, 0.9);
   border-radius: 999px;
   background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
