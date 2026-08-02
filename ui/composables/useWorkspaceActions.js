@@ -34,7 +34,13 @@ export function useWorkspaceActions() {
     if (inFlight.has(workspace)) return inFlight.get(workspace);
     const promise = (async () => {
       const { ok, data } = await apiGet(wsEndpoint(workspace, "github/runs"));
-      const items = ok && data?.status === "ok" && Array.isArray(data.data) ? data.data.map(mapRun) : [];
+      if (!ok || data?.status !== "ok" || !Array.isArray(data.data)) {
+        // 取得失敗時は既存キャッシュを空配列で潰さない（表示中のActionsピルが
+        // 一時的な失敗のたびに消えてしまうのを防ぐ）。失敗は失敗として
+        // 呼び出し元に伝え、キャッシュには触れない。
+        return runsByWorkspace.value[workspace] || [];
+      }
+      const items = data.data.map(mapRun);
       runsByWorkspace.value = { ...runsByWorkspace.value, [workspace]: items };
       return items;
     })().finally(() => {

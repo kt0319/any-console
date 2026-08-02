@@ -76,6 +76,7 @@ function setField(field, value) {
 .pill-order-buttons {
   display: flex;
   flex-direction: column;
+  gap: 10px;
   flex: 0 0 auto;
 }
 
@@ -84,7 +85,7 @@ function setField(field, value) {
   align-items: center;
   justify-content: center;
   width: 24px;
-  height: 20px;
+  height: 24px;
   padding: 0;
   border: none;
   background: transparent;
@@ -97,8 +98,10 @@ function setField(field, value) {
   cursor: default;
 }
 
-.pill-order-btn:not(:disabled):hover {
-  color: var(--text-primary);
+@media (hover: hover) and (pointer: fine) {
+  .pill-order-btn:not(:disabled):hover {
+    color: var(--text-primary);
+  }
 }
 
 .pill-position-radios {

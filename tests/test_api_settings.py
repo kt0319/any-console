@@ -274,6 +274,15 @@ class TestInfoPillSettings:
         assert res.status_code == 200
         assert res.json()["order"] == ["branch", "files", "history", "changes", "prs", "actions", "devserver", "add"]
 
+    def test_put_order_dedupes_repeated_keys(self, client):
+        res = client.put(
+            "/settings/info-pills",
+            headers=AUTH,
+            json={**self.DEFAULTS, "order": ["files", "files", "branch"]},
+        )
+        assert res.status_code == 200
+        assert res.json()["order"] == ["files", "branch", "history", "changes", "prs", "actions", "devserver", "add"]
+
     def test_put_and_get_position(self, client):
         res = client.put("/settings/info-pills", headers=AUTH, json={**self.DEFAULTS, "position": "bottom"})
         assert res.status_code == 200

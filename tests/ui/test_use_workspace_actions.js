@@ -40,6 +40,23 @@ describe("useWorkspaceActions", () => {
     expect(await fetchRuns("ws1")).toEqual([]);
   });
 
+  it("成功後の失敗はキャッシュを空配列で潰さない", async () => {
+    const { useWorkspaceActions } = await freshModule();
+    const { fetchRuns, runsByWorkspace } = useWorkspaceActions();
+
+    apiGetMock.mockResolvedValueOnce({
+      ok: true,
+      data: { status: "ok", data: [{ databaseId: 1, status: "in_progress", conclusion: "", headBranch: "main" }] },
+    });
+    const first = await fetchRuns("ws1");
+    expect(first).toHaveLength(1);
+
+    apiGetMock.mockResolvedValueOnce({ ok: false, data: null });
+    const second = await fetchRuns("ws1");
+    expect(second).toEqual(first);
+    expect(runsByWorkspace.value.ws1).toEqual(first);
+  });
+
   it("同時に呼んでも同じワークスペースへのリクエストは1回だけ", async () => {
     let resolveApiGet;
     apiGetMock.mockReturnValue(new Promise((resolve) => { resolveApiGet = resolve; }));

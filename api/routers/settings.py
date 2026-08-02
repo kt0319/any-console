@@ -168,9 +168,15 @@ class InfoPillSettings(BaseModel):
 
 
 def _normalize_pill_order(order: list[str]) -> list[str]:
-    """未知のキーを除外し、欠けているキー（新規追加分等）はデフォルト順で末尾に補う。"""
-    known = [key for key in order if key in INFO_PILL_FIELDS]
-    missing = [key for key in INFO_PILL_FIELDS if key not in known]
+    """未知のキーを除外し、重複は初出のみ残し、欠けているキー（新規追加分等）は
+    デフォルト順で末尾に補う。"""
+    known = []
+    seen = set()
+    for key in order:
+        if key in INFO_PILL_FIELDS and key not in seen:
+            known.append(key)
+            seen.add(key)
+    missing = [key for key in INFO_PILL_FIELDS if key not in seen]
     return known + missing
 
 

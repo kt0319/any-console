@@ -30,12 +30,29 @@ describe("useWorkspacePRs", () => {
     expect(prsByWorkspace.value.ws1).toEqual(items);
   });
 
-  it("失敗時は空配列を返しキャッシュも空にする", async () => {
+  it("初回失敗時は空配列を返す（キャッシュ無し）", async () => {
     apiGetMock.mockResolvedValue({ ok: false, data: null });
     const { useWorkspacePRs } = await freshModule();
     const { fetchPRs } = useWorkspacePRs();
     const items = await fetchPRs("ws1");
     expect(items).toEqual([]);
+  });
+
+  it("成功後の失敗はキャッシュを空配列で潰さない", async () => {
+    const { useWorkspacePRs } = await freshModule();
+    const { fetchPRs, prsByWorkspace } = useWorkspacePRs();
+
+    apiGetMock.mockResolvedValueOnce({
+      ok: true,
+      data: { status: "ok", data: [{ number: 1, title: "feat", headRefName: "feature/x" }] },
+    });
+    const first = await fetchPRs("ws1");
+    expect(first).toHaveLength(1);
+
+    apiGetMock.mockResolvedValueOnce({ ok: false, data: null });
+    const second = await fetchPRs("ws1");
+    expect(second).toEqual(first);
+    expect(prsByWorkspace.value.ws1).toEqual(first);
   });
 
   it("同時に呼んでも同じワークスペースへのリクエストは1回だけ", async () => {

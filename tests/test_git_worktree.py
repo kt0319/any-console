@@ -80,6 +80,24 @@ class TestWorktreeEndpoints:
         base = next(w for w in res.json() if w["name"] == "test-ws")
         assert base.get("worktree") is not True
 
+    def test_worktree_inherits_github_url_from_base_repo(self, client, git_workspace_with_commit):
+        # worktreeはmainリポジトリとgitディレクトリ（remote設定含む）を共有するため、
+        # worktree自身のパスからでも github_url を解決できるはず。以前は
+        # /workspaces の動的worktree一覧が github_url を含めておらず、ペインの
+        # PR/Actionsピルが最初のstatusポーリングまで表示されなかった。
+        import subprocess
+        subprocess.run(
+            ["git", "remote", "add", "origin", "git@github.com:kt0319/example-repo.git"],
+            cwd=git_workspace_with_commit, check=True, capture_output=True,
+        )
+        created = client.post(
+            "/workspaces/test-ws/worktrees", headers=AUTH, json={"branch": "agent-gh"},
+        ).json()["workspace"]
+
+        res = client.get("/workspaces", headers=AUTH)
+        entry = next(w for w in res.json() if w["name"] == created["name"])
+        assert entry["github_url"] == "https://github.com/kt0319/example-repo"
+
     def test_manually_registered_worktree_path_is_regular_workspace(self, client, git_workspace_with_commit, isolate_fs):
         # configに手動登録したworktreeパスは通常ワークスペースとして扱う（worktreeフラグなし）
         # 動的検出は既存パスをスキップするため、二重表示にもならない

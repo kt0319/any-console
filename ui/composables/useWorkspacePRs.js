@@ -32,7 +32,12 @@ export function useWorkspacePRs() {
     if (inFlight.has(workspace)) return inFlight.get(workspace);
     const promise = (async () => {
       const { ok, data } = await apiGet(wsEndpoint(workspace, "github/pulls"));
-      const items = ok && data?.status === "ok" && Array.isArray(data.data) ? data.data.map(mapPR) : [];
+      if (!ok || data?.status !== "ok" || !Array.isArray(data.data)) {
+        // 取得失敗時は既存キャッシュを空配列で潰さない（表示中のPRピルが
+        // 一時的な失敗のたびに消えてしまうのを防ぐ）。
+        return prsByWorkspace.value[workspace] || [];
+      }
+      const items = data.data.map(mapPR);
       prsByWorkspace.value = { ...prsByWorkspace.value, [workspace]: items };
       return items;
     })().finally(() => {
