@@ -816,12 +816,6 @@ defineExpose({
   max-width: min(80vw, 450px);
 }
 
-/* Dev Server / Changes・Branches / Close ボタンは position:absolute で通常の
-   flex フローから外し、.terminal-info-pill だけを唯一のフロー要素にする。
-   こうするとボタンの増減で pill-group 自体の幅が変わっても、ピル本体の
-   画面上の位置は一切動かない（ボタン群はピルの右に浮いて増減するだけ）。
-   閉じるボタンは常時表示の固定要素として pill-trailing（横スクロール/幅
-   アニメーション対象）の外に置き、クリップされて欠けることが無いようにする。 */
 /* .pill-group（flex行）の直接の子。width を JS 実測値へ animate するクリップ用
    コンテナで、中身（.pill-trailing-inner）は常に content サイズで存在させ、
    この width だけを滑らかに広げ縮めることで、ボタンの出現/消失が位置の
