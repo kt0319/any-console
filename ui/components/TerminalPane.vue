@@ -1134,7 +1134,7 @@ defineExpose({
    透けて他ピルより薄い＝透明に見えてしまうため、他ピルと同程度の
    不透明度を保ったまま色味だけアクセントに寄せる。 */
 .terminal-pane.active .terminal-info-pill {
-  background: rgba(46, 74, 122, 0.92);
+  background: rgba(38, 56, 82, 0.92);
 }
 
 .terminal-info-pill.tab-activity {
