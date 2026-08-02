@@ -63,58 +63,20 @@
                   <span class="diff-num-del">-{{ deletions }}</span>
                 </span>
               </button>
-              <div v-if="isGitRepo && infoPillConfig.branch" class="pill-branch-group">
-                <button
-                  type="button"
-                  class="pill-branch-btn"
-                  :aria-label="branchTooltip"
-                  :data-tooltip="branchTooltip"
-                  @pointerdown.stop
-                  @click.stop="openBranch"
-                >
-                  <span class="mdi mdi-source-branch"></span>
-                  <span class="pill-branch-text pill-label-hover" :class="{ peeking: peekingKey === 'branch' }"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
-                </button>
-                <GitActionBtn
-                  v-if="behind > 0"
-                  icon="pull"
-                  title="Pull"
-                  :count="behind"
-                  :running="isRunning(tab.workspace, 'pull')"
-                  btn-class="pull-btn has-count"
-                  @pointerdown.stop
-                  @action="doAction('pull')"
-                />
-                <GitActionBtn
-                  v-if="!hasUpstream && hasRemoteBranch"
-                  icon="set-upstream"
-                  title="Set Upstream"
-                  :running="isRunning(tab.workspace, 'set-upstream')"
-                  btn-class="icon-only upstream-set-btn"
-                  @pointerdown.stop
-                  @action="doAction('set-upstream')"
-                />
-                <GitActionBtn
-                  v-if="!hasUpstream && !hasRemoteBranch"
-                  icon="push-upstream"
-                  title="Push & Set Upstream"
-                  :count="ahead"
-                  :running="isRunning(tab.workspace, 'push-upstream')"
-                  btn-class="upstream-btn"
-                  @pointerdown.stop
-                  @action="doAction('push-upstream')"
-                />
-                <GitActionBtn
-                  v-if="hasUpstream && ahead > 0"
-                  icon="push"
-                  title="Push"
-                  :count="ahead"
-                  :running="isRunning(tab.workspace, 'push')"
-                  btn-class="push-btn has-count"
-                  @pointerdown.stop
-                  @action="doAction('push')"
-                />
-              </div>
+              <button
+                v-if="isGitRepo && infoPillConfig.branch"
+                type="button"
+                class="pill-branch-btn"
+                :aria-label="branchTooltip"
+                :data-tooltip="branchTooltip"
+                @pointerdown.stop
+                @click.stop="openBranch"
+              >
+                <span class="mdi mdi-source-branch"></span>
+                <span class="pill-branch-text pill-label-hover" :class="{ peeking: peekingKey === 'branch' }"><span v-if="branchParts.abbr" class="branch-abbr">{{ branchParts.abbr }}</span>{{ branchParts.rest }}</span>
+                <span v-if="ahead > 0" class="pill-branch-count push-count"><span class="mdi mdi-arrow-up-thin"></span>{{ ahead }}</span>
+                <span v-if="behind > 0" class="pill-branch-count pull-count"><span class="mdi mdi-arrow-down-thin"></span>{{ behind }}</span>
+              </button>
               <button
                 v-if="branchPR && infoPillConfig.prs"
                 type="button"
@@ -243,7 +205,6 @@ import { confirmCloseTab } from "../utils/tab-close-confirm.js";
 import { useTerminalPaneGestures } from "../composables/useTerminalPaneGestures.js";
 import { useCircleKeyPad } from "../composables/useCircleKeyPad.js";
 import { useWorkspaceGitStatus } from "../composables/useWorkspaceGitStatus.js";
-import { useGitRemoteAction } from "../composables/useGitRemoteAction.js";
 import { useIsMobile } from "../composables/useIsMobile.js";
 import { useApi } from "../composables/useApi.js";
 import { usePreviewPorts } from "../composables/usePreviewPorts.js";
@@ -252,7 +213,6 @@ import { useWorkspaceActions } from "../composables/useWorkspaceActions.js";
 import { useInfoPillConfigStore } from "../stores/info-pill-config.js";
 import CircleKeyPad from "./CircleKeyPad.vue";
 import StatusOverlay from "./StatusOverlay.vue";
-import GitActionBtn from "./GitActionBtn.vue";
 import { buildReconnectLabel } from "../utils/terminal-ws.js";
 import { terminalSessionCwdPath } from "../utils/endpoints.js";
 import { resolveBareTerminalFilesDetail, resolveRegisterCurrentDirAction } from "../utils/bare-terminal-actions.js";
@@ -283,13 +243,6 @@ const paneWorkspace = computed(() => {
 });
 // ペインごとの git 情報（変更行数・ahead/behind）をピルに直接出す。
 const { isDirty, isGitRepo, hasUpstream, hasRemoteBranch, ahead, behind, changedFiles, insertions, deletions, branchParts } = useWorkspaceGitStatus(paneWorkspace, isMobile);
-const { gitAction, isRunning } = useGitRemoteAction();
-
-function doAction(action) {
-  const wsName = props.tab.workspace;
-  if (!wsName) return;
-  gitAction(wsName, action, { branch: paneWorkspace.value?.branch || "" });
-}
 
 // Dev Server ボタンもピルに直接出す。ポーリング自体は usePreviewPorts に集約し、
 // 開いている全タブで1本のタイマーを共有する。ワークスペース未紐付けのベアターミナルは
@@ -329,7 +282,9 @@ const branchPR = computed(() => {
 });
 
 // GitHub Actionsピルも同様に「現在のブランチの最新run」がある時だけ表示する。
-const { runsByWorkspace, fetchRuns } = useWorkspaceActions();
+// 実行中→完了への遷移をピルに反映するため、表示中は定期的に再取得する
+// （参照カウント式のポーリングはuseWorkspaceActions側に集約）。
+const { runsByWorkspace, fetchRuns, startPolling: startActionsPolling, stopPolling: stopActionsPolling } = useWorkspaceActions();
 const branchAction = computed(() => {
   if (!isGitRepo.value || !props.tab.workspace) return null;
   const list = runsByWorkspace.value[props.tab.workspace];
@@ -345,12 +300,16 @@ const visibleBranchAction = computed(() => {
   return run;
 });
 
+const githubWorkspaceKey = computed(() => (isGitRepo.value && paneWorkspace.value?.github_url) ? props.tab.workspace : null);
+
 watch(
-  () => (isGitRepo.value && paneWorkspace.value?.github_url) ? props.tab.workspace : null,
-  (workspace) => {
+  githubWorkspaceKey,
+  (workspace, prevWorkspace) => {
+    if (prevWorkspace) stopActionsPolling(prevWorkspace);
     if (workspace) {
       fetchPRs(workspace);
       fetchRuns(workspace);
+      startActionsPolling(workspace);
     }
   },
   { immediate: true },
@@ -483,7 +442,14 @@ const pillTooltip = computed(() => {
 // （ブランチ名・変更行数・Dev Serverの接続先）が data-tooltip で
 // わかるようにする。固定の説明文言だけだと、展開しないと現在値を
 // 確認できないため。
-const branchTooltip = computed(() => `Branches: ${paneWorkspace.value?.branch || ""}`);
+const branchTooltip = computed(() => {
+  const name = paneWorkspace.value?.branch || "";
+  const parts = [];
+  if (ahead.value > 0) parts.push(`${ahead.value} to push`);
+  if (behind.value > 0) parts.push(`${behind.value} to pull`);
+  if (!hasUpstream.value) parts.push("no upstream");
+  return parts.length ? `Branches: ${name} (${parts.join(", ")})` : `Branches: ${name}`;
+});
 const changesTooltip = computed(() =>
   `Changes: ${changedFiles.value}F +${insertions.value} -${deletions.value}`,
 );
@@ -930,6 +896,7 @@ watch(isActive, async (active) => {
 onBeforeUnmount(() => {
   clearActiveFitTimer();
   if (previewPollingStarted) stopPreviewPolling();
+  if (githubWorkspaceKey.value) stopActionsPolling(githubWorkspaceKey.value);
   if (pillMorePeekTimer) { clearTimeout(pillMorePeekTimer); pillMorePeekTimer = null; }
   roPane?.disconnect();
   roPane = null;
@@ -1072,30 +1039,6 @@ defineExpose({
   -webkit-user-drag: none;
 }
 
-/* GitActionBtn のデフォルトはツールバー用の見た目（アクセント色背景・高さ36px）。
-   このピル内では他ボタン（numstat/branch/devserver）と同じ地の色・サイズ・
-   フォントに統一し、push/pull は numstat-files や diff-num-plus と同じ
-   パターン（ニュートラルな地に数字だけ意味色）にする。 */
-.pill-trailing :deep(.git-action-btn) {
-  min-height: 32px;
-  height: 32px;
-  max-height: 32px;
-  min-width: 32px;
-  padding: 0 10px;
-  gap: 4px;
-  border-radius: 999px;
-  background: rgba(26, 27, 38, 0.88);
-  border: 1px solid rgba(59, 66, 97, 0.5);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.pill-trailing :deep(.git-action-btn.pull-btn.has-count),
-.pill-trailing :deep(.git-action-btn.push-btn.has-count) {
-  background: rgba(26, 27, 38, 0.88);
-  border: 1px solid rgba(59, 66, 97, 0.5);
-}
-
 .pill-devserver-btn {
   display: inline-flex;
   align-items: center;
@@ -1161,32 +1104,11 @@ defineExpose({
   color: var(--warning);
 }
 
-/* BranchピルとPull/Push（GitActionBtn）を1本の連結したピルに見せる。
-   個々のボタン自体の背景色・境界線・角丸999pxはそのまま流用し、ここでは
-   「両端だけ丸め、内側の境界線を1pxずつ重ねて二重線にしない」処理だけ行う。
-   GitActionBtnはコンポーネントだが、ルート要素は親のscoped属性を継承する
-   ため :deep() 無しでも直接の子として選択できる。 */
-.pill-branch-group {
-  display: inline-flex;
-  align-items: center;
-}
-
-.pill-branch-group > * {
-  border-radius: 0;
-  margin-left: -1px;
-}
-
-.pill-branch-group > *:first-child {
-  border-top-left-radius: 999px;
-  border-bottom-left-radius: 999px;
-  margin-left: 0;
-}
-
-.pill-branch-group > *:last-child {
-  border-top-right-radius: 999px;
-  border-bottom-right-radius: 999px;
-}
-
+/* max-widthは設けない。branchParts.rest は useWorkspaceGitStatus 側で
+   モバイル時14文字に既にtruncate済みのため、ボタン自体を追加で幅制限
+   する必要はない。Push/Pull件数バッジ追加後にこの上限が原因で、バッジと
+   peek展開テキストが同じ幅を奪い合いpeekアニメーションがほぼ見えなく
+   なる不具合があったため撤去した。 */
 .pill-branch-btn {
   display: inline-flex;
   align-items: center;
@@ -1194,7 +1116,6 @@ defineExpose({
   padding: 0 10px;
   flex-shrink: 1;
   min-width: 0;
-  max-width: 140px;
   border: 1px solid rgba(59, 66, 97, 0.5);
   border-radius: 999px;
   background: rgba(26, 27, 38, 0.88);
@@ -1219,6 +1140,34 @@ defineExpose({
 .branch-abbr {
   color: var(--accent);
   font-weight: 500;
+}
+
+/* Push(↑)/Pull(↓)件数。値がある時だけ表示される（v-if）ので常時表示で良い
+   （他ピルのpeek-hover方式とは異なり、これは数字自体が主情報のため）。 */
+.pill-branch-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.pill-branch-count .mdi {
+  font-size: 13px;
+}
+
+/* .pill-branch-btn .mdi の color:var(--text-muted) は直接指定のため継承では
+   上書きできない。矢印アイコン自体にも同じ色を明示する。 */
+.pill-branch-count.push-count,
+.pill-branch-count.push-count .mdi {
+  color: var(--accent);
+}
+
+.pill-branch-count.pull-count,
+.pill-branch-count.pull-count .mdi {
+  color: var(--warning);
 }
 
 /* 通常時はアイコンのみ・ラベルは幅0に畳んでおく。ラベルは値が変化した
@@ -1431,10 +1380,6 @@ defineExpose({
   .terminal-info-pill.dragging {
     opacity: 0.5;
     cursor: grabbing;
-  }
-
-  .pill-branch-btn {
-    max-width: none;
   }
 }
 

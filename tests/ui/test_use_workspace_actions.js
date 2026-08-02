@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 // @ts-check
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const apiGetMock = vi.fn();
 
@@ -59,5 +59,49 @@ describe("useWorkspaceActions", () => {
     const { fetchRuns } = useWorkspaceActions();
     expect(await fetchRuns("")).toEqual([]);
     expect(apiGetMock).not.toHaveBeenCalled();
+  });
+
+  describe("ポーリング", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      apiGetMock.mockResolvedValue({ ok: true, data: { status: "ok", data: [] } });
+    });
+
+    it("startPollingで一定間隔ごとに再取得し、stopPollingで止まる", async () => {
+      const { useWorkspaceActions } = await freshModule();
+      const { startPolling, stopPolling } = useWorkspaceActions();
+
+      startPolling("ws1");
+      expect(apiGetMock).toHaveBeenCalledTimes(0);
+
+      await vi.advanceTimersByTimeAsync(10000);
+      expect(apiGetMock).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(10000);
+      expect(apiGetMock).toHaveBeenCalledTimes(2);
+
+      stopPolling("ws1");
+      await vi.advanceTimersByTimeAsync(30000);
+      expect(apiGetMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("同じワークスペースへの複数startPollingは参照カウントされ、全員stopするまでタイマーが残る", async () => {
+      const { useWorkspaceActions } = await freshModule();
+      const { startPolling, stopPolling } = useWorkspaceActions();
+
+      startPolling("ws1");
+      startPolling("ws1");
+      stopPolling("ws1");
+      await vi.advanceTimersByTimeAsync(10000);
+      expect(apiGetMock).toHaveBeenCalledTimes(1);
+
+      stopPolling("ws1");
+      await vi.advanceTimersByTimeAsync(10000);
+      expect(apiGetMock).toHaveBeenCalledTimes(1);
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
   });
 });
