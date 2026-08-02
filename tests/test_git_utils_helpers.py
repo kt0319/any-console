@@ -179,6 +179,10 @@ class TestGitRepoQueries:
         assert isinstance(branches, list)
         assert len(branches) >= 1
 
+    def test_git_default_branch_none_without_remote_head(self, git_workspace_with_commit):
+        from api.git_utils import git_default_branch
+        assert git_default_branch(git_workspace_with_commit) is None
+
     def test_git_remote_branches_empty_without_remote(self, git_workspace_with_commit):
         # remote 未設定だと空リスト
         result = git_remote_branches(git_workspace_with_commit)

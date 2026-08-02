@@ -2,6 +2,7 @@ export function normalizeLocalBranches(data) {
   return (data || []).map((b) => ({
     name: b.name || b,
     current: !!b.current,
+    isDefault: !!b.is_default,
     remote: false,
     ahead: Number(b.ahead) || 0,
     behind: Number(b.behind) || 0,
