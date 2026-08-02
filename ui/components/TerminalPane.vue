@@ -1169,7 +1169,7 @@ defineExpose({
 
 /* defaultブランチ以外にいる時はアイコンをアクティブ色にして気付きやすくする。 */
 .pill-branch-btn.branch-non-default .mdi {
-  color: var(--accent);
+  color: var(--success);
 }
 
 .pill-branch-text {

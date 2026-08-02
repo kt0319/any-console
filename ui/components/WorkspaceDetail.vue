@@ -149,7 +149,7 @@ const tabs = computed(() => {
     },
     { key: "history", icon: "mdi-history", label: "History", iconColor: historyExpanded.value ? "var(--accent)" : "", hidden: !isGit },
     { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0, iconColor: changesCount.value ? "var(--warning)" : "", hidden: !isGit },
-    { key: "branch", icon: "mdi-source-branch", label: "Branches", count: branchCount.value || 0, iconColor: isNonDefaultBranch.value ? "var(--accent)" : "", hidden: !isGit },
+    { key: "branch", icon: "mdi-source-branch", label: "Branches", count: branchCount.value || 0, iconColor: isNonDefaultBranch.value ? "var(--success)" : "", hidden: !isGit },
     { key: "stash", icon: "mdi-package-variant", label: "Stashes", count: stashCount.value || 0, hidden: !isGit || !stashCount.value },
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGithub.value || !issuesCount.value },
     { key: "prs", icon: "mdi-source-pull", label: "PRs", count: prsCount.value || 0, iconColor: "var(--purple)", hidden: !isGit || !hasGithub.value || !prsCount.value },
