@@ -36,12 +36,17 @@ function buildConfirmMessage(wsName, action, branch) {
   return lines.join("\n");
 }
 
+// 分割表示で同じワークスペースを複数ペインが開いている場合、pull/push の
+// 実行中状態をペインごとに独立させると、他ペインのボタンが押せてしまい
+// 同じリポジトリへの並行実行（git lock 競合等）が起きる。モジュールスコープの
+// 単一状態にして、どのペインの useGitRemoteAction() からも共有する。
+const runningAction = ref(/** @type {string|null} */ (null));
+
 export function useGitRemoteAction() {
   const workspaceStore = useWorkspaceStore();
   const { apiWithToast, apiCommand, wsEndpoint } = useApi();
   const { confirm } = useConfirm();
   const toast = useToast();
-  const runningAction = ref(/** @type {string|null} */ (null));
 
   /**
    * @param {string} wsName
