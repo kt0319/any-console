@@ -103,13 +103,13 @@
                 <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'devserver' }">Server</span>
               </button>
               <button
-                v-if="!isGitRepo && tab.sessionId && infoPillConfig.files"
+                v-if="(isGitRepo || tab.sessionId) && infoPillConfig.files"
                 type="button"
                 class="pill-devserver-btn"
                 aria-label="Files"
-                data-tooltip="Browse files in this terminal's directory"
+                :data-tooltip="isGitRepo ? 'Browse files' : 'Browse files in this terminal\'s directory'"
                 @pointerdown.stop
-                @click.stop="openBareTerminalFiles"
+                @click.stop="openFiles"
               >
                 <span class="mdi mdi-folder-outline"></span>
                 <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'files' }">Files</span>
@@ -311,6 +311,17 @@ async function openBareTerminalFiles() {
   emit("git:openFileModal", resolveBareTerminalFilesDetail(props.tab.sessionId, cwd));
 }
 
+// Gitワークスペースはワークスペース名から直接Filesペインを開く。
+// 非Git（ベアターミナル・非Git登録ワークスペース）はcwd起点のopenBareTerminalFilesへ。
+function openFiles() {
+  if (isGitRepo.value && props.tab.workspace) {
+    workspaceStore.selectedWorkspace = props.tab.workspace;
+    emit("git:openFileModal", { pane: "files" });
+  } else {
+    openBareTerminalFiles();
+  }
+}
+
 async function registerCurrentDir() {
   if (!props.tab.sessionId) return;
   const cwd = await fetchCwd();
@@ -421,8 +432,10 @@ const trailingPeekItems = computed(() => {
   if (devServerEntry.value) {
     items.push({ key: "devserver", text: "Server" });
   }
-  if (!isGitRepo.value && props.tab.sessionId) {
+  if (isGitRepo.value || props.tab.sessionId) {
     items.push({ key: "files", text: "Files" });
+  }
+  if (!isGitRepo.value && props.tab.sessionId) {
     items.push({ key: "add", text: "Add" });
   }
   return items;
