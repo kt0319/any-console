@@ -128,7 +128,7 @@
                 <span class="pill-devserver-text pill-label-hover" :class="{ peeking: peekingKey === 'prs' }">#{{ branchPR?.number }}</span>
               </button>
               <button
-                v-if="branchAction && infoPillConfig.actions"
+                v-if="visibleBranchAction && infoPillConfig.actions"
                 type="button"
                 class="pill-devserver-btn"
                 :class="actionStatusClass"
@@ -335,6 +335,19 @@ const branchAction = computed(() => {
   const list = runsByWorkspace.value[props.tab.workspace];
   if (!list || !paneWorkspace.value?.branch) return null;
   return list.find((run) => run.headBranch === paneWorkspace.value.branch) || null;
+});
+
+// successになったことをpeekで一度知らせたら、そのrunについてはピル自体を
+// 非表示にする（古い成功runをいつまでも出し続けない）。次に別のrun（別id）
+// が始まればまた表示される。
+const dismissedActionRunId = ref(null);
+const visibleBranchAction = computed(() => {
+  const run = branchAction.value;
+  if (!run) return null;
+  if (run.status === "completed" && run.conclusion === "success" && dismissedActionRunId.value === run.id) {
+    return null;
+  }
+  return run;
 });
 
 watch(
@@ -641,6 +654,14 @@ watch(trailingPeekItems, (items) => {
         peekingKey.value = null;
         pillMorePeekTimer = null;
       }, PILL_MORE_PEEK_DURATION_MS);
+      // Actionsがsuccessで完了したことをpeekで一度知らせたら、そのrunは
+      // ピルごと非表示にする（同じrunをいつまでも出し続けない）。
+      if (changed.key === "actions" && branchAction.value?.status === "completed" && branchAction.value?.conclusion === "success") {
+        const succeededRunId = branchAction.value.id;
+        setTimeout(() => {
+          dismissedActionRunId.value = succeededRunId;
+        }, PILL_MORE_PEEK_DURATION_MS);
+      }
     }
   }
   prevTrailingSignature = nextSignature;
