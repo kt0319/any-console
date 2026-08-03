@@ -140,7 +140,7 @@ const tabs = computed(() => {
       label: "Files",
     },
     { key: "history", icon: "mdi-history", label: "History", iconColor: "var(--pink)", hidden: !isGit },
-    { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0, iconColor: changesCount.value ? "#f5a623" : "", hidden: !isGit },
+    { key: "changes", icon: "mdi-file-document-multiple-outline", label: "Changes", count: changesCount.value || 0, iconColor: "#f5a623", hidden: !isGit },
     { key: "branch", icon: "mdi-source-branch", label: "Branches", count: branchCount.value || 0, iconColor: "var(--success)", hidden: !isGit },
     { key: "stash", icon: "mdi-package-variant", label: "Stashes", count: stashCount.value || 0, hidden: !isGit || !stashCount.value },
     { key: "issues", icon: "mdi-github", label: "Issues", count: issuesCount.value || 0, hidden: !isGit || !hasGithub.value || !issuesCount.value },
