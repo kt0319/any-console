@@ -73,8 +73,8 @@
                 v-else-if="key === 'history' && isGitRepo && infoPillConfig.history"
                 type="button"
                 class="pill-chip pill-devserver-btn pill-history-btn"
-                aria-label="History"
-                data-tooltip="History"
+                :aria-label="historyTooltip"
+                :data-tooltip="historyTooltip"
                 @pointerdown.stop
                 @click.stop="openHistory"
               >
@@ -487,6 +487,10 @@ const filesTooltip = computed(() =>
 const changesTooltip = computed(() =>
   `Changes: ${changedFiles.value}F +${insertions.value} -${deletions.value}`,
 );
+const historyTooltip = computed(() => {
+  const msg = (paneWorkspace.value?.last_commit_message || "").split("\n")[0].trim();
+  return msg ? `History: ${msg}` : "History";
+});
 const devServerTooltip = computed(() => {
   const p = devServerEntry.value;
   if (!p) return "Dev Server";
