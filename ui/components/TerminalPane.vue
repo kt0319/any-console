@@ -95,7 +95,6 @@
                 v-else-if="key === 'branch' && isGitRepo && infoPillConfig.branch"
                 type="button"
                 class="pill-chip pill-branch-btn"
-                :class="{ 'branch-non-default': isNonDefaultBranch }"
                 :aria-label="branchTooltip"
                 :data-tooltip="branchTooltip"
                 @pointerdown.stop
@@ -1281,9 +1280,9 @@ defineExpose({
   cursor: pointer;
 }
 
-/* button 自体は color:var(--text-secondary)（ラベル文字用）だが、
-   アイコンだけそのまま継承すると他のアイコン（branch/changes等は
-   var(--text-muted)）より明るく見えて浮くため、アイコンだけ揃える。 */
+/* button 自体は color:var(--text-secondary)（ラベル文字用）。Actionsピルは
+   失敗・実行中以外表示されない（visibleBranchAction）ため、アイコン色は
+   その場合のフォールバックとしてのみ使う。 */
 .pill-devserver-btn .mdi {
   color: var(--text-muted);
 }
@@ -1304,13 +1303,11 @@ defineExpose({
 }
 
 .pill-files-btn .mdi {
-  color: var(--teal);
+  color: var(--accent);
 }
 
-/* Add/OpenはGitリポジトリでない端末にしか出ず、Changes（.pill-numstat-btn）
-   とは表示条件が排他のため同じ色を使い回しても衝突しない。 */
 .pill-add-btn .mdi {
-  color: #f5a623;
+  color: var(--accent);
 }
 
 /* GitHub Actionsピルの実行状況を色で示す（アイコンだけ、地色は他と揃える）。
@@ -1354,11 +1351,6 @@ defineExpose({
 .pill-branch-btn .mdi {
   flex-shrink: 0;
   font-size: 14px;
-  color: var(--accent);
-}
-
-/* defaultブランチ以外にいる時はアイコンをアクティブ色にして気付きやすくする。 */
-.pill-branch-btn.branch-non-default .mdi {
   color: var(--success);
 }
 
