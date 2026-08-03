@@ -22,8 +22,9 @@
         <div
           v-if="peekingKey"
           :key="peekingKey"
-          class="pill-peek-wide"
-          :class="[peekColorClass, { 'pill-peek-wide-max': peekingKey === 'history' }]"
+          class="pill-chip pill-peek-wide"
+          :class="peekColorClass"
+          :style="peekingKey === 'history' ? { width: trailingMaxWidth + 'px' } : null"
         >
           <span
             v-if="peekingKey === 'workspace' && (tab.wsIcon || tab.icon)"
@@ -55,7 +56,7 @@
               <button
                 v-if="key === 'files' && (isGitRepo || tab.sessionId) && infoPillConfig.files"
                 type="button"
-                class="pill-devserver-btn"
+                class="pill-chip pill-devserver-btn"
                 :aria-label="filesTooltip"
                 :data-tooltip="filesTooltip"
                 @pointerdown.stop
@@ -66,7 +67,7 @@
               <button
                 v-else-if="key === 'history' && isGitRepo && infoPillConfig.history"
                 type="button"
-                class="pill-devserver-btn pill-history-btn"
+                class="pill-chip pill-devserver-btn pill-history-btn"
                 aria-label="History"
                 data-tooltip="History"
                 @pointerdown.stop
@@ -77,7 +78,7 @@
               <button
                 v-else-if="key === 'changes' && isGitRepo && isDirty && infoPillConfig.changes"
                 type="button"
-                class="pill-numstat-btn"
+                class="pill-chip pill-numstat-btn"
                 :aria-label="changesTooltip"
                 :data-tooltip="changesTooltip"
                 @pointerdown.stop
@@ -88,7 +89,7 @@
               <button
                 v-else-if="key === 'branch' && isGitRepo && infoPillConfig.branch"
                 type="button"
-                class="pill-branch-btn"
+                class="pill-chip pill-branch-btn"
                 :class="{ 'branch-non-default': isNonDefaultBranch }"
                 :aria-label="branchTooltip"
                 :data-tooltip="branchTooltip"
@@ -102,7 +103,7 @@
               <button
                 v-else-if="key === 'prs' && branchPR && infoPillConfig.prs"
                 type="button"
-                class="pill-devserver-btn pill-pr-btn"
+                class="pill-chip pill-devserver-btn pill-pr-btn"
                 :aria-label="prsTooltip"
                 :data-tooltip="prsTooltip"
                 @pointerdown.stop
@@ -113,7 +114,7 @@
               <button
                 v-else-if="key === 'actions' && visibleBranchAction && infoPillConfig.actions"
                 type="button"
-                class="pill-devserver-btn"
+                class="pill-chip pill-devserver-btn"
                 :class="actionStatusClass"
                 :aria-label="actionsTooltip"
                 :data-tooltip="actionsTooltip"
@@ -125,7 +126,7 @@
               <button
                 v-else-if="key === 'devserver' && devServerEntry && infoPillConfig.devserver"
                 type="button"
-                class="pill-devserver-btn pill-server-btn"
+                class="pill-chip pill-devserver-btn pill-server-btn"
                 :aria-label="devServerTooltip"
                 :data-tooltip="devServerTooltip"
                 @pointerdown.stop
@@ -136,7 +137,7 @@
               <button
                 v-else-if="key === 'add' && !isGitRepo && tab.sessionId && infoPillConfig.add"
                 type="button"
-                class="pill-devserver-btn"
+                class="pill-chip pill-devserver-btn"
                 aria-label="Add or open this directory as a workspace"
                 data-tooltip="Add or open this directory as a workspace"
                 @pointerdown.stop
@@ -515,6 +516,12 @@ const actionStatusIcon = computed(() => {
   return "mdi-cog-play-outline";
 });
 
+// 成功で完了した瞬間だけpeekで一度知らせる（通常表示のボタン自体は成功時
+// visibleBranchActionでずっと非表示のまま）。
+const isBranchActionSuccess = computed(() =>
+  branchAction.value?.status === "completed" && branchAction.value?.conclusion === "success",
+);
+
 // ピルの Dev Server / Changes・Branches / Files・Add・ワークスペース名は、
 // PC・モバイル問わず常にアイコンのみ表示する。ラベル文字列は普段は隠し、
 // 値が更新された時だけそのボタン自身（ルックアライクではなく実ボタン）を
@@ -554,8 +561,11 @@ const trailingPeekItems = computed(() => {
   if (branchPR.value && infoPillConfig.prs) {
     items.push({ key: "prs", text: `${branchPR.value.number}:${branchPR.value.title}` });
   }
-  if (visibleBranchAction.value && infoPillConfig.actions) {
-    items.push({ key: "actions", text: `${visibleBranchAction.value.id}:${visibleBranchAction.value.status}:${visibleBranchAction.value.conclusion}` });
+  if (branchAction.value && infoPillConfig.actions) {
+    // 成功で完了した瞬間もpeekで一度知らせたいため、通常時は非表示になる
+    // successも含め branchAction（visibleBranchActionでフィルタする前の値）
+    // を変化検出に使う。
+    items.push({ key: "actions", text: `${branchAction.value.id}:${branchAction.value.status}:${branchAction.value.conclusion}` });
   }
   if (devServerEntry.value && infoPillConfig.devserver) {
     items.push({ key: "devserver", text: "Server" });
@@ -644,7 +654,7 @@ const peekIconClass = computed(() => {
     case "changes": return "mdi-file-document-edit-outline";
     case "branch": return "mdi-source-branch";
     case "prs": return "mdi-source-pull";
-    case "actions": return actionStatusIcon.value;
+    case "actions": return isBranchActionSuccess.value ? "mdi-check-circle-outline" : actionStatusIcon.value;
     case "devserver": return "mdi-server";
     case "add": return "mdi-folder-plus-outline";
     default: return "";
@@ -659,6 +669,7 @@ const peekColorClass = computed(() => {
     case "prs": return "pill-peek-purple";
     case "branch": return isNonDefaultBranch.value ? "pill-peek-success" : "";
     case "actions":
+      if (isBranchActionSuccess.value) return "pill-peek-success";
       if (actionStatusClass.value === "action-status-failure") return "pill-peek-error";
       if (actionStatusClass.value === "action-status-running") return "pill-peek-warning";
       return "";
@@ -674,8 +685,8 @@ const peekText = computed(() => {
     case "files": return "Files";
     case "history": return (paneWorkspace.value?.last_commit_message || "").split("\n")[0].trim() || "History";
     case "prs": return branchPR.value ? `#${branchPR.value.number} ${branchPR.value.title}` : "";
-    case "actions": return visibleBranchAction.value
-      ? `${visibleBranchAction.value.name} (${visibleBranchAction.value.conclusion || visibleBranchAction.value.status})`
+    case "actions": return branchAction.value
+      ? `${branchAction.value.name} (${branchAction.value.conclusion || branchAction.value.status})`
       : "";
     case "devserver": return "Server";
     case "add": return "Add";
@@ -1000,28 +1011,29 @@ defineExpose({
    右から現れる（下記 .pill-swap-* の transition クラス）。ワークスペース
    ピル本体・閉じるボタンはこの Transition の外（.pill-group の直接の
    flex子）にあり、常に位置が固定される。
-   値が変化した時に表示する peekピルの幅は .pill-group の max-width
-   （min(80vw,450px)）に収まる範囲で内容に合わせ、収まらない文字列
-   （コミットメッセージ等）は省略記号で切る。 */
-.pill-peek-wide {
+   値が変化した時に表示する peekピルの幅は基本的に内容に合わせ、収まらない
+   文字列は省略記号で切る。Historyだけは .pill-trailing と同じ
+   trailingMaxWidth（実測したペイン幅からワークスペースピル・閉じるボタン
+   ぶんを差し引いた値）を width に使い、ピルをその上限まで広げてマーキー
+   表示する（ワークスペースピル・閉じるボタンを画面外へ押し出さないため）。 */
+/* 展開ボタン群（pill-devserver-btn/pill-numstat-btn/pill-branch-btn）と
+   peekピル（pill-peek-wide）に共通のピル外観（枠線・角丸・背景・最低高さ）。
+   個別ルールには padding/font-size/color 等の差分だけを残す。 */
+.pill-chip {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
   min-height: 32px;
-  max-width: 100%;
-  padding: 5px 14px;
   border: 1px solid rgba(59, 66, 97, 0.9);
   border-radius: 999px;
   background: rgba(26, 27, 38, 0.88);
-  color: var(--text-secondary);
-  font-size: 13px;
 }
 
-/* Historyのコミットメッセージは長くなりがちなため、ピル自体を .pill-group
-   の上限幅いっぱいまで広げ、収まらない分はマーキーで流す（下記
-   .pill-peek-marquee）。 */
-.pill-peek-wide-max {
-  width: min(80vw, 450px);
+.pill-peek-wide {
+  gap: 8px;
+  max-width: 100%;
+  padding: 5px 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
 .pill-peek-icon,
@@ -1157,14 +1169,8 @@ defineExpose({
 }
 
 .pill-devserver-btn {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
   flex-shrink: 0;
   padding: 0 10px;
-  border: 1px solid rgba(59, 66, 97, 0.9);
-  border-radius: 999px;
-  background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
   font-size: 14px;
   cursor: pointer;
@@ -1203,14 +1209,8 @@ defineExpose({
 }
 
 .pill-numstat-btn {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
   padding: 0 10px;
   flex-shrink: 0;
-  border: 1px solid rgba(59, 66, 97, 0.9);
-  border-radius: 999px;
-  background: rgba(26, 27, 38, 0.88);
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 600;
@@ -1228,15 +1228,9 @@ defineExpose({
 }
 
 .pill-branch-btn {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
   padding: 0 10px;
   flex-shrink: 1;
   min-width: 0;
-  border: 1px solid rgba(59, 66, 97, 0.9);
-  border-radius: 999px;
-  background: rgba(26, 27, 38, 0.88);
   color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
